@@ -13,6 +13,7 @@ import {
   TWO_D_DISPLACEMENT_LABELS,
   TWO_D_REACTION_LABELS,
   TWO_D_VERTICAL_AXIS_LABEL,
+  type ViewportPresentation3D,
   get2DDisplayDisplacementVertical,
   get2DDisplayMoment,
   get2DDisplayReactionVertical,
@@ -32,6 +33,7 @@ export interface DedalFile {
   appMode?: 'basico' | 'educativo' | 'pro';
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
   axisConvention3D?: 'rightHand' | 'leftHand';
+  viewportPresentation3D?: ViewportPresentation3D;
 }
 
 /** Returns true when the given analysis mode uses the 3D solver / export paths */
@@ -76,6 +78,7 @@ export function serializeProject(): string {
     appMode: uiStore.appMode,
     analysisMode: uiStore.analysisMode,
     axisConvention3D: uiStore.axisConvention3D,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
   };
   return JSON.stringify(data, null, 2);
 }
@@ -166,6 +169,7 @@ export async function loadProject(file: File): Promise<void> {
   // Restore analysis mode and axis convention from file (default to 2d / rightHand for legacy files)
   if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
+  if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
   // Validate axis safety: 2D snapshots should not have mixed z coordinates
   validateAxisSafety(data);
   resultsStore.clear();
@@ -217,6 +221,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     // Restore analysis mode and axis convention from file (default to 2d / rightHand for legacy files)
     if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
     if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
+    if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
     // Validate axis safety: 2D snapshots should not have mixed z coordinates
     validateAxisSafety(data);
     resultsStore.clear();

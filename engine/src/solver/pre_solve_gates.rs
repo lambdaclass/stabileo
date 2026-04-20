@@ -7,6 +7,9 @@
 use std::collections::HashSet;
 
 use crate::element::quad::{quad_quality_metrics, quad_check_jacobian};
+use crate::element::quad9::{quad9_quality_metrics, quad9_check_jacobian};
+use crate::element::solid_shell::{solid_shell_quality_metrics, solid_shell_check_jacobian};
+use crate::element::curved_shell::{compute_element_directors, curved_shell_check_jacobian};
 use crate::element::plate::plate_element_quality;
 use crate::types::{SolverInput, SolverInput3D, DiagnosticCode, Severity, StructuredDiagnostic};
 
@@ -528,7 +531,271 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
         }
     }
 
+    // ── Quad9 (MITC9) elements ──
+    for q9 in input.quad9s.values() {
+        let coords: Option<[[f64; 3]; 9]> = (|| {
+            let mut c = [[0.0; 3]; 9];
+            for (i, &nid) in q9.nodes.iter().enumerate() {
+                let node = input.nodes.values().find(|n| n.id == nid)?;
+                c[i] = [node.x, node.y, node.z];
+            }
+            Some(c)
+        })();
+
+        if let Some(coords) = coords {
+            let qm = quad9_quality_metrics(&coords);
+            let (_, _, has_negative) = quad9_check_jacobian(&coords);
+
+            if has_negative {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
+                        format!("Quad9 {} has negative Jacobian — element is inverted", q9.id),
+                    )
+                    .with_elements(vec![q9.id])
+                    .with_value(qm.jacobian_ratio, 0.0)
+                    .with_phase("pre_solve"),
+                );
+            } else if qm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::PoorJacobianRatio,
+                        Severity::Warning,
+                        format!(
+                            "Quad9 {} has poor Jacobian ratio {:.3} (threshold {:.1})",
+                            q9.id, qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![q9.id])
+                    .with_value(qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+
+            if qm.aspect_ratio > ASPECT_RATIO_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::HighAspectRatio,
+                        Severity::Warning,
+                        format!(
+                            "Quad9 {} has high aspect ratio {:.1} (threshold {:.0})",
+                            q9.id, qm.aspect_ratio, ASPECT_RATIO_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![q9.id])
+                    .with_value(qm.aspect_ratio, ASPECT_RATIO_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+
+            // Minimum interior angle across the 4 corner nodes
+            let corner_coords = [coords[0], coords[1], coords[2], coords[3]];
+            let min_angle = quad_min_interior_angle(&corner_coords);
+            if min_angle < MIN_ANGLE_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::SmallMinAngle,
+                        Severity::Warning,
+                        format!(
+                            "Quad9 {} has small minimum angle {:.1}° (threshold {:.0}°)",
+                            q9.id, min_angle, MIN_ANGLE_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![q9.id])
+                    .with_value(min_angle, MIN_ANGLE_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+
+            if qm.warping > WARPING_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::HighWarping,
+                        Severity::Warning,
+                        format!(
+                            "Quad9 {} has high warping {:.3} (threshold {:.1})",
+                            q9.id, qm.warping, WARPING_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![q9.id])
+                    .with_value(qm.warping, WARPING_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+        }
+    }
+
+    // ── Solid shell (SHB8-ANS) elements ──
+    for ss in input.solid_shells.values() {
+        let coords: Option<[[f64; 3]; 8]> = (|| {
+            let mut c = [[0.0; 3]; 8];
+            for (i, &nid) in ss.nodes.iter().enumerate() {
+                let node = input.nodes.values().find(|n| n.id == nid)?;
+                c[i] = [node.x, node.y, node.z];
+            }
+            Some(c)
+        })();
+
+        if let Some(coords) = coords {
+            let hm = solid_shell_quality_metrics(&coords);
+            let (_, _, all_pos) = solid_shell_check_jacobian(&coords);
+
+            if !all_pos {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
+                        format!("SolidShell {} has negative Jacobian — element is inverted", ss.id),
+                    )
+                    .with_elements(vec![ss.id])
+                    .with_value(hm.jacobian_ratio, 0.0)
+                    .with_phase("pre_solve"),
+                );
+            } else if hm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::PoorJacobianRatio,
+                        Severity::Warning,
+                        format!(
+                            "SolidShell {} has poor Jacobian ratio {:.3} (threshold {:.1})",
+                            ss.id, hm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![ss.id])
+                    .with_value(hm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+
+            if hm.aspect_ratio > ASPECT_RATIO_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::HighAspectRatio,
+                        Severity::Warning,
+                        format!(
+                            "SolidShell {} has high aspect ratio {:.1} (threshold {:.0})",
+                            ss.id, hm.aspect_ratio, ASPECT_RATIO_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![ss.id])
+                    .with_value(hm.aspect_ratio, ASPECT_RATIO_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+        }
+    }
+
+    // ── Curved shell elements ──
+    for cs in input.curved_shells.values() {
+        let coords: Option<[[f64; 3]; 4]> = (|| {
+            let mut c = [[0.0; 3]; 4];
+            for (i, &nid) in cs.nodes.iter().enumerate() {
+                let node = input.nodes.values().find(|n| n.id == nid)?;
+                c[i] = [node.x, node.y, node.z];
+            }
+            Some(c)
+        })();
+
+        if let Some(coords) = coords {
+            // Use provided directors or auto-compute from geometry
+            let dirs = cs.normals.unwrap_or_else(|| compute_element_directors(&coords));
+            let (min_det, max_det, valid) =
+                curved_shell_check_jacobian(&coords, &dirs, cs.thickness);
+
+            if !valid {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
+                        format!(
+                            "CurvedShell {} has negative Jacobian — element is inverted",
+                            cs.id
+                        ),
+                    )
+                    .with_elements(vec![cs.id])
+                    .with_value(min_det, 0.0)
+                    .with_phase("pre_solve"),
+                );
+            } else {
+                let jac_ratio = if max_det.abs() > 1e-15 {
+                    min_det / max_det
+                } else {
+                    0.0
+                };
+                if jac_ratio < JACOBIAN_RATIO_THRESHOLD {
+                    diags.push(
+                        StructuredDiagnostic::global(
+                            DiagnosticCode::PoorJacobianRatio,
+                            Severity::Warning,
+                            format!(
+                                "CurvedShell {} has poor Jacobian ratio {:.3} (threshold {:.1})",
+                                cs.id, jac_ratio, JACOBIAN_RATIO_THRESHOLD
+                            ),
+                        )
+                        .with_elements(vec![cs.id])
+                        .with_value(jac_ratio, JACOBIAN_RATIO_THRESHOLD)
+                        .with_phase("pre_solve"),
+                    );
+                }
+            }
+
+            // Aspect ratio and angle checks on the 4-node footprint
+            // (same geometry as MITC4 quad for the midsurface)
+            let edges = [
+                edge_len(&coords[0], &coords[1]),
+                edge_len(&coords[1], &coords[2]),
+                edge_len(&coords[2], &coords[3]),
+                edge_len(&coords[3], &coords[0]),
+            ];
+            let max_edge = edges.iter().cloned().fold(0.0_f64, f64::max);
+            let min_edge = edges.iter().cloned().fold(f64::INFINITY, f64::min);
+            let aspect_ratio = if min_edge > 1e-15 { max_edge / min_edge } else { f64::INFINITY };
+
+            if aspect_ratio > ASPECT_RATIO_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::HighAspectRatio,
+                        Severity::Warning,
+                        format!(
+                            "CurvedShell {} has high aspect ratio {:.1} (threshold {:.0})",
+                            cs.id, aspect_ratio, ASPECT_RATIO_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![cs.id])
+                    .with_value(aspect_ratio, ASPECT_RATIO_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+
+            let min_angle = quad_min_interior_angle(&coords);
+            if min_angle < MIN_ANGLE_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::SmallMinAngle,
+                        Severity::Warning,
+                        format!(
+                            "CurvedShell {} has small minimum angle {:.1}° (threshold {:.0}°)",
+                            cs.id, min_angle, MIN_ANGLE_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![cs.id])
+                    .with_value(min_angle, MIN_ANGLE_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+        }
+    }
+
     diags
+}
+
+/// Euclidean distance between two 3D points.
+fn edge_len(a: &[f64; 3], b: &[f64; 3]) -> f64 {
+    let dx = b[0] - a[0];
+    let dy = b[1] - a[1];
+    let dz = b[2] - a[2];
+    (dx * dx + dy * dy + dz * dz).sqrt()
 }
 
 // ---------------------------------------------------------------------------

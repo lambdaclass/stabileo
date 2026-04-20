@@ -22,6 +22,21 @@ interface DedalFile {
   snapshot: any;
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
   axisConvention3D?: 'rightHand' | 'leftHand';
+  viewportPresentation3D?: 'native3d' | 'upright2dIn3d';
+}
+
+interface DedalSessionFile {
+  version: '1.0';
+  type: 'session';
+  timestamp: string;
+  activeTabId: string;
+  tabs: Array<{
+    id: string;
+    name: string;
+    modelSnapshot: any;
+    analysisMode: '2d' | '3d' | 'pro' | 'edu';
+    viewportPresentation3D: 'native3d' | 'upright2dIn3d';
+  }>;
 }
 
 // ─── Helper: minimal valid ModelSnapshot ──────────────────────
@@ -70,9 +85,9 @@ describe('isMode3D', () => {
   });
 });
 
-// ─── Bug #2: serializeProject writes analysisMode & axisConvention3D ──
+// ─── Bug #2: serializeProject writes analysisMode / axis / presentation ──
 
-describe('DedalFile format includes analysisMode and axisConvention3D', () => {
+describe('DedalFile format includes analysisMode, axisConvention3D, and viewport presentation', () => {
   it('3D DedalFile round-trips analysisMode', () => {
     const file: DedalFile = {
       version: '1.0',
@@ -86,6 +101,22 @@ describe('DedalFile format includes analysisMode and axisConvention3D', () => {
     const parsed = JSON.parse(json) as DedalFile;
     expect(parsed.analysisMode).toBe('3d');
     expect(parsed.axisConvention3D).toBe('rightHand');
+  });
+
+  it('upright 2D-in-3D presentation round-trips through project JSON', () => {
+    const file: DedalFile = {
+      version: '1.0',
+      name: '2D example in 3D',
+      timestamp: new Date().toISOString(),
+      snapshot: minimalSnapshot(),
+      analysisMode: '3d',
+      axisConvention3D: 'rightHand',
+      viewportPresentation3D: 'upright2dIn3d',
+    };
+    const json = JSON.stringify(file);
+    const parsed = JSON.parse(json) as DedalFile;
+    expect(parsed.analysisMode).toBe('3d');
+    expect(parsed.viewportPresentation3D).toBe('upright2dIn3d');
   });
 
   it('PRO DedalFile round-trips analysisMode', () => {
@@ -133,6 +164,26 @@ describe('DedalFile format includes analysisMode and axisConvention3D', () => {
     // Verify nodes with Z survived
     const node = restored.snapshot.nodes[0][1] as { z?: number };
     expect(node.z).toBe(5);
+  });
+
+  it('session JSON round-trips the explicit 3D viewport presentation per tab', () => {
+    const session: DedalSessionFile = {
+      version: '1.0',
+      type: 'session',
+      timestamp: new Date().toISOString(),
+      activeTabId: 'tab-1',
+      tabs: [{
+        id: 'tab-1',
+        name: 'Basic 3D',
+        modelSnapshot: minimalSnapshot(),
+        analysisMode: '3d',
+        viewportPresentation3D: 'upright2dIn3d',
+      }],
+    };
+
+    const restored = JSON.parse(JSON.stringify(session)) as DedalSessionFile;
+    expect(restored.tabs[0].analysisMode).toBe('3d');
+    expect(restored.tabs[0].viewportPresentation3D).toBe('upright2dIn3d');
   });
 });
 

@@ -208,6 +208,7 @@
       // Restore analysis mode and axis convention from autosave
       if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
+      if (autosaveData.viewportPresentation3D) uiStore.viewportPresentation3D = autosaveData.viewportPresentation3D;
       resultsStore.clear();
     }
     autosaveDismissed = true;
@@ -351,8 +352,35 @@
 
     // Check for URL hash (shared model link or embed)
     const hashMode = loadFromURLHash();
-    if (hashMode === 'embed') {
+    const queryParams = new URLSearchParams(location.search);
+    if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
+    }
+
+    // Landing demo iframe uses ?example=<id> to pre-load a sample structure
+    const exampleId = queryParams.get('example');
+    if (exampleId) {
+      setTimeout(() => {
+        modelStore.loadExample(exampleId).then(() => {
+          resultsStore.clear();
+          resultsStore.clear3D();
+          window.dispatchEvent(new Event('stabileo-solve'));
+          // Fire zoom-to-fit repeatedly until the canvas has non-zero size:
+          // inside an iframe the canvas is 0×0 during first paint, so a single
+          // event lands before the viewport is ready.
+          const tryFit = (attempt: number) => {
+            const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+            if (canvas && canvas.width > 0 && canvas.height > 0) {
+              window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+              return;
+            }
+            if (attempt < 40) setTimeout(() => tryFit(attempt + 1), 60);
+          };
+          tryFit(0);
+        }).catch(() => {
+          // Silently ignore unknown example ids
+        });
+      }, 80);
     }
     // Auto zoom-to-fit when loading from shared link
     if (hashMode) {
@@ -431,7 +459,8 @@
     window.addEventListener('stabileo-import-ifc', handleIfcImportEvent);
 
     // Global solve event — always mounted (mobile bottom bar dispatches this)
-    const handleGlobalSolve = () => runGlobalSolve();
+    // Cancel any pending debounced live calc so the manual solve supersedes it.
+    const handleGlobalSolve = () => { cancelPendingLiveCalc(); runGlobalSolve(); };
     window.addEventListener('stabileo-solve', handleGlobalSolve);
 
     return () => {
@@ -453,9 +482,19 @@
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
-  // Reactive auto-clear results + live calculation on model changes
+  // Reactive auto-clear results + debounced live calculation on model changes
   let prevModelVersion = -1;
   let prevAnalysisMode = '';
+  let liveCalcTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Cancel any pending debounced live calc (e.g. when manual solve supersedes it). */
+  function cancelPendingLiveCalc(): void {
+    if (liveCalcTimer) {
+      clearTimeout(liveCalcTimer);
+      liveCalcTimer = null;
+    }
+  }
+
   $effect(() => {
     const _v = modelStore.modelVersion;
     const _lc = uiStore.liveCalc;
@@ -478,11 +517,21 @@
         }
       }
 
-      // If live calc is ON, auto-solve (skip in PRO/EDU mode — manual solve only)
+      // If live calc is ON, debounce the auto-solve to avoid firing on every
+      // tiny model mutation while the user is dragging or typing.
+      // Manual solve (runGlobalSolve) remains immediate and cancels any pending debounce.
       if (_lc && _mode !== 'pro' && _mode !== 'edu') {
-        runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
+        cancelPendingLiveCalc();
+        const delay = (_mode === '2d') ? 120 : 200;
+        liveCalcTimer = setTimeout(() => {
+          liveCalcTimer = null;
+          runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
+        }, delay);
       }
     });
+
+    // Cleanup: cancel pending timer when effect re-runs or component unmounts
+    return () => { cancelPendingLiveCalc(); };
   });
 
   // ─── PRO panel drag-resize ────────────────────────────────────────

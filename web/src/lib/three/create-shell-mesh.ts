@@ -5,8 +5,10 @@ const SHELL_COLOR = 0x4ecdc4;
 const SHELL_OPACITY = 0.45;
 const EDGE_COLOR = 0x88ddcc;
 
-/** Shared material for shell faces (translucent, double-sided) */
-const shellMaterial = new THREE.MeshStandardMaterial({
+/** Shared material for shell faces (translucent, double-sided).
+ *  Shared across all shell meshes at creation time. Heatmap / selection code
+ *  that mutates per-mesh properties must first call ensureOwnShellMaterial(). */
+const sharedShellMaterial = new THREE.MeshStandardMaterial({
   color: SHELL_COLOR,
   transparent: true,
   opacity: SHELL_OPACITY,
@@ -18,6 +20,16 @@ const shellMaterial = new THREE.MeshStandardMaterial({
 });
 
 const edgeMaterial = new THREE.LineBasicMaterial({ color: EDGE_COLOR, linewidth: 1 });
+
+/** Clone-on-write the shared shell material so a mesh can mutate it safely. */
+export function ensureOwnShellMaterial(mesh: THREE.Mesh): THREE.MeshStandardMaterial {
+  const mat = mesh.material as THREE.MeshStandardMaterial;
+  if (mesh.userData.ownShellMaterial) return mat;
+  const owned = mat.clone();
+  mesh.material = owned;
+  mesh.userData.ownShellMaterial = true;
+  return owned;
+}
 
 type Vec3 = { x: number; y: number; z: number };
 
@@ -41,7 +53,7 @@ export function createPlateMesh(
   geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
   geo.computeVertexNormals();
 
-  const mesh = new THREE.Mesh(geo, shellMaterial.clone());
+  const mesh = new THREE.Mesh(geo, sharedShellMaterial);
   group.add(mesh);
 
   // Edges
@@ -84,7 +96,7 @@ export function createQuadMesh(
   geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
   geo.computeVertexNormals();
 
-  const mesh = new THREE.Mesh(geo, shellMaterial.clone());
+  const mesh = new THREE.Mesh(geo, sharedShellMaterial);
   group.add(mesh);
 
   // Edges

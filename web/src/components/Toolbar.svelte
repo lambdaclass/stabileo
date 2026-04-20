@@ -6,6 +6,7 @@
   import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../lib/geometry/coordinate-system';
   import { countCollapsedElements, buildSimplified2DModel, type DrawPlane } from '../lib/geometry/plane-projection';
   import { initSolver, isWasmReady } from '../lib/engine/wasm-solver';
+  import { hasExplicitLocalY, pickElement3DMetadata } from '../lib/model/element-3d-metadata';
 
   import ToolbarResults from './toolbar/ToolbarResults.svelte';
   import ToolbarAdvanced from './toolbar/ToolbarAdvanced.svelte';
@@ -258,6 +259,7 @@
           sectionId: elem.sectionId,
           hingeStart: elem.hingeStart,
           hingeEnd: elem.hingeEnd,
+          ...pickElement3DMetadata(elem),
         });
       }
     }
@@ -278,7 +280,7 @@
     if (!clip || clip.nodes.length === 0) return;
 
     // Offset: in 3D mode offset in Z, in 2D offset in XY
-    const is3D = uiStore.analysisMode === '3d';
+    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
     const ox = is3D ? 0 : 1;
     const oy = is3D ? 0 : 1;
     const oz = is3D ? 3 : 0;
@@ -305,6 +307,12 @@
         modelStore.updateElementSection(newElemId, secId);
         if (el.hingeStart) modelStore.toggleHinge(newElemId, 'start');
         if (el.hingeEnd) modelStore.toggleHinge(newElemId, 'end');
+        if (hasExplicitLocalY(el)) {
+          modelStore.updateElementLocalY(newElemId, el.localYx, el.localYy, el.localYz);
+        }
+        if (el.rollAngle !== undefined && Math.abs(el.rollAngle) > 1e-9) {
+          modelStore.rotateElementLocalAxes(newElemId, el.rollAngle);
+        }
         pastedElements.push(newElemId);
       }
 

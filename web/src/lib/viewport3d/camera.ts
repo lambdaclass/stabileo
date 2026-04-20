@@ -28,6 +28,7 @@ export function getModelBounds(
 ): { center: THREE.Vector3; size: THREE.Vector3; maxDim: number } {
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -81,6 +82,7 @@ export function zoomToFit(
   const dist = maxDim * 1.5;
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,

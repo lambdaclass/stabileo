@@ -177,12 +177,37 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const mobileResults = readFileSync(new URL('../../../components/MobileResultsPanel.svelte', import.meta.url), 'utf8');
     const sectionStress = readFileSync(new URL('../../../components/SectionStressPanel.svelte', import.meta.url), 'utf8');
     const aiReview = readFileSync(new URL('../../../components/toolbar/ToolbarAiReview.svelte', import.meta.url), 'utf8');
+    const toolbar = readFileSync(new URL('../../../components/Toolbar.svelte', import.meta.url), 'utf8');
 
     expect(aiDrawer, 'AiDrawer.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(aiDrawer, 'AiDrawer.svelte should send canonical 3D mode to the AI backend').toContain("const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');");
     expect(mobileResults, 'MobileResultsPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(sectionStress, 'SectionStressPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(aiReview, 'ToolbarAiReview.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
+    expect(toolbar, 'Toolbar.svelte should treat pro as 3D when pasting copied geometry').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
+    expect(toolbar, 'Toolbar.svelte should copy 3D element metadata into the clipboard through the shared helper').toContain('...pickElement3DMetadata(elem)');
+    expect(toolbar, 'Toolbar.svelte should require a complete explicit local axis before restoring it on paste').toContain('if (hasExplicitLocalY(el)) {');
+    expect(toolbar, 'Toolbar.svelte should restore localY metadata when pasting').toContain('modelStore.updateElementLocalY(newElemId, el.localYx, el.localYy, el.localYz);');
+    expect(toolbar, 'Toolbar.svelte should restore rollAngle metadata when pasting').toContain('modelStore.rotateElementLocalAxes(newElemId, el.rollAngle);');
+  });
+
+  it('3D viewport presentation should be explicit rather than a boolean projection hint', () => {
+    const uiStore = readFileSync(new URL('../../store/ui.svelte.ts', import.meta.url), 'utf8');
+    const coordinateSystem = readFileSync(new URL('../../geometry/coordinate-system.ts', import.meta.url), 'utf8');
+    const fileStore = readFileSync(new URL('../../store/file.ts', import.meta.url), 'utf8');
+    const tabsStore = readFileSync(new URL('../../store/tabs.svelte.ts', import.meta.url), 'utf8');
+    const app = readFileSync(new URL('../../../App.svelte', import.meta.url), 'utf8');
+
+    expect(uiStore, 'ui.svelte.ts should use an explicit viewportPresentation3D state').toContain("let viewportPresentation3D = $state<ViewportPresentation3D>('native3d');");
+    expect(uiStore, 'ui.svelte.ts should expose explicit helpers for native vs upright 2D-in-3D presentation').toContain("useUpright2DIn3DPresentation()");
+    expect(coordinateSystem, 'coordinate-system.ts should key projection off viewportPresentation3D').toContain("params.viewportPresentation3D !== 'upright2dIn3d'");
+    expect(coordinateSystem, 'coordinate-system.ts should not use the old boolean hint anymore').not.toContain('preferProjectFlat2DIn3D');
+    expect(fileStore, 'file.ts should persist viewportPresentation3D in project/autosave files').toContain('viewportPresentation3D?: ViewportPresentation3D;');
+    expect(fileStore, 'file.ts should serialize viewportPresentation3D').toContain('viewportPresentation3D: uiStore.viewportPresentation3D,');
+    expect(fileStore, 'file.ts should restore viewportPresentation3D after analysisMode').toContain('if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;');
+    expect(tabsStore, 'tabs.svelte.ts should persist viewportPresentation3D per tab').toContain('viewportPresentation3D: uiStore.viewportPresentation3D,');
+    expect(tabsStore, 'tabs.svelte.ts should restore viewportPresentation3D after analysisMode').toContain("uiStore.viewportPresentation3D = state.viewportPresentation3D ?? 'native3d';");
+    expect(app, 'App.svelte should restore viewportPresentation3D from autosave').toContain('if (autosaveData.viewportPresentation3D) uiStore.viewportPresentation3D = autosaveData.viewportPresentation3D;');
   });
 
   it('3D section-stress and verification seams should preserve standard My/Mz identity', () => {

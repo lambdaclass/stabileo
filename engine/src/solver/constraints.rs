@@ -858,7 +858,7 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         res2.sqrt() / fnorm2.sqrt().max(1e-30)
     };
 
-    let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual);
+    let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual, &asm.inclined_transforms_2d);
 
     // Solver-path diagnostic — report the actual solver that produced the result
     let (path_code, path_sev) = if used_fallback {
@@ -1054,7 +1054,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         res2.sqrt() / fnorm2.sqrt().max(1e-30)
     };
 
-    let equilibrium = linear::compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual);
+    let equilibrium = linear::compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual, &asm.inclined_transforms);
 
     // Solver-path diagnostic — report the actual solver that produced the result
     let (path_code, path_sev) = if used_fallback {

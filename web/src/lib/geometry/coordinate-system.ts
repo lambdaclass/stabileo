@@ -3,6 +3,7 @@ import * as THREE from 'three';
 export type AnalysisAxis = 'x' | 'y' | 'z';
 export type VerticalAxis = 'z';
 export type WorkingPlane3D = 'XY' | 'XZ' | 'YZ';
+export type ViewportPresentation3D = 'native3d' | 'upright2dIn3d';
 export type CoordinateNode = { x: number; y: number; z?: number };
 export type ScenePoint = { x: number; y: number; z: number };
 export type TypedSupportLike = { type: string };
@@ -181,6 +182,25 @@ export function toSceneVector(point: ScenePoint): THREE.Vector3 {
 }
 
 
+/** Cache for shouldProjectModelToXZ, keyed on (modelVersion, analysisMode, presentation).
+ *  Sync functions in Viewport3D call shouldProjectModelToXZ once per pass and the
+ *  model iterables are expensive on large fixtures. getCachedProjectModelToXZ reads
+ *  the stores itself and reuses the last result until any key changes. */
+let _projectCache: { key: string; value: boolean } | null = null;
+
+export function getCachedProjectModelToXZ(
+  modelVersion: number,
+  analysisMode: string,
+  viewportPresentation3D: ViewportPresentation3D,
+  compute: () => boolean,
+): boolean {
+  const key = `${modelVersion}|${analysisMode}|${viewportPresentation3D}`;
+  if (_projectCache && _projectCache.key === key) return _projectCache.value;
+  const value = compute();
+  _projectCache = { key, value };
+  return value;
+}
+
 export function shouldProjectModelToXZ(params: {
   nodes: Iterable<CoordinateNode>;
   supports?: Iterable<TypedSupportLike>;
@@ -188,10 +208,12 @@ export function shouldProjectModelToXZ(params: {
   plateCount?: number;
   quadCount?: number;
   analysisMode?: string;
+  viewportPresentation3D?: ViewportPresentation3D;
 }): boolean {
   // 3D and PRO modes always use direct 3D coordinates — never project to XZ.
-  // Projection is only for 2D models viewed in the 3D viewport.
-  if (params.analysisMode === '3d' || params.analysisMode === 'pro') return false;
+  // Projection in 3D/PRO is only allowed when the viewport is explicitly showing
+  // a flat 2D model upright inside the 3D workspace.
+  if ((params.analysisMode === '3d' || params.analysisMode === 'pro') && params.viewportPresentation3D !== 'upright2dIn3d') return false;
   if ((params.plateCount ?? 0) > 0 || (params.quadCount ?? 0) > 0) return false;
 
   let hasNodes = false;

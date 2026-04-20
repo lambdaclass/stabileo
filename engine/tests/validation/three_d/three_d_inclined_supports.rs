@@ -356,3 +356,84 @@ fn validation_inclined_support_displacement_direction() {
         "Inclined roller with normal=Z should constrain uz, got {:.6e}", tip.uz
     );
 }
+
+// ================================================================
+// 5. Equilibrium summary diagnostic must be correct for inclined supports
+// ================================================================
+
+#[test]
+fn validation_inclined_support_equilibrium_summary_correct() {
+    // The equilibrium *summary diagnostic* (EquilibriumSummary) must report
+    // equilibrium_ok = true and max_imbalance near zero when inclined supports
+    // are present. Previously, the summary summed reactions in the rotated local
+    // frame without back-transforming to global, causing a false imbalance.
+    let n = 4;
+    let n_nodes = n + 1;
+    let elem_len = L / n as f64;
+
+    let mut nodes = HashMap::new();
+    for i in 0..n_nodes {
+        nodes.insert((i + 1).to_string(), SolverNode3D {
+            id: i + 1, x: i as f64 * elem_len, y: 0.0, z: 0.0,
+        });
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
+
+    let mut secs = HashMap::new();
+    secs.insert("1".to_string(), SolverSection3D {
+        id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
+        as_y: None, as_z: None,
+    });
+
+    let mut elems = HashMap::new();
+    for i in 0..n {
+        elems.insert((i + 1).to_string(), SolverElement3D {
+            id: i + 1, elem_type: "frame".to_string(),
+            node_i: i + 1, node_j: i + 2,
+            material_id: 1, section_id: 1,
+            hinge_start: false, hinge_end: false,
+            local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+        });
+    }
+
+    let s = 1.0 / (2.0f64).sqrt();
+    let mut sups = HashMap::new();
+    sups.insert("1".to_string(), make_fixed_3d(1));
+    sups.insert("2".to_string(), make_inclined_support(n_nodes, s, s, 0.0));
+
+    let fx_app = 5.0;
+    let fy_app = -10.0;
+    let fz_app = 3.0;
+    let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: n_nodes, fx: fx_app, fy: fy_app, fz: fz_app,
+        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+    })];
+
+    let input = SolverInput3D {
+        nodes, materials: mats, sections: secs, elements: elems,
+        supports: sups, loads, constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        solid_shells: HashMap::new(), curved_shells: HashMap::new(),
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let results = linear::solve_3d(&input).unwrap();
+
+    // The equilibrium summary must exist and report correct global equilibrium.
+    let eq = results.equilibrium.as_ref().expect("equilibrium summary should be present");
+
+    assert!(
+        eq.equilibrium_ok,
+        "Equilibrium summary should report OK for inclined support model, \
+         but max_imbalance={:.6e}, reaction_sum={:?}, applied_sum={:?}",
+        eq.max_imbalance, eq.reaction_force_sum, eq.applied_force_sum
+    );
+
+    assert!(
+        eq.max_imbalance < 1e-3,
+        "Equilibrium imbalance should be near zero, got {:.6e}", eq.max_imbalance
+    );
+}
