@@ -56,6 +56,15 @@
   let hoveredData: { type: string; id: number } | null = null;
   let hoveredNodeId3D = $state<number | null>(null);
   let mouseDownPos = { x: 0, y: 0 };
+  // OrbitControls drag flag: skips per-event hover raycast while the user is
+  // actively rotating/panning/zooming (recursive raycasts on large fixtures
+  // were the dominant cost of mousemove during orbit).
+  let isOrbiting = false;
+  // rAF-coalesced hover raycast: a single most-recent MouseEvent is saved and
+  // processed on the next animation frame, so fast mousemove streams collapse
+  // to one raycast per frame instead of one per event.
+  let pendingHoverEvent: MouseEvent | null = null;
+  let hoverRafId: number | null = null;
 
   // ─── Box select state ──────────────────────────────────────
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
@@ -436,8 +445,8 @@
     animFrameId = requestAnimationFrame(renderOnce);
 
     // When OrbitControls interaction ends, allow damping frames to settle
-    controls.addEventListener('start', () => { dampingFrames = 0; });
-    controls.addEventListener('end', () => { dampingFrames = 20; invalidate(); });
+    controls.addEventListener('start', () => { isOrbiting = true; dampingFrames = 0; });
+    controls.addEventListener('end', () => { isOrbiting = false; dampingFrames = 20; invalidate(); });
 
     // Listen for global zoom-to-fit event (dispatched by F key from Toolbar)
     const handleZoomToFitEvent = () => { zoomToFit(); }; // zoomToFit() calls invalidate() internally
@@ -1438,7 +1447,7 @@
     updateMouseNDC(e);
     if (!camera || !initialized) return;
 
-    // Update status bar with 3D world position
+    // Update status bar with 3D world position (cheap single-plane raycast)
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
     const wp = uiStore.workingPlane;
@@ -1456,7 +1465,120 @@
       uiStore.setMouse(e.clientX - rect.left, e.clientY - rect.top, worldPt.x, worldPt.y);
     }
 
-    // Check hover on nodes + elements
+    // Schedule the expensive hover/diagram raycast on the next animation frame.
+    // During orbit we clear any stale hover and skip entirely — recursive raycasts
+    // over a large scene are the main cost of orbit on pro fixtures.
+    scheduleHoverRaycast(e);
+
+    // ─── Node dragging ────────────────────────────────────────
+    if (draggedNodeId3D !== null && dragStartWorld3D) {
+      const newWorld = getGroundIntersection(e);
+      if (newWorld) {
+        const snapped = uiStore.snapWorld3D(newWorld.x, newWorld.y, newWorld.z);
+        const snappedVec = new THREE.Vector3(snapped.x, snapped.y, snapped.z);
+        const delta = snappedVec.clone().sub(dragStartWorld3D);
+
+        if (uiStore.selectedNodes.size > 1 && uiStore.selectedNodes.has(draggedNodeId3D)) {
+          for (const nodeId of uiStore.selectedNodes) {
+            const node = modelStore.getNode(nodeId);
+            if (node) {
+              modelStore.updateNode(nodeId, node.x + delta.x, node.y + delta.y, (node.z ?? 0) + delta.z);
+            }
+          }
+        } else {
+          modelStore.updateNode(draggedNodeId3D, snapped.x, snapped.y, snapped.z);
+        }
+
+        dragStartWorld3D = snappedVec;
+        dragMoved3D = true;
+        resultsStore.clear();
+        resultsStore.clear3D();
+      }
+      return;
+    }
+
+    // ─── Box selection tracking ───────────────────────────────
+    if (boxSelect3D) {
+      const rect = container.getBoundingClientRect();
+      boxSelect3D = { ...boxSelect3D, endX: e.clientX - rect.left, endY: e.clientY - rect.top };
+      return;
+    }
+
+    // ─── Preview line for element creation tool ──────────────
+    // Uses cached hoveredData (may lag ≤1 frame behind mouse) so this stays cheap.
+    if (uiStore.currentTool === 'element' && pendingElementNodeI !== null && scene) {
+      const nodeI = modelStore.nodes.get(pendingElementNodeI);
+      if (nodeI) {
+        const groundPt = getGroundIntersection(e);
+        let endPt: THREE.Vector3;
+        if (hoveredData?.type === 'node') {
+          const nJ = modelStore.nodes.get(hoveredData.id);
+          endPt = nJ ? new THREE.Vector3(nJ.x, nJ.y, nJ.z ?? 0) : (groundPt ?? new THREE.Vector3());
+        } else {
+          endPt = groundPt ?? new THREE.Vector3();
+        }
+
+        const startPt = new THREE.Vector3(nodeI.x, nodeI.y, nodeI.z ?? 0);
+
+        if (pendingLine) {
+          const pos = pendingLine.geometry.attributes.position as THREE.BufferAttribute;
+          pos.setXYZ(0, startPt.x, startPt.y, startPt.z);
+          pos.setXYZ(1, endPt.x, endPt.y, endPt.z);
+          pos.needsUpdate = true;
+          pendingLine.computeLineDistances();
+        } else {
+          const geo = new THREE.BufferGeometry().setFromPoints([startPt, endPt]);
+          const mat = new THREE.LineDashedMaterial({
+            color: 0x44ff88,
+            dashSize: 0.15,
+            gapSize: 0.1,
+            depthTest: false,
+          });
+          pendingLine = new THREE.Line(geo, mat);
+          pendingLine.computeLineDistances();
+          pendingLine.renderOrder = 999;
+          scene.add(pendingLine);
+        }
+        invalidate();
+      }
+    }
+  }
+
+  /**
+   * rAF-coalesce the expensive hover raycast so a burst of mousemove events
+   * collapses to one raycast per animation frame. Skips entirely while the user
+   * is orbiting — hover is irrelevant during camera manipulation, and the
+   * recursive raycast dominates orbit cost on large fixtures.
+   */
+  function scheduleHoverRaycast(e: MouseEvent) {
+    if (isOrbiting) {
+      if (hoveredData) {
+        restoreColor(hoveredData);
+        hoveredData = null;
+        hoveredNodeId3D = null;
+        invalidate();
+      }
+      hoverTooltip = null;
+      return;
+    }
+    pendingHoverEvent = e;
+    if (hoverRafId !== null) return;
+    hoverRafId = requestAnimationFrame(() => {
+      hoverRafId = null;
+      const ev = pendingHoverEvent;
+      pendingHoverEvent = null;
+      if (!ev || !camera || !initialized) return;
+      // Re-check orbit in case it started between schedule and frame.
+      if (isOrbiting) return;
+      runHoverRaycast(ev);
+    });
+  }
+
+  function runHoverRaycast(e: MouseEvent) {
+    updateMouseNDC(e);
+    raycaster.setFromCamera(mouse, camera);
+    raycaster.camera = camera;
+
     const allPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children];
     const hits = raycaster.intersectObjects(allPickable, true);
 
@@ -1469,16 +1591,13 @@
       }
     }
 
-    // Unhover previous
     if (hoveredData && (!newHover || newHover.id !== hoveredData.id || newHover.type !== hoveredData.type)) {
       restoreColor(hoveredData);
     }
 
-    // Hover new
     if (newHover && (!hoveredData || newHover.id !== hoveredData.id || newHover.type !== hoveredData.type)) {
       applyHoverColor(newHover);
 
-      // Tooltip
       const rect = container.getBoundingClientRect();
       let tooltipText = '';
       if (newHover.type === 'node') {
@@ -1498,7 +1617,6 @@
 
     if (!newHover) {
       // ─── Diagram hover tooltip ─────────────────────────────────
-      // When no node/element/support is hovered, check diagram meshes
       const dt = resultsStore.diagramType;
       const r3d = resultsStore.results3D;
       if (r3d && DIAGRAM_3D_TYPES.has(dt) && resultsParent.children.length > 0) {
@@ -1550,85 +1668,14 @@
     if (hoveredData !== newHover) invalidate();
     hoveredData = newHover;
     hoveredNodeId3D = (newHover?.type === 'node') ? newHover.id : null;
-
-    // ─── Node dragging ────────────────────────────────────────
-    if (draggedNodeId3D !== null && dragStartWorld3D) {
-      const newWorld = getGroundIntersection(e);
-      if (newWorld) {
-        const snapped = uiStore.snapWorld3D(newWorld.x, newWorld.y, newWorld.z);
-        const snappedVec = new THREE.Vector3(snapped.x, snapped.y, snapped.z);
-        const delta = snappedVec.clone().sub(dragStartWorld3D);
-
-        if (uiStore.selectedNodes.size > 1 && uiStore.selectedNodes.has(draggedNodeId3D)) {
-          // Move all selected nodes by delta
-          for (const nodeId of uiStore.selectedNodes) {
-            const node = modelStore.getNode(nodeId);
-            if (node) {
-              modelStore.updateNode(nodeId, node.x + delta.x, node.y + delta.y, (node.z ?? 0) + delta.z);
-            }
-          }
-        } else {
-          modelStore.updateNode(draggedNodeId3D, snapped.x, snapped.y, snapped.z);
-        }
-
-        dragStartWorld3D = snappedVec;
-        dragMoved3D = true;
-        resultsStore.clear();
-        resultsStore.clear3D();
-      }
-      return; // Don't process hover/preview while dragging
-    }
-
-    // ─── Box selection tracking ───────────────────────────────
-    if (boxSelect3D) {
-      const rect = container.getBoundingClientRect();
-      boxSelect3D = { ...boxSelect3D, endX: e.clientX - rect.left, endY: e.clientY - rect.top };
-      return; // Don't process hover while box selecting
-    }
-
-    // ─── Preview line for element creation tool ──────────────
-    if (uiStore.currentTool === 'element' && pendingElementNodeI !== null && scene) {
-      const nodeI = modelStore.nodes.get(pendingElementNodeI);
-      if (nodeI) {
-        const groundPt = getGroundIntersection(e);
-        // Try snapping to hovered node
-        let endPt: THREE.Vector3;
-        if (newHover?.type === 'node') {
-          const nJ = modelStore.nodes.get(newHover.id);
-          endPt = nJ ? new THREE.Vector3(nJ.x, nJ.y, nJ.z ?? 0) : (groundPt ?? new THREE.Vector3());
-        } else {
-          endPt = groundPt ?? new THREE.Vector3();
-        }
-
-        const startPt = new THREE.Vector3(nodeI.x, nodeI.y, nodeI.z ?? 0);
-
-        if (pendingLine) {
-          // Update existing line geometry
-          const pos = pendingLine.geometry.attributes.position as THREE.BufferAttribute;
-          pos.setXYZ(0, startPt.x, startPt.y, startPt.z);
-          pos.setXYZ(1, endPt.x, endPt.y, endPt.z);
-          pos.needsUpdate = true;
-          pendingLine.computeLineDistances();
-        } else {
-          // Create new dashed preview line
-          const geo = new THREE.BufferGeometry().setFromPoints([startPt, endPt]);
-          const mat = new THREE.LineDashedMaterial({
-            color: 0x44ff88,
-            dashSize: 0.15,
-            gapSize: 0.1,
-            depthTest: false,
-          });
-          pendingLine = new THREE.Line(geo, mat);
-          pendingLine.computeLineDistances();
-          pendingLine.renderOrder = 999;
-          scene.add(pendingLine);
-        }
-        invalidate();
-      }
-    }
   }
 
   function handleMouseLeave() {
+    if (hoverRafId !== null) {
+      cancelAnimationFrame(hoverRafId);
+      hoverRafId = null;
+      pendingHoverEvent = null;
+    }
     if (hoveredData) {
       restoreColor(hoveredData);
       hoveredData = null;
