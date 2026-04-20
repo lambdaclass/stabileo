@@ -459,3 +459,37 @@ fn validation_2d_inclined_roller_truss() {
         u_perp
     );
 }
+
+// ================================================================
+// 12. Equilibrium summary diagnostic must be correct for inclined supports
+// ================================================================
+#[test]
+fn validation_2d_inclined_roller_equilibrium_summary_correct() {
+    // The EquilibriumSummary must report equilibrium_ok = true when inclined
+    // rollers are present. Before the fix, reactions were summed in the rotated
+    // local frame, causing a false imbalance.
+    let angles = [30.0, 45.0, 60.0, 120.0];
+    for &deg in &angles {
+        let rad = deg * std::f64::consts::PI / 180.0;
+        let input = make_simple_beam(
+            make_inclined_roller(2, 2, rad),
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -15.0, my: 0.0 })],
+        );
+
+        let res = linear::solve_2d(&input).unwrap();
+        let eq = res.equilibrium.as_ref().expect("equilibrium summary should be present");
+
+        assert!(
+            eq.equilibrium_ok,
+            "{}° inclined roller: equilibrium summary should report OK, \
+             but max_imbalance={:.6e}, reaction_sum={:?}, applied_sum={:?}",
+            deg, eq.max_imbalance, eq.reaction_force_sum, eq.applied_force_sum
+        );
+
+        assert!(
+            eq.max_imbalance < 1e-3,
+            "{}° inclined roller: equilibrium imbalance should be near zero, got {:.6e}",
+            deg, eq.max_imbalance
+        );
+    }
+}

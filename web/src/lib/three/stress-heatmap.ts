@@ -6,6 +6,7 @@ import { evaluateDiagramAt } from '../engine/diagrams-3d';
 import { computeSectionStress } from '../engine/section-stress-3d';
 import type { ElementForces3D } from '../engine/types-3d';
 import { heatmapColor } from './selection-helpers';
+import { ensureOwnShellMaterial } from './create-shell-mesh';
 import { THREEJS_CYLINDER_AXIS } from '../geometry/coordinate-system';
 
 const HEATMAP_SEGMENTS = 16; // Number of segments along each element
@@ -183,7 +184,7 @@ export function applyShellVertexColors(
   }
 
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  const mat = mesh.material as THREE.MeshStandardMaterial;
+  const mat = ensureOwnShellMaterial(mesh);
   mat.vertexColors = true;
   mat.color.setHex(0xffffff);
   mat.needsUpdate = true;

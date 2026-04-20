@@ -85,4 +85,26 @@ describe('coordinate-system contract', () => {
       quadCount: 0,
     })).toBe(false);
   });
+
+  it('can opt into upright projection for flat 2D examples opened from a 3D workspace', () => {
+    expect(shouldProjectModelToXZ({
+      analysisMode: '3d',
+      viewportPresentation3D: 'upright2dIn3d',
+      nodes: [{ x: 0, y: 0 }, { x: 4, y: 2 }],
+      supports: [{ type: 'pinned' }],
+      loads: [{ type: 'nodal' }],
+      plateCount: 0,
+      quadCount: 0,
+    })).toBe(true);
+
+    expect(shouldProjectModelToXZ({
+      analysisMode: '3d',
+      viewportPresentation3D: 'native3d',
+      nodes: [{ x: 0, y: 0 }, { x: 4, y: 2 }],
+      supports: [{ type: 'pinned' }],
+      loads: [{ type: 'nodal' }],
+      plateCount: 0,
+      quadCount: 0,
+    })).toBe(false);
+  });
 });

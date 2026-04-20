@@ -3,13 +3,15 @@ import type { KinematicResult } from '../engine/kinematic-2d';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from '../engine/types-3d';
 import type { ModelSnapshot } from './history.svelte';
-import { getFixture, is3DFixture } from '../templates/fixture-index';
+import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
 import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
+import { pickElement3DMetadata, type Element3DMetadata } from '../model/element-3d-metadata';
+import { uiStore } from './ui.svelte';
 
 export interface Node {
   id: number;
@@ -211,7 +213,7 @@ export interface ProvidedReinforcement {
   stirrups?: StirrupDef;
 }
 
-export interface Element {
+export interface Element extends Element3DMetadata {
   id: number;
   type: 'frame' | 'truss';
   nodeI: number;
@@ -220,12 +222,6 @@ export interface Element {
   sectionId: number;
   hingeStart: boolean;
   hingeEnd: boolean;
-  // Optional orientation vector for local Y axis (3D only)
-  localYx?: number;
-  localYy?: number;
-  localYz?: number;
-  // Roll angle: rotation of local Y/Z around local X (degrees, 3D only)
-  rollAngle?: number;
   // PRO: provided reinforcement for RC design verification
   reinforcement?: ProvidedReinforcement;
 }
@@ -591,6 +587,13 @@ function createModelStore() {
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
   let _onMutation: (() => void) | null = null;
+  // Bulk mutation mode: during loadExample (and other wholesale mutations) we
+  // want a single reactive commit instead of one per entity. Add/update methods
+  // skip their per-call Map / array reassignment while this flag is true;
+  // bulkMutate() reassigns everything once at the end.
+  let _bulkMutating = false;
+  let _bulkLoadBuffer: Load[] | null = null;
+  let _bulkConstraintBuffer: Constraint3D[] | null = null;
 
   return {
     _setHistoryPush(fn: () => void) {
@@ -608,6 +611,41 @@ function createModelStore() {
       _pushUndo?.();
       _undoBatching = true;
       try { fn(); } finally { _undoBatching = false; }
+    },
+
+    /** Run a batch of structural mutations as a single reactive commit + undo step.
+     *  Skips per-call Map/array reassignment; reassigns everything once at the end
+     *  so the viewport syncs and `$effect`s re-run only once for the whole batch. */
+    bulkMutate(fn: () => void): void {
+      if (_bulkMutating) { fn(); return; }
+      if (!_undoBatching) _pushUndo?.();
+      const ownUndoBatch = !_undoBatching;
+      if (ownUndoBatch) _undoBatching = true;
+      _bulkMutating = true;
+      _bulkLoadBuffer = [...model.loads];
+      _bulkConstraintBuffer = [...model.constraints];
+      try {
+        fn();
+      } finally {
+        const commitLoads = _bulkLoadBuffer!;
+        const commitConstraints = _bulkConstraintBuffer!;
+        _bulkLoadBuffer = null;
+        _bulkConstraintBuffer = null;
+        _bulkMutating = false;
+        if (ownUndoBatch) _undoBatching = false;
+        // Single reactive commit — one bump, one scene sync pass
+        model.nodes = new Map(model.nodes);
+        model.elements = new Map(model.elements);
+        model.supports = new Map(model.supports);
+        model.materials = new Map(model.materials);
+        model.sections = new Map(model.sections);
+        model.plates = new Map(model.plates);
+        model.quads = new Map(model.quads);
+        model.loads = commitLoads;
+        model.constraints = commitConstraints;
+        modelVersion++;
+        _onMutation?.();
+      }
     },
 
     get modelVersion() { return modelVersion; },
@@ -748,7 +786,12 @@ function createModelStore() {
       const node: Node = { id, x, y };
       if (z !== undefined && z !== 0) node.z = z;
       model.nodes.set(id, node);
-      model.nodes = new Map(model.nodes);
+      if (!_bulkMutating) model.nodes = new Map(model.nodes);
+      if (!_undoBatching) {
+        if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+          uiStore.useNative3DPresentation();
+        }
+      }
       return id;
     },
 
@@ -774,7 +817,7 @@ function createModelStore() {
         hingeStart: false,
         hingeEnd: false,
       });
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
       return id;
     },
 
@@ -811,7 +854,7 @@ function createModelStore() {
       if (opts?.dofFrame) sup.dofFrame = opts.dofFrame;
       if (opts?.dofLocalElementId !== undefined) sup.dofLocalElementId = opts.dofLocalElementId;
       model.supports.set(id, sup);
-      model.supports = new Map(model.supports);
+      if (!_bulkMutating) model.supports = new Map(model.supports);
       return id;
     },
 
@@ -820,7 +863,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: NodalLoad = { id, nodeId, fx, fz, my };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'nodal', data }];
+      const entry = { type: 'nodal' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -833,7 +878,9 @@ function createModelStore() {
       if (caseId !== undefined) data.caseId = caseId;
       if (a !== undefined && a > 0) data.a = a;
       if (b !== undefined) data.b = b;
-      model.loads = [...model.loads, { type: 'distributed', data }];
+      const entry = { type: 'distributed' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -847,7 +894,9 @@ function createModelStore() {
       if (opts?.angle !== undefined && opts.angle !== 0) data.angle = opts.angle;
       if (opts?.isGlobal) data.isGlobal = true;
       if (opts?.caseId !== undefined) data.caseId = opts.caseId;
-      model.loads = [...model.loads, { type: 'pointOnElement', data }];
+      const entry = { type: 'pointOnElement' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -856,7 +905,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: ThermalLoad = { id, elementId, dtUniform, dtGradient };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'thermal', data }];
+      const entry = { type: 'thermal' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -867,7 +918,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: NodalLoad3D = { id, nodeId, fx, fy, fz, mx, my, mz };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'nodal3d', data }];
+      const entry = { type: 'nodal3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -878,7 +931,9 @@ function createModelStore() {
       if (a !== undefined && a > 0) data.a = a;
       if (b !== undefined) data.b = b;
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'distributed3d', data }];
+      const entry = { type: 'distributed3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -887,7 +942,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'pointOnElement3d', data }];
+      const entry = { type: 'pointOnElement3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -896,7 +953,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: SurfaceLoad3D = { id, quadId, q };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'surface3d', data }];
+      const entry = { type: 'surface3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -905,7 +964,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: ThermalLoadQuad3D = { id, quadId, dtUniform, dtGradient };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'thermalQuad3d', data }];
+      const entry = { type: 'thermalQuad3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -945,7 +1006,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.plate++;
       model.plates.set(id, { id, nodes, materialId, thickness });
-      model.plates = new Map(model.plates);
+      if (!_bulkMutating) model.plates = new Map(model.plates);
       return id;
     },
 
@@ -968,7 +1029,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.quad++;
       model.quads.set(id, { id, nodes, materialId, thickness });
-      model.quads = new Map(model.quads);
+      if (!_bulkMutating) model.quads = new Map(model.quads);
       return id;
     },
 
@@ -989,7 +1050,8 @@ function createModelStore() {
 
     addConstraint(c: Constraint3D): void {
       if (!_undoBatching) _pushUndo?.();
-      model.constraints = [...model.constraints, { ...c }];
+      if (_bulkConstraintBuffer) _bulkConstraintBuffer.push({ ...c });
+      else model.constraints = [...model.constraints, { ...c }];
     },
 
     removeConstraint(index: number): void {
@@ -1054,7 +1116,7 @@ function createModelStore() {
         normalZ: sup.normalZ,
         isInclined: sup.isInclined,
       });
-      model.supports = new Map(model.supports);
+      if (!_bulkMutating) model.supports = new Map(model.supports);
     },
 
     updateLoad(loadId: number, data: Record<string, number | boolean | undefined>): void {
@@ -1173,6 +1235,7 @@ function createModelStore() {
       nextId.plate = 1;
       nextId.quad = 1;
       lastKinematicResult = null;
+      uiStore.useNative3DPresentation();
     },
 
     /** Replace model geometry data in-place (for simplified 2D model swap). No undo. */
@@ -1255,11 +1318,7 @@ function createModelStore() {
       );
 
       // 3D properties to inherit on new sub-elements
-      const inherited3D: Record<string, unknown> = {};
-      if (elem.rollAngle != null) inherited3D.rollAngle = elem.rollAngle;
-      if ((elem as any).localYx != null) inherited3D.localYx = (elem as any).localYx;
-      if ((elem as any).localYy != null) inherited3D.localYy = (elem as any).localYy;
-      if ((elem as any).localYz != null) inherited3D.localYz = (elem as any).localYz;
+      const inherited3D = pickElement3DMetadata(elem);
 
       // Preserve original element as first segment
       const origHingeEnd = elem.hingeEnd ?? false;
@@ -1313,22 +1372,14 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const elem = model.elements.get(elementId);
       if (!elem) return;
-      // Build a fully explicit plain object — no proxy spreading, no JSON, no snapshot
-      // Read each property individually through the proxy's get trap
+      // Preserve 3D metadata (local axes, roll angle, future element fields) when toggling hinge state.
+      const plain = $state.snapshot(elem) as Element;
       const wasStart = elem.hingeStart === true;
       const wasEnd = elem.hingeEnd === true;
-      const plain: Element = {
-        id: elem.id,
-        type: elem.type,
-        nodeI: elem.nodeI,
-        nodeJ: elem.nodeJ,
-        materialId: elem.materialId,
-        sectionId: elem.sectionId,
-        hingeStart: end === 'start' ? !wasStart : wasStart,
-        hingeEnd: end === 'end' ? !wasEnd : wasEnd,
-      };
+      plain.hingeStart = end === 'start' ? !wasStart : wasStart;
+      plain.hingeEnd = end === 'end' ? !wasEnd : wasEnd;
       model.elements.set(elementId, plain);
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
     /** Get all elements connected to a node, annotated with which end touches the node */
@@ -1406,6 +1457,7 @@ function createModelStore() {
       const origType = elem.type;
       const origMatId = elem.materialId;
       const origSecId = elem.sectionId;
+      const inherited3D = pickElement3DMetadata(elem);
 
       // Remove original element and its loads
       model.elements.delete(elementId);
@@ -1427,6 +1479,7 @@ function createModelStore() {
         sectionId: origSecId,
         hingeStart: origHingeStart,
         hingeEnd: false,
+        ...inherited3D,
       });
 
       const elemBId = nextId.element++;
@@ -1439,6 +1492,7 @@ function createModelStore() {
         sectionId: origSecId,
         hingeStart: false,
         hingeEnd: origHingeEnd,
+        ...inherited3D,
       });
 
       // Redistribute distributed loads (interpolate for trapezoidal, handle partial a/b)
@@ -1786,12 +1840,19 @@ function createModelStore() {
         nextId,
       };
 
-      loadFixture(json as any, api as any);
+      this.bulkMutate(() => {
+        loadFixture(json as any, api as any);
+      });
+
+      if (is2DFixture(name) && (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro')) {
+        uiStore.useUpright2DIn3DPresentation();
+      } else {
+        uiStore.useNative3DPresentation();
+      }
 
       // Switch to plain 3D mode only when the current app mode is the basic app.
       // PRO and EDU use 3D fixtures too, but loading them should not downgrade the app.
       if (is3DFixture(name)) {
-        const { uiStore } = await import('./index');
         if (uiStore.analysisMode !== 'pro' && uiStore.analysisMode !== 'edu') {
           uiStore.analysisMode = '3d';
         }
@@ -1807,9 +1868,13 @@ function createModelStore() {
     addMaterial(data: Omit<Material, 'id'>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.material++;
-      const m = new Map(model.materials);
-      m.set(id, { id, ...data });
-      model.materials = m;
+      if (_bulkMutating) {
+        model.materials.set(id, { id, ...data });
+      } else {
+        const m = new Map(model.materials);
+        m.set(id, { id, ...data });
+        model.materials = m;
+      }
       return id;
     },
 
@@ -1838,9 +1903,13 @@ function createModelStore() {
     addSection(data: Omit<Section, 'id'>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.section++;
-      const m = new Map(model.sections);
-      m.set(id, { id, ...data });
-      model.sections = m;
+      if (_bulkMutating) {
+        model.sections.set(id, { id, ...data });
+      } else {
+        const m = new Map(model.sections);
+        m.set(id, { id, ...data });
+        model.sections = m;
+      }
       return id;
     },
 
@@ -1891,8 +1960,10 @@ function createModelStore() {
       const plain = $state.snapshot(elem) as Element;
       plain.materialId = materialId;
       model.elements.set(elemId, plain);
-      model.elements = new Map(model.elements);
-      this.bumpModelVersion();
+      if (!_bulkMutating) {
+        model.elements = new Map(model.elements);
+        this.bumpModelVersion();
+      }
     },
 
     updateElementSection(elemId: number, sectionId: number): void {
@@ -1902,8 +1973,10 @@ function createModelStore() {
       const plain = $state.snapshot(elem) as Element;
       plain.sectionId = sectionId;
       model.elements.set(elemId, plain);
-      model.elements = new Map(model.elements);
-      this.bumpModelVersion();
+      if (!_bulkMutating) {
+        model.elements = new Map(model.elements);
+        this.bumpModelVersion();
+      }
     },
 
     updateElementLocalY(elemId: number, lx: number | undefined, ly: number | undefined, lz: number | undefined): void {
@@ -1940,7 +2013,8 @@ function createModelStore() {
       const ni = model.nodes.get(elem.nodeI);
       const nj = model.nodes.get(elem.nodeJ);
       if (!ni || !nj) return 0;
-      return Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2);
+      const dz = (nj.z ?? 0) - (ni.z ?? 0);
+      return Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2 + dz ** 2);
     },
 
     /** Get angle (radians) of element connected to node. If multiple, returns average.

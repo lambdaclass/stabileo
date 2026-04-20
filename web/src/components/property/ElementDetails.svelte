@@ -10,6 +10,8 @@
   import type { MaterialPreset } from '../../lib/data/material-presets';
   import type { SectionProperties } from '../../lib/data/section-shapes';
 
+  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+
   const us = $derived(uiStore.unitSystem);
   const ul = (q: import('../../lib/utils/units').Quantity) => unitLabel(q, us);
   const dv = (v: number, q: import('../../lib/utils/units').Quantity) => toDisplay(v, q, us);
@@ -172,7 +174,7 @@
         </div>
       </div>
 
-      {#if uiStore.analysisMode === '3d' && elem.type === 'frame'}
+      {#if is3DMode && elem.type === 'frame'}
         <div class="property-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
           <span style="font-weight: 600;">{t('prop.localAxisY')}</span>
           <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
@@ -218,7 +220,7 @@
       {/if}
 
       {#if showResults}
-        {#if uiStore.analysisMode === '3d' && resultsStore.results3D}
+        {#if is3DMode && resultsStore.results3D}
           {@const forces3D = resultsStore.getElementForces3D(elemId)}
           {#if forces3D}
             <h4>{t('prop.internalForces3d')}</h4>
@@ -340,7 +342,7 @@
   onshapeselect={(name: string, props: SectionProperties) => handleSCShapeSelect(name, props)}
   onamorphousselect={(data) => handleSCAmorphousSelect(data)}
   onclose={() => { showSectionChanger = false; sectionChangerTargetElemId = null; }}
-  is3D={uiStore.analysisMode === '3d'}
+  is3D={is3DMode}
 />
 
 <MaterialPresetSelector

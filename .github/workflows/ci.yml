@@ -81,6 +81,18 @@ jobs:
         working-directory: engine
         run: cargo nextest run --profile ci --test conditioning_adversarial
 
+      - name: Performance regression gates
+        working-directory: engine
+        run: cargo nextest run --profile ci --test perf_regression_gates
+
+      - name: Advanced perf gates
+        working-directory: engine
+        run: cargo nextest run --profile ci --test perf_regression_advanced
+
+      - name: k_full overbuild gates
+        working-directory: engine
+        run: cargo nextest run --profile ci --test kfull_overbuild_gates
+
       - name: Run all tests
         working-directory: engine
         run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing)'
@@ -89,6 +101,20 @@ jobs:
       - name: Benchmarks compile
         working-directory: engine
         run: cargo bench --no-run
+
+      - name: Run criterion benchmarks (quick)
+        working-directory: engine
+        run: cargo bench -- --sample-size 10 --warm-up-time 1 --measurement-time 3
+        timeout-minutes: 10
+
+      - name: Upload criterion reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-reports
+          path: engine/target/criterion
+          retention-days: 30
+          if-no-files-found: warn
 
   web:
     runs-on: ubuntu-latest

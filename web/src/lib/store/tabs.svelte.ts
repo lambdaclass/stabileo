@@ -8,6 +8,7 @@ import type { ModelSnapshot } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import type { DiagramType } from './results.svelte';
 import type { Tool, SelectMode, ElementColorMode } from './ui.svelte';
+import type { ViewportPresentation3D } from '../geometry/coordinate-system';
 import { t, isDefaultName } from '../i18n';
 
 export interface TabState {
@@ -15,6 +16,7 @@ export interface TabState {
   name: string;
   modelSnapshot: ModelSnapshot;
   analysisMode: '2d' | '3d' | 'pro' | 'edu';
+  viewportPresentation3D: ViewportPresentation3D;
   // Results visualization state (results themselves are NOT serialized — too large)
   diagramType: DiagramType;
   deformedScale: number;
@@ -97,6 +99,7 @@ function createTabManager() {
       name: modelStore.model.name,
       modelSnapshot: modelStore.snapshot(),
       analysisMode: uiStore.analysisMode,
+      viewportPresentation3D: uiStore.viewportPresentation3D,
       // Results visualization
       diagramType: resultsStore.diagramType,
       deformedScale: resultsStore.deformedScale,
@@ -174,6 +177,7 @@ function createTabManager() {
 
       // Restore analysis mode
       uiStore.analysisMode = state.analysisMode;
+      uiStore.viewportPresentation3D = state.viewportPresentation3D ?? 'native3d';
 
       // Restore history stacks
       historyStore.setStacks(state.undoStack, state.redoStack);
@@ -230,7 +234,9 @@ function createTabManager() {
       uiStore.cameraTarget3D = { ...state.cameraTarget3D };
       // Notify 3D viewport to update its Three.js camera
       queueMicrotask(() => {
-        window.dispatchEvent(new Event('stabileo-restore-camera-3d'));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('stabileo-restore-camera-3d'));
+        }
       });
     } catch (err) {
       console.error('Tab restore failed:', err);
@@ -284,6 +290,7 @@ function createTabManager() {
           name: modelStore.model.name || t('tabBar.newStructure'),
           modelSnapshot: modelStore.snapshot(),
           analysisMode: uiStore.analysisMode,
+          viewportPresentation3D: uiStore.viewportPresentation3D,
           diagramType: 'none',
           deformedScale: 100,
           diagramScale: 1,
@@ -353,6 +360,7 @@ function createTabManager() {
         name: t('tabBar.newStructure'),
         modelSnapshot: { nodes: [], elements: [], materials: [], sections: [], supports: [], loads: [], nextId: { node: 1, material: 1, section: 1, element: 1, support: 1, load: 1, loadCase: 1, combination: 1 } },
         analysisMode: uiStore.analysisMode,
+        viewportPresentation3D: uiStore.viewportPresentation3D,
         diagramType: 'none',
         deformedScale: resultsStore.deformedScale,
         diagramScale: resultsStore.diagramScale,

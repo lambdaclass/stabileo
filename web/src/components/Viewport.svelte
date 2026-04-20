@@ -119,6 +119,103 @@
     return n ? project2DNode(n) : undefined;
   }
 
+  // ── Invalidation-based rendering ──────────────────────────────
+  // Instead of running requestAnimationFrame every frame, we only redraw
+  // when state changes (invalidate()) or when an animation is active.
+  let needsRedraw = true;
+  let animating = false;
+  let rafId: number | null = null;
+
+  function invalidate() {
+    if (!needsRedraw) {
+      needsRedraw = true;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(drawOnce);
+      }
+    }
+  }
+
+  function drawOnce() {
+    rafId = null;
+    if (!needsRedraw && !animating && !uiStore.continuousRendering) return;
+    needsRedraw = false;
+    draw();
+
+    if (animating || uiStore.continuousRendering) {
+      rafId = requestAnimationFrame(drawOnce);
+    }
+  }
+
+  /** Recalculate whether continuous animation is needed and start/stop the loop. */
+  function updateAnimating() {
+    const wasAnimating = animating;
+    animating =
+      (resultsStore.ilAnimating && !!resultsStore.influenceLine) ||
+      (resultsStore.animateDeformed && resultsStore.diagramType === 'deformed' && !!resultsStore.results) ||
+      (resultsStore.diagramType === 'modeShape' && !!resultsStore.modalResult) ||
+      (resultsStore.diagramType === 'bucklingMode' && !!resultsStore.bucklingResult);
+    // If we just became animating, kick the loop
+    if ((animating || uiStore.continuousRendering) && !wasAnimating && rafId === null) {
+      rafId = requestAnimationFrame(drawOnce);
+    }
+  }
+
+  // ── Reactive effects that trigger invalidation ──────────────────
+
+  // Model data changes
+  $effect(() => { modelStore.nodes; modelStore.elements; invalidate(); });
+  $effect(() => { modelStore.supports; invalidate(); });
+  $effect(() => { modelStore.loads; invalidate(); });
+  $effect(() => { modelStore.materials; modelStore.sections; invalidate(); });
+
+  // Results changes
+  $effect(() => { resultsStore.results; resultsStore.diagramType; invalidate(); });
+  $effect(() => { resultsStore.deformedScale; resultsStore.diagramScale; invalidate(); });
+  $effect(() => { resultsStore.showDiagramValues; invalidate(); });
+  $effect(() => { resultsStore.colorMapKind; invalidate(); });
+  $effect(() => { resultsStore.showReactions; resultsStore.showConstraintForces; invalidate(); });
+  $effect(() => { resultsStore.influenceLine; invalidate(); });
+  $effect(() => { resultsStore.overlayResults; resultsStore.overlayLabel; invalidate(); });
+  $effect(() => { resultsStore.movingLoadEnvelope; resultsStore.activeMovingLoadPosition; resultsStore.movingLoadShowEnvelope; invalidate(); });
+  $effect(() => { resultsStore.modalResult; resultsStore.activeModeIndex; invalidate(); });
+  $effect(() => { resultsStore.bucklingResult; resultsStore.activeBucklingMode; invalidate(); });
+  $effect(() => { resultsStore.plasticResult; resultsStore.plasticStep; invalidate(); });
+  $effect(() => { resultsStore.stressQuery; invalidate(); });
+  $effect(() => { resultsStore.envelope; invalidate(); });
+
+  // Animation state changes need both invalidate and loop management
+  $effect(() => {
+    resultsStore.ilAnimating;
+    resultsStore.animateDeformed;
+    resultsStore.animSpeed;
+    resultsStore.diagramType;
+    resultsStore.modalResult;
+    resultsStore.bucklingResult;
+    updateAnimating();
+    invalidate();
+  });
+
+  // UI state changes
+  $effect(() => { uiStore.selectedNodes; uiStore.selectedElements; invalidate(); });
+  $effect(() => { uiStore.selectedLoads; uiStore.selectedSupports; invalidate(); });
+  $effect(() => { uiStore.zoom; uiStore.panX; uiStore.panY; invalidate(); });
+  $effect(() => { uiStore.showGrid; uiStore.showAxes; uiStore.showLoads; invalidate(); });
+  $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
+  $effect(() => { uiStore.elementColorMode; invalidate(); });
+  $effect(() => { uiStore.hideLoadsWithDiagram; invalidate(); });
+  $effect(() => { uiStore.currentTool; invalidate(); });
+  $effect(() => { uiStore.gridSize; uiStore.snapToGrid; invalidate(); });
+  $effect(() => { uiStore.selectMode; invalidate(); });
+  $effect(() => { uiStore.drawPlane2D; invalidate(); });
+  $effect(() => { uiStore.unitSystem; invalidate(); });
+
+  // Continuous rendering toggle
+  $effect(() => {
+    uiStore.continuousRendering;
+    updateAnimating();
+    invalidate();
+  });
+
   // Draw context helper for canvas renderers
   function makeDrawContext() {
     return {
@@ -161,19 +258,16 @@
       if (modelStore.nodes.size === 0) return;
       const projected = [...modelStore.nodes.values()].map(n => project2DNode(n));
       uiStore.zoomToFit(projected, canvas.width, canvas.height);
+      invalidate();
     };
     window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
-    // Render loop
-    let raf: number;
-    function loop() {
-      draw();
-      raf = requestAnimationFrame(loop);
-    }
-    raf = requestAnimationFrame(loop);
+    // Initial draw — needsRedraw is already true, so schedule the first frame directly
+    rafId = requestAnimationFrame(drawOnce);
 
     return () => {
-      cancelAnimationFrame(raf);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = null;
       ro.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
       window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
@@ -188,6 +282,7 @@
     height = rect.height;
     canvas.width = width;
     canvas.height = height;
+    invalidate();
   }
 
   let lastFrameTime = 0;
@@ -1389,6 +1484,7 @@
         }
       }
     }
+    invalidate();
   }
 
   function handleMouseMove(e: MouseEvent) {
@@ -1562,6 +1658,8 @@
     } else {
       diagramHover = null;
     }
+    // Trigger redraw for cursor tracking, snap visualization, hover tooltips
+    invalidate();
   }
 
   function handleMouseUp() {
@@ -1625,6 +1723,7 @@
       }
       boxSelect = null;
     }
+    invalidate();
   }
 
   function handleDblClick(e: MouseEvent) {
@@ -1806,6 +1905,7 @@
 
       touchState.lastDist = dist;
       touchState.lastCenter = center;
+      invalidate();
     }
   }
 
@@ -1839,6 +1939,7 @@
 
     uiStore.panX += (worldAfter.x - worldBefore.x) * uiStore.zoom;
     uiStore.panY -= (worldAfter.y - worldBefore.y) * uiStore.zoom;
+    invalidate();
   }
 
   function drawTooltip(sx: number, sy: number, lines: string[]) {

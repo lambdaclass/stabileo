@@ -82,6 +82,9 @@ export function createElementGroup(
     });
     const line = new Line2(geo, mat);
     line.computeLineDistances();
+    // Line2 raycast walks every segment in JS — expensive on large fixtures.
+    // Picking is served by the helper cylinder below, so disable it here.
+    line.raycast = () => {};
     group.add(line);
   } else if (opts.elementType === 'frame') {
     if (mode === 'sections') {
@@ -142,6 +145,7 @@ export function createElementGroup(
     });
     const line = new Line2(geo, mat);
     line.computeLineDistances();
+    line.raycast = () => {};
     group.add(line);
   }
 
@@ -222,6 +226,9 @@ function addPickingHelper(
   orientCylinder(cyl, nI, nJ);
   cyl.renderOrder = -1; // render behind everything
   cyl.userData.pickingHelper = true;
+  // Hide from render pipeline entirely — one less draw call per wireframe/truss
+  // element. Raycaster ignores `visible` by default, so picking still works.
+  cyl.visible = false;
   group.add(cyl);
 }
 
