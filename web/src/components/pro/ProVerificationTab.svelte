@@ -335,7 +335,8 @@
       lengths.set(ef.elementId, Math.sqrt(dx * dx + dy * dy + dz * dz));
     }
 
-    // Steel verification (CIRSOC 301) — elements with fy > 80 MPa
+    // LEGACY: Steel verification (CIRSOC 301) — still uses endpoint-only extraction.
+    // Phase 2 target: unify steel path through the same station-based service.
     const steelVerifs: SteelVerification[] = [];
     for (const ef of results.elementForces) {
       const elem = modelStore.elements.get(ef.elementId);
@@ -416,8 +417,9 @@
     const newDefl = new Map<number, DeflectionResult>();
     for (const v of verifs) {
       if (v.elementType === 'beam') {
-        // Service moment: use dead-load-only case if available, otherwise ≈ Mu / 1.4
-        // (Bug #5 fix — §13.2 of SOLVER_APP_COVERAGE_MAP.md)
+        // TEMPORARY Phase 1 bridge — service moment approximation (Bug #5 from §13.2)
+        // Uses dead-load case when available; falls back to Mu/1.4 unfactoring.
+        // Phase 2 target: solver provides actual service-combo results directly.
         let Ms = v.Mu / 1.4;
         if (resultsStore.perCase3D.size > 0) {
           const deadCase = modelStore.model.loadCases.find(c => c.type === 'D');
@@ -439,8 +441,9 @@
         );
         newCracks.set(v.elementId, crack);
 
-        // Deflection check: estimate midspan deflection from beam properties
-        // (Bug #3 fix — endpoint displacements are ~0 for simply-supported beams)
+        // TEMPORARY Phase 1 bridge — midspan deflection estimate (Bug #3 from §13.2)
+        // Solver only returns endpoint displacements; midspan is estimated from beam equation.
+        // Phase 2 target: solver provides midspan displacement directly (or check_serviceability WASM).
         const elem = modelStore.elements.get(v.elementId);
         if (elem) {
           const nodeI = modelStore.nodes.get(elem.nodeI);
@@ -457,8 +460,8 @@
               Math.abs(di?.uy ?? 0), Math.abs(dj?.uy ?? 0),
               Math.abs(di?.uz ?? 0), Math.abs(dj?.uz ?? 0),
             );
-            // If endpoint displacements are negligible, estimate midspan deflection
-            // using 5·Ms·L²/(48·E·Ig) (uniform load equivalent for service moment)
+            // TEMPORARY Phase 1 estimate: 5·Ms·L²/(48·E·Ig) (uniform load equivalent)
+            // Only used when endpoint displacements are negligible (simply-supported beams).
             if (maxDisp < L / 10000) {
               const sec = modelStore.sections.get(elem.sectionId);
               const mat = modelStore.materials.get(elem.materialId);

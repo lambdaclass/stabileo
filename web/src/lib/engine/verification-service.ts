@@ -2,16 +2,21 @@
  * Shared verification service — centralized station-based demand computation
  * and verification orchestration for PRO mode.
  *
- * This module eliminates the divergence between ProDesignTab (station-based)
- * and ProVerificationTab (endpoint-only) by providing a single source of truth
- * for force extraction and CIRSOC verification.
+ * Phase 1 (current): Eliminates the divergence between ProDesignTab (station-based)
+ * and ProVerificationTab (endpoint-only) by routing both through the same
+ * station-based force extraction and CIRSOC JS verification.
  *
- * Architecture note (from SOLVER_APP_COVERAGE_MAP.md §13):
- *   Eventually the solver (Rust/WASM) will own the full verification pipeline
- *   via a unified `verify_members` export. This service is the app-side
- *   intermediate step: it centralizes the computation so the UI components
- *   become render-only consumers. When the solver takes over, this service
- *   becomes a thin wrapper around the WASM call.
+ * Phase 2 target (requires solver changes — not implemented here):
+ *   The solver (Rust/WASM) should own the full pipeline via a unified
+ *   `verify_members` WASM export (§13.5 of SOLVER_APP_COVERAGE_MAP.md).
+ *   When that exists, this service becomes a thin wrapper:
+ *     computeStationDemands → deleted (solver does it internally)
+ *     runUnifiedVerification → calls WASM verify_members instead of JS autoVerifyFromResults
+ *
+ * Temporary app-side bridges in this module:
+ *   - Station extraction is JS-side (should be solver-side beam_stations → design_demands)
+ *   - CIRSOC verification is JS-side cirsoc201.ts (~600 LOC that Phase 3 would delete)
+ *   - autoVerifyFromResults is the JS orchestrator (Phase 3 replaces with WASM call)
  */
 
 import type { AnalysisResults3D } from './types-3d';
