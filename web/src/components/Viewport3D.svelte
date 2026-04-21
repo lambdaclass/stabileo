@@ -8,7 +8,9 @@
   import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
-  import { COLORS, setMeshColor, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
+  import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
+  import { NodesInstanced } from '../lib/three/nodes-instanced';
+  import { resolveHitUserData } from '../lib/viewport3d/picking';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
@@ -34,7 +36,7 @@
   let invalidate: () => void = () => {};
 
   // ─── Scene graph maps (reconciled with store) ────────────────
-  let nodeMeshes = new Map<number, THREE.Mesh>();
+  let nodesInstanced = new NodesInstanced();
   let elementGroups = new Map<number, THREE.Group>();
   let supportGizmos = new Map<number, THREE.Group>();
   let deformedGroup: THREE.Group | null = null;
@@ -190,6 +192,7 @@
     // Parent groups
     nodesParent = new THREE.Group();
     nodesParent.name = 'nodes';
+    nodesParent.add(nodesInstanced.mesh);
     elementsParent = new THREE.Group();
     elementsParent.name = 'elements';
     supportsParent = new THREE.Group();
@@ -587,7 +590,7 @@
     sceneCtx = {
       initialized: false,
       nodesParent, elementsParent, supportsParent, loadsParent, resultsParent, shellsParent, scene,
-      nodeMeshes, elementGroups, supportGizmos,
+      nodesInstanced, elementGroups, supportGizmos,
       shellGroups: new Map(),
       loadGroup: null,
       colorMapApplied: false,
@@ -915,7 +918,7 @@
     // Raycast nodes first, then elements
     const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
     for (const hit of nodeHits) {
-      const ud = findUserData(hit.object);
+      const ud = resolveHitUserData(hit);
       if (ud?.type === 'node') {
         uiStore.contextMenu = { x: e.clientX, y: e.clientY, nodeId: ud.id };
         return;
@@ -1020,8 +1023,7 @@
       uiStore.selectNode(nodeId, false);
 
       // Highlight node I
-      const mesh = nodeMeshes.get(nodeId);
-      if (mesh) setMeshColor(mesh, 0x00ff00);
+      nodesInstanced.setColor(nodeId, 0x00ff00);
       uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
     } else {
       // Second click → create element
@@ -1041,8 +1043,7 @@
     let changed = false;
     if (pendingElementNodeI !== null) {
       // Restore node color
-      const mesh = nodeMeshes.get(pendingElementNodeI);
-      if (mesh) setMeshColor(mesh, COLORS.node);
+      nodesInstanced.restoreColor(pendingElementNodeI);
       changed = true;
     }
     pendingElementNodeI = null;
@@ -1489,7 +1490,7 @@
 
     // Priority: node > element > support
     for (const hit of nodeHits) {
-      const ud = findUserData(hit.object);
+      const ud = resolveHitUserData(hit);
       if (ud?.type === 'node') {
         uiStore.selectNode(ud.id, addToSel);
         return;
@@ -1661,7 +1662,7 @@
 
     let newHover: { type: string; id: number } | null = null;
     for (const hit of hits) {
-      const ud = findUserData(hit.object);
+      const ud = resolveHitUserData(hit);
       if (ud) {
         newHover = ud;
         break;
@@ -1777,11 +1778,8 @@
 
   function restoreColor(data: { type: string; id: number }) {
     if (data.type === 'node') {
-      const mesh = nodeMeshes.get(data.id);
-      if (mesh) {
-        const selected = uiStore.selectedNodes.has(data.id);
-        setMeshColor(mesh, selected ? COLORS.nodeSelected : COLORS.node);
-      }
+      const selected = uiStore.selectedNodes.has(data.id);
+      nodesInstanced.setBaseColor(data.id, selected ? COLORS.nodeSelected : COLORS.node);
     } else if (data.type === 'element') {
       const group = elementGroups.get(data.id);
       if (group) {
@@ -1807,8 +1805,7 @@
 
   function applyHoverColor(data: { type: string; id: number }) {
     if (data.type === 'node') {
-      const mesh = nodeMeshes.get(data.id);
-      if (mesh) setMeshColor(mesh, COLORS.nodeHovered);
+      nodesInstanced.setColor(data.id, COLORS.nodeHovered);
     } else if (data.type === 'element') {
       const group = elementGroups.get(data.id);
       if (group) {

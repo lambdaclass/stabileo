@@ -73,7 +73,24 @@ export function getGroundIntersection(
 }
 
 /**
- * Raycast into `nodesParent` and return the id of the first node mesh hit,
+ * Resolve a raycaster Intersection to { type, id } covering both:
+ *   - legacy per-mesh userData (element Group, support Group)
+ *   - batched InstancedMesh nodes (userData.type === 'nodeBatch', with
+ *     indexToId lookup via hit.instanceId)
+ */
+export function resolveHitUserData(hit: THREE.Intersection): { type: string; id: number } | null {
+  const ud = findUserData(hit.object);
+  if (ud?.type === 'nodeBatch') {
+    if (hit.instanceId === undefined) return null;
+    const indexToId = (hit.object.userData as { indexToId?: number[] }).indexToId;
+    const id = indexToId?.[hit.instanceId];
+    return id === undefined ? null : { type: 'node', id };
+  }
+  return ud;
+}
+
+/**
+ * Raycast into `nodesParent` and return the id of the first node hit,
  * or null if nothing was hit.
  */
 export function findNodeHit(
@@ -86,7 +103,7 @@ export function findNodeHit(
   raycaster.camera = camera;
   const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
   for (const hit of nodeHits) {
-    const ud = findUserData(hit.object);
+    const ud = resolveHitUserData(hit);
     if (ud?.type === 'node') return ud.id;
   }
   return null;

@@ -6,12 +6,12 @@
 
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
-import { createNodeMesh, updateNodePosition } from '../three/create-node-mesh';
+import { NodesInstanced } from '../three/nodes-instanced';
 import { createElementGroup } from '../three/create-element-mesh';
 import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
-import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
 import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import type { SolverNode3D } from '../engine/types-3d';
@@ -59,7 +59,8 @@ export interface SceneSyncContext {
   scene: THREE.Scene;
 
   // Reconciliation maps (mutated in place)
-  nodeMeshes: Map<number, THREE.Mesh>;
+  /** Batched node rendering — one InstancedMesh for all nodes. */
+  nodesInstanced: NodesInstanced;
   elementGroups: Map<number, THREE.Group>;
   supportGizmos: Map<number, THREE.Group>;
   shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
@@ -77,27 +78,27 @@ export function syncNodes(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeNodes = modelStore.nodes;
   const project2D = projectFlag();
+  const ni = ctx.nodesInstanced;
 
-  // Remove nodes no longer in store
-  for (const [id, mesh] of ctx.nodeMeshes) {
-    if (!storeNodes.has(id)) {
-      ctx.nodesParent.remove(mesh);
-      disposeObject(mesh);
-      ctx.nodeMeshes.delete(id);
-    }
+  // Remove nodes no longer in store. Collect first — remove() mutates indices.
+  const toRemove: number[] = [];
+  for (const [id] of iterateIds(ni)) {
+    if (!storeNodes.has(id)) toRemove.push(id);
   }
+  for (const id of toRemove) ni.remove(id);
 
   // Add/update nodes
   for (const [id, node] of storeNodes) {
     const pos = projectNodeToScene(node, project2D);
-    const existing = ctx.nodeMeshes.get(id);
-    if (existing) {
-      updateNodePosition(existing, pos.x, pos.y, pos.z);
-    } else {
-      const mesh = createNodeMesh(pos.x, pos.y, pos.z, { nodeId: id });
-      ctx.nodesParent.add(mesh);
-      ctx.nodeMeshes.set(id, mesh);
-    }
+    ni.upsert(id, pos.x, pos.y, pos.z);
+  }
+}
+
+/** Enumerate (id, index) pairs in insertion order. Exposed for syncNodes. */
+function* iterateIds(ni: NodesInstanced): IterableIterator<[number, number]> {
+  for (let i = 0; i < ni.count; i++) {
+    const id = ni.nodeIdAt(i);
+    if (id !== null) yield [id, i];
   }
 }
 
@@ -488,10 +489,12 @@ export function syncSelection(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
   // Nodes
-  for (const [id, mesh] of ctx.nodeMeshes) {
+  const ni = ctx.nodesInstanced;
+  for (let i = 0; i < ni.count; i++) {
+    const id = ni.nodeIdAt(i);
+    if (id === null) continue;
     const selected = uiStore.selectedNodes.has(id);
-    const color = selected ? COLORS.nodeSelected : COLORS.node;
-    setMeshColor(mesh, color);
+    ni.setBaseColor(id, selected ? COLORS.nodeSelected : COLORS.node);
   }
 
   // Elements
