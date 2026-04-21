@@ -11,6 +11,7 @@
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
   import { ElementsBatched } from '../lib/three/elements-batched';
+  import { ElementsPicking } from '../lib/three/elements-picking';
   import { resolveHitUserData } from '../lib/viewport3d/picking';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
@@ -39,6 +40,7 @@
   // ─── Scene graph maps (reconciled with store) ────────────────
   let nodesInstanced = new NodesInstanced();
   let elementsBatched = new ElementsBatched();
+  let elementsPicking = new ElementsPicking();
   let elementGroups = new Map<number, THREE.Group>();
   let supportGizmos = new Map<number, THREE.Group>();
   let deformedGroup: THREE.Group | null = null;
@@ -198,6 +200,7 @@
     elementsParent = new THREE.Group();
     elementsParent.name = 'elements';
     elementsParent.add(elementsBatched.mesh);
+    elementsParent.add(elementsPicking.mesh);
     supportsParent = new THREE.Group();
     supportsParent.name = 'supports';
     loadsParent = new THREE.Group();
@@ -593,7 +596,7 @@
     sceneCtx = {
       initialized: false,
       nodesParent, elementsParent, supportsParent, loadsParent, resultsParent, shellsParent, scene,
-      nodesInstanced, elementsBatched, elementGroups, supportGizmos,
+      nodesInstanced, elementsBatched, elementsPicking, elementGroups, supportGizmos,
       shellGroups: new Map(),
       loadGroup: null,
       colorMapApplied: false,
@@ -930,7 +933,7 @@
 
     const elemHits = raycaster.intersectObjects(elementsParent.children, true);
     for (const hit of elemHits) {
-      const ud = findUserData(hit.object);
+      const ud = resolveHitUserData(hit);
       if (ud?.type === 'element') {
         uiStore.contextMenu = { x: e.clientX, y: e.clientY, elementId: ud.id };
         return;
@@ -1453,7 +1456,7 @@
     if (uiStore.selectMode === 'stress' && resultsStore.results3D) {
       const elemHits = raycaster.intersectObjects(elementsParent.children, true);
       for (const hit of elemHits) {
-        const ud = findUserData(hit.object);
+        const ud = resolveHitUserData(hit);
         if (ud?.type === 'element') {
           const elem = modelStore.elements.get(ud.id);
           if (!elem) continue;
@@ -1501,7 +1504,7 @@
     }
 
     for (const hit of elemHits) {
-      const ud = findUserData(hit.object);
+      const ud = resolveHitUserData(hit);
       if (ud?.type === 'element') {
         uiStore.selectElement(ud.id, addToSel);
         // Sync with DSM Matrix Explorer if wizard is open

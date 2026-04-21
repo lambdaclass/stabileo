@@ -137,10 +137,8 @@ export function createElementGroup(
     group.add(line);
   }
 
-  // Invisible picking helper for wireframe/truss lines (Line2 raycast is unreliable)
-  if (mode === 'wireframe' || opts.elementType === 'truss') {
-    addPickingHelper(group, nI, nJ, mx, my, mz, length);
-  }
+  // Picking: a single BVH-accelerated InstancedMesh (ElementsPicking) now
+  // serves raycasts for all elements, so no per-group picking helper needed.
 
   // Hinges: small wireframe circles at the ends
   if (opts.hingeStart) {
@@ -192,32 +190,6 @@ function orientCylinder(
   const quat = new THREE.Quaternion();
   quat.setFromUnitVectors(THREEJS_CYLINDER_AXIS, dir);
   cyl.quaternion.copy(quat);
-}
-
-/** Add a transparent cylinder for raycast picking (Line2 raycast is unreliable in wireframe mode) */
-function addPickingHelper(
-  group: THREE.Group,
-  nI: { x: number; y: number; z: number },
-  nJ: { x: number; y: number; z: number },
-  mx: number, my: number, mz: number,
-  length: number,
-): void {
-  const radius = 0.15; // generous picking radius
-  const geo = new THREE.CylinderGeometry(radius, radius, length, 6);
-  const mat = new THREE.MeshBasicMaterial({
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  });
-  const cyl = new THREE.Mesh(geo, mat);
-  cyl.position.set(mx, my, mz);
-  orientCylinder(cyl, nI, nJ);
-  cyl.renderOrder = -1; // render behind everything
-  cyl.userData.pickingHelper = true;
-  // Hide from render pipeline entirely — one less draw call per wireframe/truss
-  // element. Raycaster ignores `visible` by default, so picking still works.
-  cyl.visible = false;
-  group.add(cyl);
 }
 
 /** Create a small wireframe sphere to indicate a hinge */

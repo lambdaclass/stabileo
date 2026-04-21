@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { NodesInstanced } from '../three/nodes-instanced';
 import { ElementsBatched } from '../three/elements-batched';
+import { ElementsPicking } from '../three/elements-picking';
 import { createElementGroup } from '../three/create-element-mesh';
 import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
@@ -64,6 +65,8 @@ export interface SceneSyncContext {
   nodesInstanced: NodesInstanced;
   /** Batched element rendering (wireframe mode) — one LineSegments2 for all. */
   elementsBatched: ElementsBatched;
+  /** BVH-accelerated picking surface — one InstancedMesh of invisible cylinders. */
+  elementsPicking: ElementsPicking;
   elementGroups: Map<number, THREE.Group>;
   supportGizmos: Map<number, THREE.Group>;
   shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
@@ -113,14 +116,16 @@ export function syncElements(ctx: SceneSyncContext): void {
   const project2D = projectFlag();
   const renderMode = uiStore.renderMode3D;
   const eb = ctx.elementsBatched;
+  const ep = ctx.elementsPicking;
 
-  // Remove stale (both groups and batched segments)
+  // Remove stale (groups, batched segments, picking instances)
   for (const [id, group] of ctx.elementGroups) {
     if (!storeElements.has(id)) {
       ctx.elementsParent.remove(group);
       disposeObject(group);
       ctx.elementGroups.delete(id);
       eb.remove(id);
+      ep.remove(id);
     }
   }
 
@@ -138,6 +143,8 @@ export function syncElements(ctx: SceneSyncContext): void {
     // Always maintain the batched wireframe segment so toggling render mode
     // doesn't require a full rebuild.
     eb.upsert(id, posI.x, posI.y, posI.z, posJ.x, posJ.y, posJ.z);
+    // BVH-accelerated picking surface (invisible) — kept in sync with positions.
+    ep.upsert(id, posI, posJ);
 
     const signature =
       `${renderMode}|${elem.type}|${elem.hingeStart ? 1 : 0}${elem.hingeEnd ? 1 : 0}` +
