@@ -109,6 +109,44 @@ export function runUnifiedVerification(
   return concrete;
 }
 
+// ─── Full Design Orchestration ────────────────────────────────
+
+import {
+  normalizeCirsoc201, buildDesignSummary,
+  type MemberDesignResult as MemberResult,
+} from './design-check-results';
+import { DESIGN_CODES, type DesignCodeId } from './codes/index';
+import { verificationStore } from '../store/verification.svelte';
+
+/**
+ * Run the complete CIRSOC design pipeline: verification + normalization + store update.
+ *
+ * This is the single entry point for Design tab's "Run Design" action when using
+ * CIRSOC. It replaces the multi-step inline logic that was in ProDesignTab.
+ *
+ * TEMPORARY Phase 1 bridge: Orchestrates JS-side verification + normalization.
+ * Phase 2 target: WASM verify_members returns VerificationReport directly;
+ * this function becomes a thin wrapper that stores the result.
+ */
+export function runCirsocDesign(
+  results3D: AnalysisResults3D,
+  model: AutoVerifyModelData,
+  stationDemands: Map<number, ElementDesignDemands> | undefined,
+  sectionNames: Map<number, string>,
+  governing: Map<number, GoverningPerElement3D> | null,
+): { normalized: MemberResult[]; concrete: ElementVerification[] } {
+  const concrete = runUnifiedVerification(results3D, model, governing, stationDemands);
+  const normalized = normalizeCirsoc201(concrete, sectionNames);
+
+  // Update stores — single source of truth
+  verificationStore.setConcrete(concrete);
+  const codeInfo = DESIGN_CODES.find(c => c.id === 'cirsoc');
+  const summaryData = buildDesignSummary(normalized, 'cirsoc', codeInfo?.label ?? 'CIRSOC');
+  verificationStore.setDesignResults(summaryData.results, summaryData);
+
+  return { normalized, concrete };
+}
+
 // ─── Steel Verification (reduced divergence) ─────────────────
 
 /**
