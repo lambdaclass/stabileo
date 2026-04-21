@@ -9,6 +9,7 @@
     type MemberDesignResult, type DesignCheckSummary, type CheckStatus,
   } from '../../lib/engine/design-check-results';
   import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
+  import { computeStationDemands, runUnifiedVerification } from '../../lib/engine/verification-service';
   import {
     extractElementStations, extractGoverningDemands, type ElementDesignDemands, type ElementStationResult,
     verifyProvidedReinforcement, rebarGroupArea, formatRebarGroup,
@@ -35,25 +36,10 @@
   interface BarSelection { elemId: number; region: 'start' | 'span' | 'end'; face: 'top' | 'bottom'; row: number; index: number; diameter: number }
   let selectedBar = $state<BarSelection | null>(null);
 
-  /** Station-based data for ALL elements — demands + raw station results for sweep. */
-  const allStationData = $derived.by((): { demands: Map<number, ElementDesignDemands>; stations: Map<number, ElementStationResult> } => {
-    const demands = new Map<number, ElementDesignDemands>();
-    const stations = new Map<number, ElementStationResult>();
-    if (!resultsStore.hasCombinations3D) return { demands, stations };
-    const perCombo = resultsStore.perCombo3D;
-    if (perCombo.size === 0) return { demands, stations };
-    const comboNames = new Map<number, string>();
-    for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
-    const firstCombo = perCombo.values().next().value;
-    if (!firstCombo) return { demands, stations };
-    for (const ef of firstCombo.elementForces) {
-      const esr = extractElementStations(ef.elementId, perCombo, comboNames);
-      if (esr) {
-        stations.set(ef.elementId, esr);
-        demands.set(ef.elementId, extractGoverningDemands(esr));
-      }
-    }
-    return { demands, stations };
+  /** Station-based data for ALL elements — computed via shared verification service. */
+  const allStationData = $derived.by(() => {
+    if (!resultsStore.hasCombinations3D) return { demands: new Map<number, ElementDesignDemands>(), stations: new Map<number, ElementStationResult>() };
+    return computeStationDemands(resultsStore.perCombo3D, modelStore.model.combinations);
   });
   const allStationDemands = $derived(allStationData.demands);
 
@@ -218,23 +204,16 @@
 
     try {
       if (selectedCode === 'cirsoc') {
-        // JS CIRSOC path — uses autoVerifyFromResults for RC
-        // Pass station-based demands when available (sign-aware, interior stations)
+        // Unified CIRSOC path via verification service (station-based when available)
         const governing = resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null;
-        const { concrete } = autoVerifyFromResults(results3D, {
-          elements: modelStore.elements,
-          nodes: modelStore.nodes,
-          sections: modelStore.sections,
-          materials: modelStore.materials,
-          supports: modelStore.supports,
-        }, governing, undefined, allStationDemands.size > 0 ? allStationDemands : undefined);
+        const concrete = runUnifiedVerification(
+          results3D,
+          { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
+          governing,
+          allStationDemands.size > 0 ? allStationDemands : undefined,
+        );
         const rcResults = normalizeCirsoc201(concrete, sectionNames);
-
-        // Also try CIRSOC 301 steel if available
-        // (Steel verification uses different input assembly — for now, RC is the primary CIRSOC path)
         normalized = rcResults;
-
-        // Also populate legacy store for viewport compatibility
         verificationStore.setConcrete(concrete);
       } else {
         // WASM path for all other codes
