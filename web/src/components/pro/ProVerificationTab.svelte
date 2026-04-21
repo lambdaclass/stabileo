@@ -11,14 +11,13 @@
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import type { QuantitySummary } from '../../lib/engine/quantity-takeoff';
-  import { verifySteelElement } from '../../lib/engine/codes/argentina/cirsoc301';
-  import type { SteelVerification, SteelVerificationInput, SteelDesignParams } from '../../lib/engine/codes/argentina/cirsoc301';
+  import type { SteelVerification } from '../../lib/engine/codes/argentina/cirsoc301';
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
   import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
   import { t } from '../../lib/i18n';
   import * as XLSX from 'xlsx';
-  import { computeStationDemands, runUnifiedVerification } from '../../lib/engine/verification-service';
+  import { computeStationDemands, runUnifiedVerification, runSteelVerification } from '../../lib/engine/verification-service';
 
   /** Normative code options for design checks */
   type NormativeCode = 'cirsoc' | 'aci-aisc' | 'eurocode' | 'nds' | 'masonry' | 'cfs';
@@ -186,30 +185,8 @@
     return n;
   });
 
-  interface EnvelopeSolicitations {
-    Mu: number; Vu: number; Nu: number;
-    Muy: number; Vz: number; Tu: number;
-  }
-
-  /** Get max absolute solicitations for an element across all combination results.
-   *  LEGACY: Only used by the CIRSOC 301 steel verification path.
-   *  RC verification now uses station-based demands via runUnifiedVerification(). */
-  function getEnvelopeSolicitations(elemId: number): EnvelopeSolicitations | null {
-    const envelope = resultsStore.fullEnvelope3D;
-    if (!envelope) return null;
-
-    const envForces = envelope.maxAbsResults3D.elementForces.find(ef => ef.elementId === elemId);
-    if (!envForces) return null;
-
-    return {
-      Mu: Math.max(Math.abs(envForces.mzStart), Math.abs(envForces.mzEnd)),
-      Vu: Math.max(Math.abs(envForces.vyStart), Math.abs(envForces.vyEnd)),
-      Nu: Math.max(Math.abs(envForces.nStart), Math.abs(envForces.nEnd)),
-      Muy: Math.max(Math.abs(envForces.myStart), Math.abs(envForces.myEnd)),
-      Vz: Math.max(Math.abs(envForces.vzStart), Math.abs(envForces.vzEnd)),
-      Tu: Math.max(Math.abs(envForces.mxStart), Math.abs(envForces.mxEnd)),
-    };
-  }
+  // getEnvelopeSolicitations removed — both RC and steel paths now use
+  // station-based demands via verification-service.ts
 
   /** Build generic check payload from model data for WASM-based design checks */
   function buildWasmCheckPayload() {
@@ -335,74 +312,12 @@
       lengths.set(ef.elementId, Math.sqrt(dx * dx + dy * dy + dz * dz));
     }
 
-    // LEGACY: Steel verification (CIRSOC 301) — still uses endpoint-only extraction.
-    // Phase 2 target: unify steel path through the same station-based service.
-    const steelVerifs: SteelVerification[] = [];
-    for (const ef of results.elementForces) {
-      const elem = modelStore.elements.get(ef.elementId);
-      if (!elem) continue;
-
-      const section = modelStore.sections.get(elem.sectionId);
-      const material = modelStore.materials.get(elem.materialId);
-      if (!section || !material) continue;
-
-      // Steel: fy > 80 MPa
-      if (!material.fy || material.fy <= 80) continue;
-
-      const nodeI = modelStore.nodes.get(elem.nodeI);
-      const nodeJ = modelStore.nodes.get(elem.nodeJ);
-      if (!nodeI || !nodeJ) continue;
-
-      const dx = nodeJ.x - nodeI.x;
-      const dy = nodeJ.y - nodeI.y;
-      const dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
-      const elementLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (elementLength <= 0) continue;
-
-      // Extract solicitations
-      let NuMax: number, MuzMax: number, MuyMax: number, VuMax: number;
-      const envSol = useEnvelope ? getEnvelopeSolicitations(ef.elementId) : null;
-      if (envSol) {
-        NuMax = envSol.Nu;
-        MuzMax = envSol.Mu;
-        MuyMax = envSol.Muy;
-        VuMax = Math.max(envSol.Vu, envSol.Vz);
-      } else {
-        NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-        const _mzM = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-        const _myM = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-        MuzMax = _mzM;
-        MuyMax = _myM;
-        VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-      }
-
-      const sdp: SteelDesignParams = {
-        Fy: material.fy,
-        Fu: (material as any).fu ?? (material.fy ?? material.e * 0.001) * 1.25,
-        E: material.e,
-        A: section.a,
-        Iz: section.iz,
-        Iy: section.iy ?? section.iz,
-        h: section.h ?? 0.3,
-        b: section.b ?? 0.15,
-        tw: section.tw ?? (section.b ? section.b / 10 : 0.01),
-        tf: section.tf ?? (section.b ? section.b / 15 : 0.01),
-        L: elementLength,
-        Lb: elementLength,
-        J: section.j ?? 0,
-      };
-
-      const steelInput: SteelVerificationInput = {
-        elementId: ef.elementId,
-        Nu: NuMax,
-        Muy: MuyMax,
-        Muz: MuzMax,
-        Vu: VuMax,
-        params: sdp,
-      };
-
-      steelVerifs.push(verifySteelElement(steelInput));
-    }
+    // Steel verification via shared service (uses station demands when available)
+    const steelVerifs = runSteelVerification(
+      results,
+      { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
+      stationData?.demands,
+    );
     steelVerifications = steelVerifs;
 
     // Check if there are any verifiable elements (including quads/plates for slabs)

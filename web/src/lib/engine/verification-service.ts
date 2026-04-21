@@ -28,8 +28,10 @@ import {
   type ElementStationResult,
 } from './station-design-forces';
 import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
-import type { ElementVerification } from './codes/argentina/cirsoc201';
+import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
+import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
 import type { GoverningPerElement3D } from './governing-case';
+import type { CheckStatus, MemberDesignResult, DesignCheckSummary } from './design-check-results';
 
 // ─── Station Demands ─────────────────────────────────────────
 
@@ -106,3 +108,129 @@ export function runUnifiedVerification(
   );
   return concrete;
 }
+
+// ─── Steel Verification (reduced divergence) ─────────────────
+
+/**
+ * Run CIRSOC 301 steel verification for all steel elements.
+ *
+ * TEMPORARY Phase 1 bridge: Uses station-based demands for force extraction
+ * (same source as RC), reducing the divergence with the RC path. The verification
+ * itself is still JS-side cirsoc301.ts.
+ *
+ * Phase 2 target: Unified WASM verify_members handles both RC and steel.
+ */
+export function runSteelVerification(
+  results3D: AnalysisResults3D,
+  model: AutoVerifyModelData,
+  stationDemands?: Map<number, ElementDesignDemands>,
+): SteelVerification[] {
+  const verifs: SteelVerification[] = [];
+
+  for (const ef of results3D.elementForces) {
+    const elem = model.elements.get(ef.elementId);
+    if (!elem) continue;
+    const section = model.sections.get(elem.sectionId);
+    const material = model.materials.get(elem.materialId);
+    if (!section || !material) continue;
+    if (!material.fy || material.fy <= 80) continue; // RC, not steel
+
+    const nI = model.nodes.get(elem.nodeI);
+    const nJ = model.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) continue;
+    const dx = nJ.x - nI.x, dy = nJ.y - nI.y, dz = (nJ.z ?? 0) - (nI.z ?? 0);
+    const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (L <= 0) continue;
+
+    // Use station demands when available (same path as RC), fallback to endpoints
+    let NuMax: number, MuzMax: number, MuyMax: number, VuMax: number;
+    const sd = stationDemands?.get(ef.elementId);
+    if (sd) {
+      const dems = sd.demands;
+      NuMax = Math.max(
+        dems.find(d => d.category === 'N_compression')?.value ?? 0,
+        dems.find(d => d.category === 'N_tension')?.value ?? 0,
+      );
+      MuzMax = Math.max(
+        dems.find(d => d.category === 'Mz+')?.value ?? 0,
+        dems.find(d => d.category === 'Mz-')?.value ?? 0,
+      );
+      MuyMax = Math.max(
+        dems.find(d => d.category === 'My+')?.value ?? 0,
+        dems.find(d => d.category === 'My-')?.value ?? 0,
+      );
+      VuMax = Math.max(
+        dems.find(d => d.category === 'Vy')?.value ?? 0,
+        dems.find(d => d.category === 'Vz')?.value ?? 0,
+      );
+    } else {
+      // Endpoint fallback (same as legacy path)
+      NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+      MuzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+      MuyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+      VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
+    }
+
+    const sdp: SteelDesignParams = {
+      Fy: material.fy,
+      Fu: (material as any).fu ?? material.fy * 1.25,
+      E: material.e,
+      A: section.a,
+      Iz: section.iz,
+      Iy: section.iy ?? section.iz,
+      h: section.h ?? 0.3,
+      b: section.b ?? 0.15,
+      tw: (section as any).tw ?? (section.b ? section.b / 10 : 0.01),
+      tf: (section as any).tf ?? (section.b ? section.b / 15 : 0.01),
+      L, Lb: L,
+      J: section.j ?? 0,
+    };
+
+    verifs.push(verifySteelElement({
+      elementId: ef.elementId, Nu: NuMax, Muy: MuyMax, Muz: MuzMax, Vu: VuMax, params: sdp,
+    }));
+  }
+
+  return verifs;
+}
+
+// ─── Unified VerificationReport ──────────────────────────────
+
+/**
+ * Unified verification report — app-side shape that mirrors the eventual
+ * solver-side VerificationReport (§13.6 of SOLVER_APP_COVERAGE_MAP.md).
+ *
+ * Phase 1 (current): Assembled from JS-side verification results.
+ * Phase 2 target: Returned directly from WASM verify_members.
+ *
+ * The shape is designed so that when the solver takes over:
+ *   - `elements` maps directly to the Rust VerificationReport.elements
+ *   - `summary` maps to aggregate counts
+ *   - UI components consume this without knowing the source (JS or WASM)
+ */
+export interface VerificationReport {
+  /** Code used for this verification run */
+  codeId: string;
+  codeName: string;
+  /** Per-element normalized results (same shape regardless of source) */
+  elements: MemberDesignResult[];
+  /** Aggregate summary */
+  summary: DesignCheckSummary;
+  /** Station-based demands used for this run (absent in future WASM path) */
+  stationData?: StationDemandData;
+  /** Legacy CIRSOC-specific results (kept during Phase 1 for detailed memos/drawings) */
+  concreteDetails?: ElementVerification[];
+  /** Legacy CIRSOC 301 steel results */
+  steelDetails?: SteelVerification[];
+}
+
+/**
+ * Build a complete VerificationReport from the current app-side verification flow.
+ *
+ * This is the single function that assembles everything — demands, RC verification,
+ * steel verification, normalization — into one report. Components should call this
+ * instead of assembling pieces themselves.
+ *
+ * TEMPORARY Phase 1 bridge: Orchestrates multiple JS-side verification calls.
+ * Phase 2 target: Single WASM call returns the report directly.
+ */
