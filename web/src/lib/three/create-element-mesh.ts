@@ -71,21 +71,9 @@ export function createElementGroup(
   }
 
   if (mode === 'wireframe') {
-    // All elements as fat lines (Line2 — real screen-space width)
-    const geo = new LineGeometry();
-    geo.setPositions([nI.x, nI.y, nI.z, nJ.x, nJ.y, nJ.z]);
-    const mat = new LineMaterial({
-      color: baseColor,
-      linewidth: 3,
-      worldUnits: false,
-      resolution: fatLineResolution,
-    });
-    const line = new Line2(geo, mat);
-    line.computeLineDistances();
-    // Line2 raycast walks every segment in JS — expensive on large fixtures.
-    // Picking is served by the helper cylinder below, so disable it here.
-    line.raycast = () => {};
-    group.add(line);
+    // Wireframe visual: rendered by the shared ElementsBatched LineSegments2
+    // — one draw call for every element. This group only carries the picking
+    // helper (added below) and hinges.
   } else if (opts.elementType === 'frame') {
     if (mode === 'sections') {
       // Try extruded section profile

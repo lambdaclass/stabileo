@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { NodesInstanced } from '../three/nodes-instanced';
+import { ElementsBatched } from '../three/elements-batched';
 import { createElementGroup } from '../three/create-element-mesh';
 import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
@@ -61,6 +62,8 @@ export interface SceneSyncContext {
   // Reconciliation maps (mutated in place)
   /** Batched node rendering — one InstancedMesh for all nodes. */
   nodesInstanced: NodesInstanced;
+  /** Batched element rendering (wireframe mode) — one LineSegments2 for all. */
+  elementsBatched: ElementsBatched;
   elementGroups: Map<number, THREE.Group>;
   supportGizmos: Map<number, THREE.Group>;
   shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
@@ -108,17 +111,18 @@ export function syncElements(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeElements = modelStore.elements;
   const project2D = projectFlag();
+  const renderMode = uiStore.renderMode3D;
+  const eb = ctx.elementsBatched;
 
-  // Remove stale
+  // Remove stale (both groups and batched segments)
   for (const [id, group] of ctx.elementGroups) {
     if (!storeElements.has(id)) {
       ctx.elementsParent.remove(group);
       disposeObject(group);
       ctx.elementGroups.delete(id);
+      eb.remove(id);
     }
   }
-
-  const renderMode = uiStore.renderMode3D;
 
   // Signature captures everything that forces a rebuild of the element mesh:
   // endpoint positions, type, hinges, section geometry, roll, render mode.
@@ -130,6 +134,11 @@ export function syncElements(ctx: SceneSyncContext): void {
     const sec = modelStore.sections.get(elem.sectionId);
     const posI = projectNodeToScene(nI, project2D);
     const posJ = projectNodeToScene(nJ, project2D);
+
+    // Always maintain the batched wireframe segment so toggling render mode
+    // doesn't require a full rebuild.
+    eb.upsert(id, posI.x, posI.y, posI.z, posJ.x, posJ.y, posJ.z);
+
     const signature =
       `${renderMode}|${elem.type}|${elem.hingeStart ? 1 : 0}${elem.hingeEnd ? 1 : 0}` +
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
@@ -161,6 +170,10 @@ export function syncElements(ctx: SceneSyncContext): void {
     ctx.elementsParent.add(group);
     ctx.elementGroups.set(id, group);
   }
+
+  // Only the wireframe primary renders the batched LineSegments2.
+  eb.mesh.visible = renderMode === 'wireframe';
+  eb.flush();
 }
 
 // ─── Supports ────────────────────────────────────────────────
@@ -499,6 +512,7 @@ export function syncSelection(ctx: SceneSyncContext): void {
 
   // Elements
   const wireframe = uiStore.renderMode3D === 'wireframe';
+  const eb = ctx.elementsBatched;
   for (const [id, group] of ctx.elementGroups) {
     const selected = uiStore.selectedElements.has(id);
     const elem = modelStore.elements.get(id);
@@ -509,7 +523,12 @@ export function syncSelection(ctx: SceneSyncContext): void {
       : (isTruss ? COLORS.truss : COLORS.frame);
     const color = selected ? COLORS.elementSelected : baseColor;
     setGroupColor(group, color);
+    // Wireframe mode: batched LineSegments2 carries the visual, so push the
+    // color into it as well. In solid/sections, the batched mesh is hidden
+    // but we keep the base color in sync for toggle-back.
+    eb.setBaseColor(id, color);
   }
+  eb.flush();
 
   // Supports
   for (const [id, gizmo] of ctx.supportGizmos) {

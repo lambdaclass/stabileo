@@ -10,6 +10,7 @@
   import { fatLineResolution } from '../lib/three/create-element-mesh';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
+  import { ElementsBatched } from '../lib/three/elements-batched';
   import { resolveHitUserData } from '../lib/viewport3d/picking';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
@@ -37,6 +38,7 @@
 
   // ─── Scene graph maps (reconciled with store) ────────────────
   let nodesInstanced = new NodesInstanced();
+  let elementsBatched = new ElementsBatched();
   let elementGroups = new Map<number, THREE.Group>();
   let supportGizmos = new Map<number, THREE.Group>();
   let deformedGroup: THREE.Group | null = null;
@@ -195,6 +197,7 @@
     nodesParent.add(nodesInstanced.mesh);
     elementsParent = new THREE.Group();
     elementsParent.name = 'elements';
+    elementsParent.add(elementsBatched.mesh);
     supportsParent = new THREE.Group();
     supportsParent.name = 'supports';
     loadsParent = new THREE.Group();
@@ -590,7 +593,7 @@
     sceneCtx = {
       initialized: false,
       nodesParent, elementsParent, supportsParent, loadsParent, resultsParent, shellsParent, scene,
-      nodesInstanced, elementGroups, supportGizmos,
+      nodesInstanced, elementsBatched, elementGroups, supportGizmos,
       shellGroups: new Map(),
       loadGroup: null,
       colorMapApplied: false,
@@ -1790,8 +1793,15 @@
         } else {
           const selected = uiStore.selectedElements.has(data.id);
           const elem = modelStore.elements.get(data.id);
-          const base = elem?.type === 'truss' ? COLORS.truss : COLORS.frame;
-          setGroupColor(group, selected ? COLORS.elementSelected : base);
+          const wireframe = uiStore.renderMode3D === 'wireframe';
+          const isTruss = elem?.type === 'truss';
+          const base = wireframe
+            ? (isTruss ? 0xf0b848 : 0x6cb4ff)
+            : (isTruss ? COLORS.truss : COLORS.frame);
+          const color = selected ? COLORS.elementSelected : base;
+          setGroupColor(group, color);
+          elementsBatched.setBaseColor(data.id, color);
+          elementsBatched.flush();
         }
       }
     } else if (data.type === 'support') {
@@ -1813,6 +1823,8 @@
         const dt = resultsStore.diagramType;
         if (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification') {
           setGroupColor(group, COLORS.elementHovered);
+          elementsBatched.setColor(data.id, COLORS.elementHovered);
+          elementsBatched.flush();
         }
       }
     } else if (data.type === 'support') {
