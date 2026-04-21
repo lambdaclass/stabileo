@@ -21,6 +21,7 @@
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { buildProxyPositions } from '../lib/viewport3d/elements-proxy';
+  import { applyLowDetail } from '../lib/viewport3d/lod';
 
   let container: HTMLDivElement;
   let renderer: THREE.WebGLRenderer;
@@ -506,19 +507,11 @@
       elementsProxyVersion = cacheKey;
     }
     function setLowDetail(on: boolean): void {
-      if (nodesParent) nodesParent.visible = !on;
-      if (supportsParent) supportsParent.visible = !on;
-      if (loadsParent) loadsParent.visible = !on;
-      if (resultsParent) resultsParent.visible = !on;
-      if (shellsParent) shellsParent.visible = !on;
-      if (on) {
-        ensureElementsProxy();
-        if (elementsParent) elementsParent.visible = false;
-        if (elementsProxy) elementsProxy.visible = true;
-      } else {
-        if (elementsParent) elementsParent.visible = true;
-        if (elementsProxy) elementsProxy.visible = false;
-      }
+      if (on) ensureElementsProxy();
+      applyLowDetail(on, {
+        nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
+        elementsParent, elementsProxy,
+      });
     }
     controls.addEventListener('start', () => {
       isOrbiting = true;
