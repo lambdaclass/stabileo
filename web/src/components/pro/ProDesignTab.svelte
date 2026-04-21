@@ -3,13 +3,11 @@
   import { t } from '../../lib/i18n';
   import { DESIGN_CODES, type DesignCodeId } from '../../lib/engine/codes/index';
   import {
-    normalizeCirsoc201, normalizeCirsoc301,
     normalizeWasmSteel, normalizeWasmRC,
     buildDesignSummary,
     type MemberDesignResult, type DesignCheckSummary, type CheckStatus,
   } from '../../lib/engine/design-check-results';
-  import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
-  import { computeStationDemands, runUnifiedVerification } from '../../lib/engine/verification-service';
+  import { computeStationDemands, runCirsocDesign } from '../../lib/engine/verification-service';
   import {
     extractElementStations, extractGoverningDemands, type ElementDesignDemands, type ElementStationResult,
     verifyProvidedReinforcement, rebarGroupArea, formatRebarGroup,
@@ -122,7 +120,7 @@
       const fitIssues = pv?.checks.filter(c => c.category.startsWith('Fit:') && c.status === 'fail').length ?? 0;
       const strengthFails = pv?.checks.filter(c => !c.category.startsWith('Fit:') && c.status === 'fail').length ?? 0;
       // Count geometry-driven constructibility issues from layouts
-      const v = verificationStore.concrete.find(c => c.elementId === id);
+      const v = verificationStore.concreteMap.get(id);
       let constrIssues = 0;
       if (v?.b && v?.h && reg) {
         const tsL = resolveLayers(reg.topStartLayers, reg.topStart ?? elem.reinforcement.top);
@@ -204,17 +202,15 @@
 
     try {
       if (selectedCode === 'cirsoc') {
-        // Unified CIRSOC path via verification service (station-based when available)
+        // Single-call CIRSOC design via verification service
         const governing = resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null;
-        const concrete = runUnifiedVerification(
+        const { normalized: rcResults } = runCirsocDesign(
           results3D,
           { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
-          governing,
           allStationDemands.size > 0 ? allStationDemands : undefined,
+          sectionNames, governing,
         );
-        const rcResults = normalizeCirsoc201(concrete, sectionNames);
         normalized = rcResults;
-        verificationStore.setConcrete(concrete);
       } else {
         // WASM path for all other codes
         const payload = buildCheckPayload();
@@ -270,9 +266,12 @@
         }
       }
 
-      const codeInfo = DESIGN_CODES.find(c => c.id === selectedCode);
-      const summaryData = buildDesignSummary(normalized, selectedCode, codeInfo?.label ?? selectedCode);
-      verificationStore.setDesignResults(summaryData.results, summaryData);
+      // For non-CIRSOC codes, update the design results store (CIRSOC handled inside runCirsocDesign)
+      if (selectedCode !== 'cirsoc') {
+        const codeInfo = DESIGN_CODES.find(c => c.id === selectedCode);
+        const summaryData = buildDesignSummary(normalized, selectedCode, codeInfo?.label ?? selectedCode);
+        verificationStore.setDesignResults(summaryData.results, summaryData);
+      }
 
       // Activate verification overlay in viewport
       resultsStore.diagramType = 'verification';
@@ -365,7 +364,7 @@
 
   /** Accept auto-designed reinforcement as provided (copies from verification result). */
   function acceptAutoDesign(elemId: number) {
-    const v = verificationStore.concrete.find(c => c.elementId === elemId);
+    const v = verificationStore.concreteMap.get(elemId);
     if (!v) return;
     const reinf: ProvidedReinforcement = {};
     if (v.elementType === 'beam' || v.elementType === 'wall') {
@@ -418,7 +417,7 @@
   function getProvidedVerification(elemId: number): ProvidedRebarResult | null {
     const elem = modelStore.elements.get(elemId);
     if (!elem?.reinforcement) return null;
-    const v = verificationStore.concrete.find(c => c.elementId === elemId);
+    const v = verificationStore.concreteMap.get(elemId);
     if (!v) return null;
     const demands = allStationDemands.get(elemId);
     // Pass section data for capacity-based recalculation (CIRSOC 201 φMn/φVn)
@@ -507,7 +506,7 @@
 
   /** Auto-split bars into rows based on section width. */
   function autoSplitRows(elemId: number, field: LayerField) {
-    const v = verificationStore.concrete.find(c => c.elementId === elemId);
+    const v = verificationStore.concreteMap.get(elemId);
     if (!v?.b) return;
     const layers = getRegionLayers(elemId, field);
     if (layers.length === 0) return;
@@ -534,7 +533,7 @@
 
   /** Quick row-fit check for a single layer (for inline editor warnings). */
   function rowFits(elemId: number, layer: RebarLayer): boolean {
-    const v = verificationStore.concrete.find(c => c.elementId === elemId);
+    const v = verificationStore.concreteMap.get(elemId);
     if (!v?.b) return true; // can't check without section
     const stirDia_m = (v.shear?.stirrupDia ?? 8) / 1000;
     const cover = v.cover ?? 0.025;
@@ -1340,7 +1339,7 @@
                           {/if}
                         {/if}
                         <!-- ─── Verification Section (rich — matches report content) ─── -->
-                        {@const v = verificationStore.concrete.find(c => c.elementId === r.elementId)}
+                        {@const v = verificationStore.concreteMap.get(r.elementId)}
                         {#if provVerif && provVerif.checks.length > 0}
                           {@const inlineUtil = pvUtilization != null ? pvUtilization : r.utilization}
                           {@const utilSource = pvUtilization != null ? 'provided' : 'design-check'}
