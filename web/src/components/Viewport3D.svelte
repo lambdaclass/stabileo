@@ -16,6 +16,7 @@
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
+  import { buildProxyPositions } from '../lib/viewport3d/elements-proxy';
 
   let container: HTMLDivElement;
   let renderer: THREE.WebGLRenderer;
@@ -460,15 +461,17 @@
     let elementsProxyVersion = -1;
     function ensureElementsProxy(): void {
       const currentVersion = modelStore.modelVersion;
-      if (elementsProxy && elementsProxyVersion === currentVersion) return;
-      // Rebuild from the current model. Pair of xyz per segment.
-      const positions: number[] = [];
-      for (const el of modelStore.elements.values()) {
-        const ni = modelStore.getNode(el.nodeI);
-        const nj = modelStore.getNode(el.nodeJ);
-        if (!ni || !nj) continue;
-        positions.push(ni.x, ni.y, ni.z ?? 0, nj.x, nj.y, nj.z ?? 0);
-      }
+      // Key the cache on presentation too — flipping upright2dIn3d ↔ native3d
+      // changes whether nodes project through (x,y)→(x,0,y), so a proxy built
+      // under one presentation is wrong under the other.
+      const presentation = uiStore.viewportPresentation3D;
+      const cacheKey = currentVersion * 10 + (presentation === 'upright2dIn3d' ? 1 : 0);
+      if (elementsProxy && elementsProxyVersion === cacheKey) return;
+      const positions = buildProxyPositions(
+        modelStore.elements.values(),
+        (id) => modelStore.getNode(id),
+        shouldProject2DModel(),
+      );
       if (elementsProxy) {
         elementsProxy.geometry.dispose();
         (elementsProxy.material as LineMaterial).dispose();
@@ -476,7 +479,7 @@
         elementsProxy = null;
       }
       if (positions.length === 0) {
-        elementsProxyVersion = currentVersion;
+        elementsProxyVersion = cacheKey;
         return;
       }
       const geo = new LineSegmentsGeometry();
@@ -491,7 +494,7 @@
       elementsProxy.raycast = () => {}; // never picked — only visible during orbit
       elementsProxy.visible = false;
       scene.add(elementsProxy);
-      elementsProxyVersion = currentVersion;
+      elementsProxyVersion = cacheKey;
     }
     function setLowDetail(on: boolean): void {
       if (nodesParent) nodesParent.visible = !on;
