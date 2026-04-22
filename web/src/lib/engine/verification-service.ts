@@ -272,3 +272,74 @@ export interface VerificationReport {
  * TEMPORARY Phase 1 bridge: Orchestrates multiple JS-side verification calls.
  * Phase 2 target: Single WASM call returns the report directly.
  */
+
+// ─── Code-Specific Detail Adapter ────────────────────────────
+
+/**
+ * Render-ready code-specific detail for one element.
+ *
+ * TRANSITIONAL: This shape wraps CIRSOC-specific ElementVerification fields
+ * that components need for memos, interaction diagrams, and detailing.
+ * Phase 2: solver returns this as part of VerificationReport.elements[].detail.
+ */
+export interface CodeDetail {
+  /** Calculation memo sections (each is { title: string, steps: string[] }) */
+  memos: Array<{ title: string; steps: string[] }>;
+  /** Interaction diagram data (columns only) */
+  interactionParams?: {
+    b: number; h: number; fc: number; fy: number; cover: number;
+    AsProv: number; barCount: number; barDia: number;
+    Nu: number; Mu: number;
+  };
+  /** Detailing info */
+  detailing?: {
+    bars: Array<{ diameter: number; ld: number; ldh: number; lapSplice: number }>;
+    minClearSpacing: number;
+  };
+  /** Slenderness factors (columns) */
+  slender?: {
+    k: number; lu: number; r: number; klu_r: number; lambda_lim: number;
+    isSlender: boolean; delta_ns: number;
+    steps: string[];
+  };
+}
+
+/**
+ * Extract render-ready code-specific detail for one element from the transitional
+ * concreteMap. Components call this instead of reaching into concreteMap directly.
+ *
+ * TRANSITIONAL adapter: Phase 2 eliminates this — VerificationReport includes detail.
+ */
+export function getCodeDetail(elementId: number): CodeDetail | null {
+  const v = verificationStore.concreteMap.get(elementId);
+  if (!v) return null;
+
+  const memos: CodeDetail['memos'] = [];
+  if (v.flexure?.steps?.length) memos.push({ title: 'Flexure', steps: v.flexure.steps });
+  if (v.shear?.steps?.length) memos.push({ title: 'Shear', steps: v.shear.steps });
+  if (v.column?.steps?.length) memos.push({ title: 'Flexo-compression', steps: v.column.steps });
+  if (v.torsion?.steps?.length) memos.push({ title: `Torsion${v.torsion.neglect ? ' (negligible)' : ''}`, steps: v.torsion.steps });
+  if (v.biaxial?.steps?.length) memos.push({ title: 'Biaxial (Bresler)', steps: v.biaxial.steps });
+
+  const interactionParams = v.column ? {
+    b: v.b, h: v.h, fc: v.fc, fy: 420,
+    cover: v.cover + (v.shear.stirrupDia / 2000) + (v.flexure.barDia / 2000),
+    AsProv: v.column.AsProv, barCount: v.column.barCount,
+    barDia: v.column.barDia ?? v.flexure.barDia,
+    Nu: v.Nu, Mu: v.Mu,
+  } : undefined;
+
+  const detailing = v.detailing ? {
+    bars: v.detailing.bars.map(b => ({ diameter: b.diameter, ld: b.ld, ldh: b.ldh, lapSplice: b.lapSplice })),
+    minClearSpacing: v.detailing.minClearSpacing,
+  } : undefined;
+
+  const slender = v.slender ? {
+    k: v.slender.k, lu: v.slender.lu, r: v.slender.r,
+    klu_r: v.slender.klu_r, lambda_lim: v.slender.lambda_lim,
+    isSlender: v.slender.isSlender, delta_ns: v.slender.delta_ns,
+    steps: v.slender.steps,
+  } : undefined;
+
+  return { memos, interactionParams, detailing, slender };
+}
