@@ -1,4 +1,23 @@
 <script lang="ts">
+  /**
+   * DORMANT COMPONENT — not currently rendered in the active UI.
+   *
+   * ProRcWorkflowTab was simplified to render ProDesignTab only (per QA3).
+   * This component is retained as a reference for features that should be
+   * re-integrated into the Design workflow or service layer:
+   *   - Serviceability (cracking, deflection) — currently has Phase 1 bridges
+   *   - Quantities / bar marks — post-design detailing
+   *   - Slab reinforcement design
+   *   - Steel verification rendering (CIRSOC 301)
+   *   - Story drift
+   *   - Frame-line / column-stack elevations
+   *
+   * When reactivating these features:
+   *   - Read verification data from verificationStore (single source of truth)
+   *   - Do not re-introduce a local verifications array as a parallel state
+   *   - Use getCodeDetail() for code-specific rendering data
+   *   - Route verification through verification-service.ts
+   */
   import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { verifyElement, classifyElement, REBAR_DB, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
