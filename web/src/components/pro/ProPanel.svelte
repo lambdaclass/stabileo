@@ -5,8 +5,7 @@
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
-  import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
-  import { extractElementStations, extractGoverningDemands, type ElementDesignDemands } from '../../lib/engine/station-design-forces';
+  import { computeStationDemands as computeStationDemandsService, runUnifiedVerification } from '../../lib/engine/verification-service';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import { classifyElement } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -391,35 +390,19 @@
   const loadCount = $derived(modelStore.loads.length);
 
   /** Compute station-based demands for all elements (when per-combo data available) */
-  function computeStationDemands(): Map<number, ElementDesignDemands> {
-    const result = new Map<number, ElementDesignDemands>();
-    if (!resultsStore.hasCombinations3D) return result;
-    const perCombo = resultsStore.perCombo3D;
-    if (perCombo.size === 0) return result;
-    const comboNames = new Map<number, string>();
-    for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
-    const firstCombo = perCombo.values().next().value;
-    if (!firstCombo) return result;
-    for (const ef of firstCombo.elementForces) {
-      const esr = extractElementStations(ef.elementId, perCombo, comboNames);
-      if (esr) result.set(ef.elementId, extractGoverningDemands(esr));
-    }
-    return result;
-  }
-
-  /** Auto-run CIRSOC verification on current results (delegates to extracted utility) */
+  /** Auto-run CIRSOC verification on current results via unified service. */
   function autoVerify(): ElementVerification[] {
     const results = resultsStore.results3D;
     if (!results) return [];
-    const stationDemands = computeStationDemands();
-    const { concrete } = autoVerifyFromResults(
+    const stationData = resultsStore.hasCombinations3D
+      ? computeStationDemandsService(resultsStore.perCombo3D, modelStore.model.combinations)
+      : undefined;
+    return runUnifiedVerification(
       results,
       { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
       resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null,
-      undefined,
-      stationDemands.size > 0 ? stationDemands : undefined,
+      stationData?.demands,
     );
-    return concrete;
   }
 
   /** Serialize loads for the report */
