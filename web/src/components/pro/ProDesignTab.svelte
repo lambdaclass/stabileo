@@ -119,18 +119,19 @@
       const pv = getProvidedVerification(id);
       const fitIssues = pv?.checks.filter(c => c.category.startsWith('Fit:') && c.status === 'fail').length ?? 0;
       const strengthFails = pv?.checks.filter(c => !c.category.startsWith('Fit:') && c.status === 'fail').length ?? 0;
-      // Count geometry-driven constructibility issues from layouts
-      const v = verificationStore.concreteMap.get(id);
+      // Count geometry-driven constructibility issues from layouts (uses model geometry, not verification)
+      const sec = getElemSection(id);
+      const stirDia = elem.reinforcement.stirrups?.diameter ?? elem.reinforcement.regions?.stirrupsSupport?.diameter ?? sec.stirrupDia;
       let constrIssues = 0;
-      if (v?.b && v?.h && reg) {
+      if (sec.b && sec.h && reg) {
         const tsL = resolveLayers(reg.topStartLayers, reg.topStart ?? elem.reinforcement.top);
         const bsL = resolveLayers(reg.bottomSpanLayers, reg.bottomSpan ?? elem.reinforcement.bottom);
-        const layout = computeSectionLayout(tsL, bsL, v.b, v.h, v.cover, v.shear.stirrupDia);
+        const layout = computeSectionLayout(tsL, bsL, sec.b, sec.h, sec.cover, stirDia);
         constrIssues = layout.issues.length;
       }
       // Column constructibility
-      if (v?.b && v?.h && elem.reinforcement.longitudinal) {
-        const colLayout = computeColumnLayout(elem.reinforcement.longitudinal.count, elem.reinforcement.longitudinal.diameter, v.b, v.h, v.cover, v.shear.stirrupDia);
+      if (sec.b && sec.h && elem.reinforcement.longitudinal) {
+        const colLayout = computeColumnLayout(elem.reinforcement.longitudinal.count, elem.reinforcement.longitudinal.diameter, sec.b, sec.h, sec.cover, stirDia);
         constrIssues += colLayout.issues.length;
       }
       mods.push({ elemId: id, type: regions.length > 0 ? 'beam' : 'column', regions, fitIssues, strengthFails, constrIssues });
@@ -308,7 +309,9 @@
   let autoDesignedElems = $state(new Set<number>());
   let userModifiedElems = $state(new Set<number>());
 
-  /** Accept auto-design for ALL RC elements in one batch. */
+  /** Accept auto-design for ALL RC elements in one batch.
+   *  TRANSITIONAL: iterates concreteMap (CIRSOC-specific). Phase 2: VerificationReport
+   *  provides design proposals directly. */
   function acceptAutoDesignAll() {
     const concrete = verificationStore.concrete;
     let count = 0;
@@ -362,7 +365,9 @@
     }
   }
 
-  /** Accept auto-designed reinforcement as provided (copies from verification result). */
+  /** Accept auto-designed reinforcement as provided (copies from verification result).
+   *  TRANSITIONAL: Reads CIRSOC-specific auto-design proposal from concreteMap.
+   *  Phase 2: solver returns design proposals as part of VerificationReport. */
   function acceptAutoDesign(elemId: number) {
     const v = verificationStore.concreteMap.get(elemId);
     if (!v) return;
@@ -413,7 +418,10 @@
     setProvided(elemId, undefined);
   }
 
-  /** Get provided-reinforcement verification result for an element. */
+  /** Get provided-reinforcement verification result for an element.
+   *  TRANSITIONAL: Reads from concreteMap (CIRSOC-specific ElementVerification)
+   *  for auto-design reference values. Phase 2: solver returns these as part of
+   *  the unified VerificationReport, eliminating this dependency. */
   function getProvidedVerification(elemId: number): ProvidedRebarResult | null {
     const elem = modelStore.elements.get(elemId);
     if (!elem?.reinforcement) return null;
@@ -506,18 +514,16 @@
 
   /** Auto-split bars into rows based on section width. */
   function autoSplitRows(elemId: number, field: LayerField) {
-    const v = verificationStore.concreteMap.get(elemId);
-    if (!v?.b) return;
+    const sec = getElemSection(elemId);
+    if (!sec.b) return;
     const layers = getRegionLayers(elemId, field);
     if (layers.length === 0) return;
-    // Collapse to total count & dominant diameter
     const totalCount = layers.reduce((s, l) => s + l.count, 0);
     const dia = layers[0].diameter;
     const barDia_m = dia / 1000;
-    const cover = v.cover ?? 0.025;
-    const stirDia_m = (v.shear?.stirrupDia ?? 8) / 1000;
-    // Available width for bars
-    const avail = v.b - 2 * cover - 2 * stirDia_m;
+    const prov = getProvided(elemId);
+    const stirDia_m = (prov?.stirrups?.diameter ?? prov?.regions?.stirrupsSupport?.diameter ?? sec.stirrupDia) / 1000;
+    const avail = sec.b - 2 * sec.cover - 2 * stirDia_m;
     const minGap = Math.max(barDia_m, 0.025); // CIRSOC 201 §7.6
     const maxPerRow = Math.max(1, Math.floor((avail + minGap) / (barDia_m + minGap)));
     const nRows = Math.ceil(totalCount / maxPerRow);
@@ -533,11 +539,11 @@
 
   /** Quick row-fit check for a single layer (for inline editor warnings). */
   function rowFits(elemId: number, layer: RebarLayer): boolean {
-    const v = verificationStore.concreteMap.get(elemId);
-    if (!v?.b) return true; // can't check without section
-    const stirDia_m = (v.shear?.stirrupDia ?? 8) / 1000;
-    const cover = v.cover ?? 0.025;
-    const availW = v.b - 2 * cover - 2 * stirDia_m;
+    const sec = getElemSection(elemId);
+    if (!sec.b) return true;
+    const prov = getProvided(elemId);
+    const stirDia_m = (prov?.stirrups?.diameter ?? prov?.regions?.stirrupsSupport?.diameter ?? sec.stirrupDia) / 1000;
+    const availW = sec.b - 2 * sec.cover - 2 * stirDia_m;
     const barDia_m = layer.diameter / 1000;
     const minGap = Math.max(barDia_m, 0.025);
     const reqW = layer.count * barDia_m + Math.max(0, layer.count - 1) * minGap;
@@ -1339,6 +1345,8 @@
                           {/if}
                         {/if}
                         <!-- ─── Verification Section (rich — matches report content) ─── -->
+                        <!-- TRANSITIONAL: v is the CIRSOC-specific ElementVerification for memos/drawings/interaction.
+                             Phase 2: these render from VerificationReport.elements directly. -->
                         {@const v = verificationStore.concreteMap.get(r.elementId)}
                         {#if provVerif && provVerif.checks.length > 0}
                           {@const inlineUtil = pvUtilization != null ? pvUtilization : r.utilization}
