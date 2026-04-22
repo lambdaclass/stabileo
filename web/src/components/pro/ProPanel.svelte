@@ -77,7 +77,9 @@
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
   const activeTab = $derived(uiStore.proActiveTab as ProTab);
-  let verificationsRef = $state<ElementVerification[]>([]);
+  /** Verification results — derived from verificationStore (single source of truth).
+   *  No longer a local $state — reads directly from the store. */
+  const verificationsRef = $derived(verificationStore.concrete);
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
   let showReportDialog = $state(false);
@@ -429,10 +431,11 @@
     }
     if (!resultsStore.results3D) return;
 
-    // Auto-verify CIRSOC if not already done
-    if (verificationsRef.length === 0) {
-      verificationsRef = autoVerify();
-      verificationStore.setConcrete(verificationsRef);
+    // Auto-verify CIRSOC if not already done — writes to verificationStore, which
+    // updates verificationsRef (derived from store) automatically.
+    if (verificationStore.concrete.length === 0) {
+      const concrete = autoVerify();
+      verificationStore.setConcrete(concrete);
     }
 
     showReportDialog = true;
@@ -769,7 +772,7 @@
         {:else if activeTab === 'results'}
           <ProResultsTab />
         {:else if activeTab === 'design'}
-          <ProRcWorkflowTab bind:verifications={verificationsRef} />
+          <ProRcWorkflowTab />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
         {:else if activeTab === 'diagnostics'}
