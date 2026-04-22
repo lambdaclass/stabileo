@@ -7,7 +7,7 @@
     buildDesignSummary,
     type MemberDesignResult, type DesignCheckSummary, type CheckStatus,
   } from '../../lib/engine/design-check-results';
-  import { computeStationDemands, runCirsocDesign } from '../../lib/engine/verification-service';
+  import { computeStationDemands, runCirsocDesign, getCodeDetail } from '../../lib/engine/verification-service';
   import {
     extractElementStations, extractGoverningDemands, type ElementDesignDemands, type ElementStationResult,
     verifyProvidedReinforcement, rebarGroupArea, formatRebarGroup,
@@ -309,16 +309,14 @@
   let autoDesignedElems = $state(new Set<number>());
   let userModifiedElems = $state(new Set<number>());
 
-  /** Accept auto-design for ALL RC elements in one batch.
-   *  TRANSITIONAL: iterates concreteMap (CIRSOC-specific). Phase 2: VerificationReport
-   *  provides design proposals directly. */
+  /** Accept auto-design for ALL verified elements in one batch.
+   *  Iterates normalized designResults (not concrete-specific storage). */
   function acceptAutoDesignAll() {
-    const concrete = verificationStore.concrete;
     let count = 0;
-    for (const v of concrete) {
-      const elem = modelStore.elements.get(v.elementId);
+    for (const r of designResults) {
+      const elem = modelStore.elements.get(r.elementId);
       if (!elem?.reinforcement) {
-        acceptAutoDesign(v.elementId);
+        acceptAutoDesign(r.elementId);
         count++;
       }
     }
@@ -1345,9 +1343,7 @@
                           {/if}
                         {/if}
                         <!-- ─── Verification Section (rich — matches report content) ─── -->
-                        <!-- TRANSITIONAL: v is the CIRSOC-specific ElementVerification for memos/drawings/interaction.
-                             Phase 2: these render from VerificationReport.elements directly. -->
-                        {@const v = verificationStore.concreteMap.get(r.elementId)}
+                        {@const codeDetail = getCodeDetail(r.elementId)}
                         {#if provVerif && provVerif.checks.length > 0}
                           {@const inlineUtil = pvUtilization != null ? pvUtilization : r.utilization}
                           {@const utilSource = pvUtilization != null ? 'provided' : 'design-check'}
@@ -1383,70 +1379,51 @@
                             </tbody>
                           </table>
                         {/if}
-                        <!-- Interaction diagram (columns only — no live equivalent) -->
-                        {#if v && v.column}
-                          {@const diagParams = { b: v.b, h: v.h, fc: v.fc, fy: 420, cover: v.cover + v.shear.stirrupDia / 2000 + v.flexure.barDia / 2000, AsProv: v.column.AsProv, barCount: v.column.barCount, barDia: v.column.barDia ?? v.flexure.barDia } satisfies DiagramParams}
+                        <!-- Interaction diagram (columns only) -->
+                        {#if codeDetail?.interactionParams}
+                          {@const ip = codeDetail.interactionParams}
+                          {@const diagParams = { b: ip.b, h: ip.h, fc: ip.fc, fy: ip.fy, cover: ip.cover, AsProv: ip.AsProv, barCount: ip.barCount, barDia: ip.barDia } satisfies DiagramParams}
                           {@const diagram = generateInteractionDiagram(diagParams)}
                           <div class="verif-drawings">
                             <div class="verif-drawings-row">
                               <div class="verif-drawing-cell">
-                                {@html generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu }, 220, 280)}
+                                {@html generateInteractionSvg(diagram, { Nu: ip.Nu, Mu: ip.Mu }, 220, 280)}
                               </div>
                             </div>
                           </div>
                         {/if}
-                        {#if v}
-                          <!-- Detailed calculation memos (same content as report) -->
+                        {#if codeDetail}
+                          <!-- Calculation memos via code-detail adapter -->
                           <div class="verif-memos-title">CIRSOC 201 — Calculation Details</div>
                           <div class="verif-memos">
-                            <div class="memo-section">
-                              <div class="memo-title">{t('pro.flexure')}</div>
-                              {#each v.flexure.steps as step}<div class="memo-step">{step}</div>{/each}
-                            </div>
-                            <div class="memo-section">
-                              <div class="memo-title">{t('pro.shear')}</div>
-                              {#each v.shear.steps as step}<div class="memo-step">{step}</div>{/each}
-                            </div>
-                            {#if v.column}
+                            {#each codeDetail.memos as memo}
                               <div class="memo-section">
-                                <div class="memo-title">{t('pro.flexoCompression')}</div>
-                                {#each v.column.steps as step}<div class="memo-step">{step}</div>{/each}
+                                <div class="memo-title">{memo.title}</div>
+                                {#each memo.steps as step}<div class="memo-step">{step}</div>{/each}
                               </div>
-                            {/if}
-                            {#if v.torsion}
+                            {/each}
+                            {#if codeDetail.slender}
                               <div class="memo-section">
-                                <div class="memo-title">{t('pro.torsion')} {v.torsion.neglect ? t('pro.torsionNeglect') : ''}</div>
-                                {#each v.torsion.steps as step}<div class="memo-step">{step}</div>{/each}
-                              </div>
-                            {/if}
-                            {#if v.biaxial}
-                              <div class="memo-section">
-                                <div class="memo-title">{t('pro.biaxialBresler')}</div>
-                                {#each v.biaxial.steps as step}<div class="memo-step">{step}</div>{/each}
-                              </div>
-                            {/if}
-                            {#if v.slender}
-                              <div class="memo-section">
-                                <div class="memo-title">{t('pro.slenderness')} {v.slender.isSlender ? t('pro.slenderCol') : t('pro.shortCol')}</div>
+                                <div class="memo-title">Slenderness {codeDetail.slender.isSlender ? '(slender)' : '(short)'}</div>
                                 <div class="slender-factors">
-                                  <span>k = {v.slender.k.toFixed(2)}</span>
-                                  <span>Lu = {v.slender.lu.toFixed(2)} m</span>
-                                  <span>r = {(v.slender.r * 100).toFixed(1)} cm</span>
-                                  <span>k·Lu/r = {v.slender.klu_r.toFixed(1)}</span>
-                                  {#if v.slender.isSlender}
-                                    <span class="slender-highlight">δ_ns = {v.slender.delta_ns.toFixed(3)}</span>
+                                  <span>k = {codeDetail.slender.k.toFixed(2)}</span>
+                                  <span>Lu = {codeDetail.slender.lu.toFixed(2)} m</span>
+                                  <span>r = {(codeDetail.slender.r * 100).toFixed(1)} cm</span>
+                                  <span>k·Lu/r = {codeDetail.slender.klu_r.toFixed(1)}</span>
+                                  {#if codeDetail.slender.isSlender}
+                                    <span class="slender-highlight">δ_ns = {codeDetail.slender.delta_ns.toFixed(3)}</span>
                                   {/if}
                                 </div>
-                                {#each v.slender.steps as step}<div class="memo-step">{step}</div>{/each}
+                                {#each codeDetail.slender.steps as step}<div class="memo-step">{step}</div>{/each}
                               </div>
                             {/if}
-                            {#if v.detailing}
+                            {#if codeDetail.detailing}
                               <div class="memo-section">
-                                <div class="memo-title">{t('pro.detailing')}</div>
-                                {#each v.detailing.bars as bar}
+                                <div class="memo-title">Detailing</div>
+                                {#each codeDetail.detailing.bars as bar}
                                   <div class="memo-step">Ø{bar.diameter}: ld={bar.ld.toFixed(2)}m, ldh={bar.ldh.toFixed(2)}m, splice={bar.lapSplice.toFixed(2)}m</div>
                                 {/each}
-                                <div class="memo-step">Min clear spacing: {(v.detailing.minClearSpacing * 1000).toFixed(0)}mm</div>
+                                <div class="memo-step">Min clear spacing: {(codeDetail.detailing.minClearSpacing * 1000).toFixed(0)}mm</div>
                               </div>
                             {/if}
                           </div>
