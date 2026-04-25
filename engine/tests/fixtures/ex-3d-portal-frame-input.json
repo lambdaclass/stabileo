@@ -73,9 +73,7 @@
       "nodeI": 1,
       "nodeJ": 5,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "2": {
       "id": 2,
@@ -83,9 +81,7 @@
       "nodeI": 2,
       "nodeJ": 6,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "3": {
       "id": 3,
@@ -93,9 +89,7 @@
       "nodeI": 3,
       "nodeJ": 7,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "4": {
       "id": 4,
@@ -103,9 +97,7 @@
       "nodeI": 4,
       "nodeJ": 8,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "5": {
       "id": 5,
@@ -113,9 +105,7 @@
       "nodeI": 5,
       "nodeJ": 6,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "6": {
       "id": 6,
@@ -123,9 +113,7 @@
       "nodeI": 7,
       "nodeJ": 8,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "7": {
       "id": 7,
@@ -133,9 +121,7 @@
       "nodeI": 5,
       "nodeJ": 7,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "8": {
       "id": 8,
@@ -143,9 +129,7 @@
       "nodeI": 6,
       "nodeJ": 8,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     }
   },
   "supports": {

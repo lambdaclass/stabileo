@@ -355,7 +355,7 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
 
     if (elem.type === 'frame') {
       const nDof = 12;
-      const kLocal = frameLocalStiffness3D(E_kNm2, G_kNm2, sec.a, sec.iy, sec.iz, sec.j, L, elem.hingeStart, elem.hingeEnd);
+      const kLocal = frameLocalStiffness3D(E_kNm2, G_kNm2, sec.a, sec.iy, sec.iz, sec.j, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
       const T = frameTransformationMatrix3D(axes.ex, axes.ey, axes.ez);
       const kGlobal = transformMatrix(kLocal, T, nDof);
       const dofs = elementDofs(elem.nodeI, elem.nodeJ);
@@ -443,8 +443,8 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
       if (elem.type !== 'frame') continue;
       nodeFrameCount.set(elem.nodeI, (nodeFrameCount.get(elem.nodeI) ?? 0) + 1);
       nodeFrameCount.set(elem.nodeJ, (nodeFrameCount.get(elem.nodeJ) ?? 0) + 1);
-      if (elem.hingeStart) nodeHingeCount.set(elem.nodeI, (nodeHingeCount.get(elem.nodeI) ?? 0) + 1);
-      if (elem.hingeEnd) nodeHingeCount.set(elem.nodeJ, (nodeHingeCount.get(elem.nodeJ) ?? 0) + 1);
+      if (elem.releaseMyStart || elem.releaseMzStart) nodeHingeCount.set(elem.nodeI, (nodeHingeCount.get(elem.nodeI) ?? 0) + 1);
+      if (elem.releaseMyEnd || elem.releaseMzEnd) nodeHingeCount.set(elem.nodeJ, (nodeHingeCount.get(elem.nodeJ) ?? 0) + 1);
     }
 
     const rotRestrainedNodes = new Set<number>();
@@ -606,7 +606,7 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
       }
 
       // F_local_raw = K_local * u_local
-      const kL = frameLocalStiffness3D(E_kNm2, G_kNm2, sec.a, sec.iy, sec.iz, sec.j, L, elem.hingeStart, elem.hingeEnd);
+      const kL = frameLocalStiffness3D(E_kNm2, G_kNm2, sec.a, sec.iy, sec.iz, sec.j, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
       const fRaw = new Float64Array(12);
       for (let i = 0; i < 12; i++) {
         let sum = 0;
@@ -629,7 +629,7 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
           } else {
             [vi0, mi0, vj0, mj0] = partialDistributedFEF(dl.qYI, dl.qYJ, a, b, L);
           }
-          const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, elem.hingeStart, elem.hingeEnd);
+          const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
           fef[1] += vi; fef[5] += mi; fef[7] += vj; fef[11] += mj;
         }
 
@@ -641,7 +641,7 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
           } else {
             [vi0, mi0, vj0, mj0] = partialDistributedFEF(dl.qZI, dl.qZJ, a, b, L);
           }
-          const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, elem.hingeStart, elem.hingeEnd);
+          const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
           // Sign inversion for My (theta_y = -dw/dx)
           fef[2] += vi; fef[4] += -mi; fef[8] += vj; fef[10] += -mj;
         }
@@ -650,12 +650,12 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
       for (const pl of pointLoads) {
         if (Math.abs(pl.py) > 1e-15) {
           const [vi0, mi0, vj0, mj0] = pointFEF(pl.py, pl.a, L);
-          const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, elem.hingeStart, elem.hingeEnd);
+          const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
           fef[1] += vi; fef[5] += mi; fef[7] += vj; fef[11] += mj;
         }
         if (Math.abs(pl.pz) > 1e-15) {
           const [vi0, mi0, vj0, mj0] = pointFEF(pl.pz, pl.a, L);
-          const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, elem.hingeStart, elem.hingeEnd);
+          const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
           fef[2] += vi; fef[4] += -mi; fef[8] += vj; fef[10] += -mj;
         }
       }
@@ -770,7 +770,7 @@ function assembleDistLoadDetailed(
     } else {
       [vi0, mi0, vj0, mj0] = partialDistributedFEF(load.qYI, load.qYJ, a, b, L);
     }
-    const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, elem.hingeStart, elem.hingeEnd);
+    const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
     fLocal[1] = vi; fLocal[5] = mi; fLocal[7] = vj; fLocal[11] = mj;
   }
 
@@ -782,7 +782,7 @@ function assembleDistLoadDetailed(
     } else {
       [vi0, mi0, vj0, mj0] = partialDistributedFEF(load.qZI, load.qZJ, a, b, L);
     }
-    const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, elem.hingeStart, elem.hingeEnd);
+    const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
     fLocal[2] = vi; fLocal[4] = -mi; fLocal[8] = vj; fLocal[10] = -mj;
   }
 
@@ -845,14 +845,14 @@ function assemblePointLoadDetailed(
   // Y component
   if (Math.abs(load.py) > 1e-15) {
     const [vi0, mi0, vj0, mj0] = pointFEF(load.py, load.a, L);
-    const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, elem.hingeStart, elem.hingeEnd);
+    const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
     fLocal[1] += vi; fLocal[5] += mi; fLocal[7] += vj; fLocal[11] += mj;
   }
 
   // Z component
   if (Math.abs(load.pz) > 1e-15) {
     const [vi0, mi0, vj0, mj0] = pointFEF(load.pz, load.a, L);
-    const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, elem.hingeStart, elem.hingeEnd);
+    const [vi, mi, vj, mj] = adjustFEFForHinges(vi0, mi0, vj0, mj0, L, (elem.releaseMyStart || elem.releaseMzStart), (elem.releaseMyEnd || elem.releaseMzEnd));
     fLocal[2] += vi; fLocal[4] += -mi; fLocal[8] += vj; fLocal[10] += -mj;
   }
 

@@ -1239,7 +1239,7 @@ fn assemble_frame_corotational_3d(
     // Local stiffness (using original length)
     let k_local = frame_local_stiffness_3d(
         e, a, iy, iz, j, l0, g,
-        elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+        Hinge3D::from_elem(elem), phi_y, phi_z,
     );
 
     // f_local = K_local * d_nat
@@ -1504,7 +1504,7 @@ fn compute_corotational_forces_3d(
                 mx_start: 0.0, mx_end: 0.0,
                 my_start: 0.0, my_end: 0.0,
                 mz_start: 0.0, mz_end: 0.0,
-                hinge_start: false, hinge_end: false,
+                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
                 q_yi: 0.0, q_yj: 0.0,
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
@@ -1610,7 +1610,7 @@ fn compute_corotational_forces_3d(
 
         let k_local = frame_local_stiffness_3d(
             e, sec.a, sec.iy, sec.iz, sec.j, l0, g,
-            elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+            Hinge3D::from_elem(elem), phi_y, phi_z,
         );
 
         let mut f_local = [0.0; 12];
@@ -1636,8 +1636,12 @@ fn compute_corotational_forces_3d(
             my_end: -f_local[10],
             mz_start: f_local[5],
             mz_end: -f_local[11],
-            hinge_start: elem.hinge_start,
-            hinge_end: elem.hinge_end,
+            release_my_start: elem.release_my_start,
+            release_my_end: elem.release_my_end,
+            release_mz_start: elem.release_mz_start,
+            release_mz_end: elem.release_mz_end,
+            release_t_start: elem.release_t_start,
+            release_t_end: elem.release_t_end,
             q_yi: 0.0, q_yj: 0.0,
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
             q_zi: 0.0, q_zj: 0.0,

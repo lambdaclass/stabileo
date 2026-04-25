@@ -378,7 +378,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
             if mp_y >= f64::INFINITY || mp_z >= f64::INFINITY { continue; }
 
             // Check start end
-            if !elem.hinge_start {
+            if !(elem.release_my_start && elem.release_mz_start) {
                 let delta = compute_interaction_delta(
                     ef.my_start, ef.mz_start, mp_y, mp_z,
                     acc_my.get(&(ef.element_id, "start".to_string())).copied().unwrap_or(0.0),
@@ -396,7 +396,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
             }
 
             // Check end end
-            if !elem.hinge_end {
+            if !(elem.release_my_end && elem.release_mz_end) {
                 let delta = compute_interaction_delta(
                     ef.my_end, ef.mz_end, mp_y, mp_z,
                     acc_my.get(&(ef.element_id, "end".to_string())).copied().unwrap_or(0.0),
@@ -463,9 +463,11 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
             let elem_key = &elem_id_to_key[eid];
             if let Some(elem) = current_input.elements.get_mut(elem_key) {
                 if end == "start" {
-                    elem.hinge_start = true;
+                    elem.release_my_start = true;
+                    elem.release_mz_start = true;
                 } else {
-                    elem.hinge_end = true;
+                    elem.release_my_end = true;
+                    elem.release_mz_end = true;
                 }
             }
         }
@@ -564,7 +566,9 @@ fn scale_results_3d(results: &AnalysisResults3D, factor: f64) -> AnalysisResults
             mx_start: ef.mx_start * factor, mx_end: ef.mx_end * factor,
             my_start: ef.my_start * factor, my_end: ef.my_end * factor,
             mz_start: ef.mz_start * factor, mz_end: ef.mz_end * factor,
-            hinge_start: ef.hinge_start, hinge_end: ef.hinge_end,
+            release_my_start: ef.release_my_start, release_my_end: ef.release_my_end,
+            release_mz_start: ef.release_mz_start, release_mz_end: ef.release_mz_end,
+            release_t_start: ef.release_t_start, release_t_end: ef.release_t_end,
             q_yi: ef.q_yi * factor, q_yj: ef.q_yj * factor,
             distributed_loads_y: ef.distributed_loads_y.clone(),
             point_loads_y: ef.point_loads_y.clone(),

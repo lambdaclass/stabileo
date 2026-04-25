@@ -33,8 +33,17 @@ export interface SolverElement3D {
   nodeJ: number;
   materialId: number;
   sectionId: number;
-  hingeStart: boolean;
-  hingeEnd: boolean;
+  // Per-axis end releases (replaces legacy hingeStart/hingeEnd booleans).
+  // Bending releases (My = around local y, Mz = around local z) and torsion (T = around local x)
+  // are independent flags so a true "pin" hinge releases ONLY the in-plane bending rotation.
+  // Legacy mapping (preserved by current solver): a hinge at an end ⇒
+  //   releaseMyStart = releaseMzStart = true (and analogous for end).
+  releaseMyStart: boolean;
+  releaseMyEnd: boolean;
+  releaseMzStart: boolean;
+  releaseMzEnd: boolean;
+  releaseTStart: boolean;
+  releaseTEnd: boolean;
   // Optional orientation vector for local Y axis (perpendicular to element).
   // If not provided, computed automatically by the solver's local-axis helper.
   localYx?: number;

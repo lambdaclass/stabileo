@@ -73,8 +73,6 @@
       "myEnd": -13.97688483209603,
       "mzStart": 55.61041287863747,
       "mzEnd": -3.0760071558793243,
-      "hingeStart": false,
-      "hingeEnd": false,
       "qYI": -10.692425935529172,
       "qYJ": -4.486238275654614,
       "distributedLoadsY": [
@@ -113,8 +111,6 @@
       "myEnd": 9.530399930290194,
       "mzStart": 3.1119598405082556,
       "mzEnd": 0.8860337894073425,
-      "hingeStart": false,
-      "hingeEnd": false,
       "qYI": -15.502148617058992,
       "qYJ": -12.110376256983727,
       "distributedLoadsY": [
@@ -153,8 +149,6 @@
       "myEnd": -9.530399930290198,
       "mzStart": 12.245893488011506,
       "mzEnd": 0.36913753795971616,
-      "hingeStart": false,
-      "hingeEnd": false,
       "qYI": -7.6767398705706,
       "qYJ": -14.435382710769773,
       "distributedLoadsY": [

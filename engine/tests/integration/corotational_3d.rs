@@ -37,7 +37,7 @@ fn cantilever_3d(
     elements.insert("1".to_string(), SolverElement3D {
         id: 1, elem_type: "frame".to_string(),
         node_i: 1, node_j: 2, material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
     });
 
@@ -115,7 +115,7 @@ fn corotational_3d_axial_truss() {
     elements.insert("1".to_string(), SolverElement3D {
         id: 1, elem_type: "truss".to_string(),
         node_i: 1, node_j: 2, material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
     });
 
@@ -184,13 +184,13 @@ fn corotational_3d_l_frame() {
     elements.insert("1".to_string(), SolverElement3D {
         id: 1, elem_type: "frame".to_string(),
         node_i: 1, node_j: 2, material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
     });
     elements.insert("2".to_string(), SolverElement3D {
         id: 2, elem_type: "frame".to_string(),
         node_i: 2, node_j: 3, material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
     });
 
@@ -282,7 +282,7 @@ fn corotational_3d_no_free_dofs_error() {
     elements.insert("1".to_string(), SolverElement3D {
         id: 1, elem_type: "frame".to_string(),
         node_i: 1, node_j: 2, material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
     });
 

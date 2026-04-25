@@ -374,10 +374,12 @@ fn compute_static_degree_3d(input: &SolverInput3D) -> (i32, HashMap<usize, i32>)
         if elem.elem_type != "frame" { continue; }
         *node_frame_elems.entry(elem.node_i).or_insert(0) += 1;
         *node_frame_elems.entry(elem.node_j).or_insert(0) += 1;
-        if elem.hinge_start {
+        // SAFE refactor: legacy bool semantics — count one hinge per end if any
+        // bending rotation released. Per-axis refinement is the next step.
+        if elem.release_my_start || elem.release_mz_start {
             *node_hinges.entry(elem.node_i).or_insert(0) += 1;
         }
-        if elem.hinge_end {
+        if elem.release_my_end || elem.release_mz_end {
             *node_hinges.entry(elem.node_j).or_insert(0) += 1;
         }
     }
@@ -499,10 +501,12 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             if elem.elem_type == "frame" {
                 *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
                 *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-                if elem.hinge_start {
+                // SAFE refactor: legacy bool semantics — count one hinge per end
+                // if any bending rotation released. Per-axis count is the next step.
+                if elem.release_my_start || elem.release_mz_start {
                     *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
                 }
-                if elem.hinge_end {
+                if elem.release_my_end || elem.release_mz_end {
                     *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
                 }
             } else {

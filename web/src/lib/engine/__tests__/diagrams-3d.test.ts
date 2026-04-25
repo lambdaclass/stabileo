@@ -72,7 +72,7 @@ function getEF(results: AnalysisResults3D, elemId: number): ElementForces3D {
 }
 
 function frameElement(id: number, nodeI: number, nodeJ: number): SolverElement3D {
-  return { id, type: 'frame', nodeI, nodeJ, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false };
+  return { id, type: 'frame', nodeI, nodeJ, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false };
 }
 
 /** Find value at specific t in diagram */

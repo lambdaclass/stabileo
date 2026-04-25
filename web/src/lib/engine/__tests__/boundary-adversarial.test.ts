@@ -51,7 +51,7 @@ function makeValid3D(): SolverInput3D {
     materials: new Map([[1, mat]]),
     sections: new Map([[1, sec]]),
     elements: new Map([
-      [1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     ]),
     supports: new Map([
       [1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }],

@@ -63,7 +63,9 @@ pub struct ElementForces {
     pub q_j: f64,
     pub point_loads: Vec<PointLoadInfo>,
     pub distributed_loads: Vec<DistributedLoadInfo>,
+    #[serde(default)]
     pub hinge_start: bool,
+    #[serde(default)]
     pub hinge_end: bool,
 }
 
@@ -623,8 +625,18 @@ pub struct ElementForces3D {
     pub my_end: f64,
     pub mz_start: f64,
     pub mz_end: f64,
-    pub hinge_start: bool,
-    pub hinge_end: bool,
+    #[serde(default)]
+    pub release_my_start: bool,
+    #[serde(default)]
+    pub release_my_end: bool,
+    #[serde(default)]
+    pub release_mz_start: bool,
+    #[serde(default)]
+    pub release_mz_end: bool,
+    #[serde(default)]
+    pub release_t_start: bool,
+    #[serde(default)]
+    pub release_t_end: bool,
     #[serde(rename = "qYI")]
     pub q_yi: f64,
     #[serde(rename = "qYJ")]

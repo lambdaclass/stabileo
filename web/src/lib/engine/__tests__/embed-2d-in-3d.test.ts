@@ -28,10 +28,15 @@ function embed2DNode(n: SolverNode): SolverNode3D {
 
 /** Embed a 2D element into 3D */
 function embed2DElement(e: SolverElement): SolverElement3D {
+  // Legacy hinge mapping: 2D hinge releases both bending rotations in 3D
+  const hs = e.hingeStart;
+  const he = e.hingeEnd;
   return {
     id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
     materialId: e.materialId, sectionId: e.sectionId,
-    hingeStart: e.hingeStart, hingeEnd: e.hingeEnd,
+    releaseMyStart: hs, releaseMyEnd: he,
+    releaseMzStart: hs, releaseMzEnd: he,
+    releaseTStart: false, releaseTEnd: false,
   };
 }
 
@@ -149,7 +154,7 @@ describe('2D vs 3D embedded: solver parity', () => {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
-      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
       supports: addOutOfPlaneRestraints(
         new Map([[1, embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' })]]),
         [1, 2],
@@ -183,7 +188,7 @@ describe('2D vs 3D embedded: solver parity', () => {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
-      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
       supports: addOutOfPlaneRestraints(
         new Map([
           [1, embed2DSupport({ id: 1, nodeId: 1, type: 'pinned' })],
@@ -320,9 +325,9 @@ describe('2D vs 3D embedded: solver parity', () => {
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
       elements: new Map([
-        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [3, { id: 3, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [3, { id: 3, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       ]),
       supports: addOutOfPlaneRestraints(
         new Map([
@@ -371,7 +376,7 @@ describe('2D vs 3D embedded: solver parity', () => {
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
       elements: new Map([
-        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       ]),
       supports: addOutOfPlaneRestraints(
         new Map([
@@ -427,9 +432,9 @@ describe('2D vs 3D embedded: solver parity', () => {
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
       elements: new Map([
-        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: true }],
-        [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: true }],
-        [3, { id: 3, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: true, releaseMzStart: false, releaseMzEnd: true, releaseTStart: false, releaseTEnd: false }],
+        [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: true, releaseMzStart: false, releaseMzEnd: true, releaseTStart: false, releaseTEnd: false }],
+        [3, { id: 3, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       ]),
       supports: addOutOfPlaneRestraints(
         new Map([
@@ -505,15 +510,15 @@ describe('2D vs 3D embedded: solver parity', () => {
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
       elements: new Map([
-        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [3, { id: 3, type: 'frame', nodeI: 3, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [4, { id: 4, type: 'frame', nodeI: 4, nodeJ: 6, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [5, { id: 5, type: 'frame', nodeI: 5, nodeJ: 7, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [6, { id: 6, type: 'frame', nodeI: 6, nodeJ: 8, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [7, { id: 7, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [8, { id: 8, type: 'frame', nodeI: 5, nodeJ: 6, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [9, { id: 9, type: 'frame', nodeI: 7, nodeJ: 8, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [3, { id: 3, type: 'frame', nodeI: 3, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [4, { id: 4, type: 'frame', nodeI: 4, nodeJ: 6, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [5, { id: 5, type: 'frame', nodeI: 5, nodeJ: 7, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [6, { id: 6, type: 'frame', nodeI: 6, nodeJ: 8, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [7, { id: 7, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [8, { id: 8, type: 'frame', nodeI: 5, nodeJ: 6, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [9, { id: 9, type: 'frame', nodeI: 7, nodeJ: 8, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       ]),
       supports: addOutOfPlaneRestraints(
         new Map([
@@ -569,9 +574,9 @@ describe('2D vs 3D embedded: solver parity', () => {
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
       elements: new Map([
-        [1, { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [2, { id: 2, type: 'truss', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [3, { id: 3, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [1, { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [2, { id: 2, type: 'truss', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [3, { id: 3, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       ]),
       supports: addOutOfPlaneRestraints(
         new Map([
@@ -609,8 +614,8 @@ describe('2D vs 3D embedded: solver parity', () => {
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
       elements: new Map([
-        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-        [2, { id: 2, type: 'frame', nodeI: 3, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
+        [2, { id: 2, type: 'frame', nodeI: 3, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       ]),
       supports: addOutOfPlaneRestraints(
         new Map([
@@ -662,7 +667,7 @@ describe('2D vs 3D embedded: solver parity', () => {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
-      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
       supports: addOutOfPlaneRestraints(
         new Map([
           [1, embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' })],
@@ -678,7 +683,7 @@ describe('2D vs 3D embedded: solver parity', () => {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
-      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
       supports: addOutOfPlaneRestraints(
         new Map([[1, embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' })]]),
         [1, 2],
@@ -720,7 +725,7 @@ describe('2D vs 3D embedded: solver parity', () => {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
-      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
       supports: addOutOfPlaneRestraints(
         new Map([
           [1, { ...embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' }), dz: prescribedDz }],
@@ -766,7 +771,7 @@ describe('2D vs 3D embedded: solver parity', () => {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
       materials: new Map([[1, steel]]),
       sections: new Map([[1, ipe300_3d]]),
-      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
       supports: addOutOfPlaneRestraints(
         new Map([[1, embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' })]]),
         [1, 2],

@@ -40,7 +40,9 @@ pub struct SolverElement {
     pub node_j: usize,
     pub material_id: usize,
     pub section_id: usize,
+    #[serde(default)]
     pub hinge_start: bool,
+    #[serde(default)]
     pub hinge_end: bool,
 }
 
@@ -170,7 +172,7 @@ pub struct SolverSection3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverElement3D {
     pub id: usize,
     #[serde(rename = "type")]
@@ -179,8 +181,24 @@ pub struct SolverElement3D {
     pub node_j: usize,
     pub material_id: usize,
     pub section_id: usize,
-    pub hinge_start: bool,
-    pub hinge_end: bool,
+    /// Release rotation about local y axis at start (Iy bending block).
+    #[serde(default)]
+    pub release_my_start: bool,
+    /// Release rotation about local y axis at end (Iy bending block).
+    #[serde(default)]
+    pub release_my_end: bool,
+    /// Release rotation about local z axis at start (Iz bending block).
+    #[serde(default)]
+    pub release_mz_start: bool,
+    /// Release rotation about local z axis at end (Iz bending block).
+    #[serde(default)]
+    pub release_mz_end: bool,
+    /// Release torsion about local x axis at start.
+    #[serde(default)]
+    pub release_t_start: bool,
+    /// Release torsion about local x axis at end.
+    #[serde(default)]
+    pub release_t_end: bool,
     #[serde(default)]
     pub local_yx: Option<f64>,
     #[serde(default)]

@@ -1072,10 +1072,18 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
       }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => {
+      // UI hinge checkbox = in-plane pin hinge ⇒ release Mz only (rotation about
+      // local z = strong-axis bending). My (out-of-plane) and torsion stay coupled
+      // — releasing both would over-constrain to a ball joint and leave hinged
+      // arches in their own plane with a singular Kff (Bug B).
+      const hsLegacy = e.hingeStart ?? false;
+      const heLegacy = e.hingeEnd ?? false;
       const elem: any = {
         id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
         materialId: e.materialId, sectionId: e.sectionId,
-        hingeStart: e.hingeStart ?? false, hingeEnd: e.hingeEnd ?? false,
+        releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: hsLegacy, releaseMzEnd: heLegacy,
+        releaseTStart: false, releaseTEnd: false,
       };
       if (e.localYx !== undefined) { elem.localYx = e.localYx; elem.localYy = e.localYy; elem.localYz = e.localYz; }
       // Compose element rollAngle with section rotation — computeLocalAxes3D rotates local Y/Z

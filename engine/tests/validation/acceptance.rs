@@ -367,7 +367,7 @@ fn acceptance_3e_mixed_frame_shell() {
             node_i: base_ids[ci],
             node_j: top_ids[ci],
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
         eid += 1;
@@ -691,7 +691,7 @@ fn acceptance_4b_frame_quad_slab() {
             id: eid, elem_type: "frame".to_string(),
             node_i: base_ids[ci], node_j: top_ids[ci],
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
         eid += 1;
@@ -1419,7 +1419,7 @@ fn acceptance_4h_mixed_frame_shell_diaphragm() {
             id: eid, elem_type: "frame".to_string(),
             node_i: base_ids[ci], node_j: top_ids[ci],
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
         eid += 1;
@@ -2959,7 +2959,7 @@ fn acceptance_6b_mixed_beam_q9_slab() {
             id: eid, elem_type: "frame".to_string(),
             node_i: base_ids[ci], node_j: top_ids[ci],
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
         eid += 1;
