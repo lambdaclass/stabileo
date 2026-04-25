@@ -3,15 +3,12 @@
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-  import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
-  import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-  import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
-  import { fatLineResolution } from '../lib/three/create-element-mesh';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
   import { ElementsBatched } from '../lib/three/elements-batched';
   import { ElementsPicking } from '../lib/three/elements-picking';
+  import { fatLineResolution } from '../lib/three/create-element-mesh';
   import { resolveHitUserData } from '../lib/viewport3d/picking';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
@@ -20,7 +17,6 @@
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
-  import { buildProxyPositions } from '../lib/viewport3d/elements-proxy';
   import { applyLowDetail } from '../lib/viewport3d/lod';
 
   let container: HTMLDivElement;
@@ -200,7 +196,6 @@
     nodesParent.add(nodesInstanced.mesh);
     elementsParent = new THREE.Group();
     elementsParent.name = 'elements';
-    elementsParent.add(elementsBatched.mesh);
     elementsParent.add(elementsPicking.mesh);
     supportsParent = new THREE.Group();
     supportsParent.name = 'supports';
@@ -210,7 +205,11 @@
     resultsParent.name = 'results';
     shellsParent = new THREE.Group();
     shellsParent.name = 'shells';
-    scene.add(elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
+    // The batched wireframe LineSegments2 lives directly under `scene`, not
+    // inside `elementsParent`, so it stays rendered even when LOD hides the
+    // parent during orbit. One mesh, one draw call, one toggle — no parallel
+    // orbit proxy needed.
+    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
     syncResultsProjection();
 
     // Camera — isometric-ish view looking at origin
@@ -464,53 +463,18 @@
     // Slight aliasing during drag is acceptable — users perceive smoothness more
     // than pixel fidelity while rotating.
     const idlePixelRatio = window.devicePixelRatio;
-    // Level-of-detail during orbit: hide decorative parents AND swap the
-    // per-element meshes for a single batched LineSegments2 proxy. On
-    // la-bombonera this collapses ~3500 draw calls down to ~5.
-    let elementsProxy: LineSegments2 | null = null;
-    let elementsProxyVersion = -1;
-    function ensureElementsProxy(): void {
-      const currentVersion = modelStore.modelVersion;
-      // Key the cache on presentation too — flipping upright2dIn3d ↔ native3d
-      // changes whether nodes project through (x,y)→(x,0,y), so a proxy built
-      // under one presentation is wrong under the other.
-      const presentation = uiStore.viewportPresentation3D;
-      const cacheKey = currentVersion * 10 + (presentation === 'upright2dIn3d' ? 1 : 0);
-      if (elementsProxy && elementsProxyVersion === cacheKey) return;
-      const positions = buildProxyPositions(
-        modelStore.elements.values(),
-        (id) => modelStore.getNode(id),
-        shouldProject2DModel(),
-      );
-      if (elementsProxy) {
-        elementsProxy.geometry.dispose();
-        (elementsProxy.material as LineMaterial).dispose();
-        scene.remove(elementsProxy);
-        elementsProxy = null;
-      }
-      if (positions.length === 0) {
-        elementsProxyVersion = cacheKey;
-        return;
-      }
-      const geo = new LineSegmentsGeometry();
-      geo.setPositions(positions);
-      const mat = new LineMaterial({
-        color: COLORS.frame,
-        linewidth: 3,
-        worldUnits: false,
-        resolution: fatLineResolution,
-      });
-      elementsProxy = new LineSegments2(geo, mat);
-      elementsProxy.raycast = () => {}; // never picked — only visible during orbit
-      elementsProxy.visible = false;
-      scene.add(elementsProxy);
-      elementsProxyVersion = cacheKey;
-    }
+    // Level-of-detail during orbit: hide decorative parents and the heavy
+    // per-element solid groups (cylinders / extruded sections). The batched
+    // LineSegments2 (`elementsBatched.mesh`) lives directly under `scene` —
+    // since Phase 2 it already collapses every element into one draw call, so
+    // there is no need for a separate proxy. During orbit we force it visible
+    // as the LOD stand-in; at idle its visibility follows `renderMode3D`.
     function setLowDetail(on: boolean): void {
-      if (on) ensureElementsProxy();
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
-        elementsParent, elementsProxy,
+        elementsParent,
+        elementsBatchedMesh: elementsBatched.mesh,
+        renderMode: uiStore.renderMode3D,
       });
     }
     controls.addEventListener('start', () => {
