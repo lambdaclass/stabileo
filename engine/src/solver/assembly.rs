@@ -434,6 +434,38 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
                 }
             }
         }
+
+        // Topology-agnostic orphan-ROTATION-DOF guard: any free *rotation* DOF
+        // whose row+col in K_global is identically zero gets artificial stiffness
+        // so the linear solver doesn't trip on a singular matrix. Restricted to
+        // rotation DOFs (local_dof=2 in 2D) so a truly floating node (translation
+        // DOFs all-zero) still surfaces as a singular-matrix error.
+        let nf = dof_num.n_free;
+        let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
+        let orphan_tol = if max_diag > 0.0 { max_diag * 1e-12 } else { 1e-14 };
+        let mut idx_to_local: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for (&(_, ld), &idx) in &dof_num.map {
+            if idx < nf {
+                idx_to_local.insert(idx, ld);
+            }
+        }
+        for i in 0..nf {
+            if already.contains(&i) { continue; }
+            if idx_to_local.get(&i).copied() != Some(2) { continue; }
+            let mut all_zero = true;
+            for j in 0..n {
+                if k_global[i * n + j].abs() > orphan_tol
+                    || k_global[j * n + i].abs() > orphan_tol
+                {
+                    all_zero = false;
+                    break;
+                }
+            }
+            if all_zero {
+                k_global[i * n + i] += artificial_k;
+                artificial_dofs.push(i);
+            }
+        }
     }
 
     // Apply 2D inclined support transformations

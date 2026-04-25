@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { solve } from '../wasm-solver';
+import { solve, analyzeKinematics } from '../wasm-solver';
 import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
 
 // ─── Test Helpers ───────────────────────────────────────────────
@@ -278,6 +278,112 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
     const result = solve(input);
     expect(result).toBeTruthy();
     expectClose(getReaction(result, 1).rz + getReaction(result, 2).rz, 10, 'ΣFz = 0');
+  });
+
+  // Regression: 3-node frame with fixed base + pinned support whose only attached
+  // element is hinged AT that node. The rotation DOF at the pinned node has no
+  // stiffness contribution from anywhere → row/col in Kff is identically zero.
+  // Physically this is stable (rotation is just undefined). The kinematic
+  // analyzer must not flag it. Reproduces the screenshot bug:
+  //   "Mecanismo en nodo 3 (1 modo de mecanismo). GDL sin restringir: nodo 3 (rotación en Z)."
+  it('orphan rotation DOF at pinned node with single hinged bar — analyzer must NOT flag mechanism', () => {
+    const input = makeInput({
+      nodes: [[1, 0, 0], [2, 5, 0], [3, 0, 4]],
+      elements: [
+        [1, 1, 2, 'frame'],                  // horizontal bar 1-2, no hinges
+        [2, 3, 2, 'frame', true, false],     // inclined 3-2, hinge at node 3 (start)
+      ],
+      supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+    });
+    // The kinematic gate is what blocks the solve in the UI.
+    const kin = analyzeKinematics(input);
+    expect(kin.isSolvable, `kinematic analyzer flagged stable structure: ${kin.diagnosis}`).toBe(true);
+    // And the actual solve must succeed too.
+    const result = solve(input);
+    expect(result).toBeTruthy();
+    // Vertical equilibrium: ΣFz = 10 kN
+    const sumRz = result.reactions.reduce((s, r) => s + r.rz, 0);
+    expectClose(sumRz, 10, 'ΣFz = 0');
+  });
+
+  // Variant of the screenshot scenario: bar 2-3 has hinge at node 2 only, not at node 3.
+  // At node 2: 2 frames (1-2 and 2-3), 1 hinge → NOT all-hinged in heuristic.
+  // At node 3 (pinned): 1 frame, 0 hinges → bar transmits moment, no orphan. Should solve.
+  it('hinge at interior node 2 only, pinned node 3 — must solve', () => {
+    const input = makeInput({
+      nodes: [[1, 0, 0], [2, 5, 0], [3, 0, 4]],
+      elements: [
+        [1, 1, 2, 'frame'],
+        [2, 2, 3, 'frame', true, false],     // hinge at node 2 (start of 2-3)
+      ],
+      supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+    });
+    const kin = analyzeKinematics(input);
+    expect(kin.isSolvable, `kinematic flagged: ${kin.diagnosis}`).toBe(true);
+    const result = solve(input);
+    expect(result).toBeTruthy();
+  });
+
+  // Variant: bar 2-3 double-hinged (both ends).
+  // At node 2: 2 frames, 1 hinge → NOT all-hinged.
+  // At node 3 (pinned): 1 frame, 1 hinge → all-hinged → existing heuristic expected_zero.
+  it('hinges at both ends of bar 2-3, pinned node 3 — must solve', () => {
+    const input = makeInput({
+      nodes: [[1, 0, 0], [2, 5, 0], [3, 0, 4]],
+      elements: [
+        [1, 1, 2, 'frame'],
+        [2, 2, 3, 'frame', true, true],      // double-hinged
+      ],
+      supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+    });
+    const kin = analyzeKinematics(input);
+    expect(kin.isSolvable, `kinematic flagged: ${kin.diagnosis}`).toBe(true);
+    const result = solve(input);
+    expect(result).toBeTruthy();
+  });
+
+  // Variant: bar 3-2 is a TRUSS (not frame). The heuristic at kinematic.rs:175-216
+  // counts only frame elements in node_frame_count, so it misses orphan rotation DOFs
+  // on nodes attached only by truss elements. This is the bug scenario.
+  it('orphan rotation at pinned node with single truss bar — analyzer must NOT flag', () => {
+    const input = makeInput({
+      nodes: [[1, 0, 0], [2, 5, 0], [3, 0, 4]],
+      elements: [
+        [1, 1, 2, 'frame'],                  // 1-2 horizontal frame
+        [2, 3, 2, 'truss'],                  // 3-2 truss only — no rotation stiffness at node 3
+      ],
+      supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+    });
+    const kin = analyzeKinematics(input);
+    expect(kin.isSolvable, `kinematic flagged stable structure: ${kin.diagnosis}`).toBe(true);
+    const result = solve(input);
+    expect(result).toBeTruthy();
+    const sumRz = result.reactions.reduce((s, r) => s + r.rz, 0);
+    expectClose(sumRz, 10, 'ΣFz = 0');
+  });
+
+  // Variant: distributed load on bar 1-2 + thermal gradient (matches screenshot loads).
+  it('orphan rotation with distributed + thermal loads — must solve', () => {
+    const input = makeInput({
+      nodes: [[1, 0, 0], [2, 5, 0], [3, 0, 4]],
+      elements: [
+        [1, 1, 2, 'frame'],
+        [2, 3, 2, 'frame', true, false],     // hinge at node 3
+      ],
+      supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
+      loads: [
+        { type: 'distributed', data: { elementId: 1, qI: -10, qJ: -10 } },
+        { type: 'thermal', data: { elementId: 1, dtUniform: 0, dtGradient: 20 } },
+      ],
+    });
+    const kin = analyzeKinematics(input);
+    expect(kin.isSolvable, `kinematic flagged: ${kin.diagnosis}`).toBe(true);
+    const result = solve(input);
+    expect(result).toBeTruthy();
   });
 
   it('discretized parabolic arch (8 segments) solves correctly', () => {
