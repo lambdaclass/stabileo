@@ -5,6 +5,7 @@
   const elemId = $derived(uiStore.editingElementId);
   const elem = $derived(elemId !== null ? modelStore.elements.get(elemId) : undefined);
   const rawPos = $derived(uiStore.editScreenPos);
+  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   let editorEl: HTMLDivElement | undefined = $state();
   // Clamp position so panel never extends beyond viewport
@@ -102,16 +103,16 @@
     </div>
 
     <div class="field">
-      <label>
+      <label title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
         <input type="checkbox" bind:checked={hingeStart} />
-        {t('editor.hingeStart')}
+        {t('editor.hingeStart')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}
       </label>
     </div>
 
     <div class="field">
-      <label>
+      <label title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
         <input type="checkbox" bind:checked={hingeEnd} />
-        {t('editor.hingeEnd')}
+        {t('editor.hingeEnd')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}
       </label>
     </div>
 

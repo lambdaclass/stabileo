@@ -151,13 +151,13 @@
         </div>
       </div>
       <div class="property-row">
-        <span>{t('prop.hinges')}:</span>
+        <span>{t('prop.hinges')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}:</span>
         <div class="hinge-toggles">
           <button
             class="hinge-btn"
             class:active={elem.hingeStart}
             onclick={() => { modelStore.toggleHinge(elemId, 'start'); resultsStore.clear(); }}
-            title={elem.hingeStart ? t('prop.removeHingeI') : t('prop.addHingeI')}
+            title={(elem.hingeStart ? t('prop.removeHingeI') : t('prop.addHingeI')) + (is3DMode ? ` — ${t('prop.hinge3DDisclosure')}` : '')}
           >
             <span class="hinge-icon">{elem.hingeStart ? '\u25CB' : '\u25CF'}</span>
             {t('prop.nodeI')}
@@ -166,7 +166,7 @@
             class="hinge-btn"
             class:active={elem.hingeEnd}
             onclick={() => { modelStore.toggleHinge(elemId, 'end'); resultsStore.clear(); }}
-            title={elem.hingeEnd ? t('prop.removeHingeJ') : t('prop.addHingeJ')}
+            title={(elem.hingeEnd ? t('prop.removeHingeJ') : t('prop.addHingeJ')) + (is3DMode ? ` — ${t('prop.hinge3DDisclosure')}` : '')}
           >
             <span class="hinge-icon">{elem.hingeEnd ? '\u25CB' : '\u25CF'}</span>
             {t('prop.nodeJ')}

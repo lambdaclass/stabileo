@@ -814,6 +814,8 @@ const es: Record<string, string> = {
   'prop.addHingeI': 'Agregar articulación en nodo I',
   'prop.removeHingeJ': 'Quitar articulación en nodo J',
   'prop.addHingeJ': 'Agregar articulación en nodo J',
+  'prop.hinge3DDisclosure': 'En 3D libera la flexión sólo en el eje fuerte (Mz). La flexión en el eje débil (My) y la torsión siguen acopladas.',
+  'prop.hinges3DSuffix': '(sólo Mz)',
   'prop.internalForces3d': 'Fuerzas Internas 3D',
   'prop.moments3d': 'Momentos 3D',
   'prop.internalForces': 'Fuerzas Internas',

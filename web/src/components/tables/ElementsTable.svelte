@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { modelStore, historyStore, resultsStore } from '../../lib/store';
+  import { modelStore, historyStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+
+  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
   const elementsArr = $derived([...modelStore.elements.values()]);
@@ -38,7 +40,7 @@
 
 <table>
   <thead>
-    <tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.nodeI')}</th><th>{t('table.nodeJ')}</th><th>{t('prop.material')}</th><th>{t('table.sectionHeader')}</th><th>{t('table.hingeI')}</th><th>{t('table.hingeJ')}</th><th>L (m)</th><th></th></tr>
+    <tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.nodeI')}</th><th>{t('table.nodeJ')}</th><th>{t('prop.material')}</th><th>{t('table.sectionHeader')}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th>L (m)</th><th></th></tr>
   </thead>
   <tbody>
     {#each elementsArr as elem}
@@ -61,8 +63,8 @@
             {/each}
           </select>
         </td>
-        <td class="hinge-cell" onclick={() => modelStore.toggleHinge(elem.id, 'start')}>{elem.hingeStart ? '\u25CB' : '\u2014'}</td>
-        <td class="hinge-cell" onclick={() => modelStore.toggleHinge(elem.id, 'end')}>{elem.hingeEnd ? '\u25CB' : '\u2014'}</td>
+        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => modelStore.toggleHinge(elem.id, 'start')}>{elem.hingeStart ? '\u25CB' : '\u2014'}</td>
+        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => modelStore.toggleHinge(elem.id, 'end')}>{elem.hingeEnd ? '\u25CB' : '\u2014'}</td>
         <td>{modelStore.getElementLength(elem.id).toFixed(3)}</td>
         <td><button class="del" onclick={() => deleteElement(elem.id)}>&#10005;</button></td>
       </tr>
