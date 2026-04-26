@@ -237,3 +237,40 @@ fn test_3d_portal_frame() {
     assert!(result.degree > 0, "3D portal should be hyperstatic, got {}", result.degree);
     assert!(result.is_solvable, "3D portal should be solvable");
 }
+
+// Per-axis hinge oracle: a node-end that releases ONLY one bending axis is not
+// fully hinged. The pre-Bug-B kinematic.rs counted any-axis-released as a full
+// hinge (OR shortcut), which over-marks rotation continuity as broken. Under
+// the AND oracle a single-axis pin hinge does not collapse the node's
+// rotational continuity in this count.
+//
+// Three-hinge-arch in 3D, crown release on Mz only at node 2 from both
+// adjacent ends. Static degree under OR = 3; under AND = 6. We assert the
+// per-axis-correct value.
+#[test]
+fn kinematic_3d_per_axis_release_does_not_overcount_hinges() {
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 5.0, 0.0, 3.0), (3, 10.0, 0.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.01, 1e-4, 2e-4, 1.5e-4)],
+        vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
+        vec![
+            (1, 1, true, true, true, true, true, true),
+            (2, 3, true, true, true, true, true, true),
+        ],
+    );
+    // Release Mz only at the crown — My and torsion stay coupled across node 2.
+    input.elements.get_mut("1").unwrap().release_mz_end = true;
+    input.elements.get_mut("2").unwrap().release_mz_start = true;
+
+    let result = analyze_kinematics_3d(&input);
+    // 6m + r - 6n - c with c = 0 (no end has both bending axes released):
+    // 6*2 + 12 - 6*3 - 0 = 6.
+    assert_eq!(
+        result.degree, 6,
+        "single-axis Mz release at crown must not be counted as a full hinge \
+         (got degree={}, expected 6 under per-axis AND oracle)",
+        result.degree,
+    );
+    assert!(result.is_solvable);
+}

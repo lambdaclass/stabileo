@@ -154,4 +154,53 @@ describe('3D hinge over-release (Bug B)', () => {
     const sumFz = result.reactions.reduce((s, r) => s + r.fz, 0);
     expect(Math.abs(sumFz - 10)).toBeLessThan(1e-3);
   });
+
+  // Contract test (Bug B follow-up): 3D ElementForces output must mirror the
+  // per-axis release contract. The legacy hingeStart/hingeEnd booleans on
+  // ElementForces3D were a 2D-style shortcut that erased which axis was
+  // released. Solver output now carries the same six per-axis flags as the
+  // input — anything else is contract drift.
+  it('ElementForces3D output exposes per-axis release flags, not legacy hinge bools', () => {
+    const nodes = [
+      { id: 1, x: 0, y: 0, z: 0 },
+      { id: 2, x: 5, y: 0, z: 3 },
+      { id: 3, x: 10, y: 0, z: 0 },
+    ];
+    const elements: SolverElement3D[] = [
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
+        releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: false, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false },
+      { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1,
+        releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: true, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false },
+    ];
+    const supports: SolverSupport3D[] = [fixedSupport(1), fixedSupport(3)];
+    const loads: SolverInput3D['loads'] = [
+      { type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } },
+    ];
+
+    const input = buildInput(nodes, elements, supports, loads);
+    const result = solve3D(input);
+    assertSuccess(result);
+
+    const ef2 = result.elementForces.find(e => e.elementId === 2);
+    expect(ef2).toBeDefined();
+
+    // Per-axis flags must round-trip from input to output.
+    const ef2Any = ef2 as unknown as Record<string, unknown>;
+    expect(ef2Any.releaseMzStart).toBe(true);
+    expect(ef2Any.releaseMzEnd).toBe(false);
+    expect(ef2Any.releaseMyStart).toBe(false);
+    expect(ef2Any.releaseMyEnd).toBe(false);
+    expect(ef2Any.releaseTStart).toBe(false);
+    expect(ef2Any.releaseTEnd).toBe(false);
+
+    // Legacy bools must NOT survive on output. If they do, the schema is
+    // still 2D-dialect — the rest of the app will keep over-releasing both
+    // bending planes off a single bool.
+    expect(ef2Any.hingeStart).toBeUndefined();
+    expect(ef2Any.hingeEnd).toBeUndefined();
+  });
 });

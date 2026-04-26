@@ -270,9 +270,15 @@ export interface ElementForces3D {
   // Bending about local Z (strong axis)
   mzStart: number;
   mzEnd: number;
-  // Hinge flags
-  hingeStart: boolean;
-  hingeEnd: boolean;
+  // Per-axis end releases (matches solver input contract). My = bending about
+  // local y (weak axis), Mz = bending about local z (strong axis), T = torsion
+  // about local x. A real pin hinge releases ONE bending axis, not both.
+  releaseMyStart: boolean;
+  releaseMyEnd: boolean;
+  releaseMzStart: boolean;
+  releaseMzEnd: boolean;
+  releaseTStart: boolean;
+  releaseTEnd: boolean;
   // Loads on this element (for diagram/deformed shape computation)
   // Y-plane (strong axis: Mz, Vy bending)
   qYI: number;      // kN/m full-length equivalent at node I (local Y)
