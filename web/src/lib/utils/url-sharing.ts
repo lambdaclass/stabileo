@@ -7,8 +7,31 @@ import { deflateSync, inflateSync } from 'fflate';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { DiagramType } from '../store/results.svelte';
 import { modelStore } from '../store/model.svelte';
+import { NO_RELEASE, type Release } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
+
+const SHARE_VERSION = 4;
+
+function packRelease(r: Release | undefined): Record<string, true> | undefined {
+  if (!r) return undefined;
+  const out: Record<string, true> = {};
+  if (r.my) out.my = true;
+  if (r.mz) out.mz = true;
+  if (r.t) out.t = true;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function unpackRelease(packed: unknown): Release {
+  const r: Release = { ...NO_RELEASE };
+  if (packed && typeof packed === 'object') {
+    const p = packed as Record<string, unknown>;
+    if (p.my) r.my = true;
+    if (p.mz) r.mz = true;
+    if (p.t) r.t = true;
+  }
+  return r;
+}
 
 const MAX_URL_SAFE = 2000; // Characters — beyond this, many browsers/servers truncate
 
@@ -143,9 +166,9 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     return arr;
   });
 
-  // Section format version: 3 = iy/iz follow section local axis convention
-  // (iy = about Y horizontal, iz = about Z vertical)
-  c.sv = 3;
+  // Schema version: 4 = typed per-axis releases (`ri`/`rj`) on elements.
+  // 3 = legacy `hs`/`he` booleans + iy/iz section convention. 4 keeps the iy/iz convention.
+  c.sv = SHARE_VERSION;
 
   // Sections: [[id, name, a, iz, {s?, b?, h?, w?, f?, t?, iy?, j?}], ...]
   c.sc = snapshot.sections.map(([, v]) => {
@@ -166,12 +189,14 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
 
   // Elements: [[id, type(0=frame/1=truss), nodeI, nodeJ, matId, secId, flags?], ...]
   c.e = snapshot.elements.map(([, v]) => {
-    const arr: (number | Record<string, number | boolean>)[] = [
+    const arr: (number | Record<string, unknown>)[] = [
       v.id, v.type === 'truss' ? 1 : 0, v.nodeI, v.nodeJ, v.materialId, v.sectionId,
     ];
-    const opt: Record<string, number | boolean> = {};
-    if (v.hingeStart) opt.hs = true;
-    if (v.hingeEnd) opt.he = true;
+    const opt: Record<string, unknown> = {};
+    const ri = packRelease(v.releaseI);
+    const rj = packRelease(v.releaseJ);
+    if (ri) opt.ri = ri;
+    if (rj) opt.rj = rj;
     if (v.localYx != null) opt.lx = r(v.localYx);
     if (v.localYy != null) opt.ly = r(v.localYy);
     if (v.localYz != null) opt.lz = r(v.localYz);
@@ -303,13 +328,17 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
       }];
     }),
 
-    // Elements
+    // Elements — sv ≥ 4 carries typed releases (`ri`/`rj`); sv ≤ 3 carries legacy `hs`/`he`
+    // booleans which migrate to releaseI.mz / releaseJ.mz.
     elements: (c.e as any[]).map(a => {
       const opt = typeof a[6] === 'object' ? a[6] : {};
+      const sv = (c.sv as number | undefined) ?? 0;
+      const releaseI: Release = sv >= 4 ? unpackRelease(opt.ri) : { ...NO_RELEASE, mz: opt.hs === true };
+      const releaseJ: Release = sv >= 4 ? unpackRelease(opt.rj) : { ...NO_RELEASE, mz: opt.he === true };
       return [a[0], {
         id: a[0], type: a[1] === 1 ? 'truss' : 'frame', nodeI: a[2], nodeJ: a[3],
         materialId: a[4], sectionId: a[5],
-        hingeStart: opt.hs ?? false, hingeEnd: opt.he ?? false,
+        releaseI, releaseJ,
         ...(opt.lx != null ? { localYx: opt.lx } : {}),
         ...(opt.ly != null ? { localYy: opt.ly } : {}),
         ...(opt.lz != null ? { localYz: opt.lz } : {}),
@@ -412,11 +441,10 @@ function decompressV2(data: string): ModelSnapshot | null {
 // ─── v1 (legacy LZ-String) ───────────────────────────────────────────────
 
 /**
- * Compress a ModelSnapshot to a URL-safe string (v1 legacy, used only for undo history)
+ * Compress a ModelSnapshot to a URL-safe string (v2 — fflate + base64url, sv:4).
  */
 export function compressSnapshot(snapshot: ModelSnapshot): string {
-  const json = JSON.stringify(snapshot);
-  return LZString.compressToEncodedURIComponent(json);
+  return compressV2(snapshot);
 }
 
 /**
@@ -428,13 +456,23 @@ export function decompressSnapshot(data: string): ModelSnapshot | null {
   if (data.startsWith(V2_PREFIX)) {
     return decompressV2(data);
   }
-  // v1 (legacy LZ-String)
+  // v1 (legacy LZ-String) — migrate hingeStart/hingeEnd → releaseI.mz/releaseJ.mz
   try {
     const json = LZString.decompressFromEncodedURIComponent(data);
     if (!json) return null;
-    const parsed = JSON.parse(json);
+    const parsed = JSON.parse(json) as ModelSnapshot;
     if (!parsed.nodes || !parsed.nextId) return null;
-    return parsed as ModelSnapshot;
+    const elems = parsed.elements as Array<[number, Record<string, unknown>]>;
+    if (Array.isArray(elems)) {
+      for (const [, elem] of elems) {
+        if (!elem) continue;
+        if (!elem.releaseI) elem.releaseI = { ...NO_RELEASE, mz: elem.hingeStart === true };
+        if (!elem.releaseJ) elem.releaseJ = { ...NO_RELEASE, mz: elem.hingeEnd === true };
+        delete elem.hingeStart;
+        delete elem.hingeEnd;
+      }
+    }
+    return parsed;
   } catch {
     return null;
   }

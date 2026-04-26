@@ -63,8 +63,8 @@
             {/each}
           </select>
         </td>
-        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => modelStore.toggleHinge(elem.id, 'start')}>{elem.hingeStart ? '\u25CB' : '\u2014'}</td>
-        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => modelStore.toggleHinge(elem.id, 'end')}>{elem.hingeEnd ? '\u25CB' : '\u2014'}</td>
+        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => modelStore.toggleHinge(elem.id, 'start')}>{elem.releaseI?.mz === true ? '\u25CB' : '\u2014'}</td>
+        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => modelStore.toggleHinge(elem.id, 'end')}>{elem.releaseJ?.mz === true ? '\u25CB' : '\u2014'}</td>
         <td>{modelStore.getElementLength(elem.id).toFixed(3)}</td>
         <td><button class="del" onclick={() => deleteElement(elem.id)}>&#10005;</button></td>
       </tr>

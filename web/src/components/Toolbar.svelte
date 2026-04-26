@@ -257,8 +257,8 @@
           type: elem.type,
           materialId: elem.materialId,
           sectionId: elem.sectionId,
-          hingeStart: elem.hingeStart,
-          hingeEnd: elem.hingeEnd,
+          releaseI: elem.releaseI,
+          releaseJ: elem.releaseJ,
           ...pickElement3DMetadata(elem),
         });
       }
@@ -305,8 +305,8 @@
         const newElemId = modelStore.addElement(ni, nj, el.type);
         modelStore.updateElementMaterial(newElemId, matId);
         modelStore.updateElementSection(newElemId, secId);
-        if (el.hingeStart) modelStore.toggleHinge(newElemId, 'start');
-        if (el.hingeEnd) modelStore.toggleHinge(newElemId, 'end');
+        if (el.releaseI?.mz === true) modelStore.toggleHinge(newElemId, 'start');
+        if (el.releaseJ?.mz === true) modelStore.toggleHinge(newElemId, 'end');
         if (hasExplicitLocalY(el)) {
           modelStore.updateElementLocalY(newElemId, el.localYx, el.localYy, el.localYz);
         }

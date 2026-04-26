@@ -1069,7 +1069,7 @@
     _drawNode(ctx!, node, (wx, wy) => uiStore.worldToScreen(wx, wy), uiStore.selectedNodes.has(node.id), uiStore.showNodeLabels);
   }
 
-  function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart?: boolean; hingeEnd?: boolean }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
+  function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
     const niRaw = modelStore.getNode(elem.nodeI);
     const njRaw = modelStore.getNode(elem.nodeJ);
     if (!niRaw || !njRaw) return;

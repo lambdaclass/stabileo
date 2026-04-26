@@ -85,7 +85,7 @@ export function remapDisplacement3D(plane: DrawPlane, ux2d: number, uy2d: number
 
 export interface SimplifiedModel {
   nodes: Map<number, { id: number; x: number; y: number }>;
-  elements: Map<number, { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart: boolean; hingeEnd: boolean }>;
+  elements: Map<number, { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }>;
   supports: Map<number, { id: number; nodeId: number; type: string; [k: string]: unknown }>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
   /** Original model's materials/sections passed through unchanged */
@@ -110,7 +110,7 @@ const MERGE_TOL = 1e-4;
 export function buildSimplified2DModel(
   plane: DrawPlane,
   nodes: Iterable<{ id: number; x: number; y: number; z?: number }>,
-  elements: Iterable<{ id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart: boolean; hingeEnd: boolean }>,
+  elements: Iterable<{ id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }>,
   supports: Iterable<{ id: number; nodeId: number; type: string; [k: string]: unknown }>,
   loads: Iterable<{ type: string; data: Record<string, unknown> }>,
   materials: Map<number, any>,
@@ -154,7 +154,7 @@ export function buildSimplified2DModel(
   let removedElements = 0;
   let duplicateElements = 0;
   const edgeSet = new Set<string>();
-  const outElements = new Map<number, { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart: boolean; hingeEnd: boolean }>();
+  const outElements = new Map<number, { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }>();
 
   for (const e of elemArr) {
     const nI = mergeMap.get(e.nodeI) ?? e.nodeI;

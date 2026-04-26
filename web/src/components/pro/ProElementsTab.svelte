@@ -35,8 +35,8 @@
           nodeJ: String(e.nodeJ),
           materialId: e.materialId,
           sectionId: e.sectionId,
-          hingeI: e.hingeStart ?? false,
-          hingeJ: e.hingeEnd ?? false,
+          hingeI: e.releaseI?.mz === true,
+          hingeJ: e.releaseJ?.mz === true,
         })),
         ...unsavedRows,
       ];
@@ -107,8 +107,8 @@
       modelStore.updateElementMaterial(row.id, row.materialId);
       modelStore.updateElementSection(row.id, row.sectionId);
       // Sync hinges
-      if ((elem.hingeStart ?? false) !== row.hingeI) modelStore.toggleHinge(row.id, 'start');
-      if ((elem.hingeEnd ?? false) !== row.hingeJ) modelStore.toggleHinge(row.id, 'end');
+      if ((elem.releaseI?.mz === true) !== row.hingeI) modelStore.toggleHinge(row.id, 'start');
+      if ((elem.releaseJ?.mz === true) !== row.hingeJ) modelStore.toggleHinge(row.id, 'end');
     }
   }
 

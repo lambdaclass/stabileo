@@ -147,7 +147,7 @@ export function syncElements(ctx: SceneSyncContext): void {
     ep.upsert(id, posI, posJ);
 
     const signature =
-      `${renderMode}|${elem.type}|${elem.hingeStart ? 1 : 0}${elem.hingeEnd ? 1 : 0}` +
+      `${renderMode}|${elem.type}|${elem.releaseI?.mz === true ? 1 : 0}${elem.releaseJ?.mz === true ? 1 : 0}` +
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
       `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.rotation ?? ''}` +
       `|${elem.rollAngle ?? ''}`;
@@ -165,8 +165,8 @@ export function syncElements(ctx: SceneSyncContext): void {
       {
         elementId: id,
         elementType: elem.type,
-        hingeStart: elem.hingeStart,
-        hingeEnd: elem.hingeEnd,
+        hingeStart: elem.releaseI?.mz === true,
+        hingeEnd: elem.releaseJ?.mz === true,
         section: sec,
         sectionRotation: sec?.rotation,
         elementRollAngle: elem.rollAngle,

@@ -889,7 +889,11 @@ export function computePsi(colStiffness: number, beamStiffness: number): number 
  * Avoids coupling to the full model store types.
  */
 interface PsiNode { id: number; x: number; y: number; z?: number }
-interface PsiElement { id: number; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart: boolean; hingeEnd: boolean }
+interface PsiElement {
+  id: number; nodeI: number; nodeJ: number; materialId: number; sectionId: number;
+  releaseI?: { my: boolean; mz: boolean; t: boolean };
+  releaseJ?: { my: boolean; mz: boolean; t: boolean };
+}
 interface PsiSection { id: number; iz: number; iy?: number; b?: number; h?: number }
 interface PsiMaterial { id: number; e: number }
 interface PsiSupport { nodeId: number }
@@ -962,7 +966,7 @@ export function computeJointPsiFromModel(
         // Beam: x · 0.35·E·Ig / L
         // x depends on far-end condition of this beam
         const farNodeId = elem.nodeI === jointNodeId ? elem.nodeJ : elem.nodeI;
-        const farHinge = elem.nodeI === jointNodeId ? elem.hingeEnd : elem.hingeStart;
+        const farHinge = elem.nodeI === jointNodeId ? (elem.releaseJ?.mz === true) : (elem.releaseI?.mz === true);
         const farSup = supports.get(farNodeId);
 
         let x = 1.0; // default: far end fixed or continuous

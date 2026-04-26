@@ -5,6 +5,7 @@ import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
 import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
+import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import type { TabState } from './tabs.svelte';
@@ -23,14 +24,40 @@ import {
 
 // ─── File Format ────────────────────────────────────────────────
 
+/**
+ * v2.0: typed per-axis releases on elements (`releaseI`/`releaseJ`).
+ * v1.0: legacy `hingeStart`/`hingeEnd` booleans — read-migrated on load, never written.
+ * Unknown versions are rejected.
+ */
+export const DEDAL_FILE_VERSION = '2.0' as const;
+const KNOWN_VERSIONS = new Set(['1.0', '2.0']);
+
 export interface DedalFile {
-  version: '1.0';
+  version: typeof DEDAL_FILE_VERSION;
   name: string;
   timestamp: string;
   snapshot: ModelSnapshot;
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
   axisConvention3D?: 'rightHand' | 'leftHand';
   viewportPresentation3D?: ViewportPresentation3D;
+}
+
+/** Migrate a snapshot in place: converts legacy hingeStart/hingeEnd → releaseI.mz/releaseJ.mz. */
+function migrateSnapshotV1ToV2(snapshot: Record<string, unknown>): void {
+  const elements = snapshot.elements;
+  if (!Array.isArray(elements)) return;
+  for (const entry of elements as Array<[number, Record<string, unknown>]>) {
+    const elem = entry[1];
+    if (!elem) continue;
+    const releaseI: Release = elem.releaseI as Release | undefined ?? { ...NO_RELEASE };
+    const releaseJ: Release = elem.releaseJ as Release | undefined ?? { ...NO_RELEASE };
+    if (elem.hingeStart === true) releaseI.mz = true;
+    if (elem.hingeEnd === true) releaseJ.mz = true;
+    elem.releaseI = releaseI;
+    elem.releaseJ = releaseJ;
+    delete elem.hingeStart;
+    delete elem.hingeEnd;
+  }
 }
 
 /** Returns true when the given analysis mode uses the 3D solver / export paths */
@@ -68,7 +95,7 @@ function downloadText(content: string, filename: string, mime: string): void {
 
 export function serializeProject(): string {
   const data: DedalFile = {
-    version: '1.0',
+    version: DEDAL_FILE_VERSION,
     name: modelStore.model.name,
     timestamp: new Date().toISOString(),
     snapshot: modelStore.snapshot(),
@@ -77,6 +104,38 @@ export function serializeProject(): string {
     viewportPresentation3D: uiStore.viewportPresentation3D,
   };
   return JSON.stringify(data, null, 2);
+}
+
+/**
+ * Pure deserializer for a single-tab .ded file. Parses, validates, migrates legacy
+ * v1.0 snapshots into the typed-release shape, restores the model, and returns
+ * `true` on success. Unknown/invalid payloads return `false` without mutating state.
+ */
+export function deserializeProject(text: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== 'object') return false;
+  const d = parsed as Record<string, unknown>;
+  if (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version)) return false;
+  const snapshot = d.snapshot as Record<string, unknown> | undefined;
+  if (!snapshot) return false;
+  if (d.version === '1.0') migrateSnapshotV1ToV2(snapshot);
+  if (!validateDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
+
+  const data = d as unknown as DedalFile;
+  historyStore.pushState();
+  modelStore.restore(data.snapshot);
+  modelStore.model.name = data.name;
+  if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
+  if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
+  if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
+  validateAxisSafety(data);
+  resultsStore.clear();
+  return true;
 }
 
 function validateDedalFile(data: unknown): data is DedalFile {
@@ -147,27 +206,9 @@ export function saveProject(): void {
 
 export async function loadProject(file: File): Promise<void> {
   const text = await file.text();
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(t('file.invalidJson'));
-  }
-
-  if (!validateDedalFile(data)) {
+  if (!deserializeProject(text)) {
     throw new Error(t('file.invalidFormat'));
   }
-
-  historyStore.pushState();
-  modelStore.restore(data.snapshot);
-  modelStore.model.name = data.name;
-  // Restore analysis mode and axis convention from file (default to 2d / rightHand for legacy files)
-  if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
-  if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
-  if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
-  // Validate axis safety: 2D snapshots should not have mixed z coordinates
-  validateAxisSafety(data);
-  resultsStore.clear();
 }
 
 // ─── Session Save / Load (all tabs) ─────────────────────────────
@@ -207,18 +248,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     // Session file: restore all tabs
     tabManager.restoreSession(data.tabs, data.activeTabId);
     return { type: 'session', count: data.tabs.length };
-  } else if (validateDedalFile(data)) {
-    // Single tab file: load into current tab
-    historyStore.pushState();
-    modelStore.restore(data.snapshot);
-    modelStore.model.name = data.name;
-    // Restore analysis mode and axis convention from file (default to 2d / rightHand for legacy files)
-    if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
-    if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
-    if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
-    // Validate axis safety: 2D snapshots should not have mixed z coordinates
-    validateAxisSafety(data);
-    resultsStore.clear();
+  } else if (deserializeProject(text)) {
     return { type: 'tab', count: 1 };
   } else {
     throw new Error(t('file.invalidFormat'));
@@ -573,7 +603,9 @@ export function generateReportHTML(): string {
   for (const [, elem] of m.elements) {
     const mat = m.materials.get(elem.materialId);
     const sec = m.sections.get(elem.sectionId);
-    html += `<tr><td>${elem.id}</td><td>${elem.type}</td><td>${elem.nodeI}</td><td>${elem.nodeJ}</td><td>${mat ? escapeXml(mat.name) : elem.materialId}</td><td>${sec ? escapeXml(sec.name) : elem.sectionId}</td><td>${elem.hingeStart ? t('file.yes') : '-'}</td><td>${elem.hingeEnd ? t('file.yes') : '-'}</td></tr>`;
+    const hI = elem.releaseI?.mz === true;
+    const hJ = elem.releaseJ?.mz === true;
+    html += `<tr><td>${elem.id}</td><td>${elem.type}</td><td>${elem.nodeI}</td><td>${elem.nodeJ}</td><td>${mat ? escapeXml(mat.name) : elem.materialId}</td><td>${sec ? escapeXml(sec.name) : elem.sectionId}</td><td>${hI ? t('file.yes') : '-'}</td><td>${hJ ? t('file.yes') : '-'}</td></tr>`;
   }
   html += `</tbody></table>`;
 
@@ -767,9 +799,14 @@ export function loadFromLocalStorage(): DedalFile | null {
   try {
     const raw = localStorage.getItem(AUTOSAVE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw);
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof data.version !== 'string' || !KNOWN_VERSIONS.has(data.version)) return null;
+    if (data.version === '1.0' && data.snapshot) {
+      migrateSnapshotV1ToV2(data.snapshot as Record<string, unknown>);
+      data.version = DEDAL_FILE_VERSION;
+    }
     if (!validateDedalFile(data)) return null;
-    return data;
+    return data as unknown as DedalFile;
   } catch {
     return null;
   }
@@ -818,3 +855,30 @@ export function clearWorkspaceFromLocalStorage(): void {
     // ignore
   }
 }
+
+// ─── Aggregate API ──────────────────────────────────────────────
+
+export const fileOps = {
+  serializeProject,
+  deserializeProject,
+  saveProject,
+  loadProject,
+  loadFile,
+  saveSession,
+  exportResultsCSV,
+  downloadResultsCSV,
+  downloadCanvasPNG,
+  exportDXF,
+  downloadDXF,
+  exportSVG,
+  downloadSVG,
+  downloadExcel,
+  generateReportHTML,
+  openPDFReport,
+  saveToLocalStorage,
+  loadFromLocalStorage,
+  clearLocalStorage,
+  saveWorkspaceToLocalStorage,
+  loadWorkspaceFromLocalStorage,
+  clearWorkspaceFromLocalStorage,
+};

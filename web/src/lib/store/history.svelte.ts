@@ -1,5 +1,6 @@
 // Undo/Redo history store using full model snapshots
 import { modelStore } from './model.svelte';
+import type { Release } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 
 export interface ModelSnapshot {
@@ -15,8 +16,8 @@ export interface ModelSnapshot {
     nodeJ: number;
     materialId: number;
     sectionId: number;
-    hingeStart?: boolean;
-    hingeEnd?: boolean;
+    releaseI: Release;
+    releaseJ: Release;
   } & Element3DMetadata]>;
   supports: Array<[number, { id: number; nodeId: number; type: string; angle?: number; isGlobal?: boolean; kx?: number; ky?: number; kz?: number; dx?: number; dz?: number; dry?: number; dy?: number; drz?: number; drx?: number; krx?: number; kry?: number; krz?: number }]>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
