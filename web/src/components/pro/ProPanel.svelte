@@ -397,7 +397,7 @@
     const results = resultsStore.results3D;
     if (!results) return [];
     const stationData = resultsStore.hasCombinations3D
-      ? computeStationDemandsService(resultsStore.perCombo3D, modelStore.model.combinations)
+      ? computeStationDemandsService(resultsStore.perCombo3D, modelStore.model.combinations, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports })
       : undefined;
     return runUnifiedVerification(
       results,

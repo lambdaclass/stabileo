@@ -310,7 +310,7 @@
     // This replaces the old endpoint-only force extraction loop — see §13.1 of SOLVER_APP_COVERAGE_MAP.md
     const governing = resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null;
     const stationData = resultsStore.hasCombinations3D
-      ? computeStationDemands(resultsStore.perCombo3D, modelStore.model.combinations)
+      ? computeStationDemands(resultsStore.perCombo3D, modelStore.model.combinations, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports })
       : undefined;
     const verifs = runUnifiedVerification(
       results,

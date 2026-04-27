@@ -19,7 +19,7 @@
  *   - autoVerifyFromResults is the JS orchestrator (Phase 3 replaces with WASM call)
  */
 
-import type { AnalysisResults3D } from './types-3d';
+import type { AnalysisResults3D, BeamStationInput3D, GroupedBeamStationResult3D, MemberStationGroup3D, StationComboForces3D } from './types-3d';
 import type { LoadCombination } from '../store/model.svelte';
 import {
   extractElementStations,
@@ -27,6 +27,7 @@ import {
   type ElementDesignDemands,
   type ElementStationResult,
 } from './station-design-forces';
+import { extractBeamStationsGrouped3D } from './wasm-solver';
 import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
 import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
@@ -43,30 +44,41 @@ export interface StationDemandData {
 /**
  * Compute station-based demands for all elements from per-combination 3D results.
  *
- * This is the canonical force-extraction path that both Design and Verification
- * should use. It evaluates interior stations (midspan, quarter points, load
- * positions, zero-shear points) across all combinations, preserving moment sign
- * and full concurrent force tuples.
+ * Primary path: WASM `extractBeamStationsGrouped3D` (solver-side station interpolation).
+ * Fallback: JS `extractElementStations` (app-side reimplementation, used when WASM unavailable).
  *
- * @param perCombo3D Per-combination results from resultsStore
- * @param combinations Model combinations (for name lookup)
- * @returns Station data for all elements, or empty maps if no combinations
+ * The WASM path evaluates beam diagrams at interior stations natively in Rust,
+ * eliminating ~300 LOC of JS station interpolation logic.
+ *
+ * Thin adapter: converts WASM GroupedBeamStationResult3D → app-side StationDemandData
+ * because `design_demands` is not exported as WASM (the demand extraction step
+ * still runs in JS via `extractGoverningDemands`).
  */
 export function computeStationDemands(
   perCombo3D: Map<number, AnalysisResults3D>,
   combinations: LoadCombination[],
+  model?: AutoVerifyModelData,
 ): StationDemandData {
   const demands = new Map<number, ElementDesignDemands>();
   const stations = new Map<number, ElementStationResult>();
 
   if (perCombo3D.size === 0) return { demands, stations };
 
+  // Try WASM station extraction first (solver-backed)
+  if (model) {
+    try {
+      const wasmResult = computeStationDemandsWasm(perCombo3D, combinations, model);
+      if (wasmResult) return wasmResult;
+    } catch {
+      // WASM unavailable — fall through to JS path
+    }
+  }
+
+  // JS fallback (TRANSITIONAL — used when WASM is not available or model not provided)
   const comboNames = new Map<number, string>();
   for (const c of combinations) comboNames.set(c.id, c.name);
-
   const firstCombo = perCombo3D.values().next().value;
   if (!firstCombo) return { demands, stations };
-
   for (const ef of firstCombo.elementForces) {
     const esr = extractElementStations(ef.elementId, perCombo3D, comboNames);
     if (esr) {
@@ -74,8 +86,90 @@ export function computeStationDemands(
       demands.set(ef.elementId, extractGoverningDemands(esr));
     }
   }
-
   return { demands, stations };
+}
+
+/**
+ * WASM-backed station extraction via `extractBeamStationsGrouped3D`.
+ * Builds the BeamStationInput3D payload from app data and adapts the result.
+ */
+function computeStationDemandsWasm(
+  perCombo3D: Map<number, AnalysisResults3D>,
+  combinations: LoadCombination[],
+  model: AutoVerifyModelData,
+): StationDemandData | null {
+  // Build member list from model
+  const members: Array<{ elementId: number; sectionId: number; materialId: number; length: number }> = [];
+  for (const [id, elem] of model.elements) {
+    const nI = model.nodes.get(elem.nodeI);
+    const nJ = model.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) continue;
+    const dx = nJ.x - nI.x, dy = nJ.y - nI.y, dz = (nJ.z ?? 0) - (nI.z ?? 0);
+    const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (L <= 0) continue;
+    members.push({ elementId: id, sectionId: elem.sectionId, materialId: elem.materialId, length: L });
+  }
+
+  // Build labeled combinations from per-combo results
+  const comboNameMap = new Map<number, string>();
+  for (const c of combinations) comboNameMap.set(c.id, c.name);
+  const labeledCombos: Array<{ comboId: number; comboName?: string; results: AnalysisResults3D }> = [];
+  for (const [comboId, results] of perCombo3D) {
+    labeledCombos.push({ comboId, comboName: comboNameMap.get(comboId), results });
+  }
+
+  const input: BeamStationInput3D = { members, combinations: labeledCombos, numStations: 11 };
+  const grouped: GroupedBeamStationResult3D = extractBeamStationsGrouped3D(input);
+
+  // Adapt WASM output → app-side StationDemandData
+  // The WASM gives us per-member per-station per-combo forces.
+  // We convert to ElementStationResult shape (for compatibility with existing consumers)
+  // and extract governing demands via the existing JS adapter (thin — no interpolation).
+  const demands = new Map<number, ElementDesignDemands>();
+  const stationMap = new Map<number, ElementStationResult>();
+
+  for (const member of grouped.members) {
+    const esr = wasmMemberToStationResult(member, comboNameMap);
+    stationMap.set(member.memberId, esr);
+    demands.set(member.memberId, extractGoverningDemands(esr));
+  }
+
+  return { demands, stations: stationMap };
+}
+
+/** Adapt one WASM MemberStationGroup3D → app-side ElementStationResult. */
+function wasmMemberToStationResult(
+  member: MemberStationGroup3D,
+  comboNames: Map<number, string>,
+): ElementStationResult {
+  // Group stations by combo to build the comboResults shape
+  const comboMap = new Map<number, Array<{ x: number; t: number; n: number; vy: number; vz: number; my: number; mz: number }>>();
+
+  for (const station of member.stations) {
+    for (const cf of station.comboForces) {
+      let arr = comboMap.get(cf.comboId);
+      if (!arr) { arr = []; comboMap.set(cf.comboId, arr); }
+      arr.push({
+        x: station.stationX, t: station.t,
+        n: cf.n, vy: cf.vy, vz: cf.vz, my: cf.my, mz: cf.mz,
+      });
+    }
+  }
+
+  const comboResults: ElementStationResult['comboResults'] = [];
+  for (const [comboId, stationForces] of comboMap) {
+    comboResults.push({
+      comboId,
+      comboName: comboNames.get(comboId) ?? `Combo ${comboId}`,
+      stations: stationForces,
+    });
+  }
+
+  return {
+    elementId: member.memberId,
+    length: member.length,
+    comboResults,
+  };
 }
 
 // ─── Unified Verification ────────────────────────────────────
