@@ -13,7 +13,6 @@ import {
   postProcessShellStresses,
 } from './solver-shells';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
-import { mapGenericHingeToReleases3D } from './hinge-3d-bridge';
 import { t } from '../i18n';
 import {
   get2DDisplayNodalLoadMoment,
@@ -1073,11 +1072,15 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
       }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => {
-      const releases = mapGenericHingeToReleases3D(e.releaseI?.mz === true, e.releaseJ?.mz === true);
       const elem: any = {
         id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
         materialId: e.materialId, sectionId: e.sectionId,
-        ...releases,
+        releaseMyStart: e.releaseI?.my === true,
+        releaseMyEnd: e.releaseJ?.my === true,
+        releaseMzStart: e.releaseI?.mz === true,
+        releaseMzEnd: e.releaseJ?.mz === true,
+        releaseTStart: e.releaseI?.t === true,
+        releaseTEnd: e.releaseJ?.t === true,
       };
       if (e.localYx !== undefined) { elem.localYx = e.localYx; elem.localYy = e.localYy; elem.localYz = e.localYz; }
       // Compose element rollAngle with section rotation — computeLocalAxes3D rotates local Y/Z
