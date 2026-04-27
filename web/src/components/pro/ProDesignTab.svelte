@@ -37,7 +37,7 @@
   /** Station-based data for ALL elements — computed via shared verification service. */
   const allStationData = $derived.by(() => {
     if (!resultsStore.hasCombinations3D) return { demands: new Map<number, ElementDesignDemands>(), stations: new Map<number, ElementStationResult>() };
-    return computeStationDemands(resultsStore.perCombo3D, modelStore.model.combinations);
+    return computeStationDemands(resultsStore.perCombo3D, modelStore.model.combinations, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports });
   });
   const allStationDemands = $derived(allStationData.demands);
 
