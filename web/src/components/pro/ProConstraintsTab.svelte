@@ -54,6 +54,22 @@
   let ecOffsetZ = $state('0');
   let ecReleases = $state([false, false, false, false, false, false]); // [ux, uy, uz, rx, ry, rz]
 
+  // ─── Connector (joint/spring/bearing) state ──────────────────
+  // Six stiffness components mirror Rust ConnectorElement. Setting a component
+  // to 0 produces sliding/flexibility in that direction — this is the explicit
+  // way to express a sliding bearing in the "joint/connection" mental model:
+  // pick which directions are stiff, leave the others at 0.
+  let connNodeI = $state('');
+  let connNodeJ = $state('');
+  let connKAxial = $state('0');
+  let connKShear = $state('0');
+  let connKMoment = $state('0');
+  let connKShearZ = $state('0');
+  let connKBendY = $state('0');
+  let connKBendZ = $state('0');
+
+  const connectors = $derived([...modelStore.connectors.values()]);
+
   const constraints = $derived(modelStore.model.constraints ?? []);
 
   function validateNode(idStr: string): number | null {
@@ -253,6 +269,45 @@
   function constraintTypeLabel(type: string): string {
     return constraintKinds.find(k => k.value === type)?.label ?? type;
   }
+
+  function addConnector() {
+    const ni = validateNode(connNodeI);
+    const nj = validateNode(connNodeJ);
+    if (ni === null || nj === null || ni === nj) return;
+    const kA = parseFloat(connKAxial);
+    const kS = parseFloat(connKShear);
+    const kM = parseFloat(connKMoment);
+    const kSz = parseFloat(connKShearZ);
+    const kBy = parseFloat(connKBendY);
+    const kBz = parseFloat(connKBendZ);
+    if ([kA, kS, kM, kSz, kBy, kBz].some(v => isNaN(v))) return;
+    // Disallow all-zero connectors — that's a fully disconnected pair, almost
+    // certainly a user error and a guaranteed mechanism.
+    if (kA === 0 && kS === 0 && kM === 0 && kSz === 0 && kBy === 0 && kBz === 0) return;
+    modelStore.addConnector({
+      nodeI: ni, nodeJ: nj,
+      kAxial: kA, kShear: kS, kMoment: kM,
+      kShearZ: kSz, kBendY: kBy, kBendZ: kBz,
+    });
+    connNodeI = '';
+    connNodeJ = '';
+    connKAxial = '0'; connKShear = '0'; connKMoment = '0';
+    connKShearZ = '0'; connKBendY = '0'; connKBendZ = '0';
+  }
+
+  function removeConnector(id: number) {
+    modelStore.removeConnector(id);
+  }
+
+  function fmtStiff(v: number | undefined): string {
+    if (v === undefined || v === 0) return '0';
+    if (Math.abs(v) >= 1e5) return v.toExponential(1);
+    return String(v);
+  }
+
+  function connectorLabel(c: { kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }): string {
+    return `kAxial=${fmtStiff(c.kAxial)}, kShear=${fmtStiff(c.kShear)}, kMoment=${fmtStiff(c.kMoment)}, kShearZ=${fmtStiff(c.kShearZ)}, kBendY=${fmtStiff(c.kBendY)}, kBendZ=${fmtStiff(c.kBendZ)}`;
+  }
 </script>
 
 <div class="pro-cst">
@@ -377,6 +432,72 @@
       </tbody>
     </table>
   </div>
+
+  <!-- ─── Connectors (joint/spring/bearing) ──────────────────────── -->
+  <!-- Connectors are NOT structural members. They live alongside elements in -->
+  <!-- the solver model, but they don't carry section properties, don't appear -->
+  <!-- in M/V/N diagrams, and don't go through RC/steel design. The mental    -->
+  <!-- model is "stiffness between two nodes in named directions". A zero in  -->
+  <!-- a direction means sliding/flexibility there.                            -->
+  <div class="pro-conn-section">
+    <div class="pro-cst-header">
+      <span class="pro-cst-count">{t('pro.nConnectors').replace('{n}', String(connectors.length))}</span>
+      {#if connectors.length > 0}
+        <button class="pro-btn pro-btn-clear" onclick={() => modelStore.clearConnectors()}>{t('pro.clear')}</button>
+      {/if}
+    </div>
+
+    <div class="pro-cst-form">
+      <div class="pro-cst-hint">{t('pro.connectorIntro')}</div>
+      <div class="pro-cst-row">
+        <label>{t('pro.nodeI')}: <input type="text" bind:value={connNodeI} placeholder="ID" class="pro-input-sm" /></label>
+        <label>{t('pro.nodeJ')}: <input type="text" bind:value={connNodeJ} placeholder="ID" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-row">
+        <span class="pro-cst-sublabel">{t('pro.kInPlane')}:</span>
+      </div>
+      <div class="pro-cst-row">
+        <label>kAxial: <input type="text" bind:value={connKAxial} placeholder="0" class="pro-input-sm" /></label>
+        <label>kShear: <input type="text" bind:value={connKShear} placeholder="0" class="pro-input-sm" /></label>
+        <label>kMoment: <input type="text" bind:value={connKMoment} placeholder="0" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-row">
+        <span class="pro-cst-sublabel">{t('pro.k3D')}:</span>
+      </div>
+      <div class="pro-cst-row">
+        <label>kShearZ: <input type="text" bind:value={connKShearZ} placeholder="0" class="pro-input-sm" /></label>
+        <label>kBendY: <input type="text" bind:value={connKBendY} placeholder="0" class="pro-input-sm" /></label>
+        <label>kBendZ: <input type="text" bind:value={connKBendZ} placeholder="0" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-hint">{t('pro.connectorHint')}</div>
+      <div class="pro-cst-actions">
+        <button class="pro-btn" onclick={addConnector}>{t('pro.addConnector')}</button>
+      </div>
+    </div>
+
+    <div class="pro-cst-table-wrap">
+      <table class="pro-cst-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{t('pro.thNodes')}</th>
+            <th>{t('pro.thStiffness')}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each connectors as c}
+            <tr>
+              <td class="col-id">{c.id}</td>
+              <td class="col-type">{c.nodeI} → {c.nodeJ}</td>
+              <td class="col-desc">{connectorLabel(c)}</td>
+              <td><button class="pro-delete-btn" onclick={() => removeConnector(c.id)}>×</button></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -491,6 +612,15 @@
     color: #888;
     font-weight: 600;
   }
+
+  /* Connectors section sits below the constraints table; visually separated
+   * with a top border + slight color shift so it reads as its own surface
+   * inside the same right-side workflow. */
+  .pro-conn-section {
+    border-top: 2px solid #1a3050;
+    background: #0a1828;
+  }
+  .pro-conn-section .pro-cst-header { background: #0a1828; }
 
   .pro-cst-actions {
     display: flex;
