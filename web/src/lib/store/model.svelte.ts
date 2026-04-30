@@ -1,7 +1,8 @@
 // Model store - manages the structural model
 import type { KinematicResult } from '../engine/kinematic-2d';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
-import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from '../engine/types-3d';
+import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, ConnectorElement } from '../engine/types-3d';
+export type { ConnectorElement };
 import type { ModelSnapshot } from './history.svelte';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
@@ -420,6 +421,11 @@ export interface StructureModel {
   plates: Map<number, Plate>;
   quads: Map<number, Quad>;
   constraints: Constraint3D[];
+  /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
+   *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
+   *  entries inside the existing structural-control workflow (not a separate
+   *  top-level "Connectors" object family). */
+  connectors: Map<number, ConnectorElement>;
 }
 
 export type { AnalysisResults };
@@ -472,6 +478,7 @@ function createModelStore() {
     plates: new Map(),
     quads: new Map(),
     constraints: [],
+    connectors: new Map(),
   });
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
@@ -564,6 +571,7 @@ function createModelStore() {
     combination: 5,
     plate: 1,
     quad: 1,
+    connector: 1,
   });
 
 
@@ -678,6 +686,7 @@ function createModelStore() {
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
+    get connectors() { return model.connectors; },
     get kinematicResult() { return lastKinematicResult; },
 
     snapshot(): ModelSnapshot {
@@ -717,6 +726,7 @@ function createModelStore() {
         plates: Array.from(snap.plates.entries()) as ModelSnapshot['plates'],
         quads: Array.from(snap.quads.entries()) as ModelSnapshot['quads'],
         constraints: snap.constraints as ModelSnapshot['constraints'],
+        connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
         nextId: snapId as ModelSnapshot['nextId'],
       };
       return result;
@@ -784,6 +794,9 @@ function createModelStore() {
       model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, { ...v }] as [number, Plate])) : new Map();
       model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, { ...v }] as [number, Quad])) : new Map();
       model.constraints = (s as any).constraints ? (s as any).constraints.map((c: Constraint3D) => ({ ...c })) : [];
+      model.connectors = (s as any).connectors
+        ? new Map((s as any).connectors.map(([k, v]: [number, ConnectorElement]) => [k, { ...v }] as [number, ConnectorElement]))
+        : new Map();
       nextId.node = s.nextId.node;
       nextId.material = s.nextId.material;
       nextId.section = s.nextId.section;
@@ -794,6 +807,7 @@ function createModelStore() {
       nextId.combination = s.nextId.combination ?? 1;
       nextId.plate = s.nextId.plate ?? 1;
       nextId.quad = s.nextId.quad ?? 1;
+      nextId.connector = (s.nextId as any).connector ?? 1;
     },
 
     addNode(x: number, y: number, z?: number): number {
@@ -1080,6 +1094,39 @@ function createModelStore() {
       model.constraints = [];
     },
 
+    // ─── Connector CRUD (joint/spring/bearing primitives) ───
+    // Map reassignment on every mutation per Svelte 5 reactivity guidance
+    // (see web/CLAUDE.md "Reactivity with Maps").
+    addConnector(data: Omit<ConnectorElement, 'id'>): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.connector++;
+      const m = new Map(model.connectors);
+      m.set(id, { id, ...data });
+      model.connectors = m;
+      return id;
+    },
+
+    updateConnector(id: number, data: Partial<Omit<ConnectorElement, 'id'>>): void {
+      if (!_undoBatching) _pushUndo?.();
+      const cur = model.connectors.get(id);
+      if (!cur) return;
+      const m = new Map(model.connectors);
+      m.set(id, { ...cur, ...data, id });
+      model.connectors = m;
+    },
+
+    removeConnector(id: number): void {
+      if (!_undoBatching) _pushUndo?.();
+      const m = new Map(model.connectors);
+      m.delete(id);
+      model.connectors = m;
+    },
+
+    clearConnectors(): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.connectors = new Map();
+    },
+
     removeLoad(loadId: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.loads = model.loads.filter(l => l.data.id !== loadId);
@@ -1225,6 +1272,7 @@ function createModelStore() {
       model.plates = new Map();
       model.quads = new Map();
       model.constraints = [];
+      model.connectors = new Map();
       // Reset materials/sections to defaults
       model.materials = new Map([[1, { ...defaultMaterial }]]);
       model.sections = new Map([[1, { ...defaultSection }]]);

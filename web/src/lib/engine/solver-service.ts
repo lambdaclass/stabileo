@@ -40,6 +40,7 @@ export interface ModelData {
   plates?: Map<number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }>;
   quads?: Map<number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }>;
   constraints?: Constraint3D[];
+  connectors?: Map<number, import('./types-3d').ConnectorElement>;
 }
 
 function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
@@ -1141,6 +1142,7 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
     plates: model.plates ? new Map(Array.from(model.plates.entries()).map(([id, p]) => [id, { id: p.id, nodes: p.nodes, materialId: p.materialId, thickness: p.thickness }])) : new Map(),
     quads: model.quads ? new Map(Array.from(model.quads.entries()).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
     constraints: model.constraints ?? [],
+    connectors: model.connectors,
     leftHand,
   };
 }
