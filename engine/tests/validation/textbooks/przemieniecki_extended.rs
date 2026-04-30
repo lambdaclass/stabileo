@@ -26,7 +26,7 @@ const J: f64 = 1.5e-4;
 fn validation_prz_stiffness_symmetry() {
     // A 12×12 stiffness matrix must be symmetric: k[i][j] = k[j][i]
     let l = 3.0;
-    let k = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false, 0.0, 0.0);
+    let k = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, dedaliano_engine::element::Hinge3D::default(), 0.0, 0.0);
 
     assert_eq!(k.len(), 144, "3D stiffness should be 12×12 = 144 entries");
 
@@ -55,7 +55,7 @@ fn validation_prz_stiffness_symmetry() {
 fn validation_prz_stiffness_diagonal_positive() {
     // All diagonal entries should be non-negative (positive for non-degenerate)
     let l = 4.0;
-    let k = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false, 0.0, 0.0);
+    let k = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, dedaliano_engine::element::Hinge3D::default(), 0.0, 0.0);
 
     for i in 0..12 {
         assert!(
@@ -240,8 +240,16 @@ fn validation_prz_hinge_stiffness() {
     // Compare: k with hinge_start=true should have zero rotational coupling at node i
     let l = 4.0;
 
-    let k_full = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false, 0.0, 0.0);
-    let k_hinged = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, true, false, 0.0, 0.0);
+    let k_full = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, dedaliano_engine::element::Hinge3D::default(), 0.0, 0.0);
+    let k_hinged = frame_local_stiffness_3d(
+        E_EFF, A, IY, IZ, J, l, G,
+        dedaliano_engine::element::Hinge3D {
+            release_my_start: true,
+            release_mz_start: true,
+            ..Default::default()
+        },
+        0.0, 0.0,
+    );
 
     // With hinge at start: DOFs 4 (θy1) and 5 (θz1) should have zero rows/columns
     // (Torsion DOF 3 = θx1 may or may not be released depending on implementation)

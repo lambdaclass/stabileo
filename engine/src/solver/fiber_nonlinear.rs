@@ -11,7 +11,7 @@ use serde::{Serialize, Deserialize};
 use crate::types::*;
 use crate::linalg::*;
 use crate::element::fiber_beam::*;
-use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_3d};
+use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_3d, Hinge3D};
 use super::dof::DofNumbering;
 use super::assembly;
 use super::constraints::FreeConstraintSystem;
@@ -898,7 +898,8 @@ fn assemble_elastic_elements_3d(
 
         let k_local = crate::element::frame_local_stiffness_3d(
             e_val, sec.a, sec.iy, sec.iz, sec.j, l, g,
-            elem.hinge_start, elem.hinge_end, 0.0, 0.0,
+            Hinge3D::from_elem(elem),
+            0.0, 0.0,
         );
 
         let (ex, ey, ez) = compute_local_axes_3d(

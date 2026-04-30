@@ -116,7 +116,7 @@ describe('3D Inclined Supports (Penalty Method)', () => {
       { id: 2, x: L, y: 0, z: 0 },
     ];
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
 
     // Setup A: standard roller (ry=true)
@@ -179,7 +179,7 @@ describe('3D Inclined Supports (Penalty Method)', () => {
       { id: 2, x: L, y: 0, z: 0 },
     ];
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
 
     const s2 = Math.SQRT2;
@@ -227,7 +227,7 @@ describe('3D Inclined Supports (Penalty Method)', () => {
       { id: 2, x: L, y: 0, z: 0 },
     ];
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
 
     // Setup A: standard X roller (rx=true)
@@ -285,7 +285,7 @@ describe('3D Inclined Supports (Penalty Method)', () => {
       { id: 2, x: L, y: 0, z: 0 },
     ];
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
 
     // Normal at 30° from vertical in XY plane: [sin(30°), cos(30°), 0] = [0.5, sqrt(3)/2, 0]
@@ -352,8 +352,8 @@ describe('3D Inclined Supports (Penalty Method)', () => {
       { id: 3, x: 3, y: 2, z: 1 },
     ];
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
 
     // Arbitrary 3D normal: [2, 3, 1] (will be normalized internally)

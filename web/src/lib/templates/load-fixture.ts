@@ -18,8 +18,8 @@ export interface JSONModel {
     nodeJ: number;
     materialId: number;
     sectionId: number;
-    hingeStart: boolean;
-    hingeEnd: boolean;
+    hingeStart?: boolean;
+    hingeEnd?: boolean;
   }>;
   supports: Array<{ id: number; nodeId: number; type: string; [k: string]: unknown }>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;

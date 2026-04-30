@@ -1038,10 +1038,10 @@ fn add_artificial_stiffness_3d(
             if elem.elem_type == "frame" {
                 *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
                 *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-                if elem.hinge_start {
+                if elem.release_my_start || elem.release_mz_start {
                     *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
                 }
-                if elem.hinge_end {
+                if elem.release_my_end || elem.release_mz_end {
                     *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
                 }
             }
@@ -1119,7 +1119,7 @@ fn build_results_from_u_3d(
                 mx_start: 0.0, mx_end: 0.0,
                 my_start: 0.0, my_end: 0.0,
                 mz_start: 0.0, mz_end: 0.0,
-                hinge_start: false, hinge_end: false,
+                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
                 q_yi: 0.0, q_yj: 0.0,
                 distributed_loads_y: vec![], point_loads_y: vec![],
                 q_zi: 0.0, q_zj: 0.0,
@@ -1151,7 +1151,7 @@ fn build_results_from_u_3d(
         // Compute f_local = K_local * u_local
         let k_local = frame_local_stiffness_3d(
             e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-            elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+            Hinge3D::from_elem(elem), phi_y, phi_z,
         );
         let t = frame_transform_3d(&ex, &ey, &ez);
 
@@ -1188,8 +1188,12 @@ fn build_results_from_u_3d(
             my_end: f_local[10],
             mz_start: f_local[5],
             mz_end: f_local[11],
-            hinge_start: elem.hinge_start,
-            hinge_end: elem.hinge_end,
+            release_my_start: elem.release_my_start,
+            release_my_end: elem.release_my_end,
+            release_mz_start: elem.release_mz_start,
+            release_mz_end: elem.release_mz_end,
+            release_t_start: elem.release_t_start,
+            release_t_end: elem.release_t_end,
             q_yi: 0.0, q_yj: 0.0,
             distributed_loads_y: vec![],
             point_loads_y: vec![],

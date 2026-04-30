@@ -145,6 +145,42 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
 
+    // Topology-agnostic orphan-ROTATION-DOF detection on K_ff (pre-constraint-reduction):
+    // a free *rotation* DOF (local_dof=2 in 2D) whose row AND column in K_ff are
+    // identically zero has no rotational stiffness from anywhere — physically the
+    // rotation is undetermined, not a mechanism. Restricted to rotation DOFs so a
+    // genuinely floating node (translation DOFs orphan) still flags as mechanism.
+    let orphan_phys_dofs: Vec<usize> = {
+        let mut idx_to_local: HashMap<usize, usize> = HashMap::new();
+        for (&(_, ld), &idx) in &dof_num.map {
+            if idx < nf {
+                idx_to_local.insert(idx, ld);
+            }
+        }
+        let max_abs = k_ff.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+        let orphan_tol = (1e-10f64).max(max_abs * 1e-10);
+        let mut orphans = Vec::new();
+        for i in 0..nf {
+            // Only suppress rotation DOFs (local_dof = 2 in 2D)
+            if idx_to_local.get(&i).copied() != Some(2) {
+                continue;
+            }
+            let mut all_zero = true;
+            for j in 0..nf {
+                if k_ff[i * nf + j].abs() > orphan_tol
+                    || k_ff[j * nf + i].abs() > orphan_tol
+                {
+                    all_zero = false;
+                    break;
+                }
+            }
+            if all_zero {
+                orphans.push(i);
+            }
+        }
+        orphans
+    };
+
     // Apply constraint reduction if constraints present
     let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
@@ -213,6 +249,10 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
                 }
             }
         }
+    }
+
+    for &i in &orphan_phys_dofs {
+        expected_zero.insert(i);
     }
 
     // True mechanism DOFs
@@ -334,10 +374,16 @@ fn compute_static_degree_3d(input: &SolverInput3D) -> (i32, HashMap<usize, i32>)
         if elem.elem_type != "frame" { continue; }
         *node_frame_elems.entry(elem.node_i).or_insert(0) += 1;
         *node_frame_elems.entry(elem.node_j).or_insert(0) += 1;
-        if elem.hinge_start {
+        // Count a node-end as fully hinged (rotation continuity broken on every
+        // bending axis) only when BOTH bending rotations are released. A single-
+        // axis pin hinge still preserves rotational stiffness on the other axis,
+        // so it must NOT collapse the node's rotational continuity in this count.
+        // Torsion is treated as a separate axis but does not affect the hinge
+        // count for the static degree formula, which is bending-only.
+        if elem.release_my_start && elem.release_mz_start {
             *node_hinges.entry(elem.node_i).or_insert(0) += 1;
         }
-        if elem.hinge_end {
+        if elem.release_my_end && elem.release_mz_end {
             *node_hinges.entry(elem.node_j).or_insert(0) += 1;
         }
     }
@@ -390,6 +436,40 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
 
+    // Topology-agnostic orphan-ROTATION-DOF detection (see 2D analyzer rationale).
+    // Restricted to rotation DOFs (local_dof in 3..=5 for 3D) so genuinely
+    // floating nodes still flag as mechanisms.
+    let orphan_phys_dofs: Vec<usize> = {
+        let mut idx_to_local: HashMap<usize, usize> = HashMap::new();
+        for (&(_, ld), &idx) in &dof_num.map {
+            if idx < nf {
+                idx_to_local.insert(idx, ld);
+            }
+        }
+        let max_abs = k_ff.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+        let orphan_tol = (1e-10f64).max(max_abs * 1e-10);
+        let mut orphans = Vec::new();
+        for i in 0..nf {
+            match idx_to_local.get(&i).copied() {
+                Some(3) | Some(4) | Some(5) => {}
+                _ => continue,
+            }
+            let mut all_zero = true;
+            for j in 0..nf {
+                if k_ff[i * nf + j].abs() > orphan_tol
+                    || k_ff[j * nf + i].abs() > orphan_tol
+                {
+                    all_zero = false;
+                    break;
+                }
+            }
+            if all_zero {
+                orphans.push(i);
+            }
+        }
+        orphans
+    };
+
     // Apply constraint reduction if constraints present
     let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
@@ -425,10 +505,14 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             if elem.elem_type == "frame" {
                 *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
                 *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-                if elem.hinge_start {
+                // Per-axis-aware count: an end fully releases rotational
+                // continuity only when BOTH bending rotations are released.
+                // A single-axis pin hinge preserves stiffness on the other
+                // bending axis and must not be counted as fully hinged here.
+                if elem.release_my_start && elem.release_mz_start {
                     *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
                 }
-                if elem.hinge_end {
+                if elem.release_my_end && elem.release_mz_end {
                     *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
                 }
             } else {
@@ -475,6 +559,10 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
                 }
             }
         }
+    }
+
+    for &i in &orphan_phys_dofs {
+        expected_zero.insert(i);
     }
 
     let true_mechanism_dofs: Vec<usize> = zero_pivot_dofs

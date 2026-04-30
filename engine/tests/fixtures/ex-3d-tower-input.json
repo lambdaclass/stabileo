@@ -97,9 +97,7 @@
       "nodeI": 1,
       "nodeJ": 5,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "2": {
       "id": 2,
@@ -107,9 +105,7 @@
       "nodeI": 5,
       "nodeJ": 9,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "3": {
       "id": 3,
@@ -117,9 +113,7 @@
       "nodeI": 2,
       "nodeJ": 6,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "4": {
       "id": 4,
@@ -127,9 +121,7 @@
       "nodeI": 6,
       "nodeJ": 10,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "5": {
       "id": 5,
@@ -137,9 +129,7 @@
       "nodeI": 3,
       "nodeJ": 7,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "6": {
       "id": 6,
@@ -147,9 +137,7 @@
       "nodeI": 7,
       "nodeJ": 11,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "7": {
       "id": 7,
@@ -157,9 +145,7 @@
       "nodeI": 4,
       "nodeJ": 8,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "8": {
       "id": 8,
@@ -167,9 +153,7 @@
       "nodeI": 8,
       "nodeJ": 12,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "9": {
       "id": 9,
@@ -177,9 +161,7 @@
       "nodeI": 5,
       "nodeJ": 6,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "10": {
       "id": 10,
@@ -187,9 +169,7 @@
       "nodeI": 6,
       "nodeJ": 7,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "11": {
       "id": 11,
@@ -197,9 +177,7 @@
       "nodeI": 7,
       "nodeJ": 8,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "12": {
       "id": 12,
@@ -207,9 +185,7 @@
       "nodeI": 8,
       "nodeJ": 5,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "13": {
       "id": 13,
@@ -217,9 +193,7 @@
       "nodeI": 9,
       "nodeJ": 10,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "14": {
       "id": 14,
@@ -227,9 +201,7 @@
       "nodeI": 10,
       "nodeJ": 11,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "15": {
       "id": 15,
@@ -237,9 +209,7 @@
       "nodeI": 11,
       "nodeJ": 12,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "16": {
       "id": 16,
@@ -247,9 +217,7 @@
       "nodeI": 12,
       "nodeJ": 9,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "17": {
       "id": 17,
@@ -257,9 +225,7 @@
       "nodeI": 1,
       "nodeJ": 6,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "18": {
       "id": 18,
@@ -267,9 +233,7 @@
       "nodeI": 5,
       "nodeJ": 10,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "19": {
       "id": 19,
@@ -277,9 +241,7 @@
       "nodeI": 4,
       "nodeJ": 7,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "20": {
       "id": 20,
@@ -287,9 +249,7 @@
       "nodeI": 8,
       "nodeJ": 11,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "21": {
       "id": 21,
@@ -297,9 +257,7 @@
       "nodeI": 1,
       "nodeJ": 8,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "22": {
       "id": 22,
@@ -307,9 +265,7 @@
       "nodeI": 5,
       "nodeJ": 12,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "23": {
       "id": 23,
@@ -317,9 +273,7 @@
       "nodeI": 2,
       "nodeJ": 7,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     },
     "24": {
       "id": 24,
@@ -327,9 +281,7 @@
       "nodeI": 6,
       "nodeJ": 11,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     }
   },
   "supports": {

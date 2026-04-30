@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { solve, solve3D } from '../wasm-solver';
 import type { SolverInput, SolverLoad } from '../types';
 import type {
-  SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
+  SolverInput3D, SolverNode3D, SolverSection3D,
   SolverSupport3D, AnalysisResults3D,
 } from '../types-3d';
 import type { SolverMaterial } from '../types';
@@ -325,7 +325,7 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
       sections: new Map([[1, section]]),
       elements: new Map([[1, {
         id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2,
-        materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false,
+        materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
       }]]),
       supports: new Map([[0, {
         nodeId: 1,
@@ -362,8 +362,9 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
         nodeJ: 2,
         materialId: 1,
         sectionId: 1,
-        hingeStart: false,
-        hingeEnd: false,
+        releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: false, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false,
       }]]),
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed3d' as const }]]),
       loads: [],
@@ -398,8 +399,9 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
         nodeJ: 2,
         materialId: 1,
         sectionId: 1,
-        hingeStart: false,
-        hingeEnd: false,
+        releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: false, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false,
       }]]),
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' as const }]]),
       loads: [

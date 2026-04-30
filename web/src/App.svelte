@@ -146,6 +146,8 @@
     historyStore.clear();
     uiStore.proPanelVisible = true;
     uiStore.proPanelWidth = 540;
+    uiStore.leftDrawerOpen = false;
+    uiStore.rightDrawerOpen = false;
     // Restore target mode's model or start empty
     const saved = modeSnapshots.get(target);
     if (saved) {
@@ -1055,6 +1057,8 @@
     padding: 0.5rem 1rem;
     background: #16213e;
     border-bottom: 1px solid #0f3460;
+    position: relative;
+    z-index: 400;
   }
 
   .logo {
@@ -1103,6 +1107,8 @@
     border: 1px solid #334;
     margin-left: 0.25rem;
     min-width: 180px;
+    position: relative;
+    z-index: 401;
   }
 
   .mode-toggle button {

@@ -162,8 +162,12 @@ export function applyRigidDiaphragm(
         nodeJ: nid,
         materialId: diagMatId,
         sectionId: diagSecId,
-        hingeStart: false,
-        hingeEnd: false,
+        releaseMyStart: false,
+        releaseMyEnd: false,
+        releaseMzStart: false,
+        releaseMzEnd: false,
+        releaseTStart: false,
+        releaseTEnd: false,
       });
       nextElemId++;
     }

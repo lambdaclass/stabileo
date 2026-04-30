@@ -136,10 +136,15 @@ function assertSuccess3D(result: AnalysisResults3D | string): asserts result is 
 
 
 function makeFrame3D(id: number, nI: number, nJ: number, hingeStart = false, hingeEnd = false): SolverElement3D {
-  return { id, type: 'frame', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, hingeStart, hingeEnd };
+  return {
+    id, type: 'frame', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1,
+    releaseMyStart: hingeStart, releaseMyEnd: hingeEnd,
+    releaseMzStart: hingeStart, releaseMzEnd: hingeEnd,
+    releaseTStart: false, releaseTEnd: false,
+  };
 }
 function makeTruss3D(id: number, nI: number, nJ: number): SolverElement3D {
-  return { id, type: 'truss', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false };
+  return { id, type: 'truss', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false };
 }
 
 // ═════════════════════════════════════════════════════════════════

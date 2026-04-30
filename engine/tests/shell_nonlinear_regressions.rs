@@ -78,7 +78,7 @@ fn cantilever_frame_3d(
     elements.insert("1".into(), SolverElement3D {
         id: 1, elem_type: "frame".into(),
         node_i: 1, node_j: 2, material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
     });
 
@@ -265,7 +265,7 @@ fn make_mixed_frame_shell_model() -> (SolverInput3D, usize, usize) {
             id: eid, elem_type: "frame".into(),
             node_i: base, node_j: top,
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
     }
@@ -838,7 +838,7 @@ fn shell_nonlinear_08_multi_element_cantilever_convergence() {
             SolverElement3D {
                 id: i + 1, elem_type: "frame".into(),
                 node_i: i + 1, node_j: i + 2, material_id: 1, section_id: 1,
-                hinge_start: false, hinge_end: false,
+                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
                 local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
             },
         );

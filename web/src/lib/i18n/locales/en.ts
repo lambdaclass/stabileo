@@ -876,6 +876,8 @@ const en: Record<string, string> = {
   'prop.addHingeI': 'Add hinge at node I',
   'prop.removeHingeJ': 'Remove hinge at node J',
   'prop.addHingeJ': 'Add hinge at node J',
+  'prop.hinge3DDisclosure': 'In 3D, this releases bending about the strong axis (Mz) only. Bending about the weak axis (My) and torsion remain coupled.',
+  'prop.hinges3DSuffix': '(Mz only)',
   'prop.internalForces3d': '3D Internal Forces',
   'prop.moments3d': '3D Moments',
   'prop.internalForces': 'Internal Forces',

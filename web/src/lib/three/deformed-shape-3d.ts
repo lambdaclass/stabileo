@@ -224,17 +224,18 @@ export function computeDeformedShape3D(
     vpp_YL = r.vppL;
   }
 
-  // Hinge corrections for Y plane
+  // Hinge corrections for Y plane (Mz = bending about local z, strong axis).
+  // Use the Mz release flags only — the My releases govern the Z plane below.
   let thetaZI_adj = thetaZI;
   let thetaZJ_adj = thetaZJ;
   const dvY = vJ_local - vI_local;
 
-  if (ef.hingeStart && ef.hingeEnd) {
+  if (ef.releaseMzStart && ef.releaseMzEnd) {
     thetaZI_adj = dvY / L + L * vpp_Y0 / 3 + L * vpp_YL / 6;
     thetaZJ_adj = dvY / L - L * vpp_Y0 / 6 - L * vpp_YL / 3;
-  } else if (ef.hingeStart) {
+  } else if (ef.releaseMzStart) {
     thetaZI_adj = 3 * dvY / (2 * L) - thetaZJ / 2 + L * vpp_Y0 / 4;
-  } else if (ef.hingeEnd) {
+  } else if (ef.releaseMzEnd) {
     thetaZJ_adj = 3 * dvY / (2 * L) - thetaZI / 2 - L * vpp_YL / 4;
   }
 
@@ -257,12 +258,14 @@ export function computeDeformedShape3D(
   let slopeZJ = -thetaYJ;
   const dvZ = wJ_local - wI_local;
 
-  if (ef.hingeStart && ef.hingeEnd) {
+  // Hinge corrections for Z plane (My = bending about local y, weak axis).
+  // Use the My release flags — independent of the Mz/Y-plane decisions above.
+  if (ef.releaseMyStart && ef.releaseMyEnd) {
     slopeZI = dvZ / L + L * vpp_Z0 / 3 + L * vpp_ZL / 6;
     slopeZJ = dvZ / L - L * vpp_Z0 / 6 - L * vpp_ZL / 3;
-  } else if (ef.hingeStart) {
+  } else if (ef.releaseMyStart) {
     slopeZI = 3 * dvZ / (2 * L) - (-thetaYJ) / 2 + L * vpp_Z0 / 4;
-  } else if (ef.hingeEnd) {
+  } else if (ef.releaseMyEnd) {
     slopeZJ = 3 * dvZ / (2 * L) - (-thetaYI) / 2 - L * vpp_ZL / 4;
   }
 

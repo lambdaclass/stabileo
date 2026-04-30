@@ -46,6 +46,19 @@ export interface Section {
   rotation?: number;  // degrees — rotation of section profile around bar axis (0-360)
 }
 
+/** Per-end moment/torsion release on a frame element.
+ *  - `mz`: strong-axis bending release (the only axis 2D models can release).
+ *  - `my`: weak-axis bending release (3D only — has no DOF in 2D, ignored).
+ *  - `t`:  torsion release (3D only — has no DOF in 2D, ignored).
+ *  Trusses ignore all three flags. */
+export interface Release {
+  my: boolean;
+  mz: boolean;
+  t: boolean;
+}
+
+export const NO_RELEASE: Readonly<Release> = Object.freeze({ my: false, mz: false, t: false });
+
 /** A group of reinforcement bars (e.g., "4 Ø16"). */
 export interface RebarGroup {
   count: number;     // number of bars
@@ -220,11 +233,14 @@ export interface Element extends Element3DMetadata {
   nodeJ: number;
   materialId: number;
   sectionId: number;
-  hingeStart: boolean;
-  hingeEnd: boolean;
+  releaseI: Release;
+  releaseJ: Release;
   // PRO: provided reinforcement for RC design verification
   reinforcement?: ProvidedReinforcement;
 }
+
+export type ReleaseEnd = 'i' | 'j';
+export type ReleaseAxis = keyof Release;
 
 export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring'
   | 'fixed3d' | 'pinned3d' | 'rollerXZ' | 'rollerXY' | 'rollerYZ' | 'spring3d'
@@ -676,8 +692,8 @@ function createModelStore() {
         sections: Array.from(snap.sections.entries()) as ModelSnapshot['sections'],
         elements: Array.from(snap.elements.entries()).map(([k, v]) => [k, {
           ...v,
-          hingeStart: v.hingeStart ?? false,
-          hingeEnd: v.hingeEnd ?? false,
+          releaseI: { ...(v.releaseI ?? NO_RELEASE) },
+          releaseJ: { ...(v.releaseJ ?? NO_RELEASE) },
         }]) as ModelSnapshot['elements'],
         supports: Array.from(snap.supports.entries()).map(([k, v]) => [k, {
           ...v,
@@ -715,8 +731,8 @@ function createModelStore() {
       model.sections = new Map(s.sections.map(([k, v]) => [k, { ...v } as Section]));
       model.elements = new Map(s.elements.map(([k, v]) => [k, {
         ...v,
-        hingeStart: v.hingeStart ?? false,
-        hingeEnd: v.hingeEnd ?? false,
+        releaseI: { ...(v.releaseI ?? NO_RELEASE) },
+        releaseJ: { ...(v.releaseJ ?? NO_RELEASE) },
       }]));
       // Deduplicate supports: keep only the last support per node (legacy cleanup)
       const supEntries = s.supports.map(([k, v]) => [k, {
@@ -814,8 +830,8 @@ function createModelStore() {
         nodeJ,
         materialId: 1,
         sectionId: 1,
-        hingeStart: false,
-        hingeEnd: false,
+        releaseI: { ...NO_RELEASE },
+        releaseJ: { ...NO_RELEASE },
       });
       if (!_bulkMutating) model.elements = new Map(model.elements);
       return id;
@@ -1320,10 +1336,11 @@ function createModelStore() {
       // 3D properties to inherit on new sub-elements
       const inherited3D = pickElement3DMetadata(elem);
 
-      // Preserve original element as first segment
-      const origHingeEnd = elem.hingeEnd ?? false;
+      // Preserve original element as first segment. Releases at the original
+      // I-end stay; the J-end release moves to the last sub-element.
+      const origReleaseJ: Release = { ...(elem.releaseJ ?? NO_RELEASE) };
       elem.nodeJ = nodeIds[1];
-      elem.hingeEnd = false;
+      elem.releaseJ = { ...NO_RELEASE };
 
       // Build ordered list of all segment element IDs (original first, then new)
       const segmentElemIds: number[] = [elementId];
@@ -1338,8 +1355,8 @@ function createModelStore() {
           nodeJ: nodeIds[i + 1],
           materialId: elem.materialId,
           sectionId: elem.sectionId,
-          hingeStart: false,
-          hingeEnd: i === n - 1 ? origHingeEnd : false,
+          releaseI: { ...NO_RELEASE },
+          releaseJ: i === n - 1 ? origReleaseJ : { ...NO_RELEASE },
           ...inherited3D,
         });
         segmentElemIds.push(id);
@@ -1368,18 +1385,23 @@ function createModelStore() {
       _undoBatching = false;
     },
 
-    toggleHinge(elementId: number, end: 'start' | 'end'): void {
+    /** Toggle a single per-axis release on a single element-end. The canonical release API. */
+    toggleRelease(elementId: number, end: ReleaseEnd, axis: ReleaseAxis): void {
       if (!_undoBatching) _pushUndo?.();
       const elem = model.elements.get(elementId);
       if (!elem) return;
-      // Preserve 3D metadata (local axes, roll angle, future element fields) when toggling hinge state.
       const plain = $state.snapshot(elem) as Element;
-      const wasStart = elem.hingeStart === true;
-      const wasEnd = elem.hingeEnd === true;
-      plain.hingeStart = end === 'start' ? !wasStart : wasStart;
-      plain.hingeEnd = end === 'end' ? !wasEnd : wasEnd;
+      const target: Release = { ...(end === 'i' ? plain.releaseI : plain.releaseJ) };
+      target[axis] = !target[axis];
+      if (end === 'i') plain.releaseI = target;
+      else plain.releaseJ = target;
       model.elements.set(elementId, plain);
       if (!_bulkMutating) model.elements = new Map(model.elements);
+    },
+
+    /** Legacy fixture-loader wrapper. Toggles the bending-around-Mz release (the "hinge" in 2D). */
+    toggleHinge(elementId: number, end: 'start' | 'end'): void {
+      this.toggleRelease(elementId, end === 'start' ? 'i' : 'j', 'mz');
     },
 
     /** Get all elements connected to a node, annotated with which end touches the node */
@@ -1392,19 +1414,34 @@ function createModelStore() {
       return result;
     },
 
-    /** Get hinge state of all element-ends connected to a node */
-    getHingesAtNode(nodeId: number): Array<{ elementId: number; end: 'start' | 'end'; hasHinge: boolean }> {
-      const result: Array<{ elementId: number; end: 'start' | 'end'; hasHinge: boolean }> = [];
+    /** Get release state of all element-ends connected to a node. `hasHinge` reflects the Mz release (2D-style hinge). */
+    getReleasesAtNode(nodeId: number): Array<{ elementId: number; end: ReleaseEnd; release: Release; hasHinge: boolean }> {
+      const result: Array<{ elementId: number; end: ReleaseEnd; release: Release; hasHinge: boolean }> = [];
       for (const elem of model.elements.values()) {
-        if (elem.nodeI === nodeId) result.push({ elementId: elem.id, end: 'start', hasHinge: elem.hingeStart === true });
-        if (elem.nodeJ === nodeId) result.push({ elementId: elem.id, end: 'end', hasHinge: elem.hingeEnd === true });
+        if (elem.nodeI === nodeId) {
+          const r = elem.releaseI ?? NO_RELEASE;
+          result.push({ elementId: elem.id, end: 'i', release: r, hasHinge: r.mz === true });
+        }
+        if (elem.nodeJ === nodeId) {
+          const r = elem.releaseJ ?? NO_RELEASE;
+          result.push({ elementId: elem.id, end: 'j', release: r, hasHinge: r.mz === true });
+        }
       }
       return result;
     },
 
+    /** Legacy alias. Returns hinge (Mz-release) state of all element-ends connected to a node. */
+    getHingesAtNode(nodeId: number): Array<{ elementId: number; end: 'start' | 'end'; hasHinge: boolean }> {
+      return this.getReleasesAtNode(nodeId).map(r => ({
+        elementId: r.elementId,
+        end: r.end === 'i' ? 'start' : 'end' as 'start' | 'end',
+        hasHinge: r.hasHinge,
+      }));
+    },
+
     /** Split an element at parametric position t ∈ (0,1), creating a new node and two sub-elements.
      *  Redistributes loads (distributed, point, thermal) to the sub-elements.
-     *  Preserves hingeStart on elemA and hingeEnd on elemB from the original element. */
+     *  Preserves releaseI on elemA and releaseJ on elemB from the original element. */
     splitElementAtPoint(elementId: number, t: number): { nodeId: number; elemA: number; elemB: number } | null {
       if (t <= 0.01 || t >= 0.99) return null;
       const elem = model.elements.get(elementId);
@@ -1451,9 +1488,9 @@ function createModelStore() {
         l => l.type === 'thermal' && (l.data as ThermalLoad).elementId === elementId
       );
 
-      // Read original hinge state explicitly
-      const origHingeStart = elem.hingeStart === true;
-      const origHingeEnd = elem.hingeEnd === true;
+      // Read original per-axis release state explicitly
+      const origReleaseI: Release = { ...(elem.releaseI ?? NO_RELEASE) };
+      const origReleaseJ: Release = { ...(elem.releaseJ ?? NO_RELEASE) };
       const origType = elem.type;
       const origMatId = elem.materialId;
       const origSecId = elem.sectionId;
@@ -1477,8 +1514,8 @@ function createModelStore() {
         nodeJ: newNodeId,
         materialId: origMatId,
         sectionId: origSecId,
-        hingeStart: origHingeStart,
-        hingeEnd: false,
+        releaseI: origReleaseI,
+        releaseJ: { ...NO_RELEASE },
         ...inherited3D,
       });
 
@@ -1490,8 +1527,8 @@ function createModelStore() {
         nodeJ: elem.nodeJ,
         materialId: origMatId,
         sectionId: origSecId,
-        hingeStart: false,
-        hingeEnd: origHingeEnd,
+        releaseI: { ...NO_RELEASE },
+        releaseJ: origReleaseJ,
         ...inherited3D,
       });
 
@@ -1830,6 +1867,7 @@ function createModelStore() {
         addPointLoadOnElement: this.addPointLoadOnElement.bind(this),
         addThermalLoad: this.addThermalLoad.bind(this),
         toggleHinge: this.toggleHinge.bind(this),
+        toggleRelease: this.toggleRelease.bind(this),
         addDistributedLoad3D: this.addDistributedLoad3D.bind(this),
         addNodalLoad3D: this.addNodalLoad3D.bind(this),
         addSurfaceLoad3D: this.addSurfaceLoad3D.bind(this),

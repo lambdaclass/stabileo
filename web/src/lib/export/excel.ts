@@ -163,7 +163,7 @@ function createElementsSheet(): XLSX.WorkSheet {
       sec?.name ?? '-', sec?.a ?? 0, sec?.iy ?? sec?.iz ?? 0,
     ];
     if (is3D) row.push(sec?.iz ?? 0, sec?.j ?? 0);
-    row.push(elem.hingeStart ? t('excel.yes') : t('excel.no'), elem.hingeEnd ? t('excel.yes') : t('excel.no'));
+    row.push(elem.releaseI?.mz === true ? t('excel.yes') : t('excel.no'), elem.releaseJ?.mz === true ? t('excel.yes') : t('excel.no'));
 
     if (hasResults && is3D && r3d) {
       const f = r3d.elementForces.find(f => f.elementId === elem.id);

@@ -202,24 +202,28 @@ pub fn adjust_fef_for_hinges(fef: &mut [f64; 6], l: f64, hinge_start: bool, hing
 ///   - Z-bending (Vz, My): phi_y = 12EIy/(G·As_y·L²)
 ///
 /// FEF layout: [fx_i, fy_i, fz_i, mx_i, my_i, mz_i, fx_j, fy_j, fz_j, mx_j, my_j, mz_j]
-pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, hinge_end: bool, phi_y: f64, phi_z: f64) {
-    if !hinge_start && !hinge_end {
-        return;
-    }
-
-    // --- Y-bending plane (shear-y / moment-z) ---
-    {
+pub fn adjust_fef_for_hinges_3d(
+    fef: &mut [f64; 12],
+    l: f64,
+    hinge: super::frame::Hinge3D,
+    phi_y: f64,
+    phi_z: f64,
+) {
+    // --- Y-bending plane (shear-y / moment-z) — controlled by release_mz_* ---
+    let mz_start = hinge.release_mz_start;
+    let mz_end = hinge.release_mz_end;
+    if mz_start || mz_end {
         let vy_i = fef[1];
         let mz_i = fef[5];
         let vy_j = fef[7];
         let mz_j = fef[11];
 
-        if hinge_start && hinge_end {
+        if mz_start && mz_end {
             fef[1] = vy_i - (mz_i + mz_j) / l;
             fef[5] = 0.0;
             fef[7] = vy_j + (mz_i + mz_j) / l;
             fef[11] = 0.0;
-        } else if hinge_start {
+        } else if mz_start {
             let sv = 6.0 / (l * (4.0 + phi_z));
             let sm = (2.0 - phi_z) / (4.0 + phi_z);
             fef[1] = vy_i - sv * mz_i;
@@ -236,21 +240,23 @@ pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, 
         }
     }
 
-    // --- Z-bending plane (shear-z / moment-y) ---
+    // --- Z-bending plane (shear-z / moment-y) — controlled by release_my_* ---
     // Due to θy = -dw/dx, K[Vz,θy] = -6EI/(L²(1+φ)), so shear
     // redistribution signs are opposite to the Y-bending plane.
-    {
+    let my_start = hinge.release_my_start;
+    let my_end = hinge.release_my_end;
+    if my_start || my_end {
         let vz_i = fef[2];
         let my_i = fef[4];
         let vz_j = fef[8];
         let my_j = fef[10];
 
-        if hinge_start && hinge_end {
+        if my_start && my_end {
             fef[2] = vz_i + (my_i + my_j) / l;
             fef[4] = 0.0;
             fef[8] = vz_j - (my_i + my_j) / l;
             fef[10] = 0.0;
-        } else if hinge_start {
+        } else if my_start {
             let sv = 6.0 / (l * (4.0 + phi_y));
             let sm = (2.0 - phi_y) / (4.0 + phi_y);
             fef[2] = vz_i + sv * my_i;

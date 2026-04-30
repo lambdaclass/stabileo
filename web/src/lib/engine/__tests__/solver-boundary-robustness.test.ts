@@ -73,10 +73,10 @@ function pinnedSup3D(nodeId: number): SolverSupport3D {
   return { nodeId, rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false };
 }
 function frame3D(id: number, nI: number, nJ: number): SolverElement3D {
-  return { id, type: 'frame', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false };
+  return { id, type: 'frame', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false };
 }
 function truss3D(id: number, nI: number, nJ: number): SolverElement3D {
-  return { id, type: 'truss', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false };
+  return { id, type: 'truss', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false };
 }
 
 function buildInput3D(
