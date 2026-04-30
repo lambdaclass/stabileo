@@ -2095,7 +2095,7 @@ const pt: Translations = {
   'pro.tabAdvanced': 'Avançado',
   'pro.tabResults': 'Resultados',
   'pro.tabVerification': 'Verificação',
-  'pro.tabDiagnostics': 'Diag.',
+  'pro.tabDiagnostics': 'Diagnósticos',
   'pro.exampleBtn': 'Exemplo',
   'pro.exampleTitle': 'Carregar edifício C.A. 7 pavimentos de exemplo',
   'pro.reportBtn': 'Relatório',
@@ -2437,7 +2437,7 @@ const pt: Translations = {
   'diag.tooltip.MODEL_LOAD_ORPHAN_NODE': 'Carga em nó que já não existe — remover a carga',
 
   // ─── PRO: missing tab key ───
-  'pro.tabConnections': 'Conex.',
+  'pro.tabConnections': 'Conexões',
 
   // ─── Report Dialog & New Sections ───
   'report.configTitle': 'Configurar Memória de Cálculo',

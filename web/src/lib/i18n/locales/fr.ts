@@ -2095,7 +2095,7 @@ const fr: Translations = {
   'pro.tabAdvanced': 'Avancé',
   'pro.tabResults': 'Résultats',
   'pro.tabVerification': 'Vérification',
-  'pro.tabDiagnostics': 'Diag.',
+  'pro.tabDiagnostics': 'Diagnostics',
   'pro.exampleBtn': 'Exemple',
   'pro.exampleTitle': 'Charger bâtiment B.A. 7 étages exemple',
   'pro.reportBtn': 'Rapport',
@@ -2437,7 +2437,7 @@ const fr: Translations = {
   'diag.tooltip.MODEL_LOAD_ORPHAN_NODE': 'Charge sur un nœud qui n\'existe plus — supprimer la charge',
 
   // ─── PRO: missing tab key ───
-  'pro.tabConnections': 'Conn.',
+  'pro.tabConnections': 'Connexions',
 
   // ─── Report Dialog & New Sections ───
   'report.configTitle': 'Configurer la Note de Calcul',
