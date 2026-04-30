@@ -55,7 +55,7 @@ fn make_warping_beam(
             id: i + 1, elem_type: "frame".to_string(),
             node_i: i + 1, node_j: i + 2,
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
     }
@@ -248,7 +248,7 @@ fn validation_warping_mixed_model() {
             id: i + 1, elem_type: "frame".to_string(),
             node_i: i + 1, node_j: i + 2,
             material_id: 1, section_id: sec_id,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
     }

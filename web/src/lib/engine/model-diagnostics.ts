@@ -177,7 +177,7 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
     }
 
     // Double-hinged frame (mechanism unless laterally supported)
-    if (el.type === 'frame' && el.hingeStart && el.hingeEnd) {
+    if (el.type === 'frame' && el.releaseI?.mz === true && el.releaseJ?.mz === true) {
       out.push(diag('warning', 'MODEL_DOUBLE_HINGE', 'diag.model.doubleHinge', {
         elementIds: [el.id],
       }));

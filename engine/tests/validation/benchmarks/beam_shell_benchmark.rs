@@ -100,7 +100,7 @@ fn benchmark_beam_shell_stiffened_plate() {
                     id: eid, elem_type: "frame".to_string(),
                     node_i: node_grid[i][j_mid], node_j: node_grid[i+1][j_mid],
                     material_id: 1, section_id: 1,
-                    hinge_start: false, hinge_end: false,
+                    release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
                     local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
                 });
                 eid += 1;
@@ -245,7 +245,7 @@ fn benchmark_beam_shell_column_to_slab() {
         id: 1, elem_type: "frame".to_string(),
         node_i: col_base, node_j: col_top,
         material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
     });
 
@@ -347,7 +347,7 @@ fn benchmark_beam_shell_cantilever_parity() {
             id: i + 1, elem_type: "frame".to_string(),
             node_i: i + 1, node_j: i + 2,
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
     }
@@ -500,7 +500,7 @@ fn benchmark_beam_shell_equilibrium() {
             id: eid, elem_type: "frame".to_string(),
             node_i: slab_grid[i][0], node_j: slab_grid[i+1][0],
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
         eid += 1;

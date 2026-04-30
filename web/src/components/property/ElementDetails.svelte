@@ -151,24 +151,24 @@
         </div>
       </div>
       <div class="property-row">
-        <span>{t('prop.hinges')}:</span>
+        <span>{t('prop.hinges')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}:</span>
         <div class="hinge-toggles">
           <button
             class="hinge-btn"
-            class:active={elem.hingeStart}
+            class:active={elem.releaseI?.mz === true}
             onclick={() => { modelStore.toggleHinge(elemId, 'start'); resultsStore.clear(); }}
-            title={elem.hingeStart ? t('prop.removeHingeI') : t('prop.addHingeI')}
+            title={(elem.releaseI?.mz === true ? t('prop.removeHingeI') : t('prop.addHingeI')) + (is3DMode ? ` — ${t('prop.hinge3DDisclosure')}` : '')}
           >
-            <span class="hinge-icon">{elem.hingeStart ? '\u25CB' : '\u25CF'}</span>
+            <span class="hinge-icon">{elem.releaseI?.mz === true ? '\u25CB' : '\u25CF'}</span>
             {t('prop.nodeI')}
           </button>
           <button
             class="hinge-btn"
-            class:active={elem.hingeEnd}
+            class:active={elem.releaseJ?.mz === true}
             onclick={() => { modelStore.toggleHinge(elemId, 'end'); resultsStore.clear(); }}
-            title={elem.hingeEnd ? t('prop.removeHingeJ') : t('prop.addHingeJ')}
+            title={(elem.releaseJ?.mz === true ? t('prop.removeHingeJ') : t('prop.addHingeJ')) + (is3DMode ? ` — ${t('prop.hinge3DDisclosure')}` : '')}
           >
-            <span class="hinge-icon">{elem.hingeEnd ? '\u25CB' : '\u25CF'}</span>
+            <span class="hinge-icon">{elem.releaseJ?.mz === true ? '\u25CB' : '\u25CF'}</span>
             {t('prop.nodeJ')}
           </button>
         </div>

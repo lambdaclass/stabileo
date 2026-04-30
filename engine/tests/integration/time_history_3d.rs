@@ -33,7 +33,7 @@ fn make_3d_cantilever() -> TimeHistoryInput3D {
         id: 1, elem_type: "frame".to_string(),
         node_i: 1, node_j: 2,
         material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None,
         roll_angle: None,
     });

@@ -1857,8 +1857,15 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
     }
 
     // 7. Section inertia <= 0 (only for sections used by bending elements)
+    // A frame with all bending+torsion released at both ends is axial-only.
     let bending_section_ids: std::collections::HashSet<usize> = input.elements.values()
-        .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
+        .filter(|e| {
+            if e.elem_type != "frame" { return false; }
+            let all_released = e.release_my_start && e.release_my_end
+                && e.release_mz_start && e.release_mz_end
+                && e.release_t_start && e.release_t_end;
+            !all_released
+        })
         .map(|e| e.section_id)
         .collect();
     for sec in input.sections.values() {
@@ -2132,7 +2139,7 @@ pub(crate) fn compute_internal_forces_3d(
                 mx_start: 0.0, mx_end: 0.0,
                 my_start: 0.0, my_end: 0.0,
                 mz_start: 0.0, mz_end: 0.0,
-                hinge_start: false, hinge_end: false,
+                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
                 q_yi: 0.0, q_yj: 0.0,
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
@@ -2169,7 +2176,7 @@ pub(crate) fn compute_internal_forces_3d(
             let u_local = transform_displacement(&u_global, &t, 14);
             let k_local = element::frame_local_stiffness_3d_warping(
                 e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
-                elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                element::Hinge3D::from_elem(elem), phi_y, phi_z,
             );
             let mut fl = vec![0.0; 14];
             for i in 0..14 {
@@ -2188,7 +2195,7 @@ pub(crate) fn compute_internal_forces_3d(
             let u_local = transform_displacement(&u12, &t, 12);
             let k_local = element::frame_local_stiffness_3d(
                 e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                element::Hinge3D::from_elem(elem), phi_y, phi_z,
             );
             let mut fl = vec![0.0; 12];
             for i in 0..12 {
@@ -2204,7 +2211,7 @@ pub(crate) fn compute_internal_forces_3d(
             let u_local = transform_displacement(&u_global, &t, 12);
             let k_local = element::frame_local_stiffness_3d(
                 e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                element::Hinge3D::from_elem(elem), phi_y, phi_z,
             );
             let mut fl = vec![0.0; 12];
             for i in 0..12 {
@@ -2250,7 +2257,7 @@ pub(crate) fn compute_internal_forces_3d(
                     } else {
                         element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l)
                     };
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {
@@ -2281,7 +2288,7 @@ pub(crate) fn compute_internal_forces_3d(
                     fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
                     fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
                     fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 { f_local[i] -= fef14[i]; }
@@ -2303,7 +2310,7 @@ pub(crate) fn compute_internal_forces_3d(
                         tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
                         alpha, hy, hz,
                     );
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {
@@ -2337,8 +2344,12 @@ pub(crate) fn compute_internal_forces_3d(
             my_end: -f_local[j_my],
             mz_start: f_local[i_mz],
             mz_end: -f_local[j_mz],
-            hinge_start: elem.hinge_start,
-            hinge_end: elem.hinge_end,
+            release_my_start: elem.release_my_start,
+            release_my_end: elem.release_my_end,
+            release_mz_start: elem.release_mz_start,
+            release_mz_end: elem.release_mz_end,
+            release_t_start: elem.release_t_start,
+            release_t_end: elem.release_t_end,
             q_yi: q_yi_total,
             q_yj: q_yj_total,
             distributed_loads_y: dist_loads_y,
@@ -2426,8 +2437,12 @@ fn expand_curved_beams_3d(input: &SolverInput3D) -> SolverInput3D {
                 node_j: actual_nj,
                 material_id: mat_id,
                 section_id: sec_id,
-                hinge_start: hs,
-                hinge_end: he,
+                release_my_start: hs,
+                release_my_end: he,
+                release_mz_start: hs,
+                release_mz_end: he,
+                release_t_start: false,
+                release_t_end: false,
                 local_yx: None,
                 local_yy: None,
                 local_yz: None,

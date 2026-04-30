@@ -51,7 +51,7 @@ function buildInput(
 }
 
 function frame(id: number, nodeI: number, nodeJ: number): SolverElement3D {
-  return { id, type: 'frame', nodeI, nodeJ, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false };
+  return { id, type: 'frame', nodeI, nodeJ, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false };
 }
 
 function assertSuccess(result: AnalysisResults3D | string): asserts result is AnalysisResults3D {

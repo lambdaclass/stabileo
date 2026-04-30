@@ -13,6 +13,7 @@ import {
   postProcessShellStresses,
 } from './solver-shells';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
+import { mapGenericHingeToReleases3D } from './hinge-3d-bridge';
 import { t } from '../i18n';
 import {
   get2DDisplayNodalLoadMoment,
@@ -363,13 +364,13 @@ export function validateAndSolve2D(
     for (const elem of model.elements.values()) {
       nodeElemCount.set(elem.nodeI, (nodeElemCount.get(elem.nodeI) ?? 0) + 1);
       nodeElemCount.set(elem.nodeJ, (nodeElemCount.get(elem.nodeJ) ?? 0) + 1);
-      if (elem.hingeStart) {
+      if (elem.releaseI?.mz === true) {
         nodeHingeCount.set(elem.nodeI, (nodeHingeCount.get(elem.nodeI) ?? 0) + 1);
       }
-      if (elem.hingeEnd) {
+      if (elem.releaseJ?.mz === true) {
         nodeHingeCount.set(elem.nodeJ, (nodeHingeCount.get(elem.nodeJ) ?? 0) + 1);
       }
-      const isDoubleHinged = elem.hingeStart && elem.hingeEnd;
+      const isDoubleHinged = elem.releaseI?.mz === true && elem.releaseJ?.mz === true;
       const isTruss = elem.type === 'truss';
       if (isDoubleHinged || isTruss) {
         nodeDoubleHingedOrTruss.set(elem.nodeI, (nodeDoubleHingedOrTruss.get(elem.nodeI) ?? 0) + 1);
@@ -417,12 +418,12 @@ export function validateAndSolve2D(
       if (elem.type !== 'frame') continue;
       nodeFrameCount2.set(elem.nodeI, (nodeFrameCount2.get(elem.nodeI) ?? 0) + 1);
       nodeFrameCount2.set(elem.nodeJ, (nodeFrameCount2.get(elem.nodeJ) ?? 0) + 1);
-      if (elem.hingeStart && elem.hingeEnd) {
+      if (elem.releaseI?.mz === true && elem.releaseJ?.mz === true) {
         nodeDoubleHingedCount.set(elem.nodeI, (nodeDoubleHingedCount.get(elem.nodeI) ?? 0) + 1);
         nodeDoubleHingedCount.set(elem.nodeJ, (nodeDoubleHingedCount.get(elem.nodeJ) ?? 0) + 1);
       }
-      if (elem.hingeStart) nodeHingeCount2.set(elem.nodeI, (nodeHingeCount2.get(elem.nodeI) ?? 0) + 1);
-      if (elem.hingeEnd) nodeHingeCount2.set(elem.nodeJ, (nodeHingeCount2.get(elem.nodeJ) ?? 0) + 1);
+      if (elem.releaseI?.mz === true) nodeHingeCount2.set(elem.nodeI, (nodeHingeCount2.get(elem.nodeI) ?? 0) + 1);
+      if (elem.releaseJ?.mz === true) nodeHingeCount2.set(elem.nodeJ, (nodeHingeCount2.get(elem.nodeJ) ?? 0) + 1);
     }
     const supportMap2 = new Map([...model.supports.values()].map(s => [s.nodeId, s.type]));
     for (const [nodeId, frames] of nodeFrameCount2) {
@@ -533,7 +534,7 @@ export function validateAndSolve2D(
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => [id, {
       id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
       materialId: e.materialId, sectionId: e.sectionId,
-      hingeStart: e.hingeStart ?? false, hingeEnd: e.hingeEnd ?? false,
+      hingeStart: e.releaseI?.mz === true, hingeEnd: e.releaseJ?.mz === true,
     }])),
     supports: buildSolverSupports2D(model),
     loads: solverLoads,
@@ -722,7 +723,7 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => [id, {
       id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
       materialId: e.materialId, sectionId: e.sectionId,
-      hingeStart: e.hingeStart ?? false, hingeEnd: e.hingeEnd ?? false,
+      hingeStart: e.releaseI?.mz === true, hingeEnd: e.releaseJ?.mz === true,
     }])),
     supports: buildSolverSupports2D(model),
     loads: solverLoads,
@@ -1072,10 +1073,11 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
       }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => {
+      const releases = mapGenericHingeToReleases3D(e.releaseI?.mz === true, e.releaseJ?.mz === true);
       const elem: any = {
         id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
         materialId: e.materialId, sectionId: e.sectionId,
-        hingeStart: e.hingeStart ?? false, hingeEnd: e.hingeEnd ?? false,
+        ...releases,
       };
       if (e.localYx !== undefined) { elem.localYx = e.localYx; elem.localYy = e.localYy; elem.localYz = e.localYz; }
       // Compose element rollAngle with section rotation — computeLocalAxes3D rotates local Y/Z

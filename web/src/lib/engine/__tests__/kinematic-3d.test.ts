@@ -84,8 +84,9 @@ function makeInput3D(opts: {
         nodeJ,
         materialId: 1,
         sectionId: 1,
-        hingeStart: hingeStart ?? false,
-        hingeEnd: hingeEnd ?? false,
+        releaseMyStart: hingeStart ?? false, releaseMyEnd: hingeEnd ?? false,
+        releaseMzStart: hingeStart ?? false, releaseMzEnd: hingeEnd ?? false,
+        releaseTStart: false, releaseTEnd: false,
       },
     ]),
   );

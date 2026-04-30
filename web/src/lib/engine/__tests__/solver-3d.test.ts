@@ -251,7 +251,7 @@ describe('3D Solver — WASM-backed stiffness verification (replaces frameLocalS
     const Px = 100; // kN axial
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [fixedSupport(1)],
       [{ type: 'nodal', data: { nodeId: 2, fx: Px, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } }],
     );
@@ -270,7 +270,7 @@ describe('3D Solver — WASM-backed stiffness verification (replaces frameLocalS
     const Py = -10; // kN in local Y direction
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [fixedSupport(1)],
       [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: Py, fz: 0, mx: 0, my: 0, mz: 0 } }],
     );
@@ -287,7 +287,7 @@ describe('3D Solver — WASM-backed stiffness verification (replaces frameLocalS
     const Pz = -10; // kN in local Z direction
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [fixedSupport(1)],
       [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: Pz, mx: 0, my: 0, mz: 0 } }],
     );
@@ -304,7 +304,7 @@ describe('3D Solver — WASM-backed stiffness verification (replaces frameLocalS
     const Mx = 5; // kN·m torque
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [fixedSupport(1)],
       [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: Mx, my: 0, mz: 0 } }],
     );
@@ -332,7 +332,7 @@ describe('3D Solver — Cantilever, load in Y', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, fz: 0, mx: 0, my: 0, mz: 0 } }],
   );
@@ -393,7 +393,7 @@ describe('3D Solver — Cantilever, load in Z', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: P, mx: 0, my: 0, mz: 0 } }],
   );
@@ -434,7 +434,7 @@ describe('3D Solver — Cantilever, torque', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: Mx, my: 0, mz: 0 } }],
   );
@@ -496,7 +496,7 @@ describe('3D Solver — Simply supported, uniform load in local Y', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [pinnedSupportBeamX(1), pinnedSupportBeamX(2)],
     [{ type: 'distributed', data: { elementId: 1, qYI: -q, qYJ: -q, qZI: 0, qZJ: 0 } }],
   );
@@ -545,7 +545,7 @@ describe('3D Solver — Column along global Y (axis transformation test)', () =>
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 0, y: L, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'nodal', data: { nodeId: 2, fx: Px, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } }],
   );
@@ -592,8 +592,8 @@ describe('3D Solver — L-shaped portal frame', () => {
       { id: 3, x: 5, y: 5, z: 0 },
     ],
     [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ],
     [fixedSupport(1), fixedSupport(3)],
     [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -20, fz: 0, mx: 0, my: 0, mz: 0 } }],
@@ -645,12 +645,12 @@ describe('3D Solver — Space truss (tetrahedron)', () => {
       { id: 4, x: cx, y: h, z: cz },
     ],
     [
-      { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 2, type: 'truss', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 3, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 4, type: 'truss', nodeI: 1, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 5, type: 'truss', nodeI: 2, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 6, type: 'truss', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 2, type: 'truss', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 3, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 4, type: 'truss', nodeI: 1, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 5, type: 'truss', nodeI: 2, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 6, type: 'truss', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ],
     [pinnedSupport(1), pinnedSupport(2), pinnedSupport(3)],
     [{ type: 'nodal', data: { nodeId: 4, fx: 0, fy: -10, fz: 0, mx: 0, my: 0, mz: 0 } }],
@@ -715,7 +715,7 @@ describe('3D Solver — 2D↔3D equivalence', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [pinnedSupportBeamX(1), pinnedSupportBeamX(2)],
     [{ type: 'distributed', data: { elementId: 1, qYI: -q, qYJ: -q, qZI: 0, qZJ: 0 } }],
   );
@@ -768,7 +768,7 @@ describe('3D Solver — Cantilever with biaxial loading', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: Fy, fz: Fz, mx: 0, my: 0, mz: 0 } }],
   );
@@ -800,7 +800,7 @@ describe('3D Solver — Axial bar (tension)', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'nodal', data: { nodeId: 2, fx: Fx, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } }],
   );
@@ -827,7 +827,7 @@ describe('3D Solver — Axial bar (tension)', () => {
 describe('3D Solver — Diagonal bar in space', () => {
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 3, y: 4, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, fz: 0, mx: 0, my: 0, mz: 0 } }],
   );
@@ -860,9 +860,9 @@ describe('3D Solver — 3D portal frame (out of plane)', () => {
       { id: 4, x: 4, y: 0, z: 0 },
     ],
     [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 3, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 3, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ],
     [fixedSupport(1), fixedSupport(4)],
     [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 15, mx: 0, my: 0, mz: 0 } }],
@@ -908,7 +908,7 @@ describe('3D Solver — Distributed load in Z-global on cantilever', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: qz, qZJ: qz } }],
   );
@@ -949,7 +949,7 @@ describe('3D Solver — Point load on element in local Y', () => {
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
     [fixedSupport(1)],
     [{ type: 'pointOnElement', data: { elementId: 1, a, py: Py, pz: 0 } }],
   );
@@ -980,7 +980,7 @@ describe('3D Solver — Validation errors', () => {
   it('error for < 2 nodes', () => {
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [fixedSupport(1)],
     );
     expect(() => solve3D(input)).toThrow();
@@ -989,7 +989,7 @@ describe('3D Solver — Validation errors', () => {
   it('error for zero-length element', () => {
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 0, y: 0, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [fixedSupport(1)],
     );
     expect(() => solve3D(input)).toThrow();
@@ -998,7 +998,7 @@ describe('3D Solver — Validation errors', () => {
   it('error for no supports', () => {
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 5, y: 0, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [],
     );
     expect(() => solve3D(input)).toThrow();
@@ -1016,8 +1016,8 @@ describe('3D Solver — Mixed frame + truss', () => {
       { id: 3, x: 0, y: 3, z: 0 },
     ],
     [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 2, type: 'truss', nodeI: 3, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 2, type: 'truss', nodeI: 3, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ],
     [fixedSupport(1), fixedSupport(3)],
     [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, fz: 0, mx: 0, my: 0, mz: 0 } }],
@@ -1059,7 +1059,7 @@ describe('3D Solver — Transformation matrix orthogonality', () => {
     // Horizontal cantilever along +X, load in Y
     const inputH = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [fixedSupport(1)],
       [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, fz: 0, mx: 0, my: 0, mz: 0 } }],
     );
@@ -1074,7 +1074,7 @@ describe('3D Solver — Transformation matrix orthogonality', () => {
     // maps to global: fx = P * (-4/5), fy = P * (3/5)
     const inputA = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 3, y: 4, z: 0 }],
-      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }],
       [fixedSupport(1)],
       [{ type: 'nodal', data: { nodeId: 2, fx: P * (-4 / 5), fy: P * (3 / 5), fz: 0, mx: 0, my: 0, mz: 0 } }],
     );
@@ -1141,28 +1141,28 @@ describe('3D Solver — Space truss (double pyramid from example)', () => {
     ],
     [
       // Base ring 1
-      { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 2, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 3, type: 'truss', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 4, type: 'truss', nodeI: 4, nodeJ: 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 17, type: 'truss', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }, // base diagonal
+      { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 2, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 3, type: 'truss', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 4, type: 'truss', nodeI: 4, nodeJ: 1, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 17, type: 'truss', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }, // base diagonal
       // Diagonals to apex 1
-      { id: 5, type: 'truss', nodeI: 1, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 6, type: 'truss', nodeI: 2, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 7, type: 'truss', nodeI: 3, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 8, type: 'truss', nodeI: 4, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 5, type: 'truss', nodeI: 1, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 6, type: 'truss', nodeI: 2, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 7, type: 'truss', nodeI: 3, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 8, type: 'truss', nodeI: 4, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
       // Base ring 2
-      { id: 9, type: 'truss', nodeI: 2, nodeJ: 6, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 10, type: 'truss', nodeI: 6, nodeJ: 7, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 11, type: 'truss', nodeI: 7, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 18, type: 'truss', nodeI: 3, nodeJ: 6, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }, // base diagonal
+      { id: 9, type: 'truss', nodeI: 2, nodeJ: 6, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 10, type: 'truss', nodeI: 6, nodeJ: 7, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 11, type: 'truss', nodeI: 7, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 18, type: 'truss', nodeI: 3, nodeJ: 6, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }, // base diagonal
       // Diagonals to apex 2
-      { id: 12, type: 'truss', nodeI: 2, nodeJ: 8, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 13, type: 'truss', nodeI: 6, nodeJ: 8, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 14, type: 'truss', nodeI: 7, nodeJ: 8, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-      { id: 15, type: 'truss', nodeI: 3, nodeJ: 8, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 12, type: 'truss', nodeI: 2, nodeJ: 8, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 13, type: 'truss', nodeI: 6, nodeJ: 8, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 14, type: 'truss', nodeI: 7, nodeJ: 8, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+      { id: 15, type: 'truss', nodeI: 3, nodeJ: 8, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
       // Top chord
-      { id: 16, type: 'truss', nodeI: 5, nodeJ: 8, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 16, type: 'truss', nodeI: 5, nodeJ: 8, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ],
     [
       pinnedSupport(1),  // st1
@@ -1241,8 +1241,8 @@ describe('3D Solver — Moment equilibrium at interior node', () => {
     { id: 3, x: 3, y: 4, z: 0 },
   ];
   const elements: SolverElement3D[] = [
-    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-    { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+    { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
   ];
   const supports: SolverSupport3D[] = [
     fixedSupport(1),
@@ -1285,7 +1285,7 @@ describe('3D Solver — Cantilever IPN 200 with realistic properties', () => {
     { id: 2, x: L, y: 0, z: 0 },
   ];
   const elements: SolverElement3D[] = [
-    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 2, hingeStart: false, hingeEnd: false },
+    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 2, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
   ];
   const supports: SolverSupport3D[] = [fixedSupport(1)];
   const loads: SolverInput3D['loads'] = [
@@ -1334,7 +1334,7 @@ describe('3D Solver — Weak axis vs strong axis deflection', () => {
     { id: 2, x: L, y: 0, z: 0 },
   ];
   const elements: SolverElement3D[] = [
-    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 2, hingeStart: false, hingeEnd: false },
+    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 2, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
   ];
 
   it('Fz deflection (weak axis, Iy) > Fy deflection (strong axis, Iz), ratio ≈ Iz/Iy', () => {
@@ -1372,7 +1372,7 @@ describe('3D Solver — Pure torsion with realistic J', () => {
     { id: 2, x: L, y: 0, z: 0 },
   ];
   const elements: SolverElement3D[] = [
-    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 2, hingeStart: false, hingeEnd: false },
+    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 2, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
   ];
   const supports: SolverSupport3D[] = [fixedSupport(1)];
   const loads: SolverInput3D['loads'] = [
@@ -1414,7 +1414,7 @@ describe('3D Solver — Frame with hinge: M=0 at hinged end', () => {
 
   it('hingeStart → moment at start is zero', () => {
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: true, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: true, releaseMyEnd: false, releaseMzStart: true, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
     const supports: SolverSupport3D[] = [fixedSupport(1), fixedSupport(2)];
     const loads: SolverInput3D['loads'] = [
@@ -1431,7 +1431,7 @@ describe('3D Solver — Frame with hinge: M=0 at hinged end', () => {
 
   it('hingeEnd → moment at end is zero', () => {
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: true },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: true, releaseMzStart: false, releaseMzEnd: true, releaseTStart: false, releaseTEnd: false },
     ];
     const supports: SolverSupport3D[] = [fixedSupport(1), fixedSupport(2)];
     const loads: SolverInput3D['loads'] = [
@@ -1458,7 +1458,7 @@ describe('3D Solver — Spring support (elastic support)', () => {
       { id: 2, x: L, y: 0, z: 0 },
     ];
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
     const supports: SolverSupport3D[] = [
       fixedSupport(1),
@@ -1495,10 +1495,10 @@ describe('3D Solver — Displacement compatibility at shared node', () => {
     { id: 5, x: 0, y: 0, z: 0 },  // shared center node
   ];
   const elements: SolverElement3D[] = [
-    { id: 1, type: 'frame', nodeI: 1, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-    { id: 2, type: 'frame', nodeI: 2, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-    { id: 3, type: 'frame', nodeI: 3, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
-    { id: 4, type: 'frame', nodeI: 4, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+    { id: 1, type: 'frame', nodeI: 1, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+    { id: 2, type: 'frame', nodeI: 2, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+    { id: 3, type: 'frame', nodeI: 3, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
+    { id: 4, type: 'frame', nodeI: 4, nodeJ: 5, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
   ];
   const supports: SolverSupport3D[] = [
     fixedSupport(1), fixedSupport(2), fixedSupport(3), fixedSupport(4),
@@ -1537,7 +1537,7 @@ describe('3D Solver — Simply supported beam with qY (Iz)', () => {
     { id: 2, x: L, y: 0, z: 0 },
   ];
   const elements: SolverElement3D[] = [
-    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
   ];
   const supports: SolverSupport3D[] = [
     pinnedSupportBeamX(1),
@@ -1577,7 +1577,7 @@ describe('3D Solver — Fixed-fixed beam with uniform load in local Y', () => {
     { id: 2, x: L, y: 0, z: 0 },
   ];
   const elements: SolverElement3D[] = [
-    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+    { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
   ];
   const supports: SolverSupport3D[] = [fixedSupport(1), fixedSupport(2)];
   const loads: SolverInput3D['loads'] = [
@@ -1628,7 +1628,7 @@ describe('3D Solver — Thermal loads', () => {
       { id: 2, x: L, y: 0, z: 0 },
     ];
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
     const supports: SolverSupport3D[] = [fixedSupport(1)];
     const loads: SolverInput3D['loads'] = [
@@ -1649,7 +1649,7 @@ describe('3D Solver — Thermal loads', () => {
       { id: 2, x: L, y: 0, z: 0 },
     ];
     const elements: SolverElement3D[] = [
-      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
     ];
     const supports: SolverSupport3D[] = [fixedSupport(1), fixedSupport(2)];
     const loads: SolverInput3D['loads'] = [

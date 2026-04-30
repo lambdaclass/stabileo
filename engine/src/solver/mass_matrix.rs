@@ -175,7 +175,7 @@ pub fn assemble_mass_matrix_3d(
             }
         } else {
             let m_local = frame_consistent_mass_3d(rho_a, sec.a, sec.iy, sec.iz, l,
-                elem.hinge_start, elem.hinge_end);
+                crate::element::Hinge3D::from_elem(elem));
 
             let (ex, ey, ez) = crate::element::compute_local_axes_3d(
                 node_i.x, node_i.y, node_i.z,
@@ -371,13 +371,16 @@ pub fn assemble_mass_matrix_3d(
 
 /// Consistent mass matrix for 3D frame element (12×12 local).
 fn frame_consistent_mass_3d(rho_a: f64, a: f64, iy: f64, iz: f64, l: f64,
-    hinge_start: bool, hinge_end: bool) -> Vec<f64> {
+    hinge: crate::element::Hinge3D) -> Vec<f64> {
     let mut mat = vec![0.0; 144];
 
-    if hinge_start || hinge_end {
-        // Lumped mass for hinged elements
+    let any_release = hinge.release_my_start || hinge.release_my_end
+        || hinge.release_mz_start || hinge.release_mz_end
+        || hinge.release_t_start || hinge.release_t_end;
+    if any_release {
+        // Lumped mass when any rotation is released (translational DOFs only).
         let half = rho_a * l / 2.0;
-        for i in 0..3 { // Translational DOFs only
+        for i in 0..3 {
             mat[i * 12 + i] = half;
             mat[(i + 6) * 12 + (i + 6)] = half;
         }

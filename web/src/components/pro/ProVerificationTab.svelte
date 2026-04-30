@@ -391,7 +391,7 @@
         const psi = computeJointPsiFromModel(
           ef.elementId,
           modelStore.nodes as Map<number, { id: number; x: number; y: number; z?: number }>,
-          modelStore.elements as Map<number, { id: number; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart: boolean; hingeEnd: boolean }>,
+          modelStore.elements as Map<number, { id: number; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }>,
           modelStore.sections as Map<number, { id: number; iz: number; iy?: number; b?: number; h?: number }>,
           modelStore.materials as Map<number, { id: number; e: number }>,
           modelStore.supports as Map<number, { nodeId: number; type?: string }>,

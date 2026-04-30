@@ -1580,13 +1580,17 @@ mod tests {
         elements.insert("1".into(), SolverElement3D {
             id: 1, elem_type: "frame".into(), node_i: 0, node_j: 1,
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false,
+            release_mz_start: false, release_mz_end: false,
+            release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
         elements.insert("2".into(), SolverElement3D {
             id: 2, elem_type: "frame".into(), node_i: 0, node_j: 2,
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false,
+            release_mz_start: false, release_mz_end: false,
+            release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
 

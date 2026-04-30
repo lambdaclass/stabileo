@@ -36,7 +36,7 @@ fn make_staged_3d_base() -> StagedInput3D {
         id: 1, elem_type: "frame".to_string(),
         node_i: 1, node_j: 2,
         material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None,
         roll_angle: None,
     });
@@ -44,7 +44,7 @@ fn make_staged_3d_base() -> StagedInput3D {
         id: 2, elem_type: "frame".to_string(),
         node_i: 2, node_j: 3,
         material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None,
         roll_angle: None,
     });
@@ -338,7 +338,7 @@ fn staged_3d_multistory_erection() {
         id: 1, elem_type: "frame".to_string(),
         node_i: 1, node_j: 2,
         material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None,
         roll_angle: None,
     });
@@ -346,7 +346,7 @@ fn staged_3d_multistory_erection() {
         id: 2, elem_type: "frame".to_string(),
         node_i: 2, node_j: 3,
         material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None,
         roll_angle: None,
     });
@@ -354,7 +354,7 @@ fn staged_3d_multistory_erection() {
         id: 3, elem_type: "frame".to_string(),
         node_i: 3, node_j: 4,
         material_id: 1, section_id: 1,
-        hinge_start: false, hinge_end: false,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
         local_yx: None, local_yy: None, local_yz: None,
         roll_angle: None,
     });

@@ -611,9 +611,9 @@ describe('computeJointPsiFromModel', () => {
 
   it('should return Ψ=0.2 for fixed base, finite Ψ at beam-column joint', () => {
     const elems = new Map([
-      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }], // col left
-      [2, { id: 2, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }], // col right
-      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }], // beam
+      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1 }], // col left
+      [2, { id: 2, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1 }], // col right
+      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1 }], // beam
     ]);
     const sups = new Map([
       [0, { nodeId: 0, type: 'fixed3d' }],
@@ -631,8 +631,8 @@ describe('computeJointPsiFromModel', () => {
 
   it('should return Ψ=20 for pinned base', () => {
     const elems = new Map([
-      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1 }],
+      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1 }],
     ]);
     const sups = new Map([
       [0, { nodeId: 0, type: 'pinned3d' }],
@@ -644,9 +644,9 @@ describe('computeJointPsiFromModel', () => {
 
   it('should use x=0.5 for beam with hinged far end', () => {
     const elems = new Map([
-      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-      [2, { id: 2, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: true }], // far end hinged
+      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1 }],
+      [2, { id: 2, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1 }],
+      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, releaseJ: { my: false, mz: true, t: false } }], // far end hinged
     ]);
     const sups = new Map([
       [0, { nodeId: 0, type: 'fixed3d' }],
@@ -657,9 +657,9 @@ describe('computeJointPsiFromModel', () => {
     // With hinged far end: x=0.5, beam stiffness halved → higher Ψ
     // Without hinge: x=1.0, beam stiffness full → lower Ψ
     const elemsNoHinge = new Map([
-      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-      [2, { id: 2, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1 }],
+      [2, { id: 2, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1 }],
+      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1 }],
     ]);
     const resultFixed = computeJointPsiFromModel(1, nodes, elemsNoHinge, sec, mat, sups);
     expect(resultHinged.psiB).toBeGreaterThan(resultFixed.psiB);
@@ -669,17 +669,17 @@ describe('computeJointPsiFromModel', () => {
     // Add extra beam from node 1 going to node 4 at (0,3,5)
     const nodesExtended = new Map([...nodes, [4, { id: 4, x: 0, y: 3, z: 5 }]]);
     const elems = new Map([
-      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-      [4, { id: 4, nodeI: 1, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }], // extra beam
+      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1 }],
+      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1 }],
+      [4, { id: 4, nodeI: 1, nodeJ: 4, materialId: 1, sectionId: 1 }], // extra beam
     ]);
     const sups = new Map([
       [0, { nodeId: 0, type: 'fixed3d' }],
     ]);
 
     const result1Beam = computeJointPsiFromModel(1, nodes, new Map([
-      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
-      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1 }],
+      [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1 }],
     ]), sec, mat, sups);
 
     const result2Beams = computeJointPsiFromModel(1, nodesExtended, elems, sec, mat, sups);

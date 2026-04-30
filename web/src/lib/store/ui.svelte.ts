@@ -27,8 +27,8 @@ export interface ClipboardData {
     type: 'frame' | 'truss';
     materialId: number;
     sectionId: number;
-    hingeStart?: boolean;
-    hingeEnd?: boolean;
+    releaseI?: { my: boolean; mz: boolean; t: boolean };
+    releaseJ?: { my: boolean; mz: boolean; t: boolean };
   } & Element3DMetadata>;
   supports: Array<{ origNodeId: number; type: SupportType }>;
 }

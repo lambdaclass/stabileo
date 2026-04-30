@@ -14,6 +14,7 @@ Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EA
 The live near-term blockers are now:
 - final Step 3 trust work: solver-run artifact capture, inclined-support equilibrium reporting correctness, and keeping trust/provenance signals stable across all solver paths
 - constraint-system maturity: prescribed-displacement semantics through constrained chains and deeper circular-dependency detection
+- 3D release/hinge contract cleanup: remove lingering generic hinge semantics from outputs/analyzers/UI, converge on typed per-end releases, and then add topology diagnostics for unreachable DOFs
 - sparse/runtime hardening on real workflows
 - keeping verification/trust signals visible as contracts and CI gates evolve
 - ~~immediate 3D coordinate-system alignment with the `Z-up` product/runtime convention~~ — SUBSTANTIALLY RESOLVED (2026-04-18): comprehensive audit and 60+ fixes across viewport, store, exports, backend AI, IFC, stress, and locales; see Coordinate Convention section below for remaining items
@@ -88,6 +89,18 @@ See also: `../research/solver_safety_and_validation_hardening.md` for the fuller
 **Step 6 — constraint maturity / solver-path consistency**
 - `Broader shell + nonlinear invariant coverage`
 - `Constraint system depth (chained, eccentric, cross-solver parity)`
+- `3D release-contract cleanup and honest surfaces`
+  - Type: contract cleanup + UI truthfulness
+  - Status: partially landed — the solver/schema moved to per-axis 3D releases, but web output types, analyzer oracles, and some UI/store surfaces still leak generic `hingeStart` / `hingeEnd` semantics
+  - Done when: 3D outputs, editor/detail/table views, and any visualization/store helpers stop exposing ambiguous generic hinges and use the explicit release contract consistently
+- `Typed Release per element end`
+  - Type: structural cleanup
+  - Status: planned; current 3D release state is still spread across loose booleans and ad hoc mappings
+  - Done when: solver, web, and analyzer code share one typed source of truth for end releases instead of duplicating six independent flags
+- `Pre-solve release/topology diagnostics`
+  - Type: diagnostics layer
+  - Status: planned after typed releases; the goal is actionable unreachable-DOF diagnostics for release/support topology, not replacement of numerical rank checks
+  - Done when: a pre-solve analyzer reports unreachable DOFs using supports, springs-to-ground, and MPC/reduction edges, while matrix/rank checks remain the final numerical authority
 - `Free-slave -> restrained-master prescribed displacement`
   - Type: contract decision + implementation
   - Status: deferred because the correct semantics need to be chosen before coding
@@ -551,6 +564,8 @@ Stop ugly mixed workflows from being the place where mature solvers obviously ou
 - Parity expectations are encoded for representative dense vs sparse and constrained vs unconstrained cases
 - Solver-path-specific result divergences are treated as regressions, not expected quirks
 - Known nonlinear edge cases have acceptance coverage instead of only anecdotal reproduction
+- 3D releases are represented by one explicit contract end-to-end instead of generic hinge shorthands
+- Pre-solve diagnostics can explain release/support-topology failures without pretending to replace numerical singularity checks
 - Prescribed-displacement behavior through constrained chains is explicitly documented and regression-tested
 - Circular constraint detection is graph-complete rather than depth-2 only
 

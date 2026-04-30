@@ -167,8 +167,8 @@ export function drawElement(
     nodeJ: number;
     materialId: number;
     sectionId: number;
-    hingeStart?: boolean;
-    hingeEnd?: boolean;
+    releaseI?: { my: boolean; mz: boolean; t: boolean };
+    releaseJ?: { my: boolean; mz: boolean; t: boolean };
   },
   ni: { x: number; y: number },
   nj: { x: number; y: number },
@@ -200,8 +200,8 @@ export function drawElement(
   const OFFSET_PX = 12;
   const MAX_OFFSET_FRAC = 0.08;
 
-  const hasHingeStart = elem.hingeStart === true;
-  const hasHingeEnd = elem.hingeEnd === true;
+  const hasHingeStart = elem.releaseI?.mz === true;
+  const hasHingeEnd = elem.releaseJ?.mz === true;
 
   const hingeColor = opts.isSelected ? '#ff6b6b' : baseColor;
   if (hasHingeStart) {

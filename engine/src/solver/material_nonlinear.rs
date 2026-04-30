@@ -1081,7 +1081,8 @@ fn assemble_tangent_stiffness_3d(
                 let t = frame_transform_3d_warping(&ex, &ey, &ez);
                 let k_local = frame_local_stiffness_3d_warping(
                     e, sec.a, iy_eff, iz_eff, sec.j, sec.cw.unwrap(), l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z,
                 );
                 let k_glob = transform_stiffness(&k_local, &t, 14);
                 let ndof = elem_dofs.len();
@@ -1094,7 +1095,8 @@ fn assemble_tangent_stiffness_3d(
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_local = frame_local_stiffness_3d(
                     e, sec.a, iy_eff, iz_eff, sec.j, l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z,
                 );
                 let k_glob = transform_stiffness(&k_local, &t, 12);
                 let ndof = elem_dofs.len();
@@ -1219,7 +1221,8 @@ fn compute_global_internal_forces_3d(
                 let u_local = transform_displacement(&u_global, &t, 14);
                 let k_local = frame_local_stiffness_3d_warping(
                     e, sec.a, iy_eff, iz_eff, sec.j, sec.cw.unwrap(), l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z,
                 );
                 let mut fl = vec![0.0; 14];
                 for i in 0..14 {
@@ -1234,7 +1237,8 @@ fn compute_global_internal_forces_3d(
                 let u_local = transform_displacement(&u_global, &t, 12);
                 let k_local = frame_local_stiffness_3d(
                     e, sec.a, iy_eff, iz_eff, sec.j, l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z,
                 );
                 let mut fl = vec![0.0; 12];
                 for i in 0..12 {

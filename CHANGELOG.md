@@ -11,6 +11,16 @@ It should capture what changed, not what should be built next.
 
 ### Fixed
 
+#### Hinge/release correctness cleanup (2026-04-26)
+
+Systematic cleanup of hinge/release semantics across the solver contract:
+
+- **Bug A — orphan rotation DOFs**: 2D and 3D kinematic analysis now detect rotation-only zero-stiffness rows directly from `K_ff` instead of relying only on topology heuristics. Dense 2D assembly also stabilizes these orphan rotational DOFs so truss-attached pinned nodes no longer fail as false mechanisms.
+- **Bug B — 3D articulated arch / over-release**: 3D frame elements now use explicit per-axis end releases (`releaseMy`, `releaseMz`, `releaseT`) instead of ambiguous generic hinge booleans. This fixes the articulated-arch failure mode caused by releasing both bending planes at once.
+- **3D schema cleanup**: legacy 3D `hingeStart` / `hingeEnd` fields are no longer accepted by the solver input contract; stale 3D JSON now fails loudly instead of silently preserving broken semantics.
+- **3D UI bridge mapping**: the current 3D hinge bridge now maps the existing generic UI hinge toggle to a single in-plane bending release (`Mz`) rather than an accidental ball-joint-style double release.
+- **Regression coverage**: Rust + TypeScript reproducers now cover both the orphan-rotation false mechanism and the 3D articulated-arch release contract.
+
 #### Trust hardening — 25+ correctness fixes (2026-04-19)
 
 Systematic audit and fix of solver correctness issues across elements, constraints, and diagnostics:

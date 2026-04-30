@@ -72,7 +72,7 @@ function buildInput3D(opts: {
     materials: new Map([[1, { id: 1, e: E, nu }]]),
     sections: new Map([[1, { id: 1, a: A, iz: Iz, iy: Iy, j: J }]]),
     elements: new Map(opts.elements.map(e => [e.id, {
-      ...e, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false,
+      ...e, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
     }])),
     supports: new Map(opts.supports.map(s => [s.nodeId, s])),
     loads: opts.loads,

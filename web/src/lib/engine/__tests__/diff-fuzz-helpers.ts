@@ -171,7 +171,10 @@ export function makeRandomModel3D(seed: number): SolverInput3D {
   // Generate frame elements: connect sequential nodes + maybe cross-links
   const elements = new Map<number, {
     id: number; type: 'frame' | 'truss'; nodeI: number; nodeJ: number;
-    materialId: number; sectionId: number; hingeStart: boolean; hingeEnd: boolean;
+    materialId: number; sectionId: number;
+    releaseMyStart: boolean; releaseMyEnd: boolean;
+    releaseMzStart: boolean; releaseMzEnd: boolean;
+    releaseTStart: boolean; releaseTEnd: boolean;
   }>();
 
   let elemId = 0;
@@ -181,7 +184,7 @@ export function makeRandomModel3D(seed: number): SolverInput3D {
     elemId++;
     elements.set(elemId, {
       id: elemId, type: 'frame', nodeI: i, nodeJ: i + 1,
-      materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false,
+      materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
     });
   }
 
@@ -199,7 +202,7 @@ export function makeRandomModel3D(seed: number): SolverInput3D {
       elemId++;
       elements.set(elemId, {
         id: elemId, type: 'frame', nodeI: nI, nodeJ: nJ,
-        materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false,
+        materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
       });
     }
   }
