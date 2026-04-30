@@ -163,9 +163,14 @@ export interface ElementVerification {
     flexure?: { comboId: number; comboName: string };
     shear?: { comboId: number; comboName: string };
     axial?: { comboId: number; comboName: string };
+    momentY?: { comboId: number; comboName: string };
+    shearZ?: { comboId: number; comboName: string };
+    torsion?: { comboId: number; comboName: string };
   };
   /** RC detailing rules per CIRSOC 201 Ch. 12 */
   detailing?: DetailingResult;
+  /** Station-based design demands (when available from station-design-forces.ts) */
+  stationDemands?: import('../../station-design-forces').ElementDesignDemands;
 }
 
 export interface DetailingResult {

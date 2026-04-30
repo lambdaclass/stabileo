@@ -66,6 +66,8 @@
     const s = modelStore.supports.size;
     const l = modelStore.model.loads.length;
     if (resultsStore.results) return { text: t('status.resolved'), color: '#4caf50' };
+    // In Education mode, suppress step-by-step build guidance — exercises auto-load
+    if (uiStore.appMode === 'educativo') return { text: '', color: 'transparent' };
     if (n === 0) return { text: t('status.hintCreateNodes'), color: '#888' };
     if (e === 0) return { text: t('status.hintConnectBars'), color: '#888' };
     if (s === 0) return { text: t('status.hintAddSupports'), color: '#888' };

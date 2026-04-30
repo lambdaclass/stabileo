@@ -6,6 +6,7 @@
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
   import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
+  import { extractElementStations, extractGoverningDemands, type ElementDesignDemands } from '../../lib/engine/station-design-forces';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import { classifyElement } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -21,8 +22,8 @@
   import ProSupportsTab from './ProSupportsTab.svelte';
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
-  import ProVerificationTab from './ProVerificationTab.svelte';
   import ProDesignTab from './ProDesignTab.svelte';
+  import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProConstraintsTab from './ProConstraintsTab.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
@@ -31,7 +32,7 @@
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
-  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'verification' | 'connections' | 'diagnostics';
+  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'connections' | 'diagnostics';
 
   // Group tabs into logical categories
   interface TabGroup {
@@ -68,8 +69,7 @@
       tabs: [
         { id: 'advanced' as ProTab, label: t('pro.tabAdvanced') },
         { id: 'results' as ProTab, label: t('pro.tabResults') },
-        { id: 'design' as ProTab, label: t('pro.tabDesign') },
-        { id: 'verification' as ProTab, label: t('pro.tabVerification') },
+        { id: 'design' as ProTab, label: 'RC Design' },
         { id: 'connections' as ProTab, label: t('pro.tabConnections') },
         { id: 'diagnostics' as ProTab, label: t('pro.tabDiagnostics') },
       ],
@@ -97,7 +97,7 @@
   export function canSolve() { return hasModel && !solving; }
   export function canReport() { return modelStore.nodes.size > 0; }
 
-  type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'xl';
+  type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'energy' | 'xl';
   type ExamplePreset = 'default' | 'xl' | 'clean-shell' | 'bridge';
   interface ProExample {
     nameKey: string;
@@ -147,6 +147,17 @@
       load: () => modelStore.loadExample('rc-design-frame'),
     },
     {
+      group: 'buildings',
+      groupKey: 'pro.examples.groupBuildings',
+      nameKey: 'ex.rc-qa-diagnostic',
+      descKey: 'ex.rc-qa-diagnostic.desc',
+      purposeKey: 'ex.rc-qa-diagnostic.purpose',
+      tags: ['pro.tagDesign', 'pro.tagRC'],
+      stats: { nodes: '18', members: '26' },
+      preset: 'default',
+      load: () => modelStore.loadExample('rc-qa-diagnostic'),
+    },
+    {
       group: 'industrial',
       groupKey: 'pro.examples.groupIndustrial',
       nameKey: 'ex.3d-nave-industrial',
@@ -167,6 +178,18 @@
       stats: { nodes: '90', members: '173' },
       preset: 'default',
       load: () => modelStore.loadExample('pipe-rack'),
+    },
+    {
+      group: 'energy',
+      groupKey: 'pro.examples.groupEnergy',
+      nameKey: 'ex.offshorePlatform',
+      descKey: 'ex.offshorePlatform.desc',
+      purposeKey: 'ex.offshorePlatform.purpose',
+      tags: ['pro.tagSteel', 'pro.tagOffshore'],
+      stats: { nodes: '196', members: '762' },
+      preset: 'default',
+      featured: true,
+      load: () => modelStore.loadExample('offshore-platform'),
     },
     {
       group: 'foundations',
@@ -249,7 +272,7 @@
     // Sagrada Familia removed upstream — fixture no longer available
   ];
   const proExampleGroups = $derived.by(() => {
-    const order: ExampleGroup[] = ['buildings', 'industrial', 'foundations', 'longspan', 'xl'];
+    const order: ExampleGroup[] = ['buildings', 'industrial', 'energy', 'foundations', 'longspan', 'xl'];
     return order.map(group => ({
       group,
       title: t(proExamples.find(ex => ex.group === group)?.groupKey ?? ''),
@@ -284,8 +307,39 @@
     exampleMenuStyle = `left:${left}px;top:${top}px;width:${width}px;max-height:${maxHeight}px;`;
   }
 
+  /** Pre-solve model quality check — returns error diagnostics if any. */
+  function getModelErrors(): import('../../lib/engine/types').SolverDiagnostic[] {
+    return checkModel({
+      nodes: modelStore.nodes,
+      elements: modelStore.elements,
+      materials: modelStore.materials,
+      sections: modelStore.sections,
+      supports: modelStore.supports,
+      loads: modelStore.loads as any,
+      loadCases: modelStore.model.loadCases,
+      plates: modelStore.model.plates,
+      quads: modelStore.model.quads,
+    }).filter(d => d.severity === 'error');
+  }
+
+  /** Reactive count of blocking model errors (for UI state). */
+  const modelErrorCount = $derived.by(() => {
+    // Touch reactive deps
+    void(modelStore.nodes.size + modelStore.elements.size + modelStore.supports.size + modelStore.loads.length);
+    return getModelErrors().length;
+  });
+
   async function handleSolve() {
     solveError = null;
+
+    // ─── Pre-solve quality gate ─────────────────────────
+    const errors = getModelErrors();
+    if (errors.length > 0) {
+      solveError = `${errors.length} ${t('pro.modelErrorsBlock')} — ${t('pro.seeDiagnostics')}`;
+      uiStore.proActiveTab = 'diagnostics';
+      return;
+    }
+
     solving = true;
     try {
       await runGlobalSolve();
@@ -336,14 +390,34 @@
   const elemCount = $derived(modelStore.elements.size);
   const loadCount = $derived(modelStore.loads.length);
 
+  /** Compute station-based demands for all elements (when per-combo data available) */
+  function computeStationDemands(): Map<number, ElementDesignDemands> {
+    const result = new Map<number, ElementDesignDemands>();
+    if (!resultsStore.hasCombinations3D) return result;
+    const perCombo = resultsStore.perCombo3D;
+    if (perCombo.size === 0) return result;
+    const comboNames = new Map<number, string>();
+    for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+    const firstCombo = perCombo.values().next().value;
+    if (!firstCombo) return result;
+    for (const ef of firstCombo.elementForces) {
+      const esr = extractElementStations(ef.elementId, perCombo, comboNames);
+      if (esr) result.set(ef.elementId, extractGoverningDemands(esr));
+    }
+    return result;
+  }
+
   /** Auto-run CIRSOC verification on current results (delegates to extracted utility) */
   function autoVerify(): ElementVerification[] {
     const results = resultsStore.results3D;
     if (!results) return [];
+    const stationDemands = computeStationDemands();
     const { concrete } = autoVerifyFromResults(
       results,
       { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
       resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null,
+      undefined,
+      stationDemands.size > 0 ? stationDemands : undefined,
     );
     return concrete;
   }
@@ -670,6 +744,17 @@
     <div class="pro-solve-error">{solveError}</div>
   {/if}
 
+  <!-- Pre-solve quality gate banner -->
+  {#if modelErrorCount > 0 && activeTab !== 'diagnostics'}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="pro-quality-gate" onclick={() => uiStore.proActiveTab = 'diagnostics'}>
+      <span class="qg-icon">⚠</span>
+      <span class="qg-text"><strong>{modelErrorCount}</strong> {t('pro.errorsFound')} — {t('pro.fixBeforeSolve')}</span>
+      <span class="qg-arrow">→</span>
+    </div>
+  {/if}
+
   <!-- Tab content -->
   <div class="pro-content">
     {#if tabError}
@@ -701,9 +786,7 @@
         {:else if activeTab === 'results'}
           <ProResultsTab />
         {:else if activeTab === 'design'}
-          <ProDesignTab />
-        {:else if activeTab === 'verification'}
-          <ProVerificationTab bind:verifications={verificationsRef} />
+          <ProRcWorkflowTab bind:verifications={verificationsRef} />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
         {:else if activeTab === 'diagnostics'}
@@ -1092,6 +1175,20 @@
     background: rgba(233, 69, 96, 0.1);
     border-bottom: 1px solid #1a3a5a;
   }
+
+  .pro-quality-gate {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; cursor: pointer;
+    background: rgba(233, 160, 0, 0.08);
+    border-bottom: 1px solid rgba(233, 160, 0, 0.2);
+    font-size: 0.72rem; color: #f0a500;
+    transition: background 0.15s;
+  }
+  .pro-quality-gate:hover { background: rgba(233, 160, 0, 0.15); }
+  .qg-icon { font-size: 0.85rem; }
+  .qg-text { flex: 1; }
+  .qg-text strong { color: #ffb820; }
+  .qg-arrow { font-size: 0.8rem; opacity: 0.6; }
 
   /* ─── Content area ─── */
   .pro-content {

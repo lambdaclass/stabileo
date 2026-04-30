@@ -727,13 +727,12 @@
         </div>
         <!-- Analysis -->
         <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['advanced','results','design','verification','connections','diagnostics'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('analysis')}>{t('pro.groupAnalysis')} <span class="pb-caret">▾</span></button>
+          <button class="pb-group" class:group-active={['advanced','results','design','connections','diagnostics'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('analysis')}>{t('pro.groupAnalysis')} <span class="pb-caret">▾</span></button>
           {#if openDropdown === 'analysis'}
             <div class="pb-dropdown">
               <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'advanced'} onclick={() => { uiStore.proActiveTab = 'advanced'; openDropdown = null; }}>{t('pro.tabAdvanced')}</button>
               <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'results'} onclick={() => { uiStore.proActiveTab = 'results'; openDropdown = null; }}>{t('pro.tabResults')}</button>
               <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'design'} onclick={() => { uiStore.proActiveTab = 'design'; openDropdown = null; }}>{t('pro.tabDesign')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'verification'} onclick={() => { uiStore.proActiveTab = 'verification'; openDropdown = null; }}>{t('pro.tabVerification')}</button>
               <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'connections'} onclick={() => { uiStore.proActiveTab = 'connections'; openDropdown = null; }}>{t('pro.tabConnections')}</button>
               <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'diagnostics'} onclick={() => { uiStore.proActiveTab = 'diagnostics'; openDropdown = null; }}>{t('pro.tabDiagnostics')}</button>
             </div>

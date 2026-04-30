@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stabileo — Infraestructura Energética</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter',system-ui,sans-serif;background:#0a0e1a;color:#e8edf5;overflow:hidden;}
+  .slides{width:100vw;height:100vh;display:flex;scroll-snap-type:x mandatory;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;}
+  .slide{min-width:100vw;height:100vh;scroll-snap-align:start;display:flex;position:relative;overflow:hidden;}
+  .slide-inner{padding:56px 72px;display:flex;flex-direction:column;justify-content:center;flex:1;position:relative;z-index:2;}
+  h1{font-size:3.4rem;font-weight:900;color:#fff;line-height:1.05;letter-spacing:-0.03em;}
+  h2{font-size:2rem;font-weight:800;color:#fff;margin-bottom:16px;letter-spacing:-0.02em;line-height:1.15;}
+  h3{font-size:0.75rem;font-weight:700;color:#4ecdc4;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:12px;}
+  p{font-size:1.05rem;line-height:1.6;color:#9ab0cc;max-width:560px;}
+  .accent{color:#4ecdc4;} .hot{color:#e94560;}
+  .slide-num{position:absolute;bottom:20px;left:36px;font-size:0.6rem;color:#1e2d44;font-weight:600;letter-spacing:0.1em;}
+  .brand-mark{position:absolute;bottom:20px;right:36px;font-size:0.55rem;color:#1a2a40;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;}
+  .bg-gradient{position:absolute;inset:0;z-index:0;}
+  .bg-mesh{position:absolute;inset:0;z-index:1;opacity:0.025;background-image:linear-gradient(rgba(78,205,196,0.3) 1px,transparent 1px),linear-gradient(90deg,rgba(78,205,196,0.3) 1px,transparent 1px);background-size:60px 60px;}
+
+  /* ─── Shared image frame ─── */
+  .img-frame{border-radius:12px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.55);border:1px solid rgba(30,80,130,0.35);background:#0b1525;}
+  .img-frame img{display:block;width:100%;height:100%;object-fit:cover;}
+  .img-glow{position:absolute;z-index:0;border-radius:50%;filter:blur(80px);opacity:0.12;}
+
+  /* ═══ S1: TITLE ═══ */
+  .s1 .bg-gradient{background:radial-gradient(ellipse at 25% 50%,#0d1f3c 0%,#0a0e1a 70%);}
+  .s1 .slide-inner{flex-direction:row;align-items:center;gap:60px;}
+  .s1-text{flex:1;max-width:500px;}
+  .s1 .logo{display:flex;align-items:center;gap:14px;margin-bottom:32px;}
+  .s1 .logo-tri{font-size:2.6rem;color:#4ecdc4;} .s1 .logo-text{font-size:1.4rem;font-weight:800;color:#fff;}
+  .s1 .tagline{font-size:1.15rem;color:#4ecdc4;font-weight:500;margin-top:10px;}
+  .s1 .sub{font-size:0.9rem;color:#556b85;margin-top:14px;max-width:420px;line-height:1.5;}
+  .s1-hero{flex:1;max-width:580px;position:relative;}
+  .s1-hero .img-frame{height:420px;}
+  .s1-hero .img-glow{right:-40px;top:-40px;width:500px;height:500px;background:#4ecdc4;}
+
+  /* ═══ S2: CAPABILITY ═══ */
+  .s2 .bg-gradient{background:linear-gradient(135deg,#0b1525 0%,#0a0e1a 100%);}
+  .s2 .slide-inner{flex-direction:row;align-items:center;gap:48px;}
+  .s2-text{flex:1;max-width:460px;}
+  .s2-visual{flex:1;max-width:600px;position:relative;}
+  .s2-visual .img-frame{height:440px;}
+  .s2-visual .img-glow{left:-30px;bottom:-30px;width:400px;height:400px;background:#e94560;}
+  .cap-list{list-style:none;padding:0;margin:14px 0;}
+  .cap-list li{padding:7px 0;padding-left:18px;position:relative;font-size:0.95rem;color:#9ab0cc;}
+  .cap-list li::before{content:'▸';position:absolute;left:0;color:#4ecdc4;font-weight:bold;}
+  .cap-list li strong{color:#fff;}
+  .examples-strip{display:flex;gap:7px;margin-top:16px;flex-wrap:wrap;}
+  .ex-tag{padding:4px 10px;background:rgba(78,205,196,0.08);border:1px solid rgba(78,205,196,0.2);border-radius:18px;font-size:0.65rem;color:#4ecdc4;font-weight:600;}
+
+  /* ═══ S3: ENERGY ═══ */
+  .s3 .bg-gradient{background:radial-gradient(ellipse at 65% 45%,#0d1f3c 0%,#0a0e1a 70%);}
+  .s3 .slide-inner{flex-direction:row;align-items:center;gap:48px;}
+  .s3-text{flex:1;max-width:480px;}
+  .s3-visual{flex:1;max-width:520px;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;}
+  .s3-visual .img-frame{width:100%;height:420px;}
+  .s3-visual .img-frame img{object-position:center 40%;transform:scale(1.6);transform-origin:center 40%;}
+  .s3-visual .img-glow{right:-60px;top:-20px;width:500px;height:500px;background:#e94560;}
+  .s3-visual .img-caption{font-size:0.62rem;color:#3a5570;text-align:center;}
+  .energy-row{display:flex;gap:14px;margin-top:18px;}
+  .energy-card{flex:1;background:rgba(14,26,48,0.6);border:1px solid #1a3050;border-radius:8px;padding:14px;text-align:center;}
+  .energy-card .e-icon{font-size:1.6rem;margin-bottom:4px;} .energy-card h4{font-size:0.82rem;font-weight:700;color:#fff;margin-bottom:2px;}
+  .energy-card p{font-size:0.68rem;color:#7890a8;text-align:center;max-width:none;line-height:1.3;}
+  .proof-bar{margin-top:16px;padding:12px 16px;background:rgba(233,69,96,0.06);border:1px solid rgba(233,69,96,0.2);border-radius:8px;}
+  .proof-bar p{font-size:0.8rem;color:#ddd;max-width:none;} .proof-bar strong{color:#e94560;}
+
+  /* ═══ S4: ARGENTINA ═══ */
+  .s4 .bg-gradient{background:linear-gradient(135deg,#0a1220 0%,#0a0e1a 100%);}
+  .arg-cols{display:flex;gap:32px;margin-top:14px;}
+  .arg-col{flex:1;}
+  .arg-col h4{font-size:0.78rem;font-weight:700;color:#4ecdc4;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;}
+  .arg-item{padding:7px 0;border-bottom:1px solid #121e30;font-size:0.88rem;color:#9ab0cc;line-height:1.4;}
+  .arg-item:last-child{border:none;} .arg-item strong{color:#fff;}
+
+  /* ═══ S5: TEAM ═══ */
+  .s5 .bg-gradient{background:radial-gradient(ellipse at 40% 60%,#0d1f3c 0%,#0a0e1a 70%);}
+  .team-cards{display:flex;gap:18px;margin-top:18px;}
+  .team-card{flex:1;background:rgba(14,26,48,0.6);border:1px solid #1a3050;border-radius:10px;padding:18px;}
+  .team-card h4{font-size:0.75rem;font-weight:700;color:#4ecdc4;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+  .team-card p{font-size:0.82rem;color:#9ab0cc;line-height:1.45;max-width:none;}
+  .next-steps{margin-top:24px;padding:16px 22px;background:linear-gradient(135deg,rgba(78,205,196,0.08),rgba(78,205,196,0.02));border:1px solid rgba(78,205,196,0.25);border-radius:10px;}
+  .next-steps h4{font-size:0.75rem;font-weight:700;color:#4ecdc4;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+  .next-steps ul{list-style:none;padding:0;}
+  .next-steps li{padding:4px 0;padding-left:16px;position:relative;font-size:0.88rem;color:#ddd;line-height:1.4;}
+  .next-steps li::before{content:'→';position:absolute;left:0;color:#4ecdc4;}
+
+  .nav-hint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);font-size:0.6rem;color:#1a2a40;letter-spacing:0.1em;}
+  @media print{.slides{display:block;overflow:visible;}.slide{min-width:auto;height:auto;page-break-after:always;min-height:100vh;}.nav-hint{display:none;}}
+</style>
+</head>
+<body>
+<div class="slides">
+
+  <!-- ═══ SLIDE 1: TITLE ═══ -->
+  <div class="slide s1">
+    <div class="bg-gradient"></div><div class="bg-mesh"></div>
+    <div class="slide-inner">
+      <div class="s1-text">
+        <div class="logo"><span class="logo-tri">△</span><span class="logo-text">Stabileo</span></div>
+        <h1>Software PRO de<br>ingeniería estructural</h1>
+        <div class="tagline">Modelado · Diseño · Verificación · Reportes</div>
+        <div class="sub">Plataforma de análisis y diseño estructural con expansión hacia infraestructura energética, minería y oil &amp; gas.</div>
+      </div>
+      <div class="s1-hero">
+        <div class="img-glow"></div>
+        <div class="img-frame"><img src="assets/pro-verification.png" alt="Stabileo PRO — RC verification" /></div>
+      </div>
+    </div>
+    <div class="slide-num">01</div><div class="brand-mark">Stabileo 2026</div>
+  </div>
+
+  <!-- ═══ SLIDE 2: CAPABILITY ═══ -->
+  <div class="slide s2">
+    <div class="bg-gradient"></div><div class="bg-mesh"></div>
+    <div class="slide-inner">
+      <div class="s2-text">
+        <h3>Plataforma</h3>
+        <h2>Ingeniería estructural completa</h2>
+        <ul class="cap-list">
+          <li><strong>Modelado 3D</strong> — nodos, barras, shells, cargas, combinaciones</li>
+          <li><strong>Diseño y verificación</strong> — CIRSOC 201/301, ratios de utilización, armaduras</li>
+          <li><strong>Reportes profesionales</strong> — memoria de cálculo, diagramas SVG, fórmulas KaTeX</li>
+          <li><strong>Análisis avanzado</strong> — modal, P-Delta, spectral, buckling, drift</li>
+          <li><strong>Modo PRO</strong> — loads, combinations, shells, selection tools, undo/redo</li>
+        </ul>
+        <div class="examples-strip">
+          <span class="ex-tag">Edificio RC 7 pisos</span>
+          <span class="ex-tag">Puente colgante</span>
+          <span class="ex-tag">Nave industrial</span>
+          <span class="ex-tag">Domo geodésico</span>
+          <span class="ex-tag">La Bombonera</span>
+        </div>
+      </div>
+      <div class="s2-visual">
+        <div class="img-glow"></div>
+        <div class="img-frame"><img src="assets/3d-industrial.png" alt="Stabileo — 3D industrial analysis" /></div>
+      </div>
+    </div>
+    <div class="slide-num">02</div><div class="brand-mark">Stabileo 2026</div>
+  </div>
+
+  <!-- ═══ SLIDE 3: ENERGY / OFFSHORE ═══ -->
+  <div class="slide s3">
+    <div class="bg-gradient"></div><div class="bg-mesh"></div>
+    <div class="slide-inner">
+      <div class="s3-text">
+        <h3>Expansión</h3>
+        <h2>Infraestructura energética</h2>
+        <p>La misma plataforma está siendo concebida para incorporar módulos específicos para sectores estratégicos.</p>
+        <div class="energy-row">
+          <div class="energy-card"><div class="e-icon">🛢️</div><h4>Oil &amp; Gas</h4><p>Plataformas offshore, pipe racks, proceso</p></div>
+          <div class="energy-card"><div class="e-icon">⚡</div><h4>Renovables</h4><p>Torres eólicas, solar, represas</p></div>
+          <div class="energy-card"><div class="e-icon">⛏️</div><h4>Minería</h4><p>Tolvas, silos, industriales pesadas</p></div>
+        </div>
+        <div class="proof-bar">
+          <p><strong>Proof of concept:</strong> plataforma offshore jacket — 12 patas perimetrales, X-bracing, conductores, topsides, derrick. <strong>196 nodos · 762 elementos.</strong></p>
+        </div>
+      </div>
+      <div class="s3-visual">
+        <div class="img-glow"></div>
+        <div class="img-frame"><img src="assets/offshore-pro-screenshot.png" alt="Offshore Jacket — Stabileo PRO" /></div>
+        <div class="img-caption">Plataforma offshore modelada en Stabileo PRO</div>
+      </div>
+    </div>
+    <div class="slide-num">03</div><div class="brand-mark">Stabileo 2026</div>
+  </div>
+
+  <!-- ═══ SLIDE 4: ARGENTINA ═══ -->
+  <div class="slide s4">
+    <div class="bg-gradient"></div><div class="bg-mesh"></div>
+    <div class="slide-inner">
+      <h3>Foco Argentina</h3>
+      <h2>Herramientas para los sectores que<br>el país necesita fortalecer</h2>
+      <div class="arg-cols">
+        <div class="arg-col">
+          <h4>Sectores objetivo</h4>
+          <div class="arg-item"><strong>Minería</strong> — estructuras industriales pesadas para operaciones extractivas</div>
+          <div class="arg-item"><strong>Gas y petróleo</strong> — plataformas, pipe racks, proceso para Vaca Muerta y offshore</div>
+          <div class="arg-item"><strong>Energías sustentables</strong> — torres eólicas, soporte fotovoltaico, represas</div>
+        </div>
+        <div class="arg-col">
+          <h4>Por qué esta convocatoria</h4>
+          <div class="arg-item">Software que desarrolla las patas técnicas que Argentina más necesita en <strong>infraestructura energética</strong></div>
+          <div class="arg-item">Capacidad de <strong>validación de campo</strong> en condiciones reales: viento patagónico, sismos, cargas extremas</div>
+          <div class="arg-item"><strong>Tecnología nacional</strong> en un sector donde hoy se depende de software importado</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-num">04</div><div class="brand-mark">Stabileo 2026</div>
+  </div>
+
+  <!-- ═══ SLIDE 5: TEAM + NEXT STEPS ═══ -->
+  <div class="slide s5">
+    <div class="bg-gradient"></div><div class="bg-mesh"></div>
+    <div class="slide-inner">
+      <h3>Equipo y validación</h3>
+      <h2>Capacidad técnica + conexión con la industria</h2>
+      <div class="team-cards">
+        <div class="team-card"><h4>Ingeniería estructural</h4><p>Solver propio, verificación por norma, solver WASM en browser, reportes profesionales, <strong style="color:#fff">1900+ tests</strong>.</p></div>
+        <div class="team-card"><h4>Respaldo académico</h4><p>Ingeniero civil, <strong style="color:#fff">vicedecano de FIUBA</strong> y <strong style="color:#fff">director del CEARE</strong> — entiende las necesidades energéticas del país.</p></div>
+        <div class="team-card"><h4>Producto real</h4><p>Software funcionando en <strong style="color:#4ecdc4">stabileo.com</strong>. Modo PRO con edificios, puentes, naves, estadios y plataformas offshore.</p></div>
+      </div>
+      <div class="next-steps">
+        <h4>Próximos pasos</h4>
+        <ul>
+          <li>Trabajo de campo en <strong style="color:#fff">Patagonia</strong> para validar datos contra condiciones reales</li>
+          <li>Testing con <strong style="color:#fff">expertos profesionales</strong> del sector energético y minero</li>
+          <li>Revisión profesional de reportes Stabileo con estudios de ingeniería</li>
+          <li>Pilotos con empresas y estudios para ajustar cargas y criterios con feedback real</li>
+        </ul>
+      </div>
+    </div>
+    <div class="slide-num">05</div><div class="brand-mark">Stabileo 2026</div>
+  </div>
+
+</div>
+<div class="nav-hint">← → NAVEGAR</div>
+</body>
+</html>
