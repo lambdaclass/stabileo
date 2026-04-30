@@ -4,15 +4,15 @@
   import { t } from '../../lib/i18n';
 
   // Discriminator strings must match the Rust Constraint variant rename
-  // in engine/src/types/input.rs. `linearMPC` keeps the all-caps acronym;
-  // changing it back to `linearMpc` here would surface as a runtime
-  // `Parse error: unknown variant 'linearMpc'` from the solver.
-  type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMPC' | 'eccentricConnection';
+  // in engine/src/types/input.rs. Both `equalDOF` and `linearMPC` keep
+  // the all-caps acronym; using camelCase here surfaces as a runtime
+  // `Parse error: unknown variant ...` from the solver.
+  type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDOF' | 'linearMPC' | 'eccentricConnection';
 
   const constraintKinds = $derived([
     { value: 'rigidLink' as ConstraintKind, label: t('pro.rigidLink') },
     { value: 'diaphragm' as ConstraintKind, label: t('pro.diaphragm') },
-    { value: 'equalDof' as ConstraintKind, label: t('pro.equalDof') },
+    { value: 'equalDOF' as ConstraintKind, label: t('pro.equalDof') },
     { value: 'eccentricConnection' as ConstraintKind, label: t('pro.eccentricConnection') },
     { value: 'linearMPC' as ConstraintKind, label: t('pro.linearMpc') },
   ]);
@@ -66,13 +66,15 @@
     const master = validateNode(rlMaster);
     const slave = validateNode(rlSlave);
     if (master === null || slave === null || master === slave) return;
-    const activeDofs = dofLabels.filter((_, i) => rlDofs[i]) as string[];
+    // Rust RigidLinkConstraint.dofs is Vec<usize> — emit integer indices
+    // (3D: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz), NOT name strings.
+    const activeDofs = dofLabels.map((_, i) => i).filter(i => rlDofs[i]);
     if (activeDofs.length === 0) return;
     modelStore.addConstraint({
       type: 'rigidLink',
       masterNode: master,
       slaveNode: slave,
-      dofs: activeDofs as any,
+      dofs: activeDofs,
     });
     rlMaster = '';
     rlSlave = '';
@@ -97,13 +99,15 @@
     const master = validateNode(eqMaster);
     const slave = validateNode(eqSlave);
     if (master === null || slave === null || master === slave) return;
-    const activeDofs = dofLabels.filter((_, i) => eqDofs[i]) as string[];
+    // Rust EqualDOFConstraint.dofs is Vec<usize>. Same indexing as RigidLink.
+    const activeDofs = dofLabels.map((_, i) => i).filter(i => eqDofs[i]);
     if (activeDofs.length === 0) return;
     modelStore.addConstraint({
-      type: 'equalDof',
+      // Rust serde rename: equalDOF (all-caps acronym), NOT equalDof.
+      type: 'equalDOF',
       masterNode: master,
       slaveNode: slave,
-      dofs: activeDofs as any,
+      dofs: activeDofs,
     });
     eqMaster = '';
     eqSlave = '';
@@ -161,7 +165,7 @@
   function addConstraint() {
     if (selectedKind === 'rigidLink') addRigidLink();
     else if (selectedKind === 'diaphragm') addDiaphragm();
-    else if (selectedKind === 'equalDof') addEqualDof();
+    else if (selectedKind === 'equalDOF') addEqualDof();
     else if (selectedKind === 'eccentricConnection') addEccentricConnection();
     else if (selectedKind === 'linearMPC') addLinearMpc();
   }
@@ -217,10 +221,21 @@
     }
   }
 
+  function dofIndicesToNames(dofs: unknown): string {
+    if (!Array.isArray(dofs) || dofs.length === 0) return t('pro.allDofs');
+    return dofs.map((d: unknown) => {
+      // Indices are the canonical wire form; tolerate stale string entries
+      // surfacing from older saved data, since name → index migration is
+      // out of scope here.
+      if (typeof d === 'number') return dofLabels[d] ?? String(d);
+      return String(d);
+    }).join(',');
+  }
+
   function constraintLabel(c: any): string {
-    if (c.type === 'rigidLink') return t('pro.constraintRigid').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', c.dofs ? c.dofs.join(',') : t('pro.allDofs'));
+    if (c.type === 'rigidLink') return t('pro.constraintRigid').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', dofIndicesToNames(c.dofs));
     if (c.type === 'diaphragm') return t('pro.constraintDiaph').replace('{plane}', c.plane ?? 'XZ').replace('{master}', c.masterNode).replace('{n}', String(c.slaveNodes?.length ?? 0));
-    if (c.type === 'equalDof') return t('pro.constraintEqDof').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', c.dofs ? c.dofs.join(',') : t('pro.allDofs'));
+    if (c.type === 'equalDOF') return t('pro.constraintEqDof').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', dofIndicesToNames(c.dofs));
     if (c.type === 'linearMPC') return t('pro.constraintMpc').replace('{n}', String(c.terms?.length ?? 0));
     if (c.type === 'eccentricConnection') {
       const offset = `(${c.offsetX ?? 0}, ${c.offsetY ?? 0}, ${c.offsetZ ?? 0})`;
@@ -288,7 +303,7 @@
         <label class="pro-label-wide">{t('pro.slaves')}: <input type="text" bind:value={dSlaves} placeholder="1, 2, 3..." class="pro-input-wide" /></label>
       </div>
 
-    {:else if selectedKind === 'equalDof'}
+    {:else if selectedKind === 'equalDOF'}
       <div class="pro-cst-row">
         <label>Master: <input type="text" bind:value={eqMaster} placeholder="ID" class="pro-input-sm" /></label>
         <label>{t('pro.slave')}: <input type="text" bind:value={eqSlave} placeholder="ID" class="pro-input-sm" /></label>

@@ -186,13 +186,16 @@ export interface SolverQuadElement {
 // in `engine/src/types/input.rs` exactly. `equalDOF` and `linearMPC` keep the all-caps
 // acronym; the others are camelCase. Diverging here surfaces as a runtime
 // `Parse error: unknown variant ...` from the solver.
-export type ConstraintType = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMPC' | 'eccentricConnection';
+export type ConstraintType = 'rigidLink' | 'diaphragm' | 'equalDOF' | 'linearMPC' | 'eccentricConnection';
 
 export interface RigidLinkConstraint {
   type: 'rigidLink';
   masterNode: number;
   slaveNode: number;
-  dofs?: number[]; // optional, empty = all translational
+  /** Integer DOF indices to constrain on the slave (Rust `Vec<usize>`).
+   *  3D: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz. Empty = all translational.
+   *  Do NOT pass DOF name strings; the solver expects indices. */
+  dofs?: number[];
 }
 
 export interface DiaphragmConstraint {
@@ -203,9 +206,11 @@ export interface DiaphragmConstraint {
 }
 
 export interface EqualDofConstraint {
-  type: 'equalDof';
+  // Discriminator is `equalDOF` to match the Rust serde rename, NOT `equalDof`.
+  type: 'equalDOF';
   masterNode: number;
   slaveNode: number;
+  /** Integer DOF indices (Rust `Vec<usize>`); see RigidLinkConstraint for the mapping. */
   dofs: number[];
 }
 
