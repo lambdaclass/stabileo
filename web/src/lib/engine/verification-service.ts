@@ -19,15 +19,16 @@
  *   - autoVerifyFromResults is the JS orchestrator (Phase 3 replaces with WASM call)
  */
 
-import type { AnalysisResults3D, BeamStationInput3D, GroupedBeamStationResult3D, MemberStationGroup3D, StationComboForces3D } from './types-3d';
+import type { AnalysisResults3D, BeamStationInput3D, GroupedBeamStationResult3D, MemberStationGroup3D } from './types-3d';
 import type { LoadCombination } from '../store/model.svelte';
 import {
   extractElementStations,
   extractGoverningDemands,
   type ElementDesignDemands,
   type ElementStationResult,
+  type StationForces,
 } from './station-design-forces';
-import { extractBeamStationsGrouped3D } from './wasm-solver';
+import { extractBeamStationsGrouped3D, isSolverReady } from './wasm-solver';
 import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
 import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
@@ -64,17 +65,15 @@ export function computeStationDemands(
 
   if (perCombo3D.size === 0) return { demands, stations };
 
-  // Try WASM station extraction first (solver-backed)
-  if (model) {
-    try {
-      const wasmResult = computeStationDemandsWasm(perCombo3D, combinations, model);
-      if (wasmResult) return wasmResult;
-    } catch {
-      // WASM unavailable — fall through to JS path
-    }
+  // Primary path: WASM solver-backed station extraction. Fallback to JS only when
+  // WASM is genuinely unavailable (init not finished, vitest-without-wasm, no model).
+  // Real WASM call errors propagate so future regressions don't hide silently.
+  if (model && isSolverReady()) {
+    const wasmResult = computeStationDemandsWasm(perCombo3D, combinations, model);
+    if (wasmResult) return wasmResult;
   }
 
-  // JS fallback (TRANSITIONAL — used when WASM is not available or model not provided)
+  // JS fallback — only reached when WASM not ready or model unavailable
   const comboNames = new Map<number, string>();
   for (const c of combinations) comboNames.set(c.id, c.name);
   const firstCombo = perCombo3D.values().next().value;
@@ -142,16 +141,26 @@ function wasmMemberToStationResult(
   member: MemberStationGroup3D,
   comboNames: Map<number, string>,
 ): ElementStationResult {
-  // Group stations by combo to build the comboResults shape
-  const comboMap = new Map<number, Array<{ x: number; t: number; n: number; vy: number; vz: number; my: number; mz: number }>>();
+  // Group stations by combo to build the comboResults shape.
+  // The full force tuple — including torsion — must be preserved; downstream
+  // extractGoverningDemands reads s.torsion to populate the Torsion demand category.
+  // If torsion is dropped, the Torsion demand entry has value=undefined, which
+  // crashes the Design tab when expandedDemands.demands is rendered (`d.value.toFixed`).
+  const comboMap = new Map<number, StationForces[]>();
+
+  // Stations come from WASM in order; capture distinct t-values for ElementStationResult.stationTs
+  const tValues: number[] = [];
+  const seenT = new Set<number>();
 
   for (const station of member.stations) {
+    if (!seenT.has(station.t)) { seenT.add(station.t); tValues.push(station.t); }
     for (const cf of station.comboForces) {
       let arr = comboMap.get(cf.comboId);
       if (!arr) { arr = []; comboMap.set(cf.comboId, arr); }
       arr.push({
         x: station.stationX, t: station.t,
         n: cf.n, vy: cf.vy, vz: cf.vz, my: cf.my, mz: cf.mz,
+        torsion: cf.torsion,
       });
     }
   }
@@ -168,6 +177,7 @@ function wasmMemberToStationResult(
   return {
     elementId: member.memberId,
     length: member.length,
+    stationTs: tValues,
     comboResults,
   };
 }
