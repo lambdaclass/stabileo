@@ -3,14 +3,18 @@
   import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   import { t } from '../../lib/i18n';
 
-  type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMpc' | 'eccentricConnection';
+  // Discriminator strings must match the Rust Constraint variant rename
+  // in engine/src/types/input.rs. `linearMPC` keeps the all-caps acronym;
+  // changing it back to `linearMpc` here would surface as a runtime
+  // `Parse error: unknown variant 'linearMpc'` from the solver.
+  type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMPC' | 'eccentricConnection';
 
   const constraintKinds = $derived([
     { value: 'rigidLink' as ConstraintKind, label: t('pro.rigidLink') },
     { value: 'diaphragm' as ConstraintKind, label: t('pro.diaphragm') },
     { value: 'equalDof' as ConstraintKind, label: t('pro.equalDof') },
     { value: 'eccentricConnection' as ConstraintKind, label: t('pro.eccentricConnection') },
-    { value: 'linearMpc' as ConstraintKind, label: t('pro.linearMpc') },
+    { value: 'linearMPC' as ConstraintKind, label: t('pro.linearMpc') },
   ]);
 
   // 3D DOF order MUST mirror EccentricConnectionConstraint.releases ordering
@@ -37,7 +41,6 @@
 
   // Linear MPC state
   let mpcTerms = $state('');
-  let mpcRhs = $state('0');
 
   // Eccentric Connection state — translational releases live here, mirroring the
   // solver's EccentricConnectionConstraint shape: master/slave nodes coupled with
@@ -107,26 +110,26 @@
   }
 
   function addLinearMpc() {
-    const rhs = parseFloat(mpcRhs);
-    if (isNaN(rhs)) return;
-    // Parse terms: "nodeId:dof:coeff, ..." e.g. "1:ux:1.0, 2:ux:-1.0"
-    const parsed = mpcTerms.split(',').map(t => {
-      const parts = t.trim().split(':');
+    // Parse terms: "nodeId:dof:coefficient, ..." e.g. "1:ux:1.0, 2:ux:-1.0".
+    // Convert to the shape Rust expects: type discriminator `linearMPC`,
+    // each term { nodeId, dof: usize-index, coefficient: f64 }. The constraint
+    // sums to 0 by definition — no `rhs` field exists in LinearMPCConstraint.
+    const parsed = mpcTerms.split(',').map(s => {
+      const parts = s.trim().split(':');
       if (parts.length !== 3) return null;
       const nodeId = parseInt(parts[0]);
-      const dof = parts[1].trim();
-      const coeff = parseFloat(parts[2]);
-      if (isNaN(nodeId) || isNaN(coeff) || !dofLabels.includes(dof as any)) return null;
-      return { nodeId, dof, coeff };
-    }).filter(Boolean) as { nodeId: number; dof: string; coeff: number }[];
+      const dofName = parts[1].trim();
+      const coefficient = parseFloat(parts[2]);
+      const dofIdx = dofLabels.indexOf(dofName as typeof dofLabels[number]);
+      if (isNaN(nodeId) || isNaN(coefficient) || dofIdx < 0) return null;
+      return { nodeId, dof: dofIdx, coefficient };
+    }).filter(Boolean) as Array<{ nodeId: number; dof: number; coefficient: number }>;
     if (parsed.length === 0) return;
     modelStore.addConstraint({
-      type: 'linearMpc',
-      terms: parsed as any,
-      rhs,
-    } as any);
+      type: 'linearMPC',
+      terms: parsed,
+    });
     mpcTerms = '';
-    mpcRhs = '0';
   }
 
   function addEccentricConnection() {
@@ -160,7 +163,7 @@
     else if (selectedKind === 'diaphragm') addDiaphragm();
     else if (selectedKind === 'equalDof') addEqualDof();
     else if (selectedKind === 'eccentricConnection') addEccentricConnection();
-    else if (selectedKind === 'linearMpc') addLinearMpc();
+    else if (selectedKind === 'linearMPC') addLinearMpc();
   }
 
   function removeConstraint(index: number) {
@@ -218,7 +221,7 @@
     if (c.type === 'rigidLink') return t('pro.constraintRigid').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', c.dofs ? c.dofs.join(',') : t('pro.allDofs'));
     if (c.type === 'diaphragm') return t('pro.constraintDiaph').replace('{plane}', c.plane ?? 'XZ').replace('{master}', c.masterNode).replace('{n}', String(c.slaveNodes?.length ?? 0));
     if (c.type === 'equalDof') return t('pro.constraintEqDof').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', c.dofs ? c.dofs.join(',') : t('pro.allDofs'));
-    if (c.type === 'linearMpc') return t('pro.constraintMpc').replace('{n}', String(c.terms?.length ?? 0)).replace('{rhs}', String(c.rhs ?? 0));
+    if (c.type === 'linearMPC') return t('pro.constraintMpc').replace('{n}', String(c.terms?.length ?? 0));
     if (c.type === 'eccentricConnection') {
       const offset = `(${c.offsetX ?? 0}, ${c.offsetY ?? 0}, ${c.offsetZ ?? 0})`;
       const releasedDofs = (c.releases ?? []).map((r: boolean, i: number) => r ? dofLabels[i] : null).filter(Boolean).join(',');
@@ -322,12 +325,9 @@
       </div>
       <div class="pro-cst-hint">{t('pro.eccentricHint')}</div>
 
-    {:else if selectedKind === 'linearMpc'}
+    {:else if selectedKind === 'linearMPC'}
       <div class="pro-cst-row">
         <label class="pro-label-wide">{t('pro.terms')}: <input type="text" bind:value={mpcTerms} placeholder="nodo:dof:coeff, ..." class="pro-input-wide" /></label>
-      </div>
-      <div class="pro-cst-row">
-        <label>RHS: <input type="text" bind:value={mpcRhs} placeholder="0" class="pro-input-sm" /></label>
       </div>
       <div class="pro-cst-hint">{t('pro.formatHint')}</div>
     {/if}

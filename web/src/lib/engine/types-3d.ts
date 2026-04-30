@@ -182,7 +182,11 @@ export interface SolverQuadElement {
 
 // ─── Constraints ────────────────────────────────────────────────
 
-export type ConstraintType = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMpc' | 'eccentricConnection';
+// NOTE: Discriminators must match the Rust serde rename for each Constraint variant
+// in `engine/src/types/input.rs` exactly. `equalDOF` and `linearMPC` keep the all-caps
+// acronym; the others are camelCase. Diverging here surfaces as a runtime
+// `Parse error: unknown variant ...` from the solver.
+export type ConstraintType = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMPC' | 'eccentricConnection';
 
 export interface RigidLinkConstraint {
   type: 'rigidLink';
@@ -206,7 +210,12 @@ export interface EqualDofConstraint {
 }
 
 export interface LinearMpcConstraint {
-  type: 'linearMpc';
+  // Discriminator is `linearMPC` to match the Rust serde rename, NOT `linearMpc`.
+  type: 'linearMPC';
+  // Term shape mirrors Rust MPCTerm: { node_id, dof: usize, coefficient: f64 }.
+  // Field names are camelCased by the Rust serde rule (rename_all = "camelCase"),
+  // so JS-side: { nodeId, dof: number, coefficient: number }.
+  // The constraint sums to 0 by definition — there is no `rhs` field.
   terms: Array<{ nodeId: number; dof: number; coefficient: number }>;
 }
 
