@@ -3,15 +3,18 @@
   import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   import { t } from '../../lib/i18n';
 
-  type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMpc';
+  type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMpc' | 'eccentricConnection';
 
   const constraintKinds = $derived([
     { value: 'rigidLink' as ConstraintKind, label: t('pro.rigidLink') },
     { value: 'diaphragm' as ConstraintKind, label: t('pro.diaphragm') },
     { value: 'equalDof' as ConstraintKind, label: t('pro.equalDof') },
+    { value: 'eccentricConnection' as ConstraintKind, label: t('pro.eccentricConnection') },
     { value: 'linearMpc' as ConstraintKind, label: t('pro.linearMpc') },
   ]);
 
+  // 3D DOF order MUST mirror EccentricConnectionConstraint.releases ordering
+  // in engine/src/types/input.rs: 3D = [ux, uy, uz, rx, ry, rz].
   const dofLabels = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] as const;
   const planeOptions = ['XY', 'XZ', 'YZ'] as const;
 
@@ -35,6 +38,18 @@
   // Linear MPC state
   let mpcTerms = $state('');
   let mpcRhs = $state('0');
+
+  // Eccentric Connection state — translational releases live here, mirroring the
+  // solver's EccentricConnectionConstraint shape: master/slave nodes coupled with
+  // a rigid offset, with per-DOF release flags at the connection point.
+  // releases[i] === true means DOF i is released (NOT constrained), so the slave
+  // is free in that DOF — that's how a sliding bearing along ux is expressed.
+  let ecMaster = $state('');
+  let ecSlave = $state('');
+  let ecOffsetX = $state('0');
+  let ecOffsetY = $state('0');
+  let ecOffsetZ = $state('0');
+  let ecReleases = $state([false, false, false, false, false, false]); // [ux, uy, uz, rx, ry, rz]
 
   const constraints = $derived(modelStore.model.constraints ?? []);
 
@@ -114,10 +129,37 @@
     mpcRhs = '0';
   }
 
+  function addEccentricConnection() {
+    const master = validateNode(ecMaster);
+    const slave = validateNode(ecSlave);
+    if (master === null || slave === null || master === slave) return;
+    const ox = parseFloat(ecOffsetX);
+    const oy = parseFloat(ecOffsetY);
+    const oz = parseFloat(ecOffsetZ);
+    if (isNaN(ox) || isNaN(oy) || isNaN(oz)) return;
+    modelStore.addConstraint({
+      type: 'eccentricConnection',
+      masterNode: master,
+      slaveNode: slave,
+      offsetX: ox,
+      offsetY: oy,
+      offsetZ: oz,
+      // Pass the full 6-bool array — solver Vec<bool> length must match dimension.
+      releases: [...ecReleases],
+    });
+    ecMaster = '';
+    ecSlave = '';
+    ecOffsetX = '0';
+    ecOffsetY = '0';
+    ecOffsetZ = '0';
+    ecReleases = [false, false, false, false, false, false];
+  }
+
   function addConstraint() {
     if (selectedKind === 'rigidLink') addRigidLink();
     else if (selectedKind === 'diaphragm') addDiaphragm();
     else if (selectedKind === 'equalDof') addEqualDof();
+    else if (selectedKind === 'eccentricConnection') addEccentricConnection();
     else if (selectedKind === 'linearMpc') addLinearMpc();
   }
 
@@ -177,6 +219,16 @@
     if (c.type === 'diaphragm') return t('pro.constraintDiaph').replace('{plane}', c.plane ?? 'XZ').replace('{master}', c.masterNode).replace('{n}', String(c.slaveNodes?.length ?? 0));
     if (c.type === 'equalDof') return t('pro.constraintEqDof').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', c.dofs ? c.dofs.join(',') : t('pro.allDofs'));
     if (c.type === 'linearMpc') return t('pro.constraintMpc').replace('{n}', String(c.terms?.length ?? 0)).replace('{rhs}', String(c.rhs ?? 0));
+    if (c.type === 'eccentricConnection') {
+      const offset = `(${c.offsetX ?? 0}, ${c.offsetY ?? 0}, ${c.offsetZ ?? 0})`;
+      const releasedDofs = (c.releases ?? []).map((r: boolean, i: number) => r ? dofLabels[i] : null).filter(Boolean).join(',');
+      const releasesLabel = releasedDofs.length > 0 ? releasedDofs : t('pro.eccentricNoRelease');
+      return t('pro.constraintEcc')
+        .replace('{master}', c.masterNode)
+        .replace('{slave}', c.slaveNode)
+        .replace('{offset}', offset)
+        .replace('{releases}', releasesLabel);
+    }
     return t('pro.unknown');
   }
 
@@ -246,6 +298,29 @@
           </label>
         {/each}
       </div>
+
+    {:else if selectedKind === 'eccentricConnection'}
+      <div class="pro-cst-row">
+        <label>Master: <input type="text" bind:value={ecMaster} placeholder="ID" class="pro-input-sm" /></label>
+        <label>{t('pro.slave')}: <input type="text" bind:value={ecSlave} placeholder="ID" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-row">
+        <label>{t('pro.offsetX')}: <input type="text" bind:value={ecOffsetX} placeholder="0" class="pro-input-sm" /></label>
+        <label>{t('pro.offsetY')}: <input type="text" bind:value={ecOffsetY} placeholder="0" class="pro-input-sm" /></label>
+        <label>{t('pro.offsetZ')}: <input type="text" bind:value={ecOffsetZ} placeholder="0" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-row">
+        <span class="pro-cst-sublabel">{t('pro.releases')}:</span>
+      </div>
+      <div class="pro-cst-dofs">
+        {#each dofLabels as dof, i}
+          <label class="pro-dof-check">
+            <input type="checkbox" bind:checked={ecReleases[i]} />
+            <span>{dof}</span>
+          </label>
+        {/each}
+      </div>
+      <div class="pro-cst-hint">{t('pro.eccentricHint')}</div>
 
     {:else if selectedKind === 'linearMpc'}
       <div class="pro-cst-row">
@@ -394,6 +469,12 @@
     font-size: 0.7rem;
     color: #668;
     font-style: italic;
+  }
+
+  .pro-cst-sublabel {
+    font-size: 0.72rem;
+    color: #888;
+    font-weight: 600;
   }
 
   .pro-cst-actions {

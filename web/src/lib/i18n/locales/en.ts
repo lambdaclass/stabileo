@@ -2851,6 +2851,14 @@ const en: Record<string, string> = {
   'pro.constraintDiaph': 'Diaphragm {plane}: master {master}, {n} slaves',
   'pro.constraintEqDof': 'DOF =: {master} → {slave} [{dofs}]',
   'pro.constraintMpc': 'MPC: {n} terms, RHS={rhs}',
+  'pro.eccentricConnection': 'Eccentric connection',
+  'pro.constraintEcc': 'Eccentric: {master} → {slave}, offset {offset}, released [{releases}]',
+  'pro.eccentricNoRelease': 'none',
+  'pro.eccentricHint': 'Released DOFs are NOT constrained at the connection point. Translational releases (ux/uy/uz) express sliding bearings; rotational releases (rx/ry/rz) express partial hinges. DOF order matches solver: [ux, uy, uz, rx, ry, rz].',
+  'pro.releases': 'Releases',
+  'pro.offsetX': 'Offset X (m)',
+  'pro.offsetY': 'Offset Y (m)',
+  'pro.offsetZ': 'Offset Z (m)',
   'pro.unknown': 'Unknown',
 
   // ─── PRO: Shell ───

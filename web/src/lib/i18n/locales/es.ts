@@ -2813,6 +2813,14 @@ const es: Record<string, string> = {
   'pro.constraintDiaph': 'Diafragma {plane}: master {master}, {n} esclavos',
   'pro.constraintEqDof': 'DOF =: {master} → {slave} [{dofs}]',
   'pro.constraintMpc': 'MPC: {n} términos, RHS={rhs}',
+  'pro.eccentricConnection': 'Conexión excéntrica',
+  'pro.constraintEcc': 'Excéntrica: {master} → {slave}, offset {offset}, liberados [{releases}]',
+  'pro.eccentricNoRelease': 'ninguno',
+  'pro.eccentricHint': 'Los DOF liberados NO se restringen en el punto de conexión. Las liberaciones traslacionales (ux/uy/uz) expresan apoyos deslizantes; las rotacionales (rx/ry/rz) expresan rótulas parciales. El orden de DOF coincide con el solver: [ux, uy, uz, rx, ry, rz].',
+  'pro.releases': 'Liberaciones',
+  'pro.offsetX': 'Offset X (m)',
+  'pro.offsetY': 'Offset Y (m)',
+  'pro.offsetZ': 'Offset Z (m)',
   'pro.unknown': 'Desconocido',
 
   // ─── PRO: Shell ───
