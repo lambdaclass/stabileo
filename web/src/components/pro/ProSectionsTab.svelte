@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { modelStore } from '../../lib/store';
+  import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import {
     FAMILY_LIST, PROFILE_FAMILIES, searchProfiles, familyToShape,
@@ -134,7 +134,8 @@
   const sections = $derived([...modelStore.sections.values()]);
 
   function removeSec(id: number) {
-    modelStore.removeSection(id);
+    const ok = modelStore.removeSection(id);
+    if (!ok) uiStore.toast(t('table.cannotDeleteSection'), 'error');
   }
 
   function fmtNum(n: number): string {
