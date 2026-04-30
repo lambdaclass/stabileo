@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { modelStore } from '../../lib/store';
+  import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import {
     MATERIAL_CATEGORIES, searchPresets,
@@ -48,7 +48,8 @@
   }
 
   function removeMat(id: number) {
-    modelStore.removeMaterial(id);
+    const ok = modelStore.removeMaterial(id);
+    if (!ok) uiStore.toast(t('table.cannotDeleteMaterial'), 'error');
   }
 </script>
 
