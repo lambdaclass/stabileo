@@ -6,12 +6,14 @@
 
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
-import { createNodeMesh, updateNodePosition } from '../three/create-node-mesh';
+import { NodesInstanced } from '../three/nodes-instanced';
+import { ElementsBatched } from '../three/elements-batched';
+import { ElementsPicking } from '../three/elements-picking';
 import { createElementGroup } from '../three/create-element-mesh';
 import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
-import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
 import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import type { SolverNode3D } from '../engine/types-3d';
@@ -59,7 +61,12 @@ export interface SceneSyncContext {
   scene: THREE.Scene;
 
   // Reconciliation maps (mutated in place)
-  nodeMeshes: Map<number, THREE.Mesh>;
+  /** Batched node rendering — one InstancedMesh for all nodes. */
+  nodesInstanced: NodesInstanced;
+  /** Batched element rendering (wireframe mode) — one LineSegments2 for all. */
+  elementsBatched: ElementsBatched;
+  /** BVH-accelerated picking surface — one InstancedMesh of invisible cylinders. */
+  elementsPicking: ElementsPicking;
   elementGroups: Map<number, THREE.Group>;
   supportGizmos: Map<number, THREE.Group>;
   shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
@@ -77,27 +84,27 @@ export function syncNodes(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeNodes = modelStore.nodes;
   const project2D = projectFlag();
+  const ni = ctx.nodesInstanced;
 
-  // Remove nodes no longer in store
-  for (const [id, mesh] of ctx.nodeMeshes) {
-    if (!storeNodes.has(id)) {
-      ctx.nodesParent.remove(mesh);
-      disposeObject(mesh);
-      ctx.nodeMeshes.delete(id);
-    }
+  // Remove nodes no longer in store. Collect first — remove() mutates indices.
+  const toRemove: number[] = [];
+  for (const [id] of iterateIds(ni)) {
+    if (!storeNodes.has(id)) toRemove.push(id);
   }
+  for (const id of toRemove) ni.remove(id);
 
   // Add/update nodes
   for (const [id, node] of storeNodes) {
     const pos = projectNodeToScene(node, project2D);
-    const existing = ctx.nodeMeshes.get(id);
-    if (existing) {
-      updateNodePosition(existing, pos.x, pos.y, pos.z);
-    } else {
-      const mesh = createNodeMesh(pos.x, pos.y, pos.z, { nodeId: id });
-      ctx.nodesParent.add(mesh);
-      ctx.nodeMeshes.set(id, mesh);
-    }
+    ni.upsert(id, pos.x, pos.y, pos.z);
+  }
+}
+
+/** Enumerate (id, index) pairs in insertion order. Exposed for syncNodes. */
+function* iterateIds(ni: NodesInstanced): IterableIterator<[number, number]> {
+  for (let i = 0; i < ni.count; i++) {
+    const id = ni.nodeIdAt(i);
+    if (id !== null) yield [id, i];
   }
 }
 
@@ -107,17 +114,20 @@ export function syncElements(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeElements = modelStore.elements;
   const project2D = projectFlag();
+  const renderMode = uiStore.renderMode3D;
+  const eb = ctx.elementsBatched;
+  const ep = ctx.elementsPicking;
 
-  // Remove stale
+  // Remove stale (groups, batched segments, picking instances)
   for (const [id, group] of ctx.elementGroups) {
     if (!storeElements.has(id)) {
       ctx.elementsParent.remove(group);
       disposeObject(group);
       ctx.elementGroups.delete(id);
+      eb.remove(id);
+      ep.remove(id);
     }
   }
-
-  const renderMode = uiStore.renderMode3D;
 
   // Signature captures everything that forces a rebuild of the element mesh:
   // endpoint positions, type, hinges, section geometry, roll, render mode.
@@ -129,8 +139,15 @@ export function syncElements(ctx: SceneSyncContext): void {
     const sec = modelStore.sections.get(elem.sectionId);
     const posI = projectNodeToScene(nI, project2D);
     const posJ = projectNodeToScene(nJ, project2D);
+
+    // Always maintain the batched wireframe segment so toggling render mode
+    // doesn't require a full rebuild.
+    eb.upsert(id, posI.x, posI.y, posI.z, posJ.x, posJ.y, posJ.z);
+    // BVH-accelerated picking surface (invisible) — kept in sync with positions.
+    ep.upsert(id, posI, posJ);
+
     const signature =
-      `${renderMode}|${elem.type}|${elem.hingeStart ? 1 : 0}${elem.hingeEnd ? 1 : 0}` +
+      `${renderMode}|${elem.type}|${elem.releaseI?.mz === true ? 1 : 0}${elem.releaseJ?.mz === true ? 1 : 0}` +
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
       `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.rotation ?? ''}` +
       `|${elem.rollAngle ?? ''}`;
@@ -148,8 +165,8 @@ export function syncElements(ctx: SceneSyncContext): void {
       {
         elementId: id,
         elementType: elem.type,
-        hingeStart: elem.hingeStart,
-        hingeEnd: elem.hingeEnd,
+        hingeStart: elem.releaseI?.mz === true,
+        hingeEnd: elem.releaseJ?.mz === true,
         section: sec,
         sectionRotation: sec?.rotation,
         elementRollAngle: elem.rollAngle,
@@ -160,6 +177,10 @@ export function syncElements(ctx: SceneSyncContext): void {
     ctx.elementsParent.add(group);
     ctx.elementGroups.set(id, group);
   }
+
+  // Only the wireframe primary renders the batched LineSegments2.
+  eb.mesh.visible = renderMode === 'wireframe';
+  eb.flush();
 }
 
 // ─── Supports ────────────────────────────────────────────────
@@ -488,61 +509,39 @@ export function syncSelection(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
   // Nodes
-  for (const [id, mesh] of ctx.nodeMeshes) {
+  const ni = ctx.nodesInstanced;
+  for (let i = 0; i < ni.count; i++) {
+    const id = ni.nodeIdAt(i);
+    if (id === null) continue;
     const selected = uiStore.selectedNodes.has(id);
-    const color = selected ? COLORS.nodeSelected : COLORS.node;
-    setMeshColor(mesh, color);
+    ni.setBaseColor(id, selected ? COLORS.nodeSelected : COLORS.node);
   }
 
-  // Elements — disambiguate overlapping IDs between frame/truss and shell entities.
+  // Elements
   const wireframe = uiStore.renderMode3D === 'wireframe';
-  const shellMode = uiStore.selectMode === 'shells';
+  const eb = ctx.elementsBatched;
   for (const [id, group] of ctx.elementGroups) {
+    const selected = uiStore.selectedElements.has(id);
     const elem = modelStore.elements.get(id);
-    const inSelSet = uiStore.selectedElements.has(id);
-    // If the ID exists in both elements and plates/quads, use selectMode to disambiguate.
-    const isAlsoShell = modelStore.plates.has(id) || modelStore.quads.has(id);
-    const selected = inSelSet && !(isAlsoShell && shellMode);
     const isTruss = elem?.type === 'truss';
+    // Use brightened colors in wireframe mode for grid contrast
     const baseColor = wireframe
       ? (isTruss ? 0xf0b848 : 0x6cb4ff)
       : (isTruss ? COLORS.truss : COLORS.frame);
     const color = selected ? COLORS.elementSelected : baseColor;
     setGroupColor(group, color);
+    // Wireframe mode: batched LineSegments2 carries the visual, so push the
+    // color into it as well. In solid/sections, the batched mesh is hidden
+    // but we keep the base color in sync for toggle-back.
+    eb.setBaseColor(id, color);
   }
+  eb.flush();
 
   // Supports
   for (const [id, gizmo] of ctx.supportGizmos) {
     const selected = uiStore.selectedSupports.has(id);
     const color = selected ? COLORS.elementSelected : COLORS.support;
     setGroupColor(gizmo, color);
-  }
-
-  // Shells (plates + quads) — boost opacity when selected for legibility
-  for (const [key, group] of ctx.shellGroups) {
-    const numId = parseInt(key.slice(1), 10);
-    const inSelSet = uiStore.selectedElements.has(numId);
-    const isAlsoElem = modelStore.elements.has(numId);
-    const selected = inSelSet && !(isAlsoElem && !shellMode);
-    setGroupColor(group, selected ? COLORS.elementSelected : 0x4ecdc4);
-    group.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-        child.material.opacity = selected ? 0.85 : 0.45;
-        child.material.needsUpdate = true;
-      }
-    });
-  }
-
-  // Loads — use userData.id (model array index) for matching, not visual child index
-  const loadGroup = ctx.loadsParent.children[0] as THREE.Group | undefined;
-  if (loadGroup) {
-    for (const child of loadGroup.children) {
-      if (child instanceof THREE.Group && child.userData?.type === 'load') {
-        const modelIdx = child.userData.id as number;
-        const selected = uiStore.selectedLoads.has(modelIdx);
-        setGroupColor(child, selected ? COLORS.elementSelected : COLORS.load);
-      }
-    }
   }
 
   // Re-apply color map if active (syncSelection overwrites element colors)

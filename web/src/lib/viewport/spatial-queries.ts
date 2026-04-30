@@ -20,8 +20,8 @@ export interface NearestElementResult {
   type: string;
   nodeI: number;
   nodeJ: number;
-  hingeStart?: boolean;
-  hingeEnd?: boolean;
+  releaseI?: { my: boolean; mz: boolean; t: boolean };
+  releaseJ?: { my: boolean; mz: boolean; t: boolean };
 }
 
 export interface NearestSupportResult {

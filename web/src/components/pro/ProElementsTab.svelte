@@ -2,6 +2,8 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
+  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+
   interface ElemRow {
     id: number | null;
     nodeI: string;
@@ -33,8 +35,8 @@
           nodeJ: String(e.nodeJ),
           materialId: e.materialId,
           sectionId: e.sectionId,
-          hingeI: e.hingeStart ?? false,
-          hingeJ: e.hingeEnd ?? false,
+          hingeI: e.releaseI?.mz === true,
+          hingeJ: e.releaseJ?.mz === true,
         })),
         ...unsavedRows,
       ];
@@ -105,8 +107,8 @@
       modelStore.updateElementMaterial(row.id, row.materialId);
       modelStore.updateElementSection(row.id, row.sectionId);
       // Sync hinges
-      if ((elem.hingeStart ?? false) !== row.hingeI) modelStore.toggleHinge(row.id, 'start');
-      if ((elem.hingeEnd ?? false) !== row.hingeJ) modelStore.toggleHinge(row.id, 'end');
+      if ((elem.releaseI?.mz === true) !== row.hingeI) modelStore.toggleHinge(row.id, 'start');
+      if ((elem.releaseJ?.mz === true) !== row.hingeJ) modelStore.toggleHinge(row.id, 'end');
     }
   }
 
@@ -230,8 +232,8 @@
           <th class="col-node">{t('pro.thNodeJ')}</th>
           <th class="col-mat">{t('pro.thMaterial')}</th>
           <th class="col-sec">{t('pro.thSection')}</th>
-          <th class="col-hinge">{t('pro.thHingeI')}</th>
-          <th class="col-hinge">{t('pro.thHingeJ')}</th>
+          <th class="col-hinge" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('pro.thHingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th>
+          <th class="col-hinge" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('pro.thHingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th>
           <th class="col-actions"></th>
         </tr>
       </thead>

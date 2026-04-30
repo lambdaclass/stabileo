@@ -1938,7 +1938,7 @@ fn benchmark_mixed_frame_shell_building() {
             id: eid + 1, elem_type: "frame".to_string(),
             node_i: base, node_j: top,
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
     }

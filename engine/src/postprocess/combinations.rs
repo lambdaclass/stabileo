@@ -266,7 +266,9 @@ pub fn combine_results_3d(input: &CombinationInput3D) -> Option<AnalysisResults3
             n_start: 0.0, n_end: 0.0,
             vy_start: 0.0, vy_end: 0.0, vz_start: 0.0, vz_end: 0.0,
             mx_start: 0.0, mx_end: 0.0, my_start: 0.0, my_end: 0.0, mz_start: 0.0, mz_end: 0.0,
-            hinge_start: f.hinge_start, hinge_end: f.hinge_end,
+            release_my_start: f.release_my_start, release_my_end: f.release_my_end,
+            release_mz_start: f.release_mz_start, release_mz_end: f.release_mz_end,
+            release_t_start: f.release_t_start, release_t_end: f.release_t_end,
             q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0,
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
             distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })

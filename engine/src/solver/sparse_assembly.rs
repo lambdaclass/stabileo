@@ -714,7 +714,8 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                     if has_cw && dof_num.dofs_per_node >= 7 {
                         let k_local = element::frame_local_stiffness_3d_warping(
                             e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
-                            elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                            Hinge3D::from_elem(elem),
+                            phi_y, phi_z,
                         );
                         let t = element::frame_transform_3d_warping(&ex, &ey, &ez);
                         let k_glob = transform_stiffness(&k_local, &t, 14);
@@ -733,7 +734,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         } else {
                                             element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                                         };
-                                        adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef14 = element::expand_fef_12_to_14(&fef12);
                                         let fef_global = transform_force(&fef14, &t, 14);
                                         for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
@@ -746,7 +747,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
                                         fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
                                         fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
-                                        adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef14 = element::expand_fef_12_to_14(&fef12);
                                         let fef_global = transform_force(&fef14, &t, 14);
                                         for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
@@ -756,7 +757,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
                                         let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
                                         let mut fef12 = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
-                                        adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef14 = element::expand_fef_12_to_14(&fef12);
                                         let fef_global = transform_force(&fef14, &t, 14);
                                         for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
@@ -768,7 +769,8 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                     } else if dof_num.dofs_per_node >= 7 {
                         let k_local = element::frame_local_stiffness_3d(
                             e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                            elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                            Hinge3D::from_elem(elem),
+                            phi_y, phi_z,
                         );
                         let t = element::frame_transform_3d(&ex, &ey, &ez);
                         let k_glob = transform_stiffness(&k_local, &t, 12);
@@ -796,7 +798,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         } else {
                                             element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                                         };
-                                        adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for i in 0..12 { forces.push((elem_dofs[DOF_MAP_12_TO_14[i]], fef_global[i])); }
                                     }
@@ -808,7 +810,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
                                         fef[2] = fef_z[1]; fef[4] = -fef_z[2];
                                         fef[8] = fef_z[4]; fef[10] = -fef_z[5];
-                                        adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for i in 0..12 { forces.push((elem_dofs[DOF_MAP_12_TO_14[i]], fef_global[i])); }
                                     }
@@ -817,7 +819,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
                                         let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
                                         let mut fef = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
-                                        adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for i in 0..12 { forces.push((elem_dofs[DOF_MAP_12_TO_14[i]], fef_global[i])); }
                                     }
@@ -828,7 +830,8 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                     } else {
                         let k_local = element::frame_local_stiffness_3d(
                             e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                            elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                            Hinge3D::from_elem(elem),
+                            phi_y, phi_z,
                         );
                         let t = element::frame_transform_3d(&ex, &ey, &ez);
                         let k_glob = transform_stiffness(&k_local, &t, 12);
@@ -847,7 +850,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         } else {
                                             element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                                         };
-                                        adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
                                     }
@@ -859,7 +862,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
                                         fef[2] = fef_z[1]; fef[4] = -fef_z[2];
                                         fef[8] = fef_z[4]; fef[10] = -fef_z[5];
-                                        adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
                                     }
@@ -868,7 +871,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                         let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
                                         let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
                                         let mut fef = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
-                                        adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
                                     }
@@ -1699,7 +1702,9 @@ mod tests {
                 elem_type: "frame".to_string(),
                 node_i: base, node_j: top,
                 material_id: 1, section_id: 1,
-                hinge_start: false, hinge_end: false,
+                release_my_start: false, release_my_end: false,
+                release_mz_start: false, release_mz_end: false,
+                release_t_start: false, release_t_end: false,
                 local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
             });
             eid += 1;

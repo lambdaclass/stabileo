@@ -36,9 +36,7 @@
       "nodeI": 1,
       "nodeJ": 2,
       "materialId": 1,
-      "sectionId": 1,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 1
     }
   },
   "supports": {

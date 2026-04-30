@@ -3,12 +3,13 @@
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-  import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
-  import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-  import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
+  import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
+  import { NodesInstanced } from '../lib/three/nodes-instanced';
+  import { ElementsBatched } from '../lib/three/elements-batched';
+  import { ElementsPicking } from '../lib/three/elements-picking';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
-  import { COLORS, setMeshColor, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
+  import { resolveHitUserData } from '../lib/viewport3d/picking';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
@@ -16,6 +17,7 @@
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
+  import { applyLowDetail } from '../lib/viewport3d/lod';
 
   let container: HTMLDivElement;
   let renderer: THREE.WebGLRenderer;
@@ -33,7 +35,9 @@
   let invalidate: () => void = () => {};
 
   // ─── Scene graph maps (reconciled with store) ────────────────
-  let nodeMeshes = new Map<number, THREE.Mesh>();
+  let nodesInstanced = new NodesInstanced();
+  let elementsBatched = new ElementsBatched();
+  let elementsPicking = new ElementsPicking();
   let elementGroups = new Map<number, THREE.Group>();
   let supportGizmos = new Map<number, THREE.Group>();
   let deformedGroup: THREE.Group | null = null;
@@ -189,8 +193,10 @@
     // Parent groups
     nodesParent = new THREE.Group();
     nodesParent.name = 'nodes';
+    nodesParent.add(nodesInstanced.mesh);
     elementsParent = new THREE.Group();
     elementsParent.name = 'elements';
+    elementsParent.add(elementsPicking.mesh);
     supportsParent = new THREE.Group();
     supportsParent.name = 'supports';
     loadsParent = new THREE.Group();
@@ -199,7 +205,11 @@
     resultsParent.name = 'results';
     shellsParent = new THREE.Group();
     shellsParent.name = 'shells';
-    scene.add(elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
+    // The batched wireframe LineSegments2 lives directly under `scene`, not
+    // inside `elementsParent`, so it stays rendered even when LOD hides the
+    // parent during orbit. One mesh, one draw call, one toggle — no parallel
+    // orbit proxy needed.
+    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
     syncResultsProjection();
 
     // Camera — isometric-ish view looking at origin
@@ -453,60 +463,19 @@
     // Slight aliasing during drag is acceptable — users perceive smoothness more
     // than pixel fidelity while rotating.
     const idlePixelRatio = window.devicePixelRatio;
-    // Level-of-detail during orbit: hide decorative parents AND swap the
-    // per-element meshes for a single batched LineSegments2 proxy. On
-    // la-bombonera this collapses ~3500 draw calls down to ~5.
-    let elementsProxy: LineSegments2 | null = null;
-    let elementsProxyVersion = -1;
-    function ensureElementsProxy(): void {
-      const currentVersion = modelStore.modelVersion;
-      if (elementsProxy && elementsProxyVersion === currentVersion) return;
-      // Rebuild from the current model. Pair of xyz per segment.
-      const positions: number[] = [];
-      for (const el of modelStore.elements.values()) {
-        const ni = modelStore.getNode(el.nodeI);
-        const nj = modelStore.getNode(el.nodeJ);
-        if (!ni || !nj) continue;
-        positions.push(ni.x, ni.y, ni.z ?? 0, nj.x, nj.y, nj.z ?? 0);
-      }
-      if (elementsProxy) {
-        elementsProxy.geometry.dispose();
-        (elementsProxy.material as LineMaterial).dispose();
-        scene.remove(elementsProxy);
-        elementsProxy = null;
-      }
-      if (positions.length === 0) {
-        elementsProxyVersion = currentVersion;
-        return;
-      }
-      const geo = new LineSegmentsGeometry();
-      geo.setPositions(positions);
-      const mat = new LineMaterial({
-        color: COLORS.frame,
-        linewidth: 3,
-        worldUnits: false,
-        resolution: fatLineResolution,
-      });
-      elementsProxy = new LineSegments2(geo, mat);
-      elementsProxy.raycast = () => {}; // never picked — only visible during orbit
-      elementsProxy.visible = false;
-      scene.add(elementsProxy);
-      elementsProxyVersion = currentVersion;
-    }
+    // Level-of-detail during orbit: hide decorative parents and the heavy
+    // per-element solid groups (cylinders / extruded sections). The batched
+    // LineSegments2 (`elementsBatched.mesh`) lives directly under `scene` —
+    // since Phase 2 it already collapses every element into one draw call, so
+    // there is no need for a separate proxy. During orbit we force it visible
+    // as the LOD stand-in; at idle its visibility follows `renderMode3D`.
     function setLowDetail(on: boolean): void {
-      if (nodesParent) nodesParent.visible = !on;
-      if (supportsParent) supportsParent.visible = !on;
-      if (loadsParent) loadsParent.visible = !on;
-      if (resultsParent) resultsParent.visible = !on;
-      if (shellsParent) shellsParent.visible = !on;
-      if (on) {
-        ensureElementsProxy();
-        if (elementsParent) elementsParent.visible = false;
-        if (elementsProxy) elementsProxy.visible = true;
-      } else {
-        if (elementsParent) elementsParent.visible = true;
-        if (elementsProxy) elementsProxy.visible = false;
-      }
+      applyLowDetail(on, {
+        nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
+        elementsParent,
+        elementsBatchedMesh: elementsBatched.mesh,
+        renderMode: uiStore.renderMode3D,
+      });
     }
     controls.addEventListener('start', () => {
       isOrbiting = true;
@@ -584,7 +553,7 @@
     sceneCtx = {
       initialized: false,
       nodesParent, elementsParent, supportsParent, loadsParent, resultsParent, shellsParent, scene,
-      nodeMeshes, elementGroups, supportGizmos,
+      nodesInstanced, elementsBatched, elementsPicking, elementGroups, supportGizmos,
       shellGroups: new Map(),
       loadGroup: null,
       colorMapApplied: false,
@@ -775,7 +744,6 @@
     uiStore.selectedNodes;
     uiStore.selectedElements;
     uiStore.selectedSupports;
-    uiStore.selectedLoads;
     syncSelection();
     invalidate();
   });
@@ -913,7 +881,7 @@
     // Raycast nodes first, then elements
     const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
     for (const hit of nodeHits) {
-      const ud = findUserData(hit.object);
+      const ud = resolveHitUserData(hit);
       if (ud?.type === 'node') {
         uiStore.contextMenu = { x: e.clientX, y: e.clientY, nodeId: ud.id };
         return;
@@ -922,7 +890,7 @@
 
     const elemHits = raycaster.intersectObjects(elementsParent.children, true);
     for (const hit of elemHits) {
-      const ud = findUserData(hit.object);
+      const ud = resolveHitUserData(hit);
       if (ud?.type === 'element') {
         uiStore.contextMenu = { x: e.clientX, y: e.clientY, elementId: ud.id };
         return;
@@ -941,10 +909,7 @@
 
       // In select/pan tool: check for node drag or box select initiation
       if (tool === 'select' || tool === 'pan') {
-        const sm = uiStore.selectMode;
-        // Node drag is only available in nodes/elements mode (not in shells/supports/loads)
-        const allowNodeDrag = sm === 'nodes' || sm === 'elements' || sm === 'stress';
-        const nodeId = allowNodeDrag ? findNodeHit(e) : null;
+        const nodeId = findNodeHit(e);
 
         if (nodeId !== null && tool === 'select') {
           // Start dragging this node
@@ -960,7 +925,7 @@
           } else if (!uiStore.selectedNodes.has(nodeId) && e.shiftKey) {
             uiStore.selectNode(nodeId, true);
           }
-        } else if (tool === 'select') {
+        } else if (nodeId === null && tool === 'select') {
           // Always start box select candidate — distinguish click vs drag in mouseUp
           const rect = container.getBoundingClientRect();
           const mx = e.clientX - rect.left;
@@ -1021,8 +986,7 @@
       uiStore.selectNode(nodeId, false);
 
       // Highlight node I
-      const mesh = nodeMeshes.get(nodeId);
-      if (mesh) setMeshColor(mesh, 0x00ff00);
+      nodesInstanced.setColor(nodeId, 0x00ff00);
       uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
     } else {
       // Second click → create element
@@ -1042,8 +1006,7 @@
     let changed = false;
     if (pendingElementNodeI !== null) {
       // Restore node color
-      const mesh = nodeMeshes.get(pendingElementNodeI);
-      if (mesh) setMeshColor(mesh, COLORS.node);
+      nodesInstanced.restoreColor(pendingElementNodeI);
       changed = true;
     }
     pendingElementNodeI = null;
@@ -1220,46 +1183,21 @@
 
     let worldPoint: THREE.Vector3 | null = null;
 
-    // First: try direct raycast against node meshes (works at any elevation)
-    const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
-    for (const hit of nodeHits) {
-      const ud = findUserData(hit.object);
-      if (ud?.type === 'node') {
-        const n = modelStore.nodes.get(ud.id);
+    // Check proximity to any node in world space (within 0.5 units)
+    const planeHit = getGroundIntersection(e);
+    if (planeHit) {
+      const nearNodeId = findNearestNode3D(planeHit, 0.5);
+      if (nearNodeId !== null) {
+        const n = modelStore.nodes.get(nearNodeId);
         if (n) {
           worldPoint = new THREE.Vector3(n.x, n.y, n.z ?? 0);
-          break;
         }
       }
     }
 
-    // Second: screen-space nearest-node snap (catches nodes near the cursor
-    // even when the raycast misses the sphere, e.g. behind load glyphs)
+    // If no node snap, use working plane intersection
     if (!worldPoint) {
-      const rect = container.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const snapPx = 20; // pixel threshold
-      let bestDist = snapPx;
-      let bestNode: { x: number; y: number; z: number } | null = null;
-      const project2D = shouldProject2DModel();
-      for (const node of modelStore.nodes.values()) {
-        const pos = projectNodeToScene(node, project2D);
-        const s = projectToScreen(pos.x, pos.y, pos.z);
-        const d = Math.sqrt((s.x - mx) ** 2 + (s.y - my) ** 2);
-        if (d < bestDist) {
-          bestDist = d;
-          bestNode = { x: node.x, y: node.y, z: node.z ?? 0 };
-        }
-      }
-      if (bestNode) {
-        worldPoint = new THREE.Vector3(bestNode.x, bestNode.y, bestNode.z);
-      }
-    }
-
-    // Third: ground plane fallback (no node nearby)
-    if (!worldPoint) {
-      worldPoint = getGroundIntersection(e);
+      worldPoint = planeHit;
     }
 
     if (!worldPoint) return;
@@ -1381,127 +1319,42 @@
 
       // Only count as box select if dragged at least a few pixels
       if (x2 - x1 > 3 || y2 - y1 > 3) {
-        const sm = uiStore.selectMode;
-        const project2D = shouldProject2DModel();
-        const inRect = (s: { x: number; y: number }) => s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2;
-
-        // Collect new selection items filtered by selectMode
+        // Collect new selection items
         const newNodes = additive ? new Set(uiStore.selectedNodes) : new Set<number>();
         const newElems = additive ? new Set(uiStore.selectedElements) : new Set<number>();
 
-        if (sm === 'nodes') {
-          for (const node of modelStore.nodes.values()) {
-            const pos = projectNodeToScene(node, project2D);
-            if (inRect(projectToScreen(pos.x, pos.y, pos.z))) newNodes.add(node.id);
+        // Nodes: project to screen, check containment
+        const project2D = shouldProject2DModel();
+        for (const node of modelStore.nodes.values()) {
+          const pos = projectNodeToScene(node, project2D);
+          const s = projectToScreen(pos.x, pos.y, pos.z);
+          if (s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2) {
+            newNodes.add(node.id);
           }
-        } else if (sm === 'elements') {
-          for (const elem of modelStore.elements.values()) {
-            const ni = modelStore.getNode(elem.nodeI);
-            const nj = modelStore.getNode(elem.nodeJ);
-            if (!ni || !nj) continue;
-            const piPos = projectNodeToScene(ni, project2D);
-            const pjPos = projectNodeToScene(nj, project2D);
-            const si = projectToScreen(piPos.x, piPos.y, piPos.z);
-            const sj = projectToScreen(pjPos.x, pjPos.y, pjPos.z);
-            if (isWindow) {
-              if (inRect(si) && inRect(sj)) newElems.add(elem.id);
-            } else {
-              if (inRect(si) || inRect(sj) || segmentIntersectsRect2D(si.x, si.y, sj.x, sj.y, x1, y1, x2, y2)) newElems.add(elem.id);
-            }
-          }
-        } else if (sm === 'shells') {
-          // Clear previous selection if non-additive, then add shells individually
-          if (!additive) { uiStore.clearSelection(); }
-          // Helper: check shell by projecting all vertices
-          const checkShell = (nodes: any[], id: number) => {
-            const pts = nodes.map((n: any) => {
-              const p = projectNodeToScene(n, project2D);
-              return projectToScreen(p.x, p.y, p.z);
-            });
-            if (isWindow) {
-              // Window: ALL vertices must be inside
-              if (pts.every(inRect)) uiStore.selectElement(id, true);
-            } else {
-              // Crossing: ANY vertex inside OR any edge crosses the rect
-              if (pts.some(inRect)) { uiStore.selectElement(id, true); return; }
-              for (let i = 0; i < pts.length; i++) {
-                const a = pts[i], b = pts[(i + 1) % pts.length];
-                if (segmentIntersectsRect2D(a.x, a.y, b.x, b.y, x1, y1, x2, y2)) {
-                  uiStore.selectElement(id, true); return;
-                }
-              }
-            }
-          };
-          for (const [id, plate] of modelStore.plates) {
-            const ns = plate.nodes.map((nid: number) => modelStore.getNode(nid)).filter(Boolean);
-            if (ns.length >= 3) checkShell(ns, id);
-          }
-          for (const [id, quad] of modelStore.quads) {
-            const ns = quad.nodes.map((nid: number) => modelStore.getNode(nid)).filter(Boolean);
-            if (ns.length >= 4) checkShell(ns, id);
-          }
-        } else if (sm === 'supports') {
-          // Clear previous support selection if non-additive
-          if (!additive) { uiStore.clearSelection(); }
-          for (const sup of modelStore.supports.values()) {
-            const node = modelStore.getNode(sup.nodeId);
-            if (!node) continue;
-            const pos = projectNodeToScene(node, project2D);
-            if (inRect(projectToScreen(pos.x, pos.y, pos.z))) {
-              uiStore.selectSupport(sup.id, true);
-            }
-          }
-        } else if (sm === 'loads') {
-          // Clear previous load selection if non-additive
-          if (!additive) { uiStore.clearSelection(); }
-          for (let i = 0; i < modelStore.loads.length; i++) {
-            const load = modelStore.loads[i];
-            const d = load.data as any;
-            if (d.nodeId != null) {
-              // Nodal load: single point check
-              const n = modelStore.getNode(d.nodeId);
-              if (n) {
-                const pos = projectNodeToScene(n, project2D);
-                if (inRect(projectToScreen(pos.x, pos.y, pos.z))) uiStore.selectLoad(i, true);
-              }
-            } else if (d.elementId != null) {
-              // Element load: check both element endpoints for window/crossing
-              const elem = modelStore.elements.get(d.elementId);
-              if (elem) {
-                const ni = modelStore.getNode(elem.nodeI);
-                const nj = modelStore.getNode(elem.nodeJ);
-                if (ni && nj) {
-                  const piPos = projectNodeToScene(ni, project2D);
-                  const pjPos = projectNodeToScene(nj, project2D);
-                  const si = projectToScreen(piPos.x, piPos.y, piPos.z);
-                  const sj = projectToScreen(pjPos.x, pjPos.y, pjPos.z);
-                  if (isWindow) {
-                    if (inRect(si) && inRect(sj)) uiStore.selectLoad(i, true);
-                  } else {
-                    if (inRect(si) || inRect(sj) || segmentIntersectsRect2D(si.x, si.y, sj.x, sj.y, x1, y1, x2, y2)) uiStore.selectLoad(i, true);
-                  }
-                }
-              }
-            } else if (d.quadId != null) {
-              // Surface load on quad: check quad centroid
-              const quad = modelStore.quads.get(d.quadId);
-              if (quad) {
-                const ns = quad.nodes.map((nid: number) => modelStore.getNode(nid)).filter(Boolean);
-                if (ns.length >= 4) {
-                  const cx = ns.reduce((s: number, n: any) => s + n.x, 0) / ns.length;
-                  const cy = ns.reduce((s: number, n: any) => s + n.y, 0) / ns.length;
-                  const cz = ns.reduce((s: number, n: any) => s + (n.z ?? 0), 0) / ns.length;
-                  if (inRect(projectToScreen(cx, cy, cz))) uiStore.selectLoad(i, true);
-                }
-              }
+        }
+        // Elements: project both endpoints
+        for (const elem of modelStore.elements.values()) {
+          const ni = modelStore.getNode(elem.nodeI);
+          const nj = modelStore.getNode(elem.nodeJ);
+          if (!ni || !nj) continue;
+          const siPos = projectNodeToScene(ni, project2D);
+          const sjPos = projectNodeToScene(nj, project2D);
+          const si = projectToScreen(siPos.x, siPos.y, siPos.z);
+          const sj = projectToScreen(sjPos.x, sjPos.y, sjPos.z);
+          const iIn = si.x >= x1 && si.x <= x2 && si.y >= y1 && si.y <= y2;
+          const jIn = sj.x >= x1 && sj.x <= x2 && sj.y >= y1 && sj.y <= y2;
+
+          if (isWindow) {
+            if (iIn && jIn) newElems.add(elem.id);
+          } else {
+            if ((iIn || jIn) || segmentIntersectsRect2D(si.x, si.y, sj.x, sj.y, x1, y1, x2, y2)) {
+              newElems.add(elem.id);
             }
           }
         }
 
-        // Reassign sets to trigger Svelte reactivity (for nodes/elements modes)
-        if (sm === 'nodes' || sm === 'elements') {
-          uiStore.setSelection(newNodes, newElems);
-        }
+        // Reassign sets to trigger Svelte reactivity
+        uiStore.setSelection(newNodes, newElems);
       } else {
         // Small drag = click → delegate to normal click selection
         boxSelect3D = null;
@@ -1560,7 +1413,7 @@
     if (uiStore.selectMode === 'stress' && resultsStore.results3D) {
       const elemHits = raycaster.intersectObjects(elementsParent.children, true);
       for (const hit of elemHits) {
-        const ud = findUserData(hit.object);
+        const ud = resolveHitUserData(hit);
         if (ud?.type === 'element') {
           const elem = modelStore.elements.get(ud.id);
           if (!elem) continue;
@@ -1591,51 +1444,38 @@
       return;
     }
 
-    // Raycast against model objects, filtered by selectMode
-    const sm = uiStore.selectMode;
+    // Raycast against model objects (nodes first, then elements, then supports)
+    const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
+    const elemHits = raycaster.intersectObjects(elementsParent.children, true);
+    const supHits = raycaster.intersectObjects(supportsParent.children, true);
+
     const addToSel = e.shiftKey;
 
-    if (sm === 'nodes') {
-      for (const hit of raycaster.intersectObjects(nodesParent.children, true)) {
-        const ud = findUserData(hit.object);
-        if (ud?.type === 'node') { uiStore.selectNode(ud.id, addToSel); return; }
+    // Priority: node > element > support
+    for (const hit of nodeHits) {
+      const ud = resolveHitUserData(hit);
+      if (ud?.type === 'node') {
+        uiStore.selectNode(ud.id, addToSel);
+        return;
       }
-    } else if (sm === 'elements') {
-      for (const hit of raycaster.intersectObjects(elementsParent.children, true)) {
-        const ud = findUserData(hit.object);
-        if (ud?.type === 'element') {
-          uiStore.selectElement(ud.id, addToSel);
-          if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(ud.id);
-          return;
-        }
+    }
+
+    for (const hit of elemHits) {
+      const ud = resolveHitUserData(hit);
+      if (ud?.type === 'element') {
+        uiStore.selectElement(ud.id, addToSel);
+        // Sync with DSM Matrix Explorer if wizard is open
+        if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(ud.id);
+        return;
       }
-    } else if (sm === 'shells') {
-      for (const hit of raycaster.intersectObjects(shellsParent.children, true)) {
-        const ud = findUserData(hit.object);
-        if (ud?.type === 'plate' || ud?.type === 'quad') {
-          // Select shells via element selection for now (shell entities use element-level selection)
-          uiStore.selectElement(ud.id, addToSel);
-          return;
-        }
+    }
+
+    for (const hit of supHits) {
+      const ud = findUserData(hit.object);
+      if (ud?.type === 'support') {
+        uiStore.selectSupport(ud.id, addToSel);
+        return;
       }
-    } else if (sm === 'supports') {
-      for (const hit of raycaster.intersectObjects(supportsParent.children, true)) {
-        const ud = findUserData(hit.object);
-        if (ud?.type === 'support') { uiStore.selectSupport(ud.id, addToSel); return; }
-      }
-    } else if (sm === 'loads') {
-      // Widen line picking threshold so ArrowHelper shafts are clickable
-      const prevThreshold = raycaster.params.Line.threshold;
-      raycaster.params.Line.threshold = 0.15;
-      for (const hit of raycaster.intersectObjects(loadsParent.children, true)) {
-        const ud = findUserData(hit.object);
-        if (ud?.type === 'load') {
-          raycaster.params.Line.threshold = prevThreshold;
-          uiStore.selectLoad(ud.id, addToSel);
-          return;
-        }
-      }
-      raycaster.params.Line.threshold = prevThreshold;
     }
 
     // Clicked on empty space → clear selection
@@ -1780,28 +1620,12 @@
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
 
-    // Check hover — pick targets depend on selectMode
-    const sm = uiStore.selectMode;
-    let hoverPickable: THREE.Object3D[];
-    if (sm === 'shells') {
-      hoverPickable = [...shellsParent.children];
-    } else if (sm === 'loads') {
-      raycaster.params.Line.threshold = 0.15;
-      hoverPickable = [...loadsParent.children];
-    } else if (sm === 'nodes') {
-      hoverPickable = [...nodesParent.children];
-    } else if (sm === 'supports') {
-      hoverPickable = [...supportsParent.children];
-    } else {
-      hoverPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children];
-    }
-    const hits = raycaster.intersectObjects(hoverPickable, true);
-    // Reset line threshold after loads hover
-    if (sm === 'loads') raycaster.params.Line.threshold = 1;
+    const allPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children];
+    const hits = raycaster.intersectObjects(allPickable, true);
 
     let newHover: { type: string; id: number } | null = null;
     for (const hit of hits) {
-      const ud = findUserData(hit.object);
+      const ud = resolveHitUserData(hit);
       if (ud) {
         newHover = ud;
         break;
@@ -1826,13 +1650,6 @@
       } else if (newHover.type === 'support') {
         const s = modelStore.supports.get(newHover.id);
         if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', s.type);
-      } else if (newHover.type === 'plate') {
-        tooltipText = `Plate ${newHover.id}`;
-      } else if (newHover.type === 'quad') {
-        tooltipText = `Quad ${newHover.id}`;
-      } else if (newHover.type === 'load') {
-        const load = modelStore.loads[newHover.id];
-        if (load) tooltipText = `Load ${newHover.id + 1} [${load.type}]`;
       }
       if (tooltipText) {
         hoverTooltip = { text: tooltipText, x: e.clientX - rect.left + 15, y: e.clientY - rect.top - 10 };
@@ -1924,11 +1741,8 @@
 
   function restoreColor(data: { type: string; id: number }) {
     if (data.type === 'node') {
-      const mesh = nodeMeshes.get(data.id);
-      if (mesh) {
-        const selected = uiStore.selectedNodes.has(data.id);
-        setMeshColor(mesh, selected ? COLORS.nodeSelected : COLORS.node);
-      }
+      const selected = uiStore.selectedNodes.has(data.id);
+      nodesInstanced.setBaseColor(data.id, selected ? COLORS.nodeSelected : COLORS.node);
     } else if (data.type === 'element') {
       const group = elementGroups.get(data.id);
       if (group) {
@@ -1939,8 +1753,15 @@
         } else {
           const selected = uiStore.selectedElements.has(data.id);
           const elem = modelStore.elements.get(data.id);
-          const base = elem?.type === 'truss' ? COLORS.truss : COLORS.frame;
-          setGroupColor(group, selected ? COLORS.elementSelected : base);
+          const wireframe = uiStore.renderMode3D === 'wireframe';
+          const isTruss = elem?.type === 'truss';
+          const base = wireframe
+            ? (isTruss ? 0xf0b848 : 0x6cb4ff)
+            : (isTruss ? COLORS.truss : COLORS.frame);
+          const color = selected ? COLORS.elementSelected : base;
+          setGroupColor(group, color);
+          elementsBatched.setBaseColor(data.id, color);
+          elementsBatched.flush();
         }
       }
     } else if (data.type === 'support') {
@@ -1949,35 +1770,12 @@
         const selected = uiStore.selectedSupports.has(data.id);
         setGroupColor(gizmo, selected ? COLORS.elementSelected : COLORS.support);
       }
-    } else if (data.type === 'plate' || data.type === 'quad') {
-      const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
-      const group = sceneCtx?.shellGroups.get(key);
-      if (group) {
-        const selected = uiStore.selectedElements.has(data.id);
-        setGroupColor(group, selected ? COLORS.elementSelected : 0x4ecdc4);
-        group.traverse((child: THREE.Object3D) => {
-          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-            child.material.opacity = selected ? 0.85 : 0.45;
-            child.material.needsUpdate = true;
-          }
-        });
-      }
-    } else if (data.type === 'load') {
-      const loadGroup = loadsParent.children[0] as THREE.Group | undefined;
-      if (loadGroup) {
-        const child = loadGroup.children.find(c => c.userData?.type === 'load' && c.userData?.id === data.id);
-        if (child instanceof THREE.Group) {
-          const selected = uiStore.selectedLoads.has(data.id);
-          setGroupColor(child, selected ? COLORS.elementSelected : COLORS.load);
-        }
-      }
     }
   }
 
   function applyHoverColor(data: { type: string; id: number }) {
     if (data.type === 'node') {
-      const mesh = nodeMeshes.get(data.id);
-      if (mesh) setMeshColor(mesh, COLORS.nodeHovered);
+      nodesInstanced.setColor(data.id, COLORS.nodeHovered);
     } else if (data.type === 'element') {
       const group = elementGroups.get(data.id);
       if (group) {
@@ -1985,29 +1783,13 @@
         const dt = resultsStore.diagramType;
         if (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification') {
           setGroupColor(group, COLORS.elementHovered);
+          elementsBatched.setColor(data.id, COLORS.elementHovered);
+          elementsBatched.flush();
         }
       }
     } else if (data.type === 'support') {
       const gizmo = supportGizmos.get(data.id);
       if (gizmo) setGroupColor(gizmo, COLORS.elementHovered);
-    } else if (data.type === 'plate' || data.type === 'quad') {
-      const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
-      const group = sceneCtx?.shellGroups.get(key);
-      if (group) {
-        setGroupColor(group, COLORS.elementHovered);
-        group.traverse((child: THREE.Object3D) => {
-          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-            child.material.opacity = 0.75;
-            child.material.needsUpdate = true;
-          }
-        });
-      }
-    } else if (data.type === 'load') {
-      const loadGroup = loadsParent.children[0] as THREE.Group | undefined;
-      if (loadGroup) {
-        const child = loadGroup.children.find(c => c.userData?.type === 'load' && c.userData?.id === data.id);
-        if (child instanceof THREE.Group) setGroupColor(child, COLORS.elementHovered);
-      }
     }
   }
 

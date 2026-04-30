@@ -30,7 +30,7 @@ export function computeInfluenceLine(
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => [id, {
       id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
       materialId: e.materialId, sectionId: e.sectionId,
-      hingeStart: e.hingeStart ?? false, hingeEnd: e.hingeEnd ?? false,
+      hingeStart: e.releaseI?.mz === true, hingeEnd: e.releaseJ?.mz === true,
     }])),
     supports: new Map(Array.from(model.supports.entries()).map(([id, s]) => [id, {
       id: s.id,

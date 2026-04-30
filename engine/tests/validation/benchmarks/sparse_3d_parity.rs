@@ -491,7 +491,7 @@ fn sparse_3d_parity_prescribed_displacements() {
         elems.insert((i + 1).to_string(), SolverElement3D {
             id: i + 1, elem_type: "frame".to_string(),
             node_i: i + 1, node_j: i + 2, material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
     }
@@ -570,7 +570,7 @@ fn sparse_3d_parity_inclined_supports() {
             elems.insert(eid.to_string(), SolverElement3D {
                 id: eid, elem_type: "frame".to_string(),
                 node_i: ni, node_j: nj, material_id: 1, section_id: 1,
-                hinge_start: false, hinge_end: false,
+                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
                 local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
             });
             eid += 1;
@@ -588,7 +588,7 @@ fn sparse_3d_parity_inclined_supports() {
                 elems.insert(eid.to_string(), SolverElement3D {
                     id: eid, elem_type: "frame".to_string(),
                     node_i: ni, node_j: nj, material_id: 1, section_id: 1,
-                    hinge_start: false, hinge_end: false,
+                    release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
                     local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
                 });
                 eid += 1;
@@ -602,7 +602,7 @@ fn sparse_3d_parity_inclined_supports() {
                 elems.insert(eid.to_string(), SolverElement3D {
                     id: eid, elem_type: "frame".to_string(),
                     node_i: ni, node_j: nj, material_id: 1, section_id: 1,
-                    hinge_start: false, hinge_end: false,
+                    release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
                     local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
                 });
                 eid += 1;
@@ -687,7 +687,7 @@ fn sparse_3d_parity_mixed_beam_shell() {
             id: eid, elem_type: "frame".to_string(),
             node_i: base, node_j: corner_nodes[i],
             material_id: 1, section_id: 1,
-            hinge_start: false, hinge_end: false,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
             local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
     }

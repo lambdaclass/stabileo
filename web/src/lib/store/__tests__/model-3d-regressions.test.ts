@@ -17,10 +17,10 @@ describe('3D store regressions', () => {
 
     modelStore.updateElementLocalY(elemId, 0, 0, 1);
     modelStore.rotateElementLocalAxes(elemId, 30);
-    modelStore.toggleHinge(elemId, 'start');
+    modelStore.toggleRelease(elemId, 'i', 'mz');
 
     const elem = modelStore.elements.get(elemId)!;
-    expect(elem.hingeStart).toBe(true);
+    expect(elem.releaseI.mz).toBe(true);
     expect(elem.localYx).toBe(0);
     expect(elem.localYy).toBe(0);
     expect(elem.localYz).toBe(1);

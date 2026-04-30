@@ -104,8 +104,9 @@ function frameElem(
     nodeJ,
     materialId: 1,
     sectionId: 1,
-    hingeStart: false,
-    hingeEnd: false,
+    releaseMyStart: false, releaseMyEnd: false,
+    releaseMzStart: false, releaseMzEnd: false,
+    releaseTStart: false, releaseTEnd: false,
   };
 }
 
@@ -121,8 +122,9 @@ function trussElem(
     nodeJ,
     materialId: 1,
     sectionId: 1,
-    hingeStart: false,
-    hingeEnd: false,
+    releaseMyStart: false, releaseMyEnd: false,
+    releaseMzStart: false, releaseMzEnd: false,
+    releaseTStart: false, releaseTEnd: false,
   };
 }
 

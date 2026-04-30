@@ -434,6 +434,38 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
                 }
             }
         }
+
+        // Topology-agnostic orphan-ROTATION-DOF guard: any free *rotation* DOF
+        // whose row+col in K_global is identically zero gets artificial stiffness
+        // so the linear solver doesn't trip on a singular matrix. Restricted to
+        // rotation DOFs (local_dof=2 in 2D) so a truly floating node (translation
+        // DOFs all-zero) still surfaces as a singular-matrix error.
+        let nf = dof_num.n_free;
+        let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
+        let orphan_tol = if max_diag > 0.0 { max_diag * 1e-12 } else { 1e-14 };
+        let mut idx_to_local: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for (&(_, ld), &idx) in &dof_num.map {
+            if idx < nf {
+                idx_to_local.insert(idx, ld);
+            }
+        }
+        for i in 0..nf {
+            if already.contains(&i) { continue; }
+            if idx_to_local.get(&i).copied() != Some(2) { continue; }
+            let mut all_zero = true;
+            for j in 0..n {
+                if k_global[i * n + j].abs() > orphan_tol
+                    || k_global[j * n + i].abs() > orphan_tol
+                {
+                    all_zero = false;
+                    break;
+                }
+            }
+            if all_zero {
+                k_global[i * n + i] += artificial_k;
+                artificial_dofs.push(i);
+            }
+        }
     }
 
     // Apply 2D inclined support transformations
@@ -625,7 +657,8 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 // Warping element: 14×14 stiffness
                 let k_local = frame_local_stiffness_3d_warping(
                     e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z,
                 );
                 let t = frame_transform_3d_warping(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 14);
@@ -643,7 +676,8 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 // Non-warping element in a warping model: 12×12 math mapped via DOF_MAP_12_TO_14
                 let k_local = frame_local_stiffness_3d(
                     e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z,
                 );
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
@@ -662,7 +696,8 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 // Standard 6-DOF-per-node path
                 let k_local = frame_local_stiffness_3d(
                     e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z,
                 );
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
@@ -1345,7 +1380,7 @@ fn assemble_element_loads_3d(
                 } else {
                     fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                 };
-                adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t, 12);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
                     f_global[dof] += fef_global[i];
@@ -1367,7 +1402,7 @@ fn assemble_element_loads_3d(
                 fef[8] = fef_z[4];    // fz_j
                 fef[10] = -fef_z[5];  // my_j
 
-                adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t, 12);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
                     f_global[dof] += fef_global[i];
@@ -1382,7 +1417,7 @@ fn assemble_element_loads_3d(
                     tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
                     alpha, hy, hz,
                 );
-                adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t, 12);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
                     f_global[dof] += fef_global[i];
@@ -1418,7 +1453,7 @@ fn assemble_element_loads_3d_warping(
                 } else {
                     fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                 };
-                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -1433,7 +1468,7 @@ fn assemble_element_loads_3d_warping(
                 let fef_z = fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
                 fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
                 fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
-                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -1449,7 +1484,7 @@ fn assemble_element_loads_3d_warping(
                     tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
                     alpha, hy, hz,
                 );
-                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -1486,7 +1521,7 @@ fn assemble_element_loads_3d_mapped(
                 } else {
                     fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                 };
-                adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {
                     f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
@@ -1500,7 +1535,7 @@ fn assemble_element_loads_3d_mapped(
                 let fef_z = fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
                 fef[2] = fef_z[1]; fef[4] = -fef_z[2];
                 fef[8] = fef_z[4]; fef[10] = -fef_z[5];
-                adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {
                     f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
@@ -1515,7 +1550,7 @@ fn assemble_element_loads_3d_mapped(
                     tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
                     alpha, hy, hz,
                 );
-                adjust_fef_for_hinges_3d(&mut fef, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {
                     f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
@@ -1926,7 +1961,8 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering, build_k
             if has_cw && dof_num.dofs_per_node >= 7 {
                 let k_local = frame_local_stiffness_3d_warping(
                     e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z,
                 );
                 let t = frame_transform_3d_warping(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 14);
@@ -1935,7 +1971,8 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering, build_k
                 assemble_element_loads_3d_warping(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global, phi_y, phi_z);
             } else if dof_num.dofs_per_node >= 7 {
                 let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z);
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
                 // Map 12-DOF to 14-DOF positions
@@ -1952,7 +1989,8 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering, build_k
                 assemble_element_loads_3d_mapped(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global, phi_y, phi_z);
             } else {
                 let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                    elem.hinge_start, elem.hinge_end, phi_y, phi_z);
+                    Hinge3D::from_elem(elem),
+                    phi_y, phi_z);
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
                 let ndof = elem_dofs.len();

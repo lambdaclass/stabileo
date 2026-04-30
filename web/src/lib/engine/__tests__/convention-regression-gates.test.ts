@@ -80,7 +80,7 @@ describe('SEAM 1: Allowed field names by mode', () => {
       sections: new Map([[1, section]]),
       elements: new Map([[1, {
         id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2,
-        materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false,
+        materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
       }]]),
       supports: new Map([[0, {
         nodeId: 1,

@@ -80,7 +80,7 @@ function makeEIData(): ElementEI {
 
 /** Standard frame element along X axis */
 function frameElement(id: number, nodeI: number, nodeJ: number): SolverElement3D {
-  return { id, type: 'frame', nodeI, nodeJ, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false };
+  return { id, type: 'frame', nodeI, nodeJ, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false };
 }
 
 // ─── Tests ──────────────────────────────────────────────────────
@@ -499,8 +499,8 @@ describe('computeDeformedShape3D', () => {
           { id: 3, x: L, y: 0, z: 0 },
         ],
         [
-          { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: true },
-          { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: true, hingeEnd: false },
+          { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: true, releaseMzStart: false, releaseMzEnd: true, releaseTStart: false, releaseTEnd: false },
+          { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseMyStart: true, releaseMyEnd: false, releaseMzStart: true, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false },
         ],
         [fixedSupport(1), pinnedSupportBeam(3)],
         [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, fz: 0, mx: 0, my: 0, mz: 0 } }],

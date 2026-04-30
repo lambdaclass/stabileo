@@ -386,9 +386,7 @@
       "nodeI": 1,
       "nodeJ": 10,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "2": {
       "id": 2,
@@ -396,9 +394,7 @@
       "nodeI": 2,
       "nodeJ": 11,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "3": {
       "id": 3,
@@ -406,9 +402,7 @@
       "nodeI": 3,
       "nodeJ": 12,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "4": {
       "id": 4,
@@ -416,9 +410,7 @@
       "nodeI": 4,
       "nodeJ": 13,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "5": {
       "id": 5,
@@ -426,9 +418,7 @@
       "nodeI": 5,
       "nodeJ": 14,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "6": {
       "id": 6,
@@ -436,9 +426,7 @@
       "nodeI": 6,
       "nodeJ": 15,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "7": {
       "id": 7,
@@ -446,9 +434,7 @@
       "nodeI": 7,
       "nodeJ": 16,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "8": {
       "id": 8,
@@ -456,9 +442,7 @@
       "nodeI": 8,
       "nodeJ": 17,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "9": {
       "id": 9,
@@ -466,9 +450,7 @@
       "nodeI": 9,
       "nodeJ": 18,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "10": {
       "id": 10,
@@ -476,9 +458,7 @@
       "nodeI": 10,
       "nodeJ": 19,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "11": {
       "id": 11,
@@ -486,9 +466,7 @@
       "nodeI": 11,
       "nodeJ": 20,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "12": {
       "id": 12,
@@ -496,9 +474,7 @@
       "nodeI": 12,
       "nodeJ": 21,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "13": {
       "id": 13,
@@ -506,9 +482,7 @@
       "nodeI": 13,
       "nodeJ": 22,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "14": {
       "id": 14,
@@ -516,9 +490,7 @@
       "nodeI": 14,
       "nodeJ": 23,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "15": {
       "id": 15,
@@ -526,9 +498,7 @@
       "nodeI": 15,
       "nodeJ": 24,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "16": {
       "id": 16,
@@ -536,9 +506,7 @@
       "nodeI": 16,
       "nodeJ": 25,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "17": {
       "id": 17,
@@ -546,9 +514,7 @@
       "nodeI": 17,
       "nodeJ": 26,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "18": {
       "id": 18,
@@ -556,9 +522,7 @@
       "nodeI": 18,
       "nodeJ": 27,
       "materialId": 2,
-      "sectionId": 2,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 2
     },
     "19": {
       "id": 19,
@@ -566,9 +530,7 @@
       "nodeI": 19,
       "nodeJ": 28,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "20": {
       "id": 20,
@@ -576,9 +538,7 @@
       "nodeI": 20,
       "nodeJ": 29,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "21": {
       "id": 21,
@@ -586,9 +546,7 @@
       "nodeI": 21,
       "nodeJ": 30,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "22": {
       "id": 22,
@@ -596,9 +554,7 @@
       "nodeI": 22,
       "nodeJ": 31,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "23": {
       "id": 23,
@@ -606,9 +562,7 @@
       "nodeI": 23,
       "nodeJ": 32,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "24": {
       "id": 24,
@@ -616,9 +570,7 @@
       "nodeI": 24,
       "nodeJ": 33,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "25": {
       "id": 25,
@@ -626,9 +578,7 @@
       "nodeI": 25,
       "nodeJ": 34,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "26": {
       "id": 26,
@@ -636,9 +586,7 @@
       "nodeI": 26,
       "nodeJ": 35,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "27": {
       "id": 27,
@@ -646,9 +594,7 @@
       "nodeI": 27,
       "nodeJ": 36,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "28": {
       "id": 28,
@@ -656,9 +602,7 @@
       "nodeI": 28,
       "nodeJ": 37,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "29": {
       "id": 29,
@@ -666,9 +610,7 @@
       "nodeI": 29,
       "nodeJ": 38,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "30": {
       "id": 30,
@@ -676,9 +618,7 @@
       "nodeI": 30,
       "nodeJ": 39,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "31": {
       "id": 31,
@@ -686,9 +626,7 @@
       "nodeI": 31,
       "nodeJ": 40,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "32": {
       "id": 32,
@@ -696,9 +634,7 @@
       "nodeI": 32,
       "nodeJ": 41,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "33": {
       "id": 33,
@@ -706,9 +642,7 @@
       "nodeI": 33,
       "nodeJ": 42,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "34": {
       "id": 34,
@@ -716,9 +650,7 @@
       "nodeI": 34,
       "nodeJ": 43,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "35": {
       "id": 35,
@@ -726,9 +658,7 @@
       "nodeI": 35,
       "nodeJ": 44,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "36": {
       "id": 36,
@@ -736,9 +666,7 @@
       "nodeI": 36,
       "nodeJ": 45,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "37": {
       "id": 37,
@@ -746,9 +674,7 @@
       "nodeI": 37,
       "nodeJ": 46,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "38": {
       "id": 38,
@@ -756,9 +682,7 @@
       "nodeI": 38,
       "nodeJ": 47,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "39": {
       "id": 39,
@@ -766,9 +690,7 @@
       "nodeI": 39,
       "nodeJ": 48,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "40": {
       "id": 40,
@@ -776,9 +698,7 @@
       "nodeI": 40,
       "nodeJ": 49,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "41": {
       "id": 41,
@@ -786,9 +706,7 @@
       "nodeI": 41,
       "nodeJ": 50,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "42": {
       "id": 42,
@@ -796,9 +714,7 @@
       "nodeI": 42,
       "nodeJ": 51,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "43": {
       "id": 43,
@@ -806,9 +722,7 @@
       "nodeI": 43,
       "nodeJ": 52,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "44": {
       "id": 44,
@@ -816,9 +730,7 @@
       "nodeI": 44,
       "nodeJ": 53,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "45": {
       "id": 45,
@@ -826,9 +738,7 @@
       "nodeI": 45,
       "nodeJ": 54,
       "materialId": 2,
-      "sectionId": 3,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 3
     },
     "46": {
       "id": 46,
@@ -836,9 +746,7 @@
       "nodeI": 10,
       "nodeJ": 11,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "47": {
       "id": 47,
@@ -846,9 +754,7 @@
       "nodeI": 11,
       "nodeJ": 12,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "48": {
       "id": 48,
@@ -856,9 +762,7 @@
       "nodeI": 13,
       "nodeJ": 14,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "49": {
       "id": 49,
@@ -866,9 +770,7 @@
       "nodeI": 14,
       "nodeJ": 15,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "50": {
       "id": 50,
@@ -876,9 +778,7 @@
       "nodeI": 16,
       "nodeJ": 17,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "51": {
       "id": 51,
@@ -886,9 +786,7 @@
       "nodeI": 17,
       "nodeJ": 18,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "52": {
       "id": 52,
@@ -896,9 +794,7 @@
       "nodeI": 19,
       "nodeJ": 20,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "53": {
       "id": 53,
@@ -906,9 +802,7 @@
       "nodeI": 20,
       "nodeJ": 21,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "54": {
       "id": 54,
@@ -916,9 +810,7 @@
       "nodeI": 22,
       "nodeJ": 23,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "55": {
       "id": 55,
@@ -926,9 +818,7 @@
       "nodeI": 23,
       "nodeJ": 24,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "56": {
       "id": 56,
@@ -936,9 +826,7 @@
       "nodeI": 25,
       "nodeJ": 26,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "57": {
       "id": 57,
@@ -946,9 +834,7 @@
       "nodeI": 26,
       "nodeJ": 27,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "58": {
       "id": 58,
@@ -956,9 +842,7 @@
       "nodeI": 28,
       "nodeJ": 29,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "59": {
       "id": 59,
@@ -966,9 +850,7 @@
       "nodeI": 29,
       "nodeJ": 30,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "60": {
       "id": 60,
@@ -976,9 +858,7 @@
       "nodeI": 31,
       "nodeJ": 32,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "61": {
       "id": 61,
@@ -986,9 +866,7 @@
       "nodeI": 32,
       "nodeJ": 33,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "62": {
       "id": 62,
@@ -996,9 +874,7 @@
       "nodeI": 34,
       "nodeJ": 35,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "63": {
       "id": 63,
@@ -1006,9 +882,7 @@
       "nodeI": 35,
       "nodeJ": 36,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "64": {
       "id": 64,
@@ -1016,9 +890,7 @@
       "nodeI": 37,
       "nodeJ": 38,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "65": {
       "id": 65,
@@ -1026,9 +898,7 @@
       "nodeI": 38,
       "nodeJ": 39,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "66": {
       "id": 66,
@@ -1036,9 +906,7 @@
       "nodeI": 40,
       "nodeJ": 41,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "67": {
       "id": 67,
@@ -1046,9 +914,7 @@
       "nodeI": 41,
       "nodeJ": 42,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "68": {
       "id": 68,
@@ -1056,9 +922,7 @@
       "nodeI": 43,
       "nodeJ": 44,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "69": {
       "id": 69,
@@ -1066,9 +930,7 @@
       "nodeI": 44,
       "nodeJ": 45,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "70": {
       "id": 70,
@@ -1076,9 +938,7 @@
       "nodeI": 46,
       "nodeJ": 47,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "71": {
       "id": 71,
@@ -1086,9 +946,7 @@
       "nodeI": 47,
       "nodeJ": 48,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "72": {
       "id": 72,
@@ -1096,9 +954,7 @@
       "nodeI": 49,
       "nodeJ": 50,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "73": {
       "id": 73,
@@ -1106,9 +962,7 @@
       "nodeI": 50,
       "nodeJ": 51,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "74": {
       "id": 74,
@@ -1116,9 +970,7 @@
       "nodeI": 52,
       "nodeJ": 53,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "75": {
       "id": 75,
@@ -1126,9 +978,7 @@
       "nodeI": 53,
       "nodeJ": 54,
       "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 4
     },
     "76": {
       "id": 76,
@@ -1136,9 +986,7 @@
       "nodeI": 10,
       "nodeJ": 13,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "77": {
       "id": 77,
@@ -1146,9 +994,7 @@
       "nodeI": 13,
       "nodeJ": 16,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "78": {
       "id": 78,
@@ -1156,9 +1002,7 @@
       "nodeI": 11,
       "nodeJ": 14,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "79": {
       "id": 79,
@@ -1166,9 +1010,7 @@
       "nodeI": 14,
       "nodeJ": 17,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "80": {
       "id": 80,
@@ -1176,9 +1018,7 @@
       "nodeI": 12,
       "nodeJ": 15,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "81": {
       "id": 81,
@@ -1186,9 +1026,7 @@
       "nodeI": 15,
       "nodeJ": 18,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "82": {
       "id": 82,
@@ -1196,9 +1034,7 @@
       "nodeI": 19,
       "nodeJ": 22,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "83": {
       "id": 83,
@@ -1206,9 +1042,7 @@
       "nodeI": 22,
       "nodeJ": 25,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "84": {
       "id": 84,
@@ -1216,9 +1050,7 @@
       "nodeI": 20,
       "nodeJ": 23,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "85": {
       "id": 85,
@@ -1226,9 +1058,7 @@
       "nodeI": 23,
       "nodeJ": 26,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "86": {
       "id": 86,
@@ -1236,9 +1066,7 @@
       "nodeI": 21,
       "nodeJ": 24,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "87": {
       "id": 87,
@@ -1246,9 +1074,7 @@
       "nodeI": 24,
       "nodeJ": 27,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "88": {
       "id": 88,
@@ -1256,9 +1082,7 @@
       "nodeI": 28,
       "nodeJ": 31,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "89": {
       "id": 89,
@@ -1266,9 +1090,7 @@
       "nodeI": 31,
       "nodeJ": 34,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "90": {
       "id": 90,
@@ -1276,9 +1098,7 @@
       "nodeI": 29,
       "nodeJ": 32,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "91": {
       "id": 91,
@@ -1286,9 +1106,7 @@
       "nodeI": 32,
       "nodeJ": 35,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "92": {
       "id": 92,
@@ -1296,9 +1114,7 @@
       "nodeI": 30,
       "nodeJ": 33,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "93": {
       "id": 93,
@@ -1306,9 +1122,7 @@
       "nodeI": 33,
       "nodeJ": 36,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "94": {
       "id": 94,
@@ -1316,9 +1130,7 @@
       "nodeI": 37,
       "nodeJ": 40,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "95": {
       "id": 95,
@@ -1326,9 +1138,7 @@
       "nodeI": 40,
       "nodeJ": 43,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "96": {
       "id": 96,
@@ -1336,9 +1146,7 @@
       "nodeI": 38,
       "nodeJ": 41,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "97": {
       "id": 97,
@@ -1346,9 +1154,7 @@
       "nodeI": 41,
       "nodeJ": 44,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "98": {
       "id": 98,
@@ -1356,9 +1162,7 @@
       "nodeI": 39,
       "nodeJ": 42,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "99": {
       "id": 99,
@@ -1366,9 +1170,7 @@
       "nodeI": 42,
       "nodeJ": 45,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "100": {
       "id": 100,
@@ -1376,9 +1178,7 @@
       "nodeI": 46,
       "nodeJ": 49,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "101": {
       "id": 101,
@@ -1386,9 +1186,7 @@
       "nodeI": 49,
       "nodeJ": 52,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "102": {
       "id": 102,
@@ -1396,9 +1194,7 @@
       "nodeI": 47,
       "nodeJ": 50,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "103": {
       "id": 103,
@@ -1406,9 +1202,7 @@
       "nodeI": 50,
       "nodeJ": 53,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "104": {
       "id": 104,
@@ -1416,9 +1210,7 @@
       "nodeI": 48,
       "nodeJ": 51,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     },
     "105": {
       "id": 105,
@@ -1426,9 +1218,7 @@
       "nodeI": 51,
       "nodeJ": 54,
       "materialId": 2,
-      "sectionId": 5,
-      "hingeStart": false,
-      "hingeEnd": false
+      "sectionId": 5
     }
   },
   "supports": {

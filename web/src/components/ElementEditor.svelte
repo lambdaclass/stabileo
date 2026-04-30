@@ -1,10 +1,12 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore } from '../lib/store';
+  import { NO_RELEASE } from '../lib/store/model.svelte';
   import { t } from '../lib/i18n';
 
   const elemId = $derived(uiStore.editingElementId);
   const elem = $derived(elemId !== null ? modelStore.elements.get(elemId) : undefined);
   const rawPos = $derived(uiStore.editScreenPos);
+  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   let editorEl: HTMLDivElement | undefined = $state();
   // Clamp position so panel never extends beyond viewport
@@ -35,8 +37,8 @@
   // Sync local values when element changes
   $effect(() => {
     if (elem) {
-      hingeStart = elem.hingeStart ?? false;
-      hingeEnd = elem.hingeEnd ?? false;
+      hingeStart = elem.releaseI?.mz === true;
+      hingeEnd = elem.releaseJ?.mz === true;
       materialId = elem.materialId;
       sectionId = elem.sectionId;
     }
@@ -45,15 +47,15 @@
   function confirm() {
     if (!elem || elemId === null) return;
     const changed =
-      hingeStart !== (elem.hingeStart ?? false) ||
-      hingeEnd !== (elem.hingeEnd ?? false) ||
+      hingeStart !== (elem.releaseI?.mz === true) ||
+      hingeEnd !== (elem.releaseJ?.mz === true) ||
       materialId !== elem.materialId ||
       sectionId !== elem.sectionId;
 
     if (changed) {
       historyStore.pushState();
-      elem.hingeStart = hingeStart;
-      elem.hingeEnd = hingeEnd;
+      elem.releaseI = { ...(elem.releaseI ?? NO_RELEASE), mz: hingeStart };
+      elem.releaseJ = { ...(elem.releaseJ ?? NO_RELEASE), mz: hingeEnd };
       elem.materialId = materialId;
       elem.sectionId = sectionId;
     }
@@ -102,16 +104,16 @@
     </div>
 
     <div class="field">
-      <label>
+      <label title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
         <input type="checkbox" bind:checked={hingeStart} />
-        {t('editor.hingeStart')}
+        {t('editor.hingeStart')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}
       </label>
     </div>
 
     <div class="field">
-      <label>
+      <label title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
         <input type="checkbox" bind:checked={hingeEnd} />
-        {t('editor.hingeEnd')}
+        {t('editor.hingeEnd')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}
       </label>
     </div>
 

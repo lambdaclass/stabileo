@@ -365,3 +365,157 @@ fn bug_3d_plate_mass_affects_frequencies() {
         modal_beam.total_mass, modal_with_plate.total_mass
     );
 }
+
+// ================================================================
+// BUG 4: 3D Hinge Over-Release on Hinged Arches
+// ================================================================
+//
+// `hinge_start` / `hinge_end` on SolverElement3D currently release BOTH
+// bending rotations (θy and θz) at the hinged end. A real physical pin
+// hinge only releases ONE rotation (around the pin axis). On a hinged
+// 3D arch loaded in its own plane, the over-release leaves the
+// out-of-plane bending DOF unconstrained at every interior hinge,
+// producing a rigid-body flapping mode → singular Kff.
+//
+// Reproducer: Three-hinge arch in the X-Z plane with a vertical load
+// at the crown. Should solve cleanly. Today it throws
+// "Singular stiffness matrix — structure is a mechanism".
+
+#[test]
+fn bug_3d_hinge_over_release_three_hinge_arch() {
+    let nodes = vec![
+        (1, 0.0, 0.0, 0.0),
+        (2, 5.0, 0.0, 3.0),   // crown
+        (3, 10.0, 0.0, 0.0),
+    ];
+    // Two members meeting at crown, hinge at crown end of each.
+    let elems: Vec<(usize, &str, usize, usize, usize, usize)> = vec![
+        (1, "frame", 1, 2, 1, 1),
+        (2, "frame", 2, 3, 1, 1),
+    ];
+    let mut input = make_3d_input(
+        nodes,
+        vec![(1, E, NU)],
+        vec![(1, A, IY, IZ, J)],
+        elems,
+        // Pinned supports + torsion restrained at both ends.
+        vec![
+            (1, vec![true, true, true, true, false, false]),
+            (3, vec![true, true, true, true, false, false]),
+        ],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: 0.0, fz: -10.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    // Hinge at crown (node 2) for both elements.
+    // NOTE: Per the new schema, only the in-plane bending rotation needs release.
+    // Using release_mz here (one release per hinge end). The test will still fail
+    // at runtime ("Singular stiffness matrix") until per-axis condensation lands.
+    input.elements.get_mut("1").unwrap().release_mz_end = true;
+    input.elements.get_mut("2").unwrap().release_mz_start = true;
+
+    let result = linear::solve_3d(&input);
+    assert!(
+        result.is_ok(),
+        "BUG: 3-hinge 3D arch must solve, got error: {:?}",
+        result.err()
+    );
+
+    let r = result.unwrap();
+    let sum_fz: f64 = r.reactions.iter().map(|x| x.fz).sum();
+    assert!(
+        (sum_fz - 10.0).abs() < 1e-3,
+        "ΣFz reactions should balance applied load 10 kN, got {}",
+        sum_fz
+    );
+}
+
+// ================================================================
+// CONTRACT TEST (#33): per-axis release solves the arch AND keeps
+// torsion + out-of-plane bending coupled across the hinge.
+// ================================================================
+//
+// With `release_mz_*` set on the crown ends (in-plane bending hinge),
+// the arch in the X-Z plane must solve. With `release_t_*` and
+// `release_my_*` left unset, the torsional + out-of-plane DOFs must
+// remain transferred across the hinge — a torsional moment applied at
+// the crown produces a non-zero reaction torque at the supports.
+#[test]
+fn contract_3d_per_axis_release_does_not_overrelease_torsion() {
+    let nodes = vec![
+        (1, 0.0, 0.0, 0.0),
+        (2, 5.0, 0.0, 3.0),
+        (3, 10.0, 0.0, 0.0),
+    ];
+    let elems: Vec<(usize, &str, usize, usize, usize, usize)> = vec![
+        (1, "frame", 1, 2, 1, 1),
+        (2, "frame", 2, 3, 1, 1),
+    ];
+    // Fix supports fully so any transferred torsion shows up as Mx reaction.
+    let mut input = make_3d_input(
+        nodes,
+        vec![(1, E, NU)],
+        vec![(1, A, IY, IZ, J)],
+        elems,
+        vec![
+            (1, vec![true, true, true, true, true, true]),
+            (3, vec![true, true, true, true, true, true]),
+        ],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: 0.0, fz: 0.0,
+            mx: 5.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    // Per-axis: release ONLY in-plane bending at crown; keep torsion + out-of-plane.
+    input.elements.get_mut("1").unwrap().release_mz_end = true;
+    input.elements.get_mut("2").unwrap().release_mz_start = true;
+
+    let r = linear::solve_3d(&input)
+        .expect("per-axis release must solve cleanly (no singular Kff)");
+
+    let sum_mx: f64 = r.reactions.iter().map(|x| x.mx).sum();
+    assert!(
+        (sum_mx + 5.0).abs() < 1e-3,
+        "torsion not balanced: ΣMx_reactions={} (expected -5.0 to balance applied +5.0)",
+        sum_mx
+    );
+
+    let max_mx_react: f64 = r.reactions.iter().map(|x| x.mx.abs()).fold(0.0, f64::max);
+    assert!(
+        max_mx_react > 1e-3,
+        "torsion was over-released: no support carries Mx (max |Mx|={})",
+        max_mx_react
+    );
+}
+
+// ================================================================
+// SCHEMA TEST (#32): legacy 3D hingeStart/hingeEnd fields must fail
+// loudly via deny_unknown_fields rather than be silently accepted.
+// ================================================================
+#[test]
+fn schema_3d_legacy_hinge_fields_rejected() {
+    let legacy_3d_input = r#"{
+        "nodes": {"1": {"id":1,"x":0,"y":0,"z":0},
+                  "2": {"id":2,"x":1,"y":0,"z":0}},
+        "materials": {"1": {"id":1,"e":1,"nu":0.3}},
+        "sections": {"1": {"id":1,"a":1,"iy":1,"iz":1,"j":1}},
+        "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,
+                          "materialId":1,"sectionId":1,
+                          "hingeStart":true,"hingeEnd":false}},
+        "supports": {},
+        "loads": []
+    }"#;
+    let parsed: Result<SolverInput3D, _> = serde_json::from_str(legacy_3d_input);
+    assert!(
+        parsed.is_err(),
+        "legacy 3D hingeStart must be rejected; got Ok payload — silent fallback would lose hinge intent"
+    );
+    let err = parsed.unwrap_err().to_string();
+    assert!(
+        err.contains("hingeStart") || err.contains("unknown field"),
+        "error should mention the offending legacy field, got: {}",
+        err
+    );
+}
+
