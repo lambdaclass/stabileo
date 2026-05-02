@@ -164,11 +164,18 @@ export function validateAndSolve2D(
     return t('svc.needSupport');
   }
 
-  // Check for disconnected nodes (nodes not connected to any element)
+  // Check for disconnected nodes (elements + connectors both count as
+  // connectivity: a node coupled by a ConnectorElement is NOT orphaned).
   const connectedNodes = new Set<number>();
   for (const elem of model.elements.values()) {
     connectedNodes.add(elem.nodeI);
     connectedNodes.add(elem.nodeJ);
+  }
+  if (model.connectors) {
+    for (const conn of model.connectors.values()) {
+      connectedNodes.add(conn.nodeI);
+      connectedNodes.add(conn.nodeJ);
+    }
   }
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
@@ -296,6 +303,12 @@ export function validateAndSolve2D(
     for (const elem of model.elements.values()) {
       adj.get(elem.nodeI)!.add(elem.nodeJ);
       adj.get(elem.nodeJ)!.add(elem.nodeI);
+    }
+    if (model.connectors) {
+      for (const conn of model.connectors.values()) {
+        adj.get(conn.nodeI)?.add(conn.nodeJ);
+        adj.get(conn.nodeJ)?.add(conn.nodeI);
+      }
     }
     const visited = new Set<number>();
     const startNode = connectedNodes.values().next().value!;
@@ -1158,13 +1171,20 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return t('svc.needSupport');
   }
 
-  // Check for disconnected nodes (consider elements + PRO shell elements)
+  // Check for disconnected nodes (elements + PRO shell elements + connectors).
+  // A node coupled by a ConnectorElement is NOT orphaned.
   const connectedNodes = new Set<number>();
   for (const elem of model.elements.values()) {
     connectedNodes.add(elem.nodeI);
     connectedNodes.add(elem.nodeJ);
   }
   addShellConnectivity(connectedNodes, model.plates, model.quads);
+  if (model.connectors) {
+    for (const conn of model.connectors.values()) {
+      connectedNodes.add(conn.nodeI);
+      connectedNodes.add(conn.nodeJ);
+    }
+  }
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
       return t('svc.disconnectedNode').replace('{n}', String(nodeId));
@@ -1186,7 +1206,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     }
   }
 
-  // Check graph connectivity (include plate/quad adjacency)
+  // Check graph connectivity (include plate/quad adjacency + connector edges)
   const adj = new Map<number, Set<number>>();
   for (const nid of connectedNodes) adj.set(nid, new Set());
   for (const elem of model.elements.values()) {
@@ -1194,6 +1214,12 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     adj.get(elem.nodeJ)!.add(elem.nodeI);
   }
   addShellAdjacency(adj, model.plates, model.quads);
+  if (model.connectors) {
+    for (const conn of model.connectors.values()) {
+      adj.get(conn.nodeI)?.add(conn.nodeJ);
+      adj.get(conn.nodeJ)?.add(conn.nodeI);
+    }
+  }
   const visited = new Set<number>();
   const startNode = connectedNodes.values().next().value!;
   const queue = [startNode];

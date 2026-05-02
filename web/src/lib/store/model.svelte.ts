@@ -489,10 +489,11 @@ function createModelStore() {
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
    * The returned object is a shallow copy safe for passing to solver functions.
    */
-  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections } | string {
+  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors } | string {
     if (plane === 'xy') {
       return { nodes: model.nodes, elements: model.elements, supports: model.supports,
-        loads: model.loads, materials: model.materials, sections: model.sections };
+        loads: model.loads, materials: model.materials, sections: model.sections,
+        connectors: model.connectors };
     }
 
     // Remap nodes into the selected 2D plane
@@ -556,8 +557,10 @@ function createModelStore() {
       return l;
     });
 
+    // Connectors are pure node-id + stiffness pairs — no geometry to remap.
     return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
-      loads: remappedLoads, materials: model.materials, sections: model.sections };
+      loads: remappedLoads, materials: model.materials, sections: model.sections,
+      connectors: model.connectors };
   }
 
   let nextId = $state({

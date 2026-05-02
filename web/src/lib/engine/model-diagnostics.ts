@@ -69,12 +69,13 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   }
 
   // ─── Disconnected nodes ────────────────────────
+  // Elements + shell elements + connectors all count as connectivity. A node
+  // coupled by a ConnectorElement is NOT a disconnected/orphan node.
   const connectedNodes = new Set<number>();
   for (const [, el] of m.elements) {
     connectedNodes.add(el.nodeI);
     connectedNodes.add(el.nodeJ);
   }
-  // Also count nodes connected to shell elements (plates/quads)
   if (m.plates) {
     for (const [, p] of m.plates) {
       for (const nid of p.nodes) connectedNodes.add(nid);
@@ -83,6 +84,12 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   if (m.quads) {
     for (const [, q] of m.quads) {
       for (const nid of q.nodes) connectedNodes.add(nid);
+    }
+  }
+  if ((m as { connectors?: Map<number, { nodeI: number; nodeJ: number }> }).connectors) {
+    for (const [, c] of (m as { connectors: Map<number, { nodeI: number; nodeJ: number }> }).connectors) {
+      connectedNodes.add(c.nodeI);
+      connectedNodes.add(c.nodeJ);
     }
   }
   for (const [id] of m.nodes) {
