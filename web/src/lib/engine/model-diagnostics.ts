@@ -4,6 +4,8 @@
  */
 import type { SolverDiagnostic } from './types';
 import type { Node, Element, Section, Material, Support, Plate, Quad } from '../store/model.svelte';
+import type { Constraint3D, ConnectorElement } from './types-3d';
+import { addConstraintConnectivity } from './constraint-connectivity';
 
 interface LoadEntry {
   type: string;
@@ -26,6 +28,8 @@ interface ModelData {
   loadCases: LoadCase[];
   plates?: Map<number, Plate>;
   quads?: Map<number, Quad>;
+  connectors?: Map<number, ConnectorElement>;
+  constraints?: Constraint3D[];
 }
 
 function diag(
@@ -86,12 +90,13 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
       for (const nid of q.nodes) connectedNodes.add(nid);
     }
   }
-  if ((m as { connectors?: Map<number, { nodeI: number; nodeJ: number }> }).connectors) {
-    for (const [, c] of (m as { connectors: Map<number, { nodeI: number; nodeJ: number }> }).connectors) {
+  if (m.connectors) {
+    for (const [, c] of m.connectors) {
       connectedNodes.add(c.nodeI);
       connectedNodes.add(c.nodeJ);
     }
   }
+  addConstraintConnectivity(connectedNodes, m.constraints);
   for (const [id] of m.nodes) {
     if (!connectedNodes.has(id)) {
       // Skip if it has a support (reaction point)
