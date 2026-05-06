@@ -1200,8 +1200,12 @@
         modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
       }
     } else if (uiStore.currentTool === 'element') {
-      // For element tool: snap to existing node, or midpoint (create node there), or grid
-      const nearNode = findNearestNode(snapped.x, snapped.y, 0.5);
+      // For element tool: snap to existing node, or midpoint (create node there), or grid.
+      // Node search uses RAW world coords so off-grid nodes are reachable when
+      // grid snap is on — searching from `snapped` would warp the search center
+      // to the nearest grid intersection and miss any node further than 0.5m
+      // from that intersection (matches snapWithMidpoint's precedence rule).
+      const nearNode = findNearestNode(world.x, world.y, 0.5);
       const targetNode = nearNode ?? (() => {
         const mid = findNearestMidpoint(world.x, world.y, 0.4);
         if (mid) {
