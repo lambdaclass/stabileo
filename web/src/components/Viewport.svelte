@@ -1240,8 +1240,22 @@
           }
         }
         if (!didSplit) {
-          const p3d = to3D(uiStore.drawPlane2D, ms.x, ms.y, { x: 0, y: 0, z: 0 });
-          modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
+          // Duplicate-coincident-node guard: if the click effectively lands
+          // on an existing node (within nodeThreshold of the raw cursor),
+          // treat it as "select that node" instead of placing a second
+          // node at the same coordinates. snapWithMidpoint above resolves
+          // the snap target to that node's coords, so an unguarded
+          // addNode here would silently produce two stacked nodes.
+          // Use raw world coords (not the resolved ms) so this works
+          // regardless of grid-snap state — same precedence rule as the
+          // snap-precedence slice.
+          const onExisting = findNearestNode(world.x, world.y, 0.5);
+          if (onExisting) {
+            uiStore.selectNode(onExisting.id);
+          } else {
+            const p3d = to3D(uiStore.drawPlane2D, ms.x, ms.y, { x: 0, y: 0, z: 0 });
+            modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
+          }
         }
       }
     } else if (uiStore.currentTool === 'element') {
