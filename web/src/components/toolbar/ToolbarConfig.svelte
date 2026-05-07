@@ -150,6 +150,10 @@
               <option value="bySection">{t('config.bySection')}</option>
             </select>
           </div>
+          <label class="checkbox-item">
+            <input type="checkbox" bind:checked={uiStore.autoSplitOnNodePlace} />
+            <span title={t('config.autoSplitElementsHelp')}>{t('config.autoSplitElements')}</span>
+          </label>
         {/if}
       </div>
     {/if}

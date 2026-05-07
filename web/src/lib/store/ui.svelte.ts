@@ -86,6 +86,13 @@ function createUIStore() {
   let snapToGrid = $state<boolean>(true);
   let showGrid = $state<boolean>(true);
 
+  // Basic-mode modeling option: when ON, clicking with the node tool on the
+  // interior of an existing element subdivides that element into two by
+  // placing the new node on it. Defaults OFF to keep the legacy
+  // "click-to-place-a-free-node" behavior unchanged for users who haven't
+  // opted in.
+  let autoSplitOnNodePlace = $state<boolean>(false);
+
   let zoom = $state<number>(50); // pixels per meter
   let panX = $state<number>(400);
   let panY = $state<number>(300);
@@ -389,6 +396,9 @@ function createUIStore() {
 
     get showGrid() { return showGrid; },
     set showGrid(v: boolean) { showGrid = v; },
+
+    get autoSplitOnNodePlace() { return autoSplitOnNodePlace; },
+    set autoSplitOnNodePlace(v: boolean) { autoSplitOnNodePlace = v; },
 
     get zoom() { return zoom; },
     set zoom(v: number) { zoom = Math.max(10, Math.min(200, v)); },

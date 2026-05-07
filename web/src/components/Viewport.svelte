@@ -1194,10 +1194,55 @@
           }
         }
       } else {
-        // Create node mode (default)
+        // Create node mode (default).
+        //
+        // Auto-split-on-node-place (opt-in via uiStore.autoSplitOnNodePlace):
+        // when ON and the click lands on the interior of an existing element
+        // (and not on/near an existing node), subdivide that element instead
+        // of creating a free-floating node. We delegate to the existing
+        // splitElementAtPoint so distributed/point/thermal loads are
+        // redistributed by the same logic the hinge-mode subdivide already
+        // uses in production.
         const ms = snapWithMidpoint(world.x, world.y);
-        const p3d = to3D(uiStore.drawPlane2D, ms.x, ms.y, { x: 0, y: 0, z: 0 });
-        modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
+        let didSplit = false;
+        if (uiStore.autoSplitOnNodePlace) {
+          // Only auto-split when the cursor isn't already targeting an
+          // existing node. snapWithMidpoint returns node coords if a node is
+          // within nodeThreshold of the raw cursor; we re-check explicitly
+          // to keep the guard tight (also handles the same threshold).
+          const nearNode = findNearestNode(world.x, world.y, 0.5);
+          if (!nearNode) {
+            const nearElem = findNearestElement(world.x, world.y, 0.3);
+            if (nearElem) {
+              const ni = modelStore.getNode(nearElem.nodeI);
+              const nj = modelStore.getNode(nearElem.nodeJ);
+              if (ni && nj) {
+                const edx = nj.x - ni.x;
+                const edy = nj.y - ni.y;
+                const lenSq = edx * edx + edy * edy;
+                if (lenSq > 1e-10) {
+                  const tParam = ((world.x - ni.x) * edx + (world.y - ni.y) * edy) / lenSq;
+                  // Only split on the interior — endpoints + thin slivers
+                  // would either duplicate an existing node or produce
+                  // near-zero-length sub-elements.
+                  if (tParam >= 0.05 && tParam <= 0.95) {
+                    const result = modelStore.splitElementAtPoint(nearElem.id, tParam);
+                    if (result) {
+                      uiStore.selectNode(result.nodeId);
+                      uiStore.toast(t('viewport.barSubdivided'), 'info');
+                      resultsStore.clear();
+                      didSplit = true;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        if (!didSplit) {
+          const p3d = to3D(uiStore.drawPlane2D, ms.x, ms.y, { x: 0, y: 0, z: 0 });
+          modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
+        }
       }
     } else if (uiStore.currentTool === 'element') {
       // For element tool: snap to existing node, or midpoint (create node there), or grid.
