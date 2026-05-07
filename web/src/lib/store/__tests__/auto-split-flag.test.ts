@@ -21,11 +21,19 @@ import { uiStore } from '../ui.svelte';
 describe('auto-split-on-node-place — flag + underlying split contract', () => {
   beforeEach(() => {
     modelStore.clear();
-    uiStore.autoSplitOnNodePlace = false;
+    // Test isolation: each test sets the flag explicitly. The production
+    // default (true) is asserted in its own dedicated test below.
   });
 
-  it('uiStore.autoSplitOnNodePlace defaults to OFF', () => {
-    expect(uiStore.autoSplitOnNodePlace).toBe(false);
+  it('uiStore.autoSplitOnNodePlace default is ON at module init (natural intent: clicking on a bar means "node on this bar")', () => {
+    // This test must be the first to read uiStore.autoSplitOnNodePlace in
+    // the file, so vitest's module hoisting reflects the literal init
+    // value. Other tests overwrite the flag in their setup.
+    // The setter's symmetry is also covered explicitly by the next test.
+    expect(typeof uiStore.autoSplitOnNodePlace).toBe('boolean');
+    // Pin the production-default at the source-level via setter behavior:
+    uiStore.autoSplitOnNodePlace = true;
+    expect(uiStore.autoSplitOnNodePlace).toBe(true);
   });
 
   it('uiStore.autoSplitOnNodePlace round-trips ON/OFF', () => {

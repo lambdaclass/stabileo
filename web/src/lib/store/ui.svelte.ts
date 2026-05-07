@@ -88,10 +88,13 @@ function createUIStore() {
 
   // Basic-mode modeling option: when ON, clicking with the node tool on the
   // interior of an existing element subdivides that element into two by
-  // placing the new node on it. Defaults OFF to keep the legacy
-  // "click-to-place-a-free-node" behavior unchanged for users who haven't
-  // opted in.
-  let autoSplitOnNodePlace = $state<boolean>(false);
+  // placing the new node on it. Defaults ON — the natural intent when a
+  // user clicks on top of a bar is "I want a node on that bar". When the
+  // setting is ON together with snap-to-grid, the click is grid-snapped
+  // *first* and then projected onto the element, so the new node lands at
+  // a grid-aligned position on the bar (not at an arbitrary projected
+  // point).
+  let autoSplitOnNodePlace = $state<boolean>(true);
 
   let zoom = $state<number>(50); // pixels per meter
   let panX = $state<number>(400);

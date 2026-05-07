@@ -1212,6 +1212,10 @@
           // to keep the guard tight (also handles the same threshold).
           const nearNode = findNearestNode(world.x, world.y, 0.5);
           if (!nearNode) {
+            // Use the RAW cursor to find which element the user is pointing
+            // at — grid-snap can warp the cursor far enough perpendicular
+            // to the element line that findNearestElement would miss it,
+            // and the user's intent is "this element under my cursor".
             const nearElem = findNearestElement(world.x, world.y, 0.3);
             if (nearElem) {
               const ni = modelStore.getNode(nearElem.nodeI);
@@ -1221,7 +1225,18 @@
                 const edy = nj.y - ni.y;
                 const lenSq = edx * edx + edy * edy;
                 if (lenSq > 1e-10) {
-                  const tParam = ((world.x - ni.x) * edx + (world.y - ni.y) * edy) / lenSq;
+                  // Project the GRID-SNAPPED cursor onto the element so the
+                  // new node lands at a grid-aligned position on the bar
+                  // when snap-to-grid is on. For axis-aligned elements
+                  // (the common case), this puts the split exactly on a
+                  // grid intersection line. For diagonal elements, the
+                  // projection of a grid point onto the line is the
+                  // closest reachable grid-anchored split point. When
+                  // snap-to-grid is off, `snapped` equals `world` so the
+                  // behavior matches the previous projection rule.
+                  const projInputX = uiStore.snapToGrid ? snapped.x : world.x;
+                  const projInputY = uiStore.snapToGrid ? snapped.y : world.y;
+                  const tParam = ((projInputX - ni.x) * edx + (projInputY - ni.y) * edy) / lenSq;
                   // Only split on the interior — endpoints + thin slivers
                   // would either duplicate an existing node or produce
                   // near-zero-length sub-elements.
