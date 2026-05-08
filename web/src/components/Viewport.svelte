@@ -1257,16 +1257,21 @@
         if (!didSplit) {
           // Duplicate-coincident-node guard: if the click effectively lands
           // on an existing node (within nodeThreshold of the raw cursor),
-          // treat it as "select that node" instead of placing a second
-          // node at the same coordinates. snapWithMidpoint above resolves
-          // the snap target to that node's coords, so an unguarded
-          // addNode here would silently produce two stacked nodes.
-          // Use raw world coords (not the resolved ms) so this works
-          // regardless of grid-snap state — same precedence rule as the
-          // snap-precedence slice.
+          // treat it as "select that node" + start a drag so the user can
+          // reposition. Node-tool create-mode is the only place where
+          // node repositioning lives — the select tool no longer drags
+          // (would silently move nodes whenever the user just wanted to
+          // click around). Use raw world coords (not the resolved ms) so
+          // this works regardless of grid-snap state.
           const onExisting = findNearestNode(world.x, world.y, 0.5);
           if (onExisting) {
-            uiStore.selectNode(onExisting.id);
+            if (!uiStore.selectedNodes.has(onExisting.id)) {
+              uiStore.selectNode(onExisting.id, e.shiftKey);
+            }
+            historyStore.pushState();
+            draggedNodeId = onExisting.id;
+            dragMoved = false;
+            dragStartWorld = { x: snapped.x, y: snapped.y };
           } else {
             const p3d = to3D(uiStore.drawPlane2D, ms.x, ms.y, { x: 0, y: 0, z: 0 });
             modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
@@ -1539,16 +1544,14 @@
           }
         }
 
-        // Try to select/drag a node
+        // Select a node. Drag-to-reposition has been moved out of the
+        // select tool because users were accidentally moving nodes while
+        // just trying to inspect / click around the model. Node
+        // repositioning now lives in the node tool only — this branch is
+        // strictly for selection.
         const nearNode = findNearestNode(snapped.x, snapped.y, 0.3);
         if (nearNode) {
-          if (!uiStore.selectedNodes.has(nearNode.id)) {
-            uiStore.selectNode(nearNode.id, e.shiftKey);
-          }
-          historyStore.pushState();
-          draggedNodeId = nearNode.id;
-          dragMoved = false;
-          dragStartWorld = { x: snapped.x, y: snapped.y };
+          uiStore.selectNode(nearNode.id, e.shiftKey);
         } else {
           const nearElem = findNearestElement(world.x, world.y, 0.3);
           if (nearElem) {
