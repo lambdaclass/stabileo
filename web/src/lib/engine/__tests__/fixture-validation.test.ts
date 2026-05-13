@@ -57,7 +57,11 @@ function createStoreMock() {
     },
     addElement(nI: number, nJ: number, type = 'frame') {
       const id = nextElem++;
-      model.elements.set(id, { id, type, nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false });
+      model.elements.set(id, {
+        id, type, nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1,
+        releaseI: { my: false, mz: false, t: false },
+        releaseJ: { my: false, mz: false, t: false },
+      });
       return id;
     },
     addSupport(nodeId: number, type: string, extra?: any) {
@@ -75,7 +79,9 @@ function createStoreMock() {
     updateElementSection(elemId: number, secId: number) { const e = model.elements.get(elemId); if (e) e.sectionId = secId; },
     toggleHinge(elemId: number, end: 'start' | 'end') {
       const e = model.elements.get(elemId);
-      if (e) { if (end === 'start') e.hingeStart = !e.hingeStart; else e.hingeEnd = !e.hingeEnd; }
+      if (!e) return;
+      const r = end === 'start' ? e.releaseI : e.releaseJ;
+      r.mz = !r.mz;
     },
     // 2D loads
     addDistributedLoad(elemId: number, qI: number, qJ?: number, angle?: number, isGlobal?: boolean, caseId?: number) {
@@ -209,14 +215,8 @@ describe('2D fixture validation', () => {
 
 // ─── 3D fixture tests ───────────────────────────────────────────
 
-// Planar arch in 3D is a mechanism (no artificial rotational springs at all-hinged nodes in WASM solver)
-const known3DMechanisms = new Set(['hinged-arch-3d']);
-
 describe('3D fixture validation', { timeout: 30_000 }, () => {
   it.each(fixtures3D)('%s — loads and solves correctly', (name) => {
-    if (known3DMechanisms.has(name)) {
-      return; // solver-side fix needed — skip
-    }
     const json = loadFixtureFile(name);
 
     // 1. JSON structure
