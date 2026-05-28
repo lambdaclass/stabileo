@@ -6339,37 +6339,37 @@
     {
       "id": 1,
       "type": "D",
-      "name": "D — Carga muerta adicional (contrapiso+term+tabiq)"
+      "name": "D — Superimposed dead (screed+finish+partitions)"
     },
     {
       "id": 2,
       "type": "L",
-      "name": "L — Vivienda (living/dormitorio/cocina) 2.0 kN/m²"
+      "name": "L — Residential (living/bedroom/kitchen) 2.0 kN/m²"
     },
     {
       "id": 3,
       "type": "L",
-      "name": "L — Pasillo y escalera 3.0 kN/m²"
+      "name": "L — Corridor & stairs 3.0 kN/m²"
     },
     {
       "id": 4,
       "type": "L",
-      "name": "L — Balcón voladizo 3.0 kN/m²"
+      "name": "L — Cantilevered balcony 3.0 kN/m²"
     },
     {
       "id": 5,
       "type": "Lr",
-      "name": "Lr — Cubierta 1.0 kN/m²"
+      "name": "Lr — Roof 1.0 kN/m²"
     },
     {
       "id": 6,
       "type": "W",
-      "name": "W — Viento +X (CIRSOC 102)"
+      "name": "W — Wind +X (CIRSOC 102)"
     },
     {
       "id": 7,
       "type": "W",
-      "name": "W — Viento −X"
+      "name": "W — Wind −X"
     }
   ],
   "combinations": [
@@ -6437,7 +6437,7 @@
     },
     {
       "id": 4,
-      "name": "U4: 1.2D + L + W+X",
+      "name": "U4: 1.2D + L + 1.6W+X",
       "factors": [
         {
           "caseId": 1,
@@ -6457,13 +6457,13 @@
         },
         {
           "caseId": 6,
-          "factor": 1
+          "factor": 1.6
         }
       ]
     },
     {
       "id": 5,
-      "name": "U5: 1.2D + L + W−X",
+      "name": "U5: 1.2D + L + 1.6W−X",
       "factors": [
         {
           "caseId": 1,
@@ -6483,13 +6483,13 @@
         },
         {
           "caseId": 7,
-          "factor": 1
+          "factor": 1.6
         }
       ]
     },
     {
       "id": 6,
-      "name": "U6: 0.9D + W+X",
+      "name": "U6: 0.9D + 1.6W+X",
       "factors": [
         {
           "caseId": 1,
@@ -6497,13 +6497,13 @@
         },
         {
           "caseId": 6,
-          "factor": 1
+          "factor": 1.6
         }
       ]
     },
     {
       "id": 7,
-      "name": "U7: 0.9D + W−X",
+      "name": "U7: 0.9D + 1.6W−X",
       "factors": [
         {
           "caseId": 1,
@@ -6511,7 +6511,7 @@
         },
         {
           "caseId": 7,
-          "factor": 1
+          "factor": 1.6
         }
       ]
     }

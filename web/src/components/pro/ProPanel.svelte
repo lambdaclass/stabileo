@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from '../../lib/i18n';
-  import { modelStore, resultsStore, uiStore, verificationStore, tabManager } from '../../lib/store';
+  import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -22,6 +22,7 @@
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
   import ProVerificationTab from './ProVerificationTab.svelte';
+  import ProDesignTab from './ProDesignTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProConstraintsTab from './ProConstraintsTab.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
@@ -30,7 +31,7 @@
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
-  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'verification' | 'connections' | 'diagnostics';
+  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'verification' | 'connections' | 'diagnostics';
 
   // Group tabs into logical categories
   interface TabGroup {
@@ -67,6 +68,7 @@
       tabs: [
         { id: 'advanced' as ProTab, label: t('pro.tabAdvanced') },
         { id: 'results' as ProTab, label: t('pro.tabResults') },
+        { id: 'design' as ProTab, label: t('pro.tabDesign') },
         { id: 'verification' as ProTab, label: t('pro.tabVerification') },
         { id: 'connections' as ProTab, label: t('pro.tabConnections') },
         { id: 'diagnostics' as ProTab, label: t('pro.tabDiagnostics') },
@@ -264,7 +266,16 @@
   }
 
   function updateExampleMenuPosition() {
-    if (!showExampleMenu || !exampleButtonEl || typeof window === 'undefined') return;
+    if (!showExampleMenu || typeof window === 'undefined') return;
+    if (uiStore.isMobile) {
+      // Mobile: full-width centered, below header
+      const width = window.innerWidth - 16;
+      const top = 48;
+      const maxHeight = window.innerHeight - top - 60;
+      exampleMenuStyle = `left:8px;top:${top}px;width:${width}px;max-height:${maxHeight}px;`;
+      return;
+    }
+    if (!exampleButtonEl) return;
     const rect = exampleButtonEl.getBoundingClientRect();
     const width = Math.min(720, window.innerWidth - 24);
     const left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12));
@@ -636,7 +647,7 @@
 
 <div class="pro-panel">
   {#if uiStore.isMobile}
-    <!-- Mobile-only PRO navigation and actions -->
+    <!-- Mobile-only PRO navigation and actions (tools moved to upper toolbar in App.svelte) -->
     <div class="pro-mobile-nav">
       <div class="pro-mobile-actions">
         <button class="pm-action pm-example" onclick={toggleExampleMenu}>{t('pro.exampleBtn')}</button>
@@ -689,6 +700,8 @@
           <ProAdvancedTab bind:advancedResults={advancedResultsRef} />
         {:else if activeTab === 'results'}
           <ProResultsTab />
+        {:else if activeTab === 'design'}
+          <ProDesignTab />
         {:else if activeTab === 'verification'}
           <ProVerificationTab bind:verifications={verificationsRef} />
         {:else if activeTab === 'connections'}
@@ -765,6 +778,45 @@
     flex-shrink: 0;
     background: #0a1a30;
   }
+  .pm-tools-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .pm-tool {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    color: #899;
+    background: #0f2840;
+    border: 1px solid #1a3050;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .pm-tool:hover { color: #ddd; }
+  .pm-tool.active { color: #fff; background: #e94560; border-color: #ff6b6b; }
+  .pm-tool.pm-undo {
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    min-width: 36px;
+    text-align: center;
+  }
+  .pm-tool.pm-undo:disabled { opacity: 0.25; cursor: not-allowed; }
+  .pm-select-modes {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+  }
+  .pm-sel {
+    padding: 4px 8px;
+    font-size: 0.68rem;
+    color: #aab;
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .pm-sel:hover { color: #ddd; }
+  .pm-sel.active { color: #fff; background: #e94560; border-color: #ff6b6b; }
   .pro-mobile-actions {
     display: flex;
     gap: 4px;
@@ -938,6 +990,8 @@
     font-size: 0.77rem;
     font-weight: 700;
     color: #f7f9ff;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .pro-example-purpose {
@@ -952,6 +1006,8 @@
     font-size: 0.66rem;
     color: #90a4c6;
     line-height: 1.3;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .pro-example-tags {

@@ -18,11 +18,34 @@
 
   function getSelectionText(): string {
     const nNodes = uiStore.selectedNodes.size;
-    const nElems = uiStore.selectedElements.size;
-    if (nNodes === 0 && nElems === 0) return '—';
+    const nSups = uiStore.selectedSupports.size;
+    const nLoads = uiStore.selectedLoads.size;
+    // Separate frame/truss elements from shell elements in selectedElements.
+    // Check shells first: if an ID exists in both plates/quads AND elements
+    // (different entity types with overlapping numeric IDs), shells take priority
+    // when the user is in shells selectMode; otherwise elements take priority.
+    const shellMode = uiStore.selectMode === 'shells';
+    let nElems = 0;
+    let nShells = 0;
+    for (const id of uiStore.selectedElements) {
+      const isShell = modelStore.plates.has(id) || modelStore.quads.has(id);
+      const isElem = modelStore.elements.has(id);
+      if (isShell && isElem) {
+        // Ambiguous — use selectMode to disambiguate
+        if (shellMode) nShells++; else nElems++;
+      } else if (isShell) {
+        nShells++;
+      } else if (isElem) {
+        nElems++;
+      }
+    }
+    if (nNodes === 0 && nElems === 0 && nShells === 0 && nSups === 0 && nLoads === 0) return '—';
     const parts: string[] = [];
     if (nNodes > 0) parts.push(`${nNodes} ${nNodes > 1 ? t('status.nodesPlural') : t('status.nodes')}`);
     if (nElems > 0) parts.push(`${nElems} ${nElems > 1 ? t('status.elemsPlural') : t('status.elems')}`);
+    if (nShells > 0) parts.push(`${nShells} ${nShells > 1 ? t('status.shellsPlural') : t('status.shells')}`);
+    if (nSups > 0) parts.push(`${nSups} ${nSups > 1 ? t('status.supportsPlural') : t('status.supports')}`);
+    if (nLoads > 0) parts.push(`${nLoads} ${nLoads > 1 ? t('status.loadsPlural') : t('status.loads')}`);
     return parts.join(', ');
   }
 

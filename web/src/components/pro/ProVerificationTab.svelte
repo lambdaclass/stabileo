@@ -729,6 +729,7 @@
 
   /** Select element in 3D viewport when clicking verification row */
   function selectElementInViewport(elementId: number) {
+    uiStore.selectMode = 'elements';
     uiStore.selectElement(elementId, false);
   }
 
@@ -1493,7 +1494,7 @@
             <thead><tr><th>Elem</th><th>Nu</th><th>Muz</th><th>Muy</th><th>Vu</th><th>{t('pro.interaction')}</th><th></th></tr></thead>
             <tbody>
               {#each steelVerifications as sv}
-                <tr class={statusClass(sv.overallStatus)} onclick={() => toggleSteelExpand(sv.elementId)} style="cursor:pointer">
+                <tr class={statusClass(sv.overallStatus)} onclick={() => { toggleSteelExpand(sv.elementId); selectElementInViewport(sv.elementId); }} style="cursor:pointer">
                   <td class="col-id">{sv.elementId}</td>
                   <td class="col-num">{fmtNum(sv.Nu)}</td>
                   <td class="col-num">{fmtNum(sv.Muz)}</td>

@@ -96,6 +96,32 @@
   const surfaceLoads = $derived(caseLoads.filter(l => l.type === 'surface3d'));
   const thermalQuadLoads = $derived(caseLoads.filter(l => l.type === 'thermalQuad3d'));
 
+  /** Select all loads belonging to a given load case in the viewport. */
+  function selectLoadsByCase(caseId: number) {
+    uiStore.selectMode = 'loads';
+    uiStore.clearSelection();
+    for (let i = 0; i < modelStore.loads.length; i++) {
+      if ((modelStore.loads[i].data.caseId ?? 1) === caseId) {
+        uiStore.selectLoad(i, true);
+      }
+    }
+  }
+
+  /** Select a load in the viewport by its data.id (finds the array index in modelStore.loads). */
+  function selectLoadById(dataId: number) {
+    const idx = modelStore.loads.findIndex(l => l.data.id === dataId);
+    if (idx >= 0) {
+      uiStore.selectMode = 'loads';
+      uiStore.selectLoad(idx, false);
+    }
+  }
+
+  /** Check if a load is currently selected by its data.id. */
+  function isLoadSelected(dataId: number): boolean {
+    const idx = modelStore.loads.findIndex(l => l.data.id === dataId);
+    return idx >= 0 && uiStore.selectedLoads.has(idx);
+  }
+
   const caseTypeLabels = $derived<Record<string, string>>({
     'D': t('pro.caseTypeD'),
     'L': t('pro.caseTypeL'),
@@ -255,62 +281,59 @@
 
   <ProAutoLoadsDialog open={showAutoLoadsDialog} onclose={() => showAutoLoadsDialog = false} />
 
-  <!-- Self-weight toggle -->
-  <div class="pro-sw-bar">
-    <label class="pro-sw-toggle">
-      <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-      {t('pro.selfWeightLabel')}
-    </label>
-  </div>
-
-  <!-- Load visibility bar -->
-  <div class="pro-vis-bar">
-    <label class="pro-vis-toggle">
-      <input type="checkbox" checked={uiStore.showLoads3D} onchange={(e) => { uiStore.showLoads3D = e.currentTarget.checked; if (e.currentTarget.checked) uiStore.hideLoadsWithDiagram = false; }} />
-      {t('pro.showLoads')}
-    </label>
-    {#if !uiStore.showLoads3D}
-      <span class="pro-vis-status pro-vis-off">OFF</span>
-    {:else if uiStore.hideLoadsWithDiagram && resultsStore.diagramType !== 'none'}
-      <button class="pro-vis-btn pro-vis-btn-warn" onclick={() => { uiStore.hideLoadsWithDiagram = false; uiStore.showLoads3D = true; }}>
-        {t('pro.loadsHiddenByDiagram')}
-      </button>
-    {:else}
-      <span class="pro-vis-status pro-vis-on">{loads.length} cargas</span>
-    {/if}
-    <button class="pro-vis-btn" onclick={showAllCases} title={t('pro.showAll')}>{t('pro.showAll')}</button>
-    <button class="pro-vis-btn" onclick={hideAllCases} title={t('pro.hideAll')}>{t('pro.hideAll')}</button>
-  </div>
-
   <!-- Load Cases Management (collapsible) -->
   <div class="pro-cases-section">
     <details open>
       <summary class="pro-section-label">{t('pro.loadCases')} ({loadCases.length})</summary>
     <div class="pro-section-content">
-    <div class="pro-cases-tabs">
-      {#each loadCases as lc}
-        <button
-          class="pro-case-tab"
-          class:active={activeCaseId === lc.id}
-          onclick={() => activeCaseId = lc.id}
-          title={caseTypeLabels[lc.type] ?? lc.type}
-        >
-          <span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-w={lc.type === 'W'} class:type-e={lc.type === 'E'}></span>
-          {lc.name}
-          <span class="case-eye" class:visible={isCaseVisible(lc.id)} role="button" tabindex="-1" onclick={(e) => { e.stopPropagation(); toggleCaseVisibility(lc.id); }} onkeydown={() => {}} title={isCaseVisible(lc.id) ? t('pro.hideCase') : t('pro.showCase')}>
-            {isCaseVisible(lc.id) ? '👁' : '·'}
-          </span>
-          {#if loadCases.length > 1}
-            <span class="case-x" role="button" tabindex="-1" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }} onkeydown={() => {}}>×</span>
-          {/if}
+    <!-- Load visibility controls -->
+    <div class="pro-vis-bar">
+      <label class="pro-vis-toggle">
+        <input type="checkbox" checked={uiStore.showLoads3D} onchange={(e) => { uiStore.showLoads3D = e.currentTarget.checked; if (e.currentTarget.checked) uiStore.hideLoadsWithDiagram = false; }} />
+        {t('pro.showLoads')}
+      </label>
+      {#if !uiStore.showLoads3D}
+        <span class="pro-vis-status pro-vis-off">{t('pro.visOff')}</span>
+      {:else if uiStore.hideLoadsWithDiagram && resultsStore.diagramType !== 'none'}
+        <button class="pro-vis-btn pro-vis-btn-warn" onclick={() => { uiStore.hideLoadsWithDiagram = false; uiStore.showLoads3D = true; }}>
+          {t('pro.loadsHiddenByDiagram')}
         </button>
-      {/each}
+      {:else}
+        <span class="pro-vis-status pro-vis-on">{loads.length} {t('pro.tabLoads').toLowerCase()}</span>
+      {/if}
+      <button class="pro-vis-btn" onclick={showAllCases} title={t('pro.showAll')}>{t('pro.showAll')}</button>
+      <button class="pro-vis-btn" onclick={hideAllCases} title={t('pro.hideAll')}>{t('pro.hideAll')}</button>
     </div>
+    <table class="pro-lc-table">
+      <thead><tr><th></th><th>{t('pro.lcType')}</th><th>{t('pro.lcName')}</th><th>{t('pro.lcLoads')}</th><th></th><th></th></tr></thead>
+      <tbody>
+        <tr class="sw-row" class:sw-active={uiStore.includeSelfWeight}>
+          <td><input type="checkbox" class="sw-check" bind:checked={uiStore.includeSelfWeight} /></td>
+          <td class="lc-type">D</td>
+          <td class="lc-name">{t('pro.selfWeight')} <span class="sw-auto-badge">{uiStore.includeSelfWeight ? t('pro.swOn') : t('pro.swOff')}</span></td>
+          <td class="lc-count">—</td>
+          <td></td>
+          <td></td>
+        </tr>
+        {#each loadCases as lc}
+          {@const caseLoadCount = loads.filter(l => (l.data.caseId ?? 1) === lc.id).length}
+          <tr class:active={activeCaseId === lc.id} onclick={() => { activeCaseId = lc.id; selectLoadsByCase(lc.id); }} style="cursor:pointer">
+            <td><span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-lr={lc.type === 'Lr'} class:type-w={lc.type === 'W'} class:type-e={lc.type === 'E'}></span></td>
+            <td class="lc-type"><select class="lc-type-select" value={lc.type} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCaseType(lc.id, e.currentTarget.value)}><option value="D">D</option><option value="L">L</option><option value="Lr">Lr</option><option value="W">W</option><option value="E">E</option><option value="S">S</option><option value="">—</option></select></td>
+            <td class="lc-name"><input class="lc-name-input" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} /></td>
+            <td class="lc-count">{caseLoadCount}</td>
+            <td class="lc-vis"><button class="lc-vis-btn" class:visible={isCaseVisible(lc.id)} class:hidden-case={!isCaseVisible(lc.id)} onclick={(e) => { e.stopPropagation(); toggleCaseVisibility(lc.id); }} title={isCaseVisible(lc.id) ? t('pro.hideCase') : t('pro.showCase')}>👁</button></td>
+            <td class="lc-del">{#if loadCases.length > 1}<button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }}>×</button>{/if}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
     <div class="pro-case-add">
       <input type="text" bind:value={newCaseName} placeholder={t('pro.newCase')} class="inp-case" />
       <select bind:value={newCaseType} class="pro-sel-sm">
         <option value="D">D</option>
         <option value="L">L</option>
+        <option value="Lr">Lr</option>
         <option value="W">W</option>
         <option value="E">E</option>
         <option value="S">S</option>
@@ -328,19 +351,32 @@
       <summary class="pro-section-label">{t('pro.combos')} ({combinations.length})</summary>
       <div class="pro-combos-list">
         {#each combinations as combo}
-          <div class="pro-combo-row">
-            <span class="combo-name">{combo.name}</span>
-            <div class="combo-factors">
+          <div class="pro-combo-card">
+            <div class="combo-header">
+              <span class="combo-name">{combo.name}</span>
+              <button class="pro-delete-btn" onclick={() => removeCombination(combo.id)}>×</button>
+            </div>
+            <table class="combo-factor-table">
+              {#if uiStore.includeSelfWeight}
+                {@const swFactor = (() => {
+                  const deadCase = loadCases.find(c => c.type === 'D');
+                  return deadCase ? (combo.factors.find(f => f.caseId === deadCase.id)?.factor ?? 0) : 0;
+                })()}
+                <tr class="sw-factor-row">
+                  <td class="combo-factor-val"><span class="sw-factor-display">{swFactor}</span></td>
+                  <td class="combo-factor-mult">×</td>
+                  <td class="combo-factor-name">D — {t('pro.selfWeight')} <span class="sw-auto-badge">{t('pro.swAuto')}</span></td>
+                </tr>
+              {/if}
               {#each loadCases as lc}
                 {@const factor = combo.factors.find(f => f.caseId === lc.id)?.factor ?? 0}
-                <label class="combo-factor-label">
-                  {lc.name}:
-                  <input type="text" value={factor} class="inp-factor"
-                    onchange={(e) => updateComboFactor(combo.id, lc.id, e.currentTarget.value)} />
-                </label>
+                <tr>
+                  <td class="combo-factor-val"><input type="text" value={factor} class="inp-factor" onchange={(e) => updateComboFactor(combo.id, lc.id, e.currentTarget.value)} /></td>
+                  <td class="combo-factor-mult">×</td>
+                  <td class="combo-factor-name">{lc.name}</td>
+                </tr>
               {/each}
-            </div>
-            <button class="pro-delete-btn" onclick={() => removeCombination(combo.id)}>×</button>
+            </table>
           </div>
         {/each}
         <div class="pro-combo-add">
@@ -354,7 +390,7 @@
   <!-- Add Load (collapsible) -->
   <div class="pro-addload-section">
     <details open>
-      <summary class="pro-section-label">{t('pro.addLoadSection') !== 'pro.addLoadSection' ? t('pro.addLoadSection') : 'Add Load'} ({caseLoads.length} in {loadCases.find(c => c.id === activeCaseId)?.name ?? '?'})</summary>
+      <summary class="pro-section-label">{t('pro.addLoad')} ({caseLoads.length} {t('pro.inCase')} {loadCases.find(c => c.id === activeCaseId)?.name ?? '?'})</summary>
   <div class="pro-section-content">
 
   <!-- Load kind selector -->
@@ -386,7 +422,7 @@
           </div>
           {#if uiStore.selectedNodes.size > 0}
             <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addNodalLoadToSelection}>{uiStore.selectedNodes.size} selected nodes</button>
+              <button class="pro-btn pro-btn-sel" onclick={addNodalLoadToSelection}>{uiStore.selectedNodes.size} {t('pro.selectedNodes')}</button>
             </div>
           {/if}
         </div>
@@ -465,15 +501,15 @@
         <thead><tr><th>ID</th><th>Nodo</th><th>Fx</th><th>Fy</th><th>Fz</th><th>Mx</th><th>My</th><th>Mz</th><th></th></tr></thead>
         <tbody>
           {#each nodalLoads as l}
-            <tr>
+            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.nodeId}</td>
-              <td class="col-num">{fmtNum(l.data.fx)}</td>
-              <td class="col-num">{fmtNum(l.data.fy)}</td>
-              <td class="col-num">{fmtNum(l.data.fz ?? 0)}</td>
-              <td class="col-num">{fmtNum(l.data.mx ?? 0)}</td>
-              <td class="col-num">{fmtNum(l.data.my ?? 0)}</td>
-              <td class="col-num">{fmtNum(l.data.mz ?? 0)}</td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fx)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fx: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fy)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fy: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fz: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mx ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mx: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.my ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { my: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mz: parseFloat(e.currentTarget.value) || 0 })} /></td>
               <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
             </tr>
           {/each}
@@ -487,13 +523,13 @@
         <thead><tr><th>ID</th><th>Elem</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
         <tbody>
           {#each distLoads as l}
-            <tr>
+            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.elementId}</td>
-              <td class="col-num">{fmtNum(l.data.qYI ?? 0)}</td>
-              <td class="col-num">{fmtNum(l.data.qYJ ?? 0)}</td>
-              <td class="col-num">{fmtNum(l.data.qZI ?? 0)}</td>
-              <td class="col-num">{fmtNum(l.data.qZJ ?? 0)}</td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYI: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYJ: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZI: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZJ: parseFloat(e.currentTarget.value) || 0 })} /></td>
               <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
             </tr>
           {/each}
@@ -507,12 +543,12 @@
         <thead><tr><th>ID</th><th>Elem</th><th>a (m)</th><th>Py</th><th>Pz</th><th></th></tr></thead>
         <tbody>
           {#each pointLoads as l}
-            <tr>
+            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.elementId}</td>
-              <td class="col-num">{fmtNum(l.data.a)}</td>
-              <td class="col-num">{fmtNum(l.data.py ?? 0)}</td>
-              <td class="col-num">{fmtNum(l.data.pz ?? 0)}</td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.a)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { a: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.py ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { py: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.pz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { pz: parseFloat(e.currentTarget.value) || 0 })} /></td>
               <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
             </tr>
           {/each}
@@ -526,10 +562,10 @@
         <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>q (kN/m²)</th><th></th></tr></thead>
         <tbody>
           {#each surfaceLoads as l}
-            <tr>
+            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.quadId}</td>
-              <td class="col-num">{fmtNum(l.data.q)}</td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.q)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { q: parseFloat(e.currentTarget.value) || 0 })} /></td>
               <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
             </tr>
           {/each}
@@ -543,12 +579,12 @@
         <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>{t('pro.dtUniform')}</th><th>{t('pro.dtGradient')}</th><th></th></tr></thead>
         <tbody>
           {#each thermalQuadLoads as l}
-            <tr>
+            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.quadId}</td>
-              <td class="col-num">{fmtNum(l.data.dtUniform)}</td>
-              <td class="col-num">{fmtNum(l.data.dtGradient)}</td>
-              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>x</button></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtUniform)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtUniform: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtGradient)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtGradient: parseFloat(e.currentTarget.value) || 0 })} /></td>
+              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
             </tr>
           {/each}
         </tbody>
@@ -607,16 +643,40 @@
   .pro-section-label { font-size: 0.78rem; color: #4ecdc4; font-weight: 600; cursor: pointer; padding: 2px 0; }
   .pro-section-content { padding: 6px 0 2px; }
 
-  .pro-cases-tabs {
-    display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 8px;
+  /* Load case table */
+  .pro-lc-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+  .pro-lc-table th { padding: 4px 6px; font-size: 0.62rem; font-weight: 600; color: #556; text-transform: uppercase; text-align: left; border-bottom: 1px solid #1a3050; }
+  .pro-lc-table td { padding: 4px 6px; border-bottom: 1px solid #0f2030; }
+  .pro-lc-table tbody tr { cursor: pointer; transition: background 0.1s; }
+  .pro-lc-table tbody tr:hover { background: rgba(78, 205, 196, 0.08); }
+  .pro-lc-table tbody tr.active { background: rgba(78, 205, 196, 0.18); box-shadow: inset 3px 0 0 #4ecdc4; }
+  .pro-lc-table .sw-row { cursor: default; opacity: 0.5; font-style: italic; }
+  .pro-lc-table .sw-row.sw-active { opacity: 0.85; }
+  .sw-check { cursor: pointer; accent-color: #4ecdc4; }
+  .lc-type { width: 40px; }
+  .lc-type-select { background: transparent; border: 1px solid transparent; border-radius: 3px; color: #aaa; font-size: 0.7rem; padding: 1px 2px; cursor: pointer; }
+  .lc-type-select:hover { border-color: #1a4a7a; }
+  .lc-type-select:focus { background: #0f2840; border-color: #1a4a7a; outline: none; }
+  .lc-type-select option { background: #0d1b2e; color: #ccc; }
+  .lc-name { }
+  .lc-name-input { background: transparent; border: 1px solid transparent; border-radius: 3px; color: #ccc; font-size: 0.72rem; padding: 2px 4px; width: 100%; }
+  .lc-name-input:hover { border-color: #1a4a7a; }
+  .lc-name-input:focus { background: #0f2840; border-color: #1a4a7a; outline: none; }
+  .lc-count { width: 40px; text-align: center; color: #667; font-family: monospace; font-size: 0.68rem; }
+  .lc-vis { width: 24px; text-align: center; }
+  .lc-vis-btn { background: none; border: none; font-size: 0.7rem; cursor: pointer; opacity: 0.9; padding: 0; transition: opacity 0.12s; }
+  .lc-vis-btn.hidden-case { opacity: 0.2; text-decoration: line-through; }
+  .lc-del { width: 20px; text-align: center; }
+  .sw-auto-badge {
+    font-size: 0.55rem; color: #4ecdc4; background: rgba(78, 205, 196, 0.12);
+    padding: 1px 4px; border-radius: 3px; font-style: normal; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.03em;
   }
-  .pro-case-tab {
-    padding: 5px 12px; font-size: 0.72rem; color: #888; background: #0f2840;
-    border: 1px solid #1a3050; border-radius: 4px; cursor: pointer;
-    display: flex; align-items: center; gap: 5px;
+  .sw-factor-row { opacity: 0.7; }
+  .sw-factor-display {
+    display: inline-block; width: 40px; text-align: center;
+    font-size: 0.72rem; font-family: monospace; color: #aab;
   }
-  .pro-case-tab:hover { color: #ccc; background: #1a3860; }
-  .pro-case-tab.active { color: #fff; background: #1a4a7a; border-color: #4ecdc4; }
   .case-eye {
     background: none; border: none; font-size: 0.7rem; cursor: pointer;
     padding: 0 2px; line-height: 1; opacity: 0.4; transition: opacity 0.15s;
@@ -630,6 +690,7 @@
   .case-type-dot.type-d { background: #4ecdc4; }
   .case-type-dot.type-l { background: #f0a500; }
   .case-type-dot.type-w { background: #6bbaff; }
+  .case-type-dot.type-lr { background: #c0a040; }
   .case-type-dot.type-e { background: #e94560; }
 
   .pro-case-add {
@@ -653,13 +714,17 @@
   /* Combinations */
   .pro-combos-section { border-bottom: 1px solid #1a3050; padding: 6px 10px; }
   .pro-combos-list { padding: 6px 0; display: flex; flex-direction: column; gap: 6px; }
-  .pro-combo-row {
-    display: flex; align-items: center; gap: 8px; padding: 4px 0;
-    border-bottom: 1px solid #0f2030; flex-wrap: wrap;
+  .pro-combo-card {
+    background: #0a1828; border: 1px solid #12253d; border-radius: 5px;
+    padding: 6px 10px; margin-bottom: 6px;
   }
-  .combo-name { font-size: 0.72rem; color: #ccc; font-weight: 500; min-width: 90px; }
-  .combo-factors { display: flex; flex-wrap: wrap; gap: 6px; }
-  .combo-factor-label { font-size: 0.68rem; color: #888; display: flex; align-items: center; gap: 3px; }
+  .combo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .combo-name { font-size: 0.75rem; color: #ccc; font-weight: 600; }
+  .combo-factor-table { border-collapse: collapse; width: 100%; }
+  .combo-factor-table td { padding: 2px 4px; font-size: 0.7rem; color: #aaa; }
+  .combo-factor-val { width: 44px; }
+  .combo-factor-mult { width: 14px; color: #556; text-align: center; }
+  .combo-factor-name { color: #889; }
   .inp-factor {
     width: 40px; padding: 3px 4px; background: #0f2840; border: 1px solid #1a3050;
     border-radius: 3px; color: #ddd; font-size: 0.72rem; font-family: monospace; text-align: center;
@@ -708,11 +773,21 @@
   .pro-btn-sel::before { content: '\u2714 '; }
 
   .pro-loads-table-wrap { }
-  .pro-load-section-title { padding: 6px 12px; font-size: 0.72rem; font-weight: 600; color: #4ecdc4; text-transform: uppercase; background: #0a1a30; border-bottom: 1px solid #1a3050; }
+  .pro-load-section-title { padding: 8px 12px 4px; font-size: 0.68rem; font-weight: 600; color: #4ecdc4; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }
   .pro-loads-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .pro-loads-table thead { position: sticky; top: 0; z-index: 1; }
   .pro-loads-table th { padding: 6px 6px; text-align: left; font-size: 0.68rem; font-weight: 600; color: #888; text-transform: uppercase; background: #0a1a30; border-bottom: 1px solid #1a4a7a; }
   .pro-loads-table td { padding: 4px 6px; border-bottom: 1px solid #0f2030; color: #ccc; }
+  .pro-loads-table tbody tr { cursor: pointer; transition: background 0.1s; }
+  .pro-loads-table tbody tr:hover { background: rgba(78, 205, 196, 0.08); }
+  .pro-loads-table tbody tr.selected { background: rgba(78, 205, 196, 0.18); box-shadow: inset 3px 0 0 #4ecdc4; }
+  .inp-cell {
+    background: transparent; border: 1px solid transparent; border-radius: 3px;
+    color: #ccc; font-size: 0.72rem; font-family: monospace; padding: 2px 4px;
+    width: 60px; text-align: right;
+  }
+  .inp-cell:hover { border-color: #1a4a7a; }
+  .inp-cell:focus { background: #0f2840; border-color: #1a4a7a; outline: none; }
   .col-id { width: 32px; color: #666; font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; text-align: right; font-size: 0.75rem; }
   .pro-delete-btn { background: none; border: none; color: #555; font-size: 1rem; cursor: pointer; padding: 0; }

@@ -2095,7 +2095,7 @@ const tr: Translations = {
   'pro.tabAdvanced': 'Gelişmiş',
   'pro.tabResults': 'Sonuçlar',
   'pro.tabVerification': 'Doğrulama',
-  'pro.tabDiagnostics': 'Diag.',
+  'pro.tabDiagnostics': 'Tanılama',
   'pro.exampleBtn': 'Örnek',
   'pro.exampleTitle': 'Örnek 7 katlı B.A. bina yükle',
   'pro.reportBtn': 'Rapor',

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { modelStore } from '../../lib/store';
+  import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import type { ShellFamily, ShellRecommendation } from '../../lib/engine/types-3d';
@@ -419,12 +419,12 @@
                 </thead>
                 <tbody>
                   {#each plates as plate}
-                    <tr>
+                    <tr class:selected={uiStore.selectedElements.has(plate.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(plate.id, false); }}>
                       <td class="col-id">{plate.id}</td>
                       <td class="col-nodes">{plate.nodes.join(', ')}</td>
                       <td class="col-family">{plate.shellFamily ?? 'DKT'}</td>
-                      <td class="col-mat">{getMaterialName(plate.materialId)}</td>
-                      <td class="col-thick">{plate.thickness.toFixed(3)}</td>
+                      <td class="col-mat"><select class="inline-select" value={plate.materialId} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updatePlate(plate.id, { materialId: parseInt(e.currentTarget.value) })}>{#each [...modelStore.materials.values()] as m}<option value={m.id}>{m.name}</option>{/each}</select></td>
+                      <td class="col-thick"><input class="inline-input" type="number" step="0.001" value={plate.thickness} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updatePlate(plate.id, { thickness: parseFloat(e.currentTarget.value) || plate.thickness })} /></td>
                       <td class="col-actions">
                         <button class="pro-delete-btn" onclick={() => deletePlate(plate.id)}>&times;</button>
                       </td>
@@ -451,12 +451,12 @@
                 </thead>
                 <tbody>
                   {#each quads as quad}
-                    <tr>
+                    <tr class:selected={uiStore.selectedElements.has(quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(quad.id, false); }}>
                       <td class="col-id">{quad.id}</td>
                       <td class="col-nodes">{quad.nodes.join(', ')}</td>
                       <td class="col-family">{quad.shellFamily ?? 'MITC4'}</td>
-                      <td class="col-mat">{getMaterialName(quad.materialId)}</td>
-                      <td class="col-thick">{quad.thickness.toFixed(3)}</td>
+                      <td class="col-mat"><select class="inline-select" value={quad.materialId} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateQuad(quad.id, { materialId: parseInt(e.currentTarget.value) })}>{#each [...modelStore.materials.values()] as m}<option value={m.id}>{m.name}</option>{/each}</select></td>
+                      <td class="col-thick"><input class="inline-input" type="number" step="0.001" value={quad.thickness} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateQuad(quad.id, { thickness: parseFloat(e.currentTarget.value) || quad.thickness })} /></td>
                       <td class="col-actions">
                         <button class="pro-delete-btn" onclick={() => deleteQuad(quad.id)}>&times;</button>
                       </td>
@@ -720,9 +720,33 @@
     border-bottom: 1px solid #0f2030;
   }
 
-  .pro-shells-table tr:hover {
-    background: rgba(78, 205, 196, 0.04);
+  .pro-shells-table tbody tr {
+    cursor: pointer;
+    transition: background 0.1s;
   }
+
+  .pro-shells-table tbody tr:hover {
+    background: rgba(78, 205, 196, 0.08);
+  }
+
+  .pro-shells-table tbody tr.selected {
+    background: rgba(78, 205, 196, 0.18);
+    box-shadow: inset 3px 0 0 #4ecdc4;
+  }
+
+  .inline-select {
+    background: transparent; border: 1px solid transparent; border-radius: 3px;
+    color: #ccc; font-size: 0.72rem; padding: 2px 4px; cursor: pointer; width: 100%;
+  }
+  .inline-select:hover { border-color: #1a4a7a; }
+  .inline-select:focus { background: #0f2840; border-color: #1a4a7a; outline: none; }
+  .inline-select option { background: #0d1b2e; color: #ccc; }
+  .inline-input {
+    background: transparent; border: 1px solid transparent; border-radius: 3px;
+    color: #ccc; font-size: 0.72rem; font-family: monospace; padding: 2px 4px; width: 70px;
+  }
+  .inline-input:hover { border-color: #1a4a7a; }
+  .inline-input:focus { background: #0f2840; border-color: #1a4a7a; outline: none; }
 
   .col-id {
     width: 30px;

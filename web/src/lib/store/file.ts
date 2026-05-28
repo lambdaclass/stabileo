@@ -37,6 +37,7 @@ export interface DedalFile {
   name: string;
   timestamp: string;
   snapshot: ModelSnapshot;
+  appMode?: 'basico' | 'educativo' | 'pro';
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
   axisConvention3D?: 'rightHand' | 'leftHand';
   viewportPresentation3D?: ViewportPresentation3D;
@@ -99,6 +100,7 @@ export function serializeProject(): string {
     name: modelStore.model.name,
     timestamp: new Date().toISOString(),
     snapshot: modelStore.snapshot(),
+    appMode: uiStore.appMode,
     analysisMode: uiStore.analysisMode,
     axisConvention3D: uiStore.axisConvention3D,
     viewportPresentation3D: uiStore.viewportPresentation3D,
@@ -130,6 +132,7 @@ export function deserializeProject(text: string): boolean {
   historyStore.pushState();
   modelStore.restore(data.snapshot);
   modelStore.model.name = data.name;
+  if (data.appMode) uiStore.appMode = data.appMode;
   if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
