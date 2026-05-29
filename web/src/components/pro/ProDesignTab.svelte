@@ -3,12 +3,11 @@
   import { t } from '../../lib/i18n';
   import { DESIGN_CODES, type DesignCodeId } from '../../lib/engine/codes/index';
   import {
-    normalizeCirsoc201, normalizeCirsoc301,
     normalizeWasmSteel, normalizeWasmRC,
     buildDesignSummary,
     type MemberDesignResult, type DesignCheckSummary, type CheckStatus,
   } from '../../lib/engine/design-check-results';
-  import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
+  import { computeStationDemands, runCirsocDesign, getCodeDetail } from '../../lib/engine/verification-service';
   import {
     extractElementStations, extractGoverningDemands, type ElementDesignDemands, type ElementStationResult,
     verifyProvidedReinforcement, rebarGroupArea, formatRebarGroup,
@@ -35,25 +34,10 @@
   interface BarSelection { elemId: number; region: 'start' | 'span' | 'end'; face: 'top' | 'bottom'; row: number; index: number; diameter: number }
   let selectedBar = $state<BarSelection | null>(null);
 
-  /** Station-based data for ALL elements — demands + raw station results for sweep. */
-  const allStationData = $derived.by((): { demands: Map<number, ElementDesignDemands>; stations: Map<number, ElementStationResult> } => {
-    const demands = new Map<number, ElementDesignDemands>();
-    const stations = new Map<number, ElementStationResult>();
-    if (!resultsStore.hasCombinations3D) return { demands, stations };
-    const perCombo = resultsStore.perCombo3D;
-    if (perCombo.size === 0) return { demands, stations };
-    const comboNames = new Map<number, string>();
-    for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
-    const firstCombo = perCombo.values().next().value;
-    if (!firstCombo) return { demands, stations };
-    for (const ef of firstCombo.elementForces) {
-      const esr = extractElementStations(ef.elementId, perCombo, comboNames);
-      if (esr) {
-        stations.set(ef.elementId, esr);
-        demands.set(ef.elementId, extractGoverningDemands(esr));
-      }
-    }
-    return { demands, stations };
+  /** Station-based data for ALL elements — computed via shared verification service. */
+  const allStationData = $derived.by(() => {
+    if (!resultsStore.hasCombinations3D) return { demands: new Map<number, ElementDesignDemands>(), stations: new Map<number, ElementStationResult>() };
+    return computeStationDemands(resultsStore.perCombo3D, modelStore.model.combinations, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports });
   });
   const allStationDemands = $derived(allStationData.demands);
 
@@ -135,18 +119,19 @@
       const pv = getProvidedVerification(id);
       const fitIssues = pv?.checks.filter(c => c.category.startsWith('Fit:') && c.status === 'fail').length ?? 0;
       const strengthFails = pv?.checks.filter(c => !c.category.startsWith('Fit:') && c.status === 'fail').length ?? 0;
-      // Count geometry-driven constructibility issues from layouts
-      const v = verificationStore.concrete.find(c => c.elementId === id);
+      // Count geometry-driven constructibility issues from layouts (uses model geometry, not verification)
+      const sec = getElemSection(id);
+      const stirDia = elem.reinforcement.stirrups?.diameter ?? elem.reinforcement.regions?.stirrupsSupport?.diameter ?? sec.stirrupDia;
       let constrIssues = 0;
-      if (v?.b && v?.h && reg) {
+      if (sec.b && sec.h && reg) {
         const tsL = resolveLayers(reg.topStartLayers, reg.topStart ?? elem.reinforcement.top);
         const bsL = resolveLayers(reg.bottomSpanLayers, reg.bottomSpan ?? elem.reinforcement.bottom);
-        const layout = computeSectionLayout(tsL, bsL, v.b, v.h, v.cover, v.shear.stirrupDia);
+        const layout = computeSectionLayout(tsL, bsL, sec.b, sec.h, sec.cover, stirDia);
         constrIssues = layout.issues.length;
       }
       // Column constructibility
-      if (v?.b && v?.h && elem.reinforcement.longitudinal) {
-        const colLayout = computeColumnLayout(elem.reinforcement.longitudinal.count, elem.reinforcement.longitudinal.diameter, v.b, v.h, v.cover, v.shear.stirrupDia);
+      if (sec.b && sec.h && elem.reinforcement.longitudinal) {
+        const colLayout = computeColumnLayout(elem.reinforcement.longitudinal.count, elem.reinforcement.longitudinal.diameter, sec.b, sec.h, sec.cover, stirDia);
         constrIssues += colLayout.issues.length;
       }
       mods.push({ elemId: id, type: regions.length > 0 ? 'beam' : 'column', regions, fitIssues, strengthFails, constrIssues });
@@ -218,24 +203,15 @@
 
     try {
       if (selectedCode === 'cirsoc') {
-        // JS CIRSOC path — uses autoVerifyFromResults for RC
-        // Pass station-based demands when available (sign-aware, interior stations)
+        // Single-call CIRSOC design via verification service
         const governing = resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null;
-        const { concrete } = autoVerifyFromResults(results3D, {
-          elements: modelStore.elements,
-          nodes: modelStore.nodes,
-          sections: modelStore.sections,
-          materials: modelStore.materials,
-          supports: modelStore.supports,
-        }, governing, undefined, allStationDemands.size > 0 ? allStationDemands : undefined);
-        const rcResults = normalizeCirsoc201(concrete, sectionNames);
-
-        // Also try CIRSOC 301 steel if available
-        // (Steel verification uses different input assembly — for now, RC is the primary CIRSOC path)
+        const { normalized: rcResults } = runCirsocDesign(
+          results3D,
+          { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
+          allStationDemands.size > 0 ? allStationDemands : undefined,
+          sectionNames, governing,
+        );
         normalized = rcResults;
-
-        // Also populate legacy store for viewport compatibility
-        verificationStore.setConcrete(concrete);
       } else {
         // WASM path for all other codes
         const payload = buildCheckPayload();
@@ -291,9 +267,12 @@
         }
       }
 
-      const codeInfo = DESIGN_CODES.find(c => c.id === selectedCode);
-      const summaryData = buildDesignSummary(normalized, selectedCode, codeInfo?.label ?? selectedCode);
-      verificationStore.setDesignResults(summaryData.results, summaryData);
+      // For non-CIRSOC codes, update the design results store (CIRSOC handled inside runCirsocDesign)
+      if (selectedCode !== 'cirsoc') {
+        const codeInfo = DESIGN_CODES.find(c => c.id === selectedCode);
+        const summaryData = buildDesignSummary(normalized, selectedCode, codeInfo?.label ?? selectedCode);
+        verificationStore.setDesignResults(summaryData.results, summaryData);
+      }
 
       // Activate verification overlay in viewport
       resultsStore.diagramType = 'verification';
@@ -330,14 +309,14 @@
   let autoDesignedElems = $state(new Set<number>());
   let userModifiedElems = $state(new Set<number>());
 
-  /** Accept auto-design for ALL RC elements in one batch. */
+  /** Accept auto-design for ALL verified elements in one batch.
+   *  Iterates normalized designResults (not concrete-specific storage). */
   function acceptAutoDesignAll() {
-    const concrete = verificationStore.concrete;
     let count = 0;
-    for (const v of concrete) {
-      const elem = modelStore.elements.get(v.elementId);
+    for (const r of designResults) {
+      const elem = modelStore.elements.get(r.elementId);
       if (!elem?.reinforcement) {
-        acceptAutoDesign(v.elementId);
+        acceptAutoDesign(r.elementId);
         count++;
       }
     }
@@ -384,9 +363,11 @@
     }
   }
 
-  /** Accept auto-designed reinforcement as provided (copies from verification result). */
+  /** Accept auto-designed reinforcement as provided (copies from verification result).
+   *  TRANSITIONAL: Reads CIRSOC-specific auto-design proposal from concreteMap.
+   *  Phase 2: solver returns design proposals as part of VerificationReport. */
   function acceptAutoDesign(elemId: number) {
-    const v = verificationStore.concrete.find(c => c.elementId === elemId);
+    const v = verificationStore.concreteMap.get(elemId);
     if (!v) return;
     const reinf: ProvidedReinforcement = {};
     if (v.elementType === 'beam' || v.elementType === 'wall') {
@@ -435,11 +416,14 @@
     setProvided(elemId, undefined);
   }
 
-  /** Get provided-reinforcement verification result for an element. */
+  /** Get provided-reinforcement verification result for an element.
+   *  TRANSITIONAL: Reads from concreteMap (CIRSOC-specific ElementVerification)
+   *  for auto-design reference values. Phase 2: solver returns these as part of
+   *  the unified VerificationReport, eliminating this dependency. */
   function getProvidedVerification(elemId: number): ProvidedRebarResult | null {
     const elem = modelStore.elements.get(elemId);
     if (!elem?.reinforcement) return null;
-    const v = verificationStore.concrete.find(c => c.elementId === elemId);
+    const v = verificationStore.concreteMap.get(elemId);
     if (!v) return null;
     const demands = allStationDemands.get(elemId);
     // Pass section data for capacity-based recalculation (CIRSOC 201 φMn/φVn)
@@ -528,18 +512,16 @@
 
   /** Auto-split bars into rows based on section width. */
   function autoSplitRows(elemId: number, field: LayerField) {
-    const v = verificationStore.concrete.find(c => c.elementId === elemId);
-    if (!v?.b) return;
+    const sec = getElemSection(elemId);
+    if (!sec.b) return;
     const layers = getRegionLayers(elemId, field);
     if (layers.length === 0) return;
-    // Collapse to total count & dominant diameter
     const totalCount = layers.reduce((s, l) => s + l.count, 0);
     const dia = layers[0].diameter;
     const barDia_m = dia / 1000;
-    const cover = v.cover ?? 0.025;
-    const stirDia_m = (v.shear?.stirrupDia ?? 8) / 1000;
-    // Available width for bars
-    const avail = v.b - 2 * cover - 2 * stirDia_m;
+    const prov = getProvided(elemId);
+    const stirDia_m = (prov?.stirrups?.diameter ?? prov?.regions?.stirrupsSupport?.diameter ?? sec.stirrupDia) / 1000;
+    const avail = sec.b - 2 * sec.cover - 2 * stirDia_m;
     const minGap = Math.max(barDia_m, 0.025); // CIRSOC 201 §7.6
     const maxPerRow = Math.max(1, Math.floor((avail + minGap) / (barDia_m + minGap)));
     const nRows = Math.ceil(totalCount / maxPerRow);
@@ -555,11 +537,11 @@
 
   /** Quick row-fit check for a single layer (for inline editor warnings). */
   function rowFits(elemId: number, layer: RebarLayer): boolean {
-    const v = verificationStore.concrete.find(c => c.elementId === elemId);
-    if (!v?.b) return true; // can't check without section
-    const stirDia_m = (v.shear?.stirrupDia ?? 8) / 1000;
-    const cover = v.cover ?? 0.025;
-    const availW = v.b - 2 * cover - 2 * stirDia_m;
+    const sec = getElemSection(elemId);
+    if (!sec.b) return true;
+    const prov = getProvided(elemId);
+    const stirDia_m = (prov?.stirrups?.diameter ?? prov?.regions?.stirrupsSupport?.diameter ?? sec.stirrupDia) / 1000;
+    const availW = sec.b - 2 * sec.cover - 2 * stirDia_m;
     const barDia_m = layer.diameter / 1000;
     const minGap = Math.max(barDia_m, 0.025);
     const reqW = layer.count * barDia_m + Math.max(0, layer.count - 1) * minGap;
@@ -1361,7 +1343,7 @@
                           {/if}
                         {/if}
                         <!-- ─── Verification Section (rich — matches report content) ─── -->
-                        {@const v = verificationStore.concrete.find(c => c.elementId === r.elementId)}
+                        {@const codeDetail = getCodeDetail(r.elementId)}
                         {#if provVerif && provVerif.checks.length > 0}
                           {@const inlineUtil = pvUtilization != null ? pvUtilization : r.utilization}
                           {@const utilSource = pvUtilization != null ? 'provided' : 'design-check'}
@@ -1397,70 +1379,51 @@
                             </tbody>
                           </table>
                         {/if}
-                        <!-- Interaction diagram (columns only — no live equivalent) -->
-                        {#if v && v.column}
-                          {@const diagParams = { b: v.b, h: v.h, fc: v.fc, fy: 420, cover: v.cover + v.shear.stirrupDia / 2000 + v.flexure.barDia / 2000, AsProv: v.column.AsProv, barCount: v.column.barCount, barDia: v.column.barDia ?? v.flexure.barDia } satisfies DiagramParams}
+                        <!-- Interaction diagram (columns only) -->
+                        {#if codeDetail?.interactionParams}
+                          {@const ip = codeDetail.interactionParams}
+                          {@const diagParams = { b: ip.b, h: ip.h, fc: ip.fc, fy: ip.fy, cover: ip.cover, AsProv: ip.AsProv, barCount: ip.barCount, barDia: ip.barDia } satisfies DiagramParams}
                           {@const diagram = generateInteractionDiagram(diagParams)}
                           <div class="verif-drawings">
                             <div class="verif-drawings-row">
                               <div class="verif-drawing-cell">
-                                {@html generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu }, 220, 280)}
+                                {@html generateInteractionSvg(diagram, { Nu: ip.Nu, Mu: ip.Mu }, 220, 280)}
                               </div>
                             </div>
                           </div>
                         {/if}
-                        {#if v}
-                          <!-- Detailed calculation memos (same content as report) -->
+                        {#if codeDetail}
+                          <!-- Calculation memos via code-detail adapter -->
                           <div class="verif-memos-title">CIRSOC 201 — Calculation Details</div>
                           <div class="verif-memos">
-                            <div class="memo-section">
-                              <div class="memo-title">{t('pro.flexure')}</div>
-                              {#each v.flexure.steps as step}<div class="memo-step">{step}</div>{/each}
-                            </div>
-                            <div class="memo-section">
-                              <div class="memo-title">{t('pro.shear')}</div>
-                              {#each v.shear.steps as step}<div class="memo-step">{step}</div>{/each}
-                            </div>
-                            {#if v.column}
+                            {#each codeDetail.memos as memo}
                               <div class="memo-section">
-                                <div class="memo-title">{t('pro.flexoCompression')}</div>
-                                {#each v.column.steps as step}<div class="memo-step">{step}</div>{/each}
+                                <div class="memo-title">{memo.title}</div>
+                                {#each memo.steps as step}<div class="memo-step">{step}</div>{/each}
                               </div>
-                            {/if}
-                            {#if v.torsion}
+                            {/each}
+                            {#if codeDetail.slender}
                               <div class="memo-section">
-                                <div class="memo-title">{t('pro.torsion')} {v.torsion.neglect ? t('pro.torsionNeglect') : ''}</div>
-                                {#each v.torsion.steps as step}<div class="memo-step">{step}</div>{/each}
-                              </div>
-                            {/if}
-                            {#if v.biaxial}
-                              <div class="memo-section">
-                                <div class="memo-title">{t('pro.biaxialBresler')}</div>
-                                {#each v.biaxial.steps as step}<div class="memo-step">{step}</div>{/each}
-                              </div>
-                            {/if}
-                            {#if v.slender}
-                              <div class="memo-section">
-                                <div class="memo-title">{t('pro.slenderness')} {v.slender.isSlender ? t('pro.slenderCol') : t('pro.shortCol')}</div>
+                                <div class="memo-title">Slenderness {codeDetail.slender.isSlender ? '(slender)' : '(short)'}</div>
                                 <div class="slender-factors">
-                                  <span>k = {v.slender.k.toFixed(2)}</span>
-                                  <span>Lu = {v.slender.lu.toFixed(2)} m</span>
-                                  <span>r = {(v.slender.r * 100).toFixed(1)} cm</span>
-                                  <span>k·Lu/r = {v.slender.klu_r.toFixed(1)}</span>
-                                  {#if v.slender.isSlender}
-                                    <span class="slender-highlight">δ_ns = {v.slender.delta_ns.toFixed(3)}</span>
+                                  <span>k = {codeDetail.slender.k.toFixed(2)}</span>
+                                  <span>Lu = {codeDetail.slender.lu.toFixed(2)} m</span>
+                                  <span>r = {(codeDetail.slender.r * 100).toFixed(1)} cm</span>
+                                  <span>k·Lu/r = {codeDetail.slender.klu_r.toFixed(1)}</span>
+                                  {#if codeDetail.slender.isSlender}
+                                    <span class="slender-highlight">δ_ns = {codeDetail.slender.delta_ns.toFixed(3)}</span>
                                   {/if}
                                 </div>
-                                {#each v.slender.steps as step}<div class="memo-step">{step}</div>{/each}
+                                {#each codeDetail.slender.steps as step}<div class="memo-step">{step}</div>{/each}
                               </div>
                             {/if}
-                            {#if v.detailing}
+                            {#if codeDetail.detailing}
                               <div class="memo-section">
-                                <div class="memo-title">{t('pro.detailing')}</div>
-                                {#each v.detailing.bars as bar}
+                                <div class="memo-title">Detailing</div>
+                                {#each codeDetail.detailing.bars as bar}
                                   <div class="memo-step">Ø{bar.diameter}: ld={bar.ld.toFixed(2)}m, ldh={bar.ldh.toFixed(2)}m, splice={bar.lapSplice.toFixed(2)}m</div>
                                 {/each}
-                                <div class="memo-step">Min clear spacing: {(v.detailing.minClearSpacing * 1000).toFixed(0)}mm</div>
+                                <div class="memo-step">Min clear spacing: {(codeDetail.detailing.minClearSpacing * 1000).toFixed(0)}mm</div>
                               </div>
                             {/if}
                           </div>
