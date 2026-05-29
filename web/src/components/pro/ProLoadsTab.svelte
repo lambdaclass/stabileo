@@ -248,6 +248,207 @@
     newComboName = '';
   }
 
+  // ─── Combination Generator with Review Modal ──────────
+
+  type ComboTemplate = 'lrfd' | 'service';
+
+  interface CandidateCombo {
+    name: string;
+    factors: Array<{caseId: number; factor: number}>;
+    exists: boolean;
+    selected: boolean;
+    template: ComboTemplate;
+  }
+
+  let showComboModal = $state(false);
+  let candidateCombos = $state<CandidateCombo[]>([]);
+  let activeTemplate = $state<ComboTemplate>('lrfd');
+
+  function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
+    const sig = comboSignature(factors);
+    return combinations.some(c => comboSignature(c.factors) === sig);
+  }
+
+  function comboSignature(factors: Array<{caseId: number; factor: number}>): string {
+    return factors
+      .filter(f => Math.abs(f.factor) > 1e-9)
+      .sort((a, b) => a.caseId - b.caseId)
+      .map(f => `${f.caseId}:${f.factor.toFixed(2)}`)
+      .join('|');
+  }
+
+  function buildCandidates(template: ComboTemplate): CandidateCombo[] {
+    if (template === 'service') return buildServiceCandidates();
+    return buildLRFDCandidates();
+  }
+
+  /** Build service/ASD combination candidates (ASCE 7-22 §2.4). */
+  function buildServiceCandidates(): CandidateCombo[] {
+    const cases = modelStore.model.loadCases;
+    const byType: Record<string, number[]> = {};
+    for (const lc of cases) { const t2 = (lc.type || '').toUpperCase(); if (!byType[t2]) byType[t2] = []; byType[t2].push(lc.id); }
+    const D = byType['D'] ?? [], L = byType['L'] ?? [], Lr = byType['LR'] ?? [];
+    const S2 = byType['S'] ?? [], W = byType['W'] ?? [], E2 = byType['E'] ?? [];
+    function mkF(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
+      return cases.map(lc => { const m = pairs.find(([id]) => id === lc.id); return { caseId: lc.id, factor: m ? m[1] : 0 }; });
+    }
+    function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
+      const factors = mkF(pairs); return { name, factors, exists: comboExists(factors), selected: false, template: 'service' };
+    }
+    const out: CandidateCombo[] = [];
+    if (D.length === 0) return out;
+    // S1: D
+    out.push(mk('D', D.map(id => [id, 1.0])));
+    // S2: D + L
+    if (L.length > 0) out.push(mk('D + L', [...D.map(id => [id, 1.0] as [number, number]), ...L.map(id => [id, 1.0] as [number, number])]));
+    // S3: D + Lr (or S)
+    if (Lr.length > 0) out.push(mk('D + Lr', [...D.map(id => [id, 1.0] as [number, number]), ...Lr.map(id => [id, 1.0] as [number, number])]));
+    else if (S2.length > 0) out.push(mk('D + S', [...D.map(id => [id, 1.0] as [number, number]), ...S2.map(id => [id, 1.0] as [number, number])]));
+    // S4: D + 0.75L + 0.75Lr (or S)
+    if (L.length > 0 && (Lr.length > 0 || S2.length > 0)) {
+      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.0] as [number, number]), ...L.map(id => [id, 0.75] as [number, number])];
+      if (Lr.length > 0) pairs.push(...Lr.map(id => [id, 0.75] as [number, number]));
+      else pairs.push(...S2.map(id => [id, 0.75] as [number, number]));
+      out.push(mk('D + 0.75L + 0.75' + (Lr.length > 0 ? 'Lr' : 'S'), pairs));
+    }
+    // S5: D + W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
+      out.push(mk(`D + ${sn}`, [...D.map(id => [id, 1.0] as [number, number]), [wId, 1.0]]));
+    }
+    // S6: D + 0.7E (per seismic direction)
+    for (const eId of E2) {
+      const sn = (cases.find(c => c.id === eId)?.name ?? '') || `E${eId}`;
+      out.push(mk(`D + 0.7${sn}`, [...D.map(id => [id, 1.0] as [number, number]), [eId, 0.7]]));
+    }
+    // S7: D + 0.75L + 0.75W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
+      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.0] as [number, number])];
+      if (L.length > 0) pairs.push(...L.map(id => [id, 0.75] as [number, number]));
+      pairs.push([wId, 0.75]);
+      out.push(mk(`D + 0.75L + 0.75${sn}`, pairs));
+    }
+    // S8: 0.6D + W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
+      out.push(mk(`0.6D + ${sn}`, [...D.map(id => [id, 0.6] as [number, number]), [wId, 1.0]]));
+    }
+    // S9: 0.6D + 0.7E (per seismic direction)
+    for (const eId of E2) {
+      const sn = (cases.find(c => c.id === eId)?.name ?? '') || `E${eId}`;
+      out.push(mk(`0.6D + 0.7${sn}`, [...D.map(id => [id, 0.6] as [number, number]), [eId, 0.7]]));
+    }
+    for (const c of out) c.selected = !c.exists;
+    return out;
+  }
+
+  /** Build LRFD ultimate combination candidates (ASCE 7-22 §2.3). */
+  function buildLRFDCandidates(): CandidateCombo[] {
+    const cases = modelStore.model.loadCases;
+    const byType: Record<string, number[]> = {};
+    for (const lc of cases) {
+      const t2 = (lc.type || '').toUpperCase();
+      if (!byType[t2]) byType[t2] = [];
+      byType[t2].push(lc.id);
+    }
+    const D = byType['D'] ?? [], L = byType['L'] ?? [], Lr = byType['LR'] ?? [];
+    const S2 = byType['S'] ?? [], W = byType['W'] ?? [], E2 = byType['E'] ?? [];
+
+    function mkFactors(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
+      return cases.map(lc => {
+        const match = pairs.find(([id]) => id === lc.id);
+        return { caseId: lc.id, factor: match ? match[1] : 0 };
+      });
+    }
+    function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
+      const factors = mkFactors(pairs);
+      return { name, factors, exists: comboExists(factors), selected: false, template: 'lrfd' as ComboTemplate };
+    }
+
+    const out: CandidateCombo[] = [];
+    if (D.length === 0) return out;
+
+    // 1. 1.4D
+    out.push(mk('1.4D', D.map(id => [id, 1.4])));
+
+    // 2. 1.2D + 1.6L + 0.5(Lr or S)
+    if (L.length > 0) {
+      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...L.map(id => [id, 1.6] as [number, number])];
+      if (Lr.length > 0) out.push(mk('1.2D + 1.6L + 0.5Lr', [...base, ...Lr.map(id => [id, 0.5] as [number, number])]));
+      else if (S2.length > 0) out.push(mk('1.2D + 1.6L + 0.5S', [...base, ...S2.map(id => [id, 0.5] as [number, number])]));
+      else out.push(mk('1.2D + 1.6L', base));
+    }
+
+    // 3. 1.2D + 1.6(Lr or S) + L
+    if (Lr.length > 0) {
+      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...Lr.map(id => [id, 1.6] as [number, number])];
+      out.push(mk(L.length > 0 ? '1.2D + 1.6Lr + L' : '1.2D + 1.6Lr', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
+    } else if (S2.length > 0) {
+      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...S2.map(id => [id, 1.6] as [number, number])];
+      out.push(mk(L.length > 0 ? '1.2D + 1.6S + L' : '1.2D + 1.6S', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
+    }
+
+    // 4. 1.2D + L + 1.6W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
+      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number])];
+      if (L.length > 0) pairs.push(...L.map(id => [id, 1.0] as [number, number]));
+      pairs.push([wId, 1.6]);
+      out.push(mk(`1.2D + L + 1.6${sn}`, pairs));
+    }
+    // 5. 1.2D + L + E (per seismic direction)
+    for (const eId of E2) {
+      const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
+      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number])];
+      if (L.length > 0) pairs.push(...L.map(id => [id, 1.0] as [number, number]));
+      pairs.push([eId, 1.0]);
+      out.push(mk(`1.2D + L + ${sn}`, pairs));
+    }
+    // 6. 0.9D + 1.6W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
+      out.push(mk(`0.9D + 1.6${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [wId, 1.6]]));
+    }
+    // 7. 0.9D + E (per seismic direction)
+    for (const eId of E2) {
+      const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
+      out.push(mk(`0.9D + ${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [eId, 1.0]]));
+    }
+
+    // Default selection: check only those that don't already exist
+    for (const c of out) c.selected = !c.exists;
+    return out;
+  }
+
+  function openComboGenerator(template: ComboTemplate) {
+    if ((modelStore.model.loadCases.find(c => (c.type || '').toUpperCase() === 'D')) == null) {
+      uiStore.toast(t('pro.needDeadCase'), 'error');
+      return;
+    }
+    activeTemplate = template;
+    candidateCombos = buildCandidates(template);
+    showComboModal = true;
+  }
+
+  function applySelectedCombos() {
+    const toAdd = candidateCombos.filter(c => c.selected);
+    if (toAdd.length === 0) { showComboModal = false; return; }
+    const prefix = activeTemplate === 'service' ? 'S' : 'U';
+    // Count only combos with matching prefix for independent numbering
+    const pattern = new RegExp(`^${prefix}\\d+:`);
+    let n = combinations.filter(c => pattern.test(c.name)).length;
+    modelStore.batch(() => {
+      for (const c of toAdd) {
+        n++;
+        modelStore.addCombination(`${prefix}${n}: ${c.name}`, c.factors);
+      }
+    });
+    showComboModal = false;
+    const label = activeTemplate === 'service' ? t('pro.serviceCombosGenerated') : t('pro.combosGenerated');
+    uiStore.toast(`${toAdd.length} ${label}`, 'success');
+  }
+
   function removeCombination(id: number) {
     modelStore.removeCombination(id);
   }
@@ -354,6 +555,11 @@
           <div class="pro-combo-card">
             <div class="combo-header">
               <span class="combo-name">{combo.name}</span>
+              {#if /^U\d+:/.test(combo.name)}
+                <span class="combo-prov-badge combo-prov-lrfd">LRFD</span>
+              {:else if /^S\d+:/.test(combo.name)}
+                <span class="combo-prov-badge combo-prov-svc">SVC</span>
+              {/if}
               <button class="pro-delete-btn" onclick={() => removeCombination(combo.id)}>×</button>
             </div>
             <table class="combo-factor-table">
@@ -382,6 +588,14 @@
         <div class="pro-combo-add">
           <input type="text" bind:value={newComboName} placeholder={t('pro.comboPlaceholder')} class="inp-case" />
           <button class="pro-btn-sm" onclick={addCombination}>{t('pro.addCombo')}</button>
+        </div>
+        <div class="pro-combo-generate">
+          <button class="pro-btn pro-btn-accent" onclick={() => openComboGenerator('lrfd')} title={t('pro.generateLRFDHint')}>
+            {t('pro.generateLRFD')}
+          </button>
+          <button class="pro-btn" onclick={() => openComboGenerator('service')} title={t('pro.generateServiceHint')}>
+            {t('pro.generateService')}
+          </button>
         </div>
       </div>
     </details>
@@ -597,6 +811,52 @@
   </div>
 </div>
 
+<!-- LRFD Combination Generator Modal -->
+{#if showComboModal}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="combo-modal-backdrop" onclick={() => showComboModal = false}>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="combo-modal" onclick={(e) => e.stopPropagation()}>
+      <div class="combo-modal-header">
+        <h3>{activeTemplate === 'service' ? t('pro.generateService') : t('pro.generateLRFD')}</h3>
+        <span class="combo-modal-sub">{activeTemplate === 'service' ? 'ASCE 7 §2.4 / CIRSOC 101 ASD' : 'ASCE 7 §2.3 / CIRSOC 101 LRFD'}</span>
+        <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
+      </div>
+      <div class="combo-modal-body">
+        {#each candidateCombos as cand, i}
+          {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
+            const typePri = (id: number) => {
+              const lc2 = loadCases.find(c => c.id === id);
+              const tp = (lc2?.type || '').toUpperCase();
+              if (tp === 'D') return 0; if (tp === 'L') return 1; if (tp === 'LR') return 2;
+              if (tp === 'S') return 3; if (tp === 'W') return 4; if (tp === 'E') return 5; return 6;
+            };
+            return typePri(a.caseId) - typePri(b.caseId) || a.caseId - b.caseId;
+          })}
+          <label class="combo-cand-row" class:combo-exists={cand.exists}>
+            <input type="checkbox" bind:checked={candidateCombos[i].selected} />
+            <span class="combo-cand-name">{cand.name}</span>
+            <span class="combo-cand-factors">
+              {#each nonZero as f}
+                {@const lc3 = loadCases.find(c => c.id === f.caseId)}
+                <span class="cand-factor-row"><span class="cand-f-val">{f.factor}</span> <span class="cand-f-type">{lc3?.type || '?'}</span> <span class="cand-f-name">{lc3?.name ?? f.caseId}</span></span>
+              {/each}
+            </span>
+            {#if cand.exists}
+              <span class="combo-exists-badge">{t('pro.comboAlreadyExists')}</span>
+            {/if}
+          </label>
+        {/each}
+      </div>
+      <div class="combo-modal-footer">
+        <span class="combo-modal-count">{candidateCombos.filter(c => c.selected).length} / {candidateCombos.length} {t('pro.selected')}</span>
+        <button class="pro-btn" onclick={() => showComboModal = false}>{t('calcReport.cancel')}</button>
+        <button class="pro-btn pro-btn-accent" onclick={applySelectedCombos} disabled={candidateCombos.filter(c => c.selected).length === 0}>{t('pro.generateSelected')}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .pro-loads { display: flex; flex-direction: column; }
   .pro-sw-bar {
@@ -718,7 +978,11 @@
     background: #0a1828; border: 1px solid #12253d; border-radius: 5px;
     padding: 6px 10px; margin-bottom: 6px;
   }
-  .combo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .combo-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .combo-header .pro-delete-btn { margin-left: auto; }
+  .combo-prov-badge { font-size: 0.52rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .combo-prov-lrfd { color: #e94560; background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2); }
+  .combo-prov-svc { color: #4ecdc4; background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
   .combo-name { font-size: 0.75rem; color: #ccc; font-weight: 600; }
   .combo-factor-table { border-collapse: collapse; width: 100%; }
   .combo-factor-table td { padding: 2px 4px; font-size: 0.7rem; color: #aaa; }
@@ -731,6 +995,31 @@
   }
   .inp-factor:focus { border-color: #1a4a7a; outline: none; }
   .pro-combo-add { display: flex; gap: 6px; align-items: center; padding-top: 6px; }
+  .pro-combo-generate { display: flex; gap: 8px; align-items: center; padding-top: 8px; border-top: 1px solid #12253d; margin-top: 8px; }
+  .pro-combo-gen-hint { font-size: 0.65rem; color: #556; font-style: italic; }
+
+  /* LRFD Generator Modal */
+  .combo-modal-backdrop { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
+  .combo-modal { background: #0d1b2e; border: 1px solid #1a4a7a; border-radius: 10px; width: min(520px, calc(100vw - 40px)); max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+  .combo-modal-header { padding: 14px 18px; border-bottom: 1px solid #1a3050; display: flex; align-items: center; gap: 10px; }
+  .combo-modal-header h3 { font-size: 0.85rem; color: #eee; font-weight: 700; margin: 0; }
+  .combo-modal-sub { font-size: 0.62rem; color: #4ecdc4; background: rgba(78,205,196,0.1); padding: 2px 6px; border-radius: 3px; }
+  .combo-modal-close { margin-left: auto; background: none; border: none; color: #666; font-size: 1.1rem; cursor: pointer; }
+  .combo-modal-close:hover { color: #e94560; }
+  .combo-modal-body { flex: 1; overflow-y: auto; padding: 8px 12px; }
+  .combo-cand-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; cursor: pointer; font-size: 0.75rem; color: #ccc; transition: background 0.1s; }
+  .combo-cand-row:hover { background: rgba(78,205,196,0.06); }
+  .combo-cand-row.combo-exists { opacity: 0.5; }
+  .combo-cand-row input[type="checkbox"] { accent-color: #4ecdc4; cursor: pointer; }
+  .combo-cand-name { font-weight: 600; min-width: 120px; color: #ddd; }
+  .combo-cand-factors { font-size: 0.62rem; color: #778; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+  .cand-factor-row { display: flex; gap: 4px; align-items: baseline; }
+  .cand-f-val { font-family: monospace; min-width: 28px; text-align: right; color: #99a; }
+  .cand-f-type { font-weight: 600; color: #556; min-width: 16px; }
+  .cand-f-name { color: #667; }
+  .combo-exists-badge { font-size: 0.58rem; color: #f0a500; background: rgba(240,165,0,0.1); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+  .combo-modal-footer { padding: 10px 18px; border-top: 1px solid #1a3050; display: flex; align-items: center; gap: 8px; }
+  .combo-modal-count { flex: 1; font-size: 0.68rem; color: #667; }
 
   .pro-loads-header { padding: 8px 12px; border-bottom: 1px solid #1a3050; }
   .pro-loads-count { font-size: 0.78rem; color: #4ecdc4; font-weight: 600; }
