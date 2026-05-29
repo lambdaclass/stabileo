@@ -182,13 +182,20 @@ export interface SolverQuadElement {
 
 // ─── Constraints ────────────────────────────────────────────────
 
-export type ConstraintType = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMpc';
+// NOTE: Discriminators must match the Rust serde rename for each Constraint variant
+// in `engine/src/types/input.rs` exactly. `equalDOF` and `linearMPC` keep the all-caps
+// acronym; the others are camelCase. Diverging here surfaces as a runtime
+// `Parse error: unknown variant ...` from the solver.
+export type ConstraintType = 'rigidLink' | 'diaphragm' | 'equalDOF' | 'linearMPC' | 'eccentricConnection';
 
 export interface RigidLinkConstraint {
   type: 'rigidLink';
   masterNode: number;
   slaveNode: number;
-  dofs?: number[]; // optional, empty = all translational
+  /** Integer DOF indices to constrain on the slave (Rust `Vec<usize>`).
+   *  3D: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz. Empty = all translational.
+   *  Do NOT pass DOF name strings; the solver expects indices. */
+  dofs?: number[];
 }
 
 export interface DiaphragmConstraint {
@@ -199,18 +206,80 @@ export interface DiaphragmConstraint {
 }
 
 export interface EqualDofConstraint {
-  type: 'equalDof';
+  // Discriminator is `equalDOF` to match the Rust serde rename, NOT `equalDof`.
+  type: 'equalDOF';
   masterNode: number;
   slaveNode: number;
+  /** Integer DOF indices (Rust `Vec<usize>`); see RigidLinkConstraint for the mapping. */
   dofs: number[];
 }
 
 export interface LinearMpcConstraint {
-  type: 'linearMpc';
+  // Discriminator is `linearMPC` to match the Rust serde rename, NOT `linearMpc`.
+  type: 'linearMPC';
+  // Term shape mirrors Rust MPCTerm: { node_id, dof: usize, coefficient: f64 }.
+  // Field names are camelCased by the Rust serde rule (rename_all = "camelCase"),
+  // so JS-side: { nodeId, dof: number, coefficient: number }.
+  // The constraint sums to 0 by definition — there is no `rhs` field.
   terms: Array<{ nodeId: number; dof: number; coefficient: number }>;
 }
 
-export type Constraint3D = RigidLinkConstraint | DiaphragmConstraint | EqualDofConstraint | LinearMpcConstraint;
+/**
+ * Eccentric connection: rigid link with explicit offset and per-DOF releases at the
+ * connection point. This is where translational releases live in the solver model
+ * (mirrors Rust EccentricConnectionConstraint).
+ *
+ * `releases` length follows the dimension: 3 in 2D `[ux, uz, ry]`, 6 in 3D
+ * `[ux, uy, uz, rx, ry, rz]`. A `true` entry means that DOF is NOT constrained.
+ */
+export interface EccentricConnectionConstraint {
+  type: 'eccentricConnection';
+  masterNode: number;
+  slaveNode: number;
+  /** Offset from master to connection point (m). */
+  offsetX?: number;
+  offsetY?: number;
+  offsetZ?: number;
+  /** Per-DOF release flags at the connection (true = released/hinged). */
+  releases?: boolean[];
+}
+
+export type Constraint3D =
+  | RigidLinkConstraint
+  | DiaphragmConstraint
+  | EqualDofConstraint
+  | LinearMpcConstraint
+  | EccentricConnectionConstraint;
+
+// ─── Connector element (joint / spring / bearing between two nodes) ──────
+//
+// Mirrors Rust `ConnectorElement`. Lives parallel to `elements` in the
+// solver input — NOT a structural beam-like element (no section properties,
+// no internal-force diagrams). Its job is point-to-point stiffness in named
+// directions, so it expresses sliders, bearings, isolators, point springs,
+// joint flexibility, etc.
+//
+// Translational releases are expressed by setting the relevant stiffness to
+// 0 (or near-zero). Do NOT add release-style boolean fields here — that
+// would diverge from the solver shape.
+
+export interface ConnectorElement {
+  id: number;
+  nodeI: number;
+  nodeJ: number;
+  /** Axial stiffness along connector axis (kN/m). */
+  kAxial?: number;
+  /** Shear stiffness perpendicular to axis. 2D: in-plane perpendicular; 3D: local Y (kN/m). */
+  kShear?: number;
+  /** Rotational stiffness. 2D: about Z (kN·m/rad); 3D: torsional about local X (kN·m/rad). */
+  kMoment?: number;
+  /** 3D only — shear stiffness in local Z direction (kN/m). */
+  kShearZ?: number;
+  /** 3D only — bending stiffness about local Y (kN·m/rad). */
+  kBendY?: number;
+  /** 3D only — bending stiffness about local Z (kN·m/rad). */
+  kBendZ?: number;
+}
 
 // ─── Input ───────────────────────────────────────────────────────
 
@@ -224,6 +293,9 @@ export interface SolverInput3D {
   plates?: Map<number, SolverPlateElement>;
   quads?: Map<number, SolverQuadElement>;
   constraints?: Constraint3D[];
+  /** Joint/spring/bearing primitives, parallel to `elements`. Solver-side: top-level
+   *  `connectors: HashMap<String, ConnectorElement>` (see Rust ConnectorElement). */
+  connectors?: Map<number, ConnectorElement>;
   leftHand?: boolean;  // Terna izquierda: negate ey in local axes
 }
 

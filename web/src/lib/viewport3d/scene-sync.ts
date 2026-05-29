@@ -143,6 +143,18 @@ export function syncElements(ctx: SceneSyncContext): void {
     // Always maintain the batched wireframe segment so toggling render mode
     // doesn't require a full rebuild.
     eb.upsert(id, posI.x, posI.y, posI.z, posJ.x, posJ.y, posJ.z);
+    // Push the per-type base color so frame vs truss is visually distinct
+    // even before the user makes a selection. Without this, the batched
+    // mesh keeps the default COLORS.frame for every element on first load
+    // and trusses look identical to frames until syncSelection runs.
+    // Mirror the wireframe-vs-solid color choice from syncSelection.
+    {
+      const isTruss = elem.type === 'truss';
+      const baseColor = (renderMode === 'wireframe')
+        ? (isTruss ? 0xf0b848 : 0x6cb4ff)
+        : (isTruss ? COLORS.truss : COLORS.frame);
+      eb.setBaseColor(id, baseColor);
+    }
     // BVH-accelerated picking surface (invisible) — kept in sync with positions.
     ep.upsert(id, posI, posJ);
 

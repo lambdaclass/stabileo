@@ -86,6 +86,16 @@ function createUIStore() {
   let snapToGrid = $state<boolean>(true);
   let showGrid = $state<boolean>(true);
 
+  // Basic-mode modeling option: when ON, clicking with the node tool on the
+  // interior of an existing element subdivides that element into two by
+  // placing the new node on it. Defaults ON — the natural intent when a
+  // user clicks on top of a bar is "I want a node on that bar". When the
+  // setting is ON together with snap-to-grid, the click is grid-snapped
+  // *first* and then projected onto the element, so the new node lands at
+  // a grid-aligned position on the bar (not at an arbitrary projected
+  // point).
+  let autoSplitOnNodePlace = $state<boolean>(true);
+
   let zoom = $state<number>(50); // pixels per meter
   let panX = $state<number>(400);
   let panY = $state<number>(300);
@@ -389,6 +399,9 @@ function createUIStore() {
 
     get showGrid() { return showGrid; },
     set showGrid(v: boolean) { showGrid = v; },
+
+    get autoSplitOnNodePlace() { return autoSplitOnNodePlace; },
+    set autoSplitOnNodePlace(v: boolean) { autoSplitOnNodePlace = v; },
 
     get zoom() { return zoom; },
     set zoom(v: number) { zoom = Math.max(10, Math.min(200, v)); },

@@ -12,6 +12,7 @@ import {
   addShellConnectivity, addShellAdjacency,
   postProcessShellStresses,
 } from './solver-shells';
+import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-connectivity';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
 import { t } from '../i18n';
 import {
@@ -40,6 +41,7 @@ export interface ModelData {
   plates?: Map<number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }>;
   quads?: Map<number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }>;
   constraints?: Constraint3D[];
+  connectors?: Map<number, import('./types-3d').ConnectorElement>;
 }
 
 function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
@@ -163,12 +165,22 @@ export function validateAndSolve2D(
     return t('svc.needSupport');
   }
 
-  // Check for disconnected nodes (nodes not connected to any element)
+  // Check for disconnected nodes. Connectivity sources: structural elements,
+  // connectors (ConnectorElement), and constraints (rigidLink, equalDOF,
+  // eccentricConnection, diaphragm, linearMPC). A node coupled only via any
+  // of those is NOT orphaned. See constraint-connectivity.ts for the rule.
   const connectedNodes = new Set<number>();
   for (const elem of model.elements.values()) {
     connectedNodes.add(elem.nodeI);
     connectedNodes.add(elem.nodeJ);
   }
+  if (model.connectors) {
+    for (const conn of model.connectors.values()) {
+      connectedNodes.add(conn.nodeI);
+      connectedNodes.add(conn.nodeJ);
+    }
+  }
+  addConstraintConnectivity(connectedNodes, model.constraints);
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
       return t('svc.disconnectedNode').replace('{n}', String(nodeId));
@@ -296,6 +308,13 @@ export function validateAndSolve2D(
       adj.get(elem.nodeI)!.add(elem.nodeJ);
       adj.get(elem.nodeJ)!.add(elem.nodeI);
     }
+    if (model.connectors) {
+      for (const conn of model.connectors.values()) {
+        adj.get(conn.nodeI)?.add(conn.nodeJ);
+        adj.get(conn.nodeJ)?.add(conn.nodeI);
+      }
+    }
+    addConstraintAdjacency(adj, model.constraints);
     const visited = new Set<number>();
     const startNode = connectedNodes.values().next().value!;
     const queue = [startNode];
@@ -1141,6 +1160,7 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
     plates: model.plates ? new Map(Array.from(model.plates.entries()).map(([id, p]) => [id, { id: p.id, nodes: p.nodes, materialId: p.materialId, thickness: p.thickness }])) : new Map(),
     quads: model.quads ? new Map(Array.from(model.quads.entries()).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
     constraints: model.constraints ?? [],
+    connectors: model.connectors,
     leftHand,
   };
 }
@@ -1156,13 +1176,22 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return t('svc.needSupport');
   }
 
-  // Check for disconnected nodes (consider elements + PRO shell elements)
+  // Check for disconnected nodes (elements + PRO shell elements + connectors
+  // + constraints). A node coupled by any of these is NOT orphaned. See
+  // constraint-connectivity.ts for the constraint-edge rule.
   const connectedNodes = new Set<number>();
   for (const elem of model.elements.values()) {
     connectedNodes.add(elem.nodeI);
     connectedNodes.add(elem.nodeJ);
   }
   addShellConnectivity(connectedNodes, model.plates, model.quads);
+  if (model.connectors) {
+    for (const conn of model.connectors.values()) {
+      connectedNodes.add(conn.nodeI);
+      connectedNodes.add(conn.nodeJ);
+    }
+  }
+  addConstraintConnectivity(connectedNodes, model.constraints);
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
       return t('svc.disconnectedNode').replace('{n}', String(nodeId));
@@ -1184,7 +1213,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     }
   }
 
-  // Check graph connectivity (include plate/quad adjacency)
+  // Check graph connectivity (plate/quad adjacency + connector edges +
+  // constraint edges)
   const adj = new Map<number, Set<number>>();
   for (const nid of connectedNodes) adj.set(nid, new Set());
   for (const elem of model.elements.values()) {
@@ -1192,6 +1222,13 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     adj.get(elem.nodeJ)!.add(elem.nodeI);
   }
   addShellAdjacency(adj, model.plates, model.quads);
+  if (model.connectors) {
+    for (const conn of model.connectors.values()) {
+      adj.get(conn.nodeI)?.add(conn.nodeJ);
+      adj.get(conn.nodeJ)?.add(conn.nodeI);
+    }
+  }
+  addConstraintAdjacency(adj, model.constraints);
   const visited = new Set<number>();
   const startNode = connectedNodes.values().next().value!;
   const queue = [startNode];

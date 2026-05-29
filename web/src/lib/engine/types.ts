@@ -92,6 +92,13 @@ export interface SolverInput {
   elements: Map<number, SolverElement>;
   supports: Map<number, SolverSupport>;
   loads: SolverLoad[];
+  /** 2D constraints (subset of the 3D Constraint3D union). Schema present so the
+   *  solver wire format matches; runtime wiring lands when Basic 2D needs it. */
+  constraints?: import('./types-3d').Constraint3D[];
+  /** Joint/spring/bearing primitives between two nodes (mirrors Rust
+   *  `connectors: HashMap<String, ConnectorElement>`). 2D uses kAxial/kShear/kMoment;
+   *  the 3D-only fields on ConnectorElement are ignored by the 2D solver. */
+  connectors?: Map<number, import('./types-3d').ConnectorElement>;
 }
 
 export interface Displacement {

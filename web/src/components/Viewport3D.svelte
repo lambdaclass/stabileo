@@ -470,12 +470,15 @@
     // there is no need for a separate proxy. During orbit we force it visible
     // as the LOD stand-in; at idle its visibility follows `renderMode3D`.
     function setLowDetail(on: boolean): void {
+      const dt = resultsStore.diagramType;
+      const resultsColoringActive = !!resultsStore.results3D
+        && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
         elementsParent,
         elementsBatchedMesh: elementsBatched.mesh,
         renderMode: uiStore.renderMode3D,
-      });
+      }, { resultsColoringActive });
     }
     controls.addEventListener('start', () => {
       isOrbiting = true;
@@ -562,6 +565,7 @@
       initialized: false,
       resultsParent, scene,
       elementGroups,
+      elementsBatched,
       shellGroups: sceneCtx.shellGroups,
       deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null,
       reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,

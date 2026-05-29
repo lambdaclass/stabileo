@@ -3,15 +3,22 @@
   import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   import { t } from '../../lib/i18n';
 
-  type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMpc';
+  // Discriminator strings must match the Rust Constraint variant rename
+  // in engine/src/types/input.rs. Both `equalDOF` and `linearMPC` keep
+  // the all-caps acronym; using camelCase here surfaces as a runtime
+  // `Parse error: unknown variant ...` from the solver.
+  type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDOF' | 'linearMPC' | 'eccentricConnection';
 
   const constraintKinds = $derived([
     { value: 'rigidLink' as ConstraintKind, label: t('pro.rigidLink') },
     { value: 'diaphragm' as ConstraintKind, label: t('pro.diaphragm') },
-    { value: 'equalDof' as ConstraintKind, label: t('pro.equalDof') },
-    { value: 'linearMpc' as ConstraintKind, label: t('pro.linearMpc') },
+    { value: 'equalDOF' as ConstraintKind, label: t('pro.equalDof') },
+    { value: 'eccentricConnection' as ConstraintKind, label: t('pro.eccentricConnection') },
+    { value: 'linearMPC' as ConstraintKind, label: t('pro.linearMpc') },
   ]);
 
+  // 3D DOF order MUST mirror EccentricConnectionConstraint.releases ordering
+  // in engine/src/types/input.rs: 3D = [ux, uy, uz, rx, ry, rz].
   const dofLabels = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] as const;
   const planeOptions = ['XY', 'XZ', 'YZ'] as const;
 
@@ -34,7 +41,34 @@
 
   // Linear MPC state
   let mpcTerms = $state('');
-  let mpcRhs = $state('0');
+
+  // Eccentric Connection state — translational releases live here, mirroring the
+  // solver's EccentricConnectionConstraint shape: master/slave nodes coupled with
+  // a rigid offset, with per-DOF release flags at the connection point.
+  // releases[i] === true means DOF i is released (NOT constrained), so the slave
+  // is free in that DOF — that's how a sliding bearing along ux is expressed.
+  let ecMaster = $state('');
+  let ecSlave = $state('');
+  let ecOffsetX = $state('0');
+  let ecOffsetY = $state('0');
+  let ecOffsetZ = $state('0');
+  let ecReleases = $state([false, false, false, false, false, false]); // [ux, uy, uz, rx, ry, rz]
+
+  // ─── Connector (joint/spring/bearing) state ──────────────────
+  // Six stiffness components mirror Rust ConnectorElement. Setting a component
+  // to 0 produces sliding/flexibility in that direction — this is the explicit
+  // way to express a sliding bearing in the "joint/connection" mental model:
+  // pick which directions are stiff, leave the others at 0.
+  let connNodeI = $state('');
+  let connNodeJ = $state('');
+  let connKAxial = $state('0');
+  let connKShear = $state('0');
+  let connKMoment = $state('0');
+  let connKShearZ = $state('0');
+  let connKBendY = $state('0');
+  let connKBendZ = $state('0');
+
+  const connectors = $derived([...modelStore.connectors.values()]);
 
   const constraints = $derived(modelStore.model.constraints ?? []);
 
@@ -48,13 +82,15 @@
     const master = validateNode(rlMaster);
     const slave = validateNode(rlSlave);
     if (master === null || slave === null || master === slave) return;
-    const activeDofs = dofLabels.filter((_, i) => rlDofs[i]) as string[];
+    // Rust RigidLinkConstraint.dofs is Vec<usize> — emit integer indices
+    // (3D: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz), NOT name strings.
+    const activeDofs = dofLabels.map((_, i) => i).filter(i => rlDofs[i]);
     if (activeDofs.length === 0) return;
     modelStore.addConstraint({
       type: 'rigidLink',
       masterNode: master,
       slaveNode: slave,
-      dofs: activeDofs as any,
+      dofs: activeDofs,
     });
     rlMaster = '';
     rlSlave = '';
@@ -79,46 +115,75 @@
     const master = validateNode(eqMaster);
     const slave = validateNode(eqSlave);
     if (master === null || slave === null || master === slave) return;
-    const activeDofs = dofLabels.filter((_, i) => eqDofs[i]) as string[];
+    // Rust EqualDOFConstraint.dofs is Vec<usize>. Same indexing as RigidLink.
+    const activeDofs = dofLabels.map((_, i) => i).filter(i => eqDofs[i]);
     if (activeDofs.length === 0) return;
     modelStore.addConstraint({
-      type: 'equalDof',
+      // Rust serde rename: equalDOF (all-caps acronym), NOT equalDof.
+      type: 'equalDOF',
       masterNode: master,
       slaveNode: slave,
-      dofs: activeDofs as any,
+      dofs: activeDofs,
     });
     eqMaster = '';
     eqSlave = '';
   }
 
   function addLinearMpc() {
-    const rhs = parseFloat(mpcRhs);
-    if (isNaN(rhs)) return;
-    // Parse terms: "nodeId:dof:coeff, ..." e.g. "1:ux:1.0, 2:ux:-1.0"
-    const parsed = mpcTerms.split(',').map(t => {
-      const parts = t.trim().split(':');
+    // Parse terms: "nodeId:dof:coefficient, ..." e.g. "1:ux:1.0, 2:ux:-1.0".
+    // Convert to the shape Rust expects: type discriminator `linearMPC`,
+    // each term { nodeId, dof: usize-index, coefficient: f64 }. The constraint
+    // sums to 0 by definition — no `rhs` field exists in LinearMPCConstraint.
+    const parsed = mpcTerms.split(',').map(s => {
+      const parts = s.trim().split(':');
       if (parts.length !== 3) return null;
       const nodeId = parseInt(parts[0]);
-      const dof = parts[1].trim();
-      const coeff = parseFloat(parts[2]);
-      if (isNaN(nodeId) || isNaN(coeff) || !dofLabels.includes(dof as any)) return null;
-      return { nodeId, dof, coeff };
-    }).filter(Boolean) as { nodeId: number; dof: string; coeff: number }[];
+      const dofName = parts[1].trim();
+      const coefficient = parseFloat(parts[2]);
+      const dofIdx = dofLabels.indexOf(dofName as typeof dofLabels[number]);
+      if (isNaN(nodeId) || isNaN(coefficient) || dofIdx < 0) return null;
+      return { nodeId, dof: dofIdx, coefficient };
+    }).filter(Boolean) as Array<{ nodeId: number; dof: number; coefficient: number }>;
     if (parsed.length === 0) return;
     modelStore.addConstraint({
-      type: 'linearMpc',
-      terms: parsed as any,
-      rhs,
-    } as any);
+      type: 'linearMPC',
+      terms: parsed,
+    });
     mpcTerms = '';
-    mpcRhs = '0';
+  }
+
+  function addEccentricConnection() {
+    const master = validateNode(ecMaster);
+    const slave = validateNode(ecSlave);
+    if (master === null || slave === null || master === slave) return;
+    const ox = parseFloat(ecOffsetX);
+    const oy = parseFloat(ecOffsetY);
+    const oz = parseFloat(ecOffsetZ);
+    if (isNaN(ox) || isNaN(oy) || isNaN(oz)) return;
+    modelStore.addConstraint({
+      type: 'eccentricConnection',
+      masterNode: master,
+      slaveNode: slave,
+      offsetX: ox,
+      offsetY: oy,
+      offsetZ: oz,
+      // Pass the full 6-bool array — solver Vec<bool> length must match dimension.
+      releases: [...ecReleases],
+    });
+    ecMaster = '';
+    ecSlave = '';
+    ecOffsetX = '0';
+    ecOffsetY = '0';
+    ecOffsetZ = '0';
+    ecReleases = [false, false, false, false, false, false];
   }
 
   function addConstraint() {
     if (selectedKind === 'rigidLink') addRigidLink();
     else if (selectedKind === 'diaphragm') addDiaphragm();
-    else if (selectedKind === 'equalDof') addEqualDof();
-    else if (selectedKind === 'linearMpc') addLinearMpc();
+    else if (selectedKind === 'equalDOF') addEqualDof();
+    else if (selectedKind === 'eccentricConnection') addEccentricConnection();
+    else if (selectedKind === 'linearMPC') addLinearMpc();
   }
 
   function removeConstraint(index: number) {
@@ -172,16 +237,76 @@
     }
   }
 
+  function dofIndicesToNames(dofs: unknown): string {
+    if (!Array.isArray(dofs) || dofs.length === 0) return t('pro.allDofs');
+    return dofs.map((d: unknown) => {
+      // Indices are the canonical wire form; tolerate stale string entries
+      // surfacing from older saved data, since name → index migration is
+      // out of scope here.
+      if (typeof d === 'number') return dofLabels[d] ?? String(d);
+      return String(d);
+    }).join(',');
+  }
+
   function constraintLabel(c: any): string {
-    if (c.type === 'rigidLink') return t('pro.constraintRigid').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', c.dofs ? c.dofs.join(',') : t('pro.allDofs'));
+    if (c.type === 'rigidLink') return t('pro.constraintRigid').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', dofIndicesToNames(c.dofs));
     if (c.type === 'diaphragm') return t('pro.constraintDiaph').replace('{plane}', c.plane ?? 'XZ').replace('{master}', c.masterNode).replace('{n}', String(c.slaveNodes?.length ?? 0));
-    if (c.type === 'equalDof') return t('pro.constraintEqDof').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', c.dofs ? c.dofs.join(',') : t('pro.allDofs'));
-    if (c.type === 'linearMpc') return t('pro.constraintMpc').replace('{n}', String(c.terms?.length ?? 0)).replace('{rhs}', String(c.rhs ?? 0));
+    if (c.type === 'equalDOF') return t('pro.constraintEqDof').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', dofIndicesToNames(c.dofs));
+    if (c.type === 'linearMPC') return t('pro.constraintMpc').replace('{n}', String(c.terms?.length ?? 0));
+    if (c.type === 'eccentricConnection') {
+      const offset = `(${c.offsetX ?? 0}, ${c.offsetY ?? 0}, ${c.offsetZ ?? 0})`;
+      const releasedDofs = (c.releases ?? []).map((r: boolean, i: number) => r ? dofLabels[i] : null).filter(Boolean).join(',');
+      const releasesLabel = releasedDofs.length > 0 ? releasedDofs : t('pro.eccentricNoRelease');
+      return t('pro.constraintEcc')
+        .replace('{master}', c.masterNode)
+        .replace('{slave}', c.slaveNode)
+        .replace('{offset}', offset)
+        .replace('{releases}', releasesLabel);
+    }
     return t('pro.unknown');
   }
 
   function constraintTypeLabel(type: string): string {
     return constraintKinds.find(k => k.value === type)?.label ?? type;
+  }
+
+  function addConnector() {
+    const ni = validateNode(connNodeI);
+    const nj = validateNode(connNodeJ);
+    if (ni === null || nj === null || ni === nj) return;
+    const kA = parseFloat(connKAxial);
+    const kS = parseFloat(connKShear);
+    const kM = parseFloat(connKMoment);
+    const kSz = parseFloat(connKShearZ);
+    const kBy = parseFloat(connKBendY);
+    const kBz = parseFloat(connKBendZ);
+    if ([kA, kS, kM, kSz, kBy, kBz].some(v => isNaN(v))) return;
+    // Disallow all-zero connectors — that's a fully disconnected pair, almost
+    // certainly a user error and a guaranteed mechanism.
+    if (kA === 0 && kS === 0 && kM === 0 && kSz === 0 && kBy === 0 && kBz === 0) return;
+    modelStore.addConnector({
+      nodeI: ni, nodeJ: nj,
+      kAxial: kA, kShear: kS, kMoment: kM,
+      kShearZ: kSz, kBendY: kBy, kBendZ: kBz,
+    });
+    connNodeI = '';
+    connNodeJ = '';
+    connKAxial = '0'; connKShear = '0'; connKMoment = '0';
+    connKShearZ = '0'; connKBendY = '0'; connKBendZ = '0';
+  }
+
+  function removeConnector(id: number) {
+    modelStore.removeConnector(id);
+  }
+
+  function fmtStiff(v: number | undefined): string {
+    if (v === undefined || v === 0) return '0';
+    if (Math.abs(v) >= 1e5) return v.toExponential(1);
+    return String(v);
+  }
+
+  function connectorLabel(c: { kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }): string {
+    return `kAxial=${fmtStiff(c.kAxial)}, kShear=${fmtStiff(c.kShear)}, kMoment=${fmtStiff(c.kMoment)}, kShearZ=${fmtStiff(c.kShearZ)}, kBendY=${fmtStiff(c.kBendY)}, kBendZ=${fmtStiff(c.kBendZ)}`;
   }
 </script>
 
@@ -233,7 +358,7 @@
         <label class="pro-label-wide">{t('pro.slaves')}: <input type="text" bind:value={dSlaves} placeholder="1, 2, 3..." class="pro-input-wide" /></label>
       </div>
 
-    {:else if selectedKind === 'equalDof'}
+    {:else if selectedKind === 'equalDOF'}
       <div class="pro-cst-row">
         <label>Master: <input type="text" bind:value={eqMaster} placeholder="ID" class="pro-input-sm" /></label>
         <label>{t('pro.slave')}: <input type="text" bind:value={eqSlave} placeholder="ID" class="pro-input-sm" /></label>
@@ -247,12 +372,32 @@
         {/each}
       </div>
 
-    {:else if selectedKind === 'linearMpc'}
+    {:else if selectedKind === 'eccentricConnection'}
       <div class="pro-cst-row">
-        <label class="pro-label-wide">{t('pro.terms')}: <input type="text" bind:value={mpcTerms} placeholder="nodo:dof:coeff, ..." class="pro-input-wide" /></label>
+        <label>Master: <input type="text" bind:value={ecMaster} placeholder="ID" class="pro-input-sm" /></label>
+        <label>{t('pro.slave')}: <input type="text" bind:value={ecSlave} placeholder="ID" class="pro-input-sm" /></label>
       </div>
       <div class="pro-cst-row">
-        <label>RHS: <input type="text" bind:value={mpcRhs} placeholder="0" class="pro-input-sm" /></label>
+        <label>{t('pro.offsetX')}: <input type="text" bind:value={ecOffsetX} placeholder="0" class="pro-input-sm" /></label>
+        <label>{t('pro.offsetY')}: <input type="text" bind:value={ecOffsetY} placeholder="0" class="pro-input-sm" /></label>
+        <label>{t('pro.offsetZ')}: <input type="text" bind:value={ecOffsetZ} placeholder="0" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-row">
+        <span class="pro-cst-sublabel">{t('pro.releases')}:</span>
+      </div>
+      <div class="pro-cst-dofs">
+        {#each dofLabels as dof, i}
+          <label class="pro-dof-check">
+            <input type="checkbox" bind:checked={ecReleases[i]} />
+            <span>{dof}</span>
+          </label>
+        {/each}
+      </div>
+      <div class="pro-cst-hint">{t('pro.eccentricHint')}</div>
+
+    {:else if selectedKind === 'linearMPC'}
+      <div class="pro-cst-row">
+        <label class="pro-label-wide">{t('pro.terms')}: <input type="text" bind:value={mpcTerms} placeholder="nodo:dof:coeff, ..." class="pro-input-wide" /></label>
       </div>
       <div class="pro-cst-hint">{t('pro.formatHint')}</div>
     {/if}
@@ -286,6 +431,72 @@
         {/each}
       </tbody>
     </table>
+  </div>
+
+  <!-- ─── Connectors (joint/spring/bearing) ──────────────────────── -->
+  <!-- Connectors are NOT structural members. They live alongside elements in -->
+  <!-- the solver model, but they don't carry section properties, don't appear -->
+  <!-- in M/V/N diagrams, and don't go through RC/steel design. The mental    -->
+  <!-- model is "stiffness between two nodes in named directions". A zero in  -->
+  <!-- a direction means sliding/flexibility there.                            -->
+  <div class="pro-conn-section">
+    <div class="pro-cst-header">
+      <span class="pro-cst-count">{t('pro.nConnectors').replace('{n}', String(connectors.length))}</span>
+      {#if connectors.length > 0}
+        <button class="pro-btn pro-btn-clear" onclick={() => modelStore.clearConnectors()}>{t('pro.clear')}</button>
+      {/if}
+    </div>
+
+    <div class="pro-cst-form">
+      <div class="pro-cst-hint">{t('pro.connectorIntro')}</div>
+      <div class="pro-cst-row">
+        <label>{t('pro.nodeI')}: <input type="text" bind:value={connNodeI} placeholder="ID" class="pro-input-sm" /></label>
+        <label>{t('pro.nodeJ')}: <input type="text" bind:value={connNodeJ} placeholder="ID" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-row">
+        <span class="pro-cst-sublabel">{t('pro.kInPlane')}:</span>
+      </div>
+      <div class="pro-cst-row">
+        <label>kAxial: <input type="text" bind:value={connKAxial} placeholder="0" class="pro-input-sm" /></label>
+        <label>kShear: <input type="text" bind:value={connKShear} placeholder="0" class="pro-input-sm" /></label>
+        <label>kMoment: <input type="text" bind:value={connKMoment} placeholder="0" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-row">
+        <span class="pro-cst-sublabel">{t('pro.k3D')}:</span>
+      </div>
+      <div class="pro-cst-row">
+        <label>kShearZ: <input type="text" bind:value={connKShearZ} placeholder="0" class="pro-input-sm" /></label>
+        <label>kBendY: <input type="text" bind:value={connKBendY} placeholder="0" class="pro-input-sm" /></label>
+        <label>kBendZ: <input type="text" bind:value={connKBendZ} placeholder="0" class="pro-input-sm" /></label>
+      </div>
+      <div class="pro-cst-hint">{t('pro.connectorHint')}</div>
+      <div class="pro-cst-actions">
+        <button class="pro-btn" onclick={addConnector}>{t('pro.addConnector')}</button>
+      </div>
+    </div>
+
+    <div class="pro-cst-table-wrap">
+      <table class="pro-cst-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{t('pro.thNodes')}</th>
+            <th>{t('pro.thStiffness')}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each connectors as c}
+            <tr>
+              <td class="col-id">{c.id}</td>
+              <td class="col-type">{c.nodeI} → {c.nodeJ}</td>
+              <td class="col-desc">{connectorLabel(c)}</td>
+              <td><button class="pro-delete-btn" onclick={() => removeConnector(c.id)}>×</button></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -395,6 +606,21 @@
     color: #668;
     font-style: italic;
   }
+
+  .pro-cst-sublabel {
+    font-size: 0.72rem;
+    color: #888;
+    font-weight: 600;
+  }
+
+  /* Connectors section sits below the constraints table; visually separated
+   * with a top border + slight color shift so it reads as its own surface
+   * inside the same right-side workflow. */
+  .pro-conn-section {
+    border-top: 2px solid #1a3050;
+    background: #0a1828;
+  }
+  .pro-conn-section .pro-cst-header { background: #0a1828; }
 
   .pro-cst-actions {
     display: flex;
