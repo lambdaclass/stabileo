@@ -252,6 +252,28 @@
     }
   }
 
+  /**
+   * Endpoint demand envelope for a member, preserving My/Mz axis identity (SEAM 3).
+   *
+   * Strong axis = Mz → RC Mu and steel Muz; weak axis = My → Muy. Never
+   * magnitude-sort My/Mz: doing so silently swaps the design axes on
+   * biaxially-bent members. Station-based demands flow through
+   * verification-service; this endpoint summary keeps the identical rule
+   * wherever the component reads raw end forces (e.g. the dead-load service
+   * moment used for crack-width below).
+   */
+  function endpointDemandEnvelope(ef: { mzStart: number; mzEnd: number; myStart: number; myEnd: number }) {
+    const _mzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+    const _myMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+    const _mzM = _mzMax; // steel shares the strong-axis (Mz) envelope
+    // RC: Mu = strong axis (Mz), Muy = weak axis (My)
+    const MuMax = _mzMax;
+    const MuyMax = _myMax;
+    // Steel: Muz = strong axis (Mz)
+    const MuzMax = _mzM;
+    return { Mu: MuMax, Muy: MuyMax, Muz: MuzMax };
+  }
+
   function runVerification() {
     verifyError = null;
     if (!results) {
@@ -362,7 +384,7 @@
             if (deadResult) {
               const deadForces = deadResult.elementForces.find(ef => ef.elementId === v.elementId);
               if (deadForces) {
-                Ms = Math.max(Math.abs(deadForces.mzStart), Math.abs(deadForces.mzEnd));
+                Ms = endpointDemandEnvelope(deadForces).Mu;
               }
             }
           }
