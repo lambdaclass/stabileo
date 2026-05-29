@@ -80,8 +80,8 @@ export function autoVerifyFromResults(
     const isVertical = elemType === 'column' || elemType === 'wall';
 
     // ─── Force extraction: station-based (preferred) or endpoint fallback ───
-    let MuMax: number, VuMax: number, NuMax: number;
-    let MuyMax: number, VzMax: number, TuMax: number;
+    let MzMax: number, MyMax: number, VyAbs: number;
+    let NuMax: number, VzMax: number, TuMax: number;
     // Station-based governing combo refs (richer than endpoint-only governing-case.ts)
     let stationGovCombos: ElementVerification['governingCombos'] | undefined;
 
@@ -95,17 +95,14 @@ export function autoVerifyFromResults(
       const mzNeg = demandMap.get('Mz-');
       const myPos = demandMap.get('My+');
       const myNeg = demandMap.get('My-');
-      const MzMax = Math.max(mzPos?.absValue ?? 0, mzNeg?.absValue ?? 0);
-      const MyMax = Math.max(myPos?.absValue ?? 0, myNeg?.absValue ?? 0);
-      MuMax = Math.max(MzMax, MyMax);
-      MuyMax = Math.min(MzMax, MyMax);
+      MzMax = Math.max(mzPos?.absValue ?? 0, mzNeg?.absValue ?? 0);
+      MyMax = Math.max(myPos?.absValue ?? 0, myNeg?.absValue ?? 0);
 
       // Shear: station-based absolute max (includes interior points)
       const vyDemand = demandMap.get('Vy');
       const vzDemand = demandMap.get('Vz');
-      const VyAbs = vyDemand?.absValue ?? 0;
+      VyAbs = vyDemand?.absValue ?? 0;
       VzMax = vzDemand?.absValue ?? 0;
-      VuMax = Math.max(VyAbs, VzMax);
 
       // Axial: max of compression and tension absolute values
       const nComp = demandMap.get('N_compression');
@@ -131,16 +128,20 @@ export function autoVerifyFromResults(
       if (tDemand) stationGovCombos.torsion = { comboId: tDemand.comboId, comboName: tDemand.comboName };
     } else {
       // ── Legacy endpoint-only fallback ──
-      const MzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-      const MyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-      const VyAbs = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
+      MzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+      MyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+      VyAbs = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
       VzMax = Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-      MuMax = Math.max(MzMax, MyMax);
-      MuyMax = Math.min(MzMax, MyMax);
-      VuMax = Math.max(VyAbs, VzMax);
       NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
       TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
     }
+
+    // ─── Axis identity (SEAM 3): never magnitude-sort My/Mz ───
+    // Strong axis = Mz (paired shear Vy) → Mu / Vu.
+    // Weak axis   = My (paired shear Vz) → Muy / Vz.
+    const MuMax = MzMax;
+    const MuyMax = MyMax;
+    const VuMax = VyAbs;
 
     let M1: number | undefined, M2: number | undefined;
     if (isVertical) {
