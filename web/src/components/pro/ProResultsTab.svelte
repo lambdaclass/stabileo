@@ -2,6 +2,19 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
+  import {
+    FORCE_COMPONENTS,
+    componentUnit,
+    buildQueryRows,
+    extremeRow,
+    filterByAbsThreshold,
+    governingForComponent,
+    topGoverning,
+    rowsToCsv,
+    governingToCsv,
+    type ForceComponent,
+    type ExtremeMode,
+  } from '../../lib/engine/result-query';
 
   let solveError = $state<string | null>(null);
   let solving = $state(false);
@@ -91,6 +104,75 @@
 
   const caseKeys = $derived([...resultsStore.perCase3D.keys()]);
   const comboKeys = $derived([...resultsStore.perCombo3D.keys()]);
+
+  // ─── Result query layer ──────────────────────────────────────
+  let queryComponent = $state<ForceComponent>('Mz');
+  let queryScope = $state<'selected' | 'all' | 'id'>('all');
+  let queryIdInput = $state('');
+  let querySource = $state<'active' | 'governing'>('active');
+  let queryMode = $state<ExtremeMode>('absmax');
+  let queryThreshold = $state(0);
+
+  const hasGoverning = $derived(resultsStore.governing3D.size > 0);
+  // Governing source only makes sense when combos were solved.
+  const effectiveSource = $derived(querySource === 'governing' && hasGoverning ? 'governing' : 'active');
+
+  /** Element id filter from the scope selector, or undefined for "all". */
+  const scopeIds = $derived.by<number[] | undefined>(() => {
+    if (queryScope === 'selected') return [...uiStore.selectedElements];
+    if (queryScope === 'id') {
+      return queryIdInput.split(/[\s,]+/).map((s) => parseInt(s, 10)).filter((n) => Number.isFinite(n));
+    }
+    return undefined;
+  });
+
+  const activeRows = $derived.by(() => {
+    if (!results) return [];
+    return buildQueryRows(results.elementForces, queryComponent, scopeIds ? { elementIds: scopeIds } : {});
+  });
+  const filteredRows = $derived(filterByAbsThreshold(activeRows, queryThreshold));
+  const activeExtreme = $derived(extremeRow(filteredRows, queryMode));
+
+  const governingList = $derived(
+    governingForComponent(resultsStore.governing3D, queryComponent, scopeIds ? { elementIds: scopeIds } : {}),
+  );
+  const governingTop = $derived(topGoverning(governingList));
+
+  // Derive the label from resultsStore.activeView (the source of truth for
+  // what results3D currently holds), NOT the local viewMode — they can diverge
+  // right after Solve (the selector highlights a view before the store switches),
+  // and the label must never claim "Envolvente" while single/all-loads data is shown.
+  const activeSourceLabel = $derived.by(() => {
+    const view = resultsStore.activeView;
+    if (view === 'envelope') return t('pro.viewEnvelope');
+    if (view === 'combo' && resultsStore.activeComboId !== null) {
+      return modelStore.combinations.find((c) => c.id === resultsStore.activeComboId)?.name ?? `${t('pro.comboN')}${resultsStore.activeComboId}`;
+    }
+    if (view === 'single' && resultsStore.activeCaseId !== null) {
+      return modelStore.loadCases.find((c) => c.id === resultsStore.activeCaseId)?.name ?? `${t('pro.caseN')}${resultsStore.activeCaseId}`;
+    }
+    return t('pro.viewCase');
+  });
+
+  const queryUnit = $derived(componentUnit(queryComponent));
+
+  function selectQueryElement(id: number) {
+    uiStore.selectMode = 'elements';
+    uiStore.selectElement(id, false);
+  }
+
+  function exportQueryCsv() {
+    const csv = effectiveSource === 'governing'
+      ? governingToCsv(governingList)
+      : rowsToCsv(filteredRows, activeSourceLabel);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `stabileo-query-${queryComponent}-${effectiveSource}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
 </script>
 
@@ -202,6 +284,123 @@
 
     <!-- Results tables — each collapsible -->
     <div class="pro-res-scroll">
+
+      <!-- Result query / extraction -->
+      <details class="res-detail" open>
+        <summary class="pro-res-section-title">{t('pro.queryTitle')}</summary>
+        <div class="pro-query">
+          <div class="pro-viz-row">
+            <label class="pro-viz-label">{t('pro.queryScope')}</label>
+            <select class="pro-viz-sel" bind:value={queryScope}>
+              <option value="all">{t('pro.queryScopeAll')}</option>
+              <option value="selected">{t('pro.queryScopeSelected')} ({uiStore.selectedElements.size})</option>
+              <option value="id">{t('pro.queryScopeId')}</option>
+            </select>
+          </div>
+          {#if queryScope === 'id'}
+            <div class="pro-viz-row">
+              <label class="pro-viz-label"></label>
+              <input class="pro-viz-sel" type="text" bind:value={queryIdInput} placeholder={t('pro.queryIdPlaceholder')} />
+            </div>
+          {/if}
+          <div class="pro-viz-row">
+            <label class="pro-viz-label">{t('pro.queryComponent')}</label>
+            <select class="pro-viz-sel" bind:value={queryComponent}>
+              {#each FORCE_COMPONENTS as c}
+                <option value={c}>{c}</option>
+              {/each}
+            </select>
+          </div>
+          <div class="pro-viz-row">
+            <label class="pro-viz-label">{t('pro.querySource')}</label>
+            <select class="pro-viz-sel" bind:value={querySource}>
+              <option value="active">{t('pro.querySourceActive')}{effectiveSource === 'active' ? ` — ${activeSourceLabel}` : ''}</option>
+              <option value="governing" disabled={!hasGoverning}>{t('pro.querySourceGoverning')}</option>
+            </select>
+          </div>
+          {#if effectiveSource === 'active'}
+            <div class="pro-viz-row">
+              <label class="pro-viz-label">{t('pro.queryMode')}</label>
+              <select class="pro-viz-sel" bind:value={queryMode}>
+                <option value="absmax">{t('pro.queryModeAbsmax')}</option>
+                <option value="max">{t('pro.queryModeMax')}</option>
+                <option value="min">{t('pro.queryModeMin')}</option>
+              </select>
+            </div>
+            <div class="pro-viz-row">
+              <label class="pro-viz-label">{t('pro.queryThreshold')}</label>
+              <input class="pro-viz-sel" type="number" min="0" step="any" bind:value={queryThreshold} />
+              <span class="pro-viz-val">{queryUnit}</span>
+            </div>
+          {/if}
+
+          <!-- Governing value card -->
+          {#if effectiveSource === 'active'}
+            {#if activeExtreme}
+              <div class="pro-query-card" onclick={() => selectQueryElement(activeExtreme.elementId)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && selectQueryElement(activeExtreme.elementId)}>
+                <span class="pqc-label">{t('pro.queryGoverningValue')}</span>
+                <span class="pqc-val">{queryComponent} = {fmtNum(activeExtreme.value)} {queryUnit}</span>
+                <span class="pqc-meta">{t('pro.elemLabel')} {activeExtreme.elementId} · {t('pro.queryEnd')} {activeExtreme.end} · {activeSourceLabel}</span>
+              </div>
+            {:else}
+              <div class="pro-query-empty">{t('pro.queryNoRows')}</div>
+            {/if}
+          {:else if governingTop}
+            <div class="pro-query-card" onclick={() => selectQueryElement(governingTop.elementId)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && selectQueryElement(governingTop.elementId)}>
+              <span class="pqc-label">{t('pro.queryGoverningValue')}</span>
+              <span class="pqc-val">{queryComponent} = {fmtNum(governingTop.value)} {queryUnit}</span>
+              <span class="pqc-meta">{t('pro.elemLabel')} {governingTop.elementId} · {governingTop.sourceLabel}</span>
+            </div>
+          {:else}
+            <div class="pro-query-empty">{t('pro.queryNoRows')}</div>
+          {/if}
+
+          <!-- Rows table -->
+          {#if effectiveSource === 'active'}
+            {#if filteredRows.length}
+              <div class="pro-query-rowcount">{t('pro.queryRowCount').replace('{n}', String(filteredRows.length))}</div>
+              <div class="pro-res-table-wrap pro-query-tablewrap">
+                <table class="pro-res-table">
+                  <thead><tr>
+                    <th>{t('pro.elemLabel')}</th><th>{t('pro.queryEnd')}</th><th>{t('pro.queryValue')} ({queryUnit})</th>
+                  </tr></thead>
+                  <tbody>
+                    {#each filteredRows as r}
+                      <tr onclick={() => selectQueryElement(r.elementId)} style="cursor:pointer" class:pq-extreme={activeExtreme && r.elementId === activeExtreme.elementId && r.end === activeExtreme.end}>
+                        <td class="col-id">{r.elementId}</td>
+                        <td class="col-end">{r.end}</td>
+                        <td class="col-num">{fmtNum(r.value)}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          {:else if governingList.length}
+            <div class="pro-query-rowcount">{t('pro.queryRowCount').replace('{n}', String(governingList.length))}</div>
+            <div class="pro-res-table-wrap pro-query-tablewrap">
+              <table class="pro-res-table">
+                <thead><tr>
+                  <th>{t('pro.elemLabel')}</th><th>{t('pro.queryValue')} ({queryUnit})</th><th>{t('pro.querySourceCol')}</th>
+                </tr></thead>
+                <tbody>
+                  {#each governingList as g}
+                    <tr onclick={() => selectQueryElement(g.elementId)} style="cursor:pointer" class:pq-extreme={governingTop && g.elementId === governingTop.elementId}>
+                      <td class="col-id">{g.elementId}</td>
+                      <td class="col-num">{fmtNum(g.value)}</td>
+                      <td class="col-src">{g.sourceLabel}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+
+          <button class="pro-query-export" onclick={exportQueryCsv} disabled={effectiveSource === 'active' ? !filteredRows.length : !governingList.length}>
+            {t('pro.queryExportCsv')}
+          </button>
+        </div>
+      </details>
 
       <details class="res-detail" open>
         <summary class="pro-res-section-title">{t('pro.reactionsTitle')} <span class="res-count">({results.reactions.length})</span></summary>
@@ -709,5 +908,76 @@
     font-style: italic;
     padding: 40px 10px;
   }
+
+  /* Result query */
+  .pro-query {
+    padding: 6px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: #0d1b33;
+  }
+
+  .pro-query .pro-viz-sel[type="text"],
+  .pro-query .pro-viz-sel[type="number"] {
+    font-family: monospace;
+  }
+
+  .pro-query-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    margin-top: 3px;
+    background: #0f2840;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .pro-query-card:hover { border-color: #4ecdc4; }
+  .pqc-label { font-size: 0.55rem; color: #888; text-transform: uppercase; font-weight: 600; }
+  .pqc-val { font-size: 0.9rem; font-family: monospace; color: #4ecdc4; font-weight: 600; }
+  .pqc-meta { font-size: 0.6rem; color: #888; font-family: monospace; }
+
+  .pro-query-empty {
+    padding: 6px 8px;
+    margin-top: 3px;
+    font-size: 0.66rem;
+    font-style: italic;
+    color: #555;
+    text-align: center;
+  }
+
+  .pro-query-rowcount {
+    font-size: 0.58rem;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  .pro-query-tablewrap {
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #1a3050;
+    border-radius: 3px;
+  }
+
+  .pq-extreme { background: rgba(78, 205, 196, 0.12); }
+  .pq-extreme .col-num { color: #4ecdc4; font-weight: 600; }
+  .col-src { font-size: 0.6rem; color: #aaa; font-family: monospace; }
+
+  .pro-query-export {
+    align-self: flex-start;
+    margin-top: 6px;
+    padding: 4px 12px;
+    font-size: 0.64rem;
+    font-weight: 600;
+    color: #ccc;
+    background: #0f2840;
+    border: 1px solid #1a4a7a;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .pro-query-export:hover { color: #fff; background: #1a4a7a; }
+  .pro-query-export:disabled { opacity: 0.4; cursor: not-allowed; }
 
 </style>

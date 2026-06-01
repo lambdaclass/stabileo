@@ -25,9 +25,10 @@ engine/target/
 engine/pkg/
 web/src/lib/wasm/
 
-# Nix
-result
-result-*
+# Nix (root-level build symlinks only — anchored so source files like
+# src/lib/engine/result-query.ts are not silently ignored)
+/result
+/result-*
 .direnv/
 
 # Local doc-sync automation state
