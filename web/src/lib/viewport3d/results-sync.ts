@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
-import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, createTextSprite } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, createTextSprite, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
@@ -380,22 +380,11 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
       eb.flush();
       applyShellHeatmap(ctx, r3d);
     } else {
-      // Continuous heatmap on frame elements
+      // Continuous heatmap on frame elements. applyFrameHeatmap also mirrors
+      // the SELECTED variable's color onto the batched wireframe mesh (and
+      // flushes), so wireframe mode shows the right gradient — not axial force.
       resetShellColors(ctx);
       applyFrameHeatmap(ctx, forcesMap, cmKind as HeatmapVariable);
-      // Mirror the heatmap end-color onto the batched mesh so wireframe
-      // mode still shows the gradient instead of falling back to base.
-      for (const [id, _group] of ctx.elementGroups) {
-        const ef = forcesMap.get(id);
-        if (!ef) continue;
-        // Use axialForceColor as a representative heatmap color; the
-        // detailed gradient lives in applyFrameHeatmap's textured cylinders
-        // (only visible in solid mode). For wireframe, the base color
-        // is the best single-color representative we have.
-        const nAvg = (ef.nStart + ef.nEnd) / 2;
-        eb.setBaseColor(id, axialForceColor(nAvg));
-      }
-      eb.flush();
     }
 
     ctx.colorMapApplied = true;
@@ -600,6 +589,23 @@ function applyFrameHeatmap(
     heatMesh.renderOrder = 2;
     group.add(heatMesh);
   }
+
+  // Mirror the heatmap color onto the batched wireframe mesh so wireframe mode
+  // shows the SELECTED variable's gradient (one representative color per element)
+  // instead of always axial force. Uses the same heatmapColor/globalMax mapping
+  // as the textured cylinders above.
+  for (const [id] of ctx.elementGroups) {
+    const values = elemSamples.get(id);
+    if (!values || values.length === 0) {
+      ctx.elementsBatched.setBaseColor(id, 0x555555);
+      continue;
+    }
+    let peak = 0;
+    for (const v of values) if (v > peak) peak = v;
+    const norm = globalMax > 0 ? Math.min(peak / globalMax, 1) : 0;
+    ctx.elementsBatched.setBaseColor(id, heatmapColor(norm));
+  }
+  ctx.elementsBatched.flush();
 }
 
 /** Apply Von Mises heatmap on plates and quads */
