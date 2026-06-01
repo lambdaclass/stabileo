@@ -289,21 +289,25 @@ export function runSteelVerification(
     const sd = stationDemands?.get(ef.elementId);
     if (sd) {
       const dems = sd.demands;
+      // Use absValue, not the signed value: `value` is signed (compression n<0,
+      // hogging Mz-<0), so Math.max(signed, ...) collapses a compression-only or
+      // hogging-only governing demand to 0 — silently designing the member as
+      // unloaded. Matches the RC path in auto-verify.ts.
       NuMax = Math.max(
-        dems.find(d => d.category === 'N_compression')?.value ?? 0,
-        dems.find(d => d.category === 'N_tension')?.value ?? 0,
+        dems.find(d => d.category === 'N_compression')?.absValue ?? 0,
+        dems.find(d => d.category === 'N_tension')?.absValue ?? 0,
       );
       MuzMax = Math.max(
-        dems.find(d => d.category === 'Mz+')?.value ?? 0,
-        dems.find(d => d.category === 'Mz-')?.value ?? 0,
+        dems.find(d => d.category === 'Mz+')?.absValue ?? 0,
+        dems.find(d => d.category === 'Mz-')?.absValue ?? 0,
       );
       MuyMax = Math.max(
-        dems.find(d => d.category === 'My+')?.value ?? 0,
-        dems.find(d => d.category === 'My-')?.value ?? 0,
+        dems.find(d => d.category === 'My+')?.absValue ?? 0,
+        dems.find(d => d.category === 'My-')?.absValue ?? 0,
       );
       VuMax = Math.max(
-        dems.find(d => d.category === 'Vy')?.value ?? 0,
-        dems.find(d => d.category === 'Vz')?.value ?? 0,
+        dems.find(d => d.category === 'Vy')?.absValue ?? 0,
+        dems.find(d => d.category === 'Vz')?.absValue ?? 0,
       );
     } else {
       // Endpoint fallback (same as legacy path)

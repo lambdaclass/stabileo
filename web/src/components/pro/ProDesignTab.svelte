@@ -316,10 +316,15 @@
     for (const r of designResults) {
       const elem = modelStore.elements.get(r.elementId);
       if (!elem?.reinforcement) {
-        acceptAutoDesign(r.elementId);
+        // commit=false: accumulate all elements, then publish once below.
+        acceptAutoDesign(r.elementId, false);
         count++;
       }
     }
+    // Single reactivity trigger for the whole batch (was O(M) Map clones +
+    // version bumps, each re-running the WASM station extraction + re-verifying
+    // every element).
+    if (count > 0) commitReinforcement();
     return count;
   }
 
@@ -350,23 +355,32 @@
    *  for reactivity: callers mutate the existing object in-place, so without deep
    *  cloning the Proxy-unwrapped data, template expressions see the same reference
    *  and skip re-rendering. */
-  function setProvided(elemId: number, reinf: ProvidedReinforcement | undefined, isAutoDesign = false) {
+  function setProvided(elemId: number, reinf: ProvidedReinforcement | undefined, isAutoDesign = false, commit = true) {
     const elem = modelStore.elements.get(elemId);
     if (!elem) return;
     // Unwrap Svelte 5 Proxy, then deep-clone to guarantee new references
     elem.reinforcement = reinf ? JSON.parse(JSON.stringify($state.snapshot(reinf))) : undefined;
-    modelStore.model.elements = new Map(modelStore.model.elements);
-    _reinfVersion++;
+    // commit=false lets a batch (e.g. acceptAutoDesignAll) apply many elements
+    // and trigger reactivity once at the end instead of cloning the whole
+    // elements Map + recomputing station demands per element.
+    if (commit) commitReinforcement();
     // Track auto-designed vs user-modified
     if (!isAutoDesign && reinf) {
       userModifiedElems = new Set([...userModifiedElems, elemId]);
     }
   }
 
+  /** Publish accumulated reinforcement edits: reassign the Map (Svelte 5 Map
+   *  reactivity) and bump the version that gated derived recomputation. */
+  function commitReinforcement() {
+    modelStore.model.elements = new Map(modelStore.model.elements);
+    _reinfVersion++;
+  }
+
   /** Accept auto-designed reinforcement as provided (copies from verification result).
    *  TRANSITIONAL: Reads CIRSOC-specific auto-design proposal from concreteMap.
    *  Phase 2: solver returns design proposals as part of VerificationReport. */
-  function acceptAutoDesign(elemId: number) {
+  function acceptAutoDesign(elemId: number, commit = true) {
     const v = verificationStore.concreteMap.get(elemId);
     if (!v) return;
     const reinf: ProvidedReinforcement = {};
@@ -407,7 +421,7 @@
         spacing: v.shear.spacing,
       };
     }
-    setProvided(elemId, reinf, true);
+    setProvided(elemId, reinf, true, commit);
     autoDesignedElems = new Set([...autoDesignedElems, elemId]);
   }
 

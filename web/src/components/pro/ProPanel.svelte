@@ -431,12 +431,13 @@
     }
     if (!resultsStore.results3D) return;
 
-    // Auto-verify CIRSOC if not already done — writes to verificationStore, which
-    // updates verificationsRef (derived from store) automatically.
-    if (verificationStore.concrete.length === 0) {
-      const concrete = autoVerify();
-      verificationStore.setConcrete(concrete);
-    }
+    // Re-verify CIRSOC against the CURRENT model state — writes to
+    // verificationStore, which updates verificationsRef (derived) automatically.
+    // (Always, not just when the store is empty: a prior run may have left
+    // verifications from a since-edited model, which would put stale results in
+    // the report next to current model data.)
+    const concrete = autoVerify();
+    verificationStore.setConcrete(concrete);
 
     showReportDialog = true;
   }
