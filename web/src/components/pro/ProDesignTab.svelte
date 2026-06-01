@@ -356,6 +356,16 @@
     return '#ee2222';
   }
 
+  /** Bar color that respects the member's overall status. The displayed ratio is
+   *  the strength utilization (which excludes anchorage/fit checks), so a member
+   *  that fails/warns only on a detailing check would otherwise show a green bar
+   *  under a red badge. Floor the color to the status so badge and bar agree. */
+  function statusBarColor(r: number, status: CheckStatus): string {
+    if (status === 'fail') return '#ee2222';
+    if (status === 'warn' && r <= 1.0) return '#ddaa00';
+    return ratioBarColor(r);
+  }
+
   // ─── Provided Reinforcement helpers ────────────────────────────
   const LONG_DIAS = REBAR_DB.filter(r => r.diameter >= 10).map(r => r.diameter); // 10, 12, 16, 20, 25, 32
   const STIRRUP_DIAS = REBAR_DB.filter(r => r.diameter <= 12).map(r => r.diameter); // 6, 8, 10, 12
@@ -766,7 +776,7 @@
                 <div class="ratio-cell">
                   <span class="ratio-value">{fmtRatio(govRatio)}</span>
                   <div class="ratio-bar">
-                    <div class="ratio-fill" style="width:{ratioBarWidth(govRatio)};background:{ratioBarColor(govRatio)}"></div>
+                    <div class="ratio-fill" style="width:{ratioBarWidth(govRatio)};background:{statusBarColor(govRatio, effectiveStatus)}"></div>
                   </div>
                 </div>
               </td>

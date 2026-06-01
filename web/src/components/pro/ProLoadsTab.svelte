@@ -435,9 +435,14 @@
     const toAdd = candidateCombos.filter(c => c.selected);
     if (toAdd.length === 0) { showComboModal = false; return; }
     const prefix = activeTemplate === 'service' ? 'S' : 'U';
-    // Count only combos with matching prefix for independent numbering
-    const pattern = new RegExp(`^${prefix}\\d+:`);
-    let n = combinations.filter(c => pattern.test(c.name)).length;
+    // Continue numbering from the highest existing index for this prefix (not a
+    // count): counting reuses a number after an earlier combo is deleted, which
+    // produces duplicate names like two "U3: …".
+    const pattern = new RegExp(`^${prefix}(\\d+):`);
+    let n = combinations.reduce((max, c) => {
+      const m = c.name.match(pattern);
+      return m ? Math.max(max, parseInt(m[1], 10)) : max;
+    }, 0);
     modelStore.batch(() => {
       for (const c of toAdd) {
         n++;
