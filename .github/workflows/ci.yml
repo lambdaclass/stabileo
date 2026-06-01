@@ -81,21 +81,28 @@ jobs:
         working-directory: engine
         run: cargo nextest run --profile ci --test conditioning_adversarial
 
+      # Wall-clock timing gates: run single-threaded so elapsed time reflects
+      # CPU work, not contention from co-scheduled tests on shared 2-4 vCPU
+      # runners. Measuring wall time under parallel execution made these flaky.
       - name: Performance regression gates
         working-directory: engine
-        run: cargo nextest run --profile ci --test perf_regression_gates
+        run: cargo nextest run --profile ci --test perf_regression_gates --test-threads 1
 
       - name: Advanced perf gates
         working-directory: engine
-        run: cargo nextest run --profile ci --test perf_regression_advanced
+        run: cargo nextest run --profile ci --test perf_regression_advanced --test-threads 1
 
       - name: k_full overbuild gates
         working-directory: engine
         run: cargo nextest run --profile ci --test kfull_overbuild_gates
 
+      # Exclude wall-clock timing benchmarks and the perf-gate binaries: they
+      # are validated in their dedicated single-threaded steps above. Re-running
+      # them here under full-suite parallel contention only adds flakiness (the
+      # measured wall time balloons with co-scheduled load) without extra coverage.
       - name: Run all tests
         working-directory: engine
-        run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing)'
+        run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - binary(perf_regression_advanced) - binary(perf_regression_gates)'
         timeout-minutes: 20
 
       - name: Benchmarks compile
