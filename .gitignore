@@ -37,3 +37,6 @@ result-*
 .doc-sync.launchd.err
 .cache/
 .vite/
+
+# Visual brainstorm companion artifacts
+.superpowers/
