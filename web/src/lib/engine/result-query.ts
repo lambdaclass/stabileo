@@ -40,6 +40,23 @@ export function componentToDiagramType(component: ForceComponent): DiagramType3D
   }
 }
 
+/**
+ * Inverse map: the force component a diagram type queries, or null for
+ * non-force diagrams (deformed, colorMap, verification, …). No fallback —
+ * callers must show an empty state rather than silently picking a component.
+ */
+export function diagramTypeToComponent(diagramType: string): ForceComponent | null {
+  switch (diagramType) {
+    case 'axial':   return 'N';
+    case 'shearY':  return 'Vy';
+    case 'shearZ':  return 'Vz';
+    case 'torsion': return 'T';
+    case 'momentY': return 'My';
+    case 'momentZ': return 'Mz';
+    default:        return null;
+  }
+}
+
 /** Extract the (i, j) end values of one component from an element's forces. */
 export function componentEnds(ef: ElementForces3D, component: ForceComponent): { i: number; j: number } {
   switch (component) {

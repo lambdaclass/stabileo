@@ -3,17 +3,12 @@
   import { t } from '../../lib/i18n';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import {
-    FORCE_COMPONENTS,
     componentUnit,
-    componentToDiagramType,
+    diagramTypeToComponent,
     buildQueryRows,
     extremeRow,
     filterByAbsThreshold,
-    governingForComponent,
-    topGoverning,
     rowsToCsv,
-    governingToCsv,
-    type ForceComponent,
     type ExtremeMode,
     type QueryExportMeta,
     type SourceKind,
@@ -109,16 +104,17 @@
   const comboKeys = $derived([...resultsStore.perCombo3D.keys()]);
 
   // ─── Result query layer ──────────────────────────────────────
-  let queryComponent = $state<ForceComponent>('Mz');
+  // The query is ALWAYS linked to the active view: its component derives from
+  // resultsStore.diagramType, and its source follows whatever data is shown in
+  // resultsStore.results3D (driven by the existing Case/Combo/Envelope controls).
   let queryScope = $state<'selected' | 'all' | 'id'>('all');
   let queryIdInput = $state('');
-  let querySource = $state<'active' | 'governing'>('active');
   let queryMode = $state<ExtremeMode>('absmax');
   let queryThreshold = $state(0);
 
-  const hasGoverning = $derived(resultsStore.governing3D.size > 0);
-  // Governing source only makes sense when combos were solved.
-  const effectiveSource = $derived(querySource === 'governing' && hasGoverning ? 'governing' : 'active');
+  // Component is derived from the active diagram (null for non-force diagrams).
+  const queryComponent = $derived(diagramTypeToComponent(resultsStore.diagramType));
+  const isForceDiagram = $derived(queryComponent !== null);
 
   /** Element id filter from the scope selector, or undefined for "all". */
   const scopeIds = $derived.by<number[] | undefined>(() => {
@@ -130,21 +126,14 @@
   });
 
   const activeRows = $derived.by(() => {
-    if (!results) return [];
+    if (!results || !queryComponent) return [];
     return buildQueryRows(results.elementForces, queryComponent, scopeIds ? { elementIds: scopeIds } : {});
   });
   const filteredRows = $derived(filterByAbsThreshold(activeRows, queryThreshold));
   const activeExtreme = $derived(extremeRow(filteredRows, queryMode));
 
-  const governingList = $derived(
-    governingForComponent(resultsStore.governing3D, queryComponent, scopeIds ? { elementIds: scopeIds } : {}),
-  );
-  const governingTop = $derived(topGoverning(governingList));
-
-  // Derive the label from resultsStore.activeView (the source of truth for
-  // what results3D currently holds), NOT the local viewMode — they can diverge
-  // right after Solve (the selector highlights a view before the store switches),
-  // and the label must never claim "Envolvente" while single/all-loads data is shown.
+  // Derive the source label from resultsStore.activeView (the source of truth for
+  // what results3D currently holds).
   const activeSourceLabel = $derived.by(() => {
     const view = resultsStore.activeView;
     if (view === 'envelope') return t('pro.viewEnvelope');
@@ -157,18 +146,11 @@
     return t('pro.viewCase');
   });
 
-  const queryUnit = $derived(componentUnit(queryComponent));
-  const exportCount = $derived(effectiveSource === 'governing' ? governingList.length : filteredRows.length);
-
-  // ── Link with diagram (on by default) ──
-  let linkDiagram = $state(true);
+  const queryUnit = $derived(queryComponent ? componentUnit(queryComponent) : '');
+  const exportCount = $derived(filteredRows.length);
 
   // Element ids the current query resolves to (for viewport highlight).
-  const queryElementIds = $derived(
-    effectiveSource === 'governing'
-      ? governingList.map((g) => g.elementId)
-      : filteredRows.map((r) => r.elementId),
-  );
+  const queryElementIds = $derived(filteredRows.map((r) => r.elementId));
 
   function sameSet(a: Set<number>, b: Iterable<number>): boolean {
     const bs = b instanceof Set ? b : new Set(b);
@@ -177,17 +159,12 @@
     return true;
   }
 
-  // When linked, the component drives the shown 3D diagram.
+  // Always-linked: highlight the queried element set via the existing selection
+  // path. Skip when no force diagram is active (don't wipe the user's selection),
+  // skip scope='selected' (selection IS the scope → redundant + loop risk), and
+  // skip when already equal (avoids reactive churn).
   $effect(() => {
-    if (!linkDiagram || !results) return;
-    resultsStore.diagramType = componentToDiagramType(queryComponent);
-  });
-
-  // When linked, highlight the queried element set via the existing selection
-  // path. Skip scope='selected' (selection IS the scope → redundant + loop risk)
-  // and skip when already equal (avoids reactive churn).
-  $effect(() => {
-    if (!linkDiagram || queryScope === 'selected') return;
+    if (!isForceDiagram || queryScope === 'selected') return;
     const target = new Set(queryElementIds);
     if (sameSet(uiStore.selectedElements, target)) return;
     uiStore.selectMode = 'elements';
@@ -199,16 +176,29 @@
     uiStore.selectElement(id, false);
   }
 
-  /** Source provenance for the CSV export, repeated on every row. */
+  // Show Loads default follows the active diagram: ON for 'none', OFF once a
+  // diagram is shown. Switching diagram resets the checkbox to that default.
+  // (Depends only on resultsStore.diagramType.)
+  $effect(() => {
+    const showByDefault = resultsStore.diagramType === 'none';
+    uiStore.showLoads3D = showByDefault;
+    if (showByDefault) uiStore.hideLoadsWithDiagram = false;
+  });
+
+  // Manual toggle: turning loads ON while a diagram is active must also clear
+  // the "hide loads with diagram" suppression so they actually render.
+  function onToggleLoads(e: Event) {
+    const on = (e.target as HTMLInputElement).checked;
+    uiStore.showLoads3D = on;
+    if (on) uiStore.hideLoadsWithDiagram = false;
+  }
+
+  /** Source provenance for the CSV export, repeated on every row. Follows the active view. */
   const exportMeta = $derived.by<QueryExportMeta>(() => {
     const view = resultsStore.activeView;
     let sourceKind: SourceKind = 'case';
     let sourceId: number | null = null;
-    let sourceName = activeSourceLabel;
-    if (effectiveSource === 'governing') {
-      sourceKind = 'governing';
-      sourceName = t('pro.querySourceGoverning');
-    } else if (view === 'envelope') {
+    if (view === 'envelope') {
       sourceKind = 'envelope';
     } else if (view === 'combo' && resultsStore.activeComboId !== null) {
       sourceKind = 'combo';
@@ -218,7 +208,7 @@
       sourceId = resultsStore.activeCaseId;
     }
     return {
-      sourceKind, sourceId, sourceName,
+      sourceKind, sourceId, sourceName: activeSourceLabel,
       scopeMode: queryScope,
       scopeIds: scopeIds ?? [],
       threshold: queryThreshold || 0,
@@ -227,14 +217,12 @@
   });
 
   function exportQueryCsv() {
-    const csv = effectiveSource === 'governing'
-      ? governingToCsv(governingList, exportMeta)
-      : rowsToCsv(filteredRows, exportMeta);
+    const csv = rowsToCsv(filteredRows, exportMeta);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `stabileo-query-${queryComponent}-${effectiveSource}.csv`;
+    a.download = `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -308,6 +296,12 @@
 
       <div class="pro-viz-row">
         <label class="pro-viz-check">
+          <input type="checkbox" checked={uiStore.showLoads3D} onchange={onToggleLoads} />
+          {t('pro.showLoads')}
+        </label>
+      </div>
+      <div class="pro-viz-row">
+        <label class="pro-viz-check">
           <input type="checkbox" bind:checked={resultsStore.showReactions} />
           {t('pro.showReactions3D')}
         </label>
@@ -354,42 +348,23 @@
       <details class="res-detail" open>
         <summary class="pro-res-section-title">{t('pro.queryTitle')}</summary>
         <div class="pro-query">
-          <div class="pro-viz-row">
-            <label class="pro-viz-label">{t('pro.queryScope')}</label>
-            <select class="pro-viz-sel" bind:value={queryScope}>
-              <option value="all">{t('pro.queryScopeAll')}</option>
-              <option value="selected">{t('pro.queryScopeSelected')} ({uiStore.selectedElements.size})</option>
-              <option value="id">{t('pro.queryScopeId')}</option>
-            </select>
-          </div>
-          {#if queryScope === 'id'}
+          {#if !isForceDiagram}
+            <div class="pro-query-empty">{t('pro.querySelectForceDiagram')}</div>
+          {:else}
             <div class="pro-viz-row">
-              <label class="pro-viz-label"></label>
-              <input class="pro-viz-sel" type="text" bind:value={queryIdInput} placeholder={t('pro.queryIdPlaceholder')} />
+              <label class="pro-viz-label">{t('pro.queryScope')}</label>
+              <select class="pro-viz-sel" bind:value={queryScope}>
+                <option value="all">{t('pro.queryScopeAll')}</option>
+                <option value="selected">{t('pro.queryScopeSelected')} ({uiStore.selectedElements.size})</option>
+                <option value="id">{t('pro.queryScopeId')}</option>
+              </select>
             </div>
-          {/if}
-          <div class="pro-viz-row">
-            <label class="pro-viz-label">{t('pro.queryComponent')}</label>
-            <select class="pro-viz-sel" bind:value={queryComponent}>
-              {#each FORCE_COMPONENTS as c}
-                <option value={c}>{c}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="pro-viz-row">
-            <label class="pro-viz-label">{t('pro.querySource')}</label>
-            <select class="pro-viz-sel" bind:value={querySource}>
-              <option value="active">{t('pro.querySourceActive')}{effectiveSource === 'active' ? ` — ${activeSourceLabel}` : ''}</option>
-              <option value="governing" disabled={!hasGoverning}>{t('pro.querySourceGoverning')}</option>
-            </select>
-          </div>
-          <div class="pro-viz-row">
-            <label class="pro-viz-check">
-              <input type="checkbox" bind:checked={linkDiagram} />
-              {t('pro.queryLinkDiagram')}
-            </label>
-          </div>
-          {#if effectiveSource === 'active'}
+            {#if queryScope === 'id'}
+              <div class="pro-viz-row">
+                <label class="pro-viz-label"></label>
+                <input class="pro-viz-sel" type="text" bind:value={queryIdInput} placeholder={t('pro.queryIdPlaceholder')} />
+              </div>
+            {/if}
             <div class="pro-viz-row">
               <label class="pro-viz-label">{t('pro.queryMode')}</label>
               <select class="pro-viz-sel" bind:value={queryMode}>
@@ -403,10 +378,8 @@
               <input class="pro-viz-sel" type="number" min="0" step="any" bind:value={queryThreshold} />
               <span class="pro-viz-val">{queryUnit}</span>
             </div>
-          {/if}
 
-          <!-- Governing value card -->
-          {#if effectiveSource === 'active'}
+            <!-- Extreme value card (follows active component + view) -->
             {#if activeExtreme}
               <div class="pro-query-card" onclick={() => selectQueryElement(activeExtreme.elementId)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && selectQueryElement(activeExtreme.elementId)}>
                 <span class="pqc-label">{t('pro.queryGoverningValue')}</span>
@@ -416,18 +389,8 @@
             {:else}
               <div class="pro-query-empty">{t('pro.queryNoRows')}</div>
             {/if}
-          {:else if governingTop}
-            <div class="pro-query-card" onclick={() => selectQueryElement(governingTop.elementId)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && selectQueryElement(governingTop.elementId)}>
-              <span class="pqc-label">{t('pro.queryGoverningValue')}</span>
-              <span class="pqc-val">{queryComponent} = {fmtNum(governingTop.value)} {queryUnit}</span>
-              <span class="pqc-meta">{t('pro.elemLabel')} {governingTop.elementId} · {governingTop.sourceLabel}</span>
-            </div>
-          {:else}
-            <div class="pro-query-empty">{t('pro.queryNoRows')}</div>
-          {/if}
 
-          <!-- Rows table -->
-          {#if effectiveSource === 'active'}
+            <!-- Rows table -->
             {#if filteredRows.length}
               <div class="pro-query-rowcount">{t('pro.queryRowCount').replace('{n}', String(filteredRows.length))}</div>
               <div class="pro-res-table-wrap pro-query-tablewrap">
@@ -447,36 +410,20 @@
                 </table>
               </div>
             {/if}
-          {:else if governingList.length}
-            <div class="pro-query-rowcount">{t('pro.queryRowCount').replace('{n}', String(governingList.length))}</div>
-            <div class="pro-res-table-wrap pro-query-tablewrap">
-              <table class="pro-res-table">
-                <thead><tr>
-                  <th>{t('pro.elemLabel')}</th><th>{t('pro.queryValue')} ({queryUnit})</th><th>{t('pro.querySourceCol')}</th>
-                </tr></thead>
-                <tbody>
-                  {#each governingList as g}
-                    <tr onclick={() => selectQueryElement(g.elementId)} style="cursor:pointer" class:pq-extreme={governingTop && g.elementId === governingTop.elementId}>
-                      <td class="col-id">{g.elementId}</td>
-                      <td class="col-num">{fmtNum(g.value)}</td>
-                      <td class="col-src">{g.sourceLabel}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
 
-          <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}>
-            {t('pro.queryExportCsv')}
-          </button>
-          <div class="pro-query-export-cap">
-            {t('pro.queryExportCaption')
-              .replace('{kind}', exportMeta.sourceKind)
-              .replace('{source}', exportMeta.sourceName)
-              .replace('{component}', queryComponent)
-              .replace('{n}', String(exportCount))}
-          </div>
+            <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}>
+              {t('pro.queryExportCsv')}
+            </button>
+            {#if exportCount}
+              <div class="pro-query-export-cap">
+                {t('pro.queryExportCaption')
+                  .replace('{kind}', exportMeta.sourceKind)
+                  .replace('{source}', exportMeta.sourceName)
+                  .replace('{component}', queryComponent ?? '')
+                  .replace('{n}', String(exportCount))}
+              </div>
+            {/if}
+          {/if}
         </div>
       </details>
 

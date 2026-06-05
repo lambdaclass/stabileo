@@ -9,6 +9,7 @@ import {
   topGoverning,
   componentEnds,
   componentToDiagramType,
+  diagramTypeToComponent,
   rowsToCsv,
   governingToCsv,
   type QueryExportMeta,
@@ -152,7 +153,7 @@ describe('result-query: empty / no-results behavior', () => {
   });
 });
 
-describe('result-query: component → diagram type', () => {
+describe('result-query: component ↔ diagram type', () => {
   it('maps each component to the matching 3D diagram type', () => {
     expect(componentToDiagramType('N')).toBe('axial');
     expect(componentToDiagramType('Vy')).toBe('shearY');
@@ -160,6 +161,27 @@ describe('result-query: component → diagram type', () => {
     expect(componentToDiagramType('T')).toBe('torsion');
     expect(componentToDiagramType('My')).toBe('momentY');
     expect(componentToDiagramType('Mz')).toBe('momentZ');
+  });
+
+  it('inverse-maps each force diagram type to its component', () => {
+    expect(diagramTypeToComponent('axial')).toBe('N');
+    expect(diagramTypeToComponent('shearY')).toBe('Vy');
+    expect(diagramTypeToComponent('shearZ')).toBe('Vz');
+    expect(diagramTypeToComponent('torsion')).toBe('T');
+    expect(diagramTypeToComponent('momentY')).toBe('My');
+    expect(diagramTypeToComponent('momentZ')).toBe('Mz');
+  });
+
+  it('returns null for non-force diagrams (no silent fallback)', () => {
+    for (const dt of ['none', 'deformed', 'colorMap', 'axialColor', 'verification', 'modeShape']) {
+      expect(diagramTypeToComponent(dt)).toBeNull();
+    }
+  });
+
+  it('round-trips component → diagram → component', () => {
+    for (const c of ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'] as const) {
+      expect(diagramTypeToComponent(componentToDiagramType(c))).toBe(c);
+    }
   });
 });
 
