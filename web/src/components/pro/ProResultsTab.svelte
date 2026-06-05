@@ -5,6 +5,7 @@
   import {
     FORCE_COMPONENTS,
     componentUnit,
+    componentToDiagramType,
     buildQueryRows,
     extremeRow,
     filterByAbsThreshold,
@@ -14,6 +15,8 @@
     governingToCsv,
     type ForceComponent,
     type ExtremeMode,
+    type QueryExportMeta,
+    type SourceKind,
   } from '../../lib/engine/result-query';
 
   let solveError = $state<string | null>(null);
@@ -155,16 +158,78 @@
   });
 
   const queryUnit = $derived(componentUnit(queryComponent));
+  const exportCount = $derived(effectiveSource === 'governing' ? governingList.length : filteredRows.length);
+
+  // ── Link with diagram (on by default) ──
+  let linkDiagram = $state(true);
+
+  // Element ids the current query resolves to (for viewport highlight).
+  const queryElementIds = $derived(
+    effectiveSource === 'governing'
+      ? governingList.map((g) => g.elementId)
+      : filteredRows.map((r) => r.elementId),
+  );
+
+  function sameSet(a: Set<number>, b: Iterable<number>): boolean {
+    const bs = b instanceof Set ? b : new Set(b);
+    if (a.size !== bs.size) return false;
+    for (const x of a) if (!bs.has(x)) return false;
+    return true;
+  }
+
+  // When linked, the component drives the shown 3D diagram.
+  $effect(() => {
+    if (!linkDiagram || !results) return;
+    resultsStore.diagramType = componentToDiagramType(queryComponent);
+  });
+
+  // When linked, highlight the queried element set via the existing selection
+  // path. Skip scope='selected' (selection IS the scope → redundant + loop risk)
+  // and skip when already equal (avoids reactive churn).
+  $effect(() => {
+    if (!linkDiagram || queryScope === 'selected') return;
+    const target = new Set(queryElementIds);
+    if (sameSet(uiStore.selectedElements, target)) return;
+    uiStore.selectMode = 'elements';
+    uiStore.setSelection(new Set(uiStore.selectedNodes), target);
+  });
 
   function selectQueryElement(id: number) {
     uiStore.selectMode = 'elements';
     uiStore.selectElement(id, false);
   }
 
+  /** Source provenance for the CSV export, repeated on every row. */
+  const exportMeta = $derived.by<QueryExportMeta>(() => {
+    const view = resultsStore.activeView;
+    let sourceKind: SourceKind = 'case';
+    let sourceId: number | null = null;
+    let sourceName = activeSourceLabel;
+    if (effectiveSource === 'governing') {
+      sourceKind = 'governing';
+      sourceName = t('pro.querySourceGoverning');
+    } else if (view === 'envelope') {
+      sourceKind = 'envelope';
+    } else if (view === 'combo' && resultsStore.activeComboId !== null) {
+      sourceKind = 'combo';
+      sourceId = resultsStore.activeComboId;
+    } else if (view === 'single' && resultsStore.activeCaseId !== null) {
+      sourceKind = 'case';
+      sourceId = resultsStore.activeCaseId;
+    }
+    return {
+      sourceKind, sourceId, sourceName,
+      scopeMode: queryScope,
+      scopeIds: scopeIds ?? [],
+      threshold: queryThreshold || 0,
+      extremeMode: queryMode,
+    };
+  });
+
   function exportQueryCsv() {
     const csv = effectiveSource === 'governing'
-      ? governingToCsv(governingList)
-      : rowsToCsv(filteredRows, activeSourceLabel);
+      ? governingToCsv(governingList, exportMeta)
+      : rowsToCsv(filteredRows, exportMeta);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -318,6 +383,12 @@
               <option value="governing" disabled={!hasGoverning}>{t('pro.querySourceGoverning')}</option>
             </select>
           </div>
+          <div class="pro-viz-row">
+            <label class="pro-viz-check">
+              <input type="checkbox" bind:checked={linkDiagram} />
+              {t('pro.queryLinkDiagram')}
+            </label>
+          </div>
           {#if effectiveSource === 'active'}
             <div class="pro-viz-row">
               <label class="pro-viz-label">{t('pro.queryMode')}</label>
@@ -396,9 +467,16 @@
             </div>
           {/if}
 
-          <button class="pro-query-export" onclick={exportQueryCsv} disabled={effectiveSource === 'active' ? !filteredRows.length : !governingList.length}>
+          <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}>
             {t('pro.queryExportCsv')}
           </button>
+          <div class="pro-query-export-cap">
+            {t('pro.queryExportCaption')
+              .replace('{kind}', exportMeta.sourceKind)
+              .replace('{source}', exportMeta.sourceName)
+              .replace('{component}', queryComponent)
+              .replace('{n}', String(exportCount))}
+          </div>
         </div>
       </details>
 
@@ -979,5 +1057,12 @@
   }
   .pro-query-export:hover { color: #fff; background: #1a4a7a; }
   .pro-query-export:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .pro-query-export-cap {
+    margin-top: 4px;
+    font-size: 0.58rem;
+    color: #777;
+    font-style: italic;
+  }
 
 </style>

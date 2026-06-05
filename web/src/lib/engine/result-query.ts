@@ -25,6 +25,21 @@ export function componentUnit(component: ForceComponent): string {
   return component === 'N' || component === 'Vy' || component === 'Vz' ? 'kN' : 'kN·m';
 }
 
+/** 3D diagram-type names a component maps to (subset of results store DiagramType). */
+export type DiagramType3D = 'axial' | 'shearY' | 'shearZ' | 'torsion' | 'momentY' | 'momentZ';
+
+/** Map a query component to the matching 3D diagram type (for "link with diagram"). */
+export function componentToDiagramType(component: ForceComponent): DiagramType3D {
+  switch (component) {
+    case 'N':  return 'axial';
+    case 'Vy': return 'shearY';
+    case 'Vz': return 'shearZ';
+    case 'T':  return 'torsion';
+    case 'My': return 'momentY';
+    case 'Mz': return 'momentZ';
+  }
+}
+
 /** Extract the (i, j) end values of one component from an element's forces. */
 export function componentEnds(ef: ElementForces3D, component: ForceComponent): { i: number; j: number } {
   switch (component) {
@@ -169,32 +184,81 @@ export function topGoverning(list: GoverningQuery[]): GoverningQuery | null {
 
 // ─── CSV serialization ────────────────────────────────────────
 
+/** Where the exported values came from. */
+export type SourceKind = 'case' | 'combo' | 'envelope' | 'governing';
+/** How the element set was scoped. */
+export type ScopeMode = 'all' | 'selected' | 'id';
+
+/**
+ * Self-contained export context, repeated on every CSV row so the file is
+ * filterable in a spreadsheet without external context.
+ */
+export interface QueryExportMeta {
+  sourceKind: SourceKind;
+  /** case/combo id; null for envelope or the all-loads single solve. */
+  sourceId: number | null;
+  /** case/combo name, or an envelope/governing label. */
+  sourceName: string;
+  scopeMode: ScopeMode;
+  /** explicit element ids when scoped to selection/typed ids; [] for "all". */
+  scopeIds: number[];
+  threshold: number;
+  extremeMode: ExtremeMode;
+}
+
+/** Flat, fully-denormalized CSV column order (shared by both export modes). */
+const EXPORT_HEADER = [
+  'sourceKind', 'sourceId', 'sourceName', 'component', 'scopeMode', 'scopeIds',
+  'threshold', 'extremeMode', 'element', 'end', 'value', 'unit',
+] as const;
+
 function csvCell(s: string | number): string {
   const str = String(s);
   return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
+function metaPrefix(meta: QueryExportMeta, sourceKind: SourceKind, sourceId: number | null, sourceName: string, component: ForceComponent): (string | number)[] {
+  return [
+    sourceKind,
+    sourceId ?? '',
+    sourceName,
+    component,
+    meta.scopeMode,
+    meta.scopeIds.join(' '),
+    meta.threshold,
+    meta.extremeMode,
+  ];
+}
+
 /**
- * Serialize active-source query rows to CSV. `sourceLabel` is recorded in a
- * column so the export is self-describing.
+ * Serialize active-source query rows (case/combo/envelope) to a flat CSV.
+ * Every row repeats the full source + query metadata.
  */
-export function rowsToCsv(rows: QueryRow[], sourceLabel: string): string {
-  const unit = rows.length ? componentUnit(rows[0].component) : '';
-  const header = ['element', 'component', 'end', `value (${unit})`, 'source'];
-  const lines = [header.map(csvCell).join(',')];
+export function rowsToCsv(rows: QueryRow[], meta: QueryExportMeta): string {
+  const lines = [EXPORT_HEADER.map(csvCell).join(',')];
   for (const r of rows) {
-    lines.push([r.elementId, r.component, r.end, r.value, sourceLabel].map(csvCell).join(','));
+    const cells = [
+      ...metaPrefix(meta, meta.sourceKind, meta.sourceId, meta.sourceName, r.component),
+      r.elementId, r.end, r.value, componentUnit(r.component),
+    ];
+    lines.push(cells.map(csvCell).join(','));
   }
   return lines.join('\n');
 }
 
-/** Serialize governing-query rows to CSV (one line per element). */
-export function governingToCsv(list: GoverningQuery[]): string {
-  const unit = list.length ? componentUnit(list[0].component) : '';
-  const header = ['element', 'component', `value (${unit})`, 'governing combo'];
-  const lines = [header.map(csvCell).join(',')];
+/**
+ * Serialize governing-query rows to the same flat CSV. sourceKind is forced to
+ * "governing" and each row carries ITS OWN governing combo id/name (governing
+ * spans multiple combos). There is no i/j end, so end = "governing".
+ */
+export function governingToCsv(list: GoverningQuery[], meta: QueryExportMeta): string {
+  const lines = [EXPORT_HEADER.map(csvCell).join(',')];
   for (const g of list) {
-    lines.push([g.elementId, g.component, g.value, g.sourceLabel].map(csvCell).join(','));
+    const cells = [
+      ...metaPrefix(meta, 'governing', g.comboId, g.sourceLabel, g.component),
+      g.elementId, 'governing', g.value, componentUnit(g.component),
+    ];
+    lines.push(cells.map(csvCell).join(','));
   }
   return lines.join('\n');
 }

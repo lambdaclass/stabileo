@@ -8,9 +8,21 @@ import {
   governingForComponent,
   topGoverning,
   componentEnds,
+  componentToDiagramType,
   rowsToCsv,
   governingToCsv,
+  type QueryExportMeta,
 } from '../result-query';
+
+const META: QueryExportMeta = {
+  sourceKind: 'envelope',
+  sourceId: null,
+  sourceName: 'Envolvente',
+  scopeMode: 'all',
+  scopeIds: [],
+  threshold: 0,
+  extremeMode: 'absmax',
+};
 
 /** Minimal ElementForces3D factory — only the fields the query layer reads. */
 function ef(elementId: number, vals: Partial<ElementForces3D> = {}): ElementForces3D {
@@ -135,25 +147,61 @@ describe('result-query: empty / no-results behavior', () => {
   });
 
   it('CSV builders emit a header-only document when there are no rows', () => {
-    expect(rowsToCsv([], 'envelope').split('\n')).toHaveLength(1);
-    expect(governingToCsv([]).split('\n')).toHaveLength(1);
+    expect(rowsToCsv([], META).split('\n')).toHaveLength(1);
+    expect(governingToCsv([], META).split('\n')).toHaveLength(1);
   });
 });
 
-describe('result-query: CSV serialization', () => {
-  it('rowsToCsv emits one header + one line per row, with the source column', () => {
+describe('result-query: component → diagram type', () => {
+  it('maps each component to the matching 3D diagram type', () => {
+    expect(componentToDiagramType('N')).toBe('axial');
+    expect(componentToDiagramType('Vy')).toBe('shearY');
+    expect(componentToDiagramType('Vz')).toBe('shearZ');
+    expect(componentToDiagramType('T')).toBe('torsion');
+    expect(componentToDiagramType('My')).toBe('momentY');
+    expect(componentToDiagramType('Mz')).toBe('momentZ');
+  });
+});
+
+describe('result-query: flat CSV serialization with metadata', () => {
+  const HEADER = 'sourceKind,sourceId,sourceName,component,scopeMode,scopeIds,threshold,extremeMode,element,end,value,unit';
+
+  it('rowsToCsv: header + one flat row per query row, metadata repeated', () => {
     const rows = buildQueryRows([ef(1, { mzStart: 10, mzEnd: -40 })], 'Mz');
-    const csv = rowsToCsv(rows, 'envelope');
-    const lines = csv.split('\n');
-    expect(lines[0]).toBe('element,component,end,value (kN·m),source');
+    const meta: QueryExportMeta = {
+      sourceKind: 'combo', sourceId: 3, sourceName: 'U2: 1.2D + 1.6L',
+      scopeMode: 'id', scopeIds: [1, 4], threshold: 5, extremeMode: 'absmax',
+    };
+    const lines = rowsToCsv(rows, meta).split('\n');
+    expect(lines[0]).toBe(HEADER);
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toBe('1,Mz,i,10,envelope');
-    expect(lines[2]).toBe('1,Mz,j,-40,envelope');
+    // every row carries the full source + query metadata
+    expect(lines[1]).toBe('combo,3,U2: 1.2D + 1.6L,Mz,id,1 4,5,absmax,1,i,10,kN·m');
+    expect(lines[2]).toBe('combo,3,U2: 1.2D + 1.6L,Mz,id,1 4,5,absmax,1,j,-40,kN·m');
   });
 
-  it('quotes a source label containing a comma', () => {
+  it('quotes a source name containing a comma', () => {
     const rows = buildQueryRows([ef(1, { nStart: 5, nEnd: 5 })], 'N');
-    const csv = rowsToCsv(rows, 'combo A, B');
-    expect(csv).toContain('"combo A, B"');
+    const meta: QueryExportMeta = { ...META, sourceKind: 'combo', sourceId: 9, sourceName: 'U9: D, L, W' };
+    expect(rowsToCsv(rows, meta)).toContain('combo,9,"U9: D, L, W",N,');
+  });
+
+  it('envelope/case sourceId is blank when null', () => {
+    const rows = buildQueryRows([ef(7, { nStart: 5, nEnd: 5 })], 'N');
+    const row = rowsToCsv(rows, META).split('\n')[1];
+    expect(row).toBe('envelope,,Envolvente,N,all,,0,absmax,7,i,5,kN');
+  });
+
+  it('governingToCsv: sourceKind=governing, per-row comboId/name, end=governing', () => {
+    const list = governingForComponent(
+      new Map<number, GoverningPerElement3D>([
+        [4, { momentZ: { comboId: 5, comboName: 'U5: 1.2D + 1.6W', value: 47.5 } }],
+      ]),
+      'Mz',
+    );
+    const meta: QueryExportMeta = { ...META, sourceKind: 'governing', sourceName: 'Governing' };
+    const lines = governingToCsv(list, meta).split('\n');
+    expect(lines[0]).toBe(HEADER);
+    expect(lines[1]).toBe('governing,5,U5: 1.2D + 1.6W,Mz,all,,0,absmax,4,governing,47.5,kN·m');
   });
 });
