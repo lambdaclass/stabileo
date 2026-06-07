@@ -1,8 +1,33 @@
+/** A member-offset vector. For frame 'global' these are global X/Y/Z (m);
+ *  for frame 'local' they are along the element local axes (x=ex along member,
+ *  y=ey, z=ez), in metres. */
+export interface MemberOffsetVec {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * Analytical member offset: the member is parallel-shifted off its node
+ * centerline by these end vectors, producing real eccentricity at the joints.
+ * Implemented WITHOUT solver changes via ephemeral helper nodes + eccentric
+ * constraints generated in buildSolverInput3D — never persisted as topology.
+ */
+export interface MemberOffset {
+  frame: 'global' | 'local';
+  /** Offset applied at the I end (omitted/zero = no offset there). */
+  i?: MemberOffsetVec;
+  /** Offset applied at the J end. */
+  j?: MemberOffsetVec;
+}
+
 export interface Element3DMetadata {
   localYx?: number;
   localYy?: number;
   localYz?: number;
   rollAngle?: number;
+  /** Analytical member offset (eccentric framing). Render + solver-input only. */
+  offset?: MemberOffset;
 }
 
 export function pickElement3DMetadata(source: Element3DMetadata): Element3DMetadata {

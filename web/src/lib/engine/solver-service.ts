@@ -13,6 +13,7 @@ import {
   postProcessShellStresses,
 } from './solver-shells';
 import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-connectivity';
+import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } from './member-offsets';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
 import { t } from '../i18n';
 import {
@@ -1065,7 +1066,7 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
     }
   };
 
-  return {
+  const input: SolverInput3D = {
     nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, mapModelNodeToSolver3D(n, project2DToXZ)])),
     materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
     sections: new Map(Array.from(model.sections.entries()).map(([id, s]) => {
@@ -1163,6 +1164,15 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
     connectors: model.connectors,
     leftHand,
   };
+
+  // Analytical member offsets (genuine 3D only): ephemerally expand offset
+  // members into helper nodes + eccentric constraints. No-op (byte-identical
+  // input) when no element carries an offset.
+  if (!project2DToXZ) {
+    expandMemberOffsets(input, model.elements);
+  }
+
+  return input;
 }
 
 // ─── 3D: validateAndSolve3D ──────────────────────────────────────
@@ -1259,12 +1269,31 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
       if (model.quads?.size || model.plates?.size) {
         postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }
+      // Strip ephemeral offset-helper node results (only if offsets are present).
+      if (modelHasMemberOffsets(model.elements.values())) {
+        return pruneHelperNodeResults(results, new Set(model.nodes.keys()));
+      }
     }
     return results;
   } catch (err: any) {
     console.error('Solver 3D error:', err);
     return t('svc.solver3dError').replace('{n}', err.message);
   }
+}
+
+/** Prune offset-helper node results from a combination bundle (no-op without offsets). */
+function pruneComboBundle3D(
+  bundle: { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D },
+  model: ModelData,
+): typeof bundle {
+  if (!modelHasMemberOffsets(model.elements.values())) return bundle;
+  const ids = new Set(model.nodes.keys());
+  for (const [k, r] of bundle.perCase) bundle.perCase.set(k, pruneHelperNodeResults(r, ids));
+  for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, pruneHelperNodeResults(r, ids));
+  if (bundle.envelope?.maxAbsResults3D) {
+    bundle.envelope.maxAbsResults3D = pruneHelperNodeResults(bundle.envelope.maxAbsResults3D, ids);
+  }
+  return bundle;
 }
 
 // ─── 3D: solveCombinations3D ─────────────────────────────────────
@@ -1356,7 +1385,7 @@ export function solveCombinations3D(
 
     console.log(`[solveCombinations3D] WASM: ${tWasm.toFixed(0)} ms | Shell enrichment: ${tShell.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size}`);
 
-    return { perCase, perCombo, envelope: mcResult.envelope };
+    return pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
   } catch (err: any) {
     // Fallback: if multi-case fails, try the old per-case approach
     console.warn('Multi-case 3D failed, falling back to per-case solve:', err.message);
@@ -1407,7 +1436,7 @@ function solveCombinations3DFallback(
   const allComboResults = Array.from(perCombo.values());
   const envelope = computeEnvelope3D(allComboResults);
   if (!envelope) return t('svc.envelopeError3d');
-  return { perCase, perCombo, envelope };
+  return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
 }
 
 // ─── 3D: Parallel solveCombinations3D (Web Workers) ──────────────
@@ -1503,7 +1532,7 @@ export async function solveCombinations3DParallel(
     const tPost = performance.now() - t1;
     console.log(`[solveCombinations3D parallel] Solve: ${tSolve.toFixed(0)} ms | Combine+envelope: ${tPost.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size} | Workers: ${Math.min(caseInputs.length, navigator.hardwareConcurrency ?? 4)}`);
 
-    return { perCase, perCombo, envelope };
+    return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
     // Fallback to synchronous solving if workers fail
     console.warn('Parallel solve failed, falling back to sequential:', err.message);

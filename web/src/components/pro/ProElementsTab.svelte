@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import MemberOffsetEditor from '../property/MemberOffsetEditor.svelte';
 
   const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
@@ -175,7 +176,7 @@
     const row = rows[idx];
     if (row.id !== null) {
       uiStore.selectMode = 'elements';
-      uiStore.setSelection(new Set(), new Set([row.id]));
+      uiStore.setSelection(new Set(), new Set([row.id]), true); // manual row click
     }
   }
 
@@ -194,6 +195,9 @@
 </script>
 
 <div class="pro-elems">
+  {#if uiStore.selectedElements.size > 0}
+    <div style="padding: 6px 10px;"><MemberOffsetEditor /></div>
+  {/if}
   <div class="pro-elems-header">
     <span class="pro-elems-count">{t('pro.nElements').replace('{n}', String(elemCount))}</span>
     <div class="pro-elems-actions">

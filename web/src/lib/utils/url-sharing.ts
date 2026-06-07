@@ -203,6 +203,13 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     if (v.localYy != null) opt.ly = r(v.localYy);
     if (v.localYz != null) opt.lz = r(v.localYz);
     if ((v as any).rollAngle != null) opt.ra = r((v as any).rollAngle);
+    const off = (v as any).offset;
+    if (off && (off.i || off.j)) {
+      const enc: Record<string, unknown> = { f: off.frame === 'local' ? 'l' : 'g' };
+      if (off.i) enc.i = [r(off.i.x), r(off.i.y), r(off.i.z)];
+      if (off.j) enc.j = [r(off.j.x), r(off.j.y), r(off.j.z)];
+      opt.of = enc;
+    }
     if (Object.keys(opt).length > 0) arr.push(opt);
     return arr;
   });
@@ -350,6 +357,11 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
         ...(opt.ly != null ? { localYy: opt.ly } : {}),
         ...(opt.lz != null ? { localYz: opt.lz } : {}),
         ...(opt.ra != null ? { rollAngle: opt.ra } : {}),
+        ...(opt.of ? { offset: {
+          frame: opt.of.f === 'l' ? 'local' : 'global',
+          ...(opt.of.i ? { i: { x: opt.of.i[0], y: opt.of.i[1], z: opt.of.i[2] } } : {}),
+          ...(opt.of.j ? { j: { x: opt.of.j[0], y: opt.of.j[1], z: opt.of.j[2] } } : {}),
+        } } : {}),
       }];
     }),
 

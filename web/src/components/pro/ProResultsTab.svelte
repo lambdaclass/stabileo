@@ -165,9 +165,14 @@
   // skip when already equal (avoids reactive churn).
   $effect(() => {
     if (!isForceDiagram || queryScope === 'selected') return;
+    // Never override a MANUAL selection (click / box-select). Otherwise the
+    // always-on scope=all highlight would re-select everything the instant the
+    // user clicks an element — wiping the click and suppressing its local axes.
+    if (uiStore.elementSelectionManual) return;
     const target = new Set(queryElementIds);
     if (sameSet(uiStore.selectedElements, target)) return;
     uiStore.selectMode = 'elements';
+    // Result-driven highlight (manual=false) → local-axis "When selected" ignores it.
     uiStore.setSelection(new Set(uiStore.selectedNodes), target);
   });
 
@@ -353,7 +358,7 @@
           {:else}
             <div class="pro-viz-row">
               <label class="pro-viz-label">{t('pro.queryScope')}</label>
-              <select class="pro-viz-sel" bind:value={queryScope}>
+              <select class="pro-viz-sel" bind:value={queryScope} onchange={() => uiStore.releaseManualSelection()}>
                 <option value="all">{t('pro.queryScopeAll')}</option>
                 <option value="selected">{t('pro.queryScopeSelected')} ({uiStore.selectedElements.size})</option>
                 <option value="id">{t('pro.queryScopeId')}</option>
@@ -362,7 +367,7 @@
             {#if queryScope === 'id'}
               <div class="pro-viz-row">
                 <label class="pro-viz-label"></label>
-                <input class="pro-viz-sel" type="text" bind:value={queryIdInput} placeholder={t('pro.queryIdPlaceholder')} />
+                <input class="pro-viz-sel" type="text" bind:value={queryIdInput} oninput={() => uiStore.releaseManualSelection()} placeholder={t('pro.queryIdPlaceholder')} />
               </div>
             {/if}
             <div class="pro-viz-row">

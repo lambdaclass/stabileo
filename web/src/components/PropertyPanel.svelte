@@ -2,6 +2,7 @@
   import { uiStore } from '../lib/store';
   import NodeDetails from './property/NodeDetails.svelte';
   import ElementDetails from './property/ElementDetails.svelte';
+  import MemberOffsetEditor from './property/MemberOffsetEditor.svelte';
   import ContextHelp from './property/ContextHelp.svelte';
 
   let { showResults = false } = $props();
@@ -14,6 +15,7 @@
 
   {#if uiStore.selectedElements.size > 0}
     <ElementDetails {showResults} />
+    <MemberOffsetEditor />
   {/if}
 
   <ContextHelp />

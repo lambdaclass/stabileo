@@ -17,6 +17,8 @@ import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers
 import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
+import { createMemberOffsetViz } from '../three/create-offset-viz';
+import { hasMemberOffset, offsetVecToSolver } from '../engine/member-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
   get2DDisplayNodalLoadMoment,
@@ -75,6 +77,7 @@ export interface SceneSyncContext {
   // Single-instance groups (replaced on each sync)
   loadGroup: THREE.Group | null;
   localAxesGroup: THREE.Group | null;
+  offsetVizGroup: THREE.Group | null;
 
   // Results state (mutable flags shared with results-sync)
   colorMapApplied: boolean;
@@ -164,7 +167,8 @@ export function syncElements(ctx: SceneSyncContext): void {
       `${renderMode}|${elem.type}|${elem.releaseI?.mz === true ? 1 : 0}${elem.releaseJ?.mz === true ? 1 : 0}` +
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
       `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.rotation ?? ''}` +
-      `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}`;
+      `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}` +
+      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}`;
 
     const existing = ctx.elementGroups.get(id);
     if (existing && existing.userData.elementSig === signature) continue;
@@ -190,9 +194,23 @@ export function syncElements(ctx: SceneSyncContext): void {
       localAxes = undefined;
     }
 
+    // In solid/sections modes, render the actual section/cylinder at the OFFSET
+    // analytical location (same endpoints the solver expansion uses), so an
+    // eccentric member's profile sits where it acts. Wireframe stays on the
+    // centerline (the offset preview line shows the shift). Picking + batched
+    // wireframe always track the centerline.
+    let gI = posI, gJ = posJ;
+    if (renderMode !== 'wireframe' && !project2D && localAxes && hasMemberOffset(elem)) {
+      const off = elem.offset!;
+      const oI = off.i ? offsetVecToSolver(off.i, off.frame, localAxes) : null;
+      const oJ = off.j ? offsetVecToSolver(off.j, off.frame, localAxes) : null;
+      gI = { ...posI, x: posI.x + (oI?.x ?? 0), y: posI.y + (oI?.y ?? 0), z: posI.z + (oI?.z ?? 0) };
+      gJ = { ...posJ, x: posJ.x + (oJ?.x ?? 0), y: posJ.y + (oJ?.y ?? 0), z: posJ.z + (oJ?.z ?? 0) };
+    }
+
     const group = createElementGroup(
-      posI,
-      posJ,
+      gI,
+      gJ,
       {
         elementId: id,
         elementType: elem.type,
@@ -611,7 +629,10 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
   const mode = uiStore.localAxesMode3D;
   if (mode === 'never') return;
   const showAll = mode === 'always';
-  const selected = uiStore.selectedElements;
+  // "When selected" = MANUALLY selected only. Result diagrams / result-query /
+  // AI / diagnostics highlight via selectedElements too, but with
+  // elementSelectionManual=false — so reviewing diagrams never floods triads.
+  const selected = (!showAll && !uiStore.elementSelectionManual) ? new Set<number>() : uiStore.selectedElements;
   if (!showAll && selected.size === 0) return;
 
   // Labels only for a small selected set — a broad result-query selection
@@ -650,5 +671,56 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
   }
 
   ctx.localAxesGroup = group;
+  ctx.scene.add(group);
+}
+
+// ─── Member-offset preview (visual only) ─────────────────────
+//
+// For every element carrying offset metadata, draw the ghost centerline, the
+// offset analytical line, and the rigid arms. Mirrors the solver's ephemeral
+// expansion (same offsetVecToSolver + computeLocalAxes3D) so the preview shows
+// exactly where the analysis places the member. Single-instance group.
+
+export function syncMemberOffsets(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+
+  if (ctx.offsetVizGroup) {
+    ctx.scene.remove(ctx.offsetVizGroup);
+    disposeObject(ctx.offsetVizGroup);
+    ctx.offsetVizGroup = null;
+  }
+
+  // Offsets are a genuine-3D feature (matches solver gating); skip projected 2D.
+  if (projectFlag()) return;
+
+  const offsetEls = [...modelStore.elements.values()].filter(hasMemberOffset);
+  if (offsetEls.length === 0) return;
+
+  const group = new THREE.Group();
+  group.name = 'memberOffsetContainer';
+
+  for (const elem of offsetEls) {
+    const nI = modelStore.nodes.get(elem.nodeI);
+    const nJ = modelStore.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) continue;
+    const pI = { x: nI.x, y: nI.y, z: nI.z ?? 0 };
+    const pJ = { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 };
+
+    let axes;
+    try {
+      const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+      axes = computeLocalAxes3D({ id: 0, ...pI }, { id: 0, ...pJ }, elemLocalY, elem.rollAngle);
+    } catch {
+      continue;
+    }
+
+    const off = elem.offset!;
+    const offI = off.i ? offsetVecToSolver(off.i, off.frame, axes) : null;
+    const offJ = off.j ? offsetVecToSolver(off.j, off.frame, axes) : null;
+    group.add(createMemberOffsetViz(pI, pJ, offI, offJ));
+  }
+
+  ctx.offsetVizGroup = group;
   ctx.scene.add(group);
 }

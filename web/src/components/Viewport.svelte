@@ -1799,8 +1799,8 @@
           }
         }
 
-        // Reassign sets to trigger Svelte reactivity
-        uiStore.setSelection(newNodes, newElems);
+        // Reassign sets to trigger Svelte reactivity (manual box-select)
+        uiStore.setSelection(newNodes, newElems, true);
       }
       boxSelect = null;
     }
