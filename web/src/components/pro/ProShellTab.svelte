@@ -235,6 +235,37 @@
     const m = modelStore.materials.get(id);
     return m ? m.name : `#${id}`;
   }
+
+  // ─── Viewport node-pick → creator fields ───
+  // When the user picks nodes in the 3D viewport, mirror the buffer into the
+  // matching creator's node inputs (so the typed-ID path and pick path share
+  // the same fields and validation).
+  $effect(() => {
+    const pick = uiStore.shellNodePick;
+    const ids = pick.picked;
+    if (pick.target === 'plate') {
+      plateNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? '')];
+      updatePlateRecommendation();
+    } else if (pick.target === 'quad') {
+      quadNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
+      updateQuadRecommendation();
+    } else if (pick.target === 'mesh') {
+      meshCorners = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
+    }
+  });
+
+  function isPicking(target: 'plate' | 'quad' | 'mesh'): boolean {
+    return uiStore.shellNodePick.active && uiStore.shellNodePick.target === target;
+  }
+  function pickBtnLabel(target: 'plate' | 'quad' | 'mesh', cap: number): string {
+    const p = uiStore.shellNodePick;
+    if (p.active && p.target === target) return `${t('pro.picking')} ${p.picked.length}/${cap} — ${t('pro.cancel')}`;
+    return `\u{1F4CD} ${t('pro.pickNodes')}`;
+  }
+  function togglePick(target: 'plate' | 'quad' | 'mesh', cap: number) {
+    if (isPicking(target)) uiStore.cancelShellNodePick();
+    else uiStore.startShellNodePick(target, cap);
+  }
 </script>
 
 <div class="pro-shells">
@@ -257,6 +288,11 @@
             <input type="text" bind:value={plateNodes[0]} placeholder="N1" class="node-input" oninput={updatePlateRecommendation} />
             <input type="text" bind:value={plateNodes[1]} placeholder="N2" class="node-input" oninput={updatePlateRecommendation} />
             <input type="text" bind:value={plateNodes[2]} placeholder="N3" class="node-input" oninput={updatePlateRecommendation} />
+          </div>
+          <div class="input-row">
+            <button class="pro-btn pro-btn-pick" class:picking={isPicking('plate')} onclick={() => togglePick('plate', 3)}>
+              {pickBtnLabel('plate', 3)}
+            </button>
           </div>
           <div class="input-row">
             <label>{t('pro.thMaterial')}:</label>
@@ -307,8 +343,13 @@
             <label>{t('pro.nodes')}:</label>
             <input type="text" bind:value={quadNodes[0]} placeholder="N1" class="node-input" oninput={updateQuadRecommendation} />
             <input type="text" bind:value={quadNodes[1]} placeholder="N2" class="node-input" oninput={updateQuadRecommendation} />
-            <input type="text" bind:value={quadNodes[2]} placeholder="N2" class="node-input" oninput={updateQuadRecommendation} />
+            <input type="text" bind:value={quadNodes[2]} placeholder="N3" class="node-input" oninput={updateQuadRecommendation} />
             <input type="text" bind:value={quadNodes[3]} placeholder="N4" class="node-input" oninput={updateQuadRecommendation} />
+          </div>
+          <div class="input-row">
+            <button class="pro-btn pro-btn-pick" class:picking={isPicking('quad')} onclick={() => togglePick('quad', 4)}>
+              {pickBtnLabel('quad', 4)}
+            </button>
           </div>
           <div class="input-row">
             <label>{t('pro.thMaterial')}:</label>
@@ -365,6 +406,11 @@
             <input type="text" bind:value={meshCorners[1]} placeholder="N1" class="node-input" />
             <input type="text" bind:value={meshCorners[2]} placeholder="N2" class="node-input" />
             <input type="text" bind:value={meshCorners[3]} placeholder="N3" class="node-input" />
+          </div>
+          <div class="input-row">
+            <button class="pro-btn pro-btn-pick" class:picking={isPicking('mesh')} onclick={() => togglePick('mesh', 4)}>
+              {pickBtnLabel('mesh', 4)}
+            </button>
           </div>
           <div class="input-row">
             <label>{t('pro.subdivisions')}:</label>
@@ -653,6 +699,21 @@
   .pro-btn-accent:hover {
     background: #1a4a7a;
     color: #fff;
+  }
+
+  .pro-btn-pick {
+    border-color: #888;
+    color: #cfe;
+  }
+  .pro-btn-pick.picking {
+    background: #1a5a4a;
+    border-color: #00ffff;
+    color: #aef;
+    animation: pickPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pickPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(0, 255, 255, 0); }
   }
 
   /* Errors / success */

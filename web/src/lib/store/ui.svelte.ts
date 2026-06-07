@@ -115,6 +115,11 @@ function createUIStore() {
   // Shell (plate/quad) selection, keyed "p{id}" / "q{id}" to avoid colliding
   // with element ids. Separate channel from selectedElements (frames/trusses).
   let selectedShells = $state<Set<string>>(new Set());
+  // Shell node-pick: click nodes in the 3D viewport to fill a shell/mesh
+  // creator instead of typing IDs. `target` says which creator is collecting.
+  let shellNodePick = $state<{ active: boolean; target: 'plate' | 'quad' | 'mesh' | null; picked: number[]; capacity: number }>(
+    { active: false, target: null, picked: [], capacity: 0 },
+  );
 
   let mouseX = $state<number>(0);
   let mouseY = $state<number>(0);
@@ -815,6 +820,29 @@ function createUIStore() {
         selectedElements = new Set([id]);
         selectedShells = new Set();
       }
+    },
+
+    // ─── Shell node-pick (viewport click → creator) ───
+    get shellNodePick() { return shellNodePick; },
+    /** Begin collecting `capacity` node clicks for a shell/mesh creator. */
+    startShellNodePick(target: 'plate' | 'quad' | 'mesh', capacity: number) {
+      shellNodePick = { active: true, target, picked: [], capacity };
+      selectedNodes = new Set();
+      selectedElements = new Set();
+      selectedShells = new Set();
+    },
+    /** Push a clicked node id into the active pick buffer (ignores duplicates).
+     *  Auto-stops when capacity is reached. Highlights picked nodes. */
+    pushShellNodePick(id: number) {
+      if (!shellNodePick.active) return;
+      if (shellNodePick.picked.includes(id)) return;
+      const picked = [...shellNodePick.picked, id];
+      const active = picked.length < shellNodePick.capacity;
+      shellNodePick = { ...shellNodePick, picked, active };
+      selectedNodes = new Set(picked); // visual feedback
+    },
+    cancelShellNodePick() {
+      shellNodePick = { active: false, target: null, picked: [], capacity: 0 };
     },
 
     /** Select a shell (plate/quad). `key` is "p{id}" or "q{id}". */

@@ -1468,6 +1468,16 @@
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
 
+    // ── Shell node-pick mode: clicks collect node ids for a shell creator ──
+    if (uiStore.shellNodePick.active) {
+      const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
+      for (const hit of nodeHits) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'node') { uiStore.pushShellNodePick(ud.id); break; }
+      }
+      return; // consume the click while picking (no normal selection / clear)
+    }
+
     // ── Stress mode: click on element → stress query ──
     if (uiStore.selectMode === 'stress' && resultsStore.results3D) {
       const elemHits = raycaster.intersectObjects(elementsParent.children, true);
