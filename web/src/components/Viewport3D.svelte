@@ -6,6 +6,7 @@
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { paintShell, restoreShellColor } from '../lib/three/create-shell-mesh';
+  import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
   import { ElementsBatched } from '../lib/three/elements-batched';
   import { ElementsPicking } from '../lib/three/elements-picking';
@@ -744,6 +745,7 @@
     resultsStore.results3D;
     resultsStore.diagramType;
     resultsStore.colorMapKind;
+    resultsStore.shellContourComponent;
     // Also react to verification store changes for 'verification' color map
     verificationStore.concrete;
     verificationStore.steel;
@@ -2174,6 +2176,9 @@
     width="80"
     height="80"
   ></canvas>
+
+  <!-- Shell contour legend (visible only while a shell contour map is active) -->
+  <ShellContourLegend />
 </div>
 
 <style>

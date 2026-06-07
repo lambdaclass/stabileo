@@ -202,3 +202,31 @@ export function applyShellVertexColors(
   mat.color.setHex(0xffffff);
   mat.needsUpdate = true;
 }
+
+/** Diverging blue→white→red colour for a signed, symmetric-normalised value
+ *  `tn ∈ [-1, 1]`. Used for signed shell contour components (σ, moments). */
+export function divergingColor(tn: number): number {
+  const t = Math.max(-1, Math.min(1, tn));
+  const c = new THREE.Color();
+  if (t >= 0) {
+    // white (0) → red (+1)
+    c.setRGB(1, 1 - t, 1 - t);
+  } else {
+    // blue (-1) → white (0)
+    const a = 1 + t; // 0..1
+    c.setRGB(a, a, 1);
+  }
+  return c.getHex();
+}
+
+/** Flat-colour a shell face mesh by a single hex (per-element contour for
+ *  quantities the solver reports only at the element level). Clears any
+ *  per-vertex colour so the flat colour shows. */
+export function applyShellFlatColor(mesh: THREE.Mesh, hex: number): void {
+  const geo = mesh.geometry;
+  if (geo.getAttribute('color')) geo.deleteAttribute('color');
+  const mat = ensureOwnShellMaterial(mesh);
+  mat.vertexColors = false;
+  mat.color.setHex(hex);
+  mat.needsUpdate = true;
+}

@@ -15,8 +15,10 @@ import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
-import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, type HeatmapVariable } from '../three/stress-heatmap';
-import { ensureOwnShellMaterial } from '../three/create-shell-mesh';
+import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellFlatColor, divergingColor, type HeatmapVariable } from '../three/stress-heatmap';
+import { restoreShellColor } from '../three/create-shell-mesh';
+import { heatmapColor } from '../three/selection-helpers';
+import { shellComponentMeta, shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
 /** Cached shouldProjectModelToXZ, keyed on modelVersion + analysisMode + presentation. */
@@ -369,8 +371,9 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   } else if (dt === 'colorMap') {
     const cmKind = resultsStore.colorMapKind;
 
-    if (cmKind === 'shellVonMises') {
-      // Shell-only mode: restore frame elements, apply shell heatmap
+    if (cmKind === 'shellVonMises' || cmKind === 'shellBending') {
+      // Shell-only mode: restore frame elements, paint shells by the selected
+      // contour component (Von Mises / principal / σ / moment).
       clearHeatmapMeshes(ctx);
       for (const [id, group] of ctx.elementGroups) {
         showOriginalMeshes(group, true);
@@ -378,7 +381,7 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
         eb.setBaseColor(id, 0x888888);
       }
       eb.flush();
-      applyShellHeatmap(ctx, r3d);
+      applyShellContour(ctx, r3d);
     } else {
       // Continuous heatmap on frame elements
       resetShellColors(ctx);
@@ -471,8 +474,6 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
 
 // ─── Heatmap helpers ─────────────────────────────────────────
 
-const SHELL_DEFAULT_COLOR = 0x4ecdc4;
-
 /** Remove all heatmap overlay meshes from element groups */
 function clearHeatmapMeshes(ctx: ResultsSyncContext): void {
   for (const [, group] of ctx.elementGroups) {
@@ -500,20 +501,18 @@ function showOriginalMeshes(group: THREE.Group, visible: boolean): void {
 /** Reset shell meshes to default teal */
 function resetShellColors(ctx: ResultsSyncContext): void {
   for (const [, group] of ctx.shellGroups) {
+    // Clear any contour vertex-colour, then restore the per-material base
+    // colour stored on the group at creation (CP1).
     group.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         const geo = child.geometry;
         if (geo.hasAttribute('color')) geo.deleteAttribute('color');
-        // Only mutate per-mesh material if it was already owned — otherwise the
-        // mesh still points at the shared default material, which is already teal.
-        if (child.userData.ownShellMaterial) {
-          const mat = child.material as THREE.MeshStandardMaterial;
-          mat.vertexColors = false;
-          mat.color.setHex(SHELL_DEFAULT_COLOR);
-          mat.needsUpdate = true;
-        }
+        const mat = child.material as THREE.MeshStandardMaterial;
+        mat.vertexColors = false;
+        mat.needsUpdate = true;
       }
     });
+    restoreShellColor(group);
   }
 }
 
@@ -602,55 +601,64 @@ function applyFrameHeatmap(
   }
 }
 
-/** Apply Von Mises heatmap on plates and quads */
-function applyShellHeatmap(
+/** Paint plates + quads by the selected shell contour component.
+ *  - 'vonMises' uses per-node values when available (smooth gradient).
+ *  - all other components are reported only at element level → flat per-element
+ *    colour, signed components on a diverging blue↔red scale. */
+function applyShellContour(
   ctx: ResultsSyncContext,
   r3d: NonNullable<typeof resultsStore.results3D>,
 ): void {
-  let globalMax = 0;
-  const plateMap = new Map<number, number[]>();
-  const quadMap = new Map<number, number[]>();
+  const component = resultsStore.shellContourComponent;
+  const meta = shellComponentMeta(component);
 
-  if (r3d.plateStresses) {
-    for (const ps of r3d.plateStresses) {
-      // Use nodal values if available, otherwise uniform centroidal vonMises
+  const plateById = new Map<number, NonNullable<typeof r3d.plateStresses>[number]>();
+  const quadById = new Map<number, NonNullable<typeof r3d.quadStresses>[number]>();
+  for (const ps of r3d.plateStresses ?? []) plateById.set(ps.elementId, ps);
+  for (const qs of r3d.quadStresses ?? []) quadById.set(qs.elementId, qs);
+  const all = [...(r3d.plateStresses ?? []), ...(r3d.quadStresses ?? [])];
+  if (all.length === 0) return;
+
+  // ── Von Mises: nodal-smoothed vertex colours (best-quality default) ──
+  if (component === 'vonMises') {
+    let globalMax = 0;
+    const nodalById = new Map<string, number[]>();
+    for (const ps of r3d.plateStresses ?? []) {
       const nvm = ps.nodalVonMises?.length ? [...ps.nodalVonMises] : [ps.vonMises, ps.vonMises, ps.vonMises];
-      plateMap.set(ps.elementId, nvm);
+      nodalById.set(`p${ps.elementId}`, nvm);
       for (const v of nvm) if (v > globalMax) globalMax = v;
     }
-  }
-  if (r3d.quadStresses) {
-    for (const qs of r3d.quadStresses) {
+    for (const qs of r3d.quadStresses ?? []) {
       const nvm = qs.nodalVonMises?.length ? [...qs.nodalVonMises] : [qs.vonMises, qs.vonMises, qs.vonMises, qs.vonMises];
-      quadMap.set(qs.elementId, nvm);
+      nodalById.set(`q${qs.elementId}`, nvm);
       for (const v of nvm) if (v > globalMax) globalMax = v;
     }
-  }
-
-  if (globalMax < 1e-10) {
-    for (const [, group] of ctx.shellGroups) {
+    for (const [key, group] of ctx.shellGroups) {
+      const nodalVM = nodalById.get(key);
+      if (!nodalVM) continue;
+      const isQuad = key.startsWith('q');
       group.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          const mat = ensureOwnShellMaterial(child);
-          mat.vertexColors = false;
-          mat.color.setHex(0x888888);
-          mat.needsUpdate = true;
+        if (child instanceof THREE.Mesh && child.userData?.shellFace) {
+          applyShellVertexColors(child, nodalVM, globalMax || 1, isQuad);
         }
       });
     }
     return;
   }
 
+  // ── Other components: flat per-element colour ──
+  const { min, max } = shellComponentRange(all, component);
+  const A = meta.signed ? Math.max(Math.abs(min), Math.abs(max)) : Math.max(max, 1e-12);
   for (const [key, group] of ctx.shellGroups) {
     const isPlate = key.startsWith('p');
     const id = parseInt(key.substring(1));
-    const nodalVM = isPlate ? plateMap.get(id) : quadMap.get(id);
-    if (!nodalVM) continue;
-
+    const s = isPlate ? plateById.get(id) : quadById.get(id);
+    if (!s) continue;
+    const v = shellComponentValue(s, component);
+    const norm = A > 1e-12 ? v / A : 0;
+    const hex = meta.signed ? divergingColor(norm) : heatmapColor(Math.max(0, norm));
     group.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        applyShellVertexColors(child, nodalVM, globalMax, !isPlate);
-      }
+      if (child instanceof THREE.Mesh && child.userData?.shellFace) applyShellFlatColor(child, hex);
     });
   }
 }

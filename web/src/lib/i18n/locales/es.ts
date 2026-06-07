@@ -3060,6 +3060,8 @@ const es: Record<string, string> = {
   'pro.forceLabel': 'Fuerza (kN / kN·m)',
   'pro.shellStresses': 'Tensiones losas/muros',
   'pro.nodalShellStresses': 'Tensiones nodales en losas',
+  'pro.shellContour': 'Contorno losas/muros',
+  'pro.shellComponent': 'Componente',
   'pro.nodalVmNode': 'Nodo',
   'pro.diagnosticsTitle': 'Diagnósticos',
   'pro.elemLabel': 'Elem',

@@ -3098,6 +3098,8 @@ const en: Record<string, string> = {
   'pro.forceLabel': 'Force (kN / kN·m)',
   'pro.shellStresses': 'Shell stresses',
   'pro.nodalShellStresses': 'Nodal shell stresses',
+  'pro.shellContour': 'Shell contour',
+  'pro.shellComponent': 'Component',
   'pro.nodalVmNode': 'Node',
   'pro.diagnosticsTitle': 'Diagnostics',
   'pro.elemLabel': 'Elem',

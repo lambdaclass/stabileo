@@ -13,6 +13,7 @@
     type QueryExportMeta,
     type SourceKind,
   } from '../../lib/engine/result-query';
+  import { SHELL_CONTOUR_COMPONENTS, principalStresses } from '../../lib/engine/shell-stress';
 
   let solveError = $state<string | null>(null);
   let solving = $state(false);
@@ -278,9 +279,19 @@
             <option value="axial">{t('pro.varAxial')}</option>
             <option value="stressRatio">{t('pro.varStressRatio')}</option>
             <option value="vonMises">Von Mises (σ)</option>
-            <option value="shellVonMises">Shell σ Von Mises</option>
+            <option value="shellVonMises">{t('pro.shellContour')}</option>
           </select>
         </div>
+        {#if resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending'}
+          <div class="pro-viz-row">
+            <label class="pro-viz-label">{t('pro.shellComponent')}</label>
+            <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent}>
+              {#each SHELL_CONTOUR_COMPONENTS as c}
+                <option value={c.key}>{c.label} ({c.unit})</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
       {/if}
 
       {#if resultsStore.diagramType === 'deformed'}
@@ -547,15 +558,19 @@
               <table class="pro-res-table">
                 <thead><tr>
                   <th>Elem</th><th>&sigma;xx</th><th>&sigma;yy</th><th>&tau;xy</th>
+                  <th>&sigma;1</th><th>&sigma;2</th>
                   <th>mx</th><th>my</th><th>mxy</th><th>Von Mises</th>
                 </tr></thead>
                 <tbody>
                   {#each results.plateStresses as ps}
-                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(ps.elementId, false); }} style="cursor:pointer">
+                    {@const pr = principalStresses(ps.sigmaXx, ps.sigmaYy, ps.tauXy)}
+                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('p' + ps.elementId, false); }} style="cursor:pointer">
                       <td class="col-id">{ps.elementId}</td>
                       <td class="col-num">{fmtNum(ps.sigmaXx)}</td>
                       <td class="col-num">{fmtNum(ps.sigmaYy)}</td>
                       <td class="col-num">{fmtNum(ps.tauXy)}</td>
+                      <td class="col-num">{fmtNum(pr.sigma1)}</td>
+                      <td class="col-num">{fmtNum(pr.sigma2)}</td>
                       <td class="col-num">{fmtNum(ps.mx)}</td>
                       <td class="col-num">{fmtNum(ps.my)}</td>
                       <td class="col-num">{fmtNum(ps.mxy)}</td>
@@ -569,15 +584,19 @@
               <table class="pro-res-table">
                 <thead><tr>
                   <th>Elem</th><th>&sigma;xx</th><th>&sigma;yy</th><th>&tau;xy</th>
+                  <th>&sigma;1</th><th>&sigma;2</th>
                   <th>mx</th><th>my</th><th>mxy</th><th>Von Mises</th>
                 </tr></thead>
                 <tbody>
                   {#each results.quadStresses as qs}
-                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(qs.elementId, false); }} style="cursor:pointer">
+                    {@const pr = principalStresses(qs.sigmaXx, qs.sigmaYy, qs.tauXy)}
+                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('q' + qs.elementId, false); }} style="cursor:pointer">
                       <td class="col-id">{qs.elementId}</td>
                       <td class="col-num">{fmtNum(qs.sigmaXx)}</td>
                       <td class="col-num">{fmtNum(qs.sigmaYy)}</td>
                       <td class="col-num">{fmtNum(qs.tauXy)}</td>
+                      <td class="col-num">{fmtNum(pr.sigma1)}</td>
+                      <td class="col-num">{fmtNum(pr.sigma2)}</td>
                       <td class="col-num">{fmtNum(qs.mx)}</td>
                       <td class="col-num">{fmtNum(qs.my)}</td>
                       <td class="col-num">{fmtNum(qs.mxy)}</td>
@@ -612,7 +631,7 @@
                   {@const quadDef = modelStore.quads.get(qs.elementId)}
                   {@const vmMin = Math.min(...nvm)}
                   {@const vmMax = Math.max(...nvm)}
-                  <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(qs.elementId, false); }} style="cursor:pointer">
+                  <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('q' + qs.elementId, false); }} style="cursor:pointer">
                     <td class="col-id">{qs.elementId}</td>
                     {#each nvm as vm, i}
                       <td class="col-num" title="{quadDef ? t('pro.nodeLabel') + ' ' + quadDef.nodes[i] : ''}">
