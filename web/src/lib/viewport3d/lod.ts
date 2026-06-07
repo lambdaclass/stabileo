@@ -38,35 +38,44 @@ export interface LowDetailGroups {
 }
 
 /**
- * Apply the LOD visibility rules. When `on` is true (orbit/pan/zoom is
- * active) hide decorative groups + the per-element solid groups, and force
- * the batched wireframe on; when false restore the idle visibility.
+ * Apply the LOD visibility rules during orbit/pan/zoom.
  *
- * `resultsParent` is intentionally *not* toggled — users expect diagrams,
- * deformed shapes, and reaction arrows to stay visible while they orbit, so
- * hiding them broke the feedback loop of "move the camera to inspect a
- * result."
+ * Default (professional inspection): keep nodes, supports, loads, shells,
+ * results, and the current render mode (cylinders / extruded sections) VISIBLE
+ * while the camera moves — moving the camera to inspect a result/load/section
+ * must not collapse the model into naked lines.
  *
- * `elementsParent` follows the same exception when a result-coloring mode
- * (axialColor / colorMap / verification) is active: in solid / sections
- * render modes the colors live on the cylinders / extruded sections inside
- * `elementsParent`, so hiding the parent during orbit makes the result
- * visualization disappear every time the user moves the camera.
+ * Heavy-model fallback (`opts.heavyModel === true`): only then revert to the
+ * old aggressive behavior — hide decorative groups + the per-element solid
+ * groups and force the batched wireframe on as a lightweight stand-in — so very
+ * large models stay responsive during motion.
+ *
+ * `resultsParent` is never toggled. `elementsParent` is additionally kept
+ * visible in the heavy fallback when a result-coloring mode (axialColor /
+ * colorMap / verification) is active, since those colors live on the per-element
+ * meshes.
  */
 export function applyLowDetail(
   on: boolean,
   g: LowDetailGroups,
-  opts?: { resultsColoringActive?: boolean },
+  opts?: { resultsColoringActive?: boolean; heavyModel?: boolean },
 ): void {
-  const keepElementsForResults = on && opts?.resultsColoringActive === true;
-  if (g.nodesParent) g.nodesParent.visible = !on;
-  if (g.supportsParent) g.supportsParent.visible = !on;
-  if (g.loadsParent) g.loadsParent.visible = !on;
-  if (g.shellsParent) g.shellsParent.visible = !on;
-  if (g.elementsParent) g.elementsParent.visible = !on || keepElementsForResults;
+  const heavy = opts?.heavyModel === true;
+  const keepElementsForResults = opts?.resultsColoringActive === true;
+  // Only strip overlays/solids during motion in the heavy fallback.
+  const hideDecor = on && heavy;
+  const hideElements = on && heavy && !keepElementsForResults;
+
+  if (g.nodesParent) g.nodesParent.visible = !hideDecor;
+  if (g.supportsParent) g.supportsParent.visible = !hideDecor;
+  if (g.loadsParent) g.loadsParent.visible = !hideDecor;
+  if (g.shellsParent) g.shellsParent.visible = !hideDecor;
+  if (g.elementsParent) g.elementsParent.visible = !hideElements;
 
   if (g.elementsBatchedMesh) {
-    g.elementsBatchedMesh.visible = on ? true : g.renderMode === 'wireframe';
+    // Force the batched wireframe on only when the per-element parent is hidden
+    // (heavy fallback during motion); otherwise follow the idle render mode.
+    g.elementsBatchedMesh.visible = hideElements ? true : g.renderMode === 'wireframe';
   }
 }
 

@@ -10,6 +10,8 @@ export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 export type LoadTool = 'nodal' | 'distributed' | 'thermal';
 export type NodalLoadDir = 'fz' | 'fx' | 'my';
 export type SelectMode = 'nodes' | 'elements' | 'shells' | 'loads' | 'stress' | 'supports';
+/** How member local-axis triads are shown in the 3D viewport. */
+export type LocalAxesDisplayMode = 'always' | 'selected' | 'never';
 export type ElementMode = 'create' | 'hinge';
 export type NodeMode = 'create' | 'hinge';
 export type ElementColorMode = 'uniform' | 'byMaterial' | 'bySection';
@@ -315,6 +317,7 @@ function createUIStore() {
   let showLoads3D_basic = $state<boolean>(true);
   let visibleLoadCases3D_basic = $state<number[] | null>(null);
   let showAxes3D_basic = $state<boolean>(true);
+  let localAxesMode3D_basic = $state<LocalAxesDisplayMode>('selected');
 
   // Independent 3D visualization config — PRO mode
   let showGrid3D_pro = $state<boolean>(true);
@@ -327,6 +330,7 @@ function createUIStore() {
   let showLoads3D_pro = $state<boolean>(true);
   let visibleLoadCases3D_pro = $state<number[] | null>(null);
   let showAxes3D_pro = $state<boolean>(true);
+  let localAxesMode3D_pro = $state<LocalAxesDisplayMode>('selected');
 
   // 3D axis convention: terna derecha (right-hand, default) or terna izquierda (left-hand)
   let axisConvention3D = $state<'rightHand' | 'leftHand'>('rightHand');
@@ -758,6 +762,8 @@ function createUIStore() {
     set visibleLoadCases3D(v: number[] | null) { if (analysisMode === 'pro') visibleLoadCases3D_pro = v; else visibleLoadCases3D_basic = v; },
     get showAxes3D() { return analysisMode === 'pro' ? showAxes3D_pro : showAxes3D_basic; },
     set showAxes3D(v: boolean) { if (analysisMode === 'pro') showAxes3D_pro = v; else showAxes3D_basic = v; },
+    get localAxesMode3D() { return analysisMode === 'pro' ? localAxesMode3D_pro : localAxesMode3D_basic; },
+    set localAxesMode3D(v: LocalAxesDisplayMode) { if (analysisMode === 'pro') localAxesMode3D_pro = v; else localAxesMode3D_basic = v; },
 
     get axisConvention3D() { return axisConvention3D; },
     set axisConvention3D(v: 'rightHand' | 'leftHand') { axisConvention3D = v; },

@@ -15,7 +15,7 @@
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
-  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail } from '../lib/viewport3d/lod';
 
@@ -473,12 +473,16 @@
       const dt = resultsStore.diagramType;
       const resultsColoringActive = !!resultsStore.results3D
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
+      // Only strip overlays/sections during motion on very large models; typical
+      // models (incl. warehouses, multi-story frames) keep full detail while orbiting.
+      const HEAVY_MODEL_ELEMENTS = 3000;
+      const heavyModel = modelStore.elements.size > HEAVY_MODEL_ELEMENTS;
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
         elementsParent,
         elementsBatchedMesh: elementsBatched.mesh,
         renderMode: uiStore.renderMode3D,
-      }, { resultsColoringActive });
+      }, { resultsColoringActive, heavyModel });
     }
     controls.addEventListener('start', () => {
       isOrbiting = true;
@@ -559,6 +563,7 @@
       nodesInstanced, elementsBatched, elementsPicking, elementGroups, supportGizmos,
       shellGroups: new Map(),
       loadGroup: null,
+      localAxesGroup: null,
       colorMapApplied: false,
     };
     resultsCtx = {
@@ -580,6 +585,7 @@
   function syncSupports() { _syncSupports(sceneCtx); }
   function syncLoads() { _syncLoads(sceneCtx); }
   function syncShells() { _syncShells(sceneCtx); }
+  function syncLocalAxes() { _syncLocalAxes(sceneCtx); }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
@@ -749,6 +755,18 @@
     uiStore.selectedElements;
     uiStore.selectedSupports;
     syncSelection();
+    invalidate();
+  });
+
+  // Local-axis triads: driven by localAxesMode3D (always / selected / never).
+  $effect(() => {
+    uiStore.localAxesMode3D;
+    uiStore.selectedElements;
+    uiStore.analysisMode;
+    modelStore.nodes;
+    modelStore.elements;
+    modelStore.modelVersion;
+    syncLocalAxes();
     invalidate();
   });
 
@@ -1959,6 +1977,16 @@
       class:active-cam={uiStore.measureMode}
     >
       📏
+    </button>
+    <!-- Quick render-mode toggle: wireframe ↔ sections (solid stays in Settings).
+         Single compact button like the perspective/ortho switch. Shows the mode
+         it will switch TO; 'solid' resolves to 'sections' predictably. -->
+    <button
+      onclick={() => { uiStore.renderMode3D = uiStore.renderMode3D === 'sections' ? 'wireframe' : 'sections'; }}
+      class:active-cam={uiStore.renderMode3D === 'sections'}
+      title={uiStore.renderMode3D === 'sections' ? t('config.wireframe') : t('config.sections')}
+    >
+      {uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}
     </button>
   </div>
 

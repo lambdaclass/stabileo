@@ -16,6 +16,7 @@ import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGrou
 import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
 import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
+import { createLocalAxesTriad } from '../three/create-local-axes';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
   get2DDisplayNodalLoadMoment,
@@ -73,6 +74,7 @@ export interface SceneSyncContext {
 
   // Single-instance groups (replaced on each sync)
   loadGroup: THREE.Group | null;
+  localAxesGroup: THREE.Group | null;
 
   // Results state (mutable flags shared with results-sync)
   colorMapApplied: boolean;
@@ -161,14 +163,31 @@ export function syncElements(ctx: SceneSyncContext): void {
     const signature =
       `${renderMode}|${elem.type}|${elem.releaseI?.mz === true ? 1 : 0}${elem.releaseJ?.mz === true ? 1 : 0}` +
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
-      `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.rotation ?? ''}` +
-      `|${elem.rollAngle ?? ''}`;
+      `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.rotation ?? ''}` +
+      `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}`;
 
     const existing = ctx.elementGroups.get(id);
     if (existing && existing.userData.elementSig === signature) continue;
     if (existing) {
       ctx.elementsParent.remove(existing);
       disposeObject(existing);
+    }
+
+    // Local axes orient extruded sections so they sit the way the solver sees
+    // them (e.g. I-beam web vertical on horizontal members). Computed only here,
+    // on rebuild. Falls back to undefined (legacy orientation) on zero-length.
+    let localAxes: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] } | undefined;
+    try {
+      const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+      const ax = computeLocalAxes3D(
+        { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 },
+        { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+        elemLocalY, elem.rollAngle,
+      );
+      localAxes = { ex: ax.ex, ey: ax.ey, ez: ax.ez };
+    } catch {
+      localAxes = undefined;
     }
 
     const group = createElementGroup(
@@ -183,6 +202,7 @@ export function syncElements(ctx: SceneSyncContext): void {
         sectionRotation: sec?.rotation,
         elementRollAngle: elem.rollAngle,
         renderMode,
+        localAxes,
       },
     );
     group.userData.elementSig = signature;
@@ -564,4 +584,71 @@ export function syncSelection(ctx: SceneSyncContext): void {
     // We just set a flag so the caller knows.
     ctx.colorMapApplied = false; // force re-apply
   }
+}
+
+// ─── Local-axis triads (visual only) ─────────────────────────
+//
+// Draws an x/y/z triad on the selected member(s), plus every member when the
+// "show all local axes" toggle is on. Always consumes computeLocalAxes3D as the
+// source of truth — it never changes the axis convention. Single-instance group
+// rebuilt on each call (same pattern as loadGroup).
+
+export function syncLocalAxes(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+
+  // Tear down the previous triad group.
+  if (ctx.localAxesGroup) {
+    ctx.scene.remove(ctx.localAxesGroup);
+    disposeObject(ctx.localAxesGroup);
+    ctx.localAxesGroup = null;
+  }
+
+  // Directions from computeLocalAxes3D are in model (Z-up) space. When the
+  // viewport projects a planar model to XZ, those directions wouldn't match the
+  // projected scene, so restrict triads to genuine (non-projected) 3D views.
+  if (projectFlag()) return;
+
+  const mode = uiStore.localAxesMode3D;
+  if (mode === 'never') return;
+  const showAll = mode === 'always';
+  const selected = uiStore.selectedElements;
+  if (!showAll && selected.size === 0) return;
+
+  // Labels only for a small selected set — a broad result-query selection
+  // (e.g. "all members") must not flood the scene with hundreds of sprites.
+  const LABEL_CAP = 8;
+  const labelSelected = selected.size > 0 && selected.size <= LABEL_CAP;
+
+  const group = new THREE.Group();
+  group.name = 'localAxesContainer';
+
+  for (const [id, elem] of modelStore.elements) {
+    const isSelected = selected.has(id);
+    if (!showAll && !isSelected) continue;
+
+    const nI = modelStore.nodes.get(elem.nodeI);
+    const nJ = modelStore.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) continue;
+
+    const posI: SolverNode3D = { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 };
+    const posJ: SolverNode3D = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 };
+
+    let axes;
+    try {
+      const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+      axes = computeLocalAxes3D(posI, posJ, elemLocalY, elem.rollAngle);
+    } catch {
+      continue; // zero-length member — skip
+    }
+
+    const origin = new THREE.Vector3(
+      (posI.x + posJ.x) / 2, (posI.y + posJ.y) / 2, (posI.z + posJ.z) / 2,
+    );
+    // Labels only on selected members, and only for a small selected set.
+    group.add(createLocalAxesTriad(origin, axes, { withLabels: isSelected && labelSelected }));
+  }
+
+  ctx.localAxesGroup = group;
+  ctx.scene.add(group);
 }

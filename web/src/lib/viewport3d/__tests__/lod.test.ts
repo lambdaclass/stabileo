@@ -14,79 +14,81 @@ function mkGroups(renderMode: 'wireframe' | 'solid' | 'sections' = 'wireframe'):
   };
 }
 
-describe('applyLowDetail', () => {
-  it('hides decorative + per-element groups and forces the batched mesh on during orbit', () => {
+describe('applyLowDetail — default (professional inspection: keep detail during motion)', () => {
+  it('keeps decorative + per-element groups visible during orbit on normal models', () => {
+    const g = mkGroups('sections');
+    applyLowDetail(true, g); // no heavyModel → no stripping
+    expect(g.nodesParent!.visible).toBe(true);
+    expect(g.supportsParent!.visible).toBe(true);
+    expect(g.loadsParent!.visible).toBe(true);
+    expect(g.shellsParent!.visible).toBe(true);
+    expect(g.elementsParent!.visible).toBe(true); // sections stay on screen while moving
+    expect(g.resultsParent!.visible).toBe(true);
+  });
+
+  it('batched mesh follows render mode during motion when not stripping (off in solid/sections)', () => {
+    const solid = mkGroups('solid');
+    applyLowDetail(true, solid);
+    expect(solid.elementsBatchedMesh!.visible).toBe(false); // cylinders carry the visual
+    const wire = mkGroups('wireframe');
+    applyLowDetail(true, wire);
+    expect(wire.elementsBatchedMesh!.visible).toBe(true);
+  });
+
+  it('restores idle visibility when orbit ends', () => {
     const g = mkGroups('solid');
     applyLowDetail(true, g);
+    applyLowDetail(false, g);
+    expect(g.nodesParent!.visible).toBe(true);
+    expect(g.elementsParent!.visible).toBe(true);
+    expect(g.elementsBatchedMesh!.visible).toBe(false); // solid idle → batched off
+  });
+});
+
+describe('applyLowDetail — heavy-model fallback', () => {
+  it('hides decorative + per-element groups and forces batched mesh on during orbit', () => {
+    const g = mkGroups('solid');
+    applyLowDetail(true, g, { heavyModel: true });
     expect(g.nodesParent!.visible).toBe(false);
     expect(g.supportsParent!.visible).toBe(false);
     expect(g.loadsParent!.visible).toBe(false);
     expect(g.shellsParent!.visible).toBe(false);
     expect(g.elementsParent!.visible).toBe(false);
-    // Forced on during orbit, independent of renderMode — so solid/sections
-    // still shows *something* (the wireframe batch) while camera is moving.
-    expect(g.elementsBatchedMesh!.visible).toBe(true);
+    expect(g.elementsBatchedMesh!.visible).toBe(true); // stand-in while moving
   });
 
-  it('restores idle visibility when orbit ends — batched mesh follows renderMode', () => {
+  it('restores idle visibility when orbit ends (heavy)', () => {
     const g = mkGroups('wireframe');
-    applyLowDetail(true, g);
-    applyLowDetail(false, g);
+    applyLowDetail(true, g, { heavyModel: true });
+    applyLowDetail(false, g, { heavyModel: true });
     expect(g.nodesParent!.visible).toBe(true);
-    expect(g.supportsParent!.visible).toBe(true);
-    expect(g.loadsParent!.visible).toBe(true);
-    expect(g.shellsParent!.visible).toBe(true);
     expect(g.elementsParent!.visible).toBe(true);
-    expect(g.elementsBatchedMesh!.visible).toBe(true); // wireframe → on
+    expect(g.elementsBatchedMesh!.visible).toBe(true); // wireframe idle → on
   });
 
-  it('in solid mode, idle hides the batched mesh (cylinders carry the visual)', () => {
+  it('keeps elementsParent visible during heavy orbit when results coloring is active', () => {
     const g = mkGroups('solid');
-    applyLowDetail(true, g);
-    applyLowDetail(false, g);
-    // Idle in solid: per-element cylinders render, batched wireframe stays off.
-    expect(g.elementsParent!.visible).toBe(true);
-    expect(g.elementsBatchedMesh!.visible).toBe(false);
-  });
-
-  it('keeps resultsParent visible during orbit (regression: diagrams/deformed/reactions must stay on screen while moving the camera)', () => {
-    const g = mkGroups();
-    applyLowDetail(true, g);
-    expect(g.resultsParent!.visible).toBe(true);
-  });
-
-  it('keeps elementsParent visible during orbit when results coloring is active (axialColor / colorMap / verification)', () => {
-    // In solid/sections render mode the result colors live on cylinders /
-    // extrusions inside elementsParent. Without this exception, the colors
-    // disappear every time the user moves the camera.
-    const g = mkGroups('solid');
-    applyLowDetail(true, g, { resultsColoringActive: true });
-    expect(g.elementsParent!.visible).toBe(true);
-    // Other decorative parents still hidden during orbit — the exception
-    // is targeted to the visible color carrier.
-    expect(g.nodesParent!.visible).toBe(false);
-    expect(g.supportsParent!.visible).toBe(false);
+    applyLowDetail(true, g, { heavyModel: true, resultsColoringActive: true });
+    expect(g.elementsParent!.visible).toBe(true); // color carrier stays
+    expect(g.nodesParent!.visible).toBe(false);   // other decor still stripped
     expect(g.loadsParent!.visible).toBe(false);
   });
+});
 
-  it('without the resultsColoringActive flag, elementsParent still hides during orbit (no behavior drift for non-result modes)', () => {
-    const g = mkGroups('solid');
-    applyLowDetail(true, g, { resultsColoringActive: false });
-    expect(g.elementsParent!.visible).toBe(false);
+describe('applyLowDetail — always-on invariants', () => {
+  it('resultsParent is never hidden, even in heavy fallback', () => {
+    const g = mkGroups();
+    applyLowDetail(true, g, { heavyModel: true });
+    expect(g.resultsParent!.visible).toBe(true);
   });
 
   it('tolerates null group references (not-yet-mounted scene)', () => {
     const g: LowDetailGroups = {
-      nodesParent: null,
-      supportsParent: null,
-      loadsParent: null,
-      resultsParent: null,
-      shellsParent: null,
-      elementsParent: null,
-      elementsBatchedMesh: null,
-      renderMode: 'wireframe',
+      nodesParent: null, supportsParent: null, loadsParent: null,
+      resultsParent: null, shellsParent: null, elementsParent: null,
+      elementsBatchedMesh: null, renderMode: 'wireframe',
     };
-    expect(() => applyLowDetail(true, g)).not.toThrow();
+    expect(() => applyLowDetail(true, g, { heavyModel: true })).not.toThrow();
     expect(() => applyLowDetail(false, g)).not.toThrow();
   });
 });

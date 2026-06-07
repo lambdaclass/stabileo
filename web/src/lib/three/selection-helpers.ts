@@ -35,6 +35,8 @@ export function setGroupColor(group: THREE.Group, color: number): void {
   group.traverse((child) => {
     // Skip invisible picking helpers
     if (child.userData?.pickingHelper) return;
+    // Skip section profile edge outlines — they keep a constant dark color.
+    if (child.userData?.sectionEdge) return;
     if (child instanceof THREE.Mesh) {
       setMeshColor(child, color);
     }

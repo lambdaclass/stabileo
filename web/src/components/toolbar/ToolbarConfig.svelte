@@ -47,6 +47,16 @@
             onchange={(e) => { if (is3D) uiStore.showAxes3D = e.currentTarget.checked; else uiStore.showAxes = e.currentTarget.checked; }} />
           <span>{t('config.showAxes')}</span>
         </label>
+        {#if is3D}
+          <div class="input-group">
+            <label>{t('config.localAxes')}:</label>
+            <select bind:value={uiStore.localAxesMode3D}>
+              <option value="selected">{t('config.localAxesSelected')}</option>
+              <option value="always">{t('config.localAxesAlways')}</option>
+              <option value="never">{t('config.localAxesNever')}</option>
+            </select>
+          </div>
+        {/if}
         <label class="checkbox-item">
           <input type="checkbox" checked={gridVisible}
             onchange={(e) => { if (is3D) uiStore.showGrid3D = e.currentTarget.checked; else uiStore.showGrid = e.currentTarget.checked; }} />
