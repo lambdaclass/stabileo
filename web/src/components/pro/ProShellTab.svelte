@@ -254,6 +254,40 @@
     }
   });
 
+  // ─── Shell offset editor (operates on the selected shells) ───
+  let showOffset = $state(false);
+  let offFrame = $state<'global' | 'local'>('local');
+  let offX = $state(0);
+  let offY = $state(0);
+  let offZ = $state(0);
+  const selectedShellKeys = $derived([...uiStore.selectedShells]);
+
+  function eachSelectedShell(fn: (kind: 'plate' | 'quad', id: number) => void) {
+    for (const key of uiStore.selectedShells) {
+      fn(key[0] === 'p' ? 'plate' : 'quad', parseInt(key.slice(1)));
+    }
+  }
+  function applyShellOffset() {
+    eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, { frame: offFrame, x: offX, y: offY, z: offZ }));
+  }
+  function clearShellOffset() {
+    eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, undefined));
+  }
+  /** Quick preset: offset along the shell normal by ±half its thickness so the
+   *  top/bottom face sits at the node plane (slab top-of-beam, wall face). */
+  function applyHalfThickness(sign: 1 | -1) {
+    offFrame = 'local';
+    offX = 0; offY = 0;
+    // Use the first selected shell's thickness as the reference.
+    const key = [...uiStore.selectedShells][0];
+    if (!key) return;
+    const id = parseInt(key.slice(1));
+    const shell = key[0] === 'p' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
+    const t = shell?.thickness ?? 0.2;
+    offZ = sign * t / 2;
+    applyShellOffset();
+  }
+
   function isPicking(target: 'plate' | 'quad' | 'mesh'): boolean {
     return uiStore.shellNodePick.active && uiStore.shellNodePick.target === target;
   }
@@ -441,6 +475,48 @@
       {/if}
     </div>
 
+    <!-- Shell offset (eccentric mid-surface) -->
+    <div class="section">
+      <button class="section-toggle" onclick={() => showOffset = !showOffset}>
+        <span class="toggle-arrow">{showOffset ? '▾' : '▸'}</span>
+        {t('pro.shellOffset')}
+      </button>
+      {#if showOffset}
+        <div class="section-body">
+          <div class="mesh-hint">{t('pro.shellOffsetHint')}</div>
+          {#if selectedShellKeys.length === 0}
+            <div class="field-error">{t('pro.shellOffsetSelect')}</div>
+          {:else}
+            <div class="offset-sel-count">{selectedShellKeys.length} {t('pro.selected')}</div>
+          {/if}
+          <div class="input-row">
+            <label>{t('pro.offsetFrame')}:</label>
+            <select bind:value={offFrame} class="family-select">
+              <option value="local">{t('pro.offsetLocal')}</option>
+              <option value="global">{t('pro.offsetGlobal')}</option>
+            </select>
+          </div>
+          <div class="input-row">
+            <label>{offFrame === 'local' ? 'x,y,n (m)' : 'X,Y,Z (m)'}:</label>
+            <input type="number" bind:value={offX} step="0.01" class="thick-input" />
+            <input type="number" bind:value={offY} step="0.01" class="thick-input" />
+            <input type="number" bind:value={offZ} step="0.01" class="thick-input" />
+          </div>
+          {#if offFrame === 'local'}
+            <div class="input-row offset-presets">
+              <button class="pro-btn" onclick={() => applyHalfThickness(1)}>{t('pro.offsetTopFace')}</button>
+              <button class="pro-btn" onclick={() => applyHalfThickness(-1)}>{t('pro.offsetBottomFace')}</button>
+            </div>
+          {/if}
+          <div class="input-row offset-actions">
+            <button class="pro-btn pro-btn-accent" disabled={selectedShellKeys.length === 0} onclick={applyShellOffset}>{t('pro.applyOffset')}</button>
+            <button class="pro-btn" disabled={selectedShellKeys.length === 0} onclick={clearShellOffset}>{t('pro.clearOffset')}</button>
+          </div>
+          <div class="rec-warning">{t('pro.shellOffsetWarn')}</div>
+        </div>
+      {/if}
+    </div>
+
     <!-- Table of existing shells -->
     <div class="section">
       <button class="section-toggle" onclick={() => showTable = !showTable}>
@@ -465,7 +541,7 @@
                 </thead>
                 <tbody>
                   {#each plates as plate}
-                    <tr class:selected={uiStore.selectedElements.has(plate.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(plate.id, false); }}>
+                    <tr class:selected={uiStore.selectedShells.has('p' + plate.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('p' + plate.id, false); }}>
                       <td class="col-id">{plate.id}</td>
                       <td class="col-nodes">{plate.nodes.join(', ')}</td>
                       <td class="col-family">{plate.shellFamily ?? 'DKT'}</td>
@@ -497,7 +573,7 @@
                 </thead>
                 <tbody>
                   {#each quads as quad}
-                    <tr class:selected={uiStore.selectedElements.has(quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(quad.id, false); }}>
+                    <tr class:selected={uiStore.selectedShells.has('q' + quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('q' + quad.id, false); }}>
                       <td class="col-id">{quad.id}</td>
                       <td class="col-nodes">{quad.nodes.join(', ')}</td>
                       <td class="col-family">{quad.shellFamily ?? 'MITC4'}</td>

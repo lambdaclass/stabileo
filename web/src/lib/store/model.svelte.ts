@@ -399,6 +399,8 @@ export interface Plate {
   materialId: number;
   thickness: number;
   shellFamily?: import('../engine/types-3d').ShellFamily;
+  /** Analytical mid-surface offset (eccentric). Solver-input only. */
+  offset?: import('../model/element-3d-metadata').ShellOffset;
 }
 
 export interface Quad {
@@ -407,6 +409,8 @@ export interface Quad {
   materialId: number;
   thickness: number;
   shellFamily?: import('../engine/types-3d').ShellFamily;
+  /** Analytical mid-surface offset (eccentric). Solver-input only. */
+  offset?: import('../model/element-3d-metadata').ShellOffset;
 }
 
 export interface StructureModel {
@@ -1080,6 +1084,18 @@ function createModelStore() {
       if (data.materialId !== undefined) quad.materialId = data.materialId;
       if (data.thickness !== undefined) quad.thickness = data.thickness;
       model.quads = new Map(model.quads);
+    },
+
+    /** Set/clear a shell's analytical mid-surface offset. `kind` selects the
+     *  plate or quad map; pass `undefined` to clear. */
+    setShellOffset(kind: 'plate' | 'quad', id: number, offset: import('../model/element-3d-metadata').ShellOffset | undefined): void {
+      if (!_undoBatching) _pushUndo?.();
+      const map = kind === 'plate' ? model.plates : model.quads;
+      const shell = map.get(id);
+      if (!shell) return;
+      if (offset) shell.offset = offset; else delete shell.offset;
+      if (kind === 'plate') model.plates = new Map(model.plates);
+      else model.quads = new Map(model.quads);
     },
 
     addConstraint(c: Constraint3D): void {

@@ -21,6 +21,22 @@ export interface MemberOffset {
   j?: MemberOffsetVec;
 }
 
+/**
+ * Analytical shell offset: the shell's mid-surface is parallel-shifted off its
+ * node plane by a single vector applied to every corner. For frame 'local',
+ * z is along the shell normal, x along the node0→node1 edge, y = n×x (the same
+ * convention the viewport shell triad uses). Implemented WITHOUT solver changes
+ * via ephemeral per-corner helper nodes + all-6-DOF rigid eccentric constraints
+ * (shell nodes are 6-DOF), exactly like member offsets — never persisted as
+ * topology.
+ */
+export interface ShellOffset {
+  frame: 'global' | 'local';
+  x: number;
+  y: number;
+  z: number;
+}
+
 export interface Element3DMetadata {
   localYx?: number;
   localYy?: number;

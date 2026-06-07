@@ -19,6 +19,7 @@ import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
 import { hasMemberOffset, offsetVecToSolver } from '../engine/member-offsets';
+import { hasShellOffset, resolveShellOffsetGlobal } from '../engine/shell-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
   get2DDisplayNodalLoadMoment,
@@ -78,6 +79,7 @@ export interface SceneSyncContext {
   loadGroup: THREE.Group | null;
   localAxesGroup: THREE.Group | null;
   offsetVizGroup: THREE.Group | null;
+  shellOffsetVizGroup: THREE.Group | null;
 
   // Results state (mutable flags shared with results-sync)
   colorMapApplied: boolean;
@@ -797,5 +799,66 @@ export function syncMemberOffsets(ctx: SceneSyncContext): void {
   }
 
   ctx.offsetVizGroup = group;
+  ctx.scene.add(group);
+}
+
+// ─── Shell-offset preview (visual only) ──────────────────────
+//
+// For every offset shell, draw the rigid arms (base corner → offset corner)
+// and the ghost outline of the offset surface. Mirrors the solver's per-corner
+// helper-node expansion (same resolveShellOffsetGlobal) so the preview shows
+// exactly where the analysis places the shell. Single-instance group.
+
+const SHELL_OFFSET_COLOR = 0xffb347; // amber, matches member rigid arms
+
+export function syncShellOffsets(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+
+  if (ctx.shellOffsetVizGroup) {
+    ctx.scene.remove(ctx.shellOffsetVizGroup);
+    disposeObject(ctx.shellOffsetVizGroup);
+    ctx.shellOffsetVizGroup = null;
+  }
+
+  // Offsets are a genuine-3D feature (matches solver gating); skip projected 2D.
+  if (projectFlag()) return;
+
+  const shellsWithOffset: Array<{ nodeIds: number[]; offset: import('../model/element-3d-metadata').ShellOffset }> = [];
+  for (const p of modelStore.plates.values()) if (hasShellOffset(p)) shellsWithOffset.push({ nodeIds: [...p.nodes], offset: p.offset! });
+  for (const q of modelStore.quads.values()) if (hasShellOffset(q)) shellsWithOffset.push({ nodeIds: [...q.nodes], offset: q.offset! });
+  if (shellsWithOffset.length === 0) return;
+
+  const group = new THREE.Group();
+  group.name = 'shellOffsetContainer';
+  const armMat = new THREE.LineBasicMaterial({ color: SHELL_OFFSET_COLOR });
+  const ghostMat = new THREE.LineBasicMaterial({ color: SHELL_OFFSET_COLOR, transparent: true, opacity: 0.5 });
+
+  for (const { nodeIds, offset } of shellsWithOffset) {
+    const corners = nodeIds.map(id => modelStore.nodes.get(id));
+    if (corners.some(c => !c)) continue;
+    const cv = (corners as Array<{ x: number; y: number; z?: number }>).map(n => ({ x: n.x, y: n.y, z: n.z ?? 0 }));
+    const v = resolveShellOffsetGlobal(offset, cv);
+    if (!v) continue;
+
+    // Rigid arms: base corner → offset corner.
+    const armPts: THREE.Vector3[] = [];
+    for (const c of cv) {
+      armPts.push(new THREE.Vector3(c.x, c.y, c.z));
+      armPts.push(new THREE.Vector3(c.x + v.x, c.y + v.y, c.z + v.z));
+    }
+    const armGeo = new THREE.BufferGeometry().setFromPoints(armPts);
+    const arms = new THREE.LineSegments(armGeo, armMat);
+    arms.raycast = () => {};
+    group.add(arms);
+
+    // Ghost outline of the offset surface (closed loop).
+    const loop = cv.map(c => new THREE.Vector3(c.x + v.x, c.y + v.y, c.z + v.z));
+    loop.push(loop[0].clone());
+    const ghost = new THREE.Line(new THREE.BufferGeometry().setFromPoints(loop), ghostMat);
+    ghost.raycast = () => {};
+    group.add(ghost);
+  }
+
+  ctx.shellOffsetVizGroup = group;
   ctx.scene.add(group);
 }

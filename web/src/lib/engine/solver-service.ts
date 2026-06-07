@@ -14,6 +14,7 @@ import {
 } from './solver-shells';
 import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-connectivity';
 import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } from './member-offsets';
+import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
 import { t } from '../i18n';
 import {
@@ -1170,6 +1171,8 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
   // input) when no element carries an offset.
   if (!project2DToXZ) {
     expandMemberOffsets(input, model.elements);
+    // After member offsets so helper ids continue past any member helpers.
+    expandShellOffsets(input, model.plates, model.quads);
   }
 
   return input;
@@ -1269,8 +1272,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
       if (model.quads?.size || model.plates?.size) {
         postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }
-      // Strip ephemeral offset-helper node results (only if offsets are present).
-      if (modelHasMemberOffsets(model.elements.values())) {
+      // Strip ephemeral offset-helper node results (member or shell offsets).
+      if (modelHasMemberOffsets(model.elements.values()) || modelHasShellOffsets(model.plates, model.quads)) {
         return pruneHelperNodeResults(results, new Set(model.nodes.keys()));
       }
     }
@@ -1286,7 +1289,7 @@ function pruneComboBundle3D(
   bundle: { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D },
   model: ModelData,
 ): typeof bundle {
-  if (!modelHasMemberOffsets(model.elements.values())) return bundle;
+  if (!modelHasMemberOffsets(model.elements.values()) && !modelHasShellOffsets(model.plates, model.quads)) return bundle;
   const ids = new Set(model.nodes.keys());
   for (const [k, r] of bundle.perCase) bundle.perCase.set(k, pruneHelperNodeResults(r, ids));
   for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, pruneHelperNodeResults(r, ids));
