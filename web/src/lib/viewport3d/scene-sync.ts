@@ -14,7 +14,7 @@ import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
 import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
-import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
+import { createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, restoreShellColor } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
@@ -286,16 +286,24 @@ export function syncShells(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
   const project2D = projectFlag();
+  const renderMode = uiStore.renderMode3D;
 
   const getNode = (id: number) => {
     const n = modelStore.nodes.get(id);
     return n ? projectNodeToScene(n, project2D) : null;
   };
 
-  // Signature of a shell: node ids + positions + project flag.
-  // Rebuild the mesh only when the signature changes.
-  const sig = (project: boolean, pts: Array<{ x: number; y: number; z: number }>, ids: number[]): string => {
-    let s = project ? '1' : '0';
+  // Signature of a shell: node ids + positions + project flag + render mode +
+  // thickness + material (mode/thickness/material drive the extruded slab and
+  // its colour, so a change must rebuild the mesh).
+  const sig = (
+    project: boolean,
+    pts: Array<{ x: number; y: number; z: number }>,
+    ids: number[],
+    thickness: number,
+    materialId: number,
+  ): string => {
+    let s = `${project ? '1' : '0'}|${renderMode}|t${thickness}|m${materialId}`;
     for (let i = 0; i < ids.length; i++) {
       const p = pts[i];
       s += `|${ids[i]}:${p.x}:${p.y}:${p.z}`;
@@ -311,7 +319,7 @@ export function syncShells(ctx: SceneSyncContext): void {
     const nodes = plate.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
     const [n0, n1, n2] = nodes as Array<{ x: number; y: number; z: number }>;
-    const signature = sig(project2D, [n0, n1, n2], [...plate.nodes]);
+    const signature = sig(project2D, [n0, n1, n2], [...plate.nodes], plate.thickness, plate.materialId);
 
     const existing = ctx.shellGroups.get(key);
     if (existing && existing.userData.shellSig === signature) {
@@ -322,7 +330,9 @@ export function syncShells(ctx: SceneSyncContext): void {
       ctx.shellsParent.remove(existing);
       disposeObject(existing);
     }
-    const group = createPlateMesh(n0, n1, n2, id);
+    const group = createPlateMesh(n0, n1, n2, id, {
+      renderMode, thickness: plate.thickness, faceColor: shellColorForMaterial(plate.materialId),
+    });
     group.userData.shellSig = signature;
     ctx.shellsParent.add(group);
     ctx.shellGroups.set(key, group);
@@ -335,7 +345,7 @@ export function syncShells(ctx: SceneSyncContext): void {
     const nodes = quad.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
     const [n0, n1, n2, n3] = nodes as Array<{ x: number; y: number; z: number }>;
-    const signature = sig(project2D, [n0, n1, n2, n3], [...quad.nodes]);
+    const signature = sig(project2D, [n0, n1, n2, n3], [...quad.nodes], quad.thickness, quad.materialId);
 
     const existing = ctx.shellGroups.get(key);
     if (existing && existing.userData.shellSig === signature) {
@@ -346,12 +356,17 @@ export function syncShells(ctx: SceneSyncContext): void {
       ctx.shellsParent.remove(existing);
       disposeObject(existing);
     }
-    const group = createQuadMesh(n0, n1, n2, n3, id);
+    const group = createQuadMesh(n0, n1, n2, n3, id, {
+      renderMode, thickness: quad.thickness, faceColor: shellColorForMaterial(quad.materialId),
+    });
     group.userData.shellSig = signature;
     ctx.shellsParent.add(group);
     ctx.shellGroups.set(key, group);
     seen.add(key);
   }
+
+  // Re-apply selection tint to surviving/rebuilt shell groups.
+  applyShellSelection(ctx);
 
   // Remove shell groups whose backing plate/quad no longer exists
   for (const [key, group] of ctx.shellGroups) {
@@ -359,6 +374,19 @@ export function syncShells(ctx: SceneSyncContext): void {
     ctx.shellsParent.remove(group);
     disposeObject(group);
     ctx.shellGroups.delete(key);
+  }
+}
+
+/** Tint selected shell groups (key = "p{id}"/"q{id}"), restore the rest. */
+export function applyShellSelection(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+  const selected = uiStore.selectedShells;
+  for (const [key, group] of ctx.shellGroups) {
+    if (selected.has(key)) {
+      paintShell(group, COLORS.elementSelected, COLORS.elementSelected);
+    } else {
+      restoreShellColor(group);
+    }
   }
 }
 
@@ -594,6 +622,9 @@ export function syncSelection(ctx: SceneSyncContext): void {
     setGroupColor(gizmo, color);
   }
 
+  // Shells (plates + quads)
+  applyShellSelection(ctx);
+
   // Re-apply color map if active (syncSelection overwrites element colors)
   const dt = resultsStore.diagramType;
   if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
@@ -670,8 +701,52 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
     group.add(createLocalAxesTriad(origin, axes, { withLabels: isSelected && labelSelected }));
   }
 
+  // Shell triads: in-plane x/y + normal (local z). Shells are always manually
+  // selected, so no elementSelectionManual gymnastics needed here.
+  const selShells = uiStore.selectedShells;
+  const shellLabel = selShells.size > 0 && selShells.size <= LABEL_CAP;
+  const addShellTriad = (key: string, nodeIds: number[]) => {
+    const isSel = selShells.has(key);
+    if (!showAll && !isSel) return;
+    const verts = nodeIds.map(id => modelStore.nodes.get(id));
+    if (verts.some(v => !v) || verts.length < 3) return;
+    const axes = shellLocalAxes(verts as Array<{ x: number; y: number; z?: number }>);
+    if (!axes) return;
+    let cx = 0, cy = 0, cz = 0;
+    for (const v of verts as Array<{ x: number; y: number; z?: number }>) { cx += v.x; cy += v.y; cz += v.z ?? 0; }
+    const origin = new THREE.Vector3(cx / verts.length, cy / verts.length, cz / verts.length);
+    group.add(createLocalAxesTriad(origin, axes, { withLabels: isSel && shellLabel }));
+  };
+  for (const [id, plate] of modelStore.plates) addShellTriad(`p${id}`, [...plate.nodes]);
+  for (const [id, quad] of modelStore.quads) addShellTriad(`q${id}`, [...quad.nodes]);
+
   ctx.localAxesGroup = group;
   ctx.scene.add(group);
+}
+
+/** Shell local frame: ex along node0→node1 edge, ez the face normal, ey = ez×ex.
+ *  Visual only — mirrors the convention shells are assembled with, never changes
+ *  it. Returns a LocalAxes3D-shaped triad sized to the element. */
+function shellLocalAxes(
+  verts: Array<{ x: number; y: number; z?: number }>,
+): { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number]; L: number } | null {
+  const p = (v: { x: number; y: number; z?: number }) => new THREE.Vector3(v.x, v.y, v.z ?? 0);
+  const a = p(verts[0]), b = p(verts[1]), c = p(verts[2]);
+  const ex = new THREE.Vector3().subVectors(b, a);
+  const L = ex.length();
+  if (L < 1e-9) return null;
+  ex.multiplyScalar(1 / L);
+  const ez = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a));
+  if (ez.length() < 1e-12) return null;
+  ez.normalize();
+  const ey = new THREE.Vector3().crossVectors(ez, ex).normalize();
+  // Characteristic size = mean edge length, for a legible triad.
+  let per = 0;
+  for (let i = 0; i < verts.length; i++) per += p(verts[i]).distanceTo(p(verts[(i + 1) % verts.length]));
+  return {
+    ex: [ex.x, ex.y, ex.z], ey: [ey.x, ey.y, ey.z], ez: [ez.x, ez.y, ez.z],
+    L: per / verts.length,
+  };
 }
 
 // ─── Member-offset preview (visual only) ─────────────────────

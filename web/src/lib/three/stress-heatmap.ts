@@ -162,7 +162,20 @@ export function applyShellVertexColors(
   const colors = new Float32Array(posCount * 3);
   const tmpColor = new THREE.Color();
 
-  if (!isQuad && nodalValues.length >= 3) {
+  // Preferred path: the shell mesh tags every position vertex with its source
+  // corner-node index (works for flat faces AND extruded slabs in 'sections').
+  const vertexNodeIndex = geo.userData?.vertexNodeIndex as number[] | undefined;
+  if (vertexNodeIndex && vertexNodeIndex.length === posCount) {
+    for (let i = 0; i < posCount; i++) {
+      const node = vertexNodeIndex[i];
+      const v = nodalValues[node] ?? 0;
+      const norm = globalMax > 1e-10 ? v / globalMax : 0;
+      tmpColor.setHex(heatmapColor(norm));
+      colors[i * 3] = tmpColor.r;
+      colors[i * 3 + 1] = tmpColor.g;
+      colors[i * 3 + 2] = tmpColor.b;
+    }
+  } else if (!isQuad && nodalValues.length >= 3) {
     // Triangle: 3 vertices
     for (let i = 0; i < Math.min(posCount, 3); i++) {
       const norm = globalMax > 1e-10 ? nodalValues[i] / globalMax : 0;

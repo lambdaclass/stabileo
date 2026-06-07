@@ -112,6 +112,9 @@ function createUIStore() {
   let elementSelectionManual = $state<boolean>(false);
   let selectedLoads = $state<Set<number>>(new Set());
   let selectedSupports = $state<Set<number>>(new Set());
+  // Shell (plate/quad) selection, keyed "p{id}" / "q{id}" to avoid colliding
+  // with element ids. Separate channel from selectedElements (frames/trusses).
+  let selectedShells = $state<Set<string>>(new Set());
 
   let mouseX = $state<number>(0);
   let mouseY = $state<number>(0);
@@ -437,6 +440,7 @@ function createUIStore() {
 
     get selectedSupports() { return selectedSupports; },
     clearSelectedSupports() { selectedSupports = new Set(); },
+    get selectedShells() { return selectedShells; },
 
     get mouseX() { return mouseX; },
     get mouseY() { return mouseY; },
@@ -798,6 +802,7 @@ function createUIStore() {
       } else {
         selectedNodes = new Set([id]);
         selectedElements = new Set();
+        selectedShells = new Set();
       }
     },
 
@@ -808,6 +813,20 @@ function createUIStore() {
       } else {
         selectedNodes = new Set();
         selectedElements = new Set([id]);
+        selectedShells = new Set();
+      }
+    },
+
+    /** Select a shell (plate/quad). `key` is "p{id}" or "q{id}". */
+    selectShell(key: string, addToSelection = false) {
+      if (addToSelection) {
+        selectedShells = new Set([...selectedShells, key]);
+      } else {
+        selectedShells = new Set([key]);
+        selectedNodes = new Set();
+        selectedElements = new Set();
+        selectedSupports = new Set();
+        selectedLoads = new Set();
       }
     },
 
@@ -817,6 +836,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedSupports = new Set();
+        selectedShells = new Set();
       } else {
         selectedLoads = new Set([...selectedLoads, id]);
       }
@@ -828,6 +848,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedLoads = new Set();
+        selectedShells = new Set();
       } else {
         selectedSupports = new Set([...selectedSupports, id]);
       }
@@ -839,6 +860,7 @@ function createUIStore() {
       selectedElements = new Set();
       selectedLoads = new Set();
       selectedSupports = new Set();
+      selectedShells = new Set();
     },
 
     /** Bulk-set node and element selection. `manual` = true only for genuine
@@ -849,6 +871,7 @@ function createUIStore() {
       elementSelectionManual = manual;
       selectedNodes = nodes;
       selectedElements = elements;
+      selectedShells = new Set();
     },
 
     /** True only when the element selection came from a manual action. */
@@ -882,6 +905,7 @@ function createUIStore() {
       selectedElements = new Set();
       selectedLoads = new Set();
       selectedSupports = new Set();
+      selectedShells = new Set();
       // NOT reset: grid, showGrid, snapToGrid, zoom/pan, labels, analysisMode,
       // showNodeLabels, showElementLabels, showLengths, elementColorMode, showLoads,
       // unitSystem, embedMode, showFloatingTools, showTooltips, showHelpPanel, etc.
