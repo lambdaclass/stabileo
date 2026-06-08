@@ -321,6 +321,7 @@ export function serializeInput3D(input: SolverInput3D): string {
     loads: input.loads,
     plates: input.plates ? mapToObj(input.plates) : {},
     quads: input.quads ? mapToObj(input.quads) : {},
+    curvedShells: input.curvedShells ? mapToObj(input.curvedShells) : {},
     constraints: input.constraints ?? [],
     connectors: input.connectors ? mapToObj(input.connectors) : {},
     leftHand: input.leftHand ?? false,

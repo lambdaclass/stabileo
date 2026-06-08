@@ -411,6 +411,9 @@ export interface Quad {
   shellFamily?: import('../engine/types-3d').ShellFamily;
   /** Analytical mid-surface offset (eccentric). Solver-input only. */
   offset?: import('../model/element-3d-metadata').ShellOffset;
+  /** Solve as a degenerated-continuum CURVED shell (captures curvature) rather
+   *  than a flat MITC4. Serialized to the engine's curvedShells. */
+  curved?: boolean;
 }
 
 export interface StructureModel {

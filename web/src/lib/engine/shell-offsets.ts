@@ -100,7 +100,10 @@ export function expandShellOffsets(
   const constraints = [...(input.constraints ?? [])];
 
   for (const { kind, offset, id } of shells) {
-    const solverShell: any = kind === 'p' ? input.plates?.get(id) : input.quads?.get(id);
+    // A curved quad's solver entry lives in curvedShells, not quads.
+    const solverShell: any = kind === 'p'
+      ? input.plates?.get(id)
+      : (input.quads?.get(id) ?? input.curvedShells?.get(id));
     if (!solverShell) continue;
     const corners: V3[] = [];
     let ok = true;

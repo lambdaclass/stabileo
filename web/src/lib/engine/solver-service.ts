@@ -1160,7 +1160,10 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
     })(),
     loads: solverLoads,
     plates: model.plates ? new Map(Array.from(model.plates.entries()).map(([id, p]) => [id, { id: p.id, nodes: p.nodes, materialId: p.materialId, thickness: p.thickness }])) : new Map(),
-    quads: model.quads ? new Map(Array.from(model.quads.entries()).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
+    // Flat MITC4 quads vs. degenerated-continuum curved shells (split by the
+    // `curved` flag; both keyed by their own id, stresses return in quadStresses).
+    quads: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => !q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
+    curvedShells: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
     constraints: model.constraints ?? [],
     connectors: model.connectors,
     leftHand,
