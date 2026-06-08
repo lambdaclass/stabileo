@@ -1,8 +1,8 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
-  import { arcPolyline } from '../../lib/engine/curved-beam';
   import type { ShellFamily, ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
@@ -18,7 +18,6 @@
   let quadMaterialId = $state(1);
   let quadThickness = $state(0.2);
   let quadFamily = $state<ShellFamily | 'auto'>('auto');
-  let quadCurved = $state(false);
   let quadRecommendation = $state<ShellRecommendation | null>(null);
 
   // --- Quick mesh generator state ---
@@ -34,18 +33,8 @@
   let plateError = $state<string | null>(null);
   let quadError = $state<string | null>(null);
 
-  // Available materials + sections
+  // Available materials
   const materials = $derived([...modelStore.materials.values()]);
-  const sections = $derived([...modelStore.sections.values()]);
-
-  // --- Curved beam (arc → straight frames) state ---
-  let cbNodes = $state<[string, string, string]>(['', '', '']);
-  let cbSegments = $state(6);
-  let cbMaterialId = $state(1);
-  let cbSectionId = $state(1);
-  let cbError = $state<string | null>(null);
-  let cbSuccess = $state<string | null>(null);
-  let showCurvedBeam = $state(false);
 
   // Existing plates and quads from store
   const plates = $derived(
@@ -56,6 +45,28 @@
   );
   const plateCount = $derived(plates.length);
   const quadCount = $derived(quads.length);
+
+  // Nodes that connect a shell to the rest of the structure: any frame/truss
+  // endpoint, any support, or a node shared by ≥2 shells. (Stabileo shells
+  // couple to beams ONLY through shared nodes — there is no continuous edge
+  // coupling — so a corner attached to none of these transfers no load.)
+  const structureNodes = $derived.by(() => {
+    const s = new Set<number>();
+    for (const el of modelStore.elements.values()) { s.add(el.nodeI); s.add(el.nodeJ); }
+    for (const sup of modelStore.supports.values()) s.add(sup.nodeId);
+    const shellCount = new Map<number, number>();
+    for (const q of quads) for (const n of q.nodes) shellCount.set(n, (shellCount.get(n) ?? 0) + 1);
+    for (const p of plates) for (const n of p.nodes) shellCount.set(n, (shellCount.get(n) ?? 0) + 1);
+    for (const [n, c] of shellCount) if (c >= 2) s.add(n);
+    return s;
+  });
+  // Shells with a corner attached to nothing else (floating / no load path there).
+  const disconnectedShells = $derived(
+    quads.filter(q => q.nodes.some(n => !structureNodes.has(n))).length
+    + plates.filter(p => p.nodes.some(n => !structureNodes.has(n))).length,
+  );
+
+  let showShellInfo = $state(true);
 
   function validateNodeIds(ids: string[], count: number): number[] | null {
     const parsed = ids.slice(0, count).map(s => parseInt(s));
@@ -142,7 +153,7 @@
     modelStore.addQuad(nodeIds as [number, number, number, number], quadMaterialId, quadThickness);
     const quads = [...modelStore.model.quads.values()];
     const last = quads[quads.length - 1];
-    if (last) { last.shellFamily = family; if (quadCurved) last.curved = true; }
+    if (last) last.shellFamily = family;
     quadNodes = ['', '', '', ''];
     quadRecommendation = null;
   }
@@ -237,41 +248,6 @@
     meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(nodeCount)).replace('{quads}', String(quadCount));
   }
 
-  /**
-   * Curved beam: fit the arc through 3 nodes (start, mid, end) and build N
-   * straight frame segments along it. Done web-side (real model nodes + frames)
-   * so diagrams/results render through the existing frame machinery — the Rust
-   * curved_beams preprocessor is intentionally not used because its expansion
-   * ids cannot map back to the web model.
-   */
-  function generateCurvedBeam() {
-    cbError = null;
-    cbSuccess = null;
-    const ids = validateNodeIds(cbNodes, 3);
-    if (!ids) { cbError = t('pro.err3Nodes'); return; }
-    if (cbSegments < 2) { cbError = t('pro.errSubdivisions'); return; }
-    if (!modelStore.materials.has(cbMaterialId) || !modelStore.sections.has(cbSectionId)) { cbError = t('pro.errMaterial'); return; }
-    const [s, m, e] = ids.map(id => modelStore.nodes.get(id)!);
-    const pts = arcPolyline(
-      { x: s.x, y: s.y, z: s.z ?? 0 },
-      { x: m.x, y: m.y, z: m.z ?? 0 },
-      { x: e.x, y: e.y, z: e.z ?? 0 },
-      cbSegments,
-    );
-    // Reuse the start/end nodes; create interior nodes for the arc samples.
-    const nodeIds: number[] = [ids[0]];
-    for (let i = 1; i < pts.length - 1; i++) nodeIds.push(modelStore.addNode(pts[i].x, pts[i].y, pts[i].z !== 0 ? pts[i].z : undefined));
-    nodeIds.push(ids[2]);
-    let made = 0;
-    for (let i = 0; i < nodeIds.length - 1; i++) {
-      const elId = modelStore.addElement(nodeIds[i], nodeIds[i + 1], 'frame');
-      modelStore.updateElementMaterial(elId, cbMaterialId);
-      modelStore.updateElementSection(elId, cbSectionId);
-      made++;
-    }
-    cbSuccess = t('pro.curvedBeamSuccess').replace('{frames}', String(made)).replace('{nodes}', String(nodeIds.length - 2));
-  }
-
   // Collapse states for sections
   let showPlateCreator = $state(true);
   let showQuadCreator = $state(true);
@@ -286,19 +262,25 @@
   // ─── Viewport node-pick → creator fields ───
   // When the user picks nodes in the 3D viewport, mirror the buffer into the
   // matching creator's node inputs (so the typed-ID path and pick path share
-  // the same fields and validation).
+  // the same fields and validation). The writes (and the recommendation calls,
+  // which READ those same fields) are wrapped in untrack so this effect depends
+  // ONLY on shellNodePick — otherwise writing plateNodes here while
+  // updatePlateRecommendation reads it would self-trigger (effect_update_depth).
   $effect(() => {
     const pick = uiStore.shellNodePick;
     const ids = pick.picked;
-    if (pick.target === 'plate') {
-      plateNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? '')];
-      updatePlateRecommendation();
-    } else if (pick.target === 'quad') {
-      quadNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
-      updateQuadRecommendation();
-    } else if (pick.target === 'mesh') {
-      meshCorners = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
-    }
+    const target = pick.target;
+    untrack(() => {
+      if (target === 'plate') {
+        plateNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? '')];
+        updatePlateRecommendation();
+      } else if (target === 'quad') {
+        quadNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
+        updateQuadRecommendation();
+      } else if (target === 'mesh') {
+        meshCorners = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
+      }
+    });
   });
 
   // ─── Shell offset editor (operates on the selected shells) ───
@@ -356,6 +338,23 @@
   </div>
 
   <div class="pro-shells-scroll">
+    <!-- How shells connect & transfer load (engineering honesty) -->
+    <div class="shell-info">
+      <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
+        <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
+      </button>
+      {#if showShellInfo}
+        <div class="shell-info-body">
+          <p>{t('pro.shellInfoTransfer')}</p>
+          <p>{t('pro.shellInfoMesh')}</p>
+          <p>{t('pro.shellInfoSlab')}</p>
+        </div>
+      {/if}
+      {#if disconnectedShells > 0}
+        <div class="shell-warn">⚠ {t('pro.shellWarnDisconnected').replace('{n}', String(disconnectedShells))}</div>
+      {/if}
+    </div>
+
     <!-- Plate (DKT triangle) creator -->
     <div class="section">
       <button class="section-toggle" onclick={() => showPlateCreator = !showPlateCreator}>
@@ -453,12 +452,6 @@
               <option value="SHB8PS" disabled>SHB8PS (solid-shell) — planned</option>
             </select>
           </div>
-          <div class="input-row">
-            <label class="curved-check" title={t('pro.curvedShellHint')}>
-              <input type="checkbox" bind:checked={quadCurved} />
-              {t('pro.curvedShell')}
-            </label>
-          </div>
           {#if quadRecommendation}
             <div class="recommendation" class:warn={quadRecommendation.confidence !== 'high'}>
               <span class="rec-icon">{quadRecommendation.confidence === 'high' ? '\u2713' : '\u26A0'}</span>
@@ -524,44 +517,6 @@
             <div class="field-success">{meshSuccess}</div>
           {/if}
           <button class="pro-btn pro-btn-accent" onclick={generateMesh}>{t('pro.generateMesh')}</button>
-        </div>
-      {/if}
-    </div>
-
-    <!-- Curved beam (arc → straight frames) -->
-    <div class="section">
-      <button class="section-toggle" onclick={() => showCurvedBeam = !showCurvedBeam}>
-        <span class="toggle-arrow">{showCurvedBeam ? '▾' : '▸'}</span>
-        {t('pro.curvedBeam')}
-      </button>
-      {#if showCurvedBeam}
-        <div class="section-body">
-          <div class="mesh-hint">{t('pro.curvedBeamHint')}</div>
-          <div class="input-row">
-            <label>{t('pro.startMidEnd')}:</label>
-            <input type="text" bind:value={cbNodes[0]} placeholder="start" class="node-input" />
-            <input type="text" bind:value={cbNodes[1]} placeholder="mid" class="node-input" />
-            <input type="text" bind:value={cbNodes[2]} placeholder="end" class="node-input" />
-          </div>
-          <div class="input-row">
-            <label>{t('pro.subdivisions')}:</label>
-            <input type="number" bind:value={cbSegments} min="2" max="100" class="sub-input" />
-          </div>
-          <div class="input-row">
-            <label>{t('pro.thMaterial')}:</label>
-            <select bind:value={cbMaterialId} class="mat-select">
-              {#each materials as m}<option value={m.id}>{m.name}</option>{/each}
-            </select>
-          </div>
-          <div class="input-row">
-            <label>{t('pro.section')}:</label>
-            <select bind:value={cbSectionId} class="mat-select">
-              {#each sections as s}<option value={s.id}>{s.name}</option>{/each}
-            </select>
-          </div>
-          {#if cbError}<div class="field-error">{cbError}</div>{/if}
-          {#if cbSuccess}<div class="field-success">{cbSuccess}</div>{/if}
-          <button class="pro-btn pro-btn-accent" onclick={generateCurvedBeam}>{t('pro.generateCurvedBeam')}</button>
         </div>
       {/if}
     </div>
@@ -667,7 +622,7 @@
                     <tr class:selected={uiStore.selectedShells.has('q' + quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('q' + quad.id, false); }}>
                       <td class="col-id">{quad.id}</td>
                       <td class="col-nodes">{quad.nodes.join(', ')}</td>
-                      <td class="col-family">{quad.curved ? '◠ Curved' : (quad.shellFamily ?? 'MITC4')}</td>
+                      <td class="col-family">{quad.shellFamily ?? 'MITC4'}</td>
                       <td class="col-mat"><select class="inline-select" value={quad.materialId} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateQuad(quad.id, { materialId: parseInt(e.currentTarget.value) })}>{#each [...modelStore.materials.values()] as m}<option value={m.id}>{m.name}</option>{/each}</select></td>
                       <td class="col-thick"><input class="inline-input" type="number" step="0.001" value={quad.thickness} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateQuad(quad.id, { thickness: parseFloat(e.currentTarget.value) || quad.thickness })} /></td>
                       <td class="col-actions">
@@ -866,6 +821,24 @@
   .pro-btn-accent:hover {
     background: #1a4a7a;
     color: #fff;
+  }
+
+  .shell-info {
+    margin: 6px 8px 10px;
+    border: 1px solid #1a3a55;
+    border-radius: 4px;
+    background: rgba(20, 40, 60, 0.4);
+  }
+  .shell-info-toggle {
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    color: #9fd3c8; font-size: 0.72rem; font-weight: 600; padding: 7px 9px;
+  }
+  .shell-info-body { padding: 0 10px 8px; }
+  .shell-info-body p { margin: 4px 0; font-size: 0.68rem; line-height: 1.4; color: #b8c4cc; }
+  .shell-warn {
+    margin: 0 8px 8px; padding: 6px 9px; border-radius: 4px;
+    background: rgba(120, 80, 0, 0.25); border: 1px solid #aa7722;
+    color: #f0c060; font-size: 0.68rem; line-height: 1.35;
   }
 
   .pro-btn-pick {

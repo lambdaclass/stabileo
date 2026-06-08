@@ -15,6 +15,7 @@ import {
 import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-connectivity';
 import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } from './member-offsets';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
+import { enrichComboShellStresses } from './shell-combos';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
 import { t } from '../i18n';
 import {
@@ -1375,17 +1376,12 @@ export function solveCombinations3D(
       if (id != null) perCombo.set(id, cr.results);
     }
 
-    // Shell stress enrichment — only for per-case results (combos are derived on-demand)
+    // Shell stress enrichment. The WASM combine drops plate/quad stresses, but
+    // they are linear in displacement → recombine per-combo + envelope from the
+    // per-case results (which DO carry them). No solver change.
     const t1 = performance.now();
     if (hasShells) {
-      const quads = model.quads ?? new Map();
-      const plates = model.plates ?? new Map();
-      for (const r of perCase.values()) {
-        postProcessShellStresses(r, model.nodes, quads, plates, model.materials);
-      }
-      for (const r of perCombo.values()) {
-        postProcessShellStresses(r, model.nodes, quads, plates, model.materials);
-      }
+      enrichComboShellStresses(perCase, perCombo, mcResult.envelope?.maxAbsResults3D, combinations);
     }
     const tShell = performance.now() - t1;
 
@@ -1442,6 +1438,7 @@ function solveCombinations3DFallback(
   const allComboResults = Array.from(perCombo.values());
   const envelope = computeEnvelope3D(allComboResults);
   if (!envelope) return t('svc.envelopeError3d');
+  if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations);
   return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
 }
 
@@ -1534,6 +1531,7 @@ export async function solveCombinations3DParallel(
     const allComboResults = Array.from(perCombo.values());
     const envelope = computeEnvelope3D(allComboResults);
     if (!envelope) return t('svc.envelopeError3d');
+    if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations);
 
     const tPost = performance.now() - t1;
     console.log(`[solveCombinations3D parallel] Solve: ${tSolve.toFixed(0)} ms | Combine+envelope: ${tPost.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size} | Workers: ${Math.min(caseInputs.length, navigator.hardwareConcurrency ?? 4)}`);

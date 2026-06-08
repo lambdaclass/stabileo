@@ -331,6 +331,7 @@ function createUIStore() {
   let visibleLoadCases3D_basic = $state<number[] | null>(null);
   let showAxes3D_basic = $state<boolean>(true);
   let localAxesMode3D_basic = $state<LocalAxesDisplayMode>('selected');
+  let shellAxesMode3D_basic = $state<LocalAxesDisplayMode>('selected');
 
   // Independent 3D visualization config — PRO mode
   let showGrid3D_pro = $state<boolean>(true);
@@ -344,6 +345,7 @@ function createUIStore() {
   let visibleLoadCases3D_pro = $state<number[] | null>(null);
   let showAxes3D_pro = $state<boolean>(true);
   let localAxesMode3D_pro = $state<LocalAxesDisplayMode>('selected');
+  let shellAxesMode3D_pro = $state<LocalAxesDisplayMode>('selected');
 
   // 3D axis convention: terna derecha (right-hand, default) or terna izquierda (left-hand)
   let axisConvention3D = $state<'rightHand' | 'leftHand'>('rightHand');
@@ -778,6 +780,8 @@ function createUIStore() {
     set showAxes3D(v: boolean) { if (analysisMode === 'pro') showAxes3D_pro = v; else showAxes3D_basic = v; },
     get localAxesMode3D() { return analysisMode === 'pro' ? localAxesMode3D_pro : localAxesMode3D_basic; },
     set localAxesMode3D(v: LocalAxesDisplayMode) { if (analysisMode === 'pro') localAxesMode3D_pro = v; else localAxesMode3D_basic = v; },
+    get shellAxesMode3D() { return analysisMode === 'pro' ? shellAxesMode3D_pro : shellAxesMode3D_basic; },
+    set shellAxesMode3D(v: LocalAxesDisplayMode) { if (analysisMode === 'pro') shellAxesMode3D_pro = v; else shellAxesMode3D_basic = v; },
 
     get axisConvention3D() { return axisConvention3D; },
     set axisConvention3D(v: 'rightHand' | 'leftHand') { axisConvention3D = v; },

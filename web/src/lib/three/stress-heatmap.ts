@@ -200,6 +200,9 @@ export function applyShellVertexColors(
   const mat = ensureOwnShellMaterial(mesh);
   mat.vertexColors = true;
   mat.color.setHex(0xffffff);
+  // Make the contour visible regardless of render mode (wireframe faces are
+  // nearly transparent at rest).
+  mat.opacity = 0.95; mat.transparent = false; mat.depthWrite = true;
   mat.needsUpdate = true;
 }
 
@@ -228,5 +231,6 @@ export function applyShellFlatColor(mesh: THREE.Mesh, hex: number): void {
   const mat = ensureOwnShellMaterial(mesh);
   mat.vertexColors = false;
   mat.color.setHex(hex);
+  mat.opacity = 0.95; mat.transparent = false; mat.depthWrite = true;
   mat.needsUpdate = true;
 }

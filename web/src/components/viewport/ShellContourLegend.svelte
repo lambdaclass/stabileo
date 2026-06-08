@@ -4,15 +4,20 @@
   // results so it never writes back into the results store, and samples the
   // SAME colour functions the contour uses so the gradient matches exactly.
   import { resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import { divergingColor } from '../../lib/three/stress-heatmap';
   import { heatmapColor } from '../../lib/three/selection-helpers';
   import { shellComponentMeta, shellComponentRange } from '../../lib/engine/shell-stress';
 
-  const active = $derived(
+  // Shell contour mode is selected (regardless of whether data exists).
+  const shellMode = $derived(
     resultsStore.diagramType === 'colorMap'
-    && (resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending')
-    && !!(resultsStore.results3D?.plateStresses?.length || resultsStore.results3D?.quadStresses?.length),
+    && (resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending'),
   );
+  const hasData = $derived(
+    !!(resultsStore.results3D?.plateStresses?.length || resultsStore.results3D?.quadStresses?.length),
+  );
+  const active = $derived(shellMode && hasData);
 
   const meta = $derived(shellComponentMeta(resultsStore.shellContourComponent));
 
@@ -54,7 +59,12 @@
   const mid = $derived((range.min + range.max) / 2);
 </script>
 
-{#if active}
+{#if shellMode && !hasData}
+  <div class="shell-legend shell-legend-empty" role="status">
+    <div class="legend-title">{meta.label}</div>
+    <div class="legend-unavailable">{t('results.shellContourUnavailable')}</div>
+  </div>
+{:else if active}
   <div class="shell-legend" role="img" aria-label="Shell contour legend">
     <div class="legend-title">{meta.label}</div>
     <div class="legend-body">
@@ -99,4 +109,6 @@
     font-variant-numeric: tabular-nums;
   }
   .legend-unit { margin-top: 5px; text-align: center; opacity: 0.7; }
+  .legend-unavailable { font-size: 10px; opacity: 0.75; max-width: 140px; line-height: 1.3; }
+  .shell-legend-empty { border-color: rgba(255, 179, 71, 0.5); }
 </style>

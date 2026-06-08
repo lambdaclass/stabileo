@@ -5,7 +5,7 @@
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
-  import { paintShell, restoreShellColor } from '../lib/three/create-shell-mesh';
+  import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
   import { ElementsBatched } from '../lib/three/elements-batched';
@@ -748,6 +748,11 @@
     resultsStore.diagramType;
     resultsStore.colorMapKind;
     resultsStore.shellContourComponent;
+    // Shell meshes rebuild on render-mode / geometry change → re-apply contour.
+    uiStore.renderMode3D;
+    modelStore.plates;
+    modelStore.quads;
+    modelStore.modelVersion;
     // Also react to verification store changes for 'verification' color map
     verificationStore.concrete;
     verificationStore.steel;
@@ -782,6 +787,7 @@
   // Local-axis triads: driven by localAxesMode3D (always / selected / never).
   $effect(() => {
     uiStore.localAxesMode3D;
+    uiStore.shellAxesMode3D;
     uiStore.selectedElements;
     uiStore.selectedShells;
     uiStore.elementSelectionManual;
@@ -1873,10 +1879,26 @@
       const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
       const group = sceneCtx.shellGroups.get(key);
       if (group) {
-        if (uiStore.selectedShells.has(key)) paintShell(group, COLORS.elementSelected, COLORS.elementSelected);
-        else restoreShellColor(group);
+        const sel = uiStore.selectedShells.has(key);
+        if (shellContourActive()) {
+          paintShellEdge(group, sel ? COLORS.elementSelected : (group.userData.baseEdgeColor as number) ?? COLORS.support);
+        } else if (sel) {
+          paintShell(group, COLORS.elementSelected, COLORS.elementSelected);
+        } else {
+          restoreShellColor(group);
+        }
       }
     }
+  }
+
+  /** Mirror of scene-sync's contour check (so hover/selection don't clobber an
+   *  active shell contour). */
+  function shellContourActive(): boolean {
+    if (resultsStore.diagramType !== 'colorMap') return false;
+    const k = resultsStore.colorMapKind;
+    if (k !== 'shellVonMises' && k !== 'shellBending') return false;
+    const r = resultsStore.results3D;
+    return !!(r && ((r.plateStresses?.length ?? 0) > 0 || (r.quadStresses?.length ?? 0) > 0));
   }
 
   function applyHoverColor(data: { type: string; id: number }) {
@@ -1899,7 +1921,10 @@
     } else if (data.type === 'plate' || data.type === 'quad') {
       const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
       const group = sceneCtx.shellGroups.get(key);
-      if (group) paintShell(group, COLORS.elementHovered, COLORS.elementHovered);
+      if (group) {
+        if (shellContourActive()) paintShellEdge(group, COLORS.elementHovered);
+        else paintShell(group, COLORS.elementHovered, COLORS.elementHovered);
+      }
     }
   }
 

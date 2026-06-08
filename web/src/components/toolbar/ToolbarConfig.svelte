@@ -49,8 +49,16 @@
         </label>
         {#if is3D}
           <div class="input-group">
-            <label>{t('config.localAxes')}:</label>
+            <label>{t('config.localAxesMembers')}:</label>
             <select bind:value={uiStore.localAxesMode3D}>
+              <option value="selected">{t('config.localAxesSelected')}</option>
+              <option value="always">{t('config.localAxesAlways')}</option>
+              <option value="never">{t('config.localAxesNever')}</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>{t('config.localAxesShells')}:</label>
+            <select bind:value={uiStore.shellAxesMode3D}>
               <option value="selected">{t('config.localAxesSelected')}</option>
               <option value="always">{t('config.localAxesAlways')}</option>
               <option value="never">{t('config.localAxesNever')}</option>

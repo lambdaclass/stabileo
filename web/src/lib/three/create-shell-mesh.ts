@@ -148,9 +148,15 @@ function buildShellGroup(
     ? buildPrismGeometry(verts, faceNormal(verts), opts.thickness)
     : buildFlatGeometry(verts);
 
-  const mesh = new THREE.Mesh(geo, makeFaceMaterial(faceColor, mode));
+  const faceMat = makeFaceMaterial(faceColor, mode);
+  const mesh = new THREE.Mesh(geo, faceMat);
   mesh.userData.shellFace = true;
   mesh.userData.ownShellMaterial = true;
+  // Remember the mode's base look so a result contour can switch the face to
+  // opaque and back without guessing.
+  mesh.userData.baseOpacity = faceMat.opacity;
+  mesh.userData.baseTransparent = faceMat.transparent;
+  mesh.userData.baseDepthWrite = faceMat.depthWrite;
   group.add(mesh);
   group.add(buildEdges(geo, mode));
 
@@ -194,6 +200,17 @@ export function paintShell(group: THREE.Group, faceColor: number, edgeColor: num
         mat.needsUpdate = true;
       }
     } else if (child instanceof THREE.LineSegments && child.userData?.shellEdge) {
+      (child.material as THREE.LineBasicMaterial).color.setHex(edgeColor);
+      (child.material as THREE.LineBasicMaterial).needsUpdate = true;
+    }
+  });
+}
+
+/** Repaint only a shell group's outline (selection highlight while a result
+ *  contour owns the face colours). */
+export function paintShellEdge(group: THREE.Group, edgeColor: number): void {
+  group.traverse((child) => {
+    if (child instanceof THREE.LineSegments && child.userData?.shellEdge) {
       (child.material as THREE.LineBasicMaterial).color.setHex(edgeColor);
       (child.material as THREE.LineBasicMaterial).needsUpdate = true;
     }

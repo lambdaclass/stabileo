@@ -509,6 +509,12 @@ function resetShellColors(ctx: ResultsSyncContext): void {
         if (geo.hasAttribute('color')) geo.deleteAttribute('color');
         const mat = child.material as THREE.MeshStandardMaterial;
         mat.vertexColors = false;
+        // Restore the mode's base look (contour may have forced it opaque).
+        if (child.userData.baseOpacity !== undefined) {
+          mat.opacity = child.userData.baseOpacity;
+          mat.transparent = child.userData.baseTransparent;
+          mat.depthWrite = child.userData.baseDepthWrite;
+        }
         mat.needsUpdate = true;
       }
     });

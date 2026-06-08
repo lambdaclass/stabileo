@@ -14,7 +14,7 @@ import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
 import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
-import { createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, restoreShellColor } from '../three/create-shell-mesh';
+import { createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, paintShellEdge, restoreShellColor } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
@@ -315,12 +315,26 @@ export function syncShells(ctx: SceneSyncContext): void {
 
   const seen = new Set<string>();
 
+  // In 'sections' (rendered) mode, draw an offset shell at its analytical
+  // offset location (like member offsets). The offset is genuine-3D only, so
+  // skip when projecting a planar model. Shifting the points here makes the
+  // signature change too → the mesh rebuilds when the offset changes.
+  const shiftForOffset = (
+    pts: Array<{ x: number; y: number; z: number }>,
+    offset: import('../model/element-3d-metadata').ShellOffset | undefined,
+  ): Array<{ x: number; y: number; z: number }> => {
+    if (renderMode !== 'sections' || project2D || !offset) return pts;
+    const v = resolveShellOffsetGlobal(offset, pts);
+    if (!v) return pts;
+    return pts.map(p => ({ x: p.x + v.x, y: p.y + v.y, z: p.z + v.z }));
+  };
+
   // Plates (triangular DKT)
   for (const [id, plate] of modelStore.plates) {
     const key = `p${id}`;
     const nodes = plate.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
-    const [n0, n1, n2] = nodes as Array<{ x: number; y: number; z: number }>;
+    const [n0, n1, n2] = shiftForOffset(nodes as Array<{ x: number; y: number; z: number }>, plate.offset);
     const signature = sig(project2D, [n0, n1, n2], [...plate.nodes], plate.thickness, plate.materialId);
 
     const existing = ctx.shellGroups.get(key);
@@ -346,7 +360,7 @@ export function syncShells(ctx: SceneSyncContext): void {
     const key = `q${id}`;
     const nodes = quad.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
-    const [n0, n1, n2, n3] = nodes as Array<{ x: number; y: number; z: number }>;
+    const [n0, n1, n2, n3] = shiftForOffset(nodes as Array<{ x: number; y: number; z: number }>, quad.offset);
     const signature = sig(project2D, [n0, n1, n2, n3], [...quad.nodes], quad.thickness, quad.materialId);
 
     const existing = ctx.shellGroups.get(key);
@@ -379,12 +393,28 @@ export function syncShells(ctx: SceneSyncContext): void {
   }
 }
 
-/** Tint selected shell groups (key = "p{id}"/"q{id}"), restore the rest. */
+/** True when a shell result contour owns the shell face colours (so selection
+ *  highlight must not repaint faces). */
+function shellContourActive(): boolean {
+  if (resultsStore.diagramType !== 'colorMap') return false;
+  const k = resultsStore.colorMapKind;
+  if (k !== 'shellVonMises' && k !== 'shellBending') return false;
+  const r = resultsStore.results3D;
+  return !!(r && ((r.plateStresses?.length ?? 0) > 0 || (r.quadStresses?.length ?? 0) > 0));
+}
+
+/** Tint selected shell groups (key = "p{id}"/"q{id}"), restore the rest.
+ *  While a contour is active, only the OUTLINE is highlighted — the contour
+ *  keeps the face colours (otherwise selection/hover would clobber it). */
 export function applyShellSelection(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const selected = uiStore.selectedShells;
+  const contour = shellContourActive();
   for (const [key, group] of ctx.shellGroups) {
-    if (selected.has(key)) {
+    const isSel = selected.has(key);
+    if (contour) {
+      paintShellEdge(group, isSel ? COLORS.elementSelected : (group.userData.baseEdgeColor as number) ?? COLORS.support);
+    } else if (isSel) {
       paintShell(group, COLORS.elementSelected, COLORS.elementSelected);
     } else {
       restoreShellColor(group);
@@ -659,26 +689,24 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
   // projected scene, so restrict triads to genuine (non-projected) 3D views.
   if (projectFlag()) return;
 
-  const mode = uiStore.localAxesMode3D;
-  if (mode === 'never') return;
-  const showAll = mode === 'always';
+  const LABEL_CAP = 8;
+
+  // ── MEMBER local axes (independent setting: localAxesMode3D) ──
+  const memberMode = uiStore.localAxesMode3D;
+  const memberShowAll = memberMode === 'always';
   // "When selected" = MANUALLY selected only. Result diagrams / result-query /
   // AI / diagnostics highlight via selectedElements too, but with
   // elementSelectionManual=false — so reviewing diagrams never floods triads.
-  const selected = (!showAll && !uiStore.elementSelectionManual) ? new Set<number>() : uiStore.selectedElements;
-  if (!showAll && selected.size === 0) return;
-
-  // Labels only for a small selected set — a broad result-query selection
-  // (e.g. "all members") must not flood the scene with hundreds of sprites.
-  const LABEL_CAP = 8;
+  const selected = (!memberShowAll && !uiStore.elementSelectionManual) ? new Set<number>() : uiStore.selectedElements;
   const labelSelected = selected.size > 0 && selected.size <= LABEL_CAP;
+  const drawMembers = memberMode !== 'never' && (memberShowAll || selected.size > 0);
 
   const group = new THREE.Group();
   group.name = 'localAxesContainer';
 
-  for (const [id, elem] of modelStore.elements) {
+  if (drawMembers) for (const [id, elem] of modelStore.elements) {
     const isSelected = selected.has(id);
-    if (!showAll && !isSelected) continue;
+    if (!memberShowAll && !isSelected) continue;
 
     const nI = modelStore.nodes.get(elem.nodeI);
     const nJ = modelStore.nodes.get(elem.nodeJ);
@@ -703,24 +731,31 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
     group.add(createLocalAxesTriad(origin, axes, { withLabels: isSelected && labelSelected }));
   }
 
-  // Shell triads: in-plane x/y + normal (local z). Shells are always manually
-  // selected, so no elementSelectionManual gymnastics needed here.
+  // ── SHELL local axes / normals (independent setting: shellAxesMode3D) ──
+  // In-plane x/y + normal (local z). Shells are always MANUALLY selected
+  // (selectedShells is only set by click / table / box-select), so "When
+  // selected" naturally shows just the picked shell — never a result flood.
+  const shellMode = uiStore.shellAxesMode3D;
+  const shellShowAll = shellMode === 'always';
   const selShells = uiStore.selectedShells;
+  const drawShells = shellMode !== 'never' && (shellShowAll || selShells.size > 0);
   const shellLabel = selShells.size > 0 && selShells.size <= LABEL_CAP;
-  const addShellTriad = (key: string, nodeIds: number[]) => {
-    const isSel = selShells.has(key);
-    if (!showAll && !isSel) return;
-    const verts = nodeIds.map(id => modelStore.nodes.get(id));
-    if (verts.some(v => !v) || verts.length < 3) return;
-    const axes = shellLocalAxes(verts as Array<{ x: number; y: number; z?: number }>);
-    if (!axes) return;
-    let cx = 0, cy = 0, cz = 0;
-    for (const v of verts as Array<{ x: number; y: number; z?: number }>) { cx += v.x; cy += v.y; cz += v.z ?? 0; }
-    const origin = new THREE.Vector3(cx / verts.length, cy / verts.length, cz / verts.length);
-    group.add(createLocalAxesTriad(origin, axes, { withLabels: isSel && shellLabel }));
-  };
-  for (const [id, plate] of modelStore.plates) addShellTriad(`p${id}`, [...plate.nodes]);
-  for (const [id, quad] of modelStore.quads) addShellTriad(`q${id}`, [...quad.nodes]);
+  if (drawShells) {
+    const addShellTriad = (key: string, nodeIds: number[]) => {
+      const isSel = selShells.has(key);
+      if (!shellShowAll && !isSel) return;
+      const verts = nodeIds.map(id => modelStore.nodes.get(id));
+      if (verts.some(v => !v) || verts.length < 3) return;
+      const axes = shellLocalAxes(verts as Array<{ x: number; y: number; z?: number }>);
+      if (!axes) return;
+      let cx = 0, cy = 0, cz = 0;
+      for (const v of verts as Array<{ x: number; y: number; z?: number }>) { cx += v.x; cy += v.y; cz += v.z ?? 0; }
+      const origin = new THREE.Vector3(cx / verts.length, cy / verts.length, cz / verts.length);
+      group.add(createLocalAxesTriad(origin, axes, { withLabels: isSel && shellLabel }));
+    };
+    for (const [id, plate] of modelStore.plates) addShellTriad(`p${id}`, [...plate.nodes]);
+    for (const [id, quad] of modelStore.quads) addShellTriad(`q${id}`, [...quad.nodes]);
+  }
 
   ctx.localAxesGroup = group;
   ctx.scene.add(group);

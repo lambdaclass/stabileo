@@ -19,6 +19,24 @@
   let solving = $state(false);
 
   const results = $derived(resultsStore.results3D);
+
+  // Unified shell rows (plates + quads) with derived principal stresses, for
+  // the readable split stress / moment tables.
+  const shellRows = $derived.by(() => {
+    const r = resultsStore.results3D;
+    if (!r) return [] as Array<{ key: string; type: string; id: number; sigmaXx: number; sigmaYy: number; tauXy: number; sigma1: number; sigma2: number; vonMises: number; mx: number; my: number; mxy: number }>;
+    const rows = [];
+    for (const ps of r.plateStresses ?? []) {
+      const pr = principalStresses(ps.sigmaXx, ps.sigmaYy, ps.tauXy);
+      rows.push({ key: 'p' + ps.elementId, type: 'Plate', id: ps.elementId, sigmaXx: ps.sigmaXx, sigmaYy: ps.sigmaYy, tauXy: ps.tauXy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: ps.vonMises, mx: ps.mx, my: ps.my, mxy: ps.mxy });
+    }
+    for (const qs of r.quadStresses ?? []) {
+      const pr = principalStresses(qs.sigmaXx, qs.sigmaYy, qs.tauXy);
+      rows.push({ key: 'q' + qs.elementId, type: 'Quad', id: qs.elementId, sigmaXx: qs.sigmaXx, sigmaYy: qs.sigmaYy, tauXy: qs.tauXy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: qs.vonMises, mx: qs.mx, my: qs.my, mxy: qs.mxy });
+    }
+    return rows;
+  });
+
   const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
   const hasCombinations = $derived(resultsStore.hasCombinations3D);
 
@@ -550,62 +568,52 @@
         </div>
       </details>
 
-      {#if results.plateStresses?.length || results.quadStresses?.length}
+      {#if shellRows.length}
         <details class="res-detail" open>
-          <summary class="pro-res-section-title">{t('pro.shellStresses')} <span class="res-count">({(results.plateStresses?.length ?? 0) + (results.quadStresses?.length ?? 0)})</span></summary>
+          <summary class="pro-res-section-title">{t('pro.shellStresses')} <span class="res-count">({shellRows.length})</span></summary>
           <div class="pro-res-table-wrap">
-            {#if results.plateStresses?.length}
-              <table class="pro-res-table">
-                <thead><tr>
-                  <th>Elem</th><th>&sigma;xx</th><th>&sigma;yy</th><th>&tau;xy</th>
-                  <th>&sigma;1</th><th>&sigma;2</th>
-                  <th>mx</th><th>my</th><th>mxy</th><th>Von Mises</th>
-                </tr></thead>
-                <tbody>
-                  {#each results.plateStresses as ps}
-                    {@const pr = principalStresses(ps.sigmaXx, ps.sigmaYy, ps.tauXy)}
-                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('p' + ps.elementId, false); }} style="cursor:pointer">
-                      <td class="col-id">{ps.elementId}</td>
-                      <td class="col-num">{fmtNum(ps.sigmaXx)}</td>
-                      <td class="col-num">{fmtNum(ps.sigmaYy)}</td>
-                      <td class="col-num">{fmtNum(ps.tauXy)}</td>
-                      <td class="col-num">{fmtNum(pr.sigma1)}</td>
-                      <td class="col-num">{fmtNum(pr.sigma2)}</td>
-                      <td class="col-num">{fmtNum(ps.mx)}</td>
-                      <td class="col-num">{fmtNum(ps.my)}</td>
-                      <td class="col-num">{fmtNum(ps.mxy)}</td>
-                      <td class="col-num">{fmtNum(ps.vonMises)}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            {/if}
-            {#if results.quadStresses?.length}
-              <table class="pro-res-table">
-                <thead><tr>
-                  <th>Elem</th><th>&sigma;xx</th><th>&sigma;yy</th><th>&tau;xy</th>
-                  <th>&sigma;1</th><th>&sigma;2</th>
-                  <th>mx</th><th>my</th><th>mxy</th><th>Von Mises</th>
-                </tr></thead>
-                <tbody>
-                  {#each results.quadStresses as qs}
-                    {@const pr = principalStresses(qs.sigmaXx, qs.sigmaYy, qs.tauXy)}
-                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('q' + qs.elementId, false); }} style="cursor:pointer">
-                      <td class="col-id">{qs.elementId}</td>
-                      <td class="col-num">{fmtNum(qs.sigmaXx)}</td>
-                      <td class="col-num">{fmtNum(qs.sigmaYy)}</td>
-                      <td class="col-num">{fmtNum(qs.tauXy)}</td>
-                      <td class="col-num">{fmtNum(pr.sigma1)}</td>
-                      <td class="col-num">{fmtNum(pr.sigma2)}</td>
-                      <td class="col-num">{fmtNum(qs.mx)}</td>
-                      <td class="col-num">{fmtNum(qs.my)}</td>
-                      <td class="col-num">{fmtNum(qs.mxy)}</td>
-                      <td class="col-num">{fmtNum(qs.vonMises)}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            {/if}
+            <!-- Membrane + principal stresses -->
+            <div class="shell-table-label">{t('pro.shellMembraneStresses')} <span class="shell-unit">[kN/m²]</span></div>
+            <table class="pro-res-table">
+              <thead><tr>
+                <th>{t('pro.elemLabel')}</th><th>{t('pro.typeLabel')}</th>
+                <th>&sigma;xx</th><th>&sigma;yy</th><th>&tau;xy</th>
+                <th>&sigma;1</th><th>&sigma;2</th><th>{t('pro.vonMisesShort')}</th>
+              </tr></thead>
+              <tbody>
+                {#each shellRows as r}
+                  <tr class:selected={uiStore.selectedShells.has(r.key)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell(r.key, false); }} style="cursor:pointer">
+                    <td class="col-id">{r.id}</td>
+                    <td class="col-type">{r.type}</td>
+                    <td class="col-num">{fmtNum(r.sigmaXx)}</td>
+                    <td class="col-num">{fmtNum(r.sigmaYy)}</td>
+                    <td class="col-num">{fmtNum(r.tauXy)}</td>
+                    <td class="col-num">{fmtNum(r.sigma1)}</td>
+                    <td class="col-num">{fmtNum(r.sigma2)}</td>
+                    <td class="col-num col-max">{fmtNum(r.vonMises)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+            <!-- Bending moments per unit width -->
+            <div class="shell-table-label">{t('pro.shellBendingMoments')} <span class="shell-unit">[kN·m/m]</span></div>
+            <table class="pro-res-table">
+              <thead><tr>
+                <th>{t('pro.elemLabel')}</th><th>{t('pro.typeLabel')}</th>
+                <th>m<sub>x</sub></th><th>m<sub>y</sub></th><th>m<sub>xy</sub></th>
+              </tr></thead>
+              <tbody>
+                {#each shellRows as r}
+                  <tr class:selected={uiStore.selectedShells.has(r.key)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell(r.key, false); }} style="cursor:pointer">
+                    <td class="col-id">{r.id}</td>
+                    <td class="col-type">{r.type}</td>
+                    <td class="col-num">{fmtNum(r.mx)}</td>
+                    <td class="col-num">{fmtNum(r.my)}</td>
+                    <td class="col-num">{fmtNum(r.mxy)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
           </div>
         </details>
       {/if}
@@ -935,6 +943,15 @@
   .col-id { width: 30px; color: #666; font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; text-align: right; font-size: 0.66rem; }
   .col-end { font-size: 0.6rem; color: #888; font-weight: 600; text-align: center; width: 20px; }
+  .col-type { font-size: 0.62rem; color: #7fb0c8; text-align: center; width: 40px; }
+
+  .shell-table-label {
+    font-size: 0.66rem; font-weight: 600; color: #9fd3c8;
+    margin: 8px 0 3px; display: flex; gap: 6px; align-items: baseline;
+  }
+  .shell-table-label:first-child { margin-top: 0; }
+  .shell-unit { color: #888; font-weight: 400; font-family: monospace; }
+  .pro-res-table tr.selected td { background: rgba(0, 255, 255, 0.12); }
 
   .nodal-ids-row td {
     padding: 1px 5px;
