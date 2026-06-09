@@ -80,13 +80,19 @@
     try {
       if (selectedCode === 'cirsoc') {
         // JS CIRSOC path — uses autoVerifyFromResults for RC, then steel
-        const { concrete } = autoVerifyFromResults(results3D, {
-          elements: modelStore.elements,
-          nodes: modelStore.nodes,
-          sections: modelStore.sections,
-          materials: modelStore.materials,
-          supports: modelStore.supports,
-        });
+        const { concrete } = autoVerifyFromResults(
+          results3D,
+          {
+            elements: modelStore.elements,
+            nodes: modelStore.nodes,
+            sections: modelStore.sections,
+            materials: modelStore.materials,
+            supports: modelStore.supports,
+          },
+          // Pass governing-combo metadata so the Design tab's "Combo" column is
+          // populated, matching the Verification tab (ProPanel) behavior.
+          resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null,
+        );
         const rcResults = normalizeCirsoc201(concrete, sectionNames);
 
         // Also try CIRSOC 301 steel if available
