@@ -10,6 +10,13 @@
   let companyName = $state('');
   let notes = $state('');
 
+  // The dialog component stays mounted for the app's lifetime, so the $state
+  // initializer above only sees the startup model. Re-seed the project name
+  // from the current model each time the dialog opens (it remains editable).
+  $effect(() => {
+    if (open) projectName = modelStore.model.name || 'Structural Analysis';
+  });
+
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   const hasResults = $derived(is3D ? resultsStore.results3D !== null : resultsStore.results !== null);
   const modeLabel = $derived<AnalysisModeLabel>(uiStore.analysisMode === 'pro' ? 'PRO' : uiStore.analysisMode === '3d' ? '3D' : '2D');
