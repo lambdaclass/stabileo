@@ -96,30 +96,25 @@
   const surfaceLoads = $derived(caseLoads.filter(l => l.type === 'surface3d'));
   const thermalQuadLoads = $derived(caseLoads.filter(l => l.type === 'thermalQuad3d'));
 
-  /** Select all loads belonging to a given load case in the viewport. */
+  /** Select all loads belonging to a given load case in the viewport.
+   *  selectedLoads holds load data ids — assign the whole set once. */
   function selectLoadsByCase(caseId: number) {
     uiStore.selectMode = 'loads';
     uiStore.clearSelection();
-    for (let i = 0; i < modelStore.loads.length; i++) {
-      if ((modelStore.loads[i].data.caseId ?? 1) === caseId) {
-        uiStore.selectLoad(i, true);
-      }
-    }
+    uiStore.selectedLoads = new Set(
+      modelStore.loads.filter(l => (l.data.caseId ?? 1) === caseId).map(l => l.data.id),
+    );
   }
 
-  /** Select a load in the viewport by its data.id (finds the array index in modelStore.loads). */
+  /** Select a load in the viewport by its data.id. */
   function selectLoadById(dataId: number) {
-    const idx = modelStore.loads.findIndex(l => l.data.id === dataId);
-    if (idx >= 0) {
-      uiStore.selectMode = 'loads';
-      uiStore.selectLoad(idx, false);
-    }
+    uiStore.selectMode = 'loads';
+    uiStore.selectLoad(dataId, false);
   }
 
   /** Check if a load is currently selected by its data.id. */
   function isLoadSelected(dataId: number): boolean {
-    const idx = modelStore.loads.findIndex(l => l.data.id === dataId);
-    return idx >= 0 && uiStore.selectedLoads.has(idx);
+    return uiStore.selectedLoads.has(dataId);
   }
 
   const caseTypeLabels = $derived<Record<string, string>>({
@@ -223,6 +218,9 @@
 
   function removeLoad(loadId: number) {
     modelStore.removeLoad(loadId);
+    // Drop the deleted load from the selection so a later Delete keypress
+    // doesn't act on a stale id.
+    uiStore.deleteSelectedLoad(loadId);
   }
 
   function addLoadCase() {
