@@ -551,9 +551,14 @@ export function syncSelection(ctx: SceneSyncContext): void {
 
   // Shells: in shells mode, boost the opacity of selected plates/quads so the
   // selection is visible (ids only count as shell ids while in shells mode).
+  // Plate and quad id counters are independent and can collide; deletion
+  // resolves ambiguous ids plate-first, so the highlight mirrors that
+  // precedence to show exactly what Delete would act on.
   for (const [key, group] of ctx.shellGroups) {
+    const isPlate = key.startsWith('p');
     const id = parseInt(key.substring(1), 10);
-    const selected = shellMode && uiStore.selectedElements.has(id);
+    const selected = shellMode && uiStore.selectedElements.has(id)
+      && (isPlate || !modelStore.plates.has(id));
     group.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         const mat = ensureOwnShellMaterial(child);
