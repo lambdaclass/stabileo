@@ -169,6 +169,8 @@ export function validateAndSolve2D(
   // connectors (ConnectorElement), and constraints (rigidLink, equalDOF,
   // eccentricConnection, diaphragm, linearMPC). A node coupled only via any
   // of those is NOT orphaned. See constraint-connectivity.ts for the rule.
+  // (These primitives are carried into the 2D solver input below, so crediting
+  // them here is honest — they actually contribute stiffness.)
   const connectedNodes = new Set<number>();
   for (const elem of model.elements.values()) {
     connectedNodes.add(elem.nodeI);
@@ -556,6 +558,12 @@ export function validateAndSolve2D(
     }])),
     supports: buildSolverSupports2D(model),
     loads: solverLoads,
+    // Carry constraints + connectors into the 2D wire (mirrors buildSolverInput3D)
+    // so a node coupled only via a constraint/connector — which the preflight
+    // credits as connected — actually receives stiffness and the 2D constrained
+    // solver can solve it, instead of being handed a singular system.
+    constraints: model.constraints ?? [],
+    connectors: model.connectors,
   };
 
   // Kinematic analysis
@@ -745,6 +753,12 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
     }])),
     supports: buildSolverSupports2D(model),
     loads: solverLoads,
+    // Carry constraints + connectors into the 2D wire (mirrors buildSolverInput3D)
+    // so a node coupled only via a constraint/connector — which the preflight
+    // credits as connected — actually receives stiffness and the 2D constrained
+    // solver can solve it, instead of being handed a singular system.
+    constraints: model.constraints ?? [],
+    connectors: model.connectors,
   };
 }
 

@@ -66,7 +66,14 @@ export function applyLowDetail(
   if (g.elementsParent) g.elementsParent.visible = !on || keepElementsForResults;
 
   if (g.elementsBatchedMesh) {
-    g.elementsBatchedMesh.visible = on ? true : g.renderMode === 'wireframe';
+    // During orbit the batched mesh is the cheap stand-in for the hidden solid
+    // elementsParent. But when result coloring keeps elementsParent visible
+    // (solid/sections), forcing the batched mesh on too draws a redundant
+    // wireframe overlay over the solids and doubles the element draw — so
+    // suppress it there. In wireframe render mode the batched mesh IS the
+    // element rendering, so keep it regardless.
+    const keepBatchedForOrbit = on && !keepElementsForResults;
+    g.elementsBatchedMesh.visible = keepBatchedForOrbit || g.renderMode === 'wireframe';
   }
 }
 
