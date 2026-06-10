@@ -519,8 +519,10 @@ fn buckling_3d_10x10_plate_under_15s() {
 /// (Harmonic solves multiple frequency points via modal superposition,
 /// which requires an eigensolve + sweep. Generous bound for debug builds.
 /// 15s was too tight for shared GitHub Actions runners — observed 18.2s
-/// on a representative failing run while the harmonic solver itself has
-/// not regressed since the modal-superposition speedup landed in March.)
+/// serial on a slow runner while the harmonic solver itself has not
+/// regressed since the modal-superposition speedup landed in March.
+/// This gate runs single-threaded in CI (see .github/workflows/ci.yml) so
+/// elapsed time reflects CPU work, not contention from co-scheduled tests.)
 #[test]
 fn harmonic_3d_5x5_plate_under_15s() {
     let nx = 5;

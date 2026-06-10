@@ -160,6 +160,27 @@ describe('normalizeWasmSteel', () => {
     expect(results[0].utilization).toBe(0.72); // interaction governs
     expect(results[0].checks.find(c => c.name === 'Flexure (strong)')?.ratio).toBe(0.65);
   });
+
+  it('does NOT report a member with no recognized ratio fields as a silent pass', () => {
+    // A result that carries none of the expected ratio fields (member the
+    // solver skipped, or a serde field rename on the Rust side) must not
+    // normalize to utilization 0 / status 'ok' — that is a falsely-green,
+    // never-actually-verified member.
+    const orphan = [{ element_id: 9 }];
+    const results = normalizeWasmSteel(orphan, 'aci-aisc', 'AISC 360', new Map());
+    expect(results).toHaveLength(1);
+    expect(results[0].checks).toHaveLength(0);
+    expect(results[0].status).not.toBe('ok');
+    expect(results[0].governingCheck).toBe('Not checked');
+  });
+
+  it('honors an explicit unity_ratio of 0 as a real (verified) value', () => {
+    // unity_ratio present and 0 means the member was checked and is unloaded;
+    // this is a legitimate pass, unlike a member with no data at all.
+    const results = normalizeWasmSteel([{ element_id: 1, unity_ratio: 0 }], 'aci-aisc', 'AISC 360', new Map());
+    expect(results[0].status).toBe('ok');
+    expect(results[0].utilization).toBe(0);
+  });
 });
 
 // ─── WASM RC (ACI 318 / EC2) normalization ──────────────────────
@@ -197,6 +218,15 @@ describe('normalizeWasmRC', () => {
     expect(results[0].utilization).toBe(0.88);
     expect(results[0].codeName).toBe('Eurocode 2');
     expect(results[0].checks).toHaveLength(2);
+  });
+
+  it('does NOT report a member with no recognized ratio fields as a silent pass', () => {
+    const orphan = [{ element_id: 2 }];
+    const results = normalizeWasmRC(orphan, 'aci-aisc', 'ACI 318', new Map());
+    expect(results).toHaveLength(1);
+    expect(results[0].checks).toHaveLength(0);
+    expect(results[0].status).not.toBe('ok');
+    expect(results[0].governingCheck).toBe('Not checked');
   });
 });
 

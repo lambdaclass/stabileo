@@ -419,7 +419,7 @@
                 </thead>
                 <tbody>
                   {#each plates as plate}
-                    <tr class:selected={uiStore.selectedElements.has(plate.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(plate.id, false); }}>
+                    <tr class:selected={uiStore.selectMode === 'shells' && uiStore.selectedElements.has(plate.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(plate.id, false); }}>
                       <td class="col-id">{plate.id}</td>
                       <td class="col-nodes">{plate.nodes.join(', ')}</td>
                       <td class="col-family">{plate.shellFamily ?? 'DKT'}</td>
@@ -451,7 +451,7 @@
                 </thead>
                 <tbody>
                   {#each quads as quad}
-                    <tr class:selected={uiStore.selectedElements.has(quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(quad.id, false); }}>
+                    <tr class:selected={uiStore.selectMode === 'shells' && uiStore.selectedElements.has(quad.id) && !modelStore.plates.has(quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(quad.id, false); }}>
                       <td class="col-id">{quad.id}</td>
                       <td class="col-nodes">{quad.nodes.join(', ')}</td>
                       <td class="col-family">{quad.shellFamily ?? 'MITC4'}</td>
