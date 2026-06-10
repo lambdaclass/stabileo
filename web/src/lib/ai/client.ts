@@ -40,23 +40,6 @@ export interface ReviewModelResponse {
   meta: ReviewMeta;
 }
 
-export interface ExplainDiagnosticResponse {
-  title: string;
-  explanation: string;
-  cause: string;
-  fixSteps: string[];
-  severityMeaning: string;
-  meta: ReviewMeta;
-}
-
-export interface InterpretResultsResponse {
-  answer: string;
-  assessment: string;
-  codeReferences: string[];
-  warnings: string[];
-  meta: ReviewMeta;
-}
-
 export interface BuildModelResponse {
   snapshot: Record<string, unknown> | null;
   message: string;
@@ -304,34 +287,6 @@ export async function reviewModel(
   context?: string,
 ): Promise<ReviewModelResponse> {
   return post('/api/ai/review-model', { artifact, locale, context });
-}
-
-export async function explainDiagnostic(
-  code: string,
-  severity: string,
-  message?: string,
-  locale?: string,
-): Promise<ExplainDiagnosticResponse> {
-  return post('/api/ai/explain-diagnostic', {
-    code,
-    severity,
-    message,
-    locale: locale ?? 'en',
-  });
-}
-
-export async function interpretResults(
-  resultSummary: Record<string, unknown>,
-  question: string,
-  locale?: string,
-  modelInfo?: { nElements?: number; nNodes?: number; maxSpan?: number; structureType?: string },
-): Promise<InterpretResultsResponse> {
-  return post('/api/ai/interpret-results', {
-    resultSummary,
-    question,
-    modelInfo,
-    locale: locale ?? 'en',
-  });
 }
 
 export interface ConversationMessage {

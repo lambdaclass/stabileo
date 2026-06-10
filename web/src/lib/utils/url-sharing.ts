@@ -258,10 +258,15 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     c.cn = snapshot.constraints;
   }
 
-  // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?]
+  // Connectors (joint/spring/bearing primitives): kept as-is, [id, payload] entries
+  if (snapshot.connectors?.length) {
+    c.cx = snapshot.connectors;
+  }
+
+  // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?, connector?]
   const nid = snapshot.nextId;
   c.ni = [nid.node, nid.material, nid.section, nid.element, nid.support, nid.load,
-    nid.loadCase ?? 3, nid.combination ?? 1, nid.plate ?? 1, nid.quad ?? 1];
+    nid.loadCase ?? 3, nid.combination ?? 1, nid.plate ?? 1, nid.quad ?? 1, nid.connector ?? 1];
 
   // ShareMeta: only non-default values
   if (meta) {
@@ -390,10 +395,13 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
     // Constraints
     constraints: c.cn as ModelSnapshot['constraints'],
 
+    // Connectors
+    connectors: c.cx as ModelSnapshot['connectors'],
+
     // NextId
     nextId: (() => {
       const a = c.ni as number[];
-      return { node: a[0], material: a[1], section: a[2], element: a[3], support: a[4], load: a[5], loadCase: a[6], combination: a[7], plate: a[8] ?? 1, quad: a[9] ?? 1 };
+      return { node: a[0], material: a[1], section: a[2], element: a[3], support: a[4], load: a[5], loadCase: a[6], combination: a[7], plate: a[8] ?? 1, quad: a[9] ?? 1, connector: a[10] ?? 1 };
     })(),
   };
 
@@ -542,21 +550,6 @@ export function generateShareURL(): { url: string; length: number } | null {
   return { url, length: compressed.length };
 }
 
-/**
- * Generate an embed URL (same as share but with #embed= prefix).
- */
-export function generateEmbedURL(): { url: string; length: number } | null {
-  const snapshot = modelStore.snapshot();
-  if (snapshot.nodes.length === 0) return null;
-
-  const mode = uiStore.analysisMode;
-  snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
-  const meta = buildShareMeta(false);
-
-  const compressed = compressV2(snapshot, meta);
-  const url = `${location.origin}${location.pathname}#embed=${compressed}`;
-  return { url, length: compressed.length };
-}
 
 // ─── Restore meta helper ──────────────────────────────────────────────────
 

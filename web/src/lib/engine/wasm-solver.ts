@@ -2,7 +2,7 @@
  * WASM solver wrapper — replaces the pure-TS solver pipeline.
  * Serializes SolverInput (with Maps) → JSON → Rust/WASM → JSON → AnalysisResults.
  *
- * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
+ * The WASM build is required: there is no JS fallback solver (retired in 94677e6).
  */
 
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
@@ -22,9 +22,6 @@ let wasmSolvePlastic2d: ((json: string) => string) | null = null;
 let wasmSolveMovingLoads2d: ((json: string) => string) | null = null;
 
 // 2D advanced analysis WASM functions
-let wasmSolveCorotational2d: ((json: string, maxIter: number, tolerance: number, nIncrements: number) => string) | null = null;
-let wasmSolveNonlinearMaterial2d: ((json: string) => string) | null = null;
-let wasmSolveTimeHistory2d: ((json: string) => string) | null = null;
 
 // 3D solver WASM functions
 let wasmSolvePdelta3d: ((json: string, maxIter: number, tolerance: number) => string) | null = null;
@@ -51,46 +48,33 @@ let wasmComputeSectionStress3d: ((json: string) => string) | null = null;
 let wasmComputeSectionStress3dFromForces: ((json: string) => string) | null = null;
 
 // Diagrams & Deformed Shape
-let wasmComputeDiagrams2d: ((json: string) => string) | null = null;
-let wasmComputeDiagrams3d: ((json: string) => string) | null = null;
 let wasmComputeDeformedShape: ((json: string) => string) | null = null;
-let wasmComputeDiagramValueAt: ((json: string) => number) | null = null;
-let wasmComputeDiagramValueAt3d: ((json: string) => number) | null = null;
 
 // 3D advanced solver WASM functions
 let wasmSolveCorotational3d: ((json: string, maxIter: number, tolerance: number, nIncrements: number) => string) | null = null;
-let wasmSolveNonlinearMaterial3d: ((json: string) => string) | null = null;
 let wasmSolveTimeHistory3d: ((json: string) => string) | null = null;
 let wasmSolvePlastic3d: ((json: string) => string) | null = null;
-let wasmSolveMovingLoads3d: ((json: string) => string) | null = null;
 
 // Constrained / contact / SSI / Winkler solvers
 let wasmSolveConstrained2d: ((json: string) => string) | null = null;
 let wasmSolveConstrained3d: ((json: string) => string) | null = null;
-let wasmSolveContact2d: ((json: string) => string) | null = null;
 let wasmSolveContact3d: ((json: string) => string) | null = null;
-let wasmSolveSsi2d: ((json: string) => string) | null = null;
 let wasmSolveSsi3d: ((json: string) => string) | null = null;
-let wasmSolveWinkler2d: ((json: string) => string) | null = null;
 let wasmSolveWinkler3d: ((json: string) => string) | null = null;
 
 // Fiber nonlinear solvers
-let wasmSolveFiberNonlinear2d: ((json: string) => string) | null = null;
 let wasmSolveFiberNonlinear3d: ((json: string) => string) | null = null;
 
 // Staged construction solvers
-let wasmSolveStaged2d: ((json: string) => string) | null = null;
 let wasmSolveStaged3d: ((json: string) => string) | null = null;
 
 // Cable solver
 let wasmSolveCable2d: ((json: string, maxIter: number, tolerance: number) => string) | null = null;
 
 // Harmonic solvers
-let wasmSolveHarmonic2d: ((json: string) => string) | null = null;
 let wasmSolveHarmonic3d: ((json: string) => string) | null = null;
 
 // Creep & shrinkage solvers
-let wasmSolveCreepShrinkage2d: ((json: string) => string) | null = null;
 let wasmSolveCreepShrinkage3d: ((json: string) => string) | null = null;
 
 // Multi-case solvers
@@ -102,7 +86,6 @@ let wasmSolveArcLength: ((json: string) => string) | null = null;
 let wasmSolveDisplacementControl: ((json: string) => string) | null = null;
 
 // Imperfection solvers
-let wasmSolveWithImperfections2d: ((json: string) => string) | null = null;
 let wasmSolveWithImperfections3d: ((json: string) => string) | null = null;
 
 // 3D influence line
@@ -116,9 +99,6 @@ let wasmGuyanReduce2d: ((json: string) => string) | null = null;
 let wasmCraigBampton2d: ((json: string) => string) | null = null;
 
 // Beam Station Extraction
-let wasmExtractBeamStations: ((json: string) => string) | null = null;
-let wasmExtractBeamStations3d: ((json: string) => string) | null = null;
-let wasmExtractBeamStationsGrouped: ((json: string) => string) | null = null;
 let wasmExtractBeamStationsGrouped3d: ((json: string) => string) | null = null;
 
 // Design Checks (not yet compiled into WASM binary — graceful fallback via ?? null)
@@ -162,9 +142,6 @@ export async function initSolver(): Promise<void> {
     wasmSolvePlastic2d = wasm.solve_plastic_2d;
     wasmSolveMovingLoads2d = wasm.solve_moving_loads_2d;
     // 2D advanced
-    wasmSolveCorotational2d = wasm.solve_corotational_2d;
-    wasmSolveNonlinearMaterial2d = wasm.solve_nonlinear_material_2d;
-    wasmSolveTimeHistory2d = wasm.solve_time_history_2d;
 
     // 3D solvers
     wasmSolvePdelta3d = wasm.solve_pdelta_3d;
@@ -191,46 +168,33 @@ export async function initSolver(): Promise<void> {
     wasmComputeSectionStress3dFromForces = wasm.compute_section_stress_3d_from_forces ?? null;
 
     // Diagrams & Deformed Shape
-    wasmComputeDiagrams2d = wasm.compute_diagrams_2d;
-    wasmComputeDiagrams3d = wasm.compute_diagrams_3d;
     wasmComputeDeformedShape = wasm.compute_deformed_shape;
-    wasmComputeDiagramValueAt = wasm.compute_diagram_value_at ?? null;
-    wasmComputeDiagramValueAt3d = wasm.compute_diagram_value_at_3d ?? null;
 
     // 3D advanced solvers
     wasmSolveCorotational3d = wasm.solve_corotational_3d ?? null;
-    wasmSolveNonlinearMaterial3d = wasm.solve_nonlinear_material_3d ?? null;
     wasmSolveTimeHistory3d = wasm.solve_time_history_3d ?? null;
     wasmSolvePlastic3d = wasm.solve_plastic_3d ?? null;
-    wasmSolveMovingLoads3d = wasm.solve_moving_loads_3d ?? null;
 
     // Constrained / contact / SSI / Winkler
     wasmSolveConstrained2d = wasm.solve_constrained_2d ?? null;
     wasmSolveConstrained3d = wasm.solve_constrained_3d ?? null;
-    wasmSolveContact2d = wasm.solve_contact_2d ?? null;
     wasmSolveContact3d = wasm.solve_contact_3d ?? null;
-    wasmSolveSsi2d = wasm.solve_ssi_2d ?? null;
     wasmSolveSsi3d = wasm.solve_ssi_3d ?? null;
-    wasmSolveWinkler2d = wasm.solve_winkler_2d ?? null;
     wasmSolveWinkler3d = wasm.solve_winkler_3d ?? null;
 
     // Fiber nonlinear
-    wasmSolveFiberNonlinear2d = wasm.solve_fiber_nonlinear_2d ?? null;
     wasmSolveFiberNonlinear3d = wasm.solve_fiber_nonlinear_3d ?? null;
 
     // Staged construction
-    wasmSolveStaged2d = wasm.solve_staged_2d ?? null;
     wasmSolveStaged3d = wasm.solve_staged_3d ?? null;
 
     // Cable
     wasmSolveCable2d = wasm.solve_cable_2d ?? null;
 
     // Harmonic
-    wasmSolveHarmonic2d = wasm.solve_harmonic_2d ?? null;
     wasmSolveHarmonic3d = wasm.solve_harmonic_3d ?? null;
 
     // Creep & shrinkage
-    wasmSolveCreepShrinkage2d = wasm.solve_creep_shrinkage_2d ?? null;
     wasmSolveCreepShrinkage3d = wasm.solve_creep_shrinkage_3d ?? null;
 
     // Multi-case
@@ -242,7 +206,6 @@ export async function initSolver(): Promise<void> {
     wasmSolveDisplacementControl = wasm.solve_displacement_control ?? null;
 
     // Imperfections
-    wasmSolveWithImperfections2d = wasm.solve_with_imperfections_2d ?? null;
     wasmSolveWithImperfections3d = wasm.solve_with_imperfections_3d ?? null;
 
     // 3D influence line
@@ -270,9 +233,6 @@ export async function initSolver(): Promise<void> {
     wasmCheckSpreadFootings = wasm.check_spread_footings ?? null;
 
     // Beam Station Extraction
-    wasmExtractBeamStations = wasm.extract_beam_stations ?? null;
-    wasmExtractBeamStations3d = wasm.extract_beam_stations_3d ?? null;
-    wasmExtractBeamStationsGrouped = wasm.extract_beam_stations_grouped ?? null;
     wasmExtractBeamStationsGrouped3d = wasm.extract_beam_stations_grouped_3d ?? null;
 
     wasmReady = true;
@@ -288,7 +248,7 @@ export function isSolverReady(): boolean {
 // ─── Serialization helpers ──────────────────────────────────────
 
 /** Convert Map<number, T> to { "key": T } for JSON serialization. */
-export function mapToObj<T>(map: Map<number, T>): Record<string, T> {
+function mapToObj<T>(map: Map<number, T>): Record<string, T> {
   const obj: Record<string, T> = {};
   for (const [k, v] of map) {
     obj[String(k)] = v;
@@ -305,6 +265,8 @@ function serializeInput2D(input: SolverInput): string {
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
     loads: input.loads,
+    constraints: input.constraints ?? [],
+    connectors: input.connectors ? mapToObj(input.connectors) : {},
   });
 }
 
@@ -320,6 +282,7 @@ export function serializeInput3D(input: SolverInput3D): string {
     plates: input.plates ? mapToObj(input.plates) : {},
     quads: input.quads ? mapToObj(input.quads) : {},
     constraints: input.constraints ?? [],
+    connectors: input.connectors ? mapToObj(input.connectors) : {},
     leftHand: input.leftHand ?? false,
   });
 }
@@ -551,42 +514,6 @@ export function solveSpectral3D(config: {
   return JSON.parse(resultJson);
 }
 
-/** Solve 2D corotational (large displacement) analysis via WASM. */
-export function solveCorotational2D(input: SolverInput, maxIter = 50, tolerance = 1e-6, nIncrements = 10) {
-  if (!wasmReady || !wasmSolveCorotational2d) throw new Error('WASM Corotational solver not available.');
-  const json = serializeInput2D(input);
-  const resultJson = wasmSolveCorotational2d(json, maxIter, tolerance, nIncrements);
-  return JSON.parse(resultJson);
-}
-
-/** Solve 2D time history analysis via WASM. */
-export function solveTimeHistory2D(config: {
-  solver: SolverInput;
-  densities: Map<number, number>;
-  accelerogram: { dt: number; values: number[] };
-  direction: 'X' | 'Y';
-  damping?: number;
-  method?: 'Newmark' | 'Wilson';
-}) {
-  if (!wasmReady || !wasmSolveTimeHistory2d) throw new Error('WASM Time History solver not available.');
-  const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
-    densities: mapToObj(config.densities),
-    accelerogram: config.accelerogram,
-    direction: config.direction,
-    damping: config.damping,
-    method: config.method,
-  });
-  const resultJson = wasmSolveTimeHistory2d(payload);
-  return JSON.parse(resultJson);
-}
 
 // ─── Kinematic analysis ──────────────────────────────────────────
 
@@ -716,39 +643,6 @@ export function computeSectionStress3DFromForces(input: {
 
 // ─── Diagrams & Deformed Shape ───────────────────────────────────
 
-/** Compute 2D diagrams (moment, shear, axial) via WASM. */
-export function computeDiagrams2D(input: SolverInput, results: AnalysisResults) {
-  if (!wasmReady || !wasmComputeDiagrams2d) throw new Error('WASM solver not initialized.');
-  const payload = JSON.stringify({
-    input: {
-      nodes: mapToObj(input.nodes),
-      materials: mapToObj(input.materials),
-      sections: mapToObj(input.sections),
-      elements: mapToObj(input.elements),
-      supports: mapToObj(input.supports),
-      loads: input.loads,
-    },
-    results,
-  });
-  return JSON.parse(wasmComputeDiagrams2d(payload));
-}
-
-/** Compute 3D diagrams (My, Mz, Vy, Vz, N, T) via WASM. */
-export function computeDiagrams3D(input: SolverInput3D, results: AnalysisResults3D) {
-  if (!wasmReady || !wasmComputeDiagrams3d) throw new Error('WASM solver not initialized.');
-  const payload = JSON.stringify({
-    input: {
-      nodes: mapToObj(input.nodes),
-      materials: mapToObj(input.materials),
-      sections: mapToObj(input.sections),
-      elements: mapToObj(input.elements),
-      supports: mapToObj(input.supports),
-      loads: input.loads,
-    },
-    results,
-  });
-  return JSON.parse(wasmComputeDiagrams3d(payload));
-}
 
 /** Compute deformed shape for one element via WASM. */
 export function computeDeformedShape(input: any) {
@@ -756,17 +650,6 @@ export function computeDeformedShape(input: any) {
   return JSON.parse(wasmComputeDeformedShape(JSON.stringify(input)));
 }
 
-/** Compute 2D diagram value at position t for one element via WASM. Returns null if WASM not available. */
-export function computeDiagramValueAtWasm(kind: string, t: number, elementForces: any): number | null {
-  if (!wasmReady || !wasmComputeDiagramValueAt) return null;
-  return wasmComputeDiagramValueAt(JSON.stringify({ kind, t, elementForces }));
-}
-
-/** Compute 3D diagram value at position t for one element via WASM. Returns null if WASM not available. */
-export function computeDiagramValueAt3DWasm(kind: string, t: number, elementForces: any): number | null {
-  if (!wasmReady || !wasmComputeDiagramValueAt3d) return null;
-  return wasmComputeDiagramValueAt3d(JSON.stringify({ kind, t, elementForces }));
-}
 
 /** Check if WASM solver is ready. */
 export function isWasmReady(): boolean {
@@ -811,12 +694,6 @@ export function checkEc2Members(input: any): any | null {
   catch { return null; }
 }
 
-/** CIRSOC 201 RC member checks via WASM. */
-export function checkCirsoc201Members(input: any): any | null {
-  if (!wasmReady || !wasmCheckCirsoc201Members) return null;
-  try { return JSON.parse(wasmCheckCirsoc201Members(JSON.stringify(input))); }
-  catch { return null; }
-}
 
 /** Cold-formed steel member checks via WASM. */
 export function checkCfsMembers(input: any): any | null {
@@ -832,12 +709,6 @@ export function checkMasonryMembers(input: any): any | null {
   catch { return null; }
 }
 
-/** Serviceability checks (deflection/vibration) via WASM. */
-export function checkServiceability(input: any): any | null {
-  if (!wasmReady || !wasmCheckServiceability) return null;
-  try { return JSON.parse(wasmCheckServiceability(JSON.stringify(input))); }
-  catch { return null; }
-}
 
 /** Bolt group capacity checks via WASM. */
 export function checkBoltGroups(input: any): any | null {
@@ -880,33 +751,6 @@ export function isDesignCheckAvailable(name: string): boolean {
   return checks[name] != null;
 }
 
-/** Solve 2D nonlinear material analysis via WASM. */
-export function solveNonlinearMaterial2D(config: {
-  solver: SolverInput;
-  materialModels?: any;
-  sectionCapacities?: any;
-  maxIter?: number;
-  tolerance?: number;
-  nIncrements?: number;
-}) {
-  if (!wasmReady || !wasmSolveNonlinearMaterial2d) throw new Error('WASM nonlinear material solver not available.');
-  const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
-    materialModels: config.materialModels,
-    sectionCapacities: config.sectionCapacities,
-    maxIter: config.maxIter,
-    tolerance: config.tolerance,
-    nIncrements: config.nIncrements,
-  });
-  return JSON.parse(wasmSolveNonlinearMaterial2d(payload));
-}
 
 // ─── 3D Advanced Solvers (new) ────────────────────────────────────
 
@@ -916,14 +760,6 @@ export function solveCorotational3D(input: SolverInput3D, maxIter = 50, toleranc
   return JSON.parse(wasmSolveCorotational3d(serializeInput3D(input), maxIter, tolerance, nIncrements));
 }
 
-/** Solve 3D nonlinear material analysis via WASM. */
-export function solveNonlinearMaterial3D(config: any): any {
-  if (!wasmReady || !wasmSolveNonlinearMaterial3d) throw new Error('WASM nonlinear material 3D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveNonlinearMaterial3d(JSON.stringify(config)));
-}
 
 /** Solve 3D time history analysis via WASM. */
 export function solveTimeHistory3D(config: any): any {
@@ -943,14 +779,6 @@ export function solvePlastic3D(config: any): any {
   return JSON.parse(wasmSolvePlastic3d(JSON.stringify(config)));
 }
 
-/** Solve 3D moving loads analysis via WASM. */
-export function solveMovingLoads3D(config: any): any {
-  if (!wasmReady || !wasmSolveMovingLoads3d) throw new Error('WASM moving loads 3D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveMovingLoads3d(JSON.stringify(config)));
-}
 
 // ─── Constrained / Contact / SSI / Winkler Solvers ────────────────
 
@@ -972,14 +800,6 @@ export function solveConstrained3D(config: any): any {
   return JSON.parse(wasmSolveConstrained3d(JSON.stringify(config)));
 }
 
-/** Solve 2D contact analysis via WASM. */
-export function solveContact2D(config: any): any {
-  if (!wasmReady || !wasmSolveContact2d) throw new Error('WASM contact 2D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveContact2d(JSON.stringify(config)));
-}
 
 /** Solve 3D contact analysis via WASM. */
 export function solveContact3D(config: any): any {
@@ -990,14 +810,6 @@ export function solveContact3D(config: any): any {
   return JSON.parse(wasmSolveContact3d(JSON.stringify(config)));
 }
 
-/** Solve 2D soil-structure interaction via WASM. */
-export function solveSSI2D(config: any): any {
-  if (!wasmReady || !wasmSolveSsi2d) throw new Error('WASM SSI 2D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveSsi2d(JSON.stringify(config)));
-}
 
 /** Solve 3D soil-structure interaction via WASM. */
 export function solveSSI3D(config: any): any {
@@ -1008,14 +820,6 @@ export function solveSSI3D(config: any): any {
   return JSON.parse(wasmSolveSsi3d(JSON.stringify(config)));
 }
 
-/** Solve 2D Winkler foundation analysis via WASM. */
-export function solveWinkler2D(config: any): any {
-  if (!wasmReady || !wasmSolveWinkler2d) throw new Error('WASM Winkler 2D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveWinkler2d(JSON.stringify(config)));
-}
 
 /** Solve 3D Winkler foundation analysis via WASM. */
 export function solveWinkler3D(config: any): any {
@@ -1028,14 +832,6 @@ export function solveWinkler3D(config: any): any {
 
 // ─── Fiber Nonlinear Solvers ──────────────────────────────────────
 
-/** Solve 2D fiber nonlinear analysis via WASM. */
-export function solveFiberNonlinear2D(config: any): any {
-  if (!wasmReady || !wasmSolveFiberNonlinear2d) throw new Error('WASM fiber nonlinear 2D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveFiberNonlinear2d(JSON.stringify(config)));
-}
 
 /** Solve 3D fiber nonlinear analysis via WASM. */
 export function solveFiberNonlinear3D(config: any): any {
@@ -1048,14 +844,6 @@ export function solveFiberNonlinear3D(config: any): any {
 
 // ─── Staged Construction Solvers ──────────────────────────────────
 
-/** Solve 2D staged construction analysis via WASM. */
-export function solveStaged2D(config: any): any {
-  if (!wasmReady || !wasmSolveStaged2d) throw new Error('WASM staged 2D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveStaged2d(JSON.stringify(config)));
-}
 
 /** Solve 3D staged construction analysis via WASM. */
 export function solveStaged3D(config: any): any {
@@ -1076,14 +864,6 @@ export function solveCable2D(input: SolverInput, maxIter = 50, tolerance = 1e-6)
 
 // ─── Harmonic Solvers ─────────────────────────────────────────────
 
-/** Solve 2D harmonic analysis via WASM. */
-export function solveHarmonic2D(config: any): any {
-  if (!wasmReady || !wasmSolveHarmonic2d) throw new Error('WASM harmonic 2D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveHarmonic2d(JSON.stringify(config)));
-}
 
 /** Solve 3D harmonic analysis via WASM. */
 export function solveHarmonic3D(config: any): any {
@@ -1096,14 +876,6 @@ export function solveHarmonic3D(config: any): any {
 
 // ─── Creep & Shrinkage Solvers ────────────────────────────────────
 
-/** Solve 2D creep & shrinkage analysis via WASM. */
-export function solveCreepShrinkage2D(config: any): any {
-  if (!wasmReady || !wasmSolveCreepShrinkage2d) throw new Error('WASM creep/shrinkage 2D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveCreepShrinkage2d(JSON.stringify(config)));
-}
 
 /** Solve 3D creep & shrinkage analysis via WASM. */
 export function solveCreepShrinkage3D(config: any): any {
@@ -1169,14 +941,6 @@ export function solveDisplacementControl(config: any): any {
 
 // ─── Imperfection Solvers ─────────────────────────────────────────
 
-/** Solve 2D analysis with geometric imperfections via WASM. */
-export function solveWithImperfections2D(config: any): any {
-  if (!wasmReady || !wasmSolveWithImperfections2d) throw new Error('WASM imperfections 2D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveWithImperfections2d(JSON.stringify(config)));
-}
 
 /** Solve 3D analysis with geometric imperfections via WASM. */
 export function solveWithImperfections3D(config: any): any {
@@ -1228,26 +992,8 @@ export function craigBampton2D(config: any): any {
 
 // ─── Beam Station Extraction ─────────────────────────────────────
 
-import type { BeamStationInput, BeamStationResult, GroupedBeamStationResult } from './types';
-import type { BeamStationInput3D, BeamStationResult3D, GroupedBeamStationResult3D } from './types-3d';
+import type { BeamStationInput3D, GroupedBeamStationResult3D } from './types-3d';
 
-/** Extract 2D beam design stations with per-combo forces and governing values. */
-export function extractBeamStations(input: BeamStationInput): BeamStationResult {
-  if (!wasmReady || !wasmExtractBeamStations) throw new Error('WASM beam station extraction not available.');
-  return JSON.parse(wasmExtractBeamStations(JSON.stringify(input)));
-}
-
-/** Extract 3D beam design stations with per-combo forces and governing values. */
-export function extractBeamStations3D(input: BeamStationInput3D): BeamStationResult3D {
-  if (!wasmReady || !wasmExtractBeamStations3d) throw new Error('WASM beam station 3D extraction not available.');
-  return JSON.parse(wasmExtractBeamStations3d(JSON.stringify(input)));
-}
-
-/** Extract 2D beam stations grouped by member with member-level governing summaries. */
-export function extractBeamStationsGrouped(input: BeamStationInput): GroupedBeamStationResult {
-  if (!wasmReady || !wasmExtractBeamStationsGrouped) throw new Error('WASM grouped beam station extraction not available.');
-  return JSON.parse(wasmExtractBeamStationsGrouped(JSON.stringify(input)));
-}
 
 /** Extract 3D beam stations grouped by member with member-level governing summaries. */
 export function extractBeamStationsGrouped3D(input: BeamStationInput3D): GroupedBeamStationResult3D {

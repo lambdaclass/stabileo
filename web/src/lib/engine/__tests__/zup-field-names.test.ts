@@ -176,14 +176,12 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const aiDrawer = readFileSync(new URL('../../../components/AiDrawer.svelte', import.meta.url), 'utf8');
     const mobileResults = readFileSync(new URL('../../../components/MobileResultsPanel.svelte', import.meta.url), 'utf8');
     const sectionStress = readFileSync(new URL('../../../components/SectionStressPanel.svelte', import.meta.url), 'utf8');
-    const aiReview = readFileSync(new URL('../../../components/toolbar/ToolbarAiReview.svelte', import.meta.url), 'utf8');
     const toolbar = readFileSync(new URL('../../../components/Toolbar.svelte', import.meta.url), 'utf8');
 
     expect(aiDrawer, 'AiDrawer.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(aiDrawer, 'AiDrawer.svelte should send canonical 3D mode to the AI backend').toContain("const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');");
     expect(mobileResults, 'MobileResultsPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(sectionStress, 'SectionStressPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
-    expect(aiReview, 'ToolbarAiReview.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(toolbar, 'Toolbar.svelte should treat pro as 3D when pasting copied geometry').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(toolbar, 'Toolbar.svelte should copy 3D element metadata into the clipboard through the shared helper').toContain('...pickElement3DMetadata(elem)');
     expect(toolbar, 'Toolbar.svelte should require a complete explicit local axis before restoring it on paste').toContain('if (hasExplicitLocalY(el)) {');
@@ -212,7 +210,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
 
   it('3D section-stress and verification seams should preserve standard My/Mz identity', () => {
     const sectionStress3D = readFileSync(new URL('../section-stress-3d.ts', import.meta.url), 'utf8');
-    const verificationTab = readFileSync(new URL('../../../components/pro/ProVerificationTab.svelte', import.meta.url), 'utf8');
+    const verificationService = readFileSync(new URL('../verification-service.ts', import.meta.url), 'utf8');
     const autoVerify = readFileSync(new URL('../auto-verify.ts', import.meta.url), 'utf8');
     const proPanel = readFileSync(new URL('../../../components/pro/ProPanel.svelte', import.meta.url), 'utf8');
 
@@ -221,11 +219,12 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(sectionStress3D, 'section-stress-3d.ts should subtract My on the z/Iy term').toContain('sigma -= My * z / Iy');
     expect(sectionStress3D, 'section-stress-3d.ts must not keep the old swapped formula').not.toContain('σ(y,z) = N/A - My·y/Iz + Mz·z/Iy');
 
-    expect(verificationTab, 'ProVerificationTab.svelte should keep Mu on the strong-axis mz envelope').toContain('MuMax = _mzMax');
-    expect(verificationTab, 'ProVerificationTab.svelte should keep Muy on the weak-axis my envelope').toContain('MuyMax = _myMax');
-    expect(verificationTab, 'ProVerificationTab.svelte should keep steel Muz on mz').toContain('MuzMax = _mzM');
-    expect(verificationTab, 'ProVerificationTab.svelte should not sort My/Mz by magnitude').not.toContain('MuMax = Math.max(_mzMax, _myMax)');
-    expect(verificationTab, 'ProVerificationTab.svelte should not sort steel My/Mz by magnitude').not.toContain('MuzMax = Math.max(_mzM, _myM)');
+    // Steel demand extraction lives in verification-service (the successor of
+    // ProVerificationTab's endpoint path): strong-axis Muz from mz, weak Muy from my.
+    expect(verificationService, 'verification-service.ts should keep steel Muz on the strong-axis mz endpoints').toContain('MuzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));');
+    expect(verificationService, 'verification-service.ts should keep steel Muy on the weak-axis my endpoints').toContain('MuyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));');
+    expect(verificationService, 'verification-service.ts station path should keep Muz on Mz categories').toContain("dems.find(d => d.category === 'Mz+')?.absValue ?? 0");
+    expect(verificationService, 'verification-service.ts should not sort My/Mz by magnitude').not.toContain('Math.max(MuzMax, MuyMax)');
 
     expect(autoVerify, 'auto-verify.ts should preserve Mz as Mu').toContain('const MuMax = MzMax;');
     expect(autoVerify, 'auto-verify.ts should preserve My as Muy').toContain('const MuyMax = MyMax;');

@@ -323,6 +323,13 @@ export function findNearestLoad(
 /**
  * Returns world coords snapped with priority: existing node > element midpoint > grid.
  *
+ * Node search is performed from the RAW cursor position, not from the
+ * grid-snapped position. Searching from grid-snapped coordinates was the
+ * original behavior and made off-grid nodes unreachable when grid snap was
+ * on (the cursor would warp toward the nearest grid intersection before
+ * the node search ran, so any node further than `nodeThreshold` from that
+ * intersection was missed even if the cursor was directly on top of it).
+ *
  * @param worldX - Raw (unsnapped) world X coordinate
  * @param worldY - Raw (unsnapped) world Y coordinate
  * @param snapToGrid - Function that snaps world coords to grid (e.g., uiStore.snapWorld)
@@ -340,10 +347,9 @@ export function snapWithMidpoint(
   nodeThreshold: number = 0.5,
   midpointThreshold: number = 0.4
 ): { x: number; y: number } {
-  const gridSnapped = snapToGrid(worldX, worldY);
-  const nearNode = findNearestNode(gridSnapped.x, gridSnapped.y, nodeThreshold, nodes);
+  const nearNode = findNearestNode(worldX, worldY, nodeThreshold, nodes);
   if (nearNode) return { x: nearNode.x, y: nearNode.y };
   const midSnap = findNearestMidpoint(worldX, worldY, midpointThreshold, elements, nodes);
   if (midSnap) return { x: midSnap.x, y: midSnap.y };
-  return gridSnapped;
+  return snapToGrid(worldX, worldY);
 }

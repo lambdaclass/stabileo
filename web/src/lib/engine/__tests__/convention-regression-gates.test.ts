@@ -190,13 +190,14 @@ describe('SEAM 3: My/Mz axis identity preservation', () => {
     expect(src).not.toContain('Math.min(MzMax, MyMax)');
   });
 
-  it('ProVerificationTab.svelte preserves axis identity', () => {
-    const src = readSource('../../../components/pro/ProVerificationTab.svelte');
-    expect(src, 'MuMax = _mzMax').toContain('MuMax = _mzMax');
-    expect(src, 'MuyMax = _myMax').toContain('MuyMax = _myMax');
+  it('verification-service.ts preserves axis identity', () => {
+    // Successor of the retired ProVerificationTab endpoint path: steel demand
+    // extraction keeps strong-axis Muz on mz and weak-axis Muy on my.
+    const src = readSource('../verification-service.ts');
+    expect(src, 'Muz from mz endpoints').toContain('MuzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));');
+    expect(src, 'Muy from my endpoints').toContain('MuyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));');
     // Must NOT sort by magnitude
-    expect(src).not.toContain('MuMax = Math.max(_mzMax, _myMax)');
-    expect(src).not.toContain('MuzMax = Math.max(_mzM, _myM)');
+    expect(src).not.toContain('Math.max(MuzMax, MuyMax)');
   });
 
   it('ProPanel.svelte Mu computation uses only mzStart/mzEnd', () => {

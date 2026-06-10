@@ -26,7 +26,9 @@ export interface ModelSnapshot {
   plates?: Array<[number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }]>;
   quads?: Array<[number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }]>;
   constraints?: Array<{ type: string; [key: string]: unknown }>;
-  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number };
+  /** Joint/spring/bearing primitives. Each entry is [id, ConnectorElement-shaped object]. */
+  connectors?: Array<[number, { id: number; nodeI: number; nodeJ: number; kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }]>;
+  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; connector?: number };
 }
 
 const MAX_HISTORY = 50;

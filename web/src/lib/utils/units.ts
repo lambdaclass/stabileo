@@ -79,14 +79,6 @@ export function toDisplay(value: number, qty: Quantity, system: UnitSystem): num
   return value * FACTORS[qty];
 }
 
-/**
- * Convert a display value (in the given unit system) back to SI.
- */
-export function fromDisplay(value: number, qty: Quantity, system: UnitSystem): number {
-  if (system === 'SI') return value;
-  if (qty === 'temperature') return (value - 32) * 5 / 9; // °F → °C
-  return value / FACTORS[qty];
-}
 
 /**
  * Get the unit label string for a quantity in a given system.

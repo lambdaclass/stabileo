@@ -3,7 +3,7 @@
  *
  * Pre-computes node connectivity, beam-column joints, and frame-line
  * primitives from model topology. Replaces ad-hoc per-call scanning
- * in ProVerificationTab.
+ * in the PRO verification flow.
  */
 
 import { classifyElement } from './codes/argentina/cirsoc201';

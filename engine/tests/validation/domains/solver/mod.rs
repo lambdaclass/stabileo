@@ -11,7 +11,6 @@ mod finite_element_convergence_extended;
 mod guided_y;
 mod harmonic_extended;
 mod imperfections;
-mod line_search;
 mod mesh_convergence;
 mod mixed_elements;
 mod numerical_methods;

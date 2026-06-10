@@ -3,7 +3,7 @@
  * and verification orchestration for PRO mode.
  *
  * Phase 1 (current): Eliminates the divergence between ProDesignTab (station-based)
- * and ProVerificationTab (endpoint-only) by routing both through the same
+ * and the retired ProVerificationTab (endpoint-only) by routing both through the same
  * station-based force extraction and CIRSOC JS verification.
  *
  * Phase 2 target (requires solver changes — not implemented here):
@@ -33,7 +33,7 @@ import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
 import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
 import type { GoverningPerElement3D } from './governing-case';
-import type { CheckStatus, MemberDesignResult, DesignCheckSummary } from './design-check-results';
+import type { CheckStatus, MemberDesignResult } from './design-check-results';
 
 // ─── Station Demands ─────────────────────────────────────────
 
@@ -189,7 +189,7 @@ function wasmMemberToStationResult(
  * demands when available (the preferred path).
  *
  * This replaces the two divergent verification calls that previously lived in
- * ProDesignTab (station-aware) and ProVerificationTab (endpoint-only).
+ * ProDesignTab (station-aware) and the retired endpoint-only verification path.
  *
  * @param results3D Solver analysis results
  * @param model Model data (elements, nodes, sections, materials, supports)
@@ -346,47 +346,6 @@ export function runSteelVerification(
 
   return verifs;
 }
-
-// ─── Unified VerificationReport ──────────────────────────────
-
-/**
- * Unified verification report — app-side shape that mirrors the eventual
- * solver-side VerificationReport (§13.6 of SOLVER_APP_COVERAGE_MAP.md).
- *
- * Phase 1 (current): Assembled from JS-side verification results.
- * Phase 2 target: Returned directly from WASM verify_members.
- *
- * The shape is designed so that when the solver takes over:
- *   - `elements` maps directly to the Rust VerificationReport.elements
- *   - `summary` maps to aggregate counts
- *   - UI components consume this without knowing the source (JS or WASM)
- */
-export interface VerificationReport {
-  /** Code used for this verification run */
-  codeId: string;
-  codeName: string;
-  /** Per-element normalized results (same shape regardless of source) */
-  elements: MemberDesignResult[];
-  /** Aggregate summary */
-  summary: DesignCheckSummary;
-  /** Station-based demands used for this run (absent in future WASM path) */
-  stationData?: StationDemandData;
-  /** Legacy CIRSOC-specific results (kept during Phase 1 for detailed memos/drawings) */
-  concreteDetails?: ElementVerification[];
-  /** Legacy CIRSOC 301 steel results */
-  steelDetails?: SteelVerification[];
-}
-
-/**
- * Build a complete VerificationReport from the current app-side verification flow.
- *
- * This is the single function that assembles everything — demands, RC verification,
- * steel verification, normalization — into one report. Components should call this
- * instead of assembling pieces themselves.
- *
- * TEMPORARY Phase 1 bridge: Orchestrates multiple JS-side verification calls.
- * Phase 2 target: Single WASM call returns the report directly.
- */
 
 // ─── Code-Specific Detail Adapter ────────────────────────────
 

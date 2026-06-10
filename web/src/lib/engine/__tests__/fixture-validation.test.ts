@@ -288,8 +288,6 @@ describe('Fixture registry completeness', () => {
     if (unregistered.length > 0) {
       console.warn('Unregistered fixtures:', unregistered);
     }
-    // tower-3d is a known orphan (superseded by tower-3d-2/4)
-    const unexpected = unregistered.filter(f => f !== 'tower-3d');
-    expect(unexpected).toEqual([]);
+    expect(unregistered).toEqual([]);
   });
 });

@@ -207,12 +207,3 @@ export function generateWindLoads(
   return { nodalForces, pressures, baseShear, overturningMoment, steps, diagnostics: diags.length > 0 ? diags : undefined };
 }
 
-// ─── Predefined Wind Zones (CIRSOC 102 Zones) ───
-
-export const CIRSOC102_ZONES: Record<string, number> = {
-  'I (V=33 m/s)': 33,
-  'II (V=39 m/s)': 39,
-  'III (V=45 m/s)': 45,
-  'IV (V=51 m/s)': 51,
-  'V (V=56 m/s)': 56,
-};
