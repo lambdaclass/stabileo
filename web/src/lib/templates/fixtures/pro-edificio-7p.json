@@ -6339,37 +6339,37 @@
     {
       "id": 1,
       "type": "D",
-      "name": "D — Superimposed dead (screed+finish+partitions)"
+      "name": "Superimposed dead (screed+finish+partitions)"
     },
     {
       "id": 2,
       "type": "L",
-      "name": "L — Residential (living/bedroom/kitchen) 2.0 kN/m²"
+      "name": "Residential (living/bedroom/kitchen) 2.0 kN/m²"
     },
     {
       "id": 3,
       "type": "L",
-      "name": "L — Corridor & stairs 3.0 kN/m²"
+      "name": "Corridor & stairs 3.0 kN/m²"
     },
     {
       "id": 4,
       "type": "L",
-      "name": "L — Cantilevered balcony 3.0 kN/m²"
+      "name": "Cantilevered balcony 3.0 kN/m²"
     },
     {
       "id": 5,
       "type": "Lr",
-      "name": "Lr — Roof 1.0 kN/m²"
+      "name": "Roof 1.0 kN/m²"
     },
     {
       "id": 6,
       "type": "W",
-      "name": "W — Wind +X (CIRSOC 102)"
+      "name": "Wind +X"
     },
     {
       "id": 7,
       "type": "W",
-      "name": "W — Wind −X"
+      "name": "Wind −X"
     }
   ],
   "combinations": [

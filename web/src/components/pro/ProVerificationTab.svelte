@@ -1,4 +1,23 @@
 <script lang="ts">
+  /**
+   * DORMANT COMPONENT — not currently rendered in the active UI.
+   *
+   * ProRcWorkflowTab was simplified to render ProDesignTab only (per QA3).
+   * This component is retained as a reference for features that should be
+   * re-integrated into the Design workflow or service layer:
+   *   - Serviceability (cracking, deflection) — currently has Phase 1 bridges
+   *   - Quantities / bar marks — post-design detailing
+   *   - Slab reinforcement design
+   *   - Steel verification rendering (CIRSOC 301)
+   *   - Story drift
+   *   - Frame-line / column-stack elevations
+   *
+   * When reactivating these features:
+   *   - Read verification data from verificationStore (single source of truth)
+   *   - Do not re-introduce a local verifications array as a parallel state
+   *   - Use getCodeDetail() for code-specific rendering data
+   *   - Route verification through verification-service.ts
+   */
   import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { verifyElement, classifyElement, REBAR_DB, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -11,13 +30,13 @@
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import type { QuantitySummary } from '../../lib/engine/quantity-takeoff';
-  import { verifySteelElement } from '../../lib/engine/codes/argentina/cirsoc301';
-  import type { SteelVerification, SteelVerificationInput, SteelDesignParams } from '../../lib/engine/codes/argentina/cirsoc301';
+  import type { SteelVerification } from '../../lib/engine/codes/argentina/cirsoc301';
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
   import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
   import { t } from '../../lib/i18n';
   import * as XLSX from 'xlsx';
+  import { computeStationDemands, runUnifiedVerification, runSteelVerification } from '../../lib/engine/verification-service';
 
   /** Normative code options for design checks */
   type NormativeCode = 'cirsoc' | 'aci-aisc' | 'eurocode' | 'nds' | 'masonry' | 'cfs';
@@ -37,6 +56,28 @@
   let { verifications = $bindable([]) }: { verifications: ElementVerification[] } = $props();
   let expandedId = $state<number | null>(null);
   let expandedSteelId = $state<number | null>(null);
+
+  // On first render, inherit context from design tab:
+  // 1. Auto-expand the selected element
+  // 2. Auto-run verification if design has been done
+  let didInitFromDesign = false;
+  $effect(() => {
+    if (didInitFromDesign) return;
+    didInitFromDesign = true;
+    // Inherit selected element
+    const sel = uiStore.selectedElements;
+    if (sel.size === 1) {
+      const elemId = sel.values().next().value;
+      if (elemId != null && modelStore.elements.get(elemId)?.reinforcement) {
+        expandedId = elemId;
+      }
+    }
+    // Auto-run verification if results exist and elements have been designed
+    if (resultsStore.results3D && designedCount > 0 && verifications.length === 0) {
+      // Use queueMicrotask so the UI renders first, then verification runs
+      queueMicrotask(() => runVerification());
+    }
+  });
   let rebarFy = $state(420);    // MPa — default ADN 420
   let cover = $state(0.025);    // m — default 2.5cm
   let stirrupDia = $state(8);   // mm
@@ -156,28 +197,15 @@
   const hasResults = $derived(results !== null);
   const hasEnvelope = $derived(resultsStore.hasCombinations3D);
 
-  interface EnvelopeSolicitations {
-    Mu: number; Vu: number; Nu: number;
-    Muy: number; Vz: number; Tu: number;
-  }
+  /** Count of elements with provided reinforcement (designed in RC Design tab). */
+  const designedCount = $derived.by(() => {
+    let n = 0;
+    for (const [, elem] of modelStore.elements) { if (elem.reinforcement) n++; }
+    return n;
+  });
 
-  /** Get max absolute solicitations for an element across all combination results */
-  function getEnvelopeSolicitations(elemId: number): EnvelopeSolicitations | null {
-    const envelope = resultsStore.fullEnvelope3D;
-    if (!envelope) return null;
-
-    const envForces = envelope.maxAbsResults3D.elementForces.find(ef => ef.elementId === elemId);
-    if (!envForces) return null;
-
-    return {
-      Mu: Math.max(Math.abs(envForces.mzStart), Math.abs(envForces.mzEnd)),
-      Vu: Math.max(Math.abs(envForces.vyStart), Math.abs(envForces.vyEnd)),
-      Nu: Math.max(Math.abs(envForces.nStart), Math.abs(envForces.nEnd)),
-      Muy: Math.max(Math.abs(envForces.myStart), Math.abs(envForces.myEnd)),
-      Vz: Math.max(Math.abs(envForces.vzStart), Math.abs(envForces.vzEnd)),
-      Tu: Math.max(Math.abs(envForces.mxStart), Math.abs(envForces.mxEnd)),
-    };
-  }
+  // getEnvelopeSolicitations removed — both RC and steel paths now use
+  // station-based demands via verification-service.ts
 
   /** Build generic check payload from model data for WASM-based design checks */
   function buildWasmCheckPayload() {
@@ -222,6 +250,28 @@
       case 'cfs': return checkCfsMembers(payload);
       default: return null;
     }
+  }
+
+  /**
+   * Endpoint demand envelope for a member, preserving My/Mz axis identity (SEAM 3).
+   *
+   * Strong axis = Mz → RC Mu and steel Muz; weak axis = My → Muy. Never
+   * magnitude-sort My/Mz: doing so silently swaps the design axes on
+   * biaxially-bent members. Station-based demands flow through
+   * verification-service; this endpoint summary keeps the identical rule
+   * wherever the component reads raw end forces (e.g. the dead-load service
+   * moment used for crack-width below).
+   */
+  function endpointDemandEnvelope(ef: { mzStart: number; mzEnd: number; myStart: number; myEnd: number }) {
+    const _mzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+    const _myMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+    const _mzM = _mzMax; // steel shares the strong-axis (Mz) envelope
+    // RC: Mu = strong axis (Mz), Muy = weak axis (My)
+    const MuMax = _mzMax;
+    const MuyMax = _myMax;
+    // Steel: Muz = strong axis (Mz)
+    const MuzMax = _mzM;
+    return { Mu: MuMax, Muy: MuyMax, Muz: MuzMax };
   }
 
   function runVerification() {
@@ -278,191 +328,37 @@
       return;
     }
 
-    const verifs: ElementVerification[] = [];
-    const useEnvelope = hasEnvelope;
+    // Unified RC verification via shared service (station-based when available)
+    // This replaces the old endpoint-only force extraction loop — see §13.1 of SOLVER_APP_COVERAGE_MAP.md
+    const governing = resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null;
+    const stationData = resultsStore.hasCombinations3D
+      ? computeStationDemands(resultsStore.perCombo3D, modelStore.model.combinations, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports })
+      : undefined;
+    const verifs = runUnifiedVerification(
+      results,
+      { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
+      governing,
+      stationData?.demands,
+    );
+
+    // Compute element lengths (still needed for elevations/detailing)
     const lengths = new Map<number, number>();
-
     for (const ef of results.elementForces) {
       const elem = modelStore.elements.get(ef.elementId);
       if (!elem) continue;
-
-      // Compute element length
       const nodeI = modelStore.nodes.get(elem.nodeI);
       const nodeJ = modelStore.nodes.get(elem.nodeJ);
       if (!nodeI || !nodeJ) continue;
-      const dx = nodeJ.x - nodeI.x;
-      const dy = nodeJ.y - nodeI.y;
-      const dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
-      const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      lengths.set(ef.elementId, L);
-
-      const section = modelStore.sections.get(elem.sectionId);
-      const material = modelStore.materials.get(elem.materialId);
-      if (!section || !material) continue;
-
-      // Only verify concrete sections (need b and h)
-      if (!section.b || !section.h) continue;
-      // Need f'c from material
-      const fc = material.fy;
-      if (!fc || fc > 80) continue; // skip if no f'c or if it's steel (fy > 80 MPa means it's steel)
-
-      // Classify as beam, column, or wall (reuse nodeI/nodeJ from above)
-      const elemType = classifyElement(
-        nodeI.x, nodeI.y, nodeI.z ?? 0,
-        nodeJ.x, nodeJ.y, nodeJ.z ?? 0,
-        section.b, section.h,
-      );
-
-      // Extract max solicitations — from envelope if available, otherwise from single result
-      let MuMax: number, VuMax: number, NuMax: number;
-      let MuyMax = 0, VzMax = 0, TuMax = 0;
-      const envSol = useEnvelope ? getEnvelopeSolicitations(ef.elementId) : null;
-      if (envSol) {
-        MuMax = envSol.Mu;
-        VuMax = envSol.Vu;
-        NuMax = envSol.Nu;
-        MuyMax = envSol.Muy;
-        VzMax = envSol.Vz;
-        TuMax = envSol.Tu;
-      } else {
-        const _mzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-        const _myMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-        MuMax = _mzMax;
-        VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
-        NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-        MuyMax = _myMax;
-        VzMax = Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-        TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
-      }
-
-      // Unsupported length for columns/walls = element length
-      const isVertical = elemType === 'column' || elemType === 'wall';
-      const Lu = isVertical ? L : undefined;
-
-      // For slender columns: extract M1 (smaller) and M2 (larger) end moments with sign
-      let M1: number | undefined;
-      let M2: number | undefined;
-      if (isVertical) {
-        const mzI = ef.mzStart;
-        const mzJ = ef.mzEnd;
-        if (Math.abs(mzI) >= Math.abs(mzJ)) {
-          M2 = Math.abs(mzI);
-          // M1 positive if same curvature (same sign), negative if reverse
-          M1 = Math.sign(mzI) === Math.sign(mzJ) ? Math.abs(mzJ) : -Math.abs(mzJ);
-        } else {
-          M2 = Math.abs(mzJ);
-          M1 = Math.sign(mzI) === Math.sign(mzJ) ? Math.abs(mzI) : -Math.abs(mzI);
-        }
-      }
-
-      // Auto-compute Ψ from model topology for columns
-      let psiA: number | undefined;
-      let psiB: number | undefined;
-      if (isVertical) {
-        const psi = computeJointPsiFromModel(
-          ef.elementId,
-          modelStore.nodes as Map<number, { id: number; x: number; y: number; z?: number }>,
-          modelStore.elements as Map<number, { id: number; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }>,
-          modelStore.sections as Map<number, { id: number; iz: number; iy?: number; b?: number; h?: number }>,
-          modelStore.materials as Map<number, { id: number; e: number }>,
-          modelStore.supports as Map<number, { nodeId: number; type?: string }>,
-        );
-        psiA = psi.psiA;
-        psiB = psi.psiB;
-      }
-
-      const input: VerificationInput = {
-        elementId: ef.elementId,
-        elementType: elemType,
-        Mu: MuMax,
-        Vu: VuMax,
-        Nu: NuMax,
-        b: section.b,
-        h: section.h,
-        fc,
-        fy: rebarFy,
-        cover,
-        stirrupDia,
-        Muy: isVertical ? MuyMax : undefined,
-        Vz: VzMax > 0.01 ? VzMax : undefined,
-        Tu: TuMax > 0.001 ? TuMax : undefined,
-        Lu,
-        M1,
-        M2,
-        psiA,
-        psiB,
-      };
-
-      verifs.push(verifyElement(input));
+      const dx = nodeJ.x - nodeI.x, dy = nodeJ.y - nodeI.y, dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
+      lengths.set(ef.elementId, Math.sqrt(dx * dx + dy * dy + dz * dz));
     }
 
-    // Steel verification (CIRSOC 301) — elements with fy > 80 MPa
-    const steelVerifs: SteelVerification[] = [];
-    for (const ef of results.elementForces) {
-      const elem = modelStore.elements.get(ef.elementId);
-      if (!elem) continue;
-
-      const section = modelStore.sections.get(elem.sectionId);
-      const material = modelStore.materials.get(elem.materialId);
-      if (!section || !material) continue;
-
-      // Steel: fy > 80 MPa
-      if (!material.fy || material.fy <= 80) continue;
-
-      const nodeI = modelStore.nodes.get(elem.nodeI);
-      const nodeJ = modelStore.nodes.get(elem.nodeJ);
-      if (!nodeI || !nodeJ) continue;
-
-      const dx = nodeJ.x - nodeI.x;
-      const dy = nodeJ.y - nodeI.y;
-      const dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
-      const elementLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (elementLength <= 0) continue;
-
-      // Extract solicitations
-      let NuMax: number, MuzMax: number, MuyMax: number, VuMax: number;
-      const envSol = useEnvelope ? getEnvelopeSolicitations(ef.elementId) : null;
-      if (envSol) {
-        NuMax = envSol.Nu;
-        MuzMax = envSol.Mu;
-        MuyMax = envSol.Muy;
-        VuMax = Math.max(envSol.Vu, envSol.Vz);
-      } else {
-        NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-        const _mzM = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-        const _myM = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-        MuzMax = _mzM;
-        MuyMax = _myM;
-        VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-      }
-
-      const sdp: SteelDesignParams = {
-        Fy: material.fy,
-        Fu: (material as any).fu ?? (material.fy ?? material.e * 0.001) * 1.25,
-        E: material.e,
-        A: section.a,
-        Iz: section.iz,
-        Iy: section.iy ?? section.iz,
-        h: section.h ?? 0.3,
-        b: section.b ?? 0.15,
-        tw: section.tw ?? (section.b ? section.b / 10 : 0.01),
-        tf: section.tf ?? (section.b ? section.b / 15 : 0.01),
-        L: elementLength,
-        Lb: elementLength,
-        J: section.j ?? 0,
-      };
-
-      const steelInput: SteelVerificationInput = {
-        elementId: ef.elementId,
-        Nu: NuMax,
-        Muy: MuyMax,
-        Muz: MuzMax,
-        Vu: VuMax,
-        params: sdp,
-      };
-
-      steelVerifs.push(verifySteelElement(steelInput));
-    }
+    // Steel verification via shared service (uses station demands when available)
+    const steelVerifs = runSteelVerification(
+      results,
+      { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
+      stationData?.demands,
+    );
     steelVerifications = steelVerifs;
 
     // Check if there are any verifiable elements (including quads/plates for slabs)
@@ -477,8 +373,22 @@
     const newDefl = new Map<number, DeflectionResult>();
     for (const v of verifs) {
       if (v.elementType === 'beam') {
-        // Service moment ≈ Mu / 1.4 (approximate unfactoring)
-        const Ms = v.Mu / 1.4;
+        // TEMPORARY Phase 1 bridge — service moment approximation (Bug #5 from §13.2)
+        // Uses dead-load case when available; falls back to Mu/1.4 unfactoring.
+        // Phase 2 target: solver provides actual service-combo results directly.
+        let Ms = v.Mu / 1.4;
+        if (resultsStore.perCase3D.size > 0) {
+          const deadCase = modelStore.model.loadCases.find(c => c.type === 'D');
+          if (deadCase) {
+            const deadResult = resultsStore.perCase3D.get(deadCase.id);
+            if (deadResult) {
+              const deadForces = deadResult.elementForces.find(ef => ef.elementId === v.elementId);
+              if (deadForces) {
+                Ms = endpointDemandEnvelope(deadForces).Mu;
+              }
+            }
+          }
+        }
         const crack = checkCrackWidth(
           v.b, v.h, v.flexure.d,
           v.flexure.AsProv, Ms,
@@ -487,7 +397,9 @@
         );
         newCracks.set(v.elementId, crack);
 
-        // Deflection check: get max displacement from results
+        // TEMPORARY Phase 1 bridge — midspan deflection estimate (Bug #3 from §13.2)
+        // Solver only returns endpoint displacements; midspan is estimated from beam equation.
+        // Phase 2 target: solver provides midspan displacement directly (or check_serviceability WASM).
         const elem = modelStore.elements.get(v.elementId);
         if (elem) {
           const nodeI = modelStore.nodes.get(elem.nodeI);
@@ -497,13 +409,24 @@
             const dy = nodeJ.y - nodeI.y;
             const dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
             const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            // Get max vertical displacement from either end node
+            // First try endpoint displacements (valid for cantilevers/overhangs)
             const di = results!.displacements.find(d => d.nodeId === elem.nodeI);
             const dj = results!.displacements.find(d => d.nodeId === elem.nodeJ);
-            const maxDisp = Math.max(
+            let maxDisp = Math.max(
               Math.abs(di?.uy ?? 0), Math.abs(dj?.uy ?? 0),
               Math.abs(di?.uz ?? 0), Math.abs(dj?.uz ?? 0),
             );
+            // TEMPORARY Phase 1 estimate: 5·Ms·L²/(48·E·Ig) (uniform load equivalent)
+            // Only used when endpoint displacements are negligible (simply-supported beams).
+            if (maxDisp < L / 10000) {
+              const sec = modelStore.sections.get(elem.sectionId);
+              const mat = modelStore.materials.get(elem.materialId);
+              if (sec?.iz && mat?.e) {
+                const E = mat.e * 1000; // MPa → kPa
+                const Ig = sec.iz; // m⁴
+                maxDisp = (5 * Ms * L * L) / (48 * E * Ig);
+              }
+            }
             if (L > 0 && maxDisp > 0) {
               newDefl.set(v.elementId, checkDeflection(L, maxDisp));
             }
@@ -1143,6 +1066,11 @@
 </script>
 
 <div class="pro-verif">
+  {#if designedCount > 0}
+    <div class="design-context-banner">
+      Continuing from RC Design — {designedCount} element{designedCount > 1 ? 's' : ''} with provided reinforcement
+    </div>
+  {/if}
   <div class="pro-verif-header">
     <div class="pro-verif-title-row">
       <div class="pro-verif-title">{t('pro.normativeVerif')}</div>
@@ -1206,7 +1134,7 @@
       </label>
     </div>
     <button class="pro-verify-btn" onclick={runVerification} disabled={!hasResults || (!isCirsocSelected && !selectedNormativeAvailable())}>
-      {t('pro.verifyElements')}
+      {designedCount > 0 ? `Verify ${designedCount} designed element${designedCount > 1 ? 's' : ''}` : t('pro.verifyElements')}
     </button>
     {#if hasEnvelope}
       <span class="pro-env-badge">{t('pro.envelopeActive')}</span>
@@ -1993,6 +1921,16 @@
 
 <style>
   .pro-verif { display: flex; flex-direction: column; height: 100%; }
+
+  .design-context-banner {
+    padding: 4px 10px;
+    font-size: 0.65rem;
+    color: #4ecdc4;
+    background: #0a2a40;
+    border-bottom: 1px solid #1a4a7a;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
 
   .pro-verif-header {
     padding: 8px 10px;

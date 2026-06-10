@@ -42,6 +42,7 @@ const fixtures3D: Record<string, FixtureLoader> = {
   '3d-nave-industrial': () => import('./fixtures/3d-nave-industrial.json'),
   '3d-building': () => import('./fixtures/3d-building.json'),
   'pro-edificio-7p': () => import('./fixtures/pro-edificio-7p.json'),
+  'rc-qa-diagnostic': () => import('./fixtures/rc-qa-diagnostic.json'),
   // PRO generators (now JSON)
   'torre-irregular-con-retiros': () => import('./fixtures/torre-irregular-con-retiros.json'),
   'rc-design-frame': () => import('./fixtures/rc-design-frame.json'),
@@ -49,6 +50,7 @@ const fixtures3D: Record<string, FixtureLoader> = {
   'mat-foundation': () => import('./fixtures/mat-foundation.json'),
   'suspension-bridge': () => import('./fixtures/suspension-bridge.json'),
   'cable-stayed-bridge': () => import('./fixtures/cable-stayed-bridge.json'),
+  'offshore-platform': () => import('./fixtures/offshore-platform.json'),
   'full-stadium': () => import('./fixtures/full-stadium.json'),
   'xl-diagrid-tower': () => import('./fixtures/xl-diagrid-tower.json'),
   'geodesic-dome': () => import('./fixtures/geodesic-dome.json'),
