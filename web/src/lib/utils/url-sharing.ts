@@ -550,21 +550,6 @@ export function generateShareURL(): { url: string; length: number } | null {
   return { url, length: compressed.length };
 }
 
-/**
- * Generate an embed URL (same as share but with #embed= prefix).
- */
-export function generateEmbedURL(): { url: string; length: number } | null {
-  const snapshot = modelStore.snapshot();
-  if (snapshot.nodes.length === 0) return null;
-
-  const mode = uiStore.analysisMode;
-  snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
-  const meta = buildShareMeta(false);
-
-  const compressed = compressV2(snapshot, meta);
-  const url = `${location.origin}${location.pathname}#embed=${compressed}`;
-  return { url, length: compressed.length };
-}
 
 // ─── Restore meta helper ──────────────────────────────────────────────────
 

@@ -57,18 +57,6 @@ export function computeSectionStress(
   return { sigmaMax, tauMax, vonMises, ratio };
 }
 
-export function computeElementStress3D(
-  ef: ElementForces3D,
-  A: number, Iz: number, Iy: number,
-  h: number = 0, b: number = 0,
-  fy: number = 355_000,
-): { start: SectionStress3D; end: SectionStress3D; max: SectionStress3D } {
-  const start = computeSectionStress(ef.nStart, ef.vyStart, ef.vzStart, ef.mxStart, ef.myStart, ef.mzStart, A, Iz, Iy, h, b, fy);
-  const end = computeSectionStress(ef.nEnd, ef.vyEnd, ef.vzEnd, ef.mxEnd, ef.myEnd, ef.mzEnd, A, Iz, Iy, h, b, fy);
-  const max = start.vonMises >= end.vonMises ? start : end;
-  return { start, end, max };
-}
-
 // ─── Detailed 3D Stress Analysis ─────────────────────────────────────
 
 export interface StressPoint3D {

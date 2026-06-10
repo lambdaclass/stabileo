@@ -5,20 +5,20 @@
   import {
     normalizeWasmSteel, normalizeWasmRC,
     buildDesignSummary,
-    type MemberDesignResult, type DesignCheckSummary, type CheckStatus,
+    type MemberDesignResult, type CheckStatus,
   } from '../../lib/engine/design-check-results';
   import { computeStationDemands, runCirsocDesign, getCodeDetail } from '../../lib/engine/verification-service';
   import {
-    extractElementStations, extractGoverningDemands, type ElementDesignDemands, type ElementStationResult,
-    verifyProvidedReinforcement, rebarGroupArea, formatRebarGroup,
-    resolveLayers, layersTotalArea, formatLayers, checkRowFit,
-    computeSectionLayout, computeColumnLayout, resolveColumnReinf, checkBeamAnchorage, requiredLd,
-    type SectionLayout, type ColumnLayout, type BarInstance, type SpacingIssue, type AnchorageCheck,
+    type ElementDesignDemands, type ElementStationResult,
+    verifyProvidedReinforcement, rebarGroupArea,
+    resolveLayers, layersTotalArea,
+    computeSectionLayout, computeColumnLayout, resolveColumnReinf,
+    type BarInstance,
     type ProvidedRebarResult,
   } from '../../lib/engine/station-design-forces';
   import type { RebarLayer } from '../../lib/store/model.svelte';
   import { REBAR_DB } from '../../lib/engine/codes/argentina/cirsoc201';
-  import type { ProvidedReinforcement, RebarGroup } from '../../lib/store/model.svelte';
+  import type { ProvidedReinforcement } from '../../lib/store/model.svelte';
   import { checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers } from '../../lib/engine/wasm-solver';
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';

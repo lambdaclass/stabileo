@@ -175,22 +175,3 @@ export function applyRigidDiaphragm(
 
   return { nodes, elements, materials, sections, supports, loads };
 }
-
-/**
- * Get center of rigidity and center of mass for each floor level
- * (useful for eccentricity calculations per CIRSOC 103)
- */
-export function getFloorProperties(
-  nodes: Map<number, SolverNode3D>,
-  levels: number[],
-  tolerance: number = 0.05,
-): Array<{ z: number; centerOfMass: { x: number; y: number }; nodeCount: number }> {
-  return levels.map(z => {
-    const cm = findCentroid(nodes, z, tolerance);
-    let count = 0;
-    for (const n of nodes.values()) {
-      if (Math.abs((n.z ?? 0) - z) < tolerance) count++;
-    }
-    return { z, centerOfMass: cm, nodeCount: count };
-  });
-}

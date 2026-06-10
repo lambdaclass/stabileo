@@ -192,22 +192,6 @@ export interface DesignSpectrum {
 
 export type CombinationRule = 'SRSS' | 'CQC';
 
-/** Get spectral acceleration for a given period by linear interpolation */
-export function getSpectralAcceleration(spectrum: DesignSpectrum, T: number): number {
-  const pts = spectrum.points;
-  if (pts.length === 0) return 0;
-  if (T <= pts[0].period) return pts[0].sa;
-  if (T >= pts[pts.length - 1].period) return pts[pts.length - 1].sa;
-
-  for (let i = 0; i < pts.length - 1; i++) {
-    if (T >= pts[i].period && T <= pts[i + 1].period) {
-      const t = (T - pts[i].period) / (pts[i + 1].period - pts[i].period);
-      return pts[i].sa + t * (pts[i + 1].sa - pts[i].sa);
-    }
-  }
-  return pts[pts.length - 1].sa;
-}
-
 /** CIRSOC 103 elastic design spectrum (simplified) */
 export function cirsoc103Spectrum(
   zone: 1 | 2 | 3 | 4,

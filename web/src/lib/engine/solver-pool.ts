@@ -146,11 +146,3 @@ export async function solveParallel(
   return results;
 }
 
-/** Terminate all workers and clean up the pool. */
-export function destroyPool(): void {
-  for (const pw of pool) {
-    pw.worker.terminate();
-  }
-  pool = [];
-  initPromise = null;
-}

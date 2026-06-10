@@ -44,29 +44,6 @@ export function getPredefinedTrains(): LoadTrain[] {
   ];
 }
 
-/** @deprecated Use getPredefinedTrains() instead */
-export const PREDEFINED_TRAINS: LoadTrain[] = [
-  {
-    name: 'Carga puntual (100 kN)',
-    axles: [{ offset: 0, weight: 100 }],
-  },
-  {
-    name: 'HL-93 Camión',
-    axles: [
-      { offset: 0, weight: 35 },
-      { offset: 4.3, weight: 145 },
-      { offset: 8.6, weight: 145 },
-    ],
-  },
-  {
-    name: 'Tándem (2×110 kN)',
-    axles: [
-      { offset: 0, weight: 110 },
-      { offset: 1.2, weight: 110 },
-    ],
-  },
-];
-
 export interface MovingLoadConfig {
   train: LoadTrain;
   /** Step size for moving the reference axle (m). Default 0.25 */
