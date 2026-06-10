@@ -728,6 +728,14 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`<div class="page-break"></div>`);
   html.push(`<h1 id="sec-results">${escHtml(tr('report.results'))}</h1>`);
 
+  // Model size — nodes, elements, and free (unconstrained) DOF count.
+  // nFree comes from the solver timings/meta; omitted gracefully if absent.
+  {
+    const nFree = results.timings?.nFree;
+    const dofLine = nFree !== undefined ? `, ${nFree} ${escHtml(tr('report.freeDof') || 'free DOF')}` : '';
+    html.push(`<p class="model-size">${nodes.length} ${escHtml(tr('report.nodes'))}, ${elements.length} ${escHtml(tr('report.elements'))}${dofLine}.</p>`);
+  }
+
   // Reactions
   html.push(`<h2>2.1 ${escHtml(tr('report.reactions'))}</h2>`);
   html.push(`<table><thead><tr><th>Nodo</th><th>${km('F_x')} (kN)</th><th>${km('F_y')} (kN)</th><th>${km('F_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);

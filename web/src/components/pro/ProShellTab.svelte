@@ -3,6 +3,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
+  import { findCoincidentNode, beamThrough } from '../../lib/engine/mesh-weld';
   import type { ShellFamily, ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
@@ -26,6 +27,7 @@
   let meshNy = $state(2);
   let meshMaterialId = $state(1);
   let meshThickness = $state(0.2);
+  let meshSplitBeams = $state(true); // split surrounding beams so nodes are shared
   let meshError = $state<string | null>(null);
   let meshSuccess = $state<string | null>(null);
 
@@ -177,6 +179,12 @@
    *
    * Bilinear interpolation is used to place intermediate nodes, so corners
    * don't need to form a perfect rectangle — any quadrilateral works.
+   *
+   * Nodes are welded to existing coincident nodes (no duplicates). When
+   * "split surrounding beams" is on, any beam passing through a mesh node is
+   * split there (via splitElementAtPoint, which redistributes loads + preserves
+   * releases) so the beam and shell SHARE that node and load transfer is
+   * continuous along the edge — the model coupling is purely shared-node.
    */
   function generateMesh() {
     meshError = null;
@@ -206,6 +214,7 @@
 
     // Build grid of node IDs: (nx+1) x (ny+1)
     const nodeGrid: number[][] = [];
+    let newNodes = 0;
 
     for (let j = 0; j <= meshNy; j++) {
       const row: number[] = [];
@@ -213,7 +222,7 @@
       for (let i = 0; i <= meshNx; i++) {
         const u = i / meshNx;
 
-        // Check if this is a corner node — reuse existing node
+        // Corner nodes reuse the supplied corner IDs directly.
         if (i === 0 && j === 0) { row.push(cornerIds[0]); continue; }
         if (i === meshNx && j === 0) { row.push(cornerIds[1]); continue; }
         if (i === meshNx && j === meshNy) { row.push(cornerIds[2]); continue; }
@@ -225,8 +234,11 @@
         const z0 = c0.z ?? 0, z1 = c1.z ?? 0, z2 = c2.z ?? 0, z3 = c3.z ?? 0;
         const z = (1 - u) * (1 - v) * z0 + u * (1 - v) * z1 + u * v * z2 + (1 - u) * v * z3;
 
-        const nodeId = modelStore.addNode(x, y, z !== 0 ? z : undefined);
-        row.push(nodeId);
+        // Weld to an existing coincident node if there is one, else create.
+        const existing = findCoincidentNode(modelStore.nodes.values(), x, y, z);
+        if (existing != null) { row.push(existing); continue; }
+        row.push(modelStore.addNode(x, y, z !== 0 ? z : undefined));
+        newNodes++;
       }
       nodeGrid.push(row);
     }
@@ -244,8 +256,29 @@
       }
     }
 
-    const nodeCount = (meshNx + 1) * (meshNy + 1) - 4; // minus 4 reused corners
-    meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(nodeCount)).replace('{quads}', String(quadCount));
+    // Optionally split surrounding beams so their nodes coincide with the mesh
+    // edge nodes (continuous load transfer). Each mesh node that sits on a beam
+    // interior splits that beam; splitElementAtPoint reuses our node (weld).
+    let splitCount = 0;
+    if (meshSplitBeams) {
+      for (const r of nodeGrid) {
+        for (const nodeId of r) {
+          const n = modelStore.nodes.get(nodeId);
+          if (!n) continue;
+          // A node can lie on at most a couple of collinear beams; bound the loop.
+          for (let guard = 0; guard < 4; guard++) {
+            const hit = beamThrough((id) => modelStore.nodes.get(id), modelStore.elements.values(), n.x, n.y, n.z ?? 0);
+            if (!hit) break;
+            const res = modelStore.splitElementAtPoint(hit.id, hit.t);
+            if (!res) break;
+            splitCount++;
+          }
+        }
+      }
+    }
+
+    meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(newNodes)).replace('{quads}', String(quadCount))
+      + (meshSplitBeams ? ' ' + t('pro.meshSplitInfo').replace('{n}', String(splitCount)) : '');
   }
 
   // Collapse states for sections
@@ -338,22 +371,10 @@
   </div>
 
   <div class="pro-shells-scroll">
-    <!-- How shells connect & transfer load (engineering honesty) -->
-    <div class="shell-info">
-      <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
-        <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
-      </button>
-      {#if showShellInfo}
-        <div class="shell-info-body">
-          <p>{t('pro.shellInfoTransfer')}</p>
-          <p>{t('pro.shellInfoMesh')}</p>
-          <p>{t('pro.shellInfoSlab')}</p>
-        </div>
-      {/if}
-      {#if disconnectedShells > 0}
-        <div class="shell-warn">⚠ {t('pro.shellWarnDisconnected').replace('{n}', String(disconnectedShells))}</div>
-      {/if}
-    </div>
+    <!-- Model-wide warning: shells with a corner attached to nothing else -->
+    {#if disconnectedShells > 0}
+      <div class="shell-warn">⚠ {t('pro.shellWarnDisconnected').replace('{n}', String(disconnectedShells))}</div>
+    {/if}
 
     <!-- Plate (DKT triangle) creator -->
     <div class="section">
@@ -510,6 +531,10 @@
             <label>{t('pro.thickness')}:</label>
             <input type="number" bind:value={meshThickness} step="0.01" min="0.001" class="thick-input" />
           </div>
+          <label class="mesh-check">
+            <input type="checkbox" bind:checked={meshSplitBeams} />
+            {t('pro.meshSplitBeams')}
+          </label>
           {#if meshError}
             <div class="field-error">{meshError}</div>
           {/if}
@@ -517,6 +542,22 @@
             <div class="field-success">{meshSuccess}</div>
           {/if}
           <button class="pro-btn pro-btn-accent" onclick={generateMesh}>{t('pro.generateMesh')}</button>
+
+          <!-- How shells connect & transfer load (lives with the mesh tool, the
+               place where node-sharing actually matters) -->
+          <div class="shell-info">
+            <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
+              <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
+            </button>
+            {#if showShellInfo}
+              <div class="shell-info-body">
+                <p>{t('pro.shellInfoTransfer')}</p>
+                <p>{t('pro.shellInfoMesh')}</p>
+                <p>{t('pro.shellInfoSplit')}</p>
+                <p>{t('pro.shellInfoSlab')}</p>
+              </div>
+            {/if}
+          </div>
         </div>
       {/if}
     </div>
@@ -875,6 +916,16 @@
     font-style: italic;
     line-height: 1.4;
   }
+
+  .mesh-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: #b8c4cc;
+    cursor: pointer;
+  }
+  .mesh-check input { accent-color: #4ecdc4; }
 
   /* Tables */
   .table-label {

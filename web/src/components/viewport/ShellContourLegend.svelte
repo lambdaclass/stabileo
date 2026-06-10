@@ -7,7 +7,7 @@
   import { t } from '../../lib/i18n';
   import { divergingColor } from '../../lib/three/stress-heatmap';
   import { heatmapColor } from '../../lib/three/selection-helpers';
-  import { shellComponentMeta, shellComponentRange } from '../../lib/engine/shell-stress';
+  import { shellComponentMeta, shellComponentRange, shellComponentStats } from '../../lib/engine/shell-stress';
 
   // Shell contour mode is selected (regardless of whether data exists).
   const shellMode = $derived(
@@ -21,12 +21,16 @@
 
   const meta = $derived(shellComponentMeta(resultsStore.shellContourComponent));
 
-  const range = $derived.by(() => {
+  const allShells = $derived.by(() => {
     const r = resultsStore.results3D;
-    if (!r) return { min: 0, max: 0 };
-    const all = [...(r.plateStresses ?? []), ...(r.quadStresses ?? [])];
-    return shellComponentRange(all, resultsStore.shellContourComponent);
+    if (!r) return [];
+    return [...(r.plateStresses ?? []), ...(r.quadStresses ?? [])];
   });
+
+  const range = $derived(shellComponentRange(allShells, resultsStore.shellContourComponent));
+
+  // Honest status of the selected component for THIS result set.
+  const stat = $derived(shellComponentStats(allShells)[resultsStore.shellContourComponent]);
 
   function hex(n: number): string {
     return '#' + n.toString(16).padStart(6, '0');
@@ -64,17 +68,27 @@
     <div class="legend-title">{meta.label}</div>
     <div class="legend-unavailable">{t('results.shellContourUnavailable')}</div>
   </div>
+{:else if active && stat?.status === 'negligible'}
+  <div class="shell-legend shell-legend-flat" role="status">
+    <div class="legend-title">{meta.label} <span class="legend-unit-inline">[{meta.unit}]</span></div>
+    <div class="legend-flat-note">{t('results.shellContourNegligible')}</div>
+    <div class="legend-flat-range">peak ≈ {fmt(stat.peak)} {meta.unit}</div>
+  </div>
 {:else if active}
   <div class="shell-legend" role="img" aria-label="Shell contour legend">
-    <div class="legend-title">{meta.label}</div>
-    <div class="legend-body">
-      <div class="legend-bar" style="background:{gradient}"></div>
-      <div class="legend-ticks">
-        <span>{fmt(range.max)}</span>
-        <span>{fmt(mid)}</span>
-        <span>{fmt(range.min)}</span>
+    <div class="legend-title">{meta.label} <span class="legend-unit-inline">[{meta.unit}]</span></div>
+    {#if stat?.status === 'uniform'}
+      <div class="legend-flat-note">{t('results.shellContourUniform').replace('{v}', fmt(mid) + ' ' + meta.unit)}</div>
+    {:else}
+      <div class="legend-body">
+        <div class="legend-bar" style="background:{gradient}"></div>
+        <div class="legend-ticks">
+          <span>{fmt(range.max)}</span>
+          <span>{fmt(mid)}</span>
+          <span>{fmt(range.min)}</span>
+        </div>
       </div>
-    </div>
+    {/if}
     <div class="legend-unit">{meta.unit}</div>
   </div>
 {/if}
@@ -109,6 +123,10 @@
     font-variant-numeric: tabular-nums;
   }
   .legend-unit { margin-top: 5px; text-align: center; opacity: 0.7; }
+  .legend-unit-inline { font-weight: 400; opacity: 0.6; font-size: 10px; }
   .legend-unavailable { font-size: 10px; opacity: 0.75; max-width: 140px; line-height: 1.3; }
   .shell-legend-empty { border-color: rgba(255, 179, 71, 0.5); }
+  .shell-legend-flat { border-color: rgba(120, 140, 170, 0.5); }
+  .legend-flat-note { font-size: 10px; opacity: 0.85; max-width: 150px; line-height: 1.35; }
+  .legend-flat-range { font-size: 10px; opacity: 0.6; margin-top: 4px; font-variant-numeric: tabular-nums; }
 </style>

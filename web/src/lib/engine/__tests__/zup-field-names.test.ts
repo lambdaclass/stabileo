@@ -227,8 +227,11 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(verificationTab, 'ProVerificationTab.svelte should not sort My/Mz by magnitude').not.toContain('MuMax = Math.max(_mzMax, _myMax)');
     expect(verificationTab, 'ProVerificationTab.svelte should not sort steel My/Mz by magnitude').not.toContain('MuzMax = Math.max(_mzM, _myM)');
 
-    expect(autoVerify, 'auto-verify.ts should preserve Mz as Mu').toContain('const MuMax = MzMax;');
+    // Columns keep Mz=Mu, My=Muy (identity intact); beams are axis-aware but
+    // moments are never magnitude-sorted into a single Mu (see auto-verify.ts).
+    expect(autoVerify, 'auto-verify.ts should keep column Mu = Mz').toContain('MuMax = MzMax;');
     expect(autoVerify, 'auto-verify.ts should preserve My as Muy').toContain('const MuyMax = MyMax;');
+    expect(autoVerify, 'auto-verify.ts must not magnitude-sort moments').not.toContain('Math.max(MzMax, MyMax)');
     expect(proPanel, 'ProPanel.svelte combo summary should report strong-axis Mu').toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
   });
 });
