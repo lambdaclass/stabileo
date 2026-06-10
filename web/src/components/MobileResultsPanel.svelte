@@ -78,7 +78,7 @@
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'}>{t('results.axialColors')}</button>
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'}>{t('results.colorMap')}</button>
             {#if uiStore.appMode === 'pro'}
-              <button class="mrp-btn" class:active={resultsStore.diagramType === 'verification'} onclick={() => resultsStore.diagramType = 'verification'}>{t('results.verification') !== 'results.verification' ? t('results.verification') : 'Verification'}</button>
+              <button class="mrp-btn" class:active={resultsStore.diagramType === 'verification'} onclick={() => resultsStore.diagramType = 'verification'}>{t('results.verification')}</button>
             {/if}
           {/if}
         </div>
