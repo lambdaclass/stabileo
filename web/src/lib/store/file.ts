@@ -132,7 +132,8 @@ export function deserializeProject(text: string): boolean {
   historyStore.pushState();
   modelStore.restore(data.snapshot);
   modelStore.model.name = data.name;
-  if (data.appMode) uiStore.appMode = data.appMode;
+  // appMode is a derived getter (computed from analysisMode) — restoring
+  // analysisMode below is what actually moves the app into the saved mode.
   if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;

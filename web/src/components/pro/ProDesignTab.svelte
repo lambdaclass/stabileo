@@ -76,6 +76,10 @@
     running = true;
     const sectionNames = getSectionNames();
     let normalized: MemberDesignResult[] = [];
+    let codeName = '';
+    // Legacy CIRSOC verifs to publish alongside the unified results (set only
+    // by the CIRSOC branch, applied after the empty-result guard below).
+    let legacyConcrete: Parameters<typeof verificationStore.setConcrete>[0] | null = null;
 
     try {
       if (selectedCode === 'cirsoc') {
@@ -97,16 +101,14 @@
 
         // Also try CIRSOC 301 steel if available
         // (Steel verification uses different input assembly — for now, RC is the primary CIRSOC path)
+        codeName = 'CIRSOC 201';
         normalized = rcResults;
-
-        // Also populate legacy store for viewport compatibility
-        verificationStore.setConcrete(concrete);
+        legacyConcrete = concrete;
       } else {
         // WASM path for all other codes
         const payload = buildCheckPayload();
         if (!payload) { error = t('pro.solveFirst'); running = false; return; }
 
-        let codeName = '';
         let rawResult: any = null;
 
         switch (selectedCode) {
@@ -149,13 +151,20 @@
           }
         }
 
-        if (normalized.length === 0) {
-          error = `No members checked. The ${codeName || selectedCode} check may not be available for this model.`;
-          running = false;
-          return;
-        }
       }
 
+      // Guard against an empty run for every code path (e.g. CIRSOC on an
+      // all-steel model checks nothing) — never publish a "0 members" success.
+      if (normalized.length === 0) {
+        error = `No members checked. The ${codeName || selectedCode} check may not be available for this model.`;
+        running = false;
+        return;
+      }
+
+      // Publish results: previous runs (any code, legacy or unified) are
+      // superseded so the viewport overlay can't mix stale and fresh data.
+      verificationStore.clear();
+      if (legacyConcrete) verificationStore.setConcrete(legacyConcrete);
       const codeInfo = DESIGN_CODES.find(c => c.id === selectedCode);
       const summaryData = buildDesignSummary(normalized, selectedCode, codeInfo?.label ?? selectedCode);
       verificationStore.setDesignResults(summaryData.results, summaryData);
