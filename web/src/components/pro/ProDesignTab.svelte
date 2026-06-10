@@ -200,6 +200,7 @@
     running = true;
     const sectionNames = getSectionNames();
     let normalized: MemberDesignResult[] = [];
+    let codeName = '';
 
     try {
       if (selectedCode === 'cirsoc') {
@@ -211,13 +212,13 @@
           allStationDemands.size > 0 ? allStationDemands : undefined,
           sectionNames, governing,
         );
+        codeName = 'CIRSOC 201';
         normalized = rcResults;
       } else {
         // WASM path for all other codes
         const payload = buildCheckPayload();
         if (!payload) { error = t('pro.solveFirst'); running = false; return; }
 
-        let codeName = '';
         let rawResult: any = null;
 
         switch (selectedCode) {
@@ -260,15 +261,21 @@
           }
         }
 
-        if (normalized.length === 0) {
-          error = `No members checked. The ${codeName || selectedCode} check may not be available for this model.`;
-          running = false;
-          return;
-        }
       }
 
-      // For non-CIRSOC codes, update the design results store (CIRSOC handled inside runCirsocDesign)
+      // Guard against an empty run for every code path (e.g. CIRSOC on an
+      // all-steel model checks nothing) — never publish a "0 members" success.
+      if (normalized.length === 0) {
+        error = `No members checked. The ${codeName || selectedCode} check may not be available for this model.`;
+        running = false;
+        return;
+      }
+
+      // For non-CIRSOC codes, publish to the design results store (CIRSOC is
+      // published inside runCirsocDesign). Previous runs are superseded so the
+      // viewport overlay can't mix stale and fresh data.
       if (selectedCode !== 'cirsoc') {
+        verificationStore.clear();
         const codeInfo = DESIGN_CODES.find(c => c.id === selectedCode);
         const summaryData = buildDesignSummary(normalized, selectedCode, codeInfo?.label ?? selectedCode);
         verificationStore.setDesignResults(summaryData.results, summaryData);

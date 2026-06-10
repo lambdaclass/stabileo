@@ -96,30 +96,27 @@
   const surfaceLoads = $derived(caseLoads.filter(l => l.type === 'surface3d'));
   const thermalQuadLoads = $derived(caseLoads.filter(l => l.type === 'thermalQuad3d'));
 
-  /** Select all loads belonging to a given load case in the viewport. */
+  /** Select all loads belonging to a given load case in the viewport.
+   *  selectedLoads holds load data ids — assign the whole set once. */
   function selectLoadsByCase(caseId: number) {
     uiStore.selectMode = 'loads';
     uiStore.clearSelection();
-    for (let i = 0; i < modelStore.loads.length; i++) {
-      if ((modelStore.loads[i].data.caseId ?? 1) === caseId) {
-        uiStore.selectLoad(i, true);
-      }
-    }
+    uiStore.selectedLoads = new Set(
+      modelStore.loads.filter(l => (l.data.caseId ?? 1) === caseId).map(l => l.data.id),
+    );
   }
 
-  /** Select a load in the viewport by its data.id (finds the array index in modelStore.loads). */
+  /** Select a load in the viewport by its data.id. */
   function selectLoadById(dataId: number) {
-    const idx = modelStore.loads.findIndex(l => l.data.id === dataId);
-    if (idx >= 0) {
-      uiStore.selectMode = 'loads';
-      uiStore.selectLoad(idx, false);
-    }
+    // Guard against stale ids (e.g. a click event racing a deletion).
+    if (!modelStore.loads.some(l => l.data.id === dataId)) return;
+    uiStore.selectMode = 'loads';
+    uiStore.selectLoad(dataId, false);
   }
 
   /** Check if a load is currently selected by its data.id. */
   function isLoadSelected(dataId: number): boolean {
-    const idx = modelStore.loads.findIndex(l => l.data.id === dataId);
-    return idx >= 0 && uiStore.selectedLoads.has(idx);
+    return uiStore.selectedLoads.has(dataId);
   }
 
   const caseTypeLabels = $derived<Record<string, string>>({
@@ -223,6 +220,9 @@
 
   function removeLoad(loadId: number) {
     modelStore.removeLoad(loadId);
+    // Drop the deleted load from the selection so a later Delete keypress
+    // doesn't act on a stale id.
+    uiStore.deleteSelectedLoad(loadId);
   }
 
   function addLoadCase() {
@@ -477,6 +477,14 @@
     if (n === 0) return '0';
     return n.toFixed(2);
   }
+
+  /** Parse a user-entered numeric string, tolerating a comma decimal separator
+   *  (es/de/fr keyboards) so "1,5" becomes 1.5 instead of being truncated to 1
+   *  by parseFloat. Returns `fallback` for empty/invalid input. */
+  function parseNum(value: string, fallback = 0): number {
+    const n = parseFloat(String(value).replace(',', '.'));
+    return Number.isFinite(n) ? n : fallback;
+  }
 </script>
 
 <div class="pro-loads">
@@ -723,13 +731,13 @@
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.nodeId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fx)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fx: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fy)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fy: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fz: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mx ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mx: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.my ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { my: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mz: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fx)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fx: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fy)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fy: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fz: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mx ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mx: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.my ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { my: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mz: parseNum(e.currentTarget.value) })} /></td>
+              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
         </tbody>
@@ -745,11 +753,11 @@
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.elementId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYI: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYJ: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZI: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZJ: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYI: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYJ: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZI: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZJ: parseNum(e.currentTarget.value) })} /></td>
+              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
         </tbody>
@@ -765,10 +773,10 @@
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.elementId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.a)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { a: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.py ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { py: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.pz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { pz: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.a)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { a: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.py ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { py: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.pz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { pz: parseNum(e.currentTarget.value) })} /></td>
+              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
         </tbody>
@@ -784,8 +792,8 @@
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.quadId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.q)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { q: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.q)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { q: parseNum(e.currentTarget.value) })} /></td>
+              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
         </tbody>
@@ -801,9 +809,9 @@
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.quadId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtUniform)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtUniform: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtGradient)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtGradient: parseFloat(e.currentTarget.value) || 0 })} /></td>
-              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtUniform)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtUniform: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtGradient)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtGradient: parseNum(e.currentTarget.value) })} /></td>
+              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
         </tbody>

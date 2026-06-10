@@ -119,9 +119,6 @@ const CALC_REPORT_CSS = `
   .toc-entry { padding: 3px 0; font-size: 10pt; }
 
   /* Equilibrium */
-  .eq-check { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: 600; }
-  .eq-ok { background: #e6f9e6; color: #2a7a2a; }
-  .eq-warn { background: #fff3cd; color: #856404; }
 `;
 
 // ─── Report Metadata Block ────────────────────────────────────────
@@ -284,12 +281,16 @@ function buildLoadsSection(data: CalcReportData): string {
   h.push(`<h2>2.3 Applied Loads (${data.loads.length})</h2>`);
   if (data.loads.length > 0) {
     h.push('<table><tr><th>#</th><th>Type</th><th>Description</th><th>Case</th></tr>');
-    const showLoads = data.loads.length > 40 ? [...data.loads.slice(0, 30), null, ...data.loads.slice(-5)] : data.loads;
-    let idx = 0;
-    for (const l of showLoads) {
-      idx++;
-      if (!l) { h.push(`<tr><td colspan="4" style="text-align:center;color:#888">... ${data.loads.length - 35} more loads ...</td></tr>`); continue; }
-      h.push(`<tr><td>${idx}</td><td>${esc(l.type)}</td><td>${esc(l.description)}</td><td>${esc(l.caseLabel ?? '—')}</td></tr>`);
+    // Condensed view keeps each row numbered by its true position in the
+    // full load list (the tail rows are loads N-4…N, not 32…36).
+    const numbered = data.loads.map((l, i) => ({ l, n: i + 1 }));
+    const showLoads = data.loads.length > 40
+      ? [...numbered.slice(0, 30), null, ...numbered.slice(-5)]
+      : numbered;
+    for (const row of showLoads) {
+      if (!row) { h.push(`<tr><td colspan="4" style="text-align:center;color:#888">... ${data.loads.length - 35} more loads ...</td></tr>`); continue; }
+      const { l, n } = row;
+      h.push(`<tr><td>${n}</td><td>${esc(l.type)}</td><td>${esc(l.description)}</td><td>${esc(l.caseLabel ?? '—')}</td></tr>`);
     }
     h.push('</table>');
   } else {
@@ -316,8 +317,7 @@ function buildReactionsSection(data: CalcReportData): string {
     }
     h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣF</td><td class="num">${fmt(sumFx)}</td><td class="num">${fmt(sumFy)}</td><td class="num">${fmt(sumFz)}</td><td colspan="3"></td></tr>`);
     h.push('</table>');
-    const eqOk = Math.abs(sumFx) < 0.1 && Math.abs(sumFy) < 0.1 && Math.abs(sumFz) < 0.1;
-    h.push(`<p>Equilibrium check: <span class="eq-check ${eqOk ? 'eq-ok' : 'eq-warn'}">${eqOk ? '✓ OK' : '⚠ Review'}</span></p>`);
+    h.push(buildReactionSumNote(data));
   } else if (data.results2D) {
     const reactions = data.results2D.reactions;
     h.push('<table><tr><th>Node</th><th>Rx (kN)</th><th>Rz (kN)</th><th>My (kN·m)</th></tr>');
@@ -328,12 +328,25 @@ function buildReactionsSection(data: CalcReportData): string {
     }
     h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣR</td><td class="num">${fmt(sumRx)}</td><td class="num">${fmt(sumRz)}</td><td></td></tr>`);
     h.push('</table>');
-    const eqOk = Math.abs(sumRx) < 0.1 && Math.abs(sumRz) < 0.1;
-    h.push(`<p>Equilibrium check: <span class="eq-check ${eqOk ? 'eq-ok' : 'eq-warn'}">${eqOk ? '✓ OK' : '⚠ Review'}</span></p>`);
+    h.push(buildReactionSumNote(data));
   }
 
   h.push('</div><div class="page-break"></div>');
   return h.join('\n');
+}
+
+/** Note accompanying the reaction-sum row. The solver reports reactions that
+ *  balance the applied loads (Σreactions = −Σapplied), so the sum is only ≈ 0
+ *  for unloaded or self-equilibrated models — it must NOT be tested against
+ *  zero as an "equilibrium check". For envelope results the per-node values
+ *  come from different combinations, so the sum has no physical meaning. */
+function buildReactionSumNote(data: CalcReportData): string {
+  if (data.provenance.kind === 'envelope') {
+    return '<p>Note: envelope values are per-node extremes across combinations; the Σ row is not a physical load balance.</p>';
+  }
+  return '<p>Support reactions balance the applied loads for the reported '
+    + 'case/combination (equal and opposite resultants, including self-weight '
+    + 'when enabled): Σreactions + Σapplied = 0.</p>';
 }
 
 // ─── Section: Displacements ──────────────────────────────────────

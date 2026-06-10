@@ -164,7 +164,9 @@
       resultsStore.showReactions = false;
     } else {
       uiStore.analysisMode = 'pro';
-      uiStore.includeSelfWeight = true;
+      // Note: self-weight defaults ON in PRO via the per-mode selfWeightPro
+      // state — do not force it here, or a user's explicit opt-out would be
+      // silently reverted on every mode round-trip (double-counting gravity).
       resultsStore.showReactions = false;
       resultsStore.showConstraintForces = false;
     }
@@ -192,7 +194,13 @@
    *  and the user hasn't started editing a different project. */
   const showAutosaveBanner = $derived.by(() => {
     if (!autosaveData || autosaveDismissed) return false;
-    const savedMode = autosaveData.appMode ?? 'basico';
+    // Legacy autosaves predate the appMode field — infer it from analysisMode
+    // (the same derivation uiStore.appMode uses) so pre-existing PRO/edu saves
+    // remain reachable instead of silently defaulting to basico.
+    const savedMode = autosaveData.appMode
+      ?? (autosaveData.analysisMode === 'pro' ? 'pro'
+        : autosaveData.analysisMode === 'edu' ? 'educativo'
+        : 'basico');
     if (savedMode !== currentAppMode) return false;
     if (modelStore.nodes.size > 0 && modelStore.model.name !== autosaveData.name) return false;
     return true;
@@ -211,6 +219,10 @@
       if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
       if (autosaveData.viewportPresentation3D) uiStore.viewportPresentation3D = autosaveData.viewportPresentation3D;
+      // Restoring analysisMode may change the derived appMode (e.g. a legacy
+      // PRO autosave restored from a basico banner) — keep the route state in sync.
+      currentAppMode = uiStore.appMode;
+      replaceAppUrl(currentAppMode, modelStore.model.name);
       resultsStore.clear();
     }
     autosaveDismissed = true;
@@ -275,12 +287,10 @@
         return;
       }
       if (uiStore.selectedLoads.size > 0) {
-        const indices = [...uiStore.selectedLoads].sort((a, b) => b - a);
+        // selectedLoads holds load data ids (stable across array mutations)
+        const ids = [...uiStore.selectedLoads];
         modelStore.batch(() => {
-          for (const idx of indices) {
-            const load = modelStore.loads[idx];
-            if (load) modelStore.removeLoad(load.data.id);
-          }
+          for (const id of ids) modelStore.removeLoad(id);
         });
         uiStore.clearSelectedLoads();
         resultsStore.clear();
@@ -329,7 +339,6 @@
       uiStore.analysisMode = 'edu';
     } else if (currentAppMode === 'pro') {
       uiStore.analysisMode = 'pro';
-      uiStore.includeSelfWeight = true;
     } else {
       uiStore.analysisMode = '2d';
     }
@@ -434,9 +443,12 @@
       }
     }
 
-    // Setup autosave every 30s
+    // Setup autosave every 30s. Never overwrite the (single, mode-shared)
+    // autosave key with an empty model: the loader ignores empty snapshots
+    // anyway, and an empty write would destroy a pending save from another
+    // mode whose restore banner is currently hidden by the mode-match gate.
     autosaveInterval = setInterval(() => {
-      saveToLocalStorage();
+      if (modelStore.nodes.size > 0) saveToLocalStorage();
       saveWorkspaceToLocalStorage();
     }, 30_000);
 
