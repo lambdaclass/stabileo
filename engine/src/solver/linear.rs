@@ -66,87 +66,14 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
                 let s = theta.sin();
                 let glob_dx = sup.dx.unwrap_or(0.0);
                 let glob_dz = sup.dz.unwrap_or(0.0);
-                // u_local_normal = c * dx + s * dz  (this is the restrained DOF = local_dof 1 after rotation)
-                // But in our scheme, local_dof 0 = rotated-x = normal, local_dof 1 = rotated-z = tangent...
-                // Wait: the rotation matrix R maps global to local: u_local = R * u_global
-                // R = [[c, s], [-s, c]]
-                // local_0 (mapped to ux DOF) = c*dx + s*dz  → this is the normal (restrained, local_dof=0 maps to global DOF for ux)
-                // But in DOF numbering, inclinedRoller restrains local_dof=1 (uz).
-                // After rotation, local_dof=0 (ux row) becomes the normal direction.
-                // Hmm, we need to be careful. Let me re-think.
+                // Convention (matches apply_inclined_transform_2d and the θ=0 ≡ rollerX
+                // regression tests): the restrained direction is the unit vector
+                // (sin θ, cos θ) — at θ=0 that is global Z, i.e. plain rollerX.
+                // The rotation R = [[-cos θ, sin θ], [sin θ, cos θ]] maps global → local
+                // so that local_dof=1 (the uz slot, which inclinedRoller restrains in the
+                // DOF numbering) is exactly that restrained direction, and local_dof=0
+                // is the free tangent (-cos θ, sin θ).
                 //
-                // DOF numbering: inclinedRoller restrains local_dof=1 (the uz slot).
-                // The rotation R transforms so that: rotated_ux = c*ux + s*uz (= normal direction)
-                //                                    rotated_uz = -s*ux + c*uz (= tangent direction)
-                // But we restrain local_dof=1 which is the uz slot.
-                // After rotation, the uz slot corresponds to the tangent direction, not normal!
-                //
-                // Actually: the apply_inclined_transform_2d rotates the matrix so that
-                // the rotated frame's DOF 0 = normal, DOF 1 = tangent.
-                // But we restrain DOF 1 (uz slot). That means we're restraining the tangent direction!
-                // That's wrong. We should restrain DOF 0 (the normal direction).
-                //
-                // Let me reconsider. Looking at the 3D implementation:
-                // - is_dof_restrained_3d for inclined supports: local_dof 0 is restrained (normal)
-                // - DOF numbering puts local_dof 0 as restrained
-                //
-                // For 2D, inclinedRoller restrains local_dof=1, which after the transform
-                // should map to... Let me think about this differently.
-                //
-                // The rotation is applied to the stiffness matrix at the (ux,uz) DOFs.
-                // After rotation: row 0 = normal equation, row 1 = tangent equation.
-                // We want to restrain the normal direction = row 0 = the ux DOF slot.
-                // So inclinedRoller should restrain local_dof=0, not local_dof=1!
-                //
-                // But current code restrains local_dof=1 for inclinedRoller.
-                // Let me check what happens: if we restrain local_dof=1 (uz slot),
-                // after rotation that's the tangent direction. That would mean
-                // the roller restrains the tangent (free sliding) direction, which is wrong.
-                //
-                // I need to fix this: inclinedRoller with angle should restrain local_dof=0.
-                // But without angle (or angle=0), inclinedRoller = rollerX = restrain uz = local_dof=1.
-                // Hmm, at angle=0 the rotation is identity, so DOF 0 = normal = x direction.
-                // Restraining DOF 0 at angle=0 means restraining x direction = rollerZ behavior.
-                // But inclinedRoller at angle=0 should be rollerX (restrain z, free x).
-                //
-                // The convention: angle θ is measured from X axis, and the support
-                // restrains the direction at angle θ.
-                // At θ=0: restrain X direction → rollerZ behavior (free in Z)
-                //   Wait no: "restrain displacement in the direction at angle θ"
-                //   At θ=0: restrain along X → that's rollerZ behavior
-                //
-                // But the test says: "inclined roller at 0° matches rollerX behavior"
-                // rollerX = restrain uz (vertical), free ux (horizontal)
-                //
-                // So at θ=0: the support restrains the Z (vertical) direction.
-                // This means θ is the angle of the surface normal from Z axis,
-                // or equivalently: the restrained direction is at angle (θ + π/2) from X? No...
-                //
-                // From the test at line 224:
-                //   uPerp = ux * sin(θ) + uz * cos(θ)
-                // This is the component along direction (sin θ, cos θ).
-                // At θ=0: uPerp = uz → perpendicular to surface = Z direction (vertical)
-                // At θ=π/2: uPerp = ux → perpendicular = X direction (horizontal)
-                // So the restrained direction has unit vector (sin θ, cos θ).
-                //
-                // Our rotation matrix should make the restrained DOF slot correspond to
-                // this direction. Let's define:
-                //   restrained direction = (sin θ, cos θ)
-                //   free direction = (-cos θ, sin θ)  (perpendicular, 90° CCW)
-                //
-                // R should map global to local where local[0] = restrained direction:
-                //   R = [[sin θ, cos θ],
-                //        [-cos θ, sin θ]]
-                //
-                // Then local_dof=0 (ux slot) = restrained = sin θ * ux + cos θ * uz
-                //
-                // If we restrain local_dof=1 (uz slot) instead:
-                //   R = [[-cos θ, sin θ],
-                //        [sin θ, cos θ]]
-                //   local_dof=1 = sin θ * ux + cos θ * uz = restrained
-                //
-                // Let me use this second form so inclinedRoller keeps restraining local_dof=1.
-
                 // The restrained direction is (sin θ, cos θ).
                 // In the rotated frame, local_dof=1 should be this direction:
                 // u_local[1] = sin θ * ux + cos θ * uz
