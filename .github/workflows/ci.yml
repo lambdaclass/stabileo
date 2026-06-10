@@ -109,10 +109,15 @@ jobs:
         working-directory: engine
         run: cargo bench --no-run
 
+      # Informational only: criterion reports are uploaded as artifacts below.
+      # Benchmark wall time on shared runners must not gate CI (same rationale
+      # as the single-threaded perf gates above) — slow runners exceeded the
+      # timeout with no correctness signal in the failure.
       - name: Run criterion benchmarks (quick)
         working-directory: engine
-        run: cargo bench -- --sample-size 10 --warm-up-time 1 --measurement-time 3
-        timeout-minutes: 10
+        run: cargo bench --bench solver_bench --bench assembly_bench --bench workflow_bench -- --sample-size 10 --warm-up-time 1 --measurement-time 3
+        timeout-minutes: 15
+        continue-on-error: true
 
       - name: Upload criterion reports
         if: always()

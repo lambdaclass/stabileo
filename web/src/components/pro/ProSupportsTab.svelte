@@ -143,7 +143,7 @@
       </thead>
       <tbody>
         {#each supports as s}
-          <tr>
+          <tr class:selected={uiStore.selectedSupports.has(s.id)} onclick={() => { uiStore.selectMode = 'supports'; uiStore.selectSupport(s.id, false); }}>
             <td class="col-id">{s.id}</td>
             <td class="col-num">{s.nodeId}</td>
             <td>
@@ -311,6 +311,9 @@
     color: #888; text-transform: uppercase; background: #0a1a30; border-bottom: 1px solid #1a4a7a;
   }
   .pro-sup-table td { padding: 5px 8px; border-bottom: 1px solid #0f2030; color: #ccc; }
+  .pro-sup-table tbody tr { cursor: pointer; transition: background 0.1s; }
+  .pro-sup-table tbody tr:hover { background: rgba(78, 205, 196, 0.08); }
+  .pro-sup-table tbody tr.selected { background: rgba(78, 205, 196, 0.18); box-shadow: inset 3px 0 0 #4ecdc4; }
   .col-id { width: 34px; color: #666; font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; }
   .param-row td { padding: 4px 8px; background: #0a1828; }

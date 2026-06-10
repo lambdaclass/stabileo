@@ -174,6 +174,7 @@
     selectedRowIdx = idx;
     const row = rows[idx];
     if (row.id !== null) {
+      uiStore.selectMode = 'elements';
       uiStore.setSelection(new Set(), new Set([row.id]));
     }
   }
@@ -417,8 +418,9 @@
     text-overflow: ellipsis;
   }
 
-  .pro-elems-table tr:hover { background: rgba(78, 205, 196, 0.04); }
-  .pro-elems-table tr.selected { background: rgba(78, 205, 196, 0.1); }
+  .pro-elems-table tbody tr { cursor: pointer; transition: background 0.1s; }
+  .pro-elems-table tbody tr:hover { background: rgba(78, 205, 196, 0.08); }
+  .pro-elems-table tr.selected { background: rgba(78, 205, 196, 0.18); box-shadow: inset 3px 0 0 #4ecdc4; }
   .pro-elems-table tr.unsaved td { opacity: 0.6; }
 
   .col-id {

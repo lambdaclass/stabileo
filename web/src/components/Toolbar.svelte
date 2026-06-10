@@ -479,18 +479,36 @@
         return;
       }
       if (uiStore.selectedLoads.size > 0) {
-        const loadsToDelete = [...uiStore.selectedLoads];
+        // selectedLoads holds load data ids (the 2D viewport selects by data.id)
+        const ids = [...uiStore.selectedLoads];
         modelStore.batch(() => {
-          for (const loadId of loadsToDelete) modelStore.removeLoad(loadId);
+          for (const id of ids) modelStore.removeLoad(id);
         });
         uiStore.clearSelectedLoads();
         resultsStore.clear();
       } else if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0) {
         const nodesToDelete = [...uiStore.selectedNodes];
         const elemsToDelete = [...uiStore.selectedElements];
+        const shellMode = uiStore.selectMode === 'shells';
         modelStore.batch(() => {
           for (const nodeId of nodesToDelete) modelStore.removeNode(nodeId);
-          for (const elemId of elemsToDelete) modelStore.removeElement(elemId);
+          for (const elemId of elemsToDelete) {
+            const isShell = modelStore.plates.has(elemId) || modelStore.quads.has(elemId);
+            const isElem = modelStore.elements.has(elemId);
+            if (isShell && isElem) {
+              if (shellMode) {
+                if (modelStore.plates.has(elemId)) modelStore.removePlate(elemId);
+                else modelStore.removeQuad(elemId);
+              } else {
+                modelStore.removeElement(elemId);
+              }
+            } else if (isShell) {
+              if (modelStore.plates.has(elemId)) modelStore.removePlate(elemId);
+              else modelStore.removeQuad(elemId);
+            } else if (isElem) {
+              modelStore.removeElement(elemId);
+            }
+          }
         });
         uiStore.clearSelection();
         resultsStore.clear();

@@ -1319,13 +1319,22 @@
 
       // Only count as box select if dragged at least a few pixels
       if (x2 - x1 > 3 || y2 - y1 > 3) {
+        // Respect the active select subtype: box select only gathers nodes and
+        // frame elements, so restrict it to the modes where those are the
+        // selection targets. In shells/supports/loads modes a marquee must not
+        // fill selectedElements with frame ids (plates/quads share the same
+        // numeric id space and would be mis-resolved on Delete).
+        const sm = uiStore.selectMode;
+        const allowNodes = sm === 'elements' || sm === 'nodes';
+        const allowElems = sm === 'elements';
+
         // Collect new selection items
         const newNodes = additive ? new Set(uiStore.selectedNodes) : new Set<number>();
         const newElems = additive ? new Set(uiStore.selectedElements) : new Set<number>();
 
         // Nodes: project to screen, check containment
         const project2D = shouldProject2DModel();
-        for (const node of modelStore.nodes.values()) {
+        if (allowNodes) for (const node of modelStore.nodes.values()) {
           const pos = projectNodeToScene(node, project2D);
           const s = projectToScreen(pos.x, pos.y, pos.z);
           if (s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2) {
@@ -1333,7 +1342,7 @@
           }
         }
         // Elements: project both endpoints
-        for (const elem of modelStore.elements.values()) {
+        if (allowElems) for (const elem of modelStore.elements.values()) {
           const ni = modelStore.getNode(elem.nodeI);
           const nj = modelStore.getNode(elem.nodeJ);
           if (!ni || !nj) continue;
@@ -1444,14 +1453,64 @@
       return;
     }
 
-    // Raycast against model objects (nodes first, then elements, then supports)
+    const addToSel = e.shiftKey;
+    const sm = uiStore.selectMode;
+
+    // ── Per-subtype filtering (mirrors the 2D viewport): in a dedicated
+    // select mode, only that entity class is pickable. This also keeps
+    // selectedElements type-consistent — frame elements and plates/quads have
+    // overlapping numeric ids, disambiguated only by selectMode. ──
+    if (sm === 'shells') {
+      const shellHits = raycaster.intersectObjects(shellsParent.children, true);
+      for (const hit of shellHits) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'plate' || ud?.type === 'quad') {
+          uiStore.selectElement(ud.id, addToSel);
+          return;
+        }
+      }
+      if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    if (sm === 'nodes') {
+      const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
+      for (const hit of nodeHits) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'node') {
+          uiStore.selectNode(ud.id, addToSel);
+          return;
+        }
+      }
+      if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    if (sm === 'supports') {
+      const supHits = raycaster.intersectObjects(supportsParent.children, true);
+      for (const hit of supHits) {
+        const ud = findUserData(hit.object);
+        if (ud?.type === 'support') {
+          uiStore.selectSupport(ud.id, addToSel);
+          return;
+        }
+      }
+      if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    if (sm === 'loads') {
+      // 3D has no viewport load picking (loads are selected from the Loads
+      // tab rows); a click in loads mode must not select frame elements.
+      if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    // ── Elements mode (default): nodes first, then elements, then supports ──
     const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
     const elemHits = raycaster.intersectObjects(elementsParent.children, true);
     const supHits = raycaster.intersectObjects(supportsParent.children, true);
 
-    const addToSel = e.shiftKey;
-
-    // Priority: node > element > support
     for (const hit of nodeHits) {
       const ud = resolveHitUserData(hit);
       if (ud?.type === 'node') {
@@ -1751,7 +1810,9 @@
           // Re-apply color map instead of base color
           syncColorMap3D();
         } else {
-          const selected = uiStore.selectedElements.has(data.id);
+          // In shells mode selectedElements holds plate/quad ids — a frame
+          // element with an overlapping id is not selected.
+          const selected = uiStore.selectMode !== 'shells' && uiStore.selectedElements.has(data.id);
           const elem = modelStore.elements.get(data.id);
           const wireframe = uiStore.renderMode3D === 'wireframe';
           const isTruss = elem?.type === 'truss';
