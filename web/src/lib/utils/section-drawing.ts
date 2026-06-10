@@ -1,5 +1,5 @@
 // Cross-section SVG path generator for section visualization.
-// Extracted from SectionStressPanel to be reusable in SectionShapeBuilder preview.
+// Extracted from SectionStressPanel so section outlines are reusable elsewhere.
 // All dimensions in meters; output SVG path fits within ~160px (viewBox -90..90).
 
 import type { SectionShape } from '../data/steel-profiles';

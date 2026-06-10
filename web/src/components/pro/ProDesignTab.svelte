@@ -161,7 +161,7 @@
     return names;
   }
 
-  // ─── WASM check payload builder (mirrors ProVerificationTab) ────
+  // ─── WASM check payload builder ────
   function buildCheckPayload() {
     if (!results3D) return null;
     const members: any[] = [];

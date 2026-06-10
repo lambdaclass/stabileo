@@ -3,7 +3,7 @@
  * and verification orchestration for PRO mode.
  *
  * Phase 1 (current): Eliminates the divergence between ProDesignTab (station-based)
- * and ProVerificationTab (endpoint-only) by routing both through the same
+ * and the retired ProVerificationTab (endpoint-only) by routing both through the same
  * station-based force extraction and CIRSOC JS verification.
  *
  * Phase 2 target (requires solver changes — not implemented here):
@@ -189,7 +189,7 @@ function wasmMemberToStationResult(
  * demands when available (the preferred path).
  *
  * This replaces the two divergent verification calls that previously lived in
- * ProDesignTab (station-aware) and ProVerificationTab (endpoint-only).
+ * ProDesignTab (station-aware) and the retired endpoint-only verification path.
  *
  * @param results3D Solver analysis results
  * @param model Model data (elements, nodes, sections, materials, supports)
