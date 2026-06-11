@@ -489,11 +489,11 @@ function createModelStore() {
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
    * The returned object is a shallow copy safe for passing to solver functions.
    */
-  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors } | string {
+  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors; constraints?: typeof model.constraints } | string {
     if (plane === 'xy') {
       return { nodes: model.nodes, elements: model.elements, supports: model.supports,
         loads: model.loads, materials: model.materials, sections: model.sections,
-        connectors: model.connectors };
+        connectors: model.connectors, constraints: model.constraints };
     }
 
     // Remap nodes into the selected 2D plane
@@ -558,9 +558,12 @@ function createModelStore() {
     });
 
     // Connectors are pure node-id + stiffness pairs — no geometry to remap.
+    // Constraints are carried verbatim; the 2D wire layer (constraintsTo2D in
+    // solver-service) maps their 3D DOF semantics onto the 2D solver's
+    // [ux, uz, ry] convention.
     return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
       loads: remappedLoads, materials: model.materials, sections: model.sections,
-      connectors: model.connectors };
+      connectors: model.connectors, constraints: model.constraints };
   }
 
   let nextId = $state({
@@ -1835,7 +1838,8 @@ function createModelStore() {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
-          plates: model.plates, quads: model.quads },
+          plates: model.plates, quads: model.quads,
+          constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand,
       );
     },
@@ -1848,7 +1852,8 @@ function createModelStore() {
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined },
+          constraints: isPro ? model.constraints : undefined,
+          connectors: isPro ? model.connectors : undefined },
         includeSelfWeight, leftHand,
       );
     },
@@ -1861,7 +1866,8 @@ function createModelStore() {
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined },
+          constraints: isPro ? model.constraints : undefined,
+          connectors: isPro ? model.connectors : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
     },
@@ -1873,7 +1879,8 @@ function createModelStore() {
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined },
+          constraints: isPro ? model.constraints : undefined,
+          connectors: isPro ? model.connectors : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
     },

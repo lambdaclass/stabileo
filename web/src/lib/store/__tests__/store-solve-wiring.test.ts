@@ -1,0 +1,92 @@
+/**
+ * Regression pin: connectors and constraints must flow from the modelStore
+ * into the solver through the PRODUCTION entry points (solve3D /
+ * solveCombinations3D / buildSolverInput3D / the 2D remap path) — not only
+ * when callers hand-build a ModelData, which is what the engine-level wire
+ * tests do.
+ *
+ * Background: PR #51 review found that every store solve wrapper omitted
+ * `connectors` (and remapModelForPlane omitted `constraints`), making the
+ * feature inert in the app while engine-level tests stayed green.
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { modelStore } from '../model.svelte';
+import { initSolver } from '../../engine/wasm-solver';
+
+/** Two supported nodes + frame, plus node 3 attached ONLY via a connector. */
+function buildConnectorOnlyNodeModel() {
+  modelStore.clear();
+  const n1 = modelStore.addNode(0, 0, 0);
+  const n2 = modelStore.addNode(5, 0, 0);
+  const n3 = modelStore.addNode(5, 0, 1); // coupled only through the connector
+  modelStore.addElement(n1, n2, 'frame');
+  modelStore.addSupport(n1, 'fixed3d');
+  modelStore.addSupport(n3, 'fixed3d');
+  modelStore.addNodalLoad3D(n2, 0, 0, -10, 0, 0, 0);
+  modelStore.addConnector({
+    nodeI: n2, nodeJ: n3,
+    kAxial: 1e6, kShear: 1e6, kMoment: 1e3,
+    kShearZ: 1e6, kBendY: 1e3, kBendZ: 1e3,
+  });
+  return { n1, n2, n3 };
+}
+
+describe('store → solver wiring for connectors/constraints', () => {
+  beforeEach(async () => {
+    await initSolver();
+  });
+
+  it('solve3D forwards connectors: a connector-only-coupled node solves instead of erroring', () => {
+    buildConnectorOnlyNodeModel();
+    const result = modelStore.solve3D(false, false, true);
+    // Without the wiring fix this is the preflight string error
+    // ('disconnected node') because the wrapper dropped `connectors`.
+    expect(typeof result).not.toBe('string');
+    expect(result).toBeTruthy();
+    expect((result as any).displacements?.length).toBeGreaterThan(0);
+  });
+
+  it('solveCombinations3D forwards connectors through the combo path', () => {
+    buildConnectorOnlyNodeModel();
+    const result = modelStore.solveCombinations3D(false, false, true);
+    expect(typeof result).not.toBe('string');
+    expect(result).toBeTruthy();
+    expect((result as any).perCase?.size).toBeGreaterThan(0);
+  });
+
+  it('buildSolverInput3D includes connectors and constraints on the wire input', () => {
+    buildConnectorOnlyNodeModel();
+    modelStore.addConstraint({
+      type: 'equalDOF',
+      masterNode: 2,
+      slaveNode: 3,
+      dofs: [0],
+    });
+    const input = modelStore.buildSolverInput3D(false, false);
+    expect(input).toBeTruthy();
+    expect(input!.connectors?.size).toBe(1);
+    expect((input as any).constraints?.length).toBe(1);
+  });
+
+  it('the 2D remap path carries constraints (PRO planar analyses route through it)', () => {
+    modelStore.clear();
+    const n1 = modelStore.addNode(0, 0);
+    const n2 = modelStore.addNode(5, 0);
+    modelStore.addElement(n1, n2, 'frame');
+    modelStore.addSupport(n1, 'fixed');
+    modelStore.addSupport(n2, 'pinned');
+    modelStore.addNodalLoad(n2, 0, -10);
+    modelStore.addConstraint({
+      type: 'equalDOF',
+      masterNode: n1,
+      slaveNode: n2,
+      dofs: [0],
+    });
+    const input = modelStore.buildSolverInput();
+    // buildSolverInput goes through remapModelForPlane('xy') →
+    // buildSolverInput2D; before the fix constraints were dropped there.
+    expect(input).toBeTruthy();
+    expect((input as any).constraints?.length).toBe(1);
+  });
+});
