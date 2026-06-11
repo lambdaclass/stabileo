@@ -511,14 +511,18 @@ function createModelStore() {
         return { ...raw, type, dofs: mapDofs(raw.dofs) };
       case 'equalDOF':
         return { ...raw, type, dofs: mapDofs(raw.dofs) ?? [] };
-      case 'linearMPC':
-        return {
-          ...raw, type,
-          terms: (raw.terms ?? []).map((t: any) => ({
-            ...t,
-            dof: typeof t.dof === 'string' ? (LEGACY_DOF_NAME_TO_INDEX[t.dof] ?? 0) : t.dof,
-          })),
-        };
+      case 'linearMPC': {
+        const terms = (raw.terms ?? []).map((t: any) => ({
+          ...t,
+          dof: typeof t.dof === 'string' ? LEGACY_DOF_NAME_TO_INDEX[t.dof] : t.dof,
+        }));
+        // An unmappable term DOF must drop the whole constraint — silently
+        // rewriting it (e.g. to ux) would change the equation's meaning.
+        if (terms.length === 0 || terms.some((t: any) => !Number.isInteger(t.dof) || t.dof < 0 || t.dof > 5)) {
+          return null;
+        }
+        return { ...raw, type, terms };
+      }
       case 'diaphragm':
       case 'eccentricConnection':
         return { ...raw, type };
@@ -1069,9 +1073,10 @@ function createModelStore() {
         }
       }
       model.supports = new Map(model.supports);
-      model.loads = model.loads.filter(l =>
-        !((l.type === 'nodal' || l.type === 'nodal3d') && l.data.nodeId === id)
-      );
+      const keepLoad = (l: Load) =>
+        !((l.type === 'nodal' || l.type === 'nodal3d') && l.data.nodeId === id);
+      model.loads = model.loads.filter(keepLoad);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
       // Cascade to connectors/constraints: a dangling node reference is worse
       // than a missing entity — the engine silently skips it (zero stiffness)
       // while the connectivity preflight keeps crediting it as an edge.
@@ -1083,7 +1088,7 @@ function createModelStore() {
         }
       }
       if (connectorsChanged) model.connectors = new Map(model.connectors);
-      model.constraints = model.constraints
+      const pruneConstraints = (arr: Constraint3D[]) => arr
         .map((c): Constraint3D | null => {
           if (c.type === 'diaphragm') {
             if (c.masterNode === id) return null;
@@ -1099,6 +1104,10 @@ function createModelStore() {
           return (c.masterNode === id || c.slaveNode === id) ? null : c;
         })
         .filter((c): c is Constraint3D => c !== null);
+      model.constraints = pruneConstraints(model.constraints);
+      // Inside bulkMutate the commit phase overwrites model.constraints with
+      // the buffer — prune the buffer too or dangling constraints resurrect.
+      if (_bulkConstraintBuffer) _bulkConstraintBuffer = pruneConstraints(_bulkConstraintBuffer);
     },
 
     removeElement(id: number): void {

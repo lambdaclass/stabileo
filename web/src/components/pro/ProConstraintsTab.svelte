@@ -136,20 +136,29 @@
   }
 
   function addLinearMpc() {
-    // Parse terms: "nodeId:dof:coefficient, ..." e.g. "1:ux:1.0, 2:ux:-1.0".
+    // Parse terms: "nodeId:dof:coefficient; ..." e.g. "1:ux:1.0; 2:ux:-1.0".
     // Convert to the shape Rust expects: type discriminator `linearMPC`,
     // each term { nodeId, dof: usize-index, coefficient: f64 }. The constraint
     // sums to 0 by definition — no `rhs` field exists in LinearMPCConstraint.
-    const parsed = mpcTerms.split(',').map(s => {
+    //
+    // Separator: ';' when present, ',' otherwise (legacy). With comma
+    // separators a decimal comma in a coefficient ('-0,5') would be split as
+    // a term boundary and the coefficient silently read as '-0' — so when
+    // commas separate terms, a malformed fragment must ABORT the add (not be
+    // dropped) to avoid committing a corrupted equation.
+    const separator = mpcTerms.includes(';') ? ';' : ',';
+    const fragments = mpcTerms.split(separator).filter(s => s.trim().length > 0);
+    const parsed: Array<{ nodeId: number; dof: number; coefficient: number }> = [];
+    for (const s of fragments) {
       const parts = s.trim().split(':');
-      if (parts.length !== 3) return null;
+      if (parts.length !== 3) return; // malformed fragment → reject the whole input
       const nodeId = parseInt(parts[0]);
       const dofName = parts[1].trim();
       const coefficient = parseNum(parts[2]);
       const dofIdx = dofLabels.indexOf(dofName as typeof dofLabels[number]);
-      if (isNaN(nodeId) || isNaN(coefficient) || dofIdx < 0) return null;
-      return { nodeId, dof: dofIdx, coefficient };
-    }).filter(Boolean) as Array<{ nodeId: number; dof: number; coefficient: number }>;
+      if (isNaN(nodeId) || isNaN(coefficient) || dofIdx < 0) return;
+      parsed.push({ nodeId, dof: dofIdx, coefficient });
+    }
     if (parsed.length === 0) return;
     modelStore.addConstraint({
       type: 'linearMPC',
@@ -403,7 +412,7 @@
 
     {:else if selectedKind === 'linearMPC'}
       <div class="pro-cst-row">
-        <label class="pro-label-wide">{t('pro.terms')}: <input type="text" bind:value={mpcTerms} placeholder="nodo:dof:coeff, ..." class="pro-input-wide" /></label>
+        <label class="pro-label-wide">{t('pro.terms')}: <input type="text" bind:value={mpcTerms} placeholder="nodo:dof:coef; ... (ej: 1:ux:1; 2:ux:-1)" class="pro-input-wide" /></label>
       </div>
       <div class="pro-cst-hint">{t('pro.formatHint')}</div>
     {/if}

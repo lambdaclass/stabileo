@@ -74,7 +74,8 @@
     const input = buildSolverInput3D(
       { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
         loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
-        quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints },
+        quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
+        connectors: modelStore.connectors },
       uiStore.includeSelfWeight,
     );
     if (!input) throw new Error(t('advanced.emptyModel'));

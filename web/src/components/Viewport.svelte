@@ -1176,7 +1176,8 @@
           if (nearElem) {
             const ni = modelStore.getNode(nearElem.nodeI);
             const nj = modelStore.getNode(nearElem.nodeJ);
-            if (ni && nj) {
+            if (ni && nj && ((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2) > 1e-10) {
+              // (zero-length guard: a degenerate element would make t NaN)
               const edx = nj.x - ni.x;
               const edy = nj.y - ni.y;
               const lenSq = edx * edx + edy * edy;
@@ -1228,13 +1229,17 @@
           resultsStore.clear();
           return true;
         };
+        // One shared scan: both the auto-split guard and the
+        // duplicate-coincident-node guard below answer the same question
+        // ('is the cursor on an existing node?') with the same threshold —
+        // two separate calls would silently diverge if one threshold is tuned.
+        const nodeAtCursor = findNearestNode(world.x, world.y, 0.5);
         if (uiStore.autoSplitOnNodePlace) {
           // Only auto-split when the cursor isn't already targeting an
           // existing node. snapWithMidpoint returns node coords if a node is
           // within nodeThreshold of the raw cursor; we re-check explicitly
           // to keep the guard tight (also handles the same threshold).
-          const nearNode = findNearestNode(world.x, world.y, 0.5);
-          if (!nearNode) {
+          if (!nodeAtCursor) {
             // 1st attempt — cursor-based: use the RAW cursor to find which
             // element the user is pointing at (grid-snap can warp the cursor
             // off the element line), but project the GRID-SNAPPED cursor so
@@ -1266,7 +1271,7 @@
           // placement point `ms`: with grid snap on, `ms` can land exactly
           // on an existing grid-aligned node that is >0.5m from the cursor —
           // creating an exact coincident duplicate.
-          const onExisting = findNearestNode(world.x, world.y, 0.5)
+          const onExisting = nodeAtCursor
             ?? findNearestNode(ms.x, ms.y, 0.01);
           if (onExisting) {
             if (!uiStore.selectedNodes.has(onExisting.id)) {
