@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# also match a symlinked node_modules (worktree dev setups)
+node_modules
 
 # Build output
 web/dist/
