@@ -46,14 +46,6 @@ export interface ModelData {
 }
 
 function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
-  // Constraints/connectors are authored in true 3D semantics (PRO): the
-  // embedding remaps node coordinates (x,y)→(x,0,y), supports and loads, but
-  // has no translation for constraint DOF indices, eccentric offsets, or
-  // connector local axes — a vertical offsetY would silently land on the
-  // restrained out-of-plane axis. A flat model carrying these primitives
-  // (e.g. a grillage with rigid links) must solve in direct 3D coordinates.
-  if ((model.constraints?.length ?? 0) > 0) return false;
-  if ((model.connectors?.size ?? 0) > 0) return false;
   return shouldProjectModelToXZ({
     nodes: model.nodes.values(),
     supports: model.supports.values(),
