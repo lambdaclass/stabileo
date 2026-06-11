@@ -24,6 +24,8 @@ target/
 engine/target/
 engine/pkg/
 web/src/lib/wasm/
+# also match a symlinked wasm pkg (worktree setups)
+web/src/lib/wasm
 
 # Nix
 result
