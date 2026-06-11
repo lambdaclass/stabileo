@@ -1,7 +1,20 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { downloadText } from '../../lib/store/file';
   import { t } from '../../lib/i18n';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
+  import {
+    componentUnit,
+    diagramTypeToComponent,
+    buildQueryRows,
+    extremeRow,
+    filterByAbsThreshold,
+    rowsToCsv,
+    type ExtremeMode,
+    type QueryExportMeta,
+    type SourceKind,
+  } from '../../lib/engine/result-query';
 
   let solveError = $state<string | null>(null);
   let solving = $state(false);
@@ -36,7 +49,10 @@
             console.warn('Combinations warning:', comboResult);
           } else if (comboResult) {
             resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-            viewMode = 'envelope';
+            // Sync BOTH the local toggle and the store view: setting only the
+            // local viewMode left activeView='single', so the Envelope button
+            // rendered active while the query card/CSV honestly said 'Case'.
+            switchView('envelope');
           }
         } catch (comboErr: any) {
           console.warn('Combinations 3D failed (results still available):', comboErr);
@@ -91,6 +107,137 @@
 
   const caseKeys = $derived([...resultsStore.perCase3D.keys()]);
   const comboKeys = $derived([...resultsStore.perCombo3D.keys()]);
+
+  // ─── Result query layer ──────────────────────────────────────
+  // The query is ALWAYS linked to the active view: its component derives from
+  // resultsStore.diagramType, and its source follows whatever data is shown in
+  // resultsStore.results3D (driven by the existing Case/Combo/Envelope controls).
+  let queryScope = $state<'selected' | 'all' | 'id'>('all');
+  let queryIdInput = $state('');
+  let queryMode = $state<ExtremeMode>('absmax');
+  let queryThreshold = $state(0);
+
+  // Component is derived from the active diagram (null for non-force diagrams).
+  const queryComponent = $derived(diagramTypeToComponent(resultsStore.diagramType));
+  const isForceDiagram = $derived(queryComponent !== null);
+
+  /** Element id filter from the scope selector, or undefined for "all". */
+  const scopeIds = $derived.by<number[] | undefined>(() => {
+    if (queryScope === 'selected') {
+      // selectedElements is shared between frame elements and plates/quads
+      // (colliding id counters); in shells select-mode those ids are SHELL
+      // ids — resolving them against elementForces would show forces for
+      // frame elements the user never selected.
+      if (uiStore.selectMode === 'shells') return [];
+      return [...uiStore.selectedElements];
+    }
+    if (queryScope === 'id') {
+      return queryIdInput.split(/[\s,]+/).map((s) => parseInt(s, 10)).filter((n) => Number.isFinite(n));
+    }
+    return undefined;
+  });
+
+  // Envelope view holds maxAbsResults3D: per field, the SIGNED value of the
+  // combo with the largest magnitude. 'max'/'min' over those rows do NOT give
+  // the true envelope extremes (those live in pos/negValues of the envelope
+  // diagrams) — only 'absmax' is semantically valid, so coerce.
+  const isEnvelopeView = $derived(resultsStore.activeView === 'envelope');
+  $effect(() => {
+    if (isEnvelopeView && queryMode !== 'absmax') queryMode = 'absmax';
+  });
+
+  const activeRows = $derived.by(() => {
+    if (!results || !queryComponent) return [];
+    return buildQueryRows(results.elementForces, queryComponent, scopeIds ? { elementIds: scopeIds } : {});
+  });
+  const filteredRows = $derived(filterByAbsThreshold(activeRows, queryThreshold));
+  // DOM cap: scope='all' yields 2 rows per element — a 10k-element model would
+  // mount 20k <tr> in a 180px scroll box. The CSV export still uses the FULL
+  // filteredRows; only rendering is capped.
+  const MAX_RENDER_ROWS = 500;
+  const renderRows = $derived(filteredRows.length > MAX_RENDER_ROWS ? filteredRows.slice(0, MAX_RENDER_ROWS) : filteredRows);
+  const activeExtreme = $derived(extremeRow(filteredRows, queryMode));
+
+  // Single source descriptor derived from resultsStore.activeView (the source
+  // of truth for what results3D holds). Both the on-screen label and the CSV
+  // metadata read THIS object — two parallel branch chains would drift.
+  const activeSource = $derived.by<{ kind: SourceKind; id: number | null; name: string }>(() => {
+    const view = resultsStore.activeView;
+    if (view === 'envelope') return { kind: 'envelope', id: null, name: t('pro.viewEnvelope') };
+    if (view === 'combo' && resultsStore.activeComboId !== null) {
+      const id = resultsStore.activeComboId;
+      return { kind: 'combo', id, name: modelStore.combinations.find((c) => c.id === id)?.name ?? `${t('pro.comboN')}${id}` };
+    }
+    if (view === 'single' && resultsStore.activeCaseId !== null) {
+      const id = resultsStore.activeCaseId;
+      return { kind: 'case', id, name: modelStore.loadCases.find((c) => c.id === id)?.name ?? `${t('pro.caseN')}${id}` };
+    }
+    // The all-loads single solve (no case selected): label it as such instead
+    // of pretending it's a per-case result with a blank id.
+    return { kind: 'case', id: null, name: t('pro.queryAllLoads') };
+  });
+  const activeSourceLabel = $derived(activeSource.name);
+
+  const queryUnit = $derived(queryComponent ? componentUnit(queryComponent) : '');
+  const exportCount = $derived(filteredRows.length);
+
+  // Element ids the current query resolves to (for viewport highlight).
+  const queryElementIds = $derived(filteredRows.map((r) => r.elementId));
+
+  function sameSet(a: Set<number>, b: Iterable<number>): boolean {
+    const bs = b instanceof Set ? b : new Set(b);
+    if (a.size !== bs.size) return false;
+    for (const x of a) if (!bs.has(x)) return false;
+    return true;
+  }
+
+  // Always-linked: highlight the queried element set via the existing selection
+  // path. Skip when no force diagram is active (don't wipe the user's selection),
+  // skip scope='selected' (selection IS the scope → redundant + loop risk), and
+  // skip an empty query (a blank By-ID input must not clear the selection).
+  // The selection itself is read inside untrack(): the effect pushes the query
+  // set when the QUERY changes, but a manual click (viewport, table row, or the
+  // governing card) must stick — tracking selectedElements made the effect
+  // instantly revert any manual selection, defeating click-to-select.
+  $effect(() => {
+    if (!isForceDiagram || queryScope === 'selected') return;
+    if (queryElementIds.length === 0) return;
+    const target = new Set(queryElementIds);
+    untrack(() => {
+      if (sameSet(uiStore.selectedElements, target)) return;
+      uiStore.selectMode = 'elements';
+      uiStore.setSelection(new Set(uiStore.selectedNodes), target);
+    });
+  });
+
+  function selectQueryElement(id: number) {
+    uiStore.selectMode = 'elements';
+    uiStore.selectElement(id, false);
+  }
+
+  // Manual toggle: turning loads ON while a diagram is active must also clear
+  // the "hide loads with diagram" suppression so they actually render.
+  function onToggleLoads(e: Event) {
+    const on = (e.target as HTMLInputElement).checked;
+    uiStore.showLoads3D = on;
+    if (on) uiStore.hideLoadsWithDiagram = false;
+  }
+
+  /** Source provenance for the CSV export, repeated on every row. Follows the active view. */
+  const exportMeta = $derived.by<QueryExportMeta>(() => ({
+    sourceKind: activeSource.kind,
+    sourceId: activeSource.id,
+    sourceName: activeSource.name,
+    scopeMode: queryScope,
+    scopeIds: scopeIds ?? [],
+    threshold: queryThreshold || 0,
+    extremeMode: queryMode,
+  }));
+
+  function exportQueryCsv() {
+    const csv = rowsToCsv(filteredRows, exportMeta);
+    downloadText(csv, `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`, 'text/csv;charset=utf-8;');
+  }
 
 </script>
 
@@ -161,6 +308,12 @@
 
       <div class="pro-viz-row">
         <label class="pro-viz-check">
+          <input type="checkbox" checked={uiStore.showLoads3D} onchange={onToggleLoads} />
+          {t('pro.showLoads')}
+        </label>
+      </div>
+      <div class="pro-viz-row">
+        <label class="pro-viz-check">
           <input type="checkbox" bind:checked={resultsStore.showReactions} />
           {t('pro.showReactions3D')}
         </label>
@@ -202,6 +355,94 @@
 
     <!-- Results tables — each collapsible -->
     <div class="pro-res-scroll">
+
+      <!-- Result query / extraction -->
+      <details class="res-detail" open>
+        <summary class="pro-res-section-title">{t('pro.queryTitle')}</summary>
+        <div class="pro-query">
+          {#if !isForceDiagram}
+            <div class="pro-query-empty">{t('pro.querySelectForceDiagram')}</div>
+          {:else}
+            <div class="pro-viz-row">
+              <label class="pro-viz-label">{t('pro.queryScope')}</label>
+              <select class="pro-viz-sel" bind:value={queryScope}>
+                <option value="all">{t('pro.queryScopeAll')}</option>
+                <option value="selected">{t('pro.queryScopeSelected')} ({uiStore.selectedElements.size})</option>
+                <option value="id">{t('pro.queryScopeId')}</option>
+              </select>
+            </div>
+            {#if queryScope === 'id'}
+              <div class="pro-viz-row">
+                <label class="pro-viz-label"></label>
+                <input class="pro-viz-sel" type="text" bind:value={queryIdInput} placeholder={t('pro.queryIdPlaceholder')} />
+              </div>
+            {/if}
+            <div class="pro-viz-row">
+              <label class="pro-viz-label">{t('pro.queryMode')}</label>
+              <select class="pro-viz-sel" bind:value={queryMode}>
+                <option value="absmax">{t('pro.queryModeAbsmax')}</option>
+                <!-- Envelope data is abs-max winners: signed max/min over it is
+                     not the true envelope extreme, so those modes are disabled. -->
+                <option value="max" disabled={isEnvelopeView}>{t('pro.queryModeMax')}</option>
+                <option value="min" disabled={isEnvelopeView}>{t('pro.queryModeMin')}</option>
+              </select>
+            </div>
+            <div class="pro-viz-row">
+              <label class="pro-viz-label">{t('pro.queryThreshold')}</label>
+              <input class="pro-viz-sel" type="number" min="0" step="any" bind:value={queryThreshold} />
+              <span class="pro-viz-val">{queryUnit}</span>
+            </div>
+
+            <!-- Extreme value card (follows active component + view) -->
+            {#if activeExtreme}
+              <div class="pro-query-card" onclick={() => selectQueryElement(activeExtreme.elementId)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && selectQueryElement(activeExtreme.elementId)}>
+                <span class="pqc-label">{t('pro.queryGoverningValue')}</span>
+                <span class="pqc-val">{queryComponent} = {fmtNum(activeExtreme.value)} {queryUnit}</span>
+                <span class="pqc-meta">{t('pro.elemLabel')} {activeExtreme.elementId} · {t('pro.queryEnd')} {activeExtreme.end} · {activeSourceLabel}</span>
+              </div>
+            {:else}
+              <div class="pro-query-empty">{t('pro.queryNoRows')}</div>
+            {/if}
+
+            <!-- Rows table -->
+            {#if filteredRows.length}
+              <div class="pro-query-rowcount">{t('pro.queryRowCount').replace('{n}', String(filteredRows.length))}</div>
+              <div class="pro-res-table-wrap pro-query-tablewrap">
+                <table class="pro-res-table">
+                  <thead><tr>
+                    <th>{t('pro.elemLabel')}</th><th>{t('pro.queryEnd')}</th><th>{t('pro.queryValue')} ({queryUnit})</th>
+                  </tr></thead>
+                  <tbody>
+                    {#each renderRows as r (r.elementId + '-' + r.end)}
+                      <tr onclick={() => selectQueryElement(r.elementId)} style="cursor:pointer" class:pq-extreme={activeExtreme && r.elementId === activeExtreme.elementId && r.end === activeExtreme.end}>
+                        <td class="col-id">{r.elementId}</td>
+                        <td class="col-end">{r.end}</td>
+                        <td class="col-num">{fmtNum(r.value)}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+              {#if filteredRows.length > MAX_RENDER_ROWS}
+                <div class="pro-query-rowcount">{t('pro.queryRowsShown').replace('{shown}', String(MAX_RENDER_ROWS)).replace('{total}', String(filteredRows.length))}</div>
+              {/if}
+            {/if}
+
+            <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}>
+              {t('pro.queryExportCsv')}
+            </button>
+            {#if exportCount}
+              <div class="pro-query-export-cap">
+                {t('pro.queryExportCaption')
+                  .replace('{kind}', exportMeta.sourceKind)
+                  .replace('{source}', exportMeta.sourceName)
+                  .replace('{component}', queryComponent ?? '')
+                  .replace('{n}', String(exportCount))}
+              </div>
+            {/if}
+          {/if}
+        </div>
+      </details>
 
       <details class="res-detail" open>
         <summary class="pro-res-section-title">{t('pro.reactionsTitle')} <span class="res-count">({results.reactions.length})</span></summary>
@@ -708,6 +949,83 @@
     color: #555;
     font-style: italic;
     padding: 40px 10px;
+  }
+
+  /* Result query */
+  .pro-query {
+    padding: 6px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: #0d1b33;
+  }
+
+  .pro-query .pro-viz-sel[type="text"],
+  .pro-query .pro-viz-sel[type="number"] {
+    font-family: monospace;
+  }
+
+  .pro-query-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    margin-top: 3px;
+    background: #0f2840;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .pro-query-card:hover { border-color: #4ecdc4; }
+  .pqc-label { font-size: 0.55rem; color: #888; text-transform: uppercase; font-weight: 600; }
+  .pqc-val { font-size: 0.9rem; font-family: monospace; color: #4ecdc4; font-weight: 600; }
+  .pqc-meta { font-size: 0.6rem; color: #888; font-family: monospace; }
+
+  .pro-query-empty {
+    padding: 6px 8px;
+    margin-top: 3px;
+    font-size: 0.66rem;
+    font-style: italic;
+    color: #555;
+    text-align: center;
+  }
+
+  .pro-query-rowcount {
+    font-size: 0.58rem;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  .pro-query-tablewrap {
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #1a3050;
+    border-radius: 3px;
+  }
+
+  .pq-extreme { background: rgba(78, 205, 196, 0.12); }
+  .pq-extreme .col-num { color: #4ecdc4; font-weight: 600; }
+
+  .pro-query-export {
+    align-self: flex-start;
+    margin-top: 6px;
+    padding: 4px 12px;
+    font-size: 0.64rem;
+    font-weight: 600;
+    color: #ccc;
+    background: #0f2840;
+    border: 1px solid #1a4a7a;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .pro-query-export:hover { color: #fff; background: #1a4a7a; }
+  .pro-query-export:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .pro-query-export-cap {
+    margin-top: 4px;
+    font-size: 0.58rem;
+    color: #777;
+    font-style: italic;
   }
 
 </style>
