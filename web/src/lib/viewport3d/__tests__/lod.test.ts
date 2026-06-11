@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyLowDetail, type LowDetailGroups } from '../lod';
+import { applyLowDetail, isHeavyModel, HEAVY_MODEL_VISUALS, HEAVY_MODEL_VISUALS_SECTIONS, type LowDetailGroups } from '../lod';
 
 function mkGroups(renderMode: 'wireframe' | 'solid' | 'sections' = 'wireframe'): LowDetailGroups {
   return {
@@ -8,6 +8,7 @@ function mkGroups(renderMode: 'wireframe' | 'solid' | 'sections' = 'wireframe'):
     loadsParent: { visible: true },
     resultsParent: { visible: true },
     shellsParent: { visible: true },
+    localAxesParent: { visible: true },
     elementsParent: { visible: true },
     elementsBatchedMesh: { visible: renderMode === 'wireframe' },
     renderMode,
@@ -72,6 +73,27 @@ describe('applyLowDetail — heavy-model fallback', () => {
     expect(g.elementsParent!.visible).toBe(true); // color carrier stays
     expect(g.nodesParent!.visible).toBe(false);   // other decor still stripped
     expect(g.loadsParent!.visible).toBe(false);
+  });
+});
+
+describe('isHeavyModel — single LOD policy point', () => {
+  it('counts shells toward the visual budget', () => {
+    expect(isHeavyModel({ elements: 200, shells: HEAVY_MODEL_VISUALS }, 'wireframe')).toBe(true);
+    expect(isHeavyModel({ elements: 200 }, 'wireframe')).toBe(false);
+  });
+
+  it('sections mode falls back much earlier (edges double the per-element cost)', () => {
+    const n = HEAVY_MODEL_VISUALS_SECTIONS + 1;
+    expect(isHeavyModel({ elements: n }, 'sections')).toBe(true);
+    expect(isHeavyModel({ elements: n }, 'wireframe')).toBe(false);
+  });
+
+  it('strips the local-axes parent with the other decor in the heavy fallback', () => {
+    const g = mkGroups('wireframe');
+    applyLowDetail(true, g, { heavyModel: true });
+    expect(g.localAxesParent!.visible).toBe(false);
+    applyLowDetail(false, g, { heavyModel: true });
+    expect(g.localAxesParent!.visible).toBe(true);
   });
 });
 

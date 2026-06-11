@@ -122,9 +122,12 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   const showingDeformed = resultsStore.results3D && isDeformedLike;
   for (const group of ctx.elementGroups.values()) {
     group.traverse((child) => {
-      // Skip picking helpers and heatmap overlays — they manage their own state
+      // Skip picking helpers, heatmap overlays and section edge outlines —
+      // they manage their own state (the edge material is transparent at a
+      // fixed 0.55; restoring it to opaque would permanently destroy it).
       if (child.userData?.pickingHelper) return;
       if (child.userData?.heatmapMesh) return;
+      if (child.userData?.sectionEdge) return;
       if ((child as THREE.Mesh).material) {
         const mat = (child as THREE.Mesh).material as THREE.Material;
         if (showingDeformed) {

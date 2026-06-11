@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { AXIS_COLORS } from '../three/selection-helpers';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -41,9 +42,9 @@ export function updateGrid(
 export function createFatAxes(fatLineResolution: THREE.Vector2): THREE.Group {
   const group = new THREE.Group();
   const axes = [
-    { positions: [0, 0, 0, 3, 0, 0], color: 0xff4444 }, // X = red
-    { positions: [0, 0, 0, 0, 3, 0], color: 0x44ff44 }, // Y = green
-    { positions: [0, 0, 0, 0, 0, 3], color: 0x4488ff }, // Z = blue
+    { positions: [0, 0, 0, 3, 0, 0], color: AXIS_COLORS.x }, // X = red
+    { positions: [0, 0, 0, 0, 3, 0], color: AXIS_COLORS.y }, // Y = green
+    { positions: [0, 0, 0, 0, 0, 3], color: AXIS_COLORS.z }, // Z = blue
   ];
   for (const a of axes) {
     const geo = new LineGeometry();

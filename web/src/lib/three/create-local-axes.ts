@@ -8,9 +8,11 @@ import * as THREE from 'three';
 import { createTextSprite } from './selection-helpers';
 import type { LocalAxes3D } from '../engine/local-axes-3d';
 
-const AXIS_X = 0xff4444; // local x — element axis (I→J)
-const AXIS_Y = 0x3ad13a; // local y
-const AXIS_Z = 0x4a9eff; // local z
+import { AXIS_COLORS } from './selection-helpers';
+
+const AXIS_X = AXIS_COLORS.x; // local x — element axis (I→J)
+const AXIS_Y = AXIS_COLORS.y; // local y
+const AXIS_Z = AXIS_COLORS.z; // local z
 
 /**
  * Build a small x/y/z arrow triad at `origin` oriented by the given local axes.

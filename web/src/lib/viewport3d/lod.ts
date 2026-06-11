@@ -24,6 +24,9 @@ export interface LowDetailGroups {
   loadsParent: Visible | null;
   resultsParent: Visible | null;
   shellsParent: Visible | null;
+  /** Parent of the local-axis triad group — decorative, stripped with the
+   *  rest of the overlays in the heavy-model fallback. */
+  localAxesParent: Visible | null;
   /** Parent of per-element groups (cylinders / extruded sections + picking).
    *  Hidden during orbit so heavy solid geometry doesn't render. */
   elementsParent: Visible | null;
@@ -67,6 +70,7 @@ export function applyLowDetail(
   const hideElements = on && heavy && !keepElementsForResults;
 
   if (g.nodesParent) g.nodesParent.visible = !hideDecor;
+  if (g.localAxesParent) g.localAxesParent.visible = !hideDecor;
   if (g.supportsParent) g.supportsParent.visible = !hideDecor;
   if (g.loadsParent) g.loadsParent.visible = !hideDecor;
   if (g.shellsParent) g.shellsParent.visible = !hideDecor;
@@ -77,6 +81,24 @@ export function applyLowDetail(
     // (heavy fallback during motion); otherwise follow the idle render mode.
     g.elementsBatchedMesh.visible = hideElements ? true : g.renderMode === 'wireframe';
   }
+}
+
+/** Heavy-model thresholds for the orbit LOD fallback. Sections mode renders
+ *  an extrusion + an edges outline (≈2 draw calls + 2 materials) per element,
+ *  roughly doubling the per-element cost vs wireframe/solid — so it falls back
+ *  much earlier. Shells count toward the budget: a slab/wall model with few
+ *  frame elements but thousands of shell faces is just as heavy during orbit. */
+export const HEAVY_MODEL_VISUALS = 3000;
+export const HEAVY_MODEL_VISUALS_SECTIONS = 1200;
+
+/** Single policy point for the orbit LOD decision (kept here, next to the
+ *  visibility rules it gates, so callers can't drift on the criteria). */
+export function isHeavyModel(
+  counts: { elements: number; shells?: number },
+  renderMode: RenderMode3D,
+): boolean {
+  const visuals = counts.elements + (counts.shells ?? 0);
+  return visuals > (renderMode === 'sections' ? HEAVY_MODEL_VISUALS_SECTIONS : HEAVY_MODEL_VISUALS);
 }
 
 /** Convenience re-export type for callers that want to pass a real scene. */
