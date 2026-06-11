@@ -1025,6 +1025,33 @@ function createModelStore() {
       model.loads = model.loads.filter(l =>
         !((l.type === 'nodal' || l.type === 'nodal3d') && l.data.nodeId === id)
       );
+      // Cascade to connectors/constraints: a dangling node reference is worse
+      // than a missing entity — the engine silently skips it (zero stiffness)
+      // while the connectivity preflight keeps crediting it as an edge.
+      let connectorsChanged = false;
+      for (const [connId, conn] of model.connectors) {
+        if (conn.nodeI === id || conn.nodeJ === id) {
+          model.connectors.delete(connId);
+          connectorsChanged = true;
+        }
+      }
+      if (connectorsChanged) model.connectors = new Map(model.connectors);
+      model.constraints = model.constraints
+        .map((c): Constraint3D | null => {
+          if (c.type === 'diaphragm') {
+            if (c.masterNode === id) return null;
+            const slaves = c.slaveNodes.filter(n => n !== id);
+            if (slaves.length === 0) return null;
+            return slaves.length === c.slaveNodes.length ? c : { ...c, slaveNodes: slaves };
+          }
+          if (c.type === 'linearMPC') {
+            // Removing one term changes the equation's meaning — drop it whole.
+            return c.terms.some(t => t.nodeId === id) ? null : c;
+          }
+          // rigidLink / equalDOF / eccentricConnection: master + single slave
+          return (c.masterNode === id || c.slaveNode === id) ? null : c;
+        })
+        .filter((c): c is Constraint3D => c !== null);
     },
 
     removeElement(id: number): void {
@@ -1304,6 +1331,7 @@ function createModelStore() {
       nextId.combination = 5;
       nextId.plate = 1;
       nextId.quad = 1;
+      nextId.connector = 1;
       lastKinematicResult = null;
       uiStore.useNative3DPresentation();
     },

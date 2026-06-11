@@ -90,3 +90,56 @@ describe('store → solver wiring for connectors/constraints', () => {
     expect((input as any).constraints?.length).toBe(1);
   });
 });
+
+describe('removeNode cascade for connectors/constraints', () => {
+  beforeEach(() => {
+    modelStore.clear();
+  });
+
+  it('deleting a node removes connectors referencing it', () => {
+    const n1 = modelStore.addNode(0, 0, 0);
+    const n2 = modelStore.addNode(5, 0, 0);
+    modelStore.addConnector({
+      nodeI: n1, nodeJ: n2,
+      kAxial: 1e6, kShear: 1e6, kMoment: 1e3,
+      kShearZ: 1e6, kBendY: 1e3, kBendZ: 1e3,
+    });
+    modelStore.removeNode(n2);
+    expect(modelStore.model.connectors.size).toBe(0);
+  });
+
+  it('deleting a node removes/prunes constraints referencing it', () => {
+    const n1 = modelStore.addNode(0, 0, 0);
+    const n2 = modelStore.addNode(5, 0, 0);
+    const n3 = modelStore.addNode(10, 0, 0);
+    modelStore.addConstraint({ type: 'equalDOF', masterNode: n1, slaveNode: n2, dofs: [0] });
+    modelStore.addConstraint({ type: 'diaphragm', masterNode: n1, slaveNodes: [n2, n3] });
+    modelStore.addConstraint({
+      type: 'linearMPC',
+      terms: [{ nodeId: n2, dof: 0, coefficient: 1 }, { nodeId: n3, dof: 0, coefficient: -1 }],
+    });
+    modelStore.removeNode(n2);
+    // equalDOF (slave n2) dropped; diaphragm pruned to [n3]; linearMPC dropped whole
+    expect(modelStore.model.constraints.length).toBe(1);
+    const dia = modelStore.model.constraints[0] as any;
+    expect(dia.type).toBe('diaphragm');
+    expect(dia.slaveNodes).toEqual([n3]);
+  });
+
+  it('clear() resets the connector id counter like every other entity', () => {
+    const n1 = modelStore.addNode(0, 0, 0);
+    const n2 = modelStore.addNode(5, 0, 0);
+    modelStore.addConnector({
+      nodeI: n1, nodeJ: n2,
+      kAxial: 1, kShear: 1, kMoment: 1, kShearZ: 1, kBendY: 1, kBendZ: 1,
+    });
+    modelStore.clear();
+    const n3 = modelStore.addNode(0, 0, 0);
+    const n4 = modelStore.addNode(1, 0, 0);
+    const newId = modelStore.addConnector({
+      nodeI: n3, nodeJ: n4,
+      kAxial: 1, kShear: 1, kMoment: 1, kShearZ: 1, kBendY: 1, kBendZ: 1,
+    });
+    expect(newId).toBe(1);
+  });
+});
