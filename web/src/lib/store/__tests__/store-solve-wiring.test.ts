@@ -143,3 +143,57 @@ describe('removeNode cascade for connectors/constraints', () => {
     expect(newId).toBe(1);
   });
 });
+
+describe('legacy constraint read-migration on restore()', () => {
+  beforeEach(() => {
+    modelStore.clear();
+  });
+
+  function snapshotWithConstraints(constraints: unknown[]) {
+    modelStore.addNode(0, 0, 0);
+    modelStore.addNode(5, 0, 0);
+    const snap = modelStore.snapshot() as any;
+    snap.constraints = constraints;
+    return snap;
+  }
+
+  it("migrates 'equalDof' + string dofs to 'equalDOF' + integer indices", () => {
+    const snap = snapshotWithConstraints([
+      { type: 'equalDof', masterNode: 1, slaveNode: 2, dofs: ['ux', 'uz'] },
+    ]);
+    modelStore.restore(snap);
+    expect(modelStore.model.constraints).toEqual([
+      { type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0, 2] },
+    ]);
+  });
+
+  it("migrates 'linearMpc' to 'linearMPC' (string term dofs included)", () => {
+    const snap = snapshotWithConstraints([
+      { type: 'linearMpc', terms: [{ nodeId: 1, dof: 'uy', coefficient: 1 }, { nodeId: 2, dof: 2, coefficient: -1 }] },
+    ]);
+    modelStore.restore(snap);
+    expect(modelStore.model.constraints).toEqual([
+      { type: 'linearMPC', terms: [{ nodeId: 1, dof: 1, coefficient: 1 }, { nodeId: 2, dof: 2, coefficient: -1 }] },
+    ]);
+  });
+
+  it('migrates rigidLink string dofs and passes new-shape constraints through untouched', () => {
+    const snap = snapshotWithConstraints([
+      { type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: ['ux', 'uy'] },
+      { type: 'eccentricConnection', masterNode: 1, slaveNode: 2, offsetX: 0, offsetY: 0.5, offsetZ: 0, releases: [true, false, false, false, false, false] },
+    ]);
+    modelStore.restore(snap);
+    expect(modelStore.model.constraints[0]).toEqual({ type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [0, 1] });
+    expect((modelStore.model.constraints[1] as any).offsetY).toBe(0.5);
+  });
+
+  it('drops unknown constraint kinds instead of shipping them to the solver', () => {
+    const snap = snapshotWithConstraints([
+      { type: 'somethingElse', foo: 1 },
+      { type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] },
+    ]);
+    modelStore.restore(snap);
+    expect(modelStore.model.constraints.length).toBe(1);
+    expect((modelStore.model.constraints[0] as any).type).toBe('equalDOF');
+  });
+});

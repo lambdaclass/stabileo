@@ -484,6 +484,49 @@ function createModelStore() {
   let lastKinematicResult = $state<KinematicResult | null>(null);
   let modelVersion = $state(0);
 
+  /** DOF-name → index map for migrating pre-rename persisted constraints. */
+  const LEGACY_DOF_NAME_TO_INDEX: Record<string, number> = { ux: 0, uy: 1, uz: 2, rx: 3, ry: 4, rz: 5 };
+
+  /**
+   * Read-migration for constraints persisted before the discriminator/DOF
+   * rename ('equalDof'→'equalDOF', 'linearMpc'→'linearMPC', DOF name strings
+   * → integer indices). Mirrors the hinge→release and iy/iz read-migrations:
+   * the write path emits only the new shape, so old snapshots/share URLs and
+   * autosaves are normalized here, at the single restore chokepoint.
+   * Unknown constraint kinds are dropped rather than shipped to the solver
+   * (Rust serde would reject the whole payload).
+   */
+  function migrateConstraint(raw: any): Constraint3D | null {
+    if (!raw || typeof raw !== 'object' || typeof raw.type !== 'string') return null;
+    const type = raw.type === 'equalDof' ? 'equalDOF'
+      : raw.type === 'linearMpc' ? 'linearMPC'
+      : raw.type;
+    const mapDofs = (dofs: any): number[] | undefined => Array.isArray(dofs)
+      ? dofs
+          .map((d: any) => (typeof d === 'string' ? LEGACY_DOF_NAME_TO_INDEX[d] : d))
+          .filter((d: any) => Number.isInteger(d) && d >= 0 && d <= 5)
+      : undefined;
+    switch (type) {
+      case 'rigidLink':
+        return { ...raw, type, dofs: mapDofs(raw.dofs) };
+      case 'equalDOF':
+        return { ...raw, type, dofs: mapDofs(raw.dofs) ?? [] };
+      case 'linearMPC':
+        return {
+          ...raw, type,
+          terms: (raw.terms ?? []).map((t: any) => ({
+            ...t,
+            dof: typeof t.dof === 'string' ? (LEGACY_DOF_NAME_TO_INDEX[t.dof] ?? 0) : t.dof,
+          })),
+        };
+      case 'diaphragm':
+      case 'eccentricConnection':
+        return { ...raw, type };
+      default:
+        return null;
+    }
+  }
+
   /**
    * Create a remapped model view where node coordinates and loads are projected
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
@@ -799,7 +842,11 @@ function createModelStore() {
         : [];
       model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, { ...v }] as [number, Plate])) : new Map();
       model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, { ...v }] as [number, Quad])) : new Map();
-      model.constraints = (s as any).constraints ? (s as any).constraints.map((c: Constraint3D) => ({ ...c })) : [];
+      model.constraints = (s as any).constraints
+        ? ((s as any).constraints as any[])
+            .map(migrateConstraint)
+            .filter((c): c is Constraint3D => c !== null)
+        : [];
       model.connectors = (s as any).connectors
         ? new Map((s as any).connectors.map(([k, v]: [number, ConnectorElement]) => [k, { ...v }] as [number, ConnectorElement]))
         : new Map();
