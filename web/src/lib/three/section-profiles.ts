@@ -122,6 +122,50 @@ export function createUShape(h: number, b: number, tw: number, tf: number): THRE
 }
 
 /**
+ * Lipped channel (cold-formed C): web at x=0, two flanges to +x, return lips of
+ * length `c` and thickness `lipT` at the flange tips, turned back toward centre.
+ */
+export function createCShape(h: number, b: number, tw: number, tf: number, c: number, lipT: number): THREE.Shape {
+  const halfH = h / 2;
+  // Clamp so lips/flanges never overrun the section.
+  const lip = Math.min(c, halfH - tf);
+  // Degenerate lip guard: the outline below walks DOWN from (b, -halfH+lip) to
+  // (b-lipT, -halfH+tf), so lip must exceed tf or the path reverses and
+  // self-intersects (earcut then emits garbage triangles). This happens when a
+  // user fills `t` as a wall thickness — its meaning on every other profile —
+  // instead of the lip length this shape expects. Render a plain (unlipped)
+  // channel in that case.
+  if (lip <= tf || lipT <= 0) {
+    const u = new THREE.Shape();
+    u.moveTo(0, -halfH);
+    u.lineTo(b, -halfH);
+    u.lineTo(b, -halfH + tf);
+    u.lineTo(tw, -halfH + tf);
+    u.lineTo(tw, halfH - tf);
+    u.lineTo(b, halfH - tf);
+    u.lineTo(b, halfH);
+    u.lineTo(0, halfH);
+    u.closePath();
+    return u;
+  }
+  const s = new THREE.Shape();
+  s.moveTo(0, -halfH);              // bottom-left (web outer, bottom)
+  s.lineTo(b, -halfH);             // bottom flange outer → tip
+  s.lineTo(b, -halfH + lip);       // bottom lip, outer face (up by c)
+  s.lineTo(b - lipT, -halfH + lip);// across lip thickness
+  s.lineTo(b - lipT, -halfH + tf); // lip inner → flange inner
+  s.lineTo(tw, -halfH + tf);       // bottom flange inner → web inner
+  s.lineTo(tw, halfH - tf);        // web inner face (up)
+  s.lineTo(b - lipT, halfH - tf);  // top flange inner
+  s.lineTo(b - lipT, halfH - lip); // top lip inner
+  s.lineTo(b, halfH - lip);        // across top lip thickness
+  s.lineTo(b, halfH);              // top lip outer → flange tip
+  s.lineTo(0, halfH);              // top flange outer → web
+  s.closePath();
+  return s;
+}
+
+/**
  * Create an L-angle shape.
  */
 export function createLShape(h: number, b: number, t: number): THREE.Shape {
@@ -186,6 +230,7 @@ export function createSectionShape(sec: Section): THREE.Shape | null {
   const tw = sec.tw ?? 0;
   const tf = sec.tf ?? 0;
   const t = sec.t ?? 0;
+  const tl = sec.tl ?? 0;
 
   if (!shape && h <= 0 && b <= 0) return null;
 
@@ -248,6 +293,26 @@ export function createSectionShape(sec: Section): THREE.Shape | null {
       }
       if (h > 0 && b > 0) {
         return createTShape(h, b, h * 0.05, h * 0.08);
+      }
+      return null;
+
+    case 'C': {
+      // Lipped (cold-formed) channel. Section model: t = lip length (c), tl = lip thickness.
+      if (h > 0 && b > 0) {
+        const web = tw > 0 ? tw : h * 0.04;
+        const fl = tf > 0 ? tf : h * 0.04;
+        const lip = t > 0 ? t : Math.min(h, b) * 0.2;
+        const lipT = tl > 0 ? tl : fl;
+        return createCShape(h, b, web, fl, lip, lipT);
+      }
+      return null;
+    }
+
+    case 'invL':
+      // Inverted/unequal angle — render with the same L outline (orientation
+      // difference is cosmetic; geometry is representative).
+      if (h > 0 && b > 0) {
+        return createLShape(h, b, t > 0 ? t : Math.min(h, b) * 0.1);
       }
       return null;
 

@@ -68,6 +68,7 @@ const META_DEFAULTS: Record<string, unknown> = {
   showLengths3D: false,
   showLoads3D: true,
   showAxes3D: true,
+  localAxesMode3D: 'selected',
   axisConvention3D: 'rightHand',
   includeSelfWeight: false,
   liveCalc: false,
@@ -103,6 +104,7 @@ export interface ShareMeta {
   showLengths3D?: boolean;
   showLoads3D?: boolean;
   showAxes3D?: boolean;
+  localAxesMode3D?: 'always' | 'selected' | 'never';
   axisConvention3D?: string;
   // Self-weight
   includeSelfWeight?: boolean;
@@ -517,6 +519,7 @@ function buildShareMeta(includeViewport: boolean): ShareMeta {
     showLengths3D: uiStore.showLengths3D,
     showLoads3D: uiStore.showLoads3D,
     showAxes3D: uiStore.showAxes3D,
+    localAxesMode3D: uiStore.localAxesMode3D,
     axisConvention3D: uiStore.axisConvention3D,
     includeSelfWeight: uiStore.includeSelfWeight,
     liveCalc: uiStore.liveCalc,
@@ -599,6 +602,7 @@ function restoreMeta(snapshot: ModelSnapshot): void {
   if (meta.showLengths3D !== undefined) uiStore.showLengths3D = meta.showLengths3D;
   if (meta.showLoads3D !== undefined) uiStore.showLoads3D = meta.showLoads3D;
   if (meta.showAxes3D !== undefined) uiStore.showAxes3D = meta.showAxes3D;
+  if (meta.localAxesMode3D !== undefined) uiStore.localAxesMode3D = meta.localAxesMode3D;
   if (meta.axisConvention3D !== undefined) uiStore.axisConvention3D = meta.axisConvention3D as any;
   // Other settings
   if (meta.includeSelfWeight !== undefined) uiStore.includeSelfWeight = meta.includeSelfWeight;

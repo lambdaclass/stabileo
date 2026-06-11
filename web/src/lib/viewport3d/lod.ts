@@ -24,6 +24,9 @@ export interface LowDetailGroups {
   loadsParent: Visible | null;
   resultsParent: Visible | null;
   shellsParent: Visible | null;
+  /** Parent of the local-axis triad group — decorative, stripped with the
+   *  rest of the overlays in the heavy-model fallback. */
+  localAxesParent: Visible | null;
   /** Parent of per-element groups (cylinders / extruded sections + picking).
    *  Hidden during orbit so heavy solid geometry doesn't render. */
   elementsParent: Visible | null;
@@ -38,48 +41,69 @@ export interface LowDetailGroups {
 }
 
 /**
- * Apply the LOD visibility rules. When `on` is true (orbit/pan/zoom is
- * active) hide decorative groups + the per-element solid groups, and force
- * the batched wireframe on; when false restore the idle visibility.
+ * Apply the LOD visibility rules during orbit/pan/zoom.
  *
- * `resultsParent` is intentionally *not* toggled — users expect diagrams,
- * deformed shapes, and reaction arrows to stay visible while they orbit, so
- * hiding them broke the feedback loop of "move the camera to inspect a
- * result."
+ * Default (professional inspection): keep nodes, supports, loads, shells,
+ * results, and the current render mode (cylinders / extruded sections) VISIBLE
+ * while the camera moves — moving the camera to inspect a result/load/section
+ * must not collapse the model into naked lines.
  *
- * `elementsParent` follows the same exception when a result-coloring mode
- * (axialColor / colorMap / verification) is active: in solid / sections
- * render modes the colors live on the cylinders / extruded sections inside
- * `elementsParent`, so hiding the parent during orbit makes the result
- * visualization disappear every time the user moves the camera.
+ * Heavy-model fallback (`opts.heavyModel === true`): only then revert to the
+ * old aggressive behavior — hide decorative groups + the per-element solid
+ * groups and force the batched wireframe on as a lightweight stand-in — so very
+ * large models stay responsive during motion.
  *
- * `shellsParent` gets the same exception: the shell Von Mises heatmap is
- * painted onto the shell groups themselves (applyShellVertexColors), so
- * hiding them during orbit makes the one visualization shell models care
- * about vanish exactly while the user inspects it.
+ * `resultsParent` is never toggled. `elementsParent` AND `shellsParent` are
+ * additionally kept visible in the heavy fallback when a result-coloring mode
+ * (axialColor / colorMap / verification) is active: frame colors live on the
+ * per-element meshes and the shell Von Mises heatmap is painted onto the shell
+ * groups themselves (applyShellVertexColors) — hiding either would make the
+ * visualization vanish exactly while the user inspects it.
  */
 export function applyLowDetail(
   on: boolean,
   g: LowDetailGroups,
-  opts?: { resultsColoringActive?: boolean },
+  opts?: { resultsColoringActive?: boolean; heavyModel?: boolean },
 ): void {
-  const keepElementsForResults = on && opts?.resultsColoringActive === true;
-  if (g.nodesParent) g.nodesParent.visible = !on;
-  if (g.supportsParent) g.supportsParent.visible = !on;
-  if (g.loadsParent) g.loadsParent.visible = !on;
-  if (g.shellsParent) g.shellsParent.visible = !on || keepElementsForResults;
-  if (g.elementsParent) g.elementsParent.visible = !on || keepElementsForResults;
+  const heavy = opts?.heavyModel === true;
+  const keepElementsForResults = opts?.resultsColoringActive === true;
+  // Only strip overlays/solids during motion in the heavy fallback. The
+  // result-coloring exception (from the pr/5 review fixes) covers BOTH the
+  // per-element meshes and the shell groups — the shell heatmap lives on the
+  // shells themselves.
+  const hideDecor = on && heavy;
+  const hideElements = on && heavy && !keepElementsForResults;
+
+  if (g.nodesParent) g.nodesParent.visible = !hideDecor;
+  if (g.localAxesParent) g.localAxesParent.visible = !hideDecor;
+  if (g.supportsParent) g.supportsParent.visible = !hideDecor;
+  if (g.loadsParent) g.loadsParent.visible = !hideDecor;
+  if (g.shellsParent) g.shellsParent.visible = !hideElements;
+  if (g.elementsParent) g.elementsParent.visible = !hideElements;
 
   if (g.elementsBatchedMesh) {
-    // During orbit the batched mesh is the cheap stand-in for the hidden solid
-    // elementsParent. But when result coloring keeps elementsParent visible
-    // (solid/sections), forcing the batched mesh on too draws a redundant
-    // wireframe overlay over the solids and doubles the element draw — so
-    // suppress it there. In wireframe render mode the batched mesh IS the
-    // element rendering, so keep it regardless.
-    const keepBatchedForOrbit = on && !keepElementsForResults;
-    g.elementsBatchedMesh.visible = keepBatchedForOrbit || g.renderMode === 'wireframe';
+    // Force the batched wireframe on only when the per-element parent is hidden
+    // (heavy fallback during motion); otherwise follow the idle render mode.
+    g.elementsBatchedMesh.visible = hideElements ? true : g.renderMode === 'wireframe';
   }
+}
+
+/** Heavy-model thresholds for the orbit LOD fallback. Sections mode renders
+ *  an extrusion + an edges outline (≈2 draw calls + 2 materials) per element,
+ *  roughly doubling the per-element cost vs wireframe/solid — so it falls back
+ *  much earlier. Shells count toward the budget: a slab/wall model with few
+ *  frame elements but thousands of shell faces is just as heavy during orbit. */
+export const HEAVY_MODEL_VISUALS = 3000;
+export const HEAVY_MODEL_VISUALS_SECTIONS = 1200;
+
+/** Single policy point for the orbit LOD decision (kept here, next to the
+ *  visibility rules it gates, so callers can't drift on the criteria). */
+export function isHeavyModel(
+  counts: { elements: number; shells?: number },
+  renderMode: RenderMode3D,
+): boolean {
+  const visuals = counts.elements + (counts.shells ?? 0);
+  return visuals > (renderMode === 'sections' ? HEAVY_MODEL_VISUALS_SECTIONS : HEAVY_MODEL_VISUALS);
 }
 
 /** Convenience re-export type for callers that want to pass a real scene. */

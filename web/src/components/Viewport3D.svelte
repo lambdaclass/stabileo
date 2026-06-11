@@ -15,9 +15,9 @@
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
-  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
-  import { applyLowDetail } from '../lib/viewport3d/lod';
+  import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
 
   let container: HTMLDivElement;
   let renderer: THREE.WebGLRenderer;
@@ -53,6 +53,7 @@
   let loadsParent: THREE.Group;
   let resultsParent: THREE.Group;
   let shellsParent: THREE.Group;
+  let localAxesParent: THREE.Group;
 
   // ─── Clipping plane ─────────────────────────────────────────
   const clippingPlane = new THREE.Plane(planeNormal('XY').clone().negate(), 0);
@@ -74,6 +75,9 @@
   let hoverRafId: number | null = null;
 
   // ─── Box select state ──────────────────────────────────────
+  // Mode to return to when the quick sections toggle is switched off — keeps
+  // a 'solid' preference from Settings instead of always landing on wireframe.
+  let renderModeBeforeSections: 'wireframe' | 'solid' = 'wireframe';
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
 
   // ─── Node dragging state ───────────────────────────────────
@@ -205,11 +209,13 @@
     resultsParent.name = 'results';
     shellsParent = new THREE.Group();
     shellsParent.name = 'shells';
+    localAxesParent = new THREE.Group();
+    localAxesParent.name = 'localAxes';
     // The batched wireframe LineSegments2 lives directly under `scene`, not
     // inside `elementsParent`, so it stays rendered even when LOD hides the
     // parent during orbit. One mesh, one draw call, one toggle — no parallel
     // orbit proxy needed.
-    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
+    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent);
     syncResultsProjection();
 
     // Camera — isometric-ish view looking at origin
@@ -463,22 +469,26 @@
     // Slight aliasing during drag is acceptable — users perceive smoothness more
     // than pixel fidelity while rotating.
     const idlePixelRatio = window.devicePixelRatio;
-    // Level-of-detail during orbit: hide decorative parents and the heavy
-    // per-element solid groups (cylinders / extruded sections). The batched
-    // LineSegments2 (`elementsBatched.mesh`) lives directly under `scene` —
-    // since Phase 2 it already collapses every element into one draw call, so
-    // there is no need for a separate proxy. During orbit we force it visible
-    // as the LOD stand-in; at idle its visibility follows `renderMode3D`.
+    // Level-of-detail during orbit. Typical models keep full detail while the
+    // camera moves; heavy models (per the isHeavyModel policy in lod.ts, which
+    // weighs shells and the sections render mode) fall back to hiding the
+    // decorative parents + per-element solids and forcing the single batched
+    // LineSegments2 draw call on as the stand-in.
     function setLowDetail(on: boolean): void {
       const dt = resultsStore.diagramType;
       const resultsColoringActive = !!resultsStore.results3D
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
+      const heavyModel = isHeavyModel(
+        { elements: modelStore.elements.size, shells: modelStore.plates.size + modelStore.quads.size },
+        uiStore.renderMode3D,
+      );
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
+        localAxesParent,
         elementsParent,
         elementsBatchedMesh: elementsBatched.mesh,
         renderMode: uiStore.renderMode3D,
-      }, { resultsColoringActive });
+      }, { resultsColoringActive, heavyModel });
     }
     controls.addEventListener('start', () => {
       isOrbiting = true;
@@ -559,6 +569,8 @@
       nodesInstanced, elementsBatched, elementsPicking, elementGroups, supportGizmos,
       shellGroups: new Map(),
       loadGroup: null,
+      localAxesGroup: null,
+      localAxesParent,
       colorMapApplied: false,
     };
     resultsCtx = {
@@ -580,6 +592,7 @@
   function syncSupports() { _syncSupports(sceneCtx); }
   function syncLoads() { _syncLoads(sceneCtx); }
   function syncShells() { _syncShells(sceneCtx); }
+  function syncLocalAxes() { _syncLocalAxes(sceneCtx); }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
@@ -749,6 +762,20 @@
     uiStore.selectedElements;
     uiStore.selectedSupports;
     syncSelection();
+    invalidate();
+  });
+
+  // Local-axis triads: driven by localAxesMode3D (always / selected / never).
+  // The selection is NOT listed explicitly: syncLocalAxes reads it only in
+  // 'selected' mode (nested reads are tracked), so 'always' mode does not
+  // dispose + rebuild every triad on each selection click.
+  $effect(() => {
+    uiStore.localAxesMode3D;
+    uiStore.analysisMode;
+    modelStore.nodes;
+    modelStore.elements;
+    modelStore.modelVersion;
+    syncLocalAxes();
     invalidate();
   });
 
@@ -2024,6 +2051,23 @@
       class:active-cam={uiStore.measureMode}
     >
       📏
+    </button>
+    <!-- Quick render-mode toggle: sections ↔ the previous mode (wireframe/solid).
+         Single compact button like the perspective/ortho switch. Shows the mode
+         Returns to the mode that was active before entering sections. -->
+    <button
+      onclick={() => {
+        if (uiStore.renderMode3D === 'sections') {
+          uiStore.renderMode3D = renderModeBeforeSections;
+        } else {
+          renderModeBeforeSections = uiStore.renderMode3D === 'solid' ? 'solid' : 'wireframe';
+          uiStore.renderMode3D = 'sections';
+        }
+      }}
+      class:active-cam={uiStore.renderMode3D === 'sections'}
+      title={uiStore.renderMode3D === 'sections' ? t('config.wireframe') : t('config.sections')}
+    >
+      {uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}
     </button>
   </div>
 

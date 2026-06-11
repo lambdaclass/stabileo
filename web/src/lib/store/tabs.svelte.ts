@@ -63,6 +63,7 @@ export interface TabState {
   showLengths3D: boolean;
   showLoads3D: boolean;
   showAxes3D: boolean;
+  localAxesMode3D?: 'always' | 'selected' | 'never';
   axisConvention3D: 'rightHand' | 'leftHand';
   // Other per-tab settings
   includeSelfWeight: boolean;
@@ -141,7 +142,7 @@ function createTabManager() {
       showElementLabels3D: uiStore.showElementLabels3D,
       showLengths3D: uiStore.showLengths3D,
       showLoads3D: uiStore.showLoads3D,
-      showAxes3D: uiStore.showAxes3D,
+      showAxes3D: uiStore.showAxes3D, localAxesMode3D: uiStore.localAxesMode3D,
       axisConvention3D: uiStore.axisConvention3D,
       // Results overlay state
       showReactions: resultsStore.showReactions,
@@ -220,6 +221,7 @@ function createTabManager() {
       uiStore.showLengths3D = state.showLengths3D;
       uiStore.showLoads3D = state.showLoads3D;
       uiStore.showAxes3D = state.showAxes3D;
+      uiStore.localAxesMode3D = state.localAxesMode3D ?? 'selected';
       uiStore.axisConvention3D = state.axisConvention3D;
 
       // Restore other per-tab settings
@@ -326,7 +328,7 @@ function createTabManager() {
           showElementLabels3D: uiStore.showElementLabels3D,
           showLengths3D: uiStore.showLengths3D,
           showLoads3D: uiStore.showLoads3D,
-          showAxes3D: uiStore.showAxes3D,
+          showAxes3D: uiStore.showAxes3D, localAxesMode3D: uiStore.localAxesMode3D,
           axisConvention3D: uiStore.axisConvention3D,
           includeSelfWeight: uiStore.includeSelfWeight,
           liveCalc: uiStore.liveCalc,
@@ -396,7 +398,7 @@ function createTabManager() {
         showElementLabels3D: uiStore.showElementLabels3D,
         showLengths3D: uiStore.showLengths3D,
         showLoads3D: uiStore.showLoads3D,
-        showAxes3D: uiStore.showAxes3D,
+        showAxes3D: uiStore.showAxes3D, localAxesMode3D: uiStore.localAxesMode3D,
         axisConvention3D: uiStore.axisConvention3D,
         includeSelfWeight: uiStore.includeSelfWeight,
         liveCalc: uiStore.liveCalc,
