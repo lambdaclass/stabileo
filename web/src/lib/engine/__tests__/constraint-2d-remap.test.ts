@@ -103,3 +103,39 @@ describe('UI-authored 3D constraints survive the real 2D wire', () => {
     expect(result).toBeTruthy();
   });
 });
+
+describe('flat-2D embedding refuses constraint/connector-bearing models', () => {
+  it('a flat (all z=0) model with an eccentricConnection solves in direct 3D coords (offsetZ stays vertical)', async () => {
+    await initSolver();
+    const { validateAndSolve3D } = await import('../solver-service');
+    const model: any = {
+      nodes: new Map([
+        [1, { id: 1, x: 0, y: 0, z: 0 }],
+        [2, { id: 2, x: 5, y: 0, z: 0 }],
+        [3, { id: 3, x: 5, y: 0, z: 0 }],
+      ]),
+      elements: new Map([
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }],
+      ]),
+      materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3, rho: 78.5 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4, iy: 1e-4, j: 1e-6 }]]),
+      supports: new Map([
+        [1, { id: 1, nodeId: 1, type: 'fixed3d' }],
+        [2, { id: 2, nodeId: 3, type: 'fixed3d' }],
+      ]),
+      loads: [{ type: 'nodal3d', data: { id: 1, nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } }],
+      constraints: [{
+        type: 'eccentricConnection', masterNode: 2, slaveNode: 3,
+        offsetX: 0, offsetY: 0, offsetZ: 0.5,
+        releases: [false, false, false, false, false, false],
+      }],
+    };
+    const result = validateAndSolve3D(model, false, false);
+    // Before the gate fix, the flat model triggered the 2D→3D embedding,
+    // which remapped nodes/supports/loads but passed the constraint verbatim,
+    // silently mis-axing its vertical offset. With the gate, this solves in
+    // direct 3D coordinates.
+    expect(typeof result).not.toBe('string');
+    expect(result).toBeTruthy();
+  });
+});
