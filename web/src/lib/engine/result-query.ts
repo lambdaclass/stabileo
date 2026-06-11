@@ -1,43 +1,24 @@
 /**
  * Result-query layer — pure selectors over solved 3D results.
  *
- * Turns the existing results store data (per-end element forces + the
- * governing-combo provenance map) into an interrogable surface: max/min/abs
- * extremes per component, threshold filtering, governing-value lookup with
- * source-combo label, and CSV serialization of the current query rows.
+ * Turns the existing results store data (per-end element forces) into an
+ * interrogable surface: max/min/abs extremes per component, threshold
+ * filtering, and CSV serialization of the current query rows.
  *
  * Pure functions only — no store, no DOM, no solver/WASM dependency. The
  * ProResultsTab wires these to UI state and handles the CSV download.
  */
 
 import type { ElementForces3D } from './types-3d';
-import type { GoverningPerElement3D, GoverningComboRef } from './governing-case';
 
 // ─── Components ───────────────────────────────────────────────
 
 /** Queryable 3D force components (local axes). */
 export type ForceComponent = 'N' | 'Vy' | 'Vz' | 'T' | 'My' | 'Mz';
 
-export const FORCE_COMPONENTS: ForceComponent[] = ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'];
-
 /** Unit label per component (for tables/CSV). */
 export function componentUnit(component: ForceComponent): string {
   return component === 'N' || component === 'Vy' || component === 'Vz' ? 'kN' : 'kN·m';
-}
-
-/** 3D diagram-type names a component maps to (subset of results store DiagramType). */
-export type DiagramType3D = 'axial' | 'shearY' | 'shearZ' | 'torsion' | 'momentY' | 'momentZ';
-
-/** Map a query component to the matching 3D diagram type (for "link with diagram"). */
-export function componentToDiagramType(component: ForceComponent): DiagramType3D {
-  switch (component) {
-    case 'N':  return 'axial';
-    case 'Vy': return 'shearY';
-    case 'Vz': return 'shearZ';
-    case 'T':  return 'torsion';
-    case 'My': return 'momentY';
-    case 'Mz': return 'momentZ';
-  }
 }
 
 /**
@@ -136,73 +117,10 @@ export function filterByAbsThreshold(rows: QueryRow[], threshold: number): Query
   return rows.filter((r) => Math.abs(r.value) >= threshold);
 }
 
-// ─── Governing query (across all combinations) ────────────────
-
-/** Governing-combo answer for one element + component. */
-export interface GoverningQuery {
-  elementId: number;
-  component: ForceComponent;
-  /** Max absolute value across all combos (from the governing map). */
-  value: number;
-  /** Combo that produced it. */
-  comboId: number;
-  /** Human label of the governing combo. */
-  sourceLabel: string;
-}
-
-/** Map a component to its field on a GoverningPerElement3D record. */
-function governingRef(g: GoverningPerElement3D, component: ForceComponent): GoverningComboRef | undefined {
-  switch (component) {
-    case 'N':  return g.axial;
-    case 'Vy': return g.shearY;
-    case 'Vz': return g.shearZ;
-    case 'T':  return g.torsion;
-    case 'My': return g.momentY;
-    case 'Mz': return g.momentZ;
-  }
-}
-
-/**
- * For each element, the governing combo for one component — preserving the
- * source-combo label from the governing map. Elements without a governing
- * entry for the component are skipped.
- */
-export function governingForComponent(
-  governing: Map<number, GoverningPerElement3D>,
-  component: ForceComponent,
-  opts: QueryRowsOptions = {},
-): GoverningQuery[] {
-  const wanted = opts.elementIds ? new Set(opts.elementIds) : null;
-  const out: GoverningQuery[] = [];
-  for (const [elementId, g] of governing) {
-    if (wanted && !wanted.has(elementId)) continue;
-    const ref = governingRef(g, component);
-    if (!ref) continue;
-    out.push({
-      elementId,
-      component,
-      value: ref.value,
-      comboId: ref.comboId,
-      sourceLabel: ref.comboName,
-    });
-  }
-  return out;
-}
-
-/** Pick the element whose governing value is the largest (by abs). */
-export function topGoverning(list: GoverningQuery[]): GoverningQuery | null {
-  if (list.length === 0) return null;
-  let best = list[0];
-  for (let k = 1; k < list.length; k++) {
-    if (Math.abs(list[k].value) > Math.abs(best.value)) best = list[k];
-  }
-  return best;
-}
-
 // ─── CSV serialization ────────────────────────────────────────
 
 /** Where the exported values came from. */
-export type SourceKind = 'case' | 'combo' | 'envelope' | 'governing';
+export type SourceKind = 'case' | 'combo' | 'envelope';
 /** How the element set was scoped. */
 export type ScopeMode = 'all' | 'selected' | 'id';
 
@@ -214,7 +132,7 @@ export interface QueryExportMeta {
   sourceKind: SourceKind;
   /** case/combo id; null for envelope or the all-loads single solve. */
   sourceId: number | null;
-  /** case/combo name, or an envelope/governing label. */
+  /** case/combo name, or the envelope label. */
   sourceName: string;
   scopeMode: ScopeMode;
   /** explicit element ids when scoped to selection/typed ids; [] for "all". */
@@ -223,14 +141,18 @@ export interface QueryExportMeta {
   extremeMode: ExtremeMode;
 }
 
-/** Flat, fully-denormalized CSV column order (shared by both export modes). */
+/** Flat, fully-denormalized CSV column order. */
 const EXPORT_HEADER = [
   'sourceKind', 'sourceId', 'sourceName', 'component', 'scopeMode', 'scopeIds',
   'threshold', 'extremeMode', 'element', 'end', 'value', 'unit',
 ] as const;
 
 function csvCell(s: string | number): string {
-  const str = String(s);
+  // Neutralize spreadsheet formula injection on string cells: combo/case
+  // names are user-editable and shared via .ded files, and Excel evaluates
+  // cells starting with = + - @ even when RFC4180-quoted. Numbers (e.g.
+  // negative values) are not affected — they arrive as `number`.
+  const str = typeof s === 'string' && /^[=+\-@\t\r]/.test(s) ? `'${s}` : String(s);
   return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
@@ -257,23 +179,6 @@ export function rowsToCsv(rows: QueryRow[], meta: QueryExportMeta): string {
     const cells = [
       ...metaPrefix(meta, meta.sourceKind, meta.sourceId, meta.sourceName, r.component),
       r.elementId, r.end, r.value, componentUnit(r.component),
-    ];
-    lines.push(cells.map(csvCell).join(','));
-  }
-  return lines.join('\n');
-}
-
-/**
- * Serialize governing-query rows to the same flat CSV. sourceKind is forced to
- * "governing" and each row carries ITS OWN governing combo id/name (governing
- * spans multiple combos). There is no i/j end, so end = "governing".
- */
-export function governingToCsv(list: GoverningQuery[], meta: QueryExportMeta): string {
-  const lines = [EXPORT_HEADER.map(csvCell).join(',')];
-  for (const g of list) {
-    const cells = [
-      ...metaPrefix(meta, 'governing', g.comboId, g.sourceLabel, g.component),
-      g.elementId, 'governing', g.value, componentUnit(g.component),
     ];
     lines.push(cells.map(csvCell).join(','));
   }
