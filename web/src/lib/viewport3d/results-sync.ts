@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
-import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, createTextSprite } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, createTextSprite, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
@@ -63,6 +63,11 @@ export interface ResultsSyncContext {
 
   // Element groups (needed for color map + deformed opacity)
   elementGroups: Map<number, THREE.Group>;
+
+  // Batched wireframe mesh — needed so axialColor / colorMap / verification
+  // colors propagate to the visible primary in wireframe render mode (where
+  // elementGroups are empty and setGroupColor is a no-op).
+  elementsBatched: import('../three/elements-batched').ElementsBatched;
 
   // Shell groups (needed for shell stress heatmap) — key: "p{id}" or "q{id}"
   shellGroups: Map<string, THREE.Group>;
@@ -312,6 +317,8 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
 
   const r3d = resultsStore.results3D;
   const dt = resultsStore.diagramType;
+  const wireframe = uiStore.renderMode3D === 'wireframe';
+  const eb = ctx.elementsBatched;
 
   // Restore default state if not in color mode
   if (!r3d || (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification')) {
@@ -320,10 +327,17 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
       for (const [id, group] of ctx.elementGroups) {
         showOriginalMeshes(group, true);
         const elem = modelStore.elements.get(id);
-        const baseColor = elem?.type === 'truss' ? COLORS.truss : COLORS.frame;
+        const isTruss = elem?.type === 'truss';
+        const wireBaseColor = isTruss ? 0xf0b848 : 0x6cb4ff;
+        const baseColor = wireframe ? wireBaseColor : (isTruss ? COLORS.truss : COLORS.frame);
         const selected = uiStore.selectedElements.has(id);
-        setGroupColor(group, selected ? COLORS.elementSelected : baseColor);
+        const finalColor = selected ? COLORS.elementSelected : baseColor;
+        setGroupColor(group, finalColor);
+        // Sync batched mesh too — wireframe primary needs explicit reset
+        // since the per-group color path doesn't reach the LineSegments2.
+        eb.setBaseColor(id, finalColor);
       }
+      eb.flush();
       resetShellColors(ctx);
       ctx.colorMapApplied = false;
     }
@@ -343,8 +357,13 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
       const ef = forcesMap.get(id);
       if (!ef) continue;
       const nAvg = (ef.nStart + ef.nEnd) / 2;
-      setGroupColor(group, axialForceColor(nAvg));
+      const c = axialForceColor(nAvg);
+      setGroupColor(group, c);
+      // Apply to the batched wireframe primary too — without this, axial
+      // colors are silently invisible in wireframe render mode.
+      eb.setBaseColor(id, c);
     }
+    eb.flush();
     resetShellColors(ctx);
     ctx.colorMapApplied = true;
   } else if (dt === 'colorMap') {
@@ -353,13 +372,17 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
     if (cmKind === 'shellVonMises') {
       // Shell-only mode: restore frame elements, apply shell heatmap
       clearHeatmapMeshes(ctx);
-      for (const [_id, group] of ctx.elementGroups) {
+      for (const [id, group] of ctx.elementGroups) {
         showOriginalMeshes(group, true);
         setGroupColor(group, 0x888888); // dim frames
+        eb.setBaseColor(id, 0x888888);
       }
+      eb.flush();
       applyShellHeatmap(ctx, r3d);
     } else {
-      // Continuous heatmap on frame elements
+      // Continuous heatmap on frame elements. applyFrameHeatmap also mirrors
+      // the SELECTED variable's color onto the batched wireframe mesh (and
+      // flushes), so wireframe mode shows the right gradient — not axial force.
       resetShellColors(ctx);
       applyFrameHeatmap(ctx, forcesMap, cmKind as HeatmapVariable);
     }
@@ -371,8 +394,11 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
     for (const [id, group] of ctx.elementGroups) {
       showOriginalMeshes(group, true);
       const ratio = verificationStore.getMaxRatio(id);
-      setGroupColor(group, verificationColor(ratio));
+      const c = verificationColor(ratio);
+      setGroupColor(group, c);
+      eb.setBaseColor(id, c);
     }
+    eb.flush();
     resetShellColors(ctx);
     ctx.colorMapApplied = true;
   }
@@ -563,6 +589,23 @@ function applyFrameHeatmap(
     heatMesh.renderOrder = 2;
     group.add(heatMesh);
   }
+
+  // Mirror the heatmap color onto the batched wireframe mesh so wireframe mode
+  // shows the SELECTED variable's gradient (one representative color per element)
+  // instead of always axial force. Uses the same heatmapColor/globalMax mapping
+  // as the textured cylinders above.
+  for (const [id] of ctx.elementGroups) {
+    const values = elemSamples.get(id);
+    if (!values || values.length === 0) {
+      ctx.elementsBatched.setBaseColor(id, 0x555555);
+      continue;
+    }
+    let peak = 0;
+    for (const v of values) if (v > peak) peak = v;
+    const norm = globalMax > 0 ? Math.min(peak / globalMax, 1) : 0;
+    ctx.elementsBatched.setBaseColor(id, heatmapColor(norm));
+  }
+  ctx.elementsBatched.flush();
 }
 
 /** Apply Von Mises heatmap on plates and quads */

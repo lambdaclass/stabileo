@@ -1,7 +1,8 @@
 // Model store - manages the structural model
 import type { KinematicResult } from '../engine/kinematic-2d';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
-import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from '../engine/types-3d';
+import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, ConnectorElement } from '../engine/types-3d';
+export type { ConnectorElement };
 import type { ModelSnapshot } from './history.svelte';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
@@ -420,6 +421,11 @@ export interface StructureModel {
   plates: Map<number, Plate>;
   quads: Map<number, Quad>;
   constraints: Constraint3D[];
+  /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
+   *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
+   *  entries inside the existing structural-control workflow (not a separate
+   *  top-level "Connectors" object family). */
+  connectors: Map<number, ConnectorElement>;
 }
 
 export type { AnalysisResults };
@@ -472,20 +478,69 @@ function createModelStore() {
     plates: new Map(),
     quads: new Map(),
     constraints: [],
+    connectors: new Map(),
   });
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
   let modelVersion = $state(0);
+
+  /** DOF-name → index map for migrating pre-rename persisted constraints. */
+  const LEGACY_DOF_NAME_TO_INDEX: Record<string, number> = { ux: 0, uy: 1, uz: 2, rx: 3, ry: 4, rz: 5 };
+
+  /**
+   * Read-migration for constraints persisted before the discriminator/DOF
+   * rename ('equalDof'→'equalDOF', 'linearMpc'→'linearMPC', DOF name strings
+   * → integer indices). Mirrors the hinge→release and iy/iz read-migrations:
+   * the write path emits only the new shape, so old snapshots/share URLs and
+   * autosaves are normalized here, at the single restore chokepoint.
+   * Unknown constraint kinds are dropped rather than shipped to the solver
+   * (Rust serde would reject the whole payload).
+   */
+  function migrateConstraint(raw: any): Constraint3D | null {
+    if (!raw || typeof raw !== 'object' || typeof raw.type !== 'string') return null;
+    const type = raw.type === 'equalDof' ? 'equalDOF'
+      : raw.type === 'linearMpc' ? 'linearMPC'
+      : raw.type;
+    const mapDofs = (dofs: any): number[] | undefined => Array.isArray(dofs)
+      ? dofs
+          .map((d: any) => (typeof d === 'string' ? LEGACY_DOF_NAME_TO_INDEX[d] : d))
+          .filter((d: any) => Number.isInteger(d) && d >= 0 && d <= 5)
+      : undefined;
+    switch (type) {
+      case 'rigidLink':
+        return { ...raw, type, dofs: mapDofs(raw.dofs) };
+      case 'equalDOF':
+        return { ...raw, type, dofs: mapDofs(raw.dofs) ?? [] };
+      case 'linearMPC': {
+        const terms = (raw.terms ?? []).map((t: any) => ({
+          ...t,
+          dof: typeof t.dof === 'string' ? LEGACY_DOF_NAME_TO_INDEX[t.dof] : t.dof,
+        }));
+        // An unmappable term DOF must drop the whole constraint — silently
+        // rewriting it (e.g. to ux) would change the equation's meaning.
+        if (terms.length === 0 || terms.some((t: any) => !Number.isInteger(t.dof) || t.dof < 0 || t.dof > 5)) {
+          return null;
+        }
+        return { ...raw, type, terms };
+      }
+      case 'diaphragm':
+      case 'eccentricConnection':
+        return { ...raw, type };
+      default:
+        return null;
+    }
+  }
 
   /**
    * Create a remapped model view where node coordinates and loads are projected
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
    * The returned object is a shallow copy safe for passing to solver functions.
    */
-  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections } | string {
+  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors; constraints?: typeof model.constraints } | string {
     if (plane === 'xy') {
       return { nodes: model.nodes, elements: model.elements, supports: model.supports,
-        loads: model.loads, materials: model.materials, sections: model.sections };
+        loads: model.loads, materials: model.materials, sections: model.sections,
+        connectors: model.connectors, constraints: model.constraints };
     }
 
     // Remap nodes into the selected 2D plane
@@ -549,8 +604,13 @@ function createModelStore() {
       return l;
     });
 
+    // Connectors are pure node-id + stiffness pairs — no geometry to remap.
+    // Constraints are carried verbatim; the 2D wire layer (constraintsTo2D in
+    // solver-service) maps their 3D DOF semantics onto the 2D solver's
+    // [ux, uz, ry] convention.
     return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
-      loads: remappedLoads, materials: model.materials, sections: model.sections };
+      loads: remappedLoads, materials: model.materials, sections: model.sections,
+      connectors: model.connectors, constraints: model.constraints };
   }
 
   let nextId = $state({
@@ -564,6 +624,7 @@ function createModelStore() {
     combination: 5,
     plate: 1,
     quad: 1,
+    connector: 1,
   });
 
 
@@ -678,6 +739,7 @@ function createModelStore() {
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
+    get connectors() { return model.connectors; },
     get kinematicResult() { return lastKinematicResult; },
 
     snapshot(): ModelSnapshot {
@@ -717,6 +779,7 @@ function createModelStore() {
         plates: Array.from(snap.plates.entries()) as ModelSnapshot['plates'],
         quads: Array.from(snap.quads.entries()) as ModelSnapshot['quads'],
         constraints: snap.constraints as ModelSnapshot['constraints'],
+        connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
         nextId: snapId as ModelSnapshot['nextId'],
       };
       return result;
@@ -783,7 +846,14 @@ function createModelStore() {
         : [];
       model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, { ...v }] as [number, Plate])) : new Map();
       model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, { ...v }] as [number, Quad])) : new Map();
-      model.constraints = (s as any).constraints ? (s as any).constraints.map((c: Constraint3D) => ({ ...c })) : [];
+      model.constraints = (s as any).constraints
+        ? ((s as any).constraints as any[])
+            .map(migrateConstraint)
+            .filter((c): c is Constraint3D => c !== null)
+        : [];
+      model.connectors = (s as any).connectors
+        ? new Map((s as any).connectors.map(([k, v]: [number, ConnectorElement]) => [k, { ...v }] as [number, ConnectorElement]))
+        : new Map();
       nextId.node = s.nextId.node;
       nextId.material = s.nextId.material;
       nextId.section = s.nextId.section;
@@ -794,6 +864,7 @@ function createModelStore() {
       nextId.combination = s.nextId.combination ?? 1;
       nextId.plate = s.nextId.plate ?? 1;
       nextId.quad = s.nextId.quad ?? 1;
+      nextId.connector = (s.nextId as any).connector ?? 1;
     },
 
     addNode(x: number, y: number, z?: number): number {
@@ -1002,9 +1073,41 @@ function createModelStore() {
         }
       }
       model.supports = new Map(model.supports);
-      model.loads = model.loads.filter(l =>
-        !((l.type === 'nodal' || l.type === 'nodal3d') && l.data.nodeId === id)
-      );
+      const keepLoad = (l: Load) =>
+        !((l.type === 'nodal' || l.type === 'nodal3d') && l.data.nodeId === id);
+      model.loads = model.loads.filter(keepLoad);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      // Cascade to connectors/constraints: a dangling node reference is worse
+      // than a missing entity — the engine silently skips it (zero stiffness)
+      // while the connectivity preflight keeps crediting it as an edge.
+      let connectorsChanged = false;
+      for (const [connId, conn] of model.connectors) {
+        if (conn.nodeI === id || conn.nodeJ === id) {
+          model.connectors.delete(connId);
+          connectorsChanged = true;
+        }
+      }
+      if (connectorsChanged) model.connectors = new Map(model.connectors);
+      const pruneConstraints = (arr: Constraint3D[]) => arr
+        .map((c): Constraint3D | null => {
+          if (c.type === 'diaphragm') {
+            if (c.masterNode === id) return null;
+            const slaves = c.slaveNodes.filter(n => n !== id);
+            if (slaves.length === 0) return null;
+            return slaves.length === c.slaveNodes.length ? c : { ...c, slaveNodes: slaves };
+          }
+          if (c.type === 'linearMPC') {
+            // Removing one term changes the equation's meaning — drop it whole.
+            return c.terms.some(t => t.nodeId === id) ? null : c;
+          }
+          // rigidLink / equalDOF / eccentricConnection: master + single slave
+          return (c.masterNode === id || c.slaveNode === id) ? null : c;
+        })
+        .filter((c): c is Constraint3D => c !== null);
+      model.constraints = pruneConstraints(model.constraints);
+      // Inside bulkMutate the commit phase overwrites model.constraints with
+      // the buffer — prune the buffer too or dangling constraints resurrect.
+      if (_bulkConstraintBuffer) _bulkConstraintBuffer = pruneConstraints(_bulkConstraintBuffer);
     },
 
     removeElement(id: number): void {
@@ -1078,6 +1181,39 @@ function createModelStore() {
     clearConstraints(): void {
       if (!_undoBatching) _pushUndo?.();
       model.constraints = [];
+    },
+
+    // ─── Connector CRUD (joint/spring/bearing primitives) ───
+    // Map reassignment on every mutation per Svelte 5 reactivity guidance
+    // (see web/CLAUDE.md "Reactivity with Maps").
+    addConnector(data: Omit<ConnectorElement, 'id'>): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.connector++;
+      const m = new Map(model.connectors);
+      m.set(id, { id, ...data });
+      model.connectors = m;
+      return id;
+    },
+
+    updateConnector(id: number, data: Partial<Omit<ConnectorElement, 'id'>>): void {
+      if (!_undoBatching) _pushUndo?.();
+      const cur = model.connectors.get(id);
+      if (!cur) return;
+      const m = new Map(model.connectors);
+      m.set(id, { ...cur, ...data, id });
+      model.connectors = m;
+    },
+
+    removeConnector(id: number): void {
+      if (!_undoBatching) _pushUndo?.();
+      const m = new Map(model.connectors);
+      m.delete(id);
+      model.connectors = m;
+    },
+
+    clearConnectors(): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.connectors = new Map();
     },
 
     removeLoad(loadId: number): void {
@@ -1225,6 +1361,7 @@ function createModelStore() {
       model.plates = new Map();
       model.quads = new Map();
       model.constraints = [];
+      model.connectors = new Map();
       // Reset materials/sections to defaults
       model.materials = new Map([[1, { ...defaultMaterial }]]);
       model.sections = new Map([[1, { ...defaultSection }]]);
@@ -1250,6 +1387,7 @@ function createModelStore() {
       nextId.combination = 5;
       nextId.plate = 1;
       nextId.quad = 1;
+      nextId.connector = 1;
       lastKinematicResult = null;
       uiStore.useNative3DPresentation();
     },
@@ -1784,7 +1922,8 @@ function createModelStore() {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
-          plates: model.plates, quads: model.quads },
+          plates: model.plates, quads: model.quads,
+          constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand,
       );
     },
@@ -1797,7 +1936,8 @@ function createModelStore() {
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined },
+          constraints: isPro ? model.constraints : undefined,
+          connectors: isPro ? model.connectors : undefined },
         includeSelfWeight, leftHand,
       );
     },
@@ -1810,7 +1950,8 @@ function createModelStore() {
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined },
+          constraints: isPro ? model.constraints : undefined,
+          connectors: isPro ? model.connectors : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
     },
@@ -1822,7 +1963,8 @@ function createModelStore() {
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined },
+          constraints: isPro ? model.constraints : undefined,
+          connectors: isPro ? model.connectors : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
     },

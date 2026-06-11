@@ -46,16 +46,39 @@ export interface LowDetailGroups {
  * deformed shapes, and reaction arrows to stay visible while they orbit, so
  * hiding them broke the feedback loop of "move the camera to inspect a
  * result."
+ *
+ * `elementsParent` follows the same exception when a result-coloring mode
+ * (axialColor / colorMap / verification) is active: in solid / sections
+ * render modes the colors live on the cylinders / extruded sections inside
+ * `elementsParent`, so hiding the parent during orbit makes the result
+ * visualization disappear every time the user moves the camera.
+ *
+ * `shellsParent` gets the same exception: the shell Von Mises heatmap is
+ * painted onto the shell groups themselves (applyShellVertexColors), so
+ * hiding them during orbit makes the one visualization shell models care
+ * about vanish exactly while the user inspects it.
  */
-export function applyLowDetail(on: boolean, g: LowDetailGroups): void {
+export function applyLowDetail(
+  on: boolean,
+  g: LowDetailGroups,
+  opts?: { resultsColoringActive?: boolean },
+): void {
+  const keepElementsForResults = on && opts?.resultsColoringActive === true;
   if (g.nodesParent) g.nodesParent.visible = !on;
   if (g.supportsParent) g.supportsParent.visible = !on;
   if (g.loadsParent) g.loadsParent.visible = !on;
-  if (g.shellsParent) g.shellsParent.visible = !on;
-  if (g.elementsParent) g.elementsParent.visible = !on;
+  if (g.shellsParent) g.shellsParent.visible = !on || keepElementsForResults;
+  if (g.elementsParent) g.elementsParent.visible = !on || keepElementsForResults;
 
   if (g.elementsBatchedMesh) {
-    g.elementsBatchedMesh.visible = on ? true : g.renderMode === 'wireframe';
+    // During orbit the batched mesh is the cheap stand-in for the hidden solid
+    // elementsParent. But when result coloring keeps elementsParent visible
+    // (solid/sections), forcing the batched mesh on too draws a redundant
+    // wireframe overlay over the solids and doubles the element draw — so
+    // suppress it there. In wireframe render mode the batched mesh IS the
+    // element rendering, so keep it regardless.
+    const keepBatchedForOrbit = on && !keepElementsForResults;
+    g.elementsBatchedMesh.visible = keepBatchedForOrbit || g.renderMode === 'wireframe';
   }
 }
 

@@ -35,6 +35,8 @@
       loadCases: modelStore.model.loadCases,
       plates: modelStore.model.plates,
       quads: modelStore.model.quads,
+      connectors: modelStore.model.connectors,
+      constraints: modelStore.model.constraints,
     });
   });
 

@@ -152,7 +152,11 @@ export class ElementsBatched {
     this.colorDirty = true;
   }
 
-  /** Push all dirty buffers to the GPU. Call once per frame/sync after upserts. */
+  /** Push all dirty buffers to the GPU. Call once per frame/sync after upserts.
+   *  Color-only changes skip the position re-upload and the
+   *  computeLineDistances pass — both depend solely on positions, and
+   *  re-running them per recolor (e.g. color-map syncs) caused multi-ms
+   *  stalls on large models. */
   flush(): void {
     if (!this.dirty && !this.colorDirty) return;
     const segmentCount = this.count;
@@ -160,11 +164,14 @@ export class ElementsBatched {
       // LineSegmentsGeometry with zero segments — use empty arrays to clear.
       this.geo.setPositions(new Float32Array(0));
       this.geo.setColors(new Float32Array(0));
+      this.mesh.computeLineDistances();
     } else {
-      this.geo.setPositions(this.positions.subarray(0, segmentCount * 6));
+      if (this.dirty) {
+        this.geo.setPositions(this.positions.subarray(0, segmentCount * 6));
+        this.mesh.computeLineDistances();
+      }
       this.geo.setColors(this.colors.subarray(0, segmentCount * 6));
     }
-    this.mesh.computeLineDistances();
     this.dirty = false;
     this.colorDirty = false;
   }

@@ -320,6 +320,8 @@
       loadCases: modelStore.model.loadCases,
       plates: modelStore.model.plates,
       quads: modelStore.model.quads,
+      connectors: modelStore.model.connectors,
+      constraints: modelStore.model.constraints,
     }).filter(d => d.severity === 'error');
   }
 
@@ -373,6 +375,8 @@
       loadCases: modelStore.model.loadCases,
       plates: modelStore.model.plates,
       quads: modelStore.model.quads,
+      connectors: modelStore.model.connectors,
+      constraints: modelStore.model.constraints,
     });
     const merged = [...modelDiags];
     for (const sd of [...general, ...solver]) {

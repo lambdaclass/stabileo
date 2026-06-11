@@ -305,6 +305,8 @@ function serializeInput2D(input: SolverInput): string {
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
     loads: input.loads,
+    constraints: input.constraints ?? [],
+    connectors: input.connectors ? mapToObj(input.connectors) : {},
   });
 }
 
@@ -320,6 +322,7 @@ export function serializeInput3D(input: SolverInput3D): string {
     plates: input.plates ? mapToObj(input.plates) : {},
     quads: input.quads ? mapToObj(input.quads) : {},
     constraints: input.constraints ?? [],
+    connectors: input.connectors ? mapToObj(input.connectors) : {},
     leftHand: input.leftHand ?? false,
   });
 }

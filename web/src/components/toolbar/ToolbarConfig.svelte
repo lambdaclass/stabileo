@@ -111,6 +111,12 @@
             onchange={(e) => { if (is3Dm) uiStore.showLoads3D = e.currentTarget.checked; else uiStore.showLoads = e.currentTarget.checked; }} />
           <span>{t('config.showLoads')}</span>
         </label>
+        {#if !is3Dm}
+          <label class="checkbox-item">
+            <input type="checkbox" bind:checked={uiStore.autoSplitOnNodePlace} />
+            <span title={t('config.autoSplitElementsHelp')}>{t('config.autoSplitElements')}</span>
+          </label>
+        {/if}
         <div class="input-group">
           <label>{t('config.units')}:</label>
           <select bind:value={uiStore.unitSystem}>

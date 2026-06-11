@@ -55,6 +55,34 @@ describe('applyLowDetail', () => {
     expect(g.resultsParent!.visible).toBe(true);
   });
 
+  it('keeps elementsParent visible during orbit when results coloring is active (axialColor / colorMap / verification)', () => {
+    // In solid/sections render mode the result colors live on cylinders /
+    // extrusions inside elementsParent. Without this exception, the colors
+    // disappear every time the user moves the camera.
+    const g = mkGroups('solid');
+    applyLowDetail(true, g, { resultsColoringActive: true });
+    expect(g.elementsParent!.visible).toBe(true);
+    // Other decorative parents still hidden during orbit — the exception
+    // is targeted to the visible color carriers.
+    expect(g.nodesParent!.visible).toBe(false);
+    expect(g.supportsParent!.visible).toBe(false);
+    expect(g.loadsParent!.visible).toBe(false);
+  });
+
+  it('keeps shellsParent visible during orbit when results coloring is active (shell Von Mises heatmap lives on the shell groups)', () => {
+    const g = mkGroups('solid');
+    applyLowDetail(true, g, { resultsColoringActive: true });
+    expect(g.shellsParent!.visible).toBe(true);
+    applyLowDetail(true, g, { resultsColoringActive: false });
+    expect(g.shellsParent!.visible).toBe(false);
+  });
+
+  it('without the resultsColoringActive flag, elementsParent still hides during orbit (no behavior drift for non-result modes)', () => {
+    const g = mkGroups('solid');
+    applyLowDetail(true, g, { resultsColoringActive: false });
+    expect(g.elementsParent!.visible).toBe(false);
+  });
+
   it('tolerates null group references (not-yet-mounted scene)', () => {
     const g: LowDetailGroups = {
       nodesParent: null,

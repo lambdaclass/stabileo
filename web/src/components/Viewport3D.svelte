@@ -470,12 +470,15 @@
     // there is no need for a separate proxy. During orbit we force it visible
     // as the LOD stand-in; at idle its visibility follows `renderMode3D`.
     function setLowDetail(on: boolean): void {
+      const dt = resultsStore.diagramType;
+      const resultsColoringActive = !!resultsStore.results3D
+        && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
         elementsParent,
         elementsBatchedMesh: elementsBatched.mesh,
         renderMode: uiStore.renderMode3D,
-      });
+      }, { resultsColoringActive });
     }
     controls.addEventListener('start', () => {
       isOrbiting = true;
@@ -562,6 +565,7 @@
       initialized: false,
       resultsParent, scene,
       elementGroups,
+      elementsBatched,
       shellGroups: sceneCtx.shellGroups,
       deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null,
       reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,
@@ -1807,8 +1811,12 @@
       if (group) {
         const dt = resultsStore.diagramType;
         if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
-          // Re-apply color map instead of base color
-          syncColorMap3D();
+          // No-op: applyHoverColor skips painting while a color mode is
+          // active, so there is nothing to restore — and a full
+          // syncColorMap3D() here recolored EVERY element (plus a batched
+          // position+color re-upload) per hover-out, a multi-ms stall per
+          // element crossed on large models. Mode changes mid-hover are
+          // covered by the colorMap $effect, which repaints everything.
         } else {
           // In shells mode selectedElements holds plate/quad ids — a frame
           // element with an overlapping id is not selected.
