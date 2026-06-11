@@ -479,14 +479,10 @@
         return;
       }
       if (uiStore.selectedLoads.size > 0) {
-        // selectedLoads stores array indices into modelStore.loads.
-        // Delete in reverse order so earlier indices remain valid.
-        const indices = [...uiStore.selectedLoads].sort((a, b) => b - a);
+        // selectedLoads holds load data ids (the 2D viewport selects by data.id)
+        const ids = [...uiStore.selectedLoads];
         modelStore.batch(() => {
-          for (const idx of indices) {
-            const load = modelStore.loads[idx];
-            if (load) modelStore.removeLoad(load.data.id);
-          }
+          for (const id of ids) modelStore.removeLoad(id);
         });
         uiStore.clearSelectedLoads();
         resultsStore.clear();

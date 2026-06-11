@@ -71,7 +71,10 @@ describe('applyLowDetail — heavy-model fallback', () => {
     const g = mkGroups('solid');
     applyLowDetail(true, g, { heavyModel: true, resultsColoringActive: true });
     expect(g.elementsParent!.visible).toBe(true); // color carrier stays
+    // Shell heatmaps live on the shell groups (pr/5 review fix) — same exception
+    expect(g.shellsParent!.visible).toBe(true);
     expect(g.nodesParent!.visible).toBe(false);   // other decor still stripped
+    expect(g.supportsParent!.visible).toBe(false);
     expect(g.loadsParent!.visible).toBe(false);
   });
 });
@@ -102,6 +105,16 @@ describe('applyLowDetail — always-on invariants', () => {
     const g = mkGroups();
     applyLowDetail(true, g, { heavyModel: true });
     expect(g.resultsParent!.visible).toBe(true);
+  });
+
+  it('heavy fallback without results coloring hides shells and elements (with it, both stay)', () => {
+    const g = mkGroups('solid');
+    applyLowDetail(true, g, { heavyModel: true, resultsColoringActive: false });
+    expect(g.shellsParent!.visible).toBe(false);
+    expect(g.elementsParent!.visible).toBe(false);
+    applyLowDetail(true, g, { heavyModel: true, resultsColoringActive: true });
+    expect(g.shellsParent!.visible).toBe(true);
+    expect(g.elementsParent!.visible).toBe(true);
   });
 
   it('tolerates null group references (not-yet-mounted scene)', () => {

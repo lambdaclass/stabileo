@@ -242,11 +242,18 @@ export function runCirsocDesign(
   const concrete = runUnifiedVerification(results3D, model, governing, stationDemands);
   const normalized = normalizeCirsoc201(concrete, sectionNames);
 
-  // Update stores — single source of truth
-  verificationStore.setConcrete(concrete);
-  const codeInfo = DESIGN_CODES.find(c => c.id === 'cirsoc');
-  const summaryData = buildDesignSummary(normalized, 'cirsoc', codeInfo?.label ?? 'CIRSOC');
-  verificationStore.setDesignResults(summaryData.results, summaryData);
+  // Update stores — single source of truth. An empty run (e.g. all-steel
+  // model: nothing checkable by CIRSOC 201) publishes nothing so callers can
+  // surface an error instead of a "0 members" success; a successful run
+  // supersedes any previous results (legacy or unified) so the viewport
+  // overlay can't mix stale and fresh data.
+  if (normalized.length > 0) {
+    verificationStore.clear();
+    verificationStore.setConcrete(concrete);
+    const codeInfo = DESIGN_CODES.find(c => c.id === 'cirsoc');
+    const summaryData = buildDesignSummary(normalized, 'cirsoc', codeInfo?.label ?? 'CIRSOC');
+    verificationStore.setDesignResults(summaryData.results, summaryData);
+  }
 
   return { normalized, concrete };
 }
@@ -289,21 +296,25 @@ export function runSteelVerification(
     const sd = stationDemands?.get(ef.elementId);
     if (sd) {
       const dems = sd.demands;
+      // Use absValue, not the signed value: `value` is signed (compression n<0,
+      // hogging Mz-<0), so Math.max(signed, ...) collapses a compression-only or
+      // hogging-only governing demand to 0 — silently designing the member as
+      // unloaded. Matches the RC path in auto-verify.ts.
       NuMax = Math.max(
-        dems.find(d => d.category === 'N_compression')?.value ?? 0,
-        dems.find(d => d.category === 'N_tension')?.value ?? 0,
+        dems.find(d => d.category === 'N_compression')?.absValue ?? 0,
+        dems.find(d => d.category === 'N_tension')?.absValue ?? 0,
       );
       MuzMax = Math.max(
-        dems.find(d => d.category === 'Mz+')?.value ?? 0,
-        dems.find(d => d.category === 'Mz-')?.value ?? 0,
+        dems.find(d => d.category === 'Mz+')?.absValue ?? 0,
+        dems.find(d => d.category === 'Mz-')?.absValue ?? 0,
       );
       MuyMax = Math.max(
-        dems.find(d => d.category === 'My+')?.value ?? 0,
-        dems.find(d => d.category === 'My-')?.value ?? 0,
+        dems.find(d => d.category === 'My+')?.absValue ?? 0,
+        dems.find(d => d.category === 'My-')?.absValue ?? 0,
       );
       VuMax = Math.max(
-        dems.find(d => d.category === 'Vy')?.value ?? 0,
-        dems.find(d => d.category === 'Vz')?.value ?? 0,
+        dems.find(d => d.category === 'Vy')?.absValue ?? 0,
+        dems.find(d => d.category === 'Vz')?.absValue ?? 0,
       );
     } else {
       // Endpoint fallback (same as legacy path)

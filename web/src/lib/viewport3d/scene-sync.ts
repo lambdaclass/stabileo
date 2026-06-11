@@ -14,7 +14,7 @@ import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
 import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
-import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
+import { createPlateMesh, createQuadMesh, ensureOwnShellMaterial, SHELL_OPACITY, SHELL_OPACITY_SELECTED } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import type { SolverNode3D } from '../engine/types-3d';
@@ -552,6 +552,11 @@ export function syncLoads(ctx: SceneSyncContext): void {
 export function syncSelection(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
+  // selectedElements is shared between frame elements and plates/quads, whose
+  // id counters overlap; selectMode tells us which entity class the ids refer
+  // to. In shells mode a selected shell id must not light up a frame element.
+  const shellMode = uiStore.selectMode === 'shells';
+
   // Nodes
   const ni = ctx.nodesInstanced;
   for (let i = 0; i < ni.count; i++) {
@@ -565,7 +570,7 @@ export function syncSelection(ctx: SceneSyncContext): void {
   const wireframe = uiStore.renderMode3D === 'wireframe';
   const eb = ctx.elementsBatched;
   for (const [id, group] of ctx.elementGroups) {
-    const selected = uiStore.selectedElements.has(id);
+    const selected = !shellMode && uiStore.selectedElements.has(id);
     const elem = modelStore.elements.get(id);
     const isTruss = elem?.type === 'truss';
     // Use brightened colors in wireframe mode for grid contrast
@@ -586,6 +591,28 @@ export function syncSelection(ctx: SceneSyncContext): void {
     const selected = uiStore.selectedSupports.has(id);
     const color = selected ? COLORS.elementSelected : COLORS.support;
     setGroupColor(gizmo, color);
+  }
+
+  // Shells: in shells mode, boost the opacity of selected plates/quads so the
+  // selection is visible (ids only count as shell ids while in shells mode).
+  // Plate and quad id counters are independent and can collide; deletion
+  // resolves ambiguous ids plate-first, so the highlight mirrors that
+  // precedence to show exactly what Delete would act on.
+  for (const [key, group] of ctx.shellGroups) {
+    const isPlate = key.startsWith('p');
+    const id = parseInt(key.substring(1), 10);
+    const selected = shellMode && uiStore.selectedElements.has(id)
+      && (isPlate || !modelStore.plates.has(id));
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const mat = ensureOwnShellMaterial(child);
+        const opacity = selected ? SHELL_OPACITY_SELECTED : SHELL_OPACITY;
+        if (mat.opacity !== opacity) {
+          mat.opacity = opacity;
+          mat.needsUpdate = true;
+        }
+      }
+    });
   }
 
   // Re-apply color map if active (syncSelection overwrites element colors)

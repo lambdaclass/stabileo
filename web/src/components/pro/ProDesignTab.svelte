@@ -200,6 +200,7 @@
     running = true;
     const sectionNames = getSectionNames();
     let normalized: MemberDesignResult[] = [];
+    let codeName = '';
 
     try {
       if (selectedCode === 'cirsoc') {
@@ -211,13 +212,13 @@
           allStationDemands.size > 0 ? allStationDemands : undefined,
           sectionNames, governing,
         );
+        codeName = 'CIRSOC 201';
         normalized = rcResults;
       } else {
         // WASM path for all other codes
         const payload = buildCheckPayload();
         if (!payload) { error = t('pro.solveFirst'); running = false; return; }
 
-        let codeName = '';
         let rawResult: any = null;
 
         switch (selectedCode) {
@@ -260,15 +261,21 @@
           }
         }
 
-        if (normalized.length === 0) {
-          error = `No members checked. The ${codeName || selectedCode} check may not be available for this model.`;
-          running = false;
-          return;
-        }
       }
 
-      // For non-CIRSOC codes, update the design results store (CIRSOC handled inside runCirsocDesign)
+      // Guard against an empty run for every code path (e.g. CIRSOC on an
+      // all-steel model checks nothing) — never publish a "0 members" success.
+      if (normalized.length === 0) {
+        error = `No members checked. The ${codeName || selectedCode} check may not be available for this model.`;
+        running = false;
+        return;
+      }
+
+      // For non-CIRSOC codes, publish to the design results store (CIRSOC is
+      // published inside runCirsocDesign). Previous runs are superseded so the
+      // viewport overlay can't mix stale and fresh data.
       if (selectedCode !== 'cirsoc') {
+        verificationStore.clear();
         const codeInfo = DESIGN_CODES.find(c => c.id === selectedCode);
         const summaryData = buildDesignSummary(normalized, selectedCode, codeInfo?.label ?? selectedCode);
         verificationStore.setDesignResults(summaryData.results, summaryData);
@@ -316,10 +323,15 @@
     for (const r of designResults) {
       const elem = modelStore.elements.get(r.elementId);
       if (!elem?.reinforcement) {
-        acceptAutoDesign(r.elementId);
+        // commit=false: accumulate all elements, then publish once below.
+        acceptAutoDesign(r.elementId, false);
         count++;
       }
     }
+    // Single reactivity trigger for the whole batch (was O(M) Map clones +
+    // version bumps, each re-running the WASM station extraction + re-verifying
+    // every element).
+    if (count > 0) commitReinforcement();
     return count;
   }
 
@@ -333,6 +345,16 @@
     if (r <= 1.0) return '#ddaa00';
     if (r <= 1.1) return '#ff6600';
     return '#ee2222';
+  }
+
+  /** Bar color that respects the member's overall status. The displayed ratio is
+   *  the strength utilization (which excludes anchorage/fit checks), so a member
+   *  that fails/warns only on a detailing check would otherwise show a green bar
+   *  under a red badge. Floor the color to the status so badge and bar agree. */
+  function statusBarColor(r: number, status: CheckStatus): string {
+    if (status === 'fail') return '#ee2222';
+    if (status === 'warn' && r <= 1.0) return '#ddaa00';
+    return ratioBarColor(r);
   }
 
   // ─── Provided Reinforcement helpers ────────────────────────────
@@ -350,23 +372,32 @@
    *  for reactivity: callers mutate the existing object in-place, so without deep
    *  cloning the Proxy-unwrapped data, template expressions see the same reference
    *  and skip re-rendering. */
-  function setProvided(elemId: number, reinf: ProvidedReinforcement | undefined, isAutoDesign = false) {
+  function setProvided(elemId: number, reinf: ProvidedReinforcement | undefined, isAutoDesign = false, commit = true) {
     const elem = modelStore.elements.get(elemId);
     if (!elem) return;
     // Unwrap Svelte 5 Proxy, then deep-clone to guarantee new references
     elem.reinforcement = reinf ? JSON.parse(JSON.stringify($state.snapshot(reinf))) : undefined;
-    modelStore.model.elements = new Map(modelStore.model.elements);
-    _reinfVersion++;
+    // commit=false lets a batch (e.g. acceptAutoDesignAll) apply many elements
+    // and trigger reactivity once at the end instead of cloning the whole
+    // elements Map + recomputing station demands per element.
+    if (commit) commitReinforcement();
     // Track auto-designed vs user-modified
     if (!isAutoDesign && reinf) {
       userModifiedElems = new Set([...userModifiedElems, elemId]);
     }
   }
 
+  /** Publish accumulated reinforcement edits: reassign the Map (Svelte 5 Map
+   *  reactivity) and bump the version that gated derived recomputation. */
+  function commitReinforcement() {
+    modelStore.model.elements = new Map(modelStore.model.elements);
+    _reinfVersion++;
+  }
+
   /** Accept auto-designed reinforcement as provided (copies from verification result).
    *  TRANSITIONAL: Reads CIRSOC-specific auto-design proposal from concreteMap.
    *  Phase 2: solver returns design proposals as part of VerificationReport. */
-  function acceptAutoDesign(elemId: number) {
+  function acceptAutoDesign(elemId: number, commit = true) {
     const v = verificationStore.concreteMap.get(elemId);
     if (!v) return;
     const reinf: ProvidedReinforcement = {};
@@ -407,7 +438,7 @@
         spacing: v.shear.spacing,
       };
     }
-    setProvided(elemId, reinf, true);
+    setProvided(elemId, reinf, true, commit);
     autoDesignedElems = new Set([...autoDesignedElems, elemId]);
   }
 
@@ -748,7 +779,7 @@
                 <div class="ratio-cell">
                   <span class="ratio-value">{fmtRatio(govRatio)}</span>
                   <div class="ratio-bar">
-                    <div class="ratio-fill" style="width:{ratioBarWidth(govRatio)};background:{ratioBarColor(govRatio)}"></div>
+                    <div class="ratio-fill" style="width:{ratioBarWidth(govRatio)};background:{statusBarColor(govRatio, effectiveStatus)}"></div>
                   </div>
                 </div>
               </td>

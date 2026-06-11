@@ -53,10 +53,12 @@ export interface LowDetailGroups {
  * groups and force the batched wireframe on as a lightweight stand-in — so very
  * large models stay responsive during motion.
  *
- * `resultsParent` is never toggled. `elementsParent` is additionally kept
- * visible in the heavy fallback when a result-coloring mode (axialColor /
- * colorMap / verification) is active, since those colors live on the per-element
- * meshes.
+ * `resultsParent` is never toggled. `elementsParent` AND `shellsParent` are
+ * additionally kept visible in the heavy fallback when a result-coloring mode
+ * (axialColor / colorMap / verification) is active: frame colors live on the
+ * per-element meshes and the shell Von Mises heatmap is painted onto the shell
+ * groups themselves (applyShellVertexColors) — hiding either would make the
+ * visualization vanish exactly while the user inspects it.
  */
 export function applyLowDetail(
   on: boolean,
@@ -65,7 +67,10 @@ export function applyLowDetail(
 ): void {
   const heavy = opts?.heavyModel === true;
   const keepElementsForResults = opts?.resultsColoringActive === true;
-  // Only strip overlays/solids during motion in the heavy fallback.
+  // Only strip overlays/solids during motion in the heavy fallback. The
+  // result-coloring exception (from the pr/5 review fixes) covers BOTH the
+  // per-element meshes and the shell groups — the shell heatmap lives on the
+  // shells themselves.
   const hideDecor = on && heavy;
   const hideElements = on && heavy && !keepElementsForResults;
 
@@ -73,7 +78,7 @@ export function applyLowDetail(
   if (g.localAxesParent) g.localAxesParent.visible = !hideDecor;
   if (g.supportsParent) g.supportsParent.visible = !hideDecor;
   if (g.loadsParent) g.loadsParent.visible = !hideDecor;
-  if (g.shellsParent) g.shellsParent.visible = !hideDecor;
+  if (g.shellsParent) g.shellsParent.visible = !hideElements;
   if (g.elementsParent) g.elementsParent.visible = !hideElements;
 
   if (g.elementsBatchedMesh) {

@@ -50,9 +50,26 @@ function createVerificationStore() {
     /** Whether any verification results exist (legacy or unified) */
     get hasResults() { return concreteVerifs.length > 0 || steelVerifs.length > 0 || designResults.length > 0; },
 
-    // Legacy setters
-    setConcrete(verifs: ElementVerification[]) { concreteVerifs = verifs; rebuildLegacyMaps(); },
-    setSteel(verifs: SteelVerification[]) { steelVerifs = verifs; rebuildLegacyMaps(); },
+    // Legacy setters. A fresh legacy (CIRSOC) run supersedes any previous
+    // unified design results — getMaxRatio/getStatus give designMap priority,
+    // so stale unified entries would otherwise keep painting the viewport
+    // with results from an older Design-tab run. (ProDesignTab's CIRSOC path
+    // calls setConcrete *before* setDesignResults, so its own unified results
+    // survive this invalidation.)
+    setConcrete(verifs: ElementVerification[]) {
+      concreteVerifs = verifs;
+      rebuildLegacyMaps();
+      designResults = [];
+      designMap = new Map();
+      designSummary = null;
+    },
+    setSteel(verifs: SteelVerification[]) {
+      steelVerifs = verifs;
+      rebuildLegacyMaps();
+      designResults = [];
+      designMap = new Map();
+      designSummary = null;
+    },
 
     /** Set unified design-check results (multi-code) */
     setDesignResults(results: MemberDesignResult[], summary: DesignCheckSummary) {
