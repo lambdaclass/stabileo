@@ -1811,8 +1811,12 @@
       if (group) {
         const dt = resultsStore.diagramType;
         if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
-          // Re-apply color map instead of base color
-          syncColorMap3D();
+          // No-op: applyHoverColor skips painting while a color mode is
+          // active, so there is nothing to restore — and a full
+          // syncColorMap3D() here recolored EVERY element (plus a batched
+          // position+color re-upload) per hover-out, a multi-ms stall per
+          // element crossed on large models. Mode changes mid-hover are
+          // covered by the colorMap $effect, which repaints everything.
         } else {
           // In shells mode selectedElements holds plate/quad ids — a frame
           // element with an overlapping id is not selected.

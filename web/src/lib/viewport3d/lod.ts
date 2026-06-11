@@ -52,6 +52,11 @@ export interface LowDetailGroups {
  * render modes the colors live on the cylinders / extruded sections inside
  * `elementsParent`, so hiding the parent during orbit makes the result
  * visualization disappear every time the user moves the camera.
+ *
+ * `shellsParent` gets the same exception: the shell Von Mises heatmap is
+ * painted onto the shell groups themselves (applyShellVertexColors), so
+ * hiding them during orbit makes the one visualization shell models care
+ * about vanish exactly while the user inspects it.
  */
 export function applyLowDetail(
   on: boolean,
@@ -62,7 +67,7 @@ export function applyLowDetail(
   if (g.nodesParent) g.nodesParent.visible = !on;
   if (g.supportsParent) g.supportsParent.visible = !on;
   if (g.loadsParent) g.loadsParent.visible = !on;
-  if (g.shellsParent) g.shellsParent.visible = !on;
+  if (g.shellsParent) g.shellsParent.visible = !on || keepElementsForResults;
   if (g.elementsParent) g.elementsParent.visible = !on || keepElementsForResults;
 
   if (g.elementsBatchedMesh) {

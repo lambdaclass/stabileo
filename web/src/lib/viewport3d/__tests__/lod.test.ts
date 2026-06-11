@@ -63,10 +63,18 @@ describe('applyLowDetail', () => {
     applyLowDetail(true, g, { resultsColoringActive: true });
     expect(g.elementsParent!.visible).toBe(true);
     // Other decorative parents still hidden during orbit — the exception
-    // is targeted to the visible color carrier.
+    // is targeted to the visible color carriers.
     expect(g.nodesParent!.visible).toBe(false);
     expect(g.supportsParent!.visible).toBe(false);
     expect(g.loadsParent!.visible).toBe(false);
+  });
+
+  it('keeps shellsParent visible during orbit when results coloring is active (shell Von Mises heatmap lives on the shell groups)', () => {
+    const g = mkGroups('solid');
+    applyLowDetail(true, g, { resultsColoringActive: true });
+    expect(g.shellsParent!.visible).toBe(true);
+    applyLowDetail(true, g, { resultsColoringActive: false });
+    expect(g.shellsParent!.visible).toBe(false);
   });
 
   it('without the resultsColoringActive flag, elementsParent still hides during orbit (no behavior drift for non-result modes)', () => {

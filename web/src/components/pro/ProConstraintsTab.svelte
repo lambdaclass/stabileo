@@ -3,6 +3,12 @@
   import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   import { t } from '../../lib/i18n';
 
+  /** Comma-tolerant numeric parse (same rule as ProLoadsTab.parseNum):
+   *  '0,5' must read as 0.5, not silently truncate to 0 via parseFloat. */
+  function parseNum(value: string): number {
+    return parseFloat(String(value).replace(',', '.'));
+  }
+
   // Discriminator strings must match the Rust Constraint variant rename
   // in engine/src/types/input.rs. Both `equalDOF` and `linearMPC` keep
   // the all-caps acronym; using camelCase here surfaces as a runtime
@@ -139,7 +145,7 @@
       if (parts.length !== 3) return null;
       const nodeId = parseInt(parts[0]);
       const dofName = parts[1].trim();
-      const coefficient = parseFloat(parts[2]);
+      const coefficient = parseNum(parts[2]);
       const dofIdx = dofLabels.indexOf(dofName as typeof dofLabels[number]);
       if (isNaN(nodeId) || isNaN(coefficient) || dofIdx < 0) return null;
       return { nodeId, dof: dofIdx, coefficient };
@@ -156,9 +162,9 @@
     const master = validateNode(ecMaster);
     const slave = validateNode(ecSlave);
     if (master === null || slave === null || master === slave) return;
-    const ox = parseFloat(ecOffsetX);
-    const oy = parseFloat(ecOffsetY);
-    const oz = parseFloat(ecOffsetZ);
+    const ox = parseNum(ecOffsetX);
+    const oy = parseNum(ecOffsetY);
+    const oz = parseNum(ecOffsetZ);
     if (isNaN(ox) || isNaN(oy) || isNaN(oz)) return;
     modelStore.addConstraint({
       type: 'eccentricConnection',
@@ -274,12 +280,12 @@
     const ni = validateNode(connNodeI);
     const nj = validateNode(connNodeJ);
     if (ni === null || nj === null || ni === nj) return;
-    const kA = parseFloat(connKAxial);
-    const kS = parseFloat(connKShear);
-    const kM = parseFloat(connKMoment);
-    const kSz = parseFloat(connKShearZ);
-    const kBy = parseFloat(connKBendY);
-    const kBz = parseFloat(connKBendZ);
+    const kA = parseNum(connKAxial);
+    const kS = parseNum(connKShear);
+    const kM = parseNum(connKMoment);
+    const kSz = parseNum(connKShearZ);
+    const kBy = parseNum(connKBendY);
+    const kBz = parseNum(connKBendZ);
     if ([kA, kS, kM, kSz, kBy, kBz].some(v => isNaN(v))) return;
     // Disallow all-zero connectors — that's a fully disconnected pair, almost
     // certainly a user error and a guaranteed mechanism.
