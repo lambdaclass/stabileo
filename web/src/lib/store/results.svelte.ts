@@ -73,6 +73,8 @@ function createResultsStore() {
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
   let animateDeformed = $state<boolean>(false);
   let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises' | 'shellBending'>('moment');
+  // Which shell quantity the shell contour paints (selectable in PRO results).
+  let shellContourComponent = $state<import('../engine/shell-stress').ShellContourComponent>('vonMises');
   let showDiagramValues = $state<boolean>(true);
   let animSpeed = $state<number>(1.0); // animation speed multiplier (0.25 - 3x)
 
@@ -169,6 +171,8 @@ function createResultsStore() {
     set animateDeformed(v: boolean) { animateDeformed = v; },
     get colorMapKind() { return colorMapKind; },
     set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises' | 'shellBending') { colorMapKind = v; },
+    get shellContourComponent() { return shellContourComponent; },
+    set shellContourComponent(v: import('../engine/shell-stress').ShellContourComponent) { shellContourComponent = v; },
     get showDiagramValues() { return showDiagramValues; },
     set showDiagramValues(v: boolean) { showDiagramValues = v; },
     get animSpeed() { return animSpeed; },

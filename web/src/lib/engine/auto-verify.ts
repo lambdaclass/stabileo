@@ -136,12 +136,41 @@ export function autoVerifyFromResults(
       TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
     }
 
-    // ─── Axis identity (SEAM 3): never magnitude-sort My/Mz ───
-    // Strong axis = Mz (paired shear Vy) → Mu / Vu.
-    // Weak axis   = My (paired shear Vz) → Muy / Vz.
-    const MuMax = MzMax;
-    const MuyMax = MyMax;
-    const VuMax = VyAbs;
+    // ─── Flexure axis selection ───────────────────────────────
+    // SEAM-3 identity is preserved: My and Mz are NEVER magnitude-sorted into a
+    // single "Mu". For COLUMNS, the strong axis stays Mz (Mu, paired shear Vy)
+    // and My is the weak/biaxial moment (Muy, paired shear Vz) — unchanged.
+    //
+    // For BEAMS, the primary flexural axis is chosen per element: in this
+    // solver's local frame a horizontal beam's vertical-plane (gravity) bending
+    // is My (depth = h, paired shear Vz), while horizontal-plane (lateral)
+    // bending is Mz (depth = b, paired shear Vy). We pick the governing axis by
+    // an elastic-stress proxy Mu/(width·depth²) that embeds the correct b/h, then
+    // run the full CIRSOC check on that axis with the axis-correct section
+    // orientation + paired shear. Columns previously "worked" only because their
+    // gravity+lateral demand is genuinely Mz; beams were stuck at Mz → 0.
+    const MuyMax = MyMax; // column weak-axis moment (biaxial) — unchanged
+    let MuMax: number, VuMax: number, bFlex: number, hFlex: number;
+    let flexureAxis: 'My' | 'Mz';
+    if (isVertical) {
+      MuMax = MzMax; VuMax = VyAbs; bFlex = section.b; hFlex = section.h; flexureAxis = 'Mz';
+    } else {
+      // My bends about local-y → depth h; Mz bends about local-z → depth b.
+      const stressMy = MyMax / (section.b * section.h * section.h);
+      const stressMz = MzMax / (section.h * section.b * section.b);
+      if (stressMy >= stressMz) {
+        flexureAxis = 'My'; MuMax = MyMax; VuMax = VzMax;
+        bFlex = section.b; hFlex = section.h;            // standard orientation (depth h)
+        // Re-point flexure/shear governing combos to the My/Vz pairing.
+        if (stationGovCombos) {
+          if (stationGovCombos.momentY) stationGovCombos.flexure = stationGovCombos.momentY;
+          if (stationGovCombos.shearZ) stationGovCombos.shear = stationGovCombos.shearZ;
+        }
+      } else {
+        flexureAxis = 'Mz'; MuMax = MzMax; VuMax = VyAbs;
+        bFlex = section.h; hFlex = section.b;            // rotated orientation (depth b)
+      }
+    }
 
     let M1: number | undefined, M2: number | undefined;
     if (isVertical) {
@@ -169,7 +198,9 @@ export function autoVerifyFromResults(
     const input: VerificationInput = {
       elementId: ef.elementId, elementType: elemType,
       Mu: MuMax, Vu: VuMax, Nu: NuMax,
-      b: section.b, h: section.h, fc, fy: rebarFy, cover, stirrupDia,
+      // Axis-correct section orientation for the governing beam axis (columns
+      // keep their real b/h since they always use Mz).
+      b: bFlex, h: hFlex, fc, fy: rebarFy, cover, stirrupDia,
       Muy: isVertical ? MuyMax : undefined,
       Vz: VzMax > 0.01 ? VzMax : undefined,
       Tu: TuMax > 0.001 ? TuMax : undefined,
@@ -177,6 +208,7 @@ export function autoVerifyFromResults(
     };
 
     const v = verifyElement(input);
+    v.flexureAxis = flexureAxis;
 
     // Attach governing combo metadata — prefer station-based (richer) over legacy
     if (stationGovCombos) {

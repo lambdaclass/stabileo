@@ -5,6 +5,8 @@
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
+  import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
+  import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
   import { ElementsBatched } from '../lib/three/elements-batched';
   import { ElementsPicking } from '../lib/three/elements-picking';
@@ -15,7 +17,7 @@
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
-  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
 
@@ -583,6 +585,7 @@
       loadGroup: null,
       localAxesGroup: null,
       offsetVizGroup: null,
+      shellOffsetVizGroup: null,
       localAxesParent,
       colorMapApplied: false,
     };
@@ -607,6 +610,7 @@
   function syncShells() { _syncShells(sceneCtx); }
   function syncLocalAxes() { _syncLocalAxes(sceneCtx); }
   function syncMemberOffsets() { _syncMemberOffsets(sceneCtx); }
+  function syncShellOffsets() { _syncShellOffsets(sceneCtx); }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
@@ -673,6 +677,7 @@
   $effect(() => {
     modelStore.plates;
     modelStore.quads;
+    uiStore.renderMode3D; // flat ↔ extruded slab rebuild
     syncShells();
     invalidate();
   });
@@ -749,6 +754,12 @@
     resultsStore.results3D;
     resultsStore.diagramType;
     resultsStore.colorMapKind;
+    resultsStore.shellContourComponent;
+    // Shell meshes rebuild on render-mode / geometry change → re-apply contour.
+    uiStore.renderMode3D;
+    modelStore.plates;
+    modelStore.quads;
+    modelStore.modelVersion;
     // Also react to verification store changes for 'verification' color map
     verificationStore.concrete;
     verificationStore.steel;
@@ -775,6 +786,7 @@
     uiStore.selectedNodes;
     uiStore.selectedElements;
     uiStore.selectedSupports;
+    uiStore.selectedShells;
     syncSelection();
     invalidate();
   });
@@ -785,9 +797,12 @@
   // dispose + rebuild every triad on each selection click.
   $effect(() => {
     uiStore.localAxesMode3D;
+    uiStore.shellAxesMode3D;
     uiStore.analysisMode;
     modelStore.nodes;
     modelStore.elements;
+    modelStore.plates;
+    modelStore.quads;
     modelStore.modelVersion;
     syncLocalAxes();
     invalidate();
@@ -800,6 +815,17 @@
     modelStore.modelVersion;
     uiStore.analysisMode;
     syncMemberOffsets();
+    invalidate();
+  });
+
+  // Shell-offset preview: rigid arms + ghost outline of the offset surface.
+  $effect(() => {
+    modelStore.plates;
+    modelStore.quads;
+    modelStore.nodes;
+    modelStore.modelVersion;
+    uiStore.analysisMode;
+    syncShellOffsets();
     invalidate();
   });
 
@@ -1477,6 +1503,16 @@
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
 
+    // ── Shell node-pick mode: clicks collect node ids for a shell creator ──
+    if (uiStore.shellNodePick.active) {
+      const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
+      for (const hit of nodeHits) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'node') { uiStore.pushShellNodePick(ud.id); break; }
+      }
+      return; // consume the click while picking (no normal selection / clear)
+    }
+
     // ── Stress mode: click on element → stress query ──
     if (uiStore.selectMode === 'stress' && resultsStore.results3D) {
       const elemHits = raycaster.intersectObjects(elementsParent.children, true);
@@ -1592,6 +1628,17 @@
       const ud = findUserData(hit.object);
       if (ud?.type === 'support') {
         uiStore.selectSupport(ud.id, addToSel);
+        return;
+      }
+    }
+
+    // Shells (plates + quads) — lowest priority so frames/nodes on top win.
+    const shellHits = raycaster.intersectObjects(shellsParent.children, true);
+    for (const hit of shellHits) {
+      const ud = resolveHitUserData(hit);
+      if (ud?.type === 'plate' || ud?.type === 'quad') {
+        const key = (ud.type === 'plate' ? 'p' : 'q') + ud.id;
+        uiStore.selectShell(key, addToSel);
         return;
       }
     }
@@ -1741,7 +1788,7 @@
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
 
-    const allPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children];
+    const allPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children, ...shellsParent.children];
     const hits = raycaster.intersectObjects(allPickable, true);
 
     let newHover: { type: string; id: number } | null = null;
@@ -1771,6 +1818,9 @@
       } else if (newHover.type === 'support') {
         const s = modelStore.supports.get(newHover.id);
         if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', s.type);
+      } else if (newHover.type === 'plate' || newHover.type === 'quad') {
+        const sh = newHover.type === 'plate' ? modelStore.plates.get(newHover.id) : modelStore.quads.get(newHover.id);
+        if (sh) tooltipText = `${newHover.type === 'plate' ? 'Plate' : 'Quad'} ${newHover.id} · t=${sh.thickness}m`;
       }
       if (tooltipText) {
         hoverTooltip = { text: tooltipText, x: e.clientX - rect.left + 15, y: e.clientY - rect.top - 10 };
@@ -1897,7 +1947,30 @@
         const selected = uiStore.selectedSupports.has(data.id);
         setGroupColor(gizmo, selected ? COLORS.elementSelected : COLORS.support);
       }
+    } else if (data.type === 'plate' || data.type === 'quad') {
+      const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
+      const group = sceneCtx.shellGroups.get(key);
+      if (group) {
+        const sel = uiStore.selectedShells.has(key);
+        if (shellContourActive()) {
+          paintShellEdge(group, sel ? COLORS.elementSelected : (group.userData.baseEdgeColor as number) ?? COLORS.support);
+        } else if (sel) {
+          paintShell(group, COLORS.elementSelected, COLORS.elementSelected);
+        } else {
+          restoreShellColor(group);
+        }
+      }
     }
+  }
+
+  /** Mirror of scene-sync's contour check (so hover/selection don't clobber an
+   *  active shell contour). */
+  function shellContourActive(): boolean {
+    if (resultsStore.diagramType !== 'colorMap') return false;
+    const k = resultsStore.colorMapKind;
+    if (k !== 'shellVonMises' && k !== 'shellBending') return false;
+    const r = resultsStore.results3D;
+    return !!(r && ((r.plateStresses?.length ?? 0) > 0 || (r.quadStresses?.length ?? 0) > 0));
   }
 
   function applyHoverColor(data: { type: string; id: number }) {
@@ -1917,6 +1990,13 @@
     } else if (data.type === 'support') {
       const gizmo = supportGizmos.get(data.id);
       if (gizmo) setGroupColor(gizmo, COLORS.elementHovered);
+    } else if (data.type === 'plate' || data.type === 'quad') {
+      const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
+      const group = sceneCtx.shellGroups.get(key);
+      if (group) {
+        if (shellContourActive()) paintShellEdge(group, COLORS.elementHovered);
+        else paintShell(group, COLORS.elementHovered, COLORS.elementHovered);
+      }
     }
   }
 
@@ -2223,6 +2303,9 @@
     width="80"
     height="80"
   ></canvas>
+
+  <!-- Shell contour legend (visible only while a shell contour map is active) -->
+  <ShellContourLegend />
 </div>
 
 <style>

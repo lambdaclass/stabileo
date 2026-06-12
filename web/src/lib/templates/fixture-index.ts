@@ -43,6 +43,9 @@ const fixtures3D: Record<string, FixtureLoader> = {
   '3d-building': () => import('./fixtures/3d-building.json'),
   'pro-edificio-7p': () => import('./fixtures/pro-edificio-7p.json'),
   'rc-qa-diagnostic': () => import('./fixtures/rc-qa-diagnostic.json'),
+  // Shell QA diagnostic: slab (bending) + tabique wall (membrane) + columns +
+  // curved balcony beam, so every shell contour component varies somewhere.
+  'rc-qa-diagnostic-shells': () => import('./fixtures/rc-qa-diagnostic-shells.json'),
   // PRO generators (now JSON)
   'torre-irregular-con-retiros': () => import('./fixtures/torre-irregular-con-retiros.json'),
   'rc-design-frame': () => import('./fixtures/rc-design-frame.json'),

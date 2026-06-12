@@ -180,6 +180,17 @@ export interface SolverQuadElement {
   shellFamily?: ShellFamily;
 }
 
+/** Degenerated-continuum curved shell (4-node, captures curvature via covariant
+ *  bases). Solver-ready in the engine; stresses return in quadStresses keyed by
+ *  this id. `normals` optional (auto-computed from geometry if omitted). */
+export interface SolverCurvedShellElement {
+  id: number;
+  nodes: [number, number, number, number];
+  materialId: number;
+  thickness: number; // m
+  normals?: [[number, number, number], [number, number, number], [number, number, number], [number, number, number]];
+}
+
 // ─── Constraints ────────────────────────────────────────────────
 
 // NOTE: Discriminators must match the Rust serde rename for each Constraint variant
@@ -292,6 +303,7 @@ export interface SolverInput3D {
   loads: SolverLoad3D[];
   plates?: Map<number, SolverPlateElement>;
   quads?: Map<number, SolverQuadElement>;
+  curvedShells?: Map<number, SolverCurvedShellElement>;
   constraints?: Constraint3D[];
   /** Joint/spring/bearing primitives, parallel to `elements`. Solver-side: top-level
    *  `connectors: HashMap<String, ConnectorElement>` (see Rust ConnectorElement). */

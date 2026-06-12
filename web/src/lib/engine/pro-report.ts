@@ -13,6 +13,7 @@ import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOp
 import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
 import type { QuantitySummary } from './quantity-takeoff';
 import type { SolverDiagnostic } from './types';
+import { principalStresses } from './shell-stress';
 
 /** Translation function type — accepts key, returns translated string */
 type TFunc = (key: string) => string;
@@ -728,6 +729,14 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`<div class="page-break"></div>`);
   html.push(`<h1 id="sec-results">${escHtml(tr('report.results'))}</h1>`);
 
+  // Model size — nodes, elements, and free (unconstrained) DOF count.
+  // nFree comes from the solver timings/meta; omitted gracefully if absent.
+  {
+    const nFree = results.timings?.nFree;
+    const dofLine = nFree !== undefined ? `, ${nFree} ${escHtml(tr('report.freeDof') || 'free DOF')}` : '';
+    html.push(`<p class="model-size">${nodes.length} ${escHtml(tr('report.nodes'))}, ${elements.length} ${escHtml(tr('report.elements'))}${dofLine}.</p>`);
+  }
+
   // Reactions
   html.push(`<h2>2.1 ${escHtml(tr('report.reactions'))}</h2>`);
   html.push(`<table><thead><tr><th>Nodo</th><th>${km('F_x')} (kN)</th><th>${km('F_y')} (kN)</th><th>${km('F_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
@@ -759,6 +768,59 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<tr><td>${d.nodeId}</td><td class="num">${fmtNum(d.ux, 6)}</td><td class="num">${fmtNum(d.uy, 6)}</td><td class="num">${fmtNum(d.uz, 6)}</td><td class="num">${fmtNum(d.rx, 6)}</td><td class="num">${fmtNum(d.ry, 6)}</td><td class="num">${fmtNum(d.rz, 6)}</td></tr>`);
     }
     html.push(`</tbody></table>`);
+  }
+
+  // 2.4 Shell results (slabs/walls) — built from plate/quad stresses
+  {
+    const psList = results.plateStresses ?? [];
+    const qsList = results.quadStresses ?? [];
+    if (psList.length || qsList.length) {
+      html.push(`<h2>2.4 ${escHtml(tr('report.shellResults'))} (${psList.length + qsList.length})</h2>`);
+      html.push(`<p class="assumption">${escHtml(tr('report.shellResultsAssumptions'))}</p>`);
+
+      interface ShellRow {
+        kind: string; id: number;
+        sxx: number; syy: number; txy: number;
+        s1: number; s2: number; mx: number; my: number; mxy: number; vm: number;
+      }
+      const rows: ShellRow[] = [];
+      const addRow = (kind: string, s: { elementId: number; sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; vonMises: number }) => {
+        const pr = principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy);
+        rows.push({ kind, id: s.elementId, sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy, s1: pr.sigma1, s2: pr.sigma2, mx: s.mx, my: s.my, mxy: s.mxy, vm: s.vonMises });
+      };
+      for (const s of psList) addRow('Plate', s);
+      for (const s of qsList) addRow('Quad', s);
+
+      // Governing values (provenance for the engineer)
+      const gv = rows.reduce((a, b) => (b.vm > a.vm ? b : a), rows[0]);
+      const g1 = rows.reduce((a, b) => (Math.abs(b.s1) > Math.abs(a.s1) ? b : a), rows[0]);
+      html.push(`<p>${escHtml(interp(tr('report.shellGoverning'), {
+        vm: fmtNum(gv.vm), vmEl: `${gv.kind} ${gv.id}`,
+        s1: fmtNum(g1.s1), s1El: `${g1.kind} ${g1.id}`,
+      }))}</p>`);
+
+      const LIMIT = 60;
+      let shown = rows;
+      if (rows.length > LIMIT) {
+        shown = [...rows].sort((a, b) => b.vm - a.vm).slice(0, LIMIT);
+        html.push(`<p>${escHtml(interp(tr('report.shellResultsOmitted'), { n: String(rows.length), k: String(LIMIT) }))}</p>`);
+      }
+
+      html.push(`<table><thead><tr><th>Elem</th>`
+        + `<th>${km('\\sigma_{xx}')}</th><th>${km('\\sigma_{yy}')}</th><th>${km('\\tau_{xy}')}</th>`
+        + `<th>${km('\\sigma_{1}')}</th><th>${km('\\sigma_{2}')}</th>`
+        + `<th>${km('m_x')}</th><th>${km('m_y')}</th><th>${km('m_{xy}')}</th>`
+        + `<th>${km('\\sigma_{vM}')}</th></tr></thead><tbody>`);
+      for (const r of shown) {
+        html.push(`<tr><td>${escHtml(r.kind)} ${r.id}</td>`
+          + `<td class="num">${fmtNum(r.sxx)}</td><td class="num">${fmtNum(r.syy)}</td><td class="num">${fmtNum(r.txy)}</td>`
+          + `<td class="num">${fmtNum(r.s1)}</td><td class="num">${fmtNum(r.s2)}</td>`
+          + `<td class="num">${fmtNum(r.mx)}</td><td class="num">${fmtNum(r.my)}</td><td class="num">${fmtNum(r.mxy)}</td>`
+          + `<td class="num">${fmtNum(r.vm)}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+      html.push(`<p class="note">${escHtml(tr('report.shellUnitsNote'))}</p>`);
+    }
   }
 
   } // end showSection('results')

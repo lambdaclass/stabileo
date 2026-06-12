@@ -151,6 +151,10 @@ export interface ElementVerification {
   cover: number; // m
   // Results
   flexure: FlexureResult;
+  /** Local bending axis the beam flexure check used: 'My' (vertical-plane,
+   *  gravity, depth=h) or 'Mz' (horizontal-plane, lateral, depth=b). Columns
+   *  always use 'Mz' (strong axis, SEAM-3). Set by auto-verify. */
+  flexureAxis?: 'My' | 'Mz';
   shear: ShearResult;
   column?: ColumnResult;
   torsion?: TorsionResult;

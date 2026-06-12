@@ -14,11 +14,12 @@ import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
 import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
-import { createPlateMesh, createQuadMesh, ensureOwnShellMaterial, SHELL_OPACITY, SHELL_OPACITY_SELECTED } from '../three/create-shell-mesh';
+import { createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, paintShellEdge, restoreShellColor } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
 import { hasMemberOffset, resolveOffsetWorldVectors } from '../engine/member-offsets';
+import { hasShellOffset, resolveShellOffsetGlobal } from '../engine/shell-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
   get2DDisplayNodalLoadMoment,
@@ -78,6 +79,7 @@ export interface SceneSyncContext {
   loadGroup: THREE.Group | null;
   localAxesGroup: THREE.Group | null;
   offsetVizGroup: THREE.Group | null;
+  shellOffsetVizGroup: THREE.Group | null;
   /** Persistent parent for the triad group — LOD-managed (hidden in the
    *  heavy-model orbit fallback, like the other decorative parents). */
   localAxesParent: THREE.Group;
@@ -301,16 +303,24 @@ export function syncShells(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
   const project2D = projectFlag();
+  const renderMode = uiStore.renderMode3D;
 
   const getNode = (id: number) => {
     const n = modelStore.nodes.get(id);
     return n ? projectNodeToScene(n, project2D) : null;
   };
 
-  // Signature of a shell: node ids + positions + project flag.
-  // Rebuild the mesh only when the signature changes.
-  const sig = (project: boolean, pts: Array<{ x: number; y: number; z: number }>, ids: number[]): string => {
-    let s = project ? '1' : '0';
+  // Signature of a shell: node ids + positions + project flag + render mode +
+  // thickness + material (mode/thickness/material drive the extruded slab and
+  // its colour, so a change must rebuild the mesh).
+  const sig = (
+    project: boolean,
+    pts: Array<{ x: number; y: number; z: number }>,
+    ids: number[],
+    thickness: number,
+    materialId: number,
+  ): string => {
+    let s = `${project ? '1' : '0'}|${renderMode}|t${thickness}|m${materialId}`;
     for (let i = 0; i < ids.length; i++) {
       const p = pts[i];
       s += `|${ids[i]}:${p.x}:${p.y}:${p.z}`;
@@ -320,13 +330,27 @@ export function syncShells(ctx: SceneSyncContext): void {
 
   const seen = new Set<string>();
 
+  // In 'sections' (rendered) mode, draw an offset shell at its analytical
+  // offset location (like member offsets). The offset is genuine-3D only, so
+  // skip when projecting a planar model. Shifting the points here makes the
+  // signature change too → the mesh rebuilds when the offset changes.
+  const shiftForOffset = (
+    pts: Array<{ x: number; y: number; z: number }>,
+    offset: import('../model/element-3d-metadata').ShellOffset | undefined,
+  ): Array<{ x: number; y: number; z: number }> => {
+    if (renderMode !== 'sections' || project2D || !offset) return pts;
+    const v = resolveShellOffsetGlobal(offset, pts);
+    if (!v) return pts;
+    return pts.map(p => ({ x: p.x + v.x, y: p.y + v.y, z: p.z + v.z }));
+  };
+
   // Plates (triangular DKT)
   for (const [id, plate] of modelStore.plates) {
     const key = `p${id}`;
     const nodes = plate.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
-    const [n0, n1, n2] = nodes as Array<{ x: number; y: number; z: number }>;
-    const signature = sig(project2D, [n0, n1, n2], [...plate.nodes]);
+    const [n0, n1, n2] = shiftForOffset(nodes as Array<{ x: number; y: number; z: number }>, plate.offset);
+    const signature = sig(project2D, [n0, n1, n2], [...plate.nodes], plate.thickness, plate.materialId);
 
     const existing = ctx.shellGroups.get(key);
     if (existing && existing.userData.shellSig === signature) {
@@ -337,7 +361,9 @@ export function syncShells(ctx: SceneSyncContext): void {
       ctx.shellsParent.remove(existing);
       disposeObject(existing);
     }
-    const group = createPlateMesh(n0, n1, n2, id);
+    const group = createPlateMesh(n0, n1, n2, id, {
+      renderMode, thickness: plate.thickness, faceColor: shellColorForMaterial(plate.materialId),
+    });
     group.userData.shellSig = signature;
     ctx.shellsParent.add(group);
     ctx.shellGroups.set(key, group);
@@ -349,8 +375,8 @@ export function syncShells(ctx: SceneSyncContext): void {
     const key = `q${id}`;
     const nodes = quad.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
-    const [n0, n1, n2, n3] = nodes as Array<{ x: number; y: number; z: number }>;
-    const signature = sig(project2D, [n0, n1, n2, n3], [...quad.nodes]);
+    const [n0, n1, n2, n3] = shiftForOffset(nodes as Array<{ x: number; y: number; z: number }>, quad.offset);
+    const signature = sig(project2D, [n0, n1, n2, n3], [...quad.nodes], quad.thickness, quad.materialId);
 
     const existing = ctx.shellGroups.get(key);
     if (existing && existing.userData.shellSig === signature) {
@@ -361,12 +387,17 @@ export function syncShells(ctx: SceneSyncContext): void {
       ctx.shellsParent.remove(existing);
       disposeObject(existing);
     }
-    const group = createQuadMesh(n0, n1, n2, n3, id);
+    const group = createQuadMesh(n0, n1, n2, n3, id, {
+      renderMode, thickness: quad.thickness, faceColor: shellColorForMaterial(quad.materialId),
+    });
     group.userData.shellSig = signature;
     ctx.shellsParent.add(group);
     ctx.shellGroups.set(key, group);
     seen.add(key);
   }
+
+  // Re-apply selection tint to surviving/rebuilt shell groups.
+  applyShellSelection(ctx);
 
   // Remove shell groups whose backing plate/quad no longer exists
   for (const [key, group] of ctx.shellGroups) {
@@ -374,6 +405,35 @@ export function syncShells(ctx: SceneSyncContext): void {
     ctx.shellsParent.remove(group);
     disposeObject(group);
     ctx.shellGroups.delete(key);
+  }
+}
+
+/** True when a shell result contour owns the shell face colours (so selection
+ *  highlight must not repaint faces). */
+function shellContourActive(): boolean {
+  if (resultsStore.diagramType !== 'colorMap') return false;
+  const k = resultsStore.colorMapKind;
+  if (k !== 'shellVonMises' && k !== 'shellBending') return false;
+  const r = resultsStore.results3D;
+  return !!(r && ((r.plateStresses?.length ?? 0) > 0 || (r.quadStresses?.length ?? 0) > 0));
+}
+
+/** Tint selected shell groups (key = "p{id}"/"q{id}"), restore the rest.
+ *  While a contour is active, only the OUTLINE is highlighted — the contour
+ *  keeps the face colours (otherwise selection/hover would clobber it). */
+export function applyShellSelection(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+  const selected = uiStore.selectedShells;
+  const contour = shellContourActive();
+  for (const [key, group] of ctx.shellGroups) {
+    const isSel = selected.has(key);
+    if (contour) {
+      paintShellEdge(group, isSel ? COLORS.elementSelected : (group.userData.baseEdgeColor as number) ?? COLORS.support);
+    } else if (isSel) {
+      paintShell(group, COLORS.elementSelected, COLORS.elementSelected);
+    } else {
+      restoreShellColor(group);
+    }
   }
 }
 
@@ -614,27 +674,10 @@ export function syncSelection(ctx: SceneSyncContext): void {
     setGroupColor(gizmo, color);
   }
 
-  // Shells: in shells mode, boost the opacity of selected plates/quads so the
-  // selection is visible (ids only count as shell ids while in shells mode).
-  // Plate and quad id counters are independent and can collide; deletion
-  // resolves ambiguous ids plate-first, so the highlight mirrors that
-  // precedence to show exactly what Delete would act on.
-  for (const [key, group] of ctx.shellGroups) {
-    const isPlate = key.startsWith('p');
-    const id = parseInt(key.substring(1), 10);
-    const selected = shellMode && uiStore.selectedElements.has(id)
-      && (isPlate || !modelStore.plates.has(id));
-    group.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        const mat = ensureOwnShellMaterial(child);
-        const opacity = selected ? SHELL_OPACITY_SELECTED : SHELL_OPACITY;
-        if (mat.opacity !== opacity) {
-          mat.opacity = opacity;
-          mat.needsUpdate = true;
-        }
-      }
-    });
-  }
+  // Shells (plates + quads): selectedShells keys ("p{id}"/"q{id}") are
+  // unambiguous, superseding the old opacity boost keyed on colliding
+  // selectedElements ids.
+  applyShellSelection(ctx);
 
   // Re-apply color map if active (syncSelection overwrites element colors)
   const dt = resultsStore.diagramType;
@@ -668,14 +711,15 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
   // projected scene, so restrict triads to genuine (non-projected) 3D views.
   if (projectFlag()) return;
 
-  const mode = uiStore.localAxesMode3D;
-  if (mode === 'never') return;
-  const showAll = mode === 'always';
+  const LABEL_CAP = 8;
+
+  // ── MEMBER local axes (independent setting: localAxesMode3D) ──
+  const memberMode = uiStore.localAxesMode3D;
   // 'always' on an arbitrarily large model would mean tens of thousands of
   // arrow objects rebuilt per model mutation — beyond this cap the mode is a
   // no-op (the 'selected' path still works on models of any size).
   const MAX_ALWAYS_TRIADS = 1500;
-  if (showAll && modelStore.elements.size > MAX_ALWAYS_TRIADS) return;
+  const memberShowAll = memberMode === 'always' && modelStore.elements.size <= MAX_ALWAYS_TRIADS;
   // In 'always' mode the selection is deliberately NOT read: it isn't needed
   // (every member gets a triad, labels off), and reading it would make the
   // whole group dispose + rebuild on every selection click. In shells
@@ -684,23 +728,19 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
   // selected only: result diagrams / result-query / AI highlight via
   // selectedElements too, but with elementSelectionManual=false — reviewing
   // diagrams must not flood the scene with triads.
-  const selected = showAll || uiStore.selectMode === 'shells' || !uiStore.elementSelectionManual
+  const selected = memberShowAll || uiStore.selectMode === 'shells' || !uiStore.elementSelectionManual
     ? new Set<number>()
     : uiStore.selectedElements;
-  if (!showAll && selected.size === 0) return;
-
-  // Labels only for a small selected set — a broad result-query selection
-  // (e.g. "all members") must not flood the scene with hundreds of sprites.
-  const LABEL_CAP = 8;
   const labelSelected = selected.size > 0 && selected.size <= LABEL_CAP;
+  const drawMembers = memberMode !== 'never' && (memberShowAll || selected.size > 0);
 
   const leftHandTriads = uiStore.axisConvention3D === 'leftHand';
   const group = new THREE.Group();
   group.name = 'localAxesContainer';
 
-  for (const [id, elem] of modelStore.elements) {
+  if (drawMembers) for (const [id, elem] of modelStore.elements) {
     const isSelected = selected.has(id);
-    if (!showAll && !isSelected) continue;
+    if (!memberShowAll && !isSelected) continue;
 
     const nI = modelStore.nodes.get(elem.nodeI);
     const nJ = modelStore.nodes.get(elem.nodeJ);
@@ -729,16 +769,67 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
     group.add(createLocalAxesTriad(origin, axes, { withLabels: isSelected && labelSelected }));
   }
 
+  // ── SHELL local axes / normals (independent setting: shellAxesMode3D) ──
+  // In-plane x/y + normal (local z). Shells are always MANUALLY selected
+  // (selectedShells is only set by click / table / box-select), so "When
+  // selected" naturally shows just the picked shell — never a result flood.
+  const shellMode = uiStore.shellAxesMode3D;
+  const shellShowAll = shellMode === 'always';
+  const selShells = uiStore.selectedShells;
+  const drawShells = shellMode !== 'never' && (shellShowAll || selShells.size > 0);
+  const shellLabel = selShells.size > 0 && selShells.size <= LABEL_CAP;
+  if (drawShells) {
+    const addShellTriad = (key: string, nodeIds: number[]) => {
+      const isSel = selShells.has(key);
+      if (!shellShowAll && !isSel) return;
+      const verts = nodeIds.map(id => modelStore.nodes.get(id));
+      if (verts.some(v => !v) || verts.length < 3) return;
+      const axes = shellLocalAxes(verts as Array<{ x: number; y: number; z?: number }>);
+      if (!axes) return;
+      let cx = 0, cy = 0, cz = 0;
+      for (const v of verts as Array<{ x: number; y: number; z?: number }>) { cx += v.x; cy += v.y; cz += v.z ?? 0; }
+      const origin = new THREE.Vector3(cx / verts.length, cy / verts.length, cz / verts.length);
+      group.add(createLocalAxesTriad(origin, axes, { withLabels: isSel && shellLabel }));
+    };
+    for (const [id, plate] of modelStore.plates) addShellTriad(`p${id}`, [...plate.nodes]);
+    for (const [id, quad] of modelStore.quads) addShellTriad(`q${id}`, [...quad.nodes]);
+  }
+
   ctx.localAxesGroup = group;
   ctx.localAxesParent.add(group);
+}
+
+/** Shell local frame: ex along node0→node1 edge, ez the face normal, ey = ez×ex.
+ *  Visual only — mirrors the convention shells are assembled with, never changes
+ *  it. Returns a LocalAxes3D-shaped triad sized to the element. */
+function shellLocalAxes(
+  verts: Array<{ x: number; y: number; z?: number }>,
+): { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number]; L: number } | null {
+  const p = (v: { x: number; y: number; z?: number }) => new THREE.Vector3(v.x, v.y, v.z ?? 0);
+  const a = p(verts[0]), b = p(verts[1]), c = p(verts[2]);
+  const ex = new THREE.Vector3().subVectors(b, a);
+  const L = ex.length();
+  if (L < 1e-9) return null;
+  ex.multiplyScalar(1 / L);
+  const ez = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a));
+  if (ez.length() < 1e-12) return null;
+  ez.normalize();
+  const ey = new THREE.Vector3().crossVectors(ez, ex).normalize();
+  // Characteristic size = mean edge length, for a legible triad.
+  let per = 0;
+  for (let i = 0; i < verts.length; i++) per += p(verts[i]).distanceTo(p(verts[(i + 1) % verts.length]));
+  return {
+    ex: [ex.x, ex.y, ex.z], ey: [ey.x, ey.y, ey.z], ez: [ez.x, ez.y, ez.z],
+    L: per / verts.length,
+  };
 }
 
 // ─── Member-offset preview (visual only) ─────────────────────
 //
 // For every element carrying offset metadata, draw the ghost centerline, the
 // offset analytical line, and the rigid arms. Mirrors the solver's ephemeral
-// expansion (same offsetVecToSolver + computeLocalAxes3D) so the preview shows
-// exactly where the analysis places the member. Single-instance group.
+// expansion (shared resolveOffsetWorldVectors) so the preview shows exactly
+// where the analysis places the member. Single-instance group.
 
 export function syncMemberOffsets(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
@@ -781,5 +872,66 @@ export function syncMemberOffsets(ctx: SceneSyncContext): void {
   }
 
   ctx.offsetVizGroup = group;
+  ctx.scene.add(group);
+}
+
+// ─── Shell-offset preview (visual only) ──────────────────────
+//
+// For every offset shell, draw the rigid arms (base corner → offset corner)
+// and the ghost outline of the offset surface. Mirrors the solver's per-corner
+// helper-node expansion (same resolveShellOffsetGlobal) so the preview shows
+// exactly where the analysis places the shell. Single-instance group.
+
+const SHELL_OFFSET_COLOR = 0xffb347; // amber, matches member rigid arms
+
+export function syncShellOffsets(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+
+  if (ctx.shellOffsetVizGroup) {
+    ctx.scene.remove(ctx.shellOffsetVizGroup);
+    disposeObject(ctx.shellOffsetVizGroup);
+    ctx.shellOffsetVizGroup = null;
+  }
+
+  // Offsets are a genuine-3D feature (matches solver gating); skip projected 2D.
+  if (projectFlag()) return;
+
+  const shellsWithOffset: Array<{ nodeIds: number[]; offset: import('../model/element-3d-metadata').ShellOffset }> = [];
+  for (const p of modelStore.plates.values()) if (hasShellOffset(p)) shellsWithOffset.push({ nodeIds: [...p.nodes], offset: p.offset! });
+  for (const q of modelStore.quads.values()) if (hasShellOffset(q)) shellsWithOffset.push({ nodeIds: [...q.nodes], offset: q.offset! });
+  if (shellsWithOffset.length === 0) return;
+
+  const group = new THREE.Group();
+  group.name = 'shellOffsetContainer';
+  const armMat = new THREE.LineBasicMaterial({ color: SHELL_OFFSET_COLOR });
+  const ghostMat = new THREE.LineBasicMaterial({ color: SHELL_OFFSET_COLOR, transparent: true, opacity: 0.5 });
+
+  for (const { nodeIds, offset } of shellsWithOffset) {
+    const corners = nodeIds.map(id => modelStore.nodes.get(id));
+    if (corners.some(c => !c)) continue;
+    const cv = (corners as Array<{ x: number; y: number; z?: number }>).map(n => ({ x: n.x, y: n.y, z: n.z ?? 0 }));
+    const v = resolveShellOffsetGlobal(offset, cv);
+    if (!v) continue;
+
+    // Rigid arms: base corner → offset corner.
+    const armPts: THREE.Vector3[] = [];
+    for (const c of cv) {
+      armPts.push(new THREE.Vector3(c.x, c.y, c.z));
+      armPts.push(new THREE.Vector3(c.x + v.x, c.y + v.y, c.z + v.z));
+    }
+    const armGeo = new THREE.BufferGeometry().setFromPoints(armPts);
+    const arms = new THREE.LineSegments(armGeo, armMat);
+    arms.raycast = () => {};
+    group.add(arms);
+
+    // Ghost outline of the offset surface (closed loop).
+    const loop = cv.map(c => new THREE.Vector3(c.x + v.x, c.y + v.y, c.z + v.z));
+    loop.push(loop[0].clone());
+    const ghost = new THREE.Line(new THREE.BufferGeometry().setFromPoints(loop), ghostMat);
+    ghost.raycast = () => {};
+    group.add(ghost);
+  }
+
+  ctx.shellOffsetVizGroup = group;
   ctx.scene.add(group);
 }

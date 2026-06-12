@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
+  import { findCoincidentNode, beamThrough } from '../../lib/engine/mesh-weld';
   import type { ShellFamily, ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
@@ -25,6 +27,7 @@
   let meshNy = $state(2);
   let meshMaterialId = $state(1);
   let meshThickness = $state(0.2);
+  let meshSplitBeams = $state(true); // split surrounding beams so nodes are shared
   let meshError = $state<string | null>(null);
   let meshSuccess = $state<string | null>(null);
 
@@ -44,6 +47,28 @@
   );
   const plateCount = $derived(plates.length);
   const quadCount = $derived(quads.length);
+
+  // Nodes that connect a shell to the rest of the structure: any frame/truss
+  // endpoint, any support, or a node shared by ≥2 shells. (Stabileo shells
+  // couple to beams ONLY through shared nodes — there is no continuous edge
+  // coupling — so a corner attached to none of these transfers no load.)
+  const structureNodes = $derived.by(() => {
+    const s = new Set<number>();
+    for (const el of modelStore.elements.values()) { s.add(el.nodeI); s.add(el.nodeJ); }
+    for (const sup of modelStore.supports.values()) s.add(sup.nodeId);
+    const shellCount = new Map<number, number>();
+    for (const q of quads) for (const n of q.nodes) shellCount.set(n, (shellCount.get(n) ?? 0) + 1);
+    for (const p of plates) for (const n of p.nodes) shellCount.set(n, (shellCount.get(n) ?? 0) + 1);
+    for (const [n, c] of shellCount) if (c >= 2) s.add(n);
+    return s;
+  });
+  // Shells with a corner attached to nothing else (floating / no load path there).
+  const disconnectedShells = $derived(
+    quads.filter(q => q.nodes.some(n => !structureNodes.has(n))).length
+    + plates.filter(p => p.nodes.some(n => !structureNodes.has(n))).length,
+  );
+
+  let showShellInfo = $state(true);
 
   function validateNodeIds(ids: string[], count: number): number[] | null {
     const parsed = ids.slice(0, count).map(s => parseInt(s));
@@ -154,6 +179,12 @@
    *
    * Bilinear interpolation is used to place intermediate nodes, so corners
    * don't need to form a perfect rectangle — any quadrilateral works.
+   *
+   * Nodes are welded to existing coincident nodes (no duplicates). When
+   * "split surrounding beams" is on, any beam passing through a mesh node is
+   * split there (via splitElementAtPoint, which redistributes loads + preserves
+   * releases) so the beam and shell SHARE that node and load transfer is
+   * continuous along the edge — the model coupling is purely shared-node.
    */
   function generateMesh() {
     meshError = null;
@@ -183,6 +214,7 @@
 
     // Build grid of node IDs: (nx+1) x (ny+1)
     const nodeGrid: number[][] = [];
+    let newNodes = 0;
 
     for (let j = 0; j <= meshNy; j++) {
       const row: number[] = [];
@@ -190,7 +222,7 @@
       for (let i = 0; i <= meshNx; i++) {
         const u = i / meshNx;
 
-        // Check if this is a corner node — reuse existing node
+        // Corner nodes reuse the supplied corner IDs directly.
         if (i === 0 && j === 0) { row.push(cornerIds[0]); continue; }
         if (i === meshNx && j === 0) { row.push(cornerIds[1]); continue; }
         if (i === meshNx && j === meshNy) { row.push(cornerIds[2]); continue; }
@@ -202,8 +234,11 @@
         const z0 = c0.z ?? 0, z1 = c1.z ?? 0, z2 = c2.z ?? 0, z3 = c3.z ?? 0;
         const z = (1 - u) * (1 - v) * z0 + u * (1 - v) * z1 + u * v * z2 + (1 - u) * v * z3;
 
-        const nodeId = modelStore.addNode(x, y, z !== 0 ? z : undefined);
-        row.push(nodeId);
+        // Weld to an existing coincident node if there is one, else create.
+        const existing = findCoincidentNode(modelStore.nodes.values(), x, y, z);
+        if (existing != null) { row.push(existing); continue; }
+        row.push(modelStore.addNode(x, y, z !== 0 ? z : undefined));
+        newNodes++;
       }
       nodeGrid.push(row);
     }
@@ -221,8 +256,29 @@
       }
     }
 
-    const nodeCount = (meshNx + 1) * (meshNy + 1) - 4; // minus 4 reused corners
-    meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(nodeCount)).replace('{quads}', String(quadCount));
+    // Optionally split surrounding beams so their nodes coincide with the mesh
+    // edge nodes (continuous load transfer). Each mesh node that sits on a beam
+    // interior splits that beam; splitElementAtPoint reuses our node (weld).
+    let splitCount = 0;
+    if (meshSplitBeams) {
+      for (const r of nodeGrid) {
+        for (const nodeId of r) {
+          const n = modelStore.nodes.get(nodeId);
+          if (!n) continue;
+          // A node can lie on at most a couple of collinear beams; bound the loop.
+          for (let guard = 0; guard < 4; guard++) {
+            const hit = beamThrough((id) => modelStore.nodes.get(id), modelStore.elements.values(), n.x, n.y, n.z ?? 0);
+            if (!hit) break;
+            const res = modelStore.splitElementAtPoint(hit.id, hit.t);
+            if (!res) break;
+            splitCount++;
+          }
+        }
+      }
+    }
+
+    meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(newNodes)).replace('{quads}', String(quadCount))
+      + (meshSplitBeams ? ' ' + t('pro.meshSplitInfo').replace('{n}', String(splitCount)) : '');
   }
 
   // Collapse states for sections
@@ -235,6 +291,77 @@
     const m = modelStore.materials.get(id);
     return m ? m.name : `#${id}`;
   }
+
+  // ─── Viewport node-pick → creator fields ───
+  // When the user picks nodes in the 3D viewport, mirror the buffer into the
+  // matching creator's node inputs (so the typed-ID path and pick path share
+  // the same fields and validation). The writes (and the recommendation calls,
+  // which READ those same fields) are wrapped in untrack so this effect depends
+  // ONLY on shellNodePick — otherwise writing plateNodes here while
+  // updatePlateRecommendation reads it would self-trigger (effect_update_depth).
+  $effect(() => {
+    const pick = uiStore.shellNodePick;
+    const ids = pick.picked;
+    const target = pick.target;
+    untrack(() => {
+      if (target === 'plate') {
+        plateNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? '')];
+        updatePlateRecommendation();
+      } else if (target === 'quad') {
+        quadNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
+        updateQuadRecommendation();
+      } else if (target === 'mesh') {
+        meshCorners = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
+      }
+    });
+  });
+
+  // ─── Shell offset editor (operates on the selected shells) ───
+  let showOffset = $state(false);
+  let offFrame = $state<'global' | 'local'>('local');
+  let offX = $state(0);
+  let offY = $state(0);
+  let offZ = $state(0);
+  const selectedShellKeys = $derived([...uiStore.selectedShells]);
+
+  function eachSelectedShell(fn: (kind: 'plate' | 'quad', id: number) => void) {
+    for (const key of uiStore.selectedShells) {
+      fn(key[0] === 'p' ? 'plate' : 'quad', parseInt(key.slice(1)));
+    }
+  }
+  function applyShellOffset() {
+    eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, { frame: offFrame, x: offX, y: offY, z: offZ }));
+  }
+  function clearShellOffset() {
+    eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, undefined));
+  }
+  /** Quick preset: offset along the shell normal by ±half its thickness so the
+   *  top/bottom face sits at the node plane (slab top-of-beam, wall face). */
+  function applyHalfThickness(sign: 1 | -1) {
+    offFrame = 'local';
+    offX = 0; offY = 0;
+    // Use the first selected shell's thickness as the reference.
+    const key = [...uiStore.selectedShells][0];
+    if (!key) return;
+    const id = parseInt(key.slice(1));
+    const shell = key[0] === 'p' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
+    const t = shell?.thickness ?? 0.2;
+    offZ = sign * t / 2;
+    applyShellOffset();
+  }
+
+  function isPicking(target: 'plate' | 'quad' | 'mesh'): boolean {
+    return uiStore.shellNodePick.active && uiStore.shellNodePick.target === target;
+  }
+  function pickBtnLabel(target: 'plate' | 'quad' | 'mesh', cap: number): string {
+    const p = uiStore.shellNodePick;
+    if (p.active && p.target === target) return `${t('pro.picking')} ${p.picked.length}/${cap} — ${t('pro.cancel')}`;
+    return `\u{1F4CD} ${t('pro.pickNodes')}`;
+  }
+  function togglePick(target: 'plate' | 'quad' | 'mesh', cap: number) {
+    if (isPicking(target)) uiStore.cancelShellNodePick();
+    else uiStore.startShellNodePick(target, cap);
+  }
 </script>
 
 <div class="pro-shells">
@@ -244,6 +371,11 @@
   </div>
 
   <div class="pro-shells-scroll">
+    <!-- Model-wide warning: shells with a corner attached to nothing else -->
+    {#if disconnectedShells > 0}
+      <div class="shell-warn">⚠ {t('pro.shellWarnDisconnected').replace('{n}', String(disconnectedShells))}</div>
+    {/if}
+
     <!-- Plate (DKT triangle) creator -->
     <div class="section">
       <button class="section-toggle" onclick={() => showPlateCreator = !showPlateCreator}>
@@ -257,6 +389,11 @@
             <input type="text" bind:value={plateNodes[0]} placeholder="N1" class="node-input" oninput={updatePlateRecommendation} />
             <input type="text" bind:value={plateNodes[1]} placeholder="N2" class="node-input" oninput={updatePlateRecommendation} />
             <input type="text" bind:value={plateNodes[2]} placeholder="N3" class="node-input" oninput={updatePlateRecommendation} />
+          </div>
+          <div class="input-row">
+            <button class="pro-btn pro-btn-pick" class:picking={isPicking('plate')} onclick={() => togglePick('plate', 3)}>
+              {pickBtnLabel('plate', 3)}
+            </button>
           </div>
           <div class="input-row">
             <label>{t('pro.thMaterial')}:</label>
@@ -307,8 +444,13 @@
             <label>{t('pro.nodes')}:</label>
             <input type="text" bind:value={quadNodes[0]} placeholder="N1" class="node-input" oninput={updateQuadRecommendation} />
             <input type="text" bind:value={quadNodes[1]} placeholder="N2" class="node-input" oninput={updateQuadRecommendation} />
-            <input type="text" bind:value={quadNodes[2]} placeholder="N2" class="node-input" oninput={updateQuadRecommendation} />
+            <input type="text" bind:value={quadNodes[2]} placeholder="N3" class="node-input" oninput={updateQuadRecommendation} />
             <input type="text" bind:value={quadNodes[3]} placeholder="N4" class="node-input" oninput={updateQuadRecommendation} />
+          </div>
+          <div class="input-row">
+            <button class="pro-btn pro-btn-pick" class:picking={isPicking('quad')} onclick={() => togglePick('quad', 4)}>
+              {pickBtnLabel('quad', 4)}
+            </button>
           </div>
           <div class="input-row">
             <label>{t('pro.thMaterial')}:</label>
@@ -367,6 +509,11 @@
             <input type="text" bind:value={meshCorners[3]} placeholder="N3" class="node-input" />
           </div>
           <div class="input-row">
+            <button class="pro-btn pro-btn-pick" class:picking={isPicking('mesh')} onclick={() => togglePick('mesh', 4)}>
+              {pickBtnLabel('mesh', 4)}
+            </button>
+          </div>
+          <div class="input-row">
             <label>{t('pro.subdivisions')}:</label>
             <input type="number" bind:value={meshNx} min="1" max="50" class="sub-input" />
             <span class="x-label">&times;</span>
@@ -384,6 +531,10 @@
             <label>{t('pro.thickness')}:</label>
             <input type="number" bind:value={meshThickness} step="0.01" min="0.001" class="thick-input" />
           </div>
+          <label class="mesh-check">
+            <input type="checkbox" bind:checked={meshSplitBeams} />
+            {t('pro.meshSplitBeams')}
+          </label>
           {#if meshError}
             <div class="field-error">{meshError}</div>
           {/if}
@@ -391,6 +542,64 @@
             <div class="field-success">{meshSuccess}</div>
           {/if}
           <button class="pro-btn pro-btn-accent" onclick={generateMesh}>{t('pro.generateMesh')}</button>
+
+          <!-- How shells connect & transfer load (lives with the mesh tool, the
+               place where node-sharing actually matters) -->
+          <div class="shell-info">
+            <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
+              <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
+            </button>
+            {#if showShellInfo}
+              <div class="shell-info-body">
+                <p>{t('pro.shellInfoTransfer')}</p>
+                <p>{t('pro.shellInfoMesh')}</p>
+                <p>{t('pro.shellInfoSplit')}</p>
+                <p>{t('pro.shellInfoSlab')}</p>
+              </div>
+            {/if}
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <!-- Shell offset (eccentric mid-surface) -->
+    <div class="section">
+      <button class="section-toggle" onclick={() => showOffset = !showOffset}>
+        <span class="toggle-arrow">{showOffset ? '▾' : '▸'}</span>
+        {t('pro.shellOffset')}
+      </button>
+      {#if showOffset}
+        <div class="section-body">
+          <div class="mesh-hint">{t('pro.shellOffsetHint')}</div>
+          {#if selectedShellKeys.length === 0}
+            <div class="field-error">{t('pro.shellOffsetSelect')}</div>
+          {:else}
+            <div class="offset-sel-count">{selectedShellKeys.length} {t('pro.selected')}</div>
+          {/if}
+          <div class="input-row">
+            <label>{t('pro.offsetFrame')}:</label>
+            <select bind:value={offFrame} class="family-select">
+              <option value="local">{t('pro.offsetLocal')}</option>
+              <option value="global">{t('pro.offsetGlobal')}</option>
+            </select>
+          </div>
+          <div class="input-row">
+            <label>{offFrame === 'local' ? 'x,y,n (m)' : 'X,Y,Z (m)'}:</label>
+            <input type="number" bind:value={offX} step="0.01" class="thick-input" />
+            <input type="number" bind:value={offY} step="0.01" class="thick-input" />
+            <input type="number" bind:value={offZ} step="0.01" class="thick-input" />
+          </div>
+          {#if offFrame === 'local'}
+            <div class="input-row offset-presets">
+              <button class="pro-btn" onclick={() => applyHalfThickness(1)}>{t('pro.offsetTopFace')}</button>
+              <button class="pro-btn" onclick={() => applyHalfThickness(-1)}>{t('pro.offsetBottomFace')}</button>
+            </div>
+          {/if}
+          <div class="input-row offset-actions">
+            <button class="pro-btn pro-btn-accent" disabled={selectedShellKeys.length === 0} onclick={applyShellOffset}>{t('pro.applyOffset')}</button>
+            <button class="pro-btn" disabled={selectedShellKeys.length === 0} onclick={clearShellOffset}>{t('pro.clearOffset')}</button>
+          </div>
+          <div class="rec-warning">{t('pro.shellOffsetWarn')}</div>
         </div>
       {/if}
     </div>
@@ -419,7 +628,7 @@
                 </thead>
                 <tbody>
                   {#each plates as plate}
-                    <tr class:selected={uiStore.selectMode === 'shells' && uiStore.selectedElements.has(plate.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(plate.id, false); }}>
+                    <tr class:selected={uiStore.selectedShells.has('p' + plate.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('p' + plate.id, false); }}>
                       <td class="col-id">{plate.id}</td>
                       <td class="col-nodes">{plate.nodes.join(', ')}</td>
                       <td class="col-family">{plate.shellFamily ?? 'DKT'}</td>
@@ -451,7 +660,7 @@
                 </thead>
                 <tbody>
                   {#each quads as quad}
-                    <tr class:selected={uiStore.selectMode === 'shells' && uiStore.selectedElements.has(quad.id) && !modelStore.plates.has(quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(quad.id, false); }}>
+                    <tr class:selected={uiStore.selectedShells.has('q' + quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('q' + quad.id, false); }}>
                       <td class="col-id">{quad.id}</td>
                       <td class="col-nodes">{quad.nodes.join(', ')}</td>
                       <td class="col-family">{quad.shellFamily ?? 'MITC4'}</td>
@@ -655,6 +864,39 @@
     color: #fff;
   }
 
+  .shell-info {
+    margin: 6px 8px 10px;
+    border: 1px solid #1a3a55;
+    border-radius: 4px;
+    background: rgba(20, 40, 60, 0.4);
+  }
+  .shell-info-toggle {
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    color: #9fd3c8; font-size: 0.72rem; font-weight: 600; padding: 7px 9px;
+  }
+  .shell-info-body { padding: 0 10px 8px; }
+  .shell-info-body p { margin: 4px 0; font-size: 0.68rem; line-height: 1.4; color: #b8c4cc; }
+  .shell-warn {
+    margin: 0 8px 8px; padding: 6px 9px; border-radius: 4px;
+    background: rgba(120, 80, 0, 0.25); border: 1px solid #aa7722;
+    color: #f0c060; font-size: 0.68rem; line-height: 1.35;
+  }
+
+  .pro-btn-pick {
+    border-color: #888;
+    color: #cfe;
+  }
+  .pro-btn-pick.picking {
+    background: #1a5a4a;
+    border-color: #00ffff;
+    color: #aef;
+    animation: pickPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pickPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(0, 255, 255, 0); }
+  }
+
   /* Errors / success */
   .field-error {
     font-size: 0.68rem;
@@ -674,6 +916,16 @@
     font-style: italic;
     line-height: 1.4;
   }
+
+  .mesh-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: #b8c4cc;
+    cursor: pointer;
+  }
+  .mesh-check input { accent-color: #4ecdc4; }
 
   /* Tables */
   .table-label {

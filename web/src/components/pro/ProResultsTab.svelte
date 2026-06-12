@@ -15,11 +15,70 @@
     type QueryExportMeta,
     type SourceKind,
   } from '../../lib/engine/result-query';
+  import {
+    SHELL_CONTOUR_COMPONENTS, SHELL_COMPONENT_GROUP_LABELS, principalStresses,
+    shellComponentStats, type ShellComponentGroup,
+  } from '../../lib/engine/shell-stress';
 
   let solveError = $state<string | null>(null);
   let solving = $state(false);
 
   const results = $derived(resultsStore.results3D);
+
+  // Unified shell rows (plates + quads) with derived principal stresses, for
+  // the readable split stress / moment tables.
+  const shellRows = $derived.by(() => {
+    const r = resultsStore.results3D;
+    if (!r) return [] as Array<{ key: string; type: string; id: number; sigmaXx: number; sigmaYy: number; tauXy: number; sigma1: number; sigma2: number; vonMises: number; mx: number; my: number; mxy: number }>;
+    const rows = [];
+    for (const ps of r.plateStresses ?? []) {
+      const pr = principalStresses(ps.sigmaXx, ps.sigmaYy, ps.tauXy);
+      rows.push({ key: 'p' + ps.elementId, type: 'Plate', id: ps.elementId, sigmaXx: ps.sigmaXx, sigmaYy: ps.sigmaYy, tauXy: ps.tauXy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: ps.vonMises, mx: ps.mx, my: ps.my, mxy: ps.mxy });
+    }
+    for (const qs of r.quadStresses ?? []) {
+      const pr = principalStresses(qs.sigmaXx, qs.sigmaYy, qs.tauXy);
+      rows.push({ key: 'q' + qs.elementId, type: 'Quad', id: qs.elementId, sigmaXx: qs.sigmaXx, sigmaYy: qs.sigmaYy, tauXy: qs.tauXy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: qs.vonMises, mx: qs.mx, my: qs.my, mxy: qs.mxy });
+    }
+    return rows;
+  });
+
+  // Honest per-component status (varying / uniform / negligible) for the
+  // current shell results — drives the "≈0" hints in the contour selector
+  // and the governing/near-zero markers in the result tables.
+  const shellStats = $derived.by(() => {
+    const r = resultsStore.results3D;
+    const all = [...(r?.plateStresses ?? []), ...(r?.quadStresses ?? [])];
+    return all.length ? shellComponentStats(all) : null;
+  });
+  // Components grouped by family for the selector optgroups.
+  const shellGroups = $derived.by(() => {
+    const groups = new Map<ShellComponentGroup, typeof SHELL_CONTOUR_COMPONENTS>();
+    for (const c of SHELL_CONTOUR_COMPONENTS) {
+      const arr = groups.get(c.group) ?? [];
+      arr.push(c);
+      groups.set(c.group, arr);
+    }
+    return [...groups.entries()];
+  });
+
+  // Governing element per shell column (row key with the largest |value|), so
+  // the tables can flag the governing cell instead of reading as a flat block.
+  const SHELL_TABLE_KEYS = ['sigmaXx', 'sigmaYy', 'tauXy', 'sigma1', 'sigma2', 'vonMises', 'mx', 'my', 'mxy'] as const;
+  const shellGov = $derived.by(() => {
+    const gov: Record<string, string> = {};
+    for (const k of SHELL_TABLE_KEYS) {
+      let best = -Infinity, bestKey = '';
+      for (const r of shellRows) {
+        const v = Math.abs((r as Record<string, number>)[k]);
+        if (v > best) { best = v; bestKey = r.key; }
+      }
+      gov[k] = bestKey;
+    }
+    return gov;
+  });
+  function shellPeak(k: string): number { return shellStats?.[k as keyof typeof shellStats]?.peak ?? 0; }
+  function shellNegligible(k: string): boolean { return shellStats?.[k as keyof typeof shellStats]?.status === 'negligible'; }
+
   const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
   const hasCombinations = $derived(resultsStore.hasCombinations3D);
 
@@ -291,9 +350,24 @@
             <option value="axial">{t('pro.varAxial')}</option>
             <option value="stressRatio">{t('pro.varStressRatio')}</option>
             <option value="vonMises">Von Mises (σ)</option>
-            <option value="shellVonMises">Shell σ Von Mises</option>
+            <option value="shellVonMises">{t('pro.shellContour')}</option>
           </select>
         </div>
+        {#if resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending'}
+          <div class="pro-viz-row">
+            <label class="pro-viz-label">{t('pro.shellComponent')}</label>
+            <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent}>
+              {#each shellGroups as [group, comps]}
+                <optgroup label={SHELL_COMPONENT_GROUP_LABELS[group]}>
+                  {#each comps as c}
+                    {@const st = shellStats?.[c.key]?.status}
+                    <option value={c.key}>{c.label} ({c.unit}){st === 'negligible' ? ' — ≈0' : st === 'uniform' ? ' — uniform' : ''}</option>
+                  {/each}
+                </optgroup>
+              {/each}
+            </select>
+          </div>
+        {/if}
       {/if}
 
       {#if resultsStore.diagramType === 'deformed'}
@@ -557,54 +631,68 @@
         </div>
       </details>
 
-      {#if results.plateStresses?.length || results.quadStresses?.length}
+      {#if shellRows.length}
         <details class="res-detail" open>
-          <summary class="pro-res-section-title">{t('pro.shellStresses')} <span class="res-count">({(results.plateStresses?.length ?? 0) + (results.quadStresses?.length ?? 0)})</span></summary>
+          <summary class="pro-res-section-title">{t('pro.shellStresses')} <span class="res-count">({shellRows.length})</span></summary>
+          <div class="shell-table-legend">{t('pro.shellTableLegend')}</div>
           <div class="pro-res-table-wrap">
-            {#if results.plateStresses?.length}
-              <table class="pro-res-table">
-                <thead><tr>
-                  <th>Elem</th><th>&sigma;xx</th><th>&sigma;yy</th><th>&tau;xy</th>
-                  <th>mx</th><th>my</th><th>mxy</th><th>Von Mises</th>
-                </tr></thead>
-                <tbody>
-                  {#each results.plateStresses as ps}
-                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(ps.elementId, false); }} style="cursor:pointer">
-                      <td class="col-id">{ps.elementId}</td>
-                      <td class="col-num">{fmtNum(ps.sigmaXx)}</td>
-                      <td class="col-num">{fmtNum(ps.sigmaYy)}</td>
-                      <td class="col-num">{fmtNum(ps.tauXy)}</td>
-                      <td class="col-num">{fmtNum(ps.mx)}</td>
-                      <td class="col-num">{fmtNum(ps.my)}</td>
-                      <td class="col-num">{fmtNum(ps.mxy)}</td>
-                      <td class="col-num">{fmtNum(ps.vonMises)}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            {/if}
-            {#if results.quadStresses?.length}
-              <table class="pro-res-table">
-                <thead><tr>
-                  <th>Elem</th><th>&sigma;xx</th><th>&sigma;yy</th><th>&tau;xy</th>
-                  <th>mx</th><th>my</th><th>mxy</th><th>Von Mises</th>
-                </tr></thead>
-                <tbody>
-                  {#each results.quadStresses as qs}
-                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(qs.elementId, false); }} style="cursor:pointer">
-                      <td class="col-id">{qs.elementId}</td>
-                      <td class="col-num">{fmtNum(qs.sigmaXx)}</td>
-                      <td class="col-num">{fmtNum(qs.sigmaYy)}</td>
-                      <td class="col-num">{fmtNum(qs.tauXy)}</td>
-                      <td class="col-num">{fmtNum(qs.mx)}</td>
-                      <td class="col-num">{fmtNum(qs.my)}</td>
-                      <td class="col-num">{fmtNum(qs.mxy)}</td>
-                      <td class="col-num">{fmtNum(qs.vonMises)}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            {/if}
+            <!-- Membrane + principal stresses -->
+            <div class="shell-table-label">{t('pro.shellMembraneStresses')} <span class="shell-unit">[kN/m²]</span></div>
+            <table class="pro-res-table">
+              <thead><tr>
+                <th>{t('pro.elemLabel')}</th><th>{t('pro.typeLabel')}</th>
+                {#each [['sigmaXx','σxx'],['sigmaYy','σyy'],['tauXy','τxy'],['sigma1','σ1'],['sigma2','σ2'],['vonMises',t('pro.vonMisesShort')]] as [k, lbl]}
+                  <th class="col-num" class:th-zero={shellNegligible(k)}>{@html lbl}{#if shellNegligible(k)}<span class="zero-badge" title={t('pro.shellNearZero')}>≈0</span>{/if}</th>
+                {/each}
+              </tr></thead>
+              <tbody>
+                {#each shellRows as r}
+                  <tr class:selected={uiStore.selectedShells.has(r.key)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell(r.key, false); }} style="cursor:pointer">
+                    <td class="col-id">{r.id}</td>
+                    <td class="col-type">{r.type}</td>
+                    <td class="col-num" class:gov={shellGov.sigmaXx === r.key}>{fmtNum(r.sigmaXx)}</td>
+                    <td class="col-num" class:gov={shellGov.sigmaYy === r.key}>{fmtNum(r.sigmaYy)}</td>
+                    <td class="col-num" class:gov={shellGov.tauXy === r.key}>{fmtNum(r.tauXy)}</td>
+                    <td class="col-num" class:gov={shellGov.sigma1 === r.key}>{fmtNum(r.sigma1)}</td>
+                    <td class="col-num" class:gov={shellGov.sigma2 === r.key}>{fmtNum(r.sigma2)}</td>
+                    <td class="col-num col-max" class:gov={shellGov.vonMises === r.key}>{fmtNum(r.vonMises)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+              <tfoot><tr class="shell-peak-row">
+                <td colspan="2">{t('pro.shellPeakAbs')}</td>
+                {#each ['sigmaXx','sigmaYy','tauXy','sigma1','sigma2','vonMises'] as k}
+                  <td class="col-num">{fmtNum(shellPeak(k))}</td>
+                {/each}
+              </tr></tfoot>
+            </table>
+            <!-- Bending moments per unit width -->
+            <div class="shell-table-label">{t('pro.shellBendingMoments')} <span class="shell-unit">[kN·m/m]</span></div>
+            <table class="pro-res-table">
+              <thead><tr>
+                <th>{t('pro.elemLabel')}</th><th>{t('pro.typeLabel')}</th>
+                {#each [['mx','m<sub>x</sub>'],['my','m<sub>y</sub>'],['mxy','m<sub>xy</sub>']] as [k, lbl]}
+                  <th class="col-num" class:th-zero={shellNegligible(k)}>{@html lbl}{#if shellNegligible(k)}<span class="zero-badge" title={t('pro.shellNearZero')}>≈0</span>{/if}</th>
+                {/each}
+              </tr></thead>
+              <tbody>
+                {#each shellRows as r}
+                  <tr class:selected={uiStore.selectedShells.has(r.key)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell(r.key, false); }} style="cursor:pointer">
+                    <td class="col-id">{r.id}</td>
+                    <td class="col-type">{r.type}</td>
+                    <td class="col-num" class:gov={shellGov.mx === r.key}>{fmtNum(r.mx)}</td>
+                    <td class="col-num" class:gov={shellGov.my === r.key}>{fmtNum(r.my)}</td>
+                    <td class="col-num" class:gov={shellGov.mxy === r.key}>{fmtNum(r.mxy)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+              <tfoot><tr class="shell-peak-row">
+                <td colspan="2">{t('pro.shellPeakAbs')}</td>
+                {#each ['mx','my','mxy'] as k}
+                  <td class="col-num">{fmtNum(shellPeak(k))}</td>
+                {/each}
+              </tr></tfoot>
+            </table>
           </div>
         </details>
       {/if}
@@ -630,7 +718,7 @@
                   {@const quadDef = modelStore.quads.get(qs.elementId)}
                   {@const vmMin = Math.min(...nvm)}
                   {@const vmMax = Math.max(...nvm)}
-                  <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(qs.elementId, false); }} style="cursor:pointer">
+                  <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('q' + qs.elementId, false); }} style="cursor:pointer">
                     <td class="col-id">{qs.elementId}</td>
                     {#each nvm as vm, i}
                       <td class="col-num" title="{quadDef ? t('pro.nodeLabel') + ' ' + quadDef.nodes[i] : ''}">
@@ -934,6 +1022,37 @@
   .col-id { width: 30px; color: #666; font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; text-align: right; font-size: 0.66rem; }
   .col-end { font-size: 0.6rem; color: #888; font-weight: 600; text-align: center; width: 20px; }
+  .col-type { font-size: 0.62rem; color: #7fb0c8; text-align: center; width: 40px; }
+
+  .shell-table-label {
+    font-size: 0.66rem; font-weight: 600; color: #9fd3c8;
+    margin: 8px 0 3px; display: flex; gap: 6px; align-items: baseline;
+  }
+  .shell-table-label:first-child { margin-top: 0; }
+  .shell-unit { color: #888; font-weight: 400; font-family: monospace; }
+  .pro-res-table tr.selected td { background: rgba(0, 255, 255, 0.12); }
+
+  .shell-table-legend {
+    font-size: 0.6rem; color: #8aa; line-height: 1.4; margin: 2px 0 6px;
+    padding: 4px 6px; border-left: 2px solid #2a5060; background: rgba(40, 70, 90, 0.25);
+  }
+  /* Governing cell (largest |value|) in a shell column */
+  .pro-res-table td.gov {
+    color: #ffd166; font-weight: 700;
+    background: rgba(255, 209, 102, 0.10);
+  }
+  /* Negligible-column header marker */
+  .pro-res-table th.th-zero { color: #6a7a85; }
+  .zero-badge {
+    font-size: 0.5rem; font-weight: 700; color: #0a1a30; background: #6a7a85;
+    border-radius: 3px; padding: 0 3px; margin-left: 3px; vertical-align: middle;
+  }
+  /* Peak |value| summary footer row */
+  .pro-res-table tfoot .shell-peak-row td {
+    border-top: 1px solid #1a4a7a; font-size: 0.6rem; color: #9fd3c8;
+    font-weight: 600; background: rgba(20, 40, 60, 0.4);
+  }
+  .pro-res-table tfoot .shell-peak-row td:first-child { text-align: left; font-family: inherit; }
 
   .nodal-ids-row td {
     padding: 1px 5px;

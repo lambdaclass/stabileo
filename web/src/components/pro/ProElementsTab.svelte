@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { arcPolyline } from '../../lib/engine/curved-beam';
   import MemberOffsetEditor from '../property/MemberOffsetEditor.svelte';
 
   const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
@@ -192,6 +193,42 @@
   const materials = $derived([...modelStore.materials.values()]);
   const sections = $derived([...modelStore.sections.values()]);
   const elemCount = $derived(rows.filter(r => r.id !== null).length);
+
+  // ── Curved members (arc → straight frames) ──
+  // Fits the arc through 3 nodes and builds straight frame segments along it.
+  // Done web-side (real model nodes + frames) so diagrams/results work through
+  // the normal frame machinery.
+  let showCurved = $state(false);
+  let cbNodes = $state<[string, string, string]>(['', '', '']);
+  let cbSegments = $state(6);
+  let cbMaterialId = $state(1);
+  let cbSectionId = $state(1);
+  let cbError = $state<string | null>(null);
+  let cbSuccess = $state<string | null>(null);
+
+  function generateCurvedMember() {
+    cbError = null; cbSuccess = null;
+    const ids = cbNodes.map(s => parseInt(s));
+    if (ids.some(isNaN) || new Set(ids).size !== 3 || ids.some(id => !modelStore.nodes.has(id))) { cbError = t('pro.curvedErr3Nodes'); return; }
+    if (cbSegments < 2) { cbError = t('pro.curvedErrSegments'); return; }
+    if (!modelStore.materials.has(cbMaterialId) || !modelStore.sections.has(cbSectionId)) { cbError = t('pro.curvedErrMatSec'); return; }
+    const [s, m, e] = ids.map(id => modelStore.nodes.get(id)!);
+    const pts = arcPolyline(
+      { x: s.x, y: s.y, z: s.z ?? 0 }, { x: m.x, y: m.y, z: m.z ?? 0 }, { x: e.x, y: e.y, z: e.z ?? 0 }, cbSegments,
+    );
+    const nodeIds: number[] = [ids[0]];
+    for (let i = 1; i < pts.length - 1; i++) nodeIds.push(modelStore.addNode(pts[i].x, pts[i].y, pts[i].z !== 0 ? pts[i].z : undefined));
+    nodeIds.push(ids[2]);
+    let made = 0;
+    for (let i = 0; i < nodeIds.length - 1; i++) {
+      const elId = modelStore.addElement(nodeIds[i], nodeIds[i + 1], 'frame');
+      modelStore.updateElementMaterial(elId, cbMaterialId);
+      modelStore.updateElementSection(elId, cbSectionId);
+      made++;
+    }
+    cbSuccess = t('pro.curvedMemberSuccess').replace('{frames}', String(made)).replace('{nodes}', String(nodeIds.length - 2));
+    cbNodes = ['', '', ''];
+  }
 </script>
 
 <div class="pro-elems">
@@ -305,9 +342,57 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Curved members (arc → straight frames) -->
+  <div class="curved-section">
+    <button class="curved-toggle" onclick={() => showCurved = !showCurved}>
+      <span>{showCurved ? '▾' : '▸'}</span> {t('pro.curvedMembers')}
+    </button>
+    {#if showCurved}
+      <div class="curved-body">
+        <div class="curved-hint">{t('pro.curvedMembersHint')}</div>
+        <div class="curved-row">
+          <label>{t('pro.startMidEnd')}</label>
+          <input type="text" bind:value={cbNodes[0]} placeholder="start" />
+          <input type="text" bind:value={cbNodes[1]} placeholder="mid" />
+          <input type="text" bind:value={cbNodes[2]} placeholder="end" />
+        </div>
+        <div class="curved-row">
+          <label>{t('pro.segments')}</label>
+          <input type="number" bind:value={cbSegments} min="2" max="100" />
+        </div>
+        <div class="curved-row">
+          <label>{t('pro.material')}</label>
+          <select bind:value={cbMaterialId}>{#each materials as m}<option value={m.id}>{m.name}</option>{/each}</select>
+        </div>
+        <div class="curved-row">
+          <label>{t('pro.section')}</label>
+          <select bind:value={cbSectionId}>{#each sections as s}<option value={s.id}>{s.name}</option>{/each}</select>
+        </div>
+        {#if cbError}<div class="curved-error">{cbError}</div>{/if}
+        {#if cbSuccess}<div class="curved-success">{cbSuccess}</div>{/if}
+        <button class="pro-btn pro-btn-active" onclick={generateCurvedMember}>{t('pro.generateCurvedMember')}</button>
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
+  .curved-section { border-top: 1px solid #1a3550; margin-top: 6px; }
+  .curved-toggle {
+    width: 100%; text-align: left; background: none; border: none; color: #cfe;
+    font-size: 0.78rem; font-weight: 600; padding: 8px 10px; cursor: pointer;
+  }
+  .curved-body { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .curved-hint { font-size: 0.68rem; color: #8aa; line-height: 1.3; }
+  .curved-row { display: flex; align-items: center; gap: 6px; }
+  .curved-row label { font-size: 0.7rem; color: #aaa; min-width: 70px; }
+  .curved-row input[type="text"] { width: 48px; }
+  .curved-row input, .curved-row select {
+    background: #0a1828; border: 1px solid #1a4a7a; color: #ddd; border-radius: 3px; padding: 3px 5px; font-size: 0.7rem;
+  }
+  .curved-error { color: #ff6b6b; font-size: 0.68rem; }
+  .curved-success { color: #4ecdc4; font-size: 0.68rem; }
   .pro-elems {
     display: flex;
     flex-direction: column;

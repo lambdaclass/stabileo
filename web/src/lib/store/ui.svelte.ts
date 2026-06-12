@@ -112,6 +112,14 @@ function createUIStore() {
   let elementSelectionManual = $state<boolean>(false);
   let selectedLoads = $state<Set<number>>(new Set());
   let selectedSupports = $state<Set<number>>(new Set());
+  // Shell (plate/quad) selection, keyed "p{id}" / "q{id}" to avoid colliding
+  // with element ids. Separate channel from selectedElements (frames/trusses).
+  let selectedShells = $state<Set<string>>(new Set());
+  // Shell node-pick: click nodes in the 3D viewport to fill a shell/mesh
+  // creator instead of typing IDs. `target` says which creator is collecting.
+  let shellNodePick = $state<{ active: boolean; target: 'plate' | 'quad' | 'mesh' | null; picked: number[]; capacity: number }>(
+    { active: false, target: null, picked: [], capacity: 0 },
+  );
 
   let mouseX = $state<number>(0);
   let mouseY = $state<number>(0);
@@ -323,6 +331,7 @@ function createUIStore() {
   let visibleLoadCases3D_basic = $state<number[] | null>(null);
   let showAxes3D_basic = $state<boolean>(true);
   let localAxesMode3D_basic = $state<LocalAxesDisplayMode>('selected');
+  let shellAxesMode3D_basic = $state<LocalAxesDisplayMode>('selected');
 
   // Independent 3D visualization config — PRO mode
   let showGrid3D_pro = $state<boolean>(true);
@@ -336,6 +345,7 @@ function createUIStore() {
   let visibleLoadCases3D_pro = $state<number[] | null>(null);
   let showAxes3D_pro = $state<boolean>(true);
   let localAxesMode3D_pro = $state<LocalAxesDisplayMode>('selected');
+  let shellAxesMode3D_pro = $state<LocalAxesDisplayMode>('selected');
 
   // 3D axis convention: terna derecha (right-hand, default) or terna izquierda (left-hand)
   let axisConvention3D = $state<'rightHand' | 'leftHand'>('rightHand');
@@ -449,6 +459,7 @@ function createUIStore() {
 
     get selectedSupports() { return selectedSupports; },
     clearSelectedSupports() { selectedSupports = new Set(); },
+    get selectedShells() { return selectedShells; },
 
     get mouseX() { return mouseX; },
     get mouseY() { return mouseY; },
@@ -781,6 +792,8 @@ function createUIStore() {
     set showAxes3D(v: boolean) { if (analysisMode === 'pro') showAxes3D_pro = v; else showAxes3D_basic = v; },
     get localAxesMode3D() { return analysisMode === 'pro' ? localAxesMode3D_pro : localAxesMode3D_basic; },
     set localAxesMode3D(v: LocalAxesDisplayMode) { if (analysisMode === 'pro') localAxesMode3D_pro = v; else localAxesMode3D_basic = v; },
+    get shellAxesMode3D() { return analysisMode === 'pro' ? shellAxesMode3D_pro : shellAxesMode3D_basic; },
+    set shellAxesMode3D(v: LocalAxesDisplayMode) { if (analysisMode === 'pro') shellAxesMode3D_pro = v; else shellAxesMode3D_basic = v; },
 
     get axisConvention3D() { return axisConvention3D; },
     set axisConvention3D(v: 'rightHand' | 'leftHand') { axisConvention3D = v; },
@@ -810,6 +823,7 @@ function createUIStore() {
       } else {
         selectedNodes = new Set([id]);
         selectedElements = new Set();
+        selectedShells = new Set();
         // Emptied element selection can't stay 'manual' — a stale true here
         // permanently suppresses the result-query highlight.
         elementSelectionManual = false;
@@ -823,6 +837,43 @@ function createUIStore() {
       } else {
         selectedNodes = new Set();
         selectedElements = new Set([id]);
+        selectedShells = new Set();
+      }
+    },
+
+    // ─── Shell node-pick (viewport click → creator) ───
+    get shellNodePick() { return shellNodePick; },
+    /** Begin collecting `capacity` node clicks for a shell/mesh creator. */
+    startShellNodePick(target: 'plate' | 'quad' | 'mesh', capacity: number) {
+      shellNodePick = { active: true, target, picked: [], capacity };
+      selectedNodes = new Set();
+      selectedElements = new Set();
+      selectedShells = new Set();
+    },
+    /** Push a clicked node id into the active pick buffer (ignores duplicates).
+     *  Auto-stops when capacity is reached. Highlights picked nodes. */
+    pushShellNodePick(id: number) {
+      if (!shellNodePick.active) return;
+      if (shellNodePick.picked.includes(id)) return;
+      const picked = [...shellNodePick.picked, id];
+      const active = picked.length < shellNodePick.capacity;
+      shellNodePick = { ...shellNodePick, picked, active };
+      selectedNodes = new Set(picked); // visual feedback
+    },
+    cancelShellNodePick() {
+      shellNodePick = { active: false, target: null, picked: [], capacity: 0 };
+    },
+
+    /** Select a shell (plate/quad). `key` is "p{id}" or "q{id}". */
+    selectShell(key: string, addToSelection = false) {
+      if (addToSelection) {
+        selectedShells = new Set([...selectedShells, key]);
+      } else {
+        selectedShells = new Set([key]);
+        selectedNodes = new Set();
+        selectedElements = new Set();
+        selectedSupports = new Set();
+        selectedLoads = new Set();
       }
     },
 
@@ -832,6 +883,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedSupports = new Set();
+        selectedShells = new Set();
         elementSelectionManual = false;
       } else {
         selectedLoads = new Set([...selectedLoads, id]);
@@ -844,6 +896,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedLoads = new Set();
+        selectedShells = new Set();
         elementSelectionManual = false;
       } else {
         selectedSupports = new Set([...selectedSupports, id]);
@@ -856,6 +909,7 @@ function createUIStore() {
       selectedElements = new Set();
       selectedLoads = new Set();
       selectedSupports = new Set();
+      selectedShells = new Set();
     },
 
     /** Bulk-set node and element selection. `manual` = true only for genuine
@@ -866,6 +920,7 @@ function createUIStore() {
       elementSelectionManual = manual;
       selectedNodes = nodes;
       selectedElements = elements;
+      selectedShells = new Set();
     },
 
     /** True only when the element selection came from a manual action. */
@@ -899,6 +954,7 @@ function createUIStore() {
       selectedElements = new Set();
       selectedLoads = new Set();
       selectedSupports = new Set();
+      selectedShells = new Set();
       // NOT reset: grid, showGrid, snapToGrid, zoom/pan, labels, analysisMode,
       // showNodeLabels, showElementLabels, showLengths, elementColorMode, showLoads,
       // unitSystem, embedMode, showFloatingTools, showTooltips, showHelpPanel, etc.

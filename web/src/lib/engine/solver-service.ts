@@ -14,6 +14,8 @@ import {
 } from './solver-shells';
 import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-connectivity';
 import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } from './member-offsets';
+import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
+import { enrichComboShellStresses } from './shell-combos';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
 import { t } from '../i18n';
@@ -1189,7 +1191,10 @@ export function buildSolverInput3D(
     })(),
     loads: solverLoads,
     plates: model.plates ? new Map(Array.from(model.plates.entries()).map(([id, p]) => [id, { id: p.id, nodes: p.nodes, materialId: p.materialId, thickness: p.thickness }])) : new Map(),
-    quads: model.quads ? new Map(Array.from(model.quads.entries()).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
+    // Flat MITC4 quads vs. degenerated-continuum curved shells (split by the
+    // `curved` flag; both keyed by their own id, stresses return in quadStresses).
+    quads: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => !q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
+    curvedShells: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
     constraints: model.constraints ?? [],
     connectors: model.connectors,
     leftHand,
@@ -1205,6 +1210,8 @@ export function buildSolverInput3D(
   // the centerline — broken-but-plausible results would be worse.
   if (!project2DToXZ && opts.expandMemberOffsets !== false) {
     expandMemberOffsets(input, model.elements);
+    // After member offsets so helper ids continue past any member helpers.
+    expandShellOffsets(input, model.plates, model.quads);
   }
 
   return input;
@@ -1304,8 +1311,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
       if (model.quads?.size || model.plates?.size) {
         postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }
-      // Strip ephemeral offset-helper node results (only if offsets are present).
-      if (modelHasMemberOffsets(model.elements.values())) {
+      // Strip ephemeral offset-helper node results (member or shell offsets).
+      if (modelHasMemberOffsets(model.elements.values()) || modelHasShellOffsets(model.plates, model.quads)) {
         return pruneHelperNodeResults(results, new Set(model.nodes.keys()));
       }
     }
@@ -1321,7 +1328,7 @@ function pruneComboBundle3D(
   bundle: { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D },
   model: ModelData,
 ): typeof bundle {
-  if (!modelHasMemberOffsets(model.elements.values())) return bundle;
+  if (!modelHasMemberOffsets(model.elements.values()) && !modelHasShellOffsets(model.plates, model.quads)) return bundle;
   const ids = new Set(model.nodes.keys());
   for (const [k, r] of bundle.perCase) bundle.perCase.set(k, pruneHelperNodeResults(r, ids));
   for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, pruneHelperNodeResults(r, ids));
@@ -1404,17 +1411,12 @@ export function solveCombinations3D(
       if (id != null) perCombo.set(id, cr.results);
     }
 
-    // Shell stress enrichment — only for per-case results (combos are derived on-demand)
+    // Shell stress enrichment. The WASM combine drops plate/quad stresses, but
+    // they are linear in displacement → recombine per-combo + envelope from the
+    // per-case results (which DO carry them). No solver change.
     const t1 = performance.now();
     if (hasShells) {
-      const quads = model.quads ?? new Map();
-      const plates = model.plates ?? new Map();
-      for (const r of perCase.values()) {
-        postProcessShellStresses(r, model.nodes, quads, plates, model.materials);
-      }
-      for (const r of perCombo.values()) {
-        postProcessShellStresses(r, model.nodes, quads, plates, model.materials);
-      }
+      enrichComboShellStresses(perCase, perCombo, mcResult.envelope?.maxAbsResults3D, combinations);
     }
     const tShell = performance.now() - t1;
 
@@ -1471,6 +1473,7 @@ function solveCombinations3DFallback(
   const allComboResults = Array.from(perCombo.values());
   const envelope = computeEnvelope3D(allComboResults);
   if (!envelope) return t('svc.envelopeError3d');
+  if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations);
   return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
 }
 
@@ -1563,6 +1566,7 @@ export async function solveCombinations3DParallel(
     const allComboResults = Array.from(perCombo.values());
     const envelope = computeEnvelope3D(allComboResults);
     if (!envelope) return t('svc.envelopeError3d');
+    if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations);
 
     const tPost = performance.now() - t1;
     console.log(`[solveCombinations3D parallel] Solve: ${tSolve.toFixed(0)} ms | Combine+envelope: ${tPost.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size} | Workers: ${Math.min(caseInputs.length, navigator.hardwareConcurrency ?? 4)}`);

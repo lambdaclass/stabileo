@@ -162,7 +162,20 @@ export function applyShellVertexColors(
   const colors = new Float32Array(posCount * 3);
   const tmpColor = new THREE.Color();
 
-  if (!isQuad && nodalValues.length >= 3) {
+  // Preferred path: the shell mesh tags every position vertex with its source
+  // corner-node index (works for flat faces AND extruded slabs in 'sections').
+  const vertexNodeIndex = geo.userData?.vertexNodeIndex as number[] | undefined;
+  if (vertexNodeIndex && vertexNodeIndex.length === posCount) {
+    for (let i = 0; i < posCount; i++) {
+      const node = vertexNodeIndex[i];
+      const v = nodalValues[node] ?? 0;
+      const norm = globalMax > 1e-10 ? v / globalMax : 0;
+      tmpColor.setHex(heatmapColor(norm));
+      colors[i * 3] = tmpColor.r;
+      colors[i * 3 + 1] = tmpColor.g;
+      colors[i * 3 + 2] = tmpColor.b;
+    }
+  } else if (!isQuad && nodalValues.length >= 3) {
     // Triangle: 3 vertices
     for (let i = 0; i < Math.min(posCount, 3); i++) {
       const norm = globalMax > 1e-10 ? nodalValues[i] / globalMax : 0;
@@ -187,5 +200,37 @@ export function applyShellVertexColors(
   const mat = ensureOwnShellMaterial(mesh);
   mat.vertexColors = true;
   mat.color.setHex(0xffffff);
+  // Make the contour visible regardless of render mode (wireframe faces are
+  // nearly transparent at rest).
+  mat.opacity = 0.95; mat.transparent = false; mat.depthWrite = true;
+  mat.needsUpdate = true;
+}
+
+/** Diverging blue→white→red colour for a signed, symmetric-normalised value
+ *  `tn ∈ [-1, 1]`. Used for signed shell contour components (σ, moments). */
+export function divergingColor(tn: number): number {
+  const t = Math.max(-1, Math.min(1, tn));
+  const c = new THREE.Color();
+  if (t >= 0) {
+    // white (0) → red (+1)
+    c.setRGB(1, 1 - t, 1 - t);
+  } else {
+    // blue (-1) → white (0)
+    const a = 1 + t; // 0..1
+    c.setRGB(a, a, 1);
+  }
+  return c.getHex();
+}
+
+/** Flat-colour a shell face mesh by a single hex (per-element contour for
+ *  quantities the solver reports only at the element level). Clears any
+ *  per-vertex colour so the flat colour shows. */
+export function applyShellFlatColor(mesh: THREE.Mesh, hex: number): void {
+  const geo = mesh.geometry;
+  if (geo.getAttribute('color')) geo.deleteAttribute('color');
+  const mat = ensureOwnShellMaterial(mesh);
+  mat.vertexColors = false;
+  mat.color.setHex(hex);
+  mat.opacity = 0.95; mat.transparent = false; mat.depthWrite = true;
   mat.needsUpdate = true;
 }

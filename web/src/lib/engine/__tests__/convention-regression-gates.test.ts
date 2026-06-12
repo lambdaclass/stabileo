@@ -181,13 +181,18 @@ describe('SEAM 2: Permitted analysis modes and PRO handling', () => {
 // ─── SEAM 3: My/Mz axis identity preservation ────────────────────
 
 describe('SEAM 3: My/Mz axis identity preservation', () => {
-  it('auto-verify.ts preserves Mz as Mu (strong) and My as Muy (weak)', () => {
+  it('auto-verify.ts preserves column Mz/My identity and never magnitude-sorts moments', () => {
     const src = readSource('../auto-verify.ts');
-    expect(src, 'Mu = strong axis = Mz').toContain('const MuMax = MzMax;');
-    expect(src, 'Muy = weak axis = My').toContain('const MuyMax = MyMax;');
-    // Must NOT sort by magnitude
+    // Columns: strong axis stays Mz (Mu), weak axis stays My (Muy) — identity intact.
+    expect(src, 'column Mu = Mz').toContain('MuMax = MzMax;');
+    expect(src, 'Muy = My').toContain('const MuyMax = MyMax;');
+    // Beams are axis-aware (My vs Mz chosen by stress proxy), but moments must
+    // NEVER be collapsed by magnitude-sorting into a single Mu.
     expect(src).not.toContain('Math.max(MzMax, MyMax)');
     expect(src).not.toContain('Math.min(MzMax, MyMax)');
+    expect(src).not.toContain('Math.max(MyMax, MzMax)');
+    // The column branch must be gated on isVertical (so the axis-aware path is beam-only).
+    expect(src).toContain('if (isVertical)');
   });
 
   it('ProVerificationTab.svelte preserves axis identity', () => {
