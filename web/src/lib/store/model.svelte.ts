@@ -11,7 +11,8 @@ import { t } from '../i18n';
 import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
-import { pickElement3DMetadata, type Element3DMetadata } from '../model/element-3d-metadata';
+import { pickElement3DMetadata, type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
+export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
 
 export interface Node {
@@ -1918,13 +1919,13 @@ function createModelStore() {
     // ─── 3D Analysis ──────────────────────────────────────────────
 
     /** Build a SolverInput3D from the current model state. Returns null if model is empty. */
-    buildSolverInput3D(includeSelfWeight = false, leftHand = false): SolverInput3D | null {
+    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean } = {}): SolverInput3D | null {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
-        includeSelfWeight, leftHand,
+        includeSelfWeight, leftHand, opts,
       );
     },
 
@@ -2178,6 +2179,30 @@ function createModelStore() {
       const plain = $state.snapshot(elem) as Element;
       plain.rollAngle = ((plain.rollAngle ?? 0) + angleDelta) % 360;
       model.elements.set(elemId, plain);
+      model.elements = new Map(model.elements);
+    },
+
+    /** Set (or clear, when offset is null) the analytical member offset on one element. */
+    setElementOffset(elemId: number, offset: MemberOffset | null): void {
+      if (!_undoBatching) _pushUndo?.();
+      const elem = model.elements.get(elemId);
+      if (!elem) return;
+      const plain = $state.snapshot(elem) as Element;
+      if (offset && (offset.i || offset.j)) plain.offset = offset; else delete plain.offset;
+      model.elements.set(elemId, plain);
+      model.elements = new Map(model.elements);
+    },
+
+    /** Batch-apply (or clear) the same offset to many elements in one undo step. */
+    setElementsOffset(elemIds: Iterable<number>, offset: MemberOffset | null): void {
+      _pushUndo?.();
+      for (const id of elemIds) {
+        const elem = model.elements.get(id);
+        if (!elem) continue;
+        const plain = $state.snapshot(elem) as Element;
+        if (offset && (offset.i || offset.j)) plain.offset = { frame: offset.frame, ...(offset.i ? { i: { ...offset.i } } : {}), ...(offset.j ? { j: { ...offset.j } } : {}) }; else delete plain.offset;
+        model.elements.set(id, plain);
+      }
       model.elements = new Map(model.elements);
     },
 

@@ -105,6 +105,11 @@ function createUIStore() {
   let selectMode = $state<SelectMode>('elements');
   let selectedNodes = $state<Set<number>>(new Set());
   let selectedElements = $state<Set<number>>(new Set());
+  // True only when selectedElements was set by a genuine MANUAL element action
+  // (viewport click, box-select, element-row click). False for any bulk/result-
+  // driven highlight (result-query, diagrams, AI, diagnostics, paste, select-all).
+  // Local-axes "When selected" shows triads only when this is true.
+  let elementSelectionManual = $state<boolean>(false);
   let selectedLoads = $state<Set<number>>(new Set());
   let selectedSupports = $state<Set<number>>(new Set());
 
@@ -805,10 +810,14 @@ function createUIStore() {
       } else {
         selectedNodes = new Set([id]);
         selectedElements = new Set();
+        // Emptied element selection can't stay 'manual' — a stale true here
+        // permanently suppresses the result-query highlight.
+        elementSelectionManual = false;
       }
     },
 
     selectElement(id: number, addToSelection = false) {
+      elementSelectionManual = true; // manual click selection
       if (addToSelection) {
         selectedElements = new Set([...selectedElements, id]);
       } else {
@@ -823,6 +832,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedSupports = new Set();
+        elementSelectionManual = false;
       } else {
         selectedLoads = new Set([...selectedLoads, id]);
       }
@@ -834,23 +844,35 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedLoads = new Set();
+        elementSelectionManual = false;
       } else {
         selectedSupports = new Set([...selectedSupports, id]);
       }
     },
 
     clearSelection() {
+      elementSelectionManual = false;
       selectedNodes = new Set();
       selectedElements = new Set();
       selectedLoads = new Set();
       selectedSupports = new Set();
     },
 
-    /** Bulk-set node and element selection (triggers reactivity via reassignment) */
-    setSelection(nodes: Set<number>, elements: Set<number>) {
+    /** Bulk-set node and element selection. `manual` = true only for genuine
+     *  manual element actions (box-select, element-row click); leave false for
+     *  result/query/AI/diagnostic highlighting so local-axes "When selected"
+     *  ignores it. */
+    setSelection(nodes: Set<number>, elements: Set<number>, manual = false) {
+      elementSelectionManual = manual;
       selectedNodes = nodes;
       selectedElements = elements;
     },
+
+    /** True only when the element selection came from a manual action. */
+    get elementSelectionManual() { return elementSelectionManual; },
+    /** Hand selection control back to result-query driving (call when the user
+     *  interacts with the query controls). */
+    releaseManualSelection() { elementSelectionManual = false; },
 
     /** Reset all transient/session state while preserving visualization settings */
     resetSession() {

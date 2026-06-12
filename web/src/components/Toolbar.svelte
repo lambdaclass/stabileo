@@ -326,7 +326,7 @@
     });
 
     // Select pasted items
-    uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements));
+    uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements), true);
   }
 
   async function handleLoadFile(e: Event) {
@@ -388,7 +388,7 @@
     // Ctrl+A: Select all
     if ((e.ctrlKey || e.metaKey) && key === 'A') {
       e.preventDefault();
-      uiStore.setSelection(new Set(modelStore.nodes.keys()), new Set(modelStore.elements.keys()));
+      uiStore.setSelection(new Set(modelStore.nodes.keys()), new Set(modelStore.elements.keys()), true);
       return;
     }
 

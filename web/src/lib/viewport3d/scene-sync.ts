@@ -17,6 +17,8 @@ import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers
 import { createPlateMesh, createQuadMesh, ensureOwnShellMaterial, SHELL_OPACITY, SHELL_OPACITY_SELECTED } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
+import { createMemberOffsetViz } from '../three/create-offset-viz';
+import { hasMemberOffset, resolveOffsetWorldVectors } from '../engine/member-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
   get2DDisplayNodalLoadMoment,
@@ -75,6 +77,7 @@ export interface SceneSyncContext {
   // Single-instance groups (replaced on each sync)
   loadGroup: THREE.Group | null;
   localAxesGroup: THREE.Group | null;
+  offsetVizGroup: THREE.Group | null;
   /** Persistent parent for the triad group — LOD-managed (hidden in the
    *  heavy-model orbit fallback, like the other decorative parents). */
   localAxesParent: THREE.Group;
@@ -168,7 +171,8 @@ export function syncElements(ctx: SceneSyncContext): void {
       `${renderMode}|${elem.type}|${elem.releaseI?.mz === true ? 1 : 0}${elem.releaseJ?.mz === true ? 1 : 0}` +
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
       `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.tl ?? ''}:${sec?.rotation ?? ''}` +
-      `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}`;
+      `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
+      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}`;
 
     const existing = ctx.elementGroups.get(id);
     if (existing && existing.userData.elementSig === signature) continue;
@@ -202,9 +206,26 @@ export function syncElements(ctx: SceneSyncContext): void {
       }
     }
 
+    // In solid/sections modes, render the actual section/cylinder at the OFFSET
+    // analytical location (same endpoints the solver expansion uses), so an
+    // eccentric member's profile sits where it acts. Wireframe stays on the
+    // centerline (the offset preview line shows the shift). Picking + batched
+    // wireframe always track the centerline.
+    let gI = posI, gJ = posJ;
+    if (renderMode !== 'wireframe' && !project2D && hasMemberOffset(elem)) {
+      // NOT the mesh-orientation axes: the solver expansion composes the
+      // section rotation into the roll angle, so the shifted profile must use
+      // the same resolver or it renders away from where the member acts.
+      const off = resolveOffsetWorldVectors(elem, posI, posJ, sec?.rotation, leftHand);
+      if (off) {
+        gI = { ...posI, x: posI.x + (off.i?.x ?? 0), y: posI.y + (off.i?.y ?? 0), z: posI.z + (off.i?.z ?? 0) };
+        gJ = { ...posJ, x: posJ.x + (off.j?.x ?? 0), y: posJ.y + (off.j?.y ?? 0), z: posJ.z + (off.j?.z ?? 0) };
+      }
+    }
+
     const group = createElementGroup(
-      posI,
-      posJ,
+      gI,
+      gJ,
       {
         elementId: id,
         elementType: elem.type,
@@ -659,8 +680,11 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
   // (every member gets a triad, labels off), and reading it would make the
   // whole group dispose + rebuild on every selection click. In shells
   // select-mode the ids in selectedElements are plate/quad ids (colliding
-  // counters) — never frame elements, so treat the selection as empty.
-  const selected = showAll || uiStore.selectMode === 'shells'
+  // counters) — never frame elements. And "When selected" means MANUALLY
+  // selected only: result diagrams / result-query / AI highlight via
+  // selectedElements too, but with elementSelectionManual=false — reviewing
+  // diagrams must not flood the scene with triads.
+  const selected = showAll || uiStore.selectMode === 'shells' || !uiStore.elementSelectionManual
     ? new Set<number>()
     : uiStore.selectedElements;
   if (!showAll && selected.size === 0) return;
@@ -707,4 +731,55 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
 
   ctx.localAxesGroup = group;
   ctx.localAxesParent.add(group);
+}
+
+// ─── Member-offset preview (visual only) ─────────────────────
+//
+// For every element carrying offset metadata, draw the ghost centerline, the
+// offset analytical line, and the rigid arms. Mirrors the solver's ephemeral
+// expansion (same offsetVecToSolver + computeLocalAxes3D) so the preview shows
+// exactly where the analysis places the member. Single-instance group.
+
+export function syncMemberOffsets(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+
+  if (ctx.offsetVizGroup) {
+    ctx.scene.remove(ctx.offsetVizGroup);
+    disposeObject(ctx.offsetVizGroup);
+    ctx.offsetVizGroup = null;
+  }
+
+  // Offsets are a genuine-3D feature (matches solver gating); skip projected 2D.
+  if (projectFlag()) return;
+
+  // Cheap early-out without materializing an array — this sync runs on every
+  // model mutation tick (node drags) even when the feature isn't in use.
+  let any = false;
+  for (const e of modelStore.elements.values()) {
+    if (hasMemberOffset(e)) { any = true; break; }
+  }
+  if (!any) return;
+
+  const leftHand = uiStore.axisConvention3D === 'leftHand';
+  const group = new THREE.Group();
+  group.name = 'memberOffsetContainer';
+
+  for (const elem of modelStore.elements.values()) {
+    if (!hasMemberOffset(elem)) continue;
+    const nI = modelStore.nodes.get(elem.nodeI);
+    const nJ = modelStore.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) continue;
+    const pI = { x: nI.x, y: nI.y, z: nI.z ?? 0 };
+    const pJ = { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 };
+
+    // Solver-faithful axes (effectiveRoll + leftHand) — the preview's whole
+    // point is showing where the ANALYSIS places the member.
+    const sec = modelStore.sections.get(elem.sectionId);
+    const off = resolveOffsetWorldVectors(elem, pI, pJ, sec?.rotation, leftHand);
+    if (!off) continue;
+    group.add(createMemberOffsetViz(pI, pJ, off.i, off.j));
+  }
+
+  ctx.offsetVizGroup = group;
+  ctx.scene.add(group);
 }

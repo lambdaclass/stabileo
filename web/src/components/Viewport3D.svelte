@@ -15,7 +15,7 @@
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
-  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
 
@@ -33,6 +33,12 @@
   // Declared here so $effect blocks can call invalidate() from outside onMount.
   // The actual implementation is assigned inside onMount once the renderer exists.
   let invalidate: () => void = () => {};
+  // Restore idle render quality (pixel ratio + full detail) and re-render.
+  // Used when a box-select starts: OrbitControls 'start' fires on pointer-down
+  // and drops pixelRatio/low-detail assuming an orbit, but a box-select then
+  // disables controls and never moves the camera — so nothing re-renders and the
+  // resized (cleared) WebGL buffer would otherwise show dark until mouseup.
+  let exitOrbitLOD: () => void = () => {};
 
   // ─── Scene graph maps (reconciled with store) ────────────────
   let nodesInstanced = new NodesInstanced();
@@ -490,6 +496,12 @@
         renderMode: uiStore.renderMode3D,
       }, { resultsColoringActive, heavyModel });
     }
+    exitOrbitLOD = () => {
+      isOrbiting = false;
+      renderer.setPixelRatio(idlePixelRatio);
+      setLowDetail(false);
+      invalidate();
+    };
     controls.addEventListener('start', () => {
       isOrbiting = true;
       dampingFrames = 0;
@@ -570,6 +582,7 @@
       shellGroups: new Map(),
       loadGroup: null,
       localAxesGroup: null,
+      offsetVizGroup: null,
       localAxesParent,
       colorMapApplied: false,
     };
@@ -593,6 +606,7 @@
   function syncLoads() { _syncLoads(sceneCtx); }
   function syncShells() { _syncShells(sceneCtx); }
   function syncLocalAxes() { _syncLocalAxes(sceneCtx); }
+  function syncMemberOffsets() { _syncMemberOffsets(sceneCtx); }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
@@ -776,6 +790,16 @@
     modelStore.elements;
     modelStore.modelVersion;
     syncLocalAxes();
+    invalidate();
+  });
+
+  // Member-offset preview: ghost centerline + offset line + rigid arms.
+  $effect(() => {
+    modelStore.elements;
+    modelStore.nodes;
+    modelStore.modelVersion;
+    uiStore.analysisMode;
+    syncMemberOffsets();
     invalidate();
   });
 
@@ -963,6 +987,10 @@
           const my = e.clientY - rect.top;
           boxSelect3D = { startX: mx, startY: my, endX: mx, endY: my, additive: e.shiftKey };
           controls.enabled = false;
+          // This is a box-select, not an orbit — undo the low-detail/low-res
+          // state that OrbitControls 'start' just engaged, and re-render so the
+          // model stays fully visible (not a dark cleared buffer) during the drag.
+          exitOrbitLOD();
         }
       }
     }
@@ -1393,8 +1421,8 @@
           }
         }
 
-        // Reassign sets to trigger Svelte reactivity
-        uiStore.setSelection(newNodes, newElems);
+        // Reassign sets to trigger Svelte reactivity (manual box-select)
+        uiStore.setSelection(newNodes, newElems, true);
       } else {
         // Small drag = click → delegate to normal click selection
         boxSelect3D = null;
@@ -1632,6 +1660,9 @@
     if (boxSelect3D) {
       const rect = container.getBoundingClientRect();
       boxSelect3D = { ...boxSelect3D, endX: e.clientX - rect.left, endY: e.clientY - rect.top };
+      // Keep re-rendering during the drag so the model stays visible (the camera
+      // is static during box-select, so without this the canvas wouldn't repaint).
+      invalidate();
       return;
     }
 
