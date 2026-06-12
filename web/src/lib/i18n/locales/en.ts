@@ -3159,6 +3159,7 @@ const en: Record<string, string> = {
   'pro.offsetClear': 'Clear',
   'pro.offsetActive': 'Offset active on this member.',
   'pro.offsetWarn': 'Changes analysis — introduces eccentricity moments at the connections.',
+  'pro.offsetEmbedWarn': 'This flat model solves through the 2D embedding — member offsets are not applied to the analysis.',
   'pro.querySelectForceDiagram': 'Select a force diagram to query results',
   'pro.queryNoRows': 'No rows for this query',
   'pro.queryRowCount': '{n} rows',

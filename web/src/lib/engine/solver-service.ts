@@ -46,7 +46,10 @@ export interface ModelData {
   connectors?: Map<number, import('./types-3d').ConnectorElement>;
 }
 
-function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
+/** Exported so UI affordances (e.g. the member-offset editor) can tell when a
+ *  flat 2D-typed model will solve through the embedding — where offsets are
+ *  intentionally NOT expanded — instead of claiming an analysis effect. */
+export function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
   return shouldProjectModelToXZ({
     nodes: model.nodes.values(),
     supports: model.supports.values(),
@@ -1036,7 +1039,12 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
   return solverLoads;
 }
 
-export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, leftHand = false): SolverInput3D | null {
+export function buildSolverInput3D(
+  model: ModelData,
+  includeSelfWeight = false,
+  leftHand = false,
+  opts: { expandMemberOffsets?: boolean } = {},
+): SolverInput3D | null {
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
 
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
@@ -1190,7 +1198,12 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
   // Analytical member offsets (genuine 3D only): ephemerally expand offset
   // members into helper nodes + eccentric constraints. No-op (byte-identical
   // input) when no element carries an offset.
-  if (!project2DToXZ) {
+  // Offsets expand only where the downstream solver demonstrably supports the
+  // generated eccentricConnection constraints (linear solve_3d + the combo
+  // paths). Advanced analyses (modal/spectral wire payloads don't even carry
+  // constraints; DSM viewer has no constraint handling) opt out and analyze
+  // the centerline — broken-but-plausible results would be worse.
+  if (!project2DToXZ && opts.expandMemberOffsets !== false) {
     expandMemberOffsets(input, model.elements);
   }
 

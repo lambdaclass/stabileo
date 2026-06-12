@@ -3121,6 +3121,7 @@ const es: Record<string, string> = {
   'pro.offsetClear': 'Quitar',
   'pro.offsetActive': 'Offset activo en esta barra.',
   'pro.offsetWarn': 'Cambia el análisis — introduce momentos por excentricidad en las conexiones.',
+  'pro.offsetEmbedWarn': 'Este modelo plano se resuelve embebido en 2D — los offsets de barra no se aplican al análisis.',
   'pro.querySelectForceDiagram': 'Selecciona un diagrama de esfuerzos para consultar resultados',
   'pro.queryNoRows': 'Sin filas para esta consulta',
   'pro.queryRowCount': '{n} filas',

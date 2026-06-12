@@ -133,10 +133,49 @@ export function pruneHelperNodeResults(
 ): AnalysisResults3D {
   const dispLeak = results.displacements.some((d) => !modelNodeIds.has(d.nodeId));
   const reacLeak = results.reactions.some((r) => !modelNodeIds.has(r.nodeId));
-  if (!dispLeak && !reacLeak) return results;
+  // The eccentric arms emit constraint forces keyed to helper node ids — they
+  // would surface in the constraint-forces table and corrupt its arrow scale.
+  const cfLeak = (results.constraintForces ?? []).some((c) => !modelNodeIds.has(c.nodeId));
+  if (!dispLeak && !reacLeak && !cfLeak) return results;
   return {
     ...results,
     displacements: results.displacements.filter((d) => modelNodeIds.has(d.nodeId)),
     reactions: results.reactions.filter((r) => modelNodeIds.has(r.nodeId)),
+    ...(results.constraintForces
+      ? { constraintForces: results.constraintForces.filter((c) => modelNodeIds.has(c.nodeId)) }
+      : {}),
+  };
+}
+
+/**
+ * World-space offset vectors for an element, computed with the SAME axes the
+ * solver expansion uses: effectiveRoll = rollAngle + section rotation, plus the
+ * leftHand convention. The single shared resolver for every visualization —
+ * a preview that uses different axes than the analysis lies about where the
+ * member actually acts.
+ */
+export function resolveOffsetWorldVectors(
+  elem: { offset?: MemberOffset; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number },
+  pI: { x: number; y: number; z: number },
+  pJ: { x: number; y: number; z: number },
+  sectionRotation: number | undefined,
+  leftHand: boolean,
+): { i: { x: number; y: number; z: number } | null; j: { x: number; y: number; z: number } | null } | null {
+  if (!hasMemberOffset(elem)) return null;
+  const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+    ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+  let axes;
+  try {
+    axes = computeLocalAxes3D(
+      { id: 0, ...pI }, { id: 0, ...pJ },
+      localY, (elem.rollAngle ?? 0) + (sectionRotation ?? 0), leftHand,
+    );
+  } catch {
+    return null; // zero-length
+  }
+  const off = elem.offset!;
+  return {
+    i: off.i && vecNonZero(off.i) ? offsetVecToSolver(off.i, off.frame, axes) : null,
+    j: off.j && vecNonZero(off.j) ? offsetVecToSolver(off.j, off.frame, axes) : null,
   };
 }

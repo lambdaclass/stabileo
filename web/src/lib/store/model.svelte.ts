@@ -1919,13 +1919,13 @@ function createModelStore() {
     // ─── 3D Analysis ──────────────────────────────────────────────
 
     /** Build a SolverInput3D from the current model state. Returns null if model is empty. */
-    buildSolverInput3D(includeSelfWeight = false, leftHand = false): SolverInput3D | null {
+    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean } = {}): SolverInput3D | null {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
-        includeSelfWeight, leftHand,
+        includeSelfWeight, leftHand, opts,
       );
     },
 

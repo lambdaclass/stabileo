@@ -77,6 +77,12 @@
         quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
         connectors: modelStore.connectors },
       uiStore.includeSelfWeight,
+      false,
+      // Advanced analyses run on the centerline: their wire payloads (modal/
+      // spectral) don't carry constraints, so expanded offset-helper nodes
+      // would float free — singular K instead of eccentricity effects. The
+      // linear + combination solves DO expand offsets.
+      { expandMemberOffsets: false },
     );
     if (!input) throw new Error(t('advanced.emptyModel'));
     return input;

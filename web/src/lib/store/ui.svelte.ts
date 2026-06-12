@@ -810,6 +810,9 @@ function createUIStore() {
       } else {
         selectedNodes = new Set([id]);
         selectedElements = new Set();
+        // Emptied element selection can't stay 'manual' — a stale true here
+        // permanently suppresses the result-query highlight.
+        elementSelectionManual = false;
       }
     },
 
@@ -829,6 +832,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedSupports = new Set();
+        elementSelectionManual = false;
       } else {
         selectedLoads = new Set([...selectedLoads, id]);
       }
@@ -840,6 +844,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedLoads = new Set();
+        elementSelectionManual = false;
       } else {
         selectedSupports = new Set([...selectedSupports, id]);
       }
