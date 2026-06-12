@@ -18,7 +18,7 @@ import { createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, pai
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
-import { hasMemberOffset, offsetVecToSolver } from '../engine/member-offsets';
+import { hasMemberOffset, resolveOffsetWorldVectors } from '../engine/member-offsets';
 import { hasShellOffset, resolveShellOffsetGlobal } from '../engine/shell-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
@@ -80,6 +80,9 @@ export interface SceneSyncContext {
   localAxesGroup: THREE.Group | null;
   offsetVizGroup: THREE.Group | null;
   shellOffsetVizGroup: THREE.Group | null;
+  /** Persistent parent for the triad group — LOD-managed (hidden in the
+   *  heavy-model orbit fallback, like the other decorative parents). */
+  localAxesParent: THREE.Group;
 
   // Results state (mutable flags shared with results-sync)
   colorMapApplied: boolean;
@@ -122,6 +125,7 @@ export function syncElements(ctx: SceneSyncContext): void {
   const storeElements = modelStore.elements;
   const project2D = projectFlag();
   const renderMode = uiStore.renderMode3D;
+  const leftHand = uiStore.axisConvention3D === 'leftHand';
   const eb = ctx.elementsBatched;
   const ep = ctx.elementsPicking;
 
@@ -168,8 +172,8 @@ export function syncElements(ctx: SceneSyncContext): void {
     const signature =
       `${renderMode}|${elem.type}|${elem.releaseI?.mz === true ? 1 : 0}${elem.releaseJ?.mz === true ? 1 : 0}` +
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
-      `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.rotation ?? ''}` +
-      `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}` +
+      `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.tl ?? ''}:${sec?.rotation ?? ''}` +
+      `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
       `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}`;
 
     const existing = ctx.elementGroups.get(id);
@@ -181,19 +185,27 @@ export function syncElements(ctx: SceneSyncContext): void {
 
     // Local axes orient extruded sections so they sit the way the solver sees
     // them (e.g. I-beam web vertical on horizontal members). Computed only here,
-    // on rebuild. Falls back to undefined (legacy orientation) on zero-length.
+    // on rebuild. Falls back to undefined (legacy orientation) on zero-length —
+    // and ALWAYS when the viewport projects a planar model to XZ: the axes come
+    // from raw model coordinates while the mesh spans projected coordinates, so
+    // a model-space basis would extrude profiles 90° off their members (the
+    // legacy posJ−posI orientation is correct in the projected scene).
     let localAxes: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] } | undefined;
-    try {
-      const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
-        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      const ax = computeLocalAxes3D(
-        { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 },
-        { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
-        elemLocalY, elem.rollAngle,
-      );
-      localAxes = { ex: ax.ex, ey: ax.ey, ez: ax.ez };
-    } catch {
-      localAxes = undefined;
+    if (!project2D) {
+      try {
+        const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+          ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+        const ax = computeLocalAxes3D(
+          { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 },
+          { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+          // leftHand mirrors the solver's convention (negated ey) so asymmetric
+          // profiles render the way the solver computes them.
+          elemLocalY, elem.rollAngle, leftHand,
+        );
+        localAxes = { ex: ax.ex, ey: ax.ey, ez: ax.ez };
+      } catch {
+        localAxes = undefined;
+      }
     }
 
     // In solid/sections modes, render the actual section/cylinder at the OFFSET
@@ -202,12 +214,15 @@ export function syncElements(ctx: SceneSyncContext): void {
     // centerline (the offset preview line shows the shift). Picking + batched
     // wireframe always track the centerline.
     let gI = posI, gJ = posJ;
-    if (renderMode !== 'wireframe' && !project2D && localAxes && hasMemberOffset(elem)) {
-      const off = elem.offset!;
-      const oI = off.i ? offsetVecToSolver(off.i, off.frame, localAxes) : null;
-      const oJ = off.j ? offsetVecToSolver(off.j, off.frame, localAxes) : null;
-      gI = { ...posI, x: posI.x + (oI?.x ?? 0), y: posI.y + (oI?.y ?? 0), z: posI.z + (oI?.z ?? 0) };
-      gJ = { ...posJ, x: posJ.x + (oJ?.x ?? 0), y: posJ.y + (oJ?.y ?? 0), z: posJ.z + (oJ?.z ?? 0) };
+    if (renderMode !== 'wireframe' && !project2D && hasMemberOffset(elem)) {
+      // NOT the mesh-orientation axes: the solver expansion composes the
+      // section rotation into the roll angle, so the shifted profile must use
+      // the same resolver or it renders away from where the member acts.
+      const off = resolveOffsetWorldVectors(elem, posI, posJ, sec?.rotation, leftHand);
+      if (off) {
+        gI = { ...posI, x: posI.x + (off.i?.x ?? 0), y: posI.y + (off.i?.y ?? 0), z: posI.z + (off.i?.z ?? 0) };
+        gJ = { ...posJ, x: posJ.x + (off.j?.x ?? 0), y: posJ.y + (off.j?.y ?? 0), z: posJ.z + (off.j?.z ?? 0) };
+      }
     }
 
     const group = createElementGroup(
@@ -618,6 +633,11 @@ export function syncLoads(ctx: SceneSyncContext): void {
 export function syncSelection(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
+  // selectedElements is shared between frame elements and plates/quads, whose
+  // id counters overlap; selectMode tells us which entity class the ids refer
+  // to. In shells mode a selected shell id must not light up a frame element.
+  const shellMode = uiStore.selectMode === 'shells';
+
   // Nodes
   const ni = ctx.nodesInstanced;
   for (let i = 0; i < ni.count; i++) {
@@ -631,7 +651,7 @@ export function syncSelection(ctx: SceneSyncContext): void {
   const wireframe = uiStore.renderMode3D === 'wireframe';
   const eb = ctx.elementsBatched;
   for (const [id, group] of ctx.elementGroups) {
-    const selected = uiStore.selectedElements.has(id);
+    const selected = !shellMode && uiStore.selectedElements.has(id);
     const elem = modelStore.elements.get(id);
     const isTruss = elem?.type === 'truss';
     // Use brightened colors in wireframe mode for grid contrast
@@ -654,7 +674,9 @@ export function syncSelection(ctx: SceneSyncContext): void {
     setGroupColor(gizmo, color);
   }
 
-  // Shells (plates + quads)
+  // Shells (plates + quads): selectedShells keys ("p{id}"/"q{id}") are
+  // unambiguous, superseding the old opacity boost keyed on colliding
+  // selectedElements ids.
   applyShellSelection(ctx);
 
   // Re-apply color map if active (syncSelection overwrites element colors)
@@ -679,7 +701,7 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
 
   // Tear down the previous triad group.
   if (ctx.localAxesGroup) {
-    ctx.scene.remove(ctx.localAxesGroup);
+    ctx.localAxesParent.remove(ctx.localAxesGroup);
     disposeObject(ctx.localAxesGroup);
     ctx.localAxesGroup = null;
   }
@@ -693,14 +715,26 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
 
   // ── MEMBER local axes (independent setting: localAxesMode3D) ──
   const memberMode = uiStore.localAxesMode3D;
-  const memberShowAll = memberMode === 'always';
-  // "When selected" = MANUALLY selected only. Result diagrams / result-query /
-  // AI / diagnostics highlight via selectedElements too, but with
-  // elementSelectionManual=false — so reviewing diagrams never floods triads.
-  const selected = (!memberShowAll && !uiStore.elementSelectionManual) ? new Set<number>() : uiStore.selectedElements;
+  // 'always' on an arbitrarily large model would mean tens of thousands of
+  // arrow objects rebuilt per model mutation — beyond this cap the mode is a
+  // no-op (the 'selected' path still works on models of any size).
+  const MAX_ALWAYS_TRIADS = 1500;
+  const memberShowAll = memberMode === 'always' && modelStore.elements.size <= MAX_ALWAYS_TRIADS;
+  // In 'always' mode the selection is deliberately NOT read: it isn't needed
+  // (every member gets a triad, labels off), and reading it would make the
+  // whole group dispose + rebuild on every selection click. In shells
+  // select-mode the ids in selectedElements are plate/quad ids (colliding
+  // counters) — never frame elements. And "When selected" means MANUALLY
+  // selected only: result diagrams / result-query / AI highlight via
+  // selectedElements too, but with elementSelectionManual=false — reviewing
+  // diagrams must not flood the scene with triads.
+  const selected = memberShowAll || uiStore.selectMode === 'shells' || !uiStore.elementSelectionManual
+    ? new Set<number>()
+    : uiStore.selectedElements;
   const labelSelected = selected.size > 0 && selected.size <= LABEL_CAP;
   const drawMembers = memberMode !== 'never' && (memberShowAll || selected.size > 0);
 
+  const leftHandTriads = uiStore.axisConvention3D === 'leftHand';
   const group = new THREE.Group();
   group.name = 'localAxesContainer';
 
@@ -719,7 +753,11 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
     try {
       const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      axes = computeLocalAxes3D(posI, posJ, elemLocalY, elem.rollAngle);
+      // Mirror the solver's axes exactly (solver-service folds the section
+      // rotation into the roll angle and passes the leftHand convention; a
+      // triad that omits either would LIE about the axes the solver uses).
+      const secRot = modelStore.sections.get(elem.sectionId)?.rotation ?? 0;
+      axes = computeLocalAxes3D(posI, posJ, elemLocalY, (elem.rollAngle ?? 0) + secRot, leftHandTriads);
     } catch {
       continue; // zero-length member — skip
     }
@@ -758,7 +796,7 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
   }
 
   ctx.localAxesGroup = group;
-  ctx.scene.add(group);
+  ctx.localAxesParent.add(group);
 }
 
 /** Shell local frame: ex along node0→node1 edge, ez the face normal, ey = ez×ex.
@@ -790,8 +828,8 @@ function shellLocalAxes(
 //
 // For every element carrying offset metadata, draw the ghost centerline, the
 // offset analytical line, and the rigid arms. Mirrors the solver's ephemeral
-// expansion (same offsetVecToSolver + computeLocalAxes3D) so the preview shows
-// exactly where the analysis places the member. Single-instance group.
+// expansion (shared resolveOffsetWorldVectors) so the preview shows exactly
+// where the analysis places the member. Single-instance group.
 
 export function syncMemberOffsets(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
@@ -805,32 +843,32 @@ export function syncMemberOffsets(ctx: SceneSyncContext): void {
   // Offsets are a genuine-3D feature (matches solver gating); skip projected 2D.
   if (projectFlag()) return;
 
-  const offsetEls = [...modelStore.elements.values()].filter(hasMemberOffset);
-  if (offsetEls.length === 0) return;
+  // Cheap early-out without materializing an array — this sync runs on every
+  // model mutation tick (node drags) even when the feature isn't in use.
+  let any = false;
+  for (const e of modelStore.elements.values()) {
+    if (hasMemberOffset(e)) { any = true; break; }
+  }
+  if (!any) return;
 
+  const leftHand = uiStore.axisConvention3D === 'leftHand';
   const group = new THREE.Group();
   group.name = 'memberOffsetContainer';
 
-  for (const elem of offsetEls) {
+  for (const elem of modelStore.elements.values()) {
+    if (!hasMemberOffset(elem)) continue;
     const nI = modelStore.nodes.get(elem.nodeI);
     const nJ = modelStore.nodes.get(elem.nodeJ);
     if (!nI || !nJ) continue;
     const pI = { x: nI.x, y: nI.y, z: nI.z ?? 0 };
     const pJ = { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 };
 
-    let axes;
-    try {
-      const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
-        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      axes = computeLocalAxes3D({ id: 0, ...pI }, { id: 0, ...pJ }, elemLocalY, elem.rollAngle);
-    } catch {
-      continue;
-    }
-
-    const off = elem.offset!;
-    const offI = off.i ? offsetVecToSolver(off.i, off.frame, axes) : null;
-    const offJ = off.j ? offsetVecToSolver(off.j, off.frame, axes) : null;
-    group.add(createMemberOffsetViz(pI, pJ, offI, offJ));
+    // Solver-faithful axes (effectiveRoll + leftHand) — the preview's whole
+    // point is showing where the ANALYSIS places the member.
+    const sec = modelStore.sections.get(elem.sectionId);
+    const off = resolveOffsetWorldVectors(elem, pI, pJ, sec?.rotation, leftHand);
+    if (!off) continue;
+    group.add(createMemberOffsetViz(pI, pJ, off.i, off.j));
   }
 
   ctx.offsetVizGroup = group;

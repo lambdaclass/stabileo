@@ -326,7 +326,7 @@
     });
 
     // Select pasted items
-    uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements));
+    uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements), true);
   }
 
   async function handleLoadFile(e: Event) {
@@ -388,7 +388,7 @@
     // Ctrl+A: Select all
     if ((e.ctrlKey || e.metaKey) && key === 'A') {
       e.preventDefault();
-      uiStore.setSelection(new Set(modelStore.nodes.keys()), new Set(modelStore.elements.keys()));
+      uiStore.setSelection(new Set(modelStore.nodes.keys()), new Set(modelStore.elements.keys()), true);
       return;
     }
 
@@ -479,14 +479,10 @@
         return;
       }
       if (uiStore.selectedLoads.size > 0) {
-        // selectedLoads stores array indices into modelStore.loads.
-        // Delete in reverse order so earlier indices remain valid.
-        const indices = [...uiStore.selectedLoads].sort((a, b) => b - a);
+        // selectedLoads holds load data ids (the 2D viewport selects by data.id)
+        const ids = [...uiStore.selectedLoads];
         modelStore.batch(() => {
-          for (const idx of indices) {
-            const load = modelStore.loads[idx];
-            if (load) modelStore.removeLoad(load.data.id);
-          }
+          for (const id of ids) modelStore.removeLoad(id);
         });
         uiStore.clearSelectedLoads();
         resultsStore.clear();

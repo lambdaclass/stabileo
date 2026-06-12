@@ -6,6 +6,7 @@ import {
   hasMemberOffset,
   modelHasMemberOffsets,
   offsetVecToSolver,
+  resolveOffsetWorldVectors,
 } from '../member-offsets';
 import type { SolverInput3D, SolverNode3D, AnalysisResults3D } from '../types-3d';
 
@@ -207,5 +208,77 @@ describe('member-offsets: result pruning', () => {
     // no-op when nothing leaks
     const clean = { ...results, displacements: [results.displacements[0]] } as AnalysisResults3D;
     expect(pruneHelperNodeResults(clean, model)).toBe(clean);
+  });
+
+  it('removes helper-keyed constraint forces (the eccentric arms emit them)', () => {
+    const results = {
+      displacements: [{ nodeId: 1, ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }],
+      reactions: [],
+      elementForces: [],
+      constraintForces: [
+        { nodeId: 1, fx: 1, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
+        { nodeId: 99, fx: 1e6, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 }, // helper → would corrupt arrow scale
+      ],
+    } as any as AnalysisResults3D;
+    const pruned = pruneHelperNodeResults(results, new Set([1, 2]));
+    expect((pruned as any).constraintForces.map((c: any) => c.nodeId)).toEqual([1]);
+    expect(pruned.displacements.length).toBe(1); // real rows survive
+  });
+});
+
+describe('member-offsets: shared world-vector resolver (viz ↔ solver parity)', () => {
+  const pI = { x: 0, y: 0, z: 0 };
+  const pJ = { x: 2, y: 0, z: 0 };
+
+  it('returns null without a non-zero offset or for zero-length elements', () => {
+    expect(resolveOffsetWorldVectors({}, pI, pJ, undefined, false)).toBeNull();
+    expect(resolveOffsetWorldVectors(
+      { offset: { frame: 'global', i: { x: 0, y: 0, z: 0 } } }, pI, pJ, undefined, false,
+    )).toBeNull();
+    expect(resolveOffsetWorldVectors(
+      { offset: { frame: 'global', i: { x: 1, y: 0, z: 0 } } }, pI, pI, undefined, false,
+    )).toBeNull(); // zero length
+  });
+
+  it('global frame passes through; missing end stays null', () => {
+    const r = resolveOffsetWorldVectors(
+      { offset: { frame: 'global', i: { x: 0, y: 0, z: 0.3 } } }, pI, pJ, undefined, false,
+    )!;
+    expect(r.i).toEqual({ x: 0, y: 0, z: 0.3 });
+    expect(r.j).toBeNull();
+  });
+
+  it('folds section rotation into the roll (same axes the solver expansion uses)', () => {
+    // +X member, local-frame offset along ey. With effectiveRoll = π/2 the
+    // local y axis rotates from +Y into another global direction.
+    const base = resolveOffsetWorldVectors(
+      { offset: { frame: 'local', i: { x: 0, y: 0.5, z: 0 } }, rollAngle: 0 },
+      pI, pJ, undefined, false,
+    )!;
+    const rotated = resolveOffsetWorldVectors(
+      { offset: { frame: 'local', i: { x: 0, y: 0.5, z: 0 } }, rollAngle: 0 },
+      pI, pJ, Math.PI / 2, false,
+    )!;
+    const viaRoll = resolveOffsetWorldVectors(
+      { offset: { frame: 'local', i: { x: 0, y: 0.5, z: 0 } }, rollAngle: Math.PI / 2 },
+      pI, pJ, undefined, false,
+    )!;
+    // sectionRotation must change the result, identically to the same rollAngle
+    expect(rotated.i).not.toEqual(base.i);
+    expect(rotated.i!.x).toBeCloseTo(viaRoll.i!.x, 12);
+    expect(rotated.i!.y).toBeCloseTo(viaRoll.i!.y, 12);
+    expect(rotated.i!.z).toBeCloseTo(viaRoll.i!.z, 12);
+  });
+
+  it('honors the leftHand convention (ey negated → mirrored local-y offset)', () => {
+    const rh = resolveOffsetWorldVectors(
+      { offset: { frame: 'local', i: { x: 0, y: 0.5, z: 0 } } }, pI, pJ, undefined, false,
+    )!;
+    const lh = resolveOffsetWorldVectors(
+      { offset: { frame: 'local', i: { x: 0, y: 0.5, z: 0 } } }, pI, pJ, undefined, true,
+    )!;
+    expect(lh.i!.x).toBeCloseTo(-rh.i!.x, 12);
+    expect(lh.i!.y).toBeCloseTo(-rh.i!.y, 12);
+    expect(lh.i!.z).toBeCloseTo(-rh.i!.z, 12);
   });
 });

@@ -54,12 +54,6 @@ function ratioToStatus(ratio: number): CheckStatus {
   return 'fail';
 }
 
-function worstStatus(statuses: CheckStatus[]): CheckStatus {
-  if (statuses.includes('fail')) return 'fail';
-  if (statuses.includes('warn')) return 'warn';
-  return 'ok';
-}
-
 // ─── CIRSOC 201 (RC, JS) adapter ─────────────────────────────────
 
 import type { ElementVerification } from './codes/argentina/cirsoc201';
@@ -271,8 +265,13 @@ export function normalizeWasmSteel(results: any[], codeId: string, codeName: str
       checks.push({ name: 'Interaction', demand: r.interaction_ratio, capacity: 1.0, ratio: r.interaction_ratio, unit: '—', status: ratioToStatus(r.interaction_ratio) });
     }
 
+    // A member that produced no individual checks AND carries no explicit
+    // unity ratio was never actually verified (solver skipped it, or a serde
+    // field rename dropped every ratio). Treat it as unverified rather than
+    // letting unity default to 0 → a falsely-green "ok".
+    const verifiable = checks.length > 0 || r.unity_ratio != null || r.utilization != null;
     const unity = r.unity_ratio ?? r.utilization ?? (checks.length > 0 ? Math.max(...checks.map(c => c.ratio)) : 0);
-    const govCheck = r.governing_check ?? (checks.length > 0 ? checks.reduce((m, c) => c.ratio > m.ratio ? c : m).name : '—');
+    const govCheck = r.governing_check ?? (checks.length > 0 ? checks.reduce((m, c) => c.ratio > m.ratio ? c : m).name : (verifiable ? '—' : 'Not checked'));
 
     return {
       elementId: id,
@@ -282,7 +281,7 @@ export function normalizeWasmSteel(results: any[], codeId: string, codeName: str
       codeName,
       governingCheck: govCheck,
       utilization: unity,
-      status: ratioToStatus(unity),
+      status: verifiable ? ratioToStatus(unity) : 'fail',
       checks,
     };
   });
@@ -303,8 +302,11 @@ export function normalizeWasmRC(results: any[], codeId: string, codeName: string
       checks.push({ name: 'Shear', demand: 0, capacity: r.phi_vn ?? r.v_rd ?? 0, ratio: r.shear_ratio, unit: 'kN', status: ratioToStatus(r.shear_ratio) });
     }
 
-    const unity = r.unity_ratio ?? (checks.length > 0 ? Math.max(...checks.map(c => c.ratio)) : 0);
-    const govCheck = r.governing_check ?? (checks.length > 0 ? checks.reduce((m, c) => c.ratio > m.ratio ? c : m).name : '—');
+    // See normalizeWasmSteel: an empty result with no explicit unity ratio is
+    // "not checked", not a pass.
+    const verifiable = checks.length > 0 || r.unity_ratio != null || r.utilization != null;
+    const unity = r.unity_ratio ?? r.utilization ?? (checks.length > 0 ? Math.max(...checks.map(c => c.ratio)) : 0);
+    const govCheck = r.governing_check ?? (checks.length > 0 ? checks.reduce((m, c) => c.ratio > m.ratio ? c : m).name : (verifiable ? '—' : 'Not checked'));
 
     return {
       elementId: id,
@@ -314,7 +316,7 @@ export function normalizeWasmRC(results: any[], codeId: string, codeName: string
       codeName,
       governingCheck: govCheck,
       utilization: unity,
-      status: ratioToStatus(unity),
+      status: verifiable ? ratioToStatus(unity) : 'fail',
       checks,
     };
   });

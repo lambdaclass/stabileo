@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 
 const SHELL_COLOR = 0x4ecdc4;
+
 const EDGE_COLOR = 0x88ddcc;
 
 // Per-material palette so different shell materials read distinctly in 3D.

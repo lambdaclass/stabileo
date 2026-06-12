@@ -16,6 +16,7 @@ import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-
 import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } from './member-offsets';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses } from './shell-combos';
+import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
 import { t } from '../i18n';
 import {
@@ -47,7 +48,10 @@ export interface ModelData {
   connectors?: Map<number, import('./types-3d').ConnectorElement>;
 }
 
-function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
+/** Exported so UI affordances (e.g. the member-offset editor) can tell when a
+ *  flat 2D-typed model will solve through the embedding — where offsets are
+ *  intentionally NOT expanded — instead of claiming an analysis effect. */
+export function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
   return shouldProjectModelToXZ({
     nodes: model.nodes.values(),
     supports: model.supports.values(),
@@ -168,10 +172,18 @@ export function validateAndSolve2D(
     return t('svc.needSupport');
   }
 
+  // Constraints are stored in 3D semantics; the 2D solver speaks [ux, uz, ry].
+  // Remap ONCE and use the result for both the connectivity preflight and the
+  // wire, so the preflight only credits constraints that actually reach the
+  // solver (an out-of-plane-only constraint is dropped by the remap).
+  const constraints2D = constraintsTo2D(model.constraints);
+
   // Check for disconnected nodes. Connectivity sources: structural elements,
   // connectors (ConnectorElement), and constraints (rigidLink, equalDOF,
-  // eccentricConnection, diaphragm, linearMPC). A node coupled only via any
-  // of those is NOT orphaned. See constraint-connectivity.ts for the rule.
+  // eccentricConnection, linearMPC). A node coupled only via any of those is
+  // NOT orphaned. See constraint-connectivity.ts for the rule. (These
+  // primitives are carried into the 2D solver input below, so crediting them
+  // here is honest — they actually contribute stiffness.)
   const connectedNodes = new Set<number>();
   for (const elem of model.elements.values()) {
     connectedNodes.add(elem.nodeI);
@@ -183,7 +195,7 @@ export function validateAndSolve2D(
       connectedNodes.add(conn.nodeJ);
     }
   }
-  addConstraintConnectivity(connectedNodes, model.constraints);
+  addConstraintConnectivity(connectedNodes, constraints2D);
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
       return t('svc.disconnectedNode').replace('{n}', String(nodeId));
@@ -317,7 +329,7 @@ export function validateAndSolve2D(
         adj.get(conn.nodeJ)?.add(conn.nodeI);
       }
     }
-    addConstraintAdjacency(adj, model.constraints);
+    addConstraintAdjacency(adj, constraints2D);
     const visited = new Set<number>();
     const startNode = connectedNodes.values().next().value!;
     const queue = [startNode];
@@ -559,6 +571,12 @@ export function validateAndSolve2D(
     }])),
     supports: buildSolverSupports2D(model),
     loads: solverLoads,
+    // Carry constraints + connectors into the 2D wire (mirrors buildSolverInput3D)
+    // so a node coupled only via a constraint/connector — which the preflight
+    // credits as connected — actually receives stiffness and the 2D constrained
+    // solver can solve it, instead of being handed a singular system.
+    constraints: constraints2D,
+    connectors: model.connectors,
   };
 
   // Kinematic analysis
@@ -748,6 +766,13 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
     }])),
     supports: buildSolverSupports2D(model),
     loads: solverLoads,
+    // Carry constraints + connectors into the 2D wire (mirrors buildSolverInput3D)
+    // so a node coupled only via a constraint/connector — which the preflight
+    // credits as connected — actually receives stiffness and the 2D constrained
+    // solver can solve it, instead of being handed a singular system.
+    // constraintsTo2D translates the stored 3D DOF semantics to [ux, uz, ry].
+    constraints: constraintsTo2D(model.constraints),
+    connectors: model.connectors,
   };
 }
 
@@ -1016,7 +1041,12 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
   return solverLoads;
 }
 
-export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, leftHand = false): SolverInput3D | null {
+export function buildSolverInput3D(
+  model: ModelData,
+  includeSelfWeight = false,
+  leftHand = false,
+  opts: { expandMemberOffsets?: boolean } = {},
+): SolverInput3D | null {
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
 
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
@@ -1173,7 +1203,12 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
   // Analytical member offsets (genuine 3D only): ephemerally expand offset
   // members into helper nodes + eccentric constraints. No-op (byte-identical
   // input) when no element carries an offset.
-  if (!project2DToXZ) {
+  // Offsets expand only where the downstream solver demonstrably supports the
+  // generated eccentricConnection constraints (linear solve_3d + the combo
+  // paths). Advanced analyses (modal/spectral wire payloads don't even carry
+  // constraints; DSM viewer has no constraint handling) opt out and analyze
+  // the centerline — broken-but-plausible results would be worse.
+  if (!project2DToXZ && opts.expandMemberOffsets !== false) {
     expandMemberOffsets(input, model.elements);
     // After member offsets so helper ids continue past any member helpers.
     expandShellOffsets(input, model.plates, model.quads);

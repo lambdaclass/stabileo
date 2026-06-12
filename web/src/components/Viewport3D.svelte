@@ -19,7 +19,7 @@
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
-  import { applyLowDetail } from '../lib/viewport3d/lod';
+  import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
 
   let container: HTMLDivElement;
   let renderer: THREE.WebGLRenderer;
@@ -61,6 +61,7 @@
   let loadsParent: THREE.Group;
   let resultsParent: THREE.Group;
   let shellsParent: THREE.Group;
+  let localAxesParent: THREE.Group;
 
   // ─── Clipping plane ─────────────────────────────────────────
   const clippingPlane = new THREE.Plane(planeNormal('XY').clone().negate(), 0);
@@ -82,6 +83,9 @@
   let hoverRafId: number | null = null;
 
   // ─── Box select state ──────────────────────────────────────
+  // Mode to return to when the quick sections toggle is switched off — keeps
+  // a 'solid' preference from Settings instead of always landing on wireframe.
+  let renderModeBeforeSections: 'wireframe' | 'solid' = 'wireframe';
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
 
   // ─── Node dragging state ───────────────────────────────────
@@ -213,11 +217,13 @@
     resultsParent.name = 'results';
     shellsParent = new THREE.Group();
     shellsParent.name = 'shells';
+    localAxesParent = new THREE.Group();
+    localAxesParent.name = 'localAxes';
     // The batched wireframe LineSegments2 lives directly under `scene`, not
     // inside `elementsParent`, so it stays rendered even when LOD hides the
     // parent during orbit. One mesh, one draw call, one toggle — no parallel
     // orbit proxy needed.
-    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
+    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent);
     syncResultsProjection();
 
     // Camera — isometric-ish view looking at origin
@@ -471,22 +477,22 @@
     // Slight aliasing during drag is acceptable — users perceive smoothness more
     // than pixel fidelity while rotating.
     const idlePixelRatio = window.devicePixelRatio;
-    // Level-of-detail during orbit: hide decorative parents and the heavy
-    // per-element solid groups (cylinders / extruded sections). The batched
-    // LineSegments2 (`elementsBatched.mesh`) lives directly under `scene` —
-    // since Phase 2 it already collapses every element into one draw call, so
-    // there is no need for a separate proxy. During orbit we force it visible
-    // as the LOD stand-in; at idle its visibility follows `renderMode3D`.
+    // Level-of-detail during orbit. Typical models keep full detail while the
+    // camera moves; heavy models (per the isHeavyModel policy in lod.ts, which
+    // weighs shells and the sections render mode) fall back to hiding the
+    // decorative parents + per-element solids and forcing the single batched
+    // LineSegments2 draw call on as the stand-in.
     function setLowDetail(on: boolean): void {
       const dt = resultsStore.diagramType;
       const resultsColoringActive = !!resultsStore.results3D
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
-      // Only strip overlays/sections during motion on very large models; typical
-      // models (incl. warehouses, multi-story frames) keep full detail while orbiting.
-      const HEAVY_MODEL_ELEMENTS = 3000;
-      const heavyModel = modelStore.elements.size > HEAVY_MODEL_ELEMENTS;
+      const heavyModel = isHeavyModel(
+        { elements: modelStore.elements.size, shells: modelStore.plates.size + modelStore.quads.size },
+        uiStore.renderMode3D,
+      );
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
+        localAxesParent,
         elementsParent,
         elementsBatchedMesh: elementsBatched.mesh,
         renderMode: uiStore.renderMode3D,
@@ -580,6 +586,7 @@
       localAxesGroup: null,
       offsetVizGroup: null,
       shellOffsetVizGroup: null,
+      localAxesParent,
       colorMapApplied: false,
     };
     resultsCtx = {
@@ -785,12 +792,12 @@
   });
 
   // Local-axis triads: driven by localAxesMode3D (always / selected / never).
+  // The selection is NOT listed explicitly: syncLocalAxes reads it only in
+  // 'selected' mode (nested reads are tracked), so 'always' mode does not
+  // dispose + rebuild every triad on each selection click.
   $effect(() => {
     uiStore.localAxesMode3D;
     uiStore.shellAxesMode3D;
-    uiStore.selectedElements;
-    uiStore.selectedShells;
-    uiStore.elementSelectionManual;
     uiStore.analysisMode;
     modelStore.nodes;
     modelStore.elements;
@@ -1397,13 +1404,22 @@
 
       // Only count as box select if dragged at least a few pixels
       if (x2 - x1 > 3 || y2 - y1 > 3) {
+        // Respect the active select subtype: box select only gathers nodes and
+        // frame elements, so restrict it to the modes where those are the
+        // selection targets. In shells/supports/loads modes a marquee must not
+        // fill selectedElements with frame ids (plates/quads share the same
+        // numeric id space and would be mis-resolved on Delete).
+        const sm = uiStore.selectMode;
+        const allowNodes = sm === 'elements' || sm === 'nodes';
+        const allowElems = sm === 'elements';
+
         // Collect new selection items
         const newNodes = additive ? new Set(uiStore.selectedNodes) : new Set<number>();
         const newElems = additive ? new Set(uiStore.selectedElements) : new Set<number>();
 
         // Nodes: project to screen, check containment
         const project2D = shouldProject2DModel();
-        for (const node of modelStore.nodes.values()) {
+        if (allowNodes) for (const node of modelStore.nodes.values()) {
           const pos = projectNodeToScene(node, project2D);
           const s = projectToScreen(pos.x, pos.y, pos.z);
           if (s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2) {
@@ -1411,7 +1427,7 @@
           }
         }
         // Elements: project both endpoints
-        for (const elem of modelStore.elements.values()) {
+        if (allowElems) for (const elem of modelStore.elements.values()) {
           const ni = modelStore.getNode(elem.nodeI);
           const nj = modelStore.getNode(elem.nodeJ);
           if (!ni || !nj) continue;
@@ -1532,14 +1548,64 @@
       return;
     }
 
-    // Raycast against model objects (nodes first, then elements, then supports)
+    const addToSel = e.shiftKey;
+    const sm = uiStore.selectMode;
+
+    // ── Per-subtype filtering (mirrors the 2D viewport): in a dedicated
+    // select mode, only that entity class is pickable. This also keeps
+    // selectedElements type-consistent — frame elements and plates/quads have
+    // overlapping numeric ids, disambiguated only by selectMode. ──
+    if (sm === 'shells') {
+      const shellHits = raycaster.intersectObjects(shellsParent.children, true);
+      for (const hit of shellHits) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'plate' || ud?.type === 'quad') {
+          uiStore.selectElement(ud.id, addToSel);
+          return;
+        }
+      }
+      if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    if (sm === 'nodes') {
+      const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
+      for (const hit of nodeHits) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'node') {
+          uiStore.selectNode(ud.id, addToSel);
+          return;
+        }
+      }
+      if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    if (sm === 'supports') {
+      const supHits = raycaster.intersectObjects(supportsParent.children, true);
+      for (const hit of supHits) {
+        const ud = findUserData(hit.object);
+        if (ud?.type === 'support') {
+          uiStore.selectSupport(ud.id, addToSel);
+          return;
+        }
+      }
+      if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    if (sm === 'loads') {
+      // 3D has no viewport load picking (loads are selected from the Loads
+      // tab rows); a click in loads mode must not select frame elements.
+      if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    // ── Elements mode (default): nodes first, then elements, then supports ──
     const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
     const elemHits = raycaster.intersectObjects(elementsParent.children, true);
     const supHits = raycaster.intersectObjects(supportsParent.children, true);
 
-    const addToSel = e.shiftKey;
-
-    // Priority: node > element > support
     for (const hit of nodeHits) {
       const ud = resolveHitUserData(hit);
       if (ud?.type === 'node') {
@@ -1853,10 +1919,16 @@
       if (group) {
         const dt = resultsStore.diagramType;
         if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
-          // Re-apply color map instead of base color
-          syncColorMap3D();
+          // No-op: applyHoverColor skips painting while a color mode is
+          // active, so there is nothing to restore — and a full
+          // syncColorMap3D() here recolored EVERY element (plus a batched
+          // position+color re-upload) per hover-out, a multi-ms stall per
+          // element crossed on large models. Mode changes mid-hover are
+          // covered by the colorMap $effect, which repaints everything.
         } else {
-          const selected = uiStore.selectedElements.has(data.id);
+          // In shells mode selectedElements holds plate/quad ids — a frame
+          // element with an overlapping id is not selected.
+          const selected = uiStore.selectMode !== 'shells' && uiStore.selectedElements.has(data.id);
           const elem = modelStore.elements.get(data.id);
           const wireframe = uiStore.renderMode3D === 'wireframe';
           const isTruss = elem?.type === 'truss';
@@ -2091,11 +2163,18 @@
     >
       📏
     </button>
-    <!-- Quick render-mode toggle: wireframe ↔ sections (solid stays in Settings).
+    <!-- Quick render-mode toggle: sections ↔ the previous mode (wireframe/solid).
          Single compact button like the perspective/ortho switch. Shows the mode
-         it will switch TO; 'solid' resolves to 'sections' predictably. -->
+         Returns to the mode that was active before entering sections. -->
     <button
-      onclick={() => { uiStore.renderMode3D = uiStore.renderMode3D === 'sections' ? 'wireframe' : 'sections'; }}
+      onclick={() => {
+        if (uiStore.renderMode3D === 'sections') {
+          uiStore.renderMode3D = renderModeBeforeSections;
+        } else {
+          renderModeBeforeSections = uiStore.renderMode3D === 'solid' ? 'solid' : 'wireframe';
+          uiStore.renderMode3D = 'sections';
+        }
+      }}
       class:active-cam={uiStore.renderMode3D === 'sections'}
       title={uiStore.renderMode3D === 'sections' ? t('config.wireframe') : t('config.sections')}
     >

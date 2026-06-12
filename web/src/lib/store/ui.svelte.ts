@@ -360,6 +360,18 @@ function createUIStore() {
   // Continuous rendering override (forces requestAnimationFrame loop like old behavior)
   let continuousRendering = $state<boolean>(false);
 
+  /** Change selectMode, clearing element selection when crossing the
+   *  elements↔shells boundary. Frame elements and plates/quads have
+   *  independent id counters but share the selectedElements set, so ids kept
+   *  across that boundary would be reinterpreted as the other entity type
+   *  (wrong highlight, wrong Delete target). */
+  function applySelectMode(v: SelectMode) {
+    if (v !== selectMode && (v === 'shells' || selectMode === 'shells')) {
+      selectedElements = new Set();
+    }
+    selectMode = v;
+  }
+
   return {
     get currentTool() { return currentTool; },
     set currentTool(v: Tool) { currentTool = v; },
@@ -432,7 +444,7 @@ function createUIStore() {
     set panY(v: number) { panY = v; },
 
     get selectMode() { return selectMode; },
-    set selectMode(v: SelectMode) { selectMode = v; },
+    set selectMode(v: SelectMode) { applySelectMode(v); },
 
     get selectedNodes() { return selectedNodes; },
     get selectedElements() { return selectedElements; },
@@ -621,11 +633,11 @@ function createUIStore() {
       proActiveTab = v;
       // Auto-align selectMode when entering a geometry subsection so that
       // row-click selection targets the correct entity class.
-      if (v === 'nodes') selectMode = 'nodes';
-      else if (v === 'elements') selectMode = 'elements';
-      else if (v === 'shells') selectMode = 'shells';
-      else if (v === 'supports') selectMode = 'supports';
-      else if (v === 'loads') selectMode = 'loads';
+      if (v === 'nodes') applySelectMode('nodes');
+      else if (v === 'elements') applySelectMode('elements');
+      else if (v === 'shells') applySelectMode('shells');
+      else if (v === 'supports') applySelectMode('supports');
+      else if (v === 'loads') applySelectMode('loads');
     },
     get aiDrawerOpen() { return aiDrawerOpen; },
     set aiDrawerOpen(v: boolean) { aiDrawerOpen = v; },
@@ -812,6 +824,9 @@ function createUIStore() {
         selectedNodes = new Set([id]);
         selectedElements = new Set();
         selectedShells = new Set();
+        // Emptied element selection can't stay 'manual' — a stale true here
+        // permanently suppresses the result-query highlight.
+        elementSelectionManual = false;
       }
     },
 
@@ -869,6 +884,7 @@ function createUIStore() {
         selectedElements = new Set();
         selectedSupports = new Set();
         selectedShells = new Set();
+        elementSelectionManual = false;
       } else {
         selectedLoads = new Set([...selectedLoads, id]);
       }
@@ -881,6 +897,7 @@ function createUIStore() {
         selectedElements = new Set();
         selectedLoads = new Set();
         selectedShells = new Set();
+        elementSelectionManual = false;
       } else {
         selectedSupports = new Set([...selectedSupports, id]);
       }

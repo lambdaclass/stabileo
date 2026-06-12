@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { downloadText } from '../../lib/store/file';
   import { t } from '../../lib/i18n';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import {
@@ -106,7 +108,10 @@
             console.warn('Combinations warning:', comboResult);
           } else if (comboResult) {
             resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-            viewMode = 'envelope';
+            // Sync BOTH the local toggle and the store view: setting only the
+            // local viewMode left activeView='single', so the Envelope button
+            // rendered active while the query card/CSV honestly said 'Case'.
+            switchView('envelope');
           }
         } catch (comboErr: any) {
           console.warn('Combinations 3D failed (results still available):', comboErr);
@@ -177,11 +182,27 @@
 
   /** Element id filter from the scope selector, or undefined for "all". */
   const scopeIds = $derived.by<number[] | undefined>(() => {
-    if (queryScope === 'selected') return [...uiStore.selectedElements];
+    if (queryScope === 'selected') {
+      // selectedElements is shared between frame elements and plates/quads
+      // (colliding id counters); in shells select-mode those ids are SHELL
+      // ids — resolving them against elementForces would show forces for
+      // frame elements the user never selected.
+      if (uiStore.selectMode === 'shells') return [];
+      return [...uiStore.selectedElements];
+    }
     if (queryScope === 'id') {
       return queryIdInput.split(/[\s,]+/).map((s) => parseInt(s, 10)).filter((n) => Number.isFinite(n));
     }
     return undefined;
+  });
+
+  // Envelope view holds maxAbsResults3D: per field, the SIGNED value of the
+  // combo with the largest magnitude. 'max'/'min' over those rows do NOT give
+  // the true envelope extremes (those live in pos/negValues of the envelope
+  // diagrams) — only 'absmax' is semantically valid, so coerce.
+  const isEnvelopeView = $derived(resultsStore.activeView === 'envelope');
+  $effect(() => {
+    if (isEnvelopeView && queryMode !== 'absmax') queryMode = 'absmax';
   });
 
   const activeRows = $derived.by(() => {
@@ -189,21 +210,32 @@
     return buildQueryRows(results.elementForces, queryComponent, scopeIds ? { elementIds: scopeIds } : {});
   });
   const filteredRows = $derived(filterByAbsThreshold(activeRows, queryThreshold));
+  // DOM cap: scope='all' yields 2 rows per element — a 10k-element model would
+  // mount 20k <tr> in a 180px scroll box. The CSV export still uses the FULL
+  // filteredRows; only rendering is capped.
+  const MAX_RENDER_ROWS = 500;
+  const renderRows = $derived(filteredRows.length > MAX_RENDER_ROWS ? filteredRows.slice(0, MAX_RENDER_ROWS) : filteredRows);
   const activeExtreme = $derived(extremeRow(filteredRows, queryMode));
 
-  // Derive the source label from resultsStore.activeView (the source of truth for
-  // what results3D currently holds).
-  const activeSourceLabel = $derived.by(() => {
+  // Single source descriptor derived from resultsStore.activeView (the source
+  // of truth for what results3D holds). Both the on-screen label and the CSV
+  // metadata read THIS object — two parallel branch chains would drift.
+  const activeSource = $derived.by<{ kind: SourceKind; id: number | null; name: string }>(() => {
     const view = resultsStore.activeView;
-    if (view === 'envelope') return t('pro.viewEnvelope');
+    if (view === 'envelope') return { kind: 'envelope', id: null, name: t('pro.viewEnvelope') };
     if (view === 'combo' && resultsStore.activeComboId !== null) {
-      return modelStore.combinations.find((c) => c.id === resultsStore.activeComboId)?.name ?? `${t('pro.comboN')}${resultsStore.activeComboId}`;
+      const id = resultsStore.activeComboId;
+      return { kind: 'combo', id, name: modelStore.combinations.find((c) => c.id === id)?.name ?? `${t('pro.comboN')}${id}` };
     }
     if (view === 'single' && resultsStore.activeCaseId !== null) {
-      return modelStore.loadCases.find((c) => c.id === resultsStore.activeCaseId)?.name ?? `${t('pro.caseN')}${resultsStore.activeCaseId}`;
+      const id = resultsStore.activeCaseId;
+      return { kind: 'case', id, name: modelStore.loadCases.find((c) => c.id === id)?.name ?? `${t('pro.caseN')}${id}` };
     }
-    return t('pro.viewCase');
+    // The all-loads single solve (no case selected): label it as such instead
+    // of pretending it's a per-case result with a blank id.
+    return { kind: 'case', id: null, name: t('pro.queryAllLoads') };
   });
+  const activeSourceLabel = $derived(activeSource.name);
 
   const queryUnit = $derived(queryComponent ? componentUnit(queryComponent) : '');
   const exportCount = $derived(filteredRows.length);
@@ -221,33 +253,32 @@
   // Always-linked: highlight the queried element set via the existing selection
   // path. Skip when no force diagram is active (don't wipe the user's selection),
   // skip scope='selected' (selection IS the scope → redundant + loop risk), and
-  // skip when already equal (avoids reactive churn).
+  // skip an empty query (a blank By-ID input must not clear the selection).
+  // The selection itself is read inside untrack(): the effect pushes the query
+  // set when the QUERY changes, but a manual click (viewport, table row, or the
+  // governing card) must stick — tracking selectedElements made the effect
+  // instantly revert any manual selection, defeating click-to-select.
   $effect(() => {
     if (!isForceDiagram || queryScope === 'selected') return;
-    // Never override a MANUAL selection (click / box-select). Otherwise the
-    // always-on scope=all highlight would re-select everything the instant the
-    // user clicks an element — wiping the click and suppressing its local axes.
-    if (uiStore.elementSelectionManual) return;
+    if (queryElementIds.length === 0) return;
     const target = new Set(queryElementIds);
-    if (sameSet(uiStore.selectedElements, target)) return;
-    uiStore.selectMode = 'elements';
-    // Result-driven highlight (manual=false) → local-axis "When selected" ignores it.
-    uiStore.setSelection(new Set(uiStore.selectedNodes), target);
+    untrack(() => {
+      // Never override a MANUAL selection (click / box-select): the query
+      // pushes its set only over result-driven or empty selections, so a
+      // user's click survives query re-evaluations too (untrack alone only
+      // covers selection-triggered re-runs).
+      if (uiStore.elementSelectionManual) return;
+      if (sameSet(uiStore.selectedElements, target)) return;
+      uiStore.selectMode = 'elements';
+      // Result-driven highlight (manual=false) → local-axis "When selected" ignores it.
+      uiStore.setSelection(new Set(uiStore.selectedNodes), target);
+    });
   });
 
   function selectQueryElement(id: number) {
     uiStore.selectMode = 'elements';
     uiStore.selectElement(id, false);
   }
-
-  // Show Loads default follows the active diagram: ON for 'none', OFF once a
-  // diagram is shown. Switching diagram resets the checkbox to that default.
-  // (Depends only on resultsStore.diagramType.)
-  $effect(() => {
-    const showByDefault = resultsStore.diagramType === 'none';
-    uiStore.showLoads3D = showByDefault;
-    if (showByDefault) uiStore.hideLoadsWithDiagram = false;
-  });
 
   // Manual toggle: turning loads ON while a diagram is active must also clear
   // the "hide loads with diagram" suppression so they actually render.
@@ -258,37 +289,19 @@
   }
 
   /** Source provenance for the CSV export, repeated on every row. Follows the active view. */
-  const exportMeta = $derived.by<QueryExportMeta>(() => {
-    const view = resultsStore.activeView;
-    let sourceKind: SourceKind = 'case';
-    let sourceId: number | null = null;
-    if (view === 'envelope') {
-      sourceKind = 'envelope';
-    } else if (view === 'combo' && resultsStore.activeComboId !== null) {
-      sourceKind = 'combo';
-      sourceId = resultsStore.activeComboId;
-    } else if (view === 'single' && resultsStore.activeCaseId !== null) {
-      sourceKind = 'case';
-      sourceId = resultsStore.activeCaseId;
-    }
-    return {
-      sourceKind, sourceId, sourceName: activeSourceLabel,
-      scopeMode: queryScope,
-      scopeIds: scopeIds ?? [],
-      threshold: queryThreshold || 0,
-      extremeMode: queryMode,
-    };
-  });
+  const exportMeta = $derived.by<QueryExportMeta>(() => ({
+    sourceKind: activeSource.kind,
+    sourceId: activeSource.id,
+    sourceName: activeSource.name,
+    scopeMode: queryScope,
+    scopeIds: scopeIds ?? [],
+    threshold: queryThreshold || 0,
+    extremeMode: queryMode,
+  }));
 
   function exportQueryCsv() {
     const csv = rowsToCsv(filteredRows, exportMeta);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(csv, `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`, 'text/csv;charset=utf-8;');
   }
 
 </script>
@@ -448,8 +461,10 @@
               <label class="pro-viz-label">{t('pro.queryMode')}</label>
               <select class="pro-viz-sel" bind:value={queryMode}>
                 <option value="absmax">{t('pro.queryModeAbsmax')}</option>
-                <option value="max">{t('pro.queryModeMax')}</option>
-                <option value="min">{t('pro.queryModeMin')}</option>
+                <!-- Envelope data is abs-max winners: signed max/min over it is
+                     not the true envelope extreme, so those modes are disabled. -->
+                <option value="max" disabled={isEnvelopeView}>{t('pro.queryModeMax')}</option>
+                <option value="min" disabled={isEnvelopeView}>{t('pro.queryModeMin')}</option>
               </select>
             </div>
             <div class="pro-viz-row">
@@ -478,7 +493,7 @@
                     <th>{t('pro.elemLabel')}</th><th>{t('pro.queryEnd')}</th><th>{t('pro.queryValue')} ({queryUnit})</th>
                   </tr></thead>
                   <tbody>
-                    {#each filteredRows as r}
+                    {#each renderRows as r (r.elementId + '-' + r.end)}
                       <tr onclick={() => selectQueryElement(r.elementId)} style="cursor:pointer" class:pq-extreme={activeExtreme && r.elementId === activeExtreme.elementId && r.end === activeExtreme.end}>
                         <td class="col-id">{r.elementId}</td>
                         <td class="col-end">{r.end}</td>
@@ -488,6 +503,9 @@
                   </tbody>
                 </table>
               </div>
+              {#if filteredRows.length > MAX_RENDER_ROWS}
+                <div class="pro-query-rowcount">{t('pro.queryRowsShown').replace('{shown}', String(MAX_RENDER_ROWS)).replace('{total}', String(filteredRows.length))}</div>
+              {/if}
             {/if}
 
             <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}>
@@ -1112,7 +1130,6 @@
 
   .pq-extreme { background: rgba(78, 205, 196, 0.12); }
   .pq-extreme .col-num { color: #4ecdc4; font-weight: 600; }
-  .col-src { font-size: 0.6rem; color: #aaa; font-family: monospace; }
 
   .pro-query-export {
     align-self: flex-start;

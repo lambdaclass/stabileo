@@ -1,6 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { shouldEmbedFlat2DModelIn3D } from '../../lib/engine/solver-service';
   import type { MemberOffset } from '../../lib/model/element-3d-metadata';
 
   // Analytical member offset editor. Applies a single parallel offset vector to
@@ -16,22 +17,36 @@
   let oy = $state('0');
   let oz = $state('0');
 
-  // Prefill from the single selected element's offset (if any).
+  // Prefill from the single selected element's offset — and RESET when the
+  // selection moves to an element without one: stale fields + Apply would
+  // silently write the previous member's eccentricity onto this one.
   $effect(() => {
-    if (count === 1) {
-      const e = modelStore.elements.get(selectedIds[0]);
-      const off = e?.offset;
-      if (off && off.i) {
-        frame = off.frame;
-        ox = String(off.i.x); oy = String(off.i.y); oz = String(off.i.z);
-      }
+    if (count !== 1) return;
+    const e = modelStore.elements.get(selectedIds[0]);
+    const vec = e?.offset?.i ?? e?.offset?.j; // editor edits the parallel (i=j) case
+    if (e?.offset && vec) {
+      frame = e.offset.frame;
+      ox = String(vec.x); oy = String(vec.y); oz = String(vec.z);
+    } else {
+      ox = '0'; oy = '0'; oz = '0';
     }
   });
 
   const current = $derived(count === 1 ? modelStore.elements.get(selectedIds[0])?.offset : undefined);
 
+  // The flat-2D embedding never expands offsets (the embedded solve has its
+  // own axis convention) — say so instead of promising an analysis effect.
+  const embedBlocksOffsets = $derived(shouldEmbedFlat2DModelIn3D({
+    nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+    loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
+    plates: modelStore.plates, quads: modelStore.quads,
+  }));
+
   function apply() {
-    const x = parseFloat(ox) || 0, y = parseFloat(oy) || 0, z = parseFloat(oz) || 0;
+    const x = Number(ox), y = Number(oy), z = Number(oz);
+    // Invalid input must NOT silently coerce to 0 — all-zeros clears the
+    // member's existing offset, so a parse failure would delete data.
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return;
     if (x === 0 && y === 0 && z === 0) { clear(); return; }
     const offset: MemberOffset = { frame, i: { x, y, z }, j: { x, y, z } };
     if (count === 1) modelStore.setElementOffset(selectedIds[0], offset);
@@ -64,8 +79,11 @@
       <span class="mo-unit">m</span>
     </div>
 
+    {#if embedBlocksOffsets}
+      <div class="mo-warn">⚠ {t('pro.offsetEmbedWarn')}</div>
+    {/if}
     <div class="mo-actions">
-      <button class="mo-btn" onclick={apply}>{t('pro.offsetApply')}</button>
+      <button class="mo-btn" onclick={apply} disabled={embedBlocksOffsets}>{t('pro.offsetApply')}</button>
       <button class="mo-btn mo-clear" onclick={clear} disabled={count === 1 && !current}>{t('pro.offsetClear')}</button>
     </div>
 

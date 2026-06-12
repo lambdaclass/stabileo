@@ -52,6 +52,13 @@ export function pickElement3DMetadata(source: Element3DMetadata): Element3DMetad
   if (source.localYy !== undefined) metadata.localYy = source.localYy;
   if (source.localYz !== undefined) metadata.localYz = source.localYz;
   if (source.rollAngle !== undefined) metadata.rollAngle = source.rollAngle;
+  if (source.offset !== undefined) {
+    metadata.offset = {
+      frame: source.offset.frame,
+      ...(source.offset.i ? { i: { ...source.offset.i } } : {}),
+      ...(source.offset.j ? { j: { ...source.offset.j } } : {}),
+    };
+  }
   return metadata;
 }
 

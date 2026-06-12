@@ -440,8 +440,9 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: '5. ' + (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: '6. ' + (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
   if (showSection('quantities') && quantities) tocEntries.push({ label: '7. ' + (tr('report.quantities') || 'Quantities'), anchor: 'sec-quantities' });
-  // Insert Design Summary into TOC if verification data exists
-  if (verifications.length > 0) {
+  // Insert Design Summary into TOC if verification data exists AND the user
+  // didn't opt out of the verification section in the report config.
+  if (showSection('verification') && verifications.length > 0) {
     tocEntries.unshift({ label: tr('report.designSummary') || 'Design Summary', anchor: 'sec-design-summary' });
     // Renumber all subsequent entries
     for (let i = 1; i < tocEntries.length; i++) {
@@ -457,8 +458,8 @@ export function generateReportHtml(data: ReportData): string {
   }
   html.push(`</div>`);
 
-  // ─── Design Summary (when verification data exists) ───
-  if (verifications.length > 0) {
+  // ─── Design Summary (when verification data exists and section is enabled) ───
+  if (showSection('verification') && verifications.length > 0) {
     html.push(`<div class="page-break"></div>`);
     html.push(`<h1 id="sec-design-summary">${escHtml(tr('report.designSummary') || 'Design Summary')}</h1>`);
 
