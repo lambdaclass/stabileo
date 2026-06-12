@@ -2,13 +2,18 @@
  * constraint-connectivity.ts — JS-side helpers for treating constraint pairs
  * as legitimate node-to-node connectivity edges.
  *
- * The Rust solver doesn't care about this: it consumes constraints however
- * the user defines them. The JS preflight (`solver-service.ts`) and the
- * live model diagnostics (`model-diagnostics.ts`) both run an orphan-node
- * check + a single-component graph BFS over `model.elements` only, which
- * incorrectly flags nodes that are coupled solely through a constraint
- * (rigidLink, equalDOF, eccentricConnection, diaphragm, linearMPC) as
- * disconnected — even though the solver itself would accept the model.
+ * The Rust solver accepts such models (its constraint transform couples the
+ * DOFs), but note: its own pre-solve isolated-node gate
+ * (engine/src/solver/pre_solve_gates.rs) counts elements and connectors,
+ * NOT constraints — a constraint-only-coupled node still produces a
+ * warning-level 'Node X is isolated' StructuredDiagnostic in the results
+ * payload. Aligning that gate with this rule is engine-side follow-up work.
+ * The JS preflight (`solver-service.ts`) and the live model diagnostics
+ * (`model-diagnostics.ts`) both run an orphan-node check + a
+ * single-component graph BFS over `model.elements` only, which incorrectly
+ * flags nodes that are coupled solely through a constraint (rigidLink,
+ * equalDOF, eccentricConnection, diaphragm, linearMPC) as disconnected —
+ * even though the solver itself accepts the model.
  *
  * Decision: ALL five existing constraint kinds count as connectivity.
  *   - rigidLink:           master ↔ slave

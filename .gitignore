@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# also match a symlinked node_modules (worktree dev setups)
+node_modules
 
 # Build output
 web/dist/
@@ -24,6 +26,8 @@ target/
 engine/target/
 engine/pkg/
 web/src/lib/wasm/
+# also match a symlinked wasm pkg (worktree setups)
+web/src/lib/wasm
 
 # Nix (root-level build symlinks only — anchored so source files like
 # src/lib/engine/result-query.ts are not silently ignored)

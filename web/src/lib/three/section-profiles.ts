@@ -129,6 +129,25 @@ export function createCShape(h: number, b: number, tw: number, tf: number, c: nu
   const halfH = h / 2;
   // Clamp so lips/flanges never overrun the section.
   const lip = Math.min(c, halfH - tf);
+  // Degenerate lip guard: the outline below walks DOWN from (b, -halfH+lip) to
+  // (b-lipT, -halfH+tf), so lip must exceed tf or the path reverses and
+  // self-intersects (earcut then emits garbage triangles). This happens when a
+  // user fills `t` as a wall thickness — its meaning on every other profile —
+  // instead of the lip length this shape expects. Render a plain (unlipped)
+  // channel in that case.
+  if (lip <= tf || lipT <= 0) {
+    const u = new THREE.Shape();
+    u.moveTo(0, -halfH);
+    u.lineTo(b, -halfH);
+    u.lineTo(b, -halfH + tf);
+    u.lineTo(tw, -halfH + tf);
+    u.lineTo(tw, halfH - tf);
+    u.lineTo(b, halfH - tf);
+    u.lineTo(b, halfH);
+    u.lineTo(0, halfH);
+    u.closePath();
+    return u;
+  }
   const s = new THREE.Shape();
   s.moveTo(0, -halfH);              // bottom-left (web outer, bottom)
   s.lineTo(b, -halfH);             // bottom flange outer → tip

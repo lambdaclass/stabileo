@@ -2,6 +2,12 @@
 import * as THREE from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
+/** Canonical axis palette — shared by the world-origin axes (grid.ts) and the
+ *  per-member local-axis triads so the same axis never renders two colors.
+ *  Z is deliberately NOT the frame color (0x4a9eff) so a local-z arrow stays
+ *  visible against unselected members. */
+export const AXIS_COLORS = { x: 0xff4444, y: 0x44ff44, z: 0x4488ff } as const;
+
 export const COLORS: Record<string, number> = {
   node:            0xdddddd,
   nodeSelected:    0x00ffff,

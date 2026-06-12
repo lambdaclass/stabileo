@@ -142,3 +142,20 @@ describe('Section Profile Shapes', () => {
     });
   });
 });
+
+describe('C channel degenerate-lip guard', () => {
+  it('falls back to an unlipped channel when the lip length does not exceed tf', async () => {
+    const { createCShape } = await import('../section-profiles');
+    // t given as a wall thickness (2mm) with tf=3mm — the lipped outline would
+    // self-intersect; the guard must produce a simple valid 8-point channel.
+    const shape = createCShape(0.2, 0.08, 0.002, 0.003, 0.002, 0.002);
+    const pts = shape.getPoints();
+    expect(pts.length).toBeGreaterThan(4);
+    // No NaN and the outline stays within the section bounding box
+    for (const p of pts) {
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.y)).toBe(true);
+      expect(Math.abs(p.y)).toBeLessThanOrEqual(0.1 + 1e-9);
+    }
+  });
+});

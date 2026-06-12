@@ -1176,7 +1176,8 @@
           if (nearElem) {
             const ni = modelStore.getNode(nearElem.nodeI);
             const nj = modelStore.getNode(nearElem.nodeJ);
-            if (ni && nj) {
+            if (ni && nj && ((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2) > 1e-10) {
+              // (zero-length guard: a degenerate element would make t NaN)
               const edx = nj.x - ni.x;
               const edy = nj.y - ni.y;
               const lenSq = edx * edx + edy * edy;
@@ -1205,52 +1206,57 @@
         // uses in production.
         const ms = snapWithMidpoint(world.x, world.y);
         let didSplit = false;
+        // Attempt to subdivide the element nearest to (searchX, searchY),
+        // splitting at the projection of (projX, projY) onto it. Interior
+        // guard: endpoints + thin slivers would either duplicate an existing
+        // node or produce near-zero-length sub-elements.
+        const attemptSplit = (searchX: number, searchY: number, maxDist: number, projX: number, projY: number): boolean => {
+          const nearElem = findNearestElement(searchX, searchY, maxDist);
+          if (!nearElem) return false;
+          const ni = modelStore.getNode(nearElem.nodeI);
+          const nj = modelStore.getNode(nearElem.nodeJ);
+          if (!ni || !nj) return false;
+          const edx = nj.x - ni.x;
+          const edy = nj.y - ni.y;
+          const lenSq = edx * edx + edy * edy;
+          if (lenSq <= 1e-10) return false;
+          const tParam = ((projX - ni.x) * edx + (projY - ni.y) * edy) / lenSq;
+          if (tParam < 0.05 || tParam > 0.95) return false;
+          const result = modelStore.splitElementAtPoint(nearElem.id, tParam);
+          if (!result) return false;
+          uiStore.selectNode(result.nodeId);
+          uiStore.toast(t('viewport.barSubdivided'), 'info');
+          resultsStore.clear();
+          return true;
+        };
+        // One shared scan: both the auto-split guard and the
+        // duplicate-coincident-node guard below answer the same question
+        // ('is the cursor on an existing node?') with the same threshold —
+        // two separate calls would silently diverge if one threshold is tuned.
+        const nodeAtCursor = findNearestNode(world.x, world.y, 0.5);
         if (uiStore.autoSplitOnNodePlace) {
           // Only auto-split when the cursor isn't already targeting an
           // existing node. snapWithMidpoint returns node coords if a node is
           // within nodeThreshold of the raw cursor; we re-check explicitly
           // to keep the guard tight (also handles the same threshold).
-          const nearNode = findNearestNode(world.x, world.y, 0.5);
-          if (!nearNode) {
-            // Use the RAW cursor to find which element the user is pointing
-            // at — grid-snap can warp the cursor far enough perpendicular
-            // to the element line that findNearestElement would miss it,
-            // and the user's intent is "this element under my cursor".
-            const nearElem = findNearestElement(world.x, world.y, 0.3);
-            if (nearElem) {
-              const ni = modelStore.getNode(nearElem.nodeI);
-              const nj = modelStore.getNode(nearElem.nodeJ);
-              if (ni && nj) {
-                const edx = nj.x - ni.x;
-                const edy = nj.y - ni.y;
-                const lenSq = edx * edx + edy * edy;
-                if (lenSq > 1e-10) {
-                  // Project the GRID-SNAPPED cursor onto the element so the
-                  // new node lands at a grid-aligned position on the bar
-                  // when snap-to-grid is on. For axis-aligned elements
-                  // (the common case), this puts the split exactly on a
-                  // grid intersection line. For diagonal elements, the
-                  // projection of a grid point onto the line is the
-                  // closest reachable grid-anchored split point. When
-                  // snap-to-grid is off, `snapped` equals `world` so the
-                  // behavior matches the previous projection rule.
-                  const projInputX = uiStore.snapToGrid ? snapped.x : world.x;
-                  const projInputY = uiStore.snapToGrid ? snapped.y : world.y;
-                  const tParam = ((projInputX - ni.x) * edx + (projInputY - ni.y) * edy) / lenSq;
-                  // Only split on the interior — endpoints + thin slivers
-                  // would either duplicate an existing node or produce
-                  // near-zero-length sub-elements.
-                  if (tParam >= 0.05 && tParam <= 0.95) {
-                    const result = modelStore.splitElementAtPoint(nearElem.id, tParam);
-                    if (result) {
-                      uiStore.selectNode(result.nodeId);
-                      uiStore.toast(t('viewport.barSubdivided'), 'info');
-                      resultsStore.clear();
-                      didSplit = true;
-                    }
-                  }
-                }
-              }
+          if (!nodeAtCursor) {
+            // 1st attempt — cursor-based: use the RAW cursor to find which
+            // element the user is pointing at (grid-snap can warp the cursor
+            // off the element line), but project the GRID-SNAPPED cursor so
+            // the new node lands at a grid-aligned position on the bar when
+            // snap-to-grid is on. When it's off, `snapped` equals `world`.
+            const projInputX = uiStore.snapToGrid ? snapped.x : world.x;
+            const projInputY = uiStore.snapToGrid ? snapped.y : world.y;
+            didSplit = attemptSplit(world.x, world.y, 0.3, projInputX, projInputY);
+            // 2nd attempt — placement-point-based: snapWithMidpoint can
+            // resolve `ms` ONTO a bar even when the cursor attempt missed
+            // (its midpoint snap reaches 0.4 > the 0.3 search above, and a
+            // grid intersection can lie on the bar). Without this, the node
+            // would sit exactly on the element without subdividing it — the
+            // coincident-unconnected trap auto-split exists to prevent.
+            // Tight tolerance: only when ms is effectively ON the element.
+            if (!didSplit) {
+              didSplit = attemptSplit(ms.x, ms.y, 0.01, ms.x, ms.y);
             }
           }
         }
@@ -1261,9 +1267,12 @@
           // reposition. Node-tool create-mode is the only place where
           // node repositioning lives — the select tool no longer drags
           // (would silently move nodes whenever the user just wanted to
-          // click around). Use raw world coords (not the resolved ms) so
-          // this works regardless of grid-snap state.
-          const onExisting = findNearestNode(world.x, world.y, 0.5);
+          // click around). Checked at the raw cursor AND at the resolved
+          // placement point `ms`: with grid snap on, `ms` can land exactly
+          // on an existing grid-aligned node that is >0.5m from the cursor —
+          // creating an exact coincident duplicate.
+          const onExisting = nodeAtCursor
+            ?? findNearestNode(ms.x, ms.y, 0.01);
           if (onExisting) {
             if (!uiStore.selectedNodes.has(onExisting.id)) {
               uiStore.selectNode(onExisting.id, e.shiftKey);

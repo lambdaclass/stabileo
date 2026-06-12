@@ -2,7 +2,8 @@
 import * as THREE from 'three';
 
 const SHELL_COLOR = 0x4ecdc4;
-const SHELL_OPACITY = 0.45;
+export const SHELL_OPACITY = 0.45;
+export const SHELL_OPACITY_SELECTED = 0.85;
 const EDGE_COLOR = 0x88ddcc;
 
 /** Shared material for shell faces (translucent, double-sided).

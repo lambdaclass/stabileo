@@ -10,6 +10,13 @@
   let companyName = $state('');
   let notes = $state('');
 
+  // The dialog component stays mounted for the app's lifetime, so the $state
+  // initializer above only sees the startup model. Re-seed the project name
+  // from the current model each time the dialog opens (it remains editable).
+  $effect(() => {
+    if (open) projectName = modelStore.model.name || 'Structural Analysis';
+  });
+
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   const hasResults = $derived(is3D ? resultsStore.results3D !== null : resultsStore.results !== null);
   const modeLabel = $derived<AnalysisModeLabel>(uiStore.analysisMode === 'pro' ? 'PRO' : uiStore.analysisMode === '3d' ? '3D' : '2D');
@@ -51,11 +58,16 @@
         if (d.fx) parts.push(`Fx=${d.fx} kN`);
         if (d.fy) parts.push(`Fy=${d.fy} kN`);
         if (d.fz) parts.push(`Fz=${d.fz} kN`);
-        if (d.my || d.mz) parts.push(`M=${d.my ?? d.mz} kN·m`);
+        // `||` (not `??`) so a present-but-zero component falls through to the
+        // axis that actually carries the moment (e.g. my=0, mz=5 → M=5).
+        if (d.my || d.mz) parts.push(`M=${d.my || d.mz} kN·m`);
         description = `Node ${d.nodeId}: ${parts.join(', ') || 'zero'}`;
       } else if (l.type === 'distributed' || l.type === 'distributed3d') {
-        const qI = d.qI ?? d.qZI ?? d.qYI ?? 0;
-        const qJ = d.qJ ?? d.qZJ ?? d.qYJ ?? 0;
+        // A distributed load stores its magnitude on whichever axis it acts;
+        // the off-axis fields can be present as 0. Use `||` so a 0 on one axis
+        // doesn't shadow the real value on another (qZI=0, qYI=5 → q=5).
+        const qI = d.qI ?? (d.qZI || d.qYI || 0);
+        const qJ = d.qJ ?? (d.qZJ || d.qYJ || 0);
         description = `Elem ${d.elementId}: q=${qI}→${qJ} kN/m`;
       } else if (l.type === 'pointOnElement') {
         description = `Elem ${d.elementId}: P=${d.p} kN at ${d.a} m`;
