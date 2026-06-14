@@ -45,8 +45,9 @@ function det3(r0: number[], r1: number[], r2: number[]): number {
 }
 
 /**
- * Compute expected local axes using the SAP2000/textbook reference algorithm.
- * This is the "ground truth" we check both solvers against.
+ * Compute expected local axes using the canonical Z-up reference algorithm:
+ * local z = global up (Z) projected perpendicular to ex; ey = ez × ex. This is
+ * the independent "ground truth" reimplementation we check the solver against.
  */
 function expectedAxes(
   dx: number, dy: number, dz: number,
@@ -54,14 +55,19 @@ function expectedAxes(
   const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
   const ex: [number, number, number] = [dx / L, dy / L, dz / L];
 
-  // Vertical detection: |ex . Y| > 0.999
-  const eyRef: [number, number, number] = Math.abs(ex[1]) > 0.999
-    ? [0, 0, 1]
-    : [0, 1, 0];
-
-  const ezRaw = cross3(ex, eyRef);
-  const ez = normalize3(ezRaw);
-  const ey = normalize3(cross3(ez, ex));
+  const up: [number, number, number] = [0, 0, 1];
+  const dotUp = ex[0] * up[0] + ex[1] * up[1] + ex[2] * up[2];
+  let ezRaw: number[];
+  if (Math.abs(dotUp) > 0.999) {
+    // Near-vertical: stable horizontal fallback (global X) ⊥ ex.
+    const refH: [number, number, number] = [1, 0, 0];
+    const dh = ex[0] * refH[0] + ex[1] * refH[1] + ex[2] * refH[2];
+    ezRaw = [refH[0] - dh * ex[0], refH[1] - dh * ex[1], refH[2] - dh * ex[2]];
+  } else {
+    ezRaw = [up[0] - dotUp * ex[0], up[1] - dotUp * ex[1], up[2] - dotUp * ex[2]];
+  }
+  const ez = normalize3(ezRaw) as [number, number, number];
+  const ey = normalize3(cross3(ez, ex)) as [number, number, number];
 
   return { ex, ey, ez };
 }
@@ -101,10 +107,10 @@ interface OrientationCase {
 const orientations: OrientationCase[] = [
   { label: 'Horizontal +X',          dx:  5, dy:  0, dz:  0 },
   { label: 'Horizontal -X',          dx: -5, dy:  0, dz:  0 },
-  { label: 'Horizontal +Z',          dx:  0, dy:  0, dz:  5 },
-  { label: 'Horizontal -Z',          dx:  0, dy:  0, dz: -5 },
-  { label: 'Vertical +Y',            dx:  0, dy:  5, dz:  0 },
-  { label: 'Vertical -Y',            dx:  0, dy: -5, dz:  0 },
+  { label: 'Vertical +Z (column)',   dx:  0, dy:  0, dz:  5 },
+  { label: 'Vertical -Z (column)',   dx:  0, dy:  0, dz: -5 },
+  { label: 'Horizontal +Y',          dx:  0, dy:  5, dz:  0 },
+  { label: 'Horizontal -Y',          dx:  0, dy: -5, dz:  0 },
   { label: 'Diagonal XY (45 deg)',   dx:  3, dy:  3, dz:  0 },
   { label: 'Diagonal XZ',            dx:  3, dy:  0, dz:  4 },
   { label: 'Diagonal XYZ (arbitrary)', dx: 3, dy: 4, dz: 5 },

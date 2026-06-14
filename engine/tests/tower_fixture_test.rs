@@ -35,9 +35,13 @@ fn tower_fixture_displacements_match_ts() {
     println!("Rust solver: max_ux={:.1}mm max_uy={:.1}mm max_uz={:.1}mm",
              max_ux * 1000.0, max_uy * 1000.0, max_uz * 1000.0);
 
-    // TS solver gives: ux=50.4mm, uy=21.1mm, uz=5.5mm (SAP2000/textbook axes)
-    // Allow 10% tolerance for numerical differences
-    assert!((max_ux * 1000.0 - 50.4).abs() < 5.0, "max_ux={:.1}mm, expected ~50.4mm", max_ux * 1000.0);
-    assert!((max_uy * 1000.0 - 21.1).abs() < 3.0, "max_uy={:.1}mm, expected ~21.1mm", max_uy * 1000.0);
-    assert!((max_uz * 1000.0 - 5.5).abs() < 2.0, "max_uz={:.1}mm, expected ~5.5mm", max_uz * 1000.0);
+    // Canonical Z-up local-axis convention (the corrected default — matches web
+    // computeLocalAxes3D). Under the old global-Y default this tower bent some
+    // members about their weak axis and read ux=50.4/uy=21.1/uz=5.5 mm; the
+    // corrected convention orients each member's strong axis to resist load, so
+    // the tower is stiffer: ux≈9.0/uy≈6.3/uz≈0.9 mm. Baseline updated to the
+    // corrected convention (no legacy mode).
+    assert!((max_ux * 1000.0 - 9.0).abs() < 2.0, "max_ux={:.1}mm, expected ~9.0mm", max_ux * 1000.0);
+    assert!((max_uy * 1000.0 - 6.3).abs() < 2.0, "max_uy={:.1}mm, expected ~6.3mm", max_uy * 1000.0);
+    assert!((max_uz * 1000.0 - 0.9).abs() < 1.0, "max_uz={:.1}mm, expected ~0.9mm", max_uz * 1000.0);
 }

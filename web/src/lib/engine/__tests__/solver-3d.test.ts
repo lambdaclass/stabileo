@@ -158,7 +158,7 @@ const J = 1e-5;        // m⁴
 
 // ─── Tests ───────────────────────────────────────────────────────
 
-describe('3D Solver — computeLocalAxes3D (SAP2000 convention)', () => {
+describe('3D Solver — computeLocalAxes3D (canonical Z-up convention)', () => {
   it('+X bar: ex=(1,0,0), ey=(0,1,0), ez=(0,0,1)', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 5, y: 0, z: 0 };
@@ -169,31 +169,31 @@ describe('3D Solver — computeLocalAxes3D (SAP2000 convention)', () => {
     expect(axes.L).toBeCloseTo(5);
   });
 
-  it('-X bar: ex=(-1,0,0), ey=(0,1,0), ez=(0,0,-1)', () => {
+  it('-X bar: ex=(-1,0,0), ey=(0,-1,0), ez=(0,0,1) — local z stays up', () => {
     const nI: SolverNode3D = { id: 1, x: 5, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 0, z: 0 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex[0]).toBeCloseTo(-1);
-    expect(axes.ey[1]).toBeCloseTo(1);
-    expect(axes.ez[2]).toBeCloseTo(-1);
+    expect(axes.ey[1]).toBeCloseTo(-1);
+    expect(axes.ez[2]).toBeCloseTo(1);
   });
 
-  it('+Y bar: ex=(0,1,0), ey=(0,0,1), ez=(1,0,0)', () => {
+  it('+Y bar: ex=(0,1,0), ey=(-1,0,0), ez=(0,0,1) — local z up (gravity → My)', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 5, z: 0 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex).toEqual([0, 1, 0]);
-    expect(axes.ey[0]).toBeCloseTo(0); expect(axes.ey[1]).toBeCloseTo(0); expect(axes.ey[2]).toBeCloseTo(1);
-    expect(axes.ez[0]).toBeCloseTo(1); expect(axes.ez[1]).toBeCloseTo(0); expect(axes.ez[2]).toBeCloseTo(0);
+    expect(axes.ey[0]).toBeCloseTo(-1); expect(axes.ey[1]).toBeCloseTo(0); expect(axes.ey[2]).toBeCloseTo(0);
+    expect(axes.ez[0]).toBeCloseTo(0); expect(axes.ez[1]).toBeCloseTo(0); expect(axes.ez[2]).toBeCloseTo(1);
   });
 
-  it('+Z bar: ex=(0,0,1), ey=(0,1,0), ez=(-1,0,0)', () => {
+  it('+Z column: ex=(0,0,1), ey=(0,-1,0), ez=(1,0,0) — stable horizontal fallback', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 0, z: 5 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex).toEqual([0, 0, 1]);
-    expect(axes.ey[1]).toBeCloseTo(1);
-    expect(axes.ez[0]).toBeCloseTo(-1);
+    expect(axes.ey[1]).toBeCloseTo(-1);
+    expect(axes.ez[0]).toBeCloseTo(1);
     expect(axes.L).toBeCloseTo(5);
   });
 
