@@ -139,7 +139,17 @@ export function deserializeProject(text: string): boolean {
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
   validateAxisSafety(data);
-  resultsStore.clear();
+  resultsStore.clear(); // stale results dropped — the model must be re-solved
+
+  // Models saved before the local-axis convention metadata existed are now
+  // evaluated under the corrected Z-up convention (no legacy mode). Surface a
+  // concise, non-alarming note for 3D/PRO models that carry members, since
+  // their member diagrams/checks may change. (2D models are unaffected.)
+  const snap = data.snapshot as { localAxisConvention?: string; elements?: unknown[] };
+  const is3D = isMode3D(data.analysisMode ?? '');
+  if (!snap.localAxisConvention && is3D && Array.isArray(snap.elements) && snap.elements.length > 0) {
+    uiStore.toast(t('file.loadedNoAxisConvention'), 'info');
+  }
   return true;
 }
 

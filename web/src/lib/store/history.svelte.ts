@@ -9,6 +9,9 @@ export interface ModelSnapshot {
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
   /** Where the model came from (e.g. CAD-derived draft) and review status. */
   provenance?: ModelProvenance;
+  /** Local-axis convention. 'zUpStrongAxis' is the corrected (and only) one;
+   *  absent on models saved before this metadata existed. */
+  localAxisConvention?: 'zUpStrongAxis';
   nodes: Array<[number, { id: number; x: number; y: number; z?: number }]>;
   materials: Array<[number, { id: number; name: string; e: number; nu: number; rho: number }]>;
   sections: Array<[number, { id: number; name: string; a: number; iz: number; b?: number; h?: number; shape?: string; tw?: number; tf?: number; t?: number; iy?: number; j?: number }]>;

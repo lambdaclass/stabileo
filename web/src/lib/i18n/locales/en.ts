@@ -2092,6 +2092,7 @@ const en: Record<string, string> = {
   // ─── File operations (file.ts) ───
   'file.invalidJson': 'The file is not valid JSON',
   'file.invalidFormat': 'Invalid file format. Make sure it is a .ded file from Stabileo.',
+  'file.loadedNoAxisConvention': 'Loaded without local-axis convention metadata — now evaluated with the corrected Z-up local-axis convention. Re-solve and review member diagrams/checks.',
   'file.supportFixed': 'Fixed',
   'file.supportPinned': 'Pinned',
   'file.supportRollerX': 'Roller X',
@@ -2659,6 +2660,7 @@ const en: Record<string, string> = {
   'report.freeDof': 'free DOF',
   'report.cadDraftBanner': 'CAD-DERIVED DRAFT — NOT REVIEWED. This model was generated automatically from an architectural DXF plan and must be reviewed by a qualified engineer before any use.',
   'report.cadAssumptionsTitle': 'CAD import assumptions',
+  'report.solverCoordsNote': 'Internal solver coordinates: Z-up; gravity acts in −Z.',
   'report.nodesOmitted': '{n} nodes defined (table omitted for brevity).',
   'report.materials': 'Materials',
   'report.sections': 'Sections',

@@ -229,20 +229,22 @@ async function globalSolve3D(): Promise<void> {
   // When combinations exist, use parallel Web Workers for maximum performance
   if (hasCombos) {
     if (isPro) {
-      // In PRO, establish a baseline solved state first so the user
-      // still gets usable results even if the combination path fails.
-      // Suppress the baseline toast — only the final result toasts.
-      const baseline = runSingleSolve(true);
-      if (!baseline) return;
+      // The combination solve already returns per-case results (runComboSolve
+      // seeds the baseline/current view from the first per-case result), so the
+      // old eager baseline single-solve was redundant work — a full extra solve
+      // on every PRO solve. Run combos directly; fall back to a single solve
+      // ONLY if the combination path fails, so the user still gets results.
       try {
         const comboError = await runComboSolve();
         if (comboError) {
-          console.warn('[globalSolve3D] Combination solve returned error in PRO, keeping single-solve results:', comboError);
-          uiStore.toast(comboError, 'info');
+          console.warn('[globalSolve3D] Combination solve returned error in PRO, falling back to single solve:', comboError);
+          const fallback = runSingleSolve();
+          if (!fallback) uiStore.toast(comboError, 'info');
         }
       } catch (e: any) {
-        console.error('[globalSolve3D] Combination solving failed in PRO, keeping single-solve results:', e.message);
-        uiStore.toast(e.message, 'info');
+        console.error('[globalSolve3D] Combination solving failed in PRO, falling back to single solve:', e.message);
+        const fallback = runSingleSolve();
+        if (!fallback) uiStore.toast(e.message, 'info');
       }
       return;
     }
