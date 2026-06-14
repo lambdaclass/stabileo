@@ -77,6 +77,22 @@
 </script>
 
 <div class="status-bar">
+  {#if modelStore.model.provenance?.status === 'cad-draft-unreviewed'}
+    <button
+      class="draft-badge"
+      title={t('cad.badgeTooltip')
+        .replace('{file}', modelStore.model.provenance.fileName)
+        .replace('{date}', modelStore.model.provenance.importedAtIso.slice(0, 10))}
+      onclick={() => {
+        if (window.confirm(t('cad.confirmReviewed'))) {
+          modelStore.markProvenanceReviewed();
+          uiStore.toast(t('cad.markedReviewed'), 'success');
+        }
+      }}
+    >
+      ⚠ {t('cad.draftBadge')}
+    </button>
+  {/if}
   <div class="status-item">
     <span class="status-label">{t('status.tool')}:</span>
     <span class="status-value">{getToolName(uiStore.currentTool)}</span>
@@ -119,6 +135,17 @@
     padding: 0.35rem 1rem;
     font-size: 0.75rem;
   }
+
+  .draft-badge {
+    background: rgba(240, 165, 0, 0.15);
+    border: 1px solid #f0a500;
+    color: #f0a500;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.5rem;
+    cursor: pointer;
+  }
+  .draft-badge:hover { background: rgba(240, 165, 0, 0.3); }
 
   .status-item {
     display: flex;

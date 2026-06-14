@@ -133,7 +133,7 @@
         <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openDedTooltip')}>
           {t('project.openDed')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.openDxfTooltip')}>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} title={isMode3D(uiStore.analysisMode) ? t('project.openDxfCadTooltip') : t('project.openDxfTooltip')}>
           {t('project.openDxf')}
         </button>
         <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))} title={t('project.openIfcTooltip')}>

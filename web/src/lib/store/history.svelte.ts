@@ -2,10 +2,13 @@
 import { modelStore } from './model.svelte';
 import type { Release } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
+import type { ModelProvenance } from '../model/provenance';
 
 export interface ModelSnapshot {
   name?: string;
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
+  /** Where the model came from (e.g. CAD-derived draft) and review status. */
+  provenance?: ModelProvenance;
   nodes: Array<[number, { id: number; x: number; y: number; z?: number }]>;
   materials: Array<[number, { id: number; name: string; e: number; nu: number; rho: number }]>;
   sections: Array<[number, { id: number; name: string; a: number; iz: number; b?: number; h?: number; shape?: string; tw?: number; tf?: number; t?: number; iy?: number; j?: number }]>;
