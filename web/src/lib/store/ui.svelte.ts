@@ -916,11 +916,11 @@ function createUIStore() {
      *  manual element actions (box-select, element-row click); leave false for
      *  result/query/AI/diagnostic highlighting so local-axes "When selected"
      *  ignores it. */
-    setSelection(nodes: Set<number>, elements: Set<number>, manual = false) {
+    setSelection(nodes: Set<number>, elements: Set<number>, manual = false, shells: Set<string> = new Set()) {
       elementSelectionManual = manual;
       selectedNodes = nodes;
       selectedElements = elements;
-      selectedShells = new Set();
+      selectedShells = shells;
     },
 
     /** True only when the element selection came from a manual action. */
