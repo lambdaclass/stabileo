@@ -559,10 +559,12 @@ describe('3D Solver — Column along global Y (axis transformation test)', () =>
     const result = solve3D(input);
     assertSuccess(result);
 
-    // For an element aligned with global Y: ex=[0,1,0], ref=globalZ=[0,0,1]
-    // ez = ex × ref = [0,1,0] × [0,0,1] = [1,0,0]
-    // Force in global X = force in local Z → uses EIy
-    const ux_expected = Px * L * L * L / (3 * E * Iy);
+    // Canonical Z-up convention: element along global Y → ex=[0,1,0];
+    // ez = global up (Z) projected ⊥ ex = [0,0,1]; ey = ez × ex = [-1,0,0].
+    // The global-X force acts along local y → bending about local z → uses EIz.
+    // (Raw-input test, so it exercises the corrected Rust default convention
+    // directly rather than the forced-localY boundary.)
+    const ux_expected = Px * L * L * L / (3 * E * Iz);
 
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
     expect(d2.ux).toBeCloseTo(ux_expected, 4);
