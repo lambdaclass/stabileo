@@ -20,6 +20,8 @@ export interface JSONModel {
     sectionId: number;
     hingeStart?: boolean;
     hingeEnd?: boolean;
+    /** Analytical member offset (PR [7] eccentric framing). */
+    offset?: Record<string, unknown>;
   }>;
   supports: Array<{ id: number; nodeId: number; type: string; [k: string]: unknown }>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
@@ -28,6 +30,9 @@ export interface JSONModel {
   constraints: Array<Record<string, unknown>>;
   loadCases: Array<{ id: number; type: string; name: string }>;
   combinations: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }> }>;
+  /** Optional model provenance (CAD-derived draft examples carry their source
+   *  DXF, assumptions, and review status). Passed through to the model. */
+  provenance?: Record<string, unknown>;
 }
 
 /**
@@ -133,6 +138,13 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
     const secId = secMap.get(e.sectionId) ?? e.sectionId;
     if (matId !== 1) api.updateElementMaterial(newId, matId);
     if (secId !== 1) api.updateElementSection(newId, secId);
+
+    // Analytical member offset (PR [7]) — set directly on the created element.
+    if (e.offset) {
+      const created = (api.model as unknown as { elements?: Map<number, { offset?: unknown }> }).elements?.get?.(newId)
+        ?? (api as unknown as { elements?: Map<number, { offset?: unknown }> }).elements?.get?.(newId);
+      if (created) created.offset = JSON.parse(JSON.stringify(e.offset));
+    }
 
     // Hinges
     if (e.hingeStart && api.toggleHinge) api.toggleHinge(newId, 'start');
@@ -244,6 +256,11 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
   if (json.combinations.length > 0) {
     api.model.combinations = json.combinations as any;
     api.nextId.combination = Math.max(...json.combinations.map(c => c.id)) + 1;
+  }
+
+  // Provenance passthrough (CAD-derived draft examples).
+  if (json.provenance) {
+    (api.model as { provenance?: unknown }).provenance = JSON.parse(JSON.stringify(json.provenance));
   }
 }
 
