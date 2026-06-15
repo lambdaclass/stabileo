@@ -1,7 +1,8 @@
 /// Validation: 3D Section Stress Computation
 ///
 /// References:
-///   - Navier: σ(y,z) = N/A + Mz·y/Iz - My·z/Iy
+///   - Navier (PR [12] convention): σ(y,z) = N/A − My·y/Iy + Mz·z/Iz
+///     (y = depth, z = width; My bends over depth using Iy, Mz over width using Iz)
 ///   - Jourawski: τ = VQ/(Ib), parabolic for rectangular
 ///   - Saint-Venant: τ = T·t/J for open sections
 ///   - Von Mises: σ_vm = √(σ² + 3τ²)
@@ -46,13 +47,14 @@ fn make_ef3d(
 }
 
 /// Rectangular section geometry.
-/// Rectangular section: h is depth (y-direction), b is width (z-direction).
-/// Iz = ∫y²dA = b·h³/12 (controls Mz bending and Vy shear)
-/// Iy = ∫z²dA = h·b³/12 (controls My bending and Vz shear)
+/// h is depth (y-direction), b is width (z-direction).
+/// PR [12] / app data convention (matches steel-profiles.ts: iy = major/strong axis):
+///   iy = ∫y²dA = b·h³/12  → controls My (depth bending) and Vz (over-the-depth shear)
+///   iz = ∫z²dA = h·b³/12  → controls Mz (width bending) and Vy (over-the-width shear)
 fn rect_section(b: f64, h: f64) -> SectionGeometry {
     let a = b * h;
-    let iz = b * h.powi(3) / 12.0;
-    let iy = h * b.powi(3) / 12.0;
+    let iy = b * h.powi(3) / 12.0; // depth-bending inertia (strong for tall sections)
+    let iz = h * b.powi(3) / 12.0; // width-bending inertia (weak)
     let j = b * h * (b * b + h * h) / 12.0; // approximate
     SectionGeometry {
         shape: "rect".to_string(),
@@ -111,14 +113,14 @@ fn validation_stress_3d_biaxial_bending() {
     let b = 0.1;
     let h = 0.2;
     let section = rect_section(b, h);
-    let mz = 10.0; // kN·m bending about z
-    let my = 5.0;  // kN·m bending about y
+    let mz = 10.0; // kN·m bending about z (width bending)
+    let my = 5.0;  // kN·m bending about y (depth bending)
 
     let ef = make_ef3d(0.0, 0.0, 0.0, 0.0, my, mz, 3.0);
 
-    // Check stress at top-right corner: y = b/2, z = h/2
-    let y_fiber = b / 2.0;
-    let z_fiber = h / 2.0;
+    // Check stress at a corner: y (depth) = h/2, z (width) = b/2
+    let y_fiber = h / 2.0;
+    let z_fiber = b / 2.0;
 
     let input = SectionStressInput3D {
         element_forces: ef,
@@ -131,8 +133,8 @@ fn validation_stress_3d_biaxial_bending() {
 
     let result = compute_section_stress_3d(&input);
 
-    // σ = Mz·y/Iz - My·z/Iy (in MPa, so divide by 1000)
-    let sigma_expected = (mz * y_fiber / section.iz - my * z_fiber / section.iy) / 1000.0;
+    // σ = −My·y/Iy + Mz·z/Iz (PR [12]; in MPa, so divide by 1000)
+    let sigma_expected = (-my * y_fiber / section.iy + mz * z_fiber / section.iz) / 1000.0;
     assert_close(result.sigma_at_fiber, sigma_expected, 0.02,
         "biaxial bending σ at corner fiber");
 }
@@ -149,9 +151,10 @@ fn validation_stress_3d_shear_rectangular() {
     let b = 0.1;
     let h = 0.2;
     let section = rect_section(b, h);
-    let vy = 50.0; // kN shear force
+    let vz = 50.0; // kN vertical (over-the-depth) shear force
 
-    let ef = make_ef3d(0.0, vy, 0.0, 0.0, 0.0, 0.0, 3.0);
+    // Vz is the vertical shear (paired with depth bending) → lives on the depth cut (distribution_y).
+    let ef = make_ef3d(0.0, 0.0, vz, 0.0, 0.0, 0.0, 3.0);
 
     let input = SectionStressInput3D {
         element_forces: ef,
@@ -165,22 +168,22 @@ fn validation_stress_3d_shear_rectangular() {
     let result = compute_section_stress_3d(&input);
 
     // τ_max = 1.5·V/A = 1.5 * 50 / (0.1 * 0.2) = 3750 kN/m² = 3.75 MPa
-    let tau_max_expected = 1.5 * vy / section.a / 1000.0;
+    let tau_max_expected = 1.5 * vz / section.a / 1000.0;
 
-    // The distribution_y should show parabolic shear — max at neutral axis (y=0)
+    // distribution_y carries the Vz shear (tau_vz) — parabolic, max at neutral axis (y=0)
     let center_pt = result.distribution_y.iter()
         .min_by(|a, b| a.y.abs().partial_cmp(&b.y.abs()).unwrap())
         .unwrap();
 
-    assert_close(center_pt.tau_vy.abs(), tau_max_expected, 0.05,
+    assert_close(center_pt.tau_vz.abs(), tau_max_expected, 0.05,
         "Jourawski τ_max at neutral axis");
 
     // At extreme fibers (y = ±h/2), shear should be near zero
     let top = result.distribution_y.iter()
         .max_by(|a, b| a.y.partial_cmp(&b.y).unwrap())
         .unwrap();
-    assert!(top.tau_vy.abs() < tau_max_expected * 0.15,
-        "Shear at extreme fiber should be near zero, got {:.4}", top.tau_vy);
+    assert!(top.tau_vz.abs() < tau_max_expected * 0.15,
+        "Shear at extreme fiber should be near zero, got {:.4}", top.tau_vz);
 }
 
 // ================================================================
@@ -232,11 +235,11 @@ fn validation_stress_3d_von_mises() {
     let h = 0.2;
     let section = rect_section(b, h);
 
-    // Combined bending and shear
-    let mz = 10.0; // kN·m
-    let vy = 30.0; // kN
+    // Combined bending and shear (use the vertical shear Vz so it lives on distribution_y)
+    let mz = 10.0; // kN·m (width bending — zero contribution at the centroid cut)
+    let vz = 30.0; // kN vertical shear
 
-    let ef = make_ef3d(0.0, vy, 0.0, 0.0, 0.0, mz, 3.0);
+    let ef = make_ef3d(0.0, 0.0, vz, 0.0, 0.0, mz, 3.0);
 
     let input = SectionStressInput3D {
         element_forces: ef,
