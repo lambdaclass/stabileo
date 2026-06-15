@@ -41,6 +41,50 @@ function diag(
   return { severity, code, message, source: 'model' as any, ...opts };
 }
 
+/**
+ * Perpendicular-to-member magnitude (kN or kN/m) of a member load.
+ * Mirrors the load decomposition in solver-service so the "transverse on a
+ * truss" warning matches what the solver would actually do with the load.
+ * 3D member loads (distributed3d / pointOnElement3d) store their components in
+ * local Y/Z, which are perpendicular to the member axis by definition.
+ * 2D loads (distributed / pointOnElement) depend on the load angle + local/global flag.
+ */
+export function memberLoadPerpComponent(
+  load: LoadEntry,
+  elem: Element,
+  nodes: Map<number, Node>,
+): number {
+  const d = load.data as Record<string, number | boolean | undefined>;
+  const num = (v: unknown): number => (typeof v === 'number' ? v : 0);
+
+  if (load.type === 'distributed3d') {
+    return Math.max(Math.abs(num(d.qYI)), Math.abs(num(d.qYJ)), Math.abs(num(d.qZI)), Math.abs(num(d.qZJ)));
+  }
+  if (load.type === 'pointOnElement3d') {
+    return Math.max(Math.abs(num(d.py)), Math.abs(num(d.pz)));
+  }
+  if (load.type !== 'distributed' && load.type !== 'pointOnElement') return 0;
+
+  const ni = nodes.get(elem.nodeI), nj = nodes.get(elem.nodeJ);
+  if (!ni || !nj) return 0;
+  const edx = nj.x - ni.x, edy = nj.y - ni.y;
+  const L = Math.hypot(edx, edy);
+  if (L < 1e-10) return 0;
+  const cosT = edx / L, sinT = edy / L;
+  const angleRad = num(d.angle) * Math.PI / 180;
+  const isGlobal = d.isGlobal === true;
+  // Local: angle=0 ⇒ fully perpendicular. Global: project onto the member normal.
+  const perpOf = (q: number): number => isGlobal
+    ? (q * Math.sin(angleRad)) * (-sinT) + (q * Math.cos(angleRad)) * cosT
+    : q * Math.cos(angleRad);
+
+  if (load.type === 'distributed') {
+    return Math.max(Math.abs(perpOf(num(d.qI))), Math.abs(perpOf(num(d.qJ))));
+  }
+  // pointOnElement: d.p is the perpendicular magnitude; d.px is purely axial.
+  return Math.abs(perpOf(num(d.p)));
+}
+
 /** Run all pre-solve model checks */
 export function checkModel(m: ModelData): SolverDiagnostic[] {
   const out: SolverDiagnostic[] = [];
@@ -235,6 +279,22 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
           details: { loadId: load.data.id, nodeId: load.data.nodeId },
         }));
       }
+    }
+  }
+
+  // ─── Transverse load on an axial-only (truss) member ───────────
+  // A truss member carries only axial force, so a perpendicular load is not
+  // transferred as beam bending/shear. Educational warning; never blocks solving.
+  for (const load of m.loads) {
+    const elemId = load.data.elementId;
+    if (elemId == null) continue;
+    const elem = m.elements.get(elemId);
+    if (!elem || elem.type !== 'truss') continue;
+    if (memberLoadPerpComponent(load, elem, m.nodes) > 1e-9) {
+      out.push(diag('warning', 'MODEL_TRANSVERSE_ON_TRUSS', 'diag.model.transverseOnTruss', {
+        elementIds: [elem.id],
+        details: { loadId: load.data.id },
+      }));
     }
   }
 
