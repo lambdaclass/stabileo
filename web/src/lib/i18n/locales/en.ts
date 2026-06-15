@@ -1752,9 +1752,9 @@ const en: Record<string, string> = {
   'stress.close': 'Close (Esc)',
   'stress.moveAlongElem': 'Move along element (x/L)',
   'stress.forces3dHelp': '3D internal forces at this section.\nN = normal (+ tension, - compression)\nVy = shear in XY plane (produces Mz)\nVz = shear in XZ plane (produces My)',
-  'stress.moments3dHelp': 'Mx = torsional moment\nMy = bending moment (XZ plane, weak axis)\nMz = bending moment (XY plane, strong axis)\nConvention: + = sagging (tension at bottom fiber)',
+  'stress.moments3dHelp': 'Mx = torsional moment\nMy = moment about local y (bends over the depth, uses Iy)\nMz = moment about local z (bends over the width, uses Iz)\nDefault unrolled tall section: My is the strong/vertical axis, Mz the weak/lateral — a section roll rotates these with the section.\nConvention: + = sagging (tension at bottom fiber)',
   'stress.rotDecompHelp': 'Section rotation decomposition ({angle}\u00B0).\nVy, Vz = shear components in rotated local axes',
-  'stress.rotMomentHelp': 'Moment M decomposition by section rotation.\nMz = M\u00B7cos(\u03B1) (strong axis)\nMy = M\u00B7sin(\u03B1) (weak axis)\n\u03B1 = {angle}\u00B0',
+  'stress.rotMomentHelp': 'Moment M decomposition by section rotation.\nMy = M\u00B7cos(\u03B1) (depth/strong-axis bending at \u03B1=0)\nMz = M\u00B7sin(\u03B1) (width/weak-axis bending at \u03B1=0)\n\u03B1 = {angle}\u00B0',
   'stress.forces2dHelp': 'Internal forces at this element section.\nN = normal (+ tension, - compression)\nV = transverse shear\nM = bending moment (+ sagging, tension at bottom)',
   'stress.criticalSections': 'Critical sections',
   'stress.criticalSectionsHelp': 'Positions along the element where stresses should be checked.\n\nIncludes points of maximum moment (V=0), supports, point loads and intermediate points.\nClick each chip to navigate to that section.',
@@ -1764,7 +1764,7 @@ const en: Record<string, string> = {
 
   // ─── Stress State Details ───
   'stress.stressState': 'Stress state',
-  'stress.sigmaBiaxHelp': 'Biaxial normal stress (Navier):\n\u03C3 = N/A + Mz\u00B7y/Iz - My\u00B7z/Iy\n\nPositive = tension (red)\nNegative = compression (blue)\n\nDepends on selected fiber (y, z).',
+  'stress.sigmaBiaxHelp': 'Biaxial normal stress (Navier):\n\u03C3 = N/A \u2212 My\u00B7y/Iy + Mz\u00B7z/Iz\n\nPositive = tension (red)\nNegative = compression (blue)\n\nDepends on selected fiber (y, z).',
   'stress.tauTotalHelp': 'Total combined shear stress:\n\u03C4 = \u221A(\u03C4Vy\u00B2 + \u03C4Vz\u00B2 + \u03C4T\u00B2)\n\nIncludes shear from Vy (XY plane), Vz (XZ plane) and torsion.',
   'stress.vonMisesHelp': 'Von Mises criterion (distortion energy):\n\u03C3vm = \u221A(\u03C3\u00B2 + 3\u03C4\u00B2)\n\nPreferred for steel and ductile metals.\nPercentage shows fy capacity usage.',
   'stress.trescaHelp': 'Tresca criterion (max. shear stress):\n\u03C4max = \u221A((\u03C3/2)\u00B2 + \u03C4\u00B2)\n\n~15% conservative vs Von Mises.\nEquivalent: 2\u03C4max \u2264 fy',
@@ -1807,7 +1807,7 @@ const en: Record<string, string> = {
   // ─── Cross Section Drawing ───
   'stress.fiberY': 'Fiber y:',
   'stress.fiberZ': 'Fiber z:',
-  'stress.fiberYZ3dHelp': 'Position on the section Y and Z axes where stresses are evaluated.\nY = strong axis (height, bending by Mz).\nZ = weak axis (width, bending by My).\nThe yellow dot shows the selected fiber.',
+  'stress.fiberYZ3dHelp': 'Position on the section Y and Z axes where stresses are evaluated.\nY (depth): bending by My, uses Iy. Z (width): bending by Mz, uses Iz.\nIn the default unrolled orientation Y is the strong axis; a section roll rotates this.\nThe yellow dot shows the selected fiber.',
   'stress.fiberY2dHelp': 'Height within the section where stresses are evaluated.\ny = 0 is the center (neutral axis if N=0).\nMove the slider to scan from bottom to top fiber.\nAt the extremes, normal stresses are maximum and shear is minimum.',
 
   // ─── ToolbarResults Tooltips ───
@@ -1819,9 +1819,9 @@ const en: Record<string, string> = {
   'results.axialTooltip': 'Axial force diagram (3)',
   'results.axialColorTooltip': 'Axial colors: red=tension, blue=compression (7)',
   'results.shearZTooltip': 'Shear Z (Vz)',
-  'results.momentYTooltip': 'Weak axis moment (My)',
+  'results.momentYTooltip': 'Moment about local y (My)',
   'results.shearYTooltip': 'Shear Y (Vy)',
-  'results.momentZTooltip': 'Strong axis moment (Mz)',
+  'results.momentZTooltip': 'Moment about local z (Mz)',
   'results.axialNTooltip': 'Axial force (N)',
   'results.torsionTooltip': 'Torsional moment (Mx)',
   'results.axialColor3dTooltip': 'Axial colors: red=tension, blue=compression',
@@ -2557,6 +2557,7 @@ const en: Record<string, string> = {
   'diag.model.missingMaterial': 'Element references non-existent material',
   'diag.model.zeroModulus': 'Material with zero elastic modulus',
   'diag.model.doubleHinge': 'Double-hinged frame element (potential mechanism)',
+  'diag.model.transverseOnTruss': 'This member is modeled as axial-only / truss-like. Transverse loads on it will not be transferred as beam bending/shear. Consider applying the load to adjacent nodes or modeling the member as a frame element.',
   'diag.model.supportOrphan': 'Support on non-existent node',
   'diag.model.noLoads': 'No loads applied',
   'diag.model.emptyCase': 'Empty load case (no loads)',

@@ -1714,9 +1714,9 @@ const es: Record<string, string> = {
   'stress.close': 'Cerrar (Esc)',
   'stress.moveAlongElem': 'Mover a lo largo del elemento (x/L)',
   'stress.forces3dHelp': 'Esfuerzos internos 3D en esta sección.\nN = normal (+ tracción, - compresión)\nVy = corte en plano XY (produce Mz)\nVz = corte en plano XZ (produce My)',
-  'stress.moments3dHelp': 'Mx = momento torsor\nMy = momento flector (plano XZ, eje débil)\nMz = momento flector (plano XY, eje fuerte)\nConvención: + = sagging (tracción en fibra inferior)',
+  'stress.moments3dHelp': 'Mx = momento torsor\nMy = momento sobre el eje local y (flexiona sobre el canto, usa Iy)\nMz = momento sobre el eje local z (flexiona sobre el ancho, usa Iz)\nSección vertical sin rotar: My = eje fuerte/vertical, Mz = eje débil/lateral — una rotación de la sección los gira con ella.\nConvención: + = positivo (tracción en fibra inferior)',
   'stress.rotDecompHelp': 'Descomposición por rotación de sección ({angle}°).\nVy, Vz = componentes del corte en ejes locales rotados',
-  'stress.rotMomentHelp': 'Descomposición del momento M por rotación de sección.\nMz = M·cos(α) (eje fuerte)\nMy = M·sin(α) (eje débil)\nα = {angle}°',
+  'stress.rotMomentHelp': 'Descomposición del momento M por rotación de sección.\nMy = M·cos(α) (flexión de canto/eje fuerte en α=0)\nMz = M·sin(α) (flexión de ancho/eje débil en α=0)\nα = {angle}°',
   'stress.forces2dHelp': 'Esfuerzos internos en esta sección del elemento.\nN = normal (+ tracción, - compresión)\nV = corte transversal\nM = momento flector (+ sagging, tracciona abajo)',
   'stress.criticalSections': 'Secciones criticas',
   'stress.criticalSectionsHelp': 'Posiciones a lo largo del elemento donde conviene verificar tensiones.\n\nIncluye puntos de momento maximo (V=0), apoyos, cargas puntuales y puntos intermedios.\nClick en cada chip para navegar a esa seccion.',
@@ -1726,7 +1726,7 @@ const es: Record<string, string> = {
 
   // ─── Stress State Details ───
   'stress.stressState': 'Estado tensional',
-  'stress.sigmaBiaxHelp': 'Tensión normal biaxial (Navier):\nσ = N/A + Mz·y/Iz - My·z/Iy\n\nPositiva = tracción (rojo)\nNegativa = compresión (azul)\n\nDepende de la fibra (y, z) seleccionada.',
+  'stress.sigmaBiaxHelp': 'Tensión normal biaxial (Navier):\nσ = N/A − My·y/Iy + Mz·z/Iz\n\nPositiva = tracción (rojo)\nNegativa = compresión (azul)\n\nDepende de la fibra (y, z) seleccionada.',
   'stress.tauTotalHelp': 'Tensión tangencial total combinada:\nτ = √(τVy² + τVz² + τT²)\n\nIncluye corte por Vy (plano XY), Vz (plano XZ) y torsión.',
   'stress.vonMisesHelp': 'Criterio de Von Mises (energía de distorsión):\nσvm = √(σ² + 3τ²)\n\nPreferido para acero y metales dúctiles.\nEl porcentaje indica uso de la capacidad fy.',
   'stress.trescaHelp': 'Criterio de Tresca (máx. tensión tangencial):\nτmax = √((σ/2)² + τ²)\n\nConservador ~15% respecto a Von Mises.\nEquivalente: 2τmax ≤ fy',
@@ -1769,7 +1769,7 @@ const es: Record<string, string> = {
   // ─── Cross Section Drawing ───
   'stress.fiberY': 'Fibra y:',
   'stress.fiberZ': 'Fibra z:',
-  'stress.fiberYZ3dHelp': 'Posición en los ejes Y y Z de la sección donde se evalúan las tensiones.\nY = eje fuerte (altura, flexión por Mz).\nZ = eje débil (ancho, flexión por My).\nEl punto amarillo muestra la fibra seleccionada.',
+  'stress.fiberYZ3dHelp': 'Posición en los ejes Y y Z de la sección donde se evalúan las tensiones.\nY (canto): flexión por My, usa Iy. Z (ancho): flexión por Mz, usa Iz.\nEn la orientación por defecto (sin rotar) Y es el eje fuerte; una rotación de la sección lo gira.\nEl punto amarillo muestra la fibra seleccionada.',
   'stress.fiberY2dHelp': 'Altura dentro de la sección donde se evalúan las tensiones.\ny = 0 es el centro (eje neutro si N=0).\nMover el slider para recorrer desde la fibra inferior a la superior.\nEn los extremos las tensiones normales son máximas y el corte es mínimo.',
 
   // ─── ToolbarResults Tooltips ───
@@ -1781,9 +1781,9 @@ const es: Record<string, string> = {
   'results.axialTooltip': 'Diagrama de fuerza axil (3)',
   'results.axialColorTooltip': 'Color por axil: rojo=tracción, azul=compresión (7)',
   'results.shearZTooltip': 'Corte en Z (Vz)',
-  'results.momentYTooltip': 'Momento eje débil (My)',
+  'results.momentYTooltip': 'Momento sobre el eje local y (My)',
   'results.shearYTooltip': 'Corte en Y (Vy)',
-  'results.momentZTooltip': 'Momento eje fuerte (Mz)',
+  'results.momentZTooltip': 'Momento sobre el eje local z (Mz)',
   'results.axialNTooltip': 'Fuerza axil (N)',
   'results.torsionTooltip': 'Momento torsor (Mx)',
   'results.axialColor3dTooltip': 'Color por axil: rojo=tracción, azul=compresión',
@@ -2519,6 +2519,7 @@ const es: Record<string, string> = {
   'diag.model.missingMaterial': 'Elemento referencia material inexistente',
   'diag.model.zeroModulus': 'Material con módulo elástico cero',
   'diag.model.doubleHinge': 'Elemento frame con doble articulación (potencial mecanismo)',
+  'diag.model.transverseOnTruss': 'Esta barra está modelada como solo axial / reticulado. Las cargas transversales sobre ella no se transfieren como flexión/corte de viga. Considere aplicar la carga en los nudos adyacentes o modelar la barra como elemento frame (pórtico).',
   'diag.model.supportOrphan': 'Apoyo en nodo inexistente',
   'diag.model.noLoads': 'No hay cargas aplicadas',
   'diag.model.emptyCase': 'Caso de carga vacío (sin cargas)',

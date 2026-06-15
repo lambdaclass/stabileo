@@ -216,10 +216,10 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const autoVerify = readFileSync(new URL('../auto-verify.ts', import.meta.url), 'utf8');
     const proPanel = readFileSync(new URL('../../../components/pro/ProPanel.svelte', import.meta.url), 'utf8');
 
-    expect(sectionStress3D, 'section-stress-3d.ts should use the standard 3D Navier formula').toContain('σ(y,z) = N/A + Mz·y/Iz - My·z/Iy');
-    expect(sectionStress3D, 'section-stress-3d.ts should add Mz on the y/Iz term').toContain('sigma += Mz * y / Iz');
-    expect(sectionStress3D, 'section-stress-3d.ts should subtract My on the z/Iy term').toContain('sigma -= My * z / Iy');
-    expect(sectionStress3D, 'section-stress-3d.ts must not keep the old swapped formula').not.toContain('σ(y,z) = N/A - My·y/Iz + Mz·z/Iy');
+    expect(sectionStress3D, 'section-stress-3d.ts should document the PR [12] 3D Navier formula').toContain('My·y/Iy + Mz·z/Iz');
+    expect(sectionStress3D, 'section-stress-3d.ts should subtract My on the y/Iy term (depth, strong)').toContain('sigma -= My * y / Iy');
+    expect(sectionStress3D, 'section-stress-3d.ts should add Mz on the z/Iz term (width, weak)').toContain('sigma += Mz * z / Iz');
+    expect(sectionStress3D, 'section-stress-3d.ts must not keep the pre-PR[12] pairing').not.toContain('sigma += Mz * y / Iz');
 
     expect(verificationTab, 'ProVerificationTab.svelte should keep Mu on the strong-axis mz envelope').toContain('MuMax = _mzMax');
     expect(verificationTab, 'ProVerificationTab.svelte should keep Muy on the weak-axis my envelope').toContain('MuyMax = _myMax');

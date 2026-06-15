@@ -1124,23 +1124,32 @@ export function buildSolverInput3D(
       }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => {
+      // Embedded flat-2D model (project2DToXZ): the model's only release field is the
+      // 2D in-plane bending release, stored as `mz` for historical reasons. In the
+      // X-Z embed the in-plane bending is My (about local y; the load decomposition
+      // and the θy/My display labels agree). So the 2D `mz` release maps to releaseMy,
+      // NOT releaseMz. Genuine 3D models (project2DToXZ=false) keep my→My, mz→Mz.
       const elem: any = {
         id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
         materialId: e.materialId, sectionId: e.sectionId,
-        releaseMyStart: e.releaseI?.my === true,
-        releaseMyEnd: e.releaseJ?.my === true,
-        releaseMzStart: e.releaseI?.mz === true,
-        releaseMzEnd: e.releaseJ?.mz === true,
+        releaseMyStart: project2DToXZ ? (e.releaseI?.mz === true) : (e.releaseI?.my === true),
+        releaseMyEnd: project2DToXZ ? (e.releaseJ?.mz === true) : (e.releaseJ?.my === true),
+        releaseMzStart: project2DToXZ ? false : (e.releaseI?.mz === true),
+        releaseMzEnd: project2DToXZ ? false : (e.releaseJ?.mz === true),
         releaseTStart: e.releaseI?.t === true,
         releaseTEnd: e.releaseJ?.t === true,
       };
       if (e.localYx !== undefined) {
         elem.localYx = e.localYx; elem.localYy = e.localYy; elem.localYz = e.localYz;
-      } else if (!project2DToXZ && e.type === 'frame') {
+      } else if (e.type === 'frame') {
         // Hard-fix (canonical Z-up): force the corrected local axes at the solver
         // boundary so the WASM solver uses local z = global up (gravity → My)
         // instead of its historical global-Y auto-orient. Pass the BASE ey only —
         // the solver applies rollAngle/leftHand itself (see below / leftHand flag).
+        // Applied for the embedded (project2DToXZ) path too: the member loads are
+        // already decomposed in this canonical frame (computeLocalAxes3D on the
+        // projected coords), so the solver frame must match — otherwise qY/qZ and
+        // the My release would bend about the wrong axis.
         const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
         if (ni && nj) {
           try {
