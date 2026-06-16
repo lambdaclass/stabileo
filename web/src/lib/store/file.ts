@@ -132,8 +132,9 @@ export function deserializeProject(text: string): boolean {
   historyStore.pushState();
   modelStore.restore(data.snapshot);
   modelStore.model.name = data.name;
-  // appMode is a derived getter (computed from analysisMode) — restoring
-  // analysisMode below is what actually moves the app into the saved mode.
+  // appMode is derived from analysisMode (getter-only) — assigning it throws
+  // in strict mode, which broke opening any .ded that carried appMode.
+  // Restoring analysisMode below already yields the right appMode.
   if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
@@ -165,6 +166,26 @@ function validateDedalFile(data: unknown): data is DedalFile {
   const nodeIds = new Set((s.nodes as Array<[number, unknown]>).map(([id]) => id));
   for (const [, elem] of s.elements as Array<[number, { nodeI: number; nodeJ: number }]>) {
     if (!nodeIds.has(elem.nodeI) || !nodeIds.has(elem.nodeJ)) {
+      return false;
+    }
+  }
+
+  // Shells (plates/quads) node refs — ubiquitous in PRO/CAD-draft models. An
+  // orphan ref would load verbatim and feed a phantom node into shell render/
+  // solve (convertSurfaceLoad/WASM); reject the file like a bad element ref.
+  for (const [, q] of (s.quads as Array<[number, { nodes: number[] }]> | undefined) ?? []) {
+    if (!Array.isArray(q.nodes) || q.nodes.some((n) => !nodeIds.has(n))) return false;
+  }
+  for (const [, p] of (s.plates as Array<[number, { nodes: number[] }]> | undefined) ?? []) {
+    if (!Array.isArray(p.nodes) || p.nodes.some((n) => !nodeIds.has(n))) return false;
+  }
+
+  // Surface/thermal loads must target an existing quad (CAD drafts attach one
+  // per slab quad); a dangling target is silently dropped at solve time.
+  const quadIds = new Set(((s.quads as Array<[number, unknown]> | undefined) ?? []).map(([id]) => id));
+  for (const l of s.loads as Array<{ type: string; data?: { quadId?: number } }>) {
+    if ((l.type === 'surface3d' || l.type === 'thermalQuad3d')
+      && l.data?.quadId !== undefined && !quadIds.has(l.data.quadId)) {
       return false;
     }
   }

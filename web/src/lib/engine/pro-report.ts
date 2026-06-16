@@ -45,6 +45,9 @@ export interface ReportConfig {
 export interface ReportData {
   projectName: string;
   date: string;
+  /** CAD-derived draft provenance — when present and unreviewed, the report
+   *  carries a prominent draft banner plus the assumption list. */
+  provenance?: import('../model/provenance').ModelProvenance;
   // Model
   nodes: Node[];
   elements: Element[];
@@ -414,6 +417,9 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`<h1>${escHtml(projectName)}</h1>`);
   html.push(`<div class="subtitle">${escHtml(tr('report.coverSubtitle'))}</div>`);
   html.push(`<div class="subtitle">${escHtml(tr('report.coverCode'))}</div>`);
+  if (data.provenance?.status === 'cad-draft-unreviewed') {
+    html.push(`<div style="margin:16px auto;max-width:520px;border:2px solid #b8860b;background:#fdf6e3;color:#7a5a00;padding:10px 14px;border-radius:6px;font-size:13px;font-weight:600">${escHtml(tr('report.cadDraftBanner'))}</div>`);
+  }
   if (cfg?.projectAddress) {
     html.push(`<div style="font-size:12px;color:#666;margin-top:12px">${escHtml(cfg.projectAddress)}</div>`);
   }
@@ -457,6 +463,17 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<div class="toc-entry"><a href="#${entry.anchor}">${escHtml(entry.label)}</a><span class="toc-dots"></span></div>`);
   }
   html.push(`</div>`);
+
+  // ─── CAD draft provenance: source + the assumptions baked into the model ───
+  if (data.provenance) {
+    html.push(`<h2>${escHtml(tr('report.cadAssumptionsTitle'))}</h2>`);
+    html.push(`<p style="font-size:11px;color:#666">${escHtml(data.provenance.fileName)} — ${escHtml(data.provenance.importedAtIso.slice(0, 10))}</p>`);
+    html.push('<ul style="font-size:12px">');
+    for (const a of data.provenance.assumptions) {
+      html.push(`<li>${escHtml(a)}</li>`);
+    }
+    html.push('</ul>');
+  }
 
   // ─── Design Summary (when verification data exists and section is enabled) ───
   if (showSection('verification') && verifications.length > 0) {

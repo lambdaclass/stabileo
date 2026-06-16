@@ -49,6 +49,10 @@ const fixtures3D: Record<string, FixtureLoader> = {
   // PRO generators (now JSON)
   'torre-irregular-con-retiros': () => import('./fixtures/torre-irregular-con-retiros.json'),
   'rc-design-frame': () => import('./fixtures/rc-design-frame.json'),
+  // CAD → RC draft examples generated from real architectural DXFs by
+  // scripts/build-cad-dxf-examples.ts (PR [9] stress tests).
+  'cad-arch-structure-dxf': () => import('./fixtures/cad-arch-structure-dxf.json'),
+  'cad-arch-only-dxf': () => import('./fixtures/cad-arch-only-dxf.json'),
   'pipe-rack': () => import('./fixtures/pipe-rack.json'),
   'mat-foundation': () => import('./fixtures/mat-foundation.json'),
   'suspension-bridge': () => import('./fixtures/suspension-bridge.json'),

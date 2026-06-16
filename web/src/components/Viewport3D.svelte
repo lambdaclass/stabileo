@@ -1412,6 +1412,7 @@
         const sm = uiStore.selectMode;
         const allowNodes = sm === 'elements' || sm === 'nodes';
         const allowElems = sm === 'elements';
+        const allowShells = sm === 'shells';
 
         // Collect new selection items
         const newNodes = additive ? new Set(uiStore.selectedNodes) : new Set<number>();
@@ -1447,8 +1448,31 @@
           }
         }
 
+        // Shells (plates + quads): select by their corner nodes, same Window
+        // (all corners inside) / Crossing (any corner inside) rule — but ONLY in
+        // shells select mode. Gating by selectMode (like nodes/elements above)
+        // keeps box-select highlight == delete target: a marquee in nodes/
+        // supports/loads/elements mode must not silently fill selectedShells and
+        // delete shells the user never targeted.
+        const newShells = additive ? new Set(uiStore.selectedShells) : new Set<string>();
+        if (allowShells) {
+          const cornerIn = (nodeId: number): boolean => {
+            const nd = modelStore.getNode(nodeId);
+            if (!nd) return false;
+            const sp = projectNodeToScene(nd, project2D);
+            const s = projectToScreen(sp.x, sp.y, sp.z);
+            return s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2;
+          };
+          const collectShell = (key: string, nodeIds: number[]) => {
+            const flags = nodeIds.map(cornerIn);
+            if (isWindow ? flags.every(Boolean) : flags.some(Boolean)) newShells.add(key);
+          };
+          for (const p of modelStore.model.plates.values()) collectShell('p' + p.id, p.nodes);
+          for (const q of modelStore.model.quads.values()) collectShell('q' + q.id, q.nodes);
+        }
+
         // Reassign sets to trigger Svelte reactivity (manual box-select)
-        uiStore.setSelection(newNodes, newElems, true);
+        uiStore.setSelection(newNodes, newElems, true, newShells);
       } else {
         // Small drag = click → delegate to normal click selection
         boxSelect3D = null;

@@ -13,6 +13,7 @@
   import { modelStore, uiStore, resultsStore, dsmStepsStore, tabManager, historyStore } from './lib/store';
   import { t, i18n, setLocale } from './lib/i18n';
   import StepWizard from './components/dsm/StepWizard.svelte';
+  import { resolveDeleteTargets } from './lib/store/delete-selection';
   import {
     loadFromLocalStorage, saveToLocalStorage, clearLocalStorage,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
@@ -20,6 +21,7 @@
   } from './lib/store/file';
   import { loadFromURLHash } from './lib/utils/url-sharing';
   import DxfImportDialog from './components/DxfImportDialog.svelte';
+  import CadImportWizard from './components/CadImportWizard.svelte';
   import IfcImportDialog from './components/IfcImportDialog.svelte';
   import FloatingTools from './components/FloatingTools.svelte';
   import WhatIfPanel from './components/WhatIfPanel.svelte';
@@ -176,6 +178,12 @@
 
   let showDxfImport = $state(false);
   let dxfImportFile = $state<File | null>(null);
+  // CAD → RC draft wizard (PRO/3D modes route DXF files here instead of the
+  // 2D bar-model import dialog).
+  let showCadWizard = $state(false);
+  let cadWizardFile = $state<File | null>(null);
+  const dxfGoesToCadWizard = () =>
+    uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
   let showIfcImport = $state(false);
   let ifcImportFile = $state<File | null>(null);
   let ifcFileInput: HTMLInputElement;
@@ -296,31 +304,19 @@
         resultsStore.clear();
         return;
       }
-      if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0) {
-        const nodes = [...uiStore.selectedNodes];
-        const elems = [...uiStore.selectedElements];
-        const shellMode = uiStore.selectMode === 'shells';
-        modelStore.batch(() => {
-          for (const id of nodes) modelStore.removeNode(id);
-          for (const id of elems) {
-            const isShell = modelStore.plates.has(id) || modelStore.quads.has(id);
-            const isElem = modelStore.elements.has(id);
-            if (isShell && isElem) {
-              // Ambiguous ID — use selectMode to decide
-              if (shellMode) {
-                if (modelStore.plates.has(id)) modelStore.removePlate(id);
-                else modelStore.removeQuad(id);
-              } else {
-                modelStore.removeElement(id);
-              }
-            } else if (isShell) {
-              if (modelStore.plates.has(id)) modelStore.removePlate(id);
-              else modelStore.removeQuad(id);
-            } else if (isElem) {
-              modelStore.removeElement(id);
-            }
-          }
-        });
+      if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0 || uiStore.selectedShells.size > 0) {
+        // Delete strictly from the EXPLICIT selection channels (mirrors
+        // Toolbar.handleKeydown) — never infer an entity kind from a numeric id.
+        // Frames, plates and quads have independent id spaces, and shells live
+        // ONLY in selectedShells ("p<id>"/"q<id>"). The previous PRO handler
+        // re-derived shells from selectedElements ids (the exact id-collision bug
+        // delete-selection.ts fixes) and ignored selectedShells entirely, so a
+        // plate/quad selected in the 3D viewport could not be deleted by keyboard.
+        const targets = resolveDeleteTargets(
+          { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
+          (id) => modelStore.elements.has(id),
+        );
+        modelStore.deleteEntities(targets);
         uiStore.clearSelection();
         resultsStore.clear();
         return;
@@ -461,12 +457,26 @@
     window.addEventListener('stabileo-export-png', handleExportPNG);
     const handleImportEvent = () => { showImportDialog = true; };
     window.addEventListener('stabileo-import-coords', handleImportEvent);
-    const handleDxfImportEvent = () => { dxfFileInput?.click(); };
+    const handleDxfImportEvent = () => {
+      // PRO/3D: open the CAD → RC draft wizard EMPTY (step 1 offers template
+      // download + "Open DXF file"). 2D keeps the legacy file-picker-first flow.
+      if (dxfGoesToCadWizard()) {
+        cadWizardFile = null;
+        showCadWizard = true;
+      } else {
+        dxfFileInput?.click();
+      }
+    };
     window.addEventListener('stabileo-import-dxf', handleDxfImportEvent);
     const handleDxfDropEvent = (e: Event) => {
       const ce = e as CustomEvent<File>;
-      dxfImportFile = ce.detail;
-      showDxfImport = true;
+      if (dxfGoesToCadWizard()) {
+        cadWizardFile = ce.detail;
+        showCadWizard = true;
+      } else {
+        dxfImportFile = ce.detail;
+        showDxfImport = true;
+      }
     };
     window.addEventListener('stabileo-dxf-drop', handleDxfDropEvent);
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
@@ -755,6 +765,7 @@
 
         <!-- Actions -->
         <button class="pn-action pn-example" bind:this={proExBtnEl} onclick={() => proPanelRef?.examples(proExBtnEl)}>{t('pro.exampleBtn')}</button>
+        <button class="pn-action pn-cad" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} title={t('project.openDxfCadTooltip')}>{t('cad.proBarBtn')}</button>
         <button class="pn-action pn-solve" onclick={() => proPanelRef?.solve()} disabled={!proPanelRef?.canSolve()}>{proPanelRef?.isSolving() ? t('pro.solving') : t('pro.solve')}</button>
         <button class="pn-action pn-report" onclick={() => proPanelRef?.report()} disabled={!proPanelRef?.canReport()}>{t('pro.reportBtn')}</button>
 
@@ -975,9 +986,17 @@
   style="display:none"
   onchange={(e) => {
     const f = (e.currentTarget as HTMLInputElement).files?.[0];
-    if (f) { dxfImportFile = f; showDxfImport = true; }
+    if (f) {
+      if (dxfGoesToCadWizard()) { cadWizardFile = f; showCadWizard = true; }
+      else { dxfImportFile = f; showDxfImport = true; }
+    }
     (e.currentTarget as HTMLInputElement).value = '';
   }}
+/>
+<CadImportWizard
+  open={showCadWizard}
+  file={cadWizardFile}
+  onclose={() => { showCadWizard = false; cadWizardFile = null; }}
 />
 <IfcImportDialog
   open={showIfcImport}
@@ -1345,6 +1364,8 @@
   .pn-action:disabled { opacity: 0.35; cursor: not-allowed; }
   .pn-example { color: #fff; background: linear-gradient(135deg, #f0a500, #d99200); border-color: #f0a500; }
   .pn-example:hover { background: linear-gradient(135deg, #ffb820, #f0a500); }
+  .pn-cad { color: #4ecdc4; border-color: #2a7a74; background: rgba(78, 205, 196, 0.08); }
+  .pn-cad:hover { background: rgba(78, 205, 196, 0.2); }
   .pn-solve { color: #fff; background: linear-gradient(135deg, #4ecdc4, #3ab8b0); border-color: #4ecdc4; }
   .pn-solve:hover { background: linear-gradient(135deg, #5fe0d7, #4ecdc4); }
   .pn-report { color: #fff; background: linear-gradient(135deg, #e94560, #c73e54); border-color: #e94560; }

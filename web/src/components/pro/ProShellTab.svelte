@@ -4,6 +4,7 @@
   import { t } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import { findCoincidentNode, beamThrough } from '../../lib/engine/mesh-weld';
+  import { buildBilinearQuadGrid } from '../../lib/engine/shell-mesh-gen';
   import type { ShellFamily, ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
@@ -23,6 +24,8 @@
 
   // --- Quick mesh generator state ---
   let meshCorners = $state<[string, string, string, string]>(['', '', '', '']);
+  let meshMode = $state<'targetSize' | 'fixedDivisions'>('targetSize');
+  let meshTargetSize = $state(1.0);
   let meshNx = $state(2);
   let meshNy = $state(2);
   let meshMaterialId = $state(1);
@@ -195,8 +198,8 @@
       meshError = t('pro.err4Corners');
       return;
     }
-    if (meshNx < 1 || meshNy < 1) {
-      meshError = t('pro.errSubdivisions');
+    if (meshMode === 'targetSize' ? meshTargetSize <= 0 : (meshNx < 1 || meshNy < 1)) {
+      meshError = meshMode === 'targetSize' ? t('pro.errTargetSize') : t('pro.errSubdivisions');
       return;
     }
     if (!modelStore.materials.has(meshMaterialId)) {
@@ -210,51 +213,38 @@
 
     // Get corner positions
     const corners = cornerIds.map(id => modelStore.nodes.get(id)!);
-    const [c0, c1, c2, c3] = corners;
 
-    // Build grid of node IDs: (nx+1) x (ny+1)
-    const nodeGrid: number[][] = [];
-    let newNodes = 0;
+    // Target-size mode: derive subdivisions from physical edge lengths so the
+    // element size is ~uniform regardless of panel size (large picks get more
+    // cells, small picks fewer) — instead of a fixed Nx×Ny for every region.
+    const edgeLen = (a: typeof corners[number], b: typeof corners[number]) =>
+      Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+    const nx = meshMode === 'targetSize'
+      ? Math.max(1, Math.round(edgeLen(corners[0], corners[1]) / meshTargetSize))
+      : meshNx;
+    const ny = meshMode === 'targetSize'
+      ? Math.max(1, Math.round(edgeLen(corners[0], corners[3]) / meshTargetSize))
+      : meshNy;
 
-    for (let j = 0; j <= meshNy; j++) {
-      const row: number[] = [];
-      const v = j / meshNy;
-      for (let i = 0; i <= meshNx; i++) {
-        const u = i / meshNx;
-
-        // Corner nodes reuse the supplied corner IDs directly.
-        if (i === 0 && j === 0) { row.push(cornerIds[0]); continue; }
-        if (i === meshNx && j === 0) { row.push(cornerIds[1]); continue; }
-        if (i === meshNx && j === meshNy) { row.push(cornerIds[2]); continue; }
-        if (i === 0 && j === meshNy) { row.push(cornerIds[3]); continue; }
-
-        // Bilinear interpolation
-        const x = (1 - u) * (1 - v) * c0.x + u * (1 - v) * c1.x + u * v * c2.x + (1 - u) * v * c3.x;
-        const y = (1 - u) * (1 - v) * c0.y + u * (1 - v) * c1.y + u * v * c2.y + (1 - u) * v * c3.y;
-        const z0 = c0.z ?? 0, z1 = c1.z ?? 0, z2 = c2.z ?? 0, z3 = c3.z ?? 0;
-        const z = (1 - u) * (1 - v) * z0 + u * (1 - v) * z1 + u * v * z2 + (1 - u) * v * z3;
-
-        // Weld to an existing coincident node if there is one, else create.
-        const existing = findCoincidentNode(modelStore.nodes.values(), x, y, z);
-        if (existing != null) { row.push(existing); continue; }
-        row.push(modelStore.addNode(x, y, z !== 0 ? z : undefined));
-        newNodes++;
-      }
-      nodeGrid.push(row);
-    }
-
-    // Create quad elements for each cell
-    let quadCount = 0;
-    for (let j = 0; j < meshNy; j++) {
-      for (let i = 0; i < meshNx; i++) {
-        const n0 = nodeGrid[j][i];
-        const n1 = nodeGrid[j][i + 1];
-        const n2 = nodeGrid[j + 1][i + 1];
-        const n3 = nodeGrid[j + 1][i];
-        modelStore.addQuad([n0, n1, n2, n3], meshMaterialId, meshThickness);
-        quadCount++;
-      }
-    }
+    // Build the bilinear node grid + quad cells (shared with the CAD draft
+    // generator). Corner ids are reused verbatim; interior/edge nodes weld to
+    // existing coincident nodes or are created in the store.
+    const { nodeGrid, newNodes, quadCount } = buildBilinearQuadGrid(
+      [
+        { x: corners[0].x, y: corners[0].y, z: corners[0].z ?? 0 },
+        { x: corners[1].x, y: corners[1].y, z: corners[1].z ?? 0 },
+        { x: corners[2].x, y: corners[2].y, z: corners[2].z ?? 0 },
+        { x: corners[3].x, y: corners[3].y, z: corners[3].z ?? 0 },
+      ],
+      nx,
+      ny,
+      {
+        findNode: (x, y, z) => findCoincidentNode(modelStore.nodes.values(), x, y, z),
+        addNode: (x, y, z) => modelStore.addNode(x, y, z !== 0 ? z : undefined),
+        addQuad: (nodes) => { modelStore.addQuad(nodes, meshMaterialId, meshThickness); },
+      },
+      cornerIds as [number, number, number, number],
+    );
 
     // Optionally split surrounding beams so their nodes coincide with the mesh
     // edge nodes (continuous load transfer). Each mesh node that sits on a beam
@@ -514,11 +504,27 @@
             </button>
           </div>
           <div class="input-row">
-            <label>{t('pro.subdivisions')}:</label>
-            <input type="number" bind:value={meshNx} min="1" max="50" class="sub-input" />
-            <span class="x-label">&times;</span>
-            <input type="number" bind:value={meshNy} min="1" max="50" class="sub-input" />
+            <label>{t('pro.meshMode')}:</label>
+            <select bind:value={meshMode} class="mat-select">
+              <option value="targetSize">{t('pro.meshModeTarget')}</option>
+              <option value="fixedDivisions">{t('pro.meshModeFixed')}</option>
+            </select>
           </div>
+          {#if meshMode === 'targetSize'}
+            <div class="input-row">
+              <label>{t('pro.meshTargetSize')}:</label>
+              <input type="number" bind:value={meshTargetSize} min="0.1" max="20" step="0.25" class="sub-input" />
+              <span class="x-label">m</span>
+            </div>
+            <div class="input-row mesh-note">{t('pro.meshTargetNote')}</div>
+          {:else}
+            <div class="input-row">
+              <label>{t('pro.subdivisions')}:</label>
+              <input type="number" bind:value={meshNx} min="1" max="50" class="sub-input" />
+              <span class="x-label">&times;</span>
+              <input type="number" bind:value={meshNy} min="1" max="50" class="sub-input" />
+            </div>
+          {/if}
           <div class="input-row">
             <label>{t('pro.thMaterial')}:</label>
             <select bind:value={meshMaterialId} class="mat-select">

@@ -12,6 +12,7 @@ import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolver
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { pickElement3DMetadata, type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
+import type { ModelProvenance } from '../model/provenance';
 export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
 
@@ -434,6 +435,9 @@ export interface StructureModel {
    *  entries inside the existing structural-control workflow (not a separate
    *  top-level "Connectors" object family). */
   connectors: Map<number, ConnectorElement>;
+  /** Where the model came from (e.g. CAD-derived draft) and review status.
+   *  Absent for hand-built models. */
+  provenance?: ModelProvenance;
 }
 
 export type { AnalysisResults };
@@ -790,6 +794,13 @@ function createModelStore() {
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
         nextId: snapId as ModelSnapshot['nextId'],
       };
+      if (snap.provenance) {
+        result.provenance = {
+          ...snap.provenance,
+          assumptions: [...snap.provenance.assumptions],
+          layerMappings: snap.provenance.layerMappings.map((m) => ({ ...m })),
+        };
+      }
       return result;
     },
 
@@ -873,6 +884,25 @@ function createModelStore() {
       nextId.plate = s.nextId.plate ?? 1;
       nextId.quad = s.nextId.quad ?? 1;
       nextId.connector = (s.nextId as any).connector ?? 1;
+      // `?? []` guards: a hand-edited/older/partial `.ded` may carry a
+      // `provenance` object without `assumptions`/`layerMappings`. restore()
+      // runs after the model is already mutated and is not wrapped in a
+      // rollback, so an unguarded `[...undefined]` / `.map` would throw mid-load
+      // and leave a half-loaded model instead of degrading gracefully.
+      model.provenance = s.provenance
+        ? {
+            ...s.provenance,
+            assumptions: [...(s.provenance.assumptions ?? [])],
+            layerMappings: (s.provenance.layerMappings ?? []).map((m) => ({ ...m })),
+          }
+        : undefined;
+    },
+
+    /** Explicit user action: clear the CAD-draft "unreviewed" tag. */
+    markProvenanceReviewed(): void {
+      if (!model.provenance) return;
+      if (!_undoBatching) _pushUndo?.();
+      model.provenance = { ...model.provenance, status: 'reviewed' as ModelProvenance['status'] };
     },
 
     addNode(x: number, y: number, z?: number): number {
@@ -1129,6 +1159,27 @@ function createModelStore() {
       );
     },
 
+    /**
+     * Delete a selection given as EXPLICIT per-kind id lists. Frame elements,
+     * plates and quads have independent id spaces (each counts from 1), so a
+     * deletion driven by a single conflated id set can reinterpret a node-
+     * cascade-deleted frame id as a same-numbered shell and wrongly delete it.
+     * Taking explicit kinds makes that impossible: a shell is removed only if
+     * it was selected AS a shell. Nodes are removed first (cascading to their
+     * frame elements/supports/nodal loads); a shell is NEVER removed by a node
+     * deletion.
+     */
+    deleteEntities(sel: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] }): void {
+      const run = () => {
+        for (const nid of sel.nodes ?? []) this.removeNode(nid);
+        for (const eid of sel.elements ?? []) if (model.elements.has(eid)) this.removeElement(eid);
+        for (const pid of sel.plates ?? []) if (model.plates.has(pid)) this.removePlate(pid);
+        for (const qid of sel.quads ?? []) if (model.quads.has(qid)) this.removeQuad(qid);
+      };
+      if (_undoBatching) { run(); return; }
+      this.batch(run); // batch() pushes a single undo step
+    },
+
     addPlate(nodes: [number, number, number], materialId: number, thickness: number): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.plate++;
@@ -1164,6 +1215,13 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
       model.quads = new Map(model.quads);
+      // Cascade to surface/thermal loads on this quad — otherwise the load
+      // dangles (still in the loads table, .ded and URL share) and is silently
+      // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
+      const keepLoad = (l: Load) =>
+        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id);
+      model.loads = model.loads.filter(keepLoad);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
     },
 
     updateQuad(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
@@ -1408,6 +1466,7 @@ function createModelStore() {
       nextId.plate = 1;
       nextId.quad = 1;
       nextId.connector = 1;
+      model.provenance = undefined;
       lastKinematicResult = null;
       uiStore.useNative3DPresentation();
     },

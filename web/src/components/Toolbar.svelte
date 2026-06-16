@@ -1,6 +1,7 @@
 <script lang="ts">
   import { uiStore, resultsStore, modelStore, historyStore } from '../lib/store';
   import { saveProject, loadFile, saveSession } from '../lib/store/file';
+  import { resolveDeleteTargets } from '../lib/store/delete-selection';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
   import { t } from '../lib/i18n';
   import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../lib/geometry/coordinate-system';
@@ -486,30 +487,21 @@
         });
         uiStore.clearSelectedLoads();
         resultsStore.clear();
-      } else if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0) {
-        const nodesToDelete = [...uiStore.selectedNodes];
-        const elemsToDelete = [...uiStore.selectedElements];
-        const shellMode = uiStore.selectMode === 'shells';
-        modelStore.batch(() => {
-          for (const nodeId of nodesToDelete) modelStore.removeNode(nodeId);
-          for (const elemId of elemsToDelete) {
-            const isShell = modelStore.plates.has(elemId) || modelStore.quads.has(elemId);
-            const isElem = modelStore.elements.has(elemId);
-            if (isShell && isElem) {
-              if (shellMode) {
-                if (modelStore.plates.has(elemId)) modelStore.removePlate(elemId);
-                else modelStore.removeQuad(elemId);
-              } else {
-                modelStore.removeElement(elemId);
-              }
-            } else if (isShell) {
-              if (modelStore.plates.has(elemId)) modelStore.removePlate(elemId);
-              else modelStore.removeQuad(elemId);
-            } else if (isElem) {
-              modelStore.removeElement(elemId);
-            }
-          }
-        });
+      } else if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0 || uiStore.selectedShells.size > 0) {
+        // Delete strictly from the EXPLICIT selection channels — never infer an
+        // entity kind from a numeric id. Frame elements, plates and quads have
+        // INDEPENDENT id spaces (all count from 1), so a frame id can collide
+        // with an unrelated quad/plate id. `selectedElements` only ever holds
+        // FRAME ids (box-select, element-row clicks); shells are selected and
+        // highlighted ONLY via `selectedShells` ("p<id>"/"q<id>"). The old code
+        // re-derived shells from `selectedElements` numeric ids in shell mode,
+        // which deleted unselected (any-floor) shells whose id happened to match
+        // a selected frame id. Highlight == delete target now.
+        const targets = resolveDeleteTargets(
+          { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
+          (id) => modelStore.elements.has(id),
+        );
+        modelStore.deleteEntities(targets);
         uiStore.clearSelection();
         resultsStore.clear();
       }
