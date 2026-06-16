@@ -535,10 +535,11 @@ describe('3D Solver — Simply supported, uniform load in local Y', () => {
   });
 });
 
-describe('3D Solver — Column along global Y (axis transformation test)', () => {
-  // Column along global Y.
-  // Fixed at bottom (node 1 at y=0), free at top (node 2 at y=5).
-  // Horizontal force Fx = 10 kN at top.
+describe('3D Solver — member along global Y (axis transformation test)', () => {
+  // A member running along global Y. NOTE: in the app's Z-up world this is a
+  // HORIZONTAL cantilever beam (the vertical axis is Z), not a vertical column —
+  // the name is historical. Fixed at one end (node 1 at y=0), free at the other
+  // (node 2 at y=5); a global-X force Fx = 10 kN is applied at the free end.
 
   const L = 5;
   const Px = 10;
