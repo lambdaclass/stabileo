@@ -121,16 +121,17 @@
     const V_2d = computeDiagramValueAt('shear', query.t, ef);
     const N_2d = computeDiagramValueAt('axial', query.t, ef);
 
-    // Decompose 2D bending into the section's rotated local axes.
-    // At α = 0° the 2D moment acts entirely about local Z (Mz, strong axis).
-    // At α = 90° it acts entirely about local Y (My, weak axis).
+    // Decompose 2D bending into the section's rotated local axes (PR [12] convention).
+    // At α = 0° the 2D bending is the strong-axis / DEPTH bending → My (uses Iy), and the
+    // 2D shear is the vertical shear → Vz. At α = 90° they rotate to the width / weak axis:
+    // Mz (uses Iz) and the lateral shear Vy.
     const alpha = (sec.rotation ?? 0) * Math.PI / 180;
     const cosA = Math.cos(alpha);
     const sinA = Math.sin(alpha);
-    const Mz = M_2d * cosA;
-    const My = M_2d * sinA;
-    const Vy =  V_2d * cosA;
-    const Vz =  V_2d * sinA;
+    const My = -M_2d * cosA;  // depth bending (sign chosen so σ = +M·y/Iy at α=0, matching 2D)
+    const Mz =  M_2d * sinA;  // width bending
+    const Vz =  V_2d * cosA;  // vertical shear (pairs with My / depth)
+    const Vy =  V_2d * sinA;  // lateral shear (pairs with Mz / width)
 
     const halfH = (sec.h ?? Math.sqrt(12 * (sec.iy ?? sec.iz) / sec.a)) / 2;
     const halfB = (sec.b ?? sec.h ?? Math.sqrt(12 * sec.iz / sec.a)) / 2;
@@ -179,9 +180,9 @@
     );
   });
 
-  // Perpendicular-to-NA stress distribution
-  // When showTotalSigma: σ = N/A + Mz·y/Iz - My·z/Iy (full, with axial)
-  // Otherwise: σ = Mz·y/Iz - My·z/Iy (moments only, N=0)
+  // Perpendicular-to-NA stress distribution (PR [12] convention)
+  // When showTotalSigma: σ = N/A − My·y/Iy + Mz·z/Iz (full, with axial)
+  // Otherwise: σ = −My·y/Iy + Mz·z/Iz (moments only, N=0)
   const perpNADist = $derived.by((): PerpNAPoint[] => {
     if (!perpNA || !perpNA.exists || !analysis3D) return [];
     return computePerpNADistribution(
@@ -199,17 +200,17 @@
   });
 
   // Pressure center (centro de presiones):
-  // From σ = N/A + Mz·y/Iz - My·z/Iy, matching eccentric N formula
-  // σ = N/A + N·ey·y/Iz - N·ez·z/Iy:
-  //   N·ey = Mz → ey = Mz/N   (y_CP = Mz/N)
-  //   N·ez = My → ez = My/N   (z_CP = My/N)
+  // From σ = N/A − My·y/Iy + Mz·z/Iz, matching the eccentric-N formula
+  // σ = N/A + N·ey·y/Iy + N·ez·z/Iz:
+  //   −My = N·ey → ey = −My/N   (y_CP = −My/N, depth)
+  //    Mz = N·ez → ez =  Mz/N   (z_CP =  Mz/N, width)
   // Only exists when N ≠ 0 (if N=0, CP is at infinity)
   const pressureCenter = $derived.by((): { y: number; z: number; insideCore: boolean } | null => {
     if (!showPressureCenter) return null;
     if (uses3DPath && analysis3D) {
       if (Math.abs(analysis3D.N) < 0.01) return null; // N ≈ 0 → CP at infinity
-      const yCP = analysis3D.Mz / analysis3D.N;   // meters — ey = Mz/N
-      const zCP = analysis3D.My / analysis3D.N;   // meters — ez = My/N
+      const yCP = -analysis3D.My / analysis3D.N;  // meters — ey = −My/N (depth)
+      const zCP = analysis3D.Mz / analysis3D.N;   // meters — ez = Mz/N (width)
       const insideCore = centralCore
         ? isPointInConvexPolygon(zCP, yCP, centralCore.vertices)
         : false;
@@ -266,7 +267,7 @@
         const a = analyzeSectionStress3D(ef, sec, mat.fy, cs.t);
         for (const pt of a.distributionY) {
           if (Math.abs(pt.sigma) > maxSY) maxSY = Math.abs(pt.sigma);
-          if (Math.abs(pt.tauVy) > maxTY) maxTY = Math.abs(pt.tauVy);
+          if (Math.abs(pt.tauVz) > maxTY) maxTY = Math.abs(pt.tauVz);
         }
         for (const pt of a.distributionZ) {
           if (Math.abs(pt.sigma) > maxSZ) maxSZ = Math.abs(pt.sigma);
@@ -283,10 +284,10 @@
         const M = computeDiagramValueAt('moment', cs.t, ef);
         const V = computeDiagramValueAt('shear', cs.t, ef);
         const N = computeDiagramValueAt('axial', cs.t, ef);
-        const a = analyzeSectionStressFromForces(N, V*cosA, V*sinA, 0, -M*cosA, M*sinA, sec, mat.fy);
+        const a = analyzeSectionStressFromForces(N, V*sinA, V*cosA, 0, -M*cosA, M*sinA, sec, mat.fy);
         for (const pt of a.distributionY) {
           if (Math.abs(pt.sigma) > maxSY) maxSY = Math.abs(pt.sigma);
-          if (Math.abs(pt.tauVy) > maxTY) maxTY = Math.abs(pt.tauVy);
+          if (Math.abs(pt.tauVz) > maxTY) maxTY = Math.abs(pt.tauVz);
         }
         for (const pt of a.distributionZ) {
           if (Math.abs(pt.sigma) > maxSZ) maxSZ = Math.abs(pt.sigma);

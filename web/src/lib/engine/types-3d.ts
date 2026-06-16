@@ -348,15 +348,16 @@ export interface ElementForces3D {
   // Torsion (about local X)
   mxStart: number;
   mxEnd: number;
-  // Bending about local Y (weak axis)
+  // My — moment about local y; bends over the section depth (uses Iy).
   myStart: number;
   myEnd: number;
-  // Bending about local Z (strong axis)
+  // Mz — moment about local z; bends over the section width (uses Iz).
   mzStart: number;
   mzEnd: number;
-  // Per-axis end releases (matches solver input contract). My = bending about
-  // local y (weak axis), Mz = bending about local z (strong axis), T = torsion
-  // about local x. A real pin hinge releases ONE bending axis, not both.
+  // Per-axis end releases (matches solver input contract). My = about local y
+  // (over the depth, Iy), Mz = about local z (over the width, Iz), T = torsion
+  // about local x. A real pin releases ONE bending axis. (For the default
+  // unrolled tall section My is the strong/vertical axis; a roll rotates this.)
   releaseMyStart: boolean;
   releaseMyEnd: boolean;
   releaseMzStart: boolean;
@@ -364,12 +365,12 @@ export interface ElementForces3D {
   releaseTStart: boolean;
   releaseTEnd: boolean;
   // Loads on this element (for diagram/deformed shape computation)
-  // Y-plane (strong axis: Mz, Vy bending)
+  // Local-Y load → Vy + Mz (bends over the width, Iz)
   qYI: number;      // kN/m full-length equivalent at node I (local Y)
   qYJ: number;      // kN/m full-length equivalent at node J (local Y)
   distributedLoadsY: Array<{ qI: number; qJ: number; a: number; b: number }>;
   pointLoadsY: Array<{ a: number; p: number }>;
-  // Z-plane (weak axis: My, Vz bending)
+  // Local-Z load → Vz + My (bends over the depth, Iy)
   qZI: number;
   qZJ: number;
   distributedLoadsZ: Array<{ qI: number; qJ: number; a: number; b: number }>;

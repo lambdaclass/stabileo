@@ -7,6 +7,7 @@
   import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../lib/geometry/coordinate-system';
   import { countCollapsedElements, buildSimplified2DModel, type DrawPlane } from '../lib/geometry/plane-projection';
   import { initSolver, isWasmReady } from '../lib/engine/wasm-solver';
+  import { transverseOnTrussWarnings } from '../lib/engine/model-diagnostics';
   import { hasExplicitLocalY, pickElement3DMetadata } from '../lib/model/element-3d-metadata';
 
   import ToolbarResults from './toolbar/ToolbarResults.svelte';
@@ -171,6 +172,14 @@
   }
 
   function showDiagnosticsToast(is3D: boolean) {
+    // Educational pre-solve model warning the solver itself never emits: a
+    // transverse load on an axial-only (truss) member is not carried as
+    // bending/shear. checkModel surfaces this only in PRO, so without this the
+    // Basic solve path would show no warning for a loaded model that was never
+    // edited through the load editor. (Toolbar is mounted only in Basic mode.)
+    const transverse = transverseOnTrussWarnings(modelStore.loads as any, modelStore.elements, modelStore.nodes);
+    if (transverse.length > 0) uiStore.toast(t(transverse[0].message), 'info');
+
     const diags = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
     if (diags.length === 0) return;
     const errors = diags.filter(d => d.severity === 'error').length;

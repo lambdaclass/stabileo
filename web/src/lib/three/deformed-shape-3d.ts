@@ -224,8 +224,8 @@ export function computeDeformedShape3D(
     vpp_YL = r.vppL;
   }
 
-  // Hinge corrections for Y plane (Mz = bending about local z, strong axis).
-  // Use the Mz release flags only — the My releases govern the Z plane below.
+  // Hinge corrections for the lateral plane (Mz = bending about local z, width/Iz).
+  // Use the Mz release flags only — the My releases govern the vertical plane below.
   let thetaZI_adj = thetaZI;
   let thetaZJ_adj = thetaZJ;
   const dvY = vJ_local - vI_local;

@@ -7,6 +7,7 @@
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
   import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
+  import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
   import { drawDeformed } from '../lib/canvas/draw-deformed';
   import { drawDistributedLoads, drawPointLoadsOnElements, drawThermalLoads, drawMovingLoadAxles } from '../lib/canvas/draw-loads';
   import { computeAxleWorldPositions } from '../lib/engine/moving-loads';
@@ -202,6 +203,7 @@
   $effect(() => { uiStore.showGrid; uiStore.showAxes; uiStore.showLoads; invalidate(); });
   $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
   $effect(() => { uiStore.elementColorMode; invalidate(); });
+  $effect(() => { uiStore.localAxesMode3D; uiStore.elementSelectionManual; invalidate(); });
   $effect(() => { uiStore.hideLoadsWithDiagram; invalidate(); });
   $effect(() => { uiStore.currentTool; invalidate(); });
   $effect(() => { uiStore.gridSize; uiStore.snapToGrid; invalidate(); });
@@ -397,6 +399,9 @@
     for (const elem of modelStore.elements.values()) {
       drawElement(elem, colorMapOverrides.get(elem.id), nodeBarCount);
     }
+
+    // Member local axes (Basic 2D): one unified "Local axes" setting (localAxesMode3D).
+    drawLocalAxes2D();
 
     // Draw axial value labels when axialColor mode is active
     if (resultsStore.results && resultsStore.diagramType === 'axialColor') {
@@ -1087,6 +1092,91 @@
       worldLength: modelStore.getElementLength(elem.id),
     };
     _drawElement(ctx!, elem, ni, nj, opts, colorOverride, nodeBarCount);
+  }
+
+  // Local-axis colors match the 3D triad (x = red, z = blue). In Basic 2D the
+  // model lives in the canonical X-Z plane, so the two in-plane axes are local x
+  // (along the member) and local z (vertical/perpendicular). Local y is out of
+  // the plane (global Y) and is not drawn.
+  const AXIS2D_X_COLOR = '#ff7070';
+  const AXIS2D_Z_COLOR = '#7ab8ff';
+
+  /** Draw member local axes for the Basic "Local axes" setting. Mirrors the 3D
+   *  triad gating ('never'/'always'/'selected'-manual) and uses the SAME
+   *  computeLocalAxes3D basis as the 3D viewport, projected onto the X-Z plane —
+   *  so the upward axis reads as z (not y) and agrees with Basic 3D. */
+  function drawLocalAxes2D() {
+    const mode = uiStore.localAxesMode3D; // unified Basic "Local axes" setting
+    if (mode === 'never') return;
+    const showAll = mode === 'always' && modelStore.elements.size <= 1500;
+    // "When selected" = manual selection only (result-query/AI highlights excluded),
+    // consistent with the 3D triads.
+    const selected = showAll || !uiStore.elementSelectionManual ? null : uiStore.selectedElements;
+    if (!showAll && (!selected || selected.size === 0)) return;
+    const labelSet = !!selected && selected.size > 0 && selected.size <= 8;
+    const leftHand = uiStore.axisConvention3D === 'leftHand';
+    const AX = 34; // arrow length in px (legible at normal zoom; zoom-independent)
+
+    for (const elem of modelStore.elements.values()) {
+      const isSel = selected ? selected.has(elem.id) : false;
+      if (!showAll && !isSel) continue;
+      const niRaw = modelStore.getNode(elem.nodeI);
+      const njRaw = modelStore.getNode(elem.nodeJ);
+      if (!niRaw || !njRaw) continue;
+      const ni = project2DNode(niRaw);
+      const nj = project2DNode(njRaw);
+      const mx = (ni.x + nj.x) / 2, my = (ni.y + nj.y) / 2;
+      if (Math.hypot(nj.x - ni.x, nj.y - ni.y) < 1e-9) continue;
+
+      // Embed the 2D member into the canonical X-Z plane (2D-y -> 3D-z) and use the
+      // same local-axis solver as the 3D triad. In-plane components are (vx, vz);
+      // canvas-x = world x, canvas-up = world y (= 3D z). Local y is out of plane.
+      let axes;
+      try {
+        axes = computeLocalAxes3D(
+          { id: 0, x: ni.x, y: 0, z: ni.y },
+          { id: 0, x: nj.x, y: 0, z: nj.y },
+          undefined, undefined, leftHand,
+        );
+      } catch { continue; }
+
+      const origin = uiStore.worldToScreen(mx, my);
+      const exTip = uiStore.worldToScreen(mx + axes.ex[0], my + axes.ex[2]);
+      const ezTip = uiStore.worldToScreen(mx + axes.ez[0], my + axes.ez[2]);
+      const showLabel = labelSet && isSel;
+      drawAxisArrow2D(origin, exTip, AXIS2D_X_COLOR, AX, showLabel ? 'x' : '');
+      drawAxisArrow2D(origin, ezTip, AXIS2D_Z_COLOR, AX, showLabel ? 'z' : '');
+    }
+  }
+
+  function drawAxisArrow2D(
+    origin: { x: number; y: number }, towards: { x: number; y: number },
+    color: string, lenPx: number, label: string,
+  ) {
+    const dx = towards.x - origin.x, dy = towards.y - origin.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1e-6) return;
+    const ux = dx / d, uy = dy / d;
+    const tipX = origin.x + ux * lenPx, tipY = origin.y + uy * lenPx;
+    ctx!.save();
+    ctx!.strokeStyle = color; ctx!.fillStyle = color; ctx!.lineWidth = 2;
+    ctx!.beginPath(); ctx!.moveTo(origin.x, origin.y); ctx!.lineTo(tipX, tipY); ctx!.stroke();
+    const a = Math.atan2(uy, ux), ah = 7;
+    ctx!.beginPath();
+    ctx!.moveTo(tipX, tipY);
+    ctx!.lineTo(tipX - ah * Math.cos(a - 0.4), tipY - ah * Math.sin(a - 0.4));
+    ctx!.lineTo(tipX - ah * Math.cos(a + 0.4), tipY - ah * Math.sin(a + 0.4));
+    ctx!.closePath(); ctx!.fill();
+    if (label) {
+      // Readable label just past the arrow tip, with a dark halo for contrast.
+      ctx!.font = 'bold 13px sans-serif'; ctx!.textAlign = 'center'; ctx!.textBaseline = 'middle';
+      const lx = tipX + ux * 9, ly = tipY + uy * 9;
+      ctx!.lineWidth = 3; ctx!.strokeStyle = 'rgba(10,14,24,0.85)';
+      ctx!.strokeText(label, lx, ly);
+      ctx!.fillStyle = color;
+      ctx!.fillText(label, lx, ly);
+    }
+    ctx!.restore();
   }
 
   function drawSupport(sup: { id: number; nodeId: number; type: string; dx?: number; dz?: number; dry?: number; dy?: number; drz?: number; angle?: number; isGlobal?: boolean }) {

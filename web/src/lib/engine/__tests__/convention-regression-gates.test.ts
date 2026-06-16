@@ -210,13 +210,15 @@ describe('SEAM 3: My/Mz axis identity preservation', () => {
     expect(src).toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
   });
 
-  it('section-stress-3d.ts Navier formula uses correct axis pairing', () => {
+  it('section-stress-3d.ts Navier formula uses PR [12] axis pairing', () => {
     const src = readSource('../section-stress-3d.ts');
-    // Correct formula: sigma += Mz * y / Iz  and  sigma -= My * z / Iy
-    expect(src, 'Mz pairs with y/Iz').toContain('sigma += Mz * y / Iz');
-    expect(src, 'My pairs with z/Iy').toContain('sigma -= My * z / Iy');
-    // Old swapped formula must NOT exist
-    expect(src, 'old swapped formula must not exist').not.toContain('sigma -= My * y / Iz');
+    // PR [12]: σ = N/A − My·y/Iy + Mz·z/Iz
+    //   My bends over the DEPTH (y) using Iy (strong); Mz over the WIDTH (z) using Iz (weak).
+    expect(src, 'My pairs with y/Iy (depth, strong)').toContain('sigma -= My * y / Iy');
+    expect(src, 'Mz pairs with z/Iz (width, weak)').toContain('sigma += Mz * z / Iz');
+    // Pre-PR[12] pairing (My/Mz over the wrong coordinate) must NOT exist
+    expect(src, 'old Mz·y/Iz pairing must not exist').not.toContain('sigma += Mz * y / Iz');
+    expect(src, 'old My·z/Iy pairing must not exist').not.toContain('sigma -= My * z / Iy');
   });
 
   it('stress-heatmap.ts Math.max(my, mz) is intentional for visualization', () => {
@@ -281,7 +283,7 @@ describe('SEAM 4: File persistence and share link contracts', () => {
 // ─── SEAM 5: Locale wording matches code convention ───────────────
 
 describe('SEAM 5: Locale wording matches code convention', () => {
-  it('EN rotMomentHelp: Mz = M*cos (strong axis first)', () => {
+  it('EN rotMomentHelp: My = M*cos (strong axis first, PR [12])', () => {
     const en = readSource('../../i18n/locales/en.ts');
     const match = en.match(/rotMomentHelp.*?['"`]/s);
     expect(match).toBeTruthy();
@@ -289,41 +291,41 @@ describe('SEAM 5: Locale wording matches code convention', () => {
     const rotMomentLine = en.match(/rotMomentHelp['"]?\s*[:=]\s*['"`]([\s\S]*?)['"`]/);
     expect(rotMomentLine).toBeTruthy();
     const value = rotMomentLine![1];
-    // Mz = M*cos must come before My = M*sin
-    const mzCosIdx = value.indexOf('Mz');
-    const mySinIdx = value.indexOf('My');
-    expect(mzCosIdx, 'Mz must appear before My in rotMomentHelp').toBeLessThan(mySinIdx);
-    expect(value).toMatch(/Mz.*cos/);
+    // My = M*cos (strong/depth axis) must come before Mz = M*sin (weak/width)
+    const myCosIdx = value.indexOf('My');
+    const mzSinIdx = value.indexOf('Mz');
+    expect(myCosIdx, 'My must appear before Mz in rotMomentHelp').toBeLessThan(mzSinIdx);
+    expect(value).toMatch(/My.*cos/);
   });
 
-  it('EN moments3dHelp: My near weak, Mz near strong', () => {
+  it('EN moments3dHelp: My near strong, Mz near weak (PR [12])', () => {
     const en = readSource('../../i18n/locales/en.ts');
     const moments3dMatch = en.match(/moments3dHelp['"]?\s*[:=]\s*['"`]([\s\S]*?)['"`]/);
     expect(moments3dMatch).toBeTruthy();
     const value = moments3dMatch![1];
-    // My should be near "weak"
-    expect(value).toMatch(/My.*weak/is);
-    // Mz should be near "strong"
-    expect(value).toMatch(/Mz.*strong/is);
+    // My should be near "strong" (depth axis)
+    expect(value).toMatch(/My.*strong/is);
+    // Mz should be near "weak" (width axis)
+    expect(value).toMatch(/Mz.*weak/is);
   });
 
-  it('ES rotMomentHelp: Mz = M*cos (strong axis first)', () => {
+  it('ES rotMomentHelp: My = M*cos (strong axis first, PR [12])', () => {
     const es = readSource('../../i18n/locales/es.ts');
     const rotMomentLine = es.match(/rotMomentHelp['"]?\s*[:=]\s*['"`]([\s\S]*?)['"`]/);
     expect(rotMomentLine).toBeTruthy();
     const value = rotMomentLine![1];
-    expect(value).toMatch(/Mz.*cos/);
+    expect(value).toMatch(/My.*cos/);
   });
 
-  it('ES moments3dHelp: My near debil, Mz near fuerte', () => {
+  it('ES moments3dHelp: My near fuerte, Mz near debil (PR [12])', () => {
     const es = readSource('../../i18n/locales/es.ts');
     const moments3dMatch = es.match(/moments3dHelp['"]?\s*[:=]\s*['"`]([\s\S]*?)['"`]/);
     expect(moments3dMatch).toBeTruthy();
     const value = moments3dMatch![1];
-    // My near "debil" (with or without accent)
-    expect(value).toMatch(/My.*d[eé]bil/is);
-    // Mz near "fuerte"
-    expect(value).toMatch(/Mz.*fuerte/is);
+    // My near "fuerte" (strong/depth)
+    expect(value).toMatch(/My.*fuerte/is);
+    // Mz near "debil" (weak/width, with or without accent)
+    expect(value).toMatch(/Mz.*d[eé]bil/is);
   });
 });
 

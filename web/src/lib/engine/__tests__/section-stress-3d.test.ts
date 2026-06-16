@@ -1,4 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Force the pure-TS section-stress path so these tests validate the TS implementation
+// deterministically. (The global vitest setup calls initSolver(), and the committed WASM
+// blob is gitignored / rebuilt only in CI — so locally it would otherwise be stale. The
+// Rust/WASM implementation is validated by the engine's own test suite in CI.)
+vi.mock('../wasm-solver', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../wasm-solver')>();
+  return { ...actual, isWasmReady: () => false };
+});
+
 import {
   analyzeSectionStress3D,
   analyzeSectionStressFromForces,
@@ -12,6 +22,15 @@ import { effectiveBendingInertia } from '../solver-service';
 import { resolveSectionGeometry } from '../section-stress';
 import type { ElementForces3D } from '../types-3d';
 import type { Section } from '../../store/model.svelte';
+
+// ─────────────────────────────────────────────────────────────────────
+// PR [12] convention (aligned with PR [10] solver + PR [11] render):
+//   σ(y,z) = N/A − My·y/Iy + Mz·z/Iz
+//   y = DEPTH coordinate (vertical, ±h/2), z = WIDTH coordinate (lateral, ±b/2)
+//   My bends over the depth (y) → uses Iy (strong axis for tall sections)
+//   Mz bends over the width (z) → uses Iz (weak axis)
+//   Shear: Vz = vertical (over-the-depth) shear → tauVz; Vy = lateral (over-the-width) → tauVy
+// ─────────────────────────────────────────────────────────────────────
 
 // ── Helpers ──
 
@@ -37,24 +56,24 @@ function makeEF(overrides: Partial<ElementForces3D> = {}): ElementForces3D {
   };
 }
 
-/** Rectangular section 200x100 mm */
+/** Rectangular section 200(h)×100(b) mm. App convention: iy = depth/strong, iz = width/weak. */
 const rectSection: Section = {
   id: 1, name: 'Rect 200x100',
-  a: 0.02,       // 200mm × 100mm = 20000mm² = 0.02m²
-  iz: 1.667e-5,  // about Z vertical: hb³/12 = 0.2×0.1³/12
-  iy: 6.667e-5,  // about Y horizontal: bh³/12 = 0.1×0.2³/12
+  a: 0.02,       // 0.2 × 0.1 = 0.02 m²
+  iz: 1.667e-5,  // width-bending inertia (weak): h·b³/12 = 0.2×0.1³/12
+  iy: 6.667e-5,  // depth-bending inertia (strong): b·h³/12 = 0.1×0.2³/12
   j: 3.0e-6,
   b: 0.100,
   h: 0.200,
   shape: 'rect',
 };
 
-/** IPN-200-like I section */
+/** IPN-200-like I section: iy = depth/strong (large), iz = width/weak (small). */
 const iSection: Section = {
   id: 2, name: 'IPN 200',
   a: 0.00334,
-  iz: 1.17e-6,   // about Z vertical (small)
-  iy: 2.14e-5,   // about Y horizontal (large)
+  iz: 1.17e-6,   // width/weak (small)
+  iy: 2.14e-5,   // depth/strong (large)
   j: 4.79e-8,
   b: 0.090,
   h: 0.200,
@@ -63,15 +82,20 @@ const iSection: Section = {
   tf: 0.0114,
 };
 
-/** CHS 168.3×8 (circular hollow section) */
+/** IPN 300 — the section the 2D beam examples use (iy = strong/depth). */
+const ipn300: Section = {
+  id: 9, name: 'IPN 300',
+  a: 0.0069, iy: 9.8e-5, iz: 4.51e-6, j: 1e-7,
+  b: 0.125, h: 0.300, shape: 'I', tw: 0.0108, tf: 0.0162,
+};
+
+/** CHS 168.3×8 (circular hollow section) — symmetric */
 const chsSection: Section = {
   id: 3, name: 'CHS 168x8',
   a: 0.004025,
-  iz: 1.3e-5,    // symmetric: same for both axes
-  iy: 1.3e-5,    // symmetric: same for both axes
+  iz: 1.3e-5, iy: 1.3e-5,
   j: 2.6e-5,
-  b: 0.1683,
-  h: 0.1683,
+  b: 0.1683, h: 0.1683,
   shape: 'CHS',
   t: 0.008,
 };
@@ -91,96 +115,90 @@ describe('analyzeSectionStress3D', () => {
       expect(result.tauTorsion).toBeCloseTo(0, 5);
       expect(result.neutralAxis.exists).toBe(false);
 
-      // All distribution points should have same σ (pure axial = uniform)
       for (const pt of result.distributionY) {
         expect(pt.sigma).toBeCloseTo(5.0, 0);
       }
     });
   });
 
-  describe('Pure bending Mz (strong axis)', () => {
-    it('should give linear σ in y, horizontal neutral axis', () => {
-      const ef = makeEF({ mzStart: 10, mzEnd: 10 }); // 10 kN·m constant Mz (strong axis)
+  describe('Pure bending My (strong / depth axis)', () => {
+    it('should give linear σ in y (depth), horizontal neutral axis', () => {
+      const ef = makeEF({ myStart: 10, myEnd: 10 }); // 10 kN·m constant My (depth bending)
       const result = analyzeSectionStress3D(ef, rectSection, 355, 0.5);
 
       // Default fiber at y = h/2 = 0.1m, z = 0:
-      // σ = Mz·y/Iz = 10 × 0.1 / 1.667e-5 = 60000 kN/m² = 60 MPa
-      expect(result.sigmaAtFiber).toBeCloseTo(60.0, 0);
+      // σ = −My·y/Iy = −10 × 0.1 / 6.667e-5 = −15000 kN/m² = −15 MPa
+      expect(result.sigmaAtFiber).toBeCloseTo(-10 * 0.1 / rectSection.iy! / 1000, 0);
 
-      // Neutral axis should be horizontal (slope = 0) at y = 0
+      // Neutral axis horizontal (slope ≈ 0) through centroid
       expect(result.neutralAxis.exists).toBe(true);
       expect(result.neutralAxis.intercept).toBeCloseTo(0, 5);
       expect(Math.abs(result.neutralAxis.slope)).toBeLessThan(0.001);
     });
   });
 
-  describe('Pure bending My (weak axis)', () => {
-    it('should give linear σ in z, vertical neutral axis', () => {
-      const ef = makeEF({ myStart: 5, myEnd: 5 }); // 5 kN·m constant My (weak axis)
-      // Evaluate at z = b/2 = 0.05m, y = 0 (centroid height)
+  describe('Pure bending Mz (weak / width axis)', () => {
+    it('should give linear σ in z (width), vertical neutral axis', () => {
+      const ef = makeEF({ mzStart: 5, mzEnd: 5 }); // 5 kN·m constant Mz (width bending)
+      // Evaluate at z = b/2 = 0.05m, y = 0 (centroid depth)
       const result = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0, 0.05);
 
-      // σ = -My·z/Iy = -5 × 0.05 / 6.667e-5 = -3750 kN/m² = -3.75 MPa
-      expect(result.sigmaAtFiber).toBeCloseTo(-3.75, 1);
+      // σ = +Mz·z/Iz = 5 × 0.05 / 1.667e-5 = 15000 kN/m² = 15 MPa
+      expect(result.sigmaAtFiber).toBeCloseTo(5 * 0.05 / rectSection.iz / 1000, 1);
 
-      // Neutral axis should be vertical (slope = Infinity)
+      // Neutral axis vertical (slope = Infinity)
       expect(result.neutralAxis.exists).toBe(true);
       expect(result.neutralAxis.slope).toBe(Infinity);
     });
   });
 
-  describe('Biaxial bending Mz + My', () => {
+  describe('Biaxial bending My + Mz', () => {
     it('should give oblique neutral axis', () => {
-      const ef = makeEF({ mzStart: 10, mzEnd: 10, myStart: 5, myEnd: 5 });
+      const ef = makeEF({ myStart: 10, myEnd: 10, mzStart: 5, mzEnd: 5 });
       const result = analyzeSectionStress3D(ef, rectSection, 355, 0.5);
 
-      // Neutral axis slope = (My·Iz)/(Iy·Mz)
-      // = (5 × 1.667e-5) / (6.667e-5 × 10) = 8.335e-5 / 6.667e-4 = 0.125
+      // NA (moments only): y = (Mz·Iy)/(Iz·My)·z → slope = (Mz·Iy)/(Iz·My)
+      const expectedSlope = (5 * rectSection.iy!) / (rectSection.iz * 10);
       expect(result.neutralAxis.exists).toBe(true);
-      expect(result.neutralAxis.slope).toBeCloseTo(0.125, 3);
+      expect(result.neutralAxis.slope).toBeCloseTo(expectedSlope, 3);
       expect(result.neutralAxis.angle).not.toBeCloseTo(0);
       expect(result.neutralAxis.angle).not.toBeCloseTo(Math.PI / 2);
     });
   });
 
-  describe('Pure shear Vy (strong axis)', () => {
-    it('should give parabolic τ_Vy for rectangular section', () => {
-      const ef = makeEF({ vyStart: 50, vyEnd: 50 }); // 50 kN
+  describe('Pure shear Vz (vertical / over-the-depth)', () => {
+    it('should give parabolic τ_Vz for rectangular section', () => {
+      const ef = makeEF({ vzStart: 50, vzEnd: 50 }); // 50 kN vertical shear
       // At centroid (y=0): τ_max for rect = 1.5 × V/A = 1.5 × 50/0.02 = 3750 kN/m² = 3.75 MPa
       const result = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0, 0);
 
-      expect(result.tauVyAtFiber).toBeGreaterThan(3);
+      expect(result.tauVzAtFiber).toBeGreaterThan(3);
       expect(result.sigmaAtFiber).toBeCloseTo(0, 5);
 
-      // At extreme fiber (y = h/2): τ should be ~0
+      // At extreme depth fiber (y = h/2): τ should be ~0
       const resultExtreme = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0.1, 0);
-      expect(resultExtreme.tauVyAtFiber).toBeCloseTo(0, 1);
+      expect(resultExtreme.tauVzAtFiber).toBeCloseTo(0, 1);
     });
   });
 
-  describe('Pure shear Vz (weak axis)', () => {
-    it('should give τ_Vz for rectangular section', () => {
-      const ef = makeEF({ vzStart: 30, vzEnd: 30 }); // 30 kN
-      // At centroid (z=0): max τ_Vz
+  describe('Pure shear Vy (lateral / over-the-width)', () => {
+    it('should give τ_Vy for rectangular section, max at z=0', () => {
+      const ef = makeEF({ vyStart: 30, vyEnd: 30 }); // 30 kN lateral shear
       const result = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0, 0);
 
-      expect(result.tauVzAtFiber).toBeGreaterThan(0);
+      expect(result.tauVyAtFiber).toBeGreaterThan(0);
       expect(result.sigmaAtFiber).toBeCloseTo(0, 5);
 
-      // At edge (z = b/2): τ_Vz should be ~0
+      // At width edge (z = b/2): τ_Vy should be ~0
       const resultEdge = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0, 0.05);
-      expect(resultEdge.tauVzAtFiber).toBeCloseTo(0, 1);
+      expect(resultEdge.tauVyAtFiber).toBeCloseTo(0, 1);
     });
   });
 
   describe('Torsion — closed section (CHS)', () => {
     it('should use Bredt formula: τ = Mx/(2·Am·t)', () => {
-      const ef = makeEF({ mxStart: 10, mxEnd: 10 }); // 10 kN·m torsion
+      const ef = makeEF({ mxStart: 10, mxEnd: 10 });
       const result = analyzeSectionStress3D(ef, chsSection, 355, 0.5);
-
-      // CHS 168.3×8: Rm = (0.1683/2 - 0.008/2) = 0.08015m
-      // Am = π × Rm² = π × 0.08015² = 0.02019 m²
-      // τ = Mx / (2·Am·t) = 10 / (2 × 0.02019 × 0.008) = 30955 kN/m² = 31.0 MPa
       expect(result.tauTorsion).toBeGreaterThan(20);
       expect(result.tauTorsion).toBeLessThan(50);
     });
@@ -188,11 +206,8 @@ describe('analyzeSectionStress3D', () => {
 
   describe('Torsion — open section (I)', () => {
     it('should use Saint-Venant formula: τ = Mx·t_max/J', () => {
-      const ef = makeEF({ mxStart: 1, mxEnd: 1 }); // 1 kN·m torsion
+      const ef = makeEF({ mxStart: 1, mxEnd: 1 });
       const result = analyzeSectionStress3D(ef, iSection, 355, 0.5);
-
-      // IPN 200: t_max = max(tw=7.5mm, tf=11.4mm) = 11.4mm = 0.0114m
-      // τ = Mx · t_max / J = 1 × 0.0114 / 4.79e-8 = 237994 kN/m² = 238 MPa
       expect(result.tauTorsion).toBeGreaterThan(100);
     });
   });
@@ -201,8 +216,8 @@ describe('analyzeSectionStress3D', () => {
     it('should compute σ_vm ≥ max(|σ|, √3·|τ|)', () => {
       const ef = makeEF({
         nStart: 100, nEnd: 100,
-        vyStart: 50, vyEnd: 50,
-        mzStart: 10, mzEnd: 10,
+        vzStart: 50, vzEnd: 50,
+        myStart: 10, myEnd: 10,
       });
       const result = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0, 0);
 
@@ -212,7 +227,7 @@ describe('analyzeSectionStress3D', () => {
     });
 
     it('should give failure ratio with known fy', () => {
-      const ef = makeEF({ mzStart: 10, mzEnd: 10 }); // strong-axis: σ varies with y
+      const ef = makeEF({ myStart: 10, myEnd: 10 }); // depth bending: σ varies with y
       const result = analyzeSectionStress3D(ef, rectSection, 355, 0.5);
 
       expect(result.failure.ratioVM).not.toBeNull();
@@ -237,38 +252,6 @@ describe('interpolateForces3D', () => {
   });
 
   it('should account for distributed loads on Vy', () => {
-    // Uniform load qY = -10 kN/m on 5m span
-    const ef = makeEF({
-      vyStart: 25, vyEnd: -25, // V_start = qL/2 for simply supported
-      mzStart: 0, mzEnd: 0,
-      qYI: -10, qYJ: -10,
-      distributedLoadsY: [{ qI: -10, qJ: -10, a: 0, b: 5 }],
-    });
-
-    // At x=L/2: Vy should be ~0 (Vy = VyStart - q*x = 25 - 10*2.5 = 0)
-    const mid = interpolateForces3D(ef, 0.5);
-    expect(mid.Vy).toBeCloseTo(0, 0);
-  });
-
-  it('My at midspan should use positive signs (θy=-dw/dx convention)', () => {
-    // SS beam 5m, uniform qZ = -10 kN/m → vzStart = 25, vzEnd = -25
-    // My(x) = myStart + vzStart·x + ∫ loads
-    // At midspan: My = 0 + 25*2.5 + (-10)*2.5²/2 = 62.5 - 31.25 = 31.25 kN·m
-    const ef = makeEF({
-      vzStart: 25, vzEnd: -25,
-      myStart: 0, myEnd: 0,
-      qZI: -10, qZJ: -10,
-      distributedLoadsZ: [{ qI: -10, qJ: -10, a: 0, b: 5 }],
-    });
-    const mid = interpolateForces3D(ef, 0.5);
-    // My should be POSITIVE (≈31.25 kN·m), matching diagrams-3d.ts convention
-    expect(mid.My).toBeCloseTo(31.25, 0);
-  });
-
-  it('Mz at midspan should use negative signs (standard convention)', () => {
-    // SS beam 5m, uniform qY = -10 kN/m → vyStart = 25, vyEnd = -25
-    // Mz(x) = mzStart - vyStart·x - ∫ loads
-    // At midspan: Mz = 0 - 25*2.5 - (-10)*... = -31.25 kN·m
     const ef = makeEF({
       vyStart: 25, vyEnd: -25,
       mzStart: 0, mzEnd: 0,
@@ -276,17 +259,32 @@ describe('interpolateForces3D', () => {
       distributedLoadsY: [{ qI: -10, qJ: -10, a: 0, b: 5 }],
     });
     const mid = interpolateForces3D(ef, 0.5);
-    // Mz should be NEGATIVE (≈-31.25 kN·m)
+    expect(mid.Vy).toBeCloseTo(0, 0);
+  });
+
+  it('My at midspan should use positive signs (θy=-dw/dx convention)', () => {
+    const ef = makeEF({
+      vzStart: 25, vzEnd: -25,
+      myStart: 0, myEnd: 0,
+      qZI: -10, qZJ: -10,
+      distributedLoadsZ: [{ qI: -10, qJ: -10, a: 0, b: 5 }],
+    });
+    const mid = interpolateForces3D(ef, 0.5);
+    expect(mid.My).toBeCloseTo(31.25, 0);
+  });
+
+  it('Mz at midspan should use negative signs (standard convention)', () => {
+    const ef = makeEF({
+      vyStart: 25, vyEnd: -25,
+      mzStart: 0, mzEnd: 0,
+      qYI: -10, qYJ: -10,
+      distributedLoadsY: [{ qI: -10, qJ: -10, a: 0, b: 5 }],
+    });
+    const mid = interpolateForces3D(ef, 0.5);
     expect(mid.Mz).toBeCloseTo(-31.25, 0);
   });
 
   it('My with point load should match diagrams-3d convention', () => {
-    // SS beam 5m, point load Pz = -50kN at midspan
-    // vzStart = 25, vzEnd = -25, myStart = 0, myEnd = 0
-    // At t=0.5 (just past): My = 0 + 25*2.5 + (-50)*(2.5-2.5) = 62.5 kN·m
-    // Actually the point load integral at exactly midspan is tricky,
-    // let's check at t=0.6 (x=3):
-    // My = 0 + 25*3 + (-50)*(3-2.5) = 75 - 25 = 50 kN·m
     const ef = makeEF({
       vzStart: 25, vzEnd: -25,
       myStart: 0, myEnd: 0,
@@ -297,43 +295,38 @@ describe('interpolateForces3D', () => {
   });
 });
 
-describe('normalStress3D sign consistency', () => {
-  it('positive Mz should create tension at positive y (top fiber)', () => {
-    // σ = +Mz·y/Iz: positive Mz, positive y → positive σ (tension)
-    const ef = makeEF({ mzStart: 10, mzEnd: 10 });
+describe('normalStress3D sign consistency (PR [12])', () => {
+  it('positive My creates compression at positive y (top), tension at bottom', () => {
+    // σ = −My·y/Iy: positive My, positive y → negative σ (compression)
+    const ef = makeEF({ myStart: 10, myEnd: 10 });
     const top = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0.1, 0);
     const bot = analyzeSectionStress3D(ef, rectSection, 355, 0.5, -0.1, 0);
-    expect(top.sigmaAtFiber).toBeGreaterThan(0);  // tension at y > 0
-    expect(bot.sigmaAtFiber).toBeLessThan(0);     // compression at y < 0
+    expect(top.sigmaAtFiber).toBeLessThan(0);     // compression at y > 0
+    expect(bot.sigmaAtFiber).toBeGreaterThan(0);  // tension at y < 0
   });
 
-  it('positive My should create compression at positive z (right fiber)', () => {
-    // σ = -My·z/Iy: positive My, positive z → negative σ (compression)
-    const ef = makeEF({ myStart: 5, myEnd: 5 });
+  it('positive Mz creates tension at positive z (right), compression at left', () => {
+    // σ = +Mz·z/Iz: positive Mz, positive z → positive σ (tension)
+    const ef = makeEF({ mzStart: 5, mzEnd: 5 });
     const right = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0, 0.05);
     const left = analyzeSectionStress3D(ef, rectSection, 355, 0.5, 0, -0.05);
-    expect(right.sigmaAtFiber).toBeLessThan(0);     // compression at z > 0
-    expect(left.sigmaAtFiber).toBeGreaterThan(0);   // tension at z < 0
+    expect(right.sigmaAtFiber).toBeGreaterThan(0);  // tension at z > 0
+    expect(left.sigmaAtFiber).toBeLessThan(0);      // compression at z < 0
   });
 
-  it('combined N + My + Mz should follow Navier formula', () => {
-    // σ = N/A + Mz·y/Iz - My·z/Iy
-    const N = 50;  // kN tension
-    const Mz = 10; // kN·m (strong axis)
-    const My = 5;  // kN·m (weak axis)
+  it('combined N + My + Mz follows the PR [12] Navier formula', () => {
+    // σ = N/A − My·y/Iy + Mz·z/Iz
+    const N = 50, My = 10, Mz = 5;
     const ef = makeEF({
       nStart: N, nEnd: N,
-      mzStart: Mz, mzEnd: Mz,
       myStart: My, myEnd: My,
+      mzStart: Mz, mzEnd: Mz,
     });
-
-    const y = 0.08;  // 80mm from centroid (vertical)
-    const z = 0.03;  // 30mm from centroid (horizontal)
+    const y = 0.08;  // depth from centroid
+    const z = 0.03;  // width from centroid
     const result = analyzeSectionStress3D(ef, rectSection, 355, 0.5, y, z);
 
-    // Iz = sec.iz = 1.667e-5, Iy = sec.iy = 6.667e-5
-    // σ = (N/A + Mz·y/Iz - My·z/Iy) / 1000
-    const expected = (N / 0.02 + Mz * y / 1.667e-5 - My * z / 6.667e-5) / 1000;
+    const expected = (N / rectSection.a - My * y / rectSection.iy! + Mz * z / rectSection.iz) / 1000;
     expect(result.sigmaAtFiber).toBeCloseTo(expected, 0);
   });
 });
@@ -342,7 +335,6 @@ describe('suggestCriticalSections3D', () => {
   it('should include start, end, and midspan', () => {
     const ef = makeEF({ vyStart: 10, vyEnd: -10 });
     const sections = suggestCriticalSections3D(ef);
-
     expect(sections.some(s => s.t === 0)).toBe(true);
     expect(sections.some(s => s.t === 1)).toBe(true);
     expect(sections.some(s => s.t === 0.5)).toBe(true);
@@ -351,19 +343,14 @@ describe('suggestCriticalSections3D', () => {
   it('should include Vy=0 point when shear changes sign', () => {
     const ef = makeEF({ vyStart: 20, vyEnd: -30 });
     const sections = suggestCriticalSections3D(ef);
-
-    // Vy=0 at t = 20/(20+30) = 0.4
     const vy0 = sections.find(s => s.reason.includes('Vy=0'));
     expect(vy0).toBeDefined();
     expect(vy0!.t).toBeCloseTo(0.4, 1);
   });
 
-  it('should include Vz=0 point for weak-axis shear (may merge with midspan)', () => {
-    // Asymmetric shear so Vz=0 doesn't coincide with midspan
+  it('should include Vz=0 point for vertical shear', () => {
     const ef = makeEF({ vzStart: 20, vzEnd: -30 });
     const sections = suggestCriticalSections3D(ef);
-
-    // Vz=0 at t = 20/(20+30) = 0.4
     const vz0 = sections.find(s => s.reason.includes('Vz=0'));
     expect(vz0).toBeDefined();
     expect(vz0!.t).toBeCloseTo(0.4, 1);
@@ -371,7 +358,7 @@ describe('suggestCriticalSections3D', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// computePerpNADistribution
+// computePerpNADistribution (PR [12] convention)
 // ═══════════════════════════════════════════════════════════════
 describe('computePerpNADistribution', () => {
   const rs = resolveSectionGeometry(rectSection);
@@ -386,69 +373,50 @@ describe('computePerpNADistribution', () => {
   });
 
   it('stress is approximately zero at neutral axis (pure biaxial bending)', () => {
-    // Mz = 10 kN·m, My = 5 kN·m, N = 0
-    const N = 0, Mz = 10, My = 5;
-    // Neutral axis: y = (My·Iz)/(Iy·Mz)·z
-    const slope = (My * Iz) / (Iy * Mz);
-    const na: NeutralAxisInfo = {
-      exists: true,
-      slope,
-      intercept: 0, // N=0 → intercept=0
-      angle: Math.atan(slope),
-    };
+    // My = 10 (depth), Mz = 5 (width), N = 0. NA (moments only): y = (Mz·Iy)/(Iz·My)·z
+    const N = 0, My = 10, Mz = 5;
+    const slope = (Mz * Iy) / (Iz * My);
+    const na: NeutralAxisInfo = { exists: true, slope, intercept: 0, angle: Math.atan(slope) };
     const pts = computePerpNADistribution(N, Mz, My, A, Iz, Iy, na, rs, 21);
     expect(pts.length).toBe(21);
 
-    // Find the point closest to d=0 (the neutral axis)
     const naPoint = pts.reduce((best, p) => Math.abs(p.d) < Math.abs(best.d) ? p : best);
     expect(Math.abs(naPoint.sigma)).toBeLessThan(0.5); // ≈0 at NA
   });
 
   it('stress varies linearly perpendicular to NA', () => {
-    const N = 0, Mz = 10, My = 5;
-    const slope = (My * Iz) / (Iy * Mz);
-    const na: NeutralAxisInfo = {
-      exists: true,
-      slope,
-      intercept: 0,
-      angle: Math.atan(slope),
-    };
+    const N = 0, My = 10, Mz = 5;
+    const slope = (Mz * Iy) / (Iz * My);
+    const na: NeutralAxisInfo = { exists: true, slope, intercept: 0, angle: Math.atan(slope) };
     const pts = computePerpNADistribution(N, Mz, My, A, Iz, Iy, na, rs, 21);
 
-    // σ should be linear in d → constant Δσ/Δd between consecutive points
     const gradients: number[] = [];
     for (let i = 1; i < pts.length; i++) {
       const dd = pts[i].d - pts[i - 1].d;
       if (Math.abs(dd) < 1e-12) continue;
       gradients.push((pts[i].sigma - pts[i - 1].sigma) / dd);
     }
-    // All gradients should be approximately equal (linear)
     const avgGrad = gradients.reduce((a, b) => a + b, 0) / gradients.length;
     for (const g of gradients) {
-      expect(g).toBeCloseTo(avgGrad, 0); // within 0.5 MPa/m tolerance
+      expect(g).toBeCloseTo(avgGrad, 0);
     }
   });
 
   it('handles axial force shift of neutral axis', () => {
-    // N = 100 kN compression, Mz = 10 kN·m (strong axis), My = 0.1 (small weak axis)
-    const N = -100, Mz = 10, My = 0.1;
-    // slope = (My·Iz)/(Iy·Mz), intercept = -(N·Iz)/(A·Mz)
-    const slope = (My * Iz) / (Iy * Mz);
+    // N = 100 compression, My = 10 (depth dominant), Mz = 0.1 (small width)
+    const N = -100, My = 10, Mz = 0.1;
+    const slope = (Mz * Iy) / (Iz * My);
     const na: NeutralAxisInfo = {
       exists: true,
       slope,
-      intercept: -(N * Iz) / (A * Mz),
+      intercept: (N * Iy) / (A * My),
       angle: Math.atan(slope),
     };
     const pts = computePerpNADistribution(N, Mz, My, A, Iz, Iy, na, rs, 21);
     expect(pts.length).toBe(21);
 
-    // The NA intercept shifts due to axial → some points should have different signs
     const signs = pts.map(p => Math.sign(p.sigma));
-    const hasPos = signs.some(s => s > 0);
-    const hasNeg = signs.some(s => s < 0);
-    // With compression + bending, should have both tension and compression fibers
-    expect(hasPos && hasNeg).toBe(true);
+    expect(signs.some(s => s > 0) && signs.some(s => s < 0)).toBe(true);
   });
 });
 
@@ -459,9 +427,7 @@ describe('3D analysis uses resolved Iy and J', () => {
     const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, iy: 1943e-8, shape: 'I', h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085 };
     const ef = makeEF({ mzStart: 50, mzEnd: -30, myStart: 10, myEnd: -10 });
     const r = analyzeSectionStress3D(ef, sec, 355, 0.5);
-    // r.Iz = resolved.iz = sec.iz (about Z vertical) = 142e-8 m⁴
     expect(r.Iz).toBeCloseTo(142e-8, 11);
-    // resolved.iy = about Y (horizontal) from catalog: IPE 200 Iy = 1943 cm⁴
     expect(r.resolved.iy).toBeCloseTo(1943e-8, 6);
   });
 
@@ -469,15 +435,13 @@ describe('3D analysis uses resolved Iy and J', () => {
     const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, shape: 'I', iy: 500e-8, h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085 };
     const ef = makeEF({ mzStart: 50, mzEnd: -30 });
     const r = analyzeSectionStress3D(ef, sec, 355, 0);
-    // sec.iy (about Y, user-provided) → resolved.iy = 500e-8 (overrides catalog 1943e-8)
     expect(r.resolved.iy).toBeCloseTo(500e-8, 11);
-    // sec.iz (about Z) → r.Iz = 142e-8
     expect(r.Iz).toBeCloseTo(142e-8, 11);
   });
 
   it('Rankine is present in 3D failure check', () => {
     const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, iy: 1943e-8, shape: 'I', h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085 };
-    const ef = makeEF({ nStart: 100, mzStart: 50 });
+    const ef = makeEF({ nStart: 100, myStart: 50 });
     const r = analyzeSectionStress3D(ef, sec, 355, 0);
     expect(r.failure.rankine).toBeGreaterThan(0);
     expect(r.failure.ratioRankine).toBeGreaterThan(0);
@@ -485,116 +449,96 @@ describe('3D analysis uses resolved Iy and J', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// Neutral axis (EN) correctness for I-sections
+// Neutral axis (EN) correctness for I-sections (PR [12])
 // ═══════════════════════════════════════════════════════════════
 
 describe('Neutral axis for I-section (biaxial)', () => {
   it('nearly horizontal EN for I-section is physically correct', () => {
-    // IPN 200: resolved.iz (≈1.17e-6) / resolved.iy (≈2.14e-5) ≈ 0.055
-    // slope = (My·Iz)/(Iy·Mz) → for equal My and Mz, slope ≈ 0.055
-    const ef = makeEF({ mzStart: 10, mzEnd: 10, myStart: 10, myEnd: 10 });
+    // Depth bending dominant (My large vs Mz on a tall section)
+    // slope = (Mz·Iy)/(Iz·My); for equal My,Mz it is Iy/Iz ≈ large → steep,
+    // so use My ≫ Mz to keep the NA nearly horizontal (depth bending).
+    const ef = makeEF({ myStart: 100, myEnd: 100, mzStart: 1, mzEnd: 1 });
     const r = analyzeSectionStress3D(ef, iSection, 355, 0.5);
 
     expect(r.neutralAxis.exists).toBe(true);
-    // slope = (My·Iz)/(Iy·Mz) where Iz = resolved.iz (SMALL), Iy = resolved.iy (LARGE)
-    const expectedSlope = 10 * r.resolved.iz / (r.resolved.iy * 10);
+    const expectedSlope = (1 * r.resolved.iy) / (r.resolved.iz * 100);
     expect(r.neutralAxis.slope).toBeCloseTo(expectedSlope, 1);
-    // angle should stay close to 0° (nearly horizontal)
     expect(Math.abs(r.neutralAxis.angle)).toBeLessThan(Math.PI / 9); // < 20°
   });
 
   it('EN slope is independent of N (only intercept changes)', () => {
-    // With N: intercept shifts, but slope stays the same
-    const ef1 = makeEF({ mzStart: 10, mzEnd: 10, myStart: 5, myEnd: 5 });
+    const ef1 = makeEF({ myStart: 10, myEnd: 10, mzStart: 5, mzEnd: 5 });
     const ef2 = makeEF({
       nStart: -200, nEnd: -200,
-      mzStart: 10, mzEnd: 10, myStart: 5, myEnd: 5,
+      myStart: 10, myEnd: 10, mzStart: 5, mzEnd: 5,
     });
     const r1 = analyzeSectionStress3D(ef1, rectSection, 355, 0.5);
     const r2 = analyzeSectionStress3D(ef2, rectSection, 355, 0.5);
 
     expect(r1.neutralAxis.exists).toBe(true);
     expect(r2.neutralAxis.exists).toBe(true);
-    // Same slope
     expect(r1.neutralAxis.slope).toBeCloseTo(r2.neutralAxis.slope, 5);
-    // Different intercept: N shifts the NA without changing its slope.
+    // intercept = (N·Iy)/(A·My)
     expect(r1.neutralAxis.intercept).toBeCloseTo(0, 8);
-    expect(r2.neutralAxis.intercept).toBeCloseTo(-(ef2.nStart * r2.Iz) / (r2.resolved.a * ef2.mzStart), 5);
+    expect(r2.neutralAxis.intercept).toBeCloseTo((ef2.nStart * r2.resolved.iy) / (r2.resolved.a * ef2.myStart), 5);
     expect(Math.abs(r2.neutralAxis.intercept - r1.neutralAxis.intercept)).toBeGreaterThan(1e-3);
   });
 
-  it('EN intercept = -(N·Iz)/(A·Mz) for biaxial bending + axial', () => {
-    const N = -100, Mz = 10, My = 5;
+  it('EN intercept = (N·Iy)/(A·My) for biaxial bending + axial', () => {
+    const N = -100, My = 10, Mz = 5;
     const ef = makeEF({
       nStart: N, nEnd: N,
-      mzStart: Mz, mzEnd: Mz,
       myStart: My, myEnd: My,
+      mzStart: Mz, mzEnd: Mz,
     });
     const r = analyzeSectionStress3D(ef, rectSection, 355, 0.5);
 
     expect(r.neutralAxis.exists).toBe(true);
-    const expectedIntercept = -(N * r.Iz) / (r.resolved.a * Mz);
+    const expectedIntercept = (N * r.resolved.iy) / (r.resolved.a * My);
     expect(r.neutralAxis.intercept).toBeCloseTo(expectedIntercept, 5);
   });
 });
 
 // ═══════════════════════════════════════════════════════════════
-// Pressure center (CP) — 3D correctness
+// Pressure center (CP) — 3D correctness (PR [12])
 // ═══════════════════════════════════════════════════════════════
 
 describe('Pressure center 3D correctness', () => {
-  it('CP formulas: yCP = Mz/N, zCP = My/N', () => {
-    // From σ = N/A + Mz·y/Iz - My·z/Iy, matching eccentric N:
-    //   N·ey = Mz → ey = Mz/N   (y_CP = Mz/N)
-    //   N·ez = My → ez = My/N   (z_CP = My/N)
-    const N = -100, Mz = -10, My = 5;
-    const yCP = Mz / N;
-    const zCP = My / N;
-
-    // yCP = -10/(-100) = +0.1 → CP is ABOVE centroid
-    expect(yCP).toBeCloseTo(0.1, 10);
-    // zCP = 5/(-100) = -0.05 → CP is to the LEFT
-    expect(zCP).toBeCloseTo(-0.05, 10);
+  it('CP formulas: yCP = −My/N (depth), zCP = Mz/N (width)', () => {
+    const N = -100, My = 10, Mz = 5;
+    const yCP = -My / N;
+    const zCP = Mz / N;
+    expect(yCP).toBeCloseTo(0.1, 10);    // −10/−100 = +0.1
+    expect(zCP).toBeCloseTo(-0.05, 10);  // 5/−100 = −0.05
   });
 
-  it('CP opposite EN: yCP · yEN < 0 for strong-axis (Mz)', () => {
-    // For pure Mz + N: yEN = -(N·Iz)/(A·Mz), yCP = Mz/N
-    // Product = -(Iz/A) < 0 (always negative)
+  it('CP opposite EN: yCP · yEN < 0 for depth bending (My)', () => {
+    // For pure My + N: yEN = (N·Iy)/(A·My), yCP = −My/N
+    // Product = -(Iy/A) < 0 (always negative)
     const A = rectSection.a;
     const ef = makeEF({
       nStart: -100, nEnd: -100,
-      mzStart: -10, mzEnd: -10,
+      myStart: -10, myEnd: -10,
     });
     const r = analyzeSectionStress3D(ef, rectSection, 355, 0.5);
 
     const yEN = r.neutralAxis.intercept;
-    const yCP = r.Mz / r.N;
+    const yCP = -r.My / r.N;
 
-    // EN and CP on opposite sides of centroid
     expect(yEN * yCP).toBeLessThan(0);
-    // More precisely: yEN · yCP = -Iz/A
-    expect(yEN * yCP).toBeCloseTo(-r.Iz / A, 5);
+    expect(yEN * yCP).toBeCloseTo(-r.resolved.iy / A, 5);
   });
 
   it('CP inside core → EN outside section (full compression/tension)', () => {
-    // When CP is inside the central core, the EN is outside the section
-    // meaning the entire section has the same stress sign
-    const sec = rectSection;
-    const rs = resolveSectionGeometry(sec);
+    const rs = resolveSectionGeometry(rectSection);
     const A = rs.a;
-    const Iz = rs.iz;
+    const Iy = rs.iy;
 
-    // Small eccentricity: CP inside core.
-    // For this section and strong-axis bending, kernel radius along y is Iz / (A * (h/2)).
-    // Use an eccentricity clearly inside that radius so the EN is forced outside the section.
     const ey = 0.005;
     const N = -500;
-    // From N·ey = Mz → Mz = N·ey = -5
-    const Mz = N * ey; // = -5
-
-    // EN position: yEN = -(N·Iz)/(A·Mz)
-    const yEN = -(N * Iz) / (A * Mz);
-    // yEN should be outside the section (|yEN| > h/2)
+    const My = N * ey; // = -2.5 (My·... eccentricity in depth)
+    // yEN = (N·Iy)/(A·My) = Iy/(A·ey)
+    const yEN = (N * Iy) / (A * My);
     expect(Math.abs(yEN)).toBeGreaterThan(rs.h / 2);
   });
 });
@@ -604,178 +548,144 @@ describe('Pressure center 3D correctness', () => {
 describe('effectiveBendingInertia (Mohr rotation)', () => {
   const sec: Section = {
     id: 1, name: 'Test', a: 0.02,
-    iz: 1.667e-5,  // about Z (weak, b³ term)
-    iy: 6.667e-5,  // about Y (strong, h³ term)
+    iz: 1.667e-5,  // weak
+    iy: 6.667e-5,  // strong
   };
 
   it('α=0° → returns Iy (strong axis)', () => {
     expect(effectiveBendingInertia({ ...sec, rotation: 0 })).toBeCloseTo(6.667e-5, 9);
   });
-
   it('α=90° → returns Iz (weak axis)', () => {
     expect(effectiveBendingInertia({ ...sec, rotation: 90 })).toBeCloseTo(1.667e-5, 9);
   });
-
   it('α=180° → returns Iy (same as 0°)', () => {
     expect(effectiveBendingInertia({ ...sec, rotation: 180 })).toBeCloseTo(6.667e-5, 9);
   });
-
   it('α=45° → returns (Iy+Iz)/2', () => {
-    const expected = (6.667e-5 + 1.667e-5) / 2;
-    expect(effectiveBendingInertia({ ...sec, rotation: 45 })).toBeCloseTo(expected, 9);
+    expect(effectiveBendingInertia({ ...sec, rotation: 45 })).toBeCloseTo((6.667e-5 + 1.667e-5) / 2, 9);
   });
-
   it('no rotation prop → returns Iy', () => {
     expect(effectiveBendingInertia(sec)).toBeCloseTo(6.667e-5, 9);
   });
 });
 
-// ─── analyzeSectionStressFromForces (rotated 2D biaxial) ─────────────
+// ─── analyzeSectionStressFromForces (rotated 2D biaxial, PR [12]) ─────
 
 describe('analyzeSectionStressFromForces', () => {
-  it('matches 2D analysis at α=0° (all moment about Z-axis)', () => {
-    // At α=0°: Mz = M, My = 0
-    const M_2d = 10;
+  it('depth bending (My) → stress on the depth (Y) distribution', () => {
+    // α=0 in the panel maps the 2D moment to My (depth). Stress lives on distributionY.
+    const M = 10;
     const result = analyzeSectionStressFromForces(
-      0, 5, 0, 0, 0, M_2d,  // N, Vy, Vz, Mx, My, Mz
-      rectSection, undefined,
-    );
-    // distributionY should have non-zero stress, distributionZ should be ~0 (no My)
-    const maxSigmaY = Math.max(...result.distributionY.map(p => Math.abs(p.sigma)));
-    const maxSigmaZ = Math.max(...result.distributionZ.map(p => Math.abs(p.sigma)));
-    expect(maxSigmaY).toBeGreaterThan(10); // significant stress from Mz
-    expect(maxSigmaZ).toBeCloseTo(0, 1);   // no My → no z-variation
-  });
-
-  it('at α=90° all stress shifts to Z-axis distribution', () => {
-    const M_2d = 10;
-    const alpha = 90 * Math.PI / 180;
-    const Mz = M_2d * Math.cos(alpha);  // ≈ 0
-    const My = M_2d * Math.sin(alpha);  // = M_2d
-    const result = analyzeSectionStressFromForces(
-      0, 0, 5, 0, My, Mz,
+      0, 0, 5, 0, M, 0,  // N, Vy, Vz, Mx, My, Mz
       rectSection, undefined,
     );
     const maxSigmaY = Math.max(...result.distributionY.map(p => Math.abs(p.sigma)));
     const maxSigmaZ = Math.max(...result.distributionZ.map(p => Math.abs(p.sigma)));
-    expect(maxSigmaY).toBeCloseTo(0, 1);   // no Mz → no y-variation
-    expect(maxSigmaZ).toBeGreaterThan(1);  // significant stress from My
+    expect(maxSigmaY).toBeGreaterThan(10);
+    expect(maxSigmaZ).toBeCloseTo(0, 1);
   });
 
-  it('at α=45° stress in both axes', () => {
-    const M_2d = 10;
-    const alpha = 45 * Math.PI / 180;
-    const Mz = M_2d * Math.cos(alpha);
-    const My = M_2d * Math.sin(alpha);
+  it('width bending (Mz) → stress on the width (Z) distribution', () => {
+    const M = 10;
     const result = analyzeSectionStressFromForces(
-      0, 5 * Math.cos(alpha), 5 * Math.sin(alpha), 0, My, Mz,
+      0, 5, 0, 0, 0, M,  // Mz only
       rectSection, undefined,
     );
     const maxSigmaY = Math.max(...result.distributionY.map(p => Math.abs(p.sigma)));
     const maxSigmaZ = Math.max(...result.distributionZ.map(p => Math.abs(p.sigma)));
-    expect(maxSigmaY).toBeGreaterThan(5);  // some stress from Mz component
-    expect(maxSigmaZ).toBeGreaterThan(1);  // some stress from My component
+    expect(maxSigmaY).toBeCloseTo(0, 1);
+    expect(maxSigmaZ).toBeGreaterThan(1);
   });
 
-  it('90° rotation of IPN: stress ratio matches weak/strong axis switch', () => {
-    // At 0°: σ_max = M·(h/2)/Iz → strong axis (Mz)
-    // At 90°: σ_max = M·(b/2)/Iy → weak axis (My)
-    const M_2d = 10;
-    const result0 = analyzeSectionStressFromForces(0, 0, 0, 0, 0, M_2d, iSection, undefined);
-    const result90 = analyzeSectionStressFromForces(0, 0, 0, 0, M_2d, 0, iSection, undefined);
+  it('combined My + Mz → stress in both axes', () => {
+    const result = analyzeSectionStressFromForces(
+      0, 3, 3, 0, 8, 5, rectSection, undefined,
+    );
+    const maxSigmaY = Math.max(...result.distributionY.map(p => Math.abs(p.sigma)));
+    const maxSigmaZ = Math.max(...result.distributionZ.map(p => Math.abs(p.sigma)));
+    expect(maxSigmaY).toBeGreaterThan(5);
+    expect(maxSigmaZ).toBeGreaterThan(1);
+  });
 
-    const maxSigma0 = Math.max(...result0.distributionY.map(p => Math.abs(p.sigma)));
-    const maxSigma90 = Math.max(...result90.distributionZ.map(p => Math.abs(p.sigma)));
+  it('IPN: depth bending (My) vs width bending (Mz) stress ratio', () => {
+    // Depth (My) uses Iy (strong) → small σ; width (Mz) uses Iz (weak) → large σ
+    const M = 10;
+    const resultDepth = analyzeSectionStressFromForces(0, 0, 0, 0, M, 0, iSection, undefined);
+    const resultWidth = analyzeSectionStressFromForces(0, 0, 0, 0, 0, M, iSection, undefined);
 
-    // σ0 = M·(h/2)/Iz, σ90 = M·(b/2)/Iy
-    // ratio = σ90/σ0 = (b/2·Iz) / (h/2·Iy)
-    const expectedRatio = (iSection.b! / 2 * iSection.iz) / (iSection.h! / 2 * iSection.iy!);
-    expect(maxSigma90 / maxSigma0).toBeCloseTo(expectedRatio, 1);
+    const maxDepth = Math.max(...resultDepth.distributionY.map(p => Math.abs(p.sigma)));
+    const maxWidth = Math.max(...resultWidth.distributionZ.map(p => Math.abs(p.sigma)));
+
+    // σ_depth = M·(h/2)/Iy, σ_width = M·(b/2)/Iz
+    const expectedRatio = (iSection.b! / 2 * iSection.iy!) / (iSection.h! / 2 * iSection.iz);
+    expect(maxWidth / maxDepth).toBeCloseTo(expectedRatio, 1);
   });
 });
 
 // ═══════════════════════════════════════════════════════════════
-// Bug #6: Quick-path stress uses standard My/Mz convention
-// The quick path (computeSectionStress) used by stress-heatmap
-// must use the standard convention matching the WASM solver output:
-//   My = moment about Y-axis (lateral bending) → stress varies with z → uses Iy
-//   Mz = moment about Z-axis (vertical bending) → stress varies with y → uses Iz
+// Quick-path stress (computeSectionStress) used by stress-heatmap — PR [12]
+//   My (about y) → bends over DEPTH (h) → uses Iy (strong)
+//   Mz (about z) → bends over WIDTH (b) → uses Iz (weak)
 // ═══════════════════════════════════════════════════════════════
 
-describe('Bug #6: quick-path standard My/Mz convention', () => {
-  // Rect section: h=0.200 (vertical), b=0.100 (horizontal)
-  // sec.iz = 1.667e-5 (about Z vertical, "small" for this section)
-  // sec.iy = 6.667e-5 (about Y horizontal, "large" for this section)
-
-  it('pure My (about Y, lateral bending): stress uses b/2 and Iy', () => {
-    // My = moment about Y horizontal → bending in X-Z plane → stress varies with z (horizontal)
-    // σ_My = |My| * (b/2) / Iy = 10 * 0.05 / 6.667e-5 = 7500 kN/m²
+describe('quick-path PR [12] My/Mz convention', () => {
+  it('pure My (depth bending): stress uses h/2 and Iy', () => {
     const My = 10;
     const quick = computeSectionStress(
       0, 0, 0, 0, My, 0,
       rectSection.a, rectSection.iz, rectSection.iy!,
       rectSection.h!, rectSection.b!, 355_000,
     );
-    const expected = Math.abs(My) * (rectSection.b! / 2) / rectSection.iy!;
+    const expected = Math.abs(My) * (rectSection.h! / 2) / rectSection.iy!;
     expect(quick.sigmaMax).toBeCloseTo(expected, -1);
   });
 
-  it('pure Mz (about Z, vertical bending): stress uses h/2 and Iz', () => {
-    // Mz = moment about Z vertical → bending in Y-Z plane → stress varies with y (vertical)
-    // σ_Mz = |Mz| * (h/2) / Iz = 5 * 0.1 / 1.667e-5 = 30000 kN/m²
+  it('pure Mz (width bending): stress uses b/2 and Iz', () => {
     const Mz = 5;
     const quick = computeSectionStress(
       0, 0, 0, 0, 0, Mz,
       rectSection.a, rectSection.iz, rectSection.iy!,
       rectSection.h!, rectSection.b!, 355_000,
     );
-    const expected = Math.abs(Mz) * (rectSection.h! / 2) / rectSection.iz;
+    const expected = Math.abs(Mz) * (rectSection.b! / 2) / rectSection.iz;
     expect(quick.sigmaMax).toBeCloseTo(expected, -1);
   });
 
-  it('biaxial My + Mz on asymmetric rect matches analytical envelope', () => {
+  it('biaxial My + Mz matches analytical envelope', () => {
     const My = 15, Mz = 8;
     const quick = computeSectionStress(
       0, 0, 0, 0, My, Mz,
       rectSection.a, rectSection.iz, rectSection.iy!,
       rectSection.h!, rectSection.b!, 355_000,
     );
-    // Analytical: sigmaMax = |Mz|*(h/2)/Iz + |My|*(b/2)/Iy
-    const expected = Math.abs(Mz) * (rectSection.h! / 2) / rectSection.iz
-                   + Math.abs(My) * (rectSection.b! / 2) / rectSection.iy!;
+    const expected = Math.abs(My) * (rectSection.h! / 2) / rectSection.iy!
+                   + Math.abs(Mz) * (rectSection.b! / 2) / rectSection.iz;
     expect(quick.sigmaMax).toBeCloseTo(expected, -1);
   });
 
-  it('I-section: Mz (strong axis) produces larger stress than My (weak axis) for equal moments', () => {
-    // For IPN 200 with Y=up (standard orientation):
-    //   Mz about Z → strong-axis vertical bending → large stress (h/2 is large, Iz is small)
-    //   My about Y → weak-axis lateral bending → smaller stress (b/2 is small, Iy is large)
+  it('I-section: My (depth/strong) and Mz (width/weak) for equal moments', () => {
+    // For IPN, weak-axis (width, Mz) bending produces much larger stress than strong (depth, My)
     const M = 10;
-    const quickMz = computeSectionStress(
-      0, 0, 0, 0, 0, M,
-      iSection.a, iSection.iz, iSection.iy!,
-      iSection.h!, iSection.b!, 355_000,
-    );
     const quickMy = computeSectionStress(
       0, 0, 0, 0, M, 0,
       iSection.a, iSection.iz, iSection.iy!,
       iSection.h!, iSection.b!, 355_000,
     );
+    const quickMz = computeSectionStress(
+      0, 0, 0, 0, 0, M,
+      iSection.a, iSection.iz, iSection.iy!,
+      iSection.h!, iSection.b!, 355_000,
+    );
+    // width/weak bending → larger stress
+    expect(quickMz.sigmaMax).toBeGreaterThan(quickMy.sigmaMax * 5);
 
-    // σ_Mz = M * (h/2) / Iz = 10 * 0.1 / 1.17e-6 = 854701 kN/m²
-    // σ_My = M * (b/2) / Iy = 10 * 0.045 / 2.14e-5 = 21028 kN/m²
-    // Mz stress should be much larger (strong axis)
-    expect(quickMz.sigmaMax).toBeGreaterThan(quickMy.sigmaMax * 10);
-
-    // Verify exact values
-    const expectedMz = M * (iSection.h! / 2) / iSection.iz;
-    const expectedMy = M * (iSection.b! / 2) / iSection.iy!;
-    expect(quickMz.sigmaMax).toBeCloseTo(expectedMz, -2);
+    const expectedMy = M * (iSection.h! / 2) / iSection.iy!;
+    const expectedMz = M * (iSection.b! / 2) / iSection.iz;
     expect(quickMy.sigmaMax).toBeCloseTo(expectedMy, -2);
+    expect(quickMz.sigmaMax).toBeCloseTo(expectedMz, -2);
   });
 
   it('symmetric section (CHS): My and Mz produce equal stress', () => {
-    // CHS has h = b and iz = iy, so My and Mz should produce equal stress
     const M = 10;
     const quickMz = computeSectionStress(
       0, 0, 0, 0, 0, M,
@@ -799,10 +709,85 @@ describe('Bug #6: quick-path standard My/Mz convention', () => {
     );
     expect(quick.vonMises).toBeGreaterThan(0);
     expect(quick.ratio).toBeGreaterThan(0);
-    // sigmaMax = |N/A| + |Mz|*(h/2)/Iz + |My|*(b/2)/Iy
     const expectedSigma = Math.abs(N) / rectSection.a
-      + Math.abs(Mz) * (rectSection.h! / 2) / rectSection.iz
-      + Math.abs(My) * (rectSection.b! / 2) / rectSection.iy!;
+      + Math.abs(My) * (rectSection.h! / 2) / rectSection.iy!
+      + Math.abs(Mz) * (rectSection.b! / 2) / rectSection.iz;
     expect(quick.sigmaMax).toBeCloseTo(expectedSigma, -1);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PR [12] spec tests — section analysis matches solver/render/2D
+// ═══════════════════════════════════════════════════════════════
+
+describe('PR [12] section-analysis convention', () => {
+  it('2D SS beam projected to 3D: My drives DEPTH stress = M·(h/2)/Iy ≈ 153 MPa, not sideways', () => {
+    // Gravity on a horizontal beam → My (PR [10]). IPN 300, M = 100 kN·m.
+    const M = 100;
+    const ef = makeEF({ myStart: M, myEnd: M });
+    const r = analyzeSectionStress3D(ef, ipn300, 355, 0.5);
+
+    const maxDepth = Math.max(...r.distributionY.map(p => Math.abs(p.sigma)));
+    const maxWidth = Math.max(...r.distributionZ.map(p => Math.abs(p.sigma)));
+
+    // Strong-axis result on the DEPTH (vertical) axis
+    expect(maxDepth).toBeCloseTo(M * (ipn300.h! / 2) / ipn300.iy! / 1000, 0);
+    expect(maxDepth).toBeCloseTo(153.06, 1);
+    // No weak-axis / sideways display
+    expect(maxWidth).toBeLessThan(1);
+  });
+
+  it('cantilever-magnitude My matches strong-axis Navier with Iy (no accidental Iz)', () => {
+    const M = 60;
+    const ef = makeEF({ myStart: M, myEnd: 0 }); // varying along element
+    const r = analyzeSectionStress3D(ef, ipn300, 355, 0); // at the fixed end
+    const maxDepth = Math.max(...r.distributionY.map(p => Math.abs(p.sigma)));
+    expect(maxDepth).toBeCloseTo(M * (ipn300.h! / 2) / ipn300.iy! / 1000, 0);
+  });
+
+  it('native 3D X-beam and Y-beam under vertical load give identical section stress (My, not swapped)', () => {
+    // Both X and Y horizontal beams under gravity report the bending as My (PR [10]).
+    // The section analysis only sees the resolved forces → identical result for identical My.
+    const M = 80;
+    const efX = makeEF({ myStart: M, myEnd: M });
+    const efY = makeEF({ myStart: M, myEnd: M });
+    const rX = analyzeSectionStress3D(efX, ipn300, 355, 0.5);
+    const rY = analyzeSectionStress3D(efY, ipn300, 355, 0.5);
+    const maxX = Math.max(...rX.distributionY.map(p => Math.abs(p.sigma)));
+    const maxY = Math.max(...rY.distributionY.map(p => Math.abs(p.sigma)));
+    expect(maxX).toBeCloseTo(maxY, 6);
+    expect(maxX).toBeCloseTo(M * (ipn300.h! / 2) / ipn300.iy! / 1000, 0);
+  });
+
+  it('combined biaxial My + Mz equals N/A − My·y/Iy + Mz·z/Iz at a corner fiber', () => {
+    const N = 20, My = 40, Mz = 12;
+    const ef = makeEF({ nStart: N, nEnd: N, myStart: My, myEnd: My, mzStart: Mz, mzEnd: Mz });
+    const y = ipn300.h! / 2, z = ipn300.b! / 2;
+    const r = analyzeSectionStress3D(ef, ipn300, 355, 0.5, y, z);
+    const expected = (N / ipn300.a - My * y / ipn300.iy! + Mz * z / ipn300.iz) / 1000;
+    expect(r.sigmaAtFiber).toBeCloseTo(expected, 2);
+  });
+
+  it('rolled/rotated 2D section: stress moves from depth toward width as α→90°', () => {
+    // Decomposition as done by the panel: My = −M·cosα (depth), Mz = M·sinα (width).
+    const M = 50;
+    const atAngle = (deg: number) => {
+      const a = deg * Math.PI / 180;
+      const r = analyzeSectionStressFromForces(0, M * Math.sin(a), M * Math.cos(a), 0, -M * Math.cos(a), M * Math.sin(a), ipn300, undefined);
+      return {
+        depth: Math.max(...r.distributionY.map(p => Math.abs(p.sigma))),
+        width: Math.max(...r.distributionZ.map(p => Math.abs(p.sigma))),
+      };
+    };
+    const a0 = atAngle(0), a45 = atAngle(45), a90 = atAngle(90);
+    // α=0: all on depth, none on width
+    expect(a0.depth).toBeGreaterThan(1);
+    expect(a0.width).toBeCloseTo(0, 2);
+    // α=90: none on depth, all on width
+    expect(a90.depth).toBeCloseTo(0, 2);
+    expect(a90.width).toBeGreaterThan(1);
+    // α=45: both present
+    expect(a45.depth).toBeGreaterThan(0.5);
+    expect(a45.width).toBeGreaterThan(0.5);
   });
 });
