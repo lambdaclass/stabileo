@@ -5,6 +5,32 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::constraints::FreeConstraintSystem;
 
+/// Resolve the local-Y reference ONCE from the INITIAL element geometry so the
+/// initial and corotated (deformed) local frames share the same reference.
+///
+/// Without this, an element with no explicit local_y re-derives its reference
+/// from the default convention at BOTH configs; as a near-vertical member tilts
+/// across the default's vertical-singularity threshold during iteration, the
+/// reference jumps branches, injecting a spurious rigid-body rotation that
+/// breaks convergence. Anchoring the deformed frame to the initial reference
+/// removes that discontinuity. Elements WITH an explicit local_y are unchanged
+/// (they already used that fixed reference for both frames).
+fn corot_local_y_ref(
+    xi: f64, yi: f64, zi: f64, xj: f64, yj: f64, zj: f64,
+    lyx: Option<f64>, lyy: Option<f64>, lyz: Option<f64>,
+) -> (Option<f64>, Option<f64>, Option<f64>) {
+    if lyx.is_some() {
+        return (lyx, lyy, lyz);
+    }
+    let (dx, dy, dz) = (xj - xi, yj - yi, zj - zi);
+    let l = (dx * dx + dy * dy + dz * dz).sqrt();
+    if l < 1e-15 {
+        return (None, None, None);
+    }
+    let r = default_ey_ref(&[dx / l, dy / l, dz / l]);
+    (Some(r[0]), Some(r[1]), Some(r[2]))
+}
+
 /// Solve a 2D frame using co-rotational large displacement analysis.
 ///
 /// This wraps the existing linear element formulations, rebuilding
@@ -1174,19 +1200,26 @@ fn assemble_frame_corotational_3d(
         return;
     }
 
+    // Resolve the local-Y reference once from the initial geometry so both
+    // frames share it (robust to the default convention's vertical singularity).
+    let (ref_yx, ref_yy, ref_yz) = corot_local_y_ref(
+        node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
+        elem.local_yx, elem.local_yy, elem.local_yz,
+    );
+
     // Original local axes
     let (ex_0, ey_0, ez_0) = compute_local_axes_3d(
         node_i.x, node_i.y, node_i.z,
         node_j.x, node_j.y, node_j.z,
-        elem.local_yx, elem.local_yy, elem.local_yz,
+        ref_yx, ref_yy, ref_yz,
         elem.roll_angle, left_hand,
     );
 
-    // Corotated local axes (from deformed geometry)
+    // Corotated local axes (from deformed geometry, same reference)
     let (ex_n, ey_n, ez_n) = compute_local_axes_3d(
         xi_def, yi_def, zi_def,
         xj_def, yj_def, zj_def,
-        elem.local_yx, elem.local_yy, elem.local_yz,
+        ref_yx, ref_yy, ref_yz,
         elem.roll_angle, left_hand,
     );
 
@@ -1549,16 +1582,20 @@ fn compute_corotational_forces_3d(
             continue;
         }
 
+        let (ref_yx, ref_yy, ref_yz) = corot_local_y_ref(
+            node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
+            elem.local_yx, elem.local_yy, elem.local_yz,
+        );
         let (ex_0, ey_0, ez_0) = compute_local_axes_3d(
             node_i.x, node_i.y, node_i.z,
             node_j.x, node_j.y, node_j.z,
-            elem.local_yx, elem.local_yy, elem.local_yz,
+            ref_yx, ref_yy, ref_yz,
             elem.roll_angle, left_hand,
         );
         let (ex_n, ey_n, ez_n) = compute_local_axes_3d(
             xi_def, yi_def, zi_def,
             xj_def, yj_def, zj_def,
-            elem.local_yx, elem.local_yy, elem.local_yz,
+            ref_yx, ref_yy, ref_yz,
             elem.roll_angle, left_hand,
         );
 

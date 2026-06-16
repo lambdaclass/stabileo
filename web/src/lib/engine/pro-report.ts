@@ -430,6 +430,8 @@ export function generateReportHtml(data: ReportData): string {
   if (coverFooterParts.length > 0) {
     html.push(`<div style="font-size:11px;color:#888;margin-top:16px">${coverFooterParts.join(' &mdash; ')}</div>`);
   }
+  // Informational only (not a global-axis switch): state the canonical solver frame.
+  html.push(`<div style="font-size:10px;color:#aaa;margin-top:8px">${escHtml(tr('report.solverCoordsNote'))}</div>`);
   html.push(`<div class="logo">${escHtml(tr('report.coverFooter'))}</div>`);
   html.push(`</div>`);
 

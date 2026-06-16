@@ -10,6 +10,7 @@ import { modelStore } from '../store/model.svelte';
 import { NO_RELEASE, type Release } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
+import { noteAxisConventionMigrationIfNeeded } from '../store/file';
 
 const SHARE_VERSION = 4;
 
@@ -153,6 +154,10 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
   // Analysis mode
   if (snapshot.analysisMode) c.m = snapshot.analysisMode;
   if (snapshot.name) c.nm = snapshot.name;
+  // Local-axis convention tag — carry it so a shared NEW (post-fix) model stays
+  // self-describing and the migration note (see noteAxisConventionMigrationIfNeeded)
+  // does not false-fire on URL load; absence still flags a genuine legacy model.
+  if (snapshot.localAxisConvention) c.lx = snapshot.localAxisConvention;
 
   // Nodes: [[id, x, y, z?], ...]  (z omitted when undefined/0 in 2D)
   c.n = snapshot.nodes.map(([, v]) => {
@@ -316,6 +321,7 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
   const snapshot: ModelSnapshot = {
     analysisMode: c.m as '2d' | '3d' | 'pro' | 'edu' | undefined,
     name: c.nm as string | undefined,
+    localAxisConvention: c.lx as ModelSnapshot['localAxisConvention'],
 
     // Nodes
     nodes: (c.n as number[][]).map(a => [a[0], { id: a[0], x: a[1], y: a[2], ...(a[3] !== undefined ? { z: a[3] } : {}) }]),
@@ -685,6 +691,10 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
 
   modelStore.restore(snapshot);
   restoreMeta(snapshot);
+  // Same pre-metadata convention note as a .ded open — a shared link is the most
+  // common cross-machine entry point, so a legacy 3D model must not change axes
+  // silently here. (New models carry the tag below, so this never false-fires.)
+  noteAxisConventionMigrationIfNeeded(snapshot, snapshot.analysisMode);
 
   // Notify 3D viewport to restore camera from uiStore
   queueMicrotask(() => {
@@ -737,6 +747,10 @@ export function loadFromShareLink(url: string): boolean {
 
   modelStore.restore(snapshot);
   restoreMeta(snapshot);
+  // Same pre-metadata convention note as a .ded open — a shared link is the most
+  // common cross-machine entry point, so a legacy 3D model must not change axes
+  // silently here. (New models carry the tag below, so this never false-fires.)
+  noteAxisConventionMigrationIfNeeded(snapshot, snapshot.analysisMode);
 
   // Notify 3D viewport to restore camera from uiStore
   queueMicrotask(() => {

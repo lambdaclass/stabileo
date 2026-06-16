@@ -139,8 +139,30 @@ export function deserializeProject(text: string): boolean {
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
   validateAxisSafety(data);
-  resultsStore.clear();
+  resultsStore.clear(); // stale results dropped — the model must be re-solved
+  noteAxisConventionMigrationIfNeeded(data.snapshot, data.analysisMode);
   return true;
+}
+
+/**
+ * Surface the one-time "loaded under the corrected local-axis convention" note
+ * for a pre-metadata 3D/PRO model that carries members. Shared by EVERY load
+ * path — .ded open, URL share, autosave restore, tab/session restore — so the
+ * warning is not silently skipped on the non-.ded entry points (under the new
+ * convention the model's member diagrams/checks change). 2D models are
+ * unaffected. New models always carry localAxisConvention, so the note never
+ * fires for them — provided every serializer round-trips the field (URL sharing
+ * included, see url-sharing.ts).
+ */
+export function noteAxisConventionMigrationIfNeeded(
+  snap: { localAxisConvention?: string; elements?: unknown[] } | undefined,
+  analysisMode: string | undefined,
+): void {
+  if (!snap) return;
+  if (!snap.localAxisConvention && isMode3D(analysisMode ?? '')
+    && Array.isArray(snap.elements) && snap.elements.length > 0) {
+    uiStore.toast(t('file.loadedNoAxisConvention'), 'info');
+  }
 }
 
 function validateDedalFile(data: unknown): data is DedalFile {

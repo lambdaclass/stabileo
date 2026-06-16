@@ -2053,6 +2053,7 @@ const es: Record<string, string> = {
   // ─── File operations (file.ts) ───
   'file.invalidJson': 'El archivo no es JSON válido',
   'file.invalidFormat': 'Formato de archivo inválido. Verificá que sea un archivo .ded de Stabileo.',
+  'file.loadedNoAxisConvention': 'Cargado sin metadatos de convención de ejes locales — ahora se evalúa con la convención corregida de ejes locales Z-up. Recalculá y revisá los diagramas/verificaciones de las barras.',
   'file.supportFixed': 'Empotrado',
   'file.supportPinned': 'Articulado',
   'file.supportRollerX': 'Móvil X',
@@ -2620,6 +2621,7 @@ const es: Record<string, string> = {
   'report.freeDof': 'GDL libres',
   'report.cadDraftBanner': 'BORRADOR DERIVADO DE CAD — SIN REVISAR. Este modelo fue generado automáticamente desde un plano DXF de arquitectura y debe ser revisado por un ingeniero matriculado antes de cualquier uso.',
   'report.cadAssumptionsTitle': 'Supuestos de la importación CAD',
+  'report.solverCoordsNote': 'Coordenadas internas del solver: Z hacia arriba; la gravedad actúa en −Z.',
   'report.nodesOmitted': 'Se definen {n} nodos (tabla omitida por extensión).',
   'report.materials': 'Materiales',
   'report.sections': 'Secciones',

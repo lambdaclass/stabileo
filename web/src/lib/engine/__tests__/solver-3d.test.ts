@@ -158,7 +158,7 @@ const J = 1e-5;        // m⁴
 
 // ─── Tests ───────────────────────────────────────────────────────
 
-describe('3D Solver — computeLocalAxes3D (SAP2000 convention)', () => {
+describe('3D Solver — computeLocalAxes3D (canonical Z-up convention)', () => {
   it('+X bar: ex=(1,0,0), ey=(0,1,0), ez=(0,0,1)', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 5, y: 0, z: 0 };
@@ -169,31 +169,31 @@ describe('3D Solver — computeLocalAxes3D (SAP2000 convention)', () => {
     expect(axes.L).toBeCloseTo(5);
   });
 
-  it('-X bar: ex=(-1,0,0), ey=(0,1,0), ez=(0,0,-1)', () => {
+  it('-X bar: ex=(-1,0,0), ey=(0,-1,0), ez=(0,0,1) — local z stays up', () => {
     const nI: SolverNode3D = { id: 1, x: 5, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 0, z: 0 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex[0]).toBeCloseTo(-1);
-    expect(axes.ey[1]).toBeCloseTo(1);
-    expect(axes.ez[2]).toBeCloseTo(-1);
+    expect(axes.ey[1]).toBeCloseTo(-1);
+    expect(axes.ez[2]).toBeCloseTo(1);
   });
 
-  it('+Y bar: ex=(0,1,0), ey=(0,0,1), ez=(1,0,0)', () => {
+  it('+Y bar: ex=(0,1,0), ey=(-1,0,0), ez=(0,0,1) — local z up (gravity → My)', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 5, z: 0 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex).toEqual([0, 1, 0]);
-    expect(axes.ey[0]).toBeCloseTo(0); expect(axes.ey[1]).toBeCloseTo(0); expect(axes.ey[2]).toBeCloseTo(1);
-    expect(axes.ez[0]).toBeCloseTo(1); expect(axes.ez[1]).toBeCloseTo(0); expect(axes.ez[2]).toBeCloseTo(0);
+    expect(axes.ey[0]).toBeCloseTo(-1); expect(axes.ey[1]).toBeCloseTo(0); expect(axes.ey[2]).toBeCloseTo(0);
+    expect(axes.ez[0]).toBeCloseTo(0); expect(axes.ez[1]).toBeCloseTo(0); expect(axes.ez[2]).toBeCloseTo(1);
   });
 
-  it('+Z bar: ex=(0,0,1), ey=(0,1,0), ez=(-1,0,0)', () => {
+  it('+Z column: ex=(0,0,1), ey=(0,-1,0), ez=(1,0,0) — stable horizontal fallback', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 0, z: 5 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex).toEqual([0, 0, 1]);
-    expect(axes.ey[1]).toBeCloseTo(1);
-    expect(axes.ez[0]).toBeCloseTo(-1);
+    expect(axes.ey[1]).toBeCloseTo(-1);
+    expect(axes.ez[0]).toBeCloseTo(1);
     expect(axes.L).toBeCloseTo(5);
   });
 
@@ -535,10 +535,11 @@ describe('3D Solver — Simply supported, uniform load in local Y', () => {
   });
 });
 
-describe('3D Solver — Column along global Y (axis transformation test)', () => {
-  // Column along global Y.
-  // Fixed at bottom (node 1 at y=0), free at top (node 2 at y=5).
-  // Horizontal force Fx = 10 kN at top.
+describe('3D Solver — member along global Y (axis transformation test)', () => {
+  // A member running along global Y. NOTE: in the app's Z-up world this is a
+  // HORIZONTAL cantilever beam (the vertical axis is Z), not a vertical column —
+  // the name is historical. Fixed at one end (node 1 at y=0), free at the other
+  // (node 2 at y=5); a global-X force Fx = 10 kN is applied at the free end.
 
   const L = 5;
   const Px = 10;
@@ -559,10 +560,12 @@ describe('3D Solver — Column along global Y (axis transformation test)', () =>
     const result = solve3D(input);
     assertSuccess(result);
 
-    // For an element aligned with global Y: ex=[0,1,0], ref=globalZ=[0,0,1]
-    // ez = ex × ref = [0,1,0] × [0,0,1] = [1,0,0]
-    // Force in global X = force in local Z → uses EIy
-    const ux_expected = Px * L * L * L / (3 * E * Iy);
+    // Canonical Z-up convention: element along global Y → ex=[0,1,0];
+    // ez = global up (Z) projected ⊥ ex = [0,0,1]; ey = ez × ex = [-1,0,0].
+    // The global-X force acts along local y → bending about local z → uses EIz.
+    // (Raw-input test, so it exercises the corrected Rust default convention
+    // directly rather than the forced-localY boundary.)
+    const ux_expected = Px * L * L * L / (3 * E * Iz);
 
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
     expect(d2.ux).toBeCloseTo(ux_expected, 4);

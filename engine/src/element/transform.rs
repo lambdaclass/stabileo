@@ -174,17 +174,32 @@ pub fn frame_transform_3d_warping(ex: &[f64; 3], ey: &[f64; 3], ez: &[f64; 3]) -
     t
 }
 
-fn default_ey_ref(ex: &[f64; 3]) -> [f64; 3] {
-    // Standard textbook convention:
-    //   ez = ex × ref, ey = ez × ex
-    // ref = global Y [0,1,0] for non-vertical elements
-    // ref = global Z [0,0,1] for vertical elements (|ex·Y| ≈ 1)
-    // This produces: local Y ≈ global Y, local Z ≈ global Z for horizontal elements.
-    if (ex[1].abs() - 1.0).abs() < 0.01 {
-        [0.0, 0.0, 1.0]
+pub(crate) fn default_ey_ref(ex: &[f64; 3]) -> [f64; 3] {
+    // Canonical Z-up convention (matches web computeLocalAxes3D — one convention
+    // everywhere, no legacy mode):
+    //   local z = global up (Z) projected perpendicular to ex (Gram–Schmidt),
+    //   local y = local z × ex.
+    // So a vertical (global-Z) gravity load on ANY horizontal-plan member — along
+    // X, Y, a diagonal, or any 360° plan rotation — bends about local y (My is the
+    // main vertical bending moment) and the section depth (local z) resists it.
+    // Near-vertical members (up ∥ ex) use a stable horizontal reference (global X)
+    // to avoid degeneracy.
+    //
+    // We return this corrected `ey` as the ey REFERENCE: the shared pipeline in
+    // compute_local_axes_3d then recomputes ez = ex × ey_ref and ey = ez × ex,
+    // which reconstructs exactly (ez_up, ey) because ey_ref is already ⊥ ex
+    // (ex × (ez × ex) = ez). This keeps the explicit-local_y / roll / left_hand
+    // composition below untouched.
+    let up: [f64; 3] = if ex[2].abs() > 0.999 {
+        [1.0, 0.0, 0.0] // near-vertical: stable horizontal fallback (global X)
     } else {
-        [0.0, 1.0, 0.0]
-    }
+        [0.0, 0.0, 1.0] // global up
+    };
+    let dot = ex[0] * up[0] + ex[1] * up[1] + ex[2] * up[2];
+    let ez = [up[0] - dot * ex[0], up[1] - dot * ex[1], up[2] - dot * ex[2]];
+    let ez_mag = norm(&ez);
+    let ez = [ez[0] / ez_mag, ez[1] / ez_mag, ez[2] / ez_mag];
+    cross(&ez, ex) // ey = ez × ex
 }
 
 fn cross(a: &[f64; 3], b: &[f64; 3]) -> [f64; 3] {
@@ -250,16 +265,18 @@ mod tests {
         dot3(r0, &cross(r1, r2))
     }
 
-    /// Reference algorithm — SAP2000/textbook convention.
+    /// Reference algorithm — canonical Z-up convention (matches web
+    /// computeLocalAxes3D): local z = global up projected ⊥ ex; ey = ez × ex.
     fn expected_axes(dx: f64, dy: f64, dz: f64) -> ([f64; 3], [f64; 3], [f64; 3]) {
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
         let ex = [dx / l, dy / l, dz / l];
-        let ey_ref = if ex[1].abs() > 0.999 {
-            [0.0, 0.0, 1.0]
+        let up = if ex[2].abs() > 0.999 {
+            [1.0, 0.0, 0.0] // near-vertical: stable horizontal fallback (global X)
         } else {
-            [0.0, 1.0, 0.0]
+            [0.0, 0.0, 1.0] // global up
         };
-        let ez = normalize3(&cross(&ex, &ey_ref));
+        let dot = ex[0] * up[0] + ex[1] * up[1] + ex[2] * up[2];
+        let ez = normalize3(&[up[0] - dot * ex[0], up[1] - dot * ex[1], up[2] - dot * ex[2]]);
         let ey = normalize3(&cross(&ez, &ex));
         (ex, ey, ez)
     }
@@ -290,10 +307,10 @@ mod tests {
         let cases: Vec<(&str, f64, f64, f64)> = vec![
             ("Horizontal +X",            5.0,  0.0,  0.0),
             ("Horizontal -X",           -5.0,  0.0,  0.0),
-            ("Horizontal +Z",            0.0,  0.0,  5.0),
-            ("Horizontal -Z",            0.0,  0.0, -5.0),
-            ("Vertical +Y",              0.0,  5.0,  0.0),
-            ("Vertical -Y",              0.0, -5.0,  0.0),
+            ("Vertical +Z (column)",     0.0,  0.0,  5.0),
+            ("Vertical -Z (column)",     0.0,  0.0, -5.0),
+            ("Horizontal +Y",            0.0,  5.0,  0.0),
+            ("Horizontal -Y",            0.0, -5.0,  0.0),
             ("Diagonal XY (45 deg)",     3.0,  3.0,  0.0),
             ("Diagonal XZ",              3.0,  0.0,  4.0),
             ("Diagonal XYZ (arbitrary)", 3.0,  4.0,  5.0),

@@ -17,7 +17,7 @@
   import {
     loadFromLocalStorage, saveToLocalStorage, clearLocalStorage,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
-    downloadCanvasPNG,
+    downloadCanvasPNG, noteAxisConventionMigrationIfNeeded,
   } from './lib/store/file';
   import { loadFromURLHash } from './lib/utils/url-sharing';
   import DxfImportDialog from './components/DxfImportDialog.svelte';
@@ -223,6 +223,9 @@
     if (autosaveData) {
       modelStore.restore(autosaveData.snapshot);
       modelStore.model.name = autosaveData.name;
+      // Same convention note as a .ded open — an autosave predating the metadata
+      // is restored under the corrected convention, so warn if it's a legacy 3D model.
+      noteAxisConventionMigrationIfNeeded(autosaveData.snapshot, autosaveData.analysisMode);
       // Restore analysis mode and axis convention from autosave
       if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;

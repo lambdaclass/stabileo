@@ -68,13 +68,16 @@ describe('computeDiagramDisplayDirection', () => {
       expect(dirZ.sign).toBe(-1);  // negated for z-plane (θy = -dw/dx)
     });
 
-    it('reversed beam flips sign to compensate reversed element direction', () => {
+    it('reversed horizontal beam displays consistently upward (local z always points up)', () => {
       const fwd = computeLocalAxes3D(node(1, 0, 0, 0), node(2, 5, 0, 0));
       const rev = computeLocalAxes3D(node(1, 5, 0, 0), node(2, 0, 0, 0));
       const dirFwd = computeDiagramDisplayDirection(fwd, 'z');
       const dirRev = computeDiagramDisplayDirection(rev, 'z');
-      // Signs should be opposite (reversed element → reversed diagram values → same visual)
-      expect(dirFwd.sign).toBe(-dirRev.sign);
+      // Canonical Z-up: local z is global-up-projected, so it no longer flips
+      // with the i→j drawing direction — both render on the same (upward) side.
+      expect(dirFwd.sign).toBe(dirRev.sign);
+      expect(dirFwd.perpVec.z).toBeGreaterThan(0);
+      expect(dirRev.perpVec.z).toBeGreaterThan(0);
     });
   });
 

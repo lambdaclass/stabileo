@@ -13,30 +13,31 @@ export interface LocalAxes3D {
   L: number;                     // element length
 }
 
-export const AUTO_ORIENT_NON_VERTICAL_REFERENCE: [number, number, number] = [0, 1, 0];
-export const AUTO_ORIENT_VERTICAL_REFERENCE: [number, number, number] = [0, 0, 1];
+/** Global up (Z) — the auto-orient reference: local z aligns with up. */
+export const AUTO_ORIENT_UP_REFERENCE: [number, number, number] = [0, 0, 1];
+/** Stable horizontal fallback (global X) for near-vertical (column) members. */
+export const AUTO_ORIENT_VERTICAL_REFERENCE: [number, number, number] = [1, 0, 0];
 
 /**
  * Compute local coordinate system for a 3D element.
  *
- * Product/runtime geometry is Z-up, but the 3D solver's historical local-load
- * convention still uses global Y as the preferred auto-orient reference for
- * non-vertical members. Keep this internal convention explicit here so future
- * gravity/local-load changes migrate together instead of drifting silently.
- *
- * Solver convention:
- * - ex = normalize(J - I) — element axis
- * - For non-vertical: ey_ref = global Y
- * - For vertical: ey_ref = global Z
- * - ez = ex × ey_ref, ey = ez × ex
+ * Canonical Z-up convention (corrected — no legacy mode):
+ * - ex = normalize(J - I) — element axis.
+ * - local z = global up (Z) projected perpendicular to ex (Gram–Schmidt), so
+ *   the section depth (h, along local z) points "up" for any horizontal-plan
+ *   member regardless of its plan angle.
+ * - ey = ez × ex (right-handed: ex × ey = ez).
+ * Consequence: a vertical (global-Z) gravity load on any horizontal beam — along
+ * X, Y, a diagonal, or any 360° plan rotation — bends consistently about local y
+ * (My is the main vertical bending moment), never flipping to Mz by orientation.
+ * Inclined members: vertical load splits into axial (along ex) + transverse along
+ * local z, bending primarily My. Near-vertical members fall back to a stable
+ * horizontal reference (global X) to avoid degeneracy.
  *
  * Cardinal examples:
  *   +X bar: ex=(1,0,0),  ey=(0,1,0),   ez=(0,0,1)
- *   −X bar: ex=(−1,0,0), ey=(0,1,0),   ez=(0,0,−1)
- *   +Z bar: ex=(0,0,1),  ey=(0,1,0),   ez=(−1,0,0)
- *   −Z bar: ex=(0,0,−1), ey=(0,1,0),   ez=(1,0,0)
- *   +Y bar: ex=(0,1,0),  ey=(0,0,1),   ez=(1,0,0)
- *   −Y bar: ex=(0,−1,0), ey=(0,0,−1),  ez=(1,0,0)
+ *   +Y bar: ex=(0,1,0),  ey=(−1,0,0),  ez=(0,0,1)
+ *   +Z col: ex=(0,0,1),  ey=(0,−1,0),  ez=(1,0,0)
  *
  * Optional overrides:
  * - localY: explicit ey reference vector (overrides auto-orient)
@@ -82,30 +83,25 @@ export function computeLocalAxes3D(
       ezx * ex[1] - ezy * ex[0],
     ];
   } else {
-    // Solver-internal auto-orient convention:
-    //   ey_ref = global Y for non-vertical, global Z for vertical
-    //   ez = ex × ey_ref, ey = ez × ex
-    const dotY = Math.abs(ex[1]); // |component along global Y|
-
-    let eyRef: [number, number, number];
-    if (dotY > 0.999) {
-      eyRef = AUTO_ORIENT_VERTICAL_REFERENCE;
+    // Canonical Z-up auto-orient: ez = global up projected ⊥ ex (Gram–Schmidt);
+    // ey = ez × ex. Near-vertical members (up ∥ ex) use a horizontal fallback.
+    const up = AUTO_ORIENT_UP_REFERENCE;
+    const dotUp = ex[0] * up[0] + ex[1] * up[1] + ex[2] * up[2];
+    let ezRaw: [number, number, number];
+    if (Math.abs(dotUp) > 0.999) {
+      const refH = AUTO_ORIENT_VERTICAL_REFERENCE; // global X, ⊥ to a Z-aligned member
+      const dotH = ex[0] * refH[0] + ex[1] * refH[1] + ex[2] * refH[2];
+      ezRaw = [refH[0] - dotH * ex[0], refH[1] - dotH * ex[1], refH[2] - dotH * ex[2]];
     } else {
-      eyRef = AUTO_ORIENT_NON_VERTICAL_REFERENCE;
+      ezRaw = [up[0] - dotUp * ex[0], up[1] - dotUp * ex[1], up[2] - dotUp * ex[2]];
     }
-
-    // ez = normalize(ex × eyRef)
-    let ezx = ex[1] * eyRef[2] - ex[2] * eyRef[1];
-    let ezy = ex[2] * eyRef[0] - ex[0] * eyRef[2];
-    let ezz = ex[0] * eyRef[1] - ex[1] * eyRef[0];
-    const ezLen = Math.sqrt(ezx * ezx + ezy * ezy + ezz * ezz);
+    const ezLen = Math.sqrt(ezRaw[0] * ezRaw[0] + ezRaw[1] * ezRaw[1] + ezRaw[2] * ezRaw[2]);
     if (ezLen < 1e-10) {
       throw new Error(t('solver.localAxesError'));
     }
-    ezx /= ezLen; ezy /= ezLen; ezz /= ezLen;
-    ez = [ezx, ezy, ezz];
+    ez = [ezRaw[0] / ezLen, ezRaw[1] / ezLen, ezRaw[2] / ezLen];
 
-    // ey = ez × ex (guaranteed orthogonal)
+    // ey = ez × ex (guaranteed orthogonal, right-handed)
     ey = [
       ez[1] * ex[2] - ez[2] * ex[1],
       ez[2] * ex[0] - ez[0] * ex[2],

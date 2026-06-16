@@ -438,6 +438,12 @@ export interface StructureModel {
   /** Where the model came from (e.g. CAD-derived draft) and review status.
    *  Absent for hand-built models. */
   provenance?: ModelProvenance;
+  /** Local-axis convention this model is evaluated under. The current (and only)
+   *  convention is 'zUpStrongAxis': local z = global up projected ⊥ the member
+   *  axis, so gravity bends about local y (My) and the section depth resists it.
+   *  Models saved before this metadata existed load WITHOUT it and are then
+   *  evaluated under the corrected convention (no legacy mode) — see file.ts. */
+  localAxisConvention?: 'zUpStrongAxis';
 }
 
 export type { AnalysisResults };
@@ -491,6 +497,7 @@ function createModelStore() {
     quads: new Map(),
     constraints: [],
     connectors: new Map(),
+    localAxisConvention: 'zUpStrongAxis',
   });
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
@@ -793,6 +800,9 @@ function createModelStore() {
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
         nextId: snapId as ModelSnapshot['nextId'],
+        // Stamp the corrected local-axis convention on every snapshot/save so
+        // models written from now on are self-describing.
+        localAxisConvention: snap.localAxisConvention ?? 'zUpStrongAxis',
       };
       if (snap.provenance) {
         result.provenance = {
@@ -896,6 +906,10 @@ function createModelStore() {
             layerMappings: (s.provenance.layerMappings ?? []).map((m) => ({ ...m })),
           }
         : undefined;
+      // No legacy mode: a model loaded without convention metadata is evaluated
+      // under the corrected convention (the only one). The "old model" note is
+      // surfaced at the .ded boundary (file.ts), not here.
+      model.localAxisConvention = s.localAxisConvention ?? 'zUpStrongAxis';
     },
 
     /** Explicit user action: clear the CAD-draft "unreviewed" tag. */

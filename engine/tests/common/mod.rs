@@ -420,3 +420,39 @@ pub fn check_moment_equilibrium_2d(
         label, sum_m
     );
 }
+
+/// Make a model's member orientations explicit, reproducing the PRE-correction
+/// (global-Y reference) local-axis convention for every element that has no
+/// explicit local_y. Production (the web) always sets an explicit local_y on 3D
+/// frames; some older acceptance/validation models were *calibrated* to the old
+/// default orientation (including non-canonical Y-up frames). Pinning their
+/// intended orientation explicitly keeps those calibrated expectations valid and
+/// well-posed under the corrected canonical default — without depending on the
+/// default convention at all. New/unspecified models still use the corrected
+/// canonical default everywhere else.
+#[allow(dead_code)]
+pub fn pin_legacy_local_axes(input: &mut SolverInput3D) {
+    let pos: HashMap<usize, (f64, f64, f64)> =
+        input.nodes.values().map(|n| (n.id, (n.x, n.y, n.z))).collect();
+    for el in input.elements.values_mut() {
+        if el.local_yx.is_some() {
+            continue; // respect explicit orientation
+        }
+        if let (Some(a), Some(b)) = (pos.get(&el.node_i), pos.get(&el.node_j)) {
+            let (dx, dy, dz) = (b.0 - a.0, b.1 - a.1, b.2 - a.2);
+            let l = (dx * dx + dy * dy + dz * dz).sqrt();
+            if l <= 1e-9 {
+                continue;
+            }
+            // Old default reference: global Z for Y-aligned members, else global Y.
+            let r = if (dy / l).abs() > 0.999 {
+                [0.0, 0.0, 1.0]
+            } else {
+                [0.0, 1.0, 0.0]
+            };
+            el.local_yx = Some(r[0]);
+            el.local_yy = Some(r[1]);
+            el.local_yz = Some(r[2]);
+        }
+    }
+}

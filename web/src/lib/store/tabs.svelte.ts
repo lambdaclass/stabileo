@@ -6,6 +6,7 @@ import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
 import type { ModelSnapshot } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
+import { noteAxisConventionMigrationIfNeeded } from './file';
 import type { DiagramType } from './results.svelte';
 import type { Tool, SelectMode, ElementColorMode } from './ui.svelte';
 import type { ViewportPresentation3D } from '../geometry/coordinate-system';
@@ -175,6 +176,9 @@ function createTabManager() {
       // Restore model
       modelStore.restore(state.modelSnapshot);
       modelStore.model.name = state.name;
+      // A legacy (pre-metadata) 3D tab restored from a saved session must get the
+      // same convention note as a .ded open — not silently re-evaluated.
+      noteAxisConventionMigrationIfNeeded(state.modelSnapshot, state.analysisMode);
 
       // Restore analysis mode
       uiStore.analysisMode = state.analysisMode;

@@ -1897,6 +1897,7 @@ fn acceptance_5c_corotational_3d_diaphragm() {
         vec![(1, a, iy, iz_val, j_val)],
         elems, sups, loads,
     );
+    pin_legacy_local_axes(&mut input); // preserve calibrated orientation under corrected default (see common)
 
     // Diaphragms at each floor: master=first node on floor, slaves=rest
     input.constraints = vec![
@@ -2009,6 +2010,7 @@ fn acceptance_5d_corotational_3d_linear_parity() {
         vec![(1, a, iy, iz_val, j_val)],
         elems, sups, loads,
     );
+    pin_legacy_local_axes(&mut input); // preserve calibrated orientation under corrected default (see common)
 
     // Rigid link: master = tip (node 6), slave = eccentric (node 7), all 6 DOFs
     input.constraints = vec![

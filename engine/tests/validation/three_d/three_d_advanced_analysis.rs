@@ -473,7 +473,7 @@ fn validation_3d_adv_4_rigid_diaphragm() {
     })];
 
     // Section 1: normal, Section 2: 10x stiffer beams
-    let input = make_3d_input(
+    let mut input = make_3d_input(
         nodes,
         vec![(1, E, NU)],
         vec![
@@ -482,6 +482,11 @@ fn validation_3d_adv_4_rigid_diaphragm() {
         ],
         elems, sups, loads,
     );
+    // The stiff "Z-beam" and columns are vertical members with an asymmetric
+    // section (IZ=2·IY); pin their intended orientation explicitly so the
+    // canonical default's vertical-singularity choice doesn't silently rotate
+    // their strong axis. (Production always sets local_y for 3D frames.)
+    pin_legacy_local_axes(&mut input); // preserve calibrated orientation under corrected default (see common)
 
     let results = linear::solve_3d(&input).unwrap();
 

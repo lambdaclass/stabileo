@@ -1134,7 +1134,24 @@ export function buildSolverInput3D(
         releaseTStart: e.releaseI?.t === true,
         releaseTEnd: e.releaseJ?.t === true,
       };
-      if (e.localYx !== undefined) { elem.localYx = e.localYx; elem.localYy = e.localYy; elem.localYz = e.localYz; }
+      if (e.localYx !== undefined) {
+        elem.localYx = e.localYx; elem.localYy = e.localYy; elem.localYz = e.localYz;
+      } else if (!project2DToXZ && e.type === 'frame') {
+        // Hard-fix (canonical Z-up): force the corrected local axes at the solver
+        // boundary so the WASM solver uses local z = global up (gravity → My)
+        // instead of its historical global-Y auto-orient. Pass the BASE ey only —
+        // the solver applies rollAngle/leftHand itself (see below / leftHand flag).
+        const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
+        if (ni && nj) {
+          try {
+            const axes = computeLocalAxes3D(
+              mapModelNodeToSolver3D(ni, project2DToXZ),
+              mapModelNodeToSolver3D(nj, project2DToXZ),
+            );
+            elem.localYx = axes.ey[0]; elem.localYy = axes.ey[1]; elem.localYz = axes.ey[2];
+          } catch { /* zero-length / degenerate — let the solver validate */ }
+        }
+      }
       // Compose element rollAngle with section rotation — computeLocalAxes3D rotates local Y/Z
       const sec = model.sections.get(e.sectionId);
       const secRot = sec?.rotation ?? 0;
