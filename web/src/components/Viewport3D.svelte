@@ -460,8 +460,34 @@
         resultsCtx.lastDeformedAnimScale = null;
       }
 
+      const _perfT0 = perfHud.on ? performance.now() : 0;
       renderer.render(scene, camera);
       drawAxisGizmo();
+      if (perfHud.on) {
+        // GPU side: draw calls + triangles (renderer.info auto-resets per render,
+        // so these are THIS frame's counts). Geometry/texture counts reveal
+        // teardown/rebuild churn during edits (CPU sync), distinguishing the two.
+        const _now = performance.now();
+        perfAcc.renderMsSum += _now - _perfT0;
+        perfAcc.frames++;
+        if (perfAcc.lastFrameT) perfAcc.frameMsSum += _now - perfAcc.lastFrameT;
+        perfAcc.lastFrameT = _now;
+        if (_now - perfAcc.lastFlush > 250) {
+          const f = perfAcc.frames || 1;
+          perfHud = {
+            on: true,
+            fps: perfAcc.frameMsSum > 0 ? Math.round(1000 / (perfAcc.frameMsSum / f)) : 0,
+            renderMs: +(perfAcc.renderMsSum / f).toFixed(2),
+            syncMs: +perfAcc.syncMs.toFixed(2), // CPU scene-sync since last flush
+            calls: renderer.info.render.calls,
+            tris: renderer.info.render.triangles,
+            geos: renderer.info.memory.geometries,
+            texs: renderer.info.memory.textures,
+          };
+          perfAcc.syncMs = 0; perfAcc.frames = 0; perfAcc.frameMsSum = 0;
+          perfAcc.renderMsSum = 0; perfAcc.lastFlush = _now;
+        }
+      }
 
       // Keep looping if continuous rendering is needed
       if (needsContinuous() || needsRender) {
@@ -536,6 +562,13 @@
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Shift+P — toggle the dev perf HUD live (also persisted for next load).
+      if (e.key === 'P' && e.shiftKey) {
+        perfHud = { ...perfHud, on: !perfHud.on };
+        try { localStorage.setItem('stabileo_perf', perfHud.on ? '1' : '0'); } catch { /* ignore */ }
+        invalidate();
+        return;
+      }
       if (e.key === 'Escape') {
         if (showCoordDialog) { cancelCoordDialog(); return; }
         if (uiStore.measureMode) { clearMeasureVisuals(); }
@@ -602,15 +635,35 @@
     };
   }
 
-  // Thin wrappers that delegate to extracted modules + keep local refs in sync
-  function syncNodes() { _syncNodes(sceneCtx); }
-  function syncElements() { _syncElements(sceneCtx); }
-  function syncSupports() { _syncSupports(sceneCtx); }
-  function syncLoads() { _syncLoads(sceneCtx); }
-  function syncShells() { _syncShells(sceneCtx); }
-  function syncLocalAxes() { _syncLocalAxes(sceneCtx); }
-  function syncMemberOffsets() { _syncMemberOffsets(sceneCtx); }
-  function syncShellOffsets() { _syncShellOffsets(sceneCtx); }
+  // ── Perf HUD (dev measurement only) ──────────────────────────────
+  // Decides whether the 3D slowdown is CPU-bound (scene sync per edit) or
+  // GPU-bound (draw calls / fill rate). Enable with ?perf in the URL or
+  // localStorage.stabileo_perf='1', or toggle live with Shift+P. Zero cost when
+  // off (perfTimed early-returns; the render block is guarded). Not for prod.
+  let perfHud = $state<{ on: boolean; fps: number; renderMs: number; syncMs: number; calls: number; tris: number; geos: number; texs: number }>({
+    on: (() => { try { return new URLSearchParams(location.search).has('perf') || localStorage.getItem('stabileo_perf') === '1'; } catch { return false; } })(),
+    fps: 0, renderMs: 0, syncMs: 0, calls: 0, tris: 0, geos: 0, texs: 0,
+  });
+  // Non-reactive accumulators so the HUD's own reactivity doesn't perturb the measurement.
+  const perfAcc = { syncMs: 0, frames: 0, frameMsSum: 0, renderMsSum: 0, lastFlush: 0, lastFrameT: 0 };
+  function perfTimed<T>(fn: () => T): T {
+    if (!perfHud.on) return fn();
+    const t0 = performance.now();
+    const r = fn();
+    perfAcc.syncMs += performance.now() - t0;
+    return r;
+  }
+
+  // Thin wrappers that delegate to extracted modules + keep local refs in sync.
+  // Wrapped in perfTimed so the HUD can attribute per-edit CPU cost to scene sync.
+  function syncNodes() { perfTimed(() => _syncNodes(sceneCtx)); }
+  function syncElements() { perfTimed(() => _syncElements(sceneCtx)); }
+  function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); }
+  function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); }
+  function syncShells() { perfTimed(() => _syncShells(sceneCtx)); }
+  function syncLocalAxes() { perfTimed(() => _syncLocalAxes(sceneCtx)); }
+  function syncMemberOffsets() { perfTimed(() => _syncMemberOffsets(sceneCtx)); }
+  function syncShellOffsets() { perfTimed(() => _syncShellOffsets(sceneCtx)); }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
@@ -2161,6 +2214,18 @@
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}
 >
+  <!-- Dev perf HUD (Shift+P or ?perf). Reads: high `calls` + stable `geos` = GPU
+       draw-call bound; `geos`/`texs` spiking + high `syncMs` while editing = CPU
+       teardown/rebuild churn. -->
+  {#if perfHud.on}
+    <div class="perf-hud">
+      <div><b>3D perf</b> <span style="opacity:.6">(Shift+P)</span></div>
+      <div>fps <b>{perfHud.fps}</b> · render <b>{perfHud.renderMs}</b>ms</div>
+      <div>sync <b>{perfHud.syncMs}</b>ms/250ms</div>
+      <div>draw calls <b>{perfHud.calls}</b> · tris <b>{(perfHud.tris / 1000).toFixed(0)}</b>k</div>
+      <div>geos <b>{perfHud.geos}</b> · texs <b>{perfHud.texs}</b></div>
+    </div>
+  {/if}
   <!-- Camera preset buttons -->
   <div class="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
     <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')}>⊞</button>
@@ -2339,6 +2404,23 @@
     position: relative;
     overflow: hidden;
   }
+
+  /* Dev perf HUD — measurement only (Shift+P / ?perf). */
+  .perf-hud {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 50;
+    pointer-events: none;
+    font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #cfe8ff;
+    background: rgba(10, 18, 28, 0.82);
+    border: 1px solid rgba(120, 180, 255, 0.25);
+    border-radius: 6px;
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+  .perf-hud b { color: #fff; }
 
   .viewport3d-wrapper :global(canvas:not(.axis-gizmo)) {
     display: block;
