@@ -671,9 +671,23 @@
   function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); }
   function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); }
   function syncShells() { perfTimed(() => _syncShells(sceneCtx)); }
-  function syncLocalAxes() { perfTimed(() => _syncLocalAxes(sceneCtx)); }
-  function syncMemberOffsets() { perfTimed(() => _syncMemberOffsets(sceneCtx)); }
-  function syncShellOffsets() { perfTimed(() => _syncShellOffsets(sceneCtx)); }
+  // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
+  // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
+  // every node-drag tick. Suppress them while a node is being dragged (the cheap,
+  // signature-diffed node/element/shell syncs still run so the geometry follows the
+  // cursor) and run them once on drag-end (finalizeDecorAfterDrag) so they snap to
+  // the final position. 'always'-mode triads + offset arms are the dominant
+  // remaining per-tick cost; this removes it from the drag.
+  function syncLocalAxes() { if (draggedNodeId3D !== null) return; perfTimed(() => _syncLocalAxes(sceneCtx)); }
+  function syncMemberOffsets() { if (draggedNodeId3D !== null) return; perfTimed(() => _syncMemberOffsets(sceneCtx)); }
+  function syncShellOffsets() { if (draggedNodeId3D !== null) return; perfTimed(() => _syncShellOffsets(sceneCtx)); }
+  /** Run the drag-suppressed decorative syncs once after a node drag finishes. */
+  function finalizeDecorAfterDrag() {
+    syncLocalAxes();
+    syncMemberOffsets();
+    syncShellOffsets();
+    invalidate();
+  }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
@@ -1453,6 +1467,7 @@
       dragMoved3D = false;
       dragStartWorld3D = null;
       controls.enabled = true;
+      finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
       return;
     }
 
@@ -1994,6 +2009,7 @@
       dragMoved3D = false;
       dragStartWorld3D = null;
       controls.enabled = true;
+      finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
     }
   }
 
