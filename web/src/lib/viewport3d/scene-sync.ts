@@ -86,6 +86,10 @@ export interface SceneSyncContext {
 
   // Results state (mutable flags shared with results-sync)
   colorMapApplied: boolean;
+
+  // Memo of the last inputs syncLoads rendered from, so an unrelated model
+  // mutation (e.g. dragging a node with no loads on it) skips the full rebuild.
+  lastLoadsSig?: string;
 }
 
 // ─── Nodes ────────────────────────────────────────────────────
@@ -445,9 +449,50 @@ export function applyShellSelection(ctx: SceneSyncContext): void {
 
 // ─── Loads ───────────────────────────────────────────────────
 
+/** Cheap O(loads) hash of everything syncLoads renders from (load data → arrow
+ *  scale/colour, referenced node positions, and the UI toggles). When it matches
+ *  the previous run the entire load-group rebuild is skipped — so dragging a node
+ *  that carries no load (the common case) no longer rebuilds every arrow per tick. */
+function loadsSignature(project2D: boolean): string {
+  const parts: (string | number)[] = [
+    uiStore.showLoads3D ? 1 : 0,
+    uiStore.hideLoadsWithDiagram ? 1 : 0,
+    String(uiStore.momentStyle3D),
+    resultsStore.diagramType,
+    (uiStore.visibleLoadCases3D ?? []).join(','),
+    project2D ? 1 : 0,
+  ];
+  const np = (id: number | undefined): string => {
+    const n = id != null ? modelStore.nodes.get(id) : undefined;
+    return n ? `${n.x},${n.y},${n.z ?? 0}` : '_';
+  };
+  for (const load of modelStore.loads) {
+    const d = load.data as unknown as Record<string, number | undefined>;
+    parts.push(load.type, JSON.stringify(d), modelStore.getLoadCaseColor((d.caseId as number) ?? 1));
+    if (load.type === 'nodal' || load.type === 'nodal3d') {
+      parts.push(np(d.nodeId));
+    } else if (load.type === 'distributed' || load.type === 'distributed3d'
+      || load.type === 'pointOnElement' || load.type === 'pointOnElement3d') {
+      const elem = modelStore.elements.get(d.elementId as number);
+      // element endpoints + (for distributed3d) the local frame that orients qY/qZ
+      parts.push(elem ? np(elem.nodeI) + np(elem.nodeJ) : '_',
+        elem?.localYx ?? '', elem?.localYy ?? '', elem?.localYz ?? '', elem?.rollAngle ?? '');
+    } else if (load.type === 'surface3d') {
+      const quad = modelStore.quads.get(d.quadId as number);
+      parts.push(quad ? quad.nodes.map((nid: number) => np(nid)).join('') : '_');
+    }
+  }
+  return parts.join('|');
+}
+
 export function syncLoads(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const project2D = projectFlag();
+
+  // Skip the full rebuild when nothing syncLoads depends on changed.
+  const sig = loadsSignature(project2D);
+  if (ctx.lastLoadsSig === sig) return;
+  ctx.lastLoadsSig = sig;
 
   // Clear all load visuals
   if (ctx.loadGroup) {
