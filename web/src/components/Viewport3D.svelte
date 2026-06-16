@@ -430,8 +430,17 @@
       // Update clipping plane
       updateClippingPlane();
 
-      // Tick down damping frames (OrbitControls damping settles over ~15-20 frames)
-      if (dampingFrames > 0) dampingFrames--;
+      // Tick down damping frames (OrbitControls damping settles over ~15-20 frames).
+      // Stay in low-detail + pixelRatio=1 through the settle and restore crisp full
+      // detail only on the final frame — otherwise releasing the orbit paid ~20
+      // full-detail, full-DPR renders in a row.
+      if (dampingFrames > 0) {
+        dampingFrames--;
+        if (dampingFrames === 0 && !isOrbiting) {
+          renderer.setPixelRatio(idlePixelRatio);
+          setLowDetail(false);
+        }
+      }
 
       // Animate deformed shape (oscillating scale like 2D viewport)
       const _dt = resultsStore.diagramType;
@@ -539,8 +548,9 @@
     controls.addEventListener('end', () => {
       isOrbiting = false;
       dampingFrames = 20;
-      renderer.setPixelRatio(idlePixelRatio);
-      setLowDetail(false);
+      // Keep low-detail + pixelRatio=1 through the damping settle; renderOnce
+      // restores full detail/DPR on the final settle frame (one crisp frame
+      // instead of 20).
       invalidate();
     });
 

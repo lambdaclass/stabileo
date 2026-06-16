@@ -266,16 +266,12 @@ export function syncSupports(ctx: SceneSyncContext): void {
     }
   }
 
-  // Recreate all
+  // Rebuild only changed gizmos. A node drag bumps modelVersion and re-runs this
+  // every tick, so without the per-support signature it disposed+recreated EVERY
+  // gizmo each frame; now an unchanged support is left untouched.
   for (const [id, sup] of storeSupports) {
     const node = modelStore.nodes.get(sup.nodeId);
     if (!node) continue;
-
-    const old = ctx.supportGizmos.get(id);
-    if (old) {
-      ctx.supportsParent.remove(old);
-      disposeObject(old);
-    }
 
     // Determine gizmo type: if dofRestraints present, derive visual type
     let gizmoType: SupportGizmoType = sup.type as SupportGizmoType;
@@ -288,10 +284,20 @@ export function syncSupports(ctx: SceneSyncContext): void {
       else if (!r.tx && !r.ty && !r.tz && !r.rx && !r.ry && !r.rz) gizmoType = 'spring3d';
       else gizmoType = 'custom3d';
     }
+
+    const sig = `${node.x},${node.y},${node.z ?? 0}|${gizmoType}|${project2D ? 1 : 0}|${sup.dofRestraints ? JSON.stringify(sup.dofRestraints) : ''}`;
+    const old = ctx.supportGizmos.get(id);
+    if (old && old.userData.supportSig === sig) continue; // unchanged → reuse
+    if (old) {
+      ctx.supportsParent.remove(old);
+      disposeObject(old);
+    }
+
     const gizmo = createSupportGizmo(
       projectNodeToScene(node, project2D),
       { supportId: id, supportType: gizmoType, dofRestraints: sup.dofRestraints },
     );
+    gizmo.userData.supportSig = sig;
     ctx.supportsParent.add(gizmo);
     ctx.supportGizmos.set(id, gizmo);
   }
