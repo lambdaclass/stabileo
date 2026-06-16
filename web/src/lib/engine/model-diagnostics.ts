@@ -67,10 +67,18 @@ export function memberLoadPerpComponent(
 
   const ni = nodes.get(elem.nodeI), nj = nodes.get(elem.nodeJ);
   if (!ni || !nj) return 0;
-  const edx = nj.x - ni.x, edy = nj.y - ni.y;
-  const L = Math.hypot(edx, edy);
+  const edx = nj.x - ni.x, edy = nj.y - ni.y, edz = (nj.z ?? 0) - (ni.z ?? 0);
+  // Use the full 3D length for the degenerate guard so a member running along
+  // global Z (edx=edy=0) is not mistaken for zero-length — otherwise a local
+  // transverse load on a vertical 3D truss would be silently missed.
+  const L = Math.hypot(edx, edy, edz);
   if (L < 1e-10) return 0;
-  const cosT = edx / L, sinT = edy / L;
+  // In-plane (X-Y) direction used only to project a GLOBAL-frame 2D load onto the
+  // member normal. A member with no X-Y extent has no defined in-plane normal, so
+  // a global 2D load there can't be projected (returns 0); a LOCAL 2D load's
+  // perpendicular magnitude is orientation-independent and handled below.
+  const Lxy = Math.hypot(edx, edy);
+  const cosT = Lxy > 1e-10 ? edx / Lxy : 1, sinT = Lxy > 1e-10 ? edy / Lxy : 0;
   const angleRad = num(d.angle) * Math.PI / 180;
   const isGlobal = d.isGlobal === true;
   // Local: angle=0 ⇒ fully perpendicular. Global: project onto the member normal.
@@ -283,20 +291,34 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   }
 
   // ─── Transverse load on an axial-only (truss) member ───────────
-  // A truss member carries only axial force, so a perpendicular load is not
-  // transferred as beam bending/shear. Educational warning; never blocks solving.
-  for (const load of m.loads) {
+  out.push(...transverseOnTrussWarnings(m.loads, m.elements, m.nodes));
+
+  return out;
+}
+
+/**
+ * Transverse-load-on-truss warnings. A truss member carries only axial force, so
+ * a perpendicular load is not transferred as beam bending/shear. Educational;
+ * never blocks solving. Extracted from checkModel so the Basic solve path can
+ * surface it as a pre-solve diagnostic too (checkModel itself only runs in PRO).
+ */
+export function transverseOnTrussWarnings(
+  loads: ModelData['loads'],
+  elements: ModelData['elements'],
+  nodes: ModelData['nodes'],
+): SolverDiagnostic[] {
+  const out: SolverDiagnostic[] = [];
+  for (const load of loads) {
     const elemId = load.data.elementId;
     if (elemId == null) continue;
-    const elem = m.elements.get(elemId);
+    const elem = elements.get(elemId);
     if (!elem || elem.type !== 'truss') continue;
-    if (memberLoadPerpComponent(load, elem, m.nodes) > 1e-9) {
+    if (memberLoadPerpComponent(load, elem, nodes) > 1e-9) {
       out.push(diag('warning', 'MODEL_TRANSVERSE_ON_TRUSS', 'diag.model.transverseOnTruss', {
         elementIds: [elem.id],
         details: { loadId: load.data.id },
       }));
     }
   }
-
   return out;
 }

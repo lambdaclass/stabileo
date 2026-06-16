@@ -307,3 +307,50 @@ fn validation_stress_3d_neutral_axis() {
         assert!(length > 1e-6, "Neutral axis should have non-zero length");
     }
 }
+
+// ================================================================
+// 7. Cross-language parity (PR [12])
+// ================================================================
+//
+// Asserts the SAME shared fixture as the TS side
+// (web/src/lib/engine/__tests__/section-stress-parity.test.ts), so the Rust and
+// TypeScript biaxial-stress implementations cannot silently drift in sign or
+// axis pairing. The fixture is the single source of truth for the convention.
+#[test]
+fn validation_stress_3d_parity_fixture() {
+    let raw = std::fs::read_to_string("tests/fixtures/section-stress-parity.json")
+        .expect("parity fixture readable");
+    let fx: serde_json::Value = serde_json::from_str(&raw).expect("parity fixture parses");
+    let s = &fx["section"];
+    // rect_section recomputes Iy = b·h³/12, Iz = h·b³/12 — identical to the TS
+    // resolveSectionGeometry, so both engines use the same inertias.
+    let section = rect_section(s["b"].as_f64().unwrap(), s["h"].as_f64().unwrap());
+    let tol = fx["tolMpa"].as_f64().unwrap();
+
+    for case in fx["cases"].as_array().unwrap() {
+        let g = |k: &str| case[k].as_f64().unwrap_or(0.0);
+        let name = case["name"].as_str().unwrap_or("");
+        let ef = make_ef3d(g("N"), g("Vy"), g("Vz"), g("Mx"), g("My"), g("Mz"), 3.0);
+        let input = SectionStressInput3D {
+            element_forces: ef,
+            section: section.clone(),
+            fy: None,
+            t: 0.0,
+            y_fiber: Some(g("yFiber")),
+            z_fiber: Some(g("zFiber")),
+        };
+        let r = compute_section_stress_3d(&input);
+
+        let exp_sigma = g("expectSigmaMpa");
+        assert!((r.sigma_at_fiber - exp_sigma).abs() <= tol.max(0.02 * exp_sigma.abs()),
+            "σ parity [{}]: got {:.4}, expected {:.4}", name, r.sigma_at_fiber, exp_sigma);
+        if let Some(tvz) = case.get("expectTauVzMpa").and_then(|v| v.as_f64()) {
+            assert!((r.tau_vz_at_fiber.abs() - tvz).abs() <= tol.max(0.02 * tvz),
+                "τVz parity [{}]: got {:.4}, expected {:.4}", name, r.tau_vz_at_fiber.abs(), tvz);
+        }
+        if let Some(tvy) = case.get("expectTauVyMpa").and_then(|v| v.as_f64()) {
+            assert!((r.tau_vy_at_fiber.abs() - tvy).abs() <= tol.max(0.02 * tvy),
+                "τVy parity [{}]: got {:.4}, expected {:.4}", name, r.tau_vy_at_fiber.abs(), tvy);
+        }
+    }
+}

@@ -1,0 +1,37 @@
+{
+  "_comment": "Cross-language parity cases for the PR[12] biaxial section-stress convention: sigma = N/A - My*y/Iy + Mz*z/Iz (y=depth, z=width); depth shear from Vz over Iy, width shear from Vy over Iz. Asserted by BOTH web/src/lib/engine/__tests__/section-stress-parity.test.ts (TS) and engine/tests/.../stress_3d.rs (Rust) so the two implementations cannot silently drift. Section is a 0.1x0.2 m rectangle: A=0.02, Iy=b*h^3/12=6.66667e-5 (depth/strong), Iz=h*b^3/12=1.66667e-5 (width/weak). Forces in kN / kN*m, lengths in m, stresses in MPa.",
+  "section": { "shape": "rect", "b": 0.1, "h": 0.2, "a": 0.02, "iy": 6.66667e-5, "iz": 1.66667e-5, "j": 3.0e-6 },
+  "tolMpa": 0.05,
+  "cases": [
+    {
+      "name": "pure My bends over the depth (uses Iy, negative sign at top fiber)",
+      "N": 0, "Vy": 0, "Vz": 0, "Mx": 0, "My": 10, "Mz": 0,
+      "yFiber": 0.1, "zFiber": 0,
+      "expectSigmaMpa": -15.0
+    },
+    {
+      "name": "pure Mz bends over the width (uses Iz, positive at z>0)",
+      "N": 0, "Vy": 0, "Vz": 0, "Mx": 0, "My": 0, "Mz": 5,
+      "yFiber": 0, "zFiber": 0.05,
+      "expectSigmaMpa": 15.0
+    },
+    {
+      "name": "combined N + My + Mz at the +y/+z corner",
+      "N": 100, "Vy": 0, "Vz": 0, "Mx": 0, "My": 10, "Mz": 5,
+      "yFiber": 0.1, "zFiber": 0.05,
+      "expectSigmaMpa": 5.0
+    },
+    {
+      "name": "Vz produces depth shear, parabolic max at the neutral axis (1.5 V/A)",
+      "N": 0, "Vy": 0, "Vz": 30, "Mx": 0, "My": 0, "Mz": 0,
+      "yFiber": 0, "zFiber": 0,
+      "expectSigmaMpa": 0.0, "expectTauVzMpa": 2.25
+    },
+    {
+      "name": "Vy produces width shear, parabolic max at the neutral axis (1.5 V/A)",
+      "N": 0, "Vy": 30, "Vz": 0, "Mx": 0, "My": 0, "Mz": 0,
+      "yFiber": 0, "zFiber": 0,
+      "expectSigmaMpa": 0.0, "expectTauVyMpa": 2.25
+    }
+  ]
+}
