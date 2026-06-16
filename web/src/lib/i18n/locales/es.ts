@@ -610,7 +610,6 @@ const es: Record<string, string> = {
   'config.liveCalc': 'Cálculo en tiempo real',
   'config.liveCalcOn': 'Activado',
   'config.liveCalcOff': 'Desactivado',
-  'config.localAxes': 'Ejes locales',
   'config.rightHand': 'Terna derecha',
   'config.leftHand': 'Terna izquierda',
   'config.axisConventionHelp': 'Terna derecha: eje local Y sigue la regla de la mano derecha (ex × ey = ez). Terna izquierda: invierte el eje Y. Afecta de qué lado de la barra se dibujan los diagramas y cómo se orientan los ejes locales. No cambia los resultados numéricos.',

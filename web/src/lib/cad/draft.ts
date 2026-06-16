@@ -469,7 +469,13 @@ export function generateRcDraft(
   // panels and forces mesh lines through structural geometry; legacy fixed
   // divisions remain available. When meshing is OFF, one cell per panel.
   const meshMode: 'targetSize' | 'fixedDivisions' = a.meshMode ?? 'targetSize';
-  const target = a.meshTargetSize ?? 1.0;
+  // `?? 1.0` only catches null/undefined, so an explicit 0 / NaN / negative
+  // survives — sanitize it (mirrors structuredBreakpoints in geometry.ts) so the
+  // bilinear (rotated-quad) path below can't divide by 0 → Infinity divisions →
+  // unbounded mesh loop. The structured path guards internally, but this keeps
+  // both paths consistent and safe for any non-wizard caller.
+  const rawTarget = a.meshTargetSize ?? 1.0;
+  const target = Number.isFinite(rawTarget) && rawTarget > 0 ? rawTarget : 1.0;
   const fixedN = a.meshSlabs ? Math.max(1, Math.round(a.meshDivisions)) : 1;
   // When meshing is disabled, force one cell by using a huge target.
   const effTarget = a.meshSlabs ? target : 1e6;
@@ -507,9 +513,11 @@ export function generateRcDraft(
     return res.droppedByOpening;
   };
 
-  /** Bilinear divisions for a NON-axis-aligned quad edge of physical length L. */
+  /** Bilinear divisions for a NON-axis-aligned quad edge of physical length L.
+   *  Capped at 256/axis like structuredBreakpoints so a tiny target can't
+   *  explode the per-quad cell count. */
   const bilinearDivs = (L: number): number =>
-    meshMode === 'targetSize' ? Math.max(1, Math.round(L / effTarget)) : fixedN;
+    meshMode === 'targetSize' ? Math.min(256, Math.max(1, Math.round(L / effTarget))) : fixedN;
 
   const cutOpenings = new Set<number>();      // opening indices cut from a slab
   const approxOpenings = new Set<number>();   // cut but boundary not exact
@@ -528,7 +536,6 @@ export function generateRcDraft(
       .map((op, idx) => ({ op, idx }))
       .filter(({ op }) => pointInPolygon(op.centroid, slab.outline));
     const axisAligned = isAxisAlignedRectilinear(slab.outline, 1e-4);
-    const ops = opsInSlab.map(({ op }) => op);
 
     if (axisAligned) {
       // Axis-aligned slab: target-size (or fixed) structured mesh that forces
@@ -541,22 +548,33 @@ export function generateRcDraft(
         if (panels.length > 0) slabsDecomposed++;
         else { slabsSkipped++; continue; }
       }
-      const cutOps = a.ignoreOpenings ? [] : ops;
+      const cutOps = a.ignoreOpenings ? [] : opsInSlab;
+      // Track which openings a panel actually received: a decompose split line
+      // can pass through an opening, so an opening must be delivered to EVERY
+      // panel its bbox overlaps (inclusive ±tol margins), and is only counted as
+      // "cut" if some panel received it — otherwise a flush-with-boundary
+      // opening was silently left as solid mesh while reported as cut.
+      const deliveredOps = new Set<number>();
       for (const z of floorLevels) {
         const th = slabThicknessAt(slab, z);
         for (const panel of panels) {
-          const panelOps = cutOps.filter((op) =>
-            op.bbox.minX < panel.maxX - tol && op.bbox.maxX > panel.minX + tol &&
-            op.bbox.minY < panel.maxY - tol && op.bbox.maxY > panel.minY + tol);
-          meshPanel(panel, slab.outline, z, th, panelOps);
+          const panelOps = cutOps.filter(({ op }) =>
+            op.bbox.minX < panel.maxX + tol && op.bbox.maxX > panel.minX - tol &&
+            op.bbox.minY < panel.maxY + tol && op.bbox.maxY > panel.minY - tol);
+          for (const { idx } of panelOps) deliveredOps.add(idx);
+          meshPanel(panel, slab.outline, z, th, panelOps.map(({ op }) => op));
         }
       }
       if (a.ignoreOpenings) {
         openingsUncut += opsInSlab.length;
       } else {
         for (const { idx, op } of opsInSlab) {
-          cutOpenings.add(idx);
-          if (!op.rectilinear) approxOpenings.add(idx);
+          if (deliveredOps.has(idx)) {
+            cutOpenings.add(idx);
+            if (!op.rectilinear) approxOpenings.add(idx);
+          } else {
+            openingsUncut++;
+          }
         }
       }
       continue;
@@ -905,7 +923,7 @@ export function generateRcDraft(
       element: b.nextElement,
       support: supId,
       load: b.nextLoad,
-      loadCase: 3,
+      loadCase: loadCases.length + 1,
       combination: combinations.length + 1,
       plate: 1,
       quad: b.nextQuad,

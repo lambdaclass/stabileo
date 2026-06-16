@@ -13,6 +13,7 @@
   import { modelStore, uiStore, resultsStore, dsmStepsStore, tabManager, historyStore } from './lib/store';
   import { t, i18n, setLocale } from './lib/i18n';
   import StepWizard from './components/dsm/StepWizard.svelte';
+  import { resolveDeleteTargets } from './lib/store/delete-selection';
   import {
     loadFromLocalStorage, saveToLocalStorage, clearLocalStorage,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
@@ -303,31 +304,19 @@
         resultsStore.clear();
         return;
       }
-      if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0) {
-        const nodes = [...uiStore.selectedNodes];
-        const elems = [...uiStore.selectedElements];
-        const shellMode = uiStore.selectMode === 'shells';
-        modelStore.batch(() => {
-          for (const id of nodes) modelStore.removeNode(id);
-          for (const id of elems) {
-            const isShell = modelStore.plates.has(id) || modelStore.quads.has(id);
-            const isElem = modelStore.elements.has(id);
-            if (isShell && isElem) {
-              // Ambiguous ID — use selectMode to decide
-              if (shellMode) {
-                if (modelStore.plates.has(id)) modelStore.removePlate(id);
-                else modelStore.removeQuad(id);
-              } else {
-                modelStore.removeElement(id);
-              }
-            } else if (isShell) {
-              if (modelStore.plates.has(id)) modelStore.removePlate(id);
-              else modelStore.removeQuad(id);
-            } else if (isElem) {
-              modelStore.removeElement(id);
-            }
-          }
-        });
+      if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0 || uiStore.selectedShells.size > 0) {
+        // Delete strictly from the EXPLICIT selection channels (mirrors
+        // Toolbar.handleKeydown) — never infer an entity kind from a numeric id.
+        // Frames, plates and quads have independent id spaces, and shells live
+        // ONLY in selectedShells ("p<id>"/"q<id>"). The previous PRO handler
+        // re-derived shells from selectedElements ids (the exact id-collision bug
+        // delete-selection.ts fixes) and ignored selectedShells entirely, so a
+        // plate/quad selected in the 3D viewport could not be deleted by keyboard.
+        const targets = resolveDeleteTargets(
+          { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
+          (id) => modelStore.elements.has(id),
+        );
+        modelStore.deleteEntities(targets);
         uiStore.clearSelection();
         resultsStore.clear();
         return;

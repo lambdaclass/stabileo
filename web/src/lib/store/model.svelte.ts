@@ -884,11 +884,16 @@ function createModelStore() {
       nextId.plate = s.nextId.plate ?? 1;
       nextId.quad = s.nextId.quad ?? 1;
       nextId.connector = (s.nextId as any).connector ?? 1;
+      // `?? []` guards: a hand-edited/older/partial `.ded` may carry a
+      // `provenance` object without `assumptions`/`layerMappings`. restore()
+      // runs after the model is already mutated and is not wrapped in a
+      // rollback, so an unguarded `[...undefined]` / `.map` would throw mid-load
+      // and leave a half-loaded model instead of degrading gracefully.
       model.provenance = s.provenance
         ? {
             ...s.provenance,
-            assumptions: [...s.provenance.assumptions],
-            layerMappings: s.provenance.layerMappings.map((m) => ({ ...m })),
+            assumptions: [...(s.provenance.assumptions ?? [])],
+            layerMappings: (s.provenance.layerMappings ?? []).map((m) => ({ ...m })),
           }
         : undefined;
     },
@@ -1210,6 +1215,13 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
       model.quads = new Map(model.quads);
+      // Cascade to surface/thermal loads on this quad — otherwise the load
+      // dangles (still in the loads table, .ded and URL share) and is silently
+      // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
+      const keepLoad = (l: Load) =>
+        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id);
+      model.loads = model.loads.filter(keepLoad);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
     },
 
     updateQuad(id: number, data: Partial<{ materialId: number; thickness: number }>): void {

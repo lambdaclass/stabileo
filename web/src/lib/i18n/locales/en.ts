@@ -648,7 +648,6 @@ const en: Record<string, string> = {
   'config.liveCalc': 'Live calculation',
   'config.liveCalcOn': 'On',
   'config.liveCalcOff': 'Off',
-  'config.localAxes': 'Local axes',
   'config.rightHand': 'Right-hand rule',
   'config.leftHand': 'Left-hand rule',
   'config.axisConventionHelp': 'Right-hand: local Y follows right-hand rule (ex × ey = ez). Left-hand: negates Y axis. Affects which side of the bar diagrams are drawn on and how local axes are oriented. Does not change numerical results.',

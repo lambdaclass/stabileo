@@ -282,6 +282,11 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     c.cx = snapshot.connectors;
   }
 
+  // Provenance (CAD-draft "unreviewed" tag + assumptions): kept verbatim so the
+  // honesty badge survives URL share/embed — the one persistence path that
+  // crosses a trust boundary. Small structured object; deflate handles the size.
+  if (snapshot.provenance) c.pv = snapshot.provenance;
+
   // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?, connector?]
   const nid = snapshot.nextId;
   c.ni = [nid.node, nid.material, nid.section, nid.element, nid.support, nid.load,
@@ -423,6 +428,9 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
 
     // Connectors
     connectors: c.cx as ModelSnapshot['connectors'],
+
+    // Provenance (CAD-draft tag) — undefined for ordinary models
+    provenance: c.pv as ModelSnapshot['provenance'],
 
     // NextId
     nextId: (() => {

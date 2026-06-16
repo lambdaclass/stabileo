@@ -1265,6 +1265,25 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     }
   }
 
+  // Shells must reference existing nodes/materials too. Node deletion is
+  // selection-driven and intentionally does NOT cascade to shells (see
+  // deleteEntities), so deleting a corner node can leave a dangling shell whose
+  // phantom node id would otherwise be fed straight into the WASM shell
+  // assembly (no DOF mapping) — and pollute the connectivity graph below. Catch
+  // it here, mirroring the element check above.
+  for (const plate of (model.plates?.values() ?? [])) {
+    for (const nid of plate.nodes) {
+      if (!model.nodes.has(nid)) return `Plate ${plate.id}: node ${nid} not found`;
+    }
+    if (!model.materials.has(plate.materialId)) return `Plate ${plate.id}: material ${plate.materialId} not found`;
+  }
+  for (const quad of (model.quads?.values() ?? [])) {
+    for (const nid of quad.nodes) {
+      if (!model.nodes.has(nid)) return `Quad ${quad.id}: node ${nid} not found`;
+    }
+    if (!model.materials.has(quad.materialId)) return `Quad ${quad.id}: material ${quad.materialId} not found`;
+  }
+
   // Check graph connectivity (plate/quad adjacency + connector edges +
   // constraint edges)
   const adj = new Map<number, Set<number>>();

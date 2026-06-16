@@ -170,6 +170,26 @@ function validateDedalFile(data: unknown): data is DedalFile {
     }
   }
 
+  // Shells (plates/quads) node refs — ubiquitous in PRO/CAD-draft models. An
+  // orphan ref would load verbatim and feed a phantom node into shell render/
+  // solve (convertSurfaceLoad/WASM); reject the file like a bad element ref.
+  for (const [, q] of (s.quads as Array<[number, { nodes: number[] }]> | undefined) ?? []) {
+    if (!Array.isArray(q.nodes) || q.nodes.some((n) => !nodeIds.has(n))) return false;
+  }
+  for (const [, p] of (s.plates as Array<[number, { nodes: number[] }]> | undefined) ?? []) {
+    if (!Array.isArray(p.nodes) || p.nodes.some((n) => !nodeIds.has(n))) return false;
+  }
+
+  // Surface/thermal loads must target an existing quad (CAD drafts attach one
+  // per slab quad); a dangling target is silently dropped at solve time.
+  const quadIds = new Set(((s.quads as Array<[number, unknown]> | undefined) ?? []).map(([id]) => id));
+  for (const l of s.loads as Array<{ type: string; data?: { quadId?: number } }>) {
+    if ((l.type === 'surface3d' || l.type === 'thermalQuad3d')
+      && l.data?.quadId !== undefined && !quadIds.has(l.data.quadId)) {
+      return false;
+    }
+  }
+
   return true;
 }
 
