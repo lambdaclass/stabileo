@@ -1892,8 +1892,10 @@
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
 
-    const allPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children, ...shellsParent.children];
-    const hits = raycaster.intersectObjects(allPickable, true);
+    // Recurse from the parents directly (recursive=true) instead of spreading
+    // every child into a new array each hover frame — on shell-heavy models that
+    // spread allocated an array of thousands of objects per pointer-move.
+    const hits = raycaster.intersectObjects([nodesParent, elementsParent, supportsParent, shellsParent], true);
 
     let newHover: { type: string; id: number } | null = null;
     for (const hit of hits) {
@@ -1980,8 +1982,15 @@
       }
     }
 
-    // Invalidate if hover state changed (material colors were modified)
-    if (hoveredData !== newHover) invalidate();
+    // Re-render only when the hover highlight actually changed. newHover is a
+    // fresh object literal each call, so the old `hoveredData !== newHover`
+    // reference check fired on EVERY mouse move over the SAME object — a wasted
+    // full-scene redraw (thousands of draw calls on shell-heavy models). The
+    // tooltip is a DOM element (Svelte-reactive), so it doesn't need a WebGL
+    // redraw; only the material recolor (applyHoverColor/restoreColor, gated by
+    // value) does, and that happens exactly when the value below changes.
+    const sameHover = hoveredData?.id === newHover?.id && hoveredData?.type === newHover?.type;
+    if (!sameHover) invalidate();
     hoveredData = newHover;
     hoveredNodeId3D = (newHover?.type === 'node') ? newHover.id : null;
   }
