@@ -582,6 +582,8 @@ const es: Record<string, string> = {
   'config.localAxes': 'Ejes locales',
   'config.localAxesMembers': 'Ejes locales (barras)',
   'config.localAxesShells': 'Ejes locales (losas/muros)',
+  'config.smoothOrbit': 'Órbita suave (bajo detalle)',
+  'config.smoothOrbitHint': 'Muestra un wireframe rápido mientras rotás/desplazás/zoom, y restaura el detalle completo al soltar la cámara. Ayuda en modelos grandes.',
   'config.localAxesSelected': 'Selección',
   'config.localAxesAlways': 'Todos',
   'config.localAxesNever': 'Ninguno',

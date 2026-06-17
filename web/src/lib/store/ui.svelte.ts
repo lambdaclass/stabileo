@@ -154,6 +154,11 @@ function createUIStore() {
   let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
   let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
 
+  // Smooth-orbit LOD: when on, collapse to the batched wireframe during camera
+  // motion for ANY model (not just heavy ones). Opt-in so the default "keep full
+  // detail while orbiting" behaviour is preserved for those who prefer it.
+  let smoothOrbit3D = $state<boolean>(false);
+
   // 3D moment visualization style — per-mode
   let momentStyle3D_basic = $state<'double-arrow' | 'curved'>('curved');
   let momentStyle3D_pro = $state<'double-arrow' | 'curved'>('curved');
@@ -521,6 +526,8 @@ function createUIStore() {
 
     get renderMode3D() { return analysisMode === 'pro' ? renderMode3D_pro : renderMode3D_basic; },
     set renderMode3D(v: 'wireframe' | 'solid' | 'sections') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
+    get smoothOrbit3D() { return smoothOrbit3D; },
+    set smoothOrbit3D(v: boolean) { smoothOrbit3D = v; },
 
     get momentStyle3D() { return analysisMode === 'pro' ? momentStyle3D_pro : momentStyle3D_basic; },
     set momentStyle3D(v: 'double-arrow' | 'curved') { if (analysisMode === 'pro') momentStyle3D_pro = v; else momentStyle3D_basic = v; },

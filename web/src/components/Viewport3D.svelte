@@ -521,7 +521,9 @@
       const dt = resultsStore.diagramType;
       const resultsColoringActive = !!resultsStore.results3D
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
-      const heavyModel = isHeavyModel(
+      // Opt-in "smooth orbit" forces the heavy-model low-detail path for any
+      // model during camera motion (collapse to the single batched wireframe).
+      const heavyModel = uiStore.smoothOrbit3D || isHeavyModel(
         { elements: modelStore.elements.size, shells: modelStore.plates.size + modelStore.quads.size },
         uiStore.renderMode3D,
       );

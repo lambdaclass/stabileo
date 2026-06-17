@@ -64,6 +64,11 @@
               <option value="never">{t('config.localAxesNever')}</option>
             </select>
           </div>
+          <label class="checkbox-item" title={t('config.smoothOrbitHint')}>
+            <input type="checkbox" checked={uiStore.smoothOrbit3D}
+              onchange={(e) => { uiStore.smoothOrbit3D = e.currentTarget.checked; }} />
+            <span>{t('config.smoothOrbit')}</span>
+          </label>
         {/if}
         <label class="checkbox-item">
           <input type="checkbox" checked={gridVisible}
