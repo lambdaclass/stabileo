@@ -505,6 +505,12 @@
     // LineSegments2 draw call on as the stand-in.
     function setLowDetail(on: boolean): void {
       const dt = resultsStore.diagramType;
+      // Despiece manages element visibility itself (the original members are hidden
+      // and the separated free-body overlay is drawn instead). The heavy-model LOD
+      // fallback would force the batched wireframe visible during camera motion,
+      // flashing the un-separated model over the free-body view — so skip LOD
+      // entirely while Despiece is active. applyElementVisibility stays the authority.
+      if (dt === 'despiece') return;
       const resultsColoringActive = !!resultsStore.results3D
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
       const heavyModel = isHeavyModel(
