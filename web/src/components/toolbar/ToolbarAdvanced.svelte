@@ -465,15 +465,15 @@
           <input type="checkbox" bind:checked={resultsStore.showReactions} />
           {t('despiece.reactions')}
         </label>
-        {#if uiStore.analysisMode === '2d'}
+        <div style="display:flex; gap:4px; align-items:center;">
+          <span style="font-size:0.7rem; color:#9aa;">{t('despiece.loads')}</span>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceLoadMode === 'off'} onclick={() => uiStore.despieceLoadMode = 'off'}>{t('despiece.loadsOff')}</button>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceLoadMode === 'resultant'} onclick={() => uiStore.despieceLoadMode = 'resultant'}>{t('despiece.loadsResultant')}</button>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceLoadMode === 'all'} onclick={() => uiStore.despieceLoadMode = 'all'}>{t('despiece.loadsAll')}</button>
+        </div>
         <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#ccc; cursor:pointer;">
-          <input type="checkbox" bind:checked={uiStore.despieceShowLoads} />
-          {t('despiece.loads')}
-        </label>
-        {/if}
-        <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#ccc; cursor:pointer;">
-          <input type="checkbox" bind:checked={uiStore.despieceResultant} />
-          {t('despiece.resultant')}
+          <input type="checkbox" bind:checked={uiStore.despieceCombineVectors} />
+          {t('despiece.combinedVectors')}
         </label>
       </div>
     {/if}

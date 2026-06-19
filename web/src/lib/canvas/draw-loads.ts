@@ -41,7 +41,7 @@ interface PointLoadOnElemInfo {
  * - Global angle=0: +Z global (vertical up) = screen (0, 1)
  * - With angle: rotate from base direction by angle degrees CCW
  */
-function computeLoadDirection(
+export function computeLoadDirection(
   angle: number,
   isGlobal: boolean,
   cosTheta: number,

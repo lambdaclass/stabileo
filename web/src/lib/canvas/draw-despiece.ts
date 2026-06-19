@@ -26,6 +26,8 @@
 // Sign convention (local): N along the member axis (sign baked into direction);
 // V signed by the shear; M CCW for +M. Node action is the exact opposite.
 
+import { computeLoadDirection } from './draw-loads';
+
 export interface DespieceNode { x: number; y: number; }
 
 export interface DespieceElementForces {
@@ -276,6 +278,42 @@ export function remapLoadSpanToShrunk(a: number, b: number, lenOrig: number, len
   if (lenOrig < 1e-9) return { a: 0, b: lenShrunk };
   const s = lenShrunk / lenOrig;
   return { a: a * s, b: b * s };
+}
+
+/**
+ * Equivalent resultant of a (possibly trapezoidal, possibly partial) distributed
+ * member load with intensities qI at position `a` and qJ at position `b` (metres
+ * from node I). Returns the signed total magnitude and the centroid position
+ * (metres from node I, always inside [a,b]). Trapezoidal centroid:
+ *   x̄ = a + (L/3)·(qI + 2·qJ)/(qI + qJ),  L = b − a.
+ * For a near-zero net load (qI ≈ −qJ) the centroid falls back to the span middle.
+ */
+export function distributedResultant(qI: number, qJ: number, a: number, b: number): { magnitude: number; centroid: number } {
+  const L = b - a;
+  const magnitude = (qI + qJ) / 2 * L;
+  const sum = qI + qJ;
+  const centroid = Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum;
+  return { magnitude, centroid };
+}
+
+/**
+ * Resultant of an APPLIED distributed member load as a world-space force VECTOR
+ * (the direction the load physically pushes — same sense `drawDistributedLoads`
+ * renders, NOT an equilibrium/end-action arrow), plus magnitude and centroid.
+ *
+ * `cosT/sinT` are the member's i→j unit direction. The load force direction is
+ * `sign(magnitude) · forceDir`, where forceDir comes from the load's own
+ * angle/isGlobal (so a downward load → downward vector). Uses ONLY the load and
+ * geometry — never solver `ElementForces`.
+ */
+export function distributedResultantVector(
+  qI: number, qJ: number, a: number, b: number,
+  angle: number, isGlobal: boolean, cosT: number, sinT: number,
+): { wx: number; wy: number; magnitude: number; centroid: number } {
+  const { magnitude, centroid } = distributedResultant(qI, qJ, a, b);
+  const fdir = computeLoadDirection(angle ?? 0, isGlobal ?? false, cosT, sinT);
+  const s = magnitude >= 0 ? 1 : -1;
+  return { wx: s * fdir.dx, wy: s * fdir.dy, magnitude, centroid };
 }
 
 // ─── Click inspection (pure aggregation) ────────────────────────────

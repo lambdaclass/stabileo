@@ -748,7 +748,7 @@ export function syncDespiece3D(ctx: ResultsSyncContext, sep: number): void {
   const ver = modelStore.modelVersion;
   // Options that change WHAT is drawn → rebuild (they're infrequent user actions);
   // the pull-apart itself is animated cheaply via despieceUpdate.
-  const optSig = `${uiStore.despieceVectorMode}|${uiStore.despieceBasis}|${uiStore.despieceVectorSize}|${uiStore.despieceLabelSize}|${resultsStore.showReactions ? 1 : 0}|${uiStore.axisConvention3D}|${uiStore.despieceResultant ? 1 : 0}|${uiStore.despieceShowLoads ? 1 : 0}`;
+  const optSig = `${uiStore.despieceVectorMode}|${uiStore.despieceBasis}|${uiStore.despieceVectorSize}|${uiStore.despieceLabelSize}|${resultsStore.showReactions ? 1 : 0}|${uiStore.axisConvention3D}|${uiStore.despieceCombineVectors ? 1 : 0}|${uiStore.despieceLoadMode}`;
   const g = ctx.despieceGroup;
   const stale = !g || g.userData.despieceResultsRef !== r3d || g.userData.despieceModelVer !== ver || g.userData.despieceOptSig !== optSig;
   if (stale) {
@@ -767,7 +767,9 @@ export function syncDespiece3D(ctx: ResultsSyncContext, sep: number): void {
       vectorSize: uiStore.despieceVectorSize,
       labelSize: uiStore.despieceLabelSize,
       showReactions: resultsStore.showReactions,
-      resultant: uiStore.despieceResultant,
+      resultant: uiStore.despieceCombineVectors,
+      loads: modelStore.loads,
+      loadMode: uiStore.despieceLoadMode,
     });
     ng.userData.despieceResultsRef = r3d;
     ng.userData.despieceModelVer = ver;

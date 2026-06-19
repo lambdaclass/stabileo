@@ -15,8 +15,8 @@ const canvasStub = {
 };
 Object.defineProperty(globalThis, 'document', { value: { createElement: () => canvasStub }, configurable: true });
 
-import { createDespiece3DGroup, inspectMember3D, inspectNode3D, type DespieceVectorMode, type DespieceBasis } from '../despiece-3d';
-import type { Element, Node, Section } from '../../store/model.svelte';
+import { createDespiece3DGroup, inspectMember3D, inspectNode3D, type DespieceVectorMode, type DespieceBasis, type DespieceLoadMode } from '../despiece-3d';
+import type { Element, Node, Section, Load } from '../../store/model.svelte';
 import type { ElementForces3D, Reaction3D } from '../../engine/types-3d';
 
 function rel() { return { my: false, mz: false, t: false }; }
@@ -38,14 +38,17 @@ function build(o: {
   nodes: Map<number, Node>; elements: Map<number, Element>; forces: ElementForces3D[];
   sep?: number; reactions?: Reaction3D[]; vectorMode?: DespieceVectorMode; basis?: DespieceBasis;
   vectorSize?: number; labelSize?: number; showReactions?: boolean; resultant?: boolean;
+  loads?: Load[]; loadMode?: DespieceLoadMode;
 }) {
   return createDespiece3DGroup({
     elements: o.elements, nodes: o.nodes, forces: o.forces, reactions: o.reactions ?? [],
     sep: o.sep ?? 1, sections: SEC, leftHand: false, project2D: false,
     vectorMode: o.vectorMode, basis: o.basis, vectorSize: o.vectorSize, labelSize: o.labelSize,
     showReactions: o.showReactions, resultant: o.resultant,
+    loads: o.loads, loadMode: o.loadMode,
   });
 }
+const loadArrows = (g: THREE.Object3D) => { const out: THREE.Object3D[] = []; g.traverse(o => { if (o.userData?.despieceLoad) out.push(o); }); return out; };
 const arrows = (g: THREE.Object3D) => { const out: THREE.ArrowHelper[] = []; g.traverse(o => { if (o instanceof THREE.ArrowHelper) out.push(o); }); return out; };
 // Recover an ArrowHelper's pointing direction (ArrowHelper points along local +Y, rotated by its quaternion).
 const arrowDir = (a: THREE.ArrowHelper) => new THREE.Vector3(0, 1, 0).applyQuaternion(a.quaternion);
@@ -148,6 +151,60 @@ describe('despiece 3D builder', () => {
     const mIRes = endGroups(res, 'member').find(e => e.userData.nodeId === 1)!;
     expect(arrows(mISep).length).toBe(3);   // N + Vy + Vz, separate
     expect(arrows(mIRes).length).toBe(1);   // one composed force vector
+  });
+
+  it('3D loads: default off → no load glyphs even when loads exist', () => {
+    const { nodes, elements } = horizModel();
+    const loads: Load[] = [{ type: 'distributed3d', data: { id: 1, elementId: 1, qYI: 0, qYJ: 0, qZI: -5, qZJ: -5 } } as Load];
+    const g = build({ nodes, elements, forces: [ef(1)], loads });   // loadMode undefined → off
+    expect(loadArrows(g).length).toBe(0);
+  });
+
+  it('3D loads (All): distributed load draws member-tied glyphs that move with despieceUpdate(sep)', () => {
+    const { nodes, elements } = horizModel();
+    const loads: Load[] = [{ type: 'distributed3d', data: { id: 1, elementId: 1, qYI: 0, qYJ: 0, qZI: -5, qZJ: -5 } } as Load];
+    const g = build({ nodes, elements, forces: [ef(1)], loads, loadMode: 'all', vectorMode: 'members' });
+    const la = loadArrows(g);
+    expect(la.length).toBeGreaterThan(1);                 // sampled along the span
+    g.userData.despieceUpdate(0.0001);
+    const p0 = la[0].position.clone();
+    g.userData.despieceUpdate(1);
+    expect(p0.distanceTo(la[0].position)).toBeGreaterThan(0.01);  // rides the shrinking member
+  });
+
+  it('3D loads (Resultant): one equivalent arrow per distributed load', () => {
+    const { nodes, elements } = horizModel();
+    const loads: Load[] = [{ type: 'distributed3d', data: { id: 1, elementId: 1, qYI: 0, qYJ: 0, qZI: -5, qZJ: -5 } } as Load];
+    const g = build({ nodes, elements, forces: [ef(1)], loads, loadMode: 'resultant', vectorMode: 'members' });
+    expect(loadArrows(g).length).toBe(1);
+  });
+
+  it('3D loads (Resultant): downward distributed (qZ<0) → resultant points DOWN, independent of end forces', () => {
+    const { nodes, elements } = horizModel();           // +X member ⇒ ez = (0,0,1)
+    const loads: Load[] = [{ type: 'distributed3d', data: { id: 1, elementId: 1, qYI: 0, qYJ: 0, qZI: -5, qZJ: -5 } } as Load];
+    const g = build({ nodes, elements, forces: [ef(1, 10)], loads, loadMode: 'resultant', vectorMode: 'members' });
+    const d = arrowDir(loadArrows(g)[0] as THREE.ArrowHelper);
+    expect(d.z).toBeLessThan(0);                          // −ez = downward (applied direction)
+    // Same load with totally different solver end forces → same load direction.
+    const g2 = build({ nodes, elements, forces: [ef(1, 999)], loads, loadMode: 'resultant', vectorMode: 'members' });
+    const d2 = arrowDir(loadArrows(g2)[0] as THREE.ArrowHelper);
+    expect(d2.z).toBeCloseTo(d.z, 9);
+  });
+
+  it('3D loads (Resultant): point load resultant follows local direction at its remapped point', () => {
+    const { nodes, elements } = horizModel();
+    const loads: Load[] = [{ type: 'pointOnElement3d', data: { id: 1, elementId: 1, a: 2, py: 0, pz: -8 } } as Load];
+    const g = build({ nodes, elements, forces: [ef(1)], loads, loadMode: 'resultant', vectorMode: 'members' });
+    const arr = loadArrows(g);
+    expect(arr.length).toBe(1);
+    expect(arrowDir(arr[0] as THREE.ArrowHelper).z).toBeLessThan(0);   // pz<0 ⇒ −ez (down)
+  });
+
+  it('3D loads: nodal load drawn once at the node (not mirrored), independent of reactions', () => {
+    const { nodes, elements } = horizModel();
+    const loads: Load[] = [{ type: 'nodal3d', data: { id: 1, nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } } as Load];
+    const g = build({ nodes, elements, forces: [ef(1)], loads, loadMode: 'all', showReactions: false });
+    expect(loadArrows(g).length).toBe(1);                 // one combined force arrow, not a pair
   });
 
   it('3D end-face convention: constant moment ⇒ member I and J senses OPPOSITE', () => {

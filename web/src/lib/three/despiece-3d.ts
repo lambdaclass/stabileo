@@ -27,7 +27,7 @@ import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import { createTextSprite } from './selection-helpers';
 import type { ElementForces3D, Reaction3D } from '../engine/types-3d';
-import type { Element, Node, Section } from '../store/model.svelte';
+import type { Element, Node, Section, Load } from '../store/model.svelte';
 
 export const DESPIECE_COL = {
   axial: '#ff7070',
@@ -36,7 +36,16 @@ export const DESPIECE_COL = {
   reaction: '#00e676',
   member: '#9aa7c7',
   remnant: '#5a6478',
+  load: '#ffa726',
 };
+
+export type DespieceLoadMode = 'off' | 'resultant' | 'all';
+
+/** Equivalent resultant of a trapezoidal/partial distributed component (qI@a..qJ@b). */
+function distResultant(qI: number, qJ: number, a: number, b: number): { mag: number; centroid: number } {
+  const L = b - a, sum = qI + qJ;
+  return { mag: sum / 2 * L, centroid: Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum };
+}
 
 export type DespieceVectorMode = 'all' | 'members' | 'nodes';
 export type DespieceBasis = 'local' | 'global';
@@ -54,6 +63,9 @@ interface MemberAnim {
   line: THREE.Line;
   ends: Array<{ group: THREE.Group; node: V3; isNodeSide: boolean }>;
   remnants: Array<{ line: THREE.Line; node: V3; toEnd: 'I' | 'J' }>;
+  // Applied-load glyphs tied to this member: positioned at frac∈[0,1] from the I
+  // shrunken end to the J shrunken end, so they ride the member during the pull-apart.
+  loads: Array<{ obj: THREE.Object3D; frac: number }>;
 }
 
 export interface DespieceGroup extends THREE.Group {
@@ -191,6 +203,8 @@ export function createDespiece3DGroup(opts: {
   labelSize?: number;
   showReactions?: boolean;
   resultant?: boolean;
+  loads?: Load[];
+  loadMode?: DespieceLoadMode;
 }): DespieceGroup {
   const { elements, nodes, forces, reactions, sep, sections, leftHand, project2D } = opts;
   const vectorMode = opts.vectorMode ?? 'all';
@@ -199,6 +213,8 @@ export function createDespiece3DGroup(opts: {
   const lSize = Math.max(0.6, Math.min(2, opts.labelSize ?? 1));
   const showReactions = opts.showReactions ?? false;
   const resultant = opts.resultant ?? false;
+  const loadMode: DespieceLoadMode = opts.loadMode ?? 'off';
+  const loads = opts.loads ?? [];
   const wantMember = vectorMode !== 'nodes';
   const wantNode = vectorMode !== 'members';
   const labelNode = vectorMode === 'nodes';
@@ -217,6 +233,7 @@ export function createDespiece3DGroup(opts: {
   const colShear = new THREE.Color(DESPIECE_COL.shear).getHex();
   const colMoment = new THREE.Color(DESPIECE_COL.moment).getHex();
   const colReaction = new THREE.Color(DESPIECE_COL.reaction).getHex();
+  const colLoad = new THREE.Color(DESPIECE_COL.load).getHex();
   const memberMat = new THREE.LineBasicMaterial({ color: DESPIECE_COL.member });
   // Dash sized for the SHORT remnant (≈0.1·charLen at full separation) so the
   // ghost always reads as a dotted line rather than one long dash (prev 0.12·charLen
@@ -309,7 +326,7 @@ export function createDespiece3DGroup(opts: {
     line.frustumCulled = false;
     group.add(line);
 
-    const anim: MemberAnim = { pI, pJ, mid: { x: (pI.x + pJ.x) / 2, y: (pI.y + pJ.y) / 2, z: (pI.z + pJ.z) / 2 }, line, ends: [], remnants: [] };
+    const anim: MemberAnim = { pI, pJ, mid: { x: (pI.x + pJ.x) / 2, y: (pI.y + pJ.y) / 2, z: (pI.z + pJ.z) / 2 }, line, ends: [], remnants: [], loads: [] };
 
     const endSpecs: Array<['I' | 'J', number, V3, 1 | -1, number, number, number, number, number, number]> = [
       ['I', elem.nodeI, pI, 1, ef.nStart, ef.vyStart, ef.vzStart, ef.mxStart, ef.myStart, ef.mzStart],
@@ -332,6 +349,43 @@ export function createDespiece3DGroup(opts: {
       group.add(rline);
       anim.remnants.push({ line: rline, node, toEnd: end });
     }
+
+    // Applied MEMBER loads as external actions (amber), tied to the shrunken member
+    // via a frac∈[0,1] so they ride the member during the pull-apart animation.
+    // 'all' = sampled arrows along the span; 'resultant' = one equivalent arrow at
+    // the load centroid. Capped on large models (same gate as labels).
+    if (loadMode !== 'off' && showLabels) {
+      const Llen = Math.hypot(pJ.x - pI.x, pJ.y - pI.y, pJ.z - pI.z) || 1;
+      const addLoad = (dir: THREE.Vector3, len: number, frac: number) => {
+        const a = fixedArrow(dir, len, colLoad);
+        if (a) { a.userData.despieceLoad = true; group.add(a); anim.loads.push({ obj: a, frac: Math.max(0, Math.min(1, frac)) }); }
+      };
+      for (const ld of loads) {
+        if (ld.type === 'distributed3d' && ld.data.elementId === elem.id) {
+          const d = ld.data; const a0 = d.a ?? 0, b0 = d.b ?? Llen;
+          if (loadMode === 'resultant') {
+            const RY = distResultant(d.qYI, d.qYJ, a0, b0), RZ = distResultant(d.qZI, d.qZJ, a0, b0);
+            const dir = eyV.clone().multiplyScalar(RY.mag).add(ezV.clone().multiplyScalar(RZ.mag));
+            const wsum = Math.abs(RY.mag) + Math.abs(RZ.mag);
+            const centroid = wsum < 1e-9 ? (a0 + b0) / 2 : (Math.abs(RY.mag) * RY.centroid + Math.abs(RZ.mag) * RZ.centroid) / wsum;
+            if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, centroid / Llen);
+          } else {
+            const SAMPLES = 5;
+            for (let i = 0; i <= SAMPLES; i++) {
+              const t = i / SAMPLES, pos = a0 + (b0 - a0) * t;
+              const qY = d.qYI + (d.qYJ - d.qYI) * t, qZ = d.qZI + (d.qZJ - d.qZI) * t;
+              const dir = eyV.clone().multiplyScalar(qY).add(ezV.clone().multiplyScalar(qZ));
+              if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN * 0.7, pos / Llen);
+            }
+          }
+        } else if (ld.type === 'pointOnElement3d' && ld.data.elementId === elem.id) {
+          const d = ld.data;
+          const dir = eyV.clone().multiplyScalar(d.py).add(ezV.clone().multiplyScalar(d.pz));
+          if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, (d.a ?? 0) / Llen);
+        }
+      }
+    }
+
     members.push(anim);
   }
 
@@ -353,6 +407,28 @@ export function createDespiece3DGroup(opts: {
         lbl.scale.set(0.6 * lSize, 0.6 * lSize, 1);
         lbl.position.set(pos.x, pos.y - labelOffset, pos.z);
         group.add(lbl);
+      }
+    }
+  }
+
+  // Applied NODAL loads (global) as external actions — at the node, drawn once.
+  // Combined force arrow + moment glyph in both modes (3D nodal as separate world
+  // components is cluttered; the combined glyph reads cleanly). Capped on big models.
+  if (loadMode !== 'off' && showLabels) {
+    for (const ld of loads) {
+      if (ld.type !== 'nodal3d') continue;
+      const node = nodes.get(ld.data.nodeId);
+      if (!node) continue;
+      const pos = projectNodeToScene(node, project2D);
+      const fv = new THREE.Vector3(ld.data.fx, ld.data.fy, ld.data.fz);
+      if (fv.length() > FORCE_EPS) {
+        const a = fixedArrow(fv, ARROW_LEN, colLoad);
+        if (a) { a.position.set(pos.x, pos.y, pos.z); a.userData.despieceLoad = true; group.add(a); }
+      }
+      const mv = new THREE.Vector3(ld.data.mx, ld.data.my, ld.data.mz);
+      if (mv.length() > FORCE_EPS) {
+        const mg = momentArc(mv, ARROW_LEN * 0.5, colLoad);
+        if (mg) { mg.position.set(pos.x, pos.y, pos.z); mg.userData.despieceLoad = true; group.add(mg); }
       }
     }
   }
@@ -397,6 +473,15 @@ export function createDespiece3DGroup(opts: {
           rm.line.geometry.computeBoundingSphere();
           rm.line.computeLineDistances();
           rm.line.visible = show;
+        }
+        // Member load glyphs ride the shrunken span: position at frac from I→J end.
+        for (const ld of m.loads) {
+          ld.obj.position.set(
+            end.I.x + (end.J.x - end.I.x) * ld.frac,
+            end.I.y + (end.J.y - end.I.y) * ld.frac,
+            end.I.z + (end.J.z - end.I.z) * ld.frac,
+          );
+          ld.obj.visible = show;
         }
       }
     },

@@ -3,7 +3,7 @@ import {
   memberAxes, shrinkMember, despieceScales, drawDespiece,
   computeDespieceVectors, computeDespieceSegments, momentArrowhead,
   inspectMember, inspectNode, DESPIECE_MAX_GAP_FRAC,
-  despieceElementSpan, remapLoadSpanToShrunk,
+  despieceElementSpan, remapLoadSpanToShrunk, distributedResultant, distributedResultantVector,
   type DespieceCtx, type DespieceElementForces, type DespieceElement,
   type DespieceReaction, type DespieceVectorMode, type DespieceBasis,
 } from '../draw-despiece';
@@ -336,6 +336,57 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
     const r = remapLoadSpanToShrunk(1, 2, 4, 2);  // [1,2] of 4 → same fraction of 2
     expect(r.a).toBeCloseTo(0.5, 9);
     expect(r.b).toBeCloseTo(1.0, 9);
+  });
+
+  it('loads (resultant): uniform load → R = q·L at the span middle', () => {
+    const r = distributedResultant(10, 10, 0, 4);
+    expect(r.magnitude).toBeCloseTo(40, 9);
+    expect(r.centroid).toBeCloseTo(2, 9);
+  });
+
+  it('loads (resultant): triangular load → centroid at 2/3 from the zero end', () => {
+    const r = distributedResultant(0, 9, 0, 3);   // R = 13.5; x̄ = 2
+    expect(r.magnitude).toBeCloseTo(13.5, 9);
+    expect(r.centroid).toBeCloseTo(2, 9);
+  });
+
+  it('loads (resultant): partial trapezoid centroid stays inside [a,b]', () => {
+    const a = 1, b = 3;
+    const r = distributedResultant(4, 8, a, b);
+    expect(r.centroid).toBeGreaterThanOrEqual(a);
+    expect(r.centroid).toBeLessThanOrEqual(b);
+    expect(r.centroid).toBeCloseTo(a + (b - a) / 3 * (4 + 2 * 8) / (4 + 8), 9);
+  });
+
+  // ── Loads Resultant VECTOR (applied direction, not equilibrium) ──
+  it('loads-resultant vector: points along sign(magnitude)·forceDir (fix for the inverted arrow)', () => {
+    // Horizontal member, local load (angle 0): forceDir = (0, 1). A net-negative
+    // (downward) load must point along −forceDir = (0,−1). The earlier bug pointed
+    // it +forceDir (up), which looked like an equilibrium/end-action arrow.
+    const r = distributedResultantVector(-10, -10, 0, 4, 0, false, 1, 0);
+    expect(r.wx).toBeCloseTo(0, 9);
+    expect(r.wy).toBeCloseTo(-1, 9);            // downward
+    expect(r.magnitude).toBeCloseTo(-40, 9);
+    expect(r.centroid).toBeCloseTo(2, 9);
+  });
+
+  it('loads-resultant vector: upward load flips the direction', () => {
+    const down = distributedResultantVector(-10, -10, 0, 4, 0, false, 1, 0);
+    const up = distributedResultantVector(10, 10, 0, 4, 0, false, 1, 0);
+    expect(Math.sign(up.wy)).toBe(-Math.sign(down.wy));
+  });
+
+  it('loads-resultant vector: partial range → centroid inside the partial span', () => {
+    const r = distributedResultantVector(-6, -6, 1, 3, 0, false, 1, 0);
+    expect(r.centroid).toBeGreaterThanOrEqual(1);
+    expect(r.centroid).toBeLessThanOrEqual(3);
+    expect(r.centroid).toBeCloseTo(2, 9);
+  });
+
+  it('loads-resultant vector: derives from the load only — no ElementForces input', () => {
+    // Same load + geometry ⇒ identical vector regardless of any solver state.
+    expect(distributedResultantVector(-10, -10, 0, 4, 0, false, 1, 0))
+      .toEqual(distributedResultantVector(-10, -10, 0, 4, 0, false, 1, 0));
   });
 
   it('resultant mode: ONE composed force (F) per side instead of separate N/V', () => {

@@ -798,7 +798,7 @@
   $effect(() => {
     uiStore.despieceVectorMode; uiStore.despieceBasis;
     uiStore.despieceVectorSize; uiStore.despieceLabelSize;
-    uiStore.despieceResultant; uiStore.despieceShowLoads;
+    uiStore.despieceCombineVectors; uiStore.despieceLoadMode; modelStore.loads;
     resultsStore.showReactions; uiStore.despieceInspect;
     invalidate();
   });

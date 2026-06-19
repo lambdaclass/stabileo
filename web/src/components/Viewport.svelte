@@ -9,8 +9,8 @@
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
   import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
   import { drawDeformed } from '../lib/canvas/draw-deformed';
-  import { drawDespiece, despieceElementSpan, remapLoadSpanToShrunk, DESPIECE_LOAD_COLOR } from '../lib/canvas/draw-despiece';
-  import { drawDistributedLoads, drawPointLoadsOnElements, drawThermalLoads, drawMovingLoadAxles } from '../lib/canvas/draw-loads';
+  import { drawDespiece, despieceElementSpan, remapLoadSpanToShrunk, distributedResultantVector, DESPIECE_LOAD_COLOR } from '../lib/canvas/draw-despiece';
+  import { drawDistributedLoads, drawPointLoadsOnElements, drawThermalLoads, drawMovingLoadAxles, drawMomentSymbol } from '../lib/canvas/draw-loads';
   import { computeAxleWorldPositions } from '../lib/engine/moving-loads';
   import { drawInfluenceLine } from '../lib/canvas/draw-influence';
   import { drawModeShape, drawPlasticHinges } from '../lib/canvas/draw-modes';
@@ -195,7 +195,7 @@
   $effect(() => {
     uiStore.despieceVectorMode; uiStore.despieceBasis;
     uiStore.despieceVectorSize; uiStore.despieceLabelSize;
-    uiStore.despieceResultant; uiStore.despieceShowLoads;
+    uiStore.despieceCombineVectors; uiStore.despieceLoadMode;
     uiStore.despieceInspect;
     invalidate();
   });
@@ -828,32 +828,73 @@
           vectorMode: uiStore.despieceVectorMode,
           basis: uiStore.despieceBasis,
           showReactions: resultsStore.showReactions,
-          resultant: uiStore.despieceResultant,
+          resultant: uiStore.despieceCombineVectors,
           vectorSize: uiStore.despieceVectorSize,
           labelSize: uiStore.despieceLabelSize,
         });
         // Applied loads as EXTERNAL actions in free-body mode (drawn once, never
-        // mirrored). Element loads ride the SHRUNKEN member segment; nodal loads
-        // stay at their node. Distinct load color, reusing the standard helpers.
-        if (uiStore.despieceShowLoads) {
+        // mirrored). 'all' = full glyphs; 'resultant' = one equivalent force per
+        // load (distributed → arrow at its centroid). Element loads ride the
+        // SHRUNKEN member segment; nodal loads stay at their node. Amber color.
+        const loadMode = uiStore.despieceLoadMode;
+        if (loadMode !== 'off') {
           const LOAD = DESPIECE_LOAD_COLOR;
+          const vSize = Math.max(0.3, uiStore.despieceVectorSize);
+          const lSize = Math.max(0.3, uiStore.despieceLabelSize);
           const baseCtx = makeDrawContext();
+          // Fixed-size amber arrow (screen space) so big load values don't dominate.
+          const loadArrow = (sx: number, sy: number, ux: number, uy: number, label: string) => {
+            const len = 38 * vSize, tx = sx + ux * len, ty = sy + uy * len;
+            ctx!.strokeStyle = LOAD; ctx!.fillStyle = LOAD; ctx!.lineWidth = 2;
+            ctx!.beginPath(); ctx!.moveTo(sx, sy); ctx!.lineTo(tx, ty); ctx!.stroke();
+            const a = Math.atan2(uy, ux), h = 8;
+            ctx!.beginPath(); ctx!.moveTo(tx, ty);
+            ctx!.lineTo(tx - h * Math.cos(a - 0.4), ty - h * Math.sin(a - 0.4));
+            ctx!.lineTo(tx - h * Math.cos(a + 0.4), ty - h * Math.sin(a + 0.4));
+            ctx!.closePath(); ctx!.fill();
+            if (label) { ctx!.font = `${10 * lSize}px sans-serif`; ctx!.fillText(label, tx + 4, ty - 4); }
+          };
+          // Screen-space unit direction for a world force vector from a world anchor.
+          const screenDir = (wx: number, wy: number, fwx: number, fwy: number) => {
+            const a = uiStore.worldToScreen(wx, wy), b = uiStore.worldToScreen(wx + fwx, wy + fwy);
+            const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+            return { ux: dx / d, uy: dy / d };
+          };
           for (const load of modelStore.loads) {
             if (load.type === 'nodal') {
-              drawNodalLoad(load, LOAD, undefined, 0);
+              const d = load.data as { nodeId: number; fx?: number; fz?: number; fy?: number; my?: number; mz?: number };
+              const node = baseCtx.getNode(d.nodeId); if (!node) continue;
+              if (loadMode === 'all') { drawNodalLoad(load, LOAD, undefined, 0); continue; }
+              // resultant: one combined force arrow (fx, fz-up) + one moment glyph
+              const s = uiStore.worldToScreen(node.x, node.y);
+              const fx = d.fx ?? 0, fz = d.fz ?? d.fy ?? 0, fmag = Math.hypot(fx, fz);
+              if (fmag > 1e-9) { const dir = screenDir(node.x, node.y, fx, fz); loadArrow(s.x, s.y, dir.ux, dir.uy, `${fmag.toFixed(1)} kN`); }
+              const m = d.my ?? d.mz ?? 0;
+              if (Math.abs(m) > 1e-9) drawMomentSymbol(ctx!, s.x, s.y, m, LOAD, 16 * vSize);
             } else if (load.type === 'distributed' || load.type === 'pointOnElement') {
               const d = load.data as { elementId: number; qI?: number; qJ?: number; a?: number; b?: number; p?: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean };
-              const el = modelStore.elements.get(d.elementId);
-              if (!el) continue;
-              const ni = baseCtx.getNode(el.nodeI), nj = baseCtx.getNode(el.nodeJ);
-              if (!ni || !nj) continue;
+              const el = modelStore.elements.get(d.elementId); if (!el) continue;
+              const ni = baseCtx.getNode(el.nodeI), nj = baseCtx.getNode(el.nodeJ); if (!ni || !nj) continue;
               const span = despieceElementSpan(ni, nj, sep);
-              // Loads ride the shrunken segment: override getNode for THIS element's ends.
               const elemCtx = { ...baseCtx, getNode: (id: number) => id === el.nodeI ? span.aI : id === el.nodeJ ? span.aJ : baseCtx.getNode(id) };
-              if (load.type === 'distributed') {
+              if (load.type === 'distributed' && loadMode === 'resultant') {
+                // ONE equivalent resultant arrow at the (remapped) load centroid,
+                // pointing in the APPLIED load direction (e.g. downward load → down).
+                const a0 = d.a ?? 0, b0 = d.b ?? span.lenOrig;
+                const L = Math.hypot(nj.x - ni.x, nj.y - ni.y) || 1;
+                const r = distributedResultantVector(d.qI ?? 0, d.qJ ?? 0, a0, b0, d.angle ?? 0, d.isGlobal ?? false, (nj.x - ni.x) / L, (nj.y - ni.y) / L);
+                if (Math.abs(r.magnitude) > 1e-9 && span.lenOrig > 1e-9) {
+                  const f = r.centroid / span.lenOrig;
+                  const cx = span.aI.x + f * (span.aJ.x - span.aI.x), cy = span.aI.y + f * (span.aJ.y - span.aI.y);
+                  const dir = screenDir(cx, cy, r.wx, r.wy);
+                  const s = uiStore.worldToScreen(cx, cy);
+                  loadArrow(s.x, s.y, dir.ux, dir.uy, `${Math.abs(r.magnitude).toFixed(1)} kN`);
+                }
+              } else if (load.type === 'distributed') {
                 const rem = remapLoadSpanToShrunk(d.a ?? 0, d.b ?? span.lenOrig, span.lenOrig, span.lenShrunk);
                 drawDistributedLoads([{ elementId: d.elementId, qI: d.qI ?? 0, qJ: d.qJ ?? 0, angle: d.angle, isGlobal: d.isGlobal, a: rem.a, b: rem.b, caseColor: LOAD, caseName: '', labelYOffset: 0 }], elemCtx);
               } else {
+                // point load — already concentrated; draw at mapped point in both modes
                 const aRem = span.lenOrig > 1e-9 ? ((d.a ?? 0) / span.lenOrig) * span.lenShrunk : 0;
                 drawPointLoadsOnElements([{ elementId: d.elementId, a: aRem, p: d.p ?? 0, px: d.px, my: d.my ?? d.mz, angle: d.angle, isGlobal: d.isGlobal, caseColor: LOAD, caseName: '', labelYOffset: 0 }], elemCtx);
               }
