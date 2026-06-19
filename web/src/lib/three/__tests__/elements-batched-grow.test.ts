@@ -29,6 +29,24 @@ describe('ElementsBatched grow', () => {
     expect(drawCount(eb)).toBe(3);     // GPU draws all 3, not just the first
   });
 
+  it('recreates the geometry object on GROW (GPU refresh), reuses it on same-count flush', () => {
+    // Root-cause fix: an in-place setPositions keeps the same geometry id, and some
+    // GPU drivers then keep drawing the old (smaller) instance count after the model
+    // grows. On grow we swap in a fresh geometry so the renderer re-uploads.
+    const eb = new ElementsBatched();
+    eb.upsert(1, 0, 0, 0, 1, 0, 0); eb.flush();
+    const geo1 = eb.mesh.geometry;
+
+    // Same count (e.g. a node drag moving an endpoint) → geometry REUSED (no churn).
+    eb.upsert(1, 0, 0, 0, 2, 0, 0); eb.flush();
+    expect(eb.mesh.geometry).toBe(geo1);
+
+    // Grow (small model → bigger model) → geometry OBJECT replaced.
+    eb.upsert(2, 1, 0, 0, 2, 0, 0); eb.upsert(3, 2, 0, 0, 3, 0, 0); eb.flush();
+    expect(eb.mesh.geometry).not.toBe(geo1);
+    expect((eb.mesh.geometry as unknown as { instanceCount?: number }).instanceCount).toBe(3);
+  });
+
   it('clear() (model swap) then re-fill larger draws all segments', () => {
     const eb = new ElementsBatched();
     eb.upsert(1, 0, 0, 0, 1, 0, 0); eb.flush();
