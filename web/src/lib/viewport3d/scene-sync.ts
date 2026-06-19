@@ -91,12 +91,16 @@ export interface SceneSyncContext {
 
 // ─── 3D internal-joint glyph ──────────────────────────────────
 
-const JOINT_MARKER_GEO = new THREE.OctahedronGeometry(0.13);
-const JOINT_MARKER_MAT = new THREE.MeshBasicMaterial({ color: 0xffa500, wireframe: true });
-
-/** Small orange octahedron marking a released internal joint at a member end. */
+/** Small orange octahedron marking a released internal joint at a member end.
+ *  Geometry + material are created PER INSTANCE (not module-level singletons):
+ *  the marker is added to an element group that disposeObject()'s on every
+ *  re-sync, which disposes each child Mesh's geometry/material — a shared
+ *  singleton would be freed on the first re-sync and break all other markers. */
 function makeJointMarker(pos: { x: number; y: number; z: number }): THREE.Mesh {
-  const m = new THREE.Mesh(JOINT_MARKER_GEO, JOINT_MARKER_MAT);
+  const m = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.13),
+    new THREE.MeshBasicMaterial({ color: 0xffa500, wireframe: true }),
+  );
   m.position.set(pos.x, pos.y, pos.z);
   m.userData.jointGlyph = true;
   return m;

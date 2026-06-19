@@ -44,7 +44,10 @@ export type DespieceLoadMode = 'off' | 'resultant' | 'all';
 /** Equivalent resultant of a trapezoidal/partial distributed component (qI@a..qJ@b). */
 function distResultant(qI: number, qJ: number, a: number, b: number): { mag: number; centroid: number } {
   const L = b - a, sum = qI + qJ;
-  return { mag: sum / 2 * L, centroid: Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum };
+  const raw = Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum;
+  // Clamp to [a, b]: a sign-reversing trapezoid can otherwise place the
+  // resultant centroid far off the member (mirror of draw-despiece.ts).
+  return { mag: sum / 2 * L, centroid: Math.min(b, Math.max(a, raw)) };
 }
 
 export type DespieceVectorMode = 'all' | 'members' | 'nodes';

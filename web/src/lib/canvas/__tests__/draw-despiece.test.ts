@@ -518,6 +518,28 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
     expect(res.actions.length).toBe(3);
     expect(new Set(res.actions.map(a => `${a.elementId}${a.end}`))).toEqual(new Set(['1I', '2I', '3J']));
   });
+
+  // Regression (#2): the click-inspector's GLOBAL Fx/Fz must match the drawn
+  // member-side arrows exactly. The old endComponents used (+ax.ux*n, towardJ on
+  // n only), which flipped the axial sign and dropped towardJ from shear, so the
+  // inspected number contradicted the rendered arrow at BOTH ends.
+  it('inspector global Fx/Fz agree with the drawn member-side arrows (value + sign)', () => {
+    const j = inclined();
+    const args = { elements: j.elements, getNode: (id: number) => j.nodes.get(id), getElementForces: (id: number) => j.forces.get(id), basis: 'global' as DespieceBasis };
+    const inspected = inspectMember(args, 1)!;
+    const drawn = computeDespieceVectors(vecArgs({ ...j, vectorMode: 'members', basis: 'global' }));
+    for (const endAction of inspected.ends) {
+      for (const label of ['Fx', 'Fz'] as const) {
+        const insp = endAction.components.find(c => c.label === label)!;
+        const arrow = drawn.find(d => d.elementId === 1 && d.end === endAction.end && d.component === label)!;
+        // Same signed magnitude…
+        expect(insp.value).toBeCloseTo(arrow.value, 9);
+        // …and the rendered arrow direction agrees with that sign (Fx→x, Fz→y).
+        const arrowSign = label === 'Fx' ? Math.sign(arrow.dirx!) : Math.sign(arrow.diry!);
+        expect(arrowSign).toBe(Math.sign(insp.value) || 1);
+      }
+    }
+  });
 });
 
 describe('despiece size controls affect drawing', () => {

@@ -71,6 +71,13 @@
   let useDiaphragm = $state(false);
 
   function buildInput() {
+    // These analyses build with expandMemberOffsets:false, which ALSO skips
+    // sliding-joint / 3D-joint expansion (joints share the offset gate), so a
+    // jointed model would silently solve as rigid (too stiff). Refuse with a
+    // clear message instead — mirrors the ToolbarAdvanced guard, which this PRO
+    // panel previously lacked.
+    if (modelStore.hasSlidingJoints()) throw new Error(t('advanced.slidingUnsupported'));
+    if (modelStore.hasJoint3D()) throw new Error(t('advanced.jointsUnsupported'));
     const input = buildSolverInput3D(
       { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
         loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,

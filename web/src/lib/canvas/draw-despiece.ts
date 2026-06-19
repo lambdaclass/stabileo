@@ -292,7 +292,11 @@ export function distributedResultant(qI: number, qJ: number, a: number, b: numbe
   const L = b - a;
   const magnitude = (qI + qJ) / 2 * L;
   const sum = qI + qJ;
-  const centroid = Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum;
+  let centroid = Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum;
+  // A sign-reversing trapezoid (qI, qJ opposite signs → small-but-not-tiny sum)
+  // can place the centroid far outside [a, b]; clamp so the resultant arrow
+  // stays on the member span.
+  centroid = Math.min(b, Math.max(a, centroid));
   return { magnitude, centroid };
 }
 
@@ -327,8 +331,13 @@ function endComponents(
   ax: { ux: number; uy: number; px: number; py: number }, towardJ: 1 | -1, n: number, v: number, m: number, basis: DespieceBasis,
 ): Array<{ label: string; value: number }> {
   if (basis === 'global') {
-    const fx = ax.ux * (n * towardJ) + ax.px * v;
-    const fz = ax.uy * (n * towardJ) + ax.py * v;
+    // Use the SAME decomposition as the drawn arrows (forceComponents): the whole
+    // local end-action vector (−N along axis + V along the perp) is multiplied by
+    // towardJ. The previous form (+ax.ux*n, towardJ on n only) flipped the axial
+    // sign and dropped towardJ from the shear, so the inspected value contradicted
+    // the rendered arrow at both ends.
+    const fx = (-ax.ux * n + ax.px * v) * towardJ;
+    const fz = (-ax.uy * n + ax.py * v) * towardJ;
     return [{ label: 'Fx', value: fx }, { label: 'Fz', value: fz }, { label: 'M', value: m }];
   }
   return [{ label: 'N', value: n }, { label: 'V', value: v }, { label: 'M', value: m }];
