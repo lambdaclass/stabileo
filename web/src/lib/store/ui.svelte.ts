@@ -200,6 +200,11 @@ function createUIStore() {
   let despieceBasis = $state<'local' | 'global'>('local');
   let despieceVectorSize = $state<number>(1);   // arrow/glyph length multiplier
   let despieceLabelSize = $state<number>(1);     // label font multiplier
+  // Compose end actions into a single resultant force + single resultant moment
+  // glyph (OFF = separate components: N, Vy, Vz and per-axis moments).
+  let despieceResultant = $state<boolean>(false);
+  // Show applied loads as external actions in Free-body mode (OFF = clean view).
+  let despieceShowLoads = $state<boolean>(false);
   // Click inspection target while Despiece is active (null = none).
   let despieceInspect = $state<{ type: 'node' | 'member'; id: number } | null>(null);
 
@@ -589,6 +594,10 @@ function createUIStore() {
     set despieceVectorSize(v: number) { despieceVectorSize = Math.max(0.5, Math.min(2, v)); },
     get despieceLabelSize() { return despieceLabelSize; },
     set despieceLabelSize(v: number) { despieceLabelSize = Math.max(0.6, Math.min(2, v)); },
+    get despieceResultant() { return despieceResultant; },
+    set despieceResultant(v: boolean) { despieceResultant = v; },
+    get despieceShowLoads() { return despieceShowLoads; },
+    set despieceShowLoads(v: boolean) { despieceShowLoads = v; },
     get despieceInspect() { return despieceInspect; },
     set despieceInspect(v: { type: 'node' | 'member'; id: number } | null) { despieceInspect = v; },
 

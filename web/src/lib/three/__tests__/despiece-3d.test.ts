@@ -37,15 +37,18 @@ function horizModel() {
 function build(o: {
   nodes: Map<number, Node>; elements: Map<number, Element>; forces: ElementForces3D[];
   sep?: number; reactions?: Reaction3D[]; vectorMode?: DespieceVectorMode; basis?: DespieceBasis;
-  vectorSize?: number; labelSize?: number; showReactions?: boolean;
+  vectorSize?: number; labelSize?: number; showReactions?: boolean; resultant?: boolean;
 }) {
   return createDespiece3DGroup({
     elements: o.elements, nodes: o.nodes, forces: o.forces, reactions: o.reactions ?? [],
     sep: o.sep ?? 1, sections: SEC, leftHand: false, project2D: false,
-    vectorMode: o.vectorMode, basis: o.basis, vectorSize: o.vectorSize, labelSize: o.labelSize, showReactions: o.showReactions,
+    vectorMode: o.vectorMode, basis: o.basis, vectorSize: o.vectorSize, labelSize: o.labelSize,
+    showReactions: o.showReactions, resultant: o.resultant,
   });
 }
 const arrows = (g: THREE.Object3D) => { const out: THREE.ArrowHelper[] = []; g.traverse(o => { if (o instanceof THREE.ArrowHelper) out.push(o); }); return out; };
+// Recover an ArrowHelper's pointing direction (ArrowHelper points along local +Y, rotated by its quaternion).
+const arrowDir = (a: THREE.ArrowHelper) => new THREE.Vector3(0, 1, 0).applyQuaternion(a.quaternion);
 const endGroups = (g: THREE.Group, side?: 'member' | 'node') =>
   g.children.filter(c => c.userData?.despieceEnd && (side === undefined || c.userData.side === side));
 const reactionArrows = (g: THREE.Group) => arrows(g).filter(a => a.userData?.despieceReaction === true);
@@ -84,6 +87,121 @@ describe('despiece 3D builder', () => {
     expect(memberSide.position.distanceTo(node)).toBeGreaterThan(nodeSide.position.distanceTo(node));
     expect(nodeSide.position.distanceTo(node)).toBeLessThan(memberSide.position.distanceTo(node) * 0.6);
     expect(memberSide.position.distanceTo(nodeSide.position)).toBeGreaterThan(1e-3);
+  });
+
+  it('tension (N>0): member-side axial points toward the node, body stays in the gap', () => {
+    // Member along +x: node 1 at x=0, shrunken end at x>0. Tension → axial toward node (−x).
+    const { nodes, elements } = horizModel();
+    const g = build({ nodes, elements, forces: [ef(1, 10)], vectorMode: 'members', sep: 1 });
+    const memberSide = endGroups(g, 'member').find(e => e.userData.nodeId === 1)! as THREE.Group;
+    const anchorX = memberSide.position.x;                 // shrunken end (gap is between 0 and anchorX)
+    const ax = arrows(memberSide).find(a => Math.abs(arrowDir(a).x) > 0.9)!;   // axial = arrow along member axis
+    const dir = arrowDir(ax);
+    expect(dir.x).toBeLessThan(0);                         // points toward the node (out of the member end)
+    const len = ax.userData.glyphLen as number;
+    const tailX = memberSide.position.x + ax.position.x;
+    const tipX = tailX + dir.x * len;
+    expect(Math.max(tailX, tipX)).toBeLessThanOrEqual(anchorX + 1e-6);   // never extends over the solid member
+  });
+
+  it('compression (N<0): outward-flip keeps the axial arrow in the gap, not over the member', () => {
+    const { nodes, elements } = horizModel();
+    const g = build({ nodes, elements, forces: [ef(1, -10)], vectorMode: 'members', sep: 1 });
+    const memberSide = endGroups(g, 'member').find(e => e.userData.nodeId === 1)! as THREE.Group;
+    const anchorX = memberSide.position.x;
+    const ax = arrows(memberSide).find(a => Math.abs(arrowDir(a).x) > 0.9)!;
+    const dir = arrowDir(ax);
+    expect(dir.x).toBeGreaterThan(0);                      // axial points INTO the member (+x)
+    expect(ax.position.x).toBeLessThan(0);                 // ...but flipped outward so the body sits in the gap
+    const len = ax.userData.glyphLen as number;
+    const tailX = memberSide.position.x + ax.position.x;
+    const tipX = tailX + dir.x * len;
+    expect(Math.max(tailX, tipX)).toBeLessThanOrEqual(anchorX + 1e-6);   // head lands at the anchor, not beyond
+  });
+
+  it('3D end-face convention: axial OUT at both ends; shear SAME physical way at both ends', () => {
+    // Member along +X (ex=(1,0,0), ey=(0,1,0), ez=(0,0,1)). Constant tension
+    // (nStart=nEnd=+10) and a transverse shear with diagram convention vzStart=+5,
+    // vzEnd=−5 (opposite-signed at the two ends).
+    const { nodes, elements } = horizModel();
+    const f: ElementForces3D = { elementId: 1, length: 4, nStart: 10, nEnd: 10, vyStart: 0, vyEnd: 0,
+      vzStart: 5, vzEnd: -5, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0 } as ElementForces3D;
+    const g = build({ nodes, elements, forces: [f], vectorMode: 'members', sep: 1 });
+    const mI = endGroups(g, 'member').find(e => e.userData.nodeId === 1)! as THREE.Group;
+    const mJ = endGroups(g, 'member').find(e => e.userData.nodeId === 2)! as THREE.Group;
+    const axI = arrows(mI).find(a => Math.abs(arrowDir(a).x) > 0.9)!;
+    const axJ = arrows(mJ).find(a => Math.abs(arrowDir(a).x) > 0.9)!;
+    expect(arrowDir(axI).x).toBeLessThan(0);     // axial out at I (−x, toward node I)
+    expect(arrowDir(axJ).x).toBeGreaterThan(0);  // axial out at J (+x, toward node J)
+    const shI = arrows(mI).find(a => Math.abs(arrowDir(a).z) > 0.9)!;
+    const shJ = arrows(mJ).find(a => Math.abs(arrowDir(a).z) > 0.9)!;
+    expect(Math.sign(arrowDir(shI).z)).toBe(Math.sign(arrowDir(shJ).z)); // both same way ⇒ member balances
+  });
+
+  it('resultant toggle: separate N/Vy/Vz arrows (OFF) collapse to one force arrow (ON)', () => {
+    const { nodes, elements } = horizModel();
+    const f: ElementForces3D = { elementId: 1, length: 4, nStart: 10, nEnd: 10, vyStart: 5, vyEnd: -5,
+      vzStart: 4, vzEnd: -4, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0 } as ElementForces3D;
+    const sep = build({ nodes, elements, forces: [f], vectorMode: 'members', basis: 'local' });
+    const res = build({ nodes, elements, forces: [f], vectorMode: 'members', basis: 'local', resultant: true });
+    const mISep = endGroups(sep, 'member').find(e => e.userData.nodeId === 1)!;
+    const mIRes = endGroups(res, 'member').find(e => e.userData.nodeId === 1)!;
+    expect(arrows(mISep).length).toBe(3);   // N + Vy + Vz, separate
+    expect(arrows(mIRes).length).toBe(1);   // one composed force vector
+  });
+
+  it('3D end-face convention: constant moment ⇒ member I and J senses OPPOSITE', () => {
+    const { nodes, elements } = horizModel();
+    const f: ElementForces3D = { elementId: 1, length: 4, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0,
+      vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 8, mzEnd: 8 } as ElementForces3D;
+    const g = build({ nodes, elements, forces: [f], vectorMode: 'members', sep: 1 });
+    const mom = (grp: THREE.Object3D) => { let r: THREE.Object3D | null = null; grp.traverse(o => { if (o.userData?.despieceMoment) r = o; }); return r; };
+    const gI = mom(endGroups(g, 'member').find(e => e.userData.nodeId === 1)!)! as THREE.Object3D;
+    const gJ = mom(endGroups(g, 'member').find(e => e.userData.nodeId === 2)!)! as THREE.Object3D;
+    const aI = gI.userData.momentAxis as number[];
+    const aJ = gJ.userData.momentAxis as number[];
+    expect(aI[0] * aJ[0] + aI[1] * aJ[1] + aI[2] * aJ[2]).toBeCloseTo(-1, 6); // opposite ⇒ balances
+  });
+
+  it('moment glyph: present on member end with a moment, member vs node senses opposite', () => {
+    // ef() has mzStart = 8 → a real end moment.
+    const { nodes, elements } = horizModel();
+    const g = build({ nodes, elements, forces: [ef(1)], vectorMode: 'all', sep: 1 });
+    const momentGlyphs = (grp: THREE.Object3D) => { const out: THREE.Object3D[] = []; grp.traverse(o => { if (o.userData?.despieceMoment) out.push(o); }); return out; };
+    const memberSide = endGroups(g, 'member').find(e => e.userData.nodeId === 1)!;
+    const nodeSide = endGroups(g, 'node').find(e => e.userData.nodeId === 1)!;
+    const mGlyph = momentGlyphs(memberSide)[0];
+    const nGlyph = momentGlyphs(nodeSide)[0];
+    expect(mGlyph).toBeTruthy();
+    expect(nGlyph).toBeTruthy();
+    // The arc circles the resultant moment axis; node side flips it → opposite sense.
+    const ma = mGlyph.userData.momentAxis as number[];
+    const na = nGlyph.userData.momentAxis as number[];
+    const dot = ma[0] * na[0] + ma[1] * na[1] + ma[2] * na[2];
+    expect(dot).toBeCloseTo(-1, 6);
+  });
+
+  it('moment glyph: absent when the end has no moment', () => {
+    const { nodes, elements } = horizModel();
+    const noMoment: ElementForces3D = { ...ef(1), mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0 };
+    const g = build({ nodes, elements, forces: [noMoment], vectorMode: 'members', sep: 1 });
+    let count = 0; g.traverse(o => { if (o.userData?.despieceMoment) count++; });
+    expect(count).toBe(0);
+  });
+
+  it('moment glyphs are capped (suppressed) on large models, like labels', () => {
+    const nodes = new Map<number, Node>();
+    const elements = new Map<number, Element>();
+    const forces: ElementForces3D[] = [];
+    for (let i = 0; i < 70; i++) {
+      nodes.set(i + 1, { id: i + 1, x: i, y: 0, z: 0 });
+      nodes.set(i + 101, { id: i + 101, x: i, y: 1, z: 0 });
+      elements.set(i + 1, el(i + 1, i + 1, i + 101));
+      forces.push(ef(i + 1));
+    }
+    const g = build({ nodes, elements, forces });
+    let count = 0; g.traverse(o => { if (o.userData?.despieceMoment) count++; });
+    expect(count).toBe(0);
   });
 
   it('high-valence node: 4 members yield 4 DISTINCT node-side origins', () => {

@@ -274,6 +274,31 @@ export function syncElements(ctx: SceneSyncContext): void {
   eb.flush();
 }
 
+/**
+ * Authoritative element-mesh visibility, re-asserted on despiece toggle AND on
+ * every scene re-sync (model load, example/tab switch, element edit, render-mode
+ * change). Despiece hides element meshes by setting `group.visible = false`;
+ * `syncElements` reuses groups on a matching signature WITHOUT resetting their
+ * visibility, so a stale `false` could ride along onto a reused group for a new
+ * model — the root cause of the intermittent "only some members render" bug.
+ * Calling this after each sync guarantees the live despiece state wins.
+ *
+ * The batched wireframe shows only in wireframe mode AND when not in despiece.
+ * `elementsParent` is forced visible to undo any transient LOD hide that a model
+ * load mid-orbit could otherwise leave stuck.
+ */
+export function applyElementVisibility(
+  groups: Map<number, THREE.Group>,
+  batchedMesh: THREE.Object3D | null | undefined,
+  elementsParent: THREE.Object3D | null | undefined,
+  hideForDespiece: boolean,
+  wireframe: boolean,
+): void {
+  if (batchedMesh) batchedMesh.visible = !hideForDespiece && wireframe;
+  for (const g of groups.values()) g.visible = !hideForDespiece;
+  if (elementsParent) elementsParent.visible = true;
+}
+
 // ─── Supports ────────────────────────────────────────────────
 
 export function syncSupports(ctx: SceneSyncContext): void {

@@ -465,6 +465,16 @@
           <input type="checkbox" bind:checked={resultsStore.showReactions} />
           {t('despiece.reactions')}
         </label>
+        {#if uiStore.analysisMode === '2d'}
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#ccc; cursor:pointer;">
+          <input type="checkbox" bind:checked={uiStore.despieceShowLoads} />
+          {t('despiece.loads')}
+        </label>
+        {/if}
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#ccc; cursor:pointer;">
+          <input type="checkbox" bind:checked={uiStore.despieceResultant} />
+          {t('despiece.resultant')}
+        </label>
       </div>
     {/if}
     <div class="adv-btn-wrap" style="grid-column: span 2">

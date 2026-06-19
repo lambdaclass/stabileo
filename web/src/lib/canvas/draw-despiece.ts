@@ -45,7 +45,11 @@ export type DespieceBasis = 'local' | 'global';
 /** Member shrink per end at full separation (fraction of member length). */
 export const DESPIECE_MAX_GAP_FRAC = 0.28;
 /** Node action anchor: this fraction out from the node toward the member end. */
-const NODE_ANCHOR_FRAC = 0.28;
+const NODE_ANCHOR_FRAC = 0.18;
+/** Dotted ghost remnant starts this fraction out from the node (so it begins
+ *  AFTER the node-side vector at NODE_ANCHOR_FRAC, not under it) and runs to the
+ *  shrunken member end. */
+const REMNANT_START_FRAC = 0.35;
 /** Small perpendicular stagger (screen px) so the member/node pair don't overlap. */
 const PERP_PX = 7;
 
@@ -120,6 +124,7 @@ interface ComputeArgs {
   vectorMode: DespieceVectorMode;
   basis: DespieceBasis;
   showReactions: boolean;
+  resultant?: boolean;
   fmt: (v: number) => string;
 }
 
@@ -129,17 +134,27 @@ interface ForceComp { label: string; value: number; dirx: number; diry: number; 
 function forceComponents(
   ax: { ux: number; uy: number; px: number; py: number }, towardJ: 1 | -1, n: number, v: number, basis: DespieceBasis,
 ): ForceComp[] {
+  // FREE-BODY END-FACE CONVENTION. ElementForces are internal DIAGRAM values
+  // (section stress resultants): for a member I→J, axial is the same sign at both
+  // ends, but shear is opposite-signed at the two ends (e.g. SS beam vStart=+wL/2,
+  // vEnd=−wL/2). The member-side end ACTION is the diagram-assembled local vector
+  // multiplied by `towardJ` (+1 at I, −1 at J), which encodes the opposite outward
+  // face normals at the two cuts. With that single factor:
+  //   • axial (same-sign values)  → points OUT of both ends for tension;
+  //   • shear (opposite-sign vals) → points the SAME physical way at both ends
+  //     (e.g. both up under gravity ⇒ the separated member is in equilibrium).
+  // Per the requested convention: at I, Qz>0 → +local z; at J, Qz>0 → −local z.
   if (basis === 'global') {
-    const fx = ax.ux * (n * towardJ) + ax.px * v;
-    const fz = ax.uy * (n * towardJ) + ax.py * v;
+    const fx = (-ax.ux * n + ax.px * v) * towardJ;
+    const fz = (-ax.uy * n + ax.py * v) * towardJ;
     return [
       { label: 'Fx', value: fx, dirx: Math.sign(fx) || 1, diry: 0 },
       { label: 'Fz', value: fz, dirx: 0, diry: Math.sign(fz) || 1 },
     ];
   }
   return [
-    { label: 'N', value: n, dirx: ax.ux * Math.sign(n) * towardJ, diry: ax.uy * Math.sign(n) * towardJ },
-    { label: 'V', value: v, dirx: ax.px * Math.sign(v), diry: ax.py * Math.sign(v) },
+    { label: 'N', value: n, dirx: -ax.ux * Math.sign(n) * towardJ, diry: -ax.uy * Math.sign(n) * towardJ },
+    { label: 'V', value: v, dirx: ax.px * Math.sign(v) * towardJ, diry: ax.py * Math.sign(v) * towardJ },
   ];
 }
 
@@ -150,7 +165,7 @@ function forceComponents(
  * are one-sided (never mirrored).
  */
 export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
-  const { elements, getNode, getElementForces, reactions, sep, vectorMode, basis, showReactions, fmt } = args;
+  const { elements, getNode, getElementForces, reactions, sep, vectorMode, basis, showReactions, resultant, fmt } = args;
   const out: DespieceVector[] = [];
   if (sep <= 0.05) return out;
   const wantMember = vectorMode !== 'nodes';
@@ -177,7 +192,17 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
       const mOutx = -ax.ux * towardJ, mOuty = -ax.uy * towardJ;
       const nOutx = -ugx, nOuty = -ugy;
 
-      for (const c of forceComponents(ax, towardJ, n, v, basis)) {
+      // Resultant mode: ONE composed force vector (N+V) instead of separate
+      // components; the moment stays a single arc → the end shows 2 glyphs.
+      const comps: ForceComp[] = resultant
+        ? (() => {
+            const fx = (-ax.ux * n + ax.px * v) * towardJ;
+            const fy = (-ax.uy * n + ax.py * v) * towardJ;
+            const mag = Math.hypot(fx, fy);
+            return mag > 1e-6 ? [{ label: 'F', value: mag, dirx: fx / mag, diry: fy / mag }] : [];
+          })()
+        : forceComponents(ax, towardJ, n, v, basis);
+      for (const c of comps) {
         if (Math.abs(c.value) <= 1e-6) continue;
         const color = c.label === 'V' ? COL.shear : COL.axial;
         if (wantMember) out.push({ side: 'member', glyph: 'force', origin: memberEnd, dirx: c.dirx, diry: c.diry, outx: mOutx, outy: mOuty, perpSign: 1, value: c.value, labelText: `${c.label} ${fmt(c.value)}`, color, elementId: el.id, end, nodeId, component: c.label });
@@ -185,8 +210,14 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
       }
 
       if (Math.abs(m) > 1e-6) {
-        if (wantMember) out.push({ side: 'member', glyph: 'moment', origin: memberEnd, ccw: m > 0, value: m, labelText: `M ${fmt(m)}`, color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
-        if (wantNode) out.push({ side: 'node', glyph: 'moment', origin: nodeAnchor, ccw: m < 0, value: m, labelText: labelNode ? `M ${fmt(m)}` : '', color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
+        // Moment follows the same per-end face convention: at I (towardJ=+1) a
+        // positive end moment reads clockwise; at J (towardJ=−1) it reads
+        // counter-clockwise (same physical bending ⇒ opposite glyph sense at the
+        // two faces, so the separated member balances). ccw = (m·towardJ) < 0.
+        // Node-side is the equal/opposite action on the joint.
+        const memberCcw = m * towardJ < 0;
+        if (wantMember) out.push({ side: 'member', glyph: 'moment', origin: memberEnd, ccw: memberCcw, value: m, labelText: `M ${fmt(m)}`, color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
+        if (wantNode) out.push({ side: 'node', glyph: 'moment', origin: nodeAnchor, ccw: !memberCcw, value: m, labelText: labelNode ? `M ${fmt(m)}` : '', color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
       }
     }
   }
@@ -204,19 +235,47 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
   return out;
 }
 
-/** Dashed remnant segments (original node → shrunken member end), one per end. */
+/** Dashed remnant segments — start a bit out from the node (REMNANT_START_FRAC,
+ *  past the node-side vector) and run to the shrunken member end, one per end. */
 export function computeDespieceSegments(args: Pick<ComputeArgs, 'elements' | 'getNode' | 'sep'>): DespieceSegment[] {
   const { elements, getNode, sep } = args;
   const out: DespieceSegment[] = [];
   if (sep <= 0.05) return out;
+  const startAt = (node: DespieceNode, end: DespieceNode): DespieceNode =>
+    ({ x: node.x + (end.x - node.x) * REMNANT_START_FRAC, y: node.y + (end.y - node.y) * REMNANT_START_FRAC });
   for (const el of elements) {
     const ni = getNode(el.nodeI), nj = getNode(el.nodeJ);
     if (!ni || !nj) continue;
     const { i: aI, j: aJ } = shrinkMember(ni, nj, sep);
-    out.push({ from: { ...ni }, to: aI, elementId: el.id, end: 'I', nodeId: el.nodeI });
-    out.push({ from: { ...nj }, to: aJ, elementId: el.id, end: 'J', nodeId: el.nodeJ });
+    out.push({ from: startAt(ni, aI), to: aI, elementId: el.id, end: 'I', nodeId: el.nodeI });
+    out.push({ from: startAt(nj, aJ), to: aJ, elementId: el.id, end: 'J', nodeId: el.nodeJ });
   }
   return out;
+}
+
+// ─── Loads in free-body mode (external actions, drawn once) ─────────
+
+/** Distinct load color — separate from axial/shear/moment/reaction. */
+export const DESPIECE_LOAD_COLOR = '#ffa726';
+
+export interface DespieceElementSpan { aI: DespieceNode; aJ: DespieceNode; lenOrig: number; lenShrunk: number; }
+
+/** Shrunken endpoints + original/shrunk lengths for a member at separation `sep`. */
+export function despieceElementSpan(ni: DespieceNode, nj: DespieceNode, sep: number): DespieceElementSpan {
+  const { i: aI, j: aJ } = shrinkMember(ni, nj, sep);
+  return { aI, aJ, lenOrig: Math.hypot(nj.x - ni.x, nj.y - ni.y), lenShrunk: Math.hypot(aJ.x - aI.x, aJ.y - aI.y) };
+}
+
+/**
+ * Remap a member-load span [a,b] (metres from node I on the ORIGINAL member) onto
+ * the shrunken visible segment, so the load glyph runs along the shortened member
+ * and never extends past it. Proportional: full-span (0..L) → whole shrunk segment;
+ * a partial range maps to the same fraction of the shrunk segment.
+ */
+export function remapLoadSpanToShrunk(a: number, b: number, lenOrig: number, lenShrunk: number): { a: number; b: number } {
+  if (lenOrig < 1e-9) return { a: 0, b: lenShrunk };
+  const s = lenShrunk / lenOrig;
+  return { a: a * s, b: b * s };
 }
 
 // ─── Click inspection (pure aggregation) ────────────────────────────
@@ -302,6 +361,7 @@ export interface DespieceCtx {
   vectorMode?: DespieceVectorMode;
   basis?: DespieceBasis;
   showReactions?: boolean;
+  resultant?: boolean;
   vectorSize?: number;
   labelSize?: number;
 }
@@ -343,6 +403,7 @@ export function drawDespiece(d: DespieceCtx): void {
   const vectorMode = d.vectorMode ?? 'all';
   const basis = d.basis ?? 'local';
   const showReactions = d.showReactions ?? true;
+  const resultant = d.resultant ?? false;
   const vSize = Math.max(0.3, d.vectorSize ?? 1);
   const lSize = Math.max(0.3, d.labelSize ?? 1);
   const axialLen = AXIAL_PX * vSize, shearLen = SHEAR_PX * vSize, arcR = ARC_R * vSize;
@@ -374,7 +435,7 @@ export function drawDespiece(d: DespieceCtx): void {
   // Force/moment vectors.
   const vectors = computeDespieceVectors({
     elements: d.elements, getNode: d.getNode, getElementForces: d.getElementForces,
-    reactions: d.reactions, sep: d.sep, vectorMode, basis, showReactions, fmt: d.fmt,
+    reactions: d.reactions, sep: d.sep, vectorMode, basis, showReactions, resultant, fmt: d.fmt,
   });
   for (const vec of vectors) {
     const s = d.worldToScreen(vec.origin.x, vec.origin.y);

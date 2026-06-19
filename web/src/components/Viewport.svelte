@@ -9,7 +9,7 @@
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
   import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
   import { drawDeformed } from '../lib/canvas/draw-deformed';
-  import { drawDespiece } from '../lib/canvas/draw-despiece';
+  import { drawDespiece, despieceElementSpan, remapLoadSpanToShrunk, DESPIECE_LOAD_COLOR } from '../lib/canvas/draw-despiece';
   import { drawDistributedLoads, drawPointLoadsOnElements, drawThermalLoads, drawMovingLoadAxles } from '../lib/canvas/draw-loads';
   import { computeAxleWorldPositions } from '../lib/engine/moving-loads';
   import { drawInfluenceLine } from '../lib/canvas/draw-influence';
@@ -188,13 +188,14 @@
     }
   });
   $effect(() => { resultsStore.deformedScale; resultsStore.diagramScale; invalidate(); });
-  $effect(() => { resultsStore.showDiagramValues; invalidate(); });
+  $effect(() => { resultsStore.showDiagramValues; resultsStore.drawPositiveTowardLocalAxes; invalidate(); });
   $effect(() => { resultsStore.colorMapKind; invalidate(); });
   $effect(() => { resultsStore.showReactions; resultsStore.showConstraintForces; invalidate(); });
   // Despiece controls must redraw the canvas immediately (no mouse-move needed).
   $effect(() => {
     uiStore.despieceVectorMode; uiStore.despieceBasis;
     uiStore.despieceVectorSize; uiStore.despieceLabelSize;
+    uiStore.despieceResultant; uiStore.despieceShowLoads;
     uiStore.despieceInspect;
     invalidate();
   });
@@ -827,9 +828,38 @@
           vectorMode: uiStore.despieceVectorMode,
           basis: uiStore.despieceBasis,
           showReactions: resultsStore.showReactions,
+          resultant: uiStore.despieceResultant,
           vectorSize: uiStore.despieceVectorSize,
           labelSize: uiStore.despieceLabelSize,
         });
+        // Applied loads as EXTERNAL actions in free-body mode (drawn once, never
+        // mirrored). Element loads ride the SHRUNKEN member segment; nodal loads
+        // stay at their node. Distinct load color, reusing the standard helpers.
+        if (uiStore.despieceShowLoads) {
+          const LOAD = DESPIECE_LOAD_COLOR;
+          const baseCtx = makeDrawContext();
+          for (const load of modelStore.loads) {
+            if (load.type === 'nodal') {
+              drawNodalLoad(load, LOAD, undefined, 0);
+            } else if (load.type === 'distributed' || load.type === 'pointOnElement') {
+              const d = load.data as { elementId: number; qI?: number; qJ?: number; a?: number; b?: number; p?: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean };
+              const el = modelStore.elements.get(d.elementId);
+              if (!el) continue;
+              const ni = baseCtx.getNode(el.nodeI), nj = baseCtx.getNode(el.nodeJ);
+              if (!ni || !nj) continue;
+              const span = despieceElementSpan(ni, nj, sep);
+              // Loads ride the shrunken segment: override getNode for THIS element's ends.
+              const elemCtx = { ...baseCtx, getNode: (id: number) => id === el.nodeI ? span.aI : id === el.nodeJ ? span.aJ : baseCtx.getNode(id) };
+              if (load.type === 'distributed') {
+                const rem = remapLoadSpanToShrunk(d.a ?? 0, d.b ?? span.lenOrig, span.lenOrig, span.lenShrunk);
+                drawDistributedLoads([{ elementId: d.elementId, qI: d.qI ?? 0, qJ: d.qJ ?? 0, angle: d.angle, isGlobal: d.isGlobal, a: rem.a, b: rem.b, caseColor: LOAD, caseName: '', labelYOffset: 0 }], elemCtx);
+              } else {
+                const aRem = span.lenOrig > 1e-9 ? ((d.a ?? 0) / span.lenOrig) * span.lenShrunk : 0;
+                drawPointLoadsOnElements([{ elementId: d.elementId, a: aRem, p: d.p ?? 0, px: d.px, my: d.my ?? d.mz, angle: d.angle, isGlobal: d.isGlobal, caseColor: LOAD, caseName: '', labelYOffset: 0 }], elemCtx);
+              }
+            }
+          }
+        }
       } else if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const dkind = dt as DiagramKind;
         // Check if we should render envelope dual curves
@@ -841,7 +871,7 @@
           const envData = dkind === 'moment' ? envSrc.moment
                         : dkind === 'shear'  ? envSrc.shear
                         :                       envSrc.axial;
-          drawEnvelopeDiagrams(envData, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues);
+          drawEnvelopeDiagrams(envData, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, resultsStore.drawPositiveTowardLocalAxes);
           // Draw envelope legend
           ctx.save();
           ctx.font = '11px sans-serif';
@@ -867,10 +897,10 @@
               computeDiagramGlobalMax(resultsStore.overlayResults, dkind),
             );
             const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
-            drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax);
-            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, sharedMax);
+            drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
           } else {
-            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, undefined);
+            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
           }
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {

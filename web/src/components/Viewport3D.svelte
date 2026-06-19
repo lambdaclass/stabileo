@@ -17,7 +17,7 @@
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
-  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, syncDespiece3D as _syncDespiece3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
 
@@ -779,10 +779,16 @@
 
   // Hide the real member meshes while despiece is active (the overlay draws its
   // own separated members + ghost remnants). Picking helpers stay raycastable.
+  // This is the SINGLE authority for element-mesh visibility: it also depends on
+  // model identity + render mode so it re-runs (after the sync effects above,
+  // which are defined earlier and therefore flush first) on every model load /
+  // example switch / edit / render-mode change. That guarantees a stale
+  // `visible = false` left by despiece can never persist on a signature-matched
+  // reused group — the root cause of the intermittent partial 3D render.
   $effect(() => {
     const hide = resultsStore.diagramType === 'despiece';
-    if (elementsBatched?.mesh) elementsBatched.mesh.visible = !hide;
-    for (const g of elementGroups.values()) g.visible = !hide;
+    modelStore.modelVersion; modelStore.nodes; modelStore.elements; // re-assert after re-sync
+    applyElementVisibility(elementGroups, elementsBatched?.mesh, elementsParent, hide, uiStore.renderMode3D === 'wireframe');
     invalidate();
   });
 
@@ -792,6 +798,7 @@
   $effect(() => {
     uiStore.despieceVectorMode; uiStore.despieceBasis;
     uiStore.despieceVectorSize; uiStore.despieceLabelSize;
+    uiStore.despieceResultant; uiStore.despieceShowLoads;
     resultsStore.showReactions; uiStore.despieceInspect;
     invalidate();
   });
@@ -801,6 +808,7 @@
     resultsStore.diagramType;
     resultsStore.diagramScale;
     resultsStore.showDiagramValues;
+    resultsStore.drawPositiveTowardLocalAxes; // rebuild diagrams immediately on toggle (no re-solve)
     resultsStore.overlayResults3D;
     resultsStore.isEnvelopeActive;
     resultsStore.fullEnvelope3D;

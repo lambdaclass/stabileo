@@ -272,6 +272,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
         resultsStore.showDiagramValues,
         leftHand,
         modelStore.sections,
+        resultsStore.drawPositiveTowardLocalAxes,
       );
       ctx.resultsParent.add(ctx.diagramGroup);
     }
@@ -286,6 +287,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
       resultsStore.showDiagramValues,
       leftHand,
       modelStore.sections,
+      resultsStore.drawPositiveTowardLocalAxes,
     );
     ctx.resultsParent.add(ctx.diagramGroup);
 
@@ -301,6 +303,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
         false, // don't show values on overlay to avoid clutter
         leftHand,
         modelStore.sections,
+        resultsStore.drawPositiveTowardLocalAxes,
       );
       // Tint overlay with orange color
       ctx.overlayDiagramGroup.traverse((child) => {
@@ -745,7 +748,7 @@ export function syncDespiece3D(ctx: ResultsSyncContext, sep: number): void {
   const ver = modelStore.modelVersion;
   // Options that change WHAT is drawn → rebuild (they're infrequent user actions);
   // the pull-apart itself is animated cheaply via despieceUpdate.
-  const optSig = `${uiStore.despieceVectorMode}|${uiStore.despieceBasis}|${uiStore.despieceVectorSize}|${uiStore.despieceLabelSize}|${resultsStore.showReactions ? 1 : 0}|${uiStore.axisConvention3D}`;
+  const optSig = `${uiStore.despieceVectorMode}|${uiStore.despieceBasis}|${uiStore.despieceVectorSize}|${uiStore.despieceLabelSize}|${resultsStore.showReactions ? 1 : 0}|${uiStore.axisConvention3D}|${uiStore.despieceResultant ? 1 : 0}|${uiStore.despieceShowLoads ? 1 : 0}`;
   const g = ctx.despieceGroup;
   const stale = !g || g.userData.despieceResultsRef !== r3d || g.userData.despieceModelVer !== ver || g.userData.despieceOptSig !== optSig;
   if (stale) {
@@ -764,6 +767,7 @@ export function syncDespiece3D(ctx: ResultsSyncContext, sep: number): void {
       vectorSize: uiStore.despieceVectorSize,
       labelSize: uiStore.despieceLabelSize,
       showReactions: resultsStore.showReactions,
+      resultant: uiStore.despieceResultant,
     });
     ng.userData.despieceResultsRef = r3d;
     ng.userData.despieceModelVer = ver;

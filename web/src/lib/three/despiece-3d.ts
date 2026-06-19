@@ -41,8 +41,9 @@ export const DESPIECE_COL = {
 export type DespieceVectorMode = 'all' | 'members' | 'nodes';
 export type DespieceBasis = 'local' | 'global';
 
-const MAX_GAP_FRAC = 0.18;   // member shrink per end at full separation
-const NODE_FRAC = 0.32;      // node action anchor: fraction from node toward shrunken end
+const MAX_GAP_FRAC = 0.32;   // member shrink per end at full separation (a bit > 2D's 0.28 — 3D perspective shrinks the apparent gap)
+const NODE_FRAC = 0.18;      // node action anchor: fraction from node toward shrunken end
+const REMNANT_START_FRAC = 0.35; // dotted remnant starts past the node-side vector
 const LABEL_ELEM_CAP = 60;   // suppress per-end labels above this many elements (arrows stay)
 const FORCE_EPS = 1e-3;      // kN / kN·m below which a component is treated as zero
 
@@ -76,27 +77,78 @@ function fixedArrow(dir: THREE.Vector3, len: number, colorHex: number): THREE.Ar
   return a;
 }
 
+/**
+ * Curved moment/torsion glyph: a ~270° arc in the plane perpendicular to the
+ * resultant moment vector, with a cone arrowhead at the open end giving the
+ * right-hand rotation sense. Built once and parented to the end group, so the
+ * pull-apart animation only translates it (no per-frame cost). The caller flips
+ * the moment vector for the node side so member/node senses stay opposite.
+ */
+function momentArc(momentVec: THREE.Vector3, radius: number, colorHex: number): THREE.Group | null {
+  if (momentVec.length() < FORCE_EPS || radius < 1e-9) return null;
+  const axis = momentVec.clone().normalize();
+  // Two orthonormal vectors spanning the plane of the arc.
+  let u = Math.abs(axis.x) > 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  u = u.sub(axis.clone().multiplyScalar(axis.dot(u))).normalize();
+  const v = axis.clone().cross(u).normalize();   // right-hand: sweep u→v curls around +axis
+
+  const grp = new THREE.Group();
+  grp.userData.despieceMoment = true;
+  grp.userData.momentAxis = [axis.x, axis.y, axis.z];
+
+  const SEG = 28, sweep = Math.PI * 1.5;
+  const pts: number[] = [];
+  const at = (a: number) => u.clone().multiplyScalar(Math.cos(a) * radius).add(v.clone().multiplyScalar(Math.sin(a) * radius));
+  for (let i = 0; i <= SEG; i++) { const p = at((i / SEG) * sweep); pts.push(p.x, p.y, p.z); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
+  const arc = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: colorHex }));
+  arc.frustumCulled = false;
+  grp.add(arc);
+
+  // Arrowhead at the arc end, pointing along the tangent (direction of increasing angle).
+  const endPt = at(sweep);
+  const tangent = u.clone().multiplyScalar(-Math.sin(sweep)).add(v.clone().multiplyScalar(Math.cos(sweep))).normalize();
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.22, radius * 0.5, 10), new THREE.MeshBasicMaterial({ color: colorHex }));
+  cone.position.copy(endPt);
+  cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+  cone.frustumCulled = false;
+  grp.add(cone);
+  return grp;
+}
+
 interface ForceArrow { dir: THREE.Vector3; len: number; color: number; }
 
 /** Member-side force arrows in the requested basis (sign baked into direction). */
 function memberForceArrows(
   ex: THREE.Vector3, ey: THREE.Vector3, ez: THREE.Vector3, axialOut: 1 | -1,
   n: number, vy: number, vz: number, basis: DespieceBasis, arrowLen: number,
-  colAxial: number, colShear: number,
+  colAxial: number, colShear: number, resultant: boolean,
 ): ForceArrow[] {
   const out: ForceArrow[] = [];
-  if (basis === 'global') {
-    // Member-end force vector in world coords (N along ex with the display sign,
-    // plus the two shear components), then split into world Fx/Fy/Fz.
-    const f = ex.clone().multiplyScalar(n * axialOut).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz));
-    if (Math.abs(f.x) > FORCE_EPS) out.push({ dir: new THREE.Vector3(Math.sign(f.x), 0, 0), len: arrowLen, color: colAxial });
-    if (Math.abs(f.y) > FORCE_EPS) out.push({ dir: new THREE.Vector3(0, Math.sign(f.y), 0), len: arrowLen, color: colAxial });
-    if (Math.abs(f.z) > FORCE_EPS) out.push({ dir: new THREE.Vector3(0, 0, Math.sign(f.z)), len: arrowLen, color: colAxial });
+  // FREE-BODY END-FACE CONVENTION (mirrors 2D): the member-side end ACTION is the
+  // local force vector assembled from diagram values, multiplied by `axialOut`
+  // (+1 at I, −1 at J) which encodes the opposite outward face normals at the two
+  // cuts. ElementForces3D are diagram values: axial same-sign at both ends, shear
+  // opposite-sign — so the single axialOut factor makes axial point OUT at both
+  // ends for tension and makes shear point the SAME physical way at both ends
+  // (the separated member is then in equilibrium under its end actions + loads).
+  const fVec = ex.clone().multiplyScalar(-n).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz)).multiplyScalar(axialOut);
+  // Resultant mode: ONE composed force arrow (the true member-side force vector).
+  if (resultant) {
+    if (fVec.length() > FORCE_EPS) out.push({ dir: fVec, len: arrowLen, color: colAxial });
     return out;
   }
-  if (Math.abs(n) > FORCE_EPS) out.push({ dir: ex.clone().multiplyScalar(Math.sign(n) * axialOut), len: arrowLen, color: colAxial });
-  const shear = ey.clone().multiplyScalar(vy).add(ez.clone().multiplyScalar(vz));
-  if (shear.length() > FORCE_EPS) out.push({ dir: shear, len: arrowLen * 0.85, color: colShear });
+  if (basis === 'global') {
+    if (Math.abs(fVec.x) > FORCE_EPS) out.push({ dir: new THREE.Vector3(Math.sign(fVec.x), 0, 0), len: arrowLen, color: colAxial });
+    if (Math.abs(fVec.y) > FORCE_EPS) out.push({ dir: new THREE.Vector3(0, Math.sign(fVec.y), 0), len: arrowLen, color: colAxial });
+    if (Math.abs(fVec.z) > FORCE_EPS) out.push({ dir: new THREE.Vector3(0, 0, Math.sign(fVec.z)), len: arrowLen, color: colAxial });
+    return out;
+  }
+  // Local, separate components: axial N + the two shears Vy, Vz (each ×axialOut).
+  if (Math.abs(n) > FORCE_EPS) out.push({ dir: ex.clone().multiplyScalar(-Math.sign(n) * axialOut), len: arrowLen, color: colAxial });
+  if (Math.abs(vy) > FORCE_EPS) out.push({ dir: ey.clone().multiplyScalar(Math.sign(vy) * axialOut), len: arrowLen * 0.85, color: colShear });
+  if (Math.abs(vz) > FORCE_EPS) out.push({ dir: ez.clone().multiplyScalar(Math.sign(vz) * axialOut), len: arrowLen * 0.85, color: colShear });
   return out;
 }
 
@@ -107,7 +159,7 @@ function endLabel(
 ): string {
   const parts: string[] = [];
   if (basis === 'global') {
-    const f = ex.clone().multiplyScalar(n * axialOut).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz));
+    const f = ex.clone().multiplyScalar(-n).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz)).multiplyScalar(axialOut);
     if (Math.abs(f.x) > FORCE_EPS) parts.push(`Fx ${f.x.toFixed(1)}`);
     if (Math.abs(f.y) > FORCE_EPS) parts.push(`Fy ${f.y.toFixed(1)}`);
     if (Math.abs(f.z) > FORCE_EPS) parts.push(`Fz ${f.z.toFixed(1)}`);
@@ -138,6 +190,7 @@ export function createDespiece3DGroup(opts: {
   vectorSize?: number;
   labelSize?: number;
   showReactions?: boolean;
+  resultant?: boolean;
 }): DespieceGroup {
   const { elements, nodes, forces, reactions, sep, sections, leftHand, project2D } = opts;
   const vectorMode = opts.vectorMode ?? 'all';
@@ -145,6 +198,7 @@ export function createDespiece3DGroup(opts: {
   const vSize = Math.max(0.5, Math.min(2, opts.vectorSize ?? 1));
   const lSize = Math.max(0.6, Math.min(2, opts.labelSize ?? 1));
   const showReactions = opts.showReactions ?? false;
+  const resultant = opts.resultant ?? false;
   const wantMember = vectorMode !== 'nodes';
   const wantNode = vectorMode !== 'members';
   const labelNode = vectorMode === 'nodes';
@@ -161,9 +215,13 @@ export function createDespiece3DGroup(opts: {
   const showLabels = elements.size <= LABEL_ELEM_CAP;
   const colAxial = new THREE.Color(DESPIECE_COL.axial).getHex();
   const colShear = new THREE.Color(DESPIECE_COL.shear).getHex();
+  const colMoment = new THREE.Color(DESPIECE_COL.moment).getHex();
   const colReaction = new THREE.Color(DESPIECE_COL.reaction).getHex();
   const memberMat = new THREE.LineBasicMaterial({ color: DESPIECE_COL.member });
-  const remnantMat = new THREE.LineDashedMaterial({ color: DESPIECE_COL.remnant, dashSize: 0.12 * charLen, gapSize: 0.1 * charLen, transparent: true, opacity: 0.55 });
+  // Dash sized for the SHORT remnant (≈0.1·charLen at full separation) so the
+  // ghost always reads as a dotted line rather than one long dash (prev 0.12·charLen
+  // exceeded the remnant length → looked solid / invisible).
+  const remnantMat = new THREE.LineDashedMaterial({ color: DESPIECE_COL.remnant, dashSize: 0.022 * charLen, gapSize: 0.018 * charLen, transparent: true, opacity: 0.7 });
 
   const members: MemberAnim[] = [];
 
@@ -175,9 +233,44 @@ export function createDespiece3DGroup(opts: {
     const eg = new THREE.Group();
     eg.userData = { despieceEnd: true, side, elemId, nodeId };
     const sign = side === 'member' ? 1 : -1;  // node action is opposite
-    for (const fa of memberForceArrows(ex, ey, ez, axialOut, n, vy, vz, basis, ARROW_LEN, colAxial, colShear)) {
-      const a = fixedArrow(fa.dir.clone().multiplyScalar(sign), fa.len, fa.color);
-      if (a) eg.add(a);
+    // Outward = from the end toward the node/gap (−ex·axialOut). Used to keep the
+    // arrow BODY in the gap: if a force points into the member, draw it with the
+    // head at the anchor and the tail extending outward, so it never lies on the
+    // solid member (parity with the 2D outward-flip).
+    const outward = ex.clone().multiplyScalar(-axialOut);
+    for (const fa of memberForceArrows(ex, ey, ez, axialOut, n, vy, vz, basis, ARROW_LEN, colAxial, colShear, resultant)) {
+      const d = fa.dir.clone().multiplyScalar(sign);
+      const a = fixedArrow(d, fa.len, fa.color);
+      if (!a) continue;
+      if (d.dot(outward) < 0) {
+        // points into the member → shift tail outward so the head lands on the anchor
+        const u = d.clone().normalize().multiplyScalar(-fa.len);
+        a.position.set(u.x, u.y, u.z);
+      }
+      eg.add(a);
+    }
+    // Curved moment/torsion glyphs. Capped like labels to limit clutter. Per-end
+    // face flip (axialOut) so I/J senses are opposite for the same stored moment,
+    // plus the node-side flip (sign) for the action/reaction pair. Resultant mode
+    // → ONE composed moment arc; otherwise separate arcs per local axis (T,My,Mz).
+    if (showLabels) {
+      const k = sign * axialOut;
+      if (resultant) {
+        const mVec = ex.clone().multiplyScalar(mx).add(ey.clone().multiplyScalar(my)).add(ez.clone().multiplyScalar(mz)).multiplyScalar(k);
+        const mg = momentArc(mVec, ARROW_LEN * 0.5, colMoment);
+        if (mg) eg.add(mg);
+      } else {
+        // Separate per-axis arcs (radii staggered so co-incident axes don't overlap).
+        const comps: Array<[THREE.Vector3, number]> = [
+          [ex.clone().multiplyScalar(mx * k), 0.50],
+          [ey.clone().multiplyScalar(my * k), 0.62],
+          [ez.clone().multiplyScalar(mz * k), 0.74],
+        ];
+        for (const [cv, r] of comps) {
+          const mg = momentArc(cv, ARROW_LEN * r, colMoment);
+          if (mg) eg.add(mg);
+        }
+      }
     }
     // Exactly one side carries the label: member-side by default, node-side only
     // in 'nodes' mode (where node vectors are all that's shown).
@@ -293,7 +386,12 @@ export function createDespiece3DGroup(opts: {
         for (const rm of m.remnants) {
           const shrunk = rm.toEnd === 'I' ? end.I : end.J;
           const rp = rm.line.geometry.getAttribute('position') as THREE.BufferAttribute;
-          rp.setXYZ(0, rm.node.x, rm.node.y, rm.node.z);
+          // Remnant starts AFTER the node-side vector (REMNANT_START_FRAC toward the
+          // shrunken end) so the dotted ghost never runs under the node-side arrow.
+          const sx = rm.node.x + (shrunk.x - rm.node.x) * REMNANT_START_FRAC;
+          const sy = rm.node.y + (shrunk.y - rm.node.y) * REMNANT_START_FRAC;
+          const sz = rm.node.z + (shrunk.z - rm.node.z) * REMNANT_START_FRAC;
+          rp.setXYZ(0, sx, sy, sz);
           rp.setXYZ(1, shrunk.x, shrunk.y, shrunk.z);
           rp.needsUpdate = true;
           rm.line.geometry.computeBoundingSphere();
@@ -328,7 +426,7 @@ function end3DComponents(
   n: number, vy: number, vz: number, mx: number, my: number, mz: number, basis: DespieceBasis,
 ): Array<{ label: string; value: number }> {
   if (basis === 'global') {
-    const f = ex.clone().multiplyScalar(n * axialOut).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz));
+    const f = ex.clone().multiplyScalar(-n).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz)).multiplyScalar(axialOut);
     return [{ label: 'Fx', value: f.x }, { label: 'Fy', value: f.y }, { label: 'Fz', value: f.z }, { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
   }
   return [{ label: 'N', value: n }, { label: 'Vy', value: vy }, { label: 'Vz', value: vz }, { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];

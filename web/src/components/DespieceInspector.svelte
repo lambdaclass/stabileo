@@ -47,6 +47,27 @@
 
   const fmt = (v: number) => v.toFixed(2);
   function close() { uiStore.despieceInspect = null; }
+
+  // Keep the panel clear of the app header + floating toolbar, both of which sit
+  // above the viewport with a higher z-index and a DYNAMIC height (the toolbar
+  // grows when tool-options are shown). Measure their bottom edges live instead
+  // of hardcoding a fragile pixel value. Falls back to a safe default if neither
+  // element is present.
+  let topPx = $state(70);
+  $effect(() => {
+    if (!active) return;
+    const measure = () => {
+      const headerBottom = (document.querySelector('.app-header') as HTMLElement | null)?.getBoundingClientRect().bottom ?? 50;
+      const ftBottom = (document.querySelector('.floating-tools') as HTMLElement | null)?.getBoundingClientRect().bottom ?? 0;
+      topPx = Math.round(Math.max(headerBottom, ftBottom) + 10);
+    };
+    measure();
+    const ft = document.querySelector('.floating-tools');
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (ft && ro) ro.observe(ft);
+    window.addEventListener('resize', measure);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', measure); };
+  });
 </script>
 
 {#if active && inspect}

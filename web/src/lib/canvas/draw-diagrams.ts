@@ -61,6 +61,7 @@ export function drawDiagrams(
   showAllValues: boolean = false,
   colorOverride?: { fill: string; stroke: string; text: string },
   globalMaxOverride?: number,
+  towardLocalAxes: boolean = false,
 ): void {
   const colors = colorOverride ?? DIAGRAM_COLORS[kind];
 
@@ -103,8 +104,27 @@ export function drawDiagrams(
     }
     diagram.elementId = ef.elementId;
 
-    drawSingleDiagram(dc, diagram, scale, colors, ef.length, nodeI, nodeJ, kind, showAllValues, globalMax);
+    drawSingleDiagram(dc, diagram, scale, colors, ef.length, nodeI, nodeJ, kind, showAllValues, globalMax, towardLocalAxes);
   }
+}
+
+/**
+ * Side on which a positive diagram value is plotted.
+ *
+ * The offset is `value · perp` with `perp = (-dy, dx)/L`, i.e. the member's
+ * local +z (UP for a horizontal member). Engine moments are hogging-positive,
+ * so a sagging moment (engine value < 0) naturally plots on the structural /
+ * tension side (DOWN); shear & axial use raw values and plot toward local +z (UP).
+ *
+ * Default (towardLocalAxes = false): unify N/V/M on the structural side — keep
+ * moment as-is, flip shear & axial so positive plots DOWN (right for columns).
+ * towardLocalAxes = true: unify toward the local positive axis — flip moment,
+ * keep shear & axial (so all plot toward local +z, UP for a horizontal member).
+ */
+function diagramSideFactor(kind: DiagramKind, towardLocalAxes: boolean): 1 | -1 {
+  const isMoment = kind === 'moment';
+  if (towardLocalAxes) return isMoment ? -1 : 1;
+  return isMoment ? 1 : -1;
 }
 
 function drawSingleDiagram(
@@ -118,10 +138,12 @@ function drawSingleDiagram(
   kind: DiagramKind,
   showAllValues: boolean = false,
   globalMax: number = 1,
+  towardLocalAxes: boolean = false,
 ) {
   const { ctx } = dc;
   const pts = diagram.points;
   if (pts.length < 2) return;
+  const sideFactor = diagramSideFactor(kind, towardLocalAxes);
 
   // Element direction and perpendicular (terna derecha)
   // Perpendicular = 90° CCW from element direction = LEFT of i→j
@@ -141,8 +163,8 @@ function drawSingleDiagram(
     screenBaseline.push(base);
 
     const offsetWorld = {
-      x: p.x + p.value * scale / 50 * perpX,
-      y: p.y + p.value * scale / 50 * perpY,
+      x: p.x + p.value * sideFactor * scale / 50 * perpX,
+      y: p.y + p.value * sideFactor * scale / 50 * perpY,
     };
     screenDiagram.push(dc.worldToScreen(offsetWorld.x, offsetWorld.y));
   }
@@ -286,6 +308,7 @@ export function drawEnvelopeDiagrams(
   dc: DrawContext,
   scaleMult: number = 1,
   showAllValues: boolean = false,
+  towardLocalAxes: boolean = false,
 ): void {
   if (envelopeData.globalMax < 1e-10) return;
 
@@ -293,6 +316,7 @@ export function drawEnvelopeDiagrams(
   const scale = DIAGRAM_PX / envelopeData.globalMax;
   const kind = envelopeData.kind;
   const colors = ENVELOPE_COLORS[kind];
+  const sideFactor = diagramSideFactor(kind, towardLocalAxes);
 
   for (const elemEnv of envelopeData.elements) {
     const elem = dc.getElement(elemEnv.elementId);
@@ -323,14 +347,14 @@ export function drawEnvelopeDiagrams(
 
       const posVal = elemEnv.posValues[j];
       screenPos.push(dc.worldToScreen(
-        wx + posVal * scale / 50 * perpX,
-        wy + posVal * scale / 50 * perpY,
+        wx + posVal * sideFactor * scale / 50 * perpX,
+        wy + posVal * sideFactor * scale / 50 * perpY,
       ));
 
       const negVal = elemEnv.negValues[j];
       screenNeg.push(dc.worldToScreen(
-        wx + negVal * scale / 50 * perpX,
-        wy + negVal * scale / 50 * perpY,
+        wx + negVal * sideFactor * scale / 50 * perpX,
+        wy + negVal * sideFactor * scale / 50 * perpY,
       ));
     }
 

@@ -3,6 +3,7 @@ import {
   memberAxes, shrinkMember, despieceScales, drawDespiece,
   computeDespieceVectors, computeDespieceSegments, momentArrowhead,
   inspectMember, inspectNode, DESPIECE_MAX_GAP_FRAC,
+  despieceElementSpan, remapLoadSpanToShrunk,
   type DespieceCtx, type DespieceElementForces, type DespieceElement,
   type DespieceReaction, type DespieceVectorMode, type DespieceBasis,
 } from '../draw-despiece';
@@ -16,6 +17,7 @@ function vecArgs(opts: {
   vectorMode: DespieceVectorMode;
   basis?: DespieceBasis;
   showReactions?: boolean;
+  resultant?: boolean;
   sep?: number;
 }) {
   return {
@@ -27,6 +29,7 @@ function vecArgs(opts: {
     vectorMode: opts.vectorMode,
     basis: opts.basis ?? ('local' as DespieceBasis),
     showReactions: opts.showReactions ?? false,
+    resultant: opts.resultant ?? false,
     fmt: (v: number) => v.toFixed(1),
   };
 }
@@ -230,15 +233,17 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
     ]),
   });
 
-  it('dashed remnant segment exists from each original node to its shrunken end', () => {
+  it('dashed remnant starts PAST the node-side vector (REMNANT_START_FRAC), not at the node', () => {
     const j = simpleJoint();
     const segs = computeDespieceSegments({ elements: j.elements, getNode: (id) => j.nodes.get(id), sep: 1 });
     // 2 elements × 2 ends = 4 remnants
     expect(segs.length).toBe(4);
     const e1I = segs.find(s => s.elementId === 1 && s.end === 'I')!;
-    expect(e1I.from).toEqual({ x: 0, y: 0 });          // original node
-    expect(e1I.to.x).toBeGreaterThan(0);                // shrunken end pulled inward
-    expect(e1I.to.x).toBeLessThan(2);
+    const aI = shrinkMember({ x: 0, y: 0 }, { x: 4, y: 0 }, 1).i;
+    expect(e1I.from.x).toBeGreaterThan(0);              // does NOT start at the node
+    expect(e1I.from.x).toBeLessThan(aI.x);              // ends before the shrunken end
+    expect(e1I.from.x / aI.x).toBeCloseTo(0.35, 6);     // REMNANT_START_FRAC of the way in
+    expect(e1I.to).toEqual(aI);                          // runs to the shrunken member end
   });
 
   it('member-side vector anchors AT the shrunken member end', () => {
@@ -267,6 +272,126 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
     const m = v.find(x => x.side === 'member' && x.component === 'N' && x.elementId === 1 && x.end === 'I')!;
     const n = v.find(x => x.side === 'node' && x.component === 'N' && x.elementId === 1 && x.end === 'I')!;
     expect(Math.hypot(m.origin.x - n.origin.x, m.origin.y - n.origin.y)).toBeGreaterThan(0.1);
+  });
+
+  // ── Free-body end-face convention (member equilibrium) ──
+  // Horizontal member I(0,0)→J(4,0); local-z perp p = (0,1) (up). ElementForces
+  // are diagram values: axial same-sign at both ends, shear opposite-sign.
+  const horizFB = (f: Partial<DespieceElementForces>) => ({
+    nodes: new Map([[1, { x: 0, y: 0 }], [2, { x: 4, y: 0 }]]),
+    elements: [{ id: 1, nodeI: 1, nodeJ: 2 }] as DespieceElement[],
+    forces: new Map<number, DespieceElementForces>([[1, {
+      elementId: 1, nStart: 0, nEnd: 0, vStart: 0, vEnd: 0, mStart: 0, mEnd: 0, ...f,
+    }]]),
+  });
+
+  it('axial tension points OUT at BOTH ends (I→−x, J→+x), per end-face convention', () => {
+    // Constant tension ⇒ nStart = nEnd = +T (same sign; matches solver output e.g. diagrams.test nStart:80,nEnd:80).
+    const v = computeDespieceVectors(vecArgs({ ...horizFB({ nStart: 10, nEnd: 10 }), vectorMode: 'members' }));
+    const nI = v.find(x => x.component === 'N' && x.end === 'I')!;
+    const nJ = v.find(x => x.component === 'N' && x.end === 'J')!;
+    expect(nI.dirx!).toBeLessThan(0);     // toward node I (−x), out of the member
+    expect(nJ.dirx!).toBeGreaterThan(0);  // toward node J (+x), out of the member
+  });
+
+  it('shear (vStart=+, vEnd=−) points the SAME physical way at both ends ⇒ member balances', () => {
+    const v = computeDespieceVectors(vecArgs({ ...horizFB({ vStart: 10, vEnd: -10 }), vectorMode: 'all' }));
+    const mI = v.find(x => x.side === 'member' && x.component === 'V' && x.end === 'I')!;
+    const mJ = v.find(x => x.side === 'member' && x.component === 'V' && x.end === 'J')!;
+    expect(mI.diry!).toBeGreaterThan(0);                      // +local z (up)
+    expect(Math.sign(mJ.diry!)).toBe(Math.sign(mI.diry!));    // both ends up → equilibrium
+    const nI = v.find(x => x.side === 'node' && x.component === 'V' && x.end === 'I')!;
+    expect(Math.sign(nI.diry!)).toBe(-Math.sign(mI.diry!));   // node-side equal & opposite
+  });
+
+  it('moment: I and J member-side senses are OPPOSITE for the same stored sign (balances)', () => {
+    const v = computeDespieceVectors(vecArgs({ ...horizFB({ mStart: 5, mEnd: 5 }), vectorMode: 'all' }));
+    const mI = v.find(x => x.side === 'member' && x.component === 'M' && x.end === 'I')!;
+    const mJ = v.find(x => x.side === 'member' && x.component === 'M' && x.end === 'J')!;
+    expect(mI.ccw).toBe(!mJ.ccw);                              // opposite glyph sense
+    expect(mI.ccw).toBe(false);                                // requested: I positive ⇒ clockwise
+    const nI = v.find(x => x.side === 'node' && x.component === 'M' && x.end === 'I')!;
+    expect(nI.ccw).toBe(!mI.ccw);                              // node-side opposite to member
+  });
+
+  it('loads: despieceElementSpan gives shrunken endpoints inside the original member', () => {
+    const span = despieceElementSpan({ x: 0, y: 0 }, { x: 4, y: 0 }, 1);
+    expect(span.aI.x).toBeGreaterThan(0);          // pulled in from node I
+    expect(span.aJ.x).toBeLessThan(4);             // pulled in from node J
+    expect(span.lenShrunk).toBeLessThan(span.lenOrig);
+    expect(span.lenOrig).toBeCloseTo(4, 9);
+    // endpoints match shrinkMember (loads ride the same shortened segment as the member)
+    const sm = shrinkMember({ x: 0, y: 0 }, { x: 4, y: 0 }, 1);
+    expect(span.aI.x).toBeCloseTo(sm.i.x, 9);
+    expect(span.aJ.x).toBeCloseTo(sm.j.x, 9);
+  });
+
+  it('loads: full-span distributed load maps onto the whole shrunk segment', () => {
+    const r = remapLoadSpanToShrunk(0, 4, 4, 2);
+    expect(r.a).toBeCloseTo(0, 9);
+    expect(r.b).toBeCloseTo(2, 9);                 // never beyond the shrunk segment
+  });
+
+  it('loads: partial distributed range stays proportional on the shrunk segment', () => {
+    const r = remapLoadSpanToShrunk(1, 2, 4, 2);  // [1,2] of 4 → same fraction of 2
+    expect(r.a).toBeCloseTo(0.5, 9);
+    expect(r.b).toBeCloseTo(1.0, 9);
+  });
+
+  it('resultant mode: ONE composed force (F) per side instead of separate N/V', () => {
+    const v = computeDespieceVectors(vecArgs({ ...horizFB({ nStart: 10, nEnd: 10, vStart: 6, vEnd: -6, mStart: 4, mEnd: 4 }), vectorMode: 'members', resultant: true }));
+    const forcesI = v.filter(x => x.glyph === 'force' && x.end === 'I');
+    expect(forcesI.length).toBe(1);                       // composed, not N + V
+    expect(forcesI[0].component).toBe('F');
+    expect(forcesI[0].value).toBeCloseTo(Math.hypot(10, 6), 6);  // |F| = √(N²+V²)
+    // The moment stays as its own glyph (so the end shows 2 glyphs total).
+    expect(v.some(x => x.glyph === 'moment' && x.end === 'I')).toBe(true);
+  });
+
+  it('tension (N>0): member-side axial points OUT toward the node; node-side opposite', () => {
+    // Horizontal member node1(0,0)→node2(4,0). End I node is at x=0, member end at x>0.
+    const nodes = new Map([[1, { x: 0, y: 0 }], [2, { x: 4, y: 0 }]]);
+    const elements = [{ id: 1, nodeI: 1, nodeJ: 2 }] as DespieceElement[];
+    const forces = new Map<number, DespieceElementForces>([
+      [1, { elementId: 1, nStart: 10, nEnd: -10, vStart: 0, vEnd: 0, mStart: 0, mEnd: 0 }],
+    ]);
+    const v = computeDespieceVectors(vecArgs({ nodes, elements, forces, vectorMode: 'all' }));
+    const mem = v.find(x => x.side === 'member' && x.component === 'N' && x.end === 'I')!;
+    const nod = v.find(x => x.side === 'node' && x.component === 'N' && x.end === 'I')!;
+    // member-side points toward the node (−x), away from the member end.
+    expect(mem.dirx!).toBeCloseTo(-1, 9);
+    expect(mem.diry!).toBeCloseTo(0, 9);
+    // node-side is equal/opposite (+x, toward the member).
+    expect(nod.dirx!).toBeCloseTo(1, 9);
+    expect(nod.diry!).toBeCloseTo(0, 9);
+  });
+
+  it('compression (N<0): member-side axial points INTO the member; node-side opposite', () => {
+    const nodes = new Map([[1, { x: 0, y: 0 }], [2, { x: 4, y: 0 }]]);
+    const elements = [{ id: 1, nodeI: 1, nodeJ: 2 }] as DespieceElement[];
+    const forces = new Map<number, DespieceElementForces>([
+      [1, { elementId: 1, nStart: -10, nEnd: 10, vStart: 0, vEnd: 0, mStart: 0, mEnd: 0 }],
+    ]);
+    const v = computeDespieceVectors(vecArgs({ nodes, elements, forces, vectorMode: 'all' }));
+    const mem = v.find(x => x.side === 'member' && x.component === 'N' && x.end === 'I')!;
+    const nod = v.find(x => x.side === 'node' && x.component === 'N' && x.end === 'I')!;
+    // member-side points into the member (+x, away from the node).
+    expect(mem.dirx!).toBeCloseTo(1, 9);
+    // node-side opposite (−x).
+    expect(nod.dirx!).toBeCloseTo(-1, 9);
+  });
+
+  it('node-side vector sits BEFORE the dashed remnant start (no overlap with the ghost)', () => {
+    const j = simpleJoint();
+    const v = computeDespieceVectors(vecArgs({ ...j, vectorMode: 'all' }));
+    const segs = computeDespieceSegments({ elements: j.elements, getNode: (id) => j.nodes.get(id), sep: 1 });
+    const node = { x: 0, y: 0 };
+    const nod = v.find(x => x.side === 'node' && x.component === 'N' && x.elementId === 1 && x.end === 'I')!;
+    const rem = segs.find(s => s.elementId === 1 && s.end === 'I')!;
+    const dNodeAnchor = Math.hypot(nod.origin.x - node.x, nod.origin.y - node.y);
+    const dRemnantStart = Math.hypot(rem.from.x - node.x, rem.from.y - node.y);
+    // node anchor (NODE_ANCHOR_FRAC) is closer to the node than where the remnant begins.
+    expect(dNodeAnchor).toBeLessThan(dRemnantStart);
   });
 
   it('vectorMode changes the vector counts exactly (members + nodes = all)', () => {
@@ -311,12 +436,15 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
     expect(labels.has('Fx')).toBe(true);
     expect(labels.has('Fz')).toBe(true);
     expect(labels.has('N')).toBe(false);
-    // end I: F = u*(N) + p*V, u=(c,c), p=(-c,c), c=√2/2, N=10, V=4 → Fx=c*10-c*4=4.24, Fz=c*10+c*4=9.9
+    // Standard free-body axial sign (Option A): F = −u*(N) + p*V, u=(c,c),
+    // p=(-c,c), c=√2/2, N=10, V=4 → Fx=−c*10−c*4=−9.90, Fz=−c*10+c*4=−4.24.
     const c = Math.SQRT1_2;
     const fx = v.find(x => x.component === 'Fx' && x.end === 'I')!;
     const fz = v.find(x => x.component === 'Fz' && x.end === 'I')!;
-    expect(fx.value).toBeCloseTo(c * 10 - c * 4, 6);
-    expect(fz.value).toBeCloseTo(c * 10 + c * 4, 6);
+    expect(fx.value).toBeCloseTo(-c * 10 - c * 4, 6);
+    expect(fz.value).toBeCloseTo(-c * 10 + c * 4, 6);
+    // Decomposition preserves force magnitude: |F| = √(N²+V²).
+    expect(Math.hypot(fx.value, fz.value)).toBeCloseTo(Math.hypot(10, 4), 6);
   });
 
   it('inspectMember returns both ends with basis-aware components', () => {
