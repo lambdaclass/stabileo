@@ -63,6 +63,16 @@ export function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
   });
 }
 
+/** A 3D internal joint releases relative DOFs in the GLOBAL solver-axis order.
+ *  On the flat-2D embed (model XY → solver XZ) those axes are permuted, so the
+ *  raw joint mask would release the wrong DOF — buildSolverInput3D therefore only
+ *  expands joints on the genuine-3D path. A flat model that carries a released
+ *  joint cannot be solved correctly through the embed; the UI must refuse it
+ *  rather than silently solve it rigid (or about the wrong axis). */
+export function modelHasUnsolvable3DJoints(model: ModelData): boolean {
+  return modelHasJoints3D(model.elements.values()) && shouldEmbedFlat2DModelIn3D(model);
+}
+
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
   const pos = projectNodeToScene(node, project2DToXZ);
   return { id: node.id, x: pos.x, y: pos.y, z: pos.z };
@@ -1258,6 +1268,11 @@ export function buildSolverInput3D(
     // per released end. Same gate as offsets (linear solve + combo paths only;
     // advanced analyses opt out via expandMemberOffsets:false and are blocked in
     // the UI when joints are present, so they never silently ignore a release).
+    // NOTE: expansion is correct only for genuine 3D (!project2DToXZ). On the
+    // flat-2D embed (model XY → solver XZ) the global DOF axes are permuted
+    // (model θz → solver ry, model dy → solver dz, …), but the joint mask is
+    // applied in raw solver-DOF order, so expanding here would release the WRONG
+    // axis. Flat models with 3D joints are refused upstream (modelHasUnsolvable3DJoints).
     expandJoints3D(input, model.elements);
   }
 

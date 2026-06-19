@@ -428,6 +428,7 @@ const en: Record<string, string> = {
   'advanced.slidingUnsupported': 'Sliding joints are supported for linear static analysis and free-body view. This advanced analysis does not yet include sliding-joint constraints, so results would be too stiff. Remove sliding joints or use linear analysis.',
   'advanced.sliding3dUnsupported': 'Sliding joints are currently supported only in 2D linear static analysis and free-body view. 3D analysis does not yet include sliding-joint constraints.',
   'advanced.jointsUnsupported': 'Internal 3D joints are included only in linear static analysis and free-body view. This advanced analysis does not yet include joint releases, so results would be too stiff. Remove the joints or use linear analysis.',
+  'advanced.jointsFlat3dUnsupported': 'Internal 3D joints on a flat (coplanar) model cannot be solved in 3D: the flat-2D embedding permutes the joint axes. Make the model non-coplanar, use a 2D in-plane hinge instead, or remove the joints.',
   'advanced.runDynamicFirst': 'Run dynamic analysis (modal) first',
   'advanced.defineCombosFirst': 'Define combinations first in the Combinations tab',
 

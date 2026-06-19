@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver, solve3D } from '../wasm-solver';
 import { expandJoints3D, modelHasJoints3D } from '../expand-joints-3d';
+import { modelHasUnsolvable3DJoints } from '../solver-service';
 import type { SolverInput3D, AnalysisResults3D } from '../types-3d';
 import type { Element, Joint3D } from '../../store/model.svelte';
 
@@ -128,6 +129,43 @@ describe('kinematics (raw 3D solve, helper visible)', () => {
     const { r, helperId } = solveWithJoint(mask(), { fx: 10 }); // empty mask → no expansion
     expect(helperId).toBeUndefined();
     expect(r.displacements.length).toBe(3);
+  });
+});
+
+describe('flat-embed guard (modelHasUnsolvable3DJoints)', () => {
+  // A coplanar (z≈0) model solves through the flat-2D embed (model XY → solver
+  // XZ), which permutes the global DOF axes. The joint mask is applied in raw
+  // solver-DOF order, so expanding there releases the wrong axis → buildSolverInput3D
+  // only expands joints on the genuine-3D path and the UI must refuse the embed case.
+  const MODELMAT = new Map([[1, { id: 1, name: 'M', e: 200_000, nu: 0.3, rho: 0 }]]);
+  const MODELSEC = new Map([[1, { id: 1, name: 'S', a: 0.01, iz: 1e-4 }]]);
+  // 2D support type ('fixed') keeps the model in the flat-2D embed.
+  const supports = () => new Map([
+    [1, { id: 1, nodeId: 1, type: 'fixed' }],
+    [3, { id: 3, nodeId: 3, type: 'fixed' }],
+  ]);
+  const model = (opts: { jointed: boolean; flat: boolean }) => ({
+    nodes: new Map([
+      [1, { id: 1, x: 0, y: 0, z: 0 }],
+      [2, { id: 2, x: 2, y: 0, z: 0 }],
+      [3, { id: 3, x: 4, y: 0, z: opts.flat ? 0 : 1.5 }], // z≠0 → genuine 3D
+    ]),
+    elements: new Map([
+      [1, frame(1, 1, 2)],
+      [2, frame(2, 2, 3, opts.jointed ? { dof: mask(5) } : undefined)], // release θz
+    ]),
+    supports: supports(), loads: [], materials: MODELMAT, sections: MODELSEC,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any;
+
+  it('flat model with a 3D joint is unsolvable in 3D → must be refused', () => {
+    expect(modelHasUnsolvable3DJoints(model({ jointed: true, flat: true }))).toBe(true);
+  });
+  it('non-coplanar model with a 3D joint expands correctly → not refused', () => {
+    expect(modelHasUnsolvable3DJoints(model({ jointed: true, flat: false }))).toBe(false);
+  });
+  it('flat model without joints is fine', () => {
+    expect(modelHasUnsolvable3DJoints(model({ jointed: false, flat: true }))).toBe(false);
   });
 });
 

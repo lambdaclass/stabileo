@@ -18,7 +18,6 @@ import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellFlatColor, divergingColor, type HeatmapVariable } from '../three/stress-heatmap';
 import { restoreShellColor } from '../three/create-shell-mesh';
-import { heatmapColor } from '../three/selection-helpers';
 import { shellComponentMeta, shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
@@ -502,7 +501,10 @@ function resetShellColors(ctx: ResultsSyncContext): void {
     // Clear any contour vertex-colour, then restore the per-material base
     // colour stored on the group at creation (CP1).
     group.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
+      // Only the shell FACE mesh carries a contour colour + its own material.
+      // Restrict the mutation to it so a non-owning child (were one ever added)
+      // can't have its material altered.
+      if (child instanceof THREE.Mesh && child.userData.shellFace) {
         const geo = child.geometry;
         if (geo.hasAttribute('color')) geo.deleteAttribute('color');
         const mat = child.material as THREE.MeshStandardMaterial;

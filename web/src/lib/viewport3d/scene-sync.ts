@@ -265,8 +265,10 @@ export function syncElements(ctx: SceneSyncContext): void {
     // Basic 3D internal-joint glyph: a small orange octahedron at each released
     // end (distinct from node spheres). Lives in the element group so it rebuilds
     // with the element; parent-walk picking still resolves to the element.
-    if (jointHasRelease(elem.jointI)) group.add(makeJointMarker(posI));
-    if (jointHasRelease(elem.jointJ)) group.add(makeJointMarker(posJ));
+    // Anchor at the (possibly offset) member end gI/gJ so the glyph sits on the
+    // visible member end, not the un-offset centerline node.
+    if (jointHasRelease(elem.jointI)) group.add(makeJointMarker(gI));
+    if (jointHasRelease(elem.jointJ)) group.add(makeJointMarker(gJ));
 
     group.userData.elementSig = signature;
     ctx.elementsParent.add(group);

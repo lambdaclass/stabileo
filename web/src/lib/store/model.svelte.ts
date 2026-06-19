@@ -8,7 +8,7 @@ import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
-import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn, modelHasUnsolvable3DJoints } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { pickElement3DMetadata, type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
@@ -1725,6 +1725,17 @@ function createModelStore() {
       return false;
     },
 
+    /** A 3D internal joint on a model that solves through the flat-2D embed: the
+     *  embed permutes the global DOF axes, so the joint's release mask cannot be
+     *  applied correctly there. Genuine (non-coplanar) 3D models expand fine. */
+    hasUnsolvable3DJoints(): boolean {
+      return modelHasUnsolvable3DJoints({
+        nodes: model.nodes, elements: model.elements, supports: model.supports,
+        loads: model.loads, materials: model.materials, sections: model.sections,
+        plates: model.plates, quads: model.quads,
+      });
+    },
+
     /** Get all elements connected to a node, annotated with which end touches the node */
     getElementsAtNode(nodeId: number): Array<{ element: Element; end: 'start' | 'end' }> {
       const result: Array<{ element: Element; end: 'start' | 'end' }> = [];
@@ -2127,6 +2138,9 @@ function createModelStore() {
       // Sliding joints are a Basic 2D feature; the 3D solve path does not expand
       // them, so it would silently treat slider ends as rigid. Block instead.
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
+      // A 3D joint on a coplanar model would solve through the flat-2D embed,
+      // where the joint axes are permuted → wrong/rigid result. Refuse instead.
+      if (this.hasUnsolvable3DJoints()) return t('advanced.jointsFlat3dUnsupported');
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
@@ -2142,6 +2156,7 @@ function createModelStore() {
      *  Shell elements are only included when isPro=true. */
     solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
+      if (this.hasUnsolvable3DJoints()) return t('advanced.jointsFlat3dUnsupported');
       return solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
@@ -2156,6 +2171,7 @@ function createModelStore() {
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
     async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
+      if (this.hasUnsolvable3DJoints()) return t('advanced.jointsFlat3dUnsupported');
       return solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
