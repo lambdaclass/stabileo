@@ -13,8 +13,43 @@
   class="ft-opt-btn"
   class:active={uiStore.nodeMode === 'hinge'}
   onclick={() => uiStore.nodeMode = 'hinge'}
->{t('float.nodeHinges')}</button>
-{#if uiStore.analysisMode === '3d'}
+>{t('float.nodeJoints')}</button>
+
+{#if uiStore.nodeMode === 'hinge' && uiStore.analysisMode !== '3d'}
+  <!-- Basic 2D joints: hinge + sliding X/Z + axis mode -->
+  <span class="ft-sep">|</span>
+  <button class="ft-opt-btn glyph" class:active={uiStore.jointType === 'hinge'}
+    onclick={() => uiStore.jointType = 'hinge'} title={t('float.jointHingeHint')}>
+    <span class="jg">○</span> {t('float.jointHinge')}
+  </button>
+  <button class="ft-opt-btn glyph" class:active={uiStore.jointType === 'slideX'}
+    onclick={() => uiStore.jointType = 'slideX'} title={t('float.jointSlideXHint')}>
+    <span class="jg">↔</span> {t('float.jointSlideX')}
+  </button>
+  <button class="ft-opt-btn glyph" class:active={uiStore.jointType === 'slideZ'}
+    onclick={() => uiStore.jointType = 'slideZ'} title={t('float.jointSlideZHint')}>
+    <span class="jg">↕</span> {t('float.jointSlideZ')}
+  </button>
+  {#if uiStore.jointType !== 'hinge'}
+    <span class="ft-sep">|</span>
+    <span style="font-size:0.65rem;color:#888;">{t('float.jointAxis')}</span>
+    <button class="ft-opt-btn" class:active={uiStore.jointAxis === 'global'}
+      onclick={() => uiStore.jointAxis = 'global'} title={t('float.jointAxisGlobalHint')}>{t('float.jointAxisGlobal')}</button>
+    <button class="ft-opt-btn" class:active={uiStore.jointAxis === 'local'}
+      onclick={() => uiStore.jointAxis = 'local'} title={t('float.jointAxisLocalHint')}>{t('float.jointAxisLocal')}</button>
+  {/if}
+{:else if uiStore.nodeMode === 'hinge' && uiStore.analysisMode === '3d'}
+  <!-- Basic 3D joints: six released relative-DOF toggles (internal release, not a support) -->
+  <span class="ft-sep">|</span>
+  <span style="font-size:0.65rem;color:#888;" title={t('float.joint3dRelease')}>{t('float.joint3dRelease')}</span>
+  {#each ['dx', 'dy', 'dz', 'θx', 'θy', 'θz'] as label, i}
+    <button class="ft-opt-btn glyph" class:active={uiStore.jointDof3d[i]}
+      onclick={() => uiStore.toggleJointDof3d(i)} title={t('float.joint3dDofHint')}>{label}</button>
+  {/each}
+{/if}
+
+{#if uiStore.analysisMode === '3d' && uiStore.nodeMode === 'create'}
+  <!-- Node-creation working plane + level (3D only; not a joint control) -->
   <span class="ft-sep">|</span>
   <span style="font-size:0.65rem;color:#888;">{t('float.nodePlane')}</span>
   <button class="ft-opt-btn" class:active={uiStore.workingPlane==='XY'} onclick={() => uiStore.workingPlane='XY'} title={t('float.nodePlaneXY')}>XY</button>
@@ -30,8 +65,12 @@
 <span class="ft-sep">|</span>
 {#if uiStore.nodeMode === 'create'}
   <span class="ft-hint">{uiStore.analysisMode === '3d' ? t('float.nodeClickPlane') : t('float.nodeClickCanvas')}</span>
-{:else}
+{:else if uiStore.analysisMode === '3d'}
+  <span class="ft-hint">{t('float.joint3dHint')}</span>
+{:else if uiStore.jointType === 'hinge'}
   <span class="ft-hint">{t('float.nodeHingesHint')}</span>
+{:else}
+  <span class="ft-hint">{t('float.jointSlideHint')}</span>
 {/if}
 
 <style>
@@ -64,6 +103,11 @@
     background: #e94560;
     border-color: #ff6b6b;
     color: white;
+  }
+
+  .ft-opt-btn.glyph .jg {
+    font-weight: 700;
+    margin-right: 1px;
   }
 
   .ft-sep {

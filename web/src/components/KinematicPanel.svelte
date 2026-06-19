@@ -1,6 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../lib/store';
-  import { generateKinematicReport, type KinematicReport } from '../lib/engine/kinematic-report';
+  import { generateKinematicReport, type KinematicReport, type SlidingJointInput } from '../lib/engine/kinematic-report';
   import { t } from '../lib/i18n';
 
   // Collapsible sections
@@ -36,7 +36,15 @@
       report = null;
       return;
     }
-    report = generateKinematicReport(input);
+    // Sliding joints are a Basic 2D feature stored as element-end translational
+    // releases. They aren't on the solver wire, so pass them explicitly so the
+    // determinacy count includes them (each releases one relative translation).
+    const slidingJoints: SlidingJointInput[] = [];
+    for (const e of modelStore.elements.values()) {
+      if (e.releaseI?.slide) slidingJoints.push({ elemId: e.id, end: 'I', kind: e.releaseI.slide, axis: e.releaseI.slideAxis ?? 'global' });
+      if (e.releaseJ?.slide) slidingJoints.push({ elemId: e.id, end: 'J', kind: e.releaseJ.slide, axis: e.releaseJ.slideAxis ?? 'global' });
+    }
+    report = generateKinematicReport(input, slidingJoints);
     lastAnalyzedVersion = modelStore.modelVersion;
   }
 
@@ -156,7 +164,7 @@
               <div class="kp-detail kp-danger-text">{t('kinematic.noSupports')}</div>
             {/if}
 
-            {#if report.hingeDetails.length > 0}
+            {#if report.hingeDetails.length > 0 || report.slideDetails.length > 0}
               <div class="kp-row" style="margin-top:0.2rem">
                 <span class="kp-label"><strong>c</strong> {t('kinematic.internalConditions')}</span>
                 <span class="kp-value">{report.totalC}</span>
@@ -166,6 +174,12 @@
                   {t('kinematic.nodeHingeDetail').replace('{id}', String(hinge.nodeId)).replace('{explanation}', hinge.explanation)}
                 </div>
               {/each}
+              {#each report.slideDetails as slide}
+                <div class="kp-detail">{slide.explanation}</div>
+              {/each}
+              {#if report.slideDetails.length > 0}
+                <div class="kp-detail kp-muted">{t('kinematic.slideAxisNote')}</div>
+              {/if}
             {:else if !report.isPureTruss}
               <div class="kp-detail kp-muted">{t('kinematic.noHinges')}</div>
             {/if}

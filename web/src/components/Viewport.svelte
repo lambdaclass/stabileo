@@ -9,6 +9,7 @@
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
   import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
   import { drawDeformed } from '../lib/canvas/draw-deformed';
+  import { drawDespiece } from '../lib/canvas/draw-despiece';
   import { drawDistributedLoads, drawPointLoadsOnElements, drawThermalLoads, drawMovingLoadAxles } from '../lib/canvas/draw-loads';
   import { computeAxleWorldPositions } from '../lib/engine/moving-loads';
   import { drawInfluenceLine } from '../lib/canvas/draw-influence';
@@ -126,6 +127,8 @@
   let needsRedraw = true;
   let animating = false;
   let rafId: number | null = null;
+  const DESPIECE_ANIM_MS = 700;   // one-shot pull-apart duration for the despiece view
+  let despieceStart = 0;
 
   function invalidate() {
     if (!needsRedraw) {
@@ -141,6 +144,8 @@
     if (!needsRedraw && !animating && !uiStore.continuousRendering) return;
     needsRedraw = false;
     draw();
+    // Re-evaluate so time-based one-shot animations (e.g. despiece pull-apart) settle and stop.
+    updateAnimating();
 
     if (animating || uiStore.continuousRendering) {
       rafId = requestAnimationFrame(drawOnce);
@@ -154,7 +159,8 @@
       (resultsStore.ilAnimating && !!resultsStore.influenceLine) ||
       (resultsStore.animateDeformed && resultsStore.diagramType === 'deformed' && !!resultsStore.results) ||
       (resultsStore.diagramType === 'modeShape' && !!resultsStore.modalResult) ||
-      (resultsStore.diagramType === 'bucklingMode' && !!resultsStore.bucklingResult);
+      (resultsStore.diagramType === 'bucklingMode' && !!resultsStore.bucklingResult) ||
+      (resultsStore.diagramType === 'despiece' && !!resultsStore.results && (performance.now() - despieceStart) < DESPIECE_ANIM_MS);
     // If we just became animating, kick the loop
     if ((animating || uiStore.continuousRendering) && !wasAnimating && rafId === null) {
       rafId = requestAnimationFrame(drawOnce);
@@ -171,10 +177,27 @@
 
   // Results changes
   $effect(() => { resultsStore.results; resultsStore.diagramType; invalidate(); });
+  // Despiece: restart the pull-apart animation whenever the view (re)activates.
+  $effect(() => {
+    if (resultsStore.diagramType === 'despiece') {
+      despieceStart = performance.now();
+      updateAnimating();
+      invalidate();
+    } else if (uiStore.despieceInspect) {
+      uiStore.despieceInspect = null; // clear stale inspection when leaving despiece
+    }
+  });
   $effect(() => { resultsStore.deformedScale; resultsStore.diagramScale; invalidate(); });
   $effect(() => { resultsStore.showDiagramValues; invalidate(); });
   $effect(() => { resultsStore.colorMapKind; invalidate(); });
   $effect(() => { resultsStore.showReactions; resultsStore.showConstraintForces; invalidate(); });
+  // Despiece controls must redraw the canvas immediately (no mouse-move needed).
+  $effect(() => {
+    uiStore.despieceVectorMode; uiStore.despieceBasis;
+    uiStore.despieceVectorSize; uiStore.despieceLabelSize;
+    uiStore.despieceInspect;
+    invalidate();
+  });
   $effect(() => { resultsStore.influenceLine; invalidate(); });
   $effect(() => { resultsStore.overlayResults; resultsStore.overlayLabel; invalidate(); });
   $effect(() => { resultsStore.movingLoadEnvelope; resultsStore.activeMovingLoadPosition; resultsStore.movingLoadShowEnvelope; invalidate(); });
@@ -395,9 +418,13 @@
       nodeBarCount.set(elem.nodeJ, (nodeBarCount.get(elem.nodeJ) ?? 0) + 1);
     }
 
-    // Draw elements
-    for (const elem of modelStore.elements.values()) {
-      drawElement(elem, colorMapOverrides.get(elem.id), nodeBarCount);
+    // Draw elements — suppressed in despiece (the free-body overlay draws its
+    // own separated solid members + ghost remnants; the full member would
+    // otherwise show through under the dashed remnant).
+    if (resultsStore.diagramType !== 'despiece') {
+      for (const elem of modelStore.elements.values()) {
+        drawElement(elem, colorMapOverrides.get(elem.id), nodeBarCount);
+      }
     }
 
     // Member local axes (Basic 2D): one unified "Local axes" setting (localAxesMode3D).
@@ -655,8 +682,41 @@
       }
     }
 
+    // Draw node tool sliding-joint hover highlight: teal ring at the nearest
+    // bar end where a click would place the slider.
+    if (uiStore.currentTool === 'node' && uiStore.nodeMode === 'hinge' && uiStore.jointType !== 'hinge') {
+      const nearElem = findNearestElement(uiStore.worldX, uiStore.worldY, 0.5);
+      if (nearElem) {
+        const ni = getProjectedNode(nearElem.nodeI);
+        const nj = getProjectedNode(nearElem.nodeJ);
+        if (ni && nj) {
+          const di = (uiStore.worldX - ni.x) ** 2 + (uiStore.worldY - ni.y) ** 2;
+          const dj = (uiStore.worldX - nj.x) ** 2 + (uiStore.worldY - nj.y) ** 2;
+          const endNode = di <= dj ? ni : nj;
+          const sp = uiStore.worldToScreen(endNode.x, endNode.y);
+          ctx!.save();
+          ctx!.beginPath();
+          ctx!.arc(sp.x, sp.y, 12, 0, Math.PI * 2);
+          ctx!.strokeStyle = '#4ecdc4';
+          ctx!.fillStyle = 'rgba(78, 205, 196, 0.15)';
+          ctx!.lineWidth = 2.5;
+          ctx!.fill();
+          ctx!.stroke();
+          // direction hint: double bar (perpendicular to slide motion)
+          const horiz = uiStore.jointType === 'slideX';
+          ctx!.beginPath();
+          if (horiz) { ctx!.moveTo(sp.x - 7, sp.y - 9); ctx!.lineTo(sp.x - 7, sp.y + 9); ctx!.moveTo(sp.x + 7, sp.y - 9); ctx!.lineTo(sp.x + 7, sp.y + 9); }
+          else { ctx!.moveTo(sp.x - 9, sp.y - 7); ctx!.lineTo(sp.x + 9, sp.y - 7); ctx!.moveTo(sp.x - 9, sp.y + 7); ctx!.lineTo(sp.x + 9, sp.y + 7); }
+          ctx!.strokeStyle = '#4ecdc4';
+          ctx!.lineWidth = 2;
+          ctx!.stroke();
+          ctx!.restore();
+        }
+      }
+    }
+
     // Draw node tool hinge mode hover highlight
-    if (uiStore.currentTool === 'node' && uiStore.nodeMode === 'hinge') {
+    if (uiStore.currentTool === 'node' && uiStore.nodeMode === 'hinge' && uiStore.jointType === 'hinge') {
       const nearNode = findNearestNode(uiStore.worldX, uiStore.worldY, 0.3);
       if (nearNode) {
         // Hovering over a node: teal circle
@@ -742,6 +802,34 @@
           ? scale * Math.sin(performance.now() / (500 / resultsStore.animSpeed))
           : scale;
         drawDeformed(resultsStore.results, makeDrawContext(), uiStore.zoom, animScale);
+      } else if (dt === 'despiece') {
+        // Member free-body / "despiece": pull members off their joints (animated)
+        // and draw the transmitted end forces + support reactions. Solver-free overlay.
+        const tNorm = Math.max(0, Math.min(1, (performance.now() - despieceStart) / DESPIECE_ANIM_MS));
+        const sep = 1 - Math.pow(1 - tNorm, 3); // easeOutCubic 0→1
+        const reactions = new Map<number, { rx: number; rz: number; my: number }>();
+        for (const sup of modelStore.supports.values()) {
+          const r = resultsStore.getReaction(sup.nodeId);
+          if (r) reactions.set(sup.nodeId, { rx: r.rx, rz: r.rz, my: r.my });
+        }
+        drawDespiece({
+          ctx: ctx!,
+          worldToScreen: (wx, wy) => uiStore.worldToScreen(wx, wy),
+          elements: [...modelStore.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ })),
+          getNode: (id) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
+          getElementForces: (id) => {
+            const f = resultsStore.getElementForces(id);
+            return f ? { elementId: f.elementId, nStart: f.nStart, nEnd: f.nEnd, vStart: f.vStart, vEnd: f.vEnd, mStart: f.mStart, mEnd: f.mEnd } : undefined;
+          },
+          reactions,
+          sep,
+          fmt: (v) => v.toFixed(1),
+          vectorMode: uiStore.despieceVectorMode,
+          basis: uiStore.despieceBasis,
+          showReactions: resultsStore.showReactions,
+          vectorSize: uiStore.despieceVectorSize,
+          labelSize: uiStore.despieceLabelSize,
+        });
       } else if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const dkind = dt as DiagramKind;
         // Check if we should render envelope dual curves
@@ -821,8 +909,9 @@
         drawPlasticHinges(resultsStore.plasticResult, resultsStore.plasticStep, mdc, uiStore.zoom);
       }
 
-      // Draw reactions when results exist and toggle is on
-      if (resultsStore.showReactions) drawReactions();
+      // Draw reactions when results exist and toggle is on. In despiece the
+      // free-body overlay already draws each reaction ONCE — don't double them.
+      if (resultsStore.showReactions && resultsStore.diagramType !== 'despiece') drawReactions();
       if (resultsStore.showConstraintForces) drawConstraintForces();
 
       // Overlay label
@@ -1241,7 +1330,30 @@
     }
 
     if (uiStore.currentTool === 'node') {
-      if (uiStore.nodeMode === 'hinge') {
+      if (uiStore.nodeMode === 'hinge' && uiStore.jointType !== 'hinge') {
+        // Sliding-joint mode: click on a bar → set/clear the slider on its
+        // nearest end (a slider is a per-member-end translational release, the
+        // dual of the hinge). Node clicks are ignored (a slider is relative
+        // between one member and its joint, not a whole-node property).
+        const slideKind = uiStore.jointType === 'slideX' ? 'x' : 'z';
+        const axis = uiStore.jointAxis;
+        const nearElem = findNearestElement(world.x, world.y, 0.5);
+        if (nearElem) {
+          const ni = modelStore.getNode(nearElem.nodeI);
+          const nj = modelStore.getNode(nearElem.nodeJ);
+          if (ni && nj) {
+            const di = (world.x - ni.x) ** 2 + (world.y - ni.y) ** 2;
+            const dj = (world.x - nj.x) ** 2 + (world.y - nj.y) ** 2;
+            const end: 'i' | 'j' = di <= dj ? 'i' : 'j';
+            const cur = end === 'i' ? nearElem.releaseI : nearElem.releaseJ;
+            const already = cur?.slide === slideKind && (cur?.slideAxis ?? 'global') === axis;
+            modelStore.setSlide(nearElem.id, end, already ? undefined : slideKind, axis);
+            resultsStore.clear();
+            uiStore.selectElement(nearElem.id);
+            uiStore.toast(already ? t('viewport.sliderRemoved') : t('viewport.sliderAdded'), 'info');
+          }
+        }
+      } else if (uiStore.nodeMode === 'hinge') {
         // Hinge mode: click on node → select + show hinges; click on bar → split + hinge
         const nearNode = findNearestNode(world.x, world.y, 0.3);
         if (nearNode) {
@@ -1550,6 +1662,17 @@
         }
       }
     } else if (uiStore.currentTool === 'select') {
+      // Despiece inspection: while the free-body view is active, a click inspects
+      // the converging actions (node) or both member ends (member) — without
+      // disturbing the normal selection used when Despiece is off.
+      if (resultsStore.diagramType === 'despiece') {
+        const insN = findNearestNode(world.x, world.y, 0.3);
+        if (insN) { uiStore.despieceInspect = { type: 'node', id: insN.id }; invalidate(); return; }
+        const insE = findNearestElement(world.x, world.y, 0.3);
+        uiStore.despieceInspect = insE ? { type: 'member', id: insE.id } : null;
+        invalidate();
+        return;
+      }
       const sm = uiStore.selectMode;
 
       if (sm === 'stress') {

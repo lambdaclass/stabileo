@@ -29,6 +29,24 @@ export interface HingeDetail {
   explanation: string;    // e.g. "Elem. 3 (J) + Elem. 5 (I) → c = min(2, 2−1) = 1"
 }
 
+/** One sliding joint (translational release) and its contribution to c. */
+export interface SlideDetail {
+  elemId: number;
+  end: 'I' | 'J';
+  kind: 'x' | 'z';
+  axis: 'global' | 'local';
+  ci: number;             // always 1 — releases one relative translation
+  explanation: string;
+}
+
+/** Sliding-joint descriptor passed in from the model (releaseI/J.slide). */
+export interface SlidingJointInput {
+  elemId: number;
+  end: 'I' | 'J';
+  kind: 'x' | 'z';
+  axis: 'global' | 'local';
+}
+
 export interface UnconstrainedDofDetail {
   nodeId: number;
   dof: 'ux' | 'uz' | 'ry';
@@ -96,6 +114,7 @@ export interface KinematicReport {
   supportDetails: SupportDetail[];
   totalR: number;
   hingeDetails: HingeDetail[];
+  slideDetails: SlideDetail[];
   totalC: number;
 
   // Step 2: Degree formula
@@ -176,7 +195,10 @@ function intersectDofs(a: Set<DofLabel>, b: ReadonlySet<DofLabel>): Set<DofLabel
 
 // ─── Main export ────────────────────────────────────────────────
 
-export function generateKinematicReport(input: SolverInput): KinematicReport | null {
+export function generateKinematicReport(
+  input: SolverInput,
+  slidingJoints: SlidingJointInput[] = [],
+): KinematicReport | null {
   if (input.nodes.size < 2 || input.elements.size < 1) return null;
 
   // ── Step 1: Structure summary ──
@@ -273,9 +295,29 @@ export function generateKinematicReport(input: SolverInput): KinematicReport | n
   // Sort by nodeId for consistent display
   hingeDetails.sort((a, b) => a.nodeId - b.nodeId);
 
+  // Sliding joints — each releases ONE relative translational continuity
+  // equation, so each adds exactly 1 to c. The direction (global X/Z or
+  // member-local x/z) selects WHICH translation is freed, not the count.
+  const slideDetails: SlideDetail[] = [];
+  for (const sj of slidingJoints) {
+    const dir = t(sj.kind === 'x' ? 'kin.slideDirX' : 'kin.slideDirZ');
+    const ax = t(sj.axis === 'local' ? 'kin.slideAxisLocal' : 'kin.slideAxisGlobal');
+    slideDetails.push({
+      elemId: sj.elemId, end: sj.end, kind: sj.kind, axis: sj.axis, ci: 1,
+      explanation: t('kin.slideExplain')
+        .replace('{elem}', String(sj.elemId))
+        .replace('{end}', sj.end)
+        .replace('{dir}', dir)
+        .replace('{axis}', ax),
+    });
+  }
+  slideDetails.sort((a, b) => a.elemId - b.elemId || (a.end < b.end ? -1 : 1));
+  const slideConditions = slideDetails.length;
+  totalC += slideConditions;
+
   // ── Step 2: Degree formula ──
 
-  const { degree } = computeStaticDegree(input);
+  const { degree } = computeStaticDegree(input, slideConditions);
 
   let formula: string;
   let substitution: string;
@@ -358,7 +400,7 @@ export function generateKinematicReport(input: SolverInput): KinematicReport | n
   return {
     nNodes, nFrames, nTrusses,
     supportDetails, totalR,
-    hingeDetails, totalC,
+    hingeDetails, slideDetails, totalC,
     isPureTruss, formula, substitution,
     degree, classification, classificationText,
     nFreeDofs, hasHiddenMechanism, mechanismModes, mechanismNodes, unconstrainedDofs,

@@ -44,7 +44,7 @@ export interface DedalFile {
 }
 
 /** Migrate a snapshot in place: converts legacy hingeStart/hingeEnd → releaseI.mz/releaseJ.mz. */
-function migrateSnapshotV1ToV2(snapshot: Record<string, unknown>): void {
+export function migrateSnapshotV1ToV2(snapshot: Record<string, unknown>): void {
   const elements = snapshot.elements;
   if (!Array.isArray(elements)) return;
   for (const entry of elements as Array<[number, Record<string, unknown>]>) {

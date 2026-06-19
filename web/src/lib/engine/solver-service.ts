@@ -14,6 +14,8 @@ import {
 } from './solver-shells';
 import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-connectivity';
 import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } from './member-offsets';
+import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
+import { expandJoints3D, modelHasJoints3D } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses } from './shell-combos';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -590,11 +592,25 @@ export function validateAndSolve2D(
     if (onKinematic) onKinematic(null);
   }
 
+  // Basic 2D sliding joints: ephemerally expand each translational release into
+  // a coincident helper node + DOF-tying constraints. Done AFTER the kinematic
+  // pre-check (which sees the clean, rigid model) and BEFORE the solve, so the
+  // constrained solver handles the relaxed system and its own singularity
+  // diagnostics. No-op when no element has a slider. Helper-node results are
+  // pruned below so they never surface in node tables/selection.
+  const slidingHelperIds = modelHasSlidingJoints(model.elements.values())
+    ? expandSlidingJoints2D(input, model.elements)
+    : new Set<number>();
+
   try {
     const t0 = performance.now();
     const results = solveStructure(input);
     const dt = performance.now() - t0;
     console.log(`Estructura resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
+    if (slidingHelperIds.size > 0) {
+      const modelNodeIds = new Set(model.nodes.keys());
+      return pruneHelperNodeResults(results as any, modelNodeIds) as any;
+    }
     return results;
   } catch (err: any) {
     console.error('Solver error:', err);
@@ -1238,6 +1254,11 @@ export function buildSolverInput3D(
     expandMemberOffsets(input, model.elements);
     // After member offsets so helper ids continue past any member helpers.
     expandShellOffsets(input, model.plates, model.quads);
+    // Basic 3D internal joints — coincident helper node + eccentricConnection
+    // per released end. Same gate as offsets (linear solve + combo paths only;
+    // advanced analyses opt out via expandMemberOffsets:false and are blocked in
+    // the UI when joints are present, so they never silently ignore a release).
+    expandJoints3D(input, model.elements);
   }
 
   return input;
@@ -1356,8 +1377,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
       if (model.quads?.size || model.plates?.size) {
         postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }
-      // Strip ephemeral offset-helper node results (member or shell offsets).
-      if (modelHasMemberOffsets(model.elements.values()) || modelHasShellOffsets(model.plates, model.quads)) {
+      // Strip ephemeral helper-node results (member/shell offsets or 3D joints).
+      if (modelHasMemberOffsets(model.elements.values()) || modelHasShellOffsets(model.plates, model.quads) || modelHasJoints3D(model.elements.values())) {
         return pruneHelperNodeResults(results, new Set(model.nodes.keys()));
       }
     }
@@ -1373,7 +1394,7 @@ function pruneComboBundle3D(
   bundle: { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D },
   model: ModelData,
 ): typeof bundle {
-  if (!modelHasMemberOffsets(model.elements.values()) && !modelHasShellOffsets(model.plates, model.quads)) return bundle;
+  if (!modelHasMemberOffsets(model.elements.values()) && !modelHasShellOffsets(model.plates, model.quads) && !modelHasJoints3D(model.elements.values())) return bundle;
   const ids = new Set(model.nodes.keys());
   for (const [k, r] of bundle.perCase) bundle.perCase.set(k, pruneHelperNodeResults(r, ids));
   for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, pruneHelperNodeResults(r, ids));

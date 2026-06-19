@@ -19,6 +19,7 @@ import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
 import { hasMemberOffset, resolveOffsetWorldVectors } from '../engine/member-offsets';
+import { jointHasRelease } from '../store/model.svelte';
 import { hasShellOffset, resolveShellOffsetGlobal } from '../engine/shell-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
@@ -86,6 +87,19 @@ export interface SceneSyncContext {
 
   // Results state (mutable flags shared with results-sync)
   colorMapApplied: boolean;
+}
+
+// ─── 3D internal-joint glyph ──────────────────────────────────
+
+const JOINT_MARKER_GEO = new THREE.OctahedronGeometry(0.13);
+const JOINT_MARKER_MAT = new THREE.MeshBasicMaterial({ color: 0xffa500, wireframe: true });
+
+/** Small orange octahedron marking a released internal joint at a member end. */
+function makeJointMarker(pos: { x: number; y: number; z: number }): THREE.Mesh {
+  const m = new THREE.Mesh(JOINT_MARKER_GEO, JOINT_MARKER_MAT);
+  m.position.set(pos.x, pos.y, pos.z);
+  m.userData.jointGlyph = true;
+  return m;
 }
 
 // ─── Nodes ────────────────────────────────────────────────────
@@ -174,7 +188,8 @@ export function syncElements(ctx: SceneSyncContext): void {
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
       `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.tl ?? ''}:${sec?.rotation ?? ''}` +
       `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
-      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}`;
+      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}` +
+      `|jnt:${elem.jointI ? 'I' + elem.jointI.dof.map(b => b ? 1 : 0).join('') : ''}${elem.jointJ ? 'J' + elem.jointJ.dof.map(b => b ? 1 : 0).join('') : ''}`;
 
     const existing = ctx.elementGroups.get(id);
     if (existing && existing.userData.elementSig === signature) continue;
@@ -243,6 +258,12 @@ export function syncElements(ctx: SceneSyncContext): void {
         localAxes,
       },
     );
+    // Basic 3D internal-joint glyph: a small orange octahedron at each released
+    // end (distinct from node spheres). Lives in the element group so it rebuilds
+    // with the element; parent-walk picking still resolves to the element.
+    if (jointHasRelease(elem.jointI)) group.add(makeJointMarker(posI));
+    if (jointHasRelease(elem.jointJ)) group.add(makeJointMarker(posJ));
+
     group.userData.elementSig = signature;
     ctx.elementsParent.add(group);
     ctx.elementGroups.set(id, group);

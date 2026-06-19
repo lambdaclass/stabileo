@@ -13,7 +13,13 @@ export type SelectMode = 'nodes' | 'elements' | 'shells' | 'loads' | 'stress' | 
 /** How member local-axis triads are shown in the 3D viewport. */
 export type LocalAxesDisplayMode = 'always' | 'selected' | 'never';
 export type ElementMode = 'create' | 'hinge';
+// `hinge` is the joint-placement mode (kept for back-compat); the actual joint
+// kind is chosen via jointType/jointAxis below.
 export type NodeMode = 'create' | 'hinge';
+/** Internal joint kind placed in the Joints / Articulaciones tool. */
+export type JointType = 'hinge' | 'slideX' | 'slideZ';
+/** Axis frame for sliding joints: world (global) or member-local. */
+export type JointAxisMode = 'global' | 'local';
 export type ElementColorMode = 'uniform' | 'byMaterial' | 'bySection';
 export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring';
 
@@ -185,6 +191,17 @@ function createUIStore() {
   let elementCreateType = $state<'frame' | 'truss'>('frame');
   let elementMode = $state<ElementMode>('create');
   let nodeMode = $state<NodeMode>('create');
+  let jointType = $state<JointType>('hinge');
+  let jointAxis = $state<JointAxisMode>('global');
+  // Basic 3D joint placement mask [dx,dy,dz,θx,θy,θz] applied on element click.
+  let jointDof3d = $state<boolean[]>([false, false, false, false, false, false]);
+  // Despiece / free-body view: which interaction vectors to show.
+  let despieceVectorMode = $state<'all' | 'members' | 'nodes'>('all');
+  let despieceBasis = $state<'local' | 'global'>('local');
+  let despieceVectorSize = $state<number>(1);   // arrow/glyph length multiplier
+  let despieceLabelSize = $state<number>(1);     // label font multiplier
+  // Click inspection target while Despiece is active (null = none).
+  let despieceInspect = $state<{ type: 'node' | 'member'; id: number } | null>(null);
 
   // Active load case for load tool
   let activeLoadCaseId = $state<number>(1);
@@ -557,6 +574,23 @@ function createUIStore() {
 
     get nodeMode() { return nodeMode; },
     set nodeMode(v: NodeMode) { nodeMode = v; },
+    get jointType() { return jointType; },
+    set jointType(v: JointType) { jointType = v; },
+    get jointAxis() { return jointAxis; },
+    set jointAxis(v: JointAxisMode) { jointAxis = v; },
+    get jointDof3d() { return jointDof3d; },
+    set jointDof3d(v: boolean[]) { jointDof3d = v; },
+    toggleJointDof3d(i: number) { const next = [...jointDof3d]; next[i] = !next[i]; jointDof3d = next; },
+    get despieceVectorMode() { return despieceVectorMode; },
+    set despieceVectorMode(v: 'all' | 'members' | 'nodes') { despieceVectorMode = v; },
+    get despieceBasis() { return despieceBasis; },
+    set despieceBasis(v: 'local' | 'global') { despieceBasis = v; },
+    get despieceVectorSize() { return despieceVectorSize; },
+    set despieceVectorSize(v: number) { despieceVectorSize = Math.max(0.5, Math.min(2, v)); },
+    get despieceLabelSize() { return despieceLabelSize; },
+    set despieceLabelSize(v: number) { despieceLabelSize = Math.max(0.6, Math.min(2, v)); },
+    get despieceInspect() { return despieceInspect; },
+    set despieceInspect(v: { type: 'node' | 'member'; id: number } | null) { despieceInspect = v; },
 
     get activeLoadCaseId() { return activeLoadCaseId; },
     set activeLoadCaseId(v: number) { activeLoadCaseId = v; },
