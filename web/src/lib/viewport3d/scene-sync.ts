@@ -19,6 +19,7 @@ import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
 import { hasMemberOffset, resolveOffsetWorldVectors } from '../engine/member-offsets';
+import { jointHasRelease } from '../store/model.svelte';
 import { hasShellOffset, resolveShellOffsetGlobal } from '../engine/shell-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
@@ -86,6 +87,23 @@ export interface SceneSyncContext {
 
   // Results state (mutable flags shared with results-sync)
   colorMapApplied: boolean;
+}
+
+// ─── 3D internal-joint glyph ──────────────────────────────────
+
+/** Small orange octahedron marking a released internal joint at a member end.
+ *  Geometry + material are created PER INSTANCE (not module-level singletons):
+ *  the marker is added to an element group that disposeObject()'s on every
+ *  re-sync, which disposes each child Mesh's geometry/material — a shared
+ *  singleton would be freed on the first re-sync and break all other markers. */
+function makeJointMarker(pos: { x: number; y: number; z: number }): THREE.Mesh {
+  const m = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.13),
+    new THREE.MeshBasicMaterial({ color: 0xffa500, wireframe: true }),
+  );
+  m.position.set(pos.x, pos.y, pos.z);
+  m.userData.jointGlyph = true;
+  return m;
 }
 
 // ─── Nodes ────────────────────────────────────────────────────
@@ -174,7 +192,8 @@ export function syncElements(ctx: SceneSyncContext): void {
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
       `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.tl ?? ''}:${sec?.rotation ?? ''}` +
       `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
-      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}`;
+      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}` +
+      `|jnt:${elem.jointI ? 'I' + elem.jointI.dof.map(b => b ? 1 : 0).join('') : ''}${elem.jointJ ? 'J' + elem.jointJ.dof.map(b => b ? 1 : 0).join('') : ''}`;
 
     const existing = ctx.elementGroups.get(id);
     if (existing && existing.userData.elementSig === signature) continue;
@@ -243,6 +262,14 @@ export function syncElements(ctx: SceneSyncContext): void {
         localAxes,
       },
     );
+    // Basic 3D internal-joint glyph: a small orange octahedron at each released
+    // end (distinct from node spheres). Lives in the element group so it rebuilds
+    // with the element; parent-walk picking still resolves to the element.
+    // Anchor at the (possibly offset) member end gI/gJ so the glyph sits on the
+    // visible member end, not the un-offset centerline node.
+    if (jointHasRelease(elem.jointI)) group.add(makeJointMarker(gI));
+    if (jointHasRelease(elem.jointJ)) group.add(makeJointMarker(gJ));
+
     group.userData.elementSig = signature;
     ctx.elementsParent.add(group);
     ctx.elementGroups.set(id, group);
@@ -251,6 +278,31 @@ export function syncElements(ctx: SceneSyncContext): void {
   // Only the wireframe primary renders the batched LineSegments2.
   eb.mesh.visible = renderMode === 'wireframe';
   eb.flush();
+}
+
+/**
+ * Authoritative element-mesh visibility, re-asserted on despiece toggle AND on
+ * every scene re-sync (model load, example/tab switch, element edit, render-mode
+ * change). Despiece hides element meshes by setting `group.visible = false`;
+ * `syncElements` reuses groups on a matching signature WITHOUT resetting their
+ * visibility, so a stale `false` could ride along onto a reused group for a new
+ * model — the root cause of the intermittent "only some members render" bug.
+ * Calling this after each sync guarantees the live despiece state wins.
+ *
+ * The batched wireframe shows only in wireframe mode AND when not in despiece.
+ * `elementsParent` is forced visible to undo any transient LOD hide that a model
+ * load mid-orbit could otherwise leave stuck.
+ */
+export function applyElementVisibility(
+  groups: Map<number, THREE.Group>,
+  batchedMesh: THREE.Object3D | null | undefined,
+  elementsParent: THREE.Object3D | null | undefined,
+  hideForDespiece: boolean,
+  wireframe: boolean,
+): void {
+  if (batchedMesh) batchedMesh.visible = !hideForDespiece && wireframe;
+  for (const g of groups.values()) g.visible = !hideForDespiece;
+  if (elementsParent) elementsParent.visible = true;
 }
 
 // ─── Supports ────────────────────────────────────────────────

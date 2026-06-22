@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
+import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, createTextSprite, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
@@ -17,7 +18,6 @@ import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellFlatColor, divergingColor, type HeatmapVariable } from '../three/stress-heatmap';
 import { restoreShellColor } from '../three/create-shell-mesh';
-import { heatmapColor } from '../three/selection-helpers';
 import { shellComponentMeta, shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
@@ -78,6 +78,7 @@ export interface ResultsSyncContext {
   deformedGroup: THREE.Group | null;
   diagramGroup: THREE.Group | null;
   overlayDiagramGroup: THREE.Group | null;
+  despieceGroup: THREE.Group | null;
   reactionGroup: THREE.Group | null;
   constraintForcesGroup: THREE.Group | null;
   nodeLabelsGroup: THREE.Group | null;
@@ -87,6 +88,7 @@ export interface ResultsSyncContext {
 
   // Mutable state flags
   lastDeformedAnimScale: number | null;
+  lastDespieceSep: number | null;
   colorMapApplied: boolean;
 }
 
@@ -269,6 +271,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
         resultsStore.showDiagramValues,
         leftHand,
         modelStore.sections,
+        resultsStore.drawPositiveTowardLocalAxes,
       );
       ctx.resultsParent.add(ctx.diagramGroup);
     }
@@ -283,6 +286,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
       resultsStore.showDiagramValues,
       leftHand,
       modelStore.sections,
+      resultsStore.drawPositiveTowardLocalAxes,
     );
     ctx.resultsParent.add(ctx.diagramGroup);
 
@@ -298,6 +302,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
         false, // don't show values on overlay to avoid clutter
         leftHand,
         modelStore.sections,
+        resultsStore.drawPositiveTowardLocalAxes,
       );
       // Tint overlay with orange color
       ctx.overlayDiagramGroup.traverse((child) => {
@@ -496,7 +501,10 @@ function resetShellColors(ctx: ResultsSyncContext): void {
     // Clear any contour vertex-colour, then restore the per-material base
     // colour stored on the group at creation (CP1).
     group.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
+      // Only the shell FACE mesh carries a contour colour + its own material.
+      // Restrict the mutation to it so a non-owning child (were one ever added)
+      // can't have its material altered.
+      if (child instanceof THREE.Mesh && child.userData.shellFace) {
         const geo = child.geometry;
         if (geo.hasAttribute('color')) geo.deleteAttribute('color');
         const mat = child.material as THREE.MeshStandardMaterial;
@@ -690,7 +698,8 @@ export function syncReactions(ctx: ResultsSyncContext): void {
   }
 
   const r3d = resultsStore.results3D;
-  if (!r3d || !resultsStore.showReactions) return;
+  // In despiece the free-body overlay draws each reaction ONCE — don't double them.
+  if (!r3d || !resultsStore.showReactions || resultsStore.diagramType === 'despiece') return;
 
   const project2D = projectFlag();
 
@@ -718,6 +727,60 @@ export function syncReactions(ctx: ResultsSyncContext): void {
   }
 
   ctx.resultsParent.add(ctx.reactionGroup);
+}
+
+// ─── Despiece / Free-body view (3D) ──────────────────────────
+
+/** Sync the 3D despiece overlay to separation `sep` (0..1). The overlay is built
+ *  ONCE (per results/model change) and the pull-apart is animated in place via
+ *  the group's `despieceUpdate` hook — so animation frames do no allocation (no
+ *  rebuilt geometries/materials/text-sprites). No-op without solved results. */
+export function syncDespiece3D(ctx: ResultsSyncContext, sep: number): void {
+  if (!ctx.initialized) return;
+  const r3d = resultsStore.results3D;
+  if (!r3d || !r3d.elementForces?.length) {
+    if (ctx.despieceGroup) {
+      ctx.resultsParent.remove(ctx.despieceGroup);
+      disposeObject(ctx.despieceGroup);
+      ctx.despieceGroup = null;
+    }
+    return;
+  }
+
+  const ver = modelStore.modelVersion;
+  // Options that change WHAT is drawn → rebuild (they're infrequent user actions);
+  // the pull-apart itself is animated cheaply via despieceUpdate.
+  const optSig = `${uiStore.despieceVectorMode}|${uiStore.despieceBasis}|${uiStore.despieceVectorSize}|${uiStore.despieceLabelSize}|${resultsStore.showReactions ? 1 : 0}|${uiStore.axisConvention3D}|${uiStore.despieceCombineVectors ? 1 : 0}|${uiStore.despieceLoadMode}`;
+  const g = ctx.despieceGroup;
+  const stale = !g || g.userData.despieceResultsRef !== r3d || g.userData.despieceModelVer !== ver || g.userData.despieceOptSig !== optSig;
+  if (stale) {
+    if (g) { ctx.resultsParent.remove(g); disposeObject(g); }
+    const ng = createDespiece3DGroup({
+      elements: modelStore.elements,
+      nodes: modelStore.nodes,
+      forces: r3d.elementForces,
+      reactions: r3d.reactions ?? [],
+      sep,
+      sections: modelStore.sections,
+      leftHand: uiStore.axisConvention3D === 'leftHand',
+      project2D: projectFlag(),
+      vectorMode: uiStore.despieceVectorMode,
+      basis: uiStore.despieceBasis,
+      vectorSize: uiStore.despieceVectorSize,
+      labelSize: uiStore.despieceLabelSize,
+      showReactions: resultsStore.showReactions,
+      resultant: uiStore.despieceCombineVectors,
+      loads: modelStore.loads,
+      loadMode: uiStore.despieceLoadMode,
+    });
+    ng.userData.despieceResultsRef = r3d;
+    ng.userData.despieceModelVer = ver;
+    ng.userData.despieceOptSig = optSig;
+    ctx.resultsParent.add(ng);
+    ctx.despieceGroup = ng;
+  }
+  // Cheap per-frame pose update (transforms + 2 line vertices per member).
+  (ctx.despieceGroup as import('../three/despiece-3d').DespieceGroup).userData.despieceUpdate(sep);
 }
 
 // ─── Constraint Forces ───────────────────────────────────────

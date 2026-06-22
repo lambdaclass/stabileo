@@ -7,6 +7,7 @@
   import StatusBar from './components/StatusBar.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
+  import DespieceInspector from './components/DespieceInspector.svelte';
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
   import DataTable from './components/DataTable.svelte';
@@ -943,6 +944,7 @@
 <!-- Inline editors (positioned fixed, rendered outside layout) -->
 <NodeEditor />
 <ElementEditor />
+<DespieceInspector />
 <MaterialEditor />
 <SectionEditor />
 

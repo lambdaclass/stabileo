@@ -211,6 +211,10 @@
                  disabled={!uiStore.showPrimarySelector} />
           <span>{t('config.showSecondarySelector')}</span>
         </label>
+        <label class="checkbox-item">
+          <input type="checkbox" bind:checked={resultsStore.drawPositiveTowardLocalAxes} />
+          <span>{t('config.drawPositiveTowardLocalAxes')}</span>
+        </label>
       </div>
     {/if}
 

@@ -49,18 +49,54 @@ export interface Section {
   rotation?: number;  // degrees — rotation of section profile around bar axis (0-360)
 }
 
-/** Per-end moment/torsion release on a frame element.
- *  - `mz`: strong-axis bending release (the only axis 2D models can release).
+/** Which relative translation a 2D sliding joint releases at an element end.
+ *  - `x`: along local member axis (axis='local') or world X (axis='global').
+ *  - `z`: perpendicular to the member (axis='local') or world Z (axis='global'). */
+export type SlideKind = 'x' | 'z';
+/** Frame the sliding direction is measured in. `local` follows the member, so
+ *  inclined members slide along/perpendicular to their own axis. */
+export type SlideAxisMode = 'global' | 'local';
+
+/** Per-end release on a frame element.
+ *  Rotational/torsional (the classic hinge):
+ *  - `mz`: strong-axis bending release (the only rotation 2D models can release).
  *  - `my`: weak-axis bending release (3D only — has no DOF in 2D, ignored).
  *  - `t`:  torsion release (3D only — has no DOF in 2D, ignored).
- *  Trusses ignore all three flags. */
+ *  Translational (Basic 2D sliding joint):
+ *  - `slide`: releases the chosen relative translation at this end while the
+ *    perpendicular translation and rotation stay tied. The solver realizes this
+ *    via a coincident helper node + equalDOF/linearMPC (see sliding-joints.ts);
+ *    there is no element-level translational condensation. `undefined` = no slider.
+ *  - `slideAxis`: `global` or `local` frame for `slide` (default `global`).
+ *  Trusses ignore the moment flags; `slide` still applies. */
 export interface Release {
   my: boolean;
   mz: boolean;
   t: boolean;
+  slide?: SlideKind;
+  slideAxis?: SlideAxisMode;
 }
 
 export const NO_RELEASE: Readonly<Release> = Object.freeze({ my: false, mz: false, t: false });
+
+/** Basic 3D internal joint: per-element-end relative-DOF release mask.
+ *  Six global DOFs in solver order [0]=dx [1]=dy [2]=dz [3]=θx [4]=θy [5]=θz;
+ *  `true` = that relative DOF is RELEASED (free), `false` = tied between the
+ *  member end and its joint node. This is an INTERNAL release (not a support to
+ *  ground): the solver realizes it with a coincident helper node +
+ *  eccentricConnection whose `releases` mask is exactly `dof` (see
+ *  expand-joints-3d.ts). undefined / all-false = rigid connection. */
+export interface Joint3D {
+  dof: [boolean, boolean, boolean, boolean, boolean, boolean];
+}
+
+/** Convenient labels for the six relative DOFs of a 3D joint, in mask order. */
+export const JOINT3D_DOF_LABELS = ['dx', 'dy', 'dz', 'θx', 'θy', 'θz'] as const;
+
+/** True if a joint mask releases at least one DOF. */
+export function jointHasRelease(j: Joint3D | undefined): boolean {
+  return !!j && j.dof.some(Boolean);
+}
 
 /** A group of reinforcement bars (e.g., "4 Ø16"). */
 export interface RebarGroup {
@@ -238,12 +274,16 @@ export interface Element extends Element3DMetadata {
   sectionId: number;
   releaseI: Release;
   releaseJ: Release;
+  // Basic 3D internal joints — per-end relative-DOF release masks (undefined = rigid).
+  jointI?: Joint3D;
+  jointJ?: Joint3D;
   // PRO: provided reinforcement for RC design verification
   reinforcement?: ProvidedReinforcement;
 }
 
 export type ReleaseEnd = 'i' | 'j';
-export type ReleaseAxis = keyof Release;
+/** Boolean rotational/torsional release axes (excludes the non-boolean slide fields). */
+export type ReleaseAxis = 'my' | 'mz' | 't';
 
 export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring'
   | 'fixed3d' | 'pinned3d' | 'rollerXZ' | 'rollerXY' | 'rollerYZ' | 'spring3d'
@@ -1635,6 +1675,56 @@ function createModelStore() {
       this.toggleRelease(elementId, end === 'start' ? 'i' : 'j', 'mz');
     },
 
+    /** Set (or clear, when `slide === undefined`) the 2D sliding-joint release on
+     *  one element-end. `axis` is ignored when clearing. Explicit model data — the
+     *  solver expands it ephemerally (sliding-joints.ts); save/load/undo persist it. */
+    setSlide(elementId: number, end: ReleaseEnd, slide: SlideKind | undefined, axis: SlideAxisMode = 'global'): void {
+      if (!_undoBatching) _pushUndo?.();
+      const elem = model.elements.get(elementId);
+      if (!elem) return;
+      const plain = $state.snapshot(elem) as Element;
+      const target: Release = { ...(end === 'i' ? plain.releaseI : plain.releaseJ) };
+      if (slide === undefined) {
+        delete target.slide;
+        delete target.slideAxis;
+      } else {
+        target.slide = slide;
+        target.slideAxis = axis;
+      }
+      if (end === 'i') plain.releaseI = target;
+      else plain.releaseJ = target;
+      model.elements.set(elementId, plain);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
+    },
+
+    /** Set (or clear, when `dof === null`) the Basic 3D internal-joint release mask
+     *  on one element-end. `dof` is the 6-bool global mask [dx,dy,dz,θx,θy,θz]; an
+     *  all-false mask clears the joint. Explicit model data — expanded at solve
+     *  time (expand-joints-3d.ts); save/load/undo preserve it. */
+    setElementJoint(elementId: number, end: ReleaseEnd, dof: boolean[] | null): void {
+      if (!_undoBatching) _pushUndo?.();
+      const elem = model.elements.get(elementId);
+      if (!elem) return;
+      const plain = $state.snapshot(elem) as Element;
+      const released = dof != null && dof.some(Boolean);
+      if (!released) {
+        if (end === 'i') delete plain.jointI; else delete plain.jointJ;
+      } else {
+        const mask = [0, 1, 2, 3, 4, 5].map(i => dof![i] === true) as Joint3D['dof'];
+        if (end === 'i') plain.jointI = { dof: mask }; else plain.jointJ = { dof: mask };
+      }
+      model.elements.set(elementId, plain);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
+    },
+
+    /** True if any element carries a Basic 3D internal joint (released DOF). */
+    hasJoint3D(): boolean {
+      for (const e of model.elements.values()) {
+        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ)) return true;
+      }
+      return false;
+    },
+
     /** Get all elements connected to a node, annotated with which end touches the node */
     getElementsAtNode(nodeId: number): Array<{ element: Element; end: 'start' | 'end' }> {
       const result: Array<{ element: Element; end: 'start' | 'end' }> = [];
@@ -1668,6 +1758,16 @@ function createModelStore() {
         end: r.end === 'i' ? 'start' : 'end' as 'start' | 'end',
         hasHinge: r.hasHinge,
       }));
+    },
+
+    /** True if any element carries a 2D sliding joint (translational release).
+     *  UI-facing guard: advanced analyses that don't expand slider constraints
+     *  use this to block runs that would otherwise be silently too stiff. */
+    hasSlidingJoints(): boolean {
+      for (const e of model.elements.values()) {
+        if (e.releaseI?.slide != null || e.releaseJ?.slide != null) return true;
+      }
+      return false;
     },
 
     /** Split an element at parametric position t ∈ (0,1), creating a new node and two sub-elements.
@@ -2024,6 +2124,9 @@ function createModelStore() {
     /** Solve the current model using the 3D solver. Returns results or error string.
      *  Shell elements (plates/quads) are only included when isPro=true to keep Basic 3D clean. */
     solve3D(includeSelfWeight = false, leftHand = false, isPro = false): AnalysisResults3D | string | null {
+      // Sliding joints are a Basic 2D feature; the 3D solve path does not expand
+      // them, so it would silently treat slider ends as rigid. Block instead.
+      if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
@@ -2038,6 +2141,7 @@ function createModelStore() {
     /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations).
      *  Shell elements are only included when isPro=true. */
     solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
+      if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
@@ -2051,6 +2155,7 @@ function createModelStore() {
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
     async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
+      if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,

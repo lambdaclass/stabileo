@@ -38,10 +38,16 @@ export interface DiagramDisplayDirection {
 export function computeDiagramDisplayDirection(
   axes: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] },
   perpDir: 'y' | 'z',
+  towardLocalAxes = false,
 ): DiagramDisplayDirection {
   const solverPerp = perpDir === 'y'
     ? new THREE.Vector3(axes.ey[0], axes.ey[1], axes.ey[2])
     : new THREE.Vector3(axes.ez[0], axes.ez[1], axes.ez[2]);
+
+  // "Draw positive results toward local axes" (setting ON): a positive value
+  // offsets along the member's local +y / +z axis directly (no structural-side
+  // flip). OFF keeps the structural display convention below.
+  if (towardLocalAxes) return { perpVec: solverPerp, sign: 1 };
 
   let perpVec: THREE.Vector3;
   let displayFlipped = false;
@@ -98,6 +104,7 @@ export function createDiagramGroup3D(
   showValues: boolean = true,
   leftHand: boolean = false,
   sections?: Map<number, Section>,
+  towardLocalAxes: boolean = false,
 ): THREE.Group {
   const group = new THREE.Group();
   group.userData = { type: 'diagram3d', kind };
@@ -155,7 +162,7 @@ export function createDiagramGroup3D(
     // Compute diagram values
     const diagram = computeDiagram3D(ef, kind);
 
-    const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir);
+    const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir, towardLocalAxes);
 
     // Build mesh: triangle strip between baseline and diagram curve
     const positions: number[] = [];
@@ -315,6 +322,7 @@ export function createEnvelopeDiagramGroup3D(
   showValues: boolean = true,
   leftHand: boolean = false,
   sections?: Map<number, Section>,
+  towardLocalAxes: boolean = false,
 ): THREE.Group {
   const group = new THREE.Group();
   group.userData = { type: 'diagram3dEnvelope', kind };
@@ -359,7 +367,7 @@ export function createEnvelopeDiagramGroup3D(
       continue;
     }
 
-    const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir);
+    const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir, towardLocalAxes);
 
     // Draw both positive and negative envelope curves
     for (const curveType of ['pos', 'neg'] as const) {
