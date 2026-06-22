@@ -395,8 +395,10 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
           ...(opt.of.i ? { i: { x: opt.of.i[0], y: opt.of.i[1], z: opt.of.i[2] } } : {}),
           ...(opt.of.j ? { j: { x: opt.of.j[0], y: opt.of.j[1], z: opt.of.j[2] } } : {}),
         } } : {}),
-        ...(Array.isArray(opt.ji) ? { jointI: { dof: (opt.ji as number[]).map(d => d === 1) } } : {}),
-        ...(Array.isArray(opt.jj) ? { jointJ: { dof: (opt.jj as number[]).map(d => d === 1) } } : {}),
+        // Only accept a well-formed 6-DOF mask: a truncated/forward-version array
+        // would build a wrong-length releases mask straight into the solver.
+        ...(Array.isArray(opt.ji) && opt.ji.length === 6 ? { jointI: { dof: (opt.ji as number[]).map(d => d === 1) } } : {}),
+        ...(Array.isArray(opt.jj) && opt.jj.length === 6 ? { jointJ: { dof: (opt.jj as number[]).map(d => d === 1) } } : {}),
       }];
     }),
 

@@ -15,7 +15,7 @@ import {
 import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-connectivity';
 import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } from './member-offsets';
 import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
-import { expandJoints3D, modelHasJoints3D } from './expand-joints-3d';
+import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses } from './shell-combos';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -61,16 +61,6 @@ export function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
     plateCount: model.plates?.size ?? 0,
     quadCount: model.quads?.size ?? 0,
   });
-}
-
-/** A 3D internal joint releases relative DOFs in the GLOBAL solver-axis order.
- *  On the flat-2D embed (model XY → solver XZ) those axes are permuted, so the
- *  raw joint mask would release the wrong DOF — buildSolverInput3D therefore only
- *  expands joints on the genuine-3D path. A flat model that carries a released
- *  joint cannot be solved correctly through the embed; the UI must refuse it
- *  rather than silently solve it rigid (or about the wrong axis). */
-export function modelHasUnsolvable3DJoints(model: ModelData): boolean {
-  return modelHasJoints3D(model.elements.values()) && shouldEmbedFlat2DModelIn3D(model);
 }
 
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
@@ -1260,20 +1250,36 @@ export function buildSolverInput3D(
   // paths). Advanced analyses (modal/spectral wire payloads don't even carry
   // constraints; DSM viewer has no constraint handling) opt out and analyze
   // the centerline — broken-but-plausible results would be worse.
-  if (!project2DToXZ && opts.expandMemberOffsets !== false) {
-    expandMemberOffsets(input, model.elements);
-    // After member offsets so helper ids continue past any member helpers.
-    expandShellOffsets(input, model.plates, model.quads);
+  if (opts.expandMemberOffsets !== false) {
+    // Member/shell offsets are a genuine-3D concept (an offset of a flat-2D
+    // embed is ill-defined), so they expand only on the non-embedded path.
+    if (!project2DToXZ) {
+      expandMemberOffsets(input, model.elements);
+      // After member offsets so helper ids continue past any member helpers.
+      expandShellOffsets(input, model.plates, model.quads);
+    }
     // Basic 3D internal joints — coincident helper node + eccentricConnection
-    // per released end. Same gate as offsets (linear solve + combo paths only;
-    // advanced analyses opt out via expandMemberOffsets:false and are blocked in
-    // the UI when joints are present, so they never silently ignore a release).
-    // NOTE: expansion is correct only for genuine 3D (!project2DToXZ). On the
-    // flat-2D embed (model XY → solver XZ) the global DOF axes are permuted
-    // (model θz → solver ry, model dy → solver dz, …), but the joint mask is
-    // applied in raw solver-DOF order, so expanding here would release the WRONG
-    // axis. Flat models with 3D joints are refused upstream (modelHasUnsolvable3DJoints).
-    expandJoints3D(input, model.elements);
+    // per released end. Releases are meaningful on BOTH paths; on the flat-2D
+    // embed the joint mask is remapped into the embedded solver frame (model XY
+    // → solver XZ permutes the global DOF axes), so the correct axis is released.
+    // (advanced analyses opt out via expandMemberOffsets:false and are blocked in
+    // the UI when joints are present, so they never silently ignore a release.)
+    const jointHelpers = expandJoints3D(input, model.elements, project2DToXZ ? EMBED_XZ_DOF_PERMUTATION : undefined);
+    // On the embed path the out-of-plane restraint pass that built `supports`
+    // ran before expansion and only covered the original model nodes; the new
+    // coincident helper nodes need the same out-of-plane lock (uy, rx, rz) or
+    // they form a spurious out-of-plane mechanism → singular system.
+    if (project2DToXZ && jointHelpers.size > 0) {
+      for (const hid of jointHelpers) {
+        if (!input.supports.has(hid)) {
+          input.supports.set(hid, {
+            nodeId: hid,
+            rx: false, ry: true, rz: false,   // restrain only Y translation (out-of-plane)
+            rrx: true, rry: false, rrz: true,  // restrain X and Z rotations (out-of-plane)
+          });
+        }
+      }
+    }
   }
 
   return input;

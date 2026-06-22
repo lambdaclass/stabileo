@@ -36,9 +36,22 @@ export function modelHasJoints3D(elements: Iterable<Element>): boolean {
  * elements in id order, i-end before j-end). No-op when no element has a released
  * joint → returns an empty set. Returns the set of helper node ids created.
  */
+/**
+ * DOF permutation for the flat-2D embed (model XY → solver XZ, see
+ * projectNodeToScene): model dy↔solver dz, dz↔dy, θy↔θz, θz↔θy — i.e. swap
+ * indices 1↔2 and 4↔5. `releases[i] = mask[perm[i]]` rewrites a global-axis
+ * joint mask into the embedded solver frame. Identity on the genuine-3D path.
+ * Only the AXIS matters for a boolean free/fixed flag, so the embed's
+ * orientation reversal (a reflection) is irrelevant — no sign/handedness term.
+ */
+export const EMBED_XZ_DOF_PERMUTATION: readonly number[] = [0, 2, 1, 3, 5, 4];
+
 export function expandJoints3D(
   input: SolverInput3D,
   modelElements: Map<number, Element>,
+  /** When set, remap each joint mask into the embedded solver frame (see
+   *  EMBED_XZ_DOF_PERMUTATION). Omit for genuine 3D (identity). */
+  dofPermutation?: readonly number[],
 ): Set<number> {
   const helperIds = new Set<number>();
   const jointEls = [...modelElements.values()]
@@ -76,13 +89,16 @@ export function expandJoints3D(
       else solverEl.nodeJ = helperId;
 
       // Internal joint: joint node (master, keeps supports/loads/other members)
-      // → helper (slave, where this member end now connects). releases = mask.
+      // → helper (slave, where this member end now connects). releases = mask,
+      // remapped into the embedded solver frame when a permutation is given.
+      const dof = jointDef!.dof;
+      const releases = dofPermutation ? dofPermutation.map(src => dof[src]) : [...dof];
       constraints.push({
         type: 'eccentricConnection',
         masterNode: jointId,
         slaveNode: helperId,
         offsetX: 0, offsetY: 0, offsetZ: 0,
-        releases: [...jointDef!.dof],
+        releases,
       } as Constraint3D);
     }
   }

@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver, solve3D } from '../wasm-solver';
 import { expandJoints3D, modelHasJoints3D } from '../expand-joints-3d';
-import { modelHasUnsolvable3DJoints } from '../solver-service';
+import { buildSolverInput3D } from '../solver-service';
 import type { SolverInput3D, AnalysisResults3D } from '../types-3d';
 import type { Element, Joint3D } from '../../store/model.svelte';
 
@@ -132,40 +132,68 @@ describe('kinematics (raw 3D solve, helper visible)', () => {
   });
 });
 
-describe('flat-embed guard (modelHasUnsolvable3DJoints)', () => {
-  // A coplanar (z≈0) model solves through the flat-2D embed (model XY → solver
-  // XZ), which permutes the global DOF axes. The joint mask is applied in raw
-  // solver-DOF order, so expanding there releases the wrong axis → buildSolverInput3D
-  // only expands joints on the genuine-3D path and the UI must refuse the embed case.
+describe('flat-2D embed: 3D joint expands with the mask remapped to the embed frame', () => {
+  // A coplanar (z=0) model solves through the flat-2D embed (model XY → solver
+  // XZ). The embed permutes the global DOF axes, so the joint mask is remapped
+  // (EMBED_XZ_DOF_PERMUTATION) before expansion — releasing the correct axis on
+  // the embed instead of refusing the model. A 2D support type keeps the embed.
   const MODELMAT = new Map([[1, { id: 1, name: 'M', e: 200_000, nu: 0.3, rho: 0 }]]);
-  const MODELSEC = new Map([[1, { id: 1, name: 'S', a: 0.01, iz: 1e-4 }]]);
-  // 2D support type ('fixed') keeps the model in the flat-2D embed.
-  const supports = () => new Map([
-    [1, { id: 1, nodeId: 1, type: 'fixed' }],
-    [3, { id: 3, nodeId: 3, type: 'fixed' }],
-  ]);
-  const model = (opts: { jointed: boolean; flat: boolean }) => ({
+  const MODELSEC = new Map([[1, { id: 1, name: 'S', a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4 }]]);
+  // Flat (z=0) beam, 2D 'fixed' supports at the ends, in-plane transverse load at
+  // node 2; element 2's I-end releases model θz (in-plane bending rotation).
+  const flatModel = (jointed: boolean) => ({
     nodes: new Map([
       [1, { id: 1, x: 0, y: 0, z: 0 }],
       [2, { id: 2, x: 2, y: 0, z: 0 }],
-      [3, { id: 3, x: 4, y: 0, z: opts.flat ? 0 : 1.5 }], // z≠0 → genuine 3D
+      [3, { id: 3, x: 4, y: 0, z: 0 }],
     ]),
     elements: new Map([
       [1, frame(1, 1, 2)],
-      [2, frame(2, 2, 3, opts.jointed ? { dof: mask(5) } : undefined)], // release θz
+      [2, frame(2, 2, 3, jointed ? { dof: mask(5) } : undefined)], // release θz (in-plane rotation)
     ]),
-    supports: supports(), loads: [], materials: MODELMAT, sections: MODELSEC,
+    supports: new Map([
+      [1, { id: 1, nodeId: 1, type: 'fixed' }],
+      [3, { id: 3, nodeId: 3, type: 'fixed' }],
+    ]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+    materials: MODELMAT, sections: MODELSEC,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as any;
 
-  it('flat model with a 3D joint is unsolvable in 3D → must be refused', () => {
-    expect(modelHasUnsolvable3DJoints(model({ jointed: true, flat: true }))).toBe(true);
+  it('expands the joint on the embed path; eccentricConnection releases the PERMUTED axis (θz→ry) and the helper is restrained out-of-plane', () => {
+    const input = buildSolverInput3D(flatModel(true));
+    // Joint expanded despite the flat embed → exactly one coincident helper node.
+    const helperIds = [...input.nodes.keys()].filter(id => id > 3);
+    expect(helperIds.length).toBe(1);
+    const hid = helperIds[0];
+    // model θz (mask idx 5) maps to solver ry (idx 4) on the XZ embed.
+    const ec = (input.constraints ?? []).find((c) => (c as { type: string }).type === 'eccentricConnection') as { releases: boolean[] } | undefined;
+    expect(ec).toBeTruthy();
+    expect(ec!.releases).toEqual([false, false, false, false, true, false]);
+    // Helper carries the out-of-plane lock so the embed stays non-singular.
+    expect(input.supports.get(hid)).toMatchObject({ ry: true, rrx: true, rrz: true });
   });
-  it('non-coplanar model with a 3D joint expands correctly → not refused', () => {
-    expect(modelHasUnsolvable3DJoints(model({ jointed: true, flat: false }))).toBe(false);
+
+  it('solves finite (no singular embed) and the in-plane hinge frees the relative ry at node 2', () => {
+    const input = buildSolverInput3D(flatModel(true));
+    const hid = [...input.nodes.keys()].filter(id => id > 3)[0];
+    const r = solve3D(input);
+    const master = dsp(r, 2), helper = dsp(r, hid);
+    for (const k of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] as const) {
+      expect(Number.isFinite((master as any)[k])).toBe(true);
+    }
+    // Released in-plane bending rotation: relative ry between master and helper is free.
+    expect(Math.abs(helper.ry - master.ry)).toBeGreaterThan(1e-7);
+    // Every other relative DOF stays tied (coincident).
+    for (const k of ['ux', 'uy', 'uz', 'rx', 'rz'] as const) {
+      expect(Math.abs((helper as any)[k] - (master as any)[k])).toBeLessThan(1e-7);
+    }
   });
-  it('flat model without joints is fine', () => {
-    expect(modelHasUnsolvable3DJoints(model({ jointed: false, flat: true }))).toBe(false);
+
+  it('a rigid (no-joint) flat model expands nothing (no helper) — joints are opt-in', () => {
+    const input = buildSolverInput3D(flatModel(false));
+    expect([...input.nodes.keys()].filter(id => id > 3).length).toBe(0);
+    expect((input.constraints ?? []).length).toBe(0);
   });
 });
 

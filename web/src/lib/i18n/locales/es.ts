@@ -390,7 +390,6 @@ const es: Record<string, string> = {
   'advanced.slidingUnsupported': 'Las deslizaderas (articulaciones deslizantes) son compatibles con el análisis estático lineal y el despiece. Este análisis avanzado todavía no incluye las restricciones de las deslizaderas, por lo que los resultados serían demasiado rígidos. Quitá las deslizaderas o usá análisis lineal.',
   'advanced.sliding3dUnsupported': 'Las deslizaderas (articulaciones deslizantes) solo se admiten por ahora en el análisis estático lineal 2D y el despiece. El análisis 3D todavía no incluye las restricciones de las deslizaderas.',
   'advanced.jointsUnsupported': 'Las articulaciones internas 3D solo se incluyen en el análisis estático lineal y el despiece. Este análisis avanzado todavía no incluye las liberaciones de las articulaciones, por lo que los resultados serían demasiado rígidos. Quitá las articulaciones o usá análisis lineal.',
-  'advanced.jointsFlat3dUnsupported': 'Las articulaciones internas 3D sobre un modelo plano (coplanar) no se pueden resolver en 3D: el modelo plano se embebe en 2D y eso permuta los ejes de la articulación. Hacé el modelo no coplanar, usá una rótula 2D en el plano, o quitá las articulaciones.',
   'advanced.runDynamicFirst': 'Primero ejecute el análisis dinámico (modal)',
   'advanced.defineCombosFirst': 'Definí combinaciones primero en la pestaña Combinaciones',
 
