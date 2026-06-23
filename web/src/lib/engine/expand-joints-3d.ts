@@ -20,9 +20,11 @@
 //   [0]=ux [1]=uy [2]=uz [3]=rx [4]=ry [5]=rz   (true = released/free)
 
 import type { SolverInput3D, SolverNode3D } from './types-3d';
-import type { Constraint3D } from './types-3d';
 import type { Element } from '../store/model.svelte';
 import { jointHasRelease } from '../store/model.svelte';
+import { createEccentricHelpers } from './helper-expansion';
+
+const ZERO_OFFSET = { x: 0, y: 0, z: 0 };
 
 /** Any element in the model carries a released 3D internal joint. */
 export function modelHasJoints3D(elements: Iterable<Element>): boolean {
@@ -53,17 +55,12 @@ export function expandJoints3D(
    *  EMBED_XZ_DOF_PERMUTATION). Omit for genuine 3D (identity). */
   dofPermutation?: readonly number[],
 ): Set<number> {
-  const helperIds = new Set<number>();
   const jointEls = [...modelElements.values()]
     .filter(e => jointHasRelease(e.jointI) || jointHasRelease(e.jointJ))
     .sort((a, b) => a.id - b.id);
-  if (jointEls.length === 0) return helperIds;
+  if (jointEls.length === 0) return new Set<number>();
 
-  let nextId = 0;
-  for (const id of input.nodes.keys()) if (id > nextId) nextId = id;
-  nextId += 1;
-
-  const constraints: Constraint3D[] = [...(input.constraints ?? [])];
+  const helpers = createEccentricHelpers(input);
 
   for (const e of jointEls) {
     const solverEl = input.elements.get(e.id);
@@ -79,30 +76,17 @@ export function expandJoints3D(
     for (const [end, joint, jointDef] of ends) {
       if (!jointHasRelease(jointDef)) continue;
 
-      const helperId = nextId++;
-      const jointId = joint.id;
-      input.nodes.set(helperId, { id: helperId, x: joint.x, y: joint.y, z: joint.z });
-      helperIds.add(helperId);
+      // Coincident helper (zero offset); releases = the joint mask, remapped into
+      // the embedded solver frame when a permutation is given.
+      const dof = jointDef!.dof;
+      const releases = dofPermutation ? dofPermutation.map(src => dof[src]) : [...dof];
+      const helperId = helpers.add(joint, ZERO_OFFSET, releases);
 
       // Retarget the jointed end to the coincident helper node.
       if (end === 'i') solverEl.nodeI = helperId;
       else solverEl.nodeJ = helperId;
-
-      // Internal joint: joint node (master, keeps supports/loads/other members)
-      // → helper (slave, where this member end now connects). releases = mask,
-      // remapped into the embedded solver frame when a permutation is given.
-      const dof = jointDef!.dof;
-      const releases = dofPermutation ? dofPermutation.map(src => dof[src]) : [...dof];
-      constraints.push({
-        type: 'eccentricConnection',
-        masterNode: jointId,
-        slaveNode: helperId,
-        offsetX: 0, offsetY: 0, offsetZ: 0,
-        releases,
-      } as Constraint3D);
     }
   }
 
-  input.constraints = constraints;
-  return helperIds;
+  return helpers.finish();
 }

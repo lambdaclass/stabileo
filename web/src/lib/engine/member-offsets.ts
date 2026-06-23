@@ -15,6 +15,7 @@ import { computeLocalAxes3D } from './local-axes-3d';
 import type { SolverInput3D, SolverNode3D, AnalysisResults3D } from './types-3d';
 import type { Element } from '../store/model.svelte';
 import type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
+import { createEccentricHelpers, RIGID_RELEASES } from './helper-expansion';
 
 const EPS = 1e-9;
 
@@ -48,8 +49,6 @@ export function offsetVecToSolver(
   };
 }
 
-const RIGID_RELEASES = [false, false, false, false, false, false];
-
 /**
  * Mutate `input` in place: expand offset members into helper nodes + eccentric
  * constraints. Deterministic helper ids (maxNodeId + sequential, elements in id
@@ -62,15 +61,10 @@ export function expandMemberOffsets(
   input: SolverInput3D,
   modelElements: Map<number, Element>,
 ): Set<number> {
-  const helperIds = new Set<number>();
   const offsetEls = [...modelElements.values()].filter(hasMemberOffset).sort((a, b) => a.id - b.id);
-  if (offsetEls.length === 0) return helperIds;
+  if (offsetEls.length === 0) return new Set<number>();
 
-  let nextId = 0;
-  for (const id of input.nodes.keys()) if (id > nextId) nextId = id;
-  nextId += 1;
-
-  const constraints = [...(input.constraints ?? [])];
+  const helpers = createEccentricHelpers(input);
 
   for (const e of offsetEls) {
     const solverEl: any = input.elements.get(e.id);
@@ -95,30 +89,14 @@ export function expandMemberOffsets(
       if (!vecNonZero(vec)) continue;
       const v = offsetVecToSolver(vec!, e.offset!.frame, axes);
 
-      const helperId = nextId++;
-      const jointId = joint.id;
-      input.nodes.set(helperId, { id: helperId, x: joint.x + v.x, y: joint.y + v.y, z: joint.z + v.z });
-      helperIds.add(helperId);
-
-      // Retarget the element's end to the helper (analytical) node.
+      // Rigid eccentric arm: joint (master) → helper at joint+v (slave), where the
+      // member now connects. All DOFs rigid.
+      const helperId = helpers.add(joint, v, RIGID_RELEASES);
       if (end === 'i') solverEl.nodeI = helperId; else solverEl.nodeJ = helperId;
-
-      // Rigid eccentric arm: joint (master, keeps supports/loads/other members)
-      // → helper (slave, where the member now connects). All DOFs rigid.
-      constraints.push({
-        type: 'eccentricConnection',
-        masterNode: jointId,
-        slaveNode: helperId,
-        offsetX: v.x,
-        offsetY: v.y,
-        offsetZ: v.z,
-        releases: [...RIGID_RELEASES],
-      } as any);
     }
   }
 
-  input.constraints = constraints;
-  return helperIds;
+  return helpers.finish();
 }
 
 /**

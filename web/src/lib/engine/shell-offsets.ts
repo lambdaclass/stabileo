@@ -19,9 +19,9 @@
 import type { SolverInput3D } from './types-3d';
 import type { Plate, Quad } from '../store/model.svelte';
 import type { ShellOffset } from '../model/element-3d-metadata';
+import { createEccentricHelpers, RIGID_RELEASES } from './helper-expansion';
 
 const EPS = 1e-9;
-const RIGID_RELEASES = [false, false, false, false, false, false];
 
 /** True if a shell carries a non-zero offset. */
 export function hasShellOffset(s: { offset?: ShellOffset }): boolean {
@@ -87,17 +87,12 @@ export function expandShellOffsets(
   modelPlates: Map<number, Plate> | undefined,
   modelQuads: Map<number, Quad> | undefined,
 ): Set<number> {
-  const helperIds = new Set<number>();
   const shells: Array<{ kind: 'p' | 'q'; offset: ShellOffset; id: number }> = [];
   for (const p of [...(modelPlates?.values() ?? [])].sort((a, b) => a.id - b.id)) if (hasShellOffset(p)) shells.push({ kind: 'p', offset: p.offset!, id: p.id });
   for (const q of [...(modelQuads?.values() ?? [])].sort((a, b) => a.id - b.id)) if (hasShellOffset(q)) shells.push({ kind: 'q', offset: q.offset!, id: q.id });
-  if (shells.length === 0) return helperIds;
+  if (shells.length === 0) return new Set<number>();
 
-  let nextId = 0;
-  for (const id of input.nodes.keys()) if (id > nextId) nextId = id;
-  nextId += 1;
-
-  const constraints = [...(input.constraints ?? [])];
+  const helpers = createEccentricHelpers(input);
 
   for (const { kind, offset, id } of shells) {
     // A curved quad's solver entry lives in curvedShells, not quads.
@@ -117,23 +112,11 @@ export function expandShellOffsets(
     // model's array reference, so in-place edits would corrupt the model.
     const newNodes = [...solverShell.nodes];
     for (let k = 0; k < newNodes.length; k++) {
-      const jointId = newNodes[k];
-      const joint = input.nodes.get(jointId)!;
-      const helperId = nextId++;
-      input.nodes.set(helperId, { id: helperId, x: joint.x + v.x, y: joint.y + v.y, z: joint.z + v.z });
-      helperIds.add(helperId);
-      newNodes[k] = helperId;
-      constraints.push({
-        type: 'eccentricConnection',
-        masterNode: jointId,
-        slaveNode: helperId,
-        offsetX: v.x, offsetY: v.y, offsetZ: v.z,
-        releases: [...RIGID_RELEASES],
-      } as any);
+      const joint = input.nodes.get(newNodes[k])!;
+      newNodes[k] = helpers.add(joint, v, RIGID_RELEASES);
     }
     solverShell.nodes = newNodes;
   }
 
-  input.constraints = constraints;
-  return helperIds;
+  return helpers.finish();
 }
