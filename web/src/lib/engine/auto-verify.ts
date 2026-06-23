@@ -23,8 +23,11 @@ import type { ElementVerification, VerificationInput } from './codes/argentina/c
 export interface AutoVerifyModelData {
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type: string }>;
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
-  sections: Map<number, { id: number; name: string; b?: number; h?: number }>;
-  materials: Map<number, { id: number; name: string; fy?: number }>;
+  // Steel verification (runSteelVerification) reads a/iz/iy/j/tw/tf and e; the RC
+  // path uses b/h/fy. All optional here so RC-only fixtures (no `a`) still type;
+  // the steel path guards presence before use.
+  sections: Map<number, { id: number; name: string; a?: number; iz?: number; iy?: number; j?: number; b?: number; h?: number; tw?: number; tf?: number }>;
+  materials: Map<number, { id: number; name: string; e?: number; fy?: number; fu?: number }>;
   supports: Map<number, { id: number; nodeId: number; type: string }>;
 }
 

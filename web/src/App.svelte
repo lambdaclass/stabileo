@@ -951,7 +951,14 @@
 {#if uiStore.toasts.length > 0}
   <div class="toast-container">
     {#each uiStore.toasts as toast}
-      <div class="toast toast-{toast.type}">
+      <!-- Screen-reader announce: errors interrupt (alert/assertive), the rest
+           are polite (status). Per-toast live regions avoid a nested-region clash. -->
+      <div
+        class="toast toast-{toast.type}"
+        role={toast.type === 'error' ? 'alert' : 'status'}
+        aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+        aria-atomic="true"
+      >
         <span>{toast.message}</span>
         {#if toast.actionId === 'kinematic'}
           <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; uiStore.dismissToast(toast.id); }}>

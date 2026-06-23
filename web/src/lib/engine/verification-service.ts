@@ -283,6 +283,10 @@ export function runSteelVerification(
     const material = model.materials.get(elem.materialId);
     if (!section || !material) continue;
     if (!material.fy || material.fy <= 80) continue; // RC, not steel
+    // Steel design needs E/A/Iz; real sections/materials always carry them, but
+    // guard (and narrow the optional types) so a malformed entry is skipped
+    // rather than fed undefined into the capacity checks.
+    if (material.e == null || section.a == null || section.iz == null) continue;
 
     const nI = model.nodes.get(elem.nodeI);
     const nJ = model.nodes.get(elem.nodeJ);
@@ -326,15 +330,15 @@ export function runSteelVerification(
 
     const sdp: SteelDesignParams = {
       Fy: material.fy,
-      Fu: (material as any).fu ?? material.fy * 1.25,
+      Fu: material.fu ?? material.fy * 1.25,
       E: material.e,
       A: section.a,
       Iz: section.iz,
       Iy: section.iy ?? section.iz,
       h: section.h ?? 0.3,
       b: section.b ?? 0.15,
-      tw: (section as any).tw ?? (section.b ? section.b / 10 : 0.01),
-      tf: (section as any).tf ?? (section.b ? section.b / 15 : 0.01),
+      tw: section.tw ?? (section.b ? section.b / 10 : 0.01),
+      tf: section.tf ?? (section.b ? section.b / 15 : 0.01),
       L, Lb: L,
       J: section.j ?? 0,
     };

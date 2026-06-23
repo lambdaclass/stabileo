@@ -16,6 +16,10 @@
   let aFactor = $state(1.0);
   let izFactor = $state(1.0);
 
+  // Last re-solve error (shown inline; what-if re-solves on a 60ms debounce, so
+  // a toast per tick would spam — surface it in the panel instead of swallowing).
+  let whatIfError = $state<string | null>(null);
+
   // Baseline values for display
   let baselineE = $state(0);
   let baselineA = $state(0);
@@ -120,21 +124,25 @@
         }
       }
 
-      // Re-solve
+      // Re-solve — capture failures (string return or thrown) so the panel can
+      // show them instead of silently leaving stale results on screen.
+      let solveErr: string | null = null;
       if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
         try {
           const isPro = uiStore.analysisMode === 'pro';
           const r3d = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
-          if (r3d && typeof r3d !== 'string') resultsStore.setResults3D(r3d);
-        } catch { /* ignore */ }
+          if (typeof r3d === 'string') solveErr = r3d;            // already localized by the store
+          else if (r3d) resultsStore.setResults3D(r3d);
+        } catch (e) { solveErr = (e as Error)?.message ?? t('results.numericError3d'); }
       } else {
         const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-        if (!input) return;
+        if (!input) { whatIfError = null; return; }
         try {
           const results = solve(input);
           resultsStore.setResults(results);
-        } catch { /* ignore */ }
+        } catch (e) { solveErr = (e as Error)?.message ?? t('results.numericError'); }
       }
+      whatIfError = solveErr;
     }, 60) as unknown as number;
   }
 
@@ -159,6 +167,7 @@
       }
       baseline = null;
     }
+    whatIfError = null;
     uiStore.showWhatIf = false;
   }
 
@@ -220,6 +229,10 @@
       <button class="wif-reset" onclick={resetAll} title={t('whatif.restoreOriginals')}>Reset</button>
       <button class="wif-close" onclick={close} title={t('whatif.closeAndRestore')}>✕</button>
     </div>
+
+    {#if whatIfError}
+      <div class="wif-error" role="alert">{whatIfError}</div>
+    {/if}
 
     <div class="wif-body">
       <!-- Load factors -->
@@ -429,5 +442,15 @@
     margin-bottom: 4px;
     font-family: 'Courier New', monospace;
     padding-left: 32px;
+  }
+  .wif-error {
+    margin: 8px 12px 0;
+    padding: 7px 9px;
+    border-radius: 4px;
+    background: rgba(233, 69, 96, 0.15);
+    border: 1px solid rgba(233, 69, 96, 0.5);
+    color: #ff8fa3;
+    font-size: 11.5px;
+    line-height: 1.35;
   }
 </style>
