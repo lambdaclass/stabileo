@@ -27,6 +27,14 @@
 // V signed by the shear; M CCW for +M. Node action is the exact opposite.
 
 import { computeLoadDirection } from './draw-loads';
+import {
+  DESPIECE_COL, NODE_ANCHOR_FRAC, REMNANT_START_FRAC, distributedResultant,
+  type DespieceVectorMode, type DespieceBasis,
+} from '../despiece/core';
+// Re-export the shared helper + types so existing importers (and tests) keep
+// their `from './draw-despiece'` import paths.
+export { distributedResultant };
+export type { DespieceVectorMode, DespieceBasis };
 
 export interface DespieceNode { x: number; y: number; }
 
@@ -41,17 +49,9 @@ export interface DespieceReaction { rx: number; rz: number; my: number; }
 
 export interface DespieceElement { id: number; nodeI: number; nodeJ: number; }
 
-export type DespieceVectorMode = 'all' | 'members' | 'nodes';
-export type DespieceBasis = 'local' | 'global';
-
-/** Member shrink per end at full separation (fraction of member length). */
+/** Member shrink per end at full separation (fraction of member length). 2D-only:
+ *  the 3D view uses a larger 0.32 (perspective shrinks the apparent gap). */
 export const DESPIECE_MAX_GAP_FRAC = 0.28;
-/** Node action anchor: this fraction out from the node toward the member end. */
-const NODE_ANCHOR_FRAC = 0.18;
-/** Dotted ghost remnant starts this fraction out from the node (so it begins
- *  AFTER the node-side vector at NODE_ANCHOR_FRAC, not under it) and runs to the
- *  shrunken member end. */
-const REMNANT_START_FRAC = 0.35;
 /** Small perpendicular stagger (screen px) so the member/node pair don't overlap. */
 const PERP_PX = 7;
 
@@ -93,7 +93,7 @@ export function despieceScales(forces: Iterable<DespieceElementForces>): { maxF:
 
 // ─── Vector model (pure, unit-tested) ───────────────────────────────
 
-const COL = { axial: '#ff7070', shear: '#4ecdc4', moment: '#ffd166', reaction: '#00e676', member: '#9aa7c7', remnant: '#5a6478' };
+const COL = DESPIECE_COL;
 const AXIAL_PX = 34, SHEAR_PX = 34, ARC_R = 16;
 const ARC_A0 = -Math.PI * 0.75, ARC_A1 = Math.PI * 0.25;
 
@@ -258,7 +258,7 @@ export function computeDespieceSegments(args: Pick<ComputeArgs, 'elements' | 'ge
 // ─── Loads in free-body mode (external actions, drawn once) ─────────
 
 /** Distinct load color — separate from axial/shear/moment/reaction. */
-export const DESPIECE_LOAD_COLOR = '#ffa726';
+export const DESPIECE_LOAD_COLOR = DESPIECE_COL.load;
 
 export interface DespieceElementSpan { aI: DespieceNode; aJ: DespieceNode; lenOrig: number; lenShrunk: number; }
 
@@ -280,25 +280,8 @@ export function remapLoadSpanToShrunk(a: number, b: number, lenOrig: number, len
   return { a: a * s, b: b * s };
 }
 
-/**
- * Equivalent resultant of a (possibly trapezoidal, possibly partial) distributed
- * member load with intensities qI at position `a` and qJ at position `b` (metres
- * from node I). Returns the signed total magnitude and the centroid position
- * (metres from node I, always inside [a,b]). Trapezoidal centroid:
- *   x̄ = a + (L/3)·(qI + 2·qJ)/(qI + qJ),  L = b − a.
- * For a near-zero net load (qI ≈ −qJ) the centroid falls back to the span middle.
- */
-export function distributedResultant(qI: number, qJ: number, a: number, b: number): { magnitude: number; centroid: number } {
-  const L = b - a;
-  const magnitude = (qI + qJ) / 2 * L;
-  const sum = qI + qJ;
-  let centroid = Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum;
-  // A sign-reversing trapezoid (qI, qJ opposite signs → small-but-not-tiny sum)
-  // can place the centroid far outside [a, b]; clamp so the resultant arrow
-  // stays on the member span.
-  centroid = Math.min(b, Math.max(a, centroid));
-  return { magnitude, centroid };
-}
+// distributedResultant moved to ../despiece/core (shared with the 3D view) and
+// re-exported at the top of this file.
 
 /**
  * Resultant of an APPLIED distributed member load as a world-space force VECTOR

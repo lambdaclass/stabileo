@@ -28,34 +28,18 @@ import { projectNodeToScene } from '../geometry/coordinate-system';
 import { createTextSprite } from './selection-helpers';
 import type { ElementForces3D, Reaction3D } from '../engine/types-3d';
 import type { Element, Node, Section, Load } from '../store/model.svelte';
-
-export const DESPIECE_COL = {
-  axial: '#ff7070',
-  shear: '#4ecdc4',
-  moment: '#ffd166',
-  reaction: '#00e676',
-  member: '#9aa7c7',
-  remnant: '#5a6478',
-  load: '#ffa726',
-};
+import {
+  DESPIECE_COL, NODE_ANCHOR_FRAC, REMNANT_START_FRAC, distributedResultant,
+  type DespieceVectorMode, type DespieceBasis,
+} from '../despiece/core';
+// Re-export the shared palette + types so existing importers (and tests) keep
+// their `from './despiece-3d'` import paths.
+export { DESPIECE_COL };
+export type { DespieceVectorMode, DespieceBasis };
 
 export type DespieceLoadMode = 'off' | 'resultant' | 'all';
 
-/** Equivalent resultant of a trapezoidal/partial distributed component (qI@a..qJ@b). */
-function distResultant(qI: number, qJ: number, a: number, b: number): { mag: number; centroid: number } {
-  const L = b - a, sum = qI + qJ;
-  const raw = Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum;
-  // Clamp to [a, b]: a sign-reversing trapezoid can otherwise place the
-  // resultant centroid far off the member (mirror of draw-despiece.ts).
-  return { mag: sum / 2 * L, centroid: Math.min(b, Math.max(a, raw)) };
-}
-
-export type DespieceVectorMode = 'all' | 'members' | 'nodes';
-export type DespieceBasis = 'local' | 'global';
-
-const MAX_GAP_FRAC = 0.32;   // member shrink per end at full separation (a bit > 2D's 0.28 — 3D perspective shrinks the apparent gap)
-const NODE_FRAC = 0.18;      // node action anchor: fraction from node toward shrunken end
-const REMNANT_START_FRAC = 0.35; // dotted remnant starts past the node-side vector
+const MAX_GAP_FRAC = 0.32;   // member shrink per end at full separation (> 2D's 0.28 — 3D perspective shrinks the apparent gap)
 const LABEL_ELEM_CAP = 60;   // suppress per-end labels above this many elements (arrows stay)
 const FORCE_EPS = 1e-3;      // kN / kN·m below which a component is treated as zero
 
@@ -367,10 +351,10 @@ export function createDespiece3DGroup(opts: {
         if (ld.type === 'distributed3d' && ld.data.elementId === elem.id) {
           const d = ld.data; const a0 = d.a ?? 0, b0 = d.b ?? Llen;
           if (loadMode === 'resultant') {
-            const RY = distResultant(d.qYI, d.qYJ, a0, b0), RZ = distResultant(d.qZI, d.qZJ, a0, b0);
-            const dir = eyV.clone().multiplyScalar(RY.mag).add(ezV.clone().multiplyScalar(RZ.mag));
-            const wsum = Math.abs(RY.mag) + Math.abs(RZ.mag);
-            const centroid = wsum < 1e-9 ? (a0 + b0) / 2 : (Math.abs(RY.mag) * RY.centroid + Math.abs(RZ.mag) * RZ.centroid) / wsum;
+            const RY = distributedResultant(d.qYI, d.qYJ, a0, b0), RZ = distributedResultant(d.qZI, d.qZJ, a0, b0);
+            const dir = eyV.clone().multiplyScalar(RY.magnitude).add(ezV.clone().multiplyScalar(RZ.magnitude));
+            const wsum = Math.abs(RY.magnitude) + Math.abs(RZ.magnitude);
+            const centroid = wsum < 1e-9 ? (a0 + b0) / 2 : (Math.abs(RY.magnitude) * RY.centroid + Math.abs(RZ.magnitude) * RZ.centroid) / wsum;
             if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, centroid / Llen);
           } else {
             const SAMPLES = 5;
@@ -453,9 +437,9 @@ export function createDespiece3DGroup(opts: {
             Math.hypot(e.node.x - m.pJ.x, e.node.y - m.pJ.y, e.node.z - m.pJ.z) ? end.I : end.J;
           if (e.isNodeSide) {
             e.group.position.set(
-              e.node.x + (shrunk.x - e.node.x) * NODE_FRAC,
-              e.node.y + (shrunk.y - e.node.y) * NODE_FRAC,
-              e.node.z + (shrunk.z - e.node.z) * NODE_FRAC,
+              e.node.x + (shrunk.x - e.node.x) * NODE_ANCHOR_FRAC,
+              e.node.y + (shrunk.y - e.node.y) * NODE_ANCHOR_FRAC,
+              e.node.z + (shrunk.z - e.node.z) * NODE_ANCHOR_FRAC,
             );
           } else {
             e.group.position.set(shrunk.x, shrunk.y, shrunk.z);
