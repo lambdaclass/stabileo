@@ -111,18 +111,24 @@ export interface ArchColumn {
   mark?: string;
   /** Refined dimension source after spec attachment. */
   specSource?: SpecSource;
+  /** Source DXF layer (for per-layer contribution counts). */
+  srcLayer?: string;
 }
 
 export interface ArchBeam {
   a: CadPt;
   b: CadPt;
-  /** Beam width measured from paired face lines (m). */
+  /** Beam width measured from paired face lines or a face polygon (m). */
   width?: number;
   /** Mark label found near the beam (e.g. "V-101"). */
   mark?: string;
   /** Depth from a label like "V-101: 15x40" (m). */
   depth?: number;
   specSource?: SpecSource;
+  /** How the beam geometry was read: a single drawn centerline, a paired
+   *  face-line couple, or a closed/open face polygon (PR [14] Layer 4). */
+  geomSource?: 'centerline' | 'paired' | 'polygon';
+  srcLayer?: string;
 }
 
 export interface ArchWall {
@@ -133,6 +139,7 @@ export interface ArchWall {
   thicknessSource: 'paired' | 'default';
   mark?: string;
   specSource?: SpecSource;
+  srcLayer?: string;
 }
 
 export interface ArchSlab {
@@ -146,6 +153,10 @@ export interface ArchSlab {
   thickness?: number;
   mark?: string;
   specSource?: SpecSource;
+  /** True when this panel was INFERRED from the beam grid, not drawn as a
+   *  closed outline (PR [14] Layer 2) — surfaced in provenance. */
+  inferred?: boolean;
+  srcLayer?: string;
 }
 
 /** One section-schedule row: member kind + mark (or '*' wildcard) + floor

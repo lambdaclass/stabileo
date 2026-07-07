@@ -2,6 +2,9 @@
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { toDisplay, unitLabel } from '../lib/utils/units';
   import { t } from '../lib/i18n';
+  import CadProvenancePanel from './CadProvenancePanel.svelte';
+
+  let showProvenance = $state(false);
 
   function getToolName(tool: string): string {
     const keyMap: Record<string, string> = {
@@ -80,19 +83,15 @@
   {#if modelStore.model.provenance?.status === 'cad-draft-unreviewed'}
     <button
       class="draft-badge"
-      title={t('cad.badgeTooltip')
+      title={t('cad.badgeTooltipView')
         .replace('{file}', modelStore.model.provenance.fileName)
         .replace('{date}', modelStore.model.provenance.importedAtIso.slice(0, 10))}
-      onclick={() => {
-        if (window.confirm(t('cad.confirmReviewed'))) {
-          modelStore.markProvenanceReviewed();
-          uiStore.toast(t('cad.markedReviewed'), 'success');
-        }
-      }}
+      onclick={() => { showProvenance = true; }}
     >
       ⚠ {t('cad.draftBadge')}
     </button>
   {/if}
+  <CadProvenancePanel open={showProvenance} onclose={() => { showProvenance = false; }} />
   <div class="status-item">
     <span class="status-label">{t('status.tool')}:</span>
     <span class="status-value">{getToolName(uiStore.currentTool)}</span>

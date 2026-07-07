@@ -18,8 +18,11 @@
 //     the drawn 40x40 outlines — precedence demo),
 //   - beams sized PER MEMBER from labels (V-INT 18x45, V-PERIM 20x55, V3 25x60,
 //     V-BALCON 15x35) and exact schedule rows (V1 20x50, V2 15x40), with one
-//     unlabelled beam falling back to the default section (+warning), plus an
-//     EDGE-FLUSH eccentric beam drawn as face lines (PR [7] member offset),
+//     unlabelled beam falling back to the default section (+warning). Beam geometry
+//     is shown three ways: a plain CENTERLINE (V-INT etc.), an EDGE-FLUSH eccentric
+//     beam drawn as two FACE lines (V1, PR [7] member offset), and a CLOSED FOOTPRINT
+//     POLYGON (V-PERIM) whose centerline + width the importer derives directly
+//     (PR [14] Layer 4, element.geomSource='polygon'),
 //   - walls drawn as single AXIS lines with "e=" thickness labels (T1 e=20,
 //     T2 e=15, TABIQUE T3 e=18) — the preferred convention — plus one optional
 //     paired-face wall (T4) whose thickness is read from the face spacing,
@@ -119,7 +122,12 @@ export function buildStabileoTemplateDxf(): string {
   //   • V @ x=15 balcony support  V-BALCON 15x35 (label)
   line(e, 'STB_BEAM_CENTERLINE', 0, 6, 15, 6);
   text(e, 'STB_BEAM_MARKS', 3.5, 6.35, 'V-INT 18x45', 0.18);
-  line(e, 'STB_BEAM_CENTERLINE', 0, 12, 15, 12);
+  // V-PERIM drawn as a CLOSED FOOTPRINT POLYGON on STB_BEAM_FACES (PR [14] Layer 4):
+  // the importer derives the analytical centerline + width (0.20 m here) directly
+  // from the thin closed outline (element.geomSource='polygon'); the DEPTH comes
+  // from the "20x55" label. This is an alternative to a single centerline — use it
+  // when a real DXF draws beams as their plan outline. (rect: cx,cy,length,width.)
+  rect(e, 'STB_BEAM_FACES', 7.5, 12, 15, 0.20);
   text(e, 'STB_BEAM_MARKS', 3.5, 12.35, 'V-PERIM 20x55', 0.18);
   line(e, 'STB_BEAM_CENTERLINE', 0, 0, 0, 12);
   text(e, 'STB_BEAM_MARKS', 0.35, 3, 'V2 15x40', 0.18);
@@ -205,7 +213,7 @@ export function buildStabileoTemplateDxf(): string {
   const notes = [
     'STABILEO DXF TEMPLATE - draw in METERS on the STB_ layers.',
     'COLUMNS: closed polylines on STB_COLUMN_OUTLINE; marks C1, C2 ... on STB_COLUMN_MARKS (the column schedule sets sizes per floor).',
-    'BEAMS: one centerline per beam on STB_BEAM_CENTERLINE; label each with mark + section in cm, e.g. V-INT 18x45 / V1 20x50 / V-BALCON 15x35. Sizes differ per beam. Flush faces on STB_BEAM_FACES model an eccentric offset.',
+    'BEAMS: one centerline per beam on STB_BEAM_CENTERLINE; label each with mark + section in cm, e.g. V-INT 18x45 / V1 20x50 / V-BALCON 15x35. Sizes differ per beam. On STB_BEAM_FACES you may instead draw a beam as two flush FACE lines (eccentric offset, V1) OR as a CLOSED FOOTPRINT POLYGON (V-PERIM) - the importer derives centerline + width from the outline; the depth still comes from the label.',
     'WALLS: PREFERRED = single axis on STB_WALL_AXIS + label T1 e=20 / TABIQUE T3 e=18 (e = cm). Two parallel faces on STB_WALL_FACES (thickness = spacing) are also supported for real DXFs.',
     'SLABS: closed outlines on STB_SLAB_OUTLINE; marks L1 h=15 (cm). Openings on STB_OPENING.',
     'BALCONY/VOLADIZO: a slab supported on ONE edge (on a beam) with no exterior columns is kept as a cantilever.',
@@ -213,6 +221,7 @@ export function buildStabileoTemplateDxf(): string {
     'LEVELS: rows LEVELS <n|a-b> <height m> on STB_LEVEL_SCHEDULE pre-fill the wizard floors.',
     'LOADS: STB_LOAD_AREAS is informative only - confirm D/L/Lr in the wizard. STB_IGNORE is skipped.',
     'ROOMS: room/use labels on STB_ROOMS (ESTAR/DORMITORIO/BANO/BALCON/...) drive room-based live loads when enabled.',
+    'WIZARD (not embedded in this DXF): step 4 shows an honest generated-model PREVIEW + a DIAGNOSTICS verdict (flags 0 slabs / disconnected / no supports before Apply) and a UNIT sanity check (draw in METERS). For messy real (non-STB) DXFs the wizard also offers a CROP window, per-floor plan ranges, and opt-in INFERENCE (infer slab panels from the beam grid, snap panel corners to columns, prune annotation/floating members) - all recorded in provenance. This template is the clean STB_ path and needs none of that.',
   ];
   notes.forEach((nt, i) => text(e, 'STB_NOTES', 0, -2.5 - i * 0.6, nt, 0.3));
 

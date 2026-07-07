@@ -11,10 +11,13 @@
   // one-plan-replicated-to-all-floors assumption).
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { t } from '../lib/i18n';
-  import { parseCadDxf, unsupportedFileKind } from '../lib/cad/parse';
+  import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent } from '../lib/cad/parse';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
-  import { generateRcDraft } from '../lib/cad/draft';
   import { drawCadPreview, ROLE_COLORS } from '../lib/cad/preview';
+  import { drawDraftPreview } from '../lib/cad/draft-preview';
+  import { diagnoseDraft, type DraftDiagnostics } from '../lib/cad/diagnostics';
+  import { buildDraft, validateFloorRanges, type InferenceOptions, type FloorPlanSpec } from '../lib/cad/draft-build';
+  import { cropDoc, densestPlanWindow, type PlanWindow } from '../lib/cad/infer';
   import { buildStabileoTemplateDxf } from '../lib/cad/template';
   import { parseScheduleRow } from '../lib/cad/specs';
   import {
@@ -68,6 +71,21 @@
   let splitBeams = $state(true);
   let snapTolerance = $state(0.01);
 
+  // ── PR [14] crop / inference / multi-floor / diagnostics ───
+  let cropEnabled = $state(false);
+  let cropWin = $state<PlanWindow>({ x0: 0, x1: 0, y0: 0, y1: 0 });
+  let infPruneBeams = $state(false);
+  let infInferSlabs = $state(false);
+  let infSnapColumns = $state(true);
+  let infPruneFloating = $state(false);
+  // Per-floor plan regions (crop windows of the same file → floor ranges).
+  let floorRegions = $state<Array<PlanWindow & { fromFloor: number; toFloor: number; label: string }>>([]);
+  // Set once the user has acknowledged an uncovered-floor gap so the next build
+  // proceeds (gaps become warnings instead of a blocking error).
+  let allowFloorGaps = $state(false);
+  let diagnostics = $state<DraftDiagnostics | null>(null);
+  let previewCanvas = $state<HTMLCanvasElement | null>(null);
+
   let fileInput = $state<HTMLInputElement | null>(null);
 
   /** Parse a DXF file into the wizard state (shared by the prop path and the
@@ -95,6 +113,7 @@
         doc = parsed;
         unit = parsed.suggestedUnit ?? 'm';
         mappings = suggestLayerMappings(parsed, unit);
+        if (parsed.bbox) cropWin = { x0: parsed.bbox.minX, x1: parsed.bbox.maxX, y0: parsed.bbox.minY, y1: parsed.bbox.maxY };
         step = 1;
         draft = null;
       } catch {
@@ -108,6 +127,9 @@
   function reset(): void {
     doc = null; error = null; genError = null; fileName = ''; step = 1; draft = null;
     mappings = []; levelsPrefilled = false; scheduleRows = [];
+    cropEnabled = false; cropWin = { x0: 0, x1: 0, y0: 0, y1: 0 };
+    infPruneBeams = false; infInferSlabs = false; infSnapColumns = true; infPruneFloating = false;
+    floorRegions = []; diagnostics = null;
   }
 
   // The `file` prop is set only by drag-drop / direct-import routes. The
@@ -140,10 +162,66 @@
   const roleOf = (layer: string): LayerRole =>
     mappings.find((m) => m.layer === layer)?.role ?? 'ignore';
 
-  const plan = $derived.by(() => {
-    if (!doc || error) return null;
-    return extractArchPlan(doc, mappings, unit);
+  /** Document actually fed to extraction — cropped to the plan window when the
+   *  user enabled cropping (PR [14] Layer 2). */
+  const effectiveDoc = $derived.by(() => {
+    if (!doc) return null;
+    return cropEnabled ? cropDoc(doc, cropWin) : doc;
   });
+
+  const plan = $derived.by(() => {
+    const d = effectiveDoc;
+    if (!d || error) return null;
+    return extractArchPlan(d, mappings, unit);
+  });
+
+  /** Unit-extent sanity warning (mm header on a metre drawing, etc.). */
+  const unitWarning = $derived.by(() => (doc?.bbox ? suggestUnitFromExtent(doc.bbox, unit) : null));
+
+  /** Active inference options (Layer 2). */
+  const inferenceOpts = $derived<InferenceOptions>({
+    pruneDisconnectedBeams: infPruneBeams,
+    inferSlabPanels: infInferSlabs,
+    snapPanelsToColumns: infSnapColumns,
+    pruneFloatingMembers: infPruneFloating,
+  });
+  const anyInference = $derived(infPruneBeams || infInferSlabs || infPruneFloating);
+
+  /** Per-layer contribution counts from the extracted plan (Layer 1). */
+  const layerContrib = $derived.by(() => {
+    const m = new Map<string, { columns: number; beams: number; walls: number; slabs: number }>();
+    const bump = (layer: string | undefined, k: 'columns' | 'beams' | 'walls' | 'slabs') => {
+      if (!layer) return;
+      const e = m.get(layer) ?? { columns: 0, beams: 0, walls: 0, slabs: 0 };
+      e[k]++; m.set(layer, e);
+    };
+    if (plan) {
+      for (const c of plan.columns) bump(c.srcLayer, 'columns');
+      for (const b of plan.beams) bump(b.srcLayer, 'beams');
+      for (const w of plan.walls) bump(w.srcLayer, 'walls');
+      for (const s of plan.slabs) bump(s.srcLayer, 'slabs');
+    }
+    return m;
+  });
+
+  function applySuggestedUnit(): void {
+    if (unitWarning) { unit = unitWarning.suggested; reSuggest(); }
+  }
+
+  function autoDetectCrop(): void {
+    if (!doc) return;
+    const w = densestPlanWindow(doc);
+    if (w) { cropWin = w; cropEnabled = true; }
+  }
+
+  function fullExtentCrop(): void {
+    if (doc?.bbox) cropWin = { x0: doc.bbox.minX, x1: doc.bbox.maxX, y0: doc.bbox.minY, y1: doc.bbox.maxY };
+  }
+
+  function addFloorRegion(): void {
+    const f = floorRegions.length + 1;
+    floorRegions = [...floorRegions, { ...cropWin, fromFloor: f, toFloor: f, label: `Plan ${String.fromCharCode(64 + f)}` }];
+  }
 
   // Redraw the preview whenever the document, mapping, or step changes.
   $effect(() => {
@@ -151,6 +229,22 @@
       void mappings; // reactive dep: redraw on role change
       drawCadPreview(canvas, doc, roleOf);
     }
+  });
+
+  // Step-4 generated-model preview: draw the actual snapshot that will be
+  // applied, highlighting orphan/floating nodes (PR [14] Layer 1).
+  $effect(() => {
+    if (previewCanvas && draft && step === 4) {
+      drawDraftPreview(previewCanvas, draft.snapshot, { highlightFailures: true });
+    }
+  });
+
+  // Any edit to the floor ranges (add/remove/renumber) invalidates a prior
+  // gap acknowledgement, so the user must re-confirm a newly-introduced gap.
+  $effect(() => {
+    void floorRegions.map((r) => `${r.fromFloor}-${r.toFloor}`).join(',');
+    void nFloors;
+    allowFloorGaps = false;
   });
 
   function setRole(layer: string, role: LayerRole): void {
@@ -239,11 +333,34 @@
     // crashing on malformed/ambiguous CAD data: any throw becomes an in-wizard
     // panel and the user stays on step 3 to adjust mappings/assumptions.
     let result: RcDraftResult;
+    const source = { fileName, importedAtIso: new Date().toISOString() };
+    const inference = anyInference ? inferenceOpts : undefined;
     try {
-      result = generateRcDraft(plan, assumptions(), {
-        fileName,
-        importedAtIso: new Date().toISOString(),
-      });
+      if (floorRegions.length > 0 && doc) {
+        // Per-floor plans: each region is a crop window of the same file,
+        // read through the same layer mapping (PR [14] Layer 3).
+        const floorPlans: FloorPlanSpec[] = floorRegions.map((r) => ({
+          plan: extractArchPlan(cropDoc(doc!, r), mappings, unit),
+          fromFloor: r.fromFloor, toFloor: r.toFloor, label: r.label,
+        }));
+        // Validate ranges up front so overlaps/out-of-range are a clear, blocking
+        // error and an uncovered-floor gap prompts an explicit confirmation
+        // before we silently build fewer floors than intended.
+        const issues = validateFloorRanges(floorPlans, nFloors, allowFloorGaps);
+        const hardErrors = issues.filter((i) => i.severity === 'error');
+        if (hardErrors.length > 0) {
+          const gapOnly = hardErrors.every((i) => i.message.startsWith('floorRangeGap:'));
+          genError = {
+            message: gapOnly ? t('cad.floorGapConfirm') : t('cad.floorRangeError'),
+            detail: hardErrors.map((i) => i.message).join('\n'),
+          };
+          if (gapOnly) allowFloorGaps = true; // next "Generate" click proceeds with gaps as warnings
+          return; // stay on step 3, model untouched
+        }
+        result = buildDraft({ floorPlans, assumptions: assumptions(), source, inference, allowFloorGaps });
+      } else {
+        result = buildDraft({ plan, assumptions: assumptions(), source, inference });
+      }
     } catch (e) {
       const showDetail = import.meta.env.DEV || import.meta.env.MODE === 'test';
       genError = {
@@ -253,6 +370,7 @@
       return; // stay on step 3, model untouched, draft unchanged
     }
     draft = result;
+    diagnostics = diagnoseDraft(result);
     step = 4;
   }
 
@@ -353,6 +471,18 @@
                       <span class="hint">{t('cad.unitUnknown')}</span>
                     {/if}
                   </div>
+                  {#if unitWarning}
+                    <div class="unit-warn" role="alert">
+                      ⚠ {t('cad.unitSanity')
+                        .replace('{cur}', unit)
+                        .replace('{curM}', unitWarning.currentExtentM.toFixed(2))
+                        .replace('{sug}', unitWarning.suggested)
+                        .replace('{sugM}', unitWarning.suggestedExtentM.toFixed(2))}
+                      <button class="btn mini" onclick={applySuggestedUnit}>
+                        {t('cad.unitUseSuggested').replace('{u}', unitWarning.suggested)}
+                      </button>
+                    </div>
+                  {/if}
                   {#if doc.bbox}
                     {@const k = unit === 'm' ? 1 : unit === 'cm' ? 0.01 : 0.001}
                     <div class="row hint">
@@ -361,6 +491,24 @@
                         .replace('{h}', ((doc.bbox.maxY - doc.bbox.minY) * k).toFixed(2))}
                     </div>
                   {/if}
+                  <details class="panel crop-panel">
+                    <summary>{t('cad.cropTitle')}</summary>
+                    <div class="hint">{t('cad.cropHint')}</div>
+                    <label class="check">
+                      <input type="checkbox" bind:checked={cropEnabled} />
+                      {t('cad.cropEnable')}
+                    </label>
+                    <div class="crop-grid" class:disabled={!cropEnabled}>
+                      <label>x₀<input type="number" step="0.1" bind:value={cropWin.x0} disabled={!cropEnabled} /></label>
+                      <label>x₁<input type="number" step="0.1" bind:value={cropWin.x1} disabled={!cropEnabled} /></label>
+                      <label>y₀<input type="number" step="0.1" bind:value={cropWin.y0} disabled={!cropEnabled} /></label>
+                      <label>y₁<input type="number" step="0.1" bind:value={cropWin.y1} disabled={!cropEnabled} /></label>
+                    </div>
+                    <div class="crop-actions">
+                      <button class="btn mini" onclick={autoDetectCrop}>{t('cad.cropAuto')}</button>
+                      <button class="btn mini" onclick={fullExtentCrop} disabled={!cropEnabled}>{t('cad.cropFull')}</button>
+                    </div>
+                  </details>
                   <h3>{t('cad.contents')}</h3>
                   <div class="row hint">
                     {doc.entities.length} {t('cad.entities')} · {doc.layers.length} {t('cad.layersN')}
@@ -373,15 +521,19 @@
                   <div class="hint">{t('cad.layerRolesHint')}</div>
                   <table class="layer-table">
                     <thead>
-                      <tr><th>{t('cad.layer')}</th><th>#</th><th>{t('cad.suggested')}</th><th>{t('cad.role')}</th></tr>
+                      <tr><th>{t('cad.layer')}</th><th>#</th><th>{t('cad.suggested')}</th><th>{t('cad.role')}</th><th>{t('cad.generates')}</th></tr>
                     </thead>
                     <tbody>
                       {#each mappings as m (m.layer)}
-                        {@const total = doc.layers.find((l) => l.name === m.layer)?.total ?? 0}
+                        {@const lc = doc.layers.find((l) => l.name === m.layer)}
+                        {@const total = lc?.total ?? 0}
+                        {@const breakdown = Object.entries(lc?.entityCounts ?? {}).map(([kind, n]) => `${n} ${kind}`).join(', ')}
+                        {@const contrib = layerContrib.get(m.layer)}
                         <tr>
                           <td class="layer-name">
                             <span class="role-dot" style="background:{ROLE_COLORS[m.role]}"></span>
                             {m.layer}
+                            {#if breakdown}<div class="layer-breakdown">{breakdown}</div>{/if}
                           </td>
                           <td class="num">{total}</td>
                           <td class="suggested" title={m.evidence}>
@@ -394,6 +546,16 @@
                                 <option value={r}>{t(`cad.role.${r}`)}</option>
                               {/each}
                             </select>
+                          </td>
+                          <td class="contrib">
+                            {#if contrib}
+                              {#if contrib.columns}<span title={t('cad.role.column')}>🟥{contrib.columns}</span>{/if}
+                              {#if contrib.beams}<span title={t('cad.role.beam')}>🟦{contrib.beams}</span>{/if}
+                              {#if contrib.walls}<span title={t('cad.role.wall')}>🟧{contrib.walls}</span>{/if}
+                              {#if contrib.slabs}<span title={t('cad.role.slab')}>🔷{contrib.slabs}</span>{/if}
+                            {:else if m.role !== 'ignore' && m.role !== 'text' && m.role !== 'grid'}
+                              <span class="contrib-zero" title={t('cad.generatesNothing')}>0</span>
+                            {/if}
                           </td>
                         </tr>
                       {/each}
@@ -592,9 +754,78 @@
                 </label>
                 <div class="hint">{t('cad.offsetsHint')}</div>
               </details>
+              <details class="panel infer-panel">
+                <summary>{t('cad.inferPanel')}</summary>
+                <div class="hint warn-text">{t('cad.inferHint')}</div>
+                <label class="check">
+                  <input type="checkbox" bind:checked={infPruneBeams} />
+                  {t('cad.inferPruneBeams')}
+                </label>
+                <label class="check">
+                  <input type="checkbox" bind:checked={infInferSlabs} />
+                  {t('cad.inferSlabs')}
+                </label>
+                <label class="check sub" class:disabled={!infInferSlabs}>
+                  <input type="checkbox" bind:checked={infSnapColumns} disabled={!infInferSlabs} />
+                  {t('cad.inferSnapColumns')}
+                </label>
+                <label class="check">
+                  <input type="checkbox" bind:checked={infPruneFloating} />
+                  {t('cad.inferPruneFloating')}
+                </label>
+              </details>
+              <details class="panel floors-panel">
+                <summary>{t('cad.floorPlansPanel')}</summary>
+                <div class="hint">{t('cad.floorPlansHint')}</div>
+                {#each floorRegions as r, i}
+                  <div class="region-row">
+                    <input type="text" class="region-label" bind:value={r.label} title={t('cad.floorPlanLabel')} />
+                    <span class="region-range">
+                      {t('cad.floors')}
+                      <input type="number" min="1" step="1" bind:value={r.fromFloor} />–
+                      <input type="number" min="1" step="1" bind:value={r.toFloor} />
+                    </span>
+                    <span class="region-win" title={t('cad.floorPlanWindow')}>
+                      [{r.x0.toFixed(1)},{r.y0.toFixed(1)}]–[{r.x1.toFixed(1)},{r.y1.toFixed(1)}]
+                    </span>
+                    <button class="btn mini" onclick={() => { floorRegions = floorRegions.filter((_, j) => j !== i); }}>✕</button>
+                  </div>
+                {/each}
+                <button class="btn mini" onclick={addFloorRegion} disabled={!cropEnabled}>+ {t('cad.floorPlanAdd')}</button>
+                {#if !cropEnabled}<div class="hint">{t('cad.floorPlanNeedCrop')}</div>{/if}
+              </details>
             </div>
           {:else if step === 4 && draft}
             <div class="banner">{t('cad.draftBanner')}</div>
+            <div class="preview-row">
+              <div class="preview-pane">
+                <canvas bind:this={previewCanvas} width="420" height="320"></canvas>
+                <div class="legend">
+                  <span><span class="role-dot" style="background:#e94560"></span>{t('cad.role.column')}</span>
+                  <span><span class="role-dot" style="background:#4ecdc4"></span>{t('cad.role.beam')}</span>
+                  <span><span class="role-dot" style="background:#6a9fe0"></span>{t('cad.role.slab')}</span>
+                  <span><span class="role-dot" style="background:#f0a500"></span>{t('cad.role.wall')}</span>
+                  <span><span class="role-dot" style="background:#ff5d5d"></span>{t('cad.diagFloatingNode')}</span>
+                </div>
+              </div>
+              {#if diagnostics}
+                <div class="diag-pane diag-{diagnostics.level}">
+                  <div class="diag-head">
+                    {diagnostics.level === 'ok' ? '✅' : diagnostics.level === 'warn' ? '⚠' : '⛔'}
+                    <strong>{t(`cad.diagVerdict.${diagnostics.solvableShape ? 'ok' : diagnostics.level}`)}</strong>
+                  </div>
+                  <ul class="diag-list">
+                    {#each diagnostics.checks as ck}
+                      <li class="diag-{ck.level}">
+                        {t(`cad.diag.${ck.id}`)
+                          .replace('{n}', String(ck.values?.n ?? ''))
+                          .replace('{orphans}', String(ck.values?.orphans ?? ''))}
+                      </li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+            </div>
             <div class="split">
               <div class="left">
                 <h3>{t('cad.draftCounts')}</h3>
@@ -820,4 +1051,39 @@
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn.primary { background: rgba(78, 205, 196, 0.15); color: #4ecdc4; border-color: #4ecdc4; }
   .btn.apply { background: rgba(78, 205, 196, 0.25); color: #4ecdc4; border-color: #4ecdc4; font-weight: 600; }
+
+  /* PR [14] — unit sanity, crop, contribution, inference, multi-floor, preview, diagnostics */
+  .unit-warn {
+    background: rgba(240, 165, 0, 0.14); border: 1px solid #f0a500; color: #f0c860;
+    padding: 0.4rem 0.55rem; border-radius: 4px; font-size: 0.74rem; margin: 0.3rem 0;
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  }
+  .crop-panel { margin-top: 0.5rem; }
+  .crop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; margin: 0.3rem 0; }
+  .crop-grid.disabled { opacity: 0.5; }
+  .crop-grid label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; }
+  .crop-grid input { width: 80px; padding: 0.2rem 0.35rem; background: #0f3460; color: #ddd; border: 1px solid #1a4a7a; border-radius: 4px; font-size: 0.72rem; }
+  .crop-actions { display: flex; gap: 0.4rem; }
+  .layer-breakdown { font-size: 0.62rem; color: #6f7d90; margin-left: 0.95rem; }
+  .layer-table .contrib { font-size: 0.72rem; white-space: nowrap; }
+  .layer-table .contrib span { margin-right: 0.2rem; }
+  .contrib-zero { color: #c46; font-weight: 600; }
+  .infer-panel .warn-text { margin-bottom: 0.3rem; }
+  .check.sub { margin-left: 1.1rem; }
+  .check.sub.disabled { opacity: 0.5; }
+  .region-row { display: flex; align-items: center; gap: 0.35rem; margin: 0.25rem 0; font-size: 0.72rem; flex-wrap: wrap; }
+  .region-row input[type='text'] { width: 78px; }
+  .region-row input[type='number'] { width: 42px; padding: 0.2rem 0.3rem; background: #0f3460; color: #ddd; border: 1px solid #1a4a7a; border-radius: 4px; }
+  .region-win { color: #8194ab; font-size: 0.66rem; }
+  .preview-row { display: flex; gap: 0.8rem; margin-bottom: 0.7rem; align-items: stretch; }
+  .preview-pane canvas { border: 1px solid #1a4a7a; border-radius: 4px; background: #10101c; }
+  .diag-pane { flex: 1; border-radius: 6px; padding: 0.5rem 0.7rem; font-size: 0.76rem; overflow-y: auto; max-height: 340px; }
+  .diag-pane.diag-ok { background: rgba(78, 205, 196, 0.1); border: 1px solid #2f8f86; }
+  .diag-pane.diag-warn { background: rgba(240, 165, 0, 0.1); border: 1px solid #f0a500; }
+  .diag-pane.diag-error { background: rgba(233, 69, 96, 0.12); border: 1px solid #e94560; }
+  .diag-head { font-size: 0.85rem; margin-bottom: 0.4rem; }
+  .diag-list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.2rem; }
+  .diag-list li.diag-error { color: #ff8a9e; }
+  .diag-list li.diag-warn { color: #f0c860; }
+  .diag-list li.diag-ok { color: #7fe0d6; }
 </style>

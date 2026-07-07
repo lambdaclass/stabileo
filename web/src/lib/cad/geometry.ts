@@ -576,6 +576,69 @@ export function segmentsCollinearOverlap(
   return hi - lo >= minOverlap;
 }
 
+/**
+ * Derive a beam analytical axis from a drawn face polygon (PR [14] Layer 4).
+ * A beam drawn as its physical outline (closed thin rectangle, or an open
+ * 3-point U of faces) has a long axis and a short width. Returns the
+ * centerline endpoints (along the long axis, through the centroid, spanning the
+ * full length) plus the width = perpendicular extent. Null when the shape is
+ * not elongated enough to be a beam (aspect < `minAspect`) or is degenerate.
+ *
+ * Robust to skew: the axis direction is the polygon's longest edge; length and
+ * width are the spans of all vertices projected onto that direction and its
+ * normal.
+ */
+export function beamAxisFromPolygon(
+  ptsIn: CadPt[], minAspect = 1.5,
+): { a: CadPt; b: CadPt; width: number } | null {
+  const pts = pruneCollinear(ptsIn, 1e-6);
+  if (pts.length < 3) return null;
+  // Longest edge → axis direction.
+  let ux = 1, uy = 0, best = -1;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    const dx = q.x - p.x, dy = q.y - p.y;
+    const L = Math.hypot(dx, dy);
+    if (L > best) { best = L; ux = dx / L; uy = dy / L; }
+  }
+  if (best <= 0) return null;
+  let cx = 0, cy = 0;
+  for (const p of pts) { cx += p.x; cy += p.y; }
+  cx /= pts.length; cy /= pts.length;
+  // Project onto axis (t) and normal (s).
+  let tMin = Infinity, tMax = -Infinity, sMin = Infinity, sMax = -Infinity;
+  for (const p of pts) {
+    const t = (p.x - cx) * ux + (p.y - cy) * uy;
+    const s = -(p.x - cx) * uy + (p.y - cy) * ux;
+    if (t < tMin) tMin = t; if (t > tMax) tMax = t;
+    if (s < sMin) sMin = s; if (s > sMax) sMax = s;
+  }
+  const length = tMax - tMin, width = sMax - sMin;
+  if (length <= 0 || width <= 0 || length / width < minAspect) return null;
+  // Reject implausible beam widths — a non-rectangular (L/U/hollow) outline can
+  // otherwise yield a fake wide "beam" spanning the void.
+  const MAX_BEAM_WIDTH_M = 0.60;
+  if (width > MAX_BEAM_WIDTH_M) return null;
+  // Rectangularity: the polygon area must roughly FILL its oriented bounding box
+  // (length × width). A true rectangle fills it (~1.0); an L / U / hollow shape
+  // leaves a void and falls below the tolerance → not a beam footprint.
+  let cross = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    cross += p.x * q.y - q.x * p.y;
+  }
+  const area = Math.abs(cross) / 2;
+  const AREA_FILL_TOL = 0.20; // accept when area is within 20% of the bbox area
+  if (area < (1 - AREA_FILL_TOL) * length * width) return null;
+  // Centerline at mid-width (s = (sMin+sMax)/2), full length.
+  const sMid = (sMin + sMax) / 2;
+  const at = (t: number): CadPt => ({
+    x: cx + ux * t - uy * sMid,
+    y: cy + uy * t + ux * sMid,
+  });
+  return { a: at(tMin), b: at(tMax), width };
+}
+
 /** Parameter t∈(0,1) where p lies on segment a→b (within posTol), else null.
  *  Endpoints excluded (endTol fraction). The plan-view cousin of beamThrough. */
 export function pointOnSegment(
