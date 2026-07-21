@@ -13,7 +13,10 @@
   import { t } from '../lib/i18n';
   import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent } from '../lib/cad/parse';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
-  import { drawCadPreview, ROLE_COLORS } from '../lib/cad/preview';
+  import {
+    drawCadPreview, drawSemanticPreview, planBBox, ROLE_COLORS,
+    fitView, zoomAround, panView, type PreviewView,
+  } from '../lib/cad/preview';
   import { drawDraftPreview } from '../lib/cad/draft-preview';
   import { diagnoseDraft, type DraftDiagnostics } from '../lib/cad/diagnostics';
   import { buildDraft, validateFloorRanges, type InferenceOptions, type FloorPlanSpec } from '../lib/cad/draft-build';
@@ -29,6 +32,9 @@
 
   let { open = false, file = null as File | null, onclose = (() => {}) as () => void } = $props();
 
+  // Fixed provenance stamp for throwaway live-preview builds (never applied).
+  const PREVIEW_ISO = '1970-01-01T00:00:00.000Z';
+
   let step = $state(1);
   let doc = $state<CadDocument | null>(null);
   let error = $state<string | null>(null);
@@ -40,6 +46,24 @@
   // which is file-level and hides the whole body). Keeps the user on step 3.
   let genError = $state<{ message: string; detail?: string } | null>(null);
   let canvas = $state<HTMLCanvasElement | null>(null);
+  // Interactive preview view (pan/zoom). null → auto fit-to-extents.
+  let cadView = $state<PreviewView | null>(null);
+  // Raw DXF layer currently hovered in the step-2 role table → highlighted in
+  // the preview so the user can see exactly what geometry it contributes.
+  let hoveredLayer = $state<string | null>(null);
+  // Step-2 preview mode: raw layer geometry, the semantic extraction from the
+  // current mapping, or a live generated draft (uses current/default
+  // assumptions). Lets the user see the CONSEQUENCE of each role choice.
+  let previewMode = $state<'raw' | 'extracted' | 'draft'>('extracted');
+  // Debounced live draft (draft mode only) — never touches the model store.
+  let livePreviewDraft = $state<RcDraftResult | null>(null);
+  let livePreviewDiag = $state<DraftDiagnostics | null>(null);
+  let livePreviewBusy = $state(false);
+  let livePreviewError = $state<string | null>(null);
+  // Drag bookkeeping for pan (dragging drives the grab/grabbing cursor).
+  let dragging = $state(false);
+  let dragClientX = 0;
+  let dragClientY = 0;
 
   // ── Assumptions form state ─────────────────────────────────
   let nFloors = $state(1);
@@ -114,6 +138,8 @@
         unit = parsed.suggestedUnit ?? 'm';
         mappings = suggestLayerMappings(parsed, unit);
         if (parsed.bbox) cropWin = { x0: parsed.bbox.minX, x1: parsed.bbox.maxX, y0: parsed.bbox.minY, y1: parsed.bbox.maxY };
+        cadView = null; hoveredLayer = null; previewMode = 'extracted';
+        livePreviewDraft = null; livePreviewDiag = null; livePreviewError = null;
         step = 1;
         draft = null;
       } catch {
@@ -130,6 +156,8 @@
     cropEnabled = false; cropWin = { x0: 0, x1: 0, y0: 0, y1: 0 };
     infPruneBeams = false; infInferSlabs = false; infSnapColumns = true; infPruneFloating = false;
     floorRegions = []; diagnostics = null;
+    cadView = null; hoveredLayer = null; previewMode = 'extracted';
+    livePreviewDraft = null; livePreviewDiag = null; livePreviewError = null;
   }
 
   // The `file` prop is set only by drag-drop / direct-import routes. The
@@ -223,13 +251,126 @@
     floorRegions = [...floorRegions, { ...cropWin, fromFloor: f, toFloor: f, label: `Plan ${String.fromCharCode(64 + f)}` }];
   }
 
-  // Redraw the preview whenever the document, mapping, or step changes.
+  // Effective preview mode: step 1 is always the raw crop view; step 2 honors
+  // the Raw / Extracted / Draft toggle.
+  const effectiveMode = $derived(step === 1 ? 'raw' : previewMode);
+  // Pan/zoom is available in raw & extracted (shared PreviewView transform); the
+  // draft view is an auto-fit isometric render that manages its own framing.
+  const canPanZoom = $derived(!(step === 2 && previewMode === 'draft'));
+
+  // Redraw the preview whenever the document, mapping, view, crop, highlight,
+  // mode, or step changes. Crop values are read explicitly so number-input edits
+  // (which mutate cropWin in place) trigger an immediate redraw. Changing a
+  // layer role recomputes `plan`, so the Extracted/Draft views update live.
   $effect(() => {
-    if (canvas && doc && (step === 1 || step === 2)) {
-      void mappings; // reactive dep: redraw on role change
-      drawCadPreview(canvas, doc, roleOf);
+    if (!canvas || !doc || !(step === 1 || step === 2)) return;
+    void mappings; // redraw on role change
+    void [cropWin.x0, cropWin.x1, cropWin.y0, cropWin.y1, cropEnabled, cadView, hoveredLayer, effectiveMode];
+    const W = canvas.width, H = canvas.height;
+    if (effectiveMode === 'draft') {
+      if (livePreviewDraft) drawDraftPreview(canvas, livePreviewDraft.snapshot, { highlightFailures: true });
+      else { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#10101c'; ctx.fillRect(0, 0, W, H); } }
+      return;
     }
+    if (effectiveMode === 'extracted') {
+      if (!plan) return;
+      const bbox = planBBox(plan);
+      const view = cadView ?? (bbox ? fitView(bbox, W, H) : null);
+      drawSemanticPreview(canvas, plan, { view, highlightLayer: hoveredLayer });
+      return;
+    }
+    const view = cadView ?? (doc.bbox ? fitView(doc.bbox, W, H) : null);
+    drawCadPreview(canvas, doc, roleOf, {
+      view,
+      crop: step === 1 && cropEnabled ? cropWin : null,
+      highlightLayer: step === 2 ? hoveredLayer : null,
+    });
   });
+
+  // Live generated-draft preview (draft mode only), debounced so a large DXF
+  // doesn't rebuild on every keystroke. Uses current/default assumptions and
+  // NEVER mutates the model store — this is a throwaway preview build.
+  $effect(() => {
+    if (!(step === 2 && previewMode === 'draft') || !doc) return;
+    const p = plan; // dependency: rebuild when the mapping changes
+    void mappings;
+    if (!p) { livePreviewDraft = null; livePreviewDiag = null; livePreviewError = null; livePreviewBusy = false; return; }
+    livePreviewBusy = true;
+    const handle = setTimeout(() => {
+      try {
+        const d = buildDraft({
+          plan: p, assumptions: assumptions(),
+          source: { fileName, importedAtIso: PREVIEW_ISO },
+          inference: anyInference ? inferenceOpts : undefined,
+        });
+        livePreviewDraft = d;
+        livePreviewDiag = diagnoseDraft(d);
+        livePreviewError = null;
+      } catch (e) {
+        livePreviewDraft = null; livePreviewDiag = null;
+        livePreviewError = e instanceof Error ? e.message : String(e);
+      }
+      livePreviewBusy = false;
+    }, 300);
+    return () => clearTimeout(handle);
+  });
+
+  // ── Preview pan / zoom / fit interaction ───────────────────
+  /** Bounding box for the current mode (raw uses DXF units; extracted uses the
+   *  metre-space plan) so pan/zoom baselines match what is drawn. */
+  function currentBBox(): { minX: number; minY: number; maxX: number; maxY: number } | null {
+    if (effectiveMode === 'extracted' && plan) return planBBox(plan);
+    return doc?.bbox ?? null;
+  }
+  /** Current view, materializing the fit-to-extents default on first use. */
+  function ensureView(): PreviewView {
+    if (cadView) return cadView;
+    const bbox = currentBBox();
+    if (canvas && bbox) return fitView(bbox, canvas.width, canvas.height);
+    return { scale: 1, offsetX: 0, offsetY: 0 };
+  }
+  /** Switch preview mode and refit — raw and extracted live in different
+   *  coordinate spaces, so a shared pan/zoom offset would not carry over. */
+  function setPreviewMode(m: 'raw' | 'extracted' | 'draft'): void {
+    previewMode = m;
+    cadView = null;
+  }
+  /** Client px → canvas px (accounts for CSS scaling of the canvas element). */
+  function canvasPoint(e: { clientX: number; clientY: number }): { sx: number; sy: number } {
+    const c = canvas!;
+    const rect = c.getBoundingClientRect();
+    return {
+      sx: (e.clientX - rect.left) * (c.width / rect.width),
+      sy: (e.clientY - rect.top) * (c.height / rect.height),
+    };
+  }
+  function onPreviewWheel(e: WheelEvent): void {
+    if (!canvas || !doc?.bbox || !canPanZoom) return;
+    e.preventDefault();
+    const { sx, sy } = canvasPoint(e);
+    cadView = zoomAround(ensureView(), sx, sy, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+  }
+  function onPreviewPointerDown(e: PointerEvent): void {
+    if (!canvas || !doc?.bbox || !canPanZoom) return;
+    dragging = true;
+    dragClientX = e.clientX;
+    dragClientY = e.clientY;
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* older browsers */ }
+  }
+  function onPreviewPointerMove(e: PointerEvent): void {
+    if (!dragging || !canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dx = (e.clientX - dragClientX) * (canvas.width / rect.width);
+    const dy = (e.clientY - dragClientY) * (canvas.height / rect.height);
+    dragClientX = e.clientX;
+    dragClientY = e.clientY;
+    cadView = panView(ensureView(), dx, dy);
+  }
+  function onPreviewPointerUp(e: PointerEvent): void {
+    dragging = false;
+    try { canvas?.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+  }
+  function resetView(): void { cadView = null; }
 
   // Step-4 generated-model preview: draw the actual snapshot that will be
   // applied, highlighting orphan/floating nodes (PR [14] Layer 1).
@@ -519,6 +660,7 @@
                 {:else}
                   <h3>{t('cad.layerRoles')}</h3>
                   <div class="hint">{t('cad.layerRolesHint')}</div>
+                  <div class="table-wrap">
                   <table class="layer-table">
                     <thead>
                       <tr><th>{t('cad.layer')}</th><th>#</th><th>{t('cad.suggested')}</th><th>{t('cad.role')}</th><th>{t('cad.generates')}</th></tr>
@@ -529,7 +671,11 @@
                         {@const total = lc?.total ?? 0}
                         {@const breakdown = Object.entries(lc?.entityCounts ?? {}).map(([kind, n]) => `${n} ${kind}`).join(', ')}
                         {@const contrib = layerContrib.get(m.layer)}
-                        <tr>
+                        <tr
+                          class:hl={hoveredLayer === m.layer}
+                          onmouseenter={() => (hoveredLayer = m.layer)}
+                          onmouseleave={() => { if (hoveredLayer === m.layer) hoveredLayer = null; }}
+                        >
                           <td class="layer-name">
                             <span class="role-dot" style="background:{ROLE_COLORS[m.role]}"></span>
                             {m.layer}
@@ -561,6 +707,7 @@
                       {/each}
                     </tbody>
                   </table>
+                  </div>
                   {#if plan}
                     <div class="row hint">
                       {t('cad.classified')
@@ -584,7 +731,61 @@
                 {/if}
               </div>
               <div class="right">
-                <canvas bind:this={canvas} width="380" height="320"></canvas>
+                {#if step === 2}
+                  <div class="preview-modes" role="tablist" aria-label={t('cad.previewModeLabel')}>
+                    <button class="pmode" class:active={previewMode === 'raw'} role="tab" aria-selected={previewMode === 'raw'} onclick={() => setPreviewMode('raw')}>{t('cad.previewRaw')}</button>
+                    <button class="pmode" class:active={previewMode === 'extracted'} role="tab" aria-selected={previewMode === 'extracted'} onclick={() => setPreviewMode('extracted')}>{t('cad.previewExtracted')}</button>
+                    <button class="pmode" class:active={previewMode === 'draft'} role="tab" aria-selected={previewMode === 'draft'} onclick={() => setPreviewMode('draft')}>{t('cad.previewDraft')}</button>
+                  </div>
+                {/if}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <canvas
+                  bind:this={canvas} width="380" height="320"
+                  class="preview-canvas" class:dragging class:iso={!canPanZoom}
+                  onwheel={onPreviewWheel}
+                  onpointerdown={onPreviewPointerDown}
+                  onpointermove={onPreviewPointerMove}
+                  onpointerup={onPreviewPointerUp}
+                  onpointerleave={onPreviewPointerUp}
+                ></canvas>
+                <div class="preview-toolbar">
+                  <span class="preview-hint">{canPanZoom ? t('cad.previewNav') : t('cad.previewIso')}</span>
+                  {#if canPanZoom}<button class="btn mini" onclick={resetView}>⤢ {t('cad.previewFit')}</button>{/if}
+                </div>
+
+                {#if step === 1 && cropEnabled}
+                  <div class="preview-status crop-on">◈ {t('cad.cropActive')}</div>
+                {:else if step === 2 && effectiveMode === 'draft'}
+                  {#if livePreviewBusy}
+                    <div class="preview-status muted">⏳ {t('cad.previewUpdating')}</div>
+                  {:else if livePreviewError}
+                    <div class="preview-status err">⚠ {t('cad.previewDraftFailed')}</div>
+                  {:else if livePreviewDiag && livePreviewDraft}
+                    <div class="preview-status" class:err={livePreviewDiag.level === 'error'} class:warnc={livePreviewDiag.level === 'warn'}>
+                      {livePreviewDiag.level === 'ok' ? '✓' : livePreviewDiag.level === 'warn' ? '⚠' : '✕'}
+                      {livePreviewDraft.counts.columns}🟥 · {livePreviewDraft.counts.beams}🟦 · {livePreviewDraft.counts.slabQuads}🔷 · {livePreviewDraft.counts.nodes} {t('cad.cNodes')}
+                    </div>
+                    <div class="preview-status muted">{t('cad.previewDraftNote')}</div>
+                  {/if}
+                {:else if step === 2}
+                  {#if hoveredLayer}
+                    <div class="preview-status">
+                      <span class="role-dot" style="background:{ROLE_COLORS[roleOf(hoveredLayer)]}"></span>
+                      <code>{hoveredLayer}</code> → {t(`cad.role.${roleOf(hoveredLayer)}`)}
+                    </div>
+                  {:else}
+                    <div class="preview-status muted">{t('cad.layerHoverHint')}</div>
+                  {/if}
+                  {#if plan}
+                    <div class="preview-status counts">
+                      <span title={t('cad.role.column')}>🟥 {plan.columns.length}</span>
+                      <span title={t('cad.role.beam')}>🟦 {plan.beams.length}</span>
+                      <span title={t('cad.role.wall')}>🟧 {plan.walls.length}</span>
+                      <span title={t('cad.role.slab')}>🔷 {plan.slabs.length}</span>
+                      {#if plan.openings.length}<span title={t('cad.role.opening')}>⬚ {plan.openings.length}</span>{/if}
+                    </div>
+                  {/if}
+                {/if}
                 <div class="legend">
                   {#each (['column', 'beam', 'wall', 'slab', 'opening', 'grid'] as LayerRole[]) as r}
                     <span><span class="role-dot" style="background:{ROLE_COLORS[r]}"></span>{t(`cad.role.${r}`)}</span>
@@ -935,7 +1136,7 @@
   }
   .dialog {
     background: #16213e; border: 1px solid #1a4a7a; border-radius: 8px;
-    width: 860px; max-width: 96vw; max-height: 92vh;
+    width: 1040px; max-width: 96vw; max-height: 92vh;
     display: flex; flex-direction: column; color: #ddd;
   }
   .header {
@@ -956,11 +1157,38 @@
   .step-chip.done { color: #aaa; }
 
   .body { padding: 0.8rem 1rem; overflow-y: auto; flex: 1; min-height: 320px; }
-  .split { display: flex; gap: 1rem; }
-  .left { flex: 1; min-width: 0; }
-  .right { width: 396px; flex-shrink: 0; }
+  /* Responsive two-column split: the preview shares the row with the left
+     panel on wide dialogs and wraps below it (never overlapping) when space is
+     tight (narrow laptops / max-width: 96vw). */
+  .split { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+  /* min-width:0 lets the left column shrink; the table's own scroll wrapper
+     (.table-wrap) then absorbs any excess width instead of overflowing onto the
+     preview. Together they guarantee the preview is never overlapped. */
+  .left { flex: 3 1 340px; min-width: 0; }
+  .right { flex: 2 1 320px; min-width: 300px; }
+  .table-wrap { overflow-x: auto; max-width: 100%; }
   .right.scroll { overflow-y: auto; max-height: 56vh; }
-  canvas { border: 1px solid #1a4a7a; border-radius: 4px; background: #10101c; width: 100%; }
+  canvas { border: 1px solid #1a4a7a; border-radius: 4px; background: #10101c; width: 100%; height: auto; display: block; }
+  .preview-canvas { cursor: grab; touch-action: none; }
+  .preview-canvas.dragging { cursor: grabbing; }
+  .preview-canvas.iso { cursor: default; }
+  .preview-modes { display: flex; gap: 0; margin-bottom: 0.35rem; border: 1px solid #1a4a7a; border-radius: 5px; overflow: hidden; }
+  .pmode {
+    flex: 1; padding: 0.28rem 0.4rem; font-size: 0.7rem; cursor: pointer;
+    background: #0f3460; color: #9aa7b8; border: none; border-right: 1px solid #1a4a7a;
+  }
+  .pmode:last-child { border-right: none; }
+  .pmode:hover { color: #fff; }
+  .pmode.active { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; font-weight: 600; }
+  .preview-status.counts { gap: 0.55rem; color: #cfe3ff; }
+  .preview-status.err { color: #ff8a9e; }
+  .preview-status.warnc { color: #f0c860; }
+  .preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.3rem; }
+  .preview-hint { font-size: 0.66rem; color: #7d8ba0; }
+  .preview-status { font-size: 0.68rem; color: #cfe3ff; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.35rem; }
+  .preview-status.muted { color: #7d8ba0; }
+  .preview-status.crop-on { color: #ffd166; }
+  .preview-status code { font-family: monospace; color: #fff; }
   .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.65rem; color: #999; margin-top: 0.3rem; }
   .role-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
 
@@ -992,6 +1220,8 @@
   .layer-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
   .layer-table th { text-align: left; color: #888; font-weight: normal; padding: 0.2rem 0.3rem; border-bottom: 1px solid #1a4a7a; }
   .layer-table td { padding: 0.2rem 0.3rem; border-bottom: 1px solid #14233f; }
+  .layer-table tbody tr { cursor: pointer; }
+  .layer-table tbody tr.hl { background: rgba(78, 205, 196, 0.14); box-shadow: inset 2px 0 0 #4ecdc4; }
   .layer-name { font-family: monospace; }
   .num { text-align: right; color: #aaa; }
   .suggested { color: #999; }
