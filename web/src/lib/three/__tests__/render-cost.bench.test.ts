@@ -8,7 +8,15 @@ import * as THREE from 'three';
 import { createElementGroup } from '../create-element-mesh';
 import { createPlateMesh, createQuadMesh } from '../create-shell-mesh';
 import { createSupportGizmo } from '../create-support-gizmo';
+import { createLoadArrowsBatched } from '../load-arrows-batched';
 import type { Section } from '../../store/model.svelte';
+
+// createTextSpriteCached draws to a 2D canvas — stubbed headless.
+const canvasStub = {
+  width: 0, height: 0,
+  getContext: () => ({ fillStyle: '', font: '', textAlign: 'center', textBaseline: 'middle', fillText: () => {} }),
+};
+Object.defineProperty(globalThis, 'document', { value: { createElement: () => canvasStub }, configurable: true });
 
 const N = 1000; // elements / shells / supports per scenario
 
@@ -59,6 +67,30 @@ describe('3D render cost — real builders, N=' + N, () => {
 
     const supports = measure((i) => createSupportGizmo({ x: i, y: 0, z: 0 }, { supportId: i, supportType: 'fixed3d' } as any), N);
 
+    // Loads (batched): the whole N-load scene builds ONE group whose leaf
+    // objects total ~5 + 1 sprite per label — the pre-batching cost was
+    // ~18 draw calls per distributed load and ~35 per surface load.
+    const loadBatch = (add: (b: ReturnType<typeof createLoadArrowsBatched>, i: number) => void): Stat => {
+      const t0 = performance.now();
+      const b = createLoadArrowsBatched();
+      for (let i = 0; i < N; i++) add(b, i);
+      const g = b.build();
+      const buildMs = performance.now() - t0;
+      const mats = new Set<string>(), geos = new Set<string>();
+      let drawCalls = 0;
+      g.traverse((o: any) => {
+        if (o.isMesh || o.isLine || o.isSprite) {
+          drawCalls++;
+          if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m: any) => mats.add(m.uuid));
+          if (o.geometry) geos.add(o.geometry.uuid);
+        }
+      });
+      return { drawCalls, pickingHelpers: 0, materials: mats.size, geometries: geos.size, buildMs: +buildMs.toFixed(1) };
+    };
+    const distLoads = loadBatch((b, i) => b.addDistributedLoad({ x: i % 50, y: Math.floor(i / 50), z: 0 }, { x: (i % 50) + 1, y: Math.floor(i / 50), z: 0 }, -5, -5, 10, 'Z'));
+    const surfLoads = loadBatch((b, i) => b.addSurfaceLoad([{ x: i % 50, y: Math.floor(i / 50), z: 3 }, { x: (i % 50) + 1, y: Math.floor(i / 50), z: 3 }, { x: (i % 50) + 1, y: Math.floor(i / 50) + 1, z: 3 }, { x: i % 50, y: Math.floor(i / 50) + 1, z: 3 }], 5, 10));
+    const nodalLoads = loadBatch((b, i) => b.addNodalLoadArrow({ x: i % 50, y: Math.floor(i / 50), z: 0 }, 3, 0, -10, 0, 5, 0, 10, 'curved'));
+
     /* eslint-disable no-console */
     console.log('\n──────── 3D RENDER COST (N=' + N + ' each) ────────');
     console.log(row('elements wireframe', wire, N));
@@ -67,6 +99,9 @@ describe('3D render cost — real builders, N=' + N, () => {
     console.log(row('shells (quad) wireframe', shellWire, N));
     console.log(row('shells (quad) SECTIONS', shellSec, N));
     console.log(row('supports (fixed3d)', supports, N));
+    console.log(row('loads distributed (batched)', distLoads, N));
+    console.log(row('loads surface3d (batched)', surfLoads, N));
+    console.log(row('loads nodal curved (batched)', nodalLoads, N));
     console.log('──────────────────────────────────────────────────\n');
     /* eslint-enable no-console */
 

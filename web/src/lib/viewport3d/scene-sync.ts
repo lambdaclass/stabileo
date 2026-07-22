@@ -12,7 +12,7 @@ import { ElementsPicking } from '../three/elements-picking';
 import { createElementGroup } from '../three/create-element-mesh';
 import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
-import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
+import { createLoadArrowsBatched } from '../three/load-arrows-batched';
 import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
 import { createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, paintShellEdge, restoreShellColor } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
@@ -535,6 +535,10 @@ export function syncLoads(ctx: SceneSyncContext): void {
 
   const loadGrp = ctx.loadGroup;
 
+  // Batched accumulator: all arrows/envelopes/fills/cones merge into ~5
+  // draw calls total instead of ~18-35 per load (the load-heavy GPU bottleneck).
+  const batch = createLoadArrowsBatched();
+
   // Visibility filter and color helper
   const visibleCases = uiStore.visibleLoadCases3D; // null = all visible
   function getCaseColor(caseId: number | undefined): number {
@@ -557,28 +561,26 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const pos = projectNodeToScene(node, project2D);
       const vertical = get2DDisplayNodalLoadVertical(load.data);
       const moment = get2DDisplayNodalLoadMoment(load.data);
-      const arrow = createNodalLoadArrow(
+      batch.addNodalLoadArrow(
         pos,
         load.data.fx, project2D ? 0 : vertical, project2D ? vertical : 0,
         0, project2D ? moment : 0, project2D ? 0 : moment,
-        maxForce, i,
+        maxForce,
         uiStore.momentStyle3D,
         cc,
       );
-      loadGrp.add(arrow);
     } else if (load.type === 'nodal3d') {
       const node = modelStore.nodes.get(load.data.nodeId);
       if (!node) continue;
       const d = load.data;
-      const arrow = createNodalLoadArrow(
+      batch.addNodalLoadArrow(
         projectNodeToScene(node, project2D),
         d.fx, d.fy, d.fz,
         d.mx, d.my, d.mz,
-        maxForce, i,
+        maxForce,
         uiStore.momentStyle3D,
         cc,
       );
-      loadGrp.add(arrow);
     } else if (load.type === 'distributed') {
       const elem = modelStore.elements.get(load.data.elementId);
       if (!elem) continue;
@@ -587,13 +589,12 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!nI || !nJ) continue;
       const posI = projectNodeToScene(nI, project2D);
       const posJ = projectNodeToScene(nJ, project2D);
-      const grp = createDistributedLoadGroup(
+      batch.addDistributedLoad(
         posI,
         posJ,
         load.data.qI, load.data.qJ,
-        maxQ, i, 'Z', undefined, cc,
+        maxQ, 'Z', undefined, cc,
       );
-      loadGrp.add(grp);
     } else if (load.type === 'distributed3d') {
       const elem = modelStore.elements.get(load.data.elementId);
       if (!elem) continue;
@@ -612,21 +613,19 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
       // qY loads act along local ey
       if (Math.abs(load.data.qYI) > 0.01 || Math.abs(load.data.qYJ) > 0.01) {
-        const grp = createDistributedLoadGroup(
+        batch.addDistributedLoad(
           sceneI, sceneJ,
           load.data.qYI, load.data.qYJ,
-          maxQ, i, 'Y', ey, cc,
+          maxQ, 'Y', ey, cc,
         );
-        loadGrp.add(grp);
       }
       // qZ loads act along local ez
       if (Math.abs(load.data.qZI) > 0.01 || Math.abs(load.data.qZJ) > 0.01) {
-        const grpZ = createDistributedLoadGroup(
+        batch.addDistributedLoad(
           sceneI, sceneJ,
           load.data.qZI, load.data.qZJ,
-          maxQ, i, 'Z', ez, cc,
+          maxQ, 'Z', ez, cc,
         );
-        loadGrp.add(grpZ);
       }
     }
     // surface3d: render as a grid of arrows covering the quad area
@@ -635,11 +634,10 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!quad) continue;
       const ns = quad.nodes.map((nid: number) => modelStore.nodes.get(nid));
       if (ns.some((n: any) => !n)) continue;
-      const grp = createSurfaceLoadGroup(
+      batch.addSurfaceLoad(
         ns as Array<{ x: number; y: number; z: number }>,
-        load.data.q, maxQ, i, cc,
+        load.data.q, maxQ, cc,
       );
-      loadGrp.add(grp);
     }
     // pointOnElement and pointOnElement3d: simplified as nodal for now
     else if (load.type === 'pointOnElement') {
@@ -655,28 +653,20 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const px = sceneI.x + (sceneJ.x - sceneI.x) * t;
       const py = sceneI.y + (sceneJ.y - sceneI.y) * t;
       const pz = sceneI.z + (sceneJ.z - sceneI.z) * t;
-      const arrow = createNodalLoadArrow(
+      batch.addNodalLoadArrow(
         { x: px, y: py, z: pz },
         0, 0, -Math.abs(load.data.p),
         0, 0, 0,
-        maxForce, i,
+        maxForce,
         'double-arrow', cc,
       );
-      loadGrp.add(arrow);
     }
   }
 
-  // Loads render above grid (0), axes (1), and elements (2)
-  loadGrp.traverse((obj) => {
-    obj.renderOrder = 3;
-    if ((obj as THREE.Mesh).isMesh || (obj as THREE.Line).isLine) {
-      const mat = (obj as THREE.Mesh).material as THREE.Material;
-      if (mat) {
-        mat.depthTest = false;
-        mat.depthWrite = false;
-      }
-    }
-  });
+  // Build the merged renderables (shafts, envelopes, cones, fills, labels) and
+  // attach. Flags (renderOrder 3, depthTest/Write off, no frustum culling) are
+  // stamped per object inside build() — no traverse needed.
+  loadGrp.add(batch.build());
 }
 
 // ─── Selection highlight ─────────────────────────────────────
