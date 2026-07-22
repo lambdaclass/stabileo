@@ -1,0 +1,12 @@
+# Proprietary real client drawings — large (~6 MB each) and NOT ours to publish.
+# Must never be committed. cad-real-dxf.test.ts / cad-rooms-uploaded.test.ts skip
+# their real-DXF cases when these are absent, so CI stays green without them.
+V1-Architecture-plus-structure.dxf
+V2-Architecture.dxf
+
+# Unused generated DXF dumps — no test references them. Kept on disk for manual
+# inspection but not committed (regenerable via web/scripts/build-cad-dxf-examples.ts).
+plan-simple.dxf
+stabileo-template V1.dxf
+stabileo-template V2.dxf
+stabileo-template V3.dxf

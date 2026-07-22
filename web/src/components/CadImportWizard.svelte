@@ -11,10 +11,16 @@
   // one-plan-replicated-to-all-floors assumption).
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { t } from '../lib/i18n';
-  import { parseCadDxf, unsupportedFileKind } from '../lib/cad/parse';
+  import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent } from '../lib/cad/parse';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
-  import { generateRcDraft } from '../lib/cad/draft';
-  import { drawCadPreview, ROLE_COLORS } from '../lib/cad/preview';
+  import {
+    drawCadPreview, drawSemanticPreview, planBBox, ROLE_COLORS,
+    fitView, zoomAround, panView, type PreviewView,
+  } from '../lib/cad/preview';
+  import { drawDraftPreview } from '../lib/cad/draft-preview';
+  import { diagnoseDraft, type DraftDiagnostics } from '../lib/cad/diagnostics';
+  import { buildDraft, validateFloorRanges, type InferenceOptions, type FloorPlanSpec } from '../lib/cad/draft-build';
+  import { cropDoc, densestPlanWindow, type PlanWindow } from '../lib/cad/infer';
   import { buildStabileoTemplateDxf } from '../lib/cad/template';
   import { parseScheduleRow } from '../lib/cad/specs';
   import {
@@ -25,6 +31,9 @@
   } from '../lib/cad/types';
 
   let { open = false, file = null as File | null, onclose = (() => {}) as () => void } = $props();
+
+  // Fixed provenance stamp for throwaway live-preview builds (never applied).
+  const PREVIEW_ISO = '1970-01-01T00:00:00.000Z';
 
   let step = $state(1);
   let doc = $state<CadDocument | null>(null);
@@ -37,6 +46,24 @@
   // which is file-level and hides the whole body). Keeps the user on step 3.
   let genError = $state<{ message: string; detail?: string } | null>(null);
   let canvas = $state<HTMLCanvasElement | null>(null);
+  // Interactive preview view (pan/zoom). null → auto fit-to-extents.
+  let cadView = $state<PreviewView | null>(null);
+  // Raw DXF layer currently hovered in the step-2 role table → highlighted in
+  // the preview so the user can see exactly what geometry it contributes.
+  let hoveredLayer = $state<string | null>(null);
+  // Step-2 preview mode: raw layer geometry, the semantic extraction from the
+  // current mapping, or a live generated draft (uses current/default
+  // assumptions). Lets the user see the CONSEQUENCE of each role choice.
+  let previewMode = $state<'raw' | 'extracted' | 'draft'>('extracted');
+  // Debounced live draft (draft mode only) — never touches the model store.
+  let livePreviewDraft = $state<RcDraftResult | null>(null);
+  let livePreviewDiag = $state<DraftDiagnostics | null>(null);
+  let livePreviewBusy = $state(false);
+  let livePreviewError = $state<string | null>(null);
+  // Drag bookkeeping for pan (dragging drives the grab/grabbing cursor).
+  let dragging = $state(false);
+  let dragClientX = 0;
+  let dragClientY = 0;
 
   // ── Assumptions form state ─────────────────────────────────
   let nFloors = $state(1);
@@ -68,6 +95,21 @@
   let splitBeams = $state(true);
   let snapTolerance = $state(0.01);
 
+  // ── PR [14] crop / inference / multi-floor / diagnostics ───
+  let cropEnabled = $state(false);
+  let cropWin = $state<PlanWindow>({ x0: 0, x1: 0, y0: 0, y1: 0 });
+  let infPruneBeams = $state(false);
+  let infInferSlabs = $state(false);
+  let infSnapColumns = $state(true);
+  let infPruneFloating = $state(false);
+  // Per-floor plan regions (crop windows of the same file → floor ranges).
+  let floorRegions = $state<Array<PlanWindow & { fromFloor: number; toFloor: number; label: string }>>([]);
+  // Set once the user has acknowledged an uncovered-floor gap so the next build
+  // proceeds (gaps become warnings instead of a blocking error).
+  let allowFloorGaps = $state(false);
+  let diagnostics = $state<DraftDiagnostics | null>(null);
+  let previewCanvas = $state<HTMLCanvasElement | null>(null);
+
   let fileInput = $state<HTMLInputElement | null>(null);
 
   /** Parse a DXF file into the wizard state (shared by the prop path and the
@@ -95,6 +137,9 @@
         doc = parsed;
         unit = parsed.suggestedUnit ?? 'm';
         mappings = suggestLayerMappings(parsed, unit);
+        if (parsed.bbox) cropWin = { x0: parsed.bbox.minX, x1: parsed.bbox.maxX, y0: parsed.bbox.minY, y1: parsed.bbox.maxY };
+        cadView = null; hoveredLayer = null; previewMode = 'extracted';
+        livePreviewDraft = null; livePreviewDiag = null; livePreviewError = null;
         step = 1;
         draft = null;
       } catch {
@@ -108,6 +153,11 @@
   function reset(): void {
     doc = null; error = null; genError = null; fileName = ''; step = 1; draft = null;
     mappings = []; levelsPrefilled = false; scheduleRows = [];
+    cropEnabled = false; cropWin = { x0: 0, x1: 0, y0: 0, y1: 0 };
+    infPruneBeams = false; infInferSlabs = false; infSnapColumns = true; infPruneFloating = false;
+    floorRegions = []; diagnostics = null;
+    cadView = null; hoveredLayer = null; previewMode = 'extracted';
+    livePreviewDraft = null; livePreviewDiag = null; livePreviewError = null;
   }
 
   // The `file` prop is set only by drag-drop / direct-import routes. The
@@ -140,17 +190,231 @@
   const roleOf = (layer: string): LayerRole =>
     mappings.find((m) => m.layer === layer)?.role ?? 'ignore';
 
-  const plan = $derived.by(() => {
-    if (!doc || error) return null;
-    return extractArchPlan(doc, mappings, unit);
+  /** Document actually fed to extraction — cropped to the plan window when the
+   *  user enabled cropping (PR [14] Layer 2). */
+  const effectiveDoc = $derived.by(() => {
+    if (!doc) return null;
+    return cropEnabled ? cropDoc(doc, sanitizeWin(cropWin)) : doc;
   });
 
-  // Redraw the preview whenever the document, mapping, or step changes.
-  $effect(() => {
-    if (canvas && doc && (step === 1 || step === 2)) {
-      void mappings; // reactive dep: redraw on role change
-      drawCadPreview(canvas, doc, roleOf);
+  const plan = $derived.by(() => {
+    const d = effectiveDoc;
+    if (!d || error) return null;
+    return extractArchPlan(d, mappings, unit);
+  });
+
+  /** Unit-extent sanity warning (mm header on a metre drawing, etc.). */
+  const unitWarning = $derived.by(() => (doc?.bbox ? suggestUnitFromExtent(doc.bbox, unit) : null));
+
+  /** Active inference options (Layer 2). */
+  const inferenceOpts = $derived<InferenceOptions>({
+    pruneDisconnectedBeams: infPruneBeams,
+    inferSlabPanels: infInferSlabs,
+    snapPanelsToColumns: infSnapColumns,
+    pruneFloatingMembers: infPruneFloating,
+  });
+  const anyInference = $derived(infPruneBeams || infInferSlabs || infPruneFloating);
+
+  /** Per-layer contribution counts from the extracted plan (Layer 1). */
+  const layerContrib = $derived.by(() => {
+    const m = new Map<string, { columns: number; beams: number; walls: number; slabs: number }>();
+    const bump = (layer: string | undefined, k: 'columns' | 'beams' | 'walls' | 'slabs') => {
+      if (!layer) return;
+      const e = m.get(layer) ?? { columns: 0, beams: 0, walls: 0, slabs: 0 };
+      e[k]++; m.set(layer, e);
+    };
+    if (plan) {
+      for (const c of plan.columns) bump(c.srcLayer, 'columns');
+      for (const b of plan.beams) bump(b.srcLayer, 'beams');
+      for (const w of plan.walls) bump(w.srcLayer, 'walls');
+      for (const s of plan.slabs) bump(s.srcLayer, 'slabs');
     }
+    return m;
+  });
+
+  function applySuggestedUnit(): void {
+    if (unitWarning) { unit = unitWarning.suggested; reSuggest(); }
+  }
+
+  function autoDetectCrop(): void {
+    if (!doc) return;
+    const w = densestPlanWindow(doc);
+    if (w) { cropWin = w; cropEnabled = true; }
+  }
+
+  function fullExtentCrop(): void {
+    if (doc?.bbox) cropWin = { x0: doc.bbox.minX, x1: doc.bbox.maxX, y0: doc.bbox.minY, y1: doc.bbox.maxY };
+  }
+
+  /** A crop field cleared in its number input becomes `null` (Svelte 5). Coerce
+   *  it to a finite number, treating "empty" as the document extent on that side
+   *  (a cleared box = no bound). Without this, `null` crashes `r.x0.toFixed()` in
+   *  the region row and, coerced to 0 in comparisons, silently mis-crops. */
+  function numOr(v: number | null | undefined, fallback: number): number {
+    return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+  }
+  function sanitizeWin(w: PlanWindow): PlanWindow {
+    const bb = doc?.bbox;
+    return {
+      x0: numOr(w.x0, bb?.minX ?? 0), x1: numOr(w.x1, bb?.maxX ?? 0),
+      y0: numOr(w.y0, bb?.minY ?? 0), y1: numOr(w.y1, bb?.maxY ?? 0),
+    };
+  }
+
+  function addFloorRegion(): void {
+    // Label from the first free letter (unique against existing rows, not the
+    // row count — otherwise remove-middle + add duplicates a label), with a
+    // numeric fallback past Z. Floors default just above the highest range.
+    const used = new Set(floorRegions.map((r) => r.label));
+    let k = 0, label: string;
+    do { label = `Plan ${k < 26 ? String.fromCharCode(65 + k) : `#${k + 1}`}`; k++; } while (used.has(label));
+    const nextFloor = floorRegions.length ? Math.max(...floorRegions.map((r) => r.toFloor)) + 1 : 1;
+    floorRegions = [...floorRegions, { ...sanitizeWin(cropWin), fromFloor: nextFloor, toFloor: nextFloor, label }];
+  }
+
+  // Effective preview mode: step 1 is always the raw crop view; step 2 honors
+  // the Raw / Extracted / Draft toggle.
+  const effectiveMode = $derived(step === 1 ? 'raw' : previewMode);
+  // Pan/zoom is available in raw & extracted (shared PreviewView transform); the
+  // draft view is an auto-fit isometric render that manages its own framing.
+  const canPanZoom = $derived(!(step === 2 && previewMode === 'draft'));
+
+  // Redraw the preview whenever the document, mapping, view, crop, highlight,
+  // mode, or step changes. Crop values are read explicitly so number-input edits
+  // (which mutate cropWin in place) trigger an immediate redraw. Changing a
+  // layer role recomputes `plan`, so the Extracted/Draft views update live.
+  $effect(() => {
+    if (!canvas || !doc || !(step === 1 || step === 2)) return;
+    void mappings; // redraw on role change
+    void [cropWin.x0, cropWin.x1, cropWin.y0, cropWin.y1, cropEnabled, cadView, hoveredLayer, effectiveMode];
+    const W = canvas.width, H = canvas.height;
+    if (effectiveMode === 'draft') {
+      if (livePreviewDraft) drawDraftPreview(canvas, livePreviewDraft.snapshot, { highlightFailures: true });
+      else { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#10101c'; ctx.fillRect(0, 0, W, H); } }
+      return;
+    }
+    if (effectiveMode === 'extracted') {
+      if (!plan) return;
+      const bbox = planBBox(plan);
+      const view = cadView ?? (bbox ? fitView(bbox, W, H) : null);
+      drawSemanticPreview(canvas, plan, { view, highlightLayer: hoveredLayer });
+      return;
+    }
+    const view = cadView ?? (doc.bbox ? fitView(doc.bbox, W, H) : null);
+    drawCadPreview(canvas, doc, roleOf, {
+      view,
+      crop: step === 1 && cropEnabled ? sanitizeWin(cropWin) : null,
+      highlightLayer: step === 2 ? hoveredLayer : null,
+    });
+  });
+
+  // Live generated-draft preview (draft mode only), debounced so a large DXF
+  // doesn't rebuild on every keystroke. Uses current/default assumptions and
+  // NEVER mutates the model store — this is a throwaway preview build.
+  $effect(() => {
+    if (!(step === 2 && previewMode === 'draft') || !doc) return;
+    const p = plan; // dependency: rebuild when the mapping changes
+    void mappings;
+    if (!p) { livePreviewDraft = null; livePreviewDiag = null; livePreviewError = null; livePreviewBusy = false; return; }
+    livePreviewBusy = true;
+    const handle = setTimeout(() => {
+      try {
+        const d = buildDraft({
+          plan: p, assumptions: assumptions(),
+          source: { fileName, importedAtIso: PREVIEW_ISO },
+          inference: anyInference ? inferenceOpts : undefined,
+        });
+        livePreviewDraft = d;
+        livePreviewDiag = diagnoseDraft(d);
+        livePreviewError = null;
+      } catch (e) {
+        livePreviewDraft = null; livePreviewDiag = null;
+        livePreviewError = e instanceof Error ? e.message : String(e);
+      }
+      livePreviewBusy = false;
+    }, 300);
+    return () => clearTimeout(handle);
+  });
+
+  // ── Preview pan / zoom / fit interaction ───────────────────
+  /** Bounding box for the current mode (raw uses DXF units; extracted uses the
+   *  metre-space plan) so pan/zoom baselines match what is drawn. */
+  function currentBBox(): { minX: number; minY: number; maxX: number; maxY: number } | null {
+    if (effectiveMode === 'extracted' && plan) return planBBox(plan);
+    return doc?.bbox ?? null;
+  }
+  /** Current view, materializing the fit-to-extents default on first use. */
+  function ensureView(): PreviewView {
+    if (cadView) return cadView;
+    const bbox = currentBBox();
+    if (canvas && bbox) return fitView(bbox, canvas.width, canvas.height);
+    return { scale: 1, offsetX: 0, offsetY: 0 };
+  }
+  /** Switch preview mode and refit — raw and extracted live in different
+   *  coordinate spaces, so a shared pan/zoom offset would not carry over. */
+  function setPreviewMode(m: 'raw' | 'extracted' | 'draft'): void {
+    previewMode = m;
+    cadView = null;
+  }
+  // Same coordinate-space reason as setPreviewMode: step 1 (raw/DXF units) and
+  // step 2 (extracted/metres) differ, and changing the unit rescales the
+  // extracted plan — a carried-over pan/zoom transform would be meaningless (a
+  // mm-fitted view collapses a metre plan to sub-pixel). Refit on step/unit change.
+  $effect(() => {
+    void step; void unit;
+    cadView = null;
+  });
+  /** Client px → canvas px (accounts for CSS scaling of the canvas element). */
+  function canvasPoint(e: { clientX: number; clientY: number }): { sx: number; sy: number } {
+    const c = canvas!;
+    const rect = c.getBoundingClientRect();
+    return {
+      sx: (e.clientX - rect.left) * (c.width / rect.width),
+      sy: (e.clientY - rect.top) * (c.height / rect.height),
+    };
+  }
+  function onPreviewWheel(e: WheelEvent): void {
+    if (!canvas || !doc?.bbox || !canPanZoom) return;
+    e.preventDefault();
+    const { sx, sy } = canvasPoint(e);
+    cadView = zoomAround(ensureView(), sx, sy, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+  }
+  function onPreviewPointerDown(e: PointerEvent): void {
+    if (!canvas || !doc?.bbox || !canPanZoom) return;
+    dragging = true;
+    dragClientX = e.clientX;
+    dragClientY = e.clientY;
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* older browsers */ }
+  }
+  function onPreviewPointerMove(e: PointerEvent): void {
+    if (!dragging || !canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dx = (e.clientX - dragClientX) * (canvas.width / rect.width);
+    const dy = (e.clientY - dragClientY) * (canvas.height / rect.height);
+    dragClientX = e.clientX;
+    dragClientY = e.clientY;
+    cadView = panView(ensureView(), dx, dy);
+  }
+  function onPreviewPointerUp(e: PointerEvent): void {
+    dragging = false;
+    try { canvas?.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+  }
+  function resetView(): void { cadView = null; }
+
+  // Step-4 generated-model preview: draw the actual snapshot that will be
+  // applied, highlighting orphan/floating nodes (PR [14] Layer 1).
+  $effect(() => {
+    if (previewCanvas && draft && step === 4) {
+      drawDraftPreview(previewCanvas, draft.snapshot, { highlightFailures: true });
+    }
+  });
+
+  // Any edit to the floor ranges (add/remove/renumber) invalidates a prior
+  // gap acknowledgement, so the user must re-confirm a newly-introduced gap.
+  $effect(() => {
+    void floorRegions.map((r) => `${r.fromFloor}-${r.toFloor}`).join(',');
+    void nFloors;
+    allowFloorGaps = false;
   });
 
   function setRole(layer: string, role: LayerRole): void {
@@ -239,11 +503,34 @@
     // crashing on malformed/ambiguous CAD data: any throw becomes an in-wizard
     // panel and the user stays on step 3 to adjust mappings/assumptions.
     let result: RcDraftResult;
+    const source = { fileName, importedAtIso: new Date().toISOString() };
+    const inference = anyInference ? inferenceOpts : undefined;
     try {
-      result = generateRcDraft(plan, assumptions(), {
-        fileName,
-        importedAtIso: new Date().toISOString(),
-      });
+      if (floorRegions.length > 0 && doc) {
+        // Per-floor plans: each region is a crop window of the same file,
+        // read through the same layer mapping (PR [14] Layer 3).
+        const floorPlans: FloorPlanSpec[] = floorRegions.map((r) => ({
+          plan: extractArchPlan(cropDoc(doc!, sanitizeWin(r)), mappings, unit),
+          fromFloor: r.fromFloor, toFloor: r.toFloor, label: r.label,
+        }));
+        // Validate ranges up front so overlaps/out-of-range are a clear, blocking
+        // error and an uncovered-floor gap prompts an explicit confirmation
+        // before we silently build fewer floors than intended.
+        const issues = validateFloorRanges(floorPlans, nFloors, allowFloorGaps);
+        const hardErrors = issues.filter((i) => i.severity === 'error');
+        if (hardErrors.length > 0) {
+          const gapOnly = hardErrors.every((i) => i.message.startsWith('floorRangeGap:'));
+          genError = {
+            message: gapOnly ? t('cad.floorGapConfirm') : t('cad.floorRangeError'),
+            detail: hardErrors.map((i) => warnText(i.message)).join('\n'),
+          };
+          if (gapOnly) allowFloorGaps = true; // next "Generate" click proceeds with gaps as warnings
+          return; // stay on step 3, model untouched
+        }
+        result = buildDraft({ floorPlans, assumptions: assumptions(), source, inference, allowFloorGaps });
+      } else {
+        result = buildDraft({ plan, assumptions: assumptions(), source, inference });
+      }
     } catch (e) {
       const showDetail = import.meta.env.DEV || import.meta.env.MODE === 'test';
       genError = {
@@ -253,6 +540,7 @@
       return; // stay on step 3, model untouched, draft unchanged
     }
     draft = result;
+    diagnostics = diagnoseDraft(result);
     step = 4;
   }
 
@@ -353,6 +641,18 @@
                       <span class="hint">{t('cad.unitUnknown')}</span>
                     {/if}
                   </div>
+                  {#if unitWarning}
+                    <div class="unit-warn" role="alert">
+                      ⚠ {t('cad.unitSanity')
+                        .replace('{cur}', unit)
+                        .replace('{curM}', unitWarning.currentExtentM.toFixed(2))
+                        .replace('{sug}', unitWarning.suggested)
+                        .replace('{sugM}', unitWarning.suggestedExtentM.toFixed(2))}
+                      <button class="btn mini" onclick={applySuggestedUnit}>
+                        {t('cad.unitUseSuggested').replace('{u}', unitWarning.suggested)}
+                      </button>
+                    </div>
+                  {/if}
                   {#if doc.bbox}
                     {@const k = unit === 'm' ? 1 : unit === 'cm' ? 0.01 : 0.001}
                     <div class="row hint">
@@ -361,6 +661,24 @@
                         .replace('{h}', ((doc.bbox.maxY - doc.bbox.minY) * k).toFixed(2))}
                     </div>
                   {/if}
+                  <details class="panel crop-panel">
+                    <summary>{t('cad.cropTitle')}</summary>
+                    <div class="hint">{t('cad.cropHint')}</div>
+                    <label class="check">
+                      <input type="checkbox" bind:checked={cropEnabled} />
+                      {t('cad.cropEnable')}
+                    </label>
+                    <div class="crop-grid" class:disabled={!cropEnabled}>
+                      <label>x₀<input type="number" step="0.1" bind:value={cropWin.x0} disabled={!cropEnabled} /></label>
+                      <label>x₁<input type="number" step="0.1" bind:value={cropWin.x1} disabled={!cropEnabled} /></label>
+                      <label>y₀<input type="number" step="0.1" bind:value={cropWin.y0} disabled={!cropEnabled} /></label>
+                      <label>y₁<input type="number" step="0.1" bind:value={cropWin.y1} disabled={!cropEnabled} /></label>
+                    </div>
+                    <div class="crop-actions">
+                      <button class="btn mini" onclick={autoDetectCrop}>{t('cad.cropAuto')}</button>
+                      <button class="btn mini" onclick={fullExtentCrop} disabled={!cropEnabled}>{t('cad.cropFull')}</button>
+                    </div>
+                  </details>
                   <h3>{t('cad.contents')}</h3>
                   <div class="row hint">
                     {doc.entities.length} {t('cad.entities')} · {doc.layers.length} {t('cad.layersN')}
@@ -371,17 +689,26 @@
                 {:else}
                   <h3>{t('cad.layerRoles')}</h3>
                   <div class="hint">{t('cad.layerRolesHint')}</div>
+                  <div class="table-wrap">
                   <table class="layer-table">
                     <thead>
-                      <tr><th>{t('cad.layer')}</th><th>#</th><th>{t('cad.suggested')}</th><th>{t('cad.role')}</th></tr>
+                      <tr><th>{t('cad.layer')}</th><th>#</th><th>{t('cad.suggested')}</th><th>{t('cad.role')}</th><th>{t('cad.generates')}</th></tr>
                     </thead>
                     <tbody>
                       {#each mappings as m (m.layer)}
-                        {@const total = doc.layers.find((l) => l.name === m.layer)?.total ?? 0}
-                        <tr>
+                        {@const lc = doc.layers.find((l) => l.name === m.layer)}
+                        {@const total = lc?.total ?? 0}
+                        {@const breakdown = Object.entries(lc?.entityCounts ?? {}).map(([kind, n]) => `${n} ${kind}`).join(', ')}
+                        {@const contrib = layerContrib.get(m.layer)}
+                        <tr
+                          class:hl={hoveredLayer === m.layer}
+                          onmouseenter={() => (hoveredLayer = m.layer)}
+                          onmouseleave={() => { if (hoveredLayer === m.layer) hoveredLayer = null; }}
+                        >
                           <td class="layer-name">
                             <span class="role-dot" style="background:{ROLE_COLORS[m.role]}"></span>
                             {m.layer}
+                            {#if breakdown}<div class="layer-breakdown">{breakdown}</div>{/if}
                           </td>
                           <td class="num">{total}</td>
                           <td class="suggested" title={m.evidence}>
@@ -395,10 +722,21 @@
                               {/each}
                             </select>
                           </td>
+                          <td class="contrib">
+                            {#if contrib}
+                              {#if contrib.columns}<span title={t('cad.role.column')}>🟥{contrib.columns}</span>{/if}
+                              {#if contrib.beams}<span title={t('cad.role.beam')}>🟦{contrib.beams}</span>{/if}
+                              {#if contrib.walls}<span title={t('cad.role.wall')}>🟧{contrib.walls}</span>{/if}
+                              {#if contrib.slabs}<span title={t('cad.role.slab')}>🔷{contrib.slabs}</span>{/if}
+                            {:else if m.role !== 'ignore' && m.role !== 'text' && m.role !== 'grid'}
+                              <span class="contrib-zero" title={t('cad.generatesNothing')}>0</span>
+                            {/if}
+                          </td>
                         </tr>
                       {/each}
                     </tbody>
                   </table>
+                  </div>
                   {#if plan}
                     <div class="row hint">
                       {t('cad.classified')
@@ -422,7 +760,61 @@
                 {/if}
               </div>
               <div class="right">
-                <canvas bind:this={canvas} width="380" height="320"></canvas>
+                {#if step === 2}
+                  <div class="preview-modes" role="tablist" aria-label={t('cad.previewModeLabel')}>
+                    <button class="pmode" class:active={previewMode === 'raw'} role="tab" aria-selected={previewMode === 'raw'} onclick={() => setPreviewMode('raw')}>{t('cad.previewRaw')}</button>
+                    <button class="pmode" class:active={previewMode === 'extracted'} role="tab" aria-selected={previewMode === 'extracted'} onclick={() => setPreviewMode('extracted')}>{t('cad.previewExtracted')}</button>
+                    <button class="pmode" class:active={previewMode === 'draft'} role="tab" aria-selected={previewMode === 'draft'} onclick={() => setPreviewMode('draft')}>{t('cad.previewDraft')}</button>
+                  </div>
+                {/if}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <canvas
+                  bind:this={canvas} width="380" height="320"
+                  class="preview-canvas" class:dragging class:iso={!canPanZoom}
+                  onwheel={onPreviewWheel}
+                  onpointerdown={onPreviewPointerDown}
+                  onpointermove={onPreviewPointerMove}
+                  onpointerup={onPreviewPointerUp}
+                  onpointerleave={onPreviewPointerUp}
+                ></canvas>
+                <div class="preview-toolbar">
+                  <span class="preview-hint">{canPanZoom ? t('cad.previewNav') : t('cad.previewIso')}</span>
+                  {#if canPanZoom}<button class="btn mini" onclick={resetView}>⤢ {t('cad.previewFit')}</button>{/if}
+                </div>
+
+                {#if step === 1 && cropEnabled}
+                  <div class="preview-status crop-on">◈ {t('cad.cropActive')}</div>
+                {:else if step === 2 && effectiveMode === 'draft'}
+                  {#if livePreviewBusy}
+                    <div class="preview-status muted">⏳ {t('cad.previewUpdating')}</div>
+                  {:else if livePreviewError}
+                    <div class="preview-status err">⚠ {t('cad.previewDraftFailed')}</div>
+                  {:else if livePreviewDiag && livePreviewDraft}
+                    <div class="preview-status" class:err={livePreviewDiag.level === 'error'} class:warnc={livePreviewDiag.level === 'warn'}>
+                      {livePreviewDiag.level === 'ok' ? '✓' : livePreviewDiag.level === 'warn' ? '⚠' : '✕'}
+                      {livePreviewDraft.counts.columns}🟥 · {livePreviewDraft.counts.beams}🟦 · {livePreviewDraft.counts.slabQuads}🔷 · {livePreviewDraft.counts.nodes} {t('cad.cNodes')}
+                    </div>
+                    <div class="preview-status muted">{t('cad.previewDraftNote')}</div>
+                  {/if}
+                {:else if step === 2}
+                  {#if hoveredLayer}
+                    <div class="preview-status">
+                      <span class="role-dot" style="background:{ROLE_COLORS[roleOf(hoveredLayer)]}"></span>
+                      <code>{hoveredLayer}</code> → {t(`cad.role.${roleOf(hoveredLayer)}`)}
+                    </div>
+                  {:else}
+                    <div class="preview-status muted">{t('cad.layerHoverHint')}</div>
+                  {/if}
+                  {#if plan}
+                    <div class="preview-status counts">
+                      <span title={t('cad.role.column')}>🟥 {plan.columns.length}</span>
+                      <span title={t('cad.role.beam')}>🟦 {plan.beams.length}</span>
+                      <span title={t('cad.role.wall')}>🟧 {plan.walls.length}</span>
+                      <span title={t('cad.role.slab')}>🔷 {plan.slabs.length}</span>
+                      {#if plan.openings.length}<span title={t('cad.role.opening')}>⬚ {plan.openings.length}</span>{/if}
+                    </div>
+                  {/if}
+                {/if}
                 <div class="legend">
                   {#each (['column', 'beam', 'wall', 'slab', 'opening', 'grid'] as LayerRole[]) as r}
                     <span><span class="role-dot" style="background:{ROLE_COLORS[r]}"></span>{t(`cad.role.${r}`)}</span>
@@ -592,9 +984,78 @@
                 </label>
                 <div class="hint">{t('cad.offsetsHint')}</div>
               </details>
+              <details class="panel infer-panel">
+                <summary>{t('cad.inferPanel')}</summary>
+                <div class="hint warn-text">{t('cad.inferHint')}</div>
+                <label class="check">
+                  <input type="checkbox" bind:checked={infPruneBeams} />
+                  {t('cad.inferPruneBeams')}
+                </label>
+                <label class="check">
+                  <input type="checkbox" bind:checked={infInferSlabs} />
+                  {t('cad.inferSlabs')}
+                </label>
+                <label class="check sub" class:disabled={!infInferSlabs}>
+                  <input type="checkbox" bind:checked={infSnapColumns} disabled={!infInferSlabs} />
+                  {t('cad.inferSnapColumns')}
+                </label>
+                <label class="check">
+                  <input type="checkbox" bind:checked={infPruneFloating} />
+                  {t('cad.inferPruneFloating')}
+                </label>
+              </details>
+              <details class="panel floors-panel">
+                <summary>{t('cad.floorPlansPanel')}</summary>
+                <div class="hint">{t('cad.floorPlansHint')}</div>
+                {#each floorRegions as r, i}
+                  <div class="region-row">
+                    <input type="text" class="region-label" bind:value={r.label} title={t('cad.floorPlanLabel')} />
+                    <span class="region-range">
+                      {t('cad.floors')}
+                      <input type="number" min="1" step="1" bind:value={r.fromFloor} />–
+                      <input type="number" min="1" step="1" bind:value={r.toFloor} />
+                    </span>
+                    <span class="region-win" title={t('cad.floorPlanWindow')}>
+                      [{(r.x0 ?? 0).toFixed(1)},{(r.y0 ?? 0).toFixed(1)}]–[{(r.x1 ?? 0).toFixed(1)},{(r.y1 ?? 0).toFixed(1)}]
+                    </span>
+                    <button class="btn mini" onclick={() => { floorRegions = floorRegions.filter((_, j) => j !== i); }}>✕</button>
+                  </div>
+                {/each}
+                <button class="btn mini" onclick={addFloorRegion} disabled={!cropEnabled}>+ {t('cad.floorPlanAdd')}</button>
+                {#if !cropEnabled}<div class="hint">{t('cad.floorPlanNeedCrop')}</div>{/if}
+              </details>
             </div>
           {:else if step === 4 && draft}
             <div class="banner">{t('cad.draftBanner')}</div>
+            <div class="preview-row">
+              <div class="preview-pane">
+                <canvas bind:this={previewCanvas} width="420" height="320"></canvas>
+                <div class="legend">
+                  <span><span class="role-dot" style="background:#e94560"></span>{t('cad.role.column')}</span>
+                  <span><span class="role-dot" style="background:#4ecdc4"></span>{t('cad.role.beam')}</span>
+                  <span><span class="role-dot" style="background:#6a9fe0"></span>{t('cad.role.slab')}</span>
+                  <span><span class="role-dot" style="background:#f0a500"></span>{t('cad.role.wall')}</span>
+                  <span><span class="role-dot" style="background:#ff5d5d"></span>{t('cad.diagFloatingNode')}</span>
+                </div>
+              </div>
+              {#if diagnostics}
+                <div class="diag-pane diag-{diagnostics.level}">
+                  <div class="diag-head">
+                    {diagnostics.level === 'ok' ? '✅' : diagnostics.level === 'warn' ? '⚠' : '⛔'}
+                    <strong>{t(`cad.diagVerdict.${diagnostics.solvableShape ? 'ok' : diagnostics.level}`)}</strong>
+                  </div>
+                  <ul class="diag-list">
+                    {#each diagnostics.checks as ck}
+                      <li class="diag-{ck.level}">
+                        {t(`cad.diag.${ck.id}`)
+                          .replace('{n}', String(ck.values?.n ?? ''))
+                          .replace('{orphans}', String(ck.values?.orphans ?? ''))}
+                      </li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+            </div>
             <div class="split">
               <div class="left">
                 <h3>{t('cad.draftCounts')}</h3>
@@ -704,7 +1165,7 @@
   }
   .dialog {
     background: #16213e; border: 1px solid #1a4a7a; border-radius: 8px;
-    width: 860px; max-width: 96vw; max-height: 92vh;
+    width: 1040px; max-width: 96vw; max-height: 92vh;
     display: flex; flex-direction: column; color: #ddd;
   }
   .header {
@@ -725,11 +1186,38 @@
   .step-chip.done { color: #aaa; }
 
   .body { padding: 0.8rem 1rem; overflow-y: auto; flex: 1; min-height: 320px; }
-  .split { display: flex; gap: 1rem; }
-  .left { flex: 1; min-width: 0; }
-  .right { width: 396px; flex-shrink: 0; }
+  /* Responsive two-column split: the preview shares the row with the left
+     panel on wide dialogs and wraps below it (never overlapping) when space is
+     tight (narrow laptops / max-width: 96vw). */
+  .split { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+  /* min-width:0 lets the left column shrink; the table's own scroll wrapper
+     (.table-wrap) then absorbs any excess width instead of overflowing onto the
+     preview. Together they guarantee the preview is never overlapped. */
+  .left { flex: 3 1 340px; min-width: 0; }
+  .right { flex: 2 1 320px; min-width: 300px; }
+  .table-wrap { overflow-x: auto; max-width: 100%; }
   .right.scroll { overflow-y: auto; max-height: 56vh; }
-  canvas { border: 1px solid #1a4a7a; border-radius: 4px; background: #10101c; width: 100%; }
+  canvas { border: 1px solid #1a4a7a; border-radius: 4px; background: #10101c; width: 100%; height: auto; display: block; }
+  .preview-canvas { cursor: grab; touch-action: none; }
+  .preview-canvas.dragging { cursor: grabbing; }
+  .preview-canvas.iso { cursor: default; }
+  .preview-modes { display: flex; gap: 0; margin-bottom: 0.35rem; border: 1px solid #1a4a7a; border-radius: 5px; overflow: hidden; }
+  .pmode {
+    flex: 1; padding: 0.28rem 0.4rem; font-size: 0.7rem; cursor: pointer;
+    background: #0f3460; color: #9aa7b8; border: none; border-right: 1px solid #1a4a7a;
+  }
+  .pmode:last-child { border-right: none; }
+  .pmode:hover { color: #fff; }
+  .pmode.active { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; font-weight: 600; }
+  .preview-status.counts { gap: 0.55rem; color: #cfe3ff; }
+  .preview-status.err { color: #ff8a9e; }
+  .preview-status.warnc { color: #f0c860; }
+  .preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.3rem; }
+  .preview-hint { font-size: 0.66rem; color: #7d8ba0; }
+  .preview-status { font-size: 0.68rem; color: #cfe3ff; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.35rem; }
+  .preview-status.muted { color: #7d8ba0; }
+  .preview-status.crop-on { color: #ffd166; }
+  .preview-status code { font-family: monospace; color: #fff; }
   .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.65rem; color: #999; margin-top: 0.3rem; }
   .role-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
 
@@ -761,6 +1249,8 @@
   .layer-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
   .layer-table th { text-align: left; color: #888; font-weight: normal; padding: 0.2rem 0.3rem; border-bottom: 1px solid #1a4a7a; }
   .layer-table td { padding: 0.2rem 0.3rem; border-bottom: 1px solid #14233f; }
+  .layer-table tbody tr { cursor: pointer; }
+  .layer-table tbody tr.hl { background: rgba(78, 205, 196, 0.14); box-shadow: inset 2px 0 0 #4ecdc4; }
   .layer-name { font-family: monospace; }
   .num { text-align: right; color: #aaa; }
   .suggested { color: #999; }
@@ -820,4 +1310,39 @@
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn.primary { background: rgba(78, 205, 196, 0.15); color: #4ecdc4; border-color: #4ecdc4; }
   .btn.apply { background: rgba(78, 205, 196, 0.25); color: #4ecdc4; border-color: #4ecdc4; font-weight: 600; }
+
+  /* PR [14] — unit sanity, crop, contribution, inference, multi-floor, preview, diagnostics */
+  .unit-warn {
+    background: rgba(240, 165, 0, 0.14); border: 1px solid #f0a500; color: #f0c860;
+    padding: 0.4rem 0.55rem; border-radius: 4px; font-size: 0.74rem; margin: 0.3rem 0;
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  }
+  .crop-panel { margin-top: 0.5rem; }
+  .crop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; margin: 0.3rem 0; }
+  .crop-grid.disabled { opacity: 0.5; }
+  .crop-grid label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; }
+  .crop-grid input { width: 80px; padding: 0.2rem 0.35rem; background: #0f3460; color: #ddd; border: 1px solid #1a4a7a; border-radius: 4px; font-size: 0.72rem; }
+  .crop-actions { display: flex; gap: 0.4rem; }
+  .layer-breakdown { font-size: 0.62rem; color: #6f7d90; margin-left: 0.95rem; }
+  .layer-table .contrib { font-size: 0.72rem; white-space: nowrap; }
+  .layer-table .contrib span { margin-right: 0.2rem; }
+  .contrib-zero { color: #c46; font-weight: 600; }
+  .infer-panel .warn-text { margin-bottom: 0.3rem; }
+  .check.sub { margin-left: 1.1rem; }
+  .check.sub.disabled { opacity: 0.5; }
+  .region-row { display: flex; align-items: center; gap: 0.35rem; margin: 0.25rem 0; font-size: 0.72rem; flex-wrap: wrap; }
+  .region-row input[type='text'] { width: 78px; }
+  .region-row input[type='number'] { width: 42px; padding: 0.2rem 0.3rem; background: #0f3460; color: #ddd; border: 1px solid #1a4a7a; border-radius: 4px; }
+  .region-win { color: #8194ab; font-size: 0.66rem; }
+  .preview-row { display: flex; gap: 0.8rem; margin-bottom: 0.7rem; align-items: stretch; }
+  .preview-pane canvas { border: 1px solid #1a4a7a; border-radius: 4px; background: #10101c; }
+  .diag-pane { flex: 1; border-radius: 6px; padding: 0.5rem 0.7rem; font-size: 0.76rem; overflow-y: auto; max-height: 340px; }
+  .diag-pane.diag-ok { background: rgba(78, 205, 196, 0.1); border: 1px solid #2f8f86; }
+  .diag-pane.diag-warn { background: rgba(240, 165, 0, 0.1); border: 1px solid #f0a500; }
+  .diag-pane.diag-error { background: rgba(233, 69, 96, 0.12); border: 1px solid #e94560; }
+  .diag-head { font-size: 0.85rem; margin-bottom: 0.4rem; }
+  .diag-list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.2rem; }
+  .diag-list li.diag-error { color: #ff8a9e; }
+  .diag-list li.diag-warn { color: #f0c860; }
+  .diag-list li.diag-ok { color: #7fe0d6; }
 </style>

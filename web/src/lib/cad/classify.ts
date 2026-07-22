@@ -19,6 +19,7 @@ import { CAD_UNIT_SCALE } from './types';
 import { attachSpecs } from './specs';
 import { classifyRoomLabel } from './rooms';
 import {
+  beamAxisFromPolygon,
   chainSegmentsIntoLoops,
   dist,
   isAxisAlignedRectilinear,
@@ -194,7 +195,7 @@ export function extractArchPlan(
     skipped: [],
   };
 
-  const wallSegments: Segment[] = [];
+  const wallSegments: Array<Segment & { layer: string }> = [];
   const beamSegments: Array<Segment & { layer: string }> = [];
   const columnLineSegments: Array<Segment & { layer: string }> = [];
 
@@ -224,7 +225,7 @@ export function extractArchPlan(
         }
         if (e.kind === 'text') break; // column tag labels — not geometry
         const col = columnFromEntity(e, k);
-        if (col) plan.columns.push(col);
+        if (col) plan.columns.push({ ...col, srcLayer: e.layer });
         else plan.skipped.push({ kind: e.kind, layer: e.layer, reason: 'columnShape' });
         break;
       }
@@ -232,8 +233,20 @@ export function extractArchPlan(
       case 'beam': {
         if (e.kind === 'line') {
           beamSegments.push({ a: sc(e.a, k), b: sc(e.b, k), layer: e.layer });
+        } else if (e.kind === 'polyline' && e.closed) {
+          // A beam drawn as its physical face outline (closed thin rectangle):
+          // derive the analytical centerline + width from the polygon directly,
+          // bypassing face pairing (PR [14] Layer 4).
+          const axis = beamAxisFromPolygon(e.pts.map((p) => sc(p, k)));
+          if (axis) {
+            plan.beams.push({ a: axis.a, b: axis.b, width: axis.width, geomSource: 'polygon', srcLayer: e.layer });
+          } else {
+            plan.skipped.push({ kind: 'polyline', layer: e.layer, reason: 'beamShape' });
+          }
         } else if (e.kind === 'polyline') {
-          const n = e.closed ? e.pts.length : e.pts.length - 1;
+          // Open polyline: a multi-segment beam path (or two drawn faces that
+          // face-pairing will couple). Feed each edge to the pairing pass.
+          const n = e.pts.length - 1;
           for (let i = 0; i < n; i++) {
             beamSegments.push({ a: sc(e.pts[i], k), b: sc(e.pts[(i + 1) % e.pts.length], k), layer: e.layer });
           }
@@ -249,11 +262,11 @@ export function extractArchPlan(
 
       case 'wall': {
         if (e.kind === 'line') {
-          wallSegments.push({ a: sc(e.a, k), b: sc(e.b, k) });
+          wallSegments.push({ a: sc(e.a, k), b: sc(e.b, k), layer: e.layer });
         } else if (e.kind === 'polyline') {
           const n = e.closed ? e.pts.length : e.pts.length - 1;
           for (let i = 0; i < n; i++) {
-            wallSegments.push({ a: sc(e.pts[i], k), b: sc(e.pts[(i + 1) % e.pts.length], k) });
+            wallSegments.push({ a: sc(e.pts[i], k), b: sc(e.pts[(i + 1) % e.pts.length], k), layer: e.layer });
           }
         } else if (e.kind === 'arc') {
           plan.skipped.push({ kind: 'arc', layer: e.layer, reason: 'curvedNotConverted' });
@@ -275,6 +288,7 @@ export function extractArchPlan(
             outline: ccw,
             isQuad: ccw.length === 4,
             isRectilinear: isAxisAlignedRectilinear(ccw, 1e-4),
+            srcLayer: e.layer,
           });
         } else if (e.kind === 'polyline' || e.kind === 'line') {
           plan.skipped.push({ kind: e.kind, layer: e.layer, reason: 'slabNotClosed' });
@@ -300,20 +314,24 @@ export function extractArchPlan(
   // Columns drawn as bare LINE outlines: chain into closed loops and read the
   // rectangle size from each loop's bbox. Junction/open leftovers are skipped.
   if (columnLineSegments.length > 0) {
-    const { loops, unchained } = chainSegmentsIntoLoops(columnLineSegments, COLUMN_CHAIN_TOL_M);
-    for (const loop of loops) {
+    const { loops, loopSegIndex, unchained } = chainSegmentsIntoLoops(columnLineSegments, COLUMN_CHAIN_TOL_M);
+    loops.forEach((loop, li) => {
+      // Attribute each loop to the layer of a segment it was actually chained
+      // from — not always segment 0 — so per-layer counts/highlighting are right
+      // when columns are split across two column-role layers.
+      const layer = columnLineSegments[loopSegIndex[li]]?.layer ?? columnLineSegments[0].layer;
       const pruned = pruneCollinear(loop, 1e-4);
       const bb = polygonBBox(pruned.length >= 3 ? pruned : loop);
       const b = bb.maxX - bb.minX, h = bb.maxY - bb.minY;
       if (b > 0 && h > 0 && Math.max(b, h) <= MAX_COLUMN_SIDE_M) {
         plan.columns.push({
           at: { x: (bb.minX + bb.maxX) / 2, y: (bb.minY + bb.maxY) / 2 },
-          b, h, sizeSource: 'rect',
+          b, h, sizeSource: 'rect', srcLayer: layer,
         });
       } else {
-        plan.skipped.push({ kind: 'polyline', layer: columnLineSegments[0].layer, reason: 'columnShape' });
+        plan.skipped.push({ kind: 'polyline', layer, reason: 'columnShape' });
       }
-    }
+    });
     for (const i of unchained) {
       plan.skipped.push({ kind: 'line', layer: columnLineSegments[i].layer, reason: 'columnLinesUnchained' });
     }
@@ -326,8 +344,12 @@ export function extractArchPlan(
       minGap: BEAM_GAP_MIN_M,
       maxGap: BEAM_GAP_MAX_M,
     });
-    for (const p of beamPairs) pushBeam(plan, p.a, p.b, p.thickness);
-    for (const i of beamSingles) pushBeam(plan, beamSegments[i].a, beamSegments[i].b);
+    for (const p of beamPairs) {
+      pushBeam(plan, p.a, p.b, p.thickness, 'paired', beamSegments[p.pair[0]]?.layer);
+    }
+    for (const i of beamSingles) {
+      pushBeam(plan, beamSegments[i].a, beamSegments[i].b, undefined, 'centerline', beamSegments[i].layer);
+    }
     if (beamPairs.length > 0 && beamSingles.length > 0) {
       plan.warnings.push('beamsMixedPairing');
     }
@@ -339,12 +361,15 @@ export function extractArchPlan(
     maxGap: WALL_GAP_MAX_M,
   });
   for (const w of paired) {
-    plan.walls.push({ a: w.a, b: w.b, thickness: w.thickness, thicknessSource: 'paired' });
+    plan.walls.push({
+      a: w.a, b: w.b, thickness: w.thickness, thicknessSource: 'paired',
+      srcLayer: wallSegments[w.pair[0]]?.layer,
+    });
   }
   for (const i of unpaired) {
     const s = wallSegments[i];
     if (dist(s.a, s.b) > 1e-6) {
-      plan.walls.push({ a: s.a, b: s.b, thicknessSource: 'default' });
+      plan.walls.push({ a: s.a, b: s.b, thicknessSource: 'default', srcLayer: s.layer });
     }
   }
   if (paired.length > 0 && unpaired.length > 0) {
@@ -372,8 +397,15 @@ export function extractArchPlan(
   return plan;
 }
 
-function pushBeam(plan: ArchPlan, a: CadPt, b: CadPt, width?: number): void {
-  if (dist(a, b) > 1e-6) plan.beams.push(width !== undefined ? { a, b, width } : { a, b });
+function pushBeam(
+  plan: ArchPlan, a: CadPt, b: CadPt, width: number | undefined,
+  geomSource: 'centerline' | 'paired', srcLayer?: string,
+): void {
+  if (dist(a, b) <= 1e-6) return;
+  const beam: ArchPlan['beams'][number] = { a, b, geomSource };
+  if (width !== undefined) beam.width = width;
+  if (srcLayer !== undefined) beam.srcLayer = srcLayer;
+  plan.beams.push(beam);
 }
 
 /** A column entity → centre point + optional size, in metres. */

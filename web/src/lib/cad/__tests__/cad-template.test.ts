@@ -77,7 +77,9 @@ describe('Stabileo DXF template', () => {
     // Per-member beam labels: distinct widths/depths from the drawn labels.
     const byMark = new Map(plan.beams.filter((b) => b.mark).map((b) => [b.mark!, b]));
     expect(byMark.get('V-INT')).toMatchObject({ width: 0.18, depth: 0.45 });
-    expect(byMark.get('V-PERIM')).toMatchObject({ width: 0.2, depth: 0.55 });
+    // V-PERIM drawn as a closed footprint polygon (PR [14] Layer 4): width from the
+    // outline, depth from the label.
+    expect(byMark.get('V-PERIM')).toMatchObject({ width: 0.2, depth: 0.55, geomSource: 'polygon' });
     expect(byMark.get('V3')).toMatchObject({ width: 0.25, depth: 0.6 });
     expect(byMark.get('V-BALCON')).toMatchObject({ width: 0.15, depth: 0.35 });
     expect(byMark.get('V1')).toMatchObject({ width: 0.2, depth: 0.5 }); // edge label
