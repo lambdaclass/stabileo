@@ -34,6 +34,8 @@ export class ElementsBatched {
   private idToIndex = new Map<number, number>();
   private indexToId: number[] = [];
   private baseColorById = new Map<number, number>();
+  /** Segment count at the last flush — used to detect GROWTH (see flush()). */
+  private lastDrawnCount = 0;
 
   private _colorTmp = new THREE.Color();
   private dirty: boolean = false;
@@ -148,6 +150,7 @@ export class ElementsBatched {
     this.indexToId.length = 0;
     this.baseColorById.clear();
     this.count = 0;
+    this.lastDrawnCount = 0;
     this.dirty = true;
     this.colorDirty = true;
   }
@@ -160,6 +163,21 @@ export class ElementsBatched {
   flush(): void {
     if (!this.dirty && !this.colorDirty) return;
     const segmentCount = this.count;
+    // GPU robustness on GROWTH: replace the geometry object so the WebGL renderer
+    // drops all cached buffer/instance state for the old geometry and re-uploads
+    // at the new size. An in-place `setPositions` keeps the same geometry id;
+    // on some GPU drivers the renderer then keeps drawing the previous (smaller)
+    // instance count after the model grows — i.e. "open a small model, then a
+    // bigger one, and only the first model's members render" (reload fixes it).
+    // NodesInstanced / ElementsPicking already recreate their InstancedMesh on
+    // grow(), which is why ONLY this batched wireframe was affected. Done only on
+    // grow (not every flush) so a node drag — constant count — stays alloc-free.
+    if (this.dirty && segmentCount > this.lastDrawnCount) {
+      const old = this.geo;
+      this.geo = new LineSegmentsGeometry();
+      this.mesh.geometry = this.geo;
+      old.dispose();
+    }
     if (segmentCount === 0) {
       // LineSegmentsGeometry with zero segments — use empty arrays to clear.
       this.geo.setPositions(new Float32Array(0));
@@ -172,6 +190,7 @@ export class ElementsBatched {
       }
       this.geo.setColors(this.colors.subarray(0, segmentCount * 6));
     }
+    this.lastDrawnCount = segmentCount;
     this.dirty = false;
     this.colorDirty = false;
   }

@@ -78,35 +78,37 @@ const NUM_POINTS_3D: usize = 31;
 
 // ==================== 3D Normal Stress (Biaxial Navier) ====================
 
-/// σ(y,z) = N/A + Mz*y/Iz - My*z/Iy  (result in MPa)
+/// σ(y,z) = N/A − My*y/Iy + Mz*z/Iz  (PR [12] convention, result in MPa)
 ///
-/// Section coordinates: y = vertical (height), z = horizontal (width).
-/// Mz = moment about Z-axis (vertical) → bending in Y-Z plane (vertical) → stress varies with y → uses Iz.
-/// My = moment about Y-axis (horizontal) → bending in X-Z plane (lateral) → stress varies with z → uses Iy.
-/// Sign: My negative from θy = -dw/dx convention; Mz positive (θz = +dv/dx, same as 2D).
+/// Section coordinates: y = DEPTH (vertical, ±h/2), z = WIDTH (lateral, ±b/2).
+/// My = moment about local y → bends over the depth (y) → uses Iy (strong axis).
+/// Mz = moment about local z → bends over the width (z) → uses Iz (weak axis).
+/// Sign: My carries the θy = −dw/dx convention (negative coefficient) so a horizontal beam
+/// under gravity reproduces the 2D result σ = +M*y/Iy on the depth axis; Mz stays positive.
 fn biaxial_normal_stress(n: f64, my: f64, mz: f64, a: f64, iy: f64, iz: f64, y: f64, z: f64) -> f64 {
     let mut sigma = 0.0;
     if a > 1e-15 { sigma += n / a; }
-    if iz > 1e-15 { sigma += mz * y / iz; }  // Mz about Z-vert → stress varies with y (vertical)
-    if iy > 1e-15 { sigma -= my * z / iy; }  // My about Y-horiz → stress varies with z (horizontal)
+    if iy > 1e-15 { sigma -= my * y / iy; }  // My → bends over the depth (y), uses Iy (strong)
+    if iz > 1e-15 { sigma += mz * z / iz; }  // Mz → bends over the width (z), uses Iz (weak)
     sigma / 1000.0
 }
 
 // ==================== 3D Shear Stress ====================
 
-/// Jourawski shear stress from Vy (strong axis) at fiber y.
-fn shear_stress_vy(vy: f64, y: f64, rs: &ResolvedSection) -> f64 {
-    // Reuse 2D Q(y) computation
+/// Jourawski shear stress over the DEPTH (strong axis), at fiber y.
+/// Fed the vertical shear Vz (paired with My / depth bending); uses Iy.
+fn shear_stress_depth(v: f64, y: f64, rs: &ResolvedSection) -> f64 {
     let (q, b_at_y) = compute_q_and_b_3d(y, rs);
-    if b_at_y < 1e-12 || rs.iz < 1e-15 { return 0.0; }
-    (vy * q) / (rs.iz * b_at_y) / 1000.0
+    if b_at_y < 1e-12 || rs.iy < 1e-15 { return 0.0; }
+    (v * q) / (rs.iy * b_at_y) / 1000.0
 }
 
-/// Jourawski shear stress from Vz (weak axis) at fiber z.
-fn shear_stress_vz(vz: f64, z: f64, rs: &ResolvedSection) -> f64 {
+/// Jourawski shear stress over the WIDTH (weak axis), at fiber z.
+/// Fed the lateral shear Vy (paired with Mz / width bending); uses Iz.
+fn shear_stress_width(v: f64, z: f64, rs: &ResolvedSection) -> f64 {
     let (q_y, width) = compute_qy_and_width(z, rs);
-    if width < 1e-12 || rs.iy < 1e-15 { return 0.0; }
-    (vz * q_y) / (rs.iy * width) / 1000.0
+    if width < 1e-12 || rs.iz < 1e-15 { return 0.0; }
+    (v * q_y) / (rs.iz * width) / 1000.0
 }
 
 /// Torsion shear stress.
@@ -134,7 +136,7 @@ fn torsion_shear(mx: f64, rs: &ResolvedSection) -> f64 {
     }
 }
 
-/// Q(y) and b(y) for strong-axis shear (3D uses iz for Iy in 2D convention).
+/// Q(y) and b(y) for strong-axis (over-the-depth) shear; paired with Iy in the PR [12] convention.
 fn compute_q_and_b_3d(y: f64, rs: &ResolvedSection) -> (f64, f64) {
     let half_h = rs.h / 2.0;
     match rs.shape.as_str() {
@@ -301,14 +303,14 @@ pub fn compute_stress_3d_from_raw(
     let y = y_fiber.unwrap_or(resolved.h / 2.0);
     let z = z_fiber.unwrap_or(0.0);
 
-    // Y-axis distribution (z=0 cut)
+    // Y-axis distribution (DEPTH cut, z=0). Shear here is the vertical shear Vz (strong axis).
     let distribution_y: Vec<StressPoint3D> = {
         let span = resolved.y_max - resolved.y_min;
         (0..NUM_POINTS_3D).map(|i| {
             let yi = resolved.y_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
             let sigma = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, yi, 0.0);
-            let t_vy = shear_stress_vy(vy, yi, &resolved);
-            let t_vz = 0.0;
+            let t_vy = 0.0;
+            let t_vz = shear_stress_depth(vz, yi, &resolved);
             let t_t = torsion_shear(mx, &resolved);
             let tau_total = (t_vy * t_vy + t_vz * t_vz + t_t * t_t).sqrt();
             let vm = (sigma * sigma + 3.0 * tau_total * tau_total).sqrt();
@@ -316,14 +318,14 @@ pub fn compute_stress_3d_from_raw(
         }).collect()
     };
 
-    // Z-axis distribution (y=0 cut)
+    // Z-axis distribution (WIDTH cut, y=0). Shear here is the lateral shear Vy (weak axis).
     let distribution_z: Vec<StressPoint3D> = {
         let span = resolved.z_max - resolved.z_min;
         (0..NUM_POINTS_3D).map(|i| {
             let zi = resolved.z_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
             let sigma = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, 0.0, zi);
-            let t_vy = 0.0;
-            let t_vz = shear_stress_vz(vz, zi, &resolved);
+            let t_vy = shear_stress_width(vy, zi, &resolved);
+            let t_vz = 0.0;
             let t_t = torsion_shear(mx, &resolved);
             let tau_total = (t_vy * t_vy + t_vz * t_vz + t_t * t_t).sqrt();
             let vm = (sigma * sigma + 3.0 * tau_total * tau_total).sqrt();
@@ -333,8 +335,8 @@ pub fn compute_stress_3d_from_raw(
 
     // Stress at selected point
     let sigma_at_fiber = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, y, z);
-    let tau_vy_at_fiber = shear_stress_vy(vy, y, &resolved);
-    let tau_vz_at_fiber = shear_stress_vz(vz, z, &resolved);
+    let tau_vy_at_fiber = shear_stress_width(vy, z, &resolved); // from Vy, at width z
+    let tau_vz_at_fiber = shear_stress_depth(vz, y, &resolved); // from Vz, at depth y
     let tau_torsion = torsion_shear(mx, &resolved);
     let tau_total = (tau_vy_at_fiber * tau_vy_at_fiber + tau_vz_at_fiber * tau_vz_at_fiber + tau_torsion * tau_torsion).sqrt();
 
@@ -363,28 +365,28 @@ pub fn compute_stress_3d_from_raw(
 }
 
 fn compute_neutral_axis_3d(n: f64, my: f64, mz: f64, rs: &ResolvedSection) -> Option<NeutralAxis3D> {
-    // σ(y,z) = 0 → N/A + Mz*y/Iz - My*z/Iy = 0
+    // σ(y,z) = 0 → N/A − My*y/Iy + Mz*z/Iz = 0   (y = depth, z = width)
     if mz.abs() < 1e-10 && my.abs() < 1e-10 { return None; }
 
     let (y1, z1, y2, z2);
-    if mz.abs() > 1e-10 {
-        // Express y = f(z): y = (-N/A + My*z/Iy) * Iz / Mz
-        // At z=z_min and z=z_max
+    if my.abs() > 1e-10 {
+        // Depth bending present → express y = f(z): y = (N/A + Mz*z/Iz) * Iy / My
+        // Evaluate at z = z_min and z = z_max.
         let za = rs.z_min;
         let zb = rs.z_max;
         let n_over_a = if rs.a > 1e-15 { n / rs.a } else { 0.0 };
-        let ya = if rs.iz > 1e-15 {
-            (-n_over_a + if rs.iy > 1e-15 { my * za / rs.iy } else { 0.0 }) * rs.iz / mz
+        let ya = if rs.iy > 1e-15 {
+            (n_over_a + if rs.iz > 1e-15 { mz * za / rs.iz } else { 0.0 }) * rs.iy / my
         } else { 0.0 };
-        let yb = if rs.iz > 1e-15 {
-            (-n_over_a + if rs.iy > 1e-15 { my * zb / rs.iy } else { 0.0 }) * rs.iz / mz
+        let yb = if rs.iy > 1e-15 {
+            (n_over_a + if rs.iz > 1e-15 { mz * zb / rs.iz } else { 0.0 }) * rs.iy / my
         } else { 0.0 };
         y1 = ya; z1 = za; y2 = yb; z2 = zb;
     } else {
-        // Mz=0, My≠0 → vertical line at z = N*Iy/(A*My)
+        // My=0, Mz≠0 → vertical line at z = -N*Iz/(A*Mz)
         let n_over_a = if rs.a > 1e-15 { n / rs.a } else { 0.0 };
-        let z_na = if my.abs() > 1e-10 && rs.iy > 1e-15 {
-            n_over_a * rs.iy / my
+        let z_na = if mz.abs() > 1e-10 && rs.iz > 1e-15 {
+            -n_over_a * rs.iz / mz
         } else { 0.0 };
         y1 = rs.y_min; z1 = z_na;
         y2 = rs.y_max; z2 = z_na;

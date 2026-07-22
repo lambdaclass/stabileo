@@ -98,4 +98,29 @@ describe('computeDiagramDisplayDirection', () => {
       expect(Math.abs(perpVec.z)).toBeLessThan(0.5);
     });
   });
+
+  describe('"draw positive toward local axes" toggle', () => {
+    it('ON: positive value offsets along the raw local +axis (perpVec = local axis, sign +1)', () => {
+      const axes = computeLocalAxes3D(node(1, 0, 0, 0), node(2, 5, 0, 0)); // +X beam → ey=(0,1,0), ez=(0,0,1)
+      const y = computeDiagramDisplayDirection(axes, 'y', true);
+      expect(y.sign).toBe(1);
+      expect(y.perpVec.x).toBeCloseTo(axes.ey[0], 6);
+      expect(y.perpVec.y).toBeCloseTo(axes.ey[1], 6);
+      expect(y.perpVec.z).toBeCloseTo(axes.ey[2], 6);
+      const z = computeDiagramDisplayDirection(axes, 'z', true);
+      expect(z.sign).toBe(1);
+      expect(z.perpVec.z).toBeCloseTo(axes.ez[2], 6);
+    });
+
+    it('vertical-plane diagram: ON flips to the opposite side of OFF (structural)', () => {
+      // For perpDir 'z' on a horizontal +X beam, local ez == display up, so the
+      // toggle is a pure side flip (the 2D-equivalent down↔up). offDir = −z, onDir = +z.
+      const axes = computeLocalAxes3D(node(1, 0, 0, 0), node(2, 5, 0, 0));
+      const off = computeDiagramDisplayDirection(axes, 'z', false);
+      const on = computeDiagramDisplayDirection(axes, 'z', true);
+      const offDir = off.perpVec.clone().multiplyScalar(off.sign);
+      const onDir = on.perpVec.clone().multiplyScalar(on.sign);
+      expect(offDir.dot(onDir)).toBeLessThan(0);
+    });
+  });
 });

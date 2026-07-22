@@ -33,12 +33,27 @@
   let hingeEnd = $state(false);
   let materialId = $state(1);
   let sectionId = $state(1);
+  // Sliding joints (Basic 2D only) — '' = none.
+  let slideStart = $state<'' | 'x' | 'z'>('');
+  let slideEnd = $state<'' | 'x' | 'z'>('');
+  let slideStartAxis = $state<'global' | 'local'>('global');
+  let slideEndAxis = $state<'global' | 'local'>('global');
+  // Basic 3D internal joint — six released relative-DOF masks per end.
+  const DOF3D_LABELS = ['dx', 'dy', 'dz', 'θx', 'θy', 'θz'];
+  let jointStart = $state<boolean[]>([false, false, false, false, false, false]);
+  let jointEnd = $state<boolean[]>([false, false, false, false, false, false]);
 
   // Sync local values when element changes
   $effect(() => {
     if (elem) {
       hingeStart = elem.releaseI?.mz === true;
       hingeEnd = elem.releaseJ?.mz === true;
+      slideStart = elem.releaseI?.slide ?? '';
+      slideEnd = elem.releaseJ?.slide ?? '';
+      slideStartAxis = elem.releaseI?.slideAxis ?? 'global';
+      slideEndAxis = elem.releaseJ?.slideAxis ?? 'global';
+      jointStart = elem.jointI ? [...elem.jointI.dof] : [false, false, false, false, false, false];
+      jointEnd = elem.jointJ ? [...elem.jointJ.dof] : [false, false, false, false, false, false];
       materialId = elem.materialId;
       sectionId = elem.sectionId;
     }
@@ -49,15 +64,33 @@
     const changed =
       hingeStart !== (elem.releaseI?.mz === true) ||
       hingeEnd !== (elem.releaseJ?.mz === true) ||
+      slideStart !== (elem.releaseI?.slide ?? '') ||
+      slideEnd !== (elem.releaseJ?.slide ?? '') ||
+      slideStartAxis !== (elem.releaseI?.slideAxis ?? 'global') ||
+      slideEndAxis !== (elem.releaseJ?.slideAxis ?? 'global') ||
+      (is3DMode && jointStart.some((v, i) => v !== (elem.jointI?.dof[i] ?? false))) ||
+      (is3DMode && jointEnd.some((v, i) => v !== (elem.jointJ?.dof[i] ?? false))) ||
       materialId !== elem.materialId ||
       sectionId !== elem.sectionId;
 
     if (changed) {
       historyStore.pushState();
-      elem.releaseI = { ...(elem.releaseI ?? NO_RELEASE), mz: hingeStart };
-      elem.releaseJ = { ...(elem.releaseJ ?? NO_RELEASE), mz: hingeEnd };
+      const relI = { ...(elem.releaseI ?? NO_RELEASE), mz: hingeStart } as typeof elem.releaseI;
+      const relJ = { ...(elem.releaseJ ?? NO_RELEASE), mz: hingeEnd } as typeof elem.releaseJ;
+      if (slideStart === '') { delete relI.slide; delete relI.slideAxis; }
+      else { relI.slide = slideStart; relI.slideAxis = slideStartAxis; }
+      if (slideEnd === '') { delete relJ.slide; delete relJ.slideAxis; }
+      else { relJ.slide = slideEnd; relJ.slideAxis = slideEndAxis; }
+      elem.releaseI = relI;
+      elem.releaseJ = relJ;
       elem.materialId = materialId;
       elem.sectionId = sectionId;
+      if (is3DMode) {
+        if (jointStart.some(Boolean)) elem.jointI = { dof: [...jointStart] as any };
+        else delete elem.jointI;
+        if (jointEnd.some(Boolean)) elem.jointJ = { dof: [...jointEnd] as any };
+        else delete elem.jointJ;
+      }
     }
     close();
   }
@@ -117,6 +150,55 @@
       </label>
     </div>
 
+    {#if !is3DMode && elem.type === 'frame'}
+      <div class="field">
+        <span>{t('editor.slideStart')}:</span>
+        <select bind:value={slideStart}>
+          <option value="">{t('editor.slideNone')}</option>
+          <option value="x">{t('editor.slideX')}</option>
+          <option value="z">{t('editor.slideZ')}</option>
+        </select>
+        {#if slideStart !== ''}
+          <select bind:value={slideStartAxis} title={t('float.jointAxis')}>
+            <option value="global">{t('float.jointAxisGlobal')}</option>
+            <option value="local">{t('float.jointAxisLocal')}</option>
+          </select>
+        {/if}
+      </div>
+      <div class="field">
+        <span>{t('editor.slideEnd')}:</span>
+        <select bind:value={slideEnd}>
+          <option value="">{t('editor.slideNone')}</option>
+          <option value="x">{t('editor.slideX')}</option>
+          <option value="z">{t('editor.slideZ')}</option>
+        </select>
+        {#if slideEnd !== ''}
+          <select bind:value={slideEndAxis} title={t('float.jointAxis')}>
+            <option value="global">{t('float.jointAxisGlobal')}</option>
+            <option value="local">{t('float.jointAxisLocal')}</option>
+          </select>
+        {/if}
+      </div>
+    {/if}
+
+    {#if is3DMode && elem.type === 'frame'}
+      <div class="joint3d" title={t('editor.joint3dHint')}>
+        <div class="joint3d-title">{t('editor.joint3dTitle')}</div>
+        <div class="joint3d-row">
+          <span class="joint3d-end">I</span>
+          {#each DOF3D_LABELS as label, i}
+            <label class="joint3d-dof"><input type="checkbox" bind:checked={jointStart[i]} />{label}</label>
+          {/each}
+        </div>
+        <div class="joint3d-row">
+          <span class="joint3d-end">J</span>
+          {#each DOF3D_LABELS as label, i}
+            <label class="joint3d-dof"><input type="checkbox" bind:checked={jointEnd[i]} />{label}</label>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
     <div class="info">
       {t('editor.nodesLabel')}: {elem.nodeI} → {elem.nodeJ}
       | L = {modelStore.getElementLength(elemId!).toFixed(3)} m
@@ -130,6 +212,40 @@
 {/if}
 
 <style>
+  .joint3d {
+    border-top: 1px solid #0f3460;
+    padding-top: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .joint3d-title {
+    font-size: 0.72rem;
+    color: #4ecdc4;
+    font-weight: 600;
+  }
+  .joint3d-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+  .joint3d-end {
+    font-size: 0.72rem;
+    color: #888;
+    width: 12px;
+    font-weight: 600;
+  }
+  .joint3d-dof {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.72rem;
+    color: #ccc;
+    cursor: pointer;
+  }
+  .joint3d-dof input[type="checkbox"] { accent-color: #e94560; }
+
   .backdrop {
     position: fixed;
     inset: 0;

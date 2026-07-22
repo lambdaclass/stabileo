@@ -1,8 +1,13 @@
 // 3D Section Stress Analysis — Complete
-// Biaxial bending: σ(y,z) = N/A + Mz·y/Iz - My·z/Iy
-// y = section vertical (up), z = section horizontal (right)
-// My = weak-axis moment about Y, Mz = strong-axis moment about Z
-// Jourawsky shear: τ_Vy(y) = Vy·Q_z(y)/(Iz·b(y)), τ_Vz(z) = Vz·Q_y(z)/(Iy·h_w(z))
+// Biaxial bending (PR [12] convention — aligned with PR [10] local axes + PR [11] render):
+//   σ(y,z) = N/A − My·y/Iy + Mz·z/Iz
+//   y = section DEPTH coordinate (vertical, ±h/2), z = section WIDTH coordinate (lateral, ±b/2)
+//   My = moment about local y → bends over the depth (y) → uses Iy (strong axis for tall sections)
+//   Mz = moment about local z → bends over the width (z) → uses Iz (weak axis)
+//   This matches the solver: gravity on a horizontal beam → My, resisted by Iy, with the
+//   section depth standing up (local z = up). It also matches the rendered upright section.
+// Jourawsky shear (by source force): τ_Vz(y) = Vz·Q(y)/(Iy·b(y)) over the depth,
+//   τ_Vy(z) = Vy·Q_y(z)/(Iz·width(z)) over the width.
 // Torsion: τ_T (Bredt for closed, Saint-Venant for open sections)
 // Von Mises: σ_vm = √(σ² + 3·(τ_xy² + τ_xz²))
 
@@ -36,18 +41,16 @@ export function computeSectionStress(
   h: number = 0, b: number = 0,
   fy: number = 355_000,
 ): SectionStress3D {
-  // Standard convention (matches WASM solver output):
-  //   My = moment about Y-axis (horizontal) → bending in X-Z plane (lateral)
-  //        → stress varies with z (horizontal) → max at b/2 → uses Iy (about Y).
-  //   Mz = moment about Z-axis (vertical) → bending in Y-Z plane (vertical)
-  //        → stress varies with y (vertical) → max at h/2 → uses Iz (about Z).
-  // Callers pass Iz = sec.iz (about Z vertical), Iy = sec.iy (about Y horizontal).
-  const yMax = h > 0 ? h / 2 : (A > 1e-15 ? Math.sqrt(Iz / A) * 2 : 0);
-  const zMax = b > 0 ? b / 2 : (A > 1e-15 ? Math.sqrt(Iy / A) * 2 : 0);
+  // PR [12] convention (aligned with PR [10] solver + PR [11] render):
+  //   My = moment about local y → bends over the DEPTH (h) → max at h/2 → uses Iy (strong).
+  //   Mz = moment about local z → bends over the WIDTH (b) → max at b/2 → uses Iz (weak).
+  // Callers pass Iz = sec.iz (about Z), Iy = sec.iy (about Y).
+  const depthMax = h > 0 ? h / 2 : (A > 1e-15 ? Math.sqrt(Iy / A) * 2 : 0); // along y (depth) ↔ Iy
+  const widthMax = b > 0 ? b / 2 : (A > 1e-15 ? Math.sqrt(Iz / A) * 2 : 0); // along z (width) ↔ Iz
   const sigmaN = A > 0 ? N / A : 0;
-  const sigmaMz = Iz > 0 ? Math.abs(Mz) * yMax / Iz : 0;
-  const sigmaMy = Iy > 0 ? Math.abs(My) * zMax / Iy : 0;
-  const sigmaMax = Math.abs(sigmaN) + sigmaMz + sigmaMy;
+  const sigmaMy = Iy > 0 ? Math.abs(My) * depthMax / Iy : 0; // depth bending
+  const sigmaMz = Iz > 0 ? Math.abs(Mz) * widthMax / Iz : 0; // width bending
+  const sigmaMax = Math.abs(sigmaN) + sigmaMy + sigmaMz;
   const kappa = 1.2;
   const tauY = A > 0 ? Math.abs(Vy) * kappa / A : 0;
   const tauZ = A > 0 ? Math.abs(Vz) * kappa / A : 0;
@@ -125,13 +128,14 @@ export interface SectionStressResult3D {
 // ─── Normal stress — Navier biaxial ─────────────────────────────────
 
 /**
- * σ_x(y,z) = N/A + Mz·y/Iz - My·z/Iy
+ * σ_x(y,z) = N/A − My·y/Iy + Mz·z/Iz   (PR [12] convention)
  *
- * Section coordinates: y = vertical (up), z = horizontal (right).
- * Solver moments: My = about Y horizontal (lateral bending, weak axis),
- *                 Mz = about Z vertical (vertical bending, strong axis).
- * In Navier's formula, "Iz" pairs with Mz·y (stress varying with y),
- * and "Iy" pairs with My·z (stress varying with z).
+ * Section coordinates: y = DEPTH (vertical, ±h/2), z = WIDTH (lateral, ±b/2).
+ * Solver moments: My = about local y → bending over the depth (y) → uses Iy (strong),
+ *                 Mz = about local z → bending over the width (z) → uses Iz (weak).
+ * Sign: My carries the θy = −dw/dx convention (negative coefficient) so that a horizontal
+ * beam under gravity reproduces the 2D result σ = +M·y/Iy on the depth axis. Mz keeps the
+ * positive (2D-like) convention.
  *
  * All forces in kN, geometry in m → result in MPa (÷1000)
  */
@@ -142,17 +146,18 @@ function normalStress3D(
 ): number {
   let sigma = 0;
   if (A > 1e-15) sigma += N / A;
-  if (Iz > 1e-15) sigma += Mz * y / Iz;
-  if (Iy > 1e-15) sigma -= My * z / Iy;
+  if (Iy > 1e-15) sigma -= My * y / Iy;  // My bends over the depth (y), uses Iy (strong)
+  if (Iz > 1e-15) sigma += Mz * z / Iz;  // Mz bends over the width (z), uses Iz (weak)
   return sigma / 1000; // kN/m² → MPa
 }
 
 // ─── Jourawsky shear — weak axis ────────────────────────────────────
 
 /**
- * Compute Q_y(z) and width h_w(z) for weak-axis shear (Vz).
+ * Compute Q_y(z) and width h_w(z) for weak-axis (over-the-width) shear.
  * This is the "transposed" version of computeQandB from section-stress.ts.
- * For I/H sections: Vz is resisted primarily by the flanges.
+ * In the PR [12] convention this carries the lateral shear Vy (paired with Mz / width bending).
+ * For I/H sections the lateral shear is resisted primarily by the flanges.
  */
 function computeQyAndWidth(z: number, rs: ResolvedSection): { Q: number; width: number } {
   const halfB = rs.b / 2;
@@ -230,16 +235,17 @@ function computeQyAndWidth(z: number, rs: ResolvedSection): { Q: number; width: 
 }
 
 /**
- * Weak-axis shear stress τ_Vz at fiber z.
- * τ(z) = Vz · Q_y(z) / (Iy · width(z))
+ * Weak-axis (over-the-width) shear stress at fiber z.
+ * τ(z) = V · Q_y(z) / (I · width(z))
+ * In the PR [12] convention this is fed the lateral shear Vy with I = Iz (weak axis).
  */
 function shearStressWeakAxis(
-  Vz: number, z: number, rs: ResolvedSection, Iy: number,
+  V: number, z: number, rs: ResolvedSection, I: number,
 ): number {
-  if (Iy < 1e-15) return 0;
+  if (I < 1e-15) return 0;
   const { Q, width } = computeQyAndWidth(z, rs);
   if (width < 1e-12) return 0;
-  return (Vz * Q) / (Iy * width) / 1000; // MPa
+  return (V * Q) / (I * width) / 1000; // MPa
 }
 
 // ─── Torsion shear stress ────────────────────────────────────────────
@@ -292,11 +298,12 @@ function torsionShearStress(Mx: number, rs: ResolvedSection, J: number): number 
 // ─── Neutral axis computation ────────────────────────────────────────
 
 /**
- * Compute the combined neutral axis for biaxial bending + axial.
- * σ(y,z) = 0 → N/A + Mz·y/Iz - My·z/Iy = 0
+ * Compute the combined neutral axis for biaxial bending + axial (PR [12] convention).
+ * σ(y,z) = 0 → N/A − My·y/Iy + Mz·z/Iz = 0
+ * (y = depth/vertical, z = width/lateral)
  *
- * When Mz ≠ 0: y = -(N·Iz)/(A·Mz) + (My·Iz)/(Iy·Mz)·z
- * When Mz = 0, My ≠ 0: z = (N·Iy)/(A·My)  (vertical line)
+ * When My ≠ 0 (depth bending present): y = (N·Iy)/(A·My) + (Mz·Iy)/(Iz·My)·z
+ * When My = 0, Mz ≠ 0: z = −(N·Iz)/(A·Mz)  (vertical line in the width)
  */
 function computeNeutralAxis(
   N: number, Mz: number, My: number,
@@ -310,26 +317,26 @@ function computeNeutralAxis(
     return { exists: false, slope: 0, intercept: 0, angle: 0 };
   }
 
-  if (hasMz) {
+  if (hasMy) {
     // y = intercept + slope · z
-    const intercept = A > 1e-15 ? -(N * Iz) / (A * Mz) : 0;
-    const slope = hasMy && Iy > 1e-20 ? (My * Iz) / (Iy * Mz) : 0;
+    const intercept = A > 1e-15 ? (N * Iy) / (A * My) : 0;
+    const slope = hasMz && Iz > 1e-20 ? (Mz * Iy) / (Iz * My) : 0;
     const angle = Math.atan(slope);
     return { exists: true, slope, intercept, angle };
   }
 
-  // Mz = 0, My ≠ 0: neutral axis is vertical (z = const)
-  // -My·z/Iy = -N/A → z = (N·Iy)/(A·My)
-  const zIntercept = A > 1e-15 ? (N * Iy) / (A * My) : 0;
+  // My = 0, Mz ≠ 0: neutral axis is vertical (z = const)
+  // Mz·z/Iz = -N/A → z = -(N·Iz)/(A·Mz)
+  const zIntercept = A > 1e-15 ? -(N * Iz) / (A * Mz) : 0;
   return { exists: true, slope: Infinity, intercept: zIntercept, angle: Math.PI / 2 };
 }
 
 /**
- * Compute neutral axis considering bending moments only (N=0).
- * σ = Mz·y/Iz - My·z/Iy = 0
- * When Mz ≠ 0: y = (My·Iz)/(Iy·Mz)·z  (passes through centroid)
- * Uniaxial Mz only: horizontal NA (y=0)
- * Uniaxial My only: vertical NA (z=0)
+ * Compute neutral axis considering bending moments only (N=0), PR [12] convention.
+ * σ = −My·y/Iy + Mz·z/Iz = 0
+ * When My ≠ 0: y = (Mz·Iy)/(Iz·My)·z  (passes through centroid)
+ * Uniaxial My only: horizontal NA (y=0)
+ * Uniaxial Mz only: vertical NA (z=0)
  */
 export function computeNeutralAxisMomentsOnly(
   Mz: number, My: number,
@@ -342,14 +349,14 @@ export function computeNeutralAxisMomentsOnly(
     return { exists: false, slope: 0, intercept: 0, angle: 0 };
   }
 
-  if (hasMz) {
+  if (hasMy) {
     // y = slope · z (intercept = 0 since N=0 → passes through centroid)
-    const slope = hasMy && Iy > 1e-20 ? (My * Iz) / (Iy * Mz) : 0;
+    const slope = hasMz && Iz > 1e-20 ? (Mz * Iy) / (Iz * My) : 0;
     const angle = Math.atan(slope);
     return { exists: true, slope, intercept: 0, angle };
   }
 
-  // Mz = 0, My ≠ 0: NA is vertical through centroid (z = 0)
+  // My = 0, Mz ≠ 0: NA is vertical through centroid (z = 0)
   return { exists: true, slope: Infinity, intercept: 0, angle: Math.PI / 2 };
 }
 
@@ -678,10 +685,12 @@ function analyzeSectionStressFromForcesTS(
   const zF = zFiber ?? 0;
 
   const yPositions = buildSamplingY(resolved);
+  // distributionY = cut along the DEPTH (y, ±h/2). The shear physically present on this cut
+  // is the vertical shear Vz (paired with My / depth bending), via the strong-axis Jourawski.
   const distributionY: StressPoint3D[] = yPositions.map(y => {
     const sigma = normalStress3D(N, Mz, My, resolved.a, Iz, Iy, y, 0);
-    const tauVy = shearStress(Vy, y, resolved);
-    const tauVz = 0;
+    const tauVy = 0;
+    const tauVz = shearStress(Vz, y, resolved); // strong-axis Jourawski over depth (uses rs.iy)
     const tauT = torsionShearStress(Mx, resolved, J);
     const tTotal = Math.sqrt(tauVy * tauVy + tauVz * tauVz + tauT * tauT);
     const vm = Math.sqrt(sigma * sigma + 3 * tTotal * tTotal);
@@ -689,10 +698,12 @@ function analyzeSectionStressFromForcesTS(
   });
 
   const zPositions = buildSamplingZ(resolved);
+  // distributionZ = cut along the WIDTH (z, ±b/2). The shear here is the lateral shear Vy
+  // (paired with Mz / width bending), via the weak-axis Jourawski (uses Iz).
   const distributionZ: StressPoint3D[] = zPositions.map(z => {
     const sigma = normalStress3D(N, Mz, My, resolved.a, Iz, Iy, 0, z);
-    const tauVy = 0;
-    const tauVz = shearStressWeakAxis(Vz, z, resolved, Iy);
+    const tauVy = shearStressWeakAxis(Vy, z, resolved, Iz); // weak-axis Jourawski over width
+    const tauVz = 0;
     const tauT = torsionShearStress(Mx, resolved, J);
     const tTotal = Math.sqrt(tauVy * tauVy + tauVz * tauVz + tauT * tauT);
     const vm = Math.sqrt(sigma * sigma + 3 * tTotal * tTotal);
@@ -700,8 +711,8 @@ function analyzeSectionStressFromForcesTS(
   });
 
   const sigmaAtFiber = normalStress3D(N, Mz, My, resolved.a, Iz, Iy, yF, zF);
-  const tauVyAtFiber = shearStress(Vy, yF, resolved);
-  const tauVzAtFiber = shearStressWeakAxis(Vz, zF, resolved, Iy);
+  const tauVyAtFiber = shearStressWeakAxis(Vy, zF, resolved, Iz); // from Vy, at width zF
+  const tauVzAtFiber = shearStress(Vz, yF, resolved);            // from Vz, at depth yF
   const tauTorsion = torsionShearStress(Mx, resolved, J);
   const tauTotal = Math.sqrt(tauVyAtFiber ** 2 + tauVzAtFiber ** 2 + tauTorsion ** 2);
 

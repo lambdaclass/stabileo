@@ -43,6 +43,9 @@ export function setGroupColor(group: THREE.Group, color: number): void {
     if (child.userData?.pickingHelper) return;
     // Skip section profile edge outlines — they keep a constant dark color.
     if (child.userData?.sectionEdge) return;
+    // Skip released-joint glyphs — they keep their distinct orange so the
+    // release stays visible while the element is selected.
+    if (child.userData?.jointGlyph) return;
     if (child instanceof THREE.Mesh) {
       setMeshColor(child, color);
     }

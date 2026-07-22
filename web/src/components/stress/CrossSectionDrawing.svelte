@@ -202,16 +202,16 @@
         {@const sigmaN3d = rs.a > 1e-15 ? analysis3D.N / rs.a / 1000 : 0}
         <!-- When EN is active, hide individual σ(y)/σ(z)/τ diagrams and show only the composed perpNA distribution -->
         {#if showSigma && !showPerpNA}
-        <!-- 3D: σ(y) distribution along Y axis (RIGHT side) — signed bars -->
+        <!-- 3D: σ(y) distribution along the DEPTH axis (RIGHT side) — signed bars -->
         {@const xBaseR = rs.b / 2 * sc + 4}
-        <!-- Compute moment-only stresses for σ(y) — Mz·y/Iz term from Navier biaxial -->
-        {@const sigmasMzY = analysis3D.distributionY.map(pt => analysis3D.Iz > 1e-20 ? analysis3D.Mz * pt.y / analysis3D.Iz / 1000 : 0)}
-        {@const maxBendingY = Math.max(...sigmasMzY.map(s => Math.abs(s)), 1e-6)}
+        <!-- Moment-only σ on the depth axis — −My·y/Iy term (PR [12] biaxial) -->
+        {@const sigmasMyY = analysis3D.distributionY.map(pt => rs.iy > 1e-20 ? -analysis3D.My * pt.y / rs.iy / 1000 : 0)}
+        {@const maxBendingY = Math.max(...sigmasMyY.map(s => Math.abs(s)), 1e-6)}
         <!-- Use max of (moment-only max, total max) so both modes share the same visual scale -->
         {@const maxTotalY = showTotalSigma ? Math.max(...analysis3D.distributionY.map(p => Math.abs(p.sigma)), 1e-6) : maxBendingY}
         {@const scaleY = useGlobalScale && globalScales ? Math.max(globalScales.maxSigmaY, globalScales.maxSigmaZ) : Math.max(maxBendingY, maxTotalY)}
         {#if showTotalSigma}
-          <!-- Total mode: σ = N/A + Mz·y/Iz — signed bars -->
+          <!-- Total mode: σ = N/A − My·y/Iy — signed bars -->
           <!-- Baseline (σ = 0) -->
           <line x1={xBaseR} y1={-rs.h / 2 * sc} x2={xBaseR} y2={rs.h / 2 * sc}
             stroke="#ccc" stroke-width="0.4" opacity="0.3" />
@@ -246,23 +246,23 @@
             {/if}
           {/each}
           <!-- Label with max stress values -->
-          <text x={xBaseR} y={-rs.h / 2 * sc - 7} fill="#ccc" font-size="4" text-anchor="start">σ = N/A + Mz·y/Iz</text>
+          <text x={xBaseR} y={-rs.h / 2 * sc - 7} fill="#ccc" font-size="4" text-anchor="start">σ = N/A − My·y/Iy</text>
         {:else}
-          <!-- Default: solo Mz·y/Iz (sin N/A) — signed bars -->
+          <!-- Default: solo −My·y/Iy (sin N/A) — signed bars -->
           <line x1={xBaseR} y1={-rs.h / 2 * sc} x2={xBaseR} y2={rs.h / 2 * sc}
             stroke="#ccc" stroke-width="0.4" opacity="0.3" />
           {#each analysis3D.distributionY as pt, i}
             {@const yScreen = -pt.y * sc}
-            {@const sMz = sigmasMzY[i]}
-            {@const barW = sMz / scaleY * 30}
+            {@const sMy = sigmasMyY[i]}
+            {@const barW = sMy / scaleY * 30}
             <rect
               x={barW >= 0 ? xBaseR : xBaseR + barW}
               y={yScreen - 1.5} width={Math.abs(barW)} height="3"
-              fill={stressColor(sMz, scaleY)} opacity="0.8"
+              fill={stressColor(sMy, scaleY)} opacity="0.8"
             />
           {/each}
           <polyline
-            points={analysis3D.distributionY.map((pt, i) => `${xBaseR + sigmasMzY[i] / scaleY * 30},${-pt.y * sc}`).join(' ')}
+            points={analysis3D.distributionY.map((pt, i) => `${xBaseR + sigmasMyY[i] / scaleY * 30},${-pt.y * sc}`).join(' ')}
             fill="none" stroke="#ccc" stroke-width="0.8" opacity="0.5" />
           <!-- N/A annotation -->
           {#if Math.abs(sigmaN3d) > 0.001}
@@ -272,12 +272,12 @@
 
         <!-- 3D: τ(y) Jourawski distribution along Y axis (LEFT side) -->
         {#if showShearOnDrawing}
-          {@const maxTauY = useGlobalScale && globalScales ? globalScales.maxTauY : Math.max(...analysis3D.distributionY.map(p => Math.abs(p.tauVy)), 1e-6)}
+          {@const maxTauY = useGlobalScale && globalScales ? globalScales.maxTauY : Math.max(...analysis3D.distributionY.map(p => Math.abs(p.tauVz)), 1e-6)}
           {@const xBaseL = -(rs.b / 2 * sc + 4)}
           {#if maxTauY > 0.01}
             {#each analysis3D.distributionY as pt}
               {@const yScreen = -pt.y * sc}
-              {@const barW = Math.abs(pt.tauVy) / maxTauY * 35}
+              {@const barW = Math.abs(pt.tauVz) / maxTauY * 35}
               {#if barW > 0.2}
                 <rect
                   x={xBaseL - barW} y={yScreen - 1.5} width={barW} height="3"
@@ -288,7 +288,7 @@
             <!-- Profile contour polyline -->
             <polyline
               points={analysis3D.distributionY
-                .map(pt => `${xBaseL - Math.abs(pt.tauVy) / maxTauY * 35},${-pt.y * sc}`)
+                .map(pt => `${xBaseL - Math.abs(pt.tauVz) / maxTauY * 35},${-pt.y * sc}`)
                 .join(' ')}
               fill="none" stroke="#e94560" stroke-width="1.2" opacity="0.8"
             />
@@ -306,13 +306,13 @@
 
         <!-- 3D: σ(z) distribution along Z axis (BOTTOM) — signed bars -->
         {@const yBaseBot = rs.h / 2 * sc + 4}
-        <!-- Compute moment-only stresses for σ(z) — -My·z/Iy term from Navier biaxial -->
-        {@const sigmasMyZ = analysis3D.distributionZ.map(pt => rs.iy > 1e-20 ? -analysis3D.My * pt.z / rs.iy / 1000 : 0)}
-        {@const maxBendingZ = Math.max(...sigmasMyZ.map(s => Math.abs(s)), 1e-6)}
+        <!-- Moment-only σ on the WIDTH axis — +Mz·z/Iz term (PR [12] biaxial) -->
+        {@const sigmasMzZ = analysis3D.distributionZ.map(pt => analysis3D.Iz > 1e-20 ? analysis3D.Mz * pt.z / analysis3D.Iz / 1000 : 0)}
+        {@const maxBendingZ = Math.max(...sigmasMzZ.map(s => Math.abs(s)), 1e-6)}
         {@const maxTotalZ = showTotalSigma ? Math.max(...analysis3D.distributionZ.map(p => Math.abs(p.sigma)), 1e-6) : maxBendingZ}
         {@const scaleZ = useGlobalScale && globalScales ? Math.max(globalScales.maxSigmaY, globalScales.maxSigmaZ) : Math.max(maxBendingZ, maxTotalZ)}
         {#if showTotalSigma}
-          <!-- Total mode: σ = N/A - My·z/Iy — signed bars (+ down, − up) -->
+          <!-- Total mode: σ = N/A + Mz·z/Iz — signed bars (+ down, − up) -->
           <!-- Baseline -->
           <line x1={-rs.b / 2 * sc} y1={yBaseBot} x2={rs.b / 2 * sc} y2={yBaseBot}
             stroke="#ccc" stroke-width="0.4" opacity="0.3" />
@@ -347,24 +347,24 @@
             {/if}
           {/each}
         {:else}
-          <!-- Default: solo -My·z/Iy (sin N/A) — signed bars -->
+          <!-- Default: solo +Mz·z/Iz (sin N/A) — signed bars -->
           <!-- Baseline -->
           <line x1={-rs.b / 2 * sc} y1={yBaseBot} x2={rs.b / 2 * sc} y2={yBaseBot}
             stroke="#ccc" stroke-width="0.4" opacity="0.3" />
           {#each analysis3D.distributionZ as pt, i}
             {@const zScreen = pt.z * sc}
-            {@const sMy = sigmasMyZ[i]}
-            {@const barH = sMy / scaleZ * 25}
+            {@const sMz = sigmasMzZ[i]}
+            {@const barH = sMz / scaleZ * 25}
             <rect
               x={zScreen - 1.5}
               y={barH >= 0 ? yBaseBot : yBaseBot + barH}
               width="3" height={Math.abs(barH)}
-              fill={stressColor(sMy, scaleZ)} opacity="0.7"
+              fill={stressColor(sMz, scaleZ)} opacity="0.7"
             />
           {/each}
           <!-- Profile contour polyline -->
           <polyline
-            points={analysis3D.distributionZ.map((pt, i) => `${pt.z * sc},${yBaseBot + sigmasMyZ[i] / scaleZ * 25}`).join(' ')}
+            points={analysis3D.distributionZ.map((pt, i) => `${pt.z * sc},${yBaseBot + sigmasMzZ[i] / scaleZ * 25}`).join(' ')}
             fill="none" stroke="#ccc" stroke-width="0.8" opacity="0.5" />
           <!-- N/A annotation -->
           {#if Math.abs(sigmaN3d) > 0.001}

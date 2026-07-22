@@ -14,12 +14,16 @@ import { noteAxisConventionMigrationIfNeeded } from '../store/file';
 
 const SHARE_VERSION = 4;
 
-function packRelease(r: Release | undefined): Record<string, true> | undefined {
+function packRelease(r: Release | undefined): Record<string, unknown> | undefined {
   if (!r) return undefined;
-  const out: Record<string, true> = {};
+  const out: Record<string, unknown> = {};
   if (r.my) out.my = true;
   if (r.mz) out.mz = true;
   if (r.t) out.t = true;
+  // 2D sliding joint (translational release) — carry the kind + axis frame so a
+  // shared sliding-joint model isn't silently rebuilt as rigid.
+  if (r.slide) out.s = r.slide;
+  if (r.slideAxis) out.sa = r.slideAxis;
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
@@ -30,6 +34,8 @@ function unpackRelease(packed: unknown): Release {
     if (p.my) r.my = true;
     if (p.mz) r.mz = true;
     if (p.t) r.t = true;
+    if (p.s) r.slide = p.s as Release['slide'];
+    if (p.sa) r.slideAxis = p.sa as Release['slideAxis'];
   }
   return r;
 }
@@ -215,6 +221,12 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
       if (off.j) enc.j = [r(off.j.x), r(off.j.y), r(off.j.z)];
       opt.of = enc;
     }
+    // 3D internal joints — carry the 6-DOF release mask per end so a shared joint
+    // model isn't silently rebuilt as rigid (only when some DOF is released).
+    const ji = (v as any).jointI as { dof?: boolean[] } | undefined;
+    const jj = (v as any).jointJ as { dof?: boolean[] } | undefined;
+    if (ji?.dof?.some(Boolean)) opt.ji = ji.dof.map(d => (d ? 1 : 0));
+    if (jj?.dof?.some(Boolean)) opt.jj = jj.dof.map(d => (d ? 1 : 0));
     if (Object.keys(opt).length > 0) arr.push(opt);
     return arr;
   });
@@ -383,6 +395,10 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
           ...(opt.of.i ? { i: { x: opt.of.i[0], y: opt.of.i[1], z: opt.of.i[2] } } : {}),
           ...(opt.of.j ? { j: { x: opt.of.j[0], y: opt.of.j[1], z: opt.of.j[2] } } : {}),
         } } : {}),
+        // Only accept a well-formed 6-DOF mask: a truncated/forward-version array
+        // would build a wrong-length releases mask straight into the solver.
+        ...(Array.isArray(opt.ji) && opt.ji.length === 6 ? { jointI: { dof: (opt.ji as number[]).map(d => d === 1) } } : {}),
+        ...(Array.isArray(opt.jj) && opt.jj.length === 6 ? { jointJ: { dof: (opt.jj as number[]).map(d => d === 1) } } : {}),
       }];
     }),
 

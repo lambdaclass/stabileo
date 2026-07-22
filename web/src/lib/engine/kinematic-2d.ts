@@ -36,8 +36,14 @@ export interface KinematicResult {
  *
  * This correctly handles discretized arches: an 8-segment arch with crown hinge
  * gives degree=0 (not -1 as the naive formula would produce).
+ *
+ * `slidingConditions` is the number of internal sliding joints (translational
+ * releases). Each one releases exactly ONE scalar relative-translation
+ * continuity equation, so it adds 1 to the condition count `c` regardless of
+ * the chosen direction (global X/Z or member-local x/z): the direction sets
+ * WHICH relative translation is freed, not HOW MANY constraints are released.
  */
-export function computeStaticDegree(input: SolverInput): { degree: number; nodeConditions: Map<number, number> } {
+export function computeStaticDegree(input: SolverInput, slidingConditions = 0): { degree: number; nodeConditions: Map<number, number> } {
   const hasFrames = Array.from(input.elements.values()).some(e => e.type === 'frame');
 
   // Count support DOFs
@@ -56,10 +62,10 @@ export function computeStaticDegree(input: SolverInput): { degree: number; nodeC
   }
 
   if (!hasFrames) {
-    // Pure truss: degree = m + r - 2n
+    // Pure truss: degree = m + r - 2n (sliders are a frame feature, normally 0 here)
     const m = input.elements.size;
     const n = input.nodes.size;
-    return { degree: m + r - 2 * n, nodeConditions: new Map() };
+    return { degree: m + r - 2 * n - slidingConditions, nodeConditions: new Map() };
   }
 
   // Frame (or mixed frame/truss)
@@ -98,7 +104,7 @@ export function computeStaticDegree(input: SolverInput): { degree: number; nodeC
   }
 
   const n = input.nodes.size;
-  const degree = 3 * mFrame + mTruss + r - 3 * n - c;
+  const degree = 3 * mFrame + mTruss + r - 3 * n - c - slidingConditions;
   return { degree, nodeConditions };
 }
 

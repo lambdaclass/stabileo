@@ -8,7 +8,7 @@ import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult, PDeltaResult3D, ModalResult, ModalResult3D, BucklingResult, BucklingResult3D, PlasticResult, SpectralResult, SpectralResult3D } from '../engine/result-types';
 import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system';
 
-export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
+export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
   // 3D-specific diagram types
   | 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'torsion';
 
@@ -76,6 +76,10 @@ function createResultsStore() {
   // Which shell quantity the shell contour paints (selectable in PRO results).
   let shellContourComponent = $state<import('../engine/shell-stress').ShellContourComponent>('vonMises');
   let showDiagramValues = $state<boolean>(true);
+  // 2D diagram side convention. OFF (default): positive N/V/M drawn on the
+  // "structural" side (sagging/tension — down for horizontal, right for vertical).
+  // ON: positive values drawn toward the member's local positive axis (local +z).
+  let drawPositiveTowardLocalAxes = $state<boolean>(false);
   let animSpeed = $state<number>(1.0); // animation speed multiplier (0.25 - 3x)
 
   // Combination results
@@ -175,6 +179,8 @@ function createResultsStore() {
     set shellContourComponent(v: import('../engine/shell-stress').ShellContourComponent) { shellContourComponent = v; },
     get showDiagramValues() { return showDiagramValues; },
     set showDiagramValues(v: boolean) { showDiagramValues = v; },
+    get drawPositiveTowardLocalAxes() { return drawPositiveTowardLocalAxes; },
+    set drawPositiveTowardLocalAxes(v: boolean) { drawPositiveTowardLocalAxes = v; },
     get animSpeed() { return animSpeed; },
     set animSpeed(v: number) { animSpeed = Math.max(0.25, Math.min(3, v)); },
 

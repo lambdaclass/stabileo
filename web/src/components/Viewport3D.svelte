@@ -17,8 +17,8 @@
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
-  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
-  import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
+  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, syncDespiece3D as _syncDespiece3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
 
   let container: HTMLDivElement;
@@ -49,6 +49,9 @@
   let elementGroups = new Map<number, THREE.Group>();
   let supportGizmos = new Map<number, THREE.Group>();
   let deformedGroup: THREE.Group | null = null;
+  // Despiece (free-body) one-shot pull-apart animation: timestamp the run start.
+  let despieceStart = 0;
+  const DESPIECE_ANIM_MS = 700;
   let gridGroup: THREE.Object3D | null = null;
   let measureGroup: THREE.Group | null = null;
   let axesHelper: THREE.Group | null = null;
@@ -350,7 +353,10 @@
       const animDeformed = resultsStore.animateDeformed && dt === 'deformed' && !!resultsStore.results3D;
       const animMode = dt === 'modeShape' && !!resultsStore.modalResult3D;
       const animBuckling = dt === 'bucklingMode' && !!resultsStore.bucklingResult3D;
-      return animDeformed || animMode || animBuckling;
+      // Despiece is a one-shot pull-apart; keep rendering only while it plays.
+      const animDespiece = dt === 'despiece' && !!resultsStore.results3D
+        && (performance.now() - despieceStart) < DESPIECE_ANIM_MS + 80;
+      return animDeformed || animMode || animBuckling || animDespiece;
     }
 
     /** Whether we need to keep the render loop running continuously */
@@ -469,6 +475,21 @@
         resultsCtx.lastDeformedAnimScale = null;
       }
 
+      // Despiece pull-apart (one-shot easeOutCubic 0→1, then static).
+      if (_dt === 'despiece' && resultsStore.results3D) {
+        const tNorm = Math.max(0, Math.min(1, (performance.now() - despieceStart) / DESPIECE_ANIM_MS));
+        const sep = 1 - Math.pow(1 - tNorm, 3);
+        if (resultsCtx.lastDespieceSep === null || Math.abs(sep - resultsCtx.lastDespieceSep) > 0.01 || sep >= 1) {
+          resultsCtx.lastDespieceSep = sep;
+          syncDespiece(sep);
+        }
+      } else if (resultsCtx.despieceGroup && resultsCtx.lastDespieceSep !== null) {
+        resultsParent.remove(resultsCtx.despieceGroup);
+        disposeObject(resultsCtx.despieceGroup);
+        resultsCtx.despieceGroup = null;
+        resultsCtx.lastDespieceSep = null;
+      }
+
       const _perfT0 = perfHud.on ? performance.now() : 0;
       renderer.render(scene, camera);
       drawAxisGizmo();
@@ -519,6 +540,12 @@
     // LineSegments2 draw call on as the stand-in.
     function setLowDetail(on: boolean): void {
       const dt = resultsStore.diagramType;
+      // Despiece manages element visibility itself (the original members are hidden
+      // and the separated free-body overlay is drawn instead). The heavy-model LOD
+      // fallback would force the batched wireframe visible during camera motion,
+      // flashing the un-separated model over the free-body view — so skip LOD
+      // entirely while Despiece is active. applyElementVisibility stays the authority.
+      if (dt === 'despiece') return;
       const resultsColoringActive = !!resultsStore.results3D
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
       // Opt-in "smooth orbit" forces the heavy-model low-detail path for any
@@ -640,9 +667,9 @@
       elementGroups,
       elementsBatched,
       shellGroups: sceneCtx.shellGroups,
-      deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null,
+      deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null, despieceGroup: null,
       reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,
-      lastDeformedAnimScale: null,
+      lastDeformedAnimScale: null, lastDespieceSep: null,
       colorMapApplied: false,
     };
   }
@@ -698,6 +725,10 @@
       syncColorMap3D();
     }
   }
+  function syncDespiece(sep: number) {
+    _syncDespiece3D(resultsCtx, sep);
+  }
+
   function syncDeformed(scaleOverride?: number) {
     _syncDeformed(resultsCtx, scaleOverride);
     deformedGroup = resultsCtx.deformedGroup;
@@ -817,11 +848,52 @@
     invalidate();
   });
 
+  // Despiece (free-body) activation: restart the one-shot pull-apart; the render
+  // loop builds/animates it and cleans up when the diagram type changes away.
+  $effect(() => {
+    const dt = resultsStore.diagramType;
+    resultsStore.results3D;
+    if (dt === 'despiece') {
+      despieceStart = performance.now();
+      if (resultsCtx) resultsCtx.lastDespieceSep = null;
+    } else if (uiStore.despieceInspect) {
+      uiStore.despieceInspect = null; // clear stale inspection when leaving despiece
+    }
+    invalidate();
+  });
+
+  // Hide the real member meshes while despiece is active (the overlay draws its
+  // own separated members + ghost remnants). Picking helpers stay raycastable.
+  // This is the SINGLE authority for element-mesh visibility: it also depends on
+  // model identity + render mode so it re-runs (after the sync effects above,
+  // which are defined earlier and therefore flush first) on every model load /
+  // example switch / edit / render-mode change. That guarantees a stale
+  // `visible = false` left by despiece can never persist on a signature-matched
+  // reused group — the root cause of the intermittent partial 3D render.
+  $effect(() => {
+    const hide = resultsStore.diagramType === 'despiece';
+    modelStore.modelVersion; modelStore.nodes; modelStore.elements; // re-assert after re-sync
+    applyElementVisibility(elementGroups, elementsBatched?.mesh, elementsParent, hide, uiStore.renderMode3D === 'wireframe');
+    invalidate();
+  });
+
+  // Despiece option changes (vector mode / basis / sizes / reactions) must redraw
+  // immediately — the render loop's despiece pass rebuilds when the signature
+  // changes (no mouse movement needed).
+  $effect(() => {
+    uiStore.despieceVectorMode; uiStore.despieceBasis;
+    uiStore.despieceVectorSize; uiStore.despieceLabelSize;
+    uiStore.despieceCombineVectors; uiStore.despieceLoadMode; modelStore.loads;
+    resultsStore.showReactions; uiStore.despieceInspect;
+    invalidate();
+  });
+
   $effect(() => {
     resultsStore.results3D;
     resultsStore.diagramType;
     resultsStore.diagramScale;
     resultsStore.showDiagramValues;
+    resultsStore.drawPositiveTowardLocalAxes; // rebuild diagrams immediately on toggle (no re-solve)
     resultsStore.overlayResults3D;
     resultsStore.isEnvelopeActive;
     resultsStore.fullEnvelope3D;
@@ -1125,6 +1197,10 @@
   // ─── Tool handlers ─────────────────────────────────────────
 
   function handleNodeTool(e: MouseEvent) {
+    // Joints / Articulaciones mode: click a member to set/clear its internal
+    // 3D joint (relative-DOF release mask) at the nearest end.
+    if (uiStore.nodeMode === 'hinge') { handleJoint3DPlacement(e); return; }
+
     const pos = getGroundIntersection(e);
     if (!pos) return;
 
@@ -1134,6 +1210,39 @@
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
+  }
+
+  /** Apply the current 3D joint DOF mask to the nearest end of the clicked member. */
+  function handleJoint3DPlacement(e: MouseEvent) {
+    updateMouseNDC(e);
+    if (!camera) return;
+    const mask = uiStore.jointDof3d;
+    if (!mask.some(Boolean)) { uiStore.toast(t('float.jointPickDof'), 'info'); return; }
+    raycaster.setFromCamera(mouse, camera);
+    raycaster.camera = camera;
+    const elemHits = raycaster.intersectObjects(elementsParent.children, true);
+    for (const hit of elemHits) {
+      const ud = resolveHitUserData(hit);
+      if (ud?.type !== 'element') continue;
+      const elem = modelStore.elements.get(ud.id);
+      if (!elem) return;
+      const ni = modelStore.getNode(elem.nodeI), nj = modelStore.getNode(elem.nodeJ);
+      if (!ni || !nj) return;
+      const niz = ni.z ?? 0, njz = nj.z ?? 0;
+      const edx = nj.x - ni.x, edy = nj.y - ni.y, edz = njz - niz;
+      const lenSq = edx * edx + edy * edy + edz * edz;
+      if (lenSq < 1e-12) return;
+      const p = hit.point;
+      const tpar = ((p.x - ni.x) * edx + (p.y - ni.y) * edy + (p.z - niz) * edz) / lenSq;
+      const end: 'i' | 'j' = tpar < 0.5 ? 'i' : 'j';
+      const cur = end === 'i' ? elem.jointI : elem.jointJ;
+      const same = !!cur && cur.dof.every((v, i) => v === mask[i]);
+      modelStore.setElementJoint(ud.id, end, same ? null : [...mask]);
+      resultsStore.clear();
+      uiStore.selectElement(ud.id, false);
+      uiStore.toast(same ? t('viewport.jointRemoved') : t('viewport.jointAdded'), 'info');
+      return;
+    }
   }
 
   function handleElementTool(e: MouseEvent) {
@@ -1615,6 +1724,25 @@
         if (ud?.type === 'node') { uiStore.pushShellNodePick(ud.id); break; }
       }
       return; // consume the click while picking (no normal selection / clear)
+    }
+
+    // ── Despiece inspection: while the free-body view is active, a click inspects
+    // the converging actions (node) or both member ends (member) — without
+    // disturbing the normal selection used when Despiece is off. ──
+    if (resultsStore.diagramType === 'despiece' && resultsStore.results3D) {
+      const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
+      for (const hit of nodeHits) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'node') { uiStore.despieceInspect = { type: 'node', id: ud.id }; invalidate(); return; }
+      }
+      const elemHits = raycaster.intersectObjects(elementsParent.children, true);
+      for (const hit of elemHits) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'element') { uiStore.despieceInspect = { type: 'member', id: ud.id }; invalidate(); return; }
+      }
+      uiStore.despieceInspect = null;
+      invalidate();
+      return;
     }
 
     // ── Stress mode: click on element → stress query ──
@@ -2381,6 +2509,21 @@
         <span class="legend-color" style="background: #FFA500; margin-left: 8px;"></span>
         <span class="legend-text">{t('viewport3d.overlay').replace('{label}', resultsStore.overlayLabel)}</span>
       {/if}
+    </div>
+  {/if}
+
+  <!-- Despiece (free-body) legend -->
+  {#if resultsStore.diagramType === 'despiece' && resultsStore.results3D}
+    <div class="diagram-legend">
+      <span class="legend-color" style="background: #ff7070;"></span>
+      <span class="legend-text">{t('despiece.legendAxial')}</span>
+      <span class="legend-color" style="background: #4ecdc4; margin-left: 8px;"></span>
+      <span class="legend-text">{t('despiece.legendShear')}</span>
+      <span class="legend-color" style="background: #ffd166; margin-left: 8px;"></span>
+      <span class="legend-text">{t('despiece.legendMoment')}</span>
+      <span class="legend-color" style="background: #00e676; margin-left: 8px;"></span>
+      <span class="legend-text">{t('despiece.legendReaction')}</span>
+      <span class="legend-text" style="margin-left: 10px; opacity: 0.7; font-style: italic;">{t('despiece.legendNote')}</span>
     </div>
   {/if}
 

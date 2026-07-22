@@ -7,7 +7,8 @@
     { id: 'elements', key: 'float.selectElements' },
     { id: 'supports', key: 'float.selectSupports' },
     { id: 'loads', key: 'float.selectLoads' },
-    { id: 'stress', key: 'float.selectStress' },
+    // Note: section-stress ('stress') is intentionally NOT a Select sub-tool.
+    // It is reached only via Advanced Analysis → Section Analysis (PR [12]).
   ] as const;
 </script>
 

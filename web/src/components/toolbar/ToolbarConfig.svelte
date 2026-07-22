@@ -40,6 +40,7 @@
     </button>
     {#if showGridSub}
       {@const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
+      {@const isPro = uiStore.analysisMode === 'pro'}
       {@const gridVisible = is3D ? uiStore.showGrid3D : uiStore.showGrid}
       <div class="sub-content">
         <label class="checkbox-item">
@@ -47,15 +48,17 @@
             onchange={(e) => { if (is3D) uiStore.showAxes3D = e.currentTarget.checked; else uiStore.showAxes = e.currentTarget.checked; }} />
           <span>{t('config.showAxes')}</span>
         </label>
-        {#if is3D}
-          <div class="input-group">
-            <label>{t('config.localAxesMembers')}:</label>
-            <select bind:value={uiStore.localAxesMode3D}>
-              <option value="selected">{t('config.localAxesSelected')}</option>
-              <option value="always">{t('config.localAxesAlways')}</option>
-              <option value="never">{t('config.localAxesNever')}</option>
-            </select>
-          </div>
+        <!-- Basic mode: one "Local axes" control (members only — Basic has no shells).
+             PRO keeps the member/shell split. Works in both Basic 2D and Basic 3D. -->
+        <div class="input-group">
+          <label>{isPro ? t('config.localAxesMembers') : t('config.localAxes')}:</label>
+          <select bind:value={uiStore.localAxesMode3D}>
+            <option value="selected">{t('config.localAxesSelected')}</option>
+            <option value="always">{t('config.localAxesAlways')}</option>
+            <option value="never">{t('config.localAxesNever')}</option>
+          </select>
+        </div>
+        {#if isPro}
           <div class="input-group">
             <label>{t('config.localAxesShells')}:</label>
             <select bind:value={uiStore.shellAxesMode3D}>
@@ -212,6 +215,10 @@
           <input type="checkbox" bind:checked={uiStore.showSecondarySelector}
                  disabled={!uiStore.showPrimarySelector} />
           <span>{t('config.showSecondarySelector')}</span>
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" bind:checked={resultsStore.drawPositiveTowardLocalAxes} />
+          <span>{t('config.drawPositiveTowardLocalAxes')}</span>
         </label>
       </div>
     {/if}

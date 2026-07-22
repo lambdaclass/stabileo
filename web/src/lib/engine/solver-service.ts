@@ -14,6 +14,8 @@ import {
 } from './solver-shells';
 import { addConstraintConnectivity, addConstraintAdjacency } from './constraint-connectivity';
 import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } from './member-offsets';
+import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
+import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses } from './shell-combos';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -590,11 +592,25 @@ export function validateAndSolve2D(
     if (onKinematic) onKinematic(null);
   }
 
+  // Basic 2D sliding joints: ephemerally expand each translational release into
+  // a coincident helper node + DOF-tying constraints. Done AFTER the kinematic
+  // pre-check (which sees the clean, rigid model) and BEFORE the solve, so the
+  // constrained solver handles the relaxed system and its own singularity
+  // diagnostics. No-op when no element has a slider. Helper-node results are
+  // pruned below so they never surface in node tables/selection.
+  const slidingHelperIds = modelHasSlidingJoints(model.elements.values())
+    ? expandSlidingJoints2D(input, model.elements)
+    : new Set<number>();
+
   try {
     const t0 = performance.now();
     const results = solveStructure(input);
     const dt = performance.now() - t0;
     console.log(`Estructura resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
+    if (slidingHelperIds.size > 0) {
+      const modelNodeIds = new Set(model.nodes.keys());
+      return pruneHelperNodeResults(results as any, modelNodeIds) as any;
+    }
     return results;
   } catch (err: any) {
     console.error('Solver error:', err);
@@ -1124,23 +1140,32 @@ export function buildSolverInput3D(
       }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => {
+      // Embedded flat-2D model (project2DToXZ): the model's only release field is the
+      // 2D in-plane bending release, stored as `mz` for historical reasons. In the
+      // X-Z embed the in-plane bending is My (about local y; the load decomposition
+      // and the θy/My display labels agree). So the 2D `mz` release maps to releaseMy,
+      // NOT releaseMz. Genuine 3D models (project2DToXZ=false) keep my→My, mz→Mz.
       const elem: any = {
         id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
         materialId: e.materialId, sectionId: e.sectionId,
-        releaseMyStart: e.releaseI?.my === true,
-        releaseMyEnd: e.releaseJ?.my === true,
-        releaseMzStart: e.releaseI?.mz === true,
-        releaseMzEnd: e.releaseJ?.mz === true,
+        releaseMyStart: project2DToXZ ? (e.releaseI?.mz === true) : (e.releaseI?.my === true),
+        releaseMyEnd: project2DToXZ ? (e.releaseJ?.mz === true) : (e.releaseJ?.my === true),
+        releaseMzStart: project2DToXZ ? false : (e.releaseI?.mz === true),
+        releaseMzEnd: project2DToXZ ? false : (e.releaseJ?.mz === true),
         releaseTStart: e.releaseI?.t === true,
         releaseTEnd: e.releaseJ?.t === true,
       };
       if (e.localYx !== undefined) {
         elem.localYx = e.localYx; elem.localYy = e.localYy; elem.localYz = e.localYz;
-      } else if (!project2DToXZ && e.type === 'frame') {
+      } else if (e.type === 'frame') {
         // Hard-fix (canonical Z-up): force the corrected local axes at the solver
         // boundary so the WASM solver uses local z = global up (gravity → My)
         // instead of its historical global-Y auto-orient. Pass the BASE ey only —
         // the solver applies rollAngle/leftHand itself (see below / leftHand flag).
+        // Applied for the embedded (project2DToXZ) path too: the member loads are
+        // already decomposed in this canonical frame (computeLocalAxes3D on the
+        // projected coords), so the solver frame must match — otherwise qY/qZ and
+        // the My release would bend about the wrong axis.
         const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
         if (ni && nj) {
           try {
@@ -1225,10 +1250,36 @@ export function buildSolverInput3D(
   // paths). Advanced analyses (modal/spectral wire payloads don't even carry
   // constraints; DSM viewer has no constraint handling) opt out and analyze
   // the centerline — broken-but-plausible results would be worse.
-  if (!project2DToXZ && opts.expandMemberOffsets !== false) {
-    expandMemberOffsets(input, model.elements);
-    // After member offsets so helper ids continue past any member helpers.
-    expandShellOffsets(input, model.plates, model.quads);
+  if (opts.expandMemberOffsets !== false) {
+    // Member/shell offsets are a genuine-3D concept (an offset of a flat-2D
+    // embed is ill-defined), so they expand only on the non-embedded path.
+    if (!project2DToXZ) {
+      expandMemberOffsets(input, model.elements);
+      // After member offsets so helper ids continue past any member helpers.
+      expandShellOffsets(input, model.plates, model.quads);
+    }
+    // Basic 3D internal joints — coincident helper node + eccentricConnection
+    // per released end. Releases are meaningful on BOTH paths; on the flat-2D
+    // embed the joint mask is remapped into the embedded solver frame (model XY
+    // → solver XZ permutes the global DOF axes), so the correct axis is released.
+    // (advanced analyses opt out via expandMemberOffsets:false and are blocked in
+    // the UI when joints are present, so they never silently ignore a release.)
+    const jointHelpers = expandJoints3D(input, model.elements, project2DToXZ ? EMBED_XZ_DOF_PERMUTATION : undefined);
+    // On the embed path the out-of-plane restraint pass that built `supports`
+    // ran before expansion and only covered the original model nodes; the new
+    // coincident helper nodes need the same out-of-plane lock (uy, rx, rz) or
+    // they form a spurious out-of-plane mechanism → singular system.
+    if (project2DToXZ && jointHelpers.size > 0) {
+      for (const hid of jointHelpers) {
+        if (!input.supports.has(hid)) {
+          input.supports.set(hid, {
+            nodeId: hid,
+            rx: false, ry: true, rz: false,   // restrain only Y translation (out-of-plane)
+            rrx: true, rry: false, rrz: true,  // restrain X and Z rotations (out-of-plane)
+          });
+        }
+      }
+    }
   }
 
   return input;
@@ -1347,8 +1398,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
       if (model.quads?.size || model.plates?.size) {
         postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }
-      // Strip ephemeral offset-helper node results (member or shell offsets).
-      if (modelHasMemberOffsets(model.elements.values()) || modelHasShellOffsets(model.plates, model.quads)) {
+      // Strip ephemeral helper-node results (member/shell offsets or 3D joints).
+      if (modelHasMemberOffsets(model.elements.values()) || modelHasShellOffsets(model.plates, model.quads) || modelHasJoints3D(model.elements.values())) {
         return pruneHelperNodeResults(results, new Set(model.nodes.keys()));
       }
     }
@@ -1364,7 +1415,7 @@ function pruneComboBundle3D(
   bundle: { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D },
   model: ModelData,
 ): typeof bundle {
-  if (!modelHasMemberOffsets(model.elements.values()) && !modelHasShellOffsets(model.plates, model.quads)) return bundle;
+  if (!modelHasMemberOffsets(model.elements.values()) && !modelHasShellOffsets(model.plates, model.quads) && !modelHasJoints3D(model.elements.values())) return bundle;
   const ids = new Set(model.nodes.keys());
   for (const [k, r] of bundle.perCase) bundle.perCase.set(k, pruneHelperNodeResults(r, ids));
   for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, pruneHelperNodeResults(r, ids));

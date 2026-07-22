@@ -66,6 +66,10 @@
       labelKey: 'advHelp.stress.label',
       textKey: 'advHelp.stress.text',
     },
+    'despiece': {
+      labelKey: 'advHelp.despiece.label',
+      textKey: 'advHelp.despiece.text',
+    },
     'whatif': {
       labelKey: 'advHelp.whatif.label',
       textKey: 'advHelp.whatif.text',
@@ -75,6 +79,24 @@
   function toggleAdvHelp(key: string, e: MouseEvent) {
     e.stopPropagation();
     advHelpKey = advHelpKey === key ? null : key;
+  }
+
+  /** Guard for advanced analyses that don't yet expand sliding-joint
+   *  constraints (P-Δ, buckling, modal, spectral, plastic, moving load,
+   *  influence lines, what-if, step-by-step DSM). Sliders are only wired into
+   *  the linear-static / combinations / free-body paths; running an unwired
+   *  analysis would treat slider ends as rigid → silently too stiff. Returns
+   *  true (and toasts) when the run must be blocked. */
+  function blockedBySlidingJoints(): boolean {
+    if (modelStore.hasSlidingJoints()) {
+      uiStore.toast(t('advanced.slidingUnsupported'), 'error');
+      return true;
+    }
+    if (modelStore.hasJoint3D()) {
+      uiStore.toast(t('advanced.jointsUnsupported'), 'error');
+      return true;
+    }
+    return false;
   }
 
   async function ensureWasmReady(context: string): Promise<boolean> {
@@ -91,6 +113,7 @@
   }
 
   function handlePDelta() {
+    if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
@@ -109,6 +132,7 @@
   }
 
   function handleModal() {
+    if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     // Build densities map from model materials (rho in kN/m\u00b3 \u2192 need kg/m\u00b3)
@@ -138,6 +162,7 @@
   }
 
   function handleSpectral() {
+    if (blockedBySlidingJoints()) return;
     if (!resultsStore.modalResult) {
       uiStore.toast(t('advanced.runDynamicFirst'), 'error');
       return;
@@ -173,6 +198,7 @@
   }
 
   function handleBuckling() {
+    if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
@@ -190,6 +216,7 @@
   }
 
   function handlePlastic() {
+    if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     const sections = new Map<number, { a: number; iz: number; materialId: number; b?: number; h?: number }>();
@@ -217,6 +244,7 @@
   }
 
   async function handleMovingLoad(trainIndex: number) {
+    if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     const train = getPredefinedTrains()[trainIndex];
@@ -256,6 +284,7 @@
   const isPro = $derived(uiStore.analysisMode === 'pro');
 
   async function handlePDelta3D() {
+    if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handlePDelta3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
@@ -276,6 +305,7 @@
   }
 
   async function handleModal3D() {
+    if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleModal3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
@@ -298,6 +328,7 @@
   }
 
   async function handleBuckling3D() {
+    if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleBuckling3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
@@ -317,6 +348,7 @@
   }
 
   async function handleSpectral3D() {
+    if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleSpectral3D')) return;
     if (!resultsStore.modalResult3D) {
       uiStore.toast(t('advanced.runDynamicFirst'), 'error');
@@ -393,6 +425,57 @@
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('kinematic', e)} class:active={advHelpKey === 'kinematic'}>?</button>
     </div>
     {@render helpPanel('kinematic')}
+    {/if}
+    <!-- Despiece / member free-body view (Basic 2D + 3D, solver-free overlay) -->
+    <div class="adv-btn-wrap" style="grid-column: span 2">
+      <button class="adv-btn" style="flex:1"
+        class:active={resultsStore.diagramType === 'despiece'}
+        onclick={() => {
+          const hasRes = is3D ? resultsStore.results3D : resultsStore.results;
+          if (!hasRes) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
+          resultsStore.diagramType = resultsStore.diagramType === 'despiece' ? 'none' : 'despiece';
+        }}>
+        {t('advanced.despiece')}
+      </button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('despiece', e)} class:active={advHelpKey === 'despiece'}>?</button>
+    </div>
+    {@render helpPanel('despiece')}
+    {#if resultsStore.diagramType === 'despiece'}
+      <div class="adv-btn-wrap" style="grid-column: span 2; flex-direction: column; align-items: stretch; gap: 4px;">
+        <div style="display:flex; gap:4px; align-items:center;">
+          <span style="font-size:0.7rem; color:#9aa;">{t('despiece.vectors')}</span>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceVectorMode === 'all'} onclick={() => uiStore.despieceVectorMode = 'all'}>{t('despiece.vAll')}</button>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceVectorMode === 'members'} onclick={() => uiStore.despieceVectorMode = 'members'}>{t('despiece.vMembers')}</button>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceVectorMode === 'nodes'} onclick={() => uiStore.despieceVectorMode = 'nodes'}>{t('despiece.vNodes')}</button>
+        </div>
+        <div style="display:flex; gap:4px; align-items:center;">
+          <span style="font-size:0.7rem; color:#9aa;">{t('despiece.basis')}</span>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceBasis === 'local'} onclick={() => uiStore.despieceBasis = 'local'} title={t('despiece.basisLocalHint')}>{t('despiece.basisLocal')}</button>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceBasis === 'global'} onclick={() => uiStore.despieceBasis = 'global'} title={t('despiece.basisGlobalHint')}>{t('despiece.basisGlobal')}</button>
+        </div>
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.7rem; color:#9aa;">
+          <span style="min-width:70px;">{t('despiece.vectorSize')}</span>
+          <input type="range" min="0.5" max="2" step="0.1" bind:value={uiStore.despieceVectorSize} style="flex:1;" />
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.7rem; color:#9aa;">
+          <span style="min-width:70px;">{t('despiece.labelSize')}</span>
+          <input type="range" min="0.6" max="2" step="0.1" bind:value={uiStore.despieceLabelSize} style="flex:1;" />
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#ccc; cursor:pointer;">
+          <input type="checkbox" bind:checked={resultsStore.showReactions} />
+          {t('despiece.reactions')}
+        </label>
+        <div style="display:flex; gap:4px; align-items:center;">
+          <span style="font-size:0.7rem; color:#9aa;">{t('despiece.loads')}</span>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceLoadMode === 'off'} onclick={() => uiStore.despieceLoadMode = 'off'}>{t('despiece.loadsOff')}</button>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceLoadMode === 'resultant'} onclick={() => uiStore.despieceLoadMode = 'resultant'}>{t('despiece.loadsResultant')}</button>
+          <button class="adv-btn" style="flex:1" class:active={uiStore.despieceLoadMode === 'all'} onclick={() => uiStore.despieceLoadMode = 'all'}>{t('despiece.loadsAll')}</button>
+        </div>
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#ccc; cursor:pointer;">
+          <input type="checkbox" bind:checked={uiStore.despieceCombineVectors} />
+          {t('despiece.combinedVectors')}
+        </label>
+      </div>
     {/if}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1"
@@ -565,6 +648,7 @@
             uiStore.currentTool = 'select';
             return;
           }
+          if (blockedBySlidingJoints()) return;
           if (!resultsStore.results && !resultsStore.results3D) {
             uiStore.toast(t('advanced.calculateFirstF5'), 'error');
             return;
@@ -581,6 +665,7 @@
         <button class="adv-btn" style="flex:1"
           class:active={uiStore.showWhatIf}
           onclick={() => {
+            if (!uiStore.showWhatIf && blockedBySlidingJoints()) return;
             if (!resultsStore.results && !resultsStore.results3D) {
               uiStore.toast(t('advanced.calculateFirstF5'), 'error');
               return;
@@ -601,6 +686,7 @@
             setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
             return;
           }
+          if (blockedBySlidingJoints()) return;
           if (uiStore.analysisMode === '3d') {
             const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
             if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }

@@ -3,6 +3,7 @@
   import { t } from '../../lib/i18n';
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
+  import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
 
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
     if (typeof val === 'boolean') {
@@ -13,6 +14,20 @@
       modelStore.updateLoad(loadId, { [field]: num });
     }
     resultsStore.clear();
+    warnIfTransverseOnTruss(loadId);
+  }
+
+  /** Educational warning: transverse load on an axial-only (truss) member is not
+   *  transferred as bending/shear. Non-blocking. */
+  function warnIfTransverseOnTruss(loadId: number) {
+    const load = modelStore.loads.find((l) => l.data.id === loadId);
+    const elemId = load ? (load.data as { elementId?: number }).elementId : undefined;
+    if (!load || elemId == null) return;
+    const elem = modelStore.elements.get(elemId);
+    if (!elem || elem.type !== 'truss') return;
+    if (memberLoadPerpComponent(load as any, elem, modelStore.nodes) > 1e-9) {
+      uiStore.toast(t('diag.model.transverseOnTruss'), 'info');
+    }
   }
 
   function updateDistLoadPosition(loadId: number, field: 'a' | 'b', val: string, elemLen: number, currentA: number, currentB: number) {

@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { createElementGroup } from '../create-element-mesh';
-import { createPlateMesh, createQuadMesh } from '../create-shell-mesh';
+import { createQuadMesh } from '../create-shell-mesh';
 import { createSupportGizmo } from '../create-support-gizmo';
 import { createLoadArrowsBatched } from '../load-arrows-batched';
 import type { Section } from '../../store/model.svelte';
@@ -61,7 +61,7 @@ describe('3D render cost — real builders, N=' + N, () => {
     const solid = measure((i) => createElementGroup(nI(i), nJ(i), { elementId: i, elementType: 'frame', renderMode: 'solid', section: rectSection, localAxes: axes }), N);
     const sections = measure((i) => createElementGroup(nI(i), nJ(i), { elementId: i, elementType: 'frame', renderMode: 'sections', section: rectSection, localAxes: axes }), N);
 
-    const v = (i: number, k: number): [number, number, number] => [(i % 50) + (k & 1), Math.floor(i / 50) + (k >> 1), 0];
+    const v = (i: number, k: number) => ({ x: (i % 50) + (k & 1), y: Math.floor(i / 50) + (k >> 1), z: 0 });
     const shellWire = measure((i) => createQuadMesh(v(i, 0), v(i, 1), v(i, 3), v(i, 2), i, { renderMode: 'wireframe', thickness: 0.2 }), N);
     const shellSec = measure((i) => createQuadMesh(v(i, 0), v(i, 1), v(i, 3), v(i, 2), i, { renderMode: 'sections', thickness: 0.2 }), N);
 

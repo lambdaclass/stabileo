@@ -167,8 +167,8 @@ export function drawElement(
     nodeJ: number;
     materialId: number;
     sectionId: number;
-    releaseI?: { my: boolean; mz: boolean; t: boolean };
-    releaseJ?: { my: boolean; mz: boolean; t: boolean };
+    releaseI?: { my: boolean; mz: boolean; t: boolean; slide?: 'x' | 'z'; slideAxis?: 'global' | 'local' };
+    releaseJ?: { my: boolean; mz: boolean; t: boolean; slide?: 'x' | 'z'; slideAxis?: 'global' | 'local' };
   },
   ni: { x: number; y: number },
   nj: { x: number; y: number },
@@ -232,6 +232,24 @@ export function drawElement(
     ctx.stroke();
   }
 
+  // Sliding joints (deslizaderas): a mechanical slider glyph — two parallel
+  // rails along the released direction with arrow tips, distinct from the hinge
+  // circle. Drawn slightly offset along the bar so it sits beside the node.
+  // ux,uy = bar unit vector in screen space.
+  const ux = dx / len, uy = dy / len;
+  const slideI = elem.releaseI?.slide;
+  const slideJ = elem.releaseJ?.slide;
+  if (slideI) {
+    const count = nodeBarCount?.get(elem.nodeI) ?? 1;
+    const off = count >= 2 ? Math.min(OFFSET_PX / len, MAX_OFFSET_FRAC) : 0.04;
+    drawSliderGlyph(ctx, si.x + dx * off, si.y + dy * off, slideI, elem.releaseI?.slideAxis ?? 'global', ux, uy, hingeRadius, hingeColor);
+  }
+  if (slideJ) {
+    const count = nodeBarCount?.get(elem.nodeJ) ?? 1;
+    const off = count >= 2 ? Math.min(OFFSET_PX / len, MAX_OFFSET_FRAC) : 0.04;
+    drawSliderGlyph(ctx, sj.x - dx * off, sj.y - dy * off, slideJ, elem.releaseJ?.slideAxis ?? 'global', ux, uy, hingeRadius, hingeColor);
+  }
+
   // Element label
   const midX = (si.x + sj.x) / 2;
   const midY = (si.y + sj.y) / 2;
@@ -255,6 +273,69 @@ export function drawElement(
     ctx.fillText(`${opts.worldLength.toFixed(2)} m`, midX + nx, midY + ny + offset);
     ctx.textAlign = 'left';
   }
+}
+
+/**
+ * Draw a sliding-joint glyph centered at (cx, cy) in screen space. The "rails"
+ * run along the released (free-to-slide) direction with arrow tips; the member
+ * is constrained perpendicular to them. (barUx, barUy) is the bar's screen-space
+ * unit vector, used for `local` slides.
+ *
+ * Released direction in screen space (the glyph is symmetric, so sign / the
+ * canvas Y-flip don't matter):
+ *   - global x → horizontal      - global z → vertical
+ *   - local  x → along the bar   - local  z → perpendicular to the bar
+ */
+function drawSliderGlyph(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+  slide: 'x' | 'z', axis: 'global' | 'local',
+  barUx: number, barUy: number,
+  r: number, color: string,
+): void {
+  let dirX: number, dirY: number;
+  if (axis === 'local') {
+    if (slide === 'x') { dirX = barUx; dirY = barUy; }
+    else { dirX = -barUy; dirY = barUx; }
+  } else {
+    if (slide === 'x') { dirX = 1; dirY = 0; }
+    else { dirX = 0; dirY = 1; }
+  }
+  const m = Math.hypot(dirX, dirY) || 1;
+  dirX /= m; dirY /= m;
+  const px = -dirY, py = dirX; // perpendicular (rail separation)
+  const half = r * 1.25;       // rail half-length (along slide dir)
+  const sep = r * 0.62;        // half rail separation (perp)
+
+  ctx.save();
+  // Dark backing disc for contrast against bars/diagrams.
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.95, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a0a1e';
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  // Two rails parallel to the slide direction.
+  for (const sgn of [1, -1]) {
+    const ox = px * sep * sgn, oy = py * sep * sgn;
+    ctx.beginPath();
+    ctx.moveTo(cx + ox - dirX * half, cy + oy - dirY * half);
+    ctx.lineTo(cx + ox + dirX * half, cy + oy + dirY * half);
+    ctx.stroke();
+  }
+  // Arrow tips at both ends of the rails — communicates "slides this way".
+  const a = r * 0.42;
+  for (const endSgn of [1, -1]) {
+    const tx = cx + dirX * half * endSgn, ty = cy + dirY * half * endSgn;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx - dirX * a * endSgn + px * a * 0.7, ty - dirY * a * endSgn + py * a * 0.7);
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx - dirX * a * endSgn - px * a * 0.7, ty - dirY * a * endSgn - py * a * 0.7);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 // ── Support visual angle ─────────────────────────────────────────────

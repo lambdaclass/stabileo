@@ -19,6 +19,7 @@ import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
 import { hasMemberOffset, resolveOffsetWorldVectors } from '../engine/member-offsets';
+import { jointHasRelease } from '../store/model.svelte';
 import { hasShellOffset, resolveShellOffsetGlobal } from '../engine/shell-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
@@ -90,6 +91,23 @@ export interface SceneSyncContext {
   // Memo of the last inputs syncLoads rendered from, so an unrelated model
   // mutation (e.g. dragging a node with no loads on it) skips the full rebuild.
   lastLoadsSig?: string;
+}
+
+// ─── 3D internal-joint glyph ──────────────────────────────────
+
+/** Small orange octahedron marking a released internal joint at a member end.
+ *  Geometry + material are created PER INSTANCE (not module-level singletons):
+ *  the marker is added to an element group that disposeObject()'s on every
+ *  re-sync, which disposes each child Mesh's geometry/material — a shared
+ *  singleton would be freed on the first re-sync and break all other markers. */
+function makeJointMarker(pos: { x: number; y: number; z: number }): THREE.Mesh {
+  const m = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.13),
+    new THREE.MeshBasicMaterial({ color: 0xffa500, wireframe: true }),
+  );
+  m.position.set(pos.x, pos.y, pos.z);
+  m.userData.jointGlyph = true;
+  return m;
 }
 
 // ─── Nodes ────────────────────────────────────────────────────
@@ -178,7 +196,8 @@ export function syncElements(ctx: SceneSyncContext): void {
       `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
       `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.tl ?? ''}:${sec?.rotation ?? ''}` +
       `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
-      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}`;
+      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}` +
+      `|jnt:${elem.jointI ? 'I' + elem.jointI.dof.map(b => b ? 1 : 0).join('') : ''}${elem.jointJ ? 'J' + elem.jointJ.dof.map(b => b ? 1 : 0).join('') : ''}`;
 
     const existing = ctx.elementGroups.get(id);
     if (existing && existing.userData.elementSig === signature) continue;
@@ -188,23 +207,26 @@ export function syncElements(ctx: SceneSyncContext): void {
     }
 
     // Local axes orient extruded sections so they sit the way the solver sees
-    // them (e.g. I-beam web vertical on horizontal members). Computed only here,
-    // on rebuild. Falls back to undefined (legacy orientation) on zero-length —
-    // and ALWAYS when the viewport projects a planar model to XZ: the axes come
-    // from raw model coordinates while the mesh spans projected coordinates, so
-    // a model-space basis would extrude profiles 90° off their members (the
-    // legacy posJ−posI orientation is correct in the projected scene).
+    // them (e.g. an I-beam web vertical on a horizontal member — depth h up, not
+    // lying sideways). Computed here on rebuild from the SCENE coordinates the
+    // mesh actually spans (posI/posJ). For a flat 2D model embedded into the XZ
+    // plane this is essential: the projected vertical is global Z, so axes built
+    // from raw model (x,y) coords would be 90° off, but axes from projected
+    // coords keep the section depth vertical. Falls back to undefined (legacy
+    // +Z→dir orientation) only on a degenerate/zero-length element.
     let localAxes: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] } | undefined;
-    if (!project2D) {
+    {
       try {
-        const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+        // Explicit per-element local_y / roll only apply to genuine 3D models;
+        // a 2D model has none, and its section rotation is handled via secRot.
+        const elemLocalY = (!project2D && elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
           ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
         const ax = computeLocalAxes3D(
-          { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 },
-          { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+          { id: 0, x: posI.x, y: posI.y, z: posI.z },
+          { id: 0, x: posJ.x, y: posJ.y, z: posJ.z },
           // leftHand mirrors the solver's convention (negated ey) so asymmetric
           // profiles render the way the solver computes them.
-          elemLocalY, elem.rollAngle, leftHand,
+          elemLocalY, project2D ? undefined : elem.rollAngle, leftHand,
         );
         localAxes = { ex: ax.ex, ey: ax.ey, ez: ax.ez };
       } catch {
@@ -244,6 +266,14 @@ export function syncElements(ctx: SceneSyncContext): void {
         localAxes,
       },
     );
+    // Basic 3D internal-joint glyph: a small orange octahedron at each released
+    // end (distinct from node spheres). Lives in the element group so it rebuilds
+    // with the element; parent-walk picking still resolves to the element.
+    // Anchor at the (possibly offset) member end gI/gJ so the glyph sits on the
+    // visible member end, not the un-offset centerline node.
+    if (jointHasRelease(elem.jointI)) group.add(makeJointMarker(gI));
+    if (jointHasRelease(elem.jointJ)) group.add(makeJointMarker(gJ));
+
     group.userData.elementSig = signature;
     ctx.elementsParent.add(group);
     ctx.elementGroups.set(id, group);
@@ -252,6 +282,31 @@ export function syncElements(ctx: SceneSyncContext): void {
   // Only the wireframe primary renders the batched LineSegments2.
   eb.mesh.visible = renderMode === 'wireframe';
   eb.flush();
+}
+
+/**
+ * Authoritative element-mesh visibility, re-asserted on despiece toggle AND on
+ * every scene re-sync (model load, example/tab switch, element edit, render-mode
+ * change). Despiece hides element meshes by setting `group.visible = false`;
+ * `syncElements` reuses groups on a matching signature WITHOUT resetting their
+ * visibility, so a stale `false` could ride along onto a reused group for a new
+ * model — the root cause of the intermittent "only some members render" bug.
+ * Calling this after each sync guarantees the live despiece state wins.
+ *
+ * The batched wireframe shows only in wireframe mode AND when not in despiece.
+ * `elementsParent` is forced visible to undo any transient LOD hide that a model
+ * load mid-orbit could otherwise leave stuck.
+ */
+export function applyElementVisibility(
+  groups: Map<number, THREE.Group>,
+  batchedMesh: THREE.Object3D | null | undefined,
+  elementsParent: THREE.Object3D | null | undefined,
+  hideForDespiece: boolean,
+  wireframe: boolean,
+): void {
+  if (batchedMesh) batchedMesh.visible = !hideForDespiece && wireframe;
+  for (const g of groups.values()) g.visible = !hideForDespiece;
+  if (elementsParent) elementsParent.visible = true;
 }
 
 // ─── Supports ────────────────────────────────────────────────
@@ -747,10 +802,10 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
     ctx.localAxesGroup = null;
   }
 
-  // Directions from computeLocalAxes3D are in model (Z-up) space. When the
-  // viewport projects a planar model to XZ, those directions wouldn't match the
-  // projected scene, so restrict triads to genuine (non-projected) 3D views.
-  if (projectFlag()) return;
+  // When the viewport projects a planar (2D) model into XZ, the triads must be
+  // built from the SAME projected scene coordinates the meshes span (PR [12]) —
+  // otherwise they'd point along the raw model axes and disagree with the render.
+  const project2D = projectFlag();
 
   const LABEL_CAP = 8;
 
@@ -787,18 +842,22 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
     const nJ = modelStore.nodes.get(elem.nodeJ);
     if (!nI || !nJ) continue;
 
-    const posI: SolverNode3D = { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 };
-    const posJ: SolverNode3D = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 };
+    // Use the PROJECTED scene coordinates the mesh actually spans (2D → XZ),
+    // so the triad shares the rendered member basis.
+    const posI = projectNodeToScene(nI, project2D);
+    const posJ = projectNodeToScene(nJ, project2D);
 
     let axes;
     try {
-      const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+      // For a projected 2D model the basis comes purely from the projected
+      // coordinates (no explicit localY/roll) — matching the rendered section.
+      // For genuine 3D, mirror the solver exactly: explicit localY + section
+      // rotation folded into the roll angle + the leftHand convention.
+      const elemLocalY = (!project2D && elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      // Mirror the solver's axes exactly (solver-service folds the section
-      // rotation into the roll angle and passes the leftHand convention; a
-      // triad that omits either would LIE about the axes the solver uses).
       const secRot = modelStore.sections.get(elem.sectionId)?.rotation ?? 0;
-      axes = computeLocalAxes3D(posI, posJ, elemLocalY, (elem.rollAngle ?? 0) + secRot, leftHandTriads);
+      const roll = project2D ? undefined : (elem.rollAngle ?? 0) + secRot;
+      axes = computeLocalAxes3D({ id: 0, ...posI }, { id: 0, ...posJ }, elemLocalY, roll, leftHandTriads);
     } catch {
       continue; // zero-length member — skip
     }

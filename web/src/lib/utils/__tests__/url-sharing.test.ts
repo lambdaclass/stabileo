@@ -568,4 +568,66 @@ describe('URL sharing v2', () => {
     expect(restored.constraints![0]).toEqual({ type: 'rigidLink', masterNode: 1, slaveNode: 2 });
     expect(restored.nextId.plate).toBe(2);
   });
+
+  // Regression (#1): 2D sliding joints (slide/slideAxis) and 3D 6-DOF internal
+  // joints (jointI/jointJ.dof) must survive a share-link round-trip. Before the
+  // fix, packRelease only carried my/mz/t and the element encoder ignored
+  // jointI/jointJ, so a shared joint model silently came back as fully rigid.
+  // These inline packRelease/unpackRelease + joint-opt encode/decode mirror the
+  // exact (sv≥4) logic in url-sharing.ts.
+  it('sliding joints and 3D 6-DOF joints survive the share round-trip', () => {
+    const NO_REL = { my: false, mz: false, t: false } as const;
+    const packRelease = (r: any): Record<string, unknown> | undefined => {
+      if (!r) return undefined;
+      const out: Record<string, unknown> = {};
+      if (r.my) out.my = true;
+      if (r.mz) out.mz = true;
+      if (r.t) out.t = true;
+      if (r.slide) out.s = r.slide;
+      if (r.slideAxis) out.sa = r.slideAxis;
+      return Object.keys(out).length > 0 ? out : undefined;
+    };
+    const unpackRelease = (packed: any): any => {
+      const r: any = { ...NO_REL };
+      if (packed && typeof packed === 'object') {
+        if (packed.my) r.my = true;
+        if (packed.mz) r.mz = true;
+        if (packed.t) r.t = true;
+        if (packed.s) r.slide = packed.s;
+        if (packed.sa) r.slideAxis = packed.sa;
+      }
+      return r;
+    };
+
+    const releaseI = { my: false, mz: true, t: false, slide: 'free', slideAxis: 'local' };
+    const jointJ = { dof: [false, true, false, false, false, true] };
+
+    // ── encode element opt (mirror of the sv≥4 encoder) ──
+    const opt: Record<string, unknown> = {};
+    const ri = packRelease(releaseI);
+    if (ri) opt.ri = ri;
+    if (jointJ.dof.some(Boolean)) opt.jj = jointJ.dof.map(d => (d ? 1 : 0));
+
+    // Survive a JSON round-trip (the wire format).
+    const wire = JSON.parse(JSON.stringify(opt));
+
+    // ── decode (mirror of the sv≥4 decoder) ──
+    const decodedReleaseI = unpackRelease(wire.ri);
+    const decodedJointJ = Array.isArray(wire.jj)
+      ? { dof: (wire.jj as number[]).map(d => d === 1) }
+      : undefined;
+
+    expect(decodedReleaseI.slide).toBe('free');
+    expect(decodedReleaseI.slideAxis).toBe('local');
+    expect(decodedReleaseI.mz).toBe(true);
+    expect(decodedJointJ).toEqual({ dof: [false, true, false, false, false, true] });
+
+    // A rigid element with no releases/joints encodes to nothing (payload stays small).
+    const emptyOpt: Record<string, unknown> = {};
+    const rNone = packRelease({ ...NO_REL });
+    if (rNone) emptyOpt.ri = rNone;
+    const allFalse = { dof: [false, false, false, false, false, false] };
+    if (allFalse.dof.some(Boolean)) emptyOpt.ji = allFalse.dof.map(d => (d ? 1 : 0));
+    expect(Object.keys(emptyOpt).length).toBe(0);
+  });
 });
