@@ -260,10 +260,25 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
     builds.push({ result, zShift: cum[spec.fromFloor - 1], spec });
   }
 
-  const merged = mergeRanges(builds, input.assumptions);
+  const { result: merged, rangeElemIds, rangeQuadIds } = mergeRanges(builds, input.assumptions);
   // Hanging members (columns that don't continue between adjacent plans) →
   // prune to keep a connected model, always for multi-floor (reported).
   const removed = pruneFloating(merged.snapshot);
+
+  // A whole floor range can be silently deleted here: a mid-height gap leaves an
+  // upper block disconnected from any support, so pruneFloating removes all of
+  // it (the largest SUPPORTED component wins). That range contributed members
+  // yet none survive — surface it as an error rather than a lone provenance line.
+  const survElem = new Set(merged.snapshot.elements.map(([id]) => id));
+  const survQuad = new Set((merged.snapshot.quads ?? []).map(([id]) => id));
+  const prunedAway = builds.filter((_, i) => {
+    const els = rangeElemIds[i] ?? [], qs = rangeQuadIds[i] ?? [];
+    if (els.length + qs.length === 0) return false; // 0-member range → emptyFloorRange already
+    return !els.some((id) => survElem.has(id)) && !qs.some((id) => survQuad.has(id));
+  });
+  if (prunedAway.length > 0) {
+    rangeIssues.push({ severity: 'error', message: `floorRangePruned:${prunedAway.map((b) => b.spec.label ?? 'plan').join(', ')}` });
+  }
 
   // Provenance: replace the misleading "replicated across all floors" line.
   const planMap = specs
@@ -285,8 +300,11 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
 }
 
 /** Merge per-range RcDraftResults into one snapshot (weld by coordinate,
- *  renumber ids, dedup sections, regenerate base supports). */
-function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions): RcDraftResult {
+ *  renumber ids, dedup sections, regenerate base supports). Also returns, per
+ *  range (aligned with `builds`), the global element/quad ids it contributed —
+ *  so the caller can tell whether a range's structure survived the prune. */
+function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
+  { result: RcDraftResult; rangeElemIds: number[][]; rangeQuadIds: number[][] } {
   const tol = assumptions.snapTolerance;
   const nodes: ModelSnapshot['nodes'] = [];
   const elements: ModelSnapshot['elements'] = [];
@@ -325,9 +343,15 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions): RcD
   let topLoadCases: ModelSnapshot['loadCases'] = [];
   let topCombinations: ModelSnapshot['combinations'] = [];
   let maxTopFloor = -Infinity;
+  // The global element/quad ids each range contributed, so the caller can detect
+  // a range whose whole structure was pruned during composition.
+  const rangeElemIds: number[][] = [];
+  const rangeQuadIds: number[][] = [];
 
   for (const { result, zShift, spec } of builds) {
     const snap = result.snapshot;
+    const myElems: number[] = [];
+    const myQuads: number[] = [];
     const localToGlobalNode = new Map<number, number>();
     for (const [, n] of snap.nodes) {
       const gid = weldNode(n.x, n.y, (n.z ?? 0) + zShift);
@@ -345,6 +369,7 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions): RcD
     }
     for (const [, e] of snap.elements) {
       const id = nextElem++;
+      myElems.push(id);
       elements.push([id, {
         ...e, id,
         nodeI: localToGlobalNode.get(e.nodeI)!,
@@ -355,6 +380,7 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions): RcD
     const localToGlobalQuad = new Map<number, number>();
     for (const [, q] of snap.quads ?? []) {
       const id = nextQuad++;
+      myQuads.push(id);
       localToGlobalQuad.set(q.id, id);
       quads.push([id, { ...q, id, nodes: q.nodes.map((n) => localToGlobalNode.get(n)!) as [number, number, number, number] }]);
     }
@@ -386,6 +412,8 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions): RcD
       topCombinations = snap.combinations ?? [];
       topProvenanceAssumptions = [...(snap.provenance?.assumptions ?? [])];
     }
+    rangeElemIds.push(myElems);
+    rangeQuadIds.push(myQuads);
   }
 
   // Regenerate base supports from welded ground nodes (z ≈ 0).
@@ -416,7 +444,7 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions): RcD
   };
   aggCounts.combinations = topCombinations?.length ?? 0;
 
-  return { snapshot, provenance, warnings, counts: aggCounts };
+  return { result: { snapshot, provenance, warnings, counts: aggCounts }, rangeElemIds, rangeQuadIds };
 }
 
 /**

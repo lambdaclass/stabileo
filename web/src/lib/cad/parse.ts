@@ -288,6 +288,11 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
 const PLAUSIBLE_MIN_M = 2;
 const PLAUSIBLE_MAX_M = 400;
 const TYPICAL_LOG = Math.log(30); // ~30 m typical plan diagonal
+// Above this extent a "more typical" suggestion is treated as inflation: two
+// plausible units are always ~10× apart, and closeness-to-30 m over-picks the
+// larger one for small plans (a real 7.3 m plan → cm reads 73 m). When a smaller
+// plausible unit exists at or under this size, prefer it (don't inflate).
+const INFLATION_GUARD_M = 50;
 
 export function suggestUnitFromExtent(
   bbox: CadBBox | null,
@@ -300,10 +305,21 @@ export function suggestUnitFromExtent(
   const extM = (u: CadUnit) => raw * CAD_UNIT_SCALE[u];
   const plausible = (u: CadUnit) => extM(u) >= PLAUSIBLE_MIN_M && extM(u) <= PLAUSIBLE_MAX_M;
   // Best plausible unit = the one whose extent is closest to a typical plan.
-  const ranked = units
-    .filter(plausible)
+  const plausibleUnits = units.filter(plausible);
+  const ranked = plausibleUnits
+    .slice()
     .sort((a, b) => Math.abs(Math.log(extM(a)) - TYPICAL_LOG) - Math.abs(Math.log(extM(b)) - TYPICAL_LOG));
-  const best = ranked[0];
+  let best = ranked[0];
+  // Anti-inflation: when the closeness metric picks an oversized unit but a
+  // smaller plausible one fits within a normal plan size, prefer the largest
+  // such smaller unit — so a 7.3 m plan misread as metres suggests mm (7.3 m),
+  // not cm (73 m). No effect when only one unit is plausible (single candidate).
+  if (best && extM(best) > INFLATION_GUARD_M) {
+    const withinNormal = plausibleUnits
+      .filter((u) => extM(u) <= INFLATION_GUARD_M)
+      .sort((a, b) => extM(b) - extM(a));
+    if (withinNormal.length > 0) best = withinNormal[0];
+  }
   // Warn ONLY when the current unit is IMPLAUSIBLE. If the drawing is already a
   // sensible building size under the chosen unit, never nag toward a "more
   // typical" unit — a valid small plan in mm must not be pushed to cm (a silent

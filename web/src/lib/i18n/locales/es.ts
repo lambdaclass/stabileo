@@ -1138,6 +1138,7 @@ const es: Record<string, string> = {
   'cad.warn.emptyFloorRange': 'Rango de pisos vacío — {n}',
   'cad.warn.floorRangeInvalid': 'Rango de pisos inválido — {n}',
   'cad.warn.floorRangeOverlap': 'Rangos de pisos superpuestos — {n}',
+  'cad.warn.floorRangePruned': 'Rango(s) de pisos eliminados en la composición — desconectados del apoyo y podados (menos pisos de los pedidos): {n}',
   'cad.cOffsets': 'Elementos viga con offset excéntrico',
   'cad.cAmbiguous': 'Candidatos ambiguos (sin aplicar)',
   'cad.cSchedAssign': 'Secciones por planilla (miembro-piso)',

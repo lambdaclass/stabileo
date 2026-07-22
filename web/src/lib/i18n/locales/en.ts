@@ -1176,6 +1176,7 @@ const en: Record<string, string> = {
   'cad.warn.emptyFloorRange': 'Empty floor range — {n}',
   'cad.warn.floorRangeInvalid': 'Invalid floor range — {n}',
   'cad.warn.floorRangeOverlap': 'Overlapping floor ranges — {n}',
+  'cad.warn.floorRangePruned': 'Floor range(s) removed during composition — disconnected from support and pruned (fewer floors than requested): {n}',
   'cad.cOffsets': 'Beam elements with eccentric offsets',
   'cad.cAmbiguous': 'Ambiguous offset candidates (not applied)',
   'cad.cSchedAssign': 'Member-story sections from schedules',
