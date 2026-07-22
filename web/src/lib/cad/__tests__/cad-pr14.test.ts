@@ -1,7 +1,7 @@
 // PR [14] — DXF Plan upgrade: inference, diagnostics, preview, multi-floor,
 // beam-polygon offsets, unit sanity.
 import { describe, it, expect } from 'vitest';
-import type { ArchPlan, RcDraftAssumptions, RcDraftResult } from '../types';
+import type { ArchPlan, RcDraftAssumptions, RcDraftResult, SectionScheduleEntry } from '../types';
 import { parseCadDxf, suggestUnitFromExtent } from '../parse';
 import { extractArchPlan, suggestLayerMappings } from '../classify';
 import { buildStabileoTemplateDxf } from '../template';
@@ -241,6 +241,37 @@ describe('draft-build.buildDraft', () => {
     expect(built.provenance.assumptions.some((x) => /Per-floor plans/.test(x))).toBe(true);
     const d = diagnoseDraft(built);
     expect(d.level).not.toBe('error'); // connected, supported
+  });
+
+  it('multi-floor: section schedules resolve against BUILDING floors, not range-local', () => {
+    // Ranges A(1-2)/B(3-4). A column schedule authored for building floors 3-4
+    // must land on range B. Without per-range rebasing, range B resolved its own
+    // local floors 1-2 so the 3-4 row silently matched nothing (0 assignments),
+    // while a 1-2 row would have leaked onto the upper block.
+    const schedules: SectionScheduleEntry[] = [
+      { kind: 'column', mark: '*', fromFloor: 3, toFloor: 4, b: 0.6, h: 0.6, source: 'wizard' },
+    ];
+    const built = buildDraft({
+      floorPlans: [
+        { plan: gridPlan(true), fromFloor: 1, toFloor: 2, label: 'A' },
+        { plan: gridPlan(true), fromFloor: 3, toFloor: 4, label: 'B' },
+      ],
+      assumptions: assumptions({ nFloors: 4, storyHeights: [3, 3, 3, 3], schedules }),
+      source: SOURCE,
+    });
+    expect(built.counts.scheduleAssignments).toBeGreaterThan(0);
+    expect(built.counts.specSections.schedule).toBeGreaterThan(0);
+  });
+});
+
+describe('cropDoc — window normalization (Layer 2)', () => {
+  it('normalizes reversed bounds (x0>x1 / y0>y1) to the same region as normal order', () => {
+    const doc = parseCadDxf(buildStabileoTemplateDxf(), 'stabileo-template.dxf');
+    const bb = doc.bbox!;
+    const normal = cropDoc(doc, { x0: bb.minX, x1: bb.maxX, y0: bb.minY, y1: bb.maxY });
+    const reversed = cropDoc(doc, { x0: bb.maxX, x1: bb.minX, y0: bb.maxY, y1: bb.minY });
+    expect(normal.entities.length).toBeGreaterThan(0);
+    expect(reversed.entities.length).toBe(normal.entities.length); // was 0 before normalization
   });
 });
 

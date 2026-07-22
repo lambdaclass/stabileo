@@ -31,7 +31,12 @@ export interface PlanWindow {
  *  A plan window isolates the structural plan from sections/elevations/
  *  schedules that share the same modelspace. */
 export function cropDoc(doc: CadDocument, win: PlanWindow): CadDocument {
-  const inside = (p: CadPt) => p.x >= win.x0 && p.x <= win.x1 && p.y >= win.y0 && p.y <= win.y1;
+  // Normalize reversed bounds (x0>x1 / y0>y1) so a window typed in either order
+  // crops the same region — the preview overlay already normalizes, and without
+  // this an inverted window silently extracts nothing (→ cad.nothingClassified).
+  const lx = Math.min(win.x0, win.x1), hx = Math.max(win.x0, win.x1);
+  const ly = Math.min(win.y0, win.y1), hy = Math.max(win.y0, win.y1);
+  const inside = (p: CadPt) => p.x >= lx && p.x <= hx && p.y >= ly && p.y <= hy;
   const entities = doc.entities.filter((e) => {
     switch (e.kind) {
       case 'line': return inside(e.a) && inside(e.b);

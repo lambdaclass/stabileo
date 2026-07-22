@@ -172,6 +172,10 @@ function recountAfterPrune(result: RcDraftResult): void {
   c.wallQuads = s.wallQuads;
   c.supports = result.snapshot.supports.length;
   c.loads = result.snapshot.loads.length;
+  // Prune may drop offset-carrying elements, and mergeRanges never sums this
+  // count across ranges — recompute it from the final snapshot so the review
+  // table doesn't report 0 offset beams on a model that has them.
+  c.beamsWithOffsets = result.snapshot.elements.filter(([, e]) => (e as { offset?: unknown }).offset != null).length;
 }
 
 function pushInferenceProvenance(result: RcDraftResult, report: InferenceReport, inf: InferenceOptions): void {
@@ -234,6 +238,15 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
       storyHeights: heights.slice(spec.fromFloor - 1, spec.toFloor),
       // Only the top range's roof carries Lr; lower ranges get L everywhere.
       roofLiveLoad: spec.toFloor === topFloor ? input.assumptions.roofLiveLoad : undefined,
+      // Schedules are authored as BUILDING floors; generateRcDraft resolves them
+      // against this range's LOCAL 1-based floors (draft.ts uses k+1). Rebase each
+      // row into range-local coordinates and drop rows outside [1..size], or the
+      // schedule would silently mis-apply (or miss) sections in any range that
+      // doesn't start at building floor 1. (CAD-embedded plan.schedules stay per
+      // plan and are not rebased here.)
+      schedules: (input.assumptions.schedules ?? [])
+        .map((s) => ({ ...s, fromFloor: s.fromFloor - spec.fromFloor + 1, toFloor: s.toFloor - spec.fromFloor + 1 }))
+        .filter((s) => s.toFloor >= 1 && s.fromFloor <= size),
     };
     const { plan, report } = applyInference(spec.plan, input.inference, input.assumptions.snapTolerance);
     const result = generateRcDraft(plan, rangeAssumptions, input.source);

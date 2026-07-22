@@ -91,15 +91,16 @@ export function diagnoseDraft(result: RcDraftResult): DraftDiagnostics {
     add('degenerate', 'warn', { n: nNodes });
   }
 
-  // 2) Frame present at all.
-  if (c.columns === 0 && c.beams === 0) {
+  // 2) Frame present at all. Wall shells are first-class structure in this
+  //    pipeline (a supported wall-only model is valid), so they count too.
+  if (c.columns === 0 && c.beams === 0 && c.wallQuads === 0) {
     add('noFrame', 'error');
   }
 
   // 3) Slabs / area loads — a gravity model that carries nothing.
   const areaLoads = snap.loads.filter((l) => (l.data as { quadId?: number }).quadId !== undefined).length;
   if (c.slabQuads === 0) {
-    add('noSlabs', c.beams > 0 ? 'warn' : 'error');
+    add('noSlabs', c.beams > 0 || c.wallQuads > 0 ? 'warn' : 'error');
   }
   if (areaLoads === 0 && c.slabQuads === 0) {
     add('noAreaLoads', 'warn');
@@ -128,9 +129,13 @@ export function diagnoseDraft(result: RcDraftResult): DraftDiagnostics {
   if (orphans > 0) add('orphanNodes', 'warn', { n: orphans });
 
   // 7) Floating member ends (from generation) — surfaced as a diagnostic too.
-  const floatingWarn = result.warnings.find((w) => w.message.startsWith('beamEndsFloating:'));
-  if (floatingWarn) {
-    add('floatingEnds', 'warn', { n: Number(floatingWarn.message.split(':')[1]) || 0 });
+  //    Multi-floor composition concatenates one warning per range, so sum them
+  //    all rather than reading only the first (.find would under-report n).
+  const floatingEnds = result.warnings
+    .filter((w) => w.message.startsWith('beamEndsFloating:'))
+    .reduce((sum, w) => sum + (Number(w.message.split(':')[1]) || 0), 0);
+  if (floatingEnds > 0) {
+    add('floatingEnds', 'warn', { n: floatingEnds });
   }
 
   // 8) Skipped / isolated slabs.
@@ -140,7 +145,7 @@ export function diagnoseDraft(result: RcDraftResult): DraftDiagnostics {
   const level = checks.reduce((acc, ck) => worst(acc, ck.level), 'ok' as DiagnosticLevel);
   const solvableShape =
     level !== 'error' && comp.count === 1 && snap.supports.length > 0 &&
-    (c.columns + c.beams) > 0;
+    (c.columns + c.beams + c.wallQuads) > 0;
 
   if (checks.length === 0) add('clean', 'ok');
 

@@ -492,7 +492,7 @@ export function pairWallLines(
 export function chainSegmentsIntoLoops(
   segments: Segment[],
   tol: number,
-): { loops: CadPt[][]; unchained: number[] } {
+): { loops: CadPt[][]; loopSegIndex: number[]; unchained: number[] } {
   // Weld endpoints into vertex ids.
   const verts: CadPt[] = [];
   const vertOf = (p: CadPt): number => {
@@ -513,6 +513,9 @@ export function chainSegmentsIntoLoops(
 
   const usedEdge = new Set<number>();
   const loops: CadPt[][] = [];
+  // A representative source-segment index per loop, so callers can attribute the
+  // loop to the layer it actually came from instead of assuming segment 0.
+  const loopSegIndex: number[] = [];
   const inLoop = new Set<number>();
 
   for (const start of adj.keys()) {
@@ -540,11 +543,12 @@ export function chainSegmentsIntoLoops(
     if (closed && path.length >= 3) {
       for (const e of pathEdges) { usedEdge.add(e); inLoop.add(e); }
       loops.push(path.map((v) => ({ x: verts[v].x, y: verts[v].y })));
+      loopSegIndex.push(pathEdges[0]);
     }
   }
 
   const unchained = segments.map((_, i) => i).filter((i) => !inLoop.has(i));
-  return { loops, unchained };
+  return { loops, loopSegIndex, unchained };
 }
 
 /**

@@ -194,7 +194,7 @@
    *  user enabled cropping (PR [14] Layer 2). */
   const effectiveDoc = $derived.by(() => {
     if (!doc) return null;
-    return cropEnabled ? cropDoc(doc, cropWin) : doc;
+    return cropEnabled ? cropDoc(doc, sanitizeWin(cropWin)) : doc;
   });
 
   const plan = $derived.by(() => {
@@ -246,9 +246,30 @@
     if (doc?.bbox) cropWin = { x0: doc.bbox.minX, x1: doc.bbox.maxX, y0: doc.bbox.minY, y1: doc.bbox.maxY };
   }
 
+  /** A crop field cleared in its number input becomes `null` (Svelte 5). Coerce
+   *  it to a finite number, treating "empty" as the document extent on that side
+   *  (a cleared box = no bound). Without this, `null` crashes `r.x0.toFixed()` in
+   *  the region row and, coerced to 0 in comparisons, silently mis-crops. */
+  function numOr(v: number | null | undefined, fallback: number): number {
+    return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+  }
+  function sanitizeWin(w: PlanWindow): PlanWindow {
+    const bb = doc?.bbox;
+    return {
+      x0: numOr(w.x0, bb?.minX ?? 0), x1: numOr(w.x1, bb?.maxX ?? 0),
+      y0: numOr(w.y0, bb?.minY ?? 0), y1: numOr(w.y1, bb?.maxY ?? 0),
+    };
+  }
+
   function addFloorRegion(): void {
-    const f = floorRegions.length + 1;
-    floorRegions = [...floorRegions, { ...cropWin, fromFloor: f, toFloor: f, label: `Plan ${String.fromCharCode(64 + f)}` }];
+    // Label from the first free letter (unique against existing rows, not the
+    // row count — otherwise remove-middle + add duplicates a label), with a
+    // numeric fallback past Z. Floors default just above the highest range.
+    const used = new Set(floorRegions.map((r) => r.label));
+    let k = 0, label: string;
+    do { label = `Plan ${k < 26 ? String.fromCharCode(65 + k) : `#${k + 1}`}`; k++; } while (used.has(label));
+    const nextFloor = floorRegions.length ? Math.max(...floorRegions.map((r) => r.toFloor)) + 1 : 1;
+    floorRegions = [...floorRegions, { ...sanitizeWin(cropWin), fromFloor: nextFloor, toFloor: nextFloor, label }];
   }
 
   // Effective preview mode: step 1 is always the raw crop view; step 2 honors
@@ -282,7 +303,7 @@
     const view = cadView ?? (doc.bbox ? fitView(doc.bbox, W, H) : null);
     drawCadPreview(canvas, doc, roleOf, {
       view,
-      crop: step === 1 && cropEnabled ? cropWin : null,
+      crop: step === 1 && cropEnabled ? sanitizeWin(cropWin) : null,
       highlightLayer: step === 2 ? hoveredLayer : null,
     });
   });
@@ -335,6 +356,14 @@
     previewMode = m;
     cadView = null;
   }
+  // Same coordinate-space reason as setPreviewMode: step 1 (raw/DXF units) and
+  // step 2 (extracted/metres) differ, and changing the unit rescales the
+  // extracted plan — a carried-over pan/zoom transform would be meaningless (a
+  // mm-fitted view collapses a metre plan to sub-pixel). Refit on step/unit change.
+  $effect(() => {
+    void step; void unit;
+    cadView = null;
+  });
   /** Client px → canvas px (accounts for CSS scaling of the canvas element). */
   function canvasPoint(e: { clientX: number; clientY: number }): { sx: number; sy: number } {
     const c = canvas!;
@@ -481,7 +510,7 @@
         // Per-floor plans: each region is a crop window of the same file,
         // read through the same layer mapping (PR [14] Layer 3).
         const floorPlans: FloorPlanSpec[] = floorRegions.map((r) => ({
-          plan: extractArchPlan(cropDoc(doc!, r), mappings, unit),
+          plan: extractArchPlan(cropDoc(doc!, sanitizeWin(r)), mappings, unit),
           fromFloor: r.fromFloor, toFloor: r.toFloor, label: r.label,
         }));
         // Validate ranges up front so overlaps/out-of-range are a clear, blocking
@@ -493,7 +522,7 @@
           const gapOnly = hardErrors.every((i) => i.message.startsWith('floorRangeGap:'));
           genError = {
             message: gapOnly ? t('cad.floorGapConfirm') : t('cad.floorRangeError'),
-            detail: hardErrors.map((i) => i.message).join('\n'),
+            detail: hardErrors.map((i) => warnText(i.message)).join('\n'),
           };
           if (gapOnly) allowFloorGaps = true; // next "Generate" click proceeds with gaps as warnings
           return; // stay on step 3, model untouched
@@ -987,7 +1016,7 @@
                       <input type="number" min="1" step="1" bind:value={r.toFloor} />
                     </span>
                     <span class="region-win" title={t('cad.floorPlanWindow')}>
-                      [{r.x0.toFixed(1)},{r.y0.toFixed(1)}]–[{r.x1.toFixed(1)},{r.y1.toFixed(1)}]
+                      [{(r.x0 ?? 0).toFixed(1)},{(r.y0 ?? 0).toFixed(1)}]–[{(r.x1 ?? 0).toFixed(1)},{(r.y1 ?? 0).toFixed(1)}]
                     </span>
                     <button class="btn mini" onclick={() => { floorRegions = floorRegions.filter((_, j) => j !== i); }}>✕</button>
                   </div>

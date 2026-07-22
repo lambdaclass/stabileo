@@ -314,20 +314,24 @@ export function extractArchPlan(
   // Columns drawn as bare LINE outlines: chain into closed loops and read the
   // rectangle size from each loop's bbox. Junction/open leftovers are skipped.
   if (columnLineSegments.length > 0) {
-    const { loops, unchained } = chainSegmentsIntoLoops(columnLineSegments, COLUMN_CHAIN_TOL_M);
-    for (const loop of loops) {
+    const { loops, loopSegIndex, unchained } = chainSegmentsIntoLoops(columnLineSegments, COLUMN_CHAIN_TOL_M);
+    loops.forEach((loop, li) => {
+      // Attribute each loop to the layer of a segment it was actually chained
+      // from — not always segment 0 — so per-layer counts/highlighting are right
+      // when columns are split across two column-role layers.
+      const layer = columnLineSegments[loopSegIndex[li]]?.layer ?? columnLineSegments[0].layer;
       const pruned = pruneCollinear(loop, 1e-4);
       const bb = polygonBBox(pruned.length >= 3 ? pruned : loop);
       const b = bb.maxX - bb.minX, h = bb.maxY - bb.minY;
       if (b > 0 && h > 0 && Math.max(b, h) <= MAX_COLUMN_SIDE_M) {
         plan.columns.push({
           at: { x: (bb.minX + bb.maxX) / 2, y: (bb.minY + bb.maxY) / 2 },
-          b, h, sizeSource: 'rect', srcLayer: columnLineSegments[0].layer,
+          b, h, sizeSource: 'rect', srcLayer: layer,
         });
       } else {
-        plan.skipped.push({ kind: 'polyline', layer: columnLineSegments[0].layer, reason: 'columnShape' });
+        plan.skipped.push({ kind: 'polyline', layer, reason: 'columnShape' });
       }
-    }
+    });
     for (const i of unchained) {
       plan.skipped.push({ kind: 'line', layer: columnLineSegments[i].layer, reason: 'columnLinesUnchained' });
     }
