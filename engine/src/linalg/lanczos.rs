@@ -599,59 +599,57 @@ impl<'a> MatVecOp for SparseSymMatVec<'a> {
     fn dim(&self) -> usize { self.csc.n }
 }
 
-/// Sparse shift-invert operator: y = K⁻¹ M x (for σ=0).
+/// Sparse shift-invert operator: y = K⁻¹ B x (for σ=0).
 /// Factorizes K once with sparse Cholesky; each Lanczos iteration does
-/// dense M×x then sparse triangular solve.
-pub struct SparseShiftInvertOp {
+/// a sparse O(nnz) B·x matvec (`CscMatrix::sym_mat_vec`) then a sparse
+/// triangular solve. B is typically the mass matrix M (modal) or -Kg
+/// (buckling) — both element-sparse.
+pub struct SparseShiftInvertOp<'a> {
     factor: super::sparse_chol::NumericCholesky,
-    m_dense: Vec<f64>,
-    n: usize,
+    b_csc: &'a CscMatrix,
 }
 
-impl SparseShiftInvertOp {
-    /// Build from sparse K_ff (SPD) and dense M_ff (row-major nf×nf).
+impl<'a> SparseShiftInvertOp<'a> {
+    /// Build from sparse K_ff (SPD) and sparse B_ff (symmetric, lower-triangle CSC).
     /// Returns None if sparse Cholesky fails.
-    pub fn new(k_csc: &CscMatrix, m_dense: &[f64], n: usize) -> Option<Self> {
+    pub fn new(k_csc: &CscMatrix, b_csc: &'a CscMatrix) -> Option<Self> {
+        assert_eq!(k_csc.n, b_csc.n, "K and B must have the same dimension");
         let sym = symbolic_cholesky(k_csc);
         let factor = numeric_cholesky(&sym, k_csc)?;
-        Some(Self { factor, m_dense: m_dense.to_vec(), n })
+        Some(Self { factor, b_csc })
     }
 }
 
-impl MatVecOp for SparseShiftInvertOp {
+impl<'a> MatVecOp for SparseShiftInvertOp<'a> {
     fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
-        let n = self.n;
-        // tmp = M * x (dense)
-        let mut tmp = vec![0.0; n];
-        for i in 0..n {
-            let mut s = 0.0;
-            for j in 0..n { s += self.m_dense[i * n + j] * x[j]; }
-            tmp[i] = s;
-        }
+        // tmp = B * x (sparse, O(nnz))
+        let tmp = self.b_csc.sym_mat_vec(x);
         // y = K⁻¹ tmp (sparse Cholesky solve)
         let result = sparse_cholesky_solve(&self.factor, &tmp);
-        y[..n].copy_from_slice(&result);
+        y[..self.b_csc.n].copy_from_slice(&result);
     }
-    fn dim(&self) -> usize { self.n }
+    fn dim(&self) -> usize { self.b_csc.n }
 }
 
 /// Compute k smallest eigenvalues of generalized problem A*x = λ*B*x
-/// where A is sparse (CscMatrix) and B is dense (row-major).
+/// where A and B are sparse (CscMatrix, symmetric lower triangle).
 /// Uses sparse shift-invert Lanczos with σ=0 (K⁻¹ M x).
 /// Falls back to dense for small problems, non-zero sigma, or on failure.
 pub fn lanczos_generalized_eigen_sparse(
     k_ff: &CscMatrix,
-    m_ff: &[f64],
-    n: usize,
+    m_ff: &CscMatrix,
     k: usize,
     sigma: f64,
 ) -> Option<EigenResult> {
+    let n = k_ff.n;
+    assert_eq!(m_ff.n, n, "K and M must have the same dimension");
     let k = k.min(n);
 
     // For small problems or large fraction of eigenvalues, use dense path
     if n <= 80 || k >= n / 2 {
         let k_dense = k_ff.to_dense_symmetric();
-        return solve_generalized_eigen(&k_dense, m_ff, n, 200).map(|full| {
+        let m_dense = m_ff.to_dense_symmetric();
+        return solve_generalized_eigen(&k_dense, &m_dense, n, 200).map(|full| {
             let nk = k.min(full.values.len());
             let values = full.values[..nk].to_vec();
             let mut vectors = vec![0.0; n * nk];
@@ -667,11 +665,12 @@ pub fn lanczos_generalized_eigen_sparse(
     // Non-zero sigma: fall back to dense Lanczos (requires building K - σM)
     if sigma.abs() > 1e-30 {
         let k_dense = k_ff.to_dense_symmetric();
-        return lanczos_generalized_eigen(&k_dense, m_ff, n, k, sigma);
+        let m_dense = m_ff.to_dense_symmetric();
+        return lanczos_generalized_eigen(&k_dense, &m_dense, n, k, sigma);
     }
 
     // Build sparse shift-invert operator: y = K⁻¹ M x
-    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, m_ff, n) {
+    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, m_ff) {
         let params = LanczosParams {
             max_iter: 300,
             tol: 1e-10,
@@ -707,20 +706,23 @@ pub fn lanczos_generalized_eigen_sparse(
 
     // Fallback to dense
     let k_dense = k_ff.to_dense_symmetric();
-    lanczos_generalized_eigen(&k_dense, m_ff, n, k, sigma)
+    let m_dense = m_ff.to_dense_symmetric();
+    lanczos_generalized_eigen(&k_dense, &m_dense, n, k, sigma)
 }
 
 /// Solve buckling eigenproblem (-Kg)*φ = μ*K*φ where K is sparse SPD
-/// and -Kg is dense indefinite. Returns μ eigenvalues (caller does λ = 1/μ).
+/// and -Kg is sparse indefinite (both CSC, symmetric lower triangle).
+/// Returns μ eigenvalues (caller does λ = 1/μ).
 ///
 /// For small n: dense Jacobi with `solve_generalized_eigen(-Kg, K)` (Cholesky on K, SPD).
 /// For large n: sparse shift-invert Lanczos finds largest μ = eigenvalues of K⁻¹(-Kg).
 pub fn lanczos_buckling_eigen_sparse(
     k_ff: &CscMatrix,
-    neg_kg: &[f64],
-    n: usize,
+    neg_kg: &CscMatrix,
     k: usize,
 ) -> Option<EigenResult> {
+    let n = k_ff.n;
+    assert_eq!(neg_kg.n, n, "K and Kg must have the same dimension");
     let k = k.min(n);
 
     // For small problems, use dense Jacobi: (-Kg)*φ = μ*K*φ
@@ -729,12 +731,13 @@ pub fn lanczos_buckling_eigen_sparse(
     // Return ALL eigenvalues — caller filters for positive μ.
     if n <= 200 || k >= n / 2 {
         let k_dense = k_ff.to_dense_symmetric();
-        return solve_generalized_eigen(neg_kg, &k_dense, n, 200);
+        let neg_kg_dense = neg_kg.to_dense_symmetric();
+        return solve_generalized_eigen(&neg_kg_dense, &k_dense, n, 200);
     }
 
     // Large n: sparse shift-invert Lanczos.
     // Operator: K⁻¹·(-Kg)·x — largest eigenvalues are the largest μ.
-    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, neg_kg, n) {
+    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, neg_kg) {
         let params = LanczosParams {
             max_iter: 300,
             tol: 1e-10,
@@ -763,7 +766,8 @@ pub fn lanczos_buckling_eigen_sparse(
 
     // Fallback to dense Jacobi — return ALL eigenvalues so caller can find positive μ
     let k_dense = k_ff.to_dense_symmetric();
-    solve_generalized_eigen(neg_kg, &k_dense, n, 200)
+    let neg_kg_dense = neg_kg.to_dense_symmetric();
+    solve_generalized_eigen(&neg_kg_dense, &k_dense, n, 200)
 }
 
 // ---------------------------------------------------------------------------
@@ -781,6 +785,91 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pre-sparse-mass shift-invert operator holding B as a dense matrix.
+    /// Kept as a parity reference: same sparse Cholesky factorization of K,
+    /// but B·x is a dense O(n²) matvec (the old `SparseShiftInvertOp`).
+    struct DenseBShiftInvertOp {
+        factor: crate::linalg::sparse_chol::NumericCholesky,
+        b_dense: Vec<f64>,
+        n: usize,
+    }
+
+    impl DenseBShiftInvertOp {
+        fn new(k_csc: &CscMatrix, b_dense: &[f64], n: usize) -> Option<Self> {
+            let sym = symbolic_cholesky(k_csc);
+            let factor = numeric_cholesky(&sym, k_csc)?;
+            Some(Self { factor, b_dense: b_dense.to_vec(), n })
+        }
+    }
+
+    impl MatVecOp for DenseBShiftInvertOp {
+        fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
+            let n = self.n;
+            let mut tmp = vec![0.0; n];
+            for i in 0..n {
+                let mut s = 0.0;
+                for j in 0..n { s += self.b_dense[i * n + j] * x[j]; }
+                tmp[i] = s;
+            }
+            let result = sparse_cholesky_solve(&self.factor, &tmp);
+            y[..n].copy_from_slice(&result);
+        }
+        fn dim(&self) -> usize { self.n }
+    }
+
+    #[test]
+    fn test_sparse_shift_invert_op_csc_vs_dense_parity() {
+        // Same K factorization, same Lanczos seed — only the B·x
+        // representation differs (CSC sym_mat_vec vs dense matvec).
+        // Eigenvalues must agree to ~1e-12 (summation-order rounding only).
+        let n = 120;
+        // K: 1-2-1 tridiagonal SPD (structural-like), as CSC triplets.
+        let mut rows = Vec::new();
+        let mut cols = Vec::new();
+        let mut vals = Vec::new();
+        for i in 0..n {
+            rows.push(i); cols.push(i); vals.push(2.0);
+            if i > 0 {
+                rows.push(i); cols.push(i - 1); vals.push(-1.0);
+            }
+        }
+        let k_csc = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+
+        // B: sparse SPD "mass-like" matrix (diagonally dominant tridiagonal
+        // with varying entries), built both as CSC and dense.
+        let mut brows = Vec::new();
+        let mut bcols = Vec::new();
+        let mut bvals = Vec::new();
+        for i in 0..n {
+            let d = 4.0 + 0.01 * i as f64;
+            brows.push(i); bcols.push(i); bvals.push(d);
+            if i > 0 {
+                let o = 0.5 + 0.001 * i as f64;
+                brows.push(i); bcols.push(i - 1); bvals.push(o);
+            }
+        }
+        let b_csc = CscMatrix::from_triplets(n, &brows, &bcols, &bvals);
+        let b_dense = b_csc.to_dense_symmetric();
+
+        let params = LanczosParams { max_iter: 300, tol: 1e-12, subspace_dim: Some(40) };
+        let k_modes = 6;
+
+        let sparse_op = SparseShiftInvertOp::new(&k_csc, &b_csc).unwrap();
+        let dense_op = DenseBShiftInvertOp::new(&k_csc, &b_dense, n).unwrap();
+
+        let sparse_res = lanczos_irlm(&sparse_op, k_modes, true, &params).unwrap();
+        let dense_res = lanczos_irlm(&dense_op, k_modes, true, &params).unwrap();
+
+        assert_eq!(sparse_res.values.len(), dense_res.values.len());
+        for i in 0..sparse_res.values.len() {
+            let a = sparse_res.values[i];
+            let b = dense_res.values[i];
+            let rel = (a - b).abs() / b.abs().max(1e-30);
+            assert!(rel < 1e-12,
+                "eigenvalue {}: sparse-op={:.15e}, dense-op={:.15e}, rel={:.2e}", i, a, b, rel);
+        }
+    }
 
     #[test]
     fn test_tridiag_eigen_diagonal() {

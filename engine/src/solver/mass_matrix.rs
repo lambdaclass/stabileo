@@ -131,6 +131,85 @@ fn truss_consistent_mass(rho_a: f64, l: f64) -> [f64; 16] {
     mat
 }
 
+/// Assemble consistent mass matrix for 2D structure as a sparse CSC matrix
+/// (lower triangle) over the free DOFs only (nf×nf block; free DOFs are
+/// numbered first). Same element contributions as `assemble_mass_matrix_2d`.
+pub fn assemble_mass_matrix_2d_sparse(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+) -> CscMatrix {
+    let nf = dof_num.n_free;
+    let mut rows: Vec<usize> = Vec::new();
+    let mut cols: Vec<usize> = Vec::new();
+    let mut vals: Vec<f64> = Vec::new();
+
+    let node_by_id: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let section_by_id: HashMap<usize, &SolverSection> = input.sections.values().map(|s| (s.id, s)).collect();
+
+    // Scatter one lower-triangle entry (i >= j of the symmetric element matrix).
+    macro_rules! scatter {
+        ($dofs:expr, $i:expr, $j:expr, $v:expr) => {{
+            let gi = $dofs[$i];
+            let gj = $dofs[$j];
+            let v = $v;
+            if gi < nf && gj < nf && v.abs() > 1e-30 {
+                rows.push(gi);
+                cols.push(gj);
+                vals.push(v);
+            }
+        }};
+    }
+
+    for elem in input.elements.values() {
+        let node_i = node_by_id[&elem.node_i];
+        let node_j = node_by_id[&elem.node_j];
+        let sec = section_by_id[&elem.section_id];
+
+        let density = densities.get(&elem.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 {
+            continue;
+        }
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy).sqrt();
+        let cos = dx / l;
+        let sin = dy / l;
+
+        let rho_a = density * sec.a / 1000.0; // tonnes/m
+
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            let m_local = truss_consistent_mass(rho_a, l);
+            let truss_dofs = [
+                dof_num.global_dof(elem.node_i, 0).unwrap(),
+                dof_num.global_dof(elem.node_i, 1).unwrap(),
+                dof_num.global_dof(elem.node_j, 0).unwrap(),
+                dof_num.global_dof(elem.node_j, 1).unwrap(),
+            ];
+            for i in 0..4 {
+                for j in 0..=i {
+                    scatter!(truss_dofs, i, j, m_local[i * 4 + j]);
+                }
+            }
+        } else {
+            let m_local = frame_consistent_mass(rho_a, l, elem.hinge_start, elem.hinge_end);
+            let t = crate::element::frame_transform_2d(cos, sin);
+            let m_glob = transform_stiffness(&m_local, &t, 6);
+
+            let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+            let ndof = elem_dofs.len();
+            for i in 0..ndof {
+                for j in 0..=i {
+                    scatter!(elem_dofs, i, j, m_glob[i * ndof + j]);
+                }
+            }
+        }
+    }
+
+    CscMatrix::from_triplets(nf, &rows, &cols, &vals)
+}
+
 /// Assemble consistent mass matrix for 3D structure.
 pub fn assemble_mass_matrix_3d(
     input: &SolverInput3D,
@@ -367,6 +446,242 @@ pub fn assemble_mass_matrix_3d(
     }
 
     m_global
+}
+
+/// Assemble consistent mass matrix for 3D structure as a sparse CSC matrix
+/// (lower triangle) over the free DOFs only (nf×nf block; free DOFs are
+/// numbered first). Same element contributions as `assemble_mass_matrix_3d`:
+/// frame/truss elements, plates, quads, quad9s, solid shells, curved shells,
+/// and warping-DOF lumped masses.
+pub fn assemble_mass_matrix_3d_sparse(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+) -> CscMatrix {
+    let nf = dof_num.n_free;
+    let left_hand = input.left_hand.unwrap_or(false);
+
+    let mut rows: Vec<usize> = Vec::new();
+    let mut cols: Vec<usize> = Vec::new();
+    let mut vals: Vec<f64> = Vec::new();
+
+    let node_by_id: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let section_by_id: HashMap<usize, &SolverSection3D> = input.sections.values().map(|s| (s.id, s)).collect();
+
+    /// Maps 12-DOF element indices to 14-DOF positions, skipping warping DOFs 6 and 13.
+    const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
+
+    // Scatter one lower-triangle entry (i >= j of the symmetric element matrix).
+    macro_rules! scatter {
+        ($dofs:expr, $i:expr, $j:expr, $v:expr) => {{
+            let gi = $dofs[$i];
+            let gj = $dofs[$j];
+            let v = $v;
+            if gi < nf && gj < nf && v.abs() > 1e-30 {
+                rows.push(gi);
+                cols.push(gj);
+                vals.push(v);
+            }
+        }};
+    }
+
+    for elem in input.elements.values() {
+        let node_i = node_by_id[&elem.node_i];
+        let node_j = node_by_id[&elem.node_j];
+        let sec = section_by_id[&elem.section_id];
+
+        let density = densities.get(&elem.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let dz = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let rho_a = density * sec.a / 1000.0; // tonnes/m
+
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            // 3D truss: M = ρAL/6 * [[2I₃, I₃],[I₃, 2I₃]]
+            let m = rho_a * l / 6.0;
+            let truss_dofs: Vec<usize> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).unwrap())
+                .chain((0..3).map(|i| dof_num.global_dof(elem.node_j, i).unwrap()))
+                .collect();
+            for i in 0..3 {
+                scatter!(truss_dofs, i, i, 2.0 * m);
+                scatter!(truss_dofs, i + 3, i + 3, 2.0 * m);
+                // Symmetric off-diagonal pair — push once (CSC stores lower triangle).
+                scatter!(truss_dofs, i + 3, i, m);
+            }
+        } else {
+            let m_local = frame_consistent_mass_3d(rho_a, sec.a, sec.iy, sec.iz, l,
+                crate::element::Hinge3D::from_elem(elem));
+
+            let (ex, ey, ez) = crate::element::compute_local_axes_3d(
+                node_i.x, node_i.y, node_i.z,
+                node_j.x, node_j.y, node_j.z,
+                elem.local_yx, elem.local_yy, elem.local_yz,
+                elem.roll_angle, left_hand,
+            );
+
+            if dof_num.dofs_per_node >= 7 {
+                // Warping model: embed 12×12 mass into 14-DOF space
+                let t = crate::element::frame_transform_3d(&ex, &ey, &ez);
+                let m_glob = transform_stiffness(&m_local, &t, 12);
+                let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+
+                for i in 0..12 {
+                    for j in 0..=i {
+                        let gi14 = DOF_MAP_12_TO_14[i];
+                        let gj14 = DOF_MAP_12_TO_14[j];
+                        scatter!(elem_dofs, gi14, gj14, m_glob[i * 12 + j]);
+                    }
+                }
+
+                // Warping mass: lumped polar mass moment at warping DOFs (diagonal).
+                if let Some(cw) = sec.cw {
+                    if cw > 0.0 {
+                        let ip = sec.iy + sec.iz; // polar second moment (approx)
+                        let m_warp = density * ip * l / (2.0 * 1000.0); // tonnes·m
+                        scatter!(elem_dofs, 6, 6, m_warp);   // warping DOF node I
+                        scatter!(elem_dofs, 13, 13, m_warp); // warping DOF node J
+                    }
+                }
+            } else {
+                let t = crate::element::frame_transform_3d(&ex, &ey, &ez);
+                let m_glob = transform_stiffness(&m_local, &t, 12);
+
+                let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+                let ndof = elem_dofs.len();
+                for i in 0..ndof {
+                    for j in 0..=i {
+                        scatter!(elem_dofs, i, j, m_glob[i * ndof + j]);
+                    }
+                }
+            }
+        }
+    }
+
+    // Assemble plate element masses (lumped/diagonal 18×18, no rotation needed)
+    for plate in input.plates.values() {
+        let density = densities.get(&plate.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let node_1 = node_by_id[&plate.nodes[0]];
+        let node_2 = node_by_id[&plate.nodes[1]];
+        let node_3 = node_by_id[&plate.nodes[2]];
+
+        let coords = [
+            [node_1.x, node_1.y, node_1.z],
+            [node_2.x, node_2.y, node_2.z],
+            [node_3.x, node_3.y, node_3.z],
+        ];
+
+        let m_local = crate::element::plate::plate_consistent_mass(&coords, density / 1000.0, plate.thickness);
+
+        let mut plate_dofs = Vec::with_capacity(18);
+        for &node_id in &plate.nodes {
+            for dof_idx in 0..6 {
+                plate_dofs.push(dof_num.global_dof(node_id, dof_idx).unwrap());
+            }
+        }
+
+        for i in 0..18 {
+            for j in 0..=i {
+                scatter!(plate_dofs, i, j, m_local[i * 18 + j]);
+            }
+        }
+    }
+
+    // Assemble quad (MITC4 shell) element masses
+    for quad in input.quads.values() {
+        let density = densities.get(&quad.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let n0 = node_by_id[&quad.nodes[0]];
+        let n1 = node_by_id[&quad.nodes[1]];
+        let n2 = node_by_id[&quad.nodes[2]];
+        let n3 = node_by_id[&quad.nodes[3]];
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+            [n3.x, n3.y, n3.z],
+        ];
+
+        let m_local = crate::element::quad::quad_consistent_mass(&coords, density / 1000.0, quad.thickness);
+
+        let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+        for i in 0..24 {
+            for j in 0..=i {
+                scatter!(quad_dofs, i, j, m_local[i * 24 + j]);
+            }
+        }
+    }
+
+    // Assemble quad9 (MITC9 shell) element masses
+    for quad9 in input.quad9s.values() {
+        let density = densities.get(&quad9.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let mut coords = [[0.0f64; 3]; 9];
+        for (i, &nid) in quad9.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+
+        let m_local = crate::element::quad9::quad9_consistent_mass(&coords, density / 1000.0, quad9.thickness);
+
+        let q9_dofs = dof_num.quad9_element_dofs(&quad9.nodes);
+        for i in 0..54 {
+            for j in 0..=i {
+                scatter!(q9_dofs, i, j, m_local[i * 54 + j]);
+            }
+        }
+    }
+
+    // Assemble solid-shell element masses
+    for ss in input.solid_shells.values() {
+        let density = densities.get(&ss.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let mut coords = [[0.0f64; 3]; 8];
+        for (i, &nid) in ss.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+
+        let m_local = crate::element::solid_shell::solid_shell_consistent_mass(&coords, density / 1000.0);
+
+        let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+        for i in 0..24 {
+            for j in 0..=i {
+                scatter!(ss_dofs, i, j, m_local[i * 24 + j]);
+            }
+        }
+    }
+
+    // Assemble curved shell element masses
+    for cs in input.curved_shells.values() {
+        let density = densities.get(&cs.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let mut coords = [[0.0f64; 3]; 4];
+        for (i, &nid) in cs.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+        let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+
+        let m_local = crate::element::curved_shell::curved_shell_consistent_mass(&coords, &dirs, density / 1000.0, cs.thickness);
+
+        let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+        for i in 0..24 {
+            for j in 0..=i {
+                scatter!(cs_dofs, i, j, m_local[i * 24 + j]);
+            }
+        }
+    }
+
+    CscMatrix::from_triplets(nf, &rows, &cols, &vals)
 }
 
 /// Consistent mass matrix for 3D frame element (12×12 local).

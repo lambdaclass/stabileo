@@ -1155,6 +1155,67 @@ fn bench_staged(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── 3D Modal sparse-mass benchmarks ────────────────────────
+
+/// Large 3D frame (nf ≈ 2160): dense-mass vs sparse-mass sparse-Lanczos.
+fn bench_modal_3d_sparse_mass(c: &mut Criterion) {
+    use dedaliano_engine::linalg::{lanczos_generalized_eigen_sparse, CscMatrix};
+    use dedaliano_engine::solver::assembly::assemble_sparse_3d;
+    use dedaliano_engine::solver::dof::DofNumbering;
+    use dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d;
+    use dedaliano_engine::linalg::extract_submatrix;
+
+    let mut group = c.benchmark_group("modal_3d_sparse_mass");
+    group.sample_size(10);
+    let densities = make_densities();
+    let input = make_frame_3d(40, 8); // 369 nodes → nf = 2160
+
+    // End-to-end modal solve (assembly + eigensolve + participation).
+    group.bench_function("e2e_solve_modal_3d", |b| {
+        b.iter(|| modal::solve_modal_3d(&input, &densities, 8).unwrap());
+    });
+
+    // Pre-assemble K (CSC) and M (dense + CSC) for eigen/matvec-level benches.
+    let dof_num = DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+    let sasm = assemble_sparse_3d(&input, &dof_num, false);
+    let m_full = assemble_mass_matrix_3d(&input, &dof_num, &densities);
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
+    let m_csc = CscMatrix::from_dense_symmetric(&m_ff, nf);
+    println!("nf={} k_nnz={} m_nnz={} m_dense_MB={:.1}",
+        nf, sasm.k_ff.nnz(), m_csc.nnz(), (nf * nf * 8) as f64 / 1e6);
+
+    // Eigen-level: sparse shift-invert Lanczos, sparse M·x per iteration.
+    group.bench_function("eig_sparse_mass", |b| {
+        b.iter(|| {
+            lanczos_generalized_eigen_sparse(&sasm.k_ff, &m_csc, 8, 0.0).unwrap()
+        });
+    });
+
+    // Matvec-level: M·x dense O(n²) vs sparse O(nnz).
+    let x: Vec<f64> = (0..nf)
+        .map(|i| ((i.wrapping_mul(2654435761)) % 1000) as f64 / 1000.0 - 0.5)
+        .collect();
+    group.bench_function("matvec_dense_mass", |b| {
+        b.iter(|| {
+            let mut y = vec![0.0; nf];
+            for i in 0..nf {
+                let mut s = 0.0;
+                for j in 0..nf { s += m_ff[i * nf + j] * x[j]; }
+                y[i] = s;
+            }
+            std::hint::black_box(y)
+        });
+    });
+    group.bench_function("matvec_sparse_mass", |b| {
+        b.iter(|| std::hint::black_box(m_csc.sym_mat_vec(std::hint::black_box(&x))));
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_json_roundtrip,
@@ -1163,6 +1224,7 @@ criterion_group!(
     bench_json_solve,
     bench_buckling,
     bench_modal,
+    bench_modal_3d_sparse_mass,
     bench_pdelta,
     bench_plastic,
     bench_linear_beam_3d,

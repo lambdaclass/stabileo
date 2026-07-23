@@ -14,6 +14,7 @@ mod postprocess;
 mod beam_stations;
 mod beam_stations_3d;
 mod sparse;
+mod sparse_mass;
 mod diagnostics;
 mod thermal_2d;
 mod thermal_3d;

@@ -87,7 +87,9 @@ pub fn solve_buckling_2d(
     // No-constraint path: sparse shift-invert Lanczos (K⁻¹(-Kg)x, K factorized by sparse Cholesky).
     // Constraint path: dense Jacobi (needs dense K for reduce_matrix).
     let (result, ns) = if cs.is_none() {
-        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_ff, nf, num_modes)
+        // -Kg is element-sparse: CSC matvec is O(nnz) per Lanczos iteration.
+        let neg_kg_csc = CscMatrix::from_dense_symmetric(&neg_kg_ff, nf);
+        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_csc, num_modes)
             .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
         (r, nf)
     } else {
@@ -310,7 +312,9 @@ pub fn solve_buckling_3d(
     // No-constraint path: sparse shift-invert Lanczos (K⁻¹(-Kg)x, K factorized by sparse Cholesky).
     // Constraint path: dense Jacobi (needs dense K for reduce_matrix).
     let (result, ns) = if cs.is_none() {
-        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_ff, nf, num_modes)
+        // -Kg is element-sparse: CSC matvec is O(nnz) per Lanczos iteration.
+        let neg_kg_csc = CscMatrix::from_dense_symmetric(&neg_kg_ff, nf);
+        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_csc, num_modes)
             .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
         (r, nf)
     } else {

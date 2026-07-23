@@ -177,24 +177,25 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 
     let sasm = assemble_sparse_3d(&input.solver, &dof_num, false);
     let f_ff: Vec<f64> = sasm.f[..nf].to_vec();
-    let m_full = assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
-
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint reduction if constraints present
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
 
-    // No constraints: try sparse modal path (avoids to_dense_symmetric)
+    // No constraints: try sparse modal path with sparse mass
+    // (avoids the dense n² mass matrix entirely)
     if cs.is_none() {
+        let m_csc = assemble_mass_matrix_3d_sparse(&input.solver, &dof_num, &input.densities);
         if let Some((response_points, peak_frequency, peak_amplitude)) =
-            solve_harmonic_modal_sparse(&sasm.k_ff, &m_ff, &f_ff, nf, &input.frequencies, input.damping_ratio, target_dof)
+            solve_harmonic_modal_sparse(&sasm.k_ff, &m_csc, &f_ff, &input.frequencies, input.damping_ratio, target_dof)
         {
             return Ok(HarmonicResult { response_points, peak_frequency, peak_amplitude });
         }
     }
 
     // Dense path: convert to dense for constraints or sparse failure
+    let m_full = assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let k_ff = sasm.k_ff.to_dense_symmetric();
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
@@ -269,10 +270,11 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 /// Shared post-eigensolve logic: given eigen-decomposition, compute modal
 /// frequency response via superposition.
 ///
+/// `m_times` computes M·x (dense or sparse representation — the caller picks).
 /// Returns None if no usable modes are found.
 fn harmonic_modal_from_eigen(
     eigen: &EigenResult,
-    m: &[f64],
+    m_times: &dyn Fn(&[f64]) -> Vec<f64>,
     f: &[f64],
     n: usize,
     frequencies: &[f64],
@@ -309,17 +311,10 @@ fn harmonic_modal_from_eigen(
         let lam = eigen.values[j];
         omega_j.push(lam.sqrt());
 
-        let mut mj = 0.0;
-        let mut fj = 0.0;
-        for i in 0..n {
-            let phi_i = eigen.vectors[i * nk + j];
-            fj += phi_i * f[i];
-            let mut m_phi_i = 0.0;
-            for q in 0..n {
-                m_phi_i += m[i * n + q] * eigen.vectors[q * nk + j];
-            }
-            mj += phi_i * m_phi_i;
-        }
+        let phi_j: Vec<f64> = (0..n).map(|i| eigen.vectors[i * nk + j]).collect();
+        let m_phi = m_times(&phi_j);
+        let mj: f64 = phi_j.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
+        let fj: f64 = phi_j.iter().zip(f.iter()).map(|(a, b)| a * b).sum();
 
         modal_mass.push(mj);
         modal_force.push(fj);
@@ -394,20 +389,33 @@ fn solve_harmonic_modal(
 
     let n_modes = 100.min(n / 2).max(2);
     let eigen = lanczos_generalized_eigen(k, m, n, n_modes, 0.0)?;
-    harmonic_modal_from_eigen(&eigen, m, f, n, frequencies, damping_ratio, target_dof)
+    let m_times = |x: &[f64]| {
+        let mut y = vec![0.0; n];
+        for i in 0..n {
+            let mut s = 0.0;
+            for q in 0..n {
+                s += m[i * n + q] * x[q];
+            }
+            y[i] = s;
+        }
+        y
+    };
+    harmonic_modal_from_eigen(&eigen, &m_times, f, n, frequencies, damping_ratio, target_dof)
 }
 
-/// Modal superposition harmonic solver (sparse eigensolve on CSC K_ff).
+/// Modal superposition harmonic solver (sparse eigensolve on CSC K_ff and CSC M_ff).
 fn solve_harmonic_modal_sparse(
-    k_csc: &CscMatrix, m: &[f64], f: &[f64], n: usize,
+    k_csc: &CscMatrix, m: &CscMatrix, f: &[f64],
     frequencies: &[f64], damping_ratio: f64,
     target_dof: usize,
 ) -> Option<(Vec<HarmonicResponsePoint>, f64, f64)> {
+    let n = k_csc.n;
     if frequencies.is_empty() || n == 0 { return None; }
 
     let n_modes = 100.min(n / 2).max(2);
-    let eigen = lanczos_generalized_eigen_sparse(k_csc, m, n, n_modes, 0.0)?;
-    harmonic_modal_from_eigen(&eigen, m, f, n, frequencies, damping_ratio, target_dof)
+    let eigen = lanczos_generalized_eigen_sparse(k_csc, m, n_modes, 0.0)?;
+    let m_times = |x: &[f64]| m.sym_mat_vec(x);
+    harmonic_modal_from_eigen(&eigen, &m_times, f, n, frequencies, damping_ratio, target_dof)
 }
 
 // ==================== Helpers ====================
