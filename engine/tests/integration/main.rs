@@ -13,6 +13,7 @@ mod foundation_check;
 mod harmonic;
 mod influence_3d;
 mod load_cases;
+mod multi_case_parity;
 mod masonry_check;
 mod material_nonlinear_3d;
 mod moving_loads_3d;

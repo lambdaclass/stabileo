@@ -1,6 +1,7 @@
-/// LU decomposition with partial pivoting.
-/// Solves A*x = b. Returns None if singular.
-pub fn lu_solve(a: &mut [f64], b: &mut [f64], n: usize) -> Option<Vec<f64>> {
+/// LU factorization with partial pivoting (in-place).
+/// Returns the row permutation on success, None if singular.
+/// After the call, `a` holds the combined L-U factors (L below diagonal, unit diagonal implied).
+pub fn lu_factor(a: &mut [f64], n: usize) -> Option<Vec<usize>> {
     let mut piv = vec![0usize; n];
     for i in 0..n {
         piv[i] = i;
@@ -36,6 +37,12 @@ pub fn lu_solve(a: &mut [f64], b: &mut [f64], n: usize) -> Option<Vec<f64>> {
         }
     }
 
+    Some(piv)
+}
+
+/// Solve A*x = b given the in-place LU factors from `lu_factor`.
+/// Returns None if the solution contains NaN/Inf.
+pub fn lu_apply(a: &[f64], piv: &[usize], b: &[f64], n: usize) -> Option<Vec<f64>> {
     // Forward substitution (Ly = Pb)
     let mut y = vec![0.0; n];
     for i in 0..n {
@@ -63,6 +70,13 @@ pub fn lu_solve(a: &mut [f64], b: &mut [f64], n: usize) -> Option<Vec<f64>> {
     }
 
     Some(x)
+}
+
+/// LU decomposition with partial pivoting.
+/// Solves A*x = b. Returns None if singular.
+pub fn lu_solve(a: &mut [f64], b: &mut [f64], n: usize) -> Option<Vec<f64>> {
+    let piv = lu_factor(a, n)?;
+    lu_apply(a, &piv, b, n)
 }
 
 /// Compute rank of matrix via LU with partial pivoting.

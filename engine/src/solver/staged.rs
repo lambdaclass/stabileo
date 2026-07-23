@@ -358,7 +358,7 @@ fn assemble_staged_2d(
 
             // Assemble element loads (FEF) for this stage's loads
             assemble_element_loads_2d(
-                stage_input, elem, &k_local, &t, l, e, sec, node_i, &elem_dofs, &mut f_global,
+                &stage_input.loads, elem, &t, l, e, sec, &elem_dofs, &mut f_global,
             );
         }
     }

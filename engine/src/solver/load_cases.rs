@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::solver::linear::{solve_2d, solve_3d};
+use crate::solver::linear::{prepare_static_2d, prepare_static_3d, solve_3d};
 use crate::postprocess::combinations::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -98,23 +98,23 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
         return Err("No combinations defined".into());
     }
 
-    // Solve each load case independently
+    // Prepare the structure once (assembly + factorization of K).
+    // Historical behavior: constraints and connectors are ignored in
+    // multi-case 2D, and only the per-case load lists are used.
+    let mut solver = input.solver.clone();
+    solver.loads = vec![];
+    solver.constraints = vec![];
+    solver.connectors = HashMap::new();
+
+    let prepared = prepare_static_2d(&solver)
+        .map_err(|e| format!("Failed to solve case '{}': {}", input.load_cases[0].name, e))?;
+
+    // Solve each load case with the shared factorization
     let mut case_results = Vec::new();
     let mut case_map: HashMap<String, usize> = HashMap::new();
 
     for (idx, lc) in input.load_cases.iter().enumerate() {
-        let case_input = SolverInput {
-            nodes: input.solver.nodes.clone(),
-            materials: input.solver.materials.clone(),
-            sections: input.solver.sections.clone(),
-            elements: input.solver.elements.clone(),
-            supports: input.solver.supports.clone(),
-            loads: lc.loads.clone(),
-            constraints: vec![],
-            connectors: HashMap::new(),
-        };
-
-        let results = solve_2d(&case_input)
+        let results = prepared.solve_loads(&lc.loads)
             .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
 
         case_map.insert(lc.name.clone(), idx);
@@ -124,8 +124,13 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
         });
     }
 
-    // Generate combined results for each combination
-    let mut combination_results = Vec::new();
+    // Generate combined results for each combination (borrowing case results)
+    let case_refs: Vec<(usize, &AnalysisResults)> = case_results
+        .iter()
+        .enumerate()
+        .map(|(idx, cr)| (idx, &cr.results))
+        .collect();
+    let mut combo_names: Vec<String> = Vec::new();
     let mut all_combined_results: Vec<AnalysisResults> = Vec::new();
 
     for combo in &input.combinations {
@@ -139,30 +144,21 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
             }
         }
 
-        let cases: Vec<CaseEntry> = case_results.iter().enumerate()
-            .map(|(idx, cr)| CaseEntry {
-                case_id: idx,
-                results: cr.results.clone(),
-            })
-            .collect();
-
-        let combo_input = CombinationInput {
-            factors: combo_factors,
-            cases,
-        };
-
-        if let Some(combined) = combine_results(&combo_input) {
-            all_combined_results.push(combined.clone());
-            combination_results.push(CombinedResult {
-                name: combo.name.clone(),
-                results: combined,
-            });
+        if let Some(combined) = combine_results_refs(&combo_factors, &case_refs) {
+            all_combined_results.push(combined);
+            combo_names.push(combo.name.clone());
         }
     }
 
     // Compute envelope from all combination results
     let envelope = compute_envelope(&all_combined_results)
         .ok_or_else(|| "Failed to compute envelope".to_string())?;
+
+    let combination_results = combo_names
+        .into_iter()
+        .zip(all_combined_results)
+        .map(|(name, results)| CombinedResult { name, results })
+        .collect();
 
     Ok(MultiCaseResult {
         case_results,
@@ -181,6 +177,81 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
         return Err("No combinations defined".into());
     }
 
+    // Constraints delegate to the constrained solver per case — keep the
+    // legacy per-case path for that (rare) configuration.
+    if !input.solver.constraints.is_empty() {
+        return solve_multi_case_3d_per_case(input);
+    }
+
+    // Prepare the structure once (assembly + factorization of K).
+    // Historical behavior: connectors are ignored in multi-case 3D, and only
+    // the per-case load lists are used.
+    let mut solver = input.solver.clone();
+    solver.loads = vec![];
+    solver.connectors = HashMap::new();
+
+    let prepared = prepare_static_3d(&solver)
+        .map_err(|e| format!("Failed to solve case '{}': {}", input.load_cases[0].name, e))?;
+
+    let mut case_results = Vec::new();
+    let mut case_map: HashMap<String, usize> = HashMap::new();
+
+    for (idx, lc) in input.load_cases.iter().enumerate() {
+        let results = prepared.solve_loads(&lc.loads)
+            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+
+        case_map.insert(lc.name.clone(), idx);
+        case_results.push(CaseResult3D {
+            name: lc.name.clone(),
+            results,
+        });
+    }
+
+    let case_refs: Vec<(usize, &AnalysisResults3D)> = case_results
+        .iter()
+        .enumerate()
+        .map(|(idx, cr)| (idx, &cr.results))
+        .collect();
+    let mut combo_names: Vec<String> = Vec::new();
+    let mut all_combined_results: Vec<AnalysisResults3D> = Vec::new();
+
+    for combo in &input.combinations {
+        let mut combo_factors = Vec::new();
+        for (case_name, &factor) in &combo.factors {
+            if let Some(&idx) = case_map.get(case_name) {
+                combo_factors.push(CombinationFactor {
+                    case_id: idx,
+                    factor,
+                });
+            }
+        }
+
+        if let Some(combined) = combine_results_3d_refs(&combo_factors, &case_refs) {
+            all_combined_results.push(combined);
+            combo_names.push(combo.name.clone());
+        }
+    }
+
+    let envelope = compute_envelope_3d(&all_combined_results)
+        .ok_or_else(|| "Failed to compute envelope".to_string())?;
+
+    let combination_results = combo_names
+        .into_iter()
+        .zip(all_combined_results)
+        .map(|(name, results)| CombinedResult3D { name, results })
+        .collect();
+
+    Ok(MultiCaseResult3D {
+        case_results,
+        combination_results,
+        envelope,
+    })
+}
+
+/// Legacy per-case 3D multi-case path: one full `solve_3d` per load case.
+/// Retained for models with constraints (which delegate to the constrained
+/// solver per case load set).
+fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D, String> {
     let mut case_results = Vec::new();
     let mut case_map: HashMap<String, usize> = HashMap::new();
 
@@ -213,7 +284,12 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
         });
     }
 
-    let mut combination_results = Vec::new();
+    let case_refs: Vec<(usize, &AnalysisResults3D)> = case_results
+        .iter()
+        .enumerate()
+        .map(|(idx, cr)| (idx, &cr.results))
+        .collect();
+    let mut combo_names: Vec<String> = Vec::new();
     let mut all_combined_results: Vec<AnalysisResults3D> = Vec::new();
 
     for combo in &input.combinations {
@@ -227,29 +303,20 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
             }
         }
 
-        let cases: Vec<CaseEntry3D> = case_results.iter().enumerate()
-            .map(|(idx, cr)| CaseEntry3D {
-                case_id: idx,
-                results: cr.results.clone(),
-            })
-            .collect();
-
-        let combo_input = CombinationInput3D {
-            factors: combo_factors,
-            cases,
-        };
-
-        if let Some(combined) = combine_results_3d(&combo_input) {
-            all_combined_results.push(combined.clone());
-            combination_results.push(CombinedResult3D {
-                name: combo.name.clone(),
-                results: combined,
-            });
+        if let Some(combined) = combine_results_3d_refs(&combo_factors, &case_refs) {
+            all_combined_results.push(combined);
+            combo_names.push(combo.name.clone());
         }
     }
 
     let envelope = compute_envelope_3d(&all_combined_results)
         .ok_or_else(|| "Failed to compute envelope".to_string())?;
+
+    let combination_results = combo_names
+        .into_iter()
+        .zip(all_combined_results)
+        .map(|(name, results)| CombinedResult3D { name, results })
+        .collect();
 
     Ok(MultiCaseResult3D {
         case_results,

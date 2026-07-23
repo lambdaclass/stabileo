@@ -1155,6 +1155,89 @@ fn bench_staged(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── Multi-case load-case factorization reuse (3D frame, sparse path) ─────
+
+fn make_multi_case_input_3d(base: &SolverInput3D, n_cases: usize) -> dedaliano_engine::solver::load_cases::MultiCaseInput3D {
+    use dedaliano_engine::solver::load_cases::*;
+    let load_cases: Vec<LoadCase3D> = (0..n_cases)
+        .map(|k| {
+            let scale = 1.0 + k as f64 * 0.25;
+            let loads: Vec<SolverLoad3D> = base
+                .loads
+                .iter()
+                .map(|l| match l {
+                    SolverLoad3D::Nodal(nl) => SolverLoad3D::Nodal(SolverNodalLoad3D {
+                        node_id: nl.node_id,
+                        fx: nl.fx * scale,
+                        fy: nl.fy * scale,
+                        fz: nl.fz * scale,
+                        mx: nl.mx,
+                        my: nl.my,
+                        mz: nl.mz,
+                        bw: nl.bw,
+                    }),
+                    other => other.clone(),
+                })
+                .collect();
+            LoadCase3D { name: format!("Case{}", k + 1), loads }
+        })
+        .collect();
+    let factors: HashMap<String, f64> = load_cases
+        .iter()
+        .map(|lc| (lc.name.clone(), 1.0))
+        .collect();
+    MultiCaseInput3D {
+        solver: SolverInput3D { loads: vec![], ..base.clone() },
+        load_cases,
+        combinations: vec![CombinationDef { name: "All".to_string(), factors }],
+    }
+}
+
+fn bench_multi_case(c: &mut Criterion) {
+    let mut group = c.benchmark_group("multi_case");
+    let base = make_frame_3d(10, 3);
+
+    for n_cases in [1usize, 4, 16] {
+        let input = make_multi_case_input_3d(&base, n_cases);
+
+        // Baseline: N independent full solves (old multi-case behavior)
+        group.bench_with_input(BenchmarkId::new("naive_full_solves", n_cases), &input, |b, input| {
+            b.iter(|| {
+                for lc in &input.load_cases {
+                    let case_input = SolverInput3D {
+                        nodes: input.solver.nodes.clone(),
+                        materials: input.solver.materials.clone(),
+                        sections: input.solver.sections.clone(),
+                        elements: input.solver.elements.clone(),
+                        supports: input.solver.supports.clone(),
+                        loads: lc.loads.clone(),
+                        left_hand: input.solver.left_hand,
+                        plates: input.solver.plates.clone(),
+                        quads: input.solver.quads.clone(),
+                        quad9s: input.solver.quad9s.clone(),
+                        solid_shells: input.solver.solid_shells.clone(),
+                        curved_shells: input.solver.curved_shells.clone(),
+                        curved_beams: input.solver.curved_beams.clone(),
+                        constraints: vec![],
+                        connectors: HashMap::new(),
+                    };
+                    criterion::black_box(linear::solve_3d(&case_input).unwrap());
+                }
+            });
+        });
+
+        // New: prepared multi-case (assemble + factorize once, rebuild only f per case)
+        group.bench_with_input(BenchmarkId::new("prepared_multi_case", n_cases), &input, |b, input| {
+            b.iter(|| {
+                criterion::black_box(
+                    dedaliano_engine::solver::load_cases::solve_multi_case_3d(input).unwrap(),
+                );
+            });
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_json_roundtrip,
@@ -1169,6 +1252,7 @@ criterion_group!(
     bench_linear_frame_3d,
     bench_modal_3d,
     bench_pdelta_3d,
+    bench_multi_case,
     bench_moving_loads,
     bench_cable,
     bench_constraints,

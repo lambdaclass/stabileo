@@ -99,8 +99,16 @@ const N_POINTS: usize = 21;
 
 /// Linearly combine AnalysisResults from multiple load cases.
 pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
-    let template = input.cases.first()?;
-    let tr = &template.results;
+    let cases: Vec<(usize, &AnalysisResults)> =
+        input.cases.iter().map(|c| (c.case_id, &c.results)).collect();
+    combine_results_refs(&input.factors, &cases)
+}
+
+/// `combine_results` over borrowed case results: `(case_id, &results)` pairs,
+/// avoiding per-combination clones of every case.
+pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Option<AnalysisResults> {
+    let template = cases.first()?;
+    let tr = template.1;
 
     let mut displacements: Vec<Displacement> = tr.displacements.iter()
         .map(|d| Displacement { node_id: d.node_id, ux: 0.0, uz: 0.0, ry: 0.0 })
@@ -119,10 +127,10 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
         })
         .collect();
 
-    for cf in &input.factors {
-        let case = input.cases.iter().find(|c| c.case_id == cf.case_id);
+    for cf in factors {
+        let case = cases.iter().find(|c| c.0 == cf.case_id);
         let r = match case {
-            Some(c) => &c.results,
+            Some(c) => c.1,
             None => continue,
         };
         let f = cf.factor;
@@ -251,8 +259,16 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
 
 /// Linearly combine 3D results.
 pub fn combine_results_3d(input: &CombinationInput3D) -> Option<AnalysisResults3D> {
-    let template = input.cases.first()?;
-    let tr = &template.results;
+    let cases: Vec<(usize, &AnalysisResults3D)> =
+        input.cases.iter().map(|c| (c.case_id, &c.results)).collect();
+    combine_results_3d_refs(&input.factors, &cases)
+}
+
+/// `combine_results_3d` over borrowed case results: `(case_id, &results)` pairs,
+/// avoiding per-combination clones of every case.
+pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)]) -> Option<AnalysisResults3D> {
+    let template = cases.first()?;
+    let tr = template.1;
 
     let mut displacements: Vec<Displacement3D> = tr.displacements.iter()
         .map(|d| Displacement3D { node_id: d.node_id, ux: 0.0, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None })
@@ -274,9 +290,9 @@ pub fn combine_results_3d(input: &CombinationInput3D) -> Option<AnalysisResults3
             distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
         .collect();
 
-    for cf in &input.factors {
-        let case = input.cases.iter().find(|c| c.case_id == cf.case_id);
-        let r = match case { Some(c) => &c.results, None => continue };
+    for cf in factors {
+        let case = cases.iter().find(|c| c.0 == cf.case_id);
+        let r = match case { Some(c) => c.1, None => continue };
         let f = cf.factor;
 
         for (i, d) in r.displacements.iter().enumerate() {

@@ -168,7 +168,7 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
                 diag_vals[elem_dofs[i]] += k_glob[i * ndof + i];
             }
 
-            assemble_element_loads_2d(input, elem, &k_local, &t, l, e, sec, node_i, &elem_dofs, &mut f_global);
+            assemble_element_loads_2d(&input.loads, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
         }
     }
 
@@ -501,8 +501,9 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
 
 use super::assembly::SparseAssemblyResult3D;
 
+use super::assembly::InclinedTransformData;
 #[cfg(feature = "parallel")]
-use super::assembly::{InclinedTransformData, apply_inclined_transform_triplets, inclined_rotation_matrix};
+use super::assembly::inclined_rotation_matrix;
 
 #[cfg(feature = "parallel")]
 const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
@@ -514,7 +515,6 @@ struct ElementContribution3D {
     trip_cols: Vec<usize>,
     trip_vals: Vec<f64>,
     diag_contributions: Vec<(usize, f64)>,
-    force_contributions: Vec<(usize, f64)>,
     diagnostics: Vec<AssemblyDiagnostic>,
 }
 
@@ -585,13 +585,14 @@ fn scatter_triplets(
     }
 }
 
-/// Parallel 3D sparse assembly using rayon.
+/// Parallel 3D sparse stiffness assembly using rayon (load-independent).
+/// The force vector is built separately by `assemble_load_vector_3d_sparse_parallel`.
 ///
 /// Each element computes its stiffness independently, collecting local triplets.
-/// After the parallel phase, nodal loads / springs / inclined transforms /
-/// diagnostics are processed sequentially.
+/// After the parallel phase, springs / inclined transforms / diagnostics are
+/// processed sequentially.
 #[cfg(feature = "parallel")]
-pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering, build_k_full: bool) -> SparseAssemblyResult3D {
+pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering, build_k_full: bool) -> super::assembly::StiffnessSparseAssembly3D {
     use rayon::prelude::*;
     use crate::element;
     use crate::element::compute_local_axes_3d;
@@ -607,7 +608,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
         input.materials.values().map(|m| (m.id, m)).collect();
     let sec_map: std::collections::HashMap<usize, &SolverSection3D> =
         input.sections.values().map(|s| (s.id, s)).collect();
-    let load_index = build_load_index_3d(&input.loads);
 
     // Collect all elements into unified vec, sorted by ID for deterministic assembly.
     // HashMap iteration order is randomized in Rust; without sorting, triplet
@@ -637,7 +637,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
         let mut trip_cols = Vec::new();
         let mut trip_vals = Vec::new();
         let mut diag = Vec::new();
-        let mut forces = Vec::new();
         let mut diagnostics = Vec::new();
 
         match any_elem {
@@ -677,23 +676,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                             }
                         }
                     }
-                    // Assemble thermal FEF for truss elements
-                    if let Some(elem_loads) = load_index.get(&elem.id) {
-                        for load in elem_loads {
-                            if let SolverLoad3D::Thermal(tl) = load {
-                                let alpha = 12e-6;
-                                let fx = e * sec.a * alpha * tl.dt_uniform;
-                                for k in 0..3 {
-                                    if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) {
-                                        forces.push((d, -fx * dir[k]));
-                                    }
-                                    if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) {
-                                        forces.push((d, fx * dir[k]));
-                                    }
-                                }
-                            }
-                        }
-                    }
                 } else {
                     let (ex, ey, ez) = compute_local_axes_3d(
                         node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
@@ -721,51 +703,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                         let k_glob = transform_stiffness(&k_local, &t, 14);
                         let ndof = elem_dofs.len();
                         scatter_triplets(&k_glob, &elem_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
-                        // Warping element loads
-                        if let Some(elem_loads) = load_index.get(&elem.id) {
-                            for load in elem_loads {
-                                match load {
-                                    SolverLoad3D::Distributed(dl) => {
-                                        let a = dl.a.unwrap_or(0.0);
-                                        let b = dl.b.unwrap_or(l);
-                                        let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
-                                        let mut fef12 = if is_full {
-                                            element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
-                                        } else {
-                                            element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
-                                        };
-                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef14 = element::expand_fef_12_to_14(&fef12);
-                                        let fef_global = transform_force(&fef14, &t, 14);
-                                        for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
-                                    }
-                                    SolverLoad3D::PointOnElement(pl) => {
-                                        let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
-                                        let mut fef12 = [0.0; 12];
-                                        fef12[1] = fef_y[1]; fef12[5] = fef_y[2];
-                                        fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
-                                        let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                                        fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
-                                        fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
-                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef14 = element::expand_fef_12_to_14(&fef12);
-                                        let fef_global = transform_force(&fef14, &t, 14);
-                                        for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
-                                    }
-                                    SolverLoad3D::Thermal(tl) => {
-                                        let alpha = 12e-6;
-                                        let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
-                                        let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
-                                        let mut fef12 = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
-                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef14 = element::expand_fef_12_to_14(&fef12);
-                                        let fef_global = transform_force(&fef14, &t, 14);
-                                        for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
                     } else if dof_num.dofs_per_node >= 7 {
                         let k_local = element::frame_local_stiffness_3d(
                             e, sec.a, sec.iy, sec.iz, sec.j, l, g,
@@ -785,48 +722,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                             }
                             if gi < nf { diag.push((gi, k_glob[i * 12 + i])); }
                         }
-                        // Mapped element loads (12→14 DOF)
-                        if let Some(elem_loads) = load_index.get(&elem.id) {
-                            for load in elem_loads {
-                                match load {
-                                    SolverLoad3D::Distributed(dl) => {
-                                        let a = dl.a.unwrap_or(0.0);
-                                        let b = dl.b.unwrap_or(l);
-                                        let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
-                                        let mut fef = if is_full {
-                                            element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
-                                        } else {
-                                            element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
-                                        };
-                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef_global = transform_force(&fef, &t, 12);
-                                        for i in 0..12 { forces.push((elem_dofs[DOF_MAP_12_TO_14[i]], fef_global[i])); }
-                                    }
-                                    SolverLoad3D::PointOnElement(pl) => {
-                                        let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
-                                        let mut fef = [0.0; 12];
-                                        fef[1] = fef_y[1]; fef[5] = fef_y[2];
-                                        fef[7] = fef_y[4]; fef[11] = fef_y[5];
-                                        let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                                        fef[2] = fef_z[1]; fef[4] = -fef_z[2];
-                                        fef[8] = fef_z[4]; fef[10] = -fef_z[5];
-                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef_global = transform_force(&fef, &t, 12);
-                                        for i in 0..12 { forces.push((elem_dofs[DOF_MAP_12_TO_14[i]], fef_global[i])); }
-                                    }
-                                    SolverLoad3D::Thermal(tl) => {
-                                        let alpha = 12e-6;
-                                        let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
-                                        let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
-                                        let mut fef = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
-                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef_global = transform_force(&fef, &t, 12);
-                                        for i in 0..12 { forces.push((elem_dofs[DOF_MAP_12_TO_14[i]], fef_global[i])); }
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
                     } else {
                         let k_local = element::frame_local_stiffness_3d(
                             e, sec.a, sec.iy, sec.iz, sec.j, l, g,
@@ -837,55 +732,13 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                         let k_glob = transform_stiffness(&k_local, &t, 12);
                         let ndof = elem_dofs.len();
                         scatter_triplets(&k_glob, &elem_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
-                        // Standard 12-DOF element loads
-                        if let Some(elem_loads) = load_index.get(&elem.id) {
-                            for load in elem_loads {
-                                match load {
-                                    SolverLoad3D::Distributed(dl) => {
-                                        let a = dl.a.unwrap_or(0.0);
-                                        let b = dl.b.unwrap_or(l);
-                                        let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
-                                        let mut fef = if is_full {
-                                            element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
-                                        } else {
-                                            element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
-                                        };
-                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef_global = transform_force(&fef, &t, 12);
-                                        for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
-                                    }
-                                    SolverLoad3D::PointOnElement(pl) => {
-                                        let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
-                                        let mut fef = [0.0; 12];
-                                        fef[1] = fef_y[1]; fef[5] = fef_y[2];
-                                        fef[7] = fef_y[4]; fef[11] = fef_y[5];
-                                        let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                                        fef[2] = fef_z[1]; fef[4] = -fef_z[2];
-                                        fef[8] = fef_z[4]; fef[10] = -fef_z[5];
-                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef_global = transform_force(&fef, &t, 12);
-                                        for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
-                                    }
-                                    SolverLoad3D::Thermal(tl) => {
-                                        let alpha = 12e-6;
-                                        let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
-                                        let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
-                                        let mut fef = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
-                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                                        let fef_global = transform_force(&fef, &t, 12);
-                                        for (i, &dof) in elem_dofs.iter().enumerate() { forces.push((dof, fef_global[i])); }
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
                     }
                 }
             }
 
             AnyElement3D::Connector(conn) => {
-                let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, force_contributions: forces, diagnostics } };
-                let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, force_contributions: forces, diagnostics } };
+                let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, diagnostics } };
+                let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, diagnostics } };
                 let dx = nj_node.x - ni.x;
                 let dy = nj_node.y - ni.y;
                 let dz = nj_node.z - ni.z;
@@ -921,27 +774,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
                 let ndof = plate_dofs.len();
                 scatter_triplets(&k_glob, &plate_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
-                // Plate loads
-                if let Some(elem_loads) = load_index.get(&plate.id) {
-                    for load in elem_loads {
-                        match load {
-                            SolverLoad3D::Pressure(pl) => {
-                                let f_press = element::plate_pressure_load(&coords, pl.pressure);
-                                for (i, &dof) in plate_dofs.iter().enumerate() {
-                                    if i < f_press.len() { forces.push((dof, f_press[i])); }
-                                }
-                            }
-                            SolverLoad3D::PlateThermal(tl) => {
-                                let alpha = tl.alpha.unwrap_or(12e-6);
-                                let f_th = element::plate_thermal_load(&coords, e, nu, plate.thickness, alpha, tl.dt_uniform, tl.dt_gradient);
-                                for (i, &dof) in plate_dofs.iter().enumerate() {
-                                    if i < f_th.len() { forces.push((dof, f_th[i])); }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
                 // Plate diagnostics
                 let (aspect_ratio, _skew, min_angle) = element::plate_element_quality(&coords);
                 if aspect_ratio > 10.0 {
@@ -975,39 +807,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 let ndof = quad_dofs.len();
                 scatter_triplets(&k_glob, &quad_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
-                // Quad loads
-                if let Some(elem_loads) = load_index.get(&quad.id) {
-                    for load in elem_loads {
-                        match load {
-                            SolverLoad3D::QuadPressure(pl) => {
-                                let f_press = element::quad::quad_pressure_load(&coords, pl.pressure);
-                                for (i, &dof) in quad_dofs.iter().enumerate() {
-                                    if i < f_press.len() { forces.push((dof, f_press[i])); }
-                                }
-                            }
-                            SolverLoad3D::QuadThermal(tl) => {
-                                let alpha = tl.alpha.unwrap_or(1.2e-5);
-                                let f_th = element::quad::quad_thermal_load(&coords, e, nu, quad.thickness, alpha, tl.dt_uniform, tl.dt_gradient);
-                                for (i, &dof) in quad_dofs.iter().enumerate() {
-                                    if i < f_th.len() { forces.push((dof, f_th[i])); }
-                                }
-                            }
-                            SolverLoad3D::QuadSelfWeight(sw) => {
-                                let f_sw = element::quad::quad_self_weight_load(&coords, sw.density, quad.thickness, sw.gx, sw.gy, sw.gz);
-                                for (i, &dof) in quad_dofs.iter().enumerate() {
-                                    if i < f_sw.len() { forces.push((dof, f_sw[i])); }
-                                }
-                            }
-                            SolverLoad3D::QuadEdge(el) => {
-                                let f_edge = element::quad::quad_edge_load(&coords, el.edge, el.qn, el.qt);
-                                for (i, &dof) in quad_dofs.iter().enumerate() {
-                                    if i < f_edge.len() { forces.push((dof, f_edge[i])); }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
                 // Quad diagnostics
                 let qm = element::quad::quad_quality_metrics(&coords);
                 let (_, _, has_neg_j) = element::quad::quad_check_jacobian(&coords);
@@ -1059,40 +858,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let q9_dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 let ndof = q9_dofs.len();
                 scatter_triplets(&k_glob, &q9_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
-                // Quad9 loads
-                if let Some(elem_loads) = load_index.get(&q9.id) {
-                    for load in elem_loads {
-                        match load {
-                            SolverLoad3D::Quad9Pressure(pl) => {
-                                let f_p = element::quad9::quad9_pressure_load(&coords, pl.pressure);
-                                let dofs = &q9_dofs;
-                                for (i, &dof) in dofs.iter().enumerate() {
-                                    if i < f_p.len() { forces.push((dof, f_p[i])); }
-                                }
-                            }
-                            SolverLoad3D::Quad9Thermal(tl) => {
-                                let alpha = tl.alpha.unwrap_or(1.2e-5);
-                                let f_th = element::quad9::quad9_thermal_load(&coords, e, nu, q9.thickness, alpha, tl.dt_uniform, tl.dt_gradient);
-                                for (i, &dof) in q9_dofs.iter().enumerate() {
-                                    if i < f_th.len() { forces.push((dof, f_th[i])); }
-                                }
-                            }
-                            SolverLoad3D::Quad9SelfWeight(sw) => {
-                                let f_sw = element::quad9::quad9_self_weight_load(&coords, sw.density, q9.thickness, sw.gx, sw.gy, sw.gz);
-                                for (i, &dof) in q9_dofs.iter().enumerate() {
-                                    if i < f_sw.len() { forces.push((dof, f_sw[i])); }
-                                }
-                            }
-                            SolverLoad3D::Quad9Edge(el) => {
-                                let f_edge = element::quad9::quad9_edge_load(&coords, el.edge, el.qn, el.qt);
-                                for (i, &dof) in q9_dofs.iter().enumerate() {
-                                    if i < f_edge.len() { forces.push((dof, f_edge[i])); }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
                 // Quad9 diagnostics
                 let (_, _, has_neg_j) = element::quad9::quad9_check_jacobian(&coords);
                 if has_neg_j {
@@ -1113,26 +878,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
                 let ndof = ss_dofs.len();
                 scatter_triplets(&k_elem, &ss_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
-                // Solid-shell loads
-                if let Some(elem_loads) = load_index.get(&ss.id) {
-                    for load in elem_loads {
-                        match load {
-                            SolverLoad3D::SolidShellPressure(pl) => {
-                                let f_p = element::solid_shell::solid_shell_pressure_load(&coords, pl.pressure);
-                                for (i, &dof) in ss_dofs.iter().enumerate() {
-                                    if i < f_p.len() { forces.push((dof, f_p[i])); }
-                                }
-                            }
-                            SolverLoad3D::SolidShellSelfWeight(sw) => {
-                                let f_sw = element::solid_shell::solid_shell_self_weight_load(&coords, sw.density, sw.gx, sw.gy, sw.gz);
-                                for (i, &dof) in ss_dofs.iter().enumerate() {
-                                    if i < f_sw.len() { forces.push((dof, f_sw[i])); }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
             }
 
             AnyElement3D::CurvedShell(cs) => {
@@ -1145,39 +890,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
                 let ndof = cs_dofs.len();
                 scatter_triplets(&k_elem, &cs_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
-                // Curved shell loads
-                if let Some(elem_loads) = load_index.get(&cs.id) {
-                    for load in elem_loads {
-                        match load {
-                            SolverLoad3D::CurvedShellPressure(pl) => {
-                                let f_p = element::curved_shell::curved_shell_pressure_load(&coords, &dirs, cs.thickness, pl.pressure);
-                                for (i, &dof) in cs_dofs.iter().enumerate() {
-                                    if i < f_p.len() { forces.push((dof, f_p[i])); }
-                                }
-                            }
-                            SolverLoad3D::CurvedShellThermal(tl) => {
-                                let alpha = tl.alpha.unwrap_or(1.2e-5);
-                                let f_th = element::curved_shell::curved_shell_thermal_load(&coords, &dirs, e, nu, cs.thickness, alpha, tl.dt_uniform, tl.dt_gradient);
-                                for (i, &dof) in cs_dofs.iter().enumerate() {
-                                    if i < f_th.len() { forces.push((dof, f_th[i])); }
-                                }
-                            }
-                            SolverLoad3D::CurvedShellSelfWeight(sw) => {
-                                let f_sw = element::curved_shell::curved_shell_self_weight_load(&coords, &dirs, sw.density, cs.thickness, sw.gx, sw.gy, sw.gz);
-                                for (i, &dof) in cs_dofs.iter().enumerate() {
-                                    if i < f_sw.len() { forces.push((dof, f_sw[i])); }
-                                }
-                            }
-                            SolverLoad3D::CurvedShellEdge(el) => {
-                                let f_e = element::curved_shell::curved_shell_edge_load(&coords, &dirs, cs.thickness, el.edge, el.qn, el.qt);
-                                for (i, &dof) in cs_dofs.iter().enumerate() {
-                                    if i < f_e.len() { forces.push((dof, f_e[i])); }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
             }
         }
 
@@ -1186,7 +898,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
             trip_cols,
             trip_vals,
             diag_contributions: diag,
-            force_contributions: forces,
             diagnostics,
         }
     }).collect();
@@ -1197,7 +908,6 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
     let mut trip_rows = Vec::with_capacity(total_triplets + 256);
     let mut trip_cols = Vec::with_capacity(total_triplets + 256);
     let mut trip_vals = Vec::with_capacity(total_triplets + 256);
-    let mut f_global = vec![0.0; n];
     let mut diag_vals = vec![0.0f64; nf];
     let mut max_diag = 0.0f64;
     let mut diagnostics = Vec::new();
@@ -1209,32 +919,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
         for &(d, v) in &contrib.diag_contributions {
             diag_vals[d] += v;
         }
-        for &(d, v) in &contrib.force_contributions {
-            f_global[d] += v;
-        }
         diagnostics.extend_from_slice(&contrib.diagnostics);
-    }
-
-    // Nodal loads (not element-bound, sequential)
-    for load in &input.loads {
-        if let SolverLoad3D::Nodal(nl) = load {
-            let forces = [nl.fx, nl.fy, nl.fz, nl.mx, nl.my, nl.mz];
-            for (i, &f) in forces.iter().enumerate() {
-                if i < dof_num.dofs_per_node {
-                    if let Some(&d) = dof_num.map.get(&(nl.node_id, i)) { f_global[d] += f; }
-                }
-            }
-            if let Some(bw) = nl.bw {
-                if bw.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(nl.node_id, 6)) { f_global[d] += bw; }
-                }
-            }
-        }
-        if let SolverLoad3D::Bimoment(bl) = load {
-            if bl.bimoment.abs() > 1e-15 {
-                if let Some(&d) = dof_num.map.get(&(bl.node_id, 6)) { f_global[d] += bl.bimoment; }
-            }
-        }
     }
 
     // Spring stiffness
@@ -1278,7 +963,8 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
         }
     }
 
-    // Inclined support transforms
+    // Inclined support transforms (stiffness triplets only; the force vector
+    // rotation happens in `assemble_load_vector_3d_sparse_parallel`)
     let mut inclined_transforms = Vec::new();
     for sup in input.supports.values() {
         if sup.is_inclined.unwrap_or(false) {
@@ -1292,9 +978,9 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                         dof_num.map.get(&(sup.node_id, 2)),
                     ) {
                         let dofs = [d0, d1, d2];
-                        apply_inclined_transform_triplets(
+                        super::assembly::apply_inclined_transform_triplets_k(
                             &mut trip_rows, &mut trip_cols, &mut trip_vals,
-                            &mut f_global, &dofs, &r,
+                            &dofs, &r,
                         );
                         inclined_transforms.push(InclinedTransformData { node_id: sup.node_id, dofs, r });
                     }
@@ -1339,16 +1025,521 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
     let mut k_ff = CscMatrix::from_triplets(nf, &ff_rows, &ff_cols, &ff_vals);
     k_ff.drop_below_threshold(1e-30);
 
-    SparseAssemblyResult3D {
-        k_ff, k_full, f: f_global, max_diag_k: max_diag,
+    super::assembly::StiffnessSparseAssembly3D {
+        k_ff, k_full, max_diag_k: max_diag,
         artificial_dofs: artificial_dofs_3d, inclined_transforms, diagnostics,
     }
+}
+
+/// Parallel 3D sparse assembly using rayon: stiffness + force vector.
+#[cfg(feature = "parallel")]
+pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering, build_k_full: bool) -> SparseAssemblyResult3D {
+    let stiff = assemble_stiffness_sparse_3d_parallel(input, dof_num, build_k_full);
+    // Force vector: built by the shared load-vector builder (same order as the
+    // fused assembly produced: element contributions in unified sorted order,
+    // then nodal/bimoment loads, then inclined rotations).
+    let f = assemble_load_vector_3d_sparse_parallel(input, &input.loads, dof_num, &stiff.inclined_transforms);
+    SparseAssemblyResult3D {
+        k_ff: stiff.k_ff,
+        k_full: stiff.k_full,
+        f,
+        max_diag_k: stiff.max_diag_k,
+        artificial_dofs: stiff.artificial_dofs,
+        inclined_transforms: stiff.inclined_transforms,
+        diagnostics: stiff.diagnostics,
+    }
+}
+
+/// Assemble the global force vector for 3D for a given set of loads,
+/// parallel-sparse flavor (with inclined support rotations applied).
+/// Mirrors the contribution order of `assemble_sparse_3d_parallel`: unified
+/// ID-sorted element list with inline per-element loads, then nodal/bimoment
+/// loads, then inclined rotations. Produces exactly the same `f`.
+#[cfg(feature = "parallel")]
+pub fn assemble_load_vector_3d_sparse_parallel(
+    input: &SolverInput3D,
+    loads: &[SolverLoad3D],
+    dof_num: &DofNumbering,
+    inclined_transforms: &[InclinedTransformData],
+) -> Vec<f64> {
+    use crate::element;
+    use crate::element::compute_local_axes_3d;
+
+    let n = dof_num.n_total;
+    let left_hand = input.left_hand.unwrap_or(false);
+
+    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
+        input.nodes.values().map(|n| (n.id, n)).collect();
+    let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_map: std::collections::HashMap<usize, &SolverSection3D> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+    let load_index = build_load_index_3d(loads);
+
+    // Unified element list, sorted by ID (same order as the parallel assembler).
+    let mut all_elements: Vec<AnyElement3D> = Vec::new();
+    for e in input.elements.values() { all_elements.push(AnyElement3D::Frame(e)); }
+    for p in input.plates.values() { all_elements.push(AnyElement3D::Plate(p)); }
+    for q in input.quads.values() { all_elements.push(AnyElement3D::Quad(q)); }
+    for q9 in input.quad9s.values() { all_elements.push(AnyElement3D::Quad9(q9)); }
+    for ss in input.solid_shells.values() { all_elements.push(AnyElement3D::SolidShell(ss)); }
+    for cs in input.curved_shells.values() { all_elements.push(AnyElement3D::CurvedShell(cs)); }
+    for conn in input.connectors.values() { all_elements.push(AnyElement3D::Connector(conn)); }
+    all_elements.sort_by_key(|e| match e {
+        AnyElement3D::Frame(f) => f.id,
+        AnyElement3D::Plate(p) => p.id,
+        AnyElement3D::Quad(q) => q.id,
+        AnyElement3D::Quad9(q) => q.id,
+        AnyElement3D::SolidShell(s) => s.id,
+        AnyElement3D::CurvedShell(c) => c.id,
+        AnyElement3D::Connector(c) => c.id,
+    });
+
+    let mut f_global = vec![0.0; n];
+
+    for any_elem in &all_elements {
+        match any_elem {
+            AnyElement3D::Frame(elem) => {
+                let node_i = node_map[&elem.node_i];
+                let node_j = node_map[&elem.node_j];
+                let mat = mat_map[&elem.material_id];
+                let sec = sec_map[&elem.section_id];
+                let dx = node_j.x - node_i.x;
+                let dy = node_j.y - node_i.y;
+                let dz = node_j.z - node_i.z;
+                let l = (dx * dx + dy * dy + dz * dz).sqrt();
+                let e = mat.e * 1000.0;
+                let g = e / (2.0 * (1.0 + mat.nu));
+
+                if elem.elem_type == "truss" || elem.elem_type == "cable" {
+                    let dir = [dx / l, dy / l, dz / l];
+                    // Assemble thermal FEF for truss elements
+                    if let Some(elem_loads) = load_index.get(&elem.id) {
+                        for load in elem_loads {
+                            if let SolverLoad3D::Thermal(tl) = load {
+                                let alpha = 12e-6;
+                                let fx = e * sec.a * alpha * tl.dt_uniform;
+                                for k in 0..3 {
+                                    if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) {
+                                        f_global[d] += -fx * dir[k];
+                                    }
+                                    if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) {
+                                        f_global[d] += fx * dir[k];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    let (ex, ey, ez) = compute_local_axes_3d(
+                        node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
+                        elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand,
+                    );
+                    let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+                    let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
+
+                    let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
+                        let l2 = l * l;
+                        let py = sec.as_y.map(|ay| 12.0 * e * sec.iy / (g * ay * l2)).unwrap_or(0.0);
+                        let pz = sec.as_z.map(|az| 12.0 * e * sec.iz / (g * az * l2)).unwrap_or(0.0);
+                        (py, pz)
+                    } else {
+                        (0.0, 0.0)
+                    };
+
+                    if has_cw && dof_num.dofs_per_node >= 7 {
+                        let t = element::frame_transform_3d_warping(&ex, &ey, &ez);
+                        // Warping element loads
+                        if let Some(elem_loads) = load_index.get(&elem.id) {
+                            for load in elem_loads {
+                                match load {
+                                    SolverLoad3D::Distributed(dl) => {
+                                        let a = dl.a.unwrap_or(0.0);
+                                        let b = dl.b.unwrap_or(l);
+                                        let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
+                                        let mut fef12 = if is_full {
+                                            element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                                        } else {
+                                            element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                                        };
+                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef14 = element::expand_fef_12_to_14(&fef12);
+                                        let fef_global = transform_force(&fef14, &t, 14);
+                                        for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
+                                    }
+                                    SolverLoad3D::PointOnElement(pl) => {
+                                        let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
+                                        let mut fef12 = [0.0; 12];
+                                        fef12[1] = fef_y[1]; fef12[5] = fef_y[2];
+                                        fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
+                                        let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
+                                        fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
+                                        fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
+                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef14 = element::expand_fef_12_to_14(&fef12);
+                                        let fef_global = transform_force(&fef14, &t, 14);
+                                        for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
+                                    }
+                                    SolverLoad3D::Thermal(tl) => {
+                                        let alpha = 12e-6;
+                                        let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
+                                        let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
+                                        let mut fef12 = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
+                                        adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef14 = element::expand_fef_12_to_14(&fef12);
+                                        let fef_global = transform_force(&fef14, &t, 14);
+                                        for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    } else if dof_num.dofs_per_node >= 7 {
+                        let t = element::frame_transform_3d(&ex, &ey, &ez);
+                        // Mapped element loads (12→14 DOF)
+                        if let Some(elem_loads) = load_index.get(&elem.id) {
+                            for load in elem_loads {
+                                match load {
+                                    SolverLoad3D::Distributed(dl) => {
+                                        let a = dl.a.unwrap_or(0.0);
+                                        let b = dl.b.unwrap_or(l);
+                                        let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
+                                        let mut fef = if is_full {
+                                            element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                                        } else {
+                                            element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                                        };
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef_global = transform_force(&fef, &t, 12);
+                                        for i in 0..12 { f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i]; }
+                                    }
+                                    SolverLoad3D::PointOnElement(pl) => {
+                                        let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
+                                        let mut fef = [0.0; 12];
+                                        fef[1] = fef_y[1]; fef[5] = fef_y[2];
+                                        fef[7] = fef_y[4]; fef[11] = fef_y[5];
+                                        let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
+                                        fef[2] = fef_z[1]; fef[4] = -fef_z[2];
+                                        fef[8] = fef_z[4]; fef[10] = -fef_z[5];
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef_global = transform_force(&fef, &t, 12);
+                                        for i in 0..12 { f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i]; }
+                                    }
+                                    SolverLoad3D::Thermal(tl) => {
+                                        let alpha = 12e-6;
+                                        let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
+                                        let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
+                                        let mut fef = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef_global = transform_force(&fef, &t, 12);
+                                        for i in 0..12 { f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i]; }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    } else {
+                        let t = element::frame_transform_3d(&ex, &ey, &ez);
+                        // Standard 12-DOF element loads
+                        if let Some(elem_loads) = load_index.get(&elem.id) {
+                            for load in elem_loads {
+                                match load {
+                                    SolverLoad3D::Distributed(dl) => {
+                                        let a = dl.a.unwrap_or(0.0);
+                                        let b = dl.b.unwrap_or(l);
+                                        let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
+                                        let mut fef = if is_full {
+                                            element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                                        } else {
+                                            element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                                        };
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef_global = transform_force(&fef, &t, 12);
+                                        for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
+                                    }
+                                    SolverLoad3D::PointOnElement(pl) => {
+                                        let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
+                                        let mut fef = [0.0; 12];
+                                        fef[1] = fef_y[1]; fef[5] = fef_y[2];
+                                        fef[7] = fef_y[4]; fef[11] = fef_y[5];
+                                        let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
+                                        fef[2] = fef_z[1]; fef[4] = -fef_z[2];
+                                        fef[8] = fef_z[4]; fef[10] = -fef_z[5];
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef_global = transform_force(&fef, &t, 12);
+                                        for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
+                                    }
+                                    SolverLoad3D::Thermal(tl) => {
+                                        let alpha = 12e-6;
+                                        let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
+                                        let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
+                                        let mut fef = element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, alpha, hy, hz);
+                                        adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
+                                        let fef_global = transform_force(&fef, &t, 12);
+                                        for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            AnyElement3D::Plate(plate) => {
+                let mat = mat_map[&plate.material_id];
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let n0 = node_map[&plate.nodes[0]];
+                let n1 = node_map[&plate.nodes[1]];
+                let n2 = node_map[&plate.nodes[2]];
+                let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z]];
+                let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
+                // Plate loads
+                if let Some(elem_loads) = load_index.get(&plate.id) {
+                    for load in elem_loads {
+                        match load {
+                            SolverLoad3D::Pressure(pl) => {
+                                let f_press = element::plate_pressure_load(&coords, pl.pressure);
+                                for (i, &dof) in plate_dofs.iter().enumerate() {
+                                    if i < f_press.len() { f_global[dof] += f_press[i]; }
+                                }
+                            }
+                            SolverLoad3D::PlateThermal(tl) => {
+                                let alpha = tl.alpha.unwrap_or(12e-6);
+                                let f_th = element::plate_thermal_load(&coords, e, nu, plate.thickness, alpha, tl.dt_uniform, tl.dt_gradient);
+                                for (i, &dof) in plate_dofs.iter().enumerate() {
+                                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            AnyElement3D::Quad(quad) => {
+                let mat = mat_map[&quad.material_id];
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let n0 = node_map[&quad.nodes[0]];
+                let n1 = node_map[&quad.nodes[1]];
+                let n2 = node_map[&quad.nodes[2]];
+                let n3 = node_map[&quad.nodes[3]];
+                let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z], [n3.x, n3.y, n3.z]];
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                // Quad loads
+                if let Some(elem_loads) = load_index.get(&quad.id) {
+                    for load in elem_loads {
+                        match load {
+                            SolverLoad3D::QuadPressure(pl) => {
+                                let f_press = element::quad::quad_pressure_load(&coords, pl.pressure);
+                                for (i, &dof) in quad_dofs.iter().enumerate() {
+                                    if i < f_press.len() { f_global[dof] += f_press[i]; }
+                                }
+                            }
+                            SolverLoad3D::QuadThermal(tl) => {
+                                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                                let f_th = element::quad::quad_thermal_load(&coords, e, nu, quad.thickness, alpha, tl.dt_uniform, tl.dt_gradient);
+                                for (i, &dof) in quad_dofs.iter().enumerate() {
+                                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                                }
+                            }
+                            SolverLoad3D::QuadSelfWeight(sw) => {
+                                let f_sw = element::quad::quad_self_weight_load(&coords, sw.density, quad.thickness, sw.gx, sw.gy, sw.gz);
+                                for (i, &dof) in quad_dofs.iter().enumerate() {
+                                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                                }
+                            }
+                            SolverLoad3D::QuadEdge(el) => {
+                                let f_edge = element::quad::quad_edge_load(&coords, el.edge, el.qn, el.qt);
+                                for (i, &dof) in quad_dofs.iter().enumerate() {
+                                    if i < f_edge.len() { f_global[dof] += f_edge[i]; }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            AnyElement3D::Quad9(q9) => {
+                let mat = mat_map[&q9.material_id];
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let coords = quad9_node_coords(&node_map, q9);
+                let q9_dofs = dof_num.quad9_element_dofs(&q9.nodes);
+                // Quad9 loads
+                if let Some(elem_loads) = load_index.get(&q9.id) {
+                    for load in elem_loads {
+                        match load {
+                            SolverLoad3D::Quad9Pressure(pl) => {
+                                let f_p = element::quad9::quad9_pressure_load(&coords, pl.pressure);
+                                let dofs = &q9_dofs;
+                                for (i, &dof) in dofs.iter().enumerate() {
+                                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                                }
+                            }
+                            SolverLoad3D::Quad9Thermal(tl) => {
+                                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                                let f_th = element::quad9::quad9_thermal_load(&coords, e, nu, q9.thickness, alpha, tl.dt_uniform, tl.dt_gradient);
+                                for (i, &dof) in q9_dofs.iter().enumerate() {
+                                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                                }
+                            }
+                            SolverLoad3D::Quad9SelfWeight(sw) => {
+                                let f_sw = element::quad9::quad9_self_weight_load(&coords, sw.density, q9.thickness, sw.gx, sw.gy, sw.gz);
+                                for (i, &dof) in q9_dofs.iter().enumerate() {
+                                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                                }
+                            }
+                            SolverLoad3D::Quad9Edge(el) => {
+                                let f_edge = element::quad9::quad9_edge_load(&coords, el.edge, el.qn, el.qt);
+                                for (i, &dof) in q9_dofs.iter().enumerate() {
+                                    if i < f_edge.len() { f_global[dof] += f_edge[i]; }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            AnyElement3D::SolidShell(ss) => {
+                let coords = solid_shell_node_coords(&node_map, ss);
+                let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+                // Solid-shell loads
+                if let Some(elem_loads) = load_index.get(&ss.id) {
+                    for load in elem_loads {
+                        match load {
+                            SolverLoad3D::SolidShellPressure(pl) => {
+                                let f_p = element::solid_shell::solid_shell_pressure_load(&coords, pl.pressure);
+                                for (i, &dof) in ss_dofs.iter().enumerate() {
+                                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                                }
+                            }
+                            SolverLoad3D::SolidShellSelfWeight(sw) => {
+                                let f_sw = element::solid_shell::solid_shell_self_weight_load(&coords, sw.density, sw.gx, sw.gy, sw.gz);
+                                for (i, &dof) in ss_dofs.iter().enumerate() {
+                                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            AnyElement3D::CurvedShell(cs) => {
+                let mat = mat_map[&cs.material_id];
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let coords = curved_shell_node_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| element::curved_shell::compute_element_directors(&coords));
+                let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+                // Curved shell loads
+                if let Some(elem_loads) = load_index.get(&cs.id) {
+                    for load in elem_loads {
+                        match load {
+                            SolverLoad3D::CurvedShellPressure(pl) => {
+                                let f_p = element::curved_shell::curved_shell_pressure_load(&coords, &dirs, cs.thickness, pl.pressure);
+                                for (i, &dof) in cs_dofs.iter().enumerate() {
+                                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                                }
+                            }
+                            SolverLoad3D::CurvedShellThermal(tl) => {
+                                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                                let f_th = element::curved_shell::curved_shell_thermal_load(&coords, &dirs, e, nu, cs.thickness, alpha, tl.dt_uniform, tl.dt_gradient);
+                                for (i, &dof) in cs_dofs.iter().enumerate() {
+                                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                                }
+                            }
+                            SolverLoad3D::CurvedShellSelfWeight(sw) => {
+                                let f_sw = element::curved_shell::curved_shell_self_weight_load(&coords, &dirs, sw.density, cs.thickness, sw.gx, sw.gy, sw.gz);
+                                for (i, &dof) in cs_dofs.iter().enumerate() {
+                                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                                }
+                            }
+                            SolverLoad3D::CurvedShellEdge(el) => {
+                                let f_e = element::curved_shell::curved_shell_edge_load(&coords, &dirs, cs.thickness, el.edge, el.qn, el.qt);
+                                for (i, &dof) in cs_dofs.iter().enumerate() {
+                                    if i < f_e.len() { f_global[dof] += f_e[i]; }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            AnyElement3D::Connector(_) => {}
+        }
+    }
+
+    // Nodal loads (not element-bound)
+    for load in loads {
+        if let SolverLoad3D::Nodal(nl) = load {
+            let forces = [nl.fx, nl.fy, nl.fz, nl.mx, nl.my, nl.mz];
+            for (i, &f) in forces.iter().enumerate() {
+                if i < dof_num.dofs_per_node {
+                    if let Some(&d) = dof_num.map.get(&(nl.node_id, i)) { f_global[d] += f; }
+                }
+            }
+            if let Some(bw) = nl.bw {
+                if bw.abs() > 1e-15 {
+                    if let Some(&d) = dof_num.map.get(&(nl.node_id, 6)) { f_global[d] += bw; }
+                }
+            }
+        }
+        if let SolverLoad3D::Bimoment(bl) = load {
+            if bl.bimoment.abs() > 1e-15 {
+                if let Some(&d) = dof_num.map.get(&(bl.node_id, 6)) { f_global[d] += bl.bimoment; }
+            }
+        }
+    }
+
+    // Apply inclined support rotations to the force vector
+    for it in inclined_transforms {
+        super::assembly::rotate_inclined_f_triplets(&mut f_global, &it.dofs, &it.r);
+    }
+
+    f_global
+}
+
+/// Build the 3D sparse-path global force vector for a given set of loads,
+/// matching whichever assembler `assemble_sparse_3d_parallel` resolves to in
+/// this build configuration (parallel or sequential fallback).
+#[cfg(feature = "parallel")]
+pub fn assemble_load_vector_sparse_3d(
+    input: &SolverInput3D,
+    loads: &[SolverLoad3D],
+    dof_num: &DofNumbering,
+    inclined_transforms: &[InclinedTransformData],
+) -> Vec<f64> {
+    assemble_load_vector_3d_sparse_parallel(input, loads, dof_num, inclined_transforms)
+}
+
+/// Non-parallel fallback for `assemble_load_vector_sparse_3d`.
+#[cfg(not(feature = "parallel"))]
+pub fn assemble_load_vector_sparse_3d(
+    input: &SolverInput3D,
+    loads: &[SolverLoad3D],
+    dof_num: &DofNumbering,
+    inclined_transforms: &[InclinedTransformData],
+) -> Vec<f64> {
+    super::assembly::assemble_load_vector_3d_sparse(input, loads, dof_num, inclined_transforms)
 }
 
 /// Non-parallel fallback for `assemble_sparse_3d_parallel`.
 #[cfg(not(feature = "parallel"))]
 pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering, build_k_full: bool) -> SparseAssemblyResult3D {
     super::assembly::assemble_sparse_3d(input, dof_num, build_k_full)
+}
+
+/// Non-parallel fallback for `assemble_stiffness_sparse_3d_parallel`.
+#[cfg(not(feature = "parallel"))]
+pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering, build_k_full: bool) -> super::assembly::StiffnessSparseAssembly3D {
+    super::assembly::assemble_stiffness_sparse_3d(input, dof_num, build_k_full)
 }
 
 /// Coordinate helpers for the parallel path (avoid name collision with assembly.rs).
