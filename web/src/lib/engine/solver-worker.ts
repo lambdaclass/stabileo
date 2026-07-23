@@ -3,7 +3,7 @@
  * Each worker loads its own WASM instance and solves independently.
  *
  * Messages:
- *   { type: 'init', wasmBytes: ArrayBuffer }  → initialize WASM module
+ *   { type: 'init', wasmModule: WebAssembly.Module }  → initialize WASM (pre-compiled module, structured-cloned)
  *   { type: 'solve3d', id: number, json: string } → solve and return results
  */
 
@@ -21,8 +21,7 @@ self.onmessage = async (e: MessageEvent) => {
       initSync = wasm.initSync;
       solve_3d = wasm.solve_3d;
 
-      const module = new WebAssembly.Module(msg.wasmBytes);
-      initSync(module);
+      initSync({ module: msg.wasmModule });
       ready = true;
       self.postMessage({ type: 'ready' });
     } catch (err: any) {

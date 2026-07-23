@@ -1,7 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
-import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase3D, serializeInput3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input3DToWireObject } from './wasm-solver';
 import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
 import { computeLocalAxes3D } from './local-axes-3d';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from './types-3d';
@@ -156,6 +156,76 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
 }
 
 // ─── 2D: validateAndSolve2D ───────────────────────────────────────
+
+/** Build only the solver loads array for a 2D input. Shared by
+ *  validateAndSolve2D and the multi-case combo path so both produce
+ *  identical per-case loads on the wire. */
+function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: boolean): SolverInput['loads'] {
+  const solverLoads = loads.map(l => {
+    if (l.type === 'nodal') {
+      return {
+        type: 'nodal' as const,
+        data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
+      };
+    } else if (l.type === 'distributed') {
+      const d = l.data as DistributedLoad;
+      const sd: { elementId: number; qI: number; qJ: number; a?: number; b?: number } = { elementId: d.elementId, qI: d.qI, qJ: d.qJ };
+      if (d.a !== undefined && d.a > 0) sd.a = d.a;
+      if (d.b !== undefined) sd.b = d.b;
+      return { type: 'distributed' as const, data: sd };
+    } else if (l.type === 'thermal') {
+      const d = l.data as ThermalLoad;
+      return { type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } };
+    } else {
+      const d = l.data as PointLoadOnElement;
+      const spd: { elementId: number; a: number; p: number; px?: number; my?: number } = { elementId: d.elementId, a: d.a, p: d.p };
+      if (d.px !== undefined && d.px !== 0) spd.px = d.px;
+      if ((d.my ?? d.mz) !== undefined && (d.my ?? d.mz) !== 0) spd.my = d.my ?? d.mz;
+      return { type: 'pointOnElement' as const, data: spd };
+    }
+  });
+
+  // Add self-weight as distributed loads
+  if (includeSelfWeight) {
+    for (const elem of model.elements.values()) {
+      const mat = model.materials.get(elem.materialId);
+      const sec = model.sections.get(elem.sectionId);
+      const ni = model.nodes.get(elem.nodeI);
+      const nj = model.nodes.get(elem.nodeJ);
+      if (!mat || !sec || !ni || !nj) continue;
+
+      const dx = nj.x - ni.x;
+      const dy = nj.y - ni.y;
+      const L = Math.sqrt(dx * dx + dy * dy);
+      if (L < 1e-10) continue;
+
+      const sinTheta = dy / L;
+      const cosTheta = dx / L;
+      const w = mat.rho * sec.a;
+
+      const qPerp = -w * cosTheta;
+      if (Math.abs(qPerp) > 1e-10) {
+        solverLoads.push({
+          type: 'distributed' as const,
+          data: { elementId: elem.id, qI: qPerp, qJ: qPerp },
+        });
+      }
+
+      const qTangent = -w * sinTheta;
+      if (Math.abs(qTangent) > 1e-10) {
+        const Ft = qTangent * L / 2;
+        const fxNode = Ft * cosTheta;
+        const fzNode = Ft * sinTheta;
+        solverLoads.push(
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fz: fzNode, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fz: fzNode, my: 0 } },
+        );
+      }
+    }
+  }
+
+  return solverLoads;
+}
 
 /**
  * Full 2D solve with all pre-solve validations.
@@ -496,69 +566,8 @@ export function validateAndSolve2D(
     }
   }
 
-  // Build solver loads array
-  const solverLoads = model.loads.map(l => {
-    if (l.type === 'nodal') {
-      return {
-        type: 'nodal' as const,
-        data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
-      };
-    } else if (l.type === 'distributed') {
-      const d = l.data as DistributedLoad;
-      const sd: { elementId: number; qI: number; qJ: number; a?: number; b?: number } = { elementId: d.elementId, qI: d.qI, qJ: d.qJ };
-      if (d.a !== undefined && d.a > 0) sd.a = d.a;
-      if (d.b !== undefined) sd.b = d.b;
-      return { type: 'distributed' as const, data: sd };
-    } else if (l.type === 'thermal') {
-      const d = l.data as ThermalLoad;
-      return { type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } };
-    } else {
-      const d = l.data as PointLoadOnElement;
-      const spd: { elementId: number; a: number; p: number; px?: number; my?: number } = { elementId: d.elementId, a: d.a, p: d.p };
-      if (d.px !== undefined && d.px !== 0) spd.px = d.px;
-      if ((d.my ?? d.mz) !== undefined && (d.my ?? d.mz) !== 0) spd.my = d.my ?? d.mz;
-      return { type: 'pointOnElement' as const, data: spd };
-    }
-  });
-
-  // Add self-weight as distributed loads
-  if (includeSelfWeight) {
-    for (const elem of model.elements.values()) {
-      const mat = model.materials.get(elem.materialId);
-      const sec = model.sections.get(elem.sectionId);
-      const ni = model.nodes.get(elem.nodeI);
-      const nj = model.nodes.get(elem.nodeJ);
-      if (!mat || !sec || !ni || !nj) continue;
-
-      const dx = nj.x - ni.x;
-      const dy = nj.y - ni.y;
-      const L = Math.sqrt(dx * dx + dy * dy);
-      if (L < 1e-10) continue;
-
-      const sinTheta = dy / L;
-      const cosTheta = dx / L;
-      const w = mat.rho * sec.a;
-
-      const qPerp = -w * cosTheta;
-      if (Math.abs(qPerp) > 1e-10) {
-        solverLoads.push({
-          type: 'distributed' as const,
-          data: { elementId: elem.id, qI: qPerp, qJ: qPerp },
-        });
-      }
-
-      const qTangent = -w * sinTheta;
-      if (Math.abs(qTangent) > 1e-10) {
-        const Ft = qTangent * L / 2;
-        const fxNode = Ft * cosTheta;
-        const fzNode = Ft * sinTheta;
-        solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fz: fzNode, my: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fz: fzNode, my: 0 } },
-        );
-      }
-    }
-  }
+  // Build solver loads array (shared with the multi-case combo path)
+  const solverLoads = buildSolverLoads2D(model, model.loads, includeSelfWeight);
 
   // Build solver input
   const input: SolverInput = {
@@ -804,6 +813,106 @@ export function solveCombinations2D(
   if (model.supports.size < 1) return t('svc.needSupport');
   if (combinations.length === 0) return t('svc.needCombination');
 
+  // The engine's multi-case 2D solver rebuilds each case WITHOUT constraints
+  // and connectors (load_cases.rs), and sliding joints expand into exactly
+  // those primitives — models using them keep the per-case path so their
+  // results stay correct. Names key the multi-case wire format, so duplicate
+  // case/combo names also route to the id-keyed per-case path.
+  const namesUnique =
+    new Set(loadCases.map(c => c.name)).size === loadCases.length &&
+    new Set(combinations.map(c => c.name)).size === combinations.length;
+  if (
+    !namesUnique ||
+    constraintsTo2D(model.constraints).length > 0 ||
+    (model.connectors?.size ?? 0) > 0 ||
+    modelHasSlidingJoints(model.elements.values())
+  ) {
+    return solveCombinations2DFallback(model, loadCases, combinations, includeSelfWeight);
+  }
+
+  // Build base solver input once (structural data without loads)
+  const baseInput = buildSolverInput2D({ ...model, loads: [] }, false);
+  if (!baseInput) return t('svc.emptyModel');
+
+  // Build per-case load arrays — reuse baseInput structure, only build loads per case
+  const mcLoadCases: Array<{ name: string; loads: SolverInput['loads'] }> = [];
+  const caseNameToId = new Map<string, number>();
+
+  for (const lc of loadCases) {
+    const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
+    const loads = buildSolverLoads2D(model, caseLoads, includeSelfWeight && lc.type === 'D');
+    mcLoadCases.push({ name: lc.name, loads });
+    caseNameToId.set(lc.name, lc.id);
+  }
+
+  if (mcLoadCases.length === 0) return t('svc.noLoadsApplied');
+
+  // Build combination definitions (name-based factors for WASM multi-case)
+  const mcCombinations: Array<{ name: string; factors: Record<string, number> }> = [];
+  const comboNameToId = new Map<string, number>();
+
+  for (const combo of combinations) {
+    const factors: Record<string, number> = {};
+    for (const f of combo.factors) {
+      const lc = loadCases.find(c => c.id === f.caseId);
+      if (lc) factors[lc.name] = f.factor;
+    }
+    // The per-case path skips combos whose factors all reference missing cases
+    // (combineResults → null); the engine would instead emit a zeroed combo that
+    // also enters the envelope. Skip here to keep perCombo/envelope identical.
+    if (Object.keys(factors).length === 0) continue;
+    mcCombinations.push({ name: combo.name, factors });
+    comboNameToId.set(combo.name, combo.id);
+  }
+
+  // Single WASM call: solves all cases, combines, computes envelope
+  try {
+    const t0 = performance.now();
+    const mcResult = solveMultiCase2D({
+      solver: baseInput,
+      loadCases: mcLoadCases,
+      combinations: mcCombinations,
+    });
+    const tWasm = performance.now() - t0;
+
+    if (!mcResult || !mcResult.caseResults || !mcResult.combinationResults || !mcResult.envelope) {
+      return t('svc.envelopeError');
+    }
+
+    // Map results back to id-keyed Maps
+    const perCase = new Map<number, AnalysisResults>();
+    for (const cr of mcResult.caseResults) {
+      const id = caseNameToId.get(cr.name);
+      if (id != null) perCase.set(id, cr.results);
+    }
+
+    const perCombo = new Map<number, AnalysisResults>();
+    for (const cr of mcResult.combinationResults) {
+      const id = comboNameToId.get(cr.name);
+      if (id != null) perCombo.set(id, cr.results);
+    }
+
+    console.log(`[solveCombinations2D] WASM multi-case: ${tWasm.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size}`);
+
+    return { perCase, perCombo, envelope: mcResult.envelope };
+  } catch (err: any) {
+    // Fallback: if multi-case fails (e.g. an unsolvable case), the per-case
+    // path reproduces the precise validation/kinematics error message.
+    // (The engine throws plain strings, so don't rely on err.message.)
+    console.warn('Multi-case 2D failed, falling back to per-case solve:', err?.message ?? String(err));
+    return solveCombinations2DFallback(model, loadCases, combinations, includeSelfWeight);
+  }
+}
+
+/** Fallback: solve cases individually (used when the model needs per-case
+ *  features — constraints/connectors/sliding joints — or when the multi-case
+ *  WASM call fails). */
+function solveCombinations2DFallback(
+  model: ModelData,
+  loadCases: LoadCase[],
+  combinations: LoadCombination[],
+  includeSelfWeight: boolean,
+): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
   const perCase = new Map<number, AnalysisResults>();
 
   for (const lc of loadCases) {
@@ -1588,8 +1697,10 @@ export async function solveCombinations3DParallel(
   const baseInput = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
   if (!baseInput) return t('svc.emptyModel');
 
-  // Serialize the base structure (shared across all cases)
-  const baseJson = JSON.parse(serializeInput3D(baseInput));
+  // Plain-object wire form of the base structure (shared across all cases).
+  // Built straight from the Maps — the old JSON.parse(serializeInput3D(...))
+  // round trip only served to obtain this object.
+  const baseWire = input3DToWireObject(baseInput);
 
   // Build per-case inputs
   const caseInputs: Array<{ caseId: number; caseName: string; json: string }> = [];
@@ -1598,7 +1709,7 @@ export async function solveCombinations3DParallel(
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
     const loads = buildSolverLoads3D(model, caseLoads, includeSelfWeight && lc.type === 'D', leftHand);
     // Create full solver input JSON with this case's loads
-    const fullInput = { ...baseJson, loads };
+    const fullInput = { ...baseWire, loads };
     caseInputs.push({ caseId: lc.id, caseName: lc.name, json: JSON.stringify(fullInput) });
   }
 
@@ -1633,6 +1744,11 @@ export async function solveCombinations3DParallel(
     if (perCase.size === 0) return t('svc.noLoadsApplied');
 
     // Combine results for each combination (fast, on main thread)
+    // TODO(perf): batch the combine+envelope into one WASM call. Not possible
+    // today without an engine change: combine_results_3d is per-combo (each
+    // call re-serializes the referenced per-case results) and
+    // solve_multi_case_3d would re-solve the cases the workers just solved.
+    // Needs an engine-side batch export (e.g. combine_multi_3d) first.
     const t1 = performance.now();
     const perCombo = new Map<number, AnalysisResults3D>();
     for (const combo of combinations) {

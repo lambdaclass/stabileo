@@ -135,6 +135,24 @@ let wasmCheckBoltGroups: ((json: string) => string) | null = null;
 let wasmCheckWeldGroups: ((json: string) => string) | null = null;
 let wasmCheckSpreadFootings: ((json: string) => string) | null = null;
 
+let wasmBytesPromise: Promise<ArrayBuffer> | null = null;
+
+/** Fetch the WASM binary once. Shared between the main-thread init and the
+ *  worker pool so the bytes cross the network a single time. A failed fetch
+ *  is not cached — the next call retries. */
+export function getWasmBytes(): Promise<ArrayBuffer> {
+  if (!wasmBytesPromise) {
+    const wasmUrl = new URL('../wasm/dedaliano_engine_bg.wasm', import.meta.url);
+    wasmBytesPromise = fetch(wasmUrl)
+      .then(resp => {
+        if (!resp.ok) throw new Error(`Failed to fetch WASM binary: HTTP ${resp.status}`);
+        return resp.arrayBuffer();
+      })
+      .catch(err => { wasmBytesPromise = null; throw err; });
+  }
+  return wasmBytesPromise;
+}
+
 /** Initialize the WASM module. Call once at app startup. */
 export async function initSolver(): Promise<void> {
   if (wasmReady) return;
@@ -151,7 +169,7 @@ export async function initSolver(): Promise<void> {
       const wasmBytes = readFileSync(fileURLToPath(wasmUrl));
       wasm.initSync({ module: wasmBytes });
     } else {
-      await wasm.default();
+      await wasm.default(await getWasmBytes());
     }
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
@@ -310,9 +328,10 @@ function serializeInput2D(input: SolverInput): string {
   });
 }
 
-/** Serialize SolverInput3D (with Maps) to JSON string for WASM. */
-export function serializeInput3D(input: SolverInput3D): string {
-  return JSON.stringify({
+/** Convert SolverInput3D (with Maps) to the plain JSON-ready wire object,
+ *  without a string round trip. */
+export function input3DToWireObject(input: SolverInput3D): Record<string, any> {
+  return {
     nodes: mapToObj(input.nodes),
     materials: mapToObj(input.materials),
     sections: mapToObj(input.sections),
@@ -325,7 +344,12 @@ export function serializeInput3D(input: SolverInput3D): string {
     constraints: input.constraints ?? [],
     connectors: input.connectors ? mapToObj(input.connectors) : {},
     leftHand: input.leftHand ?? false,
-  });
+  };
+}
+
+/** Serialize SolverInput3D (with Maps) to JSON string for WASM. */
+export function serializeInput3D(input: SolverInput3D): string {
+  return JSON.stringify(input3DToWireObject(input));
 }
 
 // ─── Solver functions ───────────────────────────────────────────
