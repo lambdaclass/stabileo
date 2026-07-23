@@ -37,6 +37,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
 
     // Build DOF numbering from the full structure (all nodes, all elements)
     let full_solver_input = staged_to_full_solver_input(input);
+    super::linear::validate_input_2d(&full_solver_input)?;
     let dof_num = DofNumbering::build_2d(&full_solver_input);
 
     if dof_num.n_free == 0 {
@@ -770,6 +771,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
 
     // Build DOF numbering from the full structure (all nodes, all elements)
     let full_input = staged_to_full_solver_input_3d(input);
+    super::linear::validate_input_3d(&full_input)?;
     let dof_num = DofNumbering::build_3d(&full_input);
 
     if dof_num.n_free == 0 {

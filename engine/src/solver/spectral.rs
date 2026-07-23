@@ -34,6 +34,11 @@ pub struct PerModeResult {
 
 /// Solve 2D spectral analysis using pre-computed modal data.
 pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String> {
+    super::linear::validate_input_2d(&input.solver)?;
+    super::dynamic_validation::validate_densities(&input.densities)?;
+    if input.modes.is_empty() {
+        return Err("Spectral analysis requires at least one mode (run modal analysis first)".to_string());
+    }
     let solver_input = &input.solver;
     let modes = &input.modes;
     let spectrum = &input.spectrum;
@@ -270,6 +275,11 @@ pub struct SpectralElementForce3D {
 
 /// Solve 3D spectral analysis using pre-computed modal data.
 pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+    super::dynamic_validation::validate_densities(&input.densities)?;
+    if input.modes.is_empty() {
+        return Err("Spectral analysis requires at least one mode (run modal analysis first)".to_string());
+    }
     let solver_input = &input.solver;
     let modes = &input.modes;
     let spectrum = &input.spectrum;

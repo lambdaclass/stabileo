@@ -16,6 +16,26 @@ use super::constraints::FreeConstraintSystem;
 pub fn solve_time_history_2d(
     input: &TimeHistoryInput,
 ) -> Result<TimeHistoryResult, String> {
+    super::linear::validate_input_2d(&input.solver)?;
+    super::dynamic_validation::validate_densities(&input.densities)?;
+    super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
+    if let Some(ga) = &input.ground_accel {
+        if ga.iter().any(|v| !v.is_finite()) {
+            return Err("Ground acceleration history contains non-finite values".to_string());
+        }
+    }
+    if let Some(fh) = &input.force_history {
+        for rec in fh {
+            if !rec.time.is_finite() {
+                return Err("Force history contains a non-finite time value".to_string());
+            }
+            for l in &rec.loads {
+                if !input.solver.nodes.values().any(|n| n.id == l.node_id) {
+                    return Err(format!("Force history load: node {} does not exist", l.node_id));
+                }
+            }
+        }
+    }
     let dof_num = DofNumbering::build_2d(&input.solver);
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -767,6 +787,28 @@ fn compute_reactions_at_state(
 pub fn solve_time_history_3d(
     input: &TimeHistoryInput3D,
 ) -> Result<TimeHistoryResult3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+    super::dynamic_validation::validate_densities(&input.densities)?;
+    super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
+    for ga in [&input.ground_accel_x, &input.ground_accel_y, &input.ground_accel_z] {
+        if let Some(ga) = ga {
+            if ga.iter().any(|v| !v.is_finite()) {
+                return Err("Ground acceleration history contains non-finite values".to_string());
+            }
+        }
+    }
+    if let Some(fh) = &input.force_history {
+        for rec in fh {
+            if !rec.time.is_finite() {
+                return Err("Force history contains a non-finite time value".to_string());
+            }
+            for l in &rec.loads {
+                if !input.solver.nodes.values().any(|n| n.id == l.node_id) {
+                    return Err(format!("Force history load: node {} does not exist", l.node_id));
+                }
+            }
+        }
+    }
     let dof_num = DofNumbering::build_3d(&input.solver);
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
