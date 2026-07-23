@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::solver::linear::{solve_2d, solve_3d};
+use crate::solver::linear::{prepare_static_2d, prepare_static_3d};
 use crate::postprocess::diagrams::compute_diagram_value_at;
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
 use crate::element::compute_local_axes_3d;
@@ -49,6 +49,14 @@ fn default_n_points() -> usize { 20 }
 // ==================== Influence Line Computation ====================
 
 /// Compute influence line: move unit load P=1 (downward) across all elements.
+///
+/// The structure is prepared once (`prepare_static_2d`: assembly +
+/// factorization) and each sampled point reuses the factorization with a
+/// rebuilt unit-load vector.
+///
+/// Follow-up: a Müller-Breslau / adjoint formulation would need only one
+/// triangular solve per target quantity (nodal load at the target DOF) with
+/// ordinates read from K⁻¹-columns instead of one solve per sampled point.
 pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLineResult, String> {
     if input.solver.nodes.len() < 2 {
         return Err("Need at least 2 nodes".into());
@@ -71,6 +79,10 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
         constraints: vec![],
         connectors: HashMap::new(),
     };
+
+    // Prepare once; per-point failures (or a prepare failure) yield 0.0
+    // ordinates, exactly like the previous per-point full solves.
+    let prepared = prepare_static_2d(&base).ok();
 
     // Pre-compute node positions
     let node_pos: HashMap<usize, (f64, f64)> = input.solver.nodes.values()
@@ -96,49 +108,13 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
             let wx = nix + t * dx;
             let wy = niy + t * dy;
 
-            // Unit load P=1 downward → perpendicular component
-            let p_perp = -cos_theta;
-            let p_axial = -sin_theta;
+            let loads = influence_unit_loads_2d(elem, a, t, cos_theta, sin_theta);
 
-            let mut loads: Vec<SolverLoad> = Vec::new();
-
-            if p_perp.abs() > 1e-10 {
-                loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
-                    element_id: elem.id,
-                    a,
-                    p: p_perp,
-                    px: None,
-                    my: None,
-                }));
-            }
-
-            if p_axial.abs() > 1e-10 {
-                let fi = p_axial * (1.0 - t);
-                let fj = p_axial * t;
-                loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: elem.node_i,
-                    fx: fi * cos_theta,
-                    fz: fi * sin_theta,
-                    my: 0.0,
-                }));
-                loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: elem.node_j,
-                    fx: fj * cos_theta,
-                    fz: fj * sin_theta,
-                    my: 0.0,
-                }));
-            }
-
-            let trial_input = SolverInput {
-                loads,
-                ..base.clone()
-            };
-
-            let value = match solve_2d(&trial_input) {
-                Ok(result) => {
+            let value = match prepared.as_ref().and_then(|p| p.solve_loads(&loads).ok()) {
+                Some(result) => {
                     extract_value(&input.quantity, input.target_node_id, input.target_element_id, input.target_position, &result)
                 }
-                Err(_) => 0.0,
+                None => 0.0,
             };
 
             points.push(InfluenceLinePoint {
@@ -160,7 +136,52 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
     })
 }
 
-fn extract_value(
+/// Unit-load set at position `a = t·l` on a 2D element: perpendicular point
+/// load plus axial components as nodal loads at both element ends.
+pub fn influence_unit_loads_2d(
+    elem: &SolverElement,
+    a: f64,
+    t: f64,
+    cos_theta: f64,
+    sin_theta: f64,
+) -> Vec<SolverLoad> {
+    // Unit load P=1 downward → perpendicular component
+    let p_perp = -cos_theta;
+    let p_axial = -sin_theta;
+
+    let mut loads: Vec<SolverLoad> = Vec::new();
+
+    if p_perp.abs() > 1e-10 {
+        loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: elem.id,
+            a,
+            p: p_perp,
+            px: None,
+            my: None,
+        }));
+    }
+
+    if p_axial.abs() > 1e-10 {
+        let fi = p_axial * (1.0 - t);
+        let fj = p_axial * t;
+        loads.push(SolverLoad::Nodal(SolverNodalLoad {
+            node_id: elem.node_i,
+            fx: fi * cos_theta,
+            fz: fi * sin_theta,
+            my: 0.0,
+        }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad {
+            node_id: elem.node_j,
+            fx: fj * cos_theta,
+            fz: fj * sin_theta,
+            my: 0.0,
+        }));
+    }
+
+    loads
+}
+
+pub fn extract_value(
     quantity: &str,
     target_node_id: Option<usize>,
     target_element_id: Option<usize>,
@@ -244,6 +265,12 @@ pub struct InfluenceLineInput3D {
 }
 
 /// Compute 3D influence line: move unit gravity load P=1 across all frame elements.
+///
+/// The structure is prepared once (`prepare_static_3d`: curved-beam expansion,
+/// assembly, factorization) and each sampled point reuses the factorization
+/// with a rebuilt unit-load vector. Same follow-up as the 2D variant: a
+/// Müller-Breslau / adjoint formulation would need one solve per target
+/// quantity instead of one per sampled point.
 pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<InfluenceLineResult3D, String> {
     if input.solver.nodes.len() < 2 {
         return Err("Need at least 2 nodes".into());
@@ -277,6 +304,10 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
         curved_beams: input.solver.curved_beams.clone(),
         connectors: HashMap::new(),
     };
+
+    // Prepare once; per-point failures (or a prepare failure) yield 0.0
+    // ordinates, exactly like the previous per-point full solves.
+    let prepared = prepare_static_3d(&base).ok();
 
     let node_pos: HashMap<usize, (f64, f64, f64)> = input.solver.nodes.values()
         .map(|n| (n.id, (n.x, n.y, n.z)))
@@ -316,32 +347,17 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
             let wy = niy + t * dy;
             let wz = niz + t * dz;
 
-            let mut loads: Vec<SolverLoad3D> = Vec::new();
+            let loads = influence_unit_loads_3d(elem.id, a, g_local_y, g_local_z);
 
-            // Apply unit load as point-on-element in local Y/Z
-            if g_local_y.abs() > 1e-10 || g_local_z.abs() > 1e-10 {
-                loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
-                    element_id: elem.id,
-                    a,
-                    py: g_local_y,
-                    pz: g_local_z,
-                }));
-            }
-
-            let trial_input = SolverInput3D {
-                loads,
-                ..base.clone()
-            };
-
-            let value = match solve_3d(&trial_input) {
-                Ok(result) => extract_value_3d(
+            let value = match prepared.as_ref().and_then(|p| p.solve_loads(&loads).ok()) {
+                Some(result) => extract_value_3d(
                     &input.quantity,
                     input.target_node_id,
                     input.target_element_id,
                     input.target_position,
                     &result,
                 ),
-                Err(_) => 0.0,
+                None => 0.0,
             };
 
             points.push(InfluenceLinePoint3D {
@@ -364,7 +380,22 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
     })
 }
 
-fn extract_value_3d(
+/// Unit gravity load at position `a` on a 3D element, already projected into
+/// local Y/Z components.
+pub fn influence_unit_loads_3d(elem_id: usize, a: f64, g_local_y: f64, g_local_z: f64) -> Vec<SolverLoad3D> {
+    let mut loads: Vec<SolverLoad3D> = Vec::new();
+    if g_local_y.abs() > 1e-10 || g_local_z.abs() > 1e-10 {
+        loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+            element_id: elem_id,
+            a,
+            py: g_local_y,
+            pz: g_local_z,
+        }));
+    }
+    loads
+}
+
+pub fn extract_value_3d(
     quantity: &str,
     target_node_id: Option<usize>,
     target_element_id: Option<usize>,
