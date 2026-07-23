@@ -879,7 +879,27 @@ fn fuzz_time_history_2d_crash_free_500() {
         };
         match std::panic::catch_unwind(|| time_integration::solve_time_history_2d(&input)) {
             Ok(Ok(res)) => {
-                assert!(res.time_steps.iter().all(|t| t.is_finite()), "seed {}", seed);
+                for nh in &res.node_histories {
+                    let all_finite = nh.ux.iter().all(|v| v.is_finite())
+                        && nh.uz.iter().all(|v| v.is_finite())
+                        && nh.ry.iter().all(|v| v.is_finite())
+                        && nh.vx.iter().all(|v| v.is_finite())
+                        && nh.vz.iter().all(|v| v.is_finite())
+                        && nh.ax.iter().all(|v| v.is_finite())
+                        && nh.az.iter().all(|v| v.is_finite());
+                    assert!(
+                        all_finite,
+                        "seed {}: NaN/Inf in TH 2D node {} history",
+                        seed, nh.node_id
+                    );
+                }
+                for d in &res.peak_displacements {
+                    assert!(
+                        d.ux.is_finite() && d.uz.is_finite() && d.ry.is_finite(),
+                        "seed {}: NaN/Inf in TH 2D peak displacement node {}: ux={}, uz={}, ry={}",
+                        seed, d.node_id, d.ux, d.uz, d.ry
+                    );
+                }
             }
             Ok(Err(_)) => {}
             Err(p) => panic!("PANIC TH 2D seed {}: {:?}", seed, p),
