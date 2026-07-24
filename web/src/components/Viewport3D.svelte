@@ -436,8 +436,17 @@
       // Update clipping plane
       updateClippingPlane();
 
-      // Tick down damping frames (OrbitControls damping settles over ~15-20 frames)
-      if (dampingFrames > 0) dampingFrames--;
+      // Tick down damping frames (OrbitControls damping settles over ~15-20 frames).
+      // Stay in low-detail + pixelRatio=1 through the settle and restore crisp full
+      // detail only on the final frame — otherwise releasing the orbit paid ~20
+      // full-detail, full-DPR renders in a row.
+      if (dampingFrames > 0) {
+        dampingFrames--;
+        if (dampingFrames === 0 && !isOrbiting) {
+          renderer.setPixelRatio(idlePixelRatio);
+          setLowDetail(false);
+        }
+      }
 
       // Animate deformed shape (oscillating scale like 2D viewport)
       const _dt = resultsStore.diagramType;
@@ -481,8 +490,34 @@
         resultsCtx.lastDespieceSep = null;
       }
 
+      const _perfT0 = perfHud.on ? performance.now() : 0;
       renderer.render(scene, camera);
       drawAxisGizmo();
+      if (perfHud.on) {
+        // GPU side: draw calls + triangles (renderer.info auto-resets per render,
+        // so these are THIS frame's counts). Geometry/texture counts reveal
+        // teardown/rebuild churn during edits (CPU sync), distinguishing the two.
+        const _now = performance.now();
+        perfAcc.renderMsSum += _now - _perfT0;
+        perfAcc.frames++;
+        if (perfAcc.lastFrameT) perfAcc.frameMsSum += _now - perfAcc.lastFrameT;
+        perfAcc.lastFrameT = _now;
+        if (_now - perfAcc.lastFlush > 250) {
+          const f = perfAcc.frames || 1;
+          perfHud = {
+            on: true,
+            fps: perfAcc.frameMsSum > 0 ? Math.round(1000 / (perfAcc.frameMsSum / f)) : 0,
+            renderMs: +(perfAcc.renderMsSum / f).toFixed(2),
+            syncMs: +perfAcc.syncMs.toFixed(2), // CPU scene-sync since last flush
+            calls: renderer.info.render.calls,
+            tris: renderer.info.render.triangles,
+            geos: renderer.info.memory.geometries,
+            texs: renderer.info.memory.textures,
+          };
+          perfAcc.syncMs = 0; perfAcc.frames = 0; perfAcc.frameMsSum = 0;
+          perfAcc.renderMsSum = 0; perfAcc.lastFlush = _now;
+        }
+      }
 
       // Keep looping if continuous rendering is needed
       if (needsContinuous() || needsRender) {
@@ -513,7 +548,9 @@
       if (dt === 'despiece') return;
       const resultsColoringActive = !!resultsStore.results3D
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
-      const heavyModel = isHeavyModel(
+      // Opt-in "smooth orbit" forces the heavy-model low-detail path for any
+      // model during camera motion (collapse to the single batched wireframe).
+      const heavyModel = uiStore.smoothOrbit3D || isHeavyModel(
         { elements: modelStore.elements.size, shells: modelStore.plates.size + modelStore.quads.size },
         uiStore.renderMode3D,
       );
@@ -540,8 +577,9 @@
     controls.addEventListener('end', () => {
       isOrbiting = false;
       dampingFrames = 20;
-      renderer.setPixelRatio(idlePixelRatio);
-      setLowDetail(false);
+      // Keep low-detail + pixelRatio=1 through the damping settle; renderOnce
+      // restores full detail/DPR on the final settle frame (one crisp frame
+      // instead of 20).
       invalidate();
     });
 
@@ -563,6 +601,13 @@
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Shift+P — toggle the dev perf HUD live (also persisted for next load).
+      if (e.key === 'P' && e.shiftKey) {
+        perfHud = { ...perfHud, on: !perfHud.on };
+        try { localStorage.setItem('stabileo_perf', perfHud.on ? '1' : '0'); } catch { /* ignore */ }
+        invalidate();
+        return;
+      }
       if (e.key === 'Escape') {
         if (showCoordDialog) { cancelCoordDialog(); return; }
         if (uiStore.measureMode) { clearMeasureVisuals(); }
@@ -629,15 +674,49 @@
     };
   }
 
-  // Thin wrappers that delegate to extracted modules + keep local refs in sync
-  function syncNodes() { _syncNodes(sceneCtx); }
-  function syncElements() { _syncElements(sceneCtx); }
-  function syncSupports() { _syncSupports(sceneCtx); }
-  function syncLoads() { _syncLoads(sceneCtx); }
-  function syncShells() { _syncShells(sceneCtx); }
-  function syncLocalAxes() { _syncLocalAxes(sceneCtx); }
-  function syncMemberOffsets() { _syncMemberOffsets(sceneCtx); }
-  function syncShellOffsets() { _syncShellOffsets(sceneCtx); }
+  // ── Perf HUD (dev measurement only) ──────────────────────────────
+  // Decides whether the 3D slowdown is CPU-bound (scene sync per edit) or
+  // GPU-bound (draw calls / fill rate). Enable with ?perf in the URL or
+  // localStorage.stabileo_perf='1', or toggle live with Shift+P. Zero cost when
+  // off (perfTimed early-returns; the render block is guarded). Not for prod.
+  let perfHud = $state<{ on: boolean; fps: number; renderMs: number; syncMs: number; calls: number; tris: number; geos: number; texs: number }>({
+    on: (() => { try { return new URLSearchParams(location.search).has('perf') || localStorage.getItem('stabileo_perf') === '1'; } catch { return false; } })(),
+    fps: 0, renderMs: 0, syncMs: 0, calls: 0, tris: 0, geos: 0, texs: 0,
+  });
+  // Non-reactive accumulators so the HUD's own reactivity doesn't perturb the measurement.
+  const perfAcc = { syncMs: 0, frames: 0, frameMsSum: 0, renderMsSum: 0, lastFlush: 0, lastFrameT: 0 };
+  function perfTimed<T>(fn: () => T): T {
+    if (!perfHud.on) return fn();
+    const t0 = performance.now();
+    const r = fn();
+    perfAcc.syncMs += performance.now() - t0;
+    return r;
+  }
+
+  // Thin wrappers that delegate to extracted modules + keep local refs in sync.
+  // Wrapped in perfTimed so the HUD can attribute per-edit CPU cost to scene sync.
+  function syncNodes() { perfTimed(() => _syncNodes(sceneCtx)); }
+  function syncElements() { perfTimed(() => _syncElements(sceneCtx)); }
+  function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); }
+  function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); }
+  function syncShells() { perfTimed(() => _syncShells(sceneCtx)); }
+  // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
+  // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
+  // every node-drag tick. Suppress them while a node is being dragged (the cheap,
+  // signature-diffed node/element/shell syncs still run so the geometry follows the
+  // cursor) and run them once on drag-end (finalizeDecorAfterDrag) so they snap to
+  // the final position. 'always'-mode triads + offset arms are the dominant
+  // remaining per-tick cost; this removes it from the drag.
+  function syncLocalAxes() { if (draggedNodeId3D !== null) return; perfTimed(() => _syncLocalAxes(sceneCtx)); }
+  function syncMemberOffsets() { if (draggedNodeId3D !== null) return; perfTimed(() => _syncMemberOffsets(sceneCtx)); }
+  function syncShellOffsets() { if (draggedNodeId3D !== null) return; perfTimed(() => _syncShellOffsets(sceneCtx)); }
+  /** Run the drag-suppressed decorative syncs once after a node drag finishes. */
+  function finalizeDecorAfterDrag() {
+    syncLocalAxes();
+    syncMemberOffsets();
+    syncShellOffsets();
+    invalidate();
+  }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
@@ -1499,6 +1578,7 @@
       dragMoved3D = false;
       dragStartWorld3D = null;
       controls.enabled = true;
+      finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
       return;
     }
 
@@ -1940,8 +2020,10 @@
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
 
-    const allPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children, ...shellsParent.children];
-    const hits = raycaster.intersectObjects(allPickable, true);
+    // Recurse from the parents directly (recursive=true) instead of spreading
+    // every child into a new array each hover frame — on shell-heavy models that
+    // spread allocated an array of thousands of objects per pointer-move.
+    const hits = raycaster.intersectObjects([nodesParent, elementsParent, supportsParent, shellsParent], true);
 
     let newHover: { type: string; id: number } | null = null;
     for (const hit of hits) {
@@ -2028,8 +2110,15 @@
       }
     }
 
-    // Invalidate if hover state changed (material colors were modified)
-    if (hoveredData !== newHover) invalidate();
+    // Re-render only when the hover highlight actually changed. newHover is a
+    // fresh object literal each call, so the old `hoveredData !== newHover`
+    // reference check fired on EVERY mouse move over the SAME object — a wasted
+    // full-scene redraw (thousands of draw calls on shell-heavy models). The
+    // tooltip is a DOM element (Svelte-reactive), so it doesn't need a WebGL
+    // redraw; only the material recolor (applyHoverColor/restoreColor, gated by
+    // value) does, and that happens exactly when the value below changes.
+    const sameHover = hoveredData?.id === newHover?.id && hoveredData?.type === newHover?.type;
+    if (!sameHover) invalidate();
     hoveredData = newHover;
     hoveredNodeId3D = (newHover?.type === 'node') ? newHover.id : null;
   }
@@ -2059,6 +2148,7 @@
       dragMoved3D = false;
       dragStartWorld3D = null;
       controls.enabled = true;
+      finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
     }
   }
 
@@ -2289,6 +2379,18 @@
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}
 >
+  <!-- Dev perf HUD (Shift+P or ?perf). Reads: high `calls` + stable `geos` = GPU
+       draw-call bound; `geos`/`texs` spiking + high `syncMs` while editing = CPU
+       teardown/rebuild churn. -->
+  {#if perfHud.on}
+    <div class="perf-hud">
+      <div><b>3D perf</b> <span style="opacity:.6">(Shift+P)</span></div>
+      <div>fps <b>{perfHud.fps}</b> · render <b>{perfHud.renderMs}</b>ms</div>
+      <div>sync <b>{perfHud.syncMs}</b>ms/250ms</div>
+      <div>draw calls <b>{perfHud.calls}</b> · tris <b>{(perfHud.tris / 1000).toFixed(0)}</b>k</div>
+      <div>geos <b>{perfHud.geos}</b> · texs <b>{perfHud.texs}</b></div>
+    </div>
+  {/if}
   <!-- Camera preset buttons -->
   <div class="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
     <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')}>⊞</button>
@@ -2482,6 +2584,23 @@
     position: relative;
     overflow: hidden;
   }
+
+  /* Dev perf HUD — measurement only (Shift+P / ?perf). */
+  .perf-hud {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 50;
+    pointer-events: none;
+    font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #cfe8ff;
+    background: rgba(10, 18, 28, 0.82);
+    border: 1px solid rgba(120, 180, 255, 0.25);
+    border-radius: 6px;
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+  .perf-hud b { color: #fff; }
 
   .viewport3d-wrapper :global(canvas:not(.axis-gizmo)) {
     display: block;

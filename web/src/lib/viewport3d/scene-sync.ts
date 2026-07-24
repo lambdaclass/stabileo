@@ -12,7 +12,7 @@ import { ElementsPicking } from '../three/elements-picking';
 import { createElementGroup } from '../three/create-element-mesh';
 import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
-import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
+import { createLoadArrowsBatched } from '../three/load-arrows-batched';
 import { COLORS, setGroupColor, disposeObject } from '../three/selection-helpers';
 import { createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, paintShellEdge, restoreShellColor } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
@@ -87,6 +87,10 @@ export interface SceneSyncContext {
 
   // Results state (mutable flags shared with results-sync)
   colorMapApplied: boolean;
+
+  // Memo of the last inputs syncLoads rendered from, so an unrelated model
+  // mutation (e.g. dragging a node with no loads on it) skips the full rebuild.
+  lastLoadsSig?: string;
 }
 
 // ─── 3D internal-joint glyph ──────────────────────────────────
@@ -321,16 +325,12 @@ export function syncSupports(ctx: SceneSyncContext): void {
     }
   }
 
-  // Recreate all
+  // Rebuild only changed gizmos. A node drag bumps modelVersion and re-runs this
+  // every tick, so without the per-support signature it disposed+recreated EVERY
+  // gizmo each frame; now an unchanged support is left untouched.
   for (const [id, sup] of storeSupports) {
     const node = modelStore.nodes.get(sup.nodeId);
     if (!node) continue;
-
-    const old = ctx.supportGizmos.get(id);
-    if (old) {
-      ctx.supportsParent.remove(old);
-      disposeObject(old);
-    }
 
     // Determine gizmo type: if dofRestraints present, derive visual type
     let gizmoType: SupportGizmoType = sup.type as SupportGizmoType;
@@ -343,10 +343,20 @@ export function syncSupports(ctx: SceneSyncContext): void {
       else if (!r.tx && !r.ty && !r.tz && !r.rx && !r.ry && !r.rz) gizmoType = 'spring3d';
       else gizmoType = 'custom3d';
     }
+
+    const sig = `${node.x},${node.y},${node.z ?? 0}|${gizmoType}|${project2D ? 1 : 0}|${sup.dofRestraints ? JSON.stringify(sup.dofRestraints) : ''}`;
+    const old = ctx.supportGizmos.get(id);
+    if (old && old.userData.supportSig === sig) continue; // unchanged → reuse
+    if (old) {
+      ctx.supportsParent.remove(old);
+      disposeObject(old);
+    }
+
     const gizmo = createSupportGizmo(
       projectNodeToScene(node, project2D),
       { supportId: id, supportType: gizmoType, dofRestraints: sup.dofRestraints },
     );
+    gizmo.userData.supportSig = sig;
     ctx.supportsParent.add(gizmo);
     ctx.supportGizmos.set(id, gizmo);
   }
@@ -494,9 +504,50 @@ export function applyShellSelection(ctx: SceneSyncContext): void {
 
 // ─── Loads ───────────────────────────────────────────────────
 
+/** Cheap O(loads) hash of everything syncLoads renders from (load data → arrow
+ *  scale/colour, referenced node positions, and the UI toggles). When it matches
+ *  the previous run the entire load-group rebuild is skipped — so dragging a node
+ *  that carries no load (the common case) no longer rebuilds every arrow per tick. */
+function loadsSignature(project2D: boolean): string {
+  const parts: (string | number)[] = [
+    uiStore.showLoads3D ? 1 : 0,
+    uiStore.hideLoadsWithDiagram ? 1 : 0,
+    String(uiStore.momentStyle3D),
+    resultsStore.diagramType,
+    (uiStore.visibleLoadCases3D ?? []).join(','),
+    project2D ? 1 : 0,
+  ];
+  const np = (id: number | undefined): string => {
+    const n = id != null ? modelStore.nodes.get(id) : undefined;
+    return n ? `${n.x},${n.y},${n.z ?? 0}` : '_';
+  };
+  for (const load of modelStore.loads) {
+    const d = load.data as unknown as Record<string, number | undefined>;
+    parts.push(load.type, JSON.stringify(d), modelStore.getLoadCaseColor((d.caseId as number) ?? 1));
+    if (load.type === 'nodal' || load.type === 'nodal3d') {
+      parts.push(np(d.nodeId));
+    } else if (load.type === 'distributed' || load.type === 'distributed3d'
+      || load.type === 'pointOnElement' || load.type === 'pointOnElement3d') {
+      const elem = modelStore.elements.get(d.elementId as number);
+      // element endpoints + (for distributed3d) the local frame that orients qY/qZ
+      parts.push(elem ? np(elem.nodeI) + np(elem.nodeJ) : '_',
+        elem?.localYx ?? '', elem?.localYy ?? '', elem?.localYz ?? '', elem?.rollAngle ?? '');
+    } else if (load.type === 'surface3d') {
+      const quad = modelStore.quads.get(d.quadId as number);
+      parts.push(quad ? quad.nodes.map((nid: number) => np(nid)).join('') : '_');
+    }
+  }
+  return parts.join('|');
+}
+
 export function syncLoads(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const project2D = projectFlag();
+
+  // Skip the full rebuild when nothing syncLoads depends on changed.
+  const sig = loadsSignature(project2D);
+  if (ctx.lastLoadsSig === sig) return;
+  ctx.lastLoadsSig = sig;
 
   // Clear all load visuals
   if (ctx.loadGroup) {
@@ -539,6 +590,10 @@ export function syncLoads(ctx: SceneSyncContext): void {
 
   const loadGrp = ctx.loadGroup;
 
+  // Batched accumulator: all arrows/envelopes/fills/cones merge into ~5
+  // draw calls total instead of ~18-35 per load (the load-heavy GPU bottleneck).
+  const batch = createLoadArrowsBatched();
+
   // Visibility filter and color helper
   const visibleCases = uiStore.visibleLoadCases3D; // null = all visible
   function getCaseColor(caseId: number | undefined): number {
@@ -561,28 +616,26 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const pos = projectNodeToScene(node, project2D);
       const vertical = get2DDisplayNodalLoadVertical(load.data);
       const moment = get2DDisplayNodalLoadMoment(load.data);
-      const arrow = createNodalLoadArrow(
+      batch.addNodalLoadArrow(
         pos,
         load.data.fx, project2D ? 0 : vertical, project2D ? vertical : 0,
         0, project2D ? moment : 0, project2D ? 0 : moment,
-        maxForce, i,
+        maxForce,
         uiStore.momentStyle3D,
         cc,
       );
-      loadGrp.add(arrow);
     } else if (load.type === 'nodal3d') {
       const node = modelStore.nodes.get(load.data.nodeId);
       if (!node) continue;
       const d = load.data;
-      const arrow = createNodalLoadArrow(
+      batch.addNodalLoadArrow(
         projectNodeToScene(node, project2D),
         d.fx, d.fy, d.fz,
         d.mx, d.my, d.mz,
-        maxForce, i,
+        maxForce,
         uiStore.momentStyle3D,
         cc,
       );
-      loadGrp.add(arrow);
     } else if (load.type === 'distributed') {
       const elem = modelStore.elements.get(load.data.elementId);
       if (!elem) continue;
@@ -591,13 +644,12 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!nI || !nJ) continue;
       const posI = projectNodeToScene(nI, project2D);
       const posJ = projectNodeToScene(nJ, project2D);
-      const grp = createDistributedLoadGroup(
+      batch.addDistributedLoad(
         posI,
         posJ,
         load.data.qI, load.data.qJ,
-        maxQ, i, 'Z', undefined, cc,
+        maxQ, 'Z', undefined, cc,
       );
-      loadGrp.add(grp);
     } else if (load.type === 'distributed3d') {
       const elem = modelStore.elements.get(load.data.elementId);
       if (!elem) continue;
@@ -616,21 +668,19 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
       // qY loads act along local ey
       if (Math.abs(load.data.qYI) > 0.01 || Math.abs(load.data.qYJ) > 0.01) {
-        const grp = createDistributedLoadGroup(
+        batch.addDistributedLoad(
           sceneI, sceneJ,
           load.data.qYI, load.data.qYJ,
-          maxQ, i, 'Y', ey, cc,
+          maxQ, 'Y', ey, cc,
         );
-        loadGrp.add(grp);
       }
       // qZ loads act along local ez
       if (Math.abs(load.data.qZI) > 0.01 || Math.abs(load.data.qZJ) > 0.01) {
-        const grpZ = createDistributedLoadGroup(
+        batch.addDistributedLoad(
           sceneI, sceneJ,
           load.data.qZI, load.data.qZJ,
-          maxQ, i, 'Z', ez, cc,
+          maxQ, 'Z', ez, cc,
         );
-        loadGrp.add(grpZ);
       }
     }
     // surface3d: render as a grid of arrows covering the quad area
@@ -639,11 +689,10 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!quad) continue;
       const ns = quad.nodes.map((nid: number) => modelStore.nodes.get(nid));
       if (ns.some((n: any) => !n)) continue;
-      const grp = createSurfaceLoadGroup(
+      batch.addSurfaceLoad(
         ns as Array<{ x: number; y: number; z: number }>,
-        load.data.q, maxQ, i, cc,
+        load.data.q, maxQ, cc,
       );
-      loadGrp.add(grp);
     }
     // pointOnElement and pointOnElement3d: simplified as nodal for now
     else if (load.type === 'pointOnElement') {
@@ -659,28 +708,20 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const px = sceneI.x + (sceneJ.x - sceneI.x) * t;
       const py = sceneI.y + (sceneJ.y - sceneI.y) * t;
       const pz = sceneI.z + (sceneJ.z - sceneI.z) * t;
-      const arrow = createNodalLoadArrow(
+      batch.addNodalLoadArrow(
         { x: px, y: py, z: pz },
         0, 0, -Math.abs(load.data.p),
         0, 0, 0,
-        maxForce, i,
+        maxForce,
         'double-arrow', cc,
       );
-      loadGrp.add(arrow);
     }
   }
 
-  // Loads render above grid (0), axes (1), and elements (2)
-  loadGrp.traverse((obj) => {
-    obj.renderOrder = 3;
-    if ((obj as THREE.Mesh).isMesh || (obj as THREE.Line).isLine) {
-      const mat = (obj as THREE.Mesh).material as THREE.Material;
-      if (mat) {
-        mat.depthTest = false;
-        mat.depthWrite = false;
-      }
-    }
-  });
+  // Build the merged renderables (shafts, envelopes, cones, fills, labels) and
+  // attach. Flags (renderOrder 3, depthTest/Write off, no frustum culling) are
+  // stamped per object inside build() — no traverse needed.
+  loadGrp.add(batch.build());
 }
 
 // ─── Selection highlight ─────────────────────────────────────

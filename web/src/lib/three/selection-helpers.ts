@@ -94,6 +94,58 @@ export function createTextSprite(
   return sprite;
 }
 
+// ── Cached text sprites ──────────────────────────────────────
+// Load-heavy scenes repeat the same few label texts hundreds of times
+// ("5.0 kN/m²" on every quad). Creating a canvas + CanvasTexture per sprite is
+// the CPU/GPU-memory cost that makes syncLoads rebuilds stutter, so textures
+// are shared by (text, color, fontSize). Sprites made here carry
+// userData.sharedTexture so disposeObject() leaves the shared map alive.
+const TEXTURE_CACHE_MAX = 500;
+const textTextureCache = new Map<string, THREE.CanvasTexture>();
+
+function labelTexture(text: string, color: string, fontSize: number): THREE.CanvasTexture {
+  const key = `${text}|${color}|${fontSize}`;
+  const cached = textTextureCache.get(key);
+  if (cached) {
+    // Refresh recency (Map iteration is insertion-ordered for eviction).
+    textTextureCache.delete(key);
+    textTextureCache.set(key, cached);
+    return cached;
+  }
+  const canvas = document.createElement('canvas');
+  const size = 128;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = color;
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, size / 2, size / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  textTextureCache.set(key, texture);
+  if (textTextureCache.size > TEXTURE_CACHE_MAX) {
+    const oldest = textTextureCache.keys().next().value!;
+    textTextureCache.get(oldest)?.dispose();
+    textTextureCache.delete(oldest);
+  }
+  return texture;
+}
+
+/** Like createTextSprite but with a shared cached texture (see above). */
+export function createTextSpriteCached(
+  text: string,
+  color: string = '#ffffff',
+  fontSize: number = 36,
+): THREE.Sprite {
+  const texture = labelTexture(text, color, fontSize);
+  const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(0.6, 0.6, 1);
+  sprite.userData.sharedTexture = true;
+  return sprite;
+}
+
 /**
  * Heatmap color: norm ∈ [0,1] → blue(0) → green(0.5) → red(1)
  * Used for stress ratio, moment magnitude, etc.
@@ -145,7 +197,11 @@ export function disposeObject(obj: THREE.Object3D): void {
       }
     }
     if (child instanceof THREE.Sprite) {
-      (child.material as THREE.SpriteMaterial).map?.dispose();
+      // Cached-label textures are shared across sprites — disposing one would
+      // corrupt every other sprite using it. Only dispose private maps.
+      if (!child.userData?.sharedTexture) {
+        (child.material as THREE.SpriteMaterial).map?.dispose();
+      }
       child.material.dispose();
     }
   });

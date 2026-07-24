@@ -652,6 +652,8 @@ const en: Record<string, string> = {
   'config.localAxes': 'Local axes',
   'config.localAxesMembers': 'Local axes (members)',
   'config.localAxesShells': 'Local axes (shells)',
+  'config.smoothOrbit': 'Smooth orbit (low detail)',
+  'config.smoothOrbitHint': 'Show a fast wireframe while rotating/panning/zooming, restoring full detail when the camera stops. Helps large models.',
   'config.localAxesSelected': 'Selection',
   'config.localAxesAlways': 'All',
   'config.localAxesNever': 'None',
