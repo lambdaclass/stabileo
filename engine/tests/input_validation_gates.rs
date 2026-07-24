@@ -180,6 +180,17 @@ fn time_history_2d_rejects_nonpositive_time_step() {
     expect_clean_err("TH 2D dt=0", || time_integration::solve_time_history_2d(&input));
 }
 
+#[test]
+fn time_history_2d_rejects_nan_force_history() {
+    let mut input = th_input(tiny_beam_2d());
+    input.ground_accel = None;
+    input.force_history = Some(vec![TimeForceRecord {
+        time: 0.0,
+        loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: f64::NAN, my: 0.0 }],
+    }]);
+    expect_clean_err("TH 2D NaN force history", || time_integration::solve_time_history_2d(&input));
+}
+
 // ---------- staged ----------
 
 #[test]

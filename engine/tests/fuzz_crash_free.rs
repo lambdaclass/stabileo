@@ -850,7 +850,13 @@ fn fuzz_modal_3d_crash_free_500() {
             .map(|m| (m.id.to_string(), 7850.0))
             .collect();
         match std::panic::catch_unwind(|| modal::solve_modal_3d(&input, &densities, 3)) {
-            Ok(_) => {}
+            Ok(Ok(res)) => {
+                assert!(res.total_mass.is_finite(), "non-finite total_mass, seed {}", seed);
+                for m in &res.modes {
+                    assert!(m.frequency.is_finite(), "non-finite frequency, seed {}", seed);
+                }
+            }
+            Ok(Err(_)) => {}
             Err(p) => panic!("PANIC modal 3D seed {}: {:?}", seed, p),
         }
     }
@@ -935,7 +941,13 @@ fn fuzz_staged_2d_crash_free_1k() {
             constraints: vec![],
         };
         match std::panic::catch_unwind(|| staged::solve_staged_2d(&input)) {
-            Ok(_) => {}
+            Ok(Ok(res)) => {
+                for stage in &res.stages {
+                    assert_finite_2d(&stage.results, seed);
+                }
+                assert_finite_2d(&res.final_results, seed);
+            }
+            Ok(Err(_)) => {}
             Err(p) => panic!("PANIC staged 2D seed {}: {:?}", seed, p),
         }
     }

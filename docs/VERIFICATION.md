@@ -123,7 +123,7 @@ Best early targets:
 - mixed support conditions
 - mixed beam/shell assemblies
 
-All solver entry points (linear, modal, spectral, harmonic, time history, staged) share the
+The linear, modal, spectral, harmonic, time-history, and staged entry points share the
 same input-validation gate: referential integrity, physical bounds (E > 0, A > 0, non-zero
 element length), and NaN/Inf rejection. `engine/tests/input_validation_gates.rs` enforces
 the contract "degenerate input returns Err, never panics", and `engine/tests/fuzz_crash_free.rs`
