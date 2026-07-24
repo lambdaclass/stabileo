@@ -3,6 +3,7 @@ use crate::linalg::*;
 use std::collections::HashMap;
 use super::dof::DofNumbering;
 use super::assembly::*;
+use super::linear::SPARSE_THRESHOLD;
 use super::mass_matrix::*;
 use super::constraints::FreeConstraintSystem;
 
@@ -63,25 +64,44 @@ pub fn solve_modal_2d(
         return Err("No mass assigned — set material densities".into());
     }
 
-    // Assemble K and M
-    let asm = assemble_2d(input, &dof_num);
+    // Assemble M (dense); K is assembled sparse for large models, dense otherwise
     let m_full = assemble_mass_matrix_2d(input, &dof_num, densities);
 
     let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
-    let (k_solve, m_solve, ns) = if let Some(ref cs) = cs {
-        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.n_free_indep)
-    } else {
-        (k_ff.clone(), m_ff.clone(), nf)
-    };
 
     // Solve K·φ = λ·M·φ where λ = ω²
-    let result = lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
-        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+    // Large unconstrained models: triplet sparse assembly + sparse shift-invert
+    // Lanczos (mirrors the 3D modal wiring); constraints still reduce dense K.
+    let (result, ns, m_solve) = if nf >= SPARSE_THRESHOLD {
+        let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
+        if let Some(ref cs) = cs {
+            let k_ff = sasm.k_ff.to_dense_symmetric();
+            let k_solve = cs.reduce_matrix(&k_ff);
+            let m_solve = cs.reduce_matrix(&m_ff);
+            let result = lanczos_generalized_eigen(&k_solve, &m_solve, cs.n_free_indep, num_modes, 0.0)
+                .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+            (result, cs.n_free_indep, m_solve)
+        } else {
+            let result = lanczos_generalized_eigen_sparse(&sasm.k_ff, &m_ff, nf, num_modes, 0.0)
+                .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+            (result, nf, m_ff)
+        }
+    } else {
+        let asm = assemble_2d(input, &dof_num);
+        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+        let (k_solve, m_solve, ns) = if let Some(ref cs) = cs {
+            (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.n_free_indep)
+        } else {
+            (k_ff.clone(), m_ff.clone(), nf)
+        };
+        let result = lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
+            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        (result, ns, m_solve)
+    };
 
     let num_modes = num_modes.min(ns);
 

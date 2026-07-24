@@ -28,7 +28,7 @@ const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 
 
 /// Free DOFs threshold: use sparse solver when n_free >= this.
-const SPARSE_THRESHOLD: usize = 64;
+pub(crate) const SPARSE_THRESHOLD: usize = 64;
 
 /// Solve a 2D linear static analysis.
 pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
@@ -83,6 +83,11 @@ enum PreparedPath2D {
         ku_full: Vec<f64>,
     },
     Solve(Box<PreparedSolve2D>),
+    /// Sparse Cholesky of the triplet-assembled K_ff (nf >= SPARSE_THRESHOLD).
+    Sparse(Box<PreparedSparse2D>),
+    /// Sparse Cholesky failed even with diagonal-shift regularization:
+    /// dense LU of the dense K_ff (legacy fallback semantics).
+    SparseDenseLu(Box<PreparedSparseDenseLu2D>),
 }
 
 /// Factorized form of the free-free stiffness block plus everything the
@@ -102,17 +107,121 @@ struct PreparedSolve2D {
     cond_report: super::conditioning::ConditioningReport,
 }
 
+/// Sparse (triplet-assembled) factorized form for nf >= SPARSE_THRESHOLD,
+/// mirroring the 3D sparse path.
+struct PreparedSparse2D {
+    k_ff: CscMatrix,
+    /// Full n×n K (reactions via sym_mat_vec, cross-block for prescribed DOFs).
+    k_full: CscMatrix,
+    num: NumericCholesky,
+    /// True when K_ff needed a diagonal shift to factor.
+    regularized: bool,
+    max_perturbation: f64,
+    /// nf — K_fr · u_r (zeros when no prescribed DOFs).
+    kfr_ur: Vec<f64>,
+    cond_report: super::conditioning::ConditioningReport,
+}
+
+/// Dense-LU fallback when sparse Cholesky fails with every diagonal shift
+/// (same behavior as the legacy dense-K_ff LU fallback).
+struct PreparedSparseDenseLu2D {
+    /// Dense nf×nf K_ff (residual checks).
+    k_ff: Vec<f64>,
+    /// nr×nf reaction coupling block.
+    k_rf: Vec<f64>,
+    /// nf — K_fr · u_r.
+    k_fr_ur: Vec<f64>,
+    /// nr — K_rr · u_r.
+    k_rr_ur: Vec<f64>,
+    lu: Vec<f64>,
+    piv: Vec<usize>,
+    cond_report: super::conditioning::ConditioningReport,
+}
+
+/// Conditioning report from the diagonal of a sparse (CSC, lower triangle)
+/// K_ff, mirroring `conditioning::check_conditioning` on the dense matrix.
+fn sparse_conditioning_2d(k_ff: &CscMatrix, nf: usize) -> super::conditioning::ConditioningReport {
+    let mut diag = vec![0.0f64; nf];
+    for (j, dj) in diag.iter_mut().enumerate() {
+        for p in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
+            if k_ff.row_idx[p] == j {
+                *dj = k_ff.values[p];
+                break;
+            }
+        }
+    }
+
+    let mut max_diag = 0.0f64;
+    for &d in &diag {
+        max_diag = max_diag.max(d.abs());
+    }
+    let threshold = if max_diag > 0.0 { max_diag * 1e-12 } else { f64::EPSILON };
+
+    let mut min_nonzero_diag = f64::MAX;
+    let mut near_zero_dofs = Vec::new();
+    for (i, &dv) in diag.iter().enumerate() {
+        let d = dv.abs();
+        if d <= threshold {
+            near_zero_dofs.push(i);
+        } else if d < min_nonzero_diag {
+            min_nonzero_diag = d;
+        }
+    }
+
+    let diagonal_ratio = if min_nonzero_diag < f64::MAX && min_nonzero_diag > 0.0 {
+        max_diag / min_nonzero_diag
+    } else {
+        0.0
+    };
+
+    let mut warnings = Vec::new();
+    if !near_zero_dofs.is_empty() {
+        warnings.push(format!(
+            "{} near-zero diagonal(s) detected at DOFs: {:?}",
+            near_zero_dofs.len(),
+            &near_zero_dofs[..near_zero_dofs.len().min(10)]
+        ));
+    }
+    if diagonal_ratio > 1e12 {
+        warnings.push(format!(
+            "Extremely high diagonal ratio {:.2e} — matrix is likely ill-conditioned",
+            diagonal_ratio
+        ));
+    } else if diagonal_ratio > 1e8 {
+        warnings.push(format!(
+            "High diagonal ratio {:.2e} — potential conditioning issues",
+            diagonal_ratio
+        ));
+    }
+    if max_diag == 0.0 {
+        warnings.push("All diagonal entries are zero — singular matrix".to_string());
+    }
+
+    super::conditioning::ConditioningReport { diagonal_ratio, near_zero_dofs, warnings }
+}
+
 /// Prepare a 2D structure for one or more static solves: numbering, assembly,
 /// and factorization of the free-free stiffness block happen exactly once here.
 /// This is exactly the load-independent part of `solve_2d`.
 pub fn prepare_static_2d(input: &SolverInput) -> Result<PreparedStatic2D<'_>, String> {
+    prepare_static_2d_impl(input, false)
+}
+
+/// Legacy dense-assembly behavior for nf ≥ 64 (dense K_ff + CSC conversion +
+/// sparse Cholesky), kept as a parity reference for the triplet sparse
+/// assembly path. Not part of the public API contract.
+#[doc(hidden)]
+pub fn prepare_static_2d_dense_reference(input: &SolverInput) -> Result<PreparedStatic2D<'_>, String> {
+    prepare_static_2d_impl(input, true)
+}
+
+fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
     let dof_num = DofNumbering::build_2d(input);
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
 
     // ── Input validation (before assembly) ──
     validate_input_2d(input)?;
 
-    let stiff = assemble_stiffness_2d(input, &dof_num);
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
@@ -188,6 +297,7 @@ pub fn prepare_static_2d(input: &SolverInput) -> Result<PreparedStatic2D<'_>, St
 
     // Fully restrained: all DOFs are restrained, no solve needed.
     if nf == 0 {
+        let stiff = assemble_stiffness_2d(input, &dof_num);
         let u_full = u_r.clone();
         // K · u_full via dense matvec (needed for reactions: R = K·u_r − F)
         let ku_full = if u_r.iter().any(|v| v.abs() > 1e-15) {
@@ -215,6 +325,118 @@ pub fn prepare_static_2d(input: &SolverInput) -> Result<PreparedStatic2D<'_>, St
             path: PreparedPath2D::FullyRestrained { ku_full },
         });
     }
+
+    // ── Triplet sparse path: large models (nf >= 64) ──
+    if !force_dense && nf >= SPARSE_THRESHOLD {
+        let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
+
+        // Conditioning report from the CSC diagonal (same thresholds as dense)
+        let cond_report = sparse_conditioning_2d(&stiff.k_ff, nf);
+
+        // Symbolic + numeric sparse Cholesky with diagonal-shift
+        // regularization retry (mirrors the 3D sparse path)
+        let sym = symbolic_cholesky(&stiff.k_ff);
+        let num_result = numeric_cholesky(&sym, &stiff.k_ff);
+
+        let num = if let Some(num) = num_result {
+            Some((num, false, 0.0))
+        } else {
+            // Regularize: clone K_ff and add a diagonal shift to make it SPD.
+            let max_d = stiff.max_diag_k;
+            let mut factored = None;
+            let mut shift = 0.0;
+            for &alpha in &[1e-6, 1e-4, 1e-2, 1e-1, 1.0, 10.0] {
+                shift = alpha * max_d;
+                let mut k_reg = stiff.k_ff.clone();
+                for j in 0..nf {
+                    for p in k_reg.col_ptr[j]..k_reg.col_ptr[j + 1] {
+                        if k_reg.row_idx[p] == j {
+                            k_reg.values[p] += shift;
+                            break;
+                        }
+                    }
+                }
+                if let Some(num) = numeric_cholesky(&sym, &k_reg) {
+                    factored = Some(num);
+                    break;
+                }
+            }
+            factored.map(|num| (num, true, shift))
+        };
+
+        let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
+
+        match num {
+            Some((num, regularized, max_perturbation)) => {
+                // Prescribed-displacement coupling F_f −= K_fr · u_r (K-only)
+                let kfr_ur = if has_prescribed {
+                    stiff.k_full.sparse_cross_block_matvec(&u_r, nf)
+                } else {
+                    vec![0.0; nf]
+                };
+                return Ok(PreparedStatic2D {
+                    input,
+                    dof_num,
+                    n,
+                    nf,
+                    nr,
+                    u_r,
+                    pre_solve_diags,
+                    artificial_dofs: stiff.artificial_dofs,
+                    inclined_transforms_2d: stiff.inclined_transforms_2d,
+                    path: PreparedPath2D::Sparse(Box::new(PreparedSparse2D {
+                        k_ff: stiff.k_ff,
+                        k_full: stiff.k_full,
+                        num,
+                        regularized,
+                        max_perturbation,
+                        kfr_ur,
+                        cond_report,
+                    })),
+                });
+            }
+            None => {
+                // All shifts failed — dense LU of the dense K_ff (same
+                // behavior as the legacy dense-K_ff LU fallback; K-only decision)
+                let stiff_d = assemble_stiffness_2d(input, &dof_num);
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let rest_idx: Vec<usize> = (nf..n).collect();
+                let k_ff = extract_submatrix(&stiff_d.k, n, &free_idx, &free_idx);
+                let k_fr = extract_submatrix(&stiff_d.k, n, &free_idx, &rest_idx);
+                let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+                let k_rf = extract_submatrix(&stiff_d.k, n, &rest_idx, &free_idx);
+                let k_rr = extract_submatrix(&stiff_d.k, n, &rest_idx, &rest_idx);
+                let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+                let cond_report = super::conditioning::check_conditioning(&k_ff, nf);
+                let mut lu = k_ff.clone();
+                let piv = lu_factor(&mut lu, nf)
+                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
+                return Ok(PreparedStatic2D {
+                    input,
+                    dof_num,
+                    n,
+                    nf,
+                    nr,
+                    u_r,
+                    pre_solve_diags,
+                    artificial_dofs: stiff_d.artificial_dofs,
+                    inclined_transforms_2d: stiff_d.inclined_transforms_2d,
+                    path: PreparedPath2D::SparseDenseLu(Box::new(PreparedSparseDenseLu2D {
+                        k_ff,
+                        k_rf,
+                        k_fr_ur,
+                        k_rr_ur,
+                        lu,
+                        piv,
+                        cond_report,
+                    })),
+                });
+            }
+        }
+    }
+
+    // ── Dense path: small models (nf < 64), or the legacy dense reference ──
+    let stiff = assemble_stiffness_2d(input, &dof_num);
 
     // Extract Kff and reaction coupling blocks; precompute the
     // prescribed-displacement coupling terms (all load-independent)
@@ -536,7 +758,441 @@ impl PreparedStatic2D<'_> {
                 results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_2d(&results));
                 Ok(results)
             }
+
+            PreparedPath2D::Sparse(p) => {
+                // F_f modified for prescribed displacements: F_f −= K_fr · u_r (precomputed)
+                let mut f_f: Vec<f64> = f[..nf].to_vec();
+                for (a, b) in f_f.iter_mut().zip(p.kfr_ur.iter()) {
+                    *a -= b;
+                }
+
+                // Triangular solve with the precomputed sparse Cholesky factor
+                let mut u = sparse_cholesky_solve(&p.num, &f_f);
+
+                // Iterative refinement against the ORIGINAL K_ff to correct for
+                // the regularization shift (up to 5 residual correction steps).
+                if p.regularized {
+                    for _ in 0..5 {
+                        let ku = p.k_ff.sym_mat_vec(&u);
+                        let mut residual: Vec<f64> = vec![0.0; nf];
+                        let mut res2 = 0.0f64;
+                        let mut f2 = 0.0f64;
+                        for i in 0..nf {
+                            residual[i] = f_f[i] - ku[i];
+                            res2 += residual[i] * residual[i];
+                            f2 += f_f[i] * f_f[i];
+                        }
+                        if res2.sqrt() / f2.sqrt().max(1e-30) < 1e-10 {
+                            break;
+                        }
+                        let du = sparse_cholesky_solve(&p.num, &residual);
+                        for i in 0..nf {
+                            u[i] += du[i];
+                        }
+                    }
+                }
+
+                // Verify solution quality via residual check
+                let ku = p.k_ff.sym_mat_vec(&u);
+                let mut res2 = 0.0f64;
+                let mut f2 = 0.0f64;
+                for i in 0..nf {
+                    let r = ku[i] - f_f[i];
+                    res2 += r * r;
+                    f2 += f_f[i] * f_f[i];
+                }
+                let rel_residual = res2.sqrt() / f2.sqrt().max(1e-30);
+
+                let mut used_fallback = false;
+                let u_f = if rel_residual < 1e-6 {
+                    u
+                } else {
+                    used_fallback = true;
+                    self.dense_lu_fallback_2d(loads)?
+                };
+
+                // NaN/Inf guard: numerical blow-up means singular matrix
+                let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
+                if has_nan_inf {
+                    return Err("Singular stiffness matrix — structure is a mechanism".to_string());
+                }
+
+                // Check artificial DOFs for mechanism (absurd rotations)
+                if !self.artificial_dofs.is_empty() {
+                    for &idx in &self.artificial_dofs {
+                        if idx < nf && u_f[idx].abs() > 100.0 {
+                            return Err(
+                                "Local mechanism detected: a node with all elements hinged has \
+                                 excessive rotation, indicating local instability.".to_string()
+                            );
+                        }
+                    }
+                }
+
+                // Build full displacement vector
+                let mut u_full = vec![0.0; n];
+                u_full[..nf].copy_from_slice(&u_f[..nf]);
+                u_full[nf..(nr + nf)].copy_from_slice(&self.u_r[..nr]);
+
+                // Reactions via full-K sym_mat_vec: R[i] = (K·u)[i] − F[i] for restrained DOFs
+                let ku = p.k_full.sym_mat_vec(&u_full);
+                let f_r: Vec<f64> = f[nf..].to_vec();
+                let mut reactions_vec = vec![0.0; nr];
+                for i in 0..nr {
+                    reactions_vec[i] = ku[nf + i] - f_r[i];
+                }
+
+                // On dense-LU residual fallback, recompute the residual from the
+                // returned solution (the old value describes the rejected attempt)
+                let rel_residual = if used_fallback {
+                    let mut res2 = 0.0f64;
+                    let mut f2 = 0.0f64;
+                    for i in 0..nf {
+                        let r = ku[i] - f[i];
+                        res2 += r * r;
+                        f2 += f[i] * f[i];
+                    }
+                    res2.sqrt() / f2.sqrt().max(1e-30)
+                } else {
+                    rel_residual
+                };
+
+                // Reverse inclined transforms on displacements before building results
+                for it in &self.inclined_transforms_2d {
+                    reverse_inclined_transform_2d(&mut u_full, &it.dofs, &it.r);
+                }
+
+                // Build results
+                let displacements = build_displacements_2d(dof_num, &u_full);
+                let mut reactions = build_reactions_2d_inclined(
+                    input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
+                );
+                reactions.sort_by_key(|r| r.node_id);
+                let mut element_forces = compute_internal_forces_2d_with_loads(input, loads, dof_num, &u_full);
+                element_forces.sort_by_key(|ef| ef.element_id);
+
+                let equilibrium = compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, rel_residual, &self.inclined_transforms_2d);
+
+                // Build structured diagnostics — same contract as the dense path
+                let mut structured = Vec::new();
+                structured.extend(self.pre_solve_diags.iter().cloned());
+
+                // Solver path
+                if used_fallback {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::SparseFallbackDenseLu,
+                        Severity::Warning,
+                        format!("Sparse Cholesky residual too large, fell back to dense LU ({} free DOFs)", nf),
+                    ).with_phase("solve"));
+                } else {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::SparseCholesky,
+                        Severity::Info,
+                        format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                    ).with_phase("solve"));
+                }
+
+                // Diagonal regularization info
+                if p.regularized {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::DiagonalRegularization,
+                        Severity::Info,
+                        format!("Regularized K_ff with diagonal shift {:.2e}", p.max_perturbation),
+                    ).with_value(p.max_perturbation, 0.0).with_phase("factorization"));
+                }
+
+                // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
+                let max_disp = dof_num.map.iter()
+                    .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
+                    .map(|(&_, &global)| u_f[global].abs())
+                    .fold(0.0f64, f64::max);
+                let char_length = {
+                    let mut min_x = f64::MAX;
+                    let mut max_x = f64::MIN;
+                    let mut min_z = f64::MAX;
+                    let mut max_z = f64::MIN;
+                    for node in input.nodes.values() {
+                        min_x = min_x.min(node.x);
+                        max_x = max_x.max(node.x);
+                        min_z = min_z.min(node.z);
+                        max_z = max_z.max(node.z);
+                    }
+                    let span = ((max_x - min_x).powi(2) + (max_z - min_z).powi(2)).sqrt();
+                    span.max(1.0)
+                };
+                if max_disp > 1000.0 * char_length {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::ExcessiveDisplacement,
+                        Severity::Warning,
+                        format!(
+                            "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                            max_disp, char_length
+                        ),
+                    ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+                }
+
+                // Conditioning
+                let cond = p.cond_report.diagonal_ratio;
+                if cond > 1e12 {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::ExtremelyHighDiagonalRatio,
+                        Severity::Warning,
+                        format!("Extremely high diagonal ratio {:.2e}", cond),
+                    ).with_value(cond, 1e12).with_phase("conditioning"));
+                } else if cond > 1e8 {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::HighDiagonalRatio,
+                        Severity::Warning,
+                        format!("High diagonal ratio {:.2e}", cond),
+                    ).with_value(cond, 1e8).with_phase("conditioning"));
+                }
+
+                if !p.cond_report.near_zero_dofs.is_empty() {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::NearZeroDiagonal,
+                        Severity::Warning,
+                        format!("{} near-zero diagonal entries", p.cond_report.near_zero_dofs.len()),
+                    ).with_dofs(p.cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
+                }
+
+                // Residual
+                structured.push(if rel_residual < 1e-6 {
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::ResidualOk,
+                        Severity::Info,
+                        format!("Residual {:.2e} ({} free DOFs)", rel_residual, nf),
+                    ).with_value(rel_residual, 1e-6).with_phase("solve")
+                } else {
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::ResidualHigh,
+                        Severity::Warning,
+                        format!("Residual {:.2e} exceeds tolerance ({} free DOFs)", rel_residual, nf),
+                    ).with_value(rel_residual, 1e-6).with_phase("solve")
+                });
+
+                let solver_path_2d = if used_fallback { "sparse_fallback_dense_lu" } else { "sparse_cholesky" };
+                let mut results = AnalysisResults {
+                    displacements,
+                    reactions,
+                    element_forces,
+                    constraint_forces: vec![],
+                    diagnostics: vec![],
+                    solver_diagnostics: vec![],
+                    structured_diagnostics: structured,
+                    equilibrium: Some(equilibrium),
+                    result_summary: None,
+                    solver_run_meta: Some(SolverRunMeta::new(
+                        solver_path_2d,
+                        nf,
+                        input.elements.len(),
+                        input.nodes.len(),
+                    )),
+                };
+                results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_2d(&results));
+                Ok(results)
+            }
+
+            PreparedPath2D::SparseDenseLu(p) => {
+                // F_f_modified = F_f − K_fr · u_r
+                let mut f_f: Vec<f64> = f[..nf].to_vec();
+                for (a, b) in f_f.iter_mut().zip(p.k_fr_ur.iter()) {
+                    *a -= b;
+                }
+
+                // Solve with the precomputed dense LU factors
+                let u_f = lu_apply(&p.lu, &p.piv, &f_f, nf)
+                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
+
+                // Build full displacement vector
+                let mut u_full = vec![0.0; n];
+                u_full[..nf].copy_from_slice(&u_f[..nf]);
+                u_full[nf..(nr + nf)].copy_from_slice(&self.u_r[..nr]);
+
+                // Check artificial DOFs for mechanism (absurd rotations)
+                if !self.artificial_dofs.is_empty() {
+                    for &idx in &self.artificial_dofs {
+                        if idx < nf && u_f[idx].abs() > 100.0 {
+                            return Err(
+                                "Local mechanism detected: a node with all elements hinged has \
+                                 excessive rotation, indicating local instability.".to_string()
+                            );
+                        }
+                    }
+                }
+
+                // NaN/Inf guard: numerical blow-up means singular matrix
+                let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
+                if has_nan_inf {
+                    return Err("Singular stiffness matrix — structure is a mechanism".to_string());
+                }
+
+                // Compute reactions: R = K_rf · u_f + K_rr · u_r − F_r
+                let f_r: Vec<f64> = f[nf..].to_vec();
+                let k_rf_uf = mat_vec_rect(&p.k_rf, &u_f, nr, nf);
+                let mut reactions_vec = vec![0.0; nr];
+                for i in 0..nr {
+                    reactions_vec[i] = k_rf_uf[i] + p.k_rr_ur[i] - f_r[i];
+                }
+
+                // Reverse inclined transforms on displacements before building results
+                for it in &self.inclined_transforms_2d {
+                    reverse_inclined_transform_2d(&mut u_full, &it.dofs, &it.r);
+                }
+
+                // Build results
+                let displacements = build_displacements_2d(dof_num, &u_full);
+                let mut reactions = build_reactions_2d_inclined(
+                    input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
+                );
+                reactions.sort_by_key(|r| r.node_id);
+                let mut element_forces = compute_internal_forces_2d_with_loads(input, loads, dof_num, &u_full);
+                element_forces.sort_by_key(|ef| ef.element_id);
+
+                // Compute residual: ||K_ff · u_f − f_f|| / ||f_f||
+                let rel_residual = {
+                    let mut res2 = 0.0f64;
+                    let mut f2 = 0.0f64;
+                    for (i, &fi) in f_f.iter().enumerate() {
+                        let mut ku_i = 0.0;
+                        for (j, &uj) in u_f.iter().enumerate() {
+                            ku_i += p.k_ff[i * nf + j] * uj;
+                        }
+                        let r = ku_i - fi;
+                        res2 += r * r;
+                        f2 += fi * fi;
+                    }
+                    res2.sqrt() / f2.sqrt().max(1e-30)
+                };
+
+                let equilibrium = compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, rel_residual, &self.inclined_transforms_2d);
+
+                // Build structured diagnostics — same contract as the dense path
+                let mut structured = Vec::new();
+                structured.extend(self.pre_solve_diags.iter().cloned());
+
+                // Solver path
+                structured.push(StructuredDiagnostic::global(
+                    DiagnosticCode::DenseLu,
+                    Severity::Info,
+                    format!("Dense solver ({} free DOFs)", nf),
+                ).with_phase("solve"));
+
+                // LU fallback warning (sparse Cholesky failed with every shift)
+                structured.push(StructuredDiagnostic::global(
+                    DiagnosticCode::CholeskyFailedLuFallback,
+                    Severity::Warning,
+                    "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
+                ).with_phase("solve"));
+
+                // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
+                let max_disp = dof_num.map.iter()
+                    .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
+                    .map(|(&_, &global)| u_f[global].abs())
+                    .fold(0.0f64, f64::max);
+                let char_length = {
+                    let mut min_x = f64::MAX;
+                    let mut max_x = f64::MIN;
+                    let mut min_z = f64::MAX;
+                    let mut max_z = f64::MIN;
+                    for node in input.nodes.values() {
+                        min_x = min_x.min(node.x);
+                        max_x = max_x.max(node.x);
+                        min_z = min_z.min(node.z);
+                        max_z = max_z.max(node.z);
+                    }
+                    let span = ((max_x - min_x).powi(2) + (max_z - min_z).powi(2)).sqrt();
+                    span.max(1.0)
+                };
+                if max_disp > 1000.0 * char_length {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::ExcessiveDisplacement,
+                        Severity::Warning,
+                        format!(
+                            "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                            max_disp, char_length
+                        ),
+                    ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+                }
+
+                // Conditioning
+                let cond = p.cond_report.diagonal_ratio;
+                if cond > 1e12 {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::ExtremelyHighDiagonalRatio,
+                        Severity::Warning,
+                        format!("Extremely high diagonal ratio {:.2e}", cond),
+                    ).with_value(cond, 1e12).with_phase("conditioning"));
+                } else if cond > 1e8 {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::HighDiagonalRatio,
+                        Severity::Warning,
+                        format!("High diagonal ratio {:.2e}", cond),
+                    ).with_value(cond, 1e8).with_phase("conditioning"));
+                }
+
+                if !p.cond_report.near_zero_dofs.is_empty() {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::NearZeroDiagonal,
+                        Severity::Warning,
+                        format!("{} near-zero diagonal entries", p.cond_report.near_zero_dofs.len()),
+                    ).with_dofs(p.cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
+                }
+
+                // Residual
+                structured.push(if rel_residual < 1e-6 {
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::ResidualOk,
+                        Severity::Info,
+                        format!("Residual {:.2e} ({} free DOFs)", rel_residual, nf),
+                    ).with_value(rel_residual, 1e-6).with_phase("solve")
+                } else {
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::ResidualHigh,
+                        Severity::Warning,
+                        format!("Residual {:.2e} exceeds tolerance ({} free DOFs)", rel_residual, nf),
+                    ).with_value(rel_residual, 1e-6).with_phase("solve")
+                });
+
+                let mut results = AnalysisResults {
+                    displacements,
+                    reactions,
+                    element_forces,
+                    constraint_forces: vec![],
+                    diagnostics: vec![],
+                    solver_diagnostics: vec![],
+                    structured_diagnostics: structured,
+                    equilibrium: Some(equilibrium),
+                    result_summary: None,
+                    solver_run_meta: Some(SolverRunMeta::new(
+                        "dense_lu",
+                        nf,
+                        input.elements.len(),
+                        input.nodes.len(),
+                    )),
+                };
+                results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_2d(&results));
+                Ok(results)
+            }
         }
+    }
+
+    /// Dense LU fallback (per case): dense K_ff factor + dense load vector.
+    /// Used when the sparse Cholesky solve gives a bad residual.
+    fn dense_lu_fallback_2d(&self, loads: &[SolverLoad]) -> Result<Vec<f64>, String> {
+        let input = self.input;
+        let dof_num = &self.dof_num;
+        let (n, nf, nr) = (self.n, self.nf, self.nr);
+        let stiff_d = assemble_stiffness_2d(input, dof_num);
+        let f_d = assemble_load_vector_2d(input, loads, dof_num, &stiff_d.inclined_transforms_2d);
+        let free_idx: Vec<usize> = (0..nf).collect();
+        let rest_idx: Vec<usize> = (nf..n).collect();
+        let k_fr = extract_submatrix(&stiff_d.k, n, &free_idx, &rest_idx);
+        let kfr_ur_d = mat_vec_rect(&k_fr, &self.u_r, nf, nr);
+        let mut f_work: Vec<f64> = f_d[..nf].to_vec();
+        for i in 0..nf { f_work[i] -= kfr_ur_d[i]; }
+        let mut k_ff_d = extract_submatrix(&stiff_d.k, n, &free_idx, &free_idx);
+        lu_solve(&mut k_ff_d, &mut f_work, nf)
+            .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())
     }
 }
 

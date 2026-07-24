@@ -12,6 +12,7 @@ use crate::linalg::transform_force;
 use crate::linalg::sparse::CscMatrix;
 use super::dof::DofNumbering;
 use super::assembly::assemble_element_loads_2d;
+use super::assembly::InclinedTransformData2D;
 
 /// COO triplet accumulator for building sparse matrices.
 ///
@@ -246,6 +247,374 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
         f: f_global,
         max_diag_k: max_diag,
         artificial_dofs,
+    }
+}
+
+/// Stiffness-only sparse 2D assembly result (linear-solve path): CSC of Kff
+/// plus full-K CSC for reactions and prescribed-displacement coupling.
+pub struct StiffnessSparseAssembly2D {
+    pub k_ff: CscMatrix,
+    pub k_full: CscMatrix,
+    pub max_diag_k: f64,
+    pub artificial_dofs: Vec<usize>,
+    pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
+}
+
+/// Assemble 2D stiffness directly into sparse CSC form (load-independent),
+/// mirroring the feature set of dense `assemble_stiffness_2d`: frame (with
+/// Timoshenko shear), truss/cable, connectors, springs (including rotated
+/// spring blocks), artificial stiffness (all-hinged nodes + orphan rotation
+/// guard), and inclined roller transforms. The force vector is built
+/// separately by `assemble_load_vector_2d`.
+pub fn assemble_stiffness_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> StiffnessSparseAssembly2D {
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+
+    let mut trip_rows = Vec::new();
+    let mut trip_cols = Vec::new();
+    let mut trip_vals = Vec::new();
+    let mut diag_vals = vec![0.0f64; n];
+    // Max |K| entry per DOF (row+col), for the orphan rotation guard
+    let mut dof_max = vec![0.0f64; n];
+
+    // Pre-build O(1) lookup maps
+    let node_map: std::collections::HashMap<usize, &SolverNode> =
+        input.nodes.values().map(|n| (n.id, n)).collect();
+    let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_map: std::collections::HashMap<usize, &SolverSection> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+
+    // Assemble element stiffness matrices (same iteration order as the dense path)
+    for elem in input.elements.values() {
+        let node_i = node_map[&elem.node_i];
+        let node_j = node_map[&elem.node_j];
+        let mat = mat_map[&elem.material_id];
+        let sec = sec_map[&elem.section_id];
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy).sqrt();
+        let cos = dx / l;
+        let sin = dy / l;
+        let e = mat.e * 1000.0; // MPa → kN/m²
+
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            // Truss/Cable: assemble directly in global coordinates
+            let k_elem = truss_global_stiffness_2d(e, sec.a, l, cos, sin);
+            let ndof = 4; // 2 per node for truss
+            let truss_dofs = [
+                dof_num.global_dof(elem.node_i, 0).unwrap(),
+                dof_num.global_dof(elem.node_i, 1).unwrap(),
+                dof_num.global_dof(elem.node_j, 0).unwrap(),
+                dof_num.global_dof(elem.node_j, 1).unwrap(),
+            ];
+            for i in 0..ndof {
+                for j in 0..ndof {
+                    let gi = truss_dofs[i];
+                    let gj = truss_dofs[j];
+                    let v = k_elem[i * ndof + j];
+                    if gi >= gj {
+                        trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(v);
+                    }
+                    dof_max[gi] = dof_max[gi].max(v.abs());
+                    dof_max[gj] = dof_max[gj].max(v.abs());
+                }
+                diag_vals[truss_dofs[i]] += k_elem[i * ndof + i];
+            }
+        } else {
+            // Frame element
+            let phi = if let Some(as_y) = sec.as_y {
+                let g = e / (2.0 * (1.0 + mat.nu));
+                12.0 * e * sec.iz / (g * as_y * l * l)
+            } else {
+                0.0
+            };
+            let k_local = frame_local_stiffness_2d(
+                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+            );
+            let t = frame_transform_2d(cos, sin);
+            let k_glob = transform_stiffness(&k_local, &t, 6);
+
+            let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+            let ndof = elem_dofs.len();
+            for i in 0..ndof {
+                for j in 0..ndof {
+                    let gi = elem_dofs[i];
+                    let gj = elem_dofs[j];
+                    let v = k_glob[i * ndof + j];
+                    if gi >= gj {
+                        trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(v);
+                    }
+                    dof_max[gi] = dof_max[gi].max(v.abs());
+                    dof_max[gj] = dof_max[gj].max(v.abs());
+                }
+                diag_vals[elem_dofs[i]] += k_glob[i * ndof + i];
+            }
+        }
+    }
+
+    // Assemble connector elements
+    if !input.connectors.is_empty() {
+        let node_by_id: std::collections::HashMap<usize, &SolverNode> =
+            input.nodes.values().map(|nd| (nd.id, nd)).collect();
+        for conn in input.connectors.values() {
+            let ni = match node_by_id.get(&conn.node_i) { Some(n) => n, None => continue };
+            let nj = match node_by_id.get(&conn.node_j) { Some(n) => n, None => continue };
+
+            let dx = nj.x - ni.x;
+            let dy = nj.z - ni.z;
+            let l = (dx * dx + dy * dy).sqrt();
+            let (cos, sin) = if l > 1e-15 { (dx / l, dy / l) } else { (1.0, 0.0) };
+
+            let ke = crate::element::connector::connector_stiffness_2d(
+                conn.k_axial, conn.k_shear, conn.k_moment, cos, sin,
+            );
+            let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
+            let ndof = dofs.len();
+            for i in 0..ndof {
+                for j in 0..ndof {
+                    let gi = dofs[i];
+                    let gj = dofs[j];
+                    let v = ke[i * 6 + j];
+                    if gi >= gj {
+                        trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(v);
+                    }
+                    dof_max[gi] = dof_max[gi].max(v.abs());
+                    dof_max[gj] = dof_max[gj].max(v.abs());
+                }
+                diag_vals[dofs[i]] += ke[i * 6 + i];
+            }
+        }
+    }
+
+    // Add spring stiffness (with rotation support for springs with angle)
+    for sup in input.supports.values() {
+        let kx_val = sup.kx.unwrap_or(0.0);
+        let ky_val = sup.ky.unwrap_or(0.0);  // ky maps to vertical (uz) in 2D
+        let kz_val = sup.kz.unwrap_or(0.0);  // rotational spring
+
+        if sup.support_type == "spring" {
+            if let Some(angle) = sup.angle {
+                if angle.abs() > 1e-15 && (kx_val > 0.0 || ky_val > 0.0) {
+                    // Rotated spring: K_global = R^T * diag(kx, ky) * R
+                    let c = angle.cos();
+                    let s = angle.sin();
+                    let k_xx = kx_val * c * c + ky_val * s * s;
+                    let k_zz = kx_val * s * s + ky_val * c * c;
+                    let k_xz = (kx_val - ky_val) * s * c;
+
+                    if let (Some(&dxd), Some(&dz)) = (
+                        dof_num.map.get(&(sup.node_id, 0)),
+                        dof_num.map.get(&(sup.node_id, 1)),
+                    ) {
+                        trip_rows.push(dxd); trip_cols.push(dxd); trip_vals.push(k_xx);
+                        trip_rows.push(dz); trip_cols.push(dz); trip_vals.push(k_zz);
+                        let (r, cc) = if dz >= dxd { (dz, dxd) } else { (dxd, dz) };
+                        trip_rows.push(r); trip_cols.push(cc); trip_vals.push(k_xz);
+                        diag_vals[dxd] += k_xx;
+                        diag_vals[dz] += k_zz;
+                        dof_max[dxd] = dof_max[dxd].max(k_xx.abs()).max(k_xz.abs());
+                        dof_max[dz] = dof_max[dz].max(k_zz.abs()).max(k_xz.abs());
+                    }
+                } else {
+                    // No rotation or zero angle: standard diagonal assembly
+                    if kx_val > 0.0 {
+                        if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
+                            trip_rows.push(d); trip_cols.push(d); trip_vals.push(kx_val);
+                            diag_vals[d] += kx_val;
+                            dof_max[d] = dof_max[d].max(kx_val.abs());
+                        }
+                    }
+                    if ky_val > 0.0 {
+                        if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                            trip_rows.push(d); trip_cols.push(d); trip_vals.push(ky_val);
+                            diag_vals[d] += ky_val;
+                            dof_max[d] = dof_max[d].max(ky_val.abs());
+                        }
+                    }
+                }
+            } else {
+                // No angle: standard diagonal assembly
+                if kx_val > 0.0 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
+                        trip_rows.push(d); trip_cols.push(d); trip_vals.push(kx_val);
+                        diag_vals[d] += kx_val;
+                        dof_max[d] = dof_max[d].max(kx_val.abs());
+                    }
+                }
+                if ky_val > 0.0 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                        trip_rows.push(d); trip_cols.push(d); trip_vals.push(ky_val);
+                        diag_vals[d] += ky_val;
+                        dof_max[d] = dof_max[d].max(ky_val.abs());
+                    }
+                }
+            }
+        } else {
+            // Non-spring supports: standard diagonal assembly
+            if kx_val > 0.0 {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
+                    trip_rows.push(d); trip_cols.push(d); trip_vals.push(kx_val);
+                    diag_vals[d] += kx_val;
+                    dof_max[d] = dof_max[d].max(kx_val.abs());
+                }
+            }
+            if ky_val > 0.0 {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                    trip_rows.push(d); trip_cols.push(d); trip_vals.push(ky_val);
+                    diag_vals[d] += ky_val;
+                    dof_max[d] = dof_max[d].max(ky_val.abs());
+                }
+            }
+        }
+        // Rotational spring stiffness (kz in 2D SolverSupport = rotational ry stiffness)
+        if kz_val > 0.0 && dof_num.dofs_per_node >= 3 {
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+                trip_rows.push(d); trip_cols.push(d); trip_vals.push(kz_val);
+                diag_vals[d] += kz_val;
+                dof_max[d] = dof_max[d].max(kz_val.abs());
+            }
+        }
+    }
+
+    // Find max diagonal
+    let mut max_diag = 0.0f64;
+    for &d in &diag_vals {
+        max_diag = max_diag.max(d.abs());
+    }
+
+    // Add artificial rotational stiffness at nodes where ALL connected frame
+    // elements are hinged at that node — prevents singular matrix.
+    let mut artificial_dofs = Vec::new();
+    if dof_num.dofs_per_node >= 3 {
+        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+
+        let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for elem in input.elements.values() {
+            if elem.elem_type != "frame" { continue; }
+            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
+            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
+            if elem.hinge_start {
+                *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
+            }
+            if elem.hinge_end {
+                *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
+            }
+        }
+
+        // Nodes with rotational restraint from supports
+        let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        for sup in input.supports.values() {
+            if sup.support_type == "fixed" || sup.support_type == "guidedX" || sup.support_type == "guidedY" {
+                rot_restrained.insert(sup.node_id);
+            }
+            if sup.support_type == "spring" && sup.kz.unwrap_or(0.0) > 0.0 {
+                rot_restrained.insert(sup.node_id);
+            }
+        }
+
+        for (&node_id, &hinges) in &node_hinge_count {
+            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
+            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
+                if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
+                    if idx < dof_num.n_free {
+                        trip_rows.push(idx); trip_cols.push(idx); trip_vals.push(artificial_k);
+                        dof_max[idx] = dof_max[idx].max(artificial_k.abs());
+                        artificial_dofs.push(idx);
+                    }
+                }
+            }
+        }
+
+        // Topology-agnostic orphan-ROTATION-DOF guard: any free *rotation* DOF
+        // whose row+col in K is identically zero gets artificial stiffness
+        // so the linear solver doesn't trip on a singular matrix. Restricted to
+        // rotation DOFs (local_dof=2 in 2D) so a truly floating node (translation
+        // DOFs all-zero) still surfaces as a singular-matrix error.
+        let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
+        let orphan_tol = if max_diag > 0.0 { max_diag * 1e-12 } else { 1e-14 };
+        let mut idx_to_local: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for (&(_, ld), &idx) in &dof_num.map {
+            if idx < nf {
+                idx_to_local.insert(idx, ld);
+            }
+        }
+        for (i, &dm) in dof_max.iter().enumerate().take(nf) {
+            if already.contains(&i) { continue; }
+            if idx_to_local.get(&i).copied() != Some(2) { continue; }
+            if dm <= orphan_tol {
+                trip_rows.push(i); trip_cols.push(i); trip_vals.push(artificial_k);
+                artificial_dofs.push(i);
+            }
+        }
+    }
+
+    // Apply 2D inclined support transformations (triplets before CSC conversion;
+    // the force vector rotation happens in `assemble_load_vector_2d`)
+    let mut inclined_transforms_2d = Vec::new();
+    for sup in input.supports.values() {
+        if sup.support_type == "inclinedRoller" {
+            if let Some(theta) = sup.angle {
+                let r = super::assembly::inclined_rotation_matrix_2d(theta);
+                if let (Some(&d0), Some(&d1)) = (
+                    dof_num.map.get(&(sup.node_id, 0)),
+                    dof_num.map.get(&(sup.node_id, 1)),
+                ) {
+                    let dofs = [d0, d1];
+                    super::assembly::apply_inclined_transform_triplets_2d(
+                        &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                        &dofs, &r,
+                    );
+                    inclined_transforms_2d.push(InclinedTransformData2D {
+                        node_id: sup.node_id,
+                        dofs,
+                        r,
+                    });
+                }
+            }
+        }
+    }
+
+    // Compact zeroed-out triplets left by inclined support transforms
+    if !inclined_transforms_2d.is_empty() {
+        let mut w = 0;
+        for r in 0..trip_rows.len() {
+            if trip_vals[r] != 0.0 {
+                trip_rows[w] = trip_rows[r];
+                trip_cols[w] = trip_cols[r];
+                trip_vals[w] = trip_vals[r];
+                w += 1;
+            }
+        }
+        trip_rows.truncate(w);
+        trip_cols.truncate(w);
+        trip_vals.truncate(w);
+    }
+
+    // Full-K CSC (reactions + prescribed-displacement cross-block)
+    let k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
+
+    // Filter triplets for Kff (free-free block)
+    let mut ff_rows = Vec::with_capacity(trip_rows.len());
+    let mut ff_cols = Vec::with_capacity(trip_rows.len());
+    let mut ff_vals = Vec::with_capacity(trip_rows.len());
+    for i in 0..trip_rows.len() {
+        if trip_rows[i] < nf && trip_cols[i] < nf {
+            ff_rows.push(trip_rows[i]); ff_cols.push(trip_cols[i]); ff_vals.push(trip_vals[i]);
+        }
+    }
+    let mut k_ff = CscMatrix::from_triplets(nf, &ff_rows, &ff_cols, &ff_vals);
+    // Drop tiny entries, matching `from_dense_symmetric`'s 1e-30 threshold
+    k_ff.drop_below_threshold(1e-30);
+
+    StiffnessSparseAssembly2D {
+        k_ff,
+        k_full,
+        max_diag_k: max_diag,
+        artificial_dofs,
+        inclined_transforms_2d,
     }
 }
 

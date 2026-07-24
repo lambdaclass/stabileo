@@ -15,6 +15,7 @@ mod influence_3d;
 mod load_cases;
 mod multi_case_parity;
 mod moving_influence_parity;
+mod sparse_2d_parity;
 mod masonry_check;
 mod material_nonlinear_3d;
 mod moving_loads_3d;

@@ -1339,6 +1339,31 @@ fn bench_moving_influence_reuse(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── 2D sparse assembly vs legacy dense assembly (nf >= 64) ─────
+
+fn bench_sparse_2d_assembly(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sparse_2d_assembly");
+
+    for &(stories, bays) in &[(50usize, 5usize), (100, 5), (200, 5)] {
+        let input = make_frame(stories, bays);
+        let label = format!("{}s_{}b", stories, bays);
+
+        // Legacy: dense n×n assembly + dense K_ff extraction + CSC conversion
+        group.bench_with_input(BenchmarkId::new("dense_legacy", &label), &input, |b, input| {
+            b.iter(|| {
+                let prepared = linear::prepare_static_2d_dense_reference(input).unwrap();
+                criterion::black_box(prepared.solve_loads(&input.loads).unwrap());
+            });
+        });
+
+        // New: triplet sparse assembly + sparse Cholesky
+        group.bench_with_input(BenchmarkId::new("triplet_sparse", &label), &input, |b, input| {
+            b.iter(|| linear::solve_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_json_roundtrip,
@@ -1355,6 +1380,7 @@ criterion_group!(
     bench_pdelta_3d,
     bench_multi_case,
     bench_moving_influence_reuse,
+    bench_sparse_2d_assembly,
     bench_moving_loads,
     bench_cable,
     bench_constraints,

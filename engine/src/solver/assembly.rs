@@ -2013,6 +2013,70 @@ pub fn rotate_inclined_f_triplets(f_global: &mut [f64], dofs: &[usize; 3], r: &[
     }
 }
 
+/// K-only 2D inclined support rotation on stiffness triplets (zeros originals,
+/// re-adds rotated entries), mirroring `apply_inclined_transform_triplets_k`.
+pub(crate) fn apply_inclined_transform_triplets_2d(
+    trip_rows: &mut Vec<usize>, trip_cols: &mut Vec<usize>, trip_vals: &mut Vec<f64>,
+    dofs: &[usize; 2], r: &[[f64; 2]; 2],
+) {
+    let dof_local: std::collections::HashMap<usize, usize> =
+        dofs.iter().enumerate().map(|(i, &d)| (d, i)).collect();
+
+    // Collect entries touching inclined DOFs, zero originals.
+    // The dof-block is stored full (both triangles) so the rotated
+    // R * block * R^T is exact; each unordered pair is pushed once.
+    let mut block = [[0.0; 2]; 2];
+    let mut cross_row: std::collections::HashMap<usize, [f64; 2]> = Default::default();
+    let mut cross_col: std::collections::HashMap<usize, [f64; 2]> = Default::default();
+
+    for idx in 0..trip_rows.len() {
+        let ri = trip_rows[idx];
+        let ci = trip_cols[idx];
+        let v = trip_vals[idx];
+        let r_loc = dof_local.get(&ri).copied();
+        let c_loc = dof_local.get(&ci).copied();
+        match (r_loc, c_loc) {
+            (Some(a), Some(b)) => {
+                block[a][b] += v;
+                if a != b { block[b][a] += v; }
+                trip_vals[idx] = 0.0;
+            }
+            (Some(a), None)    => { cross_col.entry(ci).or_insert([0.0; 2])[a] += v; trip_vals[idx] = 0.0; }
+            (None, Some(b))    => { cross_row.entry(ri).or_insert([0.0; 2])[b] += v; trip_vals[idx] = 0.0; }
+            (None, None)       => {}
+        }
+    }
+
+    // Rotated block: R * block * R^T (push each unordered pair once)
+    for a in 0..2 {
+        for b in 0..=a {
+            let mut s = 0.0;
+            for c in 0..2 { for d in 0..2 { s += r[a][c] * block[c][d] * r[b][d]; } }
+            if s.abs() > 1e-30 {
+                trip_rows.push(dofs[a]); trip_cols.push(dofs[b]); trip_vals.push(s);
+            }
+        }
+    }
+    // Cross-row: K'[i, dofs[a]] = sum_b K[i, dofs[b]] * R[a][b]
+    for (&i, v2) in &cross_row {
+        for a in 0..2 {
+            let s: f64 = (0..2).map(|b| v2[b] * r[a][b]).sum();
+            if s.abs() > 1e-30 {
+                trip_rows.push(i); trip_cols.push(dofs[a]); trip_vals.push(s);
+            }
+        }
+    }
+    // Cross-col: K'[dofs[a], j] = sum_b R[a][b] * K[dofs[b], j]
+    for (&j, v2) in &cross_col {
+        for a in 0..2 {
+            let s: f64 = (0..2).map(|b| r[a][b] * v2[b]).sum();
+            if s.abs() > 1e-30 {
+                trip_rows.push(dofs[a]); trip_cols.push(j); trip_vals.push(s);
+            }
+        }
+    }
+}
+
 /// K-only inclined support rotation on stiffness triplets (zeros originals, re-adds rotated entries).
 pub(crate) fn apply_inclined_transform_triplets_k(
     trip_rows: &mut Vec<usize>, trip_cols: &mut Vec<usize>, trip_vals: &mut Vec<f64>,
@@ -2021,7 +2085,9 @@ pub(crate) fn apply_inclined_transform_triplets_k(
     let dof_local: std::collections::HashMap<usize, usize> =
         dofs.iter().enumerate().map(|(i, &d)| (d, i)).collect();
 
-    // Collect entries touching inclined DOFs, zero originals
+    // Collect entries touching inclined DOFs, zero originals.
+    // The dof-block is stored full (both triangles) so the rotated
+    // R * block * R^T is exact; each unordered pair is pushed once.
     let mut block = [[0.0; 3]; 3];
     let mut cross_row: std::collections::HashMap<usize, [f64; 3]> = Default::default();
     let mut cross_col: std::collections::HashMap<usize, [f64; 3]> = Default::default();
@@ -2033,16 +2099,20 @@ pub(crate) fn apply_inclined_transform_triplets_k(
         let r_loc = dof_local.get(&ri).copied();
         let c_loc = dof_local.get(&ci).copied();
         match (r_loc, c_loc) {
-            (Some(a), Some(b)) => { block[a][b] += v; trip_vals[idx] = 0.0; }
+            (Some(a), Some(b)) => {
+                block[a][b] += v;
+                if a != b { block[b][a] += v; }
+                trip_vals[idx] = 0.0;
+            }
             (Some(a), None)    => { cross_col.entry(ci).or_insert([0.0; 3])[a] += v; trip_vals[idx] = 0.0; }
             (None, Some(b))    => { cross_row.entry(ri).or_insert([0.0; 3])[b] += v; trip_vals[idx] = 0.0; }
             (None, None)       => {}
         }
     }
 
-    // Rotated block: R * block * R^T
+    // Rotated block: R * block * R^T (push each unordered pair once)
     for a in 0..3 {
-        for b in 0..3 {
+        for b in 0..=a {
             let mut s = 0.0;
             for c in 0..3 { for d in 0..3 { s += r[a][c] * block[c][d] * r[b][d]; } }
             if s.abs() > 1e-30 {
