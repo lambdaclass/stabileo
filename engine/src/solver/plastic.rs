@@ -153,9 +153,10 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
             {
                 let n_samples = 20;
                 let mut max_interior_m = 0.0f64;
+                let sorted_pl = crate::postprocess::diagrams::sorted_point_loads(ef);
                 for i in 1..n_samples {
                     let t = i as f64 / n_samples as f64;
-                    let m = crate::postprocess::diagrams::compute_diagram_value_at("moment", t, ef);
+                    let m = crate::postprocess::diagrams::compute_diagram_value_at_sorted("moment", t, ef, &sorted_pl);
                     if m.abs() > max_interior_m.abs() {
                         max_interior_m = m;
                     }
@@ -193,9 +194,10 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
 
             // Accumulate max interior moment
             let mut max_interior_m = 0.0f64;
+            let sorted_pl = crate::postprocess::diagrams::sorted_point_loads(ef);
             for i in 1..20 {
                 let t = i as f64 / 20.0;
-                let m = crate::postprocess::diagrams::compute_diagram_value_at("moment", t, ef);
+                let m = crate::postprocess::diagrams::compute_diagram_value_at_sorted("moment", t, ef, &sorted_pl);
                 if m.abs() > max_interior_m.abs() {
                     max_interior_m = m;
                 }

@@ -2,7 +2,7 @@ use crate::types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::diagrams::compute_diagram_value_at;
+use super::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
 use super::diagrams_3d::evaluate_diagram_3d_at;
 
 fn default_schema_version() -> u32 { 1 }
@@ -317,6 +317,21 @@ pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
         })
         .collect();
 
+    // Sort point loads once per (combination, element) — they are invariant
+    // across stations, so this avoids re-sorting on every diagram evaluation.
+    let sorted_pls: Vec<HashMap<usize, Vec<PointLoadInfo>>> = input
+        .combinations
+        .iter()
+        .map(|combo| {
+            combo
+                .results
+                .element_forces
+                .iter()
+                .map(|ef| (ef.element_id, sorted_point_loads(ef)))
+                .collect()
+        })
+        .collect();
+
     let mut stations = Vec::with_capacity(input.members.len() * n_stations);
 
     for member in &input.members {
@@ -335,10 +350,11 @@ pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
                     None => continue,
                 };
                 let ef = &combo.results.element_forces[ef_idx];
+                let spl = &sorted_pls[c_idx][&member.element_id];
 
-                let m = compute_diagram_value_at("moment", t, ef);
-                let v = compute_diagram_value_at("shear", t, ef);
-                let n = compute_diagram_value_at("axial", t, ef);
+                let m = compute_diagram_value_at_sorted("moment", t, ef, spl);
+                let v = compute_diagram_value_at_sorted("shear", t, ef, spl);
+                let n = compute_diagram_value_at_sorted("axial", t, ef, spl);
 
                 gov_moment.update(combo.combo_id, m, combo.combo_name.as_deref());
                 gov_shear.update(combo.combo_id, v, combo.combo_name.as_deref());

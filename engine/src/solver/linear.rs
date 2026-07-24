@@ -1,6 +1,7 @@
 use crate::types::*;
 use crate::linalg::*;
 use crate::element;
+use std::rc::Rc;
 use super::dof::DofNumbering;
 use super::assembly::*;
 
@@ -665,7 +666,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
         // Solve Kff * u_f = f_f (split into symbolic → numeric → solve)
         let t0 = now_micros();
-        let sym = symbolic_cholesky(&asm.k_ff);
+        let sym = Rc::new(symbolic_cholesky(&asm.k_ff));
         let symbolic_us = now_micros().saturating_sub(t0);
         let nnz_kff = asm.k_ff.col_ptr[nf]; // total nnz in lower triangle
         let nnz_l = sym.l_nnz;

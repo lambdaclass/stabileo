@@ -1,5 +1,6 @@
 use crate::types::*;
 use crate::linalg::*;
+use std::rc::Rc;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::linear::{build_displacements_2d, compute_internal_forces_2d,
@@ -66,7 +67,7 @@ pub fn solve_pdelta_2d(
     let mut iterations = 0;
     let mut u_current = u_prev.clone();
     let use_sparse = ns >= SPARSE_THRESHOLD;
-    let mut symbolic: Option<SymbolicCholesky> = None;
+    let mut symbolic: Option<Rc<SymbolicCholesky>> = None;
 
     for iter in 0..max_iter {
         iterations = iter + 1;
@@ -85,7 +86,7 @@ pub fn solve_pdelta_2d(
 
         let u_indep = if use_sparse {
             let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
-            let sym = symbolic.get_or_insert_with(|| symbolic_cholesky(&k_csc));
+            let sym = symbolic.get_or_insert_with(|| Rc::new(symbolic_cholesky(&k_csc)));
             match numeric_cholesky(sym, &k_csc) {
                 Some(factor) => sparse_cholesky_solve(&factor, &f_solve),
                 None => {
@@ -307,7 +308,7 @@ pub fn solve_pdelta_3d(
     let mut iterations = 0;
     let mut u_current = u_prev.clone();
     let use_sparse = ns >= SPARSE_THRESHOLD;
-    let mut symbolic: Option<SymbolicCholesky> = None;
+    let mut symbolic: Option<Rc<SymbolicCholesky>> = None;
 
     for iter in 0..max_iter {
         iterations = iter + 1;
@@ -324,7 +325,7 @@ pub fn solve_pdelta_3d(
 
         let u_indep = if use_sparse {
             let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
-            let sym = symbolic.get_or_insert_with(|| symbolic_cholesky(&k_csc));
+            let sym = symbolic.get_or_insert_with(|| Rc::new(symbolic_cholesky(&k_csc)));
             match numeric_cholesky(sym, &k_csc) {
                 Some(factor) => sparse_cholesky_solve(&factor, &f_solve),
                 None => {

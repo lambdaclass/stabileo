@@ -736,7 +736,7 @@ fn plate_10x10_sparse_fill_and_perturbations() {
     let nf = dof_num.n_free;
     let asm = assemble_sparse_3d(&input, &dof_num, false);
 
-    let sym = symbolic_cholesky_with(&asm.k_ff, CholOrdering::Amd);
+    let sym = std::rc::Rc::new(symbolic_cholesky_with(&asm.k_ff, CholOrdering::Amd));
     let nnz_kff = asm.k_ff.col_ptr[nf];
     let fill_ratio = sym.l_nnz as f64 / nnz_kff as f64;
 

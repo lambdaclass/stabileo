@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::postprocess::diagrams::compute_diagram_value_at;
+use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
 use serde::{Deserialize, Serialize};
 
@@ -215,15 +215,28 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
             let mut pos_values = Vec::new();
             let mut neg_values = Vec::new();
 
+            // Sort point loads once per element-force record (invariant across
+            // stations) instead of on every diagram evaluation.
+            let sorted_pls: Vec<Option<Vec<PointLoadInfo>>> = results
+                .iter()
+                .map(|res| {
+                    if e_idx >= res.element_forces.len() {
+                        None
+                    } else {
+                        Some(sorted_point_loads(&res.element_forces[e_idx]))
+                    }
+                })
+                .collect();
+
             for j in 0..N_POINTS {
                 let t = j as f64 / (N_POINTS - 1) as f64;
                 t_positions.push(t);
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
 
-                for res in results {
-                    if e_idx >= res.element_forces.len() { continue; }
-                    let val = compute_diagram_value_at(kind, t, &res.element_forces[e_idx]);
+                for (r_idx, res) in results.iter().enumerate() {
+                    let Some(ref spl) = sorted_pls[r_idx] else { continue; };
+                    let val = compute_diagram_value_at_sorted(kind, t, &res.element_forces[e_idx], spl);
                     if val > max_pos { max_pos = val; }
                     if val < max_neg { max_neg = val; }
                 }

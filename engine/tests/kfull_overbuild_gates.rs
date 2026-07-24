@@ -501,7 +501,7 @@ fn fill_ratio_modal_path() {
     let nf = dof_num.n_free;
     let asm = assemble_sparse_3d(&input, &dof_num, false);
 
-    let sym = symbolic_cholesky(&asm.k_ff);
+    let sym = std::rc::Rc::new(symbolic_cholesky(&asm.k_ff));
     let nnz_kff = asm.k_ff.col_ptr[nf];
     let nnz_l = sym.l_nnz;
     let fill_ratio = nnz_l as f64 / nnz_kff.max(1) as f64;

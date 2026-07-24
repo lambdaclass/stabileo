@@ -980,7 +980,7 @@ fn bench_solve_phases(c: &mut Criterion) {
             },
         );
 
-        let sym = symbolic_cholesky(&asm.k_ff);
+        let sym = std::rc::Rc::new(symbolic_cholesky(&asm.k_ff));
         if let Some(num) = numeric_cholesky(&sym, &asm.k_ff) {
             group.bench_with_input(
                 BenchmarkId::new("numeric_cholesky", &label),

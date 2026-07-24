@@ -593,7 +593,7 @@ fn sparse_not_slower_than_dense_3d() {
     // Sparse path: assemble sparse + symbolic + numeric + solve
     let t0 = Instant::now();
     let asm_s = assemble_sparse_3d(&input, &dof_num, false);
-    let sym = dedaliano_engine::linalg::symbolic_cholesky(&asm_s.k_ff);
+    let sym = std::rc::Rc::new(dedaliano_engine::linalg::symbolic_cholesky(&asm_s.k_ff));
     let num = dedaliano_engine::linalg::numeric_cholesky(&sym, &asm_s.k_ff)
         .expect("Sparse Cholesky should succeed");
     let f_s = asm_s.f[..nf].to_vec();

@@ -198,7 +198,7 @@ fn sparse_vs_dense_parity() {
 
     // Direct sparse solve quality check: factorize sparse K_ff and solve
     let asm_s = assemble_sparse_3d(&input, &dof_num, false);
-    let sym = symbolic_cholesky(&asm_s.k_ff);
+    let sym = std::rc::Rc::new(symbolic_cholesky(&asm_s.k_ff));
     let num = numeric_cholesky(&sym, &asm_s.k_ff).expect("Sparse Cholesky should succeed");
     let f_s = asm_s.f[..nf].to_vec();
     let u_sparse_direct = dedaliano_engine::linalg::sparse_cholesky_solve(&num, &f_s);
@@ -293,7 +293,7 @@ fn diagnose_shell_pivots() {
     println!("K_ff: min/max ratio={:.6e}, near_zero={}, negative={}, missing_diag={}",
         min_diag / max_diag, near_zero_count, negative_count, missing_diag_count);
 
-    let sym = symbolic_cholesky(&asm.k_ff);
+    let sym = std::rc::Rc::new(symbolic_cholesky(&asm.k_ff));
     println!("nnz_L={}, fill_ratio={:.1}", sym.l_nnz, sym.l_nnz as f64 / asm.k_ff.col_ptr[nf] as f64);
 
     let num = numeric_cholesky(&sym, &asm.k_ff);

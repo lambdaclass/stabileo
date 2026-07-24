@@ -2,6 +2,7 @@ use super::cholesky::{cholesky_decompose, forward_solve, back_solve};
 use super::jacobi::{jacobi_eigen, solve_generalized_eigen, EigenResult};
 use super::sparse::CscMatrix;
 use super::sparse_chol::{symbolic_cholesky, numeric_cholesky, sparse_cholesky_solve};
+use std::rc::Rc;
 
 /// Parameters for Lanczos iteration.
 pub struct LanczosParams {
@@ -612,7 +613,7 @@ impl SparseShiftInvertOp {
     /// Build from sparse K_ff (SPD) and dense M_ff (row-major nf×nf).
     /// Returns None if sparse Cholesky fails.
     pub fn new(k_csc: &CscMatrix, m_dense: &[f64], n: usize) -> Option<Self> {
-        let sym = symbolic_cholesky(k_csc);
+        let sym = Rc::new(symbolic_cholesky(k_csc));
         let factor = numeric_cholesky(&sym, k_csc)?;
         Some(Self { factor, m_dense: m_dense.to_vec(), n })
     }

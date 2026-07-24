@@ -73,11 +73,32 @@ fn build_sampling_positions(
 
 // ==================== Diagram Value At ====================
 
+/// Return the element's point loads sorted by position `a` (stable, ascending).
+/// Pair with `compute_diagram_value_at_sorted` to sort once per element-force
+/// record instead of on every station evaluation.
+pub fn sorted_point_loads(ef: &ElementForces) -> Vec<PointLoadInfo> {
+    let mut pl = ef.point_loads.clone();
+    pl.sort_by(|a, b| a.a.partial_cmp(&b.a).unwrap());
+    pl
+}
+
 /// Compute the value of a diagram (M, V, or N) at a given normalized position t.
 pub fn compute_diagram_value_at(
     kind: &str,
     t: f64,
     ef: &ElementForces,
+) -> f64 {
+    compute_diagram_value_at_sorted(kind, t, ef, &sorted_point_loads(ef))
+}
+
+/// Compute the value of a diagram (M, V, or N) at a given normalized position t,
+/// taking point loads pre-sorted by `a` (see `sorted_point_loads`). Identical
+/// to `compute_diagram_value_at` but avoids re-cloning/re-sorting per call.
+pub fn compute_diagram_value_at_sorted(
+    kind: &str,
+    t: f64,
+    ef: &ElementForces,
+    sorted_pl: &[PointLoadInfo],
 ) -> f64 {
     let xi = t * ef.length;
 
@@ -117,9 +138,7 @@ pub fn compute_diagram_value_at(
             }
 
             // Point loads
-            let mut sorted_pl = ef.point_loads.clone();
-            sorted_pl.sort_by(|a, b| a.a.partial_cmp(&b.a).unwrap());
-            for pl in &sorted_pl {
+            for pl in sorted_pl {
                 if pl.a < xi - 1e-10 {
                     value -= pl.p * (xi - pl.a);
                     if let Some(mz) = pl.my {
@@ -147,9 +166,7 @@ pub fn compute_diagram_value_at(
                 }
             }
 
-            let mut sorted_pl = ef.point_loads.clone();
-            sorted_pl.sort_by(|a, b| a.a.partial_cmp(&b.a).unwrap());
-            for pl in &sorted_pl {
+            for pl in sorted_pl {
                 if pl.a < xi - 1e-10 {
                     value += pl.p;
                 }
@@ -160,9 +177,7 @@ pub fn compute_diagram_value_at(
             let n_start = ef.n_start;
             let n_end = ef.n_end;
             let mut value = n_start + t * (n_end - n_start);
-            let mut sorted_pl = ef.point_loads.clone();
-            sorted_pl.sort_by(|a, b| a.a.partial_cmp(&b.a).unwrap());
-            for pl in &sorted_pl {
+            for pl in sorted_pl {
                 if let Some(px) = pl.px {
                     if pl.a < xi - 1e-10 {
                         value += px;
@@ -192,6 +207,9 @@ fn compute_single_diagram(
         build_sampling_positions(ef.length, &ef.point_loads)
     };
 
+    // Sort point loads once per element instead of per station evaluation
+    let sorted_pl = sorted_point_loads(ef);
+
     let mut points = Vec::new();
     let mut max_val = f64::NEG_INFINITY;
     let mut min_val = f64::INFINITY;
@@ -199,7 +217,7 @@ fn compute_single_diagram(
     let mut max_abs_value: f64 = 0.0;
 
     for &t in &positions {
-        let value = compute_diagram_value_at(kind, t, ef);
+        let value = compute_diagram_value_at_sorted(kind, t, ef, &sorted_pl);
         let x = node_ix + t * (node_jx - node_ix);
         let y = node_iy + t * (node_jy - node_iy);
 

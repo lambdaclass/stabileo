@@ -158,7 +158,11 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
         let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
         let k_s = if let Some(ref cs) = cs { cs.reduce_matrix(&k_ff) } else { k_ff };
 
-        let du_hat_s = solve_system(&k_s, &f_ref_s, ns)?;
+        let du_hat_s = {
+            // New tangent each step: factor once, solve the predictor RHS.
+            let tangent = factor_tangent(&k_s, ns)?;
+            solve_with_tangent(&tangent, &f_ref_s, ns)?
+        };
         let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s) } else { du_hat_s };
 
         // Determine Δλ from arc-length constraint
@@ -214,14 +218,15 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
                 break;
             }
 
-            // Two-system solve:
+            // Two-system solve with a single factorization per iteration:
             // K_T * δu_r = R   (residual correction)
             // K_T * δu_t = f_ref (tangent correction)
             let k_ff_new = extract_submatrix(&k_t_new, n, &free_idx, &free_idx);
             let k_s_new = if let Some(ref cs) = cs { cs.reduce_matrix(&k_ff_new) } else { k_ff_new };
             let residual_s = if let Some(ref cs) = cs { cs.reduce_vector(&residual) } else { residual.clone() };
-            let du_r_s = solve_system(&k_s_new, &residual_s, ns)?;
-            let du_t_s = solve_system(&k_s_new, &f_ref_s, ns)?;
+            let tangent = factor_tangent(&k_s_new, ns)?;
+            let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
+            let du_t_s = solve_with_tangent(&tangent, &f_ref_s, ns)?;
             let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s) } else { du_r_s };
             let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s) } else { du_t_s };
 
@@ -507,6 +512,93 @@ fn solve_system(k_ff: &[f64], rhs: &[f64], nf: usize) -> Result<Vec<f64>, String
             let mut f_work = rhs.to_vec();
             lu_solve(&mut k_work, &mut f_work, nf)
                 .ok_or_else(|| "Singular tangent stiffness".to_string())
+        }
+    }
+}
+
+/// Tangent stiffness factored once, reusable for multiple right-hand sides.
+/// Same decompositions as `solve_system` (Cholesky with LU fallback), so
+/// solving two RHS with one factor gives identical results to factoring twice.
+enum FactoredTangent {
+    /// Cholesky factor L (lower triangle stored in n*n array)
+    Cholesky { l: Vec<f64> },
+    /// LU decomposition with partial pivoting
+    Lu { a: Vec<f64>, piv: Vec<usize> },
+}
+
+/// Factor K_T once (Cholesky first, LU fallback) for repeated solves.
+fn factor_tangent(k_ff: &[f64], nf: usize) -> Result<FactoredTangent, String> {
+    let mut l = k_ff.to_vec();
+    if cholesky_decompose(&mut l, nf) {
+        return Ok(FactoredTangent::Cholesky { l });
+    }
+
+    // LU with partial pivoting — identical factorization phase to `lu_solve`.
+    let mut a = k_ff.to_vec();
+    let mut piv: Vec<usize> = (0..nf).collect();
+
+    for k in 0..nf {
+        let mut max_val = a[piv[k] * nf + k].abs();
+        let mut max_row = k;
+        for i in (k + 1)..nf {
+            let val = a[piv[i] * nf + k].abs();
+            if val > max_val {
+                max_val = val;
+                max_row = i;
+            }
+        }
+
+        if max_val < 1e-14 {
+            return Err("Singular tangent stiffness".to_string());
+        }
+
+        piv.swap(k, max_row);
+
+        let pivot = a[piv[k] * nf + k];
+        for i in (k + 1)..nf {
+            let factor = a[piv[i] * nf + k] / pivot;
+            a[piv[i] * nf + k] = factor;
+            for j in (k + 1)..nf {
+                let val = a[piv[k] * nf + j];
+                a[piv[i] * nf + j] -= factor * val;
+            }
+        }
+    }
+
+    Ok(FactoredTangent::Lu { a, piv })
+}
+
+/// Solve with a pre-factored tangent. The substitution steps are identical to
+/// `cholesky_solve` / `lu_solve`, so results match `solve_system` bit for bit.
+fn solve_with_tangent(factored: &FactoredTangent, rhs: &[f64], nf: usize) -> Result<Vec<f64>, String> {
+    match factored {
+        FactoredTangent::Cholesky { l } => {
+            let y = forward_solve(l, rhs, nf);
+            Ok(back_solve(l, &y, nf))
+        }
+        FactoredTangent::Lu { a, piv } => {
+            // Forward substitution (Ly = Pb)
+            let mut y = vec![0.0; nf];
+            for i in 0..nf {
+                y[i] = rhs[piv[i]];
+                for j in 0..i {
+                    y[i] -= a[piv[i] * nf + j] * y[j];
+                }
+            }
+            // Back substitution (Ux = y)
+            let mut x = vec![0.0; nf];
+            for i in (0..nf).rev() {
+                x[i] = y[i];
+                for j in (i + 1)..nf {
+                    x[i] -= a[piv[i] * nf + j] * x[j];
+                }
+                x[i] /= a[piv[i] * nf + i];
+            }
+            // Same NaN/Inf guard as `lu_solve`
+            if x.iter().any(|v| v.is_nan() || v.is_infinite()) {
+                return Err("Singular tangent stiffness".to_string());
+            }
+            Ok(x)
         }
     }
 }

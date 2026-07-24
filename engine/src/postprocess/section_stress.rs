@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::postprocess::diagrams::compute_diagram_value_at;
+use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
 use serde::{Deserialize, Serialize};
 
 // ==================== Types ====================
@@ -368,9 +368,10 @@ fn estimate_j(shape: &str, h: f64, b: f64, tw: f64, tf: f64, t: f64) -> f64 {
 /// Analyze 2D section stress at position t along element.
 pub fn compute_section_stress_2d(input: &SectionStressInput) -> SectionStressResult {
     let ef = &input.element_forces;
-    let n = compute_diagram_value_at("axial", input.t, ef);
-    let v = compute_diagram_value_at("shear", input.t, ef);
-    let m = compute_diagram_value_at("moment", input.t, ef);
+    let sorted_pl = sorted_point_loads(ef);
+    let n = compute_diagram_value_at_sorted("axial", input.t, ef, &sorted_pl);
+    let v = compute_diagram_value_at_sorted("shear", input.t, ef, &sorted_pl);
+    let m = compute_diagram_value_at_sorted("moment", input.t, ef, &sorted_pl);
 
     let resolved = resolve_section(&input.section);
     let y = input.y_fiber.unwrap_or(resolved.h / 2.0);

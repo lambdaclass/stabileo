@@ -6,6 +6,7 @@
 use super::sparse::CscMatrix;
 use super::amd::{amd_order, inverse_perm};
 use super::rcm::rcm_order;
+use std::rc::Rc;
 
 /// Symbolic factorization result — reusable for same sparsity pattern.
 #[derive(Debug, Clone)]
@@ -20,9 +21,11 @@ pub struct SymbolicCholesky {
 }
 
 /// Numeric factorization result.
+/// Holds a shared reference to the (possibly reused) symbolic factorization
+/// instead of an O(nnz_L) deep copy per numeric factorization.
 #[derive(Debug, Clone)]
 pub struct NumericCholesky {
-    pub symbolic: SymbolicCholesky,
+    pub symbolic: Rc<SymbolicCholesky>,
     pub l_values: Vec<f64>,
     pub pivot_perturbations: usize,   // how many pivots were perturbed
     pub max_perturbation: f64,        // largest perturbation applied
@@ -134,18 +137,18 @@ pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> Symbolic
 
 /// Compute numeric Cholesky factorization given symbolic structure.
 /// Returns None if matrix is not SPD (strict mode — no perturbation).
-pub fn numeric_cholesky(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<NumericCholesky> {
+pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<NumericCholesky> {
     numeric_cholesky_inner(sym, a, false)
 }
 
 /// Compute numeric Cholesky factorization with pivot perturbation.
 /// Perturbs small/negative pivots (from shell drilling DOFs) instead of failing.
 /// Always returns Some — caller must verify solution quality via residual check.
-pub fn numeric_cholesky_perturbed(sym: &SymbolicCholesky, a: &CscMatrix) -> NumericCholesky {
+pub fn numeric_cholesky_perturbed(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> NumericCholesky {
     numeric_cholesky_inner(sym, a, true).unwrap()
 }
 
-fn numeric_cholesky_inner(sym: &SymbolicCholesky, a: &CscMatrix, perturb: bool) -> Option<NumericCholesky> {
+fn numeric_cholesky_inner(sym: &Rc<SymbolicCholesky>, a: &CscMatrix, perturb: bool) -> Option<NumericCholesky> {
     let n = sym.n;
 
     // Apply permutation to get numeric values
@@ -260,7 +263,7 @@ fn numeric_cholesky_inner(sym: &SymbolicCholesky, a: &CscMatrix, perturb: bool) 
     }
 
     Some(NumericCholesky {
-        symbolic: sym.clone(),
+        symbolic: Rc::clone(sym),
         l_values,
         pivot_perturbations: n_perturbations,
         max_perturbation: max_perturbation_val,
@@ -319,7 +322,7 @@ pub fn sparse_cholesky_solve(factor: &NumericCholesky, b: &[f64]) -> Vec<f64> {
 
 /// Convenience: full sparse solve A*x = b. Returns None if not SPD.
 pub fn sparse_cholesky_solve_full(a: &CscMatrix, b: &[f64]) -> Option<Vec<f64>> {
-    let sym = symbolic_cholesky(a);
+    let sym = Rc::new(symbolic_cholesky(a));
     let num = numeric_cholesky(&sym, a)?;
     Some(sparse_cholesky_solve(&num, b))
 }
@@ -457,7 +460,7 @@ mod tests {
         );
         let b = vec![1.0, 2.0, 3.0];
 
-        let sym = symbolic_cholesky(&a1);
+        let sym = Rc::new(symbolic_cholesky(&a1));
         let num1 = numeric_cholesky(&sym, &a1).unwrap();
         let x1 = sparse_cholesky_solve(&num1, &b);
 
@@ -477,7 +480,7 @@ mod tests {
     fn test_condition_estimate() {
         // Well-conditioned 2×2
         let a = make_spd(&[4.0, 0.0, 0.0, 4.0], 2);
-        let sym = symbolic_cholesky(&a);
+        let sym = Rc::new(symbolic_cholesky(&a));
         let num = numeric_cholesky(&sym, &a).unwrap();
         let cond = sparse_condition_estimate(&num);
         assert!((cond - 1.0).abs() < 1e-10); // L = diag(2,2), ratio = 1

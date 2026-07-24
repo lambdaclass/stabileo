@@ -36,6 +36,10 @@ pub fn solve_time_history_2d(
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let f_static = extract_subvec(&asm.f, &free_idx);
 
+    // 3a. Precompute the ground-acceleration influence product M*r once —
+    // r and M are time-invariant, so it must not be rebuilt per time step.
+    let m_ground_r = build_ground_influence_2d(input, &dof_num, nf, &m_ff);
+
     // 3b. Constraint reduction: reduce K, M to independent DOF space
     let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
@@ -86,7 +90,7 @@ pub fn solve_time_history_2d(
 
     // Compute initial acceleration from M*a0 = F0 - C*v0 - K*u0
     // Force is computed in nf space then reduced
-    let f_0_nf = compute_force_at_step(input, &dof_num, nf, &m_ff, &f_static, 0, dt);
+    let f_0_nf = compute_force_at_step(input, &dof_num, nf, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
     compute_initial_acceleration(&m_s, &c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
 
@@ -133,7 +137,7 @@ pub fn solve_time_history_2d(
         let t_next = (step + 1) as f64 * dt;
 
         // Compute F_{n+1} in nf space, then reduce to ns
-        let f_next_nf = compute_force_at_step(input, &dof_num, nf, &m_ff, &f_static, step + 1, dt);
+        let f_next_nf = compute_force_at_step(input, &dof_num, nf, m_ground_r.as_deref(), &f_static, step + 1, dt);
         let f_next = if let Some(ref cs) = cs { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
         // Compute effective load (all in ns space)
@@ -307,13 +311,46 @@ fn compute_initial_acceleration(
     }
 }
 
-/// Compute the external force vector at a given time step.
-/// Handles both ground acceleration and explicit force history.
-fn compute_force_at_step(
+/// Build the ground-acceleration influence product M*r (2D).
+/// r (1.0 at free DOFs in the ground direction) and M are time-invariant,
+/// so this is computed once per analysis instead of at every time step.
+/// Returns None when no ground acceleration is applied.
+fn build_ground_influence_2d(
     input: &TimeHistoryInput,
     dof_num: &DofNumbering,
     nf: usize,
     m_ff: &[f64],
+) -> Option<Vec<f64>> {
+    input.ground_accel.as_ref()?;
+
+    let dir = input.ground_direction.as_deref().unwrap_or("X");
+    let local_dof = match dir {
+        "Y" | "y" => 1,
+        _ => 0, // "X" or default
+    };
+
+    // Influence vector r (1.0 for DOFs in ground direction)
+    let mut r = vec![0.0; nf];
+    for &node_id in &dof_num.node_order {
+        if let Some(&d) = dof_num.map.get(&(node_id, local_dof)) {
+            if d < nf {
+                r[d] = 1.0;
+            }
+        }
+    }
+
+    Some(mat_vec(m_ff, &r, nf))
+}
+
+/// Compute the external force vector at a given time step.
+/// Handles both ground acceleration and explicit force history.
+/// `m_ground_r` is the precomputed M*r influence product (see
+/// `build_ground_influence_2d`); it is Some iff `input.ground_accel` is Some.
+fn compute_force_at_step(
+    input: &TimeHistoryInput,
+    dof_num: &DofNumbering,
+    nf: usize,
+    m_ground_r: Option<&[f64]>,
     f_static: &[f64],
     step: usize,
     dt: f64,
@@ -323,29 +360,13 @@ fn compute_force_at_step(
 
     // Ground acceleration: F_ground = -M * r * a_g(t)
     if let Some(ref ground_accel) = input.ground_accel {
-        let dir = input.ground_direction.as_deref().unwrap_or("X");
-        let local_dof = match dir {
-            "Y" | "y" => 1,
-            _ => 0, // "X" or default
-        };
-
         // Interpolate ground acceleration at time t
         let a_g = interpolate_ground_accel(ground_accel, step, dt);
 
-        // Build influence vector r (1.0 for DOFs in ground direction)
-        let mut r = vec![0.0; nf];
-        for &node_id in &dof_num.node_order {
-            if let Some(&d) = dof_num.map.get(&(node_id, local_dof)) {
-                if d < nf {
-                    r[d] = 1.0;
-                }
+        if let Some(m_r) = m_ground_r {
+            for i in 0..nf {
+                f[i] -= m_r[i] * a_g;
             }
-        }
-
-        // F_ground = -M * r * a_g
-        let m_r = mat_vec(m_ff, &r, nf);
-        for i in 0..nf {
-            f[i] -= m_r[i] * a_g;
         }
     }
 
@@ -787,6 +808,10 @@ pub fn solve_time_history_3d(
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let f_static = extract_subvec(&asm.f, &free_idx);
 
+    // 3a. Precompute the per-direction ground-acceleration influence product
+    // M*r once — r and M are time-invariant, so it must not be rebuilt per step.
+    let m_ground_r_3d = build_ground_influence_3d(input, &dof_num, nf, &m_ff);
+
     // 3b. Constraint reduction
     let cs3 = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs3.as_ref().map_or(nf, |c| c.n_free_indep);
@@ -835,7 +860,7 @@ pub fn solve_time_history_3d(
     let mut a_vec = vec![0.0; ns];
 
     // Force computed in nf space, then reduced
-    let f_0_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ff, &f_static, 0, dt);
+    let f_0_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ground_r_3d, &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
     compute_initial_acceleration(&m_s, &c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
 
@@ -885,7 +910,7 @@ pub fn solve_time_history_3d(
         let t_next = (step + 1) as f64 * dt;
 
         // Force in nf space, then reduce
-        let f_next_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ff, &f_static, step + 1, dt);
+        let f_next_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ground_r_3d, &f_static, step + 1, dt);
         let f_next = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
         let f_eff = compute_effective_load(
@@ -965,12 +990,47 @@ pub fn solve_time_history_3d(
 // 3D Internal helpers
 // ============================================================================
 
-/// Compute force vector at a given step for 3D time history.
-fn compute_force_at_step_3d(
+/// Build the per-direction ground-acceleration influence product M*r (3D).
+/// r (1.0 at free DOFs in the direction) and M are time-invariant, so this is
+/// computed once per analysis instead of at every time step.
+/// Entry i is Some(M*r_i) iff that direction's ground acceleration is present.
+fn build_ground_influence_3d(
     input: &TimeHistoryInput3D,
     dof_num: &DofNumbering,
     nf: usize,
     m_ff: &[f64],
+) -> [Option<Vec<f64>>; 3] {
+    let accel_dirs: [(Option<&Vec<f64>>, usize); 3] = [
+        (input.ground_accel_x.as_ref(), 0), // X → local DOF 0
+        (input.ground_accel_y.as_ref(), 1), // Y → local DOF 1
+        (input.ground_accel_z.as_ref(), 2), // Z → local DOF 2
+    ];
+
+    let mut out: [Option<Vec<f64>>; 3] = [None, None, None];
+    for (slot, (accel_opt, local_dof)) in out.iter_mut().zip(accel_dirs.iter()) {
+        if accel_opt.is_some() {
+            let mut r = vec![0.0; nf];
+            for &node_id in &dof_num.node_order {
+                if let Some(&d) = dof_num.map.get(&(node_id, *local_dof)) {
+                    if d < nf {
+                        r[d] = 1.0;
+                    }
+                }
+            }
+            *slot = Some(mat_vec(m_ff, &r, nf));
+        }
+    }
+    out
+}
+
+/// Compute force vector at a given step for 3D time history.
+/// `m_ground_r` holds the precomputed per-direction M*r influence products
+/// (see `build_ground_influence_3d`).
+fn compute_force_at_step_3d(
+    input: &TimeHistoryInput3D,
+    dof_num: &DofNumbering,
+    nf: usize,
+    m_ground_r: &[Option<Vec<f64>>; 3],
     f_static: &[f64],
     step: usize,
     dt: f64,
@@ -985,29 +1045,21 @@ fn compute_force_at_step_3d(
 
     // Tri-directional ground acceleration: F_ground = -M * r * a_g(t)
     if has_ground {
-        let accel_dirs: [(Option<&Vec<f64>>, usize); 3] = [
-            (input.ground_accel_x.as_ref(), 0), // X → local DOF 0
-            (input.ground_accel_y.as_ref(), 1), // Y → local DOF 1
-            (input.ground_accel_z.as_ref(), 2), // Z → local DOF 2
+        let accel_dirs: [Option<&Vec<f64>>; 3] = [
+            input.ground_accel_x.as_ref(),
+            input.ground_accel_y.as_ref(),
+            input.ground_accel_z.as_ref(),
         ];
 
-        for (accel_opt, local_dof) in &accel_dirs {
+        for (dir_idx, accel_opt) in accel_dirs.iter().enumerate() {
             if let Some(accel_data) = accel_opt {
                 let a_g = if step < accel_data.len() { accel_data[step] } else { 0.0 };
                 if a_g.abs() < 1e-30 { continue; }
 
-                let mut r = vec![0.0; nf];
-                for &node_id in &dof_num.node_order {
-                    if let Some(&d) = dof_num.map.get(&(node_id, *local_dof)) {
-                        if d < nf {
-                            r[d] = 1.0;
-                        }
+                if let Some(ref m_r) = m_ground_r[dir_idx] {
+                    for i in 0..nf {
+                        f[i] -= m_r[i] * a_g;
                     }
-                }
-
-                let m_r = mat_vec(m_ff, &r, nf);
-                for i in 0..nf {
-                    f[i] -= m_r[i] * a_g;
                 }
             }
         }
