@@ -232,7 +232,9 @@ function buildModelSection(data: CalcReportData): string {
   const showElems = elemCondensed ? [...data.elements.slice(0, 20), null, ...data.elements.slice(-5)] : data.elements;
   for (const e of showElems) {
     if (!e) { h.push(`<tr><td colspan="7" style="text-align:center;color:#888">... ${elemCount - 25} more elements ...</td></tr>`); continue; }
-    const hinges = (e.hingeStart ? 'I' : '') + (e.hingeEnd ? 'J' : '') || '—';
+    // Moment release per end (the typed-Release migration replaced the old
+    // hingeStart/hingeEnd booleans with releaseI/releaseJ.mz).
+    const hinges = (e.releaseI?.mz ? 'I' : '') + (e.releaseJ?.mz ? 'J' : '') || '—';
     h.push(`<tr><td>${e.id}</td><td>${e.type}</td><td>${e.nodeI}</td><td>${e.nodeJ}</td><td>${e.materialId}</td><td>${e.sectionId}</td><td>${hinges}</td></tr>`);
   }
   h.push('</table>');

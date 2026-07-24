@@ -156,6 +156,10 @@
         if (comboResult && typeof comboResult !== 'string') {
           resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
           comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
+        } else if (typeof comboResult === 'string') {
+          // Combinations failed (e.g. a load case is a mechanism) — surface it
+          // instead of silently firing the success toast as if they all solved.
+          uiStore.toast(comboResult, 'error');
         }
       }
       uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`, 'success');
@@ -215,6 +219,9 @@
         if (comboResult && typeof comboResult !== 'string') {
           resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
           comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
+        } else if (typeof comboResult === 'string') {
+          // Combinations failed — surface it instead of silently reporting success.
+          uiStore.toast(comboResult, 'error');
         }
       }
       uiStore.toast(
