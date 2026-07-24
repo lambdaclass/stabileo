@@ -1,4 +1,5 @@
 pub mod dof;
+pub(crate) mod dynamic_validation;
 pub mod assembly;
 pub mod linear;
 pub mod pdelta;

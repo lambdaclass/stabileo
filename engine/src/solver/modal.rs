@@ -50,6 +50,11 @@ pub fn solve_modal_2d(
     densities: &HashMap<String, f64>,
     num_modes: usize,
 ) -> Result<ModalResult, String> {
+    super::linear::validate_input_2d(input)?;
+    super::dynamic_validation::validate_densities(densities)?;
+    if num_modes == 0 {
+        return Err("num_modes must be >= 1".to_string());
+    }
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
@@ -255,6 +260,11 @@ pub fn solve_modal_3d(
     densities: &HashMap<String, f64>,
     num_modes: usize,
 ) -> Result<ModalResult3D, String> {
+    super::linear::validate_input_3d(input)?;
+    super::dynamic_validation::validate_densities(densities)?;
+    if num_modes == 0 {
+        return Err("num_modes must be >= 1".to_string());
+    }
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;

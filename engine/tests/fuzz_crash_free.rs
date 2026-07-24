@@ -4,7 +4,7 @@
 //! The contract: `solve_2d` and `solve_3d` must return `Ok(results)` with
 //! finite values, or `Err(message)`. They must NEVER panic.
 
-use dedaliano_engine::solver::linear;
+use dedaliano_engine::solver::{linear, modal, staged, time_integration};
 use dedaliano_engine::types::*;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -813,4 +813,142 @@ fn fuzz_2d_mixed_loads_1k() {
         "fuzz_2d_mixed_loads_1k: {} ok, {} err out of 1000",
         ok_count, err_count
     );
+}
+
+// ==================== Modal, Time-History, Staged Fuzz Tests ====================
+
+#[test]
+fn fuzz_modal_2d_crash_free_2k() {
+    let mut ok_count = 0u64;
+    let mut err_count = 0u64;
+    for seed in 0..2_000u64 {
+        let input = random_2d_model(seed);
+        // Vary densities: mostly physical, sometimes zero (must Err cleanly, not panic)
+        let densities: std::collections::HashMap<String, f64> = input.materials.values()
+            .map(|m| (m.id.to_string(), if seed % 7 == 0 { 0.0 } else { 7850.0 }))
+            .collect();
+        match std::panic::catch_unwind(|| modal::solve_modal_2d(&input, &densities, 3)) {
+            Ok(Ok(res)) => {
+                assert!(res.total_mass.is_finite(), "non-finite total_mass, seed {}", seed);
+                for m in &res.modes {
+                    assert!(m.frequency.is_finite(), "non-finite frequency, seed {}", seed);
+                }
+                ok_count += 1;
+            }
+            Ok(Err(_)) => err_count += 1,
+            Err(p) => panic!("PANIC modal 2D seed {}: {:?}", seed, p),
+        }
+    }
+    eprintln!("fuzz_modal_2d: {} ok, {} err", ok_count, err_count);
+}
+
+#[test]
+fn fuzz_modal_3d_crash_free_500() {
+    for seed in 100_000..100_500u64 {
+        let input = random_3d_model(seed);
+        let densities: std::collections::HashMap<String, f64> = input.materials.values()
+            .map(|m| (m.id.to_string(), 7850.0))
+            .collect();
+        match std::panic::catch_unwind(|| modal::solve_modal_3d(&input, &densities, 3)) {
+            Ok(Ok(res)) => {
+                assert!(res.total_mass.is_finite(), "non-finite total_mass, seed {}", seed);
+                for m in &res.modes {
+                    assert!(m.frequency.is_finite(), "non-finite frequency, seed {}", seed);
+                }
+            }
+            Ok(Err(_)) => {}
+            Err(p) => panic!("PANIC modal 3D seed {}: {:?}", seed, p),
+        }
+    }
+}
+
+#[test]
+fn fuzz_time_history_2d_crash_free_500() {
+    for seed in 0..500u64 {
+        let m = random_2d_model(seed);
+        let densities: std::collections::HashMap<String, f64> = m.materials.values()
+            .map(|mat| (mat.id.to_string(), 7850.0))
+            .collect();
+        let input = TimeHistoryInput {
+            solver: m,
+            densities,
+            time_step: 0.01,
+            n_steps: 10,
+            method: "newmark".to_string(),
+            beta: 0.25,
+            gamma: 0.5,
+            alpha: None,
+            damping_xi: Some(0.05),
+            ground_accel: Some(vec![0.5; 10]),
+            ground_direction: Some("x".to_string()),
+            force_history: None,
+        };
+        match std::panic::catch_unwind(|| time_integration::solve_time_history_2d(&input)) {
+            Ok(Ok(res)) => {
+                for nh in &res.node_histories {
+                    let all_finite = nh.ux.iter().all(|v| v.is_finite())
+                        && nh.uz.iter().all(|v| v.is_finite())
+                        && nh.ry.iter().all(|v| v.is_finite())
+                        && nh.vx.iter().all(|v| v.is_finite())
+                        && nh.vz.iter().all(|v| v.is_finite())
+                        && nh.ax.iter().all(|v| v.is_finite())
+                        && nh.az.iter().all(|v| v.is_finite());
+                    assert!(
+                        all_finite,
+                        "seed {}: NaN/Inf in TH 2D node {} history",
+                        seed, nh.node_id
+                    );
+                }
+                for d in &res.peak_displacements {
+                    assert!(
+                        d.ux.is_finite() && d.uz.is_finite() && d.ry.is_finite(),
+                        "seed {}: NaN/Inf in TH 2D peak displacement node {}: ux={}, uz={}, ry={}",
+                        seed, d.node_id, d.ux, d.uz, d.ry
+                    );
+                }
+            }
+            Ok(Err(_)) => {}
+            Err(p) => panic!("PANIC TH 2D seed {}: {:?}", seed, p),
+        }
+    }
+}
+
+#[test]
+fn fuzz_staged_2d_crash_free_1k() {
+    for seed in 0..1_000u64 {
+        let m = random_2d_model(seed);
+        let mut elem_ids: Vec<usize> = m.elements.values().map(|e| e.id).collect();
+        elem_ids.sort_unstable();
+        let split = (elem_ids.len() / 2).clamp(1, elem_ids.len());
+        let (first, rest) = elem_ids.split_at(split);
+        let stage = |name: &str, elems: &[usize]| ConstructionStage {
+            name: name.to_string(),
+            elements_added: elems.to_vec(),
+            elements_removed: vec![],
+            load_indices: (0..m.loads.len()).collect(),
+            supports_added: vec![],
+            supports_removed: vec![],
+            prestress_loads: vec![],
+        };
+        let input = StagedInput {
+            nodes: m.nodes.clone(),
+            materials: m.materials.clone(),
+            sections: m.sections.clone(),
+            elements: m.elements.clone(),
+            supports: m.supports.clone(),
+            loads: m.loads.clone(),
+            stages: vec![stage("s1", first), stage("s2", rest)],
+            constraints: vec![],
+        };
+        match std::panic::catch_unwind(|| staged::solve_staged_2d(&input)) {
+            Ok(Ok(res)) => {
+                for stage in &res.stages {
+                    assert_finite_2d(&stage.results, seed);
+                }
+                assert_finite_2d(&res.final_results, seed);
+            }
+            Ok(Err(_)) => {}
+            Err(p) => panic!("PANIC staged 2D seed {}: {:?}", seed, p),
+        }
+    }
 }

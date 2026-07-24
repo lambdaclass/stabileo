@@ -34,6 +34,10 @@ pub struct PerModeResult {
 
 /// Solve 2D spectral analysis using pre-computed modal data.
 pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String> {
+    super::linear::validate_input_2d(&input.solver)?;
+    if input.modes.is_empty() {
+        return Err("Spectral analysis requires at least one mode (run modal analysis first)".to_string());
+    }
     let solver_input = &input.solver;
     let modes = &input.modes;
     let spectrum = &input.spectrum;
@@ -46,10 +50,6 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
     let dof_num = DofNumbering::build_2d(solver_input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
-
-    if modes.is_empty() {
-        return Err("No modal results available".into());
-    }
 
     // For each mode, compute peak response
     let mut modal_disps: Vec<Vec<f64>> = Vec::new();
@@ -270,6 +270,10 @@ pub struct SpectralElementForce3D {
 
 /// Solve 3D spectral analysis using pre-computed modal data.
 pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+    if input.modes.is_empty() {
+        return Err("Spectral analysis requires at least one mode (run modal analysis first)".to_string());
+    }
     let solver_input = &input.solver;
     let modes = &input.modes;
     let spectrum = &input.spectrum;
@@ -282,8 +286,6 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
     let dof_num = DofNumbering::build_3d(solver_input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
-
-    if modes.is_empty() { return Err("No modal results available".into()); }
 
     let mut modal_disps: Vec<Vec<f64>> = Vec::new();
     let mut modal_forces: Vec<Vec<f64>> = Vec::new();
