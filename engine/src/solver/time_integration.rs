@@ -19,6 +19,19 @@ pub fn solve_time_history_2d(
     super::linear::validate_input_2d(&input.solver)?;
     super::dynamic_validation::validate_densities(&input.densities)?;
     super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
+    if !input.beta.is_finite() || !input.gamma.is_finite() {
+        return Err("Newmark beta/gamma parameters must be finite".to_string());
+    }
+    if let Some(alpha) = input.alpha {
+        if !alpha.is_finite() {
+            return Err("HHT alpha parameter must be finite".to_string());
+        }
+    }
+    if let Some(damping_xi) = input.damping_xi {
+        if !damping_xi.is_finite() {
+            return Err("damping_xi must be finite".to_string());
+        }
+    }
     if let Some(ga) = &input.ground_accel {
         if ga.iter().any(|v| !v.is_finite()) {
             return Err("Ground acceleration history contains non-finite values".to_string());
@@ -32,6 +45,9 @@ pub fn solve_time_history_2d(
             for l in &rec.loads {
                 if !input.solver.nodes.values().any(|n| n.id == l.node_id) {
                     return Err(format!("Force history load: node {} does not exist", l.node_id));
+                }
+                if [l.fx, l.fz, l.my].into_iter().any(|v| !v.is_finite()) {
+                    return Err(format!("Force history load on node {} contains a non-finite value", l.node_id));
                 }
             }
         }
@@ -790,6 +806,19 @@ pub fn solve_time_history_3d(
     super::linear::validate_input_3d(&input.solver)?;
     super::dynamic_validation::validate_densities(&input.densities)?;
     super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
+    if !input.beta.is_finite() || !input.gamma.is_finite() {
+        return Err("Newmark beta/gamma parameters must be finite".to_string());
+    }
+    if let Some(alpha) = input.alpha {
+        if !alpha.is_finite() {
+            return Err("HHT alpha parameter must be finite".to_string());
+        }
+    }
+    if let Some(damping_xi) = input.damping_xi {
+        if !damping_xi.is_finite() {
+            return Err("damping_xi must be finite".to_string());
+        }
+    }
     for ga in [&input.ground_accel_x, &input.ground_accel_y, &input.ground_accel_z] {
         if let Some(ga) = ga {
             if ga.iter().any(|v| !v.is_finite()) {
@@ -805,6 +834,11 @@ pub fn solve_time_history_3d(
             for l in &rec.loads {
                 if !input.solver.nodes.values().any(|n| n.id == l.node_id) {
                     return Err(format!("Force history load: node {} does not exist", l.node_id));
+                }
+                if [l.fx, l.fy, l.fz, l.mx, l.my, l.mz].into_iter().any(|v| !v.is_finite())
+                    || l.bw.is_some_and(|v| !v.is_finite())
+                {
+                    return Err(format!("Force history load on node {} contains a non-finite value", l.node_id));
                 }
             }
         }

@@ -69,6 +69,9 @@ fn default_response_dof_3d() -> String { "z".into() }
 pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String> {
     super::linear::validate_input_2d(&input.solver)?;
     super::dynamic_validation::validate_densities(&input.densities)?;
+    if !input.damping_ratio.is_finite() {
+        return Err("damping_ratio must be finite".to_string());
+    }
     if input.frequencies.is_empty() {
         return Err("Harmonic analysis requires at least one frequency".to_string());
     }
@@ -172,6 +175,9 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
 pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, String> {
     super::linear::validate_input_3d(&input.solver)?;
     super::dynamic_validation::validate_densities(&input.densities)?;
+    if !input.damping_ratio.is_finite() {
+        return Err("damping_ratio must be finite".to_string());
+    }
     if input.frequencies.is_empty() {
         return Err("Harmonic analysis requires at least one frequency".to_string());
     }

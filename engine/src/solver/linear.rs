@@ -1789,6 +1789,11 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
             return Err("Load contains non-finite (NaN/Inf) values".to_string());
         }
     }
+    for e in input.elements.values() {
+        if [e.local_yx, e.local_yy, e.local_yz, e.roll_angle].into_iter().flatten().any(|v| !v.is_finite()) {
+            return Err(format!("Element {}: local axis fields must be finite", e.id));
+        }
+    }
 
     let node_ids: std::collections::HashSet<usize> =
         input.nodes.values().map(|n| n.id).collect();
