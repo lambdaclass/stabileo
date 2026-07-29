@@ -1,0 +1,849 @@
+{
+  "key": "cirsoc-101-2025",
+  "code": "CIRSOC 101",
+  "edition": "2025",
+  "title": "Reglamento Argentino de Cargas Permanentes y Sobrecargas Mínimas de Diseño para Edificios y Otras Estructuras",
+  "source_file": "CIRSOC 101-2025.pdf",
+  "sha256": "ab1578742dc0c47fc080574d9af39059818686bfa5a44906a06aba419eaf03ec",
+  "bytes": 4585231,
+  "pages": 122,
+  "toc_pages_skipped": 6,
+  "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+  "pages_ok": 116,
+  "pages_sparse": 0,
+  "pages_empty": 6,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        16
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "REQUISITOS GENERALES",
+      "file": "capitulo-1-requisitos-generales.md",
+      "pages": [
+        17,
+        48
+      ],
+      "clause_count": 29
+    },
+    {
+      "number": "CAPÍTULO 2",
+      "title": "COMBINACIONES DE CARGA",
+      "file": "capitulo-2-combinaciones-de-carga.md",
+      "pages": [
+        49,
+        64
+      ],
+      "clause_count": 21
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "CARGAS PERMANENTES",
+      "file": "capitulo-3-cargas-permanentes.md",
+      "pages": [
+        65,
+        76
+      ],
+      "clause_count": 6
+    },
+    {
+      "number": "CAPÍTULO 4",
+      "title": "SOBRECARGAS DE DISEÑO",
+      "file": "capitulo-4-sobrecargas-de-diseno.md",
+      "pages": [
+        77,
+        108
+      ],
+      "clause_count": 49
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "CARGAS DEBIDAS A LA LLUVIA",
+      "file": "capitulo-5-cargas-debidas-a-la-lluvia.md",
+      "pages": [
+        109,
+        122
+      ],
+      "clause_count": 5
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "CAMPO DE VALIDEZ                                   C 1.1. CAMPO DE VALIDEZ",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2",
+      "title": "DEFINICIONES Y SIMBOLOGÍA",
+      "page": 18,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2.1",
+      "title": "Definiciones",
+      "page": 18,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2.2",
+      "title": "Simbología",
+      "page": 21,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3",
+      "title": "REQUISITOS BÁSICOS                                            C 1.3. REQUISITOS BÁSICOS",
+      "page": 22,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1",
+      "title": "Resistencia y rigidez                                       C 1.3.1. Resistencia y rigidez",
+      "page": 22,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1.1",
+      "title": "Procedimientos por resistencia",
+      "page": 24,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1.2",
+      "title": "Procedimientos basados en el desempeño                          C 1.3.1.2. Procedimientos basados en el desempeño",
+      "page": 24,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1.2.1",
+      "title": "Análisis",
+      "page": 27,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1.2.2",
+      "title": "Ensayos                                       C 1.3.1.2.2. Ensayos",
+      "page": 27,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1.2.3",
+      "title": "Documentación",
+      "page": 29,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1.2.4",
+      "title": "Revisión independiente",
+      "page": 29,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.2",
+      "title": "Serviciabilidad (Condiciones de servicio)        C 1.3.2. Serviciabilidad (Condiciones de servicio)",
+      "page": 29,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.3",
+      "title": "Fuerzas de coacción                                         C 1.3.3. Fuerzas de coacción",
+      "page": 30,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.4",
+      "title": "Análisis",
+      "page": 30,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.5",
+      "title": "Lineamientos para contrarrestar las accio-",
+      "page": 31,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4",
+      "title": "INTEGRIDAD ESTRUCTURAL GENERAL                      C 1.4. INTEGRIDAD ESTRUCTURAL GENERAL",
+      "page": 31,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1",
+      "title": "Combinaciones de carga para cargas de                       establecido en el artículo 1.4.5.",
+      "page": 32,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1.1",
+      "title": "Combinaciones de cargas teóricas o                        Algunos autores han definido la resistencia al colapso",
+      "page": 32,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.2",
+      "title": "Conexiones de vías de carga                                 causar los escombros no controlados del elemento",
+      "page": 32,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.3",
+      "title": "Fuerzas laterales",
+      "page": 32,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.4",
+      "title": "Conexión a los soportes                             1) Colapso general. La demolición inmediata y deliberada",
+      "page": 33,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.5",
+      "title": "Anclaje de muros estructurales                         habido numerosos casos de colapso general que se han",
+      "page": 33,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.6",
+      "title": "Cargas y eventos extraordinarios                       contención de los daños circunscriptos a un área de dos",
+      "page": 33,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5",
+      "title": "CLASIFICACIÓN DE EDIFICIOS Y OTRAS                          C 1.5. CLASIFICACIÓN DE EDIFICIOS Y OTRAS",
+      "page": 38,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.1",
+      "title": "Categorización en función del riesgo                        C 1.5.1. Categorización en función del riesgo",
+      "page": 38,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.2",
+      "title": "Categorías de riesgo múltiples",
+      "page": 44,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.6",
+      "title": "AMPLIACIONES Y MODIFICACIONES DE",
+      "page": 48,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7",
+      "title": "PRUEBAS DE CARGA                                              C 1.7. PRUEBAS DE CARGA",
+      "page": 48,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1",
+      "title": "GENERALIDADES                                     C 2.1. GENERALIDADES",
+      "page": 49,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2",
+      "title": "SIMBOLOGÍA                                                    C 2.2. SIMBOLOGÍA",
+      "page": 50,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3",
+      "title": "COMBINACIÓN DE CARGAS MAYORADAS                  C 2.3. COMBINACIÓN DE CARGAS MAYORADAS",
+      "page": 51,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.1",
+      "title": "Campo de validez                                   C 2.3.1. Campo de validez",
+      "page": 51,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.2",
+      "title": "Combinaciones básicas                              C 2.3.2. Combinaciones básicas",
+      "page": 51,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "El factor de carga L en las combinaciones 3,       cargas nominales dadas en ASCE 7 (y en este Reglamen-",
+      "page": 51,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "En las combinaciones 2, 4 y 5, la carga            el Reglamento.",
+      "page": 51,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "Cuando el efecto de H se sume al efecto de         reducción se consideró necesaria debido a la modificación",
+      "page": 51,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "Cuando el efecto de H se oponga al efecto de       base la versión ASCE 7-2010-2016.",
+      "page": 51,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.3",
+      "title": "Combinaciones de carga incluyendo las                       C 2.3.3. Combinaciones de carga incluyendo las",
+      "page": 54,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "En la combinación 2: se deberá reemplazar                     en el Reglamento CIRSOC 104 y en el Capítulo 10 de",
+      "page": 54,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "En la combinación 4: se deberá reemplazar                     artículo 2.3.3 introducen el efecto simultáneo del viento",
+      "page": 54,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "En la combinación 6: se deberá reemplazar                     ponde a un evento con un intervalo de recurrencia medio",
+      "page": 54,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.4",
+      "title": "Combinaciones de carga                   incluyendo         C 2.3.4. Combinaciones de carga incluyendo las",
+      "page": 54,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.5",
+      "title": "Combinaciones de carga para cargas no             C 2.3.5. Combinaciones de carga para cargas no",
+      "page": 55,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4",
+      "title": "COMBINACIONES  DE   CARGA                      PARA        C 2.4. COMBINACIONES DE CARGA                          PARA",
+      "page": 60,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.1",
+      "title": "Campo de validez                                            Este artículo advierte al Proyectista Estructural que ciertas",
+      "page": 60,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.2",
+      "title": "Combinaciones de carga",
+      "page": 60,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.2.1",
+      "title": "Capacidad de una estructura o elemento                    llevado a buena parte de los Proyectistas Estructurales,",
+      "page": 60,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.2.2",
+      "title": "Capacidad residual                                        eliminación hipotética de elementos estructurales clave que",
+      "page": 60,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.3",
+      "title": "Requisitos de estabilidad                                   carga para eventos extraordinarios se han trasladado a la",
+      "page": 60,
+      "file": "capitulo-2-combinaciones-de-carga.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1",
+      "title": "CARGAS PERMANENTES                                  C 3.1. CARGAS PERMANENTES",
+      "page": 65,
+      "file": "capitulo-3-cargas-permanentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1.1",
+      "title": "Definición",
+      "page": 65,
+      "file": "capitulo-3-cargas-permanentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1.2",
+      "title": "Pesos de los materiales y elementos cons-         C 3.1.2. Pesos de los materiales y elementos construc-",
+      "page": 65,
+      "file": "capitulo-3-cargas-permanentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1.3",
+      "title": "Carga permanente debida al equipamiento",
+      "page": 66,
+      "file": "capitulo-3-cargas-permanentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1.4",
+      "title": "Carga debida a elementos divisorios",
+      "page": 66,
+      "file": "capitulo-3-cargas-permanentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "1",
+      "title": "MPa  10 kgf/cm2",
+      "page": 71,
+      "file": "capitulo-3-cargas-permanentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1",
+      "title": "DEFINICIONES",
+      "page": 77,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2",
+      "title": "CARGAS NO ESPECIFICADAS",
+      "page": 78,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3",
+      "title": "SOBRECARGAS                UNIFORMEMENTE                DIS-     C 4.3. SOBRECARGAS UNIFORMEMENTE DIS-",
+      "page": 78,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.1",
+      "title": "Sobrecargas de diseño                                             C 4.3.1. Sobrecargas de diseño",
+      "page": 78,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "El área del ático es accesible desde una abertura de no",
+      "page": 83,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "La pendiente del cordón inferior de la cercha no sea mayor",
+      "page": 83,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.2",
+      "title": "Requerimientos para elementos divisorios                    C 4.3.2. Requisitos para elementos divisorios",
+      "page": 84,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.3",
+      "title": "Estados de carga parciales                                  C 4.3.3. Estados de carga parciales",
+      "page": 84,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4",
+      "title": "CARGAS CONCENTRADAS                                 C 4.4. CARGAS CONCENTRADAS",
+      "page": 85,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5",
+      "title": "CARGAS EN BARANDAS PASAMANOS,                               C 4.5. CARGAS EN BARANDAS PASAMANOS,",
+      "page": 86,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.1",
+      "title": "Cargas en barandas pasamanos y siste-                       C 4.5.1. Cargas en barandas pasamanos y sistemas de",
+      "page": 86,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2",
+      "title": "Cargas en sistemas de barras de agarre          C 4.5.2. Cargas en sistemas de barras de agarre",
+      "page": 87,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.3",
+      "title": "Cargas en sistemas de barreras para             C 4.5.3. Cargas en sistemas de barreras para vehículos",
+      "page": 87,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.4",
+      "title": "Cargas en escaleras fijas                                   C 4.5.4. Cargas en escaleras fijas",
+      "page": 88,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6",
+      "title": "CARGAS DE IMPACTO                                             C 4.6. CARGAS DE IMPACTO",
+      "page": 88,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.1",
+      "title": "Generalidades                                               Los estadios, tribunas, gradas y estructuras similares",
+      "page": 88,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.2",
+      "title": "Ascensores                                                  pasan de un factor de impacto directo del 100 % a una",
+      "page": 88,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.3",
+      "title": "Maquinaria",
+      "page": 88,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.4",
+      "title": "Estadios, tribunas y estructuras similares",
+      "page": 89,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7",
+      "title": "REDUCCIÓN DE LA SOBRECARGA                         C 4.7. REDUCCIÓN DE LA SOBRECARGA",
+      "page": 89,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7.1",
+      "title": "Generalidades                                    C 4.7.1. Generalidades",
+      "page": 89,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7.2",
+      "title": "Reducción en sobrecargas uniformes",
+      "page": 91,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7.3",
+      "title": "Sobrecargas pesadas                                         C 4.7.3. Sobrecargas pesadas",
+      "page": 92,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7.4",
+      "title": "Garajes para vehículos de pasajeros                         C 4.7.4. Garajes para vehículos de pasajeros",
+      "page": 92,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7.5",
+      "title": "Lugares destinados a reuniones públicas",
+      "page": 93,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7.6",
+      "title": "Limitaciones para losas en una sola             C 4.7.6. Limitaciones para losas en una sola dirección",
+      "page": 93,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.8",
+      "title": "SOBRECARGAS MÍNIMAS PARA CUBIERTAS                            C 4.8. SOBRECARGAS MÍNIMAS PARA CUBIER-",
+      "page": 94,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.8.1",
+      "title": "Cubiertas inaccesibles salvo con fines de                   C 4.8.1. Cubiertas inaccesibles salvo con fines de",
+      "page": 94,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.8.2",
+      "title": "Cubiertas utilizadas con propósitos espe-                   C 4.8.2. Cubiertas utilizadas con propósitos especiales",
+      "page": 104,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.9",
+      "title": "CARGAS     PRODUCIDAS       POR    PUENTES       C 4.9. CARGAS PRODUCIDAS POR PUENTES",
+      "page": 105,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.9.1",
+      "title": "Carga máxima de rueda",
+      "page": 105,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.9.2",
+      "title": "Impacto vertical                                 En el caso de la fuerza lateral o de bamboleo, se calcula la",
+      "page": 105,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.9.3",
+      "title": "Fuerza transversal (bamboleo)",
+      "page": 105,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.9.4",
+      "title": "Fuerza longitudinal (frenado)",
+      "page": 105,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.10",
+      "title": "SOBRECARGAS PARA LOCALES DESTINA-                 C 4.10. SOBRECARGAS PARA LOCALES DESTI-",
+      "page": 105,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.10.1",
+      "title": "Los pisos de garajes o sectores de edificios    C 4.10.1. Consultar el artículo C 4.7.4.",
+      "page": 105,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.10.2",
+      "title": "Para cargas horizontales originadas por",
+      "page": 106,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.10.3",
+      "title": "Los garajes que guarden camiones y ómnibus",
+      "page": 106,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.11",
+      "title": "SOBRECARGAS PARA BALCONES                                    C 4.11. SOBRECARGAS PARA BALCONES",
+      "page": 106,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.12",
+      "title": "SOBRECARGAS PARA FÁBRICAS, TALLE-",
+      "page": 106,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.12.1",
+      "title": "Sobrecargas para fábricas y talleres",
+      "page": 106,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.12.2",
+      "title": "Sobrecargas para depósitos",
+      "page": 107,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.12.3",
+      "title": "Identificación de la sobrecarga",
+      "page": 107,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.13",
+      "title": "AUTOELEVADORES",
+      "page": 107,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.13.1",
+      "title": "En los locales destinados a depósito, donde",
+      "page": 107,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.13.2",
+      "title": "Las estructuras resistentes deberán soportar",
+      "page": 107,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.13.3",
+      "title": "Sobre los tabiques portantes, columnas y",
+      "page": 108,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.13.4",
+      "title": "Cuando se desee proyectar la estructura para",
+      "page": 108,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.13.5",
+      "title": "Los valores indicados precedentemente",
+      "page": 108,
+      "file": "capitulo-4-sobrecargas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "SIMBOLOGÍA                                       C 5.1. SIMBOLOGÍA",
+      "page": 109,
+      "file": "capitulo-5-cargas-debidas-a-la-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "DRENAJE DE CUBIERTAS                             C 5.2. DRENAJE DE CUBIERTAS",
+      "page": 109,
+      "file": "capitulo-5-cargas-debidas-a-la-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "CARGA DE LLUVIA DE DISEÑO                                     C 5.3. CARGA DE LLUVIA DE DISEÑO",
+      "page": 110,
+      "file": "capitulo-5-cargas-debidas-a-la-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4",
+      "title": "INESTABILIDAD POR ACUMULACIÓN DE                            C 5.4. INESTABILIDAD POR ACUMULACIÓN DE",
+      "page": 111,
+      "file": "capitulo-5-cargas-debidas-a-la-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.5",
+      "title": "DRENAJE CONTROLADO                                 C 5.5. DRENAJE CONTROLADO",
+      "page": 113,
+      "file": "capitulo-5-cargas-debidas-a-la-lluvia.md"
+    }
+  ]
+}

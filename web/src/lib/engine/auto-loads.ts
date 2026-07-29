@@ -143,7 +143,7 @@ export type SoilType = 'SA' | 'SB' | 'SC' | 'SD' | 'SE';
 export type ImportanceGroup = 'Ao' | 'A' | 'B' | 'C';
 
 /** CIRSOC 103 Table — Spectral parameters by zone and soil */
-const SPECTRAL_PARAMS: Record<number, Record<string, { Ca: number; Cv: number; T1: number; T2: number }>> = {
+export const SPECTRAL_PARAMS: Record<number, Record<string, { Ca: number; Cv: number; T1: number; T2: number }>> = {
   4: {
     SA: { Ca: 0.32, Cv: 0.32, T1: 0.10, T2: 0.40 },
     SB: { Ca: 0.35, Cv: 0.35, T1: 0.10, T2: 0.40 },

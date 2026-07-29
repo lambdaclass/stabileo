@@ -563,8 +563,12 @@ describe('3D Solver — member along global Y (axis transformation test)', () =>
     // Canonical Z-up convention: element along global Y → ex=[0,1,0];
     // ez = global up (Z) projected ⊥ ex = [0,0,1]; ey = ez × ex = [-1,0,0].
     // The global-X force acts along local y → bending about local z → uses EIz.
-    // (Raw-input test, so it exercises the corrected Rust default convention
-    // directly rather than the forced-localY boundary.)
+    // (Raw-input test, so it exercises the Rust default convention directly rather
+    // than the forced-localY boundary the app actually uses.)
+    //
+    // If this fails with ~2x the expected value (the Iy result), the local
+    // web/src/lib/wasm/ binary is STALE — rebuild it with `npm run wasm`.
+    // See design/__tests__/orientation-boundary.test.ts for the full account.
     const ux_expected = Px * L * L * L / (3 * E * Iz);
 
     const d2 = result.displacements.find(d => d.nodeId === 2)!;

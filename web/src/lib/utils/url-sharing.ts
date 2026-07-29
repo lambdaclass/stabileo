@@ -299,15 +299,25 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     c.cx = snapshot.connectors;
   }
 
+  // Footings and the ground they bear on: kept verbatim, like connectors. Both travel
+  // together on purpose — a shared footing without its soil profile is a foundation whose
+  // bearing check cannot run, which is worse than not sharing it at all.
+  if (snapshot.footings?.length) c.fo = snapshot.footings;
+  if (snapshot.geotechnical?.profiles.length) c.gt = snapshot.geotechnical;
+
   // Provenance (CAD-draft "unreviewed" tag + assumptions): kept verbatim so the
   // honesty badge survives URL share/embed — the one persistence path that
   // crosses a trust boundary. Small structured object; deflate handles the size.
   if (snapshot.provenance) c.pv = snapshot.provenance;
 
-  // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?, connector?]
+  // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?,
+  //          connector?, footing?, soilProfile?]
+  // Appended at the END so a link shared before footings existed still decodes: the
+  // missing trailing slots read as undefined and fall back.
   const nid = snapshot.nextId;
   c.ni = [nid.node, nid.material, nid.section, nid.element, nid.support, nid.load,
-    nid.loadCase ?? 3, nid.combination ?? 1, nid.plate ?? 1, nid.quad ?? 1, nid.connector ?? 1];
+    nid.loadCase ?? 3, nid.combination ?? 1, nid.plate ?? 1, nid.quad ?? 1, nid.connector ?? 1,
+    nid.footing ?? 1, nid.soilProfile ?? 1];
 
   // ShareMeta: only non-default values
   if (meta) {
@@ -451,13 +461,19 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
     // Connectors
     connectors: c.cx as ModelSnapshot['connectors'],
 
+    // Footings and the ground they bear on. Both pass through `migrateFootings` /
+    // `migrateGeotechnical` in `restore()`, which is what validates the shapes — a URL is
+    // user-editable, so nothing here may be trusted to be well formed.
+    footings: c.fo as ModelSnapshot['footings'],
+    geotechnical: c.gt as ModelSnapshot['geotechnical'],
+
     // Provenance (CAD-draft tag) — undefined for ordinary models
     provenance: c.pv as ModelSnapshot['provenance'],
 
     // NextId
     nextId: (() => {
       const a = c.ni as number[];
-      return { node: a[0], material: a[1], section: a[2], element: a[3], support: a[4], load: a[5], loadCase: a[6], combination: a[7], plate: a[8] ?? 1, quad: a[9] ?? 1, connector: a[10] ?? 1 };
+      return { node: a[0], material: a[1], section: a[2], element: a[3], support: a[4], load: a[5], loadCase: a[6], combination: a[7], plate: a[8] ?? 1, quad: a[9] ?? 1, connector: a[10] ?? 1, footing: a[11] ?? 1, soilProfile: a[12] ?? 1 };
     })(),
   };
 

@@ -1,0 +1,1120 @@
+{
+  "key": "inpres-cirsoc-103-iii",
+  "code": "INPRES-CIRSOC 103 Parte III",
+  "edition": "2018",
+  "title": "Reglamento Argentino para Construcciones Sismorresistentes - Parte III: Construcciones de Mampostería",
+  "source_file": "INPRES-CIRSOC-103_Parte_III-Reglamento.pdf",
+  "sha256": "b703b62b63124a110b1fdfccaf886055092fe3cad52f3eb57a21f15c30939870",
+  "bytes": 4078821,
+  "pages": 73,
+  "toc_pages_skipped": 5,
+  "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+  "pages_ok": 66,
+  "pages_sparse": 4,
+  "pages_empty": 3,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        13
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "REQUISITOS GENERALES",
+      "file": "capitulo-1-requisitos-generales.md",
+      "pages": [
+        14,
+        17
+      ],
+      "clause_count": 12
+    },
+    {
+      "number": "CAPÍTULO 2",
+      "title": "CALIDAD DE LOS MATERIALES Y DE LA",
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md",
+      "pages": [
+        18,
+        29
+      ],
+      "clause_count": 19
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "CLASIFICACIÓN Y REQUISITOS DE LOS MUROS Y",
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md",
+      "pages": [
+        30,
+        35
+      ],
+      "clause_count": 15
+    },
+    {
+      "number": "CAPÍTULO 4",
+      "title": "MAMPOSTERÍA ENCADENADA SIMPLE",
+      "file": "capitulo-4-mamposteria-encadenada-simple.md",
+      "pages": [
+        36,
+        55
+      ],
+      "clause_count": 58
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "MAMPOSTERÍA ENCADENADA ARMADA",
+      "file": "capitulo-5-mamposteria-encadenada-armada.md",
+      "pages": [
+        56,
+        57
+      ],
+      "clause_count": 3
+    },
+    {
+      "number": "CAPÍTULO 6",
+      "title": "MAMPOSTERÍA SIN ENCADENADOS VERTICALES",
+      "file": "capitulo-6-mamposteria-sin-encadenados-verticales.md",
+      "pages": [
+        58,
+        59
+      ],
+      "clause_count": 6
+    },
+    {
+      "number": "CAPÍTULO 7",
+      "title": "MAMPOSTERÍA                            REFORZADA          CON   ARMADURA",
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md",
+      "pages": [
+        60,
+        65
+      ],
+      "clause_count": 11
+    },
+    {
+      "number": "CAPÍTULO 8",
+      "title": "ACCIONES PERPENDICULARES AL PLANO DEL",
+      "file": "capitulo-8-acciones-perpendiculares-al-plano-del.md",
+      "pages": [
+        66,
+        69
+      ],
+      "clause_count": 5
+    },
+    {
+      "number": "CAPÍTULO 9",
+      "title": "ASPECTOS CONSTRUCTIVOS Y UTILIZACIÓN DE",
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md",
+      "pages": [
+        70,
+        73
+      ],
+      "clause_count": 14
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.0",
+      "title": "SIMBOLOGÍA",
+      "page": 14,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "CAMPO DE VALIDEZ",
+      "page": 14,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2",
+      "title": "DISEÑO POR RESISTENCIA",
+      "page": 15,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3",
+      "title": "FACTORES DE REDUCCIÓN DE RESISTENCIA",
+      "page": 15,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4",
+      "title": "COMBINACIONES DE ESTADOS DE CARGA",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1",
+      "title": "Se adoptará la combinación más desfavorable de efectos correspondiente a las",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.2",
+      "title": "Los efectos provocados por la acción sísmica, se determinarán de la manera",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.3",
+      "title": "La estructura deberá, además, verificarse con las combinaciones de estados de",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.4",
+      "title": "No se considera necesaria la verificación bajo la acción simultánea de viento y sismo.",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.5",
+      "title": "Se considerará que la acción sísmica horizontal actúa independientemente en cada",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5",
+      "title": "RIGIDECES DE MUROS",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.6",
+      "title": "CAPACIDAD DE REDISTRIBUCIÓN",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.0",
+      "title": "SIMBOLOGÍA",
+      "page": 18,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1",
+      "title": "MAMPUESTOS",
+      "page": 19,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.1",
+      "title": "Clasificación de los mampuestos",
+      "page": 19,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.2",
+      "title": "Resistencia característica a compresión de los mampuestos",
+      "page": 19,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.3",
+      "title": "Condiciones de resistencia",
+      "page": 20,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.3.1",
+      "title": "Ladrillos cerámicos macizos",
+      "page": 20,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.3.2",
+      "title": "Bloques huecos portantes cerámicos",
+      "page": 21,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.3.3",
+      "title": "Bloques huecos portantes de hormigón",
+      "page": 21,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2",
+      "title": "MORTEROS",
+      "page": 21,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.1",
+      "title": "Tipificación de los morteros para juntas",
+      "page": 21,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.2",
+      "title": "Proporciones de los componentes de los morteros",
+      "page": 22,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.3",
+      "title": "Hormigón de grancilla o de gravilla",
+      "page": 22,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.4",
+      "title": "Condiciones de utilización de los morteros",
+      "page": 23,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3",
+      "title": "RESISTENCIA DE LA MAMPOSTERÍA",
+      "page": 23,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.1",
+      "title": "Resistencia especificada a la compresión de la mampostería",
+      "page": 23,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.2",
+      "title": "Resistencia especificada al corte de la mampostería",
+      "page": 26,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4",
+      "title": "DEFORMABILIDAD DE LA MAMPOSTERÍA",
+      "page": 29,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.1",
+      "title": "Módulo de elasticidad longitudinal",
+      "page": 29,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.2",
+      "title": "Módulo de corte",
+      "page": 29,
+      "file": "capitulo-2-calidad-de-los-materiales-y-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.0",
+      "title": "SIMBOLOGÍA",
+      "page": 30,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1",
+      "title": "CLASIFICACIÓN DE LOS MUROS",
+      "page": 30,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1.1",
+      "title": "Muros no resistentes o no portantes",
+      "page": 30,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1.2",
+      "title": "Muros resistentes o portantes",
+      "page": 30,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2",
+      "title": "CLASES DE MAMPOSTERÍA PARA MUROS RESISTENTES",
+      "page": 31,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2.1",
+      "title": "Mampostería encadenada",
+      "page": 31,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2.2",
+      "title": "Mampostería reforzada con armadura distribuida",
+      "page": 31,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3",
+      "title": "CLASIFICACIÓN DE LOS MUROS RESISTENTES",
+      "page": 31,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4",
+      "title": "CONDICIONES QUE DEBEN CUMPLIR LOS MUROS RESISTENTES",
+      "page": 32,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4.1",
+      "title": "Materiales",
+      "page": 32,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4.2",
+      "title": "Espesores mínimos de muros resistentes",
+      "page": 32,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4.3",
+      "title": "Longitudes mínimas de muros resistentes",
+      "page": 33,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5",
+      "title": "ALTURA MÁXIMA Y NÚMERO MÁXIMO                                 DE    PISOS      EN       LAS",
+      "page": 33,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6",
+      "title": "TIPOS DE MAMPOSTERÍA A UTILIZAR EN CONSTRUCCIONES DE LOS",
+      "page": 34,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7",
+      "title": "COMBINACIONES DE DIFERENTES CLASES DE MAMPOSTERÍA",
+      "page": 35,
+      "file": "capitulo-3-clasificacion-y-requisitos-de-los-muros-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.0",
+      "title": "SIMBOLOGÍA",
+      "page": 36,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1",
+      "title": "REQUISITOS DE ESTRUCTURACIÓN",
+      "page": 38,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.1",
+      "title": "Generalidades sobre los encadenados",
+      "page": 38,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.2",
+      "title": "Áreas y dimensiones máximas de los paneles",
+      "page": 38,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.3",
+      "title": "Esfuerzo de corte en paneles",
+      "page": 39,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.4",
+      "title": "Ubicación de las vigas de encadenado",
+      "page": 39,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.4.1",
+      "title": "Prescripciones generales",
+      "page": 39,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.4.2",
+      "title": "Prescripciones particulares",
+      "page": 40,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.5",
+      "title": "Ubicación de las columnas de encadenado",
+      "page": 40,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.5.1",
+      "title": "Prescripciones generales",
+      "page": 40,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.5.2",
+      "title": "Exención de ejecución de columnas de encadenado",
+      "page": 40,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.5.2.1",
+      "title": "Intersección de muros portantes",
+      "page": 41,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.5.2.2",
+      "title": "Muros interiores",
+      "page": 41,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.5.2.3",
+      "title": "Muros portantes con aberturas",
+      "page": 41,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2",
+      "title": "MATERIALES DE LOS ENCADENADOS",
+      "page": 42,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.1",
+      "title": "Hormigón",
+      "page": 42,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.2",
+      "title": "Acero",
+      "page": 42,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.3",
+      "title": "Otros Materiales",
+      "page": 42,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3",
+      "title": "VERIFICACIÓN DE RESISTENCIA DEL MURO",
+      "page": 42,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.1",
+      "title": "Resistencia al corte del muro",
+      "page": 42,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.2",
+      "title": "Resistencia a flexocompresión",
+      "page": 43,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.3",
+      "title": "Resistencia para acciones perpendiculares al plano del muro",
+      "page": 43,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4",
+      "title": "DISEÑO DE VIGAS DE ENCADENADO",
+      "page": 43,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.1",
+      "title": "Sección transversal de vigas de encadenado de hormigón armado",
+      "page": 43,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.2",
+      "title": "Esfuerzos axiales últimos",
+      "page": 44,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.2.1",
+      "title": "Procedimiento general. Esquema de reticulado",
+      "page": 44,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.2.2",
+      "title": "Procedimiento aproximado para vigas de encadenado",
+      "page": 44,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.3",
+      "title": "Resistencia de diseño",
+      "page": 44,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.4",
+      "title": "Armadura longitudinal",
+      "page": 44,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.5",
+      "title": "Armadura transversal",
+      "page": 45,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.5.1",
+      "title": "Zonas a considerar en vigas de encadenado",
+      "page": 45,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.5.2",
+      "title": "Dimensionamiento de estribos en zonas normales",
+      "page": 45,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.5.3",
+      "title": "Dimensionamiento de estribos en zonas críticas",
+      "page": 45,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5",
+      "title": "DISEÑO DE COLUMNAS DE ENCADENADO",
+      "page": 46,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.1",
+      "title": "Sección transversal de columnas de encadenado de hormigón armado",
+      "page": 46,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2",
+      "title": "Esfuerzos axiales últimos",
+      "page": 47,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2.1",
+      "title": "Procedimiento general. Esquema de reticulado",
+      "page": 47,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2.2",
+      "title": "Procedimiento aproximado para columnas de encadenado",
+      "page": 47,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.3",
+      "title": "Resistencia de diseño",
+      "page": 47,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.4",
+      "title": "Armadura longitudinal",
+      "page": 48,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5",
+      "title": "Armadura transversal",
+      "page": 48,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5.1",
+      "title": "Zonas a considerar en columnas de encadenado",
+      "page": 48,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5.2",
+      "title": "Dimensionamiento de estribos en zonas normales",
+      "page": 49,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5.3",
+      "title": "Dimensionamiento de estribos en zonas críticas",
+      "page": 49,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6",
+      "title": "ANCLAJES DE ARMADURAS LONGITUDINALES",
+      "page": 50,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.1",
+      "title": "Longitudes requeridas de anclaje de armaduras longitudinales",
+      "page": 50,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.2",
+      "title": "Anclajes de armaduras longitudinales en uniones entre encadenados",
+      "page": 50,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.3",
+      "title": "Anclaje de armaduras longitudinales de columnas de encadenado en cimientos",
+      "page": 51,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.4",
+      "title": "Anclaje de armaduras longitudinales de columnas de encadenado en zapatas o",
+      "page": 51,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.5",
+      "title": "Anclaje de armaduras longitudinales de columnas de encadenado en plateas de",
+      "page": 51,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6.6",
+      "title": "Observaciones complementarias sobre anclajes entre encadenados",
+      "page": 51,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7",
+      "title": "EMPALMES DE ARMADURAS LONGITUDINALES",
+      "page": 52,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7.1",
+      "title": "Longitudes requeridas de empalme por yuxtaposición",
+      "page": 52,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7.2",
+      "title": "Ubicación de los empalmes",
+      "page": 53,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.8",
+      "title": "DISEÑO DE NUDOS DE ENCADENADO",
+      "page": 53,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.9",
+      "title": "ANTEPECHOS Y DINTELES DE ABERTURAS",
+      "page": 53,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.9.1",
+      "title": "Antepechos de aberturas",
+      "page": 53,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.9.2",
+      "title": "Dinteles de aberturas",
+      "page": 54,
+      "file": "capitulo-4-mamposteria-encadenada-simple.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.0",
+      "title": "SIMBOLOGÍA",
+      "page": 56,
+      "file": "capitulo-5-mamposteria-encadenada-armada.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "GENERALIDADES",
+      "page": 56,
+      "file": "capitulo-5-mamposteria-encadenada-armada.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "ARMADURA HORIZONTAL EN MUROS ENCADENADOS ARMADOS",
+      "page": 56,
+      "file": "capitulo-5-mamposteria-encadenada-armada.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.0",
+      "title": "SIMBOLOGÍA",
+      "page": 58,
+      "file": "capitulo-6-mamposteria-sin-encadenados-verticales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.1",
+      "title": "GENERALIDADES",
+      "page": 58,
+      "file": "capitulo-6-mamposteria-sin-encadenados-verticales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2",
+      "title": "VERIFICACIÓN DE RESISTENCIA DEL MURO SIN ENCADENADOS",
+      "page": 58,
+      "file": "capitulo-6-mamposteria-sin-encadenados-verticales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.1",
+      "title": "Resistencia al corte del muro",
+      "page": 58,
+      "file": "capitulo-6-mamposteria-sin-encadenados-verticales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.2",
+      "title": "Resistencia a flexocompresión",
+      "page": 58,
+      "file": "capitulo-6-mamposteria-sin-encadenados-verticales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.3",
+      "title": "Resistencia para acciones perpendiculares al plano del muro",
+      "page": 59,
+      "file": "capitulo-6-mamposteria-sin-encadenados-verticales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.0",
+      "title": "SIMBOLOGÍA",
+      "page": 60,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.1",
+      "title": "DEFINICIÓN Y REQUISITOS DE ESTRUCTURACIÓN",
+      "page": 60,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2",
+      "title": "DISEÑO DEL MURO",
+      "page": 61,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.1",
+      "title": "Diseño a corte en el plano del muro",
+      "page": 61,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.2",
+      "title": "Resistencia a flexocompresión en el plano del muro",
+      "page": 61,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.3",
+      "title": "Resistencia para acciones perpendiculares al plano del muro",
+      "page": 62,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3",
+      "title": "PRESCRIPCIÓN SOBRE ARMADURAS",
+      "page": 63,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.1",
+      "title": "Prescripciones generales",
+      "page": 63,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2",
+      "title": "Armaduras mínimas",
+      "page": 64,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3",
+      "title": "Anclajes de armaduras",
+      "page": 64,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.4",
+      "title": "Empalme de armaduras",
+      "page": 64,
+      "file": "capitulo-7-mamposteria-reforzada-con-armadura.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.0",
+      "title": "SIMBOLOGÍA",
+      "page": 66,
+      "file": "capitulo-8-acciones-perpendiculares-al-plano-del.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.1",
+      "title": "GENERALIDADES",
+      "page": 66,
+      "file": "capitulo-8-acciones-perpendiculares-al-plano-del.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.2",
+      "title": "ACCIONES",
+      "page": 67,
+      "file": "capitulo-8-acciones-perpendiculares-al-plano-del.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3",
+      "title": "ESTABILIDAD LATERAL",
+      "page": 67,
+      "file": "capitulo-8-acciones-perpendiculares-al-plano-del.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4",
+      "title": "RESISTENCIA A FLEXIÓN DE PANELES",
+      "page": 67,
+      "file": "capitulo-8-acciones-perpendiculares-al-plano-del.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.1",
+      "title": "ASPECTOS CONSTRUCTIVOS REFERIDOS A LOS COMPONENTES",
+      "page": 70,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.1.1",
+      "title": "Mampuestos",
+      "page": 70,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.1.2",
+      "title": "Morteros",
+      "page": 70,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.1.3",
+      "title": "Especificación de los materiales",
+      "page": 70,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2",
+      "title": "ASPECTOS CONSTRUCTIVOS REFERIDOS A LA EJECUCIÓN",
+      "page": 70,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.1",
+      "title": "Juntas",
+      "page": 70,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.2",
+      "title": "Disposición de los mampuestos",
+      "page": 71,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.3",
+      "title": "Colocación del hormigón",
+      "page": 71,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.4",
+      "title": "Disposición de las armaduras",
+      "page": 71,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.5",
+      "title": "Estabilidad de los muros durante su construcción",
+      "page": 71,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.6",
+      "title": "Curado de los morteros",
+      "page": 72,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.7",
+      "title": "Verticalidad de los muros",
+      "page": 72,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.8",
+      "title": "Canalizaciones",
+      "page": 72,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.3",
+      "title": "UTILIZACIÓN DE OTROS MATERIALES",
+      "page": 72,
+      "file": "capitulo-9-aspectos-constructivos-y-utilizacion-de.md"
+    }
+  ]
+}

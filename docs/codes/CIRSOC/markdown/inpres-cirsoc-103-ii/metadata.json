@@ -1,0 +1,2150 @@
+{
+  "key": "inpres-cirsoc-103-ii",
+  "code": "INPRES-CIRSOC 103 Parte II",
+  "edition": "2005",
+  "title": "Reglamento Argentino para Construcciones Sismorresistentes - Parte II: Construcciones de Hormigón Armado",
+  "source_file": "INPRES-CIRSOC-103_Parte_II-Reglamento.pdf",
+  "sha256": "488c2b3523112196a5b866af003cfedccea58927a7d334a9136fd23dee43f66b",
+  "bytes": 1001770,
+  "pages": 110,
+  "toc_pages_skipped": 4,
+  "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+  "pages_ok": 104,
+  "pages_sparse": 3,
+  "pages_empty": 3,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        18
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "REQUISITOS GENERALES",
+      "file": "capitulo-1-requisitos-generales.md",
+      "pages": [
+        19,
+        24
+      ],
+      "clause_count": 14
+    },
+    {
+      "number": "CAPÍTULO 2",
+      "title": "PÓRTICOS SISMORRESISTENTES DE HOR",
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md",
+      "pages": [
+        25,
+        58
+      ],
+      "clause_count": 108
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "TABIQUES SISMORRESISTENTES DE HOR",
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md",
+      "pages": [
+        59,
+        80
+      ],
+      "clause_count": 62
+    },
+    {
+      "number": "CAPÍTULO 4",
+      "title": "SISTEMAS PÓRTICO-TABIQUE SISMORRE",
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md",
+      "pages": [
+        81,
+        86
+      ],
+      "clause_count": 14
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "DIAFRAGMAS",
+      "file": "capitulo-5-diafragmas.md",
+      "pages": [
+        87,
+        90
+      ],
+      "clause_count": 14
+    },
+    {
+      "number": "CAPÍTULO 6",
+      "title": "FUNDACIONES",
+      "file": "capitulo-6-fundaciones.md",
+      "pages": [
+        91,
+        94
+      ],
+      "clause_count": 22
+    },
+    {
+      "number": "CAPÍTULO 7",
+      "title": "ESTRUCTURAS CON DUCTILIDAD LIMITA",
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md",
+      "pages": [
+        95,
+        110
+      ],
+      "clause_count": 59
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.0",
+      "title": "SIMBOLOGÍA",
+      "page": 19,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "CAMPO DE VALIDEZ",
+      "page": 20,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2",
+      "title": "PROPIEDADES DE LOS MATERIALES",
+      "page": 21,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2.1",
+      "title": "Hormigón",
+      "page": 21,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2.2",
+      "title": "Acero",
+      "page": 21,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3",
+      "title": "COMBINACIONES DE ESTADOS DE CARGA",
+      "page": 22,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1",
+      "title": "Se adoptará la combinación más desfavorable de efectos correspondiente a las",
+      "page": 22,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.2",
+      "title": "Los efectos provocados por la acción sísmica, se determinarán de la manera",
+      "page": 22,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.3",
+      "title": "La estructura deberá, además, verificarse con las combinaciones de estados de",
+      "page": 23,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4",
+      "title": "MÉTODOS DE ANÁLISIS",
+      "page": 23,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1",
+      "title": "Se deberán utilizar los métodos de análisis prescriptos en el Capítulo 14 del",
+      "page": 23,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.2",
+      "title": "Cuando se utilice el análisis modal espectral, deberá contemplarse lo siguiente:",
+      "page": 23,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5",
+      "title": "MÉTODO DE DISEÑO",
+      "page": 23,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.6",
+      "title": "FACTORES DE REDUCCIÓN DE RESISTENCIA",
+      "page": 24,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.0",
+      "title": "SIMBOLOGÍA",
+      "page": 25,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1",
+      "title": "REQUERIMIENTOS GENERALES DE DISEÑO",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.1",
+      "title": "Mecanismo de colapso",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.2",
+      "title": "Ductilidad global de la estructura",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2",
+      "title": "DISEÑO DE VIGAS",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.1",
+      "title": "Limitaciones dimensionales",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.1.1",
+      "title": "Para secciones rectangulares, con momentos aplicados en ambos extremos por",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.1.2",
+      "title": "Para vigas en voladizo de secciones rectangulares, deberá cumplirse:",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.1.3",
+      "title": "Para secciones rectangulares, T, L o I, el ancho mínimo de la zona comprimida no",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.1.4",
+      "title": "El ancho del alma de vigas T o L, en donde el ala o las alas hayan sido",
+      "page": 28,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.1.5",
+      "title": "Cuando concurran vigas anchas a columnas, el ancho de la viga que deberá",
+      "page": 29,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.2",
+      "title": "Rigidez",
+      "page": 29,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.2.1",
+      "title": "Para la estimación de la rigidez, deberán tenerse en cuenta los efectos del",
+      "page": 29,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.2.2",
+      "title": "Para la determinación de los momentos de inercia de la sección bruta (Ig) en vigas",
+      "page": 29,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.3",
+      "title": "Momentos de diseño",
+      "page": 29,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.3.1",
+      "title": "Los momentos de diseño en vigas donde se prevea la formación de rótulas",
+      "page": 29,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.3.2",
+      "title": "Los momentos de diseño en extremos de vigas donde no se prevea la formación",
+      "page": 30,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.3.3",
+      "title": "En vigas que provean la ductilidad requerida, podrá realizarse una redistribución",
+      "page": 30,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.4",
+      "title": "Resistencia flexional",
+      "page": 30,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.4.1",
+      "title": "Hipótesis de diseño",
+      "page": 30,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.4.2",
+      "title": "Ancho efectivo en tracción de vigas T y L",
+      "page": 30,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.4.3",
+      "title": "Ancho efectivo en compresión de vigas T y L",
+      "page": 31,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.5",
+      "title": "Longitud de las zonas de formación potencial de rótulas plásticas (zonas",
+      "page": 31,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.6",
+      "title": "Armadura longitudinal",
+      "page": 32,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.7",
+      "title": "Armadura transversal en zonas de formación potencial de rótulas plásticas",
+      "page": 34,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8",
+      "title": "Resistencia al corte",
+      "page": 35,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.1",
+      "title": "El esfuerzo de corte de diseño deberá determinarse a partir de la capacidad",
+      "page": 35,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.2",
+      "title": "Contribución del hormigón a la resistencia al corte",
+      "page": 36,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.3",
+      "title": "Diseño de la armadura transversal de corte",
+      "page": 37,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.3.1",
+      "title": "La separación máxima entre estribos no deberá ser mayor que:",
+      "page": 37,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.3.2",
+      "title": "En las secciones críticas de formación potencial de rótulas plásticas, donde",
+      "page": 37,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.3.3",
+      "title": "Se deberá demostrar por un análisis racional que la resistencia al corte Vdi en",
+      "page": 37,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.3.4",
+      "title": "La tensión de corte nominal total (vn) podrá ser mayor que el límite dado por el",
+      "page": 37,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.3.5",
+      "title": "Cuando se determine la cantidad y separación de los estribos necesarios para",
+      "page": 37,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.8.3.6",
+      "title": "La armadura de corte en las zonas de formación potencial de rótulas plásticas",
+      "page": 38,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9",
+      "title": "Anclajes",
+      "page": 38,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.1",
+      "title": "Para el cálculo de la longitud de anclaje (ld) se tendrá en cuenta lo establecido en",
+      "page": 38,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.2",
+      "title": "La interrupción (corte) de la armadura longitudinal, deberá ser tal que pueda",
+      "page": 38,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.3",
+      "title": "La armadura longitudinal traccionada deberá extenderse, de acuerdo con la",
+      "page": 38,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.4",
+      "title": "Cuando las barras longitudinales de vigas se anclen en los núcleos de columnas",
+      "page": 38,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.5",
+      "title": "Ninguna barra que se ancle en el núcleo de una columna o la prolongación de una",
+      "page": 39,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.6",
+      "title": "El diámetro de las barras longitudinales pasantes a través de nudos interiores,",
+      "page": 39,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.7",
+      "title": "El diámetro de barras en la parte de la losa especificada en el artículo 2.2.4.2. no",
+      "page": 39,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.8",
+      "title": "Cuando las barras longitudinales de las vigas que concurren a columnas",
+      "page": 39,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.9",
+      "title": "Cuando se provea anclaje de acuerdo con el artículo 2.2.9.4., la longitud de",
+      "page": 39,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.9.10",
+      "title": "Los estribos deberán estar anclados al menos por un gancho de 135°.",
+      "page": 40,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.10",
+      "title": "Empalmes",
+      "page": 40,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.10.1",
+      "title": "En la zona de formación potencial de rótulas plásticas, cuando pudieran ocurrir",
+      "page": 40,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.10.2",
+      "title": "Los empalmes soldados, a tope o por yuxtaposición, deberán desarrollar en",
+      "page": 40,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.10.3",
+      "title": "La armadura de vigas no deberá empalmarse por yuxtaposición en una zona",
+      "page": 41,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.10.4",
+      "title": "En zonas de formación potencial de rótulas plásticas no deberán empalmarse",
+      "page": 41,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3",
+      "title": "DISEÑO DE COLUMNAS",
+      "page": 41,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.1",
+      "title": "Limitaciones dimensionales",
+      "page": 41,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.1.1",
+      "title": "Para secciones rectangulares con momentos aplicados en ambos extremos por",
+      "page": 41,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.1.2",
+      "title": "Para columnas en voladizo de sección rectangular, deberá cumplirse:",
+      "page": 41,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.1.3",
+      "title": "Para secciones rectangulares, T, L o I, el ancho mínimo de la zona comprimida no",
+      "page": 41,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.1.4",
+      "title": "Cuando a una columna concurran vigas angostas, el ancho de la columna que",
+      "page": 42,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.2",
+      "title": "Rigidez",
+      "page": 42,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.2.1",
+      "title": "Para la estimación de la rigidez, deberán tenerse en cuenta los efectos del",
+      "page": 42,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.3",
+      "title": "Factor de sobrerresistencia flexional de vigas",
+      "page": 42,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.4",
+      "title": "Momentos de diseño",
+      "page": 43,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.4.1",
+      "title": "Los momentos de diseño en las secciones extremas de columnas donde no se",
+      "page": 43,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.4.2",
+      "title": "Los valores del factor de amplificación dinámica ω deberán aplicarse sólo a los",
+      "page": 43,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.4.3",
+      "title": "En el nivel inmediatamente por debajo del último nivel, el valor de ω deberá",
+      "page": 43,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.4.4",
+      "title": "En las columnas con acción de voladizo se deberá cumplir:",
+      "page": 44,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.4.5",
+      "title": "Cuando el esfuerzo axial de diseño a la compresión no supere el valor 0,10 f’c Ag ,",
+      "page": 45,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.4.6",
+      "title": "En los extremos inferiores de las columnas del primer piso o en los",
+      "page": 46,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.5",
+      "title": "Esfuerzos axiales de diseño",
+      "page": 46,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.5.1",
+      "title": "Los esfuerzos axiales inducidos en cualquier nivel, sólo por las acciones sísmicas",
+      "page": 46,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.5.2",
+      "title": "Para la obtención de los esfuerzos axiales de diseño, deberán sumarse los",
+      "page": 47,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.6",
+      "title": "Resistencia a flexión y esfuerzo axial",
+      "page": 48,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.6.1",
+      "title": "La resistencia de diseño a flexión y esfuerzo axial en las secciones de columnas",
+      "page": 48,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.6.2",
+      "title": "La resistencia de diseño a flexión y esfuerzo axial en las secciones de columnas",
+      "page": 48,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.6.3",
+      "title": "La carga máxima de diseño en compresión deberá cumplir con:",
+      "page": 48,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.7",
+      "title": "Longitud de la zona de formación potencial de rótulas plásticas",
+      "page": 48,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.8",
+      "title": "Armadura longitudinal",
+      "page": 49,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.9",
+      "title": "Armadura transversal",
+      "page": 50,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.9.1",
+      "title": "En zonas de formación potencial de rótulas plásticas definidas en el artículo 2.3.7.",
+      "page": 50,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.9.2",
+      "title": "Fuera de las zonas de formación potencial de rótulas plásticas en una columna, la",
+      "page": 52,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.9.3",
+      "title": "Se admite que los estribos dispuestos de acuerdo con los artículos 2.3.9.1. y",
+      "page": 52,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.10",
+      "title": "Esfuerzo de corte de diseño",
+      "page": 52,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.10.1",
+      "title": "El esfuerzo de corte de diseño deberá evaluarse, de acuerdo con lo siguiente:",
+      "page": 52,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.10.2",
+      "title": "El esfuerzo de corte de diseño en la columna no podrá ser menor que 1,70 veces",
+      "page": 53,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.11",
+      "title": "Resistencia al corte",
+      "page": 53,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.11.1",
+      "title": "Contribución del hormigón a la resistencia al corte",
+      "page": 53,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.11.2",
+      "title": "Diseño de la armadura de corte",
+      "page": 54,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.11.2.1",
+      "title": "La separación máxima entre estribos deberá cumplir con:",
+      "page": 54,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.11.2.2",
+      "title": "En las zonas de formación potencial de rótulas plásticas se deberá cumplir con",
+      "page": 54,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.11.2.3",
+      "title": "En columnas donde la tensión axial mínima de compresión, referida al área",
+      "page": 54,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.11.2.4",
+      "title": "Cuando la resistencia al corte en elementos sometidos a acciones sísmicas,",
+      "page": 54,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.12",
+      "title": "Anclajes",
+      "page": 54,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.12.1",
+      "title": "Para el cálculo de la longitud de anclaje se tendrá en cuenta lo establecido en el",
+      "page": 54,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.12.2",
+      "title": "Cuando las barras de la columna terminen en un nudo viga-columna o en un",
+      "page": 54,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.12.3",
+      "title": "Ninguna barra de una columna que se ancle en una viga, deberá terminarse",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.12.4",
+      "title": "El diámetro de las barras longitudinales pasantes a través de nudos interiores,",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.12.5",
+      "title": "Cuando se desarrollen rótulas plásticas en las columnas las barras longitudinales",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.12.6",
+      "title": "En la porción de una columna definida por los artículos 2.3.9.1. (b) y (c), y",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.13",
+      "title": "Empalmes",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.13.1",
+      "title": "Cuando se admita la formación de rótulas plásticas en columnas, el centro del",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.13.2",
+      "title": "Para los empalmes será de aplicación lo especificado en los artículos 2.2.10.2.,",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4",
+      "title": "DISEÑO DE NUDOS VIGA-COLUMNA",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.1",
+      "title": "Ancho efectivo del nudo",
+      "page": 55,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.2",
+      "title": "Limitación de la tensión nominal horizontal de corte",
+      "page": 56,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.3",
+      "title": "Anclajes",
+      "page": 57,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.4",
+      "title": "Armadura transversal",
+      "page": 57,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.5",
+      "title": "Armadura vertical",
+      "page": 57,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.6",
+      "title": "Nudos con columnas anchas y vigas angostas",
+      "page": 57,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.7",
+      "title": "Nudos excéntricos",
+      "page": 57,
+      "file": "capitulo-2-porticos-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.0",
+      "title": "SIMBOLOGÍA",
+      "page": 59,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1",
+      "title": "CLASIFICACIÓN",
+      "page": 62,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1.1",
+      "title": "Tabiques sismorresistentes en voladizo",
+      "page": 62,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1.2",
+      "title": "Tabiques sismorresistentes acoplados",
+      "page": 62,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2",
+      "title": "REQUERIMIENTOS GENERALES DE DISEÑO",
+      "page": 62,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2.1",
+      "title": "Los tabiques sismorresistentes compuestos por almas, alas y/o elementos de",
+      "page": 62,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2.2",
+      "title": "Ductilidad global de la estructura",
+      "page": 63,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3",
+      "title": "LIMITACIONES DIMENSIONALES",
+      "page": 63,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3.1",
+      "title": "Cuando se utilicen dos capas de armaduras ubicadas cerca de las caras del tabique",
+      "page": 63,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3.2",
+      "title": "En tabiques sismorresistentes donde se use sólo una capa de armadura no deberá",
+      "page": 64,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3.3",
+      "title": "Cuando bcr, según los artículos 3.3.1. ó 3.3.2., sea mayor que el espesor del alma",
+      "page": 64,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3.4",
+      "title": "La relación entre el espesor del tabique sismorresistente en los bordes extremos y la",
+      "page": 64,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3.5",
+      "title": "Las alas de tabiques sismorresistentes con longitudes mayores que 3 veces su",
+      "page": 64,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4",
+      "title": "RIGIDEZ",
+      "page": 64,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4.1",
+      "title": "Para tabiques sismorresistentes los valores de las propiedades efectivas de la",
+      "page": 65,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4.2",
+      "title": "Para la determinación de la rigidez de vigas de acoplamiento, deberá considerarse",
+      "page": 65,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5",
+      "title": "DISEÑO A FLEXIÓN",
+      "page": 65,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.1",
+      "title": "Redistribución de momentos",
+      "page": 65,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.2",
+      "title": "Ancho efectivo de las alas",
+      "page": 65,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.3",
+      "title": "Momentos de diseño en la base",
+      "page": 66,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.4",
+      "title": "Armadura longitudinal",
+      "page": 66,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.4.1",
+      "title": "La cuantía de la armadura longitudinal ρl en cualquier parte de un tabique",
+      "page": 66,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.4.2",
+      "title": "En tabiques sismorresistentes con espesores superiores a 200 mm, deberán",
+      "page": 66,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.4.3",
+      "title": "El diámetro máximo de las barras verticales en cualquier zona del tabique",
+      "page": 66,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.5",
+      "title": "Interrupción en altura de la armadura longitudinal",
+      "page": 66,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.6",
+      "title": "Armadura transversal",
+      "page": 66,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.6.1",
+      "title": "Deberán cumplirse los requerimientos de armadura mínima según lo especificado",
+      "page": 66,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.6.2",
+      "title": "Control del pandeo de las barras longitudinales",
+      "page": 67,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.6.3",
+      "title": "Confinamiento de la zona comprimida",
+      "page": 68,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6",
+      "title": "DISEÑO AL CORTE",
+      "page": 69,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.1",
+      "title": "Esfuerzo de corte de diseño",
+      "page": 69,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.1.1",
+      "title": "El esfuerzo de corte de diseño en el nivel i para tabiques sismorresistentes en",
+      "page": 69,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.1.2",
+      "title": "Para el caso de tabiques acoplados el esfuerzo de corte de diseño deberá",
+      "page": 71,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.2",
+      "title": "Resistencia al corte",
+      "page": 71,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.2.1",
+      "title": "Tensión nominal de corte",
+      "page": 71,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.2.2",
+      "title": "En la zona de formación potencial de rótula plástica, la tensión nominal de corte",
+      "page": 71,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.2.3",
+      "title": "En las secciones del tabique donde no se espere la formación de rótulas plásticas,",
+      "page": 71,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.2.4",
+      "title": "Contribución del hormigón a la resistencia al corte",
+      "page": 71,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.2.5",
+      "title": "Diseño de la armadura de corte",
+      "page": 72,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7",
+      "title": "EMPALMES",
+      "page": 73,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7.1",
+      "title": "Deberán evitarse, en la medida de lo posible, los empalmes de la armadura vertical",
+      "page": 73,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7.2",
+      "title": "El escalonamiento entre empalmes por yuxtaposición deberá ser no menor que dos",
+      "page": 73,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7.3",
+      "title": "En zonas de formación potencial de rótulas plásticas podrán usarse conectadores",
+      "page": 73,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8",
+      "title": "REQUERIMIENTOS ADICIONALES                                    PARA   TABIQUES   SISMORRESIS-",
+      "page": 74,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.1",
+      "title": "Diseño de vigas de acoplamiento",
+      "page": 74,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.1.1",
+      "title": "Se podrá redistribuir verticalmente el esfuerzo de corte (y por lo tanto el momento),",
+      "page": 74,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.1.2",
+      "title": "En vigas de acoplamiento todo el esfuerzo de corte y el momento inducidos por la",
+      "page": 74,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.1.3",
+      "title": "En vigas de acoplamiento con armadura diagonal en dos direcciones, no deberá",
+      "page": 74,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.1.4",
+      "title": "Cuando la tensión nominal de corte supere el valor establecido por la expresión",
+      "page": 74,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.1.5",
+      "title": "Las barras de la armadura principal de las vigas de acoplamiento, sean diagonales",
+      "page": 75,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.2",
+      "title": "Diseño de tabiques",
+      "page": 75,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.2.1",
+      "title": "Esfuerzos axiales inducidos por la acción sísmica cuando se alcanza la",
+      "page": 75,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.2.2",
+      "title": "Factor de sobrerresistencia",
+      "page": 76,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.2.3",
+      "title": "Esfuerzos de corte de diseño",
+      "page": 76,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.8.2.4",
+      "title": "Corte por deslizamiento",
+      "page": 76,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.9",
+      "title": "REQUERIMIENTOS ADICIONALES PARA TABIQUES SISMORRESISTEN-",
+      "page": 76,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.9.1",
+      "title": "Corte por deslizamiento",
+      "page": 77,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.9.1.1",
+      "title": "La resistencia al corte por deslizamiento deberá tener en cuenta la contribución del",
+      "page": 77,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.9.1.2",
+      "title": "Deberá proveerse armadura diagonal (Figura 3.9.) cuando:",
+      "page": 77,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.9.2",
+      "title": "Armadura horizontal",
+      "page": 78,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.9.3",
+      "title": "Armadura vertical",
+      "page": 78,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.9.4",
+      "title": "Tabiques con aberturas dispuestas en forma irregular",
+      "page": 79,
+      "file": "capitulo-3-tabiques-sismorresistentes-de-hor.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.0",
+      "title": "SIMBOLOGÍA",
+      "page": 81,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1",
+      "title": "REQUERIMIENTOS GENERALES DE DISEÑO",
+      "page": 82,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.1",
+      "title": "Ductilidad global de la estructura",
+      "page": 82,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2",
+      "title": "DISEÑO DE PÓRTICOS",
+      "page": 82,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.1",
+      "title": "Diseño de vigas",
+      "page": 82,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.2",
+      "title": "Diseño de columnas",
+      "page": 83,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.2.1",
+      "title": "Momentos de diseño",
+      "page": 83,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.2.2",
+      "title": "Esfuerzos axiales de diseño",
+      "page": 83,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.2.3",
+      "title": "Esfuerzo de corte de diseño",
+      "page": 84,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3",
+      "title": "DISEÑO DE TABIQUES",
+      "page": 85,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.1",
+      "title": "Interrupción en altura de la armadura longitudinal",
+      "page": 85,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.2",
+      "title": "Esfuerzo de corte de diseño",
+      "page": 85,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.2.1",
+      "title": "El esfuerzo de corte de diseño en la sección correspondiente a la base del",
+      "page": 85,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.2.2",
+      "title": "El esfuerzo de corte de diseño en las secciones ubicadas por encima de la",
+      "page": 86,
+      "file": "capitulo-4-sistemas-portico-tabique-sismorre.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "CAMPO DE VALIDEZ",
+      "page": 87,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "ACCIONES SÍSMICAS DE DISEÑO",
+      "page": 87,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.1",
+      "title": "Los diafragmas deberán permanecer elásticos y diseñarse para resistir las fuerzas",
+      "page": 87,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.2",
+      "title": "Las fuerzas de diseño mencionadas en el artículo 5.2.1., deberán ser las",
+      "page": 87,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "DIAFRAGMAS DE HORMIGÓN ARMADO COLADO IN SITU",
+      "page": 87,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.1",
+      "title": "Podrá utilizarse el modelo biela-tirante para establecer el flujo de fuerzas en los",
+      "page": 87,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.2",
+      "title": "Los diafragmas de hormigón armado colados in situ diseñados para soportar las",
+      "page": 87,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.3",
+      "title": "Cuando los diafragmas se conecten a tabiques sismorresistentes y la longitud de",
+      "page": 87,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4",
+      "title": "DIAFRAGMAS CONSTITUIDOS POR ELEMENTOS PREMOLDEADOS",
+      "page": 88,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.1",
+      "title": "Se podrá utilizar el modelo biela-tirante pero conformando en este caso un campo",
+      "page": 88,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.2",
+      "title": "Los diafragmas con elementos premoldeados deberán cumplir con los",
+      "page": 89,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.3",
+      "title": "Cuando las tensiones de corte en la capa de compresión superen 0 ,30           fc' no",
+      "page": 89,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.4",
+      "title": "Se deberá proveer la cantidad de armadura necesaria en la capa de compresión",
+      "page": 89,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.5",
+      "title": "Deberá cumplirse con lo especificado en el artículo 5.3.3.",
+      "page": 89,
+      "file": "capitulo-5-diafragmas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.0",
+      "title": "SIMBOLOGÍA",
+      "page": 91,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.1",
+      "title": "CRITERIOS GENERALES PARA EL DISEÑO",
+      "page": 91,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.1.1",
+      "title": "El sistema de fundación deberá ser capaz de soportar las cargas gravitatorias",
+      "page": 91,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.1.2",
+      "title": "Se deberá tender, en la medida de lo posible, a que la disipación de energía",
+      "page": 91,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2",
+      "title": "CLASIFICACIÓN",
+      "page": 91,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.3",
+      "title": "FUNDACIONES PARA SUPERESTRUCTURAS CON RESPUESTA DÚCTIL",
+      "page": 92,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4",
+      "title": "FUNDACIONES                  PARA         SUPERESTRUCTURAS    CON     RESPUESTA",
+      "page": 92,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.1",
+      "title": "Fundaciones con respuesta elástica",
+      "page": 92,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.2",
+      "title": "Fundaciones con respuesta dúctil",
+      "page": 92,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.3",
+      "title": "Fundaciones para tabiques sismorresistentes con giro rígido",
+      "page": 92,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.3.1",
+      "title": "Para el caso de fundaciones de tabiques sismorresistentes se admitirá que los",
+      "page": 92,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.3.2",
+      "title": "Deberán considerarse las fuerzas de levantamiento que pueden actuar en zapatas",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.5",
+      "title": "FUNDACIONES PARA ESTRUCTURAS CON RESPUESTA DÚCTIL",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6",
+      "title": "REQUERIMIENTOS ESPECIALES PARA PILOTES",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.1",
+      "title": "Zonas de formación potencial de rótulas plásticas",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.1.1",
+      "title": "El extremo superior de cada pilote deberá armarse siguiendo los requerimientos",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.1.2",
+      "title": "La longitud de la zona de formación de rótula plástica deberá tomarse igual a la",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.2",
+      "title": "Armadura",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.2.1",
+      "title": "La cuantía mínima de la armadura longitudinal ρt deberá ser no menor que:",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.2.2",
+      "title": "La cuantía máxima de la armadura longitudinal ρt en zonas de formación",
+      "page": 93,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.2.3",
+      "title": "La armadura transversal, deberá cumplir con lo siguiente:",
+      "page": 94,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.3",
+      "title": "Cabezales de pilotes",
+      "page": 94,
+      "file": "capitulo-6-fundaciones.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.0",
+      "title": "SIMBOLOGÍA",
+      "page": 95,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.1",
+      "title": "CAMPO DE VALIDEZ",
+      "page": 96,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2",
+      "title": "REQUISITOS GENERALES",
+      "page": 97,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.1",
+      "title": "El diseño de estructuras o elementos estructurales con ductilidad limitada, deberá",
+      "page": 97,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.2",
+      "title": "Los sistemas estructurales siguientes, podrán diseñarse de acuerdo con las",
+      "page": 97,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3",
+      "title": "PÓRTICOS SISMORRESISTENTES",
+      "page": 97,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.1",
+      "title": "Mecanismo de colapso",
+      "page": 97,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.1.1",
+      "title": "En el caso de pórticos donde el mecanismo de colapso elegido se base en el",
+      "page": 97,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.1.2",
+      "title": "En estructuras aporticadas donde se prevea la formación de un mecanismo de",
+      "page": 97,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.1.3",
+      "title": "Para mecanismos de colapso tipo piso blando, la ductilidad global de la estructura",
+      "page": 98,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.1.4",
+      "title": "Los mecanismos de colapso de traslación lateral de viga parciales son los que",
+      "page": 98,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.1.5",
+      "title": "Cuando se espera que las columnas desarrollen rótulas plásticas, se pueden",
+      "page": 98,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2",
+      "title": "Diseño de vigas",
+      "page": 99,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.1",
+      "title": "Resistencia flexional",
+      "page": 99,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.2",
+      "title": "Limitaciones dimensionales",
+      "page": 99,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.3",
+      "title": "Zona de formación potencial de rótulas plásticas",
+      "page": 99,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.4",
+      "title": "Armadura longitudinal",
+      "page": 99,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.4.1",
+      "title": "La armadura longitudinal en vigas deberá cumplir:",
+      "page": 99,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.4.2",
+      "title": "Las vigas de sección T y L construidas monolíticamente con las losas deberán",
+      "page": 99,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.5",
+      "title": "Armadura transversal",
+      "page": 99,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.6",
+      "title": "Corte",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.6.1",
+      "title": "Para la determinación de los esfuerzos de corte de diseño en vigas, se seguirán",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.6.2",
+      "title": "La máxima demanda de corte no necesita ser mayor que la correspondiente a la",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2.6.3",
+      "title": "En las zonas de formación potencial de rótulas plásticas definidas en el artículo",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3",
+      "title": "Diseño de columnas",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.1",
+      "title": "Solicitaciones de diseño",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.1.1",
+      "title": "El método para la determinación de las solicitaciones en columnas de pórticos",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.1.2",
+      "title": "Los momentos de diseño en las secciones extremas de columnas donde no se",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.1.3",
+      "title": "Los momentos de diseño en las columnas del primer piso se determinarán:",
+      "page": 100,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.1.4",
+      "title": "Los esfuerzos axiales de diseño se determinarán con la expresión (2.3-12)",
+      "page": 101,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.1.5",
+      "title": "Los esfuerzos de corte de diseño se determinarán:",
+      "page": 101,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.2",
+      "title": "Resistencia a flexión y esfuerzo axial",
+      "page": 101,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.3",
+      "title": "Limitaciones dimensionales",
+      "page": 101,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.4",
+      "title": "Zona de formación potencial de rótulas plásticas",
+      "page": 101,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.5",
+      "title": "Armadura longitudinal",
+      "page": 101,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.5.1",
+      "title": "La armadura longitudinal en columnas y pilotes, deberá cumplir con lo",
+      "page": 101,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.6",
+      "title": "Armadura transversal",
+      "page": 102,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.7",
+      "title": "Corte",
+      "page": 104,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.7.1",
+      "title": "Para la determinación de los esfuerzos de corte de diseño en columnas, se",
+      "page": 104,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.7.2",
+      "title": "La máxima demanda de corte no necesita ser mayor que la correspondiente a la",
+      "page": 104,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3.7.3",
+      "title": "En elementos sometidos a flexión y corte con carga axial, donde la demanda de",
+      "page": 104,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4",
+      "title": "TABIQUES SISMORRESISTENTES",
+      "page": 104,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.1",
+      "title": "Requerimientos generales de diseño",
+      "page": 104,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.2",
+      "title": "Limitaciones dimensionales",
+      "page": 105,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.3",
+      "title": "Armadura longitudinal",
+      "page": 105,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.4",
+      "title": "Armadura transversal",
+      "page": 105,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.5",
+      "title": "Confinamiento de la zona comprimida",
+      "page": 105,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.6",
+      "title": "Corte",
+      "page": 106,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.6.1",
+      "title": "La evaluación de la resistencia al corte, y la determinación de la armadura de corte",
+      "page": 106,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.6.2",
+      "title": "El corte máximo demandado en tabiques sismorresistentes con ductilidad limitada,",
+      "page": 106,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.6.3",
+      "title": "En las zonas extremas de un tabique sismorresistente, definida en el artículo",
+      "page": 106,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.6.4",
+      "title": "La tensión total de corte vn en la zona de formación potencial de rótula plástica en",
+      "page": 106,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.6.5",
+      "title": "La resistencia al corte de vigas de acoplamiento y la disposición de la armadura,",
+      "page": 107,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.6.6",
+      "title": "Los tabiques sismorresistentes poco esbeltos que posean fundaciones adecuadas",
+      "page": 107,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.6.7",
+      "title": "Cuando se apliquen los requerimientos establecidos en este Capítulo, no es",
+      "page": 107,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.7",
+      "title": "Tabiques acoplados",
+      "page": 107,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4.8",
+      "title": "Empalmes",
+      "page": 107,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.5",
+      "title": "NUDOS VIGA-COLUMNA",
+      "page": 108,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.6",
+      "title": "DIAFRAGMAS",
+      "page": 108,
+      "file": "capitulo-7-estructuras-con-ductilidad-limita.md"
+    }
+  ]
+}

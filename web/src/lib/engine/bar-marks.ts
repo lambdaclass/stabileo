@@ -35,6 +35,19 @@ function barArea(dia: number): number {
 /**
  * Assign bar marks and compute estimated cutting lengths from verification results.
  */
+/**
+ * LEGACY, VERIFICATION-DERIVED bar marks — NOT the coordinated marks.
+ *
+ * Marks estimated from verification records, for a model that has been checked and not
+ * detailed. Once coordinated detailing has run, the marks come from `assignMarks` over the
+ * assembly's actual `BarPath`s and the schedule from `buildSchedule` over those — that path
+ * sees the crossties, joint ties, real bends and real cutting lengths this one cannot.
+ *
+ * The two must never appear in one artifact. They do not today: this feeds the PRO
+ * verification report, and the coordinated marks feed the detailing DocumentModel, its
+ * drawing, its DXF and its XLSX. Mixing them would put two different counts of the same cage
+ * on one sheet.
+ */
 export function computeBarMarks(
   verifications: ElementVerification[],
   elementLengths: Map<number, number>,

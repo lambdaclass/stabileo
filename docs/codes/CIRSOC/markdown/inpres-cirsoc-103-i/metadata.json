@@ -1,0 +1,2441 @@
+{
+  "key": "inpres-cirsoc-103-i",
+  "code": "INPRES-CIRSOC 103 Parte I",
+  "edition": "2018",
+  "title": "Reglamento Argentino para Construcciones Sismorresistentes - Parte I: Construcciones en General",
+  "source_file": "INPRES-CIRSOC-103_Parte_I-Reglamento.pdf",
+  "sha256": "49fe6c5b37c33865580f6333b47469b4107f0ab77153f0fb1238d32630eec0d8",
+  "bytes": 3764650,
+  "pages": 106,
+  "toc_pages_skipped": 8,
+  "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+  "pages_ok": 96,
+  "pages_sparse": 0,
+  "pages_empty": 10,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        18
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "OBJETIVOS, ALCANCES Y ASPECTOS",
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md",
+      "pages": [
+        19,
+        30
+      ],
+      "clause_count": 21
+    },
+    {
+      "number": "CAPÍTULO 2",
+      "title": "ACCIÓN SÍSMICA: ZONIFICACIÓN Y MÉTODOS DE",
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md",
+      "pages": [
+        31,
+        39
+      ],
+      "clause_count": 24
+    },
+    {
+      "number": "ANEXO A",
+      "title": "– Art. 2.2. ZONIFICACIÓN SÍSMICA",
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md",
+      "pages": [
+        40,
+        44
+      ],
+      "clause_count": 100
+    },
+    {
+      "number": "ANEXO B",
+      "title": "– Art. 2.3.2. EVALUACIÓN DEL RIESGO DE LICUACIÓN DE SUELOS",
+      "file": "anexo-b-art-2-3-2-evaluacion-del-riesgo-de-licuacion-de-suelos.md",
+      "pages": [
+        45,
+        46
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "ESPECTROS, ACCIONES Y COMBINACIONES DE",
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md",
+      "pages": [
+        47,
+        54
+      ],
+      "clause_count": 20
+    },
+    {
+      "number": "CAPÍTULO 4",
+      "title": "VERIFICACIÓN SIMPLIFICADA DE LA SEGURIDAD",
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md",
+      "pages": [
+        55,
+        58
+      ],
+      "clause_count": 9
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "FACTORES DE COMPORTAMIENTO DE LA",
+      "file": "capitulo-5-factores-de-comportamiento-de-la.md",
+      "pages": [
+        59,
+        64
+      ],
+      "clause_count": 7
+    },
+    {
+      "number": "CAPÍTULO 6",
+      "title": "MÉTODO ESTÁTICO",
+      "file": "capitulo-6-metodo-estatico.md",
+      "pages": [
+        65,
+        72
+      ],
+      "clause_count": 20
+    },
+    {
+      "number": "CAPÍTULO 7",
+      "title": "MÉTODOS DINÁMICOS",
+      "file": "capitulo-7-metodos-dinamicos.md",
+      "pages": [
+        73,
+        78
+      ],
+      "clause_count": 18
+    },
+    {
+      "number": "CAPÍTULO 8",
+      "title": "ANÁLISIS ESTRUCTURAL",
+      "file": "capitulo-8-analisis-estructural.md",
+      "pages": [
+        79,
+        86
+      ],
+      "clause_count": 32
+    },
+    {
+      "number": "CAPÍTULO 9",
+      "title": "PARTICULARIDADES DE DISEÑO Y",
+      "file": "capitulo-9-particularidades-de-diseno-y.md",
+      "pages": [
+        87,
+        90
+      ],
+      "clause_count": 13
+    },
+    {
+      "number": "CAPÍTULO 10",
+      "title": "PARTES DE LA CONSTRUCCIÓN Y COMPONENTES",
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md",
+      "pages": [
+        91,
+        96
+      ],
+      "clause_count": 28
+    },
+    {
+      "number": "CAPÍTULO 11",
+      "title": "CONSTRUCCIONES EXISTENTES",
+      "file": "capitulo-11-construcciones-existentes.md",
+      "pages": [
+        97,
+        106
+      ],
+      "clause_count": 34
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "OBJETIVOS",
+      "page": 19,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2",
+      "title": "ALCANCES",
+      "page": 19,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3",
+      "title": "ASPECTOS ADMINISTRATIVOS",
+      "page": 19,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.1",
+      "title": "Consejo del Reglamento nacional y local",
+      "page": 19,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.2",
+      "title": "Definición de las funciones y responsabilidades profesionales",
+      "page": 20,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.3",
+      "title": "Responsables de la aplicación del Reglamento",
+      "page": 20,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.3.1",
+      "title": "Responsabilidad de los profesionales",
+      "page": 20,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.3.2",
+      "title": "Responsabilidad del propietario o usuario de la obra",
+      "page": 20,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.3.3",
+      "title": "Control de la aplicación del Reglamento",
+      "page": 20,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.4",
+      "title": "Documentación técnica de la obra",
+      "page": 20,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.4.1",
+      "title": "Contenido de la documentación técnica",
+      "page": 20,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.4.2",
+      "title": "Instancias de la documentación técnica",
+      "page": 22,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3.4.3",
+      "title": "Forma de la documentación técnica",
+      "page": 22,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4",
+      "title": "INSTRUMENTAL Y MEDICIONES",
+      "page": 22,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1",
+      "title": "Exigencia de instrumental",
+      "page": 22,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1.1",
+      "title": "Instrumental a instalar",
+      "page": 23,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1.2",
+      "title": "Tipo y ubicación",
+      "page": 23,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1.3",
+      "title": "Archivo de la información y mantenimiento del instrumental",
+      "page": 23,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1.4",
+      "title": "Responsabilidad del propietario de la obra",
+      "page": 23,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.2",
+      "title": "Mediciones",
+      "page": 23,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5",
+      "title": "GLOSARIO",
+      "page": 24,
+      "file": "capitulo-1-objetivos-alcances-y-aspectos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.0",
+      "title": "SIMBOLOGÍA",
+      "page": 31,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1",
+      "title": "INTRODUCCIÓN",
+      "page": 31,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2",
+      "title": "ZONIFICACIÓN SÍSMICA",
+      "page": 32,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3",
+      "title": "CLASIFICACIÓN DEL SITIO DE EMPLAZAMIENTO DE LA CONSTRUCCIÓN",
+      "page": 32,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.1",
+      "title": "Influencia del suelo",
+      "page": 32,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.2",
+      "title": "Suelos que requieren evaluación específica del sitio (SF)",
+      "page": 32,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3.3",
+      "title": "Clasificación de sitios con suelos estratificados",
+      "page": 34,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4",
+      "title": "CLASIFICACIÓN DE LAS CONSTRUCCIONES SEGÚN SU DESTINO Y",
+      "page": 35,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.1",
+      "title": "Grupo Ao            r  1,5",
+      "page": 35,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.2",
+      "title": "Grupo A             r  1,3",
+      "page": 35,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.3",
+      "title": "Grupo B               r  1,0",
+      "page": 36,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.4",
+      "title": "Grupo C               r  0 ,8",
+      "page": 36,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.5",
+      "title": "APLICACIÓN DE LOS REQUERIMIENTOS SISMORRESISTENTES",
+      "page": 36,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.5.1",
+      "title": "Construcciones en Zonas 1, 2, 3 y 4",
+      "page": 36,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.5.2",
+      "title": "Construcciones en Zona 0",
+      "page": 36,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.6",
+      "title": "REGULARIDAD ESTRUCTURAL",
+      "page": 37,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.6.1",
+      "title": "Regularidad en planta",
+      "page": 37,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.6.2",
+      "title": "Regularidad en altura",
+      "page": 38,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "Son estructuras con regularidad de masas cuando las masas de cada nivel varían",
+      "page": 38,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.6.3",
+      "title": "Exigencias adicionales a las construcciones irregulares",
+      "page": 38,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.7",
+      "title": "MÉTODOS PARA LA EVALUACIÓN DE LA ACCIÓN SÍSMICA",
+      "page": 39,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.7.1",
+      "title": "Verificación simplificada",
+      "page": 39,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.7.2",
+      "title": "Método estático",
+      "page": 39,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.7.3",
+      "title": "Métodos dinámicos",
+      "page": 39,
+      "file": "capitulo-2-accion-sismica-zonificacion-y-metodos-de.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "2",
+      "title": "Río Seco                                                   8 Paso de los Indios",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "11",
+      "title": "San Justo                                                 11 Rawson",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "21",
+      "title": "Unión",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "22",
+      "title": "Marcos Juárez                                             PROVINCIA DE ENTRE RÍOS",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "3",
+      "title": "Maipú                                                      9 Laishi",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "4",
+      "title": "Libertador Gral. San Martín",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "5",
+      "title": "Chacabuco                                                  PROVINCIA DE LA PAMPA",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "7",
+      "title": "Gral. Belgrano                                             3 Chapaleufú",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "8",
+      "title": "Independencia                                              4 Trenel",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "9",
+      "title": "Comandante Fernández                                       5 Maracó",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "10",
+      "title": "Quitilipi                                                 6 Conhelo",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "12",
+      "title": "Presidente de la Plaza                                    9 parte de Chalileo",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "13",
+      "title": "Sargento Cabral                                           10 Loventué",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "14",
+      "title": "Gral. Donovan                                             11 Toay",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "16",
+      "title": "Bermejo                                                   13 Catriló",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "18",
+      "title": "O’Higgins                                                 16 Ultracán",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "19",
+      "title": "San Lorenzo                                               17 Atreucó",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "20",
+      "title": "Fray Justo Santa María de Oro                             18 Guatraché",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "21",
+      "title": "Mayor Luis J. Fontana                                     19 Curacó",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "22",
+      "title": "Tapenagá                                                  20 Lihue Calel",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "23",
+      "title": "Libertad                                                  21 Hucal",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "24",
+      "title": "San Fernando                                              22 Caleu-Caleu",
+      "page": 40,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "3",
+      "title": "Avellaneda                                     8 Moreno",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "4",
+      "title": "Pichi Mahuida                                  14 Sarmiento",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "5",
+      "title": "Conesa                                         15 Matará",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "9",
+      "title": "Valcheta                                       21 Gral. Taboada",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "10",
+      "title": "San Antonio                                   22 parte de Ojo de Agua",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "11",
+      "title": "Adolfo Alsina                                 23 Quebracho",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "2",
+      "title": "Deseado                                        26 Belgrano",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "4",
+      "title": "Magallanes                                     27 Rivadavia",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "6",
+      "title": "Corpen Aike",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "1",
+      "title": "Sobremonte                                     1 Ramón Lista",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "3",
+      "title": "Ischilín                                       2 Matacos",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "7",
+      "title": "Punilla                                        PROVINCIA DE LA PAMPA",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "8",
+      "title": "Totoral                                        1 Rancul",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "9",
+      "title": "Colón                                          8 Chical Co",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "14",
+      "title": "Capital                                       14 Puelén",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "15",
+      "title": "Santa María",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "18",
+      "title": "Calamuchita                                   18 parte de Malargüe",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "23",
+      "title": "Río Cuarto                                    3 Pehuenches",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "24",
+      "title": "Juárez Celman                                 6 Añelo",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "6",
+      "title": "Languiñeo                                      7 parte de 25 de Mayo",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "7",
+      "title": "Tehuelches                                     13 parte de Ñorquinco",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "13",
+      "title": "Río Senguer",
+      "page": 41,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "9",
+      "title": "Gobernador Dupuy                                           4 Jiménez",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "1",
+      "title": "Lago Buenos Aires                                          7 Figueroa",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "3",
+      "title": "Río Chico                                                  9 Guasayán",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "5",
+      "title": "Lago Argentino                                             10 Capital",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "7",
+      "title": "Güer Aike                                                  11 Robles",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "5",
+      "title": "Cruz del Eje                                               3 Rinconada",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "6",
+      "title": "Minas                                                      4 Cochinoca",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "12",
+      "title": "Pocho                                                     5 Susques",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "13",
+      "title": "San Alberto                                               6 Humahuaca",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "17",
+      "title": "San Javier                                                7 parte de Tumbuya",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "3",
+      "title": "Famatina                                                   13 parte de La Paz",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "4",
+      "title": "San Blas de los Sauces                                     16 parte de San Rafael",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "5",
+      "title": "Castro Barros                                              17 Gral Alvear",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "6",
+      "title": "Arauco                                                     18 parte de Malargüe",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "8",
+      "title": "Chilecito",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "9",
+      "title": "Sanagasta                                                  PROVINCIA DEL NEUQUÉN",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "10",
+      "title": "Capital                                                   1 Minas",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "12",
+      "title": "Gral. Ángel V. Peñaloza                                   4 Ñorquín",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "13",
+      "title": "Gobernador Gordillo                                       5 Loncopué",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "15",
+      "title": "Gral. Belgrano                                            10 Aluminé",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "16",
+      "title": "Gral. Ocampo                                              13 Huiliches",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "18",
+      "title": "Gral. San Martín                                          16 Los Lagos",
+      "page": 42,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "12",
+      "title": "Bariloche                                     1 parte de Pellegrini",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "1",
+      "title": "Santa Victoria                                 1 parte de Ayacucho",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "2",
+      "title": "Iruya                                          2 Junín",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "4",
+      "title": "Gral. José de San Martín                       4 Coronel Pringles",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "6",
+      "title": "Los Andes                                      6 Chacabuco",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "7",
+      "title": "La Poma                                        7 La Capital",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "12",
+      "title": "Cachi",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "16",
+      "title": "Molinos                                       PROVINCIA DE TIERRA DEL FUEGO,",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "17",
+      "title": "San Carlos                                    ANTÁRTIDA E ISLAS DEL ATLÁNTICO",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "21",
+      "title": "Cafayate                                      2 parte de Ushuaia",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "22",
+      "title": "Candelaria",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "23",
+      "title": "Rosario de la Frontera",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "8",
+      "title": "Tilcara                                        10 Tupungato",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "9",
+      "title": "Valle Grande                                   11 Rivadavia",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "10",
+      "title": "Capital                                       12 Santa Rosa",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "11",
+      "title": "Ledesma                                       13 parte de La Paz",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "12",
+      "title": "San Antonio                                   14 Tunuyán",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "13",
+      "title": "El Carmen                                     15 San Carlos",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "14",
+      "title": "San Pedro                                     16 parte de San Rafael",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "15",
+      "title": "Santa Bárbara",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "1",
+      "title": "Gral. Sarmiento                                8 parte de Rosario de Lerma",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "2",
+      "title": "Gral. Lamadrid                                 9 La Caldera",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "7",
+      "title": "Gral. Lavalle                                  10 Gral. Güemes",
+      "page": 43,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "1",
+      "title": "Iglesia                                                    ANTÁRTIDA E ISLAS DEL ATLÁNTICO",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "2",
+      "title": "Jáchal                                                     SUR",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "3",
+      "title": "Valle Fértil                                               2 parte de Ushuaia",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "1",
+      "title": "Las Heras                                                  4 Calingasta",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "3",
+      "title": "Capital                                                    6 Albardón",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "4",
+      "title": "Godoy Cruz                                                 7 Angaco",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "5",
+      "title": "Luján de Cuyo                                              8 Zonda",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "6",
+      "title": "Guaymallén                                                 9 Rivadavia",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "7",
+      "title": "Maipú                                                      10 Chimbas",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "8",
+      "title": "San Martín                                                 11 Capital",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "ANEXO A",
+      "id": "9",
+      "title": "Junín                                                      12 Santa Lucía",
+      "page": 44,
+      "file": "anexo-a-art-2-2-zonificacion-sismica.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.0",
+      "title": "SIMBOLOGÍA",
+      "page": 47,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1",
+      "title": "INTRODUCCIÓN",
+      "page": 48,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2",
+      "title": "COMPONENTES HORIZONTALES DE LA ACCIÓN SÍSMICA",
+      "page": 48,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3",
+      "title": "COMPONENTE VERTICAL DE LA ACCIÓN SÍSMICA",
+      "page": 48,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4",
+      "title": "NIVEL DE REFERENCIA",
+      "page": 48,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4.1",
+      "title": "Nivel de referencia en edificios comunes",
+      "page": 48,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4.2",
+      "title": "Nivel de referencia en construcciones con subsuelos",
+      "page": 48,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5",
+      "title": "ESPECTROS DE DISEÑO",
+      "page": 49,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.1",
+      "title": "Espectros de diseño para acciones horizontales para Estado Límite Último (ELU)",
+      "page": 49,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.1.1",
+      "title": "Influencia de la zona sísmica y del sitio",
+      "page": 49,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.1.2",
+      "title": "Influencia del amortiguamiento",
+      "page": 49,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.5.2",
+      "title": "Acciones sísmicas verticales para Estado Límite Último (ELU)",
+      "page": 49,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6",
+      "title": "ACCIONES GRAVITATORIAS A CONSIDERAR PARA EVALUAR LA",
+      "page": 50,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.1",
+      "title": "Edificios comunes",
+      "page": 52,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.6.2",
+      "title": "Discretización de masas en las construcciones en general",
+      "page": 52,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7",
+      "title": "COMBINACIÓN DE ACCIONES",
+      "page": 52,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7.1",
+      "title": "Estados Límites Últimos",
+      "page": 52,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7.2",
+      "title": "Movimientos diferenciales de apoyos",
+      "page": 53,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7.3",
+      "title": "Verificación de otros estados de cargas",
+      "page": 53,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.7.4",
+      "title": "Simultaneidad de viento y sismo",
+      "page": 53,
+      "file": "capitulo-3-espectros-acciones-y-combinaciones-de.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.0",
+      "title": "SIMBOLOGÍA",
+      "page": 55,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1",
+      "title": "LÍMITES DE APLICACIÓN",
+      "page": 55,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.1",
+      "title": "Condiciones geométricas",
+      "page": 55,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.2",
+      "title": "Tipo de construcción y estructuras",
+      "page": 56,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2",
+      "title": "VERIFICACIÓN SIMPLIFICADA",
+      "page": 56,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.1",
+      "title": "Coeficiente sísmico de diseño",
+      "page": 56,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.2",
+      "title": "Resultante de las fuerzas horizontales equivalentes o esfuerzo de corte en la",
+      "page": 56,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.3",
+      "title": "Verificación de la seguridad estructural",
+      "page": 57,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3",
+      "title": "DEFORMACIONES",
+      "page": 57,
+      "file": "capitulo-4-verificacion-simplificada-de-la-seguridad.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.0",
+      "title": "SIMBOLOGÍA",
+      "page": 59,
+      "file": "capitulo-5-factores-de-comportamiento-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "FACTOR DE REDUCCIÓN",
+      "page": 59,
+      "file": "capitulo-5-factores-de-comportamiento-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.1",
+      "title": "Factor de reducción R para estructuras compuestas por elementos distintos",
+      "page": 59,
+      "file": "capitulo-5-factores-de-comportamiento-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.2",
+      "title": "Construcciones cuyo destino requiere comportamiento elástico",
+      "page": 60,
+      "file": "capitulo-5-factores-de-comportamiento-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "FACTOR DE AMPLIFICACIÓN DE DEFORMACIONES",
+      "page": 62,
+      "file": "capitulo-5-factores-de-comportamiento-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "Este factor se aplicará a cada una de las direcciones de estudio de la estructura según",
+      "page": 62,
+      "file": "capitulo-5-factores-de-comportamiento-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "FACTOR DE SOBRERRESISTENCIA",
+      "page": 63,
+      "file": "capitulo-5-factores-de-comportamiento-de-la.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.0",
+      "title": "SIMBOLOGÍA",
+      "page": 65,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.1",
+      "title": "ACCIONES SÍSMICAS",
+      "page": 67,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2",
+      "title": "ACCIONES HORIZONTALES",
+      "page": 67,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.1",
+      "title": "Esfuerzo de corte en la base",
+      "page": 67,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.2",
+      "title": "Coeficiente sísmico de diseño",
+      "page": 67,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.3",
+      "title": "Período fundamental de vibración de la estructura",
+      "page": 67,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.3.1",
+      "title": "Período fundamental aproximado (procedimiento general)",
+      "page": 68,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.3.2",
+      "title": "Periodo fundamental aproximado (edificios regulares con muros o tabiques)",
+      "page": 68,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.4",
+      "title": "Distribución de acciones sísmicas",
+      "page": 69,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.4.1",
+      "title": "Distribución en altura",
+      "page": 69,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2.4.2",
+      "title": "Torsión accidental",
+      "page": 70,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.3",
+      "title": "ACCIONES SÍSMICAS VERTICALES EN COMPONENTES",
+      "page": 70,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4",
+      "title": "DEFORMACIONES",
+      "page": 71,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.1",
+      "title": "Determinación de la distorsión horizontal de piso",
+      "page": 71,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.2",
+      "title": "Control de deformaciones",
+      "page": 71,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.5",
+      "title": "PARTES DE LA CONSTRUCCIÓN Y COMPONENTES NO ESTRUCTURALES",
+      "page": 72,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6",
+      "title": "INFLUENCIA DE ROTACIONES DE MASAS ALREDEDOR DE EJES",
+      "page": 72,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.1",
+      "title": "Casos de consideración obligatoria",
+      "page": 72,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6.2",
+      "title": "Evaluación estática de la influencia rotacional",
+      "page": 72,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.7",
+      "title": "LIMITACIONES DE APLICACIÓN DEL MÉTODO ESTÁTICO",
+      "page": 72,
+      "file": "capitulo-6-metodo-estatico.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.0",
+      "title": "SIMBOLOGÍA",
+      "page": 73,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.1",
+      "title": "GENERALIDADES",
+      "page": 73,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.1.1",
+      "title": "Aplicación de la excitación sísmica",
+      "page": 74,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.1.2",
+      "title": "Modelo vibratorio de análisis",
+      "page": 74,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.1.3",
+      "title": "Determinación de la respuesta",
+      "page": 74,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2",
+      "title": "PROCEDIMIENTO MODAL ESPECTRAL",
+      "page": 75,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.1",
+      "title": "Determinación de los modos naturales de vibración",
+      "page": 75,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.2",
+      "title": "Determinación de la respuesta",
+      "page": 75,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.3",
+      "title": "Modos a considerar",
+      "page": 75,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.4",
+      "title": "Superposición modal",
+      "page": 75,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.5",
+      "title": "Solicitaciones mínimas",
+      "page": 75,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.6",
+      "title": "Torsión Accidental",
+      "page": 75,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2.7",
+      "title": "Deformaciones",
+      "page": 76,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3",
+      "title": "PROCEDIMIENTO DE RESPUESTA LINEAL EN EL TIEMPO",
+      "page": 76,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.1",
+      "title": "Acelerogramas a utilizar",
+      "page": 76,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.2",
+      "title": "Solicitaciones",
+      "page": 77,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.3",
+      "title": "Torsión Accidental",
+      "page": 77,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3.4",
+      "title": "Deformaciones",
+      "page": 77,
+      "file": "capitulo-7-metodos-dinamicos.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.0",
+      "title": "SIMBOLOGÍA",
+      "page": 79,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.1",
+      "title": "MÉTODOS DE ANÁLISIS ESTRUCTURAL",
+      "page": 80,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.1.1",
+      "title": "Análisis elástico lineal",
+      "page": 80,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.1.2",
+      "title": "Otros métodos",
+      "page": 80,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.2",
+      "title": "MODELACIÓN ESTRUCTURAL",
+      "page": 80,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.2.1",
+      "title": "Deformabilidad de los diafragmas",
+      "page": 80,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.2.1.1",
+      "title": "Diafragma rígido",
+      "page": 80,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.2.1.2",
+      "title": "Diafragma totalmente flexible",
+      "page": 81,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.2.2",
+      "title": "Deformabilidad del suelo",
+      "page": 81,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3",
+      "title": "PARTICULARIDADES ESTRUCTURALES",
+      "page": 81,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.1",
+      "title": "Influencia de las irregularidades estructurales",
+      "page": 81,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.1.1",
+      "title": "Irregularidades extremas en planta o en altura",
+      "page": 81,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.1.2",
+      "title": "Discontinuidad de componentes en elementos sismorresistentes verticales",
+      "page": 82,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.1.3",
+      "title": "Discontinuidad fuera del plano de elementos sismorresistentes",
+      "page": 82,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.1.4",
+      "title": "Piso débil",
+      "page": 82,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.2",
+      "title": "Sistemas o componentes estructurales no considerados parte de la estructura",
+      "page": 83,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.3",
+      "title": "Componentes o sistemas considerados no estructurales",
+      "page": 83,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.4",
+      "title": "Influencia de rellenos en pórticos",
+      "page": 83,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.4.1",
+      "title": "Pórticos con relleno sin interferencias",
+      "page": 83,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.4.2",
+      "title": "Pórticos con rellenos con interferencias",
+      "page": 83,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3.5",
+      "title": "Entrepisos sin vigas",
+      "page": 83,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4",
+      "title": "DEFORMACIONES",
+      "page": 84,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.1",
+      "title": "Control de la regularidad estructural",
+      "page": 84,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.2",
+      "title": "Control de la distorsión horizontal de piso en las construcciones edilicias",
+      "page": 84,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.3",
+      "title": "Comprobación de las condiciones de regularidad en altura",
+      "page": 84,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.4",
+      "title": "Efecto P- Delta (Efecto de 2° orden)",
+      "page": 84,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.4.1",
+      "title": "Consideración del efecto P-Delta",
+      "page": 84,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.4.2",
+      "title": "Evaluación de los efectos P-Delta",
+      "page": 84,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.5",
+      "title": "Efectos de martilleo, separaciones y juntas sísmicas",
+      "page": 85,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.5.1",
+      "title": "Separación entre construcciones nuevas y existentes",
+      "page": 85,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.5.2",
+      "title": "Separación de una construcción en bloques",
+      "page": 85,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.4.5.3",
+      "title": "Dimensionamiento de separaciones y juntas sísmicas",
+      "page": 85,
+      "file": "capitulo-8-analisis-estructural.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.0",
+      "title": "SIMBOLOGÍA",
+      "page": 87,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.1",
+      "title": "DIAFRAGMAS",
+      "page": 87,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.1.1",
+      "title": "Solicitaciones en el diafragma debidas a la acción sísmica",
+      "page": 87,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.1.2",
+      "title": "Verificación de conexiones y colectores",
+      "page": 87,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2",
+      "title": "FUNDACIONES",
+      "page": 88,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.1",
+      "title": "Capacidad del suelo de fundación",
+      "page": 88,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.2",
+      "title": "Fundaciones profundas",
+      "page": 88,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.3",
+      "title": "Fundaciones superficiales en suelos potencialmente licuables",
+      "page": 89,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.4",
+      "title": "Arriostramiento de fundaciones",
+      "page": 89,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.4.1",
+      "title": "Dimensionamiento de los arriostramientos",
+      "page": 89,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.4.2",
+      "title": "Prescindencia de los arriostramientos",
+      "page": 90,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2.4.3",
+      "title": "Losas de fundación o de arriostramiento",
+      "page": 90,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.3",
+      "title": "SEPARACIONES Y JUNTAS DE CONSTRUCCIÓN",
+      "page": 90,
+      "file": "capitulo-9-particularidades-de-diseno-y.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.0",
+      "title": "SIMBOLOGÍA",
+      "page": 91,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.1",
+      "title": "ALCANCE",
+      "page": 91,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.2",
+      "title": "EVALUACIÓN DE LA ACCIÓN SÍSMICA SOBRE PARTES DE LA",
+      "page": 92,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.2.1",
+      "title": "Factor de importancia",
+      "page": 92,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.2.2",
+      "title": "Factor de amplificación dinámica",
+      "page": 92,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.2.3",
+      "title": "Factor de modificación de respuesta",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "1",
+      "title": "Muros exteriores de mampostería en general                           1,0        1,5",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "2",
+      "title": "Muros interiores de mampostería en general                           1,0        2,0",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "4",
+      "title": "Paredes de paneles dúctiles con peso menor a 0,4 kN/m                1,0        3.0",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "5",
+      "title": "Señalizaciones y cartelería                                          2,5      ≤3,0",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "6",
+      "title": "Cielorrasos suspendidos de materiales frágiles                       1,0        2,0",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "7",
+      "title": "Cielorrasos suspendidos de materiales dúctiles                       1,0        2,5",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "8",
+      "title": "Ventanas, carpinterías, muros cortina                                1,5        1,5",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "12",
+      "title": "Accesorios y adornos                                                 2,5        2.5",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "13",
+      "title": "Rampas de accesos y pasarelas                                        1,0        1,5",
+      "page": 93,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "2",
+      "title": "Calderas, hornos, tanques enfriadores, calentadores de agua               1,0        2,5",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "3",
+      "title": "Motores, bombas, turbinas, compresores                                    1,0        2,5",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "4",
+      "title": "Equipos de laboratorio                                                    1,0        2,5",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "7",
+      "title": "Ascensores y montacargas                                                  1,0        2,5",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "9",
+      "title": "Equipos y sistemas de potencia eléctrica: subestaciones, tableros, etc.   1,0        2,5",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10",
+      "title": "Torres y antenas de trasmisión construidas de materiales dúctiles         2,5        3,0",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "11",
+      "title": "Artefactos de iluminación                                                 1,0        1,5",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "13",
+      "title": "Ductos, tuberías y sus fijaciones construidas de materiales dúctiles      2,5        6,0",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.2.4",
+      "title": "Factor de magnificación en altura",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.3",
+      "title": "SOPORTES, VÍNCULOS Y FIJACIONES",
+      "page": 94,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.4",
+      "title": "DEFORMACIONES",
+      "page": 95,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "10.5",
+      "title": "ANÁLISIS POR MÉTODOS DINÁMICOS",
+      "page": 95,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 10",
+      "id": "3",
+      "title": "El factor de importancia y el factor de modificación de respuesta deben responder a lo",
+      "page": 95,
+      "file": "capitulo-10-partes-de-la-construccion-y-componentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.0",
+      "title": "SIMBOLOGÍA",
+      "page": 97,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.1",
+      "title": "ALCANCES",
+      "page": 97,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.2",
+      "title": "DEFINICIONES",
+      "page": 97,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.3",
+      "title": "PRINCIPIOS FUNDAMENTALES",
+      "page": 98,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.4",
+      "title": "CLASIFICACIÓN DE LAS CONSTRUCCIONES",
+      "page": 98,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.4.1",
+      "title": "Importancia de la obra actual",
+      "page": 98,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.4.2",
+      "title": "Calidad sismorresistente de la obra primitiva",
+      "page": 98,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.4.3",
+      "title": "Capacidad sismorresistente de la obra primitiva",
+      "page": 99,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.5",
+      "title": "EXCEPCIONES PERMITIDAS",
+      "page": 100,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.5.1",
+      "title": "En cuanto a capacidad sismorresistente",
+      "page": 100,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.5.2",
+      "title": "Exigencias constructivas",
+      "page": 100,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.5.2.1",
+      "title": "Construcciones de hormigón armado",
+      "page": 100,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.5.2.2",
+      "title": "Construcciones de mampostería",
+      "page": 100,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.5.2.3",
+      "title": "Construcciones metálicas",
+      "page": 100,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6",
+      "title": "EXIGENCIAS Y COMPROBACIONES",
+      "page": 101,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.1",
+      "title": "Construcciones clasificadas C1",
+      "page": 101,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.1.1",
+      "title": "Seguridad S1",
+      "page": 101,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.1.2",
+      "title": "Seguridad S2",
+      "page": 101,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.1.3",
+      "title": "Seguridad S3",
+      "page": 101,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.1.4",
+      "title": "Seguridad S4",
+      "page": 101,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.2",
+      "title": "Construcciones clasificadas C2",
+      "page": 101,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.2.1",
+      "title": "Seguridad S1 o S2",
+      "page": 101,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.2.2",
+      "title": "Seguridad S3",
+      "page": 102,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.2.3",
+      "title": "Seguridad S4",
+      "page": 102,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.3",
+      "title": "Construcciones clasificadas C3",
+      "page": 102,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.3.1",
+      "title": "Seguridad S1",
+      "page": 102,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.3.2",
+      "title": "Seguridad S2 o S3",
+      "page": 102,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.3.3",
+      "title": "Seguridad S4",
+      "page": 102,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.4",
+      "title": "Construcciones clasificadas C4",
+      "page": 103,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.4.1",
+      "title": "Seguridad S1",
+      "page": 103,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.4.2",
+      "title": "Seguridad S2",
+      "page": 103,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.4.3",
+      "title": "Seguridad S3",
+      "page": 103,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.6.4.4",
+      "title": "Seguridad S4",
+      "page": 103,
+      "file": "capitulo-11-construcciones-existentes.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.7",
+      "title": "PARTES DE LA CONSTRUCCIÓN",
+      "page": 103,
+      "file": "capitulo-11-construcciones-existentes.md"
+    }
+  ]
+}

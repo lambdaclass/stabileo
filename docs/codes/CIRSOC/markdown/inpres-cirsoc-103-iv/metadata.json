@@ -1,0 +1,732 @@
+{
+  "key": "inpres-cirsoc-103-iv",
+  "code": "INPRES-CIRSOC 103 Parte IV",
+  "edition": "2005",
+  "title": "Reglamento Argentino para Construcciones Sismorresistentes - Parte IV: Construcciones de Acero",
+  "source_file": "INPRES-CIRSOC-103_Parte_IV-Reglamento.pdf",
+  "sha256": "e30b2301505da0049d736a093a0a49e8b05db1b0019ac730df308bd7c4f720ff",
+  "bytes": 803847,
+  "pages": 82,
+  "toc_pages_skipped": 5,
+  "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+  "pages_ok": 68,
+  "pages_sparse": 12,
+  "pages_empty": 2,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        14
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "GENERALIDADES",
+      "file": "capitulo-1-generalidades.md",
+      "pages": [
+        15,
+        16
+      ],
+      "clause_count": 1
+    },
+    {
+      "number": "CAPÍTULO 2",
+      "title": "SIMBOLOGÍA Y GLOSARIO",
+      "file": "capitulo-2-simbologia-y-glosario.md",
+      "pages": [
+        17,
+        24
+      ],
+      "clause_count": 2
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "REQUERIMIENTOS GENERALES",
+      "file": "capitulo-3-requerimientos-generales.md",
+      "pages": [
+        25,
+        28
+      ],
+      "clause_count": 4
+    },
+    {
+      "number": "CAPÍTULO 4",
+      "title": "ACCIONES SÍSMICAS DE DISEÑO",
+      "file": "capitulo-4-acciones-sismicas-de-diseno.md",
+      "pages": [
+        29,
+        30
+      ],
+      "clause_count": 6
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "CARGAS Y COMBINACIONES DE CARGAS",
+      "file": "capitulo-5-cargas-y-combinaciones-de-cargas.md",
+      "pages": [
+        31,
+        34
+      ],
+      "clause_count": 7
+    },
+    {
+      "number": "CAPÍTULO 6",
+      "title": "DEFORMACIONES",
+      "file": "capitulo-6-deformaciones.md",
+      "pages": [
+        35,
+        36
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 7",
+      "title": "UNIONES, JUNTAS Y MEDIOS DE UNIÓN",
+      "file": "capitulo-7-uniones-juntas-y-medios-de-union.md",
+      "pages": [
+        37,
+        38
+      ],
+      "clause_count": 4
+    },
+    {
+      "number": "CAPÍTULO 8",
+      "title": "COLUMNAS",
+      "file": "capitulo-8-columnas.md",
+      "pages": [
+        39,
+        40
+      ],
+      "clause_count": 3
+    },
+    {
+      "number": "CAPÍTULO 9",
+      "title": "PÓRTICOS  SISMORRESISTENTES                                               NO",
+      "file": "capitulo-9-porticos-sismorresistentes-no.md",
+      "pages": [
+        41,
+        52
+      ],
+      "clause_count": 28
+    },
+    {
+      "number": "CAPÍTULO 11",
+      "title": "PÓRTICOS SISMORRESISTENTES NO",
+      "file": "capitulo-11-porticos-sismorresistentes-no.md",
+      "pages": [
+        53,
+        54
+      ],
+      "clause_count": 3
+    },
+    {
+      "number": "CAPÍTULO 12",
+      "title": "PÓRTICOS SISMORRESISTENTES NO",
+      "file": "capitulo-12-porticos-sismorresistentes-no.md",
+      "pages": [
+        55,
+        58
+      ],
+      "clause_count": 6
+    },
+    {
+      "number": "CAPÍTULO 13",
+      "title": "PÓRTICOS SISMORRESISTENTES ESPE",
+      "file": "capitulo-13-porticos-sismorresistentes-espe.md",
+      "pages": [
+        59,
+        62
+      ],
+      "clause_count": 5
+    },
+    {
+      "number": "CAPÍTULO 14",
+      "title": "PÓRTICOS SISMORRESISTENTES CON",
+      "file": "capitulo-14-porticos-sismorresistentes-con.md",
+      "pages": [
+        63,
+        64
+      ],
+      "clause_count": 2
+    },
+    {
+      "number": "CAPÍTULO 15",
+      "title": "PÓRTICOS SISMORRESISTENTES A",
+      "file": "capitulo-15-porticos-sismorresistentes-a.md",
+      "pages": [
+        65,
+        70
+      ],
+      "clause_count": 8
+    },
+    {
+      "number": "CAPÍTULO 16",
+      "title": "ASEGURAMIENTO DE LA CALIDAD",
+      "file": "capitulo-16-aseguramiento-de-la-calidad.md",
+      "pages": [
+        71,
+        82
+      ],
+      "clause_count": 0
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "CAMPO DE VALIDEZ",
+      "page": 15,
+      "file": "capitulo-1-generalidades.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1",
+      "title": "SIMBOLOGÍA",
+      "page": 17,
+      "file": "capitulo-2-simbologia-y-glosario.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2",
+      "title": "GLOSARIO",
+      "page": 21,
+      "file": "capitulo-2-simbologia-y-glosario.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1",
+      "title": "CALIDAD DE LOS MATERIALES",
+      "page": 25,
+      "file": "capitulo-3-requerimientos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2",
+      "title": "TENSIÓN DE FLUENCIA ESPERADA",
+      "page": 25,
+      "file": "capitulo-3-requerimientos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3",
+      "title": "RESISTENCIA A LA FLEXIÓN POR IMPACTO CHARPY",
+      "page": 26,
+      "file": "capitulo-3-requerimientos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4",
+      "title": "TIPOLOGÍAS ESTRUCTURALES",
+      "page": 26,
+      "file": "capitulo-3-requerimientos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1",
+      "title": "INTRODUCCIÓN",
+      "page": 29,
+      "file": "capitulo-4-acciones-sismicas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2",
+      "title": "ACCIÓN SÍSMICA HORIZONTAL",
+      "page": 29,
+      "file": "capitulo-4-acciones-sismicas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3",
+      "title": "ACCIÓN SÍSMICA VERTICAL",
+      "page": 29,
+      "file": "capitulo-4-acciones-sismicas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.1",
+      "title": "La acción sísmica vertical se considerará igual al 20 % de la máxima ordenada",
+      "page": 29,
+      "file": "capitulo-4-acciones-sismicas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3.2",
+      "title": "Para el caso de las estructuras y componentes estructurales contempladas en el",
+      "page": 29,
+      "file": "capitulo-4-acciones-sismicas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4",
+      "title": "FACTOR DE REDUCCIÓN",
+      "page": 29,
+      "file": "capitulo-4-acciones-sismicas-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "INTRODUCCIÓN",
+      "page": 31,
+      "file": "capitulo-5-cargas-y-combinaciones-de-cargas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "EFECTOS PROVOCADOS POR LAS ACCIONES SÍSMICAS",
+      "page": 31,
+      "file": "capitulo-5-cargas-y-combinaciones-de-cargas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.1",
+      "title": "Componente horizontal del efecto sísmico",
+      "page": 31,
+      "file": "capitulo-5-cargas-y-combinaciones-de-cargas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.2",
+      "title": "Componente vertical del efecto sísmico",
+      "page": 31,
+      "file": "capitulo-5-cargas-y-combinaciones-de-cargas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "SIMULTANEIDAD                   DE      EFECTOS         DE   LAS   ACCIONES   SÍSMICAS",
+      "page": 32,
+      "file": "capitulo-5-cargas-y-combinaciones-de-cargas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4",
+      "title": "COMBINACIONES ESPECIALES DE ESTADOS DE CARGA",
+      "page": 32,
+      "file": "capitulo-5-cargas-y-combinaciones-de-cargas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.5",
+      "title": "RESISTENCIA NOMINAL",
+      "page": 33,
+      "file": "capitulo-5-cargas-y-combinaciones-de-cargas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.1",
+      "title": "LÍMITES DE APLICACIÓN",
+      "page": 37,
+      "file": "capitulo-7-uniones-juntas-y-medios-de-union.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2",
+      "title": "JUNTAS ABULONADAS",
+      "page": 37,
+      "file": "capitulo-7-uniones-juntas-y-medios-de-union.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.3",
+      "title": "JUNTAS SOLDADAS",
+      "page": 37,
+      "file": "capitulo-7-uniones-juntas-y-medios-de-union.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.4",
+      "title": "OTRAS UNIONES",
+      "page": 38,
+      "file": "capitulo-7-uniones-juntas-y-medios-de-union.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.1",
+      "title": "LÍMITES DE APLICACIÓN",
+      "page": 39,
+      "file": "capitulo-8-columnas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.2",
+      "title": "RESISTENCIA",
+      "page": 39,
+      "file": "capitulo-8-columnas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 8",
+      "id": "8.3",
+      "title": "EMPALMES",
+      "page": 39,
+      "file": "capitulo-8-columnas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.1",
+      "title": "INTRODUCCIÓN",
+      "page": 41,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.2",
+      "title": "NUDOS VIGA-COLUMNA Y UNIONES",
+      "page": 41,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.3",
+      "title": "PANEL NODAL",
+      "page": 42,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.3.1",
+      "title": "Introducción",
+      "page": 42,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.3.2",
+      "title": "Resistencia al corte",
+      "page": 42,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.3.3",
+      "title": "Espesor del panel nodal",
+      "page": 43,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.3.4",
+      "title": "Placas nodales de refuerzo",
+      "page": 43,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.3.5",
+      "title": "Placas de continuidad",
+      "page": 44,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.4",
+      "title": "LIMITACIONES DIMENSIONALES DE VIGAS Y COLUMNAS",
+      "page": 44,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.4.1",
+      "title": "Área del ala de viga",
+      "page": 44,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.4.2",
+      "title": "Relación ancho-espesor",
+      "page": 44,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.5",
+      "title": "RELACIÓN ENTRE LAS RESISTENCIAS A FLEXIÓN DE VIGAS Y",
+      "page": 45,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.5.1",
+      "title": "Excepciones",
+      "page": 46,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.6",
+      "title": "RESTRICCIÓN LATERAL DE NUDOS VIGA-COLUMNA",
+      "page": 47,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.6.1",
+      "title": "Nudos restringidos",
+      "page": 47,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.6.2",
+      "title": "Nudos no restringidos",
+      "page": 47,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "9.7",
+      "title": "APOYO LATERAL DE VIGAS",
+      "page": 48,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "10.1",
+      "title": "INTRODUCCIÓN",
+      "page": 49,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "10.2",
+      "title": "NUDOS VIGA-COLUMNA Y UNIONES",
+      "page": 49,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "1",
+      "title": "La resistencia a flexión deberá tomarse como 0,8 Mp de la viga ensayada cuando",
+      "page": 49,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "2",
+      "title": "Se permiten uniones que acomoden las rotaciones requeridas dentro sus",
+      "page": 50,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "3",
+      "title": "La resistencia al corte requerida Vu de una unión viga-columna deberá",
+      "page": 50,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "10.3",
+      "title": "PANEL NODAL",
+      "page": 50,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "10.4",
+      "title": "LIMITACIONES DIMENSIONALES DE VIGAS Y COLUMNAS",
+      "page": 50,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "10.4.2",
+      "title": "Relación ancho-espesor",
+      "page": 50,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "10.5",
+      "title": "RELACIÓN ENTRE LAS RESISTENCIAS A FLEXIÓN DE VIGAS Y",
+      "page": 50,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "10.6",
+      "title": "RESTRICCIÓN LATERAL DE NUDOS COLUMNA",
+      "page": 50,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 9",
+      "id": "10.7",
+      "title": "APOYO LATERAL DE VIGAS",
+      "page": 51,
+      "file": "capitulo-9-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.1",
+      "title": "INTRODUCCIÓN",
+      "page": 53,
+      "file": "capitulo-11-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.2",
+      "title": "NUDOS VIGA-COLUMNA Y UNIONES",
+      "page": 53,
+      "file": "capitulo-11-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 11",
+      "id": "11.3",
+      "title": "PLACAS DE CONTINUIDAD",
+      "page": 54,
+      "file": "capitulo-11-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 12",
+      "id": "12.1",
+      "title": "INTRODUCCIÓN",
+      "page": 55,
+      "file": "capitulo-12-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 12",
+      "id": "12.2",
+      "title": "TRAMO ESPECIAL",
+      "page": 55,
+      "file": "capitulo-12-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 12",
+      "id": "12.3",
+      "title": "RESISTENCIA NOMINAL DE LOS ELEMENTOS DEL TRAMO ESPECIAL",
+      "page": 56,
+      "file": "capitulo-12-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 12",
+      "id": "12.4",
+      "title": "RESISTENCIA NOMINAL DE LOS ELEMENTOS UBICADOS FUERA DEL",
+      "page": 56,
+      "file": "capitulo-12-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 12",
+      "id": "12.5",
+      "title": "RELACIÓN ANCHO-ESPESOR",
+      "page": 57,
+      "file": "capitulo-12-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 12",
+      "id": "12.6",
+      "title": "ARRIOSTRAMIENTOS LATERALES",
+      "page": 57,
+      "file": "capitulo-12-porticos-sismorresistentes-no.md"
+    },
+    {
+      "chapter": "CAPÍTULO 13",
+      "id": "13.1",
+      "title": "INTRODUCCIÓN",
+      "page": 59,
+      "file": "capitulo-13-porticos-sismorresistentes-espe.md"
+    },
+    {
+      "chapter": "CAPÍTULO 13",
+      "id": "13.2",
+      "title": "RIOSTRAS",
+      "page": 59,
+      "file": "capitulo-13-porticos-sismorresistentes-espe.md"
+    },
+    {
+      "chapter": "CAPÍTULO 13",
+      "id": "13.3",
+      "title": "UNIONES DE RIOSTRAS",
+      "page": 60,
+      "file": "capitulo-13-porticos-sismorresistentes-espe.md"
+    },
+    {
+      "chapter": "CAPÍTULO 13",
+      "id": "13.4",
+      "title": "REQUERIMIENTOS ESPECÍFICOS PARA CONFIGURACIONES ESPE-",
+      "page": 61,
+      "file": "capitulo-13-porticos-sismorresistentes-espe.md"
+    },
+    {
+      "chapter": "CAPÍTULO 13",
+      "id": "13.5",
+      "title": "COLUMNAS",
+      "page": 62,
+      "file": "capitulo-13-porticos-sismorresistentes-espe.md"
+    },
+    {
+      "chapter": "CAPÍTULO 14",
+      "id": "14.1",
+      "title": "INTRODUCCIÓN",
+      "page": 63,
+      "file": "capitulo-14-porticos-sismorresistentes-con.md"
+    },
+    {
+      "chapter": "CAPÍTULO 14",
+      "id": "14.2",
+      "title": "RESISTENCIA",
+      "page": 63,
+      "file": "capitulo-14-porticos-sismorresistentes-con.md"
+    },
+    {
+      "chapter": "CAPÍTULO 15",
+      "id": "15.1",
+      "title": "INTRODUCCIÓN",
+      "page": 65,
+      "file": "capitulo-15-porticos-sismorresistentes-a.md"
+    },
+    {
+      "chapter": "CAPÍTULO 15",
+      "id": "15.2",
+      "title": "ENLACES",
+      "page": 65,
+      "file": "capitulo-15-porticos-sismorresistentes-a.md"
+    },
+    {
+      "chapter": "CAPÍTULO 15",
+      "id": "15.3",
+      "title": "RIGIDIZADORES DE ENLACES",
+      "page": 67,
+      "file": "capitulo-15-porticos-sismorresistentes-a.md"
+    },
+    {
+      "chapter": "CAPÍTULO 15",
+      "id": "15.4",
+      "title": "UNIONES ENLACE-COLUMNA",
+      "page": 68,
+      "file": "capitulo-15-porticos-sismorresistentes-a.md"
+    },
+    {
+      "chapter": "CAPÍTULO 15",
+      "id": "15.5",
+      "title": "APOYO LATERAL DE ENLACES",
+      "page": 68,
+      "file": "capitulo-15-porticos-sismorresistentes-a.md"
+    },
+    {
+      "chapter": "CAPÍTULO 15",
+      "id": "15.6",
+      "title": "RIOSTRAS Y TRAMO DE VIGA UBICADO FUERA DEL ENLACE",
+      "page": 68,
+      "file": "capitulo-15-porticos-sismorresistentes-a.md"
+    },
+    {
+      "chapter": "CAPÍTULO 15",
+      "id": "15.7",
+      "title": "UNIONES NUDO VIGA-COLUMNA",
+      "page": 69,
+      "file": "capitulo-15-porticos-sismorresistentes-a.md"
+    },
+    {
+      "chapter": "CAPÍTULO 15",
+      "id": "15.8",
+      "title": "RESISTENCIA REQUERIDA EN LAS COLUMNAS",
+      "page": 69,
+      "file": "capitulo-15-porticos-sismorresistentes-a.md"
+    }
+  ]
+}

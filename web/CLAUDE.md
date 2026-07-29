@@ -40,9 +40,22 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 
 - `npm run dev` — Start dev server (port 4000)
 - `npm run build` — Production build to `dist/`
-- `npm run test` — Run all tests (`npx vitest run`)
-- `npm run test:watch` — Watch mode
+- `npm run test` — The full Vitest gate. Runs **two passes** and fails if either fails:
+  `unit` (everything, in a bounded parallel pool) and `build` (the tests that shell out to a
+  real `vite build`, serially). See `scripts/test-all.mjs` for the measurements behind the
+  split — briefly: a nested production build does not occupy one worker slot, it occupies the
+  machine, and Vitest's default worker count leaves the coordinator no core, which together
+  made the suite exit 1 with `[vitest-worker]: Timeout calling "onTaskUpdate"` while every
+  assertion passed.
+- `npm run test:unit` / `npm run test:build` — one pass on its own.
+- `npm run test:watch` — Watch mode (the `unit` pass)
 - `npm run wasm` — Build Rust/WASM engine (optional, not required)
+- `npm run typecheck` — Explicit `tsc` gate. `npm run build` is `vite build` and does **not**
+  typecheck, so a type defect can otherwise reach a commit unseen. The project carries a large
+  set of pre-existing errors (mostly test fixtures building partial literals on purpose), so
+  the gate compares against `scripts/typecheck-baseline.json` and fails only on **new** errors.
+- `npm run typecheck:baseline` — Re-record that baseline. Review the diff before committing;
+  the count should only ever go down.
 
 ## Architecture
 

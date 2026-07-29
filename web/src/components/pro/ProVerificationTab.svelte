@@ -28,7 +28,7 @@
   import { computeBarMarks, type BarMark } from '../../lib/engine/bar-marks';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
-  import { computeQuantities } from '../../lib/engine/quantity-takeoff';
+  import { estimateQuantitiesFromVerification } from '../../lib/engine/quantity-takeoff';
   import type { QuantitySummary } from '../../lib/engine/quantity-takeoff';
   import type { SteelVerification } from '../../lib/engine/codes/argentina/cirsoc301';
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
@@ -441,7 +441,7 @@
     elementLengthMap = lengths;
 
     // Compute material quantities
-    quantities = computeQuantities(verifs, lengths);
+    quantities = estimateQuantitiesFromVerification(verifs, lengths);
 
     // Design slab reinforcement from quad stresses
     const slabResults: typeof slabDesigns = [];

@@ -41,7 +41,7 @@ test-backend:
 	cargo test -p dedaliano-backend
 
 test-web:
-	cd web && npm install && npx vitest run
+	cd web && npm install && npm test
 
 # ── Docker ───────────────────────────────────────────────────
 

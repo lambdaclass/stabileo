@@ -220,7 +220,6 @@ import {
   type MemberDesignResult as MemberResult,
 } from './design-check-results';
 import { DESIGN_CODES, type DesignCodeId } from './codes/index';
-import { verificationStore } from '../store/verification.svelte';
 
 /**
  * Run the complete CIRSOC design pipeline: verification + normalization + store update.
@@ -238,24 +237,19 @@ export function runCirsocDesign(
   stationDemands: Map<number, ElementDesignDemands> | undefined,
   sectionNames: Map<number, string>,
   governing: Map<number, GoverningPerElement3D> | null,
-): { normalized: MemberResult[]; concrete: ElementVerification[] } {
+): { normalized: MemberResult[]; concrete: ElementVerification[]; summary: DesignCheckSummary | null } {
   const concrete = runUnifiedVerification(results3D, model, governing, stationDemands);
   const normalized = normalizeCirsoc201(concrete, sectionNames);
 
-  // Update stores — single source of truth. An empty run (e.g. all-steel
-  // model: nothing checkable by CIRSOC 201) publishes nothing so callers can
-  // surface an error instead of a "0 members" success; a successful run
-  // supersedes any previous results (legacy or unified) so the viewport
-  // overlay can't mix stale and fresh data.
-  if (normalized.length > 0) {
-    verificationStore.clear();
-    verificationStore.setConcrete(concrete);
-    const codeInfo = DESIGN_CODES.find(c => c.id === 'cirsoc');
-    const summaryData = buildDesignSummary(normalized, 'cirsoc', codeInfo?.label ?? 'CIRSOC');
-    verificationStore.setDesignResults(summaryData.results, summaryData);
-  }
-
-  return { normalized, concrete };
+  // PURE: this function no longer writes to any store. Publishing the code-check
+  // baseline is the command layer's job (`verificationStore.setDesignBaseline`), so
+  // `lib/engine` stays store-free and the design-code seam is honest. An empty run
+  // (e.g. an all-steel model, nothing checkable by CIRSOC 201) returns a null
+  // summary so callers surface an error instead of a "0 members" success.
+  if (normalized.length === 0) return { normalized, concrete, summary: null };
+  const codeInfo = DESIGN_CODES.find(c => c.id === 'cirsoc');
+  const summary = buildDesignSummary(normalized, 'cirsoc', codeInfo?.label ?? 'CIRSOC');
+  return { normalized: summary.results, concrete, summary };
 }
 
 // ─── Steel Verification (reduced divergence) ─────────────────
@@ -425,8 +419,9 @@ export interface CodeDetail {
  *
  * TRANSITIONAL adapter: Phase 2 eliminates this — VerificationReport includes detail.
  */
-export function getCodeDetail(elementId: number): CodeDetail | null {
-  const v = verificationStore.concreteMap.get(elementId);
+export function getCodeDetail(v: ElementVerification | undefined | null): CodeDetail | null {
+  // PURE: takes the verification record directly instead of reaching into a store,
+  // so `lib/engine` carries no store dependency and the code-adapter seam holds.
   if (!v) return null;
 
   const memos: CodeDetail['memos'] = [];

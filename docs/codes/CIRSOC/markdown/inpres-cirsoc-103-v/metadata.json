@@ -1,0 +1,898 @@
+{
+  "key": "inpres-cirsoc-103-v",
+  "code": "INPRES-CIRSOC 103 Parte V",
+  "edition": "2018",
+  "title": "Reglamento Argentino para Construcciones Sismorresistentes - Parte V: Soldadura de Estructuras de Acero Sismorresistentes",
+  "source_file": "INPRES-CIRSOC-103_Parte_V-Reglamento.pdf",
+  "sha256": "c93e7fe008e473b8ef0b8440abeb9d4c5b21970315ada4991646d24af1c91eb7",
+  "bytes": 3195936,
+  "pages": 67,
+  "toc_pages_skipped": 4,
+  "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+  "pages_ok": 57,
+  "pages_sparse": 4,
+  "pages_empty": 6,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        14
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "REQUISITOS GENERALES",
+      "file": "capitulo-1-requisitos-generales.md",
+      "pages": [
+        15,
+        22
+      ],
+      "clause_count": 17
+    },
+    {
+      "number": "CAPITULO 2",
+      "title": "DISEÑO DE UNIONES SOLDADAS",
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md",
+      "pages": [
+        23,
+        28
+      ],
+      "clause_count": 13
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "ESPECIFICACIÓN DE PROCEDIMIENTO DE",
+      "file": "capitulo-3-especificacion-de-procedimiento-de.md",
+      "pages": [
+        29,
+        30
+      ],
+      "clause_count": 1
+    },
+    {
+      "number": "CAPITULO 4",
+      "title": "CALIFICACIÓN DE PROCEDIMIENTOS (EPS)",
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md",
+      "pages": [
+        31,
+        38
+      ],
+      "clause_count": 25
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "FABRICACIÓN",
+      "file": "capitulo-5-fabricacion.md",
+      "pages": [
+        39,
+        67
+      ],
+      "clause_count": 61
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "CAMPO DE VALIDEZ",
+      "page": 15,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2",
+      "title": "DEFINICIONES",
+      "page": 15,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2.1",
+      "title": "Definiciones relativas al Proyecto Estructural",
+      "page": 15,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2.2",
+      "title": "Definiciones relativas a las responsabilidades profesionales",
+      "page": 15,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3",
+      "title": "LÍMITES DE APLICACIÓN",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4",
+      "title": "MATERIALES",
+      "page": 16,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1",
+      "title": "Aceros Estructurales",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1.1",
+      "title": "Requisitos y normas aplicables",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.2",
+      "title": "Procesos de soldadura aplicables",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.3",
+      "title": "Metal de aporte y fundente para soldadura",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5",
+      "title": "REQUISITOS ESPECÍFICOS Y RESPONSABILIDADES",
+      "page": 18,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.1",
+      "title": "De la ingeniería o del Ingeniero Responsable",
+      "page": 18,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.2",
+      "title": "Del Contratista o Fabricante",
+      "page": 18,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.2.1",
+      "title": "Certificación de los consumibles",
+      "page": 19,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.3",
+      "title": "Requisitos para los consumibles y electrodos de soldadura",
+      "page": 19,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.3.1",
+      "title": "Otras combinaciones de material base y aporte",
+      "page": 19,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.6",
+      "title": "SIMBOLOGÍA",
+      "page": 19,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.1",
+      "title": "CAMPO DE VALIDEZ",
+      "page": 23,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2",
+      "title": "REQUISITOS GENERALES",
+      "page": 23,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.1",
+      "title": "Planos y dibujos",
+      "page": 23,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.2",
+      "title": "Especificación de Procedimiento de Soldadura (EPS)",
+      "page": 24,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.3",
+      "title": "Requisitos de tenacidad",
+      "page": 24,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "7",
+      "title": "Se deberá especificar en la documentación contractual si los ensayos CVN serán",
+      "page": 24,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.4",
+      "title": "Requisitos específicos de soldadura",
+      "page": 24,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.5",
+      "title": "Requisitos para planos y dibujos de taller",
+      "page": 24,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.6",
+      "title": "Detalles de uniones soldadas",
+      "page": 25,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.6.1",
+      "title": "Diseño geométrico de uniones soldadas",
+      "page": 25,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.6.2",
+      "title": "Placas de continuidad y rigidizadores",
+      "page": 25,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.6.3",
+      "title": "Terminaciones de las soldaduras",
+      "page": 25,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPITULO 2",
+      "id": "2.2.6.4",
+      "title": "Transiciones de espesores y anchos",
+      "page": 25,
+      "file": "capitulo-2-diseno-de-uniones-soldadas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1",
+      "title": "PREPARACIÓN DE LA EPS",
+      "page": 29,
+      "file": "capitulo-3-especificacion-de-procedimiento-de.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.1",
+      "title": "REQUERIMIENTOS GENERALES",
+      "page": 31,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.2",
+      "title": "REGISTRO DE CALIFICACIÓN DEL PROCEDIMIENTO (RCP)",
+      "page": 31,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.2.1",
+      "title": "Variables esenciales",
+      "page": 31,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.3",
+      "title": "CALIFICACIÓN DE HABILIDAD PARA SOLDADORES Y OPERADORES DE",
+      "page": 31,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.3.1",
+      "title": "Requisitos generales",
+      "page": 31,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.3.2",
+      "title": "Requisitos adicionales para los ensayos de calificación de los soldadores",
+      "page": 31,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.3.3",
+      "title": "Parámetros de ensayo",
+      "page": 32,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.3.4",
+      "title": "Respaldo",
+      "page": 32,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.3.5",
+      "title": "Registro de calificación del soldador",
+      "page": 32,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4",
+      "title": "REQUISITOS ADICIONALES PARA LA CALIFICACIÓN DE SOLDADOR",
+      "page": 32,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.1",
+      "title": "Probeta de soldadura para la calificación",
+      "page": 32,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.2",
+      "title": "Preparación de la chapa para la probeta de calificación",
+      "page": 32,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.2.1",
+      "title": "Requisitos generales",
+      "page": 32,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.2.2",
+      "title": "Opción A de calificación",
+      "page": 34,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.2.3",
+      "title": "Opción B de calificación",
+      "page": 35,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3",
+      "title": "Probetas de ensayo",
+      "page": 36,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3.1",
+      "title": "Inspección visual",
+      "page": 36,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3.2",
+      "title": "Ensayos adicionales",
+      "page": 36,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3.3",
+      "title": "Ensayo de plegado",
+      "page": 37,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3.3.1",
+      "title": "Ubicación de las probetas",
+      "page": 37,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3.3.2",
+      "title": "Ensayo de las probetas de plegado lateral",
+      "page": 37,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3.3.3",
+      "title": "Criterio de aceptación",
+      "page": 37,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3.3.4",
+      "title": "Inspección radiográfica",
+      "page": 37,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.3.3.5",
+      "title": "Inspección por ultrasonido",
+      "page": 37,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPITULO 4",
+      "id": "4.4.4",
+      "title": "Reensayo",
+      "page": 37,
+      "file": "capitulo-4-calificacion-de-procedimientos-eps.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "ESPECIFICACIÓN DE PROCEDIMIENTO DE SOLDADURA (EPS)",
+      "page": 39,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.1",
+      "title": "General",
+      "page": 39,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.2",
+      "title": "Uniones soldadas definidas como críticas",
+      "page": 39,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.3",
+      "title": "Límites para el aporte térmico",
+      "page": 39,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "PROCESOS DE SOLDADURA",
+      "page": 39,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.1",
+      "title": "Procesos permitidos para soldaduras definidas como críticas",
+      "page": 39,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.2",
+      "title": "Límites de velocidad del viento",
+      "page": 40,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.2.1",
+      "title": "Procesos bajo protección gaseosa",
+      "page": 40,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.2.2",
+      "title": "Procesos sin protección gaseosa",
+      "page": 40,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "MATERIALES DE APORTE Y METAL DE SOLDADURA",
+      "page": 40,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.1",
+      "title": "Requisitos específicos para las uniones soldadas de elementos estructurales",
+      "page": 40,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.2",
+      "title": "Requisitos específicos para las soldaduras definidas como críticas en una",
+      "page": 40,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.3",
+      "title": "Especificación de la mínima temperatura de servicio requerida (MTSR)",
+      "page": 41,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.4",
+      "title": "Nivel de hidrógeno difusible",
+      "page": 41,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.5",
+      "title": "Combinación de otros materiales de aporte con los del proceso FCAW-S",
+      "page": 42,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.6",
+      "title": "Certificación del material de aporte",
+      "page": 42,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4",
+      "title": "EMBALAJE, ALMACENAMIENTO                   Y   MANIPULEO        DE    ALAMBRES",
+      "page": 43,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.1",
+      "title": "Embalaje",
+      "page": 43,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.2",
+      "title": "Modificación del alambre tubular",
+      "page": 43,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.3",
+      "title": "Límites de exposición para los alambres tubulares",
+      "page": 43,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.4",
+      "title": "Sobreexposición del alambre tubular",
+      "page": 43,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.5",
+      "title": "TEMPERATURA MÁXIMA ENTRE PASADAS",
+      "page": 44,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.5.1",
+      "title": "Máxima temperatura estándar entre pasadas",
+      "page": 44,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.5.2",
+      "title": "Máxima temperatura alternativa entre pasadas",
+      "page": 44,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "La tenacidad CVN en la ZAC deberá ser ensayada de acuerdo con lo establecido en",
+      "page": 44,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.6",
+      "title": "SOLDADURAS DE PUNTEADO EN RESPALDO DE ACERO PARA ZONA",
+      "page": 44,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.7",
+      "title": "REMOCIÓN DEL RESPALDO Y TRATAMIENTO DE LA SOLDADURA DE",
+      "page": 44,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.8",
+      "title": "FILETES DE REFUERZO EN LOS LUGARES DONDE SE HAN ELIMINADO",
+      "page": 45,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.9",
+      "title": "SOLDADURAS DE FILETE EN LUGARES DONDE EL RESPALDO ES NO",
+      "page": 45,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10",
+      "title": "ORIFICIOS DE ACCESO PARA LA SOLDADURA",
+      "page": 45,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.1",
+      "title": "Forma",
+      "page": 46,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Bisel requerido por la EPS",
+      "page": 47,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Radio mínimo = 10 mm (- 0; + ilimitado)",
+      "page": 47,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6",
+      "title": "Ver requisitos del artículo 5.10.2.",
+      "page": 47,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "7",
+      "title": "Ángulo recomendado > 25 °.",
+      "page": 47,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.2",
+      "title": "Requisitos de calidad para los orificios de acceso a las soldaduras",
+      "page": 48,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.11",
+      "title": "PROLONGADORES DE SOLDADURA",
+      "page": 48,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.11.1",
+      "title": "Largo mínimo de los postizos prolongadores o iniciadores de soldadura",
+      "page": 48,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.11.2",
+      "title": "Soldaduras de punteado para la fijación de los postizos prolongadores",
+      "page": 48,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.11.3",
+      "title": "Remoción de los prolongadores",
+      "page": 48,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.11.4",
+      "title": "Prolongadores de soldadura para placas de continuidad",
+      "page": 50,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.12",
+      "title": "PIEZAS DE RETENCIÓN EN EXTREMOS DE SOLDADURA (“end dams”)",
+      "page": 50,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.13",
+      "title": "IDENTIFICACIÓN DEL SOLDADOR",
+      "page": 50,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.14",
+      "title": "SECUENCIA DE LA SOLDADURA INFERIOR DE ALA",
+      "page": 50,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.15",
+      "title": "ZONA PROTEGIDA",
+      "page": 51,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.15.1",
+      "title": "Fijaciones y soldaduras",
+      "page": 51,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.15.2",
+      "title": "Ayudas para el montaje",
+      "page": 51,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.15.3",
+      "title": "Remoción o eliminación de soldaduras en la zona protegida",
+      "page": 51,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.15.4",
+      "title": "Reparación de desniveles y entallas",
+      "page": 51,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "Una vez completada la soldadura, la misma de berá ser amolada de manera de",
+      "page": 51,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.16",
+      "title": "REQUISITOS PARA LAS SOLDADURAS DE PUNTEADO",
+      "page": 52,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.1",
+      "title": "PLAN DE ASEGURAMIENTO DE LA CALIDAD",
+      "page": 53,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.2",
+      "title": "INSPECTORES",
+      "page": 53,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.2.1",
+      "title": "Inspector de soldadura",
+      "page": 53,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.2.2",
+      "title": "Personal responsable de los ensayos no destructivos",
+      "page": 53,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.3",
+      "title": "INSPECCIÓN DEL ÁREA k EN ALA ANCHA",
+      "page": 53,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.4",
+      "title": "DESGARRE LAMINAR",
+      "page": 54,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.5",
+      "title": "FRENTES DE EXTREMOS DE VIGAS Y ORIFICIOS DE ACCESO PARA LA",
+      "page": 54,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.6",
+      "title": "REPARACIONES",
+      "page": 54,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.7",
+      "title": "REQUISITOS PARA EL ENSAYO POR PARTÍCULAS MAGNETI-ZABLES",
+      "page": 54,
+      "file": "capitulo-5-fabricacion.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6.8",
+      "title": "REQUISITOS PARA EL ENSAYO POR ULTRASONIDO (US)",
+      "page": 54,
+      "file": "capitulo-5-fabricacion.md"
+    }
+  ]
+}

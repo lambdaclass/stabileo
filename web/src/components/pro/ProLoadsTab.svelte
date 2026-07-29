@@ -490,7 +490,8 @@
 <div class="pro-loads">
   <!-- Auto-generate button -->
   <div class="pro-autogen-bar">
-    <button class="pro-btn-autogen" onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
+    <button class="pro-btn-autogen" data-testid="pro-auto-loads-btn"
+      onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
   </div>
 
   <ProAutoLoadsDialog open={showAutoLoadsDialog} onclose={() => showAutoLoadsDialog = false} />
