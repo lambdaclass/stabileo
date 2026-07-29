@@ -149,10 +149,17 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number): StirrupDef[
 export interface BeamSeed {
   MuSpan: number; MuStart: number; MuEnd: number;
   VuSupport: number; VuSpan: number;
+  /** Opposite-sign demands — hogging in the span (cantilever/pattern load)
+   *  and sagging at the supports. The verifier checks these against continuing
+   *  steel; seeding them lets the search place steel that continuity carries. */
+  MuSpanHog: number; MuStartSag: number; MuEndSag: number;
 }
 
 export function computeBeamSeed(ctx: MemberContext): BeamSeed {
-  const seed: BeamSeed = { MuSpan: 0, MuStart: 0, MuEnd: 0, VuSupport: 0, VuSpan: 0 };
+  const seed: BeamSeed = {
+    MuSpan: 0, MuStart: 0, MuEnd: 0, VuSupport: 0, VuSpan: 0,
+    MuSpanHog: 0, MuStartSag: 0, MuEndSag: 0,
+  };
   const st = ctx.stations;
   if (!st) return seed;
   const cs = ctx.criticalSections;
@@ -164,12 +171,15 @@ export function computeBeamSeed(ctx: MemberContext): BeamSeed {
       const v = Math.abs(tupleShear(s, ctx.axes.shear));
       if (s.t <= tStart) {
         if (m < 0) seed.MuStart = Math.max(seed.MuStart, -m);
+        else seed.MuStartSag = Math.max(seed.MuStartSag, m);
         seed.VuSupport = Math.max(seed.VuSupport, v);
       } else if (s.t >= tEnd) {
         if (m < 0) seed.MuEnd = Math.max(seed.MuEnd, -m);
+        else seed.MuEndSag = Math.max(seed.MuEndSag, m);
         seed.VuSupport = Math.max(seed.VuSupport, v);
       } else {
         if (m > 0) seed.MuSpan = Math.max(seed.MuSpan, m);
+        else seed.MuSpanHog = Math.max(seed.MuSpanHog, -m);
         seed.VuSpan = Math.max(seed.VuSpan, v);
       }
     }
@@ -197,8 +207,13 @@ type Knob = 'span' | 'start' | 'end' | 'stirSup' | 'stirSpan';
 export function createBeamCandidateGenerator(ctx: MemberContext): CandidateGenerator {
   const seed = computeBeamSeed(ctx);
   const spanOpts = buildRegionOptions(ctx, seedAreaFor(seed.MuSpan, ctx));
-  const startOpts = seed.MuStart > 0 ? buildRegionOptions(ctx, seedAreaFor(seed.MuStart, ctx)) : [];
-  const endOpts = seed.MuEnd > 0 ? buildRegionOptions(ctx, seedAreaFor(seed.MuEnd, ctx)) : [];
+  // Top-steel knobs exist when EITHER the support hogs OR the span hogs
+  // (continuity carries support top steel into the span — the only face the
+  // data model can place there). Seed for the worst of both.
+  const startSeed = Math.max(seed.MuStart, seed.MuSpanHog);
+  const endSeed = Math.max(seed.MuEnd, seed.MuSpanHog);
+  const startOpts = startSeed > 0 ? buildRegionOptions(ctx, seedAreaFor(startSeed, ctx)) : [];
+  const endOpts = endSeed > 0 ? buildRegionOptions(ctx, seedAreaFor(endSeed, ctx)) : [];
   const stirSupOpts = buildStirrupOptions(ctx, seed.VuSupport);
   const stirSpanOpts = buildStirrupOptions(ctx, seed.VuSpan);
 
@@ -260,6 +275,11 @@ export function createBeamCandidateGenerator(ctx: MemberContext): CandidateGener
       if (cat.startsWith('Bottom Span') || cat.startsWith('Min steel')) want.add('span');
       else if (cat.startsWith('Top Start')) want.add('start');
       else if (cat.startsWith('Top End')) want.add('end');
+      // Opposite-sign sweep failures: span hogging is resisted by support top
+      // steel continuing into the span; support sagging by span bottom steel
+      // continuing into the supports.
+      else if (cat.startsWith('Top Span')) { want.add('start'); want.add('end'); }
+      else if (cat.startsWith('Bottom Start') || cat.startsWith('Bottom End')) want.add('span');
       else if (cat.startsWith('Shear Support')) want.add('stirSup');
       else if (cat.startsWith('Shear Span')) want.add('stirSpan');
       else if (cat.startsWith('Fit: Bottom') || cat.startsWith('Max steel')) want.add('span');

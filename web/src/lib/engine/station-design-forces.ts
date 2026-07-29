@@ -1845,8 +1845,7 @@ export function verifyProvidedReinforcement(
 
     const bottomGroups = resolveBarGroups(reg?.bottomGroups, bottomLayers, bottomIntoStart, bottomIntoEnd);
     const topStartGroups = resolveBarGroups(reg?.topStartGroups, topStartLayers, true, topStartIntoSpan);
-    // topEnd groups participate via botIntoEndResult; resolved for anchorage context only.
-    void resolveBarGroups(reg?.topEndGroups, topEndLayers, topEndIntoSpan, true);
+    const topEndGroups = resolveBarGroups(reg?.topEndGroups, topEndLayers, topEndIntoSpan, true);
 
     const beamL = stationResult?.length ?? critSections?.L ?? 6;
     const startRegLen = tStartEnd * beamL;
@@ -1856,6 +1855,10 @@ export function verifyProvidedReinforcement(
     const botIntoStartResult = continuingGroupsInto(bottomGroups, 'start', startRegLen, section.fc, section.fy);
     const botIntoEndResult = continuingGroupsInto(bottomGroups, 'end', endRegLen, section.fc, section.fy);
     const topIntoSpanResult = continuingGroupsInto(topStartGroups, 'end', spanHalfLen, section.fc, section.fy);
+    // End-side top continuation into the span: used by the opposite-sign sweep
+    // below (hogging demand in the span). Its anchorage issues are intentionally
+    // not merged — the anchorage report above keeps its previous coverage.
+    const topEndIntoSpanResult = continuingGroupsInto(topEndGroups, 'start', spanHalfLen, section.fc, section.fy);
 
     const allAnchIssues = [...botIntoStartResult.anchorageIssues, ...botIntoEndResult.anchorageIssues, ...topIntoSpanResult.anchorageIssues];
     for (const issue of allAnchIssues) {
@@ -1957,6 +1960,103 @@ export function verifyProvidedReinforcement(
       });
     }
 
+    // ─── Opposite-sign coverage sweep ─────────────────────────────
+    // The region model above checks the span for sagging and each support for
+    // hogging — but real diagrams also carry hogging IN the span (cantilevers,
+    // pattern live load, uplift) and sagging at the supports. Those moments
+    // must be checked against the steel that actually reaches the region on
+    // the needed face (from the curtailment/continuity resolution above), or
+    // fail explicitly when none does. The previous regional model dropped
+    // them silently (a cantilever's span hogging verified 'ok' unchecked).
+    const topIntoSpanArea = Math.max(topIntoSpanResult.area, topEndIntoSpanResult.area);
+    const topIntoSpanCentroid = topIntoSpanResult.area >= topEndIntoSpanResult.area
+      ? topStartCentroid : topEndCentroid;
+    const oppositeSpecs: Array<{
+      label: string; tuples: Tuple[]; sign: 1 | -1; range: [number, number];
+      tensArea: number; d: number; compArea: number; dPrime: number; face: string;
+    }> = [
+      {
+        // Hogging in the span → top steel continuing into the span.
+        label: `Top Span (${axisLabel(axes.flexure, '-')})`,
+        tuples: spanTuples, sign: -1, range: [tStartEnd, tEndStart],
+        tensArea: topIntoSpanArea,
+        d: section.h - topIntoSpanCentroid,
+        compArea: layersTotalArea(bottomLayers), dPrime: bottomCentroid,
+        face: 'top',
+      },
+      {
+        // Sagging at the start region → bottom steel continuing into the start.
+        label: `Bottom Start (${axisLabel(axes.flexure, '+')})`,
+        tuples: startTuples, sign: 1, range: [0, tStartEnd],
+        tensArea: botIntoStartResult.area,
+        d: dBottom,
+        compArea: layersTotalArea(topStartLayers), dPrime: topStartCentroid,
+        face: 'bottom',
+      },
+      {
+        // Sagging at the end region → bottom steel continuing into the end.
+        label: `Bottom End (${axisLabel(axes.flexure, '+')})`,
+        tuples: endTuples, sign: 1, range: [tEndStart, 1],
+        tensArea: botIntoEndResult.area,
+        d: dBottom,
+        compArea: layersTotalArea(topEndLayers), dPrime: topEndCentroid,
+        face: 'bottom',
+      },
+    ];
+
+    for (const os of oppositeSpecs) {
+      let worstDemand: { Mu: number; comboName: string; stationX: number } | null = null;
+      let considered = 0;
+      for (const t of os.tuples) {
+        const m = M(t);
+        if (os.sign === 1 ? m <= 0.001 : m >= -0.001) continue;
+        considered++;
+        const Mu = Math.abs(m);
+        if (!worstDemand || Mu > worstDemand.Mu) worstDemand = { Mu, comboName: t.comboName, stationX: t.stationX };
+      }
+      if (!worstDemand) continue; // no opposite-sign demand in this region
+      checkedAxes.add(axes.flexure);
+      const demandCat = os.sign === 1 ? axes.sagCategory : axes.hogCategory;
+
+      if (os.tensArea <= 0.01) {
+        pushStrength({
+          category: os.label, demandCategory: demandCat,
+          demand: +worstDemand.Mu.toFixed(2), capacity: 0,
+          utilization: Number.POSITIVE_INFINITY,
+          unit: 'kN·m', method: 'capacity', tuplesChecked: considered,
+          regionRange: os.range,
+          description: `no ${os.face} reinforcement reaches this region — Mu=${worstDemand.Mu.toFixed(1)} kN·m unresisted (opposite-sign demand)`,
+          comboName: worstDemand.comboName, stationX: worstDemand.stationX,
+          limiting: 'flexure', missingReinforcement: true,
+        });
+        continue;
+      }
+
+      const cap = computeFlexureCapacity(os.tensArea, section.b, os.d, section.fc, section.fy, os.compArea, os.dPrime);
+      if (!cap) {
+        pushStrength({
+          category: os.label, demandCategory: demandCat,
+          demand: +worstDemand.Mu.toFixed(2), capacity: 0,
+          utilization: Number.POSITIVE_INFINITY,
+          unit: 'kN·m', method: 'capacity', tuplesChecked: considered, regionRange: os.range,
+          description: 'flexural capacity could not be computed for the continuing arrangement',
+          comboName: worstDemand.comboName, stationX: worstDemand.stationX,
+          limiting: 'flexure',
+        });
+        continue;
+      }
+      pushStrength({
+        category: os.label, demandCategory: demandCat,
+        demand: +worstDemand.Mu.toFixed(2), capacity: +cap.phiMn.toFixed(2),
+        utilization: cap.phiMn > 1e-6 ? worstDemand.Mu / cap.phiMn : Number.POSITIVE_INFINITY,
+        unit: 'kN·m', method: 'capacity', tuplesChecked: considered, regionRange: os.range,
+        description: `${os.tensArea.toFixed(1)}cm² ${os.face} cont. → φMn=${cap.phiMn.toFixed(1)} kN·m, `
+          + `d=${(os.d * 100).toFixed(1)}cm, [${os.range[0].toFixed(2)}–${os.range[1].toFixed(2)}] (opposite-sign sweep)`,
+        comboName: worstDemand.comboName, stationX: worstDemand.stationX,
+        limiting: 'flexure',
+      });
+    }
+
     // ─── Minimum flexural steel (CIRSOC 201 §10.5) on the tension face in span ───
     if (bottomLayers.length > 0 && autoDesign.flexure) {
       const rhoMin = Math.max(0.25 * Math.sqrt(section.fc) / section.fy, 1.4 / section.fy);
@@ -2011,7 +2111,11 @@ export function verifyProvidedReinforcement(
         count++;
         if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
         if (!ss.stir) continue;
-        const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, t.n);
+        // Solver convention is + = tension; computeShearCapacity expects
+        // + = compression (CIRSOC enhancement) — pass -t.n. Previously
+        // compression took the tension branch (Vc reduced to 0 → gross false
+        // failures) and tension the enhancement branch (Vc inflated → unsafe).
+        const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, -t.n);
         const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
         if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
       }
@@ -2175,10 +2279,15 @@ export function verifyProvidedReinforcement(
           phiPn = cap.phiPn; geo = cap.geometryAware; sc = cap.strainCompatible;
         } else {
           const Mu = Math.max(Mprim, Msec);
-          // Local-axis mapping: My bends over the depth h → 'y'; Mz over the width b → 'z'.
+          // The section arrives flex-rotated (b=bFlex, h=hFlex): a moment on the
+          // primary axis bends over h, a moment on the secondary axis bends over
+          // b. computeColumnCapacity takes depth=h for 'z' and depth=b for 'y',
+          // so the mapping is primary→'z', secondary→'y' — NOT moment-name→axis,
+          // which inverted the depth for My-governed rectangular columns and
+          // over-estimated φMn (checked at the strong axis) by ~2x.
           const primaryIsLarger = Mprim >= Msec;
           const momentAxis = primaryIsLarger ? axes.flexure : axes.secondaryFlexure;
-          const capAxis: 'z' | 'y' = momentAxis === 'Mz' ? 'z' : 'y';
+          const capAxis: 'z' | 'y' = momentAxis === axes.flexure ? 'z' : 'y';
           const cap = computeColumnCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, Mu, colBars, capAxis);
           util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
           phiPn = cap.phiPn; phiMn = cap.phiMn; geo = cap.geometryAware; sc = cap.strainCompatible; cN = cap.cNeutral;
@@ -2248,10 +2357,13 @@ export function verifyProvidedReinforcement(
 
     // ─── Column ties: BOTH shear components (previously only Vy) ───
     if (hasTuples) {
-      const dTie = section.h - section.cover - (section.stirrupDia / 1000) - 0.008;
-      const tieSpecs: Array<{ axis: string; read: (t: Tuple) => number; width: number }> = [
-        { axis: axes.shear, read: V, width: section.b },
-        { axis: axes.secondaryShear, read: V2, width: section.h },
+      // Effective depth per shear axis: primary shear bends over h, secondary
+      // over b — using one d for both overstated φVn on the secondary axis
+      // whenever h > b.
+      const dTieFor = (depth: number) => depth - section.cover - (section.stirrupDia / 1000) - 0.008;
+      const tieSpecs: Array<{ axis: string; read: (t: Tuple) => number; width: number; dTie: number }> = [
+        { axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
+        { axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) },
       ];
       for (const ts of tieSpecs) {
         let worst: { util: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
@@ -2262,7 +2374,9 @@ export function verifyProvidedReinforcement(
           count++;
           if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
           if (!provided.stirrups) continue;
-          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, provided.stirrups.spacing, ts.width, dTie, section.fc, section.fy, t.n);
+          // Solver convention is + = tension; computeShearCapacity expects
+          // + = compression — pass -t.n (see the beam shear path above).
+          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, provided.stirrups.spacing, ts.width, ts.dTie, section.fc, section.fy, -t.n);
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
         }

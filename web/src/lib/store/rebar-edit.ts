@@ -113,7 +113,10 @@ export function setStirrups(elemId: number, field: StirrupField, patch: Partial<
   const cur = p.regions[field] ?? p.stirrups;
   p.regions[field] = {
     diameter: patch.diameter ?? cur?.diameter ?? 8,
-    legs: Math.max(2, patch.legs ?? cur?.legs ?? 2),
+    // Clamp to the constructible range — Av = legs × legArea enters the shear
+    // capacity unchecked, so a typed legs=20 would verify green on fantasy
+    // reinforcement. The editors advertise max=6; enforce it here too.
+    legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? cur?.legs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),
   };
   commitManual(elemId, p);
@@ -125,7 +128,7 @@ export function setTies(elemId: number, patch: Partial<StirrupDef>): void {
   const cur = p.stirrups;
   p.stirrups = {
     diameter: patch.diameter ?? cur?.diameter ?? 8,
-    legs: Math.max(2, patch.legs ?? cur?.legs ?? 2),
+    legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? cur?.legs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),
   };
   commitManual(elemId, p);
@@ -145,7 +148,10 @@ export function setColumnBars(elemId: number, patch: ColumnFacePatch): void {
   const cur = p.column;
   const cornerDia = patch.cornerDia ?? cur?.cornerDia ?? p.longitudinal?.diameter ?? 16;
   const faceDia = patch.faceDia ?? cur?.faceDia ?? cornerDia;
-  const clamp = (v: number | undefined, fallback: number) => Math.max(0, Math.min(10, Math.round(v ?? fallback)));
+  // Consistent with COLUMN_LIMITS.maxPerFace (6) used by the generator, the
+  // batch path and the editor input's max — the old 10 clamp let the single-
+  // member editor commit arrangements the rest of the pipeline forbids.
+  const clamp = (v: number | undefined, fallback: number) => Math.max(0, Math.min(6, Math.round(v ?? fallback)));
   const next = {
     cornerDia, faceDia,
     nBottom: clamp(patch.nBottom, cur?.nBottom ?? 0),

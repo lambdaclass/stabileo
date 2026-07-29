@@ -52,6 +52,34 @@ none of which is ever counted as a pass. Measured on `rc-design-frame`:
 **Utilization convention** is now demand/capacity everywhere (warn 0.95 < u ≤ 1.00,
 fail above 1.00); the ad-hoc `1/ratio` inversion in the UI is gone.
 
+**Review hardening (PR #78 review follow-ups).** Three verifier defects in the
+regional rewrite, all in `station-design-forces.ts`:
+
+- Column uniaxial P-M capacity was analyzed about the WRONG axis for My-governed
+  rectangular columns (b≠h): the capacity axis followed the moment NAME instead of
+  the flex-rotated section, checking at the strong depth — measured false passes of
+  ~2.2x (util 0.68 reported where the true value is 1.51). The mapping is now
+  primary→depth h, secondary→depth b.
+- Opposite-sign demand was silently unchecked: hogging in the span (cantilevers,
+  pattern live load, uplift) and sagging at the supports were filtered out of every
+  region. A new sweep checks them against the steel that actually reaches each region
+  (from the curtailment/continuity resolution) and FAILS explicitly when none does;
+  the candidate generator seeds and escalates support top steel for span hogging and
+  span bottom steel for support sagging. The pre-PR sweep coverage is restored.
+- Shear capacity received the axial force in the solver's sign (+ = tension) while
+  expecting compression-positive — compression weakened members (false failures) and
+  tension strengthened them (unsafe passes). Both call sites now pass -N. Column ties
+  also use a per-axis effective depth (secondary axis used the primary depth).
+
+Plus: stirrup/tie legs clamped to [2, 6] and column face bars to 6 at the store layer
+(typed input bypassed the editors' max; legs multiply shear capacity unchecked);
+`designOne` keeps provisional flags in sync; the design table no longer hijacks
+editor keystrokes (Enter collapsed the row being edited). Regression coverage:
+`design/__tests__/review-fixes.test.ts` (9 tests incl. rectangular-column P-M,
+cantilever-style span hogging, shear axial sign) and
+`store/__tests__/rebar-review-fixes.test.ts` (clamps + provisional sync).
+The flagship frame still designs 408/408 VERIFIED with the sweep active.
+
 **One "Run Design" button became three explicit commands plus Design all**
 (compute demands / run code check / auto-design), with progress, cancellation and
 partial-run honesty. Reinforcement writes go through

@@ -279,6 +279,13 @@ function createDesignRunStore() {
         };
     recount(s);
     verificationStore.setDesignOutcomes(s);
+    // Keep provisionalIds in sync like publishOutcomes does — otherwise a
+    // member re-designed alone stays flagged provisional after verifying (or
+    // never gets flagged when it becomes provisional).
+    const prov = new Set(provisionalIds);
+    if (o.outcome !== 'VERIFIED' && o.provisional) prov.add(elementId);
+    else prov.delete(elementId);
+    provisionalIds = prov;
     if (o.outcome === 'VERIFIED' && o.accepted) {
       modelStore.reinforcementTransaction((api) => api.setReinforcement(elementId, o.accepted));
       const auto = new Set(autoDesigned); auto.add(elementId); autoDesigned = auto;

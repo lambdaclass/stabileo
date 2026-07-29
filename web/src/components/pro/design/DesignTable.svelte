@@ -38,6 +38,11 @@
   /** Keyboard navigation: j/k move, Enter expands, Space toggles the checkbox. */
   function onKeydown(e: KeyboardEvent) {
     if (rows.length === 0) return;
+    // Ignore keys coming from the expanded row's editors — Enter/Space/arrows
+    // are editing gestures there (a bubbled Enter used to collapse the row
+    // being edited).
+    const target = e.target as HTMLElement | null;
+    if (target && ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(target.tagName)) return;
     const idx = focusedId === null ? -1 : rows.findIndex(r => r.elementId === focusedId);
     if (e.key === 'j' || e.key === 'ArrowDown') {
       e.preventDefault();
