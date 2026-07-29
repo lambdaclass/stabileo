@@ -104,3 +104,26 @@ The quality bar is not just "pretty drawings". It is:
 - continuity that engineers trust
 - schedules that help fabrication
 - reports that are professionally readable
+
+## Branch backup policy (permanent, adopted 2026-07-29)
+
+Meaningful local work must never remain local-only again. PR19 was complete, green and
+signed, and it was lost because it was never pushed. PR15-PR18 survived only because they
+were on GitHub.
+
+1. Push every newly created work branch immediately to an authorized GitHub remote.
+2. Once the branch has any diff from its base, open a draft PR immediately.
+3. Push every coherent signed checkpoint.
+4. Keep the PR in draft until it is explicitly declared review-ready.
+5. A draft backup PR is not authorization to merge.
+6. Never force-push without explicit authorization.
+7. For external repositories, push to the user's fork, not the upstream repository.
+8. If GitHub cannot create a PR because the branch has no commits beyond its base, push the
+   branch to the fork as the minimum backup and open the draft PR after the first commit.
+9. Before ending any session, verify: the branch has an upstream, all commits are pushed, a
+   draft PR exists when the branch differs from base, and the worktree is clean or every
+   dirty file is explicitly reported.
+
+A branch push does not save `.git/` contents. `RC_CHAIN_PROGRESS.md`, `pr-drafts/` and the
+14 stashes were lost for exactly that reason. Anything that matters and lives only in
+`.git/` must also be duplicated somewhere replicated.
