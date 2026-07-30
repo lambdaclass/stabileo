@@ -218,3 +218,43 @@ Only the **containment** portion of `stabileoVerdict` and the corresponding
 
 So of the "two missing adapters", one dissolves into serialisation and the other (the STEP/GLB
 writer) remains exactly as described — it is the CAD side's whole reason for existing here.
+
+---
+
+## DECISION RECORDED — 2026-07-30: Option 2-C with 2-A's honesty
+
+The user selected **2-C with 2-A's explicit honesty**. **2-B is not implemented in PR19** and is
+recorded as a probable **PR20** feature in `docs/handoffs/deferred-cover-validation-pr20.md`.
+
+What this means concretely for PR19:
+
+| Rule | Consequence |
+|---|---|
+| Stabileo owns and exports the cover requirement or placement intent **already present in the production model** | `Footing.cover` and `floor-design.ts` `footingCover` are exported as-is. The existing value is preserved; **50 mm is never hard-coded** |
+| Stabileo reports footing containment as **`NOT_EVALUATED`** | because `checkCover` has zero production callers — the reason is stated in the artifact, not implied |
+| CAD measures achieved cover **independently** | as a geometric review observation |
+| A CAD measurement is **not** a Stabileo regulatory verdict or certificate | the review artifact must label it as an observation |
+| CAD must **never** convert `NOT_EVALUATED` into `PASS` | the review carries a distinct `NOT_COMPARABLE` state |
+| Generalized authoritative cover validation | deferred to probable PR20 |
+
+### Schema consequences — implemented in `web/src/lib/export/rc-cad-handoff.schema.json`
+
+Cover is **not** a global scalar. `requirements.cover` is a **list** of `coverRequirement`, each
+keeping separate: `requirementId`, `elementId`, `elementType`, optional `surface`
+(`face`/`region`/`note`), optional `appliesToBarIds`, `distance`, `unit`, `category`
+(`placementInput` | `codeDerived` | `userSpecified` — only categories the model actually
+distinguishes today) and `provenance` (`source`, `clauseRefs`, `messageKey`).
+
+`surface` **absent means Stabileo does not model a per-surface distinction** — a real limitation, not
+a wildcard. `face` is an open string rather than a closed enum precisely because the production model
+has no face roles yet; fixing an enum now would encode guesses. A later `schemaVersion` can close it.
+
+Results are **per check**, never one aggregate boolean. Each `check` carries its own `checkId`,
+`checkKind` (`barCollision` | `barClearSpacing` | `concreteCover` | `reinforcementContainment`),
+`authority` (`stabileo` | `none`), `evaluationStatus` (`EVALUATED` | `NOT_EVALUATED`), a
+**required** `notEvaluatedReason` when not evaluated (enforced by a JSON Schema `if/then`),
+`requirementIds`, `scope` and `findings`. So collisions, clear spacing, cover and containment never
+get conflated.
+
+The PR20 migration needs no schema redesign: only `authority`, `evaluationStatus` and the presence of
+`findings` change, and `requirementId` keys stay stable.

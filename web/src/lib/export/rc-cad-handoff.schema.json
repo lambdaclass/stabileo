@@ -1,0 +1,452 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stabileo.com/schemas/rc-cad-handoff-v1.json",
+  "title": "RcCadHandoffV1",
+  "description": "Neutral versioned handoff from Stabileo RC detailing to an external CAD realiser. Stabileo owns the engineering meaning of every field. A consumer measures against the numbers here and never derives a regulation rule from them. Lengths are metres, angles degrees, bar diameters millimetres, mass kilograms; coordinates are Stabileo model axes, Z-up right-handed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "schemaVersion", "generator", "subject", "units",
+    "coordinateSystem", "revisions", "certificate", "concrete",
+    "reinforcement", "requirements", "checks", "assumptions", "unsupported"
+  ],
+  "properties": {
+    "schema": { "const": "RcCadHandoffV1" },
+    "schemaVersion": { "const": 1 },
+
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "source": {
+      "description": "Code provenance. Absent in a browser build that has no git access; absence is honest, a fabricated revision is not.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gitRevision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "branch": { "type": "string" }
+      }
+    },
+
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+
+    "subject": {
+      "description": "What this handoff is about. Exactly one subject per document.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "entityId", "name"],
+      "properties": {
+        "kind": { "enum": ["footing"] },
+        "entityId": { "type": "integer" },
+        "name": { "type": "string" },
+        "nodeId": { "type": "integer" },
+        "elementIds": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["length", "angle", "barDiameter", "mass"],
+      "properties": {
+        "length": { "const": "m" },
+        "angle": { "const": "deg" },
+        "barDiameter": { "const": "mm" },
+        "mass": { "const": "kg" }
+      }
+    },
+
+    "coordinateSystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["up", "handedness"],
+      "properties": {
+        "up": { "const": "Z" },
+        "handedness": { "const": "right" },
+        "origin": { "$ref": "#/$defs/frame" }
+      }
+    },
+
+    "revisions": {
+      "description": "Staleness stamps. A consumer echoes these back so a review can be detected as stale rather than silently trusted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detailing", "demand"],
+      "properties": {
+        "detailing": { "type": "integer" },
+        "demand": { "type": "integer" },
+        "analysis": { "type": "integer" },
+        "design": { "type": "integer" },
+        "document": { "type": "integer" }
+      }
+    },
+
+    "certificate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maturity"],
+      "properties": {
+        "maturity": { "type": "string" },
+        "reviewState": { "type": "string" },
+        "provisional": { "type": "array", "items": { "type": "string" } },
+        "verifierId": { "type": "string" },
+        "codeId": { "type": "string" },
+        "codeEdition": { "type": "string" }
+      }
+    },
+
+    "concrete": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bodies"],
+      "properties": {
+        "bodies": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/concreteBody" }
+        }
+      }
+    },
+
+    "reinforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bars", "marks"],
+      "properties": {
+        "bars": { "type": "array", "items": { "$ref": "#/$defs/bar" } },
+        "marks": { "type": "array", "items": { "$ref": "#/$defs/mark" } }
+      }
+    },
+
+    "requirements": {
+      "description": "Distances Stabileo requires. A consumer measures against these and never derives them. Cover is a LIST scoped by element and surface, never a single global scalar, so a future release can add per-element and per-face requirements without a schema redesign.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cover", "clearSpacing"],
+      "properties": {
+        "cover": { "type": "array", "items": { "$ref": "#/$defs/coverRequirement" } },
+        "clearSpacing": { "type": "array", "items": { "$ref": "#/$defs/clearSpacingRequirement" } }
+      }
+    },
+
+    "checks": {
+      "description": "One result object PER CHECK. Deliberately not a single aggregate boolean: collisions, clear spacing, cover and containment each keep their own authority, evaluation status, provenance and result. A check Stabileo has not evaluated says so, and a consumer may never convert NOT_EVALUATED into a pass.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/check" }
+    },
+
+    "assumptions": { "type": "array", "items": { "$ref": "#/$defs/note" } },
+    "unsupported": { "type": "array", "items": { "$ref": "#/$defs/note" } }
+  },
+
+  "$defs": {
+    "point3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" }
+      }
+    },
+
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "translation": { "$ref": "#/$defs/point3" },
+        "rotationDeg": { "type": "number" }
+      }
+    },
+
+    "note": {
+      "description": "A structured message. messageKey lets a consumer reuse Stabileo's own EN/ES text instead of inventing strings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "messageKey": { "type": "string" },
+        "text": { "type": "string" },
+        "params": { "type": "object" },
+        "elementIds": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+
+    "clauseRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string" },
+        "edition": { "type": "string" },
+        "clause": { "type": "string" }
+      }
+    },
+
+    "concreteBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bodyId", "role", "shape"],
+      "properties": {
+        "bodyId": { "type": "string", "minLength": 1 },
+        "role": { "enum": ["footing", "pedestal", "supportedColumn"] },
+        "elementId": { "type": "integer" },
+        "materialRef": { "type": ["string", "null"] },
+        "shape": {
+          "description": "Explicit primitive. No implicit prisms: a consumer must never infer a solid.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "box" },
+            "B": { "type": "number", "exclusiveMinimum": 0 },
+            "L": { "type": "number", "exclusiveMinimum": 0 },
+            "thickness": { "type": "number", "exclusiveMinimum": 0 },
+            "height": { "type": "number", "exclusiveMinimum": 0 },
+            "centre": { "$ref": "#/$defs/point3" },
+            "rotationDeg": { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "barSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "start", "end", "length"],
+      "properties": {
+        "kind": { "enum": ["straight", "arc"] },
+        "start": { "$ref": "#/$defs/point3" },
+        "end": { "$ref": "#/$defs/point3" },
+        "length": { "type": "number", "exclusiveMinimum": 0 },
+        "radius": { "type": "number", "exclusiveMinimum": 0 },
+        "sweepDeg": { "type": "number" },
+        "centre": {
+          "description": "Arc centre. REQUIRED for an exact arc: start, end, radius and sweep do NOT determine an arc in three dimensions, because two centres satisfy them in any plane and the plane itself is free. Without it the only reconstructable curve is the chord, and the deviation is the full sagitta. If absent, arcApproximated MUST be true.",
+          "$ref": "#/$defs/point3"
+        },
+        "arcApproximated": {
+          "description": "True when an arc had to be reduced to its chord because the centre was unavailable. Never silently exact.",
+          "type": "boolean"
+        }
+      }
+    },
+
+    "barEndTreatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["straight", "hook", "continuous"] },
+        "hook": {
+          "description": "Emitted only when kind is 'hook' and the geometry is actually established. Never synthesised.",
+          "type": "object"
+        }
+      }
+    },
+
+    "bar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "diameterMm", "role", "segments",
+        "startTreatment", "endTreatment", "cuttingLength", "ownerElementIds"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "mark": { "type": "string" },
+        "diameterMm": { "type": "number", "exclusiveMinimum": 0 },
+        "role": { "type": "string", "minLength": 1 },
+        "layerId": { "type": "string" },
+        "materialRef": { "type": ["string", "null"] },
+        "segments": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/barSegment" } },
+        "startTreatment": { "$ref": "#/$defs/barEndTreatment" },
+        "endTreatment": { "$ref": "#/$defs/barEndTreatment" },
+        "cuttingLength": { "type": "number", "exclusiveMinimum": 0 },
+        "ownerElementIds": { "type": "array", "minItems": 1, "items": { "type": "integer" } }
+      }
+    },
+
+    "mark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mark", "diameterMm", "cuttingLength", "quantity", "role", "barIds"],
+      "properties": {
+        "mark": { "type": "string", "minLength": 1 },
+        "diameterMm": { "type": "number", "exclusiveMinimum": 0 },
+        "cuttingLength": { "type": "number", "exclusiveMinimum": 0 },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "shape": { "type": "string" },
+        "massKg": { "type": "number", "minimum": 0 },
+        "role": { "type": "string" },
+        "barIds": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "ownerElementIds": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+
+    "requirementCategory": {
+      "description": "What kind of number this is. Only categories the production model actually distinguishes today are listed; extend the enum in a later schemaVersion rather than overloading an existing member.",
+      "enum": ["placementInput", "codeDerived", "userSpecified"]
+    },
+
+    "surfaceScope": {
+      "description": "Which face or region the requirement applies to. Absent means Stabileo does not currently model a per-surface distinction for this requirement — that is a real limitation, not a wildcard, and a consumer must not assume it applies to every face.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "face": {
+          "description": "Open string rather than a closed enum: the production model does not yet distinguish faces, so fixing an enum now would encode guesses. A later schemaVersion can close it once real face roles exist.",
+          "type": "string"
+        },
+        "region": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+
+    "coverRequirement": {
+      "description": "One cover requirement, scoped. Never a global scalar: element identity, element type, requirement identity and applicable surface are kept separate so a future release can carry many requirements per element and per face without reinterpreting this one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirementId", "elementId", "elementType",
+        "distance", "unit", "category", "provenance"
+      ],
+      "properties": {
+        "requirementId": { "type": "string", "minLength": 1 },
+        "elementId": { "type": "integer" },
+        "elementType": { "enum": ["footing", "pedestal", "slab", "wall", "beam", "column"] },
+        "surface": { "$ref": "#/$defs/surfaceScope" },
+        "appliesToBarIds": {
+          "description": "Bars this requirement governs, when the relationship is known. Absent means the relationship is not modelled and must not be inferred.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "distance": { "type": "number", "minimum": 0 },
+        "unit": { "const": "m" },
+        "category": { "$ref": "#/$defs/requirementCategory" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "source": { "type": "string", "minLength": 1 },
+            "clauseRefs": { "type": "array", "items": { "$ref": "#/$defs/clauseRef" } },
+            "messageKey": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "clearSpacingRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirementId", "distance", "unit", "category", "provenance"],
+      "properties": {
+        "requirementId": { "type": "string", "minLength": 1 },
+        "barIdA": { "type": "string" },
+        "barIdB": { "type": "string" },
+        "pairClass": { "type": "string" },
+        "reportable": {
+          "description": "False when Stabileo deliberately does not report a shortfall for this pair class. A consumer MUST respect this or it will raise conflicts Stabileo intentionally suppresses.",
+          "type": "boolean"
+        },
+        "elementIds": { "type": "array", "items": { "type": "integer" } },
+        "distance": { "type": "number", "minimum": 0 },
+        "unit": { "const": "m" },
+        "category": { "$ref": "#/$defs/requirementCategory" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "source": { "type": "string", "minLength": 1 },
+            "clauseRefs": { "type": "array", "items": { "$ref": "#/$defs/clauseRef" } },
+            "messageKey": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "check": {
+      "description": "One check, with its own authority and evaluation status. A consumer adds its independent observation in the review artifact keyed by checkId; it never rewrites this object.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkId", "checkKind", "authority", "evaluationStatus"],
+      "properties": {
+        "checkId": { "type": "string", "minLength": 1 },
+        "checkKind": {
+          "enum": ["barCollision", "barClearSpacing", "concreteCover", "reinforcementContainment"]
+        },
+        "authority": {
+          "description": "Who is entitled to a verdict. 'stabileo' means a regulatory verdict. 'none' means no production checker exists.",
+          "enum": ["stabileo", "none"]
+        },
+        "evaluationStatus": { "enum": ["EVALUATED", "NOT_EVALUATED"] },
+        "notEvaluatedReason": {
+          "description": "Required when evaluationStatus is NOT_EVALUATED. Names the concrete reason, e.g. no production checker exists for this property.",
+          "type": "string",
+          "minLength": 1
+        },
+        "requirementIds": { "type": "array", "items": { "type": "string" } },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "elementIds": { "type": "array", "items": { "type": "integer" } },
+            "barIds": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "findings": {
+          "description": "Present only when EVALUATED. Each finding is a measured Stabileo result, not a summary.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": { "type": "string" },
+            "clauseRefs": { "type": "array", "items": { "$ref": "#/$defs/clauseRef" } },
+            "messageKey": { "type": "string" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "evaluationStatus": { "const": "NOT_EVALUATED" } } },
+          "then": { "required": ["notEvaluatedReason"] }
+        }
+      ]
+    },
+
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findingId", "severity"],
+      "properties": {
+        "findingId": { "type": "string", "minLength": 1 },
+        "severity": { "type": "string" },
+        "barIdA": { "type": "string" },
+        "barIdB": { "type": "string" },
+        "at": { "$ref": "#/$defs/point3" },
+        "measured": { "type": "number" },
+        "required": { "type": "number" },
+        "shortfall": { "type": "number" },
+        "unit": { "const": "m" },
+        "elementIds": { "type": "array", "items": { "type": "integer" } },
+        "messageKey": { "type": "string" }
+      }
+    }
+  }
+}
