@@ -202,19 +202,32 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
     // Policy O5: prefer <= 0,95 when it costs no additional step. Code compliance (<= 1,00)
     // is the hard boundary that gates the outcome; 0,95 is a preference.
     //
-    // 7 and 8 land at 0,883, inside the target. 5 and 6 land at 0,993 — legal, but in the
-    // warn band. That number is NOT produced by this correction: it is member 5's SHEAR
-    // CAPACITY at its support, which was already detailed at 225 mm before the repair and is
-    // 0,993 whatever the maximum-spacing rule says. Getting it under 0,95 would cost an extra
-    // reinforcement step for a preference, and the loop does not spend steel on preferences.
-    // Recorded rather than smoothed over.
+    // 7 and 8 land at 0,883, inside the target. 5 and 6 land at 0,922 — also inside it.
+    // Neither number is produced by the maximum-spacing rule: both are the member's SHEAR
+    // utilisation at its support, already detailed at 225 mm before the repair.
+    //
+    // 5 and 6 read 0,922 rather than the 0,993 recorded before Diego's PR #78 review
+    // (e20707a9). That review made the shear check use compression-positive axial force,
+    // so a member in compression now gets the phi*Vn it is actually entitled to instead of
+    // an under-credited one. The corrected value is the more favourable of the two, which is
+    // why it moved down. Its supporting coverage lives in
+    // engine/design/__tests__/review-fixes.test.ts — 'shear capacity uses compression-positive
+    // axial', alongside the P-M bending-depth and opposite-sign-demand cases from the same
+    // review. Those three corrections are what drive the numbers asserted here.
     for (const r of loop().iterations[0].repairs) {
-      const expected = PAIRS.layerMoved.ids.includes(r.elementId as never) ? 0.883 : 0.993;
+      const expected = PAIRS.layerMoved.ids.includes(r.elementId as never) ? 0.883 : 0.922;
       expect(r.certificate!.worstUtilization).toBeCloseTo(expected, 3);
       expect(r.certificate!.worstUtilization).toBeLessThanOrEqual(1.0);
     }
     for (const id of PAIRS.layerMoved.ids) {
       const r = loop().iterations[0].repairs.find((x) => x.elementId === id)!;
+      expect(r.certificate!.worstUtilization).toBeLessThanOrEqual(0.95);
+    }
+    // Consequence of the corrected shear sign, asserted so a regression back to the
+    // under-credited capacity is caught rather than silently re-entering the warn band:
+    // every repaired member now clears the 0,95 preference, not just the pair that moved a
+    // layer. The 1,00 code boundary above remains the hard gate.
+    for (const r of loop().iterations[0].repairs) {
       expect(r.certificate!.worstUtilization).toBeLessThanOrEqual(0.95);
     }
   });
@@ -278,13 +291,24 @@ describe('accounting is complete and honest', () => {
     const s = loop().stats;
     // Four members now, not two. 5/6 are one identical pair and 7/8 another, at DIFFERENT
     // final geometries, so the work is two real repairs plus two memo answers.
-    expect(s.candidatesConsidered).toBe(12);
+    //
+    // 8, not the 12 recorded before Diego's PR #78 review (e20707a9). That review reworked
+    // candidate-enumerate-beam so the enumerator stops proposing arrangements the corrected
+    // checks can no longer justify, so fewer candidates are generated for the same repair.
+    // The verifier counts below are unchanged, which is the tell: the loop does the same
+    // amount of real verification work, it just no longer enumerates dead candidates.
+    expect(s.candidatesConsidered).toBe(8);
     expect(s.truncated).toBe(false);
     expect(s.repeatedStates).toBe(0);
     expect(s.nonMonotonicSkipped).toBe(0);
     // Memoisation is real, not decorative: within each pair the members are identical at an
     // identical geometry, so the second one's whole repair is answered from the memo.
-    expect(s.memoHits).toBeGreaterThanOrEqual(8);
+    //
+    // The floor is 7 rather than the 8 recorded before e20707a9, for the same reason
+    // candidatesConsidered fell from 12 to 8: there are fewer enumerated candidates to hit
+    // the memo with. The substantive invariant is not this count but the per-member zeros
+    // asserted below — the second member of each identical pair still does NO verifier work.
+    expect(s.memoHits).toBeGreaterThanOrEqual(7);
     expect(s.verifierCalls).toBe(7);
     // 5 escalates through four arrangements before one clears; 6 is answered from the memo;
     // 7 clears on its first; 8 from the memo. The zeros are the point.

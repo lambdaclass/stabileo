@@ -201,7 +201,14 @@ describe('shear capacity uses compression-positive axial', () => {
     );
     const check = res.checks.find(c => c.category.startsWith('Shear Span'));
     expect(check).toBeDefined();
-    return check!.capacity;
+    // capacity is optional on the check type, so narrow it explicitly rather than
+    // asserting it away: a check that reports no capacity is a real defect, and the
+    // thrown message names it instead of surfacing as a confusing NaN comparison.
+    const capacity = check?.capacity;
+    if (capacity === undefined) {
+      throw new Error('Shear Span check reported no capacity');
+    }
+    return capacity;
   }
 
   it('compression (solver n < 0) increases φVn; tension decreases it', () => {
