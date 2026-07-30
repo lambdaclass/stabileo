@@ -258,3 +258,68 @@ get conflated.
 
 The PR20 migration needs no schema redesign: only `authority`, `evaluationStatus` and the presence of
 `findings` change, and `requirementId` keys stay stable.
+
+---
+
+## F-2 fixture: the verified production recipe — 2026-07-30
+
+The user selected **F-2**: a new dedicated committed project fixture containing a footing, loaded
+through the real production `ModelSnapshot` restoration path. The exact production path is now
+traced and verified. **[FACT]** unless marked otherwise.
+
+### Why a `.ded` project fixture, not a `templates/fixtures/*.json`
+
+Those are two different formats and only one goes through snapshot restoration:
+
+| Format | Loader | Restores a snapshot? |
+|---|---|---|
+| `templates/fixtures/*.json` — keys `nodes`, `elements`, `materials`, `sections`, `supports`, `loads`, `combinations`… | `loadFixture(json, api)` (`lib/templates/load-fixture.ts:76`) — replays creation calls | **No.** It replays `addNode`/`addElement`/… with ID remapping |
+| `.ded` project — `DedalFile { version, name, timestamp, snapshot, appMode, analysisMode, … }` | `deserializeProject(text)` (`lib/store/file.ts:116`) → `modelStore.restore(data.snapshot)` | **Yes** |
+
+So the canonical F-2 fixture must be a **`DedalFile`**, produced by `serializeProject()`
+(`file.ts:97`) and read back by `deserializeProject()`. That is the path the user's own
+Open/Save actions use, and it is the only one that exercises `modelStore.restore`.
+
+### Base model
+
+`lib/templates/fixtures/rc-design-qa-8.json` — the RC design QA model already used by the
+detailing suites. 8 nodes, 8 elements, **4 `fixed3d` supports at nodes 1–4**, which are exactly the
+ground nodes a footing attaches to. **It is not modified.** It is loaded, extended in memory, and
+serialised to a new file.
+
+### Production actions for the footing
+
+The same store actions `components/pro/design/FoundationsPanel.svelte` calls, and the same ones
+`lib/store/__tests__/footing-persistence.test.ts` already exercises:
+
+```
+loadFixture(rcDesignQa8, modelStore)          // production example loader
+const profileId = modelStore.addSoilProfile('…')
+modelStore.updateSoilProfile(profileId, { bearing: { … }, provenance: { … } })
+const footingId = modelStore.addFooting(nodeId, 'Z1')
+modelStore.updateFooting(footingId, { B, L, thickness, … })
+serializeProject()                             // -> the committed .ded fixture
+```
+
+No hand-authored parallel schema, and no second footing model.
+
+### Derived state is recomputed, never seeded — [FACT]
+
+`DetailingAssembly` (bars, marks, conflicts, `detailingRevision`, `demandRevision`, `maturity`) is
+**derived** and is not part of `ModelSnapshot`. So the fixture persists only the project, and the
+test restores it and then runs the **production** design/detailing action
+(`detailingStore` → `runFootingDesign` → `buildFloorAssembly`) to obtain the assembly. Detailing
+output is never written into the fixture.
+
+### Footing inputs — [PROPOSED], to be selected when the fixture is generated
+
+Plausible in-domain values, **not** claimed to come from a real project or a regulatory
+derivation. `cover` is carried by the model (`Footing.cover`) and the exporter reads it from there —
+**50 mm is never hard-coded** in the exporter, the schema, the CAD consumer or any assertion. Each
+selected input will be documented alongside the fixture when it is generated.
+
+### Status
+
+Recipe verified; **fixture not yet generated and exporter not yet written.** Stopping at this clean
+checkpoint rather than beginning a multi-file exporter that could not be completed and tested in the
+same pass — a half-wired cross-repository change is worse than a documented, verified plan.
