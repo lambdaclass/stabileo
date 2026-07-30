@@ -23,7 +23,9 @@ import {
   selectCandidateUnderFinalGeometry, structuredFailures,
 } from '../../design/final-geometry-feedback';
 import { rebarHash } from '../../design/rebar-hash';
-import type { MemberDesignOutcome } from '../../design/outcome';
+import { createBeamCandidateGenerator } from '../../design/candidate-enumerate-beam';
+import type { CandidateFeedback } from '../../design/candidate-generator';
+import { DESIGN_TARGET_UTILIZATION, type MemberDesignOutcome } from '../../design/outcome';
 import type { MemberContext } from '../../design/member-context';
 
 interface Harness {
@@ -202,15 +204,21 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
     // Policy O5: prefer <= 0,95 when it costs no additional step. Code compliance (<= 1,00)
     // is the hard boundary that gates the outcome; 0,95 is a preference.
     //
-    // 7 and 8 land at 0,883, inside the target. 5 and 6 land at 0,993 — legal, but in the
-    // warn band. That number is NOT produced by this correction: it is member 5's SHEAR
-    // CAPACITY at its support, which was already detailed at 225 mm before the repair and is
-    // 0,993 whatever the maximum-spacing rule says. Getting it under 0,95 would cost an extra
-    // reinforcement step for a preference, and the loop does not spend steel on preferences.
-    // Recorded rather than smoothed over.
+    // 7 and 8 land at 0,883 and 5 and 6 at 0,922 — all four inside the target. Neither number
+    // comes from the maximum-spacing rule: both are the member's SHEAR utilisation at its
+    // support, already detailed at 225 mm before the repair.
+    //
+    // 5 and 6 read 0,922 rather than the 0,993 recorded before Diego's PR #78 review
+    // (e20707a9). That review made the shear check take axial force compression-positive, so a
+    // member in compression is no longer under-credited on phi*Vn. The corrected value is the
+    // more favourable one, which is why it moved down and why these members now clear the 0,95
+    // preference too. Supporting coverage lives in
+    // engine/design/__tests__/review-fixes.test.ts — 'shear capacity uses compression-positive
+    // axial', beside the P-M bending-depth and opposite-sign-demand cases from the same review.
     for (const r of loop().iterations[0].repairs) {
-      const expected = PAIRS.layerMoved.ids.includes(r.elementId as never) ? 0.883 : 0.993;
+      const expected = PAIRS.layerMoved.ids.includes(r.elementId as never) ? 0.883 : 0.922;
       expect(r.certificate!.worstUtilization).toBeCloseTo(expected, 3);
+      // The hard code boundary, independent of the characterisation above.
       expect(r.certificate!.worstUtilization).toBeLessThanOrEqual(1.0);
     }
     for (const id of PAIRS.layerMoved.ids) {
@@ -274,22 +282,86 @@ describe('the loop is reinforcement-only', () => {
 });
 
 describe('accounting is complete and honest', () => {
-  it('reports candidates, verifier calls, memo hits and truncation', () => {
+  // The search contracts. These are properties of the loop, not measurements of one fixture:
+  // they hold whatever the corrected verifier decides the demands are. The operational counts
+  // they replaced (candidatesConsidered 12, verifierCalls 7, memoHits >= 8,
+  // perMember [4,0,1,0]) all moved when Diego's PR #78 review corrected the shear axial sign,
+  // because member 5 then reaches the 0,95 design target at its SECOND arrangement instead of
+  // its fourth and the loop stops early by design. See
+  // docs/audits/pr17-review-correction-characterization.md for the trace and the proof that
+  // nothing became unreachable.
+  it('terminates cleanly: no truncation, no repeated state, no invalid transition', () => {
     const s = loop().stats;
-    // Four members now, not two. 5/6 are one identical pair and 7/8 another, at DIFFERENT
-    // final geometries, so the work is two real repairs plus two memo answers.
-    expect(s.candidatesConsidered).toBe(12);
     expect(s.truncated).toBe(false);
     expect(s.repeatedStates).toBe(0);
     expect(s.nonMonotonicSkipped).toBe(0);
-    // Memoisation is real, not decorative: within each pair the members are identical at an
-    // identical geometry, so the second one's whole repair is answered from the memo.
-    expect(s.memoHits).toBeGreaterThanOrEqual(8);
-    expect(s.verifierCalls).toBe(7);
-    // 5 escalates through four arrangements before one clears; 6 is answered from the memo;
-    // 7 clears on its first; 8 from the memo. The zeros are the point.
-    const perMember = loop().iterations[0].repairs.map((r) => r.stats.verifierCalls);
-    expect(perMember).toEqual([4, 0, 1, 0]);
+  });
+
+  it('every unique member is verified, and every duplicate is answered from the memo', () => {
+    // 5/6 are one identical pair and 7/8 another, at DIFFERENT final geometries. The contract
+    // is the SHAPE of the work, not its magnitude: the first of each pair does real verifier
+    // work, the second does none at all. That is what memoisation means here, and it is what
+    // a regression would break — the zeros are the point.
+    const repairs = loop().iterations[0].repairs;
+    const perMember = repairs.map((r) => r.stats.verifierCalls);
+    expect(perMember).toHaveLength(4);
+    const [firstOfPairA, secondOfPairA, firstOfPairB, secondOfPairB] = perMember;
+    expect(firstOfPairA).toBeGreaterThan(0);
+    expect(firstOfPairB).toBeGreaterThan(0);
+    expect(secondOfPairA).toBe(0);
+    expect(secondOfPairB).toBe(0);
+    // The aggregate covers the per-member work and then some: the loop also verifies each
+    // member's CURRENT arrangement at its final geometry before repairing it, and answers the
+    // duplicate of each pair from the memo there too. So the aggregate is a superset of the
+    // per-repair sum rather than equal to it — asserting equality would be asserting a
+    // relationship the loop does not have.
+    const s = loop().stats;
+    const perMemberTotal = perMember.reduce((a, b) => a + b, 0);
+    expect(perMemberTotal).toBeGreaterThan(0);
+    expect(s.verifierCalls).toBeGreaterThanOrEqual(perMemberTotal);
+    // Memo reuse is real, not decorative — on both paths.
+    expect(s.memoHits).toBeGreaterThan(0);
+    expect(repairs.some((r) => r.stats.memoHits > 0)).toBe(true);
+  });
+
+  it('stays within an evidence-backed enumeration ceiling', () => {
+    // An upper bound, not an identity: the exact count is an implementation detail that moves
+    // with the verifier, but unbounded growth would mean the feedback signal stopped steering
+    // the generator. 12 is the pre-correction measurement, so the corrected search may not do
+    // MORE work than the version it replaced.
+    const s = loop().stats;
+    expect(s.candidatesConsidered).toBeGreaterThan(0);
+    expect(s.candidatesConsidered).toBeLessThanOrEqual(12);
+  });
+
+  it('the early stop is the design target, and later arrangements stay reachable', () => {
+    // Why the counts fell. The loop breaks as soon as a passing candidate reaches the 0,95
+    // design target (final-geometry-feedback.ts). That is a stopping condition on the
+    // CONSUMER, not a limit on the generator: forced past it, the generator keeps producing
+    // strictly better arrangements. This asserts both halves, so a future change that
+    // genuinely truncated the envelope could not hide behind the early stop.
+    const repairs = loop().iterations[0].repairs;
+    for (const r of repairs) {
+      expect(r.certificate!.worstUtilization).toBeLessThanOrEqual(DESIGN_TARGET_UTILIZATION);
+    }
+    const ctx = harness().contexts.get(5)!;
+    const gen = createBeamCandidateGenerator(ctx);
+    const hashes = new Set<string>();
+    let feedback: CandidateFeedback | null = null;
+    for (let i = 0; i < 8; i++) {
+      const cand = gen.next(i === 0 ? null : feedback);
+      if (!cand) break;
+      const verdict = cirsoc201Adapter.verify(ctx, cand.reinforcement);
+      hashes.add(rebarHash(cand.reinforcement));
+      feedback = {
+        verdict,
+        worstUtilization: verdict.worstUtilization,
+        limiting: cirsoc201Adapter.classifyFailure(verdict, ctx),
+      };
+    }
+    // Far more than the loop consumes. Measured 12 distinct arrangements when pulled to
+    // exhaustion; 4 is a floor that leaves headroom for legitimate envelope changes.
+    expect(hashes.size).toBeGreaterThanOrEqual(4);
   });
 
   it('never pays twice for the same reinforcement at the same geometry', () => {
