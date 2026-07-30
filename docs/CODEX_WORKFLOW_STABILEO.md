@@ -151,3 +151,34 @@ contents — that is why `RC_CHAIN_PROGRESS.md`, `pr-drafts/` and the 14 stashes
 unrecoverable. Before deleting any branch, prove the work exists elsewhere: check ancestry against
 every production ref, check the tracked docs, and check that no unique required change lives only
 there.
+
+### Superseded original (2026-07-29) — kept for history
+
+The first version of this policy was committed as `88abc899` **onto the QA integration branch**
+rather than onto a deliverable branch, so it was reachable from no PR and would have been orphaned
+when that QA branch was retired. That misplacement is itself an instance of the problem the
+correction above fixes: tracked documentation is deliverable work and belongs on a deliverable
+branch. Its text is preserved verbatim here so nothing is lost, and it is **superseded** — the
+scoped rules above are the ones in force.
+
+> Meaningful local work must never remain local-only again. PR19 was complete, green and signed,
+> and it was lost because it was never pushed. PR15-PR18 survived only because they were on GitHub.
+>
+> 1. Push every newly created work branch immediately to an authorized GitHub remote.
+> 2. Once the branch has any diff from its base, open a draft PR immediately.
+> 3. Push every coherent signed checkpoint.
+> 4. Keep the PR in draft until it is explicitly declared review-ready.
+> 5. A draft backup PR is not authorization to merge.
+> 6. Never force-push without explicit authorization.
+> 7. For external repositories, push to the user's fork, not the upstream repository.
+> 8. If GitHub cannot create a PR because the branch has no commits beyond its base, push the
+>    branch to the fork as the minimum backup and open the draft PR after the first commit.
+> 9. Before ending any session, verify: the branch has an upstream, all commits are pushed, a
+>    draft PR exists when the branch differs from base, and the worktree is clean or every
+>    dirty file is explicitly reported.
+>
+> A branch push does not save `.git/` contents. `RC_CHAIN_PROGRESS.md`, `pr-drafts/` and the
+> 14 stashes were lost for exactly that reason. Anything that matters and lives only in
+> `.git/` must also be duplicated somewhere replicated.
+
+Rule 2 is the part the correction narrows: it now applies to deliverable branches only.
