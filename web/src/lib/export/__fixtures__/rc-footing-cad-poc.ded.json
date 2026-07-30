@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "name": "RC Design QA (8 members)",
-  "timestamp": "2026-07-30T15:06:42.145Z",
+  "timestamp": "2026-07-30T15:45:45.482Z",
   "snapshot": {
     "name": "RC Design QA (8 members)",
     "nodes": [
@@ -606,7 +606,8 @@
           "cover": 0.05,
           "foundingElevation": -1.2,
           "soilProfileId": 1,
-          "revision": 2
+          "revision": 2,
+          "columnElementId": 1
         }
       ]
     ],

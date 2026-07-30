@@ -42,6 +42,24 @@ const INPUTS = {
   foundingElevation: -1.2,
 };
 
+/** The vertical element rising from the founded node — the column the footing supports. */
+function columnElementIdAt(nodeId: number): number {
+  const nodes = modelStore.model.nodes;
+  const cands = [...modelStore.model.elements.values()].filter(
+    (e) => e.nodeI === nodeId || e.nodeJ === nodeId,
+  );
+  const vertical = cands.filter((e) => {
+    const a = nodes.get(e.nodeI); const b = nodes.get(e.nodeJ);
+    if (!a || !b) return false;
+    const dz = Math.abs((b.z ?? 0) - (a.z ?? 0));
+    const dxy = Math.hypot((b.x ?? 0) - (a.x ?? 0), (b.y ?? 0) - (a.y ?? 0));
+    return dz > dxy;
+  });
+  expect(vertical.length, 'the founded node must carry a column for the footing to check')
+    .toBeGreaterThan(0);
+  return vertical.sort((x, y) => x.id - y.id)[0].id;
+}
+
 /** The lowest fully-fixed support node, chosen dynamically because loadFixture remaps ids. */
 function groundSupportNodeId(): number {
   const supports = [...modelStore.model.supports.values()];
@@ -74,6 +92,8 @@ async function buildProject(): Promise<{ ded: string; nodeId: number; footingId:
     cover: INPUTS.cover,
     foundingElevation: INPUTS.foundingElevation,
     soilProfileId: profileId,
+    // Without this the production run reports footing.run.noColumn and produces no entry.
+    columnElementId: columnElementIdAt(nodeId),
   } as never);
 
   return { ded: serializeProject(), nodeId, footingId };
