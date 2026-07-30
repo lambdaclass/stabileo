@@ -11,7 +11,7 @@ import { modelStore, uiStore, resultsStore } from '../store';
 import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
-import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, createTextSprite, heatmapColor } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, verificationStateColor, createTextSprite, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
@@ -402,10 +402,15 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   } else if (dt === 'verification') {
     // Verification status color map: flat per-element colors based on CIRSOC ratio
     clearHeatmapMeshes(ctx);
+    // THREE HONEST STATES: current / stale / unavailable. The previous code read
+    // `designMap` (the auto-design baseline, which is "designed to pass" by
+    // construction) and therefore stayed green after a user weakened rebar.
     for (const [id, group] of ctx.elementGroups) {
       showOriginalMeshes(group, true);
-      const ratio = verificationStore.getMaxRatio(id);
-      const c = verificationColor(ratio);
+      const ds = verificationStore.getDisplayStatus(id);
+      const state = ds === 'unavailable' ? 'unavailable' : ds === 'stale' ? 'stale' : 'current';
+      const ratio = state === 'unavailable' ? null : verificationStore.getDisplayRatio(id);
+      const c = verificationStateColor(ratio, state);
       setGroupColor(group, c);
       eb.setBaseColor(id, c);
     }
@@ -431,7 +436,8 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     ctx.verificationLabelsGroup = null;
   }
 
-  if (resultsStore.diagramType !== 'verification' || !verificationStore.hasResults) return;
+  if (resultsStore.diagramType !== 'verification') return;
+  if (!verificationStore.hasResults && !verificationStore.hasDemandData) return;
 
   const project2D = projectFlag();
 
@@ -439,7 +445,9 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
   group.name = 'verification-labels';
 
   for (const [id] of ctx.elementGroups) {
-    const ratio = verificationStore.getMaxRatio(id);
+    const ds = verificationStore.getDisplayStatus(id);
+    if (ds === 'unavailable') continue;
+    const ratio = verificationStore.getDisplayRatio(id);
     if (ratio === null) continue;
 
     const elem = modelStore.elements.get(id);
@@ -455,11 +463,13 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     const my = (sceneI.y + sceneJ.y) / 2;
     const mz = (sceneI.z + sceneJ.z) / 2;
 
-    // Color based on status
+    // Colour + glyph carry the state so it is never colour-only (a11y).
     const status = verificationStore.getStatus(id);
-    const textColor = status === 'fail' ? '#ff4444' : status === 'warn' ? '#ffaa00' : '#44ff88';
+    const baseColor = status === 'fail' ? '#ff4444' : status === 'warn' ? '#ffaa00' : '#44ff88';
+    const textColor = ds === 'stale' ? '#b9b9a8' : baseColor;
+    const glyph = ds === 'stale' ? '⌛ ' : status === 'fail' ? '✗ ' : status === 'warn' ? '⚠ ' : '';
 
-    const sprite = createTextSprite(ratio.toFixed(2), textColor, 32);
+    const sprite = createTextSprite(`${glyph}${ratio.toFixed(2)}`, textColor, 32);
     sprite.position.set(mx, my + 0.15, mz); // offset slightly above element
     sprite.scale.set(0.45, 0.45, 1);
     group.add(sprite);

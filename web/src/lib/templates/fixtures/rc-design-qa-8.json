@@ -1,0 +1,395 @@
+{
+  "name": "RC Design QA (8 members)",
+  "materials": [
+    {
+      "id": 1,
+      "name": "H30",
+      "e": 30000,
+      "nu": 0.2,
+      "rho": 25,
+      "fy": 30
+    }
+  ],
+  "sections": [
+    {
+      "id": 1,
+      "name": "RC Col 400×400",
+      "a": 0.16,
+      "iy": 0.002133333,
+      "iz": 0.002133333,
+      "j": 0.0036096,
+      "b": 0.4,
+      "h": 0.4,
+      "shape": "rect"
+    },
+    {
+      "id": 2,
+      "name": "RC Beam 300×550",
+      "a": 0.165,
+      "iy": 0.004159375,
+      "iz": 0.0012375,
+      "j": 0.003261428,
+      "b": 0.3,
+      "h": 0.55,
+      "shape": "rect"
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 2,
+      "x": 6,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 3,
+      "x": 0,
+      "y": 5,
+      "z": 0
+    },
+    {
+      "id": 4,
+      "x": 6,
+      "y": 5,
+      "z": 0
+    },
+    {
+      "id": 5,
+      "x": 0,
+      "y": 0,
+      "z": 3.2
+    },
+    {
+      "id": 6,
+      "x": 6,
+      "y": 0,
+      "z": 3.2
+    },
+    {
+      "id": 7,
+      "x": 0,
+      "y": 5,
+      "z": 3.2
+    },
+    {
+      "id": 8,
+      "x": 6,
+      "y": 5,
+      "z": 3.2
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 5,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 2,
+      "nodeJ": 6,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 3,
+      "type": "frame",
+      "nodeI": 3,
+      "nodeJ": 7,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 4,
+      "type": "frame",
+      "nodeI": 4,
+      "nodeJ": 8,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 5,
+      "type": "frame",
+      "nodeI": 5,
+      "nodeJ": 6,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 6,
+      "type": "frame",
+      "nodeI": 7,
+      "nodeJ": 8,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 7,
+      "type": "frame",
+      "nodeI": 5,
+      "nodeJ": 7,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 8,
+      "type": "frame",
+      "nodeI": 6,
+      "nodeJ": 8,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  ],
+  "supports": [
+    {
+      "id": 1,
+      "nodeId": 1,
+      "type": "fixed3d"
+    },
+    {
+      "id": 2,
+      "nodeId": 2,
+      "type": "fixed3d"
+    },
+    {
+      "id": 3,
+      "nodeId": 3,
+      "type": "fixed3d"
+    },
+    {
+      "id": 4,
+      "nodeId": 4,
+      "type": "fixed3d"
+    }
+  ],
+  "loads": [
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 1,
+        "elementId": 5,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -22,
+        "qZJ": -22,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 2,
+        "elementId": 5,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -11,
+        "qZJ": -11,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 3,
+        "elementId": 6,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -22,
+        "qZJ": -22,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 4,
+        "elementId": 6,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -11,
+        "qZJ": -11,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 5,
+        "elementId": 7,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -22,
+        "qZJ": -22,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 6,
+        "elementId": 7,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -11,
+        "qZJ": -11,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 7,
+        "elementId": 8,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -22,
+        "qZJ": -22,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 8,
+        "elementId": 8,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -11,
+        "qZJ": -11,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "nodal3d",
+      "data": {
+        "id": 9,
+        "nodeId": 5,
+        "fx": 14,
+        "fy": 0,
+        "fz": 0,
+        "mx": 0,
+        "my": 0,
+        "mz": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "nodal3d",
+      "data": {
+        "id": 10,
+        "nodeId": 7,
+        "fx": 14,
+        "fy": 0,
+        "fz": 0,
+        "mx": 0,
+        "my": 0,
+        "mz": 0,
+        "caseId": 3
+      }
+    }
+  ],
+  "plates": [],
+  "quads": [],
+  "constraints": [],
+  "loadCases": [
+    {
+      "id": 1,
+      "type": "D",
+      "name": "Dead Load"
+    },
+    {
+      "id": 2,
+      "type": "L",
+      "name": "Live Load"
+    },
+    {
+      "id": 3,
+      "type": "W",
+      "name": "Wind"
+    }
+  ],
+  "combinations": [
+    {
+      "id": 1,
+      "name": "1.4D",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.4
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "1.2D+1.6L",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 1.6
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "1.2D+1.0L+1.6W",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 1
+        },
+        {
+          "caseId": 3,
+          "factor": 1.6
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "0.9D+1.6W",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 0.9
+        },
+        {
+          "caseId": 3,
+          "factor": 1.6
+        }
+      ]
+    }
+  ]
+}

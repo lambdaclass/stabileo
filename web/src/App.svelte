@@ -721,46 +721,46 @@
 
         <!-- Geometry -->
         <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['nodes','elements','shells'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('geometry')}>{t('pro.groupGeometry')} <span class="pb-caret">▾</span></button>
+          <button class="pb-group" class:group-active={['nodes','elements','shells'].includes(uiStore.proActiveTab)} data-testid="pb-group-geometry" onclick={() => toggleDropdown('geometry')}>{t('pro.groupGeometry')} <span class="pb-caret">▾</span></button>
           {#if openDropdown === 'geometry'}
             <div class="pb-dropdown">
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'nodes'} onclick={() => { uiStore.proActiveTab = 'nodes'; openDropdown = null; }}>{t('pro.tabNodes')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'elements'} onclick={() => { uiStore.proActiveTab = 'elements'; openDropdown = null; }}>{t('pro.tabElements')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'shells'} onclick={() => { uiStore.proActiveTab = 'shells'; openDropdown = null; }}>{t('pro.tabShells')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-nodes" class:active={uiStore.proActiveTab === 'nodes'} onclick={() => { uiStore.proActiveTab = 'nodes'; openDropdown = null; }}>{t('pro.tabNodes')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-elements" class:active={uiStore.proActiveTab === 'elements'} onclick={() => { uiStore.proActiveTab = 'elements'; openDropdown = null; }}>{t('pro.tabElements')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-shells" class:active={uiStore.proActiveTab === 'shells'} onclick={() => { uiStore.proActiveTab = 'shells'; openDropdown = null; }}>{t('pro.tabShells')}</button>
             </div>
           {/if}
         </div>
         <!-- Properties -->
         <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['materials','sections'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('properties')}>{t('pro.groupProperties')} <span class="pb-caret">▾</span></button>
+          <button class="pb-group" class:group-active={['materials','sections'].includes(uiStore.proActiveTab)} data-testid="pb-group-properties" onclick={() => toggleDropdown('properties')}>{t('pro.groupProperties')} <span class="pb-caret">▾</span></button>
           {#if openDropdown === 'properties'}
             <div class="pb-dropdown">
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'materials'} onclick={() => { uiStore.proActiveTab = 'materials'; openDropdown = null; }}>{t('pro.tabMaterials')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'sections'} onclick={() => { uiStore.proActiveTab = 'sections'; openDropdown = null; }}>{t('pro.tabSections')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-materials" class:active={uiStore.proActiveTab === 'materials'} onclick={() => { uiStore.proActiveTab = 'materials'; openDropdown = null; }}>{t('pro.tabMaterials')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-sections" class:active={uiStore.proActiveTab === 'sections'} onclick={() => { uiStore.proActiveTab = 'sections'; openDropdown = null; }}>{t('pro.tabSections')}</button>
             </div>
           {/if}
         </div>
         <!-- Conditions -->
         <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['supports','constraints','loads'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('conditions')}>{t('pro.groupConditions')} <span class="pb-caret">▾</span></button>
+          <button class="pb-group" class:group-active={['supports','constraints','loads'].includes(uiStore.proActiveTab)} data-testid="pb-group-conditions" onclick={() => toggleDropdown('conditions')}>{t('pro.groupConditions')} <span class="pb-caret">▾</span></button>
           {#if openDropdown === 'conditions'}
             <div class="pb-dropdown">
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'supports'} onclick={() => { uiStore.proActiveTab = 'supports'; openDropdown = null; }}>{t('pro.tabSupports')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'constraints'} onclick={() => { uiStore.proActiveTab = 'constraints'; openDropdown = null; }}>{t('pro.tabConstraints')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'loads'} onclick={() => { uiStore.proActiveTab = 'loads'; openDropdown = null; }}>{t('pro.tabLoads')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-supports" class:active={uiStore.proActiveTab === 'supports'} onclick={() => { uiStore.proActiveTab = 'supports'; openDropdown = null; }}>{t('pro.tabSupports')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-constraints" class:active={uiStore.proActiveTab === 'constraints'} onclick={() => { uiStore.proActiveTab = 'constraints'; openDropdown = null; }}>{t('pro.tabConstraints')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-loads" class:active={uiStore.proActiveTab === 'loads'} onclick={() => { uiStore.proActiveTab = 'loads'; openDropdown = null; }}>{t('pro.tabLoads')}</button>
             </div>
           {/if}
         </div>
         <!-- Analysis -->
         <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['advanced','results','design','connections','diagnostics'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('analysis')}>{t('pro.groupAnalysis')} <span class="pb-caret">▾</span></button>
+          <button class="pb-group" class:group-active={['advanced','results','design','connections','diagnostics'].includes(uiStore.proActiveTab)} data-testid="pb-group-analysis" onclick={() => toggleDropdown('analysis')}>{t('pro.groupAnalysis')} <span class="pb-caret">▾</span></button>
           {#if openDropdown === 'analysis'}
             <div class="pb-dropdown">
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'advanced'} onclick={() => { uiStore.proActiveTab = 'advanced'; openDropdown = null; }}>{t('pro.tabAdvanced')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'results'} onclick={() => { uiStore.proActiveTab = 'results'; openDropdown = null; }}>{t('pro.tabResults')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'design'} onclick={() => { uiStore.proActiveTab = 'design'; openDropdown = null; }}>{t('pro.tabDesign')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'connections'} onclick={() => { uiStore.proActiveTab = 'connections'; openDropdown = null; }}>{t('pro.tabConnections')}</button>
-              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'diagnostics'} onclick={() => { uiStore.proActiveTab = 'diagnostics'; openDropdown = null; }}>{t('pro.tabDiagnostics')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-advanced" class:active={uiStore.proActiveTab === 'advanced'} onclick={() => { uiStore.proActiveTab = 'advanced'; openDropdown = null; }}>{t('pro.tabAdvanced')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-results" class:active={uiStore.proActiveTab === 'results'} onclick={() => { uiStore.proActiveTab = 'results'; openDropdown = null; }}>{t('pro.tabResults')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-design" class:active={uiStore.proActiveTab === 'design'} onclick={() => { uiStore.proActiveTab = 'design'; openDropdown = null; }}>{t('pro.tabDesign')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-connections" class:active={uiStore.proActiveTab === 'connections'} onclick={() => { uiStore.proActiveTab = 'connections'; openDropdown = null; }}>{t('pro.tabConnections')}</button>
+              <button class="pb-dd-item" data-testid="pb-tab-diagnostics" class:active={uiStore.proActiveTab === 'diagnostics'} onclick={() => { uiStore.proActiveTab = 'diagnostics'; openDropdown = null; }}>{t('pro.tabDiagnostics')}</button>
             </div>
           {/if}
         </div>

@@ -1,0 +1,3567 @@
+{
+  "key": "cirsoc-102-2025",
+  "code": "CIRSOC 102",
+  "edition": "2025",
+  "title": "Reglamento Argentino de Acción del Viento sobre las Construcciones",
+  "source_file": "CIRSOC 102-2025.pdf",
+  "sha256": "801edf11ed05a76006cad958a54b231de997e34dc72f665bdbe55c77102c7cd1",
+  "bytes": 17065997,
+  "pages": 292,
+  "toc_pages_skipped": 6,
+  "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+  "pages_ok": 281,
+  "pages_sparse": 6,
+  "pages_empty": 5,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        18
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "CARGAS DE VIENTO: REQUISITOS GENERALES",
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md",
+      "pages": [
+        19,
+        88
+      ],
+      "clause_count": 84
+    },
+    {
+      "number": "CAPÍTULO 2",
+      "title": "CARGAS DE VIENTO SOBRE EDIFICIOS - SISTEMAS",
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md",
+      "pages": [
+        89,
+        114
+      ],
+      "clause_count": 81
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "PROCEDIMIENTO ENVOLVENTE PARA ESTIMAR LAS",
+      "file": "capitulo-3-procedimiento-envolvente-para-estimar-las.md",
+      "pages": [
+        115,
+        116
+      ],
+      "clause_count": 1
+    },
+    {
+      "number": "CAPÍTULO 4",
+      "title": "CARGAS DE VIENTO SOBRE ACCESORIOS DE EDIFICIOS",
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md",
+      "pages": [
+        117,
+        152
+      ],
+      "clause_count": 57
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "CARGAS DE VIENTO",
+      "file": "capitulo-5-cargas-de-viento.md",
+      "pages": [
+        153,
+        226
+      ],
+      "clause_count": 195
+    },
+    {
+      "number": "CAPÍTULO 6",
+      "title": "PROCEDIMIENTO DE TÚNEL DE VIENTO",
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md",
+      "pages": [
+        227,
+        236
+      ],
+      "clause_count": 15
+    },
+    {
+      "number": "APÉNDICE B",
+      "title": "–                            COMBINACIONES DE CARGAS",
+      "file": "apendice-b-combinaciones-de-cargas.md",
+      "pages": [
+        237,
+        236
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "APÉNDICE C",
+      "title": "–                            CARGAS DE VIENTO SOBRE",
+      "file": "apendice-c-cargas-de-viento-sobre.md",
+      "pages": [
+        237,
+        240
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "APÉNDICE B",
+      "title": "COMBINACIONES DE CARGAS QUE INCLUYEN CARGA",
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md",
+      "pages": [
+        241,
+        248
+      ],
+      "clause_count": 11
+    },
+    {
+      "number": "APÉNDICE C",
+      "title": "CARGAS DE VIENTO SOBRE EDIFICIOS – SPRFV",
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md",
+      "pages": [
+        249,
+        264
+      ],
+      "clause_count": 12
+    },
+    {
+      "number": "ANEXO I",
+      "title": "COEFICIENTES DE FUERZA PARA ESTRUCTURAS O",
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md",
+      "pages": [
+        265,
+        275
+      ],
+      "clause_count": 27
+    },
+    {
+      "number": "ANEXO II",
+      "title": "COEFICIENTES DE FUERZA PARA           ANEXO I - COEFICIENTES DE FUERZA PARA",
+      "file": "anexo-ii-coeficientes-de-fuerza-para-anexo-i-coeficientes-de-fuerza-p.md",
+      "pages": [
+        276,
+        275
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "ANEXO III",
+      "title": "– PROPIEDADES DINÁMICAS DE LAS",
+      "file": "anexo-iii-propiedades-dinamicas-de-las.md",
+      "pages": [
+        276,
+        275
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "ANEXO V",
+      "title": "COEFICIENTES DE PRESIÓN PARA",
+      "file": "anexo-v-coeficientes-de-presion-para.md",
+      "pages": [
+        276,
+        275
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "ANEXO VI",
+      "title": "COEFICIENTES DE PRESIÓN Y",
+      "file": "anexo-vi-coeficientes-de-presion-y.md",
+      "pages": [
+        276,
+        292
+      ],
+      "clause_count": 1
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "PROCEDIMIENTOS                                               C 1.1. PROCEDIMIENTOS",
+      "page": 19,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1.1",
+      "title": "Alcance                                          C 1.1.1. Alcance",
+      "page": 20,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1.2",
+      "title": "Procedimientos permitidos                        C 1.1.2. Procedimientos permitidos",
+      "page": 20,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1.2.1",
+      "title": "Sistema Principal Resistente a la Fuerza                  Para SPRFV:",
+      "page": 21,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1.2.2",
+      "title": "Componentes y Revestimientos (C&R)                        Limitaciones",
+      "page": 21,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2",
+      "title": "DEFINICIONES                                                 C 1.2. DEFINICIONES",
+      "page": 23,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3",
+      "title": "SIMBOLOGÍA                                          C 1.3. SIMBOLOGÍA",
+      "page": 30,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4",
+      "title": "GENERALIDADES                                       C 1.4. GENERALIDADES",
+      "page": 36,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.1",
+      "title": "Convención de signos",
+      "page": 36,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.2",
+      "title": "Condición crítica de carga",
+      "page": 36,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4.3",
+      "title": "Presiones de viento actuando sobre caras                   C 1.4.3. Presiones de viento actuando sobre caras",
+      "page": 37,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5",
+      "title": "MAPA DE RIESGO DE VIENTO                                     C 1.5. MAPA DE RIESGO DE VIENTO",
+      "page": 37,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.1",
+      "title": "Velocidad básica de viento                                 C 1.5.1. Velocidad básica de viento",
+      "page": 37,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "Los valores se refieren a velocidad de ráfaga de 3                   factor de ráfaga tal como se computa usando los",
+      "page": 38,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "Es aplicable la interpolación lineal entre contornos de              retorno de 50 años.",
+      "page": 38,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "3",
+      "title": "En islas, áreas costeras y fronteras terrestres fuera del",
+      "page": 38,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "4",
+      "title": "Los terrenos montañosos, quebradas, promontorios            La comisión de trabajo razonó que la probabilidad anual de",
+      "page": 38,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "5",
+      "title": "Las velocidades del viento de este mapa tienen              debería ser la misma. Para lograr esto, la comisión de",
+      "page": 38,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "Los valores se refieren a velocidad de ráfaga de 3             anual de 0,0014.",
+      "page": 39,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "Es aplicable la interpolación lineal entre contornos de        anteriores para el cómputo de las cargas de viento para el",
+      "page": 39,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "3",
+      "title": "En islas, áreas costeras y fronteras terrestres fuera del      definido de tal manera que la velocidad de viento no",
+      "page": 39,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "4",
+      "title": "Los terrenos montañosos, quebradas, promontorios",
+      "page": 39,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "5",
+      "title": "Las velocidades del viento de este mapa tienen                 Siguiendo el enfoque usado previamente para estimar el",
+      "page": 39,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "Los valores se refieren a velocidad de ráfaga de 3",
+      "page": 40,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "Es aplicable la interpolación lineal entre contornos de     Método de los Momentos para determinar los parámetros",
+      "page": 40,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "3",
+      "title": "En islas, áreas costeras y fronteras terrestres fuera del   determinó la velocidad básica V50 asociada a un período de",
+      "page": 40,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "4",
+      "title": "Los terrenos montañosos, quebradas, promontorios            Posteriormente, Altinger (1997) estableció las isolíneas",
+      "page": 40,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "5",
+      "title": "Las velocidades del viento de este mapa tienen              Viollaz y con la física de los procesos atmosféricos sobre",
+      "page": 40,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.2",
+      "title": "Regiones especiales de viento                   C 1.5.2. Regiones especiales de viento",
+      "page": 42,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.3",
+      "title": "Estimación de la velocidad básica de viento     C 1.5.3. Estimación de la velocidad básica de viento a",
+      "page": 42,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.5.4",
+      "title": "Limitación                                       C 1.5.4. Limitación",
+      "page": 44,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.6",
+      "title": "DIRECCIONALIDAD DEL VIENTO                         C 1.6. DIRECCIONALIDAD DEL VIENTO",
+      "page": 44,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7",
+      "title": "EXPOSICIÓN                                                   C 1.7. EXPOSICIÓN",
+      "page": 45,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7.1",
+      "title": "Sectores y direcciones de viento                           Las condiciones de rugosidad superficial a barlovento",
+      "page": 45,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7.2",
+      "title": "Categorías de rugosidad superficial                       de las categorías de rugosidad superficial de B a D",
+      "page": 46,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7.3",
+      "title": "Categorías de exposición                                     En la edición anterior del reglamento se definía una",
+      "page": 47,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7.4",
+      "title": "Requisitos de exposición                                   C 1.7.4. Requisitos de exposición",
+      "page": 53,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7.4.1",
+      "title": "Procedimiento Direccional (Capítulo 2)                   El artículo 1.5.1 del Reglamento requiere que la estructura",
+      "page": 53,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7.4.3",
+      "title": "Procedimiento       Direccional         para    para determinar individualmente las cargas completas",
+      "page": 54,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.7.4.4",
+      "title": "Componentes y revestimientos (Capítulo 5)       sobre SPRFV de edificios de baja altura se calculan usando",
+      "page": 54,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.8",
+      "title": "EFECTOS TOPOGRÁFICOS                                C 1.8. EFECTOS TOPOGRÁFICOS",
+      "page": 54,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.8.1",
+      "title": "Aumento de la velocidad del viento sobre          El artículo 1.8 especifica cuándo se debe aplicar efectos",
+      "page": 54,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "La estructura se localiza tal como se muestra en la",
+      "page": 55,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "H/Lh ≥ 0,2                                                     daños reales causados por viento han mostrado que la",
+      "page": 55,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "3",
+      "title": "H ≥ 5 m para Exposición C y D y H ≥ 20 m para",
+      "page": 55,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "Para valores de H/Lh, x/Lh y z/Lh distintos a los indicados, se permite la interpolación lineal.",
+      "page": 56,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "Para H/Lh > 0,5, suponer que H/Lh = 0,5 para la evaluación de K1, y sustituir Lh por 2H para la evaluaciónde K2 y K3.",
+      "page": 56,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "4",
+      "title": "Los multiplicadores deben ser usados para cualquier exposición.",
+      "page": 56,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9",
+      "title": "EFECTOS DE RÁFAGA                                            C 1.9. EFECTOS DE RÁFAGA",
+      "page": 57,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9.1",
+      "title": "Factor de efecto de ráfaga                                 CIRSOC 102 contiene un factor de efecto de ráfaga único",
+      "page": 57,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9.2",
+      "title": "Determinación de la frecuencia                             que tome en cuenta el efecto de decorrelación de las",
+      "page": 57,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9.2.1",
+      "title": "Limitaciones para la frecuencia natural",
+      "page": 57,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9.3",
+      "title": "Frecuencia natural aproximada                         carga en la dirección del viento causados por la interacción",
+      "page": 58,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9.4",
+      "title": "Edificios y otras estructuras rígidos                        viento",
+      "page": 58,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9.5",
+      "title": "Edificios u otras estructuras flexibles o                               Aceleración máxima en la dirección del viento",
+      "page": 59,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9.6",
+      "title": "Análisis racional                                          La expresión (C 1.9-7) para el valor límite inferior se",
+      "page": 61,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.9.7",
+      "title": "Limitaciones",
+      "page": 61,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10",
+      "title": "CLASIFICACIÓN DE CERRAMIENTO                        C 1.10. CLASIFICACIÓN DE CERRAMIENTO",
+      "page": 70,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10.1",
+      "title": "Generalidades                                     La magnitud y sentido de la presión interna dependen de la",
+      "page": 70,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10.2",
+      "title": "Aberturas                                         abierto o abierto).",
+      "page": 70,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10.2.1",
+      "title": "Resistencia de las aberturas                    acondicionado y/o sistemas de ventilación, rendijas",
+      "page": 70,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10.3",
+      "title": "Protección de aberturas vidriadas                 C 1.10.3. Protección de aberturas vidriadas",
+      "page": 70,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10.3.1",
+      "title": "Regiones con detritus arrastrados por                   C 1.10.3.1. Regiones con detritus arrastrados por el",
+      "page": 71,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10.3.2",
+      "title": "Requisitos de protección para aberturas        C 1.10.3.2. Requisitos de protección para aberturas",
+      "page": 72,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10.4",
+      "title": "Portones de cocheras                             C 1.10.4. Portones de cocheras",
+      "page": 74,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.10.5",
+      "title": "Clasificaciones múltiples",
+      "page": 74,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.11",
+      "title": "COEFICIENTES DE PRESIÓN INTERNA                    C 1.11. COEFICIENTES DE PRESIÓN INTERNA",
+      "page": 74,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.11.1",
+      "title": "Factor de reducción para edificios de gran                se supuso que los valores del coeficiente de presión interna",
+      "page": 75,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "Los signos más y menos significan presiones actuando hacia y desde las superficies internas.",
+      "page": 76,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "Los valores de (GCpi) se deben usar con qz o qh como se especifica en el artículo 5.12.",
+      "page": 76,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "3",
+      "title": "Para determinar los requisitos de carga crítica para la condición apropiada, se deben considerar dos casos:",
+      "page": 76,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.12",
+      "title": "FACTOR DE ALTITUD                                      C 1.12. FACTOR DE ALTITUD",
+      "page": 76,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "La aproximación conservadora Ke = 1,00 se permite          del aire).",
+      "page": 77,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "El factor Ke se calculará interpolando valores de la",
+      "page": 77,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.13",
+      "title": "PRESIÓN DINÁMICA                                            C 1.13. PRESIÓN DINÁMICA",
+      "page": 77,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.13.1",
+      "title": "Coeficiente de exposición para la presión                 C 1.13.1. Coeficiente de exposición para la presión",
+      "page": 77,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "El coeficiente de exposición para la presión                      emplazamiento, determinados por un método de análisis",
+      "page": 78,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "3",
+      "title": "Se permite la interpolación lineal para valores                   exposición C y 150 m en exposición D. La intención fue",
+      "page": 78,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.13.2",
+      "title": "Presión dinámica                                            C 1.13.2. Presión dinámica",
+      "page": 83,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "Categoría de Riesgo del edificio en el cual el",
+      "page": 84,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "Categoría de Riesgo de cualquier instalación a la",
+      "page": 84,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.14",
+      "title": "CLASIFICACIÓN DE EDIFICIOS Y OTRAS                  C 1.14. CLASIFICACIÓN DE EDIFICIOS Y OTRAS",
+      "page": 84,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.14.1",
+      "title": "Categoría de riesgo                               En esta edición del Reglamento el factor de importancia",
+      "page": 84,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.14.2",
+      "title": "Categorías de riesgo múltiples                             aceptable para un edificio o estructura es un tema de",
+      "page": 85,
+      "file": "capitulo-1-cargas-de-viento-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1",
+      "title": "ALCANCE                                                      C 2.1. ALCANCE",
+      "page": 89,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.1",
+      "title": "Tipos de edificio",
+      "page": 89,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "La Parte 1 se aplica a edificios de todas las",
+      "page": 89,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "La Parte 2 se aplica a una clase especial de",
+      "page": 89,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.2",
+      "title": "Condiciones",
+      "page": 89,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "El edificio o estructura es de forma regular, como",
+      "page": 89,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "El edificio no tiene características de respuesta",
+      "page": 89,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.3",
+      "title": "Limitaciones",
+      "page": 90,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.4",
+      "title": "Protección",
+      "page": 90,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.1.5",
+      "title": "Cargas de viento de diseño mínimas                  C 2.1.5. Cargas de viento de diseño mínimas",
+      "page": 90,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2",
+      "title": "REQUISITOS GENERALES",
+      "page": 91,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.2.1",
+      "title": "Parámetros     de   carga              de      viento",
+      "page": 91,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.3",
+      "title": "PRESIÓN DINÁMICA                                             C 2.3. PRESIÓN DINÁMICA",
+      "page": 91,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4",
+      "title": "CARGAS DE VIENTO: SISTEMA PRINCIPAL                   C 2.4. CARGAS    DE     VIENTO: SISTEMA",
+      "page": 92,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.1",
+      "title": "Edificios rígidos y flexibles cerrados,             C 2.4.1. Edificios rígidos y flexibles cerrados,",
+      "page": 92,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.2",
+      "title": "Intencionalmente en blanco",
+      "page": 94,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.3",
+      "title": "Edificios abiertos o cubiertas aisladas, de           C 2.4.3. Edificios abiertos o cubiertas aisladas, de",
+      "page": 94,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.3.1",
+      "title": "Edificios abiertos o cubiertas aisladas",
+      "page": 95,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.4",
+      "title": "Voladizos de cubierta",
+      "page": 96,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.5",
+      "title": "Parapetos                                             C 2.4.5. Parapetos",
+      "page": 96,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.6",
+      "title": "Casos de carga de viento de diseño                    C 2.4.6. Casos de carga de viento de diseño",
+      "page": 96,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.7",
+      "title": "Edificios    exceptuados      de                 casos     C 2.4.7. Edificios exceptuados de casos torsionales de",
+      "page": 97,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.7.1",
+      "title": "Alcance                                                  Como se indicó en el artículo C 2.4.6, un edificio",
+      "page": 97,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.7.2",
+      "title": "Edificios de una y dos plantas",
+      "page": 98,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.7.3",
+      "title": "Edificios controlados por la acción             complejo describir sus limitaciones de una manera simple.",
+      "page": 98,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.7.4",
+      "title": "Edificios clasificados como torsional-          la Figura C 2.4.7-1 y un análisis de desplazamientos, para",
+      "page": 98,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.4.7.5",
+      "title": "Edificios con diafragmas flexibles",
+      "page": 99,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.5",
+      "title": "REQUISITOS GENERALES                              C 2.5. REQUISITOS GENERALES",
+      "page": 100,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.5.1",
+      "title": "Procedimiento de diseño                         C 2.5.1. Procedimiento de diseño",
+      "page": 100,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.5.2",
+      "title": "Campo de validez",
+      "page": 101,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "Se trata de un edificio con diafragmas simples,",
+      "page": 101,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "Las presiones del viento indicadas representan lo siguiente:",
+      "page": 102,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "Los valores indicados son para exposición B. Para otras exposiciones, estos valores se deben multiplicar por los",
+      "page": 102,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Los valores indicados para la cubierta se basan en un área tributaria menor o igual que 10 m. Para áreas tributarias",
+      "page": 102,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "4",
+      "title": "Los signos más y menos indican presiones que actúan hacia y desde la superficie exterior, respectivamente.",
+      "page": 102,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "5",
+      "title": "Para cubiertas se dan dos valores de presión, que consideran la posibilidad de sobrepresiones o succiones internas,",
+      "page": 102,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "6",
+      "title": "Para valores intermedios de velocidad se permite interpolar cuadráticamente las presiones.",
+      "page": 102,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "7",
+      "title": "Las presiones son para el diseño del SPRFV. Los elementos de paredes y cubiertas se deben diseñar, además, para",
+      "page": 102,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.5.3",
+      "title": "Revestimiento permeable al aire",
+      "page": 103,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2.5.4",
+      "title": "Flexibilidad del diafragma",
+      "page": 103,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "Los signos más y menos significan presiones que actúan acercándose a la superficie o alejándose de",
+      "page": 105,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "Se permite la interpolación lineal para valores de L/B, h/L y  distintos a los indicados. La interpolación sólo",
+      "page": 105,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Donde se listan dos valores de Cp se quiere indicar que la pendiente de la cubierta a barlovento está sujeta",
+      "page": 105,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "4",
+      "title": "Para cubiertas con una sola pendiente, la superficie completa de la misma es superficie a barlovento o a",
+      "page": 105,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "5",
+      "title": "Referirse a la Figura 2.4-2 para cúpulas y Figura 2.4-3 para cubiertas abovedadas.",
+      "page": 105,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "6",
+      "title": "Para cubiertas en mansarda, la superficie superior horizontal y la superficie inclinada a sotavento se",
+      "page": 105,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "7",
+      "title": "El corte horizontal total, no debe ser menor que el determinado despreciando las fuerzas de viento sobres las",
+      "page": 105,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "Se considerarán dos casos de carga:",
+      "page": 106,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "Los valores de Cp se debe usar con q(hD+f) donde hD + f es la altura en la parte superior del domo.",
+      "page": 106,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose a la superficie o alejándose de ella,",
+      "page": 106,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "4",
+      "title": "Cp es constante en la superficie del domo para arcos de círculos perpendiculares a la dirección del viento; por",
+      "page": 106,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "5",
+      "title": "Para valores de hD / D entre los enumerados en las curvas del gráfico, se permitirá la interpolación lineal.",
+      "page": 106,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "7",
+      "title": "El corte horizontal total no debe ser menor que el determinado despreciando las fuerzas del viento en la",
+      "page": 106,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "8",
+      "title": "Para valores de f / D menores que 0,05 use la Figura 2.4-1.",
+      "page": 106,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 107,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "Considerar Cp = 0,105 + 1,39 r sobre la mitad a barlovento de la Zona I.",
+      "page": 107,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Sobre las zonas II, III y la mitad de la zona I más cercana a la cumbrera, sólo actuarán presiones negativas.",
+      "page": 107,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "CNW y CNL denotan presiones netas (contribuciones de las superficies superior e inferior) para las mitades de",
+      "page": 108,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "La situación sin bloqueo representa un flujo de viento relativamente sin obstrucciones debajo del techo, con",
+      "page": 108,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Para valores de  entre 7,5º y 45º, se permite la interpolación lineal. Para valores de  menores a 7,5º, use",
+      "page": 108,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "4",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde la superficie superior del techo,",
+      "page": 108,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "5",
+      "title": "Se aplicarán todos los casos de carga mostrados para cada ángulo de techo.",
+      "page": 108,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "CNW y CNL denotan presiones netas (contribuciones de las superficies superior e inferior) para las mitades de",
+      "page": 109,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "La situación sin bloqueo representa un flujo de viento relativamente sin obstrucciones debajo del techo, con",
+      "page": 109,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Para valores de  entre 7,5º y 45º, se permite la interpolación lineal. Para valores de  menores a 7,5º, use",
+      "page": 109,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "4",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde la superficie superior del techo,",
+      "page": 109,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "5",
+      "title": "Se aplicarán todos los casos de carga mostrados para cada ángulo de techo.",
+      "page": 109,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "CNW y CNL denotan presiones netas (contribuciones de las superficies superior e inferior) para las mitades de",
+      "page": 110,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "La situación sin bloqueo representa un flujo de viento relativamente sin obstrucciones debajo del techo, con",
+      "page": 110,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Para valores de  entre 7,5º y 45º, se permite la interpolación lineal. Para valores de  menores a 7,5º, use",
+      "page": 110,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "4",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde la superficie superior del techo,",
+      "page": 110,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "5",
+      "title": "Se aplicarán todos los casos de carga mostrados para cada ángulo de techo.",
+      "page": 110,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "CN denota presiones netas (contribuciones de las superficies superior e inferior).",
+      "page": 111,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "El flujo de viento claro denota un flujo de viento relativamente sin obstrucciones con un bloqueo menor o igual",
+      "page": 111,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde la superficie superior del techo,",
+      "page": 111,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "4",
+      "title": "Se investigarán todos los casos de carga mostrados para cada ángulo de techo.",
+      "page": 111,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "5",
+      "title": "Para techos de vertiente única con  < 5º, los valores de CN que se muestran se aplican también para los",
+      "page": 111,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "1",
+      "title": "Los diagramas muestran la vista en planta del edificio.",
+      "page": 114,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "2",
+      "title": "Por razones de claridad no se muestran las presiones sobre la cubierta. Para los casos 3 y 4 la presión",
+      "page": 114,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "3",
+      "title": "Por razones de claridad no se muestran las presiones sobre las paredes laterales para los casos 1 y 2 y no se",
+      "page": 114,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 2",
+      "id": "4",
+      "title": "Se aplicará MT sobre diafragmas rígidos. Se permitirá aplicar MT sobre pisos con diafragmas flexibles o",
+      "page": 114,
+      "file": "capitulo-2-cargas-de-viento-sobre-edificios-sistemas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1",
+      "title": "ALCANCE                                                      C 3.1. ALCANCE",
+      "page": 115,
+      "file": "capitulo-3-procedimiento-envolvente-para-estimar-las.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1",
+      "title": "ALCANCE",
+      "page": 117,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.1",
+      "title": "Tipos de estructura",
+      "page": 117,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.2",
+      "title": "Condiciones",
+      "page": 118,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "La estructura es de forma regular, como se define",
+      "page": 118,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "La estructura no tiene características de respuesta",
+      "page": 119,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.3",
+      "title": "Limitaciones",
+      "page": 119,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1.4",
+      "title": "Protección",
+      "page": 119,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2",
+      "title": "REQUISITOS GENERALES",
+      "page": 119,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2.1",
+      "title": "Parámetros     de   carga              de      viento",
+      "page": 119,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3",
+      "title": "PRESIÓN DINÁMICA                                             C 4.3. PRESIÓN DINÁMICA",
+      "page": 119,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4",
+      "title": "CARGAS DE VIENTO DE DISEÑO – PAREDES              C 4.4. CARGAS DE VIENTO DE DISEÑO –",
+      "page": 120,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.1",
+      "title": "Paredes libres llenas y carteles libres         C 4.4.1. Paredes libres llenas y carteles libres llenos",
+      "page": 120,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4.2",
+      "title": "Carteles llenos adosados                             C 4.4.2. Carteles llenos adosados",
+      "page": 122,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5",
+      "title": "CARGAS DE VIENTO DE DISEÑO – OTRAS                  C 4.5. CARGAS DE VIENTO DE DISEÑO – OTRAS",
+      "page": 122,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.1",
+      "title": "Estructuras y equipamientos ubicados                 C 4.5.1. Estructuras y equipamientos ubicados sobre",
+      "page": 122,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2",
+      "title": "Silos, tanques y recipientes cilíndricos          C 4.5.2. Silos, tanques y recipientes cilíndricos",
+      "page": 124,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2.1",
+      "title": "Paredes externas de silos, tanques y            C 4.5.2.1. Paredes externas de silos, tanques y",
+      "page": 124,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2.2",
+      "title": "Techos de silos, tanques y recipientes                   C 4.5.2.2. Techos de silos, tanques y recipientes",
+      "page": 125,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2.3",
+      "title": "Fondos de silos, tanques y recipientes                   C 4.5.2.3. Fondos de silos, tanques y recipientes",
+      "page": 125,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.2.4",
+      "title": "Techos y paredes externas de silos,              C 4.5.2.4. Techos y paredes externas de silos, tanques",
+      "page": 126,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.3",
+      "title": "Paneles solares en techos de edificios de          C 4.5.3. Paneles solares en techos de edificios de todas",
+      "page": 126,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "El caso donde los colectores solares están                     factor de mayoración de borde del conjunto, E, tomado de",
+      "page": 127,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "Los casos donde los paneles solares no están        brindar protección a paneles localizados directamente a",
+      "page": 128,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.4",
+      "title": "Paneles solares paralelos a la superficie                  C 4.5.4. Paneles solares paralelos a la superficie del",
+      "page": 129,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "El caso donde los colectores solares están",
+      "page": 130,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "Los casos donde los paneles solares no están",
+      "page": 130,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5",
+      "title": "Paneles solares montados en el terreno                     C 4.5.5. Paneles solares montados en el terreno con",
+      "page": 131,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5.1",
+      "title": "Alcance                                                  C 4.5.5.1. Alcance",
+      "page": 133,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5.2",
+      "title": "Cargas de viento de diseño",
+      "page": 134,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5.3",
+      "title": "Diseño de los soportes y fundaciones",
+      "page": 135,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5.5.4",
+      "title": "Frecuencia reducida para sistemas de",
+      "page": 135,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6",
+      "title": "PARAPETOS                                                    C 4.6. PARAPETOS",
+      "page": 135,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.7",
+      "title": "VOLADIZOS DE CUBIERTA",
+      "page": 138,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.8",
+      "title": "CARGAS DE VIENTO DE DISEÑO MÍNIMAS                    C 4.8. CARGAS DE VIENTO DE DISEÑO MÍNIMAS",
+      "page": 138,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "Los carteles con aberturas que comprendan menos del 30 % del área bruta se clasifican como carteles",
+      "page": 140,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "Para considerar ambas direcciones del viento, normal y oblicua, se deben tener en cuenta los siguientes",
+      "page": 140,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "3",
+      "title": "Para el caso C donde s/h > 0,8, los coeficientes de fuerza se multiplicarán por el factor de reducción (1,8 – s/h).",
+      "page": 140,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4",
+      "title": "Se permite la interpolación lineal para valores de s/h, B/s y Lr/s distintos de los mostrados.",
+      "page": 140,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "La fuerza del viento de diseño se calculará en función del área de la estructura proyectada en un plano",
+      "page": 141,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "Se permite la interpolación lineal para valores h/D distintos de los mostrados.",
+      "page": 141,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "Los carteles con aberturas que representen el 30 % o más del área bruta se clasifican como carteles",
+      "page": 142,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "El cálculo de las fuerzas del viento de diseño se basará en el área de todos los miembros expuestos y",
+      "page": 142,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "3",
+      "title": "El área Af consistente con estos coeficientes de fuerza es el área sólida proyectada normal a la dirección del",
+      "page": 142,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "Para todas las direcciones del viento consideradas, el área Af consistente con los coeficientes de fuerza",
+      "page": 143,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "Los coeficientes de fuerza especificados son para torres con ángulos estructurales o elementos de lados",
+      "page": 143,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "3",
+      "title": "Para torres que contienen miembros redondeados, es aceptable multiplicar los coeficientes de fuerza",
+      "page": 143,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4",
+      "title": "Las fuerzas del viento se aplicarán en las direcciones que den como resultado fuerzas y reacciones máximas",
+      "page": 143,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "5",
+      "title": "Las fuerzas del viento en los accesorios de la torre, como escaleras, conductos, luces, ascensores, etc., se",
+      "page": 143,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "6",
+      "title": "Se debe tener en cuenta el incremento de cargas debido a la adherencia de hielo. (Ver Reglamento CIRSOC",
+      "page": 143,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "Se permite la interpolación lineal para  entre 5° y 15°.",
+      "page": 148,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "3",
+      "title": "An = A·(1000 / [max (Lb ; 4,5 m)2]), donde A es el área de viento efectiva del elemento estructural del panel",
+      "page": 148,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "Cuando un área abierta con fines de acceso y/o de paso libre supere una distancia igual a 0,25Lc en la",
+      "page": 150,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "Cuando ds > 1,5Lc, el ancho de la Zona 2 se incrementará hasta ds en la dirección longitudinal.",
+      "page": 150,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "3",
+      "title": "El ancho de la Zona 2 será siempre de tres hileras en sentido transversal.",
+      "page": 150,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "Se permitirá la interpolación lineal para los valores de  comprendidos entre 5° y 15°.",
+      "page": 151,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "1",
+      "title": "Los coeficientes dinámicos con una relación de amortiguamiento, , distinta del 1 % (0,01), se calcularán",
+      "page": 152,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "2",
+      "title": "Se permitirá la interpolación lineal para valores intermedios del área de viento efectiva, A.",
+      "page": 152,
+      "file": "capitulo-4-cargas-de-viento-sobre-accesorios-de-edificios.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "ALCANCE                                                      C 5.1. ALCANCE",
+      "page": 153,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.1",
+      "title": "Tipos de edificio                                C 5.1.1. Tipos de edificio",
+      "page": 154,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.2",
+      "title": "Condiciones",
+      "page": 155,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "El edificio es de forma regular, como se define",
+      "page": 155,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.3",
+      "title": "Limitaciones",
+      "page": 155,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.4",
+      "title": "Protección",
+      "page": 156,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1.5",
+      "title": "Revestimiento permeable al aire                  C 5.1.5. Revestimiento permeable al aire",
+      "page": 156,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "REQUISITOS GENERALES                                 C 5.2. REQUISITOS GENERALES",
+      "page": 158,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.1",
+      "title": "Parámetros     de   carga         de     viento",
+      "page": 158,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.2",
+      "title": "Presiones de viento de diseño mínimas",
+      "page": 158,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.3",
+      "title": "Áreas tributarias mayores que 65 m2",
+      "page": 158,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2.4",
+      "title": "Coeficientes de presión externa",
+      "page": 158,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "TIPOS DE EDIFICIOS                                   C 5.3. TIPOS DE EDIFICIOS",
+      "page": 158,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.1",
+      "title": "Condiciones",
+      "page": 159,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.2",
+      "title": "Presiones de viento de diseño                              C 5.3.2. Presiones de viento de diseño",
+      "page": 159,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3.2.1",
+      "title": "Superficie horizontal inferior de edificios              C 5.3.2.1. Superficie horizontal inferior de edificios",
+      "page": 165,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "Áreas de superficie horizontal sobre espacios",
+      "page": 165,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4",
+      "title": "TIPOS DE EDIFICIOS                                 C 5.4. TIPOS DE EDIFICIOS",
+      "page": 166,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.1",
+      "title": "Condiciones                                                C 5.4.1. Condiciones",
+      "page": 167,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.2",
+      "title": "Presiones de viento de diseño                       C 5.4.2. Presiones de viento de diseño",
+      "page": 168,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4.2.1",
+      "title": "Superficie horizontal inferior de edificios       C 5.4.2.1. Superficie horizontal inferior de edificios",
+      "page": 168,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La presión dinámica, q, usada en la expresión                  edificio más el 25 % de la altura del edificio por encima.",
+      "page": 169,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "Áreas de superficie horizontal sobre espacios                  como área parcialmente cerrada. Cuando un edificio con",
+      "page": 169,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.5",
+      "title": "TIPOS DE EDIFICIOS                                   C 5.5. TIPOS DE EDIFICIOS",
+      "page": 170,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.5.1",
+      "title": "Condiciones",
+      "page": 170,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.5.2",
+      "title": "Presiones de viento de diseño",
+      "page": 170,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.6",
+      "title": "PARAPETOS",
+      "page": 171,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.7",
+      "title": "VOLADIZOS DE CUBIERTA",
+      "page": 173,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.8",
+      "title": "ESTRUCTURAS Y EQUIPAMIENTOS SOBRE",
+      "page": 174,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.9",
+      "title": "ALEROS ADOSADOS           A   PAREDES         DE   C 5.9. ALEROS ADOSADOS             A   PAREDES DE",
+      "page": 174,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Como alternativa al uso de (GCp) de la Figura",
+      "page": 175,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "Como alternativa al uso de (GCpn) de la Figura",
+      "page": 175,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10",
+      "title": "SILOS,   TANQUES    Y   RECIPIENTES                         C 5.10. SILOS,  TANQUES    Y  RECIPIENTES",
+      "page": 177,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.1",
+      "title": "Presión de viento de diseño",
+      "page": 177,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.2",
+      "title": "Paredes externas de silos, tanques y                      C 5.10.2. Paredes externas de silos, tanques               y",
+      "page": 178,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.3",
+      "title": "Presiones en las superficies interiores de                C 5.10.3. Presiones en las superficies interiores de las",
+      "page": 178,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.4",
+      "title": "Cubiertas de silos, tanques y recipientes                 C 5.10.4. Cubiertas de silos, tanques y recipientes",
+      "page": 179,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.5",
+      "title": "Superficie inferior de silos, tanques y",
+      "page": 179,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.6",
+      "title": "Cubiertas y paredes de silos, tanques                     C 5.10.6. Cubiertas y paredes de silos, tanques y",
+      "page": 179,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.10.7",
+      "title": "Fuerza total de empuje en las paredes",
+      "page": 180,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.11",
+      "title": "PANELES SOLARES SOBRE CUBIERTAS",
+      "page": 180,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.12",
+      "title": "SOLADOS DE CUBIERTAS DE EDIFICIOS                  C 5.12. SOLADOS DE CUBIERTAS DE EDIFICIOS",
+      "page": 180,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.13",
+      "title": "TIPOS DE EDIFICIOS",
+      "page": 182,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.13.1",
+      "title": "Procedimiento de diseño",
+      "page": 183,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.13.2",
+      "title": "Campo de validez",
+      "page": 183,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Se trata de un edificio con diafragmas simples,",
+      "page": 183,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.13.3",
+      "title": "Revestimiento permeable al aire",
+      "page": 183,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 184,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "En escala horizontal se llevan las áreas de viento efectivas, en m 2.",
+      "page": 184,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 184,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se debe diseñar para presiones máximas positivas y negativas.",
+      "page": 184,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los valores de (GCp) para paredes se deben reducir en un 10 % cuando  ≤ 10°.",
+      "page": 184,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 186,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 186,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 186,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se debe diseñar para presiones máximas, positivas y negativas.",
+      "page": 186,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Si existe un parapeto de 1 m o más alto alrededor del perímetro de la cubierta, los valores negativos de",
+      "page": 186,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6",
+      "title": "Los valores de (GCp) para los voladizos de cubierta incluyen las contribuciones de presión de las superficies",
+      "page": 186,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "7",
+      "title": "Si existen voladizos, la dimensión horizontal menor del edificio no incluirá ninguna dimensión de voladizo,",
+      "page": 186,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "8",
+      "title": "Para superficie inferior de edificios separados del suelo, según Figura 5.3-1A los valores en la zona 4+ se",
+      "page": 186,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 187,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 187,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 187,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se debe diseñar para presiones máximas, positivas y negativas.",
+      "page": 187,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los valores de (GCp) para los voladizos de cubierta se deben determinar conforme al artículo 5.7.",
+      "page": 187,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 188,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 188,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 188,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se debe diseñar para presiones máximas positivas y negativas.",
+      "page": 188,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los valores de (GCp) para los voladizos de cubierta se deben determinar conforme al artículo 5.7.",
+      "page": 188,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 189,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 189,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 189,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se debe diseñar para presiones máximas positivas y negativas.",
+      "page": 189,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los valores de (GCp) para los voladizos de cubierta se deben determinar conforme al artículo 5.7.",
+      "page": 189,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 190,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 190,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 190,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se debe diseñar para presiones máximas positivas y negativas.",
+      "page": 190,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los valores de (GCp) para los voladizos de cubierta se deben determinar conforme al artículo 5.7.",
+      "page": 190,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 191,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 191,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 191,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se debe diseñar para presiones máximas positivas y negativas.",
+      "page": 191,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los valores de (GCp) para los voladizos de cubierta se deben determinar conforme al artículo 5.7.",
+      "page": 191,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 192,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 192,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 192,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se debe diseñar para presiones máximas positivas y negativas.",
+      "page": 192,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los valores de (GCp) para los voladizos de cubierta se deben determinar conforme al artículo 5.7.",
+      "page": 192,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6",
+      "title": "Para pendientes de cubierta 27° <  ≤ 45°, interpolar los coeficientes (GCp) de las Figuras 5.3-2F y 5.3-2G,",
+      "page": 192,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 194,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m2.",
+      "page": 194,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 194,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente debe estar diseñado para presiones positivas y negativas máximas.",
+      "page": 194,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Para  ≤ 10°, se deben usar los valores de (GCp) de la Figura 5.3-2A.",
+      "page": 194,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 195,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 195,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 195,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente debe estar diseñado para presiones positivas y negativas máximas.",
+      "page": 195,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Para  ≤ 3°, se deben usar los valores de (GCp) de la Figura 5.3-2A.",
+      "page": 195,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 196,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 196,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 196,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente debe estar diseñado para presiones positivas y negativas máximas.",
+      "page": 196,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical contiene los valores de (GCp) que se deben usar con qh.",
+      "page": 197,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 197,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 197,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente debe estar diseñado para presiones positivas y negativas máximas.",
+      "page": 197,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Para  ≤ 10°, se deben usar los valores de (GCp) de la Figura 5.3-2A.",
+      "page": 197,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Los valores indican (GCp) para ser usados con q(hD + f) donde hD + f es la altura en la parte superior de la",
+      "page": 198,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 198,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Cada componente debe estar diseñado para las presiones máximas positivas y negativas.",
+      "page": 198,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Los valores se aplican a: 0 ≤ hD/D ≤ 0,5, 0,2 ≤ f/D ≤ 0,5.",
+      "page": 198,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 199,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "Cada componente debe estar diseñado para presiones positivas y negativas máximas, cuando se",
+      "page": 199,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Las cubiertas con r ≤ 0,1 se asimilarán a cubiertas planas y los coeficientes de carga para C&R se adoptarán",
+      "page": 199,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Para la Zona 2 de las cubiertas con r > 0,1, los coeficientes de carga se asimilarán a los de la Zona 2 de las",
+      "page": 199,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical indica (GCp) que se deben usar con qz o qh, según corresponda.",
+      "page": 200,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 200,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de las superficies,",
+      "page": 200,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Con valores positivos de (GCp) se debe usar qz y con valores negativos se debe usar qh.",
+      "page": 200,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Cada componente se debe diseñar para presiones máximas positivas y negativas.",
+      "page": 200,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6",
+      "title": "Los coeficientes son para techos con ángulo  ≤ 7°. Para otras configuraciones de cubierta ver el artículo",
+      "page": 200,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "7",
+      "title": "Si se proporciona un parapeto de 1 m o más alto alrededor del perímetro de la cubierta con  ≤ 10°, la Zona 3",
+      "page": 200,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "CN denota presiones netas (contribuciones de las superficies superior e inferior).",
+      "page": 202,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La situación sin bloqueo representa un flujo de viento relativamente sin obstrucciones debajo del techo, con",
+      "page": 202,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Para valores de  distintos a los mostrados, se permite la interpolación lineal.",
+      "page": 202,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de la superficie superior",
+      "page": 202,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los componentes y elementos de revestimiento se deben diseñar para los coeficientes de presión positiva y",
+      "page": 202,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "CN denota presiones netas (contribuciones de las superficies superior e inferior).",
+      "page": 203,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La situación sin bloqueo representa un flujo de viento relativamente sin obstrucciones debajo del techo, con",
+      "page": 203,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Para valores de  distintos a los mostrados, se permite la interpolación lineal.",
+      "page": 203,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de la superficie superior",
+      "page": 203,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los componentes y elementos de revestimiento se deben diseñar para los coeficientes de presión positiva y",
+      "page": 203,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "CN denota presiones netas (contribuciones de las superficies superior e inferior).",
+      "page": 204,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La situación sin bloqueo representa un flujo de viento relativamente sin obstrucciones debajo del techo, con",
+      "page": 204,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Para valores de  distintos a los mostrados, se permite la interpolación lineal.",
+      "page": 204,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Los signos más y menos significan presiones que actúan acercándose o alejándose de la superficie superior",
+      "page": 204,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los componentes y elementos de revestimiento se deben diseñar para los coeficientes de presión positiva y",
+      "page": 204,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La presión sobre la cara de barlovento del parapeto (p1) se determina utilizando las zonas de presión positiva",
+      "page": 205,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La presión sobre la cara de sotavento del parapeto (p2) se determina utilizando las zonas de presión negativa",
+      "page": 205,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La presión sobre la cara de barlovento del parapeto (p3) se determina utilizando las zonas de presión positiva",
+      "page": 205,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La presión sobre la cara de sotavento del parapeto (p4) se determina utilizando las zonas de presión negativa",
+      "page": 205,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La presión neta del techo sobre los voladizos de cubierta, povh, se determina a partir de las zonas interiores,",
+      "page": 206,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La presión neta de las figuras, povh, incluye la contribución de presión de las superficies superior e inferior del",
+      "page": 206,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "La presión positiva en el plafón del voladizo de cubierta, ps, debe tomarse igual a la presión de la pared pw.",
+      "page": 206,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Las presiones se basan en los valores más críticos para todas las relaciones de hc/he.",
+      "page": 207,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala vertical denota (GCp) para usarse con qh.",
+      "page": 207,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "La escala horizontal indica área de viento efectiva, en m 2.",
+      "page": 207,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Los signos negativos significan presiones que actúan alejándose de la superficie.",
+      "page": 207,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical denota (GCpn) para usarse con qh.",
+      "page": 208,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica área de viento efectiva, en m 2.",
+      "page": 208,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos negativos y positivos significan presiones actuando hacia arriba y hacia abajo, respectivamente.",
+      "page": 208,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente debe estar diseñado para presiones positivas y negativas máximas.",
+      "page": 208,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Utilice interpolación lineal para valores intermedios de hc/he.",
+      "page": 208,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Las presiones se basan en los valores más críticos para todas las relaciones de hc/he.",
+      "page": 209,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala vertical denota (GCp) para usarse con qh.",
+      "page": 209,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "La escala horizontal indica área de viento efectiva, en m2.",
+      "page": 209,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Los signos negativos significan presiones que actúan alejándose de la superficie.",
+      "page": 209,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical denota (GCpn) para usarse con qh.",
+      "page": 210,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica área de viento efectiva, en m 2.",
+      "page": 210,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos negativos y positivos significan presiones actuando hacia arriba y hacia abajo, respectivamente.",
+      "page": 210,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente debe estar diseñado para presiones positivas y negativas máximas.",
+      "page": 210,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Utilice interpolación lineal para valores intermedios de hc/he.",
+      "page": 210,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical denota (GCp) para usarse con qh.",
+      "page": 213,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 213,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde las superficies, respectivamente.",
+      "page": 213,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se diseñará para presiones positivas y negativas máximas.",
+      "page": 213,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Para voladizos de cubierta, (GCp) será igual a los valores de la Zona 1 multiplicados por 2.",
+      "page": 213,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6",
+      "title": "Los valores de la línea A se aplicarán a los techos con ángulos de techo de menos de 10º.",
+      "page": 213,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "7",
+      "title": "Los valores de la línea B se aplicarán a techos con ángulos de techo mayores e iguales a 10º.",
+      "page": 213,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical denota (GCp) para usarse con qh.",
+      "page": 214,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 214,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde las superficies, respectivamente.",
+      "page": 214,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se diseñará para presiones positivas y negativas máximas.",
+      "page": 214,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Los valores de la línea A se aplicarán a los techos con ángulos de techo de menos de 10º.",
+      "page": 214,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6",
+      "title": "Los valores de la línea B se aplicarán a techos con ángulos de techo mayores e iguales a 10º.",
+      "page": 214,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "7",
+      "title": "La zona 4 se aplicará a techos con ángulos de techo mayores de 15º.",
+      "page": 214,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "8",
+      "title": "Para voladizos de cubierta, (GCp) será igual a los valores de la Zona 1 multiplicados por 2,0.",
+      "page": 214,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "La escala vertical denota (GCp) para usarse con qh.",
+      "page": 216,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "La escala horizontal indica el área efectiva del viento, en m 2.",
+      "page": 216,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde las superficies, respectivamente.",
+      "page": 216,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Cada componente se diseñará para presiones positivas y negativas máximas.",
+      "page": 216,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "La zona 9 será la región con la menor distancia entre los silos adyacentes y en las esquinas exteriores de los",
+      "page": 216,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6",
+      "title": "El caso A es aplicable para los silos con espacio libre mayor que 0 y menor que 0,25D. El caso B es aplicable",
+      "page": 216,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Las presiones del viento de diseño representan la presión neta (suma de las presiones externa e interna)",
+      "page": 217,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "Los valores indicados corresponden a la exposición B. Para otras exposiciones los mismos se deben",
+      "page": 217,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Se permite la interpolación lineal entre los valores de áreas tributarias.",
+      "page": 217,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "4",
+      "title": "Los signos más y menos significan presión actuando hacia y desde la superficie exterior, respectivamente.",
+      "page": 217,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5",
+      "title": "Todos los elementos componentes y de revestimiento se deben diseñar para las presiones negativas y",
+      "page": 217,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "6",
+      "title": "Simbología:",
+      "page": 217,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "1",
+      "title": "Las etiquetas marcadas en la planta de la cubierta indican zonas sobre la cubierta; las etiquetas marcadas fuera de la",
+      "page": 224,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "2",
+      "title": "Si X ≤ a, no es necesario aplicar las zonas 3 y 5 en esa esquina.",
+      "page": 224,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "3",
+      "title": "Si el ángulo interior es ≥ 135º, no es necesario aplicar las zonas 3 y 5 en esa esquina.",
+      "page": 224,
+      "file": "capitulo-5-cargas-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.1",
+      "title": "ALCANCE                                                      C 6.1. ALCANCE",
+      "page": 227,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2",
+      "title": "CONDICIONES DE ENSAYO                                        C 6.2. CONDICIONES DE ENSAYO",
+      "page": 227,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.3",
+      "title": "RESPUESTA DINÁMICA",
+      "page": 228,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4",
+      "title": "EFECTOS DE CARGA ESPECÍFICOS DEL                         C 6.4. EFECTOS DE CARGA ESPECÍFICOS DEL",
+      "page": 229,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.1",
+      "title": "Intervalos de recurrencia media de los                  C 6.4.1. Intervalos de recurrencia media de los efectos",
+      "page": 229,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.2",
+      "title": "Limitaciones a las velocidades de viento                   C 6.4.2. Limitaciones a las velocidades de viento",
+      "page": 229,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.3",
+      "title": "Direccionalidad del viento                                 C 6.4.3. Direccionalidad del viento",
+      "page": 229,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.4",
+      "title": "Limitaciones en las cargas                          C 6.4.4. Limitaciones en las cargas",
+      "page": 230,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4.5",
+      "title": "Limitaciones en las cargas de viento para          C 6.4.5. Limitaciones en las cargas de viento para",
+      "page": 232,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.5",
+      "title": "EFECTOS DE CARGA PARA EDIFICIOS,                           C 6.5. EFECTOS DE CARGA PARA EDIFICIOS,",
+      "page": 233,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.5.1",
+      "title": "Cargas de viento                                           C 6.5.1. Cargas de viento",
+      "page": 233,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.5.2",
+      "title": "Limitaciones en las cargas de viento para          C 6.5.2. Limitaciones en las cargas de viento para",
+      "page": 234,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.5.3",
+      "title": "Requerimiento de revisión por pares para           C 6.5.3. Requerimiento de revisión por pares para",
+      "page": 234,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.6",
+      "title": "REQUISITOS DE REVISIÓN POR PARES                   C 6.6. REQUISITOS DE REVISIÓN POR PARES",
+      "page": 234,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.7",
+      "title": "SIMULACIONES COMPUTACIONALES                                 C 6.7. SIMULACIONES COMPUTACIONALES",
+      "page": 235,
+      "file": "capitulo-6-procedimiento-de-tunel-de-viento.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "1",
+      "title": "El factor de carga para L en las combinaciones 1",
+      "page": 242,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "2",
+      "title": "En las combinaciones 1 y 2 la carga",
+      "page": 242,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "3",
+      "title": "Cuando están presentes cargas de fluidos con",
+      "page": 242,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "4",
+      "title": "Cuando están presentes cargas H, se deben",
+      "page": 242,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "1",
+      "title": "D + Wa                                              aparecen primariamente por tres causas: (1) por cargas",
+      "page": 244,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "2",
+      "title": "D + 0,5L + Wa                                       y la carga de nieve; (2) efectos de temperatura, fluencia",
+      "page": 244,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "4",
+      "title": "D + 0,75L + 0,45W + 0,75(Lr ó S ó R)                fisuración o filtraciones en revestimientos, puertas,",
+      "page": 244,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "1",
+      "title": "Los valores se refieren a velocidad de ráfaga de 3 segundos en m/s a 10 m sobre el terreno para Categoría de",
+      "page": 247,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "2",
+      "title": "Es aplicable la interpolación lineal entre contornos de velocidades del viento.",
+      "page": 247,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "3",
+      "title": "Islas y áreas costeras fuera del último contorno se deben usar este último contorno de velocidad del viento del área",
+      "page": 247,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE B",
+      "id": "4",
+      "title": "Los terrenos montañosos, quebradas, promontorios marinos y regiones especiales de viento se deben examinar para",
+      "page": 247,
+      "file": "apendice-b-combinaciones-de-cargas-que-incluyen-carga.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "1",
+      "title": "El edificio es de forma regular, como se define",
+      "page": 249,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "2",
+      "title": "El edificio no tiene características de respuesta",
+      "page": 249,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "3",
+      "title": "El edificio no tiene techo abovedado, ni en",
+      "page": 249,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "1",
+      "title": "Edificaciones de una planta con h menor o igual",
+      "page": 255,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "2",
+      "title": "Edificaciones con entramados livianos de",
+      "page": 255,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "3",
+      "title": "Edificaciones de una y dos plantas con",
+      "page": 255,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "1",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde las superficies, respectivamente.",
+      "page": 258,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "2",
+      "title": "Para valores de  distintos a los mostrados, se permite la interpolación lineal.",
+      "page": 258,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "1",
+      "title": "Los signos más y menos significan presiones que actúan hacia y desde las superficies, respectivamente.",
+      "page": 259,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "2",
+      "title": "Para valores de  distintos a los mostrados, se permite la interpolación lineal.",
+      "page": 259,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "1",
+      "title": "Adaptar la carga que se muestra en la Figura AC.3-1 para edificios con techo a cuatro aguas como se muestra. Para una",
+      "page": 262,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "APÉNDICE C",
+      "id": "2",
+      "title": "El corte horizontal total no debe ser menor que el determinado despreciando las fuerzas del viento en las superficies del",
+      "page": 262,
+      "file": "apendice-c-cargas-de-viento-sobre-edificios-sprfv.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "1",
+      "title": "Los valores en Tabla I.1 se han derivado de los ensayos en túnel de viento que se describen en el",
+      "page": 268,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "2",
+      "title": "Los coeficientes de fuerza para formas prismáticas con secciones transversales redondeadas en las",
+      "page": 268,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "3",
+      "title": "Para aire a presión y temperatura constantes, Re es proporcional a V·b . En flujo turbulento de gran",
+      "page": 268,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "1",
+      "title": "Los datos de la Tabla I.3A se tomaron de Jancauskas, E.D., “The Cross-Wind Exitation of Bluff",
+      "page": 272,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "2",
+      "title": "La Tabla I.3B contiene valores máximos de Cfy para ángulos  < 20º. Este tipo de variación puede",
+      "page": 272,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "3",
+      "title": "Para direcciones oblicuas de viento  > 20º, se necesita de información más detallada o el consejo",
+      "page": 272,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "1.1",
+      "title": "CAMPO DE VALIDEZ                                            -",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "1.2",
+      "title": "PROCEDIMIENTOS ADMITIDOS                                    1.1.2.    Procedimientos permitidos",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "1.3",
+      "title": "PRESIONES DE VIENTO QUE ACTÚAN SOBRE LAS                    1.4.3.    Presiones de viento actuando sobre caras opuestas",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "1.4",
+      "title": "CARGA DE VIENTO DE DISEÑO MÍNIMA                            2.1.5.    Cargas de viento de diseño mínimas",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.1",
+      "title": "CAMPO DE VALIDEZ                                            2.1.2. Condiciones",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.2",
+      "title": "LIMITACIONES                                                2.1.3. Limitaciones",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.3",
+      "title": "PROCEDIMIENTO DE DISEÑO                                     Figura 1.1-1. Lineamientos del proceso para evaluar las",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.4",
+      "title": "VELOCIDAD BÁSICA DEL VIENTO                                 1.5. MAPA DE RIESGO DE VIENTO",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.5",
+      "title": "FACTOR DE IMPORTANCIA                                       No se aplica este factor",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.6",
+      "title": "CATEGORÍAS DE EXPOSICIÓN                                    1.7.3. Categorías de exposición",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.7",
+      "title": "EFECTOS TOPOGRÁFICOS                                        1.8. EFECTOS TOPOGRÁFICOS",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.8",
+      "title": "FACTOR DE EFECTO DE RÁFAGA                                  1.9. EFECTOS DE RÁFAGA",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.9",
+      "title": "CLASIFICACIÓN DE CERRAMIENTOS                               1.10. CLASIFICACIÓN DE CERRAMIENTO",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.10",
+      "title": "PRESIÓN DINÁMICA                                           1.13.2. Presión dinámica",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.11",
+      "title": "COEFICIENTES DE PRESIÓN Y FUERZA                           Distribuido en los artículos correspondientes a cada tipología",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.12",
+      "title": "CARGAS DE VIENTO DE DISEÑO EN EDIFICIOS                  Distribuido en los artículos correspondientes a cada tipología",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "5.13",
+      "title": "CARGAS DE VIENTO DE DISEÑO SOBRE                         Distribuido en los artículos correspondientes a cada tipología",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "6.1",
+      "title": "CAMPO DE VALIDEZ                                            6.1. ALCANCE",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "6.2",
+      "title": "CONDICIONES DE ENSAYO                                       6.2. CONDICIONES DE ENSAYO",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "6.3",
+      "title": "RESPUESTA DINÁMICA                                          6.3. RESPUESTA DINÁMICA",
+      "page": 275,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO I",
+      "id": "6.4",
+      "title": "LIMITACIONES                                -",
+      "page": 276,
+      "file": "anexo-i-coeficientes-de-fuerza-para-estructuras-o.md"
+    },
+    {
+      "chapter": "ANEXO VI",
+      "id": "84",
+      "title": "ASCE. 2011. Wind loads for petrochemical and other",
+      "page": 285,
+      "file": "anexo-vi-coeficientes-de-presion-y.md"
+    }
+  ]
+}

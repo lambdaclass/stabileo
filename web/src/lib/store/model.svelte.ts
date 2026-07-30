@@ -1,3 +1,17 @@
+import {
+  defaultCodeSettings, migrateCodeSettings, type ProjectCodeSettings,
+} from '../codes/project-code-settings';
+import {
+  emptyDetailingStore, migrateDetailingStore, type DetailingStore,
+} from '../engine/detailing/assembly';
+import { migrateRegulations, type StoredRegulations } from '../codes/roles';
+import type { RevisionVector } from '../codes/revisions';
+import { migrateFootings, newFooting, type Footing } from '../model/footing';
+import { DEFAULT_COVER } from '../engine/design/member-context';
+import {
+  emptyGeotechnical, migrateGeotechnical, newSoilProfile,
+  type ProjectGeotechnical, type SoilProfile,
+} from '../model/geotechnical';
 // Model store - manages the structural model
 import type { KinematicResult } from '../engine/kinematic-2d';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
@@ -30,6 +44,36 @@ export interface Material {
   nu: number;
   rho: number; // kN/m³
   fy?: number; // MPa (yield stress for stress verification)
+  /**
+   * Maximum nominal coarse-aggregate size, mm, or null when the project has not stated it.
+   *
+   * This lives on the MATERIAL, not on the regulation settings. It is a property of the
+   * concrete mixture — CIRSOC 200 territory — and CIRSOC 201-2025 §25.2.1 merely consumes
+   * it inside the minimum clear-spacing rule. Having the regulation panel own it was a
+   * category error: it made the value look like a code choice rather than a mix design.
+   *
+   * `null` is meaningful and persisted: it is what keeps the fallback visible as an
+   * assumption on every subsequent open instead of baking 20 mm in permanently.
+   */
+  maxAggregateSizeMm?: number | null;
+  /**
+   * Additional transverse bar-spacing margin above the regulatory minimum, mm.
+   *
+   * A PROJECT decision, not a code one. CIRSOC's minimum clear spacing IS the construction
+   * requirement and prescribes nothing further between parallel bars, so the default is
+   * zero and the app never implies otherwise. An engineer raises it to get a more
+   * conservative cage.
+   *
+   * Lives beside the aggregate size for the same reason that does: both are properties of
+   * how the concrete gets placed, not of the regulation. `null` and `0` mean the same
+   * thing here — no margin — but `null` records that the project never stated one.
+   *
+   * §26.6.2.1 cover and effective-depth tolerances are mandatory, prescribed, and entirely
+   * separate from this.
+   */
+  spacingMarginMm?: number | null;
+  /** Placed by shotcrete, which caps d_agg at 13 mm (§26.4.2.1(a)(13)). */
+  shotcrete?: boolean;
 }
 
 export interface Section {
@@ -475,6 +519,23 @@ export interface StructureModel {
    *  entries inside the existing structural-control workflow (not a separate
    *  top-level "Connectors" object family). */
   connectors: Map<number, ConnectorElement>;
+  /**
+   * Isolated spread footings.
+   *
+   * A modelled entity rather than a run-time dialog value, because a foundation that
+   * cannot be reopened, re-checked, revised and drawn is not a deliverable. See
+   * `model/footing.ts` for why inferring one under every support was refused.
+   */
+  footings: Map<number, Footing>;
+  /**
+   * Project ground conditions, referenced by footings rather than copied into them.
+   *
+   * A bearing pressure is a property of a stratum shared by many footings; burying it in
+   * each one is how two footings end up verified against different soils by accident.
+   * Absent on models saved before foundations existed — `migrateGeotechnical` turns that
+   * into an EMPTY set, never a seeded stratum.
+   */
+  geotechnical?: ProjectGeotechnical;
   /** Where the model came from (e.g. CAD-derived draft) and review status.
    *  Absent for hand-built models. */
   provenance?: ModelProvenance;
@@ -484,6 +545,44 @@ export interface StructureModel {
    *  Models saved before this metadata existed load WITHOUT it and are then
    *  evaluated under the corrected convention (no legacy mode) — see file.ts. */
   localAxisConvention?: 'zUpStrongAxis';
+  /**
+   * Jurisdiction, adopted regulation editions and concrete data.
+   *
+   * Lives on the model rather than in a side store so it travels through every
+   * persistence path for free — .ded save/open, tab capture/restore, URL sharing and
+   * autosave all go through snapshot()/restore(). A project that records which edition
+   * it was designed to is not optional metadata: it is what makes a stored certificate
+   * interpretable later.
+   *
+   * Absent on models saved before this existed; `migrateCodeSettings` turns that into
+   * an explicit CIRSOC 201-2005 project rather than silently adopting the 2025 default.
+   */
+  codeSettings?: ProjectCodeSettings;
+  /**
+   * Code-neutral regulation stack: one adapter bound per role.
+   *
+   * Supersedes `codeSettings`, which was CIRSOC-specific. `codeSettings` is retained only
+   * so an older saved project can still be read and migrated; nothing writes it.
+   */
+  regulations?: StoredRegulations;
+  /** The revision vector every downstream result is stamped against. */
+  revisions?: RevisionVector;
+  /**
+   * Coordinated detailing assemblies.
+   *
+   * Persisted with the model for the same reason codeSettings is: a coordinated floor
+   * that has to be regenerated on every open is not a deliverable, and the engineer's
+   * review record has to survive a save/load cycle or it is not a record.
+   */
+  detailing?: DetailingStore;
+  /**
+   * Run detailing automatically after a successful design run. Default ON (undefined is
+   * treated as on), so a user who verifies a floor gets its bars without a second command.
+   * Persisted with the model because it is a project decision, not a browser preference.
+   */
+  detailingAuto?: boolean;
+  /** Project-level opt-out from bent-up (cranked) bars. */
+  detailingBentUpOptOut?: boolean;
 }
 
 export type { AnalysisResults };
@@ -537,7 +636,12 @@ function createModelStore() {
     quads: new Map(),
     constraints: [],
     connectors: new Map(),
+    footings: new Map(),
+    // A new project has no strata, not one invented stratum. See migrateGeotechnical.
+    geotechnical: emptyGeotechnical(),
     localAxisConvention: 'zUpStrongAxis',
+    codeSettings: defaultCodeSettings(),
+    detailing: emptyDetailingStore(),
   });
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
@@ -684,6 +788,8 @@ function createModelStore() {
     plate: 1,
     quad: 1,
     connector: 1,
+    footing: 1,
+    soilProfile: 1,
   });
 
 
@@ -720,6 +826,17 @@ function createModelStore() {
 
   // History integration — set externally to avoid circular import
   let _pushUndo: (() => void) | null = null;
+  /** History push that does NOT bump modelVersion or fire the mutation hook.
+   *  Used only by reinforcementTransaction (reinforcement does not affect forces). */
+  let _pushUndoSilent: (() => void) | null = null;
+  /** Called after a reinforcement transaction commits, with the written ids. */
+  let _onReinforcementCommit: ((written: Set<number>) => void) | null = null;
+  /**
+   * Called when a footing or geotechnical input changes.
+   *
+   * Analysis-neutral, document-INVALIDATING. See `_setOnFoundationChange`.
+   */
+  let _onFoundationChange: (() => void) | null = null;
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
   let _onMutation: (() => void) | null = null;
@@ -734,10 +851,85 @@ function createModelStore() {
   return {
     _setHistoryPush(fn: () => void) {
       _pushUndo = () => { modelVersion++; _onMutation?.(); fn(); };
+      // Same history snapshot, WITHOUT the modelVersion bump and WITHOUT firing the
+      // results-invalidation hook. Required for reinforcement transactions: a rebar
+      // edit must be undoable, but it must not destroy the structural analysis.
+      _pushUndoSilent = fn;
     },
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
     _setOnMutation(fn: () => void) { _onMutation = fn; },
+
+    /** Register a callback fired after a reinforcement transaction commits, with the
+     *  set of element ids written. Wired in store/index.ts so this store never
+     *  imports verificationStore. */
+    _setOnReinforcementCommit(fn: (written: Set<number>) => void) { _onReinforcementCommit = fn; },
+
+    /**
+     * Register a callback fired when a FOUNDATION input changes.
+     *
+     * ── The edge this closes ────────────────────────────────────────
+     *
+     * Footing and geotechnical edits are analysis-NEUTRAL and deliberately do not go through
+     * `_pushUndo`: a footing carries a reaction, it does not change the stiffness that
+     * produced one, and routing them through the mutation hook cleared the solve on every
+     * edit — which left every footing reporting "no reaction" at design time.
+     *
+     * But they are NOT document-neutral. Widening a base, or changing the allowable bearing
+     * pressure, invalidates the footing design and every drawing, schedule and report built
+     * from it. That edge was declared in PR18 and never connected, so a project could edit a
+     * footing and keep issuing the document that justified the old one.
+     *
+     * Injected rather than imported, like the two hooks above, so this store never imports
+     * `detailingStore` — which imports this one.
+     */
+    _setOnFoundationChange(fn: () => void) { _onFoundationChange = fn; },
+
+    /**
+     * Run one undoable reinforcement transaction.
+     *
+     * Guarantees (each pinned by a store test):
+     *   - exactly ONE history snapshot for the whole batch → one Ctrl+Z
+     *   - exactly ONE `model.elements` reassignment → one reactive commit
+     *   - NO `modelVersion` bump, NO `_onMutation` → analysis results survive
+     *   - NO structural solve is triggered
+     *
+     * Elements are REPLACED (via `$state.snapshot` + deep clone) rather than mutated
+     * in place. That also removes an aliasing hazard: `restore()` shallow-spreads
+     * elements, so an in-place edit could previously corrupt an undo snapshot that
+     * shared the same `reinforcement` object.
+     */
+    reinforcementTransaction(
+      fn: (api: { setReinforcement(elemId: number, r: ProvidedReinforcement | undefined): void }) => void,
+    ): Set<number> {
+      const written = new Set<number>();
+      const pending = new Map<number, ProvidedReinforcement | undefined>();
+      fn({
+        setReinforcement(elemId: number, r: ProvidedReinforcement | undefined) {
+          if (!model.elements.has(elemId)) return;
+          pending.set(elemId, r);
+        },
+      });
+      if (pending.size === 0) return written;
+
+      // One snapshot for the whole batch, taken BEFORE any write.
+      _pushUndoSilent?.();
+
+      for (const [elemId, r] of pending) {
+        const elem = model.elements.get(elemId);
+        if (!elem) continue;
+        const plain = $state.snapshot(elem) as Element;
+        plain.reinforcement = r
+          ? (JSON.parse(JSON.stringify($state.snapshot(r))) as ProvidedReinforcement)
+          : undefined;
+        model.elements.set(elemId, plain);
+        written.add(elemId);
+      }
+      // Single reactive commit (Svelte 5 Map reactivity: reassign the Map).
+      model.elements = new Map(model.elements);
+      _onReinforcementCommit?.(written);
+      return written;
+    },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
     bumpModelVersion() { modelVersion++; _onMutation?.(); },
@@ -799,6 +991,8 @@ function createModelStore() {
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
     get connectors() { return model.connectors; },
+    get footings() { return model.footings; },
+    get geotechnical() { return model.geotechnical; },
     get kinematicResult() { return lastKinematicResult; },
 
     snapshot(): ModelSnapshot {
@@ -843,6 +1037,37 @@ function createModelStore() {
         // Stamp the corrected local-axis convention on every snapshot/save so
         // models written from now on are self-describing.
         localAxisConvention: snap.localAxisConvention ?? 'zUpStrongAxis',
+        codeSettings: snap.codeSettings
+          ? (JSON.parse(JSON.stringify(snap.codeSettings)) as ProjectCodeSettings)
+          : defaultCodeSettings(),
+        detailing: snap.detailing
+          ? (JSON.parse(JSON.stringify(snap.detailing)) as DetailingStore)
+          : emptyDetailingStore(),
+        // Both of these were declared on StructureModel AND on ModelSnapshot and
+        // emitted by neither, so the regulation stack and the revision vector were
+        // dropped by every path that goes through snapshot(): .ded save, undo/redo,
+        // tab capture and autosave. A project silently reverted to the default
+        // regulations on open, and a stored certificate's stamp became
+        // uninterpretable because the vector it was compared against was gone.
+        regulations: snap.regulations
+          ? (JSON.parse(JSON.stringify(snap.regulations)) as StoredRegulations)
+          : undefined,
+        revisions: snap.revisions ? { ...snap.revisions } : undefined,
+        // Cloned one level deeper than the other Map families because `pedestal` is a
+        // nested object: a shallow `{ ...v }` would share it between the snapshot and the
+        // live model, so editing a pedestal would silently rewrite the undo entry.
+        footings: Array.from(snap.footings.entries()).map(
+          ([k, v]): [number, Footing] => [
+            k,
+            { ...v, ...(v.pedestal ? { pedestal: { ...v.pedestal } } : {}) },
+          ],
+        ),
+        // Emitted even when absent, like `codeSettings` and `detailing` above: a container
+        // the UI binds to and mutates is far easier to reason about when it always exists,
+        // and emitting the empty form keeps `restore(snapshot())` a no-op.
+        geotechnical: snap.geotechnical
+          ? (JSON.parse(JSON.stringify(snap.geotechnical)) as ProjectGeotechnical)
+          : emptyGeotechnical(),
       };
       if (snap.provenance) {
         result.provenance = {
@@ -950,6 +1175,46 @@ function createModelStore() {
       // under the corrected convention (the only one). The "old model" note is
       // surfaced at the .ded boundary (file.ts), not here.
       model.localAxisConvention = s.localAxisConvention ?? 'zUpStrongAxis';
+      // Migration is deliberate, not a fallback: a project with no settings is stamped
+      // CIRSOC 201-2005, the edition its stored results were actually checked against.
+      model.codeSettings = migrateCodeSettings(s.codeSettings).settings;
+      model.detailing = migrateDetailingStore(s.detailing).store;
+      // `migrateRegulations` was written, unit-tested and never called from anywhere in
+      // production. Calling it here is what makes a stored regulation stack survive a
+      // save/open, an undo and a tab switch, and what upgrades a v1 (CIRSOC-specific)
+      // payload instead of misreading it.
+      //
+      // An ABSENT stack is left absent rather than materialised into the default. That is
+      // not a detail: `snapshot()`/`restore()` has to be idempotent, because Cancel on a
+      // CAD draft is implemented as "restore the snapshot taken before Apply" and is
+      // asserted to undo EXACTLY. Materialising defaults here made a cancelled draft differ
+      // from its own starting point by a whole regulation stack. Absent already means
+      // "derive the defaults" everywhere that reads it, so nothing is lost by respecting it.
+      //
+      // Its `rescuedAggregateMm` is deliberately dropped: the v1 aggregate size is already
+      // recovered by `migrateCodeSettings` above, which reads the same
+      // `concrete.maxAggregateSizeMm` field into its own home on `codeSettings`. Taking it
+      // twice would not place it anywhere new. Its `notices` are dropped for the same
+      // reason `migrateCodeSettings`'s are — migration notes are surfaced at the .ded
+      // boundary in file.ts, not from inside a restore that undo/redo also drives.
+      model.regulations = s.regulations === undefined
+        ? undefined
+        : migrateRegulations(s.regulations).stored;
+      // The revision vector is restored as stored. It is NOT reset to `emptyRevisions()`:
+      // the whole point of a stamp is that it is compared against the vector the project
+      // actually carries, so zeroing it on open would make every stored certificate look
+      // freshly current.
+      model.revisions = s.revisions ? { ...s.revisions } : undefined;
+      // Footings and the ground they bear on. `migrateFootings` drops a footing whose
+      // stored node reference is not a number rather than repairing it — a footing
+      // attached to nothing has no reaction, and inventing a node moves someone's
+      // foundation. An absent geotechnical set becomes EMPTY, never a seeded stratum.
+      model.footings = migrateFootings(s.footings, { cover: DEFAULT_COVER }).footings;
+      model.geotechnical = migrateGeotechnical(s.geotechnical).geotechnical;
+      nextId.footing = s.nextId.footing
+        ?? (Math.max(0, ...model.footings.keys()) + 1);
+      nextId.soilProfile = s.nextId.soilProfile
+        ?? (Math.max(0, ...(model.geotechnical?.profiles ?? []).map((p) => p.id)) + 1);
     },
 
     /** Explicit user action: clear the CAD-draft "unreviewed" tag. */
@@ -1180,6 +1445,17 @@ function createModelStore() {
         }
       }
       if (connectorsChanged) model.connectors = new Map(model.connectors);
+      // A footing exists to carry ONE node's reaction. Delete the node and the footing has
+      // no load, no punching perimeter and no position — it is not a footing any more, and
+      // keeping it would leave a dimensioned foundation in the schedule and on the plan
+      // under a column that is gone.
+      let footingsChanged = false;
+      for (const [fid, f] of model.footings) {
+        if (f.nodeId !== id) continue;
+        model.footings.delete(fid);
+        footingsChanged = true;
+      }
+      if (footingsChanged) model.footings = new Map(model.footings);
       const pruneConstraints = (arr: Constraint3D[]) => arr
         .map((c): Constraint3D | null => {
           if (c.type === 'diaphragm') {
@@ -1211,6 +1487,20 @@ function createModelStore() {
           || l.type === 'distributed3d' || l.type === 'pointOnElement3d') &&
           (l.data as any).elementId === id)
       );
+      // A footing SURVIVES the loss of its column: its node, its dimensions and its soil
+      // are all still there, and its bearing and thickness are still checkable. What it
+      // loses is the punching perimeter and the dowel geometry, so the reference is cleared
+      // and the footing reports those as unsupported rather than holding a dangling id that
+      // would later resolve to whatever element reuses the number.
+      let columnCleared = false;
+      const fm = new Map(model.footings);
+      for (const [fid, f] of fm) {
+        if (f.columnElementId !== id) continue;
+        const { columnElementId: _dropped, ...rest } = f;
+        fm.set(fid, { ...rest, revision: f.revision + 1 });
+        columnCleared = true;
+      }
+      if (columnCleared) model.footings = fm;
     },
 
     /**
@@ -1346,6 +1636,163 @@ function createModelStore() {
     clearConnectors(): void {
       if (!_undoBatching) _pushUndo?.();
       model.connectors = new Map();
+    },
+
+    // ─── Footing CRUD ───────────────────────────────────────
+    //
+    // Every mutation below uses `_pushUndoSilent`, NOT `_pushUndo`. That is the same
+    // primitive a reinforcement edit uses, and for the same reason: it records an undo
+    // entry WITHOUT bumping `modelVersion` or firing `_onMutation`, so the stored analysis
+    // results survive.
+    //
+    // This is a correctness requirement, not an optimisation. A footing is not part of the
+    // analytical model — it CARRIES a support reaction, it does not change the stiffness
+    // that produced one. Routing these through `_pushUndo` cleared the solve on every edit,
+    // so by the time the design command ran there was no reaction left to design for, and
+    // every footing reported "no reaction" no matter how carefully it had been dimensioned.
+    // Found by the Playwright journey, which is the only place the ordering shows up.
+    //
+    // What footing and geotechnical edits DO invalidate — foundation design, detailing,
+    // coordination, certificates and documents — is handled downstream by the per-footing
+    // `revision` and by the detailing store's own invalidation, not by discarding the solve.
+    // Map reassignment on every mutation per web/CLAUDE.md "Reactivity with Maps".
+    //
+    // Every mutation bumps the footing's own `revision`. That is what lets invalidation be
+    // TARGETED: editing Z7's thickness must retire Z7's design and leave Z1..Z6 alone, and
+    // a single project-wide counter cannot express that.
+
+    /**
+     * Create a footing on a node.
+     *
+     * Its plan dimensions start at ZERO and its soil is whatever the project has set as
+     * default — possibly none. Both are deliberate: a new footing is INVALID until
+     * dimensioned and founded, and says so through `validateFooting`, rather than arriving
+     * at a plausible 1,50 m × 1,50 m that would pass a bearing check nobody performed.
+     */
+    addFooting(nodeId: number, name?: string): number {
+      if (!_undoBatching) _pushUndoSilent?.();
+      const id = nextId.footing++;
+      const f = newFooting(id, nodeId, name ?? `Z${id}`, {
+        cover: DEFAULT_COVER,
+        // The underside sits at the supported node unless the engineer moves it. The node
+        // is where the column lands, so this is the only non-arbitrary starting point.
+        foundingElevation: model.nodes.get(nodeId)?.z ?? 0,
+        soilProfileId: model.geotechnical?.defaultProfileId ?? null,
+      });
+      const m = new Map(model.footings);
+      m.set(id, f);
+      model.footings = m;
+      _onFoundationChange?.();
+      return id;
+    },
+
+    updateFooting(id: number, data: Partial<Omit<Footing, 'id' | 'revision'>>): void {
+      if (!_undoBatching) _pushUndoSilent?.();
+      const cur = model.footings.get(id);
+      if (!cur) return;
+      const m = new Map(model.footings);
+      m.set(id, { ...cur, ...data, id, revision: cur.revision + 1 });
+      model.footings = m;
+      _onFoundationChange?.();
+    },
+
+    removeFooting(id: number): void {
+      if (!_undoBatching) _pushUndoSilent?.();
+      const m = new Map(model.footings);
+      m.delete(id);
+      model.footings = m;
+      _onFoundationChange?.();
+    },
+
+    clearFootings(): void {
+      if (!_undoBatching) _pushUndoSilent?.();
+      model.footings = new Map();
+      _onFoundationChange?.();
+    },
+
+    /** Footings founded on a given node — how the design pass finds its reaction. */
+    footingsOnNode(nodeId: number): Footing[] {
+      return [...model.footings.values()].filter((f) => f.nodeId === nodeId);
+    },
+
+    // ─── Geotechnical CRUD ──────────────────────────────────
+    //
+    // The ground is a PROJECT entity, not a footing field, so it is edited here and
+    // referenced by id. The Design tab may summarise it and link to this editor; it must
+    // not hold a second copy.
+
+    /**
+     * Add a stratum, with its resistance UNSTATED.
+     *
+     * Naming a stratum is not the same as knowing its capacity, and seeding a number would
+     * put an invented value behind a name the engineer chose — which reads as theirs.
+     */
+    addSoilProfile(name?: string): number {
+      if (!_undoBatching) _pushUndoSilent?.();
+      const id = nextId.soilProfile++;
+      const geo = model.geotechnical ?? emptyGeotechnical();
+      const profile = newSoilProfile(id, name ?? `Suelo ${id}`);
+      model.geotechnical = {
+        ...geo,
+        profiles: [...geo.profiles, profile],
+        // The first stratum entered becomes the default, so the next footing created has
+        // somewhere to bear without a second decision.
+        defaultProfileId: geo.defaultProfileId ?? id,
+      };
+      _onFoundationChange?.();
+      return id;
+    },
+
+    updateSoilProfile(id: number, data: Partial<Omit<SoilProfile, 'id'>>): void {
+      if (!_undoBatching) _pushUndoSilent?.();
+      const geo = model.geotechnical;
+      if (!geo) return;
+      model.geotechnical = {
+        ...geo,
+        profiles: geo.profiles.map((p) => (p.id === id ? { ...p, ...data, id } : p)),
+      };
+      _onFoundationChange?.();
+    },
+
+    /**
+     * Delete a stratum.
+     *
+     * Footings founded on it are NOT deleted and are NOT silently re-pointed at another
+     * stratum: their `soilProfileId` becomes null, which makes them fail the bearing gate
+     * visibly. Re-pointing them would move a foundation onto ground the engineer never
+     * chose for it.
+     */
+    removeSoilProfile(id: number): void {
+      if (!_undoBatching) _pushUndoSilent?.();
+      const geo = model.geotechnical;
+      if (!geo) return;
+      const profiles = geo.profiles.filter((p) => p.id !== id);
+      model.geotechnical = {
+        ...geo,
+        profiles,
+        defaultProfileId: geo.defaultProfileId === id
+          ? (profiles[0]?.id ?? null)
+          : geo.defaultProfileId,
+      };
+      let orphaned = false;
+      const m = new Map(model.footings);
+      for (const [fid, f] of m) {
+        if (f.soilProfileId !== id) continue;
+        m.set(fid, { ...f, soilProfileId: null, revision: f.revision + 1 });
+        orphaned = true;
+      }
+      if (orphaned) model.footings = m;
+      _onFoundationChange?.();
+    },
+
+    setDefaultSoilProfile(id: number | null): void {
+      if (!_undoBatching) _pushUndoSilent?.();
+      const geo = model.geotechnical ?? emptyGeotechnical();
+      model.geotechnical = { ...geo, defaultProfileId: id };
+      // Which stratum a NEW footing will reference changes nothing about a footing that
+      // already exists, so no document is retired here. The hook is deliberately not fired:
+      // retiring a document on a change that cannot alter any result would train the user to
+      // ignore supersession.
     },
 
     removeLoad(loadId: number): void {
@@ -1494,6 +1941,14 @@ function createModelStore() {
       model.quads = new Map();
       model.constraints = [];
       model.connectors = new Map();
+      model.footings = new Map();
+      // A new project has no strata. Carrying the previous project's soil over would be
+      // founding this building on someone else's borehole.
+      model.geotechnical = emptyGeotechnical();
+      // A new model is a new project: it adopts the edition in force, not whatever the
+      // previously open project happened to be designed to.
+      model.codeSettings = defaultCodeSettings();
+      model.detailing = emptyDetailingStore();
       // Reset materials/sections to defaults
       model.materials = new Map([[1, { ...defaultMaterial }]]);
       model.sections = new Map([[1, { ...defaultSection }]]);
@@ -1520,6 +1975,8 @@ function createModelStore() {
       nextId.plate = 1;
       nextId.quad = 1;
       nextId.connector = 1;
+      nextId.footing = 1;
+      nextId.soilProfile = 1;
       model.provenance = undefined;
       lastKinematicResult = null;
       uiStore.useNative3DPresentation();

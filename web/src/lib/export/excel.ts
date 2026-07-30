@@ -30,6 +30,21 @@ import {
 interface ExcelExportOptions {
   filename?: string;
   includeResults?: boolean;
+  /**
+   * Extra sheets to append, as arrays of arrays.
+   *
+   * The detailing bar schedule arrives this way: it is rendered from the DocumentModel by
+   * `renderSchedule` and appended here rather than rebuilt, so the workbook the user
+   * downloads contains the same numbers as the report and the drawings.
+   */
+  extraSheets?: ReadonlyArray<{ name: string; rows: (string | number)[][] }>;
+  /**
+   * Skip the standard model sheets and write only `extraSheets`.
+   *
+   * A bar schedule is a fabrication document; padding it with node coordinates and
+   * reaction tables makes it harder to use, not more complete.
+   */
+  onlyExtras?: boolean;
 }
 
 
@@ -367,6 +382,8 @@ export function exportToExcel(options: ExcelExportOptions = {}): void {
   const {
     filename = 'analisis-estructural.xlsx',
     includeResults = true,
+    extraSheets = [],
+    onlyExtras = false,
   } = options;
 
   const is3D = isMode3D(uiStore.analysisMode);
@@ -374,16 +391,24 @@ export function exportToExcel(options: ExcelExportOptions = {}): void {
 
   const wb = XLSX.utils.book_new();
 
-  XLSX.utils.book_append_sheet(wb, createSummarySheet(), t('excel.sheetSummary'));
-  XLSX.utils.book_append_sheet(wb, createElementsSheet(), t('excel.sheetElements'));
-  XLSX.utils.book_append_sheet(wb, createNodesSheet(), t('excel.sheetNodes'));
+  if (!onlyExtras) {
+    XLSX.utils.book_append_sheet(wb, createSummarySheet(), t('excel.sheetSummary'));
+    XLSX.utils.book_append_sheet(wb, createElementsSheet(), t('excel.sheetElements'));
+    XLSX.utils.book_append_sheet(wb, createNodesSheet(), t('excel.sheetNodes'));
 
-  if (includeResults && hasResults) {
-    XLSX.utils.book_append_sheet(wb, createReactionsSheet(), t('excel.sheetReactions'));
+    if (includeResults && hasResults) {
+      XLSX.utils.book_append_sheet(wb, createReactionsSheet(), t('excel.sheetReactions'));
+    }
+
+    XLSX.utils.book_append_sheet(wb, createMaterialsSheet(), t('excel.sheetMaterials'));
+    XLSX.utils.book_append_sheet(wb, createSectionsSheet(), t('excel.sheetSections'));
   }
 
-  XLSX.utils.book_append_sheet(wb, createMaterialsSheet(), t('excel.sheetMaterials'));
-  XLSX.utils.book_append_sheet(wb, createSectionsSheet(), t('excel.sheetSections'));
+  for (const extra of extraSheets) {
+    XLSX.utils.book_append_sheet(
+      wb, XLSX.utils.aoa_to_sheet(extra.rows as (string | number)[][]),
+      extra.name.slice(0, 31));
+  }
 
   XLSX.writeFile(wb, filename);
 }

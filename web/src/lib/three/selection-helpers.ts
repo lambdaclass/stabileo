@@ -158,16 +158,43 @@ export function heatmapColor(norm: number): number {
 }
 
 /**
- * Verification status color: ok → green, warn → yellow, fail → red.
- * Ratio-based: uses continuous gradient from green(0) → yellow(0.8) → red(1.2+).
+ * Verification status color: ok → green, warn → amber, fail → red.
+ * Utilization convention is demand/capacity: <= 1.0 passes.
  */
 export function verificationColor(ratio: number | null): number {
-  if (ratio === null) return 0x888888; // no verification → gray
+  if (ratio === null) return VERIFICATION_UNAVAILABLE_COLOR; // nothing verified → gray
   if (ratio <= 0.5) return 0x22cc66;     // green (safe)
   if (ratio <= 0.9) return 0x88cc22;     // yellow-green
-  if (ratio <= 1.0) return 0xddaa00;     // amber (near limit)
+  if (ratio <= 0.95) return 0xbfcc11;    // yellow (approaching)
+  if (ratio <= 1.0) return 0xddaa00;     // amber (warn band 0.95–1.00)
   if (ratio <= 1.1) return 0xff6600;     // orange (marginal fail)
   return 0xee2222;                        // red (fail)
+}
+
+/** "Nothing was verified here" — never green, visually distinct from a pass. */
+export const VERIFICATION_UNAVAILABLE_COLOR = 0x888888;
+
+/**
+ * Desaturate a status colour toward gray for the STALE state (approved decision:
+ * desaturated status colours plus hatch/glyph). Keeps the ratio information
+ * legible while making "not current" unmistakable, and never turns a failing
+ * member green.
+ */
+export function desaturateTowardGray(hex: number, amount = 0.55): number {
+  const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff;
+  const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  const mix = (c: number) => Math.round(c + (lum - c) * amount);
+  return (mix(r) << 16) | (mix(g) << 8) | mix(b);
+}
+
+/** Three-state verification colour for the viewport overlay. */
+export function verificationStateColor(
+  ratio: number | null,
+  state: 'current' | 'stale' | 'unavailable',
+): number {
+  if (state === 'unavailable') return VERIFICATION_UNAVAILABLE_COLOR;
+  const base = verificationColor(ratio);
+  return state === 'stale' ? desaturateTowardGray(base) : base;
 }
 
 /**

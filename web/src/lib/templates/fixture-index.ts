@@ -49,6 +49,14 @@ const fixtures3D: Record<string, FixtureLoader> = {
   // PRO generators (now JSON)
   'torre-irregular-con-retiros': () => import('./fixtures/torre-irregular-con-retiros.json'),
   'rc-design-frame': () => import('./fixtures/rc-design-frame.json'),
+  // Small deterministic RC design fixture (8 members) for fast unit + browser
+  // tests: adequate sections, load combinations present, every member verifiable.
+  'rc-design-qa-8': () => import('./fixtures/rc-design-qa-8.json'),
+  // Same family, sized so the SUPPORT regions land in row 2 of Table 9.7.6.2.2 (V_s required
+  // above 0,33·√f'c·bw·d). A 300 mm web has 242 mm between its two leg centres against row
+  // 2's 200 mm across-width limit, so a third leg — a crosstie — is mandatory. qa-8 is
+  // entirely row 1 and therefore cannot exercise the across-width column at all.
+  'rc-design-qa-row2': () => import('./fixtures/rc-design-qa-row2.json'),
   // CAD → RC draft examples generated from real architectural DXFs by
   // scripts/build-cad-dxf-examples.ts (PR [9] stress tests).
   'cad-arch-structure-dxf': () => import('./fixtures/cad-arch-structure-dxf.json'),

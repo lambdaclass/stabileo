@@ -21,6 +21,9 @@ import { enrichComboShellStresses } from './shell-combos';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
 import { t } from '../i18n';
+// Counts app-side structural-solve dispatches so browser tests can assert that a
+// reinforcement-only edit triggers none. Not part of the solver.
+import { noteStructuralSolve } from '../utils/solve-counter';
 import {
   get2DDisplayNodalLoadMoment,
   get2DDisplayNodalLoadVertical,
@@ -1289,6 +1292,7 @@ export function buildSolverInput3D(
 
 /** Solve the current model using the 3D solver. Returns results or error string. */
 export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, leftHand = false): AnalysisResults3D | string | null {
+  noteStructuralSolve();
   if (model.nodes.size < 2 || model.elements.size < 1) {
     return t('svc.needNodesAndElements');
   }
@@ -1434,6 +1438,7 @@ export function solveCombinations3D(
   includeSelfWeight = false,
   leftHand = false,
 ): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
+  noteStructuralSolve();
   if (model.nodes.size < 2 || model.elements.size < 1) return t('svc.needNodesAndElements');
   if (model.supports.size < 1) return t('svc.needSupport');
   if (combinations.length === 0) return t('svc.needCombination');

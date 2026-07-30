@@ -5,6 +5,7 @@
 // Units: kN, m, MPa, cm² (for reinforcement areas)
 
 import type { SolverDiagnostic } from '../../types';
+import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
 
 // ─── Rebar Database ─────────────────────────────────────────────
 
@@ -547,26 +548,22 @@ export function checkShear(params: ConcreteDesignParams, Vu: number, Nu: number 
 
   const AvOverSDesign = Math.max(AvOverS, AvOverSMinCm2m);
 
-  // Select stirrups: 2-leg stirrups of given diameter
   const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia) ?? REBAR_DB[1]; // default Ø8
-  const legs = 2;
+
+  // Table 9.7.6.2.2, through THE one evaluator. This function used to carry its own copy of
+  // the rule — with the same invented `0.8·d` branch and the same 300 mm row-1 cap as the
+  // (now removed) `maxStirrupSpacing`. Two implementations of one table is how they drifted
+  // apart; there is now exactly one, and it supplies the LEG COUNT as well as the spacing.
+  // The leg count used to be a hardcoded 2, which silently ignored the across-width column.
+  const table = transverseSpacingLimits('2025', {
+    VsRequired: VsReq, bw: b, d, fc, cover, stirrupDiaMm: stirrupBar.diameter,
+  });
+  const legs = table.requiredLegs;
   const AvLeg = legs * stirrupBar.area; // cm² per stirrup set
 
   // Spacing = Av / (Av/s)
   let spacing = AvOverSDesign > 0 ? AvLeg / AvOverSDesign : d; // m
-  // Max spacing per shear zone (CIRSOC 201):
-  // Zone 1 (Vu ≤ φVc): s ≤ min(0.8d, 30cm)
-  // Zone 2 (Vs ≤ (1/3)√f'c·bw·d): s ≤ min(d/2, 30cm)
-  // Zone 3 ((1/3) < Vs ≤ (2/3)√f'c·bw·d): s ≤ min(d/4, 20cm)
-  const VsThird = (1 / 3) * Math.sqrt(fc) * (b * 1000) * (d * 1000) / 1000; // kN
-  let maxSpacing: number;
-  if (VsReq <= 0) {
-    maxSpacing = Math.min(0.8 * d, 0.3); // Zone 1
-  } else if (VsReq <= VsThird) {
-    maxSpacing = Math.min(d / 2, 0.3); // Zone 2
-  } else {
-    maxSpacing = Math.min(d / 4, 0.2); // Zone 3
-  }
+  const maxSpacing = table.alongMax;
   spacing = Math.min(spacing, maxSpacing);
   // Round down to nearest 2.5cm
   spacing = Math.floor(spacing * 40) / 40;

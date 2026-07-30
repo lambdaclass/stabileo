@@ -59,8 +59,45 @@ function getInitialLocale(): string {
 let _locale = $state<string>(getInitialLocale());
 
 export function t(key: string): string {
-	const dict = dicts[_locale] ?? dicts.en;
+	return tAt(key, _locale);
+}
+
+/**
+ * Translate at an explicit locale, without touching the active one.
+ *
+ * Report and export writers need this: a user may want a Spanish PDF while reading an
+ * English UI, and flipping `_locale` to achieve that would persist to localStorage and
+ * re-render the whole app mid-export.
+ */
+export function tAt(key: string, locale: string): string {
+	const dict = dicts[locale] ?? dicts.en;
 	return (dict as any)[key] ?? (dicts.en as any)[key] ?? key;
+}
+
+/** Every locale the app ships. Used by the locale-parity gate. */
+export function shippedLocales(): string[] {
+	return Object.keys(dicts);
+}
+
+/** A locale's raw dictionary. Gate use only. */
+export function dictFor(locale: string): Record<string, string> {
+	return (dicts[locale] ?? {}) as Record<string, string>;
+}
+
+/**
+ * Translate with `{placeholder}` interpolation.
+ *
+ * `t()` has no parameter support, so PR15's design messages (which carry element
+ * ids, utilizations and dimensions) go through this. Missing params are left as the
+ * literal placeholder so an omission is visible rather than silently blank.
+ */
+export function tp(key: string, params?: Record<string, string | number>): string {
+	const raw = t(key);
+	if (!params) return raw;
+	return raw.replace(/\{(\w+)\}/g, (m, name) => {
+		const v = params[name];
+		return v === undefined || v === null ? m : String(v);
+	});
 }
 
 export function setLocale(loc: string) {

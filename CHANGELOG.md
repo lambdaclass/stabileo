@@ -9,6 +9,113 @@ It should capture what changed, not what should be built next.
 
 ## Unreleased
 
+### Changed
+
+#### RC Design workflow rebuild — verified auto-design, honest invalidation (PR15, 2026-07-25)
+
+**BREAKING (verification results): `cirsoc201.provided.v1` → `cirsoc201.provided.v2`.**
+Statuses produced by earlier versions are NOT comparable with this release — some
+previous passes were false. Every design certificate now records `verifierId`, and
+the UI carries a migration notice (`design.cert.migrationNotice`).
+
+**Reported regression fixed.** A committed reinforcement edit called
+`verificationStore.clear()`, which emptied the design table and also destroyed
+`concreteMap` — the data the live provided-rebar verification needs as input. Editing
+reinforcement now preserves the table, the expansion, filters, scroll position and
+selection; the affected member re-verifies immediately from retained demand.
+
+**The real trust bug fixed.** The table summary and the viewport overlay read the
+auto-design baseline, which is "designed to pass" by construction. Weakening a
+member's rebar left the viewport green. Status everywhere is now derived from the
+PROVIDED reinforcement, with three honest display states: current, stale (desaturated
+status colour + hatch + glyph) and unavailable (never green).
+
+**Governing-axis correction.** Beam and column verification was hardcoded to the
+Mz/Vy pair while the generator selected the axis per member. Measured on the
+408-member flagship frame: 128 X-beams received *false passes* (utilization 0.62 while
+the real 1113 kN·m gravity moment was unchecked), and columns were designed for a
+6 kN·m moment while carrying 973 kN·m. Both now consume a single
+`resolveDesignAxes` result. Missing reinforcement in a loaded region is an explicit
+FAILURE instead of a silently skipped check; column ties check both shear components;
+the slenderness magnifier reaches the verifier.
+
+**Auto-design now produces verified reinforcement.** A deterministic, bounded
+candidate search designs each beam region independently, enforces bar fit at
+generation time, recomputes the effective depth from the actual layer centroid, and
+verifies every candidate with the authoritative verifier the UI displays. Outcomes are
+`VERIFIED` (with a certificate), `SECTION_INADEQUATE` (exhaustive, with a preliminary
+section recommendation), `DEMAND_UNAVAILABLE`, `SEARCH_EXHAUSTED` or `UNSUPPORTED` —
+none of which is ever counted as a pass. Measured on `rc-design-frame`:
+**376/408 failing before → 408/408 VERIFIED after**, worst certified utilization
+0.993, 408 members in ~0.4 s.
+
+**Utilization convention** is now demand/capacity everywhere (warn 0.95 < u ≤ 1.00,
+fail above 1.00); the ad-hoc `1/ratio` inversion in the UI is gone.
+
+**Review hardening (PR #78 review follow-ups).** Three verifier defects in the
+regional rewrite, all in `station-design-forces.ts`:
+
+- Column uniaxial P-M capacity was analyzed about the WRONG axis for My-governed
+  rectangular columns (b≠h): the capacity axis followed the moment NAME instead of
+  the flex-rotated section, checking at the strong depth — measured false passes of
+  ~2.2x (util 0.68 reported where the true value is 1.51). The mapping is now
+  primary→depth h, secondary→depth b.
+- Opposite-sign demand was silently unchecked: hogging in the span (cantilevers,
+  pattern live load, uplift) and sagging at the supports were filtered out of every
+  region. A new sweep checks them against the steel that actually reaches each region
+  (from the curtailment/continuity resolution) and FAILS explicitly when none does;
+  the candidate generator seeds and escalates support top steel for span hogging and
+  span bottom steel for support sagging. The pre-PR sweep coverage is restored.
+- Shear capacity received the axial force in the solver's sign (+ = tension) while
+  expecting compression-positive — compression weakened members (false failures) and
+  tension strengthened them (unsafe passes). Both call sites now pass -N. Column ties
+  also use a per-axis effective depth (secondary axis used the primary depth).
+
+Plus: stirrup/tie legs clamped to [2, 6] and column face bars to 6 at the store layer
+(typed input bypassed the editors' max; legs multiply shear capacity unchecked);
+`designOne` keeps provisional flags in sync; the design table no longer hijacks
+editor keystrokes (Enter collapsed the row being edited). Regression coverage:
+`design/__tests__/review-fixes.test.ts` (9 tests incl. rectangular-column P-M,
+cantilever-style span hogging, shear axial sign) and
+`store/__tests__/rebar-review-fixes.test.ts` (clamps + provisional sync).
+The flagship frame still designs 408/408 VERIFIED with the sweep active.
+
+**One "Run Design" button became three explicit commands plus Design all**
+(compute demands / run code check / auto-design), with progress, cancellation and
+partial-run honesty. Reinforcement writes go through
+`modelStore.reinforcementTransaction`: one undo step per action, one reactive commit,
+no model-version bump and **zero structural solves** — previously rebar edits were not
+undoable at all.
+
+**Added**: derived member grouping (elevation bands labelled `L3 +10.20 m`, structural
+planes, frame lines with a collinearity gate, section/material/kind/connectivity),
+batch editing with preview + validation + opt-in "Protect manual overrides" +
+one-step undo, changed-members review with provisional (uncertified) candidates, a
+design-code adapter registry (CIRSOC 201 implemented; ACI/Eurocode/NDS/TMS/AISI
+registered as honestly unsupported), and Playwright browser coverage.
+
+**Fixture corrections**: `rc-design-frame` authored its 120 Y-direction beams' gravity
+load in the local *y* (horizontal) component — 240 load entries moved to `qZ`. Load
+combinations added; sections enlarged to 500×500 columns and 350×650 beams so the
+flagship example demonstrates a complete design. New `rc-design-qa-8` fixture for fast
+deterministic tests. `orientation-diagnostic.ts` detects this class of error and blocks
+certification for affected members.
+
+**Initially-suspected solver defect: withdrawn.** While authoring this work, a raw
+WASM probe (no explicit `localY`) appeared to bend a global-Y member about local y
+instead of local z — ratio exactly Iz/Iy — and it reproduced on the untouched baseline,
+so it was written up as a pre-existing upstream defect. CI disproved that: `web/src/lib/wasm/`
+is gitignored and CI rebuilds it from the current `engine/` source, where the same probe
+returns the correct Iz result. The authoring machine's binary predated the newest engine
+commit by nine days. There is no solver defect and no solver change is needed; the
+regression coverage in `design/__tests__/orientation-boundary.test.ts` now asserts the
+correct behaviour and fails with an explicit "rebuild your local WASM" message if a
+stale binary is used.
+
+**Deferred to the next PR**: continuity-aware continuous-beam detailing, coordinated
+bar cutoff/laps across spans, beam-column joint design, seismic joint checks and
+strong-column/weak-beam design.
+
 ### Fixed
 
 #### Hinge/release correctness cleanup (2026-04-26)

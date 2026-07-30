@@ -1,8 +1,14 @@
+import type { StoredRegulations } from '../codes/roles';
+import type { RevisionVector } from '../codes/revisions';
+import type { DetailingStore } from '../engine/detailing/assembly';
+import type { ProjectCodeSettings } from '../codes/project-code-settings';
 // Undo/Redo history store using full model snapshots
 import { modelStore } from './model.svelte';
 import type { Release } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
+import type { Footing } from '../model/footing';
+import type { ProjectGeotechnical } from '../model/geotechnical';
 
 export interface ModelSnapshot {
   name?: string;
@@ -34,7 +40,20 @@ export interface ModelSnapshot {
   constraints?: Array<{ type: string; [key: string]: unknown }>;
   /** Joint/spring/bearing primitives. Each entry is [id, ConnectorElement-shaped object]. */
   connectors?: Array<[number, { id: number; nodeI: number; nodeJ: number; kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }]>;
-  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; connector?: number };
+  /** Isolated spread footings. Each entry is [id, Footing]. Absent before foundations. */
+  footings?: Array<[number, Footing]>;
+  /** Project ground conditions, referenced by footings rather than copied into them. */
+  geotechnical?: ProjectGeotechnical;
+  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; connector?: number; footing?: number; soilProfile?: number };
+  /** Jurisdiction, adopted regulation editions and concrete data. Absent on
+   *  models saved before this existed — see migrateCodeSettings. */
+  codeSettings?: ProjectCodeSettings;
+  /** Code-neutral regulation stack. */
+  regulations?: StoredRegulations;
+  /** Revision vector every downstream result is stamped against. */
+  revisions?: RevisionVector;
+  /** Coordinated detailing assemblies. Absent on models saved before PR17. */
+  detailing?: DetailingStore;
 }
 
 const MAX_HISTORY = 50;
@@ -49,18 +68,24 @@ function createHistoryStore() {
     get undoCount() { return undoStack.length; },
     get redoCount() { return redoStack.length; },
 
-    pushState(): void {
+    /**
+     * Push the current model onto the undo stack.
+     *
+     * `notifyMutation` (default true) preserves the historical behaviour: bump
+     * modelVersion so App.svelte's reactive effect clears stale results. Pass
+     * `false` for a reinforcement-only transaction — reinforcement does not affect
+     * the analysis, so bumping would destroy valid results and force a re-solve.
+     */
+    pushState(opts?: { notifyMutation?: boolean }): void {
       const snapshot = modelStore.snapshot();
       undoStack.push(snapshot);
       if (undoStack.length > MAX_HISTORY) {
         undoStack.shift();
       }
       redoStack = [];
-      // Bump modelVersion so the reactive $effect in App.svelte detects the change
-      // and clears stale results. This is a no-op when called via _pushUndo (which
-      // already increments modelVersion), but ensures direct pushState() callers
-      // (e.g. ElementEditor) also trigger result invalidation.
-      modelStore.bumpModelVersion();
+      if (opts?.notifyMutation !== false) {
+        modelStore.bumpModelVersion();
+      }
     },
 
     undo(): void {
@@ -99,7 +124,10 @@ function createHistoryStore() {
   // Wire into model store after module initialization settles so this store
   // can survive circular imports in tests/SSR.
   queueMicrotask(() => {
-    modelStore?._setHistoryPush?.(() => store.pushState());
+    // The silent variant (used by reinforcementTransaction) is registered by the
+    // same call: modelStore wraps this fn for the notifying path and uses it raw
+    // for the silent path.
+    modelStore?._setHistoryPush?.(() => store.pushState({ notifyMutation: false }));
   });
 
   return store;

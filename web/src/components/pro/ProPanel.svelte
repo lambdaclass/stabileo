@@ -6,7 +6,7 @@
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
   import { computeStationDemands as computeStationDemandsService, runUnifiedVerification } from '../../lib/engine/verification-service';
-  import { computeQuantities } from '../../lib/engine/quantity-takeoff';
+  import { estimateQuantitiesFromVerification } from '../../lib/engine/quantity-takeoff';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import { classifyElement } from '../../lib/engine/codes/argentina/cirsoc201';
   import { computeBarMarks } from '../../lib/engine/bar-marks';
@@ -658,7 +658,7 @@
           }
         }
       }
-      data.quantities = computeQuantities(verificationsRef, elemLengths);
+      data.quantities = estimateQuantitiesFromVerification(verificationsRef, elemLengths);
       data.elementLengths = elemLengths;
     }
 

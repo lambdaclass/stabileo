@@ -1,6 +1,8 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
+  import { regulationsStore } from '../../lib/store/regulations.svelte';
+  import { DAGG_MAX_MM, DAGG_MIN_MM } from '../../lib/codes/project-code-settings';
   import {
     MATERIAL_CATEGORIES, searchPresets,
     type MaterialPreset,
@@ -17,6 +19,10 @@
   let newNu = $state('');
   let newRho = $state('');
   let newFy = $state('');
+  let aggError = $state<string | null>(null);
+  let marginError = $state<string | null>(null);
+  /** A margin larger than this is a data-entry error, not a conservative project. */
+  const MARGIN_MAX_MM = 50;
 
   const materials = $derived([...modelStore.materials.values()]);
 
@@ -45,6 +51,56 @@
     });
     newName = ''; newE = ''; newNu = ''; newRho = ''; newFy = '';
     showCustom = false;
+  }
+
+  /**
+   * Set (or clear) the maximum nominal coarse-aggregate size.
+   *
+   * Changing it does NOT invalidate the analysis or the member design: it changes whether
+   * the bars fit, not what the section can carry. The revision graph records that as a
+   * `detailingSpec` change, so the solve and the verification survive.
+   */
+  function setAggregate(id: number, raw: string) {
+    aggError = null;
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      modelStore.updateMaterial(id, { maxAggregateSizeMm: null });
+      regulationsStore.noteChange('detailingSpec');
+      return;
+    }
+    const v = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(v) || v < DAGG_MIN_MM || v > DAGG_MAX_MM) {
+      aggError = tp('materials.aggregateInvalid', { min: DAGG_MIN_MM, max: DAGG_MAX_MM });
+      return;
+    }
+    modelStore.updateMaterial(id, { maxAggregateSizeMm: v });
+    regulationsStore.noteChange('detailingSpec');
+  }
+
+  /**
+   * Additional bar-spacing margin. A PROJECT decision, above the regulatory minimum.
+   *
+   * Blank and zero both mean no margin. Negative is refused outright: this setting exists
+   * to make detailing more conservative and can never be used to erode the code minimum.
+   * Changing it invalidates coordination, constructibility and documents — but NOT the
+   * loads or the structural analysis, which is why it notes `detailingSpec` and nothing
+   * further.
+   */
+  function setSpacingMargin(id: number, raw: string) {
+    marginError = null;
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      modelStore.updateMaterial(id, { spacingMarginMm: null });
+      regulationsStore.noteChange('detailingSpec');
+      return;
+    }
+    const v = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(v) || v < 0 || v > MARGIN_MAX_MM) {
+      marginError = tp('materials.spacingMarginInvalid', { max: MARGIN_MAX_MM });
+      return;
+    }
+    modelStore.updateMaterial(id, { spacingMarginMm: v });
+    regulationsStore.noteChange('detailingSpec');
   }
 
   function removeMat(id: number) {
@@ -137,6 +193,8 @@
             <th>{t('field.poisson')}</th>
             <th>{t('field.density')}</th>
             <th>fy</th>
+            <th title={t('materials.aggregateHelp')}>{t('materials.aggregateShort')}</th>
+            <th title={t('material.spacingMarginHelp')}>{t('material.spacingMarginShort')}</th>
             <th></th>
           </tr>
         </thead>
@@ -149,19 +207,55 @@
               <td class="col-num">{m.nu}</td>
               <td class="col-num">{m.rho}</td>
               <td class="col-num">{m.fy ?? '—'}</td>
+              <td class="col-num">
+                <!-- Maximum nominal coarse-aggregate size: a MIX property, so it lives on
+                     the material. Blank means "not stated", which the design surface then
+                     reports as an explicit assumption rather than a silent default. -->
+                <input
+                  class="agg-input" type="text" inputmode="decimal"
+                  data-testid={`mat-aggregate-${m.id}`}
+                  aria-label={t('materials.aggregate')}
+                  value={m.maxAggregateSizeMm ?? ''}
+                  placeholder={t('materials.aggregateNotStated')}
+                  onchange={(e) => setAggregate(m.id, e.currentTarget.value)}
+                />
+              </td>
+              <td class="col-num">
+                <!-- Additional bar-spacing margin above the regulatory minimum. A project
+                     decision: CIRSOC does not prescribe it, and the default is 0 mm. -->
+                <input
+                  class="agg-input" type="text" inputmode="decimal"
+                  data-testid={`mat-spacing-margin-${m.id}`}
+                  aria-label={t('material.spacingMargin')}
+                  title={t('material.spacingMarginHelp')}
+                  value={m.spacingMarginMm ?? ''}
+                  placeholder="0"
+                  onchange={(e) => setSpacingMargin(m.id, e.currentTarget.value)}
+                />
+              </td>
               <td><button class="del-btn" onclick={() => removeMat(m.id)}>×</button></td>
             </tr>
           {/each}
           {#if materials.length === 0}
-            <tr><td colspan="7" class="no-results">{t('pro.noMaterials')}</td></tr>
+            <tr><td colspan="9" class="no-results">{t('pro.noMaterials')}</td></tr>
           {/if}
         </tbody>
       </table>
+      {#if marginError}
+        <p class="agg-error" data-testid="margin-error">{marginError}</p>
+      {/if}
+      {#if aggError}
+        <p class="agg-error" role="alert" data-testid="mat-aggregate-error">{aggError}</p>
+      {/if}
+      <p class="agg-note">{t('materials.aggregateNote')}</p>
     </div>
   </div>
 </div>
 
 <style>
+  .agg-input { width: 4.5rem; padding: 0.1rem 0.25rem; text-align: right; }
+  .agg-error { margin: 0.35rem 0 0; padding: 0.3rem 0.5rem; border-radius: 4px; background: #7a1f1f; color: #ffe3e3; font-size: 0.8rem; }
+  .agg-note { margin: 0.35rem 0 0; font-size: 0.76rem; opacity: 0.75; line-height: 1.35; }
   .pro-mat {
     display: flex;
     flex-direction: column;

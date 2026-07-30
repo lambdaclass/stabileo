@@ -911,9 +911,15 @@
     modelStore.plates;
     modelStore.quads;
     modelStore.modelVersion;
-    // Also react to verification store changes for 'verification' color map
+    // Also react to verification store changes for 'verification' color map.
+    // `.design` and `.providedRevision` were missing: a baseline-only or
+    // reinforcement-only change left the overlay painted with the previous state.
     verificationStore.concrete;
     verificationStore.steel;
+    verificationStore.design;
+    verificationStore.providedRevision;
+    verificationStore.demandRevision;
+    verificationStore.analysisRevision;
     syncColorMap3D();
     syncVerificationLabels();
     invalidate();
@@ -2527,21 +2533,26 @@
     </div>
   {/if}
 
-  <!-- Verification color legend -->
-  {#if resultsStore.diagramType === 'verification' && verificationStore.hasResults}
-    <div class="diagram-legend verification-legend">
+  <!-- Verification color legend: utilization is demand/capacity, plus the three
+       honest display states (current / stale / unavailable). -->
+  {#if resultsStore.diagramType === 'verification' && (verificationStore.hasResults || verificationStore.hasDemandData)}
+    <div class="diagram-legend verification-legend" data-testid="overlay-legend">
+      <span class="legend-text legend-util-label">u = D/C</span>
       <span class="legend-color" style="background: #22cc66;"></span>
       <span class="legend-text">&le; 0.5</span>
       <span class="legend-color" style="background: #88cc22; margin-left: 6px;"></span>
       <span class="legend-text">&le; 0.9</span>
       <span class="legend-color" style="background: #ddaa00; margin-left: 6px;"></span>
-      <span class="legend-text">&le; 1.0</span>
-      <span class="legend-color" style="background: #ff6600; margin-left: 6px;"></span>
-      <span class="legend-text">&le; 1.1</span>
+      <span class="legend-text">&le; 1.0 &#9888;</span>
       <span class="legend-color" style="background: #ee2222; margin-left: 6px;"></span>
-      <span class="legend-text">&gt; 1.1</span>
-      <span class="legend-color" style="background: #888888; margin-left: 6px;"></span>
-      <span class="legend-text">N/V</span>
+      <span class="legend-text">&gt; 1.0 &#10007;</span>
+      <span class="legend-sep">|</span>
+      <span class="legend-color legend-current" data-testid="overlay-legend-current" style="background: #22cc66;"></span>
+      <span class="legend-text">{t('design.overlay.current')}</span>
+      <span class="legend-color legend-stale" data-testid="overlay-legend-stale"></span>
+      <span class="legend-text">&#8987; {t('design.overlay.stale')}</span>
+      <span class="legend-color legend-unavailable" data-testid="overlay-legend-unavailable" style="background: #888888;"></span>
+      <span class="legend-text">&#9675; {t('design.overlay.unavailable')}</span>
     </div>
   {/if}
 
@@ -2812,6 +2823,18 @@
     font-size: 0.78rem;
     font-family: monospace;
   }
+
+  .legend-util-label { opacity: 0.75; margin-right: 2px; }
+  .legend-sep { color: #445; margin: 0 6px; font-size: 0.78rem; }
+  /* Stale = desaturated status colour + diagonal hatch, so "not current" reads
+     without relying on hue alone. */
+  .legend-stale {
+    margin-left: 6px;
+    background:
+      repeating-linear-gradient(45deg, #8a8f7a 0 3px, #5d6154 3px 6px);
+  }
+  .legend-unavailable { margin-left: 6px; }
+  .legend-current { margin-left: 0; }
 
   .hover-tooltip {
     position: absolute;

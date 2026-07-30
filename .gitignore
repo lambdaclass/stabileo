@@ -42,3 +42,23 @@ web/src/lib/wasm
 .doc-sync.launchd.err
 .cache/
 .vite/
+
+# Playwright artifacts (traces, videos, HTML report). Baselines under
+# web/e2e/__screenshots__/ ARE committed.
+web/e2e/.artifacts/
+web/e2e/.report/
+web/test-results/
+web/playwright-report/
+# Playwright writes these at the repo root too when it is invoked from here.
+test-results/
+playwright-report/
+
+# Throwaway build outputs used by the E2E hook-gating test
+web/.dist-hookgate-off/
+web/.dist-hookgate-on/
+
+# Official CIRSOC / INPRES-CIRSOC PDFs. The structured Markdown conversion under
+# docs/codes/CIRSOC/markdown/ IS tracked; the ~56 MB of source PDFs are not, so the
+# repository stays clonable. docs/codes/CIRSOC/SOURCES.md records the SHA-256 of every
+# source file so any conversion can be re-verified against the exact document used.
+docs/codes/CIRSOC/*.pdf

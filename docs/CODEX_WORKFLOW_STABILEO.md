@@ -104,3 +104,50 @@ The quality bar is not just "pretty drawings". It is:
 - continuity that engineers trust
 - schedules that help fabrication
 - reports that are professionally readable
+
+## PR19 is RC CAD constructibility (reassigned 2026-07-30)
+
+Stack position 19 now belongs to **RC detail CAD constructibility review**, not seismic.
+
+- **Seismic (INPRES-CIRSOC 103) is deferred.** Its original implementation was lost with the
+  2026-07-29 workstation data loss and no Git object survived. The specification that could be
+  recovered is preserved in `docs/handoffs/deferred-seismic-103-2026-07-29.md`. No seismic
+  branch, tag or implementation exists.
+- **PR19 begins in POC / design phase.** The branch `pr/19-rc-cad-constructibility` starts as
+  documentation and architecture only, with no production CAD integration code.
+- **It is intended to mature in place** into a real, mergeable PR19 on the same branch, rather
+  than being replaced by a separate implementation branch later.
+- First component is a single **isolated footing**, drawn from a real PR18 production fixture.
+- It stacks on `pr/18-rc-slabs-walls-foundations`, never on a QA branch.
+
+Design record: `docs/poc/rc-footing-cad-review.md`.
+
+## Branch backup policy — corrected 2026-07-30
+
+The earlier version of this policy (commit `88abc899`) said to open a draft PR as soon as any
+branch differed from its base. Applied to every branch that produced PR noise: an integration
+branch that must never merge and a deliberately-red evidence snapshot both got draft PRs and both
+had to be closed with explanations. A draft PR is a **review surface**; remote backup is a
+**push**. The rule is now scoped by branch kind. Push everything; open PRs only where a PR means
+something.
+
+**Real deliverable branches** — features, fixes, intended documentation, anything expected to
+mature into a mergeable contribution: push immediately; open a draft PR after the first coherent
+commit; push every signed checkpoint; keep draft until review-ready.
+
+**QA / integration branches**: push remotely while active; **do not open a PR**; record the exact
+component heads; serve the exact branch locally; delete only after a verified replacement exists.
+
+**Temporary evidence / scratch branches**: push only when needed to protect decision-blocked work;
+**do not open a PR**; label clearly as non-mergeable; delete once the evidence is represented in
+final commits or tracked documentation.
+
+**External forks**: push work to the user's fork, never upstream; do not open an upstream PR until
+there is a coherent upstream contribution; a design-only or exploratory fork branch needs no PR;
+never push to upstream without explicit authorization.
+
+Never force-push without explicit authorization. A branch push does not preserve `.git/`
+contents — that is why `RC_CHAIN_PROGRESS.md`, `pr-drafts/` and the 14 stashes were
+unrecoverable. Before deleting any branch, prove the work exists elsewhere: check ancestry against
+every production ref, check the tracked docs, and check that no unique required change lives only
+there.

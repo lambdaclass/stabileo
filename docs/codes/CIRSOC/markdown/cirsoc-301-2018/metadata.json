@@ -1,0 +1,1075 @@
+{
+  "key": "cirsoc-301-2018",
+  "code": "CIRSOC 301",
+  "edition": "2018",
+  "title": "Reglamento Argentino de Estructuras de Acero para Edificios",
+  "source_file": "CIRSOC 301-2018.pdf",
+  "sha256": "cbfd04b8802983203247f72ad7cbbd5897987cb090c40659f6fcc7eb9223b321",
+  "bytes": 8106042,
+  "pages": 340,
+  "toc_pages_skipped": 15,
+  "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+  "pages_ok": 317,
+  "pages_sparse": 16,
+  "pages_empty": 7,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        54
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO A",
+      "title": "ESPECIFICACIONES GENERALES",
+      "file": "capitulo-a-especificaciones-generales.md",
+      "pages": [
+        55,
+        64
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO B",
+      "title": "REQUERIMIENTOS DE PROYECTO",
+      "file": "capitulo-b-requerimientos-de-proyecto.md",
+      "pages": [
+        65,
+        80
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO C",
+      "title": "PROYECTO POR CONSIDERACIONES DE",
+      "file": "capitulo-c-proyecto-por-consideraciones-de.md",
+      "pages": [
+        81,
+        86
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO D",
+      "title": "PROYECTO DE MIEMBROS TRACCIONA",
+      "file": "capitulo-d-proyecto-de-miembros-tracciona.md",
+      "pages": [
+        87,
+        94
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO E",
+      "title": "PROYECTO DE MIEMBROS COMPRIMIDOS",
+      "file": "capitulo-e-proyecto-de-miembros-comprimidos.md",
+      "pages": [
+        95,
+        126
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO F",
+      "title": "PROYECTO DE VIGAS Y OTROS MIEMBROS",
+      "file": "capitulo-f-proyecto-de-vigas-y-otros-miembros.md",
+      "pages": [
+        127,
+        162
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO G",
+      "title": "PROYECTO DE MIEMBROS SOMETIDOS A",
+      "file": "capitulo-g-proyecto-de-miembros-sometidos-a.md",
+      "pages": [
+        163,
+        172
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO H",
+      "title": "PROYECTO DE MIEMBROS SOMETIDOS A",
+      "file": "capitulo-h-proyecto-de-miembros-sometidos-a.md",
+      "pages": [
+        173,
+        182
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO I",
+      "title": "DISEÑO DE                       MIEMBROS             DE      SECCIÓN",
+      "file": "capitulo-i-diseno-de-miembros-de-seccion.md",
+      "pages": [
+        183,
+        184
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO J",
+      "title": "PROYECTO DE UNIONES, JUNTAS Y ME",
+      "file": "capitulo-j-proyecto-de-uniones-juntas-y-me.md",
+      "pages": [
+        185,
+        234
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO K",
+      "title": "REQUISITOS ADICIONALES PARA CONE",
+      "file": "capitulo-k-requisitos-adicionales-para-cone.md",
+      "pages": [
+        235,
+        236
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO L",
+      "title": "PROYECTO POR CONDICIONES DE SER",
+      "file": "capitulo-l-proyecto-por-condiciones-de-ser.md",
+      "pages": [
+        237,
+        240
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO M",
+      "title": "FABRICACIÓN Y MONTAJE",
+      "file": "capitulo-m-fabricacion-y-montaje.md",
+      "pages": [
+        241,
+        246
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO N",
+      "title": "CONTROL DE CALIDAD Y ASEGURAMIENTO",
+      "file": "capitulo-n-control-de-calidad-y-aseguramiento.md",
+      "pages": [
+        247,
+        260
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "APÉNDICE 1",
+      "title": "PROYECTO POR ANÁLISIS INELÁSTICO",
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md",
+      "pages": [
+        261,
+        268
+      ],
+      "clause_count": 13
+    },
+    {
+      "number": "APÉNDICE 2",
+      "title": "PROYECTO PARA ACUMULACIÓN DE AGUA",
+      "file": "apendice-2-proyecto-para-acumulacion-de-agua.md",
+      "pages": [
+        269,
+        272
+      ],
+      "clause_count": 5
+    },
+    {
+      "number": "APÉNDICE 3",
+      "title": "PROYECTO PARA CARGAS CÍCLICAS (FA",
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md",
+      "pages": [
+        273,
+        294
+      ],
+      "clause_count": 43
+    },
+    {
+      "number": "APENDICE 4",
+      "title": "PROYECTO PARA CONDICIONES DE INCEN",
+      "file": "apendice-4-proyecto-para-condiciones-de-incen.md",
+      "pages": [
+        295,
+        298
+      ],
+      "clause_count": 3
+    },
+    {
+      "number": "APÉNDICE 5",
+      "title": "EVALUACIÓN DE ESTRUCTURAS EXISTEN",
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md",
+      "pages": [
+        299,
+        302
+      ],
+      "clause_count": 21
+    },
+    {
+      "number": "APÉNDICE 6",
+      "title": "ARRIOSTRAMIENTOS PARA LA ESTABILI",
+      "file": "apendice-6-arriostramientos-para-la-estabili.md",
+      "pages": [
+        303,
+        310
+      ],
+      "clause_count": 14
+    },
+    {
+      "number": "APÉNDICE 7",
+      "title": "MÉTODOS                 ALTERNATIVOS PARA EL",
+      "file": "apendice-7-metodos-alternativos-para-el.md",
+      "pages": [
+        311,
+        320
+      ],
+      "clause_count": 12
+    },
+    {
+      "number": "APÉNDICE 8",
+      "title": "ANÁLISIS                      APROXIMADO                DE        SEGUNDO",
+      "file": "apendice-8-analisis-aproximado-de-segundo.md",
+      "pages": [
+        321,
+        340
+      ],
+      "clause_count": 7
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.1",
+      "title": "Especificaciones generales",
+      "page": 261,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.2",
+      "title": "Requerimientos de ductilidad",
+      "page": 261,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.3",
+      "title": "Requerimientos para el análisis estructural.",
+      "page": 261,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.1",
+      "title": "ESPECIFICACIONES GENERALES",
+      "page": 261,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.2",
+      "title": "REQUERIMIENTOS DE DUCTILIDAD",
+      "page": 262,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.2.1",
+      "title": "Material",
+      "page": 262,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.2.2",
+      "title": "Sección transversal del miembro. Relación ancho-espesor de elementos compri-",
+      "page": 262,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.2.3",
+      "title": "Longitud lateralmente no arriostrada",
+      "page": 264,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.2.4",
+      "title": "Resistencia de diseño a compresión axil",
+      "page": 266,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.3",
+      "title": "REQUERIMIENTOS PARA EL ANÁLISIS ESTRUCTURAL",
+      "page": 266,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.3.1",
+      "title": "Propiedades de los materiales y criterio de consideración de la fluencia",
+      "page": 266,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.3.2",
+      "title": "Imperfecciones geométricas iniciales",
+      "page": 266,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 1",
+      "id": "1.3.3",
+      "title": "Efectos de las tensiones residuales y de la fluencia parcial",
+      "page": 267,
+      "file": "apendice-1-proyecto-por-analisis-inelastico.md"
+    },
+    {
+      "chapter": "APÉNDICE 2",
+      "id": "2.1",
+      "title": "Proyecto simplificado para evitar acumulación de agua",
+      "page": 269,
+      "file": "apendice-2-proyecto-para-acumulacion-de-agua.md"
+    },
+    {
+      "chapter": "APÉNDICE 2",
+      "id": "2.2",
+      "title": "Proyecto mejorado para evitar acumulación de agua",
+      "page": 269,
+      "file": "apendice-2-proyecto-para-acumulacion-de-agua.md"
+    },
+    {
+      "chapter": "APÉNDICE 2",
+      "id": "2.1",
+      "title": "PROYECTO SIMPLIFICADO PARA EVITAR ACUMULACIÓN DE AGUA",
+      "page": 269,
+      "file": "apendice-2-proyecto-para-acumulacion-de-agua.md"
+    },
+    {
+      "chapter": "APÉNDICE 2",
+      "id": "2.2",
+      "title": "PROYECTO MEJORADO PARA EVITAR ACUMULACIÓN DE AGUA",
+      "page": 270,
+      "file": "apendice-2-proyecto-para-acumulacion-de-agua.md"
+    },
+    {
+      "chapter": "APÉNDICE 2",
+      "id": "2.1",
+      "title": "Se desplaza horizontalmente hasta encontrar la curva correspondiente al valor de Cs",
+      "page": 271,
+      "file": "apendice-2-proyecto-para-acumulacion-de-agua.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.1",
+      "title": "Especificaciones generales",
+      "page": 273,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.2",
+      "title": "Determinación de las tensiones máximas y del rango de tensión",
+      "page": 273,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.3",
+      "title": "Verificación del estado límite de fatiga para material base y juntas soldadas. Rango de",
+      "page": 273,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.4",
+      "title": "Verificación del estado límite de fatiga para bulones y partes roscadas. Rango de",
+      "page": 273,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.5",
+      "title": "Requerimientos especiales para fabricación y montaje.",
+      "page": 273,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.1",
+      "title": "ESPECIFICACIONES GENERALES",
+      "page": 273,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.2",
+      "title": "CÁLCULO DE LA TENSIÓN MÁXIMA Y DEL RANGO DE TENSIÓN",
+      "page": 274,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.3",
+      "title": "VERIFICACIÓN DEL ESTADO LÍMITE DE FATIGA PARA MATERIAL BASE",
+      "page": 274,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.4",
+      "title": "VERIFICACIÓN DEL ESTADO LÍMITE DE FATIGA PARA BULONES Y",
+      "page": 276,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.5",
+      "title": "REQUERIMIENTOS ESPECIALES PARA FABRICACIÓN Y MONTAJE",
+      "page": 277,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "1.1",
+      "title": "Metal base, excepto aceros resistentes                                           Fuera de toda soldadura",
+      "page": 279,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "1.2",
+      "title": "Metal base acero resistente a la corrosión        B          120x10      110     Fuera de toda soldadu-",
+      "page": 279,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "1.3",
+      "title": "Elementos con agujeros taladrados o               B          120x108     110     Cerca de cualquier bor-",
+      "page": 279,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "1.4",
+      "title": "Secciones transversales laminadas con             C          44x108       69     Cerca de los ángulos",
+      "page": 279,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "2.1",
+      "title": "Área bruta del metal base en juntas                                              A lo largo de la sección",
+      "page": 279,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "2.2",
+      "title": "Metal base en la sección neta de la               B          120x108     110     En la sección neta ori-",
+      "page": 279,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "2.3",
+      "title": "Metal base en la sección neta de otras            D          22x108       48     En la sección neta ori-",
+      "page": 279,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "2.4",
+      "title": "Metal base en la sección neta de barras           E          11x108       31     En la sección neta ori-",
+      "page": 279,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.1",
+      "title": "Metal base y metal de aporte en barras                                          Desde la superficie o",
+      "page": 282,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.2",
+      "title": "Metal base y metal de aporte en barras                                          Desde la superficie o",
+      "page": 282,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.3",
+      "title": "Metal base y metal de aporte en la ter-                                         Desde la terminación",
+      "page": 282,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.4",
+      "title": "Metal base cerca de los extremos de los                                         En el material unido en",
+      "page": 282,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.5",
+      "title": "Metal base en los extremos de plata-                                            En ala en el pie de la",
+      "page": 282,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "3.6",
+      "title": "Metal base en los extremos de                                                   En el borde del ala cer-",
+      "page": 282,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "4.1",
+      "title": "Metal base en empalmes de barras                                                Iniciación desde el",
+      "page": 282,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "5.1",
+      "title": "Metal base y metal de aporte en o                                             Desde discontinuidades",
+      "page": 283,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "5.2",
+      "title": "Metal base y metal de aporte en o                                             Desde discontinuidades",
+      "page": 283,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "5.3",
+      "title": "Metal base con Fy menor o igual que                                           Desde discontinuidades",
+      "page": 283,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "5.4",
+      "title": "Metal base y metal de aporte en o las                                         Desde la superficie de la",
+      "page": 283,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "5.5",
+      "title": "Metal base y metal de aporte en unio-nes                                            Iniciación desde discon-",
+      "page": 285,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "5.6",
+      "title": "Metal base y metal de aporte en uniones                                             Iniciación desde discon-",
+      "page": 285,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "5.7",
+      "title": "Metal base de chapas traccionadas y en                                              Desde      discontinuidad",
+      "page": 285,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "6.1",
+      "title": "Metal base de piezas accesorias unidas                                         Cerca del punto de tan-",
+      "page": 287,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "6.2",
+      "title": "Metal base de piezas accesorias de igual",
+      "page": 287,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "6.3",
+      "title": "Metal base de piezas accesorias de",
+      "page": 289,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "6.4",
+      "title": "Metal base sometido a tensión longitudinal                                     En la terminación de la",
+      "page": 289,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "7.1",
+      "title": "Metal base sometido a cargas longi-                                                     Inicio en el metal base en",
+      "page": 290,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "7.2",
+      "title": "Metal base sometido a cargas                                                            En la terminación de la",
+      "page": 290,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "8.1",
+      "title": "Metal base con pernos de corte unidos                                         En el pie de la soldadura",
+      "page": 292,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "8.2",
+      "title": "Corte en garganta de soldaduras de                                            En la raíz de la soldadura",
+      "page": 292,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "8.3",
+      "title": "Metal base en soldaduras de tapón o de                                 31     En el extremo de la sol-",
+      "page": 292,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "8.4",
+      "title": "Corte en soldaduras de tapón o de                         150x1010            En la superficie de",
+      "page": 292,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APÉNDICE 3",
+      "id": "8.5",
+      "title": "Bulones de alta resistencia no                                                En la raíz de la rosca",
+      "page": 292,
+      "file": "apendice-3-proyecto-para-cargas-ciclicas-fa.md"
+    },
+    {
+      "chapter": "APENDICE 4",
+      "id": "4.1",
+      "title": "GENERALIDADES",
+      "page": 295,
+      "file": "apendice-4-proyecto-para-condiciones-de-incen.md"
+    },
+    {
+      "chapter": "APENDICE 4",
+      "id": "4.2",
+      "title": "ESPECIFICACIONES GENERALES",
+      "page": 295,
+      "file": "apendice-4-proyecto-para-condiciones-de-incen.md"
+    },
+    {
+      "chapter": "APENDICE 4",
+      "id": "4.3",
+      "title": "RESISTENCIA AL FUEGO",
+      "page": 296,
+      "file": "apendice-4-proyecto-para-condiciones-de-incen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.1",
+      "title": "Especificaciones generales",
+      "page": 299,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.2",
+      "title": "Propiedades de los materiales",
+      "page": 299,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.3",
+      "title": "Evaluación por análisis estructural",
+      "page": 299,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.4",
+      "title": "Evaluación por ensayos de carga",
+      "page": 299,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.5",
+      "title": "Informe de la evaluación",
+      "page": 299,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.1",
+      "title": "ESPECIFICACIONES GENERALES",
+      "page": 299,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.2",
+      "title": "PROPIEDADES DE LOS MATERIALES",
+      "page": 299,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.2.1",
+      "title": "Determinación de los ensayos necesarios",
+      "page": 299,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.2.2",
+      "title": "Propiedades mecánicas",
+      "page": 300,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.2.3",
+      "title": "Composición química",
+      "page": 300,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.2.4",
+      "title": "Tenacidad del metal base",
+      "page": 300,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.2.5",
+      "title": "Metal de soldadura",
+      "page": 300,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.2.6",
+      "title": "Bulones y remaches",
+      "page": 300,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.3",
+      "title": "EVALUACIÓN POR ANÁLISIS ESTRUCTURAL",
+      "page": 301,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.3.1",
+      "title": "Datos de dimensiones",
+      "page": 301,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.3.2",
+      "title": "Evaluación de resistencia",
+      "page": 301,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.3.3",
+      "title": "Evaluación de condiciones de servicio",
+      "page": 301,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.4",
+      "title": "EVALUACIÓN POR ENSAYOS DE CARGA",
+      "page": 301,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.4.1",
+      "title": "Determinación de la capacidad de sobrecarga útil por medio de ensayos",
+      "page": 301,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.4.2",
+      "title": "Evaluación de condiciones de servicio",
+      "page": 302,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 5",
+      "id": "5.5",
+      "title": "INFORME DE LA EVALUACIÓN",
+      "page": 302,
+      "file": "apendice-5-evaluacion-de-estructuras-existen.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.1",
+      "title": "Especificaciones generales",
+      "page": 303,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.2",
+      "title": "Arriostramientos de columnas",
+      "page": 303,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.3",
+      "title": "Arriostramiento de vigas",
+      "page": 303,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.4",
+      "title": "Arriostramiento de viga-columna",
+      "page": 303,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.5",
+      "title": "Arriostramiento de pórticos",
+      "page": 303,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.1",
+      "title": "ESPECIFICACIONES GENERALES",
+      "page": 303,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.2",
+      "title": "ARRIOSTRAMIENTO DE COLUMNAS",
+      "page": 304,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.2.1",
+      "title": "Sistema de arriostramiento relativo",
+      "page": 304,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.2.2",
+      "title": "Sistema de arriostramiento nodal",
+      "page": 304,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.3",
+      "title": "ARRIOSTRAMIENTO DE VIGAS",
+      "page": 305,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.3.1",
+      "title": "Arriostramiento lateral",
+      "page": 305,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.3.2",
+      "title": "Arriostramientos para torsión",
+      "page": 306,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.4",
+      "title": "ARRIOSTRAMIENTO DE VIGA-COLUMNA",
+      "page": 308,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 6",
+      "id": "6.5",
+      "title": "ARRIOSTRAMIENTO DE PÓRTICOS",
+      "page": 309,
+      "file": "apendice-6-arriostramientos-para-la-estabili.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.1",
+      "title": "Especificaciones generales para la estabilidad de la estructura",
+      "page": 311,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.2",
+      "title": "Método de la longitud efectiva (MLE)",
+      "page": 311,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.3",
+      "title": "Método de análisis de primer orden (MAPO)",
+      "page": 311,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.1",
+      "title": "ESPECIFICACIONES GENERALES PARA LA ESTABILIDAD DE LA ES-",
+      "page": 311,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.2",
+      "title": "MÉTODO DE LA LONGITUD EFECTIVA (MLE)",
+      "page": 312,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.2.1",
+      "title": "Limitaciones",
+      "page": 312,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.2.2",
+      "title": "Determinación de las resistencias requeridas",
+      "page": 312,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.2.3",
+      "title": "Determinación de las resistencias de diseño",
+      "page": 314,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.3",
+      "title": "MÉTODO DE ANÁLISIS DE PRIMER ORDEN",
+      "page": 319,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.3.1",
+      "title": "Limitaciones",
+      "page": 319,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.3.2",
+      "title": "Determinación de las resistencias requeridas",
+      "page": 319,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 7",
+      "id": "7.3.3",
+      "title": "Determinación de las resistencias de diseño",
+      "page": 320,
+      "file": "apendice-7-metodos-alternativos-para-el.md"
+    },
+    {
+      "chapter": "APÉNDICE 8",
+      "id": "8.1",
+      "title": "Limitaciones",
+      "page": 321,
+      "file": "apendice-8-analisis-aproximado-de-segundo.md"
+    },
+    {
+      "chapter": "APÉNDICE 8",
+      "id": "8.2",
+      "title": "Procedimientos de cálculo",
+      "page": 321,
+      "file": "apendice-8-analisis-aproximado-de-segundo.md"
+    },
+    {
+      "chapter": "APÉNDICE 8",
+      "id": "8.1",
+      "title": "LIMITACIONES",
+      "page": 321,
+      "file": "apendice-8-analisis-aproximado-de-segundo.md"
+    },
+    {
+      "chapter": "APÉNDICE 8",
+      "id": "8.2",
+      "title": "PROCEDIMIENTO DE CÁLCULO",
+      "page": 321,
+      "file": "apendice-8-analisis-aproximado-de-segundo.md"
+    },
+    {
+      "chapter": "APÉNDICE 8",
+      "id": "8.2.1",
+      "title": "Factor amplificador B1 por efectos P - ",
+      "page": 322,
+      "file": "apendice-8-analisis-aproximado-de-segundo.md"
+    },
+    {
+      "chapter": "APÉNDICE 8",
+      "id": "8.2.2",
+      "title": "Factor amplificador B2 por efectos P - ",
+      "page": 324,
+      "file": "apendice-8-analisis-aproximado-de-segundo.md"
+    },
+    {
+      "chapter": "APÉNDICE 8",
+      "id": "23",
+      "title": "Tubos circulares",
+      "page": 330,
+      "file": "apendice-8-analisis-aproximado-de-segundo.md"
+    }
+  ]
+}

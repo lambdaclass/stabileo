@@ -161,3 +161,98 @@ jobs:
       - name: Run web tests
         working-directory: web
         run: npm run test
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The WASM glue is gitignored, so it must be built here. Without it Vite
+      # substitutes a stub solver and every design assertion would pass vacuously —
+      # the e2e readiness gate (`__stabileo.solverReady()`) fails loudly if that
+      # ever happens.
+      - name: Build WASM engine
+        working-directory: engine
+        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      # BLOCKING: functional DOM + hook assertions.
+      - name: E2E smoke suite
+        working-directory: web
+        run: npx playwright test --grep @smoke
+
+      # Heavier suite (408-member model): main + opt-in label only.
+      - name: E2E slow suite
+        if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        working-directory: web
+        run: npx playwright test --grep "@slow" --grep-invert "visual baselines"
+
+      # NON-BLOCKING on this first landing (approved decision O7): pixel gates that
+      # block on day one are how e2e suites end up disabled. Promote once the Linux
+      # baselines have proven stable across a few runs.
+      #
+      # LINUX BASELINES: now committed under web/e2e/__screenshots__/linux/, so this
+      # step COMPARES against them. It must not pass --update-snapshots: that would
+      # overwrite the baselines every run and leave the pixel gate permanently inert,
+      # silently accepting any visual regression.
+      #
+      # Still continue-on-error and the two assertions are still expect.soft, so a
+      # mismatch is informational for this first landing. Promote to blocking once the
+      # baselines have proven stable. To intentionally refresh them, run the job once
+      # with UPDATE_SNAPSHOTS=1.
+      - name: E2E visual baselines (non-blocking comparison)
+        if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        continue-on-error: true
+        working-directory: web
+        run: npx playwright test --grep "visual baselines" ${{ vars.UPDATE_SNAPSHOTS == '1' && '--update-snapshots' || '' }}
+
+      # Uploaded for diagnostics: on a mismatch this carries the actual/diff images.
+      - name: Upload Linux screenshot baselines / diffs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-screenshot-baselines
+          path: web/e2e/__screenshots__/linux
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            web/e2e/.report
+            web/e2e/.artifacts
+          retention-days: 14
+          if-no-files-found: ignore
