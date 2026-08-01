@@ -38,7 +38,9 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM engine
-        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
+        # NOTE: no --no-opt here — the PRODUCTION binary must run wasm-opt
+        # (binaryen) for a smaller, faster solver. CI keeps --no-opt for build speed.
+        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm
         working-directory: engine
 
       - name: Install dependencies
