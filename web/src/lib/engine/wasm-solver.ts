@@ -672,9 +672,11 @@ export function combineResults(
     .filter(f => perCase.has(f.caseId))
     .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
   if (cases.length === 0) return null;
-  const payload = { factors, cases };
-  assertFiniteWire(payload);
-  return wasmCombineResults2d(payload);
+  // Guard the FACTORS only (user data, cheap). The per-case results are solver
+  // output — produced after the input-side guard already rejected non-finite
+  // model data — so re-walking multi-MB result trees per combo was pure cost.
+  assertFiniteWire(factors);
+  return wasmCombineResults2d({ factors, cases });
 }
 
 /** Combine 3D results with factors via WASM. JsValue in/out — no JSON round trip. */
@@ -687,16 +689,16 @@ export function combineResults3D(
     .filter(f => perCase.has(f.caseId))
     .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
   if (cases.length === 0) return null;
-  const payload = { factors, cases };
-  assertFiniteWire(payload);
-  return wasmCombineResults3d(payload);
+  // Same rationale as combineResults: guard factors (cheap), trust solver output.
+  assertFiniteWire(factors);
+  return wasmCombineResults3d({ factors, cases });
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */
 export function computeEnvelope(results: AnalysisResults[]): FullEnvelope | null {
   if (!wasmReady || !wasmComputeEnvelope2d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
-  assertFiniteWire(results);
+  // Solver output — no guard (see combineResults).
   return wasmComputeEnvelope2d(results);
 }
 
@@ -704,7 +706,7 @@ export function computeEnvelope(results: AnalysisResults[]): FullEnvelope | null
 export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D | null {
   if (!wasmReady || !wasmComputeEnvelope3d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
-  assertFiniteWire(results);
+  // Solver output — no guard (see combineResults).
   return wasmComputeEnvelope3d(results);
 }
 

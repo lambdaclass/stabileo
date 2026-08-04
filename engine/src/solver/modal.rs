@@ -70,38 +70,47 @@ pub fn solve_modal_2d(
         return Err("No mass assigned — set material densities".into());
     }
 
-    // Assemble M (dense); K is assembled sparse for large models, dense otherwise
-    let m_full = assemble_mass_matrix_2d(input, &dof_num, densities);
-
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
-
+    // Assemble M (dense); K is assembled sparse for large models, dense otherwise.
+    // SKIPPED in the sparse-unconstrained branch below, which assembles the mass
+    // as CSC directly — a dense mass is O(n²) memory and assembly time.
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let need_dense_mass = nf < SPARSE_THRESHOLD || cs.is_some();
+    let m_full = if need_dense_mass {
+        Some(assemble_mass_matrix_2d(input, &dof_num, densities))
+    } else {
+        None
+    };
+
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_ff = m_full.as_ref().map(|m| extract_submatrix(m, n, &free_idx, &free_idx));
 
     // Solve K·φ = λ·M·φ where λ = ω²
     // Large unconstrained models: triplet sparse assembly + sparse shift-invert
     // Lanczos (mirrors the 3D modal wiring); constraints still reduce dense K.
+    // The mass is assembled as CSC directly in the sparse-unconstrained branch —
+    // a dense mass costs O(n²) memory and assembly time for nothing there.
+    let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
     let (result, ns, m_solve) = if nf >= SPARSE_THRESHOLD {
         let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
         if let Some(ref cs) = cs {
             let k_ff = sasm.k_ff.to_dense_symmetric();
             let k_solve = cs.reduce_matrix(&k_ff);
-            let m_solve = cs.reduce_matrix(&m_ff);
+            let m_solve = cs.reduce_matrix(m_ff.as_ref().unwrap());
             let result = lanczos_generalized_eigen(&k_solve, &m_solve, cs.n_free_indep, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
             (result, cs.n_free_indep, m_solve)
         } else {
-            // Sparse shift-invert op takes the mass as CSC (PR #73 signature);
-            // convert the dense free block at the call site (same values).
-            let m_csc = crate::linalg::CscMatrix::from_dense_symmetric(&m_ff, nf);
+            let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
             let result = lanczos_generalized_eigen_sparse(&sasm.k_ff, &m_csc, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
-            (result, nf, m_ff)
+            m_csc_opt = Some(m_csc);
+            (result, nf, Vec::new())
         }
     } else {
         let asm = assemble_2d(input, &dof_num);
         let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+        let m_ff = m_ff.unwrap();
         let (k_solve, m_solve, ns) = if let Some(ref cs) = cs {
             (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.n_free_indep)
         } else {
@@ -149,8 +158,12 @@ pub fn solve_modal_2d(
         // Extract eigenvector in solve space (ns-dimensional)
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
 
-        // Compute φᵀ·M·φ in solve space
-        let m_phi = mat_vec_sub(&m_solve, &phi_s, ns);
+        // Compute φᵀ·M·φ in solve space — sparse CSC matvec when the mass was
+        // assembled sparse (large unconstrained models), dense otherwise.
+        let m_phi = match &m_csc_opt {
+            Some(m_csc) => m_csc.sym_mat_vec(&phi_s),
+            None => mat_vec_sub(&m_solve, &phi_s, ns),
+        };
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         // Participation factors in solve space

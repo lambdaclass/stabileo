@@ -93,7 +93,27 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
         return Err("Target DOF is restrained".into());
     }
 
-    // Assemble K, M, F
+    // Assemble K, M, F — sparse first for large unconstrained models (dense K
+    // and M are O(n²) memory and assembly time; the sparse modal path exists
+    // and was unused here).
+    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+
+    if cs.is_none() && nf >= super::linear::SPARSE_THRESHOLD {
+        let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num);
+        let f_full = crate::solver::assembly::assemble_load_vector_2d(
+            &input.solver, &input.solver.loads, &dof_num, &sasm.inclined_transforms_2d,
+        );
+        let f_ff: Vec<f64> = f_full[..nf].to_vec();
+        let m_csc = assemble_mass_matrix_2d_sparse(&input.solver, &dof_num, &input.densities);
+        if let Some((response_points, peak_frequency, peak_amplitude)) =
+            solve_harmonic_modal_sparse(&sasm.k_ff, &m_csc, &f_ff, &input.frequencies, input.damping_ratio, target_dof)
+        {
+            return Ok(HarmonicResult { response_points, peak_frequency, peak_amplitude });
+        }
+        // Sparse modal found no usable modes (or Lanczos failed) — fall through
+        // to the dense modal/direct paths below.
+    }
+
     let asm = assemble_2d(&input.solver, &dof_num);
     let m_full = assemble_mass_matrix_2d(&input.solver, &dof_num, &input.densities);
 
@@ -103,7 +123,6 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
     let f_ff: Vec<f64> = asm.f[..nf].to_vec();
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     let (k_s, m_s, f_s) = if let Some(ref cs) = cs {

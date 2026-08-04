@@ -1219,6 +1219,11 @@ struct SparsePrepared3D {
     conditioning_us: u64,
     symbolic_us: u64,
     numeric_us: u64,
+    /// Lazily-factored dense LU of the (unshifted) K_ff, built only if a case's
+    /// sparse solve fails the residual check and shared across load cases.
+    /// `None` (inside) = K_ff is singular. The OLD fallback re-assembled the
+    /// full dense K and re-factored it PER CASE.
+    dense_lu: std::cell::OnceCell<Option<(Vec<f64>, Vec<usize>)>>,
 }
 
 struct SparseDenseLuPrepared3D {
@@ -1432,6 +1437,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                         conditioning_us,
                         symbolic_us,
                         numeric_us,
+                        dense_lu: std::cell::OnceCell::new(),
                     }),
                 })
             }
@@ -1813,23 +1819,22 @@ impl PreparedStatic3D {
         Ok(results)
     }
 
-    /// Dense LU fallback (per case): dense K_ff factor + dense load vector.
-    /// Used when the sparse Cholesky solve gives a bad residual.
-    fn dense_lu_fallback_3d(&self, loads: &[SolverLoad3D]) -> Result<Vec<f64>, String> {
-        let input = &self.input;
-        let dof_num = &self.dof_num;
-        let (n, nf, nr) = (self.n, self.nf, self.nr);
-        let stiff_d = assemble_stiffness_3d(input, dof_num);
-        let f_d = assemble_load_vector_3d_dense(input, loads, dof_num, &stiff_d.inclined_transforms);
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let rest_idx: Vec<usize> = (nf..n).collect();
-        let k_fr = extract_submatrix(&stiff_d.k, n, &free_idx, &rest_idx);
-        let kfr_ur_d = mat_vec_rect(&k_fr, &self.u_r, nf, nr);
-        let mut f_work: Vec<f64> = f_d[..nf].to_vec();
-        for i in 0..nf { f_work[i] -= kfr_ur_d[i]; }
-        let mut k_ff_d = extract_submatrix(&stiff_d.k, n, &free_idx, &free_idx);
-        lu_solve(&mut k_ff_d, &mut f_work, nf)
-            .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())
+    /// Dense LU fallback (per case): triangular solve against the dense LU of K_ff,
+    /// factored ONCE from the already-assembled sparse CSC (unshifted) and cached in
+    /// the prepared struct. The OLD version re-assembled the full dense K and
+    /// re-factored it per load case. `f_f` is the case's free load vector, already
+    /// corrected for prescribed displacements (same input the sparse solve used).
+    fn dense_lu_fallback_3d(&self, p: &SparsePrepared3D, f_f: &[f64]) -> Result<Vec<f64>, String> {
+        let nf = self.nf;
+        let lu = p.dense_lu.get_or_init(|| {
+            let mut k_ff_d = p.k_ff.to_dense_symmetric();
+            lu_factor(&mut k_ff_d, nf).map(|piv| (k_ff_d, piv))
+        });
+        match lu {
+            Some((a, piv)) => lu_apply(a, piv, f_f, nf)
+                .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string()),
+            None => Err("Singular stiffness matrix — structure is a mechanism".to_string()),
+        }
     }
 
     fn solve_loads_sparse(
@@ -1911,7 +1916,7 @@ impl PreparedStatic3D {
             });
             used_residual_fallback = true;
             let t0 = now_micros();
-            let u_fb = self.dense_lu_fallback_3d(loads)?;
+            let u_fb = self.dense_lu_fallback_3d(p, &f_f)?;
             dense_fb_us = now_micros().saturating_sub(t0);
             (u_fb, s_us, r_us)
         };

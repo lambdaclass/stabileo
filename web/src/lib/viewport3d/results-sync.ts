@@ -112,13 +112,6 @@ function computeStructureBBox(): number {
 export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): void {
   if (!ctx.initialized) return;
 
-  // Remove old deformed
-  if (ctx.deformedGroup) {
-    ctx.resultsParent.remove(ctx.deformedGroup);
-    disposeObject(ctx.deformedGroup);
-    ctx.deformedGroup = null;
-  }
-
   const dt = resultsStore.diagramType;
   const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode';
 
@@ -184,9 +177,34 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
 
   if (!displacements) return;
 
+  // In-place scale update when the underlying data is unchanged: the group
+  // carries preallocated base/displacement buffers and a setScale() that
+  // rewrites positions without rebuilding any geometry (previously every
+  // animation frame disposed and recreated the whole group per element).
+  const r3d = resultsStore.results3D;
+  const sigDt = dt;
+  const sigDisp = displacements;
+  const sigForces = dt === 'deformed' && r3d ? r3d.elementForces : null;
+  const sigVer = modelStore.modelVersion;
+  const sigHand = uiStore.axisConvention3D === 'leftHand';
+  const prev = ctx.deformedGroup?.userData;
+  if (ctx.deformedGroup && prev?.sigDt === sigDt && prev?.sigDisp === sigDisp
+      && prev?.sigForces === sigForces && prev?.sigVer === sigVer && prev?.sigHand === sigHand) {
+    prev.setScale(scale);
+    prev.material.color.setHex(modeColor ?? COLORS.deformed);
+    ctx.resultsParent.add(ctx.deformedGroup);
+    return;
+  }
+
+  // Remove old deformed — the data actually changed, rebuild is required.
+  if (ctx.deformedGroup) {
+    ctx.resultsParent.remove(ctx.deformedGroup);
+    disposeObject(ctx.deformedGroup);
+    ctx.deformedGroup = null;
+  }
+
   // Build EI map for particular solution (only for static deformed — modes don't need it)
   let eiMap: Map<number, ElementEI> | undefined;
-  const r3d = resultsStore.results3D;
   if (dt === 'deformed') {
     eiMap = new Map<number, ElementEI>();
     for (const [id, elem] of modelStore.elements) {
@@ -210,8 +228,16 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     dt === 'deformed' && r3d ? r3d.elementForces : [],
     scale,
     eiMap,
-    uiStore.axisConvention3D === 'leftHand',
+    sigHand,
   );
+  if (modeColor !== null) {
+    ctx.deformedGroup.userData.material.color.setHex(modeColor);
+  }
+  ctx.deformedGroup.userData.sigDt = sigDt;
+  ctx.deformedGroup.userData.sigDisp = sigDisp;
+  ctx.deformedGroup.userData.sigForces = sigForces;
+  ctx.deformedGroup.userData.sigVer = sigVer;
+  ctx.deformedGroup.userData.sigHand = sigHand;
 
   // Tint mode shapes with their distinctive color
   if (modeColor !== null) {

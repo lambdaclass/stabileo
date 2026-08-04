@@ -324,6 +324,13 @@ export function computeDeformedShape3D(
 /**
  * Create a THREE.Group containing deformed shape lines for all elements.
  * Uses Hermite cubic interpolation + particular solution in both Y and Z planes.
+ *
+ * The group carries ONE LineSegments with preallocated base/displacement
+ * buffers and a `userData.setScale(scale)` that rewrites positions in place —
+ * animation callers update the scale without rebuilding geometry, materials
+ * and lines for every element on every frame (the old behavior allocated a
+ * BufferGeometry + LineBasicMaterial + Line per element per rebuild, and the
+ * sync layer disposed and recreated the whole group per animation frame).
  */
 export function createDeformedLines(
   elements: Map<number, Element>,
@@ -349,6 +356,10 @@ export function createDeformedLines(
     forcesMap.set(ef.elementId, ef);
   }
 
+  // Per-point base positions and displacement vectors (scale-independent).
+  // points(scale=0) IS the base; points(scale=1) − base IS the displacement.
+  const bases: number[] = [];
+  const disps: number[] = [];
   for (const [, elem] of elements) {
     const nI = nodes.get(elem.nodeI);
     const nJ = nodes.get(elem.nodeJ);
@@ -358,7 +369,8 @@ export function createDeformedLines(
     const dJ = dispMap.get(elem.nodeJ);
     if (!dI || !dJ) continue;
 
-    let points: THREE.Vector3[];
+    let p0: THREE.Vector3[] = [];
+    let p1: THREE.Vector3[] = [];
     const ef = forcesMap.get(elem.id);
     const eiEntry = _eiMap?.get(elem.id);
 
@@ -371,21 +383,22 @@ export function createDeformedLines(
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       const rollAngle = elem.rollAngle;
       try {
-        points = computeDeformedShape3D(
+        p0 = computeDeformedShape3D(
           { id: elem.nodeI, x: nI.x, y: nI.y, z: nI.z ?? 0 },
           { id: elem.nodeJ, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
-          dI, dJ, ef, scale, eiEntry,
+          dI, dJ, ef, 0, eiEntry,
+          localY, rollAngle, _leftHand,
+        );
+        p1 = computeDeformedShape3D(
+          { id: elem.nodeI, x: nI.x, y: nI.y, z: nI.z ?? 0 },
+          { id: elem.nodeJ, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+          dI, dJ, ef, 1, eiEntry,
           localY, rollAngle, _leftHand,
         );
       } catch {
-        points = [];
+        p0 = []; p1 = [];
       }
     } else {
-      points = [];
-    }
-
-    // Linear fallback when Hermite not available
-    if (points.length === 0) {
       for (let i = 0; i <= SEGMENTS_PER_ELEMENT; i++) {
         const t = i / SEGMENTS_PER_ELEMENT;
         const ox = nI.x + (nJ.x - nI.x) * t;
@@ -394,20 +407,39 @@ export function createDeformedLines(
         const ux = dI.ux + (dJ.ux - dI.ux) * t;
         const uy = dI.uy + (dJ.uy - dI.uy) * t;
         const uz = dI.uz + (dJ.uz - dI.uz) * t;
-        points.push(new THREE.Vector3(ox + ux * scale, oy + uy * scale, oz + uz * scale));
+        p0.push(new THREE.Vector3(ox, oy, oz));
+        p1.push(new THREE.Vector3(ox + ux, oy + uy, oz + uz));
       }
     }
 
-    if (points.length < 2) continue;
+    if (p0.length < 2 || p0.length !== p1.length) continue;
 
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
-    const mat = new THREE.LineBasicMaterial({
-      color: COLORS.deformed,
-      linewidth: 2,
-    });
-    const line = new THREE.Line(geo, mat);
-    group.add(line);
+    // LineSegments takes point PAIRS: p[i] → p[i+1] per segment.
+    for (let i = 0; i < p0.length - 1; i++) {
+      const a0 = p0[i], b0 = p0[i + 1];
+      const a1 = p1[i], b1 = p1[i + 1];
+      bases.push(a0.x, a0.y, a0.z, b0.x, b0.y, b0.z);
+      disps.push(a1.x - a0.x, a1.y - a0.y, a1.z - a0.z, b1.x - b0.x, b1.y - b0.y, b1.z - b0.z);
+    }
   }
+
+  const base = new Float32Array(bases);
+  const disp = new Float32Array(disps);
+  const positions = new Float32Array(base.length);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.LineBasicMaterial({
+    color: COLORS.deformed,
+    linewidth: 2,
+  });
+  const setScale = (s: number) => {
+    for (let i = 0; i < positions.length; i++) positions[i] = base[i] + s * disp[i];
+    geo.attributes.position.needsUpdate = true;
+  };
+  setScale(scale);
+  group.add(new THREE.LineSegments(geo, mat));
+  group.userData.setScale = setScale;
+  group.userData.material = mat;
 
   return group;
 }
