@@ -1,6 +1,11 @@
 import {
   defaultCodeSettings, migrateCodeSettings, type ProjectCodeSettings,
 } from '../codes/project-code-settings';
+import {
+  REGULATIONS_SCHEMA_VERSION, defaultRegulations, migrateRegulations,
+  type StoredRegulations,
+} from '../codes/roles';
+import { emptyRevisions, type RevisionVector } from '../codes/revisions';
 // Model store - manages the structural model
 import type { KinematicResult } from '../engine/kinematic-2d';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
@@ -985,6 +990,13 @@ function createModelStore() {
         codeSettings: snap.codeSettings
           ? (JSON.parse(JSON.stringify(snap.codeSettings)) as ProjectCodeSettings)
           : defaultCodeSettings(),
+        // The regulation stack and the revision vector are on the model precisely so they
+        // ride every persistence path. Emitting them here is what makes that true for
+        // .ded save, autosave, URL share, tab capture and undo/redo alike.
+        regulations: snap.regulations
+          ? (JSON.parse(JSON.stringify(snap.regulations)) as StoredRegulations)
+          : undefined,
+        revisions: snap.revisions ? { ...snap.revisions } : undefined,
       };
       if (snap.provenance) {
         result.provenance = {
@@ -1095,6 +1107,12 @@ function createModelStore() {
       // Migration is deliberate, not a fallback: a project with no settings is stamped
       // CIRSOC 201-2005, the edition its stored results were actually checked against.
       model.codeSettings = migrateCodeSettings(s.codeSettings).settings;
+      // The stack goes through the migrator rather than being assigned raw, so a stored
+      // project naming an edition that has since been withdrawn comes back UNSET rather
+      // than bound to rules the app cannot apply. A project saved before the stack existed
+      // migrates from the v1 `codeSettings` shape instead.
+      model.regulations = migrateRegulations(s.regulations ?? s.codeSettings).stored;
+      model.revisions = s.revisions ? { ...s.revisions } : emptyRevisions();
     },
 
     /** Explicit user action: clear the CAD-draft "unreviewed" tag. */
@@ -1642,6 +1660,8 @@ function createModelStore() {
       // A new model is a new project: it adopts the edition in force, not whatever the
       // previously open project happened to be designed to.
       model.codeSettings = defaultCodeSettings();
+      model.regulations = { version: REGULATIONS_SCHEMA_VERSION, roles: defaultRegulations() };
+      model.revisions = emptyRevisions();
       // Reset materials/sections to defaults
       model.materials = new Map([[1, { ...defaultMaterial }]]);
       model.sections = new Map([[1, { ...defaultSection }]]);
