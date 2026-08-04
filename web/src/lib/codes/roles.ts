@@ -128,10 +128,15 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: false,
   },
   {
+    // RESERVED, not selectable — same reason as CIRSOC 201-2005 below. The official
+    // 101-2005 text is not supplied (`REGULATIONS` records `textAvailable: false`), and
+    // `cirsoc101/combinations.ts` implements the 2025 §2.3.2 combinations only, citing
+    // 2025 clauses. Offering this option meant a project stamped 2005 whose combinations
+    // came from the 2025 text — a result citing a rule it did not apply.
     adapterId: 'cirsoc101-2005-basis', role: 'basis', regulation: 'cirsoc-101',
     edition: '2005', nameKey: 'regulations.name.cirsoc101', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: false,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: false,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1990', role: 'basis', edition: 'EN 1990:2002',
@@ -146,10 +151,13 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: true,
   },
   {
+    // RESERVED, not selectable. `cirsoc101/live-loads.ts` implements the 2025 Table 4.1
+    // occupancies and the §4.7.2 reduction only; there is no 2005 branch and no 2005 text
+    // to write one from.
     adapterId: 'cirsoc101-2005-loads', role: 'loads', regulation: 'cirsoc-101',
     edition: '2005', nameKey: 'regulations.name.cirsoc101', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: true,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1991-1-1', role: 'loads', edition: 'EN 1991-1-1',
@@ -164,10 +172,14 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: true,
   },
   {
+    // RESERVED, not selectable. `cirsoc102/wind.ts` is a full rebuild against the 2025
+    // text — K_e, the pressure coefficients, the exposure and enclosure rules — and takes
+    // no edition parameter. Under this label the wind loads and every clause ref were the
+    // 2025 edition's, which is the mislabelling the availability model exists to stop.
     adapterId: 'cirsoc102-2005', role: 'wind', regulation: 'cirsoc-102',
     edition: '2005', nameKey: 'regulations.name.cirsoc102', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: true,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1991-1-4', role: 'wind', edition: 'EN 1991-1-4',
@@ -664,10 +676,27 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
   // than bound to something inapplicable or silently left unset. No migration workflow is
   // offered: stored 2005 results were produced by rules the app no longer applies, so
   // re-running the design is the only honest outcome.
+  // The same applies to the 2005 load and wind editions: their texts are not supplied
+  // either, so they are bound to the edition in force and the user is TOLD, rather than
+  // bound to a label whose rules would come from the 2025 text.
   if (concreteEd === '2005') {
     notices.push({
       key: 'regulations.migration.editionWithdrawn',
       params: { role: 'concrete', edition: '2005' },
+    });
+  }
+  if (loadEd === '2005') {
+    for (const role of ['basis', 'loads'] as const) {
+      notices.push({
+        key: 'regulations.migration.editionWithdrawn',
+        params: { role, edition: '2005' },
+      });
+    }
+  }
+  if (windEd === '2005') {
+    notices.push({
+      key: 'regulations.migration.editionWithdrawn',
+      params: { role: 'wind', edition: '2005' },
     });
   }
   roles.concrete = {
@@ -675,15 +704,15 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
     state: 'applied', appliedAtRevision: 0,
   };
   roles.basis = {
-    ...bindRole('basis', loadEd === '2005' ? 'cirsoc101-2005-basis' : 'cirsoc101-2025-basis', common),
+    ...bindRole('basis', 'cirsoc101-2025-basis', common),
     state: 'applied', appliedAtRevision: 0,
   };
   roles.loads = {
-    ...bindRole('loads', loadEd === '2005' ? 'cirsoc101-2005-loads' : 'cirsoc101-2025-loads', common),
+    ...bindRole('loads', 'cirsoc101-2025-loads', common),
     state: 'applied', appliedAtRevision: 0,
   };
   roles.wind = {
-    ...bindRole('wind', windEd === '2005' ? 'cirsoc102-2005' : 'cirsoc102-2025', common),
+    ...bindRole('wind', 'cirsoc102-2025', common),
     state: 'applied', appliedAtRevision: 0,
   };
 

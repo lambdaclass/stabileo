@@ -224,7 +224,7 @@ describe('stack compatibility', () => {
 describe('pending changes', () => {
   it('detects a pending load-affecting change', () => {
     const r = defaultRegulations();
-    r.wind = bindRole('wind', 'cirsoc102-2005');
+    r.wind = bindRole('wind', 'cirsoc102-2025');
     expect(pendingRoles(r)).toEqual(['wind']);
     expect(pendingRequiresLoadRegeneration(r)).toBe(true);
   });
@@ -266,21 +266,21 @@ describe('migration from the CIRSOC-specific v1 shape', () => {
       jurisdiction: { name: 'CABA', basis: 'adopted' },
       concrete: { maxAggregateSizeMm: 19, shotcrete: false },
     });
-    // A v1 project naming concreteEdition '2005' is bound to the edition IN FORCE and told,
-    // because CIRSOC 201-2005 is no longer available for design. No migration workflow is
-    // offered: results stored under 2005 came from rules the app no longer applies, so
-    // re-running the design is the only honest outcome. The load and wind roles are
-    // untouched — 101-2005 and 102-2005 remain available.
+    // A v1 project naming a 2005 edition is bound to the edition IN FORCE and told, because
+    // none of the 2005 texts are supplied and their rules are therefore not implemented. No
+    // migration workflow is offered: results stored under 2005 came from rules the app no
+    // longer applies, so re-running is the only honest outcome. This holds for the load and
+    // wind roles exactly as it does for concrete — 101-2005 and 102-2005 are reserved, and
+    // binding one would mean a project labelled 2005 running the 2025 rules.
     expect(m.stored.roles.concrete.adapterId).toBe('cirsoc');
     expect(m.stored.roles.concrete.edition).toBe('2025');
-    expect(m.notices.map((n) => n.key))
-      .toContain('regulations.migration.editionWithdrawn');
-    const withdrawn = m.notices.find(
+    const withdrawn = m.notices.filter(
       (n) => n.key === 'regulations.migration.editionWithdrawn');
-    expect(withdrawn?.params?.role).toBe('concrete');
-    expect(withdrawn?.params?.edition).toBe('2005');
+    expect(withdrawn.map((n) => n.params?.role)).toEqual(['concrete', 'wind']);
+    for (const n of withdrawn) expect(n.params?.edition).toBe('2005');
     expect(m.stored.roles.basis.adapterId).toBe('cirsoc101-2025-basis');
-    expect(m.stored.roles.wind.adapterId).toBe('cirsoc102-2005');
+    expect(m.stored.roles.wind.adapterId).toBe('cirsoc102-2025');
+    expect(m.stored.roles.wind.edition).toBe('2025');
     expect(m.stored.roles.concrete.jurisdiction).toBe('CABA');
     expect(m.stored.roles.concrete.adoption).toBe('adopted');
   });

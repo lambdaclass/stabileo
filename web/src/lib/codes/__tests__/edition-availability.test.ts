@@ -168,21 +168,26 @@ describe('every implemented rule cites the edition it came from', () => {
   it('the registry never marks an edition available whose text is not supplied', () => {
     // The invariant that makes the whole model trustworthy: availability is downstream of
     // whether the app actually has the text to implement.
+    //
+    // This holds for EVERY role, not just the design-governing one. An earlier revision
+    // asserted `o.role === 'concrete'` here, which for a basis/loads/wind option reduces to
+    // `expect(false).toBe(false)` — the check passed vacuously for exactly the roles it was
+    // not covering, and three offered options whose text is not supplied went unnoticed.
+    const offending: string[] = [];
     for (const role of REGULATION_ROLES) {
       for (const o of optionsForRole(role)) {
         if (!o.regulation) continue;
         const info = findRegulation(o.regulation, o.edition as never);
         if (!info) continue;
         if (!info.textAvailable) {
-          // An available option whose text is absent is exactly the state this test forbids
-          // for the design-governing concrete role.
-          expect(
-            o.role === 'concrete',
-            `${o.adapterId} is AVAILABLE for role ${o.role} but its text is not supplied`,
-          ).toBe(false);
+          offending.push(`${o.adapterId} (role ${o.role}, edition ${o.edition})`);
         }
       }
     }
+    expect(
+      offending,
+      `offered for selection but their official text is not supplied: ${offending.join(', ')}`,
+    ).toEqual([]);
   });
 });
 
