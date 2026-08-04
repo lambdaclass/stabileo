@@ -282,6 +282,38 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     const p = windOn({ directions: { x: true, y: true } });
     expect(p.cases.filter((c) => c.type === 'W')).toHaveLength(2);
   });
+
+  it('distributes windward pressure by height instead of applying the base value everywhere', () => {
+    // q_z rises with height (§1.13, K_z), and `wind.ts` evaluates the windward wall at both
+    // the base and the mean roof height specifically so this caller can distribute. Taking
+    // the first sample — z = min(5, h), the weakest point — and reusing it for every level
+    // under-predicts wind on everything above 5 m, which is unconservative.
+    const model = frame(4, 6, 5);        // levels at 5, 10, 15, 20 m
+    const p = buildLoadPlan(input({
+      model,
+      wind: {
+        enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed',
+        siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 20, rigid: true,
+        directions: { x: true, y: false },
+      },
+    }));
+
+    // The §1.10 minimum must not be what decides this, or the comparison proves nothing.
+    expect(p.unsupportedKeys.map((u) => u.key)).not.toContain('loadPlan.note.windMinimumGoverns');
+
+    const byLevel = new Map<number, number>();
+    for (const n of p.nodal) {
+      if (n.caseType !== 'W') continue;
+      const z = model.nodes.get(n.nodeId)!.z!;
+      byLevel.set(z, (byLevel.get(z) ?? 0) + Math.abs(n.fx));
+    }
+    // Levels 5, 10 and 15 all carry a 5 m tributary height (only the roof level is halved),
+    // so their totals are directly comparable without normalising.
+    const totals = [5, 10, 15].map((z) => byLevel.get(z) ?? 0);
+    expect(totals.every((t) => t > 0)).toBe(true);
+    expect(totals[1]).toBeGreaterThan(totals[0]);
+    expect(totals[2]).toBeGreaterThan(totals[1]);
+  });
 });
 
 // ─── Seismic ─────────────────────────────────────────────────────

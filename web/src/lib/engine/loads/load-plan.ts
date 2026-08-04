@@ -40,7 +40,7 @@ import {
   type ElementKind, type OccupancyEntry,
 } from '../../codes/cirsoc101/live-loads';
 import {
-  applyMinimumWindLoad, computeWindPressures,
+  applyMinimumWindLoad, computeWindPressures, netAlongWindPressureAt,
   type Enclosure, type Exposure, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import {
@@ -422,16 +422,18 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       windQh = fromProject(res.qhNm2, 'N/m²');
 
       // Windward + leeward on each level, distributed over that level's nodes.
-      const ww = res.pressures.find((p) => p.surface === 'windwardWall' && p.gcpiSign === 1);
-      const lw = res.pressures.find((p) => p.surface === 'leewardWall' && p.gcpiSign === 1);
-      const net = (Math.abs(ww?.pNm2 ?? 0) + Math.abs(lw?.pNm2 ?? 0)) / 1000;   // kPa
-
+      //
+      // Sampled PER LEVEL: the windward velocity pressure grows with height, so taking one
+      // sample and reusing it for every storey under-predicts wind everywhere above it. The
+      // net pressure is asked of the code layer rather than assembled from the surface list
+      // here, so the height rule has exactly one implementation.
       const elevated = levels.filter((l) => l.elevation > 0);
       for (let i = 0; i < elevated.length; i++) {
         const lv = elevated[i];
         const below = i === 0 ? 0 : elevated[i - 1].elevation;
         const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1].elevation;
         const tribH = (lv.elevation - below) / 2 + (above - lv.elevation) / 2;
+        const net = netAlongWindPressureAt(lv.elevation, project) / 1000;   // kPa
         const force = net * across * tribH;
         const min = applyMinimumWindLoad(force * 1000, across * tribH, 0);
         const applied = min.totalN / 1000;
@@ -454,9 +456,13 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
         type: 'W', nameKey: 'autoLoad.windCaseDir',
         nameParams: { dir: dir.toUpperCase(), v: input.wind.basicSpeed },
       });
+      // The reported net is the one at the mean roof height — the largest of the profile,
+      // and the one that pairs with the q_h printed beside it. Levels below it received
+      // less, which is the point of sampling per level.
       derivation.push(msg('loadPlan.derivation.wind', {
         dir: dir.toUpperCase(), qh: round(res.qhNm2, 0),
-        net: round(net, 3), front: round(across, 1),
+        net: round(netAlongWindPressureAt(project.meanRoofHeight, project) / 1000, 3),
+        front: round(across, 1),
       }));
     }
   }

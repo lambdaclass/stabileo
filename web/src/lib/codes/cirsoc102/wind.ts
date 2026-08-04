@@ -378,6 +378,27 @@ export function velocityPressure(z: number, p: WindProject): number {
 }
 
 /**
+ * Net along-wind pressure on a strip at height `z`, N/m² — windward push plus leeward pull.
+ *
+ * The windward term uses `q_z` AT THAT HEIGHT (§1.13: q = q_z on the windward wall, and
+ * K_z grows with z), which is the whole reason a caller distributing wind over levels must
+ * ask per level rather than reuse one sample. The leeward term uses `q_h` over the full
+ * height (§2.4.1) and therefore does not vary.
+ *
+ * The internal pressure GC_pi cancels: it acts on both faces with the same sign, so it
+ * drops out of the difference and is deliberately absent here.
+ *
+ * Lives beside the pressure rules rather than in the load generator so the two cannot
+ * drift — the generator asks for a pressure, it does not re-derive one.
+ */
+export function netAlongWindPressureAt(z: number, p: WindProject): number {
+  const lOverB = p.B > 0 ? p.L / p.B : 1;
+  const qz = velocityPressure(z, p);
+  const qh = velocityPressure(p.meanRoofHeight, p);
+  return qz * G_RIGID * CP_WINDWARD_WALL - qh * G_RIGID * cpLeewardWall(lOverB);
+}
+
+/**
  * Full MWFRS wind pressures for one wind direction.
  *
  * Produces both (GC_pi) sign cases, because §1.11 note 1 requires both to be
