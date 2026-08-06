@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from '../../lib/i18n';
+  import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
@@ -738,6 +739,12 @@
     <!-- Mobile-only PRO navigation and actions (tools moved to upper toolbar in App.svelte) -->
     <div class="pro-mobile-nav">
       <div class="pro-mobile-actions">
+        <!--
+          Same controls as the desktop PRO bar, which this row replaces on mobile. `shortcuts`
+          stays off here: the two bars are mutually exclusive, and only the desktop one binds
+          Ctrl+S / Ctrl+O.
+        -->
+        <ProProjectFileActions variant="mobile" />
         <button class="pm-action pm-example" onclick={toggleExampleMenu}>{t('pro.exampleBtn')}</button>
         <button class="pm-action pm-solve" onclick={handleSolve} disabled={!hasModel || solving}>{solving ? t('pro.solving') : t('pro.solve')}</button>
         <button class="pm-action pm-report" onclick={handleOpenReportDialog} disabled={modelStore.nodes.size === 0}>{t('pro.reportBtn')}</button>

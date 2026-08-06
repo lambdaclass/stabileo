@@ -1,0 +1,3166 @@
+{
+  "assembly": {
+    "completeness": "partialConnectionOnly",
+    "descriptionKey": "footing.cad.assembly.description",
+    "families": [
+      {
+        "barIds": [
+          "F1-C1-dowel-0",
+          "F1-C1-dowel-1",
+          "F1-C1-dowel-2",
+          "F1-C1-dowel-3",
+          "F1-C1-dowel-4",
+          "F1-C1-dowel-5",
+          "F1-C1-dowel-6",
+          "F1-C1-dowel-7"
+        ],
+        "clauseRefs": [
+          {
+            "clause": "16.3.4",
+            "code": "cirsoc-201",
+            "edition": "2025",
+            "label": "transmisión de fuerzas por armadura"
+          }
+        ],
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "kind": "columnDowel",
+        "purposeKey": "footing.cad.family.columnDowel"
+      },
+      {
+        "barIds": [
+          "F1-C1:starter:stirrup:0.0000",
+          "F1-C1:starter:stirrup:0.2279",
+          "F1-C1:starter:stirrup:0.4557",
+          "F1-C1:starter:stirrup:0.6836",
+          "F1-C1:starter:stirrup:0.9114",
+          "F1-C1:starter:stirrup:1.1393"
+        ],
+        "clauseRefs": [
+          {
+            "clause": "10.7.6.1.1",
+            "code": "cirsoc-201",
+            "edition": "2025",
+            "label": "estribos en toda la altura del elemento comprimido"
+          }
+        ],
+        "familyId": "family:starterTie:footing:1:column:1",
+        "kind": "starterTie",
+        "purposeKey": "footing.cad.family.starterTie"
+      }
+    ],
+    "kind": "footingTransferCage"
+  },
+  "assumptions": [
+    {
+      "bodyIds": [
+        "body:column:1"
+      ],
+      "code": "COLUMN_STUB_TRUNCATED_AT_CAGE_TOP",
+      "messageKey": "footing.cad.assumption.stubTruncated",
+      "params": {
+        "element": 1,
+        "top": 0.447263
+      },
+      "text": "footing.cad.assumption.stubTruncated {\"element\":1,\"top\":0.447263}"
+    },
+    {
+      "code": "BAR_EXTENTS_FROM_PRODUCTION_SAMPLER",
+      "messageKey": "footing.cad.assumption.sampler",
+      "params": {
+        "tolerance": 0.5
+      },
+      "text": "footing.cad.assumption.sampler {\"tolerance\":0.5}"
+    },
+    {
+      "bodyIds": [
+        "body:column:1"
+      ],
+      "code": "COLUMN_ELEMENT_BASE_ABOVE_FOOTING_TOP",
+      "elementIds": [
+        1
+      ],
+      "messageKey": "footing.cad.assumption.columnBaseAbove",
+      "params": {
+        "base": 0,
+        "element": 1,
+        "gap": 0.7,
+        "top": -0.7
+      },
+      "text": "footing.cad.assumption.columnBaseAbove {\"element\":1,\"base\":0,\"top\":-0.7,\"gap\":0.7}"
+    },
+    {
+      "code": "MAX_AGGREGATE_SIZE_ASSUMED",
+      "messageKey": "footing.cad.assumption.aggregate",
+      "params": {
+        "mm": 20
+      },
+      "text": "footing.cad.assumption.aggregate {\"mm\":20}"
+    }
+  ],
+  "certificate": {
+    "codeEdition": "2025",
+    "codeId": "cirsoc-201",
+    "maturity": "IMPLEMENTED_PROVISIONAL",
+    "reviewState": "COORDINATED",
+    "verifierId": "cirsoc201.provided.v2.2025"
+  },
+  "checks": [
+    {
+      "authority": "stabileo",
+      "checkId": "check:barCollision:footing:1",
+      "checkKind": "barCollision",
+      "consumerObservationPolicy": "MAY_CROSS_CHECK",
+      "evaluationStatus": "EVALUATED",
+      "findings": [
+        {
+          "at": {
+            "x": 0.07882842712474622,
+            "y": -0.13482842712474621,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-0",
+          "barIdB": "F1-C1-dowel-1",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-0|F1-C1-dowel-1",
+          "measured": -0.016,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.016,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": 0.11317157287525378,
+            "y": -0.1354142135623731,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-0",
+          "barIdB": "F1-C1-dowel-4",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-0|F1-C1-dowel-4",
+          "measured": -0.01483,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.01483,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": -0.028799999999999992,
+            "y": -0.1354142135623731,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-0",
+          "barIdB": "F1-C1-dowel-6",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-0|F1-C1-dowel-6",
+          "measured": -0.01483,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.01483,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": -0.025600000000000005,
+            "y": -0.1354142135623731,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-1",
+          "barIdB": "F1-C1-dowel-4",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-1|F1-C1-dowel-4",
+          "measured": -0.01483,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.01483,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": -0.11317157287525378,
+            "y": -0.1354142135623731,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-1",
+          "barIdB": "F1-C1-dowel-6",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-1|F1-C1-dowel-6",
+          "measured": -0.01483,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.01483,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": -0.07882842712474622,
+            "y": 0.13482842712474621,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-2",
+          "barIdB": "F1-C1-dowel-3",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-2|F1-C1-dowel-3",
+          "measured": -0.016,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.016,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": 0.028799999999999992,
+            "y": 0.1354142135623731,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-2",
+          "barIdB": "F1-C1-dowel-5",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-2|F1-C1-dowel-5",
+          "measured": -0.01483,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.01483,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": -0.11317157287525378,
+            "y": 0.1354142135623731,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-2",
+          "barIdB": "F1-C1-dowel-7",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-2|F1-C1-dowel-7",
+          "measured": -0.01483,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.01483,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": 0.11317157287525378,
+            "y": 0.1354142135623731,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-3",
+          "barIdB": "F1-C1-dowel-5",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-3|F1-C1-dowel-5",
+          "measured": -0.01483,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.01483,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": 0.025600000000000005,
+            "y": 0.1354142135623731,
+            "z": -1.1560000000000001
+          },
+          "barIdA": "F1-C1-dowel-3",
+          "barIdB": "F1-C1-dowel-7",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-3|F1-C1-dowel-7",
+          "measured": -0.01483,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.01483,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": -0.027200000000000005,
+            "y": -0.136,
+            "z": -1.1557893560038603
+          },
+          "barIdA": "F1-C1-dowel-4",
+          "barIdB": "F1-C1-dowel-6",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-4|F1-C1-dowel-6",
+          "measured": -0.016,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.016,
+          "unit": "m"
+        },
+        {
+          "at": {
+            "x": 0.0272,
+            "y": 0.136,
+            "z": -1.1557893560038603
+          },
+          "barIdA": "F1-C1-dowel-5",
+          "barIdB": "F1-C1-dowel-7",
+          "elementIds": [
+            1
+          ],
+          "findingId": "finding:prohibitedOverlap:F1-C1-dowel-5|F1-C1-dowel-7",
+          "measured": -0.016,
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "pairClass": "prohibitedOverlap",
+          "required": 0,
+          "severity": "overlap",
+          "shortfall": 0.016,
+          "unit": "m"
+        }
+      ],
+      "provenance": {
+        "messageKey": "footing.cad.check.collision",
+        "source": "web/src/lib/engine/detailing/collision.ts#detectCollisions"
+      },
+      "requirementIds": [
+        "req:clear:pair:F1-C1-dowel-0|F1-C1-dowel-1",
+        "req:clear:pair:F1-C1-dowel-0|F1-C1-dowel-4",
+        "req:clear:pair:F1-C1-dowel-0|F1-C1-dowel-6",
+        "req:clear:pair:F1-C1-dowel-1|F1-C1-dowel-4",
+        "req:clear:pair:F1-C1-dowel-1|F1-C1-dowel-6",
+        "req:clear:pair:F1-C1-dowel-2|F1-C1-dowel-3",
+        "req:clear:pair:F1-C1-dowel-2|F1-C1-dowel-5",
+        "req:clear:pair:F1-C1-dowel-2|F1-C1-dowel-7",
+        "req:clear:pair:F1-C1-dowel-3|F1-C1-dowel-5",
+        "req:clear:pair:F1-C1-dowel-3|F1-C1-dowel-7",
+        "req:clear:pair:F1-C1-dowel-4|F1-C1-dowel-6",
+        "req:clear:pair:F1-C1-dowel-5|F1-C1-dowel-7"
+      ],
+      "scope": {
+        "barIds": [
+          "F1-C1-dowel-0",
+          "F1-C1-dowel-1",
+          "F1-C1-dowel-2",
+          "F1-C1-dowel-3",
+          "F1-C1-dowel-4",
+          "F1-C1-dowel-5",
+          "F1-C1-dowel-6",
+          "F1-C1-dowel-7",
+          "F1-C1:starter:stirrup:0.0000",
+          "F1-C1:starter:stirrup:0.2279",
+          "F1-C1:starter:stirrup:0.4557",
+          "F1-C1:starter:stirrup:0.6836",
+          "F1-C1:starter:stirrup:0.9114",
+          "F1-C1:starter:stirrup:1.1393"
+        ],
+        "bodyIds": [
+          "body:footing:1",
+          "body:column:1"
+        ],
+        "elementIds": [
+          1
+        ]
+      }
+    },
+    {
+      "authority": "stabileo",
+      "checkId": "check:barClearSpacing:footing:1",
+      "checkKind": "barClearSpacing",
+      "consumerObservationPolicy": "MAY_CROSS_CHECK",
+      "evaluationStatus": "EVALUATED",
+      "findings": [],
+      "provenance": {
+        "messageKey": "footing.cad.check.clearSpacing",
+        "source": "web/src/lib/engine/detailing/collision.ts#detectCollisions"
+      },
+      "requirementIds": [
+        "req:clear:rule:beam:longitudinal-transverse:d16",
+        "req:clear:rule:beam:transverse-transverse:d6",
+        "req:clear:rule:column:longitudinal-longitudinal:d16"
+      ],
+      "scope": {
+        "barIds": [
+          "F1-C1-dowel-0",
+          "F1-C1-dowel-1",
+          "F1-C1-dowel-2",
+          "F1-C1-dowel-3",
+          "F1-C1-dowel-4",
+          "F1-C1-dowel-5",
+          "F1-C1-dowel-6",
+          "F1-C1-dowel-7",
+          "F1-C1:starter:stirrup:0.0000",
+          "F1-C1:starter:stirrup:0.2279",
+          "F1-C1:starter:stirrup:0.4557",
+          "F1-C1:starter:stirrup:0.6836",
+          "F1-C1:starter:stirrup:0.9114",
+          "F1-C1:starter:stirrup:1.1393"
+        ],
+        "bodyIds": [
+          "body:footing:1",
+          "body:column:1"
+        ],
+        "elementIds": [
+          1
+        ]
+      }
+    },
+    {
+      "authority": "none",
+      "checkId": "check:concreteCover:footing:1",
+      "checkKind": "concreteCover",
+      "consumerObservationPolicy": "MAY_OBSERVE_NOT_COMPARABLE",
+      "evaluationStatus": "NOT_EVALUATED",
+      "notEvaluatedCode": "NO_PRODUCTION_CONTAINMENT_CHECKER",
+      "notEvaluatedReason": "footing.cad.notEvaluated.footingCover {\"footing\":\"Z1\"}",
+      "provenance": {
+        "messageKey": "footing.cad.check.footingCover"
+      },
+      "requirementIds": [
+        "req:cover:footing:1"
+      ],
+      "scope": {
+        "barIds": [
+          "F1-C1-dowel-0",
+          "F1-C1-dowel-1",
+          "F1-C1-dowel-2",
+          "F1-C1-dowel-3",
+          "F1-C1-dowel-4",
+          "F1-C1-dowel-5",
+          "F1-C1-dowel-6",
+          "F1-C1-dowel-7",
+          "F1-C1:starter:stirrup:0.0000"
+        ],
+        "bodyIds": [
+          "body:footing:1"
+        ],
+        "elementIds": [
+          1
+        ],
+        "interfaceIds": [
+          "iface:footing:1:column:1"
+        ]
+      }
+    },
+    {
+      "authority": "none",
+      "checkId": "check:concreteCover:column:1",
+      "checkKind": "concreteCover",
+      "consumerObservationPolicy": "OUT_OF_SCOPE",
+      "evaluationStatus": "NOT_EVALUATED",
+      "notEvaluatedCode": "COLUMN_COVER_OUT_OF_SCOPE",
+      "notEvaluatedReason": "footing.cad.notEvaluated.columnCover {\"element\":1}",
+      "provenance": {
+        "messageKey": "footing.cad.check.columnCover"
+      },
+      "requirementIds": [],
+      "scope": {
+        "bodyIds": [
+          "body:column:1"
+        ],
+        "elementIds": [
+          1
+        ]
+      }
+    },
+    {
+      "authority": "none",
+      "checkId": "check:reinforcementContainment:footing:1",
+      "checkKind": "reinforcementContainment",
+      "consumerObservationPolicy": "MAY_OBSERVE_NOT_COMPARABLE",
+      "evaluationStatus": "NOT_EVALUATED",
+      "notEvaluatedCode": "NO_PRODUCTION_CONTAINMENT_CHECKER",
+      "notEvaluatedReason": "footing.cad.notEvaluated.containment {\"footing\":\"Z1\"}",
+      "provenance": {
+        "messageKey": "footing.cad.check.containment"
+      },
+      "requirementIds": [
+        "req:cover:footing:1"
+      ],
+      "scope": {
+        "barIds": [
+          "F1-C1-dowel-0",
+          "F1-C1-dowel-1",
+          "F1-C1-dowel-2",
+          "F1-C1-dowel-3",
+          "F1-C1-dowel-4",
+          "F1-C1-dowel-5",
+          "F1-C1-dowel-6",
+          "F1-C1-dowel-7",
+          "F1-C1:starter:stirrup:0.0000"
+        ],
+        "bodyIds": [
+          "body:footing:1"
+        ],
+        "interfaceIds": [
+          "iface:footing:1:column:1"
+        ]
+      }
+    }
+  ],
+  "concrete": {
+    "bodies": [
+      {
+        "bodyId": "body:footing:1",
+        "materialRef": null,
+        "role": "footing",
+        "shape": {
+          "B": 2,
+          "L": 2,
+          "centre": {
+            "x": 0,
+            "y": 0,
+            "z": -0.95
+          },
+          "height": 0.5,
+          "kind": "box",
+          "rotationDeg": 0
+        },
+        "source": {
+          "id": 1,
+          "kind": "footing",
+          "name": "Z1",
+          "revision": 2
+        },
+        "truncatedFaces": []
+      },
+      {
+        "bodyId": "body:column:1",
+        "derivation": {
+          "bodyIds": [
+            "body:column:1"
+          ],
+          "code": "COLUMN_STUB_TRUNCATED_AT_CAGE_TOP",
+          "elementIds": [
+            1
+          ],
+          "messageKey": "footing.cad.derivation.columnStub",
+          "params": {
+            "B": 0.4,
+            "L": 0.4,
+            "base": -0.7,
+            "cageTop": 0.447263,
+            "columnTop": 3.2,
+            "element": 1,
+            "top": 0.447263
+          },
+          "text": "footing.cad.derivation.columnStub {\"element\":1,\"base\":-0.7,\"top\":0.447263,\"B\":0.4,\"L\":0.4,\"cageTop\":0.447263,\"columnTop\":3.2}"
+        },
+        "elementId": 1,
+        "materialRef": null,
+        "role": "supportedColumn",
+        "shape": {
+          "B": 0.4,
+          "L": 0.4,
+          "centre": {
+            "x": 0,
+            "y": 0,
+            "z": -0.12636854019462718
+          },
+          "height": 1.1472629196107456,
+          "kind": "box",
+          "rotationDeg": 0
+        },
+        "source": {
+          "id": 1,
+          "kind": "element",
+          "sectionName": "RC Col 400×400"
+        },
+        "truncatedFaces": [
+          "top"
+        ]
+      }
+    ],
+    "interfaces": [
+      {
+        "exposure": "internal",
+        "geometry": {
+          "B": 0.4,
+          "L": 0.4,
+          "centre": {
+            "x": 0,
+            "y": 0,
+            "z": -0.7
+          },
+          "elevation": -0.7,
+          "kind": "planarRectZ",
+          "rotationDeg": 0
+        },
+        "intentionalBarPassage": {
+          "barIds": [
+            "F1-C1-dowel-0",
+            "F1-C1-dowel-1",
+            "F1-C1-dowel-2",
+            "F1-C1-dowel-3",
+            "F1-C1-dowel-4",
+            "F1-C1-dowel-5",
+            "F1-C1-dowel-6",
+            "F1-C1-dowel-7",
+            "F1-C1:starter:stirrup:0.0000"
+          ],
+          "clauseRefs": [
+            {
+              "clause": "16.3.4",
+              "code": "cirsoc-201",
+              "edition": "2025",
+              "label": "transmisión de fuerzas por armadura en la interfaz"
+            }
+          ],
+          "reasonKey": "footing.cad.interface.intentionalPassage"
+        },
+        "interfaceId": "iface:footing:1:column:1",
+        "kind": "concreteToConcrete",
+        "participants": {
+          "aboveBodyId": "body:column:1",
+          "belowBodyId": "body:footing:1"
+        }
+      }
+    ]
+  },
+  "coordinateSystem": {
+    "handedness": "right",
+    "up": "Z"
+  },
+  "generator": {
+    "name": "stabileo-rc-cad-handoff",
+    "version": "1.0.0"
+  },
+  "project": {
+    "name": "RC Design QA (8 members)"
+  },
+  "reinforcement": {
+    "bars": [
+      {
+        "cuttingLength": 1.81922751391126,
+        "diameterMm": 16,
+        "endTreatment": {
+          "kind": "straight"
+        },
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "id": "F1-C1-dowel-0",
+        "mark": "F2",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "longitudinal",
+        "segments": [
+          {
+            "end": {
+              "x": -0.07882842712474622,
+              "y": -0.13482842712474621,
+              "z": -1.1560000000000001
+            },
+            "kind": "straight",
+            "length": 0.192,
+            "start": {
+              "x": 0.11317157287525378,
+              "y": -0.13482842712474621,
+              "z": -1.1560000000000001
+            }
+          },
+          {
+            "centre": {
+              "x": -0.07882842712474622,
+              "y": -0.13482842712474621,
+              "z": -1.1
+            },
+            "end": {
+              "x": -0.13482842712474621,
+              "y": -0.13482842712474621,
+              "z": -1.1
+            },
+            "kind": "arc",
+            "length": 0.08796459430051422,
+            "radius": 0.056,
+            "start": {
+              "x": -0.07882842712474622,
+              "y": -0.13482842712474621,
+              "z": -1.1560000000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.13482842712474621,
+              "y": -0.13482842712474621,
+              "z": 0.4392629196107456
+            },
+            "kind": "straight",
+            "length": 1.5392629196107457,
+            "start": {
+              "x": -0.13482842712474621,
+              "y": -0.13482842712474621,
+              "z": -1.1
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 90,
+            "centrelineRadius": 0.056,
+            "extension": 0.192,
+            "mandrelDiameter": 0.096,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.1",
+                "edition": "2025",
+                "label": "geometría del gancho normal para el anclaje de barras conformadas en tracción",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.81922751391126,
+        "diameterMm": 16,
+        "endTreatment": {
+          "kind": "straight"
+        },
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "id": "F1-C1-dowel-1",
+        "mark": "F2",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "longitudinal",
+        "segments": [
+          {
+            "end": {
+              "x": 0.07882842712474622,
+              "y": -0.13482842712474621,
+              "z": -1.1560000000000001
+            },
+            "kind": "straight",
+            "length": 0.192,
+            "start": {
+              "x": -0.11317157287525378,
+              "y": -0.13482842712474621,
+              "z": -1.1560000000000001
+            }
+          },
+          {
+            "centre": {
+              "x": 0.07882842712474622,
+              "y": -0.13482842712474621,
+              "z": -1.1
+            },
+            "end": {
+              "x": 0.13482842712474621,
+              "y": -0.13482842712474621,
+              "z": -1.1
+            },
+            "kind": "arc",
+            "length": 0.08796459430051422,
+            "radius": 0.056,
+            "start": {
+              "x": 0.07882842712474622,
+              "y": -0.13482842712474621,
+              "z": -1.1560000000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.13482842712474621,
+              "y": -0.13482842712474621,
+              "z": 0.4392629196107456
+            },
+            "kind": "straight",
+            "length": 1.5392629196107457,
+            "start": {
+              "x": 0.13482842712474621,
+              "y": -0.13482842712474621,
+              "z": -1.1
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 90,
+            "centrelineRadius": 0.056,
+            "extension": 0.192,
+            "mandrelDiameter": 0.096,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.1",
+                "edition": "2025",
+                "label": "geometría del gancho normal para el anclaje de barras conformadas en tracción",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.81922751391126,
+        "diameterMm": 16,
+        "endTreatment": {
+          "kind": "straight"
+        },
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "id": "F1-C1-dowel-2",
+        "mark": "F2",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "longitudinal",
+        "segments": [
+          {
+            "end": {
+              "x": 0.07882842712474622,
+              "y": 0.13482842712474621,
+              "z": -1.1560000000000001
+            },
+            "kind": "straight",
+            "length": 0.192,
+            "start": {
+              "x": -0.11317157287525378,
+              "y": 0.13482842712474621,
+              "z": -1.1560000000000001
+            }
+          },
+          {
+            "centre": {
+              "x": 0.07882842712474622,
+              "y": 0.13482842712474621,
+              "z": -1.1
+            },
+            "end": {
+              "x": 0.13482842712474621,
+              "y": 0.13482842712474621,
+              "z": -1.1
+            },
+            "kind": "arc",
+            "length": 0.08796459430051422,
+            "radius": 0.056,
+            "start": {
+              "x": 0.07882842712474622,
+              "y": 0.13482842712474621,
+              "z": -1.1560000000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.13482842712474621,
+              "y": 0.13482842712474621,
+              "z": 0.4392629196107456
+            },
+            "kind": "straight",
+            "length": 1.5392629196107457,
+            "start": {
+              "x": 0.13482842712474621,
+              "y": 0.13482842712474621,
+              "z": -1.1
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 90,
+            "centrelineRadius": 0.056,
+            "extension": 0.192,
+            "mandrelDiameter": 0.096,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.1",
+                "edition": "2025",
+                "label": "geometría del gancho normal para el anclaje de barras conformadas en tracción",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.81922751391126,
+        "diameterMm": 16,
+        "endTreatment": {
+          "kind": "straight"
+        },
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "id": "F1-C1-dowel-3",
+        "mark": "F2",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "longitudinal",
+        "segments": [
+          {
+            "end": {
+              "x": -0.07882842712474622,
+              "y": 0.13482842712474621,
+              "z": -1.1560000000000001
+            },
+            "kind": "straight",
+            "length": 0.192,
+            "start": {
+              "x": 0.11317157287525378,
+              "y": 0.13482842712474621,
+              "z": -1.1560000000000001
+            }
+          },
+          {
+            "centre": {
+              "x": -0.07882842712474622,
+              "y": 0.13482842712474621,
+              "z": -1.1
+            },
+            "end": {
+              "x": -0.13482842712474621,
+              "y": 0.13482842712474621,
+              "z": -1.1
+            },
+            "kind": "arc",
+            "length": 0.08796459430051422,
+            "radius": 0.056,
+            "start": {
+              "x": -0.07882842712474622,
+              "y": 0.13482842712474621,
+              "z": -1.1560000000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.13482842712474621,
+              "y": 0.13482842712474621,
+              "z": 0.4392629196107456
+            },
+            "kind": "straight",
+            "length": 1.5392629196107457,
+            "start": {
+              "x": -0.13482842712474621,
+              "y": 0.13482842712474621,
+              "z": -1.1
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 90,
+            "centrelineRadius": 0.056,
+            "extension": 0.192,
+            "mandrelDiameter": 0.096,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.1",
+                "edition": "2025",
+                "label": "geometría del gancho normal para el anclaje de barras conformadas en tracción",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.81922751391126,
+        "diameterMm": 16,
+        "endTreatment": {
+          "kind": "straight"
+        },
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "id": "F1-C1-dowel-4",
+        "mark": "F2",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "longitudinal",
+        "segments": [
+          {
+            "end": {
+              "x": -0.02560000000000001,
+              "y": -0.136,
+              "z": -1.1560000000000001
+            },
+            "kind": "straight",
+            "length": 0.192,
+            "start": {
+              "x": 0.1664,
+              "y": -0.136,
+              "z": -1.1560000000000001
+            }
+          },
+          {
+            "centre": {
+              "x": -0.025600000000000005,
+              "y": -0.136,
+              "z": -1.1
+            },
+            "end": {
+              "x": -0.0816,
+              "y": -0.136,
+              "z": -1.1
+            },
+            "kind": "arc",
+            "length": 0.08796459430051422,
+            "radius": 0.056,
+            "start": {
+              "x": -0.02560000000000001,
+              "y": -0.136,
+              "z": -1.1560000000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.0816,
+              "y": -0.136,
+              "z": 0.4392629196107456
+            },
+            "kind": "straight",
+            "length": 1.5392629196107457,
+            "start": {
+              "x": -0.0816,
+              "y": -0.136,
+              "z": -1.1
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 90,
+            "centrelineRadius": 0.056,
+            "extension": 0.192,
+            "mandrelDiameter": 0.096,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.1",
+                "edition": "2025",
+                "label": "geometría del gancho normal para el anclaje de barras conformadas en tracción",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.81922751391126,
+        "diameterMm": 16,
+        "endTreatment": {
+          "kind": "straight"
+        },
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "id": "F1-C1-dowel-5",
+        "mark": "F2",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "longitudinal",
+        "segments": [
+          {
+            "end": {
+              "x": 0.028799999999999992,
+              "y": 0.136,
+              "z": -1.1560000000000001
+            },
+            "kind": "straight",
+            "length": 0.192,
+            "start": {
+              "x": 0.2208,
+              "y": 0.136,
+              "z": -1.1560000000000001
+            }
+          },
+          {
+            "centre": {
+              "x": 0.0288,
+              "y": 0.136,
+              "z": -1.1
+            },
+            "end": {
+              "x": -0.027200000000000002,
+              "y": 0.136,
+              "z": -1.1
+            },
+            "kind": "arc",
+            "length": 0.08796459430051422,
+            "radius": 0.056,
+            "start": {
+              "x": 0.028799999999999992,
+              "y": 0.136,
+              "z": -1.1560000000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.027200000000000002,
+              "y": 0.136,
+              "z": 0.4392629196107456
+            },
+            "kind": "straight",
+            "length": 1.5392629196107457,
+            "start": {
+              "x": -0.027200000000000002,
+              "y": 0.136,
+              "z": -1.1
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 90,
+            "centrelineRadius": 0.056,
+            "extension": 0.192,
+            "mandrelDiameter": 0.096,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.1",
+                "edition": "2025",
+                "label": "geometría del gancho normal para el anclaje de barras conformadas en tracción",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.81922751391126,
+        "diameterMm": 16,
+        "endTreatment": {
+          "kind": "straight"
+        },
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "id": "F1-C1-dowel-6",
+        "mark": "F2",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "longitudinal",
+        "segments": [
+          {
+            "end": {
+              "x": -0.028799999999999992,
+              "y": -0.136,
+              "z": -1.1560000000000001
+            },
+            "kind": "straight",
+            "length": 0.192,
+            "start": {
+              "x": -0.2208,
+              "y": -0.136,
+              "z": -1.1560000000000001
+            }
+          },
+          {
+            "centre": {
+              "x": -0.0288,
+              "y": -0.136,
+              "z": -1.1
+            },
+            "end": {
+              "x": 0.027200000000000002,
+              "y": -0.136,
+              "z": -1.1
+            },
+            "kind": "arc",
+            "length": 0.08796459430051422,
+            "radius": 0.056,
+            "start": {
+              "x": -0.028799999999999992,
+              "y": -0.136,
+              "z": -1.1560000000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.027200000000000002,
+              "y": -0.136,
+              "z": 0.4392629196107456
+            },
+            "kind": "straight",
+            "length": 1.5392629196107457,
+            "start": {
+              "x": 0.027200000000000002,
+              "y": -0.136,
+              "z": -1.1
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 90,
+            "centrelineRadius": 0.056,
+            "extension": 0.192,
+            "mandrelDiameter": 0.096,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.1",
+                "edition": "2025",
+                "label": "geometría del gancho normal para el anclaje de barras conformadas en tracción",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.81922751391126,
+        "diameterMm": 16,
+        "endTreatment": {
+          "kind": "straight"
+        },
+        "familyId": "family:columnDowel:footing:1:column:1",
+        "id": "F1-C1-dowel-7",
+        "mark": "F2",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "longitudinal",
+        "segments": [
+          {
+            "end": {
+              "x": 0.02560000000000001,
+              "y": 0.136,
+              "z": -1.1560000000000001
+            },
+            "kind": "straight",
+            "length": 0.192,
+            "start": {
+              "x": -0.1664,
+              "y": 0.136,
+              "z": -1.1560000000000001
+            }
+          },
+          {
+            "centre": {
+              "x": 0.025600000000000005,
+              "y": 0.136,
+              "z": -1.1
+            },
+            "end": {
+              "x": 0.0816,
+              "y": 0.136,
+              "z": -1.1
+            },
+            "kind": "arc",
+            "length": 0.08796459430051422,
+            "radius": 0.056,
+            "start": {
+              "x": 0.02560000000000001,
+              "y": 0.136,
+              "z": -1.1560000000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.0816,
+              "y": 0.136,
+              "z": 0.4392629196107456
+            },
+            "kind": "straight",
+            "length": 1.5392629196107457,
+            "start": {
+              "x": 0.0816,
+              "y": 0.136,
+              "z": -1.1
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 90,
+            "centrelineRadius": 0.056,
+            "extension": 0.192,
+            "mandrelDiameter": 0.096,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.1",
+                "edition": "2025",
+                "label": "geometría del gancho normal para el anclaje de barras conformadas en tracción",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.3473716694115405,
+        "diameterMm": 6,
+        "endTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        },
+        "familyId": "family:starterTie:footing:1:column:1",
+        "id": "F1-C1:starter:stirrup:0.0000",
+        "layerId": "F1-C1:starter:stirrup",
+        "mark": "F1",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "transverse",
+        "segments": [
+          {
+            "end": {
+              "x": -0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": -0.703
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": -0.08957359312880714,
+              "y": -0.06836038969321073,
+              "z": -0.703
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": -0.7014999999999999
+            },
+            "end": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": -0.7
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": -0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": -0.703
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": -0.7
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": -0.7
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": -0.7
+            },
+            "end": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": -0.7
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": -0.7
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": -0.7
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": -0.7
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": 0.132,
+              "z": -0.7
+            },
+            "end": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": -0.7
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": -0.7
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": -0.7
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": -0.7
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": 0.132,
+              "z": -0.7
+            },
+            "end": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": -0.7
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": -0.7
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": -0.7
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": -0.7
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": -0.6985
+            },
+            "end": {
+              "x": -0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": -0.697
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": -0.7
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": -0.06836038969321073,
+              "y": -0.08957359312880714,
+              "z": -0.697
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": -0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": -0.697
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.3473716694115405,
+        "diameterMm": 6,
+        "endTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        },
+        "familyId": "family:starterTie:footing:1:column:1",
+        "id": "F1-C1:starter:stirrup:0.2279",
+        "layerId": "F1-C1:starter:stirrup",
+        "mark": "F1",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "transverse",
+        "segments": [
+          {
+            "end": {
+              "x": 0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": -0.475147
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": 0.08957359312880714,
+              "y": -0.06836038969321073,
+              "z": -0.475147
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": -0.47364699999999993
+            },
+            "end": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": -0.472147
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": 0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": -0.475147
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": -0.472147
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": -0.472147
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": -0.472147
+            },
+            "end": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": -0.472147
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": -0.472147
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": -0.472147
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": -0.472147
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": 0.132,
+              "z": -0.472147
+            },
+            "end": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": -0.472147
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": -0.472147
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": -0.472147
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": -0.472147
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": 0.132,
+              "z": -0.472147
+            },
+            "end": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": -0.472147
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": -0.472147
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": -0.472147
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": -0.472147
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": -0.4706469999999999
+            },
+            "end": {
+              "x": 0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": -0.469147
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": -0.472147
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": 0.06836038969321073,
+              "y": -0.08957359312880714,
+              "z": -0.469147
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": 0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": -0.469147
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.3473716694115405,
+        "diameterMm": 6,
+        "endTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        },
+        "familyId": "family:starterTie:footing:1:column:1",
+        "id": "F1-C1:starter:stirrup:0.4557",
+        "layerId": "F1-C1:starter:stirrup",
+        "mark": "F1",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "transverse",
+        "segments": [
+          {
+            "end": {
+              "x": -0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": -0.24729499999999993
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": -0.08957359312880714,
+              "y": -0.06836038969321073,
+              "z": -0.24729499999999993
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": -0.24579499999999993
+            },
+            "end": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": -0.24429499999999993
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": -0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": -0.24729499999999993
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": -0.24429499999999993
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": -0.24429499999999993
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": -0.24429499999999993
+            },
+            "end": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": -0.24429499999999993
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": -0.24429499999999993
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": -0.24429499999999993
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": -0.24429499999999993
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": 0.132,
+              "z": -0.24429499999999993
+            },
+            "end": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": -0.24429499999999993
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": -0.24429499999999993
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": -0.24429499999999993
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": -0.24429499999999993
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": 0.132,
+              "z": -0.24429499999999993
+            },
+            "end": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": -0.24429499999999993
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": -0.24429499999999993
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": -0.24429499999999993
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": -0.24429499999999993
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": -0.24279499999999993
+            },
+            "end": {
+              "x": -0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": -0.24129499999999993
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": -0.24429499999999993
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": -0.06836038969321073,
+              "y": -0.08957359312880714,
+              "z": -0.24129499999999993
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": -0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": -0.24129499999999993
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.3473716694115405,
+        "diameterMm": 6,
+        "endTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        },
+        "familyId": "family:starterTie:footing:1:column:1",
+        "id": "F1-C1:starter:stirrup:0.6836",
+        "layerId": "F1-C1:starter:stirrup",
+        "mark": "F1",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "transverse",
+        "segments": [
+          {
+            "end": {
+              "x": 0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": -0.01944199999999996
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": 0.08957359312880714,
+              "y": -0.06836038969321073,
+              "z": -0.01944199999999996
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": -0.017941999999999902
+            },
+            "end": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": -0.016441999999999957
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": 0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": -0.01944199999999996
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": -0.016441999999999957
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": -0.016441999999999957
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": -0.016441999999999957
+            },
+            "end": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": -0.016441999999999957
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": -0.016441999999999957
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": -0.016441999999999957
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": -0.016441999999999957
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": 0.132,
+              "z": -0.016441999999999957
+            },
+            "end": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": -0.016441999999999957
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": -0.016441999999999957
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": -0.016441999999999957
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": -0.016441999999999957
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": 0.132,
+              "z": -0.016441999999999957
+            },
+            "end": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": -0.016441999999999957
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": -0.016441999999999957
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": -0.016441999999999957
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": -0.016441999999999957
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": -0.01494200000000001
+            },
+            "end": {
+              "x": 0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": -0.013441999999999954
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": -0.016441999999999957
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": 0.06836038969321073,
+              "y": -0.08957359312880714,
+              "z": -0.013441999999999954
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": 0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": -0.013441999999999954
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.3473716694115405,
+        "diameterMm": 6,
+        "endTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        },
+        "familyId": "family:starterTie:footing:1:column:1",
+        "id": "F1-C1:starter:stirrup:0.9114",
+        "layerId": "F1-C1:starter:stirrup",
+        "mark": "F1",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "transverse",
+        "segments": [
+          {
+            "end": {
+              "x": -0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": 0.2084100000000001
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": -0.08957359312880714,
+              "y": -0.06836038969321073,
+              "z": 0.2084100000000001
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": 0.20991000000000015
+            },
+            "end": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": 0.2114100000000001
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": -0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": 0.2084100000000001
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": 0.2114100000000001
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": 0.2114100000000001
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": 0.2114100000000001
+            },
+            "end": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": 0.2114100000000001
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": 0.2114100000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": 0.2114100000000001
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": 0.2114100000000001
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": 0.132,
+              "z": 0.2114100000000001
+            },
+            "end": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": 0.2114100000000001
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": 0.2114100000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": 0.2114100000000001
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": 0.2114100000000001
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": 0.132,
+              "z": 0.2114100000000001
+            },
+            "end": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": 0.2114100000000001
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": 0.2114100000000001
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": 0.2114100000000001
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": 0.2114100000000001
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": 0.21291000000000004
+            },
+            "end": {
+              "x": -0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": 0.2144100000000001
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": 0.2114100000000001
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": -0.06836038969321073,
+              "y": -0.08957359312880714,
+              "z": 0.2144100000000001
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": -0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": 0.2144100000000001
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      },
+      {
+        "cuttingLength": 1.3473716694115405,
+        "diameterMm": 6,
+        "endTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        },
+        "familyId": "family:starterTie:footing:1:column:1",
+        "id": "F1-C1:starter:stirrup:1.1393",
+        "layerId": "F1-C1:starter:stirrup",
+        "mark": "F1",
+        "ownerElementIds": [
+          1
+        ],
+        "role": "transverse",
+        "segments": [
+          {
+            "end": {
+              "x": 0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": 0.43626300000000007
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": 0.08957359312880714,
+              "y": -0.06836038969321073,
+              "z": 0.43626300000000007
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": 0.4377629999999999
+            },
+            "end": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": 0.43926299999999996
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": 0.1426066017177982,
+              "y": -0.12139339828220179,
+              "z": 0.43626300000000007
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": 0.43926299999999996
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.132,
+              "y": -0.14700000000000002,
+              "z": 0.43926299999999996
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": -0.132,
+              "z": 0.43926299999999996
+            },
+            "end": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": 0.43926299999999996
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.132,
+              "y": -0.14700000000000002,
+              "z": 0.43926299999999996
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": 0.43926299999999996
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": -0.132,
+              "z": 0.43926299999999996
+            }
+          },
+          {
+            "centre": {
+              "x": -0.132,
+              "y": 0.132,
+              "z": 0.43926299999999996
+            },
+            "end": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": 0.43926299999999996
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": -0.14700000000000002,
+              "y": 0.132,
+              "z": 0.43926299999999996
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": 0.43926299999999996
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": -0.132,
+              "y": 0.14700000000000002,
+              "z": 0.43926299999999996
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": 0.132,
+              "z": 0.43926299999999996
+            },
+            "end": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": 0.43926299999999996
+            },
+            "kind": "arc",
+            "length": 0.023561944901923447,
+            "radius": 0.015,
+            "start": {
+              "x": 0.132,
+              "y": 0.14700000000000002,
+              "z": 0.43926299999999996
+            },
+            "sweepDeg": 90
+          },
+          {
+            "end": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": 0.43926299999999996
+            },
+            "kind": "straight",
+            "length": 0.264,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": 0.132,
+              "z": 0.43926299999999996
+            }
+          },
+          {
+            "centre": {
+              "x": 0.132,
+              "y": -0.132,
+              "z": 0.440763
+            },
+            "end": {
+              "x": 0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": 0.44226299999999985
+            },
+            "kind": "arc",
+            "length": 0.03534291735288517,
+            "radius": 0.015,
+            "start": {
+              "x": 0.14700000000000002,
+              "y": -0.132,
+              "z": 0.43926299999999996
+            },
+            "sweepDeg": 135
+          },
+          {
+            "end": {
+              "x": 0.06836038969321073,
+              "y": -0.08957359312880714,
+              "z": 0.44226299999999985
+            },
+            "kind": "straight",
+            "length": 0.075,
+            "start": {
+              "x": 0.12139339828220179,
+              "y": -0.1426066017177982,
+              "z": 0.44226299999999985
+            }
+          }
+        ],
+        "startTreatment": {
+          "hook": {
+            "angle": 135,
+            "centrelineRadius": 0.015,
+            "extension": 0.075,
+            "mandrelDiameter": 0.024,
+            "refs": [
+              {
+                "clause": "Tabla 25.3.2",
+                "edition": "2025",
+                "label": "diámetro mínimo interior de doblado y geometría del gancho para estribos",
+                "regulation": "cirsoc-201"
+              }
+            ]
+          },
+          "kind": "hook"
+        }
+      }
+    ],
+    "marks": [
+      {
+        "barIds": [
+          "F1-C1:starter:stirrup:0.0000",
+          "F1-C1:starter:stirrup:0.2279",
+          "F1-C1:starter:stirrup:0.4557",
+          "F1-C1:starter:stirrup:0.6836",
+          "F1-C1:starter:stirrup:0.9114",
+          "F1-C1:starter:stirrup:1.1393"
+        ],
+        "cuttingLength": 1.35,
+        "diameterMm": 6,
+        "mark": "F1",
+        "massKg": 1.7978235199065633,
+        "ownerElementIds": [
+          1
+        ],
+        "quantity": 6,
+        "role": "transverse",
+        "shape": "UH135H135"
+      },
+      {
+        "barIds": [
+          "F1-C1-dowel-0",
+          "F1-C1-dowel-1",
+          "F1-C1-dowel-2",
+          "F1-C1-dowel-3",
+          "F1-C1-dowel-4",
+          "F1-C1-dowel-5",
+          "F1-C1-dowel-6",
+          "F1-C1-dowel-7"
+        ],
+        "cuttingLength": 1.82,
+        "diameterMm": 16,
+        "mark": "F2",
+        "massKg": 22.980574331820737,
+        "ownerElementIds": [
+          1
+        ],
+        "quantity": 8,
+        "role": "longitudinal",
+        "shape": "LH90"
+      }
+    ]
+  },
+  "requirements": {
+    "clearSpacing": [
+      {
+        "barIdA": "F1-C1-dowel-0",
+        "barIdB": "F1-C1-dowel-1",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-0|F1-C1-dowel-1",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-0",
+        "barIdB": "F1-C1-dowel-4",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-0|F1-C1-dowel-4",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-0",
+        "barIdB": "F1-C1-dowel-6",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-0|F1-C1-dowel-6",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-1",
+        "barIdB": "F1-C1-dowel-4",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-1|F1-C1-dowel-4",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-1",
+        "barIdB": "F1-C1-dowel-6",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-1|F1-C1-dowel-6",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-2",
+        "barIdB": "F1-C1-dowel-3",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-2|F1-C1-dowel-3",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-2",
+        "barIdB": "F1-C1-dowel-5",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-2|F1-C1-dowel-5",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-2",
+        "barIdB": "F1-C1-dowel-7",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-2|F1-C1-dowel-7",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-3",
+        "barIdB": "F1-C1-dowel-5",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-3|F1-C1-dowel-5",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-3",
+        "barIdB": "F1-C1-dowel-7",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-3|F1-C1-dowel-7",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-4",
+        "barIdB": "F1-C1-dowel-6",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-4|F1-C1-dowel-6",
+        "unit": "m"
+      },
+      {
+        "barIdA": "F1-C1-dowel-5",
+        "barIdB": "F1-C1-dowel-7",
+        "category": "codeDerived",
+        "distance": 0,
+        "elementIds": [
+          1
+        ],
+        "pairClass": "prohibitedOverlap",
+        "provenance": {
+          "messageKey": "detailing.pairClass.prohibitedOverlap",
+          "source": "web/src/lib/engine/detailing/classify.ts#classifyPair"
+        },
+        "reportable": true,
+        "requirementId": "req:clear:pair:F1-C1-dowel-5|F1-C1-dowel-7",
+        "unit": "m"
+      },
+      {
+        "appliesToRolePair": {
+          "governedBy": "aggregate",
+          "governingBarDiameterMm": 16,
+          "memberKind": "beam",
+          "roleA": "longitudinal",
+          "roleB": "transverse"
+        },
+        "category": "codeDerived",
+        "distance": 0.026666666666666665,
+        "provenance": {
+          "clauseRefs": [
+            {
+              "clause": "25.2.1",
+              "code": "cirsoc-201",
+              "edition": "2025",
+              "label": "separación libre mínima entre barras paralelas"
+            }
+          ],
+          "source": "web/src/lib/codes/cirsoc201/spacing.ts#minClearSpacingFor"
+        },
+        "requirementId": "req:clear:rule:beam:longitudinal-transverse:d16",
+        "unit": "m"
+      },
+      {
+        "appliesToRolePair": {
+          "governedBy": "aggregate",
+          "governingBarDiameterMm": 6,
+          "memberKind": "beam",
+          "roleA": "transverse",
+          "roleB": "transverse"
+        },
+        "category": "codeDerived",
+        "distance": 0.026666666666666665,
+        "provenance": {
+          "clauseRefs": [
+            {
+              "clause": "25.2.1",
+              "code": "cirsoc-201",
+              "edition": "2025",
+              "label": "separación libre mínima entre barras paralelas"
+            }
+          ],
+          "source": "web/src/lib/codes/cirsoc201/spacing.ts#minClearSpacingFor"
+        },
+        "requirementId": "req:clear:rule:beam:transverse-transverse:d6",
+        "unit": "m"
+      },
+      {
+        "appliesToRolePair": {
+          "governedBy": "absoluteFloor",
+          "governingBarDiameterMm": 16,
+          "memberKind": "column",
+          "roleA": "longitudinal",
+          "roleB": "longitudinal"
+        },
+        "category": "codeDerived",
+        "distance": 0.04,
+        "provenance": {
+          "clauseRefs": [
+            {
+              "clause": "25.2.3",
+              "code": "cirsoc-201",
+              "edition": "2025",
+              "label": "separación libre mínima entre barras longitudinales de columnas"
+            }
+          ],
+          "source": "web/src/lib/codes/cirsoc201/spacing.ts#minClearSpacingFor"
+        },
+        "requirementId": "req:clear:rule:column:longitudinal-longitudinal:d16",
+        "unit": "m"
+      }
+    ],
+    "cover": [
+      {
+        "appliesToBarIds": [
+          "F1-C1-dowel-0",
+          "F1-C1-dowel-1",
+          "F1-C1-dowel-2",
+          "F1-C1-dowel-3",
+          "F1-C1-dowel-4",
+          "F1-C1-dowel-5",
+          "F1-C1-dowel-6",
+          "F1-C1-dowel-7",
+          "F1-C1:starter:stirrup:0.0000"
+        ],
+        "appliesToBodyIds": [
+          "body:footing:1"
+        ],
+        "category": "placementInput",
+        "distance": 0.05,
+        "elementId": 1,
+        "elementType": "footing",
+        "measurementScope": {
+          "excludeInterfaceIds": [
+            "iface:footing:1:column:1"
+          ],
+          "excludeTruncatedFaces": true,
+          "withinBodyId": "body:footing:1"
+        },
+        "provenance": {
+          "messageKey": "footing.cad.cover.placementIntent",
+          "source": "web/src/lib/model/footing.ts#Footing.cover"
+        },
+        "requirementId": "req:cover:footing:1",
+        "unit": "m"
+      }
+    ]
+  },
+  "revisions": {
+    "analysis": 0,
+    "demand": 2,
+    "detailing": 3,
+    "entity": 2,
+    "loads": 0,
+    "regulation": 0
+  },
+  "schema": "RcCadHandoffV1",
+  "schemaVersion": 1,
+  "subject": {
+    "elementIds": [
+      1
+    ],
+    "entityId": 1,
+    "kind": "footing",
+    "name": "Z1",
+    "nodeId": 1
+  },
+  "units": {
+    "angle": "deg",
+    "barDiameter": "mm",
+    "length": "m",
+    "mass": "kg"
+  },
+  "unsupported": [
+    {
+      "bodyIds": [
+        "body:footing:1"
+      ],
+      "code": "FOOTING_MAT_GEOMETRY_NOT_MODELED",
+      "messageKey": "footing.cad.unsupported.matGeometry",
+      "params": {
+        "footing": "Z1"
+      },
+      "text": "footing.cad.unsupported.matGeometry {\"footing\":\"Z1\"}"
+    },
+    {
+      "bodyIds": [
+        "body:footing:1"
+      ],
+      "code": "NO_PRODUCTION_CONTAINMENT_CHECKER",
+      "messageKey": "footing.cad.unsupported.containment",
+      "params": {
+        "footing": "Z1"
+      },
+      "text": "footing.cad.unsupported.containment {\"footing\":\"Z1\"}"
+    },
+    {
+      "bodyIds": [
+        "body:column:1"
+      ],
+      "code": "COLUMN_COVER_OUT_OF_SCOPE",
+      "messageKey": "footing.cad.unsupported.columnCover",
+      "params": {
+        "element": 1
+      },
+      "text": "footing.cad.unsupported.columnCover {\"element\":1}"
+    }
+  ]
+}

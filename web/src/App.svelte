@@ -31,6 +31,7 @@
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
+  import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
   import ToolbarConfig from './components/toolbar/ToolbarConfig.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import TourOverlay from './components/TourOverlay.svelte';
@@ -768,6 +769,12 @@
         <span class="pb-divider"></span>
 
         <!-- Actions -->
+        <!--
+          Project file controls live here, beside the other PRO actions, because a PRO user
+          must not have to switch to Básico to open or save. They are the same `file.ts`
+          entry points the Básico toolbar drives.
+        -->
+        <ProProjectFileActions shortcuts={true} />
         <button class="pn-action pn-example" bind:this={proExBtnEl} onclick={() => proPanelRef?.examples(proExBtnEl)}>{t('pro.exampleBtn')}</button>
         <button class="pn-action pn-cad" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} title={t('project.openDxfCadTooltip')}>{t('cad.proBarBtn')}</button>
         <button class="pn-action pn-solve" onclick={() => proPanelRef?.solve()} disabled={!proPanelRef?.canSolve()}>{proPanelRef?.isSolving() ? t('pro.solving') : t('pro.solve')}</button>

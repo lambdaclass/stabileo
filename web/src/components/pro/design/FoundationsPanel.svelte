@@ -19,11 +19,13 @@
    * control with no explanation.
    */
   import { t, tp } from '../../../lib/i18n';
+  import { identifyMessages } from '../../../lib/codes/message';
   import { modelStore } from '../../../lib/store/model.svelte';
   import {
     validateFooting, FOOTING_LAYER_ORDER_PREFERENCES, SUPPORTED_MAT_DIAMETERS_MM,
   } from '../../../lib/model/footing';
   import { validateSoilProfile } from '../../../lib/model/geotechnical';
+  import FootingCadHandoffPanel from './FootingCadHandoffPanel.svelte';
   import FootingMatPanel from './FootingMatPanel.svelte';
 
   const footings = $derived([...modelStore.model.footings.values()].sort((a, b) => a.id - b.id));
@@ -71,6 +73,8 @@
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
   }
+
+
 
 </script>
 
@@ -235,18 +239,31 @@
         {#each [validateFooting(f)] as issues (f.id)}
           {#if issues.length > 0}
             <ul class="issues" data-testid="footing-issues">
-              {#each issues as i (i.message.key + i.message.params?.axis)}
-                <li class={i.severity}>{tp(i.message.key, i.message.params ?? {})}</li>
+              {#each identifyMessages(issues.map((i) => i.message)) as m, ix (m.id)}
+                <li class={issues[ix].severity}>
+                  {tp(m.message.key, m.message.params ?? {})}
+                </li>
               {/each}
             </ul>
           {/if}
         {/each}
+
 
         <!--
           The designed bottom mat, in its own component. See `FootingMatPanel.svelte`: the
           footing editor owns geometry and the ground, that owns the design that follows from
           them, and the split is what keeps both inside the design-tab size ceiling.
         -->
+        <!--
+          The CAD handoff, in its own component.
+          `FootingCadHandoffPanel.svelte` owns the export attempt, the refusal that must not
+          outlive its cause, and the link to the RC CAD handoff tool. Split out when this file
+          crossed the 600-line component ceiling the suite enforces — the same reason
+          `FootingMatPanel` was split out before it, and the same boundary: this file owns footing
+          geometry and the ground, that one owns what follows from them.
+        -->
+        <FootingCadHandoffPanel footingId={f.id} />
+
         <FootingMatPanel footingId={f.id} />
 
         <button class="danger" data-testid="footing-delete"
@@ -418,8 +435,10 @@
             {#each [validateSoilProfile(p)] as issues (p.id)}
               {#if issues.length > 0}
                 <ul class="issues" data-testid={`soil-${p.id}-issues`}>
-                  {#each issues as i (i.message.key)}
-                    <li class={i.severity}>{tp(i.message.key, i.message.params ?? {})}</li>
+                  {#each identifyMessages(issues.map((i) => i.message)) as m, ix (m.id)}
+                    <li class={issues[ix].severity}>
+                      {tp(m.message.key, m.message.params ?? {})}
+                    </li>
                   {/each}
                 </ul>
               {/if}
@@ -470,4 +489,6 @@
   }
   button { font: inherit; cursor: pointer; }
   .danger { margin-top: 0.5rem; }
+
+  /* A refusal reads as a refusal. Nothing here is styled as a success. */
 </style>

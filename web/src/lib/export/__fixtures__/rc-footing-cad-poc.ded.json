@@ -1,0 +1,640 @@
+{
+  "version": "2.0",
+  "name": "RC Design QA (8 members)",
+  "timestamp": "2026-07-31T22:10:36.583Z",
+  "snapshot": {
+    "name": "RC Design QA (8 members)",
+    "nodes": [
+      [
+        1,
+        {
+          "id": 1,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      [
+        2,
+        {
+          "id": 2,
+          "x": 6,
+          "y": 0
+        }
+      ],
+      [
+        3,
+        {
+          "id": 3,
+          "x": 0,
+          "y": 5
+        }
+      ],
+      [
+        4,
+        {
+          "id": 4,
+          "x": 6,
+          "y": 5
+        }
+      ],
+      [
+        5,
+        {
+          "id": 5,
+          "x": 0,
+          "y": 0,
+          "z": 3.2
+        }
+      ],
+      [
+        6,
+        {
+          "id": 6,
+          "x": 6,
+          "y": 0,
+          "z": 3.2
+        }
+      ],
+      [
+        7,
+        {
+          "id": 7,
+          "x": 0,
+          "y": 5,
+          "z": 3.2
+        }
+      ],
+      [
+        8,
+        {
+          "id": 8,
+          "x": 6,
+          "y": 5,
+          "z": 3.2
+        }
+      ]
+    ],
+    "materials": [
+      [
+        1,
+        {
+          "id": 1,
+          "name": "Acero A36",
+          "e": 200000,
+          "nu": 0.3,
+          "rho": 78.5,
+          "fy": 250
+        }
+      ],
+      [
+        2,
+        {
+          "id": 2,
+          "name": "H30",
+          "e": 30000,
+          "nu": 0.2,
+          "rho": 25,
+          "fy": 30
+        }
+      ]
+    ],
+    "sections": [
+      [
+        1,
+        {
+          "id": 1,
+          "name": "IPN 300",
+          "a": 0.0069,
+          "iy": 0.000098,
+          "iz": 0.00000451,
+          "j": 4.666e-7,
+          "b": 0.125,
+          "h": 0.3,
+          "shape": "I",
+          "tw": 0.0108,
+          "tf": 0.0162
+        }
+      ],
+      [
+        2,
+        {
+          "id": 2,
+          "name": "RC Col 400×400",
+          "a": 0.16,
+          "iy": 0.002133333,
+          "iz": 0.002133333,
+          "j": 0.0036096,
+          "b": 0.4,
+          "h": 0.4,
+          "shape": "rect"
+        }
+      ],
+      [
+        3,
+        {
+          "id": 3,
+          "name": "RC Beam 300×550",
+          "a": 0.165,
+          "iy": 0.004159375,
+          "iz": 0.0012375,
+          "j": 0.003261428,
+          "b": 0.3,
+          "h": 0.55,
+          "shape": "rect"
+        }
+      ]
+    ],
+    "elements": [
+      [
+        1,
+        {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 1,
+          "nodeJ": 5,
+          "materialId": 2,
+          "sectionId": 2,
+          "releaseI": {
+            "my": false,
+            "mz": false,
+            "t": false
+          },
+          "releaseJ": {
+            "my": false,
+            "mz": false,
+            "t": false
+          }
+        }
+      ],
+      [
+        2,
+        {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 2,
+          "nodeJ": 6,
+          "materialId": 2,
+          "sectionId": 2,
+          "releaseI": {
+            "my": false,
+            "mz": false,
+            "t": false
+          },
+          "releaseJ": {
+            "my": false,
+            "mz": false,
+            "t": false
+          }
+        }
+      ],
+      [
+        3,
+        {
+          "id": 3,
+          "type": "frame",
+          "nodeI": 3,
+          "nodeJ": 7,
+          "materialId": 2,
+          "sectionId": 2,
+          "releaseI": {
+            "my": false,
+            "mz": false,
+            "t": false
+          },
+          "releaseJ": {
+            "my": false,
+            "mz": false,
+            "t": false
+          }
+        }
+      ],
+      [
+        4,
+        {
+          "id": 4,
+          "type": "frame",
+          "nodeI": 4,
+          "nodeJ": 8,
+          "materialId": 2,
+          "sectionId": 2,
+          "releaseI": {
+            "my": false,
+            "mz": false,
+            "t": false
+          },
+          "releaseJ": {
+            "my": false,
+            "mz": false,
+            "t": false
+          }
+        }
+      ],
+      [
+        5,
+        {
+          "id": 5,
+          "type": "frame",
+          "nodeI": 5,
+          "nodeJ": 6,
+          "materialId": 2,
+          "sectionId": 3,
+          "releaseI": {
+            "my": false,
+            "mz": false,
+            "t": false
+          },
+          "releaseJ": {
+            "my": false,
+            "mz": false,
+            "t": false
+          }
+        }
+      ],
+      [
+        6,
+        {
+          "id": 6,
+          "type": "frame",
+          "nodeI": 7,
+          "nodeJ": 8,
+          "materialId": 2,
+          "sectionId": 3,
+          "releaseI": {
+            "my": false,
+            "mz": false,
+            "t": false
+          },
+          "releaseJ": {
+            "my": false,
+            "mz": false,
+            "t": false
+          }
+        }
+      ],
+      [
+        7,
+        {
+          "id": 7,
+          "type": "frame",
+          "nodeI": 5,
+          "nodeJ": 7,
+          "materialId": 2,
+          "sectionId": 3,
+          "releaseI": {
+            "my": false,
+            "mz": false,
+            "t": false
+          },
+          "releaseJ": {
+            "my": false,
+            "mz": false,
+            "t": false
+          }
+        }
+      ],
+      [
+        8,
+        {
+          "id": 8,
+          "type": "frame",
+          "nodeI": 6,
+          "nodeJ": 8,
+          "materialId": 2,
+          "sectionId": 3,
+          "releaseI": {
+            "my": false,
+            "mz": false,
+            "t": false
+          },
+          "releaseJ": {
+            "my": false,
+            "mz": false,
+            "t": false
+          }
+        }
+      ]
+    ],
+    "supports": [
+      [
+        1,
+        {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed3d"
+        }
+      ],
+      [
+        2,
+        {
+          "id": 2,
+          "nodeId": 2,
+          "type": "fixed3d"
+        }
+      ],
+      [
+        3,
+        {
+          "id": 3,
+          "nodeId": 3,
+          "type": "fixed3d"
+        }
+      ],
+      [
+        4,
+        {
+          "id": 4,
+          "nodeId": 4,
+          "type": "fixed3d"
+        }
+      ]
+    ],
+    "loads": [
+      {
+        "type": "distributed3d",
+        "data": {
+          "id": 1,
+          "elementId": 5,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": -22,
+          "qZJ": -22,
+          "caseId": 1
+        }
+      },
+      {
+        "type": "distributed3d",
+        "data": {
+          "id": 2,
+          "elementId": 5,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": -11,
+          "qZJ": -11,
+          "caseId": 2
+        }
+      },
+      {
+        "type": "distributed3d",
+        "data": {
+          "id": 3,
+          "elementId": 6,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": -22,
+          "qZJ": -22,
+          "caseId": 1
+        }
+      },
+      {
+        "type": "distributed3d",
+        "data": {
+          "id": 4,
+          "elementId": 6,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": -11,
+          "qZJ": -11,
+          "caseId": 2
+        }
+      },
+      {
+        "type": "distributed3d",
+        "data": {
+          "id": 5,
+          "elementId": 7,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": -22,
+          "qZJ": -22,
+          "caseId": 1
+        }
+      },
+      {
+        "type": "distributed3d",
+        "data": {
+          "id": 6,
+          "elementId": 7,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": -11,
+          "qZJ": -11,
+          "caseId": 2
+        }
+      },
+      {
+        "type": "distributed3d",
+        "data": {
+          "id": 7,
+          "elementId": 8,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": -22,
+          "qZJ": -22,
+          "caseId": 1
+        }
+      },
+      {
+        "type": "distributed3d",
+        "data": {
+          "id": 8,
+          "elementId": 8,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": -11,
+          "qZJ": -11,
+          "caseId": 2
+        }
+      },
+      {
+        "type": "nodal3d",
+        "data": {
+          "id": 9,
+          "nodeId": 5,
+          "fx": 14,
+          "fy": 0,
+          "fz": 0,
+          "mx": 0,
+          "my": 0,
+          "mz": 0,
+          "caseId": 3
+        }
+      },
+      {
+        "type": "nodal3d",
+        "data": {
+          "id": 10,
+          "nodeId": 7,
+          "fx": 14,
+          "fy": 0,
+          "fz": 0,
+          "mx": 0,
+          "my": 0,
+          "mz": 0,
+          "caseId": 3
+        }
+      }
+    ],
+    "loadCases": [
+      {
+        "id": 1,
+        "type": "D",
+        "name": "Dead Load"
+      },
+      {
+        "id": 2,
+        "type": "L",
+        "name": "Live Load"
+      },
+      {
+        "id": 3,
+        "type": "W",
+        "name": "Wind"
+      }
+    ],
+    "combinations": [
+      {
+        "id": 1,
+        "name": "1.4D",
+        "factors": [
+          {
+            "caseId": 1,
+            "factor": 1.4
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "1.2D+1.6L",
+        "factors": [
+          {
+            "caseId": 1,
+            "factor": 1.2
+          },
+          {
+            "caseId": 2,
+            "factor": 1.6
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "name": "1.2D+1.0L+1.6W",
+        "factors": [
+          {
+            "caseId": 1,
+            "factor": 1.2
+          },
+          {
+            "caseId": 2,
+            "factor": 1
+          },
+          {
+            "caseId": 3,
+            "factor": 1.6
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "name": "0.9D+1.6W",
+        "factors": [
+          {
+            "caseId": 1,
+            "factor": 0.9
+          },
+          {
+            "caseId": 3,
+            "factor": 1.6
+          }
+        ]
+      }
+    ],
+    "plates": [],
+    "quads": [],
+    "constraints": [],
+    "connectors": [],
+    "nextId": {
+      "node": 9,
+      "material": 3,
+      "section": 4,
+      "element": 9,
+      "support": 5,
+      "load": 11,
+      "loadCase": 4,
+      "combination": 5,
+      "plate": 1,
+      "quad": 1,
+      "connector": 1,
+      "footing": 2,
+      "soilProfile": 2
+    },
+    "localAxisConvention": "zUpStrongAxis",
+    "codeSettings": {
+      "version": 1,
+      "jurisdiction": {
+        "name": "",
+        "basis": "unstated"
+      },
+      "concreteEdition": "2025",
+      "loadEdition": "2025",
+      "windEdition": "2025",
+      "concrete": {
+        "maxAggregateSizeMm": null,
+        "shotcrete": false
+      }
+    },
+    "detailing": {
+      "version": 2,
+      "assemblies": []
+    },
+    "footings": [
+      [
+        1,
+        {
+          "id": 1,
+          "name": "Z1",
+          "nodeId": 1,
+          "kind": "isolated",
+          "B": 2,
+          "L": 2,
+          "thickness": 0.5,
+          "rotationDeg": 0,
+          "eccentricityB": 0,
+          "eccentricityL": 0,
+          "concreteMaterialId": null,
+          "rebarMaterialId": null,
+          "cover": 0.05,
+          "foundingElevation": -1.2,
+          "soilProfileId": 1,
+          "revision": 2,
+          "columnElementId": 1
+        }
+      ]
+    ],
+    "geotechnical": {
+      "version": 1,
+      "profiles": [
+        {
+          "id": 1,
+          "name": "Arena densa (ilustrativo)",
+          "bearing": {
+            "kind": "allowablePressure",
+            "allowableBearingKPa": 250
+          },
+          "unitWeightKNm3": null,
+          "subgradeModulusKNm3": null,
+          "groundwaterDepthM": null,
+          "provenance": {
+            "source": "assumed",
+            "reference": "POC PR19 — valor ilustrativo"
+          }
+        }
+      ],
+      "defaultProfileId": 1
+    }
+  },
+  "appMode": "pro",
+  "analysisMode": "pro",
+  "axisConvention3D": "rightHand",
+  "viewportPresentation3D": "native3d"
+}

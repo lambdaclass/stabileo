@@ -75,6 +75,60 @@ export function messageIdentity(m: EngineMessage): string {
   return m.key + '(' + parts.join(',') + ')';
 }
 
+/**
+ * Stable, UNIQUE list keys for rendering messages in a keyed `{#each}`.
+ *
+ * ── The crash this exists to prevent ────────────────────────────────
+ *
+ * A keyed each block needs an identity per item, and several panels were using the message KEY.
+ * That is the i18n key, not the record: `validateFooting` legitimately raises two blocking issues
+ * for an undimensioned footing — `footing.issue.planDimension` with `axis: 'B'` and the same key
+ * with `axis: 'L'` — and Svelte refused the list outright:
+ *
+ *     each_key_duplicate: Keyed each block has duplicate key
+ *     `footing.issue.planDimension` at indexes 0 and 1
+ *
+ * The panel did not render a wrong list; it threw, and "Design and detail floors" died with it.
+ *
+ * ── Why not deduplicate ─────────────────────────────────────────────
+ *
+ * Because both records are true. "B is not positive" and "L is not positive" are two findings with
+ * two remedies, and collapsing them would hide one — the same class of dishonesty as dropping a
+ * finding to make a list clean. So this makes the KEYS unique and leaves the LIST untouched:
+ * same length, same order, every record rendered.
+ *
+ * ── The key, in order of preference ─────────────────────────────────
+ *
+ * `messageIdentity` first, which is the key plus every param sorted — so the two planDimension
+ * issues differ by `axis=B` versus `axis=L`, which is exactly the semantic difference between
+ * them. A positional suffix is appended ONLY where that still collides, i.e. where two records are
+ * genuinely identical in key and params. Position is the last resort on purpose: a key that always
+ * carried the index would reorder and remount every row whenever the list changed, which is the
+ * thing keyed blocks exist to avoid.
+ */
+export function messageListKeys(messages: readonly EngineMessage[]): string[] {
+  const seen = new Map<string, number>();
+  return messages.map((m) => {
+    const id = messageIdentity(m);
+    const n = seen.get(id) ?? 0;
+    seen.set(id, n + 1);
+    return n === 0 ? id : `${id}#${n}`;
+  });
+}
+
+/**
+ * The same, paired with the message, for a template that wants to iterate one array.
+ *
+ * `{#each identifyMessages(list) as m (m.id)}` reads better than threading a parallel key array
+ * through the markup, and it cannot fall out of step with the list it keys.
+ */
+export function identifyMessages(
+  messages: readonly EngineMessage[],
+): Array<{ id: string; message: EngineMessage }> {
+  const keys = messageListKeys(messages);
+  return messages.map((message, i) => ({ id: keys[i], message }));
+}
+
 export function dedupeMessages(messages: readonly EngineMessage[]): EngineMessage[] {
   const seen = new Set<string>();
   const out: EngineMessage[] = [];

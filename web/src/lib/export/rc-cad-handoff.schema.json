@@ -1,0 +1,654 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stabileo.com/schemas/rc-cad-handoff-v1.json",
+  "title": "RcCadHandoffV1",
+  "description": "Neutral versioned handoff from Stabileo RC detailing to an external CAD realiser. Stabileo owns the engineering meaning of every field. A consumer measures against the numbers here and never derives a regulation rule from them. Lengths are metres, angles degrees, bar diameters millimetres, mass kilograms; coordinates are Stabileo model axes, Z-up right-handed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "schemaVersion", "generator", "subject", "assembly", "units",
+    "coordinateSystem", "revisions", "certificate", "concrete",
+    "reinforcement", "requirements", "checks", "assumptions", "unsupported"
+  ],
+  "properties": {
+    "schema": { "const": "RcCadHandoffV1" },
+    "schemaVersion": { "const": 1 },
+
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "source": {
+      "description": "Code provenance. Absent in a browser build that has no git access; absence is honest, a fabricated revision is not.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gitRevision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "branch": { "type": "string" }
+      }
+    },
+
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+
+    "subject": {
+      "description": "What this handoff is about. Exactly one subject per document.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "entityId", "name"],
+      "properties": {
+        "kind": { "enum": ["footing"] },
+        "entityId": { "type": "integer" },
+        "name": { "type": "string" },
+        "nodeId": { "type": "integer" },
+        "elementIds": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+
+    "assembly": {
+      "description": "WHICH reinforcement assembly this document describes, and how complete it is. A handoff that named its subject a footing without saying which cage it carries would be read as complete footing reinforcement. This object is what makes the partial scope unmissable, and `completeness` is checkable rather than prose.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "completeness", "descriptionKey", "families"],
+      "properties": {
+        "kind": {
+          "description": "The stable identifier for the assembly. `footingTransferCage` is the column dowels and starter ties connecting the footing to the supporting column; it does NOT include footing mat geometry.",
+          "enum": ["footingTransferCage"]
+        },
+        "completeness": {
+          "description": "`partialConnectionOnly` states that only the connection reinforcement is present. `completeFootingReinforcement` is a much stronger claim and semantic validation rejects it while any unsupported condition says the mats are not modelled.",
+          "enum": ["partialConnectionOnly", "completeFootingReinforcement"]
+        },
+        "descriptionKey": {
+          "description": "i18n key for the user-facing description, so a consumer reuses Stabileo's own EN/ES text instead of inventing a scope statement.",
+          "type": "string",
+          "minLength": 1
+        },
+        "families": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/reinforcementFamily" }
+        }
+      }
+    },
+
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["length", "angle", "barDiameter", "mass"],
+      "properties": {
+        "length": { "const": "m" },
+        "angle": { "const": "deg" },
+        "barDiameter": { "const": "mm" },
+        "mass": { "const": "kg" }
+      }
+    },
+
+    "coordinateSystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["up", "handedness"],
+      "properties": {
+        "up": { "const": "Z" },
+        "handedness": { "const": "right" },
+        "origin": { "$ref": "#/$defs/frame" }
+      }
+    },
+
+    "revisions": {
+      "description": "Staleness stamps. A consumer echoes these back so a review can be detected as stale rather than silently trusted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detailing", "demand"],
+      "properties": {
+        "detailing": { "type": "integer" },
+        "demand": { "type": "integer" },
+        "analysis": { "type": "integer" },
+        "loads": { "type": "integer" },
+        "regulation": { "type": "integer" },
+        "design": { "type": "integer" },
+        "document": { "type": "integer" },
+        "entity": {
+          "description": "The subject footing's own revision, so editing one footing retires only its handoff.",
+          "type": "integer"
+        }
+      }
+    },
+
+    "certificate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maturity"],
+      "properties": {
+        "maturity": { "type": "string" },
+        "reviewState": { "type": "string" },
+        "provisional": { "type": "array", "items": { "type": "string" } },
+        "verifierId": { "type": "string" },
+        "codeId": { "type": "string" },
+        "codeEdition": { "type": "string" }
+      }
+    },
+
+    "concrete": {
+      "description": "The concrete components of THIS connection and the interfaces between them. More than one body is the normal case here: a footing pad and the stub of the column it supports are two components of one connection, and the surface between them is not an exposed face of either.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bodies", "interfaces"],
+      "properties": {
+        "bodies": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/concreteBody" }
+        },
+        "interfaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/concreteInterface" }
+        }
+      }
+    },
+
+    "reinforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bars", "marks"],
+      "properties": {
+        "bars": { "type": "array", "items": { "$ref": "#/$defs/bar" } },
+        "marks": { "type": "array", "items": { "$ref": "#/$defs/mark" } }
+      }
+    },
+
+    "requirements": {
+      "description": "Distances Stabileo requires. A consumer measures against these and never derives them. Cover is a LIST scoped by element, component and surface, never a single global scalar, so a future release can add per-element and per-face requirements without a schema redesign.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cover", "clearSpacing"],
+      "properties": {
+        "cover": { "type": "array", "items": { "$ref": "#/$defs/coverRequirement" } },
+        "clearSpacing": { "type": "array", "items": { "$ref": "#/$defs/clearSpacingRequirement" } }
+      }
+    },
+
+    "checks": {
+      "description": "One result object PER CHECK. Deliberately not a single aggregate boolean: collisions, clear spacing, cover and containment each keep their own authority, evaluation status, provenance and result. A check Stabileo has not evaluated says so, and a consumer may never convert NOT_EVALUATED into a pass. Cover on two different concrete components is two checks, not one, so a component nobody evaluated cannot inherit another's verdict.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/check" }
+    },
+
+    "assumptions": { "type": "array", "items": { "$ref": "#/$defs/note" } },
+    "unsupported": { "type": "array", "items": { "$ref": "#/$defs/note" } }
+  },
+
+  "$defs": {
+    "point3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" }
+      }
+    },
+
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "translation": { "$ref": "#/$defs/point3" },
+        "rotationDeg": { "type": "number" }
+      }
+    },
+
+    "note": {
+      "description": "A structured message. messageKey lets a consumer reuse Stabileo's own EN/ES text instead of inventing strings; `code` gives it a stable identifier a consumer can branch on without parsing prose.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "code": {
+          "description": "Stable machine identifier, e.g. FOOTING_MAT_GEOMETRY_NOT_MODELED. Present on every condition a consumer is expected to act on.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "messageKey": { "type": "string" },
+        "text": { "type": "string" },
+        "params": { "type": "object" },
+        "elementIds": { "type": "array", "items": { "type": "integer" } },
+        "bodyIds": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "clauseRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string" },
+        "edition": { "type": "string" },
+        "clause": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+
+    "reinforcementFamily": {
+      "description": "A group of bars that share one structural purpose. The purpose is what stops a reader inferring that eight vertical bars in a footing are its flexural steel.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["familyId", "kind", "purposeKey", "barIds"],
+      "properties": {
+        "familyId": { "type": "string", "minLength": 1 },
+        "kind": {
+          "description": "`columnDowel` transfers column force across the interface. `starterTie` restrains the dowels over their lap above the footing.",
+          "enum": ["columnDowel", "starterTie"]
+        },
+        "purposeKey": { "type": "string", "minLength": 1 },
+        "barIds": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "clauseRefs": { "type": "array", "items": { "$ref": "#/$defs/clauseRef" } }
+      }
+    },
+
+    "componentSource": {
+      "description": "The production entity this concrete component was derived from. Identity is not cosmetic: it is what lets a review be attributed, superseded and re-run against the same footing and the same column rather than against a look-alike block.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["footing", "pedestal", "element"] },
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "revision": { "type": "integer" },
+        "sectionName": { "type": "string" }
+      }
+    },
+
+    "concreteBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bodyId", "role", "source", "shape"],
+      "properties": {
+        "bodyId": { "type": "string", "minLength": 1 },
+        "role": { "enum": ["footing", "pedestal", "supportedColumn"] },
+        "source": { "$ref": "#/$defs/componentSource" },
+        "elementId": { "type": "integer" },
+        "materialRef": { "type": ["string", "null"] },
+        "truncatedFaces": {
+          "description": "Faces that are CUT PLANES rather than real concrete surfaces, because this handoff carries only the extent needed to inspect the connection. A truncated face is not an exposed surface and no cover may be measured against it.",
+          "type": "array",
+          "items": { "enum": ["top", "bottom", "bMin", "bMax", "lMin", "lMax"] }
+        },
+        "derivation": {
+          "description": "How the extent was obtained from production data. Required on any body whose extent is not simply the modelled entity's own dimensions — a truncated stub, for instance.",
+          "$ref": "#/$defs/note"
+        },
+        "shape": {
+          "description": "Explicit primitive. No implicit prisms: a consumer must never infer a solid. `height` is the single vertical extent, so a footing thickness and a stub height are not two different words for the same number.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "B", "L", "height", "centre", "rotationDeg"],
+          "properties": {
+            "kind": { "const": "box" },
+            "B": { "description": "Plan extent along the body's local B axis, m.", "type": "number", "exclusiveMinimum": 0 },
+            "L": { "description": "Plan extent along the body's local L axis, m.", "type": "number", "exclusiveMinimum": 0 },
+            "height": { "description": "Vertical extent, m.", "type": "number", "exclusiveMinimum": 0 },
+            "centre": { "$ref": "#/$defs/point3" },
+            "rotationDeg": { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "concreteInterface": {
+      "description": "An intentional concrete-to-concrete contact between two components of this connection. It exists so a CAD reviewer can tell four things apart: an exposed footing surface, an exposed column-stub surface, this internal contact, and a bar deliberately crossing it. A dowel crossing this surface is the detail working, not a containment failure.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interfaceId", "kind", "participants", "geometry", "exposure"],
+      "properties": {
+        "interfaceId": { "type": "string", "minLength": 1 },
+        "kind": { "const": "concreteToConcrete" },
+        "participants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["belowBodyId", "aboveBodyId"],
+          "properties": {
+            "belowBodyId": { "type": "string", "minLength": 1 },
+            "aboveBodyId": { "type": "string", "minLength": 1 }
+          }
+        },
+        "geometry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "elevation", "B", "L", "centre", "rotationDeg"],
+          "properties": {
+            "kind": { "const": "planarRectZ" },
+            "elevation": { "description": "Global Z of the contact plane, m.", "type": "number" },
+            "B": { "type": "number", "exclusiveMinimum": 0 },
+            "L": { "type": "number", "exclusiveMinimum": 0 },
+            "centre": { "$ref": "#/$defs/point3" },
+            "rotationDeg": { "type": "number" }
+          }
+        },
+        "exposure": {
+          "description": "Always `internal` for a concrete-to-concrete contact. Stated rather than implied, because treating it as exposed is exactly the mistake that turns a correct dowel into a false cover breach.",
+          "const": "internal"
+        },
+        "intentionalBarPassage": {
+          "description": "Bars that deliberately cross this interface. A consumer must classify their crossing as intended and never as a containment or cover failure.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["barIds", "reasonKey"],
+          "properties": {
+            "barIds": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "reasonKey": { "type": "string", "minLength": 1 },
+            "clauseRefs": { "type": "array", "items": { "$ref": "#/$defs/clauseRef" } }
+          }
+        }
+      }
+    },
+
+    "barSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "start", "end", "length"],
+      "properties": {
+        "kind": { "enum": ["straight", "arc"] },
+        "start": { "$ref": "#/$defs/point3" },
+        "end": { "$ref": "#/$defs/point3" },
+        "length": { "type": "number", "exclusiveMinimum": 0 },
+        "radius": {
+          "description": "NOMINAL centreline bend radius, m — the design intent the bend was detailed to, typically a code mandrel value. It is NOT the realised arc radius. The realised arc is defined by start, end and centre, and where the bend plane is inclined to the plane the nominal radius was measured in, the realised centre-to-endpoint distance is slightly larger. Observed in production: a 135° stirrup hook whose tails step out of the tie plane realises 0.015074813 m against a nominal 0.015 m. A consumer MUST NOT reject an arc whose start, end and centre are internally consistent merely because this nominal value differs from the realised distance. `length` is likewise derived from the nominal radius and sweep, so a segment's declared length may differ from the realised centreline length by the same cause, and `cuttingLength` inherits that difference.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "sweepDeg": {
+          "description": "NOMINAL swept angle of the bend, degrees, POSITIVE — the detailed hook or corner angle, not the angle the realised arc subtends about its centre. Same caveat as `radius`: an inclined bend plane makes the realised angle slightly larger, and that is not a defect. A consumer MUST retain this field rather than discard it as merely nominal, because start, end and centre alone leave the MAJOR/MINOR branch undetermined: the point triplet is satisfied by both, and this value is the only signal of which was intended. Producers select the major branch by emitting a value greater than 180. LIMITATION, V1: because the field is nominal, a reflex arc whose nominal sweep sits near 180 cannot be resolved from this document alone. No arc in the current producer reaches that case; the ambiguity is documented here rather than resolved, and resolving it is deferred to a future schema version.",
+          "type": "number"
+        },
+        "centre": {
+          "description": "Arc centre. REQUIRED for an exact arc: start, end, radius and sweep do NOT determine an arc in three dimensions, because two centres satisfy them in any plane and the plane itself is free. Without it the only reconstructable curve is the chord, and the deviation is the full sagitta. If absent, arcApproximated MUST be true. Together with start and end this triple is the AUTHORITATIVE realised geometry: a consumer builds the curve from it, and treats `radius` and `sweepDeg` as the producer's nominal bend parameters rather than as constraints to enforce.",
+          "$ref": "#/$defs/point3"
+        },
+        "arcApproximated": {
+          "description": "True when an arc had to be reduced to its chord because the centre was unavailable. Never silently exact.",
+          "type": "boolean"
+        }
+      }
+    },
+
+    "barEndTreatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["straight", "hook", "continuous"] },
+        "hook": {
+          "description": "Emitted only when kind is 'hook' and the geometry is actually established. Never synthesised.",
+          "type": "object"
+        }
+      }
+    },
+
+    "bar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "diameterMm", "role", "familyId", "segments",
+        "startTreatment", "endTreatment", "cuttingLength", "ownerElementIds"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "mark": { "type": "string" },
+        "diameterMm": { "type": "number", "exclusiveMinimum": 0 },
+        "role": { "type": "string", "minLength": 1 },
+        "familyId": {
+          "description": "The reinforcement family this bar belongs to. Required, so no bar in this document lacks a stated structural purpose.",
+          "type": "string",
+          "minLength": 1
+        },
+        "layerId": { "type": "string" },
+        "materialRef": { "type": ["string", "null"] },
+        "segments": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/barSegment" } },
+        "startTreatment": { "$ref": "#/$defs/barEndTreatment" },
+        "endTreatment": { "$ref": "#/$defs/barEndTreatment" },
+        "cuttingLength": { "type": "number", "exclusiveMinimum": 0 },
+        "ownerElementIds": { "type": "array", "minItems": 1, "items": { "type": "integer" } }
+      }
+    },
+
+    "mark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mark", "diameterMm", "cuttingLength", "quantity", "role", "barIds"],
+      "properties": {
+        "mark": { "type": "string", "minLength": 1 },
+        "diameterMm": { "type": "number", "exclusiveMinimum": 0 },
+        "cuttingLength": { "type": "number", "exclusiveMinimum": 0 },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "shape": { "type": "string" },
+        "massKg": { "type": "number", "minimum": 0 },
+        "role": { "type": "string" },
+        "barIds": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "ownerElementIds": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+
+    "requirementCategory": {
+      "description": "What kind of number this is. Only categories the production model actually distinguishes today are listed; extend the enum in a later schemaVersion rather than overloading an existing member.",
+      "enum": ["placementInput", "codeDerived", "userSpecified"]
+    },
+
+    "surfaceScope": {
+      "description": "Which face or region the requirement applies to. Absent means Stabileo does not currently model a per-surface distinction for this requirement — that is a real limitation, not a wildcard, and a consumer must not assume it applies to every face.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "face": {
+          "description": "Open string rather than a closed enum: the production model does not yet distinguish faces, so fixing an enum now would encode guesses. A later schemaVersion can close it once real face roles exist.",
+          "type": "string"
+        },
+        "region": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+
+    "measurementScope": {
+      "description": "Where a distance requirement may be measured. This is the field that keeps a footing cover requirement inside the footing: only the portion of a bar lying within `withinBodyId` is in scope, and the listed interfaces are internal contacts that must never be treated as exposed cover faces.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["withinBodyId"],
+      "properties": {
+        "withinBodyId": { "type": "string", "minLength": 1 },
+        "excludeInterfaceIds": { "type": "array", "items": { "type": "string" } },
+        "excludeTruncatedFaces": {
+          "description": "True when the body's truncated faces are cut planes rather than real surfaces and must be excluded from any cover measurement.",
+          "type": "boolean"
+        }
+      }
+    },
+
+    "coverRequirement": {
+      "description": "One cover requirement, scoped. Never a global scalar: element identity, element type, requirement identity, the concrete components it governs and the applicable surface are kept separate so a future release can carry many requirements per element and per face without reinterpreting this one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirementId", "elementId", "elementType", "appliesToBodyIds",
+        "measurementScope", "distance", "unit", "category", "provenance"
+      ],
+      "properties": {
+        "requirementId": { "type": "string", "minLength": 1 },
+        "elementId": { "type": "integer" },
+        "elementType": { "enum": ["footing", "pedestal", "slab", "wall", "beam", "column"] },
+        "appliesToBodyIds": {
+          "description": "The concrete components this requirement governs. Required, because an unscoped cover value would be applied to every body in the document — including a column stub whose own cover this release does not evaluate.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "surface": { "$ref": "#/$defs/surfaceScope" },
+        "appliesToBarIds": {
+          "description": "Bars this requirement governs, when the relationship is known. Absent means the relationship is not modelled and must not be inferred.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "measurementScope": { "$ref": "#/$defs/measurementScope" },
+        "distance": { "type": "number", "minimum": 0 },
+        "unit": { "const": "m" },
+        "category": { "$ref": "#/$defs/requirementCategory" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "source": { "type": "string", "minLength": 1 },
+            "clauseRefs": { "type": "array", "items": { "$ref": "#/$defs/clauseRef" } },
+            "messageKey": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "clearSpacingRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirementId", "distance", "unit", "category", "provenance"],
+      "properties": {
+        "requirementId": { "type": "string", "minLength": 1 },
+        "barIdA": { "type": "string" },
+        "barIdB": { "type": "string" },
+        "appliesToRolePair": {
+          "description": "Present when the requirement is the code-derived rule for a ROLE pair rather than a measured pair verdict. The rule is a pure function of the edition, the governing member kind and the larger bar diameter, so it can be stated without geometry; a pair CLASSIFICATION cannot, and is therefore never inferred here.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["roleA", "roleB", "memberKind", "governingBarDiameterMm"],
+          "properties": {
+            "roleA": { "type": "string", "minLength": 1 },
+            "roleB": { "type": "string", "minLength": 1 },
+            "memberKind": { "enum": ["beam", "column", "wall", "slab"] },
+            "governingBarDiameterMm": { "type": "number", "exclusiveMinimum": 0 },
+            "governedBy": { "enum": ["absoluteFloor", "barDiameter", "aggregate"] }
+          }
+        },
+        "pairClass": { "type": "string" },
+        "reportable": {
+          "description": "False when Stabileo deliberately does not report a shortfall for this pair class. A consumer MUST respect this or it will raise conflicts Stabileo intentionally suppresses.",
+          "type": "boolean"
+        },
+        "elementIds": { "type": "array", "items": { "type": "integer" } },
+        "distance": { "type": "number", "minimum": 0 },
+        "unit": { "const": "m" },
+        "category": { "$ref": "#/$defs/requirementCategory" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "source": { "type": "string", "minLength": 1 },
+            "clauseRefs": { "type": "array", "items": { "$ref": "#/$defs/clauseRef" } },
+            "messageKey": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "check": {
+      "description": "One check, with its own authority, evaluation status and scope. A consumer adds its independent observation in the review artifact keyed by checkId; it never rewrites this object.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkId", "checkKind", "authority", "evaluationStatus", "consumerObservationPolicy"
+      ],
+      "properties": {
+        "checkId": { "type": "string", "minLength": 1 },
+        "checkKind": {
+          "enum": ["barCollision", "barClearSpacing", "concreteCover", "reinforcementContainment"]
+        },
+        "authority": {
+          "description": "Who is entitled to a verdict. 'stabileo' means a regulatory verdict. 'none' means no production checker exists.",
+          "enum": ["stabileo", "none"]
+        },
+        "evaluationStatus": { "enum": ["EVALUATED", "NOT_EVALUATED"] },
+        "notEvaluatedReason": {
+          "description": "Required when evaluationStatus is NOT_EVALUATED. Names the concrete reason, e.g. no production checker exists for this property.",
+          "type": "string",
+          "minLength": 1
+        },
+        "notEvaluatedCode": {
+          "description": "Stable machine identifier for the reason, so a consumer branches on a code rather than on prose.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "consumerObservationPolicy": {
+          "description": "What a consumer is permitted to do with this check. MAY_CROSS_CHECK: Stabileo has a verdict, so an independent measurement is a cross-check and disagreement is a reportable finding. MAY_OBSERVE_NOT_COMPARABLE: Stabileo has no verdict; a consumer may measure and MUST label the result as an observation that is not comparable to a Stabileo verdict, and may never present it as a pass. OUT_OF_SCOPE: a consumer must not measure this at all in this release.",
+          "enum": ["MAY_CROSS_CHECK", "MAY_OBSERVE_NOT_COMPARABLE", "OUT_OF_SCOPE"]
+        },
+        "requirementIds": { "type": "array", "items": { "type": "string" } },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "elementIds": { "type": "array", "items": { "type": "integer" } },
+            "barIds": { "type": "array", "items": { "type": "string" } },
+            "bodyIds": {
+              "description": "The concrete components this check covers. Two components mean two checks: a stub whose cover nobody evaluated must not inherit the footing's status.",
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "interfaceIds": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "findings": {
+          "description": "Present only when EVALUATED. Each finding is a measured Stabileo result, not a summary.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": { "type": "string" },
+            "clauseRefs": { "type": "array", "items": { "$ref": "#/$defs/clauseRef" } },
+            "messageKey": { "type": "string" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "evaluationStatus": { "const": "NOT_EVALUATED" } } },
+          "then": { "required": ["notEvaluatedReason"] }
+        }
+      ]
+    },
+
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findingId", "severity"],
+      "properties": {
+        "findingId": { "type": "string", "minLength": 1 },
+        "severity": { "type": "string" },
+        "barIdA": { "type": "string" },
+        "barIdB": { "type": "string" },
+        "pairClass": {
+          "description": "Stabileo's own classification of the pair, determined by the production collision detector from the sampled closest approach. Never re-derived by a consumer.",
+          "type": "string"
+        },
+        "at": { "$ref": "#/$defs/point3" },
+        "measured": { "type": "number" },
+        "required": { "type": "number" },
+        "shortfall": { "type": "number" },
+        "unit": { "const": "m" },
+        "elementIds": { "type": "array", "items": { "type": "integer" } },
+        "messageKey": { "type": "string" }
+      }
+    }
+  }
+}

@@ -85,19 +85,69 @@ function currentConcreteEdition(): RegulationEdition {
 }
 
 /**
- * Maximum aggregate size, from the materials.
+ * THE authoritative verifier identity, derived from the verification that actually ran.
+ *
+ * Both production detailing commands used to default this to `''` and only the test chain
+ * passed one, so every real user's certificate named no verifier at all. The fix belongs
+ * here rather than in each caller: a certificate's provenance is a property of the run, not
+ * an argument a panel happens to remember to supply, and two UI call sites able to disagree
+ * is the same three-sources-for-one-decision shape `adapter()` was already repaired for.
+ *
+ * It is READ from the issued certificates, never composed from the binding alone. That
+ * distinction is the whole point — the binding says which code is selected, the certificates
+ * say which verifier was executed, and only the second is true of the work:
+ *
+ *   * no completed design run → no identity, and the export refuses;
+ *   * a run that issued no certificate → no identity (nothing was actually verified);
+ *   * a certificate naming a verifier other than the one bound NOW → no identity, because
+ *     rebinding the regulation after the run makes the earlier identity a stale claim.
+ *
+ * Returning `''` is therefore never a silent default. It is the honest "no verifier ran",
+ * and `buildFootingCadHandoff` turns it into a stated refusal rather than an empty field.
+ */
+function resolveVerifierId(): string {
+  const summary = verificationStore.runSummary;
+  if (!summary) return '';
+
+  const boundId = regulationsStore.concreteDesignCode();
+  const expected = boundId ? getDesignCode(boundId)?.provenance().verifierId : undefined;
+  if (!expected) return '';
+
+  let issued = 0;
+  for (const outcome of summary.outcomes.values()) {
+    const id = outcome.certificate?.verifierId;
+    if (!id) continue;
+    // One disagreeing certificate is enough to withhold the identity: the assembly would
+    // otherwise carry a verifier that part of the design was not checked against.
+    if (id !== expected) return '';
+    issued++;
+  }
+  return issued > 0 ? expected : '';
+}
+
+/**
+ * Maximum aggregate size as the MATERIALS state it, or null when none of them does.
  *
  * PR16 moved this off the regulation panel and onto the material, where a mix property
  * belongs. The largest value across the concretes in use governs the bar spacing, which is
  * the conservative reading when a model mixes mixes.
+ *
+ * Split from `resolveAggregate` so "stated" and "assumed" stay distinguishable. Both callers
+ * need the same number, but an export must additionally say WHICH it is: the assumed 20 mm is
+ * not a regulatory default, and a document that presented it as one would be claiming a
+ * provenance it does not have.
  */
-function resolveAggregate(): number {
+function statedAggregate(): number | null {
   let max = 0;
   for (const m of modelStore.model.materials.values()) {
     const d = (m as { maxAggregateSizeMm?: number | null }).maxAggregateSizeMm;
     if (typeof d === 'number' && d > max) max = d;
   }
-  return max > 0 ? max : DAGG_ASSUMED_MM;
+  return max > 0 ? max : null;
+}
+
+function resolveAggregate(): number {
+  return statedAggregate() ?? DAGG_ASSUMED_MM;
 }
 
 /**
@@ -959,7 +1009,9 @@ function createDetailingStore() {
           nodes: modelStore.nodes as never,
           elements: modelStore.elements as never,
           edition: currentConcreteEdition(),
-          verifierId: opts.verifierId ?? '',
+          // Explicit argument wins so the golden chain can pin an identity; otherwise the
+          // verification that actually ran supplies it. Never a bare '' default.
+          verifierId: opts.verifierId ?? resolveVerifierId(),
           demandRevision: verificationStore.demandRevision,
           previousRevision: maxPersistedRevision(),
           maxAggregateSizeMm: resolveAggregate(),
@@ -1117,7 +1169,9 @@ function createDetailingStore() {
           maxAggregateSizeMm: resolveAggregate(),
           wallBarDiameterMm: DEFAULT_WALL_BAR_DIA_MM,
           edition: currentConcreteEdition(),
-          verifierId: opts.verifierId ?? '',
+          // Explicit argument wins so the golden chain can pin an identity; otherwise the
+          // verification that actually ran supplies it. Never a bare '' default.
+          verifierId: opts.verifierId ?? resolveVerifierId(),
           demandRevision: verificationStore.demandRevision,
           previousRevision: maxPersistedRevision(),
           seismicRequired: regulationsStore.binding('seismic').adapterId !== null,
@@ -1187,6 +1241,18 @@ function createDetailingStore() {
      * about its soil, its reaction and its column.
      */
     get lastFootingRun(): RunFootingDesignResult | null { return lastFootingRun; },
+
+    /**
+     * The coarse-aggregate size the spacing rules were resolved against.
+     *
+     * Exposed because an export has to state the same number the rules used AND whether it was
+     * stated by a material or assumed. Recomputing it at the export site would be a second copy
+     * of the resolution rule, free to drift from this one.
+     */
+    get aggregate(): { maxAggregateSizeMm: number; assumed: boolean } {
+      const stated = statedAggregate();
+      return { maxAggregateSizeMm: stated ?? DAGG_ASSUMED_MM, assumed: stated === null };
+    },
 
     /**
      * True when `lastFootingRun` describes a footing design the project no longer specifies.

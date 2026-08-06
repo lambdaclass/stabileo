@@ -22,6 +22,7 @@
    * read as a verified footing.
    */
   import { t, tp } from '../../../lib/i18n';
+  import { identifyMessages } from '../../../lib/codes/message';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import type { FootingDesignOutcome } from '../../../lib/engine/detailing/run-footing-design';
   import type { FootingDirectionAnchorage } from '../../../lib/engine/detailing/footing-mat-anchorage';
@@ -168,8 +169,8 @@
 
     {#if geometry.notModeled.length > 0}
       <ul class="issues" data-testid="footing-mat-not-modeled">
-        {#each geometry.notModeled as m (m.key)}
-          <li class="blocking">{tp(m.key, m.params ?? {})}</li>
+        {#each identifyMessages(geometry.notModeled) as m (m.id)}
+          <li class="blocking">{tp(m.message.key, m.message.params ?? {})}</li>
         {/each}
       </ul>
     {/if}

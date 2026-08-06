@@ -105,6 +105,78 @@ test.describe('@smoke foundations — the visible workflow', () => {
     await expect(issues).toContainText('B');
   });
 
+  test('F-B2 designing floors with an undimensioned footing does not crash the panel',
+    async ({ pro: page }) => {
+      /**
+       * The workflow that crashed, driven the way Bauti drove it — with one honest limitation.
+       *
+       * A footing arrives at B = L = 0, so `validateFooting` raises TWO blocking issues with the
+       * same i18n key — `footing.issue.planDimension` with `axis: 'B'` and with `axis: 'L'` — and
+       * the footing run carries both into its unsupported list. `FloorFamiliesPanel` keyed that
+       * list on `r.key`, and Svelte refused it:
+       *
+       *     each_key_duplicate: Keyed each block has duplicate key
+       *     `footing.issue.planDimension` at indexes 0 and 1
+       *
+       * ── What this test can and cannot prove ────────────────────
+       *
+       * It CANNOT reproduce that throw. Svelte emits the duplicate-key guard only in dev builds —
+       * `EachBlock.js` gates it on `if (dev && node.metadata.keyed)` — and Playwright serves a
+       * production `vite build`, so the check is compiled out. Verified: this test passes with and
+       * without the fix. Bauti hit it on the dev server, which is what port 4003 runs.
+       *
+       * The executable regression therefore lives in `message-list-keys.test.ts`, which pins the
+       * superseded key strategy as colliding on this exact list.
+       *
+       * What this DOES prove is the other half, and it is the half a user cares about: the
+       * workflow completes and BOTH records are on screen, in both panels, with their own axis
+       * visible. A fix that deduplicated the list to silence the error would pass the unit test
+       * and fail here.
+       */
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(String(e)));
+      page.on('console', (m) => {
+        if (m.type() === 'error') errors.push(m.text());
+      });
+
+      await loadModel(page, QA);
+      await solveModel(page);
+      await computeDemands(page);
+      await openFoundations(page);
+      await addFooting(page);
+
+      // Both plan-dimension issues are on screen, and they are distinguishable.
+      const issues = page.getByTestId('footing-issues');
+      await expect(issues).toBeVisible();
+      // The two rows, matched on the RENDERED SENTENCE rather than on a bare letter: 'B' and 'L'
+      // appear incidentally in almost any prose, and an assertion that loose passes against a
+      // panel showing one row. `plan dimension B is 0 m` cannot.
+      const planRows = issues.locator('li', { hasText: /plan dimension [BL] is/ });
+      await expect(planRows).toHaveCount(2);
+      await expect(issues.locator('li', { hasText: 'plan dimension B is' })).toHaveCount(1);
+      await expect(issues.locator('li', { hasText: 'plan dimension L is' })).toHaveCount(1);
+
+      // The gesture that threw: "Design and detail floors". The panel is already open — clicking
+      // the disclosure summary again would toggle it shut, which is what a first version of this
+      // test did to itself.
+      await page.getByTestId('floor-design-run').click();
+
+      // The footing is reported NOT verified, with BOTH reasons rendered rather than one.
+      const notVerified = page.getByTestId('floor-footings-not-verified');
+      await expect(notVerified).toBeVisible();
+      // BOTH reasons, as two distinct rows. This is the list that threw: it is keyed per message
+      // and one footing legitimately contributes two entries with the same key.
+      // `li li`, not `li`: the outer row is the footing and the inner ones are its reasons, so an
+      // unscoped match counts the ancestor too.
+      const reasonRows = notVerified.locator('li li');
+      await expect(reasonRows.filter({ hasText: 'plan dimension B is' })).toHaveCount(1);
+      await expect(reasonRows.filter({ hasText: 'plan dimension L is' })).toHaveCount(1);
+
+      // Kept for what it is worth: a production build throws no duplicate-key error by
+      // construction, but any OTHER runtime error on this path would still surface here.
+      expect(errors, `no runtime errors: ${errors.join(' | ')}`).toEqual([]);
+    });
+
   test('F-C a stratum states no bearing pressure until the engineer gives one', async ({ pro: page }) => {
     await loadModel(page, QA);
     await openFoundations(page);
@@ -346,6 +418,46 @@ test.describe('@smoke foundations — the visible workflow', () => {
       await expect(clauses).toContainText(c);
     }
   });
+
+  test('F-K the export panel says the JSON is not a drawing and names the tool',
+    async ({ pro: page }) => {
+      /**
+       * The QA blocker: a user downloaded the handoff JSON and nothing anywhere said what to do with
+       * it. The CAD viewer reads `.step`/`.glb`/`.stl`/`.3mf`/`.dxf` and robot descriptions — never
+       * `.json` — so a handoff dropped in its catalogue is invisible. The explanation belongs at the
+       * moment of download, which is this panel.
+       *
+       * Lives in THIS spec rather than beside the other CAD-handoff journeys: those open the
+       * committed project through the Básico file input and are sensitive to the autosaved state a
+       * preceding run leaves behind, so adding an eleventh project load to that describe block broke
+       * every test in it. Measured, not guessed.
+       */
+      await loadModel(page, QA);
+      await openFoundations(page);
+      await addFooting(page);
+      await dimensionFooting(page);
+
+      const notADrawing = page.getByTestId('footing-cad-not-a-drawing');
+      await expect(notADrawing).toBeVisible();
+      await expect(notADrawing).toContainText(/semantic/i);
+      await expect(notADrawing).toContainText(/no CAD program opens it directly/i);
+
+      const nextStep = page.getByTestId('footing-cad-next-step');
+      await expect(nextStep).toBeVisible();
+      // Every output named, including the one the viewer cannot show.
+      for (const output of ['STEP', 'GLB', 'IFC4', 'cad-review.json']) {
+        await expect(nextStep).toContainText(output);
+      }
+
+      // A visible action that needs no command and no port knowledge.
+      const open = page.getByTestId('footing-cad-open-tool');
+      await expect(open).toBeVisible();
+      await expect(open).toContainText(/RC CAD handoff/i);
+      await expect(page.getByTestId('footing-cad-tool-at')).toContainText('127.0.0.1:4179');
+
+      // And the scope sentence no longer claims the mats are excluded — V2 carries them.
+      await expect(page.getByText(/Does NOT include top reinforcement/i)).toBeVisible();
+    });
 
   test('F-G the panel offers no second regulation selector', async ({ pro: page }) => {
     await loadModel(page, QA);

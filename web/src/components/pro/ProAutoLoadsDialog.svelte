@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp, i18n } from '../../lib/i18n';
+  import { identifyMessages } from '../../lib/codes/message';
   import { te } from '../../lib/i18n/engine-text';
   // The ONE authoritative generator. The legacy auto-loads / wind-loads production path
   // is gone: it implemented the 2005 editions, had no wind pressure coefficients, and
@@ -537,7 +538,9 @@
         {#if plan.outcome === 'BLOCKED'}
           <p class="al-error" data-testid="al-blocked">{t('autoLoad.blocked')}</p>
           <ul class="al-list">
-            {#each plan.blockedKeys as b (b.key)}<li>{te(b)}</li>{/each}
+            <!-- Same class as the footing-issue crash: two blocked entries can share a key
+                 and differ only in their params. -->
+            {#each identifyMessages(plan.blockedKeys) as b (b.id)}<li>{te(b.message)}</li>{/each}
           </ul>
         {:else}
           {#if delta}

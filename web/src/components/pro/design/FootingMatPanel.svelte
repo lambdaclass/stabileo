@@ -27,6 +27,7 @@
    * reinforcement, because nothing has evaluated it.
    */
   import { t, tp } from '../../../lib/i18n';
+  import { identifyMessages } from '../../../lib/codes/message';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { formatClause } from '../../../lib/codes/regulation';
   import FootingMatPhysicalPanel from './FootingMatPhysicalPanel.svelte';
@@ -130,8 +131,8 @@
           {#if col.dir.failures.length > 0}
             <!-- A failed direction is never green and is never summarised into a count. -->
             <ul class="issues" data-testid={`footing-mat-${col.key}-failures`}>
-              {#each col.dir.failures as fl (fl.key)}
-                <li class="blocking">{tp(fl.key, fl.params ?? {})}</li>
+              {#each identifyMessages(col.dir.failures) as fl (fl.id)}
+                <li class="blocking">{tp(fl.message.key, fl.message.params ?? {})}</li>
               {/each}
             </ul>
           {/if}

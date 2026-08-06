@@ -89,6 +89,34 @@ export const PLACEMENT_TOLERANCE_M = 1e-6;
 export type FootingMatLayer = 'LOWER' | 'UPPER';
 
 /**
+ * The `layerId` every bottom-mat bar carries.
+ *
+ * One function rather than a template literal at the point of use, because consumers need to
+ * ask the opposite question — "is this bar footing-mat steel?" — and the only alternative is
+ * matching a pattern. `isFootingMatBar` is that question, answered from the same string this
+ * builds.
+ *
+ * It matters outside this module. A footing's bars are attributed to the COLUMN element, since
+ * its dowels are column bars, so ownership alone cannot separate the mat from the transfer
+ * cage: the RcCadHandoffV1 exporter scopes by ownership and, once the mat became physical,
+ * silently absorbed twenty mat bars into its `columnDowel` family — a manifest that declares in
+ * three places that it carries the transfer cage and NOT the mats.
+ */
+export function footingMatLayerId(footingId: string, axis: FootingMatAxis): string {
+  return `${footingId}:bottom:${axis}`;
+}
+
+/**
+ * Is this bar part of a footing's bottom mat?
+ *
+ * Asked of the layer identity, not of the bar id: an id prefix is a naming convention and this
+ * is a structural fact about which layer the bar belongs to.
+ */
+export function isFootingMatBar(bar: { layerId?: string }): boolean {
+  return bar.layerId !== undefined && /:bottom:(X|Y)$/.test(bar.layerId);
+}
+
+/**
  * Whether a physical mat exists.
  *
  * `NOT_MODELED` and `RECONCILIATION_FAILED` are separate because they call for different
@@ -353,7 +381,7 @@ function placeDirection(
   dir.regions.forEach((region, regionIndex) => {
     const offsets = regionOffsets(region, dir.diameterMm, cover);
     const zoneId = `${place.footingId}:mat:${dir.axis}:${region.kind}:${regionIndex}`;
-    const layerId = `${place.footingId}:bottom:${dir.axis}`;
+    const layerId = footingMatLayerId(place.footingId, dir.axis);
     const idPrefix =
       `${place.footingId}-mat${dir.axis}-${REGION_SLUG[region.kind]}${regionIndex}`;
 

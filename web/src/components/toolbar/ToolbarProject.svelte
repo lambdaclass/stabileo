@@ -157,8 +157,14 @@
   {/if}
 </div>
 
+<!--
+  The production Open path. Hidden because the visible button drives it, and addressable by a
+  test id because a browser journey that must open a REAL committed project has to reach the
+  file picker; the alternative is a test-only load hook, which would prove the hook works.
+-->
 <input
   bind:this={fileInput}
+  data-testid="project-open-file"
   type="file"
   accept=".ded,.json"
   style="display:none"

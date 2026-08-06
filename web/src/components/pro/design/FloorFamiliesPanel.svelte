@@ -19,6 +19,7 @@
    * outcome is that it can be read.
    */
   import { t, tp } from '../../../lib/i18n';
+  import { identifyMessages } from '../../../lib/codes/message';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
@@ -106,8 +107,8 @@
 
   {#if !readiness.ready}
     <ul class="prereqs" data-testid="floor-design-prereqs">
-      {#each readiness.reasons as r (r.key)}
-        <li>{tp(r.key, r.params ?? {})}</li>
+      {#each identifyMessages(readiness.reasons) as r (r.id)}
+        <li>{tp(r.message.key, r.message.params ?? {})}</li>
       {/each}
     </ul>
   {/if}
@@ -293,8 +294,8 @@
               <li class="blocking">
                 <strong>{nv.name}</strong>
                 <ul>
-                  {#each nv.reasons as r (r.key)}
-                    <li>{tp(r.key, r.params ?? {})}</li>
+                  {#each identifyMessages(nv.reasons) as r (r.id)}
+                    <li>{tp(r.message.key, r.message.params ?? {})}</li>
                   {/each}
                 </ul>
               </li>
@@ -324,8 +325,16 @@
         n: floorRun!.unsupported.length,
       })}</summary>
       <ul>
-        {#each floorRun!.unsupported as u (u.elementId + u.message.key)}
-          <li>{tp(u.message.key, u.message.params ?? {})}</li>
+        <!--
+          Keyed on the element AND the message's own identity. `elementId + key` was not enough:
+          one footing raises two `footing.issue.planDimension` conditions — axis B and axis L —
+          under the same element, and Svelte refuses a list with a repeated key rather than
+          rendering it wrong.
+        -->
+        {#each identifyMessages(floorRun!.unsupported.map((u) => u.message)) as m, ix (
+          `${floorRun!.unsupported[ix].elementId}|${m.id}`
+        )}
+          <li>{tp(m.message.key, m.message.params ?? {})}</li>
         {/each}
       </ul>
     </details>
