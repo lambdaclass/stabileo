@@ -109,8 +109,6 @@
           </ul>
         </section>
       {/each}
-
-      <p class="intl-bim">{t('landing.codesBim')}</p>
     </div>
   </div>
 </section>

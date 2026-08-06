@@ -323,7 +323,6 @@ const en: Record<string, string> = {
   'landing.codesIntlLead': 'The solver rates a member you designed against each of these today.',
   'landing.codesRegionUs': 'United States',
   'landing.codesRegionEu': 'Europe',
-  'landing.codesBim': 'IFC is not a design code: it is the BIM exchange format Stabileo imports models from.',
   'landing.basicPt6': 'Live re-solving, as an option: switch it on and the solver runs on every edit, so the diagrams follow the model while you change it.',
   'landing.codeTimberMasonry': 'Timber and masonry',
 

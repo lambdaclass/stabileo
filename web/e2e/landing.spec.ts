@@ -1420,8 +1420,7 @@ test.describe('@landing landing page', () => {
       await expect(codes.locator('.intl-group').nth(0).locator('.code-cell')).toHaveCount(4);
       await expect(codes.locator('.intl-group').nth(1).locator('.code-cell')).toHaveCount(2);
       await expect(codes.locator('.code-cell', { hasText: 'NDS · TMS 402' })).toHaveCount(1);
-      // IFC is an exchange format, so it sits outside the code groups.
-      expect(text).toMatch(/IFC is not a design code/i);
+      // IFC is an exchange format, not a design code, so it is not in the grid.
       await expect(codes.locator('.code-cell', { hasText: 'IFC' })).toHaveCount(0);
 
       // Retired blocks stay retired.

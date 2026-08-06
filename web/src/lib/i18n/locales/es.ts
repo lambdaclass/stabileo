@@ -323,7 +323,6 @@ const es: Record<string, string> = {
   'landing.codesIntlLead': 'Hoy el solver califica contra cada una de estas una barra que vos diseñaste.',
   'landing.codesRegionUs': 'Estados Unidos',
   'landing.codesRegionEu': 'Europa',
-  'landing.codesBim': 'IFC no es una norma de cálculo: es el formato de intercambio BIM desde el que Stabileo importa modelos.',
   'landing.basicPt6': 'Recálculo en vivo, como opción: al activarlo el solver corre en cada edición y los diagramas siguen al modelo mientras lo cambiás.',
   'landing.codeTimberMasonry': 'Madera y mampostería',
 
