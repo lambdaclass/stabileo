@@ -1573,6 +1573,64 @@
 
 .landing .codes-intl-kicker { margin-top: 2.5rem; }
 
+.landing .cirsoc-intro {
+  color: var(--fg-2);
+  max-width: 84ch;
+  margin: 1rem 0 0;
+}
+
+.landing .intl { margin-top: 3rem; }
+
+.landing .intl-lead {
+  color: var(--fg-2);
+  max-width: 84ch;
+  margin: 0 0 1.6rem;
+}
+
+.landing .intl-group + .intl-group { margin-top: 1.8rem; }
+
+.landing .intl-region {
+  font-family: var(--lp-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  margin: 0 0 0.8rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--hair);
+}
+
+/*
+   Inside a region the grid flows instead of holding a fixed four columns.
+   A group of five and a group of two left one and two empty cells painted in
+   the grid's own hair colour, which read as missing tiles rather than as the
+   end of a list. Flowing cells simply stop where the codes stop.
+*/
+.landing .intl-group .code-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  border: none;
+  background: none;
+  gap: 1px;
+}
+
+.landing .intl-group .code-cell {
+  flex: 1 1 clamp(180px, 22%, 260px);
+  border: 1px solid var(--hair);
+  margin: -1px 0 0 -1px;
+}
+
+.landing .intl-bim {
+  margin-top: 1.8rem;
+  font-family: var(--lp-mono);
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--fg-2);
+  max-width: 84ch;
+}
+
 /* ─── AI FUTURE ──────────────────────────────────────────────────────────── */
 
 .landing .ai-future {

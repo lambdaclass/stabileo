@@ -33,7 +33,6 @@ const SECTIONS = [
   'what',
   'basic',
   'demo',
-  'realtime',
   'capabilities',
   'validation',
   'codes',
@@ -924,7 +923,7 @@ test.describe('@landing landing page', () => {
     }
   });
 
-  test('the hero truss animates and the real-time section does not repeat it', async ({ page }) => {
+  test('the hero truss animates, and it is the only truss figure on the page', async ({ page }) => {
     await bootLanding(page);
 
     // Hero: one figure, one moving load.
@@ -949,26 +948,15 @@ test.describe('@landing landing page', () => {
       })
       .toBe(true);
 
-    // Real-time: three still frames, not the same animation again.
-    await page.locator('.landing [data-section="realtime"]').scrollIntoViewIfNeeded();
-    const states = page.locator('.landing .rt-states .truss-fig');
-    await expect(states).toHaveCount(3);
-    const positions = await page
-      .locator('.landing .rt-states .tf-load')
-      .evaluateAll((gs) => gs.map((g) => g.getAttribute('transform')));
-    expect(new Set(positions).size, 'the three frames must show different load positions').toBe(3);
-
-    const before = positions.join('|');
-    await page.waitForTimeout(1200);
-    const after = (await page
-      .locator('.landing .rt-states .tf-load')
-      .evaluateAll((gs) => gs.map((g) => g.getAttribute('transform')))).join('|');
-    expect(after, 'the comparison frames must be static').toBe(before);
-
-    // Each frame is captioned, so it explains rather than decorates.
-    for (let i = 0; i < 3; i++) {
-      await expect(states.nth(i).locator('.tf-caption')).not.toBeEmpty();
-    }
+    /*
+     * The real-time section carried three still comparison frames of the same
+     * truss. That section was removed — live re-solving is now a Basic feature
+     * bullet — and the frames went with it, so the hero animation is the only
+     * truss on the page and the only place the moving load is drawn.
+     */
+    await expect(page.locator('.landing .truss-fig')).toHaveCount(1);
+    await expect(page.locator('.landing .rt-states')).toHaveCount(0);
+    await expect(page.locator('.landing [data-section="realtime"]')).toHaveCount(0);
   });
 
   test('the moving load is the arrow alone — no caption in either language', async ({ browser }) => {
@@ -979,8 +967,7 @@ test.describe('@landing landing page', () => {
       const page = await ctx.newPage();
       await bootLanding(page, { locale });
 
-      // Walk the whole page so the real-time comparison frames render too.
-      await page.locator('.landing [data-section="realtime"]').scrollIntoViewIfNeeded();
+      await page.locator('.landing .hero-figure').scrollIntoViewIfNeeded();
       await page.waitForTimeout(400);
 
       const visible = (await page.locator('.landing').innerText()).toLowerCase();
@@ -1000,10 +987,6 @@ test.describe('@landing landing page', () => {
       const legend = await page.locator('.landing .hero-figure .tf-legend').innerText();
       expect(legend).toContain('+');
       expect(legend).toContain('\u2212');
-      const captions = await page.locator('.landing .rt-states .tf-caption').allInnerTexts();
-      expect(captions).toHaveLength(3);
-      for (const c of captions) expect(c.trim().length).toBeGreaterThan(0);
-
       await ctx.close();
     }
   });
@@ -1256,8 +1239,15 @@ test.describe('@landing landing page', () => {
       expect(next).toMatch(/complete structural plans and schedules/i);
 
       const text = await sectionText(page, 'pro');
-      // Growing, not finished — stated forward rather than as a disclaimer.
-      expect(text).toMatch(/Usable today where it is implemented, and growing/i);
+      /*
+       * The heading leads on what PRO already does, and the lead names the
+       * genuine gap: design to the regulations, which is the step many
+       * finite-element packages stop short of. Both halves matter — dropping
+       * the second would turn an honest position into a finished claim.
+       */
+      expect(text).toMatch(/already runs complex calculations/i);
+      expect(text).toMatch(/at the level you would expect from a professional package/i);
+      expect(text).toMatch(/design to the regulations/i);
       expect(text).toMatch(/next step/i);
       // "production-ready" may appear ONLY as a future item, never as a claim.
       expect(next).toMatch(/production[- ]ready/i);
@@ -1362,7 +1352,18 @@ test.describe('@landing landing page', () => {
       await bootLanding(page);
 
       const codes = page.locator('.landing [data-section="codes"]');
-      await codes.scrollIntoViewIfNeeded();
+      /*
+       * Scroll directly rather than through `scrollIntoViewIfNeeded`. This is
+       * the tallest section on the page, and its reveal transition animates
+       * `transform` for 600 ms — Playwright waits for a stable box before it
+       * will scroll, so on a section this size the actionability check can
+       * outlast the test timeout. Nothing here needs actionability; it only
+       * needs the section rendered.
+       */
+      await page.evaluate(() => {
+        document.querySelector('.landing [data-section="codes"]')!.scrollIntoView();
+      });
+      await page.waitForTimeout(900);
 
       const row = (code: string) => codes.locator(`.cirsoc-row[data-code="${code}"]`);
       for (const code of ['CIRSOC 101', 'CIRSOC 102', 'CIRSOC 201', 'CIRSOC 301', 'INPRES-CIRSOC 103']) {
@@ -1394,12 +1395,38 @@ test.describe('@landing landing page', () => {
       for (const l of limits) expect(l.trim().length).toBeGreaterThan(10);
 
       const text = await sectionText(page, 'codes');
-      // The six claims are still separated, and the badges carry the status.
-      expect(text).toMatch(/Each advances on its own track/i);
-      // The eight international codes remain checkers, stated as an expanding
-      // design story rather than as "none of them designs anything".
-      expect(text).toMatch(/member checking/i);
-      expect(text).toMatch(/expanding across the supported families/i);
+
+      /*
+       * The section now opens internationally and explains why CIRSOC leads,
+       * rather than asserting it. The roadmap it states is for code-based
+       * DESIGN — checking already spans the international codes, so a roadmap
+       * that read "Argentina, then Europe, then the US" without that
+       * distinction would contradict the grid immediately below it.
+       */
+      expect(text).toMatch(/member checking already spans the main international codes/i);
+      expect(text).toMatch(/Argentine regulatory framework/i);
+      expect(text).toMatch(/continues with the Eurocodes, and then with the United States codes/i);
+
+      // The international codes are grouped by issuing country, not listed flat.
+      // Lower-cased: the region headings are uppercased by CSS, so innerText
+      // reports them that way regardless of the string in the dictionary.
+      const regions = (await codes.locator('.intl-region').allInnerTexts()).map((s) => s.toLowerCase());
+      expect(regions).toEqual(['united states', 'europe']);
+      /*
+       * Four cells for the United States, not five: timber and masonry share
+       * one, which keeps the group to a single row on a desktop viewport and
+       * stops the least-reached checkers from reading as two headline codes.
+       */
+      await expect(codes.locator('.intl-group').nth(0).locator('.code-cell')).toHaveCount(4);
+      await expect(codes.locator('.intl-group').nth(1).locator('.code-cell')).toHaveCount(2);
+      await expect(codes.locator('.code-cell', { hasText: 'NDS · TMS 402' })).toHaveCount(1);
+      // IFC is an exchange format, so it sits outside the code groups.
+      expect(text).toMatch(/IFC is not a design code/i);
+      await expect(codes.locator('.code-cell', { hasText: 'IFC' })).toHaveCount(0);
+
+      // Retired blocks stay retired.
+      expect(text).not.toMatch(/six different claims/i);
+      expect(text).not.toMatch(/in and out/i);
       expect(text).not.toMatch(/none of them proposes/i);
     });
 
@@ -1574,7 +1601,12 @@ test.describe('@landing landing page', () => {
       expect(body).toMatch(/el lado docente está en desarrollo/i);
       expect(body).toMatch(/en desarrollo activo/i);
       expect(body).toMatch(/no un servicio que puedas abrir hoy/i);
-      expect(body).toMatch(/sigue creciendo/i);
+      expect(body).toMatch(/ya sirve para cálculos complejos/i);
+      expect(body).toMatch(/diseño según normativa/i);
+      // The codes section reads internationally in Spanish too.
+      expect(body).toMatch(/marco normativo argentino/i);
+      expect(body).toMatch(/Eurocódigos, y después con las normativas de Estados Unidos/i);
+      expect(body).toMatch(/Recálculo en vivo/i);
       // The corrected design/detailing scope reads the same in Spanish.
       expect(body).toMatch(/las losas, los tabiques y las zapatas también se diseñan/i);
       expect(body).toMatch(/provisorios/i);

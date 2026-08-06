@@ -5,7 +5,6 @@
   import LandingHero from './landing/LandingHero.svelte';
   import LandingProblem from './landing/LandingProblem.svelte';
   import LandingWhat from './landing/LandingWhat.svelte';
-  import LandingRealtime from './landing/LandingRealtime.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
   import LandingDemo from './landing/LandingDemo.svelte';
   import LandingCapabilities from './landing/LandingCapabilities.svelte';
@@ -194,10 +193,15 @@
     Narrative order: what it is, why it matters, what works today, proof, then
     the developing layers, then the vision, then the honest status table.
 
-    The visitor meets Basic (04) and its live demo (05) before Education (10),
-    PRO (11) or Stabileo AI (12), so the present state of the product is
-    established before any future capability is described. Real-time solving
-    (06) sits after the demo as a differentiator rather than the opening pitch.
+    The visitor meets Basic (04) and its live demo (05) before Education (09),
+    PRO (10) or Stabileo AI (11), so the present state of the product is
+    established before any future capability is described.
+
+    Real-time solving used to hold a section of its own here. It is a genuine
+    differentiator but a narrow one, and giving it a whole section between the
+    demo and the capabilities matrix overstated it — it now sits in the Basic
+    feature list, where a visitor reads it alongside the other things Basic
+    does.
   -->
   <LandingNav />
   <LandingHero {prefersReducedMotion} />
@@ -205,7 +209,6 @@
   <LandingWhat />
   <LandingBasic />
   <LandingDemo />
-  <LandingRealtime {prefersReducedMotion} />
   <LandingCapabilities />
   <LandingValidation />
   <LandingCodes />
