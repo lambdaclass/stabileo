@@ -17,7 +17,7 @@
   import LandingDocs from './landing/LandingDocs.svelte';
   import LandingCTA from './landing/LandingCTA.svelte';
   import LandingFooter from './landing/LandingFooter.svelte';
-  import { enterApp } from './landing/landing-utils';
+  import { enterApp, scrollToId } from './landing/landing-utils';
   import './landing/landing.css';
 
   let landingEl: HTMLDivElement;
@@ -91,6 +91,20 @@
   });
 
   onMount(() => {
+    // #realtime was removed when the section folded into Basic. Redirect any
+    // incoming link or bookmark to the section that now carries the feature,
+    // both on first load and on a later hash change.
+    const redirectRealtime = () => {
+      if (window.location.hash !== '#realtime') return;
+      history.replaceState(null, '', '#basic');
+      // Defer to the next frame so the sections are laid out before scrolling.
+      requestAnimationFrame(() => {
+        scrollToId('basic', landingEl);
+      });
+    };
+    redirectRealtime();
+    window.addEventListener('hashchange', redirectRealtime);
+
     /**
      * Safety net for the reveal animation.
      *
@@ -153,6 +167,7 @@
       observer.disconnect();
       landingEl?.removeEventListener('scroll', onScroll);
       window.removeEventListener('message', onMessage);
+      window.removeEventListener('hashchange', redirectRealtime);
       if (motionQuery.removeEventListener) motionQuery.removeEventListener('change', onMotionChange);
       else motionQuery.removeListener(onMotionChange);
     };
