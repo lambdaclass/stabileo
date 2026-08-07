@@ -708,18 +708,29 @@ pub fn plate_consistent_mass(
 
 /// Recover plate stresses at the element centroid from local displacements.
 ///
+/// Thermal strains are subtracted before applying the constitutive law:
+/// ε_mech = ε_total − α·ΔT_uniform (membrane), κ_mech = κ_total − α·ΔT_gradient/t (bending).
+/// Without this correction a fully restrained plate under ΔT reports σ = 0
+/// instead of σ = −E·α·ΔT/(1−ν).
+///
 /// # Arguments
 /// * `coords`  – 3 node positions in 3D global space
 /// * `e`       – Young's modulus (kN/m²)
 /// * `nu`      – Poisson's ratio
 /// * `t`       – shell thickness (m)
 /// * `u_local` – 18-element displacement vector in the **local** coordinate system
+/// * `alpha`   – coefficient of thermal expansion (1/°C), 0 = no thermal correction
+/// * `dt_uniform`  – uniform temperature change (°C)
+/// * `dt_gradient` – through-thickness temperature gradient (°C)
 pub fn plate_stress_recovery(
     coords: &[[f64; 3]; 3],
     e: f64,
     nu: f64,
     t: f64,
     u_local: &[f64],
+    alpha: f64,
+    dt_uniform: f64,
+    dt_gradient: f64,
 ) -> PlateStressLocal {
     assert!(u_local.len() >= 18, "u_local must have at least 18 entries");
 
@@ -744,6 +755,11 @@ pub fn plate_stress_recovery(
             eps[i] += b_cst[i * 6 + j] * u_mem[j];
         }
     }
+
+    // Subtract thermal strains (mechanical strain drives stress)
+    let eps_th = alpha * dt_uniform;
+    eps[0] -= eps_th;
+    eps[1] -= eps_th;
 
     // D_membrane
     let dm_coeff = e * t / (1.0 - nu * nu);
@@ -787,6 +803,11 @@ pub fn plate_stress_recovery(
             kappa[i] += b_dkt[i * 9 + j] * u_bend[j];
         }
     }
+
+    // Subtract thermal curvatures (mechanical curvature drives moment)
+    let kappa_th = alpha * dt_gradient / t;
+    kappa[0] -= kappa_th;
+    kappa[1] -= kappa_th;
 
     // D_bending
     let db_coeff = e * t * t * t / (12.0 * (1.0 - nu * nu));

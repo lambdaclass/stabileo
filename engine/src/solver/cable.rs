@@ -407,6 +407,8 @@ pub fn solve_cable_3d(
     max_iter: usize,
     tolerance: f64,
 ) -> Result<CableAnalysisResult3D, String> {
+    // Expand curved beams before DOF numbering and assembly.
+    let input = &super::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {
@@ -634,7 +636,7 @@ pub fn solve_cable_3d(
         displacements,
         reactions,
         element_forces,
-        plate_stresses: linear::compute_plate_stresses(input, &dof_num, &u_full),
+        plate_stresses: linear::compute_plate_stresses(input, &dof_num, &u_full, None),
         quad_stresses: linear::compute_quad_stresses(input, &dof_num, &u_full, None),
         quad_nodal_stresses: vec![],
         constraint_forces,

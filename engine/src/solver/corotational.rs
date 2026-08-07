@@ -930,6 +930,8 @@ pub fn solve_corotational_3d(
             Use the linear solver for models with plates, quads, or shells.".into());
     }
 
+    // Expand curved beams before DOF numbering and assembly.
+    let input = &super::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {

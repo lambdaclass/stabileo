@@ -29,6 +29,7 @@ import {
   projectNodeToScene,
   shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
+import { computeLoadDirection } from '../canvas/draw-loads';
 
 /** Stable per-axis release fingerprint for the two ends of an element — 6 bits
  *  (I: my,mz,t then J: my,mz,t) so the element-cache signature rebuilds the mesh
@@ -729,11 +730,14 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const len = Math.sqrt(dx * dx + dz * dz);
       let fx = 0, fz = 0;
       if (len > 1e-12) {
-        const ex = dx / len, ez = dz / len;
-        // 2D local +y (perpendicular, CCW from ex) in scene coordinates
-        const eyx = -ez, eyz = ex;
-        fx = (load.data.px ?? 0) * ex + load.data.p * eyx;
-        fz = (load.data.px ?? 0) * ez + load.data.p * eyz;
+        const cosTheta = dx / len;
+        const sinTheta = dz / len;
+        // Honor angle/isGlobal exactly like the 2D canvas renderer
+        // (computeLoadDirection returns viewport xy, which maps to scene xz).
+        const dir = computeLoadDirection(load.data.angle ?? 0, load.data.isGlobal ?? false, cosTheta, sinTheta);
+        const ex = cosTheta, ez = sinTheta;
+        fx = (load.data.px ?? 0) * ex + load.data.p * dir.dx;
+        fz = (load.data.px ?? 0) * ez + load.data.p * dir.dy;
       }
       batch.addNodalLoadArrow(
         { x: px, y: py, z: pz },

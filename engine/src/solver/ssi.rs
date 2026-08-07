@@ -245,7 +245,9 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
 
 /// Solve a 3D SSI problem with nonlinear soil springs.
 pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
-    let dof_num = DofNumbering::build_3d(&input.solver);
+    // Expand curved beams before DOF numbering and assembly.
+    let expanded_solver = super::linear::expand_curved_beams_3d(&input.solver);
+    let dof_num = DofNumbering::build_3d(&expanded_solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
     }
@@ -253,10 +255,12 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
-    let base_asm = assembly::assemble_3d(&input.solver, &dof_num);
+    let base_asm = assembly::assemble_3d(&expanded_solver, &dof_num);
 
-    // Constraint system (built once before iteration)
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    // Constraint system (built once before iteration). Use the expanded model:
+    // expansion adds new nodes/elements but preserves the original IDs that
+    // constraints reference.
+    let cs = FreeConstraintSystem::build_3d(&expanded_solver.constraints, &dof_num, &expanded_solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     let mut spring_k: Vec<f64> = input.soil_springs.iter()
@@ -340,7 +344,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     }
 
     let displacements = linear::build_displacements_3d(&dof_num, &u_full);
-    let element_forces = linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
+    let element_forces = linear::compute_internal_forces_3d(&expanded_solver, &dof_num, &u_full);
 
     let spring_results: Vec<SpringResult> = input.soil_springs.iter().enumerate()
         .map(|(si, spring)| {
@@ -374,8 +378,8 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             displacements,
             reactions: vec![],
             element_forces,
-            plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
-            quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
+            plate_stresses: linear::compute_plate_stresses(&expanded_solver, &dof_num, &u_full, None),
+            quad_stresses: linear::compute_quad_stresses(&expanded_solver, &dof_num, &u_full, None),
             quad_nodal_stresses: vec![],
             constraint_forces,
             diagnostics: vec![],

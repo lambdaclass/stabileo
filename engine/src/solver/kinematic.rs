@@ -413,6 +413,8 @@ fn compute_static_degree_3d(input: &SolverInput3D) -> (i32, HashMap<usize, i32>)
 
 /// Full 3D kinematic analysis.
 pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
+    // Expand curved beams before DOF numbering and assembly.
+    let input = &super::linear::expand_curved_beams_3d(input);
     let (degree, _) = compute_static_degree_3d(input);
 
     let dof_num = DofNumbering::build_3d(input);

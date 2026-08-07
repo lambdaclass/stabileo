@@ -866,7 +866,10 @@ pub fn solve_time_history_3d(
             }
         }
     }
-    let dof_num = DofNumbering::build_3d(&input.solver);
+
+    // Expand curved beams before DOF numbering, assembly and mass matrix.
+    let input_solver = &super::linear::expand_curved_beams_3d(&input.solver);
+    let dof_num = DofNumbering::build_3d(input_solver);
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
@@ -875,10 +878,10 @@ pub fn solve_time_history_3d(
     }
 
     // 1. Assemble K and F_static
-    let asm = assembly::assemble_3d(&input.solver, &dof_num);
+    let asm = assembly::assemble_3d(input_solver, &dof_num);
 
     // 2. Assemble mass matrix M
-    let m_full = mass_matrix::assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
+    let m_full = mass_matrix::assemble_mass_matrix_3d(input_solver, &dof_num, &input.densities);
 
     // 3. Extract free-DOF partitions
     let free_idx: Vec<usize> = (0..nf).collect();
@@ -891,7 +894,7 @@ pub fn solve_time_history_3d(
     let m_ground_r_3d = build_ground_influence_3d(input, &dof_num, nf, &m_ff);
 
     // 3b. Constraint reduction
-    let cs3 = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs3 = FreeConstraintSystem::build_3d(&input_solver.constraints, &dof_num, &input_solver.nodes);
     let ns = cs3.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, m_s) = if let Some(ref cs) = cs3 {
         (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff))
@@ -1045,7 +1048,7 @@ pub fn solve_time_history_3d(
 
     // u_at_peak is in nf space
     let peak_reactions = compute_reactions_at_state_3d(
-        &input.solver, &dof_num, &asm.k, &asm.f, &u_at_peak, nf, n,
+        input_solver, &dof_num, &asm.k, &asm.f, &u_at_peak, nf, n,
     );
 
     let method_name = if input.alpha.is_some() {

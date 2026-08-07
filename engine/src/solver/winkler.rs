@@ -170,7 +170,9 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     super::linear::validate_input_3d(&input.solver)?;
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
 
-    let dof_num = DofNumbering::build_3d(&input.solver);
+    // Expand curved beams before DOF numbering and assembly.
+    let input_solver = &super::linear::expand_curved_beams_3d(&input.solver);
+    let dof_num = DofNumbering::build_3d(input_solver);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
     let nr = n - nf;
@@ -179,21 +181,21 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
         return Err("No free DOFs".into());
     }
 
-    let mut asm = assemble_3d(&input.solver, &dof_num);
+    let mut asm = assemble_3d(input_solver, &dof_num);
 
     // Build O(1) lookup maps
     let node_by_id: HashMap<usize, &SolverNode3D> =
-        input.solver.nodes.values().map(|n| (n.id, n)).collect();
+        input_solver.nodes.values().map(|n| (n.id, n)).collect();
     let elem_by_id: HashMap<usize, &SolverElement3D> =
-        input.solver.elements.values().map(|e| (e.id, e)).collect();
+        input_solver.elements.values().map(|e| (e.id, e)).collect();
 
     for spring in &input.foundation_springs {
-        add_foundation_3d(&mut asm.k, n, spring, &input.solver, &node_by_id, &elem_by_id, &dof_num)?;
+        add_foundation_3d(&mut asm.k, n, spring, input_solver, &node_by_id, &elem_by_id, &dof_num)?;
     }
 
     // Prescribed displacements
     let mut u_r = vec![0.0; nr];
-    for sup in input.solver.supports.values() {
+    for sup in input_solver.supports.values() {
         let prescribed: [(usize, Option<f64>); 6] = [
             (0, sup.dx), (1, sup.dy), (2, sup.dz),
             (3, sup.drx), (4, sup.dry), (5, sup.drz),
@@ -219,7 +221,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     for i in 0..nf { f_f[i] -= k_fr_ur[i]; }
 
     // Constraint reduction
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input_solver.constraints, &dof_num, &input_solver.nodes);
     let (k_solve, f_solve, ns) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f), cs.n_free_indep)
     } else {
@@ -275,16 +277,16 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
 
     let displacements = build_displacements_3d(&dof_num, &u_full);
     let mut reactions = build_reactions_3d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
+        input_solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
     );
     reactions.sort_by_key(|r| r.node_id);
-    let mut element_forces = compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
+    let mut element_forces = compute_internal_forces_3d(input_solver, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
     Ok(AnalysisResults3D {
         displacements, reactions, element_forces,
-        plate_stresses: compute_plate_stresses(&input.solver, &dof_num, &u_full),
-        quad_stresses: compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
+        plate_stresses: compute_plate_stresses(input_solver, &dof_num, &u_full, None),
+        quad_stresses: compute_quad_stresses(input_solver, &dof_num, &u_full, None),
         quad_nodal_stresses: vec![],
         constraint_forces,
         diagnostics: vec![],

@@ -274,6 +274,10 @@ pub fn solve_pdelta_3d(
     max_iter: usize,
     tolerance: f64,
 ) -> Result<PDeltaResult3D, String> {
+    // Expand curved beams BEFORE DOF numbering and assembly: solve_3d already
+    // expands internally, but the P-Delta iterations assemble K and add
+    // geometric stiffness on the same input, so both must see the expanded model.
+    let input = &super::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
@@ -419,7 +423,7 @@ pub fn solve_pdelta_3d(
     };
 
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current, None), quad_nodal_stresses: vec![], constraint_forces, diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None, result_summary: None, solver_run_meta: None },
+        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current, None), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current, None), quad_nodal_stresses: vec![], constraint_forces, diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None, result_summary: None, solver_run_meta: None },
         iterations,
         converged,
         is_stable: converged && max_ratio < 100.0,

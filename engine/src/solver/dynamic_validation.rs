@@ -18,6 +18,7 @@ pub(crate) fn referenced_material_ids_3d(input: &SolverInput3D) -> HashSet<usize
     ids.extend(input.quad9s.values().map(|q| q.material_id));
     ids.extend(input.solid_shells.values().map(|s| s.material_id));
     ids.extend(input.curved_shells.values().map(|c| c.material_id));
+    ids.extend(input.curved_beams.iter().map(|c| c.material_id));
     ids
 }
 

@@ -904,7 +904,9 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
     let al_max_iter = input.al_max_iter.unwrap_or(5);
     let damping_coeff = input.damping_coefficient.unwrap_or(0.0);
 
-    let dof_num = DofNumbering::build_3d(&input.solver);
+    // Expand curved beams before DOF numbering and assembly.
+    let input_solver = &super::linear::expand_curved_beams_3d(&input.solver);
+    let dof_num = DofNumbering::build_3d(input_solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
     }
@@ -913,14 +915,14 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
     let nf = dof_num.n_free;
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input_solver.constraints, &dof_num, &input_solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Build lookup maps to avoid O(n) linear scans per element
-    let node_by_id: HashMap<usize, &SolverNode3D> = input.solver.nodes.values().map(|n| (n.id, n)).collect();
-    let elem_by_id: HashMap<usize, &SolverElement3D> = input.solver.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = input.solver.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection3D> = input.solver.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode3D> = input_solver.nodes.values().map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement3D> = input_solver.elements.values().map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = input_solver.materials.values().map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection3D> = input_solver.sections.values().map(|s| (s.id, s)).collect();
 
     // Track element statuses
     let mut elem_status: HashMap<usize, ContactStatus> = HashMap::new();
@@ -970,7 +972,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
             // Save previous displacement for damping computation
             u_prev.copy_from_slice(&u_full);
 
-            let mut asm = assembly::assemble_3d(&input.solver, &dof_num);
+            let mut asm = assembly::assemble_3d(input_solver, &dof_num);
 
             // Deactivate elements
             for (eid, status) in &elem_status {
@@ -1200,14 +1202,14 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
 
     // Build results
     let displacements = linear::build_displacements_3d(&dof_num, &u_full);
-    let element_forces = linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
+    let element_forces = linear::compute_internal_forces_3d(input_solver, &dof_num, &u_full);
 
     let results = AnalysisResults3D {
         displacements,
         reactions: vec![],
         element_forces,
-        plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
-        quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
+        plate_stresses: linear::compute_plate_stresses(input_solver, &dof_num, &u_full, None),
+        quad_stresses: linear::compute_quad_stresses(input_solver, &dof_num, &u_full, None),
         quad_nodal_stresses: vec![],
         constraint_forces: vec![],
         diagnostics: vec![],

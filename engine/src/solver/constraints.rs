@@ -1302,9 +1302,9 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         // mirroring the unconstrained solve_3d branch. Without this, any model
         // with constraints (rigid diaphragms, eccentric connections, member/
         // shell offsets) returns no shell stresses → empty contours/tables.
-        plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
+        plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full, None),
         quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
-        quad_nodal_stresses: linear::compute_quad_nodal_stresses(&input.solver, &dof_num, &u_full),
+        quad_nodal_stresses: linear::compute_quad_nodal_stresses(&input.solver, &dof_num, &u_full, None),
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],

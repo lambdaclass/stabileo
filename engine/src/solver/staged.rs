@@ -1301,7 +1301,7 @@ fn build_results_from_u_3d(
     reactions.sort_by_key(|r| r.node_id);
 
     // Plate stresses (delegated to existing function)
-    let plate_stresses = compute_plate_stresses(stage_input, dof_num, u);
+    let plate_stresses = compute_plate_stresses(stage_input, dof_num, u, None);
 
     AnalysisResults3D {
         displacements,

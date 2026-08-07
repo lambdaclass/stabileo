@@ -830,16 +830,24 @@ pub fn quad_pressure_load(coords: &[[f64; 3]; 4], pressure: f64) -> Vec<f64> {
 
 /// Compute von Mises stress at each of the 4 nodes by evaluating at Gauss points
 /// and extrapolating (bilinear extrapolation from 2×2 Gauss points to corners).
+///
+/// Thermal strains are subtracted before applying the constitutive law, matching
+/// the centroid path.
 pub fn quad_nodal_von_mises(
     coords: &[[f64; 3]; 4],
     u_local: &[f64; 24],
     e: f64,
     nu: f64,
     _t: f64,
+    alpha: f64,
+    dt_uniform: f64,
 ) -> Vec<f64> {
     let (ex, ey, _) = quad_local_axes(coords);
     let pts = project_to_2d(coords, &ex, &ey);
     let gauss = gauss_2x2();
+
+    // Thermal strain to subtract (mechanical strain drives stress)
+    let eps_th = alpha * dt_uniform;
 
     // Evaluate von Mises at each Gauss point
     let mut gp_vm = [0.0; 4];
@@ -864,6 +872,10 @@ pub fn quad_nodal_von_mises(
             eps_yy += dn_dy[i] * uy;
             gamma_xy += dn_dy[i] * ux + dn_dx[i] * uy;
         }
+
+        // Subtract thermal strain before constitutive law
+        eps_xx -= eps_th;
+        eps_yy -= eps_th;
 
         let c = e / (1.0 - nu * nu);
         let sxx = c * (eps_xx + nu * eps_yy);
@@ -894,6 +906,10 @@ pub fn quad_nodal_von_mises(
 /// Compute full stress tensor at each of the 4 nodes by evaluating at Gauss points
 /// and extrapolating (bilinear extrapolation from 2×2 Gauss points to corners).
 ///
+/// Thermal strains are subtracted before applying the constitutive law, matching
+/// the centroid path. Without this correction a fully restrained shell under ΔT
+/// reports σ = 0 instead of σ = −E·α·ΔT/(1−ν).
+///
 /// Returns a Vec of 4 `QuadNodalStress` structs, one per corner node, with
 /// membrane stresses (sigma_xx, sigma_yy, tau_xy), bending moments (mx, my, mxy),
 /// and von Mises stress.
@@ -903,6 +919,9 @@ pub fn quad_stress_at_nodes(
     e: f64,
     nu: f64,
     t: f64,
+    alpha: f64,
+    dt_uniform: f64,
+    dt_gradient: f64,
 ) -> Vec<crate::types::QuadNodalStress> {
     let (ex, ey, _) = quad_local_axes(coords);
     let pts = project_to_2d(coords, &ex, &ey);
@@ -911,6 +930,10 @@ pub fn quad_stress_at_nodes(
     // Evaluate full stress tensor at each Gauss point
     let c = e / (1.0 - nu * nu);
     let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
+
+    // Thermal strain/curvature to subtract (mechanical strain drives stress)
+    let eps_th = alpha * dt_uniform;
+    let kappa_th = alpha * dt_gradient / t;
 
     let mut gp_sxx = [0.0; 4];
     let mut gp_syy = [0.0; 4];
@@ -951,6 +974,12 @@ pub fn quad_stress_at_nodes(
             kappa_yy += dn_dy[i] * rx;
             kappa_xy += dn_dx[i] * rx - dn_dy[i] * ry;
         }
+
+        // Subtract thermal strains before constitutive law
+        eps_xx -= eps_th;
+        eps_yy -= eps_th;
+        kappa_xx -= kappa_th;
+        kappa_yy -= kappa_th;
 
         gp_sxx[gp] = c * (eps_xx + nu * eps_yy);
         gp_syy[gp] = c * (nu * eps_xx + eps_yy);
