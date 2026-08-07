@@ -55,14 +55,23 @@ pub struct Ec3MemberData {
     pub e: Option<f64>,
     /// Gross area A (m²)
     pub a: f64,
+    /// Effective area Aeff (m²) for Class 4 sections; falls back to A
+    #[serde(default)]
+    pub a_eff: Option<f64>,
     /// Plastic section modulus Wpl,y — strong axis (m³)
     pub wpl_y: f64,
     /// Elastic section modulus Wel,y — strong axis (m³)
     pub wel_y: f64,
+    /// Effective section modulus Weff,y (m³) for Class 4; falls back to Wel,y
+    #[serde(default)]
+    pub weff_y: Option<f64>,
     /// Plastic section modulus Wpl,z — weak axis (m³)
     pub wpl_z: f64,
     /// Elastic section modulus Wel,z — weak axis (m³)
     pub wel_z: f64,
+    /// Effective section modulus Weff,z (m³) for Class 4; falls back to Wel,z
+    #[serde(default)]
+    pub weff_z: Option<f64>,
     /// Moment of inertia Iy — strong axis (m⁴)
     pub iy: f64,
     /// Moment of inertia Iz — weak axis (m⁴)
@@ -167,6 +176,45 @@ pub struct Ec3CheckResult {
 
 // ==================== Implementation ====================
 
+/// Section properties that depend on the cross-section class (EN 1993-1-1 6.2).
+///
+/// Class 1 and 2 can develop the plastic moment, so the resistance uses Wpl.
+/// Class 3 is limited to first yield at the extreme fibre: Wel. Class 4 buckles
+/// locally before yield and uses effective properties. Applying Wpl to every
+/// section — which is what ignoring `section_class` amounts to — overstates a
+/// Class 3 resistance by 10-15 % on a typical rolled I-section.
+struct ClassProperties {
+    /// Area for cross-section and buckling resistance
+    area: f64,
+    /// Section modulus about the strong axis
+    w_y: f64,
+    /// Section modulus about the weak axis
+    w_z: f64,
+}
+
+fn class_properties(m: &Ec3MemberData) -> ClassProperties {
+    match m.section_class {
+        SectionClass::Class1 | SectionClass::Class2 => ClassProperties {
+            area: m.a,
+            w_y: m.wpl_y,
+            w_z: m.wpl_z,
+        },
+        SectionClass::Class3 => ClassProperties {
+            area: m.a,
+            w_y: m.wel_y,
+            w_z: m.wel_z,
+        },
+        SectionClass::Class4 => ClassProperties {
+            // Effective properties where supplied. Without them the elastic
+            // values are the closest available upper bound — they overstate a
+            // Class 4 resistance, so Aeff/Weff should be provided.
+            area: m.a_eff.unwrap_or(m.a),
+            w_y: m.weff_y.unwrap_or(m.wel_y),
+            w_z: m.weff_z.unwrap_or(m.wel_z),
+        },
+    }
+}
+
 /// Compute EC3 column buckling reduction factor chi.
 fn compute_chi(lambda_bar: f64, alpha: f64) -> f64 {
     if lambda_bar <= 0.2 {
@@ -211,25 +259,26 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
 
     // ==================== Cross-section resistance ====================
 
-    // Plastic resistances
-    let npl_rd = m.a * m.fy / gamma_m0;
-    let _mpl_y_rd = m.wpl_y * m.fy / gamma_m0;
-    let _mpl_z_rd = m.wpl_z * m.fy / gamma_m0;
+    // Class-dependent section properties (EN 1993-1-1 6.2.5, 6.2.9)
+    let props = class_properties(m);
+
+    // Cross-section resistances
+    let npl_rd = props.area * m.fy / gamma_m0;
 
     // ==================== Column buckling (EC3 6.3.1) ====================
 
     // Slenderness about y-axis
     let ncr_y = std::f64::consts::PI.powi(2) * e * m.iy / (m.lcr_y * m.lcr_y);
-    let lambda_y = (m.a * m.fy / ncr_y).sqrt();
+    let lambda_y = (props.area * m.fy / ncr_y).sqrt();
     let chi_y = compute_chi(lambda_y, m.buckling_curve_y.alpha());
 
     // Slenderness about z-axis
     let ncr_z = std::f64::consts::PI.powi(2) * e * m.iz / (m.lcr_z * m.lcr_z);
-    let lambda_z = (m.a * m.fy / ncr_z).sqrt();
+    let lambda_z = (props.area * m.fy / ncr_z).sqrt();
     let chi_z = compute_chi(lambda_z, m.buckling_curve_z.alpha());
 
     let chi_min = chi_y.min(chi_z);
-    let nb_rd = chi_min * m.a * m.fy / gamma_m1;
+    let nb_rd = chi_min * props.area * m.fy / gamma_m1;
 
     let compression_ratio = if n_ed < 0.0 && nb_rd > 0.0 {
         n_ed.abs() / nb_rd
@@ -255,10 +304,10 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
             / (std::f64::consts::PI.powi(2) * e * m.iz))
             .sqrt();
 
-    let lambda_lt = (m.wpl_y * m.fy / mcr).sqrt();
+    let lambda_lt = (props.w_y * m.fy / mcr).sqrt();
     let chi_lt = compute_chi(lambda_lt, m.buckling_curve_lt.alpha());
 
-    let mb_rd = chi_lt * m.wpl_y * m.fy / gamma_m1;
+    let mb_rd = chi_lt * props.w_y * m.fy / gamma_m1;
 
     let flexure_ratio_y = if my_ed.abs() > 0.0 && mb_rd > 0.0 {
         my_ed.abs() / mb_rd
@@ -267,7 +316,7 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
     };
 
     // Weak axis flexure (no LTB)
-    let mc_z_rd = m.wpl_z * m.fy / gamma_m0;
+    let mc_z_rd = props.w_z * m.fy / gamma_m0;
     let flexure_ratio_z = if mz_ed.abs() > 0.0 && mc_z_rd > 0.0 {
         mz_ed.abs() / mc_z_rd
     } else {

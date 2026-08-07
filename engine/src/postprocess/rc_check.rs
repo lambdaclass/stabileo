@@ -153,10 +153,20 @@ pub fn check_rc_members(input: &RCCheckInput) -> Vec<RCCheckResult> {
 fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult {
     let es = m.es.unwrap_or(200e9);
 
-    // Flexural capacity
-    let (phi_mn, a, c, epsilon_t, phi_flex) = match m.section_type {
-        RCSectionType::Rectangular => flexural_capacity_rectangular(m, es),
-        RCSectionType::TBeam => flexural_capacity_tbeam(m, es),
+    // Flexural capacity. With an axial force present the moment capacity is the
+    // point on the P-M interaction diagram at that axial load, not the
+    // pure-flexure value: `nu` was accepted and dropped, so every column was
+    // checked as if it were a beam.
+    let nu = f.nu.unwrap_or(0.0);
+    let (phi_mn, a, c, epsilon_t, phi_flex) = if nu != 0.0
+        && matches!(m.section_type, RCSectionType::Rectangular)
+    {
+        axial_flexure_capacity(m, es, -nu)
+    } else {
+        match m.section_type {
+            RCSectionType::Rectangular => flexural_capacity_rectangular(m, es),
+            RCSectionType::TBeam => flexural_capacity_tbeam(m, es),
+        }
     };
 
     // Shear capacity
@@ -201,6 +211,65 @@ fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult
         phi_flexure: phi_flex,
         tension_controlled,
     }
+}
+
+/// ACI 318-19 Sec 22.4: moment capacity of a rectangular section at a given
+/// factored axial load, by strain compatibility.
+///
+/// Solves for the neutral axis depth `c` at which phi·Pn(c) equals the applied
+/// `pu` (compression positive), then reports phi·Mn at that same `c` — the
+/// point on the P-M interaction diagram the member actually sits on. Below the
+/// balance point compression raises the moment capacity; above it, compression
+/// lowers it, and that is the case a flexure-only check gets dangerously wrong.
+///
+/// Returns (phi*Mn, a, c, epsilon_t, phi).
+fn axial_flexure_capacity(m: &RCMemberData, es: f64, pu: f64) -> (f64, f64, f64, f64, f64) {
+    let beta1 = compute_beta1(m.fc);
+    let as_comp = m.as_compression.unwrap_or(0.0);
+    let d_prime = m.d_prime.unwrap_or(0.0);
+
+    // Section forces at a trial neutral axis depth, moments taken about
+    // mid-depth so that P and M share one origin.
+    let evaluate = |c: f64| -> (f64, f64, f64, f64) {
+        let a = (beta1 * c).min(m.h);
+        let cc = 0.85 * m.fc * a * m.b;
+
+        let strain_at = |depth: f64| if c > 0.0 { 0.003 * (c - depth) / c } else { 0.0 };
+
+        // Compression steel: net of the concrete it displaces.
+        let fs_comp = (strain_at(d_prime) * es).clamp(-m.fy, m.fy);
+        let cs = as_comp * (fs_comp - 0.85 * m.fc);
+
+        // Tension steel: positive strain_at means compression, so flip.
+        let epsilon_t = -strain_at(m.d);
+        let fs_tens = (epsilon_t * es).clamp(-m.fy, m.fy);
+        let t = m.as_tension * fs_tens;
+
+        let pn = cc + cs - t;
+        let mn = cc * (m.h / 2.0 - a / 2.0)
+            + cs * (m.h / 2.0 - d_prime)
+            + t * (m.d - m.h / 2.0);
+        let phi = compute_phi(epsilon_t, m.fy, es);
+        (phi * pn, phi * mn, epsilon_t, phi)
+    };
+
+    // phi*Pn is monotonic in c over the practical range, so bisect. The upper
+    // bound is generous enough to cover pure compression on a deep section.
+    let mut lo = 1e-6_f64;
+    let mut hi = 10.0 * m.h.max(m.d);
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if evaluate(mid).0 < pu {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let c = 0.5 * (lo + hi);
+
+    let (_, phi_mn, epsilon_t, phi) = evaluate(c);
+    let a = (beta1 * c).min(m.h);
+    (phi_mn.max(0.0), a, c, epsilon_t, phi)
 }
 
 /// ACI 318-19 Sec 22.2: Flexural capacity of rectangular section.

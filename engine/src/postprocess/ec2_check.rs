@@ -204,11 +204,28 @@ fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckRe
     let k_shear = (1.0 + (200.0 / d_mm).sqrt()).min(2.0);
     let rho_l = (m.as_tension / (bw * m.d)).min(0.02);
     let c_rdc = 0.18 / gamma_c;
-    let v_rdc = c_rdc * k_shear * (100.0 * rho_l * fck_mpa).powf(1.0 / 3.0) * bw_mm * d_mm;
+
+    // EC2 6.2.2(1) adds k1·sigma_cp, the axial contribution. `n_ed` was
+    // accepted and never read, so a column under compression lost the benefit
+    // and — the case that matters — a member in net tension kept a capacity it
+    // does not have. sigma_cp is compression-positive and capped at 0.2·fcd;
+    // `n_ed` is tension-positive here, hence the sign flip.
+    const K1_AXIAL: f64 = 0.15;
+    let n_ed = f.n_ed.unwrap_or(0.0);
+    let ac = m.b * m.h;
+    let sigma_cp_mpa = if ac > 0.0 {
+        ((-n_ed / ac) / 1e6).min(0.2 * fcd / 1e6)
+    } else {
+        0.0
+    };
+    let axial_term = K1_AXIAL * sigma_cp_mpa * bw_mm * d_mm;
+
+    let v_rdc = c_rdc * k_shear * (100.0 * rho_l * fck_mpa).powf(1.0 / 3.0) * bw_mm * d_mm
+        + axial_term;
 
     // Minimum VRd,c
-    let v_min = 0.035 * k_shear.powf(1.5) * fck_mpa.sqrt() * bw_mm * d_mm;
-    let v_rdc = v_rdc.max(v_min);
+    let v_min = 0.035 * k_shear.powf(1.5) * fck_mpa.sqrt() * bw_mm * d_mm + axial_term;
+    let v_rdc = v_rdc.max(v_min).max(0.0);
 
     // VRd,s — shear reinforcement capacity (EC2 6.2.3)
     let z_shear = m.z.unwrap_or(0.9 * m.d);
