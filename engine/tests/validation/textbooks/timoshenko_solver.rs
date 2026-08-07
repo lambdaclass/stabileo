@@ -587,3 +587,48 @@ fn validation_timoshenko_vs_euler_bernoulli() {
         "EB deflection: actual={:.6e}, expected={:.6e}, err={:.4}%",
         d_eb, delta_eb_exact, rel_err_eb * 100.0);
 }
+
+// ================================================================
+// 9. Timoshenko Hinge FEF Consistency
+// ================================================================
+//
+// For a section with as_y and an end hinge, the fixed-end force condensation
+// must use the same Timoshenko parameter phi as the stiffness matrix. If the
+// FEF is adjusted with phi=0 while K uses phi>0, the recovered moment at the
+// hinge is not exactly zero.
+
+#[test]
+fn validation_timoshenko_hinge_fef_consistency() {
+    let l = 1.0;
+    let q = 10.0;
+
+    let mut input = make_timoshenko_beam(
+        1, l, Some(AS_Y), "fixed", Some("rollerX"),
+        vec![SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: 1, q_i: -q, q_j: -q, a: None, b: None,
+        })],
+    );
+    // Propped cantilever: fixed at left, roller at right, hinge at right end.
+    input.elements.get_mut("1").unwrap().hinge_end = true;
+
+    let results = linear::solve_2d(&input).unwrap();
+    let ef = results.element_forces.iter().find(|f| f.element_id == 1).unwrap();
+
+    // The hinge must release the end moment exactly.
+    assert!(ef.m_end.abs() < 1e-8,
+        "Timoshenko hinge end moment must be zero, got {:.6e}", ef.m_end);
+
+    // Equilibrium: reactions sum to qL.
+    let r_start = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+    assert!((r_start + r_end - q * l).abs() < 1e-8,
+        "Vertical equilibrium failed: R_start={:.6e}, R_end={:.6e}", r_start, r_end);
+
+    // Timoshenko propped cantilever reactions must differ from EB values.
+    // EB: R_fixed = 3qL/8 = 3.75, R_prop = 5qL/8 = 6.25.
+    let r_eb_fixed = 3.0 * q * l / 8.0;
+    let r_eb_prop = 5.0 * q * l / 8.0;
+    assert!((r_start - r_eb_fixed).abs() > 1e-6 || (r_end - r_eb_prop).abs() > 1e-6,
+        "Timoshenko reactions must differ from EB: R_start={:.6e}, R_end={:.6e}",
+        r_start, r_end);
+}

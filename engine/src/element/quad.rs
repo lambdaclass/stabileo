@@ -695,12 +695,20 @@ pub fn quad_geometric_stiffness(
 }
 
 /// Compute quad element stresses at centroid from nodal displacements (local).
+///
+/// Thermal strains are subtracted before applying the constitutive law:
+/// ε_mech = ε_total − α·ΔT_uniform (membrane), κ_mech = κ_total − α·ΔT_gradient/t (bending).
+/// Without this correction a fully restrained shell under ΔT reports σ = 0
+/// instead of σ = −E·α·ΔT/(1−ν).
 pub fn quad_stresses(
     coords: &[[f64; 3]; 4],
     u_local: &[f64; 24],
     e: f64,
     nu: f64,
     t: f64,
+    alpha: f64,
+    dt_uniform: f64,
+    dt_gradient: f64,
 ) -> QuadStressResult {
     let (ex, ey, _) = quad_local_axes(coords);
     let pts = project_to_2d(coords, &ex, &ey);
@@ -740,6 +748,14 @@ pub fn quad_stresses(
         kappa_xy += dn_dx[i] * rx - dn_dy[i] * ry;
     }
 
+    // Subtract thermal strains (mechanical strain drives stress)
+    let eps_th = alpha * dt_uniform;
+    let kappa_th = alpha * dt_gradient / t;
+    eps_xx -= eps_th;
+    eps_yy -= eps_th;
+    kappa_xx -= kappa_th;
+    kappa_yy -= kappa_th;
+
     // Stresses
     let c = e / (1.0 - nu * nu);
     let sigma_xx = c * (eps_xx + nu * eps_yy);
@@ -747,7 +763,7 @@ pub fn quad_stresses(
     let tau_xy = c * (1.0 - nu) / 2.0 * gamma_xy;
 
     // Moments
-    let cb = e * t * t / (12.0 * (1.0 - nu * nu));
+    let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
     let mx = cb * (kappa_xx + nu * kappa_yy);
     let my = cb * (nu * kappa_xx + kappa_yy);
     let mxy = cb * (1.0 - nu) / 2.0 * kappa_xy;
@@ -894,7 +910,7 @@ pub fn quad_stress_at_nodes(
 
     // Evaluate full stress tensor at each Gauss point
     let c = e / (1.0 - nu * nu);
-    let cb = e * t * t / (12.0 * (1.0 - nu * nu));
+    let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
 
     let mut gp_sxx = [0.0; 4];
     let mut gp_syy = [0.0; 4];

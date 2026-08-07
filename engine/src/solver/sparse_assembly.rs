@@ -169,7 +169,8 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
                 diag_vals[elem_dofs[i]] += k_glob[i * ndof + i];
             }
 
-            assemble_element_loads_2d(&input.loads, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
+            let load_refs: Vec<&SolverLoad> = input.loads.iter().collect();
+            assemble_element_loads_2d(&load_refs, elem, &t, l, e, mat.nu, sec, &elem_dofs, &mut f_global);
         }
     }
 
@@ -712,6 +713,16 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
                 local_diag.push((elem_dofs[i], k_glob[i * ndof + i]));
             }
 
+            // Timoshenko shear parameter for hinge FEF condensation. The sparse
+            // stiffness path above still uses phi=0 (legacy), but the FEF must
+            // at least be consistent with the dense solve for as_y sections.
+            let phi = if let Some(as_y) = sec.as_y {
+                let g = e / (2.0 * (1.0 + mat.nu));
+                12.0 * e * sec.iz / (g * as_y * l * l)
+            } else {
+                0.0
+            };
+
             // Compute FEF contributions for this element
             for load in &input.loads {
                 match load {
@@ -724,7 +735,7 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
                         } else {
                             fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
                         };
-                        adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                        adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
                         let fef_global = transform_force(&fef, &t, 6);
                         for (i, &dof) in elem_dofs.iter().enumerate() {
                             local_forces.push((dof, fef_global[i]));
@@ -734,7 +745,7 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
                         let px = pl.px.unwrap_or(0.0);
                         let mz = pl.my.unwrap_or(0.0);
                         let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
-                        adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                        adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
                         let fef_global = transform_force(&fef, &t, 6);
                         for (i, &dof) in elem_dofs.iter().enumerate() {
                             local_forces.push((dof, fef_global[i]));
@@ -747,7 +758,7 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
                             e, sec.a, sec.iz, l,
                             tl.dt_uniform, tl.dt_gradient, alpha, h,
                         );
-                        adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                        adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
                         let fef_global = transform_force(&fef, &t, 6);
                         for (i, &dof) in elem_dofs.iter().enumerate() {
                             local_forces.push((dof, fef_global[i]));

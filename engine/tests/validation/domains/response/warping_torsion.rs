@@ -298,3 +298,48 @@ fn validation_warping_mixed_model() {
         "Tip should twist under torque, got rx={:.6e}", tip.rx
     );
 }
+
+// ================================================================
+// 4. Torsion Release with Warping
+// ================================================================
+//
+// When a torsion release is present at either end, the element must not
+// transmit twist, even for sections with warping (cw > 0). The warping
+// torsion block used to be written unconditionally, overwriting the release.
+
+#[test]
+fn validation_warping_torsion_release_kills_twist_transmission() {
+    let l = 3.0;
+    let torque = 1.0;
+
+    // Single element, fixed at both ends (translations + rotations + warping).
+    let mut input = make_warping_beam(
+        1, l,
+        vec![true, true, true, true, true, true],
+        Some(vec![true, true, true, true, true, true]),
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: 0.0, fz: 0.0,
+            mx: torque, my: 0.0, mz: 0.0, bw: None,
+        })],
+        true,
+    );
+    input.elements.get_mut("1").unwrap().release_t_start = true;
+
+    let results = linear::solve_3d(&input).unwrap();
+    let ef = results.element_forces.iter().find(|f| f.element_id == 1).unwrap();
+
+    // The released end must carry zero torque.
+    assert!(
+        ef.mx_start.abs() < 1e-10,
+        "Released torsion end must have zero torque, got mx_start={:.6e}",
+        ef.mx_start
+    );
+
+    // Node 1 reaction must not pick up torque through the released element.
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
+    assert!(
+        r1.mx.abs() < 1e-10,
+        "Fixed support behind torsion release must have zero reaction, got mx={:.6e}",
+        r1.mx
+    );
+}

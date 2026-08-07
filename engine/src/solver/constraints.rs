@@ -1303,7 +1303,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         // with constraints (rigid diaphragms, eccentric connections, member/
         // shell offsets) returns no shell stresses → empty contours/tables.
         plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
-        quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full),
+        quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
         quad_nodal_stresses: linear::compute_quad_nodal_stresses(&input.solver, &dof_num, &u_full),
         constraint_forces,
         diagnostics: vec![],

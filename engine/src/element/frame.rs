@@ -289,17 +289,22 @@ pub fn frame_local_stiffness_3d_warping(
     k[10 * n + 3] = 0.0;
     k[10 * n + 10] = 0.0;
 
-    // Torsion-warping 4x4: [θx1, φ'1, θx2, φ'2]
-    let tw = [
-        gj / l + 12.0 * ecw / l3,    6.0 * ecw / l2,     -gj / l - 12.0 * ecw / l3,    6.0 * ecw / l2,
-        6.0 * ecw / l2,               4.0 * ecw / l,      -6.0 * ecw / l2,               2.0 * ecw / l,
-        -gj / l - 12.0 * ecw / l3,   -6.0 * ecw / l2,     gj / l + 12.0 * ecw / l3,    -6.0 * ecw / l2,
-        6.0 * ecw / l2,               2.0 * ecw / l,      -6.0 * ecw / l2,               4.0 * ecw / l,
-    ];
+    // Torsion release at either end kills all twist transmission, including
+    // warping torsion. Without this guard the warping block below would
+    // silently overwrite the release applied by frame_local_stiffness_3d.
+    if !hinge.release_t_start && !hinge.release_t_end {
+        // Torsion-warping 4x4: [θx1, φ'1, θx2, φ'2]
+        let tw = [
+            gj / l + 12.0 * ecw / l3,    6.0 * ecw / l2,     -gj / l - 12.0 * ecw / l3,    6.0 * ecw / l2,
+            6.0 * ecw / l2,               4.0 * ecw / l,      -6.0 * ecw / l2,               2.0 * ecw / l,
+            -gj / l - 12.0 * ecw / l3,   -6.0 * ecw / l2,     gj / l + 12.0 * ecw / l3,    -6.0 * ecw / l2,
+            6.0 * ecw / l2,               2.0 * ecw / l,      -6.0 * ecw / l2,               4.0 * ecw / l,
+        ];
 
-    for i in 0..4 {
-        for jj in 0..4 {
-            k[idx[i] * n + idx[jj]] = tw[i * 4 + jj];
+        for i in 0..4 {
+            for jj in 0..4 {
+                k[idx[i] * n + idx[jj]] = tw[i * 4 + jj];
+            }
         }
     }
 

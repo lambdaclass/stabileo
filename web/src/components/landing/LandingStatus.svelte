@@ -38,7 +38,7 @@
 
 <section class="sec sec--paper status reveal" data-section="status" id="status" aria-labelledby="status-title">
   <div class="wrap">
-    <Eyebrow n="13" label={t('landing.ebStatus')} />
+    <Eyebrow n="12" label={t('landing.ebStatus')} />
     <h2 id="status-title" class="display">{t('landing.stH')}</h2>
     <p class="lead">{t('landing.stP')}</p>
 

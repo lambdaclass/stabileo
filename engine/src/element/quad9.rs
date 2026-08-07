@@ -611,12 +611,19 @@ pub fn quad9_geometric_stiffness(
 // ==================== Stress Recovery ====================
 
 /// Compute quad9 element stresses at centroid from nodal displacements (local).
+///
+/// Thermal strains are subtracted before applying the constitutive law, matching
+/// the quad path. Without this correction a fully restrained shell under ΔT
+/// reports σ = 0 instead of σ = −E·α·ΔT/(1−ν).
 pub fn quad9_stresses(
     coords: &[[f64; 3]; 9],
     u_local: &[f64],
     e: f64,
     nu: f64,
     t: f64,
+    alpha: f64,
+    dt_uniform: f64,
+    dt_gradient: f64,
 ) -> crate::element::quad::QuadStressResult {
     let (ex, ey, _) = quad9_local_axes(coords);
     let pts = project_to_2d_9(coords, &ex, &ey);
@@ -654,12 +661,20 @@ pub fn quad9_stresses(
         kappa_xy += dn_dx[i] * rx - dn_dy[i] * ry;
     }
 
+    // Subtract thermal strains (mechanical strain drives stress)
+    let eps_th = alpha * dt_uniform;
+    let kappa_th = alpha * dt_gradient / t;
+    eps_xx -= eps_th;
+    eps_yy -= eps_th;
+    kappa_xx -= kappa_th;
+    kappa_yy -= kappa_th;
+
     let c = e / (1.0 - nu * nu);
     let sigma_xx = c * (eps_xx + nu * eps_yy);
     let sigma_yy = c * (nu * eps_xx + eps_yy);
     let tau_xy = c * (1.0 - nu) / 2.0 * gamma_xy;
 
-    let cb = e * t * t / (12.0 * (1.0 - nu * nu));
+    let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
     let mx = cb * (kappa_xx + nu * kappa_yy);
     let my = cb * (nu * kappa_xx + kappa_yy);
     let mxy = cb * (1.0 - nu) / 2.0 * kappa_xy;
@@ -773,7 +788,7 @@ pub fn quad9_stress_at_nodes(
     let gauss = gauss_3x3();
 
     let c = e / (1.0 - nu * nu);
-    let cb = e * t * t / (12.0 * (1.0 - nu * nu));
+    let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
 
     let mut gp_sxx = [0.0; 9];
     let mut gp_syy = [0.0; 9];

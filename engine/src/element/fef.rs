@@ -352,6 +352,12 @@ pub fn fef_thermal_3d(
     // Thermal expansion: element wants to grow → equivalent nodal loads push outward
     // Node I gets -fx (pushed in -x), Node J gets +fx (pushed in +x)
     // [fx_i, fy_i, fz_i, mx_i, my_i, mz_i, fx_j, fy_j, fz_j, mx_j, my_j, mz_j]
+    //
+    // Sign convention: 2D thermal FEF is [-fx, 0, -mz, fx, 0, +mz]. For a 3D beam
+    // along X in the X-Z plane, 2D mz corresponds directly to 3D my (no sign flip,
+    // unlike distributed loads where θy = -dw/dx introduces a flip). So the
+    // thermal gradient_z FEF is [-my, +my], matching the physical expectation that
+    // a hotter +Z face produces compression at +Z (positive my) in a fixed-fixed beam.
     [-fx, 0.0, 0.0, 0.0, -my, -mz, fx, 0.0, 0.0, 0.0, my, mz]
 }
 

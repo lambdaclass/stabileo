@@ -706,7 +706,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
         load.data.q, maxQ, cc,
       );
     }
-    // pointOnElement and pointOnElement3d: simplified as nodal for now
+    // pointOnElement (2D): draw the applied load in its actual local direction
+    // instead of a hard-coded downward arrow.
     else if (load.type === 'pointOnElement') {
       const elem = modelStore.elements.get(load.data.elementId);
       if (!elem) continue;
@@ -720,9 +721,59 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const px = sceneI.x + (sceneJ.x - sceneI.x) * t;
       const py = sceneI.y + (sceneJ.y - sceneI.y) * t;
       const pz = sceneI.z + (sceneJ.z - sceneI.z) * t;
+
+      // Local frame in scene coordinates: ex along the element, ey perpendicular
+      // in the model plane. For 2D-in-XZ projection the model y maps to scene z.
+      const dx = sceneJ.x - sceneI.x;
+      const dz = sceneJ.z - sceneI.z;
+      const len = Math.sqrt(dx * dx + dz * dz);
+      let fx = 0, fz = 0;
+      if (len > 1e-12) {
+        const ex = dx / len, ez = dz / len;
+        // 2D local +y (perpendicular, CCW from ex) in scene coordinates
+        const eyx = -ez, eyz = ex;
+        fx = (load.data.px ?? 0) * ex + load.data.p * eyx;
+        fz = (load.data.px ?? 0) * ez + load.data.p * eyz;
+      }
       batch.addNodalLoadArrow(
         { x: px, y: py, z: pz },
-        0, 0, -Math.abs(load.data.p),
+        fx, 0, fz,
+        0, load.data.my ?? load.data.mz ?? 0, 0,
+        maxForce,
+        'double-arrow', cc,
+      );
+    }
+    // pointOnElement3d: resolve the local Y/Z load components into global space
+    // using the element's local frame, then draw the resulting arrow.
+    else if (load.type === 'pointOnElement3d') {
+      const elem = modelStore.elements.get(load.data.elementId);
+      if (!elem) continue;
+      const nI = modelStore.nodes.get(elem.nodeI);
+      const nJ = modelStore.nodes.get(elem.nodeJ);
+      if (!nI || !nJ) continue;
+      const L = Math.sqrt((nJ.x-nI.x)**2 + (nJ.y-nI.y)**2 + ((nJ.z??0)-(nI.z??0))**2);
+      const t = L > 0 ? load.data.a / L : 0.5;
+      const sceneI = projectNodeToScene(nI, project2D);
+      const sceneJ = projectNodeToScene(nJ, project2D);
+      const px = sceneI.x + (sceneJ.x - sceneI.x) * t;
+      const py = sceneI.y + (sceneJ.y - sceneI.y) * t;
+      const pz = sceneI.z + (sceneJ.z - sceneI.z) * t;
+
+      const posI = { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 } as SolverNode3D;
+      const posJ = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 } as SolverNode3D;
+      const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+      const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY, elem.rollAngle);
+      const ey = { x: localAxes.ey[0], y: localAxes.ey[1], z: localAxes.ey[2] };
+      const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
+
+      const fx = load.data.py * ey.x + load.data.pz * ez.x;
+      const fy = load.data.py * ey.y + load.data.pz * ez.y;
+      const fz = load.data.py * ey.z + load.data.pz * ez.z;
+
+      batch.addNodalLoadArrow(
+        { x: px, y: py, z: pz },
+        fx, fy, fz,
         0, 0, 0,
         maxForce,
         'double-arrow', cc,

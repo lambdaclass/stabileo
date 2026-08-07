@@ -365,6 +365,46 @@ fn test_quad_thermal_uniform_expansion() {
     );
 }
 
+// ==================== Test 6b: Fully Restrained Thermal Stress ====================
+
+#[test]
+fn test_quad_thermal_fully_restrained_stress() {
+    // Single quad with all nodes fully restrained. Under uniform ΔT the total
+    // strain is zero, so the mechanical strain is -α·ΔT and the stress is
+    // σ = -E·α·ΔT / (1-ν). Without subtracting the thermal strain the solver
+    // reports σ = 0.
+    let (nodes, quads, grid) = make_quad_mesh(1, 1, 1.0, 1.0, 0.01);
+    let mut input = make_base_input(nodes, quads);
+
+    for i in 0..=1 {
+        for j in 0..=1 {
+            let nid = grid[i][j];
+            input.supports.insert(nid.to_string(), sup3d(nid, true, true, true, true, true, true));
+        }
+    }
+
+    let alpha = 1.2e-5;
+    let dt = 100.0;
+    input.loads.push(SolverLoad3D::QuadThermal(SolverPlateThermalLoad {
+        element_id: 1, dt_uniform: dt, dt_gradient: 0.0, alpha: Some(alpha),
+    }));
+
+    let result = linear::solve_3d(&input).unwrap();
+    let stress = result.quad_stresses.iter().find(|s| s.element_id == 1).unwrap();
+
+    let e_kn = E * 1000.0;
+    let expected = -e_kn * alpha * dt / (1.0 - NU);
+
+    assert!(
+        (stress.sigma_xx - expected).abs() / expected.abs() < 0.02,
+        "sigma_xx = {:.6e}, expected {:.6e}", stress.sigma_xx, expected
+    );
+    assert!(
+        (stress.sigma_yy - expected).abs() / expected.abs() < 0.02,
+        "sigma_yy = {:.6e}, expected {:.6e}", stress.sigma_yy, expected
+    );
+}
+
 // ==================== Test 7: Scordelis-Lo Barrel Vault ====================
 
 #[test]

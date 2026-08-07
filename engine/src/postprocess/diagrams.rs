@@ -174,13 +174,16 @@ pub fn compute_diagram_value_at_sorted(
             value
         }
         "axial" => {
-            let n_start = ef.n_start;
-            let n_end = ef.n_end;
-            let mut value = n_start + t * (n_end - n_start);
+            // Axial force is piecewise constant with jumps at concentrated axial
+            // loads. `n_start` already is the internal force at node I; each load
+            // px at a<x changes the constant level by -px. Do NOT interpolate
+            // n_start -> n_end here: n_end already accounts for all px via
+            // equilibrium, so interpolating would double-count the jumps.
+            let mut value = ef.n_start;
             for pl in sorted_pl {
                 if let Some(px) = pl.px {
                     if pl.a < xi - 1e-10 {
-                        value += px;
+                        value -= px;
                     }
                 }
             }

@@ -1034,7 +1034,7 @@ pub fn solve_nonlinear_material_3d(
             reactions,
             element_forces,
             plate_stresses: compute_plate_stresses(solver, &dof_num, &u_full),
-            quad_stresses: compute_quad_stresses(solver, &dof_num, &u_full),
+            quad_stresses: compute_quad_stresses(solver, &dof_num, &u_full, None),
             quad_nodal_stresses: vec![],
             constraint_forces,
             diagnostics: vec![],

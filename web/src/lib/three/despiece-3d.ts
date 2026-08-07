@@ -25,7 +25,7 @@
 import * as THREE from 'three';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { projectNodeToScene } from '../geometry/coordinate-system';
-import { createTextSprite } from './selection-helpers';
+import { createTextSpriteCached } from './selection-helpers';
 import type { ElementForces3D, Reaction3D } from '../engine/types-3d';
 import type { Element, Node, Section, Load } from '../store/model.svelte';
 
@@ -298,7 +298,7 @@ export function createDespiece3DGroup(opts: {
     if (showLabels && showThis) {
       const txt = endLabel(ex, ey, ez, axialOut, n, vy, vz, mx, my, mz, basis);
       if (txt) {
-        const lbl = createTextSprite(txt, basis === 'global' ? DESPIECE_COL.axial : DESPIECE_COL.moment, 20);
+        const lbl = createTextSpriteCached(txt, basis === 'global' ? DESPIECE_COL.axial : DESPIECE_COL.moment, 20);
         lbl.scale.set(0.6 * lSize, 0.6 * lSize, 1);
         lbl.position.set(ey.x * labelOffset, ey.y * labelOffset, ey.z * labelOffset);
         eg.add(lbl);
@@ -406,7 +406,7 @@ export function createDespiece3DGroup(opts: {
       a.userData.despieceReaction = true;
       group.add(a);
       if (showLabels) {
-        const lbl = createTextSprite(`R ${fv.length().toFixed(1)}`, DESPIECE_COL.reaction, 20);
+        const lbl = createTextSpriteCached(`R ${fv.length().toFixed(1)}`, DESPIECE_COL.reaction, 20);
         lbl.scale.set(0.6 * lSize, 0.6 * lSize, 1);
         lbl.position.set(pos.x, pos.y - labelOffset, pos.z);
         group.add(lbl);

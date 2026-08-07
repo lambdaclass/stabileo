@@ -375,7 +375,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             reactions: vec![],
             element_forces,
             plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
-            quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full),
+            quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
             quad_nodal_stresses: vec![],
             constraint_forces,
             diagnostics: vec![],

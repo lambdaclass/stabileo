@@ -38,7 +38,7 @@
 
 <section class="sec sec--paper pro reveal" data-section="pro" id="pro" aria-labelledby="pro-title">
   <div class="wrap">
-    <Eyebrow n="11" label={t('landing.ebPro')} />
+    <Eyebrow n="10" label={t('landing.ebPro')} />
 
     <div class="mode-head">
       <h2 id="pro-title" class="display">{t('landing.proH')}</h2>

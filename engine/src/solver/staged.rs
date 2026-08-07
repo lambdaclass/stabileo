@@ -372,8 +372,9 @@ fn assemble_staged_2d(
             }
 
             // Assemble element loads (FEF) for this stage's loads
+            let load_refs: Vec<&SolverLoad> = stage_input.loads.iter().collect();
             assemble_element_loads_2d(
-                &stage_input.loads, elem, &t, l, e, sec, &elem_dofs, &mut f_global,
+                &load_refs, elem, &t, l, e, mat.nu, sec, &elem_dofs, &mut f_global,
             );
         }
     }

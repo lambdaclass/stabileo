@@ -502,11 +502,20 @@ fn subtract_element_fef(
     elem: &SolverElement,
     l: f64,
     e: f64,
-    _a: f64,
+    nu: f64,
     _iz: f64,
     f_local: &mut [f64; 6],
     sec: &SolverSection,
 ) {
+    // Timoshenko shear parameter for hinge FEF condensation, matching the
+    // convention used by the linear 2D solver.
+    let phi = if let Some(as_y) = sec.as_y {
+        let g = e / (2.0 * (1.0 + nu));
+        12.0 * e * sec.iz / (g * as_y * l * l)
+    } else {
+        0.0
+    };
+
     for load in &input.loads {
         match load {
             SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
@@ -519,7 +528,7 @@ fn subtract_element_fef(
                 } else {
                     fef_partial_distributed_2d(dl.q_i, dl.q_j, a_dist, b_dist, l)
                 };
-                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
                     f_local[i] -= fef[i];
@@ -529,7 +538,7 @@ fn subtract_element_fef(
                 let px = pl.px.unwrap_or(0.0);
                 let mz = pl.my.unwrap_or(0.0);
                 let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
-                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
                     f_local[i] -= fef[i];
@@ -546,7 +555,7 @@ fn subtract_element_fef(
                     e, sec.a, sec.iz, l,
                     tl.dt_uniform, tl.dt_gradient, alpha, h,
                 );
-                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
                     f_local[i] -= fef[i];
@@ -825,7 +834,7 @@ pub fn compute_corotational_forces(
             }
 
             // Subtract FEF for output (element forces = K*u - FEF)
-            subtract_element_fef(input, elem, l0, e, sec.a, sec.iz, &mut f_local, sec);
+            subtract_element_fef(input, elem, l0, e, mat.nu, sec.iz, &mut f_local, sec);
 
             // Collect load metadata
             let (mut total_qi, mut total_qj) = (0.0, 0.0);

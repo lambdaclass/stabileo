@@ -370,7 +370,8 @@ pub fn add_quad_geometric_stiffness_3d(
         u_local.copy_from_slice(&u_local_vec);
 
         // Compute membrane stress resultants (force/length = stress × thickness)
-        let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness);
+        // No thermal correction here: geometric stiffness uses the total stress state.
+        let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness, 0.0, 0.0, 0.0);
         let nxx = s.sigma_xx * quad.thickness;
         let nyy = s.sigma_yy * quad.thickness;
         let nxy = s.tau_xy * quad.thickness;
@@ -470,7 +471,8 @@ pub fn add_quad9_geometric_stiffness_3d(
         u_local.copy_from_slice(&u_local_vec);
 
         // Compute membrane stress resultants (force/length = stress × thickness)
-        let s = crate::element::quad9::quad9_stresses(&coords, &u_local, e, nu, quad9.thickness);
+        // No thermal correction here: geometric stiffness uses the total stress state.
+        let s = crate::element::quad9::quad9_stresses(&coords, &u_local, e, nu, quad9.thickness, 0.0, 0.0, 0.0);
         let nxx = s.sigma_xx * quad9.thickness;
         let nyy = s.sigma_yy * quad9.thickness;
         let nxy = s.tau_xy * quad9.thickness;

@@ -1157,6 +1157,13 @@ pub(crate) fn assert_finite_3d(u: &[f64]) -> Result<(), String> {
 
 /// Solve a 3D linear static analysis.
 pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
+    // Expand curved beams BEFORE anything else: the constrained delegation below
+    // used to bypass prepare_static_3d (the only expansion site), silently
+    // analyzing models with constraints + curved beams without those members.
+    // The expansion is idempotent (clears the curved-beam list), so the call in
+    // prepare_static_3d becomes a no-op for inputs expanded here.
+    let input = &expand_curved_beams_3d(input);
+
     // Auto-delegate to constrained solver when constraints are present
     if !input.constraints.is_empty() {
         let ci = super::constraints::ConstrainedInput3D {
@@ -1616,7 +1623,7 @@ impl PreparedStatic3D {
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
         element_forces.sort_by_key(|ef| ef.element_id);
         let plate_stresses = compute_plate_stresses(input, dof_num, &u_full);
-        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full);
+        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
 
         let equilibrium = compute_equilibrium_summary_3d(&f, &reactions_vec, dof_num, 0.0, &p.inclined_transforms);
 
@@ -1734,7 +1741,7 @@ impl PreparedStatic3D {
         element_forces.sort_by_key(|ef| ef.element_id);
 
         let plate_stresses = compute_plate_stresses(input, dof_num, &u_full);
-        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full);
+        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
 
         let equilibrium = compute_equilibrium_summary_3d(&f, &reactions_vec, dof_num, rel_residual, &p.inclined_transforms);
 
@@ -1999,7 +2006,7 @@ impl PreparedStatic3D {
 
         let t0 = now_micros();
         let plate_stresses = compute_plate_stresses(input, dof_num, &u_full);
-        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full);
+        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
         let stress_recovery_us = now_micros().saturating_sub(t0);
 
         let total_us = (p.assembly_us + p.conditioning_us + p.symbolic_us + p.numeric_us)
@@ -2203,7 +2210,7 @@ impl PreparedStatic3D {
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
         element_forces.sort_by_key(|ef| ef.element_id);
         let plate_stresses = compute_plate_stresses(input, dof_num, &u_full);
-        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full);
+        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
 
         // Compute actual residual: ||K·u − F||_free / ||F||_free
         let rel_residual = {
@@ -3198,7 +3205,7 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                             crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
                         };
 
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                         for i in 0..6 {
                             f_local[i] -= fef[i];
@@ -3219,7 +3226,7 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                         let px = pl.px.unwrap_or(0.0);
                         let mz = pl.my.unwrap_or(0.0);
                         let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l);
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
                         for i in 0..6 {
                             f_local[i] -= fef[i];
                         }
@@ -3237,7 +3244,7 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                             e, sec.a, sec.iz, l,
                             tl.dt_uniform, tl.dt_gradient, alpha, h,
                         );
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
                         for i in 0..6 {
                             f_local[i] -= fef[i];
                         }
@@ -3671,6 +3678,10 @@ fn expand_curved_beams_3d(input: &SolverInput3D) -> SolverInput3D {
         }
     }
 
+    // Idempotent: the expanded model no longer carries curved-beam definitions,
+    // so a second call (e.g. prepare_static_3d after solve_3d already expanded)
+    // is a no-op clone instead of a double expansion.
+    result.curved_beams = Vec::new();
     result
 }
 
@@ -3738,6 +3749,7 @@ pub(crate) fn compute_quad_stresses(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
+    loads: Option<&[SolverLoad3D]>,
 ) -> Vec<QuadStress> {
     let mut stresses = Vec::new();
 
@@ -3745,6 +3757,27 @@ pub(crate) fn compute_quad_stresses(
         input.nodes.values().map(|n| (n.id, n)).collect();
     let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
         input.materials.values().map(|m| (m.id, m)).collect();
+
+    // Index thermal loads by element id so stress recovery can subtract the
+    // thermal strain from the total strain (σ = C·ε_mech, not C·ε_total).
+    // Callers that solve a per-case load set (multi-case, staged) pass those
+    // loads explicitly; the default is the model's own load list.
+    let loads_ref = loads.unwrap_or(&input.loads);
+    let mut thermal_by_elem: std::collections::HashMap<usize, (f64, f64, f64)> =
+        std::collections::HashMap::new();
+    for load in loads_ref {
+        match load {
+            SolverLoad3D::QuadThermal(tl) => {
+                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                thermal_by_elem.insert(tl.element_id, (alpha, tl.dt_uniform, tl.dt_gradient));
+            }
+            SolverLoad3D::Quad9Thermal(tl) => {
+                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                thermal_by_elem.insert(tl.element_id, (alpha, tl.dt_uniform, tl.dt_gradient));
+            }
+            _ => {}
+        }
+    }
 
     for quad in input.quads.values() {
         let mat = mat_map[&quad.material_id];
@@ -3770,7 +3803,8 @@ pub(crate) fn compute_quad_stresses(
         let mut u_local = [0.0; 24];
         u_local.copy_from_slice(&u_local_vec);
 
-        let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness);
+        let (alpha, dt_uniform, dt_gradient) = thermal_by_elem.get(&quad.id).copied().unwrap_or((0.0, 0.0, 0.0));
+        let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness, alpha, dt_uniform, dt_gradient);
 
         // Nodal stresses at 4 Gauss-extrapolated points
         let nodal_vm = crate::element::quad::quad_nodal_von_mises(&coords, &u_local, e, nu, quad.thickness);
@@ -3802,7 +3836,8 @@ pub(crate) fn compute_quad_stresses(
         let u_global: Vec<f64> = q9_dofs.iter().map(|&d| u[d]).collect();
         let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
         let u_local_vec = crate::linalg::transform_displacement(&u_global, &t_q9, 54);
-        let s = crate::element::quad9::quad9_stresses(&coords, &u_local_vec, e, nu, q9.thickness);
+        let (alpha, dt_uniform, dt_gradient) = thermal_by_elem.get(&q9.id).copied().unwrap_or((0.0, 0.0, 0.0));
+        let s = crate::element::quad9::quad9_stresses(&coords, &u_local_vec, e, nu, q9.thickness, alpha, dt_uniform, dt_gradient);
         let nodal_vm = crate::element::quad9::quad9_nodal_von_mises(&coords, &u_local_vec, e, nu, q9.thickness);
         stresses.push(QuadStress {
             element_id: q9.id,

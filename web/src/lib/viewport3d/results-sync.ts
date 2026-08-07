@@ -11,7 +11,7 @@ import { modelStore, uiStore, resultsStore } from '../store';
 import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
-import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, verificationStateColor, createTextSprite, heatmapColor } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
@@ -236,6 +236,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     scale,
     eiMap,
     sigHand,
+    modelStore.sections,
   );
   if (modeColor !== null) {
     ctx.deformedGroup.userData.material.color.setHex(modeColor);
@@ -502,7 +503,7 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     const textColor = ds === 'stale' ? '#b9b9a8' : baseColor;
     const glyph = ds === 'stale' ? '⌛ ' : status === 'fail' ? '✗ ' : status === 'warn' ? '⚠ ' : '';
 
-    const sprite = createTextSprite(`${glyph}${ratio.toFixed(2)}`, textColor, 32);
+    const sprite = createTextSpriteCached(`${glyph}${ratio.toFixed(2)}`, textColor, 32);
     sprite.position.set(mx, my + 0.15, mz); // offset slightly above element
     sprite.scale.set(0.45, 0.45, 1);
     group.add(sprite);
@@ -917,7 +918,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
 
     for (const [id, node] of modelStore.nodes) {
       const pos = projectNodeToScene(node, project2D);
-      const sprite = createTextSprite(String(id), '#ffffff', 28);
+      const sprite = createTextSpriteCached(String(id), '#ffffff', 28);
       sprite.position.set(
         pos.x + spriteScale * 0.3,
         pos.y + spriteScale * 0.5,
@@ -946,7 +947,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSprite(String(id), '#88ccff', 24);
+      const sprite = createTextSpriteCached(String(id), '#88ccff', 24);
       sprite.position.set(mx, my + spriteScale * 0.3, mz);
       sprite.scale.set(spriteScale * 0.8, spriteScale * 0.8, 1);
       ctx.elementLabelsGroup.add(sprite);
@@ -975,7 +976,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2 - spriteScale * 0.3;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSprite(`${len.toFixed(2)} m`, '#88cc88', 22);
+      const sprite = createTextSpriteCached(`${len.toFixed(2)} m`, '#88cc88', 22);
       sprite.position.set(mx, my, mz);
       sprite.scale.set(spriteScale * 0.7, spriteScale * 0.7, 1);
       ctx.lengthLabelsGroup.add(sprite);

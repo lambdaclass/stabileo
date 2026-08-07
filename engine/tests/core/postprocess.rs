@@ -100,6 +100,45 @@ fn test_diagrams_all_computed() {
     assert!(!diagrams.moment[0].points.is_empty());
 }
 
+#[test]
+fn test_axial_diagram_piecewise_constant_with_point_load() {
+    // Bar fixed at both ends, axial point load P at midspan.
+    // Symmetry gives N(left of load) = +P/2 (tension) and
+    // N(right of load) = -P/2 (compression).
+    let l = 6.0;
+    let px = 20.0;
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, l, 0.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.15, 0.003125)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 2, "fixed")],
+        vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1, a: l / 2.0, p: 0.0, px: Some(px), my: None,
+        })],
+    );
+    let results = solve_2d(&input).unwrap();
+    let ef = &results.element_forces[0];
+
+    // Sanity: end forces reflect equilibrium (tension at start, compression at end).
+    assert!((ef.n_start - px / 2.0).abs() < 1e-6, "n_start = {}, expected {}", ef.n_start, px / 2.0);
+    assert!((ef.n_end + px / 2.0).abs() < 1e-6, "n_end = {}, expected {}", ef.n_end, -px / 2.0);
+
+    // Just before the load: still +P/2.
+    let n_left = compute_diagram_value_at("axial", 0.5 - 1e-7, ef);
+    assert!((n_left - px / 2.0).abs() < 1e-3, "N(left) = {}, expected {}", n_left, px / 2.0);
+
+    // Just after the load: -P/2 (the single jump is exactly -px).
+    let n_right = compute_diagram_value_at("axial", 0.5 + 1e-7, ef);
+    assert!((n_right + px / 2.0).abs() < 1e-3, "N(right) = {}, expected {}", n_right, -px / 2.0);
+
+    // Ends match the recorded end forces.
+    let n_start = compute_diagram_value_at("axial", 0.0, ef);
+    let n_end = compute_diagram_value_at("axial", 1.0, ef);
+    assert!((n_start - ef.n_start).abs() < 1e-6, "diagram start mismatch");
+    assert!((n_end - ef.n_end).abs() < 1e-6, "diagram end mismatch");
+}
+
 // ==================== Combination Tests ====================
 
 #[test]

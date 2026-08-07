@@ -340,6 +340,7 @@ export function createDeformedLines(
   scale: number,
   _eiMap?: Map<number, ElementEI>,
   _leftHand?: boolean,
+  sections?: Map<number, { rotation?: number }>,
 ): THREE.Group {
   const group = new THREE.Group();
   group.userData = { type: 'deformed' };
@@ -381,7 +382,11 @@ export function createDeformedLines(
     if (ef && eiEntry) {
       const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      const rollAngle = elem.rollAngle;
+      // Effective roll = element rollAngle + section rotation, matching the
+      // solver convention (solver-service.ts). Without the section term the
+      // deformed curve lies in the wrong plane for rotated sections.
+      const secRot = sections?.get(elem.sectionId)?.rotation ?? 0;
+      const rollAngle = (elem.rollAngle ?? 0) + secRot;
       try {
         p0 = computeDeformedShape3D(
           { id: elem.nodeI, x: nI.x, y: nI.y, z: nI.z ?? 0 },
