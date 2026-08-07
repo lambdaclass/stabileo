@@ -283,7 +283,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
 
     Ok(AnalysisResults3D {
         displacements, reactions, element_forces,
-        plate_stresses: compute_plate_stresses(&input.solver, &dof_num, &u_full),
+        plate_stresses: compute_plate_stresses(&input.solver, &dof_num, &u_full, None),
         quad_stresses: compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
         quad_nodal_stresses: vec![],
         constraint_forces,

@@ -696,16 +696,24 @@ pub fn quad9_stresses(
 
 /// Compute von Mises stress at each of the 9 nodes by evaluating at 3×3 Gauss points
 /// and using least-squares projection to nodes.
+///
+/// Thermal strains are subtracted before applying the constitutive law, matching
+/// the centroid path.
 pub fn quad9_nodal_von_mises(
     coords: &[[f64; 3]; 9],
     u_local: &[f64],
     e: f64,
     nu: f64,
     _t: f64,
+    alpha: f64,
+    dt_uniform: f64,
 ) -> Vec<f64> {
     let (ex, ey, _) = quad9_local_axes(coords);
     let pts = project_to_2d_9(coords, &ex, &ey);
     let gauss = gauss_3x3();
+
+    // Thermal strain to subtract (mechanical strain drives stress)
+    let eps_th = alpha * dt_uniform;
 
     // Evaluate von Mises at each Gauss point
     let mut gp_vm = [0.0; 9];
@@ -730,6 +738,10 @@ pub fn quad9_nodal_von_mises(
             eps_yy += dn_dy[i] * uy;
             gamma_xy += dn_dy[i] * ux + dn_dx[i] * uy;
         }
+
+        // Subtract thermal strain before constitutive law
+        eps_xx -= eps_th;
+        eps_yy -= eps_th;
 
         let c = e / (1.0 - nu * nu);
         let sxx = c * (eps_xx + nu * eps_yy);
@@ -776,12 +788,18 @@ fn lagrange_1d_3_at(s: f64, pts: &[f64; 3]) -> [f64; 3] {
 }
 
 /// Compute full stress tensor at each of the 9 nodes.
+///
+/// Thermal strains are subtracted before applying the constitutive law, matching
+/// the centroid path.
 pub fn quad9_stress_at_nodes(
     coords: &[[f64; 3]; 9],
     u_local: &[f64],
     e: f64,
     nu: f64,
     t: f64,
+    alpha: f64,
+    dt_uniform: f64,
+    dt_gradient: f64,
 ) -> Vec<crate::types::QuadNodalStress> {
     let (ex, ey, _) = quad9_local_axes(coords);
     let pts = project_to_2d_9(coords, &ex, &ey);
@@ -789,6 +807,10 @@ pub fn quad9_stress_at_nodes(
 
     let c = e / (1.0 - nu * nu);
     let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
+
+    // Thermal strain/curvature to subtract (mechanical strain drives stress)
+    let eps_th = alpha * dt_uniform;
+    let kappa_th = alpha * dt_gradient / t;
 
     let mut gp_sxx = [0.0; 9];
     let mut gp_syy = [0.0; 9];
@@ -829,6 +851,12 @@ pub fn quad9_stress_at_nodes(
             kappa_yy += dn_dy[i] * rx;
             kappa_xy += dn_dx[i] * rx - dn_dy[i] * ry;
         }
+
+        // Subtract thermal strains before constitutive law
+        eps_xx -= eps_th;
+        eps_yy -= eps_th;
+        kappa_xx -= kappa_th;
+        kappa_yy -= kappa_th;
 
         gp_sxx[gp] = c * (eps_xx + nu * eps_yy);
         gp_syy[gp] = c * (nu * eps_xx + eps_yy);

@@ -1206,7 +1206,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         displacements,
         reactions: vec![],
         element_forces,
-        plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
+        plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full, None),
         quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
         quad_nodal_stresses: vec![],
         constraint_forces: vec![],

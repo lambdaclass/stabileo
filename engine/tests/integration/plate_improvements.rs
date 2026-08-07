@@ -87,7 +87,7 @@ fn plate_nodal_stress_output() {
     assert!(has_nonzero, "At least one nodal stress should be non-zero");
 
     // Also verify centroid stress recovery
-    let centroid = plate_stress_recovery(&coords, e, nu, t, &u_local);
+    let centroid = plate_stress_recovery(&coords, e, nu, t, &u_local, 0.0, 0.0, 0.0);
     assert!(centroid.von_mises >= 0.0);
 }
 
@@ -126,6 +126,34 @@ fn plate_thermal_load_produces_forces() {
     assert!(
         max_f_zero < 1e-15,
         "Zero temperature should produce zero loads"
+    );
+}
+
+#[test]
+fn plate_thermal_fully_restrained_stress() {
+    // Fully restrained plate: u=0, so ε_total=0 and σ = -E·α·ΔT/(1-ν).
+    let coords = [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.5, 0.866, 0.0],
+    ];
+    let e = 200e6;
+    let nu = 0.3;
+    let t = 0.01;
+    let alpha = 12e-6;
+    let dt = 100.0;
+
+    let u_local = vec![0.0; 18];
+    let s = plate_stress_recovery(&coords, e, nu, t, &u_local, alpha, dt, 0.0);
+
+    let expected = -e * alpha * dt / (1.0 - nu);
+    assert!(
+        (s.sigma_xx - expected).abs() / expected.abs() < 1e-6,
+        "sigma_xx = {:.6e}, expected {:.6e}", s.sigma_xx, expected
+    );
+    assert!(
+        (s.sigma_yy - expected).abs() / expected.abs() < 1e-6,
+        "sigma_yy = {:.6e}, expected {:.6e}", s.sigma_yy, expected
     );
 }
 
@@ -435,7 +463,7 @@ fn plate_membrane_patch_test() {
     u_local[12] = eps_xx * 1.0;
     u_local[13] = -nu * eps_xx * 1.5;
 
-    let stress = plate_stress_recovery(&coords, e, nu, t, &u_local);
+    let stress = plate_stress_recovery(&coords, e, nu, t, &u_local, 0.0, 0.0, 0.0);
 
     let expected_sigma_xx = e * eps_xx;
     assert!(

@@ -422,7 +422,8 @@ pub fn add_plate_geometric_stiffness_3d(
         let u_local_vec = transform_displacement(&u_global, &t_plate, 18);
 
         // Compute membrane stress resultants via plate stress recovery
-        let s = crate::element::plate_stress_recovery(&coords, e, nu, plate.thickness, &u_local_vec);
+        // No thermal correction here: geometric stiffness uses the total stress state.
+        let s = crate::element::plate_stress_recovery(&coords, e, nu, plate.thickness, &u_local_vec, 0.0, 0.0, 0.0);
         let nxx = s.sigma_xx * plate.thickness;
         let nyy = s.sigma_yy * plate.thickness;
         let nxy = s.tau_xy * plate.thickness;

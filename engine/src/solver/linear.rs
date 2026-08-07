@@ -1622,7 +1622,7 @@ impl PreparedStatic3D {
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
         element_forces.sort_by_key(|ef| ef.element_id);
-        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full);
+        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full, Some(loads));
         let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
 
         let equilibrium = compute_equilibrium_summary_3d(&f, &reactions_vec, dof_num, 0.0, &p.inclined_transforms);
@@ -1641,7 +1641,7 @@ impl PreparedStatic3D {
             element_forces,
             plate_stresses,
             quad_stresses,
-            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full),
+            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full, Some(loads)),
             constraint_forces: vec![],
             diagnostics: p.diagnostics.clone(),
             solver_diagnostics: vec![],
@@ -1740,7 +1740,7 @@ impl PreparedStatic3D {
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
         element_forces.sort_by_key(|ef| ef.element_id);
 
-        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full);
+        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full, Some(loads));
         let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
 
         let equilibrium = compute_equilibrium_summary_3d(&f, &reactions_vec, dof_num, rel_residual, &p.inclined_transforms);
@@ -1837,7 +1837,7 @@ impl PreparedStatic3D {
             element_forces,
             plate_stresses,
             quad_stresses,
-            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full),
+            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full, Some(loads)),
             constraint_forces: vec![],
             diagnostics: p.diagnostics.clone(),
             solver_diagnostics: solver_diags,
@@ -2005,7 +2005,7 @@ impl PreparedStatic3D {
         let reactions_us = now_micros().saturating_sub(t0);
 
         let t0 = now_micros();
-        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full);
+        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full, Some(loads));
         let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
         let stress_recovery_us = now_micros().saturating_sub(t0);
 
@@ -2133,7 +2133,7 @@ impl PreparedStatic3D {
             element_forces,
             plate_stresses,
             quad_stresses,
-            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full),
+            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full, Some(loads)),
             constraint_forces: vec![],
             diagnostics: p.diagnostics.clone(),
             solver_diagnostics: solver_diags,
@@ -2209,7 +2209,7 @@ impl PreparedStatic3D {
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
         element_forces.sort_by_key(|ef| ef.element_id);
-        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full);
+        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full, Some(loads));
         let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
 
         // Compute actual residual: ||K·u − F||_free / ||F||_free
@@ -2302,7 +2302,7 @@ impl PreparedStatic3D {
 
         let mut results = AnalysisResults3D {
             displacements, reactions, element_forces, plate_stresses, quad_stresses,
-            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full),
+            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full, Some(loads)),
             constraint_forces: vec![], diagnostics: p.diagnostics.clone(),
             solver_diagnostics: solver_diags, structured_diagnostics: structured, equilibrium: Some(equilibrium), timings: Some(timings), result_summary: None,
             solver_run_meta: Some(SolverRunMeta::new(
@@ -3690,6 +3690,7 @@ pub(crate) fn compute_plate_stresses(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
+    loads: Option<&[SolverLoad3D]>,
 ) -> Vec<PlateStress> {
     let mut stresses = Vec::new();
 
@@ -3697,6 +3698,18 @@ pub(crate) fn compute_plate_stresses(
         input.nodes.values().map(|n| (n.id, n)).collect();
     let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
         input.materials.values().map(|m| (m.id, m)).collect();
+
+    // Index thermal loads by element id so stress recovery can subtract the
+    // thermal strain from the total strain (σ = C·ε_mech, not C·ε_total).
+    let loads_ref = loads.unwrap_or(&input.loads);
+    let mut thermal_by_elem: std::collections::HashMap<usize, (f64, f64, f64)> =
+        std::collections::HashMap::new();
+    for load in loads_ref {
+        if let SolverLoad3D::PlateThermal(tl) = load {
+            let alpha = tl.alpha.unwrap_or(1.2e-5);
+            thermal_by_elem.insert(tl.element_id, (alpha, tl.dt_uniform, tl.dt_gradient));
+        }
+    }
 
     for plate in input.plates.values() {
         let mat = mat_map[&plate.material_id];
@@ -3721,7 +3734,8 @@ pub(crate) fn compute_plate_stresses(
         let u_local = crate::linalg::transform_displacement(&u_global, &t_plate, 18);
 
         // Recover stresses at centroid
-        let s = crate::element::plate_stress_recovery(&coords, e, nu, plate.thickness, &u_local);
+        let (alpha, dt_uniform, dt_gradient) = thermal_by_elem.get(&plate.id).copied().unwrap_or((0.0, 0.0, 0.0));
+        let s = crate::element::plate_stress_recovery(&coords, e, nu, plate.thickness, &u_local, alpha, dt_uniform, dt_gradient);
 
         // Also recover nodal stresses for stress smoothing
         let nodal = crate::element::plate_stress_at_nodes(&coords, e, nu, plate.thickness, &u_local);
@@ -3807,7 +3821,7 @@ pub(crate) fn compute_quad_stresses(
         let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness, alpha, dt_uniform, dt_gradient);
 
         // Nodal stresses at 4 Gauss-extrapolated points
-        let nodal_vm = crate::element::quad::quad_nodal_von_mises(&coords, &u_local, e, nu, quad.thickness);
+        let nodal_vm = crate::element::quad::quad_nodal_von_mises(&coords, &u_local, e, nu, quad.thickness, alpha, dt_uniform);
 
         stresses.push(QuadStress {
             element_id: quad.id,
@@ -3838,7 +3852,7 @@ pub(crate) fn compute_quad_stresses(
         let u_local_vec = crate::linalg::transform_displacement(&u_global, &t_q9, 54);
         let (alpha, dt_uniform, dt_gradient) = thermal_by_elem.get(&q9.id).copied().unwrap_or((0.0, 0.0, 0.0));
         let s = crate::element::quad9::quad9_stresses(&coords, &u_local_vec, e, nu, q9.thickness, alpha, dt_uniform, dt_gradient);
-        let nodal_vm = crate::element::quad9::quad9_nodal_von_mises(&coords, &u_local_vec, e, nu, q9.thickness);
+        let nodal_vm = crate::element::quad9::quad9_nodal_von_mises(&coords, &u_local_vec, e, nu, q9.thickness, alpha, dt_uniform);
         stresses.push(QuadStress {
             element_id: q9.id,
             sigma_xx: s.sigma_xx,
@@ -3916,6 +3930,7 @@ pub(crate) fn compute_quad_nodal_stresses(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
+    loads: Option<&[SolverLoad3D]>,
 ) -> Vec<QuadNodalStress> {
     let mut stresses = Vec::new();
 
@@ -3923,6 +3938,25 @@ pub(crate) fn compute_quad_nodal_stresses(
         input.nodes.values().map(|n| (n.id, n)).collect();
     let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
         input.materials.values().map(|m| (m.id, m)).collect();
+
+    // Index thermal loads by element id so stress recovery can subtract the
+    // thermal strain from the total strain (σ = C·ε_mech, not C·ε_total).
+    let loads_ref = loads.unwrap_or(&input.loads);
+    let mut thermal_by_elem: std::collections::HashMap<usize, (f64, f64, f64)> =
+        std::collections::HashMap::new();
+    for load in loads_ref {
+        match load {
+            SolverLoad3D::QuadThermal(tl) => {
+                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                thermal_by_elem.insert(tl.element_id, (alpha, tl.dt_uniform, tl.dt_gradient));
+            }
+            SolverLoad3D::Quad9Thermal(tl) => {
+                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                thermal_by_elem.insert(tl.element_id, (alpha, tl.dt_uniform, tl.dt_gradient));
+            }
+            _ => {}
+        }
+    }
 
     for quad in input.quads.values() {
         let mat = mat_map[&quad.material_id];
@@ -3948,7 +3982,8 @@ pub(crate) fn compute_quad_nodal_stresses(
         let mut u_local = [0.0; 24];
         u_local.copy_from_slice(&u_local_vec);
 
-        let nodal = crate::element::quad::quad_stress_at_nodes(&coords, &u_local, e, nu, quad.thickness);
+        let (alpha, dt_uniform, dt_gradient) = thermal_by_elem.get(&quad.id).copied().unwrap_or((0.0, 0.0, 0.0));
+        let nodal = crate::element::quad::quad_stress_at_nodes(&coords, &u_local, e, nu, quad.thickness, alpha, dt_uniform, dt_gradient);
         for mut ns in nodal {
             ns.node_index = quad.nodes[ns.node_index];
             stresses.push(ns);
@@ -3969,7 +4004,8 @@ pub(crate) fn compute_quad_nodal_stresses(
         let u_global: Vec<f64> = q9_dofs.iter().map(|&d| u[d]).collect();
         let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
         let u_local_vec = crate::linalg::transform_displacement(&u_global, &t_q9, 54);
-        let nodal = crate::element::quad9::quad9_stress_at_nodes(&coords, &u_local_vec, e, nu, q9.thickness);
+        let (alpha, dt_uniform, dt_gradient) = thermal_by_elem.get(&q9.id).copied().unwrap_or((0.0, 0.0, 0.0));
+        let nodal = crate::element::quad9::quad9_stress_at_nodes(&coords, &u_local_vec, e, nu, q9.thickness, alpha, dt_uniform, dt_gradient);
         for mut ns in nodal {
             ns.node_index = q9.nodes[ns.node_index];
             stresses.push(ns);

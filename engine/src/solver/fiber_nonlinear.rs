@@ -754,7 +754,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             displacements,
             reactions: vec![],
             element_forces,
-            plate_stresses: super::linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
+            plate_stresses: super::linear::compute_plate_stresses(&input.solver, &dof_num, &u_full, None),
             quad_stresses: super::linear::compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
             quad_nodal_stresses: vec![],
             constraint_forces,

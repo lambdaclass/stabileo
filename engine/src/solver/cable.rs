@@ -634,7 +634,7 @@ pub fn solve_cable_3d(
         displacements,
         reactions,
         element_forces,
-        plate_stresses: linear::compute_plate_stresses(input, &dof_num, &u_full),
+        plate_stresses: linear::compute_plate_stresses(input, &dof_num, &u_full, None),
         quad_stresses: linear::compute_quad_stresses(input, &dof_num, &u_full, None),
         quad_nodal_stresses: vec![],
         constraint_forces,
