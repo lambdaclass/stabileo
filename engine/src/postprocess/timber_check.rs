@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// Timber member design data.
@@ -118,6 +120,9 @@ pub struct TimberCheckResult {
     pub cp: f64,
     /// Beam stability factor CL
     pub cl: f64,
+    /// Checks whose capacity could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== NDS Design Checks ====================
@@ -192,44 +197,24 @@ fn check_single_timber_member(
         0.0
     };
 
+    let mut ledger = CheckLedger::new();
+
     // Bending ratio
-    let bending_ratio = if fb_prime > 0.0 {
-        fb_actual / fb_prime
-    } else {
-        0.0
-    };
+    let bending_ratio = ledger.ratio("Bending NDS 3.3", fb_actual, fb_prime);
 
     // Compression and tension ratios
     let (compression_ratio, tension_ratio) = if n < 0.0 {
         let fc_actual = (-n) / area;
-        (
-            if fc_prime > 0.0 {
-                fc_actual / fc_prime
-            } else {
-                0.0
-            },
-            0.0,
-        )
+        (ledger.ratio("Compression NDS 3.6", fc_actual, fc_prime), 0.0)
     } else if n > 0.0 {
         let ft_actual = n / area;
-        (
-            0.0,
-            if ft_prime > 0.0 {
-                ft_actual / ft_prime
-            } else {
-                0.0
-            },
-        )
+        (0.0, ledger.ratio("Tension NDS 3.8", ft_actual, ft_prime))
     } else {
         (0.0, 0.0)
     };
 
     // Shear ratio
-    let shear_ratio = if fv_prime > 0.0 {
-        fv_actual / fv_prime
-    } else {
-        0.0
-    };
+    let shear_ratio = ledger.ratio_if_loaded("Shear NDS 3.4", fv_actual, fv_prime);
 
     // NDS 3.9: Combined loading interaction
     let interaction_ratio = if n < 0.0 {
@@ -273,11 +258,14 @@ fn check_single_timber_member(
         (interaction_ratio, "Interaction NDS 3.9"),
     ];
 
-    let (unity_ratio, governing_check) = checks
-        .iter()
-        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
-        .map(|(r, name)| (*r, name.to_string()))
-        .unwrap_or((0.0, "None".to_string()));
+    let interaction_ratio = ledger.require_finite("Interaction NDS 3.9", interaction_ratio);
+
+    let (unity_ratio, governing) = ledger.governing(&checks);
+    let governing_check = if ledger.all_evaluated() {
+        governing.to_string()
+    } else {
+        format!("{governing} (incomplete)")
+    };
 
     TimberCheckResult {
         element_id: m.element_id,
@@ -294,6 +282,7 @@ fn check_single_timber_member(
         fv_prime,
         cp,
         cl,
+        unevaluated: ledger.into_unevaluated(),
     }
 }
 

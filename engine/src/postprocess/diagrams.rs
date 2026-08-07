@@ -78,7 +78,9 @@ fn build_sampling_positions(
 /// record instead of on every station evaluation.
 pub fn sorted_point_loads(ef: &ElementForces) -> Vec<PointLoadInfo> {
     let mut pl = ef.point_loads.clone();
-    pl.sort_by(|a, b| a.a.partial_cmp(&b.a).unwrap());
+    // `total_cmp` rather than `partial_cmp().unwrap()`: a NaN position from a
+    // diverged solve would panic, and in WASM a panic aborts the module.
+    pl.sort_by(|a, b| a.a.total_cmp(&b.a));
     pl
 }
 

@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// RC section geometry type.
@@ -121,6 +123,9 @@ pub struct RCCheckResult {
     pub phi_flexure: f64,
     /// Whether the section is tension-controlled
     pub tension_controlled: bool,
+    /// Checks whose capacity could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== ACI 318-19 Design Checks ====================
@@ -166,12 +171,9 @@ fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult
     let mu_abs = f.mu.abs();
     let vu_abs = f.vu.unwrap_or(0.0).abs();
 
-    let flexure_ratio = if phi_mn > 0.0 { mu_abs / phi_mn } else { 0.0 };
-    let shear_ratio = if phi_vn > 0.0 {
-        vu_abs / phi_vn
-    } else {
-        0.0
-    };
+    let mut ledger = CheckLedger::new();
+    let flexure_ratio = ledger.ratio("Flexure ACI 318", mu_abs, phi_mn);
+    let shear_ratio = ledger.ratio_if_loaded("Shear ACI 318", vu_abs, phi_vn);
 
     let tension_controlled = epsilon_t >= 0.005;
 
@@ -181,11 +183,12 @@ fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult
         (shear_ratio, "Shear ACI 318"),
     ];
 
-    let (unity_ratio, governing_check) = checks
-        .iter()
-        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
-        .map(|(r, name)| (*r, name.to_string()))
-        .unwrap_or((0.0, "None".to_string()));
+    let (unity_ratio, governing) = ledger.governing(&checks);
+    let governing_check = if ledger.all_evaluated() {
+        governing.to_string()
+    } else {
+        format!("{governing} (incomplete)")
+    };
 
     RCCheckResult {
         element_id: m.element_id,
@@ -200,6 +203,7 @@ fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult
         epsilon_t,
         phi_flexure: phi_flex,
         tension_controlled,
+        unevaluated: ledger.into_unevaluated(),
     }
 }
 

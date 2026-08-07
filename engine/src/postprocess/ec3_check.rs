@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// EC3 cross-section class (1-4).
@@ -163,6 +165,9 @@ pub struct Ec3CheckResult {
     pub mb_rd: f64,
     /// Overall pass
     pub pass: bool,
+    /// Checks whose capacity could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== Implementation ====================
@@ -174,7 +179,11 @@ fn compute_chi(lambda_bar: f64, alpha: f64) -> f64 {
     }
     let phi = 0.5 * (1.0 + alpha * (lambda_bar - 0.2) + lambda_bar * lambda_bar);
     let chi = 1.0 / (phi + (phi * phi - lambda_bar * lambda_bar).sqrt());
-    chi.min(1.0)
+    // `chi.min(1.0)` returns 1.0 for a NaN chi, because Rust's f64::min ignores
+    // NaN — so a NaN slenderness silently meant "no buckling reduction", the
+    // most unconservative outcome available. Propagate the NaN instead and let
+    // the caller flag the check.
+    if chi.is_nan() { chi } else { chi.min(1.0) }
 }
 
 /// Check all EC3 members.
@@ -231,17 +240,13 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
     let chi_min = chi_y.min(chi_z);
     let nb_rd = chi_min * m.a * m.fy / gamma_m1;
 
-    let compression_ratio = if n_ed < 0.0 && nb_rd > 0.0 {
-        n_ed.abs() / nb_rd
-    } else {
-        0.0
-    };
+    let mut ledger = CheckLedger::new();
+    ledger.require_finite("Column buckling chi_y", chi_y);
+    ledger.require_finite("Column buckling chi_z", chi_z);
 
-    let tension_ratio = if n_ed > 0.0 && npl_rd > 0.0 {
-        n_ed / npl_rd
-    } else {
-        0.0
-    };
+    let compression_ratio =
+        ledger.ratio_if_loaded("Compression 6.3.1", (-n_ed).max(0.0), nb_rd);
+    let tension_ratio = ledger.ratio_if_loaded("Tension 6.2.3", n_ed.max(0.0), npl_rd);
 
     // ==================== Lateral-torsional buckling (EC3 6.3.2) ====================
 
@@ -260,29 +265,18 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
 
     let mb_rd = chi_lt * m.wpl_y * m.fy / gamma_m1;
 
-    let flexure_ratio_y = if my_ed.abs() > 0.0 && mb_rd > 0.0 {
-        my_ed.abs() / mb_rd
-    } else {
-        0.0
-    };
+    ledger.require_finite("LTB chi_LT", chi_lt);
+    let flexure_ratio_y = ledger.ratio_if_loaded("Flexure-y 6.3.2", my_ed.abs(), mb_rd);
 
     // Weak axis flexure (no LTB)
     let mc_z_rd = m.wpl_z * m.fy / gamma_m0;
-    let flexure_ratio_z = if mz_ed.abs() > 0.0 && mc_z_rd > 0.0 {
-        mz_ed.abs() / mc_z_rd
-    } else {
-        0.0
-    };
+    let flexure_ratio_z = ledger.ratio_if_loaded("Flexure-z 6.2.5", mz_ed.abs(), mc_z_rd);
 
     // ==================== Shear (EC3 6.2.6) ====================
 
     let av = m.av.unwrap_or(m.a * 0.5); // Approximate if not given
     let vpl_rd = av * (m.fy / 3.0_f64.sqrt()) / gamma_m0;
-    let shear_ratio = if v_ed.abs() > 0.0 && vpl_rd > 0.0 {
-        v_ed.abs() / vpl_rd
-    } else {
-        0.0
-    };
+    let shear_ratio = ledger.ratio_if_loaded("Shear 6.2.6", v_ed.abs(), vpl_rd);
 
     // ==================== Interaction (EC3 6.3.3, Method 2) ====================
 
@@ -312,7 +306,10 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
         flexure_ratio_y + flexure_ratio_z
     };
 
-    let pass = compression_ratio <= 1.0
+    let interaction_ratio = ledger.require_finite("Interaction 6.3.3", interaction_ratio);
+
+    let pass = ledger.all_evaluated()
+        && compression_ratio <= 1.0
         && tension_ratio <= 1.0
         && flexure_ratio_y <= 1.0
         && flexure_ratio_z <= 1.0
@@ -333,5 +330,6 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
         nb_rd,
         mb_rd,
         pass,
+        unevaluated: ledger.into_unevaluated(),
     }
 }

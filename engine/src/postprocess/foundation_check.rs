@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// Spread footing geometry and soil data.
@@ -89,6 +91,9 @@ pub struct SpreadFootingResult {
     pub eccentricity_y: f64,
     /// Overall pass (all ratios acceptable)
     pub pass: bool,
+    /// Checks whose capacity could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== Implementation ====================
@@ -141,8 +146,9 @@ fn check_single_footing(
     let b_eff = (b - 2.0 * ex.abs()).max(0.0);
     let a_eff = l_eff * b_eff;
 
+    let mut ledger = CheckLedger::new();
     let max_bearing = if a_eff > 0.0 { p / a_eff } else { f64::INFINITY };
-    let bearing_ratio = max_bearing / ftg.q_allowable;
+    let bearing_ratio = ledger.ratio("Bearing", max_bearing, ftg.q_allowable);
 
     // Overturning stability
     // Resisting moment = P * L/2 (or B/2)
@@ -178,11 +184,7 @@ fn check_single_footing(
     let bw_mm = b * 1000.0;
     let d_mm = d * 1000.0;
     let phi_vc_oneway = PHI_SHEAR * 0.17 * fc_mpa.sqrt() * bw_mm * d_mm;
-    let oneway_shear_ratio = if phi_vc_oneway > 0.0 {
-        vu_oneway / phi_vc_oneway
-    } else {
-        0.0
-    };
+    let oneway_shear_ratio = ledger.ratio("One-way shear", vu_oneway, phi_vc_oneway);
 
     // Two-way (punching) shear — critical section at d/2 from column face
     let b0 = 2.0 * ((ftg.col_length + d) + (ftg.col_width + d)); // perimeter (m)
@@ -205,13 +207,10 @@ fn check_single_footing(
     let vc_punch = vc1.min(vc2).min(vc3);
     let phi_vc_punch = PHI_SHEAR * vc_punch;
 
-    let punching_shear_ratio = if phi_vc_punch > 0.0 {
-        vu_punch / phi_vc_punch
-    } else {
-        0.0
-    };
+    let punching_shear_ratio = ledger.ratio("Punching shear", vu_punch, phi_vc_punch);
 
-    let pass = bearing_ratio <= 1.0
+    let pass = ledger.all_evaluated()
+        && bearing_ratio <= 1.0
         && overturning_sf_x >= 1.5
         && overturning_sf_y >= 1.5
         && sliding_sf >= 1.5
@@ -230,5 +229,6 @@ fn check_single_footing(
         eccentricity_x: ex,
         eccentricity_y: ey,
         pass,
+        unevaluated: ledger.into_unevaluated(),
     }
 }

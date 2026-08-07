@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// EC2 concrete class (e.g., C25/30, C30/37).
@@ -109,6 +111,9 @@ pub struct Ec2CheckResult {
     pub z: f64,
     /// Overall pass
     pub pass: bool,
+    /// Checks whose capacity could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== Implementation ====================
@@ -194,7 +199,8 @@ fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckRe
         (m_rd_val, z_val)
     };
 
-    let flexure_ratio = if m_rd > 0.0 { m_ed / m_rd } else { 0.0 };
+    let mut ledger = CheckLedger::new();
+    let flexure_ratio = ledger.ratio("Flexure 6.1", m_ed, m_rd);
 
     // ==================== Shear (EC2 Sec 6.2) ====================
 
@@ -238,9 +244,9 @@ fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckRe
         v_rdc
     };
 
-    let shear_ratio = if v_rd > 0.0 { v_ed / v_rd } else { 0.0 };
+    let shear_ratio = ledger.ratio_if_loaded("Shear 6.2", v_ed, v_rd);
 
-    let pass = flexure_ratio <= 1.0 && shear_ratio <= 1.0;
+    let pass = ledger.all_evaluated() && flexure_ratio <= 1.0 && shear_ratio <= 1.0;
 
     Ec2CheckResult {
         element_id: m.element_id,
@@ -254,5 +260,6 @@ fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckRe
         x_na,
         z,
         pass,
+        unevaluated: ledger.into_unevaluated(),
     }
 }

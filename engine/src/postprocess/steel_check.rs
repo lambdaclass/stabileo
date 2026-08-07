@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// Steel design parameters for a member.
@@ -122,6 +124,10 @@ pub struct SteelCheckResult {
     pub phi_mn_y: f64,
     /// Available flexural strength about Z (phi*Mn)
     pub phi_mn_z: f64,
+    /// Checks whose capacity could not be evaluated. Non-empty means the
+    /// reported ratios do not cover the member.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== AISC 360 Design Checks ====================
@@ -169,29 +175,26 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     let my = forces.my.abs();
     let mz = forces.mz.unwrap_or(0.0).abs();
 
-    let tension_ratio = if n > 0.0 && phi_pn_tension > 0.0 {
-        n / phi_pn_tension
-    } else {
-        0.0
-    };
+    let mut ledger = CheckLedger::new();
 
-    let compression_ratio = if n < 0.0 && phi_pn_compression > 0.0 {
-        (-n) / phi_pn_compression
-    } else {
-        0.0
-    };
+    let tension_ratio =
+        ledger.ratio_if_loaded("Tension D2", n.max(0.0), phi_pn_tension);
+    let compression_ratio =
+        ledger.ratio_if_loaded("Compression E3", (-n).max(0.0), phi_pn_compression);
+    let flexure_y_ratio = ledger.ratio_if_loaded("Flexure-Y F2", my, phi_mn_y);
+    let flexure_z_ratio = ledger.ratio_if_loaded("Flexure-Z F6", mz, phi_mn_z);
 
-    let flexure_y_ratio = if phi_mn_y > 0.0 { my / phi_mn_y } else { 0.0 };
-    let flexure_z_ratio = if phi_mn_z > 0.0 { mz / phi_mn_z } else { 0.0 };
+    // A NaN demand never reaches a ratio above, so flag it explicitly.
+    if !n.is_finite() {
+        ledger.flag("Axial demand");
+    }
 
     // AISC H1 interaction (using appropriate axial capacity)
-    let axial_ratio = if n < 0.0 {
-        if phi_pn_compression > 0.0 { (-n) / phi_pn_compression } else { 0.0 }
-    } else {
-        if phi_pn_tension > 0.0 { n / phi_pn_tension } else { 0.0 }
-    };
-
-    let interaction_ratio = interaction_h1(axial_ratio, flexure_y_ratio, flexure_z_ratio);
+    let axial_ratio = if n < 0.0 { compression_ratio } else { tension_ratio };
+    let interaction_ratio = ledger.require_finite(
+        "Interaction H1",
+        interaction_h1(axial_ratio, flexure_y_ratio, flexure_z_ratio),
+    );
 
     // Governing
     let checks = [
@@ -202,10 +205,12 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         (interaction_ratio, "Interaction H1"),
     ];
 
-    let (unity_ratio, governing_check) = checks.iter()
-        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
-        .map(|(r, name)| (*r, name.to_string()))
-        .unwrap_or((0.0, "None".to_string()));
+    let (unity_ratio, governing) = ledger.governing(&checks);
+    let governing_check = if ledger.all_evaluated() {
+        governing.to_string()
+    } else {
+        format!("{governing} (incomplete)")
+    };
 
     SteelCheckResult {
         element_id: eid,
@@ -220,6 +225,7 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         phi_pn_tension,
         phi_mn_y,
         phi_mn_z,
+        unevaluated: ledger.into_unevaluated(),
     }
 }
 

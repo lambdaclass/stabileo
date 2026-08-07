@@ -288,7 +288,8 @@ fn build_stress_sampling_positions(rs: &ResolvedSection) -> Vec<f64> {
         positions.extend_from_slice(&[y_junc + eps, y_junc - eps]);
     }
 
-    positions.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    // `total_cmp` rather than `partial_cmp().unwrap()`: see diagrams.rs.
+    positions.sort_by(|a, b| a.total_cmp(b));
     positions.dedup_by(|a, b| (*a - *b).abs() < eps * 0.5);
     positions
 }

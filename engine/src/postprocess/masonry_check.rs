@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// Masonry member data.
@@ -91,6 +93,9 @@ pub struct MasonryCheckResult {
     pub slenderness: f64,
     /// Overall pass
     pub pass: bool,
+    /// Checks whose capacity could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== Constants ====================
@@ -150,11 +155,8 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
         0.80 * (0.80 * m.fm * (an - m.as_tension) + m.fy * m.as_tension) * factor
     };
 
-    let axial_ratio = if pn > 0.0 {
-        pu / (PHI_AXIAL * pn)
-    } else {
-        0.0
-    };
+    let mut ledger = CheckLedger::new();
+    let axial_ratio = ledger.ratio_if_loaded("Axial 9.3.5", pu, PHI_AXIAL * pn);
 
     // ==================== Flexure (TMS 402 Sec 9.3.4) ====================
 
@@ -162,11 +164,7 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
     let a = m.as_tension * m.fy / (0.80 * m.fm * m.b);
     let mn = m.as_tension * m.fy * (m.d - a / 2.0);
 
-    let flexure_ratio = if mn > 0.0 {
-        mu / (PHI_FLEXURE * mn)
-    } else {
-        0.0
-    };
+    let flexure_ratio = ledger.ratio_if_loaded("Flexure 9.3.4", mu, PHI_FLEXURE * mn);
 
     // ==================== Shear (TMS 402 Sec 9.3.6) ====================
 
@@ -186,17 +184,14 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
 
     let vn = vm + vs;
 
-    let shear_ratio = if vn > 0.0 {
-        vu / (PHI_SHEAR * vn)
-    } else {
-        0.0
-    };
+    let shear_ratio = ledger.ratio_if_loaded("Shear 9.3.6", vu, PHI_SHEAR * vn);
 
     // ==================== Interaction ====================
     // Simplified linear interaction: Pu/(phi*Pn) + Mu/(phi*Mn) <= 1.0
     let interaction_ratio = axial_ratio + flexure_ratio;
 
-    let pass = axial_ratio <= 1.0
+    let pass = ledger.all_evaluated()
+        && axial_ratio <= 1.0
         && flexure_ratio <= 1.0
         && shear_ratio <= 1.0
         && interaction_ratio <= 1.0;
@@ -212,5 +207,6 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
         vn,
         slenderness,
         pass,
+        unevaluated: ledger.into_unevaluated(),
     }
 }

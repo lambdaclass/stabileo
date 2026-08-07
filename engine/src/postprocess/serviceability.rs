@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// Deflection limit criterion.
@@ -65,6 +67,9 @@ pub struct ServiceabilityResult {
     pub vibration_ok: Option<bool>,
     /// Overall pass/fail
     pub pass: bool,
+    /// Checks that could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 /// Run serviceability checks.
@@ -83,28 +88,28 @@ pub fn check_serviceability(input: &ServiceabilityInput) -> Vec<ServiceabilityRe
             DeflectionCriterion::Absolute(limit) => limit,
         };
 
+        let mut ledger = CheckLedger::new();
         let actual = m.max_deflection.abs();
-        let deflection_ratio = if allowable > 0.0 {
-            actual / allowable
-        } else {
-            0.0
-        };
-        let deflection_ok = deflection_ratio <= 1.0;
+        let deflection_ratio = ledger.ratio("Deflection", actual, allowable);
+        let deflection_ok = ledger.all_evaluated() && deflection_ratio <= 1.0;
 
+        // A frequency that was requested but is unusable (a modal solve that
+        // produced nothing) is an unevaluated check, not an absent one — the
+        // previous `unwrap_or(true)` turned it into a pass.
         let (vibration_ratio, vibration_ok) = match (m.natural_frequency, m.min_frequency) {
-            (Some(freq), Some(min_freq)) if freq > 0.0 => {
+            (Some(freq), min) if freq > 0.0 && freq.is_finite() => {
+                let min_freq = min.unwrap_or(3.0); // default floor criterion
                 let ratio = min_freq / freq;
                 (Some(ratio), Some(ratio <= 1.0))
             }
-            (Some(freq), None) if freq > 0.0 => {
-                // Default 3 Hz floor criterion
-                let ratio = 3.0 / freq;
-                (Some(ratio), Some(ratio <= 1.0))
+            (Some(_), _) => {
+                ledger.flag("Vibration");
+                (None, Some(false))
             }
-            _ => (None, None),
+            (None, _) => (None, None),
         };
 
-        let pass = deflection_ok && vibration_ok.unwrap_or(true);
+        let pass = ledger.all_evaluated() && deflection_ok && vibration_ok.unwrap_or(true);
 
         results.push(ServiceabilityResult {
             element_id: m.element_id,
@@ -115,6 +120,7 @@ pub fn check_serviceability(input: &ServiceabilityInput) -> Vec<ServiceabilityRe
             vibration_ratio,
             vibration_ok,
             pass,
+            unevaluated: ledger.into_unevaluated(),
         });
     }
 
