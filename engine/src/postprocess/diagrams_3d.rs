@@ -196,13 +196,15 @@ fn compute_single_diagram_3d(
 /// Compute all 3D diagrams for all elements.
 pub fn compute_diagrams_3d(results: &AnalysisResults3D) -> DiagramResults3D {
     let kinds = ["momentY", "momentZ", "shearY", "shearZ", "axial", "torsion"];
-    let mut all: Vec<Vec<ElementDiagram3D>> = kinds.iter()
-        .map(|kind| {
-            results.element_forces.iter()
-                .map(|ef| compute_single_diagram_3d(ef, kind))
-                .collect()
-        })
-        .collect();
+    // Iterate elements outermost so each element's forces stay in cache across
+    // all six kinds, instead of six separate passes over the whole vector.
+    let mut all: Vec<Vec<ElementDiagram3D>> =
+        kinds.iter().map(|_| Vec::with_capacity(results.element_forces.len())).collect();
+    for ef in &results.element_forces {
+        for (k, kind) in kinds.iter().enumerate() {
+            all[k].push(compute_single_diagram_3d(ef, kind));
+        }
+    }
 
     DiagramResults3D {
         moment_y: all.remove(0),

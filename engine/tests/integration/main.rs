@@ -22,6 +22,7 @@ mod material_nonlinear_3d;
 mod moving_loads_3d;
 mod plastic_3d;
 mod plate_improvements;
+mod postprocess_scaling;
 mod rc_check;
 mod section;
 mod serviceability;

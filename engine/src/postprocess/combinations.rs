@@ -455,9 +455,17 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope
 
         for (e_idx, _) in first.element_forces.iter().enumerate() {
             let elem_id = first.element_forces[e_idx].element_id;
-            let mut t_positions = Vec::new();
-            let mut pos_values = Vec::new();
-            let mut neg_values = Vec::new();
+            let mut t_positions = Vec::with_capacity(N_POINTS);
+            let mut pos_values = Vec::with_capacity(N_POINTS);
+            let mut neg_values = Vec::with_capacity(N_POINTS);
+
+            // Collect the force records for this element once instead of
+            // re-indexing and bounds-checking every result at every station —
+            // the 2D path already hoists its per-element work this way.
+            let element_cases: Vec<&ElementForces3D> = results
+                .iter()
+                .filter_map(|res| res.element_forces.get(e_idx))
+                .collect();
 
             for j in 0..N_POINTS {
                 let t = j as f64 / (N_POINTS - 1) as f64;
@@ -465,9 +473,8 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
 
-                for res in results {
-                    if e_idx >= res.element_forces.len() { continue; }
-                    let val = evaluate_diagram_3d_at(&res.element_forces[e_idx], kind, t);
+                for ef in &element_cases {
+                    let val = evaluate_diagram_3d_at(ef, kind, t);
                     if val > max_pos { max_pos = val; }
                     if val < max_neg { max_neg = val; }
                 }

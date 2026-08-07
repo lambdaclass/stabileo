@@ -131,15 +131,26 @@ const PHI_V: f64 = 0.95; // Shear
 
 // ==================== Implementation ====================
 
+
+/// Index the force records by id so each member is a hash lookup rather than a
+/// scan of the whole list. The pairing was O(members x forces): fine at 100
+/// members, quadratic at 10,000 — and this runs on every edit.
+fn index_forces<T>(forces: &[T], id_of: impl Fn(&T) -> usize) -> std::collections::HashMap<usize, &T> {
+    let mut map = std::collections::HashMap::with_capacity(forces.len());
+    for f in forces {
+        map.entry(id_of(f)).or_insert(f);
+    }
+    map
+}
+
 /// Check all CFS members.
 pub fn check_cfs_members(input: &CfsCheckInput) -> Vec<CfsCheckResult> {
     let mut results = Vec::new();
 
+    let by_id = index_forces(&input.forces, |f| f.element_id);
+
     for member in &input.members {
-        let forces = input
-            .forces
-            .iter()
-            .find(|f| f.element_id == member.element_id);
+        let forces = by_id.get(&member.element_id).copied();
         let forces = match forces {
             Some(f) => f,
             None => continue,

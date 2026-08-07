@@ -95,15 +95,24 @@ pub struct SpreadFootingResult {
 
 const PHI_SHEAR: f64 = 0.75;
 
+/// Index the force records by id so each footing is a hash lookup rather than a
+/// scan of the whole list.
+fn index_forces<T>(forces: &[T], id_of: impl Fn(&T) -> usize) -> std::collections::HashMap<usize, &T> {
+    let mut map = std::collections::HashMap::with_capacity(forces.len());
+    for f in forces {
+        map.entry(id_of(f)).or_insert(f);
+    }
+    map
+}
+
 /// Check all spread footings.
 pub fn check_spread_footings(input: &SpreadFootingInput) -> Vec<SpreadFootingResult> {
     let mut results = Vec::new();
 
+    let by_id = index_forces(&input.forces, |f| f.footing_id);
+
     for footing in &input.footings {
-        let forces = input
-            .forces
-            .iter()
-            .find(|f| f.footing_id == footing.footing_id);
+        let forces = by_id.get(&footing.footing_id).copied();
         let forces = match forces {
             Some(f) => f,
             None => continue,
