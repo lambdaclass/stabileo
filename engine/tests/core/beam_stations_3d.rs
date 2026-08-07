@@ -540,7 +540,9 @@ fn test_full_pipeline_solve_to_steel_check_3d() {
         members: vec![SteelMemberData {
             element_id: 1,
             fy, ag,
+            fu: None,          // no rupture check without Fu
             an: None, u_factor: None,
+            aw: None, cv1: None, // no shear check without the web area
             lby: 4.0, lbz: 4.0,
             ky: None, kz: None,
             iy: iy_sec, iz: iz_sec,

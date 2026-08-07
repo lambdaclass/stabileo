@@ -338,21 +338,51 @@ fn flexural_capacity_tbeam(m: &RCMemberData, es: f64) -> (f64, f64, f64, f64, f6
     }
 }
 
-/// ACI 318M-19 Sec 22.5: Shear capacity.
+/// ACI 318M-19 Sec 22.5.5.1: Shear capacity.
 /// Formula uses f'c in MPa and dimensions in mm (empirical, not dimensionally homogeneous).
+///
+/// 318-19 replaced the single 0.17·lambda·sqrt(f'c) expression of 318-14 with a
+/// table keyed on whether at least minimum shear reinforcement is present. Where
+/// it is not, the size-effect factor lambda_s applies — and since it only bites
+/// for d > 250 mm, leaving it out was unconservative for essentially every beam.
 fn shear_capacity(m: &RCMemberData) -> f64 {
     let lambda = m.lambda.unwrap_or(1.0);
     let fc_mpa = m.fc / 1e6;
     let bw_mm = m.b * 1000.0;
     let d_mm = m.d * 1000.0;
-
-    // Vc = 0.17 * lambda * sqrt(f'c_MPa) * bw_mm * d_mm  (N)
-    let vc = 0.17 * lambda * fc_mpa.sqrt() * bw_mm * d_mm;
+    let sqrt_fc = fc_mpa.sqrt();
 
     // Vs = Av * fy * d / s  (all in base SI: m², Pa, m, m → N)
     let vs = match (m.av, m.s_stirrup) {
         (Some(av), Some(s)) if s > 0.0 => av * m.fy * m.d / s,
         _ => 0.0,
+    };
+
+    // ACI 318-19 9.6.3.4: Av,min = max(0.062·sqrt(f'c)·bw·s/fyt, 0.35·bw·s/fyt)
+    let has_min_shear_reinf = match (m.av, m.s_stirrup) {
+        (Some(av), Some(s)) if s > 0.0 && m.fy > 0.0 => {
+            let s_mm = s * 1000.0;
+            let fy_mpa = m.fy / 1e6;
+            let av_min_mm2 = (0.062 * sqrt_fc * bw_mm * s_mm / fy_mpa)
+                .max(0.35 * bw_mm * s_mm / fy_mpa);
+            av * 1e6 >= av_min_mm2
+        }
+        _ => false,
+    };
+
+    let vc = if has_min_shear_reinf {
+        // 22.5.5.1(a): Vc = 0.17·lambda·sqrt(f'c)·bw·d, no size effect.
+        0.17 * lambda * sqrt_fc * bw_mm * d_mm
+    } else {
+        // 22.5.5.1(c): Vc = 0.66·lambda_s·lambda·rho_w^(1/3)·sqrt(f'c)·bw·d
+        // 22.5.5.1.3: lambda_s = sqrt(2/(1 + d/250)) <= 1.0, d in mm.
+        let lambda_s = (2.0 / (1.0 + d_mm / 250.0)).sqrt().min(1.0);
+        let rho_w = if m.b > 0.0 && m.d > 0.0 {
+            m.as_tension / (m.b * m.d)
+        } else {
+            0.0
+        };
+        0.66 * lambda_s * lambda * rho_w.cbrt() * sqrt_fc * bw_mm * d_mm
     };
 
     // Maximum Vs limit: 0.66 * sqrt(f'c_MPa) * bw_mm * d_mm (N)

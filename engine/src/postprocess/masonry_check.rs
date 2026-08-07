@@ -174,7 +174,14 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
     let _em = em; // used for documentation/consistency
     let fm_mpa = m.fm / 1e6;
     let an_mm2 = an * 1e6; // m² to mm²
-    let vm = 0.083 * (4.0 - 1.75 * (mu / (vu * m.d)).min(1.0).max(0.0)) * fm_mpa.sqrt() * an_mm2;
+    // M/(V·dv), the shear-span ratio the code indexes on. Guarded so a member
+    // with no shear demand does not divide by zero.
+    let mv_dv = {
+        let denom = vu * m.d;
+        if denom > 0.0 { (mu / denom).clamp(0.0, 1.0) } else { 0.0 }
+    };
+
+    let vm = 0.083 * (4.0 - 1.75 * mv_dv) * fm_mpa.sqrt() * an_mm2;
     // Add effect of axial compression
     let vm = vm + 0.25 * pu; // simplified
 
@@ -184,7 +191,22 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
         _ => 0.0,
     };
 
-    let vn = vm + vs;
+    // TMS 402 9.3.4.1.2 caps Vn regardless of how much reinforcement is
+    // present, so that closely spaced steel cannot buy unlimited shear
+    // strength — the governing failure mode for masonry in earthquakes:
+    //   M/(V·dv) <= 0.25  ->  Vn <= 0.5 ·An·sqrt(f'm)
+    //   M/(V·dv) >= 1.00  ->  Vn <= 0.33·An·sqrt(f'm)
+    // with linear interpolation between.
+    let vn_coefficient = if mv_dv <= 0.25 {
+        0.5
+    } else if mv_dv >= 1.0 {
+        0.33
+    } else {
+        0.5 + (0.33 - 0.5) * (mv_dv - 0.25) / 0.75
+    };
+    let vn_max = vn_coefficient * an_mm2 * fm_mpa.sqrt();
+
+    let vn = (vm + vs).min(vn_max);
 
     let shear_ratio = if vn > 0.0 {
         vu / (PHI_SHEAR * vn)

@@ -164,25 +164,27 @@ fn check_single_footing(
         f64::INFINITY
     };
 
-    // One-way shear (beam shear) — critical section at d from column face
-    // Vu = q * B * (L/2 - col_L/2 - d)
-    let oneway_dist = l / 2.0 - ftg.col_length / 2.0 - d;
-    let vu_oneway = if oneway_dist > 0.0 && area > 0.0 {
-        (p / area) * b * oneway_dist
-    } else {
-        0.0
-    };
+    // One-way shear (beam shear) — critical section at d from the column face.
+    // Both directions must be checked: on a footing that cantilevers further
+    // across its width than along its length, the width direction governs and
+    // checking only the length direction misses it entirely.
+    let fc_mpa = ftg.fc / 1e6;
+    let d_mm = d * 1000.0;
 
     // phi*Vc = phi * 0.17 * sqrt(f'c_MPa) * bw_mm * d_mm (ACI 318 metric)
-    let fc_mpa = ftg.fc / 1e6;
-    let bw_mm = b * 1000.0;
-    let d_mm = d * 1000.0;
-    let phi_vc_oneway = PHI_SHEAR * 0.17 * fc_mpa.sqrt() * bw_mm * d_mm;
-    let oneway_shear_ratio = if phi_vc_oneway > 0.0 {
-        vu_oneway / phi_vc_oneway
-    } else {
-        0.0
+    let oneway_ratio = |cantilever: f64, loaded_width: f64, resisting_width: f64| {
+        if cantilever <= 0.0 || area <= 0.0 {
+            return 0.0;
+        }
+        let vu = (p / area) * loaded_width * cantilever;
+        let phi_vc = PHI_SHEAR * 0.17 * fc_mpa.sqrt() * (resisting_width * 1000.0) * d_mm;
+        if phi_vc > 0.0 { vu / phi_vc } else { 0.0 }
     };
+
+    // Cantilever along the length, resisted by the full width, and vice versa.
+    let ratio_along_length = oneway_ratio(l / 2.0 - ftg.col_length / 2.0 - d, b, b);
+    let ratio_across_width = oneway_ratio(b / 2.0 - ftg.col_width / 2.0 - d, l, l);
+    let oneway_shear_ratio = ratio_along_length.max(ratio_across_width);
 
     // Two-way (punching) shear — critical section at d/2 from column face
     let b0 = 2.0 * ((ftg.col_length + d) + (ftg.col_width + d)); // perimeter (m)

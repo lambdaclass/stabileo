@@ -14,6 +14,10 @@ pub struct SteelMemberData {
     pub element_id: usize,
     /// Yield stress (Pa or consistent units)
     pub fy: f64,
+    /// Tensile strength Fu (Pa). Required for the D2-2 rupture check; without
+    /// it only gross-section yielding is evaluated.
+    #[serde(default)]
+    pub fu: Option<f64>,
     /// Gross area (m² or consistent)
     pub ag: f64,
     /// Net area for tension (default = Ag)
@@ -22,6 +26,12 @@ pub struct SteelMemberData {
     /// Effective net area factor U (default 1.0)
     #[serde(default)]
     pub u_factor: Option<f64>,
+    /// Web area Aw = d·tw (m²). Required for the G2 shear check.
+    #[serde(default)]
+    pub aw: Option<f64>,
+    /// Web shear strength coefficient Cv1 (default 1.0, AISC G2.1)
+    #[serde(default)]
+    pub cv1: Option<f64>,
     /// Unbraced length for compression about Y-axis
     pub lby: f64,
     /// Unbraced length for compression about Z-axis
@@ -112,8 +122,12 @@ pub struct SteelCheckResult {
     pub flexure_y_ratio: f64,
     /// Flexural capacity check about Z-axis (Mr / phi*Mn_z)
     pub flexure_z_ratio: f64,
+    /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied
+    pub shear_ratio: f64,
     /// Combined interaction ratio (AISC H1-1)
     pub interaction_ratio: f64,
+    /// Available shear strength (phi*Vn), 0.0 when Aw was not supplied
+    pub phi_vn: f64,
     /// Available axial compression strength (phi*Pn)
     pub phi_pn_compression: f64,
     /// Available axial tension strength (phi*Pn)
@@ -128,7 +142,12 @@ pub struct SteelCheckResult {
 
 const PHI_C: f64 = 0.90; // Compression
 const PHI_T: f64 = 0.90; // Tension (yielding)
+const PHI_TR: f64 = 0.75; // Tension (rupture on the net section)
 const PHI_B: f64 = 0.90; // Flexure
+/// AISC G1 general case. The phi_v = 1.00 of G2.1(a) needs h/tw <= 2.24*sqrt(E/Fy),
+/// which cannot be verified from the properties supplied here, so the lower
+/// value is used.
+const PHI_V: f64 = 0.90;
 
 /// Run AISC 360 steel design checks on all members.
 pub fn check_steel_members(input: &SteelCheckInput) -> Vec<SteelCheckResult> {
@@ -184,6 +203,11 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     let flexure_y_ratio = if phi_mn_y > 0.0 { my / phi_mn_y } else { 0.0 };
     let flexure_z_ratio = if phi_mn_z > 0.0 { mz / phi_mn_z } else { 0.0 };
 
+    // AISC G2 shear
+    let phi_vn = shear_capacity(member);
+    let vy = forces.vy.unwrap_or(0.0).abs();
+    let shear_ratio = if phi_vn > 0.0 { vy / phi_vn } else { 0.0 };
+
     // AISC H1 interaction (using appropriate axial capacity)
     let axial_ratio = if n < 0.0 {
         if phi_pn_compression > 0.0 { (-n) / phi_pn_compression } else { 0.0 }
@@ -199,6 +223,7 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         (compression_ratio, "Compression E3"),
         (flexure_y_ratio, "Flexure-Y F2"),
         (flexure_z_ratio, "Flexure-Z F6"),
+        (shear_ratio, "Shear G2"),
         (interaction_ratio, "Interaction H1"),
     ];
 
@@ -215,7 +240,9 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         compression_ratio,
         flexure_y_ratio,
         flexure_z_ratio,
+        shear_ratio,
         interaction_ratio,
+        phi_vn,
         phi_pn_compression,
         phi_pn_tension,
         phi_mn_y,
@@ -223,9 +250,39 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     }
 }
 
-/// AISC D2: Tension yielding on gross section.
+/// AISC D2: available tensile strength — the lower of yielding on the gross
+/// section (D2-1) and rupture on the effective net section (D2-2).
+///
+/// Rupture is skipped when Fu is not supplied, since there is no basis for it.
+/// Where a member is bolted, rupture routinely governs: the smaller phi (0.75
+/// vs 0.90) and the hole deduction together typically cost 20 %.
 fn tension_capacity(m: &SteelMemberData) -> f64 {
-    PHI_T * m.fy * m.ag
+    let yielding = PHI_T * m.fy * m.ag;
+
+    match m.fu {
+        Some(fu) if fu > 0.0 => {
+            // D3: Ae = An·U
+            let an = m.an.unwrap_or(m.ag);
+            let u = m.u_factor.unwrap_or(1.0);
+            let rupture = PHI_TR * fu * an * u;
+            yielding.min(rupture)
+        }
+        _ => yielding,
+    }
+}
+
+/// AISC G2-1: Vn = 0.6·Fy·Aw·Cv1.
+///
+/// Returns 0.0 when the web area is unknown — there is no shear check to
+/// report rather than a capacity to invent.
+fn shear_capacity(m: &SteelMemberData) -> f64 {
+    match m.aw {
+        Some(aw) if aw > 0.0 => {
+            let cv1 = m.cv1.unwrap_or(1.0);
+            PHI_V * 0.6 * m.fy * aw * cv1
+        }
+        _ => 0.0,
+    }
 }
 
 /// AISC E3: Flexural buckling compression capacity.

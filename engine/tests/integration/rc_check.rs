@@ -292,8 +292,15 @@ fn rc_check_shear_concrete_only() {
     let results = check_rc_members(&input);
     let r = &results[0];
 
-    // Vc = 0.17 * sqrt(28_MPa) * 300_mm * 500_mm = 134,946 N
-    let vc = 0.17 * 28.0_f64.sqrt() * 300.0 * 500.0;
+    // Without at least Av,min, ACI 318-19 22.5.5.1(c) applies — including the
+    // size-effect factor. (This test previously used the 318-14 expression,
+    // 0.17·sqrt(f'c)·bw·d = 134_933 N, which the module header does not claim.)
+    //   lambda_s = sqrt(2/(1 + 500/250)) = 0.816497
+    //   rho_w    = 1500e-6/(0.30·0.50) = 0.01  ->  cube root 0.215444
+    //   Vc = 0.66·0.816497·0.215444·sqrt(28)·300·500 = 92_152 N
+    let lambda_s = (2.0_f64 / (1.0 + 500.0 / 250.0)).sqrt();
+    let rho_w: f64 = 1500e-6 / (0.30 * 0.50);
+    let vc = 0.66 * lambda_s * rho_w.cbrt() * 28.0_f64.sqrt() * 300.0 * 500.0;
     let phi_vn_expected = 0.75 * vc;
 
     assert!(
@@ -303,12 +310,15 @@ fn rc_check_shear_concrete_only() {
         phi_vn_expected
     );
 
-    // 80 kN / ~101 kN ≈ 0.79
+    // 80 kN / 69.1 kN = 1.158. Under the 318-14 expression the same beam
+    // reported 0.79 and passed; the size effect is what turns it over, and it
+    // applies to every beam deeper than 250 mm without minimum stirrups.
     assert!(
-        r.shear_ratio > 0.6 && r.shear_ratio < 1.0,
+        (r.shear_ratio - 80e3 / phi_vn_expected).abs() < 1e-3,
         "Shear ratio: {:.3}",
         r.shear_ratio
     );
+    assert!(r.shear_ratio > 1.0, "this section is now shear-critical: {:.3}", r.shear_ratio);
 }
 
 /// Test 7: Multiple members — sorted results.

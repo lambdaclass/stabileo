@@ -7,9 +7,12 @@ fn w14x22_data(eid: usize, lby: f64, lbz: f64) -> SteelMemberData {
     SteelMemberData {
         element_id: eid,
         fy: 345e6,        // 50 ksi = 345 MPa
+        fu: None,         // rupture check off unless a test opts in
         ag: 4.19e-3,      // 6.49 in²
         an: None,
         u_factor: None,
+        aw: None,         // shear check off unless a test opts in
+        cv1: None,
         lby,
         lbz,
         ky: None,
