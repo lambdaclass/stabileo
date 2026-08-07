@@ -207,20 +207,38 @@ export function axialForceColor(nAvg: number): number {
 }
 
 /** Dispose of all geometries and materials in an Object3D tree */
+/** Mark a geometry or material as shared between objects so `disposeObject`
+ *  leaves it alone. Support gizmos reuse one geometry per shape across every
+ *  instance — disposing it with the first deleted support would blank every
+ *  other support in the model. Same reasoning as the cached label textures
+ *  below. */
+export function markShared<T extends { userData: Record<string, unknown> }>(resource: T): T {
+  resource.userData.shared = true;
+  return resource;
+}
+
+function isShared(r: { userData?: Record<string, unknown> } | null | undefined): boolean {
+  return r?.userData?.shared === true;
+}
+
+function disposeIfPrivate(r: { userData?: Record<string, unknown>; dispose(): void } | null | undefined): void {
+  if (r && !isShared(r)) r.dispose();
+}
+
 export function disposeObject(obj: THREE.Object3D): void {
   obj.traverse((child) => {
     if (child instanceof THREE.Mesh) {
-      child.geometry?.dispose();
+      disposeIfPrivate(child.geometry);
       if (child.material instanceof THREE.Material) {
-        child.material.dispose();
+        disposeIfPrivate(child.material);
       } else if (Array.isArray(child.material)) {
-        child.material.forEach(m => m.dispose());
+        child.material.forEach(m => disposeIfPrivate(m));
       }
     }
     if (child instanceof THREE.Line) {
-      child.geometry?.dispose();
+      disposeIfPrivate(child.geometry);
       if (child.material instanceof THREE.Material) {
-        child.material.dispose();
+        disposeIfPrivate(child.material);
       }
     }
     if (child instanceof THREE.Sprite) {

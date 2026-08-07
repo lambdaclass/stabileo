@@ -104,6 +104,13 @@ export class ElementsPicking {
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
+  /** Ids currently held, in no particular order. Used for stale removal —
+   *  this structure is the authoritative registry of what is in the scene,
+   *  since a plain wireframe member has no Group of its own. */
+  ids(): number[] {
+    return Array.from(this.idToIndex.keys());
+  }
+
   has(id: number): boolean {
     return this.idToIndex.has(id);
   }

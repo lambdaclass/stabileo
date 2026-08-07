@@ -163,14 +163,21 @@ export function syncElements(ctx: SceneSyncContext): void {
   const eb = ctx.elementsBatched;
   const ep = ctx.elementsPicking;
 
-  // Remove stale (groups, batched segments, picking instances)
+  // Remove stale (groups, batched segments, picking instances).
+  // Driven off the batched structures, not `elementGroups`: in wireframe a
+  // plain member has no group, so the group map is only a partial registry and
+  // using it here left deleted elements in the picking mesh forever.
+  for (const id of eb.ids()) {
+    if (!storeElements.has(id)) eb.remove(id);
+  }
+  for (const id of ep.ids()) {
+    if (!storeElements.has(id)) ep.remove(id);
+  }
   for (const [id, group] of ctx.elementGroups) {
     if (!storeElements.has(id)) {
       ctx.elementsParent.remove(group);
       disposeObject(group);
       ctx.elementGroups.delete(id);
-      eb.remove(id);
-      ep.remove(id);
     }
   }
 
@@ -203,13 +210,41 @@ export function syncElements(ctx: SceneSyncContext): void {
     // BVH-accelerated picking surface (invisible) — kept in sync with positions.
     ep.upsert(id, posI, posJ);
 
-    const signature =
-      `${renderMode}|${elem.type}|${elementReleaseKey(elem.releaseI, elem.releaseJ)}` +
-      `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
-      `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.tl ?? ''}:${sec?.rotation ?? ''}` +
-      `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
-      `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}` +
-      `|jnt:${elem.jointI ? 'I' + elem.jointI.dof.map(b => b ? 1 : 0).join('') : ''}${elem.jointJ ? 'J' + elem.jointJ.dof.map(b => b ? 1 : 0).join('') : ''}`;
+    // In wireframe the member is drawn by the batched LineSegments2, so the
+    // per-element Group exists only to carry a hinge marker or an internal-joint
+    // glyph. With neither it would be empty — and an empty Object3D still costs
+    // a matrix update and a cull test on every frame. On a stadium-sized model
+    // that is thousands of objects in the graph drawing nothing at all.
+    const releaseKey = elementReleaseKey(elem.releaseI, elem.releaseJ);
+    const hasRelease = releaseKey !== '000000';
+    const hasJoint = jointHasRelease(elem.jointI) || jointHasRelease(elem.jointJ);
+    const needsGroup = renderMode !== 'wireframe' || hasRelease || hasJoint;
+
+    if (!needsGroup) {
+      // Drop a group left over from solid/sections mode.
+      const stale = ctx.elementGroups.get(id);
+      if (stale) {
+        ctx.elementsParent.remove(stale);
+        disposeObject(stale);
+        ctx.elementGroups.delete(id);
+      }
+      continue;
+    }
+
+    // Signature captures everything that forces a rebuild. In wireframe the
+    // group holds only markers, so section geometry, roll and offsets cannot
+    // change it; building the full string for every element was the bulk of the
+    // per-edit cost and none of it was load-bearing.
+    const jointKey = `${elem.jointI ? 'I' + elem.jointI.dof.map(b => b ? 1 : 0).join('') : ''}${elem.jointJ ? 'J' + elem.jointJ.dof.map(b => b ? 1 : 0).join('') : ''}`;
+    const signature = renderMode === 'wireframe'
+      ? `wireframe|${elem.type}|${releaseKey}` +
+        `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}|jnt:${jointKey}`
+      : `${renderMode}|${elem.type}|${releaseKey}` +
+        `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
+        `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.tl ?? ''}:${sec?.rotation ?? ''}` +
+        `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
+        `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}` +
+        `|jnt:${jointKey}`;
 
     const existing = ctx.elementGroups.get(id);
     if (existing && existing.userData.elementSig === signature) continue;

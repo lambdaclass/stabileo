@@ -6,7 +6,7 @@
 //   To point the cone along Z: rotate -π/2 around X.
 
 import * as THREE from 'three';
-import { COLORS } from './selection-helpers';
+import { COLORS, markShared } from './selection-helpers';
 import { GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../geometry/coordinate-system';
 
 export type SupportGizmoType =
@@ -74,6 +74,68 @@ export function createSupportGizmo(
   return group;
 }
 
+
+// ─── Shared resources ───────────────────────────────────────
+//
+// Gizmo geometry is fixed per shape (position lives on the Group) and colour
+// only ever takes a handful of values, so both are module-level singletons
+// instead of a fresh allocation per support. La Bombonera has 205 supports, all
+// `fixed3d`: that was ~1400 BufferGeometry and ~400 Material objects to draw
+// one shape 205 times.
+//
+// Everything handed out here is marked shared, so `disposeObject` skips it —
+// deleting one support must not blank the rest.
+
+const geoCache = new Map<string, THREE.BufferGeometry>();
+const matCache = new Map<string, THREE.Material>();
+
+function sharedGeo(key: string, build: () => THREE.BufferGeometry): THREE.BufferGeometry {
+  let g = geoCache.get(key);
+  if (!g) {
+    g = markShared(build());
+    geoCache.set(key, g);
+  }
+  return g;
+}
+
+function sharedStandardMat(color: number, roughness: number): THREE.Material {
+  const key = `std:${color}:${roughness}`;
+  let m = matCache.get(key);
+  if (!m) {
+    m = markShared(new THREE.MeshStandardMaterial({ color, roughness }));
+    matCache.set(key, m);
+  }
+  return m;
+}
+
+function sharedBasicMat(color: number): THREE.Material {
+  const key = `basic:${color}`;
+  let m = matCache.get(key);
+  if (!m) {
+    m = markShared(new THREE.MeshBasicMaterial({ color }));
+    matCache.set(key, m);
+  }
+  return m;
+}
+
+function sharedLineMat(color: number, linewidth = 1): THREE.Material {
+  const key = `line:${color}:${linewidth}`;
+  let m = matCache.get(key);
+  if (!m) {
+    m = markShared(new THREE.LineBasicMaterial({ color, linewidth }));
+    matCache.set(key, m);
+  }
+  return m;
+}
+
+function sharedLineGeo(key: string, points: [number, number, number][]): THREE.BufferGeometry {
+  return sharedGeo(key, () => new THREE.BufferGeometry().setFromPoints(
+    points.map(([x, y, z]) => new THREE.Vector3(x, y, z)),
+  ));
+}
+
+const GROUND_COLOR = 0x556677;
+
 // ─── Helpers ────────────────────────────────────────────────
 
 /** Create a square-base pyramid with vertex at (0,0,0) and base at Z=-height.
@@ -102,34 +164,29 @@ function createPyramid(radius: number, height: number, color: number): THREE.Mes
     ...b0, ...b3, ...b2,
   ]);
 
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-  geo.computeVertexNormals();
+  const geo = sharedGeo(`pyramid:${radius}:${height}`, () => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+    g.computeVertexNormals();
+    return g;
+  });
 
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
-  return new THREE.Mesh(geo, mat);
+  return new THREE.Mesh(geo, sharedStandardMat(color, 0.5));
 }
 
 /** Ground line cross at a given Z level in the XY plane */
 function addGroundCross(group: THREE.Group, z: number = -0.35): void {
-  const mat = new THREE.LineBasicMaterial({ color: 0x556677 });
+  const mat = sharedLineMat(GROUND_COLOR);
   const half = 0.25;
-  group.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-half, 0, z), new THREE.Vector3(half, 0, z)]),
-    mat,
-  ));
-  group.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -half, z), new THREE.Vector3(0, half, z)]),
-    mat,
-  ));
+  group.add(new THREE.Line(sharedLineGeo(`cross-x:${z}`, [[-half, 0, z], [half, 0, z]]), mat));
+  group.add(new THREE.Line(sharedLineGeo(`cross-y:${z}`, [[0, -half, z], [0, half, z]]), mat));
 }
 
 /** Single ground line at a given Z level */
 function addGroundLine(group: THREE.Group, z: number = -0.35): void {
-  const mat = new THREE.LineBasicMaterial({ color: 0x556677 });
   group.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.25, 0, z), new THREE.Vector3(0.25, 0, z)]),
-    mat,
+    sharedLineGeo(`ground:${z}`, [[-0.25, 0, z], [0.25, 0, z]]),
+    sharedLineMat(GROUND_COLOR),
   ));
 }
 
@@ -138,24 +195,25 @@ function addGroundLine(group: THREE.Group, z: number = -0.35): void {
 /** Fixed support: flat block in XY plane at -Z, with hash lines below */
 function addFixedGizmo(group: THREE.Group, color: number): void {
   // Flat block: wide in X and Y, thin in Z
-  const geo = new THREE.BoxGeometry(0.5, 0.5, 0.12);
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
-  const box = new THREE.Mesh(geo, mat);
+  const box = new THREE.Mesh(
+    sharedGeo('fixed-block', () => new THREE.BoxGeometry(0.5, 0.5, 0.12)),
+    sharedStandardMat(color, 0.6),
+  );
   box.position.set(0, 0, -0.06); // half-thickness below node
   group.add(box);
 
   // Hash lines below the block
-  const linesMat = new THREE.LineBasicMaterial({ color: 0x556677 });
+  const linesMat = sharedLineMat(GROUND_COLOR);
   for (let i = -1; i <= 1; i++) {
     // Diagonal hatch in XZ plane
-    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(-0.25 + i * 0.15, 0, -0.12),
-      new THREE.Vector3(-0.1 + i * 0.15, 0, -0.28),
+    group.add(new THREE.Line(sharedLineGeo(`hatch-xz:${i}`, [
+      [-0.25 + i * 0.15, 0, -0.12],
+      [-0.1 + i * 0.15, 0, -0.28],
     ]), linesMat));
     // Diagonal hatch in YZ plane
-    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, -0.25 + i * 0.15, -0.12),
-      new THREE.Vector3(0, -0.1 + i * 0.15, -0.28),
+    group.add(new THREE.Line(sharedLineGeo(`hatch-yz:${i}`, [
+      [0, -0.25 + i * 0.15, -0.12],
+      [0, -0.1 + i * 0.15, -0.28],
     ]), linesMat));
   }
 }
@@ -176,8 +234,8 @@ function addRollerGizmo(group: THREE.Group, color: number, rollAxis: 'X' | 'Y' |
   group.add(createPyramid(0.16, 0.3, color));
 
   // Roller spheres below pyramid base
-  const sphereGeo = new THREE.SphereGeometry(0.04, 8, 8);
-  const sphereMat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
+  const sphereGeo = sharedGeo('roller-sphere', () => new THREE.SphereGeometry(0.04, 8, 8));
+  const sphereMat = sharedStandardMat(color, 0.4);
   const baseZ = -0.34;
   const s = 0.1;
 
@@ -216,9 +274,8 @@ function addSpringGizmo(group: THREE.Group, color: number): void {
   }
   points.push(new THREE.Vector3(0, 0, -height - 0.05));
 
-  const geo = new THREE.BufferGeometry().setFromPoints(points);
-  const mat = new THREE.LineBasicMaterial({ color, linewidth: 2 });
-  group.add(new THREE.Line(geo, mat));
+  const geo = sharedGeo('spring-coil', () => new THREE.BufferGeometry().setFromPoints(points));
+  group.add(new THREE.Line(geo, sharedLineMat(color, 2)));
 
   addGroundLine(group, -height - 0.1);
 }
@@ -241,9 +298,8 @@ function addCustom3DGizmo(
   for (const [fixed, axis, axisColor] of transAxes) {
     if (!fixed) continue;
     // CylinderGeometry axis is Y. Rotate to align with the target axis.
-    const geo = new THREE.CylinderGeometry(0.025, 0.025, barLen, 6);
-    const mat = new THREE.MeshStandardMaterial({ color: axisColor, roughness: 0.5 });
-    const mesh = new THREE.Mesh(geo, mat);
+    const geo = sharedGeo(`dof-bar:${barLen}`, () => new THREE.CylinderGeometry(0.025, 0.025, barLen, 6));
+    const mesh = new THREE.Mesh(geo, sharedStandardMat(axisColor, 0.5));
     if (axis.x > 0) mesh.rotation.z = -Math.PI / 2;       // Y → X
     else if (axis.z > 0) mesh.rotation.x = -Math.PI / 2;   // Y → Z
     // else axis.y: no rotation needed
@@ -259,9 +315,8 @@ function addCustom3DGizmo(
   ];
   for (const [fixed, axis, axisColor] of rotAxes) {
     if (!fixed) continue;
-    const torus = new THREE.TorusGeometry(0.12, 0.015, 6, 12, Math.PI);
-    const mat = new THREE.MeshBasicMaterial({ color: axisColor });
-    const mesh = new THREE.Mesh(torus, mat);
+    const torus = sharedGeo('dof-torus', () => new THREE.TorusGeometry(0.12, 0.015, 6, 12, Math.PI));
+    const mesh = new THREE.Mesh(torus, sharedBasicMat(axisColor));
     const quat = new THREE.Quaternion();
     quat.setFromUnitVectors(GLOBAL_Z, axis);
     mesh.quaternion.copy(quat);

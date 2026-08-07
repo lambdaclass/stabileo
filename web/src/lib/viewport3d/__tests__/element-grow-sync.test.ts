@@ -32,6 +32,11 @@ function load(n: number) {
   modelStore.replaceModelData(m.nodes as Map<number, never>, m.elements as Map<number, never>, new Map(), []);
 }
 
+// `elementGroups` is no longer the proxy for "member is renderable": in
+// wireframe a plain member has no group at all (the batched LineSegments2 draws
+// it, and an empty Group would just cost a matrix update per frame). The two
+// structures that must grow with the model are the batched wireframe and the
+// picking mesh, so the assertions track those instead.
 describe('element render sync grows with the model (3D partial-render regression)', () => {
   beforeEach(() => { modelStore.replaceModelData(new Map(), new Map(), new Map(), []); });
 
@@ -39,11 +44,11 @@ describe('element render sync grows with the model (3D partial-render regression
     const ctx = makeCtx();
     load(1); syncElements(ctx);
     expect(ctx.elementsBatched.count).toBe(1);
-    expect(ctx.elementGroups.size).toBe(1);
+    expect(ctx.elementsPicking.count).toBe(1);
 
     load(6); syncElements(ctx);
     expect(ctx.elementsBatched.count).toBe(6);     // no first-model cap
-    expect(ctx.elementGroups.size).toBe(6);
+    expect(ctx.elementsPicking.count).toBe(6);
   });
 
   it('large → small → large: no stale count persists', () => {
@@ -52,7 +57,7 @@ describe('element render sync grows with the model (3D partial-render regression
     load(2); syncElements(ctx); expect(ctx.elementsBatched.count).toBe(2);
     load(8); syncElements(ctx);
     expect(ctx.elementsBatched.count).toBe(8);
-    expect(ctx.elementGroups.size).toBe(8);
+    expect(ctx.elementsPicking.count).toBe(8);
   });
 
   it('real fixtures: simply-supported (1) → grid-beams (40) renders all members', async () => {
@@ -66,7 +71,7 @@ describe('element render sync grows with the model (3D partial-render regression
     const n = modelStore.elements.size;
     expect(n).toBeGreaterThan(1);                 // grid is larger
     expect(ctx.elementsBatched.count).toBe(n);    // every member batched (no small-model cap)
-    expect(ctx.elementGroups.size).toBe(n);
+    expect(ctx.elementsPicking.count).toBe(n);    // and every member pickable
   });
 
   it('disjoint element ids (fresh example) fully replace the old set', () => {
@@ -80,6 +85,6 @@ describe('element render sync grows with the model (3D partial-render regression
     modelStore.replaceModelData(nodes as Map<number, never>, elements as Map<number, never>, new Map(), []);
     syncElements(ctx);
     expect(ctx.elementsBatched.count).toBe(5);
-    expect(ctx.elementGroups.size).toBe(5);
+    expect(ctx.elementsPicking.count).toBe(5);
   });
 });
