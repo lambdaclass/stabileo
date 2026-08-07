@@ -212,14 +212,19 @@ fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckRe
 
     // VRd,s — shear reinforcement capacity (EC2 6.2.3)
     let z_shear = m.z.unwrap_or(0.9 * m.d);
-    let theta = m.theta_shear.unwrap_or(std::f64::consts::FRAC_PI_4 / 2.0 + std::f64::consts::FRAC_PI_4 / 2.0);
-    // Default theta = 21.8 degrees (cot = 2.5, minimum angle)
-    let theta = if m.theta_shear.is_none() {
-        (1.0_f64 / 2.5_f64).atan() // 21.8 deg
-    } else {
-        theta
+    // EC2 6.2.3(2) bounds the strut inclination to 1 <= cot(theta) <= 2.5,
+    // i.e. 21.8 deg <= theta <= 45 deg. Working directly in cot(theta) keeps
+    // the clamp exact and avoids the singularity at theta = 0, where an
+    // unvalidated angle produced an unbounded VRd,s (and a shear ratio of 0).
+    // The default is the flattest permitted strut, cot = 2.5.
+    const COT_THETA_MAX: f64 = 2.5; // theta = 21.8 deg
+    const COT_THETA_MIN: f64 = 1.0; // theta = 45 deg
+    let cot_theta = match m.theta_shear {
+        Some(t) if t.is_finite() && t > 0.0 => {
+            (1.0 / t.tan()).clamp(COT_THETA_MIN, COT_THETA_MAX)
+        }
+        _ => COT_THETA_MAX,
     };
-    let cot_theta = 1.0 / theta.tan();
 
     let v_rds = match (m.asw, m.s_stirrup) {
         (Some(asw), Some(s)) if s > 0.0 => asw * z_shear * fyd * cot_theta / s,

@@ -272,7 +272,18 @@ fn flexural_capacity_y(m: &SteelMemberData) -> f64 {
 
     // AISC F2-7: rts² = √(Iy_weak * Cw) / Sx_strong
     let c = 1.0; // For doubly-symmetric I-shapes
-    let ho = m.depth.unwrap_or(0.3); // distance between flange centroids (approx depth)
+
+    // `ho` is the distance between flange centroids. For a doubly-symmetric
+    // I-shape Cw = Iz·ho²/4, so when Cw is supplied ho follows from the section
+    // properties already given — no guess needed, and it lands within ~0.3 % of
+    // d - tf for rolled shapes. Falling back to a literal 0.3 m (the previous
+    // default) applied one section's depth to every section.
+    let ho = if cw > 0.0 && m.iz > 0.0 {
+        Some(2.0 * (cw / m.iz).sqrt())
+    } else {
+        m.depth
+    };
+
     let rts = if m.sy > 1e-20 && cw > 0.0 {
         let rts_sq = (m.iz * cw).sqrt() / m.sy;
         rts_sq.sqrt()
@@ -281,14 +292,24 @@ fn flexural_capacity_y(m: &SteelMemberData) -> f64 {
         m.rz
     };
 
-    let lr = if rts > 0.0 && m.j > 0.0 {
+    // St-Venant torsion term Jc/(Sx·ho), shared by F2-4 and F2-6. Without a
+    // usable ho there is no basis for it; dropping it to zero reduces Fcr to
+    // the pure-warping lower bound, which is the conservative reading.
+    let jc_sh = match ho {
+        Some(ho) if ho > 0.0 && m.sy > 1e-20 => m.j * c / (m.sy * ho),
+        _ => 0.0,
+    };
+
+    let lr = if rts > 0.0 && m.j > 0.0 && jc_sh > 0.0 {
         // AISC F2-6: Lr = 1.95 * rts * (E/(0.7*Fy)) * sqrt(Jc/(Sx*ho) + sqrt(...))
-        let jc_sh = m.j * c / (m.sy * ho);
         let ratio_sq = (0.7 * m.fy / m.e).powi(2);
         1.95 * rts * (m.e / (0.7 * m.fy))
             * (jc_sh + (jc_sh * jc_sh + 6.76 * ratio_sq).sqrt()).sqrt()
     } else {
-        10.0 * lp // fallback
+        // No basis for Lr: treat everything past Lp as elastic LTB rather than
+        // inventing a long inelastic plateau (the previous 10·Lp fallback ran
+        // the other way).
+        lp
     };
 
     let mn = if lb <= lp {
@@ -302,7 +323,7 @@ fn flexural_capacity_y(m: &SteelMemberData) -> f64 {
         let pi2 = std::f64::consts::PI * std::f64::consts::PI;
         let lb_rts = lb / rts;
         let fcr = cb * pi2 * m.e / lb_rts.powi(2)
-            * (1.0 + 0.078 * m.j * c / (m.sy * ho) * lb_rts.powi(2)).sqrt();
+            * (1.0 + 0.078 * jc_sh * lb_rts.powi(2)).sqrt();
         (fcr * m.sy).min(mp)
     };
 

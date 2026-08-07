@@ -7,6 +7,7 @@ mod cirsoc201_check;
 mod combinations;
 mod connection_check;
 mod corotational_3d;
+mod design_check_defaults;
 mod eccentric_connections;
 mod ec2_check;
 mod ec3_check;

@@ -236,25 +236,25 @@ fn check_single_timber_member(
         // NDS 3.9.2: Combined bending and axial compression
         // (fc/Fc')² + fb / (Fb' * (1 - fc/FcE)) <= 1.0
         let fc_actual = (-n) / area;
-        let e_min = m.e_min.unwrap_or(m.e * 0.58);
+        let e_min = emin_prime(m, cm, ct, ci);
         let kce = 0.822; // NDS Table 3.3.3
+        // FcE1 is buckling *in the plane of bending*. `m` is strong-axis
+        // bending (S = b·d²/6), so this is le1/d1 = le/d, not the governing
+        // le/min(b, d) used for CP.
         let le_d = m.le / m.d;
-        let fce = kce * e_min * cm * ct * ci / (le_d * le_d);
+        let fce = kce * e_min / (le_d * le_d);
         let fc_ratio = if fc_prime > 0.0 {
             fc_actual / fc_prime
         } else {
             0.0
         };
-        let amplification = if fce > 0.0 {
-            1.0 - fc_actual / fce
-        } else {
-            1.0
-        };
-        let amplified_bending = if amplification > 0.0 {
-            bending_ratio / amplification
-        } else {
-            bending_ratio
-        };
+        // NDS 3.9.2 is only defined while fc < FcE1. Past that the member has
+        // buckled; dropping the amplification made the check *weakest* exactly
+        // where it should diverge. Flooring the denominator keeps the ratio
+        // finite (NaN/inf do not survive JSON) while letting it blow up — and
+        // leaves a pure-compression member governed by the (fc/Fc')² term.
+        let amplification = if fce > 0.0 { 1.0 - fc_actual / fce } else { 1.0 };
+        let amplified_bending = bending_ratio / amplification.max(1e-6);
         fc_ratio * fc_ratio + amplified_bending
     } else if n > 0.0 {
         // NDS 3.9.1: Combined bending and axial tension
@@ -297,6 +297,25 @@ fn check_single_timber_member(
     }
 }
 
+/// Adjusted modulus of elasticity for stability, Emin' = Emin·CM·Ct·Ci.
+///
+/// When Emin is not supplied it is derived from E per NDS Appendix F:
+///   Emin = E·(1 - 1.645·COV_E)·1.03/1.66
+/// with COV_E = 0.25 for visually graded sawn lumber (matching the c = 0.8 used
+/// in CP below), giving Emin = 0.3653·E. Published values agree: Douglas
+/// Fir-Larch No. 2 has E = 1.6e6 psi and Emin = 0.58e6 psi, a ratio of 0.36.
+///
+/// A previous 0.58·E default looks like the bare (1 - 1.645·0.25) = 0.589 term
+/// with the 1.03/1.66 adjustment dropped; it overstates Emin by 59 %, and with
+/// it FcE, FbE, CP and CL.
+fn emin_prime(m: &TimberMemberData, cm: f64, ct: f64, ci: f64) -> f64 {
+    const COV_E_SAWN: f64 = 0.25;
+    let e_min = m
+        .e_min
+        .unwrap_or(m.e * (1.0 - 1.645 * COV_E_SAWN) * 1.03 / 1.66);
+    e_min * cm * ct * ci
+}
+
 /// NDS 3.7.1: Column stability factor CP.
 fn column_stability_factor(
     m: &TimberMemberData,
@@ -305,7 +324,6 @@ fn column_stability_factor(
     ct: f64,
     ci: f64,
 ) -> f64 {
-    let e_min = m.e_min.unwrap_or(m.e * 0.58);
     let cf_c = m.cf_compression.unwrap_or(1.0);
     let kce = 0.822; // NDS Table 3.3.3
 
@@ -321,8 +339,7 @@ fn column_stability_factor(
         return 1.0;
     }
 
-    let e_min_prime = e_min * cm * ct * ci;
-    let fce = kce * e_min_prime / (le_d * le_d);
+    let fce = kce * emin_prime(m, cm, ct, ci) / (le_d * le_d);
 
     // CP using NDS Eq 3.7-1
     let ratio = fce / fc_star;
@@ -335,6 +352,28 @@ fn column_stability_factor(
     cp.max(0.0).min(1.0)
 }
 
+/// NDS Table 3.3.3: effective span length le from the unbraced length lu.
+///
+/// The table is indexed by loading condition; this uses the single-span,
+/// uniformly distributed load row, which is the common case and the one the
+/// caller's `lu` implies:
+///   lu/d < 7          ->  le = 2.06·lu
+///   7 <= lu/d <= 14.3 ->  le = 1.63·lu + 3d
+///   lu/d > 14.3       ->  le = 1.84·lu
+fn effective_bending_span(lu: f64, d: f64) -> f64 {
+    if d <= 0.0 {
+        return 2.06 * lu;
+    }
+    let lu_d = lu / d;
+    if lu_d < 7.0 {
+        2.06 * lu
+    } else if lu_d <= 14.3 {
+        1.63 * lu + 3.0 * d
+    } else {
+        1.84 * lu
+    }
+}
+
 /// NDS 3.3.3: Beam stability factor CL.
 fn beam_stability_factor(
     m: &TimberMemberData,
@@ -344,7 +383,6 @@ fn beam_stability_factor(
     ci: f64,
 ) -> f64 {
     let lu = m.lu.unwrap_or(m.le);
-    let e_min = m.e_min.unwrap_or(m.e * 0.58);
     let cf_b = m.cf_bending.unwrap_or(1.0);
     let cr = m.cr.unwrap_or(1.0);
     let cfu = m.cfu.unwrap_or(1.0);
@@ -360,8 +398,10 @@ fn beam_stability_factor(
         return 1.0;
     }
 
-    // Effective length Le for bending
-    let le_bend = lu; // simplified — use Lu directly
+    // Effective span length le for bending (NDS Table 3.3.3). le is always
+    // longer than lu — between 1.63x and 2.06x for a single span — so taking
+    // le = lu understated RB and overstated both FbE and CL.
+    let le_bend = effective_bending_span(lu, m.d);
 
     // RB = sqrt(le * d / b²)  — NDS 3.3.3.5
     let rb_sq = le_bend * m.d / (m.b * m.b);
@@ -370,8 +410,7 @@ fn beam_stability_factor(
     }
 
     // FbE = 1.20 * Emin' / RB²
-    let e_min_prime = e_min * cm * ct * ci;
-    let fbe = 1.20 * e_min_prime / rb_sq;
+    let fbe = 1.20 * emin_prime(m, cm, ct, ci) / rb_sq;
 
     // CL using NDS Eq 3.3-6 (same form as CP)
     let ratio = fbe / fb_star;
