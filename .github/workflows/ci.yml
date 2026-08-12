@@ -176,8 +176,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      # Pinned and cached; see the note in deploy-gh-pages.yml. The installer
+      # script has no retry, so a transient 503 from the releases CDN fails the
+      # job. CI is no more robust than the deploy was — it had just been lucky.
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.13.1
 
       - uses: actions/setup-node@v4
         with:
@@ -210,8 +215,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      # Pinned and cached; see the note in deploy-gh-pages.yml. The installer
+      # script has no retry, so a transient 503 from the releases CDN fails the
+      # job. CI is no more robust than the deploy was — it had just been lucky.
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.13.1
 
       - uses: Swatinem/rust-cache@v2
         with:
