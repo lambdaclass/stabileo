@@ -21,7 +21,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, solveModel, designAll } from './fixtures';
+import { test, expect, solveModel, designAll, openBasicProjectPanel } from './fixtures';
 import type { Page } from '@playwright/test';
 import { validateAgainstSchema } from '../src/lib/export/json-schema-subset';
 import {
@@ -54,11 +54,9 @@ async function openCommittedProject(page: Page) {
   // First button in the mode toggle is Básico. Selected structurally rather than by label, so
   // the Spanish journeys below use the same helper.
   await page.locator('[data-tour="mode-toggle"] button').first().click();
-  // Desktop Básico is the ribbon, and the project controls live in a panel it opens —
-  // `BasicPanel` renders `ToolbarProject`, so nothing is attached until the panel is.
-  // This helper was written before the ribbon reached this branch and reached straight
-  // for the input, which no longer exists on load.
-  await page.getByTestId('hdr-project').click();
+  // Written before the ribbon reached this branch, this helper reached straight for the
+  // input, which no longer exists on load.
+  await openBasicProjectPanel(page);
   const input = page.getByTestId('project-open-file');
   await expect(input).toBeAttached();
   await input.setInputFiles(FIXTURE);

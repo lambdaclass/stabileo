@@ -15,7 +15,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect } from './fixtures';
+import { test, expect, openBasicProjectPanel } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const FIXTURE = new URL(
@@ -158,8 +158,8 @@ test.describe('@slow PRO project files', () => {
     // Básico is the ribbon on desktop and its project controls live in a panel, so the
     // claim "untouched" has to be checked where they actually are. Opening the panel is
     // part of the assertion, not setup for it: if the ribbon had lost the button, this
-    // click would fail and that is exactly the regression the test is named for.
-    await page.getByTestId('hdr-project').click();
+    // would fail and that is exactly the regression the test is named for.
+    await openBasicProjectPanel(page);
     await expect(page.locator('[data-tour="project-section"]')).toBeAttached();
     await expect(page.getByTestId('project-open-file')).toBeAttached();
     // And PRO's own controls are correctly absent from Básico.
