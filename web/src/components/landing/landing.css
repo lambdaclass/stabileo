@@ -366,6 +366,26 @@
   border-bottom-color: var(--lp-accent);
 }
 
+/*
+   `.link-arrow` was written for anchors. The hero's blog link and every link
+   inside the blog are buttons instead, because a real <a href="/blog/…"> on a
+   static site is a 404 round-trip — and a button carries the user agent's own
+   chrome (border, background, centred system font), which reads as a form
+   control in the middle of prose.
+*/
+.landing button.link-arrow {
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--lp-accent-dim);
+  padding: 0 0 2px;
+  font: inherit;
+  font-family: var(--lp-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
 /* ─── NAV ────────────────────────────────────────────────────────────────── */
 
 .landing .nav {
@@ -525,6 +545,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Its own line, under the buttons and clear of the modes below. */
+.landing .hero-blog {
+  display: inline-block;
   margin-bottom: 2.5rem;
 }
 
@@ -841,322 +867,6 @@
   background: var(--lp-accent);
 }
 
-/* ─── DEMO ───────────────────────────────────────────────────────────────── */
-
-.landing .demo-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.landing .demo-pills {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  flex: none;
-}
-
-/* The Basic pill states scope, so it reads as fact rather than as the live indicator. */
-.landing .pill-basic {
-  border-color: var(--ok);
-  color: var(--ok);
-}
-
-.landing .demo-scope {
-  margin: 1rem 0 0;
-  color: var(--fg-2);
-  font-size: 0.95rem;
-  max-width: 84ch;
-}
-
-.landing .pill {
-  font-family: var(--lp-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  border: 1px solid var(--lp-accent);
-  color: var(--accent-text);
-  padding: 0.3rem 0.6rem;
-  border-radius: var(--lp-radius);
-  margin: 0;
-  flex: none;
-}
-
-/*
-   Layout only — no border, no background, no padding. The device carries the
-   single frame in this section; an outer bordered box around it read as a
-   window inside a window and left 238 px of empty gutter at 1440.
-*/
-.landing .demo-stage {
-  display: grid;
-  grid-template-columns: minmax(0, 720px) minmax(260px, 1fr);
-  align-items: start;
-  gap: clamp(1.25rem, 2.5vw, 2.25rem);
-  margin-top: 1.5rem;
-}
-
-.landing .demo-aside {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  min-width: 0;
-}
-
-/*
-   Width is capped below the application's own 768 px mobile breakpoint so the
-   embed renders the real mobile UI rather than a shrunken desktop one. Height
-   is fixed rather than an aspect ratio: an application viewport that changes
-   shape with the column width is not a useful demo.
-*/
-.landing .demo-device {
-  position: relative;
-  width: min(100%, 720px);
-  /* Taller than before: with the gutters gone the section can afford it, and
-     a bigger viewport is what makes the embed read as the primary object. */
-  height: clamp(420px, 66vh, 660px);
-  overflow: hidden;
-  background: var(--lp-ink);
-  border: 1px solid var(--card-hair);
-}
-
-.landing .demo-poster-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.landing .demo-poster-img img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.28;
-  filter: saturate(70%);
-}
-
-.landing .demo-iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-}
-
-/* Belt and braces with `inert`: nothing reaches the frame while locked. */
-.landing .demo-iframe.locked {
-  pointer-events: none;
-}
-
-.landing .demo-skeleton {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-family: var(--lp-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-  background: var(--lp-ink);
-  z-index: 2;
-}
-
-.landing .demo-skeleton.ready {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ── the lock: transparent to the pointer, one explicit target ── */
-.landing .demo-lock {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  padding: 1.5rem;
-  text-align: center;
-  background: rgba(12, 22, 32, 0.55);
-  /* A wheel, drag or flick anywhere here still scrolls the page. */
-  pointer-events: none;
-}
-
-.landing .demo-cta {
-  pointer-events: auto;
-  font-family: var(--lp-sans);
-  font-weight: 600;
-  font-size: 0.98rem;
-  line-height: 1;
-  color: #fff;
-  background: var(--lp-accent);
-  border: 0;
-  border-radius: var(--lp-radius);
-  padding: 0.85rem 1.6rem;
-  cursor: pointer;
-  transition: background-color 0.16s ease;
-}
-
-.landing .demo-cta:hover {
-  background: #cf3d21;
-}
-
-.landing .demo-lock-hint {
-  font-family: var(--lp-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.1em;
-  color: var(--lp-paper-2);
-  max-width: 32ch;
-  line-height: 1.55;
-}
-
-/* ── control row: always present, so nothing shifts when it lights up ── */
-.landing .demo-controls {
-  width: 100%;
-  margin-top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  min-height: 32px;
-  visibility: hidden;
-}
-
-.landing .demo-controls.on {
-  visibility: visible;
-}
-
-.landing .demo-status {
-  font-family: var(--lp-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--lp-slate-2);
-  line-height: 1.4;
-  min-width: 0;
-}
-
-.landing .demo-control-group {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex: none;
-}
-
-.landing .demo-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--lp-sans);
-  font-weight: 600;
-  font-size: 0.78rem;
-  line-height: 1;
-  color: var(--lp-paper-2);
-  background: transparent;
-  border: 1px solid rgba(143, 163, 179, 0.3);
-  border-radius: var(--lp-radius);
-  padding: 0.42rem 0.7rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.landing .demo-btn:hover {
-  border-color: var(--lp-paper-2);
-}
-
-.landing .demo-btn-exit {
-  color: #fff;
-  background: var(--lp-accent);
-  border-color: var(--lp-accent);
-}
-
-.landing .demo-btn-exit:hover {
-  background: #cf3d21;
-  border-color: #cf3d21;
-}
-
-.landing .demo-btn kbd {
-  font-family: var(--lp-mono);
-  font-size: 0.6rem;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  border-radius: 2px;
-  padding: 0 0.24rem;
-}
-
-/* Guided-tour CTA: secondary weight, comfortable touch target. */
-.landing .demo-tour {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--hair);
-}
-
-.landing .demo-tour-copy {
-  margin: 0;
-  color: var(--fg-2);
-  font-size: 0.92rem;
-  max-width: 34ch;
-}
-
-.landing .demo-tour-btn {
-  min-height: 44px;
-}
-
-.landing .demo-fallback {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  text-align: center;
-  padding: 1.5rem;
-  background: rgba(12, 22, 32, 0.86);
-}
-
-.landing .demo-fallback-copy {
-  display: grid;
-  gap: 1rem;
-  justify-items: center;
-  max-width: 40ch;
-}
-
-.landing .demo-fallback-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.landing .demo-bar {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.9rem;
-  margin-top: 0;
-}
-
-.landing .demo-tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-}
-
-.landing .demo-tabs-label {
-  font-family: var(--lp-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-  margin-right: 0.35rem;
-}
-
 .landing .chip {
   font-family: var(--lp-mono);
   font-size: 0.73rem;
@@ -1168,16 +878,6 @@
   color: var(--fg-2);
   cursor: pointer;
   white-space: nowrap;
-}
-
-.landing .chip:hover {
-  color: var(--fg);
-  border-color: var(--fg-2);
-}
-
-.landing .chip.active {
-  color: var(--accent-text);
-  border-color: var(--lp-accent);
 }
 
 .landing .chip-static {
@@ -1366,6 +1066,12 @@
   font-size: 0.94rem;
 }
 
+/*
+   The section's closing line. `margin: 0` left it sitting directly under the
+   last bullet of the AI-future list, where a 2.2rem accent sentence reads as
+   another list item rather than as the section's conclusion. It needs the
+   room its weight implies.
+*/
 .landing .thesis-close {
   font-family: var(--lp-display);
   font-weight: 700;
@@ -1374,7 +1080,7 @@
   line-height: 1.15;
   color: var(--accent-text);
   max-width: 24ch;
-  margin: 0;
+  margin: clamp(2.5rem, 5vw, 4rem) 0 0;
 }
 
 /* ─── STATUS ─────────────────────────────────────────────────────────────── */
@@ -1821,26 +1527,6 @@
   .landing .rt-grid { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 1199px) {
-  /*
-     Below 1200 there is not room for a 720 px embed and a useful aside side by
-     side — splitting there only shrinks the embed. Stack instead; with the
-     outer border gone there is no empty framed box either way.
-  */
-  .landing .demo-stage { grid-template-columns: minmax(0, 1fr); gap: 0.9rem; justify-items: start; }
-  .landing .demo-aside { gap: 0.9rem; width: 100%; }
-  .landing .demo-bar {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.5rem;
-  }
-  /* Below the demo and its controls, grouped with the editor link. */
-  .landing .demo-tour { width: 100%; }
-  .landing .demo-tour-btn { width: 100%; justify-content: center; }
-}
-
 @media (max-width: 1000px) {
   /* The now/next comparison stacks before the text columns get too narrow to scan. */
   .landing .split { grid-template-columns: 1fr; }
@@ -1897,14 +1583,7 @@
   .landing .prob-row { grid-template-columns: 1fr; gap: 0.5rem; }
   .landing .rt-states { grid-template-columns: 1fr; }
 
-  /* the control row stacks rather than squeezing at 360/390 */
-  .landing .demo-controls { flex-direction: column; align-items: stretch; gap: 0.4rem; }
-  .landing .demo-control-group { justify-content: flex-end; }
-  /* A shorter device on small screens so the head, the embed and the control
-     row fit together above the sticky "Launch editor" bar. */
-  .landing .demo-device { height: clamp(300px, 44vh, 420px); }
   .landing .cta-inner { align-items: flex-start; }
-  .landing .demo-frame { aspect-ratio: 4 / 3; }
 
   .landing .mobile-sticky {
     display: block;
@@ -1955,5 +1634,89 @@
   .landing .reveal {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ─── BLOG ENTRY POINT ───────────────────────────────────────────────────── */
+
+.landing .blog-cta-inner {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 46rem;
+}
+
+.landing .blog-cta-inner .lead {
+  margin: 0;
+}
+
+/* The latest post's title, offered as evidence that the blog has something in
+   it. Quieter than the copy above it — it is a pointer, not a headline. */
+.landing .blog-cta-latest {
+  margin: 0;
+  font-family: var(--lp-mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--lp-accent);
+}
+
+/* A capture wide enough to want the whole row, inside a two-column card grid. */
+.landing .card-row .card-wide {
+  grid-column: 1 / -1;
+}
+
+/* ─── CONTACT ────────────────────────────────────────────────────────────── */
+
+/*
+   The floating contact button, bottom-right.
+
+   Below the nav (50) and the scroll progress (60) and above every section, so
+   it never covers the thing a reader is trying to click at the top of the page
+   and is never covered by the page itself.
+*/
+.landing .wa-fab {
+  position: fixed;
+  right: clamp(1rem, 2.5vw, 1.75rem);
+  bottom: clamp(1rem, 2.5vw, 1.75rem);
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--lp-ink-2);
+  border: 1px solid rgba(143, 163, 179, 0.28);
+  color: #25d366;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.38);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s, box-shadow 0.18s;
+}
+
+.landing .wa-fab:hover {
+  transform: translateY(-2px);
+  border-color: #25d366;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.landing .wa-fab:focus-visible {
+  outline: 2px solid var(--lp-accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing .wa-fab { transition: none; }
+  .landing .wa-fab:hover { transform: none; }
+}
+
+/*
+   Below 760px the footer raises a sticky "open the editor" bar. The button
+   sits above it rather than on top of it — the bar is the page's primary
+   action and this is not.
+*/
+@media (max-width: 760px) {
+  .landing .wa-fab {
+    bottom: calc(4.25rem + env(safe-area-inset-bottom));
+    width: 46px;
+    height: 46px;
   }
 }

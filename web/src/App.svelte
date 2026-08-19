@@ -121,6 +121,7 @@
   import { buildTourSteps } from './lib/tour/tour-steps';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
+  import BlogPage from './components/blog/BlogPage.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
 
   if (typeof window !== 'undefined') {
@@ -136,6 +137,11 @@
 
   function isDemoRoute(pathname: string) {
     return pathname === '/demo' || pathname === '/demo/';
+  }
+
+  /** `/blog`, `/blog/` and `/blog/<slug>`. See src/components/blog/BlogPage.svelte. */
+  function isBlogRoute(pathname: string) {
+    return pathname === '/blog' || pathname === '/blog/' || pathname.startsWith('/blog/');
   }
 
   type AppMode = 'basico' | 'educativo' | 'pro';
@@ -192,21 +198,40 @@
 
   function shouldShowLanding() {
     const params = new URLSearchParams(location.search);
-    return !params.has('embed') && !isAppRoute(location.pathname) && !isDemoRoute(location.pathname);
+    return !params.has('embed') && !isAppRoute(location.pathname) && !isDemoRoute(location.pathname)
+      && !isBlogRoute(location.pathname);
   }
 
   let showLanding = $state(shouldShowLanding());
+  let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
+  /** The address the blog reads its slug from; kept in state so it is reactive. */
+  let blogPath = $state(typeof window !== 'undefined' ? location.pathname : '/blog');
+
+  /**
+   * Move between the public pages without reloading the document.
+   *
+   * The site is a static bundle, so a real navigation to /blog would be a 404
+   * that bounces through `/?route=/blog`. Everything public — the landing's
+   * blog entry, the blog's own links, the way back home — comes through here.
+   */
+  function navigatePublic(path: string) {
+    history.pushState(null, '', path);
+    syncRouteState();
+  }
 
   function enterApp() {
     if (!isAppRoute(location.pathname)) {
       history.pushState(null, '', modeToPath(currentAppMode));
     }
     showLanding = false;
+    showBlog = false;
   }
 
   function syncRouteState() {
+    showBlog = isBlogRoute(location.pathname);
+    blogPath = location.pathname;
     showLanding = shouldShowLanding();
-    if (!showLanding) {
+    if (!showLanding && !showBlog) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -222,6 +247,10 @@
   // Listen for enter-app event from LandingPage "Try Demo" buttons
   if (typeof window !== 'undefined') {
     window.addEventListener('stabileo-enter-app', enterApp);
+    window.addEventListener('stabileo-navigate', (e) => {
+      const path = (e as CustomEvent<string>).detail;
+      if (typeof path === 'string') navigatePublic(path);
+    });
   }
 
   // ─── Per-mode model persistence ───
@@ -617,8 +646,16 @@
     };
   });
 
+  /**
+   * The address bar follows the editor's mode — but only while the editor is
+   * what the reader is looking at. The blog is a public page mounted over the
+   * same application instance, so without the `showBlog` guard this rewrote
+   * /blog/<slug> to /app/basic the moment a post opened: the page was right
+   * and the URL was wrong, which is the worst of both, since the link a reader
+   * copies or reloads is the wrong one.
+   */
   $effect(() => {
-    if (showLanding || typeof window === 'undefined') return;
+    if (showLanding || showBlog || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
@@ -729,14 +766,16 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} />
 
-{#if showLanding}
+{#if showBlog}
+  <BlogPage path={blogPath} onNavigate={navigatePublic} />
+{:else if showLanding}
   <LandingPage />
 {/if}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
-      <button class="logo-home" onclick={() => { showLanding = true; history.pushState(null, '', '/'); }} title={t('app.backHome')}>
+      <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
         <span class="logo-icon">△</span>
         <span class="logo-text">Stabileo</span>
       </button>

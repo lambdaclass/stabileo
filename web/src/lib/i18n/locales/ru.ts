@@ -5,12 +5,10 @@ const ru: Translations = {
 
   // ─── Landing Page ───
   'landing.features': 'Возможности',
-  'landing.demo': 'Демо',
   'landing.pricing': 'Цены',
   'landing.heroTitle1': 'Расчёт конструкций,',
   'landing.heroTitle2': 'Мгновенно.',
   'landing.heroSub': 'Профессиональный 2D и 3D расчёт конструкций в браузере. Без установки, без компромиссов.',
-  'landing.tryDemo': 'Попробовать демо',
   'landing.tryApp': 'Попробовать приложение',
   'landing.tryTour': 'Попробовать экскурсию',
   'landing.metricLanguages': 'Языки',
@@ -116,8 +114,6 @@ const ru: Translations = {
   'landing.openSourceDesc': 'Stabileo — проект с открытым кодом. Изучайте код, вносите вклад или разверните самостоятельно.',
   'landing.viewOnGithub': 'Смотреть на GitHub',
   'landing.tryItNow': 'Попробовать сейчас',
-  'landing.interactiveDemo': 'Интерактивная демонстрация',
-  'landing.interactiveDemoDesc': 'Изучите реальную модель конструкции. Кликайте, масштабируйте и взаимодействуйте — регистрация не нужна.',
   'landing.changelog': 'Что нового',
   'landing.changelogDesc': 'Stabileo активно развивается. Смотрите последние обновления.',
   'landing.stickyCtaMobile': 'Начать бесплатно',

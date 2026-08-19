@@ -5,12 +5,10 @@ const zh: Translations = {
 
   // ─── Landing Page ───
   'landing.features': '功能',
-  'landing.demo': '演示',
   'landing.pricing': '定价',
   'landing.heroTitle1': '结构分析，',
   'landing.heroTitle2': '即刻呈现。',
   'landing.heroSub': '在浏览器中进行专业级 2D 和 3D 结构分析。无需安装，毫不妥协。',
-  'landing.tryDemo': '试用演示',
   'landing.tryApp': '试用应用',
   'landing.tryTour': '体验导览',
   'landing.metricLanguages': '语言',
@@ -116,8 +114,6 @@ const zh: Translations = {
   'landing.openSourceDesc': 'Stabileo 是开源的。查看代码、贡献或自行部署。',
   'landing.viewOnGithub': '在 GitHub 上查看',
   'landing.tryItNow': '立即试用',
-  'landing.interactiveDemo': '交互式演示',
-  'landing.interactiveDemoDesc': '探索真实的结构模型。点击、缩放和交互 — 无需注册。',
   'landing.changelog': '最新动态',
   'landing.changelogDesc': 'Stabileo 正在积极开发中。查看最新更新。',
   'landing.stickyCtaMobile': '免费开始',

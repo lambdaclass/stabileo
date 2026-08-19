@@ -15,19 +15,31 @@
  * CONSUMED_ASSETS below), and every capture here has a consumer. Do not
  * rename an output without renaming its consumer.
  *
+ * The reverse does NOT hold: several assets the landing serves are not
+ * produced here — see HAND_CAPTURED below. They are captured by hand on
+ * purpose. This script drives fixtures small enough to build in code, and what
+ * makes those worth showing is a model nobody would build in a fixture: a
+ * seven-storey building, a space frame carrying a real My surface. If they
+ * ever need retaking, retake them by hand and run them through the same
+ * conversion below.
+ *
  * These PNGs are the capture SOURCE, not what ships. The landing serves AVIF
  * with a WebP fallback at two widths (`<base>-800.avif`, `<base>-1600.webp`,
  * …) via Shot.svelte, and only those derivatives are committed. After running
  * this script, convert the PNGs and delete them:
  *
- *   for f in 2d-moments 2d-section-analysis 3d-industrial 3d-section-analysis; do
+ *   for f in 2d-moments 2d-section-analysis 3d-frame 3d-industrial 3d-section-analysis; do
  *     for w in 800 1600; do
- *       npx --yes sharp-cli -i public/screenshots/$f.png -o public/screenshots \
- *         resize $w -- avif --quality 52
- *       npx --yes sharp-cli -i public/screenshots/$f.png -o public/screenshots \
- *         resize $w -- webp --quality 78
+ *       npx --yes sharp-cli -i public/screenshots/$f.png -o /tmp/shots -f avif -q 52 resize $w
+ *       mv /tmp/shots/$f.avif public/screenshots/$f-$w.avif
+ *       npx --yes sharp-cli -i public/screenshots/$f.png -o /tmp/shots -f webp -q 78 resize $w
+ *       mv /tmp/shots/$f.webp public/screenshots/$f-$w.webp
  *     done
  *   done
+ *
+ * (The `-- avif --quality` form above was sharp-cli's older syntax and no
+ * longer parses; the current release takes `-f`/`-q` and writes `<stem>.<ext>`
+ * into the output directory, hence the rename.)
  *
  * `npx --yes` is used deliberately: an image encoder is a one-off authoring
  * tool and must not become a dependency in web/package.json.
@@ -78,6 +90,20 @@ const CONSUMED_ASSETS = [
   '2d-section-analysis.png',
   '3d-industrial.png',
   '3d-section-analysis.png',
+] as const;
+
+/**
+ * Assets the landing consumes that this script deliberately does NOT produce.
+ * See the note at the top: these are hand-captured because what makes them
+ * worth showing is a model too large to be worth building in a fixture. Listed
+ * so the summary can name them instead of leaving them silently unaccounted
+ * for.
+ */
+const HAND_CAPTURED = [
+  '3d-frame.png',
+  'pro-building-model.png',
+  'pro-building-axial.png',
+  'pro-rebar-3d.png',
 ] as const;
 
 const captured: string[] = [];
@@ -232,11 +258,14 @@ async function main() {
     await page.evaluate(async () => {
       const { resultsStore } = await import('/src/lib/store/index.ts');
       resultsStore.diagramType = 'colorMap';
-      resultsStore.colorMapKind = 'stressRatio';
+      // Axial, matching the committed 3d-industrial: the alt text describes a
+      // shed coloured by axial force, so a re-run must not quietly produce a
+      // stress-ratio map under the same name.
+      resultsStore.colorMapKind = 'axial';
     });
     await sleep(2000);
     await page.screenshot({ path: `${OUT}/3d-industrial.png`, clip: CROP });
-    record('3d-industrial.png', 'stress ratio color map');
+    record('3d-industrial.png', 'axial color map');
     await page.close();
   }
 
@@ -304,6 +333,10 @@ async function main() {
 
   const missing = CONSUMED_ASSETS.filter((a) => !captured.includes(a));
   console.log(`\n✅ ${captured.length} screenshot(s) captured from ${BASE}`);
+  console.log(
+    `\nℹ️  ${HAND_CAPTURED.length} asset(s) the landing consumes are captured by hand and not by this script:\n` +
+      HAND_CAPTURED.map((h) => `   · ${h}`).join('\n'),
+  );
   if (missing.length) {
     console.log(
       `\n⚠️  ${missing.length} asset(s) the landing consumes have no capture in this script:\n` +

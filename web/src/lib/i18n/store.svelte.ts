@@ -163,18 +163,27 @@ export const i18n = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Public landing locales
 //
-// The application ships fourteen languages and keeps all of them. The public
-// landing page deliberately offers only two, because only `en` and `es` have a
-// complete `landing.*` dictionary — the other twelve are ~97 keys short each,
-// so `t()`'s silent English fallback renders them as a half-translated page.
-// Offering a language the marketing copy does not actually speak is worse than
-// not offering it.
+// The landing offers only the locales whose `landing.*` dictionary is
+// complete, because `t()` falls back to English silently: a locale that is
+// ninety keys short does not look broken, it looks like a page that switches
+// to English halfway down. Offering a language the marketing copy does not
+// actually speak is worse than not offering it.
 //
-// Nothing here mutates the application's locale. A visitor whose browser is set
-// to French reads the landing in English and still gets a French editor.
+// Portuguese joined on 2026-08-12, once all 321 landing keys were written.
+// `landing-i18n-parity.test.ts` is what keeps this list and that promise in
+// step — it fails if a locale here is missing copy, quotes different figures,
+// names a different standard, or reads as a truncation of the English.
+//
+// NOTE (2026-08-19): this list is now identical to `OFFERED_LOCALES` above,
+// which arrived from main when the application itself narrowed to three
+// languages. They are not merged here on purpose: they answer different
+// questions — one gates marketing copy, the other gates the whole UI — and
+// collapsing them is the i18n workstream's call, not a side effect of a
+// landing change. If they are ever meant to be one thing, this is the comment
+// that should have said so.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PUBLIC_LOCALES = ['en', 'es'] as const;
+export const PUBLIC_LOCALES = ['en', 'es', 'pt'] as const;
 export type PublicLocale = (typeof PUBLIC_LOCALES)[number];
 
 function isPublicLocale(loc: string): loc is PublicLocale {
@@ -190,6 +199,16 @@ function publicLocale(): PublicLocale {
 export function tPublic(key: string): string {
 	const dict = dicts[publicLocale()];
 	return (dict as any)[key] ?? (dicts.en as any)[key] ?? key;
+}
+
+/** `tPublic()` with `{placeholder}` interpolation, for the blog's reading time. */
+export function tpPublic(key: string, params?: Record<string, string | number>): string {
+	const raw = tPublic(key);
+	if (!params) return raw;
+	return raw.replace(/\{(\w+)\}/g, (m, name) => {
+		const v = params[name];
+		return v === undefined || v === null ? m : String(v);
+	});
 }
 
 /** Reactive read-only view of the locale the landing is rendering in. */

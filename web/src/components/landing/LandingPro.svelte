@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
+  import Shot from './Shot.svelte';
 
   /**
    * PRO mode: in development, and genuinely calculating already.
@@ -32,13 +33,35 @@
    * structure-wide end state kept in `next`. The stale registry itself is NOT
    * edited here — that is the owning workstream's call.
    */
+  /**
+   * Three captures, in the order the work happens: the model, the same model
+   * solved, and the reinforcement placed on it.
+   *
+   * They are hand-captured from a real session, not produced by
+   * scripts/take-screenshots.ts — that script drives fixtures small enough to
+   * script, and what makes these worth showing is a building large enough that
+   * nobody would model it in a script. Each carries a full alt: a reader who
+   * cannot see the image should still learn what PRO does.
+   *
+   * The reinforcement view says "in development" in its own body text rather
+   * than only in the badge at the top of the section, because a picture that
+   * detailed reads as a finished feature unless the caption says otherwise.
+   */
+  const shots = [
+    { base: 'pro-building-model', alt: 'landing.proAltModel', title: 'landing.proShotModelTitle', body: 'landing.proShotModelBody' },
+    { base: 'pro-building-axial', alt: 'landing.proAltAxial', title: 'landing.proShotAxialTitle', body: 'landing.proShotAxialBody' },
+    // Wide, and the only one of the three that is a detail rather than a whole
+    // building — it earns the full row instead of leaving half of one empty.
+    { base: 'pro-rebar-3d', alt: 'landing.proAltRebar', title: 'landing.proShotRebarTitle', body: 'landing.proShotRebarBody', wide: true },
+  ];
+
   const now = ['proNow1', 'proNow2', 'proNow3', 'proNow4', 'proNow5', 'proNow6', 'proNow7', 'proNow8'];
   const next = ['proNext1', 'proNext2', 'proNext3', 'proNext4', 'proNext5', 'proNext6', 'proNext7'];
 </script>
 
 <section class="sec sec--paper pro reveal" data-section="pro" id="pro" aria-labelledby="pro-title">
   <div class="wrap">
-    <Eyebrow n="10" label={t('landing.ebPro')} />
+    <Eyebrow n="09" label={t('landing.ebPro')} />
 
     <div class="mode-head">
       <h2 id="pro-title" class="display">{t('landing.proH')}</h2>
@@ -64,7 +87,19 @@
       </section>
     </div>
 
-    <p class="mode-note">{t('landing.proHonest')}</p>
-    <p class="mode-commit">{t('landing.proSourceNote')}</p>
+    <div class="card-row cols-2 cap-shots pro-shots">
+      {#each shots as sh}
+        <article class="card card-media" class:card-wide={sh.wide}>
+          <Shot base={sh.base} alt={t(sh.alt)} sizes={sh.wide ? '(max-width: 760px) 92vw, 92vw' : undefined} />
+          <div class="card-body">
+            <h3>{t(sh.title)}</h3>
+            <p>{t(sh.body)}</p>
+          </div>
+        </article>
+      {/each}
+    </div>
+
+    <p class="mode-note">{t('landing.proShotsNote')}</p>
+
   </div>
 </section>

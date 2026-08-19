@@ -4,12 +4,10 @@ const tr: Translations = {
 
   // ─── Landing Page ───
   'landing.features': 'Özellikler',
-  'landing.demo': 'Demo',
   'landing.pricing': 'Fiyatlandırma',
   'landing.heroTitle1': 'Yapı Analizi,',
   'landing.heroTitle2': 'Anında.',
   'landing.heroSub': 'Tarayıcınızda profesyonel düzeyde 2D ve 3D yapı analizi. Kurulum yok, taviz yok.',
-  'landing.tryDemo': 'Demoyu deneyin',
   'landing.tryApp': 'Uygulamayı deneyin',
   'landing.tryTour': 'Rehberli turu deneyin',
   'landing.metricLanguages': 'Diller',
@@ -115,8 +113,6 @@ const tr: Translations = {
   'landing.openSourceDesc': 'Stabileo açık kaynaklıdır. Kodu inceleyin, katkıda bulunun veya kendiniz barındırın.',
   'landing.viewOnGithub': 'GitHub\'da görüntüle',
   'landing.tryItNow': 'Şimdi deneyin',
-  'landing.interactiveDemo': 'İnteraktif demo',
-  'landing.interactiveDemoDesc': 'Gerçek bir yapı modelini keşfedin. Tıklayın, yakınlaştırın ve etkileşime geçin — kayıt gerekmez.',
   'landing.changelog': 'Yenilikler',
   'landing.changelogDesc': 'Stabileo aktif geliştirme aşamasındadır. Son güncellemeleri görün.',
   'landing.stickyCtaMobile': 'Ücretsiz Başlayın',

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
-  import { enterApp, scrollToId } from './landing-utils';
+  import { enterApp, goPublic } from './landing-utils';
   import Eyebrow from './Eyebrow.svelte';
   import TrussFigure from './TrussFigure.svelte';
 
@@ -17,8 +17,24 @@
 
       <div class="hero-ctas">
         <button class="btn btn-primary btn-lg" onclick={() => enterApp()}>{t('landing.heroCtaPrimary')}</button>
-        <button class="btn btn-ghost btn-lg" onclick={() => scrollToId('demo')}>{t('landing.heroCtaSecondary')}</button>
+        <!--
+          This used to scroll to the live-demo section. That section is gone,
+          so the button points at the guided tour instead — the closest thing
+          left to "show me it running". A real navigation, not a pushState:
+          /demo starts the tour from the application's onMount, which has
+          already run by the time anyone reads this page.
+        -->
+        <a class="btn btn-ghost btn-lg" href="/demo">{t('landing.heroCtaSecondary')}</a>
       </div>
+
+      <!--
+        The blog, on the first screen but deliberately at a third level: a mono
+        link on its own line, not a third button. The hero's job is to get
+        someone into the editor, and two buttons plus a link reads as one
+        decision with a footnote, where three buttons would read as three
+        equal choices.
+      -->
+      <button class="link-arrow hero-blog" onclick={() => goPublic('/blog')}>{t('landing.heroBlogLink')}</button>
 
       <!--
         The three modes, named in the first screen.

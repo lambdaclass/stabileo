@@ -5,12 +5,10 @@ const ja: Translations = {
 
   // ─── Landing Page ───
   'landing.features': '機能',
-  'landing.demo': 'デモ',
   'landing.pricing': '料金',
   'landing.heroTitle1': '構造解析を、',
   'landing.heroTitle2': '瞬時に。',
   'landing.heroSub': 'ブラウザで行うプロ仕様の 2D & 3D 構造解析。インストール不要、妥協なし。',
-  'landing.tryDemo': 'デモを試す',
   'landing.tryApp': 'アプリを試す',
   'landing.tryTour': 'ガイドツアーを試す',
   'landing.metricLanguages': '言語',
@@ -116,8 +114,6 @@ const ja: Translations = {
   'landing.openSourceDesc': 'Stabileo はオープンソースです。コードを確認し、貢献し、セルフホストできます。',
   'landing.viewOnGithub': 'GitHubで見る',
   'landing.tryItNow': '今すぐ試す',
-  'landing.interactiveDemo': 'インタラクティブデモ',
-  'landing.interactiveDemoDesc': '実際の構造モデルを探索。クリック、ズーム、操作 — サインアップ不要。',
   'landing.changelog': '最新情報',
   'landing.changelogDesc': 'Stabileo は活発に開発中です。最新のアップデートをご覧ください。',
   'landing.stickyCtaMobile': '無料で始める',

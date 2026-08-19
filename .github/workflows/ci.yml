@@ -246,6 +246,21 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # BLOCKING: functional DOM + hook assertions.
+      #
+      # `@landing` was added to this grep on 2026-08-19 and taken out the same
+      # day. The whole landing suite failed here in a way it does not fail
+      # locally: the twelve blog cases passed, the first landing case passed,
+      # and from the second onwards EVERY test timed out at 60 s "while setting
+      # up context" — `browser.newContext` never returning, one wedged browser
+      # rather than any assertion about the page. With `workers: 1` the landing
+      # spec runs after ~190 heavier cases, and the leading suspicion is the
+      # hero's continuous rAF animation under software GL on a 2-core runner,
+      # not anything the spec asserts. Diagnosing that belongs to whoever owns
+      # this harness; guessing at it through 30-minute CI iterations does not.
+      #
+      # The blog spec is tagged `@smoke` directly, so the public pages are not
+      # entirely unguarded here. `npx playwright test --grep @landing` is the
+      # local command for the rest.
       - name: E2E smoke suite
         working-directory: web
         run: npx playwright test --grep @smoke
