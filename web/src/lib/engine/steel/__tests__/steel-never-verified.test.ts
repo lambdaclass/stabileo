@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { STEEL_MEMBER_STATUSES } from '../steel-status';
 import steelEn from '../../../i18n/locales/steel/en';
@@ -24,6 +24,14 @@ import steelPt from '../../../i18n/locales/steel/pt';
 
 const SRC = new URL('../../../..', import.meta.url).pathname;
 const read = (p: string) => readFileSync(join(SRC, p), 'utf8');
+
+/** Every component file under a directory, so a screen added later is covered by default. */
+function walk(dir: string): string[] {
+  return readdirSync(join(SRC, dir), { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.svelte'))
+    .map((e) => `${dir}/${e.name}`)
+    .sort();
+}
 
 describe('the metallic vocabulary', () => {
   it('is exactly the four states, with no fifth that could pass for approval', () => {
@@ -80,13 +88,30 @@ describe('no metallic string claims a verification', () => {
 });
 
 describe('the metallic components', () => {
+  /**
+   * Every metallic component, ENUMERATED FROM THE DIRECTORIES rather than listed.
+   *
+   * The list used to be five paths written by hand, and M1 added four components to those same
+   * directories — a grade picker, a profile picker, a section figure, a preview — none of which
+   * the list covered. A hand-kept list of the screens a commitment applies to is a list that
+   * stops covering the newest screen, which is the one most likely to break the commitment.
+   *
+   * `ProConnectionsTab` is named explicitly because it lives outside those two directories.
+   */
   const FILES = [
-    'components/pro/steel/SteelPanel.svelte',
-    'components/pro/steel/SteelStatusBadge.svelte',
-    'components/pro/steel/SteelExperimentalBanner.svelte',
-    'components/pro/generators/ProGeneratorsPanel.svelte',
+    ...walk('components/pro/steel'),
+    ...walk('components/pro/generators'),
     'components/pro/ProConnectionsTab.svelte',
   ];
+
+  it('covers every metallic screen there is, including the ones added later', () => {
+    // The assertion that keeps the enumeration honest: if the directories are ever emptied or
+    // renamed, this fails instead of the suite quietly passing over nothing.
+    expect(FILES.length).toBeGreaterThanOrEqual(9);
+    expect(FILES).toContain('components/pro/steel/SteelPanel.svelte');
+    expect(FILES).toContain('components/pro/steel/GradePickerPanel.svelte');
+    expect(FILES).toContain('components/pro/generators/ProfileSelectorPanel.svelte');
+  });
 
   it('never name a VERIFIED status of their own', () => {
     // A component that hardcoded the string would bypass the state machine entirely, which is
@@ -94,6 +119,34 @@ describe('the metallic components', () => {
     for (const f of FILES) {
       expect(read(f), f).not.toMatch(/['"`]VERIFIED['"`]/);
     }
+  });
+
+  it('shows no passing treatment on any metallic surface', () => {
+    // `steelDisplayTone` cannot return one and `SteelStatusBadge` has no class for one. This
+    // extends that to every metallic screen: a green tick or an `ok` tone reached by a card,
+    // a picker or a preview would be the same claim by another route.
+    for (const f of FILES) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/\.tone-ok\b/);
+      expect(src, f).not.toMatch(/tone-(pass|success|verified)\b/);
+      // A bare ✓ is the glyph a reader reads as approval. The joints panel earns its own by
+      // pairing it with a utilisation and an experimental banner; nothing else may use it.
+      if (!f.endsWith('ProConnectionsTab.svelte')) {
+        expect(src, `${f} shows a tick`).not.toMatch(/[✓✔]/);
+      }
+    }
+  });
+
+  it('states the four metallic states and no fifth, wherever it names one', () => {
+    // Any component naming a state has to name one the engine can produce.
+    const named = new Set<string>();
+    for (const f of FILES) {
+      for (const m of read(f).matchAll(/['"`](NOT_DESIGNED|EXPERIMENTAL|DEMAND_UNAVAILABLE|NOT_APPLICABLE|[A-Z][A-Z_]{4,})['"`]/g)) {
+        // Only consider all-caps tokens that look like a status, not arbitrary constants.
+        if (/^(NOT_DESIGNED|EXPERIMENTAL|DEMAND_UNAVAILABLE|NOT_APPLICABLE)$/.test(m[1])) named.add(m[1]);
+      }
+    }
+    for (const s of named) expect(STEEL_MEMBER_STATUSES as readonly string[]).toContain(s);
   });
 
   it('carry an experimental banner on both calculating surfaces', () => {

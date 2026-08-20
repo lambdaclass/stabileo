@@ -284,3 +284,59 @@ describe('the bracing is placed on steel that is already there', () => {
     expect(DEFAULT_SHED_PARAMS.trussBracing).toBe(false);
   });
 });
+
+describe('pinned lattice bases, and why bracing does not yet justify them', () => {
+  /**
+   * `pr21-integration.md` §7 records the pinned default as blocked on longitudinal bracing:
+   * generating it "would allow going back to pinned bases, which is the more honest model". With
+   * the bracing generated, that argument turns out not to hold, and it is worth pinning why.
+   *
+   * Two separate facts, and PR21's own documents contain the first one: the cap idealisation
+   * already made pinned bases solvable under vertical load (§4.1 of the cap handoff, 2.0 mm
+   * against 1.99 mm). So a vertical solve proves nothing about the bracing. And under
+   * longitudinal load the wall bracing alone does not help, because the member that was missing
+   * is the vertical bracing between trusses, not the one in the wall.
+   */
+  const PINNED = {
+    ...DEFAULT_SHED_PARAMS,
+    fixedBase: false,
+    column: { ...DEFAULT_SHED_PARAMS.column, fixedBase: false },
+  };
+
+  it('already solved vertically before any bracing, which is the cap and not the wall', () => {
+    const bare = displacementOf(emit(PINNED, 'Articuladas'), -20, 'z');
+    expect(bare).not.toBeNull();
+    expect(bare!).toBeLessThan(0.05);
+
+    // Adding the wall bracing barely moves it, which is the evidence that the vertical solve was
+    // never the thing the bracing was needed for.
+    const walled = displacementOf(emit({ ...PINNED, wallBracing: true }, 'Con fachada'), -20, 'z')!;
+    expect(Math.abs(walled - bare!) / bare!).toBeLessThan(0.05);
+  });
+
+  it('stays free along the building with wall bracing alone', () => {
+    for (const params of [
+      { ...PINNED, wallBracing: true },
+      { ...PINNED, wallBracing: true, roofBracing: true, bracingBays: 'all' as const },
+    ]) {
+      const d = displacementOf(emit(params, 'Longitudinal'), -20);
+      expect(d).not.toBeNull();
+      expect(d!).toBeGreaterThan(1e6);
+    }
+  });
+
+  it('needs the vertical bracing, exactly as a fixed-base shed does', () => {
+    const d = displacementOf(emit({
+      ...PINNED, longitudinalBeams: true, wallBracing: true, roofBracing: true, trussBracing: true,
+    }, 'Sistema completo'), -20);
+    expect(d).not.toBeNull();
+    expect(d!).toBeLessThan(0.05);
+  });
+
+  it('keeps declaring what a pinned base costs', () => {
+    // The disclosure is about out-of-plane restraint, and the bracing does not remove the reason
+    // it exists: a pinned pair of chords is still a pinned pair of chords.
+    const shed = generateShed({ ...PINNED, wallBracing: true });
+    expect(shed.assumptions).toContain('generator.assume.latticeBasesPinnedNoOutOfPlane');
+  });
+});
