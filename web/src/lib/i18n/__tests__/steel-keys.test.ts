@@ -45,8 +45,10 @@ function literalKeys(): Set<string> {
   const files = [
     ...walk('lib/engine/steel'),
     ...walk('lib/engine/generators'),
-    // The catalogue layer emits note keys of its own — an unavailable property has to say why.
+    // The catalogue layers emit note keys of their own — an unavailable property, or a pairing
+    // verdict, has to say why.
     ...walk('lib/profiles'),
+    ...walk('lib/grades'),
     'lib/engine/design/adapters/cirsoc301-capabilities.ts',
     ...walk('components/pro/steel'),
     ...walk('components/pro/generators'),
@@ -110,6 +112,8 @@ describe('steel and generator translation keys', () => {
     const { TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS } = await import('../../engine/generators/truss-topology');
     const { LACING_PATTERNS } = await import('../../engine/generators/lattice-column');
     const { PROPERTY_ORDER, PROPERTY_BASES } = await import('../../profiles/properties');
+    const { GRADE_PROPERTY_ORDER, GRADE_BASES, GRADE_FAMILIES, populatedRegions } =
+      await import('../../grades/catalogue');
 
     const expected = [
       ...STEEL_MEMBER_STATUSES.map((s) => `steel.status.${s}`),
@@ -138,6 +142,12 @@ describe('steel and generator translation keys', () => {
       ...PROPERTY_ORDER.map((k) => `steel.props.label.${k}`),
       ...PROPERTY_BASES.map((b) => `steel.props.basis.${b}`),
       ...PROPERTY_BASES.map((b) => `steel.props.basis.title.${b}`),
+      // The grade card, its authority badges, and the two axes its chips are built from.
+      ...GRADE_PROPERTY_ORDER.map((k) => `steel.grades.label.${k}`),
+      ...GRADE_BASES.map((b) => `steel.grades.basis.${b}`),
+      ...GRADE_BASES.map((b) => `steel.grades.basis.title.${b}`),
+      ...GRADE_FAMILIES.map((f) => `steel.grades.family.${f}`),
+      ...populatedRegions().map((r) => `steel.grades.region.${r}`),
     ];
     const missing = expected.filter((k) => !(k in steelEs)).sort();
     expect(missing, `template keys not translated:\n${missing.join('\n')}`).toEqual([]);
