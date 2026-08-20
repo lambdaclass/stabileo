@@ -270,7 +270,7 @@ const steelPt: Record<string, string> = {
   'steel.props.basis.unavailable': 'Não disponível',
   'steel.props.basis.title.tabulated': 'Valor publicado na norma dimensional da família.',
   'steel.props.basis.title.derivedFromTable': 'Calculado só com valores tabelados: r = √(I/A), ou W = I/c com c fixado pela simetria.',
-  'steel.props.basis.title.derivedFromGeometry': 'Calculado com um valor tabelado e o centroide do contorno canônico verificado.',
+  'steel.props.basis.title.derivedFromGeometry': 'Calculado com um valor tabelado e o centroide do contorno canônico, cuja área e inércias reproduzem as publicadas.',
   'steel.props.basis.title.unavailable': 'A fonte não publica e não decorre do que ela publica. Nenhum valor é inventado.',
   'steel.props.note.minimumModulus': 'A seção não é simétrica em relação a este eixo: mostra-se o módulo MÍNIMO, medido até a fibra mais afastada. O outro é maior.',
   'steel.props.unavailable.centroidUnknown': 'Módulo resistente indisponível: a posição do centroide não é conhecida e a tabela não publica a distância à fibra extrema.',
@@ -365,5 +365,8 @@ const steelPt: Record<string, string> = {
   'steel.profileSelector.compare': 'Comparação',
   'steel.profileSelector.compareClear': 'limpar',
   'steel.profileSelector.empty': 'Nenhum perfil corresponde. Tente menos texto, ou solte um filtro: família, organismo, código ou faixa de altura. Um valor de altura pela metade também esvazia a lista.',
+  'steel.table.grade': 'Grau',
+  'steel.table.gradeNone': 'não declarado',
+  'steel.table.gradeUnresolved': 'grau desconhecido',
 };
 export default steelPt;

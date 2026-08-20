@@ -58,6 +58,18 @@ export interface SteelMemberEntry {
   memberKind: 'beam' | 'column' | 'wall';
   sectionName: string;
   materialName: string;
+  /**
+   * The catalogued grade the material names, when it names one.
+   *
+   * The ID only. Resolving it to a designation and a product standard needs the grade
+   * catalogue, and this module is pure by contract — the panel resolves it through the grade
+   * source, the same way it resolves anything else it displays.
+   *
+   * Absent is a real state, not a missing value: a material can legitimately not come from the
+   * catalogue, and a surface that warned about that would be warning about every model saved
+   * before the picker carried the field.
+   */
+  gradeId?: string;
   lengthM: number;
   family: MaterialFamilyVerdict;
   state: SteelMemberState;
@@ -165,6 +177,7 @@ export function buildSteelInventory(
       memberKind,
       sectionName: section?.name ?? '—',
       materialName: material?.name ?? '—',
+      ...(material?.gradeId ? { gradeId: material.gradeId } : {}),
       lengthM,
       family: verdict,
       state,

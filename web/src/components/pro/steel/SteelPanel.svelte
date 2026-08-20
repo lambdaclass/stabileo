@@ -30,6 +30,7 @@
   import { formatClause } from '../../../lib/codes/regulation';
   import { te } from '../../../lib/i18n/engine-text';
   import { STRUCTURAL_MATERIAL_FAMILIES } from '../../../lib/engine/steel/material-family';
+  import { structuralGradeSource } from '../../../lib/grades/catalogue';
   import SteelStatusBadge from './SteelStatusBadge.svelte';
 
   const inv = $derived(steelStore.inventory);
@@ -44,6 +45,19 @@
       .map((f) => ({ family: f, n: inv.census.byFamily[f] }))
       .filter((r) => r.n > 0),
   );
+
+  /**
+   * The grade behind a member, resolved for display.
+   *
+   * The inventory carries the id and nothing else, because it is pure. Resolution happens here,
+   * which also means a stored id the catalogue no longer knows shows as unresolved rather than
+   * as a blank — a project saved against a withdrawn grade should say so.
+   */
+  function gradeOf(gradeId: string | undefined) {
+    if (!gradeId) return null;
+    const g = structuralGradeSource.byId(gradeId);
+    return g ? { designation: g.designation, standard: g.productStandard } : null;
+  }
 
   const emptyMessage = $derived(
     inv.emptyReason
@@ -121,6 +135,7 @@
             <th scope="col">{t('steel.table.kind')}</th>
             <th scope="col">{t('steel.table.section')}</th>
             <th scope="col">{t('steel.table.material')}</th>
+            <th scope="col">{t('steel.table.grade')}</th>
             <th scope="col" class="num">{t('steel.table.length')}</th>
             <th scope="col">{t('steel.table.status')}</th>
           </tr>
@@ -132,6 +147,25 @@
               <td>{t(`steel.kind.${m.memberKind}`)}</td>
               <td>{m.sectionName}</td>
               <td>{m.materialName}</td>
+              <!--
+                The declared grade, with the standard that defines it.
+
+                Two standards can give the same designation to different steels, so a
+                designation on its own is not a specification. Where the project declared
+                nothing the cell says which of the two reasons applies — no grade recorded, or
+                a grade the catalogue no longer knows — instead of being empty.
+              -->
+              <td data-testid={`steel-grade-${m.elementId}`}>
+                {#if gradeOf(m.gradeId)}
+                  {@const g = gradeOf(m.gradeId)!}
+                  <span class="grade-name">{g.designation}</span>
+                  <span class="grade-std">{g.standard}</span>
+                {:else if m.gradeId}
+                  <span class="grade-unknown" title={m.gradeId}>{t('steel.table.gradeUnresolved')}</span>
+                {:else}
+                  <span class="grade-none">{t('steel.table.gradeNone')}</span>
+                {/if}
+              </td>
               <td class="num">{m.lengthM.toFixed(2)}</td>
               <td><SteelStatusBadge status={m.state.status} /></td>
             </tr>
@@ -228,4 +262,9 @@
     outline: 2px solid var(--st-value);
     outline-offset: 1px;
   }
+  /* The grade cell holds two facts, so it stacks them rather than running them together. */
+  .grade-name { font-family: var(--st-mono, monospace); }
+  .grade-std { display: block; font-size: 0.58rem; color: var(--st-text-3); }
+  .grade-none, .grade-unknown { color: var(--st-text-3); font-size: 0.6rem; }
+  .grade-unknown { border-bottom: 1px dotted var(--st-warn); }
 </style>

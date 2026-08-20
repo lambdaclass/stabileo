@@ -212,3 +212,65 @@ describe('the experimental warnings cannot be conditioned away', () => {
     expect(banner).toBeLessThan(table);
   });
 });
+
+/**
+ * The joints panel's own strings, which nothing checked.
+ *
+ * `conn.*` lives in the MAIN dictionaries rather than in the steel namespace — PR21 put it
+ * there — so the parity gate above, which reads `locales/steel/*`, never saw it. That is 77
+ * keys carrying the five limitation disclosures, unverified in three languages: exactly the
+ * material whose absence would render as `conn.gap.baseMetal.missing` inside a panel whose
+ * whole purpose is to say what it does not compute.
+ *
+ * Asserted here rather than in the shared files' own suite because this is the steel surface's
+ * gate, and because reading them is not editing them: the main dictionaries are shared files
+ * under the overlap protocol and M1 does not touch them.
+ */
+describe('the joints panel speaks all three offered languages', () => {
+  it('ships the same conn.* key set in Spanish, English and Portuguese', async () => {
+    const [{ default: es }, { default: en }, { default: pt }] = await Promise.all([
+      import('../locales/es'), import('../locales/en'), import('../locales/pt'),
+    ]);
+    const connKeys = (d: Record<string, string>) => Object.keys(d).filter((k) => k.startsWith('conn.')).sort();
+    const base = connKeys(es);
+    expect(base.length).toBeGreaterThan(50);
+    expect(connKeys(en)).toEqual(base);
+    expect(connKeys(pt)).toEqual(base);
+  });
+
+  it('translates every facet of every limitation the panel renders', async () => {
+    const [{ default: es }, { default: en }, { default: pt }] = await Promise.all([
+      import('../locales/es'), import('../locales/en'), import('../locales/pt'),
+    ]);
+    // The ids are read off the panel source, so a limitation added there without its five
+    // sentences fails here instead of rendering its own keys into the disclosure block.
+    const tab = read('components/pro/ProConnectionsTab.svelte');
+    const block = tab.slice(tab.indexOf('const GAPS = ['), tab.indexOf('] as const;'));
+    const ids = [...block.matchAll(/id: '([A-Za-z]+)'/g)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThanOrEqual(5);
+
+    const facets = ['title', 'exists', 'missing', 'scope', 'note'];
+    for (const [name, dict] of [['es', es], ['en', en], ['pt', pt]] as const) {
+      for (const id of ids) {
+        for (const facet of facets) {
+          const key = `conn.gap.${id}.${facet}`;
+          expect((dict as Record<string, string>)[key], `${name} ${key}`).toBeTruthy();
+        }
+      }
+    }
+  });
+
+  it('keeps the warning that belongs beside a result out of the footnote list', async () => {
+    // The rule from PR21: a gap that changes how a number should be read has to appear next to
+    // the number. `fvExcl` is the case — the fallback is silent and tied to a checkbox the user
+    // is ticking — so its own warning must exist in the panel, not only in the gap block.
+    const tab = read('components/pro/ProConnectionsTab.svelte');
+    const warningAt = tab.indexOf('data-testid="conn-fvexcl-warning"');
+    const gapsAt = tab.indexOf('data-testid="conn-gaps"');
+    expect(warningAt).toBeGreaterThan(0);
+    expect(gapsAt).toBeGreaterThan(0);
+    expect(warningAt).toBeLessThan(gapsAt);
+    const { default: es } = await import('../locales/es');
+    expect((es as Record<string, string>)['conn.bolts.fvExclWarning']).toBeTruthy();
+  });
+});

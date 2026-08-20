@@ -258,7 +258,7 @@ const steelEn: Record<string, string> = {
   'steel.props.basis.unavailable': 'Not available',
   'steel.props.basis.title.tabulated': 'Published in the family\u2019s dimensional standard.',
   'steel.props.basis.title.derivedFromTable': 'Computed from tabulated values only: r = \u221a(I/A), or W = I/c with c fixed by symmetry.',
-  'steel.props.basis.title.derivedFromGeometry': 'Computed from a tabulated value and the centroid of the verified canonical outline.',
+  'steel.props.basis.title.derivedFromGeometry': 'Computed from a tabulated value and the centroid of the canonical outline, whose area and inertias reproduce the published ones.',
   'steel.props.basis.title.unavailable': 'The source does not publish it and it does not follow from what the source does publish. No value is invented.',
   'steel.props.note.minimumModulus': 'The section is not symmetric about this axis, so the MINIMUM modulus is shown, measured to the farther fibre. The other one is larger.',
   'steel.props.unavailable.centroidUnknown': 'Section modulus unavailable: the centroid position is not known and the table publishes no distance to the extreme fibre.',
@@ -353,5 +353,8 @@ const steelEn: Record<string, string> = {
   'steel.profileSelector.compare': 'Comparison',
   'steel.profileSelector.compareClear': 'clear',
   'steel.profileSelector.empty': 'No profile matches. Try less text, or drop a filter: family, publishing body, code or depth range. A half-typed depth empties the list too.',
+  'steel.table.grade': 'Grade',
+  'steel.table.gradeNone': 'not declared',
+  'steel.table.gradeUnresolved': 'unknown grade',
 };
 export default steelEn;
