@@ -338,5 +338,10 @@ const steelEn: Record<string, string> = {
   'generator.notice.bracingWithoutEaveBeams': 'The bracing system is complete but there are no eave beams: the reaction reaches the ground only in the braced bays, and the measured longitudinal stiffness drops by an order of magnitude.',
   'generator.hint.trussBracing': 'Vertical crosses between adjacent trusses, in three planes per bay: the two eaves and the middle station. This is what carries the roof plane down to the eave line.',
   'generator.assume.trussBracingTiesRoofToBearing': 'Vertical bracing between trusses: pin-ended crosses in vertical planes along the building, tying one frame\u2019s top chord to the next frame\u2019s bearing line. This is the element that carries the roof plane down to the eave; it sizes no connection.',
+  'generator.ui.material': 'Material',
+  'generator.ui.materialClear': 'clear',
+  'generator.ui.materialPlaceholder': 'No grade chosen: the model comes out with a placeholder material (A36) and declares it as an assumption.',
+  'generator.ui.materialScope': 'The grade applies to every generated member. It sizes nothing and produces no verification: it defines the model.',
+  'generator.notice.gradeUnusualForRoles': '{grade} departs from the practice recorded for the profiles of: {roles}. Not an error — it is cost and lead time — and it does not block generation.',
 };
 export default steelEn;

@@ -36,8 +36,11 @@
   } from '../../../lib/engine/generators/shed';
   import {
     emitModel, requiredRoles, validateProfiles, defaultProfileSpec,
-    type EmitOptions, type ProfileSpec,
+    type EmitOptions, type GeneratorMaterial, type ProfileSpec,
   } from '../../../lib/engine/generators/emit';
+  import GradePickerPanel from '../steel/GradePickerPanel.svelte';
+  import { pairing, structuralGradeSource } from '../../../lib/grades/catalogue';
+  import { resolveProfile } from '../../../lib/engine/generators/profile-resolve';
   import type { MemberRole } from '../../../lib/engine/generators/member-roles';
   import type { ProvenanceSource } from '../../../lib/model/provenance';
   import ProfilePicker from './ProfilePicker.svelte';
@@ -156,6 +159,63 @@
     topology !== null && paramProblems.length === 0 && profileProblems.length === 0,
   );
 
+  /**
+   * The grade every generated member is made of, or null for the placeholder.
+   *
+   * `emit.ts` has carried `GeneratorMaterial.gradeId` since PR21 and has never been given one:
+   * a generated model took `PLACEHOLDER_STEEL` — A36, which is not an Argentine grade — and
+   * declared `generator.assume.placeholderGrade` to say so. Choosing here is what makes that
+   * assumption disappear, and it is a one-line change at the call site precisely because the
+   * field was already there.
+   */
+  let gradeId = $state<string | null>(null);
+  let gradeOpen = $state(false);
+
+  const grade = $derived(gradeId ? structuralGradeSource.byId(gradeId) : null);
+
+  /**
+   * The material handed to the emitter.
+   *
+   * Null while no grade is chosen, which is what keeps the placeholder and its disclosure: an
+   * emitter that received a half-filled material would have to invent the rest.
+   */
+  const material = $derived.by((): GeneratorMaterial | null => {
+    if (!grade) return null;
+    return {
+      name: grade.designation,
+      e: grade.eMPa,
+      nu: grade.nu,
+      rho: grade.rhoKNM3,
+      // The headline value, which is the first thickness band. The member's governing
+      // thickness is not known here — the generator places profiles, it does not size them —
+      // so resolving a band would be inventing the decision that picks one.
+      fy: grade.fyMPa,
+      gradeId: grade.id,
+    };
+  });
+
+  /**
+   * Which of the chosen profiles this grade is not ordinarily rolled in.
+   *
+   * One grade is applied to every member, and the roles do not all take the same section
+   * family: a shed's chords are I-sections and its diagonals are angles. So the pairing question
+   * has one answer per role, and the useful report is the list of roles where the answer is
+   * "this family is not rolled in that steel" — a matter of cost and lead time, never of
+   * correctness, and nothing is blocked by it.
+   */
+  const unusualRoles = $derived.by(() => {
+    if (!gradeId) return [] as string[];
+    const out: string[] = [];
+    for (const role of roles) {
+      const spec = profiles[role];
+      if (!spec) continue;
+      const family = resolveProfile(spec.profileName)?.family;
+      if (!family) continue;
+      if (pairing(family, gradeId).verdict === 'unusual') out.push(role);
+    }
+    return out;
+  });
+
   let lastResult = $state<string | null>(null);
 
   const SOURCE: Record<Kind, ProvenanceSource> = {
@@ -176,7 +236,10 @@
 
   function generate() {
     if (!topology || !canGenerate) return;
-    const opts: EmitOptions = { name: nameOf(), profiles };
+    const opts: EmitOptions = {
+      name: nameOf(), profiles,
+      ...(material ? { material } : {}),
+    };
     const g = emitModel(topology, opts);
     const r = applyGeneratedModel(g, {
       source: SOURCE[kind],
@@ -355,6 +418,59 @@
     {/each}
   {/if}
 
+  <!--
+    ── The material, once, for every member the generator places ──
+
+    One grade rather than one per role. A generated frame is fabricated from one steel, and a
+    per-role material would be a modelling capability the generator has no use for — while the
+    role-by-role CONSEQUENCE of the single choice, which sections that steel is not ordinarily
+    rolled in, is reported below.
+  -->
+  <h4>{t('generator.ui.material')}</h4>
+  <div class="grade-line" data-testid="gen-grade-line">
+    <button
+      type="button"
+      class="grade-trigger"
+      aria-expanded={gradeOpen}
+      onclick={() => (gradeOpen = !gradeOpen)}
+      data-testid="gen-grade-trigger"
+    >{grade ? grade.designation : t('steel.grades.none')}</button>
+    {#if grade}
+      <span class="grade-meta">{grade.productStandard} · fy {grade.fyMPa} MPa</span>
+      <button type="button" class="grade-clear" onclick={() => { gradeId = null; }}
+              data-testid="gen-grade-clear">{t('generator.ui.materialClear')}</button>
+    {:else}
+      <!--
+        What the model gets INSTEAD, named. An empty control beside "no grade" leaves a user to
+        assume the members have no material at all; they have a placeholder, and the generated
+        model declares it as an assumption.
+      -->
+      <span class="grade-meta">{t('generator.ui.materialPlaceholder')}</span>
+    {/if}
+  </div>
+  <p class="grade-note" data-testid="gen-grade-scope">{t('generator.ui.materialScope')}</p>
+
+  {#if gradeOpen}
+    <GradePickerPanel
+      selected={gradeId}
+      onPick={(id) => { gradeId = id; gradeOpen = false; }}
+      onClose={() => (gradeOpen = false)}
+    />
+  {/if}
+
+  <!--
+    The pairing note sits with the controls it is about. A warning that a grade is unusual for
+    the diagonals is useless three sections away from the control that chose the diagonals.
+  -->
+  {#if unusualRoles.length > 0}
+    <p class="notice" role="status" data-testid="gen-grade-pairing">
+      {tp('generator.notice.gradeUnusualForRoles', {
+        grade: grade?.designation ?? '',
+        roles: unusualRoles.map((r) => t(`generator.role.${r}`)).join(', '),
+      })}
+    </p>
+  {/if}
+
   {#if profileProblems.length > 0}
     <ul class="problems" id="gen-profile-problems" role="alert" data-testid="gen-profile-problems">
       {#each profileProblems as p, i (i)}
@@ -498,6 +614,21 @@
   .go:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 2px; }
   .result { margin: 0; font-size: 0.7rem; color: var(--st-ok); }
   .model-note { margin: 0; font-size: 0.66rem; color: var(--st-text-3); }
+
+  /* The material row reads like a profile row, because it is the same kind of choice. */
+  .grade-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
+  .grade-trigger {
+    font-family: var(--st-mono, monospace); font-size: 0.68rem;
+    padding: 3px 7px; min-width: 7.5rem; text-align: left; cursor: pointer;
+    background: var(--st-surface); color: var(--st-text);
+    border: 1px solid var(--st-hair); border-radius: 3px;
+  }
+  .grade-meta { font-size: 0.62rem; color: var(--st-text-3); }
+  .grade-clear {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.6rem; color: var(--st-text-3); text-decoration: underline;
+  }
+  .grade-note { margin: 0 0 6px; font-size: 0.6rem; color: var(--st-text-3); line-height: 1.35; }
 
   /*
     One focus ring for every control in this panel.

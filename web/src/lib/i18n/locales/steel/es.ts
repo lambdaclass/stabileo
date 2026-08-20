@@ -344,5 +344,10 @@ const steelEs: Record<string, string> = {
   'generator.notice.bracingWithoutEaveBeams': 'El sistema de arriostramiento está completo pero no hay vigas de alero: la reacción sólo llega al suelo en los vanos arriostrados, y la rigidez longitudinal medida cae un orden de magnitud.',
   'generator.hint.trussBracing': 'Cruces verticales entre cerchas contiguas, en tres planos por vano: los dos aleros y la estación central. Es lo que baja el plano de cubierta a la línea de aleros.',
   'generator.assume.trussBracingTiesRoofToBearing': 'Arriostramiento vertical entre cerchas: cruces articuladas en planos verticales a lo largo del edificio, que atan el cordón superior de un pórtico a la línea de apoyo del siguiente. Es el elemento que baja el plano de cubierta al alero; no dimensiona ninguna unión.',
+  'generator.ui.material': 'Material',
+  'generator.ui.materialClear': 'quitar',
+  'generator.ui.materialPlaceholder': 'Sin grado elegido: el modelo sale con un material provisorio (A36) y lo declara como hipótesis.',
+  'generator.ui.materialScope': 'El grado se aplica a todos los miembros generados. No dimensiona nada y no produce ninguna verificación: define el modelo.',
+  'generator.notice.gradeUnusualForRoles': '{grade} se aparta de la práctica registrada para los perfiles de: {roles}. No es un error — es costo y plazo de entrega — y no bloquea la generación.',
 };
 export default steelEs;

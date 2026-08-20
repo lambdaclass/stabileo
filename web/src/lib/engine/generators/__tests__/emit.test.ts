@@ -15,6 +15,8 @@ import {
   type EmitOptions,
 } from '../emit';
 import { resolveProfile, availableArrangements, canCompose } from '../profile-resolve';
+import { gradeById } from '../../../data/structural-grades';
+import { catalogueGradeFamily } from '../../steel/grade-family';
 import { composeBuiltUp } from '../built-up-section';
 import { solverProperties } from '../../../section/state';
 import type { Section } from '../../../store/model.svelte';
@@ -369,5 +371,54 @@ describe('emitModel — the lattice column goes through the same path', () => {
     const t = generateLatticeColumn({ divisions: 3, fixedBase: true });
     const g = emitModel(t, { name: 'Columna', profiles: LATTICE_PROFILES });
     expect(g.json.supports.every((s) => s.type === 'fixed3d')).toBe(true);
+  });
+});
+
+describe('the grade the user chose reaches the model', () => {
+  /**
+   * The one call site PR21 left open.
+   *
+   * `GeneratorMaterial.gradeId` has existed since PR21 and was never given a value: a generated
+   * model took `PLACEHOLDER_STEEL` — A36, which is not an Argentine grade — and declared
+   * `generator.assume.placeholderGrade` to say so. These assert both halves of closing that:
+   * the declaration travels onto the model, and the placeholder disclosure goes away exactly
+   * when it stops being true.
+   */
+  const material = (() => {
+    const g = gradeById('iram-f36')!;
+    return { name: g.designation, e: g.e, nu: g.nu, rho: g.rho, fy: g.fy, gradeId: g.id };
+  })();
+
+  it('writes the grade id onto the material, so the family stops being inferred', () => {
+    const t = generateTruss({ ...DEFAULT_TRUSS_PARAMS, spanM: 10 });
+    const g = emitModel(t, { name: 'Cercha', profiles: LATTICE_PROFILES, material });
+    expect(g.json.materials).toHaveLength(1);
+    const m = g.json.materials[0] as unknown as { gradeId?: string; fy?: number; name: string };
+    expect(m.gradeId).toBe('iram-f36');
+    expect(m.name).toBe('F-36');
+    // The values are the catalogue's, not a rounded copy of them.
+    expect(m.fy).toBe(360);
+    // And this is what `materialFamilyOf` needs to answer from a declaration.
+    expect(catalogueGradeFamily(m.gradeId!)).toBe('steel');
+  });
+
+  it('drops the placeholder assumption once there is a real grade, and only then', () => {
+    const t = generateTruss({ ...DEFAULT_TRUSS_PARAMS, spanM: 10 });
+    const withGrade = emitModel(t, { name: 'Cercha', profiles: LATTICE_PROFILES, material });
+    expect(withGrade.assumptions).not.toContain('generator.assume.placeholderGrade');
+
+    const without = emitModel(t, { name: 'Cercha', profiles: LATTICE_PROFILES });
+    expect(without.assumptions).toContain('generator.assume.placeholderGrade');
+    expect((without.json.materials[0] as unknown as { gradeId?: string }).gradeId).toBeUndefined();
+  });
+
+  it('changes nothing else about the model', () => {
+    // The material is one row in one table. A grade must not move a node, a section or a member.
+    const t = generateTruss({ ...DEFAULT_TRUSS_PARAMS, spanM: 10 });
+    const a = emitModel(t, { name: 'Cercha', profiles: LATTICE_PROFILES });
+    const b = emitModel(t, { name: 'Cercha', profiles: LATTICE_PROFILES, material });
+    expect(b.json.nodes).toEqual(a.json.nodes);
+    expect(b.json.elements).toEqual(a.json.elements);
+    expect(b.json.sections).toEqual(a.json.sections);
   });
 });

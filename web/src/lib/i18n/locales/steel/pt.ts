@@ -350,5 +350,10 @@ const steelPt: Record<string, string> = {
   'generator.notice.bracingWithoutEaveBeams': 'O sistema de contraventamento está completo mas não há vigas de beiral: a reação chega ao solo apenas nos vãos contraventados, e a rigidez longitudinal medida cai uma ordem de magnitude.',
   'generator.hint.trussBracing': 'Cruzes verticais entre treliças adjacentes, em três planos por vão: os dois beirais e a estação central. É o que leva o plano da cobertura à linha dos beirais.',
   'generator.assume.trussBracingTiesRoofToBearing': 'Contraventamento vertical entre treliças: cruzes rotuladas em planos verticais ao longo do edifício, amarrando o cordão superior de um pórtico à linha de apoio do seguinte. É o elemento que leva o plano da cobertura ao beiral; não dimensiona nenhuma ligação.',
+  'generator.ui.material': 'Material',
+  'generator.ui.materialClear': 'remover',
+  'generator.ui.materialPlaceholder': 'Sem grau escolhido: o modelo sai com um material provisório (A36) e o declara como hipótese.',
+  'generator.ui.materialScope': 'O grau se aplica a todos os membros gerados. Não dimensiona nada e não produz nenhuma verificação: define o modelo.',
+  'generator.notice.gradeUnusualForRoles': '{grade} se afasta da prática registrada para os perfis de: {roles}. Não é um erro — é custo e prazo — e não bloqueia a geração.',
 };
 export default steelPt;
