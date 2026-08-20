@@ -29,6 +29,7 @@ const steelEn: Record<string, string> = {
 
   // ─── Notices ───
   'steel.notice.noAuthorityBound': 'No metallic code can produce results in this version. Steel members are listed, not verified.',
+  'steel.notice.nonFerrousNotCovered': 'The model has non-ferrous metal members (aluminium). This surface does not cover them and does not list them: no aluminium design authority is implemented.',
   'steel.notice.noDemands': 'No demands yet: solve the model with combinations.',
 
   // ─── Assumptions of the existing checker ───
@@ -48,6 +49,7 @@ const steelEn: Record<string, string> = {
   'steel.panel.experimentalBanner': 'Experimental surface. This screen reports which members are metallic and what was not done to them. It computes no capacities, issues no certificates, and nothing it shows may be used as a verification.',
   'steel.panel.empty.noElements': 'The model has no elements.',
   'steel.panel.empty.noneMetallic': 'The model has {total} elements and none of them is metallic.',
+  'steel.panel.empty.nonFerrousOnly': 'The model has {total} elements and its only metal is non-ferrous (aluminium). It is metal, but not the metal this surface can speak about.',
   'steel.panel.empty.allUnclassified': 'The model has {total} elements and none declares a strength, so its material cannot be classified.',
   'steel.panel.summary': '{n} metallic members · {beams} beams · {columns} columns · {length} m',
   'steel.panel.censusTitle': 'Materials in the model',

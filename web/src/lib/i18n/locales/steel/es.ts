@@ -35,6 +35,7 @@ const steelEs: Record<string, string> = {
 
   // ─── Avisos ───
   'steel.notice.noAuthorityBound': 'Ningún código metálico puede producir resultados en esta versión. Los miembros de acero se listan, no se verifican.',
+  'steel.notice.nonFerrousNotCovered': 'El modelo tiene miembros de metal no ferroso (aluminio). Esta superficie no los cubre y no los lista: ninguna autoridad de cálculo de aluminio está implementada.',
   'steel.notice.noDemands': 'Todavía no hay solicitaciones: resolvé el modelo con combinaciones.',
 
   // ─── Hipótesis del verificador existente ───
@@ -54,6 +55,7 @@ const steelEs: Record<string, string> = {
   'steel.panel.experimentalBanner': 'Superficie experimental. Esta pantalla informa qué miembros son metálicos y qué no se hizo con ellos. No calcula capacidades, no emite certificados y nada de lo que muestra puede usarse como verificación.',
   'steel.panel.empty.noElements': 'El modelo no tiene elementos.',
   'steel.panel.empty.noneMetallic': 'El modelo tiene {total} elementos y ninguno es metálico.',
+  'steel.panel.empty.nonFerrousOnly': 'El modelo tiene {total} elementos y su único metal es no ferroso (aluminio). Es metal, pero no el que esta superficie puede tratar.',
   'steel.panel.empty.allUnclassified': 'El modelo tiene {total} elementos y ninguno declara resistencia, así que no puede clasificarse su material.',
   'steel.panel.summary': '{n} miembros metálicos · {beams} vigas · {columns} columnas · {length} m',
   'steel.panel.censusTitle': 'Materiales del modelo',

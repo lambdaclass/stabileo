@@ -75,11 +75,12 @@ export interface SteelInventory {
   /**
    * Why the member list is empty, when it is. Null when it is not.
    *
-   * `noElements`      the model has no members at all
-   * `noneMetallic`    it has members and none of them are metallic
-   * `allUnclassified` it has members and none of them carry a strength to classify by
+   * `noElements`       the model has no members at all
+   * `noneMetallic`     it has members and none of them are metallic
+   * `nonFerrousOnly`   its only metal is non-ferrous, which this surface does not cover
+   * `allUnclassified`  it has members and none of them carry a strength to classify by
    */
-  emptyReason: 'noElements' | 'noneMetallic' | 'allUnclassified' | null;
+  emptyReason: 'noElements' | 'noneMetallic' | 'nonFerrousOnly' | 'allUnclassified' | null;
   /** i18n keys the surface must show. Never silently dropped. */
   notices: string[];
   /** True when at least one member's family was guessed rather than declared. */
@@ -160,6 +161,17 @@ export function buildSteelInventory(
 
   if (members.length > 0 && !opts.authorityBound) notices.add('steel.notice.noAuthorityBound');
   if (members.length > 0 && !opts.hasDemands) notices.add('steel.notice.noDemands');
+  /*
+   * Non-ferrous metal, said out loud rather than left to the census.
+   *
+   * The member list is ferrous by definition — `isSteel` is what admits a row — so an
+   * aluminium member is absent from it. Before the grade catalogue was wired in that was
+   * invisible, because the `fy > 80` inference could not tell aluminium from steel and filed
+   * it under steel anyway. Now the declaration separates them, and separating without saying
+   * so would remove members from a panel silently, which is the failure mode this whole file
+   * was written against.
+   */
+  if (census.byFamily.aluminium > 0) notices.add('steel.notice.nonFerrousNotCovered');
 
   return {
     members,
@@ -206,6 +218,14 @@ function emptyReasonOf(census: FamilyCensus, metallic: number): SteelInventory['
   if (metallic > 0) return null;
   if (census.total === 0) return 'noElements';
   if (census.byFamily.unknown === census.total) return 'allUnclassified';
+  /*
+   * "No metallic members" is a lie about a model built out of aluminium.
+   *
+   * It is metal; it is simply not the metal this surface can speak about, and those are
+   * different statements. The distinction only became reachable once the grade catalogue was
+   * wired in, because until then an aluminium grade was read as steel by magnitude.
+   */
+  if (census.byFamily.aluminium > 0) return 'nonFerrousOnly';
   return 'noneMetallic';
 }
 
