@@ -5961,6 +5961,48 @@ const es: Record<string, string> = {
   'detailing.floorRun.next': 'Corré el detallado coordinado, que coordina las barras que existan para entonces. La vista 3D y los documentos son proyecciones de ese resultado.',
   'detailing.floorRun.runningNote': 'Corriendo todo el edificio. Esta pasada no se puede interrumpir.',
   'detailing.floorRun.whenToRun': 'Opcional, y va ANTES del detallado. «Diseñar todo» diseña el pórtico — columnas y vigas; esto diseña las losas y tabiques que soporta, y las zapatas si las pedís. Un edificio sólo de pórticos puede saltearlo.',
+  // ════════════════════════════════════════════════════════════════════════
+  // H1 · design.floor.state.* — estados honestos de las familias de piso
+  //
+  // Bloque contiguo a propósito. Las claves de un mismo namespace insertadas
+  // de forma dispersa son lo que produjo 64 y después 15 duplicados al
+  // fusionar ramas: dos inserciones independientes en los mismos lugares que
+  // git acepta sin marcar conflicto. Un bloque se ve como una inserción.
+  //
+  // M1 necesitará tocar estos diccionarios para `conn.gap.aluminium.scope`.
+  // Insertar ese cambio como OTRO bloque encabezado, no intercalado acá.
+  // ════════════════════════════════════════════════════════════════════════
+  'design.floor.state.error': 'Error en la pasada',
+  'design.floor.state.notRun': 'Sin ejecutar',
+  'design.floor.state.noElements': 'Sin elementos',
+  'design.floor.state.skipped': 'Omitido',
+  'design.floor.state.designed': 'Diseñado',
+  'design.floor.state.refused': 'Rechazado',
+  'design.floor.state.provisional': 'Provisional',
+  'design.floor.state.why.error': 'La pasada de pisos falló. Cualquier número que quede en pantalla es de una corrida anterior y no describe el modelo actual.',
+  'design.floor.state.why.notRun': 'Todavía no se corrió el diseño de pisos, así que no hay nada clasificado. No es que no haya elementos: es que no se los miró.',
+  'design.floor.state.why.noElements': 'El modelo no tiene elementos de esta familia. Es un hecho del modelo y se sabe sin correr nada.',
+  'design.floor.state.why.skipped': 'La pasada clasificó estos elementos y no los diseñó ni los rechazó: quedaron fuera de su alcance.',
+  'design.floor.state.why.designed': 'Diseñado con resultado completo: armaduras, verificación de corte y cláusulas citadas.',
+  'design.floor.state.why.refused': 'La pasada se negó a diseñar. Cada rechazo nombra su elemento y la condición que lo detuvo.',
+  'design.floor.state.why.provisional': 'Diseñó, y algo quedó incompleto: madurez sin validar o condiciones que el propio diseño no cubre. No es una verificación.',
+  'design.floor.state.countUnavailable': 'Sin dato',
+  'design.floor.state.countUnavailableWhy': 'No se muestra un número porque no hay uno: mostrar 0 diría que la pasada contó y no encontró nada.',
+  'design.floor.state.scopeTitle': 'Alcance de la última corrida',
+  'design.floor.state.scopeNone': 'Todavía no hubo corrida de pisos.',
+  'design.floor.state.scope': 'Clasificó {classified} · diseñó {designed} · rechazó {refused} · omitió {skipped}',
+  'design.floor.state.offFamilyTitle': 'Clasificados fuera de losa y tabique',
+  'design.floor.state.offFamily': '{inclined} inclinados · {degenerate} degenerados',
+  'design.floor.state.offFamilyWhy': 'Cáscaras que la pasada clasificó y que no son losa ni tabique: una rampa o una losa en pendiente cae en «inclinado», y una geometría que el clasificador no pudo resolver cae en «degenerado». Ninguna se diseña, y ninguna se descarta en silencio.',
+  'design.floor.state.nextTitle': 'Qué hacer ahora',
+  'design.floor.state.next.error': 'Revisá el mensaje del error y volvé a correr el diseño de pisos.',
+  'design.floor.state.next.notRun': 'Corré «Diseñar y detallar pisos» para clasificar y diseñar estas familias.',
+  'design.floor.state.next.noElements': 'No hay nada que hacer para esta familia en este modelo.',
+  'design.floor.state.next.skipped': 'Revisá por qué quedaron fuera del alcance antes de emitir documentos.',
+  'design.floor.state.next.designed': 'Corré el detallado coordinado para que estas armaduras entren en los documentos.',
+  'design.floor.state.next.refused': 'Leé cada condición rechazada: son las que hay que resolver en el modelo.',
+  'design.floor.state.next.provisional': 'Revisá las condiciones no cubiertas antes de tratar este diseño como definitivo.',
+  'design.floor.state.scopeVsAll': '«Diseñar todo» diseña el pórtico —columnas y vigas— y no toca cáscaras ni cimientos. «Diseñar y detallar pisos» hace lo contrario: cáscaras y cimientos, y deja el pórtico intacto. Son dos pasadas distintas sobre familias distintas, no dos alcances de la misma.',
 
   'design.memo.flexure': 'Flexión',
   'design.memo.shear': 'Corte',
