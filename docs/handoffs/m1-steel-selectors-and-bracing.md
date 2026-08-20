@@ -281,6 +281,32 @@ que salen.
 worktree durante esta sesión, que es exactamente la trampa que documenta el §5 de
 `pr21-integration.md`.
 
+## 6b. Los cinco huecos de Uniones metálicas, como referencia fija
+
+La lista canónica vive en el panel (`ProConnectionsTab.svelte`, constante `GAPS`) y sus textos en
+las 77 claves `conn.*` de los diccionarios principales. Acá quedan los cinco por nombre, con el
+único campo que no es prosa, para que se puedan verificar sin abrir la app y para que quitar uno
+sea un cambio visible en un diff.
+
+| id | De qué habla | ¿Afecta el resultado? |
+|---|---|---|
+| `baseMetal` | Rotura del metal base: `checkFilletWeld` recibe el espesor de chapa y no su Fu, así que no compara el cordón contra la chapa | **sí** |
+| `boltGeometry` | Geometría del grupo: filas, pasos, gramiles y excentricidad respecto del baricentro | **sí** |
+| `torsion` | Mx se calcula por barra y por extremo, y no se dibuja. Hueco de **exposición**, no de cálculo | **no** |
+| `aluminium` | El filtro admite por `isSteel`, y las tablas de bulones y electrodos son de acero | **sí** |
+| `fvExcl` | `FvExcl` sin tabular para 4.6 y 5.6: la caída al valor con roscas incluidas es correcta y silenciosa | **sí** |
+
+Dos propiedades que se mantienen y están testeadas: `affects` distingue «un estado límite que
+nadie calcula» de «un número que existe y no se muestra» —una lista donde todo afectara el
+resultado sería una lista de disculpas— y el aviso de `fvExcl` aparece **junto al resultado**,
+porque un hueco que vive sólo en un pie de página es uno que nadie lee en el momento en que
+importa. `steel-surface-audit.test.ts` fija los cinco ids por nombre y los cinco valores de
+`affects`; `steel-keys.test.ts` verifica las cuatro facetas de cada uno en los tres idiomas.
+
+**Salvedad vigente:** la faceta `scope` de `aluminium` dice hoy que el inventario metálico sí
+lista los miembros de aluminio, y eso es falso desde `6d274e37`. Parche preparado y sin aplicar en
+`patches/conn-gap-aluminium-scope.md`; espera el commit de i18n de H1.
+
 ## 7. Deuda que M1 deja abierta
 
 - **La ficha de perfiles no tiene módulo plástico.** `Wpl` necesita el eje neutro plástico, que no

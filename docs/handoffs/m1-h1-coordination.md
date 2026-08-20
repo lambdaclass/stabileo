@@ -1,7 +1,7 @@
 # M1 ↔ H1 — cuatro puntos de coordinación sobre archivos compartidos
 
 **Rama que reporta:** `feat/pro-steel-m1` (PR [#156](https://github.com/lambdaclass/stabileo/pull/156), draft)
-**SHA al escribir esto:** `69d08097`
+**SHA al escribir esto:** `69d08097`; actualizado sobre `f45bd3e7`
 **Estado de los cuatro puntos:** **ninguno implementado.** Ninguno de los archivos listados
 abajo fue modificado por M1.
 
@@ -186,6 +186,34 @@ aunque sea una línea. El impacto medido:
 - Un caso nuevo: hormigón de 90 MPa con `gradeId` de hormigón declarado **entra** al pipeline,
   y sin grado declarado **no** entra. Documenta la única diferencia real.
 
+### Observación medida — no es sólo un cambio de procedencia
+
+Esto se agregó después de escribir el punto, midiéndolo:
+`web/src/lib/engine/steel/__tests__/member-context-lookup-observation.test.ts` (9 tests) inyecta
+el lookup en su propia llamada, así que no toca nada compartido y sus aserciones siguen siendo
+verdaderas antes y después de que H1 cablee el sitio de llamada.
+
+La mitad metálica es un no-op, como decía el punto: acero y aluminio quedan fuera del pipeline de
+las dos maneras, y sólo mejora la razón. Lo que el cableado además arregla **no es metálico**, y
+es el motivo por el que vale que H1 lo lea:
+
+> **Toda clase de madera catalogada entra hoy al pipeline de hormigón.**
+
+EN 338 va de C16 a D60, así que las trece clases tienen resistencia característica **por debajo**
+del techo de 80 MPa. `materialFamilyOf` lee la magnitud, responde `concrete`, el filtro conserva
+el miembro, y **una viga C24 se diseña como si fuera hormigón de 24 MPa**. Con el lookup pasado,
+el grado declarado dice `timber` y el miembro queda excluido — que es lo que hace la superficie
+metálica desde `6d274e37`.
+
+Dos cosas más que salieron de la misma medición, chicas y útiles:
+
+- `ContextModelData.materials` no declara `gradeId` (el campo es posterior a la interfaz y
+  `materialFamilyOf` lo lee defensivamente). Si H1 está en el archivo, conviene ensancharla.
+- `MemberContext` guarda `verdict.family` y **descarta el basis** (`member-context.ts:245`), así
+  que una superficie de hormigón no puede decir si la familia fue declarada o deducida — que es
+  justo la distinción que el panel metálico muestra con `steel.panel.inferredWarning`. Si a H1 le
+  sirve, es un campo.
+
 ### Alternativa segura
 
 Pasar el lookup **sólo** a `buildAllMemberContextsUnfiltered` (`member-context.ts:303`), que es
@@ -292,8 +320,22 @@ Dos, y ninguna es buena:
 
 ### Quién debería implementarlo
 
-M1, en el mismo commit y en los tres idiomas, en cuanto haya un OK. Es el único de los cuatro
-puntos con urgencia real, y es el más chico de los cuatro.
+M1, en el mismo commit y en los tres idiomas, en cuanto haya un OK **y H1 cierre su commit de
+i18n**: está agregando `design.floor.state.*` en esos mismos tres archivos, así que aplicar en
+paralelo es un conflicto de una línea por archivo, trivial y completamente evitable esperando.
+
+**Parche preparado, sin aplicar:** `docs/handoffs/patches/conn-gap-aluminium-scope.md` — los tres
+diffs, la ubicación por clave (en `pt.ts` la clave está en otra zona del archivo, así que un
+parche por número de línea no sirve), el impacto y el procedimiento de aplicación.
+
+**Tests preparados y activos:**
+`web/src/lib/engine/steel/__tests__/conn-aluminium-scope.test.ts` (10 tests) fija el
+comportamiento que vuelve falsa la frase, verifica que el texto propuesto cumpla lo que tiene que
+cumplir en los tres idiomas —incluida la regla de no-aprobación— y declara el estado actual del
+diccionario embarcado. Al aplicar el parche se invierte **una** aserción, señalada en el archivo
+con el comentario que lo dice.
+
+Es el único de los cuatro puntos con urgencia real, y es el más chico de los cuatro.
 
 ---
 
@@ -383,4 +425,10 @@ De las cuatro alternativas seguras, dos son de M1 y no tocan nada compartido:
   principales, leyéndolos sin editarlos.
 
 Las dos están implementadas en el commit que acompaña a este documento. Los puntos 2 y 3 quedan
-esperando: el 2 porque no es de M1, el 3 porque necesita un OK explícito.
+esperando, y para los dos M1 dejó preparado lo que puede preparar sin tocar nada compartido:
+
+- **punto 2** → la observación medida, con el hallazgo de la madera, en
+  `member-context-lookup-observation.test.ts`. La decisión sigue siendo de H1;
+- **punto 3** → el parche en los tres idiomas, su impacto y sus tests, en
+  `patches/conn-gap-aluminium-scope.md` y `conn-aluminium-scope.test.ts`. Espera el OK y el
+  commit de i18n de H1.

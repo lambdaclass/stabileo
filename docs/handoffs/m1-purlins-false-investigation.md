@@ -217,9 +217,24 @@ negativos afirman valores lo bastante grandes como para que nadie los lea como u
 
   **Volver al default articulado sigue sin justificación**, y el argumento del §7 —«generar el
   arriostramiento longitudinal lo permitiría»— resulta insuficiente tal como está escrito: el
-  miembro que faltaba no era el de fachada. Con el sistema completo la pregunta se puede volver a
-  abrir, midiendo comportamiento lateral, que es donde la fijeza de base se gana o se pierde y que
-  nada de esto midió.
+  miembro que faltaba no era el de fachada.
+
+  **Candidato a M2, explícitamente fuera de alcance de M1.** M1 no abre esa investigación, no
+  cambia la idealización actual —bases empotradas por defecto en la nave, articuladas en la
+  columna suelta— y no agrega ninguna hipótesis lateral sin medición. Lo que haría falta para
+  reabrirla, anotado para que M2 no empiece de cero:
+
+  1. una hipótesis de carga **lateral** en el plano del pórtico, que es donde la fijeza de base se
+     gana o se pierde, y que ninguna de las mediciones de arriba tocó;
+  2. el sistema de arriostramiento completo puesto, porque sin el vertical entre cerchas cualquier
+     comparación articulado/empotrado se hace sobre un modelo que no tiene camino longitudinal;
+  3. el contraste contra columna de alma llena, que es la red que ya usa
+     `shed-default-solves.test.ts` para distinguir rigidez de coincidencia;
+  4. y una cota de desplazamiento, nunca `isFinite`, por la razón del §5.
+
+  Hasta que eso exista, el default empotrado se queda, y la hipótesis
+  `generator.assume.latticeBasesPinnedNoOutOfPlane` sigue viajando con el modelo cuando alguien
+  elige articulado — que es la parte honesta de la situación actual y no se toca.
 - **Cargas de viento longitudinal.** El generador sigue emitiendo modelos sin casos de carga. Un
   generador de viento sobre la nave es trabajo de las autoridades CIRSOC 101/102, no de acero, y
   es lo que convertiría estas mediciones en una verificación de servicio.
