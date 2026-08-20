@@ -111,6 +111,7 @@ describe('steel and generator translation keys', () => {
     const { OUTLINE_UNAVAILABLE_REASONS } = await import('../../engine/generators/section-outline');
     const { TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS } = await import('../../engine/generators/truss-topology');
     const { LACING_PATTERNS } = await import('../../engine/generators/lattice-column');
+    const { BRACING_BAYS } = await import('../../engine/generators/shed');
     const { PROPERTY_ORDER, PROPERTY_BASES } = await import('../../profiles/properties');
     const { GRADE_PROPERTY_ORDER, GRADE_BASES, GRADE_FAMILIES, populatedRegions } =
       await import('../../grades/catalogue');
@@ -132,6 +133,7 @@ describe('steel and generator translation keys', () => {
       ...ARCH_CURVES.map((c) => `generator.archCurve.${c}`),
       ...WEB_PATTERNS.map((w) => `generator.webPattern.${w}`),
       ...LACING_PATTERNS.map((l) => `generator.lacing.${l}`),
+      ...BRACING_BAYS.map((b) => `generator.bracingBays.${b}`),
       // Built from templates by `torsionBasisKey` and `outlineUnavailableKey`, so a regex over
       // the source cannot see them — which is exactly how one of these would ship rendering
       // its own key.

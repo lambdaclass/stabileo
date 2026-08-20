@@ -329,5 +329,20 @@ const steelEs: Record<string, string> = {
   'steel.grades.region.IN': 'India',
   'steel.grades.region.ZA': 'Sudáfrica',
   'steel.grades.noAuthority': 'Sin autoridad de cálculo metálico: la selección define el modelo y no produce ninguna verificación.',
+  // ─── Arriostramiento (M1) ───
+  'generator.assume.wallBracingPinnedOuterChordPlane': 'Arriostramiento de fachada: cruces articuladas en el plano del cordón exterior de cada columna, en los vanos arriostrados. Es el elemento que da restricción longitudinal a la línea de columnas; no dimensiona ninguna unión.',
+  'generator.assume.roofBracingPinnedInRoofPlane': 'Arriostramiento de cubierta: diagonales articuladas en el plano de cubierta entre nudos consecutivos del cordón superior de pórticos contiguos. Triangula el plano y lleva la carga longitudinal a las fachadas arriostradas; NO reemplaza a las correas.',
+  'generator.ui.wallBracing': 'Arriostramiento de fachada',
+  'generator.ui.roofBracing': 'Arriostramiento de cubierta',
+  'generator.ui.bracingBays': 'Vanos arriostrados',
+  'generator.bracingBays.end': 'Vanos extremos',
+  'generator.bracingBays.all': 'Todos los vanos',
+  'generator.hint.wallBracing': 'Cruces en el plano de las fachadas. Es lo que permite volver a articular las bases de las columnas reticuladas.',
+  'generator.hint.roofBracing': 'Viga de contraviento en el plano de cubierta. No sustituye las correas: arriostrar sólo los vanos extremos deja sin sujeción lateral a los pórticos interiores.',
+  'generator.ui.trussBracing': 'Arriostramiento vertical entre cerchas',
+  'generator.notice.bracingIncomplete': 'El arriostramiento elegido no forma un camino de carga completo. El recorrido es: plano de cubierta → arriostramiento vertical entre cerchas → línea de aleros → vigas de alero → fachada arriostrada → suelo. Arriostrar sólo el plano de cubierta triangula una placa que sigue desplazándose; arriostrar sólo verticalmente ata la cubierta a una línea de aleros que no baja al suelo. Se genera igual: la geometría es válida y podés arriostrarla a tu manera.',
+  'generator.notice.bracingWithoutEaveBeams': 'El sistema de arriostramiento está completo pero no hay vigas de alero: la reacción sólo llega al suelo en los vanos arriostrados, y la rigidez longitudinal medida cae un orden de magnitud.',
+  'generator.hint.trussBracing': 'Cruces verticales entre cerchas contiguas, en tres planos por vano: los dos aleros y la estación central. Es lo que baja el plano de cubierta a la línea de aleros.',
+  'generator.assume.trussBracingTiesRoofToBearing': 'Arriostramiento vertical entre cerchas: cruces articuladas en planos verticales a lo largo del edificio, que atan el cordón superior de un pórtico a la línea de apoyo del siguiente. Es el elemento que baja el plano de cubierta al alero; no dimensiona ninguna unión.',
 };
 export default steelEs;

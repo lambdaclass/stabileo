@@ -45,6 +45,10 @@ import {
 
 export type ColumnKind = 'solid' | 'lattice';
 
+/** Which bays of the building carry bracing. */
+export const BRACING_BAYS = ['end', 'all'] as const;
+export type BracingBays = (typeof BRACING_BAYS)[number];
+
 export interface ShedParams {
   /** VT — transverse span, column centreline to column centreline, m. */
   spanM: number;
@@ -65,6 +69,65 @@ export interface ShedParams {
   truss: Omit<TrussParams, 'spanM'>;
   /** Purlins spanning between the frames on the top chord. */
   purlins: boolean;
+  /**
+   * Cross-bracing in the WALL planes, tying each column line along the building.
+   *
+   * The element PR21 recorded as missing and did not place. A latticed column is braced in its
+   * own plane by its lacing and in no other, which is why a shed's bases default to fixed: with
+   * a pin under each chord the pair can rotate about the line joining them. A real shed resists
+   * that with longitudinal bracing, and this is it.
+   *
+   * Placed in the plane of the OUTER chord, which is where a facade brace goes and — not
+   * incidentally — the only plane whose top and bottom nodes both already exist. Two crossing
+   * diagonals per braced bay per wall, pin-ended, which is how a brace is detailed and how it
+   * is modelled.
+   */
+  wallBracing: boolean;
+  /**
+   * Cross-bracing in the ROOF plane between the top chords of adjacent frames.
+   *
+   * The wind girder every shed has and this generator did not. It carries longitudinal load
+   * from the roof to the braced walls, and it triangulates a roof plane that purlins and chords
+   * otherwise leave as a grid of quadrilaterals.
+   *
+   * It is NOT a substitute for purlins, and a test says so rather than leaving it to be
+   * assumed: braced end bays restrain the frames they connect and leave the interior ones with
+   * nothing holding them sideways, so `purlins: false` stays a mechanism however much bracing
+   * is added at the ends. Only bracing EVERY bay reaches every frame — which is what a purlin
+   * line does, one member at a time.
+   */
+  roofBracing: boolean;
+  /**
+   * Vertical cross-bracing BETWEEN adjacent trusses, tying the top-chord line down to the
+   * bearing line.
+   *
+   * This is the member the roof plane's load path was missing, and the measurement that
+   * identifies it is in `shed-bracing.test.ts`: restraining translation along the building at
+   * every node above the eaves reduces the response to exactly zero, while restraining the eave
+   * line itself changes nothing. So the free body is the roof, and it is free because a planar
+   * truss with a pin-jointed web has no out-of-plane stiffness — the whole top chord, tied frame
+   * to frame by the purlins, translates sideways as one piece.
+   *
+   * Bracing the roof PLANE does not fix that. Diagonals between top-chord nodes triangulate the
+   * plane and leave the plane free to slide; what anchors it is a member from the top chord of
+   * one frame to the bearing of the next, in a vertical plane along the building. That is the
+   * vertical bracing every shed carries between its trusses, and it is what turns roof bracing
+   * from a triangulated plate into a load path.
+   *
+   * Placed in three vertical planes per braced bay — the two eaves and the middle station —
+   * which is where it is detailed, and enough to make the tie statically determinate without
+   * filling the building with steel.
+   */
+  trussBracing: boolean;
+  /**
+   * Which bays carry the bracing.
+   *
+   * `end` is practice: the first and last bay, so the braced bay is reachable and the rest of
+   * the building hangs off it through the purlins. `all` exists because it is the configuration
+   * that answers "would more bracing have fixed this", and a generator that cannot express the
+   * alternative cannot be used to test the claim.
+   */
+  bracingBays: BracingBays;
   /**
    * Whether the column bases are fixed.
    *
@@ -97,6 +160,12 @@ export const DEFAULT_SHED_PARAMS: ShedParams = Object.freeze({
   roof: true,
   truss: { ...DEFAULT_TRUSS_PARAMS, kind: 'trapezoidal' } as Omit<TrussParams, 'spanM'>,
   purlins: true,
+  // Off, both of them, so the shed a user gets by pressing Generate is exactly the one PR21
+  // measured and pinned. Bracing is an addition to that model, not a change to it.
+  wallBracing: false,
+  roofBracing: false,
+  trussBracing: false,
+  bracingBays: 'end' as const,
   fixedBase: true,
 });
 
@@ -151,6 +220,22 @@ function addNode(b: Builder, x: number, y: number, z: number): number {
   b.nodes.push({ i, x, y, z });
   b.index.set(k, i);
   return i;
+}
+
+/**
+ * The node at a position, or -1.
+ *
+ * Distinct from `addNode` on purpose. Bracing has to attach to nodes that already exist —
+ * a chord foot, a chord head, a top-chord panel point — and `addNode` would happily invent one
+ * at a position where nothing is, leaving a node held by two diagonals and nothing else. That
+ * is a free node, which is to say a mechanism, introduced by the member meant to remove one.
+ *
+ * So the anchors are looked up, a brace whose anchor is missing is not drawn, and the member
+ * counts are asserted in `shed-bracing.test.ts` — a silent skip fails there rather than
+ * shipping a wall with no brace in it.
+ */
+function findNode(b: Builder, x: number, y: number, z: number): number {
+  return b.index.get(key(x, y, z)) ?? -1;
 }
 
 /** Place a whole topology into the building, mapping its local frame through `at`. */
@@ -331,6 +416,114 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
     b.assumptions.add('generator.assume.purlinsRolledToPitch');
   }
 
+  // ── Bracing ──
+  //
+  // Placed after the purlins because both read the truss's top-chord nodes, and after the
+  // columns because the wall braces attach to chord feet and heads the placement already made.
+  const bays = bracedBays(p);
+
+  if (p.wallBracing) {
+    /*
+     * The wall plane, and why it is the outer chord's.
+     *
+     * A latticed column has two chord lines and no material on its axis. A brace in the plane
+     * of the OUTER chord is where a facade brace actually sits — flush with the cladding — and
+     * it is the plane whose four corner nodes all exist already: chord feet at z = 0 and chord
+     * heads at z = clearHeight, both generated by `place`. A brace to the column axis would
+     * need a node on the axis at the base, where the column has nothing.
+     *
+     * A solid column has one line, so its own foot and head are the corners.
+     */
+    const halfW = p.column.widthM / 2;
+    for (const f of bays) {
+      for (const [side, xc] of ([[0, 0], [1, p.spanM]] as const)) {
+        // Outward from the building on each side, so both walls are braced in their own plane.
+        const x = p.columnKind === 'lattice' ? xc + (side === 0 ? -halfW : halfW) : xc;
+        const yA = f * p.bayM;
+        const yB = (f + 1) * p.bayM;
+        const footA = findNode(b, x, yA, 0);
+        const footB = findNode(b, x, yB, 0);
+        const headA = findNode(b, x, yA, p.clearHeightM);
+        const headB = findNode(b, x, yB, p.clearHeightM);
+        if (footA < 0 || footB < 0 || headA < 0 || headB < 0) continue;
+        // Two crossing diagonals, pin-ended. No node at the crossing: braces are detailed to
+        // pass one in front of the other, and modelling an intersection would invent a joint.
+        b.members.push({ a: footA, b: headB, role: 'bracing', type: 'truss' });
+        b.members.push({ a: headA, b: footB, role: 'bracing', type: 'truss' });
+      }
+    }
+    b.assumptions.add('generator.assume.wallBracingPinnedOuterChordPlane');
+  }
+
+  if (p.roofBracing && truss) {
+    /*
+     * The roof plane. Diagonals between consecutive top-chord panel points of adjacent frames,
+     * which triangulates a grid the chords and purlins otherwise leave as quadrilaterals.
+     *
+     * One diagonal per panel, alternating direction along the span so the bay is laced rather
+     * than leaning — the same reason the lattice column's default lacing zig-zags.
+     */
+    const topNodes = topChordNodes(truss);
+    for (const f of bays) {
+      for (let k = 0; k + 1 < topNodes.length; k++) {
+        const n0 = truss.nodes[topNodes[k]];
+        const n1 = truss.nodes[topNodes[k + 1]];
+        const z0 = n0.z + p.clearHeightM;
+        const z1 = n1.z + p.clearHeightM;
+        const yA = f * p.bayM;
+        const yB = (f + 1) * p.bayM;
+        const a = k % 2 === 0
+          ? findNode(b, n0.x, yA, z0)
+          : findNode(b, n1.x, yA, z1);
+        const c = k % 2 === 0
+          ? findNode(b, n1.x, yB, z1)
+          : findNode(b, n0.x, yB, z0);
+        if (a < 0 || c < 0) continue;
+        b.members.push({ a, b: c, role: 'bracing', type: 'truss' });
+      }
+    }
+    b.assumptions.add('generator.assume.roofBracingPinnedInRoofPlane');
+  }
+
+  if (p.trussBracing && truss) {
+    /*
+     * The vertical planes, and why there are three of them.
+     *
+     * A cross in a vertical plane along the building ties the TOP chord of one frame to the
+     * BEARING line of the next, which is the only tie that reaches a restrained line: the eave
+     * beams tie the bearings frame to frame, and the wall bracing takes them to the ground.
+     *
+     * The two eave stations are where this is detailed in practice and are where the truss is
+     * shallowest; the middle station is the deepest and does the most work. Every other station
+     * would add members without adding a path.
+     *
+     * Both nodes of each pair are looked up, never created: the pair exists because the truss
+     * put a top-chord node and a bearing node at the same station, and a station where it did
+     * not is skipped rather than invented.
+     */
+    const topNodes = topChordNodes(truss);
+    const stations = [0, Math.floor((topNodes.length - 1) / 2), topNodes.length - 1]
+      .filter((v, i, a) => a.indexOf(v) === i);
+    for (const f of bays) {
+      for (const st of stations) {
+        const n = truss.nodes[topNodes[st]];
+        const zTop = n.z + p.clearHeightM;
+        const zBot = lowestZAt(b, n.x, f * p.bayM, zTop);
+        if (zBot === null) continue;
+        const yA = f * p.bayM;
+        const yB = (f + 1) * p.bayM;
+        const topA = findNode(b, n.x, yA, zTop);
+        const topB = findNode(b, n.x, yB, zTop);
+        const botA = findNode(b, n.x, yA, zBot);
+        const botB = findNode(b, n.x, yB, zBot);
+        if (topA < 0 || topB < 0 || botA < 0 || botB < 0) continue;
+        b.members.push({ a: topA, b: botB, role: 'bracing', type: 'truss' });
+        b.members.push({ a: botA, b: topB, role: 'bracing', type: 'truss' });
+      }
+    }
+    b.assumptions.add('generator.assume.trussBracingTiesRoofToBearing');
+  }
+
   if (!p.roof) b.assumptions.add('generator.assume.noRoofStructure');
   /*
    * A roof with no purlins is a set of planar trusses with nothing holding them sideways.
@@ -359,6 +552,39 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
     areaM2: p.spanM * p.bayM * (p.frames - 1),
     frames: p.frames,
   };
+}
+
+/**
+ * The lowest node already placed at a station, below a given height. Null when there is none.
+ *
+ * "Below the top chord and at the same x and y" is what makes a vertical plane along the
+ * building expressible: the bottom of the pair is whatever the truss and the column left there
+ * — a bottom-chord node at mid-span, a bearing at the eave — and reading it off the assembly
+ * means the brace lands on real steel instead of on a computed position.
+ */
+function lowestZAt(b: Builder, x: number, y: number, belowZ: number): number | null {
+  let best: number | null = null;
+  for (const n of b.nodes) {
+    if (Math.abs(n.x - x) > MERGE_TOL || Math.abs(n.y - y) > MERGE_TOL) continue;
+    if (n.z >= belowZ - MERGE_TOL) continue;
+    if (best === null || n.z < best) best = n.z;
+  }
+  return best;
+}
+
+/**
+ * The bays that carry bracing, as the index of their FIRST frame.
+ *
+ * `end` gives the first and last bay — and gives one of them, not two, on a two-frame shed,
+ * because there is only one bay to brace and drawing it twice would double every diagonal.
+ */
+function bracedBays(p: ShedParams): number[] {
+  const lastBay = p.frames - 2;
+  if (lastBay < 0) return [];
+  if (p.bracingBays === 'all') {
+    return Array.from({ length: lastBay + 1 }, (_, i) => i);
+  }
+  return lastBay === 0 ? [0] : [0, lastBay];
 }
 
 /**

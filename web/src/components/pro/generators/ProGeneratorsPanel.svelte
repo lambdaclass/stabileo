@@ -32,7 +32,7 @@
     generateLatticeColumn, validateLatticeColumnParams, type LatticeColumnParams,
   } from '../../../lib/engine/generators/lattice-column';
   import {
-    DEFAULT_SHED_PARAMS, generateShed, validateShedParams, type ShedParams,
+    BRACING_BAYS, DEFAULT_SHED_PARAMS, generateShed, validateShedParams, type ShedParams,
   } from '../../../lib/engine/generators/shed';
   import {
     emitModel, requiredRoles, validateProfiles, defaultProfileSpec,
@@ -97,6 +97,29 @@
       ? t('generator.notice.roofWithoutPurlins')
       : null,
   );
+
+  /**
+   * Bracing that does not reach the ground, named before Generate rather than after Solve.
+   *
+   * The measurement in `shed-bracing.test.ts`: the shed has no longitudinal load path at all,
+   * and the three bracing members only make one together. Roof bracing alone triangulates a
+   * plate that still slides; vertical bracing alone ties the roof to an eave line that is itself
+   * held by nothing but the columns' weak-axis bending. So a partial selection is a real state a
+   * user can be in, and the honest thing is to say what is still missing from the path.
+   *
+   * A `status`, not an `alert`, and it never blocks Generate: someone may want the geometry to
+   * brace it their own way, and half a system is not an invalid parameter.
+   */
+  const bracingNotice = $derived.by(() => {
+    if (kind !== 'shed') return null;
+    const any = shed.roofBracing || shed.trussBracing || shed.wallBracing;
+    if (!any) return null;
+    const all = shed.roofBracing && shed.trussBracing && shed.wallBracing;
+    if (all) {
+      return shed.longitudinalBeams ? null : t('generator.notice.bracingWithoutEaveBeams');
+    }
+    return t('generator.notice.bracingIncomplete');
+  });
 
   /**
    * The topology, or null while the parameters are invalid.
@@ -275,6 +298,30 @@
         <label class="check"><input type="checkbox" bind:checked={shed.purlins} /><span>{t('generator.ui.purlins')}</span></label>
       {/if}
       <label class="check"><input type="checkbox" bind:checked={shed.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
+
+      <!--
+        Bracing, as three switches rather than one.
+
+        They are three different members doing three different jobs, and collapsing them into
+        "Bracing" would hide the fact the measurement turned up: bracing the roof PLANE anchors
+        nothing on its own. The path is roof plane → vertical bracing between trusses → eave line
+        → eave beams → braced wall → ground, and a user who ticks one box and gets 10^11 m of
+        displacement learns nothing from a single control.
+
+        `shed-bracing.test.ts` measures each one's contribution by removing it.
+      -->
+      <label class="check"><input type="checkbox" bind:checked={shed.roofBracing} />
+        <span>{t('generator.ui.roofBracing')}</span></label>
+      <label class="check"><input type="checkbox" bind:checked={shed.trussBracing} />
+        <span>{t('generator.ui.trussBracing')}</span></label>
+      <label class="check"><input type="checkbox" bind:checked={shed.wallBracing} />
+        <span>{t('generator.ui.wallBracing')}</span></label>
+      {#if shed.roofBracing || shed.trussBracing || shed.wallBracing}
+        <label><span>{t('generator.ui.bracingBays')}</span>
+          <select bind:value={shed.bracingBays} data-testid="gen-bracing-bays">
+            {#each BRACING_BAYS as b (b)}<option value={b}>{t(`generator.bracingBays.${b}`)}</option>{/each}
+          </select></label>
+      {/if}
     {/if}
   </div>
 
@@ -291,6 +338,9 @@
   -->
   {#if stabilityNotice}
     <p class="notice" role="status" data-testid="gen-stability-notice">{stabilityNotice}</p>
+  {/if}
+  {#if bracingNotice}
+    <p class="notice" role="status" data-testid="gen-bracing-notice">{bracingNotice}</p>
   {/if}
 
   <!-- ── Profiles, only for the roles this topology actually places ── -->

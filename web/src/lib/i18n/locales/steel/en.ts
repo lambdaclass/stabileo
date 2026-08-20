@@ -323,5 +323,20 @@ const steelEn: Record<string, string> = {
   'steel.grades.region.IN': 'India',
   'steel.grades.region.ZA': 'South Africa',
   'steel.grades.noAuthority': 'No metallic design authority: the selection defines the model and produces no verification.',
+  // ─── Bracing (M1) ───
+  'generator.assume.wallBracingPinnedOuterChordPlane': 'Wall bracing: pin-ended crosses in the plane of each column\u2019s outer chord, in the braced bays. This is the element that gives the column line longitudinal restraint; it sizes no connection.',
+  'generator.assume.roofBracingPinnedInRoofPlane': 'Roof bracing: pin-ended diagonals in the roof plane between consecutive top-chord nodes of adjacent frames. It triangulates the plane and carries longitudinal load to the braced walls; it does NOT replace the purlins.',
+  'generator.ui.wallBracing': 'Wall bracing',
+  'generator.ui.roofBracing': 'Roof bracing',
+  'generator.ui.bracingBays': 'Braced bays',
+  'generator.bracingBays.end': 'End bays',
+  'generator.bracingBays.all': 'Every bay',
+  'generator.hint.wallBracing': 'Crosses in the wall planes. This is what allows a latticed column\u2019s bases to be pinned again.',
+  'generator.hint.roofBracing': 'A wind girder in the roof plane. It does not stand in for the purlins: bracing only the end bays leaves the interior frames with nothing holding them sideways.',
+  'generator.ui.trussBracing': 'Vertical bracing between trusses',
+  'generator.notice.bracingIncomplete': 'The bracing selected does not make a complete load path. The path is: roof plane \u2192 vertical bracing between trusses \u2192 eave line \u2192 eave beams \u2192 braced wall \u2192 ground. Bracing the roof plane alone triangulates a plate that still slides; vertical bracing alone ties the roof to an eave line that does not reach the ground. It still generates: the geometry is valid and you may brace it your own way.',
+  'generator.notice.bracingWithoutEaveBeams': 'The bracing system is complete but there are no eave beams: the reaction reaches the ground only in the braced bays, and the measured longitudinal stiffness drops by an order of magnitude.',
+  'generator.hint.trussBracing': 'Vertical crosses between adjacent trusses, in three planes per bay: the two eaves and the middle station. This is what carries the roof plane down to the eave line.',
+  'generator.assume.trussBracingTiesRoofToBearing': 'Vertical bracing between trusses: pin-ended crosses in vertical planes along the building, tying one frame\u2019s top chord to the next frame\u2019s bearing line. This is the element that carries the roof plane down to the eave; it sizes no connection.',
 };
 export default steelEn;

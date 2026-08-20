@@ -335,5 +335,20 @@ const steelPt: Record<string, string> = {
   'steel.grades.region.IN': 'Índia',
   'steel.grades.region.ZA': 'África do Sul',
   'steel.grades.noAuthority': 'Sem autoridade de cálculo metálico: a seleção define o modelo e não produz nenhuma verificação.',
+  // ─── Contraventamento (M1) ───
+  'generator.assume.wallBracingPinnedOuterChordPlane': 'Contraventamento de fachada: cruzes rotuladas no plano do cordão externo de cada coluna, nos vãos contraventados. É o elemento que dá restrição longitudinal à linha de colunas; não dimensiona nenhuma ligação.',
+  'generator.assume.roofBracingPinnedInRoofPlane': 'Contraventamento de cobertura: diagonais rotuladas no plano da cobertura entre nós consecutivos do cordão superior de pórticos adjacentes. Triangula o plano e leva a carga longitudinal às fachadas contraventadas; NÃO substitui as terças.',
+  'generator.ui.wallBracing': 'Contraventamento de fachada',
+  'generator.ui.roofBracing': 'Contraventamento de cobertura',
+  'generator.ui.bracingBays': 'Vãos contraventados',
+  'generator.bracingBays.end': 'Vãos extremos',
+  'generator.bracingBays.all': 'Todos os vãos',
+  'generator.hint.wallBracing': 'Cruzes no plano das fachadas. É o que permite rotular novamente as bases das colunas treliçadas.',
+  'generator.hint.roofBracing': 'Viga de contravento no plano da cobertura. Não substitui as terças: contraventar só os vãos extremos deixa os pórticos internos sem sustentação lateral.',
+  'generator.ui.trussBracing': 'Contraventamento vertical entre treliças',
+  'generator.notice.bracingIncomplete': 'O contraventamento escolhido não forma um caminho de carga completo. O caminho é: plano da cobertura → contraventamento vertical entre treliças → linha dos beirais → vigas de beiral → fachada contraventada → solo. Contraventar só o plano da cobertura triangula uma placa que continua deslizando; contraventar só verticalmente amarra a cobertura a uma linha de beirais que não desce ao solo. Gera de todo modo: a geometria é válida e você pode contraventá-la a seu modo.',
+  'generator.notice.bracingWithoutEaveBeams': 'O sistema de contraventamento está completo mas não há vigas de beiral: a reação chega ao solo apenas nos vãos contraventados, e a rigidez longitudinal medida cai uma ordem de magnitude.',
+  'generator.hint.trussBracing': 'Cruzes verticais entre treliças adjacentes, em três planos por vão: os dois beirais e a estação central. É o que leva o plano da cobertura à linha dos beirais.',
+  'generator.assume.trussBracingTiesRoofToBearing': 'Contraventamento vertical entre treliças: cruzes rotuladas em planos verticais ao longo do edifício, amarrando o cordão superior de um pórtico à linha de apoio do seguinte. É o elemento que leva o plano da cobertura ao beiral; não dimensiona nenhuma ligação.',
 };
 export default steelPt;
