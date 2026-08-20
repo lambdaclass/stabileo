@@ -234,5 +234,8 @@ const steelEn: Record<string, string> = {
   'generator.hint.bayVP': 'Distance between consecutive frames, in metres.',
   'generator.hint.purlins': 'Purlin lines per roof slope.',
   'generator.hint.slope': 'Roof slope, as a ratio of rise to half-span.',
+
+  // ─── Profile picker (M1's new keys; PR21's live in the main dictionary) ───
+  'steel.profileSelector.standardCount': '{n} standards',
 };
 export default steelEn;

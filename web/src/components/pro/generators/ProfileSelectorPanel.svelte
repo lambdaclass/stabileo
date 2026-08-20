@@ -163,18 +163,31 @@
       <p class="empty" data-testid="profile-empty">{t('profileSelector.empty')}</p>
     {:else}
       {#each groups as g (g.key)}
+        {@const stds = source.standards(g.key as ProfileFamily)}
         <p class="grp" data-testid="profile-group-{g.key}">
           {g.key}
           <!--
-            The published standard, by name.
+            The published standard, by name — or the count, when the group has more than one.
 
             This used to print a translated word from a three-value axis this component
             owned. `section-catalog.ts` carries the real thing — `EN 10365`, `DIN 1025-1`,
             `IRAM-IAS U 500-215-6` — and a standard's designation is a proper noun that must
             not be translated. So it is read from there and shown verbatim.
+
+            The angles hold two: the European series and the Argentine one tabulated for
+            CIRSOC 301-EL. Printing the first over a group of both states something false
+            about the rest, and there is no room at 320 px to print two designations, so the
+            header says how many and the row says which. The count is translated; the
+            designations in the tooltip are not.
           -->
-          <span class="std" title={source.classify(g.key as ProfileFamily).standardsBody}
-                >{source.classify(g.key as ProfileFamily).standard}</span>
+          {#if stds.length === 1}
+            <span class="std" title={source.classify(g.key as ProfileFamily).standardsBody}
+                  >{stds[0]}</span>
+          {:else}
+            <span class="std mixed" title={stds.join(' · ')}
+                  data-testid="profile-group-mixed-{g.key}"
+                  >{tp('steel.profileSelector.standardCount', { n: stds.length })}</span>
+          {/if}
         </p>
         {#each g.entries as e (e.id)}
           {@const at = flat.indexOf(e)}
@@ -190,7 +203,15 @@
             onmouseenter={() => (cursor = at)}
             data-testid="profile-option-{e.id}"
           >
-            <span class="nm">{e.name}</span>
+            <span class="nm">{e.name}
+              <!--
+                Marked only where the row's own standard is not its family's. A badge on every
+                row would be noise; a badge on none of them would leave eleven IRAM angles
+                filed under a European standard, which is the defect this closes.
+              -->
+              {#if e.standardDiffersFromFamily}<span class="own-std" title={e.standard}
+                    data-testid="profile-own-std-{e.id}">{e.standardsBody}</span>{/if}
+            </span>
             <span class="dims">{dims(e)}</span>
           </button>
         {/each}
@@ -238,6 +259,13 @@
     display: flex; justify-content: space-between; gap: 6px;
   }
   .std { font-weight: 400; color: var(--st-text-3); }
+  .std.mixed { font-style: italic; }
+  /* Small, monospaced and dimmed: a provenance tag, not a second name. */
+  .own-std {
+    font-family: var(--st-mono, monospace); font-size: 0.55rem;
+    color: var(--st-text-3); border: 1px solid var(--st-hair);
+    border-radius: 2px; padding: 0 3px; margin-left: 4px; vertical-align: 1px;
+  }
   .row {
     display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
     width: 100%; text-align: left; cursor: pointer;

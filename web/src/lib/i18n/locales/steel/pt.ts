@@ -246,5 +246,8 @@ const steelPt: Record<string, string> = {
   'generator.hint.bayVP': 'Separação entre pórticos consecutivos, em metros.',
   'generator.hint.purlins': 'Linhas de terças por água.',
   'generator.hint.slope': 'Inclinação do telhado, como relação entre flecha e meio vão.',
+
+  // ─── Seletor de perfis (chaves novas do M1; as do PR21 vivem no dicionário principal) ───
+  'steel.profileSelector.standardCount': '{n} normas',
 };
 export default steelPt;

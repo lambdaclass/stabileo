@@ -8,7 +8,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   queryProfiles, groupByFamily, steelProfileSource, populatedFamilies,
+  standardsInFamily, familyHasMixedStandards,
 } from '../catalogue';
+import { IRAM_L } from '../../data/iram-angles';
 import { FAMILY_CLASSIFICATION } from '../../data/section-catalog';
 import { ALL_PROFILES, FAMILY_LIST } from '../../data/steel-profiles';
 import { resolveProfile } from '../../engine/generators/profile-resolve';
@@ -171,5 +173,62 @@ describe('the source seam', () => {
     for (const f of populatedFamilies()) {
       expect(queryProfiles({ families: [f] }).length, f).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('provenance, where a family holds rows from two standards', () => {
+  it('gives the merged-in angles their own standard, and leaves the rest alone', () => {
+    // The European series and the Argentine one live in the same family array. Before this,
+    // every row in it claimed EN 10056-1, including the eleven that are IRAM.
+    const european = steelProfileSource.byId('L 50x50x5')!;
+    expect(european.standard).toBe('EN 10056-1');
+    expect(european.standardsBody).toBe('CEN');
+    expect(european.standardDiffersFromFamily).toBe(false);
+
+    const argentine = steelProfileSource.byId('L 63.5x63.5x9.5')!;
+    expect(argentine.standard).toBe('IRAM-IAS U 500-558');
+    expect(argentine.standardsBody).toBe('IRAM-IAS');
+    expect(argentine.standardDiffersFromFamily).toBe(true);
+  });
+
+  it('marks exactly the rows the second table supplied — no more, no fewer', () => {
+    // Read off `IRAM_L` rather than restated, so the assertion cannot drift from the file it
+    // is about. A name-based rule would pass this and fail the day a size is added.
+    const marked = new Set(
+      queryProfiles({ families: ['L'] }).filter((e) => e.standardDiffersFromFamily).map((e) => e.id),
+    );
+    expect(marked).toEqual(new Set(IRAM_L.map((p) => p.name)));
+    expect(marked.size).toBe(IRAM_L.length);
+  });
+
+  it('reports the angles as carrying two standards and every other family as carrying one', () => {
+    expect(familyHasMixedStandards('L')).toBe(true);
+    // First-appearance order in `ALL_PROFILES`, which lists the Argentine angles before the
+    // European ones. Order is asserted rather than sorted away so the group header is stable.
+    expect(standardsInFamily('L')).toEqual(['IRAM-IAS U 500-558', 'EN 10056-1']);
+
+    for (const f of populatedFamilies()) {
+      if (f === 'L') continue;
+      expect(standardsInFamily(f), f).toEqual([FAMILY_CLASSIFICATION[f].standard]);
+      expect(familyHasMixedStandards(f), f).toBe(false);
+    }
+  });
+
+  it('never invents a standard for a row: every one is a published designation', () => {
+    // The set of standards in play is closed — it is the family declarations plus the one
+    // named in the merged-in table's own header. Anything else would be a fabrication.
+    const declared = new Set(Object.values(FAMILY_CLASSIFICATION).map((c) => c.standard));
+    declared.add('IRAM-IAS U 500-558');
+    for (const e of queryProfiles()) expect(declared, e.id).toContain(e.standard);
+  });
+
+  it('filters by publishing body using the row, not the family', () => {
+    // This is what the fix buys the PRO picker: asking for IRAM-IAS angles used to return
+    // nothing, because the family said CEN for all of them.
+    const iramAngles = queryProfiles({ families: ['L'], standardsBodies: ['IRAM-IAS'] });
+    expect(iramAngles.length).toBe(IRAM_L.length);
+    const cenAngles = queryProfiles({ families: ['L'], standardsBodies: ['CEN'] });
+    expect(cenAngles.length).toBeGreaterThan(0);
+    expect(iramAngles.length + cenAngles.length).toBe(queryProfiles({ families: ['L'] }).length);
   });
 });

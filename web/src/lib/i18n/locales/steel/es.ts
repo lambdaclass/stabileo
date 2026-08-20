@@ -240,5 +240,8 @@ const steelEs: Record<string, string> = {
   'generator.hint.bayVP': 'Separación entre pórticos consecutivos, en metros.',
   'generator.hint.purlins': 'Líneas de correas por faldón.',
   'generator.hint.slope': 'Pendiente del techo, como relación entre flecha y media luz.',
+
+  // ─── Selector de perfiles (claves nuevas de M1; las de PR21 viven en el diccionario principal) ───
+  'steel.profileSelector.standardCount': '{n} normas',
 };
 export default steelEs;

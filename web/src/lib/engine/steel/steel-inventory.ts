@@ -68,6 +68,20 @@ export interface FamilyCensus {
   byFamily: Record<StructuralMaterialFamily, number>;
 }
 
+/**
+ * Why a metallic member list is empty, as a value rather than as a string union spelled out
+ * at each reader.
+ *
+ * Exported so the i18n test can expand `steel.panel.empty.*` from the union itself: the
+ * previous version of that test listed the three reasons by hand, so a fourth would have
+ * shipped rendering its own key into the panel.
+ */
+export const STEEL_EMPTY_REASONS = [
+  'noElements', 'noneMetallic', 'nonFerrousOnly', 'allUnclassified',
+] as const;
+
+export type SteelEmptyReason = (typeof STEEL_EMPTY_REASONS)[number];
+
 export interface SteelInventory {
   /** Metallic members only, ordered by element id. */
   members: SteelMemberEntry[];
@@ -80,7 +94,7 @@ export interface SteelInventory {
    * `nonFerrousOnly`   its only metal is non-ferrous, which this surface does not cover
    * `allUnclassified`  it has members and none of them carry a strength to classify by
    */
-  emptyReason: 'noElements' | 'noneMetallic' | 'nonFerrousOnly' | 'allUnclassified' | null;
+  emptyReason: SteelEmptyReason | null;
   /** i18n keys the surface must show. Never silently dropped. */
   notices: string[];
   /** True when at least one member's family was guessed rather than declared. */
