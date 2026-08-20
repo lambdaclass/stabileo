@@ -343,5 +343,15 @@ const steelEn: Record<string, string> = {
   'generator.ui.materialPlaceholder': 'No grade chosen: the model comes out with a placeholder material (A36) and declares it as an assumption.',
   'generator.ui.materialScope': 'The grade applies to every generated member. It sizes nothing and produces no verification: it defines the model.',
   'generator.notice.gradeUnusualForRoles': '{grade} departs from the practice recorded for the profiles of: {roles}. Not an error — it is cost and lead time — and it does not block generation.',
+  'steel.profileSelector.bodies': 'Publishing body',
+  'steel.profileSelector.designCode': 'Code',
+  'steel.profileSelector.anyCode': 'All codes',
+  'steel.profileSelector.depthRange': 'Depth',
+  'steel.profileSelector.depthMin': 'Minimum depth, mm',
+  'steel.profileSelector.depthMax': 'Maximum depth, mm',
+  'steel.profileSelector.pin': 'Compare',
+  'steel.profileSelector.compare': 'Comparison',
+  'steel.profileSelector.compareClear': 'clear',
+  'steel.profileSelector.empty': 'No profile matches. Try less text, or drop a filter: family, publishing body, code or depth range. A half-typed depth empties the list too.',
 };
 export default steelEn;

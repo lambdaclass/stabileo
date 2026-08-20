@@ -232,3 +232,41 @@ describe('provenance, where a family holds rows from two standards', () => {
     expect(iramAngles.length + cenAngles.length).toBe(queryProfiles({ families: ['L'] }).length);
   });
 });
+
+describe('the geometric filter', () => {
+  it('bounds the depth inclusively, at either end or both', () => {
+    const band = queryProfiles({ heightMinMm: 200, heightMaxMm: 300 });
+    expect(band.length).toBeGreaterThan(0);
+    for (const e of band) {
+      expect(e.heightMm, e.id).toBeGreaterThanOrEqual(200);
+      expect(e.heightMm, e.id).toBeLessThanOrEqual(300);
+    }
+    // Inclusive: a profile exactly on the bound is in.
+    expect(band.map((e) => e.id)).toContain('IPE 200');
+    expect(band.map((e) => e.id)).toContain('IPE 300');
+
+    const onlyMin = queryProfiles({ heightMinMm: 900 });
+    expect(onlyMin.length).toBeGreaterThan(0);
+    for (const e of onlyMin) expect(e.heightMm).toBeGreaterThanOrEqual(900);
+  });
+
+  it('treats an absent bound as no bound, and an unusable one as visibly empty', () => {
+    const all = queryProfiles().length;
+    expect(queryProfiles({}).length).toBe(all);
+    // A half-typed number arrives as NaN. Every comparison against it is false, so the list
+    // empties and the panel's empty state explains why — which is better than ignoring what the
+    // user typed and showing a list that does not match the filter on screen.
+    expect(queryProfiles({ heightMinMm: Number.NaN }).length).toBe(0);
+    expect(queryProfiles({ heightMinMm: undefined, heightMaxMm: undefined }).length).toBe(all);
+  });
+
+  it('composes with the other axes rather than replacing them', () => {
+    const both = queryProfiles({ families: ['IPE'], heightMinMm: 300, heightMaxMm: 400 });
+    expect(both.length).toBeGreaterThan(0);
+    for (const e of both) {
+      expect(e.family).toBe('IPE');
+      expect(e.heightMm).toBeGreaterThanOrEqual(300);
+      expect(e.heightMm).toBeLessThanOrEqual(400);
+    }
+  });
+});

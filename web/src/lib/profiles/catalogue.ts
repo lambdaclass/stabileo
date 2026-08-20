@@ -132,6 +132,16 @@ export interface ProfileQuery {
   standardsBodies?: readonly FamilyClassification['standardsBody'][];
   /** A design code id from `DESIGN_CODES` — keeps only the families that code's practice uses. */
   designCode?: string;
+  /**
+   * Depth bounds in mm, inclusive. Either end may be omitted.
+   *
+   * The geometric axis a section is actually chosen on: a beam is picked to fit a depth the
+   * architecture allows, and "everything between 200 and 300 mm" is a question the picker could
+   * not answer before. Bounded on the DEPTH rather than on area or mass because depth is the
+   * dimension a drawing constrains.
+   */
+  heightMinMm?: number;
+  heightMaxMm?: number;
 }
 
 export interface ProfileGroup {
@@ -249,6 +259,12 @@ export function queryProfiles(query: ProfileQuery = {}): ProfileEntry[] {
     if (families && !families.has(e.family)) return false;
     if (bodies && !bodies.has(e.standardsBody)) return false;
     if (byCode && !byCode.has(e.family)) return false;
+    // A bound of `undefined` is not a bound — written as an explicit comparison rather than a
+    // default of 0 / Infinity so that absence and zero stay different things. An unusable bound
+    // (a half-typed number reaching this as NaN) empties the list, which the empty state then
+    // explains; that is deliberate, and better than silently ignoring what the user typed.
+    if (query.heightMinMm !== undefined && !(e.heightMm >= query.heightMinMm)) return false;
+    if (query.heightMaxMm !== undefined && !(e.heightMm <= query.heightMaxMm)) return false;
     if (text && !norm(e.name).includes(text)) return false;
     return true;
   });

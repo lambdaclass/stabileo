@@ -349,5 +349,15 @@ const steelEs: Record<string, string> = {
   'generator.ui.materialPlaceholder': 'Sin grado elegido: el modelo sale con un material provisorio (A36) y lo declara como hipótesis.',
   'generator.ui.materialScope': 'El grado se aplica a todos los miembros generados. No dimensiona nada y no produce ninguna verificación: define el modelo.',
   'generator.notice.gradeUnusualForRoles': '{grade} se aparta de la práctica registrada para los perfiles de: {roles}. No es un error — es costo y plazo de entrega — y no bloquea la generación.',
+  'steel.profileSelector.bodies': 'Organismo que publica la norma',
+  'steel.profileSelector.designCode': 'Código',
+  'steel.profileSelector.anyCode': 'Todos los códigos',
+  'steel.profileSelector.depthRange': 'Altura',
+  'steel.profileSelector.depthMin': 'Altura mínima, mm',
+  'steel.profileSelector.depthMax': 'Altura máxima, mm',
+  'steel.profileSelector.pin': 'Comparar',
+  'steel.profileSelector.compare': 'Comparación',
+  'steel.profileSelector.compareClear': 'vaciar',
+  'steel.profileSelector.empty': 'Ningún perfil coincide. Probá con menos texto, o soltá un filtro: familia, organismo, código o rango de altura. Un valor de altura a medio escribir también vacía la lista.',
 };
 export default steelEs;
