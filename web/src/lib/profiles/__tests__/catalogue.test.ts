@@ -253,9 +253,15 @@ describe('the geometric filter', () => {
   it('treats an absent bound as no bound, and an unusable one as visibly empty', () => {
     const all = queryProfiles().length;
     expect(queryProfiles({}).length).toBe(all);
-    // A half-typed number arrives as NaN. Every comparison against it is false, so the list
-    // empties and the panel's empty state explains why — which is better than ignoring what the
-    // user typed and showing a list that does not match the filter on screen.
+    /*
+     * An unusable bound empties the list rather than being ignored.
+     *
+     * This branch is DEFENSIVE, not a path the current UI can reach: the picker binds these to
+     * `input[type=number]`, and a browser refuses a non-numeric keystroke there — measured in
+     * `e2e/m1-steel-selectors.spec.ts`, where `fill('-')` fails outright. It is kept because a
+     * source, a text control or a stored query could hand this function a NaN, and emptying
+     * visibly beats filtering by something the caller did not mean.
+     */
     expect(queryProfiles({ heightMinMm: Number.NaN }).length).toBe(0);
     expect(queryProfiles({ heightMinMm: undefined, heightMaxMm: undefined }).length).toBe(all);
   });

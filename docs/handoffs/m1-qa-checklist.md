@@ -74,7 +74,9 @@ Con **S355** en el cursor:
 - debajo de las bandas: «Tabuladas por **EN 1993-1-1 t.3.1** — no por la norma de producto».
   Esto es lo más importante de la pantalla: las bandas son de un código de diseño y no de
   EN 10025-2;
-- **G** con etiqueta `Derivado` y la nota `G = E / 2(1 + ν)`. Debe dar ≈ 80 769 MPa;
+- **G** con etiqueta `Derivado` y la nota `G = E / 2(1 + ν)`. Se muestra como **81 GPa** — la
+  ficha pasa a GPa por encima de 10 000 MPa. El valor exacto es 80 769 MPa, que es el 81 000 que
+  fija CIRSOC 301 capítulo 2 para estos aceros;
 - E, ν, γ con etiqueta `Norma de producto`.
 
 Con **A529 Gr.50**: fy y fu con etiqueta **`Valor típico`** (naranja) y la frase de que son
@@ -106,7 +108,7 @@ Abrir **Generadores** → fila de cualquier rol → botón con el nombre del per
 | 2.5 | Tildar organismo **CEN** + familia **L** | Quedan las europeas, sin etiqueta |
 | 2.6 | Elegir código **CIRSOC 301** | Desaparecen IPE/HEA/HEB — no están en la práctica de ese código |
 | 2.7 | Altura `200`–`300` | Sólo perfiles con h entre 200 y 300 mm, **inclusive** en los dos extremos |
-| 2.8 | Borrar un dígito de la altura y dejarlo a medio escribir | La lista **se vacía** y el estado vacío nombra el rango de altura. Es deliberado: mejor vacío visible que un filtro ignorado |
+| 2.8 | Vaciar el campo de altura máxima | El límite desaparece y vuelven a aparecer los perfiles más altos. Un campo vacío es «sin límite», nunca cero |
 | 2.9 | Teclado ↓ ↑ Inicio Fin Enter | Igual que el de grados. El foco arranca en el perfil ya elegido |
 | 2.10 | Tab por todo el panel | Todos los controles reciben un anillo de foco visible, incluidos los chips y el botón ⊕ |
 
@@ -307,6 +309,21 @@ Para no re-testear a mano lo que la suite ya afirma. Si algo de esta lista falla
 | Las cinco limitaciones, por nombre | `steel-surface-audit.test.ts` |
 | Ninguna pantalla metálica muestra aprobación | `steel-never-verified.test.ts` |
 | Paridad es/en/pt del namespace de acero y de `conn.*` | `steel-keys.test.ts` |
+| **Los ítems mecánicos de §1, §2, §3.10, §5.9, §6 y §7** | **`m1-steel-selectors.spec.ts`** — 25 tests, cada uno nombra el ítem que descarga |
+
+### Qué queda estrictamente manual
+
+Con `m1-steel-selectors.spec.ts` en verde, la pasada a mano se reduce a lo que ningún test ve:
+
+- **que las cosas quepan y se lean**: §7.3 (la ficha del grado con el panel abierto), §7.8 (zoom
+  150 %), y en general si el orden de lectura tiene sentido;
+- **el momento en que aparece un aviso**: el spec verifica que exista; que aparezca cuando el
+  usuario espera verlo es criterio;
+- **que los tres idiomas suenen escritos por una persona**: el spec verifica que ninguna clave se
+  filtre y que las designaciones no se traduzcan, no que la prosa sea buena;
+- **§3.1–3.9 completo**: los generadores a mano, porque la previsualización es visual;
+- **§4 completo**: Uniones metálicas necesita un modelo mixto cargado y resuelto;
+- **§5.2–5.8**: los estados requieren pasar por resolver, declarar reglamento y modelos vacíos.
 
 Lo que **sólo** se ve a mano: que las cosas quepan, que el orden de lectura tenga sentido, que un
 aviso aparezca en el momento correcto, y que los tres idiomas se lean como escritos por una
@@ -320,5 +337,19 @@ Por ítem: número de la checklist, idioma, viewport, qué se esperaba, qué pas
 preexistente. Si es de traducción, la **clave** exacta. Si es de layout, la resolución.
 
 Cosas que **no** son bugs y ya están explicadas arriba: las bandas invertidas de 6082-T6 (1.11),
-la lista que se vacía con una altura a medio escribir (2.8), «sin resultados» al resolver un
-modelo generado (3.9), y la frase de alcance del aluminio (4.8.4, parche preparado).
+«sin resultados» al resolver un modelo generado (3.9), y la frase de alcance del aluminio (4.8.4,
+parche preparado).
+
+### Dos correcciones a esta checklist, encontradas al automatizarla
+
+La primera versión afirmaba dos cosas que la app no hace, y las dos aparecieron al escribir
+`e2e/m1-steel-selectors.spec.ts`. Quedan anotadas porque un revisor manual habría buscado el
+número equivocado:
+
+1. **El ítem 2.8 decía que dejar una altura a medio escribir vacía la lista.** No se puede: el
+   control es `input[type=number]` y el navegador **rechaza la pulsación no numérica**. Playwright
+   falla con `Cannot type text into input[type=number]`. El camino NaN de `queryProfiles` existe y
+   está testeado a nivel unitario, pero es **defensivo**: no es alcanzable desde este control.
+2. **El ítem 1.11 decía que G se muestra como ≈ 80 769 MPa.** Se muestra como **81 GPa**: la ficha
+   convierte a GPa por encima de 10 000 MPa. El número está bien; la unidad no era la que decía
+   la checklist.
