@@ -249,5 +249,38 @@ const steelPt: Record<string, string> = {
 
   // ─── Seletor de perfis (chaves novas do M1; as do PR21 vivem no dicionário principal) ───
   'steel.profileSelector.standardCount': '{n} normas',
+
+  // ─── Propriedades da seção (M1) ───
+  'steel.props.label.height': 'Altura h',
+  'steel.props.label.width': 'Largura b',
+  'steel.props.label.thickness': 'Espessura',
+  'steel.props.label.rootRadius': 'Raio de concordância r',
+  'steel.props.label.area': 'Área A',
+  'steel.props.label.mass': 'Massa linear',
+  'steel.props.label.iy': 'Inércia Iy',
+  'steel.props.label.iz': 'Inércia Iz',
+  'steel.props.label.wy': 'Módulo resistente Wy',
+  'steel.props.label.wz': 'Módulo resistente Wz',
+  'steel.props.label.ry': 'Raio de giração ry',
+  'steel.props.label.rz': 'Raio de giração rz',
+  'steel.props.label.j': 'Constante de torção J',
+  'steel.props.basis.tabulated': 'De tabela',
+  'steel.props.basis.derivedFromTable': 'Derivado da tabela',
+  'steel.props.basis.derivedFromGeometry': 'Derivado do contorno canônico',
+  'steel.props.basis.unavailable': 'Não disponível',
+  'steel.props.basis.title.tabulated': 'Valor publicado na norma dimensional da família.',
+  'steel.props.basis.title.derivedFromTable': 'Calculado só com valores tabelados: r = √(I/A), ou W = I/c com c fixado pela simetria.',
+  'steel.props.basis.title.derivedFromGeometry': 'Calculado com um valor tabelado e o centroide do contorno canônico verificado.',
+  'steel.props.basis.title.unavailable': 'A fonte não publica e não decorre do que ela publica. Nenhum valor é inventado.',
+  'steel.props.note.minimumModulus': 'A seção não é simétrica em relação a este eixo: mostra-se o módulo MÍNIMO, medido até a fibra mais afastada. O outro é maior.',
+  'steel.props.unavailable.centroidUnknown': 'Módulo resistente indisponível: a posição do centroide não é conhecida e a tabela não publica a distância à fibra extrema.',
+  'steel.props.unavailable.noArea': 'Raio de giração indisponível: a área tabelada não é positiva.',
+  'steel.props.unavailable.torsionNotPublished': 'Nenhuma constante de torção é publicada para esta família. Não é derivada do contorno: a aproximação poligonal não é J.',
+  'steel.props.unavailable.thicknessNotPublished': 'A tabela não publica uma espessura única para este perfil.',
+  'steel.props.unavailable.rootRadiusNotPublished': 'Raio de concordância não publicado. É o que impede expressar o perfil como geometria canônica.',
+  'steel.props.unavailableTitle': 'O que esta fonte não fornece',
+  'steel.props.unavailable.rootRadiusByRule': 'A norma não o tabela: fixa os raios como regras sobre as próprias dimensões do perfil, e com essas regras o contorno reproduz a área e as inércias publicadas. Nada falta.',
+  'steel.props.unavailable.rootRadiusSharp': 'A tabela não dá um raio utilizável para este perfil e ele é desenhado com cantos vivos. O 0 do dado é uma ausência, não um raio nulo publicado.',
+  'steel.props.note.rootRadiusInverted': 'Raio obtido da alma livre publicada (hw = d − 2(tf + r)), não transcrito de uma coluna. É uma inversão de dados publicados.',
 };
 export default steelPt;

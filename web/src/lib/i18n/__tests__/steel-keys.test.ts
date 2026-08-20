@@ -45,6 +45,8 @@ function literalKeys(): Set<string> {
   const files = [
     ...walk('lib/engine/steel'),
     ...walk('lib/engine/generators'),
+    // The catalogue layer emits note keys of its own — an unavailable property has to say why.
+    ...walk('lib/profiles'),
     'lib/engine/design/adapters/cirsoc301-capabilities.ts',
     ...walk('components/pro/steel'),
     ...walk('components/pro/generators'),
@@ -107,6 +109,7 @@ describe('steel and generator translation keys', () => {
     const { OUTLINE_UNAVAILABLE_REASONS } = await import('../../engine/generators/section-outline');
     const { TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS } = await import('../../engine/generators/truss-topology');
     const { LACING_PATTERNS } = await import('../../engine/generators/lattice-column');
+    const { PROPERTY_ORDER, PROPERTY_BASES } = await import('../../profiles/properties');
 
     const expected = [
       ...STEEL_MEMBER_STATUSES.map((s) => `steel.status.${s}`),
@@ -130,6 +133,11 @@ describe('steel and generator translation keys', () => {
       // its own key.
       ...BUILT_UP_TORSION_BASES.map((b) => `generator.builtUp.torsion.${b}`),
       ...OUTLINE_UNAVAILABLE_REASONS.map((u) => `generator.outline.${u}`),
+      // The section card's rows and the badge that says where each number came from. Both are
+      // built from a template, so both would otherwise ship as their own keys.
+      ...PROPERTY_ORDER.map((k) => `steel.props.label.${k}`),
+      ...PROPERTY_BASES.map((b) => `steel.props.basis.${b}`),
+      ...PROPERTY_BASES.map((b) => `steel.props.basis.title.${b}`),
     ];
     const missing = expected.filter((k) => !(k in steelEs)).sort();
     expect(missing, `template keys not translated:\n${missing.join('\n')}`).toEqual([]);

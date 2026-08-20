@@ -237,5 +237,38 @@ const steelEn: Record<string, string> = {
 
   // ─── Profile picker (M1's new keys; PR21's live in the main dictionary) ───
   'steel.profileSelector.standardCount': '{n} standards',
+
+  // ─── Section properties (M1) ───
+  'steel.props.label.height': 'Depth h',
+  'steel.props.label.width': 'Width b',
+  'steel.props.label.thickness': 'Thickness',
+  'steel.props.label.rootRadius': 'Root radius r',
+  'steel.props.label.area': 'Area A',
+  'steel.props.label.mass': 'Mass per metre',
+  'steel.props.label.iy': 'Inertia Iy',
+  'steel.props.label.iz': 'Inertia Iz',
+  'steel.props.label.wy': 'Section modulus Wy',
+  'steel.props.label.wz': 'Section modulus Wz',
+  'steel.props.label.ry': 'Radius of gyration ry',
+  'steel.props.label.rz': 'Radius of gyration rz',
+  'steel.props.label.j': 'Torsion constant J',
+  'steel.props.basis.tabulated': 'Tabulated',
+  'steel.props.basis.derivedFromTable': 'Derived from the table',
+  'steel.props.basis.derivedFromGeometry': 'Derived from the canonical outline',
+  'steel.props.basis.unavailable': 'Not available',
+  'steel.props.basis.title.tabulated': 'Published in the family\u2019s dimensional standard.',
+  'steel.props.basis.title.derivedFromTable': 'Computed from tabulated values only: r = \u221a(I/A), or W = I/c with c fixed by symmetry.',
+  'steel.props.basis.title.derivedFromGeometry': 'Computed from a tabulated value and the centroid of the verified canonical outline.',
+  'steel.props.basis.title.unavailable': 'The source does not publish it and it does not follow from what the source does publish. No value is invented.',
+  'steel.props.note.minimumModulus': 'The section is not symmetric about this axis, so the MINIMUM modulus is shown, measured to the farther fibre. The other one is larger.',
+  'steel.props.unavailable.centroidUnknown': 'Section modulus unavailable: the centroid position is not known and the table publishes no distance to the extreme fibre.',
+  'steel.props.unavailable.noArea': 'Radius of gyration unavailable: the tabulated area is not positive.',
+  'steel.props.unavailable.torsionNotPublished': 'No torsion constant is published for this family. It is not derived from the outline: the polygon approximation is not J.',
+  'steel.props.unavailable.thicknessNotPublished': 'The table publishes no single thickness for this profile.',
+  'steel.props.unavailable.rootRadiusNotPublished': 'No root radius is published. That is what keeps the profile out of canonical geometry.',
+  'steel.props.unavailableTitle': 'What this source does not give',
+  'steel.props.unavailable.rootRadiusByRule': 'The standard does not tabulate it: it fixes the radii as rules on the profile\u2019s own dimensions, and under those rules the outline reproduces the published area and inertias. Nothing is missing.',
+  'steel.props.unavailable.rootRadiusSharp': 'The table gives no usable radius for this profile and it is drawn sharp-cornered. The zero in the data is an absence, not a published zero radius.',
+  'steel.props.note.rootRadiusInverted': 'Radius solved from the published clear web depth (hw = d \u2212 2(tf + r)), not transcribed from a column. It is an inversion of published data.',
 };
 export default steelEn;
