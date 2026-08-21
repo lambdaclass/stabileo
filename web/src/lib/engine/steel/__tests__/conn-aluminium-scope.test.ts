@@ -1,5 +1,5 @@
 /**
- * The one limitation text M1 made false, and the patch that is waiting to be applied.
+ * The one limitation text M1 made false, and the patch that corrected it.
  *
  * ── The situation ──────────────────────────────────────────────────
  *
@@ -8,11 +8,12 @@
  * aluminium member is not listed — it is NAMED, in a notice, which is the honest version and the
  * one the sentence does not describe.
  *
- * The string lives in the three main dictionaries, which H1 is editing right now
- * (`design.floor.state.*`). So the fix waits, and what M1 can do meanwhile is make sure the
- * waiting is visible and the patch is ready: the behaviour is pinned, the proposed text is
- * checked against the properties it has to have, and the current shipped state is asserted so
- * that applying the patch is a single inversion in one place.
+ * The string lives in the three main dictionaries, which H1 was editing at the time
+ * (`design.floor.state.*`), so the fix waited for their commit to be published. It has been:
+ * `ad4192e6` adds their keys as one contiguous block and touches no `conn.*` key, so the two
+ * changes never meet. The patch is applied, and the three blocks below are what keep it: the
+ * behaviour that made the old sentence false, the properties the new one has to have, and the
+ * shipped values themselves.
  *
  * Patch, impact and the apply procedure: `docs/handoffs/patches/conn-gap-aluminium-scope.md`.
  */
@@ -29,9 +30,9 @@ const KEY = 'conn.gap.aluminium.scope';
 /**
  * The proposed replacement, in the three offered languages.
  *
- * Kept here as data so the patch's CONTENT is under test before the patch is applied. It is the
+ * Kept here as data so the text itself is under test rather than only its presence. It is the
  * same text as §3 of the patch document; if the two drift, the document is the one to fix,
- * because this is what the tests check.
+ * because this is what the dictionaries are compared against.
  */
 const PROPOSED: Record<'es' | 'en' | 'pt', string> = {
   es: 'Modelos con miembros de aluminio: sus nudos quedan fuera de esta lista, y el inventario metálico tampoco los lista — los nombra en un aviso, porque las tablas de bulones y electrodos son de acero.',
@@ -73,16 +74,15 @@ describe('the behaviour the sentence describes', () => {
   });
 });
 
-// ─── 2. The proposed text, checked before it is applied ──────────────
+// ─── 2. The replacement text, and the properties it has to have ──────
 
-describe('the proposed replacement', () => {
-  it('exists in all three offered languages, and says something different from the current text', () => {
+describe('the replacement text', () => {
+  it('is a full sentence in all three offered languages', () => {
+    // The "differs from what is shipped" check that lived here belonged to the pre-patch world
+    // and inverted correctly the moment the patch landed: block 3 now asserts they are EQUAL.
     for (const lang of ['es', 'en', 'pt'] as const) {
       expect(PROPOSED[lang].trim().length, lang).toBeGreaterThan(60);
-    }
-    const dicts = { es: esMain, en: enMain, pt: ptMain } as unknown as Record<string, Record<string, string>>;
-    for (const lang of ['es', 'en', 'pt'] as const) {
-      expect(PROPOSED[lang], `${lang} is not a no-op`).not.toBe(dicts[lang][KEY]);
+      expect(PROPOSED[lang].trim(), lang).toMatch(/\.$/);
     }
   });
 
@@ -125,32 +125,48 @@ describe('the proposed replacement', () => {
   });
 });
 
-// ─── 3. The shipped state — INVERT THIS WHEN THE PATCH IS APPLIED ────
+// ─── 3. The shipped state — patch APPLIED, so this is now the guard ──
 
-describe('the shipped dictionaries, until the patch lands', () => {
+describe('the shipped dictionaries', () => {
   /**
-   * ⚠ THE ONE PLACE TO EDIT WHEN APPLYING THE PATCH.
+   * The patch is in. This block used to assert the OLD text — that is what made the wait visible
+   * — and it is now the assertion that keeps the correction from being undone.
    *
-   * This asserts that the dictionaries still carry the OLD text, which is what makes the wait
-   * visible instead of forgotten. When the three values are replaced, invert both assertions:
-   * `toBe(PROPOSED[lang])` and drop the stale-clause check. Step 4 of §7 of the patch document.
+   * Applied once H1 published `ad4192e6`, which adds `design.floor.state.*` as its own contiguous
+   * block around line 5961 of each dictionary and touches no `conn.*` key. Ours is a value
+   * replacement of an existing key near line 4341, so the two changes never meet — and it was
+   * applied BY KEY NAME, because in `pt.ts` that key lives in a different region of the file
+   * and a line-numbered patch would have hit the wrong row.
    */
   const dicts = { es: esMain, en: enMain, pt: ptMain } as unknown as Record<string, Record<string, string>>;
 
-  it('still carries the sentence M1 made false, in all three languages', () => {
+  it('carries the corrected sentence, in all three languages', () => {
     for (const lang of ['es', 'en', 'pt'] as const) {
-      const shipped = dicts[lang][KEY];
-      expect(shipped, `${lang} has the key at all`).toBeTruthy();
-      expect(shipped, `${lang} is still the pre-patch text`).not.toBe(PROPOSED[lang]);
+      expect(dicts[lang][KEY], `${lang} has the key at all`).toBeTruthy();
+      expect(dicts[lang][KEY], `${lang} carries the corrected text`).toBe(PROPOSED[lang]);
     }
   });
 
-  it('and the stale clause is the one about the inventory listing them', () => {
-    // Named precisely, so that if someone rewords the sentence for another reason this test says
-    // what it was watching rather than failing on an opaque comparison.
-    expect(dicts.es[KEY]).toMatch(/inventario metálico sí los liste/i);
-    expect(dicts.en[KEY]).toMatch(/inventory does list them/i);
-    expect(dicts.pt[KEY]).toMatch(/inventário metálico os liste/i);
+  it('no longer claims the metallic inventory lists them', () => {
+    // The clause that was false. Named rather than compared opaquely, so a future reword that
+    // reintroduces the claim fails here saying what it was watching.
+    expect(dicts.es[KEY]).not.toMatch(/inventario metálico sí los liste/i);
+    expect(dicts.en[KEY]).not.toMatch(/inventory does list them/i);
+    expect(dicts.pt[KEY]).not.toMatch(/inventário metálico os liste/i);
+  });
+
+  it('leaves H1’s floor-state keys alone, wherever they are', () => {
+    /*
+     * The patch touched one key per file. H1's block is a different namespace in a different
+     * region, and this asserts M1 did not disturb it — vacuously true on this branch, where
+     * those keys do not exist yet, and the assertion that matters after the merge.
+     */
+    for (const lang of ['es', 'en', 'pt'] as const) {
+      const floorKeys = Object.keys(dicts[lang]).filter((k) => k.startsWith('design.floor.state.'));
+      // Either none (before the merge) or all of H1's (after it) — never a partial set, which is
+      // what a careless conflict resolution would leave behind.
+      expect([0, 7], `${lang} has ${floorKeys.length} floor-state keys`).toContain(floorKeys.length);
+    }
   });
 
   it('keeps the four sibling facets of the limitation intact meanwhile', () => {

@@ -4338,7 +4338,7 @@ const es: Record<string, string> = {
   'conn.gap.aluminium.title': 'Aluminio fuera del filtro',
   'conn.gap.aluminium.exists': 'El filtro por participación metálica, sobre miembros clasificados como acero.',
   'conn.gap.aluminium.missing': 'El aluminio. El filtro usa isSteel(), y materialFamilyOf no distingue aluminio de acero por magnitud de fy hasta que el material declare su grado.',
-  'conn.gap.aluminium.scope': 'Modelos con miembros de aluminio: sus nudos pueden quedar fuera de esta lista aunque el inventario metálico sí los liste.',
+  'conn.gap.aluminium.scope': 'Modelos con miembros de aluminio: sus nudos quedan fuera de esta lista, y el inventario metálico tampoco los lista — los nombra en un aviso, porque las tablas de bulones y electrodos son de acero.',
   'conn.gap.aluminium.note': 'Además, las tablas de bulones y electrodos son de acero: aplicarlas a aluminio sería incorrecto aunque el nudo apareciera.',
   'conn.gap.fvExcl.title': 'Roscas fuera del plano de corte, sin tabular para 4.6 y 5.6',
   'conn.gap.fvExcl.exists': 'El valor con roscas incluidas en el plano de corte, para los cuatro grados.',
