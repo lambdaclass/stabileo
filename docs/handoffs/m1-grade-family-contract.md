@@ -199,7 +199,60 @@ Ninguna es necesaria para el cambio; las dos aparecieron midiéndolo.
    distinción que el panel metálico muestra. Si a H1 le sirve, es un campo; M1 no lo agrega porque
    el archivo es compartido.
 
-## 11. Compromiso de M1
+## 11. Cómo tomarlo sin integrar M1
+
+### El commit mínimo
+
+**`168320b0` en la rama `contract/grade-family`.** Sale de `08917b9f` —la base que M1 y H1
+comparten— y contiene **dos archivos nuevos y ninguna edición**:
+
+```
+web/src/lib/engine/steel/grade-family.ts                          86 líneas
+web/src/lib/engine/steel/__tests__/grade-family-contract.test.ts 148 líneas
+```
+
+El commit de M1 que introdujo el módulo, `6d274e37`, **no** sirve para esto: toca siete archivos
+—`steel-inventory.ts`, el store metálico y los tres diccionarios de acero— y arrastraría trabajo
+de M1 que H1 no necesita. Por eso el contrato se republicó solo.
+
+### Cómo incorporarlo
+
+```sh
+git fetch origin contract/grade-family
+git cherry-pick 168320b0
+```
+
+Sin conflicto posible: los dos archivos son nuevos y la rama sale de la base común. Alternativa
+si se prefiere no cargar el commit:
+
+```sh
+git checkout origin/contract/grade-family -- web/src/lib/engine/steel/grade-family.ts
+```
+
+—aunque entonces el test se queda afuera, y es el que fija que un `gradeId` ausente no cambia
+nada.
+
+### Por qué el test es otro que el de M1
+
+`grade-family.test.ts` (el de M1) afirma el contrato **y** sus consecuencias sobre el inventario
+metálico: el aviso, `nonFerrousOnly`, el warning que desaparece. Eso depende de cambios de M1 en
+`steel-inventory.ts`, así que no viaja solo.
+
+`grade-family-contract.test.ts` (el de esta rama) depende sólo del módulo, del catálogo y de
+`material-family.ts` — los tres sin cambios en la base. **Corrido sobre `08917b9f`, sin nada de
+M1: 12 tests, todos verdes.** Eso es la prueba de que el contrato es autocontenido.
+
+Los dos coexisten sin molestarse: si H1 toma el contrato y después las ramas se integran, hay dos
+suites que afirman lo mismo desde distintos ángulos y ninguna duplica una aserción de la otra.
+
+### Qué NO viene incluido
+
+- El cableado en `design-run.svelte.ts`. Es de H1 y M1 no lo escribe.
+- Cualquier cambio en `member-context.ts`. No hace falta: el parámetro ya existe.
+- Nada del pipeline de hormigón.
+- Nada de la superficie metálica de M1.
+
+## 12. Compromiso de M1
 
 - El módulo no cambia sin coordinar. Si H1 necesita otra firma, otro valor de retorno o que los
   no metales salgan de ahí, se decide antes de que lo cablee.

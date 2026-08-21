@@ -310,20 +310,39 @@ Para no re-testear a mano lo que la suite ya afirma. Si algo de esta lista falla
 | Ninguna pantalla metálica muestra aprobación | `steel-never-verified.test.ts` |
 | Paridad es/en/pt del namespace de acero y de `conn.*` | `steel-keys.test.ts` |
 | **Los ítems mecánicos de §1, §2, §3.10, §5.9, §6 y §7** | **`m1-steel-selectors.spec.ts`** — 25 tests, cada uno nombra el ítem que descarga |
+| **§3.1–3.10 (los tres generadores) y §4 completo (Uniones)** | **`m1-generators-joints.spec.ts`** — 14 tests, idem |
 
 ### Qué queda estrictamente manual
 
-Con `m1-steel-selectors.spec.ts` en verde, la pasada a mano se reduce a lo que ningún test ve:
+Con los dos specs en verde —39 tests entre ambos— la pasada a mano se reduce a lo que ningún test
+ve:
 
 - **que las cosas quepan y se lean**: §7.3 (la ficha del grado con el panel abierto), §7.8 (zoom
   150 %), y en general si el orden de lectura tiene sentido;
-- **el momento en que aparece un aviso**: el spec verifica que exista; que aparezca cuando el
-  usuario espera verlo es criterio;
+- **el momento en que aparece un aviso**: los specs verifican que exista y dónde está respecto de
+  otro elemento; que aparezca cuando el usuario espera verlo es criterio;
 - **que los tres idiomas suenen escritos por una persona**: el spec verifica que ninguna clave se
   filtre y que las designaciones no se traduzcan, no que la prosa sea buena;
-- **§3.1–3.9 completo**: los generadores a mano, porque la previsualización es visual;
-- **§4 completo**: Uniones metálicas necesita un modelo mixto cargado y resuelto;
-- **§5.2–5.8**: los estados requieren pasar por resolver, declarar reglamento y modelos vacíos.
+- **si la previsualización se ve bien**: el spec verifica que cambie cuando cambia un parámetro,
+  no que el dibujo sea correcto — eso lo cubre `preview-projection.test.ts` a nivel unitario y G2
+  para la disposición;
+- **§5.2–5.8**: los estados requieren pasar por resolver, declarar reglamento y cargar modelos
+  vacíos, y el valor de mirarlos es ver la secuencia completa como la ve un usuario.
+
+### Tres correcciones más, del turno que automatizó §3 y §4
+
+Todas mías, todas encontradas por los tests:
+
+3. **El ítem 3.5 apuntaba al control equivocado.** El `select` de disposición de una fila de perfil
+   no es el primero del panel —ése es el tipo de cercha— y tomarlo por etiqueta agarra las tres
+   filas a la vez (15 opciones: 1 de la fila rechazada más 7 de cada una de las otras dos). El
+   comportamiento de la app era correcto en las dos pasadas; el localizador no.
+4. **`portico2d` no existe** como ejemplo. No está en `fixture-index.ts`, así que cargarlo produce
+   un modelo vacío y el fallo aparece como timeout en vez de «no hay tal ejemplo». Para un modelo
+   de hormigón, usar `rc-design-qa-8`.
+5. **La checklist decía «modelo mixto» para §4** sin decir cómo conseguirlo. La vía más corta:
+   generar una cercha (todos los miembros metálicos) o cargar un ejemplo de hormigón y generar
+   encima (conviven).
 
 Lo que **sólo** se ve a mano: que las cosas quepan, que el orden de lectura tenga sentido, que un
 aviso aparezca en el momento correcto, y que los tres idiomas se lean como escritos por una
