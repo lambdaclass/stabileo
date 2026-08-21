@@ -217,3 +217,95 @@ for (const locale of ['en', 'es', 'pt'] as const) {
     });
   });
 }
+
+/**
+ * The rest of bucket 1, on the same chain that was already open.
+ *
+ * `FootingMatPanel` and `FootingCadHandoffPanel` render beside the physical mat, so this reuses
+ * the setup above rather than paying for it twice. Three languages for the parts whose text
+ * length changes; one for the colours, which do not.
+ */
+test.describe('@slow bucket 1 after the contract', () => {
+  test('the mat panel takes the hair tokens, and its DESIGNED badge stays neutral',
+    async ({ pro: page }) => {
+      await openPhysicalMat(page);
+      const mat = page.getByTestId('footing-mat-design');
+      await expect(mat).toBeVisible();
+
+      expect(await mat.evaluate((el) => getComputedStyle(el).borderTopColor),
+        'the sub-panel rule is the strong hairline')
+        .toBe(await resolvedToken(page, '--st-hair-strong'));
+      // And not the 0.3 approximation of it that was there.
+      expect(await mat.evaluate((el) => getComputedStyle(el).borderTopColor))
+        .not.toBe(await resolve(page, 'rgba(143, 163, 179, 0.3)'));
+
+      const card = mat.locator('.direction').first();
+      if (await card.count()) {
+        expect(await card.evaluate((el) => getComputedStyle(el).borderTopColor))
+          .toBe(await resolvedToken(page, '--st-border'));
+      }
+
+      const badge = mat.locator('.badge.status-DESIGNED').first();
+      if (await badge.count()) {
+        const [surface3, ok, warn] = await Promise.all([
+          resolvedToken(page, '--st-surface-3'),
+          resolvedToken(page, '--st-ok'),
+          resolvedToken(page, '--st-warn'),
+        ]);
+        expect(await badge.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(surface3);
+        // Designed is not verified. The badge must not be reading as either kind of verdict.
+        for (const [tone, name] of [[ok, 'ok'], [warn, 'warn']] as const) {
+          expect(await badge.evaluate((el) => getComputedStyle(el).backgroundColor),
+            `DESIGNED must not look ${name}`).not.toBe(tone);
+        }
+      }
+      test.info().annotations.push({
+        type: 'coverage',
+        description: `direction card: ${await card.count()}, DESIGNED badge: ${await badge.count()}`,
+      });
+    });
+
+  test('the floor-families table rules are the hairline token', async ({ pro: page }) => {
+    await openPhysicalMat(page);
+    // The families panel is the ancestor of the whole foundations flow, so it is already open.
+    const cell = page.getByTestId('floor-families').locator('table th, table td').first();
+    if (!(await cell.count())) {
+      test.info().annotations.push(
+        { type: 'coverage', description: 'no table in the families panel on this fixture' });
+      return;
+    }
+    expect(await cell.evaluate((el) => getComputedStyle(el).borderBottomColor))
+      .toBe(await resolvedToken(page, '--st-border'));
+    expect(await cell.evaluate((el) => getComputedStyle(el).borderBottomColor))
+      .not.toBe(await resolve(page, 'rgba(143, 163, 179, 0.2)'));
+  });
+
+  test('a CAD failure band, if the export produces one, is the danger surface',
+    async ({ pro: page }) => {
+      await openPhysicalMat(page);
+      const band = page.getByTestId('footing-cad-export-failed');
+      if (!(await band.count())) {
+        /*
+         * Stated. A failed CAD export needs the export to run AND fail, which no fixture forces,
+         * so this one is source-only — `concrete-status-tokens.test.ts` asserts the rule set.
+         */
+        test.info().annotations.push({
+          type: 'coverage',
+          description: 'no CAD failure on this fixture — the band is asserted at source only',
+        });
+        return;
+      }
+      const li = band.locator('li').first();
+      expect(await li.evaluate((el) => getComputedStyle(el).backgroundColor))
+        .toBe(await resolvedToken(page, '--st-danger-bg'));
+      expect(await li.evaluate((el) => getComputedStyle(el).borderLeftColor))
+        .toBe(await resolvedToken(page, '--st-danger'));
+      expect(await band.evaluate((el) => getComputedStyle(el).color))
+        .toBe(await resolvedToken(page, '--st-text'));
+      // The pair that is gone, both of which look close enough to survive a screenshot.
+      for (const g of ['#5c1a1a', '#ffe4e4']) {
+        expect(await li.evaluate((el) => getComputedStyle(el).backgroundColor))
+          .not.toBe(await resolve(page, g));
+      }
+    });
+});

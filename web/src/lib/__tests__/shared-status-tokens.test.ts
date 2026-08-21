@@ -268,9 +268,11 @@ describe('rule 4 — no component re-mixes a tinted status surface', () => {
     //    `ProvisionalBanner` and `DesignToolbar`. The stale-exemption assertion below is what
     //    forced them out: it fails on a reason for a literal that is gone, so the register
     //    shrinks with the work instead of outliving it.
-    'OutcomeBadge.svelte|rgba(180,120,220,0.16)': 'pending — the second provisional violet.',
-    'VerificationDetail.svelte|rgba(255,102,0,0.08)': 'pending — the advice band.',
-    'VerificationDetail.svelte|rgba(180,120,220,0.1)': 'pending — provisional advice.',
+    'OutcomeBadge.svelte|rgba(180,120,220,0.16)':
+      'open — `.badge-outcome-SEARCH_EXHAUSTED`. A violet in provisional\'s hue family for a '
+      + 'state that is NOT provisional, on a badge whose border and label are already neutral. '
+      + '`--st-provisional-bg` would be the near match and the wrong answer; there is no token '
+      + 'for what it means. The last one standing.',
 
     // ── out of scope: an affordance rather than a status band ──
     'DesignToolbar.svelte|rgba(217,164,65,0.12)':

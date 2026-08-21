@@ -10,9 +10,29 @@ M1 no debe editar `tokens.css` ni los consumidores mientras el bloque esté en c
 
 | | Commit | Qué |
 |---|---|---|
-| ✅ | **1 — contrato** | los cinco tokens en `tokens.css` + `shared-status-tokens.test.ts` (25 aserciones). **Ningún consumidor tocado.** Esto es lo que M1 tiene que verificar. |
-| ⏳ | 2 — consumidores | `FloorFamilyStateCard`, `ProvisionalBanner`, `OutcomeBadge`, `DesignToolbar` |
-| ⏳ | 3 — cubeta 1 restante | los 14 literales de hormigón puro |
+| ✅ | **1 — contrato** `dfa20d8b` | los cinco tokens en `tokens.css` + `shared-status-tokens.test.ts` (25 aserciones). **Ningún consumidor tocado.** Esto es lo que M1 tiene que verificar. |
+| ✅ | **2 — consumidores** `695265ba` | `FloorFamilyStateCard`, `ProvisionalBanner`, `OutcomeBadge`, `DesignToolbar`. `SteelStatusBadge` **sin tocar**: su rayado es un `repeating-linear-gradient` intencional y sus otros dos tonos son azul y gris. |
+| ✅ | **3 — cubeta 1 restante** | 14 → 3 literales. Superficie de hormigón **132 → 64**. |
+
+### Lo que quedó abierto, y por qué no lo inventé
+
+Tres literales sobreviven en la cubeta 1, los tres por falta de token semántico:
+
+| Archivo | Literal | Token que faltaría |
+|---|---|---|
+| `SectionAdviceDialog` ×2 | `rgba(0,0,0,0.6)` | **`--st-scrim`** y un token de sombra. Tres diálogos más escriben el mismo valor (`BatchEditDialog`, `ProLoadsTab`, `ProAutoLoadsDialog`): es un hueco compartido, no de este archivo. |
+| `VerificationDetail` | `rgba(34,204,102,0.10)` en `.cert-ok` | **`--st-ok-bg`**. El contrato embarcó dos superficies de estado a propósito, no cuatro. |
+| `OutcomeBadge` | `rgba(180,120,220,0.16)` en `.badge-outcome-SEARCH_EXHAUSTED` | ninguno. Es un violeta en la familia de *provisional* para un estado que **no** es provisional, en un badge cuyo borde y etiqueta ya son neutros. `--st-provisional-bg` es el parecido y la respuesta equivocada. |
+
+Los tres están declarados como exenciones con su motivo en `shared-status-tokens.test.ts`, y una
+aserción falla si queda una exención para un literal que ya no existe — así la lista se encoge
+con el trabajo en vez de sobrevivirlo. Siete entradas salieron solas cuando el commit 2 migró sus
+archivos.
+
+**Un caso análogo que sí se resolvió sin token nuevo:** `.cert-none` tenía
+`rgba(180,120,220,0.10)` —violeta— para "no hay certificado", con borde y texto ya neutros. Fue a
+`--st-surface-3`, no a `--st-provisional-bg`: una ausencia no es un resultado provisional, y el
+violeta lo estaba insinuando.
 
 ### Los valores finales, y los dos deltas contra §2
 

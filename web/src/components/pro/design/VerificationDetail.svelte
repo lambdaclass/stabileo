@@ -212,13 +212,19 @@
   .cert { display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     padding: 4px 7px; border-radius: 4px; font-size: 0.68rem; }
   .cert-ok { background: rgba(34,204,102,0.10); border: 1px solid var(--st-ok); color: var(--st-text); }
-  .cert-none { background: rgba(180,120,220,0.10); border: 1px solid var(--st-text-3); color: var(--st-text); }
+  /* A violet fill on a badge whose border and label are both neutral, for a state that means
+     "there is no certificate". `--st-provisional-bg` would be the near match and the wrong
+     answer: an absence is not a provisional result, and the violet was quietly claiming it
+     was. `--st-surface-3` is what its own border and text already said. */
+  .cert-none { background: var(--st-surface-3); border: 1px solid var(--st-text-3); color: var(--st-text); }
   .reason { font-size: 0.67rem; color: var(--st-text-2); padding-left: 4px; }
   .limiting { display: flex; gap: 4px; flex-wrap: wrap; }
   .lim-chip { padding: 0 5px; background: var(--st-surface-3); border: 1px solid var(--st-text-3);
     border-radius: 3px; font-size: 0.62rem; color: var(--st-text); font-family: monospace; }
   .prov-note { display: flex; gap: 6px; align-items: center; font-size: 0.67rem; }
-  .advice { border: 1px solid var(--st-warn); background: rgba(255,102,0,0.08);
+  /* The fourth site of the orange that was never `--st-warn` — beside a border that already
+     was. One hue now. */
+  .advice { border: 1px solid var(--st-warn); background: var(--st-warn-bg);
     border-radius: 4px; padding: 5px 7px; display: flex; flex-direction: column; gap: 3px; }
   .advice-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 0.7rem; color: var(--st-text); }
   .prelim { font-size: 0.62rem; color: var(--st-warn); font-style: italic; }

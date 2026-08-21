@@ -386,8 +386,11 @@
   td { text-align: right; font-variant-numeric: tabular-nums; }
   td.state { text-align: left; color: var(--st-text-3); }
   tr.skipped, tr.noElements { opacity: 0.6; }
-  tr.failed td.state { color: #e0444a; }
-  .err td { text-align: left; color: #e0444a; font-size: 0.72rem; }
+  /* `#e0444a` is also `conflicted: 0xe0444a` in the 3-D scene, and that is a coincidence, not
+     a contract: this is the design results table and the viewer paints nothing in it. So the
+     token applies — and it reads better, 4.89 at worst against this red's own 4.2. */
+  tr.failed td.state { color: var(--st-danger); }
+  .err td { text-align: left; color: var(--st-danger); font-size: 0.72rem; }
   .totals { margin: 0.2rem 0 0; font-size: 0.76rem; font-variant-numeric: tabular-nums; }
   .actions { margin-top: 0.4rem; }
   .actions .primary {

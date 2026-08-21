@@ -490,7 +490,9 @@
   .n { font-size: 0.7rem; font-weight: 600; padding: 0.05rem 0.3rem; border-radius: 3px; background: var(--st-hair); }
   .empty { opacity: 0.75; font-style: italic; }
   table { border-collapse: collapse; width: 100%; font-size: 0.78rem; }
-  th, td { text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid rgba(143, 163, 179,0.2); }
+  th, td {
+    text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid var(--st-border);
+  }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   /* Over-utilised is never green. */
   .num.over { color: var(--st-text); font-weight: 600; }
