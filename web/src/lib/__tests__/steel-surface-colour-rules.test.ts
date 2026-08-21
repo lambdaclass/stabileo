@@ -1,0 +1,238 @@
+/**
+ * The colour rules the metallic surface has to keep, whatever the token contract turns out to be.
+ *
+ * ── Why this is separate from the contrast file ────────────────────
+ *
+ * `state-background-contrast.test.ts` is about the PROPOSAL: it computes the numbers behind
+ * `--st-danger-bg`, `--st-warn-bg` and the provisional split, and pins the three AA failures that
+ * exist today on the concrete side. It will be rewritten when the contract lands.
+ *
+ * This file is about the metallic surface and is meant to survive that. Three rules, none of which
+ * depends on which alpha or which violet is chosen:
+ *
+ *   1. no metallic surface puts `--st-accent` — the brand vermillion — as text on a tinted error
+ *      background. That is the defect the reconciliation found three instances of, all concrete,
+ *      and the point of asserting it here is that the metallic side must not acquire a fourth.
+ *   2. `SteelStatusBadge` keeps its diagonal hatch. It is not decoration: a status that is
+ *      distinguishable without hue is the only one a colour-blind reader can read, and the hatch
+ *      is why that badge needs no tinted background and therefore no token from this contract.
+ *   3. what M1 added reaches for tokens rather than literals, so the migration has nothing to do
+ *      on the newest surfaces.
+ *
+ * ── What it deliberately does not do ──────────────────────────────
+ *
+ * It does not assert a token that does not exist yet, and it does not touch `tokens.css` or any
+ * shared consumer. H1 owns those. See `m1-token-proposal-reconciliation.md`.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const SRC = new URL('../..', import.meta.url).pathname;
+const read = (p: string) => readFileSync(join(SRC, p), 'utf8');
+
+/** Every component under a directory, so a metallic screen added later is covered by default. */
+function walk(dir: string): string[] {
+  return readdirSync(join(SRC, dir), { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.svelte'))
+    .map((e) => `${dir}/${e.name}`)
+    .sort();
+}
+
+/**
+ * The metallic surfaces, enumerated from the directories.
+ *
+ * `ProConnectionsTab` is named explicitly because it lives outside them — the same enumeration
+ * `steel-never-verified.test.ts` uses, for the same reason: a hand-kept list stops covering the
+ * newest screen.
+ */
+const METALLIC = [
+  ...walk('components/pro/steel'),
+  ...walk('components/pro/generators'),
+  'components/pro/ProConnectionsTab.svelte',
+];
+
+/** The style block of a component, which is the only part these rules are about. */
+function styles(file: string): string {
+  const src = read(file);
+  const at = src.indexOf('<style>');
+  return at === -1 ? '' : src.slice(at);
+}
+
+/** CSS rules, split crudely on `}` — enough to ask what a single declaration block contains. */
+function ruleBlocks(css: string): string[] {
+  return css.split('}').map((s) => s.trim()).filter(Boolean);
+}
+
+describe('the metallic surfaces are all covered', () => {
+  it('enumerates every one of them, including the ones added after this file', () => {
+    expect(METALLIC.length).toBeGreaterThanOrEqual(9);
+    expect(METALLIC).toContain('components/pro/steel/SteelStatusBadge.svelte');
+    expect(METALLIC).toContain('components/pro/steel/GradePickerPanel.svelte');
+    expect(METALLIC).toContain('components/pro/generators/ProfileSelectorPanel.svelte');
+  });
+});
+
+describe('no metallic surface puts the brand colour on an error background', () => {
+  /**
+   * The rule: `--st-accent` is the brand vermillion and `--st-danger` is the status red. Four rules
+   * across the app reach for the first on a tinted background — 3.86, 3.93 and 3.51 on the
+   * concrete side, 3.55 on the metallic one — and all four are under AA.
+   *
+   * Checked per declaration block: a block that sets both a reddish tinted background AND
+   * `color: var(--st-accent)` is the shape of the defect.
+   */
+  const REDDISH = /background[^;]*rgba\(\s*(2[0-5]\d|1[89]\d)\s*,\s*([0-9]|[1-9]\d)\s*,\s*([0-9]|[1-9]\d)\s*,/;
+
+  /**
+   * The ONE metallic instance, which this rule found and which is M1's own.
+   *
+   * `ProConnectionsTab.svelte:582` — PR21's joints panel — does exactly what the three concrete
+   * rules do: `.conn-ratio-badge.st-fail` puts `--st-accent` on a 20 % vermillion tint. Measured,
+   * **3.55 on `--st-surface` and 3.41 on `--st-surface-2`**, both under AA.
+   *
+   * It is not fixed here. M1 is paused on implementation until the token contract closes, and the
+   * fix interacts with it: at 20 % even `--st-danger` reaches only 4.46 on `--st-surface-2`, so
+   * this badge needs either a lower alpha — which is what `--st-danger-bg` at 14 % would give — or
+   * `--st-text`. Choosing now would pre-empt the contract.
+   *
+   * Listed by name so the count is exact and so a NEW one fails rather than joining a tolerated
+   * set. When it is fixed, this list empties and the test says so.
+   */
+  const KNOWN_METALLIC = ['components/pro/ProConnectionsTab.svelte'];
+
+  it('has exactly the one known instance, and no new one', () => {
+    const found: string[] = [];
+    for (const file of METALLIC) {
+      for (const block of ruleBlocks(styles(file))) {
+        if (!REDDISH.test(block)) continue;
+        if (/color:\s*var\(--st-accent\)/.test(block)) found.push(file);
+      }
+    }
+    expect([...new Set(found)].sort(), 'a metallic surface acquired a new accent-on-red-tint rule')
+      .toEqual(KNOWN_METALLIC);
+  });
+
+  it('names the rule and its measurement, so the fix has an address and a target', () => {
+    const css = styles('components/pro/ProConnectionsTab.svelte');
+    expect(css).toMatch(/\.conn-ratio-badge\.st-fail\s*\{[^}]*rgba\(\s*229\s*,\s*72\s*,\s*42\s*,\s*0?\.2/);
+    expect(css).toMatch(/\.conn-ratio-badge\.st-fail\s*\{[^}]*var\(--st-accent\)/);
+    // Its two siblings do it right: each pairs its tint with its own role colour.
+    expect(css).toMatch(/\.conn-ratio-badge\.st-ok\s*\{[^}]*var\(--st-ok\)/);
+    expect(css).toMatch(/\.conn-ratio-badge\.st-warn\s*\{[^}]*var\(--st-warn\)/);
+  });
+
+  it('allows --st-accent where it means selection, which is what it is for', () => {
+    /*
+     * A first draft of this file banned `--st-accent` as text on any metallic surface. That was
+     * overreach: the token IS the primary action and the brand, and the pickers use it correctly to
+     * mark a chip as on, a row as selected and a pin as active — the same job `--st-selected`
+     * names, with the same value.
+     *
+     * So the rule is about a tinted STATUS background, not about the token. This asserts the
+     * legitimate uses stay legitimate rather than being swept up by a broader ban.
+     */
+    const picker = styles('components/pro/generators/ProfileSelectorPanel.svelte');
+    expect(picker).toMatch(/\.fam\.on\s*\{[^}]*var\(--st-accent\)/);
+    expect(picker).toMatch(/\.row\.sel\s+\.nm\s*\{[^}]*var\(--st-accent\)/);
+    // And none of those blocks carries a tinted status background, which is what makes them fine.
+    for (const block of ruleBlocks(picker)) {
+      if (!/var\(--st-accent\)/.test(block)) continue;
+      expect(REDDISH.test(block), `selection block also tints a status background: ${block.slice(0, 60)}`)
+        .toBe(false);
+    }
+  });
+
+  it('and the three concrete instances are still where the reconciliation says they are', () => {
+    /*
+     * Not a metallic assertion — a cross-check that the report M1 handed H1 is still accurate. If
+     * H1 fixes them, this fails and the reconciliation document has to be updated, which is the
+     * correct outcome: a report nobody notices going stale is worse than no report.
+     */
+    const badge = read('components/pro/design/OutcomeBadge.svelte');
+    expect(badge).toMatch(/\.badge-fail\s*\{[^}]*var\(--st-accent\)/);
+    expect(badge).toMatch(/\.badge-outcome-SECTION_INADEQUATE\s*\{[^}]*var\(--st-accent\)/);
+    expect(read('components/pro/design/DesignToolbar.svelte'))
+      .toMatch(/\.banner-block\s*\{[^}]*var\(--st-accent\)/);
+  });
+});
+
+describe('SteelStatusBadge keeps the hatch that makes it readable without hue', () => {
+  const badge = () => read('components/pro/steel/SteelStatusBadge.svelte');
+
+  it('draws its warn tone as a diagonal pattern, not as a flat tint', () => {
+    // The reason this badge needs no background token: the pattern IS the signal. A flat tint
+    // would make it one more consumer of `--st-warn-bg` and would lose the hue-independence.
+    const css = styles('components/pro/steel/SteelStatusBadge.svelte');
+    expect(css).toContain('repeating-linear-gradient');
+    expect(css).toMatch(/45deg/);
+  });
+
+  it('pairs the pattern with the warn colour and border, so it is not pattern alone', () => {
+    const css = styles('components/pro/steel/SteelStatusBadge.svelte');
+    const warnBlock = ruleBlocks(css).find((b) => b.includes('repeating-linear-gradient'));
+    expect(warnBlock, 'the hatch block exists').toBeTruthy();
+    expect(warnBlock!).toMatch(/var\(--st-warn\)/);
+  });
+
+  it('never shows a passing tone, and every state carries a word as well as a glyph', () => {
+    // The two rules `steel-never-verified.test.ts` owns, re-asserted here because this file is
+    // about this component's appearance and those are part of it.
+    const src = badge();
+    expect(src).not.toMatch(/\.tone-ok\b/);
+    expect(src).not.toMatch(/tone-(pass|success|verified)\b/);
+    expect(src).toContain('sr-only');
+    expect(src).toContain('aria-hidden="true"');
+  });
+
+  it('has no tinted danger or warn background for the contract to migrate', () => {
+    /*
+     * The correction M1 owes H1's inventory. Their table says this component "inherits without
+     * being edited" because it "references OutcomeBadge" — it does not: it imports only `i18n` and
+     * `steel-status` and defines its own four tone classes. The conclusion is right for a
+     * different reason, and this is that reason.
+     */
+    const src = badge();
+    expect(src).not.toContain('OutcomeBadge.svelte');
+    expect(src).not.toMatch(/import[^;]*OutcomeBadge/);
+    const css = styles('components/pro/steel/SteelStatusBadge.svelte');
+    // No flat red or amber fill: the only tinted things are the hatch and two neutral washes.
+    expect(css).not.toMatch(/background:\s*rgba\(\s*2[0-5]\d\s*,\s*[0-9]{1,2}\s*,\s*[0-9]{1,2}\s*,/);
+  });
+});
+
+describe('what M1 added needs nothing from the contract', () => {
+  it('carries no hardcoded colour in the two pickers', () => {
+    // The state the older surfaces are trying to reach. Asserted so it cannot regress while the
+    // migration is happening elsewhere.
+    for (const f of [
+      'components/pro/steel/GradePickerPanel.svelte',
+      'components/pro/generators/ProfileSelectorPanel.svelte',
+    ]) {
+      expect(styles(f), `${f} hardcodes a colour`).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+    }
+  });
+
+  it('lists the metallic consumers the new tokens would and would not reach', () => {
+    /*
+     * The inventory the reconciliation reports, asserted rather than written down: of the metallic
+     * surfaces, only `ProConnectionsTab` carries tinted warn backgrounds, and they are M1's own
+     * from PR21 — two of them, at 0.10 and 0.08.
+     *
+     * If a metallic surface acquires a third, this fails and the inventory gets updated instead of
+     * quietly going stale.
+     */
+    const withTintedWarn = METALLIC.filter((f) =>
+      /background:\s*rgba\(\s*221\s*,\s*170\s*,\s*0\s*,/.test(styles(f))
+      && !styles(f).includes('repeating-linear-gradient'));
+    expect(withTintedWarn).toEqual(['components/pro/ProConnectionsTab.svelte']);
+
+    const hatched = METALLIC.filter((f) => styles(f).includes('repeating-linear-gradient'));
+    expect(hatched.sort()).toEqual([
+      'components/pro/steel/SteelExperimentalBanner.svelte',
+      'components/pro/steel/SteelPanel.svelte',
+      'components/pro/steel/SteelStatusBadge.svelte',
+    ]);
+  });
+});
