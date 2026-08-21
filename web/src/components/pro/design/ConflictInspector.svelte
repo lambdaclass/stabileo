@@ -93,11 +93,19 @@
   .conflict { display: flex; flex-direction: column; gap: 0.35rem; }
   .head {
     margin: 0; display: flex; gap: 0.5rem; align-items: baseline;
-    font-size: 0.78rem; color: #ffb0b6;
+    font-size: 0.78rem; color: var(--st-text);
   }
-  /* Interpenetration and a spacing shortfall are different problems; the header says which
-     before the numbers do. */
-  .head.overlap strong { color: #ff6b74; }
+  /*
+     Interpenetration and a spacing shortfall are different problems; the header says which
+     before the numbers do.
+
+     Two pinks encoded that: `#ffb0b6` for every header and a brighter `#ff6b74` on the strong
+     when the class is `overlap`. The DIFFERENCE is what carries meaning, so the base goes to
+     `--st-text` and the emphasis to `--st-danger` — the alternative, base `--st-danger` with
+     nothing stronger left for overlap, would have merged the two. The card still reads as an
+     error from the band below it, whose rule is the conflict red.
+  */
+  .head.overlap strong { color: var(--st-danger); }
   .head span { color: var(--text-muted, #8b93a3); font-size: 0.7rem; }
   dl {
     display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.5rem;
@@ -107,13 +115,17 @@
   dd { margin: 0; font-variant-numeric: tabular-nums; }
   .warn {
     margin: 0.2rem 0 0; padding: 0.3rem 0.4rem;
+    /* Fill and rule frozen: `#e0444a` is `conflicted: 0xe0444a` in the 3-D scene and the
+       0.14 fill is that same hue, so they move together or not at all. The SENTENCE takes
+       `--st-text`, which is the trade `FootingMatPhysicalPanel` measured — a status hue as
+       body text costs more contrast than it buys. */
     background: rgba(224, 68, 74, 0.14); border-left: 2px solid #e0444a;
-    color: #ffd0d3; font-size: 0.72rem; line-height: 1.35;
+    color: var(--st-text); font-size: 0.72rem; line-height: 1.35;
   }
   .actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
   .actions button {
     background: none; border: 1px solid var(--st-border, #2c3444); border-radius: 4px;
     color: inherit; font-size: 0.72rem; padding: 0.2rem 0.45rem; cursor: pointer;
   }
-  .actions button:hover { border-color: #6fa8ff; color: #d7dce6; }
+  .actions button:hover { border-color: var(--st-interactive); color: var(--st-text); }
 </style>

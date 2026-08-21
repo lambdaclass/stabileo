@@ -125,9 +125,11 @@
   dd { margin: 0; }
   .hint { margin: 0; font-size: 0.72rem; color: var(--text-muted, #8b93a3); }
   .sel-status { margin: 0.3rem 0 0; font-size: 0.74rem; }
-  /* The same amber the workspace banner uses. One colour, one meaning. */
-  .sel-torsion { margin: 0.25rem 0 0; font-size: 0.74rem; color: #f2ddc6; }
-  .sel-torsion strong { color: #ffbe7a; }
+  /* The same amber the workspace banner uses. One colour, one meaning — so this pair and
+     `TorsionBanner`'s moved to the tokens together. Tokenising one of the two would have
+     broken the equality this comment exists to state. */
+  .sel-torsion { margin: 0.25rem 0 0; font-size: 0.74rem; color: var(--st-text); }
+  .sel-torsion strong { color: var(--st-warn); }
   .lim { color: var(--text-muted, #8b93a3); }
   .sel-reason {
     margin: 0.15rem 0 0; font-size: 0.7rem; line-height: 1.35;
@@ -138,5 +140,5 @@
     background: none; border: 1px solid var(--st-border, #2c3444); border-radius: 4px;
     color: inherit; font-size: 0.72rem; padding: 0.2rem 0.45rem; cursor: pointer;
   }
-  .sel-actions button:hover { border-color: #6fa8ff; color: #d7dce6; }
+  .sel-actions button:hover { border-color: var(--st-interactive); color: var(--st-text); }
 </style>

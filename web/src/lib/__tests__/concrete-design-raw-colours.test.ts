@@ -61,20 +61,25 @@ function rawColours(source: string): number {
 const CEILING: Record<string, number> = {
   // ── concrete-only ──
   'BatchEditDialog.svelte': 3,
-  'ConflictInspector.svelte': 10,
+  // 5 left: two `--text-muted` and one `--st-border` fallback the overlay contract requires,
+  // plus `#e0444a` and its 0.14 fill — `conflicted: 0xe0444a` in `three/rebar-scene.ts`.
+  'ConflictInspector.svelte': 5,
   'DesignFamilyPanel.svelte': 2,
   'FloorFamiliesPanel.svelte': 1,
   'FootingCadHandoffPanel.svelte': 3,
   'FootingMatPanel.svelte': 3,
   'ProvisionalBanner.svelte': 4,
-  'RebarScenePanel.svelte': 13,
+  // 11 left: three `--text-muted` fallbacks that are LIVE — this panel also mounts in
+  // `DocumentsSection`, outside `.workspace`, where the alias does not exist — and eight values
+  // the 3-D scene owns (six state dots, the conflicted count, the unreinforced rule).
+  'RebarScenePanel.svelte': 11,
   // 9 left, all of them the state palette: four mirrored by value in
   // `three/rebar-scene.ts` and three with no token to go to. See
   // `concrete-status-tokens.test.ts`, which asserts the contract in both directions.
   'RebarStatusPanel.svelte': 9,
   'SectionAdviceDialog.svelte': 2,
-  'SelectionDetails.svelte': 9,
-  'TorsionBanner.svelte': 4,
+  // 5 left, all of them required fallbacks: four `--text-muted` and one `--st-border`.
+  'SelectionDetails.svelte': 5,
   'VerificationDetail.svelte': 3,
   // ── shared PRO surface: coordinate before lowering ──
   'DesignToolbar.svelte': 12,
@@ -84,7 +89,9 @@ const CEILING: Record<string, number> = {
   'RebarWorkspace.svelte': 6,
 };
 
-const TOTAL_CEILING = 102;   // was 132: −20 FootingMatPhysicalPanel, −10 RebarStatusPanel
+// 132 at the start of this work. −20 FootingMatPhysicalPanel, −10 RebarStatusPanel,
+// −2 RebarScenePanel, −5 ConflictInspector, −4 SelectionDetails, −4 TorsionBanner.
+const TOTAL_CEILING = 87;
 
 const files = () => readdirSync(DIR).filter((f) => f.endsWith('.svelte'));
 
@@ -125,7 +132,9 @@ describe('the raw-colour debt does not grow', () => {
  * line in this list rather than a deletion nobody reads.
  */
 describe('the files already at zero stay there', () => {
-  const AT_ZERO = ['DetailingWorkflow.svelte', 'FootingMatPhysicalPanel.svelte'];
+  const AT_ZERO = [
+    'DetailingWorkflow.svelte', 'FootingMatPhysicalPanel.svelte', 'TorsionBanner.svelte',
+  ];
 
   it('each of them still has none', () => {
     for (const f of AT_ZERO) {
