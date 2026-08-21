@@ -2690,6 +2690,8 @@ const ar: Translations = {
   'pro.addStage': '+ مرحلة',
   'pro.stageN': 'المرحلة {n}',
   'pro.addElemIds': 'إضافة عنصر (معرّفات مفصولة بفاصلة):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'إزالة عنصر (معرّفات):',
   'pro.loadIndices': 'الأحمال (الفهارس):',
   'pro.solveStaged': 'حل مرحلي',

@@ -2843,6 +2843,8 @@ const it: Translations = {
   'pro.addStage': '+ Fase',
   'pro.stageN': 'Fase {n}',
   'pro.addElemIds': 'Aggiungi elem (ID separati da virgola):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'Rimuovi elem (ID):',
   'pro.loadIndices': 'Carichi (indici):',
   'pro.solveStaged': 'Risolvi per fasi',

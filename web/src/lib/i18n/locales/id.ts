@@ -2828,6 +2828,8 @@ const id: Translations = {
   'pro.addStage': '+ Tahap',
   'pro.stageN': 'Tahap {n}',
   'pro.addElemIds': 'Tambah elem (ID dipisah koma):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'Hapus elem (ID):',
   'pro.loadIndices': 'Beban (indeks):',
   'pro.solveStaged': 'Hitung bertahap',

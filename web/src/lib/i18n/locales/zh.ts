@@ -2831,6 +2831,8 @@ const zh: Translations = {
   'pro.addStage': '+ 阶段',
   'pro.stageN': '阶段 {n}',
   'pro.addElemIds': '添加单元（逗号分隔 ID）：',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': '移除单元（ID）：',
   'pro.loadIndices': '荷载（索引）：',
   'pro.solveStaged': '求解分阶段',

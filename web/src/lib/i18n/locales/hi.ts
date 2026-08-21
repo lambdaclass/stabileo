@@ -2792,6 +2792,8 @@ const hi: Translations = {
   'pro.addStage': '+ चरण',
   'pro.stageN': 'चरण {n}',
   'pro.addElemIds': 'तत्व जोड़ें (अल्पविराम से अलग ID):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'तत्व हटाएँ (ID):',
   'pro.loadIndices': 'भार (सूचकांक):',
   'pro.solveStaged': 'चरणबद्ध हल करें',

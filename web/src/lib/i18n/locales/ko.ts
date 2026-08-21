@@ -2829,6 +2829,8 @@ const ko: Translations = {
   'pro.addStage': '+ 단계',
   'pro.stageN': '단계 {n}',
   'pro.addElemIds': '요소 추가 (쉼표로 구분된 ID):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': '요소 제거 (ID):',
   'pro.loadIndices': '하중 (인덱스):',
   'pro.solveStaged': '단계별 풀이',

@@ -3362,6 +3362,8 @@ const pt: Translations = {
   'pro.addStage': '+ Etapa',
   'pro.stageN': 'Etapa {n}',
   'pro.addElemIds': 'Adicionar elem (IDs separados por vírgula):',
+  'pro.addPlateIds': 'Adicionar placas (IDs separados por vírgula):',
+  'pro.addQuadIds': 'Adicionar cascas (IDs separados por vírgula):',
   'pro.removeElemIds': 'Remover elem (IDs):',
   'pro.loadIndices': 'Cargas (índices):',
   'pro.solveStaged': 'Resolver por etapas',

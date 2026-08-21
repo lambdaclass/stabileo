@@ -3927,6 +3927,8 @@ const en: Record<string, string> = {
   'pro.addStage': '+ Stage',
   'pro.stageN': 'Stage {n}',
   'pro.addElemIds': 'Add elem (comma-separated IDs):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'Remove elem (IDs):',
   'pro.loadIndices': 'Loads (indices):',
   'pro.solveStaged': 'Solve staged',

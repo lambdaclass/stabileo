@@ -2834,6 +2834,8 @@ const ru: Translations = {
   'pro.addStage': '+ Этап',
   'pro.stageN': 'Этап {n}',
   'pro.addElemIds': 'Добавить элем. (ID через запятую):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'Удалить элем. (ID):',
   'pro.loadIndices': 'Нагрузки (индексы):',
   'pro.solveStaged': 'Расчёт поэтапно',

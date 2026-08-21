@@ -2850,6 +2850,8 @@ const de: Translations = {
   'pro.addStage': '+ Phase',
   'pro.stageN': 'Phase {n}',
   'pro.addElemIds': 'Elemente hinzufügen (IDs kommagetrennt):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'Elemente entfernen (IDs):',
   'pro.loadIndices': 'Lasten (Indizes):',
   'pro.solveStaged': 'Phasenweise lösen',

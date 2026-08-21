@@ -2840,6 +2840,8 @@ const fr: Translations = {
   'pro.addStage': '+ Étape',
   'pro.stageN': 'Étape {n}',
   'pro.addElemIds': 'Ajouter élém (IDs séparés par virgule) :',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'Retirer élém (IDs) :',
   'pro.loadIndices': 'Charges (indices) :',
   'pro.solveStaged': 'Résoudre par étapes',

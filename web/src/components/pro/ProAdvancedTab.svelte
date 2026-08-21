@@ -669,8 +669,15 @@
 
   // ─── 11. Staged Construction ───────────────────────────────────
 
-  let stages = $state<{ name: string; elementsAdded: number[]; elementsRemoved: number[]; loadIndices: number[] }[]>([]);
+  let stages = $state<{
+    name: string; elementsAdded: number[]; elementsRemoved: number[]; loadIndices: number[];
+    platesAdded: number[]; quadsAdded: number[];
+  }[]>([]);
   let stagedResult = $state<any | null>(null);
+
+  /** The model's shells, so a stage can name them the way it names members. */
+  const plateIds = $derived([...modelStore.plates.keys()]);
+  const quadIds = $derived([...modelStore.quads.keys()]);
 
   function addStage() {
     stages = [...stages, {
@@ -679,6 +686,15 @@
       // the whole model and later stages are cut back from it by hand.
       elementsAdded: stages.length === 0 ? [...elementIds] : [],
       elementsRemoved: [], loadIndices: [],
+      /*
+       * Slabs and walls follow the members: the first stage starts with all of
+       * them, later stages start empty. They used to reach the engine and be
+       * dropped there — `StagedInput3D` had no field for them, and with no
+       * `deny_unknown_fields` serde discarded them silently, so a building
+       * staged with its floors was analysed as the bare frame.
+       */
+      platesAdded: stages.length === 0 ? [...plateIds] : [],
+      quadsAdded: stages.length === 0 ? [...quadIds] : [],
     }];
   }
 
@@ -701,6 +717,10 @@
           elementsAdded: s.elementsAdded,
           elementsRemoved: s.elementsRemoved,
           loadIndices: s.loadIndices,
+          // Shells carry their OWN ids: a plate and a member can share a
+          // number, so one combined list would activate the wrong thing.
+          platesAdded: s.platesAdded,
+          quadsAdded: s.quadsAdded,
         })),
       });
       stagedResult = res;
@@ -1483,6 +1503,22 @@
             <div class="adv-form">
               <label class="adv-label">{t('pro.addElemIds')} <input type="text" class="adv-text" value={stage.elementsAdded.join(',')} oninput={(e) => { stage.elementsAdded = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
             </div>
+            <!--
+              Shells get their own rows, and only when the model has them: a
+              field for something that does not exist reads as a feature that
+              is broken. They are listed separately from members because the
+              ids are separate — a plate and a member may share a number.
+            -->
+            {#if plateIds.length}
+              <div class="adv-form">
+                <label class="adv-label">{t('pro.addPlateIds')} <input type="text" class="adv-text" value={stage.platesAdded.join(',')} oninput={(e) => { stage.platesAdded = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
+              </div>
+            {/if}
+            {#if quadIds.length}
+              <div class="adv-form">
+                <label class="adv-label">{t('pro.addQuadIds')} <input type="text" class="adv-text" value={stage.quadsAdded.join(',')} oninput={(e) => { stage.quadsAdded = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
+              </div>
+            {/if}
             <div class="adv-form">
               <label class="adv-label">{t('pro.removeElemIds')} <input type="text" class="adv-text" value={stage.elementsRemoved.join(',')} oninput={(e) => { stage.elementsRemoved = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
             </div>

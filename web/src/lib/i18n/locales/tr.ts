@@ -2792,6 +2792,8 @@ const tr: Translations = {
   'pro.addStage': '+ Aşama',
   'pro.stageN': 'Aşama {n}',
   'pro.addElemIds': 'Eleman ekle (virgülle ayrılmış ID):',
+  'pro.addPlateIds': 'Add plates (comma-separated IDs):',
+  'pro.addQuadIds': 'Add shells (comma-separated IDs):',
   'pro.removeElemIds': 'Eleman kaldır (ID):',
   'pro.loadIndices': 'Yükler (indeksler):',
   'pro.solveStaged': 'Aşamalı çöz',

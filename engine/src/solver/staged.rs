@@ -823,6 +823,10 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
     let mut cumulative_u = vec![0.0; n];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new(); // node_ids
+    // Shells track their own active sets: their ids are their own, and a plate
+    // may share a number with an element.
+    let mut active_plates: HashSet<usize> = HashSet::new();
+    let mut active_quads: HashSet<usize> = HashSet::new();
     let mut stage_results = Vec::new();
 
     for (stage_idx, stage) in input.stages.iter().enumerate() {
@@ -839,10 +843,22 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
         for &sid in &stage.supports_removed {
             active_supports.remove(&sid);
         }
+        for &pid in &stage.plates_added {
+            active_plates.insert(pid);
+        }
+        for &pid in &stage.plates_removed {
+            active_plates.remove(&pid);
+        }
+        for &qid in &stage.quads_added {
+            active_quads.insert(qid);
+        }
+        for &qid in &stage.quads_removed {
+            active_quads.remove(&qid);
+        }
 
         // Build a SolverInput3D for this stage with only active elements/supports/loads
         let stage_input = build_stage_solver_input_3d(
-            input, &active_elements, &active_supports, stage,
+            input, &active_elements, &active_supports, &active_plates, &active_quads, stage,
         );
 
         // Assemble stiffness using existing 3D assembler
@@ -978,9 +994,12 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         loads: input.loads.clone(),
         constraints: input.constraints.clone(),
         left_hand: None,
-        plates: HashMap::new(),
-        quads: HashMap::new(),
-        quad9s: HashMap::new(),
+        // EVERY shell, active or not: this input exists to number the DOFs, and
+        // a node that only a later-stage slab touches still needs a number, or
+        // the stage that finally adds that slab has nowhere to assemble it.
+        plates: input.plates.clone(),
+        quads: input.quads.clone(),
+        quad9s: input.quad9s.clone(),
         solid_shells: HashMap::new(),
         curved_shells: HashMap::new(),
         curved_beams: vec![],
@@ -993,6 +1012,8 @@ fn build_stage_solver_input_3d(
     input: &StagedInput3D,
     active_elements: &HashSet<usize>,
     active_supports: &HashSet<usize>,
+    active_plates: &HashSet<usize>,
+    active_quads: &HashSet<usize>,
     stage: &ConstructionStage3D,
 ) -> SolverInput3D {
     let elements: HashMap<String, SolverElement3D> = input.elements.iter()
@@ -1009,6 +1030,19 @@ fn build_stage_solver_input_3d(
         .filter_map(|&idx| input.loads.get(idx).cloned())
         .collect();
 
+    // Only the shells this stage has reached, by the same rule the members
+    // follow. A slab cast in stage 3 must not stiffen stages 1 and 2 — that is
+    // the whole point of a staged analysis, and including them always would be
+    // a different wrong answer from dropping them always.
+    let plates: HashMap<String, SolverPlateElement> = input.plates.iter()
+        .filter(|(_, p)| active_plates.contains(&p.id))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let quads: HashMap<String, SolverQuadElement> = input.quads.iter()
+        .filter(|(_, q)| active_quads.contains(&q.id))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+
     SolverInput3D {
         nodes: input.nodes.clone(),
         materials: input.materials.clone(),
@@ -1018,8 +1052,11 @@ fn build_stage_solver_input_3d(
         loads,
         constraints: input.constraints.clone(),
         left_hand: None,
-        plates: HashMap::new(),
-        quads: HashMap::new(),
+        plates,
+        quads,
+        // quad9s carry no per-stage list yet: nothing in the app builds one, so
+        // there is no stage that could name it. Left empty rather than always
+        // active, which would silently stiffen every stage.
         quad9s: HashMap::new(),
         solid_shells: HashMap::new(),
         curved_shells: HashMap::new(),
