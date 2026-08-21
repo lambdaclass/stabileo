@@ -24,6 +24,9 @@ import { resolveDesignAxes, type DesignAxes } from './design-axes';
 import type { LimitingConstraint } from './outcome';
 import type { ProvenancedValue, RegulationEdition } from '../../codes/regulation';
 import { resolveMaxAggregateSize, type ConcreteProjectData } from '../../codes/project-code-settings';
+import {
+  materialFamilyOf, type GradeFamilyLookup, type StructuralMaterialFamily,
+} from '../steel/material-family';
 
 export interface RectSection {
   id: number;
@@ -73,6 +76,14 @@ export interface MemberContext {
   finalGeometry?: { bottomRaise?: number; topLower?: number; depthTolerance?: number };
   elementId: number;
   elementType: 'beam' | 'column' | 'wall';
+  /**
+   * The family of the member's material, as `materialFamilyOf` resolved it.
+   *
+   * A context is only ever BUILT for a concrete member — see `buildAllMemberContexts` — so
+   * in practice this is always `'concrete'`. It is carried anyway, because a certificate
+   * that cannot state what the member is made of is a certificate that assumed it.
+   */
+  materialFamily: StructuralMaterialFamily;
   /** Member length (m). */
   L: number;
   section: RectSection;
@@ -155,6 +166,8 @@ export interface BuildContextOptions {
   codeEdition?: RegulationEdition;
   /** Project concrete data. Absent aggregate size becomes a visible assumption. */
   concrete?: ConcreteProjectData;
+  /** Resolves PR #132's `Material.gradeId`. See `steel/material-family.ts`. */
+  lookupGrade?: GradeFamilyLookup;
 }
 
 /**
@@ -180,6 +193,24 @@ export function buildMemberContext(
   // In this model fy on a material doubles as f'c for concrete (<= 80 MPa).
   const fc = mat?.fy;
   if (!mat || fc === undefined || fc <= 0) blocking.push('missingMaterial');
+
+  /**
+   * The material family, asked ONCE and recorded.
+   *
+   * This used to be the one place in the app that did not ask at all: `fc = mat?.fy` reads
+   * a steel yield as a concrete strength, and a 345 MPa member came through as concrete
+   * H-345 with a rectangular section the size of its bounding box. The adapter refused it
+   * later — so nothing was ever certified — but under `DEMAND_UNAVAILABLE`, with demands
+   * that were perfectly available, and counted against the concrete summary the whole way.
+   *
+   * `missingMaterial` rather than a new constraint: the adapter already reports
+   * `design.reason.notConcrete` off the same fact, and widening `LimitingConstraint` would
+   * collide with PR #125, which is editing that union for its own reasons.
+   */
+  const family = materialFamilyOf(mat, opts.lookupGrade);
+  if (family.family !== 'concrete' && !blocking.includes('missingMaterial')) {
+    blocking.push('missingMaterial');
+  }
 
   const dx = (nJ?.x ?? 0) - (nI?.x ?? 0);
   const dy = (nJ?.y ?? 0) - (nI?.y ?? 0);
@@ -211,6 +242,7 @@ export function buildMemberContext(
   return {
     elementId,
     elementType,
+    materialFamily: family.family,
     L,
     section: { id: sec?.id ?? -1, name: sec?.name ?? '—', b, h },
     material: { fc: fc ?? 0, fy, cover, stirrupDia, maxAggregateSize },
@@ -229,8 +261,52 @@ export function buildMemberContext(
   };
 }
 
-/** Build contexts for every element that the demand map covers. */
+/**
+ * Build contexts for every CONCRETE element in the model.
+ *
+ * ── Why non-concrete members are left out rather than blocked ──────
+ *
+ * They used to be included. A steel frame therefore appeared, member by member, in the RC
+ * design table; it was refused rather than designed, so no certificate was ever issued —
+ * but it was counted. `verificationStore.providedSummary` walks these contexts, so a hall
+ * with two concrete columns and three hundred steel members reported "2 verified of 302",
+ * and the reason shown against each steel row was "demand unavailable" for members whose
+ * demand was sitting right there.
+ *
+ * Blocking them instead of omitting them would fix the label and keep the pollution. They
+ * are not members this pipeline refused; they are members it was never asked about. The
+ * metallic surface lists them, with a census that says how many there are — see
+ * `steel/steel-inventory.ts` — so nothing disappears, it just stops being counted as
+ * concrete that failed.
+ *
+ * `unknown` is the exception that stays: a member whose material is missing or
+ * unclassifiable is not metallic, it is unfinished input. Omitting it would make "you
+ * forgot to set a material" indistinguishable from "this member does not exist", so it
+ * keeps its context and reaches the table blocked on `missingMaterial` — a visible row
+ * the user can act on, exactly as before the metallic exclusion existed.
+ */
 export function buildAllMemberContexts(
+  model: ContextModelData,
+  opts: BuildContextOptions = {},
+): Map<number, MemberContext> {
+  const out = new Map<number, MemberContext>();
+  for (const id of model.elements.keys()) {
+    const ctx = buildMemberContext(id, model, opts);
+    if (!ctx) continue;
+    if (ctx.materialFamily !== 'concrete' && ctx.materialFamily !== 'unknown') continue;
+    out.set(id, ctx);
+  }
+  return out;
+}
+
+/**
+ * Contexts for every element, concrete or not.
+ *
+ * For callers that need to reason about what was excluded — a diagnostic, a test asserting
+ * the exclusion happened, a future surface that wants to show a metallic member's demands
+ * without designing it. Normal design paths use `buildAllMemberContexts`.
+ */
+export function buildAllMemberContextsUnfiltered(
   model: ContextModelData,
   opts: BuildContextOptions = {},
 ): Map<number, MemberContext> {

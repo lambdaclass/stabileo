@@ -155,6 +155,13 @@ export interface JointInfo {
   y: number;
   z: number;
   elementIds: number[];
+  /** Of `elementIds`, the ones the caller classified as metallic. All of them when unfiltered. */
+  metallicElementIds: number[];
+  /**
+   * The rest. Reported rather than dropped: a steel beam framing into a concrete column is a
+   * joint worth detailing, and the panel has to be able to say which half it is talking about.
+   */
+  nonMetallicElementIds: number[];
   hasSupport: boolean;
   elementCount: number;
 }
@@ -163,14 +170,38 @@ interface NodeData { id: number; x: number; y: number; z?: number }
 interface ElemData { id: number; nodeI: number; nodeJ: number }
 interface SupData { nodeId: number }
 
+export interface DetectJointsOptions {
+  /**
+   * Whether an element is metallic. Supplied by the caller, which owns the classification.
+   *
+   * This module computes bolt groups and fillet welds and nothing else — there is no
+   * concrete, timber or masonry path anywhere in it. Without this predicate it still returned
+   * every joint in the model, so a reinforced-concrete beam-column joint was offered a bolt
+   * group and an Fexx. The numbers it produced were not wrong for a steel joint; they were
+   * being offered for a joint that has none.
+   *
+   * The classification is NOT done here on purpose. `materialFamilyOf` needs the material, the
+   * grade catalogue and the inference rules, and pulling that chain into a geometry helper
+   * would tie a pure function to three stores. The caller already knows.
+   */
+  isMetallic?: (elementId: number) => boolean;
+}
+
 /**
  * Detect structural joints — nodes where ≥2 elements connect.
  * Sorted by element count descending (busiest joints first).
+ *
+ * With `isMetallic`, a joint is returned only if at least ONE of its members is metallic, and
+ * each joint reports which of its members are and are not. One metallic member is enough
+ * because a steel beam framing into a concrete column is a real connection an engineer
+ * detail; a joint with no metallic member at all is not something this panel can say anything
+ * about, and offering it would be an invitation to a wrong answer.
  */
 export function detectJoints(
   nodes: Map<number, NodeData>,
   elements: Map<number, ElemData>,
   supports: Map<number, SupData>,
+  opts: DetectJointsOptions = {},
 ): JointInfo[] {
   const nodeElems = new Map<number, number[]>();
   for (const [, el] of elements) {
@@ -188,12 +219,17 @@ export function detectJoints(
     if (elemIds.length < 2) continue;
     const node = nodes.get(nodeId);
     if (!node) continue;
+    const metallicElementIds = opts.isMetallic ? elemIds.filter(opts.isMetallic) : elemIds;
+    // No predicate ⇒ no filtering, so every existing caller and test keeps its behaviour.
+    if (opts.isMetallic && metallicElementIds.length === 0) continue;
     joints.push({
       nodeId,
       x: node.x,
       y: node.y,
       z: node.z ?? 0,
       elementIds: elemIds,
+      metallicElementIds,
+      nonMetallicElementIds: elemIds.filter((id) => !metallicElementIds.includes(id)),
       hasSupport: supportNodeIds.has(nodeId),
       elementCount: elemIds.length,
     });

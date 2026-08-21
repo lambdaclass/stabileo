@@ -80,6 +80,8 @@ export interface TestHooks {
   reinforcement(id: number): unknown;
   rebarSummary(id: number): string;
   elementIds(): number[];
+  /** The names of the sections in the model — what the model actually stored. */
+  sectionNames(): string[];
   orientationSuspectCount(): number;
   undoCount(): number;
   canvasInkRatio(): number;

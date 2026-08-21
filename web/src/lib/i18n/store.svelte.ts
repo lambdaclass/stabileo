@@ -12,9 +12,33 @@ import ru from './locales/ru';
 import zh from './locales/zh';
 import ar from './locales/ar';
 import id from './locales/id';
+import steelEs from './locales/steel/es';
+import steelEn from './locales/steel/en';
+import steelPt from './locales/steel/pt';
 import type { Translations } from './types';
 
-const dicts: Record<string, Translations> = { es, en, pt, de, fr, it, tr, hi, ja, ko, ru, zh, ar, id };
+/**
+ * The shipped dictionaries.
+ *
+ * `steel/*` is folded in here rather than pasted into `es.ts` and `en.ts`. Those two files
+ * are being edited heavily by PR #125 and PR #132 at the same time as this branch, and a
+ * hundred keys inserted through the middle of them would be a hundred merge conflicts for
+ * no benefit — a key is worth the same whichever module it arrives from. Fold them into the
+ * main dictionaries once both PRs have landed; until then this costs nothing.
+ *
+ * Portuguese is folded in for the same reason the other two are, and is NOT optional the way
+ * the remaining locales are: `OFFERED_LOCALES` is es/en/pt, and `pro-flow-coverage.test.ts`
+ * requires every key a PRO surface renders to exist in all three. The metallic family is new
+ * PRO surface, so leaving it to fall back would be exactly the silent English that gate was
+ * written to stop. The other eleven locales are not offered in the picker and keep falling
+ * back, which is what already happens for most namespaces outside `design.*`.
+ */
+const dicts: Record<string, Translations> = {
+  es: { ...es, ...steelEs },
+  en: { ...en, ...steelEn },
+  pt: { ...pt, ...steelPt },
+  de, fr, it, tr, hi, ja, ko, ru, zh, ar, id,
+};
 
 /** Safe localStorage check — vitest defines localStorage but without working methods. */
 function hasLocalStorage(): boolean {

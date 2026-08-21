@@ -60,6 +60,20 @@ export const CAPABILITY_KEYS = [
   'seismicAnalysis', 'seismicDetailing',
   // Output
   'floorPlans', 'barSchedules',
+  /*
+   * Structural steel.
+   *
+   * Listed here, in the ONE place the product declares what it may claim, rather than in a
+   * metallic vocabulary of their own. The point of this list is that a capability cannot be
+   * introduced without every code stating whether it supports it, and a parallel list would
+   * defeat that for exactly the material where over-claiming is most likely right now.
+   *
+   * Every one of these is `false` on every registered adapter today. That is the honest
+   * state, and it is the state the metallic surface reads to explain itself.
+   */
+  'steelTension', 'steelCompression', 'steelFlexure', 'steelLateralTorsionalBuckling',
+  'steelShear', 'steelInteraction', 'steelSectionClassification',
+  'steelConnections', 'steelBracing', 'steelMemberSchedules',
 ] as const;
 
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];

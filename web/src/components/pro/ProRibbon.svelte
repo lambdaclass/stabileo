@@ -10,6 +10,9 @@
    */
   import { uiStore, modelStore, resultsStore, historyStore, verificationStore } from '../../lib/store';
   import { saveProject } from '../../lib/store/file';
+  import { detailingStore } from '../../lib/store/detailing.svelte';
+  import { detailingAuthor } from '../../lib/store/detailing-author.svelte';
+  import { canOpenRebar3D, openRebar3D } from '../../lib/store/rebar-open';
   import Icon from '../ribbon/Icon.svelte';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../../lib/geometry/coordinate-system';
 
@@ -105,6 +108,22 @@
     diagram?: string;
     action?: () => void;
     enabled?: () => boolean;
+    /**
+     * One sentence saying what the command opens, when its label cannot.
+     *
+     * "Generators" names a category, not a destination; "Metallic structures" plus this says
+     * what you get. Rendered into the `title` AND into a visually-hidden description the
+     * button points at, because a `title` reaches neither a keyboard nor a screen reader.
+     */
+    descKey?: string;
+    /**
+     * The steps still missing, as i18n keys, when the command is gated.
+     *
+     * Returned as a LIST rather than a sentence so the disabled button can name each one —
+     * `ribbon.needsSolve` said only "solve first", which is not what is missing when the
+     * model is solved and the detailing has not been generated.
+     */
+    blockedKeys?: () => string[];
     /** Shown only when the group is expanded. */
     overflow?: boolean;
   };
@@ -120,6 +139,34 @@
   const shownDiagram = $derived(
     resultsStore.diagramType === 'axialColor' ? 'axial' : resultsStore.diagramType,
   );
+
+  /**
+   * What is still missing before the reinforcement can be viewed in 3-D.
+   *
+   * The same ladder `WorkflowStages` walks, read from the same three stores, and returned as
+   * keys so the caller words it. Three named steps instead of one "solve first": the command
+   * is equally unavailable on an unsolved model and on a solved, designed one whose detailing
+   * has never been generated, and those are not the same instruction.
+   *
+   * It reports; it does not act. Pressing a disabled command must never quietly run the design
+   * — a user who wanted that would have pressed Design.
+   */
+  function rebar3DMissingSteps(): string[] {
+    const steps: string[] = [];
+    if (resultsStore.results3D == null && resultsStore.results == null) {
+      steps.push('proRibbon.need.solve');
+    }
+    if (verificationStore.providedSummary.total === 0) steps.push('proRibbon.need.design');
+    if (detailingStore.assemblies.length === 0) steps.push('proRibbon.need.detailing');
+    return steps;
+  }
+
+  function openRebar3DFromRibbon(): void {
+    openRebar3D({
+      author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+      at: new Date().toISOString(),
+    });
+  }
 
   const STAGES: Stage[] = $derived([
     {
@@ -142,6 +189,34 @@
           cmds: [
             { id: 'materials', labelKey: 'pro.tabMaterials', icon: 'material', tab: 'materials' },
             { id: 'sections', labelKey: 'pro.tabSections', icon: 'section', tab: 'sections' },
+          ],
+        },
+        /*
+         * Generators are their own sub-section, to the RIGHT of Properties.
+         *
+         * They were folded into Draw, beside nodes and elements, on the reasoning that a
+         * generator draws. It does — but Draw is where you place one thing at a time, and a
+         * generator replaces the whole model from a parameter form. Sitting in the same group
+         * as `Nodes` made it read as one more drawing tool, and sitting anywhere near
+         * Properties made it read as a property of the model.
+         *
+         * Last in the stage because that is the order of the work: draw or generate, then
+         * give what you have its materials and sections.
+         */
+        {
+          id: 'generators',
+          labelKey: 'proRibbon.groupGenerators',
+          cmds: [
+            {
+              // Named for what it opens, not for its category. "Generators" is the SECTION;
+              // a button repeating it would say the same word twice and still not say that
+              // what comes out is a truss, a latticed column or a shed.
+              id: 'generators',
+              labelKey: 'proRibbon.cmdSteelStructures',
+              descKey: 'proRibbon.cmdSteelStructuresDesc',
+              icon: 'examples',
+              tab: 'generators',
+            },
           ],
         },
       ],
@@ -242,12 +317,91 @@
       labelKey: 'proRibbon.stageDesign',
       home: 'design',
       groups: [
+        /*
+         * Two materials, two sub-sections — not one group with three buttons.
+         *
+         * The first arrangement put Design, Metallic structures and Connections side by side
+         * under the Concrete heading, which said that the metallic surface was part of the
+         * concrete workflow. It is not: it is a different material, a different code, and a
+         * different maturity. Reading the row left to right you could not tell which button
+         * designed concrete and which one did not.
+         *
+         * Same stage, because an engineer on a mixed structure moves between them without
+         * changing where they are. Separate groups, because that is the sentence the ribbon
+         * is for: what this does, and to what.
+         */
         {
           id: 'rc',
           labelKey: 'proRibbon.groupDesign',
           cmds: [
-            { id: 'design', labelKey: 'pro.tabDesign', icon: 'settings', tab: 'design' },
-            { id: 'connections', labelKey: 'pro.tabConnections', icon: 'element', tab: 'connections' },
+            {
+              // "Design" alone answered nothing once a second material appeared beside it.
+              id: 'design',
+              labelKey: 'proRibbon.cmdRebarDesign',
+              descKey: 'proRibbon.cmdRebarDesignDesc',
+              icon: 'settings',
+              tab: 'design',
+            },
+            {
+              /*
+               * The SAME operation as the button on the Design overview and the one inside
+               * the detailing section. All of them call `openRebar3D`, so the cage on screen
+               * is a projection of one document instance — three ways in, one thing that
+               * happens. A fourth viewer is exactly what this must not be.
+               */
+              id: 'rebar3d',
+              labelKey: 'proRibbon.cmdRebar3D',
+              descKey: 'proRibbon.cmdRebar3DDesc',
+              icon: 'view3d',
+              action: openRebar3DFromRibbon,
+              enabled: () => canOpenRebar3D(),
+              blockedKeys: rebar3DMissingSteps,
+            },
+          ],
+        },
+        {
+          id: 'steel',
+          labelKey: 'proRibbon.groupSteel',
+          cmds: [
+            {
+              /*
+               * The entry point the future profile workflow lands on — the same tab that
+               * today shows the metallic inventory. Deliberately NOT a second button beside
+               * the old "Metallic structures" one: that button became this one.
+               *
+               * Its label says `design`, and the panel it opens says in its own banner that
+               * it verifies nothing. That is the honest pairing: the command names the place,
+               * the surface states its maturity. See `steel.panel.experimentalBanner`.
+               */
+              id: 'steel',
+              labelKey: 'proRibbon.cmdSteelProfiles',
+              descKey: 'proRibbon.cmdSteelProfilesDesc',
+              icon: 'section',
+              tab: 'steel',
+            },
+            {
+              /*
+               * Renamed from "Connections" after auditing what it does, not before.
+               *
+               * `ProConnectionsTab` computes exactly two things — `checkBoltGroup` and
+               * `checkFilletWeld` — over bolt grades 4.6 to 10.9 and fillet welds with a
+               * plate thickness and an Fexx. Both are steel connection checks; there is no
+               * concrete, timber or masonry path in `connection-design.ts`, which mentions
+               * no material at all. So the narrower name hides nothing.
+               *
+               * What it does NOT narrow: mixed joints. `ProConnectionsTab` hands
+               * `detectJoints` the metallic inventory's verdict, so a joint with no
+               * metallic member at all is not listed — and the panel says how many it
+               * hid. A steel beam framing into a concrete column still is listed, with
+               * its members split by material, because that is a real detail an
+               * engineer checks.
+               */
+              id: 'connections',
+              labelKey: 'proRibbon.cmdSteelJoints',
+              descKey: 'proRibbon.cmdSteelJointsDesc',
+              icon: 'element',
+              tab: 'connections',
+            },
           ],
         },
       ],
@@ -260,9 +414,10 @@
     // no stage — the tab row simply keeps showing the stage you came from.
     project: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
+    generators: 'model',
     supports: 'conditions', constraints: 'conditions', loads: 'conditions',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
-    design: 'design', connections: 'design',
+    design: 'design', steel: 'design', connections: 'design',
   };
 
   /*
@@ -464,13 +619,19 @@
           <div class="pr-cmds">
             {#each g.cmds.filter(c => !c.overflow || openMenu === g.id) as c (c.id)}
               {@const on = !c.enabled || c.enabled()}
+              {@const steps = on ? [] : (c.blockedKeys?.() ?? []).map((k) => t(k))}
+              {@const why = steps.length
+                ? `${t('proRibbon.blockedIntro')}: ${steps.join(' · ')}`
+                : (on ? '' : t('ribbon.needsSolve'))}
+              {@const hint = [c.descKey ? t(c.descKey) : '', why].filter(Boolean).join(' — ')}
               <button
                 class="pr-cmd"
                 class:active={(!!c.tab && uiStore.proActiveTab === c.tab)
                   || (!!c.diagram && shownDiagram === c.diagram)}
                 disabled={!on}
                 onclick={() => run(c)}
-                title={on ? t(c.labelKey) : `${t(c.labelKey)} — ${t('ribbon.needsSolve')}`}
+                title={hint ? `${t(c.labelKey)} — ${hint}` : t(c.labelKey)}
+                aria-describedby={hint ? `pr-cmd-desc-${c.id}` : undefined}
                 data-testid="pr-cmd-{c.id}"
               >
                 <span class="pr-icon"><Icon name={c.icon ?? 'data'} rotate={c.rotate ?? 0} size={20} /></span>
@@ -478,6 +639,18 @@
                   {c.label ?? (c.id === 'solve' && isSolving ? t('pro.solving') : t(c.labelKey))}
                 </span>
               </button>
+              <!--
+                The same sentence the tooltip carries, as text.
+
+                A `title` is invisible to a keyboard, invisible to a screen reader that is not
+                hovering, and gone the moment the pointer leaves. A disabled command that can
+                only explain itself on hover cannot explain itself at all to the people most
+                likely to be stuck. Outside the button because a disabled button is not
+                focusable, and `aria-describedby` still resolves.
+              -->
+              {#if hint}
+                <span class="sr-only" id="pr-cmd-desc-{c.id}" data-testid="pr-cmd-why-{c.id}">{hint}</span>
+              {/if}
             {/each}
           </div>
           <p class="pr-group-label">{t(g.labelKey)}</p>
@@ -500,6 +673,12 @@
   }
 
   /* ── The column that survives a tab change ─────────────────────────── */
+
+  /* Same rule as `OutcomeBadge`: the description is for assistive tech, not for the eye. */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
 
   .pr-tool-sep {
     width: 1px;

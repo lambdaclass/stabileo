@@ -1,17 +1,74 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { steelStore } from '../../lib/store/steel.svelte';
+  import { t, tp } from '../../lib/i18n';
+  /*
+   * The concrete workflow's section shell, reused rather than reinvented.
+   *
+   * This panel was four ad-hoc blocks: a bare joint list, a headerless forces table, and two
+   * `<details>` with a grey summary. Nothing said what a block was FOR, whether it had run, or
+   * where it sat in the order — the same complaint `StageSection`'s own doc comment records
+   * about the concrete panel before PR20 fixed it there.
+   *
+   * Reusing it buys the number, the purpose sentence, the state carried by a glyph AND a word
+   * rather than by colour, and — the part that matters most here — its refusal to put a
+   * `max-height` on an open section. Its comment explains why: a nested scroller at 720 px
+   * makes the wheel ambiguous and parks a sticky header in the middle of the panel.
+   */
+  import StageSection from './design/StageSection.svelte';
   import {
     detectJoints, getJointForces, checkBoltGroup, checkFilletWeld,
     type BoltGrade, type BoltResult, type WeldResult,
     type JointInfo, type JointForces,
   } from '../../lib/engine/connection-design';
 
+  /**
+   * Which elements this panel is entitled to speak about.
+   *
+   * `checkBoltGroup` and `checkFilletWeld` are the only two calculations here, and both are
+   * steel. Before this filter the joint list was every joint in the model, so a
+   * reinforced-concrete beam-column joint was offered a bolt diameter, a grade 8.8 and an
+   * Fexx. The arithmetic was not wrong; it was being offered for a joint that has no bolts.
+   *
+   * The classification is the one the metallic inventory already computes — same verdict,
+   * same inference rules, same provenance — so this panel and the Profile design panel cannot
+   * disagree about what is metallic. No `isSteel` re-filter here: the inventory only ever
+   * contains steel verdicts (`steel-inventory.ts` skips every non-steel element).
+   */
+  const metallicElementIds = $derived(new Set(
+    steelStore.members.map((m) => m.elementId),
+  ));
+
   // ─── Joint detection (reactive) ──────────────
-  const joints = $derived.by(() => {
+  const detected = $derived.by(() => {
     void(modelStore.nodes.size + modelStore.elements.size + modelStore.supports.size);
     return detectJoints(modelStore.nodes, modelStore.elements as any, modelStore.supports as any);
   });
+
+  /**
+   * One detection pass, two views of it.
+   *
+   * The unfiltered run returns every joint; the metallic split `detectJoints` would compute
+   * from its `isMetallic` predicate is applied here instead, against the same set the
+   * predicate would have closed over — a joint stays listed while at least one of its
+   * members is metallic. Running detection a second time just to count what the filter
+   * dropped would re-walk every node and element on every model change.
+   *
+   * Joints the filter removes are counted, not silently dropped. A panel that quietly
+   * shows fewer rows than the model has joints is a panel a user will eventually
+   * distrust. Saying "14 non-metallic joints are not listed here" is both the honest
+   * version and the more useful one: it tells them the filter is working.
+   */
+  const joints = $derived(detected.flatMap((j) => {
+    const metallic = j.elementIds.filter((id) => metallicElementIds.has(id));
+    if (metallic.length === 0) return [];
+    return [{
+      ...j,
+      metallicElementIds: metallic,
+      nonMetallicElementIds: j.elementIds.filter((id) => !metallicElementIds.has(id)),
+    }];
+  }));
+  const hiddenJointCount = $derived(detected.length - joints.length);
 
   let selectedJointId = $state<number | null>(null);
 
@@ -107,14 +164,78 @@
   function statusClass(s: 'ok' | 'warn' | 'fail'): string {
     return `st-${s}`;
   }
+
+  /**
+   * The grades whose threads-excluded shear value the table does not carry.
+   *
+   * `BOLT_TABLE` gives `FvExcl: 0` for 4.6 and 5.6, and `checkBoltGroup` falls back to
+   * `FvIncl` when it is zero. That fallback is correct — the conservative value is the right
+   * one to use — but it is SILENT, and it is tied to a checkbox the user is actively
+   * ticking. So the warning sits beside the result, conditioned on the grade, and not only in
+   * the gap list at the bottom: a gap that lives only in a footnote is one nobody reads at the
+   * moment it matters.
+   */
+  const GRADES_WITHOUT_FV_EXCL: BoltGrade[] = ['4.6', '5.6'];
+  const fvExclUnavailable = $derived(GRADES_WITHOUT_FV_EXCL.includes(boltGrade));
+
+  /**
+   * The five gaps, confirmed by reading the code rather than by reviewing the UI.
+   *
+   * `affects` is the field that earns this list its place. "Torsion is not shown" and "base
+   * metal rupture is not checked" are not the same kind of statement: one is a number that
+   * exists and is not drawn, the other is a limit state nothing computes. A list that did not
+   * separate them would be a list of apologies.
+   */
+  const GAPS = [
+    { id: 'baseMetal', affects: true },
+    { id: 'boltGeometry', affects: true },
+    { id: 'torsion', affects: false },
+    { id: 'aluminium', affects: true },
+    { id: 'fvExcl', affects: true },
+  ] as const;
+
+  /** Which sub-section is open. Bound, so opening one does not close the reader's place. */
+  let openJoints = $state(true);
+  let openBolts = $state(false);
+  let openWelds = $state(false);
+  let openGaps = $state(false);
 </script>
 
 <div class="conn-tab">
-  <!-- Joint list -->
-  <div class="conn-section">
-    <div class="conn-section-header">
-      <span class="conn-label-title">{t('conn.joints')} ({joints.length})</span>
-    </div>
+  <!--
+    Stated before any number is shown, not after.
+
+    `connection-design.ts` has no tests, no mapped clauses and no external benchmark, and it
+    sits outside the app's maturity model. The arithmetic is offered because an engineer who
+    can see the assumptions can review it — the same bargain `steel.panel.experimentalBanner`
+    strikes. It is not a verification, and this panel must never read as one.
+  -->
+  <div class="conn-banner" role="note" data-testid="conn-experimental-banner">
+    {t('conn.experimentalBanner')}
+  </div>
+
+  <!-- ── 1 · Joint detection ─────────────────────────────────────── -->
+  <StageSection
+    step={1}
+    title={t('conn.sec.joints.title')}
+    purpose={t('conn.sec.joints.purpose')}
+    state={joints.length > 0 ? 'done' : 'blocked'}
+    blockedBy={t('conn.sec.joints.blocked')}
+    badge={joints.length}
+    testid="conn-sec-joints"
+    badgeTestid="conn-joint-count"
+    bind:open={openJoints}
+  >
+    <p class="conn-explain" data-testid="conn-joints-what">{t('conn.joints.what')}</p>
+    <!--
+      The filter says so. A list shorter than the model's joint count, with no explanation, is
+      the kind of thing a user discovers at the worst possible moment.
+    -->
+    {#if hiddenJointCount > 0}
+      <p class="conn-filtered" data-testid="conn-filtered-note">
+        {tp('conn.nonMetallicHidden', { n: hiddenJointCount })}
+      </p>
+    {/if}
     {#if joints.length === 0}
       <div class="conn-empty">{t('conn.noJoints')}</div>
     {:else}
@@ -133,14 +254,34 @@
         {/each}
       </div>
     {/if}
-  </div>
 
-  {#if selectedJoint}
-    <!-- Forces at joint -->
-    <div class="conn-section">
-      <div class="conn-section-header">
-        <span class="conn-label-title">{t('conn.forcesAt')} N{selectedJoint.nodeId}</span>
+    {#if selectedJoint}
+      <!--
+        Which members meet here, split by material.
+
+        The split is the whole reason a mixed joint is offered at all: a steel beam framing
+        into a concrete column is a real detail, and the panel has to be able to say which
+        half of it these calculations are about.
+      -->
+      <div class="conn-members" data-testid="conn-joint-members">
+        <span class="conn-members-title">{t('conn.joints.membersTitle')}</span>
+        <span class="conn-members-metallic" data-testid="conn-members-metallic">
+          {selectedJoint.metallicElementIds.map((id) => `E${id}`).join(', ')}
+          <em>{t('conn.joints.metallic')}</em>
+        </span>
+        {#if selectedJoint.nonMetallicElementIds.length > 0}
+          <span class="conn-members-other" data-testid="conn-members-nonmetallic">
+            {selectedJoint.nonMetallicElementIds.map((id) => `E${id}`).join(', ')}
+            <em>{t('conn.joints.nonMetallic')}</em>
+          </span>
+        {/if}
       </div>
+      {#if selectedJoint.nonMetallicElementIds.length > 0}
+        <p class="conn-explain" data-testid="conn-mixed-note">{t('conn.joints.mixedNote')}</p>
+      {/if}
+
+      <div class="conn-forces-block">
+        <span class="conn-label-title">{t('conn.forcesAt')} N{selectedJoint.nodeId}</span>
       {#if jointForces}
         <div class="conn-forces-table">
           <table>
@@ -168,17 +309,24 @@
       {:else}
         <div class="conn-no-results">{t('conn.noResults')}</div>
       {/if}
-    </div>
+      </div>
+    {/if}
+  </StageSection>
 
-    <!-- Bolt check -->
-    <details class="conn-check-details">
-      <summary class="conn-check-summary">
-        {t('conn.boltCheck')}
-        {#if boltResult}
-          <span class="conn-ratio-badge {statusClass(boltResult.status)}">{(boltResult.governingRatio * 100).toFixed(0)}%</span>
-        {/if}
-      </summary>
-      <div class="conn-check-body">
+  <!-- ── 2 · Bolts ───────────────────────────────────────────────── -->
+  <StageSection
+    step={2}
+    title={t('conn.sec.bolts.title')}
+    purpose={t('conn.sec.bolts.purpose')}
+    state={boltResult ? 'done' : selectedJoint ? 'current' : 'blocked'}
+    blockedBy={t('conn.sec.bolts.blocked')}
+    badge={boltResult ? `${(boltResult.governingRatio * 100).toFixed(0)}%` : undefined}
+    testid="conn-sec-bolts"
+    bind:open={openBolts}
+  >
+    {#if selectedJoint}
+      <p class="conn-explain" data-testid="conn-bolt-grades">{t('conn.bolts.grades')}</p>
+
         <div class="conn-form-grid">
           <label>∅ (mm) <input type="number" class="conn-inp" bind:value={boltDia} min={6} max={36} step={2} /></label>
           <label>{t('conn.grade')} <select class="conn-sel" bind:value={boltGrade}><option value="4.6">4.6</option><option value="5.6">5.6</option><option value="8.8">8.8</option><option value="10.9">10.9</option></select></label>
@@ -211,18 +359,40 @@
             </div>
           </div>
         {/if}
-      </div>
-    </details>
 
-    <!-- Weld check -->
-    <details class="conn-check-details">
-      <summary class="conn-check-summary">
-        {t('conn.weldCheck')}
-        {#if weldResult}
-          <span class="conn-ratio-badge {statusClass(weldResult.status)}">{(weldResult.ratio * 100).toFixed(0)}%</span>
-        {/if}
-      </summary>
-      <div class="conn-check-body">
+      <p class="conn-explain" data-testid="conn-bolt-explain">{t('conn.bolts.resultsExplain')}</p>
+      <!--
+        Beside the result, not only in the gap list.
+
+        The fallback to the threads-included value is correct and conservative, and it is
+        silent — and it is bound to a checkbox the user is at that moment ticking. A warning
+        that only appeared at the bottom of the panel would be true and useless.
+      -->
+      {#if fvExclUnavailable}
+        <p class="conn-warn" role="note" data-testid="conn-fvexcl-warning">
+          {tp('conn.bolts.fvExclWarning', { grade: boltGrade })}
+        </p>
+      {/if}
+      <p class="conn-experimental" data-testid="conn-bolts-experimental">{t('conn.experimentalCalc')}</p>
+    {:else}
+      <p class="conn-empty-note" data-testid="conn-bolts-empty">{t('conn.sec.bolts.blocked')}</p>
+    {/if}
+  </StageSection>
+
+  <!-- ── 3 · Welds ───────────────────────────────────────────────── -->
+  <StageSection
+    step={3}
+    title={t('conn.sec.welds.title')}
+    purpose={t('conn.sec.welds.purpose')}
+    state={weldResult ? 'done' : selectedJoint ? 'current' : 'blocked'}
+    blockedBy={t('conn.sec.welds.blocked')}
+    badge={weldResult ? `${(weldResult.ratio * 100).toFixed(0)}%` : undefined}
+    testid="conn-sec-welds"
+    bind:open={openWelds}
+  >
+    {#if selectedJoint}
+      <p class="conn-explain" data-testid="conn-weld-explain">{t('conn.welds.explain')}</p>
+
         <div class="conn-form-grid">
           <label>a (mm) <input type="number" class="conn-inp" bind:value={weldLeg} min={3} max={25} /></label>
           <label>L (mm) <input type="number" class="conn-inp" bind:value={weldLength} min={20} max={3000} /></label>
@@ -250,12 +420,107 @@
             </div>
           </div>
         {/if}
-      </div>
-    </details>
-  {/if}
+
+      <p class="conn-experimental" data-testid="conn-welds-experimental">{t('conn.experimentalCalc')}</p>
+    {:else}
+      <p class="conn-empty-note" data-testid="conn-welds-empty">{t('conn.sec.welds.blocked')}</p>
+    {/if}
+  </StageSection>
+
+  <!-- ── 4 · Limitations and known gaps ──────────────────────────── -->
+  <StageSection
+    step={4}
+    title={t('conn.sec.gaps.title')}
+    purpose={t('conn.sec.gaps.purpose')}
+    state="optional"
+    badge={GAPS.length}
+    testid="conn-sec-gaps"
+    bind:open={openGaps}
+  >
+    <!--
+      Five entries, each answering the same four questions, because a limitation that only
+      says what is missing leaves the reader unable to tell whether their result is usable.
+      `affects` is the field that does the work: torsion is a number computed and not drawn,
+      base metal rupture is a limit state nothing computes, and those are not the same thing.
+    -->
+    <ul class="conn-gaps" data-testid="conn-gaps">
+      {#each GAPS as g (g.id)}
+        <li class="conn-gap" data-testid="conn-gap-{g.id}" data-affects={g.affects}>
+          <p class="conn-gap-title">{t(`conn.gap.${g.id}.title`)}</p>
+          <dl class="conn-gap-facets">
+            <dt>{t('conn.gap.exists')}</dt>
+            <dd data-testid="conn-gap-{g.id}-exists">{t(`conn.gap.${g.id}.exists`)}</dd>
+            <dt>{t('conn.gap.missing')}</dt>
+            <dd data-testid="conn-gap-{g.id}-missing">{t(`conn.gap.${g.id}.missing`)}</dd>
+            <dt>{t('conn.gap.affects')}</dt>
+            <dd data-testid="conn-gap-{g.id}-affects">
+              {g.affects ? t('conn.gap.affectsYes') : t('conn.gap.affectsNo')}
+            </dd>
+            <dt>{t('conn.gap.scope')}</dt>
+            <dd data-testid="conn-gap-{g.id}-scope">{t(`conn.gap.${g.id}.scope`)}</dd>
+          </dl>
+          <p class="conn-gap-note">{t(`conn.gap.${g.id}.note`)}</p>
+        </li>
+      {/each}
+    </ul>
+    <p class="conn-experimental" data-testid="conn-gaps-not-certifiable">
+      {t('conn.gap.notCertifiable')}
+    </p>
+  </StageSection>
 </div>
 
 <style>
+  /* Same role and same weight as the metallic panel's banner: this is a maturity statement,
+     not a decoration, and the two surfaces must not disagree about how loud it is. */
+  .conn-banner {
+    margin: 0 0 8px; padding: 7px 9px; border-radius: 4px;
+    background: rgba(221, 170, 0, 0.10); border: 1px solid var(--st-warn);
+    color: var(--st-text); font-size: 0.68rem; line-height: 1.45;
+  }
+  /* One sentence explaining a section, in the panel's own secondary colour. */
+  .conn-explain {
+    margin: 0 0 6px; font-size: 0.66rem; line-height: 1.45; color: var(--st-text-2);
+  }
+  /* Which members meet, split by material — the fact a mixed joint turns on. */
+  .conn-members {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+    margin: 0 0 6px; font-size: 0.66rem;
+  }
+  .conn-members-title { color: var(--st-text-2); font-weight: 600; }
+  .conn-members-metallic { color: var(--st-text); font-family: var(--st-mono, monospace); }
+  .conn-members-other { color: var(--st-text-3); font-family: var(--st-mono, monospace); }
+  .conn-members em { font-style: normal; font-family: var(--st-sans); font-size: 0.62rem; }
+  .conn-forces-block { margin-top: 8px; }
+  /* A result-side warning: louder than an explanation, quieter than a failure. */
+  .conn-warn {
+    margin: 6px 0 0; padding: 5px 8px; border-left: 2px solid var(--st-warn);
+    font-size: 0.66rem; line-height: 1.45; color: var(--st-text);
+    background: rgba(221, 170, 0, 0.08);
+  }
+  /* The maturity line each calculating section repeats. Never green, never a tick. */
+  .conn-experimental {
+    margin: 8px 0 0; font-size: 0.63rem; line-height: 1.45; color: var(--st-warn);
+  }
+  .conn-empty-note {
+    margin: 4px 0; font-size: 0.66rem; color: var(--st-text-3); line-height: 1.45;
+  }
+  .conn-gaps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .conn-gap { border-left: 2px solid var(--st-hair-strong); padding-left: 8px; }
+  /* Affects the result: the border says so before the words do — and the words still do. */
+  .conn-gap[data-affects='true'] { border-left-color: var(--st-warn); }
+  .conn-gap-title { margin: 0 0 4px; font-size: 0.7rem; font-weight: 600; color: var(--st-text); }
+  .conn-gap-facets {
+    display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 0;
+    font-size: 0.64rem; line-height: 1.4;
+  }
+  .conn-gap-facets dt { color: var(--st-text-3); font-weight: 600; white-space: nowrap; }
+  .conn-gap-facets dd { margin: 0; color: var(--st-text-2); }
+  .conn-gap-note { margin: 4px 0 0; font-size: 0.63rem; color: var(--st-text-3); line-height: 1.4; }
+
+  .conn-filtered {
+    margin: 4px 0 6px; font-size: 0.66rem; line-height: 1.4; color: var(--st-text-2);
+  }
+
   .conn-tab { display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
   .conn-section { border-bottom: 1px solid var(--st-surface-3); }
   .conn-section-header { padding: 8px 10px; }
@@ -319,13 +584,6 @@
   }
   .conn-btn-verify:hover { background: var(--st-hair-strong); }
 
-  .conn-ratio-badge {
-    font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 8px; margin-left: auto;
-  }
-  .conn-ratio-badge.st-ok { background: rgba(34, 204, 102, 0.2); color: var(--st-ok); }
-  .conn-ratio-badge.st-warn { background: rgba(217, 164, 65, 0.2); color: var(--st-warn); }
-  .conn-ratio-badge.st-fail { background: rgba(229, 72, 42, 0.2); color: var(--st-accent); }
-
   .conn-result-card {
     padding: 6px 8px; border-radius: 4px; font-size: 0.7rem;
     background: rgba(127, 212, 204, 0.05); border: 1px solid var(--st-surface-3);
@@ -337,5 +595,5 @@
   .conn-status-icon { font-size: 0.85rem; }
   .conn-status-icon.st-ok { color: var(--st-ok); }
   .conn-status-icon.st-warn { color: var(--st-warn); }
-  .conn-status-icon.st-fail { color: var(--st-accent); }
+  .conn-status-icon.st-fail { color: var(--st-danger); }
 </style>

@@ -115,10 +115,53 @@ test.describe('@smoke project regulations — code-neutral roles', () => {
   });
 
   test('R2b — an unimplemented regulation is refused, with a reason', async ({ pro: page }) => {
+    /*
+     * This used to select CIRSOC 301, which is now bindable-and-experimental — see R2c. So the
+     * refusal is asserted against an option that is still genuinely refused: Eurocode 3 is
+     * unsupported and NOT declared experimental, so binding it means asking for a result that
+     * cannot arrive, and `requestChange` blocks on the error.
+     *
+     * The two cases are kept apart deliberately. "Refused" and "recorded but produces nothing"
+     * are different answers, and a suite that only covered one of them would let the other
+     * regress silently.
+     */
     await openRegulations(page);
-    await page.getByTestId('role-select-steel').selectOption('cirsoc301-2018');
+    await page.getByTestId('role-select-steel').selectOption('eurocode3');
     await expect(page.getByTestId('regulation-refused')).toBeVisible();
     await expect(page.getByTestId('regulation-refused')).toContainText(/not implemented/i);
+  });
+
+  test('R2c — an EXPERIMENTAL regulation binds, and says it produces nothing', async ({ pro: page }) => {
+    /*
+     * A steel project could not state the code it is designed to. The `steel` role existed and
+     * offered CIRSOC 301, and binding it produced `unsupportedAdapter` at severity `error` —
+     * the same treatment as naming an adapter that does not exist. So the honest choice was to
+     * leave the role unset, which records nothing, or to carry a permanent red mark saying the
+     * project is misconfigured when it is not.
+     *
+     * It now binds and is declared experimental: the intention is recorded, and NOTHING about
+     * what the app produces changes — `roleUsable` still refuses it, so no result, drawing or
+     * certificate can come out of it. That is what makes the warning honest rather than a
+     * softened error.
+     */
+    await openRegulations(page);
+    await page.getByTestId('role-select-steel').selectOption('cirsoc301-2018');
+
+    // It is NOT refused.
+    await expect(page.getByTestId('regulation-refused')).toHaveCount(0);
+
+    // The stack stays valid — a warning, not an error — and says what it means.
+    const problems = page.getByTestId('stack-problems');
+    await expect(problems).toBeVisible();
+    await expect(problems).toHaveClass(/warning/);
+    await expect(problems).toContainText(/experimental/i);
+    await expect(problems).toContainText(/CIRSOC 301/);
+    await expect(problems.locator('li.error')).toHaveCount(0);
+
+    // And the binding really took: the role reports the edition it is now bound to.
+    const advanced = page.getByTestId('role-steel').locator('details.advanced');
+    await advanced.locator('summary').click();
+    await expect(page.getByTestId('role-steel')).toContainText('2018');
   });
 
   test('R3 — each bound role shows edition, maturity and applied state', async ({ pro: page }) => {

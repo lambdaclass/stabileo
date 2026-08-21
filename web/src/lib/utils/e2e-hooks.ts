@@ -121,6 +121,14 @@ export interface StabileoTestHooks {
   reinforcement(elementId: number): unknown;
   rebarSummary(elementId: number): string;
   elementIds(): number[];
+  /**
+   * The names of the sections in the model, e.g. `HEB 220`.
+   *
+   * Added so a spec can assert that the profile a selector hands back is the id the
+   * generator stores — without it the only observable was the trigger's display text,
+   * which says nothing about what landed in the model.
+   */
+  sectionNames(): string[];
   orientationSuspectCount(): number;
   undoCount(): number;
   /** Non-background pixel count of the main canvas — a blank-render sanity check. */
@@ -327,6 +335,7 @@ export function installE2EHooks(): void {
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
+    sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,
