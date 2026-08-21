@@ -200,7 +200,7 @@
      `.rail > *` rule in `RebarWorkspace.svelte`. */
   .status { display: flex; flex-direction: column; gap: 0.45rem; }
   h4, h5 { margin: 0; font-size: 0.82rem; }
-  .hint { margin: 0; font-size: 0.72rem; color: var(--text-muted, #8b93a3); }
+  .hint { margin: 0; font-size: 0.72rem; color: var(--st-text-2); }
   ul { list-style: none; margin: 0; padding: 0; }
   .counts { display: flex; flex-direction: column; gap: 0.15rem; }
   .count-row, .element {
@@ -209,13 +209,29 @@
     padding: 0.22rem 0.4rem; cursor: pointer; text-align: left;
     color: inherit; font-size: 0.76rem;
   }
-  .count-row:hover, .element:hover { background: rgba(255, 255, 255, 0.06); }
+  /* `--st-surface-3` is the token whose stated job is "inputs, wells, hover states". */
+  .count-row:hover, .element:hover { background: var(--st-surface-3); }
   .count-row.active { border-color: currentColor; }
   .element.selected { background: rgba(255, 212, 0, 0.16); border-color: #ffd400; }
   .label, .id { flex: 1 1 auto; }
   .n, .st { font-variant-numeric: tabular-nums; opacity: 0.85; }
   .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: 0 0 auto; }
-  /* One colour per state, and never two states sharing one. */
+  /*
+     One colour per state, and never two states sharing one.
+     ─────────────────────────────────────────────────────────────────────
+     These seven stay LITERAL, deliberately, and `viewer-design-system.test.ts` already says
+     so: "leaves the state colours alone, because Three.js owns them". Four of them are
+     mirrored BY VALUE in `three/rebar-scene.ts` — `0xe0444a` conflicted, `0xd4762a`
+     unreinforced, `0xa066d3` provisional, `0xffd400` selected — and a material cannot read a
+     custom property, so aliasing the CSS copies would let the picture and the words beside it
+     drift apart. That is the one thing the colour exists to prevent.
+
+     The other three have no token to go to. `--st-warn` and `--st-danger` are the only two
+     status hues in `tokens.css`, and `--st-danger` is already spoken for by `failed`; sending
+     `unsupported`, `designed-not-modelled` and `refused` there would merge states that are
+     distinct. So the palette is frozen whole rather than tokenised by halves — see the
+     ceiling entry in `concrete-design-raw-colours.test.ts`.
+  */
   .st-failed .dot { background: #e0444a; }
   .st-unsupported .dot { background: #b06ad6; }
   /* The same violet the 3-D view paints provisional steel with — one colour, one meaning,
@@ -227,7 +243,7 @@
   .cause.hanger { display: flex; width: 100%; }
   .hanger-chip {
     font-size: 0.68rem; padding: 0 0.28rem; border-radius: 3px;
-    border: 1px solid #6c6c6c; color: #b9b9b9; white-space: nowrap;
+    border: 1px solid var(--st-hair-strong); color: var(--st-text-2); white-space: nowrap;
   }
   .st-refused .dot { background: #d4762a; }
   .st-designed-not-modelled .dot { background: #d9c04a; }
@@ -247,22 +263,30 @@
   .elements { flex: 0 0 auto; }
   .reason {
     margin: 0 0 0.25rem 1.4rem; font-size: 0.7rem;
-    color: var(--text-muted, #8b93a3);
+    color: var(--st-text-2);
   }
   /* The shared cause sits UNDER its state row and indented to it, so it reads as an
      explanation of that count rather than as another state. */
   .cause {
     display: flex; align-items: baseline; gap: 0.35rem; width: 100%;
     margin: 0 0 0.2rem 1.4rem; padding: 0.1rem 0.3rem;
-    background: none; border: none; border-left: 2px solid var(--st-border, #2c3444);
-    color: var(--text-muted, #8b93a3); font-size: 0.7rem; line-height: 1.35;
+    /* `--st-hair-strong`, not `var(--st-border, #2c3444)`.
+       `viewer-design-system.test.ts` requires a fallback on every `--text` / `--text-muted` /
+       `--st-border` / `--panel` call in a viewer panel, so a bypassed overlay degrades instead
+       of going unreadable. `.workspace` aliases `--st-border: var(--st-hair-strong)`, so this
+       is the value that renders today either way — and naming it directly satisfies that
+       contract outright rather than insuring against it, because `--st-hair-strong` is on
+       `:root` and cannot fail to resolve. Same for `.hanger-chip` above. */
+    background: none; border: none; border-left: 2px solid var(--st-hair-strong);
+    color: var(--st-text-2); font-size: 0.7rem; line-height: 1.35;
     text-align: left; cursor: pointer;
   }
-  .cause:hover { color: var(--text, #d7dce6); border-left-color: #6fa8ff; }
+  /* `--st-interactive` — "you can click this" — not `--st-focus`, which is the ring. */
+  .cause:hover { color: var(--st-text); border-left-color: var(--st-interactive); }
   .cause-n { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
   .cause-text { min-width: 0; }
   .link {
-    background: none; border: none; padding: 0; color: #6fa8ff;
+    background: none; border: none; padding: 0; color: var(--st-interactive);
     font-size: 0.74rem; cursor: pointer; text-align: left;
   }
 </style>

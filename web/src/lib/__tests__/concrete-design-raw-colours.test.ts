@@ -66,10 +66,12 @@ const CEILING: Record<string, number> = {
   'FloorFamiliesPanel.svelte': 1,
   'FootingCadHandoffPanel.svelte': 3,
   'FootingMatPanel.svelte': 3,
-  'FootingMatPhysicalPanel.svelte': 20,
   'ProvisionalBanner.svelte': 4,
   'RebarScenePanel.svelte': 13,
-  'RebarStatusPanel.svelte': 19,
+  // 9 left, all of them the state palette: four mirrored by value in
+  // `three/rebar-scene.ts` and three with no token to go to. See
+  // `concrete-status-tokens.test.ts`, which asserts the contract in both directions.
+  'RebarStatusPanel.svelte': 9,
   'SectionAdviceDialog.svelte': 2,
   'SelectionDetails.svelte': 9,
   'TorsionBanner.svelte': 4,
@@ -82,7 +84,7 @@ const CEILING: Record<string, number> = {
   'RebarWorkspace.svelte': 6,
 };
 
-const TOTAL_CEILING = 132;
+const TOTAL_CEILING = 102;   // was 132: −20 FootingMatPhysicalPanel, −10 RebarStatusPanel
 
 const files = () => readdirSync(DIR).filter((f) => f.endsWith('.svelte'));
 
@@ -112,6 +114,24 @@ describe('the raw-colour debt does not grow', () => {
       .filter(([, n]) => n > 0)
       .map(([f, n]) => `${f}: ${n}`);
     expect(unlisted).toEqual([]);
+  });
+});
+
+/**
+ * The files that are AT zero, listed by name.
+ *
+ * A file at zero is only protected by the ceiling map's "unlisted means zero" rule, which is
+ * silent about which files that is. Naming them makes the set visible, so tokenising one is a
+ * line in this list rather than a deletion nobody reads.
+ */
+describe('the files already at zero stay there', () => {
+  const AT_ZERO = ['DetailingWorkflow.svelte', 'FootingMatPhysicalPanel.svelte'];
+
+  it('each of them still has none', () => {
+    for (const f of AT_ZERO) {
+      expect(rawColours(readFileSync(join(DIR, f), 'utf8')), f).toBe(0);
+      expect(f in CEILING, `${f} must not be given a ceiling again`).toBe(false);
+    }
   });
 });
 
