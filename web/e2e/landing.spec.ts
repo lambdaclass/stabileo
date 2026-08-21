@@ -959,6 +959,22 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.landing [data-section="realtime"]')).toHaveCount(0);
   });
 
+  test('#realtime redirects to #basic', async ({ page }) => {
+    // The real-time section was folded into Basic. Any external link or
+    // bookmark that still points at #realtime must land on the section that
+    // now carries the feature.
+    await bootLanding(page);
+    await page.evaluate(() => {
+      window.location.hash = '#realtime';
+    });
+    // The redirect listens on hashchange and replaces the hash.
+    await page.waitForTimeout(200);
+    expect(page.url()).toContain('#basic');
+    // The basic section must be in view.
+    const basicTop = await page.locator('.landing [data-section="basic"]').evaluate((el) => el.getBoundingClientRect().top);
+    expect(basicTop).toBeLessThan(200);
+  });
+
   test('the moving load is the arrow alone — no caption in either language', async ({ browser }) => {
     // The arrow used to carry a "UNIT MOVING LOAD" caption. It was removed; the
     // meaning now lives only in the SVG <desc>, which is not rendered text.
