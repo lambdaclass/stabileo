@@ -152,7 +152,10 @@
   .sel-sm { width: 46px; }
   .area { font-family: monospace; font-size: 0.64rem; color: var(--st-text-2); }
   .sub { font-size: 0.64rem; color: var(--st-text-3); }
-  .warn { font-size: 0.64rem; color: var(--st-accent); font-weight: 700; }
+  /* `.warn` by class name, an error by content — it reads "does not fit". `--st-danger`
+     matches what it says rather than what it is called. The name is left alone: renaming it
+     touches the markup and the tests, and the colour was the defect. */
+  .warn { font-size: 0.64rem; color: var(--st-danger); font-weight: 700; }
   .mini { padding: 0 5px; background: var(--st-surface-3); border: 1px solid var(--st-info);
     border-radius: 3px; color: var(--st-text-2); font-size: 0.64rem; cursor: pointer; }
   .mini:hover { background: var(--st-hair-strong); }

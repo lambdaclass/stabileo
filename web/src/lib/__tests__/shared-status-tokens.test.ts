@@ -118,6 +118,30 @@ describe('the five tokens exist and resolve to literals', () => {
   });
 });
 
+/**
+ * The adopted values, pinned.
+ *
+ * The contract was agreed on five specific values. The assertions further down check PROPERTIES
+ * — derived from the palette, alphas consistent, contrast sufficient — and a property can hold
+ * for a value nobody agreed to. This is the decision itself, so a change to any of the five is a
+ * change to this list and therefore a conversation.
+ */
+describe('the contract holds the five agreed values', () => {
+  const AGREED: Record<string, string> = {
+    '--st-danger-bg': 'rgba(192, 57, 43, 0.14)',
+    '--st-warn-bg': 'rgba(184, 134, 11, 0.14)',
+    '--st-provisional': '#a066d3',
+    '--st-provisional-text': '#d8b4ff',
+    '--st-provisional-bg': 'rgba(160, 102, 211, 0.16)',
+  };
+
+  it('each token is exactly what was decided', () => {
+    for (const [name, value] of Object.entries(AGREED)) {
+      expect(resolveToken(name), name).toBe(value);
+    }
+  });
+});
+
 describe('rule 1 — text on a status surface clears 4.5:1 on every ground', () => {
   for (const { bg, tone } of SURFACES) {
     for (const ground of GROUNDS) {
@@ -347,5 +371,82 @@ describe('rule 4 — no component re-mixes a tinted status surface', () => {
     const outside = hues.filter((d) => d > HUE_TOLERANCE);
     expect(Math.max(...inside), 'the furthest true equivalent').toBeLessThan(20);
     expect(Math.min(...outside), 'the nearest false positive').toBeGreaterThan(50);
+  });
+});
+
+/**
+ * `--st-accent` means an action or a selection, and nothing else.
+ *
+ * ── The defect, measured ───────────────────────────────────────────
+ *
+ * `tokens.css` documents it as "primary action, brand". Eight sites in the concrete design
+ * surface used it as a STATUS instead, and that was not a naming quibble — it failed WCAG AA at
+ * every one of them:
+ *
+ *   as text, on the grounds a panel sits on   3.74 – 4.26   (`--st-danger` is 4.89 – 6.01)
+ *   as an opaque fill with `--st-text` on it  3.69          (the tint form is 12.82 at worst)
+ *   as text on an inverted `--st-text` chip   3.85          (`--st-red` is 6.04)
+ *
+ * So this gate is not a style rule with an accessibility footnote. It is the accessibility rule,
+ * and the semantics happen to agree with it.
+ *
+ * Every remaining use is listed with what it means. A new one has to be added here, which forces
+ * the question "is this an action?" to be answered rather than assumed.
+ */
+describe('--st-accent stays an action, not a status', () => {
+  const ALLOWED: Record<string, string> = {
+    'DesignToolbar.svelte|.cmd-cancel { background: var(--st-hair-strong); border-color: var(--st-accent); color: var(--st-text); }':
+      'action — cancelling a run is destructive, and the accent is what this application '
+      + 'outlines destructive controls with. A border, so the 3:1 bar applies and it clears it.',
+    'RebarEditorBeam.svelte|.mini-rm { color: var(--st-text-2); border-color: var(--st-accent); }':
+      'action — the remove button. Border again, and the label is --st-text-2.',
+    "RebarSchematics.svelte|fill={bar.index < 4 ? 'var(--st-accent)' : 'var(--st-warn)'}":
+      'neither — it distinguishes corner bars from intermediate ones in a diagram, which is data '
+      + 'and not a verdict. Left alone rather than renamed: worth noting, though, that the same '
+      + 'circle is stroked --st-danger, so one object carries two red tokens.',
+  };
+
+  /** Every line that reaches for the accent, comments stripped. */
+  function uses() {
+    const out: string[] = [];
+    for (const f of readdirSync(DESIGN).filter((n) => n.endsWith('.svelte'))) {
+      const src = read(f)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      for (const line of src.split('\n')) {
+        if (line.includes('var(--st-accent)')) out.push(`${f}|${line.trim()}`);
+      }
+    }
+    return out;
+  }
+
+  it('every use is an action or a selection, and says so', () => {
+    const undeclared = uses().filter((u) => !(u in ALLOWED));
+    expect(undeclared, 'a use of --st-accent with no stated meaning').toEqual([]);
+  });
+
+  it('and the list carries no entry for a line that is gone', () => {
+    const present = new Set(uses());
+    expect(Object.keys(ALLOWED).filter((k) => !present.has(k)),
+      'declared uses that no longer exist').toEqual([]);
+  });
+
+  it('the numbers behind the rule, so it is not taken on trust', () => {
+    const accent = resolveToken('--st-accent');
+    const text = resolveToken('--st-text');
+    // As text on the darkest panel ground: under AA. This is why none of the eight could stay.
+    expect(contrast(rgb(accent), rgb(resolveToken('--st-surface-3')))).toBeLessThan(4.5);
+    // As an opaque fill with --st-text on it: under AA as well.
+    expect(contrast(rgb(text), rgb(accent))).toBeLessThan(4.5);
+    // And as a BORDER it is fine, which is exactly what the two allowed uses do with it.
+    for (const g of GROUNDS) {
+      expect(contrast(rgb(accent), rgb(resolveToken(g))), `accent as a border on ${g}`)
+        .toBeGreaterThanOrEqual(3);
+    }
+    // The replacement clears AA on all four.
+    for (const g of GROUNDS) {
+      expect(contrast(rgb(resolveToken('--st-danger')), rgb(resolveToken(g))), `danger on ${g}`)
+        .toBeGreaterThanOrEqual(4.5);
+    }
   });
 });

@@ -127,6 +127,6 @@
   .cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .cap { font-size: 0.64rem; color: var(--st-info); font-weight: 600; }
   .legend { display: flex; gap: 6px; font-size: 0.62rem; font-family: monospace; color: var(--st-text-2); }
-  .bad { color: var(--st-accent); font-weight: 700; }
+  .bad { color: var(--st-danger); font-weight: 700; }
   .dim { color: var(--st-text-3); }
 </style>

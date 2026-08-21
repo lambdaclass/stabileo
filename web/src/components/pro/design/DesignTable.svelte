@@ -70,7 +70,9 @@
   }
   function barColor(row: DesignRow): string {
     switch (row.status) {
-      case 'fail': return 'var(--st-accent)';
+      // `--st-danger`, not the brand accent. Measured: the accent is 3.74–4.26 against the
+      // grounds this bar sits on and the danger token is 4.89–6.01.
+      case 'fail': return 'var(--st-danger)';
       case 'warn': return 'var(--st-warn)';
       case 'stale': return 'repeating-linear-gradient(45deg,var(--st-text-3) 0 3px,var(--st-text-3) 3px 6px)';
       case 'unavailable': return 'var(--st-text-3)';

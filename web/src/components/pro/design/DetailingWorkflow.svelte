@@ -390,14 +390,23 @@
   .state-constructible, .state-reviewed, .state-issued { background: var(--st-surface-3); color: var(--st-text); }
   /* Provisional, stale and superseded are never green. */
   .maturity { background: var(--st-surface-3); color: var(--st-text); }
-  .superseded { background: var(--st-accent); color: var(--st-text); }
+  /* An opaque `--st-accent` fill with `--st-text` on it measures **3.69** — under AA, on a
+     0.7rem chip. The tint-plus-rule form is 12.82 at worst and is what the rest of this
+     surface already uses for a failure. */
+  .superseded {
+    background: var(--st-danger-bg); color: var(--st-text);
+    border: 1px solid var(--st-danger);
+  }
   .progress { list-style: none; display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.5rem 0; padding: 0; }
   .progress li { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 3px; background: var(--st-surface-3); opacity: 0.6; }
   .progress li.done { opacity: 1; background: var(--st-green); }
   .progress li[aria-current='step'] { outline: 1px solid currentColor; }
   .notice { margin: 0.4rem 0; padding: 0.4rem 0.55rem; border-radius: 4px; line-height: 1.35; }
   .notice.warning { background: var(--st-surface-3); color: var(--st-text); }
-  .notice.error { background: var(--st-accent); color: var(--st-text); }
+  .notice.error {
+    background: var(--st-danger-bg); color: var(--st-text);
+    border-left: 3px solid var(--st-danger);
+  }
   .ok { color: var(--st-ok); }
   details.bars { margin: 0.5rem 0; }
   details.bars summary { cursor: pointer; font-size: 0.8rem; }
@@ -432,7 +441,10 @@
   .doc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
   .doc-state { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; }
   .badge { padding: 2px 8px; border-radius: 3px; font-weight: 600; font-size: 11px; }
-  .badge-review_draft, .badge-superseded { background: var(--st-text); color: var(--st-accent); }
+  /* Inverted chip: a light ground, so the PLAIN hue rather than the `-text` variant — which
+     is what `tokens.css` says the two strengths are for. `--st-accent` on `--st-text` was
+     3.85; `--st-red` is 6.04. */
+  .badge-review_draft, .badge-superseded { background: var(--st-text); color: var(--st-red); }
   .badge-for_review { background: var(--st-text); color: var(--st-hair-strong); }
   .badge-reviewed, .badge-issued { background: var(--st-text); color: var(--st-hair-strong); }
   .superseded-docs { margin-top: 8px; font-size: 12px; }

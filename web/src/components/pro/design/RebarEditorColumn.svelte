@@ -136,8 +136,8 @@
   .sel-sm { width: 46px; }
   .sub { font-size: 0.64rem; color: var(--st-text-3); }
   .total { font-family: monospace; font-size: 0.66rem; color: var(--st-text-2); }
-  .total.bad { color: var(--st-accent); font-weight: 700; }
+  .total.bad { color: var(--st-danger); font-weight: 700; }
   .issues { margin-top: 3px; }
-  .issue { font-size: 0.64rem; color: var(--st-accent); }
+  .issue { font-size: 0.64rem; color: var(--st-danger); }
   input:focus-visible, select:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 </style>
