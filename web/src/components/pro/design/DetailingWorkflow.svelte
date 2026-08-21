@@ -380,20 +380,20 @@
   .empty { opacity: 0.7; }
   ul { list-style: none; margin: 0; padding: 0; }
   .assemblies button { width: 100%; text-align: left; padding: 0.4rem 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; background: none; border: 1px solid transparent; border-radius: 4px; color: inherit; cursor: pointer; }
-  .assemblies button.selected { border-color: currentColor; background: rgba(143, 163, 179,0.14); }
+  .assemblies button.selected { border-color: currentColor; background: var(--st-selected-bg); }
   .assemblies button:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
   .label { flex: 1; }
   header { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
   .badges { display: flex; gap: 0.35rem; flex-wrap: wrap; }
   .state, .maturity, .rev, .superseded { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 3px; }
-  .state { background: rgba(143, 163, 179,0.25); }
+  .state { background: var(--st-surface-3); }
   .state-constructible, .state-reviewed, .state-issued { background: var(--st-surface-3); color: var(--st-text); }
   /* Provisional, stale and superseded are never green. */
   .maturity { background: var(--st-surface-3); color: var(--st-text); }
   .superseded { background: var(--st-accent); color: var(--st-text); }
   .progress { list-style: none; display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.5rem 0; padding: 0; }
-  .progress li { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 3px; background: rgba(143, 163, 179,0.18); opacity: 0.6; }
-  .progress li.done { opacity: 1; background: rgba(20,83,45,0.5); }
+  .progress li { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 3px; background: var(--st-surface-3); opacity: 0.6; }
+  .progress li.done { opacity: 1; background: var(--st-green); }
   .progress li[aria-current='step'] { outline: 1px solid currentColor; }
   .notice { margin: 0.4rem 0; padding: 0.4rem 0.55rem; border-radius: 4px; line-height: 1.35; }
   .notice.warning { background: var(--st-surface-3); color: var(--st-text); }
@@ -402,22 +402,31 @@
   details.bars { margin: 0.5rem 0; }
   details.bars summary { cursor: pointer; font-size: 0.8rem; }
   ul.barlist { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 16rem; overflow: auto; }
-  ul.barlist > li { display: flex; gap: 0.5rem; align-items: center; font-size: 0.76rem; padding: 0.15rem 0; border-top: 1px solid rgba(143, 163, 179,0.2); }
-  ul.barlist > li.locked { background: rgba(30, 69, 112, 0.35); }
+  ul.barlist > li { display: flex; gap: 0.5rem; align-items: center; font-size: 0.76rem; padding: 0.15rem 0; border-top: 1px solid var(--st-hair); }
+  ul.barlist > li.locked { background: var(--st-blue); }
   .bar-id { font-family: monospace; min-width: 7rem; }
   .bar-dia, .bar-len { min-width: 4rem; }
   .bar-role { flex: 1; opacity: 0.8; }
   .lock { font-size: 0.7rem; padding: 0.05rem 0.35rem; }
   .conflict-nav { display: flex; align-items: center; gap: 0.5rem; }
   .conflict-nav button { min-width: 1.8rem; }
-  fieldset { border: 1px solid rgba(143, 163, 179,0.35); border-radius: 4px; padding: 0.3rem 0.5rem; }
-  legend { font-size: 0.75rem; padding: 0 0.3rem; }
+  /*
+    The sheet's control group, on the same footing as every other one.
+
+    `ProReportDialog` and `ProAutoLoadsDialog` both style their fieldsets as
+    `1px solid var(--st-surface-3)` with the legend in `var(--st-text-2)`. This one had a
+    hand-written `rgba(143, 163, 179, 0.35)` — which is `--st-hair-strong` (0.38) rewritten
+    by hand — and no legend colour at all, so it inherited. It was the one group in the
+    panel that did not match the others, and it is what PR20's handoff named as still open.
+  */
+  fieldset { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 0.3rem 0.5rem; }
+  legend { font-size: 0.75rem; padding: 0 0.3rem; color: var(--st-text-2); }
 
   table.schedule { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
   /* A wide schedule scrolls itself instead of stretching the panel. */
   .scroll-x { overflow-x: auto; max-width: 100%; }
   caption { text-align: left; font-weight: 600; padding-bottom: 0.25rem; }
-  th, td { border: 1px solid rgba(143, 163, 179,0.3); padding: 0.2rem 0.4rem; text-align: right; }
+  th, td { border: 1px solid var(--st-hair-strong); padding: 0.2rem 0.4rem; text-align: right; }
   th[scope='col'], td:first-child, td:nth-child(3) { text-align: left; }
   .documents { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border, var(--st-text)); }
   .doc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
@@ -428,7 +437,7 @@
   .badge-reviewed, .badge-issued { background: var(--st-text); color: var(--st-hair-strong); }
   .superseded-docs { margin-top: 8px; font-size: 12px; }
 
-  .review { margin-top: 0.75rem; border-top: 1px solid rgba(143, 163, 179,0.3); padding-top: 0.6rem; }
+  .review { margin-top: 0.75rem; border-top: 1px solid var(--st-hair-strong); padding-top: 0.6rem; }
   .disclaimer { font-size: 0.75rem; opacity: 0.8; margin: 0 0 0.4rem; }
   .field { display: block; margin: 0.35rem 0; }
   .field input, .field textarea { display: block; width: 100%; max-width: 28rem; padding: 0.25rem 0.4rem; }
