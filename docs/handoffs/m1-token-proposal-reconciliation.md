@@ -4,8 +4,16 @@
 (`h1-shared-status-tokens-proposal.md`, publicada en `54ba5023`).
 Escritas por separado y sin verse. **Convergen en casi todo**, y las diferencias son cuatro.
 
-**El contrato todavía no está implementado:** `tokens.css` no está tocado en ninguna de las dos
-ramas. Verificado en las dos.
+> **CERRADO el 2026-08-21.** H1 publicó el contrato en `dfa20d8b` con **los cinco valores
+> verificados**, y en los dos puntos disputados tomó los de M1: `--st-warn-bg` a **0.14** y
+> `--st-provisional-text` **`#d8b4ff`** — el que M1 había concedido en el §3 de este documento y
+> que H1 revirtió con mejor argumento (9.58 contra 6.46, y es lo que `OutcomeBadge` ya embarca, así
+> que adoptar el token no mueve un píxel ahí). En `695265ba` migró los consumidores y **arregló los
+> tres fallos de AA de hormigón** del §5. El §3 de abajo queda como registro de la discusión, no
+> como el estado actual.
+>
+> Lo que sigue abierto es de M1 y está resuelto en el commit que acompaña esta nota: el cuarto
+> fallo, en `ProConnectionsTab`. Y apareció un quinto, en el mismo componente. Ver §11.
 
 **M1 concede una de las cuatro** y pide corregir dos de las otras tres. Ninguna es un
 desacuerdo de fondo.
@@ -252,3 +260,69 @@ fallos hasta que se arreglen.
 
 M1 no toca ninguno de esos archivos. Cuando H1 publique el commit del contrato, M1 verifica el
 diff contra este documento y corre los tests metálicos.
+
+---
+
+## 11. Cierre — qué quedó, verificado sobre el remoto
+
+### El contrato de H1, contra la propuesta reconciliada
+
+| Token | Propuesta reconciliada | `dfa20d8b` | |
+|---|---|---|---|
+| `--st-danger-bg` | `rgba(192, 57, 43, 0.14)` | `rgba(192, 57, 43, 0.14)` | ✓ |
+| `--st-warn-bg` | `rgba(184, 134, 11, 0.14)` | `rgba(184, 134, 11, 0.14)` | ✓ alfa 0.14 |
+| `--st-provisional` | `#a066d3` | `#a066d3` | ✓ |
+| `--st-provisional-text` | `#c08ae6` (M1 concedió) | **`#d8b4ff`** | ✓ H1 revirtió al valor de M1 |
+| `--st-provisional-bg` | `rgba(160, 102, 211, 0.16)` | `rgba(160, 102, 211, 0.16)` | ✓ |
+
+**Ningún consumidor tocado en `dfa20d8b`** — deliberado, para que M1 pudiera verificar el contrato
+antes de que algo dependiera de él.
+
+Tests que trajo: `shared-status-tokens.test.ts`, con las cuatro reglas —36 combinaciones de
+contraste sobre texto, 3:1 para trazos, la **equivalencia con Three.js comparada como color y no
+como texto** (`0xa066d3` frente al token resuelto, parseados a triplete), y el registro de tintes
+sin migrar con exenciones de contrato y de deuda. El caso más ajustado que declaran es
+`--st-danger` sobre `--st-danger-bg` compuesto en `--st-surface-3`: **4.54**, fijado por test
+porque 0.04 no es margen.
+
+Dos correcciones de H1 que M1 comparte: el 3:1 de §1.4.11 **no** aplica al tinte contra su propio
+fondo (da 1.09–1.21 y ningún alfa lo arregla — un tinte que llegara a 3:1 no sería un tinte), y la
+regla 4 no puede medirse por distancia de color sino por **matiz**, porque un rojo que ES
+`--st-danger-bg` queda a 11.4 y un blanco al 8 % sin matiz de estado queda a 12.3.
+
+Su regla 4 escanea `components/pro/design/`, así que **no alcanza las superficies metálicas**. Eso
+es correcto —no es su dominio— y es por qué el guardián metálico tiene que ser de M1.
+
+### Los cinco fallos de AA, estado final
+
+| Regla | Archivo | Antes | Ahora |
+|---|---|---:|---|
+| `.badge-fail` | `OutcomeBadge` | 3.86 | **arreglado por H1** (`695265ba`): `--st-danger-bg` + `--st-danger` |
+| `.banner-block` | `DesignToolbar` | 3.93 | **arreglado por H1**: `--st-danger-bg` + borde `--st-danger` + `--st-text` |
+| `.badge-outcome-SECTION_INADEQUATE` | `OutcomeBadge` | 3.51 | **arreglado por H1** |
+| `.conn-ratio-badge.st-fail` | `ProConnectionsTab` (M1) | 3.55 | **arreglado por M1**, este commit |
+| `.conn-ratio-badge.st-ok` | `ProConnectionsTab` (M1) | **3.75** | **arreglado por M1**, este commit |
+
+El quinto lo encontró el test que M1 escribió para el cuarto. `--st-ok` sobre su propio tinte verde
+al 20 % da 3.75 y 3.64 — dos de los tres badges del panel eran ilegibles, y el único que pasaba era
+el ámbar, que es la excepción brillante entre los matices planos de la paleta.
+
+**El patrón aplicado a los tres:** tinte igual, etiqueta `--st-text` (10.3–13.1), rol en el borde
+(3:1 y lo pasan los tres). Es el que la migración de H1 fijó para `DesignToolbar .banner-block`, y
+se aplicó a los tres y no sólo al que fallaba: son un conjunto que se lee uno detrás del otro, y
+dejar al ámbar como el único cuyo texto lleva el matiz haría que la diferencia entre estados
+pareciera significar algo que no significa.
+
+**Los tintes quedan literales.** `--st-danger-bg` no está en esta rama: referenciarlo sería una
+custom property indefinida, que no dibuja nada y es el fallo silencioso que
+`design-tokens-resolve.test.ts` existe para atrapar. Migrarlos es una línea en el commit que adopte
+el contrato acá, y hay un test que falla el día que el token aparezca, para que no se olvide.
+
+### Lo que sigue abierto
+
+- **`OutcomeBadge .badge-outcome-SEARCH_EXHAUSTED`** es la última exención pendiente de H1: un
+  violeta en la familia de *provisional* para un estado que **no** es provisional. Su nota lo dice
+  bien: `--st-provisional-bg` sería la coincidencia cercana y la respuesta equivocada, y no hay
+  token para lo que significa. No es de M1.
+- **M1 adopta los tokens** cuando el contrato llegue a esta rama: tres tintes en
+  `ProConnectionsTab` y dos en el panel metálico, todos con test que ya los espera.

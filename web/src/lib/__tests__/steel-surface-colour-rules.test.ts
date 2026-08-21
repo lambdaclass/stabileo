@@ -86,41 +86,26 @@ describe('no metallic surface puts the brand colour on an error background', () 
   const REDDISH = /background[^;]*rgba\(\s*(2[0-5]\d|1[89]\d)\s*,\s*([0-9]|[1-9]\d)\s*,\s*([0-9]|[1-9]\d)\s*,/;
 
   /**
-   * The ONE metallic instance, which this rule found and which is M1's own.
+   * No metallic surface does it, and the list is empty because the one that did was fixed.
    *
-   * `ProConnectionsTab.svelte:582` — PR21's joints panel — does exactly what the three concrete
-   * rules do: `.conn-ratio-badge.st-fail` puts `--st-accent` on a 20 % vermillion tint. Measured,
-   * **3.55 on `--st-surface` and 3.41 on `--st-surface-2`**, both under AA.
+   * `ProConnectionsTab .conn-ratio-badge.st-fail` — PR21's joints panel — put `--st-accent` on a
+   * 20 % vermillion tint: 3.55 over `--st-surface`, 3.41 over `--st-surface-2`. This rule found it,
+   * having been written expecting to pass. It now carries `--st-text` (13.09 / 12.58) with a
+   * `--st-danger` border, which is the pattern H1's own migration settled on for a danger surface.
    *
-   * It is not fixed here. M1 is paused on implementation until the token contract closes, and the
-   * fix interacts with it: at 20 % even `--st-danger` reaches only 4.46 on `--st-surface-2`, so
-   * this badge needs either a lower alpha — which is what `--st-danger-bg` at 14 % would give — or
-   * `--st-text`. Choosing now would pre-empt the contract.
-   *
-   * Listed by name so the count is exact and so a NEW one fails rather than joining a tolerated
-   * set. When it is fixed, this list empties and the test says so.
+   * An empty list rather than a deleted test: the shape of the defect is what has to stay guarded.
    */
-  const KNOWN_METALLIC = ['components/pro/ProConnectionsTab.svelte'];
+  const KNOWN_METALLIC: string[] = [];
 
-  it('has exactly the one known instance, and no new one', () => {
+  it('has no instance at all, on any metallic surface', () => {
     const found: string[] = [];
     for (const file of METALLIC) {
       for (const block of ruleBlocks(styles(file))) {
         if (!REDDISH.test(block)) continue;
-        if (/color:\s*var\(--st-accent\)/.test(block)) found.push(file);
+        if (/color:\s*var\(--st-accent\)/.test(block)) found.push(`${file}: ${block.slice(0, 70)}`);
       }
     }
-    expect([...new Set(found)].sort(), 'a metallic surface acquired a new accent-on-red-tint rule')
-      .toEqual(KNOWN_METALLIC);
-  });
-
-  it('names the rule and its measurement, so the fix has an address and a target', () => {
-    const css = styles('components/pro/ProConnectionsTab.svelte');
-    expect(css).toMatch(/\.conn-ratio-badge\.st-fail\s*\{[^}]*rgba\(\s*229\s*,\s*72\s*,\s*42\s*,\s*0?\.2/);
-    expect(css).toMatch(/\.conn-ratio-badge\.st-fail\s*\{[^}]*var\(--st-accent\)/);
-    // Its two siblings do it right: each pairs its tint with its own role colour.
-    expect(css).toMatch(/\.conn-ratio-badge\.st-ok\s*\{[^}]*var\(--st-ok\)/);
-    expect(css).toMatch(/\.conn-ratio-badge\.st-warn\s*\{[^}]*var\(--st-warn\)/);
+    expect(found, `accent text on a red tint:\n${found.join('\n')}`).toEqual(KNOWN_METALLIC);
   });
 
   it('allows --st-accent where it means selection, which is what it is for', () => {
@@ -234,5 +219,141 @@ describe('what M1 added needs nothing from the contract', () => {
       'components/pro/steel/SteelPanel.svelte',
       'components/pro/steel/SteelStatusBadge.svelte',
     ]);
+  });
+});
+
+// ─── The joints panel's three ratio badges, one rule each ─────────────
+
+/**
+ * The five distinctions a status badge has to keep, on the one metallic component that has a set
+ * of them.
+ *
+ * `.conn-ratio-badge` reports the governing demand/capacity ratio of a bolt group or a weld, in
+ * three states. Each is a tinted fill with a label on it — the case the shared token contract
+ * calls "the fill IS the signal", because a 0.62rem badge has no room for a rule beside it.
+ *
+ * What is asserted is not the colours. It is that each state names its own role, that the failing
+ * one is legible, that selection is left alone, and that every label clears 4.5:1 on both grounds
+ * the panel sits on. The arithmetic is the same as `state-background-contrast.test.ts`'s and is
+ * repeated rather than imported so this file stands on its own if that one is rewritten when the
+ * contract lands here.
+ */
+describe('the ratio badges: fail, warn, ok, selection, and the floor', () => {
+  const CONN = 'components/pro/ProConnectionsTab.svelte';
+  const css = () => styles(CONN);
+
+  // Same WCAG arithmetic, composited before measuring.
+  const chan = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+  const lum = (hex: string) => {
+    const h = hex.replace('#', '');
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+    return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b);
+  };
+  const ratio = (a: string, b: string) => {
+    const [x, y] = [lum(a), lum(b)];
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  const over = (tint: [number, number, number], alpha: number, bg: string) => {
+    const b = [0, 2, 4].map((i) => parseInt(bg.replace('#', '').slice(i, i + 2), 16));
+    const mix = tint.map((c, i) => Math.round(c * alpha + b[i] * (1 - alpha)));
+    return `#${mix.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+  };
+
+  const GROUNDS = { surface: '#0f1e2b', 'surface-2': '#13212d' } as const;
+  const TEXT = { ok: '#2aa869', warn: '#d9a441', danger: '#e8705f', text: '#f4f7fa' } as const;
+
+  /** Pull one badge rule out of the stylesheet. */
+  function rule(state: 'ok' | 'warn' | 'fail'): string {
+    const block = ruleBlocks(css()).find((b) => b.includes(`.conn-ratio-badge.st-${state}`));
+    expect(block, `.st-${state} rule exists`).toBeTruthy();
+    return block!;
+  }
+
+  it('1 — a FAILING ratio is legible on its tinted background', () => {
+    const block = rule('fail');
+    // The brand colour is gone; the text is neutral and the role moved to the border.
+    expect(block).not.toMatch(/color:\s*var\(--st-accent\)/);
+    expect(block).toMatch(/color:\s*var\(--st-text\)/);
+    expect(block).toMatch(/border-color:\s*var\(--st-danger\)/);
+
+    for (const [name, ground] of Object.entries(GROUNDS)) {
+      const bg = over([229, 72, 42], 0.2, ground);
+      const r = ratio(TEXT.text, bg);
+      expect(r, `fail label on ${name}: ${r.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+      // And the border clears the 3:1 WCAG 2.1 §1.4.11 asks of a non-text boundary.
+      expect(ratio(TEXT.danger, bg), `fail border on ${name}`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('2 — a WARNING ratio names its role on the border, and its label clears the floor', () => {
+    const block = rule('warn');
+    expect(block).toMatch(/color:\s*var\(--st-text\)/);
+    expect(block).toMatch(/border-color:\s*var\(--st-warn\)/);
+    for (const [name, ground] of Object.entries(GROUNDS)) {
+      const bg = over([217, 164, 65], 0.2, ground);
+      expect(ratio(TEXT.text, bg), `warn label on ${name}`).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(TEXT.warn, bg), `warn border on ${name}`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('3 — a CORRECT ratio does the same, which is what this rule found second', () => {
+    /*
+     * `.st-ok` was the second failure in this component and it was found by this very assertion:
+     * `--st-ok` on its own 20 % green tint is 3.75 over `--st-surface` and 3.64 over
+     * `--st-surface-2`. Amber was the only one of the three that passed, which matches the
+     * palette-wide finding that amber is the bright exception among the plain hues.
+     */
+    const block = rule('ok');
+    expect(block).toMatch(/color:\s*var\(--st-text\)/);
+    expect(block).toMatch(/border-color:\s*var\(--st-ok\)/);
+    for (const [name, ground] of Object.entries(GROUNDS)) {
+      const bg = over([34, 204, 102], 0.2, ground);
+      expect(ratio(TEXT.text, bg), `ok label on ${name}`).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(TEXT.ok, bg), `ok border on ${name}`).toBeGreaterThanOrEqual(3);
+      // The value that used to be here, recorded so the regression is recognisable.
+      expect(ratio(TEXT.ok, bg), `the old ok label on ${name}`).toBeLessThan(4.5);
+    }
+  });
+
+  it('applies one pattern to all three, so no state looks meaningfully different', () => {
+    // Leaving `.st-warn` as the only badge whose label carried the hue would make the difference
+    // between states look like it meant something it does not.
+    for (const state of ['ok', 'warn', 'fail'] as const) {
+      expect(rule(state), `.st-${state} label`).toMatch(/color:\s*var\(--st-text\)/);
+      expect(rule(state), `.st-${state} border`).toMatch(/border-color:\s*var\(--st-(ok|warn|danger)\)/);
+    }
+  });
+
+  it('4 — the three states are the same size, so a change of status does not shift the row', () => {
+    // The border is reserved transparent on the base class. Colouring only the failing one
+    // without reserving it would make that badge 2 px larger than its siblings.
+    const base = ruleBlocks(css()).find((b) => /\.conn-ratio-badge\s*\{/.test(b));
+    expect(base).toMatch(/border:\s*1px solid transparent/);
+  });
+
+  it('5 — selection still uses --st-accent, which is what that token is for', () => {
+    /*
+     * The fix must not become a ban. `--st-accent` is the primary-action and selected colour, and
+     * the metallic pickers use it to mark a chip on and a row selected — none of them on a tinted
+     * status background. Asserted so a future sweep does not remove the correct use along with the
+     * incorrect one.
+     */
+    const picker = styles('components/pro/generators/ProfileSelectorPanel.svelte');
+    expect(picker).toMatch(/\.fam\.on\s*\{[^}]*var\(--st-accent\)/);
+    expect(picker).toMatch(/\.row\.sel\s+\.nm\s*\{[^}]*var\(--st-accent\)/);
+    const grades = styles('components/pro/steel/GradePickerPanel.svelte');
+    expect(grades).toMatch(/\.chip\.on\s*\{[^}]*var\(--st-accent\)/);
+  });
+
+  it('leaves the tint a literal until the contract reaches this branch', () => {
+    /*
+     * `--st-danger-bg` exists in H1's `dfa20d8b` and not here. Referencing it now would be an
+     * undefined custom property — which draws nothing, silently, and is exactly what
+     * `design-tokens-resolve.test.ts` was written to catch. So the tint stays written out, and
+     * migrating it is one line in the commit that adopts the contract.
+     */
+    expect(read('styles/tokens.css'), 'the contract has arrived — migrate the tint')
+      .not.toContain('--st-danger-bg');
+    expect(rule('fail')).toMatch(/rgba\(\s*229\s*,\s*72\s*,\s*42\s*,\s*0?\.2/);
   });
 });
