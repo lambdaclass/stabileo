@@ -202,6 +202,57 @@
   --st-danger: var(--st-red-text);
   --st-info: var(--st-blue-text);
 
+  /* ── Semantic: status SURFACES ─────────────────────────────────────────
+     The four above are text and trazo. Nothing here was a surface, so every
+     component that needed a status band mixed its own: `#5c1a1a`/`#7a5b00` in
+     the footing mat, `rgba(255,102,0,.13)` in the toolbar's warn banner,
+     `rgba(221,170,0,.16)` in the outcome badge, `rgba(255,102,0,.08)` in the
+     verification advice. Four alphas of two hues, none of which was
+     `--st-amber` or `--st-red`.
+
+     The pattern is `--st-vermillion-dim`'s, which is the only precedent the
+     file had: the palette hue at a low alpha, so the panel underneath still
+     reads through it. One alpha for both, 0.14, because two would be a
+     distinction nobody can use.
+
+     `FootingMatPhysicalPanel` shows what these are NOT for. A status hue as
+     the colour of a SENTENCE costs more than it buys — 4.89:1 against 14.43:1
+     for the same words on a plain well — so a band is still a surface plus a
+     rule, and these tokens exist for the case where the fill IS the signal:
+     a 0.68rem badge with no room for a 3px rule.
+     ──────────────────────────────────────────────────────────────────── */
+  --st-danger-bg: rgba(192, 57, 43, 0.14);    /* --st-red   at --st-vermillion-dim's alpha */
+  --st-warn-bg: rgba(184, 134, 11, 0.14);     /* --st-amber at the same */
+
+  /* ── Semantic: provisional ─────────────────────────────────────────────
+     A fifth status, and the only one the 3-D viewer owns.
+
+     `three/rebar-scene.ts` paints provisional steel `0xa066d3` and feeds that
+     number to a material, which cannot read a custom property. Two surfaces
+     already named the same violet by value — `ProvisionalBanner` and
+     `RebarStatusPanel` — while `FloorFamilyStateCard` sent the same state to
+     `--st-warn`. One state, two visual meanings, which is worse than either.
+
+     So this is the state's identity, and `shared-status-tokens.test.ts` holds
+     it equal to the scene's number by RESOLVED VALUE. The dots and meshes stay
+     literal on purpose: a `var()` in CSS and an `0x` in a material can drift
+     apart in silence, a duplicated literal with a test comparing them cannot.
+
+     Two strengths, for the reason stated at the top of this file: `#a066d3` is
+     4.30:1 on `--st-surface` and 3.77:1 on `--st-surface-3`. It clears the 3:1
+     WCAG 2.1 §1.4.11 asks of a dot or a rule and it does NOT clear 4.5:1 for
+     small text, so a label takes the `-text` variant. Recommending the flat
+     value for everything would have shipped a legibility regression under the
+     banner of consistency.
+
+     `-bg` is 0.16 rather than 0.14: it is what `ProvisionalBanner` and
+     `OutcomeBadge`'s `.badge-provisional` already ship, and matching them means
+     this token changes no pixel on the two surfaces that had it right.
+     ──────────────────────────────────────────────────────────────────── */
+  --st-provisional: #a066d3;                    /* = 0xa066d3. Dots, rules, meshes. */
+  --st-provisional-text: #d8b4ff;               /* 9.58 on --st-surface. Labels. */
+  --st-provisional-bg: rgba(160, 102, 211, 0.16);
+
   --st-focus: #6fb0ea;
 
   /* ── Semantic: engineering ─────────────────────────────────────────────

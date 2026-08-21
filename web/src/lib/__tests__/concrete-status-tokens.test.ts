@@ -233,22 +233,32 @@ describe('the rebar state palette is a contract with the 3-D scene, not debt', (
       .not.toMatch(/\.element\.selected[^}]*var\(--st-selected\)/);
   });
 
-  it('the three panel-only states have no token to go to, and that is why they stay', () => {
+  it('the three panel-only states still have no token to go to', () => {
     /**
-     * `unsupported`, `designed-not-modelled` and `not-evaluated` are not in the scene. They
-     * stay literal because `tokens.css` offers exactly two status hues, `--st-warn` and
-     * `--st-danger`, and `--st-danger` is already `failed`. Sending two of these to `--st-warn`
-     * would merge states the panel's own comment forbids merging: "One colour per state, and
-     * never two states sharing one."
+     * This assertion has already earned its keep: it used to read "no violet exists yet" and it
+     * FAILED the moment `--st-provisional` was added, which is exactly what it was written to do.
+     * So the premise is restated rather than relaxed.
      *
-     * This asserts the PREMISE, so the day a violet or a second amber is added to the token
-     * system this test fails and points at the work.
+     * `unsupported`, `designed-not-modelled` and `not-evaluated` are not in the scene and still
+     * have nowhere to go. The vocabulary is now five wide, and every one of the five is spoken
+     * for: `--st-danger` is `failed`, `--st-warn` and `--st-ok` are taken, `--st-info` is not a
+     * state here, and `--st-provisional` names a DIFFERENT violet — `#a066d3` for `provisional`,
+     * not the `#b06ad6` this panel paints `unsupported` with. Two violets, two states.
      */
-    const statusHues = [...TOKENS.matchAll(/--st-(warn|danger|ok|info):/g)].map((m) => m[1]);
-    expect(new Set(statusHues), 'the status vocabulary is still four wide')
-      .toEqual(new Set(['warn', 'danger', 'ok', 'info']));
-    expect(TOKENS, 'no violet exists yet').not.toMatch(/--st-(violet|purple|provisional):/);
-    // And the panel still writes them out, rather than having quietly picked a near-match.
+    const statusHues = [...TOKENS.matchAll(/--st-(warn|danger|ok|info|provisional):/g)]
+      .map((m) => m[1]);
+    expect(new Set(statusHues), 'the status vocabulary is now five wide')
+      .toEqual(new Set(['warn', 'danger', 'ok', 'info', 'provisional']));
+
+    // And the violet that DOES exist is not the one `unsupported` needs.
+    const provisional = TOKENS.match(/--st-provisional:\s*(#[0-9a-fA-F]{6})/);
+    expect(provisional, '--st-provisional must be defined').not.toBeNull();
+    expect(provisional![1].toLowerCase(), 'the token is the scene provisional violet')
+      .toBe('#a066d3');
+    expect(panel(), 'and unsupported keeps its own, which no token names')
+      .toContain('#b06ad6');
+
+    // The three still written out, rather than having quietly picked a near-match.
     for (const hex of ['#b06ad6', '#d9c04a', '#8b93a3']) {
       expect(panel()).toContain(hex);
     }

@@ -1,9 +1,51 @@
 # Propuesta para M1 — tres tokens de estado que faltan en `tokens.css`
 
 **Origen:** H1 (`feat/pro-concrete-h1`), tokenización de la cubeta 1 de hormigón.
-**Estado:** propuesta. **Nada de esto está implementado.** `tokens.css`, `DesignToolbar.svelte`,
-`OutcomeBadge.svelte`, `SteelStatusBadge.svelte` y `ProvisionalBanner.svelte` están sin tocar.
-**Decisión pendiente:** de Bauti y Diego. `tokens.css` es superficie compartida H1/M1.
+**Estado: el contrato está IMPLEMENTADO.** H1 es el dueño único de la implementación física.
+M1 no debe editar `tokens.css` ni los consumidores mientras el bloque esté en curso.
+
+---
+
+## 0. Estado de implementación
+
+| | Commit | Qué |
+|---|---|---|
+| ✅ | **1 — contrato** | los cinco tokens en `tokens.css` + `shared-status-tokens.test.ts` (25 aserciones). **Ningún consumidor tocado.** Esto es lo que M1 tiene que verificar. |
+| ⏳ | 2 — consumidores | `FloorFamilyStateCard`, `ProvisionalBanner`, `OutcomeBadge`, `DesignToolbar` |
+| ⏳ | 3 — cubeta 1 restante | los 14 literales de hormigón puro |
+
+### Los valores finales, y los dos deltas contra §2
+
+Se adoptaron **los valores medidos por M1**, con dos diferencias respecto de lo que este
+documento proponía originalmente. Las dos son de M1 y las dos verifiqué antes de escribirlas:
+
+| Token | Valor final | Delta vs propuesta original |
+|---|---|---|
+| `--st-danger-bg` | `rgba(192, 57, 43, 0.14)` | igual |
+| `--st-warn-bg` | `rgba(184, 134, 11, **0.14**)` | era 0.16. **Un solo alfa para las dos** superficies es más simple y el peor caso sigue en 4.76 (`--st-text-2` sobre `--st-surface-3`). |
+| `--st-provisional` | `#a066d3` | igual |
+| `--st-provisional-text` | **`#d8b4ff`** | era `#c08ae6`. Da **9.58** sobre `--st-surface` en vez de 6.46, y es **el valor que `OutcomeBadge.badge-provisional` ya usa**, así que adoptarlo no cambia un píxel ahí. Mejor elección que la mía. |
+| `--st-provisional-bg` | `rgba(160, 102, 211, 0.16)` | igual |
+
+**Verificado, no copiado.** Las 36 combinaciones (3 superficies × 4 fondos × 3 colores de texto)
+pasan ≥ 4.5:1. El peor caso es `--st-danger` sobre `--st-danger-bg` compuesto sobre
+`--st-surface-3`: **4.54**, con 0.04 de margen. El test lo fija explícitamente para que un
+retoque de `--st-surface-3` o de `--st-red` lo rompa y lo diga.
+
+### Una corrección al pedido: el umbral de 3:1
+
+El pedido decía «bordes y elementos no textuales ≥ 3:1». Aplicado a los **trazos** —dots,
+bordes, mallas— se cumple: el mínimo del conjunto es `--st-provisional` con 3.77 sobre
+`--st-surface-3`.
+
+Aplicado al **tinte mismo** contra el fondo que tiene debajo, da **1.09–1.21**, y ningún alfa lo
+arregla: un tinte que llegara a 3:1 contra su propio fondo dejaría de ser un tinte. WCAG 2.1
+§1.4.11 habla del *borde de un control* y de *gráficos con significado* —los dos cubiertos— no
+del relleno decorativo que va detrás de un texto cuyo contraste ya se mide aparte. El test
+**assert­a que los tres tintes están por debajo de 1.5**, para que nadie los "arregle"
+oscureciéndolos.
+
+---
 
 ---
 
