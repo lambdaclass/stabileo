@@ -29,6 +29,7 @@ import {
   buildSteelInventory, countByKind, totalSteelLength,
   type InventoryModel, type SteelInventory,
 } from '../engine/steel/steel-inventory';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { CIRSOC301_CAPABILITIES, STEEL_CAPABILITY_KEYS } from '../engine/design/adapters/cirsoc301-capabilities';
 import { explainUnsupported, type UnsupportedNotice } from '../codes/capability';
 
@@ -82,10 +83,20 @@ function createSteelStore() {
     const value = buildSteelInventory(inventoryModel(), {
       hasDemands,
       authorityBound: bound,
-      // PR #132's grade catalogue is not on this branch. When it lands, this is the one
-      // call site that changes: pass `(id) => gradeById(id)?.family ?? null` mapped onto
-      // `StructuralMaterialFamily`, and every inference in the app becomes a declaration.
-      lookupGrade: undefined,
+      /*
+       * The grade catalogue, now that it is here.
+       *
+       * PR #132 landed in `main` as `d1ba4fb2`, which is an ancestor of this branch's base,
+       * so `Material.gradeId` is a field that exists and is written by the material picker.
+       * Passing the lookup is what turns "steel because fy is above 80" into "steel because
+       * the project says F-24", and the difference is visible: the panel's
+       * `steel.panel.inferredWarning` disappears for a member whose grade is declared,
+       * because there is nothing left to warn about.
+       *
+       * Members with no grade — every model saved before the picker carried one — keep the
+       * inference and keep the warning. Both behaviours are pinned by tests.
+       */
+      lookupGrade: catalogueGradeFamily,
     });
     cache = { key, value };
     return value;

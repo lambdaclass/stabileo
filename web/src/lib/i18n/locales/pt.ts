@@ -3532,7 +3532,7 @@ const pt: Translations = {
   'conn.gap.aluminium.title': 'Alumínio fora do filtro',
   'conn.gap.aluminium.exists': 'O filtro por participação metálica, sobre membros classificados como aço.',
   'conn.gap.aluminium.missing': 'O alumínio. O filtro usa isSteel(), e materialFamilyOf não distingue alumínio de aço pela magnitude de fy enquanto o material não declarar seu grau.',
-  'conn.gap.aluminium.scope': 'Modelos com membros de alumínio: seus nós podem ficar fora desta lista mesmo que o inventário metálico os liste.',
+  'conn.gap.aluminium.scope': 'Modelos com membros de alumínio: seus nós ficam fora desta lista, e o inventário metálico também não os lista — ele os nomeia em um aviso, porque as tabelas de parafusos e eletrodos são de aço.',
   'conn.gap.aluminium.note': 'Além disso, as tabelas de parafusos e eletrodos são de aço: aplicá-las ao alumínio seria incorreto mesmo que o nó aparecesse.',
   'conn.gap.fvExcl.title': 'Roscas fora do plano de cisalhamento, sem tabela para 4.6 e 5.6',
   'conn.gap.fvExcl.exists': 'O valor com roscas incluídas, para os quatro graus.',

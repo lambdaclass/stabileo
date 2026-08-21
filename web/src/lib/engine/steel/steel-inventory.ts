@@ -58,6 +58,18 @@ export interface SteelMemberEntry {
   memberKind: 'beam' | 'column' | 'wall';
   sectionName: string;
   materialName: string;
+  /**
+   * The catalogued grade the material names, when it names one.
+   *
+   * The ID only. Resolving it to a designation and a product standard needs the grade
+   * catalogue, and this module is pure by contract — the panel resolves it through the grade
+   * source, the same way it resolves anything else it displays.
+   *
+   * Absent is a real state, not a missing value: a material can legitimately not come from the
+   * catalogue, and a surface that warned about that would be warning about every model saved
+   * before the picker carried the field.
+   */
+  gradeId?: string;
   lengthM: number;
   family: MaterialFamilyVerdict;
   state: SteelMemberState;
@@ -68,6 +80,20 @@ export interface FamilyCensus {
   byFamily: Record<StructuralMaterialFamily, number>;
 }
 
+/**
+ * Why a metallic member list is empty, as a value rather than as a string union spelled out
+ * at each reader.
+ *
+ * Exported so the i18n test can expand `steel.panel.empty.*` from the union itself: the
+ * previous version of that test listed the three reasons by hand, so a fourth would have
+ * shipped rendering its own key into the panel.
+ */
+export const STEEL_EMPTY_REASONS = [
+  'noElements', 'noneMetallic', 'nonFerrousOnly', 'allUnclassified',
+] as const;
+
+export type SteelEmptyReason = (typeof STEEL_EMPTY_REASONS)[number];
+
 export interface SteelInventory {
   /** Metallic members only, ordered by element id. */
   members: SteelMemberEntry[];
@@ -75,11 +101,12 @@ export interface SteelInventory {
   /**
    * Why the member list is empty, when it is. Null when it is not.
    *
-   * `noElements`      the model has no members at all
-   * `noneMetallic`    it has members and none of them are metallic
-   * `allUnclassified` it has members and none of them carry a strength to classify by
+   * `noElements`       the model has no members at all
+   * `noneMetallic`     it has members and none of them are metallic
+   * `nonFerrousOnly`   its only metal is non-ferrous, which this surface does not cover
+   * `allUnclassified`  it has members and none of them carry a strength to classify by
    */
-  emptyReason: 'noElements' | 'noneMetallic' | 'allUnclassified' | null;
+  emptyReason: SteelEmptyReason | null;
   /** i18n keys the surface must show. Never silently dropped. */
   notices: string[];
   /** True when at least one member's family was guessed rather than declared. */
@@ -150,6 +177,7 @@ export function buildSteelInventory(
       memberKind,
       sectionName: section?.name ?? '—',
       materialName: material?.name ?? '—',
+      ...(material?.gradeId ? { gradeId: material.gradeId } : {}),
       lengthM,
       family: verdict,
       state,
@@ -160,6 +188,17 @@ export function buildSteelInventory(
 
   if (members.length > 0 && !opts.authorityBound) notices.add('steel.notice.noAuthorityBound');
   if (members.length > 0 && !opts.hasDemands) notices.add('steel.notice.noDemands');
+  /*
+   * Non-ferrous metal, said out loud rather than left to the census.
+   *
+   * The member list is ferrous by definition — `isSteel` is what admits a row — so an
+   * aluminium member is absent from it. Before the grade catalogue was wired in that was
+   * invisible, because the `fy > 80` inference could not tell aluminium from steel and filed
+   * it under steel anyway. Now the declaration separates them, and separating without saying
+   * so would remove members from a panel silently, which is the failure mode this whole file
+   * was written against.
+   */
+  if (census.byFamily.aluminium > 0) notices.add('steel.notice.nonFerrousNotCovered');
 
   return {
     members,
@@ -206,6 +245,14 @@ function emptyReasonOf(census: FamilyCensus, metallic: number): SteelInventory['
   if (metallic > 0) return null;
   if (census.total === 0) return 'noElements';
   if (census.byFamily.unknown === census.total) return 'allUnclassified';
+  /*
+   * "No metallic members" is a lie about a model built out of aluminium.
+   *
+   * It is metal; it is simply not the metal this surface can speak about, and those are
+   * different statements. The distinction only became reachable once the grade catalogue was
+   * wired in, because until then an aluminium grade was read as steel by magnitude.
+   */
+  if (census.byFamily.aluminium > 0) return 'nonFerrousOnly';
   return 'noneMetallic';
 }
 
