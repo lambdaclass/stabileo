@@ -39,6 +39,13 @@ interface SectionProps {
    * member" — the painters skip it rather than assume a steel strength.
    */
   fy: number | null;
+  /**
+   * τ_max/(V/A) for this section — see `shearPeakFactor` in `section-stress`.
+   *
+   * Resolved once per section by the caller, because deriving it needs the
+   * profile catalogue and this is read 17 times per member per load case.
+   */
+  shearFactor?: number;
 }
 
 /**
@@ -91,7 +98,10 @@ function sampleValue(ef: ElementForces3D, variable: HeatmapVariable, t: number, 
        * then produces is fictitious, which is why the stressRatio painter
        * skips a null-fy member upstream instead of sampling it.
        */
-      const stress = computeSectionStress(N, Vy, Vz, Mx, My, Mz, sec.A, sec.Iz, sec.Iy, sec.h, sec.b, sec.fy ?? 355_000);
+      const stress = computeSectionStress(
+        N, Vy, Vz, Mx, My, Mz, sec.A, sec.Iz, sec.Iy, sec.h, sec.b,
+        sec.fy ?? 355_000, sec.shearFactor,
+      );
       return variable === 'stressRatio' ? stress.ratio
         : variable === 'vonMises' ? stress.vonMises
         : variable === 'sigmaMax' ? stress.sigmaMax

@@ -40,6 +40,12 @@ export function computeSectionStress(
   A: number, Iz: number, Iy: number,
   h: number = 0, b: number = 0,
   fy: number = 355_000,
+  /**
+   * τ_max/(V/A) for this section — `shearPeakFactor`, computed once by the
+   * caller. Defaults to the solid rectangle, which is what the 2D map assumed
+   * for every section before this became section-aware.
+   */
+  shearFactor: number = 1.5,
 ): SectionStress3D {
   // PR [12] convention (aligned with PR [10] solver + PR [11] render):
   //   My = moment about local y → bends over the DEPTH (h) → max at h/2 → uses Iy (strong).
@@ -51,9 +57,22 @@ export function computeSectionStress(
   const sigmaMy = Iy > 0 ? Math.abs(My) * depthMax / Iy : 0; // depth bending
   const sigmaMz = Iz > 0 ? Math.abs(Mz) * widthMax / Iz : 0; // width bending
   const sigmaMax = Math.abs(sigmaN) + sigmaMy + sigmaMz;
-  const kappa = 1.2;
-  const tauY = A > 0 ? Math.abs(Vy) * kappa / A : 0;
-  const tauZ = A > 0 ? Math.abs(Vz) * kappa / A : 0;
+  /*
+   * τ_max = k·V/A, with k the section's own shear form factor.
+   *
+   * This was a hard-coded 1.2, which is not a peak factor at all: it is
+   * `A/A_s` for a rectangle — the shear-DEFLECTION coefficient, which answers
+   * how much shear adds to the deflection, not how high the stress gets. Used
+   * as a peak it reported an IPE 300 at 56% below its real maximum and an
+   * HEB 300 at 75% below, in the unsafe direction, on the ordinary case: an
+   * I-section carries nearly all its shear in the web, so V over the GROSS
+   * area is the wrong quantity to scale.
+   *
+   * Passed in rather than derived here so the caller can compute it once per
+   * section — this runs per vertex, per station, per load case.
+   */
+  const tauY = A > 0 ? Math.abs(Vy) * shearFactor / A : 0;
+  const tauZ = A > 0 ? Math.abs(Vz) * shearFactor / A : 0;
   const tauMax = Math.sqrt(tauY * tauY + tauZ * tauZ);
   const vonMises = Math.sqrt(sigmaMax * sigmaMax + 3 * tauMax * tauMax);
   const ratio = fy > 0 ? vonMises / fy : 0;
