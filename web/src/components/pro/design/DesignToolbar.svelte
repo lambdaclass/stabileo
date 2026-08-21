@@ -435,9 +435,13 @@
   .counts { display: flex; gap: 9px; flex-wrap: wrap; font-size: 0.72rem; font-family: monospace; }
   .count { color: var(--st-text-2); }
   .count-sep { color: var(--st-text-3); }
-  .c-ok { color: var(--st-ok); } .c-warn { color: var(--st-warn); } .c-fail { color: var(--st-accent); }
+  /* `.c-fail` and `.c-sect` were both `--st-accent`: the brand vermillion, reading a result
+     as though it were an action. Both go to `--st-danger`. Worth stating plainly: they were
+     ALREADY indistinguishable from each other, and still are — this fixes the token, not
+     that. */
+  .c-ok { color: var(--st-ok); } .c-warn { color: var(--st-warn); } .c-fail { color: var(--st-danger); }
   .c-unavail { color: var(--st-text-2); } .c-stale { color: var(--st-text); }
-  .c-sect { color: var(--st-accent); } .c-exh { color: var(--st-text); } .c-unsup { color: var(--st-text-2); }
+  .c-sect { color: var(--st-danger); } .c-exh { color: var(--st-text); } .c-unsup { color: var(--st-text-2); }
   /* The same violet the 3-D view paints a proposal with. Deliberately still a literal while
      its neighbours are tokens: `three/rebar-scene.ts` owns this colour as a numeric hex for a
      Three.js material, and `run-summary-reported.test.ts` asserts that this file agrees with
@@ -446,8 +450,12 @@
 
   .banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     padding: 5px 9px; border-radius: 4px; font-size: 0.73rem; line-height: 1.45; }
-  .banner-block { background: rgba(238,34,34,0.14); border: 1px solid var(--st-accent); color: var(--st-text); }
-  .banner-warn { background: rgba(255,102,0,0.13); border: 1px solid var(--st-warn); color: var(--st-text); }
+  .banner-block { background: var(--st-danger-bg); border: 1px solid var(--st-danger); color: var(--st-text); }
+  /* Orange to amber, authorised as a semantic correction: `rgba(255,102,0,.13)` was a fifth
+     amber family that existed in three files and matched neither `--st-amber` nor
+     `--st-warn`, which is the very border this banner already used. Now the fill and the
+     rule come from one hue. */
+  .banner-warn { background: var(--st-warn-bg); border: 1px solid var(--st-warn); color: var(--st-text); }
   .banner-info { background: rgba(127, 212, 204,0.11); border: 1px solid var(--st-hair-strong); color: var(--st-text); }
   .banner-stale { border: 1px solid var(--st-text-3); color: var(--st-text);
     background: repeating-linear-gradient(45deg, rgba(138,143,122,0.16) 0 6px, rgba(93,97,84,0.16) 6px 12px); }

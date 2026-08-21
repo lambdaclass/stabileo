@@ -102,7 +102,14 @@
     background: var(--st-surface); border-left: 2px solid var(--st-hair-strong);
   }
   .fam-state[data-state='error'], .fam-state[data-state='refused'] { border-left-color: var(--st-danger); }
-  .fam-state[data-state='provisional'] { border-left-color: var(--st-warn); }
+  /*
+     Provisional is violet, not amber.
+     It was `--st-warn` here while `ProvisionalBanner`, `RebarStatusPanel` and the 3-D scene
+     all painted it `#a066d3` — one state with two visual meanings, which is worse than
+     either. `--st-provisional` is that same violet, held equal to Three.js by value in
+     `shared-status-tokens.test.ts`.
+  */
+  .fam-state[data-state='provisional'] { border-left-color: var(--st-provisional); }
   .fam-state[data-state='designed'] { border-left-color: var(--st-ok); }
   .fam-state-head { margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
   .fam-state-why { font-size: 0.68rem; line-height: 1.45; color: var(--st-text-2); }
@@ -113,7 +120,13 @@
     background: var(--st-surface-3); color: var(--st-text);
   }
   .st-badge[data-state='error'], .st-badge[data-state='refused'] { color: var(--st-danger); }
-  .st-badge[data-state='provisional'] { color: var(--st-warn); }
+  /*
+     The BADGE takes `-text`, the rule above takes the plain token, and that is not a style
+     preference. `--st-provisional` measures 4.30 on `--st-surface` and 3.77 on
+     `--st-surface-3`: over the 3:1 WCAG 2.1 §1.4.11 asks of a rule, under the 4.5 a 0.7rem
+     label needs. `--st-provisional-text` is 9.58 and 8.41 on the same two.
+  */
+  .st-badge[data-state='provisional'] { color: var(--st-provisional-text); }
   .st-badge[data-state='designed'] { color: var(--st-ok); }
   .fam-scope { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 0; font-size: 0.66rem; }
   .fam-scope dt { color: var(--st-text-3); font-weight: 600; white-space: nowrap; }

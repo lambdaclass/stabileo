@@ -68,7 +68,6 @@ const CEILING: Record<string, number> = {
   'FloorFamiliesPanel.svelte': 1,
   'FootingCadHandoffPanel.svelte': 3,
   'FootingMatPanel.svelte': 3,
-  'ProvisionalBanner.svelte': 4,
   // 11 left: three `--text-muted` fallbacks that are LIVE — this panel also mounts in
   // `DocumentsSection`, outside `.workspace`, where the alias does not exist — and eight values
   // the 3-D scene owns (six state dots, the conflicted count, the unreinforced rule).
@@ -82,16 +81,21 @@ const CEILING: Record<string, number> = {
   'SelectionDetails.svelte': 5,
   'VerificationDetail.svelte': 3,
   // ── shared PRO surface: coordinate before lowering ──
-  'DesignToolbar.svelte': 12,
-  'OutcomeBadge.svelte': 14,
+  // 10 left: the diagnostics command's own amber fill and its hover level (an affordance, not
+  //    a status band), two white hovers, a teal info banner and the desaturated hatch.
+  'DesignToolbar.svelte': 10,
+  // 8 left: two greens (no --st-ok-bg exists), a blue, a grey, the SEARCH_EXHAUSTED violet
+  //    that is NOT provisional, a slate flag fill, and the two-tone stale hatch.
+  'OutcomeBadge.svelte': 8,
   // ── 3-D viewer: out of scope for this branch ──
   'RebarViewport3D.svelte': 4,
   'RebarWorkspace.svelte': 6,
 };
 
 // 132 at the start of this work. −20 FootingMatPhysicalPanel, −10 RebarStatusPanel,
-// −2 RebarScenePanel, −5 ConflictInspector, −4 SelectionDetails, −4 TorsionBanner.
-const TOTAL_CEILING = 87;
+// −2 RebarScenePanel, −5 ConflictInspector, −4 SelectionDetails, −4 TorsionBanner,
+// then the shared contract: −6 OutcomeBadge, −4 ProvisionalBanner, −2 DesignToolbar.
+const TOTAL_CEILING = 75;
 
 const files = () => readdirSync(DIR).filter((f) => f.endsWith('.svelte'));
 
@@ -134,6 +138,7 @@ describe('the raw-colour debt does not grow', () => {
 describe('the files already at zero stay there', () => {
   const AT_ZERO = [
     'DetailingWorkflow.svelte', 'FootingMatPhysicalPanel.svelte', 'TorsionBanner.svelte',
+    'ProvisionalBanner.svelte',
   ];
 
   it('each of them still has none', () => {

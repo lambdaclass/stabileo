@@ -263,15 +263,12 @@ describe('rule 4 — no component re-mixes a tinted status surface', () => {
     'ConflictInspector.svelte|rgba(224,68,74,0.14)':
       'contract — the 0.14 fill of `conflicted: 0xe0444a`, which its own border also names.',
 
-    // ── pending: has a token, not yet migrated ──
-    'OutcomeBadge.svelte|rgba(160,102,211,0.16)': 'pending — provisional badge.',
+    // ── pending: has a token, not yet migrated (commit 3) ──
+    //    Seven entries left this list when commit 2 migrated `OutcomeBadge`,
+    //    `ProvisionalBanner` and `DesignToolbar`. The stale-exemption assertion below is what
+    //    forced them out: it fails on a reason for a literal that is gone, so the register
+    //    shrinks with the work instead of outliving it.
     'OutcomeBadge.svelte|rgba(180,120,220,0.16)': 'pending — the second provisional violet.',
-    'OutcomeBadge.svelte|rgba(238,34,34,0.16)': 'pending — fail badge.',
-    'OutcomeBadge.svelte|rgba(221,170,0,0.16)': 'pending — warn badge.',
-    'OutcomeBadge.svelte|rgba(255,102,0,0.16)': 'pending — SECTION_INADEQUATE badge.',
-    'ProvisionalBanner.svelte|rgba(160,102,211,0.16)': 'pending — the canonical provisional use.',
-    'DesignToolbar.svelte|rgba(238,34,34,0.14)': 'pending — `.banner-block`.',
-    'DesignToolbar.svelte|rgba(255,102,0,0.13)': 'pending — `.banner-warn`, an orange that is not --st-warn.',
     'VerificationDetail.svelte|rgba(255,102,0,0.08)': 'pending — the advice band.',
     'VerificationDetail.svelte|rgba(180,120,220,0.1)': 'pending — provisional advice.',
 
