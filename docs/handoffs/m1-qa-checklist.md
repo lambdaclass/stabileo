@@ -311,11 +311,12 @@ Para no re-testear a mano lo que la suite ya afirma. Si algo de esta lista falla
 | Paridad es/en/pt del namespace de acero y de `conn.*` | `steel-keys.test.ts` |
 | **Los ítems mecánicos de §1, §2, §3.10, §5.9, §6 y §7** | **`m1-steel-selectors.spec.ts`** — 25 tests, cada uno nombra el ítem que descarga |
 | **§3.1–3.10 (los tres generadores) y §4 completo (Uniones)** | **`m1-generators-joints.spec.ts`** — 14 tests, idem |
+| **§5 completo (estados), el momento de los avisos, y los tres idiomas en runtime** | **`m1-states-and-languages.spec.ts`** — 18 tests |
 
 ### Qué queda estrictamente manual
 
-Con los dos specs en verde —39 tests entre ambos— la pasada a mano se reduce a lo que ningún test
-ve:
+Con los tres specs en verde —**57 tests** entre ellos— la pasada a mano se reduce a lo que ningún
+test ve:
 
 - **que las cosas quepan y se lean**: §7.3 (la ficha del grado con el panel abierto), §7.8 (zoom
   150 %), y en general si el orden de lectura tiene sentido;
@@ -326,8 +327,23 @@ ve:
 - **si la previsualización se ve bien**: el spec verifica que cambie cuando cambia un parámetro,
   no que el dibujo sea correcto — eso lo cubre `preview-projection.test.ts` a nivel unitario y G2
   para la disposición;
-- **§5.2–5.8**: los estados requieren pasar por resolver, declarar reglamento y cargar modelos
-  vacíos, y el valor de mirarlos es ver la secuencia completa como la ve un usuario.
+- **§5.4–5.5 y §5.8**: declarar CIRSOC 301 en Reglamentos y cargar un material sin resistencia
+  siguen siendo manuales — el primero porque el panel de reglamentos es otra superficie, el
+  segundo porque hace falta editar un material a mano. El resto de §5 está automatizado.
+
+### El momento de los avisos, auditado
+
+La checklist pedía revisar que las limitaciones de Uniones aparezcan cuando corresponde. Auditado
+y **sin defecto**, con una nota:
+
+- el aviso de **FvExcl** está condicionado al **grado**, no al checkbox de roscas. El comentario
+  del código dice que está «atado a una casilla que el usuario está tildando en ese momento», y la
+  condición real es más conservadora: aparece al elegir 4.6 o 5.6 **antes de que exista cualquier
+  resultado**, así que alguien que nunca toca la casilla igual se entera de que destildarla no
+  cambiaría el número. Es la dirección segura y quedó fijada por test;
+- desaparece con 10.9 y 8.8, que es lo que evita que el lector aprenda a ignorarlo;
+- la sección de bulones no ofrece nada hasta que hay un nudo elegido: ofrecer un diámetro sin nudo
+  sería ofrecer verificar nada.
 
 ### Tres correcciones más, del turno que automatizó §3 y §4
 
