@@ -2570,6 +2570,35 @@
   .mode-select-mobile option { background: var(--st-surface); color: var(--st-text); font-weight: 500; padding: 6px; }
 
   /* ===== Mobile Responsive ===== */
+  /*
+   * Touch targets on a phone.
+   *
+   * Fourteen controls in this shell sat below the 44 px minimum, and the worst
+   * of them are in the header: the mode switcher at 133×26 and the tab-add
+   * button at 23×22. A 23 px target is not a small button, it is a button that
+   * takes two or three attempts, and the header is the first thing a new user
+   * touches.
+   *
+   * Sized for 375 px — an iPhone SE or a mini. Whatever fits there fits a
+   * larger handset; the reverse is what produced this.
+   */
+  @media (max-width: 767px) {
+    .app-header :global(button),
+    .app-header select {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /*
+     * The language selector leaves the header.
+     *
+     * It spends a permanent slot on a control a phone user touches once, in
+     * the row with the least space in the application. It lives in Settings
+     * on a phone, with the other things you set and forget.
+     */
+    .lang-select { display: none; }
+  }
+
   @media (max-width: 767px) {
     .sidebar {
       display: none !important;

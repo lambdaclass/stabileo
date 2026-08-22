@@ -1772,6 +1772,7 @@ const es: Record<string, string> = {
   'demo.basics2d.examplesDesc': 'Diecinueve estructuras 2D, desde una viga simple hasta un edificio aporticado. Elegí una para mirar, o seguí y se carga un pórtico.',
   'demo.basics3d.examplesTitle': 'El catálogo 3D',
   'demo.basics3d.examplesDesc': 'Diez estructuras 3D, desde un voladizo hasta una nave industrial. Elegí una, o seguí y se carga un pórtico 3D.',
+  'config.tip.language': 'El idioma de toda la interfaz. También está en el encabezado en pantallas más grandes.',
   'viewport.selectKindHint': 'Para cambiar qué se selecciona, editalo en el panel superior en «Selección».',
   'viewport.modePan': 'Mover — arrastrá el mouse para mover la vista',
   'viewport.modeSelect': 'Seleccionar — arrastrá el mouse para seleccionar barras',

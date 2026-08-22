@@ -1779,6 +1779,7 @@ const en: Record<string, string> = {
   'demo.basics2d.examplesDesc': 'Nineteen 2D structures, from a single beam to a framed building. Pick one to look at, or continue and a portal frame is loaded.',
   'demo.basics3d.examplesTitle': 'The 3D catalogue',
   'demo.basics3d.examplesDesc': 'Ten 3D structures, from a cantilever to an industrial shed. Pick one, or continue and a 3D portal frame is loaded.',
+  'config.tip.language': 'The language of the whole interface. Also in the header on a larger screen.',
   'viewport.selectKindHint': 'To change what gets selected, set it in the top panel under "Selection".',
   'viewport.modePan': 'Pan — drag the mouse to move the view',
   'viewport.modeSelect': 'Select — drag the mouse to select members',
