@@ -8,6 +8,7 @@
   import LoadsTable from './tables/LoadsTable.svelte';
   import MaterialsTable from './tables/MaterialsTable.svelte';
   import SectionsTable from './tables/SectionsTable.svelte';
+  import Icon from './ribbon/Icon.svelte';
 
   type TabId = 'nodes' | 'elements' | 'supports' | 'loads' | 'materials' | 'sections';
   interface Props {
@@ -57,28 +58,50 @@
   function handleKeydown(e: KeyboardEvent) {
     e.stopPropagation();
   }
+
+  /**
+   * The six tabs, in one list.
+   *
+   * They were six hand-written buttons that repeated the same four things —
+   * label, count, active test, `pickTab` — with only the entity changing, which
+   * is how the phone variant came to need six near-identical edits.
+   *
+   * `icon` is the name the RIBBON uses for the same entity, so the strip on a
+   * phone shows the glyph the reader already learned on a desktop rather than a
+   * second drawing of a node. See `ribbon/Icon.svelte`.
+   */
+  const TABS: { id: TabId; labelKey: string; icon: string; count: () => number }[] = [
+    { id: 'nodes', labelKey: 'data.nodes', icon: 'node', count: () => modelStore.nodes.size },
+    { id: 'elements', labelKey: 'data.elements', icon: 'element', count: () => modelStore.elements.size },
+    { id: 'supports', labelKey: 'data.supports', icon: 'support', count: () => modelStore.supports.size },
+    { id: 'loads', labelKey: 'data.loads', icon: 'load', count: () => modelStore.loads.length },
+    { id: 'materials', labelKey: 'data.materials', icon: 'material', count: () => modelStore.materials.size },
+    { id: 'sections', labelKey: 'data.sections', icon: 'section', count: () => modelStore.sections.size },
+  ];
 </script>
 
 <div class="data-table" onkeydown={handleKeydown} role="region">
   <div class="tabs">
-    <button class:active={activeTab === 'nodes'} onclick={() => pickTab('nodes')}>
-      {t('data.nodes')} ({modelStore.nodes.size})
-    </button>
-    <button class:active={activeTab === 'elements'} onclick={() => pickTab('elements')}>
-      {t('data.elements')} ({modelStore.elements.size})
-    </button>
-    <button class:active={activeTab === 'supports'} onclick={() => pickTab('supports')}>
-      {t('data.supports')} ({modelStore.supports.size})
-    </button>
-    <button class:active={activeTab === 'loads'} onclick={() => pickTab('loads')}>
-      {t('data.loads')} ({modelStore.loads.length})
-    </button>
-    <button class:active={activeTab === 'materials'} onclick={() => pickTab('materials')}>
-      {t('data.materials')} ({modelStore.materials.size})
-    </button>
-    <button class:active={activeTab === 'sections'} onclick={() => pickTab('sections')}>
-      {t('data.sections')} ({modelStore.sections.size})
-    </button>
+    {#each TABS as tab (tab.id)}
+      <button
+        class:active={activeTab === tab.id}
+        onclick={() => pickTab(tab.id)}
+        data-testid="dt-tab-{tab.id}"
+        title="{t(tab.labelKey)} ({tab.count()})"
+      >
+        <!--
+          Phone only, and CSS-hidden above 768 px rather than gated in script.
+          The strip has to be one row of six there, and at ~58 px a word does
+          not fit but the ribbon's own glyph for the same entity does — so the
+          reader recognises it from the desktop instead of learning a second
+          vocabulary. The label stays in the DOM for the wider layout and for
+          anything reading the button by name.
+        -->
+        <span class="dt-tab-icon" aria-hidden="true"><Icon name={tab.icon} size={20} /></span>
+        <span class="dt-tab-label">{t(tab.labelKey)}</span>
+        <span class="dt-tab-count">{tab.count()}</span>
+      </button>
+    {/each}
     <!--
       Results are NOT a tab here.
       
@@ -134,7 +157,17 @@
     font-size: 0.7rem;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
   }
+
+  /* The glyph is the phone's affordance; a desktop tab is a word. */
+  .dt-tab-icon { display: none; }
+
+  /* Parentheses in CSS, so the phone can drop them without touching the markup. */
+  .dt-tab-count::before { content: '('; }
+  .dt-tab-count::after { content: ')'; }
 
   .tabs button:hover {
     color: var(--st-text);
@@ -158,19 +191,25 @@
      items did. Duplicating them cost a tap and a second thing to keep in sync.
 
      So they stop looking like tabs and start looking like what they now are:
-     six equal targets across the full width, in a fixed 3×2 grid that never
-     reflows, never scrolls sideways, and never hides one behind an overflow.
-     Fixed matters — a control that moves depending on how many loads exist is
-     one the reader has to find again every time.
+     six equal targets on ONE row across the full width, each carrying the same
+     glyph the ribbon uses for that entity on a desktop.
+
+     One row and not two. At 375 px six buttons come to about 58 px each, which
+     is under the 44 px square but wider than it is tall — and a row that wraps
+     to two puts three entities on a second line whose position depends on how
+     many fit, so the strip would be a different shape on a different handset.
+     One row is the same shape everywhere.
+
+     Fixed widths matter for the same reason: a control that moves because the
+     model gained a load is one the reader has to find again every time.
 
      Pinned to the top of the panel's scroll, so scrolling a long table never
      takes the way out of it off screen.
      ─────────────────────────────────────────────────────────────────── */
   @media (max-width: 767px) {
     .tabs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 4px;
+      display: flex;
+      gap: 3px;
       padding: 4px 4px 6px;
       border-bottom: 1px solid var(--st-hair);
       position: sticky;
@@ -181,11 +220,16 @@
     }
 
     .tabs button {
+      /* Six equal shares of whatever the screen is, and no more. */
+      flex: 1 1 0;
+      min-width: 0;
+      position: relative;
       min-height: 44px;
-      padding: 0.3rem 0.2rem;
-      font-size: 0.72rem;
-      line-height: 1.2;
-      white-space: normal;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      padding: 3px 1px;
       border: 1px solid var(--st-hair);
       border-radius: var(--st-radius);
       background: var(--st-surface-2);
@@ -194,13 +238,43 @@
       border-bottom-width: 1px;
     }
 
+    .dt-tab-icon { display: flex; }
+
+    .dt-tab-label {
+      font-size: 0.5rem;
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /*
+       The count becomes a corner badge. Inline it would compete with the name
+       for a 58 px line and lose — and it is the kind of number you glance at
+       rather than read, which is what a corner is for.
+    */
+    .dt-tab-count {
+      position: absolute;
+      top: 1px;
+      right: 3px;
+      font-family: var(--st-mono);
+      font-size: 0.5rem;
+      line-height: 1;
+      color: var(--st-text-3);
+    }
+    .dt-tab-count::before,
+    .dt-tab-count::after { content: none; }
+
     .tabs button.active {
       color: var(--st-text);
       background: var(--st-selected-bg);
       border-color: var(--st-accent);
       border-bottom-color: var(--st-accent);
-      font-weight: 600;
     }
+
+    .tabs button.active .dt-tab-icon { color: var(--st-accent); }
+    .tabs button.active .dt-tab-count { color: var(--st-text-2); }
   }
 
   .tabs button:disabled {
