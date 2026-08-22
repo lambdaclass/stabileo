@@ -174,3 +174,84 @@ contra el censo. Las 5 familias vacías **se nombran** en vez de desaparecer (4 
 nombre en el texto). Y el tally reporta por familia —sólidos, longitudinal, transversal— con el
 total de barras coincidiendo con el censo; asertar el conteo del censo contra las celdas del tally
 era leer un número esperando otro.
+
+---
+
+## 7. Tercera pasada — el fixture de rechazo, y lo que destapó
+
+### 7.1 El fixture
+
+`__stabileoActions.updateSection` —mutador de test, junto a `selectConflict`, `selectAssembly` y
+`reviewAssembly`— achica **una** sección y el diseño vuelve a correr:
+
+    rc-design-qa-8, sección 2 (`RC Col 400×400`) → 90 × 120 mm
+    → SEARCH_EXHAUSTED ×8 · VERIFIED ×4
+
+**Rechazo real del motor**, no un estado escrito. El buscador enumera todo el envolvente permitido
+por norma para una columna que no puede con su demanda, no encuentra nada que verifique, y lo
+dice — que es la distinción honesta que `candidate-search.ts` documenta entre "agotado" e
+"inviable".
+
+Dos cosas que costaron encontrar y conviene no repetir:
+
+- **Sección 2, no la 1.** La 1 no la usan los miembros diseñados; achicarla no cambia nada.
+- **90 × 120 mm, no 50 × 60.** Achicar las ocho secciones llevó el diseño más allá de diez
+  minutos: cuando *nada* entra, el buscador enumera un envolvente mucho mayor.
+
+### 7.2 Lo que destapó: `REFUSED` está tapado por `FAILED`
+
+El outcome **es** `SEARCH_EXHAUSTED` y `element-status.ts:345` lo mapea a `REFUSED`. **El rail
+nunca lo muestra.**
+
+`element-status.ts:316` chequea `verificationStatus === 'fail'` **primero**, y un miembro cuyo
+diseño fue rechazado también falla verificación — el rechazo ocurrió justamente porque nada en el
+envolvente verificaba. Así que `FAILED` gana y la rama `REFUSED` no se alcanza.
+
+Medido:
+
+    rail: failed 5 · refused 0 · modelled 5
+    censo: column bars 0 · column solids 4 · markers 20
+
+Que `FAILED` vaya primero **es correcto** para el caso que su propio comentario describe: un
+miembro con un `VERIFIED` viejo que hoy falla. Pero se traga la distinción que los estados existen
+para hacer. El encabezado del mismo archivo enuncia los remedios:
+
+> `- the design was refused → change the section, or design by hand`
+
+y un `FAILED` manda al lector a cambiar la armadura, que es el arreglo equivocado.
+
+**No lo toqué.** Reordenar un clasificador cambia cómo se llama **cada** miembro de la app, y eso
+es una decisión, no un arreglo de paso. El test lo fija **como es** —`failed > 0` y `refused === 0`
+con el motivo escrito— así que el día que se reordene, falla y hay que actualizarlo a propósito.
+
+### 7.3 Lo que sí quedó ejercitado
+
+- La columna rechazada **pierde el acero y conserva el hormigón**: censo de barras de columna
+  200 → **0**, sólidos 4. Es la consecuencia visible del rechazo.
+- El bloque `.unreinforced` **aparece y explica** (>20 caracteres), en el workspace. H1-D lo había
+  aserido ausente con la premisa `refused === 0`; ésta es la otra cara, y la razón por la que se
+  escribió como premisa y no como anotación.
+- Ningún miembro rechazado dice `verified` ni `certified` en su fila.
+- Los conteos separan rechazo, fallo y verificado: `{"SEARCH_EXHAUSTED":8,"VERIFIED":4}`.
+
+### 7.4 `doc-error` sigue siendo inalcanzable — la cadena completa
+
+Confirmado otra vez, y vale escribir la cadena entera porque es lo que pide no volver a intentarlo:
+
+1. `buildDocument` devuelve `null` **sólo** si `persisted.assemblies.length === 0`
+   (`detailing.svelte.ts:1479`).
+2. `DocumentsSection` renderiza **toda** su etapa detrás de `{#if !selected}` (línea 191), y
+   `selected` es `detailingStore.selected`, derivado de la misma lista de conjuntos.
+3. Con cero conjuntos, `selected` es `null` → sale la rama `documents-empty`.
+4. Los cuatro botones —`doc-report`, `doc-dxf`, `doc-xlsx`, `doc-3d`— viven **dentro** de la rama
+   contraria, así que dejan de existir.
+5. `currentDoc()` es el único llamador de `buildDocument`, y sólo lo llaman esos cuatro.
+
+**El paso 4 elimina los botones antes de que el paso 5 pueda ocurrir.** No hay orden de eventos que
+deje `selected` no nulo con la lista vacía: es la misma lista.
+
+Medido: `documents-stage 0 · documents-empty 1 · doc-xlsx 0 · doc-error 0`.
+
+`detailing.doc.noCoordinated` queda como guarda defensiva de una carrera que el propio código
+eliminó al leer del store **persistido** en vez de un `$derived`. El test de inalcanzabilidad se
+mantiene.

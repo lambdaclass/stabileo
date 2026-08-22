@@ -198,6 +198,18 @@ export interface StabileoTestActions {
    * "selected one".
    */
   selectConflict(slot?: number): boolean;
+  /**
+   * Resize a section, as the sections table would.
+   *
+   * A TEST MUTATOR. It exists because no fixture in the tree produces a REFUSED member: all three
+   * RC examples design to `VERIFIED` or `PROVISIONAL_BIAXIAL`, and there is no UI route to a
+   * section's dimensions — `ProSectionsTab` and `SectionChanger` carry no `data-testid` between
+   * them, and `BatchEditDialog` edits reinforcement.
+   *
+   * It changes a dimension and nothing else. The refusal that follows is the real engine's, on a
+   * section that genuinely cannot carry its demand — not a state written into a store.
+   */
+  updateSection(id: number, data: unknown): void;
   toggleBarLock(barId: string): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -353,6 +365,9 @@ export function installE2EHooks(): void {
       if (!conflict) return false;
       rebarWorkspace.selectConflict(conflict);
       return true;
+    },
+    updateSection: (id: number, data: unknown) => {
+      modelStore.updateSection(id, data as never);
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
