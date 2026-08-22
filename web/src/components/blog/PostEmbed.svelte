@@ -29,12 +29,14 @@
   import { tPublic as t } from '../../lib/i18n/store.svelte';
 
   type Props = {
-    /** Query string for /app/basic, without the leading '?'. */
+    /** Query string for the editor, without the leading '?'. */
     query: string;
+    /** Which mode to open. Section analysis is Basic's; verification is PRO's. */
+    mode?: 'basic' | 'pro';
     /** What the reader is about to open, in their language. */
     label: string;
   };
-  let { query, label }: Props = $props();
+  let { query, mode = 'basic', label }: Props = $props();
 
   /** Below this the editor's full chrome has nowhere to go. */
   const FULL_UI_WIDTH = 900;
@@ -45,7 +47,7 @@
 
   function open() {
     const wide = (frame?.clientWidth ?? 0) >= FULL_UI_WIDTH;
-    src = wide ? `/app/basic?${query}` : `/app/basic?embed&${query}`;
+    src = wide ? `/app/${mode}?${query}` : `/app/${mode}?embed&${query}`;
     live = true;
     /*
      * Bring the frame fully into view, and keep bringing it.
@@ -71,7 +73,7 @@
   }
 
   /** For the "open full size" link, which always lands in the real editor. */
-  const fullHref = $derived(`/app/basic?${query}`);
+  const fullHref = $derived(`/app/${mode}?${query}`);
 </script>
 
 <figure class="post-embed">

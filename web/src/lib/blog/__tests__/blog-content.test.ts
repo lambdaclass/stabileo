@@ -108,7 +108,7 @@ describe('blog posts', () => {
               : b.k === 'table'
                 ? `table:${b.head.length}x${b.rows.length}`
                 : b.k === 'embed'
-                  ? `embed:${b.query}`
+                  ? `embed:${b.mode ?? 'basic'}:${b.query}`
                   : b.k,
           );
         for (const locale of LOCALES) {
