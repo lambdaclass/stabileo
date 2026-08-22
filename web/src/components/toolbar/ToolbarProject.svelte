@@ -96,6 +96,27 @@
   </button>
   {/if}
   {#if flat || showProject}
+  <!--
+    The phone's way into Settings.
+    ─────────────────────────────
+    The Settings button lives in the header and the header hides it below
+    768 px, so on a phone the panel had no opener at all — and the language
+    selector had already been MOVED into it for exactly that width, which put
+    it in a room with no door. Control size joined it later.
+
+    Project is the phone's app menu: it already holds the file commands, the
+    examples and the walkthroughs, and it is one tap away on the row. Settings
+    goes here rather than into the row itself, which has nine controls and room
+    for nine — and a preference you set once should not take a permanent slot
+    from a command you use every minute.
+  -->
+  {#if uiStore.isMobile}
+    <button
+      class="file-btn proj-settings"
+      onclick={() => window.dispatchEvent(new CustomEvent('stabileo-open-panel', { detail: 'settings' }))}
+      data-testid="proj-open-settings"
+    >{t('ribbon.settings')}</button>
+  {/if}
   {#if flat}<h4 class="proj-heading">{t('project.fileSection')}</h4>{/if}
   <div class="file-grid">
     <button class="file-btn" onclick={saveProject} title={t('project.saveTabTooltip')}>
@@ -346,6 +367,18 @@
   }
 
   .proj-heading:first-child { margin-top: 0; }
+
+  /*
+     Full width and first, because it is the only way into Settings on a phone
+     and a reader looking for the language or the control size has no other
+     place to try. A 44 px target: it is a phone-only control, so it is sized
+     for the only pointer that can ever reach it.
+  */
+  .proj-settings {
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: 0.6rem;
+  }
 
   /* Examples brings its own headings, so it only needs the spacing. */
   .proj-block { margin: 0.9rem 0 0; }
