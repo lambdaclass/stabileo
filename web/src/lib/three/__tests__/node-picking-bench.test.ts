@@ -268,6 +268,7 @@ describe('AFTER — a screen-space gizmo of constant apparent size', () => {
 
   it('records the comparison', () => {
     console.log(`[AFTER ] screen-space gizmo, ${GIZMO_PX} px constant`);
+    console.log(`[AFTER ] effective target at d=4 m = ${effectiveTargetPx(measure(gizmoRadiusAt(4), 4).scene, cameraAt(4))} px off centre`);
     for (const r of rows) {
       console.log(
         `  d=${String(r.d).padStart(2)} m  radius=${(r.r * 1000).toFixed(1).padStart(5)} mm` +
