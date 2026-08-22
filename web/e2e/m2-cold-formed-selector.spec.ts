@@ -141,9 +141,14 @@ test.describe('nothing on this screen claims a section was checked', () => {
 
 test.describe('the zed says its axes are rotated; the channel does not', () => {
   test('warns on a zed, with the angle', async ({ page }) => {
+    /*
+     * The notice text and the decision to show it both come from `section/axes.ts` now — the same
+     * rule that will cover the 37 catalogued angles. What this panel adds is the measured angle,
+     * which is why the assertion looks for a number as well as the citation.
+     */
     await openPanel(page);
     await enterDesignation(page, 'Z 200x75x20x2.5');
-    const warn = page.getByTestId('cf-zed-axes');
+    const warn = page.getByTestId('cf-axes-notice');
     await expect(warn).toBeVisible();
     // A number, not the word "rotated": «rotated» and «rotated 23 degrees» are different warnings.
     await expect(warn).toContainText(/\d+\.\d/);
@@ -153,7 +158,7 @@ test.describe('the zed says its axes are rotated; the channel does not', () => {
   test('and stays quiet on a channel, whose geometric axes ARE principal', async ({ page }) => {
     await openPanel(page);
     await enterDesignation(page, 'C 200x75x20x2.5');
-    await expect(page.getByTestId('cf-zed-axes')).toHaveCount(0);
+    await expect(page.getByTestId('cf-axes-notice')).toHaveCount(0);
   });
 });
 

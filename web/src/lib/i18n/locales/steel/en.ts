@@ -366,7 +366,7 @@ const steelEn: Record<string, string> = {
   'steel.coldFormed.scope.cirsoc301Excludes': 'CIRSOC 301 excludes these sections by name and defers to CIRSOC 303.',
   'steel.coldFormed.scope.cirsoc303NotIncorporated': 'CIRSOC 303 is not incorporated into the app.',
   'steel.coldFormed.scope.noNormativeVerification': 'So there is no normative verification: no strength, no utilization, no design result.',
-  'steel.coldFormed.zedAxesNotPrincipal': 'On a zed the geometric axes are not the principal ones: they are rotated by {angle}°. The app cannot store a product of inertia, so analysing it about these axes only holds if the member cannot bend out of plane — and the provision defining that restraint is in CIRSOC 303.',
+  'steel.coldFormed.axesAngle': 'Principal axes rotated {angle}° from the geometric ones.',
   'steel.coldFormed.designation': 'Designation',
   'steel.coldFormed.designationHint': 'Shape, then depth × flange × lip × thickness in mm. For example C 100x50x15x2.0',
   'steel.coldFormed.depth': 'Depth h',
@@ -383,5 +383,10 @@ const steelEn: Record<string, string> = {
   'steel.coldFormed.reject.flangesMeet': 'At this thickness the two flanges meet: no web is left.',
   'steel.coldFormed.reject.noFlange': 'The flange is not wider than the sheet is thick: no flange is left.',
   'steel.coldFormed.reject.lipsCollide': 'The lips reach past mid-depth and would collide.',
+
+  // ─── Principal axes (M2) ───
+  'section.axes.notPrincipal.angle': 'This section’s axes are not its principal axes. An angle has no axis of symmetry, so its bending stiffness is not described by the inertias the app stores, and the true minimum inertia is smaller than the smaller of the two. The app cannot store a product of inertia.',
+  'section.axes.notPrincipal.zed': 'This section’s axes are not its principal axes: a zed has point symmetry only. Analysing it about these axes holds if the member cannot bend out of plane — the usual case for a purlin restrained by sheeting — but the provision defining when that restraint counts is in CIRSOC 303, which is not incorporated. The app cannot store a product of inertia.',
+  'section.axes.title': 'Non-principal axes',
 };
 export default steelEn;

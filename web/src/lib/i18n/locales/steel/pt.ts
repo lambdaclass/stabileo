@@ -378,7 +378,7 @@ const steelPt: Record<string, string> = {
   'steel.coldFormed.scope.cirsoc301Excludes': 'A CIRSOC 301 exclui estas seções pelo nome e remete à CIRSOC 303.',
   'steel.coldFormed.scope.cirsoc303NotIncorporated': 'A CIRSOC 303 não está incorporada ao app.',
   'steel.coldFormed.scope.noNormativeVerification': 'Portanto não há verificação normativa: nem resistência, nem aproveitamento, nem resultado de dimensionamento.',
-  'steel.coldFormed.zedAxesNotPrincipal': 'Num perfil Z os eixos geométricos não são os principais: estão girados {angle}°. O app não pode guardar o produto de inércia, então analisá-lo em relação a estes eixos só vale se a barra estiver impedida de fletir fora do plano — e a provisão que define essa restrição está na CIRSOC 303.',
+  'steel.coldFormed.axesAngle': 'Eixos principais girados {angle}° em relação aos geométricos.',
   'steel.coldFormed.designation': 'Designação',
   'steel.coldFormed.designationHint': 'Forma, altura × mesa × aba × espessura, em mm. Por exemplo C 100x50x15x2.0',
   'steel.coldFormed.depth': 'Altura h',
@@ -395,5 +395,10 @@ const steelPt: Record<string, string> = {
   'steel.coldFormed.reject.flangesMeet': 'Com esta espessura as duas mesas se tocam: não sobra alma.',
   'steel.coldFormed.reject.noFlange': 'A mesa não é mais larga que a espessura da chapa: não sobra mesa.',
   'steel.coldFormed.reject.lipsCollide': 'As abas passam da metade da altura e colidiriam.',
+
+  // ─── Eixos principais (M2) ───
+  'section.axes.notPrincipal.angle': 'Os eixos desta seção não são os seus eixos principais. Um perfil cantoneira não tem eixo de simetria, então a sua rigidez à flexão não é descrita pelas inércias que o app guarda, e a inércia mínima real é menor que a menor das duas. O app não pode guardar o produto de inércia.',
+  'section.axes.notPrincipal.zed': 'Os eixos desta seção não são os seus eixos principais: um perfil Z tem apenas simetria pontual. Analisá-lo em relação a estes eixos vale se a barra estiver impedida de fletir fora do plano — o habitual numa terça restringida pela telha — mas a provisão que define quando essa restrição conta está na CIRSOC 303, que não está incorporada. O app não pode guardar o produto de inércia.',
+  'section.axes.title': 'Eixos não principais',
 };
 export default steelPt;
