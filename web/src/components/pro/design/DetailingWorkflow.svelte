@@ -399,7 +399,16 @@
   }
   .progress { list-style: none; display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.5rem 0; padding: 0; }
   .progress li { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 3px; background: var(--st-surface-3); opacity: 0.6; }
-  .progress li.done { opacity: 1; background: var(--st-green); }
+  /*
+     `--st-text` on `--st-green` measures 4.06, and no text colour fixes it: dark ink on that
+     fill is 4.18. `tokens.css` says why — the plain hues are "for fills, rules and figures,
+     where area carries the meaning", not for a 0.7rem label sitting on top of one.
+
+     So `done` keeps the base well and signals with `--st-ok` at 4.88, full opacity against the
+     0.6 of the steps still to come. `[aria-current='step']` already outlines the current one,
+     so the three states stay distinguishable without a filled chip.
+  */
+  .progress li.done { opacity: 1; color: var(--st-ok); }
   .progress li[aria-current='step'] { outline: 1px solid currentColor; }
   .notice { margin: 0.4rem 0; padding: 0.4rem 0.55rem; border-radius: 4px; line-height: 1.35; }
   .notice.warning { background: var(--st-surface-3); color: var(--st-text); }

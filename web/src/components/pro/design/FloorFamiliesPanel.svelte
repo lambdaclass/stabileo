@@ -490,6 +490,18 @@
   .n { font-size: 0.7rem; font-weight: 600; padding: 0.05rem 0.3rem; border-radius: 3px; background: var(--st-hair); }
   .empty { opacity: 0.75; font-style: italic; }
   table { border-collapse: collapse; width: 100%; font-size: 0.78rem; }
+  /*
+     `.no-n` lives here because the MARKUP does.
+
+     The rule was written in `FloorFamilyStateCard` when that component was extracted to get
+     the panel under the 600-line ceiling — the CSS went across, the `<span>` stayed. Svelte
+     scopes a selector to the component that declares it, so it has matched nothing since, and
+     the marker that exists to print a DASH instead of a fabricated zero has been rendering at
+     full size and full contrast, reading as primary content rather than as an absence.
+
+     The build reported it as an unused selector the whole time.
+  */
+  .no-n { font-size: 0.66rem; color: var(--st-text-2); margin-left: 3px; }
   th, td {
     text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid var(--st-border);
   }

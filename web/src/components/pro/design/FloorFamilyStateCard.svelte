@@ -129,12 +129,10 @@
   .st-badge[data-state='provisional'] { color: var(--st-provisional-text); }
   .st-badge[data-state='designed'] { color: var(--st-ok); }
   .fam-scope { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 0; font-size: 0.66rem; }
-  .fam-scope dt { color: var(--st-text-3); font-weight: 600; white-space: nowrap; }
+  .fam-scope dt { color: var(--st-text-2); font-weight: 600; white-space: nowrap; }
   .fam-scope dd { margin: 0; color: var(--st-text-2); line-height: 1.4; }
   .fam-error { margin: 6px 0 0; font-size: 0.66rem; color: var(--st-danger); line-height: 1.4; }
   /* Un guion, no un cero: la ausencia de dato no es una cantidad. */
-  .no-n { font-size: 0.66rem; color: var(--st-text-3); margin-left: 3px; }
-  .st { font-size: 0.6rem; margin-left: 4px; color: var(--st-text-3); white-space: nowrap; }
   .off-family {
     margin: 8px 0; padding: 7px 9px; border-radius: 4px;
     border: 1px solid var(--st-hair); background: var(--st-surface);

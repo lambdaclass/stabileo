@@ -224,13 +224,15 @@
   .expand-btn { background: none; border: none; color: inherit; font: inherit;
     cursor: pointer; padding: 0; display: inline-flex; gap: 3px; align-items: center; }
   .expand-btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  /* The caret keeps `--st-text-3`: it is a glyph, not a sentence, so the bar is the 3:1 of
+     WCAG 2.1 §1.4.11 and it measures 3.74 on this ground. */
   .caret { color: var(--st-text-3); width: 8px; display: inline-block; }
   .ratio-cell { display: flex; align-items: center; gap: 5px; }
   .ratio-value { font-family: monospace; min-width: 30px; }
   .ratio-bar { flex: 1; height: 5px; background: var(--st-surface-3); border-radius: 3px; overflow: hidden; }
   .ratio-fill { height: 100%; }
   .detail-row td { background: var(--st-surface); padding: 8px 10px; }
-  .empty { text-align: center; color: var(--st-text-3); padding: 18px; font-style: italic; }
+  .empty { text-align: center; color: var(--st-text-2); padding: 18px; font-style: italic; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0,0,0,0); white-space: nowrap; }
 </style>

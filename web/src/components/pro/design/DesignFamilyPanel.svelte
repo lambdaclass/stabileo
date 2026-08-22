@@ -325,7 +325,7 @@
   .frow label { display: inline-flex; align-items: baseline; gap: 0.35rem; cursor: pointer; min-width: 0; }
   .frow input:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .fname { color: var(--st-text); }
-  .census { color: var(--st-text-3); font-size: 0.68rem; white-space: nowrap; }
+  .census { color: var(--st-text-2); font-size: 0.68rem; white-space: nowrap; }
   .fstate { font-size: 0.68rem; font-weight: 600; color: var(--st-text-2); white-space: nowrap; }
   /* Colour supports the glyph and the word; it never carries the state alone. */
   .frow[data-state='designed'] .fstate { color: var(--st-ok); }
@@ -333,7 +333,7 @@
   .frow[data-state='provisional'] .fstate { color: var(--st-warn); }
   .frow[data-state='failed'] .fstate { color: var(--st-danger); }
   .frow[data-state='noElements'] .fstate,
-  .frow[data-state='skipped'] .fstate { color: var(--st-text-3); }
+  .frow[data-state='skipped'] .fstate { color: var(--st-text-2); }
 
   /* The three scopes, so the difference is read rather than discovered by pressing. */
   .scopes { margin: 0.35rem 0; display: flex; flex-direction: column; gap: 0.2rem; }
@@ -349,7 +349,7 @@
     font-size: 0.7rem;
     color: var(--st-text-2);
   }
-  .hint { margin: 0.3rem 0 0; font-size: 0.66rem; color: var(--st-text-3); line-height: 1.35; }
+  .hint { margin: 0.3rem 0 0; font-size: 0.66rem; color: var(--st-text-2); line-height: 1.35; }
   label {
     display: flex; align-items: center; gap: 0.3rem;
     font-size: 0.78rem; cursor: pointer;
@@ -370,7 +370,7 @@
   }
   .bulk button:hover { background: var(--st-surface-3); color: var(--st-text); }
   .summary { margin: 0; font-size: 0.78rem; }
-  .note, .cols { margin: 0; font-size: 0.7rem; color: var(--st-text-3); }
+  .note, .cols { margin: 0; font-size: 0.7rem; color: var(--st-text-2); }
   .run {
     align-self: flex-start; font-size: 0.74rem; font-weight: 600;
     padding: 0.25rem 0.7rem; cursor: pointer;
@@ -384,7 +384,7 @@
   table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
   th { text-align: left; font-weight: 400; }
   td { text-align: right; font-variant-numeric: tabular-nums; }
-  td.state { text-align: left; color: var(--st-text-3); }
+  td.state { text-align: left; color: var(--st-text-2); }
   tr.skipped, tr.noElements { opacity: 0.6; }
   /* `#e0444a` is also `conflicted: 0xe0444a` in the 3-D scene, and that is a coincidence, not
      a contract: this is the design results table and the viewer paints nothing in it. So the

@@ -134,7 +134,7 @@
   .sel { padding: 1px 3px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
     border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
   .sel-sm { width: 46px; }
-  .sub { font-size: 0.64rem; color: var(--st-text-3); }
+  .sub { font-size: 0.64rem; color: var(--st-text-2); }
   .total { font-family: monospace; font-size: 0.66rem; color: var(--st-text-2); }
   .total.bad { color: var(--st-danger); font-weight: 700; }
   .issues { margin-top: 3px; }

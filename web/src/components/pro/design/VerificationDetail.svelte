@@ -208,7 +208,7 @@
   .axes-line { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.68rem; color: var(--st-text-2); }
   .mono { font-family: monospace; }
   .small { font-size: 0.64rem; }
-  .muted { color: var(--st-text-3); }
+  .muted { color: var(--st-text-2); }
   .cert { display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     padding: 4px 7px; border-radius: 4px; font-size: 0.68rem; }
   .cert-ok { background: rgba(34,204,102,0.10); border: 1px solid var(--st-ok); color: var(--st-text); }
@@ -241,7 +241,7 @@
   .chk-fail td { color: var(--st-text); }
   .chk-warn td { color: var(--st-text); }
   .desc-row td { border-bottom: 1px solid var(--st-surface-3); }
-  .desc { font-size: 0.62rem; color: var(--st-text-3); padding-left: 12px !important; }
+  .desc { font-size: 0.62rem; color: var(--st-text-2); padding-left: 12px !important; }
   .none-note { display: flex; gap: 6px; align-items: center; font-size: 0.68rem; }
   .fold { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 3px 6px; }
   .fold summary { cursor: pointer; font-size: 0.68rem; color: var(--st-info); }

@@ -179,6 +179,24 @@
 
   --st-text: var(--st-paper-2);
   --st-text-2: var(--st-slate-2);
+  /*
+     RESERVED FOR INACTIVE AND DISABLED TEXT, and for glyphs and rules. Not for copy.
+
+     Measured against the four opaque grounds a panel can have: 4.03 on `--st-bg`, 3.74 on
+     `--st-surface`, 3.62 on `--st-surface-2`, 3.28 on `--st-surface-3`. It clears 4.5:1 on none
+     of them, and it cannot: preserving its hue, the first lightness that does is 58 %, while
+     `--st-text-2` sits at 63 %. A legal third level lands five points from the second, at which
+     point it is not a level. This palette has room for two text weights on a dark ground, not
+     three.
+
+     WCAG 2.1 §1.4.3 exempts the text of INACTIVE components, and §1.4.11 asks 3:1 of a glyph or
+     a rule, which this clears everywhere. So the value is right for what it now means, and the
+     489 sites that used it as copy are the defect.
+
+     H1 migrated the 25 in the concrete design surface to `--st-text-2`. The rest — the root
+     components, `edu`, `App.svelte`, and the shared PRO chrome — are unmigrated and listed in
+     `docs/handoffs/h1-text-3-contrast-proposal.md`. THE VALUE IS UNCHANGED; this is a comment.
+  */
   --st-text-3: #64798a;
   --st-text-on-accent: #fff;
 

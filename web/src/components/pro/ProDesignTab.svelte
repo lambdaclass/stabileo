@@ -463,18 +463,20 @@
   .design-tab { display: flex; flex-direction: column; height: 100%; overflow: auto; }
   /* A table shorter than this is not a table you can work in; below it, the tab scrolls. */
   .design-tab :global(.table-scroll) { min-height: 14rem; }
-  .placeholder { padding: 20px; text-align: center; color: var(--st-text-3); font-size: 0.78rem; font-style: italic; }
+  .placeholder { padding: 20px; text-align: center; color: var(--st-text-2); font-size: 0.78rem; font-style: italic; }
   .action-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     padding: 4px 12px; background: var(--st-bg); border-bottom: 1px solid var(--st-surface-3); flex-shrink: 0; }
   .sel-count { font-size: 0.7rem; color: var(--st-text-2); }
-  .muted { color: var(--st-text-3); }
+  .muted { color: var(--st-text-2); }
   .act { padding: 2px 9px; background: var(--st-surface-3); border: 1px solid var(--st-info);
     border-radius: 3px; color: var(--st-text); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
   .act:hover:not(:disabled) { background: var(--st-hair-strong); }
   .act:disabled { opacity: 0.4; cursor: not-allowed; }
   .act:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .act-sm { font-size: 0.66rem; padding: 1px 7px; }
-  .hint { margin-left: auto; font-size: 0.64rem; color: var(--st-text-3); font-family: monospace; }
+  /* `--st-text-2`: this is copy, and `--st-text-3` measured 4.03 on `--st-bg` — the ground the
+     tab header sits on, which is darker than a panel and still not enough. */
+  .hint { margin-left: auto; font-size: 0.64rem; color: var(--st-text-2); font-family: monospace; }
   .detail-wrap { display: flex; flex-direction: column; gap: 6px; }
   .detail-head { display: flex; gap: 6px; }
 </style>
