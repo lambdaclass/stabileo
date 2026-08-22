@@ -432,3 +432,94 @@ esperando, y para los dos M1 dejó preparado lo que puede preparar sin tocar nad
 - **punto 3** → el parche en los tres idiomas, su impacto y sus tests, en
   `patches/conn-gap-aluminium-scope.md` y `conn-aluminium-scope.test.ts`. Espera el OK y el
   commit de i18n de H1.
+
+---
+
+# Punto 5 — el campo `built` en `interface Section` (**ya hecho**, autorizado, aislado)
+
+A diferencia de los cuatro puntos de arriba, éste no es una propuesta: está **implementado y
+commiteado** en `feat/pro-steel-m1` como cambio contractual aislado, con autorización explícita. Se
+reporta acá porque toca el archivo con más manos encima del repositorio y H1 tiene que saberlo antes
+de que cualquier otro consumidor dependa del campo.
+
+## Archivo y tipo
+
+**`web/src/lib/store/model.svelte.ts`**, `interface Section`, hermano de `composition`:
+
+```ts
+built?: {
+  /** Template id from `data/section-shapes.ts`, e.g. `I-custom`, `hollow-rect`, `C-custom`. */
+  shapeType: string;
+  /** The parameters as entered, in the units that template declares (metres for lengths). */
+  params: Record<string, number>;
+};
+```
+
+**Commit:** `ae3a6186` — `contract(section): record how a parametric section was built`. Propio y
+único; no viene mezclado con nada del workflow CIRSOC 301.
+
+El otro archivo que cambia es **`web/src/components/pro/ProSectionsTab.svelte`**, y conviene que H1
+lo sepa porque **ese componente sirve también las plantillas de hormigón** (arranca en
+`activeShape = 'concrete-rect'`). El cambio ahí es que `handleShapeConfirm()` pasa dos campos más
+—`tl` y `built`— y **nada más**: ninguna sección de hormigón cambia de propiedades, de nombre ni de
+camino.
+
+## Compatibilidad
+
+**Aditivo y opcional. No hay migración.**
+
+- **Los modelos guardados siguen siendo válidos.** El campo es opcional; una sección sin él es una
+  sección correcta y así queda (hay un test que lo exige explícitamente).
+- **`snapshot()` y `restore()` no se tocaron.** El primero desestructura la sección entera
+  (`const { canonical: _drop, ...rest } = v as Section`) y el segundo la copia, así que `.ded`,
+  undo/redo y captura de pestaña ya lo llevan. **Cero cambios en la ruta de persistencia** — que es
+  lo que hace al cambio aditivo de verdad y no sólo de nombre.
+- **Es declarativo, como `composition`.** Nada en el camino de propiedades lo lee. `a`/`iy`/`iz`/`j`
+  siguen siendo la autoridad y el resolvedor canónico no recibe una segunda opinión sobre la
+  geometría. Un test lo fija: mutar `built.params` no mueve el área almacenada.
+- **No se inventó `composition`.** `profileName` está documentado como nombre exacto de catálogo, y
+  una sección paramétrica no tiene pieza de catálogo que nombrar. Tampoco se usó
+  `ModelProvenance`: eso registra de dónde viene un **modelo**, y un proyecto puede mezclar una
+  sección construida con perfiles de catálogo.
+- **Ningún consumidor lo lee todavía.** El riesgo para H1 es **de merge**, no de comportamiento.
+
+## Lo que arregló de paso
+
+`computeSectionProperties` toma `tl` —espesor del labio de un conformado en frío— como entrada
+propia y lo devuelve; `handleShapeConfirm()` enumeraba los campos a mano y ése no estaba en la
+lista. `case 'C'` de `createSectionShape` sustituye entonces el espesor **del ala**: las propiedades
+se calculaban con un labio y el contorno se dibujaba con otro. Coincidían mientras el usuario dejara
+`tl = tf`, que es el default de la plantilla (0,009 m los dos). Ahora se pasa.
+
+## Límite declarado que H1 debería conocer
+
+**El link compartido no lleva el campo — y tampoco lleva nada más de una sección.** `compressV2` en
+`utils/url-sharing.ts` codifica la sección como la tupla posicional
+`[id, name, a, iz, {s,b,h,w,f,t,iy,j,rot}]`. Nunca llevó `tl`, `profileFamily` ni **`composition`**:
+**un armado compartido por URL ya vuelve hoy sin su composición.** Eso es anterior a este cambio y
+no lo arregla esta rama: ensanchar ese formato es una decisión versionada (`SHARE_VERSION`) sobre un
+archivo compartido, y hacerlo unilateralmente sería exactamente lo que este protocolo evita.
+
+**Queda propuesto para quien corresponda, no ejecutado.** El test lo fija como pérdida declarada, y
+si alguien ensancha el codec tiene que venir a ese test y decir cuál de los tres campos ahora cubre.
+
+## Tests
+
+**`web/src/lib/store/__tests__/built-section-contract.test.ts` — 17 casos**, en cinco grupos:
+
+| Grupo | Qué fija |
+|---|---|
+| **El registro** | guarda plantilla y parámetros; es copia y no referencia viva al formulario; registra **todos** los parámetros que la plantilla declara —recorriendo `SECTION_SHAPES`, no una lista a mano, que es exactamente cómo se perdió `tl` |
+| **Suficiencia** | devolver `built` a `computeSectionProperties` reproduce las propiedades almacenadas, **para cada plantilla**; la plantilla nombrada existe; el campo **no** es autoridad de las propiedades |
+| **Persistencia** | `snapshot`/`restore`, undo, redo; y la pérdida en el link compartido, aseverada explícitamente en vez de escondida |
+| **Compatibilidad** | un snapshot con el campo borrado restaura limpio; los perfiles de catálogo y los armados **no** reciben un `built` fabricado; una sección paramétrica **no** recibe un `composition` falso |
+| **Visualización** | se dibuja el labio que se tipeó; las ocho plantillas dibujan contorno propio (**ninguna cae al `default:`**); el contorno sobrevive a una recarga |
+
+**Estado del gate:** `npm run test:unit` → **7109 pasan**. `npm run typecheck` → **sin errores
+nuevos** contra la línea base (479).
+
+## Lo que M1 no hizo, a propósito
+
+No se tocó `StageSection`, `ProRibbon`, `WorkflowStages`, `DesignOverview`, `tokens.css`, el
+selector general ni ningún catálogo compartido. El único contrato compartido que se movió es este
+campo, que era el autorizado. PR #156 sigue en **draft**.
