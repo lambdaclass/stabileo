@@ -266,6 +266,89 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   });
 });
 
+test.describe('stages 5 and 7 have content, and none of it is a result', () => {
+  async function trussThenSteel(page: Page): Promise<void> {
+    await page.goto(PRO_URL);
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-generators').click();
+    await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
+    await page.getByTestId('gen-kind-truss').click();
+    await page.getByTestId('gen-generate').click();
+    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-steel').click();
+  }
+
+  test('stage 5 shows Lb per member, with its source', async ({ page }) => {
+    /*
+     * The number that varies. Every other assumption is identical for every member, so the table
+     * exists for this one — and for saying who decided it.
+     */
+    await trussThenSteel(page);
+    await page.getByTestId('steel-stage-assumptions').click();
+    const lb = page.locator('[data-testid^="steel-lb-"]').first();
+    await expect(lb).toBeVisible();
+    // A real length in metres, not a placeholder.
+    await expect(lb).toContainText(/\d+\.\d{3} m/);
+    const src = page.locator('[data-testid^="steel-lb-source-"]').first();
+    await expect(src).toBeVisible();
+    await expect(src).not.toContainText('steel.assume.source');
+  });
+
+  test('and says bracing is unrecorded because there is nowhere to record it', async ({ page }) => {
+    await trussThenSteel(page);
+    await page.getByTestId('steel-stage-assumptions').click();
+    const note = page.getByTestId('steel-assumption-bracing');
+    await expect(note).toBeVisible();
+    // A reason, not just "0".
+    expect((await note.innerText()).trim().length).toBeGreaterThan(40);
+  });
+
+  test('and separates what cannot be inferred from what was assumed', async ({ page }) => {
+    await trussThenSteel(page);
+    await page.getByTestId('steel-stage-assumptions').click();
+    await expect(page.getByTestId('steel-assumption-not-inferable')).toBeVisible();
+    await expect(page.getByTestId('steel-assumption-blockers')).toBeVisible();
+  });
+
+  test('stage 7 explains why there is no result, in eight statements', async ({ page }) => {
+    await trussThenSteel(page);
+    await page.getByTestId('steel-stage-verification').click();
+    for (const id of ['steel-results-none', 'steel-results-capabilities', 'steel-results-tests',
+                      'steel-results-missing', 'steel-results-human', 'steel-results-ae',
+                      'steel-results-cap', 'steel-results-clause-map']) {
+      const el = page.getByTestId(id);
+      await expect(el, id).toBeVisible();
+      expect((await el.innerText()).trim().length, id).toBeGreaterThan(10);
+    }
+  });
+
+  test('and names the two departures with their clause numbers', async ({ page }) => {
+    // The clause numbers are how a reviewer finds the rule; without them the paragraph is an
+    // opinion.
+    await trussThenSteel(page);
+    await page.getByTestId('steel-stage-verification').click();
+    await expect(page.getByTestId('steel-results-ae')).toContainText('D.2.2');
+    await expect(page.getByTestId('steel-results-cap')).toContainText('F.2.1');
+  });
+
+  test('and counts the clause map as UNVALIDATED entries, not as progress', async ({ page }) => {
+    /*
+     * «14 clauses mapped» reads as progress; «14 awaiting review» reads as what it is. The stage
+     * shows the second.
+     */
+    await trussThenSteel(page);
+    await page.getByTestId('steel-stage-verification').click();
+    await expect(page.getByTestId('steel-results-clause-map')).toContainText(/\d+ \/ \d+/);
+  });
+
+  test('and the verification stage is still not done', async ({ page }) => {
+    // Content in stage 7 must not be mistaken for a result in stage 7.
+    await trussThenSteel(page);
+    await expect(page.getByTestId('steel-stage-verification')).not.toHaveAttribute('data-state', 'done');
+  });
+});
+
 test.describe('it is not a second, disconnected application', () => {
   test('the inventory a user already knew is inside it, as the last stage', async ({ page }) => {
     /*

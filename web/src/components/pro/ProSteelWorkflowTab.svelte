@@ -46,6 +46,8 @@
   import { te } from '../../lib/i18n/engine-text';
   import { steelInputCompleteness, steelInputGapKey } from '../../lib/engine/verification-service';
   import { gradeRows, sectionRows, rowStateKey } from '../../lib/engine/steel/workflow-rows';
+  import { assumptionRows, assumptionSourceKey } from '../../lib/engine/steel/workflow-assumptions';
+  import { CIRSOC301_CLAUSE_MAP, CIRSOC301_CLAUSES_UNVALIDATED } from '../../lib/engine/design/adapters/cirsoc301-clause-map';
   import { structuralGradeSource } from '../../lib/grades/catalogue';
   import { steelProfileSource } from '../../lib/profiles/catalogue';
   import { CIRSOC301_JS_ASSUMPTIONS } from '../../lib/engine/design/adapters/cirsoc301-capabilities';
@@ -124,6 +126,8 @@
 
   // ── 5. Assumptions ───────────────────────────────────────────────
   const assumptionState = $derived<State>(hasSteel ? 'current' : 'optional');
+  /** Per-member assumptions, with the provenance of each. */
+  const aRows = $derived(assumptionRows(inv));
 
   // ── 6. Analysis ──────────────────────────────────────────────────
   const hasDemands = $derived(resultsStore.results3D !== null && resultsStore.hasCombinations3D);
@@ -361,10 +365,60 @@
     badge={CIRSOC301_JS_ASSUMPTIONS.length}
     bind:open={assumptionOpen}
   >
-    <!-- The assumptions the existing checker makes, from the adapter that declares them. -->
+    <!--
+      The assumptions the existing checker makes, from the adapter that declares them. Flat,
+      because not one of them varies by member — presenting them per-member would imply a
+      granularity the app does not have.
+    -->
     <ul class="list" data-testid="steel-stage-assumptions-list">
       {#each CIRSOC301_JS_ASSUMPTIONS as key (key)}<li>{t(key)}</li>{/each}
     </ul>
+
+    {#if aRows.length > 0}
+      <!--
+        What DOES vary per member is `Lb`, because it is the member's own length. So the table
+        carries that number and the source of it, and the source is the point: `assumed` means the
+        app decided, which is a risk the user did not knowingly take.
+      -->
+      <table class="rows" data-testid="steel-assumption-rows">
+        <thead>
+          <tr>
+            <th>{t('steel.rows.header.member')}</th>
+            <th>{t('steel.rows.header.lb')}</th>
+            <th>{t('steel.rows.header.source')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each aRows as row (row.elementId)}
+            <tr data-testid={`steel-assumption-row-${row.elementId}`}>
+              <td><span class="id">#{row.elementId}</span><span class="name">{row.memberName}</span></td>
+              <!-- The real number the checker receives, not a restatement of the rule. -->
+              <td data-testid={`steel-lb-${row.elementId}`}>{row.lbM.toFixed(3)} m</td>
+              <td data-testid={`steel-lb-source-${row.elementId}`}
+                >{t(assumptionSourceKey(row.lbSource))}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+
+      <!-- Bracing: zero, and the reason is not «there are none». -->
+      <p class="line warn" data-testid="steel-assumption-bracing">{t('steel.rows.bracingNone')}</p>
+
+      <p class="sub">{t('steel.assume.source.notInferable')}</p>
+      <ul class="list" data-testid="steel-assumption-not-inferable">
+        {#each aRows[0].notInferable as a (a.key)}
+          <li>
+            {t(a.key)}
+            {#if a.routeOutKey}<span class="route">{t(a.routeOutKey)}</span>{/if}
+          </li>
+        {/each}
+      </ul>
+
+      <!-- What stops the assumptions from being validated: signatures and implementations, not data. -->
+      <ul class="list" data-testid="steel-assumption-blockers">
+        {#each aRows[0].blockedBy as key (key)}<li>{t(key)}</li>{/each}
+      </ul>
+    {/if}
   </StageSection>
 
   <StageSection
@@ -404,6 +458,38 @@
       {/each}
     </ul>
     <p class="line" data-testid="steel-stage-verification-note">{t('steel.workflow.verification.note')}</p>
+
+    <!--
+      What the stage owes a reader when it has no result to show. Eight statements, each a fact
+      about the code rather than a promise about it — and none of them a number presented as a pass.
+    -->
+    <p class="line warn" data-testid="steel-results-none">{t('steel.workflow.results.noCertifiable')}</p>
+
+    <dl class="results" data-testid="steel-results-detail">
+      <dt>{t('steel.workflow.results.capabilitiesTitle')}</dt>
+      <dd data-testid="steel-results-capabilities">{t('steel.workflow.results.capabilities')}</dd>
+      <dt>{t('steel.workflow.results.testsTitle')}</dt>
+      <dd data-testid="steel-results-tests">{t('steel.workflow.results.tests')}</dd>
+      <dt>{t('steel.workflow.results.missingDataTitle')}</dt>
+      <dd data-testid="steel-results-missing">{t('steel.workflow.results.missingData')}</dd>
+      <dt>{t('steel.workflow.results.humanTitle')}</dt>
+      <dd data-testid="steel-results-human">{t('steel.workflow.results.human')}</dd>
+      <!-- The two specific departures the clause mapping found, named where a reader will look. -->
+      <dt>{t('steel.workflow.results.aeTitle')}</dt>
+      <dd data-testid="steel-results-ae">{t('steel.workflow.results.ae')}</dd>
+      <dt>{t('steel.workflow.results.capTitle')}</dt>
+      <dd data-testid="steel-results-cap">{t('steel.workflow.results.cap')}</dd>
+    </dl>
+
+    <!--
+      The clause map's own state. Shown as a count of UNVALIDATED entries rather than of mapped
+      ones, because «14 clauses mapped» reads as progress and «14 awaiting review» reads as what it
+      is.
+    -->
+    <p class="line" data-testid="steel-results-clause-map">
+      {CIRSOC301_CLAUSES_UNVALIDATED.length} / {CIRSOC301_CLAUSE_MAP.length}
+      · {t('steel.workflow.blocker.clauseRefs')}
+    </p>
   </StageSection>
 
   <StageSection
@@ -456,6 +542,12 @@
   .rows tr[data-state='incomplete'] .state { color: var(--st-warn); }
   .rows tr[data-state='authorityBlocked'] .state { color: var(--st-warn); }
   .muted { opacity: 0.7; }
+  .sub { font-size: 0.66rem; opacity: 0.7; margin: 0.5rem 0 0.1rem; }
+  .route { display: block; font-size: 0.62rem; opacity: 0.75; }
+  .results { margin: 0.4rem 0 0; font-size: 0.7rem; }
+  .results dt { font-weight: 600; margin-top: 0.35rem; color: var(--st-text); }
+  .results dd { margin: 0.1rem 0 0; opacity: 0.9; }
+  .line.warn { color: var(--st-warn); }
   /* The state word, for a reader who cannot see the glyph. */
   .sr {
     position: absolute; width: 1px; height: 1px; overflow: hidden;

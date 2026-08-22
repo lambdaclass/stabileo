@@ -105,21 +105,57 @@ describe('states — `done` means a choice, never a check', () => {
     expect(SRC).not.toMatch(/role="progressbar"/);
   });
 
-  it('and never renders the word VERIFIED', () => {
+  it('never ASSERTS a verification — every mention is a denial', () => {
     /*
-     * Scoped to what a user can SEE: the markup after `</script>` and the dictionary values behind
-     * the keys it renders. Scanning the whole file flagged `steelCountsAsVerified()` in a doc
-     * comment — a function name, not a claim — which is a false positive that would have taught
-     * whoever hit it to loosen the test rather than trust it.
+     * ── Third rewrite of this assertion, and the reason is the same each time ──
+     *
+     * Banning the claim words outright keeps flagging sentences whose whole job is to deny the
+     * claim: «none is shown as verified», «ninguno se presenta como aprobado», `SteelPanel`'s
+     * «none of them is verified». Banning the word bans the honesty.
+     *
+     * The property that actually matters — and the one the E2E settled on — is that **every line
+     * mentioning a claim word carries a negation.** That permits the denials, catches an assertion,
+     * and does not need updating every time the screen says something true.
+     *
+     * Checked over the markup and over the dictionary values behind the keys it renders, in all
+     * three languages, since a claim could arrive through a translation.
      */
     const markup = SRC.split('</script>')[1];
     const rendered = [...markup.matchAll(/'((?:steel|section)\.[\w.]+)'/g)].map((m) => m[1]);
-    const surfaces = [markup, ...rendered.flatMap((k) => [es[k], en[k], pt[k]].filter(Boolean))];
-    for (const word of ['VERIFIED', 'VERIFICADO', 'Verified', 'certified', 'certificado', 'aprobado']) {
-      for (const text of surfaces) {
-        expect(text, `must not say ${word}`).not.toContain(word);
+    /*
+     * ── Two refinements the first run of this matcher forced ─────────
+     *
+     * **The claim is a participle, not the noun.** `verificad` also matches «verificador» — the
+     * VERIFIER, the name of a module — and naming it is not claiming anything. So the patterns end
+     * in `[oa]s?\b`, which accepts «verificado» and rejects «verificador» and «verificación».
+     *
+     * **Whole strings, never split.** Splitting on `.` and `;` tore «El verificador existe y produce
+     * números; ninguno se presenta como aprobado» in half and flagged the first clause for lacking
+     * the negation that was in the second. A dictionary value is authored as one statement and has
+     * to be judged as one.
+     */
+    const CLAIM = /verificad[oa]s?\b|\bverified\b|aprobad[oa]s?\b|\bapproved\b|certificad[oa]s?\b|\bapto\b/i;
+    const NEGATION = /\bno\b|\bnone\b|\bnot\b|\bnothing\b|ningun|ningún|nada|nenhum|\bnão\b|\bsin\b|\bsem\b|without/i;
+
+    const lines: string[] = [markup];
+    for (const key of rendered) {
+      for (const dict of [es, en, pt]) {
+        const v = (dict as Record<string, string>)[key];
+        if (v) lines.push(v);
       }
     }
+    const offenders = lines
+      .map((l) => l.trim())
+      .filter((l) => CLAIM.test(l) && !NEGATION.test(l));
+    expect(offenders, `these assert a verification: ${JSON.stringify(offenders)}`).toEqual([]);
+  });
+
+  it('and the denials are actually present, so the check is not vacuous', () => {
+    // If the screen stopped mentioning verification at all, the assertion above would pass by
+    // having nothing to check — and the reader would lose the sentence that says the numbers are
+    // not a check.
+    expect(es['steel.workflow.results.noCertifiable']).toMatch(/aprobad|verificad/i);
+    expect(en['steel.workflow.results.noCertifiable']).toMatch(/pass|verified/i);
   });
 });
 
