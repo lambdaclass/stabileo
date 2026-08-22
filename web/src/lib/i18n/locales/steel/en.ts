@@ -356,5 +356,6 @@ const steelEn: Record<string, string> = {
   'steel.table.grade': 'Grade',
   'steel.table.gradeNone': 'not declared',
   'steel.table.gradeUnresolved': 'unknown grade',
+  'steel.panel.codeEdition': '{edition} edition',
 };
 export default steelEn;

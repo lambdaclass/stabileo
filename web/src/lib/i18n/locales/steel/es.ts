@@ -362,5 +362,6 @@ const steelEs: Record<string, string> = {
   'steel.table.grade': 'Grado',
   'steel.table.gradeNone': 'sin declarar',
   'steel.table.gradeUnresolved': 'grado desconocido',
+  'steel.panel.codeEdition': 'edición {edition}',
 };
 export default steelEs;

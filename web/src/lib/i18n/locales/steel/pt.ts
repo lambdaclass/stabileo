@@ -368,5 +368,6 @@ const steelPt: Record<string, string> = {
   'steel.table.grade': 'Grau',
   'steel.table.gradeNone': 'não declarado',
   'steel.table.gradeUnresolved': 'grau desconhecido',
+  'steel.panel.codeEdition': 'edição {edition}',
 };
 export default steelPt;
