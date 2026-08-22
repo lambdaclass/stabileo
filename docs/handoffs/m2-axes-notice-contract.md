@@ -1,7 +1,14 @@
-# Contrato del aviso de ejes no principales — patch listo, **sin aplicar**
+# Handoff de integración — el aviso de ejes no principales
 
 **Rama:** `feat/pro-steel-m2` · **Estado:** la regla está **implementada y testeada**; los
-consumidores **no están tocados**.
+consumidores **no están tocados**. La implementación del consumidor espera **dueño común o
+autorización específica**.
+
+Éste es el handoff de integración completo: comportamiento especificado, textos en los tres idiomas,
+diff por archivo, ubicación recomendada, y las dos advertencias que no se pueden perder en el camino
+—que no modifica el cálculo y que no es una verificación—. Es un solo documento a propósito: dos
+documentos describiendo el mismo aviso es la misma clase de duplicación que este trabajo eliminó del
+código.
 
 **El resultado que hay que leer primero:** **ninguna** de las superficies donde el aviso
 corresponde es de M2. Todas son compartidas con hormigón o son de modo Básico. Así que M2 hizo lo
@@ -48,12 +55,112 @@ existe en vez de un commit.
 
 ---
 
-## 3. El patch propuesto, superficie por superficie
+## 3. Comportamiento especificado
+
+Lo que un consumidor puede dar por cierto sin leer el módulo. **Nadie decide esto localmente**: se
+pregunta a `axesNoticeKeyFor(shape)` y se renderiza lo que devuelve.
+
+### 3.1 Las tres formas que avisan
+
+| `shape` | Qué es | Clave | Por qué avisa |
+|---|---|---|---|
+| `L` | ángulo de alas iguales | `section.axes.notPrincipal.angle` | sin eje de simetría; ejes principales a 45° |
+| `invL` | ángulo de alas desiguales | `section.axes.notPrincipal.angle` | sin eje de simetría; rotación distinta de 45° |
+| `Z` | zeta conformado en frío | `section.axes.notPrincipal.zed` | sólo simetría puntual |
+
+**`L` e `invL` comparten texto y `Z` tiene el suyo**, y no es un detalle de redacción: un ángulo **no
+tiene salida** —sus ejes están rotados y ahí termina—, mientras una correa Z restringida por la chapa
+**sí** flexa cerca de un eje geométrico. La provisión que dice cuándo cuenta esa restricción está en
+CIRSOC 303, que no está incorporada. Una sola frase para los tres tendría que ser lo bastante vaga
+como para no servir, y citar la 303 en un ángulo sugeriría una salida que no existe.
+
+**Cuántas secciones alcanza hoy:** los **37 ángulos catalogados** (10 europeos + 27 IRAM-IAS U
+500-558), más `invL` desde la plantilla paramétrica, más los Z del catálogo conformado en frío.
+
+### 3.2 Las ocho formas que **no** avisan
+
+`I`, `H`, `U`, `C`, `T`, `RHS`, `CHS`, `rect` → `axesNoticeKeyFor` devuelve **`null`**.
+
+**Un solo eje de simetría alcanza.** Un canal es simétrico respecto del horizontal y una T respecto
+del vertical, así que sus ejes geométricos **son** los principales, igual que los de un doble T. Un
+aviso ahí no sería conservador: sería ruido, y entrenaría al usuario a ignorarlo donde sí importa.
+
+Aseverado como ausencia en `axes.test.ts`, sobre las ocho.
+
+### 3.3 El caso `generic`, y una sección sin forma
+
+→ `axesSymmetryOf` devuelve **`'unknown'`**, `warnsAboutAxes` devuelve **`false`**,
+`axesNoticeKeyFor` devuelve **`null`**.
+
+`generic` son los perfiles `propertiesOnly`: **no tienen contorno**, así que su simetría no es un
+dato que la app tenga. Lo mismo una sección cuyo `shape` es `undefined`.
+
+Las **dos** mitades importan y por eso `unknown` es un valor propio y no se pliega dentro de
+`principal`:
+
+- **no avisar**, porque sería una conjetura;
+- **no afirmar simetría**, que sería la conjetura opuesta y peor, porque un consumidor futuro podría
+  leer `principal` como permiso para algo.
+
+Un consumidor que quiera distinguir «sabemos que sí» de «no sabemos» tiene `axesSymmetryOf`; uno que
+sólo quiera saber si mostrar el aviso tiene `warnsAboutAxes`. **Ninguno de los dos debe tratar
+`unknown` como `principal`.**
+
+### 3.4 Los textos, verbatim
+
+Ya están en el árbol, en `lib/i18n/locales/steel/{es,en,pt}.ts`. Claves **neutras** a propósito
+—`section.axes.*`, no `steel.*`— porque el aviso no es metálico: alojarlas en el diccionario de acero
+es una decisión de propiedad de archivo, no de contenido. `store.svelte.ts` aplana
+`{ ...es, ...steelEs }`, así que resuelven idéntico desde cualquier superficie, y moverlas al
+diccionario general el día que corresponda es un cortar-pegar **sin renombrar ninguna clave**.
+
+**`section.axes.notPrincipal.angle`**
+
+- **es** — «Los ejes de esta sección no son sus ejes principales. Un perfil ángulo no tiene eje de
+  simetría, así que su rigidez a flexión no queda descrita por las inercias que la app guarda, y la
+  inercia mínima real es menor que la menor de las dos. La app no puede guardar el producto de
+  inercia.»
+- **en** — «This section's axes are not its principal axes. An angle has no axis of symmetry, so its
+  bending stiffness is not described by the inertias the app stores, and the true minimum inertia is
+  smaller than the smaller of the two. The app cannot store a product of inertia.»
+- **pt** — «Os eixos desta seção não são os seus eixos principais. Um perfil cantoneira não tem eixo
+  de simetria, então a sua rigidez à flexão não é descrita pelas inércias que o app guarda, e a
+  inércia mínima real é menor que a menor das duas. O app não pode guardar o produto de inércia.»
+
+**`section.axes.notPrincipal.zed`**
+
+- **es** — «Los ejes de esta sección no son sus ejes principales: un perfil Z tiene sólo simetría
+  puntual. Analizarlo respecto de estos ejes vale si la barra está impedida de flexar fuera del
+  plano —lo habitual en una correa restringida por la chapa— pero la provisión que define cuándo
+  vale esa restricción está en CIRSOC 303, que no está incorporada. La app no puede guardar el
+  producto de inercia.»
+- **en** — «This section's axes are not its principal axes: a zed has point symmetry only. Analysing
+  it about these axes holds if the member cannot bend out of plane — the usual case for a purlin
+  restrained by sheeting — but the provision defining when that restraint counts is in CIRSOC 303,
+  which is not incorporated. The app cannot store a product of inertia.»
+- **pt** — «Os eixos desta seção não são os seus eixos principais: um perfil Z tem apenas simetria
+  pontual. Analisá-lo em relação a estes eixos vale se a barra estiver impedida de fletir fora do
+  plano — o habitual numa terça restringida pela telha — mas a provisão que define quando essa
+  restrição conta está na CIRSOC 303, que não está incorporada. O app não pode guardar o produto de
+  inércia.»
+
+**Lo que los tres textos dicen y ninguna traducción puede perder** —aseverado por test en los tres
+idiomas—: que **la app no puede guardar el producto de inercia**. Es el hecho que vuelve el aviso
+accionable en vez de alarmante: es una limitación de la representación, y quien lo sabe sabe qué
+hacer. Y en los tres: **ninguna palabra de verificación** (verificado, aprobado, certificado,
+cumple).
+
+**Frase adicional, sólo del panel de conformados:** `steel.coldFormed.axesAngle` —«Ejes principales
+rotados {angle}° respecto de los geométricos.»— porque ese panel tiene la geometría a mano y puede
+**medir**. Una superficie general sólo puede decir «rotados». Es un dato extra sobre la misma regla,
+**no una regla distinta**; el `{angle}` está verificado en los tres idiomas.
+
+## 4. El patch propuesto, superficie por superficie
 
 Un patrón, tres aplicaciones. **Una sola regla**, la del módulo: ninguna superficie decide por sí
 misma cuándo avisar.
 
-### 3.1 `SectionEditor.svelte` — el más importante
+### 4.1 `SectionEditor.svelte` — el más importante
 
 Es donde el número está a la vista, así que es donde el aviso vale más.
 
@@ -102,7 +209,7 @@ Es donde el número está a la vista, así que es donde el aviso vale más.
 +  }
 ```
 
-### 3.2 `ProfileSelector.svelte` — al elegir, que es cuando se puede cambiar de opinión
+### 4.2 `ProfileSelector.svelte` — al elegir, que es cuando se puede cambiar de opinión
 
 Una marca por fila, no una oración: es una lista. Y el texto completo una sola vez, cuando la
 selección actual es asimétrica.
@@ -115,7 +222,7 @@ selección actual es asimétrica.
 +  const rowWarns = (family: ProfileFamily) => warnsAboutAxes(familyToShape(family));
 ```
 
-### 3.3 `ProSectionsTab.svelte` — al construir una
+### 4.3 `ProSectionsTab.svelte` — al construir una
 
 Ya recibe `computed.shape` de `computeSectionProperties`, así que el aviso sale de lo que la
 plantilla declara:
@@ -126,10 +233,10 @@ plantilla declara:
 +  const axesNoticeKey = $derived(computed ? axesNoticeKeyFor(computed.shape as never) : null);
 ```
 
-Y en el bloque de propiedades derivadas, el mismo `{#if}` de §3.1. **La plantilla `invL` (ángulo
+Y en el bloque de propiedades derivadas, el mismo `{#if}` de §4.1. **La plantilla `invL` (ángulo
 desigual) es la que lo dispara acá**, y hoy no dice nada.
 
-### 3.4 `SectionStressPanel.svelte` — el que M2 no puede tocar
+### 4.4 `SectionStressPanel.svelte` — el que M2 no puede tocar
 
 Es el único donde el aviso no es informativo sino **correctivo**: la tensión que muestra viene de
 `σ = N/A + Mz·y/Iz + My·z/Iy`, válida sólo respecto de ejes principales. Para un ángulo o un Z **el
@@ -140,11 +247,11 @@ Básico, y es la aplicación más urgente de las cuatro.**
 
 ---
 
-## 4. Cómo no presentarlo como verificación
+## 5. Cómo no presentarlo como verificación
 
 El riesgo real: un aviso con forma de resultado se lee como un resultado.
 
-**Prohibido, y el patch lo cumple:**
+**Prohibido, y el patch del §4 lo cumple:**
 - pasar por `OutcomeBadge`, `SteelStatusBadge` ni ningún componente de estado de diseño;
 - `--st-ok` o cualquier tratamiento verde;
 - mostrar ratio, aprovechamiento, capacidad o porcentaje;
@@ -163,7 +270,7 @@ teñir, para no abrir esa pregunta.
 
 ---
 
-## 5. Una sola regla, y cómo se garantiza
+## 6. Una sola regla, y cómo se garantiza
 
 El pedido explícito era no duplicar el aviso en dos componentes con reglas distintas. **Ya había una
 duplicación y la removí en esta rama**: `ColdFormedPanel` avisaba con su propio predicado
@@ -182,7 +289,7 @@ sólo puede decir «rotados». Es un dato extra sobre la misma regla, no una reg
 
 ---
 
-## 6. Que no se mueve ningún número — y cómo lo probé
+## 7. Que no se mueve ningún número — y cómo lo probé
 
 Dos argumentos, los dos aseverados en `axes-changes-no-results.test.ts`:
 
@@ -200,13 +307,13 @@ hacia un resolvedor.
 
 ---
 
-## 7. Qué le pido a H1
+## 8. Qué le pido a H1
 
-1. **Aprobar o rechazar** el patch de §3.1 (`SectionEditor`), que es el de mayor rendimiento por
+1. **Aprobar o rechazar** el patch de §4.1 (`SectionEditor`), que es el de mayor rendimiento por
    línea.
-2. **Decidir quién escribe** §3.1, §3.2 y §3.3. El precedente que funcionó es el bloque de tokens:
+2. **Decidir quién escribe** §4.1, §4.2 y §4.3. El precedente que funcionó es el bloque de tokens:
    el dueño del archivo compartido escribe, M2 verifica y ajusta lo suyo.
-3. **Escalar §3.4** a quien sea dueño de modo Básico. Es la única de las cuatro donde el aviso no es
+3. **Escalar §4.4** a quien sea dueño de modo Básico. Es la única de las cuatro donde el aviso no es
    informativo sino correctivo, y ninguna de las dos ramas puede tocarla.
 4. Confirmar que ninguna sección de hormigón queda con aviso: **ninguna plantilla de hormigón
    produce `L`, `invL` ni `Z`** —las de hormigón son `rect` y las macizas— así que el aviso es
