@@ -116,8 +116,13 @@ horizontal overflow none      none       none      none
 canvas share        85 %      79 %       89 %      85 %
 ribbon commands     0         17         0         17
 duplicate mounts    2         0          2         0
-controls under 44px 14        3          14        3
+controls under 44px 14        3 / 14     14        3 / 14
 ```
+
+**Read that last row carefully — it is two measurements, not one.** 3 with no
+panel open; 14 once results are on screen. The number depends entirely on
+what is showing, and quoting it without the state is how "14" got compared
+against a "3" measured somewhere else. §5.2 has the breakdown.
 
 Canvas share goes DOWN and that is the trade, stated plainly: the ribbon costs
 about 6 % of the screen and buys the phone the other half of the application —
@@ -159,34 +164,70 @@ Files touched: `src/App.svelte`, `src/components/ribbon/Ribbon.svelte`,
 `src/components/toolbar/ToolbarExamples.svelte`, `src/lib/store/ui.svelte.ts`,
 `src/styles/tokens.css`.
 
-### 5.2 Remaining touch targets — re-measured, 3 left
+### 5.2 Remaining touch targets — re-measured, and the count depends on state
 
-The 14 are down to **3**, identical at both widths. Removing the parallel
-interface took most of them with it; the ribbon and the sheet's ✕ were built at
-44 px from the start. What is left, all of it overlaying the canvas rather than
-sitting in the shell:
+**The shell is done. What is left is panel CONTENT.** That is the finding, and
+it is a different job from the one this section was written to describe.
+
+The ribbon, the sheet header and its ✕ were built at 44 px in 5.1. But the
+components those panels render — `ToolbarResults`, `DataTable`, the selectors —
+were written for a 320 px desktop side panel and carry desktop density. They
+now appear on a phone unchanged.
+
+Measured at 375×667. **With nothing open, 3:**
 
 | control | size | where |
 |---|---|---|
+| tab rename field | 139×19 | `TabBar.svelte`, `.tab.active` |
 | `[data-testid="pointer-mode"]` | 32×32 | `PointerModeButton.svelte` |
-| its twin, zoom-to-fit | 32×32 | `.viewport-controls` in `Viewport.svelte` |
-| unnamed, no test id | 139×19 | not yet identified — find it before resizing it |
+| its twin, zoom-to-fit | 32×32 | `.viewport-controls`, `Viewport.svelte` |
 
-The first two are a deliberate pair — `PointerModeButton` is documented as
-"sized and skinned as the twin of zoom-to-fit directly below it" — so they have
-to be resized **together** or they stop being a pair. They sit on the canvas, so
-44 px each costs model area; that is the trade to weigh, and it is a real one at
-375 px.
+**Solved, with a moment diagram and the results sheet open, 14** — the three
+above plus eleven inside the sheet:
 
-The 139×19 is short in height only and has no id or text, so identify it before
-touching it. The probe below reports it but not where it lives; add `tagName`
-and `className` to the mapper to find it in one run.
+| control | size | where |
+|---|---|---|
+| ◀ reducir escala | 19×**13** | `.input-group`, `ToolbarResults` |
+| ▶ aumentar escala | 18×**13** | idem |
+| scale field | 80×24 | idem |
+| Diagrama / Mapa de colores | 65×22, 102×22 | `.seg`, `ToolbarResults` |
+| load-case + comparison selects | 112×22, 114×22 | `.input-group` |
+| results case select | 318×24 | `.results-case-bar` |
+| Desplazamientos / Reacciones / Fuerzas Internas | 112×25, 84×25, 110×25 | `.results-sub-tabs` |
+
+Every one of them is short in HEIGHT, not width — the giveaway that these are
+desktop rows in a phone-width container. The two scale steppers at 13 px are
+the worst controls in the application by some distance.
+
+Three ways to take this, smallest first:
+
+1. **The two steppers only.** They are indefensible at 13 px and the fix is
+   local. Leaves twelve.
+2. **`ToolbarResults` properly** — one density pass so its rows are 44 px below
+   768 px. This is the panel a reader actually lives in, and it owns eight of
+   the eleven. Recommended.
+3. **Every panel body** — results, model data, advanced, settings, project.
+   The whole density question. Largest, and worth scoping only after (2) shows
+   what a pass costs.
+
+Whichever is chosen, **measure with a panel open**. The probe reports what is
+on screen, so a run against an empty model says 3 and means nothing.
+
+The two 32×32 canvas buttons are a deliberate pair — `PointerModeButton` is
+documented as "sized and skinned as the twin of zoom-to-fit directly below it"
+— so they move together or they stop being a pair.
 
 The probe used:
 
 ```js
 [...document.querySelectorAll('button, select, input')]
-  .map(e => { const r = e.getBoundingClientRect(); return {t: e.textContent?.trim().slice(0,14), w: r.width, h: r.height}; })
+  .map(e => { const r = e.getBoundingClientRect(); return {
+    t: e.textContent?.trim().slice(0,18),
+    id: e.getAttribute('data-testid') || e.getAttribute('title'),
+    // Without the parent class the report says a control is too small and not
+    // which component to open. That cost a whole extra run.
+    parent: e.parentElement?.getAttribute('class'),
+    w: Math.round(r.width), h: Math.round(r.height) }; })
   .filter(x => x.w > 0 && x.h > 0 && (x.w < 44 || x.h < 44))
 ```
 
