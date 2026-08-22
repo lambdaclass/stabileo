@@ -336,13 +336,34 @@
     ro.observe(canvas.parentElement!);
 
     // Listen for zoom-to-fit events (same mechanism as Viewport3D)
-    const handleZoomToFitEvent = () => {
+    const handleZoomToFitEvent = (retries = 3) => {
       if (modelStore.nodes.size === 0) return;
+      /*
+       * Wait for the canvas to have its final size before framing against it.
+       *
+       * On a phone the fit fires while the layout is still settling — a drawer
+       * closing, the address bar resizing the viewport — and `canvas.width`
+       * is still the previous size or zero. The model is then framed for a
+       * canvas that no longer exists: loading the portal frame on a 375 px
+       * screen put node 1 at x = 400, off the right edge, and what the user
+       * saw was an empty grid with one load label clipped at the border.
+       *
+       * The backing store is set from the CSS box by the resize observer, so
+       * disagreement between the two means the layout has not caught up.
+       */
+      const box = canvas.getBoundingClientRect();
+      const settled = box.width > 0
+        && Math.abs(canvas.width - box.width * (window.devicePixelRatio || 1)) < 2;
+      if (!settled && retries > 0) {
+        requestAnimationFrame(() => handleZoomToFitEvent(retries - 1));
+        return;
+      }
       const projected = [...modelStore.nodes.values()].map(n => project2DNode(n));
       uiStore.zoomToFit(projected, canvas.width, canvas.height);
       invalidate();
     };
-    window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
+    const onZoomToFit = () => handleZoomToFitEvent();
+    window.addEventListener('stabileo-zoom-to-fit', onZoomToFit);
 
     // Initial draw — needsRedraw is already true, so schedule the first frame directly
     rafId = requestAnimationFrame(drawOnce);
@@ -352,7 +373,7 @@
       rafId = null;
       ro.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
-      window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
+      window.removeEventListener('stabileo-zoom-to-fit', onZoomToFit);
     };
   });
 

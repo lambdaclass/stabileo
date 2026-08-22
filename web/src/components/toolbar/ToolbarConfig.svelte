@@ -2,6 +2,7 @@
   import { uiStore, resultsStore } from '../../lib/store';
   import { unitLabel } from '../../lib/utils/units';
   import { t } from '../../lib/i18n';
+  import { setLocale, OFFERED_LOCALES, i18n } from '../../lib/i18n/store.svelte';
   import HelpTip from '../HelpTip.svelte';
 
   /** When true, skip outer toggle and show content directly (used in PRO dropdown). */
@@ -194,7 +195,30 @@
           </label>
         {/if}
         <div class="input-group">
-          <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
+          <!--
+          Language, on a phone only.
+          ─────────────────────────
+          The header selector is hidden below 768 px: it held a permanent slot
+          in the tightest row in the application for a control touched once.
+          Hiding it without giving it somewhere else would have taken the
+          setting away from phone users entirely, so it lands here, beside the
+          other things you set once and forget.
+        -->
+        {#if uiStore.isMobile}
+          <div class="input-group cfg-lang">
+            <HelpTip text={t('config.tip.language')}><label>{t('app.language')}:</label></HelpTip>
+            <select
+              value={i18n.locale}
+              onchange={(e) => setLocale(e.currentTarget.value)}
+              data-testid="cfg-lang-select"
+            >
+              {#each OFFERED_LOCALES as code (code)}
+                <option value={code}>{t(`lang.${code}`)}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+        <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
           <select bind:value={uiStore.unitSystem}>
             <option value="SI">{t('config.unitSI')}</option>
             <option value="Imperial">{t('config.unitImperial')}</option>

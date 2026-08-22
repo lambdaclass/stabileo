@@ -1432,6 +1432,7 @@ const pt: Translations = {
   'demo.basics2d.examplesDesc': 'Dezenove estruturas 2D, de uma viga simples a um edifício aporticado. Escolha uma para ver, ou siga e um pórtico é carregado.',
   'demo.basics3d.examplesTitle': 'O catálogo 3D',
   'demo.basics3d.examplesDesc': 'Dez estruturas 3D, de um balanço a um galpão industrial. Escolha uma, ou siga e um pórtico 3D é carregado.',
+  'config.tip.language': 'O idioma de toda a interface. Também está no cabeçalho em telas maiores.',
   'viewport.selectKindHint': 'Para mudar o que é selecionado, edite no painel superior em «Seleção».',
   'viewport.modePan': 'Mover — arraste o mouse para mover a vista',
   'viewport.modeSelect': 'Selecionar — arraste o mouse para selecionar barras',
