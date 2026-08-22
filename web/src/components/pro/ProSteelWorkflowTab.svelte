@@ -45,6 +45,9 @@
   import { bindingLabel } from '../../lib/codes/roles';
   import { te } from '../../lib/i18n/engine-text';
   import { steelInputCompleteness, steelInputGapKey } from '../../lib/engine/verification-service';
+  import { gradeRows, sectionRows, rowStateKey } from '../../lib/engine/steel/workflow-rows';
+  import { structuralGradeSource } from '../../lib/grades/catalogue';
+  import { steelProfileSource } from '../../lib/profiles/catalogue';
   import { CIRSOC301_JS_ASSUMPTIONS } from '../../lib/engine/design/adapters/cirsoc301-capabilities';
 
   type State = 'done' | 'current' | 'blocked' | 'optional';
@@ -67,6 +70,23 @@
    * members had a guessed strength would be the first lie on the screen.
    */
   const withoutGrade = $derived(members.filter((m) => !m.gradeId).length);
+
+  /**
+   * Which section belongs to which element.
+   *
+   * The inventory is pure and carries the section NAME, not its id, so the row builders are handed
+   * this lookup rather than the store.
+   */
+  const sectionOf = $derived((elementId: number) =>
+    modelStore.model.elements.get(elementId)?.sectionId);
+
+  /** Per-member detail for stages 2 and 3 — the rows, not the counts. */
+  const gRows = $derived(gradeRows(
+    inv, modelStore.model.sections as never, sectionOf, structuralGradeSource,
+  ));
+  const sRows = $derived(sectionRows(
+    inv, modelStore.model.sections as never, sectionOf, steelProfileSource,
+  ));
   const gradeState = $derived<State>(
     !hasSteel ? 'optional' : withoutGrade === 0 ? 'done' : 'current',
   );
@@ -186,6 +206,74 @@
         ? t('steel.workflow.grade.allDeclared')
         : tp('steel.workflow.grade.someInferred', { n: withoutGrade })}
     </p>
+
+    {#if gRows.length === 0}
+      <p class="line muted" data-testid="steel-grade-empty">{t('steel.rows.noMembers')}</p>
+    {:else}
+      <!--
+        One row per member. A count told a user how many were unresolved; this tells them WHICH,
+        and what is missing from each — which is the part a number cannot carry.
+      -->
+      <table class="rows" data-testid="steel-grade-rows">
+        <thead>
+          <tr>
+            <th>{t('steel.rows.header.member')}</th>
+            <th>{t('steel.rows.header.grade')}</th>
+            <th>{t('steel.rows.header.standard')}</th>
+            <th>{t('steel.rows.header.thickness')}</th>
+            <th>{t('steel.rows.header.state')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each gRows as row (row.elementId)}
+            <tr data-testid={`steel-grade-row-${row.elementId}`} data-state={row.state}>
+              <td>
+                <span class="id">#{row.elementId}</span>
+                <span class="name">{row.memberName}</span>
+                <span class="fam">{row.family}</span>
+                {#if row.familyCaveatKey}
+                  <!-- Inferred, and said so: a family shown without its caveat is a guess made fact. -->
+                  <span class="caveat" data-testid={`steel-grade-inferred-${row.elementId}`}
+                    >{t('steel.rows.inferredFamily')}</span>
+                {/if}
+              </td>
+              <!--
+                The grade as DECLARED. Never derived from `fy` — an absent grade prints an em dash,
+                not a plausible designation.
+              -->
+              <td data-testid={`steel-grade-designation-${row.elementId}`}>
+                {row.designation ?? '—'}
+                {#if row.gradeId}<span class="gid">{row.gradeId}</span>{/if}
+              </td>
+              <td>{row.productStandard ?? '—'}</td>
+              <td>
+                {row.thicknessMm != null ? `${row.thicknessMm.toFixed(1)} mm` : '—'}
+                {#if row.hasThicknessBands && row.bandStandard}
+                  <!-- The band standard is NOT the product standard, and is labelled separately. -->
+                  <span class="band">{tp('steel.rows.bandStandard', { std: row.bandStandard })}</span>
+                {/if}
+              </td>
+              <td class="state">{t(rowStateKey(row.state))}</td>
+            </tr>
+            {#if row.missing.length > 0}
+              <tr class="why" data-testid={`steel-grade-missing-${row.elementId}`}>
+                <td colspan="5">
+                  <ul>
+                    {#each row.missing as d (d.key)}
+                      <li>
+                        <strong>{t(d.key)}</strong>
+                        <span class="sev">{t(`steel.rows.severity.${d.severity}`)}</span>
+                        <span>{t(d.whyKey)}</span>
+                      </li>
+                    {/each}
+                  </ul>
+                </td>
+              </tr>
+            {/if}
+          {/each}
+        </tbody>
+      </table>
+    {/if}
   </StageSection>
 
   <StageSection
@@ -203,6 +291,54 @@
       <ul class="list" data-testid="steel-stage-section-gaps">
         {#each gapKinds as gap (gap)}<li>{t(steelInputGapKey(gap))}</li>{/each}
       </ul>
+    {/if}
+
+    {#if sRows.length === 0}
+      <p class="line muted" data-testid="steel-section-empty">{t('steel.rows.noMembers')}</p>
+    {:else}
+      <table class="rows" data-testid="steel-section-rows">
+        <thead>
+          <tr>
+            <th>{t('steel.rows.header.member')}</th>
+            <th>{t('steel.rows.header.section')}</th>
+            <th>{t('steel.rows.header.origin')}</th>
+            <th>{t('steel.rows.header.missing')}</th>
+            <th>{t('steel.rows.header.state')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each sRows as row (row.elementId)}
+            <tr data-testid={`steel-section-row-${row.elementId}`} data-state={row.state}>
+              <td><span class="id">#{row.elementId}</span></td>
+              <td>
+                <span class="name">{row.sectionName}</span>
+                {#if row.family}<span class="fam">{row.family}</span>{/if}
+                {#if row.catalogueId}<span class="gid">{row.catalogueId}</span>{/if}
+              </td>
+              <td data-testid={`steel-section-origin-${row.elementId}`}
+                >{t(`steel.rows.origin.${row.origin}`)}</td>
+              <td data-testid={`steel-section-absent-${row.elementId}`}>
+                {#if row.absent.length === 0}
+                  —
+                {:else}
+                  <!-- Named, not counted: each absent property has its own remedy. -->
+                  {row.absent.map((k) => t(k)).join(' · ')}
+                {/if}
+              </td>
+              <td class="state">{t(rowStateKey(row.state))}</td>
+            </tr>
+            {#if row.blockedBy}
+              <!--
+                The distinction that decides what a user should do: a geometric gap they can close,
+                an authority gap no input will move.
+              -->
+              <tr class="why" data-testid={`steel-section-blocked-${row.elementId}`}>
+                <td colspan="5">{t(`steel.rows.blockedBy.${row.blockedBy}`)}</td>
+              </tr>
+            {/if}
+          {/each}
+        </tbody>
+      </table>
     {/if}
   </StageSection>
 
@@ -294,6 +430,32 @@
   */
   .blockers li.addressed { opacity: 0.6; }
   .mark { flex: none; width: 0.7rem; }
+
+  /* Per-member tables. Dense, because the point is to scan them. */
+  .rows { width: 100%; border-collapse: collapse; font-size: 0.68rem; margin-top: 0.4rem; }
+  .rows th {
+    text-align: left; font-weight: 400; opacity: 0.7; padding: 0.15rem 0.4rem 0.15rem 0;
+    border-bottom: 1px solid var(--st-hair);
+  }
+  .rows td { padding: 0.18rem 0.4rem 0.18rem 0; vertical-align: top; }
+  .rows tr.why td { padding-top: 0; padding-bottom: 0.3rem; opacity: 0.85; }
+  .rows tr.why ul { list-style: none; margin: 0; padding: 0; }
+  .rows tr.why li { padding: 0.08rem 0; }
+  .id { font-family: var(--st-mono, monospace); opacity: 0.7; margin-right: 0.3rem; }
+  .name { color: var(--st-value); }
+  .fam, .gid, .band {
+    display: inline-block; margin-left: 0.3rem; font-size: 0.6rem; opacity: 0.7;
+  }
+  .caveat { display: block; font-size: 0.6rem; color: var(--st-warn); }
+  .sev { margin: 0 0.3rem; font-size: 0.6rem; color: var(--st-warn); }
+  .state { white-space: nowrap; }
+  /*
+    Every state is a WORD, so none of them needs colour to be read. Only the two that need a user
+    to act carry a tint, and neither is `--st-ok`: nothing here is a pass.
+  */
+  .rows tr[data-state='incomplete'] .state { color: var(--st-warn); }
+  .rows tr[data-state='authorityBlocked'] .state { color: var(--st-warn); }
+  .muted { opacity: 0.7; }
   /* The state word, for a reader who cannot see the glyph. */
   .sr {
     position: absolute; width: 1px; height: 1px; overflow: hidden;

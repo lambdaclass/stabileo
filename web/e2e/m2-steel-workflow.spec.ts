@@ -171,6 +171,101 @@ test.describe('nothing on the screen claims a verification', () => {
   });
 });
 
+test.describe('stages 2 and 3 show detail per member, not a counter', () => {
+  /** A truss puts several metallic members in the model, each with its own row. */
+  async function generateTruss(page: Page): Promise<void> {
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-generators').click();
+    await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
+    await page.getByTestId('gen-kind-truss').click();
+    await page.getByTestId('gen-generate').click();
+    await expect(page.getByTestId('gen-result')).toBeVisible();
+  }
+
+  test('the grade stage lists a row per member, with its own state', async ({ page }) => {
+    await page.goto(PRO_URL);
+    await generateTruss(page);
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-steel').click();
+    await page.getByTestId('steel-stage-grade').click();
+
+    const rows = page.locator('[data-testid^="steel-grade-row-"]');
+    // More than one: a table, not a summary line.
+    expect(await rows.count()).toBeGreaterThan(1);
+    // And every row carries a state word, so none of them depends on colour.
+    for (let i = 0; i < Math.min(await rows.count(), 4); i++) {
+      const text = await rows.nth(i).innerText();
+      expect(text.trim().length).toBeGreaterThan(5);
+      await expect(rows.nth(i)).toHaveAttribute('data-state', /chosen|incomplete|unavailable|outOfScope|authorityBlocked/);
+    }
+  });
+
+  test('an absent grade shows an em dash, never a designation guessed from fy', async ({ page }) => {
+    /*
+     * The rule, at the surface. A generated truss carries no declared grade, so every designation
+     * cell must be empty — and specifically must NOT contain a plausible-looking grade name that
+     * the app inferred from the yield strength.
+     */
+    await page.goto(PRO_URL);
+    await generateTruss(page);
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-steel').click();
+    await page.getByTestId('steel-stage-grade').click();
+
+    const cells = page.locator('[data-testid^="steel-grade-designation-"]');
+    const n = Math.min(await cells.count(), 4);
+    expect(n).toBeGreaterThan(0);
+    for (let i = 0; i < n; i++) {
+      expect((await cells.nth(i).innerText()).trim()).toBe('—');
+    }
+  });
+
+  test('and says what is missing together with why it matters', async ({ page }) => {
+    await page.goto(PRO_URL);
+    await generateTruss(page);
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-steel').click();
+    await page.getByTestId('steel-stage-grade').click();
+
+    const why = page.locator('[data-testid^="steel-grade-missing-"]').first();
+    await expect(why).toBeVisible();
+    // A sentence, not a label: the reason is what makes the absence actionable.
+    expect((await why.innerText()).trim().length).toBeGreaterThan(60);
+  });
+
+  test('the section stage names the origin and what is absent, per member', async ({ page }) => {
+    await page.goto(PRO_URL);
+    await generateTruss(page);
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-steel').click();
+    await page.getByTestId('steel-stage-section').click();
+
+    const rows = page.locator('[data-testid^="steel-section-row-"]');
+    expect(await rows.count()).toBeGreaterThan(1);
+    const origin = page.locator('[data-testid^="steel-section-origin-"]').first();
+    await expect(origin).toBeVisible();
+    expect((await origin.innerText()).trim().length).toBeGreaterThan(3);
+    // A key leaking through instead of a translation.
+    await expect(origin).not.toContainText('steel.rows.origin');
+  });
+
+  test('and no row state ever reads as a pass', async ({ page }) => {
+    await page.goto(PRO_URL);
+    await generateTruss(page);
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-steel').click();
+    for (const stage of ['grade', 'section']) {
+      await page.getByTestId(`steel-stage-${stage}`).click();
+    }
+    const states = await page.locator('[data-testid^="steel-grade-row-"], [data-testid^="steel-section-row-"]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-state')!));
+    expect(states.length).toBeGreaterThan(1);
+    for (const s of states) {
+      expect(['chosen', 'incomplete', 'unavailable', 'outOfScope', 'authorityBlocked']).toContain(s);
+    }
+  });
+});
+
 test.describe('it is not a second, disconnected application', () => {
   test('the inventory a user already knew is inside it, as the last stage', async ({ page }) => {
     /*

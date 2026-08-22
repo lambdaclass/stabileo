@@ -45,9 +45,22 @@ describe('structure — the eight stages, in order', () => {
   });
 
   it('consumes StageSection and does not reimplement it', () => {
-    // The whole point of the file: a metallic workflow with no edit to a shared component.
+    /*
+     * The whole point of the file: a metallic workflow with no edit to a shared component.
+     *
+     * «Does not reimplement» is about the stage CARD — the numbered marker, the state glyph, the
+     * disclosure — not about the `data-state` attribute in general. The per-member tables carry
+     * their own `data-state` on each row, which is this file's markup and nothing to do with
+     * `StageSection`; an earlier version of this assertion banned the attribute outright and
+     * flagged exactly that.
+     *
+     * So what is checked is the absence of a rival stage card: no `.stage` or `.marker[data-state]`
+     * styling of its own.
+     */
     expect(SRC).toContain("import StageSection from './design/StageSection.svelte'");
-    expect(SRC).not.toMatch(/data-state=/);   // that markup belongs to StageSection
+    const css = SRC.split('<style>')[1];
+    expect(css).not.toMatch(/\.stage\b/);
+    expect(css).not.toMatch(/\.marker\[data-state/);
   });
 });
 
