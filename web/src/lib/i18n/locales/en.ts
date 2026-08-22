@@ -5425,7 +5425,7 @@ const en: Record<string, string> = {
   'detailing.scene.outcome.SEARCH_EXHAUSTED': 'search exhausted',
   'detailing.scene.outcome.UNSUPPORTED': 'unsupported',
   'detailing.scene.workspace.title': '3-D reinforcement workspace',
-  'detailing.scene.workspace.close': 'Back to the model',
+  'detailing.scene.workspace.close': 'Back to the workflow',
   'detailing.scene.openWorkspace': 'Open 3-D workspace',
   'detailing.scene.layers': 'Layers',
   'detailing.scene.kind.column': 'Columns',

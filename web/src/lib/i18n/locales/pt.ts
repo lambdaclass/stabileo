@@ -4099,7 +4099,7 @@ const pt: Translations = {
   'detailing.scene.unreinforcedCount': '{n} elemento(s) sem armadura — desenhados em laranja',
   'detailing.scene.unresolved': 'Sem concreto desenhado em {n} elemento(s): {ids}',
   'detailing.scene.unresolvedWhy': 'A sua seção não declara um retângulo b×h. Mostra-se a lacuna em vez de inventar uma seção.',
-  'detailing.scene.workspace.close': 'Voltar ao modelo',
+  'detailing.scene.workspace.close': 'Voltar ao workflow',
   'detailing.scene.workspace.title': 'Visualizador 3D de armaduras',
   'detailing.schedule': 'Planilha de dobragem',
   'detailing.schedule.purpose': 'Função',

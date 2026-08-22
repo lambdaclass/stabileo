@@ -5412,7 +5412,7 @@ const es: Record<string, string> = {
   'detailing.scene.outcome.SEARCH_EXHAUSTED': 'búsqueda agotada',
   'detailing.scene.outcome.UNSUPPORTED': 'no soportado',
   'detailing.scene.workspace.title': 'Visor 3D de armaduras',
-  'detailing.scene.workspace.close': 'Volver al modelo',
+  'detailing.scene.workspace.close': 'Volver al workflow',
   'detailing.scene.openWorkspace': 'Abrir visor 3D',
   'detailing.scene.layers': 'Capas',
   'detailing.scene.kind.column': 'Columnas',

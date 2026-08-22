@@ -144,7 +144,8 @@ test.describe('@slow filters and layers', () => {
       test.info().annotations.push({
         type: 'coverage',
         description: 'conflicts and unreinforced: controls present, nothing to filter on '
-          + 'rc-design-qa-8 — unexercised, not dead',
+          + 'rc-design-qa-8 — the conflicts layer IS exercised on rc-qa-diagnostic in '
+          + 'h1e-conflict-states.spec.ts; unreinforced still has no fixture',
       });
     });
 
@@ -196,17 +197,27 @@ test.describe('@slow the rail, and getting back out', () => {
       await expect(page.getByTestId('documents-stage')).toBeVisible();
     });
 
-  test('the close button is the only labelled way back — there is no Back', async ({ pro: page }) => {
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await openWorkspace(page);
-    await expect(page.getByTestId('rebar-workspace-close')).toBeVisible();
-    /*
-     * `rebar-back` does not exist. Escape and the close button both return correctly, so the route
-     * is there — what is missing is a labelled affordance that says "back to the workflow", which
-     * is a content decision and not made here.
-     */
-    await expect(page.getByTestId('rebar-back')).toHaveCount(0);
-  });
+  test('the close button says where it goes, and it is the only button that goes there',
+    async ({ pro: page }) => {
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await openWorkspace(page);
+      const close = page.getByTestId('rebar-workspace-close');
+      await expect(close).toBeVisible();
+      /*
+       * It read "Back to the model", and closing returns to the design stage it was opened from —
+       * Documents — not to the model editor. Relabelled, in the three offered locales.
+       *
+       * `rebar-back` still does not exist, and that is the point: one control was relabelled
+       * rather than a second route added. Escape and this button remain the only two ways out.
+       */
+      expect((await close.innerText()).toLowerCase()).toMatch(/workflow/);
+      await expect(page.getByTestId('rebar-back')).toHaveCount(0);
+
+      await close.click();
+      await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
+      expect(await activeTestId(page), 'and it returns focus like Escape does').toBe('doc-3d');
+      await expect(page.getByTestId('documents-stage')).toBeVisible();
+    });
 });
 
 test.describe('@slow the empty state', () => {

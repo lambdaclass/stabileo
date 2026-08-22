@@ -323,6 +323,14 @@
       >
         {t('detailing.scene.reset')}
       </button>
+      <!--
+        The label says WORKFLOW, not model.
+
+        Closing this overlay returns to the design stage it was opened from — Documents, in
+        practice — not to the model editor, and "Back to the model" pointed somewhere the button
+        does not go. One relabelled control, not a second route: `rebar-back` deliberately does
+        not exist, and Escape and this button remain the only two ways out.
+      -->
       <button
         class="close"
         type="button"
