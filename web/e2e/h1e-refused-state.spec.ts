@@ -14,10 +14,10 @@
  * 90 × 120 mm — and the design runs again. What follows is the real engine's verdict:
  * `SEARCH_EXHAUSTED` ×8, alongside `VERIFIED` ×4 on the members that use other sections.
  *
- * `element-status.ts:345` maps `SEARCH_EXHAUSTED` to `REFUSED` — and the rail never shows it,
- * because `FAILED` is tested first and a refused member also fails verification. That is the
- * finding this fixture produced, it is not a fixture problem, and the second test pins it as it
- * is rather than patching a classifier.
+ * This fixture is what found that `REFUSED` was unreachable: `FAILED` was tested first and a
+ * refused member also fails verification, so the rail said `failed 5 · refused 0` while the
+ * design table said `SEARCH_EXHAUSTED` ×8. The classifier now lets an outcome that already
+ * explains its own failure through, and these assert the corrected behaviour.
  *
  * Nothing writes a state. The engine enumerates the whole code-permitted reinforcement envelope
  * for a column that cannot carry its demand, finds nothing that verifies, and says so — which is
@@ -88,7 +88,7 @@ test.describe('@slow the design refuses, and the app says so', () => {
     expect(after.VERIFIED ?? 0, 'the members on other sections still verify').toBeGreaterThan(0);
   });
 
-  test('the rail reports it as FAILED, because FAILED is checked first',
+  test('the rail says REFUSED, and gives the remedy the refusal calls for',
     async ({ pro: page }) => {
       await withRefusedMembers(page);
       await page.getByTestId('detailing-disclosure').locator('> summary').click();
@@ -111,43 +111,37 @@ test.describe('@slow the design refuses, and the app says so', () => {
         .toBeGreaterThan(builds);
 
       /**
-       * The finding this fixture produced, and it is not a fixture problem.
+       * What this fixture was built to reach, and could not until the classifier was corrected.
        *
-       * The design outcome IS `SEARCH_EXHAUSTED` — the table says so — and
-       * `element-status.ts:345` maps that to `REFUSED`. But the classifier checks
-       * `verificationStatus === 'fail'` FIRST, at line 316, and a member whose design was
-       * refused also fails verification: the refusal happened precisely because nothing in the
-       * envelope verified. So `FAILED` wins and `REFUSED` is never reached.
-       *
-       * `FAILED` being first is right for the case its comment describes — a member with a stale
-       * VERIFIED outcome that fails now — but it swallows the distinction the states exist to
-       * make. `element-status.ts`'s own header states the remedies: a refusal means "change the
-       * section, or design by hand"; a failure means the reinforcement does not pass. Reporting
-       * the second sends the reader to the wrong fix.
-       *
-       * Asserted as it IS, and reported for a decision rather than patched here — reordering a
-       * classifier changes what every member in the app is called.
+       * `FAILED` used to preempt every refusal, because a refused member also fails verification.
+       * It now preempts only when the outcome does not already name the reason. The two states
+       * mean different remedies — change the section, versus change the reinforcement — so the
+       * rail was sending the reader to a fix that could not work.
        */
-      const failed = page.locator('.st-failed');
-      expect(await failed.count(), 'the refusal surfaces as FAILED').toBeGreaterThan(0);
-      expect(await page.locator('.st-refused').count(),
-        'and REFUSED stays unreachable while FAILED outranks it').toBe(0);
+      const refused = page.locator('.st-refused');
+      expect(await refused.count(), 'the refusal is reported as one').toBeGreaterThan(0);
 
-      // Whatever it is CALLED, it is stated in words and carries the scene's own colour.
-      const row = failed.first();
+      const row = refused.first();
       const text = (await row.locator('.st, .label').first().innerText()).trim();
-      expect(text.length, 'the state is a word').toBeGreaterThan(1);
+      expect(text.length, 'the state is a word, not only a colour').toBeGreaterThan(1);
       expect(text.toLowerCase(), 'and it does not claim success')
         .not.toMatch(/verified|verificado|modelled|modelado/);
 
+      /*
+       * The glyph, by value against the scene: `unreinforced: 0xd4762a`. A refused member carries
+       * no steel, so this is the colour the viewport paints its concrete with, and the rail must
+       * agree — the mirror `shared-status-tokens.test.ts` asserts in both directions, here on a
+       * member that actually has the state.
+       */
       const painted = await row.locator('.dot').first()
         .evaluate((el) => getComputedStyle(el).backgroundColor);
       const scene = await page.evaluate(() => {
         const el = document.createElement('span');
-        el.style.color = '#e0444a'; document.body.appendChild(el);
+        el.style.color = '#d4762a'; document.body.appendChild(el);
         const out = getComputedStyle(el).color; el.remove(); return out;
       });
-      expect(painted, 'the dot is the scene conflicted red').toBe(scene);
+      expect(painted, 'the refused dot is the unreinforced orange, not the conflicted red')
+        .toBe(scene);
     });
 
   test('the member loses its steel, and the unreinforced block names it',

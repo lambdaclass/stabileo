@@ -255,3 +255,100 @@ Medido: `documents-stage 0 · documents-empty 1 · doc-xlsx 0 · doc-error 0`.
 `detailing.doc.noCoordinated` queda como guarda defensiva de una carrera que el propio código
 eliminó al leer del store **persistido** en vez de un `$derived`. El test de inalcanzabilidad se
 mantiene.
+
+---
+
+## 8. `REFUSED` visible — el orden de clasificación corregido
+
+### El cambio
+
+`element-status.ts`, un `if`:
+
+```diff
+-  if (summary?.verificationStatus === 'fail' && !isKnownBiaxialLimitation(summary)) {
++  const EXPLAINS_ITS_OWN_FAILURE = ['SEARCH_EXHAUSTED', 'SECTION_INADEQUATE', 'UNSUPPORTED'];
++  const outcomeExplainsIt = summary?.outcome !== undefined
++    && EXPLAINS_ITS_OWN_FAILURE.includes(summary.outcome);
++
++  if (summary?.verificationStatus === 'fail'
++    && !isKnownBiaxialLimitation(summary)
++    && !outcomeExplainsIt) {
+     return 'FAILED';
+   }
+```
+
+**`FAILED` conserva la prioridad exactamente para el caso que describe su comentario** — un
+resultado con outcome `VERIFIED` que hoy falla, o un miembro sin outcome donde no hay nada más
+que decir. Los tres outcomes que **ya nombran el motivo** caen al `switch` y se llaman como lo que
+son.
+
+### Un error propio que atraparon los tests existentes
+
+La primera versión decía `summary.outcome !== 'VERIFIED'`, o sea "todo menos verificado". Eso
+rompió la **excepción biaxial estrecha**: una propuesta `PROVISIONAL_BIAXIAL` que además falla en
+flexión volvía a `PROVISIONAL` en vez de `FAILED`.
+
+Dos tests preexistentes lo cazaron —`element-status.test.ts` y
+`provisional-presentation.test.ts`— y ése es el argumento de la lista explícita:
+`PROVISIONAL_BIAXIAL` **no** explica un fallo de flexión, y `DEMAND_UNAVAILABLE` tampoco explica
+un fallo de verificación.
+
+### Semántica, antes y después
+
+| outcome | verificación | antes | ahora |
+|---|---|---|---|
+| `SEARCH_EXHAUSTED` | falla | FAILED | **REFUSED** |
+| `SECTION_INADEQUATE` | falla | FAILED | **REFUSED** |
+| `UNSUPPORTED` | falla | FAILED | **UNSUPPORTED** |
+| `VERIFIED` | falla | FAILED | FAILED *(sin cambio)* |
+| sin outcome | falla | FAILED | FAILED *(sin cambio)* |
+| `PROVISIONAL_BIAXIAL`, sólo biaxial | falla | PROVISIONAL | PROVISIONAL *(sin cambio)* |
+| `PROVISIONAL_BIAXIAL`, además flexión | falla | FAILED | FAILED *(sin cambio)* |
+
+**Los cuatro estados metálicos sin VERIFIED se conservan.** Los dos lados del cambio siguen en
+`NOT_FOR_CONSTRUCTION_STATUSES` —la lista que consumen la leyenda del visor, las láminas, la
+planilla y el reporte— así que ningún camino puede hacer que un rechazo se lea como trabajo
+terminado. Aserido en el test.
+
+### Consumidores revisados
+
+- `RebarStatusPanel` — `.st-failed` (`#e0444a`) y `.st-refused` (`#d4762a`): los dos ya existían
+  y los dos espejan la escena. **Ningún cambio de CSS.**
+- `ELEMENT_STATUS_ORDER` y `NOT_FOR_CONSTRUCTION_STATUSES` — ya contenían los dos estados.
+- Los otros `'FAILED'` del árbol son **enums distintos**: `family-record.ts` (estado de
+  certificado de familia) y `rc-cad-handoff-v2-types.ts` (handoff CAD). No los toca.
+
+### Idiomas y badges
+
+`detailing.scene.status.REFUSED` y `.FAILED` **ya existían en los tres idiomas ofrecidos**:
+Refused / Rechazado / Recusado, y Failed / Falla / Falha. No hizo falta ninguna clave nueva, y
+`locale-parity` y `pro-flow-coverage` siguen verdes.
+
+### Verificación
+
+Los tres tests de rechazo **fallaban** con el orden anterior (`expected 'FAILED' to be 'REFUSED'`)
+y pasan con el nuevo; los cinco de regresión pasaban antes y siguen pasando. El fixture
+`h1e-refused-state` pasó de asertar `refused === 0` a asertar que el rail **dice REFUSED** con su
+palabra y con el naranja `#d4762a` de la escena — no el rojo de conflicto.
+
+## 9. Estado final de la cobertura de H1-E
+
+**Cubierto en navegador:** rechazo real y visible como tal, conflictos y `ConflictInspector`
+completo, ausencias distinguidas en tres idiomas, sección de corte, rail angosto, familias, foco,
+`Escape` y retorno.
+
+**Documentado como inalcanzable, con la cadena completa:** `doc-error` (§7.4) — el paso que
+elimina los botones ocurre antes de que el guard pueda dispararse, y no hay orden de eventos que
+lo evite porque es la misma lista.
+
+**Ausente de los fixtures actuales:** ningún ejemplo RC produce un miembro sin armar *por sí
+mismo*; el que existe ahora lo produce el fixture de `updateSection`.
+
+**`updateSection` es mecanismo exclusivo de test.** Vive sólo en `e2e-hooks.ts`, junto a
+`selectConflict`, `selectAssembly` y `reviewAssembly`. Nada de la aplicación lo llama. Cambia una
+dimensión y nada más: el rechazo que sigue es del motor real sobre una sección que genuinamente no
+alcanza.
+
+**Limitaciones que quedan:** el contenido de los archivos exportados (XLSX verificado por nombre,
+DXF no verificado, el reporte abre ventana sin PDF inspeccionable), y el registro de exportaciones,
+que necesita el contrato de `h1-export-record-contract.md`.
