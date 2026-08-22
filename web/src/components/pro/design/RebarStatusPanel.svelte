@@ -214,7 +214,10 @@
   .count-row.active { border-color: currentColor; }
   .element.selected { background: rgba(255, 212, 0, 0.16); border-color: #ffd400; }
   .label, .id { flex: 1 1 auto; }
-  .n, .st { font-variant-numeric: tabular-nums; opacity: 0.85; }
+  /* `.n` is a count and takes the mono family; `.st` is a translated STATE WORD and does not.
+     They shared a rule, and `tabular-nums` never did anything for the word. */
+  .n { font-family: var(--st-mono); font-variant-numeric: tabular-nums; opacity: 0.85; }
+  .st { opacity: 0.85; }
   .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: 0 0 auto; }
   /*
      One colour per state, and never two states sharing one.
@@ -283,7 +286,10 @@
   }
   /* `--st-interactive` — "you can click this" — not `--st-focus`, which is the ring. */
   .cause:hover { color: var(--st-text); border-left-color: var(--st-interactive); }
-  .cause-n { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .cause-n {
+    flex: none; font-family: var(--st-mono); font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
   .cause-text { min-width: 0; }
   .link {
     background: none; border: none; padding: 0; color: var(--st-interactive);

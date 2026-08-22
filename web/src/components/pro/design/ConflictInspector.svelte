@@ -112,7 +112,7 @@
     margin: 0; font-size: 0.74rem;
   }
   dt { color: var(--text-muted, #8b93a3); }
-  dd { margin: 0; font-variant-numeric: tabular-nums; }
+  dd { margin: 0; font-family: var(--st-mono); font-variant-numeric: tabular-nums; }
   .warn {
     margin: 0.2rem 0 0; padding: 0.3rem 0.4rem;
     /* Fill and rule frozen: `#e0444a` is `conflicted: 0xe0444a` in the 3-D scene and the

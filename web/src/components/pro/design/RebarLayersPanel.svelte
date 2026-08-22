@@ -226,7 +226,10 @@
     text-align: left; font-weight: 400; color: var(--st-text-2);
     padding: 0.08rem 0;
   }
-  .tally td { text-align: right; font-variant-numeric: tabular-nums; padding: 0.08rem 0; }
+  .tally td {
+    text-align: right; font-family: var(--st-mono); font-variant-numeric: tabular-nums;
+    padding: 0.08rem 0;
+  }
   .tally .totals {
     display: flex; flex-direction: column; gap: 0.05rem;
     margin: 0 0 0.25rem; font-size: 0.72rem; color: var(--st-text-2);

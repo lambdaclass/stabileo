@@ -122,7 +122,10 @@
     margin: 0; font-size: 0.74rem;
   }
   dt { color: var(--text-muted, #8b93a3); }
-  dd { margin: 0; }
+  /* Its sibling `ConflictInspector` marked its `dd` as a figure column and this one never did,
+     though both report measured values in the same rail — a clearance in one, a diameter and
+     a length in the other. Same treatment now. */
+  dd { margin: 0; font-family: var(--st-mono); font-variant-numeric: tabular-nums; }
   .hint { margin: 0; font-size: 0.72rem; color: var(--text-muted, #8b93a3); }
   .sel-status { margin: 0.3rem 0 0; font-size: 0.74rem; }
   /* The same amber the workspace banner uses. One colour, one meaning — so this pair and

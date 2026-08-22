@@ -427,6 +427,11 @@
     background: var(--st-bg);
     color: var(--st-text);
 
+    /* Mounted OUTSIDE `.app-container`, the one element declaring the app font, so it
+       inherited `-apple-system`. The mount point is deliberate and stays; see
+       `docs/handoffs/h1a-concrete-flow-audit.md` §4. */
+    font-family: var(--st-sans);
+
     /*
        ── Why the workspace looked like a different application ───────
 
@@ -455,6 +460,12 @@
     --st-border: var(--st-hair-strong);
     --panel: var(--st-surface);
   }
+
+  /* Controls do not inherit a font: 12 buttons and 13 inputs in here were Arial. Scoped to
+     `.workspace` — the rest of the application has the same defect at a far larger scale and is
+     not H1's file to fix. `font-family`, not `font`, which would reset deliberate sizes. */
+  .workspace :global(button), .workspace :global(input),
+  .workspace :global(select), .workspace :global(textarea) { font-family: inherit; }
 
   /* The container is `tabindex="-1"` purely as a landing pad for focus on open, so it can
      never be tabbed TO and a ring around the whole window would only say "something is

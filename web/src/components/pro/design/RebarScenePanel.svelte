@@ -231,7 +231,9 @@
   .warn { color: #e0444a; }
   .states { list-style: none; margin: 0; padding: 0; font-size: 0.76rem; }
   .states li { display: flex; align-items: center; gap: 0.35rem; padding: 0.05rem 0; }
-  .states strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .states strong {
+    margin-left: auto; font-family: var(--st-mono); font-variant-numeric: tabular-nums;
+  }
   .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; }
   .dot.failed { background: #e0444a; }
   .dot.unsupported { background: #b06ad6; }
