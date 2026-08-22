@@ -104,7 +104,13 @@ export interface Section {
   iz: number; // m⁴ — moment of inertia about Z-axis (vertical)
   b?: number; // m
   h?: number; // m
-  shape?: 'I' | 'H' | 'U' | 'L' | 'RHS' | 'CHS' | 'rect' | 'generic' | 'T' | 'invL' | 'C';
+  /**
+   * `'Z'` is the lipped cold-formed zed, added because a Z could not otherwise be stored or
+   * drawn: `createSectionShape` dispatches on this field, so a section without a literal here
+   * has no outline. Field meanings follow `'C'` exactly — `t` is the lip LENGTH and `tl` the lip
+   * thickness — so nothing else about a Z section is new. See `profiles/cold-formed.ts`.
+   */
+  shape?: 'I' | 'H' | 'U' | 'L' | 'RHS' | 'CHS' | 'rect' | 'generic' | 'T' | 'invL' | 'C' | 'Z';
   tw?: number;  // m - espesor alma (web thickness)
   tf?: number;  // m - espesor ala (flange thickness)
   t?: number;   // m - espesor pared (wall thickness, hollow sections) / lip length (C-channel)

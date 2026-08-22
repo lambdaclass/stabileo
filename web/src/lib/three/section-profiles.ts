@@ -168,6 +168,73 @@ export function createCShape(h: number, b: number, tw: number, tf: number, c: nu
 }
 
 /**
+ * Create a lipped zed (Z) outline — a cold-formed section whose flanges point OPPOSITE ways.
+ *
+ * Same parameter meanings as `createCShape`, so a Z section stores exactly what a C does:
+ * `t` is the lip LENGTH and `tl` the lip thickness. For a real cold-formed profile `tw`, `tf`
+ * and `tl` are all the sheet thickness; they stay separate here only because the `Section` that
+ * reaches this function carries them separately.
+ *
+ * ── Geometry, and where the origin sits ───────────────────────────────
+ *
+ * Vertically centred like every other outline in this file. Horizontally the WEB is placed at
+ * `x ∈ [0, tw]`, the top flange runs to `+b` and the bottom flange to `tw − b`, which is the
+ * direct analogue of `createCShape` putting its web at `x = 0`. So the outline straddles the
+ * origin, as a Z does, and the web's outer face is still the reference — a Z and a C of the same
+ * dimensions line up on the same face.
+ *
+ * ── Point symmetry is the invariant worth knowing ─────────────────────
+ *
+ * Every vertex has a partner at `(tw − x, −y)`. That is what makes the section a Z rather than
+ * a channel drawn wrong, and `cold-formed-shapes.test.ts` asserts it over the vertex list
+ * instead of eyeballing the picture.
+ *
+ * ── The degenerate cases, and why they are guarded ────────────────────
+ *
+ * The path walks along the flange undersides toward the lips, so it self-intersects — and
+ * earcut then emits garbage triangles — if a lip is shorter than the sheet is thick (`c ≤ tl`)
+ * or if the flange is not wider than two thicknesses (`b ≤ 2·tw`). `createCShape` guards the
+ * first for the same reason; the second is specific to the zed, whose flanges are traversed in
+ * both directions. Either way the honest fallback is the same section without lips.
+ */
+export function createZShape(h: number, b: number, tw: number, tf: number, c: number, lipT: number): THREE.Shape {
+  const halfH = h / 2;
+  const lip = Math.min(c, halfH - tf);
+  const s = new THREE.Shape();
+
+  if (lip <= tf || lipT <= 0 || b <= 2 * tw || lip <= lipT) {
+    // Plain (unlipped) zed: web, and one flange each way.
+    s.moveTo(tw - b, -halfH);
+    s.lineTo(tw, -halfH);
+    s.lineTo(tw, halfH - tf);
+    s.lineTo(b, halfH - tf);
+    s.lineTo(b, halfH);
+    s.lineTo(0, halfH);
+    s.lineTo(0, -halfH + tf);
+    s.lineTo(tw - b, -halfH + tf);
+    s.closePath();
+    return s;
+  }
+
+  // Lipped. Walked as one closed loop: bottom lip → bottom flange → web (right face) → top
+  // flange underside → top lip → back along the top → web (left face) → bottom flange top face.
+  s.moveTo(tw - b, -halfH + lip);        // bottom lip, outer face, top
+  s.lineTo(tw - b, -halfH);              // down to the bottom
+  s.lineTo(tw, -halfH);                  // along the bottom flange, to the web's far face
+  s.lineTo(tw, halfH - tf);              // up the web's far face
+  s.lineTo(b - lipT, halfH - tf);        // top flange underside, out to the lip
+  s.lineTo(b - lipT, halfH - lip);       // down the top lip's inner face
+  s.lineTo(b, halfH - lip);              // across the lip thickness
+  s.lineTo(b, halfH);                    // up the lip's outer face
+  s.lineTo(0, halfH);                    // back along the top of the top flange
+  s.lineTo(0, -halfH + tf);              // down the web's near face
+  s.lineTo(tw - b + lipT, -halfH + tf);  // bottom flange top face, out to the lip
+  s.lineTo(tw - b + lipT, -halfH + lip); // up the bottom lip's inner face
+  s.closePath();
+  return s;
+}
+
+/**
  * Create an L-angle shape.
  */
 export function createLShape(h: number, b: number, t: number): THREE.Shape {
@@ -364,6 +431,19 @@ export function createSectionShape(sec: Section): THREE.Shape | null {
         const lip = t > 0 ? t : Math.min(h, b) * 0.2;
         const lipT = tl > 0 ? tl : fl;
         return createCShape(h, b, web, fl, lip, lipT);
+      }
+      return null;
+    }
+
+    case 'Z': {
+      // Lipped (cold-formed) zed. Section model matches the channel's: t = lip length (c),
+      // tl = lip thickness. See `createZShape` on the origin and the degenerate guards.
+      if (h > 0 && b > 0) {
+        const web = tw > 0 ? tw : h * 0.04;
+        const fl = tf > 0 ? tf : h * 0.04;
+        const lip = t > 0 ? t : Math.min(h, b) * 0.2;
+        const lipT = tl > 0 ? tl : fl;
+        return createZShape(h, b, web, fl, lip, lipT);
       }
       return null;
     }
