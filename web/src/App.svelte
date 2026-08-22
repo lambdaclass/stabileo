@@ -122,7 +122,7 @@
   import HelpOverlay from './components/HelpOverlay.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
   import { tourStore } from './lib/store/tour.svelte';
-  import { buildTourSteps } from './lib/tour/tour-steps';
+  import { startDemo, DEFAULT_DEMO } from './lib/tour/demos';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
@@ -427,6 +427,19 @@
     }
   }
 
+  function handleOpenPanelEvent(e: Event) {
+    const panel = (e as CustomEvent<string>).detail;
+    /*
+     * `toggle: false` — "open" means open.
+     *
+     * The default is a toggle, which is right for a button that owns its panel
+     * and wrong for a walkthrough: two consecutive steps both asking for the
+     * results panel closed it on the second, and the card that followed
+     * pointed at a panel it had just dismissed.
+     */
+    if (typeof panel === 'string') openBasicPanel(panel, { toggle: false });
+  }
+
   function handleExportPNG() {
     const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
     if (canvas) downloadCanvasPNG(canvas);
@@ -462,7 +475,12 @@
     if (isDemoRoute(location.pathname)) {
       history.replaceState(null, '', modeToPath(currentAppMode));
       syncRouteState();
-      setTimeout(() => tourStore.start(buildTourSteps()), 600);
+      /*
+       * `/demo` opens the shortest walkthrough rather than the old fourteen-step
+       * tour of everything. The rest are in Project → Tutorials, where someone
+       * who wants one can pick the question they actually have.
+       */
+      setTimeout(() => startDemo(DEFAULT_DEMO), 600);
     }
 
     // Check for URL hash (shared model link or embed)
@@ -606,6 +624,16 @@
     // Cancel any pending debounced live calc so the manual solve supersedes it.
     const handleGlobalSolve = () => { cancelPendingLiveCalc(); runGlobalSolve(); };
     window.addEventListener('stabileo-solve', handleGlobalSolve);
+    /*
+     * Open a right-hand panel from outside the ribbon.
+     *
+     * The guided walkthroughs need this: a step that points at a button
+     * inside the Advanced panel has nothing to point at while the panel is
+     * shut, and reaching into `openBasicPanel` from a step definition would
+     * put a piece of the shell's layout inside a data structure that
+     * describes tour cards.
+     */
+    window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
       saveWorkspaceToLocalStorage();
@@ -617,6 +645,7 @@
       window.removeEventListener('stabileo-dxf-drop', handleDxfDropEvent);
       window.removeEventListener('stabileo-import-ifc', handleIfcImportEvent);
       window.removeEventListener('stabileo-solve', handleGlobalSolve);
+      window.removeEventListener('stabileo-open-panel', handleOpenPanelEvent);
       window.removeEventListener('popstate', onPopState);
     };
   });

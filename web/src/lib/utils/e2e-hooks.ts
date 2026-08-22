@@ -28,12 +28,13 @@
  * query flag is present, so production pages never expose it.
  */
 
-import { modelStore, verificationStore, uiStore, historyStore } from '../store';
+import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { detailingStore } from '../store/detailing.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
 import { runGlobalSolve } from '../engine/live-calc';
+import { tourStore } from '../store/tour.svelte';
 import {
   liveRebarSceneCensus, rebarSceneBuilds, type RebarSceneCensus,
 } from '../three/rebar-scene';
@@ -115,6 +116,27 @@ export interface StabileoTestHooks {
   selectionByKind(): { nodes: number[]; elements: number[]; supports: number[]; loads: number[] };
   /** Which kinds a drag is currently armed to pick up. */
   armedKinds(): string[];
+  /** What the viewport is drawing — the walkthrough audit reads this. */
+  diagramType(): string;
+  /**
+   * The guided step on screen, or null.
+   *
+   * Exposed for the walkthrough audit: checking that a step can reach what it
+   * asks the reader to click means knowing which step it is and whether it
+   * allows interaction, and neither is visible in the DOM.
+   */
+  tourStep(): { id: string; target: string; allowInteraction: boolean } | null;
+  /** Which tool is armed, for the same reason. */
+  currentTool(): string;
+  /**
+   * Where a node sits on screen, in CSS pixels.
+   *
+   * A test that draws has to click ON the nodes it just placed, and it cannot
+   * reuse the coordinates it clicked: snapping moves a node to the nearest
+   * grid intersection, which at a metre spacing is up to half a grid square
+   * away from the pointer.
+   */
+  nodeScreenPos(id: number): { x: number; y: number } | null;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   nodeCount(): number;
   supportCount(): number;
@@ -313,6 +335,25 @@ export function installE2EHooks(): void {
     },
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
     armedKinds: () => [...uiStore.selectKinds].sort(),
+    diagramType: () => String(resultsStore.diagramType),
+    tourStep: () => {
+      const st = tourStore.currentStep;
+      return st ? {
+        id: st.id, target: st.target, allowInteraction: !!st.allowInteraction,
+        armed: (tourStore as unknown as { armedForTest?: boolean }).armedForTest ?? false,
+        waits: !!st.waitFor, met: st.waitFor ? !!st.waitFor() : null,
+      } as never : null;
+    },
+    currentTool: () => String(uiStore.currentTool),
+    nodeScreenPos: (id: number) => {
+      const n = modelStore.nodes.get(id);
+      if (!n) return null;
+      const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+      if (!canvas) return null;
+      const p = uiStore.worldToScreen(n.x, (n as { z?: number }).z ?? n.y);
+      const r = canvas.getBoundingClientRect();
+      return { x: r.left + p.x, y: r.top + p.y };
+    },
     nodeCount: () => modelStore.nodes.size,
     supportCount: () => modelStore.supports.size,
     selectionByKind: () => {

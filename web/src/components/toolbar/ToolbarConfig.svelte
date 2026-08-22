@@ -64,7 +64,7 @@
       {@const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
       {@const isPro = uiStore.analysisMode === 'pro'}
       {@const gridVisible = is3D ? uiStore.showGrid3D : uiStore.showGrid}
-      <div class="sub-content">
+      <div class="sub-content" data-tour="cfg-grid">
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.showAxes')}>
           <input type="checkbox" checked={is3D ? uiStore.showAxes3D : uiStore.showAxes}
@@ -156,7 +156,7 @@
     {/if}
     {#if flat || showStructureSub}
       {@const is3Dm = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
-      <div class="sub-content">
+      <div class="sub-content" data-tour="cfg-model">
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.nodeIds')}>
           <input type="checkbox" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
@@ -254,7 +254,7 @@
 
     {/if}
     {#if flat || showResultsSub}
-      <div class="sub-content">
+      <div class="sub-content" data-tour="cfg-results">
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.showValues')}>
           <input type="checkbox" bind:checked={resultsStore.showDiagramValues} />

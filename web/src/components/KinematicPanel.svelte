@@ -134,7 +134,7 @@
       <div class="kp-body">
 
         {#if isStale}
-          <button class="kp-stale-btn" onclick={recompute}>
+          <button class="kp-stale-btn" data-testid="kin-stale" onclick={recompute}>
             {t('kinematic.stale')}
           </button>
         {/if}

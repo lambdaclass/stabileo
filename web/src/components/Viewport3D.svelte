@@ -2553,7 +2553,7 @@
     </div>
   {/if}
   <!-- Camera preset buttons -->
-  <div class="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
+  <div class="camera-controls" data-tour="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
     <!-- Same stack, same order as 2D: the pointer mode on top, then the view. -->
     <PointerModeButton />
     <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')} aria-label={t('viewport3d.zoomToFit')}>
