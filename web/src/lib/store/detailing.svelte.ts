@@ -1378,9 +1378,6 @@ function createDetailingStore() {
      */
     review(record: Omit<ReviewRecord, 'revision'>): boolean {
       if (!selected) return false;
-      // A review changes the readiness a document may claim, so the previous one is no
-      // longer current — even though the geometry is unchanged.
-      retireDocument();
       const r = applyReview(selected, record, provisionalKeys(selected));
       if (!r.ok || !r.assembly) {
         // The store is the locale boundary, so the engine's refusal is translated HERE. It used
@@ -1391,6 +1388,18 @@ function createDetailingStore() {
           : t('detailing.review.notRecorded');
         return false;
       }
+      /*
+       * Retired only once the review is GOING to be recorded.
+       *
+       * A review changes the readiness a document may claim, so the previous one is no longer
+       * current even though the geometry is unchanged — that part was always right. What was
+       * wrong was doing it first: `retireDocument()` ran before `applyReview` decided, so a
+       * refused review superseded the document the user had just built and returned `false`.
+       * Measured in the documents stage: readiness gone, `supersededDocuments` grown by one, and
+       * an error where a document had been. A click that accomplished nothing cost them the
+       * export.
+       */
+      retireDocument();
       replace(r.assembly);
       lastError = null;
       reviewOpen = false;

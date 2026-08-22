@@ -111,7 +111,19 @@ aplicado al control que se había olvidado.
 Medido después: `disabled` con dos motivos → nombre → un motivo → aceptaciones → **habilitado**, el
 documento intacto, y la revisión **tiene éxito** con `issue-submit` habilitado.
 
-**NO hecho: el orden en el store.** `detailing.svelte.ts` lo importan **14 componentes**, cuatro
+**Hecho después, autorizado: el orden en el store.** `retireDocument()` ahora corre **después**
+del `if (!r.ok)`. Cambio de una línea movida, con test de regresión E2E que **verifiqué que falla**
+con el orden anterior (`"the document survives — element(s) not found"`) y pasa con el nuevo.
+
+Por qué ningún test unitario lo cubría: `detailingStore.assemblies` lo puebla la pasada de
+detallado **por miembro**, y el fixture de zapatas de `footing-document-slice.test.ts` lo deja
+vacío — ahí un `review()` sale por `if (!selected)` devolviendo `false` **sin `lastError`**, que es
+un rechazo por el motivo equivocado. Ese archivo ahora lo dice en el lugar en vez de pasar por
+encima. La cobertura real está en `e2e/h1c-documents-flow.spec.ts`, vía
+`__stabileoActions.reviewAssembly` — el hook de mutación, no `__stabileo`, que es de sólo lectura
+por diseño.
+
+**Contexto original del reporte:** `detailing.svelte.ts` lo importan **14 componentes**, cuatro
 de ellos congelados (`ProRibbon`, `WorkflowStages`, `DesignOverview`, `StageSection`). Ningún
 archivo de acero lo usa, pero reordenar `review()` cambia el comportamiento para todos los
 consumidores.

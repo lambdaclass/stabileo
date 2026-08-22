@@ -18,10 +18,10 @@
  * document the user had just built. The three refusals are now stated before the click, in the
  * store's own words and from the same locale keys.
  *
- * The store's ordering is still wrong and is reported in
- * `docs/handoffs/h1c-documents-audit.md` §3 — a store read by fourteen components is not H1's to
- * reorder. These assertions make the refusal unreachable from this panel, which is the part that
- * is.
+ * The store's ordering is now fixed too, in a separate authorised change: `retireDocument()` runs
+ * AFTER `applyReview` decides. Both halves are asserted — the gate stops a user reaching the
+ * refusal, and the last describe proves the store underneath is no longer destructive if anything
+ * else does.
  */
 
 import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
@@ -150,6 +150,63 @@ test.describe('@slow review is gated by the reasons the store would give', () =>
       expect((await blockers.innerText()).length, 'the accepted condition is gone')
         .toBeLessThan(before.length);
       await expect(page.getByTestId('issue-submit')).toBeDisabled();
+    });
+});
+
+/**
+ * The regression the store fix earns.
+ *
+ * `retireDocument()` now runs AFTER `applyReview` decides, so a refused review costs nothing.
+ * Exercised through `__stabileo.reviewAssembly`, which is the hook `e2e-hooks.ts` already exposes
+ * for exactly this — and it has to be, because the UI gate added in this same block makes the
+ * refusal UNREACHABLE by clicking. Both halves matter: the gate stops the user reaching it, and
+ * this proves the store underneath is no longer destructive if anything else does.
+ *
+ * No unit test covers this. `detailingStore.assemblies` is populated by the MEMBER detailing run,
+ * and the footing-only fixture in `footing-document-slice.test.ts` leaves it empty — a `review()`
+ * there returns false from `if (!selected)` with no `lastError`, which is a refusal for entirely
+ * the wrong reason. That file now says so in place rather than passing on it.
+ */
+test.describe('@slow a refused review does not cost the document', () => {
+  test.slow();
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('the document and the superseded list are untouched by a refusal',
+    async ({ pro: page }) => {
+      await withDocument(page);
+      await expect(page.getByTestId('doc-readiness')).toBeVisible();
+      const revision = await page.getByTestId('doc-revision').innerText();
+      const supersededBefore = await page.getByTestId('superseded-docs').count();
+
+      // An empty engineer is the refusal that needs no other state — `assembly.ts:488`.
+      const refused = await page.evaluate(() => {
+        /*
+         * `__stabileoActions`, not `__stabileo`. The split is deliberate and documented in
+         * `e2e-hooks.ts`: "`window.__stabileo` is READ-ONLY: queries only, frozen, no state
+         * setters", and mutations live on the actions object. The first version of this reached
+         * for the query object and got `not a function`.
+         */
+        const w = window as unknown as {
+          __stabileoActions: { reviewAssembly(r: unknown): boolean };
+        };
+        return w.__stabileoActions.reviewAssembly({
+          engineer: '   ',
+          at: new Date().toISOString(),
+          state: 'REVIEWED',
+          provisionalAcknowledged: true,
+          acknowledgedProvisional: [],
+        });
+      });
+      expect(refused, 'the store refuses').toBe(false);
+
+      // The whole point: nothing was retired on the way to that refusal.
+      await expect(page.getByTestId('doc-readiness'), 'the document survives').toBeVisible();
+      await expect(page.getByTestId('doc-revision'), 'at the same revision')
+        .toHaveText(revision);
+      expect(await page.getByTestId('superseded-docs').count(),
+        'and nothing joined the superseded list').toBe(supersededBefore);
+      // And the refusal is reported, in this locale.
+      await expect(page.getByTestId('review-error')).toBeVisible();
     });
 });
 

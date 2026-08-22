@@ -156,9 +156,10 @@
    * What stands between this set and `Record review`, in the store's own words.
    *
    * `Record review` had no `disabled` and no explanation. Clicking it with an unaccepted
-   * provisional calculation called `detailingStore.review`, which refuses — and refuses AFTER
-   * `retireDocument()` has already run, so the document the user had just built was superseded by
-   * a click that accomplished nothing. See `docs/handoffs/h1c-documents-audit.md` §3.
+   * provisional calculation called `detailingStore.review`, which refuses — and refused AFTER
+   * `retireDocument()` had already run, so the document the user had just built was superseded by
+   * a click that accomplished nothing. That ordering is fixed in the store as well; this gate is
+   * the half that stops the user reaching a refusal at all.
    *
    * These are the SAME three refusals `assembly.ts` raises and the store translates
    * (`notConstructible` at line 481, `engineerRequired`, `provisionalOutstanding`), reusing the
