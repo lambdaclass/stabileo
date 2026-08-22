@@ -4010,6 +4010,14 @@ const pt: Translations = {
   'detailing.qty': 'Qtd.',
   'detailing.recordReview': 'Registrar revisão',
   'detailing.review': 'Revisão do profissional',
+  // The four refusals `applyReview` raises and the store translates. They were missing here
+  // while `en` and `es` both had them, so a Portuguese user was refused in English — and now
+  // that `DocumentsSection` states them BEFORE the click, in `review-blockers`, the gap is on
+  // screen rather than only in an error. See `docs/handoffs/h1c-documents-audit.md` §4.
+  'detailing.review.notConstructible': 'O conjunto está no estado {state}; só pode ser revisado a partir de CONSTRUCTIBLE.',
+  'detailing.review.engineerRequired': 'Deve ser indicado o profissional que revisa.',
+  'detailing.review.provisionalOutstanding': 'Há cálculos provisórios sem aceitação expressa: {keys}. Um cálculo provisório pode ser aceito, mas deve ser feito deliberadamente.',
+  'detailing.review.provisionalNotAcknowledged': 'Falta a aceitação expressa dos cálculos provisórios.',
   'detailing.review.notRecorded': 'Não foi possível registrar a revisão.',
   'detailing.reviewedBy': 'Revisado por {engineer} em {at} (revisão {revision}).',
   'detailing.revision': 'Rev. {n}',

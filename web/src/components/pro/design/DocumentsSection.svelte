@@ -152,6 +152,32 @@
    * The button was simply disabled. A control that governs a construction issue and explains
    * itself with nothing but grey is the one place in this panel where silence is least excusable.
    */
+  /**
+   * What stands between this set and `Record review`, in the store's own words.
+   *
+   * `Record review` had no `disabled` and no explanation. Clicking it with an unaccepted
+   * provisional calculation called `detailingStore.review`, which refuses — and refuses AFTER
+   * `retireDocument()` has already run, so the document the user had just built was superseded by
+   * a click that accomplished nothing. See `docs/handoffs/h1c-documents-audit.md` §3.
+   *
+   * These are the SAME three refusals `assembly.ts` raises and the store translates
+   * (`notConstructible` at line 481, `engineerRequired`, `provisionalOutstanding`), reusing the
+   * same locale keys. Not a new set of rules: the same sentences, said before the click instead
+   * of after it. Which is the principle the note under `issue-submit` already states.
+   */
+  const reviewBlockers = $derived.by(() => {
+    const out: string[] = [];
+    if (!selected) { out.push(t('detailing.doc.need.assembly')); return out; }
+    if (reviewRank(selected.state) < reviewRank('CONSTRUCTIBLE')) {
+      out.push(tp('detailing.review.notConstructible', { state: selected.state }));
+    }
+    if (!detailingAuthor.name.trim()) out.push(t('detailing.review.engineerRequired'));
+    if (provisional.length > 0 && !allAcknowledged) {
+      out.push(tp('detailing.review.provisionalOutstanding', { keys: provisional.join(', ') }));
+    }
+    return out;
+  });
+
   const issueBlockers = $derived.by(() => {
     const out: string[] = [];
     if (!selected) { out.push(t('detailing.doc.need.assembly')); return out; }
@@ -266,7 +292,11 @@
     </label>
 
     <div class="actions">
-      <button data-testid="review-submit" onclick={() => submitReview('REVIEWED')}>
+      <button
+        data-testid="review-submit"
+        disabled={reviewBlockers.length > 0}
+        onclick={() => submitReview('REVIEWED')}
+      >
         {t('detailing.recordReview')}
       </button>
       <button
@@ -284,6 +314,9 @@
       and explains itself with nothing but grey is the one place in this panel where silence is
       least excusable.
     -->
+    {#if reviewBlockers.length > 0}
+      <p class="need" data-testid="review-blockers">{reviewBlockers.join(' ')}</p>
+    {/if}
     {#if issueBlockers.length > 0}
       <p class="need" data-testid="issue-blockers">{issueBlockers.join(' ')}</p>
     {/if}
