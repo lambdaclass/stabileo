@@ -1434,6 +1434,8 @@ const pt: Translations = {
   'demo.basics3d.examplesTitle': 'O catálogo 3D',
   'demo.basics3d.examplesDesc': 'Dez estruturas 3D, de um balanço a um galpão industrial. Escolha uma, ou siga e um pórtico 3D é carregado.',
   'config.tip.language': 'O idioma de toda a interface. Também está no cabeçalho em telas maiores.',
+  'config.mobileSection': 'Celular',
+  'config.generalSection': 'Geral',
   'config.touchDensity': 'Tamanho dos controles',
   'config.densityCompact': 'Compacto',
   'config.densityComfortable': 'Confortável',

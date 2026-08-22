@@ -194,17 +194,29 @@
             </HelpTip>
           </label>
         {/if}
-        <div class="input-group">
-          <!--
-          Language, on a phone only.
-          ─────────────────────────
-          The header selector is hidden below 768 px: it held a permanent slot
-          in the tightest row in the application for a control touched once.
-          Hiding it without giving it somewhere else would have taken the
-          setting away from phone users entirely, so it lands here, beside the
-          other things you set once and forget.
+        <!--
+          Everything that only exists on a phone, under a heading that says so.
+          ─────────────────────────────────────────────────────────────────────
+          These sat loose among the general settings, which read as if the whole
+          panel might behave differently on a phone. Two controls do and the
+          rest do not, so the two say so themselves and the rest are labelled
+          General beneath them.
+
+          Nothing here can leak into a desktop session. The section is not
+          rendered above 768 px, and every rule it drives lives inside a
+          `max-width: 767px` query in `styles/touch-density.css` — so choosing
+          "comfortable" on a phone and then widening the window changes nothing:
+          the preference is remembered and simply has no rules answering to it
+          at that width. It is a phone setting in the strong sense, not a global
+          one that a phone happens to be where you set it.
         -->
         {#if uiStore.isMobile}
+          <h4 class="cfg-mobile-heading">{t('config.mobileSection')}</h4>
+          <!--
+            Language. The header selector is hidden below 768 px — it held a
+            permanent slot in the tightest row in the application for a control
+            touched once — so the setting lives here instead.
+          -->
           <div class="input-group cfg-lang">
             <HelpTip text={t('config.tip.language')}><label>{t('app.language')}:</label></HelpTip>
             <select
@@ -218,13 +230,11 @@
             </select>
           </div>
           <!--
-            Control size, phone only.
-            ─────────────────────────
-            The panels came from a desktop sidebar and their rows are 22–25 px.
-            Compact fits more of a results table on a small screen; comfortable
-            hits a 44 px target and costs about 125 px of extra scrolling to
-            reach that table. Both are defensible, which is why this is offered
-            rather than decided — see `styles/touch-density.css`.
+            Control size. The panels came from a desktop sidebar and their rows
+            are 22–25 px. Compact fits more of a results table on a small
+            screen; comfortable hits a 44 px target and costs about 125 px of
+            extra scrolling to reach that table. Both are defensible, which is
+            why this is offered rather than decided.
           -->
           <div class="input-group cfg-density">
             <HelpTip text={t('config.tip.touchDensity')}><label>{t('config.touchDensity')}:</label></HelpTip>
@@ -233,7 +243,9 @@
               <option value="comfortable">{t('config.densityComfortable')}</option>
             </select>
           </div>
+          <h4 class="cfg-mobile-heading">{t('config.generalSection')}</h4>
         {/if}
+        <div class="input-group">
         <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
           <select bind:value={uiStore.unitSystem}>
             <option value="SI">{t('config.unitSI')}</option>
@@ -388,6 +400,23 @@
     gap: 0.25rem;
     padding-left: 0.2rem;
     padding-right: 0.2rem;
+  }
+
+  /*
+     The phone section's heading, and the "General" one that closes it.
+     Same treatment as `.sub-heading` beside it — they are peers in the panel
+     and a second heading style would imply a second kind of grouping.
+  */
+  .cfg-mobile-heading {
+    font-family: var(--st-mono);
+    font-size: 0.66rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--st-text-2);
+    padding: 0.5rem 0 0.2rem;
+    border-bottom: 1px solid var(--st-hair);
+    margin: 0.4rem 0 0.35rem;
   }
 
   .sub-heading {

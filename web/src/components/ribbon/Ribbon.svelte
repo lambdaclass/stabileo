@@ -995,30 +995,72 @@
      hundred and sixty are not the same problem.
      ────────────────────────────────────────────────────────────────── */
   @media (max-width: 767px) {
+    /*
+       Nine slots that share the width, whatever the width is.
+       ──────────────────────────────────────────────────────
+       Fixed 44 px squares came to 396 px, so the smallest phone gave up 32 px
+       to a scroll while a large one left 34 px of dead space at the end. Both
+       are the same mistake: a fixed size on a row whose job is to be the width
+       of the screen.
+
+       Every slot is `flex: 1 1 0` instead, so nine equal shares divide whatever
+       there is — about 40 px at 375, 46 at 430, 41 at 390. Nothing ever
+       scrolls and nothing is ever cut.
+
+       40 px is under the 44 px guideline and that is the deliberate trade: a
+       control four pixels narrow but always visible beats one at the reference
+       size that has to be swiped into view. Height stays at 44, so the target
+       is short in one dimension only, and it is the dimension a thumb moving
+       along a row is least sensitive to.
+    */
     .rb-row-phone {
       display: flex;
-      align-items: center;
+      align-items: stretch;
       gap: 0;
       padding: 3px 4px;
+      /* Kept as a floor for anything narrower than the design allows for. */
       overflow-x: auto;
-      /* Momentum scrolling, and no rubber-banding of the page with it. */
       -webkit-overflow-scrolling: touch;
       overscroll-behavior-x: contain;
       scrollbar-width: none;
     }
     .rb-row-phone::-webkit-scrollbar { display: none; }
 
-    /* Every control in the row is a 44 px square. */
-    .rb-row-phone .rb-cmd,
-    .rb-row-phone .rb-quick-btn {
-      min-width: 44px;
+    /*
+       One share each. `min-width: 0` is what lets a flex item shrink below its
+       content — without it the icons hold the row at its natural width and the
+       whole arrangement silently goes back to scrolling.
+    */
+    .rb-row-phone .rb-cmd {
+      flex: 1 1 0;
+      min-width: 0;
       min-height: 44px;
-      width: 44px;
-      height: 44px;
       padding: 0;
       justify-content: center;
-      flex: none;
       border-radius: var(--st-radius);
+    }
+
+    /*
+       The document block is three slots, so it takes three shares and divides
+       them among its own buttons. Written as `flex: 3` rather than as a width,
+       so it stays in step if the row ever gains or loses a control.
+    */
+    .rb-row-phone .rb-quick {
+      flex: 3 1 0;
+      min-width: 0;
+      display: flex;
+      margin: 0 2px 0 0;
+      padding: 0;
+      border-right: 1px solid var(--st-hair);
+      align-self: stretch;
+    }
+
+    .rb-row-phone .rb-quick-btn {
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 44px;
+      padding: 0;
+      border: none;
     }
 
     /* Icons only in the row; the popover is where words fit. */

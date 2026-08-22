@@ -911,7 +911,21 @@
         language — rather than in the ribbon. It configures the application,
         not the document, which is what everything else in this corner does.
       -->
-      {#if uiStore.appMode === 'basico' && !uiStore.isMobile}
+      <!--
+        At every width, now.
+        ────────────────────
+        This was `!uiStore.isMobile`, which took the button off a phone — while
+        the language selector had been moved INTO the panel it opens, precisely
+        because the header slot was too expensive at that width. The setting was
+        hidden from where it was and hosted where nothing could open it, and the
+        control-size preference later joined it there.
+
+        A phone keeps it in the same corner as a desktop for the same reason it
+        is here at all: it configures the application rather than the document,
+        and the corner is where the application-level controls live. Same place
+        on both, so there is one thing to learn.
+      -->
+      {#if uiStore.appMode === 'basico'}
         <button
           class="btn btn-settings"
           class:on={basicPanel === 'settings'}
@@ -2768,8 +2782,22 @@
       display: none;
     }
 
+    /*
+       Settings keeps its corner and gets a thumb-sized target there. The
+       project name gives up the width for it — a truncated title reads the
+       same at 84 px as at 120, and the only other control in this row is one
+       a reader has to be able to hit.
+    */
+    .header-actions .btn-settings {
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .project-name {
-      max-width: 120px;
+      max-width: 84px;
       font-size: 0.75rem;
     }
 
