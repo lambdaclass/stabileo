@@ -7,7 +7,7 @@ Written to be picked up cold: everything below is measured, not remembered.
 
 ## 1. Where this stands
 
-Five commits landed, each verified at 375×667 and 430×932 in Chromium with
+Six commits landed, each verified at 375×667 and 430×932 in Chromium with
 touch enabled:
 
 | commit | what it does | evidence |
@@ -17,6 +17,7 @@ touch enabled:
 | `225f0ca1` | right panel becomes a bottom sheet on phones | 226 px of model stays visible |
 | `8dfaa071` | one Basic instead of two: the ribbon at every width (§5.1) | see the table in §5.1 |
 | `3ca2fd6f` | the phone row gathers into clusters; the sheet is dragged (§5.1b, §5.3) | see §5.1b |
+| `81a178f3` | the data tabs become the modelling buttons; toasts, sliders (§5.1c) | see §5.1c |
 
 Nothing is merged. CI has not been run on this branch.
 
@@ -177,8 +178,9 @@ page contains is still unusable.
 Proyecto │ ↶ ↷ │ Selección  2D/3D  Modelado▾  Calcular  Avanzado  Resultados▾
 ```
 
-- `Modelado` opens node, element, support, load, materials, sections.
-- `Resultados` opens the diagram commands.
+- `Modelado` opened node, element, support, load, materials, sections.
+  **Superseded by `81a178f3` — see §5.1c.** It is a plain command now.
+- `Resultados` opens the diagram commands. Still a cluster.
 - Both are drawn as commands with a caret, and **light when the command they
   stand in for is the active one** — otherwise the ribbon's one rule ("lit means
   this is what the panel is showing") dies the moment the lit command is inside
@@ -217,6 +219,53 @@ Two traps found building it, both invisible until a menu is opened on a phone:
   sheet. A popover's anchor must be positioned; nothing warns you.
 - The sheet is `z-index: 60`. A menu at 59 is painted under it, so half the
   commands are visible and untappable. The menu is 70/71.
+
+### 5.1c DONE — the data tabs are the modelling buttons (`81a178f3`)
+
+The `Modelado` cluster was six buttons that each opened the Model data panel on
+an entity's tab with its tool armed. The panel's own tab strip is those same six
+choices and already did exactly that — `pickTab` in `DataTable.svelte` arms each
+tab's tool, and has since it was written, precisely so the tab and the ribbon
+agree. The menu was a second copy of the strip, shown for one tap and discarded.
+
+So the command opens the panel, and below 768 px the tab strip stops looking
+like tabs:
+
+- six equal targets, **113 × 44 px**, in a **fixed 3×2 grid** spanning 367 of
+  375 px;
+- `position: sticky` at the top of the panel's scroll, so a long table never
+  takes the way out of it off screen;
+- fixed on purpose — a strip that reflows with the number of loads is one the
+  reader has to re-read every time;
+- `Modelado` lands on the tab last used and arms that tab's tool, so it leaves
+  you able to draw. Materials and sections correctly arm none.
+
+`.bp-body` loses its horizontal padding for this panel so the grid and the table
+go edge to edge.
+
+**The "DATOS" heading is gone**, and the ✕ moved to the grab-handle row — one
+place to close from whichever panel is up. Other panels keep their heading;
+Results and Project have nothing else that names them. Watch for the duplicate:
+hiding `.bp-close` on mobile is what stops the ✕ appearing twice, four
+millimetres apart.
+
+Three smaller things in the same commit, all measured on a phone:
+
+- **Toasts** start at `top: 146px` — under the options bar, over the canvas —
+  instead of `50px`, where "Cálculo exitoso" covered the diagram commands the
+  reader was about to press because of it. They stop at `right: 56px` so the ✕
+  does not land on the canvas's own two buttons. The ✕ is 44 px and opaque
+  rather than 12 px at half opacity.
+- **The toast container was eating the screen.** The phone rule set a `top`
+  without clearing the desktop `bottom`, so a fixed invisible box spanned the
+  whole viewport at z-index 1100 and swallowed every touch that was not on the
+  toast — after every solve, for as long as the message lived. `pointer-events:
+  none` on the container, `auto` on the toasts. **This is the general lesson:
+  overriding one edge of a `position: fixed` box without clearing the opposite
+  one silently makes it full-size.**
+- **Scale sliders** were `style="width: 80px"` inline, which no stylesheet could
+  beat. Moved to CSS; on a phone the label takes its own line and the track gets
+  271 px of 375. Fifty steps need somewhere to land.
 
 ### 5.2 DONE, as a setting rather than a verdict (`3ca2fd6f`)
 
@@ -322,10 +371,12 @@ What is NOT established is that a walkthrough is *followable on a phone*. The
 anchors now exist there for the first time, so this is newly worth testing and
 newly possible to test. Two specific doubts:
 
-- A step pointing at a command that is now INSIDE a cluster menu. `3ca2fd6f`
-  put node, element, support, load, materials, sections and every diagram
-  behind `Modelado`/`Resultados`, and `demos/*` anchor `rb-cmd-sections`,
-  `rb-cmd-materials`, `rb-cmd-stress` and `ribbonGroup('results')` directly.
+- A step pointing at a command that is now INSIDE a cluster menu. `81a178f3`
+  gave the six modelling commands back — they are the data panel's tabs and need
+  no menu — so what is left behind a cluster is the DIAGRAMS. `demos/*` anchor
+  `rb-cmd-stress` and `ribbonGroup('results')` directly, and `rb-cmd-sections`
+  and `rb-cmd-materials` now resolve to tabs rather than ribbon commands, which
+  is a different id: **those two anchors do not exist on a phone at all.**
   On a desktop they are all still flat, which is why the audit passes; on a
   phone a step would spotlight a button that is not on screen until the reader
   opens its menu, and nothing opens it for them. **This is the most likely
