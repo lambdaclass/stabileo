@@ -523,3 +523,72 @@ nuevos** contra la línea base (479).
 No se tocó `StageSection`, `ProRibbon`, `WorkflowStages`, `DesignOverview`, `tokens.css`, el
 selector general ni ningún catálogo compartido. El único contrato compartido que se movió es este
 campo, que era el autorizado. PR #156 sigue en **draft**.
+
+---
+
+# Punto 6 — `'Z'` en la unión de formas (**ya hecho**, incompatibilidad demostrada)
+
+Segundo —y por ahora último— toque de `model.svelte.ts` en esta rama. Se reporta con el mismo
+detalle que el punto 5 porque es el mismo archivo.
+
+## Archivo y tipo
+
+Dos uniones de literales de string, una línea cada una:
+
+- **`web/src/lib/store/model.svelte.ts:107`** — `Section.shape`, agregado `| 'Z'`
+- **`web/src/lib/data/steel-profiles.ts`** — `type SectionShape`, agregado `| 'Z'`
+
+**Commit:** `8f80481e` — `contract(section): add 'Z' to the shape union, and draw the zed`.
+
+## Por qué era inevitable
+
+`createSectionShape()` **despacha sobre `Section.shape`**. Una sección cuya forma no tiene literal
+en esa unión no llega a ningún `case`: devuelve `null`, y en el visor eso se ve como **un miembro
+que falta**, no como un error. No hay forma de dibujar un perfil Z conformado en frío sin el
+literal, y falsear el despacho con otro campo sería peor que el cambio aditivo.
+
+Eso es la «incompatibilidad demostrada» que habilitaba un segundo toque del archivo. Si no lo fuera,
+no se tocaba.
+
+## Compatibilidad
+
+**Aditivo puro, y más barato que el punto 5.**
+
+- Son uniones de literales: **todo valor existente conserva su significado** y ningún modelo
+  guardado cambia. Nada se renombra, nada se reordena.
+- **No hay campo nuevo.** Una sección Z guarda exactamente los mismos campos que una C:
+  `h`, `b`, `tw`, `tf`, `t` (= largo del labio), `tl` (= espesor de la chapa). El visor lee lo que
+  ya leía.
+- **Ningún consumidor de hormigón cambia.** Un `switch` sobre `shape` que no tenga `case 'Z'`
+  simplemente nunca lo ve, porque sólo el catálogo conformado en frío produce esa forma.
+- **`snapshot`/`restore` sin cambios**, igual que en el punto 5.
+
+**Lo que sí conviene que H1 sepa:** si en algún lugar del pipeline de hormigón hay un `switch`
+exhaustivo sobre `SectionShape` sin `default`, TypeScript va a marcar el caso faltante. El
+typecheck completo no reportó **ningún** error nuevo contra la línea base (479), así que hoy no
+existe ninguno — pero si aparece uno al mergear, esa es la causa y el arreglo es un `case` o un
+`default`, no revertir el literal.
+
+## Tests
+
+`web/src/lib/three/__tests__/cold-formed-shapes.test.ts`, 13 casos, ninguno necesita una imagen
+renderizada: simetría puntual sobre la lista de vértices, área por *shoelace* contra la forma
+cerrada, los repliegues degenerados, y el camino completo designación → entrada → campos de sección
+→ `createSectionShape`.
+
+Más el bloque C/Z completo: **61 tests nuevos**, `npm run test:unit` en **7170** (antes 7109),
+typecheck sin errores nuevos.
+
+## Un hallazgo preexistente que sale de acá y le toca a hormigón también
+
+Escribir el contorno del Z destapó que la app **ya se contradice consigo misma en el canal**:
+`computeSectionProperties` mide el labio desde la línea media del ala y `createCShape` lo dibuja
+desde la cara exterior, así que el dibujo tiene `2t²` menos material que el cálculo — 8 mm² de 452
+en un `C 100x50x15x2.0`.
+
+No lo introduce este commit; el Z sigue cada convención donde la sigue el canal, para que la
+discrepancia quede uniforme. Arreglarla toca `data/section-shapes.ts` (que tiene las plantillas de
+hormigón) y `three/section-profiles.ts`: **archivos compartidos, decisión conjunta**. Está aseverada
+en el test sobre el canal además del Z, precisamente para que no se arregle en un lado solo.
+
+Detalle completo en `docs/handoffs/m2-cold-formed-limits.md`, límite 5.

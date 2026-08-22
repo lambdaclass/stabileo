@@ -99,6 +99,31 @@ la interfaz en vez de consolidarla, y tocaría el andamiaje compartido en parale
 
 ---
 
+## 4 bis. Las once claves, una por una
+
+Para que la decisión del §4 se pueda ejecutar sin volver a averiguar esto:
+
+| Clave | Usada por | Qué pasa en cada camino |
+|---|---|---|
+| `shapeBuilder.thin` | huérfano **+ los dos diálogos montados** | **se queda**, decida lo que se decida |
+| `shapeBuilder.solid` | huérfano **+ los dos montados** | **se queda** |
+| `shapeBuilder.invalidDimensions` | huérfano **+ los dos montados** | **se queda** |
+| `shapeBuilder.thinHelp` | sólo el huérfano | **se porta** si la respuesta es «sí»; se borra si es «no» |
+| `shapeBuilder.solidHelp` | sólo el huérfano | idem |
+| `shapeBuilder.units` | sólo el huérfano | idem (es la del selector m↔cm) |
+| `shapeBuilder.title` | sólo el huérfano | se borra salvo que se monte |
+| `shapeBuilder.name` | sólo el huérfano | idem |
+| `shapeBuilder.applySection` | sólo el huérfano | idem |
+| `shapeBuilder.steel` | **nadie** | **se borra ya**, no depende de la decisión |
+| `shapeBuilder.concrete` | **nadie** | **se borra ya** |
+
+Multiplicado por los catorce diccionarios que traen el bloque
+(`es en pt de fr it ru zh ja ko ar hi id tr`): tres claves que sobreviven siempre, seis en juego, y
+**veintiocho entradas que hoy no las lee nadie** (las dos muertas × catorce).
+
+Las dos muertas son restos de la taxonomía Acero/Hormigón que `d65cd01b` reemplazó por
+Delgado/Macizo: el huérfano ya migró y dejó las claves atrás.
+
 ## 5. Estado
 
 - **No se borró** y **no se montó**, según lo pedido.
