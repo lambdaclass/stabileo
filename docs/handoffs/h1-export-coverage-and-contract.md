@@ -205,7 +205,18 @@ lo afirme.
 
 ---
 
-## 9. Orden sugerido
+## 9. Alcance y dueño
+
+`lib/store/detailing.svelte.ts` lo leen **14 componentes**. Agregar tres miembros de sólo lectura
+más un método no rompe a ninguno —nadie los consume todavía— pero es superficie de store, y H1 no
+la toca por su cuenta más allá de la corrección de `retireDocument()` que estaba autorizada.
+
+`DocumentsSection.svelte` **no** es compartido: lo montan `ProRcWorkflowTab` y `DetailingWorkflow`,
+los dos de hormigón. La parte de UI es de H1 en cuanto el contrato exista.
+
+---
+
+## 10. Orden sugerido
 
 1. El tipo y los tres miembros del store, **sin consumidor**.
 2. Las tres llamadas a `recordExport` en `DocumentsSection`, incluida la rama de error.

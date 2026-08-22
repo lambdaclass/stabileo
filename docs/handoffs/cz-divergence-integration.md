@@ -39,7 +39,7 @@ Z entró en la rama de M1 en `01da50cb` (geometría C/Z y gramática de designac
 
 ## 3. Lo que falta, y es de M1
 
-Dos líneas, tal como las escribió M1 en §4 de `m2-lip-convention-proposal.md`:
+Dos líneas, tal como las escribió M1 en §4 de `m2-lip-convention-proposal.md`†:
 
 ```diff
 -    { w: t, ht: c, uc: b - t / 2, vc: (h - t) / 2 - c / 2 },   // partsC, labio superior
@@ -101,3 +101,10 @@ Independiente de quién mergee primero, y ya anotado en la evidencia de H1:
 **Un mismo proyecto puede terminar con dos secciones C de la misma designación y distinta área.**
 No es defecto de este cambio —se sigue de que las propiedades se persistan— pero es la clase de
 cosa que aparece como reporte de usuario meses después, y conviene que esté escrita antes.
+
+---
+
+† `docs/handoffs/m2-lip-convention-proposal.md` **no está en este árbol**: vive en
+`feat/pro-steel-m1`, commit `f936f29c`. Se lee con
+`git show f936f29c:docs/handoffs/m2-lip-convention-proposal.md`. Lo cito porque es la fuente de la
+convención, no porque esté acá.

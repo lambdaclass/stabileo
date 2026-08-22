@@ -70,17 +70,22 @@ severidad y sus botones de centrar y aislar — hoy todo verificado sólo por fu
 
 `e2e-hooks.ts` es superficie compartida y el hook es de mutación, así que **no lo agregué**.
 
-## 4. Estado de H1-D
+## 4. Estado de H1-D — ~~no cerrado~~ **superado por §6-§9**
 
-**No cerrado.** Con este bloque quedan cubiertos conflictos, provisional y failed. Siguen sin
-cubrir:
+> **Esta sección quedó vieja y se conserva para que se lea la secuencia.** Los cinco puntos que
+> listaba abajo están todos cubiertos: ver §6 (sección de corte, rail angosto, familias), §7 (el
+> rechazo real y el `ConflictInspector`) y §8 (el orden de clasificación). Lo único que sigue
+> abierto de esta lista es que **ningún fixture RC produce un miembro sin armar por sí mismo** —
+> el que existe lo produce `updateSection`.
 
-- `refused` y el bloque de no armados (§3.1);
-- `ConflictInspector` (§3.3);
-- la sección de corte (`rebar-section-axis`, `rebar-section-at`);
+Lo que decía en su momento, con este bloque recién cerrado y antes de las pasadas siguientes:
+
+- `refused` y el bloque de no armados (§3.1) — **cubierto en §7**;
+- `ConflictInspector` (§3.3) — **cubierto en §7**, vía el hook `selectConflict`;
+- la sección de corte (`rebar-section-axis`, `rebar-section-at`) — **cubierta en §6**;
 - el rail a viewport angosto, donde `rebar-rail-toggle` **sí** se muestra — a 1280×720 tiene
-  `display: none` y la caja mide 0×0;
-- la visualización por familia más allá del censo.
+  `display: none` y la caja mide 0×0 — **cubierto en §6**;
+- la visualización por familia más allá del censo — **cubierta en §6**.
 
 ---
 
@@ -351,4 +356,4 @@ alcanza.
 
 **Limitaciones que quedan:** el contenido de los archivos exportados (XLSX verificado por nombre,
 DXF no verificado, el reporte abre ventana sin PDF inspeccionable), y el registro de exportaciones,
-que necesita el contrato de `h1-export-record-contract.md`.
+que necesita el contrato de `h1-export-coverage-and-contract.md`.

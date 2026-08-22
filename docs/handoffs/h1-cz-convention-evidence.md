@@ -22,7 +22,7 @@ mismos parámetros.
 
 **Coinciden con el polígono a 1e-12 absoluto en área y 1e-9 relativo en las dos inercias**, en las
 cuatro medidas. Son exactamente los números de la tabla §3.1 de
-`m2-lip-convention-proposal.md`, reproducidos de forma independiente: yo no copié la tabla, el
+`m2-lip-convention-proposal.md`†, reproducidos de forma independiente: yo no copié la tabla, el
 test integra el contorno.
 
 **Tolerancia relativa y no absoluta**, a propósito: las cuatro secciones abarcan de 267 a 1134 mm²
@@ -150,3 +150,10 @@ mismo árbol.
 3. Que la cota aflojada (§4) sea la deseada, y que `lipsCollide` la siga.
 4. **Que el espejo de `cold-formed.ts` entre en la misma integración** (§6). Es lo único que puede
    dejar el árbol inconsistente.
+
+---
+
+† `docs/handoffs/m2-lip-convention-proposal.md` **no está en este árbol**: vive en
+`feat/pro-steel-m1`, commit `f936f29c`. Se lee con
+`git show f936f29c:docs/handoffs/m2-lip-convention-proposal.md`. Lo cito porque es la fuente de la
+convención, no porque esté acá.
