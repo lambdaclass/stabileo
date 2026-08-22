@@ -25,6 +25,7 @@ const steelEn: Record<string, string> = {
   // ─── Reasons ───
   'steel.reason.noDemands': 'Solve the model and define combinations before looking at the steel.',
   'steel.reason.noMetallicAuthority': 'No usable metallic design code is bound to this project.',
+  'steel.reason.coldFormedOutOfScope': 'Cold-formed section: CIRSOC 301 excludes it and defers to CIRSOC 303, which is not available.',
   'steel.reason.designNotRun': 'A metallic code is declared, but no design has been run.',
 
   // ─── Notices ───

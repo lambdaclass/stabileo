@@ -37,6 +37,7 @@ const steelPt: Record<string, string> = {
   // ─── Motivos ───
   'steel.reason.noDemands': 'Resolva o modelo e defina combinações antes de olhar o aço.',
   'steel.reason.noMetallicAuthority': 'Não há norma de dimensionamento metálico utilizável vinculada ao projeto.',
+  'steel.reason.coldFormedOutOfScope': 'Seção conformada a frio: a CIRSOC 301 a exclui e remete à CIRSOC 303, que não está disponível.',
   'steel.reason.designNotRun': 'Há uma norma metálica declarada, mas nenhum dimensionamento foi executado.',
 
   // ─── Avisos ───

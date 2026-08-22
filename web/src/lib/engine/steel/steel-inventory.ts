@@ -32,6 +32,7 @@ import {
 import {
   assertSteelStateInvariants, type SteelMemberState, type SteelMemberStatus, type SteelReason,
 } from './steel-status';
+import { isColdFormedSection } from '../../profiles/cold-formed-catalogue';
 
 /**
  * `classifyElement` is imported from the CIRSOC 201 module on purpose.
@@ -169,7 +170,7 @@ export function buildSteelInventory(
       ? classifyElement(nI.x, nI.y, nI.z ?? 0, nJ.x, nJ.y, nJ.z ?? 0, section?.b, section?.h)
       : 'beam';
 
-    const state = stateFor(id, opts);
+    const state = stateFor(id, opts, section);
     assertSteelStateInvariants(state);
 
     members.push({
@@ -216,7 +217,11 @@ export function buildSteelInventory(
  * not told there is no design code — the second is true and permanent, the first is theirs
  * to fix now.
  */
-function stateFor(elementId: number, opts: InventoryOptions): SteelMemberState {
+function stateFor(
+  elementId: number,
+  opts: InventoryOptions,
+  section?: { name?: string; profileFamily?: string },
+): SteelMemberState {
   const reasons: SteelReason[] = [];
   let status: SteelMemberStatus;
 
@@ -226,6 +231,29 @@ function stateFor(elementId: number, opts: InventoryOptions): SteelMemberState {
   } else if (!opts.authorityBound) {
     status = 'NOT_DESIGNED';
     reasons.push({ key: 'steel.reason.noMetallicAuthority', params: { elementId } });
+  } else if (isColdFormedSection(section)) {
+    /*
+     * An authority is bound, and it still does not reach this member — because the section is
+     * cold-formed and CIRSOC 301 excludes those BY NAME. Chapter A, in the text this app ships:
+     *
+     *   «Para el proyecto de elementos estructurales resistentes de: (a) chapa de acero doblada
+     *   o conformada en frío de sección abierta y sus uniones se aplicarán las especificaciones
+     *   del Reglamento CIRSOC 303-2009 …»
+     *
+     * CIRSOC 303-2009 is not in `docs/codes/`, so there is no authority to bind for these
+     * sections at all.
+     *
+     * `NOT_DESIGNED` and not `DEMAND_UNAVAILABLE`: the latter is documented as "the forces are
+     * not there", whose "remedy is the user's and it is obvious". Solving harder does nothing
+     * here. Telling a user to solve when the real obstacle is that no code covers their section
+     * would be a true-sounding label on the wrong cause.
+     *
+     * Placed AFTER the authority check to keep this function's stated ordering — most actionable
+     * reason first. Not being able to bind anything is the more useful thing to hear while
+     * nothing is bindable; this branch is what says the right thing on the day something is.
+     */
+    status = 'NOT_DESIGNED';
+    reasons.push({ key: 'steel.reason.coldFormedOutOfScope', params: { elementId } });
   } else {
     /**
      * An authority is bound and demands exist — and the member is STILL not designed.

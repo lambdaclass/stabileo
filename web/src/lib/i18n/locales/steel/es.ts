@@ -31,6 +31,9 @@ const steelEs: Record<string, string> = {
   // ─── Motivos ───
   'steel.reason.noDemands': 'Resolvé el modelo y definí combinaciones antes de mirar el acero.',
   'steel.reason.noMetallicAuthority': 'No hay un código de diseño metálico utilizable ligado al proyecto.',
+  // CIRSOC 301 excluye por nombre los conformados en frío (Cap. A): los rige CIRSOC 303-2009,
+  // cuyo texto no está disponible. Es una razón permanente, distinta de «falta el código».
+  'steel.reason.coldFormedOutOfScope': 'Sección conformada en frío: CIRSOC 301 la excluye y remite a CIRSOC 303, que no está disponible.',
   'steel.reason.designNotRun': 'Hay un código metálico declarado, pero no se corrió ningún diseño.',
 
   // ─── Avisos ───
