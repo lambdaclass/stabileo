@@ -1,6 +1,9 @@
 # El codec de share pierde campos de sección — handoff para H1 e integración común
 
 **Estado:** **no implementado**, a propósito. Esto es un pedido de decisión, no un parche.
+**Qué propone:** un solo `SHARE_VERSION = 5` que agregue `composition`, `profileFamily`, `tl` y
+`built` **como claves opcionales del objeto existente — nunca como posiciones nuevas obligatorias**
+(§3 y §4).
 **Origen:** `feat/pro-steel-m1`. Detectado al probar el contrato `built` (`ae3a6186`); ampliado al
 abrir el bloque C/Z de M2.
 

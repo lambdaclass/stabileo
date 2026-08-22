@@ -102,6 +102,13 @@ o sea en la 303, que no está. Así que la respuesta honesta no es «está mal»
 inercia y que el análisis lo use — o sea, **el solver**, que está fuera de alcance en esta rama por
 restricción explícita. Es una decisión de **integración común**, no de M2 metálico.
 
+**Y no es un problema del Z.** Es preexistente: un perfil **L** tampoco es simétrico respecto de sus
+ejes geométricos, y el catálogo trae **37 ángulos** seleccionables hoy. Calculado y validado contra
+los valores publicados del propio catálogo, **la inercia mínima real de un ángulo de alas iguales es
+~40 % de la que la app guarda como eje débil** — el valor almacenado es ~2,4× demasiado alto, y del
+lado inseguro. Detalle completo, consumidores y reparto de trabajo en
+**`m2-ixy-integration-handoff.md`**.
+
 **Mientras tanto**, el módulo reporta `ixyMm4`, el par principal y el ángulo. No para esquivar el
 límite: para que sea **medible** y que un consumidor pueda mostrarlo en vez de deducirlo.
 
@@ -138,9 +145,10 @@ discrepancia queda **uniforme** y arreglarla después es **una** decisión y no 
 sobre el **canal** además del Z, porque una inconsistencia que nadie escribió es la que se arregla
 en un lado solo.
 
-**Para levantarlo:** decidir cuál convención vale y aplicarla a las dos. Toca
-`data/section-shapes.ts` y `three/section-profiles.ts` — **archivos compartidos** (el primero tiene
-las plantillas de hormigón). Coordinar.
+**Para levantarlo:** decidir cuál convención vale y aplicarla a las dos. Propuesta escrita, con las
+dos alternativas, cuál recomienda el código existente (**cara exterior, 2 implementaciones a 1**),
+qué tests hay que dar vuelta y por qué el impacto numérico sobre hormigón es **nulo**:
+**`m2-lip-convention-proposal.md`**.
 
 ---
 
@@ -178,7 +186,7 @@ H1.
 |---|:---:|:---:|:---:|
 | 1 · Sin verificación (301 excluye, 303 ausente) | **sí** | **sí** | — |
 | 2 · Serie sin fuente | **sí** | — | — |
-| 3 · El `ixy` del Z no tiene dónde vivir | — | **sí** (la hipótesis de restricción) | **sí** (modelo y solver) |
+| 3 · El `ixy` del Z no tiene dónde vivir — **y de los 37 ángulos** | — | **sí** (la hipótesis de restricción) | **sí** (modelo y solver) |
 | 4 · Esquinas vivas | **sí** | — | — |
 | 5 · Discrepancia de `2t²` | — | — | **sí** |
 | Hueco de vocabulario de fidelidad | — | — | **sí** |
