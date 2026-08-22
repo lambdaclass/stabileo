@@ -7,7 +7,7 @@ Written to be picked up cold: everything below is measured, not remembered.
 
 ## 1. Where this stands
 
-Four commits landed, each verified at 375×667 and 430×932 in Chromium with
+Five commits landed, each verified at 375×667 and 430×932 in Chromium with
 touch enabled:
 
 | commit | what it does | evidence |
@@ -16,6 +16,7 @@ touch enabled:
 | `16f8f2ef` | header touch targets ≥ 44 px; language selector moves to Settings | 14 undersized controls → 0 |
 | `225f0ca1` | right panel becomes a bottom sheet on phones | 226 px of model stays visible |
 | `8dfaa071` | one Basic instead of two: the ribbon at every width (§5.1) | see the table in §5.1 |
+| `3ca2fd6f` | the phone row gathers into clusters; the sheet is dragged (§5.1b, §5.3) | see §5.1b |
 
 Nothing is merged. CI has not been run on this branch.
 
@@ -134,19 +135,16 @@ What was built, against the suggested shape:
 - Ribbon degrades to one horizontally scrollable row of 44 px icons below
   768 px. Group captions are hidden; the hairline rules between groups already
   carried the grouping, so the caption was the redundant half of the pair.
-- `rb-quick` was **reordered to the end, not folded into an overflow.** The
-  overflow buys ~44 px of a row that scrolls anyway, and it costs `hdr-project`
-  its place on screen — the entry point eight walkthroughs and the demo audit
-  reach for by test id, behind a tap nothing knows to make. §5.4 flagged exactly
-  this risk. `order: 2` moves the box without moving the element, so every id
-  keeps its position in the DOM. At scroll 0 the resting view is the build loop:
-  Selection, 3D, Data, Node, Element, Support, Load.
+- `rb-quick` was reordered to the end rather than folded behind an overflow.
+  **Superseded by `3ca2fd6f` — see §5.1b.** Reordering moved the swipe around
+  instead of removing it, and the reader said so.
 - `FloatingTools`, both mobile drawers, the mobile bottom bar and
   `MobileResultsPanel` are gone from Basic. Education keeps `FloatingTools`
   while authoring; PRO keeps its drawer, its bar and its results panel.
 - `BasicPanel` is the bottom sheet below 768 px, and it **shares** the screen
-  rather than covering it — `.app-body` reserves `--st-sheet-h` (58vh, in
-  `styles/tokens.css`), so the canvas is the size it appears to be. Overlaying
+  rather than covering it — `.app-body` reserves `--st-sheet-h` (in
+  `styles/tokens.css`; 58vh then, 45 now), so the canvas is the size it appears
+  to be. Overlaying
   it instead drew the moment diagram behind the panel opened to control it.
 
 Two defects found on the way past and fixed in the same commit:
@@ -164,58 +162,102 @@ Files touched: `src/App.svelte`, `src/components/ribbon/Ribbon.svelte`,
 `src/components/toolbar/ToolbarExamples.svelte`, `src/lib/store/ui.svelte.ts`,
 `src/styles/tokens.css`.
 
-### 5.2 Remaining touch targets — re-measured, and the count depends on state
+### 5.1b DONE — the row gathers instead of scrolling (`3ca2fd6f`)
 
-**The shell is done. What is left is panel CONTENT.** That is the finding, and
-it is a different job from the one this section was written to describe.
+5.1 kept all seventeen commands on one flat row and made it scroll well. That
+was the wrong target: at 44 px they are 748 px of content in a 375 px viewport,
+so the swipe *is* the interface no matter how the row is ordered. The reader
+rejected it on sight, which is the right call and worth recording — a
+measurement can say "no horizontal overflow of the page" while the thing the
+page contains is still unusable.
 
-The ribbon, the sheet header and its ✕ were built at 44 px in 5.1. But the
-components those panels render — `ToolbarResults`, `DataTable`, the selectors —
-were written for a 320 px desktop side panel and carry desktop density. They
-now appear on a phone unchanged.
+**Gathered, the way PRO already does it.** Nine controls:
 
-Measured at 375×667. **With nothing open, 3:**
+```
+Proyecto │ ↶ ↷ │ Selección  2D/3D  Modelado▾  Calcular  Avanzado  Resultados▾
+```
 
-| control | size | where |
-|---|---|---|
-| tab rename field | 139×19 | `TabBar.svelte`, `.tab.active` |
-| `[data-testid="pointer-mode"]` | 32×32 | `PointerModeButton.svelte` |
-| its twin, zoom-to-fit | 32×32 | `.viewport-controls`, `Viewport.svelte` |
+- `Modelado` opens node, element, support, load, materials, sections.
+- `Resultados` opens the diagram commands.
+- Both are drawn as commands with a caret, and **light when the command they
+  stand in for is the active one** — otherwise the ribbon's one rule ("lit means
+  this is what the panel is showing") dies the moment the lit command is inside
+  a closed button.
+- The menu has a **backdrop**. Without it the tap that dismisses it falls
+  through to the canvas and places a node.
+- `CLUSTERS` reads the existing `GROUPS` rather than restating their contents.
+  A command added to `draw` reaches the phone for free; a second list would be a
+  second definition of the ribbon.
 
-**Solved, with a moment diagram and the results sheet open, 14** — the three
-above plus eleven inside the sheet:
+Save left the row — it is inside the Project panel that button opens. Undo and
+redo stayed: those ARE per-gesture where a mis-tap places a node.
 
-| control | size | where |
-|---|---|---|
-| ◀ reducir escala | 19×**13** | `.input-group`, `ToolbarResults` |
-| ▶ aumentar escala | 18×**13** | idem |
-| scale field | 80×24 | idem |
-| Diagrama / Mapa de colores | 65×22, 102×22 | `.seg`, `ToolbarResults` |
-| load-case + comparison selects | 112×22, 114×22 | `.input-group` |
-| results case select | 318×24 | `.results-case-bar` |
-| Desplazamientos / Reacciones / Fuerzas Internas | 112×25, 84×25, 110×25 | `.results-sub-tabs` |
+```
+                       375×667          430×932
+                    5.1      5.1b     5.1      5.1b
+controls in the row  21       9        21       9
+content width       748 px  407 px    748 px  407 px
+swipe to the last   ~460 px  32 px    ~460 px   0 px
+all ≥ 44 px          yes     yes       yes     yes
+```
 
-Every one of them is short in HEIGHT, not width — the giveaway that these are
-desktop rows in a phone-width container. The two scale steppers at 13 px are
-the worst controls in the application by some distance.
+**The 32 px is arithmetic, not an oversight.** Nine × 44 = 396 and the SE is
+375. It cannot be closed without dropping a control or going under 44 px. Every
+handset from 390 px up fits outright.
 
-Three ways to take this, smallest first:
+**The `data` command is gone from Basic at both widths.** Every command that
+produces model data already opens that panel on its own tab, so the button
+opened a panel the reader reached anyway. Nothing anchors it: the walkthroughs
+call `openPanel('data')`. Verified against all eight.
 
-1. **The two steppers only.** They are indefensible at 13 px and the fix is
-   local. Leaves twelve.
-2. **`ToolbarResults` properly** — one density pass so its rows are 44 px below
-   768 px. This is the panel a reader actually lives in, and it owns eight of
-   the eleven. Recommended.
-3. **Every panel body** — results, model data, advanced, settings, project.
-   The whole density question. Largest, and worth scoping only after (2) shows
-   what a pass costs.
+Two traps found building it, both invisible until a menu is opened on a phone:
 
-Whichever is chosen, **measure with a panel open**. The probe reports what is
-on screen, so a run against an empty model says 3 and means nothing.
+- `.ribbon` had no `position`, so the menu's `top: 100%` resolved against a
+  distant ancestor and the menu opened at the BOTTOM of the page, behind the
+  sheet. A popover's anchor must be positioned; nothing warns you.
+- The sheet is `z-index: 60`. A menu at 59 is painted under it, so half the
+  commands are visible and untappable. The menu is 70/71.
 
-The two 32×32 canvas buttons are a deliberate pair — `PointerModeButton` is
-documented as "sized and skinned as the twin of zoom-to-fit directly below it"
-— so they move together or they stop being a pair.
+### 5.2 DONE, as a setting rather than a verdict (`3ca2fd6f`)
+
+The shell is at 44 px. What stayed small is panel CONTENT: `ToolbarResults` and
+the selectors around it were written for a 320 px desktop sidebar, so their rows
+are 22–25 px and the two diagram-scale steppers are 13. Every one is short in
+HEIGHT and not in width — the signature of a desktop row in a phone-width box.
+
+Enlarging them is not free, and the cost is not cosmetic: it adds 124 px to the
+panel's content, which is 124 px more scrolling before the results table. Denser
+rows show more of the answer; bigger rows are easier to hit. Which wins depends
+on the hand and the handset, so it is **Ajustes → Tamaño de los controles**,
+phone only, defaulting to `compact` — which is what the panels already were.
+
+```
+with results on screen        compact   comfortable
+controls under 44 px            11          0
+content height                415 px     539 px
+hidden scroll, sheet at 45 %  197 px     321 px
+hidden scroll, sheet at 69 %   37 px     161 px
+```
+
+Which is why §5.3 mattered first: at a fixed 58vh, `comfortable` would have been
+strictly worse. With the drag, it costs nothing you cannot undo with a thumb.
+
+Lives in `src/styles/touch-density.css` — global, because the rows belong to
+several components with scoped styles and no useful shared parent. Keyed on
+`data-touch-density` on `<html>`, written by `uiStore.touchDensity`, and scoped
+under `.basic-panel` so it can only reach the sheet's contents.
+
+**The model data table is deliberately exempt.** It is a grid of numbers to
+read, not controls to hit; 44 px rows would put four on a screen and turn
+reading a model into scrolling one. Its editable cells still follow the setting.
+
+The three controls OUTSIDE the panel are unchanged and still under 44 px: the
+tab rename field (139×19) and the pointer-mode / zoom-to-fit pair (32×32). The
+pair is documented as a pair and has to move together, and both sit on the
+canvas, where 44 px costs model area. Left as a deliberate open question.
+
+When adding a control to the density sheet, **measure with a panel open** — the
+probe reports nothing useful against an empty model.
 
 The probe used:
 
@@ -231,28 +273,40 @@ The probe used:
   .filter(x => x.w > 0 && x.h > 0 && (x.w < 44 || x.h < 44))
 ```
 
-### 5.3 The bottom sheet needs a grab handle and a drag — NEXT
+### 5.3 DONE — the sheet opens lower and is dragged (`3ca2fd6f`)
 
-Still the right next piece, and 5.1 sharpened the case rather than settling it.
+Opens at **45vh** rather than 58, and resizes between 22 % and 86 % from a grab
+handle above the title. The chosen height is remembered
+(`stabileo-basic-sheet-vh`).
 
-It is fixed at `--st-sheet-h` (58vh, `styles/tokens.css`). It should be
-draggable between a peek height and full, because reading a results table wants
-more than half the screen and reading a diagram wants less. There is still no
-affordance saying it can be resized, because it still cannot.
+58 was picked to make a results table worth reading. It did not manage it — the
+table began 10 px above the bottom of the screen — and it charged the model more
+than half the height to fail at it.
 
-Two things 5.1 changed that whoever picks this up needs to know:
+```
+                 model     sheet    hidden scroll in the body
+peek   (22 %)    375 px    152 px   345 px
+open   (45 %)    227 px    300 px   197 px
+tall   (69 %)     67 px    460 px    37 px
+before (58 %)    139 px    387 px    87 px   ← the single fixed value
+```
 
-- The sheet is no longer an overlay. `.app-body` reserves `--st-sheet-h`, so
-  changing the height has to move **both** the panel's box and that
-  reservation — the token is the single place, which is why it is a token.
-- `App.svelte` re-frames the model on the sheet's open/shut transition, and
-  deliberately not on a change of which panel is showing. A drag will need the
-  same treatment: refit when the drag ENDS, not on every pointermove, or the
-  model will chase the handle.
+**Dragging is not scrolling, and that was the requirement.** The handle is the
+only surface that resizes; the body keeps ordinary `overflow-y: auto`. What
+makes it hold is `touch-action: none` on the handle — without it the browser
+claims the gesture as a scroll and a drag flings the list underneath. Verified:
+a full drag leaves the body's `scrollTop` at 0.
 
-`BasicPanel.svelte` hides `.bp-resize` below 768 px — a horizontal drag on the
-leading edge cannot widen a full-width sheet. The grab handle is a new control
-on the top edge, not that one repurposed.
+Three things whoever touches this next needs to know:
+
+- The height is published to `--st-sheet-h` on the ROOT element, not set inline,
+  because `.app-body` reserves the same value so the canvas is really the size
+  it looks. The token is the value it opens at; `publishSheet()` overrides it.
+- It is handed back on unmount. Leaving it would keep a band of canvas walled
+  off for a panel that is no longer there.
+- The re-frame fires at the END of the drag, not during. The canvas has just
+  changed height by up to 60 % of the screen, so the previous framing is wrong —
+  but refitting per pointermove makes the model chase the handle.
 
 ### 5.4 The tutorials on a phone — anchors survived, unverified ON a phone
 
@@ -268,10 +322,16 @@ What is NOT established is that a walkthrough is *followable on a phone*. The
 anchors now exist there for the first time, so this is newly worth testing and
 newly possible to test. Two specific doubts:
 
-- A step highlighting a ribbon command that is scrolled off the row. The
-  highlight is clamped to the viewport (§8), so it will point at the edge
-  rather than at nothing — but nothing scrolls the row to bring the command
-  into view.
+- A step pointing at a command that is now INSIDE a cluster menu. `3ca2fd6f`
+  put node, element, support, load, materials, sections and every diagram
+  behind `Modelado`/`Resultados`, and `demos/*` anchor `rb-cmd-sections`,
+  `rb-cmd-materials`, `rb-cmd-stress` and `ribbonGroup('results')` directly.
+  On a desktop they are all still flat, which is why the audit passes; on a
+  phone a step would spotlight a button that is not on screen until the reader
+  opens its menu, and nothing opens it for them. **This is the most likely
+  thing to be broken on a phone right now.** The fix is probably an
+  `onEnter` that sets the cluster open, which means the tour needs a way to
+  ask for that — the cluster state is local to `Ribbon.svelte` today.
 - A step pointing at `basic-panel` while the sheet has it: the tour card and the
   sheet both want the bottom of the screen. `tour-steps.ts` had
   `mobileCardMaxHeight: '35vh'` for this class of problem — note that file is
@@ -279,7 +339,7 @@ newly possible to test. Two specific doubts:
   on `demo-helpers.ts`.
 
 Run the audit at 375×667 with touch to find out. It hardcodes its viewport at
-line 27.
+line 27. Do this before the phone work is called finished.
 
 ### 5.5 PRO
 
