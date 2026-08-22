@@ -2597,6 +2597,38 @@
      * on a phone, with the other things you set and forget.
      */
     .lang-select { display: none; }
+
+    /*
+     * The right panel becomes a bottom sheet.
+     *
+     * As a side drawer it was 319 px of a 375 px screen — 85 % of the width and
+     * the full height — so opening the results, the model data or the settings
+     * hid the structure they describe. On a phone the two have to share the
+     * screen along the axis there is more of, which is vertical.
+     *
+     * Just over half the height: enough for a table to be worth reading, and
+     * it leaves the model in the upper portion where the reader can see what
+     * a value refers to.
+     */
+    .drawer-right {
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      max-width: none;
+      height: 58vh;
+      max-height: 58vh;
+      border-left: none;
+      border-top: 1px solid var(--st-hair-strong);
+      border-radius: 12px 12px 0 0;
+      animation-name: sheet-slide-up;
+    }
+
+    @keyframes sheet-slide-up {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
   }
 
   @media (max-width: 767px) {
