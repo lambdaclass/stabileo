@@ -30,7 +30,7 @@
   {:else if block.k === 'note'}
     <aside class="post-note">{block.t}</aside>
   {:else if block.k === 'embed'}
-    <PostEmbed query={block.query} label={block.label} />
+    <PostEmbed query={block.query} mode={block.mode} label={block.label} />
   {:else if block.k === 'table'}
     <figure class="post-figure">
       <!-- The scroller, not the page, is what moves when a table is wider

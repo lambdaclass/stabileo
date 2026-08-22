@@ -8,9 +8,10 @@
 import type { Post } from './types';
 import { determinismBoundary } from './posts/determinism-boundary';
 import { torsionTheories } from './posts/torsion-theories';
+import { cirsoc201Flexure } from './posts/cirsoc-201-flexure';
 
 /** Newest first. `date` is a plain ISO day, so a string sort is a date sort. */
-export const POSTS: Post[] = [determinismBoundary, torsionTheories].sort((a, b) => b.date.localeCompare(a.date));
+export const POSTS: Post[] = [determinismBoundary, torsionTheories, cirsoc201Flexure].sort((a, b) => b.date.localeCompare(a.date));
 
 export function findPost(slug: string): Post | undefined {
   return POSTS.find((p) => p.slug === slug);

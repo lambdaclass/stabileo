@@ -32,7 +32,7 @@ export type Block =
    * argument list for /app/basic; `label` says what the reader is opening.
    * It renders as a placeholder until clicked — see PostEmbed.svelte.
    */
-  | { k: 'embed'; query: string; label: string };
+  | { k: 'embed'; query: string; label: string; mode?: 'basic' | 'pro' };
 
 /** One post in one language. */
 export type PostBody = {

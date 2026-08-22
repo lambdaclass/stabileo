@@ -205,6 +205,41 @@ test.describe('@smoke blog', () => {
     await expect(app.locator('body')).toContainText('12.73');
   });
 
+  test('the CIRSOC post opens PRO on the check it describes', async ({ page }) => {
+    /*
+     * The other half of the embed contract: this post's subject lives in PRO's
+     * design workflow, not in Basic's section panel, so it opens `/app/pro`.
+     *
+     * The caption names the two buttons the reader has to press, and the
+     * editor inside the frame runs in the reader's language — so the caption
+     * has to name them in that language too. An English caption on a Spanish
+     * page sends someone hunting for a button that says something else.
+     */
+    /*
+     * Booted explicitly in Spanish. `boot`'s init script runs in EVERY frame,
+     * the embedded editor included, so leaving the default would have the
+     * harness itself force the iframe into English and then assert it is not.
+     */
+    await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
+
+    const embed = page.locator('.post-embed');
+    await embed.scrollIntoViewIfNeeded();
+    await expect(embed.locator('iframe')).toHaveCount(0);
+
+    const caption = await embed.locator('figcaption').innerText();
+    expect(caption).toContain('Calcular solicitaciones');
+    expect(caption).toContain('Verificar según norma');
+
+    await embed.locator('.post-embed-start').click();
+    await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?/);
+
+    const app = page.frameLocator('.post-embed iframe');
+    await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
+    // The buttons the caption promises are really there, in this language.
+    await expect(app.getByTestId('cmd-compute-demands')).toHaveText('Calcular solicitaciones');
+    await expect(app.getByTestId('cmd-code-check')).toHaveText('Verificar según norma');
+  });
+
   test('a post describes itself to a search engine', async ({ page }) => {
     // The byline on screen is prose; this is the only machine-readable
     // statement of who wrote the post and when. Without it a result is a page

@@ -31,6 +31,8 @@ const en: Record<string, string> = {
   'blog.readingTime': '{n} min read',
   'blog.tag.sections': 'Sections',
   'blog.tag.theory': 'Theory',
+  'blog.tag.cirsoc': 'CIRSOC',
+  'blog.tag.concrete': 'Concrete',
   'blog.tag.ai': 'AI',
   'blog.tag.research': 'Research',
   'blog.tag.solver': 'Solver',
