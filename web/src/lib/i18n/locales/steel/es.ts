@@ -376,7 +376,7 @@ const steelEs: Record<string, string> = {
   'steel.coldFormed.scope.cirsoc301Excludes': 'CIRSOC 301 excluye estas secciones por nombre y remite a CIRSOC 303.',
   'steel.coldFormed.scope.cirsoc303NotIncorporated': 'CIRSOC 303 no está incorporado a la app.',
   'steel.coldFormed.scope.noNormativeVerification': 'Por lo tanto no hay verificación normativa: ni resistencia, ni aprovechamiento, ni resultado de cálculo.',
-  'steel.coldFormed.zedAxesNotPrincipal': 'En un perfil Z los ejes geométricos no son los principales: están rotados {angle}°. La app no puede guardar el producto de inercia, así que analizarlo respecto de estos ejes sólo vale si el miembro está impedido de flexar fuera del plano — y la provisión que define esa restricción está en CIRSOC 303.',
+  'steel.coldFormed.axesAngle': 'Ejes principales rotados {angle}° respecto de los geométricos.',
   'steel.coldFormed.designation': 'Designación',
   'steel.coldFormed.designationHint': 'Forma, canto × ala × labio × espesor, en mm. Por ejemplo C 100x50x15x2.0',
   'steel.coldFormed.depth': 'Canto h',
@@ -393,5 +393,14 @@ const steelEs: Record<string, string> = {
   'steel.coldFormed.reject.flangesMeet': 'Con este espesor las dos alas se tocan: no queda alma.',
   'steel.coldFormed.reject.noFlange': 'El ala no es más ancha que el espesor de la chapa: no queda ala.',
   'steel.coldFormed.reject.lipsCollide': 'Los labios pasan de la mitad del canto y chocarían entre sí.',
+
+  // ─── Ejes principales (M2) ───
+  // Claves NEUTRAS alojadas en el diccionario metálico a propósito: `store.svelte.ts` aplana
+  // `{ ...es, ...steelEs }`, así que una clave `section.*` resuelve igual desde acá que desde el
+  // archivo general — y el general es compartido con hormigón. Cuando PropertyPanel y
+  // ProSectionsTab adopten el aviso, esto se mueve de archivo sin renombrar ninguna clave.
+  'section.axes.notPrincipal.angle': 'Los ejes de esta sección no son sus ejes principales. Un perfil ángulo no tiene eje de simetría, así que su rigidez a flexión no queda descrita por las inercias que la app guarda, y la inercia mínima real es menor que la menor de las dos. La app no puede guardar el producto de inercia.',
+  'section.axes.notPrincipal.zed': 'Los ejes de esta sección no son sus ejes principales: un perfil Z tiene sólo simetría puntual. Analizarlo respecto de estos ejes vale si la barra está impedida de flexar fuera del plano —lo habitual en una correa restringida por la chapa— pero la provisión que define cuándo vale esa restricción está en CIRSOC 303, que no está incorporada. La app no puede guardar el producto de inercia.',
+  'section.axes.title': 'Ejes no principales',
 };
 export default steelEs;

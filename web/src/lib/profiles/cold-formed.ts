@@ -122,7 +122,18 @@ export function validateColdFormed(spec: ColdFormedSpec): ColdFormedValidation {
   }
   if (2 * t >= h) return { ok: false, reason: 'flangesMeet' };
   if (t >= b) return { ok: false, reason: 'noFlange' };
-  if (c + t > h / 2) return { ok: false, reason: 'lipsCollide' };
+  /*
+   * Lips collide at `c > h/2`, not at `c + t > h/2`.
+   *
+   * The bound follows the convention: with `c` measured from the OUTER face, the top lip occupies
+   * `[h/2 − c, h/2 − t]` and the bottom its mirror, so they meet only when `c` passes mid-depth.
+   * Looser than before by exactly `t`, and deliberately — it is the second sub-decision the
+   * outer-face patch exposes, taken here rather than left to fall out.
+   *
+   * `c <= t` is NOT rejected: it means the lip adds nothing beyond the flange, i.e. a plain
+   * channel — which is what both drawings have always rendered for that case.
+   */
+  if (c > h / 2) return { ok: false, reason: 'lipsCollide' };
   return { ok: true };
 }
 
@@ -205,12 +216,15 @@ function partsC(spec: ColdFormedSpec): Part[] {
   const { hMm: h, bMm: b, cMm: c, tMm: t } = spec;
   const hw = h - 2 * t;
   // Measured from the OUTSIDE of the web at u = 0, then shifted to the centroid.
+  // Lip that ADDS material: only the part beyond the flange. See `LIP_CONVENTION` below.
+  const cl = Math.max(0, c - t);
+  const vLip = (h - c - t) / 2;
   const raw: Part[] = [
-    { w: t, ht: hw, uc: t / 2, vc: 0 },                       // web
-    { w: b, ht: t, uc: b / 2, vc: (h - t) / 2 },              // top flange
-    { w: b, ht: t, uc: b / 2, vc: -(h - t) / 2 },             // bottom flange
-    { w: t, ht: c, uc: b - t / 2, vc: (h - t) / 2 - c / 2 },  // top lip, pointing in
-    { w: t, ht: c, uc: b - t / 2, vc: -((h - t) / 2 - c / 2) },// bottom lip
+    { w: t, ht: hw, uc: t / 2, vc: 0 },                  // web
+    { w: b, ht: t, uc: b / 2, vc: (h - t) / 2 },         // top flange
+    { w: b, ht: t, uc: b / 2, vc: -(h - t) / 2 },        // bottom flange
+    { w: t, ht: cl, uc: b - t / 2, vc: vLip },           // top lip, pointing in
+    { w: t, ht: cl, uc: b - t / 2, vc: -vLip },          // bottom lip
   ];
   const area = raw.reduce((s, p) => s + p.w * p.ht, 0);
   const uBar = raw.reduce((s, p) => s + p.w * p.ht * p.uc, 0) / area;
@@ -233,23 +247,23 @@ function partsZ(spec: ColdFormedSpec): Part[] {
   const vFlange = (h - t) / 2;         // flange centre height
   const uLip = b - t;                  // lip centre, offset from the web centre
   /*
-   * Lip centre height, measured the way `partsC` measures it — from the flange's MID-thickness,
-   * not its outer face.
+   * Lip geometry, measured exactly the way `partsC` measures it — from the flange's OUTER face.
    *
-   * Which convention is used matters less than using ONE. The app already carries both: the
-   * `C-custom` properties case puts the lip centre at `(h − tf)/2 − c/2` (mid-thickness) while
-   * `createCShape` draws it from the outer face. `partsC` follows the properties case, because
-   * that is what this module is checked against — so `partsZ` has to follow it too, or a Z and a
-   * C of the same four dimensions would disagree about a lip position by `t/2` for no reason.
-   * That disagreement is exactly what the Z-against-C test caught.
+   * Which convention is used matters less than using ONE, and the app now uses one everywhere:
+   * `computeSectionProperties` was brought over to the outer face in `120f15cc`, joining the two
+   * drawing implementations that always did it that way. `partsC` follows that case because this
+   * module is checked against it, so `partsZ` follows too — otherwise a Z and a C of the same
+   * four dimensions would disagree about a lip by `t/2` for no reason, which is precisely what
+   * the Z-against-C test catches.
    */
-  const vLip = (h - t) / 2 - c / 2;
+  const cl = Math.max(0, c - t);
+  const vLip = (h - c - t) / 2;
   return [
     { w: t, ht: hw, uc: 0, vc: 0 },                    // web
     { w: b, ht: t, uc: uFlange, vc: vFlange },         // top flange, +u
     { w: b, ht: t, uc: -uFlange, vc: -vFlange },       // bottom flange, −u
-    { w: t, ht: c, uc: uLip, vc: vLip },               // top lip, hanging down
-    { w: t, ht: c, uc: -uLip, vc: -vLip },             // bottom lip, rising
+    { w: t, ht: cl, uc: uLip, vc: vLip },              // top lip, hanging down
+    { w: t, ht: cl, uc: -uLip, vc: -vLip },            // bottom lip, rising
   ];
 }
 
@@ -318,9 +332,17 @@ export function coldFormedGeometry(spec: ColdFormedSpec): ColdFormedGeometry | n
 
   const { hMm: h, bMm: b, cMm: c, tMm: t } = spec;
   const hw = h - 2 * t;
-  // Open thin-walled torsion: ⅓ Σ sᵢ tᵢ³ over web, two flanges and two lips. Identical in form
-  // to the `C-custom` case's `j`, with one thickness throughout.
-  const jMm4 = (1 / 3) * t ** 3 * (hw + 2 * b + 2 * c);
+  /*
+   * Open thin-walled torsion: ⅓ Σ sᵢ tᵢ³ over web, two flanges and two lips. Identical in form to
+   * the `C-custom` case's `j`, with one thickness throughout.
+   *
+   * The lip length is `c − t`, not `c`, for the same reason it is in the inertias: under the
+   * outer-face convention the lip that adds material starts where the flange ends. Using `c` here
+   * while the areas used `c − t` was a real inconsistency inside this function — caught by the
+   * test that pins this module against `computeSectionProperties`, which disagreed by
+   * `2(c − cl)t³/3` and nothing else.
+   */
+  const jMm4 = (1 / 3) * t ** 3 * (hw + 2 * b + 2 * Math.max(0, c - t));
 
   return {
     areaMm2: area,
@@ -363,10 +385,10 @@ export interface OutlinePoint { x: number; y: number }
  *
  * ── Conventions, both inherited on purpose ────────────────────────────
  *
- * The lip is measured from the flange's OUTER face, which is what both existing drawing
- * implementations do for the channel — and which disagrees with `computeSectionProperties` by
- * `2t²`. Inherited rather than corrected, so the discrepancy stays uniform across both shapes;
- * see `docs/handoffs/m2-lip-convention-proposal.md`.
+ * The lip is measured from the flange's OUTER face — the convention the whole application now
+ * uses. It always was what the two drawing implementations did; `computeSectionProperties` was the
+ * odd one out, counting `2t²` more material, and `120f15cc` brought it over. Decided in
+ * `docs/handoffs/m2-lip-convention-proposal.md`, validated in `-validation.md`.
  *
  * Corners are square. The degenerate cases collapse to an unlipped zed, for the reason
  * `createZShape` documents: the path walks along both flange undersides, so too short a lip or
