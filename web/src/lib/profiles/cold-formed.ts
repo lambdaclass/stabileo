@@ -100,7 +100,13 @@ export type ColdFormedRejection =
   | 'flangesMeet'
   /** `t ≥ b`: the flange is not wider than the sheet is thick, so there is no flange. */
   | 'noFlange'
-  /** `c + t > h/2`: the lips reach past mid-depth and would collide. */
+  /**
+   * `c > h/2`: the lips reach past mid-depth and would collide.
+   *
+   * The bound follows the outer-face convention — it used to read `c + t > h/2`, which was right
+   * while `c` was measured from the flange's mid-thickness. Looser by exactly `t` now, and the
+   * comment is corrected here because a stale bound in a doc comment is read as the real one.
+   */
   | 'lipsCollide';
 
 export type ColdFormedValidation =

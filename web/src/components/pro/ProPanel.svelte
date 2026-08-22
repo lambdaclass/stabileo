@@ -30,7 +30,15 @@
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
-  import SteelPanel from './steel/SteelPanel.svelte';
+  /*
+   * The metallic tab renders the WORKFLOW, and the workflow renders `SteelPanel` as its last
+   * stage — so the inventory is still there, one disclosure in, rather than replaced or duplicated.
+   *
+   * A ninth tab was the alternative and would have been worse: two metallic surfaces, one of them
+   * a subset of the other, and a user having to know which. This is the same tab with the stages
+   * around it.
+   */
+  import ProSteelWorkflowTab from './ProSteelWorkflowTab.svelte';
   import ProGeneratorsPanel from './generators/ProGeneratorsPanel.svelte';
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
@@ -859,7 +867,7 @@
         {:else if activeTab === 'design'}
           <ProRcWorkflowTab />
         {:else if activeTab === 'steel'}
-          <SteelPanel />
+          <ProSteelWorkflowTab />
         {:else if activeTab === 'generators'}
           <ProGeneratorsPanel />
         {:else if activeTab === 'connections'}

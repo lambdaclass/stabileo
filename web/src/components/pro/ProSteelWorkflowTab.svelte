@@ -133,6 +133,20 @@
   const gaps = $derived(steelStore.capabilityGaps);
   const limitsState = $derived<State>('optional');
 
+  /*
+   * ── Which stages open by default, and why those two ──────────────
+   *
+   * The six stages that record a CHOICE open collapsed: each is a one-line confirmation, and six
+   * of them expanded would bury the two that carry content.
+   *
+   * The two that stay open are the two a reader came for:
+   *
+   *   · **verification**, because its blockers are the answer to «why is there no result», and a
+   *     blocked stage whose reasons are one click away is a blocked stage nobody reads;
+   *   · **limits**, because `SteelPanel` lives there and `SteelPanel` used to BE this tab. Putting
+   *     the inventory behind a disclosure would take away, from every existing user, the thing the
+   *     tab was for — which the M1 E2E caught the moment the mount landed, and rightly.
+   */
   let regOpen = $state(false);
   let gradeOpen = $state(false);
   let sectionOpen = $state(false);
@@ -140,7 +154,7 @@
   let assumptionOpen = $state(false);
   let analysisOpen = $state(false);
   let verificationOpen = $state(true);
-  let limitsOpen = $state(false);
+  let limitsOpen = $state(true);
 </script>
 
 <div class="steel-workflow" data-testid="pro-steel-workflow">
