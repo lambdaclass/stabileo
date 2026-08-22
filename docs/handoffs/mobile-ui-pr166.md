@@ -7,7 +7,7 @@ Written to be picked up cold: everything below is measured, not remembered.
 
 ## 1. Where this stands
 
-Three commits landed, each verified at 375×667 and 430×932 in Chromium with
+Four commits landed, each verified at 375×667 and 430×932 in Chromium with
 touch enabled:
 
 | commit | what it does | evidence |
@@ -15,14 +15,18 @@ touch enabled:
 | `72f5c9e0` | `zoom-to-fit` waits for the canvas backing store to match its CSS box | defensive; see §4 |
 | `16f8f2ef` | header touch targets ≥ 44 px; language selector moves to Settings | 14 undersized controls → 0 |
 | `225f0ca1` | right panel becomes a bottom sheet on phones | 226 px of model stays visible |
+| `8dfaa071` | one Basic instead of two: the ribbon at every width (§5.1) | see the table in §5.1 |
 
 Nothing is merged. CI has not been run on this branch.
 
 ---
 
-## 2. The problem this PR exists to solve
+## 2. The problem this PR exists to solve — SOLVED in `8dfaa071`
 
-**Desktop Basic and mobile Basic are two different applications.**
+**Desktop Basic and mobile Basic were two different applications.** They are
+one now; §5.1 has the measurements. This section is kept as written because it
+is the argument the rest of the work rests on, and because the baseline table
+at the end of it is what the after-numbers are compared against.
 
 - Desktop mounts `Ribbon` + `BasicPanel` (`App.svelte`, gated on
   `uiStore.appMode === 'basico' && !uiStore.isMobile`).
@@ -58,29 +62,28 @@ that reasoning — revisit if they say otherwise.
 
 ---
 
-## 4. Open question that must be answered first
+## 4. ANSWERED — the model does render. There was no bug.
 
-**The model does not appear to render on the phone canvas.**
+Settled by driving the UI path at 375×667 in Chromium with touch: menu →
+Ejemplos 2D → tap one. The canvas draws the member, both supports, the
+distributed load with its `D: 10.0 kN/m` label and the node numbers.
 
-In every mobile screenshot taken during this work the canvas shows the grid,
-the axes gizmo and one clipped load label — but no members, on a model that
-`window.__stabileo.elementIds()` reports as having 3.
+The control run is what makes it conclusive. The *same* example loaded through
+`window.__stabileoActions.loadExample()` in the *same* session reproduces the
+old symptom exactly — grid, axes gizmo, no members — and dispatching
+`stabileo-zoom-to-fit` by hand immediately afterwards brings the model back,
+pixel-identical to the UI path.
 
-Twice I attributed this to my own measurement and both times that explanation
-is now doubtful:
+So the two earlier attributions were right after all: the hook does not frame,
+`ToolbarExamples` does (it dispatches the fit 50 ms after loading), and every
+mobile screenshot that showed an empty canvas had been taken through the hook.
+`72f5c9e0` is the whole of it. Nothing about rendering is outstanding.
 
-- `window.__stabileoActions.loadExample()` calls `modelStore.loadExample()`
-  **without** dispatching `stabileo-zoom-to-fit`, so a model loaded that way is
-  never framed. That is real and explains an off-screen model.
-- But the load label rendered at the right edge, which means the canvas is
-  drawing *something* — so "nothing is framed" and "nothing is drawn" are
-  different claims and only the first is established.
-
-**Do this before any layout work.** Load an example through the UI
-(menu → Ejemplos 2D → tap one) at 375 px and look at the canvas. If members
-render, the earlier readings were an artefact of the hook and commit
-`72f5c9e0` is the whole of it. If they do not, that is the first bug and
-everything else waits.
+The lesson is the one already in §8 and it earned its place: **measure the UI
+path when what you are measuring is what a user sees.** A `memberPx` counter is
+also a trap — members are drawn in grey, `#4ecdc4` is the *selection* colour, so
+a pixel probe keyed to it reports zero on a perfectly good canvas. Look at the
+screenshot.
 
 Reproduce:
 
@@ -95,29 +98,91 @@ NODE_OPTIONS= npx vite preview --port 4258 --strictPort &
 
 ## 5. Work remaining, in order
 
-### 5.1 One shell instead of two — the substance of this PR
+### 5.1 DONE — one shell instead of two (`8dfaa071`)
 
-Make mobile Basic the ribbon adapted, not a parallel interface. Suggested
-shape, not yet validated:
+Mobile Basic is the ribbon adapted. Measured at 375×667 and 430×932, Chromium
+with touch:
 
-- Ribbon collapses to a horizontally scrollable single row of icon commands,
-  labels dropped below 768 px. Group labels (VISTA, DATOS, DIBUJAR…) become
-  separators rather than captions.
-- The quick row (`rb-quick`: file, save, undo, redo, project) folds into an
-  overflow button, since those are not per-gesture actions.
-- `FloatingTools` and the `Toolbar` drawer are then dead weight on phones and
-  should be removed for Basic — check `uiStore.appMode === 'educativo' &&
-  eduStore.authoring` still needs `FloatingTools`, it does today.
-- Anything that does not fit goes in a sheet, never in a second toolbar.
+```
+                       375×667              430×932
+                    before    after      before    after
+ribbon              absent    present    absent    present
+left toolbar        drawer    removed    drawer    removed
+floating tool bar   present   removed    present   removed
+mobile bottom bar   present   removed    present   removed
+mobile results pnl  present   removed    present   removed
+right drawer        present   removed    present   removed
+horizontal overflow none      none       none      none
+canvas share        85 %      79 %       89 %      85 %
+ribbon commands     0         17         0         17
+duplicate mounts    2         0          2         0
+controls under 44px 14        3          14        3
+```
 
-Files: `src/App.svelte` (mount gates around lines 845–1080),
-`src/components/ribbon/Ribbon.svelte`, `src/components/FloatingTools.svelte`.
+Canvas share goes DOWN and that is the trade, stated plainly: the ribbon costs
+about 6 % of the screen and buys the phone the other half of the application —
+Selection, the results selectors, the colour scale, Advanced, the walkthroughs,
+none of which a phone could reach at all before.
 
-### 5.2 Remaining touch targets
+What was built, against the suggested shape:
 
-Header is done. The rest of the 14 were elsewhere in the shell — re-measure
-after 5.1, since the ribbon migration changes which controls exist. The probe
-used:
+- Ribbon degrades to one horizontally scrollable row of 44 px icons below
+  768 px. Group captions are hidden; the hairline rules between groups already
+  carried the grouping, so the caption was the redundant half of the pair.
+- `rb-quick` was **reordered to the end, not folded into an overflow.** The
+  overflow buys ~44 px of a row that scrolls anyway, and it costs `hdr-project`
+  its place on screen — the entry point eight walkthroughs and the demo audit
+  reach for by test id, behind a tap nothing knows to make. §5.4 flagged exactly
+  this risk. `order: 2` moves the box without moving the element, so every id
+  keeps its position in the DOM. At scroll 0 the resting view is the build loop:
+  Selection, 3D, Data, Node, Element, Support, Load.
+- `FloatingTools`, both mobile drawers, the mobile bottom bar and
+  `MobileResultsPanel` are gone from Basic. Education keeps `FloatingTools`
+  while authoring; PRO keeps its drawer, its bar and its results panel.
+- `BasicPanel` is the bottom sheet below 768 px, and it **shares** the screen
+  rather than covering it — `.app-body` reserves `--st-sheet-h` (58vh, in
+  `styles/tokens.css`), so the canvas is the size it appears to be. Overlaying
+  it instead drew the moment diagram behind the panel opened to control it.
+
+Two defects found on the way past and fixed in the same commit:
+
+- `Toolbar` was mounted **twice** on a phone — in the drawer, and again in
+  `.app-body` behind `leftSidebarOpen` where `.sidebar { display: none }` hid
+  it. Two live copies of a 2,400-line component that was never shown, and every
+  id inside it existed twice.
+- A `basico && isMobile` branch sat inside a `!isMobile` block. Unreachable
+  since it was written.
+
+Files touched: `src/App.svelte`, `src/components/ribbon/Ribbon.svelte`,
+`src/components/ribbon/BasicPanel.svelte`,
+`src/components/MobileResultsPanel.svelte`,
+`src/components/toolbar/ToolbarExamples.svelte`, `src/lib/store/ui.svelte.ts`,
+`src/styles/tokens.css`.
+
+### 5.2 Remaining touch targets — re-measured, 3 left
+
+The 14 are down to **3**, identical at both widths. Removing the parallel
+interface took most of them with it; the ribbon and the sheet's ✕ were built at
+44 px from the start. What is left, all of it overlaying the canvas rather than
+sitting in the shell:
+
+| control | size | where |
+|---|---|---|
+| `[data-testid="pointer-mode"]` | 32×32 | `PointerModeButton.svelte` |
+| its twin, zoom-to-fit | 32×32 | `.viewport-controls` in `Viewport.svelte` |
+| unnamed, no test id | 139×19 | not yet identified — find it before resizing it |
+
+The first two are a deliberate pair — `PointerModeButton` is documented as
+"sized and skinned as the twin of zoom-to-fit directly below it" — so they have
+to be resized **together** or they stop being a pair. They sit on the canvas, so
+44 px each costs model area; that is the trade to weigh, and it is a real one at
+375 px.
+
+The 139×19 is short in height only and has no id or text, so identify it before
+touching it. The probe below reports it but not where it lives; add `tagName`
+and `className` to the mapper to find it in one run.
+
+The probe used:
 
 ```js
 [...document.querySelectorAll('button, select, input')]
@@ -125,19 +190,55 @@ used:
   .filter(x => x.w > 0 && x.h > 0 && (x.w < 44 || x.h < 44))
 ```
 
-### 5.3 The bottom sheet needs a grab handle and a drag
+### 5.3 The bottom sheet needs a grab handle and a drag — NEXT
 
-It is fixed at 58 vh. It should be draggable between a peek height and full,
-because reading a results table wants more than half the screen and reading a
-diagram wants less. Currently there is no affordance saying it can be resized
-— because it cannot.
+Still the right next piece, and 5.1 sharpened the case rather than settling it.
 
-### 5.4 The tutorials on a phone
+It is fixed at `--st-sheet-h` (58vh, `styles/tokens.css`). It should be
+draggable between a peek height and full, because reading a results table wants
+more than half the screen and reading a diagram wants less. There is still no
+affordance saying it can be resized, because it still cannot.
 
-Eight walkthroughs point at ribbon commands via `data-testid="rb-cmd-*"`
-(`src/lib/tour/demo-helpers.ts`, `ANCHORS`). If 5.1 changes those anchors or
-puts commands behind an overflow, every walkthrough breaks — and the audit
-script below is how to find out in one run rather than eight.
+Two things 5.1 changed that whoever picks this up needs to know:
+
+- The sheet is no longer an overlay. `.app-body` reserves `--st-sheet-h`, so
+  changing the height has to move **both** the panel's box and that
+  reservation — the token is the single place, which is why it is a token.
+- `App.svelte` re-frames the model on the sheet's open/shut transition, and
+  deliberately not on a change of which panel is showing. A drag will need the
+  same treatment: refit when the drag ENDS, not on every pointermove, or the
+  model will chase the handle.
+
+`BasicPanel.svelte` hides `.bp-resize` below 768 px — a horizontal drag on the
+leading edge cannot widen a full-width sheet. The grab handle is a new control
+on the top edge, not that one repurposed.
+
+### 5.4 The tutorials on a phone — anchors survived, unverified ON a phone
+
+**The eight walkthroughs pass.** `audit-demos.mjs` reports `sin problemas`
+after 5.1, and `e2e/basic-demos.spec.ts` is 12 passed / 1 flaky (the documented
+one, see §6).
+
+Both of those run at **1500×950**. So what is established is that 5.1 did not
+break the anchors — which was the risk the section was written about, and the
+reason `rb-quick` was reordered rather than folded behind an overflow.
+
+What is NOT established is that a walkthrough is *followable on a phone*. The
+anchors now exist there for the first time, so this is newly worth testing and
+newly possible to test. Two specific doubts:
+
+- A step highlighting a ribbon command that is scrolled off the row. The
+  highlight is clamped to the viewport (§8), so it will point at the edge
+  rather than at nothing — but nothing scrolls the row to bring the command
+  into view.
+- A step pointing at `basic-panel` while the sheet has it: the tour card and the
+  sheet both want the bottom of the screen. `tour-steps.ts` had
+  `mobileCardMaxHeight: '35vh'` for this class of problem — note that file is
+  **dead code**, imported by nobody; the live demos are `src/lib/tour/demos/*`
+  on `demo-helpers.ts`.
+
+Run the audit at 375×667 with touch to find out. It hardcodes its viewport at
+line 27.
 
 ### 5.5 PRO
 
@@ -155,25 +256,42 @@ that a card claiming a result switched to it:
 /private/tmp/claude-501/-Users-bautistachesta-Claude/483f0ef8-8bd9-4e17-8146-6008da7ceb15/scratchpad/audit-demos.mjs
 ```
 
-Copy it into `web/` before running — it imports `playwright` and needs the
-package to resolve. Expects the preview on `:4258`. Prints `sin problemas` or
-a list.
+It imports `playwright`, so it needs the package to resolve. Rather than
+copying it into `web/` — temporary scripts stay out of the repository, §7 —
+symlink the modules next to it:
 
-**Suites**
+```bash
+ln -sfn <worktree>/web/node_modules <scratchpad>/node_modules
+node <scratchpad>/audit-demos.mjs
+```
+
+Expects the preview on `:4258`. Prints `sin problemas` or a list. It hardcodes
+its viewport at line 27 (1500×950) — change it there to audit a phone.
+
+**Suites** — all four run as of `8dfaa071`:
 
 ```bash
 cd web
-NODE_OPTIONS= npm run typecheck                     # must stay at baseline 479
+NODE_OPTIONS= npm run typecheck                     # 479 = baseline. PASS
 NODE_OPTIONS= npm run test                          # two vitest passes
-NODE_OPTIONS= npx playwright test e2e/basic-demos.spec.ts
+NODE_OPTIONS= npx playwright test e2e/basic-demos.spec.ts   # 12 passed, 1 flaky
 ```
 
 Known: one test in `basic-demos.spec.ts` is declared with two retries and
 reports flaky roughly one run in twenty. It drives a canvas whose layout moves
-between steps; the walkthrough itself is deterministic.
+between steps; the walkthrough itself is deterministic. It flaked once during
+5.1 and then passed 4/4 on first attempt when run alone — and 5.1's changes are
+all behind `isMobile` or `max-width: 767px` while that spec runs at desktop
+size, so it cannot be causal. Do the same check before blaming a change for it.
 
 Known and **not from this branch**: `chs-shear-agreement.test.ts` fails on
-`main` (circular tube shear, Diego's #157). Verified by stashing.
+`main` (circular tube shear, Diego's #157). Verified by stashing, twice — once
+when this handoff was written and again after 5.1.
+
+**Before trusting a preview on `:4258`**: check what is already bound to it.
+A stale `vite preview` from an earlier session serves the bundle it was built
+from, and it will happily answer 200 while you measure the wrong code. Confirm
+the served `assets/index-*.js` hash matches the build you just made.
 
 ---
 
@@ -202,4 +320,31 @@ Known and **not from this branch**: `chs-shear-agreement.test.ts` fails on
   rectangle. The tour highlight is clamped to the viewport in
   `tour.svelte.ts` for this reason.
 - The e2e hook `loadExample` does not frame the model. Use the UI path when
-  what you are measuring is what a user sees.
+  what you are measuring is what a user sees. §4 is the whole cautionary tale:
+  three sessions spent doubting the renderer over a measurement artefact.
+- **Do not key a pixel probe to `#4ecdc4`.** That is the *selection* colour.
+  Members are drawn grey, so a "are the members there" counter built on it
+  reports zero on a correct canvas. Look at the screenshot.
+- An element hidden by `display: none` is still **mounted**. `.sidebar` is
+  hidden below 768 px, which is how a phone came to carry two live copies of
+  `Toolbar` with every test id inside it duplicated — invisible on screen and
+  invisible in a screenshot, but it breaks strict-mode locators and it is real
+  work the phone was doing for nothing. Count mounts, not pixels.
+- A `position: fixed` panel does not resize the canvas. If a sheet covers the
+  model, `zoom-to-fit` still frames against the full canvas and puts the model
+  behind the sheet. Reserve the height on `.app-body` so the two share the
+  screen — `--st-sheet-h` in `styles/tokens.css` is that reservation.
+- Every `var(--st-*)` **without a fallback** must be defined in
+  `src/styles/tokens.css`. `design-tokens-resolve.test.ts` enforces it and it
+  scans that file only — declaring a token in a component's `:global(:root)`
+  fails the suite, which is the right answer: it is the convention, not a
+  technicality.
+- `uiStore.floatingToolsTopOffset` was derived from `showFloatingTools`, a
+  **persisted user setting**, not from whether the strip is mounted. Any gate
+  that unmounts a component whose size something else reserves has to update
+  the reservation too.
+- Left behind by 5.1, harmless but worth knowing: `uiStore.leftDrawerOpen` and
+  `uiStore.leftSidebarOpen` are now vestigial. Their only remaining readers are
+  `src/lib/tour/tour-steps.ts`, which **nothing imports** — dead code kept
+  compiling. Deleting that file and the two store fields is a clean sweep for
+  whoever wants it; it was left out of 5.1 to keep that commit about the shell.
