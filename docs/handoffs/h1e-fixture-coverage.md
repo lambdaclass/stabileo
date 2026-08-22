@@ -81,3 +81,96 @@ cubrir:
 - el rail a viewport angosto, donde `rebar-rail-toggle` **sí** se muestra — a 1280×720 tiene
   `display: none` y la caja mide 0×0;
 - la visualización por familia más allá del censo.
+
+---
+
+## 5. Segunda pasada — los dos fixtures autorizados
+
+### 5.1 `doc-error`: **no es alcanzable**, y el motivo es estructural
+
+No hace falta un fixture. Medido con `seedDetailing([])`:
+
+    antes:   documents-stage 1 · doc-xlsx 1
+    después: documents-stage 0 · documents-empty 1 · doc-xlsx 0 · doc-error 0
+
+`buildDocument` devuelve `null` en **una sola** condición —`persisted.assemblies.length === 0`— y
+`DocumentsSection` renderiza toda su etapa detrás de `{#if !selected}`, donde `selected` deriva de
+la misma lista. **La ausencia que haría fallar la construcción también quita los botones que la
+llamarían.** No hay nada que clickear.
+
+O sea que `docError = t('detailing.doc.noCoordinated')` es código defensivo para una carrera que el
+propio código ya eliminó: el comentario de `buildDocument` describe el arreglo —leer del store
+**persistido** y no de un `$derived` que "does not necessarily recompute inside the synchronous turn
+that wrote its dependency"—.
+
+**Queda aserido como inalcanzable**, con el mecanismo, en `e2e/h1e-absence-states.spec.ts`. No lo
+fabriqué: forzarlo exigiría cambiar producción para que un guard dispare.
+
+### 5.2 `refused`: **bloqueado**, y falta un hook
+
+`REFUSED` sale de un **outcome de diseño** —`SECTION_INADEQUATE` o `SEARCH_EXHAUSTED`
+(`element-status.ts:345`)—, no de un detallado sembrado. `seedDetailing` escribe
+`model.detailing`; los outcomes viven en `verificationStore`.
+
+Medido en los tres fixtures:
+
+| fixture | outcomes |
+|---|---|
+| `rc-design-qa-8` | `VERIFIED` 8 |
+| `rc-qa-diagnostic` | `VERIFIED` 22 · `PROVISIONAL_BIAXIAL` 8 |
+| `pro-edificio-7p` | `VERIFIED` 198 · `PROVISIONAL_BIAXIAL` 10 |
+
+**Ninguno rechaza.** Y no hay ruta de UI: `ProSectionsTab` no tiene un solo `data-testid`,
+`SectionChanger` tampoco, y `BatchEditDialog` edita armadura, no secciones.
+
+**Lo que falta es un mutador de test**, exactamente como `selectConflict`:
+
+```ts
+updateSection: (id: number, data: unknown) => { modelStore.updateSection(id, data as never); },
+```
+
+Con eso el fixture es: cargar `rc-design-qa-8`, achicar una viga hasta que su sección no alcance,
+`designAll()`, y el motor **rechaza de verdad** — no se fabrica el estado, se produce.
+
+No lo agregué: el bloque autorizaba usar hooks existentes, y éste no existe. Es una línea y va con
+el mismo criterio con que se aprobó `selectConflict`.
+
+### 5.3 Las tres ausencias que sí se distinguen
+
+`h1e-absence-states.spec.ts`, en los tres idiomas:
+
+| estado | testid | qué significa |
+|---|---|---|
+| sin detallado | `documents-empty` | no hay nada que documentar · **ningún export ofrecido** |
+| sin documento | `doc-none` | hay detallado, no se construyó documento · **los exports SÍ se ofrecen** |
+| familias vacías | `rebar-empty-families` | esas familias no tienen geometría — y **no** `rebar-workspace-empty`, que diría que no hay nada |
+
+Aserido que las dos primeras **no comparten frase**. Es el mismo defecto que tenían las familias de
+pisos: "miramos y no hay" impreso igual que "nadie miró".
+
+Y la regla de VERIFIED: una etapa vacía no dice `verified`, `issued` ni `constructible`, y los
+elementos que llevarían veredicto —`doc-readiness`, `doc-maturity`, `doc-contents`,
+`review-record`, `doc-revision`, `issue-submit`— **no existen**, que es más fuerte que un texto
+prudente.
+
+## 6. H1-E: los tres que faltaban
+
+`h1e-rail-and-section.spec.ts`, 9 casos.
+
+**Sección de corte.** Es un **plano de clipping** —`renderer.localClippingEnabled = true`—, no un
+filtro: no se quita ninguna malla y el censo no se mueve. Mi primera versión asertó el censo y
+falló en los tres ejes; el instrumento estaba mal, no la función. Lo observable desde el DOM es el
+control dependiente: elegir eje trae el deslizador de posición y elegir ninguno lo saca. Los
+límites salen de la escena (~5,4 m en y), no de un 0..1 fijo.
+
+**Rail angosto.** A 820 el toggle aparece —a 1280 mide 0×0—, colapsa el rail y lo devuelve, mueve
+`aria-expanded` (su único contenido accesible: es un glifo sin etiqueta) y conserva el foco. El
+canvas mantiene ancho > 400 px, que es la razón por la que el rail pasa a ser una lámina encima.
+Abierto **a** 820 y no redimensionado hacia ahí: `onResize` pone `railOpen = wide` al cruzar 860, y
+mi primera versión corría contra ese handler.
+
+**Familias.** Cada familia con geometría se apaga y se vuelve a prender por separado, verificado
+contra el censo. Las 5 familias vacías **se nombran** en vez de desaparecer (4 de 5 aparecen por
+nombre en el texto). Y el tally reporta por familia —sólidos, longitudinal, transversal— con el
+total de barras coincidiendo con el censo; asertar el conteo del censo contra las celdas del tally
+era leer un número esperando otro.
