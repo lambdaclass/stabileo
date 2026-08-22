@@ -7,7 +7,7 @@ Written to be picked up cold: everything below is measured, not remembered.
 
 ## 1. Where this stands
 
-Six commits landed, each verified at 375×667 and 430×932 in Chromium with
+Eight commits landed, each verified at 375×667 and 430×932 in Chromium with
 touch enabled:
 
 | commit | what it does | evidence |
@@ -18,6 +18,8 @@ touch enabled:
 | `8dfaa071` | one Basic instead of two: the ribbon at every width (§5.1) | see the table in §5.1 |
 | `3ca2fd6f` | the phone row gathers into clusters; the sheet is dragged (§5.1b, §5.3) | see §5.1b |
 | `81a178f3` | the data tabs become the modelling buttons; toasts, sliders (§5.1c) | see §5.1c |
+| `e68f71b5` | the six data tabs become one row of icons | 6 × 59×44, one row, 367/375 px |
+| `6a350081` | Settings gets an opener on the phone — it had none | §8 |
 
 Nothing is merged. CI has not been run on this branch.
 
@@ -231,8 +233,12 @@ agree. The menu was a second copy of the strip, shown for one tap and discarded.
 So the command opens the panel, and below 768 px the tab strip stops looking
 like tabs:
 
-- six equal targets, **113 × 44 px**, in a **fixed 3×2 grid** spanning 367 of
-  375 px;
+- six equal targets in **one row** — `e68f71b5`; 59 × 44 px each, spanning 367
+  of 375. Two rows of three made the strip a different shape on every handset,
+  since which three wrapped depended on what fit. At 59 px a word does not fit,
+  so each button carries the RIBBON's glyph for that entity — the reader
+  recognises it from the desktop instead of learning a second vocabulary — with
+  the name at 0.5rem beneath and the count as a corner badge;
 - `position: sticky` at the top of the panel's scroll, so a long table never
   takes the way out of it off screen;
 - fixed on purpose — a strip that reflows with the number of loads is one the
@@ -377,6 +383,22 @@ newly possible to test. Two specific doubts:
   `rb-cmd-stress` and `ribbonGroup('results')` directly, and `rb-cmd-sections`
   and `rb-cmd-materials` now resolve to tabs rather than ribbon commands, which
   is a different id: **those two anchors do not exist on a phone at all.**
+
+Measured, rather than reasoned about — the anchors that resolve at 1500 px and
+not at 375:
+
+```
+rb-cmd-select     ✓ / ✓        rb-cmd-sections   ✓ / ABSENT (now a tab)
+rb-cmd-solve      ✓ / ✓        rb-cmd-materials  ✓ / ABSENT (now a tab)
+rb-cmd-advanced   ✓ / ✓        rb-cmd-stress     ✓ / ABSENT (in the menu)
+pointer-mode      ✓ / ✓        rb-cmd-momentY    ✓ / ABSENT (in the menu)
+                               [data-group=results] ✓ / ABSENT (in the menu)
+```
+
+Two different repairs, and they should not be confused: the first two need the
+step **re-pointed** at `dt-tab-*`; the other three need the step to **open the
+cluster** before it points, which the tour cannot ask for today because
+`openCluster` is local to `Ribbon.svelte`.
   On a desktop they are all still flat, which is why the audit passes; on a
   phone a step would spotlight a button that is not on screen until the reader
   opens its menu, and nothing opens it for them. **This is the most likely
@@ -495,6 +517,16 @@ the served `assets/index-*.js` hash matches the build you just made.
   **persisted user setting**, not from whether the strip is mounted. Any gate
   that unmounts a component whose size something else reserves has to update
   the reservation too.
+- **A control moved into a panel whose opener is gated can become unreachable,
+  and nothing fails.** `16f8f2ef` moved the language selector into Settings
+  *for phones*, on good reasoning — the header slot was too expensive. But the
+  Settings button itself is `{#if ... && !uiStore.isMobile}` in the header, so
+  the panel had no opener at that width: the control was hidden from where it
+  was and hosted where it could not be reached. `3ca2fd6f` then added control
+  size to the same panel. Two phone-only settings, unreachable from a phone,
+  for two commits. Fixed in `6a350081` — Settings opens from Project, the
+  phone's app menu. **When moving a control "into X for width W", check that X
+  can be opened at width W.**
 - Left behind by 5.1, harmless but worth knowing: `uiStore.leftDrawerOpen` and
   `uiStore.leftSidebarOpen` are now vestigial. Their only remaining readers are
   `src/lib/tour/tour-steps.ts`, which **nothing imports** — dead code kept
