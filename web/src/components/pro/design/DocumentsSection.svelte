@@ -221,7 +221,10 @@
   </section>
 
   <section class="review" aria-labelledby="review-title">
-    <h5 id="review-title">{t('detailing.review')}</h5>
+    <!-- `h4`, not `h5`. The section's own title above is an `h3`, so this skipped a level and a
+         reader navigating by heading could not tell whether the review was a sibling of the
+         documents or a part of them. -->
+    <h4 id="review-title">{t('detailing.review')}</h4>
     <p class="disclaimer" data-testid="review-disclaimer">{t('detailing.notLegalSignoff')}</p>
 
     {#if selected.review}
@@ -305,7 +308,7 @@
 
   /* One heading level per rank, so the two groups do not compete. */
   .documents-stage :global(h3),
-  .documents-stage :global(h5) {
+  .documents-stage :global(h4) {
     margin: 0 0 0.2rem;
     font-size: 0.75rem;
     font-weight: 600;

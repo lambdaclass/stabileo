@@ -90,7 +90,7 @@
 </script>
 
 <section class="status" data-testid="rebar-status-panel">
-  <h4>{t('detailing.scene.status.title')}</h4>
+  <h3>{t('detailing.scene.status.title')}</h3>
   <p class="hint">{t('detailing.scene.statusFilterHint')}</p>
 
   <ul class="counts" data-testid="rebar-status-counts">
@@ -159,7 +159,7 @@
     </button>
   {/if}
 
-  <h5>{t('detailing.scene.elements')} ({filtered.length})</h5>
+  <h4>{t('detailing.scene.elements')} ({filtered.length})</h4>
   {#if filtered.length === 0}
     <p class="hint">{t('detailing.scene.noneOfState')}</p>
   {:else}
@@ -199,7 +199,7 @@
      rail one row too short — which is exactly what happened. The rail scrolls; see the
      `.rail > *` rule in `RebarWorkspace.svelte`. */
   .status { display: flex; flex-direction: column; gap: 0.45rem; }
-  h4, h5 { margin: 0; font-size: 0.82rem; }
+  h3, h4 { margin: 0; font-size: 0.82rem; }
   .hint { margin: 0; font-size: 0.72rem; color: var(--st-text-2); }
   ul { list-style: none; margin: 0; padding: 0; }
   .counts { display: flex; flex-direction: column; gap: 0.15rem; }
