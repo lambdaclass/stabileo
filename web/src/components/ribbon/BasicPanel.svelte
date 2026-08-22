@@ -253,4 +253,61 @@
 
   .bp-resize:hover,
   .bp-resize.dragging { background: var(--st-accent); }
+
+  /* ── The phone: a bottom sheet, not a side panel ──────────────────────
+     Same panel, same contents, laid out along the axis a phone has more of.
+
+     As a side panel it would take its remembered desktop width — 320 px of a
+     375 px screen — and opening the results would hide the structure they
+     describe. That is the measurement the old right drawer was already moved
+     for; this is the same decision applied to the panel that replaced it, so
+     the two do not disagree about what a phone should do.
+
+     The height is `--st-sheet-h`, a token because `.app-body` in `App.svelte`
+     reserves exactly that much: the sheet shares the screen with the canvas
+     rather than covering it, so the model above it is really there and gets
+     framed into what is left. Fixed for now — §5.3 of the handoff is the grab
+     handle and the drag between a peek height and full, and it is the next
+     piece of work rather than part of this one.
+     ────────────────────────────────────────────────────────────────── */
+  @media (max-width: 767px) {
+    .basic-panel {
+      position: fixed;
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      /* Beats the inline `style:width` the drag handle writes, which is a
+         desktop measurement and meaningless here. */
+      width: 100% !important;
+      /* Same value `.app-body` reserves for it — see `styles/tokens.css`. */
+      height: var(--st-sheet-h);
+      max-height: var(--st-sheet-h);
+      z-index: 60;
+      border-left: none;
+      border-top: 1px solid var(--st-hair-strong);
+      border-radius: 12px 12px 0 0;
+      animation: bp-sheet-up 0.25s ease;
+    }
+
+    @keyframes bp-sheet-up {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    /* A horizontal drag on the leading edge cannot widen a full-width sheet. */
+    .bp-resize { display: none; }
+
+    /* The only control in the header, and it dismisses the panel. */
+    .bp-close {
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    .bp-head { padding: 0.4rem 0.4rem 0.4rem 0.75rem; }
+  }
 </style>

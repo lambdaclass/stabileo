@@ -773,4 +773,100 @@
     .rb-cmd { min-width: 34px; padding: 0.35rem 0.3rem; }
     .rb-group { padding: 0 0.35rem 0.2rem; }
   }
+
+  /* ── The phone ───────────────────────────────────────────────────────
+     A fourth variant rather than a fourth interface. Below 768 px the ribbon
+     used to yield to a separate mobile tool strip, and everything added to the
+     ribbon since then reached the phone through nothing at all. It now
+     degrades one more step and keeps every command.
+
+     Three things change, and none of them is "drop a command":
+
+       * The group CAPTIONS go. They cost a whole line of height, and the rule
+         between groups already carries the grouping — the caption was the
+         redundant half of a pair. At this width a row of icons separated by
+         hairlines reads the way the captioned groups read on a desktop.
+
+       * Targets go to 44 px square. Below that a control is a coin toss with a
+         thumb, which is how the header ended up with a 23×22 px button.
+
+       * The document commands move to the END. Project, Save, Undo and Redo
+         are not per-gesture actions, and on a scrolling row the leading edge is
+         the only part that is always reachable without a swipe — it belongs to
+         the tools and diagrams you cross constantly.
+
+     Deliberately NOT an overflow button. Folding the four behind a menu was
+     the other candidate and it buys ~44 px of a row that scrolls anyway, at
+     the price of putting `hdr-project` — which eight walkthroughs and the
+     demo audit reach for by test id — behind a tap that nothing knows to make.
+     Reordering costs no command its place in the DOM.
+
+     The row already scrolls (`overflow-x: auto` on `.rb-row`), so the full set
+     stays reachable at any width; nothing here truncates.
+     ────────────────────────────────────────────────────────────────── */
+  @media (max-width: 767px) {
+    .rb-row {
+      padding: 0.25rem 0.35rem;
+      align-items: center;
+      /* Momentum scrolling, and no rubber-banding of the whole page with it. */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+    }
+
+    .rb-group-label { display: none; }
+
+    .rb-group {
+      justify-content: center;
+      padding: 0 0.25rem;
+    }
+
+    .rb-cmds { gap: 0; }
+
+    .rb-cmd {
+      min-width: 44px;
+      min-height: 44px;
+      justify-content: center;
+      padding: 0.25rem;
+    }
+
+    /*
+       `prominent` says "sole command of its group, so it carries the group's
+       height" — but with the captions gone every command is the same height,
+       and a 30 px glyph beside 20 px ones just reads as a misprint.
+    */
+    .rb-cmd.prominent { padding: 0.25rem; }
+    .rb-cmd.prominent :global(svg) { width: 22px; height: 22px; }
+
+    /*
+       Document commands last. `order` moves the box without moving the
+       element, so every test id keeps its place in the DOM and the tour
+       still finds `hdr-project` where it has always been.
+    */
+    .rb-quick {
+      order: 2;
+      margin: 0;
+      border-right: none;
+      border-left: 1px solid var(--st-hair);
+      /* One row of four: a 2×2 block of 44 px cells is 88 px tall, which is
+         more ribbon than a 667 px screen can spare. */
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: 1fr;
+    }
+
+    /* With one row, the 2×2 block's internal rules are the wrong dividers. */
+    .rb-quick-row:first-child .rb-quick-btn,
+    .rb-quick-row:first-child .rb-quick-btn:first-child {
+      border-bottom: none;
+      border-right: none;
+    }
+
+    .rb-quick-btn {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0.25rem;
+    }
+
+    /* The spacer would push the document block off the scrollable end. */
+    .rb-spacer { display: none; }
+  }
 </style>

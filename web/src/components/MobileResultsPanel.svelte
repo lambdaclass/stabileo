@@ -29,23 +29,22 @@
   }
 </script>
 
-<!-- Toggle button — visible on mobile in Basic mode only (PRO has its own toolbar button) -->
-{#if uiStore.isMobile && !uiStore.mobileResultsPanelOpen && uiStore.appMode === 'basico'}
-  <button
-    class="mrp-reopen"
-    style="top: {uiStore.floatingToolsTopOffset}px"
-    onclick={() => uiStore.mobileResultsPanelOpen = true}
-    title={t('mobile.resultsAndSolve')}
-  >
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-      <line x1="2" y1="17" x2="22" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M2,17 Q7,5 12,17 Q17,5 22,17" stroke="var(--st-accent)" stroke-width="1.8" fill="none"/>
-    </svg>
-  </button>
-{/if}
+<!--
+  PRO only, now.
+  ──────────────
+  This was Basic's parallel results interface on a phone, and every control in
+  it has a counterpart in the one shell: Calcular is `rb-cmd-solve`, the diagram
+  buttons are the ribbon's Results group, and the scale and Valores live in the
+  Results panel that those commands open. Mounted in Basic as well it did not
+  merely duplicate them — it FLOATED OVER the bottom sheet showing the same
+  results, so a solve produced two panels arguing about which diagram was on.
 
-<!-- Floating results panel — Basic and PRO mobile -->
-{#if uiStore.isMobile && uiStore.mobileResultsPanelOpen && (uiStore.appMode === 'basico' || uiStore.appMode === 'pro')}
+  PRO keeps it: PRO mobile has no ribbon, and its own toolbar carries the button
+  that opens this.
+
+  The Basic-only reopen tab that used to sit here is gone with it.
+-->
+{#if uiStore.isMobile && uiStore.mobileResultsPanelOpen && uiStore.appMode === 'pro'}
   <div class="mrp-panel" class:mrp-pro={uiStore.appMode === 'pro'} style="top: {uiStore.appMode === 'pro' ? 4 : uiStore.floatingToolsTopOffset}px">
     <div class="mrp-header">
       <span class="mrp-title">{t('mobile.results')}</span>
@@ -143,30 +142,6 @@
 {/if}
 
 <style>
-  /* Reopen button — always visible on mobile */
-  .mrp-reopen {
-    position: absolute;
-    left: 8px;
-    z-index: 90;
-    width: 36px;
-    height: 36px;
-    background: rgba(19, 33, 45, 0.9);
-    border: 1px solid var(--st-hair);
-    border-radius: 6px;
-    color: var(--st-text-2);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(8px);
-    transition: background 0.15s, color 0.15s;
-  }
-
-  .mrp-reopen:hover, .mrp-reopen:active {
-    background: rgba(23, 41, 58, 0.95);
-    color: var(--st-text);
-  }
-
   /* Floating panel */
   .mrp-panel {
     position: absolute;

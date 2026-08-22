@@ -779,6 +779,19 @@ function createUIStore() {
 
     /** Top offset (px) for viewport overlay buttons (zoom, camera controls, clip panel) */
     get floatingToolsTopOffset(): number {
+      /*
+       * Basic does not mount FloatingTools at any width.
+       *
+       * The offset exists to clear a strip that FLOATS OVER the canvas. Basic's
+       * commands are on the ribbon, which sits above the viewport and takes its
+       * own space, so there is nothing here to clear — but `showFloatingTools`
+       * is a persisted user setting rather than a statement about what is
+       * mounted, and it stays true from whenever the strip was last used. The
+       * result was the zoom and camera buttons hanging 44 px below the top of a
+       * canvas with nothing above them.
+       */
+      // `appMode === 'basico'`, spelled from the local it derives from.
+      if (analysisMode !== 'pro' && analysisMode !== 'edu') return 12;
       if (!showFloatingTools) return 12;
       // rows=1 → 56px (main bar only), rows=2 → 86px, rows=3 → 116px
       return 12 + 44 + (floatingToolsRows - 1) * 30;

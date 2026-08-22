@@ -147,6 +147,23 @@
   --st-radius: 3px;
   --st-radius-lg: 6px;
 
+  /* ── Layout: the phone's bottom sheet ──────────────────────────────────
+     How much of a phone screen the Basic panel takes when it lays itself out
+     as a sheet, below 768 px.
+
+     A token because two rules have to agree about it and they live in
+     different components: the sheet's own box in `BasicPanel.svelte`, and the
+     height `.app-body` gives up for it in `App.svelte`. The sheet SHARES the
+     screen with the canvas rather than covering it, so if the two ever drift
+     the model is either overlapped or left with a dead band beneath it —
+     and neither shows up anywhere but on a phone.
+
+     Just over half: enough for a results table to be worth reading, and it
+     leaves the model the upper portion, where the reader can still see what a
+     value refers to.
+     ──────────────────────────────────────────────────────────────────── */
+  --st-sheet-h: 58vh;
+
   /* ── Semantic: surfaces ────────────────────────────────────────────────
      Four depths, dark to light. The old palette had six near-identical navy
      blues (#1a1a2e, #16213e, #0f3460, #1a3050, #0a1a30, #0f2840) doing this

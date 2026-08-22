@@ -2,20 +2,16 @@
   import { onMount, untrack } from 'svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
-  import Toolbar from './components/Toolbar.svelte';
-  import PropertyPanel from './components/PropertyPanel.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
   import DespieceInspector from './components/DespieceInspector.svelte';
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
-  import DataTable from './components/DataTable.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, tabManager, historyStore } from './lib/store';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
-  import StepWizard from './components/dsm/StepWizard.svelte';
   import { resolveDeleteTargets } from './lib/store/delete-selection';
   import {
     loadAutosave, clearAutosave,
@@ -96,9 +92,43 @@
    * is what the ribbon does for every other command that owns a panel.
    */
   $effect(() => {
-    if (dsmStepsStore.isOpen && uiStore.appMode === 'basico' && !uiStore.isMobile) {
+    if (dsmStepsStore.isOpen && uiStore.appMode === 'basico') {
       basicPanel = 'data';
     }
+  });
+
+  /**
+   * Re-frame when the phone's sheet takes the canvas's height, or gives it back.
+   *
+   * The sheet is 58 % of the screen, so opening one takes the canvas from about
+   * 550 px tall to about 200 and closing it does the reverse. A framing computed
+   * for either of those is wrong for the other by more than the model is tall —
+   * open Results on a framed beam and the beam is simply below the viewport.
+   *
+   * Only the OPEN/SHUT transition, not a change of which panel is showing:
+   * moving from Results to Model data does not resize anything, and refitting
+   * there would throw away a pan the reader had just made for no reason.
+   *
+   * Phone only. On a desktop the panel takes width from a canvas that has
+   * plenty, and the existing framing stays legible.
+   */
+  let sheetWasOpen = false;
+  $effect(() => {
+    const open = uiStore.isMobile && uiStore.appMode === 'basico' && !!basicPanel;
+    if (open === sheetWasOpen) return;
+    sheetWasOpen = open;
+    if (modelStore.nodes.size === 0) return;
+    /*
+     * Two frames, not one. The class that reserves the height lands with this
+     * same update; the canvas is resized by a ResizeObserver reacting to it,
+     * and `zoom-to-fit` measures the backing store — so a fit dispatched in the
+     * same tick measures the size the canvas is about to stop being. This is
+     * the hazard commit 72f5c9e0 hardened the fit against; the delay keeps the
+     * two from racing in the first place.
+     */
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+    }));
   });
   import WhatIfPanel from './components/WhatIfPanel.svelte';
   import SectionStressPanel from './components/SectionStressPanel.svelte';
@@ -287,8 +317,6 @@
   let ifcFileInput: HTMLInputElement;
   let dxfFileInput: HTMLInputElement;
 
-  // Derive showResults from whether results exist — no manual management needed
-  const showResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
   let showImportDialog = $state(false);
   let importText = $state('');
   let autosaveData = $state<DedalFile | null>(null);
@@ -436,7 +464,12 @@
      * and wrong for a walkthrough: two consecutive steps both asking for the
      * results panel closed it on the second, and the card that followed
      * pointed at a panel it had just dismissed.
+     *
+     * A `null` detail CLOSES it. On a phone the panel is a sheet over the
+     * model, so a command that has finished its job — picking an example — has
+     * to be able to get out of the way of the thing it just produced.
      */
+    if (panel === null) { closeBasicPanel(); return; }
     if (typeof panel === 'string') openBasicPanel(panel, { toggle: false });
   }
 
@@ -944,20 +977,42 @@
     </div>
   </header>
 
-  {#if uiStore.appMode === 'basico' && !uiStore.isMobile}
+  <!--
+    One shell, both widths.
+    ───────────────────────
+    Mobile used to mount a different application here: the old left Toolbar in a
+    drawer plus a floating tool strip, while everything built since the ribbon
+    landed — the pointer mode on the model, the Selection panel, the results
+    selectors, the colour-scale switch, the walkthroughs — was reachable only
+    through the ribbon. Any new work on Basic had to be done twice or it
+    silently shipped to desktop alone, and that is how a phone came to have no
+    way at all to reach half the application.
+
+    The ribbon DEGRADES rather than forking. Below 768 px it drops to icons on
+    one horizontally scrollable row, the group captions give way to the rules
+    that already separate the groups, and the document commands move to the end
+    so the per-gesture ones keep the reachable side. Four size variants, no
+    variant dropping a command — see `Ribbon.svelte`.
+  -->
+  {#if uiStore.appMode === 'basico'}
     <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
     <ToolOptionsBar />
   {/if}
 
-  <div class="app-body" class:app-body-pro={uiStore.appMode === 'pro'}>
-    {#if uiStore.appMode === 'basico' && uiStore.isMobile}
-      <!-- Mobile keeps the old panel: a ribbon needs width the phone does not have. -->
-      {#if uiStore.leftSidebarOpen}
-        <aside class="sidebar left">
-          <Toolbar />
-        </aside>
-      {/if}
-    {/if}
+  <!--
+    The bottom-bar reservation follows the bottom bar.
+    ─────────────────────────────────────────────────
+    `.app-body` gave up 60 px at the foot of every phone screen for the mobile
+    bar. Basic has no bar any more, and an unconditional reservation would leave
+    a 60 px band of nothing under the canvas — on the axis this whole revamp is
+    trying to buy back.
+  -->
+  <div
+    class="app-body"
+    class:app-body-pro={uiStore.appMode === 'pro'}
+    class:app-body-bottom-bar={uiStore.isMobile && uiStore.appMode !== 'basico'}
+    class:app-body-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && !!basicPanel}
+  >
 
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1070,20 +1125,29 @@
           sent the teacher to Basic to build the model, save a file and come
           back to open it.
 
-          This is the bar Basic already uses on a phone: node, element,
-          support, load and their options, and nothing about solving or
-          results, which an exercise author has no use for.
+          Node, element, support, load and their options, and nothing about
+          solving or results, which an exercise author has no use for.
+
+          Education ONLY, now. This strip used to be Basic's phone toolbar as
+          well, which made it half of the parallel mobile interface: the tools
+          were here while every other command was on a ribbon the phone never
+          mounted. Basic now mounts the ribbon at every width, and the armed
+          tool's options belong to `ToolOptionsBar` under it — so keeping the
+          strip on a phone would be two controls for one job, one of them
+          floating over the model.
         -->
-        {#if (uiStore.appMode === 'basico' && uiStore.isMobile) || (uiStore.appMode === 'educativo' && eduStore.authoring)}
+        {#if uiStore.appMode === 'educativo' && eduStore.authoring}
           <FloatingTools />
         {/if}
         <!--
           Advanced analyses float over the canvas only where there is nothing to
-          dock them into. In desktop Basic the right panel is that place, and
-          BasicPanel renders them there instead — otherwise Kinematic and
-          Explore end up as two boxes covering the structure they describe.
+          dock them into. In Basic the right panel is that place — at BOTH
+          widths, since the phone has it too now — and BasicPanel renders them
+          there instead; otherwise Kinematic and Explore end up as two boxes
+          covering the structure they describe, which on a 375 px screen means
+          covering all of it.
         -->
-        {#if !(uiStore.appMode === 'basico' && !uiStore.isMobile)}
+        {#if uiStore.appMode !== 'basico'}
           <WhatIfPanel />
           <SectionStressPanel />
           <KinematicPanel />
@@ -1103,7 +1167,16 @@
       </main>
     </div>
 
-    {#if uiStore.appMode === 'basico' && basicPanel && !uiStore.isMobile}
+    <!--
+      The one panel a ribbon command opens, at both widths.
+      ────────────────────────────────────────────────────
+      On a phone it lays itself out as a bottom sheet rather than a side panel —
+      see the size variant in `BasicPanel.svelte`. That is the same decision the
+      old right drawer already made and for the same measured reason: as a side
+      drawer it took 319 px of 375, so opening the results hid the structure
+      they describe. The two have to share the axis there is more of.
+    -->
+    {#if uiStore.appMode === 'basico' && basicPanel}
       <BasicPanel panel={basicPanel} bind:dataTab={basicDataTab} onClose={closeBasicPanel} />
     {/if}
 
@@ -1167,34 +1240,14 @@
         <aside class="sidebar right edu-sidebar">
           <EducativePanel />
         </aside>
-      {:else if uiStore.appMode === 'basico' && uiStore.isMobile}
-        <!--
-          Desktop Basic serves model data and the DSM wizard through the one
-          ribbon panel. This legacy sidebar, with its own edge toggle, stays only
-          for mobile, where there is no ribbon to route them through.
-        -->
-        {#if !uiStore.aiDrawerOpen}
-          <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
-            {uiStore.rightSidebarOpen ? '▸' : '◂'}
-          </button>
-        {/if}
-        {#if uiStore.rightSidebarOpen}
-          <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
-            {#if dsmStepsStore.isOpen}
-              <StepWizard />
-            {:else}
-              <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-                {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
-              </button>
-              {#if uiStore.showDataTable}
-                <div class="data-table-sidebar">
-                  <DataTable />
-                </div>
-              {/if}
-            {/if}
-          </aside>
-        {/if}
       {/if}
+      <!--
+        A `basico && isMobile` branch used to sit here, holding a legacy right
+        sidebar with its own edge toggle for model data and the DSM wizard. It
+        was unreachable: this whole block is `!isMobile`, so the branch asked
+        for a width its parent had already excluded. Removed rather than moved —
+        BasicPanel serves both of those on the phone now, in the sheet.
+      -->
     {/if}
 
     </div><!-- /pro-body-row (class only applied in PRO) -->
@@ -1210,51 +1263,44 @@
     </footer>
   {/if}
 
-  <!-- Mobile drawers (overlay on top of canvas) -->
-  {#if uiStore.isMobile && uiStore.leftDrawerOpen && uiStore.appMode === 'basico'}
-    <div class="drawer-backdrop" onclick={() => uiStore.leftDrawerOpen = false}></div>
-    <aside class="drawer drawer-left">
-      <Toolbar />
-    </aside>
-  {/if}
-  {#if uiStore.isMobile && uiStore.rightDrawerOpen}
+  <!--
+    Mobile drawers (overlay on top of canvas) — PRO and Education only.
+    ──────────────────────────────────────────────────────────────────
+    Basic had both of these, and together they WERE the parallel interface: the
+    left one held the old Toolbar, the right one held PropertyPanel and a second
+    copy of the model-data table. Both are gone from Basic. The ribbon is
+    mounted at every width now and its commands open BasicPanel, which lays
+    itself out as the bottom sheet on a phone — so the drawers would be a second
+    route to the same content, disagreeing with the ribbon about what is open.
+
+    The left Toolbar is not mounted anywhere in Basic any more, at either width.
+    It was ALSO being mounted a second time in `.app-body` behind
+    `leftSidebarOpen`, where `.sidebar { display: none }` hid it below 768 px —
+    so a phone carried two live copies of a 2,400-line component it never
+    showed, and every id inside it, `ex-group-2d` among them, existed twice.
+  -->
+  {#if uiStore.isMobile && uiStore.rightDrawerOpen && uiStore.appMode !== 'basico'}
     <div class="drawer-backdrop" onclick={() => uiStore.rightDrawerOpen = false}></div>
-    <aside class="drawer drawer-right" data-tour="right-sidebar">
+    <aside class="drawer drawer-right">
       {#if uiStore.appMode === 'pro'}
         <ProPanel />
       {:else if uiStore.appMode === 'educativo'}
         <EducativePanel />
-      {:else if dsmStepsStore.isOpen}
-        <StepWizard />
-      {:else}
-        <PropertyPanel {showResults} />
-        <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-          {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
-        </button>
-        {#if uiStore.showDataTable}
-          <div class="data-table-sidebar">
-            <DataTable />
-          </div>
-        {/if}
       {/if}
     </aside>
   {/if}
 
-  <!-- Mobile bottom bar -->
-  {#if uiStore.isMobile}
+  <!--
+    Mobile bottom bar — PRO and Education only, for the same reason.
+    Basic's two buttons opened the two drawers above. With the ribbon carrying
+    every command, a bar whose whole job was to reveal a different set of them
+    is 60 px of screen bought back for the model.
+  -->
+  {#if uiStore.isMobile && uiStore.appMode !== 'basico'}
     <nav class="mobile-bottom-bar">
-      {#if uiStore.appMode === 'basico'}
-        <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
-          ☰
-        </button>
-        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
-          ⚙
-        </button>
-      {:else}
-        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}>
-          {uiStore.appMode === 'pro' ? '\u26A1' : '\uD83D\uDCD0'}
-        </button>
-      {/if}
+      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}>
+        {uiStore.appMode === 'pro' ? '\u26A1' : '\uD83D\uDCD0'}
+      </button>
     </nav>
   {/if}
 </div>
@@ -2643,8 +2689,26 @@
       display: none !important;
     }
 
-    .app-body {
+    .app-body-bottom-bar {
       padding-bottom: 60px;
+    }
+
+    /*
+       The sheet SHARES the screen with the canvas; it does not sit on top of it.
+       ─────────────────────────────────────────────────────────────────────────
+       As a plain overlay the panel covered the lower 58 % of a canvas that was
+       still sized, and framed, to the full viewport — so choosing a moment
+       diagram put the diagram behind the panel that had just been opened to
+       control it, and the visible strip showed empty grid. The model was drawn;
+       it was simply underneath.
+
+       Reserving the height instead makes the canvas the size it appears to be.
+       Both viewports carry a ResizeObserver, so the backing store follows on its
+       own, and `--st-sheet-h` (in `styles/tokens.css`) is the one place the
+       height is written — the panel reads the same token for its own box.
+    */
+    .app-body-sheet {
+      padding-bottom: var(--st-sheet-h);
     }
 
     .app-header {
