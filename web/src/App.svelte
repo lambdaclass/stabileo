@@ -2296,11 +2296,27 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    /*
+       The BOX must not take the tap; only the toasts inside it may.
+       ────────────────────────────────────────────────────────────
+       This container is `position: fixed` at z-index 1100 and, on a phone, was
+       pinned top AND bottom — so while any toast was on screen an invisible
+       div covered the entire viewport and swallowed every touch that was not
+       on the toast itself. A solve raises a toast, and for the seconds it
+       lived the canvas underneath could not be panned, tapped or drawn on.
+
+       Declared here rather than in the phone rule because it is right at every
+       width: a notification is something you read, and the empty space around
+       it belongs to whatever is underneath.
+    */
+    pointer-events: none;
   }
 
   .toast {
     position: relative;
     padding: 0.6rem 2rem 0.6rem 1rem;
+    /* The toast itself is interactive again — it has a ✕ and sometimes an action. */
+    pointer-events: auto;
     border-radius: 6px;
     font-size: 0.85rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
@@ -2324,6 +2340,38 @@
     padding: 0 2px;
   }
   .toast-dismiss:hover { opacity: 1; }
+
+  /*
+     On a phone the ✕ is the whole point of the toast lasting.
+     ────────────────────────────────────────────────────────
+     A toast auto-dismisses, so the button exists for the reader who wants it
+     gone NOW — it sits over the model. At 0.5 opacity and a 12 px hit area it
+     was neither visible enough to notice nor big enough to hit with a thumb,
+     which on a touch screen means it may as well not be there.
+
+     Full opacity, a 44 px target, and a ring so it reads as a control rather
+     than as part of the message.
+  */
+  @media (max-width: 767px) {
+    .toast {
+      padding: 0.7rem 3rem 0.7rem 0.9rem;
+    }
+
+    .toast-dismiss {
+      top: 50%;
+      right: 4px;
+      transform: translateY(-50%);
+      opacity: 1;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.22);
+    }
+  }
 
   .toast-action {
     align-self: flex-end;
@@ -2738,10 +2786,32 @@
       margin: 0 0.15rem;
     }
 
+    /*
+       Below the shell, over the model, never across the commands.
+       ──────────────────────────────────────────────────────────
+       At `top: 50px` the toast landed on the ribbon: "Cálculo exitoso" covered
+       the diagram commands the reader was about to press because of it. The
+       header, ribbon and options bar occupy the first 142 px, so the message
+       starts just under them and sits on the canvas, which is the one surface
+       with nothing to press on it.
+
+       `bottom: auto` matters as much as the `top`. The desktop rule anchors
+       the container to the BOTTOM, and setting a top without clearing that
+       left a fixed box pinned at both ends — i.e. the full height of the
+       screen. See `pointer-events` below for what that cost.
+    */
     .toast-container {
-      right: 10px;
+      /*
+         Stops short of the canvas's own two buttons — pointer mode and
+         zoom-to-fit sit at the top-right of the model, from x = 331. Running
+         the toast to the edge put its ✕ directly on top of them: two round
+         controls overlapping, one of them unreachable for as long as the
+         message lasted, which reads as a bug even though it heals itself.
+      */
+      right: 56px;
       left: 10px;
-      top: 50px;
+      top: 146px;
+      bottom: auto;
     }
 
     .toast {

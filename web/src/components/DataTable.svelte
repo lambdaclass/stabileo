@@ -151,6 +151,58 @@
     border-bottom-color: var(--st-accent);
   }
 
+  /* ── The phone: the tab strip IS the modelling toolbar ─────────────────
+     Below 768 px the ribbon's Modelado command opens this panel rather than a
+     menu of six buttons, because these six tabs already ARE those buttons —
+     `pickTab` above arms each tab's tool, which is the whole of what the menu
+     items did. Duplicating them cost a tap and a second thing to keep in sync.
+
+     So they stop looking like tabs and start looking like what they now are:
+     six equal targets across the full width, in a fixed 3×2 grid that never
+     reflows, never scrolls sideways, and never hides one behind an overflow.
+     Fixed matters — a control that moves depending on how many loads exist is
+     one the reader has to find again every time.
+
+     Pinned to the top of the panel's scroll, so scrolling a long table never
+     takes the way out of it off screen.
+     ─────────────────────────────────────────────────────────────────── */
+  @media (max-width: 767px) {
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 4px 4px 6px;
+      border-bottom: 1px solid var(--st-hair);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      /* Opaque: the table scrolls underneath it. */
+      background: var(--st-surface);
+    }
+
+    .tabs button {
+      min-height: 44px;
+      padding: 0.3rem 0.2rem;
+      font-size: 0.72rem;
+      line-height: 1.2;
+      white-space: normal;
+      border: 1px solid var(--st-hair);
+      border-radius: var(--st-radius);
+      background: var(--st-surface-2);
+      color: var(--st-text-2);
+      /* The underline was the tab affordance; these are buttons now. */
+      border-bottom-width: 1px;
+    }
+
+    .tabs button.active {
+      color: var(--st-text);
+      background: var(--st-selected-bg);
+      border-color: var(--st-accent);
+      border-bottom-color: var(--st-accent);
+      font-weight: 600;
+    }
+  }
+
   .tabs button:disabled {
     opacity: 0.4;
     cursor: not-allowed;

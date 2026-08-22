@@ -339,14 +339,6 @@
 
   const CLUSTERS: Cluster[] = $derived([
     {
-      id: 'model',
-      labelKey: 'ribbon.groupModel',
-      icon: 'element',
-      // Node, element, support, load, sections, materials — everything that
-      // puts something INTO the model, in the order you meet it.
-      cmds: cmdsOf('draw', 'conditions', 'properties'),
-    },
-    {
       id: 'results',
       labelKey: 'ribbon.tabResults',
       icon: 'moment',
@@ -354,12 +346,47 @@
     },
   ]);
 
-  /** Groups the phone shows flat, in row order, with the clusters spliced in. */
+  /*
+   * Modelado is a COMMAND, not a menu.
+   * ──────────────────────────────────
+   * It was a cluster: tap it, get six buttons, tap one, get the Model data
+   * panel opened on that entity's tab with its tool armed. But the panel's own
+   * tabs are those same six choices and they already do exactly that — see
+   * `pickTab` in `DataTable.svelte`, which arms the tab's tool for precisely
+   * this reason. The menu was a second copy of the panel's tab strip, shown
+   * for one tap and then thrown away.
+   *
+   * So the button opens the panel and the tabs ARE the six buttons. Below
+   * 768 px the strip is laid out as a 3×2 grid of real targets across the full
+   * width, pinned above the table — see `DataTable.svelte`.
+   *
+   * It lands on the tab the reader last used and arms that tab's tool, so the
+   * command leaves you able to draw rather than merely looking at a table.
+   * Materials and sections have no tool and correctly arm none.
+   */
+  function toolForTab(tab: string): string | undefined {
+    // Read off the ribbon's own definitions rather than restating the pairing.
+    return cmdsOf('draw', 'conditions').find((c) => c.dataTab === tab)?.tool;
+  }
+
+  const modelCmd: Cmd = $derived.by(() => {
+    const tab = activeDataTab || 'nodes';
+    return {
+      id: 'model',
+      icon: 'element',
+      labelKey: 'ribbon.groupModel',
+      panel: 'data',
+      dataTab: tab,
+      tool: toolForTab(tab),
+    };
+  });
+
+  /** The phone's row, in order, with the one remaining cluster spliced in. */
   const PHONE_ROW: ({ kind: 'cmd'; cmd: Cmd } | { kind: 'cluster'; cluster: Cluster })[] = $derived([
     ...cmdsOf('view').map((cmd) => ({ kind: 'cmd' as const, cmd })),
-    { kind: 'cluster' as const, cluster: CLUSTERS[0] },
+    { kind: 'cmd' as const, cmd: modelCmd },
     ...cmdsOf('analyse').map((cmd) => ({ kind: 'cmd' as const, cmd })),
-    { kind: 'cluster' as const, cluster: CLUSTERS[1] },
+    { kind: 'cluster' as const, cluster: CLUSTERS[0] },
   ]);
 
   /**

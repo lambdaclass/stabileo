@@ -271,11 +271,39 @@
     aria-orientation="horizontal"
     aria-label={t('ribbon.resize')}
     data-testid="bp-grab"
-  ><span class="bp-grab-pill"></span></div>
-  <header class="bp-head">
-    <span class="bp-title" data-testid="bp-title">{title}</span>
-    <button class="bp-close" onclick={onClose} title={t('ribbon.close')} aria-label={t('ribbon.close')}>×</button>
-  </header>
+  >
+    <span class="bp-grab-pill"></span>
+    <!--
+      The phone's ✕ rides on the handle row.
+      ──────────────────────────────────────
+      One place to close from, whatever the panel is showing, and it lets the
+      Model-data panel drop its title row entirely (below). `stopPropagation`
+      on the pointer: without it, pressing ✕ also starts a drag, so the sheet
+      lurches a few pixels on its way out.
+    -->
+    <button
+      class="bp-grab-close"
+      onpointerdown={(e) => e.stopPropagation()}
+      onclick={onClose}
+      title={t('ribbon.close')}
+      aria-label={t('ribbon.close')}
+      data-testid="bp-sheet-close"
+    >×</button>
+  </div>
+  <!--
+    Model data names itself with its tabs, so on a phone it does without a title.
+    ────────────────────────────────────────────────────────────────────────────
+    A row reading "DATOS" above a strip of tabs reading Nodos / Barras / Apoyos
+    is the word "data" spent on 40 px of a 667 px screen, directly above six
+    controls that say the same thing more precisely. Every other panel keeps its
+    heading: Results and Project have nothing else that names them.
+  -->
+  {#if !(uiStore.isMobile && panel === 'data')}
+    <header class="bp-head">
+      <span class="bp-title" data-testid="bp-title">{title}</span>
+      <button class="bp-close" onclick={onClose} title={t('ribbon.close')} aria-label={t('ribbon.close')}>×</button>
+    </header>
+  {/if}
 
   <div class="bp-body">
     {#if panel === 'selection'}
@@ -375,7 +403,8 @@
   .bp-resize.dragging { background: var(--st-accent); }
 
   /* The phone's grab handle does not exist on a desktop, where the panel is
-     resized from its leading edge. */
+     resized from its leading edge — and neither does the ✕ it carries, since
+     the header keeps its own there. */
   .bp-grab { display: none; }
 
   /* ── The phone: a bottom sheet, not a side panel ──────────────────────
@@ -431,6 +460,20 @@
     /* A horizontal drag on the leading edge cannot widen a full-width sheet. */
     .bp-resize { display: none; }
 
+    /*
+       Model data goes edge to edge.
+       ─────────────────────────────
+       The body's 0.65rem gutters are right for prose and for the stacked
+       controls in Results, and wrong for this panel: they cost the six-button
+       grid and the table 21 px of a 375 px screen for whitespace nobody reads.
+       The tab strip carries its own 4 px instead.
+    */
+    .basic-panel[data-panel='data'] .bp-body {
+      padding-left: 0;
+      padding-right: 0;
+      padding-top: 0;
+    }
+
     /* ── The grab handle ────────────────────────────────────────────
        The one surface that resizes the sheet. The body below it scrolls, and
        the two never trade places: `touch-action: none` here tells the browser
@@ -445,13 +488,37 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 28px;
+      /* Taller than the pill it holds, because it also holds the ✕. */
+      height: 40px;
       flex: none;
+      position: relative;
       cursor: row-resize;
       touch-action: none;
       -webkit-user-select: none;
       user-select: none;
     }
+
+    .bp-grab-close {
+      position: absolute;
+      right: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--st-text-2);
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      /* Its own gesture, not the handle's. */
+      touch-action: manipulation;
+    }
+
+    .bp-grab-close:active { color: var(--st-text); }
 
     .bp-grab-pill {
       width: 40px;
@@ -470,15 +537,12 @@
     .bp-grab:focus-visible { outline: 2px solid var(--st-accent); outline-offset: -3px; }
 
 
-    /* The only control in the header, and it dismisses the panel. */
-    .bp-close {
-      min-width: 44px;
-      min-height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-    }
+    /*
+       One ✕, on the handle row. The header's own would be a second one four
+       millimetres below the first, both closing the same panel — which is what
+       shipped for exactly one build of this branch.
+    */
+    .bp-close { display: none; }
 
     /* Reduced at the top: the grab handle above already carries that space,
        and stacking both left a tall empty band before the title. */
