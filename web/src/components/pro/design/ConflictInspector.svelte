@@ -73,19 +73,28 @@
       data-testid="rebar-conflict-centre"
       onclick={() => rebarWorkspace.selectConflict(conflict)}
     >{t('detailing.scene.conflict.centre')}</button>
-    {#if isolated}
-      <button
-        type="button"
-        data-testid="rebar-conflict-clear-isolation"
-        onclick={() => rebarWorkspace.clearIsolation()}
-      >{t('detailing.scene.clearIsolation')}</button>
-    {:else}
-      <button
-        type="button"
-        data-testid="rebar-conflict-isolate"
-        onclick={() => rebarWorkspace.selectConflict(conflict, { isolateMembers: true })}
-      >{tp('detailing.scene.conflict.isolate', { n: conflict.elementIds.length })}</button>
-    {/if}
+    <!--
+      ONE button that changes, not two that replace each other.
+
+      Same defect `SelectionDetails` had, in the same shape: an `{#if}/{:else}` pair means
+      pressing one DESTROYS the pressed button and creates the other, the focused element leaves
+      the DOM, and focus falls to `<body>` — a dead end whose next Tab restarts at the top of the
+      document.
+
+      Found here only once `__stabileoActions.selectConflict` made this panel reachable from a
+      test. It had been sitting behind a WebGL marker click that nothing could exercise.
+    -->
+    <button
+      type="button"
+      data-testid={isolated ? 'rebar-conflict-clear-isolation' : 'rebar-conflict-isolate'}
+      onclick={() => (isolated
+        ? rebarWorkspace.clearIsolation()
+        : rebarWorkspace.selectConflict(conflict, { isolateMembers: true }))}
+    >
+      {isolated
+        ? t('detailing.scene.clearIsolation')
+        : tp('detailing.scene.conflict.isolate', { n: conflict.elementIds.length })}
+    </button>
   </div>
 </div>
 

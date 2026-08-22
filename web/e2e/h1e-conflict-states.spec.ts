@@ -18,8 +18,9 @@
  *
  *   `refused` / unreinforced members — zero in all three.
  *   `doc-error` — all three build a document successfully.
- *   `ConflictInspector` — reachable only by clicking a conflict MARKER in the WebGL scene,
- *   which raycasts. There is no `selectConflict` hook in `e2e-hooks.ts`.
+ *   `ConflictInspector` WAS unreachable — it renders from a marker click in the WebGL scene,
+ *   which raycasts. `__stabileoActions.selectConflict` now stands in for that click, and the
+ *   last describe exercises the panel end to end. It found a focus defect on its first run.
  *
  * Each is stated in `docs/handoffs/h1e-fixture-coverage.md` with what it would take. None is
  * faked, and no engine or solver change was made to manufacture one.
@@ -184,20 +185,127 @@ test.describe('@slow what these fixtures cannot reach', () => {
       await expect(page.getByTestId('rebar-hide-unreinforced')).toBeAttached();
     });
 
-  test('the conflict inspector needs a marker click, which raycasts', async ({ pro: page }) => {
+  test('the inspector is closed until a marker is chosen', async ({ pro: page }) => {
     await generate(page, 'rc-qa-diagnostic');
     await openViewer(page);
-    /*
-     * `ConflictInspector` renders from `selection.conflict`, which `rebarWorkspace.selectConflict`
-     * sets — and the only UI route to that is clicking a marker in the WebGL scene, which is
-     * raycast against the canvas. There is no `selectConflict` in `e2e-hooks.ts`, so this panel
-     * cannot be reached deterministically from a test.
-     *
-     * Asserted as ABSENT with the reason, rather than left silently uncovered. Adding the hook is
-     * the one-line fix, proposed in the handoff.
-     */
-    expect(await markers(page), 'the markers are there to be clicked').toBeGreaterThan(0);
+    expect(await markers(page), 'the markers are there to be chosen').toBeGreaterThan(0);
     await expect(page.getByTestId('rebar-conflict-warning'),
-      'and the inspector is not reachable without clicking one').toHaveCount(0);
+      'and nothing claims a conflict until one is').toHaveCount(0);
+  });
+});
+
+/**
+ * The conflict inspector, end to end.
+ *
+ * It renders from `selection.conflict`, which only a marker click sets — raycast against the
+ * canvas, at a screen position no test can compute reliably. `__stabileoActions.selectConflict`
+ * is the test mutator that stands in for that click: it resolves the SLOT through the scene's own
+ * `conflictAt`, so what gets selected is what is actually drawn there, not an index into a list
+ * the test rebuilt for itself.
+ */
+test.describe('@slow the conflict inspector', () => {
+  test.slow();
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  async function selectFirstConflict(page: Page) {
+    const ok = await page.evaluate(() => (window as unknown as {
+      __stabileoActions: { selectConflict(slot?: number): boolean };
+    }).__stabileoActions.selectConflict(0));
+    expect(ok, 'slot 0 draws a conflict on this model').toBe(true);
+  }
+
+  test('the band, the ids and the two measurements', async ({ pro: page }) => {
+    await generate(page, 'rc-qa-diagnostic');
+    await openViewer(page);
+    await selectFirstConflict(page);
+
+    // The band that says this is not constructible — the sentence, not a colour.
+    const band = page.getByTestId('rebar-conflict-warning');
+    await expect(band).toBeVisible();
+    expect((await band.innerText()).trim().length).toBeGreaterThan(20);
+
+    // Both bars named separately, because "A/B are 14 mm apart" is a measurement and
+    // "bar c12-4 in column 12" is a thing you can go and look at.
+    for (const id of ['rebar-conflict-bar-a', 'rebar-conflict-bar-b']) {
+      expect((await page.getByTestId(id).innerText()).trim().length,
+        `${id} names a bar`).toBeGreaterThan(0);
+    }
+    expect(await page.getByTestId('rebar-conflict-bar-a').innerText())
+      .not.toBe(await page.getByTestId('rebar-conflict-bar-b').innerText());
+
+    // Measured against required, which is what makes it a verdict rather than an opinion.
+    for (const id of ['rebar-conflict-measured', 'rebar-conflict-required']) {
+      expect((await page.getByTestId(id).innerText()).trim()).toMatch(/-?[\d.,]+/);
+    }
+    await expect(page.getByTestId('rebar-conflict-class')).toBeVisible();
+  });
+
+  test('severity is carried by the text, not only by the hue', async ({ pro: page }) => {
+    await generate(page, 'rc-qa-diagnostic');
+    await openViewer(page);
+
+    /*
+     * `.head.overlap strong` takes `--st-danger` and the base head takes `--st-text`; the
+     * distinction between interpenetration and a spacing shortfall is what those two levels
+     * exist for. Whichever this slot is, the severity must be READABLE — the colour is support.
+     */
+    const seen = new Set<string>();
+    for (let slot = 0; slot < 6; slot++) {
+      const ok = await page.evaluate((s) => (window as unknown as {
+        __stabileoActions: { selectConflict(slot?: number): boolean };
+      }).__stabileoActions.selectConflict(s), slot);
+      if (!ok) continue;
+      const head = page.locator('.head').first();
+      const text = (await head.innerText()).trim();
+      expect(text.length, `slot ${slot} states its severity in words`).toBeGreaterThan(2);
+      seen.add(text.split(/\s+/)[0]);
+    }
+    expect(seen.size, 'at least one severity was read').toBeGreaterThan(0);
+    test.info().annotations.push(
+      { type: 'coverage', description: `severities seen: ${[...seen].join(', ')}` });
+  });
+
+  test('centre and isolate both act, and neither loses the keyboard', async ({ pro: page }) => {
+    await generate(page, 'rc-qa-diagnostic');
+    await openViewer(page);
+    await selectFirstConflict(page);
+
+    const centre = page.getByTestId('rebar-conflict-centre');
+    await expect(centre).toBeVisible();
+    await centre.focus();
+    await centre.click();
+    expect(await page.evaluate(() => document.activeElement === document.body),
+      'centring does not drop focus to the body').toBe(false);
+
+    const isolate = page.getByTestId('rebar-conflict-isolate');
+    await expect(isolate).toBeVisible();
+    const censusBefore = await page.evaluate(() => JSON.stringify(
+      (window as unknown as { __stabileo: { rebarSceneCensus(): unknown } })
+        .__stabileo.rebarSceneCensus()));
+    await isolate.click();
+
+    // Isolating the pair changes the scene, and offers the way back.
+    await expect(page.getByTestId('rebar-conflict-clear-isolation')).toBeVisible();
+    expect(await page.evaluate(() => JSON.stringify(
+      (window as unknown as { __stabileo: { rebarSceneCensus(): unknown } })
+        .__stabileo.rebarSceneCensus())), 'the scene isolated the pair').not.toBe(censusBefore);
+    expect(await page.evaluate(() => document.activeElement === document.body),
+      'and isolating does not drop focus either').toBe(false);
+
+    await page.getByTestId('rebar-conflict-clear-isolation').click();
+    await expect(page.getByTestId('rebar-conflict-isolate'), 'and it comes back').toBeVisible();
+  });
+
+  test('Escape still leaves, with a conflict selected', async ({ pro: page }) => {
+    await generate(page, 'rc-qa-diagnostic');
+    await openViewer(page);
+    await selectFirstConflict(page);
+    await expect(page.getByTestId('rebar-conflict-warning')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
+    expect(await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-testid')), 'and returns to the opener')
+      .toBe('doc-3d');
+    await expect(page.getByTestId('documents-stage')).toBeVisible();
   });
 });
