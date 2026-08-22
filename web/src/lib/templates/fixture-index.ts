@@ -44,6 +44,12 @@ const fixtures3D: Record<string, FixtureLoader> = {
   // its table. Opened from the post's embedded editor, so the reader sees
   // Cauchy and Bredt disagree on the very section the text is about.
   'torsion-tube': () => import('./fixtures/torsion-tube.json'),
+  // A simply supported 20×40 H-25 beam with D and L cases and the two usual
+  // combinations, sized for the blog post on CIRSOC 201 flexural verification:
+  // the governing combination lands near the moment the text works through.
+  // Registered here so a post can load it; deliberately not in the examples
+  // menu, which is a catalogue for users rather than for articles.
+  'rc-beam-flexure': () => import('./fixtures/rc-beam-flexure.json'),
   '3d-nave-industrial': () => import('./fixtures/3d-nave-industrial.json'),
   '3d-building': () => import('./fixtures/3d-building.json'),
   'pro-edificio-7p': () => import('./fixtures/pro-edificio-7p.json'),
