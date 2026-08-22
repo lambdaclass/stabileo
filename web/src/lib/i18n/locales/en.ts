@@ -1780,6 +1780,10 @@ const en: Record<string, string> = {
   'demo.basics3d.examplesTitle': 'The 3D catalogue',
   'demo.basics3d.examplesDesc': 'Ten 3D structures, from a cantilever to an industrial shed. Pick one, or continue and a 3D portal frame is loaded.',
   'config.tip.language': 'The language of the whole interface. Also in the header on a larger screen.',
+  'config.touchDensity': 'Control size',
+  'config.densityCompact': 'Compact',
+  'config.densityComfortable': 'Comfortable',
+  'config.tip.touchDensity': 'How large the controls inside the panels are, on a phone only. Compact shows more of a table at once; Comfortable grows everything to 44 px and puts the results a little further down the scroll.',
   'viewport.selectKindHint': 'To change what gets selected, set it in the top panel under "Selection".',
   'viewport.modePan': 'Pan — drag the mouse to move the view',
   'viewport.modeSelect': 'Select — drag the mouse to select members',
@@ -6004,6 +6008,9 @@ const en: Record<string, string> = {
   'ribbon.tabModel': 'Model',
   'ribbon.tabAnalyse': 'Analyse',
   'ribbon.tabResults': 'Results',
+  // On a phone, the one button that gathers drawing, conditions and properties:
+  // node, element, support, load, sections and materials.
+  'ribbon.groupModel': 'Model',
   'ribbon.groupCreate': 'Create',
   'ribbon.groupConditions': 'Conditions',
   'ribbon.groupEdit': 'Edit',

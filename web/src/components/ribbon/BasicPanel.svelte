@@ -60,6 +60,99 @@
   let dragging = $state(false);
   let widthPublishFrame = 0;
 
+  /* ── The phone: height, dragged from a handle ──────────────────────────
+   *
+   * The desktop panel is resized by dragging its leading EDGE, which is the
+   * gesture that fits a panel whose size is a width. A sheet's size is a
+   * height, and its leading edge is a 1 px line at the top of the screen's
+   * lower half — so the sheet gets its own control: a grab handle above the
+   * title, which is the only thing on the panel that drags.
+   *
+   * That separation is the point. The body scrolls and the handle resizes, and
+   * a finger on one never does the other — `touch-action: none` on the handle
+   * keeps the browser from claiming the gesture as a scroll, and the body keeps
+   * ordinary `overflow-y: auto` because nothing intercepts it.
+   *
+   * 45vh at rest rather than the 58 it opened at. Fifty-eight was picked to
+   * make a results table worth reading and it did not even manage that — the
+   * table began 10 px above the bottom of the screen — while costing the model
+   * more than half the height. A lower default plus a drag serves both ends
+   * better than any single number can.
+   */
+  const SHEET_MIN = 22;
+  const SHEET_MAX = 86;
+  const SHEET_DEFAULT = 45;
+  const SHEET_KEY = 'stabileo-basic-sheet-vh';
+
+  function storedSheet(): number {
+    try {
+      const v = Number(localStorage.getItem(SHEET_KEY));
+      return Number.isFinite(v) && v >= SHEET_MIN && v <= SHEET_MAX ? v : SHEET_DEFAULT;
+    } catch { return SHEET_DEFAULT; }
+  }
+
+  let sheetVh = $state(storedSheet());
+  let sheetDragging = $state(false);
+  let sheetPublishFrame = 0;
+
+  /*
+   * Published on the root, not set inline, because two elements need it: this
+   * panel's own box and the padding `.app-body` gives up so the canvas is the
+   * size it appears to be. The token in `styles/tokens.css` is the default the
+   * stylesheet starts from; this overrides it once the reader has an opinion.
+   */
+  function publishSheet() {
+    // One decimal. A pointer delta divided by a viewport hundredth produces
+    // fifteen significant figures, and every one of them past the first lands
+    // in the DOM and in whatever anyone reads it back with.
+    document.documentElement.style.setProperty('--st-sheet-h', `${sheetVh.toFixed(1)}vh`);
+  }
+
+  function startSheetDrag(e: PointerEvent) {
+    sheetDragging = true;
+    const startY = e.clientY;
+    const startVh = sheetVh;
+    const vh = window.innerHeight / 100;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+
+    const move = (ev: PointerEvent) => {
+      // Dragging UP grows the sheet, which is the direction it grows on screen.
+      const next = startVh + (startY - ev.clientY) / vh;
+      sheetVh = Math.min(SHEET_MAX, Math.max(SHEET_MIN, next));
+      if (!sheetPublishFrame) {
+        sheetPublishFrame = requestAnimationFrame(() => {
+          sheetPublishFrame = 0;
+          publishSheet();
+        });
+      }
+    };
+
+    const up = () => {
+      sheetDragging = false;
+      try { localStorage.setItem(SHEET_KEY, String(Math.round(sheetVh))); } catch { /* private mode */ }
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      /*
+       * Re-frame once, at the END of the drag.
+       *
+       * The canvas has just changed height by as much as 60 % of the screen, so
+       * whatever framing preceded the drag is wrong for what is left. Doing it
+       * on every pointermove instead would make the model chase the handle,
+       * and it would re-fit sixty times a second against a canvas that is
+       * still being resized.
+       */
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+      }));
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    e.preventDefault();
+  }
+
   function publishWidth() {
     document.documentElement.style.setProperty('--st-right-panel-w', `${width}px`);
   }
@@ -110,9 +203,17 @@
    */
   onMount(() => {
     publishWidth();
+    publishSheet();
     return () => {
       if (widthPublishFrame) cancelAnimationFrame(widthPublishFrame);
+      if (sheetPublishFrame) cancelAnimationFrame(sheetPublishFrame);
       document.documentElement.style.removeProperty('--st-right-panel-w');
+      /*
+       * Handed back on unmount so `.app-body` stops reserving height the moment
+       * the sheet closes. Leaving it would keep a band of the canvas walled off
+       * for a panel that is no longer there.
+       */
+      document.documentElement.style.removeProperty('--st-sheet-h');
     };
   });
 
@@ -142,7 +243,13 @@
   });
 </script>
 
-<aside class="basic-panel" data-testid="basic-panel" data-panel={panel} style:width="{width}px">
+<aside
+  class="basic-panel"
+  class:sheet-dragging={sheetDragging}
+  data-testid="basic-panel"
+  data-panel={panel}
+  style:width="{width}px"
+>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="bp-resize"
@@ -152,6 +259,19 @@
     aria-orientation="vertical"
     aria-label={t('ribbon.resize')}
   ></div>
+  <!--
+    The phone's resize control, and the ONLY thing on the sheet that drags.
+    Hidden above 768 px, where the panel is resized from its edge instead.
+  -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="bp-grab"
+    onpointerdown={startSheetDrag}
+    role="separator"
+    aria-orientation="horizontal"
+    aria-label={t('ribbon.resize')}
+    data-testid="bp-grab"
+  ><span class="bp-grab-pill"></span></div>
   <header class="bp-head">
     <span class="bp-title" data-testid="bp-title">{title}</span>
     <button class="bp-close" onclick={onClose} title={t('ribbon.close')} aria-label={t('ribbon.close')}>×</button>
@@ -254,6 +374,10 @@
   .bp-resize:hover,
   .bp-resize.dragging { background: var(--st-accent); }
 
+  /* The phone's grab handle does not exist on a desktop, where the panel is
+     resized from its leading edge. */
+  .bp-grab { display: none; }
+
   /* ── The phone: a bottom sheet, not a side panel ──────────────────────
      Same panel, same contents, laid out along the axis a phone has more of.
 
@@ -280,7 +404,9 @@
       /* Beats the inline `style:width` the drag handle writes, which is a
          desktop measurement and meaningless here. */
       width: 100% !important;
-      /* Same value `.app-body` reserves for it — see `styles/tokens.css`. */
+      /* Written by `publishSheet()` as the reader drags; the token in
+         `styles/tokens.css` is the value it starts from. `.app-body` reserves
+         exactly this much, so the canvas is the size it appears to be. */
       height: var(--st-sheet-h);
       max-height: var(--st-sheet-h);
       z-index: 60;
@@ -295,8 +421,54 @@
       to { transform: translateY(0); }
     }
 
+    /*
+       Nothing animates while a finger is on the handle. The slide-in is for
+       the panel arriving; during a drag the height IS the gesture and any
+       easing between frames reads as lag.
+    */
+    .basic-panel.sheet-dragging { animation: none; }
+
     /* A horizontal drag on the leading edge cannot widen a full-width sheet. */
     .bp-resize { display: none; }
+
+    /* ── The grab handle ────────────────────────────────────────────
+       The one surface that resizes the sheet. The body below it scrolls, and
+       the two never trade places: `touch-action: none` here tells the browser
+       this gesture is not a scroll, which is what keeps a drag on the handle
+       from also flinging the list underneath.
+
+       28 px tall for a target that is dragged rather than tapped, with a 4 px
+       pill doing the saying. It sits ABOVE the title so the panel still names
+       itself with the handle in place.
+       ──────────────────────────────────────────────────────────── */
+    .bp-grab {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 28px;
+      flex: none;
+      cursor: row-resize;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .bp-grab-pill {
+      width: 40px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--st-hair-strong);
+      transition: background 0.15s, width 0.15s;
+    }
+
+    .bp-grab:active .bp-grab-pill,
+    .sheet-dragging .bp-grab-pill {
+      background: var(--st-accent);
+      width: 56px;
+    }
+
+    .bp-grab:focus-visible { outline: 2px solid var(--st-accent); outline-offset: -3px; }
+
 
     /* The only control in the header, and it dismisses the panel. */
     .bp-close {
@@ -308,6 +480,8 @@
       font-size: 1.4rem;
     }
 
-    .bp-head { padding: 0.4rem 0.4rem 0.4rem 0.75rem; }
+    /* Reduced at the top: the grab handle above already carries that space,
+       and stacking both left a tall empty band before the title. */
+    .bp-head { padding: 0.1rem 0.4rem 0.4rem 0.75rem; }
   }
 </style>

@@ -217,6 +217,22 @@
               {/each}
             </select>
           </div>
+          <!--
+            Control size, phone only.
+            ─────────────────────────
+            The panels came from a desktop sidebar and their rows are 22–25 px.
+            Compact fits more of a results table on a small screen; comfortable
+            hits a 44 px target and costs about 125 px of extra scrolling to
+            reach that table. Both are defensible, which is why this is offered
+            rather than decided — see `styles/touch-density.css`.
+          -->
+          <div class="input-group cfg-density">
+            <HelpTip text={t('config.tip.touchDensity')}><label>{t('config.touchDensity')}:</label></HelpTip>
+            <select bind:value={uiStore.touchDensity} data-testid="cfg-density-select">
+              <option value="compact">{t('config.densityCompact')}</option>
+              <option value="comfortable">{t('config.densityComfortable')}</option>
+            </select>
+          </div>
         {/if}
         <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
           <select bind:value={uiStore.unitSystem}>

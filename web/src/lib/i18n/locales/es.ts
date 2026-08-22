@@ -1773,6 +1773,10 @@ const es: Record<string, string> = {
   'demo.basics3d.examplesTitle': 'El catálogo 3D',
   'demo.basics3d.examplesDesc': 'Diez estructuras 3D, desde un voladizo hasta una nave industrial. Elegí una, o seguí y se carga un pórtico 3D.',
   'config.tip.language': 'El idioma de toda la interfaz. También está en el encabezado en pantallas más grandes.',
+  'config.touchDensity': 'Tamaño de los controles',
+  'config.densityCompact': 'Compacto',
+  'config.densityComfortable': 'Cómodo',
+  'config.tip.touchDensity': 'Qué tan grandes son los controles dentro de los paneles, sólo en teléfono. Compacto muestra más tabla de una vez; Cómodo agranda todo a 44 px y hay que desplazarse un poco más para llegar a los resultados.',
   'viewport.selectKindHint': 'Para cambiar qué se selecciona, editalo en el panel superior en «Selección».',
   'viewport.modePan': 'Mover — arrastrá el mouse para mover la vista',
   'viewport.modeSelect': 'Seleccionar — arrastrá el mouse para seleccionar barras',
@@ -5996,6 +6000,9 @@ const es: Record<string, string> = {
   'ribbon.tabModel': 'Modelo',
   'ribbon.tabAnalyse': 'Análisis',
   'ribbon.tabResults': 'Resultados',
+  // El grupo que en un teléfono reúne dibujo, condiciones y propiedades bajo
+  // un solo botón: nodo, barra, apoyo, carga, secciones y materiales.
+  'ribbon.groupModel': 'Modelado',
   'ribbon.groupCreate': 'Crear',
   'ribbon.groupConditions': 'Condiciones',
   'ribbon.groupEdit': 'Editar',

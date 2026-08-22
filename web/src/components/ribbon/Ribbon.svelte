@@ -89,6 +89,16 @@
   const solved = $derived(resultsStore.results != null || resultsStore.results3D != null);
 
   /*
+   * The phone gets a different ARRANGEMENT of the same commands, and that is a
+   * structural change rather than a styling one, so it needs a flag and not
+   * only a media query. `uiStore.isMobile` is `windowWidth < 768`, which is the
+   * same threshold as the `max-width: 767px` variant in the stylesheet — the
+   * two must agree or the row would be laid out for one shape and painted for
+   * the other.
+   */
+  const narrow = $derived(uiStore.isMobile);
+
+  /*
    * Greying beats hiding for a command that could apply here but cannot run
    * yet — that is why the whole results group is present and disabled before
    * the first solve. It does NOT apply to a quantity that has no meaning in
@@ -224,32 +234,22 @@
       ],
     },
     /*
-     * Model data is not an analysis.
-     * ─────────────────────────────
-     * It sat in Analyse next to Solve, which reads as "a thing you do to get
-     * results". The panel is the opposite: it is where the nodes, elements,
-     * supports, loads, materials and sections you DREW live, in editable form,
-     * with results as one tab among eight. It spans drawing, conditions and
-     * results, so it belongs to none of them — hence its own group, ahead of
-     * the drawing commands whose output it holds.
+     * There is no standalone Data command any more.
+     * ─────────────────────────────────────────────
+     * It had its own group, on the reasoning that model data spans drawing,
+     * conditions and results and so belongs to none of them. True, and beside
+     * the point: EVERY command that produces model data already opens that
+     * panel on its own tab — `run()` below sends node, element, support, load,
+     * materials and sections to `panel: 'data'` with `dataTab` set. So the
+     * button opened a panel the user reached anyway, on whichever tab they had
+     * last used, and pressing it was never the shortest way to anything.
      *
-     * The button carries no label: the group is already called Data directly
-     * beneath it, and a button labelled the same as its own group is a word
-     * printed twice.
+     * Removed at both widths. On a phone it was one of nine slots in a row that
+     * has exactly nine; on a desktop it was a command that did nothing its
+     * neighbours did not already do. The panel itself is untouched — the tools
+     * open it, `openPanel('data')` opens it, and the walkthroughs use that
+     * event rather than this button, which is why none of them notices.
      */
-    {
-      id: 'data',
-      labelKey: 'ribbon.groupData',
-      cmds: [
-        /*
-         * Opens on whichever tab the ribbon is already pointing at — Nodes if
-         * none. Landing on Nodes after the user had just picked Sections would
-         * discard the choice they had made a second earlier.
-         */
-        { id: 'data', icon: 'data', nameKey: 'ribbon.data', panel: 'data', prominent: true,
-          dataTab: activeDataTab || 'nodes' },
-      ],
-    },
     {
       id: 'draw',
       labelKey: 'ribbon.groupDraw',
@@ -309,6 +309,86 @@
       cmds: diagramCmds,
     },
   ]);
+
+  /* ── The phone's row ───────────────────────────────────────────────────
+   *
+   * Same commands, gathered instead of scrolled.
+   *
+   * Laid out flat, seventeen commands at 44 px are 748 px of content in a
+   * 375 px row: everything past the seventh needs a swipe, and the swipe is
+   * the interface. Two of the groups are the ones you cross constantly and
+   * they are also the two that are long — so those two collapse to a single
+   * button each that opens the group, and everything else stays flat.
+   *
+   * Nine controls: Project, undo, redo, Selection, 2D/3D, Model, Solve,
+   * Advanced, Results. That is the whole application, and it very nearly fits
+   * without scrolling at 375 px — see the size variant in the stylesheet.
+   *
+   * PRO already works this way, which is where the shape comes from.
+   *
+   * `cmdsOf` reads the groups defined above rather than restating their
+   * contents. A command added to `draw` or `conditions` appears on the phone
+   * for free; a second list here would be a second definition of the ribbon
+   * and would drift the first time only one of them was updated.
+   */
+  function cmdsOf(...groupIds: string[]): Cmd[] {
+    return groupIds.flatMap((id) => GROUPS.find((g) => g.id === id)?.cmds ?? []);
+  }
+
+  type Cluster = { id: string; labelKey: string; icon: string; cmds: Cmd[] };
+
+  const CLUSTERS: Cluster[] = $derived([
+    {
+      id: 'model',
+      labelKey: 'ribbon.groupModel',
+      icon: 'element',
+      // Node, element, support, load, sections, materials — everything that
+      // puts something INTO the model, in the order you meet it.
+      cmds: cmdsOf('draw', 'conditions', 'properties'),
+    },
+    {
+      id: 'results',
+      labelKey: 'ribbon.tabResults',
+      icon: 'moment',
+      cmds: cmdsOf('results'),
+    },
+  ]);
+
+  /** Groups the phone shows flat, in row order, with the clusters spliced in. */
+  const PHONE_ROW: ({ kind: 'cmd'; cmd: Cmd } | { kind: 'cluster'; cluster: Cluster })[] = $derived([
+    ...cmdsOf('view').map((cmd) => ({ kind: 'cmd' as const, cmd })),
+    { kind: 'cluster' as const, cluster: CLUSTERS[0] },
+    ...cmdsOf('analyse').map((cmd) => ({ kind: 'cmd' as const, cmd })),
+    { kind: 'cluster' as const, cluster: CLUSTERS[1] },
+  ]);
+
+  /**
+   * Which cluster is open, or null.
+   *
+   * Closed by everything that ends the errand: running one of its commands,
+   * pressing the button again, or touching anything else — the backdrop below
+   * covers the rest of the screen for that last one, so a tap outside does not
+   * also arm a tool on the canvas it landed on.
+   */
+  let openCluster = $state<string | null>(null);
+
+  /*
+   * A cluster lights when the command it is standing in for is the active one.
+   *
+   * Without this the phone loses the ribbon's one rule — lit means "this is
+   * what the panel is showing" — because the lit command is inside a closed
+   * button. Reusing `isActive` rather than restating the condition keeps the
+   * two from ever disagreeing about what is on.
+   */
+  function clusterActive(c: Cluster): boolean {
+    return c.cmds.some(isActive);
+  }
+
+  /** The phone drops to icons, so the tooltip is all the naming there is. */
+  function clusterTitle(c: Cluster): string {
+    const open = c.cmds.find(isActive);
+    return open ? `${t(c.labelKey)} — ${cmdLabel(open)}` : t(c.labelKey);
+  }
 
   /*
    * Editing and viewing results are two different jobs, and the ribbon should
@@ -488,7 +568,111 @@
   }
 </script>
 
+<!--
+  One button, written once, used by the desktop row, the phone row and the
+  cluster popovers. `labelled` is the popover's only difference: there is room
+  for a word there, and six unlabelled glyphs in a menu is a quiz.
+-->
+{#snippet cmdButton(c: Cmd, labelled: boolean)}
+  {@const on = !c.enabled || c.enabled()}
+  <button
+    class="rb-cmd"
+    class:active={isActive(c)}
+    class:labelled
+    disabled={!on}
+    data-testid="rb-cmd-{c.id}"
+    onclick={() => { run(c); openCluster = null; }}
+    title={cmdTitle(c, on)}
+  >
+    <span class="rb-icon"><Icon name={typeof c.icon === 'function' ? c.icon() : c.icon} rotate={c.rotate ?? 0} /></span>
+    <span class="rb-label" class:symbol={!!c.label}>{cmdLabel(c)}</span>
+  </button>
+{/snippet}
+
 <div class="ribbon" data-testid="ribbon">
+  {#if narrow}
+    <!--
+      The phone row. Nine controls, no group captions, no horizontal scroll to
+      reach anything: Project, undo, redo, Selection, 2D/3D, Model, Solve,
+      Advanced, Results.
+    -->
+    <div class="rb-row rb-row-phone">
+      <!--
+        Save is not here, and that is not an omission. It lives inside the
+        Project panel this button opens, beside Save session and Open — so on a
+        phone it is one tap further and the row is one slot shorter, which is
+        the trade the row needed. Undo and redo stay: those ARE per-gesture on a
+        touch screen, where a mis-tap places a node.
+      -->
+      <div class="rb-quick" data-testid="rb-quick">
+        <button
+          class="rb-quick-btn"
+          class:active={activePanel === 'project'}
+          onclick={() => { onOpenPanel('project'); openCluster = null; }}
+          title={t('ribbon.project')}
+          aria-label={t('ribbon.project')}
+          data-testid="hdr-project"
+        ><Icon name="project" size={21} /></button>
+        <button
+          class="rb-quick-btn"
+          onclick={() => historyStore.undo()}
+          disabled={!historyStore.canUndo}
+          title={t('toolbar.undo')}
+          aria-label={t('toolbar.undo')}
+        ><Icon name="undo" size={19} /></button>
+        <button
+          class="rb-quick-btn"
+          onclick={() => historyStore.redo()}
+          disabled={!historyStore.canRedo}
+          title={t('toolbar.redo')}
+          aria-label={t('toolbar.redo')}
+        ><Icon name="redo" size={19} /></button>
+      </div>
+
+      {#each PHONE_ROW as item (item.kind === 'cmd' ? item.cmd.id : item.cluster.id)}
+        {#if item.kind === 'cmd'}
+          {@render cmdButton(item.cmd, false)}
+        {:else}
+          {@const c = item.cluster}
+          <button
+            class="rb-cmd rb-cluster"
+            class:active={clusterActive(c)}
+            class:open={openCluster === c.id}
+            data-testid="rb-cluster-{c.id}"
+            aria-expanded={openCluster === c.id}
+            onclick={() => openCluster = openCluster === c.id ? null : c.id}
+            title={clusterTitle(c)}
+          >
+            <span class="rb-icon"><Icon name={c.icon} /></span>
+            <span class="rb-caret" aria-hidden="true"></span>
+          </button>
+        {/if}
+      {/each}
+    </div>
+
+    {#if openCluster}
+      {@const c = CLUSTERS.find((x) => x.id === openCluster)}
+      {#if c}
+        <!--
+          A tap anywhere else closes the menu AND is swallowed. Without the
+          backdrop the same tap would fall through to the canvas underneath and
+          place a node, which is the classic way a menu dismissal becomes an
+          edit the reader has to undo.
+        -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <div class="rb-backdrop" onclick={() => openCluster = null}></div>
+        <div class="rb-pop" data-testid="rb-pop-{c.id}">
+          <p class="rb-pop-title">{t(c.labelKey)}</p>
+          <div class="rb-pop-cmds">
+            {#each c.cmds as cmd (cmd.id)}
+              {@render cmdButton(cmd, true)}
+            {/each}
+          </div>
+        </div>
+      {/if}
+    {/if}
+  {:else}
   <div class="rb-row">
     <!--
       Document-level commands, in their own box before the first group.
@@ -543,18 +727,7 @@
       <section class="rb-group" data-group={g.id} aria-label={t(g.labelKey)}>
         <div class="rb-cmds">
           {#each g.cmds as c (c.id)}
-            {@const on = !c.enabled || c.enabled()}
-            <button
-              class="rb-cmd"
-              class:active={isActive(c)}
-              disabled={!on}
-              data-testid="rb-cmd-{c.id}"
-              onclick={() => run(c)}
-              title={cmdTitle(c, on)}
-            >
-              <span class="rb-icon"><Icon name={typeof c.icon === 'function' ? c.icon() : c.icon} rotate={c.rotate ?? 0} /></span>
-              <span class="rb-label" class:symbol={!!c.label}>{cmdLabel(c)}</span>
-            </button>
+            {@render cmdButton(c, false)}
           {/each}
         </div>
         <p class="rb-group-label">{t(g.labelKey)}</p>
@@ -563,6 +736,7 @@
 
     <div class="rb-spacer"></div>
   </div>
+  {/if}
 </div>
 
 <style>
@@ -572,6 +746,13 @@
     font-family: var(--st-sans);
     flex: none;
     user-select: none;
+    /*
+       The anchor for the phone's cluster menu, which is `top: 100%` of THIS.
+       Without it the menu resolves against whatever positioned ancestor it
+       finds — the app container — and `100%` becomes the height of the whole
+       page, so the menu opens at the bottom of the screen, behind the sheet.
+    */
+    position: relative;
   }
 
   .rb-row {
@@ -775,98 +956,174 @@
   }
 
   /* ── The phone ───────────────────────────────────────────────────────
-     A fourth variant rather than a fourth interface. Below 768 px the ribbon
-     used to yield to a separate mobile tool strip, and everything added to the
-     ribbon since then reached the phone through nothing at all. It now
-     degrades one more step and keeps every command.
+     A fourth variant, and the only one that changes the ARRANGEMENT rather
+     than the scale. See `PHONE_ROW` in the script for why: seventeen commands
+     laid flat are 748 px of content in a 375 px row, so the interface becomes
+     the swipe. Two long groups collapse to one button each and the row holds
+     nine controls — Project, undo, redo, Selection, 2D/3D, Model, Solve,
+     Advanced, Results.
 
-     Three things change, and none of them is "drop a command":
-
-       * The group CAPTIONS go. They cost a whole line of height, and the rule
-         between groups already carries the grouping — the caption was the
-         redundant half of a pair. At this width a row of icons separated by
-         hairlines reads the way the captioned groups read on a desktop.
-
-       * Targets go to 44 px square. Below that a control is a coin toss with a
-         thumb, which is how the header ended up with a 23×22 px button.
-
-       * The document commands move to the END. Project, Save, Undo and Redo
-         are not per-gesture actions, and on a scrolling row the leading edge is
-         the only part that is always reachable without a swipe — it belongs to
-         the tools and diagrams you cross constantly.
-
-     Deliberately NOT an overflow button. Folding the four behind a menu was
-     the other candidate and it buys ~44 px of a row that scrolls anyway, at
-     the price of putting `hdr-project` — which eight walkthroughs and the
-     demo audit reach for by test id — behind a tap that nothing knows to make.
-     Reordering costs no command its place in the DOM.
-
-     The row already scrolls (`overflow-x: auto` on `.rb-row`), so the full set
-     stays reachable at any width; nothing here truncates.
+     Nine × 44 px is 396 px, so at 375 px the row still gives up about 20 px to
+     a scroll and at 390 px and above it fits outright. Twenty pixels and four
+     hundred and sixty are not the same problem.
      ────────────────────────────────────────────────────────────────── */
   @media (max-width: 767px) {
-    .rb-row {
-      padding: 0.25rem 0.35rem;
+    .rb-row-phone {
+      display: flex;
       align-items: center;
-      /* Momentum scrolling, and no rubber-banding of the whole page with it. */
+      gap: 0;
+      padding: 3px 4px;
+      overflow-x: auto;
+      /* Momentum scrolling, and no rubber-banding of the page with it. */
       -webkit-overflow-scrolling: touch;
       overscroll-behavior-x: contain;
+      scrollbar-width: none;
     }
+    .rb-row-phone::-webkit-scrollbar { display: none; }
 
-    .rb-group-label { display: none; }
-
-    .rb-group {
-      justify-content: center;
-      padding: 0 0.25rem;
-    }
-
-    .rb-cmds { gap: 0; }
-
-    .rb-cmd {
+    /* Every control in the row is a 44 px square. */
+    .rb-row-phone .rb-cmd,
+    .rb-row-phone .rb-quick-btn {
       min-width: 44px;
       min-height: 44px;
+      width: 44px;
+      height: 44px;
+      padding: 0;
       justify-content: center;
-      padding: 0.25rem;
+      flex: none;
+      border-radius: var(--st-radius);
+    }
+
+    /* Icons only in the row; the popover is where words fit. */
+    .rb-row-phone .rb-label { display: none; }
+
+    /*
+       The document block keeps the ribbon's own separator so it reads as a
+       group of three rather than as the first three of nine. It is a plain
+       flex row here — the desktop 2×2 grid is 88 px tall, which is more
+       ribbon than a 667 px screen can spare.
+    */
+    .rb-row-phone .rb-quick {
+      display: flex;
+      margin: 0 2px 0 0;
+      padding: 0;
+      border-right: 1px solid var(--st-hair);
+      align-self: center;
+    }
+
+    .rb-row-phone .rb-quick-btn { border: none; }
+
+    /*
+       A cluster is a command that opens a group, so it is drawn as a command
+       with a caret rather than as a different kind of control.
+    */
+    .rb-cluster { position: relative; }
+
+    .rb-caret {
+      position: absolute;
+      right: 5px;
+      bottom: 5px;
+      width: 0;
+      height: 0;
+      border-left: 3.5px solid transparent;
+      border-right: 3.5px solid transparent;
+      border-top: 4px solid currentColor;
+      opacity: 0.75;
+    }
+
+    .rb-cluster.open {
+      background: var(--st-surface-3);
+      color: var(--st-text);
     }
 
     /*
-       `prominent` says "sole command of its group, so it carries the group's
-       height" — but with the captions gone every command is the same height,
-       and a 30 px glyph beside 20 px ones just reads as a misprint.
+       Open and ACTIVE are different states and both can be true: the menu is
+       showing, and one of the commands inside it is what the panel is drawing.
+       The accent border is the ribbon's existing "this is on" and it stays.
     */
-    .rb-cmd.prominent { padding: 0.25rem; }
+    .rb-cluster.active {
+      background: var(--st-selected-bg);
+      border-color: var(--st-accent);
+    }
+    .rb-cluster.active .rb-icon { color: var(--st-accent); }
+
+    /* ── The cluster menu ─────────────────────────────────────────── */
+
+    .rb-backdrop {
+      position: fixed;
+      inset: 0;
+      /*
+         Above the bottom sheet (z-index 60), not below it. The menu is the
+         thing the reader is interacting with; a sheet painting over it would
+         make half the commands untappable while they are visibly on screen.
+      */
+      z-index: 70;
+      /* Invisible, but it must still take the tap — see the markup. */
+      background: transparent;
+    }
+
+    .rb-pop {
+      position: absolute;
+      z-index: 71;
+      left: 4px;
+      right: 4px;
+      top: 100%;
+      background: var(--st-surface);
+      border: 1px solid var(--st-hair-strong);
+      border-radius: 0 0 8px 8px;
+      border-top: none;
+      box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.55);
+      padding: 6px 8px 10px;
+    }
+
+    .rb-pop-title {
+      margin: 0 0 6px;
+      font-family: var(--st-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--st-text-3);
+    }
+
+    /*
+       Wraps, because the results group is six commands in 2D and nine in 3D
+       and a menu that scrolls sideways is the problem this whole variant was
+       written to remove.
+    */
+    .rb-pop-cmds {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    /* In the menu there is room for the word, so the word comes back. */
+    .rb-pop .rb-cmd.labelled {
+      width: auto;
+      min-width: 66px;
+      height: auto;
+      min-height: 56px;
+      padding: 6px 4px;
+      gap: 3px;
+      flex: 1 1 66px;
+      max-width: 96px;
+      border: 1px solid var(--st-hair);
+    }
+
+    .rb-pop .rb-cmd.labelled .rb-label {
+      display: block;
+      font-size: 0.62rem;
+      max-width: none;
+    }
+
+    .rb-pop .rb-cmd.labelled.active {
+      border-color: var(--st-accent);
+      background: var(--st-selected-bg);
+    }
+
+    /* `prominent` sizes a lone command to carry its group's height; with the
+       captions gone there is no extra height to carry. */
+    .rb-cmd.prominent { padding: 0; }
     .rb-cmd.prominent :global(svg) { width: 22px; height: 22px; }
-
-    /*
-       Document commands last. `order` moves the box without moving the
-       element, so every test id keeps its place in the DOM and the tour
-       still finds `hdr-project` where it has always been.
-    */
-    .rb-quick {
-      order: 2;
-      margin: 0;
-      border-right: none;
-      border-left: 1px solid var(--st-hair);
-      /* One row of four: a 2×2 block of 44 px cells is 88 px tall, which is
-         more ribbon than a 667 px screen can spare. */
-      grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: 1fr;
-    }
-
-    /* With one row, the 2×2 block's internal rules are the wrong dividers. */
-    .rb-quick-row:first-child .rb-quick-btn,
-    .rb-quick-row:first-child .rb-quick-btn:first-child {
-      border-bottom: none;
-      border-right: none;
-    }
-
-    .rb-quick-btn {
-      min-width: 44px;
-      min-height: 44px;
-      padding: 0.25rem;
-    }
-
-    /* The spacer would push the document block off the scrollable end. */
-    .rb-spacer { display: none; }
   }
+
 </style>

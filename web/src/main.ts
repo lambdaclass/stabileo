@@ -1,4 +1,7 @@
 import './styles/tokens.css';
+// After the tokens, which it reads, and global because the rows it governs
+// live in several components with scoped styles. See the file's own header.
+import './styles/touch-density.css';
 import 'katex/dist/katex.min.css';
 import App from './App.svelte';
 import { mount } from 'svelte';

@@ -158,11 +158,17 @@
      the model is either overlapped or left with a dead band beneath it —
      and neither shows up anywhere but on a phone.
 
-     Just over half: enough for a results table to be worth reading, and it
-     leaves the model the upper portion, where the reader can still see what a
-     value refers to.
+     This is the value the sheet OPENS at. `BasicPanel` rewrites the same
+     property on the root element as the reader drags the grab handle, and
+     remembers where they left it — so this is a starting point, not a limit.
+
+     It was 58vh, chosen to make a results table worth reading. It did not
+     manage that — the table began ten pixels above the bottom of the screen —
+     and it cost the model more than half the height to fail at it. 45 gives
+     the model back a third of what it was taking, and the drag covers both
+     ends far better than any single number can.
      ──────────────────────────────────────────────────────────────────── */
-  --st-sheet-h: 58vh;
+  --st-sheet-h: 45vh;
 
   /* ── Semantic: surfaces ────────────────────────────────────────────────
      Four depths, dark to light. The old palette had six near-identical navy
