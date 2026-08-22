@@ -94,23 +94,23 @@
 </div>
 
 <style>
-  .panel { border-top: 1px solid #1d3a5c; background: #081524; padding: 6px 10px;
+  .panel { border-top: 1px solid var(--st-hair-strong); background: var(--st-bg); padding: 6px 10px;
     max-height: 30vh; overflow: auto; flex-shrink: 0; }
-  .head { display: flex; align-items: center; gap: 8px; font-size: 0.74rem; color: #bcd; }
-  .head.sub { margin-top: 7px; padding-top: 5px; border-top: 1px dashed #16304f; }
-  .x { margin-left: auto; background: none; border: none; color: #9ab; font-size: 1.1rem; cursor: pointer; }
-  .muted { color: #778; font-size: 0.68rem; }
-  .empty { padding: 6px 0; font-size: 0.7rem; color: #667; font-style: italic; }
+  .head { display: flex; align-items: center; gap: 8px; font-size: 0.74rem; color: var(--st-text-2); }
+  .head.sub { margin-top: 7px; padding-top: 5px; border-top: 1px dashed var(--st-surface-3); }
+  .x { margin-left: auto; background: none; border:  1px solid var(--st-hair); color: var(--st-text-2); font-size: 1.1rem; cursor: pointer; }
+  .muted { color: var(--st-text-3); font-size: 0.68rem; }
+  .empty { padding: 6px 0; font-size: 0.7rem; color: var(--st-text-3); font-style: italic; }
   .list { list-style: none; margin: 3px 0 0; padding: 0; }
   li { display: flex; align-items: center; gap: 7px; padding: 1px 0;
-    font-size: 0.68rem; border-bottom: 1px solid #10233c; flex-wrap: wrap; }
-  .link { background: none; border: none; color: #9fd8ff; cursor: pointer;
+    font-size: 0.68rem; border-bottom: 1px solid var(--st-surface-3); flex-wrap: wrap; }
+  .link { background: none; border:  none; color: var(--st-text); cursor: pointer;
     padding: 0; text-decoration: underline; font-size: 0.68rem; }
-  .link:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
-  .mono { font-family: monospace; color: #ccd; }
-  .issue { color: #ffcc9a; }
-  .btn { padding: 1px 7px; background: #14304f; border: 1px solid #2a5a8a;
-    border-radius: 3px; color: #dde; font-size: 0.66rem; cursor: pointer; }
+  .link:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  .mono { font-family: monospace; color: var(--st-text); }
+  .issue { color: var(--st-text); }
+  .btn { padding: 1px 7px; background: var(--st-surface-3); border: 1px solid var(--st-info);
+    border-radius: 3px; color: var(--st-text); font-size: 0.66rem; cursor: pointer; }
   .btn-sm { margin-left: auto; }
-  .btn:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
+  .btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 </style>

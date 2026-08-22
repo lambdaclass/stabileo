@@ -70,8 +70,16 @@
 </script>
 
 <section class="regs" aria-labelledby="regs-title" data-testid="project-regulations">
-  <h3 id="regs-title">{t('regulations.title')}</h3>
-  <p class="subtitle">{t('regulations.subtitle')}</p>
+  <!--
+    The heading stays for the landmark and leaves the screen.
+
+    `StageSection` already prints "1 · Project regulations" and a sentence of purpose directly
+    above this. Repeating both here cost a duplicated title and a duplicated subtitle — and the
+    duplicate was rendered at 0.95rem inside a section whose own title is 0.85rem, so the stage
+    was visually SMALLER than the text inside it. `aria-labelledby` still needs a target, so the
+    heading is kept and hidden rather than deleted.
+  -->
+  <h3 id="regs-title" class="sr-only">{t('regulations.title')}</h3>
 
   {#if pendingRole}
     {@const c = consequenceOf('loadRegulation')}
@@ -123,18 +131,25 @@
       <li data-testid={`role-${role}`}>
         <div class="row">
           <label class="role-name" for={`sel-${role}`}>{t(`regulations.role.${role}`)}</label>
+          <!-- What this role decides, so the selector is not a bare noun. -->
+          <p class="role-purpose" data-testid={`role-purpose-${role}`}>
+            {t(`regulations.rolePurpose.${role}`)}
+          </p>
           <select
             id={`sel-${role}`} data-testid={`role-select-${role}`}
             value={b.adapterId ?? ''}
             onchange={(e) => onSelect(role, e.currentTarget.value)}
           >
             <option value="">{t('regulations.none')}</option>
+            <!-- Unavailable editions are NOT offered here; they are listed below with a reason. -->
             {#each opts as o (o.adapterId)}
               <option value={o.adapterId}>{te(optionLabel(o))}</option>
             {/each}
           </select>
 
           {#if b.adapterId}
+            <!-- The value in force, spelled out — a `<select>` shows it only while it fits. -->
+            <span class="role-value" data-testid={`role-value-${role}`}>{b.edition}</span>
             <span class="badge state-{b.state}" data-testid={`role-state-${role}`}>
               {t(stateKey(b))}
             </span>
@@ -218,45 +233,190 @@
 </section>
 
 <style>
-  .regs { padding: 0.75rem 1rem; font-size: 0.85rem; }
-  h3 { margin: 0 0 0.15rem; font-size: 0.95rem; }
-  .subtitle { margin: 0 0 0.7rem; opacity: 0.75; }
-  .jurisdiction { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 0.4rem 0.6rem; align-items: center; margin-bottom: 0.7rem; }
-  .jurisdiction input, .jurisdiction select { width: 100%; padding: 0.25rem 0.4rem; }
-  ul.roles { list-style: none; margin: 0; padding: 0; }
-  ul.roles > li { border-top: 1px solid rgba(128,128,128,0.25); padding: 0.4rem 0; }
-  .row { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
-  .role-name { min-width: 11rem; font-weight: 500; }
-  .row select { min-width: 15rem; padding: 0.25rem 0.4rem; }
-  .badge { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 3px; background: rgba(128,128,128,0.28); }
-  .state-applied { background: #14532d; color: #dcfce7; }
-  /* Pending and stale are never green. */
-  .state-pending { background: #7a5b00; color: #fff6dd; }
-  .state-stale { background: #7a1f1f; color: #ffe3e3; }
-  .maturity-implemented_provisional { background: #7a5b00; color: #fff6dd; }
-  .maturity-unsupported { background: #7a1f1f; color: #ffe3e3; }
-  .maturity-validated { background: #14532d; color: #dcfce7; }
-  .affects { background: #1e3a5f; color: #dbeafe; }
-  details.advanced { margin: 0.3rem 0 0 11.4rem; }
-  details.advanced summary { cursor: pointer; font-size: 0.78rem; opacity: 0.8; }
-  dl { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.6rem; margin: 0.3rem 0 0; font-size: 0.78rem; }
-  dt { font-weight: 600; opacity: 0.75; }
-  dd { margin: 0; }
-  .note { font-size: 0.78rem; opacity: 0.8; margin: 0.3rem 0 0; }
-  .notice { margin: 0.5rem 0; padding: 0.5rem 0.6rem; border-radius: 4px; line-height: 1.4; }
-  .notice.warning { background: #7a5b00; color: #fff6dd; }
-  .notice.error { background: #7a1f1f; color: #ffe3e3; }
-  .notice p { margin: 0.3rem 0; }
-  .req-solve { font-weight: 600; }
-  .actions { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
-  .actions button.secondary { background: transparent; border: 1px solid currentColor; color: inherit; }
-  .crossref { margin-top: 0.8rem; padding: 0.5rem 0.6rem; border: 1px dashed rgba(128,128,128,0.5); border-radius: 4px; }
-  .crossref p { margin: 0.25rem 0 0.4rem; font-size: 0.8rem; opacity: 0.85; }
-  li.error { color: #fca5a5; }
-  li.warning { color: #fde68a; }
-  @media (max-width: 820px) {
-    .jurisdiction { grid-template-columns: 1fr; }
-    .role-name { min-width: 0; }
-    details.advanced { margin-left: 0; }
+  /*
+    ── Why this whole block was rewritten ─────────────────────────────
+
+    Every defect below was a token that was never used:
+
+    - `select` and `input` carried nothing but padding, so the browser painted them white on a
+      dark panel. Four white dropdowns is what made this section look like a different program.
+    - `h3` was 0.95rem inside `.regs { font-size: 0.85rem }`, above a panel whose stage titles are
+      0.85rem — the section's own title was SMALLER than the text inside it.
+    - Nine `opacity: 0.75…0.85` stood in for text colour, so "dimmer" was the only hierarchy and
+      it applied to backgrounds and borders too.
+    - `rgba(143, 163, 179, …)` appeared four times, hardcoded beside the tokens that mean it.
+    - There was not one `:focus-visible` rule in the file.
+    - `.role-name { min-width: 11rem }` plus `.row select { min-width: 15rem }` is 26rem of
+      un-shrinkable content in a panel about 34rem wide, and `details.advanced` was then indented
+      by a further 11.4rem. That is the horizontal overflow at 1280×720.
+    - `@media (max-width: 820px)` asked the WINDOW while the panel is ~540px, so the stacked
+      fallback never fired where it was needed — the same defect the detailing grid had.
+
+    ── The layout ─────────────────────────────────────────────────────
+
+    Rows stack: name and purpose, then the control, then the state. `minmax(0, 1fr)` everywhere a
+    track holds text, so nothing refuses to shrink. A container query, because the question is how
+    wide THIS panel is.
+  */
+  .regs {
+    container-type: inline-size;
+    padding: 0.1rem 0 0.3rem;
+    font-size: 0.72rem;
+    color: var(--st-text-2);
   }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ── One control style for the whole section ──────────────────── */
+  .regs :global(select),
+  .regs :global(input[type='text']) {
+    width: 100%;
+    min-width: 0;
+    padding: 0.2rem 0.35rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 4px;
+    background: var(--st-bg);
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.72rem;
+  }
+  .regs :global(select:hover),
+  .regs :global(input[type='text']:hover) { border-color: var(--st-interactive); }
+  .regs :global(select:focus-visible),
+  .regs :global(input[type='text']:focus-visible),
+  .regs :global(button:focus-visible),
+  .regs :global(summary:focus-visible) {
+    outline: 2px solid var(--st-value);
+    outline-offset: 1px;
+  }
+  /* Disabled is dimmer and still readable: it has to be legible to be an explanation. */
+  .regs :global(select:disabled),
+  .regs :global(input:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+    border-color: var(--st-hair);
+  }
+
+  .regs :global(button) {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 4px;
+    background: var(--st-surface-3);
+    color: var(--st-text);
+    font-size: 0.7rem;
+    cursor: pointer;
+  }
+  .regs :global(button:hover) { background: var(--st-hair-strong); }
+  .regs :global(button:active) { background: var(--st-hair); }
+
+  /* ── Jurisdiction ─────────────────────────────────────────────── */
+  .jurisdiction {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.15rem;
+    margin-bottom: 0.6rem;
+  }
+  .jurisdiction label { font-size: 0.68rem; color: var(--st-text-2); }
+  .jurisdiction label:nth-of-type(2) { margin-top: 0.25rem; }
+  @container (min-width: 26rem) {
+    .jurisdiction { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: baseline; gap: 0.25rem 0.5rem; }
+    .jurisdiction label:nth-of-type(2) { margin-top: 0; }
+  }
+
+  /* ── One role per row ─────────────────────────────────────────── */
+  ul.roles { list-style: none; margin: 0; padding: 0; }
+  ul.roles > li {
+    border-top: 1px solid var(--st-hair);
+    padding: 0.35rem 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.15rem;
+    align-items: baseline;
+  }
+  .role-name { font-size: 0.72rem; font-weight: 600; color: var(--st-text); }
+  .role-purpose { margin: 0; font-size: 0.66rem; line-height: 1.35; color: var(--st-text-3); }
+  .role-value { font-size: 0.68rem; color: var(--st-text-2); }
+
+  /* The badges wrap as a group of their own rather than fighting the selector for the row. */
+  .row .badge, .row .role-value { justify-self: start; }
+  .badge {
+    display: inline-block;
+    font-size: 0.66rem; font-weight: 600;
+    padding: 0.02rem 0.35rem; border-radius: 3px;
+    background: var(--st-surface-3); color: var(--st-text);
+    white-space: nowrap;
+  }
+  /* Applied, pending and stale are three words. Colour only supports them. */
+  .state-applied { color: var(--st-ok); }
+  .state-pending { color: var(--st-warn); }
+  .state-stale { color: var(--st-warn); }
+  .maturity-implemented_provisional { color: var(--st-warn); }
+  .maturity-unsupported { color: var(--st-danger); }
+  .maturity-validated { color: var(--st-text-2); }
+  .affects { border: 1px solid var(--st-hair-strong); background: none; color: var(--st-text-2); }
+  .unavailable { color: var(--st-warn); }
+
+  details.advanced { margin: 0.25rem 0 0; }
+  details.advanced summary {
+    cursor: pointer;
+    font-size: 0.68rem;
+    color: var(--st-interactive);
+  }
+  dl {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.1rem 0.5rem;
+    margin: 0.2rem 0 0;
+    font-size: 0.68rem;
+  }
+  dt { font-weight: 600; color: var(--st-text-2); }
+  dd { margin: 0; color: var(--st-text-2); }
+  .note { font-size: 0.66rem; line-height: 1.35; color: var(--st-text-3); margin: 0.25rem 0 0; }
+
+  /* ── Notices ──────────────────────────────────────────────────── */
+  .notice {
+    margin: 0.4rem 0;
+    padding: 0.4rem 0.5rem;
+    border-radius: 4px;
+    line-height: 1.4;
+    font-size: 0.68rem;
+    background: var(--st-surface-3);
+    color: var(--st-text);
+  }
+  .notice.warning { border-left: 2px solid var(--st-warn); }
+  .notice.error { border-left: 2px solid var(--st-danger); }
+  .notice p { margin: 0.25rem 0; }
+  .notice strong { color: var(--st-text); }
+  .req-solve { font-weight: 600; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
+  /* The cancel is the quieter of the two, by weight rather than by being invisible. */
+  .actions :global(button.secondary) { background: none; }
+
+  .reserved { font-size: 0.68rem; }
+  .reserved summary { cursor: pointer; color: var(--st-interactive); }
+  .reserved ul { list-style: none; margin: 0.2rem 0 0; padding: 0; }
+  .reserved li { padding: 0.2rem 0; border-top: 1px solid var(--st-hair); }
+  .reserved strong { color: var(--st-text); font-weight: 600; }
+
+  .crossref {
+    margin-top: 0.6rem;
+    padding: 0.4rem 0.5rem;
+    border: 1px dashed var(--st-hair-strong);
+    border-radius: 4px;
+  }
+  .crossref strong { font-size: 0.7rem; color: var(--st-text); }
+  .crossref p { margin: 0.2rem 0 0.35rem; font-size: 0.66rem; line-height: 1.35; color: var(--st-text-2); }
+
+  li.error { color: var(--st-danger); }
+  li.warning { color: var(--st-warn); }
 </style>

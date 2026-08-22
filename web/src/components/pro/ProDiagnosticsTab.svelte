@@ -3,6 +3,11 @@
   import { t } from '../../lib/i18n';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { checkModel } from '../../lib/engine/model-diagnostics';
+  import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
+
+  // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
+  // allowed to speak from here on even if nothing else has happened yet.
+  $effect(() => { diagnosticsWarning.arm(); });
 
   type SeverityFilter = 'all' | 'error' | 'warning' | 'info';
 
@@ -122,6 +127,47 @@
     </span>
   </div>
 
+  <!--
+    The switch for the Design bar's warning chip.
+
+    It lives here, and only here, because this is where the user arrives after following the
+    chip — so the control to quieten it is beside the thing it is about, and reaching it costs
+    a look at the diagnostics first. The scope is stated in full rather than implied: hiding is
+    per diagnostic set, for this session, and it changes NOTHING about what the design does.
+    The commands call `checkModel` themselves and refuse on their own.
+  -->
+  <section class="diag-notify" data-testid="diag-notify">
+    <h4>{t('pro.diagHideTitle')}</h4>
+    <label class="diag-notify-toggle">
+      <input
+        type="checkbox"
+        data-testid="diag-hide-warning"
+        checked={diagnosticsWarning.dismissed}
+        disabled={diagnosticsWarning.count === 0}
+        onchange={(e) => (e.currentTarget.checked
+          ? diagnosticsWarning.dismiss()
+          : diagnosticsWarning.restore())}
+      />
+      <span>{t('pro.diagHideLabel')}</span>
+    </label>
+    <p class="diag-notify-scope">{t('pro.diagHideScope')}</p>
+    <!--
+      What the diagnostics currently AMOUNT to, in words. The four categories the chip must
+      never blur together: no model at all, a model missing inputs, blocking errors — and,
+      separately owned elsewhere, provisional proposals and bar conflicts, which are states of
+      a design rather than faults in a model.
+    -->
+    <p class="diag-notify-kind" data-testid="diag-kind" data-kind={diagnosticsWarning.kind}>
+      {t(`pro.diagKind${diagnosticsWarning.kind === 'empty' ? 'Empty'
+        : diagnosticsWarning.kind === 'incomplete' ? 'Incomplete' : 'Blocking'}`)}
+    </p>
+    {#if diagnosticsWarning.dismissed}
+      <p class="diag-notify-state" role="status" data-testid="diag-hidden-note">
+        {t('pro.diagHidden')}
+      </p>
+    {/if}
+  </section>
+
   {#if !hasAny}
     <div class="diag-empty">
       <span class="diag-check">&#10003;</span>
@@ -201,6 +247,45 @@
 </div>
 
 <style>
+  /* ── Notification control ─────────────────────────────────────── */
+  .diag-notify {
+    margin: 0 0 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius-lg);
+  }
+  .diag-notify h4 {
+    margin: 0 0 0.4rem;
+    font-family: var(--st-display);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--st-text-2);
+  }
+  .diag-notify-toggle {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.78rem; color: var(--st-text); cursor: pointer;
+  }
+  .diag-notify-toggle input:disabled + span { color: var(--st-text-3); cursor: not-allowed; }
+  .diag-notify-toggle input:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
+  .diag-notify-scope {
+    margin: 0.35rem 0 0;
+    font-size: 0.7rem; line-height: 1.45; color: var(--st-text-2);
+  }
+  .diag-notify-kind {
+    margin: 0.4rem 0 0;
+    font-size: 0.72rem; color: var(--st-text-2);
+  }
+  /* Each category reads differently without depending on the colour to say which. */
+  .diag-notify-kind[data-kind='blocking'] { color: var(--st-danger); font-weight: 600; }
+  .diag-notify-kind[data-kind='incomplete'] { color: var(--st-warn); }
+  .diag-notify-state {
+    margin: 0.35rem 0 0;
+    font-size: 0.72rem; font-weight: 600; color: var(--st-warn);
+  }
+
   .diag-panel {
     display: flex;
     flex-direction: column;
@@ -213,13 +298,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 6px 10px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
   }
 
   .diag-auto-label {
     font-size: 0.68rem;
-    color: #888;
+    color: var(--st-text-3);
   }
 
   .diag-empty {
@@ -229,20 +314,20 @@
     justify-content: center;
     gap: 8px;
     padding: 40px 10px;
-    color: #4ecdc4;
+    color: var(--st-value);
     font-size: 0.8rem;
   }
 
   .diag-check {
     font-size: 2rem;
-    color: #4ecdc4;
+    color: var(--st-text-2);
   }
 
   .diag-summary {
     display: flex;
     gap: 8px;
     padding: 8px 10px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
     flex-wrap: wrap;
   }
@@ -265,10 +350,10 @@
     border-color: currentColor;
   }
 
-  .diag-badge.sev-error { background: rgba(233, 69, 96, 0.2); color: #e94560; }
-  .diag-badge.sev-warning { background: rgba(240, 165, 0, 0.2); color: #f0a500; }
-  .diag-badge.sev-info { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
-  .diag-badge.sev-all { background: rgba(255, 255, 255, 0.08); color: #888; }
+  .diag-badge.sev-error { background: rgba(229, 72, 42, 0.2); color: var(--st-accent); }
+  .diag-badge.sev-warning { background: rgba(217, 164, 65, 0.2); color: var(--st-warn); }
+  .diag-badge.sev-info { background: rgba(127, 212, 204, 0.2); color: var(--st-value); }
+  .diag-badge.sev-all { background: rgba(255, 255, 255, 0.08); color: var(--st-text-3); }
 
   .diag-list {
     display: flex;
@@ -286,14 +371,14 @@
     background: transparent;
     text-align: left;
     cursor: pointer;
-    color: #ccc;
+    color: var(--st-text-2);
     font-size: 0.75rem;
-    border-bottom: 1px solid #0f2030;
+    border-bottom: 1px solid var(--st-surface-2);
     width: 100%;
   }
 
   .diag-item:hover {
-    background: rgba(78, 205, 196, 0.05);
+    background: rgba(127, 212, 204, 0.05);
   }
 
   .diag-icon {
@@ -303,9 +388,9 @@
     text-align: center;
   }
 
-  .diag-icon.sev-error { color: #e94560; }
-  .diag-icon.sev-warning { color: #f0a500; }
-  .diag-icon.sev-info { color: #4ecdc4; }
+  .diag-icon.sev-error { color: var(--st-accent); }
+  .diag-icon.sev-warning { color: var(--st-warn); }
+  .diag-icon.sev-info { color: var(--st-value); }
 
   .diag-source {
     padding: 2px 8px;
@@ -314,7 +399,7 @@
     font-weight: 600;
     text-transform: uppercase;
     background: rgba(255, 255, 255, 0.05);
-    color: #888;
+    color: var(--st-text-3);
     flex-shrink: 0;
   }
 
@@ -332,21 +417,21 @@
 
   .diag-tooltip-text {
     font-size: 0.65rem;
-    color: #777;
+    color: var(--st-text-3);
     font-style: italic;
   }
 
   .diag-refs {
     font-family: monospace;
     font-size: 0.68rem;
-    color: #666;
+    color: var(--st-text-3);
   }
 
   .diag-details {
     width: 100%;
     font-family: monospace;
     font-size: 0.65rem;
-    color: #555;
+    color: var(--st-text-3);
     padding-left: 26px;
   }
 </style>

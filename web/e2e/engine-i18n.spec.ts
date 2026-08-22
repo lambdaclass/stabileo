@@ -30,8 +30,10 @@ const KEY_PATTERN =
  * English-derived guess was "Generar automáticamente".
  */
 async function openLoadsTab(page: Page) {
-  await page.getByTestId('pb-group-conditions').click();
-  await page.getByTestId('pb-tab-loads').click();
+  // The PRO bar is a two-level ribbon now: the stage, then its command. The
+  // old bar hid these behind a dropdown that had to be opened first.
+  await page.getByTestId('pr-stage-conditions').click();
+  await page.getByTestId('pr-cmd-loads').click();
 }
 
 async function openDialog(page: Page) {

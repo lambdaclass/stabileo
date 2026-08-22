@@ -1,7 +1,8 @@
 <script lang="ts">
   import { t } from '../../lib/i18n';
   import { showDiagram, armTool } from '../../lib/store/view-mode';
-  import { commandShowsQuantity } from '../../lib/store/result-view';
+  import { commandShowsQuantity, showStressMap, activeMapMeasure } from '../../lib/store/result-view';
+  import { needsPlaneChoice, switchPlain, hasBackup, restore3D } from '../../lib/store/switch-2d';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../../lib/geometry/coordinate-system';
   import { uiStore, EDIT_TOOLS } from '../../lib/store/ui.svelte';
   import { historyStore } from '../../lib/store/history.svelte';
@@ -72,6 +73,8 @@
     tool?: string;
     panel?: string;
     diagram?: string;
+    /** Paints a stress measure rather than an internal force. */
+    stressMap?: boolean;
     action?: () => void;
     /** Greyed when false. Never hidden. */
     enabled?: () => boolean;
@@ -141,6 +144,18 @@
         { id: 'torsion', icon: 'torsion', label: 'T', nameKey: 'ribbon.nameTorsion', panel: 'results', diagram: 'torsion', enabled: only3d, needs3d: true },
       );
     }
+    /*
+     * Stress goes last, after the forces, because it is DERIVED from all of
+     * them: utilisation, Von Mises, and the normal and shear peaks. It names no
+     * single force, which is why it could not live among them and why it had
+     * no command at all — the maps existed and were reachable only by pressing
+     * 9, with the control that chooses between them appearing once you were
+     * already there.
+     */
+    cmds.push({
+      id: 'stress', icon: 'stress', labelKey: 'ribbon.stress',
+      panel: 'results', stressMap: true, enabled: any,
+    });
     return cmds;
   });
 
@@ -159,8 +174,20 @@
       id: 'view',
       labelKey: 'ribbon.groupView',
       cmds: [
-        { id: 'select', icon: 'select', labelKey: 'float.select', tool: 'select' },
-        { id: 'pan', icon: 'pan', labelKey: 'float.pan', tool: 'pan' },
+        /*
+         * Selection CONFIGURATION, not the pointer mode.
+         *
+         * Select and Pan used to be two commands here, and they were the
+         * exception that broke the ribbon's one rule: every other command
+         * opens a panel, so the highlight means "this is what the panel is
+         * showing" — but a pointer mode shows nothing, so after a solve a lit
+         * diagram and a lit Select both claimed to be the current activity.
+         *
+         * The pointer mode moved onto the model, where the pointer is. What
+         * stays here is what selecting needs a PANEL for: which kinds of thing
+         * a drag picks up.
+         */
+        { id: 'select', icon: 'select', labelKey: 'ribbon.selection', panel: 'selection' },
         /*
          * One button, not two. A pair where one is always lit reads as a
          * permanent alarm — the accent is for what you are doing now, and
@@ -171,7 +198,28 @@
           id: 'dim',
           icon: () => (threeD ? 'view2d' : 'view3d'),
           labelKey: () => (threeD ? 'ribbon.view2d' : 'ribbon.view3d'),
-          action: () => (uiStore.analysisMode = threeD ? '2d' : '3d'),
+          /*
+           * Going UP is free — a 2D model is a 3D model with one coordinate
+           * at zero. Coming DOWN throws a dimension away, and what to do with
+           * it is a decision only the author can make: flatten everything, or
+           * take the frame on one grid line. So that direction asks, unless
+           * the model is already flat and there is nothing to decide.
+           */
+          action: () => {
+            /*
+             * Coming back up restores the 3D original if this 2D model was cut
+             * or flattened out of one. Without that the trip is one-way: the
+             * button returns to a 3D viewport showing the derived model, and
+             * the structure the user built is gone with no message saying so.
+             */
+            if (!threeD) {
+              if (hasBackup()) restore3D();
+              else uiStore.analysisMode = '3d';
+              return;
+            }
+            if (needsPlaneChoice()) uiStore.switchTo2DPrompt = true;
+            else switchPlain();
+          },
         },
       ],
     },
@@ -271,13 +319,16 @@
    * ribbon claiming you were placing nodes on a moment diagram. Picking a
    * diagram now disarms an editing tool, and arming one clears the diagram.
    *
-   * View is deliberately exempt in one direction: Select and Pan stay armed
-   * while a diagram is shown, because reading a result means moving around it
-   * and clicking things in it. They are how you LOOK, not how you edit.
+   * The pointer modes are not here at all any more: Select and Pan live on
+   * the model, so there is no "view tool" for this rule to exempt.
    */
-  /** Tools that only change how you LOOK at the model, never what it is. */
-  const VIEW_TOOLS: string[] = ['select', 'pan'];
-  // The EDIT_TOOLS list is imported from ui.svelte.ts — the single source.
+  /*
+   * EDIT_TOOLS comes from the store — main made it the single source while
+   * this branch was open, and a second copy here is the kind of list that
+   * drifts. VIEW_TOOLS is gone with the commands it described: select and pan
+   * are not ribbon commands any more, they are the pointer mode, and it lives
+   * on the model.
+   */
 
   function run(cmd: Cmd) {
     if (cmd.enabled && !cmd.enabled()) return;
@@ -296,19 +347,13 @@
        * is showing your work. `toggle: false`: arming a tool means "show me
        * this", and a second press should re-show rather than hide.
        */
-      if (cmd.dataTab) {
-        onOpenPanel('data', { dataTab: cmd.dataTab, toggle: false });
-      } else if (!VIEW_TOOLS.includes(cmd.tool)) {
-        onOpenPanel(null);
-      }
-      /*
-       * Select and Pan leave the panel exactly as it was.
-       *
-       * They are not a task — they are how you look at whatever task you are
-       * in. Reaching for Pan to move the canvas and having the panel you were
-       * reading close underneath is a loss you did not ask for, and getting it
-       * back costs two clicks and the scroll position.
-       */
+      if (cmd.dataTab) onOpenPanel('data', { dataTab: cmd.dataTab, toggle: false });
+      return;
+    }
+    if (cmd.stressMap) {
+      // Defaults to utilisation; the panel switches between the four measures.
+      showStressMap();
+      onOpenPanel(cmd.panel ?? null, { toggle: false });
       return;
     }
     if (cmd.diagram) {
@@ -347,8 +392,23 @@
     });
   }
 
+  /**
+   * Lit means: THIS is what the right-hand panel is showing.
+   *
+   * One rule, and it is the one a reader can verify at a glance — look at the
+   * panel, look at the ribbon, they say the same thing. It replaces a set of
+   * per-command conditions that each answered a slightly different question
+   * ("is this tool armed", "is this diagram drawn") and could therefore be true
+   * at the same time: after a solve, a lit diagram plus a lit Advanced plus a
+   * lit drawing tool, three commands claiming to be the current activity while
+   * the panel showed one of them.
+   *
+   * A diagram left on the canvas while the panel moved elsewhere is not
+   * highlighted, and that is deliberate: the highlight tracks the panel, not
+   * the canvas, and the canvas has its own legends to say what it is drawing.
+   */
   function isActive(cmd: Cmd): boolean {
-    if (cmd.tool) return uiStore.currentTool === cmd.tool;
+    if (cmd.tool) return activePanel === 'data' && uiStore.currentTool === cmd.tool;
     /*
      * A command that names a data tab lights when THAT tab is showing.
      *
@@ -388,10 +448,14 @@
        * members were painted by exactly the quantity whose command had gone
        * out.
        */
-      return solved && commandShowsQuantity(cmd.diagram);
+      return solved && activePanel === 'results' && commandShowsQuantity(cmd.diagram);
     }
     // Solve OPENS Results but is not a state — it is an action you run, and a
     // lit Solve while the panel happens to be open would read as "solving".
+    // The Stress command owns the shell contours too: they are chosen in the
+    // same select, so a map it cannot claim would leave panel and ribbon
+    // disagreeing about whether anything is on screen.
+    if (cmd.stressMap) return solved && activePanel === 'results' && activeMapMeasure() !== null;
     if (cmd.id === 'solve') return false;
     if (cmd.panel) return activePanel === cmd.panel;
     return false;  // `dim` is a switch, not a state: it never lights up.

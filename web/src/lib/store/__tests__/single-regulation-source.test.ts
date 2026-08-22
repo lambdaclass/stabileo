@@ -33,7 +33,14 @@ const SRC = join(__dirname, '../../..');
 const read = (rel: string) => readFileSync(join(SRC, rel), 'utf8');
 
 describe('the design toolbar carries no regulation selector', () => {
-  const toolbar = read('components/pro/design/DesignToolbar.svelte');
+  /**
+   * The read-out moved to `DesignOverview.svelte`. The prohibition — no second selector, no
+   * registry enumeration — is about the design surface, not about one file, so it now covers both.
+   */
+  const toolbar = [
+    read('components/pro/design/DesignToolbar.svelte'),
+    read('components/pro/design/DesignOverview.svelte'),
+  ].join('\n');
 
   it('has no code-select control', () => {
     expect(toolbar).not.toContain('code-select');

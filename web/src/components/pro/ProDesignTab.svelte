@@ -23,6 +23,7 @@
    */
   import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
   import { designRunStore } from '../../lib/store/design-run.svelte';
+  import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
   import { t, tp } from '../../lib/i18n';
   import { clearReinforcement, revertReinforcement } from '../../lib/store/rebar-edit';
   import {
@@ -289,18 +290,26 @@
 </script>
 
 <div class="design-tab" data-testid="pro-design-tab">
+  <!--
+    Every design command arms the diagnostics warning. "I tried to design and it did not work"
+    is precisely the moment a blocking diagnostic earns the right to interrupt — and until one
+    of these is pressed, or a project is loaded, an untouched PRO says nothing.
+    See `lib/store/diagnostics-warning.svelte.ts`.
+  -->
   <DesignToolbar
     selectedCount={batchSelection.length}
     {hasResults} {hasCombinations}
     editedCount={designRunStore.manualOverrides.size}
-    onComputeDemands={() => designRunStore.computeDemands()}
-    onCodeCheck={() => designRunStore.runCodeCheck()}
-    onAutoDesignSelected={() => designRunStore.autoDesign(batchSelection)}
+    onComputeDemands={() => { diagnosticsWarning.arm(); designRunStore.computeDemands(); }}
+    onCodeCheck={() => { diagnosticsWarning.arm(); designRunStore.runCodeCheck(); }}
+    onAutoDesignSelected={() => { diagnosticsWarning.arm(); designRunStore.autoDesign(batchSelection); }}
     onAutoDesignUndesigned={() => {
+      diagnosticsWarning.arm();
       const ids = [...verificationStore.contexts.keys()].filter(id => !modelStore.elements.get(id)?.reinforcement);
       designRunStore.autoDesign(ids.length > 0 ? ids : [...verificationStore.contexts.keys()]);
     }}
-    onDesignAll={() => designRunStore.designAll()}
+    onDesignAll={() => { diagnosticsWarning.arm(); designRunStore.designAll(); }}
+    onOpenDiagnostics={() => (uiStore.proActiveTab = 'diagnostics')}
     onReviewChanges={() => (showChanged = true)}
     onRevertEdits={revertAllEdits}
     onShowOrientation={() => (showChanged = true)}
@@ -356,7 +365,7 @@
       <button class="act" data-testid="review-changes" onclick={() => (showChanged = !showChanged)}>
         {t('design.changed.title')} ({designRunStore.manualOverrides.size})
       </button>
-      <span class="hint">j/k · ↵ · space</span>
+      <span class="hint">{t('design.nav.keyboardHint')}</span>
     </div>
 
     <DesignTable
@@ -444,22 +453,28 @@
    * is reachable by scrolling the thing the user is already looking at. The alternative —
    * making the control blocks shrink and scroll internally — would have put a second scroller
    * inside the first, which this codebase has already paid for once (see RebarStatusPanel).
+   *
+   * The PRO shell makes this MORE necessary, not less: a two-row ribbon and a panel heading
+   * take further height off the same 504 px. `DesignTable` grew its own 9rem floor for the
+   * related defect — a box shorter than its sticky header, so a click on row 1 lands on
+   * "select all". Both floors stand; this selector is the more specific one and wins inside
+   * the tab, and the 9rem still guards the table wherever else it is mounted.
    */
   .design-tab { display: flex; flex-direction: column; height: 100%; overflow: auto; }
   /* A table shorter than this is not a table you can work in; below it, the tab scrolls. */
   .design-tab :global(.table-scroll) { min-height: 14rem; }
-  .placeholder { padding: 20px; text-align: center; color: #667; font-size: 0.78rem; font-style: italic; }
+  .placeholder { padding: 20px; text-align: center; color: var(--st-text-3); font-size: 0.78rem; font-style: italic; }
   .action-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-    padding: 4px 12px; background: #081524; border-bottom: 1px solid #14304f; flex-shrink: 0; }
-  .sel-count { font-size: 0.7rem; color: #bcd; }
-  .muted { color: #778; }
-  .act { padding: 2px 9px; background: #14304f; border: 1px solid #2a5a8a;
-    border-radius: 3px; color: #dde; font-size: 0.7rem; font-weight: 600; cursor: pointer; }
-  .act:hover:not(:disabled) { background: #1e4a78; }
+    padding: 4px 12px; background: var(--st-bg); border-bottom: 1px solid var(--st-surface-3); flex-shrink: 0; }
+  .sel-count { font-size: 0.7rem; color: var(--st-text-2); }
+  .muted { color: var(--st-text-3); }
+  .act { padding: 2px 9px; background: var(--st-surface-3); border: 1px solid var(--st-info);
+    border-radius: 3px; color: var(--st-text); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
+  .act:hover:not(:disabled) { background: var(--st-hair-strong); }
   .act:disabled { opacity: 0.4; cursor: not-allowed; }
-  .act:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
+  .act:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .act-sm { font-size: 0.66rem; padding: 1px 7px; }
-  .hint { margin-left: auto; font-size: 0.64rem; color: #556; font-family: monospace; }
+  .hint { margin-left: auto; font-size: 0.64rem; color: var(--st-text-3); font-family: monospace; }
   .detail-wrap { display: flex; flex-direction: column; gap: 6px; }
   .detail-head { display: flex; gap: 6px; }
 </style>

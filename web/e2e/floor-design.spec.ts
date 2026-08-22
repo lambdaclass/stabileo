@@ -68,6 +68,19 @@ async function openPanel(page: import('@playwright/test').Page) {
   await d.locator('> summary').click();
 }
 
+/**
+ * Open the Documents stage.
+ *
+ * The professional review — the engineer's name, the notes, the provisional acknowledgements,
+ * `Record review` and `Issue for construction` — moved out of the coordinated-detailing panel and
+ * into a stage of its own. These assertions are unchanged; what changed is which disclosure holds
+ * the controls, so they open that one too.
+ */
+async function openDocuments(page: import('@playwright/test').Page) {
+  const d = page.getByTestId('documents-disclosure');
+  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+}
+
 test.describe('@smoke floor design', () => {
   test('F1 — a floor assembly appears alongside beam lines', async ({ pro: page }) => {
     await seedInto(page, [floor()]);
@@ -131,6 +144,7 @@ test.describe('@smoke unsupported conditions by family', () => {
     await openPanel(page);
     await expect(page.getByTestId('unsupported-list')).toContainText('INPRES-CIRSOC 103 Parte II');
 
+    await openDocuments(page);
     await page.getByTestId('review-engineer').fill('Ing. R. Pérez');
     await page.getByTestId('review-submit').click();
     await expect(page.getByTestId('review-error')).toBeVisible();
@@ -187,6 +201,7 @@ test.describe('@smoke floor conflicts and review', () => {
     await openPanel(page);
 
     // Provisional, so a bare review is refused.
+    await openDocuments(page);
     await page.getByTestId('review-engineer').fill('Ing. R. Pérez');
     await page.getByTestId('review-submit').click();
     // In ENGLISH, because this spec runs in the default `en` locale. It used to assert the

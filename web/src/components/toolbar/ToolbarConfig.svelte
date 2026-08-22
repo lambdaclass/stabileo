@@ -2,6 +2,7 @@
   import { uiStore, resultsStore } from '../../lib/store';
   import { unitLabel } from '../../lib/utils/units';
   import { t } from '../../lib/i18n';
+  import HelpTip from '../HelpTip.svelte';
 
   /** When true, skip outer toggle and show content directly (used in PRO dropdown). */
 
@@ -65,14 +66,16 @@
       {@const gridVisible = is3D ? uiStore.showGrid3D : uiStore.showGrid}
       <div class="sub-content">
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.showAxes')}>
           <input type="checkbox" checked={is3D ? uiStore.showAxes3D : uiStore.showAxes}
             onchange={(e) => { if (is3D) uiStore.showAxes3D = e.currentTarget.checked; else uiStore.showAxes = e.currentTarget.checked; }} />
           <span>{t('config.showAxes')}</span>
+          </HelpTip>
         </label>
         <!-- Basic mode: one "Local axes" control (members only — Basic has no shells).
              PRO keeps the member/shell split. Works in both Basic 2D and Basic 3D. -->
         <div class="input-group">
-          <label>{isPro ? t('config.localAxesMembers') : t('config.localAxes')}:</label>
+          <HelpTip text={t('config.tip.localAxes')}><label>{isPro ? t('config.localAxesMembers') : t('config.localAxes')}:</label></HelpTip>
           <select bind:value={uiStore.localAxesMode3D}>
             <option value="selected">{t('config.localAxesSelected')}</option>
             <option value="always">{t('config.localAxesAlways')}</option>
@@ -81,32 +84,38 @@
         </div>
         {#if isPro}
           <div class="input-group">
-            <label>{t('config.localAxesShells')}:</label>
+            <HelpTip text={t('config.tip.localAxesShells')}><label>{t('config.localAxesShells')}:</label></HelpTip>
             <select bind:value={uiStore.shellAxesMode3D}>
               <option value="selected">{t('config.localAxesSelected')}</option>
               <option value="always">{t('config.localAxesAlways')}</option>
               <option value="never">{t('config.localAxesNever')}</option>
             </select>
           </div>
-          <label class="checkbox-item" title={t('config.smoothOrbitHint')}>
+          <label class="checkbox-item">
+            <HelpTip text={t('config.tip.smoothOrbit')}>
             <input type="checkbox" checked={uiStore.smoothOrbit3D}
               onchange={(e) => { uiStore.smoothOrbit3D = e.currentTarget.checked; }} />
             <span>{t('config.smoothOrbit')}</span>
+            </HelpTip>
           </label>
         {/if}
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.showGrid')}>
           <input type="checkbox" checked={gridVisible}
             onchange={(e) => { if (is3D) uiStore.showGrid3D = e.currentTarget.checked; else uiStore.showGrid = e.currentTarget.checked; }} />
           <span>{t('config.showGrid')}</span>
+          </HelpTip>
         </label>
         <div style="opacity: {gridVisible ? 1 : 0.4}; pointer-events: {gridVisible ? 'auto' : 'none'}; display: flex; flex-direction: column; gap: 0.35rem;">
           <label class="checkbox-item">
+            <HelpTip text={t('config.tip.snapGrid')}>
             <input type="checkbox" checked={is3D ? uiStore.snapToGrid3D : uiStore.snapToGrid}
               onchange={(e) => { if (is3D) uiStore.snapToGrid3D = e.currentTarget.checked; else uiStore.snapToGrid = e.currentTarget.checked; }} />
             <span>{t('config.snapGrid')}</span>
+            </HelpTip>
           </label>
           <div class="input-group">
-            <label>{is3D ? t('config.gridSizeXZ') : `${t('config.gridSize')} (${ul('length')})`}:</label>
+            <HelpTip text={t('config.tip.gridSize')}><label>{is3D ? t('config.gridSizeXZ') : `${t('config.gridSize')} (${ul('length')})`}:</label></HelpTip>
             <input
               type="number"
               value={is3D ? uiStore.gridSize3D : uiStore.gridSize}
@@ -117,7 +126,7 @@
           </div>
           {#if is3D}
             <div class="input-group" style="flex-direction: column; align-items: stretch;">
-              <label>{t('config.gridExtent')}: {uiStore.gridExtent3D}×{uiStore.gridExtent3D} m</label>
+              <HelpTip text={t('config.tip.gridExtent')}><label>{t('config.gridExtent')}: {uiStore.gridExtent3D}×{uiStore.gridExtent3D} m</label></HelpTip>
               <input
                 type="range"
                 min="20"
@@ -149,40 +158,50 @@
       {@const is3Dm = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
       <div class="sub-content">
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.nodeIds')}>
           <input type="checkbox" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
             onchange={(e) => { if (is3Dm) uiStore.showNodeLabels3D = e.currentTarget.checked; else uiStore.showNodeLabels = e.currentTarget.checked; }} />
           <span>{t('config.nodeIds')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.elementIds')}>
           <input type="checkbox" checked={is3Dm ? uiStore.showElementLabels3D : uiStore.showElementLabels}
             onchange={(e) => { if (is3Dm) uiStore.showElementLabels3D = e.currentTarget.checked; else uiStore.showElementLabels = e.currentTarget.checked; }} />
           <span>{t('config.elementIds')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.lengths')}>
           <input type="checkbox" checked={is3Dm ? uiStore.showLengths3D : uiStore.showLengths}
             onchange={(e) => { if (is3Dm) uiStore.showLengths3D = e.currentTarget.checked; else uiStore.showLengths = e.currentTarget.checked; }} />
           <span>{t('config.lengths')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.showLoads')}>
           <input type="checkbox" checked={is3Dm ? uiStore.showLoads3D : uiStore.showLoads}
             onchange={(e) => { if (is3Dm) uiStore.showLoads3D = e.currentTarget.checked; else uiStore.showLoads = e.currentTarget.checked; }} />
           <span>{t('config.showLoads')}</span>
+          </HelpTip>
         </label>
         {#if !is3Dm}
           <label class="checkbox-item">
+            <HelpTip text={t('config.tip.autoSplit')}>
             <input type="checkbox" bind:checked={uiStore.autoSplitOnNodePlace} />
-            <span title={t('config.autoSplitElementsHelp')}>{t('config.autoSplitElements')}</span>
+            <span>{t('config.autoSplitElements')}</span>
+            </HelpTip>
           </label>
         {/if}
         <div class="input-group">
-          <label>{t('config.units')}:</label>
+          <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
           <select bind:value={uiStore.unitSystem}>
             <option value="SI">{t('config.unitSI')}</option>
             <option value="Imperial">{t('config.unitImperial')}</option>
           </select>
         </div>
         <div class="input-group">
-          <label>{t('config.localAxes')}:</label>
+          <HelpTip text={t('config.tip.axisConvention')}><label>{t('config.localAxes')}:</label></HelpTip>
           <select bind:value={uiStore.axisConvention3D}>
             <option value="rightHand">{t('config.rightHand')}</option>
             <option value="leftHand">{t('config.leftHand')}</option>
@@ -192,21 +211,25 @@
         </div>
         {#if is3Dm}
           <div class="input-group">
+            <HelpTip text={t('config.tip.momentStyle')}>
             <select bind:value={uiStore.momentStyle3D}>
               <option value="double-arrow">{t('config.momentsDoubleArrow')}</option>
               <option value="curved">{t('config.momentsCurved')}</option>
             </select>
+            </HelpTip>
           </div>
           <div class="input-group">
+            <HelpTip text={t('config.tip.renderMode')}>
             <select bind:value={uiStore.renderMode3D}>
               <option value="wireframe">{t('config.wireframe')}</option>
               <option value="solid">{t('config.solid')}</option>
               <option value="sections">{t('config.sections')}</option>
             </select>
+            </HelpTip>
           </div>
         {:else}
           <div class="input-group">
-            <label>{t('config.color')}:</label>
+            <HelpTip text={t('config.tip.color')}><label>{t('config.color')}:</label></HelpTip>
             <select bind:value={uiStore.elementColorMode}>
               <option value="uniform">{t('config.uniform')}</option>
               <option value="byMaterial">{t('config.byMaterial')}</option>
@@ -233,33 +256,47 @@
     {#if flat || showResultsSub}
       <div class="sub-content">
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.showValues')}>
           <input type="checkbox" bind:checked={resultsStore.showDiagramValues} />
           <span>{t('config.showValues')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.showReactions')}>
           <input type="checkbox" bind:checked={resultsStore.showReactions} />
           <span>{t('config.showReactions')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.showConstraintForces')}>
           <input type="checkbox" bind:checked={resultsStore.showConstraintForces} />
           <span>{t('config.showConstraintForces')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.hideLoadsWithDiagram')}>
           <input type="checkbox" bind:checked={uiStore.hideLoadsWithDiagram} />
           <span>{t('config.hideLoadsWithDiagram')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.showPrimarySelector')}>
           <input type="checkbox" bind:checked={uiStore.showPrimarySelector} />
           <span>{t('config.showPrimarySelector')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item" class:checkbox-disabled={!uiStore.showPrimarySelector}>
+          <HelpTip text={t('config.tip.showSecondarySelector')}>
           <input type="checkbox" bind:checked={uiStore.showSecondarySelector}
                  disabled={!uiStore.showPrimarySelector} />
           <span>{t('config.showSecondarySelector')}</span>
+          </HelpTip>
         </label>
         <label class="checkbox-item">
+          <HelpTip text={t('config.tip.drawPositiveTowardLocalAxes')}>
           <input type="checkbox" bind:checked={resultsStore.drawPositiveTowardLocalAxes} />
           <span>{t('config.drawPositiveTowardLocalAxes')}</span>
+          </HelpTip>
         </label>
       </div>
     {/if}

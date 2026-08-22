@@ -189,6 +189,20 @@
 {/if}
 
 <style>
+  /*
+    The rail's headings, in the application's own hierarchy.
+
+    Layers / Section / What the scene contains / Model status were four different weights and
+    sizes with no separators, which is a large part of why the viewer read as another program.
+  */
+  h4, h5 {
+    margin: 0 0 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--st-text-2);
+  }
   section { display: flex; flex-direction: column; }
   h4 { margin: 0 0 0.25rem; font-size: 0.8rem; }
   label {
@@ -198,28 +212,29 @@
   label.slider { flex-direction: column; align-items: stretch; gap: 0.15rem; }
   label span.empty { opacity: 0.55; }
   label em { font-style: normal; font-size: 0.68rem; opacity: 0.8; }
-  hr { border: none; border-top: 1px solid #232a35; margin: 0.35rem 0; }
+  hr { border: none; border-top: 1px solid var(--st-hair); margin: 0.35rem 0; }
   select, input[type='range'] { width: 100%; font-size: 0.76rem; }
   .section-cut button {
     font-size: 0.74rem; margin-top: 0.3rem; cursor: pointer;
-    background: #1e2733; color: inherit; border: 1px solid #2c3644; border-radius: 4px;
+    background: var(--st-surface-3); color: var(--st-text);
+    border: 1px solid var(--st-hair-strong); border-radius: 4px;
     padding: 0.2rem 0.5rem;
   }
   .tally h5 { margin: 0.35rem 0 0.15rem; font-size: 0.75rem; }
   .tally table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
   .tally th {
-    text-align: left; font-weight: 400; color: var(--text-muted, #8b93a3);
+    text-align: left; font-weight: 400; color: var(--st-text-2);
     padding: 0.08rem 0;
   }
   .tally td { text-align: right; font-variant-numeric: tabular-nums; padding: 0.08rem 0; }
   .tally .totals {
     display: flex; flex-direction: column; gap: 0.05rem;
-    margin: 0 0 0.25rem; font-size: 0.72rem; color: var(--text-muted, #8b93a3);
+    margin: 0 0 0.25rem; font-size: 0.72rem; color: var(--st-text-2);
   }
-  .tally .totals strong { color: var(--text, #dfe4ec); float: right; }
+  .tally .totals strong { color: var(--st-text); float: right; }
   .empty-families {
     display: flex; flex-direction: column; gap: 0.05rem;
-    margin: 0.3rem 0 0; font-size: 0.7rem; color: var(--text-muted, #8b93a3);
+    margin: 0.3rem 0 0; font-size: 0.7rem; color: var(--st-text-2);
   }
   .empty-families .why { opacity: 0.8; margin-top: 0.15rem; }
 </style>

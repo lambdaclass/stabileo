@@ -168,6 +168,64 @@
     <path d="M5.5 9.5a7.5 4 0 1 0 13 0" />
     <path d="M4.4 6.6l1.2 3.2 3.2-.9" />
 
+  {:else if name === 'material'}
+    <!--
+      A material sample: a square with the hatch a section drawing uses to say
+      "this is solid material". Materials were borrowing the table icon, which
+      says where the data lives rather than what it is.
+    -->
+    <rect x="4" y="4" width="16" height="16" rx="1" />
+    <path d="M7 17L17 7M11 17l6-6M7 13l6-6" />
+  {:else if name === 'section'}
+    <!--
+      An I profile seen end-on — the shape an engineer means by "section". It
+      was borrowing the axial-force icon, which is a force, not a geometry.
+    -->
+    <path d="M5.5 4.5h13M5.5 19.5h13" />
+    <path d="M12 4.5v15" />
+    <path d="M8.5 4.5v1.6h7V4.5M8.5 19.5v-1.6h7v1.6" opacity="0.5" />
+  {:else if name === 'constraint'}
+    <!--
+      Two nodes tied rigidly: the link, not a hand. Constraints were borrowing
+      the pan icon, which is a viewport gesture.
+    -->
+    <circle cx="6" cy="12" r="2.2" />
+    <circle cx="18" cy="12" r="2.2" />
+    <path d="M8.2 12h7.6" />
+    <path d="M10 9.4v5.2M14 9.4v5.2" opacity="0.55" />
+  {:else if name === 'shell'}
+    <!-- A plate in space: a quadrilateral seen at an angle, with its nodes. -->
+    <path d="M3.5 9.5L11 5.5l9.5 4.5-8 5z" />
+    <circle cx="3.5" cy="9.5" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="11" cy="5.5" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="20.5" cy="10" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12.5" cy="15" r="1.1" fill="currentColor" stroke="none" />
+  {:else if name === 'fit'}
+    <!--
+      Zoom to fit: a frame closing IN on the drawing. Four corner brackets and
+      arrows pointing inward — the shape every viewer uses for it, and legible
+      at 18 px where the ⊞ glyph it replaces read as a generic grid.
+    -->
+    <path d="M3 8V4.6a1.6 1.6 0 0 1 1.6-1.6H8" />
+    <path d="M16 3h3.4A1.6 1.6 0 0 1 21 4.6V8" />
+    <path d="M21 16v3.4a1.6 1.6 0 0 1-1.6 1.6H16" />
+    <path d="M8 21H4.6A1.6 1.6 0 0 1 3 19.4V16" />
+    <rect x="8.5" y="8.5" width="7" height="7" rx="0.6" opacity="0.5" />
+
+  {:else if name === 'stress'}
+    <!--
+      A member with the stress varying along it: the bar, and four bands of
+      increasing weight reading left to right. Not a colour ramp — these icons
+      are one stroke in `currentColor` so they tint with the button state — so
+      the gradient is carried by SPACING, which reads at 22 px where a colour
+      would not survive being greyed out.
+    -->
+    <rect x="3" y="9" width="18" height="6" rx="0.6" />
+    <path d="M7 9v6" opacity="0.35" />
+    <path d="M11 9v6" opacity="0.6" />
+    <path d="M14.5 9v6" opacity="0.8" />
+    <path d="M17.5 9v6" />
+
   {:else if name === 'examples'}
     <path d="M4 6.5h16M4 12h16M4 17.5h10" />
   {:else if name === 'project'}

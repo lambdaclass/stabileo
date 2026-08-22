@@ -17,17 +17,10 @@
     solveStaged3D,
     solveCreepShrinkage3D,
     solveHarmonic3D,
-    solveArcLength,
-    solveDisplacementControl,
     solveWithImperfections3D,
     computeInfluenceLine3D,
-    solveCable2D,
-    guyanReduce2D,
-    craigBampton2D,
-    solveMultiCase2D,
     solveMultiCase3D,
     analyzeSection,
-    solveConstrained2D,
     solveConstrained3D,
   } from '../../lib/engine/wasm-solver';
   import { buildSolverInput3D } from '../../lib/engine/solver-service';
@@ -71,6 +64,30 @@
   }
 
   // ─── Shared helpers ────────────────────────────────────────────
+
+
+  /*
+   * Not here: arc-length, displacement control, cable and model reduction.
+   *
+   * All four deserialise a 2D `SolverInput` in the engine, so a PRO model —
+   * which is spatial — collapses on the way in (that is where cable's
+   * "element has zero length" came from). They were listed here and failed on
+   * every model this workspace can produce. Their wrappers and wire contracts
+   * are still covered by engine/__tests__/advanced-wire-contracts.test.ts for
+   * whoever surfaces them in a 2D workspace.
+   */
+
+  /** A free node worth reading a response at: the highest unsupported one,
+   *  which on a building is the roof. */
+  function defaultFreeNode(): number | null {
+    let best: { id: number; z: number } | null = null;
+    for (const [id, n] of modelStore.nodes) {
+      if (modelStore.supports.has(id)) continue;
+      const z = (n as { z?: number }).z ?? 0;
+      if (!best || z > best.z) best = { id, z };
+    }
+    return best?.id ?? nodeIds[0] ?? null;
+  }
 
   let useDiaphragm = $state(false);
 
@@ -268,12 +285,14 @@
 
   let thDt = $state(0.01);
   let thNSteps = $state(200);
-  let thDir = $state<'X' | 'Y'>('X');
+  let thDir = $state<'X' | 'Y' | 'Z'>('X');
   let thDamping = $state(0.05);
   let thMethod = $state<'newmark' | 'hht'>('newmark');
   let thAccelText = $state('');
   let thResult = $state<any | null>(null);
-  let thUseSine = $state(false);
+  /* Starts on the generated sine: with the text box empty and this off, the
+     only thing the button could do was refuse to run. */
+  let thUseSine = $state(true);
   let thSineAmp = $state(0.3);
   let thSineFreq = $state(2.0);
 
@@ -317,8 +336,14 @@
         beta,
         gamma,
         dampingXi: thDamping,
-        groundAccel,
-        groundDirection: thDir,
+        // `TimeHistoryInput3D` takes one acceleration series per global
+        // axis. The old payload sent the 2D pair { groundAccel,
+        // groundDirection }, which hit no field at all — so the run went
+        // ahead with ZERO ground motion and the static loads as the only
+        // excitation.
+        groundAccelX: thDir === 'X' ? groundAccel : undefined,
+        groundAccelY: thDir === 'Y' ? groundAccel : undefined,
+        groundAccelZ: thDir === 'Z' ? groundAccel : undefined,
       });
       thResult = res;
     } catch (e: any) {
@@ -334,6 +359,7 @@
   let harmNPoints = $state(200);
   let harmDamping = $state(0.05);
   let harmDir = $state<'X' | 'Y' | 'Z'>('X');
+  let harmNodeId = $state<number | null>(null);
   let harmResult = $state<any | null>(null);
 
   function handleHarmonic() {
@@ -343,19 +369,25 @@
     try {
       let input = buildInput();
       input = maybeApplyDiaphragm(input);
+      // Mass density in kg/m³, exactly as modal does it — `rho` is a WEIGHT
+      // density in kN/m³, and feeding it straight in made every frequency
+      // wrong by a factor of g/1000.
       const densities: Record<string, number> = {};
-      for (const [id, mat] of modelStore.materials) {
-        densities[String(id)] = (mat as any).rho ?? 0;
-      }
+      for (const [id, d] of getMaterialDensities(input)) densities[String(id)] = d;
+      // The engine sweeps an explicit frequency list and reports one node's
+      // response; it has no fMin/fMax/nPoints of its own.
+      const span = harmNPoints > 1 ? (harmFMax - harmFMin) / (harmNPoints - 1) : 0;
+      const frequencies = Array.from({ length: Math.max(1, harmNPoints) }, (_, i) => harmFMin + i * span);
+      const responseNodeId = harmNodeId ?? defaultFreeNode();
+      if (responseNodeId == null) throw new Error(t('advanced.emptyModel'));
       const t0 = performance.now();
       const res = solveHarmonic3D({
         solver: input,
         densities,
-        fMin: harmFMin,
-        fMax: harmFMax,
-        nPoints: harmNPoints,
-        dampingXi: harmDamping,
-        direction: harmDir,
+        frequencies,
+        dampingRatio: harmDamping,
+        responseNodeId,
+        responseDof: harmDir.toLowerCase(),
       });
       const elapsed = performance.now() - t0;
       harmonicElapsed = elapsed;
@@ -375,6 +407,14 @@
   let nlIncrements = $state(10);
   let nlFiberIntPts = $state(5);
   let nlResult = $state<any | null>(null);
+  // Displacements never sit at the top level: the incremental solvers
+  // (corotational, fiber) nest them under `.results`, and pushover nests
+  // them under each step's `.results` — so read the last step's.
+  const nlDisplacements = $derived(
+    nlResult?.results?.displacements
+      ?? nlResult?.steps?.[nlResult.steps.length - 1]?.results?.displacements
+      ?? []
+  );
 
   function handleNonlinear() {
     solveError = null;
@@ -434,62 +474,16 @@
     solving = false;
   }
 
-  // ─── 7b. Arc-Length ──────────────────────────────────────────
-
-  let arcMaxIter = $state(50);
-  let arcTol = $state(1e-6);
-  let arcIncrements = $state(20);
-  let arcResult = $state<any | null>(null);
-
-  function handleArcLength() {
-    solveError = null;
-    solving = true;
-    try {
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      arcResult = solveArcLength({
-        solver: input,
-        maxIter: arcMaxIter,
-        tolerance: arcTol,
-        nIncrements: arcIncrements,
-      });
-    } catch (e: any) {
-      solveError = `Arc-Length: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
-  // ─── 7c. Displacement Control ──────────────────────────────
-
-  let dcNodeId = $state<number | null>(null);
-  let dcDof = $state<'ux' | 'uy' | 'uz'>('uy');
-  let dcTargetDisp = $state(-0.05);
-  let dcIncrements = $state(20);
-  let dcResult = $state<any | null>(null);
-
-  function handleDispControl() {
-    solveError = null;
-    solving = true;
-    try {
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      dcResult = solveDisplacementControl({
-        solver: input,
-        controlNode: dcNodeId,
-        controlDof: dcDof,
-        targetDisplacement: dcTargetDisp,
-        nIncrements: dcIncrements,
-      });
-    } catch (e: any) {
-      solveError = `Disp. Control: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
   // ─── 7d. Imperfections ─────────────────────────────────────
 
-  let imperfType = $state<'global' | 'local'>('global');
-  let imperfAmplitude = $state(0.001);
+  /**
+   * What the engine actually applies is a notional load derived from an
+   * out-of-plumbness RATIO (1/200 in EC3 and AISC), not a "global/local" mode
+   * with an amplitude — those two fields went across the wire and were never
+   * read, and the analysis failed on the missing `imperfections` block.
+   */
+  let imperfRatio = $state(0.005);
+  let imperfDir = $state<'X' | 'Y'>('X');
   let imperfResult = $state<any | null>(null);
 
   function handleImperfections() {
@@ -500,8 +494,10 @@
       input = maybeApplyDiaphragm(input);
       imperfResult = solveWithImperfections3D({
         solver: input,
-        type: imperfType,
-        amplitude: imperfAmplitude,
+        imperfections: {
+          // Gravity axis 2 = Z, which is vertical in this app's 3D models.
+          notionalLoads: [{ ratio: imperfRatio, direction: imperfDir === 'X' ? 0 : 1, gravityAxis: 2 }],
+        },
       });
     } catch (e: any) {
       solveError = `Imperfecciones: ${errorText(e, 'Error')}`;
@@ -539,8 +535,10 @@
           ...(s.kz ? { kz: s.kz } : {}),
         })),
       });
+      // The Winkler export returns AnalysisResults3D directly — reading
+      // `res.results` meant the solve never reached the viewport.
       winklerResult = res;
-      if (res.results) resultsStore.setResults3D(res.results);
+      if (res.displacements) resultsStore.setResults3D(res);
     } catch (e: any) {
       solveError = `Winkler: ${errorText(e, 'Error')}`;
     }
@@ -551,7 +549,8 @@
 
   let ssiNodeId = $state<number | null>(null);
   let ssiDirection = $state<'Y' | 'Z'>('Y');
-  let ssiCurveType = $state<'softClay' | 'sand' | 'stiffClay' | 'custom'>('softClay');
+  let ssiCurveType = $state<'softClay' | 'sand' | 'stiffClay'>('softClay');
+  let ssiEps50 = $state(0.01);
   let ssiSu = $state(50);
   let ssiGamma = $state(18);
   let ssiDiameter = $state(0.6);
@@ -563,15 +562,32 @@
   let ssiSprings = $state<any[]>([]);
   let ssiResult = $state<any | null>(null);
 
+  /**
+   * The p-y curve as the engine tags it. `SoilCurve` is an externally tagged
+   * enum with snake_case fields — "py_soft_clay" with `gamma_eff` and
+   * `eps_50`, not "softClay" with `gamma`, which is why every SSI run stopped
+   * at the deserialiser. Direction is an axis INDEX (0=X, 1=Y, 2=Z), not a
+   * letter.
+   */
+  const AXIS_INDEX: Record<string, number> = { X: 0, Y: 1, Z: 2 };
+
+  function ssiCurvePayload(): Record<string, unknown> {
+    const common = { gamma_eff: ssiGamma, d: ssiDiameter, depth: ssiDepth };
+    if (ssiCurveType === 'sand') return { type: 'py_sand', phi: ssiPhi, ...common };
+    return {
+      type: ssiCurveType === 'stiffClay' ? 'py_stiff_clay' : 'py_soft_clay',
+      su: ssiSu, eps_50: ssiEps50, ...common,
+    };
+  }
+
   function addSsiSpring() {
     if (ssiNodeId == null) return;
-    const params: any = { type: ssiCurveType };
-    if (ssiCurveType === 'softClay' || ssiCurveType === 'stiffClay') {
-      params.su = ssiSu; params.gamma = ssiGamma; params.d = ssiDiameter; params.depth = ssiDepth;
-    } else if (ssiCurveType === 'sand') {
-      params.phi = ssiPhi; params.gamma = ssiGamma; params.d = ssiDiameter; params.depth = ssiDepth;
-    }
-    ssiSprings = [...ssiSprings, { nodeId: ssiNodeId, direction: ssiDirection, curve: params, tributaryLength: ssiTribLength }];
+    ssiSprings = [...ssiSprings, {
+      nodeId: ssiNodeId,
+      direction: AXIS_INDEX[ssiDirection] ?? 1,
+      curve: ssiCurvePayload(),
+      tributaryLength: ssiTribLength,
+    }];
   }
 
   function removeSsiSpring(idx: number) {
@@ -618,17 +634,31 @@
   }
 
   const contactEntries = $derived([...contactBehaviors.entries()]);
+  // The result's per-element status list is `elementStatus` (with
+  // `status: 'active' | 'inactive'`); the old read looked for a
+  // `deactivated` field that has never existed, so it never reported.
+  const contactDeactivatedCount = $derived(
+    ((contactResult?.elementStatus ?? []) as { status: string }[])
+      .filter(s => s.status === 'inactive').length
+  );
 
   function handleContact() {
     solveError = null;
     solving = true;
     try {
       const input = buildInput();
-      const elements: any[] = [];
+      // `ContactInput3D.element_behaviors` is a map keyed on the element id
+      // holding the exact snake_case strings the engine matches; the old
+      // `{ contactElements: [...] }` payload hit no field, so serde dropped
+      // it and the "contact" solve ran as a plain linear one.
+      const elementBehaviors: Record<string, string> = {};
       for (const [elementId, behavior] of contactBehaviors) {
-        elements.push({ elementId, behavior });
+        elementBehaviors[String(elementId)] =
+          behavior === 'tensionOnly' ? 'tension_only'
+          : behavior === 'compressionOnly' ? 'compression_only'
+          : 'normal';
       }
-      const res = solveContact3D({ solver: input, contactElements: elements });
+      const res = solveContact3D({ solver: input, elementBehaviors });
       contactResult = res;
       if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
@@ -639,11 +669,17 @@
 
   // ─── 11. Staged Construction ───────────────────────────────────
 
-  let stages = $state<{ name: string; addElements: number[]; removeElements: number[]; loadIndices: number[] }[]>([]);
+  let stages = $state<{ name: string; elementsAdded: number[]; elementsRemoved: number[]; loadIndices: number[] }[]>([]);
   let stagedResult = $state<any | null>(null);
 
   function addStage() {
-    stages = [...stages, { name: t('pro.stageN').replace('{n}', String(stages.length + 1)), addElements: [], removeElements: [], loadIndices: [] }];
+    stages = [...stages, {
+      name: t('pro.stageN').replace('{n}', String(stages.length + 1)),
+      // A stage that adds nothing builds nothing, so the first one starts with
+      // the whole model and later stages are cut back from it by hand.
+      elementsAdded: stages.length === 0 ? [...elementIds] : [],
+      elementsRemoved: [], loadIndices: [],
+    }];
   }
 
   function removeStage(idx: number) {
@@ -657,7 +693,15 @@
       const input = buildInput();
       const res = solveStaged3D({
         solver: input,
-        stages: stages.map(s => ({ addElements: s.addElements, removeElements: s.removeElements, loadIndices: s.loadIndices })),
+        // `StagedInput3D` names these `name` / `elementsAdded` /
+        // `elementsRemoved`; the old payload sent neither the name (required)
+        // nor the right field names, so no stage ever built anything.
+        stages: stages.map(s => ({
+          name: s.name,
+          elementsAdded: s.elementsAdded,
+          elementsRemoved: s.elementsRemoved,
+          loadIndices: s.loadIndices,
+        })),
       });
       stagedResult = res;
       if (res.results) resultsStore.setResults3D(res.results);
@@ -674,14 +718,12 @@
   let creepH0 = $state(200);
   let creepAge = $state(28);
   let creepCementClass = $state<'R' | 'N' | 'S'>('N');
-  let creepTimeSteps = $state<{ time: number; additionalLoadFactor: number }[]>([
-    { time: 365, additionalLoadFactor: 0 },
-  ]);
+  let creepTimeSteps = $state<{ time: number }[]>([{ time: 365 }]);
   let creepResult = $state<any | null>(null);
 
   function addCreepStep() {
     const lastTime = creepTimeSteps.length > 0 ? creepTimeSteps[creepTimeSteps.length - 1].time : 0;
-    creepTimeSteps = [...creepTimeSteps, { time: lastTime + 365, additionalLoadFactor: 0 }];
+    creepTimeSteps = [...creepTimeSteps, { time: lastTime + 365 }];
   }
 
   function removeCreepStep(idx: number) {
@@ -693,10 +735,20 @@
     solving = true;
     try {
       const input = buildInput();
+      // EC2 creep parameters are per MATERIAL, and the steps are keyed on
+      // `tDays`. The old payload sent one `concrete` block and a `time` field,
+      // neither of which the engine knows.
+      const creepParams: Record<string, unknown> = {};
+      for (const [id] of modelStore.materials) {
+        creepParams[String(id)] = {
+          fc: creepFc, rh: creepRH, h0: creepH0,
+          t0: creepAge, cementClass: creepCementClass,
+        };
+      }
       creepResult = solveCreepShrinkage3D({
         solver: input,
-        concrete: { fc: creepFc, rh: creepRH, h0: creepH0, ageAtLoading: creepAge, cementClass: creepCementClass },
-        timeSteps: creepTimeSteps,
+        creepParams,
+        timeSteps: creepTimeSteps.map(s => ({ tDays: s.time })),
       });
     } catch (e: any) {
       solveError = `Fluencia: ${errorText(e, 'Error')}`;
@@ -704,31 +756,22 @@
     solving = false;
   }
 
-  // ─── 13. Cable Analysis (2D) ──────────────────────────────────
-
-  let cableMaxIter = $state(50);
-  let cableTol = $state(1e-6);
-  let cableResult = $state<any | null>(null);
-
-  function handleCable() {
-    solveError = null;
-    solving = true;
-    try {
-      // Cable analysis is 2D-only — uses buildSolverInput from modelStore
-      const input = modelStore.buildSolverInput(true); // always include self-weight for cables
-      if (!input) { solveError = t('advanced.emptyModel'); solving = false; return; }
-      cableResult = solveCable2D(input, cableMaxIter, cableTol);
-    } catch (e: any) {
-      solveError = `Cable: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
   // ─── 14. Influence Lines 3D ──────────────────────────────────
 
   let ilElementId = $state<number | null>(null);
+  let ilNodeId = $state<number | null>(null);
   let ilResponse = $state<'moment' | 'shear' | 'axial' | 'reaction'>('moment');
+  let ilPosition = $state(0.5);
   let ilResult = $state<any | null>(null);
+
+  /**
+   * The engine asks for a QUANTITY by its 3D name and a target that depends on
+   * it: an element plus a position along it for internal forces, a node for a
+   * reaction. `elementId` + `responseType` meant nothing to it, and the run
+   * stopped on the missing `quantity`. Names follow the 2D-plane convention
+   * used everywhere else here: bending is My, shear is Vz.
+   */
+  const IL_QUANTITY = { moment: 'My_diag', shear: 'Vz', axial: 'N', reaction: 'Fz' } as const;
 
   function handleInfluenceLine3D() {
     solveError = null;
@@ -738,8 +781,11 @@
       input = maybeApplyDiaphragm(input);
       ilResult = computeInfluenceLine3D({
         solver: input,
-        elementId: ilElementId,
-        responseType: ilResponse,
+        quantity: IL_QUANTITY[ilResponse],
+        ...(ilResponse === 'reaction'
+          ? { targetNodeId: ilNodeId ?? undefined }
+          : { targetElementId: ilElementId ?? undefined, targetPosition: ilPosition }),
+        gravityDirection: 'z',
       });
     } catch (e: any) {
       solveError = `Influence Line 3D: ${errorText(e, 'Error')}`;
@@ -747,40 +793,29 @@
     solving = false;
   }
 
-  // ─── 15. Model Reduction ─────────────────────────────────────
-
-  let reductionMethod = $state<'guyan' | 'craigBampton'>('guyan');
-  let retainedDofs = $state('');   // comma-separated DOF indices
-  let numCBModes = $state(10);
-  let reductionResult = $state<any | null>(null);
-
-  function handleModelReduction() {
-    solveError = null;
-    solving = true;
-    try {
-      const retained = retainedDofs.split(/[,\s]+/).map(Number).filter(n => !isNaN(n) && n >= 0);
-      if (retained.length === 0) {
-        solveError = t('pro.noRetainedDofs');
-        solving = false;
-        return;
-      }
-      // Model reduction is 2D only
-      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-      if (!input) { solveError = t('advanced.emptyModel'); solving = false; return; }
-      if (reductionMethod === 'guyan') {
-        reductionResult = guyanReduce2D({ solver: input, retainedDofs: retained });
-      } else {
-        reductionResult = craigBampton2D({ solver: input, retainedDofs: retained, numModes: numCBModes });
-      }
-    } catch (e: any) {
-      solveError = `Model Reduction: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
   // ─── 16. Multi-Case Solver ──────────────────────────────────
 
   let multiCaseResult = $state<any | null>(null);
+
+  /**
+   * One load vector per case, built the same way the combination solve builds
+   * them: the model with only that case's loads. The engine wants the LOADS,
+   * not case ids — `caseIds` was a field it never had, so multi-case failed on
+   * a missing `loadCases` every time.
+   */
+  function loadsForCase(caseId: number): unknown[] {
+    const input = buildSolverInput3D(
+      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+        loads: modelStore.loads.filter(l => ((l as any).data?.caseId ?? 1) === caseId),
+        materials: modelStore.materials, sections: modelStore.sections,
+        quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
+        connectors: modelStore.connectors },
+      uiStore.includeSelfWeight,
+      false,
+      { expandMemberOffsets: false },
+    );
+    return (input?.loads as unknown[]) ?? [];
+  }
 
   function handleMultiCase() {
     solveError = null;
@@ -792,16 +827,21 @@
         solving = false;
         return;
       }
-      const is3DMode = modelStore.nodes.size > 0 && [...modelStore.nodes.values()].some(n => (n.z ?? 0) !== 0);
-      if (is3DMode) {
-        let input = buildInput();
-        input = maybeApplyDiaphragm(input);
-        multiCaseResult = solveMultiCase3D({ solver: input, caseIds: cases.map(c => c.id) });
-      } else {
-        const input2D = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-        if (!input2D) { solveError = t('advanced.emptyModel'); solving = false; return; }
-        multiCaseResult = solveMultiCase2D({ solver: input2D, caseIds: cases.map(c => c.id) });
-      }
+      let input = buildInput();
+      input = maybeApplyDiaphragm(input);
+      const byId = new Map(cases.map(c => [c.id, c.name]));
+      multiCaseResult = solveMultiCase3D({
+        solver: input,
+        loadCases: cases.map(c => ({ name: c.name, loads: loadsForCase(c.id) })),
+        combinations: modelStore.combinations.map(cb => ({
+          name: cb.name,
+          factors: Object.fromEntries(
+            cb.factors
+              .filter(f => byId.has(f.caseId))
+              .map(f => [byId.get(f.caseId) as string, f.factor]),
+          ),
+        })),
+      });
     } catch (e: any) {
       solveError = `Multi-Case: ${errorText(e, 'Error')}`;
     }
@@ -820,27 +860,61 @@
   let secPolyText = $state(''); // "x1,y1; x2,y2; ..."
   let secResult = $state<any | null>(null);
 
+  /**
+   * The section analyser is a polygon integrator: it takes `polygons`, each a
+   * list of [y, z] vertices, and knows nothing about named shapes. The old
+   * payload sent `{shape:'rect', b, h}` and failed on the missing `polygons`,
+   * so the shape is meshed into its outline here instead.
+   */
+  function sectionOutline(): Array<[number, number]> {
+    const half = (v: number) => v / 2;
+    switch (secShape) {
+      case 'rect':
+        return [[-half(secB), -half(secH)], [half(secB), -half(secH)], [half(secB), half(secH)], [-half(secB), half(secH)]];
+      case 'circle': {
+        const n = 48;
+        return Array.from({ length: n }, (_, i) => {
+          const a = (2 * Math.PI * i) / n;
+          return [secR * Math.cos(a), secR * Math.sin(a)] as [number, number];
+        });
+      }
+      case 'I': {
+        const b = half(secBf), h = half(secH), tw = half(secTw), tf = secTf;
+        return [
+          [-b, -h], [b, -h], [b, -h + tf], [tw, -h + tf],
+          [tw, h - tf], [b, h - tf], [b, h], [-b, h],
+          [-b, h - tf], [-tw, h - tf], [-tw, -h + tf], [-b, -h + tf],
+        ];
+      }
+      case 'T': {
+        const b = half(secBf), h = half(secH), tw = half(secTw), tf = secTf;
+        return [[-tw, -h], [tw, -h], [tw, h - tf], [b, h - tf], [b, h], [-b, h], [-b, h - tf], [-tw, h - tf]];
+      }
+      case 'L': {
+        // Legs measured from the heel, then centred on the bounding box.
+        const b = secB, h = secH, tw = secTw, tf = secTf;
+        const pts: Array<[number, number]> = [[0, 0], [b, 0], [b, tf], [tw, tf], [tw, h], [0, h]];
+        return pts.map(([y, z]) => [y - b / 2, z - h / 2] as [number, number]);
+      }
+      default:
+        return [];
+    }
+  }
+
   function handleSectionAnalysis() {
     solveError = null;
     try {
-      let geometry: any;
-      switch (secShape) {
-        case 'rect': geometry = { shape: 'rect', b: secB, h: secH }; break;
-        case 'circle': geometry = { shape: 'circle', r: secR }; break;
-        case 'I': geometry = { shape: 'I', h: secH, b: secBf, tw: secTw, tf: secTf }; break;
-        case 'L': geometry = { shape: 'L', h: secH, b: secB, tw: secTw, tf: secTf }; break;
-        case 'T': geometry = { shape: 'T', h: secH, b: secBf, tw: secTw, tf: secTf }; break;
-        case 'polygon': {
-          const pts = secPolyText.split(';').map(p => {
-            const [x, y] = p.trim().split(',').map(Number);
-            return { x: x ?? 0, y: y ?? 0 };
-          }).filter(p => !isNaN(p.x) && !isNaN(p.y));
-          if (pts.length < 3) { solveError = t('pro.needPolygonPts'); return; }
-          geometry = { shape: 'polygon', vertices: pts };
-          break;
-        }
+      let vertices: Array<[number, number]>;
+      if (secShape === 'polygon') {
+        vertices = secPolyText.split(';').map(p => {
+          const [y, z] = p.trim().split(',').map(Number);
+          return [y, z] as [number, number];
+        }).filter(([y, z]) => !isNaN(y) && !isNaN(z));
+        if (vertices.length < 3) { solveError = t('pro.needPolygonPts'); return; }
+      } else {
+        vertices = sectionOutline();
       }
-      secResult = analyzeSection(geometry);
+      secResult = analyzeSection({ polygons: [{ vertices }] });
     } catch (e: any) {
       solveError = `Section: ${errorText(e, 'Error')}`;
     }
@@ -848,43 +922,60 @@
 
   // ─── 18. Constrained Solver ────────────────────────────────
 
-  let constraintType = $state<'rigid' | 'penalty'>('rigid');
-  let constraintPairs = $state('');  // "nodeA,nodeB; nodeC,nodeD; ..."
+  let constraintPairs = $state('');  // "master,slave; master,slave; ..."
   let constrainedResult = $state<any | null>(null);
 
   function handleConstrained() {
     solveError = null;
     solving = true;
     try {
-      const pairs = constraintPairs.split(';').map(p => {
+      // A constraint is a tagged union in the engine, and the only pair-shaped
+      // member of it is a rigid link. `{nodeA, nodeB}` plus a `method` the
+      // engine has no field for parsed as nothing at all.
+      const constraints = constraintPairs.split(';').map(p => {
         const [a, b] = p.trim().split(',').map(Number);
-        return { nodeA: a, nodeB: b };
-      }).filter(p => !isNaN(p.nodeA) && !isNaN(p.nodeB));
-      if (pairs.length === 0) {
+        return { type: 'rigidLink', masterNode: a, slaveNode: b, dofs: [] as number[] };
+      }).filter(c => !isNaN(c.masterNode) && !isNaN(c.slaveNode));
+      if (constraints.length === 0) {
         solveError = t('pro.needConstraintPairs');
         solving = false;
         return;
       }
-      const is3DMode = modelStore.nodes.size > 0 && [...modelStore.nodes.values()].some(n => (n.z ?? 0) !== 0);
-      let res: any;
-      if (is3DMode) {
-        let input = buildInput();
-        input = maybeApplyDiaphragm(input);
-        res = solveConstrained3D({ solver: input, constraints: pairs, method: constraintType });
-      } else {
-        const input2D = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-        if (!input2D) { solveError = t('advanced.emptyModel'); solving = false; return; }
-        res = solveConstrained2D({ solver: input2D, constraints: pairs, method: constraintType });
-      }
+      // PRO is a 3D workspace — `analysisMode` reads 'pro' here, never '3d',
+      // so branching on it sent every PRO model down the 2D path.
+      let input = buildInput();
+      input = maybeApplyDiaphragm(input);
+      // Like Winkler, this export returns AnalysisResults3D itself.
+      const res = solveConstrained3D({ solver: input, constraints });
       constrainedResult = res;
-      if (res.results) {
-        is3DMode ? resultsStore.setResults3D(res.results) : resultsStore.setResults(res.results);
-      }
+      if (res.displacements) resultsStore.setResults3D(res);
     } catch (e: any) {
       solveError = `Constrained: ${errorText(e, 'Error')}`;
     }
     solving = false;
   }
+
+  /*
+   * Which advanced analysis owns the panel. Null is a real state: the strip
+   * alone, so the seventeen are browsable without any of their forms open.
+   */
+  let advView = $state<string | null>(null);
+
+  const ADV_VIEWS = $derived([
+        { id: 'timehistory', label: 'Time History' },
+        { id: 'harmonic', label: t('pro.harmonicTitle') },
+        { id: 'nolineal', label: 'No lineal' },
+        { id: 'imperfections', label: t('pro.imperfectionsTitle') },
+        { id: 't', label: t('pro.winklerFoundation') },
+        { id: 'ssi', label: t('pro.ssiTitle') },
+        { id: 't8', label: t('pro.contactGap') },
+        { id: 't9', label: t('pro.stagedConstruction') },
+        { id: 't10', label: t('pro.creepShrinkage') },
+        { id: 'influenceline3d', label: t('pro.influenceLine3dTitle') },
+        { id: 'multicase', label: t('pro.multiCaseTitle') },
+        { id: 'sectionanalyzer', label: t('pro.sectionAnalyzerTitle') },
+        { id: 'constrained', label: t('pro.constrainedTitle') },
+  ]);
 </script>
 
 <div class="adv-tab">
@@ -1040,13 +1131,39 @@
     </div>
 
     <!-- ── 5. Time History ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">Time History</summary>
+      <!--
+        One analysis at a time, chosen from a strip.
+        ───────────────────────────────────────────
+        Seventeen collapsibles in one column — time history, harmonic,
+        non-linear, arc length, displacement control, imperfections, Winkler,
+        SSI, contact, staged construction, creep, cables, 3D influence lines,
+        model reduction, multi-case, the section analyser and constrained
+        modes. Each carries a form and most carry a results table, so finding
+        one meant scrolling a list of seventeen titles, and opening two put
+        their forms far enough apart that neither could be compared with the
+        other anyway.
+
+        Same treatment as the Results and Loads panels, and the same reasoning
+        as Basic's Advanced: these are not seventeen things to configure at
+        once, they are seventeen answers to "which analysis am I setting up".
+      -->
+      <div class="adv-picker">
+        {#each ADV_VIEWS as v (v.id)}
+          <button
+            class="adv-chip"
+            class:on={advView === v.id}
+            onclick={() => (advView = advView === v.id ? null : v.id)}
+            data-testid="adv-chip-{v.id}"
+          >{v.label}</button>
+        {/each}
+      </div>
+
+      {#if advView === 'timehistory'}
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">dt (s): <input type="number" class="adv-num" bind:value={thDt} min={0.001} max={1} step={0.001} /></label>
           <label class="adv-label">Pasos: <input type="number" class="adv-num adv-num-wide" bind:value={thNSteps} min={1} max={10000} /></label>
-          <label class="adv-label">Dir: <select class="adv-sel" bind:value={thDir}><option value="X">X</option><option value="Y">Y</option></select></label>
+          <label class="adv-label">Dir: <select class="adv-sel" bind:value={thDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
           <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={thDamping} min={0} max={1} step={0.01} /></label>
           <label class="adv-label">Método: <select class="adv-sel" bind:value={thMethod}><option value="newmark">Newmark</option><option value="hht">HHT-&#x03B1;</option></select></label>
         </div>
@@ -1069,16 +1186,21 @@
       </div>
       {#if thResult}
         <div class="adv-inline">
-          {#if thResult.peakDisplacement != null}δmax={fmtNum(thResult.peakDisplacement)} m{/if}
-          {#if thResult.peakBaseShear != null} — Vb={fmtNum(thResult.peakBaseShear)} kN{/if}
-          {#if thResult.timeAtPeak != null} — t={fmtNum(thResult.timeAtPeak)} s{/if}
+          <!-- The engine returns peak ENVELOPES, one per node and per support,
+               plus the step count — not a single peak triple. -->
+          {#if thResult.peakDisplacements?.length}
+            δmax={fmtNum(Math.max(...thResult.peakDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
+          {/if}
+          {#if thResult.peakReactions?.length}
+            — Vb_max={fmtNum(Math.max(...thResult.peakReactions.map((r: any) => Math.hypot(r.rx ?? 0, r.ry ?? 0))))} kN
+          {/if}
+          {#if thResult.nSteps != null} — {thResult.nSteps} {t('pro.steps')} ({thResult.method}){/if}
         </div>
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 6b. Harmonic Response ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.harmonicTitle')}</summary>
+      {#if advView === 'harmonic'}
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">f min (Hz): <input type="number" class="adv-num" bind:value={harmFMin} min={0.01} max={100} step={0.1} /></label>
@@ -1086,24 +1208,30 @@
           <label class="adv-label">Puntos: <input type="number" class="adv-num" bind:value={harmNPoints} min={10} max={2000} step={10} /></label>
           <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={harmDamping} min={0} max={1} step={0.01} /></label>
           <label class="adv-label">Dir: <select class="adv-sel" bind:value={harmDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
+          <!-- The sweep is read at ONE node: without it the engine has nothing to report. -->
+          <label class="adv-label">{t('pro.responseNode')}:
+            <select class="adv-sel" bind:value={harmNodeId}>
+              <option value={null}>{t('pro.autoTopNode')}</option>
+              {#each nodeIds as nid}<option value={nid}>{nid}</option>{/each}
+            </select>
+          </label>
         </div>
         <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
       </div>
       {#if harmResult}
         <div class="adv-inline">
           {#if harmResult.peakAmplitude != null}{t('pro.peakAmplitude')}: {fmtNum(harmResult.peakAmplitude)} m{/if}
-          {#if harmResult.resonanceFreq != null} — f_res={fmtNum(harmResult.resonanceFreq)} Hz{/if}
-          {#if harmResult.peakDynamicFactor != null} — DAF={fmtNum(harmResult.peakDynamicFactor)}{/if}
+          {#if harmResult.peakFrequency != null} — f_res={fmtNum(harmResult.peakFrequency)} Hz{/if}
           {#if harmonicElapsed != null} — {harmonicElapsed >= 1000 ? (harmonicElapsed / 1000).toFixed(2) + ' s' : harmonicElapsed.toFixed(0) + ' ms'} (WASM){/if}
         </div>
-        {#if harmResult.frf?.length}
+        {#if harmResult.responsePoints?.length}
           <details>
             <summary class="adv-steps-toggle">{t('pro.frfCurve')}</summary>
             <div class="adv-frf-table">
               <table class="adv-table">
                 <thead><tr><th>f (Hz)</th><th>|H| (m/kN)</th></tr></thead>
                 <tbody>
-                  {#each harmResult.frf.filter((_: any, i: number) => i % Math.max(1, Math.floor(harmResult.frf.length / 20)) === 0) as pt}
+                  {#each harmResult.responsePoints.filter((_: any, i: number) => i % Math.max(1, Math.floor(harmResult.responsePoints.length / 20)) === 0) as pt}
                     <tr><td class="col-num">{fmtNum(pt.frequency)}</td><td class="col-num">{pt.amplitude.toExponential(3)}</td></tr>
                   {/each}
                 </tbody>
@@ -1112,11 +1240,10 @@
           </details>
         {/if}
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 7. Nonlinear ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">No lineal</summary>
+      {#if advView === 'nolineal'}
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">Tipo: <select class="adv-sel" bind:value={nlType}><option value="pushover">Pushover</option><option value="corotational">Corotacional</option><option value="fiber">Fibra</option></select></label>
@@ -1134,92 +1261,54 @@
         <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
       </div>
       {#if nlResult}
+        <!--
+          Each of the three runs returns a different result type, and the panel
+          read fields none of them has (`loadFactor`, `numHinges`), so a
+          successful pushover displayed a blank line. Pushover reports its
+          collapse factor and its hinges; the incremental solvers report the
+          path they walked. `converged` only exists on the incremental
+          results (CorotationalResult3D / FiberNonlinearResult3D) — pushover's
+          PlasticResult3D has no such notion, so the guard hides it there.
+        -->
         <div class="adv-inline">
-          {#if nlResult.converged != null}{nlResult.converged ? t('pro.converged') : t('pro.notConverged')}{/if}
-          {#if nlResult.loadFactor != null} — λ={fmtNum(nlResult.loadFactor)}{/if}
-          {#if nlResult.maxDisplacement != null} — δmax={fmtNum(nlResult.maxDisplacement)} m{/if}
-          {#if nlResult.numHinges != null} — {nlResult.numHinges} {t('pro.hinges')}{/if}
+          {#if nlResult.collapseFactor != null}λ_c={fmtNum(nlResult.collapseFactor)}{/if}
+          {#if nlResult.hinges != null} — {nlResult.hinges.length} {t('pro.hinges')}{/if}
+          {#if nlResult.isMechanism != null} — {nlResult.isMechanism ? t('pro.mechanism') : t('pro.stable')}{/if}
+          {#if nlResult.converged != null} — {nlResult.converged ? t('pro.converged') : t('pro.notConverged')}{/if}
+          {#if nlResult.steps != null} — {nlResult.steps.length} {t('pro.steps')}{/if}
+          {#if nlDisplacements.length}
+            — δmax={fmtNum(Math.max(...nlDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
+          {/if}
         </div>
       {/if}
-    </details>
-
-    <!-- ── 7b. Arc-Length ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.arcLengthTitle')}</summary>
-      <div class="adv-panel">
-        <div class="adv-form">
-          <label class="adv-label">Max iter: <input type="number" class="adv-num" bind:value={arcMaxIter} min={1} max={500} /></label>
-          <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={arcTol} min={1e-12} max={1} step={1e-6} /></label>
-          <label class="adv-label">Incr: <input type="number" class="adv-num" bind:value={arcIncrements} min={1} max={200} /></label>
-        </div>
-        <button class="adv-run-btn" onclick={handleArcLength} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runArcLength')}</button>
-      </div>
-      {#if arcResult}
-        <div class="adv-inline">
-          {#if arcResult.converged != null}{arcResult.converged ? t('pro.yes') : t('pro.no')}{/if}
-          {#if arcResult.loadFactor != null} — λ={fmtNum(arcResult.loadFactor)}{/if}
-          {#if arcResult.maxDisplacement != null} — δmax={fmtNum(arcResult.maxDisplacement)} m{/if}
-          {#if arcResult.steps != null} — {arcResult.steps.length} {t('pro.steps')}{/if}
-        </div>
       {/if}
-    </details>
-
-    <!-- ── 7c. Displacement Control ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.dispControlTitle')}</summary>
-      <div class="adv-panel">
-        <div class="adv-form">
-          <label class="adv-label">{t('pro.nodeLabel')}:
-            <select class="adv-sel" bind:value={dcNodeId}>
-              <option value={null}>--</option>
-              {#each nodeIds as nid}<option value={nid}>{nid}</option>{/each}
-            </select>
-          </label>
-          <label class="adv-label">DOF: <select class="adv-sel" bind:value={dcDof}><option value="ux">ux</option><option value="uy">uy</option><option value="uz">uz</option></select></label>
-          <label class="adv-label">δ (m): <input type="number" class="adv-num" bind:value={dcTargetDisp} step={0.001} /></label>
-          <label class="adv-label">Incr: <input type="number" class="adv-num" bind:value={dcIncrements} min={1} max={200} /></label>
-        </div>
-        <button class="adv-run-btn" onclick={handleDispControl} disabled={!hasModel || solving || !wasmAvailable || dcNodeId == null}>{solving ? t('pro.solving') : t('pro.runDispControl')}</button>
-      </div>
-      {#if dcResult}
-        <div class="adv-inline">
-          {#if dcResult.converged != null}{dcResult.converged ? t('pro.yes') : t('pro.no')}{/if}
-          {#if dcResult.finalLoad != null} — P={fmtNum(dcResult.finalLoad)} kN{/if}
-          {#if dcResult.maxDisplacement != null} — δmax={fmtNum(dcResult.maxDisplacement)} m{/if}
-        </div>
-      {/if}
-    </details>
 
     <!-- ── 7d. Imperfections ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.imperfectionsTitle')}</summary>
+      {#if advView === 'imperfections'}
       <div class="adv-panel">
         <div class="adv-form">
-          <label class="adv-label">{t('pro.imperfType')}:
-            <select class="adv-sel" bind:value={imperfType}>
-              <option value="global">Global (sway)</option>
-              <option value="local">Local (bow)</option>
-            </select>
-          </label>
-          <label class="adv-label">{t('pro.amplitude')} (L/...): <input type="number" class="adv-num" bind:value={imperfAmplitude} min={0.0001} max={0.1} step={0.0001} /></label>
+          <label class="adv-label">{t('pro.imperfRatio')}: <input type="number" class="adv-num adv-num-wide" bind:value={imperfRatio} min={0.0001} max={0.1} step={0.0005} /></label>
+          <label class="adv-label">Dir: <select class="adv-sel" bind:value={imperfDir}><option value="X">X</option><option value="Y">Y</option></select></label>
         </div>
         <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
       </div>
       {#if imperfResult}
         <div class="adv-inline">
-          {#if imperfResult.maxAdditionalMoment != null}ΔM_max={fmtNum(imperfResult.maxAdditionalMoment)} kN·m{/if}
-          {#if imperfResult.maxLateralForce != null} — H_imp={fmtNum(imperfResult.maxLateralForce)} kN{/if}
-          {#if imperfResult.imperfectionShape != null} — {imperfResult.imperfectionShape.length} {t('pro.nodes')}{/if}
+          <!-- The engine returns the solved model, not a summary of the
+               imperfection: report the drift it actually produced. -->
+          {#if imperfResult.displacements?.length}
+            δmax={fmtNum(Math.max(...imperfResult.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
+            — {imperfResult.displacements.length} {t('pro.nodes')}
+          {/if}
         </div>
       {/if}
-    </details>
+      {/if}
 
     <!-- ─── Divider: Modelado especial ─── -->
     <div class="adv-divider">Modelado especial</div>
 
     <!-- ── 8. Winkler Foundation ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.winklerFoundation')}</summary>
+      {#if advView === 't'}
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">{t('pro.element')}:
@@ -1251,16 +1340,20 @@
       </div>
       {#if winklerResult}
         <div class="adv-result-title">{t('pro.resultWinkler')}</div>
+        <!-- Winkler is a linear solve on a modified stiffness: it returns the
+             results themselves, with no iteration count to report. The panel
+             claimed "Convergence: No — Iterations: ?" on every successful run. -->
         <div class="adv-inline">
-          <span>{t('pro.convergence')}: {winklerResult.converged ? t('pro.yes') : t('pro.no')}</span> — <span>{t('pro.iterations')}: {winklerResult.iterations ?? '?'}</span>
-          {#if winklerResult.maxDisplacement != null} — <span>{t('pro.maxDisp')}: {fmtNum(winklerResult.maxDisplacement)} m</span>{/if}
+          {#if winklerResult.displacements?.length}
+            <span>{t('pro.maxDisp')}: {fmtNum(Math.max(...winklerResult.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m</span>
+            — <span>{winklerResult.reactions?.length ?? 0} {t('results.reactions')}</span>
+          {/if}
         </div>
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 9. SSI ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.ssiTitle')}</summary>
+      {#if advView === 'ssi'}
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">{t('pro.ssiNode')}:
@@ -1275,7 +1368,6 @@
               <option value="softClay">{t('pro.softClay')}</option>
               <option value="stiffClay">{t('pro.stiffClay')}</option>
               <option value="sand">{t('pro.sand')}</option>
-              <option value="custom">{t('pro.customCurve')}</option>
             </select>
           </label>
         </div>
@@ -1285,6 +1377,9 @@
             <label class="adv-label">&#947; (kN/m3): <input type="number" class="adv-num" bind:value={ssiGamma} min={0} step={1} /></label>
             <label class="adv-label">d (m): <input type="number" class="adv-num" bind:value={ssiDiameter} min={0.1} step={0.1} /></label>
             <label class="adv-label">{t('pro.depth')}: <input type="number" class="adv-num" bind:value={ssiDepth} min={0} step={0.5} /></label>
+            <!-- Matlock/Reese both key the curve on ε50; it has no default in
+                 the engine, so the run needs it. -->
+            <label class="adv-label">&#949;50: <input type="number" class="adv-num" bind:value={ssiEps50} min={0.001} max={0.05} step={0.001} /></label>
           </div>
         {:else if ssiCurveType === 'sand'}
           <div class="adv-form">
@@ -1324,14 +1419,15 @@
         <div class="adv-result-title">{t('pro.resultSsi')}</div>
         <div class="adv-inline">
           <span>{t('pro.convergence')}: {ssiResult.converged ? t('pro.yes') : t('pro.no')}</span> — <span>{t('pro.iterations')}: {ssiResult.iterations ?? '?'}</span>
-          {#if ssiResult.maxDisplacement != null} — <span>{t('pro.maxDisp')}: {fmtNum(ssiResult.maxDisplacement)} m</span>{/if}
+          <!-- `SSIResult3D` has no maxDisplacement of its own; the
+               displacements nest under `.results`. -->
+          {#if ssiResult.results?.displacements?.length} — <span>{t('pro.maxDisp')}: {fmtNum(Math.max(...ssiResult.results.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m</span>{/if}
         </div>
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 10. Contact / Gap ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.contactGap')}</summary>
+      {#if advView === 't8'}
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">{t('pro.element')}:
@@ -1369,14 +1465,13 @@
         <div class="adv-result-title">{t('pro.resultContact')}</div>
         <div class="adv-inline">
           <span>{t('pro.convergence')}: {contactResult.converged ? t('pro.yes') : t('pro.no')}</span> — <span>{t('pro.iterations')}: {contactResult.iterations ?? '?'}</span>
-          {#if contactResult.deactivated} — <span>{t('pro.deactivatedElems')}: {contactResult.deactivated.length}</span>{/if}
+          {#if contactDeactivatedCount > 0} — <span>{t('pro.deactivatedElems')}: {contactDeactivatedCount}</span>{/if}
         </div>
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 11. Staged Construction ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.stagedConstruction')}</summary>
+      {#if advView === 't9'}
       <div class="adv-panel">
         <button class="adv-btn-sm" onclick={addStage}>{t('pro.addStage')}</button>
         {#each stages as stage, i}
@@ -1386,10 +1481,10 @@
               <button class="adv-rm" onclick={() => removeStage(i)}>x</button>
             </div>
             <div class="adv-form">
-              <label class="adv-label">{t('pro.addElemIds')} <input type="text" class="adv-text" value={stage.addElements.join(',')} oninput={(e) => { stage.addElements = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
+              <label class="adv-label">{t('pro.addElemIds')} <input type="text" class="adv-text" value={stage.elementsAdded.join(',')} oninput={(e) => { stage.elementsAdded = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
             </div>
             <div class="adv-form">
-              <label class="adv-label">{t('pro.removeElemIds')} <input type="text" class="adv-text" value={stage.removeElements.join(',')} oninput={(e) => { stage.removeElements = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
+              <label class="adv-label">{t('pro.removeElemIds')} <input type="text" class="adv-text" value={stage.elementsRemoved.join(',')} oninput={(e) => { stage.elementsRemoved = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
             </div>
             <div class="adv-form">
               <label class="adv-label">{t('pro.loadIndices')}: <input type="text" class="adv-text" value={stage.loadIndices.join(',')} oninput={(e) => { stage.loadIndices = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n >= 0); stages = [...stages]; }} /></label>
@@ -1402,18 +1497,22 @@
         <div class="adv-result-title">{t('pro.resultStaged')}</div>
         <div class="adv-inline">
           {#if stagedResult.stages}
+            <!-- `StageResult3D` is { stageName, stageIndex, results } — it has
+                 no `converged`, so every stage used to render a bare
+                 "solved". The per-stage peaks live under `.results`. -->
             {#each stagedResult.stages as sr, i}
-              <div>{t('pro.stageN').replace('{n}', String(i + 1))}: {sr.converged != null ? (sr.converged ? t('pro.ok') : t('pro.noConv')) : t('pro.solved')}</div>
+              <div>{t('pro.stageN').replace('{n}', String(i + 1))}: {sr.stageName}{#if sr.results?.displacements?.length} — δmax={fmtNum(Math.max(...sr.results.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m{/if}</div>
             {/each}
           {/if}
-          {#if stagedResult.totalDisplacement != null} <span>{t('pro.totalMaxDisp')}: {fmtNum(stagedResult.totalDisplacement)} m</span>{/if}
+          <!-- The finished model's peaks live under `finalResults`; there is
+               no `totalDisplacement`. -->
+          {#if stagedResult.finalResults?.displacements?.length} <span>{t('pro.totalMaxDisp')}: {fmtNum(Math.max(...stagedResult.finalResults.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m</span>{/if}
         </div>
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 12. Creep & Shrinkage ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.creepShrinkage')}</summary>
+      {#if advView === 't10'}
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">f'c (MPa): <input type="number" class="adv-num" bind:value={creepFc} min={10} max={100} step={5} /></label>
@@ -1428,7 +1527,6 @@
         {#each creepTimeSteps as step, i}
           <div class="adv-form">
             <label class="adv-label">{t('pro.timeDays')}: <input type="number" class="adv-num" bind:value={step.time} min={1} /></label>
-            <label class="adv-label">{t('pro.addLoadFactor')}: <input type="number" class="adv-num" bind:value={step.additionalLoadFactor} min={0} step={0.1} /></label>
             <button class="adv-rm" onclick={() => removeCreepStep(i)}>x</button>
           </div>
         {/each}
@@ -1437,132 +1535,98 @@
       </div>
       {#if creepResult}
         <div class="adv-result-title">{t('pro.resultCreep')}</div>
-        <div class="adv-inline">
-          {#if creepResult.phiCreep != null}{t('pro.creepCoeff')}: {fmtNum(creepResult.phiCreep)}{/if}
-          {#if creepResult.shrinkageStrain != null} — {t('pro.shrinkageStrain')}: {creepResult.shrinkageStrain.toExponential(2)}{/if}
-          {#if creepResult.maxDisplacement != null} — {t('pro.finalMaxDisp')}: {fmtNum(creepResult.maxDisplacement)} m{/if}
-        </div>
+        <!-- Creep is reported PER STEP; there is no single φ on the result. -->
+        {#if creepResult.steps?.length}
+          {@const last = creepResult.steps[creepResult.steps.length - 1]}
+          <div class="adv-inline">
+            t={fmtNum(last.tDays)} d — {t('pro.creepCoeff')}: {fmtNum(last.creepCoefficient)}
+            — {t('pro.shrinkageStrain')}: {last.shrinkageStrain.toExponential(2)}
+            {#if last.displacements?.length}
+              — {t('pro.finalMaxDisp')}: {fmtNum(Math.max(...last.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
+            {/if}
+          </div>
+        {/if}
       {/if}
-    </details>
+      {/if}
 
     <!-- ─── Divider: Herramientas avanzadas ─── -->
     <div class="adv-divider">{t('pro.advancedTools')}</div>
 
-    <!-- ── 13. Cable (2D) ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.cableTitle')}</summary>
-      <div class="adv-panel">
-        <div class="adv-form">
-          <label class="adv-label">{t('pro.maxIter')}: <input type="number" class="adv-num" bind:value={cableMaxIter} min={1} max={500} /></label>
-          <label class="adv-label">{t('pro.tolerance')}: <input type="number" class="adv-num adv-num-wide" bind:value={cableTol} min={1e-12} max={1} step={1e-6} /></label>
-        </div>
-        <p class="adv-hint">{t('pro.cableHint')}</p>
-        <button class="adv-run-btn" onclick={handleCable} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.solveCable')}</button>
-      </div>
-      {#if cableResult}
-        <div class="adv-inline">
-          {#if cableResult.converged != null}{cableResult.converged ? t('pro.yes') : t('pro.no')}{/if}
-          {#if cableResult.maxSag != null} — {t('pro.maxSag')}: {fmtNum(cableResult.maxSag)} m{/if}
-          {#if cableResult.maxTension != null} — T_max={fmtNum(cableResult.maxTension)} kN{/if}
-        </div>
-      {/if}
-    </details>
-
     <!-- ── 14. Influence Lines 3D ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.influenceLine3dTitle')}</summary>
+      {#if advView === 'influenceline3d'}
       <div class="adv-panel">
         <div class="adv-form">
-          <label class="adv-label">{t('pro.element')}:
-            <select class="adv-sel" bind:value={ilElementId}>
-              <option value={null}>--</option>
-              {#each elementIds as eid}<option value={eid}>{eid}</option>{/each}
-            </select>
-          </label>
           <label class="adv-label">{t('pro.response')}:
             <select class="adv-sel" bind:value={ilResponse}>
-              <option value="moment">M</option>
-              <option value="shear">V</option>
+              <option value="moment">My</option>
+              <option value="shear">Vz</option>
               <option value="axial">N</option>
-              <option value="reaction">R</option>
+              <option value="reaction">Rz</option>
             </select>
           </label>
+          <!-- Internal forces are read at a point ON a member; a reaction is
+               read AT a support. Different target, different picker. -->
+          {#if ilResponse === 'reaction'}
+            <label class="adv-label">{t('pro.nodeLabel')}:
+              <select class="adv-sel" bind:value={ilNodeId}>
+                <option value={null}>--</option>
+                {#each nodeIds as nid}<option value={nid}>{nid}</option>{/each}
+              </select>
+            </label>
+          {:else}
+            <label class="adv-label">{t('pro.element')}:
+              <select class="adv-sel" bind:value={ilElementId}>
+                <option value={null}>--</option>
+                {#each elementIds as eid}<option value={eid}>{eid}</option>{/each}
+              </select>
+            </label>
+            <label class="adv-label">x/L: <input type="number" class="adv-num" bind:value={ilPosition} min={0} max={1} step={0.05} /></label>
+          {/if}
         </div>
-        <button class="adv-run-btn" onclick={handleInfluenceLine3D} disabled={!hasModel || solving || !wasmAvailable || ilElementId == null}>{solving ? t('pro.solving') : t('pro.computeIL')}</button>
+        <button
+          class="adv-run-btn"
+          onclick={handleInfluenceLine3D}
+          disabled={!hasModel || solving || !wasmAvailable || (ilResponse === 'reaction' ? ilNodeId == null : ilElementId == null)}
+        >{solving ? t('pro.solving') : t('pro.computeIL')}</button>
       </div>
-      {#if ilResult}
+      {#if ilResult?.points?.length}
         <div class="adv-inline">
-          {#if ilResult.maxPositive != null}{t('pro.maxPos')}: {fmtNum(ilResult.maxPositive)}{/if}
-          {#if ilResult.maxNegative != null} — {t('pro.maxNeg')}: {fmtNum(ilResult.maxNegative)}{/if}
+          {t('pro.maxPos')}: {fmtNum(Math.max(...ilResult.points.map((p: any) => p.value)))}
+          — {t('pro.maxNeg')}: {fmtNum(Math.min(...ilResult.points.map((p: any) => p.value)))}
+          — {ilResult.points.length} pts
         </div>
-        {#if ilResult.ordinates?.length}
-          <details>
-            <summary class="adv-steps-toggle">{t('pro.ilOrdinates')}</summary>
-            <div class="adv-frf-table">
-              <table class="adv-table">
-                <thead><tr><th>{t('pro.nodeLabel')}</th><th>{t('pro.ilValue')}</th></tr></thead>
-                <tbody>
-                  {#each ilResult.ordinates as pt}
-                    <tr><td class="col-id">{pt.nodeId ?? pt.position?.toFixed(2) ?? '?'}</td><td class="col-num">{fmtNum(pt.value)}</td></tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        {/if}
-      {/if}
-    </details>
-
-    <!-- ── 15. Model Reduction ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.modelReductionTitle')}</summary>
-      <div class="adv-panel">
-        <div class="adv-form">
-          <label class="adv-label">{t('pro.method')}:
-            <select class="adv-sel" bind:value={reductionMethod}>
-              <option value="guyan">Guyan (estático)</option>
-              <option value="craigBampton">Craig-Bampton</option>
-            </select>
-          </label>
-        </div>
-        <div class="adv-form">
-          <label class="adv-label">{t('pro.retainedDofs')}: <input type="text" class="adv-text" bind:value={retainedDofs} placeholder="0,1,2,6,7,8..." /></label>
-        </div>
-        {#if reductionMethod === 'craigBampton'}
-          <div class="adv-form">
-            <label class="adv-label">{t('pro.numCBModes')}: <input type="number" class="adv-num" bind:value={numCBModes} min={1} max={100} /></label>
+        <details>
+          <summary class="adv-steps-toggle">{t('pro.ilOrdinates')}</summary>
+          <div class="adv-frf-table">
+            <table class="adv-table">
+              <thead><tr><th>{t('pro.element')}</th><th>x/L</th><th>{t('pro.ilValue')}</th></tr></thead>
+              <tbody>
+                {#each ilResult.points.filter((_: any, i: number) => i % Math.max(1, Math.floor(ilResult.points.length / 25)) === 0) as pt}
+                  <tr><td class="col-id">{pt.elementId}</td><td class="col-num">{pt.t.toFixed(2)}</td><td class="col-num">{fmtNum(pt.value)}</td></tr>
+                {/each}
+              </tbody>
+            </table>
           </div>
-        {/if}
-        <p class="adv-hint">{t('pro.reductionHint')}</p>
-        <button class="adv-run-btn" onclick={handleModelReduction} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.reduce')}</button>
-      </div>
-      {#if reductionResult}
-        <div class="adv-inline">
-          {#if reductionResult.originalSize != null}DOF orig: {reductionResult.originalSize}{/if}
-          {#if reductionResult.reducedSize != null} → red: {reductionResult.reducedSize}{/if}
-          {#if reductionResult.ratio != null} ({(reductionResult.ratio * 100).toFixed(0)}%){/if}
-        </div>
+        </details>
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 16. Multi-Case Solver ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.multiCaseTitle')}</summary>
+      {#if advView === 'multicase'}
       <div class="adv-panel">
         <p class="adv-hint">{t('pro.multiCaseHint')}</p>
         <button class="adv-run-btn" onclick={handleMultiCase} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.solveMultiCase')}</button>
       </div>
       {#if multiCaseResult}
         <div class="adv-inline">
-          {#if multiCaseResult.cases != null}{multiCaseResult.cases.length} {t('pro.casesResolved')}{/if}
-          {#if multiCaseResult.maxDisplacement != null} — δmax={fmtNum(multiCaseResult.maxDisplacement)} m{/if}
+          {#if multiCaseResult.caseResults != null}{multiCaseResult.caseResults.length} {t('pro.casesResolved')}{/if}
+          {#if multiCaseResult.combinationResults != null} — {multiCaseResult.combinationResults.length} {t('pro.combos')}{/if}
         </div>
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 17. Section Analyzer ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.sectionAnalyzerTitle')}</summary>
+      {#if advView === 'sectionanalyzer'}
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">{t('pro.shape')}:
@@ -1608,54 +1672,77 @@
         <button class="adv-run-btn" onclick={handleSectionAnalysis} disabled={!wasmAvailable}>{t('pro.analyzeSection')}</button>
       </div>
       {#if secResult}
+        <!-- The engine names these a / yc / zc / syTop / szRight, not
+             area / centroidY / wy — so area and the centroid never printed. -->
         <div class="adv-inline">
-          {#if secResult.area != null}A={secResult.area.toExponential(3)} m²{/if}
+          {#if secResult.a != null}A={secResult.a.toExponential(3)} m²{/if}
           {#if secResult.iy != null} — Iy={secResult.iy.toExponential(3)} m⁴{/if}
           {#if secResult.iz != null} — Iz={secResult.iz.toExponential(3)} m⁴{/if}
         </div>
-        {#if secResult.centroidY != null || secResult.centroidZ != null}
-          <div class="adv-inline" style="font-size:0.62rem; opacity:0.8">
-            CG: y={fmtNum(secResult.centroidY ?? 0)} m, z={fmtNum(secResult.centroidZ ?? 0)} m
-            {#if secResult.j != null} — J={secResult.j.toExponential(3)} m⁴{/if}
-            {#if secResult.wy != null} — Wy={secResult.wy.toExponential(3)} m³{/if}
-            {#if secResult.wz != null} — Wz={secResult.wz.toExponential(3)} m³{/if}
-          </div>
-        {/if}
+        <div class="adv-inline" style="font-size:0.62rem; opacity:0.8">
+          CG: y={fmtNum(secResult.yc ?? 0)} m, z={fmtNum(secResult.zc ?? 0)} m
+          {#if secResult.j != null} — J={secResult.j.toExponential(3)} m⁴{/if}
+          {#if secResult.syTop != null} — Wy={secResult.syTop.toExponential(3)} m³{/if}
+          {#if secResult.szRight != null} — Wz={secResult.szRight.toExponential(3)} m³{/if}
+        </div>
       {/if}
-    </details>
+      {/if}
 
     <!-- ── 18. Constrained Solver ── -->
-    <details class="adv-group-details">
-      <summary class="adv-title">{t('pro.constrainedTitle')}</summary>
+      {#if advView === 'constrained'}
       <div class="adv-panel">
         <div class="adv-form">
-          <label class="adv-label">{t('pro.constraintMethod')}:
-            <select class="adv-sel" bind:value={constraintType}>
-              <option value="rigid">{t('pro.rigidLink')}</option>
-              <option value="penalty">{t('pro.penaltyMethod')}</option>
-            </select>
-          </label>
-        </div>
-        <div class="adv-form">
+          <!-- The engine ties the pair with a rigid link; there is no penalty
+               alternative to choose between, so the selector is gone. -->
           <label class="adv-label">{t('pro.nodePairs')}:</label>
         </div>
         <textarea class="adv-textarea" bind:value={constraintPairs} rows="2" placeholder="1,5; 2,6; 3,7"></textarea>
         <p class="adv-hint">{t('pro.constrainedHint')}</p>
-        <button class="adv-run-btn" onclick={handleConstrained} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.solveConstrained')}</button>
+        <button class="adv-run-btn" onclick={handleConstrained} disabled={!hasModel || solving || !wasmAvailable || !constraintPairs.trim()}>{solving ? t('pro.solving') : t('pro.solveConstrained')}</button>
       </div>
       {#if constrainedResult}
         <div class="adv-inline">
-          {#if constrainedResult.converged != null}{constrainedResult.converged ? t('pro.yes') : t('pro.no')}{/if}
-          {#if constrainedResult.maxDisplacement != null} — δmax={fmtNum(constrainedResult.maxDisplacement)} m{/if}
+          {#if constrainedResult.displacements?.length}
+            δmax={fmtNum(Math.max(...constrainedResult.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
+          {/if}
+          <!-- Not dead: the export returns a bare AnalysisResults3D, but
+               solve_constrained_3d fills its constraintForces. -->
           {#if constrainedResult.constraintForces?.length} — {constrainedResult.constraintForces.length} {t('pro.constraintForcesCount')}{/if}
         </div>
       {/if}
-    </details>
+      {/if}
 
   </div>
 </div>
 
 <style>
+  /* ── The analysis picker ───────────────────────────────────────────── */
+
+  .adv-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem;
+    padding: 0.35rem 0 0.45rem;
+    border-bottom: 1px solid var(--st-hair);
+    margin-bottom: 0.5rem;
+  }
+
+  .adv-chip {
+    background: none;
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
+    font-family: var(--st-sans);
+    font-size: 0.71rem;
+    padding: 0.18rem 0.45rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+
+  .adv-chip:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .adv-chip.on { color: var(--st-accent); border-color: var(--st-accent); background: var(--st-selected-bg); }
+
   .adv-tab {
     display: flex;
     flex-direction: column;
@@ -1668,8 +1755,8 @@
     align-items: center;
     gap: 12px;
     padding: 8px 12px;
-    background: #0d1b33;
-    border-bottom: 1px solid #1a3a5a;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
     flex-wrap: wrap;
   }
@@ -1680,32 +1767,41 @@
     min-height: 0;
   }
 
+  /*
+     A caveat, at the size of a caveat.
+     ─────────────────────────────────
+     It was a full-width amber strip that reappeared on every visit to the
+     panel, permanently, above whatever you came to do — an announcement for
+     something that is a footnote. It says the same thing in one quiet line.
+  */
   .adv-wip-banner {
-    padding: 7px 12px;
-    font-size: 0.72rem;
-    color: #f0c040;
-    background: rgba(240, 192, 64, 0.08);
-    border-bottom: 1px solid rgba(240, 192, 64, 0.15);
-    flex-shrink: 0;
-    text-align: center;
+    display: block;
+    margin: 0 0 0.5rem;
+    padding: 0.1rem 0 0.3rem;
+    border-bottom: 1px solid var(--st-hair);
+    background: none;
+    color: var(--st-text-3);
+    font-size: 0.66rem;
+    font-style: italic;
+    text-align: left;
   }
 
   .adv-error {
     padding: 6px 12px;
     font-size: 0.72rem;
-    color: #ff8a9e;
-    background: rgba(233, 69, 96, 0.1);
+    color: var(--st-danger);
+    background: rgba(229, 72, 42, 0.1);
     flex-shrink: 0;
   }
 
   .adv-wasm-warn {
     font-size: 0.65rem;
-    color: #ffa726;
+    color: var(--st-warn);
   }
 
   .adv-check {
     font-size: 0.7rem;
-    color: #aaa;
+    color: var(--st-text-2);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -1720,11 +1816,11 @@
     flex-direction: column;
     gap: 4px;
     padding: 8px 12px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
   }
 
   .adv-group-details {
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     padding: 6px 12px;
   }
 
@@ -1738,7 +1834,7 @@
   .adv-group-details > summary::before {
     content: '▸ ';
     font-size: 0.55rem;
-    color: #666;
+    color: var(--st-text-3);
   }
 
   .adv-group-details[open] > summary::before {
@@ -1756,53 +1852,54 @@
     padding: 5px 14px;
     font-size: 0.72rem;
     font-weight: 600;
-    color: #fff;
-    background: linear-gradient(135deg, #1a4a7a, #1a3860);
-    border: 1px solid #4ecdc4;
+    color: var(--st-text);
+    background: linear-gradient(135deg, var(--st-surface-3), var(--st-hair-strong));
+    border: 1px solid var(--st-value);
     border-radius: 4px;
     cursor: pointer;
     white-space: nowrap;
   }
 
-  .adv-run-btn:hover { background: linear-gradient(135deg, #1a5a9a, #1a4a7a); }
+  .adv-run-btn:hover { background: linear-gradient(135deg, var(--st-info), var(--st-surface-3)); }
   .adv-run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .adv-btn-sm {
     padding: 3px 10px;
     font-size: 0.68rem;
     font-weight: 600;
-    color: #ccc;
-    background: #1a3050;
-    border: 1px solid #1a3050;
+    color: var(--st-text-2);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
     cursor: pointer;
   }
 
-  .adv-btn-sm:hover { color: #fff; border-color: #4ecdc4; }
+  .adv-btn-sm:hover { color: var(--st-text); border-color: var(--st-text-2); }
   .adv-btn-sm:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .adv-title {
     font-size: 0.72rem;
     font-weight: 600;
-    color: #4ecdc4;
+    color: var(--st-text-2);
     user-select: none;
   }
 
   .adv-desc {
     font-size: 0.62rem;
-    color: #666;
+    color: var(--st-text-3);
     font-style: italic;
   }
 
   .adv-hint {
     font-size: 0.6rem;
-    color: #665;
+    color: var(--st-text-3);
     font-style: italic;
   }
 
+
   .adv-inline {
     font-size: 0.68rem;
-    color: #aaa;
+    color: var(--st-text-2);
     padding: 2px 0;
     font-family: monospace;
   }
@@ -1811,11 +1908,11 @@
     padding: 6px 12px;
     font-size: 0.6rem;
     font-weight: 600;
-    color: #556;
+    color: var(--st-text-3);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    background: #0a1a30;
-    border-bottom: 1px solid #1a3050;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-surface-3);
   }
 
   /* Forms */
@@ -1828,7 +1925,7 @@
 
   .adv-label {
     font-size: 0.68rem;
-    color: #888;
+    color: var(--st-text-3);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -1839,10 +1936,10 @@
     width: 55px;
     padding: 3px 5px;
     font-size: 0.68rem;
-    background: #0a1a30;
-    border: 1px solid #1a3050;
+    background: var(--st-surface);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ccc;
+    color: var(--st-text-2);
     text-align: right;
   }
 
@@ -1851,10 +1948,10 @@
   .adv-sel {
     padding: 3px 5px;
     font-size: 0.68rem;
-    background: #0a1a30;
-    border: 1px solid #1a3050;
+    background: var(--st-surface);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ccc;
+    color: var(--st-text-2);
     cursor: pointer;
   }
 
@@ -1862,10 +1959,10 @@
     width: 120px;
     padding: 3px 5px;
     font-size: 0.68rem;
-    background: #0a1a30;
-    border: 1px solid #1a3050;
+    background: var(--st-surface);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ccc;
+    color: var(--st-text-2);
   }
 
   .adv-panel {
@@ -1891,33 +1988,33 @@
     text-align: left;
     font-size: 0.6rem;
     font-weight: 600;
-    color: #888;
+    color: var(--st-text-3);
     text-transform: uppercase;
-    background: #0a1a30;
-    border-bottom: 1px solid #1a3050;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-surface-3);
   }
 
   .adv-table td {
     padding: 3px 5px;
-    border-bottom: 1px solid #0f2030;
-    color: #ccc;
+    border-bottom: 1px solid var(--st-surface-2);
+    color: var(--st-text-2);
   }
 
-  .col-id { color: #666; font-family: monospace; text-align: center; }
+  .col-id { color: var(--st-text-3); font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; text-align: right; font-size: 0.66rem; }
 
   .adv-rm {
     padding: 2px 6px;
     font-size: 0.62rem;
-    color: #e94560;
+    color: var(--st-accent);
     background: transparent;
-    border: 1px solid #e94560;
+    border: 1px solid var(--st-accent);
     border-radius: 3px;
     cursor: pointer;
     line-height: 1;
   }
 
-  .adv-rm:hover { background: rgba(233, 69, 96, 0.15); }
+  .adv-rm:hover { background: rgba(229, 72, 42, 0.15); }
 
   .adv-accel-area {
     display: flex;
@@ -1930,38 +2027,38 @@
     padding: 4px 6px;
     font-size: 0.64rem;
     font-family: monospace;
-    background: #0f2030;
-    border: 1px solid #1a3050;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ccc;
+    color: var(--st-text-2);
     resize: vertical;
     min-height: 32px;
   }
 
-  .adv-textarea::placeholder { color: #555; }
+  .adv-textarea::placeholder { color: var(--st-text-3); }
 
   .adv-steps-toggle {
     font-size: 0.6rem;
-    color: #8ba;
+    color: var(--st-ok);
     cursor: pointer;
   }
 
   .adv-step-line {
     font-size: 0.58rem;
-    color: #9ab;
+    color: var(--st-text-2);
     padding: 1px 0;
   }
 
   .adv-sub-title {
     font-size: 0.66rem;
     font-weight: 600;
-    color: #aaa;
+    color: var(--st-text-2);
     margin-top: 4px;
   }
 
   .adv-stage-card {
-    background: #0a1a30;
-    border: 1px solid #1a3050;
+    background: var(--st-surface);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
     padding: 6px 8px;
     display: flex;
@@ -1983,12 +2080,12 @@
     font-weight: 600;
     background: transparent;
     border: none;
-    border-bottom: 1px solid #1a3050;
-    color: #ccc;
+    border-bottom: 1px solid var(--st-surface-3);
+    color: var(--st-text-2);
   }
 
-  .adv-stage-name:focus { border-color: #4ecdc4; outline: none; }
+  .adv-stage-name:focus { border-color: var(--st-value); outline: none; }
 
-  .cum-ok { color: #4caf50; }
-  .cum-warn { color: #f0a500; }
+  .cum-ok { color: var(--st-ok); }
+  .cum-warn { color: var(--st-warn); }
 </style>

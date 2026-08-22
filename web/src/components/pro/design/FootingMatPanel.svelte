@@ -184,7 +184,7 @@
 
 <style>
   .mat-design {
-    margin-top: 0.6rem; border-top: 1px solid rgba(128,128,128,0.3); padding-top: 0.5rem;
+    margin-top: 0.6rem; border-top: 1px solid rgba(143, 163, 179,0.3); padding-top: 0.5rem;
     font-size: 0.82rem;
   }
   h5 { margin: 0 0 0.3rem; font-size: 0.8rem; }
@@ -192,7 +192,7 @@
   .empty { opacity: 0.75; font-style: italic; }
   .note { margin: 0.2rem 0 0.4rem; font-size: 0.75rem; opacity: 0.85; }
   .directions { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.6rem; }
-  .direction { border: 1px solid rgba(128,128,128,0.25); border-radius: 4px; padding: 0.45rem; }
+  .direction { border: 1px solid rgba(143, 163, 179,0.25); border-radius: 4px; padding: 0.45rem; }
   dl { margin: 0; }
   .row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.74rem; padding: 0.08rem 0; }
   dt { opacity: 0.85; }
@@ -204,16 +204,16 @@
   .issues { margin-top: 0.4rem; }
   .issues li { font-size: 0.74rem; padding: 0.15rem 0.4rem; border-radius: 3px; }
   /* Blocking is never green. */
-  .issues li.blocking { background: #5c1a1a; color: #ffe4e4; }
+  .issues li.blocking { background: var(--st-surface-2); color: var(--st-text); }
   /* Designed-but-not-drawn is never green either: it is the state a reader is most likely to
      mistake for done. */
   .pending {
     margin: 0.4rem 0 0; font-size: 0.74rem; padding: 0.25rem 0.4rem; border-radius: 3px;
-    background: #7a5b00; color: #fff6dd;
+    background: var(--st-surface-3); color: var(--st-text);
   }
   .badge { font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.3rem; border-radius: 3px; }
-  .badge.status-DESIGNED { background: rgba(128,128,128,0.3); }
-  .badge.status-DESIGN_FAILED { background: #5c1a1a; color: #ffe4e4; }
-  .badge.status-NOT_EVALUATED { background: #7a5b00; color: #fff6dd; }
+  .badge.status-DESIGNED { background: rgba(143, 163, 179,0.3); }
+  .badge.status-DESIGN_FAILED { background: var(--st-surface-2); color: var(--st-text); }
+  .badge.status-NOT_EVALUATED { background: var(--st-surface-3); color: var(--st-text); }
   summary { cursor: pointer; font-size: 0.78rem; }
 </style>

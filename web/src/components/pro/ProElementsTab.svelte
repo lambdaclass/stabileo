@@ -378,21 +378,21 @@
 </div>
 
 <style>
-  .curved-section { border-top: 1px solid #1a3550; margin-top: 6px; }
+  .curved-section { border-top: 1px solid var(--st-surface-3); margin-top: 6px; }
   .curved-toggle {
-    width: 100%; text-align: left; background: none; border: none; color: #cfe;
+    width: 100%; text-align: left; background: none; border:  1px solid var(--st-hair); color: var(--st-text);
     font-size: 0.78rem; font-weight: 600; padding: 8px 10px; cursor: pointer;
   }
   .curved-body { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
-  .curved-hint { font-size: 0.68rem; color: #8aa; line-height: 1.3; }
+  .curved-hint { font-size: 0.68rem; color: var(--st-text-2); line-height: 1.3; }
   .curved-row { display: flex; align-items: center; gap: 6px; }
-  .curved-row label { font-size: 0.7rem; color: #aaa; min-width: 70px; }
+  .curved-row label { font-size: 0.7rem; color: var(--st-text-2); min-width: 70px; }
   .curved-row input[type="text"] { width: 48px; }
   .curved-row input, .curved-row select {
-    background: #0a1828; border: 1px solid #1a4a7a; color: #ddd; border-radius: 3px; padding: 3px 5px; font-size: 0.7rem;
+    background: var(--st-surface); border: 1px solid var(--st-surface-3); color: var(--st-text); border-radius: 3px; padding: 3px 5px; font-size: 0.7rem;
   }
-  .curved-error { color: #ff6b6b; font-size: 0.68rem; }
-  .curved-success { color: #4ecdc4; font-size: 0.68rem; }
+  .curved-error { color: var(--st-danger); font-size: 0.68rem; }
+  .curved-success { color: var(--st-value); font-size: 0.68rem; }
   .pro-elems {
     display: flex;
     flex-direction: column;
@@ -404,13 +404,13 @@
     justify-content: space-between;
     align-items: center;
     padding: 8px 10px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
   }
 
   .pro-elems-count {
     font-size: 0.82rem;
-    color: #4ecdc4;
+    color: var(--st-value);
     font-weight: 600;
   }
 
@@ -423,47 +423,47 @@
     padding: 5px 12px;
     font-size: 0.75rem;
     font-weight: 500;
-    color: #ccc;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
+    color: var(--st-text-2);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
     cursor: pointer;
   }
 
-  .pro-btn:hover { background: #1a4a7a; color: #fff; }
+  .pro-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
 
   .pro-btn-active {
-    background: #e94560 !important;
-    border-color: #ff6b6b !important;
-    color: #fff !important;
+    background: var(--st-accent) !important;
+    border-color: var(--st-danger) !important;
+    color: var(--st-text) !important;
   }
 
   .pro-draw-status {
     padding: 8px 12px;
     font-size: 0.78rem;
-    color: #4ecdc4;
-    background: rgba(78, 205, 196, 0.08);
-    border-bottom: 1px solid #1a3050;
+    color: var(--st-value);
+    background: rgba(127, 212, 204, 0.08);
+    border-bottom: 1px solid var(--st-surface-3);
   }
 
   .pro-draw-status strong {
-    color: #fff;
+    color: var(--st-text);
   }
 
   .pro-paste-error {
     padding: 4px 10px;
     font-size: 0.7rem;
-    color: #ff8a9e;
-    background: rgba(233, 69, 96, 0.1);
-    border-bottom: 1px solid #5a2030;
+    color: var(--st-danger);
+    background: rgba(229, 72, 42, 0.1);
+    border-bottom: 1px solid var(--st-hair-strong);
   }
 
   .pro-paste-hint {
     padding: 6px 12px;
     font-size: 0.72rem;
-    color: #668;
+    color: var(--st-text-3);
     font-style: italic;
-    border-bottom: 1px solid #1a2540;
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
   }
 
@@ -490,11 +490,11 @@
     text-align: left;
     font-size: 0.68rem;
     font-weight: 600;
-    color: #888;
+    color: var(--st-text-3);
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    background: #0a1a30;
-    border-bottom: 1px solid #1a4a7a;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-surface-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -502,19 +502,19 @@
 
   .pro-elems-table td {
     padding: 3px 3px;
-    border-bottom: 1px solid #0f2030;
+    border-bottom: 1px solid var(--st-surface-2);
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .pro-elems-table tbody tr { cursor: pointer; transition: background 0.1s; }
-  .pro-elems-table tbody tr:hover { background: rgba(78, 205, 196, 0.08); }
-  .pro-elems-table tr.selected { background: rgba(78, 205, 196, 0.18); box-shadow: inset 3px 0 0 #4ecdc4; }
+  .pro-elems-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }
+  .pro-elems-table tr.selected { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
   .pro-elems-table tr.unsaved td { opacity: 0.6; }
 
   .col-id {
     width: 32px;
-    color: #666;
+    color: var(--st-text-3);
     font-family: monospace;
     font-size: 0.75rem;
     text-align: center;
@@ -527,13 +527,13 @@
     background: transparent;
     border: 1px solid transparent;
     border-radius: 3px;
-    color: #ddd;
+    color: var(--st-text);
     font-size: 0.78rem;
     font-family: monospace;
   }
   .col-node input:focus {
-    background: #0f2840;
-    border-color: #1a4a7a;
+    background: var(--st-surface-3);
+    border-color: var(--st-surface-3);
     outline: none;
   }
 
@@ -541,15 +541,15 @@
   .col-mat select, .col-sec select {
     width: 100%;
     padding: 3px 3px;
-    background: #0f2840;
+    background: var(--st-surface-3);
     border: 1px solid transparent;
     border-radius: 3px;
-    color: #ccc;
+    color: var(--st-text-2);
     font-size: 0.72rem;
     cursor: pointer;
   }
   .col-mat select:focus, .col-sec select:focus {
-    border-color: #1a4a7a;
+    border-color: var(--st-surface-3);
     outline: none;
   }
 
@@ -559,36 +559,36 @@
     padding: 3px 6px;
     font-size: 0.68rem;
     font-weight: 600;
-    border: 1px solid #1a3050;
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
     cursor: pointer;
-    background: #0f2840;
-    color: #888;
+    background: var(--st-surface-3);
+    color: var(--st-text-3);
     min-width: 34px;
   }
 
   .hinge-btn.hinged {
-    background: #4a3010;
-    border-color: #8a6020;
-    color: #f0a500;
+    background: var(--st-surface-2);
+    border-color: var(--st-warn);
+    color: var(--st-warn);
   }
 
   .col-actions { width: 20px; text-align: center; }
 
   .pro-delete-btn {
     background: none;
-    border: none;
-    color: #555;
+    border:  none;
+    color: var(--st-text-3);
     font-size: 1rem;
     cursor: pointer;
     padding: 0;
     line-height: 1;
   }
-  .pro-delete-btn:hover { color: #ff6b6b; }
+  .pro-delete-btn:hover { color: var(--st-danger); }
 
   .pro-empty {
     text-align: center;
-    color: #555;
+    color: var(--st-text-3);
     font-style: italic;
     padding: 20px 10px !important;
   }

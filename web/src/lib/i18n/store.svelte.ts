@@ -49,19 +49,24 @@ if (hasLocalStorage()) {
 export const OFFERED_LOCALES = ['es', 'en', 'pt'] as const;
 export type OfferedLocale = (typeof OFFERED_LOCALES)[number];
 
-function isOffered(code: string): code is OfferedLocale {
+/** Whether a bare language code is one the app offers. */
+export function isOfferedLocale(code: string): code is OfferedLocale {
 	return (OFFERED_LOCALES as readonly string[]).includes(code);
 }
 
-function detectBrowserLocale(): string {
+/**
+ * The browser's preference, narrowed to what is offered.
+ *
+ * Matched against what is OFFERED, not against what exists, and on the BARE code so that
+ * `es-AR`, `pt-BR` and `en-GB` all land where they should. Anything else — `fr`, `de`, `ja` —
+ * falls through to English, which is the honest answer rather than a flag the app cannot keep.
+ */
+function detectBrowserLocale(): OfferedLocale {
 	if (typeof navigator === 'undefined') return 'en';
 	for (const lang of navigator.languages ?? [navigator.language]) {
+		if (!lang) continue;
 		const code = lang.split('-')[0].toLowerCase();
-		// Matched against what is OFFERED, not against what exists: a German
-		// browser used to land on a German dictionary that is largely English,
-		// which reads as a broken translation rather than as an untranslated
-		// app. English is the honest answer.
-		if (isOffered(code)) return code;
+		if (isOfferedLocale(code)) return code;
 	}
 	return 'en';
 }
@@ -71,10 +76,11 @@ function getInitialLocale(): string {
 	// Only use stored locale if user explicitly chose it (flag set by setLocale)
 	if (localStorage.getItem('stabileo-lang-manual') === '1') {
 		const stored = localStorage.getItem('stabileo-lang');
-		// A stored locale that is no longer offered — someone who picked German
-		// before this narrowed — falls through to detection rather than being
-		// honoured, which would resurrect exactly the half-translated UI.
-		if (stored && isOffered(stored)) return stored;
+		// A stored locale that is no longer offered — someone who picked German before this
+		// narrowed — falls through to detection rather than being honoured, which would
+		// resurrect exactly the half-translated state this exists to remove. The selector would
+		// also have no option to show for it, which is the invalid state to avoid.
+		if (stored && isOfferedLocale(stored)) return stored;
 	}
 	// Otherwise auto-detect from browser and clear any stale stored value
 	const detected = detectBrowserLocale();
@@ -126,7 +132,21 @@ export function tp(key: string, params?: Record<string, string | number>): strin
 	});
 }
 
+/**
+ * Switch language, and persist that the choice was the user's.
+ *
+ * A code that is not offered is REFUSED rather than stored. The picker's value is bound to
+ * `i18n.locale`, and a `<select>` whose value matches none of its options renders blank — so
+ * accepting `de` here would leave the control showing nothing, in a language nobody chose, and
+ * would persist that state across reloads. Refusing keeps the app on the language it is already
+ * speaking, which is the only state that is both valid and true.
+ *
+ * This guard is the one deliberate difference from `be1c63b4`, which narrowed detection and the
+ * picker but left this entry point open. Nothing in the app calls it with an unoffered code
+ * today; it is here so that nothing can.
+ */
 export function setLocale(loc: string) {
+	if (!isOfferedLocale(loc)) return;
 	_locale = loc;
 	if (hasLocalStorage()) {
 		localStorage.setItem('stabileo-lang', loc);

@@ -21,7 +21,7 @@
  * the timer clamping or the rAF suspension that precede them. The numbers here are therefore a
  * FLOOR on the real-world improvement, not a simulation of it.
  */
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -42,6 +42,7 @@ async function openWorkspace(page: Page, example: string, withFloors = false) {
     await f.click();
     await expect(page.getByTestId('floor-families')).toBeVisible();
   }
+  await openDocumentsStage(page);
   await page.getByTestId('doc-3d').click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible();
   /**

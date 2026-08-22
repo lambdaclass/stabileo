@@ -129,6 +129,15 @@ async function designFloor(page: Page) {
 
 async function openDetailingPanel(page: Page) {
   await ensureOpen(page, 'detailing-disclosure');
+  /**
+   * The exports and the professional review moved OUT of the detailing panel.
+   *
+   * They are a stage of the workflow now — `documents-disclosure` — rather than the tail of the
+   * coordinated-detailing panel, so reaching `doc-report`, `doc-dxf`, `doc-xlsx` and the review
+   * controls means opening that disclosure too. Every assertion in this file is unchanged; only
+   * which container holds the controls is.
+   */
+  await ensureOpen(page, 'documents-disclosure');
   await expect(page.getByTestId('documents')).toBeVisible();
 }
 

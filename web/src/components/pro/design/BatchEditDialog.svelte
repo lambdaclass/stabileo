@@ -220,11 +220,11 @@
     {#if kinds.columns > 0}
       <fieldset>
         <legend>{t('design.batch.fieldColumnBars')}</legend>
-        <label>corner Ø<select data-testid="batch-col-corner" value={colCorner ?? ''}
+        <label>{t('design.editor.cornerShort')}<select data-testid="batch-col-corner" value={colCorner ?? ''}
                   onchange={(e) => colCorner = e.currentTarget.value === '' ? undefined : +e.currentTarget.value}>
             <option value="">—</option>{#each LONG_DIAS as d (d)}<option value={d}>Ø{d}</option>{/each}
           </select></label>
-        <label>face Ø<select data-testid="batch-col-face" value={colFace ?? ''}
+        <label>{t('design.editor.faceShort')}<select data-testid="batch-col-face" value={colFace ?? ''}
                   onchange={(e) => colFace = e.currentTarget.value === '' ? undefined : +e.currentTarget.value}>
             <option value="">—</option>{#each LONG_DIAS as d (d)}<option value={d}>Ø{d}</option>{/each}
           </select></label>
@@ -312,45 +312,45 @@
   .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 900; }
   .dialog { position: fixed; z-index: 901; top: 50%; left: 50%; transform: translate(-50%, -50%);
     width: min(94vw, 900px); max-height: 88vh; overflow: auto;
-    background: #0b1a2c; border: 1px solid #2a5a8a; border-radius: 6px;
+    background: var(--st-surface); border: 1px solid var(--st-info); border-radius: 6px;
     box-shadow: 0 12px 40px rgba(0,0,0,0.6); padding: 12px 14px;
     display: flex; flex-direction: column; gap: 8px; }
   .head { display: flex; align-items: center; justify-content: space-between; }
-  h2 { margin: 0; font-size: 0.92rem; color: #dde; }
-  .x { background: none; border: none; color: #9ab; font-size: 1.2rem; cursor: pointer; line-height: 1; }
-  .meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.72rem; color: #bcd; }
-  .muted { color: #778; }
-  .warn-inline { color: #ffcc9a; }
+  h2 { margin: 0; font-size: 0.92rem; color: var(--st-text); }
+  .x { background: none; border:  1px solid var(--st-hair); color: var(--st-text-2); font-size: 1.2rem; cursor: pointer; line-height: 1; }
+  .meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.72rem; color: var(--st-text-2); }
+  .muted { color: var(--st-text-3); }
+  .warn-inline { color: var(--st-text); }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; }
-  fieldset { border: 1px solid #16304f; border-radius: 4px; padding: 4px 7px 6px; margin: 0; }
-  legend { font-size: 0.66rem; color: #8ab; padding: 0 4px; }
-  label { display: flex; align-items: center; gap: 4px; font-size: 0.68rem; color: #9ab; margin: 2px 0; }
+  fieldset { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 4px 7px 6px; margin: 0; }
+  legend { font-size: 0.66rem; color: var(--st-info); padding: 0 4px; }
+  label { display: flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--st-text-2); margin: 2px 0; }
   input[type="number"], input[type="text"], select {
-    flex: 1; min-width: 0; padding: 1px 4px; background: #0b1c30;
-    border: 1px solid #1d3a5c; border-radius: 3px; color: #dde; font-size: 0.7rem; }
+    flex: 1; min-width: 0; padding: 1px 4px; background: var(--st-surface);
+    border: 1px solid var(--st-hair-strong); border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
   input:focus-visible, select:focus-visible, button:focus-visible {
-    outline: 2px solid #4ecdc4; outline-offset: 1px; }
+    outline: 2px solid var(--st-value); outline-offset: 1px; }
   .protect { display: flex; gap: 6px; align-items: center; font-size: 0.7rem;
-    padding: 4px 7px; background: rgba(255,204,102,0.08); border: 1px solid #6a5a20; border-radius: 4px; }
-  .preview { border: 1px solid #16304f; border-radius: 4px; padding: 5px 7px; }
-  .preview-head { display: flex; gap: 8px; align-items: baseline; font-size: 0.7rem; color: #8ab; }
+    padding: 4px 7px; background: rgba(255,204,102,0.08); border: 1px solid var(--st-hair-strong); border-radius: 4px; }
+  .preview { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 5px 7px; }
+  .preview-head { display: flex; gap: 8px; align-items: baseline; font-size: 0.7rem; color: var(--st-info); }
   .preview-list { max-height: 240px; overflow: auto; margin-top: 3px; }
   .prow { display: flex; gap: 7px; align-items: center; flex-wrap: wrap;
-    padding: 1px 0; font-size: 0.66rem; color: #ccd; border-bottom: 1px solid #10233c; }
-  .prow.blocked { color: #ffbcbc; }
-  .prow.nochange { color: #778; }
-  .pid { min-width: 34px; } .pkind { min-width: 46px; color: #789; }
-  .pblock { flex: 1; } .pchanges { flex: 1; } .putil { color: #8a9; }
+    padding: 1px 0; font-size: 0.66rem; color: var(--st-text); border-bottom: 1px solid var(--st-surface-3); }
+  .prow.blocked { color: var(--st-text); }
+  .prow.nochange { color: var(--st-text-3); }
+  .pid { min-width: 34px; } .pkind { min-width: 46px; color: var(--st-text-3); }
+  .pblock { flex: 1; } .pchanges { flex: 1; } .putil { color: var(--st-text-2); }
   .mono { font-family: monospace; }
-  .summary { margin-top: 4px; font-size: 0.7rem; color: #bcd; font-weight: 600; }
-  .bulk-warn { margin-top: 3px; font-size: 0.68rem; color: #ffcc9a; }
+  .summary { margin-top: 4px; font-size: 0.7rem; color: var(--st-text-2); font-weight: 600; }
+  .bulk-warn { margin-top: 3px; font-size: 0.68rem; color: var(--st-text); }
   .pad { padding: 6px; font-size: 0.7rem; }
   .actions { display: flex; gap: 7px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
   .confirm { display: flex; gap: 5px; align-items: center; font-size: 0.68rem; }
   .confirm input { width: 70px; }
-  .btn { padding: 4px 11px; background: #14304f; border: 1px solid #2a5a8a;
-    border-radius: 4px; color: #dde; font-size: 0.74rem; font-weight: 600; cursor: pointer; }
-  .btn-primary { background: #1a4a7a; border-color: #2a6ab0; color: #fff; }
+  .btn { padding: 4px 11px; background: var(--st-surface-3); border: 1px solid var(--st-info);
+    border-radius: 4px; color: var(--st-text); font-size: 0.74rem; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: var(--st-surface-3); border-color: var(--st-info); color: var(--st-text); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   @media (max-width: 720px) {
     .dialog { width: 96vw; max-height: 92vh; padding: 9px; }

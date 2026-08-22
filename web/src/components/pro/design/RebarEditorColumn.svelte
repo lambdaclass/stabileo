@@ -51,15 +51,15 @@
   <div class="region">
     <div class="region-head"><span class="region-title">{t('design.batch.fieldColumnBars')}</span></div>
     <div class="line">
-      <span class="sub">corner Ø</span>
+      <span class="sub">{t('design.editor.cornerShort')}</span>
       <select class="sel" value={state.cornerDia} data-testid={`col-corner-dia-${elementId}`}
-              aria-label="corner diameter"
+              aria-label={t('design.editor.cornerDiameter')}
               onchange={(e) => setColumnBars(elementId, { cornerDia: +e.currentTarget.value })}>
         {#each LONG_DIAS as d (d)}<option value={d}>Ø{d}</option>{/each}
       </select>
-      <span class="sub">face Ø</span>
+      <span class="sub">{t('design.editor.faceShort')}</span>
       <select class="sel" value={state.faceDia} data-testid={`col-face-dia-${elementId}`}
-              aria-label="face diameter"
+              aria-label={t('design.editor.faceDiameter')}
               onchange={(e) => setColumnBars(elementId, { faceDia: +e.currentTarget.value })}>
         {#each LONG_DIAS as d (d)}<option value={d}>Ø{d}</option>{/each}
       </select>
@@ -121,23 +121,23 @@
 
 <style>
   .editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
-  .region { background: #0d1f36; border: 1px solid #16304f; border-radius: 4px; padding: 5px 7px; }
+  .region { background: var(--st-surface-2); border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 5px 7px; }
   .region-head { display: flex; gap: 5px; margin-bottom: 3px; }
-  .region-title { font-size: 0.7rem; font-weight: 600; color: #8ab; }
+  .region-title { font-size: 0.7rem; font-weight: 600; color: var(--st-info); }
   .line { display: flex; align-items: center; gap: 4px; margin: 2px 0; flex-wrap: wrap; }
-  .total-line { border-top: 1px dashed #16304f; padding-top: 3px; margin-top: 4px; }
+  .total-line { border-top: 1px dashed var(--st-surface-3); padding-top: 3px; margin-top: 4px; }
   .faces { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 3px 0; }
   .face { display: flex; flex-direction: column; gap: 1px; }
-  .num { width: 100%; padding: 1px 4px; background: #0b1c30; border: 1px solid #1d3a5c;
-    border-radius: 3px; color: #dde; font-size: 0.7rem; }
+  .num { width: 100%; padding: 1px 4px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
+    border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
   .num-sm { width: 34px; } .num-sp { width: 56px; }
-  .sel { padding: 1px 3px; background: #0b1c30; border: 1px solid #1d3a5c;
-    border-radius: 3px; color: #dde; font-size: 0.7rem; }
+  .sel { padding: 1px 3px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
+    border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
   .sel-sm { width: 46px; }
-  .sub { font-size: 0.64rem; color: #778; }
-  .total { font-family: monospace; font-size: 0.66rem; color: #8a9; }
-  .total.bad { color: #ff8a8a; font-weight: 700; }
+  .sub { font-size: 0.64rem; color: var(--st-text-3); }
+  .total { font-family: monospace; font-size: 0.66rem; color: var(--st-text-2); }
+  .total.bad { color: var(--st-accent); font-weight: 700; }
   .issues { margin-top: 3px; }
-  .issue { font-size: 0.64rem; color: #ffb37a; }
-  input:focus-visible, select:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
+  .issue { font-size: 0.64rem; color: var(--st-accent); }
+  input:focus-visible, select:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 </style>

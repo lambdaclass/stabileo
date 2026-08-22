@@ -101,21 +101,21 @@
 <style>
   .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 900; }
   .dialog { position: fixed; z-index: 901; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: min(92vw, 560px); background: #0b1a2c; border: 1px solid #8a4a10;
+    width: min(92vw, 560px); background: var(--st-surface); border: 1px solid var(--st-warn);
     border-radius: 6px; box-shadow: 0 12px 40px rgba(0,0,0,0.6); padding: 12px 14px;
     display: flex; flex-direction: column; gap: 7px; }
-  h2 { margin: 0; font-size: 0.9rem; color: #ffd9b3; }
-  .prelim { margin: 0; font-size: 0.7rem; color: #d8a878; font-style: italic; }
-  .grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 0.72rem; color: #bcd; }
+  h2 { margin: 0; font-size: 0.9rem; color: var(--st-text); }
+  .prelim { margin: 0; font-size: 0.7rem; color: var(--st-warn); font-style: italic; }
+  .grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 0.72rem; color: var(--st-text-2); }
   .mono { font-family: monospace; }
-  .strong { font-weight: 700; color: #fff; }
-  .reason { margin: 0; font-size: 0.7rem; color: #cbb; }
-  .shared { margin: 0; font-size: 0.7rem; color: #ffcc9a; }
-  .guard { margin: 0; font-size: 0.68rem; color: #9ab; }
+  .strong { font-weight: 700; color: var(--st-text); }
+  .reason { margin: 0; font-size: 0.7rem; color: var(--st-text-2); }
+  .shared { margin: 0; font-size: 0.7rem; color: var(--st-text); }
+  .guard { margin: 0; font-size: 0.68rem; color: var(--st-text-2); }
   .actions { display: flex; gap: 7px; justify-content: flex-end; }
-  .btn { padding: 4px 11px; background: #14304f; border: 1px solid #2a5a8a;
-    border-radius: 4px; color: #dde; font-size: 0.74rem; font-weight: 600; cursor: pointer; }
-  .btn-primary { background: #6a3a10; border-color: #a05a20; color: #ffe0c0; }
+  .btn { padding: 4px 11px; background: var(--st-surface-3); border: 1px solid var(--st-info);
+    border-radius: 4px; color: var(--st-text); font-size: 0.74rem; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: var(--st-hair-strong); border-color: var(--st-warn); color: var(--st-text); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
+  .btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 </style>

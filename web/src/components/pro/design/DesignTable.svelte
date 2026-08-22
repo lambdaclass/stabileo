@@ -70,11 +70,11 @@
   }
   function barColor(row: DesignRow): string {
     switch (row.status) {
-      case 'fail': return '#ee2222';
-      case 'warn': return '#ddaa00';
-      case 'stale': return 'repeating-linear-gradient(45deg,#8a8f7a 0 3px,#5d6154 3px 6px)';
-      case 'unavailable': return '#666';
-      default: return '#22cc66';
+      case 'fail': return 'var(--st-accent)';
+      case 'warn': return 'var(--st-warn)';
+      case 'stale': return 'repeating-linear-gradient(45deg,var(--st-text-3) 0 3px,var(--st-text-3) 3px 6px)';
+      case 'unavailable': return 'var(--st-text-3)';
+      default: return 'var(--st-ok)';
     }
   }
 </script>
@@ -176,22 +176,42 @@
 </div>
 
 <style>
-  .table-scroll { flex: 1; overflow: auto; min-height: 0; }
+    /*
+     A floor, not just `min-height: 0`.
+     ─────────────────────────────────
+     In a flex column `min-height: 0` lets this box shrink to nothing, and the
+     panel has been getting shorter — a ribbon of two rows, then a heading. Once
+     the box is shorter than its own sticky header, the header covers the first
+     row and a click aimed at row 1 lands on "select all". Below this floor the
+     panel scrolls instead, which is the honest failure.
+  */
+  .table-scroll { flex: 1; overflow: auto; min-height: 9rem; }
   table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
-  thead th { position: sticky; top: 0; z-index: 2; background: #0d1f36;
-    border-bottom: 1px solid #1d3a5c; padding: 4px 6px; text-align: left;
-    color: #8ab; font-weight: 600; white-space: nowrap; }
+  /*
+     A sticky header hides the row you scrolled to.
+     ─────────────────────────────────────────────
+     `scrollIntoView` stops as soon as the row is inside the scroll box, which
+     for anything near the top means underneath this header — so a click aimed
+     at a row's control landed on the header instead. `scroll-margin-top` tells
+     the browser the row needs that much clearance, and it is the header's own
+     height. It matters more the shorter the panel gets.
+  */
+  tbody tr { scroll-margin-top: 2.2rem; }
+
+  thead th { position: sticky; top: 0; z-index: 2; background: var(--st-surface-2);
+    border-bottom: 1px solid var(--st-hair-strong); padding: 4px 6px; text-align: left;
+    color: var(--st-info); font-weight: 600; white-space: nowrap; }
   .sort-btn { background: none; border: none; color: inherit; font: inherit;
     cursor: pointer; padding: 0; }
-  .sort-btn:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
-  tbody td { padding: 3px 6px; border-bottom: 1px solid #10233c; color: #ccd; vertical-align: middle; }
-  .row:hover td { background: #0f2540; }
-  .row.focused td { background: #14304f; box-shadow: inset 2px 0 0 #4ecdc4; }
-  .row.expanded td { background: #122a47; }
-  .row-fail td { color: #ffbcbc; }
-  .row-warn td { color: #f3dda6; }
-  .row-unavailable td { color: #99a; }
-  .row-stale td { color: #ddd8bf; }
+  .sort-btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  tbody td { padding: 3px 6px; border-bottom: 1px solid var(--st-surface-3); color: var(--st-text); vertical-align: middle; }
+  .row:hover td { background: var(--st-surface-3); }
+  .row.focused td { background: var(--st-surface-3); box-shadow: inset 2px 0 0 var(--st-value); }
+  .row.expanded td { background: var(--st-surface-3); }
+  .row-fail td { color: var(--st-danger); }
+  .row-warn td { color: var(--st-warn); }
+  .row-unavailable td { color: var(--st-text-2); }
+  .row-stale td { color: var(--st-text); }
   .col-chk { width: 22px; }
   .col-id { width: 62px; font-family: monospace; }
   .col-type { width: 58px; }
@@ -201,14 +221,14 @@
   .col-flags { width: 190px; }
   .expand-btn { background: none; border: none; color: inherit; font: inherit;
     cursor: pointer; padding: 0; display: inline-flex; gap: 3px; align-items: center; }
-  .expand-btn:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
-  .caret { color: #678; width: 8px; display: inline-block; }
+  .expand-btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  .caret { color: var(--st-text-3); width: 8px; display: inline-block; }
   .ratio-cell { display: flex; align-items: center; gap: 5px; }
   .ratio-value { font-family: monospace; min-width: 30px; }
-  .ratio-bar { flex: 1; height: 5px; background: #10233c; border-radius: 3px; overflow: hidden; }
+  .ratio-bar { flex: 1; height: 5px; background: var(--st-surface-3); border-radius: 3px; overflow: hidden; }
   .ratio-fill { height: 100%; }
-  .detail-row td { background: #0a1a2e; padding: 8px 10px; }
-  .empty { text-align: center; color: #667; padding: 18px; font-style: italic; }
+  .detail-row td { background: var(--st-surface); padding: 8px 10px; }
+  .empty { text-align: center; color: var(--st-text-3); padding: 18px; font-style: italic; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0,0,0,0); white-space: nowrap; }
 </style>

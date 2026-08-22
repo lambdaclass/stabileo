@@ -1,6 +1,7 @@
 // Color constants and helpers for 3D viewport selection/hover/highlight
 import * as THREE from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { colourRampHex } from './colour-ramp';
 
 /** Canonical axis palette — shared by the world-origin axes (grid.ts) and the
  *  per-member local-axis triads so the same axis never renders two colors.
@@ -192,14 +193,12 @@ export function createTextSpriteCached(
 }
 
 /**
- * Heatmap color: norm ∈ [0,1] → blue(0) → green(0.5) → red(1)
+ * Heatmap color: norm ∈ [0,1] over the shared colour ramp (blue → red), and
+ * magenta above 1 — the "past the top of the scale" every painter agrees on.
  * Used for stress ratio, moment magnitude, etc.
  */
 export function heatmapColor(norm: number): number {
-  const clamped = Math.max(0, Math.min(1, norm));
-  const hue = (1 - clamped) * 0.667; // HSL: 0.667=blue → 0=red
-  const c = new THREE.Color().setHSL(hue, 1.0, 0.5);
-  return c.getHex();
+  return colourRampHex(norm);
 }
 
 /**

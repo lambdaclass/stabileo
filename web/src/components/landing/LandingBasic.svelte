@@ -21,12 +21,12 @@
    * examples menu is not the limit.
    */
   const shots = [
-    { base: '2d-moments', alt: 'landing.capAlt2d', title: 'landing.capShot2dTitle', body: 'landing.capShot2dBody' },
-    { base: '2d-section-analysis', alt: 'landing.capAltStress2d', title: 'landing.capShotStress2dTitle', body: 'landing.capShotStress2dBody' },
-    { base: '3d-frame', alt: 'landing.capAlt3d', title: 'landing.capShot3dTitle', body: 'landing.capShot3dBody' },
-    { base: '3d-section-analysis', alt: 'landing.capAltStress3d', title: 'landing.capShotStress3dTitle', body: 'landing.capShotStress3dBody' },
+    { base: '2d-moments', w: 1600, h: 997, alt: 'landing.capAlt2d', title: 'landing.capShot2dTitle', body: 'landing.capShot2dBody' },
+    { base: '2d-section-analysis', w: 1600, h: 997, alt: 'landing.capAltStress2d', title: 'landing.capShotStress2dTitle', body: 'landing.capShotStress2dBody' },
+    { base: '3d-frame', w: 1600, h: 876, alt: 'landing.capAlt3d', title: 'landing.capShot3dTitle', body: 'landing.capShot3dBody' },
+    { base: '3d-section-analysis', w: 1600, h: 876, alt: 'landing.capAltStress3d', title: 'landing.capShotStress3dTitle', body: 'landing.capShotStress3dBody' },
     // Wide, and the closing argument rather than one capability among four.
-    { base: '3d-industrial', alt: 'landing.capAltIndustrial', title: 'landing.capShotIndustrialTitle', body: 'landing.capShotIndustrialBody', wide: true },
+    { base: '3d-industrial', w: 1600, h: 876, alt: 'landing.capAltIndustrial', title: 'landing.capShotIndustrialTitle', body: 'landing.capShotIndustrialBody', wide: true },
   ];
 
   /*
@@ -57,7 +57,7 @@
     <div class="card-row cols-2 cap-shots">
       {#each shots as sh}
         <article class="card card-media" class:card-wide={sh.wide}>
-          <Shot base={sh.base} alt={t(sh.alt)} sizes={sh.wide ? '(max-width: 760px) 92vw, 92vw' : undefined} />
+          <Shot base={sh.base} w={sh.w} h={sh.h} alt={t(sh.alt)} sizes={sh.wide ? '(max-width: 760px) 92vw, 92vw' : undefined} />
           <div class="card-body">
             <h3>{t(sh.title)}</h3>
             <p>{t(sh.body)}</p>

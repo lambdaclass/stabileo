@@ -304,15 +304,72 @@
     downloadText(csv, `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`, 'text/csv;charset=utf-8;');
   }
 
+
+  /*
+   * Which output is being read.
+   *
+   * Reactions, not the query. The query interrogates the ACTIVE force diagram,
+   * so with none chosen — which is how the panel opens — it could only say
+   * "select a force diagram", and that was the first thing anyone saw after
+   * solving. Reactions exist the moment a solve does. The query keeps its
+   * place, last, because it is the specialised one: you go to it with a
+   * question.
+   */
+  let resSection = $state('reactions');
+
+  const RES_SECTIONS = $derived([
+    { id: 'reactions', labelKey: 'pro.reactionsTitle', count: () => results?.reactions.length ?? 0 },
+    { id: 'forces', labelKey: 'pro.forcesTitle', count: () => results?.elementForces.length ?? 0 },
+    { id: 'displacements', labelKey: 'pro.displacementsTitle', count: () => results?.displacements.length ?? 0 },
+    { id: 'shells', labelKey: 'pro.shellStresses', count: () => shellRows.length },
+    // These two are computed inside the markup as `{@const}`, so the counts are
+    // taken from the same source rather than from a binding that is not in
+    // scope here.
+    { id: 'nodalShells', labelKey: 'pro.nodalShellStresses',
+      count: () => results?.quadStresses?.filter(qs => qs.nodalVonMises?.length).length ?? 0 },
+    { id: 'constraints', labelKey: 'pro.constraintForces',
+      count: () => (results?.constraintForces?.length ?? 0) || resultsStore.constraintForces3D.length },
+    { id: 'diagnostics', labelKey: 'pro.diagnosticsTitle', count: () => results?.diagnostics?.length ?? 0 },
+    { id: 'query', labelKey: 'pro.queryTitle', count: () => 1 },
+  ]);
+
+  /*
+   * A section that empties under you is not somewhere to be left standing —
+   * and the fallback is the first output that HAS something, not the query.
+   * Falling back to the query meant that before the first solve, when every
+   * count is zero, the panel landed on the one view that can say nothing
+   * without a diagram, and never came back once results arrived.
+   */
+  $effect(() => {
+    const cur = RES_SECTIONS.find(x => x.id === resSection);
+    if (!cur || cur.id === 'query' || cur.count() > 0) return;
+    const next = RES_SECTIONS.find(x => x.id !== 'query' && x.count() > 0);
+    // Nothing anywhere means there is no solve yet, and the selection is still
+    // a perfectly good intention — moving it would strand the panel on the
+    // query, which is where it used to end up and never come back from.
+    if (next) resSection = next.id;
+  });
+
+  /*
+   * The six plotted along a member, so their ordinate can be scaled.
+   *
+   * Only the deformed shape had a slider, so the drawings whose height is
+   * arbitrary — a moment plotted along a member — could not be made readable
+   * on a tall frame or a long span. They use a different store because they
+   * scale a different thing: the deformed shape multiplies a displacement, a
+   * diagram multiplies an ordinate.
+   */
+  const DIAGRAM_KINDS = ['axial', 'momentY', 'momentZ', 'shearY', 'shearZ', 'torsion'];
 </script>
 
 <div class="pro-res">
   <div class="pro-res-header">
-    <div class="pro-res-solve-row">
-      <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>
-        {solving ? t('pro.solving') : t('pro.solve')}
-      </button>
-    </div>
+    <!--
+      Solve lives in the ribbon, once. It was here too — a filled slab at the
+      top of the panel — so the command that runs the analysis existed twice
+      on screen with two different appearances, and the panel copy sat above
+      the results it would replace.
+    -->
     {#if solveError}
       <div class="pro-solve-error">{solveError}</div>
     {/if}
@@ -325,20 +382,30 @@
     <!-- 3D Visualization controls -->
     <div class="pro-viz-section">
       <div class="pro-viz-row">
-        <label class="pro-viz-label">{t('pro.diagramLabel')}</label>
-        <select class="pro-viz-sel" bind:value={resultsStore.diagramType}>
-          <option value="none">{t('pro.diagNone')}</option>
-          <option value="deformed">{t('pro.diagDeformed')}</option>
-          <option value="momentY">My</option>
-          <option value="momentZ">Mz</option>
-          <option value="shearY">Vy</option>
-          <option value="shearZ">Vz</option>
-          <option value="axial">N</option>
-          <option value="torsion">T</option>
-          <option value="axialColor">{t('pro.diagAxialColor')}</option>
-          <option value="colorMap">{t('pro.diagColorMap')}</option>
-          <option value="verification">{t('pro.diagVerification')}</option>
-        </select>
+        <!--
+          The diagram moved to the ribbon, where Basic keeps it and where it is
+          one click away instead of eleven entries down a dropdown. What stays
+          here is the part that is NOT a quantity: how axial gets drawn.
+        -->
+        {#if resultsStore.diagramType === 'axial' || resultsStore.diagramType === 'axialColor'}
+          <label class="pro-viz-label">{t('results.axialShownAs')}</label>
+          <div class="pro-seg" role="group" aria-label={t('results.axialShownAs')}>
+            <button
+              class="pro-seg-btn"
+              class:on={resultsStore.diagramType === 'axial'}
+              onclick={() => (resultsStore.diagramType = 'axial')}
+              data-testid="pro-axial-as-diagram"
+            >{t('results.asDiagram')}</button>
+            <button
+              class="pro-seg-btn"
+              class:on={resultsStore.diagramType === 'axialColor'}
+              onclick={() => (resultsStore.diagramType = 'axialColor')}
+              data-testid="pro-axial-as-colour"
+            >{t('results.asMemberColour')}</button>
+          </div>
+        {:else}
+          <span class="pro-viz-hint">{t('proResults.diagramInRibbon')}</span>
+        {/if}
       </div>
 
       {#if resultsStore.diagramType === 'colorMap'}
@@ -384,7 +451,22 @@
           />
           <span class="pro-viz-val">{Math.round(resultsStore.deformedScale)}×</span>
         </div>
-      {/if}
+        {:else if DIAGRAM_KINDS.includes(resultsStore.diagramType)}
+          <div class="pro-viz-row">
+            <label class="pro-viz-label">{t('pro.scaleLabel')}</label>
+            <input
+              type="range"
+              class="pro-viz-range"
+              min={0.1}
+              max={5}
+              step={0.1}
+              value={resultsStore.diagramScale}
+              oninput={(e) => (resultsStore.diagramScale = Number((e.target as HTMLInputElement).value))}
+              data-testid="pro-diagram-scale"
+            />
+            <span class="pro-viz-val">{resultsStore.diagramScale.toFixed(1)}×</span>
+          </div>
+        {/if}
 
       <div class="pro-viz-row">
         <label class="pro-viz-check">
@@ -437,8 +519,47 @@
     <div class="pro-res-scroll">
 
       <!-- Result query / extraction -->
-      <details class="res-detail" open>
-        <summary class="pro-res-section-title">{t('pro.queryTitle')}</summary>
+      <!--
+        One result table at a time, chosen from a strip that shows the counts.
+        ─────────────────────────────────────────────────────────────────────
+        These were eight collapsible sections, all open by default, stacked in
+        one column: reactions, forces, displacements, shell stresses, nodal
+        shell stresses, constraint forces, diagnostics and the query. On a real
+        model that is thousands of rows in a single scroll, so reading the
+        reactions meant scrolling past the query and reading the forces meant
+        scrolling past the reactions — and every table got a sliver of the
+        panel's height because it was sharing with seven others.
+
+        They are not eight things to see at once; they are eight answers to
+        "which output am I reading", which is one question. The strip asks it
+        once, carries each answer's row count so the shape of the results is
+        visible without opening anything, and disables what this model has none
+        of rather than hiding it — a model with no shells should still say that
+        shell stresses exist.
+
+        The chosen table then gets the whole panel, which is more rows than any
+        of them had before.
+      -->
+      <h4 class="res-heading">{t('proResults.outputs')}</h4>
+      <div class="res-tabs" role="tablist">
+        {#each RES_SECTIONS as sec (sec.id)}
+          {@const n = sec.count()}
+          <button
+            class="res-tab"
+            class:on={resSection === sec.id}
+            role="tab"
+            aria-selected={resSection === sec.id}
+            disabled={n === 0 && sec.id !== 'query'}
+            onclick={() => (resSection = sec.id)}
+            data-testid="res-tab-{sec.id}"
+          >
+            {t(sec.labelKey)}
+            {#if sec.id !== 'query'}<span class="res-tab-n">{n}</span>{/if}
+          </button>
+        {/each}
+      </div>
+
+      {#if resSection === 'query'}
         <div class="pro-query">
           {#if !isForceDiagram}
             <div class="pro-query-empty">{t('pro.querySelectForceDiagram')}</div>
@@ -522,10 +643,9 @@
             {/if}
           {/if}
         </div>
-      </details>
+      {/if}
 
-      <details class="res-detail" open>
-        <summary class="pro-res-section-title">{t('pro.reactionsTitle')} <span class="res-count">({results.reactions.length})</span></summary>
+      {#if resSection === 'reactions'}
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
@@ -554,10 +674,9 @@
             </tbody>
           </table>
         </div>
-      </details>
+      {/if}
 
-      <details class="res-detail" open>
-        <summary class="pro-res-section-title">{t('pro.forcesTitle')} <span class="res-count">({results.elementForces.length})</span></summary>
+      {#if resSection === 'forces'}
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
@@ -597,10 +716,9 @@
             </tbody>
           </table>
         </div>
-      </details>
+      {/if}
 
-      <details class="res-detail">
-        <summary class="pro-res-section-title">{t('pro.displacementsTitle')} <span class="res-count">({results.displacements.length})</span></summary>
+      {#if resSection === 'displacements'}
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
@@ -629,11 +747,11 @@
             </tbody>
           </table>
         </div>
-      </details>
+      {/if}
 
+      
       {#if shellRows.length}
-        <details class="res-detail" open>
-          <summary class="pro-res-section-title">{t('pro.shellStresses')} <span class="res-count">({shellRows.length})</span></summary>
+      {#if resSection === 'shells'}
           <div class="shell-table-legend">{t('pro.shellTableLegend')}</div>
           <div class="pro-res-table-wrap">
             <!-- Membrane + principal stresses -->
@@ -694,13 +812,12 @@
               </tr></tfoot>
             </table>
           </div>
-        </details>
+      {/if}
       {/if}
 
       {#if results.quadStresses?.some(qs => qs.nodalVonMises?.length)}
         {@const nodalQuads = results.quadStresses!.filter(qs => qs.nodalVonMises?.length)}
-        <details class="res-detail">
-          <summary class="pro-res-section-title">{t('pro.nodalShellStresses')} <span class="res-count">({nodalQuads.length})</span></summary>
+      {#if resSection === 'nodalShells'}
           <div class="pro-res-table-wrap">
             <table class="pro-res-table">
               <thead><tr>
@@ -746,13 +863,12 @@
               </tbody>
             </table>
           </div>
-        </details>
+      {/if}
       {/if}
 
       {#if (results.constraintForces?.length ?? 0) > 0 || resultsStore.constraintForces3D.length > 0}
         {@const cForces = results.constraintForces?.length ? results.constraintForces : resultsStore.constraintForces3D}
-        <details class="res-detail">
-          <summary class="pro-res-section-title">{t('pro.constraintForces')} <span class="res-count">({cForces.length})</span></summary>
+      {#if resSection === 'constraints'}
           <div class="pro-res-table-wrap">
             <table class="pro-res-table">
               <thead><tr>
@@ -769,12 +885,12 @@
               </tbody>
             </table>
           </div>
-        </details>
+      {/if}
       {/if}
 
+      
       {#if results.diagnostics?.length}
-        <details class="res-detail">
-          <summary class="pro-res-section-title">{t('pro.diagnosticsTitle')} <span class="res-count">({results.diagnostics.length})</span></summary>
+      {#if resSection === 'diagnostics'}
           <div class="pro-res-table-wrap">
             <table class="pro-res-table">
               <thead><tr>
@@ -793,7 +909,7 @@
               </tbody>
             </table>
           </div>
-        </details>
+      {/if}
       {/if}
 
     </div>
@@ -811,11 +927,91 @@
 </div>
 
 <style>
+  /* ── The output selector ───────────────────────────────────────────── */
+
+  .res-heading {
+    font-family: var(--st-mono);
+    font-size: 0.64rem;
+    font-weight: 400;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--st-text-3);
+    margin: 0.5rem 0 0.1rem;
+  }
+
+  .res-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem;
+    padding: 0.35rem 0 0.4rem;
+    border-bottom: 1px solid var(--st-hair);
+    margin-bottom: 0.4rem;
+  }
+
+  .res-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--st-radius);
+    color: var(--st-text-3);
+    font-family: var(--st-sans);
+    font-size: 0.72rem;
+    padding: 0.18rem 0.45rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+
+  .res-tab:hover:not(:disabled) { background: var(--st-surface-3); color: var(--st-text); }
+  .res-tab:disabled { opacity: 0.35; cursor: not-allowed; }
+  .res-tab.on { color: var(--st-accent); border-color: var(--st-accent); }
+
+  /* The count is a value, so it takes the value colour and the mono face. */
+  .res-tab-n {
+    font-family: var(--st-mono);
+    font-size: 0.62rem;
+    color: var(--st-value);
+  }
+
+  .res-tab.on .res-tab-n { color: var(--st-accent); }
+  .res-tab:disabled .res-tab-n { color: var(--st-text-3); }
+
+  /* A two-state choice reads as one control, not two buttons. */
+  .pro-viz-hint {
+    font-size: 0.7rem;
+    color: var(--st-text-3);
+    font-style: italic;
+  }
+
+  .pro-seg {
+    display: inline-flex;
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    overflow: hidden;
+  }
+
+  .pro-seg-btn {
+    background: none;
+    border: none;
+    color: var(--st-text-2);
+    font-family: var(--st-sans);
+    font-size: 0.72rem;
+    padding: 0.22rem 0.5rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .pro-seg-btn + .pro-seg-btn { border-left: 1px solid var(--st-hair); }
+  .pro-seg-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .pro-seg-btn.on { background: var(--st-selected-bg); color: var(--st-accent); }
+
   .pro-res { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 
   .pro-res-header {
     padding: 8px 10px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
   }
 
@@ -830,19 +1026,19 @@
     padding: 6px 20px;
     font-size: 0.8rem;
     font-weight: 600;
-    color: #fff;
-    background: linear-gradient(135deg, #e94560, #c73e54);
-    border: 1px solid #e94560;
+    color: var(--st-text);
+    background: linear-gradient(135deg, var(--st-accent), var(--st-accent));
+    border: 1px solid var(--st-accent);
     border-radius: 4px;
     cursor: pointer;
   }
 
-  .pro-solve-btn:hover { background: linear-gradient(135deg, #ff5a75, #e94560); }
+  .pro-solve-btn:hover { background: linear-gradient(135deg, var(--st-danger), var(--st-accent)); }
   .pro-solve-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .pro-sw-label {
     font-size: 0.65rem;
-    color: #888;
+    color: var(--st-text-3);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -855,8 +1051,8 @@
     margin-top: 6px;
     padding: 4px 8px;
     font-size: 0.7rem;
-    color: #ff8a9e;
-    background: rgba(233, 69, 96, 0.1);
+    color: var(--st-danger);
+    background: rgba(229, 72, 42, 0.1);
     border-radius: 3px;
   }
 
@@ -864,18 +1060,18 @@
     display: block;
     margin-top: 6px;
     font-size: 0.72rem;
-    color: #4ecdc4;
+    color: var(--st-value);
     font-weight: 500;
   }
 
   /* Visualization controls */
   .pro-viz-section {
     padding: 6px 10px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     display: flex;
     flex-direction: column;
     gap: 5px;
-    background: #0d1b33;
+    background: var(--st-surface);
     flex-shrink: 0;
   }
 
@@ -888,17 +1084,17 @@
   .pro-viz-label {
     font-size: 0.62rem;
     font-weight: 600;
-    color: #888;
+    color: var(--st-text-3);
     min-width: 55px;
   }
 
   .pro-viz-sel {
     padding: 2px 4px;
     font-size: 0.64rem;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ccc;
+    color: var(--st-text-2);
     cursor: pointer;
     flex: 1;
   }
@@ -906,20 +1102,20 @@
   .pro-viz-range {
     flex: 1;
     height: 14px;
-    accent-color: #e94560;
+    accent-color: var(--st-accent);
   }
 
   .pro-viz-val {
     font-size: 0.6rem;
     font-family: monospace;
-    color: #4ecdc4;
+    color: var(--st-value);
     min-width: 36px;
     text-align: right;
   }
 
   .pro-viz-check {
     font-size: 0.64rem;
-    color: #aaa;
+    color: var(--st-text-2);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -934,7 +1130,7 @@
     align-items: center;
     gap: 4px;
     padding: 5px 10px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     flex-wrap: wrap;
     flex-shrink: 0;
   }
@@ -943,23 +1139,23 @@
     padding: 3px 10px;
     font-size: 0.64rem;
     font-weight: 600;
-    color: #888;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    color: var(--st-text-3);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
     cursor: pointer;
   }
 
-  .pro-view-btn:hover { color: #ccc; background: #1a3860; }
-  .pro-view-btn.active { color: #fff; background: #1a4a7a; border-color: #4ecdc4; }
+  .pro-view-btn:hover { color: var(--st-text-2); background: var(--st-hair-strong); }
+  .pro-view-btn.active { color: var(--st-text); background: var(--st-surface-3); border-color: var(--st-value); }
 
   .pro-view-sel {
     padding: 3px 6px;
     font-size: 0.64rem;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ccc;
+    color: var(--st-text-2);
     cursor: pointer;
     margin-left: 4px;
   }
@@ -973,7 +1169,7 @@
 
   /* Collapsible result sections */
   .res-detail {
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
   }
 
   .res-detail > summary {
@@ -987,7 +1183,7 @@
   .res-detail > summary::before {
     content: '▸ ';
     font-size: 0.55rem;
-    color: #666;
+    color: var(--st-text-3);
   }
 
   .res-detail[open] > summary::before {
@@ -998,15 +1194,15 @@
     padding: 5px 10px;
     font-size: 0.62rem;
     font-weight: 600;
-    color: #4ecdc4;
+    color: var(--st-text-2);
     text-transform: uppercase;
-    background: #0a1a30;
-    border-bottom: 1px solid #1a3050;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-surface-3);
   }
 
   .res-count {
     font-weight: 400;
-    color: #666;
+    color: var(--st-text-3);
     font-size: 0.58rem;
   }
 
@@ -1016,62 +1212,62 @@
   .pro-res-table thead { position: sticky; top: 0; z-index: 1; }
   .pro-res-table th {
     padding: 4px 5px; text-align: left; font-size: 0.56rem; font-weight: 600;
-    color: #888; text-transform: uppercase; background: #0a1a30; border-bottom: 1px solid #1a4a7a;
+    color: var(--st-text-3); text-transform: uppercase; background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3);
   }
-  .pro-res-table td { padding: 3px 5px; border-bottom: 1px solid #0f2030; color: #ccc; }
-  .col-id { width: 30px; color: #666; font-family: monospace; text-align: center; }
+  .pro-res-table td { padding: 3px 5px; border-bottom: 1px solid var(--st-surface-2); color: var(--st-text-2); }
+  .col-id { width: 30px; color: var(--st-text-3); font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; text-align: right; font-size: 0.66rem; }
-  .col-end { font-size: 0.6rem; color: #888; font-weight: 600; text-align: center; width: 20px; }
-  .col-type { font-size: 0.62rem; color: #7fb0c8; text-align: center; width: 40px; }
+  .col-end { font-size: 0.6rem; color: var(--st-text-3); font-weight: 600; text-align: center; width: 20px; }
+  .col-type { font-size: 0.62rem; color: var(--st-info); text-align: center; width: 40px; }
 
   .shell-table-label {
-    font-size: 0.66rem; font-weight: 600; color: #9fd3c8;
+    font-size: 0.66rem; font-weight: 600; color: var(--st-text-2);
     margin: 8px 0 3px; display: flex; gap: 6px; align-items: baseline;
   }
   .shell-table-label:first-child { margin-top: 0; }
-  .shell-unit { color: #888; font-weight: 400; font-family: monospace; }
+  .shell-unit { color: var(--st-text-3); font-weight: 400; font-family: monospace; }
   .pro-res-table tr.selected td { background: rgba(0, 255, 255, 0.12); }
 
   .shell-table-legend {
-    font-size: 0.6rem; color: #8aa; line-height: 1.4; margin: 2px 0 6px;
-    padding: 4px 6px; border-left: 2px solid #2a5060; background: rgba(40, 70, 90, 0.25);
+    font-size: 0.6rem; color: var(--st-text-2); line-height: 1.4; margin: 2px 0 6px;
+    padding: 4px 6px; border-left: 2px solid var(--st-hair-strong); background: rgba(40, 70, 90, 0.25);
   }
   /* Governing cell (largest |value|) in a shell column */
   .pro-res-table td.gov {
-    color: #ffd166; font-weight: 700;
+    color: var(--st-warn); font-weight: 700;
     background: rgba(255, 209, 102, 0.10);
   }
   /* Negligible-column header marker */
-  .pro-res-table th.th-zero { color: #6a7a85; }
+  .pro-res-table th.th-zero { color: var(--st-text-3); }
   .zero-badge {
-    font-size: 0.5rem; font-weight: 700; color: #0a1a30; background: #6a7a85;
+    font-size: 0.5rem; font-weight: 700; color: var(--st-surface); background: var(--st-text-3);
     border-radius: 3px; padding: 0 3px; margin-left: 3px; vertical-align: middle;
   }
   /* Peak |value| summary footer row */
   .pro-res-table tfoot .shell-peak-row td {
-    border-top: 1px solid #1a4a7a; font-size: 0.6rem; color: #9fd3c8;
+    border-top: 1px solid var(--st-surface-3); font-size: 0.6rem; color: var(--st-value);
     font-weight: 600; background: rgba(20, 40, 60, 0.4);
   }
   .pro-res-table tfoot .shell-peak-row td:first-child { text-align: left; font-family: inherit; }
 
   .nodal-ids-row td {
     padding: 1px 5px;
-    border-bottom: 1px solid #0f2030;
+    border-bottom: 1px solid var(--st-surface-2);
   }
 
   .col-node-id {
     font-size: 0.54rem;
     font-family: monospace;
-    color: #556;
+    color: var(--st-text-3);
     text-align: right;
   }
 
-  .col-min { color: #4ecdc4; }
-  .col-max { color: #e94560; }
+  .col-min { color: var(--st-value); }
+  .col-max { color: var(--st-accent); }
 
   .pro-empty {
     text-align: center;
-    color: #555;
+    color: var(--st-text-3);
     font-style: italic;
     padding: 40px 10px;
   }
@@ -1082,7 +1278,7 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
-    background: #0d1b33;
+    background: var(--st-surface);
   }
 
   .pro-query .pro-viz-sel[type="text"],
@@ -1096,40 +1292,40 @@
     gap: 2px;
     padding: 6px 8px;
     margin-top: 3px;
-    background: #0f2840;
-    border: 1px solid #1a4a7a;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
     cursor: pointer;
   }
-  .pro-query-card:hover { border-color: #4ecdc4; }
-  .pqc-label { font-size: 0.55rem; color: #888; text-transform: uppercase; font-weight: 600; }
-  .pqc-val { font-size: 0.9rem; font-family: monospace; color: #4ecdc4; font-weight: 600; }
-  .pqc-meta { font-size: 0.6rem; color: #888; font-family: monospace; }
+  .pro-query-card:hover { border-color: var(--st-value); }
+  .pqc-label { font-size: 0.55rem; color: var(--st-text-3); text-transform: uppercase; font-weight: 600; }
+  .pqc-val { font-size: 0.9rem; font-family: monospace; color: var(--st-value); font-weight: 600; }
+  .pqc-meta { font-size: 0.6rem; color: var(--st-text-3); font-family: monospace; }
 
   .pro-query-empty {
     padding: 6px 8px;
     margin-top: 3px;
     font-size: 0.66rem;
     font-style: italic;
-    color: #555;
+    color: var(--st-text-3);
     text-align: center;
   }
 
   .pro-query-rowcount {
     font-size: 0.58rem;
-    color: #666;
+    color: var(--st-text-3);
     margin-top: 4px;
   }
 
   .pro-query-tablewrap {
     max-height: 180px;
     overflow-y: auto;
-    border: 1px solid #1a3050;
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
   }
 
-  .pq-extreme { background: rgba(78, 205, 196, 0.12); }
-  .pq-extreme .col-num { color: #4ecdc4; font-weight: 600; }
+  .pq-extreme { background: rgba(127, 212, 204, 0.12); }
+  .pq-extreme .col-num { color: var(--st-value); font-weight: 600; }
 
   .pro-query-export {
     align-self: flex-start;
@@ -1137,19 +1333,19 @@
     padding: 4px 12px;
     font-size: 0.64rem;
     font-weight: 600;
-    color: #ccc;
-    background: #0f2840;
-    border: 1px solid #1a4a7a;
+    color: var(--st-text-2);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
     cursor: pointer;
   }
-  .pro-query-export:hover { color: #fff; background: #1a4a7a; }
+  .pro-query-export:hover { color: var(--st-text); background: var(--st-surface-3); }
   .pro-query-export:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .pro-query-export-cap {
     margin-top: 4px;
     font-size: 0.58rem;
-    color: #777;
+    color: var(--st-text-3);
     font-style: italic;
   }
 

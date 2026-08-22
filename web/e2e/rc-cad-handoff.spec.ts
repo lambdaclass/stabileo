@@ -21,7 +21,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, solveModel, designAll } from './fixtures';
+import { test, expect, solveModel, designAll, openBasicProjectPanel } from './fixtures';
 import type { Page } from '@playwright/test';
 import { validateAgainstSchema } from '../src/lib/export/json-schema-subset';
 import {
@@ -44,11 +44,22 @@ const FIXTURE = new URL(
 /**
  * Open the committed project through the production file input.
  *
- * The Open control lives on the Básico toolbar — PRO mode has no file picker of its own — so the
- * journey does what a user does: switch to Básico, open the saved project, and let the project
- * put the app back into PRO. `deserializeProject` restores `analysisMode`, `uiStore.appMode`
- * derives from it, and the fixture is saved as the PRO project it is. No test-only load hook is
- * involved at any point.
+ * The journey does what a user does: switch to Básico, open the saved project, and let the
+ * project put the app back into PRO. `deserializeProject` restores `analysisMode`,
+ * `uiStore.appMode` derives from it, and the fixture is saved as the PRO project it is. No
+ * test-only load hook is involved at any point.
+ *
+ * ── Why the Básico route, now that PRO has its own ─────────────────
+ *
+ * PR20 gave PRO a Project view with its own Open (`pr-project` → `pp-open`), and
+ * `pro-project-files.spec.ts` covers it. This helper deliberately keeps the OTHER route,
+ * because the assertion below — that the app lands back in PRO without the test putting it
+ * there — only means something if the file was opened from somewhere else.
+ *
+ * What did change is where Básico keeps the control. PR20 replaced Básico's left toolbar with a
+ * ribbon and a panel, so `ToolbarProject` — the same component, the same input — now renders
+ * inside the panel that `hdr-project` opens. Without that click the input is not on the page at
+ * all, which is why every test in this file was failing.
  */
 async function openCommittedProject(page: Page) {
   // First button in the mode toggle is Básico. Selected structurally rather than by label, so
@@ -57,8 +68,9 @@ async function openCommittedProject(page: Page) {
   // Desktop Básico is the ribbon, and the project controls live in a panel it opens —
   // `BasicPanel` renders `ToolbarProject`, so nothing is attached until the panel is.
   // This helper was written before the ribbon reached this branch and reached straight
-  // for the input, which no longer exists on load.
-  await page.getByTestId('hdr-project').click();
+  // for the input, which no longer exists on load. The click goes through the shared
+  // opener: `hdr-project` toggles, so an unconditional click can CLOSE the panel.
+  await openBasicProjectPanel(page);
   const input = page.getByTestId('project-open-file');
   await expect(input).toBeAttached();
   await input.setInputFiles(FIXTURE);

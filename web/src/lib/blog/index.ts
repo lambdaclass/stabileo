@@ -7,9 +7,10 @@
  */
 import type { Post } from './types';
 import { determinismBoundary } from './posts/determinism-boundary';
+import { torsionTheories } from './posts/torsion-theories';
 
 /** Newest first. `date` is a plain ISO day, so a string sort is a date sort. */
-export const POSTS: Post[] = [determinismBoundary].sort((a, b) => b.date.localeCompare(a.date));
+export const POSTS: Post[] = [determinismBoundary, torsionTheories].sort((a, b) => b.date.localeCompare(a.date));
 
 export function findPost(slug: string): Post | undefined {
   return POSTS.find((p) => p.slug === slug);

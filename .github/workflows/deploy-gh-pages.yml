@@ -45,11 +45,35 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # The build prerenders the public pages by driving the real application in
+      # a browser (web/scripts/prerender.ts), so one is needed here. Without it
+      # the build fails loudly, which is the intended failure: a deploy that
+      # silently skipped prerendering would put the site back to answering 404
+      # to every crawler, and nothing on the page would look wrong.
+      - name: Install Chromium for prerendering
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
       - name: Build
         working-directory: web
         run: npm run build
         env:
           BASE_PATH: /
+
+      - name: Verify the public pages were prerendered
+        working-directory: web
+        run: |
+          # A crawler must receive text, not an empty shell. These four files
+          # are the difference between the site being indexable and not, and a
+          # prerender that half-ran would leave a build that looks fine.
+          for f in index.html es/index.html pt/blog/index.html es/blog/the-determinism-boundary/index.html; do
+            test -f "dist/$f" || { echo "prerender missing: dist/$f"; exit 1; }
+            chars=$(sed -e 's/<script[^>]*>.*<\/script>//g' -e 's/<[^>]*>/ /g' "dist/$f" | tr -s ' \n' ' ' | wc -c)
+            if [ "$chars" -lt 800 ]; then echo "dist/$f carries only $chars characters of text"; exit 1; fi
+          done
+          test -f dist/sitemap.xml || { echo 'sitemap.xml missing'; exit 1; }
+          test -f dist/robots.txt || { echo 'robots.txt missing'; exit 1; }
+          echo "prerendered pages verified"
 
       - name: Verify custom-domain asset paths
         working-directory: web

@@ -205,12 +205,32 @@ export function syncElements(ctx: SceneSyncContext): void {
     // whole buffer dirty, and on a 2476-element model that forced a GPU upload
     // per sync even when nothing had changed.
     {
-      const isTruss = elem.type === 'truss';
-      const baseColor = (renderMode === 'wireframe')
-        ? (isTruss ? COLORS.truss : COLORS.frameWire)
-        : (isTruss ? COLORS.truss : COLORS.frame);
-      if (eb.getBaseColor(id) !== baseColor) {
-        eb.setBaseColor(id, baseColor);
+      /*
+       * Not while a colour map owns the members.
+       * ────────────────────────────────────────
+       * This writes the per-type base colour — frame grey, truss grey — on
+       * every element sync, including syncs that happen after
+       * `syncColorMap3D` has painted the axial map. The guard below only skips
+       * a write when the colour already MATCHES, and an axial colour never
+       * matches the type default, so every sync repainted the map away: member
+       * colouring turned on, was correct for a frame, and was grey again
+       * before anyone saw it.
+       *
+       * While axialColor / colorMap / verification is showing, the map owns
+       * these colours; `syncColorMap3D` sets them and turning the map off
+       * restores the type default on the next sync.
+       */
+      const mapDt = resultsStore.diagramType;
+      const mapOwnsColors = resultsStore.results3D != null
+        && (mapDt === 'axialColor' || mapDt === 'colorMap' || mapDt === 'verification');
+      if (!mapOwnsColors) {
+        const isTruss = elem.type === 'truss';
+        const baseColor = (renderMode === 'wireframe')
+          ? (isTruss ? COLORS.truss : COLORS.frameWire)
+          : (isTruss ? COLORS.truss : COLORS.frame);
+        if (eb.getBaseColor(id) !== baseColor) {
+          eb.setBaseColor(id, baseColor);
+        }
       }
     }
     // BVH-accelerated picking surface (invisible) — kept in sync with positions.
@@ -833,6 +853,46 @@ export function syncLoads(ctx: SceneSyncContext): void {
 
 // ─── Selection highlight ─────────────────────────────────────
 
+/**
+ * Every element that is on screen, with its group when it has one.
+ *
+ * `ctx.elementGroups` is a PARTIAL registry, and that is by design: in
+ * wireframe render mode a plain member is a segment of the batched
+ * `LineSegments2` and gets no group of its own. Only members that need extra
+ * geometry — a section extrusion, a hinge glyph — are given one.
+ *
+ * Every flat colour map iterated that map, so in wireframe they reached
+ * almost nothing: the axial colour map left an industrial shed entirely white,
+ * because 633 wireframe members have no group between them. The batched mesh
+ * is where their colour actually lives.
+ *
+ * So iteration is driven off the batched mesh, which knows every element, and
+ * the group is applied only where one exists.
+ *
+ * Typed on the two fields it reads rather than on a named context, because
+ * both the scene sync and the results sync need it and they carry different
+ * contexts — and a copy in each is how one of them ends up fixed and the other
+ * does not. That is precisely what happened: the colour maps were repaired
+ * here and `syncSelection` was left iterating the partial map, so selecting a
+ * member in Basic 3D highlighted nothing at all.
+ */
+export function forEachElementVisual(
+  ctx: { elementsBatched: { ids(): Iterable<number> }; elementGroups: Map<number, THREE.Group> },
+  fn: (id: number, group: THREE.Group | undefined) => void,
+): void {
+  const seen = new Set<number>();
+  for (const id of ctx.elementsBatched.ids()) {
+    seen.add(id);
+    fn(id, ctx.elementGroups.get(id));
+  }
+  // A group with no batched segment should not exist, but if one does it is
+  // still on screen and still has to be coloured.
+  for (const [id, group] of ctx.elementGroups) {
+    if (!seen.has(id)) fn(id, group);
+  }
+}
+
+
 export function syncSelection(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
@@ -853,7 +913,7 @@ export function syncSelection(ctx: SceneSyncContext): void {
   // Elements
   const wireframe = uiStore.renderMode3D === 'wireframe';
   const eb = ctx.elementsBatched;
-  for (const [id, group] of ctx.elementGroups) {
+  forEachElementVisual(ctx, (id, group) => {
     const selected = !shellMode && uiStore.selectedElements.has(id);
     const elem = modelStore.elements.get(id);
     const isTruss = elem?.type === 'truss';
@@ -862,12 +922,12 @@ export function syncSelection(ctx: SceneSyncContext): void {
       ? (isTruss ? COLORS.truss : COLORS.frameWire)
       : (isTruss ? COLORS.truss : COLORS.frame);
     const color = selected ? COLORS.elementSelected : baseColor;
-    setGroupColor(group, color);
+    if (group) setGroupColor(group, color);
     // Wireframe mode: batched LineSegments2 carries the visual, so push the
     // color into it as well. In solid/sections, the batched mesh is hidden
     // but we keep the base color in sync for toggle-back.
     eb.setBaseColor(id, color);
-  }
+  });
   eb.flush();
 
   // Supports

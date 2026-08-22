@@ -119,7 +119,15 @@ export default defineConfig({
     // `window.__stabileo` — proved by src/lib/utils/__tests__/e2e-hook-gating.test.ts.
     command: `VITE_E2E=1 npm run build && npx vite preview --port ${PORT} --host ${HOST} --strictPort`,
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    /*
+     * An explicit E2E_PORT means "give me my own server", so reuse is off for
+     * it. Reuse plus a fixed port is what let a run attach to whatever was
+     * already listening — first another worktree's preview, then a leftover of
+     * an earlier run of this one — and in both cases the tests exercised a
+     * build that was never asked for VITE_E2E=1, so every PRO fixture timed out
+     * waiting for hooks that bundle does not contain.
+     */
+    reuseExistingServer: !process.env.CI && !process.env.E2E_PORT,
     timeout: 240_000,
     stdout: 'pipe',
     stderr: 'pipe',

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
-  import { enterApp, goPublic } from './landing-utils';
+  import { enterApp } from './landing-utils';
+  import PublicLink from './PublicLink.svelte';
   import Eyebrow from './Eyebrow.svelte';
   import TrussFigure from './TrussFigure.svelte';
 
@@ -18,13 +19,16 @@
       <div class="hero-ctas">
         <button class="btn btn-primary btn-lg" onclick={() => enterApp()}>{t('landing.heroCtaPrimary')}</button>
         <!--
-          This used to scroll to the live-demo section. That section is gone,
-          so the button points at the guided tour instead — the closest thing
-          left to "show me it running". A real navigation, not a pushState:
-          /demo starts the tour from the application's onMount, which has
-          already run by the time anyone reads this page.
+          The hero had a second button here, pointing at /demo, the guided
+          tour. That route is being retired by the tutorials workstream, so
+          the button is gone rather than left aiming at a 404 — a dead link
+          looks exactly like a working one until it is pressed, and this one
+          sat in the first screen.
+
+          The hero keeps one action and the quiet blog link below it. When
+          /demo returns as the no-login entry point, a second button here is
+          a two-line change.
         -->
-        <a class="btn btn-ghost btn-lg" href="/demo">{t('landing.heroCtaSecondary')}</a>
       </div>
 
       <!--
@@ -34,7 +38,7 @@
         decision with a footnote, where three buttons would read as three
         equal choices.
       -->
-      <button class="link-arrow hero-blog" onclick={() => goPublic('/blog')}>{t('landing.heroBlogLink')}</button>
+      <PublicLink to="/blog" class="link-arrow hero-blog">{t('landing.heroBlogLink')}</PublicLink>
 
       <!--
         The three modes, named in the first screen.

@@ -29,7 +29,7 @@
  * carries the cases that need their own page: reopening, reloading, isolation, picking.
  */
 
-import { test, expect, designAll, loadModel, SOLID_FAMILIES } from './fixtures';
+import { test, expect, designAll, loadModel, SOLID_FAMILIES, openDocumentsStage } from './fixtures';
 import type { RebarSceneCensus } from './fixtures';
 
 type Page = import('@playwright/test').Page;
@@ -68,6 +68,7 @@ async function openWorkspace(page: Page, example: string, withFloors = false) {
   }
 
   const before = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
+  await openDocumentsStage(page);
   await page.getByTestId('doc-3d').click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible();
   await expect
@@ -431,6 +432,7 @@ test.describe('what the switches survive', () => {
       await expect(generate).toBeEnabled({ timeout: 60_000 });
       await generate.click();
       await expect.poll(() => assemblyCount(page), { timeout: 60_000 }).toBeGreaterThan(0);
+      await openDocumentsStage(page);
       await page.getByTestId('doc-3d').click();
       await expect(page.getByTestId('rebar-workspace')).toBeVisible();
 

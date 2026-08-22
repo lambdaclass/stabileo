@@ -18,7 +18,7 @@
  * fired; it says nothing about whether the file has a bar in it.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 type Json = Record<string, unknown>;
@@ -63,6 +63,7 @@ async function capture(page: Page, testid: string): Promise<string> {
 test.describe('the Documents area is reachable and real', () => {
   test('it appears once detailing has been coordinated', async ({ pro: page }) => {
     await coordinated(page);
+    await openDocumentsStage(page);
     await expect(page.getByTestId('documents')).toBeVisible();
     // No document has been built yet, and the UI says so rather than showing something.
     await expect(page.getByTestId('doc-none')).toBeVisible();
@@ -70,6 +71,7 @@ test.describe('the Documents area is reachable and real', () => {
 
   test('all three export commands are visible', async ({ pro: page }) => {
     await coordinated(page);
+    await openDocumentsStage(page);
     await expect(page.getByTestId('doc-report')).toBeVisible();
     await expect(page.getByTestId('doc-dxf')).toBeVisible();
     await expect(page.getByTestId('doc-xlsx')).toBeVisible();
@@ -78,6 +80,8 @@ test.describe('the Documents area is reachable and real', () => {
   test('building a document shows its readiness and revision', async ({ pro: page }) => {
     await coordinated(page);
     // The DXF button builds the model as a side effect, like every export does.
+    // The exports live in the Documents stage, which is collapsed like every other stage.
+    await openDocumentsStage(page);
     const [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 30_000 }),
       page.getByTestId('doc-dxf').click(),
@@ -91,6 +95,7 @@ test.describe('the Documents area is reachable and real', () => {
 test.describe('the downloaded files have content', () => {
   test('the DXF contains real geometry, not just a header', async ({ pro: page }) => {
     await coordinated(page);
+    await openDocumentsStage(page);
     const dxf = await capture(page, 'doc-dxf');
     expect(dxf).toContain('SECTION');
     expect(dxf).toContain('ENTITIES');
@@ -103,12 +108,15 @@ test.describe('the downloaded files have content', () => {
 
   test('the DXF states whether it may be built from', async ({ pro: page }) => {
     await coordinated(page);
+    await openDocumentsStage(page);
     const dxf = await capture(page, 'doc-dxf');
     expect(dxf).toMatch(/NOT FOR CONSTRUCTION|ISSUED FOR CONSTRUCTION|FOR REVIEW/);
   });
 
   test('the XLSX is a real workbook', async ({ pro: page }) => {
     await coordinated(page);
+    // The exports live in the Documents stage, which is collapsed like every other stage.
+    await openDocumentsStage(page);
     const [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 30_000 }),
       page.getByTestId('doc-xlsx').click(),
@@ -136,6 +144,7 @@ test.describe('the legacy reinforcement is never passed off as coordinated detai
 
     const coordinatedNow = (await assemblies(page)).length > 0;
     if (coordinatedNow) {
+      await openDocumentsStage(page);
       await expect(page.getByTestId('documents')).toBeVisible();
     } else {
       await expect(page.getByTestId('detailing-empty')).toBeVisible();
@@ -147,6 +156,8 @@ test.describe('the legacy reinforcement is never passed off as coordinated detai
 test.describe('supersession', () => {
   test('changing the detailing retires the current document', async ({ pro: page }) => {
     await coordinated(page);
+    // The exports live in the Documents stage, which is collapsed like every other stage.
+    await openDocumentsStage(page);
     await Promise.all([
       page.waitForEvent('download', { timeout: 30_000 }),
       page.getByTestId('doc-dxf').click(),
@@ -166,6 +177,8 @@ test.describe('supersession', () => {
 
   test('a superseded document keeps its revision number', async ({ pro: page }) => {
     await coordinated(page);
+    // The exports live in the Documents stage, which is collapsed like every other stage.
+    await openDocumentsStage(page);
     await Promise.all([
       page.waitForEvent('download', { timeout: 30_000 }),
       page.getByTestId('doc-dxf').click(),
@@ -185,6 +198,7 @@ test.describe('both locales', () => {
       test.use({ appLocale: lang });
       test(`the DXF banner is written in ${lang}`, async ({ pro: page }) => {
         await coordinated(page);
+        await openDocumentsStage(page);
         const dxf = await capture(page, 'doc-dxf');
         // The QA fixture may coordinate cleanly or not; either way the banner must be in
         // the active language, which is what this asserts.

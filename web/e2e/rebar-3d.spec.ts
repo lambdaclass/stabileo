@@ -14,9 +14,26 @@
  * These journeys load committed projects through the same path the document journeys use, and
  * an eleventh project load in one describe block has already broken all nine tests in another
  * spec through leftover autosaved state.
+ *
+ * ── One journey, and observers ─────────────────────────────────────
+ *
+ * Four tests here used to pay a complete 7-storey setup each — load, solve, design, detail,
+ * floor-design, build ~21 000 tubes — and the last of them ran on a machine that had been at
+ * full tilt for minutes. That is the starvation diagnosed in
+ * `docs/handoffs/pr20-heavy-spec-starvation.md`: the file failed when run whole and passed when
+ * the failing test was run alone.
+ *
+ * Exactly one of them is about the JOURNEY, and it still performs every step of it — including
+ * the solve, which is the operation that degrades under load. The other three only OBSERVE a
+ * prepared workspace, so they restore the project `prepared-building.ts` had the app autosave
+ * once, on a page of their own. See that file for why the prepared state travels in the browser
+ * rather than through the test process, and why a page of one's own is not a shared page.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { designAll, loadModel, openDocumentsStage } from './fixtures';
+import {
+  test, expect, openPreparedWorkspace, readTally, readPieces,
+} from './prepared-building';
 
 type Page = import('@playwright/test').Page;
 type Json = Record<string, unknown>;
@@ -56,6 +73,7 @@ async function openWorkspace(
   }
 
   const buildsBefore = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
+  await openDocumentsStage(page);
   await page.getByTestId('doc-3d').click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible();
   /**
@@ -341,6 +359,31 @@ test.describe('the workspace shows every family the detailing produced', () => {
       expect((await num('wall'))[1], 'wall bars').toBeGreaterThan(50);
     });
 
+  /**
+   * The assertion that keeps the shared preparation honest.
+   *
+   * Every observer below restores a project the app autosaved after the whole chain, instead of
+   * running the chain itself. That is only sound if the save/restore round trip loses nothing —
+   * so it is asserted here, against the tally, the piece kinds and the mesh census recorded while
+   * the LIVE scene was on screen, rather than assumed for the rest of the file.
+   *
+   * The census is the strong half: it is read off `mesh.visible` and the drawn ranges, not off
+   * the filter the tally is derived from. A restore that produced the right numbers in the panel
+   * and a smaller scene would pass on the tally alone and fail here.
+   */
+  test('the saved project reopens as the scene the design produced',
+    async ({ preparedPage: page, preparedProject }) => {
+      test.setTimeout(240_000);
+      await openPreparedWorkspace(page, preparedProject);
+
+      expect(await readTally(page), 'the family tally survives the round trip')
+        .toEqual(preparedProject.tally);
+      expect(await readPieces(page), 'the piece kinds survive the round trip')
+        .toEqual(preparedProject.pieces);
+      expect(await page.evaluate(() => window.__stabileo.rebarSceneCensus()),
+        'the meshes drawn survive the round trip').toEqual(preparedProject.census);
+    });
+
   test('a model whose beams design shows beam steel too', async ({ pro: page }) => {
     // The 7-storey model cannot prove this — its beams are refused by the verifier, so beam
     // steel does not exist to be shown. This one distinguishes "the view drops beam bars"
@@ -357,9 +400,9 @@ test.describe('the workspace shows every family the detailing produced', () => {
 
 test.describe('a layer switch takes its own family and nothing else', () => {
   test('turning columns off removes their STEEL as well as their concrete',
-    async ({ pro: page }) => {
+    async ({ preparedPage: page, preparedProject }) => {
       test.setTimeout(240_000);
-      await openWorkspace(page, 'pro-edificio-7p', true);
+      await openPreparedWorkspace(page, preparedProject);
       const tally = page.getByTestId('rebar-tally');
       const nums = async (family: string) =>
         (await tally.getByTestId(`rebar-tally-${family}`).innerText())
@@ -378,9 +421,9 @@ test.describe('a layer switch takes its own family and nothing else', () => {
     });
 
   test('a family the model does not contain says so on its switch',
-    async ({ pro: page }) => {
+    async ({ preparedPage: page, preparedProject }) => {
       test.setTimeout(240_000);
-      await openWorkspace(page, 'pro-edificio-7p', true);
+      await openPreparedWorkspace(page, preparedProject);
       // This building has no footings at all. A switch that looks identical to a working one
       // is how "no foundations in this model" reads as "the viewer lost them".
       await expect(page.getByTestId('rebar-layer-empty-footing')).toBeVisible();
@@ -391,9 +434,9 @@ test.describe('a layer switch takes its own family and nothing else', () => {
 
 test.describe('the cage is legible and the refusals are explained', () => {
   test('closed ties, crossties and joint ties are counted apart',
-    async ({ pro: page }) => {
+    async ({ preparedPage: page, preparedProject }) => {
       test.setTimeout(240_000);
-      await openWorkspace(page, 'pro-edificio-7p', true);
+      await openPreparedWorkspace(page, preparedProject);
       const pieces = page.getByTestId('rebar-pieces');
       await expect(pieces).toBeVisible();
       // `role` calls all 8 212 of them "transverse"; a hoop and a single-leg crosstie are

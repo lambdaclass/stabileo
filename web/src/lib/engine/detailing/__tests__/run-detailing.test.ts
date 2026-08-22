@@ -265,6 +265,9 @@ describe('call-graph: no advertised capability is unreachable', () => {
       'lib/engine/detailing/run-detailing.ts',
       'components/pro/design/DesignToolbar.svelte',
       'components/pro/design/DetailingWorkflow.svelte',
+      // The exports and the review moved into a stage of their own.
+      'components/pro/design/DocumentsSection.svelte',
+      'components/pro/design/DesignOverview.svelte',
     ];
     return files.map((f) => readFileSync(`${SRC}/${f}`, 'utf8')).join('\n');
   }
@@ -283,7 +286,11 @@ describe('call-graph: no advertised capability is unreachable', () => {
   });
 
   it('the Generate detailing command exists in the toolbar', () => {
-    const toolbar = readFileSync(`${SRC}/components/pro/design/DesignToolbar.svelte`, 'utf8');
+    // The command bar plus the section that now carries the read-out and the counts.
+    const toolbar = [
+      readFileSync(`${SRC}/components/pro/design/DesignToolbar.svelte`, 'utf8'),
+      readFileSync(`${SRC}/components/pro/design/DesignOverview.svelte`, 'utf8'),
+    ].join('\n');
     expect(toolbar).toContain('cmd-generate-detailing');
     expect(toolbar).toContain('detailingStore.generate');
   });
@@ -294,7 +301,11 @@ describe('call-graph: no advertised capability is unreachable', () => {
   });
 
   it('the empty state offers the command instead of describing one', () => {
-    const wf = readFileSync(`${SRC}/components/pro/design/DetailingWorkflow.svelte`, 'utf8');
+    // The detailing panel plus the Documents stage extracted from it.
+    const wf = [
+      readFileSync(`${SRC}/components/pro/design/DetailingWorkflow.svelte`, 'utf8'),
+      readFileSync(`${SRC}/components/pro/design/DocumentsSection.svelte`, 'utf8'),
+    ].join('\n');
     expect(wf).toContain('detailing-empty-generate');
     expect(wf).toContain('detailingStore.generate');
   });

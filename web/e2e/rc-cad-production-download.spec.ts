@@ -34,7 +34,7 @@
  * identity, and never the prose.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, openBasicProjectPanel } from './fixtures';
 import type { Page } from '@playwright/test';
 import { CIRSOC_VERIFIER_ID } from '../src/lib/engine/design/adapters/cirsoc201-adapter';
 
@@ -44,13 +44,21 @@ const FIXTURE = new URL(
 /** The identity the bound regulation must produce. Derived, never a pasted literal. */
 const EXPECTED_VERIFIER = `${CIRSOC_VERIFIER_ID}.2025`;
 
-/** Open the committed project through the production file input. */
+/**
+ * Open the committed project through the production file input.
+ *
+ * Básico, deliberately: the assertion that the app returns to PRO on its own is only a claim
+ * about the FILE if the file was opened from somewhere else. PR20 moved Básico's project
+ * controls into the panel `hdr-project` opens — same `ToolbarProject`, same input, one click
+ * further in — and `pro-project-files.spec.ts` covers PRO's own Open.
+ */
 async function openProject(page: Page) {
   await page.locator('[data-tour="mode-toggle"] button').first().click();
   // Desktop Básico is the ribbon, and the project controls live in a panel it opens —
-  // `BasicPanel` renders `ToolbarProject`, so the input is not attached on load. Third
-  // copy of this helper; `rc-cad-handoff.spec.ts` carries the same opening click.
-  await page.getByTestId('hdr-project').click();
+  // `BasicPanel` renders `ToolbarProject`, so the input is not attached on load. The
+  // shared opener clicks conditionally: `hdr-project` toggles, and a journey that
+  // already has the panel open would CLOSE it with an unconditional click.
+  await openBasicProjectPanel(page);
   const input = page.getByTestId('project-open-file');
   await expect(input).toBeAttached();
   await input.setInputFiles(FIXTURE);
@@ -60,17 +68,33 @@ async function openProject(page: Page) {
   await expect(page.locator('.app-body-pro')).toBeAttached();
 }
 
-/** The RC Design tab, from the ANALYSIS menu a user opens. */
+/**
+ * The RC Design tab, reached the way a user reaches it.
+ *
+ * PR20 replaced PRO's menus with a two-level ribbon: a row of STAGES, and the commands of the
+ * open stage under it. Design is a stage of its own, and the RC tab is a command inside it. The
+ * old `ANALYSIS` menu and the bare `Design` text this used to click no longer exist, which is
+ * what made this journey unrunnable rather than failing.
+ */
 async function openDesignTab(page: Page) {
-  await page.getByRole('button', { name: /ANALYSIS/i }).first().click();
-  await page.getByText(/^Design$/).first().click();
+  await page.getByTestId('pr-stage-design').click();
+  await page.getByTestId('pr-cmd-design').click();
   await expect(page.getByTestId('cmd-design-all')).toBeVisible({ timeout: 30_000 });
 }
 
-/** Solve from the toolbar's own button, and wait on the real counter. */
+/**
+ * Solve from the ribbon's own command, and wait on the real counter.
+ *
+ * `Analyse → Solve`, which is where the button went. Still a click on a visible control and
+ * still a wait on `solveCount`, so what this proves is unchanged: the model was solved by the
+ * application, not by the test.
+ */
 async function solveFromToolbar(page: Page) {
   const before = await page.evaluate(() => window.__stabileo.solveCount());
-  await page.getByRole('button', { name: /^Solve$/ }).first().click();
+  await page.getByTestId('pr-stage-analyse').click();
+  const solve = page.getByTestId('pr-cmd-solve');
+  await expect(solve).toBeEnabled();
+  await solve.click();
   await expect
     .poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 120_000 })
     .toBeGreaterThan(before);

@@ -17,17 +17,26 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
-/** Open the RC Design tab the way a user does: Analysis ▾ → RC Design. */
+/**
+ * Open a PRO destination the way a user does: the stage, then its command.
+ *
+ * The bar used to be four dropdowns holding thirteen destinations, so these
+ * helpers had to open a menu and then match a translated label inside it. The
+ * two-level ribbon puts every destination of a stage on screen at once, so a
+ * stable testid does the whole job and the label matching goes away.
+ */
+async function openProTab(page: Page, stage: string, cmd: string) {
+  await page.getByTestId(`pr-stage-${stage}`).click();
+  await page.getByTestId(`pr-cmd-${cmd}`).click();
+}
+
 async function openDesign(page: Page) {
-  await page.locator('button:has-text("Analysis")').first().click();
-  await page.locator('.pb-dropdown .pb-dd-item').filter({ hasText: /Design/i }).first().click();
+  await openProTab(page, 'design', 'design');
   await expect(page.getByTestId('design-toolbar')).toBeVisible();
 }
 
-/** Open Conditions ▾ → Loads. */
 async function openLoads(page: Page) {
-  await page.locator('button:has-text("Conditions")').first().click();
-  await page.locator('.pb-dropdown .pb-dd-item').filter({ hasText: /Loads/i }).first().click();
+  await openProTab(page, 'conditions', 'loads');
 }
 
 async function openRegulations(page: Page) {
@@ -133,8 +142,7 @@ test.describe('@smoke project regulations — code-neutral roles', () => {
 
   test('R4b — aggregate is editable on the concrete material', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
-    await page.locator('button:has-text("Properties")').first().click();
-    await page.locator('.pb-dropdown .pb-dd-item').filter({ hasText: /Materials/i }).first().click();
+    await openProTab(page, 'model', 'materials');
     const input = page.getByTestId('mat-aggregate-1');
     await expect(input).toBeVisible();
     await expect(input).toHaveAttribute('placeholder', /not stated/i);
@@ -145,8 +153,7 @@ test.describe('@smoke project regulations — code-neutral roles', () => {
 
   test('R4c — an out-of-range aggregate is rejected', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
-    await page.locator('button:has-text("Properties")').first().click();
-    await page.locator('.pb-dropdown .pb-dd-item').filter({ hasText: /Materials/i }).first().click();
+    await openProTab(page, 'model', 'materials');
     await page.getByTestId('mat-aggregate-1').fill('500');
     await page.getByTestId('mat-aggregate-1').blur();
     await expect(page.getByTestId('mat-aggregate-error')).toBeVisible();
@@ -311,8 +318,7 @@ test.describe('@slow revision invalidation is precise', () => {
     await solveModel(page);
     const solvesBefore = await page.evaluate(() => window.__stabileo.solveCount());
 
-    await page.locator('button:has-text("Properties")').first().click();
-    await page.locator('.pb-dropdown .pb-dd-item').filter({ hasText: /Materials/i }).first().click();
+    await openProTab(page, 'model', 'materials');
     await page.getByTestId('mat-aggregate-1').fill('19');
     await page.getByTestId('mat-aggregate-1').blur();
 

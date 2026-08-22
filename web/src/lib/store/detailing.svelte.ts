@@ -987,6 +987,17 @@ function createDetailingStore() {
       if (conflicts.length === 0) return;
       conflictIndex = (conflictIndex - 1 + conflicts.length) % conflicts.length;
     },
+    /**
+     * Point the pager at one conflict directly.
+     *
+     * The review list addresses conflicts by position; stepping to the fortieth with `next` forty
+     * times is not navigation. Out-of-range indices are ignored rather than clamped, because a
+     * caller asking for a conflict that is not there has a bug and a silent clamp hides it.
+     */
+    goToConflict(i: number): void {
+      if (i < 0 || i >= conflicts.length) return;
+      conflictIndex = i;
+    },
 
     openReview(): void { reviewOpen = true; lastError = null; },
     closeReview(): void { reviewOpen = false; },

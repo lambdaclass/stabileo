@@ -458,21 +458,21 @@
   .foundations { display: flex; flex-direction: column; gap: 1rem; padding: 0.75rem 1rem; font-size: 0.82rem; }
   header { display: flex; align-items: center; gap: 0.5rem; }
   h4 { margin: 0; font-size: 0.85rem; }
-  .count { font-size: 0.72rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 3px; background: rgba(128,128,128,0.3); }
+  .count { font-size: 0.72rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 3px; background: var(--st-hair); }
   .note { margin: 0.2rem 0 0.4rem; font-size: 0.75rem; opacity: 0.85; }
   .empty { opacity: 0.75; font-style: italic; }
   ul { list-style: none; margin: 0.4rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
-  .profiles > li { border: 1px solid rgba(128,128,128,0.3); border-radius: 4px; padding: 0.5rem; }
+  .profiles > li { border: 1px solid var(--st-hair); border-radius: 4px; padding: 0.5rem; }
   [role='option'] {
     width: 100%; display: flex; align-items: center; gap: 0.5rem; text-align: left;
     padding: 0.3rem 0.45rem; background: none; border: 1px solid transparent; border-radius: 3px;
     cursor: pointer; color: inherit; font: inherit;
   }
-  [role='option'].selected { border-color: currentColor; background: rgba(128,128,128,0.15); }
+  [role='option'].selected { border-color: currentColor; background: var(--st-surface-3); }
   .label { font-weight: 600; }
   .dims { opacity: 0.8; font-variant-numeric: tabular-nums; }
   .add-row { display: flex; align-items: center; gap: 0.5rem; }
-  .editor { border: 1px solid rgba(128,128,128,0.3); border-radius: 4px; padding: 0.6rem; margin-top: 0.4rem; }
+  .editor { border: 1px solid var(--st-hair); border-radius: 4px; padding: 0.6rem; margin-top: 0.4rem; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.45rem; }
   label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.75rem; }
   label.wide { grid-column: 1 / -1; }
@@ -481,13 +481,37 @@
   .issues { margin-top: 0.5rem; gap: 0.15rem; }
   .issues li { font-size: 0.74rem; padding: 0.15rem 0.4rem; border-radius: 3px; }
   /* Blocking is never green; advisory is never red. */
-  .issues li.blocking { background: #5c1a1a; color: #ffe4e4; }
-  .issues li.advisory { background: #7a5b00; color: #fff6dd; }
+  .issues li.blocking { background: var(--st-surface-2); color: var(--st-danger); }
+  .issues li.advisory { background: var(--st-surface-3); color: var(--st-warn); }
   .badge.incomplete {
     margin-left: auto; font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.35rem;
-    border-radius: 3px; background: #7a5b00; color: #fff6dd;
+    border-radius: 3px; background: var(--st-surface-3); color: var(--st-danger);
   }
-  button { font: inherit; cursor: pointer; }
+  /*
+    Controls on the design system, not on the browser's defaults.
+
+    `button { font: inherit; cursor: pointer }` was the whole button style in this file: no
+    background, no border, no focus ring — so Chrome painted them white on a dark panel, and a
+    keyboard user got whatever the UA happened to draw. Same rule, same tokens, same focus ring as
+    Project regulations and the Documents stage, so the four sections read as one product.
+  */
+  button {
+    font: inherit;
+    cursor: pointer;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 4px;
+    background: var(--st-surface-3);
+    color: var(--st-text);
+    font-size: 0.7rem;
+  }
+  button:hover:not(:disabled) { background: var(--st-hair-strong); }
+  button:active:not(:disabled) { background: var(--st-hair); }
+  button:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  /* Disabled is dimmer and still readable: it has to be legible to be an explanation. */
+  button:disabled { opacity: 0.6; cursor: not-allowed; border-color: var(--st-hair); }
+  /* The one that starts the work reads as the one that starts the work. */
+  .primary:not(:disabled) { border-color: var(--st-interactive); font-weight: 600; }
   .danger { margin-top: 0.5rem; }
 
   /* A refusal reads as a refusal. Nothing here is styled as a success. */

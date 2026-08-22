@@ -43,7 +43,9 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.landing.blog')).toBeVisible();
     await expect(page.locator('.landing.blog h1')).toHaveText('Blog');
     await expect(page.locator('.post-card')).not.toHaveCount(0);
-    await expect(page).toHaveTitle(/Blog — Stabileo/);
+    // The three index pages used to share one title, which made them
+    // indistinguishable in a result list. Each names its language's copy now.
+    await expect(page).toHaveTitle(/Blog — notes on the solver/);
     // The application stays mounted behind it, as it does behind the landing.
     await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(1);
   });
@@ -51,7 +53,9 @@ test.describe('@smoke blog', () => {
   test('opens a post and keeps its address', async ({ page }) => {
     await boot(page, '/blog');
 
-    await page.locator('.post-card-title').first().click();
+    // By slug, not by position: the index is newest-first, so "the first card"
+    // is whatever was published last.
+    await page.locator(`.post-card[data-slug="${SLUG}"] .post-card-title`).click();
 
     await expect(page.locator('.post-title')).toBeVisible();
     // The editor syncs the URL to its own mode on every render. If that sync
@@ -101,15 +105,152 @@ test.describe('@smoke blog', () => {
     }
   });
 
-  test('switching language on a post keeps the reader on the post', async ({ page }) => {
-    await boot(page, `/blog/${SLUG}`, 'en');
+  /**
+   * Switching language has to move the ADDRESS, not only the text.
+   *
+   * This is the defect multilingual sites ship most often: the page translates
+   * and the URL keeps naming the language you left, so what the reader copies,
+   * shares and what a crawler stores all disagree with what is on screen. It
+   * is asserted in both directions and on all three surfaces because a
+   * one-directional fix reads as working right up until someone goes back.
+   */
+  const TITLES = {
+    en: 'The determinism boundary: why an AI agent must not do the arithmetic',
+    es: 'La frontera de determinismo: por qué un agente de IA no debe calcular',
+    pt: 'A fronteira de determinismo: por que um agente de IA não deve calcular',
+  } as const;
 
-    await page.locator('.landing.blog select.nav-lang').selectOption('pt');
+  for (const [from, to] of [['pt', 'es'], ['es', 'pt'], ['en', 'es']] as const) {
+    test(`a post switched from ${from} to ${to} moves both the page and the URL`, async ({ page }) => {
+      await boot(page, `/${from}/blog/${SLUG}`);
+      await expect(page.locator('.post-title')).toHaveText(TITLES[from]);
 
-    await expect(page.locator('.post-title')).toHaveText(
-      'A fronteira de determinismo: por que um agente de IA não deve calcular',
+      await page.locator('.landing.blog select.nav-lang').selectOption(to);
+
+      await expect(page.locator('.post-title')).toHaveText(TITLES[to]);
+      await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}$`));
+      await expect(page.locator('html')).toHaveAttribute('lang', to);
+      // The picker reports where you are, not where you were.
+      await expect(page.locator('.landing.blog select.nav-lang')).toHaveValue(to);
+    });
+  }
+
+  test('the blog index switches language too, body and all', async ({ page }) => {
+    // The index's h1 is the word "Blog" in all three languages, so asserting
+    // the heading would pass on a page that never translated. The lead does
+    // the work here.
+    await boot(page, '/es/blog');
+    const lead = page.locator('.landing.blog .lead');
+    await expect(lead).toContainText(/verificaciones normativas/i);
+
+    await page.locator('.landing.blog select.nav-lang').selectOption('en');
+
+    await expect(page).toHaveURL(/\/en\/blog$/);
+    await expect(lead).toContainText(/code checks/i);
+    await expect(page.locator(`.post-card[data-slug="${SLUG}"] .post-card-title`)).toHaveText(TITLES.en);
+  });
+
+  test('the browser back button undoes a language switch', async ({ page }) => {
+    await boot(page, `/pt/blog/${SLUG}`);
+    await page.locator('.landing.blog select.nav-lang').selectOption('es');
+    await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}$`));
+
+    await page.goBack();
+
+    await expect(page).toHaveURL(new RegExp(`/pt/blog/${SLUG}$`));
+    await expect(page.locator('.post-title')).toHaveText(TITLES.pt);
+  });
+
+  test('the URL wins over a stored preference', async ({ page }) => {
+    // Someone whose last choice was Spanish opens a Portuguese link they were
+    // sent. They must get the page they were sent, not the one they last read.
+    await boot(page, `/pt/blog/${SLUG}`, 'es');
+    await expect(page.locator('.post-title')).toHaveText(TITLES.pt);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'pt');
+  });
+
+  test('an unprefixed link still opens the post', async ({ page }) => {
+    // Every link shared before the prefixes existed looks like this.
+    await boot(page, `/blog/${SLUG}`, 'es');
+    await expect(page.locator('.post-title')).toHaveText(TITLES.es);
+  });
+
+  test('the embedded editor waits to be asked, then shows the post’s own numbers', async ({ page }) => {
+    /*
+     * The landing carried an embed like this once and it taught two lessons:
+     * a second application booting on every visit, and an iframe under the
+     * pointer swallowing the wheel. So the first assertion here is that
+     * nothing loads until someone asks for it.
+     *
+     * The second is the one that makes the embed worth having: the figures on
+     * screen are the figures in the prose. If the fixture, the solver or the
+     * text ever drift apart, this fails.
+     */
+    await boot(page, '/es/blog/torsion-bredt-saint-venant');
+
+    const embed = page.locator('.post-embed');
+    await embed.scrollIntoViewIfNeeded();
+    await expect(embed.locator('iframe')).toHaveCount(0);
+    await expect(embed.locator('.post-embed-start')).toBeVisible();
+
+    await embed.locator('.post-embed-start').click();
+    await expect(embed.locator('iframe')).toHaveCount(1);
+
+    const app = page.frameLocator('.post-embed iframe');
+    // The model is the one the post describes: a tube under 1 kN·m.
+    await expect(app.locator('body')).toContainText('1.00', { timeout: 60_000 });
+    // And the three theories, with the two values the table quotes.
+    await expect(app.locator('body')).toContainText('Cauchy', { timeout: 60_000 });
+    await expect(app.locator('body')).toContainText('13.34');
+    await expect(app.locator('body')).toContainText('12.73');
+  });
+
+  test('a post describes itself to a search engine', async ({ page }) => {
+    // The byline on screen is prose; this is the only machine-readable
+    // statement of who wrote the post and when. Without it a result is a page
+    // of text; with it, it can carry an author and a date.
+    await boot(page, `/es/blog/${SLUG}`);
+
+    const raw = await page.locator('script[type="application/ld+json"]').textContent();
+    const data = JSON.parse(raw!);
+    expect(data['@type']).toBe('BlogPosting');
+    expect(data.inLanguage).toBe('es');
+    expect(data.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(data.author.map((a: { name: string }) => a.name)).toContain('Bautista Chesta');
+    // It must claim the address it is actually served at, in this language.
+    expect(data.url).toBe(`https://stabileo.com/es/blog/${SLUG}`);
+    expect(data.mainEntityOfPage['@id']).toBe(data.url);
+  });
+
+  test('the index is not an article, and the post is not the homepage', async ({ page }) => {
+    // Two mistakes that look like nothing and cost the whole point of the
+    // exercise: structured data on a page that is not an article, and a
+    // canonical that hands a post's credit to the front page.
+    await boot(page, '/es/blog');
+    await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://stabileo.com/es/blog',
     );
-    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}$`));
+
+    await boot(page, `/pt/blog/${SLUG}`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      `https://stabileo.com/pt/blog/${SLUG}`,
+    );
+    // And it points at its siblings, which is how they get discovered at all.
+    const alts = await page
+      .locator('link[rel="alternate"][hreflang]')
+      .evaluateAll((els) => els.map((e) => `${e.getAttribute('hreflang')} ${e.getAttribute('href')}`).sort());
+    expect(alts).toEqual([
+      `en https://stabileo.com/en/blog/${SLUG}`,
+      `es https://stabileo.com/es/blog/${SLUG}`,
+      `pt https://stabileo.com/pt/blog/${SLUG}`,
+      // x-default names /en, not the bare root: the root declares /en as its
+      // canonical, so pointing the default at it would name a URL that is not
+      // canonical for itself.
+      'x-default https://stabileo.com/en',
+    ]);
   });
 
   test('the tables render as tables, with every row filled', async ({ page }) => {
@@ -151,9 +292,10 @@ test.describe('@smoke blog', () => {
     const link = page.locator('.landing .hero-blog');
     await expect(link).toBeVisible();
     await expect(link).toHaveText(/read our blog/i);
-    // A link, not a third button: the hero's job is still to get someone into
-    // the editor, and two buttons plus a link is one decision with a footnote.
-    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(2);
+    // A link, not another button: the hero's job is still to get someone into
+    // the editor, and one button plus a link is one decision with a footnote.
+    // (It was two buttons until /demo was retired — see landing.spec.ts.)
+    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(1);
     await expect(page.locator('.landing .hero-ctas .hero-blog')).toHaveCount(0);
 
     await link.click();

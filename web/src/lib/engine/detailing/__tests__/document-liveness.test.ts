@@ -21,10 +21,21 @@ const ROOT = join(__dirname, '../../../..');   // src/
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 
 const STORE = 'lib/store/detailing.svelte.ts';
-const UI = 'components/pro/design/DetailingWorkflow.svelte';
+/**
+ * The UI these assertions are about is now TWO components.
+ *
+ * The report, the drawings, the schedule and the 3-D view moved out of the detailing panel and
+ * into `DocumentsSection.svelte`, a stage of its own. The claim being tested never was "this file
+ * contains that call" — it is "the production UI reaches the renderer" — so it reads both and
+ * survives the next move as well.
+ */
+const UI_FILES = [
+  'components/pro/design/DetailingWorkflow.svelte',
+  'components/pro/design/DocumentsSection.svelte',
+];
 const EXCEL = 'lib/export/excel.ts';
 
-function ui() { return read(UI); }
+function ui() { return UI_FILES.map(read).join('\n'); }
 
 describe('the DocumentModel has a production caller', () => {
   it('the store builds it', () => {
@@ -98,7 +109,7 @@ describe('the underlying drawing and schedule primitives are still used', () => 
 
 describe('the visible path does not go through a test hook', () => {
   it('no __stabileoActions anywhere in the document flow', () => {
-    for (const f of [STORE, UI, 'lib/engine/detailing/document-render.ts']) {
+    for (const f of [STORE, ...UI_FILES, 'lib/engine/detailing/document-render.ts']) {
       expect(read(f), f).not.toContain('__stabileoActions');
     }
   });

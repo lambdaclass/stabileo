@@ -630,86 +630,86 @@
   .al-regs li { display: flex; gap: 0.5rem; align-items: center; padding: 0.1rem 0; }
   .al-reg-role { min-width: 8rem; opacity: 0.8; }
   .al-reg-name { flex: 1; }
-  .al-reg-state { font-size: 0.7rem; font-weight: 600; padding: 0.05rem 0.35rem; border-radius: 3px; background: rgba(128,128,128,0.3); }
-  .al-state-applied { background: #14532d; color: #dcfce7; }
-  .al-state-pending { background: #7a5b00; color: #fff6dd; }
-  .al-state-stale { background: #7a1f1f; color: #ffe3e3; }
-  .al-lossy { color: #fca5a5; }
-  .al-preview { padding: 0.6rem 1rem; border-top: 1px solid #2a2a4a; max-height: 40vh; overflow: auto; font-size: 0.82rem; }
+  .al-reg-state { font-size: 0.7rem; font-weight: 600; padding: 0.05rem 0.35rem; border-radius: 3px; background: rgba(143, 163, 179,0.3); }
+  .al-state-applied { background: var(--st-surface-3); color: var(--st-text); }
+  .al-state-pending { background: var(--st-surface-3); color: var(--st-text); }
+  .al-state-stale { background: var(--st-accent); color: var(--st-text); }
+  .al-lossy { color: var(--st-text-2); }
+  .al-preview { padding: 0.6rem 1rem; border-top: 1px solid var(--st-surface-3); max-height: 40vh; overflow: auto; font-size: 0.82rem; }
   .al-preview h3 { margin: 0 0 0.4rem; font-size: 0.9rem; }
   .al-delta { width: 100%; border-collapse: collapse; margin: 0.3rem 0; }
-  .al-delta th, .al-delta td { border: 1px solid #2a2a4a; padding: 0.15rem 0.4rem; text-align: right; }
+  .al-delta th, .al-delta td { border: 1px solid var(--st-surface-3); padding: 0.15rem 0.4rem; text-align: right; }
   .al-delta th:first-child, .al-delta td:first-child { text-align: left; }
-  .al-warn { background: #7a5b00; color: #fff6dd; padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; }
-  .al-error { background: #7a1f1f; color: #ffe3e3; padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; }
+  .al-warn { background: var(--st-surface-3); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; }
+  .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; }
   .al-list { margin: 0.2rem 0 0; padding-left: 1.1rem; }
   .al-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; }
   .al-row label { min-width: 11rem; }
   .al-seismic-preview { margin-top: 6px; font-size: 0.78rem; opacity: 0.9; }
-  .al-link { background: none; border: none; text-decoration: underline; color: inherit; cursor: pointer; padding: 0; font: inherit; }
+  .al-link { background: none; border:  none; text-decoration: underline; color: inherit; cursor: pointer; padding: 0; font: inherit; }
   .al-overlay {
     position: fixed; inset: 0; z-index: 9999;
     background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
   }
   .al-dialog {
-    background: #1a1a2e; color: #e0e0e0; border-radius: 10px;
+    background: var(--st-surface-2); color: var(--st-text); border-radius: 10px;
     width: 520px; max-height: 85vh; display: flex; flex-direction: column;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid #2a2a4a;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid var(--st-surface-3);
   }
   .al-header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 14px 18px; border-bottom: 1px solid #2a2a4a;
+    padding: 14px 18px; border-bottom: 1px solid var(--st-surface-3);
   }
-  .al-header h2 { margin: 0; font-size: 15px; color: #fff; }
-  .al-close { background: none; border: none; color: #888; font-size: 22px; cursor: pointer; }
-  .al-close:hover { color: #fff; }
+  .al-header h2 { margin: 0; font-size: 15px; color: var(--st-text); }
+  .al-close { background: none; border:  none; color: var(--st-text-3); font-size: 22px; cursor: pointer; }
+  .al-close:hover { color: var(--st-text); }
   .al-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
   .al-fieldset {
-    border: 1px solid #2a2a4a; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;
+    border: 1px solid var(--st-surface-3); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;
   }
-  .al-fieldset legend { color: #4ecdc4; font-size: 11px; font-weight: 600; padding: 0 6px; text-transform: uppercase; }
+  .al-fieldset legend { color: var(--st-text-2); font-size: 11px; font-weight: 600; padding: 0 6px; text-transform: uppercase; }
   .al-dead-row {
     display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px;
   }
-  .al-dead-label { flex: 1; color: #bbb; }
+  .al-dead-label { flex: 1; color: var(--st-text-2); }
   .al-input-sm {
-    width: 55px; padding: 3px 5px; background: #12122a; border: 1px solid #333;
-    border-radius: 3px; color: #e0e0e0; font-size: 11px; text-align: right;
+    width: 55px; padding: 3px 5px; background: var(--st-bg); border: 1px solid var(--st-surface-3);
+    border-radius: 3px; color: var(--st-text); font-size: 11px; text-align: right;
   }
-  .al-input-sm:focus { border-color: #4ecdc4; outline: none; }
+  .al-input-sm:focus { border-color: var(--st-text-2); outline: none; }
   .al-select, .al-select-sm {
-    width: 100%; padding: 5px 6px; background: #12122a; border: 1px solid #333;
-    border-radius: 4px; color: #e0e0e0; font-size: 11px;
+    width: 100%; padding: 5px 6px; background: var(--st-bg); border: 1px solid var(--st-surface-3);
+    border-radius: 4px; color: var(--st-text); font-size: 11px;
   }
   .al-select-sm { width: 100%; }
-  .al-select:focus, .al-select-sm:focus { border-color: #4ecdc4; outline: none; }
+  .al-select:focus, .al-select-sm:focus { border-color: var(--st-text-2); outline: none; }
   .al-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .al-field { display: flex; flex-direction: column; gap: 3px; }
-  .al-label { font-size: 10px; color: #888; }
+  .al-label { font-size: 10px; color: var(--st-text-3); }
   .al-directions { display: flex; gap: 16px; margin-top: 8px; font-size: 11px; }
   .al-directions label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-  .al-directions input { accent-color: #4ecdc4; }
+  .al-directions input { accent-color: var(--st-value); }
   .al-check { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; margin-bottom: 4px; }
-  .al-check input { accent-color: #4ecdc4; }
+  .al-check input { accent-color: var(--st-text-2); }
   .al-check-legend { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .al-check-legend input { accent-color: #4ecdc4; }
+  .al-check-legend input { accent-color: var(--st-text-2); }
   .al-preview {
-    margin-top: 8px; padding: 8px; background: #12122a; border-radius: 4px; font-size: 10px;
+    margin-top: 8px; padding: 8px; background: var(--st-bg); border-radius: 4px; font-size: 10px;
     font-family: monospace;
   }
-  .al-preview-title { color: #4ecdc4; font-weight: 600; margin-bottom: 4px; }
-  .al-preview-row { color: #ccc; margin-bottom: 2px; }
-  .al-preview-floor { color: #999; padding-left: 8px; }
+  .al-preview-title { color: var(--st-text-2); font-weight: 600; margin-bottom: 4px; }
+  .al-preview-row { color: var(--st-text-2); margin-bottom: 2px; }
+  .al-preview-floor { color: var(--st-text-2); padding-left: 8px; }
   .al-footer {
     display: flex; justify-content: flex-end; gap: 8px;
-    padding: 12px 18px; border-top: 1px solid #2a2a4a;
+    padding: 12px 18px; border-top: 1px solid var(--st-surface-3);
   }
   .al-btn {
     padding: 8px 20px; border-radius: 6px; font-size: 12px; font-weight: 600;
     cursor: pointer; border: none; transition: background 0.15s;
   }
-  .al-btn-primary { background: #4ecdc4; color: #111; }
-  .al-btn-primary:hover { background: #3dbdb4; }
-  .al-btn-secondary { background: #2a2a4a; color: #ccc; }
-  .al-btn-secondary:hover { background: #3a3a5a; }
+  .al-btn-primary { background: var(--st-accent); color: var(--st-text-on-accent); }
+  .al-btn-primary:hover { background: var(--st-accent-hover); }
+  .al-btn-secondary { background: var(--st-surface-3); color: var(--st-text-2); }
+  .al-btn-secondary:hover { background: var(--st-hair-strong); }
 </style>

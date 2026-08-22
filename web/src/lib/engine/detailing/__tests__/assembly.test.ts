@@ -346,6 +346,43 @@ describe('detailing persistence', () => {
     });
     expect(r.store.assemblies[0].state).toBe('DRAFT');
   });
+
+  /**
+   * The two member-level statements survive a restore.
+   *
+   * They did not. This function rebuilds every assembly field by field, and both were missing
+   * from that list — so a project that came back from a `.ded`, an autosave, an undo or a tab
+   * switch kept `bar.provisional` on its bars (because `bars` is carried through whole) and lost
+   * the assembly's own `provisionalMembers`. The workspace banner, the sheet note and the report
+   * section all read the member-level field: all three went quiet while the bars stayed violet.
+   *
+   * Found by `e2e/ded-roundtrip.spec.ts`, which saves the designed 7-storey building to a file
+   * and reopens it on a page that has never seen it.
+   */
+  it('carries the provisional and torsion member lists through a restore', () => {
+    const source = {
+      ...assembly(),
+      provisionalMembers: [88, 151, 153],
+      torsionUnevaluatedMembers: [12],
+    };
+    const r = migrateDetailingStore({
+      version: DETAILING_SCHEMA_VERSION,
+      assemblies: [JSON.parse(JSON.stringify(source))],
+    });
+    expect(r.store.assemblies[0].provisionalMembers).toEqual([88, 151, 153]);
+    expect(r.store.assemblies[0].torsionUnevaluatedMembers).toEqual([12]);
+  });
+
+  it('leaves both absent when the stored assembly never had them', () => {
+    // Absent is not the same as empty, and neither is invented: an assembly with no proposal
+    // must not come back claiming an empty list it never carried, because "we checked and there
+    // are none" and "nobody recorded it" are different statements.
+    const r = migrateDetailingStore({
+      version: DETAILING_SCHEMA_VERSION, assemblies: [assembly()],
+    });
+    expect(r.store.assemblies[0].provisionalMembers).toBeUndefined();
+    expect(r.store.assemblies[0].torsionUnevaluatedMembers).toBeUndefined();
+  });
 });
 
 describe('targeted invalidation', () => {

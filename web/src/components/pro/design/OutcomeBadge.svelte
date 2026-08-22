@@ -71,26 +71,30 @@
     white-space: nowrap; border: 1px solid transparent;
   }
   .badge-text { font-weight: 500; }
-  .badge-ok { background: rgba(34, 204, 102, 0.16); color: #7ee2a8; border-color: #2a7a4a; }
-  .badge-warn { background: rgba(221, 170, 0, 0.16); color: #f0cc66; border-color: #8a6a10; }
-  .badge-fail { background: rgba(238, 34, 34, 0.16); color: #ff8a8a; border-color: #8a2a2a; }
+  .badge-ok { background: rgba(34, 204, 102, 0.16); color: var(--st-ok); border-color: var(--st-ok); }
+  .badge-warn { background: rgba(221, 170, 0, 0.16); color: var(--st-warn); border-color: var(--st-warn); }
+  .badge-fail { background: rgba(238, 34, 34, 0.16); color: var(--st-danger); border-color: var(--st-danger); }
   /* The same violet the 3-D view paints provisional steel and the detailing panel gives
-     the state row. One colour, one meaning, on every surface that names it. */
+     the state row. One colour, one meaning, on every surface that names it.
+     Still a literal, unlike its four siblings, because that one meaning has no token:
+     the authority is `three/rebar-scene.ts`, which feeds a numeric hex to a Three.js
+     material and cannot read a custom property. Tokenising here alone would split the
+     definition in two. See the note in the report — `--st-provisional` is owed. */
   .badge-provisional { background: rgba(160, 102, 211, 0.16); color: #d8b4ff; border-color: #6b4a8f; }
-  .badge-unavailable { background: rgba(136, 136, 136, 0.16); color: #aab; border-color: #445; }
+  .badge-unavailable { background: rgba(136, 136, 136, 0.16); color: var(--st-text-2); border-color: var(--st-text-3); }
   /* Stale = desaturated + hatch, so it is distinguishable without hue. */
   .badge-stale {
-    color: #d8d4bb; border-color: #6a6a55;
+    color: var(--st-text); border-color: var(--st-text-3);
     background: repeating-linear-gradient(45deg, rgba(138,143,122,0.30) 0 4px, rgba(93,97,84,0.30) 4px 8px);
   }
-  .badge-outcome { background: rgba(60, 90, 140, 0.18); color: #b8cbe8; border-color: #2a4a7a; }
-  .badge-outcome-VERIFIED { background: rgba(34, 204, 102, 0.16); color: #7ee2a8; border-color: #2a7a4a; }
-  .badge-outcome-SECTION_INADEQUATE { background: rgba(255, 102, 0, 0.16); color: #ffb37a; border-color: #8a4a10; }
-  .badge-outcome-SEARCH_EXHAUSTED { background: rgba(180, 120, 220, 0.16); color: #d3b0e8; border-color: #5a3a7a; }
-  .badge-flag { background: rgba(70, 80, 100, 0.35); color: #ccd; border-color: #3a4356; }
-  .badge-flag-edited { color: #9fd8ff; border-color: #2a5a7a; }
-  .badge-flag-provisional { color: #d3b0e8; border-color: #5a3a7a; }
-  .badge-flag-sloped { color: #ffcc66; border-color: #7a5a10; }
+  .badge-outcome { background: rgba(60, 90, 140, 0.18); color: var(--st-text); border-color: var(--st-info); }
+  .badge-outcome-VERIFIED { background: rgba(34, 204, 102, 0.16); color: var(--st-ok); border-color: var(--st-ok); }
+  .badge-outcome-SECTION_INADEQUATE { background: rgba(255, 102, 0, 0.16); color: var(--st-warn); border-color: var(--st-warn); }
+  .badge-outcome-SEARCH_EXHAUSTED { background: rgba(180, 120, 220, 0.16); color: var(--st-text); border-color: var(--st-text-3); }
+  .badge-flag { background: rgba(70, 80, 100, 0.35); color: var(--st-text); border-color: var(--st-hair-strong); }
+  .badge-flag-edited { color: var(--st-text); border-color: var(--st-info); }
+  .badge-flag-provisional { color: var(--st-text); border-color: var(--st-text-3); }
+  .badge-flag-sloped { color: var(--st-warn); border-color: var(--st-hair-strong); }
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;

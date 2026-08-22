@@ -463,6 +463,17 @@
   color: var(--lp-paper-2);
 }
 
+/*
+   The blog's header has no section links — they pointed at sections of the
+   landing — and `.nav-links` was what carried the `margin-left: auto` that
+   pushes the actions to the right. Without it they ended up against the logo.
+   Scoped to the blog on purpose: a second auto margin on the landing would
+   share the free space with the first and float its links into the middle.
+*/
+.landing.blog .nav-actions {
+  margin-left: auto;
+}
+
 .landing .nav-actions {
   display: flex;
   align-items: center;
@@ -1649,16 +1660,49 @@
   margin: 0;
 }
 
-/* The latest post's title, offered as evidence that the blog has something in
-   it. Quieter than the copy above it — it is a pointer, not a headline. */
-.landing .blog-cta-latest {
+/* The latest post, previewed. A card rather than a line: it has to carry a
+   title someone can judge, and enough of the piece to decide on. */
+.landing .blog-latest {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  background: var(--card);
+  border: 1px solid var(--card-hair);
+  border-left: 2px solid var(--lp-accent);
+  border-radius: var(--lp-radius);
+}
+
+.landing .blog-latest h3 {
+  margin: 0;
+}
+
+.landing .blog-latest-title {
+  font-family: var(--lp-display);
+  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.landing .blog-latest-title:hover {
+  color: var(--accent-text);
+}
+
+.landing .blog-latest-meta {
   margin: 0;
   font-family: var(--lp-mono);
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--fg-2);
-  padding-left: 0.9rem;
-  border-left: 2px solid var(--lp-accent);
+}
+
+.landing .blog-latest-excerpt {
+  margin: 0;
+  color: var(--fg-2);
+  max-width: 62ch;
 }
 
 /* A capture wide enough to want the whole row, inside a two-column card grid. */

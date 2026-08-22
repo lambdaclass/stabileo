@@ -292,7 +292,9 @@ test.describe('@smoke Education — authoring', () => {
 
     // The bar, and the four tools an exercise author needs.
     await expect(page.locator('.floating-tools')).toBeVisible();
-    for (const tool of ['Node', 'Element', 'Support', 'Load']) {
+    // "Member", not "Element": Basic renamed the bar throughout, and the
+    // authoring bar is the same component under the same keys.
+    for (const tool of ['Node', 'Member', 'Support', 'Load']) {
       await expect(page.locator('.ft-btn', { hasText: tool })).toBeVisible();
     }
   });

@@ -192,52 +192,52 @@
     background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
   }
   .rpt-dialog {
-    background: #1a1a2e; color: #e0e0e0; border-radius: 10px;
+    background: var(--st-surface-2); color: var(--st-text); border-radius: 10px;
     width: 480px; max-height: 85vh; display: flex; flex-direction: column;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid #2a2a4a;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid var(--st-surface-3);
   }
   .rpt-header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 16px 20px; border-bottom: 1px solid #2a2a4a;
+    padding: 16px 20px; border-bottom: 1px solid var(--st-surface-3);
   }
-  .rpt-header h2 { margin: 0; font-size: 16px; color: #fff; }
-  .rpt-close { background: none; border: none; color: #888; font-size: 22px; cursor: pointer; padding: 0 4px; }
-  .rpt-close:hover { color: #fff; }
+  .rpt-header h2 { margin: 0; font-size: 16px; color: var(--st-text); }
+  .rpt-close { background: none; border:  none; color: var(--st-text-3); font-size: 22px; cursor: pointer; padding: 0 4px; }
+  .rpt-close:hover { color: var(--st-text); }
   .rpt-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
   .rpt-fieldset {
-    border: 1px solid #2a2a4a; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;
+    border: 1px solid var(--st-surface-3); border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;
   }
-  .rpt-fieldset legend { color: #4ecdc4; font-size: 12px; font-weight: 600; padding: 0 6px; text-transform: uppercase; }
+  .rpt-fieldset legend { color: var(--st-text-2); font-size: 12px; font-weight: 600; padding: 0 6px; text-transform: uppercase; }
   .rpt-field { margin-bottom: 10px; }
-  .rpt-label { display: block; font-size: 11px; color: #aaa; margin-bottom: 3px; }
+  .rpt-label { display: block; font-size: 11px; color: var(--st-text-2); margin-bottom: 3px; }
   .rpt-input {
-    width: 100%; padding: 6px 8px; background: #12122a; border: 1px solid #333; border-radius: 4px;
-    color: #e0e0e0; font-size: 12px;
+    width: 100%; padding: 6px 8px; background: var(--st-bg); border: 1px solid var(--st-surface-3); border-radius: 4px;
+    color: var(--st-text); font-size: 12px;
   }
-  .rpt-input:focus { border-color: #4ecdc4; outline: none; }
+  .rpt-input:focus { border-color: var(--st-text-2); outline: none; }
   .rpt-input-sm { width: 80px; }
   .rpt-logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
   .rpt-logo-area { display: flex; align-items: center; gap: 8px; }
-  .rpt-logo-preview { max-height: 40px; max-width: 120px; border-radius: 4px; border: 1px solid #333; }
-  .rpt-file-input { font-size: 11px; color: #aaa; }
+  .rpt-logo-preview { max-height: 40px; max-width: 120px; border-radius: 4px; border: 1px solid var(--st-surface-3); }
+  .rpt-file-input { font-size: 11px; color: var(--st-text-2); }
   .rpt-checks { display: flex; flex-direction: column; gap: 6px; }
   .rpt-check { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-  .rpt-check input[type="checkbox"] { accent-color: #4ecdc4; }
+  .rpt-check input[type="checkbox"] { accent-color: var(--st-text-2); }
   .rpt-check input:disabled { opacity: 0.4; }
-  .rpt-hint { color: #666; font-size: 10px; }
+  .rpt-hint { color: var(--st-text-3); font-size: 10px; }
   .rpt-footer {
     display: flex; justify-content: flex-end; gap: 8px;
-    padding: 12px 20px; border-top: 1px solid #2a2a4a;
+    padding: 12px 20px; border-top: 1px solid var(--st-surface-3);
   }
   .rpt-btn {
     padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600;
     cursor: pointer; border: none; transition: background 0.15s;
   }
-  .rpt-btn-primary { background: #4ecdc4; color: #111; }
-  .rpt-btn-primary:hover { background: #3dbdb4; }
-  .rpt-btn-secondary { background: #2a2a4a; color: #ccc; }
-  .rpt-btn-secondary:hover { background: #3a3a5a; }
+  .rpt-btn-primary { background: var(--st-accent); color: var(--st-text-on-accent); }
+  .rpt-btn-primary:hover { background: var(--st-accent-hover); }
+  .rpt-btn-secondary { background: var(--st-surface-3); color: var(--st-text-2); }
+  .rpt-btn-secondary:hover { background: var(--st-hair-strong); }
   .rpt-btn-sm { padding: 3px 8px; font-size: 10px; border-radius: 3px; cursor: pointer; border: none; }
-  .rpt-btn-danger { background: #c0392b; color: #fff; }
-  .rpt-btn-danger:hover { background: #e74c3c; }
+  .rpt-btn-danger { background: var(--st-accent); color: var(--st-text); }
+  .rpt-btn-danger:hover { background: var(--st-accent); }
 </style>

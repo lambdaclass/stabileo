@@ -44,6 +44,10 @@ const PRODUCTION_BUILD_TESTS = [
   // earned. It spawns a Node process rather than a vite build, but it is the same reason for
   // being here: a process-spawning test does not belong in the parallel pool.
   'src/lib/engine/__tests__/typecheck-gate.test.ts',
+  // Runs `scripts/third-party-notices.mjs` in check mode, and that script runs
+  // `npm ls --omit=dev --all`, which walks the whole dependency tree. Same reason again: it
+  // spawns, so it belongs here rather than competing with 300 other files for a worker.
+  'src/lib/export/__tests__/third-party-notices.test.ts',
 ];
 
 

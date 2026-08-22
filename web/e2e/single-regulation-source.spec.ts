@@ -15,10 +15,11 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 type Page = import('@playwright/test').Page;
 
 async function openDesign(page: Page) {
-  // By testid, not by label: this journey runs in both languages and the menu is translated.
-  await page.getByTestId('pb-group-analysis').click();
-  await page.locator('.pb-dropdown .pb-dd-item')
-    .filter({ hasText: /RC Design|Dise[nñ]o RC|Design|Dise[nñ]o/i }).first().click();
+  // By testid throughout: this journey runs in both languages. The PRO bar is a
+  // two-level ribbon now — the stage, then its command — so the label-matching
+  // that the old dropdown forced is no longer needed at all.
+  await page.getByTestId('pr-stage-design').click();
+  await page.getByTestId('pr-cmd-design').click();
   await expect(page.getByTestId('design-toolbar')).toBeVisible();
 }
 

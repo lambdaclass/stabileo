@@ -120,9 +120,9 @@
       <caption class="sr-only">{t('design.table.governing')}</caption>
       <thead>
         <tr>
-          <th scope="col">Check</th><th scope="col">Demand / Req.</th><th scope="col">Capacity / Prov.</th>
+          <th scope="col">{t('design.detail.check')}</th><th scope="col">{t('design.detail.demandReq')}</th><th scope="col">{t('design.detail.capacityProv')}</th>
           <th scope="col">u = D/C</th><th scope="col">{t('design.table.status')}</th>
-          <th scope="col">Swept</th><th scope="col">{t('design.table.combo')}</th>
+          <th scope="col">{t('design.detail.swept')}</th><th scope="col">{t('design.table.combo')}</th>
         </tr>
       </thead>
       <tbody>
@@ -152,9 +152,9 @@
   <!-- ─── Design-driving demands ─── -->
   {#if demands.length > 0}
     <details class="fold">
-      <summary>Design-driving demands ({demands.length})</summary>
+      <summary>{tp('design.detail.drivingDemands', { n: demands.length })}</summary>
       <table class="checks">
-        <thead><tr><th scope="col">Category</th><th scope="col">Value</th><th scope="col">Station</th><th scope="col">Combo</th></tr></thead>
+        <thead><tr><th scope="col">{t('design.detail.category')}</th><th scope="col">{t('design.detail.value')}</th><th scope="col">{t('design.detail.station')}</th><th scope="col">{t('design.table.combo')}</th></tr></thead>
         <tbody>
           {#each demands as d (d.category)}
             <tr>
@@ -174,26 +174,27 @@
     {@const ip = codeDetail.interactionParams}
     {@const diagram = generateInteractionDiagram({ b: ip.b, h: ip.h, fc: ip.fc, fy: ip.fy, cover: ip.cover, AsProv: ip.AsProv, barCount: ip.barCount, barDia: ip.barDia })}
     <details class="fold">
-      <summary>P-M interaction diagram</summary>
+      <summary>{t('design.detail.interactionDiagram')}</summary>
       <div class="diagram">{@html generateInteractionSvg(diagram, { Nu: ip.Nu, Mu: ip.Mu }, 220, 280)}</div>
     </details>
   {/if}
 
   {#if codeDetail && codeDetail.memos.length > 0}
     <details class="fold">
-      <summary>CIRSOC 201 — calculation details</summary>
+      <summary>{tp('design.detail.calcDetails', { code: 'CIRSOC 201' })}</summary>
       <div class="memos">
         {#each codeDetail.memos as memo (memo.title)}
           <div class="memo">
-            <div class="memo-title">{memo.title}</div>
+            <!-- The key when the adapter supplied one; the English title is the fallback. -->
+            <div class="memo-title">{memo.titleKey ? t(memo.titleKey) : memo.title}</div>
             {#each memo.steps as s}<div class="memo-step">{s}</div>{/each}
           </div>
         {/each}
         {#if codeDetail.detailing}
           <div class="memo">
-            <div class="memo-title">Detailing</div>
+            <div class="memo-title">{t('design.detail.detailing')}</div>
             {#each codeDetail.detailing.bars as b}
-              <div class="memo-step">Ø{b.diameter}: ld={b.ld.toFixed(2)} m, ldh={b.ldh.toFixed(2)} m, splice={b.lapSplice.toFixed(2)} m</div>
+              <div class="memo-step">{tp('design.detail.barLengths', { diameter: b.diameter, ld: b.ld.toFixed(2), ldh: b.ldh.toFixed(2), splice: b.lapSplice.toFixed(2) })}</div>
             {/each}
           </div>
         {/if}
@@ -204,43 +205,43 @@
 
 <style>
   .detail { display: flex; flex-direction: column; gap: 5px; }
-  .axes-line { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.68rem; color: #9ab; }
+  .axes-line { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.68rem; color: var(--st-text-2); }
   .mono { font-family: monospace; }
   .small { font-size: 0.64rem; }
-  .muted { color: #778; }
+  .muted { color: var(--st-text-3); }
   .cert { display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     padding: 4px 7px; border-radius: 4px; font-size: 0.68rem; }
-  .cert-ok { background: rgba(34,204,102,0.10); border: 1px solid #2a7a4a; color: #b7e8c8; }
-  .cert-none { background: rgba(180,120,220,0.10); border: 1px solid #5a3a7a; color: #ddc8ee; }
-  .reason { font-size: 0.67rem; color: #b9a; padding-left: 4px; }
+  .cert-ok { background: rgba(34,204,102,0.10); border: 1px solid var(--st-ok); color: var(--st-text); }
+  .cert-none { background: rgba(180,120,220,0.10); border: 1px solid var(--st-text-3); color: var(--st-text); }
+  .reason { font-size: 0.67rem; color: var(--st-text-2); padding-left: 4px; }
   .limiting { display: flex; gap: 4px; flex-wrap: wrap; }
-  .lim-chip { padding: 0 5px; background: #2a1d38; border: 1px solid #5a3a7a;
-    border-radius: 3px; font-size: 0.62rem; color: #d3b0e8; font-family: monospace; }
+  .lim-chip { padding: 0 5px; background: var(--st-surface-3); border: 1px solid var(--st-text-3);
+    border-radius: 3px; font-size: 0.62rem; color: var(--st-text); font-family: monospace; }
   .prov-note { display: flex; gap: 6px; align-items: center; font-size: 0.67rem; }
-  .advice { border: 1px solid #8a4a10; background: rgba(255,102,0,0.08);
+  .advice { border: 1px solid var(--st-warn); background: rgba(255,102,0,0.08);
     border-radius: 4px; padding: 5px 7px; display: flex; flex-direction: column; gap: 3px; }
-  .advice-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 0.7rem; color: #ffcc9a; }
-  .prelim { font-size: 0.62rem; color: #d8a878; font-style: italic; }
-  .advice-body { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.68rem; color: #ffd9b3; }
-  .advice-btn { align-self: flex-start; padding: 2px 8px; background: #6a3a10;
-    border: 1px solid #a05a20; border-radius: 3px; color: #ffe0c0;
+  .advice-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 0.7rem; color: var(--st-text); }
+  .prelim { font-size: 0.62rem; color: var(--st-warn); font-style: italic; }
+  .advice-body { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.68rem; color: var(--st-text); }
+  .advice-btn { align-self: flex-start; padding: 2px 8px; background: var(--st-hair-strong);
+    border: 1px solid var(--st-warn); border-radius: 3px; color: var(--st-text);
     font-size: 0.68rem; font-weight: 600; cursor: pointer; }
-  .advice-btn:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
+  .advice-btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   table.checks { width: 100%; border-collapse: collapse; font-size: 0.67rem; }
-  table.checks th { text-align: left; padding: 2px 5px; border-bottom: 1px solid #1d3a5c; color: #8ab; }
-  table.checks td { padding: 2px 5px; border-bottom: 1px solid #10233c; color: #ccd; }
+  table.checks th { text-align: left; padding: 2px 5px; border-bottom: 1px solid var(--st-hair-strong); color: var(--st-info); }
+  table.checks td { padding: 2px 5px; border-bottom: 1px solid var(--st-surface-3); color: var(--st-text); }
   .num { text-align: right; font-family: monospace; }
   .strong { font-weight: 700; }
-  .chk-fail td { color: #ffbcbc; }
-  .chk-warn td { color: #f3dda6; }
-  .desc-row td { border-bottom: 1px solid #10233c; }
-  .desc { font-size: 0.62rem; color: #778; padding-left: 12px !important; }
+  .chk-fail td { color: var(--st-danger); }
+  .chk-warn td { color: var(--st-warn); }
+  .desc-row td { border-bottom: 1px solid var(--st-surface-3); }
+  .desc { font-size: 0.62rem; color: var(--st-text-3); padding-left: 12px !important; }
   .none-note { display: flex; gap: 6px; align-items: center; font-size: 0.68rem; }
-  .fold { border: 1px solid #16304f; border-radius: 4px; padding: 3px 6px; }
-  .fold summary { cursor: pointer; font-size: 0.68rem; color: #8ab; }
+  .fold { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 3px 6px; }
+  .fold summary { cursor: pointer; font-size: 0.68rem; color: var(--st-info); }
   .memos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px; margin-top: 4px; }
-  .memo-title { font-size: 0.66rem; font-weight: 700; color: #9ab; }
-  .memo-step { font-size: 0.62rem; color: #889; font-family: monospace; }
+  .memo-title { font-size: 0.66rem; font-weight: 700; color: var(--st-text-2); }
+  .memo-step { font-size: 0.62rem; color: var(--st-text-2); font-family: monospace; }
   .diagram { margin-top: 4px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 </style>

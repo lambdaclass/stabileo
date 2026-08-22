@@ -104,6 +104,8 @@
   import SectionStressPanel from './components/SectionStressPanel.svelte';
   import KinematicPanel from './components/KinematicPanel.svelte';
   import StressPickHint from './components/stress/StressPickHint.svelte';
+  import ColourScaleLegend from './components/ColourScaleLegend.svelte';
+  import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
@@ -112,6 +114,8 @@
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
   import ToolbarConfig from './components/toolbar/ToolbarConfig.svelte';
+  import { captureFocus } from './lib/utils/dialog-focus';
+  import ProRibbon from './components/pro/ProRibbon.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import { eduStore } from './components/edu/edu-store.svelte';
   import TourOverlay from './components/TourOverlay.svelte';
@@ -122,6 +126,8 @@
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import BlogPage from './components/blog/BlogPage.svelte';
+  import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
+  import { publicI18n } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
 
   if (typeof window !== 'undefined') {
@@ -139,10 +145,37 @@
     return pathname === '/demo' || pathname === '/demo/';
   }
 
-  /** `/blog`, `/blog/` and `/blog/<slug>`. See src/components/blog/BlogPage.svelte. */
-  function isBlogRoute(pathname: string) {
-    return pathname === '/blog' || pathname === '/blog/' || pathname.startsWith('/blog/');
+  /**
+   * The public routes, read through their language prefix.
+   *
+   * `/es/blog/x` and `/blog/x` are the same route; the first names its
+   * language and the second is an old link that still has to work. Everything
+   * below asks these two rather than matching `location.pathname` directly,
+   * because a prefix would otherwise turn every public page into an app route.
+   */
+  function publicRoute(pathname: string) {
+    return parsePublicPath(pathname);
   }
+
+  /** `/blog`, `/blog/` and `/blog/<slug>`, under any language prefix. */
+  function isBlogRoute(pathname: string) {
+    const { path } = publicRoute(pathname);
+    return path === '/blog' || path === '/blog/' || path.startsWith('/blog/');
+  }
+
+  /**
+   * The URL says which language the page is in, so on arrival the URL wins.
+   *
+   * Without this, opening a shared `/pt/blog/x` in a browser whose stored
+   * choice is Spanish would render the Spanish post at a Portuguese address —
+   * and the address is what was shared, indexed and quoted.
+   */
+  function adoptLocaleFromPath() {
+    if (typeof window === 'undefined') return;
+    const { locale } = publicRoute(location.pathname);
+    if (locale && locale !== publicI18n.locale) setLocale(locale);
+  }
+  adoptLocaleFromPath();
 
   type AppMode = 'basico' | 'educativo' | 'pro';
 
@@ -191,6 +224,59 @@
     history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   }
 
+  /**
+   * `?inspect=<elementId>` opens the section analysis on that member.
+   *
+   * Written for the blog: a post about torsion can embed the editor already
+   * showing the section it is discussing, so the reader arrives at the figure
+   * instead of hunting for it through three menus. It composes with the
+   * existing `?embed` and `?example=` rather than adding a mode of its own.
+   *
+   * `t` is the station along the member, 0 to 1, and defaults to midspan.
+   *
+   * It waits for results, because the panel renders a stress state and there
+   * is none until the model has been solved. The solve is dispatched by the
+   * example loader just above, and finishes whenever the engine finishes;
+   * polling briefly is simpler than threading a promise through it, and it
+   * gives up rather than spinning if the solve never lands.
+   */
+  function openInspectFromUrl(params: URLSearchParams) {
+    const raw = params.get('inspect');
+    if (!raw) return;
+    const elementId = Number(raw);
+    if (!Number.isFinite(elementId)) return;
+    const t = Math.min(1, Math.max(0, Number(params.get('t') ?? '0.5') || 0.5));
+
+    let tries = 0;
+    const open = () => {
+      const element = modelStore.elements.get(elementId);
+      const solved = resultsStore.results !== null || resultsStore.results3D !== null;
+      if (element && solved) {
+        const a = modelStore.nodes.get(element.nodeI);
+        const b = modelStore.nodes.get(element.nodeJ);
+        if (!a || !b) return;
+        resultsStore.stressQuery = {
+          elementId,
+          t,
+          worldX: a.x + (b.x - a.x) * t,
+          worldY: a.y + (b.y - a.y) * t,
+          worldZ: (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * t,
+        };
+        /*
+         * On desktop Basic the section panel is docked inside the Advanced
+         * tab of the right panel, so the query alone sets up an answer with
+         * nowhere to appear. On mobile the panel floats and the query is
+         * enough — which is why this looked like it worked on a phone and did
+         * nothing on a laptop.
+         */
+        if (uiStore.appMode === 'basico' && !uiStore.isMobile) openBasicPanel('advanced');
+        return;
+      }
+      if (tries++ < 60) setTimeout(open, 120);
+    };
+    open();
+  }
+
   function findTabBySlug(tabSlug: string | null) {
     if (!tabSlug) return null;
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
@@ -205,7 +291,7 @@
   let showLanding = $state(shouldShowLanding());
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
   /** The address the blog reads its slug from; kept in state so it is reactive. */
-  let blogPath = $state(typeof window !== 'undefined' ? location.pathname : '/blog');
+  let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
 
   /**
    * Move between the public pages without reloading the document.
@@ -215,7 +301,9 @@
    * blog entry, the blog's own links, the way back home — comes through here.
    */
   function navigatePublic(path: string) {
-    history.pushState(null, '', path);
+    // Public links are written unprefixed ('/blog') and land prefixed
+    // ('/pt/blog'), so a language never falls off mid-visit.
+    history.pushState(null, '', publicHref(path, publicI18n.locale));
     syncRouteState();
   }
 
@@ -228,8 +316,9 @@
   }
 
   function syncRouteState() {
+    adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
-    blogPath = location.pathname;
+    blogPath = publicRoute(location.pathname).path;
     showLanding = shouldShowLanding();
     if (!showLanding && !showBlog) {
       const nextMode = pathToMode(location.pathname);
@@ -517,6 +606,7 @@
             if (attempt < 40) setTimeout(() => tryFit(attempt + 1), 60);
           };
           tryFit(0);
+          openInspectFromUrl(queryParams);
         }).catch(() => {
           // Silently ignore unknown example ids
         });
@@ -715,6 +805,18 @@
   let proPanelRef: any = $state(null);
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
   let proSettingsOpen = $state(false);
+  /**
+   * The settings panel element, for focus and for the outside-click test.
+   *
+   * Focus moves into the panel on open and back to the gear on close: the panel covers part of
+   * the ribbon, so leaving focus on a button underneath it is the same defect the 3-D workspace
+   * had. `dialog-focus.ts` owns the mechanism.
+   */
+  let proSettingsEl = $state<HTMLDivElement | null>(null);
+  $effect(() => {
+    if (!proSettingsOpen) return;
+    return captureFocus(proSettingsEl);
+  });
 
   // PRO toolbar dropdown state
   type ProDropdown = null | 'select' | 'geometry' | 'properties' | 'conditions' | 'analysis';
@@ -726,8 +828,15 @@
 
   /** Close dropdown when clicking outside the toolbar. */
   function handleProBarClickOutside(e: MouseEvent) {
-    if (openDropdown && !(e.target as HTMLElement)?.closest('.pro-bar')) {
+    const target = e.target as HTMLElement | null;
+    if (openDropdown && !target?.closest('.pro-bar')) {
       openDropdown = null;
+    }
+    // The settings panel closes on a click anywhere outside its own anchor — which includes the
+    // gear itself, whose own handler has already toggled the state by the time this runs, so
+    // the anchor has to be the boundary rather than the panel.
+    if (proSettingsOpen && !target?.closest('.settings-anchor')) {
+      proSettingsOpen = false;
     }
   }
 
@@ -767,7 +876,7 @@
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} />
 
 {#if showBlog}
-  <BlogPage path={blogPath} onNavigate={navigatePublic} />
+  <BlogPage path={blogPath} />
 {:else if showLanding}
   <LandingPage />
 {/if}
@@ -843,15 +952,19 @@
       <button class="btn btn-help" onclick={() => uiStore.showHelp = true} title={t('app.keyboardShortcuts')}>
         ?
       </button>
-      <!-- Three languages, fully maintained. The other dictionaries still
-           exist but are largely English underneath, so offering them promised a
-           translation the app could not keep. -->
+      <!--
+        Three languages, fully maintained. The other eleven dictionaries still exist and still
+        work — `tAt` falls back to English per key — but they are largely English underneath, so
+        offering them promised a translation the app could not keep. See `OFFERED_LOCALES`.
+      -->
       <select
         class="lang-select"
+        data-testid="lang-select"
+        aria-label={t('app.language')}
         value={i18n.locale}
         onchange={(e) => { setLocale((e.currentTarget as HTMLSelectElement).value); tabManager.updateDefaultNames(); }}
       >
-        {#each OFFERED_LOCALES as code}
+        {#each OFFERED_LOCALES as code (code)}
           <option value={code}>{t(`lang.${code}`)}</option>
         {/each}
       </select>
@@ -870,6 +983,59 @@
           aria-label={t('ribbon.settings')}
           data-testid="rb-settings"
         ><Icon name="settings" size={16} /></button>
+      {/if}
+      <!--
+        PRO puts settings in the same corner, for the same reason — and the panel it opens is
+        anchored HERE, to the button, not left behind in the app body.
+
+        It was left behind, and that is the whole bug report "the settings button does nothing".
+        The panel is `position: absolute; top: 100%`, so it needs a positioned ancestor to
+        measure from. On PR19 it sat inside `<nav class="pro-bar">`, which was `position:
+        relative`, and `top: 100%` meant "just under the bar". The ribbon replaced that nav, the
+        panel became a child of `.app-body` — also positioned — and `top: 100%` started meaning
+        "one full app-body below the top of the app body", i.e. off the bottom of the window.
+        Every click worked. The state flipped, the panel mounted, and it rendered where nobody
+        could see it.
+      -->
+      {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
+        <div class="settings-anchor">
+          <button
+            class="btn btn-settings"
+            class:on={proSettingsOpen}
+            onclick={() => (proSettingsOpen = !proSettingsOpen)}
+            title={t('config.title')}
+            aria-label={t('config.title')}
+            aria-haspopup="dialog"
+            aria-expanded={proSettingsOpen}
+            aria-controls="pro-settings-panel"
+            data-testid="pro-settings"
+          ><Icon name="settings" size={16} /></button>
+
+          {#if proSettingsOpen}
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <div
+              class="pro-settings-dropdown"
+              id="pro-settings-panel"
+              data-testid="pro-settings-panel"
+              role="dialog"
+              aria-label={t('config.title')}
+              bind:this={proSettingsEl}
+              tabindex="-1"
+              onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); proSettingsOpen = false; } }}
+            >
+              <header class="pro-settings-head">
+                <h2>{t('config.title')}</h2>
+                <button
+                  class="pro-settings-close"
+                  onclick={() => (proSettingsOpen = false)}
+                  aria-label={t('config.close')}
+                  data-testid="pro-settings-close"
+                >✕</button>
+              </header>
+              <ToolbarConfig inline={true} />
+            </div>
+          {/if}
+        </div>
       {/if}
     </div>
   </header>
@@ -891,103 +1057,17 @@
 
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <nav class="pro-bar" onclick={(e) => e.stopPropagation()}>
-        <!-- Pan -->
-        <button class="pb-tool" class:active={uiStore.currentTool === 'pan'} onclick={() => { uiStore.currentTool = 'pan'; openDropdown = null; }} title="{t('float.pan')} (H)">✋</button>
-        <!-- Select with dropdown -->
-        <!-- Undo / Redo -->
-        <button class="pb-undo" onclick={() => historyStore.undo()} disabled={!historyStore.canUndo} title="{t('toolbar.undo')} ({navigator?.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Z)">↶</button>
-        <button class="pb-undo" onclick={() => historyStore.redo()} disabled={!historyStore.canRedo} title="{t('toolbar.redo')} ({navigator?.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Y)">↷</button>
-        <div class="pb-dd-wrap">
-          <button class="pb-tool" class:active={uiStore.currentTool === 'select'} onclick={() => { uiStore.currentTool = 'select'; toggleDropdown('select'); }}>↖ <span class="pb-caret">▾</span></button>
-          {#if openDropdown === 'select'}
-            <div class="pb-dropdown">
-              {#each [
-                { id: 'nodes', key: 'float.selectNodes' },
-                { id: 'elements', key: 'float.selectElements' },
-                { id: 'shells', key: 'float.selectShells' },
-                { id: 'supports', key: 'float.selectSupports' },
-                { id: 'loads', key: 'float.selectLoads' },
-              ] as const as sm}
-                <button class="pb-dd-item" class:active={uiStore.selectMode === sm.id} onclick={() => { uiStore.selectMode = sm.id; openDropdown = null; }}>{t(sm.key)}</button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-
-        <span class="pb-divider"></span>
-
-        <!-- Geometry -->
-        <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['nodes','elements','shells'].includes(uiStore.proActiveTab)} data-testid="pb-group-geometry" onclick={() => toggleDropdown('geometry')}>{t('pro.groupGeometry')} <span class="pb-caret">▾</span></button>
-          {#if openDropdown === 'geometry'}
-            <div class="pb-dropdown">
-              <button class="pb-dd-item" data-testid="pb-tab-nodes" class:active={uiStore.proActiveTab === 'nodes'} onclick={() => { uiStore.proActiveTab = 'nodes'; openDropdown = null; }}>{t('pro.tabNodes')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-elements" class:active={uiStore.proActiveTab === 'elements'} onclick={() => { uiStore.proActiveTab = 'elements'; openDropdown = null; }}>{t('pro.tabElements')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-shells" class:active={uiStore.proActiveTab === 'shells'} onclick={() => { uiStore.proActiveTab = 'shells'; openDropdown = null; }}>{t('pro.tabShells')}</button>
-            </div>
-          {/if}
-        </div>
-        <!-- Properties -->
-        <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['materials','sections'].includes(uiStore.proActiveTab)} data-testid="pb-group-properties" onclick={() => toggleDropdown('properties')}>{t('pro.groupProperties')} <span class="pb-caret">▾</span></button>
-          {#if openDropdown === 'properties'}
-            <div class="pb-dropdown">
-              <button class="pb-dd-item" data-testid="pb-tab-materials" class:active={uiStore.proActiveTab === 'materials'} onclick={() => { uiStore.proActiveTab = 'materials'; openDropdown = null; }}>{t('pro.tabMaterials')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-sections" class:active={uiStore.proActiveTab === 'sections'} onclick={() => { uiStore.proActiveTab = 'sections'; openDropdown = null; }}>{t('pro.tabSections')}</button>
-            </div>
-          {/if}
-        </div>
-        <!-- Conditions -->
-        <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['supports','constraints','loads'].includes(uiStore.proActiveTab)} data-testid="pb-group-conditions" onclick={() => toggleDropdown('conditions')}>{t('pro.groupConditions')} <span class="pb-caret">▾</span></button>
-          {#if openDropdown === 'conditions'}
-            <div class="pb-dropdown">
-              <button class="pb-dd-item" data-testid="pb-tab-supports" class:active={uiStore.proActiveTab === 'supports'} onclick={() => { uiStore.proActiveTab = 'supports'; openDropdown = null; }}>{t('pro.tabSupports')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-constraints" class:active={uiStore.proActiveTab === 'constraints'} onclick={() => { uiStore.proActiveTab = 'constraints'; openDropdown = null; }}>{t('pro.tabConstraints')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-loads" class:active={uiStore.proActiveTab === 'loads'} onclick={() => { uiStore.proActiveTab = 'loads'; openDropdown = null; }}>{t('pro.tabLoads')}</button>
-            </div>
-          {/if}
-        </div>
-        <!-- Analysis -->
-        <div class="pb-dd-wrap">
-          <button class="pb-group" class:group-active={['advanced','results','design','connections','diagnostics'].includes(uiStore.proActiveTab)} data-testid="pb-group-analysis" onclick={() => toggleDropdown('analysis')}>{t('pro.groupAnalysis')} <span class="pb-caret">▾</span></button>
-          {#if openDropdown === 'analysis'}
-            <div class="pb-dropdown">
-              <button class="pb-dd-item" data-testid="pb-tab-advanced" class:active={uiStore.proActiveTab === 'advanced'} onclick={() => { uiStore.proActiveTab = 'advanced'; openDropdown = null; }}>{t('pro.tabAdvanced')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-results" class:active={uiStore.proActiveTab === 'results'} onclick={() => { uiStore.proActiveTab = 'results'; openDropdown = null; }}>{t('pro.tabResults')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-design" class:active={uiStore.proActiveTab === 'design'} onclick={() => { uiStore.proActiveTab = 'design'; openDropdown = null; }}>{t('pro.tabDesign')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-connections" class:active={uiStore.proActiveTab === 'connections'} onclick={() => { uiStore.proActiveTab = 'connections'; openDropdown = null; }}>{t('pro.tabConnections')}</button>
-              <button class="pb-dd-item" data-testid="pb-tab-diagnostics" class:active={uiStore.proActiveTab === 'diagnostics'} onclick={() => { uiStore.proActiveTab = 'diagnostics'; openDropdown = null; }}>{t('pro.tabDiagnostics')}</button>
-            </div>
-          {/if}
-        </div>
-
-        <span class="pb-divider"></span>
-
-        <!-- Actions -->
-        <!--
-          Project file controls live here, beside the other PRO actions, because a PRO user
-          must not have to switch to Básico to open or save. They are the same `file.ts`
-          entry points the Básico toolbar drives.
-        -->
-        <ProProjectFileActions shortcuts={true} />
-        <button class="pn-action pn-example" bind:this={proExBtnEl} onclick={() => proPanelRef?.examples(proExBtnEl)}>{t('pro.exampleBtn')}</button>
-        <button class="pn-action pn-cad" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} title={t('project.openDxfCadTooltip')}>{t('cad.proBarBtn')}</button>
-        <button class="pn-action pn-solve" onclick={() => proPanelRef?.solve()} disabled={!proPanelRef?.canSolve()}>{proPanelRef?.isSolving() ? t('pro.solving') : t('pro.solve')}</button>
-        <button class="pn-action pn-report" onclick={() => proPanelRef?.report()} disabled={!proPanelRef?.canReport()}>{t('pro.reportBtn')}</button>
-
-        <span class="pb-spacer"></span>
-
-        <!-- Controls -->
-        <button class="pn-toggle" onclick={() => { uiStore.proPanelVisible = !uiStore.proPanelVisible; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }} title={uiStore.proPanelVisible ? 'Hide panel' : 'Show panel'}>{uiStore.proPanelVisible ? '\u25E5' : '\u25E3'}</button>
-        <button class="pn-toggle pn-settings-gear" onclick={() => proSettingsOpen = !proSettingsOpen} title={t('config.title')}>&#9881;</button>
-        {#if proSettingsOpen}
-          <div class="pro-settings-dropdown">
-            <ToolbarConfig inline={true} />
-          </div>
-        {/if}
-      </nav>
+        <ProRibbon
+          onExamples={(btn) => { uiStore.proPanelVisible = true; proPanelRef?.examples(btn); }}
+          onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
+          onReport={() => { uiStore.proPanelVisible = true; proPanelRef?.report(); }}
+          canSolve={proPanelRef?.canSolve() ?? false}
+          canReport={proPanelRef?.canReport() ?? false}
+          isSolving={proPanelRef?.isSolving() ?? false}
+          errorCount={proPanelRef?.errorCount() ?? 0}
+          proPanel={uiStore.proActiveTab}
+          onOpenProject={() => { uiStore.proActiveTab = 'project'; uiStore.proPanelVisible = true; }}
+        />
     {/if}
 
     {#if uiStore.appMode === 'pro' && uiStore.isMobile}
@@ -1028,14 +1108,50 @@
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <StressPickHint />
+        <!-- The colour map's scale. One component for both viewports: the ramp
+             is defined once, so the legend that explains it should be too. -->
+        <ColourScaleLegend />
         {#if uiStore.simplified2DMode}
+          {@const st = uiStore.simplified2DStats}
           <div class="simplified-banner">
-            <span>{t('app.simplified2d.banner')}</span>
-            {#if uiStore.simplified2DStats}
+            <!--
+              A slice and a projection are different models with different
+              things wrong with them, and the banner is the only place that
+              says which one you are looking at. "Simplified" covered both and
+              told you nothing about either — a cut at Y = 6 is not simplified,
+              it is one frame of the building, and reading its results as the
+              whole structure's is the mistake this line exists to prevent.
+            -->
+            <span>
+              {#if st?.offset !== undefined && st.plane}
+                {t('switch2d.sliceBanner')} — {st.plane === 'xy' ? 'Z' : st.plane === 'xz' ? 'Y' : 'X'} = {st.offset} m
+              {:else}
+                {t('app.simplified2d.banner')}
+              {/if}
+            </span>
+            {#if st}
               <span class="simplified-stats">
-                {uiStore.simplified2DStats.mergedNodes > 0 ? `${uiStore.simplified2DStats.mergedNodes} ${t('app.simplified2d.merged')}` : ''}
-                {uiStore.simplified2DStats.removedElements > 0 ? ` · ${uiStore.simplified2DStats.removedElements} ${t('app.simplified2d.removed')}` : ''}
-                {uiStore.simplified2DStats.duplicateElements > 0 ? ` · ${uiStore.simplified2DStats.duplicateElements} ${t('app.simplified2d.duplicates')}` : ''}
+                {st.mergedNodes > 0 ? `${st.mergedNodes} ${t('app.simplified2d.merged')}` : ''}
+                {st.removedElements > 0 ? ` · ${st.removedElements} ${t('app.simplified2d.removed')}` : ''}
+                {st.duplicateElements > 0 ? ` · ${st.duplicateElements} ${t('app.simplified2d.duplicates')}` : ''}
+                {(st.droppedCrossing ?? 0) + (st.droppedElsewhere ?? 0) > 0
+                  ? ` · ${(st.droppedCrossing ?? 0) + (st.droppedElsewhere ?? 0)} ${t('switch2d.leftBehind')}`
+                  : ''}
+                <!--
+                  And the load, which is the one that has to survive to HERE.
+                  The dialog warns before the cut; this banner is what stays on
+                  screen while the results are read. Missing members make a
+                  frame look weaker than it is, and a reader distrusts it.
+                  Missing LOAD makes it look stronger — it solves, reports zero,
+                  and reads as safe — so the count belongs in the standing
+                  context and not only in the moment before the decision.
+                -->
+                {#if (st.droppedLoads ?? 0) > 0}
+                  <!-- Its own element, with a test id, so the guard on it can
+                       be written without pinning a translated string. -->
+                  <span data-testid="s2d-dropped-loads" data-count={st.droppedLoads}
+                  >{' · '}{st.droppedLoads} {t('switch2d.loadsLeftBehind')}</span>
+                {/if}
               </span>
             {/if}
           </div>
@@ -1088,12 +1204,61 @@
     {/if}
 
     {#if !uiStore.isMobile}
-      {#if uiStore.appMode === 'pro' && uiStore.proPanelVisible}
-        <aside class="sidebar right pro-sidebar" style:width="{uiStore.proPanelWidth}px" style:overflow="visible">
+      {#if uiStore.appMode === 'pro'}
+        <!--
+          Closed means hidden, not unmounted.
+          ─────────────────────────────────────
+          The ribbon is bound to this panel's instance (`bind:this`): Solve, Report,
+          the example menu and the MODEL badge's error count all live on it. The ✕
+          used to unmount the panel, which nulled that binding — the ribbon's
+          commands silently no-opped and the badge read "✓ clean" on a model with
+          errors. Hiding keeps the instance alive, so closing the panel changes
+          what you see and nothing else. Both viewports resize themselves with a
+          ResizeObserver, so the canvas follows without help.
+        -->
+        <aside
+          class="sidebar right pro-sidebar"
+          class:pro-sidebar-closed={!uiStore.proPanelVisible}
+          style:width="{uiStore.proPanelWidth}px"
+          style:overflow="visible"
+        >
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div class="pro-resize-handle" onmousedown={(e) => startProResize(e)}></div>
+          <!--
+            The panel closes from its own top-right corner.
+            ─────────────────────────────────────────────
+            Closing it used to be a `▧` button in the command bar, three metres
+            of screen away from the thing it closed and next to controls that do
+            something else entirely. A ✕ in the panel's own corner is where every
+            panel in the application is dismissed, including Basic's.
+
+            Width still comes from dragging the left edge, which is the gesture
+            already there and the one that lets you see the result as you drag.
+          -->
+          <button
+            class="pro-panel-close"
+            onclick={() => { uiStore.proPanelVisible = false; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }}
+            title={t('ribbon.close')}
+            aria-label={t('ribbon.close')}
+            data-testid="pro-panel-close"
+          >×</button>
           <ProPanel bind:this={proPanelRef} />
         </aside>
+        {#if !uiStore.proPanelVisible}
+          <!-- A closed panel has to be reopenable from where it closed. -->
+          <!--
+            A bare chevron on the canvas edge is not a clue. It says what it
+            reopens, running up the tab, so a panel you closed is findable
+            without hunting for a 16 px strip.
+          -->
+          <button
+            class="pro-panel-reopen"
+            onclick={() => { uiStore.proPanelVisible = true; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }}
+            title={t('proRibbon.reopenPanel')}
+            aria-label={t('proRibbon.reopenPanel')}
+            data-testid="pro-panel-reopen"
+          ><span class="ppr-text">‹ {t('proRibbon.reopenPanel')}</span></button>
+        {/if}
       {:else if uiStore.appMode === 'educativo'}
         <aside class="sidebar right edu-sidebar">
           <EducativePanel />
@@ -1240,6 +1405,13 @@
 <ContextMenu />
 
 <HelpOverlay />
+
+<!--
+  Modal over the whole app, so it sits with the other dialogs rather than
+  inside the viewport: what it decides replaces the model, which is not a
+  viewport-scoped act.
+-->
+<SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
 
 <DxfImportDialog
   open={showDxfImport}
@@ -1492,11 +1664,58 @@
     color: rgba(255,255,255,0.85);
   }
 
+  .pro-panel-close {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    z-index: 3;
+    background: none;
+    border: none;
+    color: var(--st-text-2);
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0.1rem 0.35rem;
+    cursor: pointer;
+    border-radius: var(--st-radius);
+  }
+
+  .pro-panel-close:hover { background: var(--st-surface-3); color: var(--st-text); }
+
+  .pro-panel-reopen {
+    align-self: stretch;
+    width: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--st-surface-2);
+    border: none;
+    border-left: 1px solid var(--st-hair);
+    color: var(--st-text-3);
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  .ppr-text {
+    writing-mode: vertical-rl;
+    font-family: var(--st-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .pro-panel-reopen:hover { background: var(--st-surface-3); color: var(--st-text); }
+
   .pro-sidebar {
     overflow: visible;
     position: relative;
     z-index: 40;
     flex-shrink: 0;
+  }
+
+  /* Hidden, not unmounted — see the aside's comment in the markup above. */
+  .pro-sidebar-closed {
+    display: none;
   }
 
   /* ─── PRO command bar with dropdowns ─── */
@@ -1538,8 +1757,8 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-  .pb-group:hover { color: var(--st-text); background: rgba(26, 74, 122, 0.3); border-color: var(--st-hair-strong); }
-  .pb-group.group-active { color: var(--st-text); border-color: var(--st-accent); background: rgba(233, 69, 96, 0.12); }
+  .pb-group:hover { color: var(--st-text); background: var(--st-surface-3); border-color: var(--st-hair-strong); }
+  .pb-group.group-active { color: var(--st-accent); border-color: var(--st-accent); background: var(--st-selected-bg); }
   .pb-caret { font-size: 0.55rem; opacity: 0.6; }
   .pb-undo {
     display: flex; align-items: center; justify-content: center;
@@ -1617,20 +1836,64 @@
     pointer-events: none;
   }
   .simplified-stats { font-weight: 400; opacity: 0.85; }
+  /* The positioned ancestor the panel measures `top: 100%` from. Without it the panel lands
+     one whole app-body below the window — see the note beside the button. */
+  .settings-anchor { position: relative; display: inline-flex; }
+
   .pro-settings-dropdown {
     position: absolute;
-    top: 100%;
-    right: 6px;
+    top: calc(100% + 6px);
+    right: 0;
     z-index: 200;
-    width: 260px;
-    max-height: 70vh;
+    width: 288px;
+    max-height: min(70vh, 34rem);
     overflow-y: auto;
     background: var(--st-surface);
     border: 1px solid var(--st-hair-strong);
-    border-radius: 6px;
-    padding: 0.5rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    border-radius: var(--st-radius-lg);
+    /* Breathing room on every side: the old 0.5rem let the first checkbox sit on the border. */
+    padding: 0.35rem 0.85rem 0.85rem;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
   }
+
+  .pro-settings-dropdown:focus { outline: none; }
+
+  .pro-settings-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    /* Sticky over a scrolling panel, so it needs its own ground rather than the panel's. */
+    background: var(--st-surface);
+    padding: 0.5rem 0 0.45rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid var(--st-hair);
+  }
+
+  .pro-settings-head h2 {
+    margin: 0;
+    font-family: var(--st-display);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--st-text);
+  }
+
+  .pro-settings-close {
+    background: none;
+    border: none;
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 0.2rem 0.35rem;
+    cursor: pointer;
+  }
+  .pro-settings-close:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .pro-settings-close:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 1px; }
 
   .pn-actions {
     display: flex;
@@ -1649,14 +1912,48 @@
     white-space: nowrap;
   }
   .pn-action:disabled { opacity: 0.35; cursor: not-allowed; }
-  .pn-example { color: var(--st-text); background: var(--st-warn); border-color: var(--st-warn); }
-  .pn-example:hover { background: var(--st-amber-text); }
-  .pn-cad { color: var(--st-value); border-color: var(--st-interactive); background: rgba(78, 205, 196, 0.08); }
-  .pn-cad:hover { background: rgba(78, 205, 196, 0.2); }
-  .pn-solve { color: var(--st-text); background: var(--st-accent); border-color: var(--st-interactive); }
-  .pn-solve:hover { background: var(--st-accent-hover); }
-  .pn-report { color: var(--st-text); background: var(--st-accent); border-color: var(--st-accent); }
-  .pn-report:hover { background: linear-gradient(135deg, var(--st-accent-hover), var(--st-accent)); }
+  /*
+     Four commands, four fills, four meanings — none of them stated.
+     ───────────────────────────────────────────────────────────────
+     Examples was amber, DXF plan turquoise-outlined, Solve and Report solid
+     red. Amber is this palette's warning, turquoise its computed value, and
+     solid accent is what the shell reserves for the ONE thing you are acting
+     on — so a row of four permanent buttons claimed to be a warning, a
+     read-out and two active states at once, all before the user had done
+     anything.
+
+     They are commands, so they take the shell's command: hairline, no fill
+     until hover. Solve keeps the accent, because among these four it is the
+     one that acts on the model and the one the whole bar builds toward — and
+     it is the only one, so the accent means something again.
+  */
+  .pn-example,
+  .pn-cad,
+  .pn-report {
+    color: var(--st-text-2);
+    background: none;
+    border-color: var(--st-hair);
+  }
+
+  .pn-example:hover:not(:disabled),
+  .pn-cad:hover:not(:disabled),
+  .pn-report:hover:not(:disabled) {
+    background: var(--st-surface-3);
+    color: var(--st-text);
+    border-color: var(--st-hair-strong);
+  }
+
+  .pn-solve {
+    color: var(--st-accent);
+    background: none;
+    border-color: var(--st-accent);
+  }
+
+  .pn-solve:hover:not(:disabled) {
+    background: var(--st-selected-bg);
+    color: var(--st-accent-hover);
+    border-color: var(--st-accent-hover);
+  }
 
   .pro-resize-handle {
     position: absolute;

@@ -178,7 +178,8 @@ describe('the run reports what happened, family by family', () => {
     // presenting a silent zero.
     const beams = familyOf(report, 'beam');
     expect(beams.processed).toBeGreaterThan(100);
-    expect(beams.refused).toBe(5);
+    expect(beams.refused, 'refusals are counted, not swallowed').toBe(5);
+    expect(beams.designed, 'and the beams that DID design are counted too').toBeGreaterThan(100);
     expect(beams.designed + beams.refused + beams.notModelled).toBe(beams.processed);
 
     const totals = totalsOf(report);

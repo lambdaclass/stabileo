@@ -178,6 +178,14 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
     const proposals = report.hangerTopMembers.filter((id) =>
       report.entries.find((x) => x.elementId === id)!.status === 'PROVISIONAL');
     expect(proposals.length, 'no hanger-top member is a flexural proposal now').toBe(0);
+    // And the two axes stay orthogonal in the aggregate as well as member by member: the
+    // top-steel chip says what the steel IS, the state column says what the design CONCLUDED,
+    // and every member of the set is accounted for by one state or the other. Asserted apart
+    // from the count above because it survives whatever the load combination makes that count.
+    const modelled = report.hangerTopMembers.filter((id) =>
+      report.entries.find((x) => x.elementId === id)!.status === 'MODELLED');
+    expect(proposals.length + modelled.length, 'every top-steel member is in one state or the other')
+      .toBe(report.hangerTopMembers.length);
   });
 
   it('never lets an assembly bar acquire a certificate', () => {

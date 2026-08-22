@@ -393,7 +393,7 @@ export interface VerificationReport {
  */
 export interface CodeDetail {
   /** Calculation memo sections (each is { title: string, steps: string[] }) */
-  memos: Array<{ title: string; steps: string[] }>;
+  memos: Array<{ title: string; titleKey?: string; steps: string[] }>;
   /** Interaction diagram data (columns only) */
   interactionParams?: {
     b: number; h: number; fc: number; fy: number; cover: number;
@@ -424,12 +424,39 @@ export function getCodeDetail(v: ElementVerification | undefined | null): CodeDe
   // so `lib/engine` carries no store dependency and the code-adapter seam holds.
   if (!v) return null;
 
+  /**
+   * Memo titles carry a KEY as well as their English text.
+   *
+   * The five titles are assembled here — they are labels this adapter chooses, not text any code
+   * adapter produced and not a formula — so they are safely translatable, and they were the only
+   * strings on this path that were. `title` is left EXACTLY as it was: it is the `{#each}` key at
+   * the render site and anything else reading a memo keeps the string it already had. `titleKey`
+   * is additive, and the panel prefers it when present.
+   *
+   * The memo BODIES (`steps`) are a different matter and are deliberately untouched: they are
+   * built inside the CIRSOC adapters, and rewriting them is rewriting authority modules. They are
+   * inventoried in `docs/handoffs/pr20-readiness.md` instead.
+   */
   const memos: CodeDetail['memos'] = [];
-  if (v.flexure?.steps?.length) memos.push({ title: 'Flexure', steps: v.flexure.steps });
-  if (v.shear?.steps?.length) memos.push({ title: 'Shear', steps: v.shear.steps });
-  if (v.column?.steps?.length) memos.push({ title: 'Flexo-compression', steps: v.column.steps });
-  if (v.torsion?.steps?.length) memos.push({ title: `Torsion${v.torsion.neglect ? ' (negligible)' : ''}`, steps: v.torsion.steps });
-  if (v.biaxial?.steps?.length) memos.push({ title: 'Biaxial (Bresler)', steps: v.biaxial.steps });
+  if (v.flexure?.steps?.length) {
+    memos.push({ title: 'Flexure', titleKey: 'design.memo.flexure', steps: v.flexure.steps });
+  }
+  if (v.shear?.steps?.length) {
+    memos.push({ title: 'Shear', titleKey: 'design.memo.shear', steps: v.shear.steps });
+  }
+  if (v.column?.steps?.length) {
+    memos.push({ title: 'Flexo-compression', titleKey: 'design.memo.column', steps: v.column.steps });
+  }
+  if (v.torsion?.steps?.length) {
+    memos.push({
+      title: `Torsion${v.torsion.neglect ? ' (negligible)' : ''}`,
+      titleKey: v.torsion.neglect ? 'design.memo.torsionNegligible' : 'design.memo.torsion',
+      steps: v.torsion.steps,
+    });
+  }
+  if (v.biaxial?.steps?.length) {
+    memos.push({ title: 'Biaxial (Bresler)', titleKey: 'design.memo.biaxial', steps: v.biaxial.steps });
+  }
 
   const interactionParams = v.column ? {
     b: v.b, h: v.h, fc: v.fc, fy: 420,

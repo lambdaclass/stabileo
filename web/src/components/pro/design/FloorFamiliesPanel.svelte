@@ -81,6 +81,40 @@
 </script>
 
 <div class="floor-families" data-testid="floor-families">
+  <!--
+    What this stage is, said where it runs.
+
+    It is optional and it is a STEP, not an alternative: "Design all" on the command row designs
+    the frame — columns and beams — and this designs the shells the frame carries, plus footings
+    when they are asked for. A building with no slabs never needs it; a building with slabs needs
+    it BEFORE detailing, because the detailing coordinates whatever bars exist by then.
+  -->
+  <p class="stage-note" data-testid="floor-stage-note">{t('detailing.floorRun.whenToRun')}</p>
+
+  <!--
+    What the command does, what it leaves alone, and what to do with the result.
+
+    It was a lone primary button under one sentence. A user could tell that it ran something about
+    floors and nothing else: not that it designs AND details in one pass (so it does not need a
+    second detailing run for these families), not that it leaves columns and beams untouched, and
+    not that the coordinated detailing has to run after it. All three are facts the pipeline
+    depends on, and all three were only in the source.
+  -->
+  <dl class="contract" data-testid="floor-run-contract">
+    <div>
+      <dt>{t('detailing.floorRun.doesTitle')}</dt>
+      <dd data-testid="floor-run-does">{t('detailing.floorRun.does')}</dd>
+    </div>
+    <div>
+      <dt>{t('detailing.floorRun.notTitle')}</dt>
+      <dd data-testid="floor-run-not">{t('detailing.floorRun.not')}</dd>
+    </div>
+    <div>
+      <dt>{t('detailing.floorRun.nextTitle')}</dt>
+      <dd data-testid="floor-run-next">{t('detailing.floorRun.next')}</dd>
+    </div>
+  </dl>
+
   <header class="commands">
     <!--
       One command, because design and detailing for these families are one production pass:
@@ -95,6 +129,18 @@
         ? t('detailing.floorRun.running')
         : t('detailing.floorRun.designAndDetail')}
     </button>
+    <!--
+      The run is synchronous and has no cancel.
+
+      There is no `cancelFloors` on the store and no progress channel to read, so this says the
+      pass is running and that it cannot be interrupted, rather than showing a fake bar or a
+      Cancel button that would do nothing. When the store grows a cancel, this is where it goes.
+    -->
+    {#if detailingStore.generating}
+      <span class="running-note" role="status" data-testid="floor-run-running">
+        {t('detailing.floorRun.runningNote')}
+      </span>
+    {/if}
     <span class="code" data-testid="floor-design-code">
       {#if concreteCode}
         {tp('detailing.floorRun.underCode', { code: concreteCode })}
@@ -342,37 +388,69 @@
 </div>
 
 <style>
+  .stage-note {
+    margin: 0 0 0.5rem; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2);
+  }
   .floor-families { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem 1rem; font-size: 0.82rem; }
   .commands { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-  button { font: inherit; cursor: pointer; }
-  button:disabled { cursor: not-allowed; opacity: 0.6; }
-  .primary { font-weight: 600; padding: 0.3rem 0.7rem; }
+  /*
+    Controls on the design system, not on the browser's defaults.
+
+    `button { font: inherit; cursor: pointer }` was the whole button style in this file: no
+    background, no border, no focus ring — so Chrome painted them white on a dark panel, and a
+    keyboard user got whatever the UA happened to draw. Same rule, same tokens, same focus ring as
+    Project regulations and the Documents stage, so the four sections read as one product.
+  */
+  button {
+    font: inherit;
+    cursor: pointer;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 4px;
+    background: var(--st-surface-3);
+    color: var(--st-text);
+    font-size: 0.7rem;
+  }
+  button:hover:not(:disabled) { background: var(--st-hair-strong); }
+  button:active:not(:disabled) { background: var(--st-hair); }
+  button:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  /* Disabled is dimmer and still readable: it has to be legible to be an explanation. */
+  button:disabled { opacity: 0.6; cursor: not-allowed; border-color: var(--st-hair); }
+  /* The one that starts the work reads as the one that starts the work. */
+  .primary:not(:disabled) { border-color: var(--st-interactive); font-weight: 600; }
   .code { font-size: 0.75rem; opacity: 0.9; }
   /* An unresolved code is never green. */
-  .warn { padding: 0.1rem 0.35rem; border-radius: 3px; background: #7a5b00; color: #fff6dd; }
-  .families { display: flex; gap: 0.3rem; border-bottom: 1px solid rgba(128,128,128,0.3); }
+  .warn { padding: 0.1rem 0.35rem; border-radius: 3px; background: var(--st-surface-3); color: var(--st-warn); }
+  .families { display: flex; gap: 0.3rem; border-bottom: 1px solid var(--st-hair); }
   .families button {
-    background: none; border: none; border-bottom: 2px solid transparent; color: inherit;
+    background: none; border:  1px solid var(--st-hair); border-bottom: 2px solid transparent; color: inherit;
     padding: 0.3rem 0.6rem; display: flex; align-items: center; gap: 0.35rem;
   }
   .families button.active { border-bottom-color: currentColor; font-weight: 600; }
-  .n { font-size: 0.7rem; font-weight: 600; padding: 0.05rem 0.3rem; border-radius: 3px; background: rgba(128,128,128,0.3); }
+  .n { font-size: 0.7rem; font-weight: 600; padding: 0.05rem 0.3rem; border-radius: 3px; background: var(--st-hair); }
   .empty { opacity: 0.75; font-style: italic; }
   table { border-collapse: collapse; width: 100%; font-size: 0.78rem; }
-  th, td { text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid rgba(128,128,128,0.2); }
+  th, td { text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid rgba(143, 163, 179,0.2); }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   /* Over-utilised is never green. */
-  .num.over { color: #ffb4b4; font-weight: 600; }
+  .num.over { color: var(--st-danger); font-weight: 600; }
   .ceiling {
     margin-left: 0.3rem; font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.3rem;
-    border-radius: 3px; background: #5c1a1a; color: #ffe4e4;
+    border-radius: 3px; background: var(--st-surface-2); color: var(--st-text);
   }
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
   .prereqs li, .unsupported li, .assumptions li { font-size: 0.75rem; opacity: 0.9; }
   .issues > li { font-size: 0.75rem; padding: 0.2rem 0.4rem; border-radius: 3px; }
-  .issues > li.blocking { background: #5c1a1a; color: #ffe4e4; }
+  /* Blocking is never green. */
+  .issues > li.blocking { background: var(--st-surface-2); color: var(--st-danger); }
   .issues ul { margin-left: 0.6rem; }
-  .assumptions li { background: #7a5b00; color: #fff6dd; padding: 0.15rem 0.4rem; border-radius: 3px; }
-  .err { color: #ffb4b4; }
+  .assumptions li { background: var(--st-surface-3); color: var(--st-text); padding: 0.15rem 0.4rem; border-radius: 3px; }
+  .err { color: var(--st-danger); }
   summary { cursor: pointer; font-size: 0.78rem; }
+
+  /* The contract: what it does, what it leaves alone, what comes next. */
+  .contract { margin: 0.35rem 0; display: flex; flex-direction: column; gap: 0.25rem; }
+  .contract dt { font-size: 0.68rem; font-weight: 600; color: var(--st-text); }
+  .contract dd { margin: 0; font-size: 0.66rem; line-height: 1.35; color: var(--st-text-2); }
+  .running-note { font-size: 0.68rem; color: var(--st-text-2); }
 </style>

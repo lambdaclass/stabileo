@@ -97,38 +97,95 @@ interface Watch {
  * forbidden-string check used to sample the container too, so a dismissed error toast would
  * have passed it silently, which is the failure direction that actually matters.
  */
+const TOAST_LOG_KEY = '__e2eToastLog';
+
 function recordToasts(page: Page) {
-  return page.addInitScript(() => {
+  return page.addInitScript(([key]) => {
     const w = window as unknown as { __toastLog?: string[] };
-    // `boot` runs once per page load but init scripts accumulate across them; the first
-    // script on a fresh document wins and the rest find the log already installed.
     if (w.__toastLog) return;
-    const log: string[] = [];
+
+    // The log lives in sessionStorage so it spans the RUN, not one page load. `boot`
+    // navigates three times, and the console watcher this is paired with accumulates
+    // across all of them; a per-load toast log would make `assertClean`'s two halves
+    // disagree about scope, and a forbidden toast raised before a reload would go
+    // unseen. Same origin and same tab survive `goto`, and `boot` clears only
+    // localStorage.
+    let log: string[] = [];
+    try { log = JSON.parse(sessionStorage.getItem(key) ?? '[]'); } catch { log = []; }
     w.__toastLog = log;
-    const seen = new WeakSet<Element>();
-    const note = (el: Element) => {
-      if (seen.has(el)) return;
-      seen.add(el);
-      const text = (el.textContent ?? '').trim();
-      if (text) log.push(text);
-    };
-    new MutationObserver((muts) => {
-      for (const m of muts) {
-        for (const n of Array.from(m.addedNodes)) {
-          if (!(n instanceof HTMLElement)) continue;
-          if (n.classList.contains('toast')) note(n);
-          n.querySelectorAll('.toast').forEach(note);
-        }
+    const save = () => { try { sessionStorage.setItem(key, JSON.stringify(log)); } catch { /* private mode */ } };
+
+    // Keyed on the element's CURRENT TEXT, not on "have I seen this element" — because
+    // `App.svelte` renders toasts through an UNKEYED `{#each}`. Svelte recycles the same
+    // `.toast` div by index and rewrites its text when one toast replaces another in a
+    // single flush, which emits no addedNodes at all. Watching insertions alone would
+    // therefore miss exactly the case this file cares about: a new toast raised as a 4 s
+    // dismissal fires. Text-keyed also fixes the reverse — an element inserted empty and
+    // filled a microtask later still gets recorded.
+    //
+    // WeakMap, not Map: this keys on DOM elements the app destroys and replaces for the
+    // life of the page, and a strong map would hold every one of them alive. The
+    // observer this replaces used a WeakSet for that reason; only the key changed.
+    const lastText = new WeakMap<Element, string>();
+
+    // The sweep is document-wide on purpose, and its cost was MEASURED rather than
+    // assumed — because the obvious objection is that watching `characterData` across
+    // the whole document, in the one spec that also asserts the app answers within 15 s,
+    // puts a whole-DOM query on every text change the app makes.
+    //
+    // It does not. A MutationObserver delivers records in batches, one callback per
+    // microtask checkpoint, so `scan` runs once per task that touched the DOM and not
+    // once per mutation. Measured in Chromium at 400 mutations spread over 400 separate
+    // tasks in an 8 000-node document: 401 calls to `querySelectorAll`, and 2 511 ms
+    // against 2 548 ms with no recorder installed at all — the difference is below the
+    // noise of the run. A record-scoped version that resolves each mutation to its
+    // nearest `.toast` was written, measured at 0 calls and 2 528 ms, and thrown away:
+    // it is twenty lines of extra machinery buying nothing.
+    //
+    // Left here so the next person to have that idea can skip having it.
+    const scan = () => {
+      let dirty = false;
+      for (const el of Array.from(document.querySelectorAll('.toast'))) {
+        const text = (el.textContent ?? '').trim();
+        if (!text || lastText.get(el) === text) continue;
+        lastText.set(el, text);
+        log.push(text);
+        dirty = true;
       }
+      if (dirty) save();
+    };
     // `document`, not `documentElement`: an init script runs against the initial empty
     // document, where `documentElement` is still null and `observe` throws.
-    }).observe(document, { childList: true, subtree: true });
-  });
+    new MutationObserver(scan).observe(document, {
+      childList: true, subtree: true, characterData: true,
+    });
+  }, [TOAST_LOG_KEY]);
 }
 
-/** Every toast raised since the page loaded, in order, dismissed or not. */
+/** Every toast raised so far in the run, in order, dismissed or not. */
 async function toastsSeen(page: Page): Promise<string[]> {
-  return page.evaluate(() => (window as unknown as { __toastLog?: string[] }).__toastLog ?? []);
+  const log = await page.evaluate(() =>
+    (window as unknown as { __toastLog?: string[] }).__toastLog);
+  // Never default to []. An absent recorder would otherwise read as "no toasts were
+  // raised", turning every forbidden-toast assertion below into a silent vacuous pass —
+  // the one failure direction this file exists to prevent.
+  expect(log, 'the toast recorder is installed').toBeDefined();
+  return log!;
+}
+
+/**
+ * Forget the toasts recorded so far, alongside the console watcher's own reset.
+ *
+ * Clears the LOG, not the recorder's per-element memory: a toast still on screen
+ * showing the text it showed before the reset is the same toast, not a new one, and
+ * re-recording it would report a toast that was never raised again.
+ */
+async function resetToasts(page: Page) {
+  await page.evaluate(([key]) => {
+    const w = window as unknown as { __toastLog?: string[] };
+    if (w.__toastLog) w.__toastLog.length = 0;
+    try { sessionStorage.setItem(key, '[]'); } catch { /* private mode */ }
+  }, [TOAST_LOG_KEY]);
 }
 
 function watchPage(page: Page): Watch {
@@ -168,7 +225,6 @@ async function assertClean(page: Page, w: Watch, step: string) {
  * has to go because a restored tab session bypasses the autosave banner entirely.
  */
 async function boot(page: Page) {
-  await recordToasts(page);
   await page.addInitScript(() => {
     try {
       localStorage.clear();
@@ -254,6 +310,17 @@ async function tally(page: Page) {
  */
 async function openViewer(page: Page, step: string) {
   const before = await counters(page);
+  /**
+   * `doc-3d` moved into the Documents stage, which is collapsed like every other stage.
+   *
+   * Inlined rather than imported: this file deliberately uses Playwright's own `test` and not the
+   * `pro` fixture, so pulling in a fixtures helper here would give it a dependency it does not
+   * otherwise have. Two lines are cheaper than that.
+   */
+  const docs = page.getByTestId('documents-disclosure');
+  if (await docs.count() > 0 && await docs.getAttribute('open') === null) {
+    await docs.locator('> summary').click();
+  }
   await page.getByTestId('doc-3d').click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
   await expect
@@ -285,9 +352,63 @@ async function assertResponsive(page: Page, step: string) {
   expect(dt, `${step}: the app answered in ${dt} ms`).toBeLessThan(15_000);
 }
 
+/**
+ * The recorder's own guard, because the journey below cannot prove this.
+ *
+ * `App.svelte` renders toasts through an UNKEYED `{#each}`, so Svelte recycles the same
+ * `.toast` div by index and rewrites its text rather than inserting a node. A recorder
+ * that watched `addedNodes` alone — the first version of this one — silently missed
+ * exactly that, which is the case where a new toast replaces one that is dismissing.
+ *
+ * The @slow journey passes either way, because whether the container happens to empty
+ * first is a timing accident. So the three shapes are pinned here directly, in a second,
+ * on every PR rather than only on main.
+ */
+test('@smoke the toast recorder catches inserted, recycled and late-filled toasts', async ({ page }) => {
+  await recordToasts(page);
+  await page.goto(PRO_URL);
+
+  // Mirrors App.svelte's markup: `.toast > span` holding the message text node.
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.className = 'toast-container';
+    document.body.appendChild(host);
+    const el = document.createElement('div');
+    el.className = 'toast toast-success';
+    const span = document.createElement('span');
+    span.appendChild(document.createTextNode('inserted message'));
+    el.appendChild(span);
+    host.appendChild(el);
+  });
+  await expect.poll(() => toastsSeen(page)).toContain('inserted message');
+
+  // The unkeyed-{#each} recycle, done the way Svelte does it: `set_text` assigns the
+  // existing text node's `.data`. That is a characterData record and NOT a childList
+  // one — assigning `textContent` here instead would replace the node and quietly test
+  // the wrong thing, passing even against an observer that watches insertions only.
+  await page.evaluate(() => {
+    const node = document.querySelector('.toast span')!.firstChild as Text;
+    node.data = 'recycled message';
+  });
+  await expect.poll(() => toastsSeen(page)).toContain('recycled message');
+
+  // Inserted empty and filled a tick later — the case an element-keyed `seen` set
+  // permanently swallowed.
+  await page.evaluate(() => {
+    const el = document.createElement('div');
+    el.className = 'toast toast-info';
+    document.querySelector('.toast-container')!.appendChild(el);
+    setTimeout(() => { el.textContent = 'late message'; }, 10);
+  });
+  await expect.poll(() => toastsSeen(page)).toContain('late message');
+});
+
 test('@slow restore, design, view in 3-D — then reload and do it again', async ({ page }) => {
   test.setTimeout(900_000);
   const w = watchPage(page);
+  // Installed once, before the first navigation — not inside `boot`, which runs three
+  // times and would stack three copies of the script onto every later page load.
+  await recordToasts(page);
 
   // ── 1. Open the example ──────────────────────────────────────────
   await boot(page);
@@ -423,6 +544,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   await boot(page);
   await page.evaluate(() => window.__stabileoActions.openDesignTab());
   w.errors.length = 0; w.fallbacks.length = 0; w.forbidden.length = 0;
+  await resetToasts(page);
   await restoreFromBanner(page);
 
   // The restored model carries the design. Under the old autosave this was the morning's

@@ -186,23 +186,23 @@
 
 <style>
   .filter-bar { display: flex; flex-direction: column; gap: 4px; padding: 5px 12px;
-    background: #081524; border-bottom: 1px solid #14304f; flex-shrink: 0; }
+    background: var(--st-bg); border-bottom: 1px solid var(--st-surface-3); flex-shrink: 0; }
   .row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
   .chips { display: flex; gap: 3px; flex-wrap: wrap; }
   .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px;
-    background: #10233c; border: 1px solid #1d3a5c; border-radius: 10px;
-    color: #9ab; font-size: 0.7rem; cursor: pointer; }
-  .chip:hover { background: #16304f; }
-  .chip.active { background: #1a4a7a; border-color: #2a6ab0; color: #fff; }
-  .chip:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
+    background: var(--st-surface-3); border: 1px solid var(--st-hair-strong); border-radius: 10px;
+    color: var(--st-text-2); font-size: 0.7rem; cursor: pointer; }
+  .chip:hover { background: var(--st-surface-3); }
+  .chip.active { background: var(--st-surface-3); border-color: var(--st-info); color: var(--st-text); }
+  .chip:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .chip-sm { border-radius: 3px; }
   .chip-count { font-family: monospace; font-size: 0.64rem; opacity: 0.8; }
-  .search { flex: 1; min-width: 140px; padding: 3px 7px; background: #0b1c30;
-    border: 1px solid #1d3a5c; border-radius: 3px; color: #dde; font-size: 0.72rem; }
-  .lbl { font-size: 0.7rem; color: #778; }
-  .group-row { border-top: 1px dashed #14304f; padding-top: 4px; }
-  .picker { max-width: 260px; padding: 2px 5px; background: #0b1c30;
-    border: 1px solid #1d3a5c; border-radius: 3px; color: #cce; font-size: 0.7rem; }
-  .refused { font-size: 0.66rem; color: #667; font-style: italic; }
-  .group-note { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.66rem; color: #b09a6a; }
+  .search { flex: 1; min-width: 140px; padding: 3px 7px; background: var(--st-surface);
+    border: 1px solid var(--st-hair-strong); border-radius: 3px; color: var(--st-text); font-size: 0.72rem; }
+  .lbl { font-size: 0.7rem; color: var(--st-text-3); }
+  .group-row { border-top: 1px dashed var(--st-surface-3); padding-top: 4px; }
+  .picker { max-width: 260px; padding: 2px 5px; background: var(--st-surface);
+    border: 1px solid var(--st-hair-strong); border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
+  .refused { font-size: 0.66rem; color: var(--st-text-3); font-style: italic; }
+  .group-note { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.66rem; color: var(--st-warn); }
 </style>

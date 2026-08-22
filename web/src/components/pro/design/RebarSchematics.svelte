@@ -67,17 +67,17 @@
             <svg viewBox="0 0 {w} {hh}" width={w} height={hh} role="img"
                  aria-label={`${reg.label} ${(view.b * 100).toFixed(0)}x${(view.h * 100).toFixed(0)} cm`}>
               <rect x="7" y="7" width={L.sectionWidth * sc} height={L.sectionHeight * sc}
-                    fill="#132840" stroke="#4ecdc4" stroke-width="1" />
+                    fill="var(--st-surface-3)" stroke="var(--st-value)" stroke-width="1" />
               <rect x={7 + inset} y={7 + inset}
                     width={L.sectionWidth * sc - 2 * inset} height={L.sectionHeight * sc - 2 * inset}
-                    fill="none" stroke="#f0a500" stroke-width={Math.max(view.stirDia / 1000 * sc, 1.2)}
+                    fill="none" stroke="var(--st-warn)" stroke-width={Math.max(view.stirDia / 1000 * sc, 1.2)}
                     rx="2" opacity="0.85" />
               {#each L.allBars as bar}
                 {@const isTens = bar.face === reg.tension}
                 <circle cx={7 + bar.x * sc} cy={7 + (L.sectionHeight - bar.y) * sc}
                         r={Math.max((bar.diameter / 2000) * sc, 2.2)}
-                        fill={isTens ? '#4caf50' : '#f0a500'}
-                        stroke={isTens ? '#88dd88' : '#ffcc66'} stroke-width="0.5" />
+                        fill={isTens ? 'var(--st-ok)' : 'var(--st-warn)'}
+                        stroke={isTens ? 'var(--st-ok)' : 'var(--st-warn)'} stroke-width="0.5" />
               {/each}
             </svg>
             <div class="legend">
@@ -99,15 +99,15 @@
           <svg viewBox="0 0 {w} {hh}" width={w} height={hh} role="img"
                aria-label={`column ${(view.b * 100).toFixed(0)}x${(view.h * 100).toFixed(0)} cm`}>
             <rect x="7" y="7" width={view.b * sc} height={view.h * sc}
-                  fill="#132840" stroke="#4ecdc4" stroke-width="1" />
+                  fill="var(--st-surface-3)" stroke="var(--st-value)" stroke-width="1" />
             <rect x={7 + inset} y={7 + inset} width={view.b * sc - 2 * inset} height={view.h * sc - 2 * inset}
-                  fill="none" stroke="#f0a500" stroke-width={Math.max(view.stirDia / 1000 * sc, 1.2)}
+                  fill="none" stroke="var(--st-warn)" stroke-width={Math.max(view.stirDia / 1000 * sc, 1.2)}
                   rx="2" opacity="0.85" />
             {#each L.bars as bar}
               <circle cx={7 + bar.x * sc} cy={7 + (view.h - bar.y) * sc}
                       r={Math.max((bar.diameter / 2000) * sc, 2.6)}
-                      fill={bar.index < 4 ? '#e94560' : '#f0a500'}
-                      stroke={bar.index < 4 ? '#ff8a9e' : '#ffcc66'} stroke-width="0.5" />
+                      fill={bar.index < 4 ? 'var(--st-accent)' : 'var(--st-warn)'}
+                      stroke={bar.index < 4 ? 'var(--st-danger)' : 'var(--st-warn)'} stroke-width="0.5" />
             {/each}
           </svg>
           <div class="legend">
@@ -125,8 +125,8 @@
   .schematics { margin-top: 6px; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
   .cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .cap { font-size: 0.64rem; color: #8ab; font-weight: 600; }
-  .legend { display: flex; gap: 6px; font-size: 0.62rem; font-family: monospace; color: #8a9; }
-  .bad { color: #ff8a8a; font-weight: 700; }
-  .dim { color: #789; }
+  .cap { font-size: 0.64rem; color: var(--st-info); font-weight: 600; }
+  .legend { display: flex; gap: 6px; font-size: 0.62rem; font-family: monospace; color: var(--st-text-2); }
+  .bad { color: var(--st-accent); font-weight: 700; }
+  .dim { color: var(--st-text-3); }
 </style>

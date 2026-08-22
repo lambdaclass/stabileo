@@ -7,6 +7,7 @@
    * page — see the note on the content model in src/lib/blog/types.ts.
    */
   import type { Block } from '../../lib/blog';
+  import PostEmbed from './PostEmbed.svelte';
 
   let { blocks }: { blocks: Block[] } = $props();
 </script>
@@ -28,6 +29,8 @@
     <blockquote class="post-quote">{block.t}</blockquote>
   {:else if block.k === 'note'}
     <aside class="post-note">{block.t}</aside>
+  {:else if block.k === 'embed'}
+    <PostEmbed query={block.query} label={block.label} />
   {:else if block.k === 'table'}
     <figure class="post-figure">
       <!-- The scroller, not the page, is what moves when a table is wider

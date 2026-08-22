@@ -254,7 +254,7 @@
 
 <style>
   .agg-input { width: 4.5rem; padding: 0.1rem 0.25rem; text-align: right; }
-  .agg-error { margin: 0.35rem 0 0; padding: 0.3rem 0.5rem; border-radius: 4px; background: #7a1f1f; color: #ffe3e3; font-size: 0.8rem; }
+  .agg-error { margin: 0.35rem 0 0; padding: 0.3rem 0.5rem; border-radius: 4px; background: var(--st-accent); color: var(--st-text); font-size: 0.8rem; }
   .agg-note { margin: 0.35rem 0 0; font-size: 0.76rem; opacity: 0.75; line-height: 1.35; }
   .pro-mat {
     display: flex;
@@ -266,7 +266,7 @@
   /* ─── Add Panel (collapsible) ─── */
   .add-panel {
     flex-shrink: 0;
-    border-bottom: 2px solid #0f3460;
+    border-bottom: 2px solid var(--st-surface-3);
   }
   .add-panel[open] {
     flex: 1;
@@ -279,7 +279,7 @@
     padding: 8px 12px;
     font-size: 0.78rem;
     font-weight: 600;
-    color: #4ecdc4;
+    color: var(--st-text-2);
     cursor: pointer;
     user-select: none;
     list-style: none;
@@ -291,7 +291,7 @@
   .add-panel[open] > .add-panel-summary::before {
     content: '− ';
   }
-  .add-panel-summary:hover { color: #6eede4; }
+  .add-panel-summary:hover { color: var(--st-text-2); }
   .add-panel-body {
     flex: 1;
     min-height: 0;
@@ -303,7 +303,7 @@
   /* ─── Category Tabs ─── */
   .cat-tabs {
     display: flex;
-    border-bottom: 2px solid #0f3460;
+    border-bottom: 2px solid var(--st-surface-3);
     flex-shrink: 0;
   }
   .cat-tabs button {
@@ -311,7 +311,7 @@
     padding: 0.45rem 0.4rem;
     border: none;
     background: transparent;
-    color: #888;
+    color: var(--st-text-3);
     cursor: pointer;
     font-size: 0.72rem;
     font-weight: 500;
@@ -319,8 +319,8 @@
     margin-bottom: -2px;
     transition: all 0.15s;
   }
-  .cat-tabs button:hover { color: #ccc; }
-  .cat-tabs button.active { color: #4ecdc4; border-bottom-color: #4ecdc4; }
+  .cat-tabs button:hover { color: var(--st-text-2); }
+  .cat-tabs button.active { color: var(--st-text-2); border-bottom-color: var(--st-value); }
 
   /* ─── Search ─── */
   .search-wrap {
@@ -330,14 +330,14 @@
   .search-wrap input {
     width: 100%;
     padding: 5px 8px;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
-    color: #eee;
+    color: var(--st-text);
     font-size: 0.78rem;
   }
-  .search-wrap input::placeholder { color: #555; }
-  .search-wrap input:focus { outline: none; border-color: #4ecdc4; }
+  .search-wrap input::placeholder { color: var(--st-text-3); }
+  .search-wrap input:focus { outline: none; border-color: var(--st-text-2); }
 
   /* ─── Preset List ─── */
   .preset-list {
@@ -355,24 +355,24 @@
     background: transparent;
     border: 1px solid transparent;
     border-radius: 4px;
-    color: #ccc;
+    color: var(--st-text-2);
     cursor: pointer;
     font-size: 0.78rem;
     text-align: left;
     transition: all 0.12s;
   }
   .preset-item:hover {
-    background: #1a4a7a;
-    border-color: #4ecdc4;
+    background: var(--st-surface-3);
+    border-color: var(--st-value);
     color: white;
   }
   .preset-name { font-weight: 600; white-space: nowrap; }
-  .preset-props { font-size: 0.65rem; color: #777; white-space: nowrap; }
-  .preset-item:hover .preset-props { color: #aaa; }
+  .preset-props { font-size: 0.65rem; color: var(--st-text-3); white-space: nowrap; }
+  .preset-item:hover .preset-props { color: var(--st-text-2); }
 
   .no-results {
     text-align: center;
-    color: #555;
+    color: var(--st-text-3);
     font-size: 0.75rem;
     padding: 1rem;
   }
@@ -380,20 +380,20 @@
   /* ─── Custom Material ─── */
   .custom-section {
     flex-shrink: 0;
-    border-top: 1px solid #1a3050;
+    border-top: 1px solid var(--st-surface-3);
     padding: 4px 8px 6px;
   }
   .custom-toggle {
     background: none;
-    border: none;
-    color: #888;
+    border:  1px solid var(--st-hair);
+    color: var(--st-text-3);
     font-size: 0.75rem;
     cursor: pointer;
     padding: 4px 0;
     width: 100%;
     text-align: left;
   }
-  .custom-toggle:hover { color: #4ecdc4; }
+  .custom-toggle:hover { color: var(--st-text-2); }
 
   .custom-form {
     display: flex;
@@ -411,33 +411,33 @@
     flex-direction: column;
     gap: 2px;
     font-size: 0.7rem;
-    color: #888;
+    color: var(--st-text-3);
   }
   .custom-row input {
     padding: 4px 6px;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ddd;
+    color: var(--st-text);
     font-size: 0.75rem;
     font-family: monospace;
   }
-  .custom-row input:focus { outline: none; border-color: #4ecdc4; }
+  .custom-row input:focus { outline: none; border-color: var(--st-text-2); }
 
   .add-btn {
     margin-top: 4px;
     padding: 5px 12px;
-    background: #0f4a3a;
-    border: 1px solid #1a7a5a;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
-    color: #4ecdc4;
+    color: var(--st-text-2);
     cursor: pointer;
     font-size: 0.75rem;
     font-weight: 600;
     align-self: flex-start;
     transition: all 0.15s;
   }
-  .add-btn:hover { background: #1a7a5a; color: white; }
+  .add-btn:hover { background: var(--st-hair-strong); color: white; }
 
   /* ─── Materials Table ─── */
   .mat-list {
@@ -457,7 +457,7 @@
   }
   .mat-count {
     font-size: 0.78rem;
-    color: #4ecdc4;
+    color: var(--st-value);
     font-weight: 600;
   }
   .mat-table-wrap {
@@ -476,21 +476,21 @@
     text-align: left;
     font-size: 0.65rem;
     font-weight: 600;
-    color: #666;
+    color: var(--st-text-3);
     text-transform: uppercase;
-    background: #0a1a30;
-    border-bottom: 1px solid #1a3050;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-surface-3);
   }
   .mat-table td {
     padding: 3px 5px;
-    border-bottom: 1px solid #0f2030;
-    color: #bbb;
+    border-bottom: 1px solid var(--st-surface-2);
+    color: var(--st-text-2);
   }
-  .col-id { width: 28px; color: #555; font-family: monospace; text-align: center; }
+  .col-id { width: 28px; color: var(--st-text-3); font-family: monospace; text-align: center; }
   .col-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-num { font-family: monospace; text-align: right; font-size: 0.68rem; }
   .del-btn {
-    background: none; border: none; color: #444; font-size: 0.9rem; cursor: pointer; padding: 0;
+    background: none; border:  none; color: var(--st-hair-strong); font-size: 0.9rem; cursor: pointer; padding: 0;
   }
-  .del-btn:hover { color: #ff6b6b; }
+  .del-btn:hover { color: var(--st-danger); }
 </style>

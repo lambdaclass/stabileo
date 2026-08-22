@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { tPublic as t, publicI18n, setPublicLocale, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
-  import { REPO_URL, enterApp, scrollToId, fetchGithubStars } from './landing-utils';
+  import { tPublic as t, publicI18n, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
+  import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale } from './landing-utils';
 
   let stars = $state<number | null>(null);
   let open = $state(false);
@@ -13,6 +13,10 @@
     { id: 'education', key: 'landing.navEducation' },
     { id: 'pro', key: 'landing.navPro' },
     { id: 'status', key: 'landing.navStatus' },
+    // Scrolls to the section at the foot of the deck rather than leaving for
+    // /blog: the nav's job here is to say the blog exists, and the section
+    // below shows what is in it before asking anyone to leave the page.
+    { id: 'blog', key: 'landing.navBlog' },
   ];
 
   $effect(() => {
@@ -55,7 +59,7 @@
         <select
           class="nav-lang"
           value={publicI18n.locale}
-          onchange={(e) => setPublicLocale((e.currentTarget as HTMLSelectElement).value as (typeof PUBLIC_LOCALES)[number])}
+          onchange={(e) => switchPublicLocale((e.currentTarget as HTMLSelectElement).value as (typeof PUBLIC_LOCALES)[number])}
         >
           {#each PUBLIC_LOCALES as code}
             <option value={code}>{LOCALE_NAMES[code]}</option>

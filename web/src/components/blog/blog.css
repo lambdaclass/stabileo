@@ -287,3 +287,108 @@
   padding-top: 2rem;
   border-top: 1px solid var(--hair);
 }
+
+/* ─── EMBEDDED EDITOR ────────────────────────────────────────────────────── */
+
+/*
+   The editor inside a post. It steps out of the reading column like a table
+   does, and for the same reason: the application needs room to lay itself out
+   as a desktop, and a 46rem column would force it into its phone shape on a
+   laptop.
+*/
+.landing.blog .post-embed {
+  margin: 2.5rem 0;
+}
+
+/*
+   The embed breaks all the way out of the reading column, not just a little.
+   At -6rem it measured about 930px, which is enough to be cramped and not
+   enough for the editor's own layout — the worst of both. Given the full
+   width it can show the interface as it really is.
+*/
+@media (min-width: 1100px) {
+  .landing.blog .post-embed {
+    width: min(var(--lp-max), calc(100vw - 2 * var(--lp-gut)));
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+.landing.blog .post-embed-frame {
+  position: relative;
+  /* Clear of the article's sticky nav, so the editor's ribbon is reachable. */
+  scroll-margin-top: 76px;
+  height: clamp(420px, 68vh, 780px);
+  border: 1px solid var(--hair);
+  border-radius: var(--lp-radius);
+  overflow: hidden;
+  background: var(--lp-ink);
+}
+
+.landing.blog .post-embed-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.landing.blog .post-embed-start {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.landing.blog .post-embed-play {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--lp-accent);
+  color: var(--lp-accent);
+  font-size: 1.1rem;
+  padding-left: 4px; /* optical centring of the triangle */
+}
+
+.landing.blog .post-embed-start:hover .post-embed-play {
+  background: var(--lp-accent);
+  color: var(--lp-paper-2);
+}
+
+.landing.blog .post-embed-start-label {
+  font-family: var(--lp-display);
+  font-size: 1.05rem;
+}
+
+.landing.blog .post-embed-start-note,
+.landing.blog .post-embed figcaption {
+  font-size: 0.8rem;
+  color: var(--fg-2);
+  max-width: 46ch;
+}
+
+.landing.blog .post-embed figcaption {
+  margin-top: 0.65rem;
+  max-width: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.landing.blog .post-embed figcaption a {
+  font-family: var(--lp-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}

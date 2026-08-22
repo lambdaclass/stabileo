@@ -4,6 +4,9 @@
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
+  import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
+  import PointerModeButton from './PointerModeButton.svelte';
+  import Icon from './ribbon/Icon.svelte';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
@@ -1624,14 +1627,29 @@
 
       // Only count as box select if dragged at least a few pixels
       if (x2 - x1 > 3 || y2 - y1 > 3) {
-        // Respect the active select subtype: box select only gathers nodes and
-        // frame elements, so restrict it to the modes where those are the
-        // selection targets. In shells/supports/loads modes a marquee must not
-        // fill selectedElements with frame ids (plates/quads share the same
-        // numeric id space and would be mis-resolved on Delete).
+        /*
+         * Respect the active select subtype: what is highlighted has to be
+         * what a Delete would remove, and plates and quads share the frame
+         * elements' numeric id space, so a marquee filling `selectedElements`
+         * from shells mode would resolve to the wrong things entirely.
+         *
+         * Supports and Loads used to fall through every branch: the rectangle
+         * was drawn, the drag ended, and nothing was selected. Those two now
+         * go through the same `box-select` module the 2D viewport uses, so a
+         * distributed load is judged on the stretch it covers and a support on
+         * its node, identically in both modes.
+         */
         const sm = uiStore.selectMode;
-        const allowNodes = sm === 'elements' || sm === 'nodes';
-        const allowElems = sm === 'elements';
+        /*
+         * Nodes only when nodes were asked for. Members used to bring their
+         * ends along so the highlight would not look half-finished, and that
+         * made Delete on a swept frame take the nodes too — and with them the
+         * supports and the loads standing on them. The selection is what
+         * Delete removes, so it holds what was asked for and nothing else;
+         * wanting both is the multi-kind switch's job.
+         */
+        const allowNodes = uiStore.selectsKind('nodes');
+        const allowElems = uiStore.selectsKind('elements');
         const allowShells = sm === 'shells';
 
         // Collect new selection items
@@ -1689,6 +1707,55 @@
           };
           for (const p of modelStore.model.plates.values()) collectShell('p' + p.id, p.nodes);
           for (const q of modelStore.model.quads.values()) collectShell('q' + q.id, q.nodes);
+        }
+
+        /*
+         * Supports and loads, through the shared module. Projection differs —
+         * 3D goes through the camera — so the transform is passed in rather
+         * than assumed, which is the whole reason that module takes one.
+         */
+        if (uiStore.selectsKind('supports') || uiStore.selectsKind('loads')) {
+          const picked = boxSelectTargets({
+            rect: { x1, y1, x2, y2 },
+            isWindow,
+            // `SelectMode` is wider than `BoxSelectMode` (it adds 'shells' and
+            // 'stress'), so narrow with a type predicate rather than a cast.
+            kinds: [...uiStore.selectKinds].filter(
+              (k): k is BoxSelectMode => k === 'supports' || k === 'loads',
+            ),
+            /*
+             * The camera projection, with the node's own z. Flattening to
+             * z = 0 — which a two-number signature forces — would have judged
+             * every member as if the model were flat, so a marquee on a tower
+             * would select from the wrong storey.
+             */
+            toScreen: (pt) => {
+              const pos = projectNodeToScene({ x: pt.x, y: pt.y, z: pt.z ?? 0 } as never, project2D);
+              return projectToScreen(pos.x, pos.y, pos.z);
+            },
+            model: {
+              nodes: [],
+              elements: modelStore.elements.values(),
+              supports: modelStore.supports.values(),
+              loads: modelStore.model.loads as never,
+              getNode: (id) => modelStore.getNode(id) as never,
+              getElement: (id) => modelStore.elements.get(id),
+            },
+          });
+          /*
+           * Assigned unconditionally, exactly like nodes/elements below: a
+           * non-additive sweep REPLACES the selection, even with an empty
+           * result. Guarding on `size > 0` left a marquee over empty space
+           * keeping the old supports/loads selection — still highlighted,
+           * still what Delete would remove, and no longer what the user
+           * pointed at.
+           */
+          uiStore.selectedSupports = additive
+            ? new Set([...uiStore.selectedSupports, ...picked.supports])
+            : picked.supports;
+          uiStore.selectedLoads = additive
+            ? new Set([...uiStore.selectedLoads, ...picked.loads])
+            : picked.loads;
         }
 
         // Reassign sets to trigger Svelte reactivity (manual box-select)
@@ -1828,6 +1895,61 @@
         }
       }
       if (!addToSel) uiStore.clearSelection();
+      return;
+    }
+
+    /*
+     * ── Multi-kind: pick the nearest among ALL armed kinds ──
+     *
+     * Mirrors the 2D viewport's multi-kind click. Tried in the order a click
+     * identifies things — a node is a point, a member a line, a support a
+     * glyph — so the most specific answer wins at a joint, where all three
+     * sit on the same spot. Loads have no picking in 3D at all (they are
+     * selected from the Loads tab rows), so an armed 'loads' kind simply
+     * never hits here; the drag path DOES cover them via box-select.
+     * ('shells' is not re-checked: that mode returned just above.)
+     */
+    if (uiStore.multiKindSelect && sm !== 'stress') {
+      /*
+       * Clear up front, as the 2D branch does: selectNode/selectElement only
+       * reset the node/element/shell channels, so a hit on one kind would
+       * otherwise leave another kind's selection stale — still highlighted,
+       * still what Delete removes. The trailing clear-on-miss the single-kind
+       * branches need is covered by this.
+       */
+      if (!addToSel) uiStore.clearSelection();
+      let hit = false;
+      if (uiStore.selectsKind('nodes')) {
+        for (const h of raycaster.intersectObjects(nodesParent.children, true)) {
+          const ud = resolveHitUserData(h);
+          if (ud?.type === 'node') {
+            uiStore.selectNode(ud.id, addToSel);
+            hit = true;
+            break;
+          }
+        }
+      }
+      if (!hit && uiStore.selectsKind('elements')) {
+        for (const h of raycaster.intersectObjects(elementsParent.children, true)) {
+          const ud = resolveHitUserData(h);
+          if (ud?.type === 'element') {
+            uiStore.selectElement(ud.id, addToSel);
+            if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(ud.id);
+            hit = true;
+            break;
+          }
+        }
+      }
+      if (!hit && uiStore.selectsKind('supports')) {
+        for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
+          const ud = findUserData(h.object);
+          if (ud?.type === 'support') {
+            uiStore.selectSupport(ud.id, addToSel);
+            hit = true;
+            break;
+          }
+        }
+      }
       return;
     }
 
@@ -2188,31 +2310,32 @@
       const selected = uiStore.selectedNodes.has(data.id);
       nodesInstanced.setBaseColor(data.id, selected ? COLORS.nodeSelected : COLORS.node);
     } else if (data.type === 'element') {
+      // Same as applyHoverColor: the group is optional, the batched colour is
+      // not. Gated on the group, this restored nothing in wireframe — which
+      // did not show, only because the hover it was undoing never painted.
       const group = elementGroups.get(data.id);
-      if (group) {
-        const dt = resultsStore.diagramType;
-        if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
-          // No-op: applyHoverColor skips painting while a color mode is
-          // active, so there is nothing to restore — and a full
-          // syncColorMap3D() here recolored EVERY element (plus a batched
-          // position+color re-upload) per hover-out, a multi-ms stall per
-          // element crossed on large models. Mode changes mid-hover are
-          // covered by the colorMap $effect, which repaints everything.
-        } else {
-          // In shells mode selectedElements holds plate/quad ids — a frame
-          // element with an overlapping id is not selected.
-          const selected = uiStore.selectMode !== 'shells' && uiStore.selectedElements.has(data.id);
-          const elem = modelStore.elements.get(data.id);
-          const wireframe = uiStore.renderMode3D === 'wireframe';
-          const isTruss = elem?.type === 'truss';
-          const base = wireframe
-            ? (isTruss ? COLORS.truss : COLORS.frameWire)
-            : (isTruss ? COLORS.truss : COLORS.frame);
-          const color = selected ? COLORS.elementSelected : base;
-          setGroupColor(group, color);
-          elementsBatched.setBaseColor(data.id, color);
-          elementsBatched.flush();
-        }
+      const dt = resultsStore.diagramType;
+      if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
+        // No-op: applyHoverColor skips painting while a color mode is
+        // active, so there is nothing to restore — and a full
+        // syncColorMap3D() here recolored EVERY element (plus a batched
+        // position+color re-upload) per hover-out, a multi-ms stall per
+        // element crossed on large models. Mode changes mid-hover are
+        // covered by the colorMap $effect, which repaints everything.
+      } else {
+        // In shells mode selectedElements holds plate/quad ids — a frame
+        // element with an overlapping id is not selected.
+        const selected = uiStore.selectMode !== 'shells' && uiStore.selectedElements.has(data.id);
+        const elem = modelStore.elements.get(data.id);
+        const wireframe = uiStore.renderMode3D === 'wireframe';
+        const isTruss = elem?.type === 'truss';
+        const base = wireframe
+          ? (isTruss ? COLORS.truss : COLORS.frameWire)
+          : (isTruss ? COLORS.truss : COLORS.frame);
+        const color = selected ? COLORS.elementSelected : base;
+        if (group) setGroupColor(group, color);
+        elementsBatched.setBaseColor(data.id, color);
+        elementsBatched.flush();
       }
     } else if (data.type === 'support') {
       const gizmo = supportGizmos.get(data.id);
@@ -2250,15 +2373,20 @@
     if (data.type === 'node') {
       nodesInstanced.setColor(data.id, COLORS.nodeHovered);
     } else if (data.type === 'element') {
+      /*
+       * NOT gated on having a group. In wireframe — Basic 3D's default — a
+       * plain member is a segment of the batched mesh and has no group at
+       * all, so `if (group)` skipped the hover highlight on every member in
+       * the model. The group is decoration where it exists; the batched
+       * colour is the visual.
+       */
       const group = elementGroups.get(data.id);
-      if (group) {
-        // Don't override color map colors with hover
-        const dt = resultsStore.diagramType;
-        if (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification') {
-          setGroupColor(group, COLORS.elementHovered);
-          elementsBatched.setColor(data.id, COLORS.elementHovered);
-          elementsBatched.flush();
-        }
+      // Don't override color map colors with hover
+      const dt = resultsStore.diagramType;
+      if (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification') {
+        if (group) setGroupColor(group, COLORS.elementHovered);
+        elementsBatched.setColor(data.id, COLORS.elementHovered);
+        elementsBatched.flush();
       }
     } else if (data.type === 'support') {
       const gizmo = supportGizmos.get(data.id);
@@ -2426,7 +2554,11 @@
   {/if}
   <!-- Camera preset buttons -->
   <div class="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
-    <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')}>⊞</button>
+    <!-- Same stack, same order as 2D: the pointer mode on top, then the view. -->
+    <PointerModeButton />
+    <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')} aria-label={t('viewport3d.zoomToFit')}>
+      <Icon name="fit" size={17} />
+    </button>
     <button onclick={() => setView('top')} title={t('viewport3d.topView')}>⊤</button>
     <button onclick={() => setView('front')} title={t('viewport3d.frontView')}>⊡</button>
     <button onclick={() => setView('side')} title={t('viewport3d.sideView')}>⊟</button>
@@ -2681,7 +2813,9 @@
     gap: 4px;
     z-index: 10;
     transition: top 0.15s ease;
-  }
+    /* Right-aligned so every button in the stack shares an edge. */
+    align-items: flex-end;
+}
 
   .camera-controls button {
     width: 32px;

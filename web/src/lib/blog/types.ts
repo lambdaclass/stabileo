@@ -26,7 +26,13 @@ export type Block =
   | { k: 'quote'; t: string }
   /** An aside: a caveat, a definition, something set apart from the argument. */
   | { k: 'note'; t: string }
-  | { k: 'table'; caption: string; head: string[]; rows: string[][] };
+  | { k: 'table'; caption: string; head: string[]; rows: string[][] }
+  /**
+   * The editor, running on the model the passage is about. `query` is the
+   * argument list for /app/basic; `label` says what the reader is opening.
+   * It renders as a placeholder until clicked — see PostEmbed.svelte.
+   */
+  | { k: 'embed'; query: string; label: string };
 
 /** One post in one language. */
 export type PostBody = {
@@ -58,6 +64,7 @@ export function wordCount(body: PostBody): number {
   for (const b of body.blocks) {
     if (b.k === 'p' || b.k === 'h' || b.k === 'quote' || b.k === 'note') parts.push(b.t);
     else if (b.k === 'ul' || b.k === 'ol') parts.push(...b.items);
+    else if (b.k === 'embed') parts.push(b.label);
     else parts.push(b.caption, ...b.head, ...b.rows.flat());
   }
   return parts.join(' ').split(/\s+/).filter(Boolean).length;

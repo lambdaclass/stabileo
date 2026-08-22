@@ -1185,21 +1185,39 @@ export function solveStaged2D(config: any): any {
   return JSON.parse(wasmSolveStaged2d(JSON.stringify(config)));
 }
 
-/** Solve 3D staged construction analysis via WASM. */
+/** Solve 3D staged construction analysis via WASM.
+ *
+ *  `StagedInput3D` is FLAT — nodes/materials/sections/elements/supports/loads
+ *  sit beside `stages`, not under a `solver` key. Nesting them the way every
+ *  other advanced solver does made the deserialiser stop at the first missing
+ *  top-level field, so staged construction never ran once. Callers still pass
+ *  `{ solver, stages }`; the flattening happens here, next to the contract. */
 export function solveStaged3D(config: any): any {
   if (!wasmReady || !wasmSolveStaged3d) throw new Error('WASM staged 3D solver not available.');
-  if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
-  }
-  return JSON.parse(wasmSolveStaged3d(JSON.stringify(config)));
+  const { solver, ...rest } = config;
+  const wire = solver && solver.nodes instanceof Map
+    ? JSON.parse(serializeInput3D(solver))
+    : solver;
+  return JSON.parse(wasmSolveStaged3d(JSON.stringify({ ...wire, ...rest })));
 }
 
 // ─── Cable Solver ─────────────────────────────────────────────────
 
-/** Solve 2D cable analysis via WASM. */
-export function solveCable2D(input: SolverInput, maxIter = 50, tolerance = 1e-6): any {
+/** Solve 2D cable analysis via WASM.
+ *
+ *  The export takes `{ solver, densities }`, not a bare solver input — passing
+ *  the input on its own failed on a missing `solver` field before the cable
+ *  iteration ever started. Densities are mass densities in kg/m³, the same
+ *  units modal uses; cables are self-weight problems, so they matter. */
+export function solveCable2D(
+  input: SolverInput,
+  maxIter = 50,
+  tolerance = 1e-6,
+  densities: Record<string, number> = {},
+): any {
   if (!wasmReady || !wasmSolveCable2d) throw new Error('WASM cable 2D solver not available.');
-  return JSON.parse(wasmSolveCable2d(serializeInput2D(input), maxIter, tolerance));
+  const payload = { solver: JSON.parse(serializeInput2D(input)), densities };
+  return JSON.parse(wasmSolveCable2d(JSON.stringify(payload), maxIter, tolerance));
 }
 
 // ─── Harmonic Solvers ─────────────────────────────────────────────

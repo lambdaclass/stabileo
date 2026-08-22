@@ -118,8 +118,11 @@ describe('the detailing status agrees with the rule', () => {
 const VERIFICATION = fileURLToPath(new URL('../verification.svelte.ts', import.meta.url));
 const BADGE = fileURLToPath(
   new URL('../../../components/pro/design/OutcomeBadge.svelte', import.meta.url));
-const TOOLBAR = fileURLToPath(
-  new URL('../../../components/pro/design/DesignToolbar.svelte', import.meta.url));
+/** The summary counts moved to `DesignOverview.svelte`; both files carry the presentation. */
+const TOOLBAR_FILES = [
+  fileURLToPath(new URL('../../../components/pro/design/DesignToolbar.svelte', import.meta.url)),
+  fileURLToPath(new URL('../../../components/pro/design/DesignOverview.svelte', import.meta.url)),
+];
 
 /**
  * The `DisplayStatus` union's members, parsed from the type itself.
@@ -161,7 +164,7 @@ describe('every display state can be shown and read', () => {
   });
 
   it('counts the proposals in the summary bar, apart from passes and failures', () => {
-    const toolbar = readFileSync(TOOLBAR, 'utf8');
+    const toolbar = TOOLBAR_FILES.map((f) => readFileSync(f, 'utf8')).join('\n');
     // Beside `fail`, not inside it, and always rendered so a zero is a visible zero.
     expect(toolbar).toContain('{counts.provisional}');
     expect(toolbar).toContain('data-testid="summary-count-provisional"');

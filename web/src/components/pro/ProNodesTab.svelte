@@ -262,13 +262,13 @@
     justify-content: space-between;
     align-items: center;
     padding: 8px 10px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
   }
 
   .pro-nodes-count {
     font-size: 0.82rem;
-    color: #4ecdc4;
+    color: var(--st-value);
     font-weight: 600;
   }
 
@@ -281,16 +281,16 @@
     padding: 5px 12px;
     font-size: 0.75rem;
     font-weight: 500;
-    color: #ccc;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
+    color: var(--st-text-2);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
     cursor: pointer;
   }
 
   .pro-btn:hover {
-    background: #1a4a7a;
-    color: #fff;
+    background: var(--st-surface-3);
+    color: var(--st-text);
   }
 
   .pro-btn-sm {
@@ -299,29 +299,29 @@
   }
 
   .pro-btn-danger {
-    color: #ff8a9e;
-    border-color: #5a2030;
+    color: var(--st-danger);
+    border-color: var(--st-hair-strong);
   }
 
   .pro-btn-danger:hover {
-    background: #4a1525;
-    color: #ff6b6b;
+    background: var(--st-surface-2);
+    color: var(--st-danger);
   }
 
   .pro-paste-error {
     padding: 4px 10px;
     font-size: 0.7rem;
-    color: #ff8a9e;
-    background: rgba(233, 69, 96, 0.1);
-    border-bottom: 1px solid #5a2030;
+    color: var(--st-danger);
+    background: rgba(229, 72, 42, 0.1);
+    border-bottom: 1px solid var(--st-hair-strong);
   }
 
   .pro-paste-hint {
     padding: 6px 12px;
     font-size: 0.72rem;
-    color: #668;
+    color: var(--st-text-3);
     font-style: italic;
-    border-bottom: 1px solid #1a2540;
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
   }
 
@@ -348,16 +348,16 @@
     text-align: left;
     font-size: 0.72rem;
     font-weight: 600;
-    color: #888;
+    color: var(--st-text-3);
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    background: #0a1a30;
-    border-bottom: 1px solid #1a4a7a;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-surface-3);
   }
 
   .pro-nodes-table td {
     padding: 3px 4px;
-    border-bottom: 1px solid #0f2030;
+    border-bottom: 1px solid var(--st-surface-2);
   }
 
   .pro-nodes-table tbody tr {
@@ -366,12 +366,12 @@
   }
 
   .pro-nodes-table tbody tr:hover {
-    background: rgba(78, 205, 196, 0.08);
+    background: rgba(127, 212, 204, 0.08);
   }
 
   .pro-nodes-table tr.selected {
-    background: rgba(78, 205, 196, 0.18);
-    box-shadow: inset 3px 0 0 #4ecdc4;
+    background: rgba(127, 212, 204, 0.18);
+    box-shadow: inset 3px 0 0 var(--st-value);
   }
 
   .pro-nodes-table tr.unsaved td {
@@ -380,7 +380,7 @@
 
   .col-id {
     width: 36px;
-    color: #666;
+    color: var(--st-text-3);
     font-family: monospace;
     font-size: 0.7rem;
     text-align: center;
@@ -396,14 +396,14 @@
     background: transparent;
     border: 1px solid transparent;
     border-radius: 3px;
-    color: #ddd;
+    color: var(--st-text);
     font-size: 0.78rem;
     font-family: monospace;
   }
 
   .col-coord input:focus {
-    background: #0f2840;
-    border-color: #1a4a7a;
+    background: var(--st-surface-3);
+    border-color: var(--st-surface-3);
     outline: none;
   }
 
@@ -414,8 +414,8 @@
 
   .pro-delete-btn {
     background: none;
-    border: none;
-    color: #555;
+    border:  none;
+    color: var(--st-text-3);
     font-size: 1rem;
     cursor: pointer;
     padding: 0 2px;
@@ -423,12 +423,12 @@
   }
 
   .pro-delete-btn:hover {
-    color: #ff6b6b;
+    color: var(--st-danger);
   }
 
   .pro-empty {
     text-align: center;
-    color: #555;
+    color: var(--st-text-3);
     font-style: italic;
     padding: 20px 10px !important;
   }

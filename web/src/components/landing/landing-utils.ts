@@ -1,3 +1,6 @@
+import { setPublicLocale, type PublicLocale } from '../../lib/i18n/store.svelte';
+import { parsePublicPath } from '../../lib/i18n/public-routes';
+
 export const REPO_URL = 'https://github.com/lambdaclass/stabileo';
 export const DOCS_HUB_URL = `${REPO_URL}/blob/main/docs/README.md`;
 export const QUICK_START_URL = `${REPO_URL}/blob/main/docs/QUICKSTART.md`;
@@ -21,6 +24,32 @@ export function goPublic(path: string) {
   window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: path }));
 }
 
+/**
+ * Change language on a public page: set it, then move to the same route under
+ * the new prefix.
+ *
+ * Setting the locale alone would leave a Portuguese page at `/es/blog/x`. The
+ * address is the part that gets shared and indexed, so it is the part that has
+ * to be right — the rendering follows it, never the other way round.
+ */
+export function switchPublicLocale(locale: PublicLocale) {
+  setPublicLocale(locale);
+  goPublic(parsePublicPath(window.location.pathname).path);
+}
+
+/**
+ * Scroll to a section.
+ *
+ * One smooth scroll, which is all this should ever have needed.
+ *
+ * An earlier version re-asserted the target every 220 ms because clicking
+ * "Estado" landed 2,418 px short. That fixed the symptom and felt like a
+ * spring: each re-assertion restarted the animation, so the page arrived in
+ * visible steps. The cause was elsewhere — the screenshots reserved no height
+ * until they decoded, so the target moved while the scroll was travelling.
+ * Now they declare their intrinsic size (see Shot.svelte), the page stops
+ * growing underneath the scroll, and one call lands.
+ */
 export function scrollToId(id: string, root?: HTMLElement | null) {
   const el = (root ?? document).querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
   el?.scrollIntoView({ behavior: 'smooth', block: 'start' });

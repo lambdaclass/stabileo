@@ -520,17 +520,17 @@
 
   .pro-cst-header {
     padding: 8px 10px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
 
-  .pro-cst-count { font-size: 0.82rem; color: #4ecdc4; font-weight: 600; }
+  .pro-cst-count { font-size: 0.82rem; color: var(--st-value); font-weight: 600; }
 
   .pro-cst-form {
     padding: 10px 12px;
-    border-bottom: 1px solid #1a3050;
+    border-bottom: 1px solid var(--st-surface-3);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -545,7 +545,7 @@
 
   .pro-cst-row label {
     font-size: 0.75rem;
-    color: #888;
+    color: var(--st-text-3);
     display: flex;
     align-items: center;
     gap: 5px;
@@ -559,36 +559,36 @@
   .pro-input-sm {
     width: 55px;
     padding: 4px 6px;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ddd;
+    color: var(--st-text);
     font-size: 0.78rem;
     font-family: monospace;
   }
 
-  .pro-input-sm:focus { border-color: #1a4a7a; outline: none; }
+  .pro-input-sm:focus { border-color: var(--st-surface-3); outline: none; }
 
   .pro-input-wide {
     flex: 1;
     min-width: 100px;
     padding: 4px 6px;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ddd;
+    color: var(--st-text);
     font-size: 0.78rem;
     font-family: monospace;
   }
 
-  .pro-input-wide:focus { border-color: #1a4a7a; outline: none; }
+  .pro-input-wide:focus { border-color: var(--st-surface-3); outline: none; }
 
   .pro-select-sm {
     padding: 4px 6px;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 3px;
-    color: #ccc;
+    color: var(--st-text-2);
     font-size: 0.75rem;
     cursor: pointer;
   }
@@ -605,26 +605,26 @@
     align-items: center;
     gap: 3px;
     font-size: 0.72rem;
-    color: #aaa;
+    color: var(--st-text-2);
     cursor: pointer;
   }
 
   .pro-dof-check input[type="checkbox"] {
     width: 14px;
     height: 14px;
-    accent-color: #4ecdc4;
+    accent-color: var(--st-text-2);
     cursor: pointer;
   }
 
   .pro-cst-hint {
     font-size: 0.7rem;
-    color: #668;
+    color: var(--st-text-3);
     font-style: italic;
   }
 
   .pro-cst-sublabel {
     font-size: 0.72rem;
-    color: #888;
+    color: var(--st-text-3);
     font-weight: 600;
   }
 
@@ -632,10 +632,10 @@
    * with a top border + slight color shift so it reads as its own surface
    * inside the same right-side workflow. */
   .pro-conn-section {
-    border-top: 2px solid #1a3050;
-    background: #0a1828;
+    border-top: 2px solid var(--st-surface-3);
+    background: var(--st-surface);
   }
-  .pro-conn-section .pro-cst-header { background: #0a1828; }
+  .pro-conn-section .pro-cst-header { background: var(--st-surface); }
 
   .pro-cst-actions {
     display: flex;
@@ -646,32 +646,32 @@
   .pro-btn {
     padding: 5px 12px;
     font-size: 0.75rem;
-    color: #ccc;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
+    color: var(--st-text-2);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
     cursor: pointer;
   }
 
-  .pro-btn:hover { background: #1a4a7a; color: #fff; }
+  .pro-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
 
   .pro-btn-auto {
     font-size: 0.72rem;
-    color: #4ecdc4;
-    border-color: #2a5a6a;
+    color: var(--st-text-2);
+    border-color: var(--st-hair-strong);
   }
 
-  .pro-btn-auto:hover { background: #1a4a6a; }
+  .pro-btn-auto:hover { background: var(--st-hair-strong); }
 
   .pro-btn-clear {
     font-size: 0.68rem;
-    color: #ff6b6b;
-    border-color: #5a2a2a;
+    color: var(--st-danger);
+    border-color: var(--st-hair-strong);
     background: transparent;
     padding: 4px 8px;
   }
 
-  .pro-btn-clear:hover { background: #3a1a1a; }
+  .pro-btn-clear:hover { background: var(--st-surface-2); }
 
   .pro-cst-table-wrap { flex: 1; overflow: auto; }
 
@@ -679,12 +679,12 @@
   .pro-cst-table thead { position: sticky; top: 0; z-index: 1; }
   .pro-cst-table th {
     padding: 6px 8px; text-align: left; font-size: 0.7rem; font-weight: 600;
-    color: #888; text-transform: uppercase; background: #0a1a30; border-bottom: 1px solid #1a4a7a;
+    color: var(--st-text-3); text-transform: uppercase; background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3);
   }
-  .pro-cst-table td { padding: 5px 8px; border-bottom: 1px solid #0f2030; color: #ccc; }
-  .col-id { width: 34px; color: #666; font-family: monospace; text-align: center; }
-  .col-type { font-size: 0.72rem; color: #4ecdc4; white-space: nowrap; }
-  .col-desc { font-size: 0.72rem; color: #aaa; }
-  .pro-delete-btn { background: none; border: none; color: #555; font-size: 1rem; cursor: pointer; padding: 0; }
-  .pro-delete-btn:hover { color: #ff6b6b; }
+  .pro-cst-table td { padding: 5px 8px; border-bottom: 1px solid var(--st-surface-2); color: var(--st-text-2); }
+  .col-id { width: 34px; color: var(--st-text-3); font-family: monospace; text-align: center; }
+  .col-type { font-size: 0.72rem; color: var(--st-text-2); white-space: nowrap; }
+  .col-desc { font-size: 0.72rem; color: var(--st-text-2); }
+  .pro-delete-btn { background: none; border:  none; color: var(--st-text-3); font-size: 1rem; cursor: pointer; padding: 0; }
+  .pro-delete-btn:hover { color: var(--st-danger); }
 </style>

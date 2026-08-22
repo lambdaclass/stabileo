@@ -18,7 +18,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { dictFor, shippedLocales, tAt } from '../store.svelte';
+import { dictFor, shippedLocales, tAt, OFFERED_LOCALES } from '../store.svelte';
 import { OCCUPANCY_TABLE_2025 } from '../../codes/cirsoc101/live-loads';
 import { REGULATION_ROLES, optionsForRole } from '../../codes/roles';
 
@@ -125,7 +125,18 @@ function engineKeys(): string[] {
   return [...keys].sort();
 }
 
-const REQUIRED_LOCALES = ['en', 'es'];
+/**
+ * The locales an engine key MUST be defined in.
+ *
+ * Was `['en', 'es']`, which was right while those were the two the picker offered. PR20 narrowed
+ * the picker to English, Español and Português (`OFFERED_LOCALES`), and this list is what makes
+ * that a promise rather than a label: a Portuguese reader was getting the load derivations, the
+ * CIRSOC refusals and the provisional-drawing note in English, and no gate said so.
+ *
+ * Derived from `OFFERED_LOCALES` rather than restated, so narrowing or widening the picker moves
+ * this with it and cannot leave a language offered but unguarded.
+ */
+const REQUIRED_LOCALES = [...OFFERED_LOCALES];
 
 function placeholders(text: string): string[] {
   return [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();

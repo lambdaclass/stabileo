@@ -595,6 +595,32 @@ export function migrateDetailingStore(raw: unknown): DetailingMigration {
       ...(Array.isArray(cand.familyCertificates)
         ? { familyCertificates: cand.familyCertificates }
         : {}),
+      /**
+       * The two member-level statements, carried through for the same reason and by the same
+       * rule — present or absent, never invented.
+       *
+       * They were missing from this list, and this function runs on EVERY restore: a `.ded`
+       * open, an autosave restore, an undo, a tab switch. So a project that came back had
+       * `bar.provisional = 'biaxial'` on its bars — `bars` is carried through whole — and no
+       * `provisionalMembers` on the assembly that owns them. The bars stayed violet and the
+       * assembly stopped saying "PROPUESTA PROVISIONAL — NO APTO PARA EMISIÓN CONSTRUCTIVA":
+       * the workspace banner, the sheet note and the report section all read the member-level
+       * field, and all three went quiet. The torsion warning went the same way.
+       *
+       * That is precisely the disagreement `run-detailing` records the field to prevent — "so
+       * the report, the sheets, the schedule and the 3-D view cannot form four opinions about
+       * which members they are" — reintroduced one layer down, where nothing was looking.
+       *
+       * Neither field is recomputed here. They are stamped at generation time from the design
+       * outcomes, and the outcomes are not part of a snapshot; deriving them again from a
+       * restored project would be inventing a verdict rather than remembering one.
+       */
+      ...(Array.isArray(cand.provisionalMembers)
+        ? { provisionalMembers: cand.provisionalMembers }
+        : {}),
+      ...(Array.isArray(cand.torsionUnevaluatedMembers)
+        ? { torsionUnevaluatedMembers: cand.torsionUnevaluatedMembers }
+        : {}),
     });
   }
 

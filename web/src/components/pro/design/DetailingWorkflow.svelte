@@ -13,136 +13,93 @@
    * refusal reason is shown verbatim rather than being turned into a disabled button
    * with no explanation.
    */
-  import { t, tp, i18n } from '../../../lib/i18n';
+  import { t, tp } from '../../../lib/i18n';
+  import SheetPreview from './SheetPreview.svelte';
+  import DetailingProblems from './DetailingProblems.svelte';
+  import { uiStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { REVIEW_STATES, reviewRank } from '../../../lib/engine/detailing/assembly';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
-  import {
-    renderReportHtml, renderDrawings, renderSchedule,
-  } from '../../../lib/engine/detailing/document-render';
-  import { exportToExcel } from '../../../lib/export/excel';
-  import RebarScenePanel from './RebarScenePanel.svelte';
-  import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
-  import { markOpenPhase } from '../../../lib/utils/open-timeline';
 
-  let engineer = $state('');
-  let docError = $state<string | null>(null);
-  let show3d = $state(false);
+  /** Bound to the sheet dialog, so a conflict can open the drawing it is on. */
+  let sheetOpen = $state(false);
 
   /**
-   * Build the document, or say why not.
+   * Whether the level list is showing.
    *
-   * Every export goes through this, so all three consume the SAME model instance and the
-   * same revision. Building one per button would let a report and a drawing disagree about
-   * what they describe, which is the failure the DocumentModel exists to prevent.
+   * Open by default the first time — a reviewer arriving at a multi-level building needs to see
+   * that there ARE levels. Closing it is what gives the sheet the full panel width, which is the
+   * whole point: the list used to hold a third of the panel permanently while the drawing, the
+   * thing being reviewed, was cropped in the remainder.
    */
-  function currentDoc() {
-    docError = null;
-    const doc = detailingStore.buildDocument({
-      author: engineer.trim() || t('detailing.doc.unnamedAuthor'),
-      at: new Date().toISOString(),
-    });
-    if (!doc) docError = t('detailing.doc.noCoordinated');
-    return doc;
-  }
+  let listOpen = $state(true);
 
-  function downloadBlob(name: string, type: string, content: string) {
-    const url = URL.createObjectURL(new Blob([content], { type }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function exportReport() {
-    const doc = currentDoc();
-    if (!doc) return;
-    const html = renderReportHtml(
-      doc,
-      { locale: i18n.locale, projectName: t('detailing.doc.project') },
-      (k, params) => tp(k, params ?? {}),
-    );
-    // Printed through the browser rather than a bundled PDF writer: better typography,
-    // no dependency, and the user picks the paper size.
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
-    else downloadBlob(`detailing-rev${doc.revision.number}.html`, 'text/html', html);
-  }
-
-  function exportDxf() {
-    const doc = currentDoc();
-    if (!doc) return;
-    const set = renderDrawings(doc, {
-      locale: i18n.locale, projectName: t('detailing.doc.project'),
-    });
-    downloadBlob(`detailing-rev${doc.revision.number}.dxf`, 'application/dxf', set.dxf);
-  }
-
-  /**
-   * Open the 3-D view on a FRESHLY built document.
-   *
-   * Not on `detailingStore.document`, which may be a revision built before the last edit.
-   * Going through `currentDoc()` is what makes the picture and the three exports above
-   * projections of the same instance rather than of two documents that happen to agree.
-   */
-  function open3d() {
-    // The phases of an open are recorded where they happen — see `open-timeline.ts` for why
-    // attributing this from the outside got it wrong twice.
-    markOpenPhase('click');
-    if (!currentDoc()) return;
-    markOpenPhase('document');
-    show3d = true;
-    // Straight into the workspace. The sidebar panel keeps the summary and the export; the
-    // inspection surface is the overlay, and making the user find a second button to reach it
-    // is the friction this pass exists to remove.
-    rebarWorkspace.openWorkspace();
-  }
-
-  function exportXlsx() {
-    const doc = currentDoc();
-    if (!doc) return;
-    const sheets = renderSchedule(doc, {
-      locale: i18n.locale, projectName: t('detailing.doc.project'),
-    });
-    exportToExcel({
-      filename: `detailing-rev${doc.revision.number}.xlsx`,
-      onlyExtras: true,
-      extraSheets: sheets.map((s) => ({ name: s.name, rows: s.aoa })),
-    });
-  }
-  let notes = $state('');
-  let acknowledged = $state<string[]>([]);
+  /** Conflicts across every assembly, for the one-line result. */
+  const totalConflicts = $derived(
+    detailingStore.assemblies.reduce(
+      (n, a) => n + (a.conflicts ?? []).filter((c) => c.severity !== 'marginal').length, 0));
 
   const selected = $derived(detailingStore.selected);
-  const provisional = $derived(detailingStore.provisional);
-  const allAcknowledged = $derived(provisional.every((k) => acknowledged.includes(k)));
 
-  function toggleAck(key: string) {
-    acknowledged = acknowledged.includes(key)
-      ? acknowledged.filter((k) => k !== key)
-      : [...acknowledged, key];
+  /**
+   * Follow a conflict to the member it is in.
+   *
+   * `BarConflict.elementIds` exists for exactly this and nothing consumed it: the reviewer read
+   * `barA / barB`, wrote the number down, and went looking. Selecting the element is what the
+   * rest of the app already listens to — the design table scrolls to it, the 3-D scene isolates
+   * it — so the conflict list gets that behaviour by routing rather than by reimplementing it.
+   */
+  function goToMember(elementId: number) {
+    uiStore.selectElement(elementId);
   }
 
-  function submitReview(state: 'REVIEWED' | 'ISSUED') {
-    detailingStore.review({
-      engineer,
-      // The store never reads the clock itself; the timestamp comes from the action.
-      at: new Date().toISOString(),
-      state,
-      notes: notes.trim() || undefined,
-      provisionalAcknowledged: provisional.length === 0 || allAcknowledged,
-      acknowledgedProvisional: acknowledged,
-    });
-  }
-
-  function severityLabel(s: string): string {
-    return s === 'overlap' ? t('detailing.conflict.overlap') : t('detailing.conflict.clearance');
-  }
 </script>
 
-<div class="detailing" data-testid="detailing-workflow">
-  <aside class="assemblies" aria-label={t('detailing.assemblies')}>
+
+<!--
+  A summary and a collapsible list, above a preview that gets the width.
+
+  The list of levels was a permanent 9–16rem column in a panel about 34rem wide, so the sheet — the
+  thing a reviewer actually reads — lived in the remaining eighteen and came out cropped. Levels are
+  navigation, and navigation does not need a third of the screen at all times.
+
+  Collapsed, the list becomes one line naming the level you are on; the preview takes the full
+  width. Nothing is removed: the same list, the same `detailingStore.select`, one click away.
+-->
+<div class="detailing" data-testid="detailing-workflow" data-list={listOpen ? 'open' : 'closed'}>
+  <div class="topbar" data-testid="detailing-topbar">
+    <p class="result" data-testid="detailing-result">
+      {#if detailingStore.assemblies.length === 0}
+        {t('detailing.result.none')}
+      {:else}
+        {tp('detailing.result.summary', {
+          n: detailingStore.assemblies.length,
+          conflicts: totalConflicts,
+        })}
+      {/if}
+    </p>
+    <button
+      type="button"
+      class="list-toggle"
+      data-testid="detailing-list-toggle"
+      aria-expanded={listOpen}
+      aria-controls="detailing-assembly-list"
+      onclick={() => (listOpen = !listOpen)}
+    >
+      <span aria-hidden="true">{listOpen ? '◧' : '▤'}</span>
+      {listOpen ? t('detailing.list.hide') : t('detailing.list.show')}
+      {#if !listOpen && selected}
+        <span class="current-level" data-testid="detailing-current-level">{selected.label}</span>
+      {/if}
+    </button>
+  </div>
+
+  <aside
+    class="assemblies"
+    id="detailing-assembly-list"
+    aria-label={t('detailing.assemblies')}
+    hidden={!listOpen}
+  >
     <h4>{t('detailing.assemblies')}</h4>
     {#if detailingStore.assemblies.length === 0}
       <!--
@@ -224,31 +181,32 @@
         {/each}
       </ol>
 
-      {#if selected.unsupported.length > 0}
-        <div class="notice warning" data-testid="unsupported-list">
-          <strong>{t('detailing.unsupported')}</strong>
-          <ul>
-            {#each selected.unsupported as u, i (i)}
-              <li>{u.message}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
+      <!--
+        Everything wrong with this assembly, ranked, directly under the header.
+
+        These were three separate notices scattered down the column — warnings above the bar list,
+        blockers below it, conflicts below those — so the thing that stops a sheet being issued
+        was further from the eye than the thing that merely annotates it. See
+        `DetailingProblems.svelte` for why the order is the whole point.
+      -->
+      <DetailingProblems
+        conflicts={detailingStore.conflicts}
+        conflictIndex={detailingStore.conflictIndex}
+        stateBlockers={selected.stateBlockers ?? []}
+        unsupported={selected.unsupported}
+        stateLabel={t(`detailing.state.${selected.state}`)}
+        onSelectConflict={(i) => detailingStore.goToConflict(i)}
+        onPrev={() => detailingStore.prevConflict()}
+        onNext={() => detailingStore.nextConflict()}
+        onGoToMember={goToMember}
+        onShowOnSheet={() => { sheetOpen = true; }}
+      />
 
       <!--
         Longitudinal reinforcement, bar by bar, with the lock control the coordination
         pipeline honours. Without this the "locked bars survive regeneration" guarantee is
         real in the engine and unreachable in the product.
       -->
-      <!-- What stands between this assembly and the next state up. -->
-      {#if (selected.stateBlockers ?? []).length > 0}
-        <div class="notice warning" data-testid="state-blockers">
-          <strong>{tp('detailing.blockersTitle', { state: t(`detailing.state.${selected.state}`) })}</strong>
-          <ul>
-            {#each selected.stateBlockers ?? [] as b, i (i)}<li>{b}</li>{/each}
-          </ul>
-        </div>
-      {/if}
 
       <details class="bars" data-testid="bar-list">
         <summary>{tp('detailing.barsCount', { n: selected.bars.length })}</summary>
@@ -268,33 +226,6 @@
           {/each}
         </ul>
       </details>
-
-      <nav class="conflicts" aria-label={t('detailing.conflicts')}>
-        {#if detailingStore.conflicts.length === 0}
-          <p class="ok" data-testid="no-conflicts">{t('detailing.noConflicts')}</p>
-        {:else}
-          {@const c = detailingStore.currentConflict}
-          <div class="conflict-nav" data-testid="conflict-nav">
-            <button data-testid="conflict-prev"
-                    onclick={() => detailingStore.prevConflict()}
-                    aria-label={t('detailing.prevConflict')}>‹</button>
-            <span data-testid="conflict-counter">
-              {tp('detailing.conflictOf', {
-                i: detailingStore.conflictIndex + 1, n: detailingStore.conflicts.length,
-              })}
-            </span>
-            <button data-testid="conflict-next"
-                    onclick={() => detailingStore.nextConflict()}
-                    aria-label={t('detailing.nextConflict')}>›</button>
-          </div>
-          {#if c}
-            <p class="notice error" data-testid="conflict-detail">
-              {severityLabel(c.severity)} — {c.barA} / {c.barB}:
-              {(c.clearance * 1000).toFixed(0)} mm / {(c.required * 1000).toFixed(0)} mm
-            </p>
-          {/if}
-        {/if}
-      </nav>
 
       <div class="sheet-controls">
         <fieldset>
@@ -320,13 +251,24 @@
         </fieldset>
       </div>
 
-      {#if detailingStore.sheetSvg}
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -- generated by sheetToSvg, all text escaped -->
-        <div class="sheet" data-testid="sheet-preview">{@html detailingStore.sheetSvg}</div>
-      {/if}
+      <!--
+        The sheet, with a title and a way to see it properly.
+
+        It was a bare `<div>` of SVG in a column a few hundred pixels wide: a 1:50 elevation
+        squeezed into a thumbnail, clipped on the right, with nothing saying which assembly,
+        which level or which kind of sheet you were looking at. A drawing you cannot read is not
+        a preview of a drawing.
+
+        Expanding opens the SAME `detailingStore.sheetSvg` in a full-window dialog — the official
+        sheet projection, not a second renderer — so what you enlarge is exactly what the DXF and
+        the report carry.
+      -->
+      <SheetPreview assemblyLabel={selected?.label ?? ''} bind:open={sheetOpen} />
 
       {#if detailingStore.schedule}
         {@const s = detailingStore.schedule}
+        <!-- A wide schedule scrolls itself rather than widening the panel around it. -->
+        <div class="scroll-x">
         <table class="schedule" data-testid="schedule">
           <caption>{t('detailing.schedule')}</caption>
           <thead>
@@ -360,155 +302,107 @@
             </tr>
           </tfoot>
         </table>
+        </div>
       {/if}
 
       <!-- ── Documents ──────────────────────────────────────────────
            All three exports build from ONE DocumentModel, so a report, a drawing set and
            a schedule of the same floor cannot disagree about what they describe. -->
-      <section class="documents" data-testid="documents" aria-labelledby="documents-title">
-        <h3 id="documents-title">{t('detailing.doc.title')}</h3>
+      <!--
+        Documents and professional review moved OUT, to `DocumentsSection.svelte`.
 
-        {#if detailingStore.document}
-          {@const d = detailingStore.document}
-          <p class="doc-state" data-testid="doc-readiness">
-            <span class="badge badge-{d.readiness.toLowerCase()}">{t(`detailing.doc.readiness.${d.readiness}`)}</span>
-            <span data-testid="doc-revision">{tp('detailing.doc.revision', { n: d.revision.number })}</span>
-            <span data-testid="doc-maturity">{t(maturityLabelKey(d.maturity))}</span>
-          </p>
-          {#if d.openConflicts.length > 0}
-            <p class="warn" data-testid="doc-conflicts">
-              {tp('detailing.doc.conflicts', { n: d.openConflicts.length })}
-            </p>
-          {/if}
-        {:else}
-          <p class="muted" data-testid="doc-none">{t('detailing.doc.notBuilt')}</p>
-        {/if}
-
-        <div class="doc-actions">
-          <button data-testid="doc-report" onclick={exportReport}>{t('detailing.doc.report')}</button>
-          <button data-testid="doc-dxf" onclick={exportDxf}>{t('detailing.doc.dxf')}</button>
-          <button data-testid="doc-xlsx" onclick={exportXlsx}>{t('detailing.doc.xlsx')}</button>
-          <button data-testid="doc-3d" onclick={open3d}>{t('detailing.scene.open')}</button>
-        </div>
-
-        {#if docError}
-          <p class="err" role="alert" data-testid="doc-error">{docError}</p>
-        {/if}
-
-        <!-- ── The fourth projection ────────────────────────────────
-             Same document instance as the three exports above, so what is orbited, what is
-             dimensioned and what is ordered cannot come apart. -->
-        {#if show3d}
-          <RebarScenePanel doc={detailingStore.document} ondownload={downloadBlob} />
-        {/if}
-
-        {#if detailingStore.supersededDocuments.length > 0}
-          <details class="superseded-docs" data-testid="superseded-docs">
-            <summary>{tp('detailing.doc.supersededCount',
-              { n: detailingStore.supersededDocuments.length })}</summary>
-            <ul>
-              {#each detailingStore.supersededDocuments as sd (sd.revision.number)}
-                <li data-testid={`superseded-${sd.revision.number}`}>
-                  {tp('detailing.doc.supersededItem',
-                    { n: sd.revision.number, by: sd.supersededBy ?? 0 })}
-                </li>
-              {/each}
-            </ul>
-          </details>
-        {/if}
-      </section>
-
-      <section class="review" aria-labelledby="review-title">
-        <h5 id="review-title">{t('detailing.review')}</h5>
-        <p class="disclaimer" data-testid="review-disclaimer">{t('detailing.notLegalSignoff')}</p>
-
-        {#if selected.review}
-          <p class="reviewed" data-testid="review-record">
-            {tp('detailing.reviewedBy', {
-              engineer: selected.review.engineer,
-              at: selected.review.at,
-              revision: selected.review.revision,
-            })}
-          </p>
-        {/if}
-
-        {#if provisional.length > 0}
-          <div class="notice warning" data-testid="provisional-ack">
-            <strong>{t('detailing.provisionalPresent')}</strong>
-            {#each provisional as key (key)}
-              <label class="ack">
-                <input
-                  type="checkbox"
-                  data-testid={`ack-${key}`}
-                  checked={acknowledged.includes(key)}
-                  onchange={() => toggleAck(key)}
-                />
-                {tp('detailing.acknowledge', { key })}
-              </label>
-            {/each}
-          </div>
-        {/if}
-
-        <label class="field">
-          {t('detailing.engineer')}
-          <input type="text" data-testid="review-engineer" bind:value={engineer} />
-        </label>
-        <label class="field">
-          {t('detailing.notes')}
-          <textarea data-testid="review-notes" bind:value={notes} rows="2"></textarea>
-        </label>
-
-        <div class="actions">
-          <button data-testid="review-submit" onclick={() => submitReview('REVIEWED')}>
-            {t('detailing.recordReview')}
-          </button>
-          <button
-            data-testid="issue-submit"
-            disabled={reviewRank(selected.state) < reviewRank('REVIEWED')}
-            onclick={() => submitReview('ISSUED')}
-          >
-            {t('detailing.issue')}
-          </button>
-        </div>
-
-        {#if detailingStore.lastError}
-          <p class="notice error" role="alert" data-testid="review-error">{detailingStore.lastError}</p>
-        {/if}
-      </section>
+        The report, the drawings, the schedule, the 3-D view, the provisional acknowledgements and
+        `Issue for construction` used to live at the bottom of this panel: to reach the control
+        that issues drawings for construction you opened detailing, selected an assembly, and
+        scrolled past the bar list, the conflicts, the sheet and the schedule. They are a stage of
+        the workflow, so they are a stage of the panel.
+      -->
     {/if}
   </section>
 </div>
 
 <style>
-  .detailing { display: grid; grid-template-columns: minmax(12rem, 18rem) 1fr; gap: 1rem; padding: 0.75rem; font-size: 0.85rem; height: 100%; overflow: auto; }
+  /*
+    Two columns that can actually shrink, sized by the PANEL and not by the window.
+
+    Was `minmax(12rem, 18rem) 1fr` with a `@media (max-width: 800px)` fallback, and both halves
+    were wrong in the same place: a `1fr` track refuses to go below its content's min-content
+    width, so the bar-schedule table and the sheet pushed the grid wider than the panel and the
+    state pills and the preview were clipped on the right; and the media query asks about the
+    WINDOW, so on a 1280 px screen it never fired even though the panel itself is about 540 px.
+
+    `minmax(0, …)` lets both tracks shrink, and a container query asks the question that matters.
+  */
+  /*
+    One column when the list is hidden, two when it is not.
+
+    `data-list` drives it rather than a media query: the question is what the READER asked for,
+    and the panel's width is answered separately by the container query at the bottom.
+  */
+  .topbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--st-hair);
+  }
+  .result { margin: 0; font-size: 0.7rem; color: var(--st-text-2); }
+  .list-toggle {
+    display: inline-flex; align-items: baseline; gap: 0.3rem;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 4px;
+    background: none;
+    color: var(--st-text-2);
+    font-size: 0.68rem;
+    cursor: pointer;
+  }
+  .list-toggle:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .list-toggle:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  .current-level { font-weight: 600; color: var(--st-text); }
+
+  .detailing[data-list='closed'] { grid-template-columns: minmax(0, 1fr); }
+  .detailing[data-list='closed'] .topbar,
+  .detailing[data-list='open'] .topbar { grid-column: 1 / -1; }
+
+  .detailing {
+    grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
+    gap: 1rem;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    height: 100%;
+    overflow: auto;
+  }
   h4 { margin: 0 0 0.4rem; font-size: 0.9rem; }
   h5 { margin: 0 0 0.3rem; font-size: 0.85rem; }
   .empty { opacity: 0.7; }
   ul { list-style: none; margin: 0; padding: 0; }
   .assemblies button { width: 100%; text-align: left; padding: 0.4rem 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; background: none; border: 1px solid transparent; border-radius: 4px; color: inherit; cursor: pointer; }
-  .assemblies button.selected { border-color: currentColor; background: rgba(128,128,128,0.14); }
+  .assemblies button.selected { border-color: currentColor; background: rgba(143, 163, 179,0.14); }
   .assemblies button:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
   .label { flex: 1; }
   header { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
   .badges { display: flex; gap: 0.35rem; flex-wrap: wrap; }
   .state, .maturity, .rev, .superseded { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 3px; }
-  .state { background: rgba(128,128,128,0.25); }
-  .state-constructible, .state-reviewed, .state-issued { background: #14532d; color: #dcfce7; }
+  .state { background: rgba(143, 163, 179,0.25); }
+  .state-constructible, .state-reviewed, .state-issued { background: var(--st-surface-3); color: var(--st-text); }
   /* Provisional, stale and superseded are never green. */
-  .maturity { background: #7a5b00; color: #fff6dd; }
-  .superseded { background: #7a1f1f; color: #ffe3e3; }
+  .maturity { background: var(--st-surface-3); color: var(--st-text); }
+  .superseded { background: var(--st-accent); color: var(--st-text); }
   .progress { list-style: none; display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.5rem 0; padding: 0; }
-  .progress li { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 3px; background: rgba(128,128,128,0.18); opacity: 0.6; }
+  .progress li { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 3px; background: rgba(143, 163, 179,0.18); opacity: 0.6; }
   .progress li.done { opacity: 1; background: rgba(20,83,45,0.5); }
   .progress li[aria-current='step'] { outline: 1px solid currentColor; }
   .notice { margin: 0.4rem 0; padding: 0.4rem 0.55rem; border-radius: 4px; line-height: 1.35; }
-  .notice.warning { background: #7a5b00; color: #fff6dd; }
-  .notice.error { background: #7a1f1f; color: #ffe3e3; }
-  .ok { color: #6ee7b7; }
+  .notice.warning { background: var(--st-surface-3); color: var(--st-text); }
+  .notice.error { background: var(--st-accent); color: var(--st-text); }
+  .ok { color: var(--st-ok); }
   details.bars { margin: 0.5rem 0; }
   details.bars summary { cursor: pointer; font-size: 0.8rem; }
   ul.barlist { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 16rem; overflow: auto; }
-  ul.barlist > li { display: flex; gap: 0.5rem; align-items: center; font-size: 0.76rem; padding: 0.15rem 0; border-top: 1px solid rgba(128,128,128,0.2); }
+  ul.barlist > li { display: flex; gap: 0.5rem; align-items: center; font-size: 0.76rem; padding: 0.15rem 0; border-top: 1px solid rgba(143, 163, 179,0.2); }
   ul.barlist > li.locked { background: rgba(30, 69, 112, 0.35); }
   .bar-id { font-family: monospace; min-width: 7rem; }
   .bar-dia, .bar-len { min-width: 4rem; }
@@ -516,28 +410,30 @@
   .lock { font-size: 0.7rem; padding: 0.05rem 0.35rem; }
   .conflict-nav { display: flex; align-items: center; gap: 0.5rem; }
   .conflict-nav button { min-width: 1.8rem; }
-  fieldset { border: 1px solid rgba(128,128,128,0.35); border-radius: 4px; padding: 0.3rem 0.5rem; }
+  fieldset { border: 1px solid rgba(143, 163, 179,0.35); border-radius: 4px; padding: 0.3rem 0.5rem; }
   legend { font-size: 0.75rem; padding: 0 0.3rem; }
-  .sheet { margin: 0.5rem 0; overflow-x: auto; background: #fff; border-radius: 4px; }
-  .sheet :global(svg) { max-width: 100%; height: auto; }
+
   table.schedule { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
+  /* A wide schedule scrolls itself instead of stretching the panel. */
+  .scroll-x { overflow-x: auto; max-width: 100%; }
   caption { text-align: left; font-weight: 600; padding-bottom: 0.25rem; }
-  th, td { border: 1px solid rgba(128,128,128,0.3); padding: 0.2rem 0.4rem; text-align: right; }
+  th, td { border: 1px solid rgba(143, 163, 179,0.3); padding: 0.2rem 0.4rem; text-align: right; }
   th[scope='col'], td:first-child, td:nth-child(3) { text-align: left; }
-  .documents { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border, #ddd); }
+  .documents { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border, var(--st-text)); }
   .doc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
   .doc-state { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; }
   .badge { padding: 2px 8px; border-radius: 3px; font-weight: 600; font-size: 11px; }
-  .badge-review_draft, .badge-superseded { background: #fde2e2; color: #900; }
-  .badge-for_review { background: #fff4d6; color: #7a5200; }
-  .badge-reviewed, .badge-issued { background: #e6f5e6; color: #175; }
+  .badge-review_draft, .badge-superseded { background: var(--st-text); color: var(--st-accent); }
+  .badge-for_review { background: var(--st-text); color: var(--st-hair-strong); }
+  .badge-reviewed, .badge-issued { background: var(--st-text); color: var(--st-hair-strong); }
   .superseded-docs { margin-top: 8px; font-size: 12px; }
 
-  .review { margin-top: 0.75rem; border-top: 1px solid rgba(128,128,128,0.3); padding-top: 0.6rem; }
+  .review { margin-top: 0.75rem; border-top: 1px solid rgba(143, 163, 179,0.3); padding-top: 0.6rem; }
   .disclaimer { font-size: 0.75rem; opacity: 0.8; margin: 0 0 0.4rem; }
   .field { display: block; margin: 0.35rem 0; }
   .field input, .field textarea { display: block; width: 100%; max-width: 28rem; padding: 0.25rem 0.4rem; }
   .ack { display: block; margin: 0.2rem 0; }
   .actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-  @media (max-width: 800px) { .detailing { grid-template-columns: 1fr; } }
+  /* One column once the PANEL is narrow — the width a reader actually has. */
+  @container (max-width: 34rem) { .detailing { grid-template-columns: minmax(0, 1fr); } }
 </style>

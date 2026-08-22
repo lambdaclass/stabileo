@@ -37,6 +37,7 @@
       title: `Stabileo — ${t('landing.heroH')}`,
       description: t('landing.heroP'),
       locale: publicI18n.locale,
+      path: '/',
     });
   }
 

@@ -16,6 +16,7 @@
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import ProReportDialog from './ProReportDialog.svelte';
   import ProNodesTab from './ProNodesTab.svelte';
+  import ProProjectTab from './ProProjectTab.svelte';
   import ProElementsTab from './ProElementsTab.svelte';
   import ProMaterialsTab from './ProMaterialsTab.svelte';
   import ProSectionsTab from './ProSectionsTab.svelte';
@@ -32,7 +33,7 @@
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
-  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'connections' | 'diagnostics';
+  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'connections' | 'diagnostics';
 
   // Group tabs into logical categories
   interface TabGroup {
@@ -98,6 +99,15 @@
   export function isSolving() { return solving; }
   export function canSolve() { return hasModel && !solving; }
   export function canReport() { return modelStore.nodes.size > 0; }
+  /**
+   * The model's error count, for the ribbon's stage badge.
+   *
+   * The banner at the top of this panel already knows it, but only this panel
+   * shows the banner — so the count was invisible from any other stage. The
+   * ribbon needs it to say whether MODEL is clean without the user going to
+   * Diagnostics to find out.
+   */
+  export function errorCount() { return modelErrorCount; }
 
   type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'energy' | 'xl';
   type ExamplePreset = 'default' | 'xl' | 'clean-shell' | 'bridge';
@@ -730,6 +740,15 @@
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 200);
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
   }
+
+  /** What the panel calls each destination. */
+  const TAB_TITLE: Record<string, string> = {
+    project: 'ribbon.project', nodes: 'pro.tabNodes', elements: 'pro.tabElements',
+    shells: 'pro.tabShells', materials: 'pro.tabMaterials', sections: 'pro.tabSections',
+    supports: 'pro.tabSupports', constraints: 'pro.tabConstraints', loads: 'pro.tabLoads',
+    advanced: 'ribbon.advanced', results: 'ribbon.results', design: 'pro.tabDesign',
+    connections: 'pro.tabConnections', diagnostics: 'pro.tabDiagnostics',
+  };
 </script>
 
 <svelte:window onresize={updateExampleMenuPosition} onscroll={updateExampleMenuPosition} />
@@ -765,16 +784,38 @@
     <div class="pro-solve-error">{solveError}</div>
   {/if}
 
-  <!-- Pre-solve quality gate banner -->
-  {#if modelErrorCount > 0 && activeTab !== 'diagnostics'}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="pro-quality-gate" onclick={() => uiStore.proActiveTab = 'diagnostics'}>
-      <span class="qg-icon">⚠</span>
-      <span class="qg-text"><strong>{modelErrorCount}</strong> {t('pro.errorsFound')} — {t('pro.fixBeforeSolve')}</span>
-      <span class="qg-arrow">→</span>
-    </div>
-  {/if}
+  <!--
+    The panel says what it is showing, as Basic's does.
+    ──────────────────────────────────────────────────
+    It opened straight into content, so the ✕ floated with nothing beside it
+    and the one thing the panel could not tell you was which of thirteen
+    destinations you were looking at.
+
+    The model-error count rides here rather than as a banner. It used to be a
+    full-width amber strip pinned above every tab, permanently, on the panel
+    that has the least room to spare — it was the first thing you saw on
+    opening PRO and it stayed there through every unrelated task. It is a
+    STATE, not an announcement: a count beside the heading, in the same place
+    whatever tab is open, and still a click away from the diagnostics that
+    explain it.
+  -->
+  <header class="pro-head">
+    <span class="pro-head-title" data-testid="pro-panel-title">{t(TAB_TITLE[activeTab] ?? 'pro.tabNodes')}</span>
+    <!--
+      The model-diagnostics chip is NOT here any more.
+
+      It used to render on every tab, driven by `modelErrorCount > 0`, and `checkModel` returns
+      three errors for an empty model — so an untouched PRO opened with a yellow "⚠ 3" over the
+      right panel before the user had done anything. It now lives at the right of the Design
+      command row, where the commands it blocks are, and only once it has something to say:
+      `lib/store/diagnostics-warning.svelte.ts` holds the rule and the dismissal policy.
+
+      Global visibility is not lost. The ribbon's MODEL badge still carries the count, under the
+      same arming rule, so the fact is reachable from any tab without interrupting from all of
+      them. `modelErrorCount` stays exported for the ribbon and for the pre-solve gate — the
+      gate reads `checkModel` directly and is not affected by anything the user hides.
+    -->
+  </header>
 
   <!-- Tab content -->
   <div class="pro-content">
@@ -786,7 +827,9 @@
       </div>
     {:else}
       <svelte:boundary onerror={(e) => { tabError = String(e); console.error('ProPanel tab error:', e); }}>
-        {#if activeTab === 'nodes'}
+        {#if activeTab === 'project'}
+          <ProProjectTab groups={proExampleGroups} onLoadExample={loadProExample} />
+        {:else if activeTab === 'nodes'}
           <ProNodesTab />
         {:else if activeTab === 'elements'}
           <ProElementsTab />
@@ -872,15 +915,36 @@
 />
 
 <style>
+  .pro-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 2rem 0.45rem 0.7rem;
+    border-bottom: 1px solid var(--st-hair);
+    flex: none;
+  }
+
+  .pro-head-title {
+    font-family: var(--st-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--st-text-2);
+  }
+
+  /* `.pro-head-errors` lived here. Its markup moved to the Design command row — see the note
+     in the header above — and the rule went with it rather than being left behind unreachable,
+     the way `.autosave-banner` was in App.svelte for a whole release. */
+
   /* ─── Mobile PRO navigation ─── */
   .pro-mobile-nav {
     padding: 8px 10px;
-    border-bottom: 1px solid #1a4a7a;
+    border-bottom: 1px solid var(--st-surface-3);
     display: flex;
     flex-direction: column;
     gap: 8px;
     flex-shrink: 0;
-    background: #0a1a30;
+    background: var(--st-surface);
   }
   .pm-tools-row {
     display: flex;
@@ -890,14 +954,14 @@
   .pm-tool {
     padding: 6px 10px;
     font-size: 0.78rem;
-    color: #899;
-    background: #0f2840;
-    border: 1px solid #1a3050;
+    color: var(--st-text-2);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 5px;
     cursor: pointer;
   }
-  .pm-tool:hover { color: #ddd; }
-  .pm-tool.active { color: #fff; background: #e94560; border-color: #ff6b6b; }
+  .pm-tool:hover { color: var(--st-text); }
+  .pm-tool.active { color: var(--st-text); background: var(--st-accent); border-color: var(--st-danger); }
   .pm-tool.pm-undo {
     padding: 6px 8px;
     font-size: 0.85rem;
@@ -913,14 +977,14 @@
   .pm-sel {
     padding: 4px 8px;
     font-size: 0.68rem;
-    color: #aab;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
+    color: var(--st-text-2);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
     cursor: pointer;
   }
-  .pm-sel:hover { color: #ddd; }
-  .pm-sel.active { color: #fff; background: #e94560; border-color: #ff6b6b; }
+  .pm-sel:hover { color: var(--st-text); }
+  .pm-sel.active { color: var(--st-text); background: var(--st-accent); border-color: var(--st-danger); }
   .pro-mobile-actions {
     display: flex;
     gap: 4px;
@@ -933,19 +997,19 @@
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    color: #fff;
+    color: var(--st-text);
   }
   .pm-action:disabled { opacity: 0.35; }
-  .pm-example { background: linear-gradient(135deg, #f0a500, #d99200); }
-  .pm-solve { background: linear-gradient(135deg, #4ecdc4, #3ab8b0); }
-  .pm-report { background: linear-gradient(135deg, #e94560, #c73e54); }
+  .pm-example { background: linear-gradient(135deg, var(--st-warn), var(--st-warn)); }
+  .pm-solve { background: linear-gradient(135deg, var(--st-value), var(--st-value)); }
+  .pm-report { background: linear-gradient(135deg, var(--st-accent), var(--st-accent)); }
   .pm-tab-select {
     width: 100%;
     padding: 8px 10px;
-    background: #0f2840;
-    border: 1px solid #1a4a7a;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
-    color: #ddd;
+    color: var(--st-text);
     font-size: 0.82rem;
     cursor: pointer;
     -webkit-appearance: none;
@@ -954,14 +1018,14 @@
     background-repeat: no-repeat;
     background-position: right 10px center;
   }
-  .pm-tab-select:focus { border-color: #4ecdc4; outline: none; }
+  .pm-tab-select:focus { border-color: var(--st-text-2); outline: none; }
 
   .pro-panel {
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: #16213e;
-    color: #ddd;
+    background: var(--st-surface-3);
+    color: var(--st-text);
     overflow: visible;
   }
 
@@ -970,8 +1034,8 @@
     display: flex;
     gap: 6px;
     padding: 6px 10px;
-    background: #0d1b33;
-    border-bottom: 1px solid #1a3a5a;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
     justify-content: flex-end;
     position: relative;
@@ -988,7 +1052,7 @@
     padding: 5px 12px;
     font-size: 0.72rem;
     font-weight: 500;
-    color: #f0a500;
+    color: var(--st-warn);
     background: transparent;
     border: 1px solid #f0a50044;
     border-radius: 4px;
@@ -1008,8 +1072,8 @@
   .pro-example-menu {
     position: fixed;
     overflow-y: auto;
-    background: linear-gradient(180deg, #162746 0%, #122038 100%);
-    border: 1px solid #31507c;
+    background: linear-gradient(180deg, var(--st-surface-3) 0%, var(--st-surface-3) 100%);
+    border: 1px solid var(--st-info);
     border-radius: 10px;
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
     padding: 8px;
@@ -1021,19 +1085,19 @@
     flex-direction: column;
     gap: 2px;
     padding: 6px 8px 10px;
-    border-bottom: 1px solid #29456d;
+    border-bottom: 1px solid var(--st-hair-strong);
     margin-bottom: 8px;
   }
 
   .pro-example-menu-title {
     font-size: 0.82rem;
     font-weight: 700;
-    color: #f3f6ff;
+    color: var(--st-text);
   }
 
   .pro-example-menu-subtitle {
     font-size: 0.66rem;
-    color: #8ea3c8;
+    color: var(--st-info);
     letter-spacing: 0.02em;
   }
 
@@ -1042,7 +1106,7 @@
   }
 
   .pro-example-group + .pro-example-group {
-    border-top: 1px solid #223b60;
+    border-top: 1px solid var(--st-hair-strong);
     padding-top: 10px;
   }
 
@@ -1051,7 +1115,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #7891b9;
+    color: var(--st-info);
     padding: 0 2px 8px;
   }
 
@@ -1069,9 +1133,9 @@
     gap: 6px;
     padding: 10px 11px;
     background: rgba(18, 42, 74, 0.72);
-    border: 1px solid #29456d;
+    border: 1px solid var(--st-hair-strong);
     border-radius: 8px;
-    color: #dbe5ff;
+    color: var(--st-text);
     cursor: pointer;
     text-align: left;
     min-height: 124px;
@@ -1079,8 +1143,8 @@
   }
 
   .pro-example-item:hover {
-    background: #153158;
-    border-color: #4f79b2;
+    background: var(--st-surface-3);
+    border-color: var(--st-info);
     transform: translateY(-1px);
   }
 
@@ -1093,7 +1157,7 @@
   .pro-example-name {
     font-size: 0.77rem;
     font-weight: 700;
-    color: #f7f9ff;
+    color: var(--st-text);
     overflow-wrap: break-word;
     word-break: break-word;
   }
@@ -1103,12 +1167,12 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #f0a500;
+    color: var(--st-warn);
   }
 
   .pro-example-desc {
     font-size: 0.66rem;
-    color: #90a4c6;
+    color: var(--st-info);
     line-height: 1.3;
     overflow-wrap: break-word;
     word-break: break-word;
@@ -1125,9 +1189,9 @@
     align-items: center;
     padding: 2px 6px;
     border-radius: 999px;
-    background: rgba(240, 165, 0, 0.12);
-    border: 1px solid rgba(240, 165, 0, 0.18);
-    color: #ffd27a;
+    background: rgba(217, 164, 65, 0.12);
+    border: 1px solid rgba(217, 164, 65, 0.18);
+    color: var(--st-warn);
     font-size: 0.56rem;
     font-weight: 600;
     letter-spacing: 0.03em;
@@ -1139,11 +1203,11 @@
     gap: 8px;
     margin-top: auto;
     font-size: 0.58rem;
-    color: #7f97bc;
+    color: var(--st-info);
   }
 
   .pro-example-heavy {
-    color: #a08050;
+    color: var(--st-warn);
     font-style: italic;
   }
 
@@ -1158,26 +1222,26 @@
     padding: 5px 18px;
     font-size: 0.75rem;
     font-weight: 600;
-    color: #fff;
-    background: linear-gradient(135deg, #4ecdc4, #36b5ad);
-    border: 1px solid #4ecdc4;
+    color: var(--st-text);
+    background: linear-gradient(135deg, var(--st-value), var(--st-value));
+    border: 1px solid var(--st-value);
     border-radius: 4px;
     cursor: pointer;
   }
-  .pro-solve-btn:hover { background: linear-gradient(135deg, #5fe0d7, #4ecdc4); }
+  .pro-solve-btn:hover { background: linear-gradient(135deg, var(--st-value), var(--st-value)); }
   .pro-solve-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .pro-report-btn {
     padding: 5px 16px;
     font-size: 0.72rem;
     font-weight: 600;
-    color: #fff;
-    background: linear-gradient(135deg, #e94560, #c73e54);
-    border: 1px solid #e94560;
+    color: var(--st-text);
+    background: linear-gradient(135deg, var(--st-accent), var(--st-accent));
+    border: 1px solid var(--st-accent);
     border-radius: 4px;
     cursor: pointer;
   }
-  .pro-report-btn:hover { background: linear-gradient(135deg, #ff5a75, #e94560); }
+  .pro-report-btn:hover { background: linear-gradient(135deg, var(--st-danger), var(--st-accent)); }
   .pro-report-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
   @media (max-width: 720px) {
@@ -1192,24 +1256,20 @@
   .pro-solve-error {
     padding: 4px 10px;
     font-size: 0.7rem;
-    color: #ff8a9e;
-    background: rgba(233, 69, 96, 0.1);
-    border-bottom: 1px solid #1a3a5a;
+    color: var(--st-danger);
+    background: rgba(229, 72, 42, 0.1);
+    border-bottom: 1px solid var(--st-surface-3);
   }
 
-  .pro-quality-gate {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 12px; cursor: pointer;
-    background: rgba(233, 160, 0, 0.08);
-    border-bottom: 1px solid rgba(233, 160, 0, 0.2);
-    font-size: 0.72rem; color: #f0a500;
-    transition: background 0.15s;
-  }
-  .pro-quality-gate:hover { background: rgba(233, 160, 0, 0.15); }
-  .qg-icon { font-size: 0.85rem; }
-  .qg-text { flex: 1; }
-  .qg-text strong { color: #ffb820; }
-  .qg-arrow { font-size: 0.8rem; opacity: 0.6; }
+  /*
+     `.pro-quality-gate` lived here: PR19's full-width amber banner across the top of the panel,
+     the one that "took the whole height of the panel to say one sentence". PR125 replaced it
+     with the header chip, the merge kept PR125's markup, and these six rules were left behind
+     with nothing to style — six `css_unused_selector` warnings on every build.
+
+     Both are now gone. The same fact is carried by the chip at the right of the Design command
+     row, which is one line tall and next to the commands it blocks.
+  */
 
   /* ─── Content area ─── */
   .pro-content {
@@ -1220,11 +1280,11 @@
 
   .pro-tab-error {
     padding: 16px;
-    color: #ff6b6b;
+    color: var(--st-danger);
     font-size: 0.8rem;
   }
   .pro-tab-error pre {
-    background: #1a0a0a;
+    background: var(--st-bg);
     padding: 8px;
     border-radius: 4px;
     overflow-x: auto;
@@ -1235,9 +1295,9 @@
   }
   .pro-tab-error button {
     padding: 6px 14px;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
-    color: #ccc;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
+    color: var(--st-text-2);
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.72rem;

@@ -48,11 +48,11 @@
    * detailed reads as a finished feature unless the caption says otherwise.
    */
   const shots = [
-    { base: 'pro-building-model', alt: 'landing.proAltModel', title: 'landing.proShotModelTitle', body: 'landing.proShotModelBody' },
-    { base: 'pro-building-axial', alt: 'landing.proAltAxial', title: 'landing.proShotAxialTitle', body: 'landing.proShotAxialBody' },
+    { base: 'pro-building-model', w: 1600, h: 1192, alt: 'landing.proAltModel', title: 'landing.proShotModelTitle', body: 'landing.proShotModelBody' },
+    { base: 'pro-building-axial', w: 1600, h: 1192, alt: 'landing.proAltAxial', title: 'landing.proShotAxialTitle', body: 'landing.proShotAxialBody' },
     // Wide, and the only one of the three that is a detail rather than a whole
     // building — it earns the full row instead of leaving half of one empty.
-    { base: 'pro-rebar-3d', alt: 'landing.proAltRebar', title: 'landing.proShotRebarTitle', body: 'landing.proShotRebarBody', wide: true },
+    { base: 'pro-rebar-3d', w: 1600, h: 834, alt: 'landing.proAltRebar', title: 'landing.proShotRebarTitle', body: 'landing.proShotRebarBody', wide: true },
   ];
 
   const now = ['proNow1', 'proNow2', 'proNow3', 'proNow4', 'proNow5', 'proNow6', 'proNow7', 'proNow8'];
@@ -90,7 +90,7 @@
     <div class="card-row cols-2 cap-shots pro-shots">
       {#each shots as sh}
         <article class="card card-media" class:card-wide={sh.wide}>
-          <Shot base={sh.base} alt={t(sh.alt)} sizes={sh.wide ? '(max-width: 760px) 92vw, 92vw' : undefined} />
+          <Shot base={sh.base} w={sh.w} h={sh.h} alt={t(sh.alt)} sizes={sh.wide ? '(max-width: 760px) 92vw, 92vw' : undefined} />
           <div class="card-body">
             <h3>{t(sh.title)}</h3>
             <p>{t(sh.body)}</p>

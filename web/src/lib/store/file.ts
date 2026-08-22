@@ -9,6 +9,7 @@ import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import type { TabState } from './tabs.svelte';
+import { resetSwitchBackup } from './switch-2d';
 import { t } from '../i18n';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import {
@@ -124,8 +125,37 @@ export function buildProjectFile(): DedalFile {
   });
 }
 
+/**
+ * The project as a `.ded`, serialised COMPACT.
+ *
+ * ── What the indentation was costing ───────────────────────────────
+ *
+ * Measured on `pro-edificio-7p` after the whole chain — 203 members solved, designed, detailed,
+ * floors designed, about 21 000 bars in the coordinated document:
+ *
+ *     JSON.stringify(payload, null, 2)   110 341 310 bytes    202 ms
+ *     JSON.stringify(payload)             47 783 950 bytes     56 ms
+ *
+ * Sixty-two megabytes of a hundred-and-ten were spaces and newlines. A detailing document is
+ * mostly deeply-nested arrays of numbers, and at that depth `null, 2` spends about twenty bytes
+ * of indentation on every six-byte coordinate.
+ *
+ * ── Why this is safe ───────────────────────────────────────────────
+ *
+ * Whitespace is not part of the format. `deserializeProject` and `loadFile` both go through
+ * `JSON.parse`, which does not care, and every `.ded` ever written — including the committed
+ * `rc-footing-cad-poc.ded.json`, which stays pretty-printed on disk — still opens. The change is
+ * one-directional and needs no migration: new files are smaller, old files are unaffected.
+ *
+ * One consequence worth knowing rather than discovering: regenerating that committed fixture
+ * (`WRITE_FIXTURE=1`) now writes it on one line, because it is deliberately produced by this
+ * same production writer.
+ *
+ * `saveSession` keeps its indentation. A session is a handful of tab records and is read by
+ * people far more often than it is large.
+ */
 export function serializeProject(): string {
-  return JSON.stringify(buildProjectFile(), null, 2);
+  return JSON.stringify(buildProjectFile());
 }
 
 /**
@@ -152,6 +182,10 @@ export function deserializeProject(text: string): boolean {
   historyStore.pushState();
   modelStore.restore(data.snapshot);
   modelStore.model.name = data.name;
+  // A different model now occupies the store: any 3D original held for the
+  // simplified-2D round trip belongs to the model that was just replaced, and
+  // restoring it from here on would wipe THIS one. (See switch-2d.ts.)
+  resetSwitchBackup();
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
   // Restoring analysisMode below already yields the right appMode.

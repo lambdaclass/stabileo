@@ -74,7 +74,7 @@
       <div class="region-head">
         <span class="region-title">{t(reg.key)}</span>
         <button class="mini" data-testid={`add-row-${reg.field}-${elementId}`}
-                onclick={() => addLayerRow(elementId, reg.field)}>+ row</button>
+                onclick={() => addLayerRow(elementId, reg.field)}>+ {t('design.editor.addRow')}</button>
         {#if reg.layers.length > 0}
           <button class="mini" data-testid={`auto-split-${reg.field}-${elementId}`}
                   onclick={() => autoSplit(reg.field)}>auto</button>
@@ -96,9 +96,9 @@
           </select>
           <span class="area">{rebarGroupArea(layer).toFixed(2)} cm²</span>
           {#if !fits(layer.count, layer.diameter)}
-            <span class="warn" title={`max ${perRow(layer.diameter)} bars/row`}>! fit</span>
+            <span class="warn" title={`max ${perRow(layer.diameter)} · ${t('design.editor.doesNotFit')}`}>! {t('design.editor.doesNotFit')}</span>
           {/if}
-          <button class="mini mini-rm" aria-label="remove row"
+          <button class="mini mini-rm" aria-label={t('design.editor.removeRow')}
                   data-testid={`rm-row-${reg.field}-${layer.row}-${elementId}`}
                   onclick={() => removeLayerRow(elementId, reg.field, layer.row)}>×</button>
         </div>
@@ -137,26 +137,26 @@
 
 <style>
   .editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
-  .region { background: #0d1f36; border: 1px solid #16304f; border-radius: 4px; padding: 5px 7px; }
+  .region { background: var(--st-surface-2); border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 5px 7px; }
   .region-head { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; flex-wrap: wrap; }
-  .region-title { font-size: 0.7rem; font-weight: 600; color: #8ab; }
-  .total { font-size: 0.66rem; color: #7a9; font-family: monospace; margin-left: auto; }
+  .region-title { font-size: 0.7rem; font-weight: 600; color: var(--st-info); }
+  .total { font-size: 0.66rem; color: var(--st-text-2); font-family: monospace; margin-left: auto; }
   .line { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
-  .line.empty { color: #667; font-size: 0.66rem; font-style: italic; }
-  .idx { font-family: monospace; font-size: 0.64rem; color: #678; width: 16px; }
-  .num { width: 44px; padding: 1px 4px; background: #0b1c30; border: 1px solid #1d3a5c;
-    border-radius: 3px; color: #dde; font-size: 0.7rem; }
+  .line.empty { color: var(--st-text-3); font-size: 0.66rem; font-style: italic; }
+  .idx { font-family: monospace; font-size: 0.64rem; color: var(--st-text-3); width: 16px; }
+  .num { width: 44px; padding: 1px 4px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
+    border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
   .num-sm { width: 34px; } .num-sp { width: 54px; }
-  .sel { padding: 1px 3px; background: #0b1c30; border: 1px solid #1d3a5c;
-    border-radius: 3px; color: #dde; font-size: 0.7rem; }
+  .sel { padding: 1px 3px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
+    border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
   .sel-sm { width: 46px; }
-  .area { font-family: monospace; font-size: 0.64rem; color: #8a9; }
-  .sub { font-size: 0.64rem; color: #778; }
-  .warn { font-size: 0.64rem; color: #ff8a8a; font-weight: 700; }
-  .mini { padding: 0 5px; background: #14304f; border: 1px solid #2a5a8a;
-    border-radius: 3px; color: #bcd; font-size: 0.64rem; cursor: pointer; }
-  .mini:hover { background: #1e4a78; }
-  .mini:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
-  .mini-rm { color: #f99; border-color: #7a3030; }
-  input:focus-visible, select:focus-visible { outline: 2px solid #4ecdc4; outline-offset: 1px; }
+  .area { font-family: monospace; font-size: 0.64rem; color: var(--st-text-2); }
+  .sub { font-size: 0.64rem; color: var(--st-text-3); }
+  .warn { font-size: 0.64rem; color: var(--st-accent); font-weight: 700; }
+  .mini { padding: 0 5px; background: var(--st-surface-3); border: 1px solid var(--st-info);
+    border-radius: 3px; color: var(--st-text-2); font-size: 0.64rem; cursor: pointer; }
+  .mini:hover { background: var(--st-hair-strong); }
+  .mini:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  .mini-rm { color: var(--st-text-2); border-color: var(--st-accent); }
+  input:focus-visible, select:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 </style>
