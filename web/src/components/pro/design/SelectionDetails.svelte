@@ -45,6 +45,9 @@
   }: Props = $props();
 
   const fmt = (n: number, d = 2): string => n.toFixed(d);
+
+  /** True while an isolation is active. Drives one button rather than two. */
+  const isolating = $derived(rebarWorkspace.isolated.length > 0);
 </script>
 
 {#if bar}
@@ -101,18 +104,29 @@
       {t('detailing.scene.torsionMember')}
     </p>
   {/if}
+  <!--
+    ONE button that changes, not two that replace each other.
+
+    This was an `{#if}/{:else}` pair, and that is a keyboard dead end: clicking `rebar-isolate`
+    flips the condition, Svelte DESTROYS the button that was just pressed and creates the other
+    one, and the focused element leaves the DOM — so focus falls to `<body>` and the next Tab
+    restarts at the top of the document. Measured: `focus=body` after isolating, and again after
+    clearing.
+
+    The same node now stays put and swaps its label, action and testid, so focus survives. The two
+    testids are kept exactly as they were, because they name the STATE and existing specs read
+    them that way.
+  -->
   <div class="sel-actions">
-    {#if rebarWorkspace.isolated.length > 0}
-      <button type="button" data-testid="rebar-clear-isolation"
-              onclick={() => rebarWorkspace.clearIsolation()}>
-        {t('detailing.scene.clearIsolation')}
-      </button>
-    {:else}
-      <button type="button" data-testid="rebar-isolate"
-              onclick={() => rebarWorkspace.isolate(rebarWorkspace.selection?.elementIds ?? [])}>
-        {t('detailing.scene.isolate')}
-      </button>
-    {/if}
+    <button
+      type="button"
+      data-testid={isolating ? 'rebar-clear-isolation' : 'rebar-isolate'}
+      onclick={() => (isolating
+        ? rebarWorkspace.clearIsolation()
+        : rebarWorkspace.isolate(rebarWorkspace.selection?.elementIds ?? []))}
+    >
+      {isolating ? t('detailing.scene.clearIsolation') : t('detailing.scene.isolate')}
+    </button>
   </div>
 {/if}
 
