@@ -96,11 +96,33 @@ pero hay un componente completo sin montar. Averiguar si se reemplazó a propós
 colgado es **acotado: M1**, y la respuesta puede ser «borrarlo».
 
 **Hueco 2 — una sección construida en `ProSectionsTab` no declara procedencia.** Emite `shape`,
-`h`, `b`, `tw`, `tf` y las propiedades calculadas, y **no** escribe `composition` ni una marca de
-que fue construida paramétricamente. Así que en el visor cae al `default:` de
-`createSectionShape` —el mismo camino que PR21 documentó como «dibujaba un perfil I para todo lo
-generado»— y en un `.ded` guardado no queda registro de con qué parámetros se armó. **Acotado:
-M1**, y es el hueco más valioso de la lista.
+`h`, `b`, `tw`, `tf` y las propiedades calculadas, y **no** escribía marca alguna de que fue
+construida paramétricamente.
+
+> **Corrección de este documento (commit del contrato `built`).** La primera versión de este
+> párrafo y del §5 decía que una sección paramétrica «cae al `default:` de `createSectionShape`,
+> que inventa un perfil I». **Es falso, y lo verifiqué después de escribirlo:**
+> `computeSectionProperties` emite `rect`, `CHS`, `RHS`, `I`, `T`, `U`, `C` e `invL`, y las ocho
+> tienen su propio `case`. Ninguna llega al `default:`. La afirmación venía de trasladar el
+> defecto que PR21 cerró en los generadores a un camino donde no ocurre.
+>
+> El hueco real es más chico y comprobable: se perdían **los parámetros de entrada**. Y con ellos
+> se perdía `tl` —el espesor del labio del perfil conformado en frío— porque
+> `handleShapeConfirm()` enumeraba los campos a mano y ese no estaba en la lista, mientras
+> `computeSectionProperties` sí lo toma como entrada propia. `case 'C'` de `createSectionShape`
+> sustituye entonces el espesor **del ala**: las propiedades se calculaban con un labio y el
+> contorno se dibujaba con otro. Coincidían mientras el usuario dejara `tl = tf`, que es el
+> default que trae la plantilla (0,009 m ambos) y la razón por la que nadie lo vio.
+>
+> `built-section-contract.test.ts` fija las dos mitades: que las ocho plantillas dibujan contorno
+> propio —ninguna cae al `default:`— y que mover `tl` fuera de `tf` cambia el contorno de forma
+> medible.
+
+Consecuencias de perder la entrada, que es lo que el campo `built` cierra: una sección construida
+**no se podía volver a editar** (nada guardaba lo que se tipeó), y era **la única de las tres
+formas de crear una sección sin respuesta a «de dónde salió»** —una del catálogo lleva
+`profileFamily`, un armado lleva `composition`. **Acotado: M1**, y es el hueco más valioso de la
+lista.
 
 ### 1.5 Generadores — conectados, con una propiedad sin verificar
 
@@ -218,10 +240,10 @@ built?: {
   persiste.
 - **Impacto sobre H1:** aditivo y opcional; ningún consumidor actual lo lee y ningún resultado de
   hormigón se mueve. El riesgo es de merge, en el archivo con más manos encima del repositorio.
-- **Qué habilita:** que el visor dibuje el contorno real de una sección construida en PRO en vez de
-  caer al `default:` de `createSectionShape` —que inventa un perfil I a partir del canto, el mismo
-  camino que PR21 documentó y cerró para las generadas— y que un `.ded` recuerde con qué parámetros
-  se armó.
+- **Qué habilita:** que un `.ded` recuerde con qué parámetros se armó la sección —y por lo tanto
+  que se pueda volver a editar— y que un parámetro que la ruta de alta olvide deje de ser
+  invisible. Ver la corrección del §1.4: **no** habilita «dejar de dibujar un perfil I», porque
+  eso no pasaba.
 - **Dueño propuesto: integración común.** El consumidor es PRO metálico, pero `snapshot()`/
   `restore()` es el contrato que sostiene las cuatro rutas de persistencia. No se hace en paralelo.
 - **Alternativa segura mientras tanto:** ninguna honesta. El hueco queda documentado y **no** se
@@ -229,6 +251,21 @@ built?: {
 
 Con esto la tarea A sale de M1 y M1 queda con cuatro tareas propias. Es el resultado correcto del
 criterio del §4: la A falla la condición 4.
+
+> **Actualización — la tarea A está autorizada y hecha.** El usuario la aprobó como cambio
+> contractual aislado y aditivo, y entró en su propio commit: el campo opcional `built` en
+> `interface Section`, `handleShapeConfirm()` escribiéndolo (y pasando el `tl` que dejaba caer),
+> y `built-section-contract.test.ts` con 17 casos sobre registro, suficiencia, persistencia,
+> compatibilidad hacia atrás y visualización. `snapshot()`/`restore()` **no se tocaron**: el
+> primero desestructura la sección entera y el segundo la copia, así que la persistencia era ya
+> automática —que es lo que hace al cambio aditivo de verdad y no sólo de nombre.
+>
+> Un límite que apareció al probarlo y que **no** se arregla acá: el **link compartido** no lleva
+> el campo. `compressV2` codifica la sección como la tupla posicional
+> `[id, name, a, iz, {s,b,h,w,f,t,iy,j,rot}]`, que nunca llevó `tl`, `profileFamily` ni
+> `composition` —**un armado compartido por URL ya vuelve sin su composición, hoy**. Ensanchar
+> ese formato es una decisión versionada (`SHARE_VERSION`) sobre un archivo compartido con
+> hormigón: queda para el handoff, no para esta rama. El test lo fija como pérdida declarada.
 
 **Lo que NO se toca, confirmado:** `tokens.css`, `OutcomeBadge`, `DesignToolbar`, `ProRibbon`,
 `StageSection`, `model.svelte.ts`, el selector general de Basic (`SectionChanger`), los catálogos
