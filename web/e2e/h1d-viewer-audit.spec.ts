@@ -206,12 +206,22 @@ test.describe('@slow the rail, and getting back out', () => {
       /*
        * It read "Back to the model", and closing returns to the design stage it was opened from —
        * Documents — not to the model editor. Relabelled, in the three offered locales.
-       *
-       * `rebar-back` still does not exist, and that is the point: one control was relabelled
-       * rather than a second route added. Escape and this button remain the only two ways out.
        */
       expect((await close.innerText()).toLowerCase()).toMatch(/workflow/);
-      await expect(page.getByTestId('rebar-back')).toHaveCount(0);
+
+      /*
+       * A correction to an earlier reading of mine.
+       *
+       * `rebar-back` DOES exist in the markup, behind `{#if rebarWorkspace.canGoBack}` — which is
+       * `history.length > 0`, the SELECTION history. It is "Previous", for stepping back through
+       * members you have looked at, and it is absent here because a freshly opened overlay has no
+       * history yet. An earlier pass measured its absence on this exact route and reported it as
+       * "there is no Back button", which was the right measurement and the wrong conclusion.
+       *
+       * So: absent on a fresh workspace, and that is correct — not missing.
+       */
+      await expect(page.getByTestId('rebar-back'),
+        'no selection history yet, so Previous is correctly absent').toHaveCount(0);
 
       await close.click();
       await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
