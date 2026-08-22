@@ -33,6 +33,7 @@
   import { STRUCTURAL_MATERIAL_FAMILIES } from '../../../lib/engine/steel/material-family';
   import { structuralGradeSource } from '../../../lib/grades/catalogue';
   import SteelStatusBadge from './SteelStatusBadge.svelte';
+  import ColdFormedPanel from './ColdFormedPanel.svelte';
 
   const inv = $derived(steelStore.inventory);
   const kinds = $derived(steelStore.countByKind);
@@ -220,6 +221,19 @@
       {/each}
     </ul>
   </details>
+
+  <!--
+    The cold-formed selector.
+
+    Mounted here rather than as a new PRO tab on purpose: `ProPanel.svelte` is the shared tab host
+    — it carries the concrete tabs too — and this is the metallic surface. A cold-formed section is
+    steel, so the place a user looks for it is the steel screen.
+
+    It is the one part of this panel that CREATES something rather than reporting on the model.
+    That does not make it a design surface: what it produces is geometry, and the five facts it
+    renders at the top say so before a user can add anything.
+  -->
+  <ColdFormedPanel />
 </div>
 
 <style>

@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import type { Section } from '../store/model.svelte';
 import { buildSectionOutline } from '../engine/generators/section-outline';
 import type { BuiltUpArrangement } from '../engine/generators/built-up-section';
+import { zedOutline } from '../profiles/cold-formed';
 
 /**
  * Create an I/H beam shape (doubly-symmetric).
@@ -175,13 +176,16 @@ export function createCShape(h: number, b: number, tw: number, tf: number, c: nu
  * and `tl` are all the sheet thickness; they stay separate here only because the `Section` that
  * reaches this function carries them separately.
  *
- * ── Geometry, and where the origin sits ───────────────────────────────
+ * ── Geometry lives in one place ───────────────────────────────────────
  *
- * Vertically centred like every other outline in this file. Horizontally the WEB is placed at
- * `x ∈ [0, tw]`, the top flange runs to `+b` and the bottom flange to `tw − b`, which is the
- * direct analogue of `createCShape` putting its web at `x = 0`. So the outline straddles the
- * origin, as a Z does, and the web's outer face is still the reference — a Z and a C of the same
- * dimensions line up on the same face.
+ * The vertex loop comes from `zedOutline` in `profiles/cold-formed.ts`, which is the SINGLE
+ * definition of this outline; this function only turns points into a `THREE.Shape`. The app draws
+ * sections in three separate modules and the channel is implemented separately in each — the
+ * zed is not, deliberately, because hand-transcribing it into the second renderer produced a
+ * duplicated vertex and a reversed edge on the first attempt.
+ *
+ * Frame, set there: web's outer face at `x = 0`, vertically centred, so a zed and a channel of
+ * the same dimensions line up on the same face.
  *
  * ── Point symmetry is the invariant worth knowing ─────────────────────
  *
@@ -198,38 +202,10 @@ export function createCShape(h: number, b: number, tw: number, tf: number, c: nu
  * both directions. Either way the honest fallback is the same section without lips.
  */
 export function createZShape(h: number, b: number, tw: number, tf: number, c: number, lipT: number): THREE.Shape {
-  const halfH = h / 2;
-  const lip = Math.min(c, halfH - tf);
+  const pts = zedOutline(h, b, tw, tf, c, lipT);
   const s = new THREE.Shape();
-
-  if (lip <= tf || lipT <= 0 || b <= 2 * tw || lip <= lipT) {
-    // Plain (unlipped) zed: web, and one flange each way.
-    s.moveTo(tw - b, -halfH);
-    s.lineTo(tw, -halfH);
-    s.lineTo(tw, halfH - tf);
-    s.lineTo(b, halfH - tf);
-    s.lineTo(b, halfH);
-    s.lineTo(0, halfH);
-    s.lineTo(0, -halfH + tf);
-    s.lineTo(tw - b, -halfH + tf);
-    s.closePath();
-    return s;
-  }
-
-  // Lipped. Walked as one closed loop: bottom lip → bottom flange → web (right face) → top
-  // flange underside → top lip → back along the top → web (left face) → bottom flange top face.
-  s.moveTo(tw - b, -halfH + lip);        // bottom lip, outer face, top
-  s.lineTo(tw - b, -halfH);              // down to the bottom
-  s.lineTo(tw, -halfH);                  // along the bottom flange, to the web's far face
-  s.lineTo(tw, halfH - tf);              // up the web's far face
-  s.lineTo(b - lipT, halfH - tf);        // top flange underside, out to the lip
-  s.lineTo(b - lipT, halfH - lip);       // down the top lip's inner face
-  s.lineTo(b, halfH - lip);              // across the lip thickness
-  s.lineTo(b, halfH);                    // up the lip's outer face
-  s.lineTo(0, halfH);                    // back along the top of the top flange
-  s.lineTo(0, -halfH + tf);              // down the web's near face
-  s.lineTo(tw - b + lipT, -halfH + tf);  // bottom flange top face, out to the lip
-  s.lineTo(tw - b + lipT, -halfH + lip); // up the bottom lip's inner face
+  s.moveTo(pts[0].x, pts[0].y);
+  for (const p of pts.slice(1)) s.lineTo(p.x, p.y);
   s.closePath();
   return s;
 }

@@ -336,6 +336,75 @@ export function coldFormedGeometry(spec: ColdFormedSpec): ColdFormedGeometry | n
   };
 }
 
+/** One vertex of an outline. */
+export interface OutlinePoint { x: number; y: number }
+
+/**
+ * The zed outline as a closed vertex loop — **the single definition**, in mm.
+ *
+ * ── Why this is here and not in a renderer ────────────────────────────
+ *
+ * This app draws a section in three places: `three/section-profiles.ts` for the 3D viewport,
+ * `utils/section-drawing.ts` for every 2D surface, and `section/outline.ts`. The channel is
+ * implemented separately in each, and the first attempt at hand-transcribing the zed into the
+ * second one produced a duplicated vertex and a reversed edge — a self-crossing path that would
+ * have rendered as garbage.
+ *
+ * So the zed gets one definition and two renderers. Points, not a `THREE.Shape` and not an SVG
+ * string, because neither renderer should have to know about the other's types.
+ *
+ * ── Frame ─────────────────────────────────────────────────────────────
+ *
+ * Web's OUTER face at `x = 0`, vertically centred on `y = 0`, `+y` up — the frame
+ * `createCShape` uses, so a zed and a channel of the same dimensions line up on the same face.
+ * A renderer that centres on the bounding box shifts by `t/2`, the section's point-symmetry
+ * centre. Lengths are whatever unit the caller passes in; the callers pass mm here and metres
+ * from a `Section`.
+ *
+ * ── Conventions, both inherited on purpose ────────────────────────────
+ *
+ * The lip is measured from the flange's OUTER face, which is what both existing drawing
+ * implementations do for the channel — and which disagrees with `computeSectionProperties` by
+ * `2t²`. Inherited rather than corrected, so the discrepancy stays uniform across both shapes;
+ * see `docs/handoffs/m2-lip-convention-proposal.md`.
+ *
+ * Corners are square. The degenerate cases collapse to an unlipped zed, for the reason
+ * `createZShape` documents: the path walks along both flange undersides, so too short a lip or
+ * too narrow a flange makes it cross itself.
+ */
+export function zedOutline(h: number, b: number, tw: number, tf: number, c: number, lipT: number): OutlinePoint[] {
+  const halfH = h / 2;
+  const lip = Math.min(c, halfH - tf);
+
+  if (lip <= tf || lipT <= 0 || b <= 2 * tw || lip <= lipT) {
+    return [
+      { x: tw - b, y: -halfH },
+      { x: tw, y: -halfH },
+      { x: tw, y: halfH - tf },
+      { x: b, y: halfH - tf },
+      { x: b, y: halfH },
+      { x: 0, y: halfH },
+      { x: 0, y: -halfH + tf },
+      { x: tw - b, y: -halfH + tf },
+    ];
+  }
+
+  return [
+    { x: tw - b, y: -halfH + lip },        // bottom lip, outer face, top
+    { x: tw - b, y: -halfH },              // down to the bottom
+    { x: tw, y: -halfH },                  // along the bottom flange, to the web's far face
+    { x: tw, y: halfH - tf },              // up the web's far face
+    { x: b - lipT, y: halfH - tf },        // top flange underside, out to the lip
+    { x: b - lipT, y: halfH - lip },       // down the top lip's inner face
+    { x: b, y: halfH - lip },              // across the lip thickness
+    { x: b, y: halfH },                    // up the lip's outer face
+    { x: 0, y: halfH },                    // back along the top of the top flange
+    { x: 0, y: -halfH + tf },              // down the web's near face
+    { x: tw - b + lipT, y: -halfH + tf },  // bottom flange top face, out to the lip
+    { x: tw - b + lipT, y: -halfH + lip }, // up the bottom lip's inner face
+  ];
+}
+
 // ─────────────────────────── designation grammar ───────────────────────────
 
 /**

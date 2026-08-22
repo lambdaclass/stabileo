@@ -366,5 +366,32 @@ const steelEs: Record<string, string> = {
   'steel.table.gradeNone': 'sin declarar',
   'steel.table.gradeUnresolved': 'grado desconocido',
   'steel.panel.codeEdition': 'edición {edition}',
+
+  // ─── Conformados en frío (M2) ───
+  // Los cinco hechos del alcance. El orden es un argumento: capacidad, ausencias, exclusión,
+  // conclusión. Ver `profiles/cold-formed-scope.ts`.
+  'steel.coldFormed.title': 'Perfiles conformados en frío (C/Z)',
+  'steel.coldFormed.scope.parametricGeometryAvailable': 'La geometría paramétrica está disponible: una sección se especifica con canto, ala, labio y espesor, y de ahí salen sus propiedades y su contorno.',
+  'steel.coldFormed.scope.tabulatedCatalogueUnavailable': 'No hay catálogo tabulado: la app no trae la lista de medidas comerciales, porque es un dato de acería y no de norma.',
+  'steel.coldFormed.scope.cirsoc301Excludes': 'CIRSOC 301 excluye estas secciones por nombre y remite a CIRSOC 303.',
+  'steel.coldFormed.scope.cirsoc303NotIncorporated': 'CIRSOC 303 no está incorporado a la app.',
+  'steel.coldFormed.scope.noNormativeVerification': 'Por lo tanto no hay verificación normativa: ni resistencia, ni aprovechamiento, ni resultado de cálculo.',
+  'steel.coldFormed.zedAxesNotPrincipal': 'En un perfil Z los ejes geométricos no son los principales: están rotados {angle}°. La app no puede guardar el producto de inercia, así que analizarlo respecto de estos ejes sólo vale si el miembro está impedido de flexar fuera del plano — y la provisión que define esa restricción está en CIRSOC 303.',
+  'steel.coldFormed.designation': 'Designación',
+  'steel.coldFormed.designationHint': 'Forma, canto × ala × labio × espesor, en mm. Por ejemplo C 100x50x15x2.0',
+  'steel.coldFormed.depth': 'Canto h',
+  'steel.coldFormed.flange': 'Ala b',
+  'steel.coldFormed.lip': 'Labio c',
+  'steel.coldFormed.thickness': 'Espesor t',
+  'steel.coldFormed.oneThickness': 'Un solo espesor: la chapa es la misma en alma, ala y labio.',
+  'steel.coldFormed.derived': 'Derivado de la geometría',
+  'steel.coldFormed.add': 'Agregar sección',
+  'steel.coldFormed.added': 'Sección {name} agregada al modelo.',
+  'steel.coldFormed.sharpCorners': 'Esquinas modeladas rectas: la regla de radio de plegado pertenece a la norma de conformado y no se conjetura. Sobrestima el área en {pct} %, siempre en el mismo sentido.',
+  'steel.coldFormed.seriesEmpty': 'No hay serie con fuente cargada, así que no hay lista para elegir. El selector paramétrico funciona igual: la designación es la especificación.',
+  'steel.coldFormed.reject.nonPositive': 'Todas las medidas tienen que ser mayores que cero.',
+  'steel.coldFormed.reject.flangesMeet': 'Con este espesor las dos alas se tocan: no queda alma.',
+  'steel.coldFormed.reject.noFlange': 'El ala no es más ancha que el espesor de la chapa: no queda ala.',
+  'steel.coldFormed.reject.lipsCollide': 'Los labios pasan de la mitad del canto y chocarían entre sí.',
 };
 export default steelEs;
