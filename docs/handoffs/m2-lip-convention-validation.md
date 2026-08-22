@@ -110,10 +110,17 @@ fuente de la decisión.
 
 ---
 
-## 7. Estado
+## 7. Estado — **integrado**
 
-- `120f15cc` **validado**. Cuatro comprobaciones, ninguna divergencia contra lo que el patch
-  promete.
-- **El patch no se modificó.** No había divergencia medida que lo justifique.
-- El espejo de M2 está **medido y listo**, esperando la integración.
-- `section-shapes.ts` **no se tocó** desde esta rama.
+La integración atómica se ejecutó con autorización explícita, después de escribir lo de arriba.
+
+- `120f15cc` traído por **cherry-pick puntual** (`04019c97`), sin mergear la rama de H1 y sin
+  rebase. Backup en `backup/m2-pre-lip-integration`. Trajo exactamente los dos archivos esperados.
+- **El patch no se modificó.** No hubo divergencia medida que lo justifique.
+- El espejo, la cota de `lipsCollide` y los tests invertidos entraron en el commit siguiente.
+- La inconsistencia intermedia se observó en vivo antes de cerrarla: el test de geometría falló por
+  exactamente `2t²` (4,5 mm² con t = 1,5), que es lo que el §5 predijo.
+- **Un bug propio que el mismo test atrapó:** `jMm4` seguía usando `c` donde las áreas ya usaban
+  `c − t`, así que la constante de torsión difería en `2(c − cl)t³/3` — 3,375 mm⁴ en una de las
+  medidas. Corregido en el mismo bloque. El test que ataja este módulo contra
+  `computeSectionProperties` es el que lo encontró.
