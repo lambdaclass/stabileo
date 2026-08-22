@@ -85,6 +85,63 @@ test.describe('@slow the export builds the document, and says so', () => {
     });
 });
 
+test.describe('@slow the stage says what the document IS, not only how ready it is', () => {
+  test.slow();
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('the contents are real figures from the document model', async ({ pro: page }) => {
+    await withDocument(page);
+    /*
+     * Before this the stage showed readiness, revision and maturity: three states and no content.
+     * A reader could not tell whether "Revision 1" covered one assembly or forty, which codes it
+     * was verified against, or whether it carried assumptions — all of which `DocumentModel`
+     * already holds.
+     */
+    await expect(page.getByTestId('doc-contents')).toBeVisible();
+    for (const id of ['doc-count-assemblies', 'doc-count-certificates', 'doc-count-clauses']) {
+      const text = (await page.getByTestId(id).innerText()).trim();
+      expect(text, `${id} is a figure`).toMatch(/^\d+$/);
+      expect(Number(text), `${id} is a figure that was taken, not a placeholder`)
+        .toBeGreaterThan(0);
+    }
+    // The editions the verification used, not the ones currently selected.
+    await expect(page.getByTestId('doc-regulations')).toBeVisible();
+    expect((await page.getByTestId('doc-regulations').innerText()).trim().length)
+      .toBeGreaterThan(3);
+  });
+
+  test('and none of it is shown before a document exists', async ({ pro: page }) => {
+    await toDocuments(page);
+    // The other half of "no fabricated zeros": with nothing built there are no counts at all,
+    // rather than a row of noughts.
+    await expect(page.getByTestId('doc-contents')).toHaveCount(0);
+    await expect(page.getByTestId('doc-regulations')).toHaveCount(0);
+    await expect(page.getByTestId('doc-none')).toBeVisible();
+  });
+
+  test('a superseded document is kept and named, not deleted', async ({ pro: page }) => {
+    await withDocument(page);
+    // A recorded review retires the current document, which is where a superseded one comes from.
+    await page.getByTestId('review-engineer').fill('Bautista Chesta');
+    const acks = page.locator('[data-testid^="ack-"]');
+    for (let i = 0; i < await acks.count(); i++) await acks.nth(i).check();
+    await page.getByTestId('review-submit').click();
+    await expect(page.getByTestId('review-record')).toBeVisible();
+
+    const list = page.getByTestId('superseded-docs');
+    await expect(list, 'the retired revision is kept').toBeVisible();
+    if (await list.getAttribute('open') === null) await list.locator('> summary').click();
+    const items = list.locator('[data-testid^="superseded-"]');
+    expect(await items.count(), 'and listed by revision').toBeGreaterThan(0);
+    /*
+     * Named, not merely counted. "A project that cannot show what it previously issued cannot
+     * answer the only question that matters after something goes wrong" —
+     * `footing-document-slice.test.ts` says it about the renderer; the same is true of the panel.
+     */
+    expect((await items.first().innerText()).trim().length).toBeGreaterThan(8);
+  });
+});
+
 test.describe('@slow review is gated by the reasons the store would give', () => {
   test.slow();
   test.use({ viewport: { width: 1280, height: 720 } });
@@ -208,6 +265,52 @@ test.describe('@slow a refused review does not cost the document', () => {
       // And the refusal is reported, in this locale.
       await expect(page.getByTestId('review-error')).toBeVisible();
     });
+});
+
+test.describe('@slow focus inside the stage', () => {
+  test.slow();
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('an export leaves focus on the button that ran it', async ({ pro: page }) => {
+    await toDocuments(page);
+    const download = page.waitForEvent('download', { timeout: 30_000 });
+    await page.getByTestId('doc-xlsx').click();
+    await download;
+    /*
+     * Measured, and recorded as correct rather than "improved". The panel gains a contents block
+     * where there was a "not built yet" line, which is a re-render around the control the user
+     * pressed — so the question worth asking is whether focus SURVIVES it, not whether it moves
+     * somewhere nicer.
+     */
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid')),
+      'focus survives the panel re-rendering around it').toBe('doc-xlsx');
+  });
+
+  test('a recorded review leaves focus on its own button', async ({ pro: page }) => {
+    await withDocument(page);
+    await page.getByTestId('review-engineer').fill('Bautista Chesta');
+    const acks = page.locator('[data-testid^="ack-"]');
+    for (let i = 0; i < await acks.count(); i++) await acks.nth(i).check();
+    await page.getByTestId('review-submit').click();
+    await expect(page.getByTestId('review-record')).toBeVisible();
+    /*
+     * Measured: focus stays on `review-submit`.
+     *
+     * The worry worth checking was that a review changes the state underneath the control that
+     * was pressed, and a control that becomes DISABLED loses focus to `<body>` — a dead end for a
+     * keyboard user, whose next Tab restarts from the top of the document. It does not happen
+     * here: the button stays enabled and keeps focus. Asserted so that a future change to the
+     * gating cannot introduce the dead end unnoticed.
+     */
+    const after = await page.evaluate(() =>
+      document.activeElement === document.body
+        ? 'body'
+        : document.activeElement?.getAttribute('data-testid') ?? 'other');
+    expect(after, 'focus is not dropped to the document body').not.toBe('body');
+    expect(after).toBe('review-submit');
+    test.info().annotations.push(
+      { type: 'coverage', description: `focus after a recorded review: ${after}` });
+  });
 });
 
 /**

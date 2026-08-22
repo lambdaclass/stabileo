@@ -230,3 +230,88 @@ no lo detecta ninguna medición de layout.
 
 `DocumentsSection.svelte` **no** es compartido: lo montan `ProRcWorkflowTab` y `DetailingWorkflow`,
 los dos de hormigón.
+
+---
+
+## 8. Cierre de Documentos — segunda pasada
+
+### `SheetPreview` está en Detallado, no en Documentos
+
+Respuesta a la pregunta que H1-C había dejado abierta: `SheetPreview` lo monta
+**`DetailingWorkflow.svelte:266`**, dentro de la etapa de **Detallado**. Sus testids son
+`sheet-figure`, `sheet-preview`, `sheet-expand`, `sheet-modal`, `sheet-empty`,
+`sheet-zoom-level`.
+
+Es decir: **la vista previa del plano vive una etapa antes que las exportaciones que lo emiten.**
+El comentario del propio montaje explica que expandir abre el mismo `detailingStore.sheetSvg` que
+llevan el DXF y el reporte, así que no hay dos renderers — pero un lector que está en Documentos
+decidiendo si exportar no tiene el plano a la vista.
+
+**No lo moví ni lo dupliqué.** Mover una vista previa de etapa es un cambio de flujo, no un
+arreglo; duplicar el componente crearía la segunda copia que su propio comentario evita.
+
+### Lo que Documentos ahora sí muestra
+
+La etapa mostraba tres estados y ningún contenido: readiness, revisión, madurez. Un lector no
+podía saber si "Revision 1" cubría un conjunto o cuarenta, contra qué reglamentos se verificó, ni
+si arrastraba supuestos. **Todo eso ya estaba en `DocumentModel`** y no se mostraba:
+
+| Nuevo | testid | De dónde sale |
+|---|---|---|
+| conjuntos | `doc-count-assemblies` | `d.assemblies.length` |
+| certificados | `doc-count-certificates` | `d.certificates.length` |
+| cláusulas invocadas | `doc-count-clauses` | `d.refs.length` |
+| supuestos *(sólo si hay)* | `doc-count-assumptions` | `d.assumptions.length` |
+| reglamentos con edición | `doc-regulations` | `d.regulations` |
+
+Ninguna cifra es nueva ni calculada: son las que el documento ya declaraba. Y **no hay ceros
+fabricados**: el bloque entero sólo se renderiza si `detailingStore.document` existe, lo que un
+test verifica en las dos direcciones — antes de exportar no hay ni una cifra, no una fila de
+ceros.
+
+Las cuatro claves nuevas van en `en`, `es` y `pt`, los tres idiomas ofrecidos.
+
+### `superseded-docs`
+
+Verificado con contenido real: una revisión registrada retira el documento actual, y la lista lo
+**conserva nombrado por revisión** (`superseded-{n}`), no lo borra. Es el mismo principio que
+`footing-document-slice.test.ts` enuncia sobre el renderer: *"A project that cannot show what it
+previously issued cannot answer the only question that matters after something goes wrong."*
+
+### Foco dentro de la etapa
+
+Medido, y es buena noticia:
+
+- después de una exportación el foco **queda en el botón que la corrió** (`doc-xlsx`), pese a que
+  el panel se re-renderiza alrededor;
+- después de una revisión registrada el foco **queda en `review-submit`**.
+
+Lo que valía la pena chequear era el caso contrario: un control que pasa a `disabled` pierde el
+foco a `<body>`, y para un teclado eso es un callejón —el siguiente Tab reinicia desde el
+principio del documento—. **No ocurre acá.** Queda aserido para que un cambio futuro del gating no
+lo introduzca sin que nadie lo note.
+
+### Lo que sigue SIN cubrir, y por qué
+
+- **`doc-error` / `detailing.doc.noCoordinated`.** Sigue sin ejercitarse en navegador: en este
+  fixture `buildDocument` siempre devuelve un documento. Hace falta un modelo con detallado
+  generado pero **sin coordinar**, y no encontré cómo producirlo con los fixtures actuales. **No
+  inventé cobertura.**
+- **El contenido de los archivos.** El XLSX está verificado por nombre (`detailing-rev1.xlsx`);
+  **no lo abrí**. Que tenga las hojas esperadas, que el DXF sea R12 válido y que el reporte
+  imprima lo que dice son tres aserciones que faltan y que necesitan leer los blobs, no la UI.
+- **El reporte PDF.** `exportReport` usa `window.open` + `print()`. En Playwright abre un popup
+  —verificado, `popups: 1`— y no hay PDF que inspeccionar sin interceptar la impresión. Ruta
+  parcialmente cubierta y dicho como tal.
+- **Qué se exportó.** El store **no lo registra**: no hay `lastExport` ni equivalente. Mostrarlo
+  exigiría estado nuevo en el store, y no invento progreso que el store no soporte. Es la pieza
+  de información que más falta en esta etapa y la única que no se puede agregar sin decidir un
+  contrato.
+
+### Documentos NO está terminado
+
+Encaja, es legible y ahora dice qué contiene. Lo que le falta no es layout:
+
+1. no muestra el plano que va a exportar (§8, `SheetPreview` está en Detallado);
+2. no registra ni muestra qué se exportó ni cuándo;
+3. el estado de error de exportación no está ejercitado.
