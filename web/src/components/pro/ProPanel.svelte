@@ -3,6 +3,8 @@
   import { t } from '../../lib/i18n';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
+  import { buildProStages, PRO_TAB_STAGE, type ProCmd } from '../../lib/pro/stages';
+  import Icon from '../ribbon/Icon.svelte';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -741,6 +743,73 @@
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
   }
 
+  /* ── The phone's command grid ──────────────────────────────────────────
+   *
+   * A desktop shows PRO as a ribbon: a row of stages, and under it the groups
+   * of whichever stage is open. That does not fit in 375 px — the ANALYSE stage
+   * alone carries fifteen commands, and a touch row holds about nine.
+   *
+   * So on a phone the stage is chosen in the top bar and its commands are drawn
+   * HERE, as a grid above the panel's content. The grid grows downward, which a
+   * panel can afford and a row cannot: adding a sixteenth command to ANALYSE
+   * makes this one cell longer and changes nothing else.
+   *
+   * Read from `lib/pro/stages.ts`, the same definition the desktop ribbon uses.
+   */
+  const proStages = $derived(buildProStages({
+    solved: resultsStore.results3D != null || resultsStore.results != null,
+    canSolve: hasModel && !solving,
+    canReport: modelStore.nodes.size > 0,
+    onSolve: handleSolve,
+    onReport: handleOpenReportDialog,
+  }));
+
+  /*
+   * Which stage the grid is showing. Follows the open tab rather than being a
+   * separate selection — two sources of truth for "where am I" is how a ribbon
+   * comes to show one stage while the panel shows another. Project belongs to
+   * no stage, so the grid keeps showing the one you came from.
+   */
+  let lastProStage = $state('model');
+  const mappedProStage = $derived(PRO_TAB_STAGE[uiStore.proActiveTab] ?? 'model');
+  $effect(() => { if (mappedProStage) lastProStage = mappedProStage; });
+  const gridStage = $derived(
+    proStages.find((s) => s.id === (mappedProStage || lastProStage)) ?? proStages[0],
+  );
+  /** Flat, because the grid does not draw the group divisions — see below. */
+  const gridCmds = $derived(gridStage ? gridStage.groups.flatMap((g) => g.cmds) : []);
+
+  /*
+   * The grid folds away once it has been used.
+   *
+   * ANALYSE has fifteen commands, which is five rows — 256 px of a 300 px
+   * sheet. Left permanently open it would push the tab's own content below the
+   * fold on the stage where that content matters most. So picking a command
+   * collapses it: the errand is over, and what you asked for is what you should
+   * be looking at. The header re-opens it, and it re-opens itself when the
+   * stage changes, because that IS the errand starting again.
+   */
+  let proGridOpen = $state(true);
+  $effect(() => { gridStage; proGridOpen = true; });
+
+  function runProCmd(c: ProCmd) {
+    if (c.enabled && !c.enabled()) return;
+    if (c.diagram) resultsStore.diagramType = c.diagram as never;
+    if (c.tab) { tabError = null; uiStore.proActiveTab = c.tab as never; }
+    if (c.action) c.action();
+    proGridOpen = false;
+  }
+
+  /** Lit when this command is what the panel or the model is showing. */
+  function proCmdActive(c: ProCmd): boolean {
+    if (c.tab) return uiStore.proActiveTab === c.tab;
+    if (c.diagram) {
+      const shown = resultsStore.diagramType === 'axialColor' ? 'axial' : resultsStore.diagramType;
+      return shown === c.diagram;
+    }
+    return false;
+  }
+
   /** What the panel calls each destination. */
   const TAB_TITLE: Record<string, string> = {
     project: 'ribbon.project', nodes: 'pro.tabNodes', elements: 'pro.tabElements',
@@ -765,18 +834,62 @@
         -->
         <ProProjectFileActions variant="mobile" />
         <button class="pm-action pm-example" onclick={toggleExampleMenu}>{t('pro.exampleBtn')}</button>
-        <button class="pm-action pm-solve" onclick={handleSolve} disabled={!hasModel || solving}>{solving ? t('pro.solving') : t('pro.solve')}</button>
-        <button class="pm-action pm-report" onclick={handleOpenReportDialog} disabled={modelStore.nodes.size === 0}>{t('pro.reportBtn')}</button>
+        <!--
+          Solve and Report used to sit here too. They are commands of the
+          ANALYSE stage and appear in the grid below, and Solve is also in the
+          top bar — three copies of one button, which is three places to look
+          when it is greyed and you want to know why. What stays here is what
+          belongs to the DOCUMENT rather than to a stage: open, save, examples.
+        -->
       </div>
-      <select class="pm-tab-select" value={activeTab} onchange={(e) => { tabError = null; uiStore.proActiveTab = e.currentTarget.value; }}>
-        {#each tabGroups as group}
-          <optgroup label={group.label}>
-            {#each group.tabs as tab}
-              <option value={tab.id}>{tab.label}</option>
-            {/each}
-          </optgroup>
+      <!--
+        The stage's commands, as a grid.
+        ───────────────────────────────
+        This replaces a native `<select>` that listed all thirteen panel tabs in
+        one flat drop-down. The select was honest and it scaled, but it hid every
+        destination behind a tap and told the reader nothing about the shape of
+        the application — which stage they were in, what else was in it, or that
+        stages existed at all. It also could not offer the eight diagrams or the
+        two colour maps, because those are not tabs, so on a phone they were
+        unreachable.
+
+        A grid says all of it at once and still grows: a sixteenth command in
+        ANALYSE is one more cell, and nothing above or below has to move.
+      -->
+      <button
+        class="pm-grid-head"
+        class:open={proGridOpen}
+        onclick={() => proGridOpen = !proGridOpen}
+        aria-expanded={proGridOpen}
+        data-testid="pm-grid-toggle"
+      >
+        <span>{gridStage ? t(gridStage.labelKey) : ''}</span>
+        <span class="pm-grid-count">{gridCmds.length}</span>
+      </button>
+      {#if proGridOpen}
+      <div class="pm-grid" data-stage={gridStage?.id} data-testid="pm-grid">
+        {#each gridCmds as c (c.id)}
+          {@const on = !c.enabled || c.enabled()}
+          <button
+            class="pm-cell"
+            class:active={proCmdActive(c)}
+            disabled={!on}
+            data-testid="pm-cmd-{c.id}"
+            onclick={() => runProCmd(c)}
+            title={c.label ? `${t(c.labelKey)} (${c.label})` : t(c.labelKey)}
+          >
+            <span class="pm-cell-icon">
+              {#if c.label}
+                <span class="pm-cell-sym">{c.label}</span>
+              {:else}
+                <Icon name={c.icon ?? 'data'} size={19} rotate={c.rotate ?? 0} />
+              {/if}
+            </span>
+            <span class="pm-cell-label">{t(c.labelKey)}</span>
+          </button>
         {/each}
-      </select>
+      </div>
+      {/if}
     </div>
   {/if}
 
@@ -1003,22 +1116,89 @@
   .pm-example { background: linear-gradient(135deg, var(--st-warn), var(--st-warn)); }
   .pm-solve { background: linear-gradient(135deg, var(--st-value), var(--st-value)); }
   .pm-report { background: linear-gradient(135deg, var(--st-accent), var(--st-accent)); }
-  .pm-tab-select {
+  /* ── The phone's stage grid ─────────────────────────────────────────
+     Three columns, because at 375 px that is a 113 px cell — wide enough for
+     "Diagnósticos" at a readable size and tall enough to be a 48 px target.
+     It wraps downward without limit, which is the property the row it replaced
+     did not have and the reason this is a grid at all.
+     ──────────────────────────────────────────────────────────────── */
+  .pm-grid-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
-    padding: 8px 10px;
+    min-height: 44px;
+    padding: 0 10px;
     background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
     color: var(--st-text);
-    font-size: 0.82rem;
+    font-family: var(--st-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     cursor: pointer;
-    -webkit-appearance: none;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
+    margin-bottom: 4px;
   }
-  .pm-tab-select:focus { border-color: var(--st-text-2); outline: none; }
+  .pm-grid-count {
+    font-size: 0.62rem;
+    color: var(--st-text-3);
+  }
+  .pm-grid-head.open .pm-grid-count::after { content: ' ▾'; }
+  .pm-grid-head:not(.open) .pm-grid-count::after { content: ' ▸'; }
+
+  .pm-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+
+  .pm-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 48px;
+    padding: 4px 2px;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .pm-cell-icon { display: flex; color: var(--st-text); line-height: 1; }
+
+  /* N, My, Vz are notation, so they take the mono face rather than an icon. */
+  .pm-cell-sym {
+    font-family: var(--st-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .pm-cell-label {
+    font-size: 0.56rem;
+    line-height: 1.15;
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pm-cell.active {
+    background: var(--st-selected-bg);
+    border-color: var(--st-accent);
+    color: var(--st-text);
+  }
+  .pm-cell.active .pm-cell-icon,
+  .pm-cell.active .pm-cell-sym { color: var(--st-accent); }
+
+  /* Greyed, never removed — the same rule the ribbon follows. */
+  .pm-cell:disabled { opacity: 0.34; cursor: default; }
+
 
   .pro-panel {
     display: flex;

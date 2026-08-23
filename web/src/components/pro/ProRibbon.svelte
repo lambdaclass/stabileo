@@ -11,6 +11,7 @@
   import { uiStore, modelStore, resultsStore, historyStore, verificationStore } from '../../lib/store';
   import { saveProject } from '../../lib/store/file';
   import Icon from '../ribbon/Icon.svelte';
+  import { buildProStages, PRO_TAB_STAGE, type ProStage, type ProCmd } from '../../lib/pro/stages';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../../lib/geometry/coordinate-system';
 
   /**
@@ -84,33 +85,6 @@
   let exampleBtn: HTMLButtonElement | undefined = $state();
   let openMenu = $state<string | null>(null);
 
-  /* ── Stages ───────────────────────────────────────────────────────────
-   *
-   * Four, not five. Examples and DXF are document commands and live in the
-   * block on the left with Project and Save; Report is the deliverable of an
-   * analysis, not a file operation, so it sits in ANALYSE beside Solve. With
-   * those placed, a DOCUMENT tab had nothing left to hold.
-   */
-  type Cmd = {
-    id: string;
-    labelKey: string;
-    icon?: string;
-    /** A literal symbol, for N / My / Vz — these are not translated. */
-    label?: string;
-    /** Turns the icon, for a force about a perpendicular axis. */
-    rotate?: number;
-    /** Destination: which panel view this opens. */
-    tab?: string;
-    /** Sets the diagram drawn on the model. */
-    diagram?: string;
-    action?: () => void;
-    enabled?: () => boolean;
-    /** Shown only when the group is expanded. */
-    overflow?: boolean;
-  };
-  type Group = { id: string; labelKey: string; cmds: Cmd[] };
-  type Stage = { id: string; labelKey: string; home: string; groups: Group[] };
-
   const solved = $derived(resultsStore.results3D != null || resultsStore.results != null);
 
   /*
@@ -121,149 +95,24 @@
     resultsStore.diagramType === 'axialColor' ? 'axial' : resultsStore.diagramType,
   );
 
-  const STAGES: Stage[] = $derived([
-    {
-      id: 'model',
-      labelKey: 'proRibbon.stageModel',
-      home: 'nodes',
-      groups: [
-        {
-          id: 'geometry',
-          labelKey: 'ribbon.groupDraw',
-          cmds: [
-            { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
-            { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
-            { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
-          ],
-        },
-        {
-          id: 'properties',
-          labelKey: 'proRibbon.groupProperties',
-          cmds: [
-            { id: 'materials', labelKey: 'pro.tabMaterials', icon: 'material', tab: 'materials' },
-            { id: 'sections', labelKey: 'pro.tabSections', icon: 'section', tab: 'sections' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'conditions',
-      labelKey: 'ribbon.groupConditions',
-      home: 'supports',
-      groups: [
-        {
-          id: 'restraints',
-          labelKey: 'proRibbon.groupRestraints',
-          cmds: [
-            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
-            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
-          ],
-        },
-        {
-          id: 'loads',
-          labelKey: 'proRibbon.groupLoads',
-          cmds: [
-            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'analyse',
-      labelKey: 'ribbon.tabAnalyse',
-      home: 'results',
-      groups: [
-        {
-          id: 'run',
-          labelKey: 'proRibbon.groupRun',
-          cmds: [
-            { id: 'solve', labelKey: 'pro.solve', icon: 'solve', action: onSolve, enabled: () => canSolve },
-            { id: 'advanced', labelKey: 'ribbon.advanced', icon: 'advanced', tab: 'advanced' },
-          ],
-        },
-        /*
-         * The diagrams belong in the ribbon, as they do in Basic.
-         *
-         * They were a <select> inside the Results panel — eleven entries in a
-         * dropdown, for the control an engineer touches more than any other
-         * after solving. Basic reaches them in one click from the row that is
-         * always on screen, and there is no reason PRO should be slower at the
-         * same job. Same order and same symbols as Basic (N, My, Vz, Mz, Vy,
-         * T), because a user who moves between modes should not have to
-         * relearn where the moment diagram is.
-         */
-        {
-          id: 'diagrams',
-          labelKey: 'ribbon.tabResults',
-          cmds: [
-            { id: 'none', labelKey: 'ribbon.noDiagram', icon: 'none', diagram: 'none', enabled: () => solved },
-            { id: 'deformed', labelKey: 'ribbon.deformed', icon: 'deformed', diagram: 'deformed', enabled: () => solved },
-            { id: 'axial', label: F2D.axial, labelKey: 'ribbon.nameAxial', icon: 'axial', diagram: 'axial', enabled: () => solved },
-            { id: 'momentY', label: 'My', labelKey: 'ribbon.nameMomentY', icon: 'moment', diagram: 'momentY', enabled: () => solved },
-            { id: 'shearZ', label: 'Vz', labelKey: 'ribbon.nameShearZ', icon: 'shear', diagram: 'shearZ', enabled: () => solved },
-            { id: 'momentZ', label: 'Mz', labelKey: 'ribbon.nameMomentZ', icon: 'moment', rotate: 90, diagram: 'momentZ', enabled: () => solved },
-            { id: 'shearY', label: 'Vy', labelKey: 'ribbon.nameShearY', icon: 'shear', rotate: 90, diagram: 'shearY', enabled: () => solved },
-            { id: 'torsion', label: 'T', labelKey: 'ribbon.nameTorsion', icon: 'torsion', diagram: 'torsion', enabled: () => solved },
-          ],
-        },
-        /*
-         * Not quantities: whole-model colourings. A colour map paints every
-         * member by a variable you choose, and the verification map paints them
-         * by their code-check outcome — neither is "a diagram of X", so they do
-         * not belong in the row of six that are.
-         */
-        {
-          id: 'maps',
-          labelKey: 'proRibbon.groupMaps',
-          cmds: [
-            { id: 'colorMap', labelKey: 'pro.diagColorMap', icon: 'view2d', diagram: 'colorMap', enabled: () => solved },
-            { id: 'verification', labelKey: 'pro.diagVerification', icon: 'support', diagram: 'verification', enabled: () => solved },
-          ],
-        },
-        {
-          id: 'inspect',
-          labelKey: 'proRibbon.groupInspect',
-          cmds: [
-            { id: 'results', labelKey: 'ribbon.results', icon: 'data', tab: 'results', enabled: () => solved },
-            { id: 'diagnostics', labelKey: 'pro.tabDiagnostics', icon: 'advanced', tab: 'diagnostics' },
-          ],
-        },
-        {
-          id: 'output',
-          labelKey: 'proRibbon.groupOutput',
-          cmds: [
-            { id: 'report', labelKey: 'pro.reportBtn', icon: 'project', action: onReport, enabled: () => canReport },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'design',
-      labelKey: 'proRibbon.stageDesign',
-      home: 'design',
-      groups: [
-        {
-          id: 'rc',
-          labelKey: 'proRibbon.groupDesign',
-          cmds: [
-            { id: 'design', labelKey: 'pro.tabDesign', icon: 'settings', tab: 'design' },
-            { id: 'connections', labelKey: 'pro.tabConnections', icon: 'element', tab: 'connections' },
-          ],
-        },
-      ],
-    },
-  ]);
+  /*
+   * The command tree lives in `lib/pro/stages.ts`, not here.
+   *
+   * The phone draws the same commands as a grid inside the panel — it cannot
+   * fit a four-stage ribbon in 375 px — so the definition is shared rather than
+   * owned by whichever surface happened to need it first. Adding a command is
+   * one line there and both surfaces get it.
+   */
+  const STAGES: ProStage[] = $derived(buildProStages({
+    solved,
+    canSolve,
+    canReport,
+    onSolve,
+    onReport,
+  }));
 
-  /** Which stage owns the panel view currently open. */
-  const TAB_STAGE: Record<string, string> = {
-    // Project is reached from its own button, not from a tab, so it belongs to
-    // no stage — the tab row simply keeps showing the stage you came from.
-    project: '',
-    nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
-    supports: 'conditions', constraints: 'conditions', loads: 'conditions',
-    advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
-    design: 'design', connections: 'design',
-  };
+  /** Which stage owns the panel view — shared with the phone grid. */
+  const TAB_STAGE = PRO_TAB_STAGE;
 
   /*
    * The visible tab follows the panel, not a separate selection.
@@ -283,7 +132,7 @@
   const activeStage = $derived(mappedStage || lastStage);
   const stage = $derived(STAGES.find(s => s.id === activeStage) ?? STAGES[0]);
 
-  function openStage(s: Stage) {
+  function openStage(s: ProStage) {
     // Landing on a stage lands on its first destination, so the panel always
     // agrees with the tab.
     if (TAB_STAGE[uiStore.proActiveTab] !== s.id) uiStore.proActiveTab = s.home;
@@ -291,7 +140,7 @@
     openMenu = null;
   }
 
-  function run(c: Cmd) {
+  function run(c: ProCmd) {
     if (c.enabled && !c.enabled()) return;
     if (c.diagram) resultsStore.diagramType = c.diagram as never;
     // A command that names a destination must SHOW it: the panel can be closed

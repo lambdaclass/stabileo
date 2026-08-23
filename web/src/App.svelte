@@ -13,6 +13,7 @@
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { resolveDeleteTargets } from './lib/store/delete-selection';
+  import { buildProStages, PRO_TAB_STAGE } from './lib/pro/stages';
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
@@ -112,6 +113,35 @@
    * Phone only. On a desktop the panel takes width from a canvas that has
    * plenty, and the existing framing stays legible.
    */
+  /* ── PRO's phone stage selector ────────────────────────────────────────
+   *
+   * The four stages, read from the same module the desktop ribbon and the
+   * panel's command grid read. Only the labels and homes are needed here — the
+   * commands themselves are drawn in the panel — so this builds the tree with a
+   * context that answers nothing, which is safe because no command is RUN from
+   * this menu.
+   */
+  const PRO_STAGE_MENU = buildProStages({
+    solved: false, canSolve: false, canReport: false,
+    onSolve: () => {}, onReport: () => {},
+  }).map((s) => ({ id: s.id, labelKey: s.labelKey, home: s.home }));
+
+  let proStageMenu = $state(false);
+  /*
+   * Follows the open tab rather than being its own selection — the same rule
+   * the desktop ribbon uses, and for the same reason: the panel can be moved
+   * from elsewhere, and two answers to "where am I" is how the bar comes to
+   * name one stage while the panel shows another. Project belongs to no stage,
+   * so the bar keeps naming the one you came from.
+   */
+  let lastProStage = $state('model');
+  const mappedProStage = $derived(PRO_TAB_STAGE[uiStore.proActiveTab] ?? 'model');
+  $effect(() => { if (mappedProStage) lastProStage = mappedProStage; });
+  const proStageId = $derived(mappedProStage || lastProStage);
+  const proStageLabelKey = $derived(
+    PRO_STAGE_MENU.find((s) => s.id === proStageId)?.labelKey ?? 'proRibbon.stageModel',
+  );
+
   let sheetWasOpen = false;
   $effect(() => {
     const open = uiStore.isMobile && uiStore.appMode === 'basico' && !!basicPanel;
@@ -1025,7 +1055,9 @@
     class="app-body"
     class:app-body-pro={uiStore.appMode === 'pro'}
     class:app-body-bottom-bar={uiStore.isMobile && uiStore.appMode !== 'basico'}
-    class:app-body-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && !!basicPanel}
+    class:app-body-sheet={uiStore.isMobile
+      && ((uiStore.appMode === 'basico' && !!basicPanel)
+        || (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen))}
   >
 
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
@@ -1043,29 +1075,124 @@
         />
     {/if}
 
+    <!--
+      PRO's phone bar.
+      ────────────────
+      The desktop shows four STAGES and, under the one you are in, its groups.
+      That cannot be shrunk: ANALYSE alone carries fifteen commands and a touch
+      row holds about nine. So the row keeps only what is per-gesture — the
+      pointer, undo, redo, solve — plus the stage you are in, and the stage's
+      commands are drawn as a grid inside the panel, where they can wrap.
+
+      The consequence that matters for a mode still being built: adding a
+      command changes the grid's length and nothing else. This row is a fixed
+      set of verbs and it stays that size however large PRO gets.
+
+      Same slot rules as Basic's: `flex: 1 1 0`, so the row is exactly as wide
+      as the screen at every width and never scrolls.
+    -->
     {#if uiStore.appMode === 'pro' && uiStore.isMobile}
+      <!--
+        A positioned wrapper, because the stage menu is `top: 100%` of it.
+        Without one it resolves against a distant ancestor and opens at the
+        bottom of the page — the same way Basic's cluster menu did before
+        `.ribbon` was given a `position`, and it is invisible until someone
+        opens the menu on a phone.
+      -->
+      <div class="pmt-wrap">
       <div class="pro-mobile-toolbar">
-        <button class="pmt-btn" class:active={uiStore.currentTool === 'pan'} onclick={() => uiStore.currentTool = 'pan'}>✋</button>
-        <button class="pmt-btn pmt-undo" onclick={() => historyStore.undo()} disabled={!historyStore.canUndo}>↶</button>
-        <button class="pmt-btn pmt-undo" onclick={() => historyStore.redo()} disabled={!historyStore.canRedo}>↷</button>
-        <button class="pmt-btn pmt-results" class:active={uiStore.mobileResultsPanelOpen} onclick={() => uiStore.mobileResultsPanelOpen = !uiStore.mobileResultsPanelOpen} title="Results & Solve">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
-            <line x1="2" y1="17" x2="22" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-            <path d="M2,17 Q7,5 12,17 Q17,5 22,17" stroke="#e94560" stroke-width="1.8" fill="none"/>
-          </svg>
+        <button
+          class="pmt-btn"
+          class:active={uiStore.proActiveTab === 'project'}
+          onclick={() => { uiStore.proActiveTab = 'project'; uiStore.rightDrawerOpen = true; }}
+          title={t('ribbon.project')}
+          data-testid="pmt-project"
+        ><Icon name="project" size={19} /></button>
+        <button class="pmt-btn" onclick={() => historyStore.undo()} disabled={!historyStore.canUndo} title={t('toolbar.undo')}
+        ><Icon name="undo" size={18} /></button>
+        <button class="pmt-btn" onclick={() => historyStore.redo()} disabled={!historyStore.canRedo} title={t('toolbar.redo')}
+        ><Icon name="redo" size={18} /></button>
+
+        <span class="pmt-rule" aria-hidden="true"></span>
+
+        <button
+          class="pmt-btn"
+          class:active={uiStore.currentTool === 'select'}
+          onclick={() => uiStore.currentTool = uiStore.currentTool === 'select' ? 'pan' : 'select'}
+          title={uiStore.currentTool === 'select' ? t('float.select') : t('float.pan')}
+          data-testid="pmt-pointer"
+        ><Icon name={uiStore.currentTool === 'select' ? 'select' : 'pan'} size={19} /></button>
+
+        <!--
+          The stage, and the only two-slot control in the row: it carries a word
+          rather than a glyph, because "which of the four am I in" is the one
+          thing the phone cannot show by laying all four out.
+        -->
+        <button
+          class="pmt-btn pmt-stage"
+          class:active={proStageMenu}
+          onclick={() => proStageMenu = !proStageMenu}
+          aria-expanded={proStageMenu}
+          data-testid="pmt-stage"
+        >
+          <span class="pmt-stage-name">{t(proStageLabelKey)}</span>
+          <span class="pmt-caret" aria-hidden="true"></span>
         </button>
-        <button class="pmt-btn" class:active={uiStore.currentTool === 'select'} onclick={() => uiStore.currentTool = 'select'}>↖</button>
-        {#if uiStore.currentTool === 'select'}
+
+        <button
+          class="pmt-btn pmt-solve"
+          onclick={() => { uiStore.rightDrawerOpen = true; proPanelRef?.solve(); }}
+          disabled={!(proPanelRef?.canSolve() ?? false)}
+          title={t('pro.solve')}
+          data-testid="pmt-solve"
+        ><Icon name="solve" size={19} /></button>
+      </div>
+
+      <!--
+        What a drag picks up, when the pointer is armed to select.
+        ─────────────────────────────────────────────────────────
+        These were chips appended to the bar itself, which is why it had
+        `flex-wrap` and why it became two lines whenever Select was on. They are
+        options OF a tool, so they behave like Basic's tool-options bar: a slim
+        contextual row under the commands, present only while the tool is.
+      -->
+      {#if uiStore.currentTool === 'select'}
+        <div class="pmt-opts" data-testid="pmt-select-modes">
           {#each [
             { id: 'nodes', key: 'float.selectNodes' },
             { id: 'elements', key: 'float.selectElements' },
             { id: 'shells', key: 'float.selectShells' },
             { id: 'supports', key: 'float.selectSupports' },
             { id: 'loads', key: 'float.selectLoads' },
-          ] as const as sm}
-            <button class="pmt-sel" class:active={uiStore.selectMode === sm.id} onclick={() => uiStore.selectMode = sm.id}>{t(sm.key)}</button>
+          ] as const as sm (sm.id)}
+            <button
+              class="pmt-sel"
+              class:active={uiStore.selectMode === sm.id}
+              onclick={() => uiStore.selectMode = sm.id}
+            >{t(sm.key)}</button>
           {/each}
-        {/if}
+        </div>
+      {/if}
+
+      {#if proStageMenu}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <div class="pmt-backdrop" onclick={() => proStageMenu = false}></div>
+        <div class="pmt-menu" data-testid="pmt-stage-menu">
+          {#each PRO_STAGE_MENU as st (st.id)}
+            <button
+              class="pmt-menu-item"
+              class:active={proStageId === st.id}
+              data-testid="pmt-stage-{st.id}"
+              onclick={() => {
+                uiStore.proActiveTab = st.home;
+                uiStore.rightDrawerOpen = true;
+                proStageMenu = false;
+              }}
+            >{t(st.labelKey)}</button>
+          {/each}
+        </div>
+      {/if}
       </div>
     {/if}
 
@@ -1294,8 +1421,23 @@
     showed, and every id inside it, `ex-group-2d` among them, existed twice.
   -->
   {#if uiStore.isMobile && uiStore.rightDrawerOpen && uiStore.appMode !== 'basico'}
-    <div class="drawer-backdrop" onclick={() => uiStore.rightDrawerOpen = false}></div>
-    <aside class="drawer drawer-right">
+    <!--
+      No backdrop in PRO, and the sheet SHARES the screen there.
+      ─────────────────────────────────────────────────────────
+      The dimmed backdrop is right for a drawer you step into and out of. It is
+      wrong for PRO's panel, which is where the work happens: with it, opening
+      the panel to pick a command made the bar above it untappable, so changing
+      stage meant closing the panel, changing, and opening it again. The bar and
+      the panel are two halves of one control surface and both have to be live.
+
+      Education keeps the backdrop — its panel IS a modal errand.
+    -->
+    {#if uiStore.appMode !== 'pro'}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div class="drawer-backdrop" onclick={() => uiStore.rightDrawerOpen = false}></div>
+    {/if}
+    <aside class="drawer drawer-right" class:drawer-shared={uiStore.appMode === 'pro'}>
       {#if uiStore.appMode === 'pro'}
         <ProPanel />
       {:else if uiStore.appMode === 'educativo'}
@@ -2618,42 +2760,163 @@
   }
 
   /* ─── Mobile PRO upper toolbar ─── */
+  .pmt-wrap { position: relative; flex: none; }
+
+  /* ── PRO's phone bar ─────────────────────────────────────────────────
+     Same slot rules as Basic's row: every control is `flex: 1 1 0`, so seven
+     slots divide exactly the width there is and nothing scrolls or is cut. The
+     old bar was fixed 36×34 buttons with `flex-wrap`, which meant the select
+     modes pushed it onto a second line and the whole thing was under the 44 px
+     target besides.
+     ────────────────────────────────────────────────────────────────── */
   .pro-mobile-toolbar {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 3px;
-    padding: 4px 8px;
+    padding: 3px 4px;
     background: var(--st-surface-2);
     border-bottom: 1px solid var(--st-hair-strong);
     flex-shrink: 0;
-    flex-wrap: wrap;
   }
   .pmt-btn {
-    width: 36px; height: 34px;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
     display: flex; align-items: center; justify-content: center;
     font-size: 1rem;
     color: var(--st-text-2);
     background: var(--st-surface-2);
     border: 1px solid var(--st-hair);
-    border-radius: 6px;
+    border-radius: var(--st-radius);
     cursor: pointer;
   }
   .pmt-btn:hover { color: var(--st-text); }
-  .pmt-btn.active { color: var(--st-text); background: var(--st-accent); border-color: var(--st-danger); }
-  .pmt-btn.pmt-undo { font-size: 0.9rem; width: 34px; }
-  .pmt-btn.pmt-undo:disabled { opacity: 0.2; cursor: not-allowed; }
-  .pmt-btn.pmt-results { padding: 0 8px; }
-  .pmt-btn.pmt-results.active { background: rgba(233, 69, 96, 0.2); border-color: var(--st-accent); }
+  .pmt-btn:disabled { opacity: 0.34; cursor: default; }
+  .pmt-btn.active {
+    background: var(--st-selected-bg);
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+
+  /*
+     The select-mode row. Scrolls rather than wraps: five translated words do
+     not fit in 375 px in any language, and a bar that changes height when a
+     tool is armed moves the canvas under the reader's finger.
+  */
+  .pmt-opts {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-hair);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .pmt-opts::-webkit-scrollbar { display: none; }
+
   .pmt-sel {
-    padding: 4px 8px;
-    font-size: 0.7rem;
-    color: var(--st-text-2);
+    flex: none;
+    min-height: 36px;
+    padding: 0 10px;
     background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 4px;
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
+    font-size: 0.7rem;
+    white-space: nowrap;
     cursor: pointer;
   }
-  .pmt-sel.active { color: var(--st-text); background: var(--st-accent); border-color: var(--st-danger); }
+  .pmt-sel.active {
+    background: var(--st-selected-bg);
+    border-color: var(--st-accent);
+    color: var(--st-text);
+  }
+
+  /* The document trio reads as a group, the same way the ribbon's does. */
+  .pmt-rule {
+    flex: none;
+    width: 1px;
+    align-self: stretch;
+    background: var(--st-hair);
+    margin: 0 2px;
+  }
+
+  /*
+     Two slots, because it carries a word. Which of the four stages you are in
+     is the one thing a phone cannot show by laying all four out, so it is the
+     one thing spelled rather than drawn.
+  */
+  .pmt-stage {
+    flex: 2 1 0;
+    gap: 3px;
+    font-family: var(--st-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .pmt-stage-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pmt-caret {
+    flex: none;
+    width: 0; height: 0;
+    border-left: 3.5px solid transparent;
+    border-right: 3.5px solid transparent;
+    border-top: 4px solid currentColor;
+    opacity: 0.75;
+  }
+
+  /* Same pattern as the Basic ribbon's cluster menu, including the backdrop:
+     without it the tap that dismisses the menu lands on the model behind it. */
+  .pmt-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: transparent;
+  }
+  .pmt-menu {
+    position: absolute;
+    z-index: 71;
+    left: 4px;
+    right: 4px;
+    background: var(--st-surface);
+    border: 1px solid var(--st-hair-strong);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.55);
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .pmt-menu-item {
+    min-height: 44px;
+    padding: 0 12px;
+    text-align: left;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
+    font-family: var(--st-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .pmt-menu-item.active {
+    background: var(--st-selected-bg);
+    border-color: var(--st-accent);
+    color: var(--st-text);
+  }
+  /*
+     What was here: a second `.pmt-btn.active`, `.pmt-undo`, `.pmt-results` and
+     a duplicate `.pmt-sel`, all for the old fixed-size bar. They described
+     classes the markup no longer uses, and the `.pmt-sel` copy sat AFTER the
+     new one and quietly won — a 36 px chip painted as a 25 px one, which is
+     exactly the kind of cascade collision two rules for one class produce.
+  */
 
   /* ─── Mobile mode selector ─── */
   .mode-select-mobile {
@@ -2731,6 +2994,16 @@
       border-top: 1px solid var(--st-hair-strong);
       border-radius: 12px 12px 0 0;
       animation-name: sheet-slide-up;
+    }
+
+    /*
+       PRO's sheet takes the height `.app-body` gives up for it, so the model
+       above it is really there rather than covered — the same arrangement
+       Basic's panel uses, and the same token, so the two cannot drift.
+    */
+    .drawer-right.drawer-shared {
+      height: var(--st-sheet-h);
+      max-height: var(--st-sheet-h);
     }
 
     @keyframes sheet-slide-up {
