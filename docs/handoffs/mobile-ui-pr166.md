@@ -7,7 +7,7 @@ Written to be picked up cold: everything below is measured, not remembered.
 
 ## 1. Where this stands
 
-Eight commits landed, each verified at 375×667 and 430×932 in Chromium with
+Ten commits landed, each verified at 375×667 and 430×932 in Chromium with
 touch enabled:
 
 | commit | what it does | evidence |
@@ -20,6 +20,8 @@ touch enabled:
 | `81a178f3` | the data tabs become the modelling buttons; toasts, sliders (§5.1c) | see §5.1c |
 | `e68f71b5` | the six data tabs become one row of icons | 6 × 59×44, one row, 367/375 px |
 | `6a350081` | Settings gets an opener on the phone — it had none | §8 |
+| `a8b9d6cb` | the row fills the width; Settings back in its corner | 0 px overflow at 375/390/430 |
+| `1ec4af30` | the eight walkthroughs work on a phone (§5.4) | audit `sin problemas` at 375×667 |
 
 Nothing is merged. CI has not been run on this branch.
 
@@ -205,9 +207,13 @@ swipe to the last   ~460 px  32 px    ~460 px   0 px
 all ≥ 44 px          yes     yes       yes     yes
 ```
 
-**The 32 px is arithmetic, not an oversight.** Nine × 44 = 396 and the SE is
-375. It cannot be closed without dropping a control or going under 44 px. Every
-handset from 390 px up fits outright.
+**The 32 px is gone** — `a8b9d6cb`. Nine fixed 44 px squares came to 396, so
+375 scrolled and 430 left 34 px of dead space; both are a fixed size on a row
+whose job is to be the width of the screen. Every slot is `flex: 1 1 0` now:
+39–41 px at 375, 43 at 390, 47 at 430, nothing scrolling at any of them. Four
+pixels under the reference at the smallest size, deliberately — always visible
+beats correctly sized and off screen — and only in width, since the height
+stays 44.
 
 **The `data` command is gone from Basic at both widths.** Every command that
 produces model data already opens that panel on its own tab, so the button
@@ -363,56 +369,41 @@ Three things whoever touches this next needs to know:
   changed height by up to 60 % of the screen, so the previous framing is wrong —
   but refitting per pointermove makes the model chase the handle.
 
-### 5.4 The tutorials on a phone — anchors survived, unverified ON a phone
+### 5.4 DONE — the eight walkthroughs work on a phone (`1ec4af30`)
 
-**The eight walkthroughs pass.** `audit-demos.mjs` reports `sin problemas`
-after 5.1, and `e2e/basic-demos.spec.ts` is 12 passed / 1 flaky (the documented
-one, see §6).
+They never had, and the reason was structural rather than neglect: until this
+PR the phone mounted no ribbon for them to point at.
 
-Both of those run at **1500×950**. So what is established is that 5.1 did not
-break the anchors — which was the risk the section was written about, and the
-reason `rb-quick` was reordered rather than folded behind an overflow.
+Five anchors did not resolve at 375 px, and they needed two different repairs:
 
-What is NOT established is that a walkthrough is *followable on a phone*. The
-anchors now exist there for the first time, so this is newly worth testing and
-newly possible to test. Two specific doubts:
+| anchor | why it broke | repair |
+|---|---|---|
+| `rb-cmd-sections` | is a data-panel TAB on a phone | `ANCHORS.ribbonCommand` answers `dt-tab-sections` |
+| `rb-cmd-materials` | idem | idem |
+| `rb-cmd-stress` | inside the Results cluster | step opens the cluster first |
+| `rb-cmd-momentY` etc. | idem | idem |
+| `[data-group="results"]` | the group is one button there | `ANCHORS.ribbonGroup` answers the cluster button |
 
-- A step pointing at a command that is now INSIDE a cluster menu. `81a178f3`
-  gave the six modelling commands back — they are the data panel's tabs and need
-  no menu — so what is left behind a cluster is the DIAGRAMS. `demos/*` anchor
-  `rb-cmd-stress` and `ribbonGroup('results')` directly, and `rb-cmd-sections`
-  and `rb-cmd-materials` now resolve to tabs rather than ribbon commands, which
-  is a different id: **those two anchors do not exist on a phone at all.**
+`openCluster()` goes through an event, like `openPanel`, rather than exporting
+the ribbon's state — a step definition describes cards, not the shell's layout.
+It is a no-op on a desktop, so a step calls it unconditionally.
+`ANCHORS.needsCluster(id)` tells a reader of the demos which steps depend on it.
 
-Measured, rather than reasoned about — the anchors that resolve at 1500 px and
-not at 375:
+**How it was verified, and why the obvious check is not enough.** Walk every
+step at BOTH widths and diff: a step that lights its target on a desktop and
+not on a phone is the defect, and neither run alone can show it — a phone-only
+run cannot tell "this step has no target" from "this step never had one".
+Zero remain.
 
-```
-rb-cmd-select     ✓ / ✓        rb-cmd-sections   ✓ / ABSENT (now a tab)
-rb-cmd-solve      ✓ / ✓        rb-cmd-materials  ✓ / ABSENT (now a tab)
-rb-cmd-advanced   ✓ / ✓        rb-cmd-stress     ✓ / ABSENT (in the menu)
-pointer-mode      ✓ / ✓        rb-cmd-momentY    ✓ / ABSENT (in the menu)
-                               [data-group=results] ✓ / ABSENT (in the menu)
-```
+The audit cannot finish `results` or `modelling-2d`; both stop on a step that
+waits for the reader, at either width. Those two were walked separately with
+the waits satisfied through the store: all ten and all nine steps light, the
+Results menu opens for the diagram cards, and the Secciones tab carries the
+highlight for the section card.
 
-Two different repairs, and they should not be confused: the first two need the
-step **re-pointed** at `dt-tab-*`; the other three need the step to **open the
-cluster** before it points, which the tour cannot ask for today because
-`openCluster` is local to `Ribbon.svelte`.
-  On a desktop they are all still flat, which is why the audit passes; on a
-  phone a step would spotlight a button that is not on screen until the reader
-  opens its menu, and nothing opens it for them. **This is the most likely
-  thing to be broken on a phone right now.** The fix is probably an
-  `onEnter` that sets the cluster open, which means the tour needs a way to
-  ask for that — the cluster state is local to `Ribbon.svelte` today.
-- A step pointing at `basic-panel` while the sheet has it: the tour card and the
-  sheet both want the bottom of the screen. `tour-steps.ts` had
-  `mobileCardMaxHeight: '35vh'` for this class of problem — note that file is
-  **dead code**, imported by nobody; the live demos are `src/lib/tour/demos/*`
-  on `demo-helpers.ts`.
-
-Run the audit at 375×667 with touch to find out. It hardcodes its viewport at
-line 27. Do this before the phone work is called finished.
+`audit-demos.mjs` now takes a viewport (`node audit-demos.mjs 375 667`) and
+reports `sin problemas` at both. **Run it at both from now on** — passing at
+1500×950 was never evidence about a phone, and this section is the proof.
 
 ### 5.5 PRO
 
