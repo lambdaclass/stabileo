@@ -88,6 +88,41 @@ una corrida aislada.
 **Contexto de carga:** al cerrar la suite el promedio era **20,73 / 27,77 / 18,30**, con 17 procesos
 node de otros worktrees vivos. Los dos timeouts ocurrieron dentro de esa ventana.
 
+### 2 ter · Clasificación, después de repetir cada uno aislado
+
+Todas las repeticiones con **una sola suite**, puerto dedicado **6211**, sin actualizar snapshots,
+sin tocar timeouts y sin `force`.
+
+| Test | Aislado | Duración | Carga | Clasificación |
+|---|---|---|---|---|
+| `m2-steel-workflow` → percentage | **27 pasan** | 58 s | 9,7 | **Bug de mi test, corregido.** Ver abajo |
+| `project-restore` → restore/reload | **pasa** | **104 s** | 2,8 → 3,7 | **Saturación.** Venció los 900 s con carga 20+; corre en 104 s con carga 3. Factor **> 8** contra el propio deadline |
+| `ded-roundtrip` → 7-storey | **pasa** | **65 s** | 3,1 → **18,1** | **Saturación.** «Solve no terminó en 480 s» con carga 20+; el test completo tarda 65 s con la máquina libre |
+| `rc-design-visual` → overlay legend | **falla** | 23 s / 20 s | 12,0 → 9,0 | **Preexistente, no es regresión de M2** |
+
+**`rc-design-visual`, con la evidencia completa:**
+
+1. reproduce aislado en M2 — determinista, no saturación;
+2. la baseline `darwin` mide **696 × 34**, coincide con el «expected», y es del **2026-07-25**
+   (commit `15c74e18`), **nunca actualizada**;
+3. **M2 no tocó ninguna baseline**, ni `Viewport3D.svelte` —donde la leyenda es markup fijo de
+   verificación RC— ni las tres claves del diccionario general que usa;
+4. **corrido sobre `feat/pro-steel-m1` falla igual**: mismo 696→697 px, mismos 645 píxeles.
+
+El describe se declara `@slow visual baselines (non-blocking)`. Queda para quien mantenga las
+baselines: 1 px de ancho, consistente con deriva de fuente o de versión de Chromium.
+
+**Un matiz sobre `ded-roundtrip`:** el mensaje del propio test dice que sin fallback a secuencial
+«debe tratarse como regresión». Esa regla no contempla carga externa — el solve **sí** termina
+holgadamente con la máquina libre, así que la premisa no aplica acá. Vale revisar la redacción de
+ese test, no el solver.
+
+**El fallo mío, para que QA no lo busque:** la aserción baneaba cualquier `NN %`, y el panel muestra
+legítimamente `0,77 %` —la sobrestimación por esquinas vivas, una **medición**— desde
+`ColdFormedPanel`, dentro de `SteelPanel` en la etapa 8, que abre por defecto. Verificado con una
+sonda, no razonado. Corregido: se chequea `progressbar`, porcentaje-como-completitud y
+estado-como-fracción, no el signo `%`.
+
 ---
 
 ## 3. Lo que M2 entregó
