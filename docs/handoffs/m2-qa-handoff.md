@@ -24,6 +24,7 @@ que antes *era* toda la pestaña).
 | 3 · Sección y perfil | **una fila por miembro**: origen, ID de catálogo, propiedades ausentes **por nombre**, y si el bloqueo es geométrico o de autoridad |
 | 4 · Geometría | **bloqueada**, sobre el dato de arriostramiento |
 | 5 · Hipótesis | las siete hipótesis del verificador, más **`Lb` por miembro con su fuente**, más lo no inferible |
+| 7 bis · Cláusulas auditadas | **Cb** (F.1.1) calculado del diagrama o en 1 con su razón; **§E.4** con sus cuatro faltantes nombrados; **§F.6.2** con λf y Fcr calculados y la rama sin determinar |
 | 6 · Análisis | `elegido` con resultados y combinaciones; `actual` sin ellos |
 | 7 · Verificación | **`actual`** cuando hay esfuerzos y datos completos; **bloqueada** sólo si el cálculo no puede correr. **Nunca `hecho`.** Con siete limitaciones, ocho explicaciones y el estado de revisión |
 | 8 · Límites y autoridad | el inventario metálico completo |
@@ -152,8 +153,10 @@ cláusulas citado del texto embarcado.
 | **Verificación metálica habilitada** | falta la firma de alguien con competencia normativa. Ningún trabajo de código la reemplaza |
 | **Validación del mapa de cláusulas** | las 15 entradas están en `unvalidated`. Y **aun firmadas** no resuelven `Lb`, ni la geometría de bulones, ni §E.4. **No bloquea el desarrollo**: es estado de revisión |
 | **Clasificación de sección (B.4.1)** | **imposible desde este repositorio**: las Tablas B.4.1a/b son **imágenes** en el PDF fuente. Arrastra que F.2 pueda estar aplicándose fuera de su alcance declarado |
-| **§E.4 y §H.3** | pandeo torsional y torsión en la interacción, definidos en el texto y no implementados |
-| **§F.6.2** | pandeo local del ala en flexión de eje menor, no implementado |
+| **§E.4** | **auditado y bloqueado por un dato**: `Cw`, el módulo de alabeo, no lo declara **ninguna** sección de la app, y E.4.9 lo exige. Más `kz` (condición de borde no modelada), la clasificación de E.4.2(a) y la longitud no arriostrada torsional. La app **sí** tiene `G`, `xo`, `yo` (vía `shearCentreWorking`), `Ag`, `Ix`, `Iy` y a veces `J` |
+| **§F.6.2** | **auditado y medio calculable**: `λf = bf/tf`, `Sy` y `Fcr = 138000/(bf/tf)²` se calculan; **la rama no se puede elegir** porque λpf y λrf son la Tabla B.4.1b caso 14, imagen |
+| **§H.3** | torsión en la interacción, definida en el texto y no implementada |
+| **`Cb`** | **implementado** (F.1.1) desde el diagrama de momentos, dentro del alcance que la cláusula declara. Calcularlo **no certifica el arriostramiento** |
 | **La fuente de `Lb`** | el modelo no tiene dónde registrar un arriostramiento. Tres caminos en `m2-lb-assumption.md`; el más barato es que el generador conserve las riostras que ya coloca |
 | ~~El tope `1,5·My` de F.2.1~~ | **cerrado.** Implementado en los dos ejes (F.2.1 y F.6.1) tras leer el texto embarcado; no necesitaba ningún dato nuevo |
 | **`Ae = Ag`** | necesita la geometría del grupo de bulones, que no existe |
