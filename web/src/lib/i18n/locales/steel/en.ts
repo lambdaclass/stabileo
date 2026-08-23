@@ -519,5 +519,11 @@ const steelEn: Record<string, string> = {
   'steel.workflow.results.ae': 'Expression D.2.2 checks rupture on the effective net area. The checker takes Ae equal to the gross area: no hole deduction and no shear-lag factor. On a welded member that is correct; on a bolted one the real area is smaller and the reported capacity sits above the true one.',
   'steel.workflow.results.capTitle': 'The flexural cap is still missing',
   'steel.workflow.results.cap': 'Expression F.2.1 reads Mn = Mp = Fy·Zx ≤ 1,5·My. The code computes Mp and applies no cap: it never computes My. On a rolled I-section Zx/Sx is about 1.1–1.2 and the cap does not bind; with a high shape factor it does, and a missing upper bound sits on the unsafe side.',
+  'steel.workflow.verification.blockedCompute': 'The calculation cannot run: forces or section data are missing.',
+  'steel.workflow.review.pending': 'Professional review pending. The calculation is available and none of its results is presented as approved.',
+  'steel.workflow.review.clausesTraced': '{n} clauses traced, {pending} without human validation.',
+  'steel.workflow.limit.flexuralCap': 'The Mp ≤ 1.5·My cap is applied (F.2.1 on the strong axis, F.6.1 on the weak one).',
+  'steel.workflow.limit.sectionClassification': 'No section classification: the B.4.1a and B.4.1b slenderness tables are images in the source PDF, so their limit values are not in this repository.',
+  'steel.workflow.limit.netArea': 'Effective net area taken equal to the gross: D.3 requires deducting holes (B.4.2, nominal + 2 mm) and applying U = 1 − x̄/L, and the model has no connection geometry.',
 };
 export default steelEn;

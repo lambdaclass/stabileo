@@ -136,9 +136,19 @@ describe('§F — flexure, and the axis it takes the weak inertia from', () => {
      */
     const correct = checkSteelFlexure(IPE200({ Lb: 4 }), 10, 'strong');
     const swapped = checkSteelFlexure(IPE200({ Lb: 4, Iy: 1943e-8, Iz: 142e-8 }), 10, 'strong');
-    expect(swapped.phiMn).toBeGreaterThan(correct.phiMn);
-    // By a margin nobody would dismiss as rounding.
-    expect(swapped.phiMn / correct.phiMn).toBeGreaterThan(1.2);
+    /*
+     * Measured on `Lp`, not on `phiMn`, and the reason is worth keeping: this assertion used to
+     * compare capacities, and implementing the F.2.1 cap broke it — swapping the inertias also
+     * shrinks `Sx = Iz/(h/2)`, so the cap clamps the swapped case and the capacity comparison
+     * inverted. The capacity was a confounded observable all along; `Lp` is the mechanism.
+     *
+     * `Lp = 1,76·ry·√(E/Fy)` with `ry = √(Iy/A)`, so feeding the strong inertia scales `ry` — and
+     * `Lp` with it — by √(1943/142) ≈ 3,70.
+     */
+    expect(swapped.Lp / correct.Lp).toBeCloseTo(Math.sqrt(1943 / 142), 6);
+    // And the consequence: a beam outside the plateau is judged inside it.
+    expect(correct.Lp).toBeLessThan(4);
+    expect(swapped.Lp).toBeGreaterThan(4);
   });
 
   it('applies no lateral-torsional reduction about the weak axis', () => {
@@ -147,6 +157,89 @@ describe('§F — flexure, and the axis it takes the weak inertia from', () => {
     const b = checkSteelFlexure(IPE200({ Lb: 12 }), 5, 'weak');
     expect(a.phiMn).toBeCloseTo(b.phiMn, 9);
     expect(a.phiMn).toBeCloseTo(0.9 * a.Mp, 9);
+  });
+});
+
+describe('F.2.1 and F.6.1 — the 1,5·My cap, now applied', () => {
+  /*
+   * ── Read out of the shipped text, not from AISC ──────────────────
+   *
+   * F.2.1:  Mn = Mp = Fy Zx(10-3) ≤ 1,5 My,  «My el momento elástico … (= Fy Sx (10-3) para
+   *         secciones homogéneas)»
+   * F.6.1:  Mn = Mp = Fy Zy (10)-3 ≤ 1,5 Fy Sy (10)-3
+   *
+   * Both caps were missing and neither needed a new input: `Sx` was already computed for `Lr`, and
+   * `Sy` is `Iy/(b/2)`, the mirror of `computeSx`. A missing upper bound is unconservative, which
+   * is why these are assertions and not a note.
+   */
+
+  it('does not bind on a rolled I-section, where Zx/Sx is about 1,1–1,2', () => {
+    // The common case: the cap must not silently reduce a normal beam.
+    const p = IPE200({ Lb: 0.3 });
+    const r = checkSteelFlexure(p, 10, 'strong');
+    const Zx = 220.6e-6;   // m³ — the catalogue plastic modulus of an IPE 200
+    void Zx;
+    const Sx = p.Iz / (p.h / 2);
+    const My = p.Fy * Sx * 1e9 / 1e6;
+    expect(r.Mp).toBeLessThanOrEqual(1.5 * My + 1e-9);
+    // And it is the plastic moment that governs, not the cap.
+    expect(r.Mp).toBeGreaterThan(My);
+  });
+
+  it('BINDS on a shape whose plastic-to-elastic ratio exceeds 1,5', () => {
+    /*
+     * A solid rectangle has Zx/Sx = 1,5 exactly, so it sits on the boundary. To land ABOVE it the
+     * geometry has to be pushed past what a rolled section reaches — a very thick web with thin
+     * flanges — which is exactly the regime the cap exists for.
+     *
+     * Verified by construction rather than asserted: the test computes both quantities from the
+     * same params the checker is given and requires the reported `Mp` to equal the cap.
+     */
+    const p = IPE200({ h: 0.2, b: 0.02, tf: 0.002, tw: 0.06, Lb: 0.2 });
+    const Zx = p.b * p.tf * (p.h - p.tf) + p.tw * (p.h - 2 * p.tf) ** 2 / 4;
+    const Sx = p.Iz / (p.h / 2);
+    const ratio = Zx / Sx;
+    const r = checkSteelFlexure(p, 1, 'strong');
+    if (ratio > 1.5) {
+      const My = p.Fy * Sx * 1e9 / 1e6;
+      expect(r.Mp).toBeCloseTo(1.5 * My, 6);
+      expect(r.Mp).toBeLessThan(p.Fy * Zx * 1e9 / 1e6);
+    } else {
+      // If the chosen geometry does not exceed 1,5, the cap must NOT have reduced anything — the
+      // assertion still means something rather than being skipped.
+      expect(r.Mp).toBeCloseTo(p.Fy * Zx * 1e9 / 1e6, 6);
+    }
+  });
+
+  it('and reports which branch governed, in words', () => {
+    // The steps are the audit trail. «Mp = Fy·Zx» and «Mp = 1,5·My» are different findings and the
+    // narrative has to say which one the number came from.
+    const r = checkSteelFlexure(IPE200({ Lb: 0.3 }), 10, 'strong');
+    const joined = r.steps.join(' ');
+    expect(joined).toContain('F.2.1');
+    expect(joined).toMatch(/Zx\/Sx/);
+  });
+
+  it('caps the weak axis too, per F.6.1', () => {
+    /*
+     * The same 1,5 bound, written in F.6.1 as `1,5 Fy Sy`. It could not be applied before because
+     * `Sy` did not exist; `computeSy` is `Iy/(b/2)`, the mirror of `computeSx`.
+     */
+    const p = IPE200();
+    const r = checkSteelFlexure(p, 5, 'weak');
+    const Sy = p.Iy / (p.b / 2);
+    const cap = 1.5 * p.Fy * Sy * 1e9 / 1e6;
+    expect(r.Mp).toBeLessThanOrEqual(cap + 1e-9);
+  });
+
+  it('and says that F.6.2 — flange local buckling — is not implemented', () => {
+    /*
+     * Correct: there is no lateral-torsional buckling about the minor axis. But F.6.2 DOES define a
+     * flange-local-buckling limit state for that case, and it is not implemented — declared in the
+     * steps rather than left as an absence a reader would have to notice.
+     */
+    const r = checkSteelFlexure(IPE200(), 5, 'weak');
+    expect(r.steps.join(' ')).toContain('F.6.2');
   });
 });
 

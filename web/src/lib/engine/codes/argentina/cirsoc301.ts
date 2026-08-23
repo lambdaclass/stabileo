@@ -170,6 +170,21 @@ function computeSx(p: SteelDesignParams): number {
   return p.Iz / (p.h / 2);
 }
 
+/**
+ * Sy — modulo elastico eje debil = Iy / (b/2).
+ *
+ * El espejo exacto de `computeSx`, y hace falta porque F.6.1 impone el mismo tope que F.2.1 en el
+ * eje debil:
+ *
+ *     Mn = Mp = Fy Zy (10)-3 ≤ 1,5 Fy Sy (10)-3                                (F.6.1)
+ *
+ * Antes no existia, asi que el tope no se podia aplicar. Es aritmetica sobre datos que la seccion
+ * ya trae — no un dato nuevo.
+ */
+function computeSy(p: SteelDesignParams): number {
+  return p.Iy / (p.b / 2);
+}
+
 // ---------------------------------------------------------------------------
 // §D — Traccion
 // ---------------------------------------------------------------------------
@@ -318,13 +333,31 @@ export function checkSteelFlexure(
 
   if (axis === 'weak') {
     // Eje debil: no hay pandeo lateral-torsional
+    /*
+     * F.6.1 — plastificacion en el eje debil, con el mismo tope de 1,5 que F.2.1:
+     *
+     *     Mn = Mp = Fy Zy (10)-3 ≤ 1,5 Fy Sy (10)-3                            (F.6.1)
+     *
+     * Faltaba, por la misma razon que faltaba el de F.2.1: `Sy` no se calculaba. Ahora si.
+     */
     const Zy = params.Zy ?? computeZy(params);  // m³
+    const Sy = computeSy(params);               // m³
     const Zy_mm3 = Zy * 1e9;
-    const Mp = Fy * Zy_mm3 / 1e6; // kN·m
+    const Sy_mm3 = Sy * 1e9;
+    const MpUncapped = Fy * Zy_mm3 / 1e6;
+    const MyWeak = Fy * Sy_mm3 / 1e6;
+    const Mp = Math.min(MpUncapped, 1.5 * MyWeak);
 
-    steps.push(`  Zy = ${fmt(Zy_mm3, 0)} mm³`);
-    steps.push(`  Mp = Fy·Zy = ${fmt(Fy)}·${fmt(Zy_mm3, 0)} / 1e6 = ${fmt(Mp)} kN·m`);
-    steps.push(`  Eje debil: no se considera pandeo lateral-torsional`);
+    steps.push(`  Zy = ${fmt(Zy_mm3, 0)} mm³, Sy = ${fmt(Sy_mm3, 0)} mm³`);
+    steps.push(`  Fy·Zy = ${fmt(MpUncapped)} kN·m ; 1,5·Fy·Sy = ${fmt(1.5 * MyWeak)} kN·m  (F.6.1)`);
+    steps.push(`  Mp = ${fmt(Mp)} kN·m`);
+    /*
+     * Correcto: no hay pandeo lateral-torsional en flexion respecto del eje menor. Pero F.6.2 SI
+     * define un estado limite de pandeo local del ala para este caso, y no esta implementado —
+     * queda declarado como limitacion, no como ausencia.
+     */
+    steps.push(`  Eje debil: no se considera pandeo lateral-torsional (F.6 no lo tiene)`);
+    steps.push(`  F.6.2 (pandeo local del ala) no implementado`);
 
     const Mn = Mp;
     const phiMn = phi * Mn;
@@ -357,11 +390,38 @@ export function checkSteelFlexure(
   const Zx_mm3 = Zx * 1e9;
   const Sx_mm3 = Sx * 1e9;
 
-  const Mp = Fy * Zx_mm3 / 1e6; // kN·m
+  /*
+   * ── F.2.1, including the cap this used to omit ─────────────────────
+   *
+   * The clause, verbatim from the shipped text
+   * (`docs/codes/CIRSOC/markdown/cirsoc-301-2018/capitulo-f-...`):
+   *
+   *     Mn = Mp = Fy Zx(10-3) ≤ 1,5 My                                     (F.2.1)
+   *
+   * with «My el momento elástico; momento para el cual alcanza la fluencia la fibra más alejada
+   * del eje neutro (= Fy Sx (10-3) para secciones homogéneas)».
+   *
+   * The cap was missing: `Mp` was `Fy·Zx` with no upper bound, which is unconservative for a shape
+   * whose factor `Zx/Sx` exceeds 1,5. It needed no new input — `Sx` was already being computed two
+   * lines up and only ever used for `Lr`.
+   *
+   * For a rolled I-section `Zx/Sx` is about 1,1–1,2 and the cap does not bind; it binds on shapes
+   * with a high plastic-to-elastic ratio, and a rectangular solid (1,5 exactly) sits on the
+   * boundary.
+   */
+  const MpUncapped = Fy * Zx_mm3 / 1e6;   // kN·m
+  const My = Fy * Sx_mm3 / 1e6;           // kN·m — F.2.1's definition for a homogeneous section
+  const MpCap = 1.5 * My;
+  const Mp = Math.min(MpUncapped, MpCap);
+  const capGoverns = MpCap < MpUncapped;
 
   steps.push(`  Zx = ${fmt(Zx_mm3, 0)} mm³`);
   steps.push(`  Sx = ${fmt(Sx_mm3, 0)} mm³`);
-  steps.push(`  Mp = Fy·Zx = ${fmt(Fy)}·${fmt(Zx_mm3, 0)} / 1e6 = ${fmt(Mp)} kN·m`);
+  steps.push(`  Fy·Zx = ${fmt(Fy)}·${fmt(Zx_mm3, 0)} / 1e6 = ${fmt(MpUncapped)} kN·m`);
+  steps.push(`  My = Fy·Sx = ${fmt(My)} kN·m  →  1,5·My = ${fmt(MpCap)} kN·m  (F.2.1)`);
+  steps.push(capGoverns
+    ? `  Mp = 1,5·My = ${fmt(Mp)} kN·m — el tope de F.2.1 gobierna (Zx/Sx = ${fmt(Zx_mm3 / Sx_mm3, 3)} > 1,5)`
+    : `  Mp = Fy·Zx = ${fmt(Mp)} kN·m — el tope de F.2.1 no gobierna (Zx/Sx = ${fmt(Zx_mm3 / Sx_mm3, 3)} ≤ 1,5)`);
 
   // Radio de giro eje debil
   const A = params.A;

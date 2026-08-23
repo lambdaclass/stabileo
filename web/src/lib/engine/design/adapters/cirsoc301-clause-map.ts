@@ -104,9 +104,13 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
       'Ae is taken EQUAL to Ag: no hole deduction and no shear-lag factor U.',
     ],
     limitations: [
-      'A bolted member has holes, so its true Ae is smaller and the rupture capacity lower. '
-      + 'The checker has no connection geometry to deduct from — see the `boltGeometry` gap — so '
-      + 'this branch is only right for a welded or continuous member.',
+      'D.3 defines Ae exactly: `Ae = An` when the force is transmitted by EVERY element of the '
+      + 'section (D.3(1)), and `Ae = An·U` with `U = 1 − x̄/L ≤ 0,9` (D.3.2) when only some '
+      + 'elements transmit it — x̄ the connection eccentricity and L its length, both in cm. `An` '
+      + 'follows B.4.2, which deducts each hole at its nominal dimension PLUS 2 mm.',
+      'So `Ae = Ag` is exact for a welded member with no holes, and optimistic for a bolted one. '
+      + 'Closing it needs the hole pattern and the connection length and eccentricity — not a '
+      + 'better rule, a datum the model does not hold.',
     ],
     validation: 'unvalidated',
   },
@@ -132,7 +136,10 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
     assumptions: [
       'The `a` variant, which is the text\'s own restatement of E.3.2 through Fe rather than λc. '
       + 'The switch uses the kL/r ≤ 4,71·√(E/Fy) equivalence the text states alongside it.',
-      'K defaults to 1.0 on both axes when the caller supplies none.',
+      'K defaults to 1.0 on both axes. Apéndice 6 §6.1 sanctions exactly that: a column braced at '
+      + 'its ends and at intermediate points per §6.2 «puede ser proyectada con una longitud L '
+      + 'entre puntos arriostrados y con un factor de longitud efectiva k = 1». Conditional on the '
+      + 'bracing complying, which the app cannot check.',
     ],
     limitations: [],
     validation: 'unvalidated',
@@ -153,14 +160,64 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
   // ── §F — flexión ─────────────────────────────────────────────────
   {
     capability: 'steelFlexure',
-    expression: 'Mp = Fy · Zx',
+    expression: 'Mp = min(Fy · Zx, 1.5 · My),  My = Fy · Sx',
     clause: 'F.2.1',
-    inputs: ['Fy', 'Zx'],
-    assumptions: ['Zx is computed from the section geometry when the caller supplies none.'],
+    inputs: ['Fy', 'Zx', 'Sx'],
+    assumptions: [
+      'Zx is computed from the section geometry when the caller supplies none.',
+      'My uses the homogeneous-section form the clause gives: My = Fy·Sx·(10-3).',
+    ],
     limitations: [
-      'F.2.1 reads `Mn = Mp = Fy·Zx ≤ 1,5·My` and the code applies NO 1,5·My cap — it never '
-      + 'computes My. For a rolled I-section Zx/Sx is about 1,1–1,2 and the cap does not bind; for '
-      + 'a shape with a high shape factor it can, and a missing upper bound is unconservative.',
+      'F.2 applies to «secciones de doble simetría y a canales flexados alrededor del eje fuerte, '
+      + 'y con alas y almas COMPACTAS para flexión, tal como se definen en la Sección B.4.1». The '
+      + 'app does not classify sections, so it may be applying F.2 outside its stated scope — see '
+      + 'the B.4.1 entry.',
+    ],
+    validation: 'unvalidated',
+  },
+  {
+    capability: 'steelFlexure',
+    expression: 'Mp = min(Fy · Zy, 1.5 · Fy · Sy),  Sy = Iy / (b/2)',
+    clause: 'F.6.1',
+    inputs: ['Fy', 'Zy', 'Iy', 'b'],
+    assumptions: ['Minor-axis bending of an I or a channel. No lateral-torsional buckling applies.'],
+    limitations: [
+      'F.6.2 defines a FLANGE LOCAL BUCKLING limit state for minor-axis bending and it is not '
+      + 'implemented, so the weak-axis capacity is the plastification one alone.',
+    ],
+    validation: 'unvalidated',
+  },
+  {
+    capability: 'steelLateralTorsionalBuckling',
+    expression: 'Cb = 1.0 (constant)',
+    clause: 'F.1.1',
+    inputs: [],
+    assumptions: [
+      'F.1.1 gives Cb = 12,5·Mmáx / (2,5·Mmáx + 3·MA + 4·MB + 3·MC) with MA, MB and MC the '
+      + 'absolute moments at the quarter, mid and three-quarter points of the UNBRACED segment — '
+      + 'and then states: «Se permite adoptar conservadoramente un valor Cb = 1 para todos los '
+      + 'casos de diagramas de momento flector». So Cb = 1 is a code-sanctioned conservative '
+      + 'choice, not an unsourced guess.',
+      'For a cantilever with an unbraced free end the clause REQUIRES Cb = 1.',
+    ],
+    limitations: [
+      'Computing F.1.1 would raise the capacity for most non-uniform diagrams. The app has '
+      + 'station-based demands, so the three moments are obtainable; not implemented yet.',
+    ],
+    validation: 'unvalidated',
+  },
+  {
+    capability: 'steelSectionClassification',
+    expression: '(not implemented)',
+    clause: 'B.4.1',
+    inputs: [],
+    assumptions: [],
+    limitations: [
+      'B.4.1 classifies sections as compacta / no compacta / con elementos esbeltos against the λp '
+      + 'and λr limits of Tables B.4.1a and B.4.1b. **Those tables are IMAGES in the source PDF**: '
+      + 'the shipped markdown carries their captions, footnotes and symbol list but not the cells, '
+      + 'so the limit values are not available in this repository. This is the one audited item '
+      + 'that is blocked on DATA rather than on work.',
     ],
     validation: 'unvalidated',
   },
@@ -186,7 +243,11 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
     inputs: ['Lb', 'Lp', 'Lr', 'Mp', 'Sx', 'Fy'],
     assumptions: [
       'Lb is supplied by the caller as the member length — the member is assumed unbraced end to '
-      + 'end. See `docs/handoffs/m2-lb-assumption.md`.',
+      + 'end. Apéndice 6 §6.1 defines it as «la longitud lateralmente no arriostrada Lb igual a la '
+      + 'distancia entre puntos intermedios», in cm, for beams whose intermediate braced points '
+      + 'satisfy §6.3. So the definition is available; what the model lacks is the field.',
+      '§6.3 rules out one candidate explicitly: «el punto de inflexión no será considerado un '
+      + 'punto arriostrado, a menos que se haya ubicado una riostra en esa posición».',
     ],
     limitations: [
       'Lr uses a simplified form when J and Cw are absent, and the caller passes J = 0 when the '

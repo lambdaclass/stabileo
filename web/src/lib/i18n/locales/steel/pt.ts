@@ -531,5 +531,11 @@ const steelPt: Record<string, string> = {
   'steel.workflow.results.ae': 'A expressão D.2.2 verifica a ruptura na área líquida efetiva. O verificador toma Ae igual à área bruta: sem desconto de furos e sem fator de defasagem de cortante. Numa barra soldada isso está correto; numa parafusada a área real é menor e a capacidade informada fica acima da verdadeira.',
   'steel.workflow.results.capTitle': 'O limite de flexão ainda falta',
   'steel.workflow.results.cap': 'A expressão F.2.1 diz Mn = Mp = Fy·Zx ≤ 1,5·My. O código calcula Mp e não aplica o limite: nunca calcula My. Num perfil I laminado Zx/Sx fica em torno de 1,1–1,2 e o limite não morde; com um fator de forma alto sim, e um limite superior faltante fica do lado inseguro.',
+  'steel.workflow.verification.blockedCompute': 'O cálculo não pode rodar: faltam esforços ou faltam dados de seção.',
+  'steel.workflow.review.pending': 'Revisão profissional pendente. O cálculo está disponível e nenhum de seus resultados é apresentado como aprovado.',
+  'steel.workflow.review.clausesTraced': '{n} cláusulas rastreadas, {pending} sem validação humana.',
+  'steel.workflow.limit.flexuralCap': 'Limite Mp ≤ 1,5·My aplicado (F.2.1 no eixo forte, F.6.1 no fraco).',
+  'steel.workflow.limit.sectionClassification': 'Sem classificação de seção: as tabelas de esbeltez B.4.1a e B.4.1b são imagens no PDF fonte, então seus valores limite não estão no repositório.',
+  'steel.workflow.limit.netArea': 'Área líquida efetiva tomada igual à bruta: a D.3 exige descontar furos (B.4.2, nominal + 2 mm) e aplicar U = 1 − x̄/L, e o modelo não tem a geometria da ligação.',
 };
 export default steelPt;

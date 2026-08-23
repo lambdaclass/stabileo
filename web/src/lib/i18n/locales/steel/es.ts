@@ -533,5 +533,11 @@ const steelEs: Record<string, string> = {
   'steel.workflow.results.ae': 'La expresión D.2.2 verifica la rotura sobre el área neta efectiva. El verificador toma Ae igual al área bruta: no descuenta agujeros ni aplica factor de retraso de corte. En un miembro soldado eso es correcto; en uno abulonado el área real es menor y la capacidad informada queda por encima de la verdadera.',
   'steel.workflow.results.capTitle': 'El tope de flexión todavía falta',
   'steel.workflow.results.cap': 'La expresión F.2.1 dice Mn = Mp = Fy·Zx ≤ 1,5·My. El código calcula Mp y no aplica el tope: nunca calcula My. En un perfil I laminado Zx/Sx ronda 1,1–1,2 y el tope no muerde; con un factor de forma alto sí, y un límite superior faltante queda del lado inseguro.',
+  'steel.workflow.verification.blockedCompute': 'El cálculo no puede correr: faltan esfuerzos o faltan datos de sección.',
+  'steel.workflow.review.pending': 'Revisión profesional pendiente. El cálculo está disponible y ninguno de sus resultados se presenta como aprobado.',
+  'steel.workflow.review.clausesTraced': '{n} cláusulas trazadas, {pending} sin validación humana.',
+  'steel.workflow.limit.flexuralCap': 'Tope Mp ≤ 1,5·My aplicado (F.2.1 en el eje fuerte, F.6.1 en el débil).',
+  'steel.workflow.limit.sectionClassification': 'Sin clasificación de sección: las tablas de esbeltez B.4.1a y B.4.1b son imágenes en el PDF fuente, así que sus valores límite no están en el repositorio.',
+  'steel.workflow.limit.netArea': 'Área neta efectiva tomada igual al área bruta: D.3 pide descontar agujeros (B.4.2, nominal + 2 mm) y aplicar U = 1 − x̄/L, y el modelo no tiene la geometría de la unión.',
 };
 export default steelEs;

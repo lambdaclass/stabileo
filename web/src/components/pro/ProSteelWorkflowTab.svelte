@@ -137,21 +137,41 @@
 
   // ── 7. Verification ─────────────────────────────────────────────
   /**
-   * `blocked`, always, and not as a placeholder.
+   * ── The stage state, and why the signature no longer decides it ────
    *
-   * The four blockers are the ones `cirsoc301-capabilities.ts` states, with the first now removed
-   * by `cirsoc301-benchmarks.test.ts`. It is still listed, marked as addressed, because a reader
-   * deserves to see the whole set and which of it moved — and because the stage does not unblock
-   * on one of four.
+   * This used to be the constant `'blocked'`, on the grounds that no professional had signed the
+   * checker. That conflated two different things: whether the CALCULATION can run, and whether a
+   * human has reviewed it. The first is a development question with a factual answer; the second is
+   * a review state that arrives later and cannot gate development.
+   *
+   * So the stage is now blocked only when computation is genuinely impossible — no demands, or a
+   * member whose inputs are incomplete — and otherwise `current`: the calculation is available,
+   * every clause it evaluates is traced, and professional review is pending. Which is the truth.
+   *
+   * **It can never be `done`.** `StageSection` renders `done` as a ✓ in `--st-ok`, and an approval
+   * is exactly what this stage must not invent. `steelCountsAsVerified()` still returns the literal
+   * `false`, so nothing downstream can read a pass out of this either.
    */
-  const BLOCKERS = [
+  const verificationState = $derived<State>(
+    !hasSteel ? 'optional' : !hasDemands || inputGaps.length > 0 ? 'blocked' : 'current',
+  );
+
+  /**
+   * What still limits the calculation, and what is merely awaiting review.
+   *
+   * Split on purpose. `limitation` is something the app does or does not do; `review` is a state a
+   * person moves. Presenting the signature among the limitations is what made the stage look
+   * permanently broken when it was only unreviewed.
+   */
+  const LIMITATIONS = [
     { key: 'steel.workflow.blocker.tests', addressed: true },
-    { key: 'steel.workflow.blocker.clauseRefs', addressed: false },
-    { key: 'steel.workflow.blocker.unbracedLength', addressed: false },
     { key: 'steel.workflow.blocker.inferredProperties', addressed: true },
-    { key: 'steel.workflow.blocker.signature', addressed: false },
+    { key: 'steel.workflow.blocker.clauseRefs', addressed: true },
+    { key: 'steel.workflow.limit.flexuralCap', addressed: true },
+    { key: 'steel.workflow.blocker.unbracedLength', addressed: false },
+    { key: 'steel.workflow.limit.sectionClassification', addressed: false },
+    { key: 'steel.workflow.limit.netArea', addressed: false },
   ] as const;
-  const verificationState = $derived<State>('blocked');
 
   // ── 8. Limitations and authority ─────────────────────────────────
   const gaps = $derived(steelStore.capabilityGaps);
@@ -438,7 +458,7 @@
     title={t('steel.workflow.verification.title')}
     purpose={t('steel.workflow.verification.purpose')}
     state={verificationState}
-    blockedBy={t('steel.workflow.verification.blocked')}
+    blockedBy={verificationState === 'blocked' ? t('steel.workflow.verification.blockedCompute') : undefined}
     bind:open={verificationOpen}
   >
     <!--
@@ -447,7 +467,7 @@
       visible event rather than a rewording.
     -->
     <ul class="blockers" data-testid="steel-stage-verification-blockers">
-      {#each BLOCKERS as b (b.key)}
+      {#each LIMITATIONS as b (b.key)}
         <li class:addressed={b.addressed} data-testid={`steel-blocker-${b.key.split('.').pop()}`}>
           <span class="mark" aria-hidden="true">{b.addressed ? '✓' : '·'}</span>
           <span>{t(b.key)}</span>
@@ -458,6 +478,16 @@
       {/each}
     </ul>
     <p class="line" data-testid="steel-stage-verification-note">{t('steel.workflow.verification.note')}</p>
+
+    <!--
+      The review state, as METADATA and not as a blocker. A signature is something a person adds
+      later; presenting it as a blocker made the stage read as broken when it was only unreviewed.
+    -->
+    <p class="line review" data-testid="steel-review-state">
+      {t('steel.workflow.review.pending')}
+      <span class="clauses">{tp('steel.workflow.review.clausesTraced', {
+        n: CIRSOC301_CLAUSE_MAP.length, pending: CIRSOC301_CLAUSES_UNVALIDATED.length })}</span>
+    </p>
 
     <!--
       What the stage owes a reader when it has no result to show. Eight statements, each a fact
@@ -548,6 +578,9 @@
   .results dt { font-weight: 600; margin-top: 0.35rem; color: var(--st-text); }
   .results dd { margin: 0.1rem 0 0; opacity: 0.9; }
   .line.warn { color: var(--st-warn); }
+  /* Neutral, never `--st-ok`: a pending review is not an approval. */
+  .line.review { margin-top: 0.4rem; }
+  .clauses { display: block; font-size: 0.66rem; opacity: 0.75; }
   /* The state word, for a reader who cannot see the glyph. */
   .sr {
     position: absolute; width: 1px; height: 1px; overflow: hidden;

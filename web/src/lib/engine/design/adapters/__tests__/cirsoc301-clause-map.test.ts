@@ -56,7 +56,19 @@ describe('every entry is reviewable', () => {
       expect(e.capability, 'capability').toBeTruthy();
       expect(e.expression.length, `${e.clause} expression`).toBeGreaterThan(8);
       expect(e.clause, 'clause').toBeTruthy();
-      expect(e.inputs.length, `${e.clause} inputs`).toBeGreaterThan(0);
+      /*
+       * Inputs are required of a FORMULA, not of every entry. Two legitimately consume nothing: a
+       * constant (`Cb = 1.0`, which F.1.1 permits) and an unimplemented clause (B.4.1, whose limit
+       * tables are images in the source). An earlier version of this rule flagged both — the point
+       * was «an expression with no inputs cannot be checked against the text», which is true of an
+       * expression that computes and vacuous for one that does not.
+       */
+      const computesNothing = /\(constant\)|\(not implemented\)/.test(e.expression);
+      if (computesNothing) {
+        expect(e.inputs, `${e.clause} declares no inputs`).toEqual([]);
+      } else {
+        expect(e.inputs.length, `${e.clause} inputs`).toBeGreaterThan(0);
+      }
       expect(Array.isArray(e.assumptions), `${e.clause} assumptions`).toBe(true);
       expect(Array.isArray(e.limitations), `${e.clause} limitations`).toBe(true);
     }
@@ -100,15 +112,40 @@ describe('the clause numbers are CIRSOC’s, not AISC’s', () => {
 });
 
 describe('the departures the mapping found are still recorded', () => {
-  it('records that the flexural plateau has no 1,5·My cap', () => {
+  it('records that the 1,5·My cap is now APPLIED — this assertion was inverted', () => {
     /*
-     * F.2.1 reads `Mn = Mp = Fy·Zx ≤ 1,5·My` and the code applies no cap — it never computes My.
-     * A missing upper bound is unconservative, so this must not leave the map without someone
-     * deciding it is no longer true.
+     * It used to assert the opposite: that F.2.1's cap was missing. It was, and the audit of the
+     * shipped text closed it — `My = Fy·Sx` was already computable, so the cap needed no new input.
+     * Inverting the assertion is the signal the gap closed; leaving it as it was would have kept
+     * claiming a defect that no longer exists.
      */
     const mp = CIRSOC301_CLAUSE_MAP.find((e) => e.clause === 'F.2.1')!;
     expect(mp).toBeTruthy();
-    expect(mp.limitations.join(' ')).toMatch(/1,5·My|1,5 ?· ?My/);
+    expect(mp.expression).toMatch(/1\.5\s*·?\s*My/);
+    expect(mp.inputs).toContain('Sx');
+    // And the weak axis got the same treatment, per F.6.1.
+    const weak = CIRSOC301_CLAUSE_MAP.find((e) => e.clause === 'F.6.1')!;
+    expect(weak.expression).toMatch(/1\.5/);
+  });
+
+  it('and records what F.2 actually requires, which the app cannot check', () => {
+    /*
+     * The audit turned this up: F.2 applies only to doubly-symmetric sections and channels bent
+     * about the strong axis with COMPACT flanges and web per B.4.1. The app does not classify, so
+     * it may be applying F.2 outside its stated scope — a scope condition, not a missing formula.
+     */
+    const mp = CIRSOC301_CLAUSE_MAP.find((e) => e.clause === 'F.2.1')!;
+    expect(mp.limitations.join(' ')).toMatch(/B\.4\.1/);
+    const cls = CIRSOC301_CLAUSE_MAP.find((e) => e.clause === 'B.4.1')!;
+    // And the reason B.4.1 cannot be implemented: the limit tables are images in the source PDF.
+    expect(cls.limitations.join(' ')).toMatch(/IMAGES|imágenes/i);
+  });
+
+  it('records that Cb = 1 is permitted by the clause, not invented', () => {
+    // «Se permite adoptar conservadoramente un valor Cb = 1 para todos los casos de diagramas de
+    // momento flector» — F.1.1. That reclassifies it from unsourced guess to code-sanctioned option.
+    const cb = CIRSOC301_CLAUSE_MAP.find((e) => e.clause === 'F.1.1')!;
+    expect(cb.assumptions.join(' ')).toMatch(/permite adoptar conservadoramente/);
   });
 
   it('records that Ae is taken equal to Ag', () => {

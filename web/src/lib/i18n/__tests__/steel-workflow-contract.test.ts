@@ -67,15 +67,42 @@ describe('structure — the eight stages, in order', () => {
 describe('states — `done` means a choice, never a check', () => {
   it('never lets the verification stage reach `done`', () => {
     /*
-     * The load-bearing assertion of this file. `StageSection` renders `done` as a ✓ in `--st-ok`,
-     * so a `done` here would put a green tick beside a metallic result — the one claim this branch
-     * exists to refuse.
+     * The load-bearing assertion of this file, and the ONE that survived the change below:
+     * `StageSection` renders `done` as a ✓ in `--st-ok`, so a `done` here would put a green tick
+     * beside a metallic result — the claim this branch exists to refuse.
      *
-     * Checked as a literal: the state is a constant, not a derivation, so there is no input that
-     * could move it.
+     * It used to be checked as a literal constant `'blocked'`. That conflated two things: whether
+     * the CALCULATION can run, and whether a human has reviewed it. The first has a factual answer
+     * and belongs in the state; the second is a review state that arrives later and must not gate
+     * development. So the state is now derived — blocked when computation is impossible, `current`
+     * otherwise — and `'done'` is simply never among its outcomes.
      */
-    expect(SRC).toContain("const verificationState = $derived<State>('blocked')");
-    expect(SRC).not.toMatch(/verificationState[^;]*'done'/);
+    const decl = SRC.split('const verificationState = $derived<State>(')[1].split(');')[0];
+    expect(decl, 'the verification state must never be able to complete').not.toContain("'done'");
+    // The three it CAN be, and no others.
+    for (const state of ["'optional'", "'blocked'", "'current'"]) {
+      expect(decl, state).toContain(state);
+    }
+  });
+
+  it('blocks the stage on computation, not on the missing signature', () => {
+    /*
+     * The behavioural change, asserted so it cannot silently revert. The stage is blocked when
+     * there are no demands or a member's inputs are incomplete — both facts about whether the
+     * calculation can run. The signature is metadata beside it.
+     */
+    const decl = SRC.split('const verificationState = $derived<State>(')[1].split(');')[0];
+    expect(decl).toContain('hasDemands');
+    expect(decl).toContain('inputGaps');
+    expect(decl, 'the signature must not appear in the state').not.toMatch(/signature|firma/i);
+  });
+
+  it('and shows the review state as metadata, never as an approval', () => {
+    expect(SRC).toContain('steel.workflow.review.pending');
+    expect(SRC).toContain('steel-review-state');
+    // Neutral styling: a pending review coloured `--st-ok` would read as a pass.
+    const css = SRC.split('<style>')[1];
+    expect(css).not.toMatch(/\.review[^}]*--st-ok/);
   });
 
   it('reaches `done` only on stages that record a user’s choice', () => {
@@ -159,29 +186,39 @@ describe('states — `done` means a choice, never a check', () => {
   });
 });
 
-describe('blockers — the four the brief names, plus the signature', () => {
-  const REQUIRED = ['tests', 'clauseRefs', 'unbracedLength', 'inferredProperties', 'signature'];
-
-  it('names every one of them', () => {
-    for (const b of REQUIRED) {
-      expect(SRC, b).toContain(`steel.workflow.blocker.${b}`);
+describe('limitations — what the app does not do, separated from what awaits review', () => {
+  it('names each limitation the audit left standing', () => {
+    /*
+     * Renamed from «blockers», and that is the substance of the change rather than wording: a
+     * limitation is something the app does or does not do, a review is a state a person moves.
+     * Mixing the signature in among them made the stage look permanently broken when it was only
+     * unreviewed.
+     */
+    for (const key of ['blocker.tests', 'blocker.inferredProperties', 'blocker.clauseRefs',
+                       'blocker.unbracedLength', 'limit.flexuralCap',
+                       'limit.sectionClassification', 'limit.netArea']) {
+      expect(SRC, key).toContain(`steel.workflow.${key}`);
     }
   });
 
-  it('marks the two that this branch addressed, and leaves three outstanding', () => {
+  it('marks what the normative audit closed, and what it did not', () => {
     /*
-     * Tests and inferred properties moved — the benchmark suite and the end of the seven guessed
-     * inputs. The clause map, the unbraced length and the signature did not, and the stage does not
-     * unblock on two out of five.
+     * Four closed: the tests, the seven inferred inputs, the clause map, and the `1,5·My` cap that
+     * the audit of the shipped F.2.1 and F.6.1 text turned up.
+     *
+     * Three open, and each for a different reason: the unbraced length needs a model field, the
+     * section classification needs table values that are IMAGES in the source PDF, and the net area
+     * needs connection geometry.
      */
-    const block = SRC.split('const BLOCKERS = [')[1].split('] as const')[0];
-    const addressed = [...block.matchAll(/blocker\.(\w+)', addressed: (true|false)/g)]
-      .map((m) => [m[1], m[2] === 'true'] as const);
-    expect(new Map(addressed).get('tests')).toBe(true);
-    expect(new Map(addressed).get('inferredProperties')).toBe(true);
-    expect(new Map(addressed).get('clauseRefs')).toBe(false);
-    expect(new Map(addressed).get('unbracedLength')).toBe(false);
-    expect(new Map(addressed).get('signature')).toBe(false);
+    const block = SRC.split('const LIMITATIONS = [')[1].split('] as const')[0];
+    const m = new Map([...block.matchAll(/workflow\.(?:blocker|limit)\.(\w+)', addressed: (true|false)/g)]
+      .map((x) => [x[1], x[2] === 'true'] as const));
+    for (const closed of ['tests', 'inferredProperties', 'clauseRefs', 'flexuralCap']) {
+      expect(m.get(closed), `${closed} closed`).toBe(true);
+    }
+    for (const open of ['unbracedLength', 'sectionClassification', 'netArea']) {
+      expect(m.get(open), `${open} open`).toBe(false);
+    }
   });
 
   it('does not colour an addressed blocker green', () => {
