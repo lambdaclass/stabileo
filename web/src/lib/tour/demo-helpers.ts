@@ -20,9 +20,49 @@
 
 import { modelStore, resultsStore, uiStore } from '../store';
 
+/**
+ * Which ribbon commands are somewhere ELSE on a phone.
+ *
+ * The phone arranges the same commands differently — see `Ribbon.svelte`. Two
+ * of them stopped being ribbon commands entirely: materials and sections are
+ * tabs of the Model data panel there, because those tabs already did exactly
+ * what the commands did. A demo that asks for `rb-cmd-sections` on a phone is
+ * asking for an id that does not exist, and a tour step whose target is absent
+ * darkens the screen and says nothing — the silent failure this whole file's
+ * ANCHORS list was written to prevent.
+ *
+ * So the anchor answers with whatever exists at the width the reader is on.
+ */
+const PHONE_TAB_FOR: Record<string, string> = {
+  materials: 'materials',
+  sections: 'sections',
+};
+
+/**
+ * Diagram commands live inside the Results cluster on a phone, so they exist
+ * only while that menu is open. A step pointing at one has to open it first —
+ * `openCluster('results')` in `onEnter` — and this list is how a reader of the
+ * demos can tell which steps need that.
+ */
+const PHONE_CLUSTERED = new Set([
+  'none', 'deformed', 'axial', 'momentY', 'shearZ',
+  'moment', 'shear', 'torsion', 'stress',
+]);
+
 /** Every anchor the demos rely on. One list, so a rename has one place to look. */
 export const ANCHORS = {
-  ribbonCommand: (id: string) => `[data-testid="rb-cmd-${id}"]`,
+  /**
+   * Resolves per width. Called when a demo is BUILT, which is when it starts,
+   * so it reflects the screen the reader is actually on.
+   */
+  ribbonCommand: (id: string) => {
+    if (uiStore.isMobile && PHONE_TAB_FOR[id]) {
+      return `[data-testid="dt-tab-${PHONE_TAB_FOR[id]}"]`;
+    }
+    return `[data-testid="rb-cmd-${id}"]`;
+  },
+  /** True when this command is only reachable through a menu at this width. */
+  needsCluster: (id: string) => uiStore.isMobile && PHONE_CLUSTERED.has(id),
   settings: '[data-testid="rb-settings"]',
   pointerMode: '[data-testid="pointer-mode"]',
   /** The right-hand panel a ribbon command opens. Already carries a testid. */
@@ -32,8 +72,14 @@ export const ANCHORS = {
   kinematicStale: '[data-testid="kin-stale"]',
   /** The two sliders that move the query along the member and across the section. */
   sectionSliders: '[data-tour="ssp-sliders"]',
-  /** A whole ribbon group — `results` is the row of diagrams. */
-  ribbonGroup: (id: string) => `[data-group="${id}"]`,
+  /**
+   * A whole ribbon group — `results` is the row of diagrams. On a phone that
+   * row is folded behind one button, and the button IS the group there.
+   */
+  ribbonGroup: (id: string) =>
+    uiStore.isMobile && id === 'results'
+      ? '[data-testid="rb-cluster-results"]'
+      : `[data-group="${id}"]`,
   /** The 3D camera stack: fit, the three preset views, projection, clipping. */
   cameraControls: '[data-tour="camera-controls"]',
 } as const;
@@ -108,6 +154,22 @@ export function armTool(tool: 'node' | 'element' | 'support' | 'load' | 'select'
  */
 export function openPanel(panel: 'advanced' | 'settings' | 'project' | 'results' | 'data' | 'selection'): void {
   window.dispatchEvent(new CustomEvent('stabileo-open-panel', { detail: panel }));
+}
+
+/**
+ * Open one of the phone ribbon's cluster menus, or close them with `null`.
+ *
+ * Same reasoning as `openPanel`: a step pointing at a diagram command has
+ * nothing to point at while the Results menu is shut, and on a phone that menu
+ * is shut by default. Reaching into the ribbon's own state from a step
+ * definition would put a piece of the shell's layout inside a data structure
+ * that describes tour cards, so it goes through an event like everything else.
+ *
+ * A no-op on a desktop, where the commands are on the row and there is no
+ * cluster to open — so a step can call it unconditionally.
+ */
+export function openCluster(id: 'results' | null): void {
+  window.dispatchEvent(new CustomEvent('stabileo-open-cluster', { detail: id }));
 }
 
 /**

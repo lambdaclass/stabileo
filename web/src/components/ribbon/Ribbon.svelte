@@ -400,6 +400,26 @@
   let openCluster = $state<string | null>(null);
 
   /*
+   * The walkthroughs need to open a cluster before pointing inside it.
+   *
+   * A step whose target is a diagram command has nothing to spotlight while
+   * this menu is shut, and on a phone it is shut by default — the tour would
+   * darken the screen and say nothing, which is the exact failure mode
+   * `basic-demos.spec.ts` exists to catch. Driven by an event rather than by
+   * exporting the state, for the same reason `openPanel` is: a step definition
+   * describes cards, not the shell's layout.
+   */
+  $effect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string | null>).detail;
+      if (id === null) { openCluster = null; return; }
+      if (narrow && CLUSTERS.some((c) => c.id === id)) openCluster = id;
+    };
+    window.addEventListener('stabileo-open-cluster', onOpen);
+    return () => window.removeEventListener('stabileo-open-cluster', onOpen);
+  });
+
+  /*
    * A cluster lights when the command it is standing in for is the active one.
    *
    * Without this the phone loses the ribbon's one rule — lit means "this is
