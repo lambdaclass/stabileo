@@ -537,5 +537,17 @@ const steelPt: Record<string, string> = {
   'steel.workflow.limit.flexuralCap': 'Limite Mp ≤ 1,5·My aplicado (F.2.1 no eixo forte, F.6.1 no fraco).',
   'steel.workflow.limit.sectionClassification': 'Sem classificação de seção: as tabelas de esbeltez B.4.1a e B.4.1b são imagens no PDF fonte, então seus valores limite não estão no repositório.',
   'steel.workflow.limit.netArea': 'Área líquida efetiva tomada igual à bruta: a D.3 exige descontar furos (B.4.2, nominal + 2 mm) e aplicar U = 1 − x̄/L, e o modelo não tem a geometria da ligação.',
+  // ─── Cb, fator de gradiente de momento (F.1.1) ───
+  'steel.cb.basis.computed': 'calculado do diagrama (F.1.1)',
+  'steel.cb.basis.unityRequiredCantilever': 'Cb = 1 obrigatório (viga em balanço com extremidade livre)',
+  'steel.cb.basis.unityNoDiagram': 'Cb = 1 — sem diagrama de momentos para ler',
+  'steel.cb.basis.unityOutOfScope': 'Cb = 1 — F.1.1 não cobre este caso',
+  'steel.cb.reason.computed': 'Cb = 12,5·Mmáx / (2,5·Mmáx + 3·MA + 4·MB + 3·MC), com os momentos a ¼, ½ e ¾ do segmento sem travamento.',
+  'steel.cb.reason.cantilever': 'F.1.1: «Para miembros en voladizo, cuando el extremo libre no esté arriostrado, se deberá tomar Cb = 1 para todos los casos».',
+  'steel.cb.reason.noDiagram': 'Não há estações suficientes para ler o diagrama. A norma permite adotar Cb = 1 conservadoramente.',
+  'steel.cb.reason.zeroMoment': 'O segmento não tem momento em nenhuma estação, então F.1.1 é indeterminada. Cb = 1.',
+  'steel.cb.reason.singlySymmetricDoubleCurvature': 'Seção de simples simetria em curvatura dupla: a F.1(4) exige verificar a flambagem lateral com torção para AMBAS as mesas, e o app calcula um único Mn. A F.1.1 não se aplica.',
+  'steel.cb.reason.symmetryOutOfScope': 'A F.1.1 está escrita para seções de dupla simetria e para as de simples simetria em curvatura simples. Esta seção não está em nenhum dos dois casos.',
+  'steel.cb.notBracingProof': 'Calcular Cb não certifica o travamento: o Apêndice 6 §6.1 exige que a riostra cumpra resistência e rigidez mínimas «incluyendo los efectos de las uniones y detalles de anclaje», que o app não avalia.',
 };
 export default steelPt;

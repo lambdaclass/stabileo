@@ -37,6 +37,15 @@ export interface SteelDesignParams {
   Ky?: number;   // factor de longitud efectiva, eje debil (default 1.0)
   J?: number;    // constante torsional (m⁴)
   Cw?: number;   // constante de alabeo (m⁶)
+  /**
+   * Factor de modificacion por gradiente de momento, F.1.1.
+   *
+   * Opcional. Ausente => 1,0, que el reglamento permite explicitamente («Se permite adoptar
+   * conservadoramente un valor Cb = 1 para todos los casos»). El llamador lo calcula desde el
+   * diagrama de momentos con `engine/steel/moment-gradient.ts`, que tambien decide cuando F.1.1
+   * NO aplica — voladizo con extremo libre, o simple simetria en doble curvatura (§F.1(4)).
+   */
+  Cb?: number;
 }
 
 export interface SteelTensionResult {
@@ -440,6 +449,10 @@ export function checkSteelFlexure(
   // rts² ≈ √(Iy·Cw) / Sx   o bien   rts ≈ b / (2·√(12)) para ala rectangular
   // Usamos una formula simplificada con J y Cw si estan disponibles
 
+  steps.push(params.Cb != null
+    ? `  Cb = ${fmt(params.Cb, 3)} (F.1.1, calculado del diagrama)`
+    : `  Cb = 1,000 (F.1.1 permite adoptarlo conservadoramente)`);
+
   const ho = h - tf; // distancia entre centroides de alas (m)
   const ho_mm = ho * 1000;
 
@@ -496,8 +509,11 @@ export function checkSteelFlexure(
   } else {
     // Zona 3: pandeo lateral-torsional elastico
     // Fcr = (Cb·π²·E / (Lb/rts)²) · √(1 + 0.078·(J·c/(Sx·ho))·(Lb/rts)²)
-    // Simplificacion con Cb=1.0
-    const Cb = 1.0;
+    /*
+     * F.1.1, cuando el llamador lo aporta. Ausente => 1,0, la opcion conservadora que el propio
+     * reglamento ofrece. Ya no es una «simplificacion»: es el valor calculado, o el permitido.
+     */
+    const Cb = params.Cb ?? 1.0;
 
     if (J != null && Cw != null && J > 0) {
       const J_mm4 = J * 1e12;

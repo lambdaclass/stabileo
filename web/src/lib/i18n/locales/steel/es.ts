@@ -539,5 +539,17 @@ const steelEs: Record<string, string> = {
   'steel.workflow.limit.flexuralCap': 'Tope Mp ≤ 1,5·My aplicado (F.2.1 en el eje fuerte, F.6.1 en el débil).',
   'steel.workflow.limit.sectionClassification': 'Sin clasificación de sección: las tablas de esbeltez B.4.1a y B.4.1b son imágenes en el PDF fuente, así que sus valores límite no están en el repositorio.',
   'steel.workflow.limit.netArea': 'Área neta efectiva tomada igual al área bruta: D.3 pide descontar agujeros (B.4.2, nominal + 2 mm) y aplicar U = 1 − x̄/L, y el modelo no tiene la geometría de la unión.',
+  // ─── Cb, factor de gradiente de momento (F.1.1) ───
+  'steel.cb.basis.computed': 'calculado del diagrama (F.1.1)',
+  'steel.cb.basis.unityRequiredCantilever': 'Cb = 1 obligatorio (voladizo con extremo libre)',
+  'steel.cb.basis.unityNoDiagram': 'Cb = 1 — sin diagrama de momentos para leer',
+  'steel.cb.basis.unityOutOfScope': 'Cb = 1 — F.1.1 no cubre este caso',
+  'steel.cb.reason.computed': 'Cb = 12,5·Mmáx / (2,5·Mmáx + 3·MA + 4·MB + 3·MC), con los momentos a ¼, ½ y ¾ del segmento no arriostrado.',
+  'steel.cb.reason.cantilever': 'F.1.1: «Para miembros en voladizo, cuando el extremo libre no esté arriostrado, se deberá tomar Cb = 1 para todos los casos».',
+  'steel.cb.reason.noDiagram': 'No hay suficientes estaciones para leer el diagrama. El reglamento permite adoptar Cb = 1 conservadoramente.',
+  'steel.cb.reason.zeroMoment': 'El segmento no tiene momento en ninguna estación, así que F.1.1 es indeterminada. Cb = 1.',
+  'steel.cb.reason.singlySymmetricDoubleCurvature': 'Sección de simple simetría en doble curvatura: F.1(4) exige verificar el pandeo lateral-torsional para ambas alas, y la app calcula un solo Mn. F.1.1 no se aplica.',
+  'steel.cb.reason.symmetryOutOfScope': 'F.1.1 está escrita para secciones de doble simetría y para las de simple simetría en curvatura simple. Esta sección no está en ninguno de los dos casos.',
+  'steel.cb.notBracingProof': 'Calcular Cb no certifica el arriostramiento: el Apéndice 6 §6.1 exige que la riostra cumpla resistencia y rigidez mínimas «incluyendo los efectos de las uniones y detalles de anclaje», que la app no evalúa.',
 };
 export default steelEs;

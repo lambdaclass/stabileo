@@ -32,6 +32,7 @@ import { extractBeamStationsGrouped3D, isSolverReady } from './wasm-solver';
 import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
 import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
+import { momentGradient, type StationMoment } from './steel/moment-gradient';
 import type { GoverningPerElement3D } from './governing-case';
 import type { CheckStatus, MemberDesignResult, DesignCheckSummary } from './design-check-results';
 
@@ -371,6 +372,16 @@ export function runSteelVerification(
   results3D: AnalysisResults3D,
   model: AutoVerifyModelData,
   stationDemands?: Map<number, ElementDesignDemands>,
+  /**
+   * The full station diagrams, when the caller has them.
+   *
+   * Separate from `stationDemands`, which carries only the GOVERNING station per category. F.1.1
+   * needs the moment at the quarter, mid and three-quarter points of the unbraced segment, and
+   * interpolating those from a handful of governing stations would produce a number that looks
+   * computed and rests on a coarse sample. So the real diagram is asked for, and its absence means
+   * `Cb = 1` — which the clause permits — rather than a worse estimate.
+   */
+  stationDiagrams?: Map<number, ElementStationResult>,
 ): SteelVerification[] {
   const verifs: SteelVerification[] = [];
 
@@ -441,6 +452,40 @@ export function runSteelVerification(
     const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
     if (gaps.length > 0) continue;
 
+    /*
+     * ── Cb from the moment diagram, F.1.1 ────────────────────────────
+     *
+     * The stations already exist for the RC path; this reads the strong-axis moment (`mz`, which is
+     * what `Muz` feeds) across every combo and takes the envelope of |M| per station. The envelope
+     * rather than one combo, because `Lb` here is the whole member and the governing diagram is the
+     * one that produced `MuzMax`.
+     *
+     * `momentGradient` decides whether F.1.1 applies at all — it refuses for a cantilever's free
+     * end, for a singly-symmetric section in double curvature (§F.1(4) wants both flanges checked,
+     * which this app cannot do), and for a shape with no axis of symmetry.
+     *
+     * Absent stations leave `Cb` undefined and the checker falls back to 1,0, which the clause
+     * permits. So this can only ever raise a capacity from the conservative floor, never lower it.
+     */
+    const diagram: StationMoment[] = [];
+    const stationsForElement = stationDiagrams?.get(ef.elementId);
+    if (stationsForElement) {
+      const byT = new Map<number, number>();
+      for (const combo of stationsForElement.comboResults) {
+        for (const st of combo.stations) {
+          const prev = byT.get(st.t) ?? 0;
+          if (Math.abs(st.mz) > Math.abs(prev)) byT.set(st.t, st.mz);
+        }
+      }
+      for (const [t, m] of byT) diagram.push({ t, m });
+    }
+    const grad = momentGradient({
+      stations: diagram,
+      shape: (section as { shape?: string }).shape,
+      // A free cantilever end is a topology fact this loop does not have; left undefined rather
+      // than guessed, which keeps `Cb = 1` for those members via the diagram path.
+    });
+
     const sdp: SteelDesignParams = {
       Fy: material.fy!,
       Fu: (material as SteelMaterialData).fu!,
@@ -482,6 +527,9 @@ export function runSteelVerification(
        * from.
        */
       L, Lb: L,
+      // Only when F.1.1 was actually evaluated. Every other basis means «use the permitted 1,0»,
+      // and passing 1,0 explicitly would make the steps claim a computation that did not happen.
+      ...(grad.basis === 'computed' ? { Cb: grad.cb } : {}),
       J: (section as SteelSectionData).j ?? 0,
     };
 

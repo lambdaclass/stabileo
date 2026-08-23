@@ -189,20 +189,31 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
   },
   {
     capability: 'steelLateralTorsionalBuckling',
-    expression: 'Cb = 1.0 (constant)',
+    expression: 'Cb = 12.5·Mmáx / (2.5·Mmáx + 3·MA + 4·MB + 3·MC)',
     clause: 'F.1.1',
-    inputs: [],
+    inputs: ['stationMoments', 'shape'],
     assumptions: [
-      'F.1.1 gives Cb = 12,5·Mmáx / (2,5·Mmáx + 3·MA + 4·MB + 3·MC) with MA, MB and MC the '
-      + 'absolute moments at the quarter, mid and three-quarter points of the UNBRACED segment — '
-      + 'and then states: «Se permite adoptar conservadoramente un valor Cb = 1 para todos los '
-      + 'casos de diagramas de momento flector». So Cb = 1 is a code-sanctioned conservative '
-      + 'choice, not an unsourced guess.',
-      'For a cantilever with an unbraced free end the clause REQUIRES Cb = 1.',
+      'MA, MB and MC are the absolute moments at the quarter, mid and three-quarter points of the '
+      + 'UNBRACED segment, read from the station diagram and linearly interpolated between '
+      + 'stations — so the value reflects the diagram the analysis produced, not an idealised load '
+      + 'shape.',
+      'Absent a diagram, Cb falls back to 1,0, which the clause permits explicitly: «Se permite '
+      + 'adoptar conservadoramente un valor Cb = 1 para todos los casos de diagramas de momento '
+      + 'flector». The expression\'s own floor is 1, so computing it can only raise a capacity '
+      + 'above that, never lower it.',
+      'For a cantilever with an unbraced free end the clause REQUIRES Cb = 1, and that rule is '
+      + 'applied before anything is read.',
     ],
     limitations: [
-      'Computing F.1.1 would raise the capacity for most non-uniform diagrams. The app has '
-      + 'station-based demands, so the three moments are obtainable; not implemented yet.',
+      'Applied only within F.1.1\'s stated cases: doubly-symmetric sections in either curvature, '
+      + 'and singly-symmetric ones in SINGLE curvature. A singly-symmetric section in double '
+      + 'curvature falls under §F.1(4), which requires LTB checked «para ambas alas» — this app '
+      + 'computes one Mn, so F.1.1 is not applied there.',
+      'No Cb ≤ 3 cap is imposed: that limit does not appear in this clause, and adding it would be '
+      + 'adding a rule the shipped text does not state.',
+      'Computing Cb does NOT certify the bracing. Apéndice 6 §6.1 requires a brace to meet minimum '
+      + 'strength and stiffness «incluyendo los efectos de las uniones y detalles de anclaje», '
+      + 'which this app cannot evaluate.',
     ],
     validation: 'unvalidated',
   },

@@ -525,5 +525,17 @@ const steelEn: Record<string, string> = {
   'steel.workflow.limit.flexuralCap': 'The Mp ≤ 1.5·My cap is applied (F.2.1 on the strong axis, F.6.1 on the weak one).',
   'steel.workflow.limit.sectionClassification': 'No section classification: the B.4.1a and B.4.1b slenderness tables are images in the source PDF, so their limit values are not in this repository.',
   'steel.workflow.limit.netArea': 'Effective net area taken equal to the gross: D.3 requires deducting holes (B.4.2, nominal + 2 mm) and applying U = 1 − x̄/L, and the model has no connection geometry.',
+  // ─── Cb, moment gradient factor (F.1.1) ───
+  'steel.cb.basis.computed': 'computed from the diagram (F.1.1)',
+  'steel.cb.basis.unityRequiredCantilever': 'Cb = 1 mandatory (cantilever with an unbraced free end)',
+  'steel.cb.basis.unityNoDiagram': 'Cb = 1 — no moment diagram to read',
+  'steel.cb.basis.unityOutOfScope': 'Cb = 1 — F.1.1 does not cover this case',
+  'steel.cb.reason.computed': 'Cb = 12.5·Mmáx / (2.5·Mmáx + 3·MA + 4·MB + 3·MC), with the moments at the quarter, mid and three-quarter points of the unbraced segment.',
+  'steel.cb.reason.cantilever': 'F.1.1: «Para miembros en voladizo, cuando el extremo libre no esté arriostrado, se deberá tomar Cb = 1 para todos los casos».',
+  'steel.cb.reason.noDiagram': 'Not enough stations to read the diagram. The code permits adopting Cb = 1 conservatively.',
+  'steel.cb.reason.zeroMoment': 'The segment carries no moment at any station, so F.1.1 is indeterminate. Cb = 1.',
+  'steel.cb.reason.singlySymmetricDoubleCurvature': 'Singly-symmetric section in double curvature: F.1(4) requires lateral-torsional buckling to be checked for BOTH flanges, and this app computes one Mn. F.1.1 does not apply.',
+  'steel.cb.reason.symmetryOutOfScope': 'F.1.1 is written for doubly-symmetric sections and for singly-symmetric ones in single curvature. This section is in neither case.',
+  'steel.cb.notBracingProof': 'Computing Cb does not certify the bracing: Apéndice 6 §6.1 requires a brace to meet minimum strength and stiffness «incluyendo los efectos de las uniones y detalles de anclaje», which this app does not evaluate.',
 };
 export default steelEn;
