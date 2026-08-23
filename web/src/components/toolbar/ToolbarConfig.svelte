@@ -54,6 +54,56 @@
   -->
   {#if showConfig || inline || flat}
   <div class="config-children">
+    <!--
+      Everything that only exists on a phone, under a heading that says so.
+      ─────────────────────────────────────────────────────────────────────
+      FIRST in the panel, and its own section. These sat loose among the model
+      settings — inside a sub-section that PRO renders collapsed, so in PRO the
+      control size could not be found at all, and in Basic it sat under a
+      heading reading MODELO, which is not what it configures.
+
+      Nothing here can leak into a desktop session. The section is not
+      rendered above 768 px, and every rule it drives lives inside a
+      `max-width: 767px` query in `styles/touch-density.css` — so choosing
+      "comfortable" on a phone and then widening the window changes nothing:
+      the preference is remembered and simply has no rules answering to it
+      at that width. It is a phone setting in the strong sense, not a global
+      one that a phone happens to be where you set it.
+    -->
+    {#if uiStore.isMobile}
+      <h4 class="cfg-mobile-heading">{t('config.mobileSection')}</h4>
+      <!--
+        Language. The header selector is hidden below 768 px — it held a
+        permanent slot in the tightest row in the application for a control
+        touched once — so the setting lives here instead.
+      -->
+      <div class="input-group cfg-lang">
+        <HelpTip text={t('config.tip.language')}><label>{t('app.language')}:</label></HelpTip>
+        <select
+          value={i18n.locale}
+          onchange={(e) => setLocale(e.currentTarget.value)}
+          data-testid="cfg-lang-select"
+        >
+          {#each OFFERED_LOCALES as code (code)}
+        <option value={code}>{t(`lang.${code}`)}</option>
+          {/each}
+        </select>
+      </div>
+      <!--
+        Control size. The panels came from a desktop sidebar and their rows
+        are 22–25 px. Compact fits more of a results table on a small
+        screen; comfortable hits a 44 px target and costs about 125 px of
+        extra scrolling to reach that table. Both are defensible, which is
+        why this is offered rather than decided.
+      -->
+      <div class="input-group cfg-density">
+        <HelpTip text={t('config.tip.touchDensity')}><label>{t('config.touchDensity')}:</label></HelpTip>
+        <select bind:value={uiStore.touchDensity} data-testid="cfg-density-select">
+          <option value="compact">{t('config.densityCompact')}</option>
+          <option value="comfortable">{t('config.densityComfortable')}</option>
+        </select>
+      </div>
+    {/if}
     {#if flat}
       <span class="sub-heading">{t('config.grid')}</span>
     {:else}
@@ -193,57 +243,6 @@
             <span>{t('config.autoSplitElements')}</span>
             </HelpTip>
           </label>
-        {/if}
-        <!--
-          Everything that only exists on a phone, under a heading that says so.
-          ─────────────────────────────────────────────────────────────────────
-          These sat loose among the general settings, which read as if the whole
-          panel might behave differently on a phone. Two controls do and the
-          rest do not, so the two say so themselves and the rest are labelled
-          General beneath them.
-
-          Nothing here can leak into a desktop session. The section is not
-          rendered above 768 px, and every rule it drives lives inside a
-          `max-width: 767px` query in `styles/touch-density.css` — so choosing
-          "comfortable" on a phone and then widening the window changes nothing:
-          the preference is remembered and simply has no rules answering to it
-          at that width. It is a phone setting in the strong sense, not a global
-          one that a phone happens to be where you set it.
-        -->
-        {#if uiStore.isMobile}
-          <h4 class="cfg-mobile-heading">{t('config.mobileSection')}</h4>
-          <!--
-            Language. The header selector is hidden below 768 px — it held a
-            permanent slot in the tightest row in the application for a control
-            touched once — so the setting lives here instead.
-          -->
-          <div class="input-group cfg-lang">
-            <HelpTip text={t('config.tip.language')}><label>{t('app.language')}:</label></HelpTip>
-            <select
-              value={i18n.locale}
-              onchange={(e) => setLocale(e.currentTarget.value)}
-              data-testid="cfg-lang-select"
-            >
-              {#each OFFERED_LOCALES as code (code)}
-                <option value={code}>{t(`lang.${code}`)}</option>
-              {/each}
-            </select>
-          </div>
-          <!--
-            Control size. The panels came from a desktop sidebar and their rows
-            are 22–25 px. Compact fits more of a results table on a small
-            screen; comfortable hits a 44 px target and costs about 125 px of
-            extra scrolling to reach that table. Both are defensible, which is
-            why this is offered rather than decided.
-          -->
-          <div class="input-group cfg-density">
-            <HelpTip text={t('config.tip.touchDensity')}><label>{t('config.touchDensity')}:</label></HelpTip>
-            <select bind:value={uiStore.touchDensity} data-testid="cfg-density-select">
-              <option value="compact">{t('config.densityCompact')}</option>
-              <option value="comfortable">{t('config.densityComfortable')}</option>
-            </select>
-          </div>
-          <h4 class="cfg-mobile-heading">{t('config.generalSection')}</h4>
         {/if}
         <div class="input-group">
         <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>

@@ -776,8 +776,17 @@
   const gridStage = $derived(
     proStages.find((s) => s.id === (mappedProStage || lastProStage)) ?? proStages[0],
   );
-  /** Flat, because the grid does not draw the group divisions — see below. */
-  const gridCmds = $derived(gridStage ? gridStage.groups.flatMap((g) => g.cmds) : []);
+  /*
+   * BY GROUP, not flattened.
+   *
+   * Flat, ANALYSE was fifteen buttons in five rows with nothing saying where
+   * one kind of thing ended and the next began — solve sat beside "no diagram"
+   * beside a colour map beside the report. The stages already carry the
+   * grouping the desktop ribbon draws as ruled sections; the phone draws it as
+   * headings, which is the same information in the shape a column can hold.
+   */
+  const gridGroups = $derived(gridStage ? gridStage.groups : []);
+  const gridCmds = $derived(gridGroups.flatMap((g) => g.cmds));
 
   /*
    * The grid folds away once it has been used.
@@ -826,6 +835,14 @@
   {#if uiStore.isMobile}
     <!-- Mobile-only PRO navigation and actions (tools moved to upper toolbar in App.svelte) -->
     <div class="pro-mobile-nav">
+      <!--
+        Open, Save and Examples belong to the DOCUMENT, so they show where the
+        document is: the Project tab. They used to sit above every tab, which
+        put three file buttons over the nodes table, over the diagnostics, over
+        the RC design — a permanent header for an errand you run twice a
+        session.
+      -->
+      {#if uiStore.proActiveTab === 'project'}
       <div class="pro-mobile-actions">
         <!--
           Same controls as the desktop PRO bar, which this row replaces on mobile. `shortcuts`
@@ -834,14 +851,14 @@
         -->
         <ProProjectFileActions variant="mobile" />
         <button class="pm-action pm-example" onclick={toggleExampleMenu}>{t('pro.exampleBtn')}</button>
-        <!--
-          Solve and Report used to sit here too. They are commands of the
-          ANALYSE stage and appear in the grid below, and Solve is also in the
-          top bar — three copies of one button, which is three places to look
-          when it is greyed and you want to know why. What stays here is what
-          belongs to the DOCUMENT rather than to a stage: open, save, examples.
-        -->
       </div>
+      {/if}
+      <!--
+        Solve and Report used to sit in that row too. They are commands of the
+        ANALYSE stage and appear in the grid below, and Solve is also in the top
+        bar — three copies of one button, which is three places to look when it
+        is greyed and you want to know why.
+      -->
       <!--
         The stage's commands, as a grid.
         ───────────────────────────────
@@ -867,26 +884,38 @@
         <span class="pm-grid-count">{gridCmds.length}</span>
       </button>
       {#if proGridOpen}
-      <div class="pm-grid" data-stage={gridStage?.id} data-testid="pm-grid">
-        {#each gridCmds as c (c.id)}
-          {@const on = !c.enabled || c.enabled()}
-          <button
-            class="pm-cell"
-            class:active={proCmdActive(c)}
-            disabled={!on}
-            data-testid="pm-cmd-{c.id}"
-            onclick={() => runProCmd(c)}
-            title={c.label ? `${t(c.labelKey)} (${c.label})` : t(c.labelKey)}
-          >
-            <span class="pm-cell-icon">
-              {#if c.label}
-                <span class="pm-cell-sym">{c.label}</span>
-              {:else}
-                <Icon name={c.icon ?? 'data'} size={19} rotate={c.rotate ?? 0} />
-              {/if}
-            </span>
-            <span class="pm-cell-label">{t(c.labelKey)}</span>
-          </button>
+      <div class="pm-groups" data-stage={gridStage?.id} data-testid="pm-grid">
+        {#each gridGroups as g (g.id)}
+          <section class="pm-group">
+            <h4 class="pm-group-title">{t(g.labelKey)}</h4>
+            <div class="pm-grid">
+              {#each g.cmds as c (c.id)}
+                {@const on = !c.enabled || c.enabled()}
+                <button
+                  class="pm-cell"
+                  class:active={proCmdActive(c)}
+                  disabled={!on}
+                  data-testid="pm-cmd-{c.id}"
+                  onclick={() => runProCmd(c)}
+                  title={c.label ? `${t(c.labelKey)} (${c.label})` : t(c.labelKey)}
+                >
+                  <!--
+                    The icon is always drawn, and the SHORT name goes under it.
+                    Before, a diagram cell showed its symbol where the icon goes
+                    and the full name underneath — "Momento flector respecto a
+                    y" ellipsised to "Momento flector respect…" in a 116 px
+                    cell, which is a truncation pretending to be a label. The
+                    symbol IS the short name for those; the full one is in the
+                    tooltip, exactly as the desktop ribbon does it.
+                  -->
+                  <span class="pm-cell-icon">
+                    <Icon name={c.icon ?? 'data'} size={20} rotate={c.rotate ?? 0} />
+                  </span>
+                  <span class="pm-cell-label" class:symbol={!!c.label}>{c.label ?? t(c.labelKey)}</span>
+                </button>
+              {/each}
+            </div>
+          </section>
         {/each}
       </div>
       {/if}
@@ -1147,6 +1176,27 @@
   .pm-grid-head.open .pm-grid-count::after { content: ' ▾'; }
   .pm-grid-head:not(.open) .pm-grid-count::after { content: ' ▸'; }
 
+  /*
+     One column of groups, each a grid of three. The heading is what turns
+     fifteen buttons into four things to choose between — the same job the
+     vertical rules do between the desktop ribbon's groups.
+  */
+  .pm-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pm-group-title {
+    margin: 0 0 3px;
+    font-family: var(--st-mono);
+    font-size: 0.58rem;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--st-text-3);
+  }
+
   .pm-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1171,11 +1221,12 @@
 
   .pm-cell-icon { display: flex; color: var(--st-text); line-height: 1; }
 
-  /* N, My, Vz are notation, so they take the mono face rather than an icon. */
-  .pm-cell-sym {
+  /* N, My, Vz are notation, so the label takes the mono face when it is one. */
+  .pm-cell-label.symbol {
     font-family: var(--st-mono);
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 600;
+    letter-spacing: 0.02em;
   }
 
   .pm-cell-label {
@@ -1193,8 +1244,7 @@
     border-color: var(--st-accent);
     color: var(--st-text);
   }
-  .pm-cell.active .pm-cell-icon,
-  .pm-cell.active .pm-cell-sym { color: var(--st-accent); }
+  .pm-cell.active .pm-cell-icon { color: var(--st-accent); }
 
   /* Greyed, never removed — the same rule the ribbon follows. */
   .pm-cell:disabled { opacity: 0.34; cursor: default; }

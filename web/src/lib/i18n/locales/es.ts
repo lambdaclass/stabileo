@@ -1774,7 +1774,6 @@ const es: Record<string, string> = {
   'demo.basics3d.examplesDesc': 'Diez estructuras 3D, desde un voladizo hasta una nave industrial. Elegí una, o seguí y se carga un pórtico 3D.',
   'config.tip.language': 'El idioma de toda la interfaz. También está en el encabezado en pantallas más grandes.',
   'config.mobileSection': 'Móvil',
-  'config.generalSection': 'General',
   'config.touchDensity': 'Tamaño de los controles',
   'config.densityCompact': 'Compacto',
   'config.densityComfortable': 'Cómodo',

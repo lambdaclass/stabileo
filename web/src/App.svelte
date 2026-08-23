@@ -14,6 +14,7 @@
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { resolveDeleteTargets } from './lib/store/delete-selection';
   import { buildProStages, PRO_TAB_STAGE } from './lib/pro/stages';
+  import SheetGrab from './components/SheetGrab.svelte';
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
@@ -978,7 +979,13 @@
         Every click worked. The state flipped, the panel mounted, and it rendered where nobody
         could see it.
       -->
-      {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
+      <!--
+        At every width, as in Basic. It was `!isMobile`, so a phone had no way
+        into PRO's settings at all — the same omission Basic had, found the same
+        way, and fixed the same way: the corner is where the application-level
+        controls live and a phone has that corner too.
+      -->
+      {#if uiStore.appMode === 'pro'}
         <div class="settings-anchor">
           <button
             class="btn btn-settings"
@@ -1103,7 +1110,7 @@
       <div class="pro-mobile-toolbar">
         <button
           class="pmt-btn"
-          class:active={uiStore.proActiveTab === 'project'}
+          class:active={uiStore.rightDrawerOpen && uiStore.proActiveTab === 'project'}
           onclick={() => { uiStore.proActiveTab = 'project'; uiStore.rightDrawerOpen = true; }}
           title={t('ribbon.project')}
           data-testid="pmt-project"
@@ -1115,9 +1122,20 @@
 
         <span class="pmt-rule" aria-hidden="true"></span>
 
+        <!--
+          The pointer is NOT accented, and that is the rule rather than an
+          oversight. The accent means "this is what the panel below is showing",
+          so exactly one control in this row can carry it — Project or the
+          stage, never both, never neither. A pointer mode is not a panel, and
+          lighting it made two things look selected at once.
+
+          It still says which mode it is in: the glyph changes between the hand
+          and the arrow, which is the mode itself rather than a highlight
+          borrowed from a different meaning.
+        -->
         <button
-          class="pmt-btn"
-          class:active={uiStore.currentTool === 'select'}
+          class="pmt-btn pmt-pointer"
+          class:armed={uiStore.currentTool === 'select'}
           onclick={() => uiStore.currentTool = uiStore.currentTool === 'select' ? 'pan' : 'select'}
           title={uiStore.currentTool === 'select' ? t('float.select') : t('float.pan')}
           data-testid="pmt-pointer"
@@ -1130,7 +1148,8 @@
         -->
         <button
           class="pmt-btn pmt-stage"
-          class:active={proStageMenu}
+          class:active={uiStore.rightDrawerOpen && uiStore.proActiveTab !== 'project'}
+          class:open={proStageMenu}
           onclick={() => proStageMenu = !proStageMenu}
           aria-expanded={proStageMenu}
           data-testid="pmt-stage"
@@ -1439,6 +1458,22 @@
     {/if}
     <aside class="drawer drawer-right" class:drawer-shared={uiStore.appMode === 'pro'}>
       {#if uiStore.appMode === 'pro'}
+        <!--
+          The same handle Basic's sheet has. PRO's did not, which was never a
+          decision — the drag was written inside `BasicPanel` and PRO's panel is
+          a different component. Both are a sheet sharing the screen with the
+          model along the axis where the reader's needs pull opposite ways.
+        -->
+        <div class="drawer-sheet-top">
+          <SheetGrab storageKey="stabileo-pro-sheet-vh" />
+          <button
+            class="drawer-sheet-close"
+            onclick={() => uiStore.rightDrawerOpen = false}
+            title={t('ribbon.close')}
+            aria-label={t('ribbon.close')}
+            data-testid="pro-sheet-close"
+          >×</button>
+        </div>
         <ProPanel />
       {:else if uiStore.appMode === 'educativo'}
         <EducativePanel />
@@ -2792,10 +2827,26 @@
   }
   .pmt-btn:hover { color: var(--st-text); }
   .pmt-btn:disabled { opacity: 0.34; cursor: default; }
+  /*
+     ONE accent in the row at a time, and it means "the panel is showing this".
+     Project and the stage are the only two that can carry it, and exactly one
+     of them does whenever the panel is open.
+  */
   .pmt-btn.active {
     background: var(--st-selected-bg);
     border-color: var(--st-accent);
     color: var(--st-accent);
+  }
+
+  /*
+     Armed and open are NOT that. A pointer mode and an open menu are states of
+     the control itself, so they are drawn as a filled key — no accent, nothing
+     that could be mistaken for a second selection.
+  */
+  .pmt-btn.armed,
+  .pmt-btn.open {
+    background: var(--st-surface-3);
+    color: var(--st-text);
   }
 
   /*
@@ -3004,6 +3055,35 @@
     .drawer-right.drawer-shared {
       height: var(--st-sheet-h);
       max-height: var(--st-sheet-h);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* The handle row: the grab fills it, the ✕ sits on top at the right. */
+    .drawer-sheet-top {
+      display: flex;
+      align-items: center;
+      flex: none;
+      position: relative;
+    }
+    .drawer-sheet-top :global(.grab) { flex: 1; }
+    .drawer-sheet-close {
+      position: absolute;
+      right: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--st-text-2);
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      touch-action: manipulation;
     }
 
     @keyframes sheet-slide-up {

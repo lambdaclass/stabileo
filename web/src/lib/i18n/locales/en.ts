@@ -1781,7 +1781,6 @@ const en: Record<string, string> = {
   'demo.basics3d.examplesDesc': 'Ten 3D structures, from a cantilever to an industrial shed. Pick one, or continue and a 3D portal frame is loaded.',
   'config.tip.language': 'The language of the whole interface. Also in the header on a larger screen.',
   'config.mobileSection': 'Mobile',
-  'config.generalSection': 'General',
   'config.touchDensity': 'Control size',
   'config.densityCompact': 'Compact',
   'config.densityComfortable': 'Comfortable',
