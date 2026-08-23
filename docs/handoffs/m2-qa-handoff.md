@@ -25,12 +25,14 @@ que antes *era* toda la pestaña).
 | 4 · Geometría | **bloqueada**, sobre el dato de arriostramiento |
 | 5 · Hipótesis | las siete hipótesis del verificador, más **`Lb` por miembro con su fuente**, más lo no inferible |
 | 6 · Análisis | `elegido` con resultados y combinaciones; `actual` sin ellos |
-| 7 · Verificación | **bloqueada siempre**, con cinco bloqueos y ocho explicaciones |
+| 7 · Verificación | **`actual`** cuando hay esfuerzos y datos completos; **bloqueada** sólo si el cálculo no puede correr. **Nunca `hecho`.** Con siete limitaciones, ocho explicaciones y el estado de revisión |
 | 8 · Límites y autoridad | el inventario metálico completo |
 
 ### 1.2 Lo que **no** debe pasar, y es lo que más importa mirar
 
-- **Ningún tilde verde** en la etapa 7. `verificationState` es la constante `'blocked'`.
+- **Ningún tilde verde** en la etapa 7. Su estado ya **no** es la constante `'blocked'` —eso confundía
+  «el cálculo no puede correr» con «nadie lo revisó»— pero `'done'` no está entre sus salidas
+  posibles, y un test lo asevera. La firma profesional es **metadata de revisión**, no bloqueo.
 - **Ninguna palabra de aprobación** afirmada. Las frases que dicen «verificado» o «aprobado» son
   todas **negaciones** («ninguno se presenta como aprobado»). Si QA encuentra una afirmación, es un
   bug de primera prioridad.
@@ -148,9 +150,12 @@ cláusulas citado del texto embarcado.
 | Pendiente | Por qué |
 |---|---|
 | **Verificación metálica habilitada** | falta la firma de alguien con competencia normativa. Ningún trabajo de código la reemplaza |
-| **Validación del mapa de cláusulas** | las 14 entradas están en `unvalidated`. Y **aun firmadas** no resuelven `Lb`, ni la geometría de bulones, ni la autoridad completa |
+| **Validación del mapa de cláusulas** | las 15 entradas están en `unvalidated`. Y **aun firmadas** no resuelven `Lb`, ni la geometría de bulones, ni §E.4. **No bloquea el desarrollo**: es estado de revisión |
+| **Clasificación de sección (B.4.1)** | **imposible desde este repositorio**: las Tablas B.4.1a/b son **imágenes** en el PDF fuente. Arrastra que F.2 pueda estar aplicándose fuera de su alcance declarado |
+| **§E.4 y §H.3** | pandeo torsional y torsión en la interacción, definidos en el texto y no implementados |
+| **§F.6.2** | pandeo local del ala en flexión de eje menor, no implementado |
 | **La fuente de `Lb`** | el modelo no tiene dónde registrar un arriostramiento. Tres caminos en `m2-lb-assumption.md`; el más barato es que el generador conserve las riostras que ya coloca |
-| **El tope `1,5·My` de F.2.1** | el código nunca calcula `My`. Es un límite superior faltante, del lado inseguro |
+| ~~El tope `1,5·My` de F.2.1~~ | **cerrado.** Implementado en los dos ejes (F.2.1 y F.6.1) tras leer el texto embarcado; no necesitaba ningún dato nuevo |
 | **`Ae = Ag`** | necesita la geometría del grupo de bulones, que no existe |
 | **§E.4** | pandeo torsional, que gobierna en ángulos, tes y cruciformes — justamente las secciones cuyos ejes M2 ya advierte |
 | **Serie tabulada C/Z** | falta una fuente citable de acería o norma dimensional |
@@ -182,6 +187,7 @@ Vale que QA los conozca, porque dos siguen abiertos.
 
 | Documento | Qué decide |
 |---|---|
+| **`m2-cirsoc301-normative-audit.md`** | **la auditoría del texto embarcado, cláusula por cláusula. Cuatro huecos que declaré y no eran huecos** |
 | `m2-cirsoc301-workflow-roadmap.md` | el reordenamiento de M2 y la auditoría de los nueve puntos |
 | `nonprincipal-axes-warning-proposal.md` | los 37 ángulos, con la medición validada contra el catálogo |
 | `m2-axes-notice-contract.md` | el handoff de integración del aviso, con diff por archivo |
