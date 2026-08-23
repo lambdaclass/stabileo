@@ -162,12 +162,30 @@ test.describe('nothing on the screen claims a verification', () => {
     expect(note).toMatch(/none|ninguno|nenhum|no /);
   });
 
-  test('and shows no progress bar or percentage', async ({ page }) => {
-    // Invented progress was an explicit prohibition: there is no total to be a fraction of.
+  test('and invents no progress — no bar, and no completion metric', async ({ page }) => {
+    /*
+     * ── This assertion was wrong, and the full suite caught it ────────
+     *
+     * It used to ban ANY `NN %` in the panel. That failed in the full suite because the workflow
+     * legitimately contains one: `ColdFormedPanel` reports the square-corner overestimate as
+     * «0.76 %», a MEASURED geometric deviation, and it sits inside `SteelPanel` at stage 8, which
+     * opens by default.
+     *
+     * A measurement is not progress. The prohibition is on inventing a completion metric — a bar,
+     * a fraction of stages done, a percentage of a total that does not exist — and banning the
+     * percent sign outright banned a number the panel is right to show. Third time a blunt textual
+     * ban has flagged a legitimate use in this branch; the pattern is worth naming.
+     *
+     * So: no progressbar role, and no percentage presented as completion. The source-level
+     * prohibition (no `progress`/`percent`/`cancel` strings in the component) is asserted in
+     * `steel-workflow-contract.test.ts`, which is where it belongs.
+     */
     await openSteelTab(page);
     await expect(page.locator('[role="progressbar"]')).toHaveCount(0);
     const text = await page.getByTestId('pro-steel-workflow').innerText();
-    expect(text).not.toMatch(/\d+\s?%/);
+    expect(text).not.toMatch(/\d+\s*%\s*(complete|completo|completado|conclu|done|listo)/i);
+    // And no stage state expressed as a fraction of a total.
+    expect(text).not.toMatch(/\b\d+\s*\/\s*8\b/);
   });
 });
 

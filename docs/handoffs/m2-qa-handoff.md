@@ -67,9 +67,26 @@ que antes *era* toda la pestaña).
 | `npm run test:unit` | **7316 pasan**, 12 saltados, 1 todo |
 | `npm run test:build` | **14 pasan** |
 | `npm run typecheck` | **473**, sin errores nuevos; la base bajó de 479 (seis ocurrencias eliminadas, enumeradas en `170064c8`) |
-| E2E del workflow | **26 pasan** |
-| E2E metálicos (todos los specs que tocan acero) | **107 pasan** |
+| E2E del workflow | **26 pasan** (aislado) |
+| E2E metálicos (todos los specs que tocan acero) | **107 pasan** (aislado) |
+| **E2E completa del repo** | **4 fallidos, 613 pasados**, 1,0 h — ver §2 bis |
 | i18n es/en/pt | **316 claves, en paridad** |
+
+### 2 bis · Los cuatro fallos de la suite completa
+
+Corrida del 22-ago 19:57 → 20:59, 52 specs, `workers: 1`. **No clasificados todavía**: los
+dos de temporización no se pueden juzgar con la máquina cargada, y la comparación visual necesita
+una corrida aislada.
+
+| Hora | Spec / test | Error | Qué se sabe |
+|---|---|---|---|
+| 20:11 | `m2-steel-workflow` → «no progress bar or percentage» | `not.toMatch(/\d+\s?%/)` | **Bug del test, no del producto.** Baneaba cualquier `NN %`, y el panel muestra legítimamente `0,76 %` — la sobrestimación por esquinas vivas del conformado en frío, que es una **medición**, dentro de `SteelPanel` en la etapa 8, que abre por defecto. Aserción corregida |
+| 20:29 | `project-restore` → restore/design/3-D/reload | timeout de 900 000 ms | temporización, sin aserción equivocada |
+| 20:29 | `rc-design-visual` → overlay legend | esperaba 696×34, recibió **697×34**; 645 px distintos (ratio 0,03) | 1 px de ancho. El describe se llama `@slow visual baselines (non-blocking)`. La baseline `darwin` es de **2026-07-25**, nunca actualizada, y **M2 no tocó ninguna** |
+| 20:46 | `ded-roundtrip` → «7-storey page» | solve no terminó en 480 s; el test informa **«fell back to sequential: no»** | por la regla del propio test, sin fallback debe tratarse como regresión. Pendiente de corrida aislada |
+
+**Contexto de carga:** al cerrar la suite el promedio era **20,73 / 27,77 / 18,30**, con 17 procesos
+node de otros worktrees vivos. Los dos timeouts ocurrieron dentro de esa ventana.
 
 ---
 
