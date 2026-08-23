@@ -48,6 +48,8 @@
   import { gradeRows, sectionRows, rowStateKey } from '../../lib/engine/steel/workflow-rows';
   import { assumptionRows, assumptionSourceKey } from '../../lib/engine/steel/workflow-assumptions';
   import { CIRSOC301_CLAUSE_MAP, CIRSOC301_CLAUSES_UNVALIDATED } from '../../lib/engine/design/adapters/cirsoc301-clause-map';
+  import { e4Applicability, e4GapKey } from '../../lib/engine/steel/torsional-buckling';
+  import { f62Report } from '../../lib/engine/steel/flange-local-buckling';
   import { structuralGradeSource } from '../../lib/grades/catalogue';
   import { steelProfileSource } from '../../lib/profiles/catalogue';
   import { CIRSOC301_JS_ASSUMPTIONS } from '../../lib/engine/design/adapters/cirsoc301-capabilities';
@@ -163,6 +165,29 @@
    * person moves. Presenting the signature among the limitations is what made the stage look
    * permanently broken when it was only unreviewed.
    */
+  /**
+   * The three clauses this block audited, per the FIRST metallic section in the model.
+   *
+   * One section rather than per-member because these are properties of a SHAPE, not of a member:
+   * every I-beam in the model gets the same E.4 verdict. Showing it once says the same thing
+   * without pretending the granularity is finer than it is.
+   */
+  const firstSection = $derived(
+    sRows.length > 0
+      ? modelStore.model.sections.get(sectionOf(sRows[0].elementId) ?? -1)
+      : undefined,
+  );
+  const e4 = $derived(e4Applicability({
+    shape: (firstSection as { shape?: string } | undefined)?.shape,
+    j: (firstSection as { j?: number } | undefined)?.j,
+  }));
+  const f62 = $derived(f62Report({
+    shape: (firstSection as { shape?: string } | undefined)?.shape,
+    b: (firstSection as { b?: number } | undefined)?.b,
+    tf: (firstSection as { tf?: number } | undefined)?.tf,
+    iMinor: (firstSection as { iz?: number } | undefined)?.iz,
+  }));
+
   const LIMITATIONS = [
     { key: 'steel.workflow.blocker.tests', addressed: true },
     { key: 'steel.workflow.blocker.inferredProperties', addressed: true },
@@ -478,6 +503,41 @@
       {/each}
     </ul>
     <p class="line" data-testid="steel-stage-verification-note">{t('steel.workflow.verification.note')}</p>
+
+    <!--
+      The three clauses this block audited. Each says whether it is available and, when it is not,
+      the specific reason — a shape out of scope, a datum absent, or a limit value that exists only
+      as an image in the source PDF.
+    -->
+    <dl class="results" data-testid="steel-clause-availability">
+      <dt>{t('steel.workflow.clause.cb')}</dt>
+      <dd data-testid="steel-clause-cb">{t('steel.workflow.clause.cbState')}</dd>
+      <dt>{t('steel.workflow.clause.e4')}</dt>
+      <dd data-testid="steel-clause-e4">
+        {t(e4.reasonKey)}
+        {#if e4.gaps.length > 0}
+          <ul class="list">
+            {#each e4.gaps as g (g)}<li>{t(e4GapKey(g))}</li>{/each}
+          </ul>
+        {/if}
+      </dd>
+      <dt>{t('steel.workflow.clause.f62')}</dt>
+      <dd data-testid="steel-clause-f62">
+        {t(f62.reasonKey)}
+        {#if f62.flangeSlenderness != null}
+          <!-- The computable half, shown because a reader with the printed table can finish it. -->
+          <span class="clauses">
+            {t('steel.f62.lambdaLabel')} = {f62.flangeSlenderness.toFixed(2)}
+            · {t('steel.f62.fcrLabel')} = {f62.fcrMPa?.toFixed(0)} MPa
+          </span>
+        {/if}
+        {#if f62.missingKeys.length > 0}
+          <ul class="list">
+            {#each f62.missingKeys as k (k)}<li>{t(k)}</li>{/each}
+          </ul>
+        {/if}
+      </dd>
+    </dl>
 
     <!--
       The review state, as METADATA and not as a blocker. A signature is something a person adds
