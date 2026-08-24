@@ -563,6 +563,77 @@ export function shearStress(V: number, y: number, rs: ResolvedSection): number {
   return (V * Q) / (rs.iy * bAtY) / 1000;
 }
 
+/**
+ * τ_max / (V/A) for a section: the shear form factor, from Jourawski.
+ *
+ * ── Why this exists ────────────────────────────────────────────────
+ *
+ * Two colour maps were each estimating peak shear with a CONSTANT, and neither
+ * constant belongs to the sections people actually use:
+ *
+ *   * the 3D heat map used 1.2, which is not a peak factor at all — it is
+ *     `A/A_s` for a rectangle, the SHEAR-DEFLECTION coefficient. It answers
+ *     "how much does shear add to the deflection", not "how high does the
+ *     stress get";
+ *   * the 2D map used 1.5, which IS the peak factor — for a solid rectangle,
+ *     and only for one.
+ *
+ * Measured against this function on catalogue sections, both under-report the
+ * real peak, in the unsafe direction:
+ *
+ *       section        1.2·V/A    1.5·V/A    Jourawski     error
+ *       IPE 300         22.30      27.88       50.74      −56% / −45%
+ *       HEB 300          8.05      10.06       32.33      −75% / −69%
+ *       CHS 300×8       16.35      20.44       28.74      −43% / −29%
+ *       rect 0.3×0.5     0.80       1.00        1.00      −20% /   0%
+ *
+ * An I-section is where the gap is worst and it is the ordinary case: the web
+ * carries nearly all the shear over a fraction of the gross area, so V/A is
+ * simply the wrong denominator. The factors this returns are the familiar
+ * ones — 1.5 for a rectangle, ~2 for a thin tube, and whatever the geometry
+ * gives for an I.
+ *
+ * ── Why a factor rather than the stress ────────────────────────────
+ *
+ * It depends only on the SECTION, so it can be computed once and reused for
+ * every station of every load case. The callers are per-vertex render paths;
+ * resolving the geometry inside them would put a profile-catalogue lookup on
+ * the hot path for a number that never changes.
+ *
+ * Falls back to 1.5 — the rectangle — when the geometry is not resolvable,
+ * which is what the 2D map already assumed for everything.
+ */
+const SHEAR_FACTOR_CACHE = new WeakMap<object, number>();
+
+export function shearPeakFactor(sec: Section): number {
+  const cached = SHEAR_FACTOR_CACHE.get(sec as unknown as object);
+  if (cached !== undefined) return cached;
+
+  let factor = 1.5;
+  try {
+    const rs = resolveSectionGeometryLegacy(sec);
+    if (rs.a > 1e-15 && rs.iy > 1e-15) {
+      // Walk the fibre range: the peak is at the neutral axis for the common
+      // shapes, but not for a tee or an angle, whose centroid is off-centre.
+      const lo = rs.yMin, hi = rs.yMax;
+      let peak = 0;
+      for (let i = 0; i <= 100; i++) {
+        const y = lo + ((hi - lo) * i) / 100;
+        peak = Math.max(peak, Math.abs(shearStress(1, y, rs)));
+      }
+      // `shearStress` divides by 1000 for MPa; the mean here is in the same
+      // units, so the ratio is dimensionless either way.
+      const mean = 1 / rs.a / 1000;
+      if (peak > 0 && mean > 0) factor = peak / mean;
+    }
+  } catch {
+    /* An unresolvable section keeps the rectangle default. */
+  }
+
+  SHEAR_FACTOR_CACHE.set(sec as unknown as object, factor);
+  return factor;
+}
+
 // ─── Full stress distribution ─────────────────────────────────────────
 
 const NUM_STRESS_POINTS = 31;

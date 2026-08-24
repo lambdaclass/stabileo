@@ -21,6 +21,7 @@ import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellFlatColor, divergingColor, type HeatmapVariable } from '../three/stress-heatmap';
 import { colourMapUnit } from '../three/colour-ramp';
+import { shearPeakFactor } from '../engine/section-stress';
 import { restoreShellColor } from '../three/create-shell-mesh';
 import { shellComponentMeta, shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
@@ -613,6 +614,12 @@ export function getSectionProps(elemId: number) {
     Iy: sec.iy ?? sec.iz,
     h: sec.h ?? 0,
     b: sec.b ?? 0,
+    /*
+     * The section's own shear form factor, resolved once here rather than per
+     * vertex: `sampleValue` runs 17 times per member per load case, and this
+     * needs the profile catalogue. `shearPeakFactor` caches per section too.
+     */
+    shearFactor: shearPeakFactor(sec),
     /*
      * fy arrives in MPa (the model store's unit) and the section-stress
      * evaluation works in kPa (kN/m²) — feeding one into the other made every

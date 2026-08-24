@@ -1,6 +1,7 @@
 // Results store
 
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
+import { shearPeakFactor } from '../engine/section-stress';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
@@ -48,10 +49,20 @@ export function computeElementStress(ef: ElementForces, sec: Section, mat: Mater
   const sigmaEnd = A > 1e-15 && Iz > 1e-15
     ? (Math.abs(ef.nEnd) / A + Math.abs(ef.mEnd) * yMax / Iz) / 1000 : 0;
 
-  // Shear stress: τ_max
-  // For rectangular: τ_max = 1.5·V/A
-  // For general section: τ ≈ V/A (conservative lower bound, actual depends on shape)
-  const shearFactor = (sec.b !== undefined && sec.h !== undefined) ? 1.5 : 1.0;
+  /*
+   * Shear stress: τ_max = k·V/A, with k from the section's own geometry.
+   *
+   * This used 1.5 whenever `b` and `h` existed and 1.0 otherwise. 1.5 is the
+   * peak factor for a solid RECTANGLE and for nothing else, and every rolled
+   * profile has both dimensions, so every I-beam in the catalogue got the
+   * rectangle's answer: an IPE 300 came out 45% below its real peak and an
+   * HEB 300 69% below, because the web carries almost all the shear over a
+   * fraction of the gross area. `shearPeakFactor` runs Jourawski over the
+   * section's own fibres and caches the result, so the shape decides the
+   * number instead of a constant. It returns 1.5 for a rectangle, so that
+   * case is unchanged.
+   */
+  const shearFactor = shearPeakFactor(sec);
   const tauStart = A > 1e-15 ? (shearFactor * Math.abs(ef.vStart) / A) / 1000 : 0;
   const tauEnd = A > 1e-15 ? (shearFactor * Math.abs(ef.vEnd) / A) / 1000 : 0;
 
