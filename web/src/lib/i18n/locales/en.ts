@@ -5929,6 +5929,8 @@ const en: Record<string, string> = {
   'design.stage.model': 'Model',
   'design.stage.demands': 'Demands',
   'design.stage.check': 'Code check',
+  'design.stage.codes': 'Codes',
+  'design.stage.needCode': 'Choose the concrete code: it governs how reinforcement is checked. It computes neither the reinforcement nor the demands.',
   'design.stage.design': 'Design',
   'design.stage.detailing': 'Detailing',
   'design.stage.documents': 'Documents',

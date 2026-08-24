@@ -4856,6 +4856,8 @@ const pt: Translations = {
   'design.stage.model': 'Modelo',
   'design.stage.demands': 'Solicitações',
   'design.stage.check': 'Verificação',
+  'design.stage.codes': 'Normas',
+  'design.stage.needCode': 'Escolha a norma de concreto: governa como as armaduras são verificadas. Não calcula as armaduras nem as solicitações.',
   'design.stage.design': 'Dimensionamento',
   'design.stage.detailing': 'Detalhamento',
   'design.stage.documents': 'Documentos',

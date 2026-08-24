@@ -3425,6 +3425,8 @@ const it: Translations = {
   'design.group.verify': 'Verify',
   'design.stage.allDone': 'Every stage is complete. Review the states, then export.',
   'design.stage.check': 'Code check',
+  'design.stage.codes': 'Codes',
+  'design.stage.needCode': 'Choose the concrete code: it governs how reinforcement is checked. It computes neither the reinforcement nor the demands.',
   'design.stage.demands': 'Demands',
   'design.stage.design': 'Design',
   'design.stage.detailing': 'Detailing',

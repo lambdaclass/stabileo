@@ -5921,6 +5921,8 @@ const es: Record<string, string> = {
   'design.stage.model': 'Modelo',
   'design.stage.demands': 'Solicitaciones',
   'design.stage.check': 'Verificación',
+  'design.stage.codes': 'Reglamentos',
+  'design.stage.needCode': 'Elegí el reglamento de hormigón: gobierna cómo se verifican las armaduras, no las calcula ni calcula las solicitaciones.',
   'design.stage.design': 'Diseño',
   'design.stage.detailing': 'Detallado',
   'design.stage.documents': 'Documentos',
