@@ -3140,6 +3140,7 @@ const it: Translations = {
   // ─── PR15: RC Design surface ───────────────────────────────────────────
   'design.cmd.computeDemands': 'Calcola le sollecitazioni',
   'design.cmd.codeCheck': 'Esegui verifica normativa',
+  'design.cmd.requiredSteel': "Compute required steel",
   'design.code.role': 'Norma calcestruzzo:',
   'design.code.openRegulations': 'Apri le normative del progetto',
   'design.cmd.autoDesign': 'Progettazione automatica',

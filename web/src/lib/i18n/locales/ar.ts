@@ -3127,6 +3127,7 @@ const ar: Translations = {
   // ─── PR15: RC Design surface ───────────────────────────────────────────
   'design.cmd.computeDemands': 'احسب قوى التصميم',
   'design.cmd.codeCheck': 'تشغيل فحص الكود',
+  'design.cmd.requiredSteel': "Compute required steel",
   'design.code.role': 'كود الخرسانة:',
   'design.code.openRegulations': 'فتح أنظمة المشروع',
   'design.cmd.autoDesign': 'تصميم تلقائي',

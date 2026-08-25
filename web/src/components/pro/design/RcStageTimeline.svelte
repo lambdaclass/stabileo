@@ -39,7 +39,9 @@
   import { t } from '../../../lib/i18n';
   import { resultsStore } from '../../../lib/store/results.svelte';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
-  import { rcComputeDemands } from '../../../lib/flow/rc-commands';
+  import { rcCodeCheck, rcComputeDemands } from '../../../lib/flow/rc-commands';
+  import { modelStore } from '../../../lib/store/model.svelte';
+  import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import {
     currentRcStage, rcStageTodoKey,
     type RcModelReadiness, type RcStage, type RcStageId,
@@ -120,6 +122,13 @@
   const hasResults = $derived(
     resultsStore.results3D !== null || resultsStore.results !== null);
   const busy = $derived(designRunStore.running);
+  /*
+   * What the required-steel command needs beyond a solve: combinations to read, and a concrete
+   * code to read them against. Same four facts `canDesign` gathered in the command bar, read
+   * from the stores that own them.
+   */
+  const hasCombinations = $derived(modelStore.model.combinations.length > 0);
+  const concreteReady = $derived(regulationsStore.concreteDesignCode() !== null);
 
   const SR: Record<string, string> = {
     complete: 'design.stage.srComplete',
@@ -170,15 +179,16 @@
     ONCE — there is no copy inside the disclosure — and calls the same `rcComputeDemands` that
     `lib/flow/rc-commands.ts` extracted, arming the diagnostics warning before the store.
   -->
-  {#if !stages.find((s) => s.id === 'codes')?.complete}
     <!--
-      Present and DISABLED, not absent, while it cannot run.
+      Always present, disabled when it cannot run. Never hidden.
 
-      Keying this on the current stage made the command vanish with nothing solved, and a gate
-      caught it: this app's rule is that a command which cannot run says WHY, and one that is not
-      on screen says nothing at all. It appears as soon as its stage is unfinished and explains
-      itself through the disabled state and the hint below; it leaves when the stage is done,
-      because the strip answers "what is next".
+      Two conditions were tried and both hid a command. Keying the row on the CURRENT stage made
+      it vanish with nothing solved — pro-design-gates caught that. Keying it on the stage being
+      UNFINISHED made required-steel vanish the moment demands were derived, because deriving
+      them completes the stage: the command disappeared exactly when it became usable.
+
+      This app's rule is that a command which cannot run says WHY, and one that is not on screen
+      says nothing at all. Two short buttons are a cheaper permanent cost than either failure.
     -->
     <div class="actions" data-testid="rc-stage-actions" data-stage="codes">
       <button
@@ -187,8 +197,23 @@
         onclick={rcComputeDemands}
         disabled={!hasResults || busy}
       >{t('design.cmd.computeDemands')}</button>
+      <!--
+        Required steel, NOT a verification.
+
+        `runCodeCheck` reads results, demands and the code adapter and never looks at a provided
+        bar: it publishes what the CODE REQUIRES. It sat in a group labelled "Verify", ahead of
+        "Design", which said the reinforcement had been checked before any existed — the claim F1
+        removed from the strip and this one still made. Renamed to what it does, and placed with
+        `compute-demands` because both are the same operation: the declared code applied to the
+        analysis.
+      -->
+      <button
+        class="cmd"
+        data-testid="cmd-code-check"
+        onclick={rcCodeCheck}
+        disabled={!hasResults || !hasCombinations || !concreteReady || busy}
+      >{t('design.cmd.requiredSteel')}</button>
     </div>
-  {/if}
 
   <p class="hint" data-testid="rc-stage-hint">
     {#if openLabel}
@@ -223,7 +248,14 @@
   .timeline {
     position: sticky;
     top: 0;
-    z-index: 3;
+    /*
+     * Above the section headers, which are sticky too — `pro-panel-structure` S5 requires every
+     * stage title to hold its place while its section is read. Two stickies at the same layer
+     * paint in document order, so a header scrolling up covered the strip's commands: a click at
+     * a command's own centre landed on the header instead, which `pro-design-gates` catches as
+     * "enabled and out of reach". The outer sticky has to win.
+     */
+    z-index: 12;
     background: var(--st-surface);
     border-bottom: 1px solid var(--st-hair);
     padding: 0.35rem 0.5rem 0.3rem;

@@ -3139,6 +3139,7 @@ const hi: Translations = {
   // ─── PR15: RC Design surface ───────────────────────────────────────────
   'design.cmd.computeDemands': 'डिज़ाइन बल गणना करें',
   'design.cmd.codeCheck': 'कोड जाँच चलाएँ',
+  'design.cmd.requiredSteel': "Compute required steel",
   'design.code.role': 'कंक्रीट कोड:',
   'design.code.openRegulations': 'परियोजना विनियम खोलें',
   'design.cmd.autoDesign': 'स्वतः डिज़ाइन',

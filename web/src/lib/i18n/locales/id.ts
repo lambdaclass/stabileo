@@ -3129,6 +3129,7 @@ const id: Translations = {
   // ─── PR15: RC Design surface ───────────────────────────────────────────
   'design.cmd.computeDemands': 'Hitung gaya desain',
   'design.cmd.codeCheck': 'Jalankan pemeriksaan kode',
+  'design.cmd.requiredSteel': "Compute required steel",
   'design.code.role': 'Kode beton:',
   'design.code.openRegulations': 'Buka Regulasi Proyek',
   'design.cmd.autoDesign': 'Desain otomatis',

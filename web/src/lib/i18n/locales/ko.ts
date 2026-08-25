@@ -3126,6 +3126,7 @@ const ko: Translations = {
   // ─── PR15: RC Design surface ───────────────────────────────────────────
   'design.cmd.computeDemands': '설계 응력 계산',
   'design.cmd.codeCheck': '규준 검토 실행',
+  'design.cmd.requiredSteel': "Compute required steel",
   'design.code.role': '콘크리트 기준:',
   'design.code.openRegulations': '프로젝트 규정 열기',
   'design.cmd.autoDesign': '자동 설계',

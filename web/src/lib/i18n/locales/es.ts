@@ -4464,6 +4464,7 @@ const es: Record<string, string> = {
   // ─── PR15: superficie de diseño RC ─────────────────────────────────
   'design.cmd.computeDemands': 'Calcular solicitaciones',
   'design.cmd.codeCheck': 'Verificar según norma',
+  'design.cmd.requiredSteel': "Calcular acero requerido",
   'design.cmd.autoDesign': 'Diseño automático',
   'design.cmd.autoDesignSelected': 'Diseñar seleccionados',
   'design.cmd.autoDesignUndesigned': 'Diseñar todos los no diseñados',

@@ -3131,6 +3131,7 @@ const ru: Translations = {
   // ─── PR15: RC Design surface ───────────────────────────────────────────
   'design.cmd.computeDemands': 'Вычислить усилия',
   'design.cmd.codeCheck': 'Выполнить проверку по норме',
+  'design.cmd.requiredSteel': "Compute required steel",
   'design.code.role': 'Норма по бетону:',
   'design.code.openRegulations': 'Открыть нормативы проекта',
   'design.cmd.autoDesign': 'Автоматический подбор',

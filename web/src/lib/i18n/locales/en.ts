@@ -4471,6 +4471,7 @@ const en: Record<string, string> = {
   // ─── PR15: RC Design surface ───────────────────────────────────────────
   'design.cmd.computeDemands': 'Compute demands',
   'design.cmd.codeCheck': 'Run code check',
+  'design.cmd.requiredSteel': "Compute required steel",
   'design.cmd.autoDesign': 'Auto-design',
   'design.cmd.autoDesignSelected': 'Auto-design selected',
   'design.cmd.autoDesignUndesigned': 'Auto-design all un-designed',

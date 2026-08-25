@@ -3147,6 +3147,7 @@ const de: Translations = {
   // ─── PR15: RC Design surface ───────────────────────────────────────────
   'design.cmd.computeDemands': 'Bemessungsgrößen berechnen',
   'design.cmd.codeCheck': 'Normprüfung durchführen',
+  'design.cmd.requiredSteel': "Compute required steel",
   'design.code.role': 'Betonnorm:',
   'design.code.openRegulations': 'Projektnormen öffnen',
   'design.cmd.autoDesign': 'Automatische Bemessung',

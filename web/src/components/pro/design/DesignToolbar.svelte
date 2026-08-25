@@ -24,7 +24,6 @@
     hasResults: boolean;
     hasCombinations: boolean;
     editedCount: number;
-    onCodeCheck: () => void;
     onAutoDesignSelected: () => void;
     onAutoDesignUndesigned: () => void;
     onDesignAll: () => void;
@@ -159,8 +158,13 @@
           "Verify" ahead of "Design". One implementation still: both called `rcComputeDemands`,
           and there is no copy of it inside any disclosure.
         -->
-        <button class="cmd" data-testid="cmd-code-check" onclick={onCodeCheck}
-                disabled={!canDesign}>{t('design.cmd.codeCheck')}</button>
+        <!--
+          Required steel moved to the REGLAMENTOS strip — see `RcStageTimeline.svelte`.
+
+          It computes what the code requires and reads no provided bar, so grouping it under
+          "Verify" ahead of "Design" claimed a check that had not happened. One implementation
+          still: both called `rcCodeCheck`.
+        -->
       </div>
     </div>
 
