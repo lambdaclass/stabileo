@@ -6250,5 +6250,11 @@ const es: Record<string, string> = {
   'design.stagePurpose.floors': 'Diseña losas, tabiques y —si las pedís— zapatas. Ejecutalo antes del detallado; un edificio sólo de pórticos puede saltearlo.',
   'design.stagePurpose.floorsNotVerified': '{n} zapata(s) sin verificar',
   'design.stagePurpose.detailing': 'Coordina en conjuntos las barras que produjo el diseño. Los planos, la planilla, el informe y la vista 3D son proyecciones de él.',
+  'ai.devShort': 'en desarrollo',
+  'ai.devTitle': 'En desarrollo — todavía no se puede usar',
+  'ai.devBody': 'El asistente está en construcción. Podés ver cómo va a funcionar, pero todavía no responde ni modifica el modelo: los controles están desactivados a propósito. Nada de lo que veas acá afecta tu estructura.',
+  'ai.devPlaceholder': 'Todavía no disponible',
+  'ai.describeChange': 'Describí un cambio o una estructura nueva…',
+  'ai.describeBuild': 'Describí qué construir…',
 };
 export default es;

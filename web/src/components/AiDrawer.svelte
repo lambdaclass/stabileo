@@ -6,6 +6,26 @@
   import type { ModelSnapshot } from '../lib/store/history.svelte';
   import { compactSnapshotForAi, isValidReleaseShape, normalizeSnapshotReleases } from '../lib/ai/build-model';
 
+  /**
+   * `docked` — the body without its own chrome, for rendering inside a panel.
+   *
+   * The assistant used to be a 380 px container beside the app. It is a panel
+   * destination now, so the heading, the ✕ and — on a phone — the sheet and its
+   * drag all come from the panel. See `BasicPanel` and `ProPanel`.
+   */
+  let { docked = false }: { docked?: boolean } = $props();
+
+  /**
+   * The assistant is not usable yet, and every control says so from one place.
+   *
+   * A banner that announces "in development" above an input you can still type
+   * into is a notice its own surface contradicts — the reader believes the box,
+   * not the label. So this flag disables what would otherwise accept work, and
+   * the banner explains what the disabling means. One constant, so the day it
+   * ships there is one line to change and no control left behind still greyed.
+   */
+  const AI_IN_DEVELOPMENT = true;
+
   type AiTab = 'review' | 'explain' | 'query' | 'build';
   let activeTab = $state<AiTab>('build');
 
@@ -527,16 +547,46 @@
     }
   }
 
+  /*
+   * Only the undocked form has its own ✕, and nothing renders that any more —
+   * the panels provide it. Kept as the one place a standalone drawer would
+   * close from, should the component ever be mounted on its own again.
+   */
   function close() {
     uiStore.aiDrawerOpen = false;
   }
 </script>
 
-<aside class="ai-drawer">
-  <!-- Header -->
-  <div class="drawer-header">
-    <span class="drawer-title">Stabileo AI</span>
-    <button class="close-btn" onclick={close} title="Close">×</button>
+<!--
+  `docked` — rendered inside a panel rather than as a container of its own.
+  ───────────────────────────────────────────────────────────────────────
+  The panel already draws a heading and a ✕, and on a phone it is the bottom
+  sheet with its drag handle. Keeping our own would be a second title and a
+  second close button four millimetres apart, which is what a standalone drawer
+  needed and a docked body must not have. Same convention as `KinematicPanel`
+  and `WhatIfPanel`.
+-->
+<svelte:element this={docked ? 'div' : 'aside'} class="ai-drawer" class:ai-docked={docked}>
+  {#if !docked}
+    <div class="drawer-header">
+      <span class="drawer-title">Stabileo AI</span>
+      <button class="close-btn" onclick={close} title="Close">×</button>
+    </div>
+  {/if}
+
+  <!--
+    Said before anything else, and it disables what it describes.
+    ────────────────────────────────────────────────────────────
+    The assistant is not usable yet. A banner alone would be a claim the input
+    underneath contradicts — you would read "in development" and then be able to
+    type into a box that answers nothing — so the input and its send button are
+    disabled and say why. Same bargain the connections panel strikes with
+    `conn.experimentalBanner`: state it up front, in `--st-warn`, in words that
+    cannot be read as a hedge.
+  -->
+  <div class="ai-dev-note" role="note" data-testid="ai-dev-note">
+    <strong>{t('ai.devTitle')}</strong>
+    <span>{t('ai.devBody')}</span>
   </div>
 
   <!-- Tabs -->
@@ -551,7 +601,7 @@
   {#if activeTab === 'review'}
     <div class="drawer-body">
       {#if !reviewResponse && !reviewLoading}
-        <button class="action-btn" disabled={!hasResults} onclick={handleReview}>
+        <button class="action-btn" disabled={AI_IN_DEVELOPMENT || !hasResults} onclick={handleReview}>
           {t('ai.reviewModel')}
         </button>
         {#if !hasResults}
@@ -707,16 +757,16 @@
       <div class="chat-input-row">
         <textarea
           class="chat-input"
-          placeholder={hasModelOnCanvas ? "Describe a change or new structure..." : "Describe what to build..."}
+          placeholder={AI_IN_DEVELOPMENT ? t('ai.devPlaceholder') : (hasModelOnCanvas ? t('ai.describeChange') : t('ai.describeBuild'))}
           bind:value={chatInput}
           onkeydown={handleBuildKeydown}
-          disabled={buildLoading || !!pendingDraft}
+          disabled={AI_IN_DEVELOPMENT || buildLoading || !!pendingDraft}
           rows="2"
         ></textarea>
         {#if buildLoading}
           <button class="chat-send stop-btn" onclick={handleAbortBuild} title="Stop">■</button>
         {:else}
-          <button class="chat-send" onclick={() => handleBuildSend()} disabled={!chatInput.trim() || !!pendingDraft}>→</button>
+          <button class="chat-send" onclick={() => handleBuildSend()} disabled={AI_IN_DEVELOPMENT || !chatInput.trim() || !!pendingDraft} data-testid="ai-send">→</button>
         {/if}
       </div>
     </div>
@@ -739,7 +789,7 @@
       </div>
     </div>
   {/if}
-</aside>
+</svelte:element>
 
 <style>
   .ai-drawer {
@@ -751,6 +801,36 @@
     flex-direction: column;
     overflow: hidden;
     flex-shrink: 0;
+  }
+
+  /* ── The in-development notice ──────────────────────────────────────
+     `--st-warn`, stated before anything else, in the same shape the
+     connections panel uses for its experimental banner — one vocabulary for
+     "this is not finished", so a reader who has met one recognises the other.
+     ───────────────────────────────────────────────────────────────── */
+  .ai-dev-note {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0 0 10px;
+    padding: 9px 11px;
+    border-radius: var(--st-radius);
+    background: rgba(221, 170, 0, 0.10);
+    border: 1px solid var(--st-warn);
+    color: var(--st-text);
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+  .ai-dev-note strong { font-size: 0.75rem; }
+  .ai-dev-note span { color: var(--st-text-2); }
+
+  /* Docked: the panel owns the box, so this contributes no chrome of its own. */
+  .ai-drawer.ai-docked {
+    width: auto;
+    height: auto;
+    background: none;
+    border-left: none;
+    flex-shrink: 1;
   }
 
   .drawer-header {

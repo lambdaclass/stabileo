@@ -5068,5 +5068,11 @@ const pt: Translations = {
   'config.tip.touchDensity': 'O tamanho dos controles dentro dos painéis, apenas no telefone. Compacto mostra mais tabela de uma vez; Confortável aumenta tudo para 44 px e afasta um pouco os resultados.',
   'config.mobileSection': 'Celular',
   'ribbon.groupModel': 'Modelagem',
+  'ai.devShort': 'em desenvolvimento',
+  'ai.devTitle': 'Em desenvolvimento — ainda não dá para usar',
+  'ai.devBody': 'O assistente está em construção. Você pode ver como vai funcionar, mas ele ainda não responde nem altera o modelo: os controles estão desativados de propósito. Nada aqui afeta a sua estrutura.',
+  'ai.devPlaceholder': 'Ainda não disponível',
+  'ai.describeChange': 'Descreva uma mudança ou uma estrutura nova…',
+  'ai.describeBuild': 'Descreva o que construir…',
 };
 export default pt;

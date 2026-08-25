@@ -5,6 +5,7 @@
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import { buildProStages, PRO_TAB_STAGE, type ProCmd } from '../../lib/pro/stages';
   import Icon from '../ribbon/Icon.svelte';
+  import AiDrawer from '../AiDrawer.svelte';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -876,6 +877,7 @@
 
   /** What the panel calls each destination. */
   const TAB_TITLE: Record<string, string> = {
+    ai: 'ai.title',
     project: 'ribbon.project', nodes: 'pro.tabNodes', elements: 'pro.tabElements',
     shells: 'pro.tabShells', materials: 'pro.tabMaterials', sections: 'pro.tabSections',
     supports: 'pro.tabSupports', constraints: 'pro.tabConstraints', loads: 'pro.tabLoads',
@@ -1161,7 +1163,9 @@
           <ProGeneratorsPanel />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
-        {:else if activeTab === 'diagnostics'}
+        {:else if activeTab === 'ai'}
+      <AiDrawer docked />
+    {:else if activeTab === 'diagnostics'}
           <ProDiagnosticsTab />
         {/if}
       </svelte:boundary>

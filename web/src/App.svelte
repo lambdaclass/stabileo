@@ -114,6 +114,39 @@
    * Phone only. On a desktop the panel takes width from a canvas that has
    * plenty, and the existing framing stays legible.
    */
+  /* ── Stabileo AI, as a panel destination ───────────────────────────────
+   *
+   * Not a container of its own any more. In Basic it is a value of `basicPanel`
+   * like `results` or `project`; in PRO it is a `proActiveTab` like any other.
+   * Both already know how to be a side panel on a desktop and the bottom sheet
+   * on a phone, how to be dragged, and how to answer the density setting — so
+   * the assistant gets all of that by being one of them rather than by having
+   * any of it written again.
+   *
+   * It also removes the PRO bug at the root: `AiDrawer` was a flex child of
+   * `.app-body`, which is a ROW in Basic and a COLUMN in PRO. Written for the
+   * row (`width: 380px; height: 100%`), as a column item it took the full
+   * height and left the model's container with none — the canvas fell to 80×80
+   * and PRO looked broken. A panel cannot do that, because it is not a new
+   * participant in that layout.
+   */
+  const aiPanelOpen = $derived(
+    uiStore.appMode === 'pro'
+      ? uiStore.rightDrawerOpen && uiStore.proActiveTab === 'ai'
+      : basicPanel === 'ai',
+  );
+
+  function openAiPanel() {
+    if (uiStore.appMode === 'pro') {
+      if (aiPanelOpen) { uiStore.rightDrawerOpen = false; return; }
+      uiStore.proActiveTab = 'ai';
+      uiStore.rightDrawerOpen = true;
+      uiStore.proPanelVisible = true;
+    } else {
+      openBasicPanel('ai');
+    }
+  }
+
   /* ── PRO's phone camera button ─────────────────────────────────────────
    *
    * The stage selector that used to live here moved into the sheet, beside the
@@ -1072,6 +1105,37 @@
         not the document, which is what everything else in this corner does.
       -->
       <!--
+        Stabileo AI, beside Settings, in both modes and at every width.
+        ─────────────────────────────────────────────────────────────
+        It belongs to no stage and to no ribbon group, and that is a statement
+        about what it is rather than a placement of convenience. The assistant
+        spans modelling, results and design — so it is not a step of the work,
+        which is exactly what `PRO_TAB_STAGE` already says about Project by
+        mapping it to `''`. Things that act on the APPLICATION rather than on a
+        step live in this corner; the assistant is one of them.
+
+        A fifth stage would have claimed it IS a step. Filing it under Analysis
+        would have claimed it only reads results.
+
+        `data-dev` marks it as unfinished on the button itself, so the state is
+        visible before the panel is opened rather than only inside it.
+      -->
+      {#if uiStore.appMode === 'basico' || uiStore.appMode === 'pro'}
+        <button
+          class="btn btn-ai"
+          class:on={aiPanelOpen}
+          onclick={openAiPanel}
+          title="{t('ai.title')} — {t('ai.devShort')}"
+          aria-label="{t('ai.title')} — {t('ai.devShort')}"
+          data-dev="1"
+          data-testid="ai-open"
+        >
+          <span class="ai-glyph" aria-hidden="true">△</span>
+          <span class="ai-dev-dot" aria-hidden="true"></span>
+        </button>
+      {/if}
+
+      <!--
         At every width, now.
         ────────────────────
         This was `!uiStore.isMobile`, which took the button off a phone — while
@@ -1537,9 +1601,11 @@
 
     </div><!-- /pro-body-row (class only applied in PRO) -->
 
-    {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
-      <AiDrawer />
-    {/if}
+    <!--
+      `AiDrawer` is not mounted here any more. Its content is rendered inside
+      the panels — see `BasicPanel` and `ProPanel` — so it stops being a second
+      layout participant. That is what fixed PRO.
+    -->
   </div>
 
   {#if !uiStore.isMobile}
@@ -1775,11 +1841,16 @@
   <!-- <FeedbackWidget /> -->
 {/if}
 
-{#if !showLanding && !uiStore.isMobile && !uiStore.embedMode && !uiStore.aiDrawerOpen}
-  <button class="ai-fab" onclick={() => uiStore.aiDrawerOpen = true} title="Stabileo AI">
-    △
-  </button>
-{/if}
+<!--
+  The floating △ is gone. Stabileo AI opens from the header corner instead — see
+  `ai-open` beside the settings button — for the reason the corner exists: it is
+  where the controls that act on the APPLICATION live, as opposed to the ones
+  that act on a step of the work.
+
+  The button also had to be hidden whenever the assistant was open, because it
+  was a "open" with no "close"; a control in the corner is a toggle and does not
+  need that.
+-->
 
 <TourOverlay />
 
@@ -2372,47 +2443,31 @@
     background: var(--st-surface-3);
   }
 
-  .ai-fab {
-    position: fixed;
-    bottom: 24px;
-    /*
-       Over the canvas, not over the panel. Fixed at the viewport's corner it
-       covered the bottom-right of the right panel — enough to swallow the last
-       row of the step-by-step wizard, and enough to intercept clicks meant for
-       whatever was underneath it.
-    */
-    right: calc(24px + var(--st-right-panel-w, 0px));
-    z-index: 100;
-    width: 48px;
-    height: 48px;
+  /*
+     Stabileo AI's entry point, beside Settings.
+     ──────────────────────────────────────────
+     A dot in `--st-warn` on the corner of the glyph, because the state has to
+     be legible BEFORE the panel opens — a reader who has to open something to
+     learn it does not work has already spent the trip.
+  */
+  .btn-ai { position: relative; }
+  .ai-glyph { font-size: 0.95rem; line-height: 1; }
+  .ai-dev-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: var(--st-surface-2);
-    border: 2px solid var(--st-hair-strong);
-    color: var(--st-text);
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    background: var(--st-warn);
   }
 
-  .ai-fab:hover {
-    background: var(--st-surface-3);
-    border-color: var(--st-interactive);
-    color: var(--st-value);
-    transform: scale(1.05);
-  }
+  /*
+     The floating △ is gone; Stabileo AI opens from the header corner. Its
+     styles went with it — a fixed 48 px circle that had to dodge the right
+     panel's width and hide itself whenever the assistant was open.
+  */
 
-  .ai-fab.active {
-    background: var(--st-surface-3);
-    border-color: var(--st-interactive);
-    color: var(--st-value);
-    box-shadow: 0 4px 16px rgba(78, 205, 196, 0.3);
-  }
 
   .btn-help {
     background: transparent;

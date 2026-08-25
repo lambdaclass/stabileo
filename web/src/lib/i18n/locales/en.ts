@@ -6258,5 +6258,11 @@ const en: Record<string, string> = {
   'design.stagePurpose.floors': 'Designs slabs, walls and — if you ask for them — footings. Run it before detailing; a frame-only building can skip it.',
   'design.stagePurpose.floorsNotVerified': '{n} footing(s) not verified',
   'design.stagePurpose.detailing': 'Coordinates the bars the design produced into assemblies. The drawings, the schedule, the report and the 3-D view are projections of it.',
+  'ai.devShort': 'in development',
+  'ai.devTitle': 'In development — not usable yet',
+  'ai.devBody': 'The assistant is being built. You can see the shape it will take, but it does not answer or change the model yet: the controls are disabled on purpose. Nothing here touches your structure.',
+  'ai.devPlaceholder': 'Not available yet',
+  'ai.describeChange': 'Describe a change or a new structure…',
+  'ai.describeBuild': 'Describe what to build…',
 };
 export default en;
