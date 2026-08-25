@@ -86,7 +86,7 @@ una corrida aislada.
 | 20:11 | `m2-steel-workflow` → «no progress bar or percentage» | `not.toMatch(/\d+\s?%/)` | **Bug del test, no del producto.** Baneaba cualquier `NN %`, y el panel muestra legítimamente `0,76 %` — la sobrestimación por esquinas vivas del conformado en frío, que es una **medición**, dentro de `SteelPanel` en la etapa 8, que abre por defecto. Aserción corregida |
 | 20:29 | `project-restore` → restore/design/3-D/reload | timeout de 900 000 ms | temporización, sin aserción equivocada |
 | 20:29 | `rc-design-visual` → overlay legend | esperaba 696×34, recibió **697×34**; 645 px distintos (ratio 0,03) | 1 px de ancho. El describe se llama `@slow visual baselines (non-blocking)`. La baseline `darwin` es de **2026-07-25**, nunca actualizada, y **M2 no tocó ninguna** |
-| 20:46 | `ded-roundtrip` → «7-storey page» | solve no terminó en 480 s; el test informa **«fell back to sequential: no»** | por la regla del propio test, sin fallback debe tratarse como regresión. Pendiente de corrida aislada |
+| 20:46 | `ded-roundtrip` → «7-storey page» | solve no terminó en 480 s; el test informa **«fell back to sequential: no»** | **Resuelto el diagnóstico en §9**: no era el solve. El proceso GPU aborta, la página muere y `page.evaluate` espera al timeout en vez de rechazar. Preexistente y ajeno a M2 — la rama base da la misma tasa |
 
 **Contexto de carga:** al cerrar la suite el promedio era **20,73 / 27,77 / 18,30**, con 17 procesos
 node de otros worktrees vivos. Los dos timeouts ocurrieron dentro de esa ventana.
@@ -658,43 +658,119 @@ para −5.
 
 ---
 
-## 9 · El solve que se cuelga: qué se midió, y por qué no es de M2
+## 9 · El «cuelgue» no era un cuelgue: la página se cae
 
-§2 bis ya registraba un fallo de `ded-roundtrip` con esta firma exacta: *«solve no terminó en
-480 s», «fell back to sequential: no»*. Aparece también en los E2E de uniones de M2, en **~4 % de
-los tests**, en un test distinto cada corrida.
+### 9.1 Causa raíz
 
-**Lo medido, no lo supuesto:**
+**El proceso GPU de Chromium aborta, y con él muere el renderer.** No hay lentitud, no hay
+deadlock y no hay nada del solver: la página deja de existir.
+
+Lo que lo hacía irreconocible es una conducta de Playwright: **`page.evaluate` sobre una página
+caída no rechaza — espera.** Espera hasta el timeout del test y entonces informa
+«page.evaluate: Test timeout of 60000ms exceeded» apuntando a la línea que estaba esperando. Todo
+lo aguas abajo se lee como un cuelgue:
+
+- los `setTimeout` de la página no disparan → *«el hilo principal está bloqueado»*;
+- un solve medido en 60 ms nunca vuelve → *«el solve es lentísimo»*;
+- el `catch` que dispara el respaldo secuencial nunca corre → *«no hubo fallback»*.
+
+Las tres lecturas eran falsas por el mismo motivo: **no hay página donde ejecutar nada.**
+
+La prueba que lo cerró: una sesión CDP abierta contra la página detenida contesta
+`Target page, context or browser has been closed`, y `page.on('crash')` ya había disparado. El log
+del navegador nombra la causa:
+
+```
+[pid=58275][err] Received signal 4 ILL_ILLTRP 01302b1c07e0
+[pid=58275][err] SharedImageManager::ProduceSkia: Trying to Produce a Skia
+                 representation from a non-existent mailbox.
+```
+
+precedido de ráfagas de `GPU stall due to ReadPixels`. Señal 4 en el proceso GPU.
+
+### 9.2 Evidencia
 
 | Medición | Resultado |
 |---|---|
-| Solve de la nave (633 elementos), 6 corridas, GL por hardware | **83–129 ms** |
-| Ídem bajo swiftshader | **83–133 ms** — el GL por software no es la causa |
-| 16 contextos nuevos consecutivos, uno por iteración | **16/16 en ~130 ms**, sin cuelgues |
-| 30 contextos nuevos, leyendo la consola del propio solver | **30/30 en 59–60 ms, 3 workers** |
-| Dentro de las corridas completas de specs | **cuelgue duro de 480 s**, sin fallback |
-| Cap de 25 s puesto **dentro** de la página durante el cuelgue | **nunca dispara** |
+| Solve de la nave (633 elementos), 46 corridas aisladas | **59–133 ms** |
+| 25 y 30 contextos nuevos seguidos, sin panel de uniones | **0 cuelgues** |
+| Sesión CDP contra la página detenida | `Target ... has been closed` |
+| `page.on('crash')` en el momento del fallo | **`crashed: true`** |
+| Trace y video apagados | **sigue pasando** (3 fallos) |
+| **Rama M2**, flujo mínimo (cargar nave + resolver), n=60 | **6 caídas (10 %)** |
+| **Rama base `feat/pro-steel-m1`**, el mismo spec sin cambiar, n=25 | **3 caídas (12 %)** |
+| GL por software (SwiftShader), n=25 | 2 caídas (8 %) |
+| GL por hardware (`--use-angle=metal`), n=25 | **4 caídas (16 %)** |
 
-Ese último renglón es el dato que ordena todo: si un `setTimeout` de la propia página no corre, el
-solve no está lento — **el renderer dejó de ejecutar JavaScript**. Y como el `catch` que produce el
-fallback secuencial nunca se ejecuta, `initPool`/`solveParallel` quedan colgados sin resolver ni
-rechazar, así que el mecanismo de respaldo del propio código no llega a intervenir.
+En todas las corridas **`crashes == stalls`**: cada caída produce exactamente un falso cuelgue, y
+no hay cuelgues sin caída. Es el mecanismo, no una correlación.
 
-**No se tocó**: el solver, Rust, Cargo ni WASM. La causa está por debajo de M2 y ya estaba
-documentada antes de esta tanda.
+### 9.3 Clasificación: preexistente, no activado por M2
 
-**Sí se corrigió en la capa JS de los tests**, porque era un defecto real y propio:
-`awaitSolverReady()` se exportó desde `fixtures.ts` y los tres specs de uniones de M2 pasaron a
-usar `solveModel()`. Los tres pedían el solve **sin esperar a que el solver WASM estuviera vivo** —
-`bootPro` siempre lo esperó, pero esos specs manejan un `page` pelado y no lo heredaban. Eso
-bajó los fallos de 5 a 2 por corrida. Además `solveModel` ahora engancha su propio escucha de
-consola: el colector del fixture `pro` no existía para specs con `page` pelado, así que la única
-línea que explica un solve lento se descartaba en cada corrida.
+**Preexistente.** El mismo spec autocontenido, sin modificar, corrido sobre `feat/pro-steel-m1`
+con el artefacto WASM copiado, da **12 %** contra el **10 %** de M2. La mediana de sesión es
+prácticamente igual (1215 ms en la base, 1264 ms en M2). El flujo que lo dispara —cargar la nave y
+resolver— **no toca ninguna superficie de M2**: sin panel de uniones, sin escena 3D de uniones,
+sin selectores.
 
-**Lo que NO se hizo**: subir timeouts, agregar reintentos ni marcar los tests como flaky. El
-fallo queda visible.
+Tampoco es del GL por software: con Metal la tasa sube. Y §2 bis ya registraba la firma en
+`ded-roundtrip` antes de esta tanda.
 
----
+**Qué queda fuera del alcance autorizado.** El aborto ocurre dentro del proceso GPU de Chromium,
+no en JavaScript de la app. No hay palanca del lado del producto que lo explique: el único
+parámetro WebGL propio del viewport es `preserveDrawingBuffer: true`, que la exportación PNG
+necesita, y apagarlo dio 1 caída sobre 25 contra 2 sobre 25 — con esas muestras no distingue nada,
+así que **no se tocó**. No se modificó solver, Rust, Cargo ni WASM fuente.
+
+### 9.4 Qué sí se corrigió, y en qué capa
+
+**a) La caída ahora se nombra sola — `web/e2e/fixtures.ts`.**
+
+`withCrashGuard()` corre las esperas largas contra una promesa que rechaza en cuanto el renderer
+muere. Usado en `solveModel`, `awaitSolverReady` y `loadModel`.
+
+| | Antes | Después |
+|---|---|---|
+| Mensaje | `page.evaluate: Test timeout of 60000ms exceeded` | «the renderer process crashed while the test was waiting on it» |
+| Línea señalada | la del `evaluate`, que no tiene nada que ver | la causa, con la explicación del mecanismo |
+| Costo por caída | **60 s** | **inmediato** |
+| Corrida de los tres specs de uniones | 3,9–4,9 min | **2,1–2,6 min** |
+
+Esto **no baja la tasa de caídas y no pretende hacerlo**: una caída sigue reprobando la corrida.
+La vuelve legible, que es lo que el timeout nunca fue. `ded-roundtrip` pasó de informar «el solve
+no terminó en 480 s» a nombrar la caída del renderer.
+
+**b) El contexto WebGL se libera — `web/src/components/Viewport3D.svelte`.**
+
+`renderer.dispose()` libera lo que asignó Three.js y **deja vivo el contexto WebGL**. Chromium
+admite unos dieciséis y descarta el más viejo sin avisar. `RebarViewport3D` siempre llamó a
+`forceContextLoss()` y lleva escrito el porqué; este viewport no.
+
+Medido: la sesión PRO crea **un solo contexto** y no lo recrea al cambiar de etapa (censo de seis
+ciclos: `created:1, lost:0, live:1`), así que **esto no es la causa de la caída** y no se presenta
+como tal. Es un defecto latente real, con precedente y justificación en el propio repo, que
+aparece recién cuando el workspace se abre y cierra bastantes veces.
+
+**c) Un test de M1 que M2 había roto — `web/e2e/m1-generators-joints.spec.ts`.**
+
+`§3.5 — a properties-only profile is refused for a compound arrangement` fallaba con
+`gen-refused-chord` no encontrado. No es una caída: M2 mudó la disposición al modal y lo dejó como
+única fuente de verdad, así que **la fila sólo cambia al aplicar**. El test elegía el perfil y
+nunca aplicaba. Se corrigió la interacción, no la aserción: la nota de rechazo sí aparece al
+aplicar, de modo que la conducta del producto era correcta y lo que estaba viejo era el test.
+
+### 9.5 Cómo reproducirlo
+
+El spec de estrés usado en §9.2 no quedó en la suite: siempre pasa y no afirma nada, así que sería
+ruido. La receta, en cambio, sí importa — N sesiones con contexto nuevo, cada una cargando la nave
+y resolviendo, contando `page.on('crash')` y los `evaluate` que superan 25 s. Con N = 60 alcanza
+para ver la tasa; con N = 25 no se distinguen 1 y 3 caídas.
+
+### 9.6 Rendimiento, después de la corrección
+
+`PERF load=1266 ms switch=99 ms build=68 ms rebuild=21 ms`, contra 1176–1195 / 60–121 / 62–70 /
+17–19 antes. Sin regresión: liberar el contexto en el desmontaje no cuesta nada en la entrada al
+visor ni en el cambio de unión.
 
 ## 10 · Tamaño del PR, medido
 
