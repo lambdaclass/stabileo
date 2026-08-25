@@ -7,12 +7,12 @@
 ## §A — Cómo retomar
 
 **Rama:** `feat/pro-concrete-h2` · **PR:** [#170](https://github.com/lambdaclass/stabileo/pull/170) (draft)
-**HEAD esperado:** `a4d3a7c1` · **23 commits** sobre `feat/pro-concrete-h1` · **árbol limpio, pusheado**
+**HEAD esperado:** `fcbc422d` · **29 commits** sobre `feat/pro-concrete-h1` · **árbol limpio, pusheado**
 
 ```bash
 cd web
 git status --porcelain          # debe estar vacío
-git log --oneline -1            # a4d3a7c1 feat(pro): the detailing command moves to the DETALLE strip …
+git log --oneline -1            # fcbc422d feat(pro): a member picked in the viewer …
 git log --oneline origin/feat/pro-concrete-h2..HEAD   # debe estar vacío: remoto sincronizado
 NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin nuevos
 ```
@@ -21,10 +21,10 @@ NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin
 `cmd-open-3d` **se queda** en `DesignToolbar` —es una herramienta transversal del visor, no una
 acción del pipeline— y que `cmd-group-detailing` por lo tanto no se retira. Ver §7.5.
 
-**Lo pendiente son los objetivos de Detalle de §8: once**, uno de doce hecho. No nueve — la cuenta
-se verificó contra la lista, y los cuatro que no entran en los cinco frentes de cierre de H2
-(edición, selección sincronizada, láminas, planilla gráfica, trazabilidad) siguen abiertos igual.
-Ver la tabla al final de §8.
+**Los objetivos 1 a 4 de Detalle están hechos y verdes** (§9). Quedan **siete: 5 a 11**.
+Lo próximo es el **objetivo 5** — nombres humanos de armadura y conflictos. Ver §9.5.
+
+**No empezar el objetivo 6 hasta que el 5 esté verde y commiteado aparte.**
 
 **El endurecimiento de readiness/convergencia sigue siendo un bloque separado**, sin empezar.
 Ver §7.6: es un cambio de comportamiento con su propio radio, y rompe fixtures que detallan
@@ -64,7 +64,7 @@ edición, verificación, convergencia y documentación.
 | **F2.6** persistencia | ✅ | — |
 | **Semántica de Diseñar** | ✅ `4ab876b5` | — |
 | **F3 · reubicación** | ✅ **pasos 1-5 completos** | — |
-| **F3 · Detalle** | 🔶 1 de 12 objetivos; **11 abiertos** | §8, §8.1 |
+| **F3 · Detalle** | 🔶 **objetivos 1-4 ✅**, 5-11 abiertos | §8.1, §9 |
 | **Readiness / convergencia** | ⛔ bloque separado, sin empezar | §7.6 |
 
 ### Commits de esta rama, en orden
@@ -93,6 +93,12 @@ d63ea5f6  docs: command relocation audit
 de46378c  docs: the audit becomes the resume document for H2
 559127e0  test(i18n): the command row expects the label required steel carries  ← rojo del paso 2
 a4d3a7c1  feat(pro): detailing command + prerequisites + auto → strip   ← paso 4
+dfd40456  docs: step 4 done, and four things the audit had wrong
+5983ce7f  feat(pro): the 3-D viewer stays on the Design row             ← paso 5
+065a78e5  feat(flow): rc-member-list.ts — el censo de la lista          ← obj. 1-2, modelo
+205f40b1  feat(pro): RcMemberList.svelte — la lista agrupada            ← obj. 1-2, UI
+d1d6ae83  feat(pro): a row selects that member, and the viewer shows it ← obj. 3
+fcbc422d  feat(pro): a member picked in the viewer is the one the list points at  ← obj. 4
 ```
 
 ---
@@ -569,3 +575,156 @@ que de diseño: el vocabulario ya está decidido y asertado.
 
 **Nada de esto se mezcla con el endurecimiento de readiness/convergencia (§7.6)**, que sigue siendo
 un bloque aparte y sin empezar.
+
+---
+
+## §9 — Detalle: objetivos 1 a 4, hechos
+
+Cuatro commits, cada uno con su tanda verde. Los dos hallazgos que cambiaron el plan están en
+§9.1; lo que hay que saber para seguir, en §9.5.
+
+| obj. | qué | commit |
+|---|---|---|
+| 1-2 | censo de la lista, puro y asertado sin browser | `065a78e5` |
+| 1-2 | `RcMemberList.svelte`, la lista agrupada | `205f40b1` |
+| 3 | fila → `rebarWorkspace.selection`, y el visor la muestra | `d1d6ae83` |
+| 4 | pick en el visor → la fila que la lista marca | `fcbc422d` |
+
+### 9.1 Los dos hallazgos que cambiaron cómo se construyen 1 y 2
+
+**`AssemblyKind` no discrimina familia.** `run-detailing.ts` crea **un ensamble por nivel**, siempre
+con `kind: 'beamLine'`, y sus `elementIds` son las vigas **y** las columnas de ese nivel juntas. Una
+lista keyeada ahí archivaría todas las columnas bajo "vigas", con aspecto perfectamente creíble. La
+familia por elemento sale de los contexts de verificación. **No volver a intentarlo desde el
+ensamble.**
+
+**Eso obliga a tres estados, no a un conteo.** Los contexts los llena la pasada de **demandas**, así
+que antes de correrla la app no puede decir si un modelo tiene columnas, vigas o ambas.
+
+| estado | significa | se muestra |
+|---|---|---|
+| `absent` | el modelo no tiene ninguna | no se renderiza: sin encabezado, sin filas, nada clickeable |
+| `unknown` | hay candidatos, nadie los clasificó | **siempre visible**, "todavía sin contar" en ámbar |
+| `present` | hay miembros clasificados | total + cantidad detallada, filas listadas |
+
+Aplastar `unknown` en `absent` le diría al usuario que su edificio no tiene columnas porque no
+apretó Calcular solicitaciones. El vocabulario ya existía —`design.families.census.unknown` contra
+`design.families.state.noElements`— y se reusa.
+
+**Límite honesto del alcance actual:** `MemberContext.elementType` es `'beam' | 'column' | 'wall'`, y
+las bases salen del mapa de fundaciones del modelo. Losas y pedestales por lo tanto sólo pueden ser
+`unknown` o `absent` en esta lista. No es un hueco tapado: es lo que la app puede afirmar hoy.
+
+### 9.2 Selección lista ↔ visor: un solo canal
+
+`rebarWorkspace.selection` es el único canal, en las dos direcciones. La lista **lee** y **escribe**
+ese canal y no tiene estado local.
+
+- **Lista → visor** (`selectAndFocus`): el método ya existía y estaba escrito para este llamador.
+  Selección **por id técnico**, nunca por índice de fila — el ordinal de "Viga 1" es ayuda de
+  lectura. Enter y Space son nativos del `<button>`; las flechas mueven con la selección siguiendo
+  al foco y **no envuelven** (salir de Vigas hacia Columnas cruzaría un límite que el mouse
+  respeta). Escape limpia por el mismo canal y no restaura: `goBack()` es la afordancia del
+  workspace para eso.
+- **Visor → lista**: no hay sincronización porque no hace falta. La lista lee el canal, así que el
+  pick marca la fila al instante. Lo único que se agregó es `scrollIntoView({block:'nearest'})`,
+  que es no-op si ya está visible.
+
+**Verificable, no prometido:** el hook `rebarSelection()` expone `rebarWorkspace.selection` —**no**
+`uiStore.selectedElements`, que es otro canal (viewport 2-D y tabla de diseño). Los specs comparan
+los dos contra el `aria-selected` de las filas, así que "dos representaciones independientes del
+mismo elemento" hoy es un test que falla si vuelve.
+
+### 9.3 La decisión de foco, y por qué no es la literal
+
+§8 item 4 dice "seleccionar en 3-D **enfoca** la fila". **No se toma el foco del DOM**, y es
+deliberado: una selección del visor viene de un click en el canvas WebGL o en el panel de estado
+dentro del overlay, y sacar el foco de ahí en cada pick rompería el teclado del propio visor y
+movería el caret de abajo de las manos de alguien inspeccionando. Robar foco ante un cambio de
+estado remoto es el antipatrón, no la feature.
+
+Lo que la fila recibe es el **tab stop** de su familia. Un listbox tiene uno, no uno por fila
+—tabular por cien miembros para llegar a lo que sigue es el defecto que el roving tabindex evita— y
+lo gana el miembro seleccionado, así la lectura aterriza donde el visor la dejó. Sin nada
+seleccionado cae en la primera fila: una familia con todas las filas en `-1` no se alcanza con Tab.
+
+### 9.4 Dos cosas que costaron tiempo, para no repetirlas
+
+**El test del edificio de siete pisos es `@slow`, por medición.** Solo pasa en 4,2 s; dentro de una
+tanda de cinco archivos su `solveModel` dio timeout. Es la sensibilidad de carga que documenta
+`fixtures.ts`, y recibe el mismo tratamiento que el barrido de i18n cuando empujó a `rc-design` B15
+fuera de presupuesto: **la redundancia sale de la suite bloqueante, el presupuesto no se ensancha**,
+porque ensancharlo taparía la contención. La tanda pasó de 2,7 a 1,7 min.
+
+**Colisiones de prefijo en testids — tres veces en este trabajo, todas en los tests y ninguna en la
+app.** Un testid de contenedor que comparte prefijo con los de sus hijos hace que todo selector
+`^=` esté mal en **exactamente un índice**, y pasa inadvertido en el test que casualmente indexa
+otro:
+
+| selector flojo | qué capturaba de más |
+|---|---|
+| `[data-testid^="rc-member-"]` | `rc-member-label-*` y `rc-member-id-*` (sin `data-family`) |
+| `[data-testid^="rebar-element-"]` | el `<ul data-testid="rebar-element-list">` en el índice 0 |
+
+**Regla:** un selector `^=` necesita discriminante — un atributo (`[data-family]`), el tag
+(`button`), o el contenedor como ancestro explícito. Y **al nombrar testids nuevos, no usar un
+prefijo de contenedor que sea prefijo de sus hijos.**
+
+Y una del primer intento: `computeDemands` necesita el modelo **resuelto**. `loadModel` →
+`solveModel` → `computeDemands`, en ese orden, o `demandRevision()` queda en 0.
+
+### 9.5 Objetivo 5 — el próximo, y con qué contratos
+
+**Nombres humanos para armadura y conflictos.** Lo que pide el instructivo:
+
+- nombres humanos de armaduras; conflictos legibles;
+- ids técnicos como información secundaria;
+- distinguir **sin marca**, **marcado** y **provisional**;
+- es/en/pt; foco, teclado y accesibilidad;
+- testids sin prefijos ambiguos (ver §9.4);
+- integrado con el mismo modelo que usa el visor.
+
+**Contratos que ya existen y hay que usar, no reinventar:**
+
+- `lib/flow/rc-bar-label.ts` — `rcBarLabel` y `rcBarLabelParts`. `DetailingWorkflow.svelte` ya los
+  consume para la lista de barras (`bar-mark-*`, `bar-id-*`). Una barra sin marca está **ausente del
+  mapa a propósito**; ver el comentario de `rcBarLabel`.
+- `assignMarks` / `BarMark.barIds` — la coordinación ya decidió las marcas; leerlas, no volver a
+  marcar. `DetailingWorkflow` construye ese mapa en `markOf`.
+- `provisionalMembers` en `DetailingAssembly` — miembros cuyo diseño es propuesta, distinto de
+  "tiene una barra provisoria", y el comentario del campo explica por qué son conjuntos distintos.
+- `maturityLabelKey` en `lib/codes/maturity.ts`, ya usado por la lista de ensambles.
+
+**Dónde va:** `DetailingWorkflow.svelte` está en 509 líneas contra el techo de 600 que
+`rc-design-gates.test.ts` hace cumplir. Si el objetivo 5 crece, va en componente propio, montado
+**una sola vez**, como se hizo con `RcMemberList`.
+
+### 9.6 Objetivos 6 a 11, pendientes
+
+6. fijar/liberar con estética Stabileo y estados accesibles — **sólo después de que 5 esté verde**;
+7. láminas con contorno, recubrimientos, armaduras, cotas y orientación;
+8. rótulo breve configurable con título y normas;
+9. planilla de doblado con esquema gráfico por forma;
+10. ediciones retroactivas Detalle ↔ 3-D — contrato `RcEditConsequence`, sin implementar;
+11. trazabilidad de retocados para Documentos — contrato listo y persistido, sin conectar.
+
+**H2 no se declara completo hasta cerrar los once objetivos reales.** Cubrir los cinco frentes de
+§8.1 no equivale a cerrar §8.
+
+### 9.7 Las gates de esta área
+
+```bash
+cd web
+export E2E_PORT=6301   # dedicado, nunca 4173
+npx playwright test e2e/f3-member-list.spec.ts e2e/f3-selection-to-viewer.spec.ts \
+  e2e/f3-selection-from-viewer.spec.ts e2e/pro-panel-consistency.spec.ts \
+  e2e/pro-panel-structure.spec.ts          # 56 ✅
+npx vitest run --project unit src/lib/flow/__tests__/ \
+  src/lib/store/__tests__/rebar-workspace-selection.test.ts   # 156 ✅
+npx vitest run --project unit src/lib/i18n/__tests__/         # paridad de 13 locales
+npm run typecheck && npm run build
+```
+
+**i18n: son 13 locales, no 3.** `locale-parity.test.ts` exige paridad de claves `design.*` contra
+`en` en todas las que el repo lleva; las once que el selector no ofrece llevan valores en inglés por
+convención. Una clave nueva va a los trece archivos o la gate se pone roja.
