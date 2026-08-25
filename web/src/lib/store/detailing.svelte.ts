@@ -591,14 +591,34 @@ function createDetailingStore() {
       return r.invalidated;
     },
 
-    /** Pin or unpin a bar; a pinned bar is a hard constraint on regeneration. */
+    /**
+     * Pin or unpin a bar; a pinned bar is a hard constraint on regeneration.
+     *
+     * ── Retired only once something is GOING to change ───────────────
+     *
+     * `retireDocument()` used to run first, before the guard and before the bar was looked for.
+     * So a toggle with nothing selected — or naming a bar this assembly does not hold — cost
+     * the user the document they had built and accomplished nothing. Exactly the defect
+     * `review()` documents two methods down, in the same file, and it was still here.
+     *
+     * ── Persisted, not merely written ────────────────────────────────
+     *
+     * `write` puts the assemblies on the model, which is where they live, and that alone does
+     * not reach disk: `requestAutosave` is what does, and it is asked for after every expensive
+     * operation precisely because the 30 s timer is not a guarantee. A pin is a decision an
+     * engineer makes and then closes the tab on, and it was the one detailing mutation that
+     * never asked. The regeneration honours pins; a pin that did not survive the session was a
+     * guarantee about a flag the project no longer carried.
+     */
     toggleLock(barId: string): void {
-      retireDocument();
       if (!selected) return;
+      if (!selected.bars.some((b) => b.id === barId)) return;
+      retireDocument();
       replace({
         ...selected,
         bars: selected.bars.map((b) => (b.id === barId ? { ...b, locked: !b.locked } : b)),
       });
+      void requestAutosave('detailing');
     },
 
     /**

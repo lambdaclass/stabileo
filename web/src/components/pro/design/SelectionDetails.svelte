@@ -14,7 +14,7 @@
    * a pair of bars; a member names only itself. Asking the most specific first is what stops a
    * clicked marker being reported as "member 88" and nothing else.
    */
-  import { t } from '../../../lib/i18n';
+  import { t, tp } from '../../../lib/i18n';
   import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
   import ConflictInspector from './ConflictInspector.svelte';
   import type {
@@ -66,6 +66,32 @@
     <dd>{bar.layerId ?? '—'}</dd>
     <dt>{t('detailing.scene.assembly')}</dt>
     <dd>{bar.assemblyId}</dd>
+    <!--
+      Whether the engineer pinned this bar, and what that froze.
+
+      The panel that pins is the detailing list; the place a pin's REACH is visible is here,
+      because a bar continuous over a support owns the column as well as the beam and the 3-D
+      view is where you can see it doing so. Read from `SceneBar.locked`, which the scene copies
+      from the document — the same fact the list reads and the same one `runDetailing` and the
+      repair loop are handed. Not a second flag kept by the viewer.
+
+      Always rendered, both states. "Free" is a real answer and a row that appeared only when
+      pinned would leave a reader unable to tell "not pinned" from "this panel does not say".
+    -->
+    <dt>{t('detailing.scene.pin')}</dt>
+    <dd data-testid="rebar-sel-lock" data-lock={bar.locked ? 'pinned' : 'free'}>
+      <span aria-hidden="true">{bar.locked ? '⬤' : '◯'}</span>
+      {bar.locked ? t('detailing.bar.lock.pinned') : t('detailing.bar.lock.free')}
+      {#if bar.locked}
+        <span class="pin-reach" data-testid="rebar-sel-lock-reach">
+          {tp(bar.elementIds.length > 1
+            ? 'detailing.bar.lock.freezesMany' : 'detailing.bar.lock.freezesOne', {
+            n: bar.elementIds.length,
+            ids: bar.elementIds.join(', '),
+          })}
+        </span>
+      {/if}
+    </dd>
   </dl>
 {:else if conflict}
   <!--
@@ -148,6 +174,21 @@
   .sel-torsion { margin: 0.25rem 0 0; font-size: 0.74rem; color: var(--st-text); }
   .sel-torsion strong { color: var(--st-warn); }
   .lim { color: var(--text-muted, #8b93a3); }
+  /*
+    The pin's reach is a SENTENCE, so it leaves the figure rail its `dd` sits in: the tabular
+    numerals and the monospace are for a diameter and a length, and a clause set in them reads
+    as data. `--st-blue-text` is 5.36 on ink and is the same hue the pinned row is ruled with
+    one component over.
+  */
+  dd[data-lock='pinned'] { color: var(--st-blue-text); }
+  .pin-reach {
+    display: block;
+    font-family: var(--st-sans);
+    font-variant-numeric: normal;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: var(--text-muted, #8b93a3);
+  }
   .sel-reason {
     margin: 0.15rem 0 0; font-size: 0.7rem; line-height: 1.35;
     color: var(--text-muted, #8b93a3);

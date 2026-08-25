@@ -5171,6 +5171,22 @@ const es: Record<string, string> = {
   'detailing.bar.census.marked': '{n} con marca',
   'detailing.bar.census.unmarked': '{n} sin marca',
   'detailing.bar.census.provisional': '{n} provisoria(s)',
+  // Fijar/liberar. El estado dice qué ES la barra; la acción dice qué HARÁ el botón, y nunca
+  // comparten clave: un interruptor rotulado con su propio estado lee "Fijada" mientras fija.
+  'detailing.bar.lock.pinned': 'Fijada',
+  'detailing.bar.lock.free': 'Libre',
+  // El nombre accesible lleva el rótulo de la fila. Doscientos botones que anuncian "Fijar" no
+  // nombran nada.
+  'detailing.bar.lock.pinNamed': 'Fijar la barra {name}',
+  'detailing.bar.lock.releaseNamed': 'Liberar la barra {name}',
+  // Una fijación se consume en dos granularidades: runDetailing toma la BARRA, el lazo de
+  // reparación toma todos sus elementos. Fijar una barra continua congela también la columna.
+  'detailing.bar.lock.freezesOne': 'Congela el diseño del elemento {ids}.',
+  'detailing.bar.lock.freezesMany': 'Congela el diseño de {n} elementos ({ids}): la barra es continua a través de todos.',
+  'detailing.bar.lock.pinOnProposal': 'La fijación conserva una propuesta: no la vuelve emitible.',
+  'detailing.bar.census.pinned': '{n} fijada(s)',
+  'detailing.bar.lock.frozenMembers': 'congelan el diseño de {n} elemento(s): {ids}',
+  'detailing.bar.lock.pinnedProvisional': '{n} sobre armadura provisoria',
   'detailing.unlockBar': 'Liberar',
   'detailing.barRole.longitudinal': 'Longitudinal',
   'detailing.barRole.transverse': 'Transversal',
@@ -5531,6 +5547,8 @@ const es: Record<string, string> = {
   'detailing.scene.members': 'Elementos',
   'detailing.scene.layer': 'Capa',
   'detailing.scene.assembly': 'Conjunto',
+  // Fijada/libre en el visor. La misma lectura que hace la lista de barras, del mismo campo.
+  'detailing.scene.pin': 'Fijación',
   'detailing.scene.unresolved': 'Sin hormigón dibujado en {n} elemento(s): {ids}',
   'detailing.scene.unresolvedWhy': 'Su sección no declara un rectángulo b×h. Se muestra el hueco en vez de inventar una sección.',
   'detailing.scene.exportVisible': 'Exportar planos de lo visible',

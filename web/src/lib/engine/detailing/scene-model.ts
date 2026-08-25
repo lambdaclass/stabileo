@@ -98,6 +98,22 @@ export interface SceneBar {
    */
   provisional?: 'biaxial';
   /**
+   * Set when the engineer PINNED this bar — `BarPath.locked`.
+   *
+   * ── Why the viewer has to carry it ─────────────────────────────
+   *
+   * A pin is not a note the detailing panel keeps to itself. `runDetailing` receives
+   * `lockedBars` and never regenerates them, and the repair loop receives every member a
+   * pinned bar owns and never repairs those. So a pinned bar is a bar the rest of the pipeline
+   * has been told to leave alone, and a reader inspecting the cage in 3-D — which is where a
+   * continuous bar's second owner is actually visible — could not see which bars those were.
+   *
+   * Carried verbatim, like `provisional` above and for the same reason: the panel, the viewer
+   * and the engines then read one fact instead of forming three opinions about it. Absent on
+   * ordinary bars, which is almost all of them.
+   */
+  locked?: boolean;
+  /**
    * What the bar is FOR, carried verbatim from the document — see `BarPath.purpose`.
    *
    * Absent means resistant reinforcement. `stirrupHanger` means the bar exists because
@@ -567,6 +583,9 @@ export function buildSceneModel(doc: DocumentModel, opts: SceneOptions = {}): Sc
         cuttingLength: bar.cuttingLength,
         conflicted: conflictedBars.has(bar.id),
         provisional: bar.provisional,
+        // `|| undefined` rather than the raw flag: `locked: false` on 20 917 scene bars is
+        // 20 917 fields carrying no information, and the field's meaning is "set when pinned".
+        locked: bar.locked || undefined,
         purpose: bar.purpose,
       });
     }

@@ -5178,6 +5178,23 @@ const en: Record<string, string> = {
   'detailing.bar.census.marked': '{n} marked',
   'detailing.bar.census.unmarked': '{n} not marked',
   'detailing.bar.census.provisional': '{n} provisional',
+  // Lock and unlock. The state says what the bar IS; the action says what the control WILL DO,
+  // and they never share a key — a toggle labelled with its own state reads `Locked` while
+  // locking.
+  'detailing.bar.lock.pinned': 'Locked',
+  'detailing.bar.lock.free': 'Free',
+  // The accessible name carries the row's own label. Two hundred buttons announcing `Lock` name
+  // nothing at all.
+  'detailing.bar.lock.pinNamed': 'Lock bar {name}',
+  'detailing.bar.lock.releaseNamed': 'Unlock bar {name}',
+  // A lock is consumed at two granularities: `runDetailing` takes the BAR, the repair loop takes
+  // every member it owns. Locking a continuous bar freezes the column as well as the beam.
+  'detailing.bar.lock.freezesOne': 'Freezes the design of member {ids}.',
+  'detailing.bar.lock.freezesMany': 'Freezes the design of {n} members ({ids}): the bar runs continuously through all of them.',
+  'detailing.bar.lock.pinOnProposal': 'The lock preserves a proposal; it does not make it issuable.',
+  'detailing.bar.census.pinned': '{n} locked',
+  'detailing.bar.lock.frozenMembers': 'freezing the design of {n} member(s): {ids}',
+  'detailing.bar.lock.pinnedProvisional': '{n} on provisional steel',
   'detailing.unlockBar': 'Unlock',
   'detailing.barRole.longitudinal': 'Longitudinal',
   'detailing.barRole.transverse': 'Transverse',
@@ -5544,6 +5561,8 @@ const en: Record<string, string> = {
   'detailing.scene.members': 'Members',
   'detailing.scene.layer': 'Layer',
   'detailing.scene.assembly': 'Assembly',
+  // Locked or free, in the viewer. The same read the bar list makes, of the same field.
+  'detailing.scene.pin': 'Lock',
   'detailing.scene.unresolved': 'No concrete drawn for {n} member(s): {ids}',
   'detailing.scene.unresolvedWhy': 'Their section states no b×h rectangle. The gap is shown rather than a section nobody specified.',
   'detailing.scene.exportVisible': 'Export drawings for what is visible',

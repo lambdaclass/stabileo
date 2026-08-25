@@ -418,7 +418,10 @@ test.describe('@smoke generated detailing persists and respects locks', () => {
     await generateDetailing(page);
     await firstAssembly(page).click();
     await page.getByTestId('bar-list').locator('summary').click();
-    const lock = page.getByTestId('bar-lock').first();
+    // Objective 6 gave the control a per-bar testid. It was the literal `bar-lock` on every
+    // row, which is why this could only ever reach `.first()`; `f3-bar-lock.spec.ts` asserts
+    // that a press lands on the bar it was pressed for, which that testid made unassertable.
+    const lock = page.locator('[data-testid^="barlock-"]').first();
     test.skip(await lock.count() === 0, 'no lock control rendered for this assembly');
     await lock.click();
 

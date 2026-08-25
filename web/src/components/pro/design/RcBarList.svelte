@@ -29,14 +29,24 @@
    * reachable by keyboard and is not read by every screen reader, and the reason is the part
    * that tells a reviewer which of the two proposals they are looking at.
    *
-   * The list is not a listbox. Bars are not selectable yet — fixing and releasing is objective 6
-   * — so inventing `role="option"` here would announce a selection that does not exist. The one
-   * interactive control per row is the lock button, which is focusable, ordinary, and already
-   * carries `aria-pressed`.
+   * The list is STILL not a listbox after objective 6, and that is a decision rather than an
+   * omission. Pinning a bar is not selecting it: nothing else in the app follows the pinned bar,
+   * there is no "current bar", and `rebarWorkspace.selection` — the one selection channel, per
+   * §9.2 — is not written from here and must not be. A `role="option"` would announce a
+   * selection that does not exist, and a second channel that held one would be the exact defect
+   * `rc-selection.ts` was written to close.
+   *
+   * A roving tabindex over the lock buttons was considered and rejected for the same reason it
+   * is RIGHT in `RcMemberList`: there the rows are a listbox and arrow keys are the announced
+   * idiom, so one tab stop costs nothing. Here they are independent toggle buttons with no
+   * composite role to announce, so a roving tabindex would put 199 of 200 controls behind a
+   * gesture nothing tells the user about. Native tab stops it is; the list is inside a
+   * `<details>` that is closed until asked for, which is what bounds the cost.
    */
   import { t, tp } from '../../../lib/i18n';
   import { rcBarLabel, rcBarLabelParts } from '../../../lib/flow/rc-bar-label';
   import { rcBarStatus, rcBarStateCounts } from '../../../lib/flow/rc-bar-status';
+  import { rcBarLock, rcBarLockCensus, rcHasPins } from '../../../lib/flow/rc-bar-lock';
   import type { BarPath } from '../../../lib/codes/cirsoc201/bar-geometry';
 
   interface Props {
@@ -57,15 +67,25 @@
   /** One pass over the bars, so the census and the rows cannot disagree about a single one. */
   const rows = $derived(bars.map((bar) => {
     const label = rcBarLabel(bar, (id) => markOf.get(id));
+    const status = rcBarStatus(bar, (id) => markOf.get(id), provisionalMembers);
     return {
       bar,
       label,
       parts: rcBarLabelParts(label),
-      status: rcBarStatus(bar, (id) => markOf.get(id), provisionalMembers),
+      status,
+      /*
+        The pin, and how far it reaches.
+
+        `provisional` is handed over from the status rather than recomputed: `rc-bar-lock.ts`
+        must not own a second definition of provenance, for the reason `rc-bar-status.ts`
+        spends its header on.
+      */
+      lock: rcBarLock(bar, { provisional: status.state === 'provisional' }),
     };
   }));
 
   const counts = $derived(rcBarStateCounts(rows.map((r) => r.status)));
+  const pins = $derived(rcBarLockCensus(rows.map((r) => r.lock)));
 
   /** Glyph per state. Redundant with the word on purpose: neither is load-bearing alone. */
   const GLYPH = { provisional: '◆', marked: '●', unmarked: '○' } as const;
@@ -99,12 +119,45 @@
     {/if}
   </summary>
 
+  <!--
+    What the pins add up to, announced when it changes.
+
+    `aria-pressed` flipping is announced by itself, and it says nothing about the CONSEQUENCE:
+    that this pin froze the design of two members, one of which the user was not looking at.
+    That sentence is on the row, and a row that is already rendered is not re-read. A polite
+    live region is the one place a keyboard-only reader is told what their press did.
+
+    Rendered as an empty region rather than conditionally mounted: a live region created at the
+    moment its content appears is not reliably announced, because assistive technology has to
+    have been watching it beforehand.
+  -->
+  <p class="pins" data-testid="bar-pins" aria-live="polite">
+    {#if rcHasPins(pins)}
+      <span class="chip st-pinned" data-testid="bar-pins-count">
+        <span aria-hidden="true">⬤</span>
+        {tp('detailing.bar.census.pinned', { n: pins.pinned })}
+      </span>
+      <span class="frozen" data-testid="bar-pins-frozen">
+        {tp('detailing.bar.lock.frozenMembers', {
+          n: pins.frozenMembers.length,
+          ids: pins.frozenMembers.join(', '),
+        })}
+      </span>
+      {#if pins.pinnedProvisional > 0}
+        <span class="frozen-prov" data-testid="bar-pins-provisional">
+          {tp('detailing.bar.lock.pinnedProvisional', { n: pins.pinnedProvisional })}
+        </span>
+      {/if}
+    {/if}
+  </p>
+
   <ul class="barlist">
-    {#each rows as { bar, label, parts, status } (bar.id)}
+    {#each rows as { bar, label, parts, status, lock } (bar.id)}
       <li
         data-testid={`bar-${bar.id}`}
         data-bar-state={status.state}
-        class:locked={bar.locked}
+        data-bar-lock={lock.state}
+        class:locked={lock.locked}
         class:provisional={status.state === 'provisional'}
       >
         <span class="bar-mark" data-testid={`bar-mark-${bar.id}`}>{parts.lead}</span>
@@ -130,11 +183,53 @@
         <code class="bar-id" data-testid={`bar-id-${bar.id}`}
               title={t('detailing.bar.technicalId')}>{label.technicalId}</code>
 
-        <button data-testid="bar-lock" class="lock"
-                aria-pressed={bar.locked === true}
-                onclick={() => onToggleLock(bar.id)}>
-          {bar.locked ? t('detailing.unlockBar') : t('detailing.lockBar')}
+        <!--
+          The pin, as a state and as an action.
+
+          `data-testid` is per bar. It was the literal `bar-lock` on every row, so a suite could
+          only ever reach `.first()` — which is how D21 was written — and no test could assert
+          that a pin landed on the bar it was pressed for. `barlock-` and not `bar-lock-`, per
+          §9.4: the row is `bar-${id}` and a child prefixed `bar-` puts every `^=` selector in
+          the list one index out. `barstate-` and `barnote-` were named that way for the same
+          reason.
+
+          The accessible name carries the bar's own label. Two hundred buttons all announcing
+          `Fijar, botón` name nothing; `Fijar la barra B12` names the row the way the row names
+          itself.
+        -->
+        <button
+          type="button"
+          data-testid={`barlock-${bar.id}`}
+          class="lock"
+          class:on={lock.locked}
+          aria-pressed={lock.locked}
+          aria-label={tp(lock.actionLabelKey, { name: parts.lead })}
+          onclick={() => onToggleLock(bar.id)}
+        >
+          <span aria-hidden="true">{lock.glyph}</span> {t(lock.actionKey)}
         </button>
+
+        <!--
+          What the pin froze, in words, on its own line.
+
+          A pin is consumed at two granularities — `runDetailing` takes the BAR, the repair loop
+          takes every member the bar owns — so pinning one bar continuous over a support stops
+          the loop repairing a column the user never opened. `rc-bar-lock.ts` computes that
+          reach the same way `lockedMemberIds()` builds the set the loop receives, so the
+          sentence and the engine cannot disagree.
+        -->
+        {#if lock.freezesKey}
+          <p class="lock-note" class:reaches={lock.reaches}
+             data-testid={`barlocknote-${bar.id}`}>
+            {tp(lock.freezesKey, {
+              n: lock.frozenMembers.length,
+              ids: lock.frozenMembers.join(', '),
+            })}
+            {#if lock.pinnedProvisional}
+              <span class="prov-pin">{t('detailing.bar.lock.pinOnProposal')}</span>
+            {/if}
+          </p>
+        {/if}
 
         <!--
           Why it is provisional, in words, on its own line.
@@ -183,7 +278,25 @@
     padding: 0.15rem 0;
     border-top: 1px solid var(--st-hair);
   }
-  ul.barlist > li.locked { background: var(--st-blue); }
+  /*
+    A pinned row: a tint and a rule, never an opaque fill.
+
+    It was `background: var(--st-blue)` — the PLAIN hue, opaque, under 0.76rem body text.
+    `tokens.css` states what the plain hues are for: "fills, rules and figures, where area
+    carries the meaning", and `DetailingWorkflow`'s `.superseded` chip already records what
+    happens when one is used as a text ground — 3.69 against AA's 4.5. The row also carried
+    `--st-text` and a monospace id at `--st-text-3`, which on that blue is worse still.
+
+    So the same form the provisional row directly above uses: `-bg` tint plus a 2 px rule in the
+    plain hue on the leading edge. One shape for "this row is in a state", two hues for which
+    state, and a row that is BOTH pinned and provisional keeps both — the violet rule, because
+    provisional is the more urgent fact and wins the edge, and the blue tint underneath it.
+  */
+  ul.barlist > li.locked {
+    background: var(--st-pinned-bg);
+    border-left: 2px solid var(--st-blue);
+    padding-left: 0.35rem;
+  }
   /*
     The violet is `--st-provisional`, and it is the SAME violet the 3-D view paints provisional
     steel with and the workspace banner borders itself with. One colour, one meaning — a fourth
@@ -219,7 +332,64 @@
   }
   .bar-dia, .bar-len { min-width: 4rem; }
   .bar-role { flex: 1; opacity: 0.8; }
-  .lock { font-size: 0.7rem; padding: 0.05rem 0.35rem; }
+
+  /*
+    The pin control.
+
+    A surface and a border of ours, because C1 of `pro-panel-consistency` rejects a control left
+    to the browser to paint — this one had neither and read as unstyled. The focus ring is
+    explicit for the same reason `RcMemberList`'s is: the UA default outline on this surface is
+    the one a keyboard user cannot find.
+
+    Pressed is a border and a text colour, not a fill: `--st-blue` as a 0.7rem ground is the
+    contrast failure the row rule above documents, and `--st-blue-text` is 5.36 on ink.
+  */
+  .lock {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.2rem;
+    font: inherit;
+    font-size: 0.7rem;
+    padding: 0.05rem 0.35rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text-2);
+    cursor: pointer;
+  }
+  .lock:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .lock:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  .lock.on {
+    border-color: var(--st-blue-text);
+    color: var(--st-blue-text);
+    font-weight: 600;
+  }
+
+  /* What the pin froze. Full row, read as a sentence — the same shape as `.bar-note`. */
+  .lock-note {
+    flex-basis: 100%;
+    margin: 0 0 0.15rem;
+    font-size: 0.68rem;
+    color: var(--st-text-2);
+  }
+  /* A pin that reaches past its own member is the fact the line exists for. */
+  .lock-note.reaches { color: var(--st-warn); }
+  .prov-pin { color: var(--st-provisional-text); }
+
+  /* The pin summary, on the same footing as the state census above it. */
+  .pins {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.4rem;
+    margin: 0.25rem 0 0;
+    font-size: 0.68rem;
+    color: var(--st-text-2);
+  }
+  .pins:empty { margin: 0; }
+  .st-pinned { color: var(--st-blue-text); }
+  .frozen { color: var(--st-text-2); }
+  .frozen-prov { color: var(--st-provisional-text); }
 
   /* The reason takes the full row so it is read as a sentence, not as another column. */
   .bar-note {
