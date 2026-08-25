@@ -10,6 +10,9 @@
    */
   import { uiStore, modelStore, resultsStore, historyStore, verificationStore } from '../../lib/store';
   import { saveProject } from '../../lib/store/file';
+  import { detailingStore } from '../../lib/store/detailing.svelte';
+  import { detailingAuthor } from '../../lib/store/detailing-author.svelte';
+  import { canOpenRebar3D, openRebar3D } from '../../lib/store/rebar-open';
   import Icon from '../ribbon/Icon.svelte';
   import { buildProStages, PRO_TAB_STAGE, type ProStage, type ProCmd } from '../../lib/pro/stages';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../../lib/geometry/coordinate-system';
@@ -85,23 +88,14 @@
   let exampleBtn: HTMLButtonElement | undefined = $state();
   let openMenu = $state<string | null>(null);
 
-  const solved = $derived(resultsStore.results3D != null || resultsStore.results != null);
-
-  /*
-   * Axial stays lit whichever way it is drawn: `axialColor` is the same
-   * quantity presented differently, and that choice lives in the panel.
-   */
-  const shownDiagram = $derived(
-    resultsStore.diagramType === 'axialColor' ? 'axial' : resultsStore.diagramType,
-  );
-
   /*
    * The command tree lives in `lib/pro/stages.ts`, not here.
    *
-   * The phone draws the same commands as a grid inside the panel — it cannot
+   * The phone draws the same commands as a grid inside its panel — it cannot
    * fit a four-stage ribbon in 375 px — so the definition is shared rather than
-   * owned by whichever surface happened to need it first. Adding a command is
-   * one line there and both surfaces get it.
+   * owned by whichever surface needed it first. Adding a command is one line
+   * there and both surfaces get it, and a coherence test guards the rules a new
+   * entry has to satisfy.
    */
   const STAGES: ProStage[] = $derived(buildProStages({
     solved,
@@ -109,6 +103,9 @@
     canReport,
     onSolve,
     onReport,
+    onRebar3D: openRebar3DFromRibbon,
+    canRebar3D: () => canOpenRebar3D(),
+    rebar3DMissingSteps,
   }));
 
   /** Which stage owns the panel view — shared with the phone grid. */
@@ -313,13 +310,19 @@
           <div class="pr-cmds">
             {#each g.cmds.filter(c => !c.overflow || openMenu === g.id) as c (c.id)}
               {@const on = !c.enabled || c.enabled()}
+              {@const steps = on ? [] : (c.blockedKeys?.() ?? []).map((k) => t(k))}
+              {@const why = steps.length
+                ? `${t('proRibbon.blockedIntro')}: ${steps.join(' · ')}`
+                : (on ? '' : t('ribbon.needsSolve'))}
+              {@const hint = [c.descKey ? t(c.descKey) : '', why].filter(Boolean).join(' — ')}
               <button
                 class="pr-cmd"
                 class:active={(!!c.tab && uiStore.proActiveTab === c.tab)
                   || (!!c.diagram && shownDiagram === c.diagram)}
                 disabled={!on}
                 onclick={() => run(c)}
-                title={on ? t(c.labelKey) : `${t(c.labelKey)} — ${t('ribbon.needsSolve')}`}
+                title={hint ? `${t(c.labelKey)} — ${hint}` : t(c.labelKey)}
+                aria-describedby={hint ? `pr-cmd-desc-${c.id}` : undefined}
                 data-testid="pr-cmd-{c.id}"
               >
                 <span class="pr-icon"><Icon name={c.icon ?? 'data'} rotate={c.rotate ?? 0} size={20} /></span>
@@ -327,6 +330,18 @@
                   {c.label ?? (c.id === 'solve' && isSolving ? t('pro.solving') : t(c.labelKey))}
                 </span>
               </button>
+              <!--
+                The same sentence the tooltip carries, as text.
+
+                A `title` is invisible to a keyboard, invisible to a screen reader that is not
+                hovering, and gone the moment the pointer leaves. A disabled command that can
+                only explain itself on hover cannot explain itself at all to the people most
+                likely to be stuck. Outside the button because a disabled button is not
+                focusable, and `aria-describedby` still resolves.
+              -->
+              {#if hint}
+                <span class="sr-only" id="pr-cmd-desc-{c.id}" data-testid="pr-cmd-why-{c.id}">{hint}</span>
+              {/if}
             {/each}
           </div>
           <p class="pr-group-label">{t(g.labelKey)}</p>
@@ -349,6 +364,12 @@
   }
 
   /* ── The column that survives a tab change ─────────────────────────── */
+
+  /* Same rule as `OutcomeBadge`: the description is for assistive tech, not for the eye. */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
 
   .pr-tool-sep {
     width: 1px;

@@ -102,6 +102,35 @@ export interface RoleOption {
   requiresConfig: boolean;
   /** i18n key for a one-line explanation of what it does or why it is unavailable. */
   noteKey?: string;
+  /**
+   * Bindable, and openly declared as producing nothing certifiable.
+   *
+   * ── The problem this solves ──────────────────────────────────────
+   *
+   * A project built in structural steel could not SAY so. The `steel` role existed and
+   * offered CIRSOC 301, but binding it produced
+   * `regulations.problem.unsupportedAdapter` at severity `error` — the same treatment as
+   * naming an adapter that does not exist. So the honest choice for a steel project was to
+   * leave the role unset, which records nothing, or to bind it and carry a permanent red
+   * mark that says the project is misconfigured when it is not.
+   *
+   * An experimental binding is neither of those. It states which code the engineer intends
+   * to work to, it travels onto reports and drawings like any other stamp, and it changes
+   * NOTHING about what the app will produce: `roleUsable` still returns false, so no
+   * result, no drawing and no certificate can come out of it. The only thing it buys is the
+   * ability to record an intention truthfully — and a WARNING rather than an error, because
+   * a stack that names an experimental code is not broken, it is incomplete in a way its
+   * owner has been told about.
+   *
+   * Never set this on an option that could be mistaken for production-ready. It is the
+   * declaration that the opposite is true.
+   */
+  experimental?: true;
+}
+
+/** True when binding this option means declaring an intention, not obtaining a result. */
+export function optionIsExperimental(option: RoleOption): boolean {
+  return option.experimental === true;
 }
 
 /** Availability of one option, with the catalogue's `AVAILABLE` default applied. */
@@ -220,9 +249,14 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
   },
   // ── steel: CIRSOC 301 now EXISTS in the surface, honestly unsupported ──
   {
+    // Bindable and EXPERIMENTAL. The official 2018 text IS supplied with this app —
+    // `docs/codes/CIRSOC/markdown/cirsoc-301-2018/` carries chapters B through L and eight
+    // appendices — so unlike CIRSOC 201-2005 the obstacle is not the source, it is that no
+    // adapter implements it. A project may therefore declare that it is designed to CIRSOC
+    // 301 and have that recorded, while the app continues to produce nothing from it.
     adapterId: 'cirsoc301-2018', role: 'steel', regulation: 'cirsoc-301',
     edition: '2018', nameKey: 'regulations.name.cirsoc301', family: 'cirsoc',
-    maturity: 'UNSUPPORTED', requiresConfig: false,
+    maturity: 'UNSUPPORTED', requiresConfig: false, experimental: true,
     noteKey: 'regulations.note.textAvailableNotImplemented',
   },
   {
@@ -472,8 +506,19 @@ export function validateStack(reg: ProjectRegulations): StackValidation {
       continue;
     }
     if (opt.maturity === 'UNSUPPORTED') {
-      problems.push({ severity: 'error', roles: [role], key: 'regulations.problem.unsupportedAdapter',
-        params: { name: msg(opt.nameKey, { edition: String(opt.edition) }) } });
+      // An experimental binding is a declared intention, not a misconfiguration. It still
+      // produces nothing — `roleUsable` refuses it below — so the stack stays valid and the
+      // user is warned rather than blocked. Every other unsupported adapter is still an
+      // error, because binding it means asking for a result that cannot arrive.
+      problems.push(optionIsExperimental(opt)
+        ? {
+            severity: 'warning', roles: [role], key: 'regulations.problem.experimentalAdapter',
+            params: { name: msg(opt.nameKey, { edition: String(opt.edition) }) },
+          }
+        : {
+            severity: 'error', roles: [role], key: 'regulations.problem.unsupportedAdapter',
+            params: { name: msg(opt.nameKey, { edition: String(opt.edition) }) },
+          });
     }
     if (!b.configComplete) {
       problems.push({ severity: 'warning', roles: [role], key: 'regulations.problem.configIncomplete',
@@ -553,6 +598,14 @@ export interface RegulationStamp {
   state: BindingState;
   /** Legal instrument, when the regulation registry knows one. */
   inForce?: string;
+  /**
+   * The binding declares an intention and produces nothing certifiable.
+   *
+   * On the stamp rather than only in the panel, because the stamp is what reaches reports,
+   * drawings and exports — and a document that names CIRSOC 301 without saying the app
+   * computed nothing under it is a document that implies it did.
+   */
+  experimental?: boolean;
 }
 
 /** The stamp block every report, drawing and export carries. */
@@ -570,6 +623,7 @@ export function regulationStamps(reg: ProjectRegulations): RegulationStamp[] {
       jurisdiction: b.jurisdiction, adoption: b.adoption,
       maturity: b.maturity, state: b.state,
       inForce: info?.inForce?.instrument,
+      ...(opt && optionIsExperimental(opt) ? { experimental: true } : {}),
     });
   }
   return out;

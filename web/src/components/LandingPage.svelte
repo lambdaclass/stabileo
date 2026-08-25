@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tPublic as t, publicI18n } from '../lib/i18n/store.svelte';
+  import { applyPageMeta, restorePageMeta } from '../lib/page-meta';
   import LandingNav from './landing/LandingNav.svelte';
   import LandingHero from './landing/LandingHero.svelte';
   import LandingProblem from './landing/LandingProblem.svelte';
   import LandingWhat from './landing/LandingWhat.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
-  import LandingDemo from './landing/LandingDemo.svelte';
   import LandingCapabilities from './landing/LandingCapabilities.svelte';
   import LandingValidation from './landing/LandingValidation.svelte';
   import LandingCodes from './landing/LandingCodes.svelte';
@@ -16,7 +16,9 @@
   import LandingStatus from './landing/LandingStatus.svelte';
   import LandingDocs from './landing/LandingDocs.svelte';
   import LandingCTA from './landing/LandingCTA.svelte';
+  import LandingBlog from './landing/LandingBlog.svelte';
   import LandingFooter from './landing/LandingFooter.svelte';
+  import WhatsappButton from './landing/WhatsappButton.svelte';
   import { enterApp } from './landing/landing-utils';
   import './landing/landing.css';
 
@@ -25,69 +27,23 @@
   let prefersReducedMotion = $state(false);
 
   /**
-   * Reactive metadata, applied by mutating the static tags in index.html
-   * rather than appending a second set through `svelte:head`.
-   *
-   * The landing is client-rendered, so index.html holds the English metadata a
-   * non-JS crawler sees and this only refines it for a real browser: the
-   * Spanish landing gets Spanish title, description and og:locale. The
-   * originals are captured once and restored when the landing unmounts, so
-   * entering the application never leaves landing copy behind.
+   * Reactive metadata. The landing is client-rendered, so index.html holds the
+   * English set a non-JS crawler sees and this only refines it for a real
+   * browser: the Spanish and Portuguese landings get their own title,
+   * description and og:locale. See src/lib/page-meta.ts — the blog uses it too.
    */
-  const META_TAGS = [
-    ['meta[name="description"]', 'content'],
-    ['meta[property="og:title"]', 'content'],
-    ['meta[property="og:description"]', 'content'],
-    ['meta[property="og:locale"]', 'content'],
-    ['meta[property="og:locale:alternate"]', 'content'],
-    ['meta[name="twitter:title"]', 'content'],
-    ['meta[name="twitter:description"]', 'content'],
-  ] as const;
-
-  let originalMeta: { title: string; lang: string; tags: (string | null)[] } | null = null;
-
-  function captureMetadata() {
-    if (originalMeta) return;
-    originalMeta = {
-      title: document.title,
-      lang: document.documentElement.lang,
-      tags: META_TAGS.map(([sel, attr]) => document.querySelector(sel)?.getAttribute(attr) ?? null),
-    };
-  }
-
-  function setMeta(selector: string, value: string) {
-    document.querySelector(selector)?.setAttribute('content', value);
-  }
-
   function syncMetadata() {
-    const locale = publicI18n.locale;
-    const title = `Stabileo — ${t('landing.heroH')}`;
-    const description = t('landing.heroP');
-    document.title = title;
-    document.documentElement.lang = locale;
-    setMeta('meta[name="description"]', description);
-    setMeta('meta[property="og:title"]', title);
-    setMeta('meta[property="og:description"]', description);
-    setMeta('meta[property="og:locale"]', locale === 'es' ? 'es_AR' : 'en_US');
-    setMeta('meta[property="og:locale:alternate"]', locale === 'es' ? 'en_US' : 'es_AR');
-    setMeta('meta[name="twitter:title"]', title);
-    setMeta('meta[name="twitter:description"]', description);
-  }
-
-  function restoreMetadata() {
-    if (!originalMeta) return;
-    document.title = originalMeta.title;
-    document.documentElement.lang = originalMeta.lang;
-    META_TAGS.forEach(([sel, attr], i) => {
-      const v = originalMeta!.tags[i];
-      if (v !== null) document.querySelector(sel)?.setAttribute(attr, v);
+    applyPageMeta({
+      title: `Stabileo — ${t('landing.heroH')}`,
+      description: t('landing.heroP'),
+      locale: publicI18n.locale,
+      path: '/',
     });
   }
 
   $effect(() => {
-    captureMetadata();
     syncMetadata();
-    return restoreMetadata;
+    return restorePageMeta;
   });
 
   onMount(() => {
@@ -193,22 +149,22 @@
     Narrative order: what it is, why it matters, what works today, proof, then
     the developing layers, then the vision, then the honest status table.
 
-    The visitor meets Basic (04) and its live demo (05) before Education (09),
-    PRO (10) or Stabileo AI (11), so the present state of the product is
-    established before any future capability is described.
+    The visitor meets Basic (04) before Education (08), PRO (09) or Stabileo
+    AI (10), so the present state of the product is established before any
+    future capability is described.
 
-    Real-time solving used to hold a section of its own here. It is a genuine
-    differentiator but a narrow one, and giving it a whole section between the
-    demo and the capabilities matrix overstated it — it now sits in the Basic
-    feature list, where a visitor reads it alongside the other things Basic
-    does.
+    Two sections have been removed rather than reordered, and for the same
+    reason both times: a whole chapter overstated what it held. Real-time
+    solving now sits in the Basic feature list, alongside the other things
+    Basic does. The live demo — an embedded instance of the editor, running
+    between Basic and the capabilities matrix — was the second, and the deck
+    is renumbered so the sequence has no gap where it was.
   -->
   <LandingNav />
   <LandingHero {prefersReducedMotion} />
   <LandingProblem />
   <LandingWhat />
   <LandingBasic />
-  <LandingDemo />
   <LandingCapabilities />
   <LandingValidation />
   <LandingCodes />
@@ -218,5 +174,7 @@
   <LandingStatus />
   <LandingDocs />
   <LandingCTA />
+  <LandingBlog />
   <LandingFooter />
+  <WhatsappButton />
 </div>

@@ -3,7 +3,7 @@
 // wireframe is rendered by the shared batched LineSegments2.
 import * as THREE from 'three';
 import { COLORS } from './selection-helpers';
-import { createSectionShape } from './section-profiles';
+import { createSectionShapes } from './section-profiles';
 import { GLOBAL_Z, THREEJS_CYLINDER_AXIS } from '../geometry/coordinate-system';
 import type { Section } from '../store/model.svelte';
 
@@ -93,14 +93,16 @@ export function createElementGroup(
     // real extruded profile when the assigned section has enough geometry;
     // otherwise fall back to a cylinder (more visible than a naked line). This
     // is purely visual — element type still drives the solver (truss = axial).
-    const sectionShape = (mode === 'sections' && opts.section) ? createSectionShape(opts.section) : null;
-    if (sectionShape) {
+    // A list, because a built-up member is several profiles at a spacing. See
+    // `createSectionShapes`.
+    const sectionShapes = (mode === 'sections' && opts.section) ? createSectionShapes(opts.section) : [];
+    if (sectionShapes.length > 0) {
       // With local axes, rollAngle is already baked into ey/ez → only the section's
       // own rotation rolls further; without, fall back to combined roll about global Z.
       const secRot = opts.localAxes
         ? (opts.sectionRotation ?? 0)
         : (opts.elementRollAngle ?? 0) + (opts.sectionRotation ?? 0);
-      addExtrudedSection(group, sectionShape, nI, dx, dy, dz, length, baseColor, secRot, opts.localAxes);
+      addExtrudedSection(group, sectionShapes, nI, dx, dy, dz, length, baseColor, secRot, opts.localAxes);
     } else {
       addCylinder(group, nI, nJ, mx, my, mz, length, baseColor);
     }
@@ -139,7 +141,8 @@ export function createElementGroup(
  */
 function addExtrudedSection(
   group: THREE.Group,
-  sectionShape: THREE.Shape,
+  /** One outline for a rolled profile; several for a built-up assembly. */
+  sectionShapes: THREE.Shape[],
   nI: { x: number; y: number; z: number },
   dx: number, dy: number, dz: number,
   length: number,
@@ -147,7 +150,9 @@ function addExtrudedSection(
   secRot: number,
   localAxes?: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] },
 ): void {
-  const geo = new THREE.ExtrudeGeometry(sectionShape, { depth: length, bevelEnabled: false, steps: 1 });
+  // `ExtrudeGeometry` takes an array, so the parts of a built-up section become one mesh —
+  // one draw call and one material, which matters on a 600-member shed.
+  const geo = new THREE.ExtrudeGeometry(sectionShapes, { depth: length, bevelEnabled: false, steps: 1 });
   // More metallic steel look; renders better under the existing scene lights.
   const mat = new THREE.MeshStandardMaterial({
     color: baseColor,

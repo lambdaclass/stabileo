@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npx tsx scripts/prerender.ts",
     "preview": "vite preview",
     "wasm": "cd ../engine && wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt",
     "test": "node scripts/test-all.mjs",
@@ -23,7 +23,9 @@
     "typecheck:baseline": "node scripts/typecheck.mjs --write",
     "test:unit": "vitest run --project unit",
     "test:build": "vitest run --project build",
-    "bench:wasm-boundary": "node scripts/bench-wasm-boundary.mjs"
+    "bench:wasm-boundary": "node scripts/bench-wasm-boundary.mjs",
+    "build:only": "vite build",
+    "prerender": "npx tsx scripts/prerender.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.60.0",

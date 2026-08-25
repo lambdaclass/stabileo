@@ -5,12 +5,10 @@ const ko: Translations = {
 
   // ─── Landing Page ───
   'landing.features': '기능',
-  'landing.demo': '데모',
   'landing.pricing': '요금제',
   'landing.heroTitle1': '구조 해석,',
   'landing.heroTitle2': '즉시.',
   'landing.heroSub': '브라우저에서 전문가 수준의 2D 및 3D 구조 해석. 설치 불필요, 타협 없음.',
-  'landing.tryDemo': '데모 체험',
   'landing.tryApp': '앱 체험',
   'landing.tryTour': '가이드 투어 체험',
   'landing.metricLanguages': '언어',
@@ -116,8 +114,6 @@ const ko: Translations = {
   'landing.openSourceDesc': 'Stabileo는 오픈 소스입니다. 코드를 확인하고, 기여하거나, 직접 호스팅하세요.',
   'landing.viewOnGithub': 'GitHub에서 보기',
   'landing.tryItNow': '지금 사용해 보기',
-  'landing.interactiveDemo': '대화형 데모',
-  'landing.interactiveDemoDesc': '실제 구조 모델을 탐색하세요. 클릭, 확대, 상호작용 — 가입 불필요.',
   'landing.changelog': '새로운 소식',
   'landing.changelogDesc': 'Stabileo는 활발히 개발 중입니다. 최신 업데이트를 확인하세요.',
   'landing.stickyCtaMobile': '무료로 시작',

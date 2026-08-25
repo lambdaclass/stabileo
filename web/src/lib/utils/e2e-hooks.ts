@@ -123,9 +123,18 @@ export interface StabileoTestHooks {
    *
    * Exposed for the walkthrough audit: checking that a step can reach what it
    * asks the reader to click means knowing which step it is and whether it
-   * allows interaction, and neither is visible in the DOM.
+   * allows interaction, and neither is visible in the DOM. `armed`/`waits`/`met`
+   * explain a hang — whether the advance was armed on entry, whether the step
+   * waits on the reader at all, and whether its condition currently holds.
    */
-  tourStep(): { id: string; target: string; allowInteraction: boolean } | null;
+  tourStep(): {
+    id: string;
+    target: string;
+    allowInteraction: boolean;
+    armed: boolean;
+    waits: boolean;
+    met: boolean | null;
+  } | null;
   /** Which tool is armed, for the same reason. */
   currentTool(): string;
   /**
@@ -143,6 +152,14 @@ export interface StabileoTestHooks {
   reinforcement(elementId: number): unknown;
   rebarSummary(elementId: number): string;
   elementIds(): number[];
+  /**
+   * The names of the sections in the model, e.g. `HEB 220`.
+   *
+   * Added so a spec can assert that the profile a selector hands back is the id the
+   * generator stores — without it the only observable was the trigger's display text,
+   * which says nothing about what landed in the model.
+   */
+  sectionNames(): string[];
   orientationSuspectCount(): number;
   undoCount(): number;
   /** Non-background pixel count of the main canvas — a blank-render sanity check. */
@@ -340,9 +357,9 @@ export function installE2EHooks(): void {
       const st = tourStore.currentStep;
       return st ? {
         id: st.id, target: st.target, allowInteraction: !!st.allowInteraction,
-        armed: (tourStore as unknown as { armedForTest?: boolean }).armedForTest ?? false,
+        armed: tourStore.armedForTest,
         waits: !!st.waitFor, met: st.waitFor ? !!st.waitFor() : null,
-      } as never : null;
+      } : null;
     },
     currentTool: () => String(uiStore.currentTool),
     nodeScreenPos: (id: number) => {
@@ -368,6 +385,7 @@ export function installE2EHooks(): void {
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
+    sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,

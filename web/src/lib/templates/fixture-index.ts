@@ -39,6 +39,11 @@ const fixtures3D: Record<string, FixtureLoader> = {
   '3d-grid-slab': () => import('./fixtures/3d-grid-slab.json'),
   '3d-tower': () => import('./fixtures/3d-tower.json'),
   '3d-torsion-beam': () => import('./fixtures/3d-torsion-beam.json'),
+  // A cantilever tube under 1 kN·m, sized to the blog post on torsion theories:
+  // CHS 105×5 is a 50 mm mean radius with a 5 mm wall, the t/rm = 0.10 row of
+  // its table. Opened from the post's embedded editor, so the reader sees
+  // Cauchy and Bredt disagree on the very section the text is about.
+  'torsion-tube': () => import('./fixtures/torsion-tube.json'),
   '3d-nave-industrial': () => import('./fixtures/3d-nave-industrial.json'),
   '3d-building': () => import('./fixtures/3d-building.json'),
   'pro-edificio-7p': () => import('./fixtures/pro-edificio-7p.json'),

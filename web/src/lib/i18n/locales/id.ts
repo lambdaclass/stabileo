@@ -5,12 +5,10 @@ const id: Translations = {
 
   // ─── Landing Page ───
   'landing.features': 'Fitur',
-  'landing.demo': 'Demo',
   'landing.pricing': 'Harga',
   'landing.heroTitle1': 'Analisis Struktur,',
   'landing.heroTitle2': 'Seketika.',
   'landing.heroSub': 'Analisis struktur 2D & 3D tingkat profesional di browser Anda. Tanpa instalasi, tanpa kompromi.',
-  'landing.tryDemo': 'Coba demo',
   'landing.tryApp': 'Coba aplikasi',
   'landing.tryTour': 'Coba tur panduan',
   'landing.metricLanguages': 'Bahasa',
@@ -116,8 +114,6 @@ const id: Translations = {
   'landing.openSourceDesc': 'Stabileo bersumber terbuka. Periksa kode, berkontribusi, atau hosting sendiri.',
   'landing.viewOnGithub': 'Lihat di GitHub',
   'landing.tryItNow': 'Coba sekarang',
-  'landing.interactiveDemo': 'Demo interaktif',
-  'landing.interactiveDemoDesc': 'Jelajahi model struktur nyata. Klik, zoom, dan berinteraksi — tanpa perlu mendaftar.',
   'landing.changelog': 'Yang baru',
   'landing.changelogDesc': 'Stabileo dalam pengembangan aktif. Lihat pembaruan terbaru.',
   'landing.stickyCtaMobile': 'Mulai Gratis',

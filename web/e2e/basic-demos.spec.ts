@@ -108,7 +108,7 @@ test.describe('@smoke the tutorials menu', () => {
  * reason it could rot: a spotlight aimed at a missing element looks like a
  * dark screen, not like an error.
  */
-test.describe('every step has something to point at', () => {
+test.describe('@smoke every step has something to point at', () => {
   for (const demo of DEMOS) {
     test(`${demo.id}: targets exist all the way through`, async ({ page }) => {
       test.setTimeout(120_000);
@@ -281,7 +281,7 @@ test.describe('@smoke the cards do not contradict the screen', () => {
 });
 
 /** The section walkthrough waits on a click that opens a panel. */
-test.describe('the section walkthrough', () => {
+test.describe('@smoke the section walkthrough', () => {
   test('advances when the reader clicks the member', async ({ page }) => {
     test.setTimeout(150_000);
     await openBasic(page);

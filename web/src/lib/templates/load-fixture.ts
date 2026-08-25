@@ -22,6 +22,15 @@ export interface JSONModel {
     hingeEnd?: boolean;
     /** Analytical member offset (PR [7] eccentric framing). */
     offset?: Record<string, unknown>;
+    /**
+     * Roll of the profile about the member axis, degrees.
+     *
+     * Per ELEMENT rather than per section, because members that share a section do not
+     * share an orientation — every purlin on a pitched roof uses one profile and each is
+     * rolled by its own slope. Carried the same way `offset` is: set on the created
+     * element, since the `FixtureLoader` surface has no setter for it.
+     */
+    rollAngle?: number;
   }>;
   supports: Array<{ id: number; nodeId: number; type: string; [k: string]: unknown }>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
@@ -139,11 +148,16 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
     if (matId !== 1) api.updateElementMaterial(newId, matId);
     if (secId !== 1) api.updateElementSection(newId, secId);
 
-    // Analytical member offset (PR [7]) — set directly on the created element.
-    if (e.offset) {
-      const created = (api.model as unknown as { elements?: Map<number, { offset?: unknown }> }).elements?.get?.(newId)
-        ?? (api as unknown as { elements?: Map<number, { offset?: unknown }> }).elements?.get?.(newId);
-      if (created) created.offset = JSON.parse(JSON.stringify(e.offset));
+    // Analytical member offset (PR [7]) and profile roll — both set directly on the
+    // created element, because `FixtureLoader` exposes no setter for either.
+    if (e.offset || e.rollAngle !== undefined) {
+      type Carried = { offset?: unknown; rollAngle?: number };
+      const created = (api.model as unknown as { elements?: Map<number, Carried> }).elements?.get?.(newId)
+        ?? (api as unknown as { elements?: Map<number, Carried> }).elements?.get?.(newId);
+      if (created) {
+        if (e.offset) created.offset = JSON.parse(JSON.stringify(e.offset));
+        if (e.rollAngle !== undefined) created.rollAngle = e.rollAngle;
+      }
     }
 
     // Hinges

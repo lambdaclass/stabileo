@@ -4,12 +4,10 @@ const it: Translations = {
 
   // ─── Landing Page ───
   'landing.features': 'Funzionalità',
-  'landing.demo': 'Demo',
   'landing.pricing': 'Prezzi',
   'landing.heroTitle1': 'Analisi Strutturale,',
   'landing.heroTitle2': 'Istantanea.',
   'landing.heroSub': 'Analisi strutturale 2D e 3D di livello professionale nel tuo browser. Senza installazione, senza compromessi.',
-  'landing.tryDemo': 'Prova la demo',
   'landing.tryApp': 'Prova l\'app',
   'landing.tryTour': 'Prova il tour guidato',
   'landing.metricLanguages': 'Lingue',
@@ -115,8 +113,6 @@ const it: Translations = {
   'landing.openSourceDesc': 'Stabileo è open source. Ispeziona il codice, contribuisci o ospitalo autonomamente.',
   'landing.viewOnGithub': 'Vedi su GitHub',
   'landing.tryItNow': 'Prova ora',
-  'landing.interactiveDemo': 'Demo interattiva',
-  'landing.interactiveDemoDesc': 'Esplora un vero modello strutturale. Clicca, zooma e interagisci — senza registrazione.',
   'landing.changelog': 'Novità',
   'landing.changelogDesc': 'Stabileo è in sviluppo attivo. Guarda gli ultimi aggiornamenti.',
   'landing.stickyCtaMobile': 'Inizia Gratis',

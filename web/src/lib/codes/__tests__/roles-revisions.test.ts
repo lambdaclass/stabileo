@@ -178,10 +178,41 @@ describe('stack compatibility', () => {
   });
 
   it('REFUSES an unsupported adapter, because there is nothing behind it', () => {
-    const r = withRole(complete(), 'steel', 'cirsoc301-2018');
+    // Eurocode 3 is unsupported and NOT declared experimental: binding it is asking for a
+    // result that cannot arrive, and that is an error.
+    const r = withRole(complete(), 'steel', 'eurocode3');
     const v = validateStack(r);
     expect(v.ok).toBe(false);
     expect(v.problems.some((p) => p.key === 'regulations.problem.unsupportedAdapter')).toBe(true);
+  });
+
+  it('WARNS on an experimental adapter instead, because naming one is not a misconfiguration', () => {
+    // CIRSOC 301-2018 is bindable and declared experimental. A steel project may state the
+    // code it is designed to; the app still produces nothing under it, which `roleUsable`
+    // below is what actually enforces.
+    const r = withRole(complete(), 'steel', 'cirsoc301-2018');
+    const v = validateStack(r);
+    expect(v.ok).toBe(true);
+    expect(v.problems.some((p) => p.key === 'regulations.problem.unsupportedAdapter')).toBe(false);
+    const p = v.problems.find((x) => x.key === 'regulations.problem.experimentalAdapter');
+    expect(p?.severity).toBe('warning');
+    expect(p?.roles).toEqual(['steel']);
+  });
+
+  it('an experimental binding still cannot produce anything', () => {
+    const r = withRole(complete(), 'steel', 'cirsoc301-2018');
+    expect(roleUsable(r, 'steel')).toBe(false);
+  });
+
+  it('and the stamp that reaches reports and drawings says it is experimental', () => {
+    const r = withRole(complete(), 'steel', 'cirsoc301-2018');
+    const stamp = regulationStamps(r).find((s) => s.role === 'steel');
+    expect(stamp).toBeDefined();
+    expect(stamp!.experimental).toBe(true);
+    // Every other stamp in a default stack is not.
+    for (const s of regulationStamps(r).filter((x) => x.role !== 'steel')) {
+      expect(s.experimental).toBeUndefined();
+    }
   });
 
   it('REFUSES basis and loads from different families', () => {

@@ -5,12 +5,10 @@ const ar: Translations = {
 
   // ─── Landing Page ───
   'landing.features': 'الميزات',
-  'landing.demo': 'عرض توضيحي',
   'landing.pricing': 'الأسعار',
   'landing.heroTitle1': 'تحليل إنشائي،',
   'landing.heroTitle2': 'فوري.',
   'landing.heroSub': 'تحليل إنشائي احترافي ثنائي وثلاثي الأبعاد في متصفحك. بدون تثبيت، بدون تنازلات.',
-  'landing.tryDemo': 'جرّب العرض التوضيحي',
   'landing.tryApp': 'جرّب التطبيق',
   'landing.tryTour': 'جرّب الجولة الإرشادية',
   'landing.metricLanguages': 'اللغات',
@@ -116,8 +114,6 @@ const ar: Translations = {
   'landing.openSourceDesc': 'Stabileo مفتوح المصدر. تفحّص الكود، ساهم، أو استضفه بنفسك.',
   'landing.viewOnGithub': 'عرض على GitHub',
   'landing.tryItNow': 'جرّبه الآن',
-  'landing.interactiveDemo': 'عرض تفاعلي',
-  'landing.interactiveDemoDesc': 'استكشف نموذجاً إنشائياً حقيقياً. انقر، كبّر، وتفاعل — بدون تسجيل.',
   'landing.changelog': 'ما الجديد',
   'landing.changelogDesc': 'Stabileo قيد التطوير النشط. شاهد آخر التحديثات.',
   'landing.stickyCtaMobile': 'ابدأ مجاناً',

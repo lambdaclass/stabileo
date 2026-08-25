@@ -20,7 +20,7 @@
 
 <section class="sec sec--paper caps reveal" data-section="capabilities" id="capabilities" aria-labelledby="capabilities-title">
   <div class="wrap">
-    <Eyebrow n="06" label={t('landing.ebCapabilities')} />
+    <Eyebrow n="05" label={t('landing.ebCapabilities')} />
     <h2 id="capabilities-title" class="display">{t('landing.capH')}</h2>
     <p class="lead">{t('landing.capP')}</p>
 

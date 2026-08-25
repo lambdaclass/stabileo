@@ -80,7 +80,7 @@
        * without listening for the answer to change.
        */
       autoAdvanceArmed = untrack(() => !!(step.autoAdvance && step.waitFor && !step.waitFor()));
-      (tourStore as unknown as { armedForTest: boolean }).armedForTest = autoAdvanceArmed;
+      tourStore.armedForTest = autoAdvanceArmed;
       if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
       requestAnimationFrame(() => {
         tourStore.updateTargetRect();

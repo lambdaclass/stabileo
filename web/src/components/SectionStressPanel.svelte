@@ -71,7 +71,18 @@
   let showCentralCoreInfo = $state(false);     // NC details section (closed by default)
   let useGlobalScale = $state(true);           // Local/global stress scaling toggle (global by default)
   let showTensors = $state(false);
-  let showTorsion = $state(false);      // Torsional shear section (closed by default)
+  /*
+   * Torsional shear section, closed by default — unless the URL asked for it.
+   *
+   * `?inspect=<id>&open=torsion` is the contract a blog post uses to land a
+   * reader on the figure it is discussing instead of on a list of collapsed
+   * headings. Read once at construction: a reader who then closes the group
+   * has to be able to keep it closed.
+   */
+  let showTorsion = $state(
+    typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('open') === 'torsion',
+  );
   let showCentroidWork = $state(false);  // Step-by-step centroid
   let showShearCentreWork = $state(false); // Step-by-step shear centre             // Stress/strain tensor section (closed by default)
   let showStressMap = $state(false);           // MAP: paint sigma over the section instead of at a point

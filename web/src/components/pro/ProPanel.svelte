@@ -32,10 +32,12 @@
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
+  import SteelPanel from './steel/SteelPanel.svelte';
+  import ProGeneratorsPanel from './generators/ProGeneratorsPanel.svelte';
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
-  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'connections' | 'diagnostics';
+  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics';
 
   // Group tabs into logical categories
   interface TabGroup {
@@ -73,6 +75,8 @@
         { id: 'advanced' as ProTab, label: t('pro.tabAdvanced') },
         { id: 'results' as ProTab, label: t('pro.tabResults') },
         { id: 'design' as ProTab, label: 'RC Design' },
+        { id: 'steel' as ProTab, label: t('steel.panel.title') },
+        { id: 'generators' as ProTab, label: t('generator.ui.title') },
         { id: 'connections' as ProTab, label: t('pro.tabConnections') },
         { id: 'diagnostics' as ProTab, label: t('pro.tabDiagnostics') },
       ],
@@ -859,7 +863,14 @@
     shells: 'pro.tabShells', materials: 'pro.tabMaterials', sections: 'pro.tabSections',
     supports: 'pro.tabSupports', constraints: 'pro.tabConstraints', loads: 'pro.tabLoads',
     advanced: 'ribbon.advanced', results: 'ribbon.results', design: 'pro.tabDesign',
-    connections: 'pro.tabConnections', diagnostics: 'pro.tabDiagnostics',
+    // The panel's heading follows the command that opens it. Leaving it at
+    // `pro.tabConnections` would have put "Uniones metálicas" on the ribbon and "Conexiones"
+    // on the panel it opens, which is two names for one place.
+    connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
+    // Same rule for the two metallic destinations: the heading repeats the ribbon command
+    // (`proRibbon.cmdSteelStructures` / `proRibbon.cmdSteelProfiles`), not the fallback
+    // "Nodes" the map used to produce for both.
+    steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
   };
 </script>
 
@@ -1127,6 +1138,10 @@
           <ProResultsTab />
         {:else if activeTab === 'design'}
           <ProRcWorkflowTab />
+        {:else if activeTab === 'steel'}
+          <SteelPanel />
+        {:else if activeTab === 'generators'}
+          <ProGeneratorsPanel />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
         {:else if activeTab === 'diagnostics'}

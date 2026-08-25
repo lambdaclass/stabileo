@@ -4,6 +4,8 @@
 
 import * as THREE from 'three';
 import type { Section } from '../store/model.svelte';
+import { buildSectionOutline } from '../engine/generators/section-outline';
+import type { BuiltUpArrangement } from '../engine/generators/built-up-section';
 
 /**
  * Create an I/H beam shape (doubly-symmetric).
@@ -223,6 +225,66 @@ export function createTShape(h: number, b: number, tw: number, tf: number): THRE
  * Create a THREE.Shape for the given section profile.
  * Returns null if section data is insufficient (fallback to cylinder).
  */
+/**
+ * Every closed outline this section is made of, for the extruded 3-D view.
+ *
+ * ── Why a list and not a shape ──────────────────────────────────────
+ *
+ * Because a built-up member is several profiles at a spacing, and `createSectionShape`
+ * cannot say that: it returns one outline, chosen by `sec.shape`. A generated section carries
+ * no `shape` — deliberately, so the canonical resolver cannot rebuild one part's geometry and
+ * overwrite the assembly's properties — and so it fell to the `default:` branch below, which
+ * says "Default to I-shape". Measured: a double-channel box chord and a back-to-back angle
+ * post BOTH rendered as a fabricated 13-point I-beam.
+ *
+ * When `sec.composition` is present the outline comes from the SAME placement table the
+ * section's own properties came from, so the picture and the numbers describe one assembly.
+ * It is also the accurate outline rather than an idealised one — root radii, flange taper and
+ * all — because it is the geometry engine's own polygon set.
+ *
+ * Falls through to the single-shape path for every section that is not a generated assembly,
+ * so nothing that renders correctly today changes.
+ */
+export function createSectionShapes(sec: Section): THREE.Shape[] {
+  const composition = sec.composition;
+  if (composition) {
+    const outline = buildSectionOutline({
+      profileName: composition.profileName,
+      arrangement: composition.arrangement as BuiltUpArrangement,
+      gapMm: composition.gapMm,
+      // The section's own rotation, if any. Element roll is applied to the mesh, not here.
+      rotationDeg: sec.rotation ?? 0,
+    });
+    if (!outline.unavailable && outline.polygons.length > 0) {
+      const solid = outline.polygons.filter((p) => !p.isVoid);
+      const voids = outline.polygons.filter((p) => p.isVoid);
+      const shapes = solid.map((p) => {
+        const s = new THREE.Shape(p.vertices.map(([y, z]) => new THREE.Vector2(y, z)));
+        /*
+         * Voids are attached to EVERY solid outline rather than matched to their own part.
+         * `CanonicalPolygon` does not say which outer ring a hole belongs to, and a hole that
+         * lies outside a shape is ignored by the triangulator — so attaching all of them is
+         * correct for the arrangements here, where each part is a translated copy of one
+         * profile and its own void is the only one inside it.
+         */
+        for (const v of voids) {
+          s.holes.push(new THREE.Path(v.vertices.map(([y, z]) => new THREE.Vector2(y, z))));
+        }
+        return s;
+      });
+      if (shapes.length > 0) return shapes;
+    }
+    // An assembly whose outline could not be built contributes no shapes here; the caller
+    // (`create-element-mesh.ts`) then falls back to a plain cylinder rather than drawing
+    // nothing. What this early return avoids is the other stand-in — a fabricated I-beam
+    // where two angles belong.
+    return [];
+  }
+
+  const single = createSectionShape(sec);
+  return single ? [single] : [];
+}
+
 export function createSectionShape(sec: Section): THREE.Shape | null {
   const shape = sec.shape;
   const h = sec.h ?? 0;
