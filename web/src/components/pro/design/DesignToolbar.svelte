@@ -200,13 +200,22 @@
         -->
 
     <!--
-      `Ver modelo 3D` — the RESULT of everything to its left, and until PR20 it was reachable
-      only from inside the detailing disclosure, two levels below the commands that produce it.
+      `Ver modelo 3D` — the RESULT of everything the pipeline produced, and until PR20 it was
+      reachable only from inside the detailing disclosure, two levels below the commands that
+      produce it.
 
-      It is the same operation as the button that stays down there: both call `openRebar3D`, so
-      the cage on screen is a projection of the same document instance the report, the schedule
-      and the drawings render. It is disabled — not hidden — while there is nothing to draw, and
-      says so, because a command that vanishes teaches nobody what it needs.
+      It is the same operation as the other three ways in — `overview-open-3d`, `doc-3d` and the
+      ribbon's `pr-cmd-rebar3d`: all of them call `openRebar3D`, so the cage on screen is a
+      projection of the same document instance the report, the schedule and the drawings render.
+      It is disabled — not hidden — while there is nothing to draw, and says so, because a command
+      that vanishes teaches nobody what it needs.
+
+      IT STAYS HERE, and that was decided rather than left alone. F3 step 5 audited whether it
+      should follow the pipeline commands into `RcStageTimeline`: it should not. Four deliberate
+      entry points against the strip's one-and-only-one rule, one of them in the ribbon that also
+      serves the metallic flow — which has no RC strip at all — and no stage it advances. The
+      reasoning lives with the operation, in `lib/store/rebar-open.ts`; this is the entry point on
+      the row whose work it shows.
     -->
     <button
       class="cmd cmd-3d"

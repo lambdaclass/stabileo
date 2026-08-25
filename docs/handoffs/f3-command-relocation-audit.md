@@ -17,8 +17,14 @@ git log --oneline origin/feat/pro-concrete-h2..HEAD   # debe estar vacío: remot
 NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin nuevos
 ```
 
-**El paso 4 está hecho y verde** (§7). Lo pendiente inmediato es el **paso 5** —
-retirar `cmd-group-detailing` si queda sin consumidores— y los objetivos de Detalle de §8.
+**La reubicación F3 está completa: pasos 1 a 5, todos verdes** (§7). El paso 5 resolvió que
+`cmd-open-3d` **se queda** en `DesignToolbar` —es una herramienta transversal del visor, no una
+acción del pipeline— y que `cmd-group-detailing` por lo tanto no se retira. Ver §7.5.
+
+**Lo pendiente son los objetivos de Detalle de §8: once**, uno de doce hecho. No nueve — la cuenta
+se verificó contra la lista, y los cuatro que no entran en los cinco frentes de cierre de H2
+(edición, selección sincronizada, láminas, planilla gráfica, trazabilidad) siguen abiertos igual.
+Ver la tabla al final de §8.
 
 **El endurecimiento de readiness/convergencia sigue siendo un bloque separado**, sin empezar.
 Ver §7.6: es un cambio de comportamiento con su propio radio, y rompe fixtures que detallan
@@ -57,8 +63,8 @@ edición, verificación, convergencia y documentación.
 | **F2** etapa Diseñar | ✅ 2 commits | — |
 | **F2.6** persistencia | ✅ | — |
 | **Semántica de Diseñar** | ✅ `4ab876b5` | — |
-| **F3 · reubicación** | 🔶 pasos 1-4 ✅, **5 pendiente** | §7.5 |
-| **F3 · Detalle** | 🔶 1 de 12 objetivos | §8 |
+| **F3 · reubicación** | ✅ **pasos 1-5 completos** | — |
+| **F3 · Detalle** | 🔶 1 de 12 objetivos; **11 abiertos** | §8, §8.1 |
 | **Readiness / convergencia** | ⛔ bloque separado, sin empezar | §7.6 |
 
 ### Commits de esta rama, en orden
@@ -413,14 +419,49 @@ propia aserción, en `f1-stage-timeline.spec.ts`.
 es el contenido, no el número. El reclamo que la aserción defiende no cambió — la franja es una
 franja, no un panel.
 
-### 7.5 Paso 5 — lo que falta de la reubicación
+### 7.5 Paso 5 — resuelto: `cmd-open-3d` se queda, y por qué
 
-Retirar `cmd-group-detailing` **si** queda sin consumidores. Hoy **no** queda: conserva
-`cmd-open-3d` y la etiqueta del grupo, y `pro-design-workflow` asierta que la fila son tres grupos
-nombrados en orden de pipeline. Así que el paso 5 no es un borrado suelto — es decidir dónde va
-`cmd-open-3d`, que es el **resultado** del pipeline y no un paso, y recién entonces el grupo queda
-vacío. Ver también §7.7, segundo rojo: `pro-workflow-shell` ya exige ese botón en una fila que el
-paso 3 dejó sin `cmd-design-all`.
+**Decisión: es una herramienta transversal del visor, no una acción del pipeline.** Se queda en
+`DesignToolbar`, y `cmd-group-detailing` **no** se retira, porque no queda sin consumidores.
+
+Cinco propiedades de la operación, ninguna de gusto:
+
+1. **Cuatro entradas a propósito, y está aserido.** `cmd-open-3d` en la fila de Diseño,
+   `overview-open-3d`, `doc-3d` junto a los exports, y `pr-cmd-rebar3d` en el ribbon.
+   `rc-commands.test.ts` asierta sobre la fuente que una sola función queda detrás de todas. Cada
+   comando de la franja tiene el invariante **opuesto**: existe una sola vez, sin copia en ningún
+   disclosure. Mudarlo habría dejado las otras tres entradas como copias.
+2. **Una de esas entradas es el ribbon, que también sirve al flujo metálico** — y ese flujo no
+   tiene `RcStageTimeline`. Un visor alcanzable sólo desde la franja RC no podría servirlo.
+3. **No adelanta ninguna etapa.** `rc-stages.ts` no conoce el workspace, y la fila de acciones de
+   la franja está keyeada por etapa: no hay etapa a la que pertenezca.
+4. **Sus entradas son metadatos de documento** (autor, timestamp), no estado de etapa, y su
+   prerrequisito es la **salida** del pipeline, no su progreso: que existan ensambles coordinados.
+5. **`rebar-open.ts` ya lo decía:** *"the viewer is the RESULT of the design… Nothing here decides
+   anything structural."*
+
+El razonamiento quedó escrito junto a la operación, en `lib/store/rebar-open.ts`, y en el botón.
+
+#### Lo que el paso 5 encontró de paso, y conviene no perder
+
+**Las tres entradas del panel están dentro de disclosures.** El `DesignToolbar` entero vive dentro
+del `<details>` de DISEÑAR desde F2, el overview dentro del suyo, y `doc-3d` dentro de Documentos.
+Con esas secciones cerradas, **ninguna de las tres es alcanzable** — es la forma 1 de ocultamiento
+de §0, la misma que motivó mudar el comando de detallado.
+
+Es aceptable **sólo** porque la entrada del ribbon **no** está dentro de ningún disclosure. Eso
+dejó de ser un supuesto: `pro-workflow-shell` lo asierta ahora explícitamente. **Si eso cambia, las
+entradas del panel dejan de ser comodidades y una tiene que mudarse.**
+
+Una primera versión de esta aserción exigía que `cmd-open-3d` **no** tuviera ancestro `<details>`,
+y falló — correctamente, y en árbol con el cambio, no en limpio. Era la aserción la que estaba
+mal, no la app. Queda anotado porque es la lección de §A número 1 al revés: un rojo nuevo puede ser
+del test.
+
+**El cambio de producción del paso 5 es sólo comentario.** No se corrió la tanda `@slow`, a
+propósito: no hay cambio de comportamiento que pudiera romperla. Lo verificado fue
+`pro-workflow-shell` completa (12 ✅ + 1 ❌ antes, **32 ✅** después junto a las dos gates de panel),
+`rc-commands.test.ts` 9 ✅, typecheck 479 = baseline, build limpio.
 
 ### 7.6 Readiness y convergencia — bloque separado, sin empezar
 
@@ -433,7 +474,7 @@ por `detailingStore.readiness`, no por la señal de convergencia de `rcStages`.
 comportamiento con su propio radio, y **no va en el mismo commit que una reubicación**. Sigue sin
 empezar, deliberadamente: el paso 4 se cerró sin tocarlo.
 
-### 7.7 Los dos rojos preexistentes que aparecieron, y no eran del movimiento
+### 7.7 Los rojos preexistentes que aparecieron, y no eran del movimiento
 
 Los dos **confirmados en árbol limpio antes de tocarlos**, que es la regla de §A, y arreglados en
 commits propios para no mezclarlos con la reubicación.
@@ -450,10 +491,19 @@ parecer un defecto de i18n en vez de una expectativa vencida. Misma forma que D7
 justamente el test cuyo objeto es detectar cableado que dejó de conectar: falló en su propio
 asunto. Ahora lee la franja y `rc-commands.ts`.
 
-**Y uno que queda rojo a propósito:** `pro-workflow-shell` — *the command is on the Design command
-row* — exige `cmd-design-all` dentro de `design-toolbar .cmd-row`, y el **paso 3** mudó ese botón a
-la franja. Falla igual en árbol limpio. Es otra reubicación, no la del paso 4, y va con el paso 5
-(§7.5).
+**3. `pro-workflow-shell` — arreglado en el paso 5.** Exigía `cmd-design-all` dentro de
+`design-toolbar .cmd-row`, y el **paso 3** mudó ese botón a la franja: la conjunción quedó
+insatisfacible y la spec se puso roja por algo que no tenía nada que ver con el comando 3-D. Falló
+igual en árbol limpio, medido dos veces —al detectarlo en el paso 4 y otra vez como base del paso
+5, 12 ✅ + 1 ❌—. Ahora asierta la estructura vigente: el botón está en la fila de comandos del
+toolbar, y el visor es alcanzable desde sus cuatro entradas, con la del ribbon fuera de todo
+disclosure. Ver §7.5.
+
+**Los tres rojos de esta serie tienen la misma forma**, y vale como patrón: un paso mueve algo, y
+una aserción que nombraba la ubicación vieja queda colgada. No los detectó ninguna corrida parcial
+—los tres aparecieron al correr archivos completos y gates— y ninguno era un defecto de la app.
+Cuando un paso mueve un comando, **buscar quién nombraba el lugar anterior** antes de correr nada:
+`grep` del testid y del contenedor viejo cuesta segundos y ahorra tandas enteras.
 
 ### 7.8 Las 16 specs `@slow` del paso 4
 
@@ -492,3 +542,30 @@ Uno de doce hecho (`a4198d0e`, nombres de barra). Faltan:
 
 Dos módulos de F0 siguen sin consumidor de producción y **no son huérfanos, son contratos con
 fecha**: `rc-selection.ts` lo consume el objetivo 1, y `rc-forces-report.ts` espera a F5.
+
+### 8.1 Los once, contra los cinco frentes que cierran H2
+
+Revisados al terminar el paso 5. **Son once, no nueve** — la cuenta se verificó contra la lista:
+uno de doce hecho, quedan once.
+
+| frente de cierre de H2 | objetivos | qué hay hoy |
+|---|---|---|
+| **edición** | 10 | contrato `RcEditConsequence` escrito, sin implementar |
+| **selección sincronizada** | 3, 4 | canal `rebarWorkspace.selection` listo, sin conectar en ninguna dirección |
+| **láminas** | 7, 8 | — |
+| **planilla gráfica** | 9 | — |
+| **trazabilidad** | 11 | contrato listo y persistido, sin conectar |
+| **fuera de los cinco frentes** | 1, 2, 5, 6 | 1 tiene contrato (`rc-selection.ts`); 5 parcial |
+
+**Cuatro de los once no entran en ninguno de los cinco frentes** —agrupación, listado, nombres
+humanos de armadura y fijar/liberar— y eso importa para la regla de cierre: **cubrir los cinco
+frentes no equivale a cerrar §8.** Son la capa de lectura de Detalle, y el objetivo 3 depende del 1
+(hay que poder agrupar y listar antes de sincronizar una selección con el 3-D), así que el orden
+natural es 1 → 2 → 3 → 4, y ahí recién los frentes de láminas y planilla.
+
+**Cinco de los once ya tienen contrato escrito y sin consumidor** (1, 3, 4, 10, 11). Es la deuda
+que F0 dejó a propósito, y es lo que hace que estos objetivos sean trabajo de UI y de cableado más
+que de diseño: el vocabulario ya está decidido y asertado.
+
+**Nada de esto se mezcla con el endurecimiento de readiness/convergencia (§7.6)**, que sigue siendo
+un bloque aparte y sin empezar.
