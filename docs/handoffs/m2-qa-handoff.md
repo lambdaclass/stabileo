@@ -759,18 +759,85 @@ aparece recién cuando el workspace se abre y cierra bastantes veces.
 nunca aplicaba. Se corrigió la interacción, no la aserción: la nota de rechazo sí aparece al
 aplicar, de modo que la conducta del producto era correcta y lo que estaba viejo era el test.
 
-### 9.5 Cómo reproducirlo
+### 9.5 Segunda vuelta: la causa real, y el arreglo
 
-El spec de estrés usado en §9.2 no quedó en la suite: siempre pasa y no afirma nada, así que sería
-ruido. La receta, en cambio, sí importa — N sesiones con contexto nuevo, cada una cargando la nave
-y resolviendo, contando `page.on('crash')` y los `evaluate` que superan 25 s. Con N = 60 alcanza
-para ver la tasa; con N = 25 no se distinguen 1 y 3 caídas.
+El diagnóstico de §9.1 era correcto en el mecanismo —la página se cae y `page.evaluate` espera—
+pero atribuía la caída al proceso GPU por las líneas de `gpu/command_buffer` cercanas. Esa
+inferencia era débil: el pid del log es el proceso lanzado, no el hijo que aborta.
 
-### 9.6 Rendimiento, después de la corrección
+**El banco de medición.** Un spec autocontenido de N sesiones, cada una con contexto nuevo:
+cargar la nave, resolver, contar `page.on('crash')` y registrar **en qué paso** cae. Una variable
+por vez, 40 sesiones por brazo salvo donde se indique.
 
-`PERF load=1266 ms switch=99 ms build=68 ms rebuild=21 ms`, contra 1176–1195 / 60–121 / 62–70 /
-17–19 antes. Sin regresión: liberar el contexto en el desmontaje no cuesta nada en la entrada al
-visor ni en el cambio de unión.
+| Brazo | Caídas |
+|---|---|
+| Línea base (3 workers, despacho simultáneo) | **7,5–10 %** |
+| Pool de workers desactivado (hilo principal) | **0 / 40** |
+| **1 worker** (los tres casos, uno tras otro) | **0 / 40** |
+| Modelo chico, 3 workers, mismo despacho | **0 / 40** |
+| La nave cargada pero **sin resolver** | **0 / 40** |
+| Workers creados de a uno, despacho simultáneo | 7,5 % |
+| Un módulo compilado por worker (sin compartir) | 12,5 % |
+| `--js-flags=--no-wasm-tier-up` | 15 % |
+| Canal `chromium` completo (headless nuevo) | 7,5 % |
+| Chromium 151 en vez de 148 | **22,5 %** |
+| **Google Chrome real** | **17,5 %** |
+| Trace y video apagados | sigue |
+| Pico de RSS, 1 worker vs 3 | 859 vs 922 MB |
+
+Descartados con medición: backend de GL, memoria, compartir el módulo compilado, el tier-up de
+WASM, el canal y la versión del navegador —la más nueva es peor—, trace y video.
+
+**El paso donde cae.** Las caídas se registran siempre en `solve`, nunca en la carga ni en el
+canvas. Y hace falta **modelo grande Y solve**: cualquiera de los dos solo da 0/40.
+
+**La medición que lo cerró.** 60 sesiones resolviendo **tres veces cada una** — 180 solves — dan
+7 caídas, y **las siete en el primer solve**. Ninguna de las ~113 con workers que ya habían
+ejecutado. El disparador es la **primera ejecución de un worker recién instanciado coincidiendo
+con la de otro**.
+
+**No es un artefacto del entorno de pruebas.** En Google Chrome real la tasa es 17,5 %. Un usuario
+resolviendo un modelo grande pierde la pestaña. Por eso se mitiga en el producto y no en el arnés.
+
+### 9.6 El arreglo, y lo que cuesta
+
+`web/src/lib/engine/solver-pool.ts`: mientras haya workers que no ejecutaron nunca, el primer
+trabajo de cada uno se corre **de a uno y sobre un worker distinto**, esperando cada resultado.
+Cuando todos los alcanzables ejecutaron al menos una vez, el despacho vuelve a ser simultáneo.
+
+Las dos mitades importan, y la regresión atrapó dos errores míos en el camino:
+
+1. **Una primera versión separaba los despachos con un temporizador** y dejaba que `runJob`
+   eligiera. Como cada trabajo terminaba antes de soltarse el siguiente, `pending.size` volvía a
+   cero y **los tres iban al worker 0**: el pool nunca se calentaba, todos los solves de la sesión
+   seguían pagando la demora y ninguno corría en paralelo. Un arreglo que era una regresión de
+   rendimiento disfrazada.
+2. **Mirar todo el pool en vez del tramo alcanzable.** El pool puede ser más grande que la
+   cantidad de casos, así que con ocho workers y tres casos nunca terminaba de calentarse.
+
+| | 1er solve | Solves siguientes | Caídas |
+|---|---|---|---|
+| **Sin arreglo** | 59–61 ms | 44–47 ms | 2/12 sesiones (16,7 %), **ambas en solve1** |
+| **Con arreglo** | 144–150 ms | 44–46 ms | **0 / 160 solves** (80 sesiones × 2) |
+
+Costo: **~88 ms una sola vez por sesión**. La mediana de sesión no se mueve (1408 vs 1416 ms) y
+el estado estacionario mejora, porque antes cada primer solve pagaba el arranque en frío.
+
+**Qué es y qué no es.** Elimina la condición que se midió como disparador. **No arregla la
+caída**: la falla está por debajo de este archivo, en la ruta de ejecución de WASM o en V8, y esta
+rama no puede tocar solver, Rust, Cargo ni las fuentes WASM. Queda como mitigación con riesgo
+residual, no como reparación. El límite externo está documentado: si la caída reapareciera con
+otra forma de concurrencia, el remedio de fondo está fuera del alcance autorizado.
+
+**Regresión**: `web/src/lib/engine/__tests__/solver-pool-cold-start.test.ts`, cuatro casos. No
+mide tiempo —la primera versión falló con 1,9992 ms contra «> 2»— sino la invariante real:
+**ningún despacho en frío sale con otro trabajo en vuelo**, cada uno calienta un worker distinto,
+y a partir del segundo solve los trabajos vuelven a solaparse.
+
+### 9.7 Rendimiento, después de la corrección
+
+`PERF load=2066 ms switch=100 ms build=64 ms rebuild=18 ms`. El `switch` y las reconstrucciones no
+se mueven. La entrada al visor incluye ahora el primer solve en frío.
 
 ## 10 · Tamaño del PR, medido
 
