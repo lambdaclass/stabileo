@@ -1,18 +1,20 @@
 <p align="center">
-  <img src="Logo.png" alt="Stabileo" width="180" />
+  <img src="docs/brand/stabileo-mark.svg" alt="Stabileo" width="132" />
 </p>
 
 <h1 align="center">Stabileo</h1>
 
 <p align="center">
-  <strong>Open-source structural solver and browser workspace.</strong><br>
-  Model, solve, inspect, and share 2D and 3D structures in the browser. The same structured model and solver can be used directly by engineers or driven through AI build/review workflows. Rust solver compiled to WASM. No installation required.
+  <strong>Structural analysis, in a browser tab.</strong><br>
+  A free and open structural-analysis platform. The solver is a Rust engine compiled to
+  WebAssembly and it runs on your machine — no install, no licence key, no account.
 </p>
 
 <p align="center">
-  <a href="https://stabileo.com">Try it now</a> ·
-  <a href="#why-stabileo">Why it exists</a> ·
-  <a href="#features">Features</a> ·
+  <a href="https://stabileo.com">Open the editor</a> ·
+  <a href="https://stabileo.com/en/blog">Blog</a> ·
+  <a href="#what-works-today">What works today</a> ·
+  <a href="#why-stabileo-exists">Why it exists</a> ·
   <a href="#getting-started">Getting started</a> ·
   <a href="docs/README.md">Docs</a>
 </p>
@@ -34,33 +36,61 @@
 
 ---
 
-## Why Stabileo
+## What works today
 
-The dominant structural analysis tools — [SAP2000](https://www.csiamerica.com/products/sap2000), [ETABS](https://www.csiamerica.com/products/etabs), [Robot](https://www.autodesk.com/products/robot-structural-analysis), [RFEM](https://www.dlubal.com/en/products/rfem-fea-software/what-is-rfem) — cost thousands of dollars per year, run on Windows, require installation and license servers, and are closed source. Open-source solvers like [OpenSees](https://opensees.berkeley.edu/) are powerful but require scripting and have no visual interface.
+Stabileo ships three modes, and they are not equally finished. This is the same status the
+site itself states, in the same words, because a README that promises more than the product
+delivers costs more trust than the extra features would have bought.
+
+| Mode | Status | What it is |
+|------|--------|-----------|
+| **Basic** | **Works today** | A practical workspace: 2D and 3D models, the essential tools of a university structures course, and results you can read, check and explain. |
+| **PRO** | In development | Finite-element analysis and complex models already run here, at the level you would expect from a professional package. What is still being polished is design to the codes — the step many FE programs stop short of, handing you results and leaving the check to you. |
+| **Education** | In development | A student-exercise layer on the same engine. Teachers write exercises in the app, hand them out as a link and get the answers back. What is missing is the layer above: the course. |
+
+The solver capabilities listed further down are **engine-level**. The engine implements more
+than any one mode currently exposes, which is exactly why the modes are labelled the way they
+are here.
+
+The interface is available in **English, Spanish and Portuguese**.
+
+---
+
+## Why Stabileo exists
+
+The dominant structural analysis tools — [SAP2000](https://www.csiamerica.com/products/sap2000),
+[ETABS](https://www.csiamerica.com/products/etabs),
+[Robot](https://www.autodesk.com/products/robot-structural-analysis),
+[RFEM](https://www.dlubal.com/en/products/rfem-fea-software/what-is-rfem) — cost thousands of
+dollars per year, run on Windows, require installation and licence servers, and are closed
+source. Open-source solvers like [OpenSees](https://opensees.berkeley.edu/) are powerful but
+require scripting and have no visual interface.
 
 Stabileo is different:
 
-- **Browser-native.** Open [stabileo.com](https://stabileo.com) and start. No download, no license key, no account.
-- **Real solver.** Rust engine compiled to WebAssembly — linear, nonlinear, dynamic, shells, staged construction, contact, fiber beams, and more.
-- **Real-time.** The solver runs on every edit. Move a node, change a load, resize a section — results update instantly.
-- **Structured model surface.** The browser UI, backend APIs, and AI workflows all target the same model/snapshot contract instead of hidden prompt magic.
-- **AI-ready, but deterministic.** AI can help generate, edit, review, and explain models; the solver remains the source of truth for mechanics.
-- **Open source.** Read the solver, trace the math, submit improvements.
-- **Transparent.** Interactive step-by-step wizard shows every stage of the Direct Stiffness Method with [KaTeX](https://katex.org)-rendered matrices.
+- **Browser-native.** Open [stabileo.com](https://stabileo.com) and start. No download, no licence key, no account.
+- **Real solver.** A Rust engine compiled to WebAssembly, running on your own machine — your models never leave it.
+- **Real-time.** The solver runs on every edit. Move a node, change a load, resize a section, and the results follow.
+- **It shows the development, not only the answer.** Kinematic analysis, section analysis and the step-by-step Direct Stiffness wizard explain *why* a result is what it is — including when the formula you were taught does not apply. See [the note on that](https://stabileo.com/en/blog/conceptual-side-advanced-tools).
+- **Structured model surface.** The browser UI, the APIs and the AI workflows all target the same model/snapshot contract instead of hidden prompt magic.
+- **AI-ready, but deterministic.** AI can generate, edit, review and explain models; the solver stays the source of truth for the mechanics.
+- **Open source.** Read the solver, trace the maths, send improvements.
 
-**Tech stack:** Svelte 5 frontend, Rust solver engine via WASM, Three.js 3D visualization.
+**Tech stack:** Svelte 5 front end, Rust solver engine via WASM, Three.js for 3D.
 
-Originally built for structural engineering courses at [FIUBA](http://www.fi.uba.ar/) (University of Buenos Aires). Named after [Daedalus](https://en.wikipedia.org/wiki/Daedalus), the architect who built wings to escape the labyrinth.
+Originally built for structural engineering courses at [FIUBA](http://www.fi.uba.ar/)
+(University of Buenos Aires).
 
 ---
 
 ## Humans and AI use the same solver
 
-Stabileo's strongest technical wedge is not "AI chat" by itself. It is a `structured structural model` and a `deterministic solver` that humans and AI can both operate.
+Stabileo's strongest technical wedge is not "AI chat" by itself. It is a `structured structural
+model` and a `deterministic solver` that humans and AI can both operate.
 
-- Engineers can model directly in the browser and inspect diagrams, stresses, reactions, and diagnostics.
-- AI workflows can build or edit the same structured model snapshot, then hand it to the same solver for real analysis.
-- Review and explanation tools sit on top of solver artifacts and diagnostics instead of inventing mechanics.
+- Engineers model directly in the browser and inspect diagrams, stresses, reactions and diagnostics.
+- AI workflows build or edit the same structured model snapshot, then hand it to the same solver for real analysis.
+- Review and explanation tools sit on top of solver artefacts and diagnostics instead of inventing mechanics.
 
 Start here:
 
@@ -100,13 +130,28 @@ Start here:
 
 ### Validation
 
-Benchmarked against NAFEMS, ANSYS Verification Manual, Code_Aster, SAP2000, OpenSees, Robot, STAAD.Pro, and textbook solutions. See [BENCHMARKS.md](docs/BENCHMARKS.md) for full coverage.
+Benchmarked against NAFEMS, ANSYS Verification Manual, Code_Aster, SAP2000, OpenSees, Robot,
+STAAD.Pro, and textbook solutions. See [BENCHMARKS.md](docs/BENCHMARKS.md) for full coverage.
+
+---
+
+## The blog
+
+[stabileo.com/blog](https://stabileo.com/en/blog) — longer pieces on how the solver works, what
+the code checks actually verify, and the decisions behind them, in English, Spanish and
+Portuguese. Every figure in them is produced by the engine before the prose is written, and
+several posts embed the real editor on the model they describe.
+
+- [The determinism boundary](https://stabileo.com/en/blog/the-determinism-boundary) — why an AI agent must not do the arithmetic
+- [What free software computes, and what it never explains](https://stabileo.com/en/blog/conceptual-side-advanced-tools) — where the free tools stop
+- [Flexural verification to CIRSOC 201](https://stabileo.com/en/blog/verificacion-flexion-cirsoc-201) — the steps that decide the outcome
+- [Bredt or Saint-Venant](https://stabileo.com/en/blog/torsion-bredt-saint-venant) — which torsion theory applies, and what picking wrong costs
 
 ---
 
 ## Getting started
 
-**Use it now.** Open [stabileo.com](https://stabileo.com). Works on any modern browser.
+**Use it now.** Open [stabileo.com](https://stabileo.com). Works in any modern browser.
 
 **Run locally:**
 
@@ -167,8 +212,5 @@ To report a vulnerability, email security@lambdaclass.com.
 - **Diego Kingston** — Ph.D. in Engineering (UBA), product–solver integration
 - **Federico Carrone** — Founder of [Lambda Class](https://lambdaclass.com), solver lead
 
-With contributions from mathematicians, physicists, computer engineers, and computer scientists at [Lambda Class](https://lambdaclass.com).
-
-<p align="center">
-  <em>In honor of Daedalus, who built the labyrinth and dared to fly.</em>
-</p>
+With contributions from mathematicians, physicists, computer engineers, and computer scientists
+at [Lambda Class](https://lambdaclass.com).

@@ -19,6 +19,23 @@ import { mount } from 'svelte';
  */
 document.getElementById('prerender')?.remove();
 
+/*
+ * The yellow triangle, so a local tab is never mistaken for production.
+ *
+ * `import.meta.env.DEV` is statically replaced by Vite, so this whole block
+ * is eliminated from `npm run build` — which is the point. It used to be an
+ * inline script in index.html testing `location.hostname`, and the prerender
+ * runs the built app on localhost: the script fired, the capture happened
+ * afterwards, and every prerendered page shipped the development icon.
+ *
+ * A build-time gate cannot leak that way. Nothing that does not exist in the
+ * bundle can be photographed by a browser driving it.
+ */
+if (import.meta.env.DEV) {
+  const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (icon) icon.href = '/favicon-dev.svg';
+}
+
 const app = mount(App, {
   target: document.getElementById('app')!,
 });

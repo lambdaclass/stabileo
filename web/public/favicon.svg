@@ -1,3 +1,15 @@
+<!--
+  The Stabileo mark: an open triangle in the brand vermillion.
+
+  The stroke is #e5482a, which is `--st-vermillion` in src/styles/tokens.css
+  and `--lp-accent` in the landing's stylesheet — the colour of the logo tile,
+  the primary buttons and the accent rules. It used to be #e94560, which is
+  not a brand colour at all: that one is the error red the CAD wizard and the
+  import dialogs use for failures.
+
+  The development variant is favicon-dev.svg, swapped in from src/main.ts
+  behind a build-time flag. Never reference it from index.html.
+-->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <polygon points="16,2 30,28 2,28" fill="none" stroke="#e94560" stroke-width="3" stroke-linejoin="round"/>
+  <polygon points="16,2 30,28 2,28" fill="none" stroke="#e5482a" stroke-width="3" stroke-linejoin="round"/>
 </svg>

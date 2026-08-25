@@ -1,0 +1,16 @@
+<!--
+  The Stabileo mark, for the README and anywhere else the project needs a logo.
+
+  Same geometry and same colour as web/public/favicon.svg — an open triangle
+  in the brand vermillion #e5482a (`--st-vermillion`). The ink background is
+  #0c1620, the page colour of stabileo.com, so the mark reads the same on
+  GitHub in light or dark mode.
+
+  It replaces Logo.png, which still carried the previous brand: a blue
+  triangle with the wordmark "Dedaliano" under it.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Stabileo">
+  <rect width="256" height="256" rx="32" fill="#0c1620"/>
+  <polygon points="128,56 214,196 42,196"
+           fill="none" stroke="#e5482a" stroke-width="14" stroke-linejoin="round"/>
+</svg>
