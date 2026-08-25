@@ -24,24 +24,66 @@ const SRC = readFileSync(
   join(import.meta.dirname, '../../../components/pro/ProSteelWorkflowTab.svelte'), 'utf8',
 );
 
-/** The eight stages the brief specifies, in order. */
-const STAGES = [
-  'regulation', 'grade', 'section', 'geometry', 'assumptions', 'analysis', 'verification', 'limits',
-];
+/**
+ * The five stages, in order.
+ *
+ * They replaced eight, and the eight were not wrong so much as they were a list of the pieces in
+ * the order they were built. Four of them — grade, section, geometry, assumptions — plus
+ * verification are one question asked about four inputs: «are the sections I chose adequate».
+ * They are `<section>`s inside stage 3 now, each keeping its own state, which is checked below.
+ *
+ * Joints and documents are new. Joints was reachable only from a separate tab; documents did not
+ * exist at all.
+ */
+const STAGES = ['model', 'code', 'sections', 'joints', 'documents'];
 
-describe('structure — the eight stages, in order', () => {
-  it('mounts one StageSection per stage, numbered 1 to 8', () => {
+/** The four former stages that became sub-sections of stage 3, plus verification. */
+const SUBS = ['grade', 'section', 'geometry', 'assumptions', 'verification'];
+
+describe('structure — the five stages, in order', () => {
+  it('mounts one StageSection per stage, numbered 1 to 5', () => {
     for (const [i, stage] of STAGES.entries()) {
       const testid = `steel-stage-${stage}`;
       expect(SRC, stage).toContain(`testid="${testid}"`);
-      // The step number is the position in the pipeline, and a duplicated or skipped one would
-      // make the sequence lie about where the user is.
+      // The step number is the position in the route, and a duplicated or skipped one would make
+      // the sequence lie about where the user is.
       expect(SRC, `${stage} step`).toContain(`testid="${testid}" step={${i + 1}}`);
     }
   });
 
-  it('mounts exactly eight of them', () => {
-    expect(SRC.match(/<StageSection/g) ?? []).toHaveLength(8);
+  it('mounts exactly five of them', () => {
+    expect(SRC.match(/<StageSection/g) ?? []).toHaveLength(5);
+  });
+
+  /*
+   * Merging four stages into one must not merge four answers into one. Each sub-section carries
+   * its own state, so a reader still sees WHICH of the four is blocking.
+   */
+  it('keeps each merged sub-section answering for itself', () => {
+    for (const sub of SUBS) {
+      expect(SRC, sub).toContain(`data-testid="steel-sub-${sub}"`);
+      expect(SRC, `${sub} state`).toContain(`data-testid="steel-sub-${sub}-state"`);
+    }
+  });
+
+  /*
+   * Limits stopped being a stage. It applies to every stage above it, so numbering it after the
+   * last one implied it was something that arrives at the end.
+   */
+  it('carries the limits as a footer, not as a sixth stage', () => {
+    expect(SRC).toContain('data-testid="steel-limits"');
+    expect(SRC).not.toContain('testid="steel-stage-limits"');
+    // And `SteelPanel` is still there: it used to BE this tab.
+    expect(SRC).toContain('<SteelPanel />');
+  });
+
+  /*
+   * C/Z are a family in the section selector, reachable from the sections tab and from every
+   * generator row. A stage of their own would make a shape look like a step in a process.
+   */
+  it('gives cold-formed C/Z no stage of its own', () => {
+    expect(SRC).not.toMatch(/testid="steel-stage-(cold|cf|zed)/i);
+    expect(SRC).not.toContain('ColdFormedPanel');
   });
 
   it('consumes StageSection and does not reimplement it', () => {
@@ -61,6 +103,46 @@ describe('structure — the eight stages, in order', () => {
     const css = SRC.split('<style>')[1];
     expect(css).not.toMatch(/\.stage\b/);
     expect(css).not.toMatch(/\.marker\[data-state/);
+  });
+});
+
+describe('the regulation gate asks whether a code is declared', () => {
+  /*
+   * `roleUsable` returns false whenever a code's maturity is UNSUPPORTED, and CIRSOC 301 is
+   * declared UNSUPPORTED — accurately, no adapter implements it. Gating progress on `usable`
+   * meant choosing a code could never unblock anything at all.
+   */
+  it('does not gate the stage on usability', () => {
+    expect(SRC).toContain('const regState');
+    // The stage's state comes from whether a code label exists — i.e. whether one was declared.
+    expect(SRC).toMatch(/const regState = \$derived<State>\(codeLabel/);
+  });
+
+  it('says on screen that declaring is not certifying', () => {
+    expect(SRC).toContain('steel.workflow.regulation.declaredNotCertified');
+    expect(SRC).toContain('data-testid="steel-stage-code-scope"');
+  });
+});
+
+describe('the joints stage names what it cannot supply', () => {
+  it('lists the bolt rules it computes and the geometry it does not', () => {
+    for (const key of ['boltLayout', 'holeSize', 'plateUnavailable', 'weldUnavailable', 'battenUnavailable']) {
+      expect(SRC, key).toContain(`steel.workflow.joints.scope.${key}`);
+    }
+  });
+
+  /*
+   * The two absences the shipped shed made necessary: it has 226 joints and had no material the
+   * app could classify, so «no joints» would have been false about it.
+   */
+  it('distinguishes no joints from joints it cannot show', () => {
+    expect(SRC).toContain('steel.workflow.joints.noneAtAll');
+    expect(SRC).toContain('conn.jointsNotShown');
+  });
+
+  it('counts with the same predicate the connections panel uses', () => {
+    expect(SRC).toContain('isMetallic:');
+    expect(SRC).toContain('detectJoints(');
   });
 });
 
@@ -105,22 +187,29 @@ describe('states — `done` means a choice, never a check', () => {
     expect(css).not.toMatch(/\.review[^}]*--st-ok/);
   });
 
-  it('reaches `done` only on stages that record a user’s choice', () => {
+  it('reaches `done` only where a fact settles it, never a check', () => {
     /*
-     * Regulation, grade, section and analysis may complete: declaring a code, declaring a grade,
-     * supplying the section data, running the solve. Geometry, assumptions, verification and limits
-     * may not, because none of them is a choice the user finishes.
+     * Two states may reach `done` now, and neither is a verdict about a member:
+     *
+     *   · **`regState`** — a code was declared. A choice the user made.
+     *   · **`modelState`** — the model was solved. A fact about the analysis, not about whether
+     *     any section is adequate.
+     *
+     * Every other stage tops out at `current`. `sectionsState` in particular can never be `done`:
+     * `steelCountsAsVerified()` returns the literal `false`, and a green tick beside a metallic
+     * result is the one claim this branch exists to refuse.
      */
-    const canComplete = ['regState', 'gradeState', 'sectionState', 'analysisState'];
-    const cannot = ['geometryState', 'assumptionState', 'verificationState', 'limitsState'];
-    for (const name of canComplete) {
-      const line = SRC.split('\n').filter((l) => l.includes(`const ${name} =`)).join(' ')
-        + SRC.split(`const ${name} =`)[1]?.split(';')[0];
-      expect(line, name).toContain("'done'");
+    const MAY_BE_DONE = ['regState', 'modelState'];
+    const NEVER_DONE = ['sectionsState', 'jointsState', 'documentsState', 'verificationState'];
+
+    for (const name of MAY_BE_DONE) {
+      const decl = SRC.match(new RegExp(`const ${name} = \\$derived<State>\\(([\\s\\S]*?)\\n  \\);`))?.[1]
+        ?? SRC.match(new RegExp(`const ${name} = \\$derived<State>\\(([^;]*?)\\);`))?.[1];
+      expect(String(decl), name).toContain("'done'");
     }
-    for (const name of cannot) {
-      const decl = SRC.split(`const ${name} =`)[1]?.split(';')[0] ?? '';
-      expect(decl, `${name} must not be able to complete`).not.toContain("'done'");
+    for (const name of NEVER_DONE) {
+      const decl = SRC.match(new RegExp(`const ${name} = \\$derived<State>\\(([\\s\\S]*?)\\n  \\);`))?.[1];
+      expect(String(decl), name).not.toContain("'done'");
     }
   });
 

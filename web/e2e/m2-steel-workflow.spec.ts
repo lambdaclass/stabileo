@@ -20,9 +20,18 @@ import { test, expect, PRO_URL } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** The eight stages, in the order the brief specifies. */
-const STAGES = [
-  'regulation', 'grade', 'section', 'geometry', 'assumptions', 'analysis', 'verification', 'limits',
-];
+/**
+ * The five stages, in order.
+ *
+ * They replaced eight. Four of those — grade, section, geometry, assumptions — plus verification
+ * were one question asked about four inputs, and they are `<section>`s inside stage 3 now, each
+ * keeping its own state. Their testids moved from `steel-stage-*` to `steel-sub-*`, which is why
+ * the assertions further down reach for both.
+ */
+const STAGES = ['model', 'code', 'sections', 'joints', 'documents'];
+
+/** The former stages that became sub-sections of stage 3. */
+const SUBS = ['grade', 'section', 'geometry', 'assumptions', 'verification'];
 
 async function openSteelTab(page: Page): Promise<void> {
   await page.goto(PRO_URL);
@@ -79,7 +88,7 @@ test.describe('the eight stages render', () => {
 test.describe('verification stays blocked, and says why in words', () => {
   test('is not marked done', async ({ page }) => {
     await openSteelTab(page);
-    const stage = page.getByTestId('steel-stage-verification');
+    const stage = page.getByTestId('steel-sub-verification');
     // `StageSection` writes the state onto the card; `done` would be the green tick.
     await expect(stage).not.toHaveAttribute('data-state', 'done');
   });
@@ -90,16 +99,40 @@ test.describe('verification stays blocked, and says why in words', () => {
      * gets has to be the sentence. Each blocker is asserted to carry real prose, not a key.
      */
     await openSteelTab(page);
-    await page.getByTestId('steel-stage-verification').scrollIntoViewIfNeeded();
+    await page.getByTestId('steel-sub-verification').scrollIntoViewIfNeeded();
     const list = page.getByTestId('steel-stage-verification-blockers');
     await expect(list).toBeVisible();
-    for (const b of ['tests', 'clauseRefs', 'unbracedLength', 'inferredProperties', 'signature']) {
+    /*
+     * The seven limitations, and `signature` is deliberately not among them.
+     *
+     * It used to be listed here as a sixth blocker. That conflated two different things: whether
+     * the CALCULATION can run, which is a development question with a factual answer, and whether
+     * a person has reviewed it, which is a review state that arrives later. The signature is now
+     * rendered as review METADATA — `steel-review-state` — and the test below asserts it is there
+     * rather than expecting it in this list.
+     */
+    for (const b of ['tests', 'clauseRefs', 'unbracedLength', 'inferredProperties',
+      'flexuralCap', 'sectionClassification', 'netArea']) {
       const item = page.getByTestId(`steel-blocker-${b}`);
       await expect(item, b).toBeVisible();
       expect((await item.innerText()).trim().length, b).toBeGreaterThan(15);
       // A key leaking through instead of a translation.
       await expect(item, b).not.toContainText('steel.workflow.blocker');
+      await expect(item, b).not.toContainText('steel.workflow.limit');
     }
+  });
+
+  /*
+   * And the signature, where it belongs: a review state, stated as one, never blocking.
+   */
+  test('shows the pending review as metadata, not as a blocker', async ({ page }) => {
+    await openSteelTab(page);
+    await page.getByTestId('steel-sub-verification').scrollIntoViewIfNeeded();
+    const review = page.getByTestId('steel-review-state');
+    await expect(review).toBeVisible();
+    await expect(review).not.toBeEmpty();
+    // It is not one of the limitation rows.
+    await expect(page.getByTestId('steel-blocker-signature')).toHaveCount(0);
   });
 
   test('and the note says the checker produces numbers that are not verification', async ({ page }) => {
@@ -109,7 +142,7 @@ test.describe('verification stays blocked, and says why in words', () => {
 
   test('geometry is blocked too, on the bracing datum', async ({ page }) => {
     await openSteelTab(page);
-    const stage = page.getByTestId('steel-stage-geometry');
+    const stage = page.getByTestId('steel-sub-geometry');
     await expect(stage).not.toHaveAttribute('data-state', 'done');
     await stage.click();
     await expect(page.getByTestId('steel-stage-geometry-body')).toContainText('Lb');
@@ -156,7 +189,7 @@ test.describe('nothing on the screen claims a verification', () => {
      * tells them the numbers are not a check.
      */
     await openSteelTab(page);
-    await page.getByTestId('steel-stage-verification').click();
+    await page.getByTestId('steel-sub-verification').click();
     const note = (await page.getByTestId('steel-stage-verification-note').innerText()).toLowerCase();
     expect(note).toMatch(/verificad|verified/);
     expect(note).toMatch(/none|ninguno|nenhum|no /);
@@ -205,7 +238,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
     await generateTruss(page);
     await page.getByTestId('pr-stage-design').click();
     await page.getByTestId('pr-cmd-steel').click();
-    await page.getByTestId('steel-stage-grade').click();
+    await page.getByTestId('steel-sub-grade').click();
 
     const rows = page.locator('[data-testid^="steel-grade-row-"]');
     // More than one: a table, not a summary line.
@@ -228,7 +261,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
     await generateTruss(page);
     await page.getByTestId('pr-stage-design').click();
     await page.getByTestId('pr-cmd-steel').click();
-    await page.getByTestId('steel-stage-grade').click();
+    await page.getByTestId('steel-sub-grade').click();
 
     const cells = page.locator('[data-testid^="steel-grade-designation-"]');
     const n = Math.min(await cells.count(), 4);
@@ -243,7 +276,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
     await generateTruss(page);
     await page.getByTestId('pr-stage-design').click();
     await page.getByTestId('pr-cmd-steel').click();
-    await page.getByTestId('steel-stage-grade').click();
+    await page.getByTestId('steel-sub-grade').click();
 
     const why = page.locator('[data-testid^="steel-grade-missing-"]').first();
     await expect(why).toBeVisible();
@@ -256,7 +289,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
     await generateTruss(page);
     await page.getByTestId('pr-stage-design').click();
     await page.getByTestId('pr-cmd-steel').click();
-    await page.getByTestId('steel-stage-section').click();
+    await page.getByTestId('steel-sub-section').click();
 
     const rows = page.locator('[data-testid^="steel-section-row-"]');
     expect(await rows.count()).toBeGreaterThan(1);
@@ -272,9 +305,8 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
     await generateTruss(page);
     await page.getByTestId('pr-stage-design').click();
     await page.getByTestId('pr-cmd-steel').click();
-    for (const stage of ['grade', 'section']) {
-      await page.getByTestId(`steel-stage-${stage}`).click();
-    }
+    // The per-member tables live inside stage 3 now; grade and section are sub-sections of it.
+    await page.getByTestId('steel-stage-sections').click();
     const states = await page.locator('[data-testid^="steel-grade-row-"], [data-testid^="steel-section-row-"]')
       .evaluateAll((els) => els.map((e) => e.getAttribute('data-state')!));
     expect(states.length).toBeGreaterThan(1);
@@ -303,7 +335,7 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
      * exists for this one — and for saying who decided it.
      */
     await trussThenSteel(page);
-    await page.getByTestId('steel-stage-assumptions').click();
+    await page.getByTestId('steel-sub-assumptions').click();
     const lb = page.locator('[data-testid^="steel-lb-"]').first();
     await expect(lb).toBeVisible();
     // A real length in metres, not a placeholder.
@@ -315,7 +347,7 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
 
   test('and says bracing is unrecorded because there is nowhere to record it', async ({ page }) => {
     await trussThenSteel(page);
-    await page.getByTestId('steel-stage-assumptions').click();
+    await page.getByTestId('steel-sub-assumptions').click();
     const note = page.getByTestId('steel-assumption-bracing');
     await expect(note).toBeVisible();
     // A reason, not just "0".
@@ -324,14 +356,14 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
 
   test('and separates what cannot be inferred from what was assumed', async ({ page }) => {
     await trussThenSteel(page);
-    await page.getByTestId('steel-stage-assumptions').click();
+    await page.getByTestId('steel-sub-assumptions').click();
     await expect(page.getByTestId('steel-assumption-not-inferable')).toBeVisible();
     await expect(page.getByTestId('steel-assumption-blockers')).toBeVisible();
   });
 
   test('stage 7 explains why there is no result, in eight statements', async ({ page }) => {
     await trussThenSteel(page);
-    await page.getByTestId('steel-stage-verification').click();
+    await page.getByTestId('steel-sub-verification').click();
     for (const id of ['steel-results-none', 'steel-results-capabilities', 'steel-results-tests',
                       'steel-results-missing', 'steel-results-human', 'steel-results-ae',
                       'steel-results-cap', 'steel-results-clause-map']) {
@@ -345,7 +377,7 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
     // The clause numbers are how a reviewer finds the rule; without them the paragraph is an
     // opinion.
     await trussThenSteel(page);
-    await page.getByTestId('steel-stage-verification').click();
+    await page.getByTestId('steel-sub-verification').click();
     await expect(page.getByTestId('steel-results-ae')).toContainText('D.2.2');
     await expect(page.getByTestId('steel-results-cap')).toContainText('F.2.1');
   });
@@ -356,14 +388,14 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
      * shows the second.
      */
     await trussThenSteel(page);
-    await page.getByTestId('steel-stage-verification').click();
+    await page.getByTestId('steel-sub-verification').click();
     await expect(page.getByTestId('steel-results-clause-map')).toContainText(/\d+ \/ \d+/);
   });
 
   test('and the verification stage is still not done', async ({ page }) => {
     // Content in stage 7 must not be mistaken for a result in stage 7.
     await trussThenSteel(page);
-    await expect(page.getByTestId('steel-stage-verification')).not.toHaveAttribute('data-state', 'done');
+    await expect(page.getByTestId('steel-sub-verification')).not.toHaveAttribute('data-state', 'done');
   });
 });
 
@@ -397,5 +429,65 @@ test.describe('it is not a second, disconnected application', () => {
     await page.getByTestId('pr-stage-design').click();
     await page.getByTestId('pr-cmd-steel').click();
     await expect(page.getByTestId('pro-steel-workflow')).toBeVisible();
+  });
+});
+
+test.describe('the two new stages, and the four that were folded in', () => {
+  test('joints and documents are stages of their own', async ({ page }) => {
+    await openSteelTab(page);
+    await expect(page.getByTestId('steel-stage-joints')).toBeVisible();
+    await expect(page.getByTestId('steel-stage-documents')).toBeVisible();
+  });
+
+  /*
+   * Merging four stages into one must not merge four answers into one: a reader has to still see
+   * WHICH of the four is blocking.
+   */
+  test('each folded sub-section still answers for itself', async ({ page }) => {
+    await openSteelTab(page);
+    await page.getByTestId('steel-stage-sections').click();
+    for (const sub of SUBS) {
+      await expect(page.getByTestId(`steel-sub-${sub}`), sub).toBeAttached();
+      await expect(page.getByTestId(`steel-sub-${sub}-state`), `${sub} state`).not.toBeEmpty();
+    }
+  });
+
+  /*
+   * The gate that could never open. `roleUsable` returns false whenever a code's maturity is
+   * UNSUPPORTED, and CIRSOC 301 is UNSUPPORTED — so gating progress on it meant choosing a code
+   * unblocked nothing. Progress asks whether a code is DECLARED.
+   */
+  test('the regulation stage says declaring is not certifying', async ({ page }) => {
+    await openSteelTab(page);
+    await page.getByTestId('steel-stage-code').click();
+    await expect(page.getByTestId('steel-stage-code-scope')).not.toBeEmpty();
+  });
+
+  test('the joints stage names what it cannot supply', async ({ page }) => {
+    await openSteelTab(page);
+    await page.getByTestId('steel-stage-joints').click();
+    const scope = page.getByTestId('steel-joints-scope');
+    await expect(scope).toBeVisible();
+    // Bolt layout is computed; plate, weld and batten geometry are not, and each says so.
+    await expect(scope).toContainText('J.3');
+    await expect(scope).toContainText('GEOMETRY_UNAVAILABLE');
+  });
+
+  /*
+   * C/Z are a family in the section selector, not a step. A stage of their own would make a shape
+   * look like something a user completes.
+   */
+  test('cold-formed C/Z has no stage of its own', async ({ page }) => {
+    await openSteelTab(page);
+    const ids = await page.locator('[data-testid^="steel-stage-"]').evaluateAll(
+      (els) => els.map((e) => e.getAttribute('data-testid')!),
+    );
+    expect(ids.filter((i) => /cold|cf|zed/i.test(i))).toEqual([]);
+  });
+
+  test('limits are a footer, not a sixth stage', async ({ page }) => {
+    await openSteelTab(page);
+    await expect(page.getByTestId('steel-limits')).toBeVisible();
+    await expect(page.getByTestId('steel-stage-limits')).toHaveCount(0);
   });
 });
