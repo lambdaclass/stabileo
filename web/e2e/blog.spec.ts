@@ -79,15 +79,20 @@ test.describe('@smoke blog', () => {
      * normalised through publicHref; see the case below.
      */
     await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}/?$`));
-  });
 
-  test('a prefixed cold deep link is restored in the canonical shape', async ({ page }) => {
-    // The same handoff, with a language prefix and no trailing slash — the
-    // form the site published before this change and that people already
-    // hold. It must come back as the address the site now declares, so the
-    // bar and the page's own canonical do not disagree.
-    await boot(page, `/?route=%2Fes%2Fblog%2F${SLUG}`);
-
+    /*
+     * The same handoff WITH a language prefix — the form the site published
+     * before the slashes and that people already hold. That one IS normalised
+     * through publicHref, so the address bar and the page's own canonical do
+     * not disagree.
+     *
+     * Folded into this test rather than given its own, on purpose: one browser
+     * runs all 327 e2e cases with `workers: 1`, and it wedges near the end with
+     * `browser.newContext: Test ended`. Every added case brings that forward.
+     * Two navigations in one context cost nothing; a second test costs a
+     * context. See the note in .github/workflows/ci.yml.
+     */
+    await page.goto(`/?route=%2Fes%2Fblog%2F${SLUG}`);
     await expect(page.locator('.post-title')).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
   });
