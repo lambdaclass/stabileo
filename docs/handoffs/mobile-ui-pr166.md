@@ -507,6 +507,8 @@ its viewport at line 27 (1500×950) — change it there to audit a phone.
 cd web
 NODE_OPTIONS= npm run typecheck                     # 479 = baseline. PASS
 NODE_OPTIONS= npm run test                          # two vitest passes
+# If a solver test fails here and nowhere else, rebuild the engine first:
+NODE_OPTIONS= npm run wasm
 NODE_OPTIONS= npx playwright test e2e/basic-demos.spec.ts   # 12 passed, 1 flaky
 ```
 
@@ -517,9 +519,20 @@ between steps; the walkthrough itself is deterministic. It flaked once during
 all behind `isMobile` or `max-width: 767px` while that spec runs at desktop
 size, so it cannot be causal. Do the same check before blaming a change for it.
 
-Known and **not from this branch**: `chs-shear-agreement.test.ts` fails on
-`main` (circular tube shear, Diego's #157). Verified by stashing, twice — once
-when this handoff was written and again after 5.1.
+**`chs-shear-agreement.test.ts` is NOT a real failure, and this note was wrong
+twice.** It fails locally and passes in CI. The cause is neither the branch nor
+`main`: it is a stale `web/src/lib/wasm/` build. Diego's fix — "a circular
+tube's shear was half its true peak" — landed in the Rust engine on 2026-08-19,
+and a worktree whose `.wasm` predates that runs the engine without it. CI
+rebuilds with `wasm-pack` on every run, so it sees the fixed engine.
+
+Earlier versions of this note said "fails on `main`, verified by stashing".
+Stashing proves only that the branch's own changes did not cause it — never
+that the failure is real, which is the question that mattered.
+
+**When a solver test fails locally and nowhere else, compare the date on
+`web/src/lib/wasm/dedaliano_engine_bg.wasm` against `git log -- engine/src/`
+before reporting it.** `npm run wasm` rebuilds it.
 
 **Before trusting a preview on `:4258`**: check what is already bound to it.
 A stale `vite preview` from an earlier session serves the bundle it was built

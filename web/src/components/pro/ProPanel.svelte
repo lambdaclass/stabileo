@@ -766,6 +766,23 @@
     canReport: modelStore.nodes.size > 0,
     onSolve: handleSolve,
     onReport: handleOpenReportDialog,
+    /*
+     * The 3-D reinforcement workspace is opened from the panel that owns it, so
+     * the phone grid's Rebar-3D command lands on the same operation the ribbon's
+     * does — three ways in, one thing that happens.
+     */
+    onRebar3D: () => openRebar3D({
+      author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+      at: new Date().toISOString(),
+    }),
+    canRebar3D: () => canOpenRebar3D(),
+    rebar3DMissingSteps: () => {
+      const steps: string[] = [];
+      if (resultsStore.results3D == null && resultsStore.results == null) steps.push('proRibbon.need.solve');
+      if (verificationStore.providedSummary.total === 0) steps.push('proRibbon.need.design');
+      if (detailingStore.assemblies.length === 0) steps.push('proRibbon.need.detailing');
+      return steps;
+    },
   }));
 
   /*

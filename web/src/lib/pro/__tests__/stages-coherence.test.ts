@@ -29,6 +29,9 @@ const stages: ProStage[] = buildProStages({
   canReport: true,
   onSolve: () => {},
   onReport: () => {},
+  onRebar3D: () => {},
+  canRebar3D: () => true,
+  rebar3DMissingSteps: () => [],
 });
 
 const cmds = proCmds(stages);
