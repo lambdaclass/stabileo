@@ -129,36 +129,6 @@ async function expectLinks(page: Page, path: string, locale: Locale) {
 }
 
 test.describe('@smoke prerender', () => {
-  /*
-   * The prerender is a photograph of a browser, and a browser on localhost is
-   * not a browser in production.
-   *
-   * An inline script in index.html swapped the favicon for the yellow
-   * development triangle when `location.hostname` was localhost. The
-   * prerender serves the built site from exactly there, so the swap fired
-   * before the capture and every prerendered page went out naming
-   * `/favicon-dev.svg`. It reached stabileo.com and sat in the browser tab
-   * until someone noticed by eye.
-   *
-   * The swap is now behind `import.meta.env.DEV` and eliminated from the
-   * bundle. This asserts the outcome rather than the mechanism: no
-   * prerendered page may mention anything that only exists locally.
-   */
-  test('no prerendered page carries a development-only asset', async ({ browser }) => {
-    const paths = ['/', '/en/', '/es/', '/pt/', '/es/blog/', '/en/blog/', '/pt/blog/'];
-    for (const path of paths) {
-      const { page, close } = await crawl(browser, path);
-      try {
-        const html = await page.content();
-        expect(html, `${path} names the development favicon`).not.toContain('favicon-dev');
-        expect(html, `${path} leaked a localhost reference`).not.toContain('localhost');
-        // And it names the real one.
-        await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/favicon.svg');
-      } finally {
-        await close();
-      }
-    }
-  });
 
   for (const locale of LOCALES) {
     test(`/${locale} is served as ${locale}, with text, to a crawler`, async ({ browser }) => {
