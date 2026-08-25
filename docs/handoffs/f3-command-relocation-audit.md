@@ -7,16 +7,22 @@
 ## §A — Cómo retomar
 
 **Rama:** `feat/pro-concrete-h2` · **PR:** [#170](https://github.com/lambdaclass/stabileo/pull/170) (draft)
-**HEAD esperado:** `76e9180c` · **20 commits** sobre `feat/pro-concrete-h1` · **árbol limpio**
+**HEAD esperado:** `a4d3a7c1` · **23 commits** sobre `feat/pro-concrete-h1` · **árbol limpio, pusheado**
 
 ```bash
 cd web
 git status --porcelain          # debe estar vacío
-git log --oneline -1            # 76e9180c test(detailing): D7 asserts …
+git log --oneline -1            # a4d3a7c1 feat(pro): the detailing command moves to the DETALLE strip …
+git log --oneline origin/feat/pro-concrete-h2..HEAD   # debe estar vacío: remoto sincronizado
 NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin nuevos
 ```
 
-**Lo único pendiente inmediato es el paso 4** (§6 y §7). Todo lo anterior está verde y publicado.
+**El paso 4 está hecho y verde** (§7). Lo pendiente inmediato es el **paso 5** —
+retirar `cmd-group-detailing` si queda sin consumidores— y los objetivos de Detalle de §8.
+
+**El endurecimiento de readiness/convergencia sigue siendo un bloque separado**, sin empezar.
+Ver §7.6: es un cambio de comportamiento con su propio radio, y rompe fixtures que detallan
+modelos no convergidos a propósito. No mezclarlo con una reubicación.
 
 ### Reglas vigentes de la rama
 
@@ -35,6 +41,10 @@ edición, verificación, convergencia y documentación.
    dos peores salidas, y las dos aparecieron por arrancar sin margen.
 4. **Después de cada fase, correr `pro-panel-consistency` y `pro-panel-structure`**, no sólo las
    specs del área tocada. Una regresión de F1 vivió un commit entero por saltearlas.
+5. **Un rojo preexistente no se hereda en silencio.** El paso 4 encontró dos, y los dos habían
+   quedado de pasos anteriores de esta misma serie sin que §A los registrara: uno del paso 2 y uno
+   del commit de extracción. Los dos se confirmaron en árbol limpio antes de tocarlos y se
+   arreglaron en commits propios. Ver §7.7. Si una tanda termina con rojos, van acá.
 
 ---
 
@@ -47,8 +57,9 @@ edición, verificación, convergencia y documentación.
 | **F2** etapa Diseñar | ✅ 2 commits | — |
 | **F2.6** persistencia | ✅ | — |
 | **Semántica de Diseñar** | ✅ `4ab876b5` | — |
-| **F3 · reubicación** | 🔶 pasos 1-3 ✅, **4 y 5 pendientes** | §6, §7 |
+| **F3 · reubicación** | 🔶 pasos 1-4 ✅, **5 pendiente** | §7.5 |
 | **F3 · Detalle** | 🔶 1 de 12 objetivos | §8 |
+| **Readiness / convergencia** | ⛔ bloque separado, sin empezar | §7.6 |
 
 ### Commits de esta rama, en orden
 
@@ -73,6 +84,9 @@ d63ea5f6  docs: command relocation audit
 4ab876b5  fix(flow): DISEÑAR completes on convergence
 3dd46033  docs: audit generate-detailing
 76e9180c  test(detailing): D7 asserts the review gate's current contract
+de46378c  docs: the audit becomes the resume document for H2
+559127e0  test(i18n): the command row expects the label required steel carries  ← rojo del paso 2
+a4d3a7c1  feat(pro): detailing command + prerequisites + auto → strip   ← paso 4
 ```
 
 ---
@@ -255,7 +269,10 @@ markup explicativo que reubicar.
 
 ### 6.3 El caso que motivó todo esto
 
-**Hoy Detalle no puede generar detallado con Diseñar cerrado.** El comando vive en
+> **Resuelto en `a4d3a7c1`.** El párrafo se deja como estaba porque es el motivo del paso, y
+> `f3-bar-labels` todavía lleva la nota que lo describe.
+
+**Detalle no podía generar detallado con Diseñar cerrado.** El comando vivía en
 `DesignToolbar`, dentro de la etapa Diseñar, y navegar a Detalle por la franja la cierra. La spec
 de F3a tuvo que abrir el disclosure directamente para esquivarlo, y quedó anotado ahí.
 
@@ -289,28 +306,58 @@ apoyarse en esa misma señal y no en "hay armadura dibujada".
 4. Las gates estructurales.
 5. Recién entonces retirar `cmd-group-detailing`, que queda sin consumidores.
 
+> **1 a 4 hechos en `a4d3a7c1`.** Dos correcciones a este orden, aprendidas corriéndolo:
+>
+> - **Las gates conviene correrlas primero, no cuartas.** `pro-design-gates` y
+>   `pro-design-workflow` son las que asertan dónde vive el comando: puestas al final, un locator
+>   mal apuntado se paga después de 11 minutos de `@slow`. Corridas con la tanda 2, fallan en
+>   minutos.
+> - **El punto 5 supone que el grupo queda sin consumidores, y no queda.** `cmd-open-3d` sigue
+>   ahí. Ver §7.5.
+
 
 ---
 
 ## §7 — Paso 4: qué ya se sabe y qué falta
 
-### 7.1 La implementación existe y funcionó
+### 7.1 La implementación, aplicada y publicada — `a4d3a7c1`
 
-Se aplicó completa en una tanda anterior y **compiló y corrió**:
-
-- botón `cmd-generate-detailing` + `detailing-prerequisites` + `detailing-auto` movidos a la fila
+- botón `cmd-generate-detailing` + `detailing-prerequisites` + `detailing-auto` en la fila
   de acciones de `RcStageTimeline.svelte`;
 - `detailingReady` / `hasDetailing` / `detailingBusy` / `detailingBlockers` leídos de
   `detailingStore` en la franja, no pasados por props;
 - la acción sigue siendo `rcGenerateDetailing` de `rc-commands.ts`, sin copia;
-- `DesignToolbar` queda con el `cmd-group-detailing` vacío y un comentario que dice dónde fue.
+- `DesignToolbar` conserva `detailingBusy` — lo único que `cmd-open-3d` necesita — y un comentario
+  que dice dónde fue el resto.
 
-**Resultado medido: 34 tests pasaron**, y la única falla era D7 — que **no** era del movimiento.
+**Corrección a lo que decía este párrafo antes.** Decía que `cmd-group-detailing` quedaba *vacío*.
+No queda vacío: `cmd-open-3d` sigue viviendo ahí, con la etiqueta del grupo. Importa porque es la
+premisa del paso 5 — ver §7.5.
+
+**La tanda anterior midió 34 tests** y reportó D7 como única falla. Ese número era de una corrida
+parcial, hecha antes de las gates. La tanda completa de este paso midió **276**:
+
+| tanda | tests |
+|---|---:|
+| `detailing` (24) · `documents` (12) · `pro-design-gates` · `pro-design-workflow` | 48 ✅ (4 skipped) |
+| las 16 `@slow` de §7.8 | 143 ✅ |
+| `pro-panel-consistency` · `pro-panel-structure` · `f1-stage-timeline` · `f2-design-stage` · `rc-workflow-reachable` · `i18n-languages` | 85 ✅ |
+| `run-detailing.test.ts` (unit) | 21 ✅ |
+
+Más `typecheck` 479 = baseline, sin nuevos, y `build` limpio. Todo con `E2E_PORT` dedicado.
+
+**Las 34 no cubrían las gates, y ahí estaba lo que faltaba ver:** el techo de altura de la franja
+(§7.4) y dos rojos preexistentes (§7.7). Ninguno se veía en una corrida parcial.
 
 ### 7.2 Lo verificado, que no hay que rehacer
 
 - **Cero migraciones de recorrido de specs.** La auditoría de §6.1 acertó: 27 de 28 abren
   `detailing-disclosure` y una llega tras `cmd-design-all`; ninguna de las dos vías se rompe.
+  **Precisión que la corrida completa agregó:** cero *recorridos* migrados, pero **dos aserciones
+  de ubicación** sí hubo que reapuntar, y son cosa distinta de un recorrido. `pro-design-workflow`
+  buscaba la preferencia y el comando dentro de `cmd-group-detailing`; el reclamo —la preferencia
+  está con el comando que gobierna— no cambió, sólo el contenedor, y ahora asierta además que
+  ninguno de los dos testids tiene copia. Y `run-detailing.test.ts`, que ya estaba rojo (§7.7).
 - **Las tres formas de ocultamiento están cerradas.** `pro-design-gates` imprimió los cinco
   comandos hit-testables a 1280×720 con la franja en `z-index: 12`:
   `cmd-compute-demands, cmd-code-check, cmd-design-all, cmd-generate-detailing, cmd-open-3d`.
@@ -327,34 +374,102 @@ que la lista de bloqueos **responde** al campo que nombra.
 
 Ninguna de las cuatro hipótesis previas era la causa. La lección está en §A.
 
-### 7.4 Lo que falta para cerrar el paso 4
+### 7.4 El techo de la franja, recalibrado: 90 → 135 px
 
-1. **Reaplicar el movimiento** (7.1). No hay diseño que redecidir.
-2. **Correr con margen**, en este orden:
-   - `detailing.spec.ts` (6 refs, la más densa) y `documents.spec.ts` (3);
-   - **las 16 `@slow`**, en tanda propia con `E2E_PORT` dedicado — acá está todo el costo;
-   - `pro-panel-consistency`, `pro-panel-structure`, `f1-stage-timeline`, `f2-design-stage`,
-     `pro-design-workflow`, `pro-design-gates`;
-   - typecheck, build, y revisión es/en/pt a 1280/1024/900/820.
-3. **Una condición de producto todavía sin resolver**, y conviene decidirla antes de commitear:
-   el instructivo pide que el comando esté *"disabled cuando no exista convergencia real"* y que
-   **no** se genere documentación constructiva desde armaduras no verificadas. Hoy el botón se
-   gatea por `detailingStore.readiness`, no por la señal de convergencia de `rcStages`.
-   **Endurecerlo rompería fixtures que detallan a propósito modelos no convergidos** —
-   `h1e-refused-state` genera detallado sobre miembros REFUSED, y ése es su objeto. Es un cambio
-   de comportamiento con su propio radio, y merece su bloque separado, no el mismo commit que la
-   reubicación.
+**Lo único que el movimiento rompió de verdad.** `f1-stage-timeline` — *stays compact at
+1024×700* — exigía `< 90 px`, y la franja pasó a medir **129,2**. Falla real: la misma aserción
+pasa en árbol limpio.
 
-### 7.5 Las 16 specs `@slow` del paso 4
+Medido en proyecto vacío a 1024×700, con la sonda desechada después:
+
+| pieza | limpia | con paso 4 |
+|---|---:|---:|
+| `ol` (5 etapas) | 24,0 | 24,0 |
+| `rc-stage-actions` | 23,0 (1 fila) | **50,8 (2 filas)** |
+| `detailing-prerequisites` | — | **19,1** |
+| `rc-stage-hint` | 15,1 | 15,1 |
+| padding | 10,4 | 10,4 |
+| **total** | **82,3** | **129,2** |
+
+El 90 se había calibrado para **tres** comandos, con 7,7 px de margen sobre 82,3. El paso 4 agrega
+un cuarto comando, la preferencia que lo gobierna y la frase que explica por qué se niega: +46,9 px
+para 7,7 disponibles. **No hay disposición que mantenga todo eso visible y entre en 90**, y la fila
+no puede volver a una línea porque a ese ancho no caben cinco botones más el alcance.
+
+Las tres alternativas se descartaron, cada una contra una regla escrita a propósito en otro lado:
+
+| alternativa | ahorro | por qué no |
+|---|---:|---|
+| esconder el comando cuando DETALLE se completa | — | la trampa de §6.4 forma 2: desaparece justo al usarlo |
+| sacar el read-out de alcance | ~28 | §2 lo exige legible **antes** de correr; `pro-design-workflow` lo asierta |
+| sacar los prerrequisitos de la franja | 19,1 | `pro-design-gates` los exige **visibles**: un `title` solo deja al usuario de teclado con un botón muerto |
+
+Así que es **re-derivación, no un presupuesto inflado**: 135 = los 129,2 medidos más los mismos
+~6 px de margen que 90 le daba a 82,3. El layout quedó tal como lo validó §7.1 — no se inventó
+ninguna disposición para cerrar el número. La medición y el razonamiento están escritos en la
+propia aserción, en `f1-stage-timeline.spec.ts`.
+
+**La regla que queda para el próximo que lo toque:** si la franja vuelve a crecer, lo que se edita
+es el contenido, no el número. El reclamo que la aserción defiende no cambió — la franja es una
+franja, no un panel.
+
+### 7.5 Paso 5 — lo que falta de la reubicación
+
+Retirar `cmd-group-detailing` **si** queda sin consumidores. Hoy **no** queda: conserva
+`cmd-open-3d` y la etiqueta del grupo, y `pro-design-workflow` asierta que la fila son tres grupos
+nombrados en orden de pipeline. Así que el paso 5 no es un borrado suelto — es decidir dónde va
+`cmd-open-3d`, que es el **resultado** del pipeline y no un paso, y recién entonces el grupo queda
+vacío. Ver también §7.7, segundo rojo: `pro-workflow-shell` ya exige ese botón en una fila que el
+paso 3 dejó sin `cmd-design-all`.
+
+### 7.6 Readiness y convergencia — bloque separado, sin empezar
+
+El instructivo pide que el comando esté *"disabled cuando no exista convergencia real"* y que
+**no** se genere documentación constructiva desde armaduras no verificadas. Hoy el botón se gatea
+por `detailingStore.readiness`, no por la señal de convergencia de `rcStages`.
+
+**Endurecerlo rompería fixtures que detallan a propósito modelos no convergidos** —
+`h1e-refused-state` genera detallado sobre miembros REFUSED, y ése es su objeto. Es un cambio de
+comportamiento con su propio radio, y **no va en el mismo commit que una reubicación**. Sigue sin
+empezar, deliberadamente: el paso 4 se cerró sin tocarlo.
+
+### 7.7 Los dos rojos preexistentes que aparecieron, y no eran del movimiento
+
+Los dos **confirmados en árbol limpio antes de tocarlos**, que es la regla de §A, y arreglados en
+commits propios para no mezclarlos con la reubicación.
+
+**1. `i18n-languages`, en en/es/pt — arreglado en `559127e0`.** `COMMAND_ROW` esperaba
+`design.cmd.codeCheck` cuando el **paso 2** renombró el botón a `design.cmd.requiredSteel`. La
+clave vieja sigue existiendo en los tres diccionarios y sigue diciendo "Run code check", así que
+resolvía a un string real y fallaba por **valor**, en los tres idiomas a la vez — lo que hacía
+parecer un defecto de i18n en vez de una expectativa vencida. Misma forma que D7.
+
+**2. `run-detailing.test.ts` — arreglado dentro de `a4d3a7c1`.** Leía `DesignToolbar` +
+`DesignOverview` buscando `detailingStore.generate`, que se había ido a `rc-commands.ts` en
+`660127e9`. **Se rompió en el primer movimiento, varios commits antes del paso 4**, y es
+justamente el test cuyo objeto es detectar cableado que dejó de conectar: falló en su propio
+asunto. Ahora lee la franja y `rc-commands.ts`.
+
+**Y uno que queda rojo a propósito:** `pro-workflow-shell` — *the command is on the Design command
+row* — exige `cmd-design-all` dentro de `design-toolbar .cmd-row`, y el **paso 3** mudó ese botón a
+la franja. Falla igual en árbol limpio. Es otra reubicación, no la del paso 4, y va con el paso 5
+(§7.5).
+
+### 7.8 Las 16 specs `@slow` del paso 4
 
 `viewer-typography` · `viewer-panel-tokens` · `status-token-consumers` · `rebar-workspace-open` ·
-`rebar-toggles` · `rc-cad-production-download` · `project-restore` · `pro-design-workflow` ·
+`rebar-toggles` · `rc-cad-production-download` · `project-restore` ·
 `i18n-languages` · `h1e-refused-state` · `h1e-rail-and-section` · `h1e-conflict-states` ·
 `h1e-absence-states` · `h1d-viewer-audit` · `h1c-documents-flow` · `h1b-panel-navigation` ·
 `f3-bar-labels`
 
-Con otra sesión corriendo Playwright en paralelo, los lotes tardaron entre 1,5 y 17 minutos.
-**No matar la suite ni los servidores de la otra sesión**; si hay contención, informarla antes de
+**Esta lista decía "16" y nombraba 17.** El decimoséptimo era `pro-design-workflow`, que §7.4
+también pedía entre las gates: **un archivo contado dos veces**, no un error de cuenta. Sacado de
+acá y corrido con las gates, donde ya estaba pedido. Ahora la lista son 16 nombres y 16 archivos.
+
+**Medido en una tanda propia, sin otra sesión compitiendo: 143 tests en 11,2 minutos.** El estimado
+anterior —lotes de 1,5 a 17 minutos— era con otra sesión corriendo Playwright en paralelo. Si hay
+contención, **no matar la suite ni los servidores de la otra sesión**; informarla antes de
 clasificar un timeout.
 
 ---
