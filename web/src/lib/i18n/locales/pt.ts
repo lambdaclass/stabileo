@@ -3987,6 +3987,7 @@ const pt: Translations = {
   'detailing.issue': 'Emitir para construção',
   'detailing.line.notCollinear': 'Linha de vigas {line}: os elementos {a} e {b} não são colineares (produto escalar {dot})',
   'detailing.lockBar': 'Fixar',
+  'detailing.bar.technicalId': "Identificador técnico da barra",
   'detailing.mark': 'Marca',
   'detailing.mass': 'Peso (kg)',
   'detailing.migration.corrupt': 'Não foi possível ler os dados de detalhamento guardados e eles foram descartados. Gere os conjuntos novamente.',

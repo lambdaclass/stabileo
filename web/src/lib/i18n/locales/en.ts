@@ -5165,6 +5165,7 @@ const en: Record<string, string> = {
 
   'detailing.barsCount': 'Longitudinal reinforcement ({n} bars)',
   'detailing.lockBar': 'Lock',
+  'detailing.bar.technicalId': "Technical bar identifier",
   'detailing.unlockBar': 'Unlock',
   'detailing.barRole.longitudinal': 'Longitudinal',
   'detailing.barRole.transverse': 'Transverse',

@@ -5158,6 +5158,7 @@ const es: Record<string, string> = {
 
   'detailing.barsCount': 'Armadura longitudinal ({n} barras)',
   'detailing.lockBar': 'Fijar',
+  'detailing.bar.technicalId': "Identificador técnico de la barra",
   'detailing.unlockBar': 'Liberar',
   'detailing.barRole.longitudinal': 'Longitudinal',
   'detailing.barRole.transverse': 'Transversal',

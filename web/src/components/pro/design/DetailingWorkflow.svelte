@@ -20,6 +20,7 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { REVIEW_STATES, reviewRank } from '../../../lib/engine/detailing/assembly';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
+  import { rcBarLabel, rcBarLabelParts } from '../../../lib/flow/rc-bar-label';
 
   /** Bound to the sheet dialog, so a conflict can open the drawing it is on. */
   let sheetOpen = $state(false);
@@ -52,6 +53,19 @@
   function goToMember(elementId: number) {
     uiStore.selectElement(elementId);
   }
+
+  /**
+   * Bar id → drawing mark, for the selected assembly.
+   *
+   * `assignMarks` groups identical fabricated items and records the ids that share each mark,
+   * so this is a read of what the coordination already decided rather than a second marking.
+   * A bar with no mark is absent from the map on purpose — see `rcBarLabel`.
+   */
+  const markOf = $derived.by(() => {
+    const m = new Map<string, string>();
+    for (const mk of selected?.marks ?? []) for (const id of mk.barIds) m.set(id, mk.mark);
+    return m;
+  });
 
 </script>
 
@@ -208,15 +222,30 @@
         real in the engine and unreachable in the product.
       -->
 
+      <!--
+        The bar list leads with the MARK, not with the engine's key.
+
+        It used to render `bar.id` in a monospace column — `col-61:ties:stirrup:0.000` — which
+        encodes an owner tag, a generator family, a slot name and a station coordinate. All four
+        are the right thing for a conflict record or a test hook and none of them is what an
+        engineer needs about that bar. The mark is what goes on the drawing and what a bender
+        asks for. The id stays on the row, one level down, because whoever is reconciling a
+        conflict record still needs the exact key.
+      -->
       <details class="bars" data-testid="bar-list">
         <summary>{tp('detailing.barsCount', { n: selected.bars.length })}</summary>
         <ul class="barlist">
           {#each selected.bars as bar (bar.id)}
+            {@const label = rcBarLabel(bar, (id) => markOf.get(id))}
+            {@const parts = rcBarLabelParts(label)}
             <li data-testid={`bar-${bar.id}`} class:locked={bar.locked}>
-              <span class="bar-id">{bar.id}</span>
+              <span class="bar-mark" data-testid={`bar-mark-${bar.id}`}>{parts.lead}</span>
               <span class="bar-dia">Ø{bar.diameterMm}</span>
               <span class="bar-len">{bar.cuttingLength.toFixed(2)} m</span>
               <span class="bar-role">{t(`detailing.barRole.${bar.role}`)}</span>
+              <!-- Secondary, and selectable: the exact key, for whoever needs it. -->
+              <code class="bar-id" data-testid={`bar-id-${bar.id}`}
+                    title={t('detailing.bar.technicalId')}>{label.technicalId}</code>
               <button data-testid="bar-lock" class="lock"
                       aria-pressed={bar.locked === true}
                       onclick={() => detailingStore.toggleLock(bar.id)}>
@@ -422,7 +451,18 @@
   ul.barlist { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 16rem; overflow: auto; }
   ul.barlist > li { display: flex; gap: 0.5rem; align-items: center; font-size: 0.76rem; padding: 0.15rem 0; border-top: 1px solid var(--st-hair); }
   ul.barlist > li.locked { background: var(--st-blue); }
-  .bar-id { font-family: monospace; min-width: 7rem; }
+  /* The mark leads: same weight as the rest of the row, first in reading order. */
+  .bar-mark { min-width: 3rem; font-weight: 600; }
+  /*
+   * The id, one level down. Smaller and dimmer, and `--st-text-3` is the token reserved for
+   * exactly this — text that is present for reference rather than for reading.
+   */
+  .bar-id {
+    font-family: monospace;
+    font-size: 0.68rem;
+    color: var(--st-text-3);
+    user-select: all;
+  }
   .bar-dia, .bar-len { min-width: 4rem; }
   .bar-role { flex: 1; opacity: 0.8; }
   .lock { font-size: 0.7rem; padding: 0.05rem 0.35rem; }
