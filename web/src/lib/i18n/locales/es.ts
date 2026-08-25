@@ -5930,6 +5930,29 @@ const es: Record<string, string> = {
   'design.elementGroup.linear': 'Elementos lineales',
   'design.elementGroup.surface': 'Elementos superficiales',
   'design.elementGroup.foundation': 'Fundaciones',
+  // Los pedestales no tenían etiqueta: `rcGroupOf` los agrupa en fundaciones, y la lista agrupada
+  // habría impreso la clave cruda la primera vez que un modelo tuviera uno.
+  'design.families.pedestal': 'Pedestales',
+  // Formas singulares, para una fila que nombra un miembro. Las plurales encabezan la familia.
+  'design.familySingular.column': 'Columna',
+  'design.familySingular.beam': 'Viga',
+  'design.familySingular.slab': 'Losa',
+  'design.familySingular.wall': 'Tabique',
+  'design.familySingular.footing': 'Base',
+  'design.familySingular.pedestal': 'Pedestal',
+  'design.memberList.title': 'Elementos',
+  'design.memberList.detailedOf': '{n} de {total} detallados',
+  // El id del elemento, como información secundaria detrás de una etiqueta humana.
+  'design.memberList.elementId': 'elemento {id}',
+  'design.memberList.undetailed': 'todavía sin detallar',
+  /*
+   * Se dice cuando NADA está clasificado todavía — que no es lo mismo que un edificio vacío. Los
+   * estados por familia reusan `design.families.census.unknown` y
+   * `design.families.state.noElements`, así que esto es sólo el caso de la lista entera.
+   */
+  'design.memberList.nothingClassified':
+    'Todavía no se clasificó ningún elemento. Calculá las solicitaciones y las familias se cuentan.',
+  'design.memberList.emptyModel': 'Este modelo todavía no tiene elementos para detallar.',
   'design.export.cannot.onDisk': "No podemos confirmar que el archivo siga en tu disco: el navegador entrega la descarga y la pierde de vista.",
   'design.export.cannot.kept': "No podemos confirmar que lo hayas guardado: pudiste cancelar el diálogo.",
   'design.export.cannot.printed': "No podemos confirmar que el PDF se haya impreso: la impresión la resuelve el sistema operativo.",

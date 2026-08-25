@@ -20,6 +20,7 @@
   import RcSubStage from './design/RcSubStage.svelte';
   import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
   import DetailingWorkflow from './design/DetailingWorkflow.svelte';
+  import RcMemberList from './design/RcMemberList.svelte';
   import DocumentsSection from './design/DocumentsSection.svelte';
   import FloorFamiliesPanel from './design/FloorFamiliesPanel.svelte';
   import { detailingStore } from '../../lib/store/detailing.svelte';
@@ -301,6 +302,17 @@
     badgeTestid="detailing-count"
     bind:open={detailingOpen}
   >
+    <!--
+      The grouped element list, above the assembly workflow.
+
+      Mounted ONCE, and here rather than inside `DetailingWorkflow`, for two reasons: that file is
+      at 509 lines against the 600-line component ceiling `rc-design-gates.test.ts` enforces, and
+      the list answers a different question from the one the workflow below answers. The workflow
+      is about an ASSEMBLY — a level, its bars, its sheet, its schedule. This is about the
+      building's ELEMENTS, grouped by what they are. Objective 3 will select from these rows
+      through `rebarWorkspace.selection`, which is why there is exactly one of them.
+    -->
+    <RcMemberList />
     <DetailingWorkflow />
   </StageSection>
 

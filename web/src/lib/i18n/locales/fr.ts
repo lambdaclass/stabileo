@@ -3433,6 +3433,26 @@ const fr: Translations = {
   'design.elementGroup.linear': 'Linear elements',
   'design.elementGroup.surface': 'Surface elements',
   'design.elementGroup.foundation': 'Foundations',
+  /*
+   * Added with the grouped element list (§8 objectives 1-2).
+   *
+   * English values on purpose: this locale is not one of the three the picker offers, and
+   * `locale-parity.test.ts` enforces `design.*` key parity against `en` for all thirteen.
+   */
+  'design.families.pedestal': 'Pedestals',
+  'design.familySingular.column': 'Column',
+  'design.familySingular.beam': 'Beam',
+  'design.familySingular.slab': 'Slab',
+  'design.familySingular.wall': 'Wall',
+  'design.familySingular.footing': 'Footing',
+  'design.familySingular.pedestal': 'Pedestal',
+  'design.memberList.title': 'Elements',
+  'design.memberList.detailedOf': '{n} of {total} detailed',
+  'design.memberList.elementId': 'element {id}',
+  'design.memberList.undetailed': 'not detailed yet',
+  'design.memberList.nothingClassified':
+    'No element has been classified yet. Compute the demands and the families will be counted.',
+  'design.memberList.emptyModel': 'This model holds no elements to detail yet.',
   'design.export.cannot.onDisk': "We cannot confirm the file is still on your disk: the browser hands over the download and loses sight of it.",
   'design.export.cannot.kept': "We cannot confirm you saved it: the dialog may have been cancelled.",
   'design.export.cannot.printed': "We cannot confirm the PDF was printed: printing is resolved by the operating system.",

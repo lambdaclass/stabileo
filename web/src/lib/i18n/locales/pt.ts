@@ -4865,6 +4865,29 @@ const pt: Translations = {
   'design.elementGroup.linear': 'Elementos lineares',
   'design.elementGroup.surface': 'Elementos de superfície',
   'design.elementGroup.foundation': 'Fundações',
+  // Os pedestais não tinham etiqueta: `rcGroupOf` agrupa-os nas fundações, e a lista agrupada
+  // teria impresso a chave crua na primeira vez que um modelo tivesse um.
+  'design.families.pedestal': 'Pedestais',
+  // Formas singulares, para uma linha que nomeia um membro. As plurais encabeçam a família.
+  'design.familySingular.column': 'Pilar',
+  'design.familySingular.beam': 'Viga',
+  'design.familySingular.slab': 'Laje',
+  'design.familySingular.wall': 'Parede',
+  'design.familySingular.footing': 'Sapata',
+  'design.familySingular.pedestal': 'Pedestal',
+  'design.memberList.title': 'Elementos',
+  'design.memberList.detailedOf': '{n} de {total} detalhados',
+  // O id do elemento, como informação secundária atrás de uma etiqueta humana.
+  'design.memberList.elementId': 'elemento {id}',
+  'design.memberList.undetailed': 'ainda não detalhado',
+  /*
+   * Dito quando NADA está classificado ainda — o que não é o mesmo que um edifício vazio. Os
+   * estados por família reutilizam `design.families.census.unknown` e
+   * `design.families.state.noElements`, portanto este é só o caso da lista inteira.
+   */
+  'design.memberList.nothingClassified':
+    'Nenhum elemento foi classificado ainda. Calcule os esforços e as famílias serão contadas.',
+  'design.memberList.emptyModel': 'Este modelo ainda não tem elementos para detalhar.',
   'design.export.cannot.onDisk': "Não podemos confirmar que o arquivo continua no seu disco: o navegador entrega o download e o perde de vista.",
   'design.export.cannot.kept': "Não podemos confirmar que você salvou: o diálogo pode ter sido cancelado.",
   'design.export.cannot.printed': "Não podemos confirmar que o PDF foi impresso: a impressão é resolvida pelo sistema operacional.",
