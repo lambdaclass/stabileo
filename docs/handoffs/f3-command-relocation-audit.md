@@ -7,24 +7,31 @@
 ## §A — Cómo retomar
 
 **Rama:** `feat/pro-concrete-h2` · **PR:** [#170](https://github.com/lambdaclass/stabileo/pull/170) (draft)
-**HEAD esperado:** `fcbc422d` · **29 commits** sobre `feat/pro-concrete-h1` · **árbol limpio, pusheado**
+**HEAD esperado:** `6afe56d2` · **32 commits** sobre `feat/pro-concrete-h1` · **árbol limpio, pusheado**
 
 ```bash
 cd web
 git status --porcelain          # debe estar vacío
-git log --oneline -1            # fcbc422d feat(pro): a member picked in the viewer …
+git log --oneline -1            # 6afe56d2 feat(detailing): a bar says what state it is in …
 git log --oneline origin/feat/pro-concrete-h2..HEAD   # debe estar vacío: remoto sincronizado
 NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin nuevos
 ```
+
+> **Aviso de entorno.** `NODE_OPTIONS` traía un `--require` de un preload que ya no existe, y
+> cualquier `npx vitest` / `npx playwright` muere con `MODULE_NOT_FOUND` antes de arrancar.
+> Correrlos con `NODE_OPTIONS=""` delante. `npm run typecheck` sí necesita su
+> `--max-old-space-size=4096`.
 
 **La reubicación F3 está completa: pasos 1 a 5, todos verdes** (§7). El paso 5 resolvió que
 `cmd-open-3d` **se queda** en `DesignToolbar` —es una herramienta transversal del visor, no una
 acción del pipeline— y que `cmd-group-detailing` por lo tanto no se retira. Ver §7.5.
 
-**Los objetivos 1 a 4 de Detalle están hechos y verdes** (§9). Quedan **siete: 5 a 11**.
-Lo próximo es el **objetivo 5** — nombres humanos de armadura y conflictos. Ver §9.5.
+**Los objetivos 1 a 5 de Detalle están hechos y verdes** (§9). Quedan **seis: 6 a 11**.
+Lo próximo es el **objetivo 6** — fijar/liberar con estética Stabileo y estados accesibles.
+Ver §9.8, que además explica por qué el 6 aterriza en `RcBarList.svelte` y no en el panel.
 
-**No empezar el objetivo 6 hasta que el 5 esté verde y commiteado aparte.**
+**El objetivo 5 quedó en `6afe56d2`, aparte**, y el rojo preexistente que destapó en
+`db929428`, también aparte.
 
 **El endurecimiento de readiness/convergencia sigue siendo un bloque separado**, sin empezar.
 Ver §7.6: es un cambio de comportamiento con su propio radio, y rompe fixtures que detallan
@@ -64,7 +71,7 @@ edición, verificación, convergencia y documentación.
 | **F2.6** persistencia | ✅ | — |
 | **Semántica de Diseñar** | ✅ `4ab876b5` | — |
 | **F3 · reubicación** | ✅ **pasos 1-5 completos** | — |
-| **F3 · Detalle** | 🔶 **objetivos 1-4 ✅**, 5-11 abiertos | §8.1, §9 |
+| **F3 · Detalle** | 🔶 **objetivos 1-5 ✅**, 6-11 abiertos | §8.1, §9 |
 | **Readiness / convergencia** | ⛔ bloque separado, sin empezar | §7.6 |
 
 ### Commits de esta rama, en orden
@@ -99,6 +106,9 @@ dfd40456  docs: step 4 done, and four things the audit had wrong
 205f40b1  feat(pro): RcMemberList.svelte — la lista agrupada            ← obj. 1-2, UI
 d1d6ae83  feat(pro): a row selects that member, and the viewer shows it ← obj. 3
 fcbc422d  feat(pro): a member picked in the viewer is the one the list points at  ← obj. 4
+1bc40fdc  docs: objectives 1-4 of Detalle are done
+db929428  test(floor): F6 and F10 assert the review gate's current contract  ← rojo preexistente
+6afe56d2  feat(detailing): a bar says what state it is in, and a conflict names bars  ← obj. 5
 ```
 
 ---
@@ -699,9 +709,57 @@ Y una del primer intento: `computeDemands` necesita el modelo **resuelto**. `loa
 `rc-design-gates.test.ts` hace cumplir. Si el objetivo 5 crece, va en componente propio, montado
 **una sola vez**, como se hizo con `RcMemberList`.
 
+### 9.8 Objetivo 5 — hecho, y las tres decisiones que lo definieron
+
+Dos commits: `db929428` (el rojo preexistente que destapó) y `6afe56d2` (el objetivo).
+
+| qué | dónde |
+|---|---|
+| los tres estados de una barra | `lib/flow/rc-bar-status.ts`, puro, 13 tests |
+| nombre humano de un conflicto | `rcConflictLabel` en `lib/flow/rc-bar-label.ts`, 19 tests |
+| la lista de barras, extraída | `components/pro/design/RcBarList.svelte`, montada una vez |
+| 12 e2e sembrados, sin solver | `e2e/f3-bar-states.spec.ts` |
+
+**1. "Sin marca / marcado / provisional" no es un enum de tres valores.** Son **dos ejes**:
+si la coordinación ya le dio marca, y si el acero puede construirse. `assignMarks` agrupa por
+geometría y no sabe nada de la procedencia del diseño, así que **una barra provisoria puede
+llevar marca perfectamente buena** — y aplastarlos perdería la marca justo en las filas que un
+doblador todavía fabrica. El módulo guarda los dos ejes y calcula **una** chapa: provisorio le
+gana a la marca, porque "todavía sin marca" se resuelve volviendo a coordinar y "provisorio"
+decide si la lámina se emite. Es la misma trampa de §9.1 con otro disfraz.
+
+**2. Las dos fuentes de "provisorio" se mantienen separadas**, como pide el comentario de
+`provisionalMembers`: la barra que *es* una propuesta (`BarPath.provisional`) y la barra que
+*atraviesa* un miembro que lo es. Una columna certificada tiene barras provisorias sin ser
+provisoria. Las dos son inconstruibles por motivos distintos y se resuelven en lugares
+distintos, así que el motivo va como **texto en la fila** — no como `title`, que ningún teclado
+alcanza. Las entradas son `bar.provisional` y el `provisionalMembers` del ensamble: los dos
+campos que `scene-model.ts` usa para pintar el visor, leídos y no re-derivados.
+
+**3. Una marca es un TIPO de fabricación, no una identidad.** Dos barras físicamente distintas
+pueden chocar bajo la misma marca, y la fila leería `B4 / B4` como si una barra chocara consigo
+misma. Por eso el conflicto muestra **siempre** los dos ids abajo, no sólo cuando un lado no se
+resuelve. `sameMark` es ese caso y está testeado.
+
+**Lo que costó tiempo, para no repetirlo:** `NODE_OPTIONS` del entorno rompe `npx vitest` y
+`npx playwright` (ver §A). Y `floor-design` F6/F10 estaban **rojas en árbol limpio en `1bc40fdc`**:
+H1 deshabilitó `review-submit` y movió el rechazo a `review-blockers` *antes* del click, D7 se
+actualizó a ese contrato en `76e9180c` y estas dos quedaron atrás. Confirmadas primero en árbol
+limpio, arregladas en commit propio. **Es la tercera vez que la serie hereda un rojo sin
+registrarlo** — §A regla 5.
+
+**Deuda que NO toqué, a propósito:** `DetailingWorkflow.svelte` conserva tres reglas CSS muertas
+(`h5`, `.field input`, `.field textarea`), restos de cuando Documentos se mudó a
+`DocumentsSection.svelte`. Salen como warnings de build y son previas a este bloque.
+
 ### 9.6 Objetivos 6 a 11, pendientes
 
-6. fijar/liberar con estética Stabileo y estados accesibles — **sólo después de que 5 esté verde**;
+6. fijar/liberar con estética Stabileo y estados accesibles — **el 5 ya está verde; empieza acá**.
+   Aterriza en `RcBarList.svelte`, no en el panel: el botón `bar-lock` y su `aria-pressed` ya
+   viven ahí, y la fila ya tiene `data-bar-state`. La lista **no** es un `listbox` hoy y fue
+   deliberado — las barras no se seleccionan, así que un `role="option"` anunciaría una selección
+   que no existe. Si el 6 hace la fila seleccionable, eso cambia, y el canal es
+   `rebarWorkspace.selection` (§9.2), nunca estado local;
 7. láminas con contorno, recubrimientos, armaduras, cotas y orientación;
 8. rótulo breve configurable con título y normas;
 9. planilla de doblado con esquema gráfico por forma;
@@ -716,13 +774,18 @@ Y una del primer intento: `computeDemands` necesita el modelo **resuelto**. `loa
 ```bash
 cd web
 export E2E_PORT=6301   # dedicado, nunca 4173
+export NODE_OPTIONS=""  # el del entorno rompe npx vitest / npx playwright — ver §A
+
 npx playwright test e2e/f3-member-list.spec.ts e2e/f3-selection-to-viewer.spec.ts \
   e2e/f3-selection-from-viewer.spec.ts e2e/pro-panel-consistency.spec.ts \
   e2e/pro-panel-structure.spec.ts          # 56 ✅
+npx playwright test e2e/f3-bar-states.spec.ts e2e/detailing.spec.ts \
+  e2e/detailing-review.spec.ts e2e/floor-design.spec.ts   # obj. 5 + lo que toca
 npx vitest run --project unit src/lib/flow/__tests__/ \
-  src/lib/store/__tests__/rebar-workspace-selection.test.ts   # 156 ✅
+  src/lib/store/__tests__/rebar-workspace-selection.test.ts   # 180 ✅
 npx vitest run --project unit src/lib/i18n/__tests__/         # paridad de 13 locales
-npm run typecheck && npm run build
+npx vitest run --project unit rc-design-gates                 # el techo de 600 líneas
+NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck && npm run build
 ```
 
 **i18n: son 13 locales, no 3.** `locale-parity.test.ts` exige paridad de claves `design.*` contra
