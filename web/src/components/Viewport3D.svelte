@@ -756,6 +756,24 @@
       initialized = false;
       cancelAnimationFrame(animFrameId);
       ro.disconnect();
+      /*
+       * The context is released, not just the renderer's own objects.
+       *
+       * `dispose()` frees what Three.js allocated and leaves the **WebGL context itself alive**.
+       * A browser allows only a small number of live contexts — around sixteen in Chromium — and
+       * drops the oldest without warning once that is exceeded, which shows up as a viewport
+       * that silently stops drawing with nothing in the console to explain it.
+       *
+       * `RebarViewport3D` has always done this and carries the same reasoning. This viewport did
+       * not, and the omission is easy to miss precisely because it costs nothing until the
+       * count is reached: with one context per page nothing goes wrong, and the failure appears
+       * only after a workspace has been opened and closed enough times.
+       *
+       * Doing it here is also the cheaper of the two orders: releasing the context frees the
+       * back buffer that `preserveDrawingBuffer: true` keeps alive for the PNG export, which is
+       * the most expensive thing this renderer holds.
+       */
+      renderer.forceContextLoss();
       renderer.dispose();
       controls.dispose();
       window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);

@@ -241,8 +241,12 @@ export const test = base.extend<{ pro: Page; appLocale: string }>({
 
 /** Load a fixture and wait for the model to settle. */
 export async function loadModel(page: Page, name: string): Promise<number[]> {
-  await page.evaluate(async (n) => { await window.__stabileoActions.loadExample(n); }, name);
-  await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0);
+  await withCrashGuard(page, page.evaluate(async (n) => {
+    await window.__stabileoActions.loadExample(n);
+  }, name));
+  await withCrashGuard(page, expect
+    .poll(() => page.evaluate(() => window.__stabileo.elementIds().length))
+    .toBeGreaterThan(0));
   return page.evaluate(() => window.__stabileo.elementIds());
 }
 
@@ -289,6 +293,68 @@ export async function designAll(page: Page): Promise<Record<string, number>> {
 const SOLVE_DEADLINE_MS = 480_000;
 
 /**
+ * A promise that rejects the moment the page's renderer dies.
+ *
+ * ── The failure this exists to name ─────────────────────────────────
+ *
+ * When a renderer process crashes, `page.evaluate` does not reject. It waits — for the test
+ * timeout, and then reports «page.evaluate: Test timeout of 60000ms exceeded» pointing at
+ * whichever line happened to be waiting. Everything downstream of that reads like a hang: the
+ * page's own `setTimeout` never fires, a solve measured at 60 ms never returns, and the code's
+ * sequential fallback never runs because the `catch` that triggers it needs JavaScript to be
+ * executing in a page that no longer exists.
+ *
+ * It cost a full investigation to learn that the page was not busy but **gone**: a CDP session
+ * opened against the stalled page answered `Target page, context or browser has been closed`,
+ * and `page.on('crash')` had fired. The browser log named the cause — `Received signal 4
+ * ILL_ILLTRP` in the GPU process, inside the software GL stack, after a burst of `ReadPixels`
+ * stalls.
+ *
+ * Racing against this turns sixty seconds of silence into an immediate failure that says what
+ * happened. It does not make the crash less likely and it is not meant to: a crash still fails
+ * the run. It makes the crash **legible**, which the timeout never was.
+ */
+function crashSignal(page: Page): { promise: Promise<never>; dispose(): void } {
+  let onCrash: (() => void) | undefined;
+  let onClose: (() => void) | undefined;
+  const promise = new Promise<never>((_, reject) => {
+    onCrash = (): void => reject(new Error(
+      'the renderer process crashed while the test was waiting on it.' + '\n'
+      + 'This is a browser-level crash, not a failed assertion and not a slow computation: '
+      + 'the page stops executing JavaScript entirely, so timers inside it stop, pending '
+      + 'promises never settle, and any in-page fallback never runs.' + '\n'
+      + 'Seen in this suite as a GPU-process abort (signal 4, ILL_ILLTRP) under the software '
+      + 'GL stack. See section 9 of docs/handoffs/m2-qa-handoff.md.',
+    ));
+    onClose = (): void => reject(new Error(
+      'the page was closed while the test was waiting on it.',
+    ));
+  });
+  page.on('crash', onCrash!);
+  page.on('close', onClose!);
+  // Nothing else awaits this promise, and an unobserved rejection would surface later as an
+  // unhandled rejection in an unrelated test.
+  promise.catch(() => { /* observed by the race, or irrelevant */ });
+  return {
+    promise,
+    dispose: () => {
+      if (onCrash) page.off('crash', onCrash);
+      if (onClose) page.off('close', onClose);
+    },
+  };
+}
+
+/** Run `work`, failing immediately if the renderer dies under it. */
+export async function withCrashGuard<T>(page: Page, work: Promise<T>): Promise<T> {
+  const crash = crashSignal(page);
+  try {
+    return await Promise.race([work, crash.promise]);
+  } finally {
+    crash.dispose();
+  }
+}
+
+/**
  * Wait until the REAL WASM solver is live.
  *
  * ── Why this is exported ────────────────────────────────────────────
@@ -305,12 +371,12 @@ const SOLVE_DEADLINE_MS = 480_000;
  * early, and lost a race it lost only sometimes.
  */
 export async function awaitSolverReady(page: Page): Promise<void> {
-  await expect
+  await withCrashGuard(page, expect
     .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), {
       timeout: 60_000,
       message: 'the WASM solver must be live before a solve is requested',
     })
-    .toBe(true);
+    .toBe(true));
 }
 
 /** Run the same global solve the toolbar button triggers, and wait for it. */
@@ -348,8 +414,10 @@ export async function solveModel(page: Page): Promise<void> {
   };
   page.on('console', onConsole);
 
-  const solved = page.evaluate(async () => { await window.__stabileoActions.solve(); })
-    .then(() => 'done' as const);
+  const solved = withCrashGuard(
+    page,
+    page.evaluate(async () => { await window.__stabileoActions.solve(); }),
+  ).then(() => 'done' as const);
   solved.catch(() => { /* reported below, or irrelevant once the page is gone */ });
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<'timeout'>((resolve) => {
