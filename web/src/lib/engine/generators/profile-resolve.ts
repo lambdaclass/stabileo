@@ -65,6 +65,15 @@ export interface ResolvedProfile {
    */
   centroidKnown: boolean;
   /**
+   * Where the centroid sits inside the outline, metres from the section's own origin.
+   *
+   * Computed here already — every polygon and the extent are shifted by it — and it used to be
+   * consumed and thrown away, so the data sheet had no centroid to show for ANY profile and
+   * said «no canonical geometry resolved» even for an IPE, whose geometry the app had just
+   * resolved. Null for a properties-only family, where there is genuinely nothing to state.
+   */
+  centroid: { yM: number; zM: number } | null;
+  /**
    * How far the canonical area sits from the published one, as a fraction.
    *
    * Not an error: for the W, HP and M families the source itself is inconsistent — it
@@ -133,6 +142,7 @@ export function resolveProfile(name: string): ResolvedProfile | null {
       family: p.family,
       basis: 'canonicalGeometry',
       centroidKnown: true,
+      centroid: { yM: q.yc, zM: q.zc },
       areaDeviation: declaredA > 0 ? (q.a - declaredA) / declaredA : null,
       // Shifted onto the centroid, so every consumer works in the one frame the placement
       // arithmetic already uses.
@@ -163,6 +173,7 @@ export function resolveProfile(name: string): ResolvedProfile | null {
     family: p.family,
     basis: 'catalogueDeclared',
     centroidKnown: isDoublySymmetric(p.family),
+    centroid: null,
     areaDeviation: null,
     // No geometry means no drawing. A plausible rectangle here would be inventing an outline
     // the app has just finished saying it does not have.

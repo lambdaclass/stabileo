@@ -1,5 +1,17 @@
 <script lang="ts">
   /**
+   * Millimetres, with anything below the printed resolution shown as zero.
+   *
+   * A doubly symmetric section resolves to a centroid at the origin, but the geometry engine
+   * returns it as a value a few nanometres off, and `(-1e-9).toFixed(1)` prints «-0.0». That
+   * reads as a measured offset with a direction, which is the one thing it is not.
+   */
+  function mm(metres: number): string {
+    const v = metres * 1000;
+    return (Math.abs(v) < 0.05 ? 0 : v).toFixed(1);
+  }
+
+  /**
    * The full data sheet for one section.
    *
    * Renders `sectionDataSheet()` and holds no logic of its own — every decision about what is
@@ -71,7 +83,7 @@
     <h4>{t('section.sheet.centroid')}</h4>
     {#if sheet.centroid}
       <p class="mono" data-testid="sheet-centroid">
-        y = {(sheet.centroid.yM * 1000).toFixed(1)} mm · z = {(sheet.centroid.zM * 1000).toFixed(1)} mm
+        y = {mm(sheet.centroid.yM)} mm · z = {mm(sheet.centroid.zM)} mm
       </p>
     {:else}
       <!-- Said out loud rather than left blank: h/2 is the centroid only for a doubly

@@ -154,7 +154,22 @@
   const refused = $derived(resolved ? BUILT_UP_ARRANGEMENTS.length - arrangements.length : 0);
 
   const entry = $derived(source.byId(draft.profileName) ?? null);
-  const sheet = $derived(entry ? sectionDataSheet({ entry }) : null);
+  /*
+   * The centroid comes from the geometry the modal has already resolved.
+   *
+   * `sectionDataSheet` states a centroid only when it is given one, and this call passed nothing
+   * — so every profile, including doubly symmetric ones, rendered «No canonical geometry
+   * resolved». That sentence was false wherever `resolved.basis` is `canonicalGeometry`: the app
+   * had the geometry, two lines up, and simply was not handing it over.
+   */
+  const sheet = $derived(entry
+    ? sectionDataSheet({
+      entry,
+      canonical: resolved?.centroid
+        ? { yc: resolved.centroid.yM, zc: resolved.centroid.zM }
+        : null,
+    })
+    : null);
   let sheetOpen = $state(false);
 
   /**
