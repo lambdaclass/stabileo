@@ -17,6 +17,7 @@
   import { diagnosticsWarning } from '../../../lib/store/diagnostics-warning.svelte';
   import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import OutcomeBadge from './OutcomeBadge.svelte';
+  import { rcCancelRun, rcGenerateDetailing, rcOpenRebar3D } from '../../../lib/flow/rc-commands';
 
   interface Props {
     selectedCount: number;
@@ -77,10 +78,10 @@
     opening3d = true;
     await new Promise((r) => requestAnimationFrame(() => r(null)));
     try {
-      const res = openRebar3D({
-        author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
-        at: new Date().toISOString(),
-      });
+      const res = rcOpenRebar3D(
+        detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+        new Date().toISOString(),
+      );
       if (!res.ok) open3dError = t('detailing.doc.noCoordinated');
     } finally {
       opening3d = false;
@@ -126,9 +127,8 @@
       ids: p.elementIds.slice(0, 6).join(', ') })).join(' '),
   );
 
-  function generateDetailing() {
-    detailingStore.generate();
-  }
+  /* The action lives in `lib/flow/rc-commands.ts`; this is the button that calls it. */
+  const generateDetailing = rcGenerateDetailing;
 
 
 </script>
@@ -242,7 +242,7 @@
     </div>
 
     {#if busy}
-      <button class="cmd cmd-cancel" data-testid="cmd-cancel" onclick={() => designRunStore.cancel()}>
+      <button class="cmd cmd-cancel" data-testid="cmd-cancel" onclick={rcCancelRun}>
         {t('design.cmd.cancel')}
       </button>
     {/if}

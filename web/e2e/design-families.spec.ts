@@ -20,23 +20,40 @@ async function ready(page: Page, example: string) {
 }
 
 test.describe('the family selector drives the whole run', () => {
-  test('offers every family, with foundations visibly unticked by default',
+  /*
+   * F2 changed two things here, and this test asserted the state before both.
+   *
+   * A family the model does not contain is no longer OFFERED at all — not disabled, not
+   * ticked-and-inert: absent. A checkbox for something the building does not have is a question
+   * with one answer, and it blurred "this model has no walls" into "the walls have not been
+   * designed".
+   *
+   * And the default narrowed to beams and columns. What keeps that honest is the scope read-out
+   * beside the command, which is asserted in `f2-design-stage.spec.ts` — an unticked family on
+   * screen is a choice; an unticked family nobody can see is the old defect with a smaller
+   * default.
+   */
+  test('offers the families this model has, with beams and columns ticked',
     async ({ pro: page }) => {
       await ready(page, 'rc-qa-diagnostic');
-      for (const f of ['column', 'beam', 'slab', 'wall', 'footing']) {
-        await expect(page.getByTestId(`design-family-${f}`)).toBeVisible();
+      for (const f of ['column', 'beam']) {
+        await expect(page.getByTestId(`design-family-${f}`), `${f} is offered`).toBeVisible();
+        await expect(page.getByTestId(`design-family-${f}`), `${f} is ticked`).toBeChecked();
       }
-      // Not a silent omission: the box is there and unticked, so "not designed" is a choice
-      // the user can see rather than something they discover in the 3-D view.
-      await expect(page.getByTestId('design-family-footing')).not.toBeChecked();
-      await expect(page.getByTestId('design-family-column')).toBeChecked();
-      await expect(page.getByTestId('design-family-slab')).toBeChecked();
+      // This model holds no shells and no footings, so those boxes are absent rather than
+      // present-and-empty. The scope beside the command is what states the omission.
+      for (const f of ['slab', 'wall', 'footing']) {
+        await expect(page.getByTestId(`design-family-${f}`),
+          `${f} is not offered by a model without them`).toHaveCount(0);
+      }
+      await expect(page.getByTestId('cmd-design-scope')).toBeVisible();
     });
 
-  test('select all and clear move every box', async ({ pro: page }) => {
+  test('select all and clear move every box that exists', async ({ pro: page }) => {
     await ready(page, 'rc-qa-diagnostic');
     await page.getByTestId('design-family-all').click();
-    await expect(page.getByTestId('design-family-footing')).toBeChecked();
+    // "All" means all the model HAS — there is no footing box on this model to tick.
+    await expect(page.getByTestId('design-family-beam')).toBeChecked();
     await page.getByTestId('design-family-none').click();
     await expect(page.getByTestId('design-family-column')).not.toBeChecked();
     // Nothing selected means nothing to run, and the button says so by being unavailable.
