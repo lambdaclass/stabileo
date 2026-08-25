@@ -5167,6 +5167,17 @@ const en: Record<string, string> = {
   'detailing.barsCount': 'Longitudinal reinforcement ({n} bars)',
   'detailing.lockBar': 'Lock',
   'detailing.bar.technicalId': "Technical bar identifier",
+  // The three states a bar can be in. Provisional outranks the mark axis on the badge: "not
+  // marked yet" resolves by coordinating again, "provisional" decides whether a sheet may issue.
+  'detailing.bar.state.marked': 'Marked',
+  'detailing.bar.state.unmarked': 'Not marked',
+  'detailing.bar.state.provisional': 'Provisional',
+  'detailing.bar.provisional.biaxial': 'Proposal: the beam’s secondary axis is not evaluated by any check in this application.',
+  'detailing.bar.provisional.throughMember': 'Runs through a member whose design is a proposal.',
+  'detailing.bar.provisional.owners': 'Members {ids}',
+  'detailing.bar.census.marked': '{n} marked',
+  'detailing.bar.census.unmarked': '{n} not marked',
+  'detailing.bar.census.provisional': '{n} provisional',
   'detailing.unlockBar': 'Unlock',
   'detailing.barRole.longitudinal': 'Longitudinal',
   'detailing.barRole.transverse': 'Transverse',

@@ -5160,6 +5160,17 @@ const es: Record<string, string> = {
   'detailing.barsCount': 'Armadura longitudinal ({n} barras)',
   'detailing.lockBar': 'Fijar',
   'detailing.bar.technicalId': "Identificador técnico de la barra",
+  // Los tres estados de una barra. "Provisoria" gana la chapa por encima del eje de marca:
+  // "sin marca" se resuelve volviendo a coordinar, "provisoria" decide si la lámina se emite.
+  'detailing.bar.state.marked': 'Marcada',
+  'detailing.bar.state.unmarked': 'Sin marca',
+  'detailing.bar.state.provisional': 'Provisoria',
+  'detailing.bar.provisional.biaxial': 'Propuesta: el eje secundario de la viga no lo verifica ningún control de esta aplicación.',
+  'detailing.bar.provisional.throughMember': 'Atraviesa un elemento cuyo diseño es una propuesta.',
+  'detailing.bar.provisional.owners': 'Elementos {ids}',
+  'detailing.bar.census.marked': '{n} con marca',
+  'detailing.bar.census.unmarked': '{n} sin marca',
+  'detailing.bar.census.provisional': '{n} provisoria(s)',
   'detailing.unlockBar': 'Liberar',
   'detailing.barRole.longitudinal': 'Longitudinal',
   'detailing.barRole.transverse': 'Transversal',

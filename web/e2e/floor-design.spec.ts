@@ -199,7 +199,15 @@ test.describe('@smoke floor conflicts and review', () => {
     })]);
     await openPanel(page);
     await expect(page.getByTestId('conflict-counter')).toContainText('1');
-    await expect(page.getByTestId('conflict-detail')).toContainText('F1-dowel-0 / P1-bx-0');
+    /*
+     * The detail names the two bars by their MARKS — `F1-dowel-0` is mark F2 and `P1-bx-0` is
+     * mark F1 in this fixture — and keeps the keys beside them. It used to assert the keys as
+     * the whole line, which was true and was the defect: the primary text of the line a reviewer
+     * reads first was `owner:family:slot:station` twice over. Both forms are asserted, because
+     * dropping either one is a regression in a different direction.
+     */
+    await expect(page.getByTestId('conflict-detail')).toContainText('F2 / F1');
+    await expect(page.getByTestId('conflict-detail-ids')).toHaveText('F1-dowel-0 / P1-bx-0');
   });
 
   test('F10 — a clean floor can be reviewed once the provisional work is accepted', async ({ pro: page }) => {

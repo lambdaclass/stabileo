@@ -16,11 +16,12 @@
   import { t, tp } from '../../../lib/i18n';
   import SheetPreview from './SheetPreview.svelte';
   import DetailingProblems from './DetailingProblems.svelte';
+  import RcBarList from './RcBarList.svelte';
   import { uiStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { REVIEW_STATES, reviewRank } from '../../../lib/engine/detailing/assembly';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
-  import { rcBarLabel, rcBarLabelParts } from '../../../lib/flow/rc-bar-label';
+  import { rcConflictLabel } from '../../../lib/flow/rc-bar-label';
 
   /** Bound to the sheet dialog, so a conflict can open the drawing it is on. */
   let sheetOpen = $state(false);
@@ -66,6 +67,35 @@
     for (const mk of selected?.marks ?? []) for (const id of mk.barIds) m.set(id, mk.mark);
     return m;
   });
+
+  /**
+   * Members of this assembly whose OWN design is a proposal.
+   *
+   * The assembly's own field. It is what `scene-model.ts` builds the 3-D view's
+   * `provisionalMembers` from and what the workspace banner counts, so the bar list, the viewer
+   * and the banner are three readings of one fact rather than three derivations of it. Deriving
+   * it here from bar ownership is the specific mistake `provisionalMembersOf` documents.
+   */
+  const provisionalMembers = $derived(new Set(selected?.provisionalMembers ?? []));
+
+  /** Bar id → the bar, so a conflict can name the two it involves instead of quoting their keys. */
+  const barById = $derived.by(() => {
+    const m = new Map<string, (typeof detailingStore.assemblies)[number]['bars'][number]>();
+    for (const b of selected?.bars ?? []) m.set(b.id, b);
+    return m;
+  });
+
+  /**
+   * The conflicts, named.
+   *
+   * Resolved here rather than inside `DetailingProblems` because the join needs the assembly's
+   * bars and its marks, and that component is deliberately given facts rather than sources — it
+   * "ranks and routes, and computes nothing". A conflict whose bar is not in this assembly keeps
+   * its key as the label; `rcConflictSide` reports that, and the component renders it as the
+   * reference text it is.
+   */
+  const conflictLabels = $derived(detailingStore.conflicts.map((c) =>
+    rcConflictLabel(c, (id) => barById.get(id), (id) => markOf.get(id))));
 
 </script>
 
@@ -205,6 +235,7 @@
       -->
       <DetailingProblems
         conflicts={detailingStore.conflicts}
+        conflictLabels={conflictLabels}
         conflictIndex={detailingStore.conflictIndex}
         stateBlockers={selected.stateBlockers ?? []}
         unsupported={selected.unsupported}
@@ -220,41 +251,18 @@
         Longitudinal reinforcement, bar by bar, with the lock control the coordination
         pipeline honours. Without this the "locked bars survive regeneration" guarantee is
         real in the engine and unreachable in the product.
-      -->
 
-      <!--
-        The bar list leads with the MARK, not with the engine's key.
-
-        It used to render `bar.id` in a monospace column — `col-61:ties:stirrup:0.000` — which
-        encodes an owner tag, a generator family, a slot name and a station coordinate. All four
-        are the right thing for a conflict record or a test hook and none of them is what an
-        engineer needs about that bar. The mark is what goes on the drawing and what a bender
-        asks for. The id stays on the row, one level down, because whoever is reconciling a
-        conflict record still needs the exact key.
+        The list itself is `RcBarList.svelte`, mounted once. It leads with the MARK rather than
+        the engine's key, and says which of the three states each bar is in; both decisions live
+        in `rc-bar-label.ts` and `rc-bar-status.ts` so they can be asserted without a browser.
+        It moved out because this panel is at its 600-line ceiling and objective 5 adds to it.
       -->
-      <details class="bars" data-testid="bar-list">
-        <summary>{tp('detailing.barsCount', { n: selected.bars.length })}</summary>
-        <ul class="barlist">
-          {#each selected.bars as bar (bar.id)}
-            {@const label = rcBarLabel(bar, (id) => markOf.get(id))}
-            {@const parts = rcBarLabelParts(label)}
-            <li data-testid={`bar-${bar.id}`} class:locked={bar.locked}>
-              <span class="bar-mark" data-testid={`bar-mark-${bar.id}`}>{parts.lead}</span>
-              <span class="bar-dia">Ø{bar.diameterMm}</span>
-              <span class="bar-len">{bar.cuttingLength.toFixed(2)} m</span>
-              <span class="bar-role">{t(`detailing.barRole.${bar.role}`)}</span>
-              <!-- Secondary, and selectable: the exact key, for whoever needs it. -->
-              <code class="bar-id" data-testid={`bar-id-${bar.id}`}
-                    title={t('detailing.bar.technicalId')}>{label.technicalId}</code>
-              <button data-testid="bar-lock" class="lock"
-                      aria-pressed={bar.locked === true}
-                      onclick={() => detailingStore.toggleLock(bar.id)}>
-                {bar.locked ? t('detailing.unlockBar') : t('detailing.lockBar')}
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </details>
+      <RcBarList
+        bars={selected.bars}
+        markOf={markOf}
+        provisionalMembers={provisionalMembers}
+        onToggleLock={(id) => detailingStore.toggleLock(id)}
+      />
 
       <div class="sheet-controls">
         <fieldset>
@@ -446,28 +454,12 @@
     border-left: 3px solid var(--st-danger);
   }
   .ok { color: var(--st-ok); }
-  details.bars { margin: 0.5rem 0; }
-  details.bars summary { cursor: pointer; font-size: 0.8rem; }
-  ul.barlist { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 16rem; overflow: auto; }
-  ul.barlist > li { display: flex; gap: 0.5rem; align-items: center; font-size: 0.76rem; padding: 0.15rem 0; border-top: 1px solid var(--st-hair); }
-  ul.barlist > li.locked { background: var(--st-blue); }
-  /* The mark leads: same weight as the rest of the row, first in reading order. */
-  .bar-mark { min-width: 3rem; font-weight: 600; }
   /*
-   * The id, one level down. Smaller and dimmer, and `--st-text-3` is the token reserved for
-   * exactly this — text that is present for reference rather than for reading.
-   */
-  .bar-id {
-    font-family: monospace;
-    font-size: 0.68rem;
-    color: var(--st-text-3);
-    user-select: all;
-  }
-  .bar-dia, .bar-len { min-width: 4rem; }
-  .bar-role { flex: 1; opacity: 0.8; }
-  .lock { font-size: 0.7rem; padding: 0.05rem 0.35rem; }
-  .conflict-nav { display: flex; align-items: center; gap: 0.5rem; }
-  .conflict-nav button { min-width: 1.8rem; }
+    The bar list's rules left with the bar list, to `RcBarList.svelte`. Svelte scopes styles per
+    component, so a copy kept here would not reach those rows anyway — it would be dead text that
+    the next reader has to prove is dead. `.conflict-nav` went the same way when the conflicts
+    moved to `DetailingProblems.svelte`, and was still here.
+  */
   /*
     The sheet's control group, on the same footing as every other one.
 

@@ -114,3 +114,102 @@ export function rcBarLabelParts(l: RcBarLabel): {
     owners: l.ownerElementIds,
   };
 }
+
+/**
+ * ── A conflict names two bars, and it named them the worst way available ───────────────
+ *
+ * `DetailingProblems.svelte` rendered `{c.barA} / {c.barB}` — two raw engine keys, in monospace,
+ * as the PRIMARY text of the row a reviewer reads first. It is the same defect this module was
+ * written for, one component over, and it survived because `BarConflict` carries ids and nothing
+ * else: no diameter, no role, no mark. The mark has to be joined in from the assembly's bars.
+ *
+ * That join can fail, and the failure is not hypothetical — a conflict may reference a bar that
+ * is not in the assembly being displayed. So a side is either RESOLVED, and leads with the mark
+ * or the diameter like every other bar in this app, or it is not, and leads with the id because
+ * there is nothing else true to say. `resolved` reports which, so the component can render the
+ * fallback as the reference text it is and the test can scope its negative assertion to the
+ * sides that had a bar to name.
+ */
+export interface RcConflictSide {
+  /** What leads the side. The mark, else `Ø16`, else — only when unresolvable — the id. */
+  lead: string;
+  /** The engine's key. Always carried, and on the row at a secondary level. */
+  technicalId: string;
+  /** False when no bar with this id was found; then `lead` IS `technicalId`. */
+  resolved: boolean;
+  /** Null when unresolved. */
+  diameterMm: number | null;
+}
+
+/** The severity keys that already exist in the dictionaries. */
+const SEVERITY_KEY: Record<string, string> = {
+  overlap: 'detailing.conflict.overlap',
+  clearance: 'detailing.conflict.clearance',
+};
+
+/** What this reads from a conflict. Structural, so it needs no collision engine. */
+export interface RcConflictLike {
+  severity: string;
+  barA: string;
+  barB: string;
+  /** Set when a classifier ran. Passed through; this module names nothing the engine named. */
+  classLabelKey?: string;
+}
+
+export interface RcConflictLabel {
+  a: RcConflictSide;
+  b: RcConflictSide;
+  severityKey: string;
+  classLabelKey: string | null;
+  /**
+   * Both sides resolved to the SAME mark.
+   *
+   * Not a defect and not a duplicate row: a mark is a fabrication TYPE, and two physically
+   * distinct bars of one type can clash. The row would read `B4 / B4` and look like a bar
+   * colliding with itself, so the component is told and shows the two ids without waiting to be
+   * asked. This is the one case where the human name is genuinely insufficient on its own.
+   */
+  sameMark: boolean;
+}
+
+/** Name one side of a conflict. */
+export function rcConflictSide(
+  barId: string,
+  barOf: (id: string) => RcBarLike | undefined,
+  markOf: (id: string) => string | undefined,
+): RcConflictSide {
+  const bar = barOf(barId);
+  if (!bar) return { lead: barId, technicalId: barId, resolved: false, diameterMm: null };
+  const label = rcBarLabel(bar, markOf);
+  return {
+    lead: rcBarLabelParts(label).lead,
+    technicalId: barId,
+    resolved: true,
+    diameterMm: label.diameterMm,
+  };
+}
+
+/**
+ * Name a conflict the way a person reads it: two named bars, a severity, and the class when the
+ * engine classified the pair.
+ *
+ * The severity mapping moved here from the component, so "what this conflict is called" is
+ * decided in one place and the component renders what it is handed. `severity` values this app
+ * does not name fall back to the clearance key, which is what the component did before and what
+ * every reported conflict that is not an overlap is.
+ */
+export function rcConflictLabel(
+  c: RcConflictLike,
+  barOf: (id: string) => RcBarLike | undefined,
+  markOf: (id: string) => string | undefined,
+): RcConflictLabel {
+  const a = rcConflictSide(c.barA, barOf, markOf);
+  const b = rcConflictSide(c.barB, barOf, markOf);
+  return {
+    a,
+    b,
+    severityKey: SEVERITY_KEY[c.severity] ?? SEVERITY_KEY.clearance,
+    classLabelKey: c.classLabelKey ?? null,
+    sameMark: a.resolved && b.resolved && a.lead === b.lead,
+  };
+}
