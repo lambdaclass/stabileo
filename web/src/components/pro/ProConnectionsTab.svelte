@@ -60,6 +60,32 @@
   });
   const hiddenJointCount = $derived(Math.max(0, allJointCount - joints.length));
 
+  /**
+   * Why the list is empty, when it is.
+   *
+   * Three different absences, and until now they all rendered as "no joints":
+   *
+   *   · **`noModel`** — nothing is loaded, or nothing connects. Genuinely no joints.
+   *   · **`noneMetallic`** — the model HAS joints and none of their members is classifiable as
+   *     metal. This is the state the shipped industrial shed was in: 226 joints, 633 elements,
+   *     and every element pointing at a material that declared no yield strength, so
+   *     `materialFamilyOf` returned `unknown` and the filter removed all 226. A panel that says
+   *     "no joints" there is telling the user something false about their model.
+   *   · **`hasJoints`** — the ordinary case.
+   *
+   * The second one names the members' verdict rather than guessing, so the message can say what
+   * to fix: a material with no strength and no grade.
+   */
+  const emptyReason = $derived.by((): 'hasJoints' | 'noModel' | 'noneMetallic' => {
+    if (joints.length > 0) return 'hasJoints';
+    return allJointCount > 0 ? 'noneMetallic' : 'noModel';
+  });
+
+  /** How many members the app could not classify at all. The number that explains the absence. */
+  const unclassifiedCount = $derived(
+    steelStore.inventory.census.byFamily.unknown ?? 0,
+  );
+
   let selectedJointId = $state<number | null>(null);
 
   const selectedJoint = $derived(joints.find(j => j.nodeId === selectedJointId) ?? null);
@@ -210,7 +236,9 @@
     title={t('conn.sec.joints.title')}
     purpose={t('conn.sec.joints.purpose')}
     state={joints.length > 0 ? 'done' : 'blocked'}
-    blockedBy={t('conn.sec.joints.blocked')}
+    blockedBy={emptyReason === 'noneMetallic'
+      ? tp('conn.jointsNotShown', { n: allJointCount })
+      : t('conn.sec.joints.blocked')}
     badge={joints.length}
     testid="conn-sec-joints"
     badgeTestid="conn-joint-count"
@@ -227,7 +255,23 @@
       </p>
     {/if}
     {#if joints.length === 0}
-      <div class="conn-empty">{t('conn.noJoints')}</div>
+      {#if emptyReason === 'noneMetallic'}
+        <!--
+          The model has joints. None of them could be shown, and the reason is a property of the
+          MATERIALS, not of the topology — so the message names the count on both sides and what
+          would fix it.
+        -->
+        <div class="conn-empty conn-empty-blocked" data-testid="conn-none-metallic">
+          <p>{tp('conn.jointsNotShown', { n: allJointCount })}</p>
+          {#if unclassifiedCount > 0}
+            <p class="conn-why" data-testid="conn-none-metallic-why">
+              {tp('conn.jointsUnclassified', { n: unclassifiedCount })}
+            </p>
+          {/if}
+        </div>
+      {:else}
+        <div class="conn-empty" data-testid="conn-no-joints">{t('conn.noJoints')}</div>
+      {/if}
     {:else}
       <div class="conn-joint-list">
         {#each joints as j}
@@ -515,6 +559,11 @@
   .conn-section { border-bottom: 1px solid var(--st-surface-3); }
   .conn-section-header { padding: 8px 10px; }
   .conn-label-title { font-size: 0.78rem; color: var(--st-text-2); font-weight: 600; }
+  /* A blocked emptiness is not the same as an ordinary one, and reads differently. */
+  .conn-empty-blocked { color: var(--st-warn); text-align: left; }
+  .conn-empty-blocked p { margin: 0 0 4px; line-height: 1.4; }
+  .conn-why { color: var(--st-text-2); font-size: 0.68rem; }
+
   .conn-empty { text-align: center; color: var(--st-text-3); font-style: italic; padding: 20px 10px; font-size: 0.78rem; }
 
   .conn-joint-list { max-height: 180px; overflow-y: auto; }
