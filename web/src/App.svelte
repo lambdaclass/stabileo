@@ -1146,6 +1146,14 @@
           rather than a glyph, because "which of the four am I in" is the one
           thing the phone cannot show by laying all four out.
         -->
+        <!--
+          Hidden on the Project screen. Project belongs to no stage — it is the
+          document, not a step of the work — so the selector there named a place
+          the panel was not showing, which is the one thing this row's highlight
+          rule exists to prevent. The slot closes up; the row is `flex: 1 1 0`,
+          so the remaining five simply divide the width.
+        -->
+        {#if !(uiStore.rightDrawerOpen && uiStore.proActiveTab === 'project')}
         <button
           class="pmt-btn pmt-stage"
           class:active={uiStore.rightDrawerOpen && uiStore.proActiveTab !== 'project'}
@@ -1157,6 +1165,7 @@
           <span class="pmt-stage-name">{t(proStageLabelKey)}</span>
           <span class="pmt-caret" aria-hidden="true"></span>
         </button>
+        {/if}
 
         <button
           class="pmt-btn pmt-solve"
@@ -1489,9 +1498,24 @@
   -->
   {#if uiStore.isMobile && uiStore.appMode !== 'basico'}
     <nav class="mobile-bottom-bar">
-      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}>
-        {uiStore.appMode === 'pro' ? '\u26A1' : '\uD83D\uDCD0'}
-      </button>
+      <!--
+        A drawn icon, like everything else in this shell.
+        ────────────────────────────────────────────────
+        It was ⚡ — a Unicode glyph that renders as a colour emoji on most
+        phones, at whatever weight and optical size the platform font decides.
+        Beside the ribbon's line icons it read as a sticker. `Icon` draws on the
+        same 24-unit grid at the same stroke weight and takes `currentColor`, so
+        it tints with the button instead of ignoring it. Same reasoning as the
+        ribbon's own icons — see `ribbon/Icon.svelte`.
+      -->
+      <button
+        class="mobile-bar-btn"
+        class:active={uiStore.rightDrawerOpen}
+        onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen}
+        title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}
+        aria-label={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}
+        data-testid="mobile-panel-toggle"
+      ><Icon name={uiStore.appMode === 'pro' ? 'data' : 'settings'} size={20} /></button>
     </nav>
   {/if}
 </div>

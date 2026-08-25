@@ -801,6 +801,16 @@
   let proGridOpen = $state(true);
   $effect(() => { gridStage; proGridOpen = true; });
 
+  /**
+   * The command the panel is currently showing, if any.
+   *
+   * `proCmdActive` already answers this per command — it is what lights a cell —
+   * so the head asks it rather than deciding again from `proActiveTab`. Two
+   * answers to "where am I" is how a header comes to name one place while the
+   * content shows another.
+   */
+  const hereCmd = $derived(gridCmds.find((c) => proCmdActive(c)));
+
   function runProCmd(c: ProCmd) {
     if (c.enabled && !c.enabled()) return;
     if (c.diagram) resultsStore.diagramType = c.diagram as never;
@@ -836,28 +846,14 @@
     <!-- Mobile-only PRO navigation and actions (tools moved to upper toolbar in App.svelte) -->
     <div class="pro-mobile-nav">
       <!--
-        Open, Save and Examples belong to the DOCUMENT, so they show where the
-        document is: the Project tab. They used to sit above every tab, which
-        put three file buttons over the nodes table, over the diagnostics, over
-        the RC design — a permanent header for an errand you run twice a
-        session.
-      -->
-      {#if uiStore.proActiveTab === 'project'}
-      <div class="pro-mobile-actions">
-        <!--
-          Same controls as the desktop PRO bar, which this row replaces on mobile. `shortcuts`
-          stays off here: the two bars are mutually exclusive, and only the desktop one binds
-          Ctrl+S / Ctrl+O.
-        -->
-        <ProProjectFileActions variant="mobile" />
-        <button class="pm-action pm-example" onclick={toggleExampleMenu}>{t('pro.exampleBtn')}</button>
-      </div>
-      {/if}
-      <!--
-        Solve and Report used to sit in that row too. They are commands of the
-        ANALYSE stage and appear in the grid below, and Solve is also in the top
-        bar — three copies of one button, which is three places to look when it
-        is greyed and you want to know why.
+        No action row here at all.
+        ─────────────────────────
+        It held Open, Save, Examples, Solve and Report above every tab. Solve and
+        Report are ANALYSE commands and are in the grid; Open, Save and Examples
+        belong to the document and are in the Project tab's own sections, where
+        the reader already goes to start or file a model. A header that repeats
+        five buttons over the nodes table, over diagnostics, over RC design is a
+        permanent cost for errands you run twice a session.
       -->
       <!--
         The stage's commands, as a grid.
@@ -873,6 +869,15 @@
         A grid says all of it at once and still grows: a sixteenth command in
         ANALYSE is one more cell, and nothing above or below has to move.
       -->
+      <!--
+        The head says WHERE YOU ARE, not just which stage.
+        ─────────────────────────────────────────────────
+        It read "ANÁLISIS 15", which names the drawer you opened and not the
+        thing you are looking at — so once the grid folded there was nothing on
+        screen saying you were in Barras rather than Nodos. It now reads
+        `Modelo › Barras` with the command's own glyph, which is the one line
+        that survives scrolling and therefore the one that has to carry it.
+      -->
       <button
         class="pm-grid-head"
         class:open={proGridOpen}
@@ -880,45 +885,16 @@
         aria-expanded={proGridOpen}
         data-testid="pm-grid-toggle"
       >
-        <span>{gridStage ? t(gridStage.labelKey) : ''}</span>
+        <span class="pm-head-where">
+          <span class="pm-head-stage">{gridStage ? t(gridStage.labelKey) : ''}</span>
+          {#if hereCmd}
+            <span class="pm-head-sep" aria-hidden="true">›</span>
+            <span class="pm-head-icon"><Icon name={hereCmd.icon ?? 'data'} size={15} rotate={hereCmd.rotate ?? 0} /></span>
+            <span class="pm-head-cmd">{hereCmd.label ?? t(hereCmd.labelKey)}</span>
+          {/if}
+        </span>
         <span class="pm-grid-count">{gridCmds.length}</span>
       </button>
-      {#if proGridOpen}
-      <div class="pm-groups" data-stage={gridStage?.id} data-testid="pm-grid">
-        {#each gridGroups as g (g.id)}
-          <section class="pm-group">
-            <h4 class="pm-group-title">{t(g.labelKey)}</h4>
-            <div class="pm-grid">
-              {#each g.cmds as c (c.id)}
-                {@const on = !c.enabled || c.enabled()}
-                <button
-                  class="pm-cell"
-                  class:active={proCmdActive(c)}
-                  disabled={!on}
-                  data-testid="pm-cmd-{c.id}"
-                  onclick={() => runProCmd(c)}
-                  title={c.label ? `${t(c.labelKey)} (${c.label})` : t(c.labelKey)}
-                >
-                  <!--
-                    The icon is always drawn, and the SHORT name goes under it.
-                    Before, a diagram cell showed its symbol where the icon goes
-                    and the full name underneath — "Momento flector respecto a
-                    y" ellipsised to "Momento flector respect…" in a 116 px
-                    cell, which is a truncation pretending to be a label. The
-                    symbol IS the short name for those; the full one is in the
-                    tooltip, exactly as the desktop ribbon does it.
-                  -->
-                  <span class="pm-cell-icon">
-                    <Icon name={c.icon ?? 'data'} size={20} rotate={c.rotate ?? 0} />
-                  </span>
-                  <span class="pm-cell-label" class:symbol={!!c.label}>{c.label ?? t(c.labelKey)}</span>
-                </button>
-              {/each}
-            </div>
-          </section>
-        {/each}
-      </div>
-      {/if}
     </div>
   {/if}
 
@@ -942,7 +918,15 @@
     explain it.
   -->
   <header class="pro-head">
-    <span class="pro-head-title" data-testid="pro-panel-title">{t(TAB_TITLE[activeTab] ?? 'pro.tabNodes')}</span>
+    <!--
+      Hidden on a phone: the pinned head above already reads `Modelo › Barras`,
+      so this band repeated the second half of it directly underneath and cost
+      a row of the 204 px the panel has. It stays on a desktop, where nothing
+      else names the open tab.
+    -->
+    {#if !uiStore.isMobile}
+      <span class="pro-head-title" data-testid="pro-panel-title">{t(TAB_TITLE[activeTab] ?? 'pro.tabNodes')}</span>
+    {/if}
     <!--
       The model-diagnostics chip is NOT here any more.
 
@@ -961,6 +945,53 @@
 
   <!-- Tab content -->
   <div class="pro-content">
+    <!--
+      The grid scrolls; the head above it does not.
+      ────────────────────────────────────────────
+      `.pro-mobile-nav` sits outside this scroller, so the head is pinned for
+      free. The grid used to sit up there with it, which meant ANALYSE's five
+      rows held 256 px of the panel permanently and the table below them was a
+      slot. Inside the scroll it is there when you look for it and gone when you
+      scroll into the numbers — which is what the fold was approximating.
+    -->
+    {#if uiStore.isMobile}
+        {#if proGridOpen}
+        <div class="pm-groups" data-stage={gridStage?.id} data-testid="pm-grid">
+          {#each gridGroups as g (g.id)}
+            <section class="pm-group">
+                <h4 class="pm-group-title">{t(g.labelKey)}</h4>
+                <div class="pm-grid">
+                  {#each g.cmds as c (c.id)}
+                    {@const on = !c.enabled || c.enabled()}
+                    <button
+                        class="pm-cell"
+                        class:active={proCmdActive(c)}
+                        disabled={!on}
+                        data-testid="pm-cmd-{c.id}"
+                        onclick={() => runProCmd(c)}
+                        title={c.label ? `${t(c.labelKey)} (${c.label})` : t(c.labelKey)}
+                    >
+                        <!--
+                          The icon is always drawn, and the SHORT name goes under it.
+                          Before, a diagram cell showed its symbol where the icon goes
+                          and the full name underneath — "Momento flector respecto a
+                          y" ellipsised to "Momento flector respect…" in a 116 px
+                          cell, which is a truncation pretending to be a label. The
+                          symbol IS the short name for those; the full one is in the
+                          tooltip, exactly as the desktop ribbon does it.
+                        -->
+                        <span class="pm-cell-icon">
+                          <Icon name={c.icon ?? 'data'} size={20} rotate={c.rotate ?? 0} />
+                        </span>
+                        <span class="pm-cell-label" class:symbol={!!c.label}>{c.label ?? t(c.labelKey)}</span>
+                    </button>
+                  {/each}
+                </div>
+            </section>
+          {/each}
+        </div>
+        {/if}
+    {/if}
     {#if tabError}
       <div class="pro-tab-error">
         <p>{t('pro.errorInTab').replace('{tab}', activeTab)}</p>
@@ -1151,6 +1182,27 @@
      It wraps downward without limit, which is the property the row it replaced
      did not have and the reason this is a grid at all.
      ──────────────────────────────────────────────────────────────── */
+  /* ── Where you are, pinned ────────────────────────────────────────
+     The one line that survives scrolling, so it carries the whole address:
+     stage, glyph, command.
+     ──────────────────────────────────────────────────────────────── */
+  .pm-head-where {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .pm-head-stage { flex: none; color: var(--st-text-2); }
+  .pm-head-sep { flex: none; color: var(--st-text-3); }
+  .pm-head-icon { display: flex; flex: none; color: var(--st-accent); }
+  .pm-head-cmd {
+    color: var(--st-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .pm-grid-head {
     display: flex;
     align-items: center;
@@ -1185,6 +1237,54 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 8px;
+  }
+
+  /* ── The table gets the panel's whole scroll ──────────────────────
+     Each PRO tab wraps its table in `*-table-wrap`, a box with its own
+     `overflow-y: auto`. On a desktop that is right: the panel is tall and the
+     controls above the table should stay put while the rows move.
+
+     On a phone it is the reason the table reads as a slot. The panel is ~300 px,
+     the tab's own controls take most of it, and the table scrolls inside
+     whatever is left — a scroller inside a scroller, the smaller one holding
+     the thing you came to read.
+
+     Opened up, the panel is the only scroller: the grid and the tab's controls
+     scroll away, and the table's `thead` — already `position: sticky; top: 0`
+     in every tab — pins to the top of `.pro-content`, which is directly under
+     the head. Exactly one row of column titles, right below the address.
+     ──────────────────────────────────────────────────────────────── */
+  @media (max-width: 767px) {
+    /*
+       `*=`, not `$=`. Svelte appends its scope class, so the attribute reads
+       "pro-elems-table-wrap svelte-1abc" and an ends-with match never fires —
+       the rule looked right, changed nothing, and the table went on scrolling
+       inside its own box.
+    */
+    .pro-content :global([class*='-table-wrap']) {
+      flex: none;
+      max-height: none;
+      overflow: visible;
+    }
+
+    /*
+       And the tab's own root has to let go too. Each is
+       `display: flex; height: 100%`, which pins the whole tab to the panel's
+       height and makes the wrap the only thing that can scroll. Height `auto`
+       lets the tab be as tall as its table, and `.pro-content` — the panel's
+       scroller — takes over.
+    */
+    .pro-content :global(> div[class^='pro-']) {
+      height: auto;
+      min-height: 0;
+    }
+
+    /* Above the rows it holds, and above the grid if that is still open. */
+    .pro-content :global(thead) {
+      z-index: 4;
+      background: var(--st-surface);
+    }
   }
 
   .pm-group-title {
