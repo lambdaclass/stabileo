@@ -158,8 +158,18 @@
     analysisStale: verificationStore.isBaselineStale,
     codeChosen: regulationsStore.concreteDesignCode() !== null,
     hasDemands: verificationStore.demandRevision > 0,
-    designed: verificationStore.providedSummary.total > 0,
-    verified: verificationStore.baselineRevision > 0,
+    /*
+     * The design cycle's real state. `baselineRevision` used to stand in for "verified" and it
+     * cannot: it says a required-steel baseline was published, which is computed from demands
+     * and the code and never reads a provided bar. See `rc-stages.ts`.
+     */
+    designApplicable: verificationStore.providedSummary.total,
+    designProposed: verificationStore.providedSummary.withReinforcement,
+    designVerified: verificationStore.providedSummary.ok,
+    designUnresolved: verificationStore.providedSummary.fail
+      + verificationStore.providedSummary.provisional
+      + verificationStore.providedSummary.unavailable
+      + verificationStore.providedSummary.stale,
     detailed: detailingStore.assemblies.length > 0,
     documented: detailingStore.document !== null,
   });

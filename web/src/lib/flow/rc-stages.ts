@@ -122,15 +122,39 @@ export interface RcFlowReadings {
   codeChosen: boolean;
   /** Station demands have been derived — `verificationStore.demandRevision > 0`. */
   hasDemands: boolean;
-  /** Members carry provided reinforcement — `verificationStore.providedSummary.total > 0`. */
-  designed: boolean;
   /**
-   * The code check has run against the reinforcement provided.
+   * The design cycle's real state, per member.
    *
-   * NOT a stage. Read `verificationStore.baselineRevision > 0`, and it only ever means
-   * anything once `designed` is true — see the header.
+   * ── What this replaces, and why the old rule was a lie ────────────
+   *
+   * DISEÑAR used to complete on `designed && verified`, where `verified` was
+   * `baselineRevision > 0` — the flag that says a REQUIRED-STEEL baseline was published.
+   * `runCodeCheck` reads results, demands and the code adapter and never looks at a single
+   * provided bar, so that rule let the stage report itself finished on a number that says
+   * nothing about the reinforcement chosen. It was the exact claim F1 removed from the strip,
+   * reintroduced in the completion rule.
+   *
+   * Designing is a CYCLE: demands, code requirements, a concrete proposal, a check of that
+   * proposal, a re-proposal where it fails, and again until it converges. The stage is finished
+   * only at convergence, and these four numbers are what say so. They come from
+   * `verificationStore.providedSummary`, which classifies every applicable member against the
+   * reinforcement actually provided.
    */
-  verified: boolean;
+  /** Applicable members — the denominator. Zero means there is nothing to design. */
+  designApplicable: number;
+  /** Members that carry a concrete proposal. */
+  designProposed: number;
+  /** Members whose proposal passes the selected code. */
+  designVerified: number;
+  /**
+   * Members whose proposal is provisional, failing, unavailable or stale.
+   *
+   * Four different situations and one number, because the remedy is the same for all four —
+   * the design has not converged — and the per-element badges are where they are told apart.
+   * A `warn` is deliberately NOT counted: a warning is a note on a check that passed, not an
+   * unresolved one.
+   */
+  designUnresolved: number;
   /** Coordinated assemblies exist — `detailingStore.assemblies.length > 0`. */
   detailed: boolean;
   /** A document has been built — `detailingStore.document !== null`. */
@@ -256,7 +280,17 @@ function isComplete(id: RcStageId, r: RcFlowReadings): boolean {
   switch (id) {
     case 'model': return rcModelReadiness(r) === 'ready';
     case 'codes': return r.codeChosen && r.hasDemands;
-    case 'design': return r.designed && r.verified;
+    /*
+     * Convergence, not activity. Every applicable member carries a proposal, every proposal
+     * passes, and nothing is left provisional, failed, unavailable or stale. A model with
+     * nothing applicable is not "finished designing" — it has not started, and `designApplicable
+     * === 0` keeps the stage current rather than claiming a vacuous success.
+     */
+    case 'design':
+      return r.designApplicable > 0
+        && r.designProposed === r.designApplicable
+        && r.designVerified === r.designApplicable
+        && r.designUnresolved === 0;
     case 'detailing': return r.detailed;
     case 'documents': return r.detailed && r.documented;
   }

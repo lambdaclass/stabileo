@@ -25,14 +25,18 @@ import en from '../../i18n/locales/en';
 /** Nothing done. Every scenario below is this, with the prefix it needs turned on. */
 const NOTHING: RcFlowReadings = {
   hasModel: false, solved: false, analysisStale: false, codeChosen: false,
-  hasDemands: false, designed: false, verified: false, detailed: false, documented: false,
+  hasDemands: false, detailed: false, documented: false,
+  designApplicable: 0, designProposed: 0, designVerified: 0, designUnresolved: 0,
 };
+
+/** A design cycle that converged: every applicable member proposed, checked and passing. */
+const CONVERGED = { designApplicable: 4, designProposed: 4, designVerified: 4, designUnresolved: 0 };
 const r = (over: Partial<RcFlowReadings>): RcFlowReadings => ({ ...NOTHING, ...over });
 
 /** A project that has run the whole pipeline. */
 const COMPLETE = r({
   hasModel: true, solved: true, codeChosen: true, hasDemands: true,
-  designed: true, verified: true, detailed: true, documented: true,
+  ...CONVERGED, detailed: true, documented: true,
 });
 
 describe('one stage, one destination', () => {
@@ -115,7 +119,7 @@ describe('the stages resolve against a project', () => {
   it('the optional stage is never current', () => {
     const allButDocs = r({
       hasModel: true, solved: true, codeChosen: true, hasDemands: true,
-      designed: true, verified: true, detailed: true,
+      ...CONVERGED, detailed: true,
     });
     const s = rcStages(allButDocs);
     expect(currentRcStage(s)).toBeNull();
@@ -146,9 +150,9 @@ describe('the stages resolve against a project', () => {
       [{ hasModel: true, solved: true }, 'codes'],
       [{ hasModel: true, solved: true, codeChosen: true, hasDemands: true }, 'design'],
       [{ hasModel: true, solved: true, codeChosen: true, hasDemands: true,
-         designed: true, verified: true }, 'detailing'],
+         ...CONVERGED }, 'detailing'],
       [{ hasModel: true, solved: true, codeChosen: true, hasDemands: true,
-         designed: true, verified: true, detailed: true }, null],
+         ...CONVERGED, detailed: true }, null],
     ];
     for (const [over, expected] of steps) {
       expect(currentRcStage(rcStages(r(over)))?.id ?? null, JSON.stringify(over)).toBe(expected);
@@ -156,37 +160,114 @@ describe('the stages resolve against a project', () => {
   });
 });
 
-describe('a design is not finished until it has been checked', () => {
-  const designedNotChecked = r({
-    hasModel: true, solved: true, codeChosen: true, hasDemands: true, designed: true,
-  });
+const UPSTREAM = {
+  hasModel: true, solved: true, codeChosen: true, hasDemands: true,
+} as const;
 
+describe('DISEÑAR completes on convergence, never on activity', () => {
   /*
-   * The claim the previous strip made by accident. `verified` false with `designed` true is a
-   * real state — the design ran, the code check has not — and it must read as unfinished.
+   * The defect this replaces, and it shipped. The stage used to complete on
+   * `designed && verified`, where `verified` was `baselineRevision > 0` — a flag saying a
+   * REQUIRED-STEEL baseline was published. `runCodeCheck` reads results, demands and the code
+   * adapter and never looks at one provided bar, so the stage could report itself finished on a
+   * number that says nothing about the reinforcement chosen.
    */
-  it('designed but unchecked leaves DISEÑAR current, not done', () => {
-    const s = rcStages(designedNotChecked);
-    const design = s.find((x) => x.id === 'design')!;
-    expect(design.complete).toBe(false);
-    expect(design.state).toBe('current');
+  it('1. a code baseline with no proposal does not complete it', () => {
+    const s = rcStages(r({ ...UPSTREAM, designApplicable: 4, designProposed: 0 }));
+    expect(s.find((x) => x.id === 'design')!.complete).toBe(false);
   });
 
-  it('and checking it is what finishes the stage', () => {
-    const s = rcStages({ ...designedNotChecked, verified: true });
+  it('2. a proposal nobody checked does not complete it', () => {
+    const s = rcStages(r({
+      ...UPSTREAM, designApplicable: 4, designProposed: 4, designVerified: 0,
+    }));
+    expect(s.find((x) => x.id === 'design')!.complete).toBe(false);
+  });
+
+  it('3. a proposal that fails does not complete it', () => {
+    const s = rcStages(r({
+      ...UPSTREAM, designApplicable: 4, designProposed: 4, designVerified: 3, designUnresolved: 1,
+    }));
+    expect(s.find((x) => x.id === 'design')!.complete).toBe(false);
+  });
+
+  /* Partly proposed is partly designed, which is not designed. */
+  it('4. a partially proposed model does not complete it', () => {
+    const s = rcStages(r({
+      ...UPSTREAM, designApplicable: 4, designProposed: 2, designVerified: 2,
+    }));
+    expect(s.find((x) => x.id === 'design')!.complete).toBe(false);
+  });
+
+  it('5. only a fully proposed and fully verified model completes it', () => {
+    const s = rcStages(r({ ...UPSTREAM, ...CONVERGED }));
     expect(s.find((x) => x.id === 'design')!.complete).toBe(true);
   });
 
   /*
-   * The other half: a check that ran with nothing designed cannot finish the stage either.
-   * Both halves matter — one guards against claiming verification early, the other against a
-   * stale baseline standing in for a design.
+   * 6. The cycle keeps its trace. Proposal → check → re-proposal → check is a sequence of
+   * readings, and the stage tracks it without remembering anything: it is unfinished at every
+   * intermediate step and finished only at the end, so stepping backwards un-finishes it. A
+   * stage that latched would report a convergence that a later edit had broken.
    */
-  it('checked but undesigned does not finish it', () => {
-    const s = rcStages(r({
-      hasModel: true, solved: true, codeChosen: true, hasDemands: true, verified: true,
-    }));
+  it('6. the propose-verify-repropose cycle stays traceable, and does not latch', () => {
+    const steps = [
+      [{ designApplicable: 4, designProposed: 4, designVerified: 1, designUnresolved: 3 }, false],
+      [{ designApplicable: 4, designProposed: 4, designVerified: 3, designUnresolved: 1 }, false],
+      [{ designApplicable: 4, designProposed: 4, designVerified: 4, designUnresolved: 0 }, true],
+      // An edit puts one member back into doubt: the stage stops being complete again.
+      [{ designApplicable: 4, designProposed: 4, designVerified: 3, designUnresolved: 1 }, false],
+    ] as const;
+    for (const [counts, expected] of steps) {
+      const s = rcStages(r({ ...UPSTREAM, ...counts }));
+      expect(s.find((x) => x.id === 'design')!.complete, JSON.stringify(counts)).toBe(expected);
+    }
+  });
+
+  /*
+   * Provisional, failed, unavailable and stale are four situations with one remedy — the design
+   * has not converged — and any of them alone is enough to keep the stage open. The per-element
+   * badges are where they are told apart.
+   */
+  it('any unresolved member keeps it open, whatever the reason', () => {
+    for (const n of [1, 2, 4]) {
+      const s = rcStages(r({
+        ...UPSTREAM, designApplicable: 4, designProposed: 4,
+        designVerified: 4 - n, designUnresolved: n,
+      }));
+      expect(s.find((x) => x.id === 'design')!.complete, `${n} unresolved`).toBe(false);
+    }
+  });
+
+  /*
+   * A model with nothing applicable has not finished designing — it has not started. Completing
+   * on an empty denominator would be a vacuous success, and it is the shape a fresh project has.
+   */
+  it('nothing applicable is not a finished design', () => {
+    const s = rcStages(r({ ...UPSTREAM, designApplicable: 0 }));
     expect(s.find((x) => x.id === 'design')!.complete).toBe(false);
+    expect(currentRcStage(s)?.id).toBe('design');
+  });
+});
+
+describe('7. no sentence says required steel is verified reinforcement', () => {
+  /*
+   * The claim this branch may not make by accident, checked on the copy rather than on the
+   * code. `runCodeCheck` publishes what the CODE REQUIRES; it never reads a provided bar. A
+   * stage sentence that called that a verification would be wrong in the place a user reads.
+   */
+  it('the design stage sentence does not promise a verification', () => {
+    for (const dict of [es, en]) {
+      const sentence = String(dict['design.stage.needDemands' as keyof typeof dict] ?? '');
+      expect(sentence.length).toBeGreaterThan(0);
+      expect(sentence, 'it asks for demands, it does not claim bars were checked')
+        .not.toMatch(/armadura verificada|verified reinforcement/i);
+    }
+  });
+
+  it('the code stage sentence still denies computing anything', () => {
+    expect(es['design.stage.needCode']).toMatch(/no (las )?calcula/i);
+    expect(en['design.stage.needCode']).toMatch(/neither|does not compute/i);
   });
 });
 
