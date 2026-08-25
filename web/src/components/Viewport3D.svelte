@@ -9,6 +9,9 @@
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
   import { nodeRadiusFor, nodeRadiusForSections, diagonalOf } from '../lib/three/node-scale';
+  import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
+  import { jointDesignStore } from '../lib/store/joint-design.svelte';
+  import { detectJoints } from '../lib/engine/connection-design';
   import { ElementsBatched } from '../lib/three/elements-batched';
   import { ElementsPicking } from '../lib/three/elements-picking';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
@@ -45,6 +48,16 @@
 
   // ─── Scene graph maps (reconciled with store) ────────────────
   let nodesInstanced = new NodesInstanced();
+  /**
+   * The joint's meshes live here, and this one IS `$state` while its siblings are not.
+   *
+   * The others are only ever read from inside `onMount` and the render loop. This one is read by
+   * a `$effect` that has to re-run once the group exists — and a plain `let` assigned during
+   * mount does not notify anything, so the effect ran once before mount with `undefined`, took
+   * its early return, and never ran again. Measured: the panel reported `designed` with a plate
+   * while the scene held zero meshes and the counter had never been written at all.
+   */
+  let jointsParent = $state<THREE.Group | undefined>(undefined);
   let elementsBatched = new ElementsBatched();
   let elementsPicking = new ElementsPicking();
   let elementGroups = new Map<number, THREE.Group>();
@@ -222,6 +235,76 @@
     );
   });
 
+  /**
+   * The selected joint's plate and bolts, drawn from the SAME design the panel lists.
+   *
+   * Not a view model. `jointSceneLayout` reads `JointDesign`, so a plate drawn 12 mm thick while
+   * the bearing check ran on 10 is impossible by construction rather than by care.
+   *
+   * Nothing is drawn while the design is `notDesigned` or its plate is `GEOMETRY_UNAVAILABLE`.
+   * A rendered plate looks finished, and one standing in for a joint that has none would be the
+   * most convincing fiction in the app.
+   */
+  $effect(() => {
+    if (!jointsParent) return;
+    void modelStore.modelVersion;
+    void resultsStore.results3D;
+    const selected = [...uiStore.selectedNodes];
+
+    // Rebuilt wholesale: a joint is a handful of meshes, and diffing them would be more code
+    // than it saves.
+    for (const child of [...jointsParent.children]) {
+      jointsParent.remove(child);
+      const m = child as THREE.Mesh;
+      m.geometry?.dispose?.();
+      (m.material as THREE.Material)?.dispose?.();
+    }
+    (window as unknown as { __jointMeshCount?: number }).__jointMeshCount = 0;
+    if (selected.length !== 1) return;
+
+    const nodeId = selected[0];
+    const joints = detectJoints(
+      modelStore.nodes as never, modelStore.elements as never, modelStore.supports as never,
+    );
+    const joint = joints.find((j) => j.nodeId === nodeId);
+    if (!joint) return;
+
+    const design = jointDesignStore.designFor(nodeId, joint.elementIds);
+    // The member axis, from the first element meeting the joint — the direction the plate lies
+    // along. Taken from the model rather than derived here, so the scene and the layout agree.
+    const el = modelStore.elements.get(joint.elementIds[0]);
+    const a = el ? modelStore.nodes.get(el.nodeI) : undefined;
+    const b = el ? modelStore.nodes.get(el.nodeJ) : undefined;
+    const axis = a && b
+      ? { x: b.x - a.x, y: b.y - a.y, z: ((b as { z?: number }).z ?? 0) - ((a as { z?: number }).z ?? 0) }
+      : { x: 1, y: 0, z: 0 };
+
+    const layout = jointSceneLayout(design, axis);
+    if (!hasSceneContent(layout)) return;
+
+    if (layout.plate) {
+      const g = new THREE.BoxGeometry(layout.plate.lengthM, layout.plate.widthM, layout.plate.thicknessM);
+      const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+        color: 0x8899aa, roughness: 0.6, metalness: 0.3, transparent: true, opacity: 0.85,
+      }));
+      mesh.position.set(layout.plate.centreM.x, layout.plate.centreM.y, layout.plate.centreM.z);
+      mesh.userData = { type: 'jointPlate', nodeId };
+      jointsParent.add(mesh);
+    }
+    for (const bolt of layout.bolts) {
+      const g = new THREE.CylinderGeometry(bolt.diameterM / 2, bolt.diameterM / 2, bolt.lengthM * 2, 10);
+      const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+        color: 0x445566, roughness: 0.4, metalness: 0.7,
+      }));
+      mesh.position.set(bolt.centreM.x, bolt.centreM.y, bolt.centreM.z);
+      mesh.userData = { type: 'jointBolt', nodeId };
+      jointsParent.add(mesh);
+    }
+    // Published for the specs: how many meshes the joint contributed. Zero is a legitimate and
+    // asserted answer, so it is a count rather than a boolean.
+    (window as unknown as { __jointMeshCount?: number }).__jointMeshCount = jointsParent.children.length;
+  });
+
   onMount(() => {
     // Scene
     scene = new THREE.Scene();
@@ -239,6 +322,8 @@
     supportsParent.name = 'supports';
     loadsParent = new THREE.Group();
     loadsParent.name = 'loads';
+    jointsParent = new THREE.Group();
+    jointsParent.name = 'joints';
     resultsParent = new THREE.Group();
     resultsParent.name = 'results';
     shellsParent = new THREE.Group();
@@ -249,7 +334,7 @@
     // inside `elementsParent`, so it stays rendered even when LOD hides the
     // parent during orbit. One mesh, one draw call, one toggle — no parallel
     // orbit proxy needed.
-    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent);
+    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent, jointsParent);
     syncResultsProjection();
 
     // Camera — isometric-ish view looking at origin

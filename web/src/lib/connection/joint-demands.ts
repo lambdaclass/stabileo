@@ -101,20 +101,31 @@ export function jointDemands(
        * caller's `detectJoints` never produces one.
        */
       const end: 'I' | 'J' = el.nodeI === nodeId ? 'I' : 'J';
-      const at = (k: string) => num(ef[`${k}${end}`]);
+      /*
+       * `ElementForces3D` names its fields `nStart`/`nEnd`, `vyStart`/`vyEnd` and so on — NOT
+       * `NI`/`NJ`.
+       *
+       * This is worth a comment because the shipped `getJointForces` in `connection-design.ts`
+       * read the `NI`/`NJ` form, and its own doc comment asserted that format. Every lookup
+       * returned `undefined`, every force came back zero, and the connections panel had been
+       * showing a table of zeros. Nothing caught it: no unit test covered that function, and a
+       * zero force looks like an unloaded member rather than like a missing field.
+       */
+      const suffix = end === 'I' ? 'Start' : 'End';
+      const at = (k: string) => num(ef[`${k}${suffix}`]);
 
       const base = { comboId: combo.id, comboName: combo.name, elementId, end };
-      axial = better(axial, { component: 'axial', value: Math.abs(at('N')), ...base });
+      axial = better(axial, { component: 'axial', value: Math.abs(at('n')), ...base });
       /*
        * The resultant of the two shear components, per element per combination. Legitimate
        * because both act at the same instant; taking `Vy` from one combination and `Vz` from
        * another would be inventing a load case the analysis never ran.
        */
       shear = better(shear, {
-        component: 'shear', value: Math.hypot(at('Vy'), at('Vz')), ...base,
+        component: 'shear', value: Math.hypot(at('vy'), at('vz')), ...base,
       });
       moment = better(moment, {
-        component: 'moment', value: Math.hypot(at('My'), at('Mz')), ...base,
+        component: 'moment', value: Math.hypot(at('my'), at('mz')), ...base,
       });
     }
   }

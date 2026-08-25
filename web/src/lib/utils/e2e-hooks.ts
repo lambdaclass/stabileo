@@ -112,6 +112,13 @@ export interface StabileoTestHooks {
   selectedNodeIds(): number[];
   /** The node-marker radius the scene is drawing, metres. Null before the scene exists. */
   nodeMarkerRadius(): number | null;
+  /**
+   * How many meshes the selected joint contributes to the scene.
+   *
+   * A plate plus one cylinder per bolt. Zero means nothing was drawn — which for an undesigned
+   * or incomplete joint is the correct answer, and is what the specs assert.
+   */
+  jointMeshCount(): number;
   reinforcement(elementId: number): unknown;
   rebarSummary(elementId: number): string;
   elementIds(): number[];
@@ -311,6 +318,8 @@ export function installE2EHooks(): void {
      */
     nodeMarkerRadius: () =>
       (window as unknown as { __nodeRadius?: number }).__nodeRadius ?? null,
+    jointMeshCount: () =>
+      (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),

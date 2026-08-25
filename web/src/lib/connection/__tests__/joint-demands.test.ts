@@ -15,12 +15,12 @@ const combo = (id: number, name: string, forces: Array<Record<string, unknown>>)
 describe('the governing demand names where it came from', () => {
   const combos = [
     combo(1, '1.2D + 1.6L', [
-      { elementId: 1, NI: 40, VyI: 10, VzI: 0, MyI: 0, MzI: 5 },
-      { elementId: 2, NJ: -20, VyJ: 3, VzJ: 4, MyJ: 0, MzJ: 0 },
+      { elementId: 1, nStart: 40, vyStart: 10, vzStart: 0, myStart: 0, mzStart: 5 },
+      { elementId: 2, nEnd: -20, vyEnd: 3, vzEnd: 4, myEnd: 0, mzEnd: 0 },
     ]),
     combo(2, '1.2D + 1.0W', [
-      { elementId: 1, NI: 15, VyI: 30, VzI: 40, MyI: 0, MzI: 2 },
-      { elementId: 2, NJ: -80, VyJ: 1, VzJ: 0, MyJ: 0, MzJ: 0 },
+      { elementId: 1, nStart: 15, vyStart: 30, vzStart: 40, myStart: 0, mzStart: 2 },
+      { elementId: 2, nEnd: -80, vyEnd: 1, vzEnd: 0, myEnd: 0, mzEnd: 0 },
     ]),
   ];
   const d = jointDemands(10, [1, 2], elements, combos);
@@ -74,7 +74,7 @@ describe('what it refuses to report', () => {
    */
   it('a component that is zero everywhere comes back null, not zero', () => {
     const d = jointDemands(10, [1], elements, [
-      combo(1, 'D', [{ elementId: 1, NI: 10, VyI: 0, VzI: 0, MyI: 0, MzI: 0 }]),
+      combo(1, 'D', [{ elementId: 1, nStart: 10, vyStart: 0, vzStart: 0, myStart: 0, mzStart: 0 }]),
     ]);
     expect(d.moment).toBeNull();
     expect(d.shear).toBeNull();
@@ -94,14 +94,14 @@ describe('what it refuses to report', () => {
    */
   it('names the members it found no forces for', () => {
     const d = jointDemands(10, [1, 2], elements, [
-      combo(1, 'D', [{ elementId: 1, NI: 10, VyI: 1, VzI: 0 }]),
+      combo(1, 'D', [{ elementId: 1, nStart: 10, vyStart: 1, vzStart: 0 }]),
     ]);
     expect(d.membersWithoutForces).toEqual([2]);
   });
 
   it('ignores a member that is not in the model', () => {
     const d = jointDemands(10, [1, 99], elements, [
-      combo(1, 'D', [{ elementId: 1, NI: 10, VyI: 1, VzI: 0 }]),
+      combo(1, 'D', [{ elementId: 1, nStart: 10, vyStart: 1, vzStart: 0 }]),
     ]);
     expect(d.membersWithoutForces).toEqual([99]);
     expect(d.axial!.elementId).toBe(1);
@@ -109,7 +109,7 @@ describe('what it refuses to report', () => {
 
   it('treats a missing or non-numeric component as zero rather than throwing', () => {
     const d = jointDemands(10, [1], elements, [
-      combo(1, 'D', [{ elementId: 1, NI: 'x', VyI: null, VzI: undefined, MzI: 7 }]),
+      combo(1, 'D', [{ elementId: 1, nStart: 'x', vyStart: null, vzStart: undefined, mzStart: 7 }]),
     ]);
     expect(d.axial).toBeNull();
     expect(d.moment!.value).toBe(7);
@@ -118,7 +118,7 @@ describe('what it refuses to report', () => {
 
 describe('which demand sizes which check', () => {
   const d = jointDemands(10, [1], elements, [
-    combo(1, 'D', [{ elementId: 1, NI: 60, VyI: 30, VzI: 40, MzI: 0 }]),
+    combo(1, 'D', [{ elementId: 1, nStart: 60, vyStart: 30, vzStart: 40, mzStart: 0 }]),
   ]);
 
   /*
@@ -134,5 +134,29 @@ describe('which demand sizes which check', () => {
     const empty = jointDemands(10, [1], elements, []);
     expect(boltShearDemandKN(empty)).toBeNull();
     expect(boltTensionDemandKN(empty)).toBeNull();
+  });
+});
+
+
+describe('the field names are the solver\'s, not a remembered form', () => {
+  /*
+   * The defect this pins. `ElementForces3D` names its fields `nStart`/`nEnd`, `vyStart`/`vyEnd`
+   * and so on. `getJointForces` read `NI`/`NJ` — a form its own doc comment asserted — so every
+   * lookup returned `undefined`, every force came back zero, and the connections panel showed a
+   * table of zeros for every joint in every model.
+   *
+   * A zero force reads as an unloaded member, not as a missing field, which is why it survived.
+   * This test fails if the reader ever goes back to the other form.
+   */
+  it('reads nStart and nEnd, and gets nothing from NI and NJ', () => {
+    const real = jointDemands(10, [1], elements, [
+      combo(1, 'D', [{ elementId: 1, nStart: 42, vyStart: 0, vzStart: 0 }]),
+    ]);
+    expect(real.axial!.value).toBe(42);
+
+    const wrong = jointDemands(10, [1], elements, [
+      combo(1, 'D', [{ elementId: 1, NI: 42, VyI: 0, VzI: 0 }]),
+    ]);
+    expect(wrong.axial).toBeNull();
   });
 });

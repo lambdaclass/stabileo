@@ -5,7 +5,14 @@ import type { BoltLayoutChoice } from '../bolted-joint';
 const elements = new Map([[1, { id: 1, nodeI: 10, nodeJ: 11 }]]);
 const combos = [{
   id: 1, name: '1.2D + 1.6L',
-  elementForces: [{ elementId: 1, NI: 50, VyI: 40, VzI: 30, MyI: 0, MzI: 0 }],
+  /*
+   * The solver's own field names — `nStart`/`vyStart`, not `NI`/`VyI`.
+   *
+   * The `NI` form was in `getJointForces`'s doc comment and was wrong there too; a fixture
+   * written to it produces all-zero demands, which reads as an unloaded joint rather than as a
+   * fixture that does not match the type.
+   */
+  elementForces: [{ elementId: 1, nStart: 50, vyStart: 40, vzStart: 30, myStart: 0, mzStart: 0 }],
 }];
 const bolts = (o: Partial<BoltLayoutChoice> = {}): BoltLayoutChoice => ({
   diameterMm: 20, grade: 'A325', threads: 'included', count: 4, rows: 2,
