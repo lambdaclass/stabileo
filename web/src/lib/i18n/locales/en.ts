@@ -4507,6 +4507,8 @@ const en: Record<string, string> = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'Design all',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': 'Cancel',
   'design.cmd.running': 'Designing…',
   'design.cmd.progress': '{done} / {total} members · {verified} verified',

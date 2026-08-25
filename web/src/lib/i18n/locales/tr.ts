@@ -3177,6 +3177,8 @@ const tr: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'Tümünü tasarla',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': 'İptal',
   'design.cmd.running': 'Tasarlanıyor…',
   'design.cmd.progress': '{done} / {total} eleman · {verified} doğrulandı',

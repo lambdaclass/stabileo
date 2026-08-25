@@ -3133,6 +3133,8 @@ const ja: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'すべて設計',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': 'キャンセル',
   'design.cmd.running': '設計中…',
   'design.cmd.progress': '{done} / {total} 部材 · {verified} 件検証済み',

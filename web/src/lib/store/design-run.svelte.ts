@@ -32,8 +32,8 @@ import { getDesignCode, type DesignCodeId } from '../engine/design/code-adapter'
 import { emptyRunSummary, type DesignRunSummary, type MemberDesignOutcome } from '../engine/design/outcome';
 import type { RunProgress } from '../engine/design/candidate-search';
 import {
-  DESIGN_FAMILIES, FLOOR_FAMILIES, FRAME_FAMILIES, emptyFamilyResult, isFrameFamily,
-  needsFloorPass, needsFramePass,
+  DESIGN_FAMILIES, DEFAULT_DESIGN_FAMILIES, FLOOR_FAMILIES, FRAME_FAMILIES, emptyFamilyResult,
+  isFrameFamily, needsFloorPass, needsFramePass,
   type DesignFamily, type DesignFamilySelection, type DesignRunReport, type FamilyRunResult,
 } from '../engine/design/design-families';
 
@@ -61,6 +61,16 @@ function createDesignRunStore() {
   let lastError = $state<{ key: string; params?: Record<string, string | number> } | null>(null);
   let abortFlag = { aborted: false };
   /** Elements the user has edited by hand (badge + protect-overrides). */
+  /**
+   * What the next design run will cover.
+   *
+   * Lifted out of `DesignFamilyPanel` in F2 so that ONE command can run it. The selector and
+   * the command sit in different components — the boxes below the table, the button in the
+   * command bar — and while the selection lived in the panel there had to be a second button
+   * beside the boxes to reach it. Two buttons that design different scopes is precisely the
+   * contradiction §2 of the scope names.
+   */
+  let familySelection = $state<DesignFamily[]>([...DEFAULT_DESIGN_FAMILIES]);
   let manualOverrides = $state<Set<number>>(new Set());
   /**
    * Whether `manualOverrides` is a statement or an absence.
@@ -575,6 +585,17 @@ function createDesignRunStore() {
     clearError() { lastError = null; },
     cancel() { abortFlag.aborted = true; },
 
+    get familySelection(): readonly DesignFamily[] { return familySelection; },
+    /**
+     * Replace the scope of the next run.
+     *
+     * Sorted into `DESIGN_FAMILIES` order and de-duplicated, so the read-out beside the command
+     * and the boxes below the table name the families the same way round.
+     */
+    setFamilySelection(next: Iterable<DesignFamily>): void {
+      const want = new Set(next);
+      familySelection = DESIGN_FAMILIES.filter((f) => want.has(f));
+    },
     get manualOverrides() { return manualOverrides; },
     get manualProvenanceKnown() { return manualKnown; },
     /**

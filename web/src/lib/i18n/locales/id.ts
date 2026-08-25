@@ -3167,6 +3167,8 @@ const id: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'Desain semua',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': 'Batal',
   'design.cmd.running': 'Sedang mendesain…',
   'design.cmd.progress': '{done} / {total} elemen · {verified} terverifikasi',

@@ -3178,6 +3178,8 @@ const fr: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'Dimensionner tout',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': 'Annuler',
   'design.cmd.running': 'Dimensionnement en cours…',
   'design.cmd.progress': '{done} / {total} éléments · {verified} vérifiés',

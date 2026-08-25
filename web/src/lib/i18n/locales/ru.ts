@@ -3169,6 +3169,8 @@ const ru: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'Подобрать все',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': 'Отмена',
   'design.cmd.running': 'Подбор…',
   'design.cmd.progress': '{done} / {total} элементов · {verified} проверено',

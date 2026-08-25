@@ -308,7 +308,18 @@
       const ids = [...verificationStore.contexts.keys()].filter(id => !modelStore.elements.get(id)?.reinforcement);
       designRunStore.autoDesign(ids.length > 0 ? ids : [...verificationStore.contexts.keys()]);
     }}
-    onDesignAll={() => { diagnosticsWarning.arm(); designRunStore.designAll(); }}
+    onDesignAll={() => {
+      diagnosticsWarning.arm();
+      /*
+       * ONE command, and it runs the scope the selector below shows.
+       *
+       * It used to call `designAll()`, whose scope was the default and could not be narrowed
+       * from here — so a second button had to exist beside the boxes to run anything else. The
+       * scope is in the store now and this is the only thing that starts a design run.
+       */
+      designRunStore.designFamilies(designRunStore.familySelection,
+        { verifierId: 'cirsoc201.provided.v2.2025' });
+    }}
     onOpenDiagnostics={() => (uiStore.proActiveTab = 'diagnostics')}
     onReviewChanges={() => (showChanged = true)}
     onRevertEdits={revertAllEdits}

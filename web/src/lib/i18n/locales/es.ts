@@ -4500,6 +4500,8 @@ const es: Record<string, string> = {
   'design.families.cols': 'procesados / diseñados / rechazados / sin geometría',
   'design.families.running': 'Diseñando…',
   'design.cmd.designAll': 'Diseñar todo',
+  'design.cmd.scopeIs': "Alcance: {families}",
+  'design.cmd.scopeNone': "Sin alcance: elegí al menos una familia",
   'design.cmd.cancel': 'Cancelar',
   'design.cmd.running': 'Diseñando…',
   'design.cmd.progress': '{done} / {total} barras · {verified} verificadas',

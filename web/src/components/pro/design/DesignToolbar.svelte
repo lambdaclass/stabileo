@@ -41,6 +41,21 @@
     onOpenDiagnostics,
   }: Props = $props();
 
+  /**
+   * What the one design command will cover, named rather than counted.
+   *
+   * §2 requires the scope to be readable BEFORE the command runs. The default is narrower than
+   * it used to be, and an unticked family nobody can see is the old "a building with no floors,
+   * and it did not say so" defect wearing a smaller default. The read-out is what pays for the
+   * narrowing.
+   */
+  const scope = $derived(designRunStore.familySelection);
+  const scopeText = $derived(scope.length === 0
+    ? t('design.cmd.scopeNone')
+    : tp('design.cmd.scopeIs', {
+      families: scope.map((f) => t(`design.families.${f}`)).join(', '),
+    }));
+
   let autoMenuOpen = $state(false);
 
   // ─── Ver modelo 3D ──────────────────────────────────────────────
@@ -167,9 +182,17 @@
       {/if}
     </div>
 
+    <!--
+      The one design command, and the scope it will run, side by side.
+
+      §2 requires the scope to be visible BEFORE the command executes: the default is narrower
+      than it used to be, and an unticked family nobody can see is the old "a building with no
+      floors, and it did not say so" defect wearing a smaller default.
+    -->
     <button class="cmd cmd-all" data-testid="cmd-design-all" onclick={onDesignAll}
-            disabled={!canDesign}
-            title={t('design.cmd.designAllScope')}>{t('design.cmd.designAll')}</button>
+            disabled={!canDesign || scope.length === 0}
+            title={scopeText}>{t('design.cmd.designAll')}</button>
+    <span class="cmd-scope" data-testid="cmd-design-scope">{scopeText}</span>
       </div>
     </div>
 
@@ -321,6 +344,8 @@
 </div>
 
 <style>
+  /* The scope, next to the command that will run it. Secondary text, never a control. */
+  .cmd-scope { font-size: 0.68rem; color: var(--st-text-2); align-self: center; }
   .toolbar { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px;
     background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3); flex-shrink: 0; }
   .code-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

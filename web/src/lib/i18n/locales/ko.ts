@@ -3164,6 +3164,8 @@ const ko: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': '전체 설계',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': '취소',
   'design.cmd.running': '설계 중…',
   'design.cmd.progress': '{done} / {total} 부재 · {verified}건 검증됨',

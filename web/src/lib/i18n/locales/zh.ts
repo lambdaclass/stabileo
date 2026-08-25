@@ -3166,6 +3166,8 @@ const zh: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': '全部设计',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': '取消',
   'design.cmd.running': '正在设计…',
   'design.cmd.progress': '{done} / {total} 个构件 · 已验证 {verified} 个',

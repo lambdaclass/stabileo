@@ -3177,6 +3177,8 @@ const hi: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'सभी को डिज़ाइन करें',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': 'रद्द करें',
   'design.cmd.running': 'डिज़ाइन किया जा रहा है…',
   'design.cmd.progress': '{done} / {total} अवयव · {verified} सत्यापित',

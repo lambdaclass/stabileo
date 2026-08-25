@@ -3178,6 +3178,8 @@ const it: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'Progetta tutto',
+  'design.cmd.scopeIs': "Scope: {families}",
+  'design.cmd.scopeNone': "No scope: choose at least one family",
   'design.cmd.cancel': 'Annulla',
   'design.cmd.running': 'Progettazione in corso…',
   'design.cmd.progress': '{done} / {total} elementi · {verified} verificati',

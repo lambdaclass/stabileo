@@ -3654,6 +3654,8 @@ const pt: Translations = {
   'design.families.cols': 'processed / designed / refused / not modelled',
   'design.families.running': 'Designing…',
   'design.cmd.designAll': 'Dimensionar tudo',
+  'design.cmd.scopeIs': "Escopo: {families}",
+  'design.cmd.scopeNone': "Sem escopo: escolha ao menos uma família",
   'design.cmd.cancel': 'Cancelar',
   'design.cmd.running': 'Dimensionando…',
   'design.cmd.progress': '{done} / {total} elementos · {verified} verificados',

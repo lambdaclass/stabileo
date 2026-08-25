@@ -40,7 +40,7 @@ test.describe('the family selector drives the whole run', () => {
     await page.getByTestId('design-family-none').click();
     await expect(page.getByTestId('design-family-column')).not.toBeChecked();
     // Nothing selected means nothing to run, and the button says so by being unavailable.
-    await expect(page.getByTestId('cmd-design-families')).toBeDisabled();
+    await expect(page.getByTestId('cmd-design-all')).toBeDisabled();
   });
 
   test('the summary names exactly what will be designed', async ({ pro: page }) => {
@@ -59,7 +59,7 @@ test.describe('the family selector drives the whole run', () => {
       await page.getByTestId('design-family-none').click();
       await page.getByTestId('design-family-column').check();
       await page.getByTestId('design-family-beam').check();
-      await page.getByTestId('cmd-design-families').click();
+      await page.getByTestId('cmd-design-all').click();
 
       const result = page.getByTestId('design-family-result');
       await expect(result).toBeVisible();
@@ -73,7 +73,7 @@ test.describe('the family selector drives the whole run', () => {
     test.setTimeout(240_000);
     await ready(page, 'rc-qa-diagnostic');
     await page.getByTestId('design-family-all').click();
-    await page.getByTestId('cmd-design-families').click();
+    await page.getByTestId('cmd-design-all').click();
     // "You did not ask for them" and "there are none" are different facts.
     await expect(page.getByTestId('design-result-footing'))
       .toContainText(/sin elementos|no members/);
@@ -82,7 +82,7 @@ test.describe('the family selector drives the whole run', () => {
   test('the 3-D view is one click from the result', async ({ pro: page }) => {
     test.setTimeout(240_000);
     await ready(page, 'rc-qa-diagnostic');
-    await page.getByTestId('cmd-design-families').click();
+    await page.getByTestId('cmd-design-all').click();
     const view = page.getByTestId('design-result-view-3d');
     await expect(view).toBeVisible();
     await view.click();

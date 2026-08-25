@@ -107,20 +107,25 @@ test.describe('@smoke commands are grouped, and none of them is ambiguous', () =
     await expect(groups.filter({ has: page.getByTestId('active-concrete-code') })).toHaveCount(0);
   });
 
-  test('the two Design buttons no longer share a label', async ({ pro: page }) => {
+  test('there is ONE design command, and it states its own scope', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
-    const frame = (await page.getByTestId('cmd-design-all').innerText()).trim();
-    const families = (await page.getByTestId('cmd-design-families').innerText()).trim();
-    expect(frame).toBe(en['design.cmd.designAll']);
-    expect(families).toBe(en['design.families.runScoped']);
-    expect(families, 'two commands with different scopes must not read the same')
-      .not.toBe(frame);
+    /*
+     * This used to assert that the two Design buttons did not share a LABEL. F2 removed the
+     * second one instead: `cmd-design-families` sat beside the family boxes and
+     * `cmd-design-all` in the command bar, and two commands that design different scopes is the
+     * contradiction §2 names — a different label does not fix it, it only makes the ambiguity
+     * legible.
+     */
+    await expect(page.getByTestId('cmd-design-families'),
+      'the second design command is gone').toHaveCount(0);
+    await expect(page.getByTestId('cmd-design-all')).toHaveCount(1);
 
-    // And each says what it covers, where it is.
-    expect(await page.getByTestId('cmd-design-all').getAttribute('title'))
-      .toBe(en['design.cmd.designAllScope']);
-    await expect(page.getByTestId('design-families-subtitle'))
-      .toHaveText(en['design.families.subtitle']);
+    // And the scope it will run is on screen BEFORE it runs, next to the button.
+    const scope = page.getByTestId('cmd-design-scope');
+    await expect(scope).toBeVisible();
+    const text = (await scope.innerText()).trim();
+    expect(text.length, 'the scope is named, not implied').toBeGreaterThan(5);
+    expect(text, 'and it names the families').toMatch(/column|beam/i);
   });
 
   test('the auto-detailing preference sits with the command it governs', async ({ pro: page }) => {
