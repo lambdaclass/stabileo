@@ -7,7 +7,7 @@ Written to be picked up cold: everything below is measured, not remembered.
 
 ## 1. Where this stands
 
-Ten commits landed, each verified at 375×667 and 430×932 in Chromium with
+The branch now carries the whole phone shell for both modes; `git log basic/demos..` is the list, each verified at 375×667 and 430×932 in Chromium with
 touch enabled:
 
 | commit | what it does | evidence |
@@ -405,9 +405,77 @@ highlight for the section card.
 reports `sin problemas` at both. **Run it at both from now on** — passing at
 1500×950 was never evidence about a phone, and this section is the proof.
 
-### 5.5 PRO
+### 5.5 PRO — the phone shell is built (option C)
 
-After Basic, as agreed. Not started, not scoped.
+Proposed as four options and built as the one that survives PRO growing. The
+desktop shows four STAGES and, under the one you are in, its groups; that does
+not shrink, because ANALYSE alone carries fifteen commands and a touch row holds
+about nine.
+
+**Shape.** The bar keeps only verbs — undo, redo, pointer, solve, camera. Both
+halves of "where am I" are two pills in the sheet, half the width each: command
+on the left, stage on the right. Project is an entry in the left pill and greys
+the right one, because the document belongs to no stage.
+
+**Why it survives change, which was the requirement.**
+`src/lib/pro/stages.ts` holds the command tree; the desktop ribbon and the phone
+grid both read it. A command added there gets a ribbon slot and a grid cell and
+nothing else has to be revisited — the bar is a fixed set of verbs whatever size
+PRO reaches. `src/lib/pro/camera-actions.ts` does the same for the view
+controls.
+
+`src/lib/pro/__tests__/stages-coherence.test.ts` is the guard. The realistic
+failure is not a careless edit; it is someone on another branch adding a good
+command without knowing `PRO_TAB_STAGE` is a second list that must learn about
+it — the ribbon looks right and the phone silently names the wrong stage,
+because the lookup falls back to `'model'`. **Verified by breaking it**: adding
+a `buckling` command with an unmapped tab fails the suite with a message saying
+which command and what to add.
+
+**Measured at 375×667:**
+
+```
+                       before   after
+camera buttons on the model    9        0   (one split button in the bar)
+controls under 44 px          15        5
+bar overflow                   —        0   (also 0 at 430)
+grid columns                   —        4 at 375, 5 at 430
+dead controls                  1        0   (Calcular; see below)
+```
+
+The five that remain are the split button's caret (20×44, deliberate), the
+sheet's ✕ (44×40) and three of PRO's own panel controls at 26 px tall, which
+answer to the density setting.
+
+**Calcular was wired to nothing.** `proPanelRef` was bound only to the desktop
+`ProPanel`, so on a phone it was null: the bar read `canSolve()` off nothing and
+rendered permanently disabled. Both instances are bound now, and they are
+mutually exclusive, so the bar's Calcular and the ANALYSE grid's are one method
+on one component. **This is the class of defect to look for** — a control that
+is present, enabled-looking and connected to a reference that only exists at the
+other width.
+
+### 5.6 Both phone shells, audited
+
+Every visible, enabled control in both modes, pressed, with app state read
+before and after. `audit-mobile.mjs` in the scratchpad.
+
+**Zero dead controls in either shell.** A sequential sweep flagged five in PRO;
+all five were disproved individually and were artefacts of the sweep's own
+state drift — pressing controls in order leaves the shell somewhere that makes
+the next one a legitimate no-op. **A sequential audit cannot tell a dead button
+from one whose precondition the previous step removed.** Re-check candidates
+from a clean state before believing them; that is what `audit-five.mjs` does.
+
+Remaining under 44 px, both modes, and all deliberate or already tracked:
+
+| where | size | note |
+|---|---|---|
+| Basic's row, 9 slots | 39–41 × 44 | they share the width; §5.1b |
+| pointer-mode / zoom-to-fit | 32 × 32 | a documented pair, on the canvas; §5.2 |
+| PRO's camera caret | 20 × 44 | half of a split button |
+| PRO's sheet ✕ | 44 × 40 | four short |
+| PRO's panel rows | 26 tall | answers to the density setting |
 
 ---
 
@@ -508,6 +576,21 @@ the served `assets/index-*.js` hash matches the build you just made.
   **persisted user setting**, not from whether the strip is mounted. Any gate
   that unmounts a component whose size something else reserves has to update
   the reservation too.
+- **A control can be present, sized to nothing, and pass every existence
+  check.** The restore-a-project prompt renders inline in the header. On a
+  phone that header holds a logo, a mode selector, a project name and a settings
+  button in 375 px, and the prompt got what was left: **19 px wide by 54 tall**,
+  in both modes. It was in the DOM, so it looked fine to anything asking whether
+  it existed. Assert a minimum SIZE, not presence, for anything that has to be
+  read.
+- **A sequential control sweep produces false "dead button" reports.** Pressing
+  every control in order leaves the shell in states where the next one is a
+  legitimate no-op — five of PRO's were flagged this way and all five worked
+  when re-checked from a clean start. Confirm candidates individually.
+- **`bind:this` on one of two mutually exclusive instances silently disables
+  whatever reads it.** PRO's mobile `ProPanel` was unbound, so the phone's
+  Calcular read `canSolve()` off `null`, rendered disabled forever, and would
+  have done nothing if pressed. Nothing errors; the button just never works.
 - **A control moved into a panel whose opener is gated can become unreachable,
   and nothing fails.** `16f8f2ef` moved the language selector into Settings
   *for phones*, on good reasoning — the header slot was too expensive. But the
