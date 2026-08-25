@@ -11,10 +11,41 @@
     type ShapeType, type MaterialCategory,
   } from '../../lib/data/section-shapes';
   import { crossSectionPath } from '../../lib/utils/section-drawing';
+  import ProSectionModal from './section/ProSectionModal.svelte';
+  import { defaultProfileSpec, type ProfileSpec } from '../../lib/section/profile-spec';
+  import { toSectionFields, type SectionChoice } from '../../lib/section/section-choice';
   import { profileOutline } from '../../lib/section/outline';
 
   type MainTab = 'catalog' | 'builder';
   let activeTab = $state<MainTab>('catalog');
+
+  /**
+   * The PRO section modal.
+   *
+   * The flat family strip below is the OLD Basic picker, inlined: fifteen families in a row,
+   * no design code, no standards body, no composition, no rotation. The modal is the one the
+   * generators already use for their per-role profiles, so a section chosen here and a section
+   * chosen inside a generator are now the same object rather than two surfaces that agree
+   * until someone edits one.
+   */
+  let modalOpen = $state(false);
+  let modalSpec = $state<ProfileSpec>(defaultProfileSpec('IPE 200'));
+
+  function applyChoice(choice: SectionChoice) {
+    /*
+     * `0` is the auto-rotation fallback, and it is passed explicitly.
+     *
+     * A spec may say `'auto'`, meaning "defer to the member's own roll". A section created in
+     * this tab belongs to no member yet, so there is nothing to defer to — and
+     * `resolveRotationDeg` requires the caller to say so rather than defaulting, precisely so
+     * that a caller which DOES have a member cannot forget to pass it.
+     */
+    const fields = toSectionFields(choice, 0);
+    // Null when the catalogue does not know the name. Nothing is added rather than a section
+    // with no area, which the canonical resolver would report as having no known geometry.
+    if (!fields) return;
+    modelStore.addSection(fields as never);
+  }
 
   // ─── Profile Catalog state ──────────────────
   let activeFamily = $state<ProfileFamily>('IPN');
@@ -28,15 +59,6 @@
     return profileOutline(rep).d;
   });
 
-  function shapeForFamily(f: ProfileFamily): string {
-    if (f === 'IPE' || f === 'IPN') return 'I';
-    if (f === 'HEB' || f === 'HEA') return 'H';
-    if (f === 'UPN') return 'U';
-    if (f === 'L') return 'L';
-    if (f === 'RHS') return 'RHS';
-    return 'CHS';
-  }
-
   function addProfile(p: SteelProfile) {
     modelStore.addSection({
       name: p.name,
@@ -45,7 +67,7 @@
       iy: p.iy * 1e-8,
       b: p.b / 1000,
       h: p.h / 1000,
-      shape: shapeForFamily(p.family) as any,
+      shape: familyToShape(p.family) as any,
       tw: p.tw ? p.tw / 1000 : undefined,
       tf: p.tf ? p.tf / 1000 : undefined,
       t: p.t ? p.t / 1000 : undefined,
@@ -159,7 +181,7 @@
 
 <div class="pro-sec">
   <!-- Collapsible add-section panel -->
-  <details class="add-panel">
+  <details class="add-panel" data-testid="pro-add-section-panel">
     <summary class="add-panel-summary">{t('pro.addSectionPanel')}</summary>
     <div class="add-panel-body">
 
@@ -176,6 +198,10 @@
   <!-- ═══ Profile Catalog ═══ -->
   {#if activeTab === 'catalog'}
     <div class="tab-body catalog-body">
+      <button
+        type="button" class="open-modal" data-testid="pro-open-section-modal"
+        onclick={() => { modalSpec = defaultProfileSpec('IPE 200'); modalOpen = true; }}
+      >{t('section.modal.title')}</button>
       <div class="family-tabs">
         {#each FAMILY_LIST as fam}
           <button
@@ -346,6 +372,13 @@
   </div>
 </div>
 
+<ProSectionModal
+  open={modalOpen}
+  spec={modalSpec}
+  onApply={applyChoice}
+  onClose={() => (modalOpen = false)}
+/>
+
 <style>
   .pro-sec {
     display: flex;
@@ -424,6 +457,15 @@
 
   /* ─── Catalog Tab ─── */
   .catalog-body { overflow: hidden; }
+
+  /* The trigger for the modal, above the legacy family strip it will replace. */
+  .open-modal {
+    align-self: flex-start;
+    padding: 5px 12px; font-size: 0.74rem; cursor: pointer;
+    background: var(--st-interactive); color: var(--st-bg);
+    border: 1px solid var(--st-interactive); border-radius: 4px;
+  }
+  .open-modal:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 
   .family-tabs {
     display: flex;

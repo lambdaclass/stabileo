@@ -123,6 +123,10 @@ describe('the catalogue and the grade source stay reusable', () => {
     'components/pro/generators/ProfileSelectorPanel.svelte',
     'components/pro/generators/ProfilePicker.svelte',
     'components/pro/steel/GradePickerPanel.svelte',
+    // The PRO section modal is a picker and is held to the same two rules: it may not reach
+    // past the source into a table, and it must hold a swappable source. It satisfies the
+    // second by delegating to `ProfileSelectorPanel`, which is what that seam was built for.
+    'components/pro/section/ProSectionModal.svelte',
   ];
 
   it('never lets a picker import a concrete table', () => {

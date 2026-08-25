@@ -1,0 +1,110 @@
+import { describe, it, expect } from 'vitest';
+import { toSectionFields, isStandard, type SectionChoice } from '../section-choice';
+import { defaultProfileSpec } from '../profile-spec';
+import { composeBuiltUp } from '../../engine/generators/built-up-section';
+import { resolveProfile } from '../../engine/generators/profile-resolve';
+
+const std = (spec = defaultProfileSpec('IPE 200')): SectionChoice => ({ kind: 'standard', spec });
+
+describe('a catalogue choice', () => {
+  it('carries the properties a Section requires', () => {
+    const f = toSectionFields(std(), 0)!;
+    // `Section` has `a` and `iz` as required fields. A row without them is reported by the
+    // canonical resolver as having no known geometry, which reads as "amorphous" for what the
+    // user just picked out of a list.
+    expect(f.a).toBeGreaterThan(0);
+    expect(f.iz).toBeGreaterThan(0);
+    expect(f.iy).toBeGreaterThan(0);
+    expect(f.b).toBeGreaterThan(0);
+    expect(f.h).toBeGreaterThan(0);
+  });
+
+  it('takes them from composeBuiltUp rather than recomputing them', () => {
+    const spec = { ...defaultProfileSpec('L 50x50x5'), arrangement: 'doubleBack' as const, gapMm: 10 };
+    const f = toSectionFields({ kind: 'standard', spec }, 0)!;
+    const built = composeBuiltUp(resolveProfile('L 50x50x5')!.profile, 'doubleBack', 0.010);
+    expect(f.a).toBeCloseTo(built.a, 12);
+    expect(f.iy).toBeCloseTo(built.iy, 12);
+    expect(f.iz).toBeCloseTo(built.iz, 12);
+    expect(f.name).toBe(built.name);
+  });
+
+  it('records the composition, so the make-up is data and not a string', () => {
+    const spec = { ...defaultProfileSpec('L 50x50x5'), arrangement: 'doubleBack' as const, gapMm: 10 };
+    const f = toSectionFields({ kind: 'standard', spec }, 0)!;
+    expect(f.composition).toEqual({ profileName: 'L 50x50x5', arrangement: 'doubleBack', gapMm: 10 });
+    expect(f.profileFamily).toBe('L');
+  });
+
+  /*
+   * `shape` for a single profile only. `resolveCanonicalSection` switches on it, and for a
+   * compound section that would rebuild ONE part's outline and replace the assembly's composed
+   * A, Iy and Iz — the solver would analyse a double-channel member as one channel.
+   */
+  it('sets shape for a single profile and withholds it for an assembly', () => {
+    expect(toSectionFields(std(), 0)!.shape).toBe('I');
+    const spec = { ...defaultProfileSpec('L 50x50x5'), arrangement: 'quadBox' as const, gapMm: 8 };
+    expect(toSectionFields({ kind: 'standard', spec }, 0)!.shape).toBeUndefined();
+  });
+
+  /*
+   * A closed arrangement reports no torsional constant, and the field is simply absent rather
+   * than zero. Zero is not a small J; it is no answer, and a solver reading it as a number
+   * would treat a box column as having no torsional stiffness at all.
+   */
+  it('omits J entirely when the arrangement encloses a cell', () => {
+    const spec = { ...defaultProfileSpec('UPN 100'), arrangement: 'quadBox' as const, gapMm: 8 };
+    const f = toSectionFields({ kind: 'standard', spec }, 0)!;
+    expect('j' in f).toBe(false);
+  });
+
+  it('returns null for a name the catalogue does not know', () => {
+    expect(toSectionFields({ kind: 'standard', spec: defaultProfileSpec('IPE 999') }, 0)).toBeNull();
+  });
+
+  it('resolves auto rotation against the angle the caller supplies', () => {
+    expect(toSectionFields(std(), 0)!.rotation).toBe(0);
+    expect(toSectionFields(std(), 11.3)!.rotation).toBeCloseTo(11.3, 9);
+    const fixed = { ...defaultProfileSpec('IPE 200'), rotationDeg: 90 };
+    expect(toSectionFields({ kind: 'standard', spec: fixed }, 11.3)!.rotation).toBe(90);
+  });
+});
+
+describe('a built choice', () => {
+  const built: SectionChoice = {
+    kind: 'built', name: 'Rect 200x300', shapeType: 'rect',
+    params: { b: 0.2, h: 0.3 },
+    props: { a: 0.06, iy: 4.5e-4, iz: 2.0e-4, j: 1.0e-4, b: 0.2, h: 0.3, shape: 'rect' },
+    rotationDeg: 'auto',
+  };
+
+  it('records the template and the numbers typed into it', () => {
+    const f = toSectionFields(built, 0)!;
+    // Without this a built section cannot be edited: reopening a project, the only way to
+    // change a thickness was to delete it and retype everything.
+    expect(f.built).toEqual({ shapeType: 'rect', params: { b: 0.2, h: 0.3 } });
+  });
+
+  it('carries the properties the template produced, unchanged', () => {
+    const f = toSectionFields(built, 0)!;
+    expect(f.a).toBe(0.06);
+    expect(f.iy).toBe(4.5e-4);
+    expect(f.iz).toBe(2.0e-4);
+    expect(f.j).toBe(1.0e-4);
+    expect(f.shape).toBe('rect');
+  });
+
+  it('has no composition: there is no catalogue part to name', () => {
+    expect(toSectionFields(built, 0)!.composition).toBeUndefined();
+  });
+});
+
+describe('isStandard', () => {
+  it('separates the two kinds', () => {
+    expect(isStandard(std())).toBe(true);
+    expect(isStandard({
+      kind: 'built', name: 'x', shapeType: 'rect', params: {},
+      props: { a: 1, iy: 1, iz: 1, shape: 'rect' }, rotationDeg: 0,
+    })).toBe(false);
+  });
+});

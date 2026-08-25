@@ -140,6 +140,40 @@ catalogados** además del Z. Consumidores compartidos **no** editados; contrato 
 **Workflow CIRSOC 301** — ocho etapas montadas y alcanzables, con detalle por miembro en 2, 3 y 5, y
 contenido explicativo en 7.
 
+**Selector PRO de secciones** — modal con **dos** divisiones (estándar y construida), diálogo
+centrado con trampa de foco y restauración, composición + huelgo + rotación, y ficha completa con
+la procedencia de cada número. La composición ahora es alcanzable **fuera** de un generador, que es
+lo que no se podía antes. Sin sección amorfa, y hay un test que falla si aparece.
+
+**Presillas, según §E.6 y sólo hasta donde el reglamento llega.** La auditoría del texto embarcado
+encontró bastante más de lo esperado: §E.6.1 clasifica las barras armadas en cinco grupos, y el
+Grupo V es «cordones unidos por presillas a intervalos regulares». De ahí salen reglas que **sí** se
+pueden modelar y se modelan, cada una con su cláusula punteada:
+
+| Dato | Cláusula | Estado |
+|---|---|---|
+| Tramos mínimos = 3 | E.6.3.2(b)(2) | modelado |
+| Presillas intermedias iguales y uniformemente espaciadas | E.6.3.2(b)(2) | modelado |
+| Presillas en los extremos, lo más próximas posibles | E.6.3.2(b)(1) | modelado |
+| Con planos paralelos, enfrentadas | E.6.3.2(b)(3) | modelado |
+| Cordón verificado con longitud no arriostrada = `a`, k = 1 | E.6.3.1(b)(1) | modelado |
+| `a/ri ≤ 3/4` de la esbeltez gobernante | E.6.2.2(a)(3) | **calculado** |
+| **Espesor, ancho y altura de la chapa** | — | **`GEOMETRY_UNAVAILABLE`** |
+
+Lo último no es una omisión de la app: **§E.6 no da ninguna dimensión de presilla**. La única
+propiedad que nombra es `Ip`, su momento de inercia en el plano, y sólo dentro de la condición
+`np·Ip/h ≥ 10·I1/a` (E.6.19); el dimensionamiento se remite al Capítulo F para la chapa y al J para
+sus uniones. Así que se muestra el estado y la condición, no una chapa inventada.
+
+Y una limitación que conviene leer dos veces: **la separación `a` queda en `—` dentro del selector**,
+porque una sección no tiene longitud. `a = L/3` recién existe cuando la sección está sobre un
+miembro. Mostrar `L/3` contra una longitud supuesta sería exactamente la geometría ficticia que el
+alcance prohíbe.
+
+**Geometría de cabriadas** — Pratt y Howe estaban intercambiados, verificado por estática y
+corregido en el generador y en las etiquetas es/en/pt. Warren nuevo, sin montantes interiores.
+Subdivisión de diagonales opcional, que **parte** la diagonal y el cordón en lugar de cruzarlos.
+
 **Del verificador**, tres de cuatro bloqueos atendidos: 18 tests de referencia, el fin de siete
 valores inventados (y un **defecto de inversión de ejes** que nadie había nombrado), y el mapa de
 cláusulas citado del texto embarcado.
@@ -168,6 +202,21 @@ cláusulas citado del texto embarcado.
 
 ---
 
+## 4 bis · Las dos causas que la auditoría trazó a una línea
+
+**El reglamento no puede destrabar nada.** `roleUsable` (`lib/codes/roles.ts:570`) devuelve `false`
+en cuanto la madurez es `UNSUPPORTED`, y CIRSOC 301 está declarado `UNSUPPORTED` — con razón, no
+existe adaptador. Así que `regulationsStore.usable('steel')` **es falso por construcción** y elegir
+el reglamento no habilita ninguna etapa. La madurez se queda; lo que cambia es que avanzar dependa
+de `steelCodeDeclared` y sólo certificar dependa de `usable`. **Pendiente de implementar.**
+
+**Los nudos no están rotos donde parece.** Reproduje la nave por defecto dos veces, por las
+funciones puras y por los stores reales: **300 nudos, 625 miembros metálicos, nada filtrado**.
+`detectJoints` y el predicado `isMetallic` son correctos. La causa está por encima de esa capa, así
+que hace falta reproducirlo en el navegador antes de tocar nada. **Sin diagnosticar todavía.**
+
+---
+
 ## 5. Los tres defectos con consecuencia que M2 encontró
 
 Vale que QA los conozca, porque dos siguen abiertos.
@@ -183,6 +232,25 @@ Vale que QA los conozca, porque dos siguen abiertos.
    el valor almacenado es ~2,4× demasiado alto, del lado **inseguro**. La advertencia está
    implementada como regla pura y **no montada**, porque todas las superficies donde va son
    compartidas con hormigón o de Basic.
+
+---
+
+### 5 bis · Un cuarto, del selector PRO
+
+`ProSectionsTab` mapeaba familia → forma con una función local que conocía **seis** familias y
+devolvía `'CHS'` — tubo redondo — para el resto. Medido sobre las quince: **ocho divergían del mapa
+del catálogo, siete de ellas a CHS**, incluyendo todo perfil W, los dos canales americanos, las tees
+y los tubos cuadrados. La octava, HEA, daba `'H'` donde el catálogo dice `'I'`.
+
+La rigidez **no** se veía afectada — `a`, `iy` e `iz` se escriben de los números del propio perfil, y
+el resolvedor canónico devolvía lo mismo con cualquiera de las dos formas, cosa que verifiqué antes
+de afirmar lo contrario. Lo que sí afecta es todo lo que **despacha** por `shape`: el contorno
+dibujado, el camino de flujo de corte, la extrusión 3D, y los ayudantes de cláusula que preguntan
+qué forma tiene un miembro — `flangeWidthForSlenderness` responde `null` para un CHS, así que §F.6.2
+habría reportado fuera de alcance una viga de perfil W.
+
+`familyToShape`, que es exhaustivo por construcción, ya estaba importado en ese archivo y
+simplemente nunca se llamaba.
 
 ---
 
