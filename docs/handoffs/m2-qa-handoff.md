@@ -191,6 +191,80 @@ cláusulas citado del texto embarcado.
 
 ---
 
+## 3 bis · El workflow metálico, en cinco etapas
+
+Eran ocho y son cinco. Las ocho no estaban mal: eran **las piezas en el orden en que se
+construyeron**, no un recorrido. Y cuatro de ellas —grado, sección, geometría, hipótesis— más
+verificación son **una sola pregunta hecha sobre cinco entradas**: «¿son adecuadas las secciones
+que elegí?».
+
+| # | Etapa | Qué contiene |
+|---|---|---|
+| 1 | Modelado | qué hay modelado en acero y si ya se calculó |
+| 2 | Reglamentos | cuál se declara, y que declarar no es certificar |
+| 3 | Secciones, hipótesis y verificación | las cinco ex-etapas, **cada una con su propio estado** |
+| 4 | Uniones | los nudos reales y qué se puede definir de cada uno |
+| 5 | Documentos | qué llevará un documento |
+
+Lo que QA debería mirar con atención en la etapa 3: **fusionar cinco etapas en una no fusionó
+cinco respuestas en una.** Cada sub-sección muestra su estado, así que se sigue viendo *cuál* de
+las cinco bloquea. Si eso se pierde, la etapa 3 se vuelve una caja negra.
+
+`limits` dejó de ser etapa y es pie de página: aplica a todas las de arriba, así que numerarla
+después de la última implicaba que llegaba al final.
+
+**La compuerta del reglamento cambió de pregunta.** `roleUsable` devuelve `false` en cuanto la
+madurez es `UNSUPPORTED`, y CIRSOC 301 lo es —correctamente, no hay adaptador—, así que
+condicionar el avance a `usable` significaba que elegir un reglamento no destrabara nada nunca.
+Ahora avanzar depende de `steelCodeDeclared`; sólo un resultado certificado depende de `usable`.
+La madurez no se tocó.
+
+**La firma humana es metadata**, no bloqueo. Estaba listada como sexto bloqueante, lo que
+confundía dos cosas distintas: si el cálculo puede correr —pregunta de desarrollo, con respuesta
+fáctica— y si una persona lo revisó —estado de revisión que llega después—.
+
+### 3 ter · Uniones: qué se calcula y qué no
+
+La etapa nombra las dos mitades en vez de dejarlas inferir de un campo vacío:
+
+| Dato | Estado | Cláusula |
+|---|---|---|
+| Separación mínima entre bulones | **calculado** | J.3.3 |
+| Distancia mínima al borde | **de tabla** | Tabla J.3.4 |
+| Distancia y separación máximas | **calculado** | J.3.5 |
+| Agujero normal | **de tabla** | Tabla J.3.3 |
+| Dimensiones de chapa | `GEOMETRY_UNAVAILABLE` | se dimensiona desde una solicitación que la etapa no tiene |
+| Tamaño de soldadura | `GEOMETRY_UNAVAILABLE` | requiere solicitación y espesores |
+| Dimensiones de presilla | `GEOMETRY_UNAVAILABLE` | §E.6 no da ninguna; sólo `np·Ip/h ≥ 10·I1/a` (E.6.19) |
+
+### 3 quater · Visualización 3D
+
+**Los nodos ahora se dimensionan según el modelo.** Eran una esfera fija de 0,07 m — un tercio de
+una barra en un modelo de 2 m, una mota en una nave de 30 m. El banco de picking de esta misma
+rama midió la consecuencia en pantalla: **8 px en un extremo y 144 px en el otro**, para el mismo
+marcador.
+
+El radio es una fracción de la diagonal del modelo, **acotada arriba y abajo**. Y el piso no es
+estético: `NodesInstanced` hace raycast sobre la malla visible, así que **el marcador ES el
+blanco de click**. Achicarlo para que se vea prolijo achica lo que se puede seleccionar. En el
+modo secciones se reduce a la mitad —para no tapar los perfiles extruidos— pero nunca por debajo
+de ese piso: un nodo clickeable en un modo y no en otro es peor que uno grande.
+
+De paso apareció un defecto latente: el caché de geometría de esferas **ignoraba el radio que
+recibía**, así que el primero que se pidiera ganaba para toda la sesión. No se notaba mientras el
+radio era una constante.
+
+**La selección va en las dos direcciones.** Lista → escena ya funcionaba. Escena → lista no:
+`selectedJointId` era local, así que clickear un nodo en el visor lo resaltaba y el panel seguía
+describiendo otro nudo, sin que nada lo dijera. Sólo cuenta una selección de **un** nodo: un
+box-select de cuarenta no tiene un nudo que describir.
+
+**Nada queda certificado por dibujarse.** Un nudo renderizado en 3D parece terminado y no lo
+está: chapa, soldadura y presilla siguen sin geometría, y dibujar las barras que concurren a un
+nodo no dice nada sobre si la unión entre ellas fue verificada.
+
+---
+
 ## 4. Lo que M2 **no** entregó, y por qué
 
 | Pendiente | Por qué |

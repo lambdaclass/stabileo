@@ -8,6 +8,7 @@
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
+  import { nodeRadiusFor, nodeRadiusForSections, diagonalOf } from '../lib/three/node-scale';
   import { ElementsBatched } from '../lib/three/elements-batched';
   import { ElementsPicking } from '../lib/three/elements-picking';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
@@ -200,6 +201,27 @@
     return 'default';
   });
 
+    /*
+   * Markers sized from the model, not from a constant.
+   *
+   * The fixed 0.07 m this replaces was tuned for a mid-sized frame and was wrong at both ends:
+   * a third of a member on a 2 m detail model, a speck on a 30 m shed. The picking bench
+   * earlier in this branch measured the on-screen span at 8 px to 144 px for the same marker.
+   *
+   * Re-evaluated on model changes AND on the render mode, because the section view halves it:
+   * with the extruded profiles drawn, a full-size sphere at every panel point buries the
+   * geometry that mode exists to show. It never drops below the picking floor —
+   * `NodesInstanced` raycasts the visible mesh, so the marker IS the target.
+   */
+  $effect(() => {
+    void modelStore.modelVersion;
+    const mode = uiStore.renderMode3D;
+    const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
+    nodesInstanced.setRadius(
+      mode === 'sections' ? nodeRadiusForSections(extent) : nodeRadiusFor(extent),
+    );
+  });
+
   onMount(() => {
     // Scene
     scene = new THREE.Scene();
@@ -209,6 +231,7 @@
     nodesParent = new THREE.Group();
     nodesParent.name = 'nodes';
     nodesParent.add(nodesInstanced.mesh);
+
     elementsParent = new THREE.Group();
     elementsParent.name = 'elements';
     elementsParent.add(elementsPicking.mesh);

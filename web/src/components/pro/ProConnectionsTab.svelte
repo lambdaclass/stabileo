@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { steelStore } from '../../lib/store/steel.svelte';
   import { isSteel } from '../../lib/engine/steel/material-family';
@@ -133,6 +134,31 @@
   function highlightJoint(j: JointInfo) {
     uiStore.setSelection(new Set([j.nodeId]), new Set(j.elementIds));
   }
+
+  /**
+   * The other direction: a node picked in the 3-D scene selects its joint here.
+   *
+   * List → scene already worked, because `highlightJoint` writes the shared selection. Scene →
+   * list did not: `selectedJointId` was purely local, so clicking a node in the viewport
+   * highlighted it and the panel went on describing whatever was chosen before — two surfaces
+   * showing two different joints with nothing saying so.
+   *
+   * Only a SINGLE selected node counts. A box-select covering forty nodes has no one joint to
+   * describe, and picking the first would be inventing a focus the user did not express.
+   */
+  $effect(() => {
+    const picked = uiStore.selectedNodes;
+    if (picked.size !== 1) return;
+    const [nodeId] = picked;
+    // Untracked: reading `joints` here would re-run this on every model change and fight the
+    // user's own clicks in the list.
+    const isJoint = untrack(() => joints.some((j) => j.nodeId === nodeId));
+    if (isJoint && nodeId !== selectedJointId) {
+      selectedJointId = nodeId;
+      boltResult = null;
+      weldResult = null;
+    }
+  });
 
   /** Auto-fill bolt forces from joint max shear */
   function autoFillBoltForces() {

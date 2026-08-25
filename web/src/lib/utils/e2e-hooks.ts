@@ -103,6 +103,15 @@ export interface StabileoTestHooks {
     reasonKeys: string[];
   } | null;
   selection(): number[];
+  /**
+   * The selected NODE ids, sorted.
+   *
+   * `selection()` returns elements. A joint is a node, and the 3-D specs need to assert that the
+   * joint highlighted in the scene is the one the list has — which is a statement about nodes.
+   */
+  selectedNodeIds(): number[];
+  /** The node-marker radius the scene is drawing, metres. Null before the scene exists. */
+  nodeMarkerRadius(): number | null;
   reinforcement(elementId: number): unknown;
   rebarSummary(elementId: number): string;
   elementIds(): number[];
@@ -295,6 +304,13 @@ export function installE2EHooks(): void {
       };
     },
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
+    selectedNodeIds: () => [...uiStore.selectedNodes].sort((a, b) => a - b),
+    /*
+     * Published by `Viewport3D` when it resizes the markers. Null rather than a default, so a
+     * spec can tell "the scene has not drawn yet" from "the radius is small".
+     */
+    nodeMarkerRadius: () =>
+      (window as unknown as { __nodeRadius?: number }).__nodeRadius ?? null,
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
