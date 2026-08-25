@@ -97,6 +97,52 @@
   /** A READ of the one selection channel. Never a copy, never a second source. */
   const selectedIds = $derived(new Set(rebarWorkspace.selection?.elementIds ?? []));
 
+  /**
+   * Select a member — objective 3, and the whole of it.
+   *
+   * `selectAndFocus` was written for this caller and says so: "Select a member from the list AND
+   * point the camera at it. One action because they are one intention." A list that selected
+   * without moving the camera would leave the user hunting for what they just clicked in a cage
+   * of thousands of bars.
+   *
+   * Keyed on `elementId` and never on the row's position. The ordinal in the label is a reading
+   * aid — "Beam 1" is the first beam, not element 1 — and selecting by it would send the viewer
+   * to whatever member happened to sort first.
+   */
+  function selectMember(elementId: number): void {
+    rebarWorkspace.selectAndFocus(elementId);
+  }
+
+  /**
+   * Arrow keys move within a family's rows, and the selection follows focus.
+   *
+   * That is the single-select listbox convention, and it is what makes the keyboard produce the
+   * SAME selection as the mouse rather than a second, quieter one. Enter and Space need no
+   * handling — these are real `<button>`s and the browser already fires click for both.
+   *
+   * Escape clears through the same channel. It does not restore a previous selection: `goBack()`
+   * exists for that and is the workspace's own affordance, and having Escape mean two things
+   * depending on history is how a shortcut becomes unpredictable.
+   */
+  function onRowKeydown(e: KeyboardEvent, rows: readonly { elementId: number }[], i: number) {
+    const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+    if (step !== 0) {
+      const next = rows[i + step];
+      if (!next) return;
+      e.preventDefault();
+      selectMember(next.elementId);
+      // Focus follows the selection, or the next arrow press would start from where it was.
+      const el = document.querySelector<HTMLElement>(
+        `[data-testid="rc-member-${next.elementId}"]`);
+      el?.focus();
+      return;
+    }
+    if (e.key === 'Escape' && rebarWorkspace.selection) {
+      e.preventDefault();
+      rebarWorkspace.select(null);
+    }
+  }
+
   /** The census line a family heading carries, in words rather than only as a number. */
   function censusText(c: RcFamilyCensus): string {
     if (c.state === 'unknown') return t('design.families.census.unknown');
@@ -164,6 +210,8 @@
                         data-testid={`rc-member-${row.elementId}`}
                         data-family={row.family}
                         data-detailed={row.detailed}
+                        onclick={() => selectMember(row.elementId)}
+                        onkeydown={(e) => onRowKeydown(e, f.rows, i)}
                       >
                         <span class="row-label" data-testid={`rc-member-label-${row.elementId}`}
                           >{t(`design.familySingular.${row.family}`)} {i + 1}</span>

@@ -104,6 +104,16 @@ export interface StabileoTestHooks {
     reasonKeys: string[];
   } | null;
   selection(): number[];
+  /**
+   * What the REBAR WORKSPACE has selected, which is a different channel from `selection()`.
+   *
+   * `selection()` reads `uiStore.selectedElements` — the app's element selection, driven by the
+   * 2-D viewport and the design table. This reads `rebarWorkspace.selection`, the single channel
+   * the detailing list and the 3-D viewer share. Exposed so a test can assert that clicking a row
+   * writes THAT channel and no parallel one: comparing this against the rows' `aria-selected` is
+   * how "two independent representations of the same element" becomes checkable.
+   */
+  rebarSelection(): number[];
   reinforcement(elementId: number): unknown;
   rebarSummary(elementId: number): string;
   elementIds(): number[];
@@ -319,6 +329,8 @@ export function installE2EHooks(): void {
       };
     },
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
+    rebarSelection: () =>
+      [...(rebarWorkspace.selection?.elementIds ?? [])].sort((a, b) => a - b),
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
