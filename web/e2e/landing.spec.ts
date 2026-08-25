@@ -1079,7 +1079,7 @@ test.describe('@landing landing page', () => {
       expect(h.lang).toBe('en');
       // The root serves English and consolidates into /en rather than
       // competing with it: two URLs, one indexed page.
-      expect(h.canonicals).toEqual(['https://stabileo.com/en']);
+      expect(h.canonicals).toEqual(['https://stabileo.com/en/']);
 
       /*
        * The description is the hero's own lead, not the fallback string
@@ -1093,7 +1093,7 @@ test.describe('@landing landing page', () => {
       // og:url names the page, and the page here is /en — the same address
       // the canonical above declares. Sharing the root should produce a card
       // for the English landing, not for a doorway.
-      expect(one(h, 'og:url')).toBe('https://stabileo.com/en');
+      expect(one(h, 'og:url')).toBe('https://stabileo.com/en/');
       expect(one(h, 'og:site_name')).toBe('Stabileo');
       expect(one(h, 'og:locale')).toBe('en_US');
       // One tag per alternate language, which is how Open Graph reads them.
@@ -1134,7 +1134,7 @@ test.describe('@landing landing page', () => {
       }
       // One canonical, and it names the language of the page rather than the
       // bare root — the root is a doorway, /en is the page.
-      expect(h.canonicals).toEqual(['https://stabileo.com/en']);
+      expect(h.canonicals).toEqual(['https://stabileo.com/en/']);
       expect(h.title).toBe(EN_TITLE);
       expect(one(h, 'og:title')).toBe(EN_TITLE);
       // The description sharpens to the live hero copy.
@@ -1154,7 +1154,7 @@ test.describe('@landing landing page', () => {
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('es_AR');
       expect(h.meta['og:locale:alternate']).toEqual(['en_US', 'pt_BR']);
-      expect(h.canonicals).toEqual(['https://stabileo.com/es']);
+      expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
       // The description is the hero lead, which now carries the positioning:
       // a free, open platform with three modes, rather than live re-solving.
       expect(one(h, 'description')).toMatch(/plataforma gratuita y abierta/);
@@ -1177,7 +1177,7 @@ test.describe('@landing landing page', () => {
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('pt_BR');
       expect(h.meta['og:locale:alternate']).toEqual(['en_US', 'es_AR']);
-      expect(h.canonicals).toEqual(['https://stabileo.com/pt']);
+      expect(h.canonicals).toEqual(['https://stabileo.com/pt/']);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
     });
 

@@ -61,7 +61,7 @@ test.describe('@smoke blog', () => {
     // The editor syncs the URL to its own mode on every render. If that sync
     // ever stops excluding the blog, the page will be right and the address
     // will say /app/basic — which is the link a reader copies.
-    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}$`));
+    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}/$`));
     await expect(page).toHaveTitle(/— Stabileo$/);
   });
 
@@ -71,7 +71,25 @@ test.describe('@smoke blog', () => {
     await boot(page, `/?route=%2Fblog%2F${SLUG}`);
 
     await expect(page.locator('.post-title')).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}$`));
+    /*
+     * No trailing slash required here, and that is deliberate. This route
+     * carries no language prefix — it is the shape links handed out before
+     * the prefixes existed — and App.svelte restores those verbatim rather
+     * than rewriting somebody's saved address. A PREFIXED route is
+     * normalised through publicHref; see the case below.
+     */
+    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}/?$`));
+  });
+
+  test('a prefixed cold deep link is restored in the canonical shape', async ({ page }) => {
+    // The same handoff, with a language prefix and no trailing slash — the
+    // form the site published before this change and that people already
+    // hold. It must come back as the address the site now declares, so the
+    // bar and the page's own canonical do not disagree.
+    await boot(page, `/?route=%2Fes%2Fblog%2F${SLUG}`);
+
+    await expect(page.locator('.post-title')).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
   });
 
   test('the browser back button returns to the post', async ({ page }) => {
@@ -128,7 +146,7 @@ test.describe('@smoke blog', () => {
       await page.locator('.landing.blog select.nav-lang').selectOption(to);
 
       await expect(page.locator('.post-title')).toHaveText(TITLES[to]);
-      await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}$`));
+      await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}/$`));
       await expect(page.locator('html')).toHaveAttribute('lang', to);
       // The picker reports where you are, not where you were.
       await expect(page.locator('.landing.blog select.nav-lang')).toHaveValue(to);
@@ -145,19 +163,26 @@ test.describe('@smoke blog', () => {
 
     await page.locator('.landing.blog select.nav-lang').selectOption('en');
 
-    await expect(page).toHaveURL(/\/en\/blog$/);
+    await expect(page).toHaveURL(/\/en\/blog\/$/);
     await expect(lead).toContainText(/code checks/i);
     await expect(page.locator(`.post-card[data-slug="${SLUG}"] .post-card-title`)).toHaveText(TITLES.en);
   });
 
   test('the browser back button undoes a language switch', async ({ page }) => {
-    await boot(page, `/pt/blog/${SLUG}`);
+    /*
+     * Booted on the slashed address on purpose. In production the host 301s
+     * `/pt/blog/x` to it before the application loads, so that is the URL a
+     * reader is ever on; `vite preview` serves both, so booting unslashed
+     * here would test a state the site cannot actually be in — and then
+     * `goBack` would return to it.
+     */
+    await boot(page, `/pt/blog/${SLUG}/`);
     await page.locator('.landing.blog select.nav-lang').selectOption('es');
-    await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}$`));
+    await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
 
     await page.goBack();
 
-    await expect(page).toHaveURL(new RegExp(`/pt/blog/${SLUG}$`));
+    await expect(page).toHaveURL(new RegExp(`/pt/blog/${SLUG}/$`));
     await expect(page.locator('.post-title')).toHaveText(TITLES.pt);
   });
 
@@ -336,7 +361,7 @@ test.describe('@smoke blog', () => {
     await expect(back).toBeVisible();
     await expect(back).toHaveText('Blog');
     // A real href, so it is crawlable and middle-clickable, not a button.
-    await expect(back).toHaveAttribute('href', '/es/blog');
+    await expect(back).toHaveAttribute('href', '/es/blog/');
     // And it sits before the GitHub box, where the ask put it.
     const order = await page.locator('.landing.blog .nav-actions > *').evaluateAll((els) =>
       els.map((e) => e.className.toString().split(' ')[0]),
@@ -345,7 +370,7 @@ test.describe('@smoke blog', () => {
     expect(order[1]).toBe('nav-gh');
 
     await back.click();
-    await expect(page).toHaveURL(/\/es\/blog$/);
+    await expect(page).toHaveURL(/\/es\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
     // Now on the index, it is gone.
     await expect(page.locator('.landing.blog .nav-blog-link')).toHaveCount(0);
@@ -364,7 +389,7 @@ test.describe('@smoke blog', () => {
     expect(data.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(data.author.map((a: { name: string }) => a.name)).toContain('Bautista Chesta');
     // It must claim the address it is actually served at, in this language.
-    expect(data.url).toBe(`https://stabileo.com/es/blog/${SLUG}`);
+    expect(data.url).toBe(`https://stabileo.com/es/blog/${SLUG}/`);
     expect(data.mainEntityOfPage['@id']).toBe(data.url);
   });
 
@@ -376,28 +401,28 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
-      'https://stabileo.com/es/blog',
+      'https://stabileo.com/es/blog/',
     );
 
     await boot(page, `/pt/blog/${SLUG}`);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
-      `https://stabileo.com/pt/blog/${SLUG}`,
+      `https://stabileo.com/pt/blog/${SLUG}/`,
     );
     // And it points at its siblings, which is how they get discovered at all.
     const alts = await page
       .locator('link[rel="alternate"][hreflang]')
       .evaluateAll((els) => els.map((e) => `${e.getAttribute('hreflang')} ${e.getAttribute('href')}`).sort());
     expect(alts).toEqual([
-      `en https://stabileo.com/en/blog/${SLUG}`,
-      `es https://stabileo.com/es/blog/${SLUG}`,
-      `pt https://stabileo.com/pt/blog/${SLUG}`,
+      `en https://stabileo.com/en/blog/${SLUG}/`,
+      `es https://stabileo.com/es/blog/${SLUG}/`,
+      `pt https://stabileo.com/pt/blog/${SLUG}/`,
       // x-default names the English version of THIS POST. English because the
       // root declares /en as its canonical, so pointing the default at the
       // root would name a URL that is not canonical for itself — and this
       // post's path because a default that jumps to the home page sends every
       // unmatched reader away from the thing they were about to be shown.
-      `x-default https://stabileo.com/en/blog/${SLUG}`,
+      `x-default https://stabileo.com/en/blog/${SLUG}/`,
     ]);
   });
 
@@ -447,7 +472,7 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.landing .hero-ctas .hero-blog')).toHaveCount(0);
 
     await link.click();
-    await expect(page).toHaveURL(/\/blog$/);
+    await expect(page).toHaveURL(/\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
   });
 
@@ -459,7 +484,7 @@ test.describe('@smoke blog', () => {
     await expect(section).toBeVisible();
 
     await section.locator('.btn-primary').click();
-    await expect(page).toHaveURL(/\/blog$/);
+    await expect(page).toHaveURL(/\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
   });
 
