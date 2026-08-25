@@ -43,7 +43,10 @@ export function rootHandoffScript(offered: readonly string[], fallback: string):
     if (offered.indexOf(code) !== -1) { want = code; break; }
   }
   if (want !== ${JSON.stringify(fallback)}) {
-    location.replace('/' + want + location.search + location.hash);
+    // Trailing slash: '/es' is a directory and the host answers it with a
+    // 301 to '/es/'. Without it a Spanish browser paid two redirects to
+    // reach the landing, and the second one was ours to avoid.
+    location.replace('/' + want + '/' + location.search + location.hash);
   }
 })();
 `.trim();

@@ -35,10 +35,10 @@ function handoff(
 
 describe('the root language handoff', () => {
   it('sends a browser to the first language it asks for that we offer', () => {
-    expect(handoff(['es-AR'])).toBe('/es');
-    expect(handoff(['pt-BR', 'en-US'])).toBe('/pt');
+    expect(handoff(['es-AR'])).toBe('/es/');
+    expect(handoff(['pt-BR', 'en-US'])).toBe('/pt/');
     // Not the first language, the first OFFERED one.
-    expect(handoff(['de-DE', 'es-AR'])).toBe('/es');
+    expect(handoff(['de-DE', 'es-AR'])).toBe('/es/');
   });
 
   it('leaves a browser alone when the fallback is what it wanted', () => {
@@ -55,10 +55,10 @@ describe('the root language handoff', () => {
     // root lost its attribution, and only for the languages the prefixes
     // exist to serve.
     expect(handoff(['pt-BR'], { search: '?utm_source=x&utm_campaign=y' })).toBe(
-      '/pt?utm_source=x&utm_campaign=y',
+      '/pt/?utm_source=x&utm_campaign=y',
     );
-    expect(handoff(['es-AR'], { hash: '#top' })).toBe('/es#top');
-    expect(handoff(['es-AR'], { search: '?a=1', hash: '#b' })).toBe('/es?a=1#b');
+    expect(handoff(['es-AR'], { hash: '#top' })).toBe('/es/#top');
+    expect(handoff(['es-AR'], { search: '?a=1', hash: '#b' })).toBe('/es/?a=1#b');
   });
 
   it('does not touch a route bounced through 404.html', () => {
@@ -82,7 +82,7 @@ describe('the root language handoff', () => {
       navigator: { language: 'es-ES' },
     });
     vm.runInContext(rootHandoffScript(OFFERED, FALLBACK), context);
-    expect(replaced).toBe('/es');
+    expect(replaced).toBe('/es/');
   });
 
   it('is built from the list it is given, not from hardcoded languages', () => {
@@ -96,6 +96,6 @@ describe('the root language handoff', () => {
       navigator: { languages: ['fr-FR'], language: 'fr-FR' },
     });
     vm.runInContext(rootHandoffScript([...OFFERED, 'fr'], FALLBACK), context);
-    expect(replaced).toBe('/fr');
+    expect(replaced).toBe('/fr/');
   });
 });
