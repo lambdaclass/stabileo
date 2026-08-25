@@ -200,7 +200,16 @@ export const RC_STAGES: readonly RcStageDef[] = [
     id: 'design',
     labelKey: 'design.stage.design',
     todoKey: 'design.stage.needDemands',
-    disclosure: 'floor-families-disclosure',
+    /*
+     * The design surface itself, not the floor pass.
+     *
+     * It used to be `floor-families-disclosure`, which was the only `<details>` the stage had —
+     * beams and columns were designed in `ProDesignTab`, mounted below every other stage. So the
+     * stage's own destination was an OPTIONAL sub-step of it, and clicking DISEÑAR took you past
+     * the design table to the floor families. `ProDesignTab` now lives inside this disclosure and
+     * the floor pass is a sub-step within it.
+     */
+    disclosure: 'design-stage-disclosure',
   },
   {
     id: 'detailing',

@@ -26,7 +26,7 @@ const STAGES = ['model', 'codes', 'design', 'detailing', 'documents'] as const;
 const DISCLOSURE: Record<(typeof STAGES)[number], string> = {
   model: 'design-overview-disclosure',
   codes: 'code-settings-disclosure',
-  design: 'floor-families-disclosure',
+  design: 'design-stage-disclosure',
   detailing: 'detailing-disclosure',
   documents: 'documents-disclosure',
 };
@@ -59,10 +59,15 @@ test.describe('the timeline is one vocabulary', () => {
       // A completed stage shows a tick instead of its number; on a fresh project none is.
       expect(text, `${id} shows its position`).toBe(String(i + 1));
     }
-    const markers = page.locator('[data-testid$="-disclosure"] .marker');
-    await expect(markers).toHaveCount(5);
-    for (const [i] of STAGES.entries()) {
-      expect((await markers.nth(i).innerText()).trim(), `section ${i + 1}`).toBe(String(i + 1));
+    /*
+     * Addressed by the five stage ids rather than by a `$="-disclosure"` suffix. The floor pass
+     * is a sub-step inside DISEÑAR and its testid ends the same way, so the suffix selector
+     * counted six — and a sub-step has no pipeline number to check, which is the whole reason it
+     * does not use `StageSection`.
+     */
+    for (const [i, id] of STAGES.entries()) {
+      const marker = page.getByTestId(DISCLOSURE[id]).locator('> summary > .marker');
+      expect((await marker.innerText()).trim(), `section ${i + 1} is ${id}`).toBe(String(i + 1));
     }
   });
 
@@ -109,11 +114,23 @@ test.describe('the strip stays where it can be read', () => {
 
   test('does not scroll away with the column', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
-    // Open every section so the column has something to scroll.
-    for (const id of STAGES) await stage(page, id).locator('button').click();
+    /*
+     * DISEÑAR, because it is the tall one: the design table and its command bar live inside it.
+     *
+     * An earlier version clicked every stage in turn to fill the column, which stopped working
+     * when navigation began opening exactly one section at a time — the last click left only
+     * Documentos open and the column no longer overflowed, so the scroll under test never
+     * happened and the assertion measured nothing.
+     */
+    await stage(page, 'design').locator('button').click();
+    await expect(page.getByTestId('pro-design-tab')).toBeVisible();
 
     const before = await timeline(page).boundingBox();
     const column = page.locator('.rc-workflow');
+    await expect
+      .poll(() => column.evaluate((el) => el.scrollHeight - el.clientHeight),
+        { message: 'the column has something to scroll' })
+      .toBeGreaterThan(0);
     await column.evaluate((el) => { el.scrollTop = el.scrollHeight; });
     await expect.poll(async () => (await column.evaluate((el) => el.scrollTop)))
       .toBeGreaterThan(0);

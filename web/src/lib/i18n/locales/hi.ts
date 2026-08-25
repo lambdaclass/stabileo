@@ -3521,6 +3521,7 @@ const hi: Translations = {
   'detailing.doc.need.provisional': 'Accept every provisional calculation first.',
   'design.stagePurpose.regulations': 'Which code edition every result below is produced under. One regulation per role.',
   'design.stagePurpose.floors': 'Designs slabs, walls and — if you ask for them — footings. Run it before detailing; a frame-only building can skip it.',
+  'design.stagePurpose.design': "Chooses the reinforcement for beams and columns against the code in force. The optional floor pass runs inside it.",
   'design.stagePurpose.floorsNotVerified': '{n} footing(s) not verified',
   'design.stagePurpose.detailing': 'Coordinates the bars the design produced into assemblies. The drawings, the schedule, the report and the 3-D view are projections of it.',
 };

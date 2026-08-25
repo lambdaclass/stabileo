@@ -17,6 +17,7 @@
   import RcStageTimeline from './design/RcStageTimeline.svelte';
   import DesignOverview from './design/DesignOverview.svelte';
   import StageSection from './design/StageSection.svelte';
+  import RcSubStage from './design/RcSubStage.svelte';
   import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
   import DetailingWorkflow from './design/DetailingWorkflow.svelte';
   import DocumentsSection from './design/DocumentsSection.svelte';
@@ -58,7 +59,20 @@
    */
   let regsOpen = $state(false);
   let detailingOpen = $state(false);
+  /**
+   * The floor pass, closed by default. A frame-only building never opens it, and it says so on
+   * its own chip.
+   */
   let floorsOpen = $state(false);
+  /**
+   * DISEÑAR, OPEN by default.
+   *
+   * `ProDesignTab` used to be mounted unconditionally below every stage, so the design table was
+   * always on screen. Moving it inside a stage would have put it behind a closed `<details>` and
+   * hidden the main working surface of the tab — a real regression dressed as a refactor. Open is
+   * what preserves today's behaviour exactly.
+   */
+  let designOpen = $state(true);
   /** Open by default: it answers the question a reviewer arrives with. */
   let overviewOpen = $state(true);
   let documentsOpen = $state(false);
@@ -77,7 +91,8 @@
   const openStage = $derived<RcStageId | null>(
     documentsOpen ? 'documents'
       : detailingOpen ? 'detailing'
-        : floorsOpen ? 'design'
+        // The floor pass is INSIDE DISEÑAR, so reading it is reading that stage.
+        : designOpen || floorsOpen ? 'design'
           : regsOpen ? 'codes'
             : overviewOpen ? 'model' : null,
   );
@@ -104,9 +119,11 @@
   function goToStage(target: RcStageId) {
     overviewOpen = target === 'model';
     regsOpen = target === 'codes';
-    floorsOpen = target === 'design';
+    designOpen = target === 'design';
     detailingOpen = target === 'detailing';
     documentsOpen = target === 'documents';
+    // The floor sub-step keeps whatever the user left it at: navigating to DISEÑAR should not
+    // fold away a panel they had opened, and should not unfold one they had not.
 
     const testid = RC_STAGES.find((s) => s.id === target)?.disclosure;
     if (!testid) return;
@@ -166,9 +183,9 @@
    * opens this section, which is exactly what its chip has always said. Driving the chip from
    * the stage would make it read "waiting" for a step nobody has to take.
    *
-   * The timeline still counts this disclosure as DISEÑAR's, because it is the only `<details>`
-   * the stage owns; beams and columns are designed in `ProDesignTab` below. §2 folds the two
-   * into one stage, and until it does this is the honest split rather than a tidier lie.
+   * The stage now CONTAINS both: `ProDesignTab` is its body and this is a sub-step inside it, so
+   * the split is about what each says, not about where they live. F1 shipped with the stage
+   * pointing at this disclosure because it was the only `<details>` it had; that gap is closed.
    */
   const floorsState = $derived(
     detailingStore.lastFloorRun ? 'done' as const : 'optional' as const);
@@ -222,27 +239,45 @@
   </StageSection>
 
   <!--
-    Slabs, walls and foundations, ABOVE detailing.
+    DISEÑAR — the design surface, and the floor pass inside it.
 
-    It used to sit below, which put an optional step that must run BEFORE detailing after it in
-    reading order. Its own copy says when to run it; its position now says the same thing without
-    being read. It stays a section of its own because a frame-only building never opens it.
+    `ProDesignTab` used to be mounted after every stage, below Documents, so the stage strip said
+    "3 Diseñar" and pointed at the floor families while the table you design in sat past the end
+    of the pipeline. The stage now contains the surface it names.
   -->
   <StageSection
-    testid="floor-families-disclosure"
+    testid="design-stage-disclosure"
     step={3}
-    title={t('detailing.floorRun.title')}
-    purpose={t('design.stagePurpose.floors')}
-    state={floorsState}
-    badge={footingCount > 0 ? footingCount : undefined}
-    badgeTestid="floor-footing-count"
-    attentionTestid="floor-not-verified-count"
-    attention={notVerifiedCount > 0
-      ? tp('design.stagePurpose.floorsNotVerified', { n: notVerifiedCount })
-      : undefined}
-    bind:open={floorsOpen}
+    title={t('design.stage.design')}
+    purpose={t('design.stagePurpose.design')}
+    state={sectionState('design')}
+    blockedBy={t('design.stage.needDemands')}
+    bind:open={designOpen}
   >
-    <FloorFamiliesPanel />
+    <ProDesignTab />
+
+    <!--
+      Slabs, walls and foundations: a step INSIDE this stage, not a stage of its own.
+
+      It is optional and it says so. A frame-only building never opens it, which is why it keeps
+      its own state instead of inheriting DISEÑAR's — a required stage cannot lend "waiting" to a
+      step nobody has to take.
+    -->
+    <RcSubStage
+      testid="floor-families-disclosure"
+      title={t('detailing.floorRun.title')}
+      purpose={t('design.stagePurpose.floors')}
+      state={floorsState}
+      badge={footingCount > 0 ? footingCount : undefined}
+      badgeTestid="floor-footing-count"
+      attentionTestid="floor-not-verified-count"
+      attention={notVerifiedCount > 0
+        ? tp('design.stagePurpose.floorsNotVerified', { n: notVerifiedCount })
+        : undefined}
+      bind:open={floorsOpen}
+    >
+      <FloorFamiliesPanel />
+    </RcSubStage>
   </StageSection>
 
   <StageSection
@@ -279,7 +314,6 @@
     <DocumentsSection />
   </StageSection>
 
-  <ProDesignTab />
 </div>
 
 <style>
@@ -305,7 +339,19 @@
     overflow-y: auto;
     overflow-x: hidden;
   }
-  .rc-workflow > :global(*:last-child) { flex: 1 1 auto; min-height: 18rem; overflow: hidden; }
+  /*
+    The last-child rule is gone with F2, and it had to be.
+
+    `.rc-workflow > *:last-child { flex: 1 1 auto; min-height: 18rem; overflow: hidden }` was
+    written for `ProDesignTab`, which was the last child: it gave the design table the column's
+    remaining height. `ProDesignTab` is inside the DISEÑAR stage now, so the rule landed on
+    `documents-disclosure` instead — an 18rem floor under a CLOSED disclosure, and `overflow:
+    hidden` on a section, which is precisely the nested-scroller defect S5 of
+    `pro-panel-structure.spec.ts` exists to catch. It caught it.
+
+    Nothing replaces it. Sections size to their content and the column carries the scroll, which
+    is the rule `StageSection` already states about itself: one scroll in the whole panel.
+  */
   /*
     The per-section height caps that used to live here are gone.
 

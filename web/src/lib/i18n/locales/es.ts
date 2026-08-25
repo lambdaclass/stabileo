@@ -6055,6 +6055,7 @@ const es: Record<string, string> = {
   'detailing.doc.need.provisional': 'Aceptá primero cada cálculo provisorio.',
   'design.stagePurpose.regulations': 'Bajo qué edición del reglamento se produce todo lo de abajo. Un reglamento por rol.',
   'design.stagePurpose.floors': 'Diseña losas, tabiques y —si las pedís— zapatas. Ejecutalo antes del detallado; un edificio sólo de pórticos puede saltearlo.',
+  'design.stagePurpose.design': "Elige las armaduras de vigas y columnas contra el reglamento en vigencia. El paso de pisos, opcional, se ejecuta acá adentro.",
   'design.stagePurpose.floorsNotVerified': '{n} zapata(s) sin verificar',
   'design.stagePurpose.detailing': 'Coordina en conjuntos las barras que produjo el diseño. Los planos, la planilla, el informe y la vista 3D son proyecciones de él.',
 };

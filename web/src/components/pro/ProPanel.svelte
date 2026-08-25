@@ -23,7 +23,6 @@
   import ProSupportsTab from './ProSupportsTab.svelte';
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
-  import ProDesignTab from './ProDesignTab.svelte';
   import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProConstraintsTab from './ProConstraintsTab.svelte';

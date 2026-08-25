@@ -204,7 +204,17 @@
     padding: 0.2rem 0.35rem;
     border: 0;
     border-radius: 4px;
-    background: none;
+    /*
+     * A real surface, not `none`.
+     *
+     * The first version was `background: none; border: 0`, which C1 of
+     * `pro-panel-consistency.spec.ts` reports — correctly — as a control left to the browser to
+     * paint. The sweep cannot tell a deliberately flat button from an untouched UA default, and
+     * the rule it enforces is the one that keeps the panel reading as one product: every control
+     * carries a surface of ours or a border of ours. Adding an invisible border to satisfy the
+     * check would have been gaming it.
+     */
+    background: var(--st-surface-2);
     cursor: pointer;
     font: inherit;
     font-size: 0.75rem;
@@ -212,6 +222,12 @@
     white-space: nowrap;
   }
   button:hover { background: var(--st-surface-3); }
+  /*
+   * A blocked stage keeps the surface and loses only its text weight. Making it transparent was
+   * the first attempt and C1 rejects it for the same reason it rejected the base state: a
+   * control with neither a surface nor a border of ours reads as unpainted, and `box-shadow` is
+   * not a border as far as that sweep — or a user — is concerned.
+   */
   button:focus-visible { outline: 2px solid var(--st-value); outline-offset: -1px; }
 
   .mark {

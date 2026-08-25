@@ -4990,6 +4990,7 @@ const pt: Translations = {
   'detailing.doc.need.provisional': 'Aceite primeiro cada cálculo provisório.',
   'design.stagePurpose.regulations': 'Sob qual edição da norma tudo o que está abaixo é produzido. Uma norma por papel.',
   'design.stagePurpose.floors': 'Dimensiona lajes, paredes e — se você as pedir — sapatas. Execute antes do detalhamento; um edifício só de pórticos pode pulá-lo.',
+  'design.stagePurpose.design': "Escolhe as armaduras de vigas e pilares contra a norma em vigor. O passo de pisos, opcional, é executado aqui dentro.",
   'design.stagePurpose.floorsNotVerified': '{n} sapata(s) não verificada(s)',
   'design.stagePurpose.detailing': 'Coordena em conjuntos as barras que o dimensionamento produziu. Os desenhos, a planilha, o relatório e a vista 3D são projeções dele.',
 };
