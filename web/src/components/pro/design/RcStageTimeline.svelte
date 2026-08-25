@@ -37,6 +37,9 @@
    * competing command surface.
    */
   import { t } from '../../../lib/i18n';
+  import { resultsStore } from '../../../lib/store/results.svelte';
+  import { designRunStore } from '../../../lib/store/design-run.svelte';
+  import { rcComputeDemands } from '../../../lib/flow/rc-commands';
   import {
     currentRcStage, rcStageTodoKey,
     type RcModelReadiness, type RcStage, type RcStageId,
@@ -90,6 +93,34 @@
   /** The title of the section being read, under the strip. Absent when nothing is open. */
   const openLabel = $derived(stages.find((s) => s.id === openStage)?.labelKey ?? null);
 
+  /**
+   * Which stage's actions the strip offers.
+   *
+   * The stage the project is ON — what you can do NOW — and the stage being read only when the
+   * pipeline has nothing left to offer.
+   *
+   * The first version had it the other way round, reasoning that the open stage is the more
+   * recent gesture. That was wrong for a reason worth writing down: `openStage` is never null.
+   * The overview opens by default, so it always won and the fallback was dead code — the strip
+   * offered no action at all until the user happened to navigate to the right section, which is
+   * the hidden-command problem the move was meant to end.
+   *
+   * Reading a finished stage does not bring its command back, and that is correct: the strip
+   * answers "what is next", and the stage's own panel is where finished work is revisited.
+   */
+  const actionStage = $derived(current?.id ?? openStage ?? null);
+
+  /*
+   * The two facts REGLAMENTOS' command gates on, read from the stores that own them.
+   *
+   * Nothing to derive demands from, and nothing to press while a run is going. Read here rather
+   * than threaded down, because the strip sits above every stage and has nothing to receive
+   * them from.
+   */
+  const hasResults = $derived(
+    resultsStore.results3D !== null || resultsStore.results !== null);
+  const busy = $derived(designRunStore.running);
+
   const SR: Record<string, string> = {
     complete: 'design.stage.srComplete',
     current: 'design.stage.srCurrent',
@@ -125,6 +156,39 @@
       </li>
     {/each}
   </ol>
+
+  <!--
+    The stage's own actions, in the strip.
+
+    They were in `DesignToolbar`, which F2 moved inside the DISEÑAR stage — so the action that
+    produces the SOLICITACIONES lived in the stage that consumes them, under a heading called
+    "Verify", ahead of "Design". Moving the button into the REGLAMENTOS `<details>` instead put a
+    required pipeline command behind a collapsed section, which is worse: four E2E journeys
+    stopped being able to reach it, and so would a user who had not thought to open it.
+
+    The strip is already sticky and already knows which stage you are on. The command lives here,
+    ONCE — there is no copy inside the disclosure — and calls the same `rcComputeDemands` that
+    `lib/flow/rc-commands.ts` extracted, arming the diagnostics warning before the store.
+  -->
+  {#if !stages.find((s) => s.id === 'codes')?.complete}
+    <!--
+      Present and DISABLED, not absent, while it cannot run.
+
+      Keying this on the current stage made the command vanish with nothing solved, and a gate
+      caught it: this app's rule is that a command which cannot run says WHY, and one that is not
+      on screen says nothing at all. It appears as soon as its stage is unfinished and explains
+      itself through the disabled state and the hint below; it leaves when the stage is done,
+      because the strip answers "what is next".
+    -->
+    <div class="actions" data-testid="rc-stage-actions" data-stage="codes">
+      <button
+        class="cmd"
+        data-testid="cmd-compute-demands"
+        onclick={rcComputeDemands}
+        disabled={!hasResults || busy}
+      >{t('design.cmd.computeDemands')}</button>
+    </div>
+  {/if}
 
   <p class="hint" data-testid="rc-stage-hint">
     {#if openLabel}
@@ -279,6 +343,37 @@
     background: var(--st-surface-3);
     box-shadow: inset 0 0 0 1px var(--st-hair-strong);
   }
+
+  /*
+   * The actions row, under the stages and above the hint.
+   *
+   * It wraps rather than scrolling: a command that scrolled out of a sticky strip would be the
+   * hidden-command problem again in a narrower form. Two or three short commands per stage fit
+   * on one line at 820 px; the row grows a second line before it hides anything.
+   */
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin: 0.3rem 0 0;
+  }
+  /* The paint every command in this app carries. C1 rejects a control with neither a surface
+     nor a border of ours, and it is right to: that reads as one the browser painted. */
+  .cmd {
+    padding: 3px 9px;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-info);
+    border-radius: 4px;
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .cmd:hover:not(:disabled) { background: var(--st-hair-strong); }
+  /* Dimmer and still legible — a disabled command has to explain itself. */
+  .cmd:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cmd:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 
   .hint {
     display: flex;

@@ -59,7 +59,7 @@
    * screen: same testids, same disabled logic, same store effects, same arming.
    */
   import {
-    rcAutoDesignSelected, rcCodeCheck, rcComputeDemands, rcDesignScope,
+    rcAutoDesignSelected, rcCodeCheck, rcDesignScope,
   } from '../../lib/flow/rc-commands';
 
   // ─── View state (survives edits — nothing here is reset by a rebar write) ──
@@ -311,7 +311,6 @@
     selectedCount={batchSelection.length}
     {hasResults} {hasCombinations}
     editedCount={designRunStore.manualOverrides.size}
-    onComputeDemands={rcComputeDemands}
     onCodeCheck={rcCodeCheck}
     onAutoDesignSelected={() => rcAutoDesignSelected(batchSelection)}
     onAutoDesignUndesigned={() => {

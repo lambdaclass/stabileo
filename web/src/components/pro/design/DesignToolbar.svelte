@@ -24,7 +24,6 @@
     hasResults: boolean;
     hasCombinations: boolean;
     editedCount: number;
-    onComputeDemands: () => void;
     onCodeCheck: () => void;
     onAutoDesignSelected: () => void;
     onAutoDesignUndesigned: () => void;
@@ -37,7 +36,7 @@
   }
   let {
     selectedCount, hasResults, hasCombinations, editedCount,
-    onComputeDemands, onCodeCheck, onAutoDesignSelected, onAutoDesignUndesigned,
+    onCodeCheck, onAutoDesignSelected, onAutoDesignUndesigned,
     onDesignAll, onReviewChanges, onRevertEdits, onShowOrientation,
     onOpenDiagnostics,
   }: Props = $props();
@@ -153,8 +152,13 @@
     <div class="cmd-group" data-testid="cmd-group-verify">
       <span class="group-label">{t('design.group.verify')}</span>
       <div class="group-items">
-        <button class="cmd" data-testid="cmd-compute-demands" onclick={onComputeDemands}
-                disabled={!hasResults || busy}>{t('design.cmd.computeDemands')}</button>
+        <!--
+          Compute demands lives in the stage strip now — see `RcStageTimeline.svelte`.
+
+          It produced the SOLICITACIONES from inside the stage that consumes them, grouped under
+          "Verify" ahead of "Design". One implementation still: both called `rcComputeDemands`,
+          and there is no copy of it inside any disclosure.
+        -->
         <button class="cmd" data-testid="cmd-code-check" onclick={onCodeCheck}
                 disabled={!canDesign}>{t('design.cmd.codeCheck')}</button>
       </div>
