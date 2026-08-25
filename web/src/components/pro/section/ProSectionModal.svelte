@@ -31,6 +31,7 @@
    * chosen inside a generator are the same object rather than two representations that agree
    * until someone edits one.
    */
+  import { untrack } from 'svelte';
   import { t } from '../../../lib/i18n';
   import ProfileSelectorPanel from '../generators/ProfileSelectorPanel.svelte';
   import SectionFigure from '../generators/SectionFigure.svelte';
@@ -86,13 +87,54 @@
    */
   let returnFocus: HTMLElement | null = null;
 
-  $effect(() => {
-    if (!open) return;
-    returnFocus = document.activeElement as HTMLElement | null;
-    draft = { ...spec };
-    // One frame, so the dialog is in the DOM before focus moves into it.
-    queueMicrotask(() => dialogEl?.querySelector<HTMLElement>('[data-autofocus]')?.focus());
-    return () => { returnFocus?.focus?.(); };
+  /**
+   * Focus, on the OPEN and CLOSE transitions only.
+   *
+   * Two things had to be fixed here and both were measured rather than reasoned about.
+   *
+   * **It must not re-run while open.** The first version read `spec` as well, so every applied
+   * change re-ran it — and re-running re-captured `returnFocus` from `document.activeElement`,
+   * which by then was a control INSIDE the dialog. Closing then restored focus to a node that
+   * was being removed, and the browser reset focus to `<body>`. Reading only `open`, with an
+   * explicit `wasOpen` latch, is what keeps the capture to the moment the trigger still has it.
+   *
+   * **It must not restore synchronously.** The teardown is still in progress when the
+   * transition fires; focusing the trigger there is undone by the removal that follows. One
+   * frame later it sticks.
+   */
+  /**
+   * Focus, captured BEFORE the DOM updates and restored one frame after it.
+   *
+   * Both halves were wrong at first and both were measured rather than reasoned about.
+   *
+   * **`$effect.pre`, not `$effect`.** Child effects run before parent effects in Svelte 5, and
+   * the dialog's body — `ProfileSelectorPanel` — focuses its own search box on mount. So by the
+   * time a plain `$effect` in this component ran, `document.activeElement` was already
+   * `profile-search`, INSIDE the dialog. Closing then restored focus to a node being removed and
+   * the browser reset it to `<body>`. The instrumented probe read exactly that:
+   * `{captured: "profile-search", afterRaf: "BODY"}`. `$effect.pre` runs before the update, so
+   * the trigger still holds focus when we look.
+   *
+   * **One frame later, not synchronously.** The teardown is still in progress when the close
+   * transition fires; focusing the trigger there is undone by the removal that follows.
+   *
+   * The `wasOpen` latch keeps both to the transitions. Without it the capture re-runs while the
+   * dialog is open and lands back inside it.
+   */
+  let wasOpen = false;
+  $effect.pre(() => {
+    const isOpen = open;
+    if (isOpen && !wasOpen) {
+      wasOpen = true;
+      returnFocus = document.activeElement as HTMLElement | null;
+      draft = { ...untrack(() => spec) };
+      // A microtask, so the dialog is in the DOM before focus moves into it.
+      queueMicrotask(() => dialogEl?.querySelector<HTMLElement>('[data-autofocus]')?.focus());
+    } else if (!isOpen && wasOpen) {
+      wasOpen = false;
+      const el = returnFocus;
+      requestAnimationFrame(() => el?.focus?.());
+    }
   });
 
   const resolved = $derived(resolveProfile(draft.profileName));

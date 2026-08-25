@@ -78,7 +78,27 @@ describe('the dialog behaves like a dialog', () => {
     expect(MODAL).toContain("e.key !== 'Tab'");
     expect(MODAL).toContain('shiftKey');
     expect(MODAL).toContain('returnFocus');
-    expect(MODAL).toMatch(/returnFocus\?\.focus\?\.\(\)/);
+  });
+
+  /*
+   * The three parts of the restore, each of which was wrong at some point and each of which the
+   * browser proved necessary:
+   *
+   *   · **`$effect.pre`** — child effects run first, and this dialog's body focuses its own
+   *     search box on mount. A plain `$effect` captured THAT as the thing to return focus to.
+   *     An instrumented probe read `{captured: "profile-search", afterRaf: "BODY"}`.
+   *   · **the `wasOpen` latch** — without it the capture re-runs while the dialog is open and
+   *     lands back inside it.
+   *   · **`requestAnimationFrame`** — restoring synchronously loses to the teardown that
+   *     follows.
+   *
+   * Pinned at the source level because all three are invisible in behaviour until all three are
+   * present, and a future edit that drops one would look harmless.
+   */
+  it('captures before the DOM updates, latches the transition, and restores a frame later', () => {
+    expect(MODAL).toContain('$effect.pre(');
+    expect(MODAL).toContain('let wasOpen = false;');
+    expect(MODAL).toContain('requestAnimationFrame(() => el?.focus?.())');
   });
 
   it('closes on Escape', () => {

@@ -38,7 +38,17 @@
     emitModel, requiredRoles, validateProfiles, defaultProfileSpec,
     type EmitOptions, type GeneratorMaterial, type ProfileSpec,
   } from '../../../lib/engine/generators/emit';
-  import GradePickerPanel from '../steel/GradePickerPanel.svelte';
+  import ProMaterialModal from '../material/ProMaterialModal.svelte';
+  import { choiceGradeId } from '../../../lib/material/material-choice';
+
+  /**
+   * The metal categories, which is what a steel generator can emit.
+   *
+   * Concrete and timber are real materials with real presets; they are simply not something
+   * `emitModel` can build a truss out of, and offering them would be offering a choice the
+   * emitter must then refuse.
+   */
+  const METAL_CATEGORIES = ['acero', 'conformado', 'inox', 'aluminio'] as const;
   import { pairing, structuralGradeSource } from '../../../lib/grades/catalogue';
   import { resolveProfile } from '../../../lib/engine/generators/profile-resolve';
   import type { MemberRole } from '../../../lib/engine/generators/member-roles';
@@ -171,6 +181,17 @@
   let gradeId = $state<string | null>(null);
   let gradeOpen = $state(false);
 
+  /**
+   * Whether the preview is docked to the bottom of the panel.
+   *
+   * Docked by default, because the preview is the feedback loop: the whole point of typing a
+   * span is watching the drawing change, and until now it sat inline in a single scrolling
+   * column and left the viewport as soon as the parameters were scrolled. Unlockable, because
+   * on a short viewport a docked preview costs the parameters the room they need — and that is
+   * the user's call, not a rule.
+   */
+  let previewDocked = $state(true);
+
   const grade = $derived(gradeId ? structuralGradeSource.byId(gradeId) : null);
 
   /**
@@ -273,6 +294,85 @@
   <span class="fhint" id={`gen-hint-${key}`}>{t(`generator.hint.${key}`)}</span>
 {/snippet}
 
+{#snippet previewAndActions()}
+  {#if topology}
+    <div class="previews" data-testid="gen-previews">
+      {#if frameElevation}
+        <TopologyPreview
+          topology={frameElevation}
+          view="elevation"
+          label={t('generator.ui.previewFrame')}
+          heightPx={120}
+        />
+      {:else if kind !== 'shed'}
+        <TopologyPreview
+          topology={topology}
+          view="elevation"
+          label={t('generator.ui.previewElevation')}
+          heightPx={165}
+          showLegend
+        />
+      {/if}
+      {#if kind === 'shed'}
+        <TopologyPreview
+          topology={topology}
+          view="isometric"
+          footprint={{ spanM: shed.spanM, lengthM: shed.bayM * (shed.frames - 1) }}
+          label={t('generator.ui.previewIso')}
+          heightPx={195}
+          showLegend
+        />
+      {/if}
+    </div>
+
+    <div class="preview" data-testid="gen-preview">
+      <p class="totals">
+        {tp('generator.ui.totals', {
+          members: topology.members.length,
+          nodes: topology.nodes.length,
+          length: topology.totalLengthM.toFixed(2),
+        })}
+        {#if topology.slopePercent !== null}
+          · {topology.slopePercent.toFixed(0)}% {t('generator.ui.slope')}
+        {/if}
+        {#if 'areaM2' in topology}
+          · {(topology as { areaM2: number }).areaM2.toFixed(0)} m²
+        {/if}
+      </p>
+      <details class="assume">
+        <summary>{t('generator.ui.assumptions')} <span class="count">{topology.assumptions.length}</span></summary>
+        <ul>
+          {#each topology.assumptions as key (key)}<li>{t(key)}</li>{/each}
+        </ul>
+      </details>
+    </div>
+  {/if}
+
+  <p class="warn">{t('generator.ui.replacesModel')}</p>
+
+  <!--
+    A disabled Generate says WHY, and says it to a screen reader too.
+
+    `aria-describedby` points at whichever problem list is on screen, so the refusal is read with
+    the button instead of being a grey rectangle whose reason lives somewhere above it.
+  -->
+  <button
+    class="go"
+    type="button"
+    data-testid="gen-generate"
+    disabled={!canGenerate}
+    aria-describedby={paramProblems.length > 0 ? 'gen-param-problems'
+      : profileProblems.length > 0 ? 'gen-profile-problems' : undefined}
+    onclick={generate}
+  >
+    {t('generator.ui.generate')}
+  </button>
+
+  {#if lastResult}
+    <p class="result" data-testid="gen-result" role="status">{lastResult}</p>
+  {/if}
+{/snippet}
+
 <div class="gen" data-testid="pro-generators-panel">
   <header>
     <h3>{t('generator.ui.title')}</h3>
@@ -290,6 +390,16 @@
       >{t(`generator.ui.${key}`)}</button>
     {/each}
   </div>
+
+  <!--
+    Everything above the dock scrolls. The dock does not.
+
+    Two regions rather than one column with `position: sticky`: sticky inside a scroller keeps
+    the element in flow, so the drawing would still push the Generate button off the bottom on
+    a short viewport. A flex column with one `min-height: 0` scroller and a fixed footer is what
+    actually pins it.
+  -->
+  <div class="gen-scroll" data-testid="gen-scroll">
 
   <!-- ── Parameters ── -->
   <div class="fields">
@@ -462,13 +572,24 @@
   </div>
   <p class="grade-note" data-testid="gen-grade-scope">{t('generator.ui.materialScope')}</p>
 
-  {#if gradeOpen}
-    <GradePickerPanel
-      selected={gradeId}
-      onPick={(id) => { gradeId = id; gradeOpen = false; }}
-      onClose={() => (gradeOpen = false)}
-    />
-  {/if}
+  <!--
+    The same selector the materials tab opens, narrowed to the metals.
+
+    It used to be `GradePickerPanel`, an inline popover over the grade database. That panel is
+    good and is still what the modal's own list is measured against, but having two material
+    surfaces in PRO meant two places to keep in step — and only one of them carried the
+    thickness bands and the per-field authority. Narrowing the shared one to the metal
+    categories keeps the catalogue, the sheet, the keyboard and the conversion identical, and
+    shortens only the tab strip.
+  -->
+  <ProMaterialModal
+    open={gradeOpen}
+    selected={grade?.designation ?? ''}
+    label={t('generator.ui.material')}
+    categories={METAL_CATEGORIES}
+    onApply={(choice) => { gradeId = choiceGradeId(choice); }}
+    onClose={() => (gradeOpen = false)}
+  />
 
   <!--
     The pairing note sits with the controls it is about. A warning that a grade is unusual for
@@ -491,86 +612,22 @@
     </ul>
   {/if}
 
+    {#if !previewDocked}{@render previewAndActions()}{/if}
+  </div><!-- /gen-scroll -->
+
   <!--
     The drawing and the count, both from the same topology object Generate then emits — so
     the picture, the numbers and the model agree by construction rather than by care.
   -->
-  {#if topology}
-    <div class="previews" data-testid="gen-previews">
-      {#if frameElevation}
-        <TopologyPreview
-          topology={frameElevation}
-          view="elevation"
-          label={t('generator.ui.previewFrame')}
-          heightPx={120}
-        />
-      {:else if kind !== 'shed'}
-        <TopologyPreview
-          topology={topology}
-          view="elevation"
-          label={t('generator.ui.previewElevation')}
-          heightPx={165}
-          showLegend
-        />
-      {/if}
-      {#if kind === 'shed'}
-        <TopologyPreview
-          topology={topology}
-          view="isometric"
-          footprint={{ spanM: shed.spanM, lengthM: shed.bayM * (shed.frames - 1) }}
-          label={t('generator.ui.previewIso')}
-          heightPx={195}
-          showLegend
-        />
-      {/if}
-    </div>
+  <div class="gen-dock" class:docked={previewDocked} data-testid="gen-dock">
+    <button
+      type="button" class="dock-toggle" data-testid="gen-dock-toggle"
+      aria-pressed={previewDocked}
+      onclick={() => (previewDocked = !previewDocked)}
+    >{previewDocked ? t('generator.ui.previewUnlock') : t('generator.ui.previewLock')}</button>
+    {#if previewDocked}{@render previewAndActions()}{/if}
+  </div>
 
-    <div class="preview" data-testid="gen-preview">
-      <p class="totals">
-        {tp('generator.ui.totals', {
-          members: topology.members.length,
-          nodes: topology.nodes.length,
-          length: topology.totalLengthM.toFixed(2),
-        })}
-        {#if topology.slopePercent !== null}
-          · {topology.slopePercent.toFixed(0)}% {t('generator.ui.slope')}
-        {/if}
-        {#if 'areaM2' in topology}
-          · {(topology as { areaM2: number }).areaM2.toFixed(0)} m²
-        {/if}
-      </p>
-      <details class="assume">
-        <summary>{t('generator.ui.assumptions')} <span class="count">{topology.assumptions.length}</span></summary>
-        <ul>
-          {#each topology.assumptions as key (key)}<li>{t(key)}</li>{/each}
-        </ul>
-      </details>
-    </div>
-  {/if}
-
-  <p class="warn">{t('generator.ui.replacesModel')}</p>
-
-  <!--
-    A disabled Generate says WHY, and says it to a screen reader too.
-
-    `aria-describedby` points at whichever problem list is on screen, so the refusal is read with
-    the button instead of being a grey rectangle whose reason lives somewhere above it.
-  -->
-  <button
-    class="go"
-    type="button"
-    data-testid="gen-generate"
-    disabled={!canGenerate}
-    aria-describedby={paramProblems.length > 0 ? 'gen-param-problems'
-      : profileProblems.length > 0 ? 'gen-profile-problems' : undefined}
-    onclick={generate}
-  >
-    {t('generator.ui.generate')}
-  </button>
-
-  {#if lastResult}
-    <p class="result" data-testid="gen-result" role="status">{lastResult}</p>
-  {/if}
 
   <p class="model-note">
     {tp('generator.ui.currentModel', {
@@ -580,7 +637,55 @@
 </div>
 
 <style>
-  .gen { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; height: 100%; overflow-y: auto; }
+  /*
+    The panel is a column with one scroller and one fixed footer, not a single scroller.
+    `min-height: 0` on the scroller is what lets it actually shrink inside the flex parent —
+    without it the default `min-height: auto` makes it as tall as its content and the dock is
+    pushed off the bottom, which is the same failure the dock exists to fix.
+  */
+  .gen { display: flex; flex-direction: column; padding: 10px 12px; height: 100%; overflow: hidden; }
+  .gen-scroll { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; }
+  .gen-dock { display: flex; flex-direction: column; gap: 8px; }
+  .gen-dock.docked {
+    flex-shrink: 0;
+    border-top: 1px solid var(--st-hair);
+    margin-top: 8px; padding-top: 8px;
+    /* Bounded, so a tall drawing cannot take the whole panel and leave no parameters. */
+    max-height: 55%; overflow-y: auto;
+  }
+  .dock-toggle {
+    align-self: flex-end; padding: 2px 8px; font-size: 0.64rem; cursor: pointer;
+    background: transparent; color: var(--st-text-3);
+    border: 1px solid var(--st-hair); border-radius: 3px;
+  }
+  .dock-toggle:hover { color: var(--st-text-2); }
+  .dock-toggle:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+
+  /*
+    Number inputs: the spinner overlaps the value at this size.
+
+    The controls in this panel are 4–6 rem wide with right-aligned numbers, and WebKit's
+    inner spin button is drawn INSIDE that box — so `24.50` renders under a pair of arrows and
+    the last digit is unreadable. Firefox's `appearance: textfield` does the same job through a
+    different property, so both are set.
+
+    What this does NOT do is remove the behaviour. `step`, `min` and `max` still apply, the
+    Up and Down arrow keys still step the value, and the field is still `type="number"`, so a
+    screen reader still announces it as a spinbutton and a mobile keyboard is still numeric.
+    Only the painted arrows go.
+  */
+  .gen input[type='number']::-webkit-outer-spin-button,
+  .gen input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+  .gen input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+    /* The room the arrows used to take, given back to the number. */
+    padding-right: 6px;
+  }
   h3 { margin: 0; font-size: 0.86rem; font-weight: 600; }
   h4 { margin: 6px 0 2px; font-size: 0.74rem; font-weight: 600; color: var(--st-text-2); }
   .sub { margin: 2px 0 0; font-size: 0.7rem; color: var(--st-text-2); }
