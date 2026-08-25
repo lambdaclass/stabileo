@@ -610,6 +610,15 @@
     // Listen for global zoom-to-fit event (dispatched by F key from Toolbar)
     const handleZoomToFitEvent = () => { zoomToFit(); }; // zoomToFit() calls invalidate() internally
     window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
+    /*
+     * The preset views, asked for from outside.
+     *
+     * PRO's phone bar draws the whole camera stack as one split button, and it
+     * cannot call `setView` — that needs the live camera, which lives here. So
+     * it dispatches and this answers, the same arrangement `zoom-to-fit`
+     * already used. See `lib/pro/camera-actions.ts`.
+     */
+    window.addEventListener('stabileo-camera-view', handleCameraViewEvent);
 
     // Listen for camera restore event (dispatched on tab switch)
     const handleRestoreCamera = () => {
@@ -654,6 +663,7 @@
       renderer.dispose();
       controls.dispose();
       window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
+      window.removeEventListener('stabileo-camera-view', handleCameraViewEvent);
       window.removeEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', onNavKeyDown);
@@ -2411,6 +2421,11 @@
     invalidate();
   }
 
+  function handleCameraViewEvent(e: Event) {
+    const which = (e as CustomEvent<'top' | 'front' | 'side'>).detail;
+    if (which === 'top' || which === 'front' || which === 'side') setView(which);
+  }
+
   function setView(view: 'top' | 'front' | 'side' | 'iso') {
     _setView(view, camera, controls, modelStore.nodes);
     invalidate();
@@ -2553,6 +2568,16 @@
     </div>
   {/if}
   <!-- Camera preset buttons -->
+  <!--
+    Not on a PRO phone.
+    ──────────────────
+    Nine buttons down the right edge cost a 44 px column of the only thing the
+    reader came to look at, and the last of them sat behind the bottom sheet
+    where nothing could reach it. PRO's phone bar carries the same set as one
+    split button. Basic keeps the stack: its bar has no room for it and its
+    canvas is not competing with a nine-high column.
+  -->
+  {#if !(uiStore.isMobile && uiStore.appMode === 'pro')}
   <div class="camera-controls" data-tour="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
     <!-- Same stack, same order as 2D: the pointer mode on top, then the view. -->
     <PointerModeButton />
@@ -2600,6 +2625,7 @@
       {uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}
     </button>
   </div>
+  {/if}
 
   <!-- Clipping plane controls -->
   {#if uiStore.clippingEnabled}

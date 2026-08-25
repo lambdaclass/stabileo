@@ -811,6 +811,30 @@
    */
   const hereCmd = $derived(gridCmds.find((c) => proCmdActive(c)));
 
+  /*
+   * Two halves of "where am I", side by side.
+   * ────────────────────────────────────────
+   * The stage used to be picked in the top bar and the command in a grid down
+   * here, which put one half of the address in each place. Both are in the
+   * panel now: the right pill chooses the stage, the left one the command
+   * inside it, and each is exactly half the width so neither reads as the
+   * senior of the two.
+   *
+   * They are driven entirely by `lib/pro/stages.ts`. A stage added there gets a
+   * row in the right pill; a command gets a cell in the left one. Nothing in
+   * this component enumerates either.
+   */
+  let stageMenuOpen = $state(false);
+
+  /*
+   * Project is an entry in the COMMAND pill, not a stage.
+   * It is the document rather than a step of the work — `PRO_TAB_STAGE` maps it
+   * to no stage at all — so it cannot be a fifth row on the right. It sits at
+   * the head of the left pill, and choosing it greys the right one out, because
+   * there is no stage to be in while you are looking at the document.
+   */
+  const onProject = $derived(uiStore.proActiveTab === 'project');
+
   function runProCmd(c: ProCmd) {
     if (c.enabled && !c.enabled()) return;
     if (c.diagram) resultsStore.diagramType = c.diagram as never;
@@ -870,31 +894,90 @@
         ANALYSE is one more cell, and nothing above or below has to move.
       -->
       <!--
-        The head says WHERE YOU ARE, not just which stage.
-        ─────────────────────────────────────────────────
-        It read "ANÁLISIS 15", which names the drawer you opened and not the
-        thing you are looking at — so once the grid folded there was nothing on
-        screen saying you were in Barras rather than Nodos. It now reads
-        `Modelo › Barras` with the command's own glyph, which is the one line
-        that survives scrolling and therefore the one that has to carry it.
+        Two pills, half the width each: command on the left, stage on the right.
+        The left one always says where you are, because it is the half that
+        survives when the grid is folded.
       -->
-      <button
-        class="pm-grid-head"
-        class:open={proGridOpen}
-        onclick={() => proGridOpen = !proGridOpen}
-        aria-expanded={proGridOpen}
-        data-testid="pm-grid-toggle"
-      >
-        <span class="pm-head-where">
-          <span class="pm-head-stage">{gridStage ? t(gridStage.labelKey) : ''}</span>
-          {#if hereCmd}
-            <span class="pm-head-sep" aria-hidden="true">›</span>
-            <span class="pm-head-icon"><Icon name={hereCmd.icon ?? 'data'} size={15} rotate={hereCmd.rotate ?? 0} /></span>
-            <span class="pm-head-cmd">{hereCmd.label ?? t(hereCmd.labelKey)}</span>
-          {/if}
-        </span>
-        <span class="pm-grid-count">{gridCmds.length}</span>
-      </button>
+      <div class="pm-pills">
+        <button
+          class="pm-pill pm-pill-cmd"
+          class:open={proGridOpen}
+          onclick={() => { proGridOpen = !proGridOpen; stageMenuOpen = false; }}
+          aria-expanded={proGridOpen}
+          data-testid="pm-grid-toggle"
+        >
+          <span class="pm-pill-face">
+            {#if onProject}
+              <span class="pm-pill-icon"><Icon name="project" size={15} /></span>
+              <span class="pm-pill-text">{t('ribbon.project')}</span>
+            {:else if hereCmd}
+              <span class="pm-pill-icon"><Icon name={hereCmd.icon ?? 'data'} size={15} rotate={hereCmd.rotate ?? 0} /></span>
+              <span class="pm-pill-text">{hereCmd.label ?? t(hereCmd.labelKey)}</span>
+            {:else}
+              <span class="pm-pill-text pm-pill-dim">{t('pro.tabNodes')}</span>
+            {/if}
+          </span>
+          <span class="pm-caret" aria-hidden="true"></span>
+        </button>
+
+        <!--
+          Greyed on the Project screen: the document belongs to no stage, so
+          naming one would claim a place the panel is not showing.
+        -->
+        <button
+          class="pm-pill pm-pill-stage"
+          class:open={stageMenuOpen}
+          disabled={onProject}
+          onclick={() => { stageMenuOpen = !stageMenuOpen; proGridOpen = false; }}
+          aria-expanded={stageMenuOpen}
+          data-testid="pm-stage-toggle"
+        >
+          <span class="pm-pill-face">
+            <span class="pm-pill-text">{gridStage ? t(gridStage.labelKey) : ''}</span>
+          </span>
+          <span class="pm-caret" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <!--
+        What a drag picks up, shown HERE rather than in the bar.
+        ──────────────────────────────────────────────────────
+        Five translated words do not fit in a 375 px toolbar in any language —
+        as chips up there they wrapped the bar onto a second line. They are
+        options OF the pointer, so they appear when the pointer is armed, in the
+        panel, which has the width. Pressing Selección in the bar opens the
+        sheet for exactly this reason.
+      -->
+      {#if uiStore.currentTool === 'select'}
+        <div class="pm-select-modes" data-testid="pm-select-modes">
+          {#each [
+            { id: 'nodes', key: 'float.selectNodes' },
+            { id: 'elements', key: 'float.selectElements' },
+            { id: 'shells', key: 'float.selectShells' },
+            { id: 'supports', key: 'float.selectSupports' },
+            { id: 'loads', key: 'float.selectLoads' },
+          ] as const as sm (sm.id)}
+            <button
+              class="pm-sel"
+              class:active={uiStore.selectMode === sm.id}
+              onclick={() => uiStore.selectMode = sm.id}
+            >{t(sm.key)}</button>
+          {/each}
+        </div>
+      {/if}
+
+      {#if stageMenuOpen}
+        <div class="pm-stage-list" data-testid="pm-stage-list">
+          {#each proStages as st (st.id)}
+            <button
+              class="pm-stage-item"
+              class:active={gridStage?.id === st.id}
+              data-testid="pm-stage-{st.id}"
+              onclick={() => { uiStore.proActiveTab = st.home; stageMenuOpen = false; }}
+            >{t(st.labelKey)}</button>
+          {/each}
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -957,7 +1040,27 @@
     {#if uiStore.isMobile}
         {#if proGridOpen}
         <div class="pm-groups" data-stage={gridStage?.id} data-testid="pm-grid">
-          {#each gridGroups as g (g.id)}
+          <!--
+          Project first, on its own, above the stage's groups. Reached from the
+          same pill as everything else the panel can show, because from the
+          reader's side it is one question — what am I looking at.
+        -->
+        <section class="pm-group">
+          <h4 class="pm-group-title">{t('proProject.documentSection')}</h4>
+          <div class="pm-grid">
+            <button
+              class="pm-cell"
+              class:active={onProject}
+              data-testid="pm-cmd-project"
+              onclick={() => { tabError = null; uiStore.proActiveTab = 'project'; proGridOpen = false; }}
+              title={t('ribbon.project')}
+            >
+              <span class="pm-cell-icon"><Icon name="project" size={20} /></span>
+              <span class="pm-cell-label">{t('ribbon.project')}</span>
+            </button>
+          </div>
+        </section>
+        {#each gridGroups as g (g.id)}
             <section class="pm-group">
                 <h4 class="pm-group-title">{t(g.labelKey)}</h4>
                 <div class="pm-grid">
@@ -1119,29 +1222,6 @@
     flex-shrink: 0;
     background: var(--st-surface);
   }
-  .pm-tools-row {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-  .pm-tool {
-    padding: 6px 10px;
-    font-size: 0.78rem;
-    color: var(--st-text-2);
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  .pm-tool:hover { color: var(--st-text); }
-  .pm-tool.active { color: var(--st-text); background: var(--st-accent); border-color: var(--st-danger); }
-  .pm-tool.pm-undo {
-    padding: 6px 8px;
-    font-size: 0.85rem;
-    min-width: 36px;
-    text-align: center;
-  }
-  .pm-tool.pm-undo:disabled { opacity: 0.25; cursor: not-allowed; }
   .pm-select-modes {
     display: flex;
     gap: 3px;
@@ -1158,75 +1238,91 @@
   }
   .pm-sel:hover { color: var(--st-text); }
   .pm-sel.active { color: var(--st-text); background: var(--st-accent); border-color: var(--st-danger); }
-  .pro-mobile-actions {
-    display: flex;
-    gap: 4px;
-  }
-  .pm-action {
-    flex: 1;
-    padding: 8px 4px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    color: var(--st-text);
-  }
-  .pm-action:disabled { opacity: 0.35; }
-  .pm-example { background: linear-gradient(135deg, var(--st-warn), var(--st-warn)); }
-  .pm-solve { background: linear-gradient(135deg, var(--st-value), var(--st-value)); }
-  .pm-report { background: linear-gradient(135deg, var(--st-accent), var(--st-accent)); }
   /* ── The phone's stage grid ─────────────────────────────────────────
      Three columns, because at 375 px that is a 113 px cell — wide enough for
      "Diagnósticos" at a readable size and tall enough to be a 48 px target.
      It wraps downward without limit, which is the property the row it replaced
      did not have and the reason this is a grid at all.
      ──────────────────────────────────────────────────────────────── */
-  /* ── Where you are, pinned ────────────────────────────────────────
-     The one line that survives scrolling, so it carries the whole address:
-     stage, glyph, command.
+  /* ── The two pills ────────────────────────────────────────────────
+     Half the width each, so neither reads as the senior of the two. The left
+     one carries the address and is the half that survives a fold.
      ──────────────────────────────────────────────────────────────── */
-  .pm-head-where {
+  .pm-pills {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .pm-pill {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    min-height: 44px;
+    padding: 0 8px;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+    font-family: var(--st-mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .pm-pill.open { background: var(--st-surface-2); border-color: var(--st-hair-strong); }
+  .pm-pill:disabled { opacity: 0.4; cursor: default; }
+
+  .pm-pill-face {
     display: flex;
     align-items: center;
     gap: 5px;
     min-width: 0;
     overflow: hidden;
   }
-  .pm-head-stage { flex: none; color: var(--st-text-2); }
-  .pm-head-sep { flex: none; color: var(--st-text-3); }
-  .pm-head-icon { display: flex; flex: none; color: var(--st-accent); }
-  .pm-head-cmd {
-    color: var(--st-text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .pm-pill-icon { display: flex; flex: none; color: var(--st-accent); }
+  .pm-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pm-pill-dim { color: var(--st-text-3); }
+
+  .pm-caret {
+    flex: none;
+    width: 0; height: 0;
+    border-left: 3.5px solid transparent;
+    border-right: 3.5px solid transparent;
+    border-top: 4px solid currentColor;
+    opacity: 0.7;
   }
 
-  .pm-grid-head {
+  .pm-stage-list {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px 8px 8px;
+  }
+  .pm-stage-item {
     min-height: 44px;
-    padding: 0 10px;
-    background: var(--st-surface-3);
+    padding: 0 12px;
+    text-align: left;
+    background: var(--st-surface-2);
     border: 1px solid var(--st-hair);
     border-radius: var(--st-radius);
-    color: var(--st-text);
+    color: var(--st-text-2);
     font-family: var(--st-mono);
     font-size: 0.68rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     cursor: pointer;
-    margin-bottom: 4px;
   }
-  .pm-grid-count {
-    font-size: 0.62rem;
-    color: var(--st-text-3);
+  .pm-stage-item.active {
+    background: var(--st-selected-bg);
+    border-color: var(--st-accent);
+    color: var(--st-text);
   }
-  .pm-grid-head.open .pm-grid-count::after { content: ' ▾'; }
-  .pm-grid-head:not(.open) .pm-grid-count::after { content: ' ▸'; }
+
 
   /*
      One column of groups, each a grid of three. The heading is what turns
@@ -1297,9 +1393,16 @@
     color: var(--st-text-3);
   }
 
+  /*
+     The count per row follows the screen instead of being three.
+     ───────────────────────────────────────────────────────────
+     `auto-fill` with a 76 px floor: four across at 375, five at 430, more on a
+     tablet — and the cells stay near-square rather than stretching into
+     letterboxes as the screen grows, which is what a fixed three columns did.
+  */
   .pm-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
     gap: 4px;
   }
 
@@ -1308,8 +1411,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    min-height: 48px;
+    gap: 3px;
+    /* Near-square: the icon needs the height as much as the word needs width. */
+    min-height: 62px;
     padding: 4px 2px;
     background: var(--st-surface-2);
     border: 1px solid var(--st-hair);
@@ -1606,6 +1710,37 @@
     flex: 1;
     overflow-y: auto;
     padding: 0;
+  }
+
+  @media (max-width: 767px) {
+    /*
+       The panel's header goes entirely, not just its title.
+       ────────────────────────────────────────────────────
+       Hiding the title left the <header> in place with its padding: an empty
+       ~21 px band between the pills and the table, which is the "small space
+       above the column titles" — it reads as a seam because it belongs to
+       neither the pills above it nor the rows below. The pills say what the
+       panel is showing, so the header has nothing left to do here.
+    */
+    .pro-head { display: none; }
+
+    /*
+       Sticky on the CELLS, not on `thead`.
+       ───────────────────────────────────
+       Every PRO table is `border-collapse: collapse`, and a collapsed table
+       paints its borders itself rather than letting the row own them — so a
+       sticky `thead` travels while a hairline of the row beneath it does not,
+       and a sliver of moving values shows along its edge. Sticking the cells
+       gives each one its own painted box, and an explicit background and bottom
+       border close the seam.
+    */
+    .pro-content :global(thead th) {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      background: var(--st-surface);
+      box-shadow: inset 0 -1px 0 var(--st-hair-strong);
+    }
   }
 
   .pro-tab-error {

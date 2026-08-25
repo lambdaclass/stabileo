@@ -13,7 +13,7 @@
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { resolveDeleteTargets } from './lib/store/delete-selection';
-  import { buildProStages, PRO_TAB_STAGE } from './lib/pro/stages';
+  import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
   import {
     loadAutosave, clearAutosave,
@@ -114,34 +114,22 @@
    * Phone only. On a desktop the panel takes width from a canvas that has
    * plenty, and the existing framing stays legible.
    */
-  /* ── PRO's phone stage selector ────────────────────────────────────────
+  /* ── PRO's phone camera button ─────────────────────────────────────────
    *
-   * The four stages, read from the same module the desktop ribbon and the
-   * panel's command grid read. Only the labels and homes are needed here — the
-   * commands themselves are drawn in the panel — so this builds the tree with a
-   * context that answers nothing, which is safe because no command is RUN from
-   * this menu.
+   * The stage selector that used to live here moved into the sheet, beside the
+   * one that picks a command — two halves of "where am I" belong together, and
+   * a phone bar has better uses for two slots. See `ProPanel.svelte`.
    */
-  const PRO_STAGE_MENU = buildProStages({
-    solved: false, canSolve: false, canReport: false,
-    onSolve: () => {}, onReport: () => {},
-  }).map((s) => ({ id: s.id, labelKey: s.labelKey, home: s.home }));
-
-  let proStageMenu = $state(false);
+  let camMenu = $state(false);
+  let camPickId = $state('fit');
+  const camActions = $derived(cameraActions());
   /*
-   * Follows the open tab rather than being its own selection — the same rule
-   * the desktop ribbon uses, and for the same reason: the panel can be moved
-   * from elsewhere, and two answers to "where am I" is how the bar comes to
-   * name one stage while the panel shows another. Project belongs to no stage,
-   * so the bar keeps naming the one you came from.
+   * Falls back to the first action rather than to whatever `camPickId` held.
+   * The list is built from store state, so an id can stop existing if the set
+   * ever changes; a face that renders `undefined` is worse than one that has
+   * quietly gone back to Zoom-to-fit.
    */
-  let lastProStage = $state('model');
-  const mappedProStage = $derived(PRO_TAB_STAGE[uiStore.proActiveTab] ?? 'model');
-  $effect(() => { if (mappedProStage) lastProStage = mappedProStage; });
-  const proStageId = $derived(mappedProStage || lastProStage);
-  const proStageLabelKey = $derived(
-    PRO_STAGE_MENU.find((s) => s.id === proStageId)?.labelKey ?? 'proRibbon.stageModel',
-  );
+  const camPicked = $derived(camActions.find((c) => c.id === camPickId) ?? camActions[0]);
 
   let sheetWasOpen = false;
   $effect(() => {
@@ -1108,13 +1096,6 @@
       -->
       <div class="pmt-wrap">
       <div class="pro-mobile-toolbar">
-        <button
-          class="pmt-btn"
-          class:active={uiStore.rightDrawerOpen && uiStore.proActiveTab === 'project'}
-          onclick={() => { uiStore.proActiveTab = 'project'; uiStore.rightDrawerOpen = true; }}
-          title={t('ribbon.project')}
-          data-testid="pmt-project"
-        ><Icon name="project" size={19} /></button>
         <button class="pmt-btn" onclick={() => historyStore.undo()} disabled={!historyStore.canUndo} title={t('toolbar.undo')}
         ><Icon name="undo" size={18} /></button>
         <button class="pmt-btn" onclick={() => historyStore.redo()} disabled={!historyStore.canRedo} title={t('toolbar.redo')}
@@ -1123,49 +1104,21 @@
         <span class="pmt-rule" aria-hidden="true"></span>
 
         <!--
-          The pointer is NOT accented, and that is the rule rather than an
-          oversight. The accent means "this is what the panel below is showing",
-          so exactly one control in this row can carry it — Project or the
-          stage, never both, never neither. A pointer mode is not a panel, and
-          lighting it made two things look selected at once.
-
-          It still says which mode it is in: the glyph changes between the hand
-          and the arrow, which is the mode itself rather than a highlight
-          borrowed from a different meaning.
+          Selection arms the pointer AND shows its options in the sheet below,
+          which is where a phone has room for five translated words. On a
+          desktop those chips ride in the bar; here the bar has six slots.
         -->
         <button
           class="pmt-btn pmt-pointer"
           class:armed={uiStore.currentTool === 'select'}
-          onclick={() => uiStore.currentTool = uiStore.currentTool === 'select' ? 'pan' : 'select'}
+          onclick={() => {
+            const on = uiStore.currentTool === 'select';
+            uiStore.currentTool = on ? 'pan' : 'select';
+            if (!on) uiStore.rightDrawerOpen = true;
+          }}
           title={uiStore.currentTool === 'select' ? t('float.select') : t('float.pan')}
           data-testid="pmt-pointer"
         ><Icon name={uiStore.currentTool === 'select' ? 'select' : 'pan'} size={19} /></button>
-
-        <!--
-          The stage, and the only two-slot control in the row: it carries a word
-          rather than a glyph, because "which of the four am I in" is the one
-          thing the phone cannot show by laying all four out.
-        -->
-        <!--
-          Hidden on the Project screen. Project belongs to no stage — it is the
-          document, not a step of the work — so the selector there named a place
-          the panel was not showing, which is the one thing this row's highlight
-          rule exists to prevent. The slot closes up; the row is `flex: 1 1 0`,
-          so the remaining five simply divide the width.
-        -->
-        {#if !(uiStore.rightDrawerOpen && uiStore.proActiveTab === 'project')}
-        <button
-          class="pmt-btn pmt-stage"
-          class:active={uiStore.rightDrawerOpen && uiStore.proActiveTab !== 'project'}
-          class:open={proStageMenu}
-          onclick={() => proStageMenu = !proStageMenu}
-          aria-expanded={proStageMenu}
-          data-testid="pmt-stage"
-        >
-          <span class="pmt-stage-name">{t(proStageLabelKey)}</span>
-          <span class="pmt-caret" aria-hidden="true"></span>
-        </button>
-        {/if}
 
         <button
           class="pmt-btn pmt-solve"
@@ -1174,50 +1127,58 @@
           title={t('pro.solve')}
           data-testid="pmt-solve"
         ><Icon name="solve" size={19} /></button>
+
+        <!--
+          The camera stack, as one split button.
+          ──────────────────────────────────────
+          The face is whichever view control you used last — Zoom-to-fit until
+          you choose otherwise — and the caret opens the rest, each with its
+          name, because ⊤ and ⊡ and ⊟ are not self-explanatory at 11 px. The
+          nine buttons that used to run down the right edge of the model are
+          gone from it; see `lib/pro/camera-actions.ts`.
+        -->
+        <div class="pmt-split">
+          <button
+            class="pmt-btn pmt-cam"
+            onclick={() => camPicked.run()}
+            class:armed={camPicked.active?.() ?? false}
+            title={t(camPicked.labelKey)}
+            data-testid="pmt-camera"
+          >
+            {#if camPicked.icon}
+              <Icon name={camPicked.icon} size={19} />
+            {:else}
+              <span class="pmt-cam-glyph">{camPicked.glyph}</span>
+            {/if}
+          </button>
+          <button
+            class="pmt-cam-more"
+            class:open={camMenu}
+            onclick={() => camMenu = !camMenu}
+            aria-expanded={camMenu}
+            aria-label={t('viewport3d.zoomToFit')}
+            data-testid="pmt-camera-more"
+          ><span class="pmt-caret" aria-hidden="true"></span></button>
+        </div>
       </div>
 
-      <!--
-        What a drag picks up, when the pointer is armed to select.
-        ─────────────────────────────────────────────────────────
-        These were chips appended to the bar itself, which is why it had
-        `flex-wrap` and why it became two lines whenever Select was on. They are
-        options OF a tool, so they behave like Basic's tool-options bar: a slim
-        contextual row under the commands, present only while the tool is.
-      -->
-      {#if uiStore.currentTool === 'select'}
-        <div class="pmt-opts" data-testid="pmt-select-modes">
-          {#each [
-            { id: 'nodes', key: 'float.selectNodes' },
-            { id: 'elements', key: 'float.selectElements' },
-            { id: 'shells', key: 'float.selectShells' },
-            { id: 'supports', key: 'float.selectSupports' },
-            { id: 'loads', key: 'float.selectLoads' },
-          ] as const as sm (sm.id)}
-            <button
-              class="pmt-sel"
-              class:active={uiStore.selectMode === sm.id}
-              onclick={() => uiStore.selectMode = sm.id}
-            >{t(sm.key)}</button>
-          {/each}
-        </div>
-      {/if}
-
-      {#if proStageMenu}
+      {#if camMenu}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <div class="pmt-backdrop" onclick={() => proStageMenu = false}></div>
-        <div class="pmt-menu" data-testid="pmt-stage-menu">
-          {#each PRO_STAGE_MENU as st (st.id)}
+        <div class="pmt-backdrop" onclick={() => camMenu = false}></div>
+        <div class="pmt-menu" data-testid="pmt-camera-menu">
+          {#each camActions as ca (ca.id)}
             <button
-              class="pmt-menu-item"
-              class:active={proStageId === st.id}
-              data-testid="pmt-stage-{st.id}"
-              onclick={() => {
-                uiStore.proActiveTab = st.home;
-                uiStore.rightDrawerOpen = true;
-                proStageMenu = false;
-              }}
-            >{t(st.labelKey)}</button>
+              class="pmt-menu-item pmt-cam-item"
+              class:active={ca.active?.() ?? false}
+              data-testid="pmt-cam-{ca.id}"
+              onclick={() => { camPickId = ca.id; ca.run(); camMenu = false; }}
+            >
+              <span class="pmt-cam-item-icon">
+                {#if ca.icon}<Icon name={ca.icon} size={17} />{:else}{ca.glyph}{/if}
+              </span>
+              <span>{t(ca.labelKey)}</span>
+            </button>
           {/each}
         </div>
       {/if}
@@ -1483,7 +1444,17 @@
             data-testid="pro-sheet-close"
           >×</button>
         </div>
-        <ProPanel />
+        <!--
+          BOUND, like the desktop one.
+          ───────────────────────────
+          `proPanelRef` was only ever bound to the desktop instance, so on a
+          phone it was null: the bar's Calcular read `canSolve()` off nothing,
+          rendered permanently disabled, and would have done nothing if pressed.
+          One binding, one instance at a time — the two are mutually exclusive —
+          so the bar's Calcular and the ANALYSE grid's now call the same method
+          on the same component.
+        -->
+        <ProPanel bind:this={proPanelRef} />
       {:else if uiStore.appMode === 'educativo'}
         <EducativePanel />
       {/if}
@@ -2874,38 +2845,10 @@
   }
 
   /*
-     The select-mode row. Scrolls rather than wraps: five translated words do
-     not fit in 375 px in any language, and a bar that changes height when a
-     tool is armed moves the canvas under the reader's finger.
+     The select-mode chips moved to the panel — five translated words never fit
+     in 375 px, which is why this bar used to wrap onto a second line whenever
+     Select was armed. Their styles went with them.
   */
-  .pmt-opts {
-    display: flex;
-    gap: 4px;
-    padding: 4px;
-    background: var(--st-surface);
-    border-bottom: 1px solid var(--st-hair);
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .pmt-opts::-webkit-scrollbar { display: none; }
-
-  .pmt-sel {
-    flex: none;
-    min-height: 36px;
-    padding: 0 10px;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    color: var(--st-text-2);
-    font-size: 0.7rem;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-  .pmt-sel.active {
-    background: var(--st-selected-bg);
-    border-color: var(--st-accent);
-    color: var(--st-text);
-  }
 
   /* The document trio reads as a group, the same way the ribbon's does. */
   .pmt-rule {
@@ -2917,23 +2860,41 @@
   }
 
   /*
-     Two slots, because it carries a word. Which of the four stages you are in
-     is the one thing a phone cannot show by laying all four out, so it is the
-     one thing spelled rather than drawn.
+     The camera split button: a face and a caret, sharing one slot's worth of
+     border so it reads as one control rather than two crowded ones.
   */
-  .pmt-stage {
-    flex: 2 1 0;
-    gap: 3px;
-    font-family: var(--st-mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+  .pmt-split {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
   }
-  .pmt-stage-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .pmt-split .pmt-cam {
+    flex: 1 1 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
   }
+  .pmt-cam-glyph { font-size: 0.95rem; line-height: 1; }
+
+  .pmt-cam-more {
+    flex: none;
+    width: 20px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-radius: 0 var(--st-radius) var(--st-radius) 0;
+    color: var(--st-text-2);
+    cursor: pointer;
+  }
+  .pmt-cam-more.open { background: var(--st-surface-3); color: var(--st-text); }
+
   .pmt-caret {
     flex: none;
     width: 0; height: 0;
@@ -2941,6 +2902,25 @@
     border-right: 3.5px solid transparent;
     border-top: 4px solid currentColor;
     opacity: 0.75;
+  }
+
+  /* Icon and name on one row: ⊤ and ⊡ and ⊟ do not explain themselves. */
+  .pmt-cam-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-family: var(--st-sans);
+    font-size: 0.8rem;
+  }
+  .pmt-cam-item-icon {
+    flex: none;
+    width: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--st-text);
   }
 
   /* Same pattern as the Basic ribbon's cluster menu, including the backdrop:
