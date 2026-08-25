@@ -71,6 +71,17 @@ function createDesignRunStore() {
    * contradiction §2 of the scope names.
    */
   let familySelection = $state<DesignFamily[]>([...DEFAULT_DESIGN_FAMILIES]);
+  /**
+   * What the last scoped run reported, family by family.
+   *
+   * Held here and not in `DesignFamilyPanel` because F2 moved the COMMAND out of that panel: the
+   * button that starts the run is in the command bar, the block that reports it is below the
+   * table, and while the report lived in the panel only the panel's own (now removed) button
+   * could fill it. The result was that the run report stopped appearing at all — with it went
+   * the distinction between a family skipped because the user did not ask for it and one absent
+   * because the model has none.
+   */
+  let lastFamilyReport = $state<DesignRunReport | null>(null);
   let manualOverrides = $state<Set<number>>(new Set());
   /**
    * Whether `manualOverrides` is a statement or an absence.
@@ -392,6 +403,8 @@ function createDesignRunStore() {
     selection: DesignFamilySelection,
     opts: { verifierId?: string } = {},
   ): DesignRunReport {
+    // Recorded before returning, so both the caller and the panel read one report.
+    const record = <T extends DesignRunReport>(r: T): T => { lastFamilyReport = r; return r; };
     const families: FamilyRunResult[] = [];
     const chosen = new Set(selection);
 
@@ -472,7 +485,7 @@ function createDesignRunStore() {
     // checkboxes above it.
     families.sort((a, b) =>
       DESIGN_FAMILIES.indexOf(a.family) - DESIGN_FAMILIES.indexOf(b.family));
-    return { selection, families, ok: families.every((f) => f.state !== 'failed') };
+    return record({ selection, families, ok: families.every((f) => f.state !== 'failed') });
   }
 
   /** Re-run the search for one member (used after a section change is approved). */
@@ -585,6 +598,7 @@ function createDesignRunStore() {
     clearError() { lastError = null; },
     cancel() { abortFlag.aborted = true; },
 
+    get lastFamilyReport(): DesignRunReport | null { return lastFamilyReport; },
     get familySelection(): readonly DesignFamily[] { return familySelection; },
     /**
      * Replace the scope of the next run.

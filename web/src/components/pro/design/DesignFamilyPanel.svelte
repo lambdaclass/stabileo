@@ -95,7 +95,16 @@
    * one in practice; and if it ever did, the run already reports `noElements` for a family the
    * model does not contain rather than failing. Intent stays intent.
    */
-  let report = $state<DesignRunReport | null>(null);
+  /**
+   * The last run's report, read from the store.
+   *
+   * It used to be local `$state` filled by this panel's own run button. F2 moved the command to
+   * the bar and removed that button, which left the assignment unreachable — so the report block
+   * silently stopped appearing, and with it the distinction between a family SKIPPED because it
+   * was not asked for and one with NO MEMBERS because the model has none. Three E2E tests caught
+   * it; the fix is that the run and its report live in the same place.
+   */
+  const report = $derived(designRunStore.lastFamilyReport);
   let running = $state(false);
 
   const summary = $derived(
@@ -109,18 +118,6 @@
     designRunStore.setFamilySelection(selection.includes(f)
       ? selection.filter((x) => x !== f)
       : [...selection, f]);
-  }
-
-  function run() {
-    if (selection.length === 0) return;
-    running = true;
-    try {
-      report = designRunStore.designFamilies(selection, {
-        verifierId: 'cirsoc201.provided.v2.2025',
-      });
-    } finally {
-      running = false;
-    }
   }
 
   const totals = $derived(report ? totalsOf(report) : null);
