@@ -1,15 +1,81 @@
-# Los comandos del pipeline y la etapa a la que pertenecen — auditoría previa
+# Los comandos del pipeline y la etapa a la que pertenecen — auditoría y retoma
 
-**Estado: auditoría + progreso.** Pasos 1–3 hechos. Falta `generate-detailing` y retirar los
-grupos.
+> **Documento de retoma.** Leer §A antes de tocar nada.
 
-| paso | comando | dónde quedó | commit |
-|---|---|---|---|
-| 1 | `cmd-compute-demands` | franja de Reglamentos | `4c283241` |
-| 2 | `cmd-code-check` → **acero requerido** | franja de Reglamentos | `2ba3429f` |
-| 3 | `cmd-design-all` + `cmd-design-scope` | franja de Diseñar | este |
-| 4 | `cmd-generate-detailing` | **auditado, sin mover** — ver §6 |
-| 5 | retirar `cmd-group-*` | **pendiente** — recién cuando queden vacíos |
+---
+
+## §A — Cómo retomar
+
+**Rama:** `feat/pro-concrete-h2` · **PR:** [#170](https://github.com/lambdaclass/stabileo/pull/170) (draft)
+**HEAD esperado:** `76e9180c` · **20 commits** sobre `feat/pro-concrete-h1` · **árbol limpio**
+
+```bash
+cd web
+git status --porcelain          # debe estar vacío
+git log --oneline -1            # 76e9180c test(detailing): D7 asserts …
+NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin nuevos
+```
+
+**Lo único pendiente inmediato es el paso 4** (§6 y §7). Todo lo anterior está verde y publicado.
+
+### Reglas vigentes de la rama
+
+No tocar H1, solver, Rust, Cargo ni WASM. Sin snapshots ni timeouts inflados. Playwright con
+`E2E_PORT` dedicado, **nunca 4173**. Commits y descripción del PR en inglés. PR en draft. Árbol
+limpio después de cada bloque. **No declarar H2 completo** hasta que Detalle cubra de verdad
+edición, verificación, convergencia y documentación.
+
+### Método que ya se pagó caro tres veces
+
+1. **Cuando una spec falla después de un cambio, correrla PRIMERO en el árbol limpio.** D7 se
+   diagnosticó al revés y costó revertir un movimiento entero que estaba bien. Ver §7.3.
+2. **Correr el archivo de spec completo**, no el test que se está mirando. Cinco fallas de F2.2
+   vivieron cuatro commits por saltear esto.
+3. **No empezar una tanda que no se pueda terminar.** Commitear rojo y revertir a medias son las
+   dos peores salidas, y las dos aparecieron por arrancar sin margen.
+4. **Después de cada fase, correr `pro-panel-consistency` y `pro-panel-structure`**, no sólo las
+   specs del área tocada. Una regresión de F1 vivió un commit entero por saltearlas.
+
+---
+
+## §B — Estado por fase
+
+| fase | estado | qué falta |
+|---|---|---|
+| **F0** contratos | ✅ 6 commits | — |
+| **F1** franja de etapas | ✅ | — |
+| **F2** etapa Diseñar | ✅ 2 commits | — |
+| **F2.6** persistencia | ✅ | — |
+| **Semántica de Diseñar** | ✅ `4ab876b5` | — |
+| **F3 · reubicación** | 🔶 pasos 1-3 ✅, **4 y 5 pendientes** | §6, §7 |
+| **F3 · Detalle** | 🔶 1 de 12 objetivos | §8 |
+
+### Commits de esta rama, en orden
+
+```
+88a986e0  docs: architecture audit and the H1/H2 scope split
+8ef0f8d3  refactor(store): detailing readings leave the store + ceiling gate
+686c616a  feat(flow): one stage vocabulary  (rc-stages.ts)
+866ac7e5  feat(flow): selection vocabulary  (rc-selection.ts)
+db2469ec  feat(flow): ExportRecord as separate state
+3578a870  feat(flow): raw forces report contract
+60d3fea3  feat(store): persist exports + manual-edit provenance
+83d4c544  feat(pro): RcStageTimeline — five stages, sticky        ← F1
+5059f378  refactor(pro): ProDesignTab inside DISEÑAR; floors sub-step  ← F2.1
+d6f0b0b5  feat(pro): one design command, visible scope             ← F2.2
+379de82b  fix(design): family run report reappears
+4c283241  feat(pro): compute-demands → strip                       ← paso 1
+2ba3429f  feat(pro): required steel → strip, stops calling itself a check  ← paso 2
+ed23650d  feat(pro): design command + scope → strip                ← paso 3
+a4198d0e  feat(detailing): a bar is named by its mark              ← F3a
+d63ea5f6  docs: command relocation audit
+660127e9  refactor(flow): extract pipeline actions (rc-commands.ts)
+4ab876b5  fix(flow): DISEÑAR completes on convergence
+3dd46033  docs: audit generate-detailing
+76e9180c  test(detailing): D7 asserts the review gate's current contract
+```
+
+---
 
 ## 0. Las tres formas de esconder un comando, aprendidas de a una
 
@@ -222,3 +288,92 @@ apoyarse en esa misma señal y no en "hay armadura dibujada".
 3. Correr las 16 `@slow` en una tanda propia con `E2E_PORT` dedicado.
 4. Las gates estructurales.
 5. Recién entonces retirar `cmd-group-detailing`, que queda sin consumidores.
+
+
+---
+
+## §7 — Paso 4: qué ya se sabe y qué falta
+
+### 7.1 La implementación existe y funcionó
+
+Se aplicó completa en una tanda anterior y **compiló y corrió**:
+
+- botón `cmd-generate-detailing` + `detailing-prerequisites` + `detailing-auto` movidos a la fila
+  de acciones de `RcStageTimeline.svelte`;
+- `detailingReady` / `hasDetailing` / `detailingBusy` / `detailingBlockers` leídos de
+  `detailingStore` en la franja, no pasados por props;
+- la acción sigue siendo `rcGenerateDetailing` de `rc-commands.ts`, sin copia;
+- `DesignToolbar` queda con el `cmd-group-detailing` vacío y un comentario que dice dónde fue.
+
+**Resultado medido: 34 tests pasaron**, y la única falla era D7 — que **no** era del movimiento.
+
+### 7.2 Lo verificado, que no hay que rehacer
+
+- **Cero migraciones de recorrido de specs.** La auditoría de §6.1 acertó: 27 de 28 abren
+  `detailing-disclosure` y una llega tras `cmd-design-all`; ninguna de las dos vías se rompe.
+- **Las tres formas de ocultamiento están cerradas.** `pro-design-gates` imprimió los cinco
+  comandos hit-testables a 1280×720 con la franja en `z-index: 12`:
+  `cmd-compute-demands, cmd-code-check, cmd-design-all, cmd-generate-detailing, cmd-open-3d`.
+
+### 7.3 D7 — el falso positivo que costó un revert
+
+**Fallaba en el árbol limpio.** Preexistente, heredado de H1, y no tenía nada que ver con el paso 4.
+
+D7 clickeaba `review-submit` sin nombre de ingeniero esperando un `review-error`. H1 deshabilitó
+ese botón hasta que haya nombre y aceptación de cálculos provisorios, y puso los motivos al lado
+en `review-blockers` — su guía de QA lo dice textual. **Expectativa obsoleta, no comportamiento
+roto.** Corregido en `76e9180c`: el test aserta que se niega de antemano, nombra lo que falta, y
+que la lista de bloqueos **responde** al campo que nombra.
+
+Ninguna de las cuatro hipótesis previas era la causa. La lección está en §A.
+
+### 7.4 Lo que falta para cerrar el paso 4
+
+1. **Reaplicar el movimiento** (7.1). No hay diseño que redecidir.
+2. **Correr con margen**, en este orden:
+   - `detailing.spec.ts` (6 refs, la más densa) y `documents.spec.ts` (3);
+   - **las 16 `@slow`**, en tanda propia con `E2E_PORT` dedicado — acá está todo el costo;
+   - `pro-panel-consistency`, `pro-panel-structure`, `f1-stage-timeline`, `f2-design-stage`,
+     `pro-design-workflow`, `pro-design-gates`;
+   - typecheck, build, y revisión es/en/pt a 1280/1024/900/820.
+3. **Una condición de producto todavía sin resolver**, y conviene decidirla antes de commitear:
+   el instructivo pide que el comando esté *"disabled cuando no exista convergencia real"* y que
+   **no** se genere documentación constructiva desde armaduras no verificadas. Hoy el botón se
+   gatea por `detailingStore.readiness`, no por la señal de convergencia de `rcStages`.
+   **Endurecerlo rompería fixtures que detallan a propósito modelos no convergidos** —
+   `h1e-refused-state` genera detallado sobre miembros REFUSED, y ése es su objeto. Es un cambio
+   de comportamiento con su propio radio, y merece su bloque separado, no el mismo commit que la
+   reubicación.
+
+### 7.5 Las 16 specs `@slow` del paso 4
+
+`viewer-typography` · `viewer-panel-tokens` · `status-token-consumers` · `rebar-workspace-open` ·
+`rebar-toggles` · `rc-cad-production-download` · `project-restore` · `pro-design-workflow` ·
+`i18n-languages` · `h1e-refused-state` · `h1e-rail-and-section` · `h1e-conflict-states` ·
+`h1e-absence-states` · `h1d-viewer-audit` · `h1c-documents-flow` · `h1b-panel-navigation` ·
+`f3-bar-labels`
+
+Con otra sesión corriendo Playwright en paralelo, los lotes tardaron entre 1,5 y 17 minutos.
+**No matar la suite ni los servidores de la otra sesión**; si hay contención, informarla antes de
+clasificar un timeout.
+
+---
+
+## §8 — Los objetivos de Detalle que siguen abiertos
+
+Uno de doce hecho (`a4198d0e`, nombres de barra). Faltan:
+
+1. agrupación barras / placas / fundaciones — contrato listo en `rc-selection.ts`, sin UI;
+2. listar vigas y columnas; resto sólo si existe;
+3. selección lista → resaltado en 3-D — canal listo (`rebarWorkspace.selection`), sin conectar;
+4. resaltado bidireccional: seleccionar en 3-D enfoca la fila;
+5. armadura long./transv., recubrimiento, conflictos y estado con nombres humanos — parcial;
+6. fijar/liberar con estética Stabileo y estados accesibles;
+7. láminas con contorno, recubrimientos, armaduras, cotas y orientación;
+8. rótulo breve configurable con título y normas;
+9. planilla de doblado con esquema gráfico por forma;
+10. ediciones retroactivas Detalle ↔ 3-D — contrato `RcEditConsequence`, sin implementar;
+11. trazabilidad de retocados para Documentos — contrato listo y persistido, sin conectar.
+
+Dos módulos de F0 siguen sin consumidor de producción y **no son huérfanos, son contratos con
+fecha**: `rc-selection.ts` lo consume el objetivo 1, y `rc-forces-report.ts` espera a F5.
