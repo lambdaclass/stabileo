@@ -316,9 +316,9 @@
           </select></label>
       {/if}
       {#if truss.kind !== 'rolledPortal'}
-        <label>{@render fieldHead('panels')}<input type="number" min="1" step="1" bind:value={truss.panelsPerHalf} aria-describedby="gen-hint-panels" /></label>
+        <label>{@render fieldHead('panels')}<input type="number" min="1" step="1" bind:value={truss.panelsPerHalf} aria-describedby="gen-hint-panels" data-testid="gen-panels" /></label>
         <label><span>{t('generator.ui.webPattern')}</span>
-          <select bind:value={truss.webPattern}>
+          <select bind:value={truss.webPattern} data-testid="gen-web-pattern">
             {#each WEB_PATTERNS as w (w)}<option value={w}>{t(`generator.webPattern.${w}`)}</option>{/each}
           </select></label>
         <!--
