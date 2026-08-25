@@ -31,17 +31,27 @@
    * the ring mark where the PROJECT is; `data-open` marks what you are reading. Collapsing them
    * would mean scrolling to a finished stage moved the "you are here" marker onto it.
    *
-   * ── It navigates; it never acts ────────────────────────────────────
+   * ── It navigates, and it carries the pipeline's commands ───────────
    *
-   * The commands stay the single place work is started from, so this cannot become a second,
-   * competing command surface.
+   * It began as navigation only, on the reasoning that a strip which also ran things would be a
+   * second, competing command surface. F3 inverted that: the commands were in `DesignToolbar`,
+   * which F2 had moved INSIDE the DISEÑAR stage, so each of them was out of reach from the stage
+   * that needed it — and moving one into its own `<details>` instead only traded a collapsed
+   * section for another.
+   *
+   * So the pipeline's commands live here, each exactly ONCE, calling the same functions
+   * `lib/flow/rc-commands.ts` extracted. No copy of any of them survives inside a disclosure,
+   * and that is what keeps this from being a second surface: it is the only one.
    */
   import { t, tp } from '../../../lib/i18n';
   import { resultsStore } from '../../../lib/store/results.svelte';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
-  import { rcCodeCheck, rcComputeDemands, rcDesignScope } from '../../../lib/flow/rc-commands';
+  import {
+    rcCodeCheck, rcComputeDemands, rcDesignScope, rcGenerateDetailing,
+  } from '../../../lib/flow/rc-commands';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
+  import { detailingStore } from '../../../lib/store/detailing.svelte';
   import {
     currentRcStage, rcStageTodoKey,
     type RcModelReadiness, type RcStage, type RcStageId,
@@ -146,6 +156,27 @@
       families: scope.map((f) => t(`design.families.${f}`)).join(', '),
     }));
 
+  /*
+   * DETALLE's command, and the two things that explain why it refuses.
+   *
+   * Read from `detailingStore` rather than threaded down, for the same reason REGLAMENTOS'
+   * conditions are: the strip sits above every stage and has nothing to receive props from.
+   *
+   * It used to live in `DesignToolbar`, which F2 moved INSIDE the DISEÑAR stage — so the
+   * command that produces the constructive documentation could not be reached with DISEÑAR
+   * closed, and navigating to DETALLE by this very strip is what closes it. The F3a spec had to
+   * open the disclosure by hand to get at it, and wrote down why.
+   */
+  const detailingReady = $derived(detailingStore.readiness);
+  const hasDetailing = $derived(detailingStore.assemblies.length > 0);
+  const detailingBusy = $derived(detailingStore.generating);
+
+  /** Precise prerequisites, so a disabled command is never a dead end. */
+  const detailingBlockers = $derived(
+    detailingReady.prerequisites.map((p) => tp(p.key, { n: p.count,
+      ids: p.elementIds.slice(0, 6).join(', ') })).join(' '),
+  );
+
   const SR: Record<string, string> = {
     complete: 'design.stage.srComplete',
     current: 'design.stage.srCurrent',
@@ -206,7 +237,7 @@
       This app's rule is that a command which cannot run says WHY, and one that is not on screen
       says nothing at all. Two short buttons are a cheaper permanent cost than either failure.
     -->
-    <div class="actions" data-testid="rc-stage-actions" data-stage="codes">
+    <div class="actions" data-testid="rc-stage-actions" data-stage="pipeline">
       <button
         class="cmd"
         data-testid="cmd-compute-demands"
@@ -247,7 +278,51 @@
         title={scopeText}
       >{t('design.cmd.designAll')}</button>
       <span class="scope" data-testid="cmd-design-scope">{scopeText}</span>
+
+      <!--
+        DETALLE's command, in the strip with the rest of the pipeline.
+
+        Always present, disabled when the prerequisites do not hold — NOT keyed on the DETALLE
+        stage being unfinished. Generating the detailing is what COMPLETES that stage, so a
+        condition like that would take the command away the moment it had been used, and
+        regenerating after an edit is an ordinary operation. That is the same trap required steel
+        fell into in step 2.
+      -->
+      <button
+        class="cmd"
+        data-testid="cmd-generate-detailing"
+        onclick={rcGenerateDetailing}
+        disabled={!detailingReady.ready || detailingBusy || busy}
+        title={detailingReady.ready ? '' : detailingBlockers}
+      >{detailingBusy
+        ? t('detailing.cmd.generating')
+        : hasDetailing ? t('detailing.cmd.regenerate') : t('detailing.cmd.generate')}</button>
+      <!--
+        The preference that GOVERNS the command, next to the command it governs.
+
+        It travels with the button rather than staying behind in `DesignToolbar`. Leaving it there
+        would turn a disabled command into a riddle — the defect this branch already fixed once in
+        `review-submit` — and copying it would be worse than either.
+      -->
+      <label class="detailing-auto" data-testid="detailing-auto-label">
+        <input type="checkbox" data-testid="detailing-auto"
+               checked={detailingStore.autoGenerate}
+               onchange={(e) => detailingStore.setAutoGenerate(e.currentTarget.checked)} />
+        {t('detailing.cmd.autoShort')}
+      </label>
     </div>
+
+    <!--
+      Why the command is unavailable, in the open and with counts.
+
+      Rendered as TEXT and not only as the button's `title`: a tooltip is reachable by a mouse and
+      by a screen reader, and by nothing else, so a keyboard-only user would be left with a dead
+      button. `pro-design-gates` asserts that this sentence and that attribute are the same
+      sentence.
+    -->
+    {#if !detailingReady.ready && detailingBlockers}
+      <p class="detailing-blockers" data-testid="detailing-prerequisites">{detailingBlockers}</p>
+    {/if}
 
   <p class="hint" data-testid="rc-stage-hint">
     {#if openLabel}
@@ -444,6 +519,27 @@
   .cmd-run { border-color: var(--st-ok); }
   /* The scope: secondary text beside the command, never a control. */
   .scope { align-self: center; font-size: 0.68rem; color: var(--st-text-2); }
+
+  /*
+   * The auto-detailing preference. A control, so it carries a focus ring of ours — C1 of
+   * `pro-panel-consistency` is right to reject anything left to the browser to paint, and a bare
+   * checkbox label is exactly that.
+   */
+  .detailing-auto {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    align-self: center;
+    font-size: 0.68rem; color: var(--st-text-2);
+    white-space: nowrap; cursor: pointer;
+  }
+  .detailing-auto:focus-within { outline: 2px solid var(--st-value); outline-offset: 2px; }
+
+  /* The refusal, under the row that carries the command it explains. */
+  .detailing-blockers {
+    margin: 0.25rem 0 0;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: var(--st-text-2);
+  }
 
   .hint {
     display: flex;

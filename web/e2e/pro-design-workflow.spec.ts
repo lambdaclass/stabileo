@@ -129,10 +129,20 @@ test.describe('@smoke commands are grouped, and none of them is ambiguous', () =
   });
 
   test('the auto-detailing preference sits with the command it governs', async ({ pro: page }) => {
-    // It used to float between the commands and the counts, belonging to neither.
-    const group = page.getByTestId('cmd-group-detailing');
-    await expect(group.getByTestId('detailing-auto')).toBeVisible();
-    await expect(group.getByTestId('cmd-generate-detailing')).toBeVisible();
+    /*
+     * It used to float between the commands and the counts, belonging to neither. PR20 put it in
+     * `cmd-group-detailing` beside the button, and this asserted that containment.
+     *
+     * F3 step 4 moved the pair again, together: the command is in the stage strip now, because in
+     * `DesignToolbar` it could not be reached with DISEÑAR closed. The CLAIM is unchanged and is
+     * the reason they travelled as a pair — what changed is which container holds them.
+     */
+    const actions = page.getByTestId('rc-stage-actions');
+    await expect(actions.getByTestId('detailing-auto')).toBeVisible();
+    await expect(actions.getByTestId('cmd-generate-detailing')).toBeVisible();
+    // And no copy stayed behind, which would let the two disagree about the preference.
+    await expect(page.getByTestId('cmd-generate-detailing')).toHaveCount(1);
+    await expect(page.getByTestId('detailing-auto')).toHaveCount(1);
   });
 
   test('every stage states its step, its purpose and its state in words', async ({ pro: page }) => {

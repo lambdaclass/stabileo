@@ -149,11 +149,39 @@ test.describe('the strip stays where it can be read', () => {
   /*
    * It must not eat the panel. A sticky strip is a permanent tax on every screen below it, and
    * at 700 px there is not much to spend.
+   *
+   * ── Why the ceiling moved from 90 to 135 ───────────────────────────
+   *
+   * 90 was derived when the strip carried THREE commands, and it measured 82.3 px on an empty
+   * project at this size. F3 step 4 put DETALLE's command in the strip too, and with it the two
+   * things that explain why it refuses — the auto-detailing preference it is governed by, and the
+   * prerequisites sentence. Measured, on the same empty project:
+   *
+   *     stages row          24.0    24.0
+   *     actions row         23.0 →  50.8   (a fourth command takes it to two lines)
+   *     prerequisites          — →  19.1
+   *     hint                15.1    15.1
+   *     padding             10.4    10.4
+   *                        ─────   ─────
+   *                         82.3   129.2
+   *
+   * No arrangement that keeps all of it VISIBLE fits under 90: the second actions line alone is
+   * 27.8 px, and the row cannot return to one line because five commands plus the design scope do
+   * not fit the panel's width. The alternatives were each rejected on a rule written down
+   * elsewhere — hiding the command when DETALLE completes is the trap §6.4 names, dropping the
+   * scope read-out is what §2 forbids, and moving the prerequisites out of the strip is what
+   * `pro-design-gates` forbids, because a `title` alone leaves a keyboard-only user with a dead
+   * button.
+   *
+   * So this is a RE-DERIVATION for content the strip legitimately gained, not a budget widened to
+   * silence a regression: 135 is the measured 129.2 plus the same ~6 px of margin 90 gave 82.3.
+   * The claim it defends is unchanged — the strip is a strip. If it grows again, the number is not
+   * the thing to edit next; the content is.
    */
   test('stays compact at 1024x700', async ({ pro: page }) => {
     await page.setViewportSize({ width: 1024, height: 700 });
     const box = await timeline(page).boundingBox();
-    expect(box!.height, 'the strip is a strip, not a panel').toBeLessThan(90);
+    expect(box!.height, 'the strip is a strip, not a panel').toBeLessThan(135);
     // One row, not two. The shared strip wraps its six stages and leaves the last one alone.
     const tops = await timeline(page).locator('li.stage')
       .evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));

@@ -17,7 +17,7 @@
   import { diagnosticsWarning } from '../../../lib/store/diagnostics-warning.svelte';
   import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import OutcomeBadge from './OutcomeBadge.svelte';
-  import { rcCancelRun, rcGenerateDetailing, rcOpenRebar3D } from '../../../lib/flow/rc-commands';
+  import { rcCancelRun, rcOpenRebar3D } from '../../../lib/flow/rc-commands';
 
   interface Props {
     selectedCount: number;
@@ -111,21 +111,10 @@
   const provisionalCount = $derived(designRunStore.provisionalIds.size);
 
   // ── Detailing ──
-  // The audit's headline finding was that the detailing engines had no production caller.
-  // This is it: a visible command, enabled exactly when the prerequisites hold, and when
-  // it is not, saying which members are in the way and how many.
-  const detailingReady = $derived(detailingStore.readiness);
-  const hasDetailing = $derived(detailingStore.assemblies.length > 0);
+  // The command itself, its prerequisites and the auto-detailing preference moved to the DETALLE
+  // strip — see `RcStageTimeline.svelte`. What stays here is the one fact `Ver modelo 3D` needs:
+  // a generating run must not be interrupted by opening the viewer on a half-written document.
   const detailingBusy = $derived(detailingStore.generating);
-
-  /** Precise prerequisites, so a disabled button is never a dead end. */
-  const detailingBlockers = $derived(
-    detailingReady.prerequisites.map((p) => tp(p.key, { n: p.count,
-      ids: p.elementIds.slice(0, 6).join(', ') })).join(' '),
-  );
-
-  /* The action lives in `lib/flow/rc-commands.ts`; this is the button that calls it. */
-  const generateDetailing = rcGenerateDetailing;
 
 
 </script>
@@ -200,21 +189,15 @@
     <div class="cmd-group" data-testid="cmd-group-detailing">
       <span class="group-label">{t('design.group.detailing')}</span>
       <div class="group-items">
-    <button class="cmd cmd-detailing" data-testid="cmd-generate-detailing"
-            onclick={generateDetailing}
-            disabled={!detailingReady.ready || detailingBusy || busy}
-            title={detailingReady.ready ? '' : detailingBlockers}>
-      {detailingBusy
-        ? t('detailing.cmd.generating')
-        : hasDetailing ? t('detailing.cmd.regenerate') : t('detailing.cmd.generate')}
-    </button>
-        <!-- The preference that governs the button beside it, next to the button it governs. -->
-        <label class="detailing-auto" data-testid="detailing-auto-label">
-          <input type="checkbox" data-testid="detailing-auto"
-                 checked={detailingStore.autoGenerate}
-                 onchange={(e) => detailingStore.setAutoGenerate(e.currentTarget.checked)} />
-          {t('detailing.cmd.autoShort')}
-        </label>
+        <!--
+          The detailing command moved to the DETALLE strip — see `RcStageTimeline.svelte`.
+
+          It could not be reached with DISEÑAR closed, and navigating to DETALLE by the strip is
+          precisely what closes it. `detailing-prerequisites` and the auto-detailing preference
+          went with it: they are what explain why the command refuses, and left behind they would
+          have turned a disabled command into a riddle. Same action, same testids, one
+          implementation — nothing here draws them any more.
+        -->
 
     <!--
       `Ver modelo 3D` — the RESULT of everything to its left, and until PR20 it was reachable
@@ -269,14 +252,6 @@
   {#if open3dError}
     <p class="open3d-error" role="alert" data-testid="cmd-open-3d-error">{open3dError}</p>
   {/if}
-
-  <!-- Why the command is unavailable, in the open, with counts. -->
-  {#if !detailingReady.ready && detailingBlockers}
-    <p class="detailing-blockers" data-testid="detailing-prerequisites">
-      {detailingBlockers}
-    </p>
-  {/if}
-
 
   {#if busy && designRunStore.progress}
     {@const p = designRunStore.progress}
@@ -406,13 +381,6 @@
   .progress-fill { height: 100%; background: none; transition: width 0.15s linear; }
   .progress-text { font-size: 0.7rem; color: var(--st-text-2); font-family: monospace; }
 
-  .cmd-detailing { background: var(--st-hair-strong); }
-  .detailing-auto {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 0.68rem; color: var(--st-text-2); white-space: nowrap; cursor: pointer;
-  }
-  .detailing-auto:focus-within { outline: 2px solid var(--st-value); outline-offset: 2px; }
-
   /*
      `Ver modelo 3D` reads as the end of the row, because it is: everything to its left
      produces the thing it shows. Interactive blue rather than the accent — the accent is the
@@ -456,8 +424,6 @@
     font-size: 0.72rem;
     color: var(--st-warn);
   }
-  .detailing-blockers { margin: 0.3rem 0 0; font-size: 0.76rem; opacity: 0.85; }
-  .detailing-auto { display: inline-flex; gap: 0.3rem; align-items: center; font-size: 0.76rem; margin-top: 0.3rem; }
   .counts { display: flex; gap: 9px; flex-wrap: wrap; font-size: 0.72rem; font-family: monospace; }
   .count { color: var(--st-text-2); }
   .count-sep { color: var(--st-text-3); }
