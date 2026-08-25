@@ -88,6 +88,33 @@
   let exampleBtn: HTMLButtonElement | undefined = $state();
   let openMenu = $state<string | null>(null);
 
+  const solved = $derived(resultsStore.results3D != null || resultsStore.results != null);
+
+  /*
+   * Axial stays lit whichever way it is drawn: `axialColor` is the same
+   * quantity presented differently, and that choice lives in the panel.
+   */
+  const shownDiagram = $derived(
+    resultsStore.diagramType === 'axialColor' ? 'axial' : resultsStore.diagramType,
+  );
+
+  function rebar3DMissingSteps(): string[] {
+    const steps: string[] = [];
+    if (resultsStore.results3D == null && resultsStore.results == null) {
+      steps.push('proRibbon.need.solve');
+    }
+    if (verificationStore.providedSummary.total === 0) steps.push('proRibbon.need.design');
+    if (detailingStore.assemblies.length === 0) steps.push('proRibbon.need.detailing');
+    return steps;
+  }
+
+  function openRebar3DFromRibbon(): void {
+    openRebar3D({
+      author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+      at: new Date().toISOString(),
+    });
+  }
+
   /*
    * The command tree lives in `lib/pro/stages.ts`, not here.
    *
