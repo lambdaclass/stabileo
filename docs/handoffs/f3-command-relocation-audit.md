@@ -8,7 +8,7 @@ grupos.
 | 1 | `cmd-compute-demands` | franja de Reglamentos | `4c283241` |
 | 2 | `cmd-code-check` → **acero requerido** | franja de Reglamentos | `2ba3429f` |
 | 3 | `cmd-design-all` + `cmd-design-scope` | franja de Diseñar | este |
-| 4 | `cmd-generate-detailing` | **pendiente** — 47 refs / 28 specs / 2 `@slow` |
+| 4 | `cmd-generate-detailing` | **auditado, sin mover** — ver §6 |
 | 5 | retirar `cmd-group-*` | **pendiente** — recién cuando queden vacíos |
 
 ## 0. Las tres formas de esconder un comando, aprendidas de a una
@@ -146,3 +146,79 @@ Cada paso es un commit y cada uno corre la lista de gates completa.
   muda es de qué disclosure cuelgan.
 - **No borrar specs para evitar migrarlas.** `cmd-cancel` ya demuestra qué pasa cuando un comando
   no tiene ninguna.
+
+
+---
+
+## 6. Paso 4 — `generate-detailing`, auditado
+
+### 6.1 Las 28 specs, clasificadas por CÓMO llegan al comando
+
+Es el dato que cambia el plan. La estimación anterior —"28 specs, una por una"— asumía que
+habría que migrarlas. **No hace falta:**
+
+| cómo alcanzan el comando | specs |
+|---|---:|
+| abren `detailing-disclosure` y después lo presionan | **27** |
+| lo presionan sin abrir nada (tras `cmd-design-all`) | **1** — `rc-cad-production-download` |
+
+Ninguna llega por la etapa Diseñar. Y ninguna de las dos vías se rompe si el comando se muda a la
+**franja**, porque la fila de acciones es **incondicional**: abrir un disclosure es inofensivo, y
+la que no abre ninguno ya presiona `cmd-design-all`, que vive en la franja desde el paso 3.
+
+**Migraciones de spec estimadas: cero.** Lo que hay que verificar es que el testid siga
+resolviendo a un único elemento visible; no hay recorridos que reescribir.
+
+**16 de las 28 son `@slow`.** El costo del paso está en el tiempo de corrida, no en la edición.
+
+### 6.2 Lo que tiene que viajar con el botón
+
+El comando no está solo. Dos cosas lo rodean en `DesignToolbar` y **explican por qué está
+deshabilitado**:
+
+- `detailing-prerequisites` — la lista de lo que falta;
+- `detailing-auto` / `detailing-auto-label` — la preferencia de detallar automáticamente después
+  de diseñar, que gobierna a ese mismo comando.
+
+Las dos se mudan **con** él. Dejarlas atrás convierte un comando deshabilitado en un acertijo, que
+es el defecto que esta rama ya arregló una vez en `review-submit`. Duplicarlas es peor.
+
+`generateDetailing` en sí es una línea —`detailingStore.generate()`, ya en `rc-commands.ts`— y el
+store se niega solo reportando por `lastError`. No hay lógica de prerrequisitos que extraer: hay
+markup explicativo que reubicar.
+
+### 6.3 El caso que motivó todo esto
+
+**Hoy Detalle no puede generar detallado con Diseñar cerrado.** El comando vive en
+`DesignToolbar`, dentro de la etapa Diseñar, y navegar a Detalle por la franja la cierra. La spec
+de F3a tuvo que abrir el disclosure directamente para esquivarlo, y quedó anotado ahí.
+
+Ése es el criterio de aceptación del paso 4, y hay que probarlo explícitamente en las dos
+direcciones: Detalle abierto con Diseñar cerrado, y Diseñar abierto con Detalle cerrado.
+
+### 6.4 Las tres formas de ocultamiento, aplicadas a este comando
+
+De §0, y este es el primero que las enfrenta las tres a la vez:
+
+1. **Disclosure cerrado** — resuelto por construcción: va a la franja, no a la sección.
+2. **Condición de render** — la fila ya es incondicional. La trampa específica acá sería
+   condicionarlo a que la etapa Detalle esté incompleta: generar el detallado **completa** la
+   etapa, así que el comando desaparecería justo después de usarse, y regenerar es una operación
+   normal. Mismo error que con *acero requerido* en el paso 2.
+3. **Otro sticky** — la franja está en `z-index: 12`. Lo nuevo acá son los **overlays**: el visor
+   3-D y el diálogo de lámina ampliada (950) se abren desde esta etapa. Hay que verificar que la
+   franja no quede por encima de un overlay modal, que sería el defecto inverso.
+
+### 6.5 Una condición de producto que este paso debe respetar
+
+**No se puede generar documentación constructiva desde una propuesta no verificada.** La regla de
+completitud de Diseñar ya distingue convergencia de actividad; el comando de detallado tiene que
+apoyarse en esa misma señal y no en "hay armadura dibujada".
+
+### 6.6 Orden sugerido para la tanda
+
+1. Mover botón + `detailing-prerequisites` + `detailing-auto` a la franja de Detalle.
+2. Correr `detailing.spec.ts` (6 refs, la más densa) y `documents.spec.ts` (3).
+3. Correr las 16 `@slow` en una tanda propia con `E2E_PORT` dedicado.
+4. Las gates estructurales.
+5. Recién entonces retirar `cmd-group-detailing`, que queda sin consumidores.
