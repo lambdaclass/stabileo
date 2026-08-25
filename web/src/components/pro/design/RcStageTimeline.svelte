@@ -36,10 +36,10 @@
    * The commands stay the single place work is started from, so this cannot become a second,
    * competing command surface.
    */
-  import { t } from '../../../lib/i18n';
+  import { t, tp } from '../../../lib/i18n';
   import { resultsStore } from '../../../lib/store/results.svelte';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
-  import { rcCodeCheck, rcComputeDemands } from '../../../lib/flow/rc-commands';
+  import { rcCodeCheck, rcComputeDemands, rcDesignScope } from '../../../lib/flow/rc-commands';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import {
@@ -130,6 +130,22 @@
   const hasCombinations = $derived(modelStore.model.combinations.length > 0);
   const concreteReady = $derived(regulationsStore.concreteDesignCode() !== null);
 
+  /**
+   * What the design command will cover, from the selector below the table.
+   *
+   * Read from `designRunStore` and never passed in: the read-out and the run must name the same
+   * families, and a scope handed to the button separately could differ from the one the boxes
+   * show. §2 requires the scope legible BEFORE the command executes — the default is narrower
+   * than it used to be, and an unticked family nobody can see is the old "a building with no
+   * floors, and it did not say so" defect with a smaller default.
+   */
+  const scope = $derived(designRunStore.familySelection);
+  const scopeText = $derived(scope.length === 0
+    ? t('design.cmd.scopeNone')
+    : tp('design.cmd.scopeIs', {
+      families: scope.map((f) => t(`design.families.${f}`)).join(', '),
+    }));
+
   const SR: Record<string, string> = {
     complete: 'design.stage.srComplete',
     current: 'design.stage.srCurrent',
@@ -213,6 +229,24 @@
         onclick={rcCodeCheck}
         disabled={!hasResults || !hasCombinations || !concreteReady || busy}
       >{t('design.cmd.requiredSteel')}</button>
+
+      <!--
+        The design command, and the scope it will run, in the strip.
+
+        Running it does NOT finish the stage. DISEÑAR completes on convergence — every applicable
+        member proposed, every proposal passing, nothing provisional, failing, unavailable or
+        stale — and pressing this is one turn of that cycle, not its end. The stage state above
+        keeps saying so, and re-pressing after an edit is how the cycle closes.
+      -->
+      <button
+        class="cmd cmd-run"
+        data-testid="cmd-design-all"
+        onclick={() => rcDesignScope('cirsoc201.provided.v2.2025')}
+        disabled={!hasResults || !hasCombinations || !concreteReady || busy
+          || scope.length === 0}
+        title={scopeText}
+      >{t('design.cmd.designAll')}</button>
+      <span class="scope" data-testid="cmd-design-scope">{scopeText}</span>
     </div>
 
   <p class="hint" data-testid="rc-stage-hint">
@@ -406,6 +440,10 @@
   /* Dimmer and still legible — a disabled command has to explain itself. */
   .cmd:disabled { opacity: 0.4; cursor: not-allowed; }
   .cmd:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  /* The run command reads as the primary one of the row, by border rather than by size. */
+  .cmd-run { border-color: var(--st-ok); }
+  /* The scope: secondary text beside the command, never a control. */
+  .scope { align-self: center; font-size: 0.68rem; color: var(--st-text-2); }
 
   .hint {
     display: flex;

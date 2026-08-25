@@ -26,7 +26,6 @@
     editedCount: number;
     onAutoDesignSelected: () => void;
     onAutoDesignUndesigned: () => void;
-    onDesignAll: () => void;
     onReviewChanges: () => void;
     onRevertEdits: () => void;
     onShowOrientation: () => void;
@@ -36,7 +35,7 @@
   let {
     selectedCount, hasResults, hasCombinations, editedCount,
     onCodeCheck, onAutoDesignSelected, onAutoDesignUndesigned,
-    onDesignAll, onReviewChanges, onRevertEdits, onShowOrientation,
+    onReviewChanges, onRevertEdits, onShowOrientation,
     onOpenDiagnostics,
   }: Props = $props();
 
@@ -191,16 +190,10 @@
     </div>
 
     <!--
-      The one design command, and the scope it will run, side by side.
+      The design command and its scope moved to the DISEÑAR strip — `RcStageTimeline.svelte`.
 
-      §2 requires the scope to be visible BEFORE the command executes: the default is narrower
-      than it used to be, and an unticked family nobody can see is the old "a building with no
-      floors, and it did not say so" defect wearing a smaller default.
+      Same action, same testids, one implementation. Nothing here draws them any more.
     -->
-    <button class="cmd cmd-all" data-testid="cmd-design-all" onclick={onDesignAll}
-            disabled={!canDesign || scope.length === 0}
-            title={scopeText}>{t('design.cmd.designAll')}</button>
-    <span class="cmd-scope" data-testid="cmd-design-scope">{scopeText}</span>
       </div>
     </div>
 

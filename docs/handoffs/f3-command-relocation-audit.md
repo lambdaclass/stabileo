@@ -1,6 +1,33 @@
 # Los comandos del pipeline y la etapa a la que pertenecen — auditoría previa
 
-**Estado: auditoría. Ningún comando movido por este documento.**
+**Estado: auditoría + progreso.** Pasos 1–3 hechos. Falta `generate-detailing` y retirar los
+grupos.
+
+| paso | comando | dónde quedó | commit |
+|---|---|---|---|
+| 1 | `cmd-compute-demands` | franja de Reglamentos | `4c283241` |
+| 2 | `cmd-code-check` → **acero requerido** | franja de Reglamentos | `2ba3429f` |
+| 3 | `cmd-design-all` + `cmd-design-scope` | franja de Diseñar | este |
+| 4 | `cmd-generate-detailing` | **pendiente** — 47 refs / 28 specs / 2 `@slow` |
+| 5 | retirar `cmd-group-*` | **pendiente** — recién cuando queden vacíos |
+
+## 0. Las tres formas de esconder un comando, aprendidas de a una
+
+Cada paso destapó una y **ninguna la encontré leyendo el código**: las cazaron gates que ya
+existían. Quedan escritas porque `generate-detailing` las va a tener las tres a la vez.
+
+1. **Detrás de un disclosure cerrado.** Mover el botón *dentro* de la etapa lo pone tras un
+   `<details>` colapsado. Cuatro travesías E2E dejaron de alcanzarlo — y un usuario también.
+   *Por eso los comandos viven en la franja, no en la sección.*
+2. **Detrás de una condición de render.** Enganchar la fila a "la etapa actual" lo hacía
+   desaparecer sin modelo resuelto; engancharla a "la etapa incompleta" hacía desaparecer *acero
+   requerido* en el instante en que se volvía usable, porque calcular solicitaciones completa la
+   etapa. *Por eso la fila es incondicional y cada comando se deshabilita explicándose.*
+3. **Debajo de otro sticky.** La franja estaba en `z-index: 3` y los encabezados de sección
+   también son sticky (S5 lo exige). Dos stickies en la misma capa pintan por orden de documento,
+   así que un encabezado tapaba los comandos: un click en el centro exacto del botón aterrizaba
+   en el encabezado. *La franja está en 12; el diálogo de lámina ampliada sigue en 950.*
+
 
 Es el paso que la instrucción de F3 pide antes de editar: *"auditá todos los consumidores, testids
 y accesos; identificá qué acciones necesitan estar disponibles en más de una etapa; evitá

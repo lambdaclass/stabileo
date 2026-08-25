@@ -59,7 +59,7 @@
    * screen: same testids, same disabled logic, same store effects, same arming.
    */
   import {
-    rcAutoDesignSelected, rcDesignScope,
+    rcAutoDesignSelected,
   } from '../../lib/flow/rc-commands';
 
   // ─── View state (survives edits — nothing here is reset by a rebar write) ──
@@ -317,7 +317,6 @@
       const ids = [...verificationStore.contexts.keys()].filter(id => !modelStore.elements.get(id)?.reinforcement);
       designRunStore.autoDesign(ids.length > 0 ? ids : [...verificationStore.contexts.keys()]);
     }}
-    onDesignAll={() => rcDesignScope('cirsoc201.provided.v2.2025')}
     onOpenDiagnostics={() => (uiStore.proActiveTab = 'diagnostics')}
     onReviewChanges={() => (showChanged = true)}
     onRevertEdits={revertAllEdits}
