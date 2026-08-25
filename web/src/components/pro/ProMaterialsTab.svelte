@@ -7,6 +7,8 @@
     MATERIAL_CATEGORIES, searchPresets,
     type MaterialPreset,
   } from '../../lib/data/material-presets';
+  import ProMaterialModal from './material/ProMaterialModal.svelte';
+  import { toMaterialFields, type MaterialChoice } from '../../lib/material/material-choice';
 
   let activeCategory = $state<string>('hormigon');
   let searchQuery = $state('');
@@ -26,14 +28,28 @@
 
   const materials = $derived([...modelStore.materials.values()]);
 
+  /**
+   * Add a preset, with everything it carries.
+   *
+   * This function used to write five fields and drop `gradeId`, `standard`, `region` and `fu`.
+   * `materialFamilyOf` prefers a declared grade and otherwise falls back to `fy > 80`, so the
+   * loss was not cosmetic: aluminium 5052-H32, at fy = 195, came back classified as **steel**
+   * and joined the metallic inventory. Measured before and after in
+   * `material/__tests__/material-choice.test.ts`.
+   *
+   * The conversion lives in `material-choice.ts` because three surfaces write materials, and a
+   * field dropped in one of them stays invisible until something downstream misclassifies a
+   * member.
+   */
   function addPreset(p: MaterialPreset) {
-    modelStore.addMaterial({
-      name: p.name,
-      e: p.e,
-      nu: p.nu,
-      rho: p.rho,
-      fy: p.fy,
-    });
+    modelStore.addMaterial(toMaterialFields({ kind: 'preset', preset: p }) as never);
+  }
+
+  /** The PRO material modal: the shipped catalogue, plus the axes Basic's picker cannot show. */
+  let modalOpen = $state(false);
+
+  function applyChoice(choice: MaterialChoice) {
+    modelStore.addMaterial(toMaterialFields(choice) as never);
   }
 
   function addCustom() {
@@ -111,7 +127,7 @@
 
 <div class="pro-mat">
   <!-- Collapsible add-material panel -->
-  <details class="add-panel">
+  <details class="add-panel" data-testid="pro-add-material-panel">
     <summary class="add-panel-summary">{t('pro.addMaterialPanel')}</summary>
     <div class="add-panel-body">
 
@@ -131,6 +147,10 @@
   </div>
 
   <!-- Preset list -->
+      <button
+        type="button" class="open-modal" data-testid="pro-open-material-modal"
+        onclick={() => (modalOpen = true)}
+      >{t('material.modal.title')}</button>
   <div class="preset-list">
     {#each filtered as p}
       <button class="preset-item" onclick={() => addPreset(p)}>
@@ -252,6 +272,12 @@
   </div>
 </div>
 
+<ProMaterialModal
+  open={modalOpen}
+  onApply={applyChoice}
+  onClose={() => (modalOpen = false)}
+/>
+
 <style>
   .agg-input { width: 4.5rem; padding: 0.1rem 0.25rem; text-align: right; }
   .agg-error { margin: 0.35rem 0 0; padding: 0.3rem 0.5rem; border-radius: 4px; background: var(--st-accent); color: var(--st-text); font-size: 0.8rem; }
@@ -340,6 +366,15 @@
   .search-wrap input:focus { outline: none; border-color: var(--st-text-2); }
 
   /* ─── Preset List ─── */
+  /* The trigger for the modal, above the legacy preset strip. */
+  .open-modal {
+    align-self: flex-start; margin-bottom: 6px;
+    padding: 5px 12px; font-size: 0.74rem; cursor: pointer;
+    background: var(--st-interactive); color: var(--st-bg);
+    border: 1px solid var(--st-interactive); border-radius: 4px;
+  }
+  .open-modal:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+
   .preset-list {
     flex: 1;
     overflow-y: auto;
