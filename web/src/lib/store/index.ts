@@ -57,6 +57,11 @@ modelStore._setOnFoundationChange(() => {
 // stamped with this at build time, so a re-solve that does NOT rebuild them (as
 // live-calc.ts's auto-solve does) makes their display read 'stale' instead of
 // silently presenting numbers computed from the superseded forces as current.
+// What a snapshot says about the project's own history: what was emitted, and what was
+// retouched by hand. Late-bound rather than imported by `model.svelte.ts`, which would close a
+// cycle through design-run → verification → regulations. See `project-provenance.ts`.
+modelStore._setCaptureProvenance(captureProjectProvenance);
+
 resultsStore._setOnResultsPublish(() => {
   verificationStore.bumpSolveGeneration();
 });
@@ -83,4 +88,5 @@ export { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, tabMana
 // is installed once here rather than remembered at each of the six places that
 // arm a tool.
 import { installViewModeRules } from './view-mode';
+import { captureProjectProvenance } from './project-provenance';
 installViewModeRules();

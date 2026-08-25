@@ -180,6 +180,9 @@ export function deserializeProject(text: string): boolean {
   const data = d as unknown as DedalFile;
   historyStore.pushState();
   modelStore.restore(data.snapshot);
+  // Adopted separately from `restore()`, which is also the undo path — see project-provenance.ts.
+  // A file written before these fields existed hydrates to "we do not know", not to "none".
+  hydrateProjectProvenance(data.snapshot);
   modelStore.model.name = data.name;
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
@@ -437,6 +440,7 @@ export function downloadCanvasPNG(canvas: HTMLCanvasElement): void {
 // ─── Export DXF ─────────────────────────────────────────────────
 
 import { exportDxfWithResults } from '../dxf/writer';
+import { hydrateProjectProvenance } from './project-provenance';
 
 export function exportDXF(): string {
   return exportDxfWithResults({

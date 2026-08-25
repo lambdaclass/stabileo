@@ -62,6 +62,15 @@ function createDesignRunStore() {
   let abortFlag = { aborted: false };
   /** Elements the user has edited by hand (badge + protect-overrides). */
   let manualOverrides = $state<Set<number>>(new Set());
+  /**
+   * Whether `manualOverrides` is a statement or an absence.
+   *
+   * True for a fresh project — nothing has been retouched, and that is known. False only after
+   * opening a file written before the set was persisted, where "no members" means "we have no
+   * record", not "none were touched". The two are different claims and an export must not
+   * print the second when it means the first. See `rcRetouchProvenance`.
+   */
+  let manualKnown = $state(true);
   /** Elements whose reinforcement came from auto-design. */
   let autoDesigned = $state<Set<number>>(new Set());
   /** Members whose provisional (failing) candidate was retained for review. */
@@ -567,6 +576,17 @@ function createDesignRunStore() {
     cancel() { abortFlag.aborted = true; },
 
     get manualOverrides() { return manualOverrides; },
+    get manualProvenanceKnown() { return manualKnown; },
+    /**
+     * Adopt the override set from a project file.
+     *
+     * `undefined` means the file predates the field, and is the ONLY way `manualKnown` becomes
+     * false — an empty array is a file that recorded "nothing was retouched" and is believed.
+     */
+    hydrateManual(ids: readonly number[] | undefined): void {
+      manualKnown = ids !== undefined;
+      manualOverrides = new Set(ids ?? []);
+    },
     get autoDesigned() { return autoDesigned; },
     get provisionalIds() { return provisionalIds; },
     get provisionalBiaxialIds() { return provisionalBiaxialIds; },
@@ -585,6 +605,8 @@ function createDesignRunStore() {
       autoDesigned = a;
     },
     resetMarks() {
+      // A new project knows its own history: nothing has been retouched yet.
+      manualKnown = true;
       manualOverrides = new Set();
       autoDesigned = new Set();
       provisionalIds = new Set();

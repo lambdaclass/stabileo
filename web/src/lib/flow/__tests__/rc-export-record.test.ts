@@ -157,7 +157,7 @@ describe('what a record says about its own limits', () => {
    */
   it('a record can say it does not know what was retouched', () => {
     const r = ok({ retouched: RC_RETOUCH_UNKNOWN });
-    expect(r.retouched.known).toBe(false);
+    expect(r.retouched.status).toBe('unknown');
     expect(r.retouched).not.toEqual(rcRetouch([]));
   });
 });

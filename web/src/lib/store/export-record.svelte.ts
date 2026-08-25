@@ -66,6 +66,21 @@ function createExportRecordStore() {
     },
 
     /**
+     * Adopt the list from a project file.
+     *
+     * `undefined` — a file written before the field existed — hydrates to an EMPTY list, and
+     * that is the honest reading: we do not know what was exported. Unlike the retouch set,
+     * there is no third state to distinguish, because an empty emission list already means
+     * "nothing recorded" and never means "nothing was exported" — nothing in the UI may
+     * present it as a negative claim.
+     */
+    hydrate(stored: readonly ExportRecord[] | undefined): void {
+      // Filtered on the way in: a hand-edited or truncated file must not be able to introduce
+      // a record that `record()` itself would have refused.
+      records = (stored ?? []).filter(isCoherentExport);
+    },
+
+    /**
      * Drop everything.
      *
      * For a new or reopened project. Note that after a reopen the correct state is an EMPTY

@@ -11,8 +11,9 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  RC_ELEMENT_GROUPS, RC_RETOUCH_UNKNOWN, rcEditConsequence, rcFamiliesIn, rcGroupCounts,
-  rcGroupLabelKey, rcGroupOf, rcResolveTarget, rcRetouch,
+  RC_ELEMENT_GROUPS, RC_RETOUCH_NOT_APPLICABLE, RC_RETOUCH_UNKNOWN, rcEditConsequence,
+  rcFamiliesIn, rcGroupCounts, rcGroupLabelKey, rcGroupOf, rcResolveTarget, rcRetouch,
+  rcRetouchIsCountable, rcRetouchProvenance,
 } from '../rc-selection';
 import { SCENE_SOLID_KINDS, type SceneSolidKind } from '../../engine/detailing/scene-model';
 import es from '../../i18n/locales/es';
@@ -171,27 +172,50 @@ describe('an edit rebuilds rather than patches', () => {
   });
 });
 
-describe('unknown retouch provenance is not the same as none', () => {
+describe('retouch provenance has four states, and three of them are not "none"', () => {
   /*
-   * The gap this type exists for: `designRunStore.manualOverrides` is $state and nothing
-   * captures it, so it does not survive saving and reopening a project. An export that
-   * printed "manually retouched: none" for a project full of hand edits would be a false
-   * statement in the one place whose purpose is to say what is in the drawing.
+   * The pair that matters. They look identical on screen unless something forces them apart,
+   * and only one is a statement about the project: an export printing "manually retouched:
+   * none" for a file that never recorded the information would be false in the one place whose
+   * purpose is to say what is in the drawing.
    */
-  it('a reopened project reports unknown, with no members', () => {
-    expect(RC_RETOUCH_UNKNOWN.known).toBe(false);
-    expect(RC_RETOUCH_UNKNOWN.members).toEqual([]);
+  it('unknown and known-and-empty are different claims', () => {
+    expect(RC_RETOUCH_UNKNOWN.status).toBe('unknown');
+    expect(rcRetouch([]).status).toBe('known');
+    expect(RC_RETOUCH_UNKNOWN).not.toEqual(rcRetouch([]));
   });
 
-  it('an empty live set reports known-and-none, which is a different claim', () => {
-    const live = rcRetouch([]);
-    expect(live.known).toBe(true);
-    expect(live.members).toEqual([]);
-    // The two are only distinguishable by `known`. That is the whole point of the field.
-    expect(live).not.toEqual(RC_RETOUCH_UNKNOWN);
+  it('notApplicable is a third thing again', () => {
+    expect(RC_RETOUCH_NOT_APPLICABLE.status).toBe('notApplicable');
+    expect(RC_RETOUCH_NOT_APPLICABLE).not.toEqual(RC_RETOUCH_UNKNOWN);
+    expect(RC_RETOUCH_NOT_APPLICABLE).not.toEqual(rcRetouch([]));
   });
 
-  it('a live set reports its members, deduplicated and sorted', () => {
+  it('a known set reports its members, deduplicated and sorted', () => {
     expect(rcRetouch([9, 2, 9, 4]).members).toEqual([2, 4, 9]);
+  });
+
+  /*
+   * `notApplicable` outranks `unknown`. An old file with no design at all is not a mystery:
+   * there is nothing that could have been retouched, and reporting doubt there would invent
+   * uncertainty about a set that cannot have members.
+   */
+  it.each([
+    [true, true, [7], 'known'],
+    [true, true, [], 'known'],
+    [false, true, [], 'unknown'],
+    [false, false, [], 'notApplicable'],
+    [true, false, [7], 'notApplicable'],
+  ])('known=%s hasDesign=%s → %s', (known, hasDesign, members, expected) => {
+    expect(rcRetouchProvenance(known as boolean, hasDesign as boolean, members as number[]).status)
+      .toBe(expected);
+  });
+
+  /** Only a known set may be counted on screen. The other two have nothing to count. */
+  it('only a known provenance is countable', () => {
+    expect(rcRetouchIsCountable(rcRetouch([1]))).toBe(true);
+    expect(rcRetouchIsCountable(rcRetouch([]))).toBe(true);
+    expect(rcRetouchIsCountable(RC_RETOUCH_UNKNOWN)).toBe(false);
+    expect(rcRetouchIsCountable(RC_RETOUCH_NOT_APPLICABLE)).toBe(false);
   });
 });

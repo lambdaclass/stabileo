@@ -194,33 +194,59 @@ export function rcEditConsequence(
 /**
  * Whether the app can truthfully say which members were retouched by hand.
  *
- * ── A gap recorded rather than papered over ────────────────────────
+ * ── Four states, because three of them are not "none" ──────────────
  *
  * §4 requires every export to state its manually retouched elements. The set exists —
- * `designRunStore.manualOverrides`, written by `commitManual` and `commitManualBatch` in
- * `rebar-edit.ts` — and it is `$state` in the store and nothing else. Neither `file.ts` nor
- * `tabs.svelte.ts` captures it, so it does NOT survive saving and reopening a project.
+ * `designRunStore.manualOverrides`, written by `commitManual` and `commitManualBatch` — and it
+ * used to be `$state` and nothing else, so it did not survive saving and reopening a project.
+ * It is persisted now, as an optional field, which is what makes the distinction below
+ * expressible instead of theoretical:
  *
- * So after a reload the honest answer is "unknown", not "none". Those are different claims and
- * only one of them is true: an export that printed "manually retouched: none" for a project
- * full of hand edits would be a false statement in the one place whose purpose is to say what
- * is in the drawing.
+ *   `known` + members    the file recorded them, or they were made in this session
+ *   `known` + empty      the file recorded that NOTHING was retouched. A real claim.
+ *   `unknown`            the file predates the field. We do not know, and must not guess.
+ *   `notApplicable`      nothing has been designed, so the question has no subject.
  *
- * `known` is what the caller must check before rendering a count. Making it persist is a
- * decision about the `.ded` format and belongs with the ExportRecord persistence question, not
- * here.
+ * The one that matters is `unknown` versus `known`-and-empty. They look identical on screen
+ * unless something forces them apart, and only one of them is a statement about the project: an
+ * export printing "manually retouched: none" for a file that never recorded the information
+ * would be false in the one place whose purpose is to say what is in the drawing.
  */
+export type RcRetouchStatus = 'known' | 'unknown' | 'notApplicable';
+
 export interface RcRetouchProvenance {
-  /** False when the project was reopened and the override set could not be restored. */
-  known: boolean;
-  /** The members known to have been edited by hand. Empty and meaningless when `!known`. */
+  status: RcRetouchStatus;
+  /** The members edited by hand. Meaningful only when `status === 'known'`. */
   members: readonly number[];
 }
 
-/** `unknown` is the state a reopened project is in, and it is not the same as none. */
-export const RC_RETOUCH_UNKNOWN: RcRetouchProvenance = { known: false, members: [] };
+/** A project reopened from a file written before the field existed. */
+export const RC_RETOUCH_UNKNOWN: RcRetouchProvenance = { status: 'unknown', members: [] };
 
-/** Provenance from a live override set. */
+/** Nothing designed: the question has no subject, which is not the same as a negative answer. */
+export const RC_RETOUCH_NOT_APPLICABLE: RcRetouchProvenance =
+  { status: 'notApplicable', members: [] };
+
+/** Provenance from a set the app actually knows. */
 export function rcRetouch(members: Iterable<number>): RcRetouchProvenance {
-  return { known: true, members: [...new Set(members)].sort((a, b) => a - b) };
+  return { status: 'known', members: [...new Set(members)].sort((a, b) => a - b) };
+}
+
+/**
+ * Resolve the four states from what the session knows.
+ *
+ * `notApplicable` is checked FIRST and outranks `unknown`: if nothing has been designed there is
+ * nothing that could have been retouched, and reporting "unknown" there would invent a doubt
+ * about a set that cannot have members. An old file with no design is not a mystery.
+ */
+export function rcRetouchProvenance(
+  known: boolean, hasDesign: boolean, members: Iterable<number>,
+): RcRetouchProvenance {
+  if (!hasDesign) return RC_RETOUCH_NOT_APPLICABLE;
+  return known ? rcRetouch(members) : RC_RETOUCH_UNKNOWN;
+}
+
+/** Whether a count may be rendered. False for both `unknown` and `notApplicable`. */
+export function rcRetouchIsCountable(p: RcRetouchProvenance): boolean {
+  return p.status === 'known';
 }

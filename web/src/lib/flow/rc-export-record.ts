@@ -80,8 +80,9 @@ export interface ExportRecord {
   /**
    * Which of them had been touched by hand, and whether that is even knowable.
    *
-   * `known: false` after a project is reopened, because `designRunStore.manualOverrides` does
-   * not persist. Printing "none" there would be a false statement — see `rc-selection.ts`.
+   * `unknown` when the file predates the field, `notApplicable` when nothing was designed, and
+   * `known` — possibly with an empty list, which is a real claim — otherwise. Printing "none"
+   * for the first two would be a false statement. See `rc-selection.ts`.
    */
   retouched: RcRetouchProvenance;
   /**

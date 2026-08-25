@@ -9,6 +9,7 @@ import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
 import type { Footing, FootingMatPreferences } from '../model/footing';
 import type { ProjectGeotechnical } from '../model/geotechnical';
+import type { ExportRecord } from '../flow/rc-export-record';
 
 export interface ModelSnapshot {
   name?: string;
@@ -66,6 +67,21 @@ export interface ModelSnapshot {
   revisions?: RevisionVector;
   /** Coordinated detailing assemblies. Absent on models saved before PR17. */
   detailing?: DetailingStore;
+  /**
+   * What was emitted from this project, and which members were retouched by hand.
+   *
+   * Both are OPTIONAL and their absence is meaningful, which is why they are read through
+   * `hydrateProjectProvenance` rather than by `restore()`:
+   *
+   *   `exports` absent    we have no record of what was exported. Never "nothing was".
+   *   `manualEdits` absent   we do not know what was retouched. Never "none were".
+   *
+   * They ride on the snapshot so that saving, autosave and tab capture all carry them without
+   * four separate wirings — but `restore()` deliberately ignores them. See the note there:
+   * undo must not un-happen an export.
+   */
+  exports?: ExportRecord[];
+  manualEdits?: number[];
 }
 
 const MAX_HISTORY = 50;
