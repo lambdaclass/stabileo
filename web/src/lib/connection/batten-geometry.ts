@@ -108,6 +108,21 @@ export interface BattenInput {
  */
 export function battenLayout(input: BattenInput): BattenResult {
   const { arrangement, gapMm, lengthM, segments = 3, chordDepthMm } = input;
+
+  /*
+   * A negative gap is refused before it is classified, and this is the reason the check lives
+   * here rather than being left to `builtUpGroup`.
+   *
+   * That function reads `gapMm <= 0` as Group I — chords in continuous contact — which is right
+   * for zero and quietly wrong for −5: it would answer «they touch» for a number that describes
+   * no arrangement at all, and the caller would never learn the input was nonsense. Zero and
+   * negative look alike to a `<= 0`, and they are opposites here: one is a real configuration,
+   * the other is a typo.
+   */
+  if (!Number.isFinite(gapMm) || gapMm < 0) {
+    return { state: 'UNAVAILABLE', missingKeys: ['batten.gapNegative'] };
+  }
+
   const group = builtUpGroup(arrangement, gapMm);
 
   if (group !== 'V') {

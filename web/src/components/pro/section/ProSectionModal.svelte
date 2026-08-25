@@ -33,6 +33,7 @@
    */
   import { untrack } from 'svelte';
   import { t } from '../../../lib/i18n';
+  import { parseNumericInput } from '../../../lib/utils/numeric-input';
   import ProfileSelectorPanel from '../generators/ProfileSelectorPanel.svelte';
   import SectionFigure from '../generators/SectionFigure.svelte';
   import SectionDataSheet from './SectionDataSheet.svelte';
@@ -75,6 +76,8 @@
 
   /** Working copy. Applying is an explicit act, so Escape can leave the model untouched. */
   let draft = $state<ProfileSpec>({ ...spec });
+  /** Why the last gap entry was refused, or null. Cleared as soon as the field parses. */
+  let gapProblem = $state<string | null>(null);
 
   let dialogEl: HTMLDivElement | undefined = $state();
   /**
@@ -309,13 +312,36 @@
             {#if isCompound(draft)}
               <label>
                 <span>{t('section.modal.gap')}</span>
+                <!--
+                  The composed section's gap, read the same way the connections panel reads the
+                  batten gap — and for the same reason.
+
+                  `Math.max(0, Number(value) || 0)` did two silent things here. It turned a
+                  negative into 0, which is the reinterpretation this branch set out to remove: a
+                  gap of −5 describes no arrangement, and answering «the profiles touch» for it is
+                  a wrong answer wearing a right one's clothes. And it turned any unparseable
+                  entry into 0 as well, so a typo and a deliberate back-to-back pair — §E.6.1's
+                  Group I, a real composition — became indistinguishable.
+                -->
                 <input
                   type="number" min="0" step="1" data-testid="section-gap"
                   value={draft.gapMm}
-                  onchange={(e) => (draft = { ...draft, gapMm: Math.max(0, Number(e.currentTarget.value) || 0) })}
+                  onchange={(e) => {
+                    const r = parseNumericInput(e.currentTarget.value, { min: 0, zero: 'valid' });
+                    if (r.kind === 'value') { draft = { ...draft, gapMm: r.value }; gapProblem = null; }
+                    else if (r.kind === 'empty') { draft = { ...draft, gapMm: 0 }; gapProblem = null; }
+                    else {
+                      gapProblem = r.reasonKey;
+                      // One-way bound, so the refused text stays on screen unless it is replaced.
+                      e.currentTarget.value = String(draft.gapMm);
+                    }
+                  }}
                 />
                 <span class="unit">mm</span>
               </label>
+              {#if gapProblem}
+                <p class="note" role="status" data-testid="section-gap-problem">{t(gapProblem)}</p>
+              {/if}
               {#if isClosedArrangement(draft.arrangement)}
                 <p class="note" data-testid="section-closed-note">
                   {t('generator.builtUp.torsion.closedCellNotComputed')}

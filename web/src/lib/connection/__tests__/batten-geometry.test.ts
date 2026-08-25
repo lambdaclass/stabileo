@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { battenLayout, stiffnessConditionEvaluable } from '../batten-geometry';
+import { builtUpGroup } from '../../section/battens';
 
 const ok = (o = {}) => battenLayout({ arrangement: 'doubleBack', gapMm: 10, lengthM: 6, ...o });
 
@@ -151,5 +152,70 @@ describe('the plate itself is still unavailable, and that is correct', () => {
     const noDepth = ok();
     if (noDepth.state !== 'available') throw new Error('unreachable');
     expect(stiffnessConditionEvaluable(noDepth.layout, 12)).toBe(false);
+  });
+});
+
+/*
+ * ── The gap, in the four states a form can put it in ────────────────
+ *
+ * These exist because the panel wrote `Number(value) || 10` and zero is falsy, so a deliberate 0
+ * became 10. The consequence was not a wrong number on screen: it was that §E.6.1's Group I —
+ * chords in continuous contact, joined by bolts or welds, carrying **no battens at all** —
+ * became unreachable, and the section went on claiming battens for an arrangement the clause
+ * places none on. Each case below pins one of the four inputs a user can produce.
+ */
+describe('the gap, in every state a form can produce', () => {
+  const base = { arrangement: 'doubleBack' as const, lengthM: 6, segments: 3, chordDepthMm: 100 };
+
+  it('gap = 0 is Group I: continuous contact, and no battens', () => {
+    expect(builtUpGroup('doubleBack', 0)).toBe('I');
+
+    const r = battenLayout({ ...base, gapMm: 0 });
+    expect(r.state).toBe('UNAVAILABLE');
+    // Refused for the RIGHT reason — not for a missing length or a bad segment count.
+    expect(r.state === 'UNAVAILABLE' && r.missingKeys).toEqual(['batten.notGroupV']);
+  });
+
+  it('gap > 0 is Group V: battens, with the stations and the spacing the clause fixes', () => {
+    expect(builtUpGroup('doubleBack', 10)).toBe('V');
+
+    const r = battenLayout({ ...base, gapMm: 10 });
+    expect(r.state).toBe('available');
+    if (r.state !== 'available') return;
+
+    // §E.6.3.2(b)(2): three segments, so `a = L/n` and two intermediates...
+    expect(r.layout.segments).toBe(3);
+    expect(r.layout.spacingM).toBeCloseTo(2, 10);
+    // ...plus one at each end — §E.6.3.2(b)(1).
+    expect(r.layout.stations.map((s) => s.atM)).toEqual([0, 2, 4, 6]);
+    expect(r.layout.stations.filter((s) => s.kind === 'end')).toHaveLength(2);
+    expect(r.layout.stations.filter((s) => s.kind === 'intermediate')).toHaveLength(2);
+    // §E.6.3.1(b)(1): the chord is checked over `a`, with k = 1.
+    expect(r.layout.chordUnbracedLengthM).toBe(r.layout.spacingM);
+    // h = chord depth + gap, and only because both were supplied.
+    expect(r.layout.chordSeparationM).toBeCloseTo(0.11, 10);
+  });
+
+  it('a gap of 0 and a gap of 10 do not land in the same group', () => {
+    // The whole defect in one assertion: these two must not be the same answer.
+    expect(builtUpGroup('doubleBack', 0)).not.toBe(builtUpGroup('doubleBack', 10));
+  });
+
+  it('a non-numeric gap is refused, not read as zero', () => {
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      const r = battenLayout({ ...base, gapMm: bad });
+      expect(r.state, String(bad)).toBe('UNAVAILABLE');
+      expect(r.state === 'UNAVAILABLE' && r.missingKeys).toEqual(['batten.gapNegative']);
+    }
+  });
+
+  it('a negative gap is refused, and never reinterpreted as continuous contact', () => {
+    const r = battenLayout({ ...base, gapMm: -5 });
+    expect(r.state).toBe('UNAVAILABLE');
+    /*
+     * Specifically NOT `batten.notGroupV`. Reaching that key would mean the −5 had been read as
+     * Group I — «the chords touch» — which is an answer to a question the input never asked.
+     */
+    expect(r.state === 'UNAVAILABLE' && r.missingKeys).toEqual(['batten.gapNegative']);
   });
 });

@@ -67,13 +67,13 @@ que antes *era* toda la pestaña).
 
 | Puerta | Resultado |
 |---|---|
-| `npm run test:unit` | **7316 pasan**, 12 saltados, 1 todo |
+| `npm run test:unit` | **7747 pasan**, 12 saltados, 1 todo |
 | `npm run test:build` | **14 pasan** |
 | `npm run typecheck` | **473**, sin errores nuevos; la base bajó de 479 (seis ocurrencias eliminadas, enumeradas en `170064c8`) |
 | E2E del workflow | **26 pasan** (aislado) |
 | E2E metálicos (todos los specs que tocan acero) | **107 pasan** (aislado) |
 | **E2E completa del repo** | **4 fallidos, 613 pasados**, 1,0 h — ver §2 bis |
-| i18n es/en/pt | **316 claves, en paridad** |
+| i18n es/en/pt | **784 claves, en paridad** |
 
 ### 2 bis · Los cuatro fallos de la suite completa
 
@@ -265,6 +265,165 @@ nodo no dice nada sobre si la unión entre ellas fue verificada.
 
 ---
 
+## 3 quinquies · Uniones diseñadas: qué se dibuja y cuándo no
+
+### Qué se dibuja
+
+Una unión con **geometría completa** —bulones elegidos y chapa con espesor— dibuja **la chapa y
+un bulón por agujero**, ni uno más. El vástago se dibuja al **diámetro del bulón**, no al del
+agujero: la Tabla J.3.3 da 22 mm de agujero para un bulón de 20, y un vástago que lo llenara
+sería 2 mm más gordo en cada uno.
+
+Es el **mismo objeto** que lista el panel. `jointSceneLayout` consume `JointDesign`, así que una
+chapa dibujada de 12 mm mientras el aplastamiento se verificó sobre 10 es imposible por
+construcción, no por cuidado.
+
+### Cuándo no se dibuja nada
+
+| Estado | Se dibuja | Por qué |
+|---|---|---|
+| `notDesigned` | nada | no hay elección todavía |
+| `incomplete` | nada | falta un dato que el usuario puede aportar |
+| `GEOMETRY_UNAVAILABLE` | nada | no hay geometría que dibujar |
+| **`exceeded`** | **sí** | tiene geometría, y esconderla escondería lo que hay que mirar |
+
+Esa última fila es la distinción que conviene mirar en QA. **Sólo la ausencia de geometría frena
+el dibujo, nunca el veredicto sobre ella.** Una unión que no cumple existe; ocultarla sería
+esconder el problema.
+
+### El estado previo, sin análisis
+
+La nave se carga **sin calcular**. En ese estado una unión puede tener bulones y chapa y aun así
+**no tener contra qué verificarse**: sin solicitación, §J.3.6 y §J.3.10 quedan `unavailable`, y
+eso es la respuesta correcta y no un hueco. Las verificaciones **geométricas** —§J.3.3 y §J.3.4—
+sí corren, porque no necesitan solicitación.
+
+Hay un E2E que fija exactamente ese estado, para que nadie lo lea como un defecto.
+
+### Procedencia normativa
+
+Cada número lleva su cláusula, y el panel la muestra:
+
+| Verificación | Cláusula |
+|---|---|
+| Corte del bulón | J.3.6 |
+| Tracción del bulón | J.3.6 |
+| Tracción y corte combinados | J.3.7 |
+| Aplastamiento de la chapa | J.3.10 |
+| Separación mínima | J.3.3 |
+| Distancia mínima al borde | J.3.4 (Tabla J.3.4) |
+| Agujero normal | J.3.2 (Tabla J.3.3) |
+
+La solicitación gobernante lleva **su procedencia**: qué combinación, qué miembro, qué extremo.
+
+### Soldaduras y presillas: los límites que quedan
+
+**Soldaduras.** §J.2.2 y §J.2.4 están implementados —garganta efectiva con el caso de arco
+sumergido, mínimo por la parte más gruesa, máximo por la más delgada, reducción de J.2.1 y la
+capacidad del electrodo—. Pero **una soldadura de filete completa y adecuada nunca llega a
+`designed`**: queda en `notVerifiable`, porque la Tabla J.2.5 hace que el metal base esté
+«Gobernado por la Sección J.4», que necesita las áreas del miembro en la unión. Decir `designed`
+con un estado límite gobernante sin evaluar sería la afirmación que este trabajo evita.
+
+Y **no se dibuja soldadura en 3D**: el modelo no tiene la geometría del cordón — dónde empieza,
+dónde termina, sobre qué caras.
+
+**Presillas.** §E.6 sí determina **posiciones**: tres tramos como mínimo, intermedias iguales y
+uniformemente espaciadas, en los extremos, enfrentadas entre planos, y la longitud no arriostrada
+del cordón igual a `a` con k = 1. Con la longitud del miembro eso son posiciones concretas, y el
+módulo las produce.
+
+Lo que **no** determina es la chapa de la presilla: §E.6 no da espesor, ancho ni altura en
+ninguna parte. Sólo nombra `Ip` dentro de `np·Ip/h ≥ 10·I1/a` (E.6.19), y remite el
+dimensionamiento al Capítulo F y al J. Así que la presilla tiene estación y no tiene chapa, y
+**no se dibuja**: posiciones correctas con un espesor inventado serían una ficción vestida de
+respuesta correcta.
+
+### La asimetría entre bulones, soldaduras y presillas
+
+Aceptada para este alcance, y conviene entenderla antes del QA porque **cambia qué espera ver un
+usuario en cada caso**.
+
+| | Cláusulas | Estados | Geometría | Se dibuja en 3D |
+|---|---|---|---|---|
+| **Bulones** | J.3.6, J.3.7, J.3.10, J.3.3, J.3.4 | los cinco | chapa, agujeros, vástagos | **sí** |
+| **Soldaduras** | J.2.1, J.2.2, J.2.4 | tope en `notVerifiable` | — | no |
+| **Presillas** | E.6.3.1, E.6.3.2, E.6.19 | posiciones calculadas | estaciones, sin chapa | no |
+
+Una unión **abulonada** funciona de punta a punta: seleccionar el nudo, elegir bulones y chapa,
+ver las verificaciones con su cláusula, y ver la chapa y los bulones aparecer en el visor.
+
+Una **soldadura** tiene sus cláusulas implementadas y probadas, y no se dibuja porque el modelo
+no registra dónde va el cordón — dónde empieza, dónde termina, sobre qué caras.
+
+Una **presilla** tiene estaciones reales calculadas de §E.6 y no tiene chapa, porque §E.6 no da
+espesor, ancho ni altura en ninguna parte.
+
+### La consecuencia del techo de la soldadura
+
+Vale decirla en voz alta: como la Tabla J.2.5 remite el metal base al Capítulo J.4, **cualquier
+unión que incluya una soldadura queda en `notVerifiable` aunque todo lo demás cumpla**. Es la
+respuesta honesta —un estado límite gobernante no se evaluó— pero significa que en la práctica
+`designed` sólo se alcanza en uniones puramente abulonadas.
+
+**QA no debería leer eso como un defecto.** Es la diferencia entre «esta unión pasó lo que la app
+sabe verificar» y «esta unión está verificada», y la app se niega a decir la segunda.
+
+### Extensión futura acotada: Capítulo J.4
+
+Lo que falta para que `designed` signifique lo mismo en una unión soldada que en una abulonada es
+**§J.4 — resistencia de diseño de los elementos unidos**, y está enteramente en el texto
+embarcado:
+
+| Cláusula | Qué cubre |
+|---|---|
+| J.4.1 | elementos sometidos a tracción |
+| J.4.2 | elementos sometidos a corte |
+| J.4.3 | rotura de bloque de corte |
+| J.4.4 | elementos sometidos a compresión |
+| J.4.5 | elementos sometidos a flexión |
+
+Necesita las áreas del miembro **en la unión** —bruta y neta— que hoy no se calculan ahí. Es un
+bloque acotado y bien definido, no una investigación. **No está implementado y no se intentó**:
+declararlo pendiente es más útil que media implementación que devuelva un número sin la rotura de
+bloque de corte, que es justamente la que suele gobernar.
+
+### Rendimiento, medido sobre la nave
+
+| Operación | Tiempo |
+|---|---|
+| Entrada al visor, con la nave cargada y calculada | **1176 ms** |
+| Cambio de nudo | **121 ms** |
+| Creación de la geometría de la unión | **62 ms** |
+| Actualización al cambiar la cantidad de bulones | **19 ms** |
+
+Registrados y no fijados con umbrales estrechos: un umbral duro en una máquina compartida mide
+la máquina. Los números quedan en el log del E2E para que una regresión se vea.
+
+### Dos defectos preexistentes que aparecieron acá
+
+**El panel de uniones mostraba ceros en todas las solicitaciones, en todos los modelos.**
+`getJointForces` leía `NI`, `VyI`, `MzJ`… y los campos reales de `ElementForces3D` son
+`nStart`/`nEnd`, `vyStart`/`vyEnd`, `mzStart`/`mzEnd`. Cada lectura devolvía `undefined` y caía
+en `?? 0`. El comentario del propio módulo afirmaba el formato equivocado, así que yo lo copié al
+escribir el módulo nuevo y el defecto se propagó.
+
+Sobrevivió porque **ningún test lo cubría y un esfuerzo en cero se lee como una barra
+descargada**, no como un campo que no existe. Hay ahora un test que pasa una carga con `nStart` y
+espera 42, y la misma con `NI` y espera `null`.
+
+**El grupo 3D de la unión no era reactivo.** Los demás grupos de la escena son `let` planos
+porque sólo se leen desde `onMount` y el loop de render; éste lo lee un `$effect` que tiene que
+volver a correr cuando el grupo existe. Un `let` plano asignado durante el montaje no notifica a
+nadie, así que el efecto corría una vez con `undefined` y no volvía. La sonda lo mostró:
+`state: "designed"`, chapa visible en el panel, **cero meshes y el contador nunca escrito** — que
+es distinto de un contador en cero.
+
+Los dos comparten forma: **algo que parece funcionar porque su síntoma es plausible.** Un cero se
+lee como una barra descargada; una escena sin chapa se lee como una unión sin diseñar.
+
+---
+
 ## 4. Lo que M2 **no** entregó, y por qué
 
 | Pendiente | Por qué |
@@ -417,3 +576,168 @@ simplemente nunca se llamaba.
 
 **Nada de lo anterior hace que un miembro metálico aparezca como verificado.**
 `steelCountsAsVerified()` sigue devolviendo el literal `false`.
+
+---
+
+## 8 · El cero como dato: la auditoría que salió de un solo campo
+
+### 8.1 El defecto
+
+El huelgo entre cordones de las presillas se leía así:
+
+```js
+setBattens({ gapMm: Number(e.currentTarget.value) || 10 })
+```
+
+En JavaScript `0` es falso, así que un **0 escrito a propósito se guardaba como 10**. Lo que se
+perdía no era un número en pantalla: era el **Grupo I de §E.6.1** — cordones en contacto continuo,
+unidos por bulones o soldadura, que **no llevan presillas**. Ese grupo quedaba inalcanzable desde
+el panel, y la sección seguía declarando presillas sobre una disposición donde el reglamento no
+coloca ninguna.
+
+Es el mismo defecto que ya apareció dos veces en esta rama con otro nombre: un `fy` ausente
+leído como material sin clasificar, y un campo `NI` inexistente leído como esfuerzo cero. **Un
+valor plausible ocupando el lugar de un dato ausente** es el defecto más difícil de ver, porque su
+síntoma se parece a un estado normal.
+
+### 8.2 Lo que se cambió
+
+`web/src/lib/utils/numeric-input.ts` — un solo parser, con tres respuestas que no se mezclan:
+
+| Respuesta | Cuándo | Qué hace quien llama |
+|---|---|---|
+| `value` | número válido, **incluido 0** | lo guarda |
+| `empty` | campo vacío | «no suministrado», o el default explícito |
+| `invalid` | negativo, texto, o un 0 donde 0 significa dato ausente | **lo dice**; nunca lo reinterpreta |
+
+Cada campo **declara qué significa cero para él** (`zero: 'valid' | 'invalid'`), porque no hay un
+default seguro: un huelgo de 0 es contacto continuo, y un cateto de soldadura de 0 no es una
+soldadura fina sino ninguna soldadura.
+
+Trece manejadores del panel de uniones y uno del modal de secciones pasaron a usarlo. **Ya no
+queda ninguna ocurrencia de `Number(...) || default` en `src/components/pro/`.**
+
+Dos consecuencias que aparecieron al hacerlo:
+
+1. **Los inputs son de una sola vía** (`value={...}` + `onchange`, sin `bind:`), así que cuando el
+   manejador rechaza lo tecleado, Svelte no tiene motivo para tocar el DOM y **la caja seguía
+   mostrando el texto rechazado** mientras el modelo guardaba otra cosa. Se agregó `reflect()`,
+   que vuelve a escribir el valor almacenado.
+2. **El Grupo I era una puerta de una sola dirección.** El formulario vivía dentro de la rama
+   «layout disponible», así que escribir 0 desmontaba el propio campo que se acababa de usar: un
+   estado correcto del que no se podía salir. El formulario se sacó fuera de esa bifurcación.
+
+### 8.3 Las cuatro regresiones pedidas
+
+En la capa de cláusula (`batten-geometry.test.ts`) y en el panel real
+(`m2-weld-battens.spec.ts`), porque el defecto vivía en el segundo y la geometría siempre estuvo
+bien:
+
+| Caso | Qué se exige |
+|---|---|
+| `gap = 0` | Grupo I, sin presillas, sin estaciones, y **sin** mensaje de error: 0 es una entrada válida |
+| `gap > 0` | Grupo V, cuatro estaciones (dos extremos + dos intermedias), `a = L/n`, `chordUnbracedLength = a` |
+| vacío / no numérico | default explícito de 10 mm, **escrito de vuelta en la caja**, sin queja |
+| negativo | rechazo visible, el huelgo anterior intacto, y la caja deja de mostrar el texto rechazado |
+
+Más dos que salieron de la auditoría: que 0 y 12 **no** produzcan el mismo panel, y que la queja
+se borre en cuanto el campo vuelve a parsear.
+
+`battenLayout` rechaza un huelgo negativo con `batten.gapNegative` **antes** de clasificarlo:
+`builtUpGroup` lee `gapMm <= 0` como Grupo I, lo cual es correcto para 0 y silenciosamente falso
+para −5.
+
+### 8.4 Lo que se auditó y se dejó como está
+
+- `ProLoadsTab` (`parseFloat(nlFx) || 0`, seis componentes): acá **el cero es el default genuino**
+  — un campo vacío significa «sin carga en esa dirección» — y el fallback coincide con él, así
+  que ningún valor se tergiversa. Además hay una guarda que rechaza la carga toda en cero.
+- `ProShellTab` (`parseFloat(...) || plate.thickness`): conserva el último valor bueno, que es lo
+  que hace `numericOrKeep`. Un 0 tecleado se ignora en silencio; un espesor de 0 m no es una
+  placa, así que la conducta es defendible, pero **queda anotado** como el único resto del patrón.
+
+---
+
+## 9 · El solve que se cuelga: qué se midió, y por qué no es de M2
+
+§2 bis ya registraba un fallo de `ded-roundtrip` con esta firma exacta: *«solve no terminó en
+480 s», «fell back to sequential: no»*. Aparece también en los E2E de uniones de M2, en **~4 % de
+los tests**, en un test distinto cada corrida.
+
+**Lo medido, no lo supuesto:**
+
+| Medición | Resultado |
+|---|---|
+| Solve de la nave (633 elementos), 6 corridas, GL por hardware | **83–129 ms** |
+| Ídem bajo swiftshader | **83–133 ms** — el GL por software no es la causa |
+| 16 contextos nuevos consecutivos, uno por iteración | **16/16 en ~130 ms**, sin cuelgues |
+| 30 contextos nuevos, leyendo la consola del propio solver | **30/30 en 59–60 ms, 3 workers** |
+| Dentro de las corridas completas de specs | **cuelgue duro de 480 s**, sin fallback |
+| Cap de 25 s puesto **dentro** de la página durante el cuelgue | **nunca dispara** |
+
+Ese último renglón es el dato que ordena todo: si un `setTimeout` de la propia página no corre, el
+solve no está lento — **el renderer dejó de ejecutar JavaScript**. Y como el `catch` que produce el
+fallback secuencial nunca se ejecuta, `initPool`/`solveParallel` quedan colgados sin resolver ni
+rechazar, así que el mecanismo de respaldo del propio código no llega a intervenir.
+
+**No se tocó**: el solver, Rust, Cargo ni WASM. La causa está por debajo de M2 y ya estaba
+documentada antes de esta tanda.
+
+**Sí se corrigió en la capa JS de los tests**, porque era un defecto real y propio:
+`awaitSolverReady()` se exportó desde `fixtures.ts` y los tres specs de uniones de M2 pasaron a
+usar `solveModel()`. Los tres pedían el solve **sin esperar a que el solver WASM estuviera vivo** —
+`bootPro` siempre lo esperó, pero esos specs manejan un `page` pelado y no lo heredaban. Eso
+bajó los fallos de 5 a 2 por corrida. Además `solveModel` ahora engancha su propio escucha de
+consola: el colector del fixture `pro` no existía para specs con `page` pelado, así que la única
+línea que explica un solve lento se descartaba en cada corrida.
+
+**Lo que NO se hizo**: subir timeouts, agregar reintentos ni marcar los tests como flaky. El
+fallo queda visible.
+
+---
+
+## 10 · Tamaño del PR, medido
+
+`git diff --numstat feat/pro-steel-m1`, 118 archivos:
+
+| Categoría | Líneas | Archivos |
+|---|---|---|
+| Tests unitarios | 6 412 | 39 |
+| Producción (`.ts`) | 5 673 | 37 |
+| Componentes (`.svelte`) | 3 822 | 16 |
+| E2E | 2 479 | 13 |
+| Documentación | 2 123 | 8 |
+| Locales es/en/pt | 1 402 | 3 |
+| Fixtures / datos | 45 | 2 |
+| **Total** | **21 956** | **118** |
+
+**21 956 y no ~18 300.** La estimación previa es anterior a las soldaduras, las presillas, la
+visualización 3D de uniones y esta auditoría del cero. Se informa lo medido.
+
+Las **11 197 líneas de ruido** del JSON de la nave ya no están: el fixture reformateado entero se
+rehízo como una edición mínima y hoy aporta **45 líneas** en dos archivos de datos. Era el 38 % del
+PR y era ruido.
+
+**Los tests son el 40 %** (6 412 + 2 479 de 21 956). Con la documentación, **el 50 % del PR no es
+código de producción.**
+
+### 10.1 Cortes naturales que sí existían
+
+- **El módulo de uniones** (`src/lib/connection/`, 6 archivos + tests) es autocontenido y no
+  depende del panel. Podría haber sido un PR propio.
+- **La visualización 3D de uniones** (`joint-layout.ts` + el bloque de `Viewport3D`) depende del
+  módulo de arriba pero de nada más.
+- **Esta auditoría del cero** (`numeric-input.ts` + los 14 manejadores) es independiente de todo
+  lo demás.
+
+### 10.2 Cortes que habrían roto workflows
+
+- **Selector PRO de secciones y generadores**: los generadores reutilizan el mismo modal. Partirlos
+  deja una rama donde el generador ofrece un catálogo y la pestaña de secciones otro.
+- **Las cinco etapas del workflow metálico**: una etapa sin las que la habilitan es una etapa que
+  no se puede abrir; el PR intermedio no sería probable de punta a punta.
+- **Soldaduras y presillas**: viven en el mismo panel y en el mismo `JointDesign`. El estado
+  `notVerifiable` sólo es alcanzable con las dos.
+
+**No se propone partir M2 retroactivamente.** El tamaño es consecuencia del alcance pedido, y los
+cortes que habrían servido son los tres de §10.1, que suman ~4 000 líneas de las 21 956.

@@ -288,8 +288,35 @@ export async function designAll(page: Page): Promise<Record<string, number>> {
  */
 const SOLVE_DEADLINE_MS = 480_000;
 
+/**
+ * Wait until the REAL WASM solver is live.
+ *
+ * ── Why this is exported ────────────────────────────────────────────
+ *
+ * `bootPro` has always done this, and specs that use the `pro` fixture inherit it. Specs that
+ * drive a plain `page` do not, and three of them called `solve()` the moment the model finished
+ * loading — before the solver had finished coming up. The result was a `page.evaluate` that
+ * never returned and a test that failed sixty seconds later pointing at the `evaluate` line,
+ * with no cause attached.
+ *
+ * It presented as a slow solve, which is what made it expensive to find: the shed's 633-element
+ * solve was measured at 83–129 ms, six runs, both with hardware GL and under swiftshader. So the
+ * solve was never slow and the deadline was never the problem — the call was simply made too
+ * early, and lost a race it lost only sometimes.
+ */
+export async function awaitSolverReady(page: Page): Promise<void> {
+  await expect
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), {
+      timeout: 60_000,
+      message: 'the WASM solver must be live before a solve is requested',
+    })
+    .toBe(true);
+}
+
 /** Run the same global solve the toolbar button triggers, and wait for it. */
 export async function solveModel(page: Page): Promise<void> {
+  // The solver has to be up before it is asked to solve. See `awaitSolverReady`.
+  await awaitSolverReady(page);
   const before = await page.evaluate(() => window.__stabileo.solveCount());
   const started = Date.now();
   /**
@@ -306,6 +333,21 @@ export async function solveModel(page: Page): Promise<void> {
    * catch attached: the solve will finish or the page will be torn down under it, and neither
    * may surface later as an unhandled rejection.
    */
+  /*
+   * The fallback line, captured for the duration of THIS call.
+   *
+   * The module-level collector is filled by the `pro` fixture's console listener, so a spec that
+   * drives a plain `page` — as the three M2 joint specs do — had no listener at all and the one
+   * message that explains a slow solve was discarded on every run. Attaching here means the
+   * diagnostic below is available to every caller rather than to half of them.
+   */
+  const localFallbacks: string[] = [];
+  const onConsole = (m: { text(): string }): void => {
+    const text = m.text();
+    if (/Parallel solve failed/i.test(text)) localFallbacks.push(text);
+  };
+  page.on('console', onConsole);
+
   const solved = page.evaluate(async () => { await window.__stabileoActions.solve(); })
     .then(() => 'done' as const);
   solved.catch(() => { /* reported below, or irrelevant once the page is gone */ });
@@ -317,18 +359,21 @@ export async function solveModel(page: Page): Promise<void> {
   clearTimeout(timer);
 
   if (outcome === 'timeout') {
+    page.off('console', onConsole);
     const elapsed = Math.round((Date.now() - started) / 1000);
-    const fellBack = solveFallbacks.length > 0;
+    const fellBack = solveFallbacks.length > 0 || localFallbacks.length > 0;
     throw new Error(
       `the solve did not finish in ${elapsed} s (deadline ${SOLVE_DEADLINE_MS / 1000} s).\n`
       + `Parallel solve fell back to sequential: ${fellBack ? 'YES' : 'no'}`
-      + (fellBack ? `\n  ${solveFallbacks.join('\n  ')}` : '')
+      + (fellBack ? `\n  ${[...solveFallbacks, ...localFallbacks].join('\n  ')}` : '')
       + '\nA fallback means the worker pool could not be brought up and every load case was '
       + 'solved one after another on the main thread, which on the 7-storey building is the '
       + 'difference between half a minute and many. Without a fallback this is a genuine '
       + 'slowdown in the solve and should be treated as a regression.',
     );
   }
+
+  page.off('console', onConsole);
 
   await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 90_000 })
     .toBeGreaterThan(before);

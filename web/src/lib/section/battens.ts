@@ -155,6 +155,13 @@ export function builtUpGroup(arrangement: BuiltUpArrangement, gapMm: number): Bu
    * `ki = 0,50` note in §E.6.2.1 both use. That is Group I, and its rule is a maximum spacing
    * rather than a minimum count.
    */
+  /*
+   * `<= 0` and not `=== 0`, but the negative half of that is a fallback and not a meaning: a
+   * negative gap describes no arrangement, and the entry points refuse it before it arrives
+   * (`battenLayout` returns `batten.gapNegative`, and the panel's own inputs never store one).
+   * Left permissive here so that a stray negative degrades to the conservative group rather
+   * than to Group V, which would place battens on it.
+   */
   if (gapMm <= 0) return 'I';
   return 'V';
 }
