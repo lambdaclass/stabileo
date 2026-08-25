@@ -145,6 +145,17 @@ centrado con trampa de foco y restauración, composición + huelgo + rotación, 
 la procedencia de cada número. La composición ahora es alcanzable **fuera** de un generador, que es
 lo que no se podía antes. Sin sección amorfa, y hay un test que falla si aparece.
 
+**Selector PRO de materiales** — el mismo diálogo, sobre el catálogo de Basic sin duplicarlo.
+Seis categorías (no sólo metales), filtro por procedencia que Basic no puede expresar, búsqueda,
+teclado completo, y ficha con **tres normas separadas**: la de producto, los reglamentos de diseño y
+la que publica las bandas de espesor.
+
+Y el defecto que cerró, medido: `ProMaterialsTab.addPreset` escribía cinco campos y descartaba
+`gradeId`, `standard`, `region` y `fu`. Como `materialFamilyOf` prefiere el grado declarado y si no
+cae en `fy > 80`, **el aluminio 5052-H32 (fy = 195) entraba clasificado como acero** y aparecía en
+el inventario metálico. Con su `gradeId` vuelve `aluminium` / `declaredGrade`. 27 de los 28 presets
+de acero traían un id que se estaba tirando en el momento de la selección.
+
 **Presillas, según §E.6 y sólo hasta donde el reglamento llega.** La auditoría del texto embarcado
 encontró bastante más de lo esperado: §E.6.1 clasifica las barras armadas en cinco grupos, y el
 Grupo V es «cordones unidos por presillas a intervalos regulares». De ahí salen reglas que **sí** se
@@ -210,10 +221,58 @@ existe adaptador. Así que `regulationsStore.usable('steel')` **es falso por con
 el reglamento no habilita ninguna etapa. La madurez se queda; lo que cambia es que avanzar dependa
 de `steelCodeDeclared` y sólo certificar dependa de `usable`. **Pendiente de implementar.**
 
-**Los nudos no están rotos donde parece.** Reproduje la nave por defecto dos veces, por las
-funciones puras y por los stores reales: **300 nudos, 625 miembros metálicos, nada filtrado**.
-`detectJoints` y el predicado `isMetallic` son correctos. La causa está por encima de esa capa, así
-que hace falta reproducirlo en el navegador antes de tocar nada. **Sin diagnosticar todavía.**
+**Los nudos: diagnosticado.** Ver §4 ter. La sospecha inicial — que el problema estaba por encima
+de `detectJoints` — era correcta, pero el lugar no era la UI sino el **fixture**.
+
+---
+
+## 4 ter · Los nudos de la nave: causa raíz, medida
+
+El síntoma era «la app no detecta nudos». Dos rondas de tests puros y de store decían que la
+tubería estaba bien — y tenían razón sobre el modelo que usaban, una nave **generada**: 300 nudos,
+625 miembros metálicos, nada filtrado. El **ejemplo embarcado** es otro modelo y estaba en un
+estado que ninguno generado alcanza.
+
+`3d-nave-industrial.json` traía **dos materiales llamados «Acero A36»**: el id 1 con `fy: 250`, y el
+id 2 **sin `fy`**. Los **633 elementos apuntan al 2**; el 1 quedó huérfano.
+
+| Capa | Antes | Ahora |
+|---|---|---|
+| `detectJoints` sin filtro | 226 nudos | 226 nudos |
+| `materialFamilyOf` | `unknown` / `noData` | `steel` / `declaredGrade` |
+| Inventario metálico | **0 de 633** | 633 de 633 |
+| `detectJoints` filtrado | **0** | 226 |
+
+El arreglo va en el dato, no en el filtro: relajar el predicado para admitir un material sin
+resistencia haría metálicos los nudos de cualquier modelo de hormigón, que es el defecto que ese
+predicado cierra. El material ahora declara `fy`, `fu` y **`gradeId: 'astm-a36'`**, así que la
+clasificación descansa en una declaración y no en `fy > 80`.
+
+**Y el panel ya no miente sobre la ausencia.** Tres estados separados: `noModel` («no hay nudos»),
+`noneMetallic` («el modelo tiene N nudos y ninguno se puede mostrar», con cuántos miembros quedaron
+sin clasificar y qué hacer) y `hasJoints`. Un modelo de hormigón cae en el segundo, que es lo
+correcto: tiene nudos, ninguno es metálico.
+
+---
+
+## 4 quater · Capítulo J, auditado
+
+Resultó mucho más legible que B.4.1: **las Tablas J.3.3 y J.3.4 son texto transcribible**, no
+imágenes. Así que la geometría de bulones se calcula, con la cláusula en cada número:
+
+| Regla | Cláusula |
+|---|---|
+| `s ≥ 3·d` entre centros de agujeros | J.3.3 |
+| Distancia mínima al borde, por diámetro y tipo de borde | Tabla J.3.4 |
+| `1,75·d` / `1,25·d` por encima de 30 mm | Tabla J.3.4, su propia regla |
+| `12·t`, sin exceder 150 mm | J.3.5 |
+| `24·t ≤ 300 mm` pintado · `14·t ≤ 180 mm` intemperie | J.3.5 |
+| Agujero normal por diámetro, `d+3` sobre 28 mm | Tabla J.3.3 |
+
+Dos cosas que conviene que QA sepa. **El agujero de J.3.2 no es la deducción de §B.4.2**: un bulón
+de 20 mm tiene agujero de 22 mm y descuenta 24. Y un diámetro **entre** dos filas de la tabla
+devuelve `—`, no un valor interpolado: interpolar una tabla de reglamento es inventar un límite que
+no fija. Sólo *por encima* de la tabla hay una regla, y ésa sí se aplica.
 
 ---
 
