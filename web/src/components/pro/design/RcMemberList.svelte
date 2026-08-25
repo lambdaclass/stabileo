@@ -98,6 +98,47 @@
   const selectedIds = $derived(new Set(rebarWorkspace.selection?.elementIds ?? []));
 
   /**
+   * The other direction — objective 4, viewer → list.
+   *
+   * There is nothing to synchronise. `aria-selected` and the highlight already come from the
+   * channel, so a selection made in the 3-D workspace, in its status panel or by a conflict
+   * marker marks the row the moment it lands. What was missing is only that the row may be
+   * somewhere the reader cannot see, in a list of a few hundred members.
+   *
+   * So this scrolls, and that is all it does. `block: 'nearest'` is a no-op when the row is
+   * already visible, which keeps a selection made IN the list from yanking its own container.
+   *
+   * ── Why it does not take DOM focus ─────────────────────────────────
+   *
+   * §8 item 4 words this as "focuses the row", and taking real focus here is the wrong reading of
+   * it. A selection in the viewer comes from a click on the WebGL canvas or on the status panel
+   * inside the overlay; pulling focus out of there on every pick would break the viewer's own
+   * keyboard handling and move the caret out from under someone mid-inspection. Focus-stealing on
+   * a remote state change is the antipattern, not the feature.
+   *
+   * What the row gets instead is the list's TAB STOP, below. Reading lands on the selected member
+   * the moment the keyboard reaches the list, without anything being taken away while it has not.
+   */
+  $effect(() => {
+    const first = rebarWorkspace.selection?.elementIds?.[0];
+    if (first === undefined) return;
+    document.querySelector<HTMLElement>(`[data-testid="rc-member-${first}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+
+  /**
+   * Which row in a family is the tab stop.
+   *
+   * A listbox has ONE, not one per row: tabbing through a hundred members to reach the content
+   * after them is the defect roving tabindex exists to prevent. The selected member wins it so
+   * the keyboard arrives where the viewer left off; with nothing selected it falls to the first
+   * row, because a family whose every row is `-1` cannot be reached by Tab at all.
+   */
+  function tabStopOf(rows: readonly { elementId: number }[]): number | undefined {
+    return rows.find((r) => selectedIds.has(r.elementId))?.elementId ?? rows[0]?.elementId;
+  }
+
+  /**
    * Select a member — objective 3, and the whole of it.
    *
    * `selectAndFocus` was written for this caller and says so: "Select a member from the list AND
@@ -192,6 +233,7 @@
               </p>
 
               {#if f.census.state === 'present'}
+                {@const tabStop = tabStopOf(f.rows)}
                 <ul role="listbox" aria-label={t(f.labelKey)}
                     data-testid={`rc-family-rows-${f.family}`}>
                   {#each f.rows as row, i (row.elementId)}
@@ -210,6 +252,7 @@
                         data-testid={`rc-member-${row.elementId}`}
                         data-family={row.family}
                         data-detailed={row.detailed}
+                        tabindex={row.elementId === tabStop ? 0 : -1}
                         onclick={() => selectMember(row.elementId)}
                         onkeydown={(e) => onRowKeydown(e, f.rows, i)}
                       >

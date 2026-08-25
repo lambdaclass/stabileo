@@ -214,7 +214,19 @@ test.describe('@smoke the list is one component with one selection channel', () 
   });
 });
 
-test.describe('a building with more than a frame', () => {
+/**
+ * `@slow`, and the tag is a measurement rather than a guess.
+ *
+ * This is the only test in the file that loads the seven-storey building, and solving it is the
+ * expensive part. Alone it passes in 4.2 s; inside a five-file batch its `solveModel` timed out,
+ * which is the load sensitivity `fixtures.ts` documents — the same one that pushed `rc-design`'s
+ * B15 past its budget when eleven detection cases sat in `@smoke` beside it.
+ *
+ * So it moves out of the blocking suite rather than getting a wider timeout. Widening the budget
+ * would hide the contention; this keeps the assertion and stops it competing for the CPU with
+ * fourteen cheap tests that need none.
+ */
+test.describe('@slow a building with more than a frame', () => {
   test('renders the groups its families belong to', async ({ pro: page }) => {
     await classify(page, BUILDING);
     await openDetailing(page);
