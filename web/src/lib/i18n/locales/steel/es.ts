@@ -137,6 +137,7 @@ const steelEs: Record<string, string> = {
 
   // ─── Generadores: hipótesis ───
   'generator.assume.chordsContinuous': 'Cordones continuos a través de los nudos.',
+  'generator.assume.subdividedDiagonals': 'Diagonales subdivididas: los tramos partidos se modelan continuos, no rotulados.',
   'generator.assume.chordsPinned': 'Cordones biarticulados en cada panel.',
   'generator.assume.webPinned': 'Montantes y diagonales biarticulados.',
   'generator.assume.webContinuous': 'Montantes y diagonales continuos.',
@@ -221,8 +222,11 @@ const steelEs: Record<string, string> = {
   'generator.archCurve.semiArch': 'Semi-arco',
   'generator.archCurve.parallelChord': 'Cordón paralelo',
   'generator.archCurve.concave': 'Cóncavo',
-  'generator.webPattern.pratt': 'Pratt (suben al centro)',
-  'generator.webPattern.howe': 'Howe (bajan al centro)',
+  'generator.webPattern.pratt': 'Pratt (diagonales que bajan al centro, traccionadas)',
+  'generator.webPattern.howe': 'Howe (diagonales que suben al centro, comprimidas)',
+  'generator.webPattern.warren': 'Warren (diagonales alternadas, sin montantes)',
+  'generator.ui.subdivideDiagonals': 'Subdividir diagonales (luces largas)',
+  'generator.ui.subdivideDiagonalsHelp': 'Agrega un montante y una diagonal por panel, partiendo la diagonal principal y el cordón inferior. Reduce la longitud de pandeo de la diagonal y la longitud no arriostrada del cordón.',
   'generator.lacing.zigzag': 'Zigzag',
   'generator.lacing.parallel': 'Paralela',
   'generator.arrangement.single': 'Simple',

@@ -141,6 +141,7 @@ const steelPt: Record<string, string> = {
 
   // ─── Geradores: hipóteses ───
   'generator.assume.chordsContinuous': 'Banzos contínuos através dos nós.',
+  'generator.assume.subdividedDiagonals': 'Diagonais subdivididas: os trechos divididos são modelados contínuos, não rotulados.',
   'generator.assume.chordsPinned': 'Banzos birrotulados em cada painel.',
   'generator.assume.webPinned': 'Montantes e diagonais birrotulados.',
   'generator.assume.webContinuous': 'Montantes e diagonais contínuos.',
@@ -225,8 +226,11 @@ const steelPt: Record<string, string> = {
   'generator.archCurve.semiArch': 'Semiarco',
   'generator.archCurve.parallelChord': 'Banzos paralelos',
   'generator.archCurve.concave': 'Côncavo',
-  'generator.webPattern.pratt': 'Pratt (sobem para o centro)',
-  'generator.webPattern.howe': 'Howe (descem para o centro)',
+  'generator.webPattern.pratt': 'Pratt (diagonais que descem para o centro, tracionadas)',
+  'generator.webPattern.howe': 'Howe (diagonais que sobem para o centro, comprimidas)',
+  'generator.webPattern.warren': 'Warren (diagonais alternadas, sem montantes)',
+  'generator.ui.subdivideDiagonals': 'Subdividir diagonais (vãos longos)',
+  'generator.ui.subdivideDiagonalsHelp': 'Adiciona um montante e uma diagonal por painel, dividindo a diagonal principal e o banzo inferior. Reduz o comprimento de flambagem da diagonal e o comprimento não travado do banzo.',
   'generator.lacing.zigzag': 'Ziguezague',
   'generator.lacing.parallel': 'Paralelo',
   'generator.arrangement.single': 'Simples',

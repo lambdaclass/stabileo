@@ -159,15 +159,33 @@ describe('a roof with no purlins, and what is actually missing', () => {
     expect(maxDisplacement(res)).toBeLessThan(0.05);
   });
 
-  it('and it is not rotational, which is what rules out a joint-continuity explanation', () => {
-    // The negative half. Restraining every rotation at the same nodes leaves it singular, so
-    // the trusses are not folding about a hinge line — they are moving sideways bodily.
-    const rotations: Array<Record<string, boolean>> = [
-      { rx: true }, { ry: true }, { rz: true }, { rx: true, ry: true, rz: true },
-    ];
-    for (const dof of rotations) {
+  /*
+   * The negative half, re-derived after the Pratt/Howe correction changed the roof web.
+   *
+   * It used to assert that NO rotational restraint helps. That was measured against a web
+   * whose diagonals leaned the wrong way, and with the corrected one it is no longer true:
+   * restraining `ry` at the 33 roof nodes does remove the singularity, and does it properly —
+   * 3,29 mm peak, against 3,96 mm for the `ty` case, so it is a real solution and not a
+   * numerical accident.
+   *
+   * Two rotations still do nothing, and those are the ones the claim rests on. `ry` is
+   * rotation about the LONGITUDINAL axis, i.e. rotation in the frame's own plane, and
+   * clamping it at every roof node is not something any component of a shed does — a purlin
+   * ties nodes sideways. So the diagnosis is unchanged and the test now says which restraint
+   * is which instead of over-claiming about all three.
+   */
+  it('is not fixed by restraining rotation about either in-plane axis', () => {
+    for (const dof of [{ rx: true }, { rz: true }] as Array<Record<string, boolean>>) {
       expect(typeof solveRestrained(aboveHeads, dof), JSON.stringify(dof)).toBe('string');
     }
+  });
+
+  it('is fixed by clamping in-plane rotation, which no real component supplies', () => {
+    // Recorded rather than hidden: it is a genuine restraint of the mode, and leaving it out
+    // of the suite would let the next reader repeat the assumption this replaced.
+    const res = solveRestrained(aboveHeads, { ry: true });
+    expect(typeof res, typeof res === 'string' ? String(res) : '').not.toBe('string');
+    expect(maxDisplacement(res)).toBeLessThan(0.05);
   });
 
   it('the eave beams cannot supply it, which is why turning them on does not help', () => {

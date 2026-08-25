@@ -24,7 +24,7 @@
   import { modelStore } from '../../../lib/store/model.svelte';
   import { applyGeneratedModel, matchesPreview } from '../../../lib/store/generator-apply';
   import {
-    DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS,
+    DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS, subdivisionApplies,
     generateTruss, validateTrussParams, type Topology, type TrussParams,
   } from '../../../lib/engine/generators/truss-topology';
   import {
@@ -321,6 +321,18 @@
           <select bind:value={truss.webPattern}>
             {#each WEB_PATTERNS as w (w)}<option value={w}>{t(`generator.webPattern.${w}`)}</option>{/each}
           </select></label>
+        <!--
+          Shown only where it does something. `subdivisionApplies` refuses a single panel per
+          half, where the new panel point would land on the existing midspan one, so the
+          control cannot be ticked into a no-op.
+        -->
+        {#if subdivisionApplies(truss)}
+          <label class="check">
+            <input type="checkbox" bind:checked={truss.subdivideDiagonals} data-testid="gen-subdivide" />
+            <span>{t('generator.ui.subdivideDiagonals')}</span>
+          </label>
+          <p class="gen-hint" data-testid="gen-subdivide-hint">{t('generator.ui.subdivideDiagonalsHelp')}</p>
+        {/if}
       {/if}
       <label class="check"><input type="checkbox" bind:checked={truss.halfTruss} /><span>{t('generator.ui.halfTruss')}</span></label>
 

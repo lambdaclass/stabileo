@@ -129,6 +129,7 @@ const steelEn: Record<string, string> = {
 
   // ─── Generators: assumptions ───
   'generator.assume.chordsContinuous': 'Chords continuous through the panel points.',
+  'generator.assume.subdividedDiagonals': 'Diagonals subdivided: the split segments are modelled continuous, not pinned.',
   'generator.assume.chordsPinned': 'Chords pin-ended at every panel.',
   'generator.assume.webPinned': 'Posts and diagonals pin-ended.',
   'generator.assume.webContinuous': 'Posts and diagonals continuous.',
@@ -213,8 +214,11 @@ const steelEn: Record<string, string> = {
   'generator.archCurve.semiArch': 'Semi-arch',
   'generator.archCurve.parallelChord': 'Parallel chord',
   'generator.archCurve.concave': 'Concave',
-  'generator.webPattern.pratt': 'Pratt (rise to midspan)',
-  'generator.webPattern.howe': 'Howe (fall to midspan)',
+  'generator.webPattern.pratt': 'Pratt (diagonals descend to midspan, in tension)',
+  'generator.webPattern.howe': 'Howe (diagonals rise to midspan, in compression)',
+  'generator.webPattern.warren': 'Warren (alternating diagonals, no posts)',
+  'generator.ui.subdivideDiagonals': 'Subdivide diagonals (long spans)',
+  'generator.ui.subdivideDiagonalsHelp': 'Adds a post and a diagonal per panel, splitting the main diagonal and the bottom chord. Halves the diagonal buckling length and the chord unbraced length.',
   'generator.lacing.zigzag': 'Zig-zag',
   'generator.lacing.parallel': 'Parallel',
   'generator.arrangement.single': 'Single',
