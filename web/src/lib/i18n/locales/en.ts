@@ -5956,6 +5956,13 @@ const en: Record<string, string> = {
   'design.stage.srDone': 'completed',
   'design.stage.srCurrent': 'current step',
   'design.stage.srBlocked': 'not reachable yet',
+  'design.stage.srComplete': "complete",
+  'design.stage.srPending': "pending",
+  'design.stage.srOptional': "optional",
+  'design.stage.readiness.empty': "No model yet: load or draw one.",
+  'design.stage.readiness.unsolved': "The model is loaded but not solved. Demands come from the solve.",
+  'design.stage.readiness.stale': "The results do not match the combinations defined: solve again.",
+  'design.stage.readiness.ready': "The model is solved and up to date.",
 
   'design.group.verify': 'Verify',
   'design.group.design': 'Design',

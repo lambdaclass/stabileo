@@ -5948,6 +5948,13 @@ const es: Record<string, string> = {
   'design.stage.srDone': 'completada',
   'design.stage.srCurrent': 'paso actual',
   'design.stage.srBlocked': 'todavía no alcanzable',
+  'design.stage.srComplete': "hecha",
+  'design.stage.srPending': "pendiente",
+  'design.stage.srOptional': "opcional",
+  'design.stage.readiness.empty': "Todavía no hay modelo: cargá o dibujá uno.",
+  'design.stage.readiness.unsolved': "El modelo está cargado pero sin calcular. Las solicitaciones salen del cálculo.",
+  'design.stage.readiness.stale': "Los resultados no corresponden a las combinaciones definidas: volvé a calcular.",
+  'design.stage.readiness.ready': "El modelo está calculado y al día.",
 
   'design.group.verify': 'Verificar',
   'design.group.design': 'Diseñar',

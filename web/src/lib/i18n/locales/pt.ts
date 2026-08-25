@@ -4883,6 +4883,13 @@ const pt: Translations = {
   'design.stage.srDone': 'concluída',
   'design.stage.srCurrent': 'etapa atual',
   'design.stage.srBlocked': 'ainda não alcançável',
+  'design.stage.srComplete': "concluída",
+  'design.stage.srPending': "pendente",
+  'design.stage.srOptional': "opcional",
+  'design.stage.readiness.empty': "Ainda não há modelo: carregue ou desenhe um.",
+  'design.stage.readiness.unsolved': "O modelo está carregado mas não calculado. As solicitações vêm do cálculo.",
+  'design.stage.readiness.stale': "Os resultados não correspondem às combinações definidas: calcule novamente.",
+  'design.stage.readiness.ready': "O modelo está calculado e atualizado.",
 
   'design.group.verify': 'Verificar',
   'design.group.design': 'Dimensionar',

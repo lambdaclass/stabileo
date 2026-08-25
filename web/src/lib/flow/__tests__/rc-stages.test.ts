@@ -15,7 +15,8 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  RC_STAGES, RC_STAGE_DISCLOSURES, currentRcStage, rcModelReadiness, rcStageDisclosure, rcStages,
+  RC_STAGES, RC_STAGE_DISCLOSURES, currentRcStage, rcModelReadiness, rcStageDisclosure,
+  rcStageTodoKey, rcStages,
   type RcFlowReadings,
 } from '../rc-stages';
 import es from '../../i18n/locales/es';
@@ -78,13 +79,53 @@ describe('the stages resolve against a project', () => {
     const s = rcStages(NOTHING);
     expect(currentRcStage(s)?.id).toBe('model');
     expect(s.filter((x) => x.state === 'current')).toHaveLength(1);
-    expect(s.slice(1).every((x) => x.state === 'blocked')).toBe(true);
+    expect(s.slice(1).every((x) => x.state !== 'current'), 'only one current').toBe(true);
   });
 
   it('a complete project has no current stage', () => {
     const s = rcStages(COMPLETE);
-    expect(s.every((x) => x.done)).toBe(true);
+    expect(s.every((x) => x.complete)).toBe(true);
     expect(currentRcStage(s)).toBeNull();
+  });
+
+  /*
+   * The five states, each reached by a real project rather than constructed. `pending` and
+   * `blocked` are told apart by whether there is a model at all — in a strictly sequential
+   * pipeline they would otherwise be the same situation with two names.
+   */
+  it('reaches all five states', () => {
+    const empty = rcStages(NOTHING);
+    expect(empty.find((x) => x.id === 'model')!.state).toBe('current');
+    expect(empty.find((x) => x.id === 'design')!.state, 'no model: unreachable')
+      .toBe('blocked');
+    expect(empty.find((x) => x.id === 'documents')!.state, 'never "not yet"')
+      .toBe('optional');
+
+    const underway = rcStages(r({ hasModel: true }));
+    expect(underway.find((x) => x.id === 'design')!.state, 'a model exists: merely not yet')
+      .toBe('pending');
+
+    expect(rcStages(COMPLETE).find((x) => x.id === 'documents')!.state).toBe('complete');
+  });
+
+  /*
+   * An optional stage never takes the "you are here" marker: it would park it on a step nobody
+   * has to take. With everything required finished, the marker belongs nowhere.
+   */
+  it('the optional stage is never current', () => {
+    const allButDocs = r({
+      hasModel: true, solved: true, codeChosen: true, hasDemands: true,
+      designed: true, verified: true, detailed: true,
+    });
+    const s = rcStages(allButDocs);
+    expect(currentRcStage(s)).toBeNull();
+    expect(s.find((x) => x.id === 'documents')!.state).toBe('optional');
+  });
+
+  /* `complete` is a statement about what the user did, never a verdict on the calculation. */
+  it('does not use the word "done" anywhere in its states', () => {
+    const states = new Set(rcStages(COMPLETE).map((x) => x.state));
+    expect([...states]).not.toContain('done');
   });
 
   /*
@@ -96,17 +137,21 @@ describe('the stages resolve against a project', () => {
     expect(currentRcStage(rcStages(r({ hasModel: true })))?.id).toBe('model');
   });
 
+  /*
+   * The last step lands on null rather than on `documents`: an optional stage never takes the
+   * marker. Exporting is not the step that finishes the work.
+   */
   it('the stages advance one at a time as their outputs appear', () => {
-    const steps: Array<[Partial<RcFlowReadings>, string]> = [
+    const steps: Array<[Partial<RcFlowReadings>, string | null]> = [
       [{ hasModel: true, solved: true }, 'codes'],
       [{ hasModel: true, solved: true, codeChosen: true, hasDemands: true }, 'design'],
       [{ hasModel: true, solved: true, codeChosen: true, hasDemands: true,
          designed: true, verified: true }, 'detailing'],
       [{ hasModel: true, solved: true, codeChosen: true, hasDemands: true,
-         designed: true, verified: true, detailed: true }, 'documents'],
+         designed: true, verified: true, detailed: true }, null],
     ];
     for (const [over, expected] of steps) {
-      expect(currentRcStage(rcStages(r(over)))?.id, JSON.stringify(over)).toBe(expected);
+      expect(currentRcStage(rcStages(r(over)))?.id ?? null, JSON.stringify(over)).toBe(expected);
     }
   });
 });
@@ -123,13 +168,13 @@ describe('a design is not finished until it has been checked', () => {
   it('designed but unchecked leaves DISEÑAR current, not done', () => {
     const s = rcStages(designedNotChecked);
     const design = s.find((x) => x.id === 'design')!;
-    expect(design.done).toBe(false);
+    expect(design.complete).toBe(false);
     expect(design.state).toBe('current');
   });
 
   it('and checking it is what finishes the stage', () => {
     const s = rcStages({ ...designedNotChecked, verified: true });
-    expect(s.find((x) => x.id === 'design')!.done).toBe(true);
+    expect(s.find((x) => x.id === 'design')!.complete).toBe(true);
   });
 
   /*
@@ -141,7 +186,7 @@ describe('a design is not finished until it has been checked', () => {
     const s = rcStages(r({
       hasModel: true, solved: true, codeChosen: true, hasDemands: true, verified: true,
     }));
-    expect(s.find((x) => x.id === 'design')!.done).toBe(false);
+    expect(s.find((x) => x.id === 'design')!.complete).toBe(false);
   });
 });
 
@@ -162,7 +207,7 @@ describe('model readiness says which of the four situations it is', () => {
    */
   it('a stale solve does not finish MODELADO', () => {
     const s = rcStages(r({ hasModel: true, solved: true, analysisStale: true }));
-    expect(s.find((x) => x.id === 'model')!.done).toBe(false);
+    expect(s.find((x) => x.id === 'model')!.complete).toBe(false);
     expect(currentRcStage(s)?.id).toBe('model');
   });
 });
@@ -184,5 +229,39 @@ describe('the keys it names exist', () => {
   it('the code stage says what it does NOT do', () => {
     expect(es['design.stage.needCode']).toMatch(/no (las )?calcula/i);
     expect(en['design.stage.needCode']).toMatch(/neither|does not compute/i);
+  });
+});
+
+describe('MODELADO says what it is actually waiting for', () => {
+  /*
+   * The regression this caught in review: a single static key per stage made the strip say
+   * "load or draw a model" while a model was loaded. The remedy differs for each readiness, and
+   * the sentence has to differ with it.
+   */
+  it.each([
+    ['empty', 'design.stage.needModel'],
+    ['unsolved', 'design.stage.needSolve'],
+    ['stale', 'design.stage.readiness.stale'],
+  ] as const)('with a %s model it asks for %s', (readiness, key) => {
+    const model = rcStages(NOTHING).find((s) => s.id === 'model')!;
+    expect(rcStageTodoKey(model, readiness)).toBe(key);
+  });
+
+  /** The other four have one prerequisite each, so their sentence does not move. */
+  it('the other stages keep their own sentence whatever the model is doing', () => {
+    for (const s of rcStages(NOTHING).filter((x) => x.id !== 'model')) {
+      for (const readiness of ['empty', 'unsolved', 'stale', 'ready'] as const) {
+        expect(rcStageTodoKey(s, readiness)).toBe(s.todoKey);
+      }
+    }
+  });
+
+  it('every sentence it can name exists in es and en', () => {
+    const model = rcStages(NOTHING).find((s) => s.id === 'model')!;
+    for (const readiness of ['empty', 'unsolved', 'stale', 'ready'] as const) {
+      const k = rcStageTodoKey(model, readiness);
+      expect(es[k as keyof typeof es], k).toBeTruthy();
+      expect(en[k as keyof typeof en], k).toBeTruthy();
+    }
   });
 });

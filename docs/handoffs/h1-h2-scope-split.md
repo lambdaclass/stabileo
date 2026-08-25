@@ -74,19 +74,22 @@ Verificado en `engine/types-3d.ts` y `engine/station-design-forces.ts`:
 | por estación, con signo | ✅ | `StationForces { t, x, n, vy, vz, my, mz, torsion }` |
 | desplazamientos | ✅ | `AnalysisResults3D.displacements` |
 | tensiones de placa/quad | ✅ | `plateStresses`, `quadStresses` |
-| **estaciones fijas a 0/25/50/75/100 %** | ⚠️ **no como tal** | ver abajo |
+| **estaciones fijas a 0/25/50/75/100 %** | ✅ **sí, siempre** | ver abajo |
 
-`buildCriticalStations` construye un set de **estaciones críticas** —extremos, cuartos, puntos de
-carga y de momento máximo— no un grid fijo. Agrega `0.25` y `0.75` explícitamente (línea 225), así
-que los cinco puntos pedidos **son alcanzables**, pero el conjunto real es variable y más grande.
+**Corregido al implementar F0.5.** La primera lectura de esta auditoría decía que los cinco puntos
+eran "alcanzables interpolando". Es mejor: `buildCriticalStations` **siembra 0, 0.25, 0.5, 0.75 y
+1 incondicionalmente** (líneas 224-228) antes de agregar posiciones de carga y extremos. En un
+elemento normal el default no pide nada que el motor no haya calculado ya.
 
-Hay dos lecturas honestas y hay que elegir una, no promediarlas:
-- **evaluar en los cinco puntos** interpolando desde el diagrama — da exactamente lo pedido;
-- **listar las estaciones críticas** que el motor sí calculó — da más información y no coincide
-  con la grilla que el usuario pidió.
+Hay **un** caso donde no vale, y es la razón de que el default se defina como *evaluación* y no
+como *filtro*: un elemento de longitud efectivamente nula cortocircuita a `[0, 1]` (línea 231).
+Filtrar devolvería dos filas donde el usuario pidió cinco, en silencio. `extractForcesAtStation`
+evalúa el diagrama en cualquier `t`, así que evaluar es correcto en los dos regímenes e idéntico
+a filtrar donde filtrar habría funcionado.
 
-Recomiendo la primera como default configurable, con la segunda disponible: el reporte a cuartos
-es una convención de entrega, y el set crítico es un dato de cálculo. No son lo mismo.
+Las dos modalidades conviven: `stations` sigue la convención elegida y `rawStations` es una hoja
+aparte con todo lo que el motor calculó. Elegir la convención de cuartos **nunca** puede ser lo
+que oculte las estaciones críticas.
 
 **Ninguna magnitud de §5 hay que inventarla.** Todas salen del solver.
 
@@ -162,7 +165,19 @@ F0 ─┬─> F1 ─┬─> F2
     └─────────────> F7        (instrumentación primero)
 ```
 
-### F0 — Contratos, sin una sola pantalla nueva
+### F0 — Contratos, sin una sola pantalla nueva ✅
+
+**Cerrada.** Seis commits, cero cambio visible, y una decisión que apareció al implementar:
+`manualOverrides` y `ExportRecord` se persisten como campos **opcionales** del snapshot, pero
+`restore()` **no los lee**. Es la única forma de que undo no deshaga una exportación: la entrada
+de undo se apiló *antes* de que el archivo saliera, así que restaurarla borraría el registro de
+algo que realmente pasó. Se adoptan una vez por proyecto, al abrir un `.ded` y al activar una
+pestaña.
+
+Y la procedencia de retoque manual pasó de un booleano a **cuatro estados**, porque tres de ellos
+no son "ninguno": conocido-con-elementos, conocido-y-vacío (una afirmación real), desconocido
+(archivo viejo) y no-aplica (nada diseñado).
+
 
 Lo que §-todo presupone y hoy no existe. Nada visible cambia; todo lo demás depende de esto.
 
@@ -177,7 +192,28 @@ Lo que §-todo presupone y hoy no existe. Nada visible cambia; todo lo demás de
 **Criterio de cierre:** la suite entera sigue verde y la UI es idéntica pixel a pixel. Una fase de
 contratos que cambia algo en pantalla es una fase que se pasó de alcance.
 
-### F1 — La franja y la semántica de las etapas (§1)
+### F1 — La franja y la semántica de las etapas (§1) ✅
+
+**Cerrada.** `RcStageTimeline` propio, sticky, cinco etapas numeradas 1–5, y las secciones de
+abajo renumeradas para coincidir — venían 0, 1, 4, 5, 6 para cinco cosas.
+
+Tres cosas que aparecieron al implementar y no estaban en el plan:
+
+- **Una sola derivación de estado.** El tab derivaba cinco estados de sección por su cuenta y la
+  franja derivaba los suyos. Ahora `rcStages()` se calcula una vez en el tab y alimenta a las dos.
+- **La sección *Familias de piso* conserva su propio estado `opcional`**, que **no** es el de la
+  etapa Diseñar. Son sujetos distintos: Diseñar es una etapa requerida, el paso de pisos es un
+  paso opcional adentro. Enchufarle el estado de la etapa la hacía decir "en espera" de un paso
+  que nadie tiene que dar.
+- **El chevron colgado queda cerrado para hormigón.** El `test.fail()` de `h1b-panel-navigation`
+  documentaba que `WorkflowStages` envuelve en dos filas dejando `stage-documents` solo abajo.
+  La franja nueva no envuelve. `WorkflowStages` sigue **intacta** y el flujo metálico sigue
+  envolviendo: eso sigue siendo de integración.
+
+**Hueco conocido, anotado y no disimulado:** la etapa Diseñar apunta a `floor-families-disclosure`
+porque es el único `<details>` que tiene; vigas y columnas se diseñan en `ProDesignTab`, abajo.
+**F2 funde las dos**, que es exactamente lo que pide §2.
+
 
 `RcStageTimeline` nuevo (§2.1): baja, ancho completo, **sticky**, etapa activa evidente, ligada a
 su `<details>`, y el título de la sección abierta visible debajo. Cinco etapas, un vocabulario.

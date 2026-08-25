@@ -14,7 +14,7 @@
    * which edition and which aggregate size a result belongs to.
    */
   import ProDesignTab from './ProDesignTab.svelte';
-  import WorkflowStages from './design/WorkflowStages.svelte';
+  import RcStageTimeline from './design/RcStageTimeline.svelte';
   import DesignOverview from './design/DesignOverview.svelte';
   import StageSection from './design/StageSection.svelte';
   import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
@@ -26,6 +26,11 @@
   import { modelStore } from '../../lib/store/model.svelte';
   import { t, tp } from '../../lib/i18n/store.svelte';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
+  import {
+    RC_STAGES, rcModelReadiness, rcStageSectionState, rcStages,
+    type RcFlowReadings, type RcStageId,
+  } from '../../lib/flow/rc-stages';
+  import { resultsStore } from '../../lib/store/results.svelte';
 
   const footingCount = $derived(modelStore.model.footings.size);
   /**
@@ -45,11 +50,11 @@
   );
 
   /**
-   * Navigation for the workflow strip.
+   * Navigation for the stage timeline.
    *
-   * Opening a `<details>` and scrolling it into view is the whole of it. The strip deliberately
-   * does not RUN anything — the commands stay the single place work is started from — so this
-   * cannot become a second, competing command surface.
+   * Opening a `<details>` and scrolling it into view is the whole of it. The timeline
+   * deliberately does not RUN anything — the commands stay the single place work is started
+   * from — so it cannot become a second, competing command surface.
    */
   let regsOpen = $state(false);
   let detailingOpen = $state(false);
@@ -59,68 +64,112 @@
   let documentsOpen = $state(false);
 
   /**
+   * Which stage the reader is inside, derived from the disclosures themselves.
+   *
+   * Derived and not stored, which is what keeps "the timeline's reading marker" and "the open
+   * `<details>`" from becoming two states that can disagree. Opening a section by hand moves
+   * the marker for the same reason clicking the marker opens the section: there is only one
+   * fact, and it lives in these five booleans.
+   *
+   * Last-wins when several are open, matching reading order: the one furthest down the pipeline
+   * is the one being worked in.
+   */
+  const openStage = $derived<RcStageId | null>(
+    documentsOpen ? 'documents'
+      : detailingOpen ? 'detailing'
+        : floorsOpen ? 'design'
+          : regsOpen ? 'codes'
+            : overviewOpen ? 'model' : null,
+  );
+
+  /**
    * Open the Project Regulations stage and put the caret in its selector.
    *
    * Lives here rather than in the overview because this component owns `regsOpen`; the overview
    * asks, and does not reach across the tree to force a `<details>` open.
    */
   function openRegulations() {
-    regsOpen = true;
+    goToStage('codes');
+  }
+
+  /**
+   * Open a stage and take the reader there.
+   *
+   * Focus goes to the disclosure's own `<summary>`, not to the container. Scrolling alone moves
+   * the eye and leaves the keyboard where it was, so the next Tab would continue from wherever
+   * the timeline button sat — which on a five-stage strip is usually the wrong section
+   * entirely. `RC_STAGES` supplies the testid, so the timeline and the sections cannot drift
+   * apart the way the six-versus-five lists did.
+   */
+  function goToStage(target: RcStageId) {
+    overviewOpen = target === 'model';
+    regsOpen = target === 'codes';
+    floorsOpen = target === 'design';
+    detailingOpen = target === 'detailing';
+    documentsOpen = target === 'documents';
+
+    const testid = RC_STAGES.find((s) => s.id === target)?.disclosure;
+    if (!testid) return;
     queueMicrotask(() => {
-      scrollTo('project-regulations');
-      (document.querySelector('[data-testid="project-regulations"] select') as HTMLElement | null)
-        ?.focus();
+      const el = document.querySelector(`[data-testid="${testid}"]`);
+      el?.scrollIntoView({ block: 'nearest' });
+      (el?.querySelector(':scope > summary') as HTMLElement | null)?.focus();
+      // Regulations is the one stage whose work starts in a control rather than in a reading:
+      // the selector IS the step. Focusing it saves a Tab and matches what the old
+      // `openRegulations` did before the timeline owned navigation.
+      if (target === 'codes') {
+        (document.querySelector('[data-testid="project-regulations"] select') as HTMLElement | null)
+          ?.focus();
+      }
     });
   }
 
-  function scrollTo(testid: string) {
-    document.querySelector(`[data-testid="${testid}"]`)?.scrollIntoView({ block: 'nearest' });
-  }
-
-  function goToStage(target: 'model' | 'design' | 'floors' | 'detailing' | 'documents') {
-    if (target === 'documents') {
-      documentsOpen = true;
-      queueMicrotask(() => scrollTo('documents-disclosure'));
-      return;
-    }
-    if (target === 'detailing') {
-      detailingOpen = true;
-      queueMicrotask(() => scrollTo('detailing-disclosure'));
-      return;
-    }
-    if (target === 'floors') {
-      floorsOpen = true;
-      queueMicrotask(() => scrollTo('floor-families-disclosure'));
-      return;
-    }
-    // `model` and `design` live in the design tab below, which is always mounted; closing the
-    // stages is what brings it back into view on a 720 px window.
-    regsOpen = false; detailingOpen = false; floorsOpen = false;
-    queueMicrotask(() => scrollTo('design-toolbar'));
-  }
-
   /**
-   * Each stage's own state, from the same facts the commands and the strip read.
+   * The pipeline's state, derived ONCE.
    *
-   * Derived here rather than inside the shell so the shell stays a presentation component and
-   * cannot acquire opinions about the pipeline.
+   * Both the timeline and the five disclosures below read this array. They used to be two
+   * independent derivations — the strip had its own six-stage list, the sections had five
+   * ad-hoc `$derived`s — and two derivations of the same thing is how a section comes to show
+   * a finished step under a strip that says it is current.
+   *
+   * Every reading is the fact the command that performs the step gates on, so a stage cannot
+   * claim the work is complete while the button that does it is still lit.
    */
+  const readings = $derived<RcFlowReadings>({
+    hasModel: modelStore.nodes.size > 0,
+    solved: resultsStore.results3D !== null || resultsStore.results !== null,
+    analysisStale: verificationStore.isBaselineStale,
+    codeChosen: regulationsStore.concreteDesignCode() !== null,
+    hasDemands: verificationStore.demandRevision > 0,
+    designed: verificationStore.providedSummary.total > 0,
+    verified: verificationStore.baselineRevision > 0,
+    detailed: detailingStore.assemblies.length > 0,
+    documented: detailingStore.document !== null,
+  });
+  const stages = $derived(rcStages(readings));
+  const readiness = $derived(rcModelReadiness(readings));
+
+  /** One stage's state, narrowed to what the shared `StageSection` can draw. */
+  function sectionState(id: RcStageId) {
+    const s = stages.find((x) => x.id === id);
+    return s ? rcStageSectionState(s) : 'blocked';
+  }
+
   const detailed = $derived(detailingStore.assemblies.length > 0);
-  const designed = $derived(verificationStore.providedSummary.total > 0);
   const overviewTotal = $derived(verificationStore.providedSummary.total);
+
   /**
-   * The overview is `current` until there is something to report and `done` once there is.
+   * The floor pass has its own state, and it is not the DISEÑAR stage's.
    *
-   * Never `blocked`: it is a read-out, and a read-out that refuses to show you an empty project is
-   * withholding the very fact you opened it for.
+   * They are different subjects, not two states of one thing: DISEÑAR is a required stage of
+   * the pipeline, and the floor run is an OPTIONAL step inside it — a frame-only building never
+   * opens this section, which is exactly what its chip has always said. Driving the chip from
+   * the stage would make it read "waiting" for a step nobody has to take.
+   *
+   * The timeline still counts this disclosure as DISEÑAR's, because it is the only `<details>`
+   * the stage owns; beams and columns are designed in `ProDesignTab` below. §2 folds the two
+   * into one stage, and until it does this is the honest split rather than a tidier lie.
    */
-  const overviewState = $derived(overviewTotal > 0 ? 'done' as const : 'current' as const);
-  const regsState = $derived(needsAttention ? 'current' as const : 'done' as const);
-  const detailingState = $derived(
-    detailed ? 'done' as const : designed ? 'current' as const : 'blocked' as const);
-  const documentsState = $derived(
-    detailingStore.document !== null ? 'done' as const
-      : detailed ? 'current' as const : 'blocked' as const);
   const floorsState = $derived(
     detailingStore.lastFloorRun ? 'done' as const : 'optional' as const);
 </script>
@@ -132,9 +181,10 @@
     The tab used to open on three collapsed disclosures and a wrapping row of six commands, in an
     order a reader had to infer from which buttons were grey. The strip states the order once and
     names what each unreached step is waiting for; clicking one opens the disclosure that owns it.
-    See `WorkflowStages.svelte` for why it navigates rather than acts.
+    See `RcStageTimeline.svelte` for why it navigates rather than acts, and why the concrete
+    flow has its own strip instead of the shared one.
   -->
-  <WorkflowStages onGoTo={goToStage} />
+  <RcStageTimeline {stages} {readiness} onGoTo={goToStage} {openStage} />
 
   <!--
     The state of the project, FIRST.
@@ -147,10 +197,10 @@
   -->
   <StageSection
     testid="design-overview-disclosure"
-    step={0}
+    step={1}
     title={t('design.overview.title')}
     purpose={t('design.overview.purpose')}
-    state={overviewState}
+    state={sectionState('model')}
     badge={overviewTotal > 0 ? overviewTotal : undefined}
     badgeTestid="design-overview-count"
     bind:open={overviewOpen}
@@ -160,10 +210,10 @@
 
   <StageSection
     testid="code-settings-disclosure"
-    step={1}
+    step={2}
     title={t('regulations.title')}
     purpose={t('design.stagePurpose.regulations')}
-    state={regsState}
+    state={sectionState('codes')}
     attention={needsAttention ? t('codes.provenance.assumed') : undefined}
     attentionTestid="code-settings-attention"
     bind:open={regsOpen}
@@ -180,7 +230,7 @@
   -->
   <StageSection
     testid="floor-families-disclosure"
-    step={4}
+    step={3}
     title={t('detailing.floorRun.title')}
     purpose={t('design.stagePurpose.floors')}
     state={floorsState}
@@ -197,10 +247,10 @@
 
   <StageSection
     testid="detailing-disclosure"
-    step={5}
+    step={4}
     title={t('detailing.title')}
     purpose={t('design.stagePurpose.detailing')}
-    state={detailingState}
+    state={sectionState('detailing')}
     blockedBy={t('design.stage.needDesign')}
     badge={detailed ? detailingStore.assemblies.length : undefined}
     badgeTestid="detailing-count"
@@ -219,10 +269,10 @@
   -->
   <StageSection
     testid="documents-disclosure"
-    step={6}
+    step={5}
     title={t('detailing.doc.title')}
     purpose={t('design.stagePurpose.documents')}
-    state={documentsState}
+    state={sectionState('documents')}
     blockedBy={t('design.stage.needDetailing')}
     bind:open={documentsOpen}
   >

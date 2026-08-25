@@ -24,45 +24,56 @@ const DICTS: Record<string, Record<string, string>> = {
   pt: pt as unknown as Record<string, string>,
 };
 
-const STAGES = ['model', 'demands', 'check', 'design', 'detailing', 'documents'] as const;
+/**
+ * FIVE stages now, and the concrete flow's own strip.
+ *
+ * `demands` and `check` are gone as stages: demands are the solver's output and belong to
+ * MODELADO, and the code check is what FINISHES Diseñar rather than a step before it. A
+ * completed *Verificación* drawn ahead of DISEÑAR said the reinforcement had been verified
+ * before it existed. See `lib/flow/rc-stages.ts`.
+ */
+const STAGES = ['model', 'codes', 'design', 'detailing', 'documents'] as const;
 
 /** The state a stage advertises, as the strip records it. */
 function stageState(page: Page, id: string) {
-  return page.getByTestId(`stage-${id}`).getAttribute('data-state');
+  return page.getByTestId(`rc-stage-${id}`).getAttribute('data-state');
 }
 
 test.describe('@smoke the workflow says where you are', () => {
   test('an empty project shows every stage, in order, with the first one current',
     async ({ pro: page }) => {
-      const strip = page.getByTestId('workflow-stages');
+      const strip = page.getByTestId('rc-stage-timeline');
       await expect(strip).toBeVisible();
 
       // Order is the claim: a strip that renders the six stages in a different order every time
       // would still pass a per-stage assertion.
-      const ids = await strip.locator('[data-testid^="stage-"]')
-        .evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
-      expect(ids).toEqual(STAGES.map((s) => `stage-${s}`));
+      const ids = await strip.locator('[data-testid^="rc-stage-"]').evaluateAll(
+        (els) => els.filter((e) => e.tagName === 'LI')
+          .map((e) => e.getAttribute('data-testid')));
+      expect(ids).toEqual(STAGES.map((s) => `rc-stage-${s}`));
 
       // Nothing is done, and the first step is where you are.
-      for (const s of STAGES) expect(await stageState(page, s)).not.toBe('done');
+      // `complete` and not `done`: the strip says what the USER did, never that a calculation
+      // is certified. The word changed with the vocabulary.
+      for (const s of STAGES) expect(await stageState(page, s)).not.toBe('complete');
       expect(await stageState(page, 'model')).toBe('current');
-      // A step you cannot reach yet says so rather than looking available.
+      // Nothing can start without a model, so this is unreachable rather than merely not-yet.
       expect(await stageState(page, 'detailing')).toBe('blocked');
 
       // And the panel states the next thing to do, in words, not only as a grey button.
-      await expect(page.getByTestId('workflow-next')).toHaveText(en['design.stage.needModel']);
+      await expect(page.getByTestId('rc-stage-next')).toHaveText(en['design.stage.needModel']);
     });
 
   test('the stages advance as the work is done, and the hint follows', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     // A model but no results: the instruction changes to the thing that is now missing.
-    await expect(page.getByTestId('workflow-next')).toHaveText(en['design.stage.needSolve']);
+    await expect(page.getByTestId('rc-stage-next')).toHaveText(en['design.stage.needSolve']);
 
     await designAll(page);
-    for (const s of ['model', 'demands', 'check', 'design'] as const) {
-      expect(await stageState(page, s), `${s} is complete after a design run`).toBe('done');
+    for (const s of ['model', 'codes', 'design'] as const) {
+      expect(await stageState(page, s), `${s} is complete after a design run`).toBe('complete');
     }
-    // Detailing is now reachable rather than blocked.
+    // Detailing is now reachable rather than unreachable.
     expect(await stageState(page, 'detailing')).not.toBe('blocked');
   });
 
@@ -71,7 +82,7 @@ test.describe('@smoke the workflow says where you are', () => {
       await loadModel(page, 'rc-design-qa-8');
       const solvesBefore = await page.evaluate(() => window.__stabileo.solveCount());
 
-      await page.getByTestId('stage-detailing').locator('button').click();
+      await page.getByTestId('rc-stage-detailing').locator('button').click();
       await expect(page.getByTestId('detailing-disclosure')).toHaveAttribute('open', '');
 
       // Navigation only. A strip that also ran commands would be a second command surface, and
@@ -257,16 +268,15 @@ for (const locale of ['en', 'es', 'pt'] as const) {
     test('names every stage and its instruction in this language', async ({ pro: page }) => {
       const D = DICTS[locale];
       for (const [id, key] of [
-        ['stage-model', 'design.stage.model'],
-        ['stage-demands', 'design.stage.demands'],
-        ['stage-check', 'design.stage.check'],
-        ['stage-design', 'design.stage.design'],
-        ['stage-detailing', 'design.stage.detailing'],
-        ['stage-documents', 'design.stage.documents'],
+        ['rc-stage-model', 'design.stage.model'],
+        ['rc-stage-codes', 'design.stage.codes'],
+        ['rc-stage-design', 'design.stage.design'],
+        ['rc-stage-detailing', 'design.stage.detailing'],
+        ['rc-stage-documents', 'design.stage.documents'],
       ] as const) {
         await expect(page.getByTestId(id)).toContainText(D[key]);
       }
-      await expect(page.getByTestId('workflow-next')).toHaveText(D['design.stage.needModel']);
+      await expect(page.getByTestId('rc-stage-next')).toHaveText(D['design.stage.needModel']);
       await expect(page.getByTestId('cmd-group-verify')).toContainText(D['design.group.verify']);
     });
   });

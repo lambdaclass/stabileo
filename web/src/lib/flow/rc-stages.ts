@@ -49,14 +49,44 @@
  */
 export type RcStageId = 'model' | 'codes' | 'design' | 'detailing' | 'documents';
 
-/** Where the project is against a stage. */
+/**
+ * Where the project is against a stage.
+ *
+ * Five values, and deliberately no `done`. "Done" reads as a verdict — it is the word a user
+ * takes to mean the calculation is settled — and a stage strip is not entitled to say that. A
+ * stage is `complete` when the USER'S ACTION that produces its output has been performed;
+ * whether the result verifies is the design stage's own business and is shown by the outcome
+ * badges, not here.
+ */
 export type RcStageState =
-  /** Its output exists. */
-  | 'done'
-  /** The first stage whose output does not exist — where you ARE. */
+  /** The user performed the action and its output exists. Not a certification. */
+  | 'complete'
+  /** The first required stage without its output — where you ARE. */
   | 'current'
-  /** After the current one. Not an error: a step not reached yet. */
-  | 'blocked';
+  /**
+   * After the current stage. Not an error: a step not reached yet, in a project under way.
+   *
+   * `pending` and `blocked` would be the same situation in a strictly sequential pipeline, and
+   * emitting both would be a distinction with nothing behind it. They are told apart by a real
+   * condition instead — see `blocked`.
+   */
+  | 'pending'
+  /**
+   * Nothing can be started, because there is no model at all.
+   *
+   * The one case where a downstream stage is not merely "not yet" but genuinely unreachable:
+   * an empty project has no members to design, no shells to detail and nothing to document. It
+   * reads differently on purpose, because the remedy is different — load or draw something,
+   * rather than finish the step above.
+   */
+  | 'blocked'
+  /**
+   * Reachable and not required. Only ever `documents`.
+   *
+   * Distinct from `pending` because the sentence next to it is different: pending says "not
+   * yet", optional says "whenever you want, and the design is finished without it".
+   */
+  | 'optional';
 
 /**
  * How ready the model is for design, as one word.
@@ -115,6 +145,15 @@ export interface RcStageDef {
   /** i18n key for the sentence a user reads while the stage is unfinished. */
   todoKey: string;
   /**
+   * Whether the flow can proceed without it.
+   *
+   * Only `documents` is optional, and it is the honest reading: the design is finished whether
+   * or not anything was exported, nothing downstream waits on an emission, and "exported" is
+   * explicitly not "issued for construction". An optional stage is never `current` — it would
+   * otherwise park the "you are here" marker on a step nobody has to take.
+   */
+  optional?: boolean;
+  /**
    * The `data-testid` of the `<details>` this stage owns.
    *
    * One stage, one disclosure, and no two stages share one. That bijection is the whole
@@ -126,7 +165,13 @@ export interface RcStageDef {
 
 /** A stage with the project's progress against it resolved. */
 export interface RcStage extends RcStageDef {
-  done: boolean;
+  /**
+   * Whether the action that produces this stage's output has been performed.
+   *
+   * Named `complete` and not `done` for the reason on `RcStageState`: this is a statement about
+   * what the user did, never about whether the result verifies.
+   */
+  complete: boolean;
   state: RcStageState;
 }
 
@@ -167,6 +212,7 @@ export const RC_STAGES: readonly RcStageDef[] = [
     id: 'documents',
     labelKey: 'design.stage.documents',
     todoKey: 'design.stage.needDetailing',
+    optional: true,
     disclosure: 'documents-disclosure',
   },
 ] as const;
@@ -197,7 +243,7 @@ export function rcModelReadiness(r: RcFlowReadings): RcModelReadiness {
  * The conjunction is the correction described in the header: designed-but-unchecked is a real
  * state, it is not finished, and it must not read as verified.
  */
-function isDone(id: RcStageId, r: RcFlowReadings): boolean {
+function isComplete(id: RcStageId, r: RcFlowReadings): boolean {
   switch (id) {
     case 'model': return rcModelReadiness(r) === 'ready';
     case 'codes': return r.codeChosen && r.hasDemands;
@@ -222,16 +268,53 @@ function isDone(id: RcStageId, r: RcFlowReadings): boolean {
  * which is what the shared strip's own header warns about.
  */
 export function rcStages(r: RcFlowReadings): RcStage[] {
-  const done = RC_STAGES.map((s) => isDone(s.id, r));
-  const currentIdx = done.indexOf(false);
-  return RC_STAGES.map((s, i) => ({
-    ...s,
-    done: done[i],
-    state: done[i] ? 'done' : i === currentIdx ? 'current' : 'blocked',
-  }));
+  const complete = RC_STAGES.map((s) => isComplete(s.id, r));
+  /*
+   * The first REQUIRED stage without its output. Optional stages are skipped, so the marker
+   * never lands on a step nobody has to take — with everything designed and detailed, "you are
+   * here" belongs nowhere rather than on Documentos.
+   */
+  const currentIdx = RC_STAGES.findIndex((s, i) => !complete[i] && !s.optional);
+
+  /*
+   * An empty project is the one case where downstream stages are unreachable rather than
+   * merely unfinished, and the remedy differs: load or draw something, instead of finishing
+   * the step above. Read from the same readiness the MODELADO stage shows, so the strip and
+   * the stage cannot disagree about whether there is a model.
+   */
+  const noModel = rcModelReadiness(r) === 'empty';
+
+  return RC_STAGES.map((s, i): RcStage => {
+    if (complete[i]) return { ...s, complete: true, state: 'complete' };
+    if (i === currentIdx) return { ...s, complete: false, state: 'current' };
+    // Optional outranks blocked and pending: `documents` is never "not yet", it is "not
+    // required" — and that stays true whatever is upstream of it.
+    if (s.optional) return { ...s, complete: false, state: 'optional' };
+    return { ...s, complete: false, state: noModel ? 'blocked' : 'pending' };
+  });
 }
 
-/** The stage the user is on, or null when every stage has produced its output. */
+/**
+ * The sentence a stage owes the reader right now.
+ *
+ * Only MODELADO varies, and it has to: "load or draw a model" is wrong the moment a model is
+ * loaded, and the remedy for each readiness is different — draw one, solve it, solve it again.
+ * The strip this replaces got that right with an inline conditional; keeping a single static
+ * key per stage would have been a regression in what the panel tells you.
+ *
+ * The other four have one answer each, because their prerequisite is a single fact.
+ */
+export function rcStageTodoKey(s: RcStage, readiness: RcModelReadiness): string {
+  if (s.id !== 'model') return s.todoKey;
+  switch (readiness) {
+    case 'empty': return 'design.stage.needModel';
+    case 'unsolved': return 'design.stage.needSolve';
+    case 'stale': return 'design.stage.readiness.stale';
+    case 'ready': return s.todoKey;
+  }
+}
+
+/** The stage the user is on, or null when every REQUIRED stage has its output. */
 export function currentRcStage(stages: readonly RcStage[]): RcStage | null {
   return stages.find((s) => s.state === 'current') ?? null;
 }
@@ -239,4 +322,27 @@ export function currentRcStage(stages: readonly RcStage[]): RcStage | null {
 /** The disclosure a stage id owns, or null for an id that is not a stage. */
 export function rcStageDisclosure(id: string): string | null {
   return RC_STAGES.find((s) => s.id === id)?.disclosure ?? null;
+}
+
+/**
+ * The five states, narrowed to the four `StageSection` accepts.
+ *
+ * `StageSection.svelte` is shared with the metallic flow — `ProConnectionsTab` renders it — so
+ * its `State` union is not this branch's to widen. The mapping is here rather than inline at
+ * the call site so that there is still exactly ONE derivation of stage state in the concrete
+ * flow: the timeline and the five disclosures read the same `rcStages()` array, and a section
+ * cannot come to disagree with the strip above it about whether its step is finished.
+ *
+ * `pending` narrows to `blocked` because that is the closest thing the shared component can
+ * draw. The distinction survives where it is visible — in the timeline, which is this branch's
+ * own component and does render all five.
+ */
+export function rcStageSectionState(s: RcStage): 'done' | 'current' | 'blocked' | 'optional' {
+  switch (s.state) {
+    case 'complete': return 'done';
+    case 'current': return 'current';
+    case 'optional': return 'optional';
+    case 'pending':
+    case 'blocked': return 'blocked';
+  }
 }
