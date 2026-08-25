@@ -837,6 +837,24 @@
   <LandingPage />
 {/if}
 
+{#snippet autosavePrompt()}
+      <div class="autosave-inline" class:autosave-older={autosaveStamp.older} data-testid="autosave-prompt">
+        <span class="autosave-text">
+          {t('app.autosaveFound')} <strong>{autosaveData?.name}</strong>
+          {#if autosaveStamp.timestamp}
+            <span class="autosave-stamp">({new Date(autosaveStamp.timestamp).toLocaleString()})</span>
+          {/if}
+        </span>
+        {#if autosaveStamp.older}
+          <!-- Said here, not only in a toast: a user who dismissed the toast must still be
+               able to see that what they are about to restore is not their newest save. -->
+          <span class="autosave-warning">{t('file.autosaveOlderRestored')}</span>
+        {/if}
+        <button class="banner-btn restore" onclick={restoreAutosave}>{t('app.restore')}</button>
+        <button class="banner-btn discard" onclick={discardAutosave}>{t('app.discard')}</button>
+      </div>
+{/snippet}
+
 <div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
@@ -879,29 +897,17 @@
     <!--
       "A saved project was found — Restore / Discard", beside the tabs.
       ────────────────────────────────────────────────────────────────
-      This used to be a full-width banner under the header, which pushed the
-      whole application down by its own height the moment the page loaded. It
-      was replaced with an inline prompt next to the tab strip — the tabs are
-      what it is about, since restoring opens one — but only the styles landed:
-      the markup was deleted with the banner and never put back, so the offer to
-      restore your last session simply stopped appearing.
+      Inline here on a DESKTOP, where the row has the width for it — the tabs
+      are what it is about, since restoring opens one.
+
+      Not on a phone. This header holds a logo, a mode selector, a project name
+      and a settings button in 375 px; the prompt was rendered into whatever was
+      left, which measured **19 px wide by 54 tall** — present in the DOM, past
+      every test that asks whether it exists, and unreadable. It is drawn over
+      the top of the model instead; see the viewport below.
     -->
-    {#if showAutosaveBanner}
-      <div class="autosave-inline" class:autosave-older={autosaveStamp.older} data-testid="autosave-prompt">
-        <span class="autosave-text">
-          {t('app.autosaveFound')} <strong>{autosaveData?.name}</strong>
-          {#if autosaveStamp.timestamp}
-            <span class="autosave-stamp">({new Date(autosaveStamp.timestamp).toLocaleString()})</span>
-          {/if}
-        </span>
-        {#if autosaveStamp.older}
-          <!-- Said here, not only in a toast: a user who dismissed the toast must still be
-               able to see that what they are about to restore is not their newest save. -->
-          <span class="autosave-warning">{t('file.autosaveOlderRestored')}</span>
-        {/if}
-        <button class="banner-btn restore" onclick={restoreAutosave}>{t('app.restore')}</button>
-        <button class="banner-btn discard" onclick={discardAutosave}>{t('app.discard')}</button>
-      </div>
+    {#if showAutosaveBanner && !uiStore.isMobile}
+      {@render autosavePrompt()}
     {/if}
 
     <div class="header-actions">
@@ -1196,6 +1202,20 @@
         {/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
+        <!--
+          The restore offer, over the top of the model.
+          ────────────────────────────────────────────
+          Phone only, and inside the viewport so it lands under whatever shell
+          that mode happens to have — Basic's ribbon and options bar are 87 px
+          taller than PRO's single row, and an offset measured against the
+          window would be wrong for one of them. Clear of the canvas's own
+          controls on the right, the same 56 px the toasts leave.
+        -->
+        {#if showAutosaveBanner && uiStore.isMobile}
+          <div class="autosave-over-model" data-testid="autosave-over-model">
+            {@render autosavePrompt()}
+          </div>
+        {/if}
         <StressPickHint />
         <!-- The colour map's scale. One component for both viewports: the ramp
              is defined once, so the legend that explains it should be too. -->
@@ -2466,6 +2486,47 @@
   }
 
   /* Toast notifications */
+  /*
+     The phone's restore offer, over the model rather than in the header.
+     ───────────────────────────────────────────────────────────────────
+     `absolute` inside `.viewport-container`, so it sits under whichever shell
+     the mode has without anything measuring it. Wraps, because "Se encontró un
+     proyecto guardado — <nombre> (fecha)" plus two buttons is more than one
+     375 px line, and a prompt that clips is the bug this is fixing.
+  */
+  .autosave-over-model {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    /* Clear of the canvas's own controls, the same lane the toasts leave. */
+    right: 56px;
+    z-index: 40;
+  }
+
+  .autosave-over-model :global(.autosave-inline) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    max-width: none;
+    padding: 8px 10px;
+    border-radius: var(--st-radius);
+    background: var(--st-surface);
+    border: 1px solid var(--st-accent);
+    box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.6);
+  }
+
+  /* The name and date take the first line; the two answers take the second. */
+  .autosave-over-model :global(.autosave-text) { flex: 1 1 100%; min-width: 0; }
+  .autosave-over-model :global(.autosave-warning) { flex: 1 1 100%; }
+
+  .autosave-over-model :global(.banner-btn) {
+    flex: 1 1 0;
+    min-height: 44px;
+    min-width: 0;
+  }
+
   .toast-container {
     position: fixed;
     /*
