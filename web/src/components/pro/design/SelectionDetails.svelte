@@ -181,13 +181,21 @@
     one component over.
   */
   dd[data-lock='pinned'] { color: var(--st-blue-text); }
+  /*
+    `--st-text-2` and NOT the `var(--text-muted, #8b93a3)` its neighbours use.
+
+    That fallback is the raw-colour debt `concrete-design-raw-colours.test.ts` records and
+    refuses to let grow, and it was right to fail on this line: copying the shape of the code
+    around it is how a recorded debt becomes a convention. The token resolves to the same
+    reading weight and is on the system.
+  */
   .pin-reach {
     display: block;
     font-family: var(--st-sans);
     font-variant-numeric: normal;
     font-size: 0.7rem;
     line-height: 1.35;
-    color: var(--text-muted, #8b93a3);
+    color: var(--st-text-2);
   }
   .sel-reason {
     margin: 0.15rem 0 0; font-size: 0.7rem; line-height: 1.35;

@@ -26,6 +26,8 @@
   import { modelStore } from '../../../lib/store/model.svelte';
   import { verificationStore } from '../../../lib/store/verification.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
+  import { openRebar3D } from '../../../lib/store/rebar-open';
   import { rebarWorkspace, SOLID_KINDS } from '../../../lib/store/rebar-workspace.svelte';
   import {
     filterScene, summariseScene, type SceneFilter,
@@ -60,6 +62,21 @@
     typeof window === 'undefined' ? true : window.innerWidth > 860);
 
   const doc = $derived(detailingStore.document);
+
+  /**
+   * Rebuild the document under the open workspace.
+   *
+   * The SAME operation the four entry points perform — `openRebar3D` builds and opens, and
+   * opening an already-open workspace is a no-op. Calling `buildDocument` directly here would
+   * be a fifth way to produce the picture, which is the thing `rebar-open.ts` exists to stop:
+   * "buttons with the same name must not be different operations".
+   */
+  function rebuildDocument(): void {
+    openRebar3D({
+      author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+      at: new Date().toISOString(),
+    });
+  }
 
   /** The full scene, with concrete for every member the model states. */
   const built = $derived.by(() => {
@@ -355,9 +372,30 @@
             </div>
           {/if}
         {:else}
-          <p class="empty" data-testid="rebar-workspace-empty">
-            {t('detailing.scene.empty')}
-          </p>
+          <!--
+            Two reasons for an empty viewport, and they are different statements.
+
+            `detailing.scene.empty` reads as "nothing has been coordinated", and until objective
+            10 that was the only way to get here. It no longer is: an edit to a member's
+            reinforcement now retires the current document — which is correct, the cage on
+            screen stopped matching the model — and the viewer went blank claiming there was
+            nothing to draw. There is; it is out of date, which is a different thing and has a
+            different answer.
+
+            The assemblies themselves are what tell the two apart: they exist and are stale, or
+            they do not exist at all.
+          -->
+          {#if detailingStore.assemblies.length > 0}
+            <div class="empty" data-testid="rebar-workspace-stale" role="status">
+              <p>{t('detailing.scene.retired')}</p>
+              <button type="button" data-testid="rebar-workspace-rebuild"
+                      onclick={rebuildDocument}>{t('detailing.scene.rebuild')}</button>
+            </div>
+          {:else}
+            <p class="empty" data-testid="rebar-workspace-empty">
+              {t('detailing.scene.empty')}
+            </p>
+          {/if}
         {/if}
 
         <div

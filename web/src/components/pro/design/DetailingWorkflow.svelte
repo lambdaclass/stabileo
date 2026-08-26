@@ -19,6 +19,7 @@
   import RcBarList from './RcBarList.svelte';
   import RcTitleBlockFields from './RcTitleBlockFields.svelte';
   import RcBendingSchedule from './RcBendingSchedule.svelte';
+  import RcEditNotice from './RcEditNotice.svelte';
   import { uiStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
@@ -140,6 +141,9 @@
       {/if}
     </button>
   </div>
+
+  <!-- What the last reinforcement edit invalidated, and the command that answers it. -->
+  <RcEditNotice />
 
   <aside
     class="assemblies"
@@ -411,6 +415,7 @@
     border-bottom: 1px solid var(--st-hair);
   }
   .result { margin: 0; font-size: 0.7rem; color: var(--st-text-2); }
+
   .list-toggle {
     display: inline-flex; align-items: baseline; gap: 0.3rem;
     padding: 0.1rem 0.4rem;

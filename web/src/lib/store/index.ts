@@ -32,6 +32,19 @@ modelStore._setOnMutation(() => {
 // the retained demand with zero structural solves.
 modelStore._setOnReinforcementCommit((written) => {
   verificationStore.invalidateElements(written);
+  /*
+   * The other half of the same edit, and it was not here.
+   *
+   * `rc-selection.ts` states the rule: an edit is retroactive iff EVERY representation of the
+   * edited member is rebuilt from the model after it. This hook rebuilt one of them — the
+   * verification — and the coordinated assemblies were left holding the bars from before, so
+   * the elevation, the schedule and the 3-D cage all went on describing steel the model no
+   * longer had. `detailingStore.invalidate` existed and had no caller.
+   *
+   * Runs on the UNDO path too, through `restoreReinforcementOnly`, which fires the same hook:
+   * undoing an edit is an edit, and the assemblies have to follow it back.
+   */
+  detailingStore.applyEdit(written);
 });
 
 // A foundation edit is analysis-neutral and document-INVALIDATING.

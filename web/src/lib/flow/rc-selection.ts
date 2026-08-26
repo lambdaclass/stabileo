@@ -162,6 +162,25 @@ export function rcGroupCounts(
  *
  * Patching in place is the failure mode worth naming: it is faster, it looks correct on the
  * surface that was patched, and it is exactly how the two representations drift.
+ *
+ * ── The half of it that was missing, and what it cost ──────────────
+ *
+ * Both halves are wired now; only one of them was. `_setOnReinforcementCommit` invalidated the
+ * VERIFICATION of the written members, so the design table re-checked them immediately — and
+ * nothing at all touched the coordinated assemblies. `detailingStore.invalidate` existed, was
+ * unit-tested, and had no production caller.
+ *
+ * So editing a beam's bottom bars left `model.detailing` holding the bars from before. The
+ * elevation kept drawing them, the schedule kept ordering them, and the 3-D viewer — which
+ * rebuilds its document from those same assemblies on every open, so that it cannot show a
+ * stale one — kept showing the old cage, because the assemblies themselves were the stale
+ * thing. Two independent representations of one member: the exact defect the rule above was
+ * written to close, one layer below where it was looking.
+ *
+ * `detailingStore.applyEdit` is the caller. It returns this, because WHICH representations
+ * stopped being current is what the user has to be told: an edit to one beam invalidates the
+ * level it is on and no other, and a panel that said "everything is stale" would be as useless
+ * as the one that said nothing.
  */
 export interface RcEditConsequence {
   /** Members whose stored reinforcement changed. */

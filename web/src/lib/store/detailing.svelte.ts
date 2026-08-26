@@ -20,6 +20,7 @@ import { provisionalKeys } from '../engine/detailing/coordinate-floor';
 import type { BarConflict } from '../engine/detailing/collision';
 import { buildSchedule, buildTitleBlock } from '../engine/detailing/drawings';
 import { rotuloFor } from './detailing-sheet-inputs';
+import { rcEditConsequence, type RcEditConsequence } from '../flow/rc-selection';
 import { clause } from '../codes/regulation';
 import {
   detailingReadiness, runDetailing,
@@ -103,6 +104,13 @@ function createDetailingStore() {
    * or the section is the limit. Null when no adapter could enumerate candidates.
    */
   let lastFeedbackLoop = $state<DesignFeedbackLoopResult | null>(null);
+  /**
+   * The consequence of the last reinforcement edit — see `applyEdit`.
+   *
+   * Session state, not persisted: it names the levels that stopped being current, and a
+   * regeneration answers it. A reopened project either has the assemblies or does not.
+   */
+  let lastEdit = $state<RcEditConsequence | null>(null);
 
   const store = $derived<DetailingStore>(modelStore.model.detailing ?? emptyDetailingStore());
   const assemblies = $derived(store.assemblies);
@@ -131,6 +139,18 @@ function createDetailingStore() {
 
   function write(next: DetailingStore): void {
     modelStore.model.detailing = next;
+  }
+
+  /**
+   * Publish a new set of assemblies — the ONE path that replaces them. Retires the current
+   * document (the old geometry is not what exists any more) and answers the edit notice (the
+   * levels it named have just been rebuilt). Its three callers each did the first by hand and
+   * none of them did the second.
+   */
+  function publishAssemblies(next: DetailingStore): void {
+    retireDocument();
+    lastEdit = null;
+    write(next);
   }
 
   /**
@@ -335,11 +355,7 @@ function createDetailingStore() {
           publishRepairedReinforcement(loop.outcomes, initial);
         }
         lastRun = result;
-        // Regeneration produces new geometry, so any document describing the old geometry
-        // stops being current. This is the commonest supersession trigger by far and it
-        // does not go through setAssemblies, which is why it is retired here explicitly.
-        retireDocument();
-        write({ ...store, assemblies: result.assemblies });
+        publishAssemblies({ ...store, assemblies: result.assemblies });
         if (!result.assemblies.some((a) => a.id === selectedId)) {
           selectedId = result.assemblies[0]?.id ?? null;
         }
@@ -494,9 +510,6 @@ function createDetailingStore() {
           membersVerified: false,
         });
         lastFloorRun = result;
-        // New geometry retires the document describing the old geometry, exactly as a
-        // beam regeneration does.
-        retireDocument();
         // Floor assemblies are ADDED to the beam/column ones rather than replacing them:
         // a floor has both, and a user who details beams and then slabs must not lose the
         // beams. Re-running replaces only the floor assemblies it owns.
@@ -508,7 +521,7 @@ function createDetailingStore() {
         const current = modelStore.model.detailing ?? emptyDetailingStore();
         const kept = current.assemblies.filter((a) => !a.id.startsWith('FLOOR-'));
         const merged = [...kept, ...result.assemblies];
-        write({ ...current, assemblies: merged });
+        publishAssemblies({ ...current, assemblies: merged });
         if (!merged.some((a) => a.id === selectedId)) {
           selectedId = merged[0]?.id ?? null;
         }
@@ -572,19 +585,48 @@ function createDetailingStore() {
 
     /** Replace the whole set — used after a regeneration run. */
     setAssemblies(next: DetailingAssembly[]): void {
-      // New geometry: whatever the old document drew is no longer what exists.
-      retireDocument();
-      write({ ...store, assemblies: next });
+      publishAssemblies({ ...store, assemblies: next });
       if (!next.some((a) => a.id === selectedId)) selectedId = next[0]?.id ?? null;
     },
 
-    /** Targeted invalidation after an element edit. */
-    invalidate(changedElements: Iterable<number>): string[] {
+    /**
+     * A reinforcement edit, made retroactive — objective 10. See `rcEditConsequence` for the
+     * rule and for the half of it that was missing.
+     *
+     * It replaces `invalidate(changedElements)`, which had no production caller — that absence
+     * WAS the defect — and which retired the current document before deciding whether anything
+     * had changed. Two ways to invalidate, one of them wrong, is one too many.
+     *
+     * NOT during a run: `publishRepairedReinforcement` writes through the same transaction, and
+     * the repair loop would invalidate the assemblies the run is about to replace wholesale.
+     * A generation produces the assemblies; it does not contradict them.
+     */
+    applyEdit(written: Iterable<number>): RcEditConsequence {
+      const ids = [...written];
+      if (ids.length === 0 || generating) return rcEditConsequence([], []);
+      /*
+       * The PERSISTED store, not the `store` derived — `buildDocument`'s documented trap, and
+       * it bites harder here: this runs inside a reinforcement transaction, one gesture and one
+       * tick, so a derived that has not recomputed sees the assemblies from before and
+       * invalidates nothing. Silently, which is the defect this method exists to close.
+       */
+      const current = modelStore.model.detailing ?? emptyDetailingStore();
+      // Nothing to invalidate is a real outcome — a member on no assembly — and must not cost
+      // the user the document they built, for the reason `review()` documents.
+      const affected = invalidateAffected(current, ids);
+      if (affected.invalidated.length === 0) {
+        lastEdit = rcEditConsequence(ids, []);
+        return lastEdit;
+      }
       retireDocument();
-      const r = invalidateAffected(store, changedElements);
-      write(r.store);
-      return r.invalidated;
+      write(affected.store);
+      lastEdit = rcEditConsequence(ids, affected.invalidated);
+      void requestAutosave('detailing');
+      return lastEdit;
     },
+
+    /** What the last edit invalidated. Null once a regeneration has answered it. */
+    get lastEdit(): RcEditConsequence | null { return lastEdit; },
 
     /**
      * Pin or unpin a bar; a pinned bar is a hard constraint on regeneration.
@@ -742,6 +784,7 @@ function createDetailingStore() {
     clear(): void {
       write(emptyDetailingStore());
       selectedId = null;
+      lastEdit = null;
       conflictIndex = 0;
       lastError = null;
       // The footing run and its fingerprint go together. Clearing one and keeping the other
