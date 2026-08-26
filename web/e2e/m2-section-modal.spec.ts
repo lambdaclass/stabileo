@@ -231,6 +231,65 @@ test.describe('battens', () => {
   });
 });
 
+test.describe('the figure is drawn in the system\'s colours', () => {
+  /**
+   * A void has to be painted EXACTLY what is behind it, and this is where that is provable.
+   *
+   * The component used to hardcode `#071322` twice — once as the well, once as the void inside
+   * it — and the two were equal only because someone kept them equal. The unit test next door
+   * proves the two DECLARATIONS now name the same token; what it cannot prove is that the
+   * cascade delivers it, because an inline `style` on a solid polygon outranks the class rule
+   * and a stray one on a void would put a different colour there with the source still reading
+   * correctly.
+   *
+   * `SHS 100x100x4` is used because it is hollow: two polygons, one of them a void. On an IPE
+   * there is nothing to compare.
+   */
+  test('a void is painted the very colour the figure sits on', async ({ page }) => {
+    await openModal(page);
+    await page.getByTestId('profile-search').fill('SHS 100x100x4');
+    await page.keyboard.press('Enter');
+
+    const fig = page.getByTestId('section-preview').locator('.fig');
+    await expect(fig).toBeVisible();
+    await expect(fig.locator('polygon')).toHaveCount(2);
+
+    const { well, voidFill, solidFill } = await fig.evaluate((el) => {
+      const polys = [...el.querySelectorAll('polygon')];
+      // The void is the one the component leaves to the stylesheet; a solid carries its role
+      // colour inline. Identified by that, not by index, so a change of winding order is not a
+      // change of meaning.
+      const isVoid = (p: Element) => !(p.getAttribute('style') ?? '').includes('fill:');
+      const v = polys.find(isVoid)!;
+      const sol = polys.find((p) => !isVoid(p))!;
+      return {
+        well: getComputedStyle(el).backgroundColor,
+        voidFill: getComputedStyle(v).fill,
+        solidFill: getComputedStyle(sol).fill,
+      };
+    });
+
+    expect(well, 'the well resolves to a real colour').toMatch(/^rgba?\(/);
+    expect(voidFill).toBe(well);
+    // And the solid is NOT the background, or the figure would be a blank square.
+    expect(solidFill).not.toBe(well);
+  });
+
+  test('the frame is visible against the well it encloses', async ({ page }) => {
+    // Not a contrast assertion — the numbers are in the unit test. This is the weaker claim a
+    // browser can settle: the frame is drawn, and it is not the same colour as either ground.
+    await openModal(page);
+    const fig = page.getByTestId('section-preview').locator('.fig');
+    const { border, well, parent } = await fig.evaluate((el) => ({
+      border: getComputedStyle(el).borderTopColor,
+      well: getComputedStyle(el).backgroundColor,
+      parent: getComputedStyle(el.parentElement!).backgroundColor,
+    }));
+    expect(border).not.toBe(well);
+    expect(border).not.toBe(parent);
+  });
+});
+
 test.describe('nothing here claims a verification', () => {
   test('the modal shows no VERIFIED anywhere', async ({ page }) => {
     await openModal(page);
