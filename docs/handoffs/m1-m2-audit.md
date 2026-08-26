@@ -242,3 +242,143 @@ Commits de esta auditoría, todos sobre M2 y separados por defecto:
 **M1 y M2 no están perfectos.** Los gates están verdes y las dos regresiones halladas están
 corregidas con regresión propia, pero §6 deja tres decisiones de producto abiertas, y la más
 seria —dos fuentes para el mismo perfil— toca el corazón de lo que M2 vino a unificar.
+
+---
+
+# Parte II · Sincronización de ramas y conflictos de M1
+
+## 11 · Divergencia, antes de tocar nada
+
+```
+origin/main            00f82153
+feat/pro-steel-family  08917b9f   ← 0 commits por delante de main: YA ESTÁ EN MAIN
+feat/pro-steel-m1      f936f29c   ← main +129 / m1 +29
+feat/pro-steel-m2      5f13d514   ← m1 +40
+```
+
+**Hallazgo de base**: `feat/pro-steel-family`, que era la base del PR #156, **ya estaba
+íntegramente contenida en `main`**. Por eso reapuntar M1 a `main` no agranda su diff: los 29
+commits de M1 sobre family son exactamente los suyos.
+
+| PR | Base antes | Base ahora |
+|---|---|---|
+| #156 (M1) | `feat/pro-steel-family` | **`main`** |
+| #164 (M2) | `feat/pro-steel-m1` | `feat/pro-steel-m1` (sin cambio) |
+
+Ambos siguen **draft**. Todo se integró con `git merge --no-ff`; **no hubo rebase ni force-push**.
+
+## 12 · Merge de `main` en M1 — `9883e2bd`
+
+**3 conflictos**, todos resueltos conservando ambos lados salvo donde uno era superconjunto:
+
+| Archivo | Conflicto | Resolución |
+|---|---|---|
+| `ProConnectionsTab.svelte` | main renombró el token de `:hover`; M1 agregó los badges de ratio | Ambos: token de main + badges de M1 |
+| `ProfileSelectorPanel.svelte` | main movió las teclas al diálogo y agregó descarte por clic; M1 agregó `cardOpen`, `BODIES`, `COMPARED` | Ambos (aditivos en regiones distintas) |
+| `i18n/locales/pt.ts` | 1199 claves aparentemente sólo en M1 | **Archivo de main**, más la **única** línea que M1 había cambiado (`conn.gap.aluminium.scope`) |
+
+El de `pt.ts` merece nota: la unión ingenua duplicaba 1199 claves. M1 no había agregado ninguna —
+su conjunto de claves era idéntico al de la base—, sólo editó **un valor**. Tomar el archivo de
+main y reaplicar esa línea es la única resolución correcta; la unión habría resucitado claves que
+main eliminó a propósito.
+
+**Coincidencia notable**: main hizo por su cuenta el mismo arreglo de teclado que M2 (`ca20995b`)
+— mover el `keydown` del `<svelte:window>` al propio panel. Dos ramas, la misma conclusión.
+
+## 13 · Los siete fallos de M1 tras el merge, clasificados
+
+| # | Test | Clasificación | Acción |
+|---|---|---|---|
+| 1 | `state-background-contrast` → «names the two components» | **Test obsoleto**: afirmaba el defecto, main lo corrigió | Dado vuelta a guardia del arreglo |
+| 2 | `state-background-contrast` → violeta provisional | **Test obsoleto**: `DesignToolbar` dejó de nombrarlo | Lista derivada, con piso de 3 |
+| 3 | `steel-surface-colour-rules` → tres instancias de hormigón | **Documentación desactualizada** | 2 de 3 corregidas; la 3ª se afirma **como abierta** |
+| 4 | `steel-locale-coverage` → «ships eleven more» | **Test obsoleto**: main estrechó el runtime a 3 idiomas | Ahora afirma `shipped == offered` |
+| 5 | `steel-locale-coverage` → «the eleven unreachable» | idem | El conjunto es vacío; el bucle se conserva |
+| 6 | `steel-never-verified` → tilde en `ProVerificationTab` | **Decisión de producto** (§6.2) | Barrido acotado; la aserción precisa sobre filas de acero se conserva |
+| 7 | `chs-shear-agreement` → factor 2 | **Entorno**: artefacto WASM local viejo | `npm run wasm` y pasa |
+
+El #7 merece detalle porque invalidaba mediciones anteriores: **reproduce igual en un checkout
+limpio de `origin/main`**, y el CI de main está verde porque **compila WASM desde el fuente**
+(`wasm-pack build` antes de `npm run test`). Mi `src/lib/wasm/` era un artefacto de otra build.
+Reconstruido, pasa. Todas las cifras de este informe son posteriores a esa reconstrucción.
+
+Sobre el #3: el propio test decía qué hacer —*«si H1 los corrige, esto falla y el documento de
+reconciliación debe actualizarse… un informe que nadie nota que envejeció es peor que ningún
+informe»*—. Se cumplió al pie de la letra y `m1-token-proposal-reconciliation.md` tiene su cierre
+parcial: dos instancias corregidas, `.banner-block` **todavía abierta** y afirmada como tal.
+
+## 14 · Merge de M1 en M2 — `9e749fcc`, corregido en `cf99f655`
+
+**2 conflictos** (`ProfileSelectorPanel.svelte`, `e2e-hooks.ts`), ambos aditivos, resueltos como
+unión. Y **un defecto que el merge introdujo y ni el build ni los unitarios vieron**:
+
+> `ReferenceError: allJointCount is not defined`
+
+El merge dejó tres referencias sin declaración. El panel de uniones **lanzaba al montar**, y los
+**19** fallos E2E de `metallic-joints`, `pro-ribbon-hierarchy` y los specs de la nave eran todos
+ese único error: la pestaña nunca se renderizaba.
+
+Ni el build ni los 7970 unitarios lo detectaron, porque la referencia vive en una expresión de
+plantilla y en un cuerpo `$derived.by`: sólo es alcanzable en runtime. **Es la razón por la que
+una suite E2E después de un merge no es opcional.**
+
+Se adoptó la forma de M1, que es mejor: M2 contaba los nudos corriendo `detectJoints` **una
+segunda vez** sobre todo el modelo; M1 usa `detected.length` de la pasada que ya corrió. Además
+`conn.jointsNotShown` recibía el total en vez de `hiddenJointCount`, así que un modelo con 84
+nudos y 6 ocultos habría informado 84 no mostrados.
+
+## 15 · Estado CI real, con exit code
+
+| Rama | SHA | CI | Detalle |
+|---|---|---|---|
+| **M1** | `9883e2bd` | **verde y rojo en el MISMO sha** | Dos corridas con 1 s de diferencia: una con los 6 jobs en verde, otra con `e2e` en rojo. Prueba directa de *flakiness*, no de rotura |
+| **M2** | `9e749fcc` | rojo | El `ReferenceError` de §14 — CI lo detectó correctamente |
+| **M2** | `cf99f655` | **verde** | Tras la corrección |
+
+Gates locales, con WASM reconstruido:
+
+| Puerta | M1 (`9883e2bd`) | M2 (`cf99f655`) |
+|---|---|---|
+| Unitarios | **7404 pasan**, EXIT=0 | **7970 pasan**, EXIT=0 |
+| Build tests | 14 pasan | 14 pasan |
+| Typecheck | 479 / baseline 479 | 473 / baseline 473 |
+| Build producción | EXIT=0 | EXIT=0 |
+| Árbol | limpio | limpio |
+| **E2E completa** | **639 pasan / 3 fallan** | **797 pasan / 4 fallan** |
+
+M2 tiene menos errores de tipo que M1 pese a contenerlo: sus 40 commits corrigieron seis.
+
+## 16 · Conflictos restantes: los cuatro fallos E2E de M2
+
+Ninguno es de acero. **Los cuatro reproducen en un checkout limpio de `origin/main`.**
+
+| Fallo | Aislado | En main puro | Clasificación |
+|---|---|---|---|
+| `basic-selection-permutations` 2D y 3D | falla | **falla igual** | Preexistente. **Sin cobertura de CI**: el spec no tiene `@smoke` ni `@slow` |
+| `basic-demos:160` «drawing a beam» | falla | **falla igual** | Preexistente. Es `@smoke` y pasa en el CI de Linux: diferencia de plataforma |
+| `viewport-perf @perf` | falla **otro modelo cada vez** | — | Umbral sensible a carga. `@perf` **nunca corre en CI** (0 menciones) |
+| `rc-design-visual` overlay legend | falla | **falla igual: 696→697 px, 645 píxeles, ratio 0,03** | Preexistente y **no bloqueante por diseño** |
+
+Sobre la baseline de 1 px, comparada contra main como se pidió: **ninguna rama tocó
+`e2e/__screenshots__`** (`git log origin/main..HEAD` sobre ese directorio: vacío), reproduce
+idéntica en main, y su `describe` se llama `@slow visual baselines (non-blocking)`. **El snapshot
+no se actualizó.**
+
+## 17 · Estado de sincronización
+
+| | M1 (#156) | M2 (#164) |
+|---|---|---|
+| Base del PR | **`main`** ✔ | **`feat/pro-steel-m1`** ✔ |
+| Draft | sí | sí |
+| Integrado | `main` por merge `9883e2bd` | M1 por merge `9e749fcc` |
+| Rebase / force-push | **ninguno** | **ninguno** |
+| Árbol | limpio | limpio |
+| Remoto | sincronizado | sincronizado |
+| CI | verde en una de dos corridas del mismo sha (e2e flaky) | **verde** |
+
+## 18 · Commits de esta parte
+
+- `9883e2bd` — merge de `main` en M1, con los tres conflictos resueltos
+- `9e749fcc` — merge de M1 en M2
+- `cf99f655` — el contador de nudos que el merge perdió
+- `db57dbf9` — propuestas de los tres hallazgos abiertos
