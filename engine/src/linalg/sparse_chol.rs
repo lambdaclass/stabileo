@@ -62,71 +62,92 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
     // Apply permutation
     let pa = a.permute_symmetric(perm);
 
-    // Direct left-looking symbolic factorization.
-    // For each column j, the nonzero rows of L[:,j] are determined by:
-    //   1. rows from A[:,j] with row > j (original entries)
-    //   2. rows from L[:,k] for each k < j where L[j,k] != 0 (fill-in from updates)
-    // This is O(nnz(L)²) worst case but guaranteed correct.
-
-    let mut l_col_ptr = vec![0usize; n + 1];
-    let mut l_row_idx_build: Vec<Vec<usize>> = vec![Vec::new(); n];
-
-    // For efficient lookup: row_to_cols[i] = list of columns k < i where L[i,k] != 0
-    let mut row_to_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
-
+    // Elimination tree of the permuted matrix, computed directly from the
+    // graph of A (Liu's algorithm with path compression, O(nnz·α(n))).
+    // parent[j] = smallest row index > j in L[:,j]; NONE = root.
+    // The CSC stores the lower triangle, so row_cols[i] = columns j < i with
+    // A[i,j] != 0 gives row-wise access to the lower triangle.
+    const NONE: usize = usize::MAX;
+    let mut row_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
     for j in 0..n {
-        // Start with rows from A[:,j]
-        let mut col_set = Vec::new();
-        col_set.push(j); // diagonal
-
         for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
             let i = pa.row_idx[k];
             if i > j {
-                col_set.push(i);
+                row_cols[i].push(j);
             }
         }
+    }
+    let mut parent_isize = vec![NONE; n];
+    let mut ancestor = vec![NONE; n];
+    for i in 0..n {
+        for &j in &row_cols[i] {
+            let mut r = j;
+            while ancestor[r] != NONE && ancestor[r] != i {
+                let t = ancestor[r];
+                ancestor[r] = i;
+                r = t;
+            }
+            if ancestor[r] == NONE {
+                ancestor[r] = i;
+                parent_isize[r] = i;
+            }
+        }
+    }
 
-        // Merge rows from previous columns k where L[j,k] != 0
-        for &k in &row_to_cols[j] {
-            // Add all rows > j from column k
-            for &row in &l_row_idx_build[k] {
-                if row > j {
-                    col_set.push(row);
+    // Children of each node in increasing order.
+    let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for j in 0..n {
+        if parent_isize[j] != NONE {
+            children[parent_isize[j]].push(j);
+        }
+    }
+
+    // Column patterns via the elimination tree:
+    //   struct(L[:,j]) = {j} ∪ struct(A[:,j] below diag) ∪ (∪_{c child of j} struct(L[:,c]) \ {c})
+    // Every column of L is scanned exactly once (by its parent), so the whole
+    // pattern costs O(nnz(A) + nnz(L)) plus a per-column sort — instead of the
+    // previous O(nnz(L)²) merge over every column contributing to a row.
+    //
+    // All rows contributed to column j are >= j: A rows are filtered with
+    // i > j, and every row r > c in a child pattern satisfies r >= parent[c] = j
+    // (parent[c] is by definition the smallest such row). So the diagonal can
+    // be emitted first and only the tail needs sorting.
+    let mut l_col_ptr = vec![0usize; n + 1];
+    let mut l_row_idx: Vec<usize> = Vec::new();
+    let mut mark = vec![NONE; n];
+
+    for j in 0..n {
+        l_col_ptr[j] = l_row_idx.len();
+        mark[j] = j;
+        l_row_idx.push(j); // diagonal first
+        let tail_start = l_row_idx.len();
+
+        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+            let i = pa.row_idx[k];
+            if i > j && mark[i] != j {
+                mark[i] = j;
+                l_row_idx.push(i);
+            }
+        }
+        for &c in &children[j] {
+            for k in l_col_ptr[c]..l_col_ptr[c + 1] {
+                let r = l_row_idx[k];
+                if r > c && mark[r] != j {
+                    mark[r] = j;
+                    l_row_idx.push(r);
                 }
             }
         }
-
-        col_set.sort_unstable();
-        col_set.dedup();
-        l_row_idx_build[j] = col_set;
-
-        // Register this column in row_to_cols for future columns
-        for &row in &l_row_idx_build[j] {
-            if row > j {
-                row_to_cols[row].push(j);
-            }
-        }
-    }
-
-    // Build elimination tree from the computed structure (parent[j] = min row > j in L[:,j])
-    let mut parent = vec![-1isize; n];
-    for j in 0..n {
-        for &row in &l_row_idx_build[j] {
-            if row > j {
-                parent[j] = row as isize;
-                break; // first row > j (sorted)
-            }
-        }
-    }
-
-    // Build compressed l_row_idx and l_col_ptr
-    let mut l_row_idx = Vec::new();
-    for j in 0..n {
-        l_col_ptr[j] = l_row_idx.len();
-        l_row_idx.extend_from_slice(&l_row_idx_build[j]);
+        l_row_idx[tail_start..].sort_unstable();
     }
     l_col_ptr[n] = l_row_idx.len();
     let l_nnz = l_row_idx.len();
+
+    // Convert to the historical parent representation (-1 for roots).
+    let parent: Vec<isize> = parent_isize
+        .iter()
+        .map(|&p| if p == NONE { -1 } else { p as isize })
+        .collect();
 
     SymbolicCholesky {
         n,
@@ -453,5 +474,135 @@ mod tests {
         let num = numeric_cholesky(&sym, &a).unwrap();
         let cond = sparse_condition_estimate(&num);
         assert!((cond - 1.0).abs() < 1e-10); // L = diag(2,2), ratio = 1
+    }
+
+    /// Reference implementation of the symbolic factorization: direct
+    /// left-looking merge of every column k with L[j,k] != 0 (O(nnz(L)²)).
+    /// Kept only to pin the elimination-tree construction in
+    /// `symbolic_cholesky_with_perm` to the exact same pattern and tree.
+    fn symbolic_reference(a: &CscMatrix, perm: &[usize]) -> (Vec<usize>, Vec<usize>, Vec<isize>) {
+        let n = a.n;
+        let pa = a.permute_symmetric(perm);
+
+        let mut l_row_idx_build: Vec<Vec<usize>> = vec![Vec::new(); n];
+        let mut row_to_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
+
+        for j in 0..n {
+            let mut col_set = vec![j];
+            for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+                let i = pa.row_idx[k];
+                if i > j {
+                    col_set.push(i);
+                }
+            }
+            for &k in &row_to_cols[j] {
+                for &row in &l_row_idx_build[k] {
+                    if row > j {
+                        col_set.push(row);
+                    }
+                }
+            }
+            col_set.sort_unstable();
+            col_set.dedup();
+            l_row_idx_build[j] = col_set;
+            for &row in &l_row_idx_build[j] {
+                if row > j {
+                    row_to_cols[row].push(j);
+                }
+            }
+        }
+
+        let mut parent = vec![-1isize; n];
+        let mut l_col_ptr = vec![0usize; n + 1];
+        let mut l_row_idx = Vec::new();
+        for j in 0..n {
+            l_col_ptr[j] = l_row_idx.len();
+            for &row in &l_row_idx_build[j] {
+                if row > j && parent[j] == -1 {
+                    parent[j] = row as isize;
+                }
+                l_row_idx.push(row);
+            }
+        }
+        l_col_ptr[n] = l_row_idx.len();
+        (l_col_ptr, l_row_idx, parent)
+    }
+
+    fn assert_matches_reference(a: &CscMatrix, perm: &[usize], ctx: &str) {
+        let sym = symbolic_cholesky_with_perm(a, perm);
+        let (ref_ptr, ref_idx, ref_parent) = symbolic_reference(a, perm);
+        assert_eq!(sym.l_col_ptr, ref_ptr, "{ctx}: l_col_ptr differs");
+        assert_eq!(sym.l_row_idx, ref_idx, "{ctx}: l_row_idx differs");
+        assert_eq!(sym.parent, ref_parent, "{ctx}: etree differs");
+        assert_eq!(sym.l_nnz, ref_idx.len(), "{ctx}: l_nnz differs");
+    }
+
+    #[test]
+    fn test_symbolic_etree_matches_reference() {
+        // Identity permutation on assorted structures: dense-ish, banded,
+        // arrowhead, and a graph with disconnected components.
+        let dense = make_spd(&[
+            4.0, 2.0, 1.0,
+            2.0, 5.0, 3.0,
+            1.0, 3.0, 6.0,
+        ], 3);
+        assert_matches_reference(&dense, &[0, 1, 2], "dense 3x3 identity");
+
+        // Arrowhead: row/col 0 connected to all — maximal fill ordering.
+        let n = 6;
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            rows.push(i); cols.push(i); vals.push(10.0);
+            if i > 0 {
+                rows.push(i); cols.push(0); vals.push(1.0);
+            }
+        }
+        let arrow = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+        assert_matches_reference(&arrow, &[0, 1, 2, 3, 4, 5], "arrowhead identity");
+        assert_matches_reference(&arrow, &[5, 4, 3, 2, 1, 0], "arrowhead reversed");
+
+        // Disconnected: two independent tridiagonal chains.
+        let n = 8;
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            rows.push(i); cols.push(i); vals.push(4.0);
+            let next = if i < 3 { Some(i + 1) } else if i == 4 || i == 5 || i == 6 { Some(i + 1) } else { None };
+            if let Some(j) = next {
+                if !(i == 3) {
+                    rows.push(j); cols.push(i); vals.push(-1.0);
+                }
+            }
+        }
+        let disc = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+        assert_matches_reference(&disc, &[0, 1, 2, 3, 4, 5, 6, 7], "disconnected chains");
+    }
+
+    #[test]
+    fn test_symbolic_etree_matches_reference_on_fixtures() {
+        // Real assembled stiffness matrices, with both orderings the solver
+        // can pick. This is the equivalence the elimination-tree rewrite
+        // must preserve bit-for-bit.
+        use crate::solver::{assembly, dof::DofNumbering};
+        use crate::types::SolverInput3D;
+
+        let fixtures: [(&str, &str); 4] = [
+            ("nave-industrial", include_str!("../../tests/fixtures/ex-3d-nave-industrial-input.json")),
+            ("tower", include_str!("../../tests/fixtures/ex-3d-tower-input.json")),
+            ("space-truss", include_str!("../../tests/fixtures/ex-3d-space-truss-input.json")),
+            ("building-case1", include_str!("../../tests/fixtures/ex-3d-building-case1-input.json")),
+        ];
+        for (name, json) in fixtures {
+            let input: SolverInput3D = serde_json::from_str(json).expect("parse fixture");
+            let dof_num = DofNumbering::build_3d(&input);
+            let asm = assembly::assemble_sparse_3d(&input, &dof_num, false);
+            let k = &asm.k_ff;
+            if k.n == 0 {
+                continue;
+            }
+            let amd = amd_order(k.n, &k.col_ptr, &k.row_idx);
+            assert_matches_reference(k, &amd, &format!("{name} amd"));
+            let rcm = rcm_order(k.n, &k.col_ptr, &k.row_idx);
+            assert_matches_reference(k, &rcm, &format!("{name} rcm"));
+        }
     }
 }
