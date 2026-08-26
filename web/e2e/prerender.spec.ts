@@ -129,7 +129,6 @@ async function expectLinks(page: Page, path: string, locale: Locale) {
 }
 
 test.describe('@smoke prerender', () => {
-
   for (const locale of LOCALES) {
     test(`/${locale} is served as ${locale}, with text, to a crawler`, async ({ browser }) => {
       const { page, close } = await crawl(browser, `/${locale}/`);

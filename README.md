@@ -15,6 +15,7 @@
   <a href="https://stabileo.com/en/blog">Blog</a> ·
   <a href="#what-works-today">What works today</a> ·
   <a href="#why-stabileo-exists">Why it exists</a> ·
+  <a href="#features">Features</a> ·
   <a href="#getting-started">Getting started</a> ·
   <a href="docs/README.md">Docs</a>
 </p>
@@ -48,7 +49,7 @@ delivers costs more trust than the extra features would have bought.
 | **PRO** | In development | Finite-element analysis and complex models already run here, at the level you would expect from a professional package. What is still being polished is design to the codes — the step many FE programs stop short of, handing you results and leaving the check to you. |
 | **Education** | In development | A student-exercise layer on the same engine. Teachers write exercises in the app, hand them out as a link and get the answers back. What is missing is the layer above: the course. |
 
-The solver capabilities listed further down are **engine-level**. The engine implements more
+The [solver capabilities listed further down](#solver-capabilities) are **engine-level**. The engine implements more
 than any one mode currently exposes, which is exactly why the modes are labelled the way they
 are here.
 
@@ -163,11 +164,22 @@ npm run dev       # http://localhost:4000
 ```
 
 ```bash
-npm test          # run the web test suite
-npm run build     # production build -> web/dist/
+npm test           # run the web test suite
+npm run build:only # production build -> web/dist/
 ```
 
 Requires Node.js >= 18.
+
+`npm run build` does the same build and then prerenders every public route, which it does
+by driving the real page in headless Chromium — so it needs a browser installed first:
+
+```bash
+npx playwright install chromium
+npm run build     # build + prerender, what CI and the deploy run
+```
+
+Nothing else in the workflow needs it: `npm run dev`, `npm test` and `build:only` do not
+prerender.
 
 ---
 
