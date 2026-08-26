@@ -2417,8 +2417,21 @@
     color: white;
   }
 
+  /*
+     One row, one centre line.
+     ─────────────────────────
+     This was `align-items: normal`, which in a flex row means stretch — so
+     the help button and the language select, having no height of their own,
+     grew to the row's 32 px, while the two controls that DO declare a height
+     stayed 26 px and were left sitting against the top edge. Four controls
+     side by side on three different centre lines.
+
+     `center` is the rule; the two heights below are what keeps centring from
+     also making those two look smaller than the pair beside them.
+  */
   .header-actions {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
   }
@@ -2472,8 +2485,10 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    height: 26px;
-    padding: 0 0.45rem;
+    /* 32 px, which is what the help button and the language select come out
+       at when they stretch — see `.header-actions`. */
+    height: 32px;
+    padding: 0 0.55rem;
     background: transparent;
     border: 1px solid var(--st-hair-strong);
     border-radius: 999px;
@@ -2484,8 +2499,8 @@
   .btn-ai:hover { background: var(--st-surface-3); color: var(--st-text); }
   .btn-ai.on { border-color: var(--st-accent); color: var(--st-text); }
 
-  .ai-glyph { font-size: 0.85rem; line-height: 1; color: var(--st-accent); }
-  .ai-word { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.07em; }
+  .ai-glyph { font-size: 0.95rem; line-height: 1; color: var(--st-accent); }
+  .ai-word { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; }
 
   /*
      The floating △ is gone; Stabileo AI opens from the header corner. Its
@@ -2523,8 +2538,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    /* Square, and the same 32 px as everything else in this row. */
+    width: 32px;
+    height: 32px;
     padding: 0;
     background: transparent;
     border: 1px solid var(--st-hair-strong);
