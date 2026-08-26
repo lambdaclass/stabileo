@@ -104,6 +104,8 @@
   import SectionStressPanel from './components/SectionStressPanel.svelte';
   import KinematicPanel from './components/KinematicPanel.svelte';
   import StressPickHint from './components/stress/StressPickHint.svelte';
+  import ColourScaleLegend from './components/ColourScaleLegend.svelte';
+  import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
@@ -120,9 +122,12 @@
   import HelpOverlay from './components/HelpOverlay.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
   import { tourStore } from './lib/store/tour.svelte';
-  import { buildTourSteps } from './lib/tour/tour-steps';
+  import { startDemo, DEFAULT_DEMO } from './lib/tour/demos';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
+  import BlogPage from './components/blog/BlogPage.svelte';
+  import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
+  import { publicI18n } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
 
   if (typeof window !== 'undefined') {
@@ -139,6 +144,39 @@
   function isDemoRoute(pathname: string) {
     return pathname === '/demo' || pathname === '/demo/';
   }
+
+  /**
+   * The public routes, read through their language prefix.
+   *
+   * `/es/blog/x` and `/blog/x` are the same route; the first names its
+   * language and the second is an old link that still has to work. Everything
+   * below asks these two rather than matching `location.pathname` directly,
+   * because a prefix would otherwise turn every public page into an app route.
+   */
+  function publicRoute(pathname: string) {
+    return parsePublicPath(pathname);
+  }
+
+  /** `/blog`, `/blog/` and `/blog/<slug>`, under any language prefix. */
+  function isBlogRoute(pathname: string) {
+    const { path } = publicRoute(pathname);
+    // `/blog/` is covered by the prefix test; only the bare form needs naming.
+    return path === '/blog' || path.startsWith('/blog/');
+  }
+
+  /**
+   * The URL says which language the page is in, so on arrival the URL wins.
+   *
+   * Without this, opening a shared `/pt/blog/x` in a browser whose stored
+   * choice is Spanish would render the Spanish post at a Portuguese address —
+   * and the address is what was shared, indexed and quoted.
+   */
+  function adoptLocaleFromPath() {
+    if (typeof window === 'undefined') return;
+    const { locale } = publicRoute(location.pathname);
+    if (locale && locale !== publicI18n.locale) setLocale(locale);
+  }
+  adoptLocaleFromPath();
 
   type AppMode = 'basico' | 'educativo' | 'pro';
 
@@ -187,6 +225,115 @@
     history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   }
 
+  /**
+   * `?inspect=<elementId>` opens the section analysis on that member.
+   *
+   * Written for the blog: a post about torsion can embed the editor already
+   * showing the section it is discussing, so the reader arrives at the figure
+   * instead of hunting for it through three menus. It composes with the
+   * existing `?embed` and `?example=` rather than adding a mode of its own.
+   *
+   * `t` is the station along the member, 0 to 1, and defaults to midspan.
+   *
+   * It waits for results, because the panel renders a stress state and there
+   * is none until the model has been solved. The solve is dispatched by the
+   * example loader just above, and finishes whenever the engine finishes;
+   * polling briefly is simpler than threading a promise through it, and it
+   * gives up rather than spinning if the solve never lands.
+   */
+  function openInspectFromUrl(params: URLSearchParams) {
+    const raw = params.get('inspect');
+    if (!raw) return;
+    const elementId = Number(raw);
+    // Integer, not merely finite: `?inspect=3.7` parsed fine and then polled
+    // sixty times for an element id that cannot exist.
+    if (!Number.isInteger(elementId)) return;
+    /*
+     * `?t=0` is the start of the member, and it used to become midspan.
+     * `Number('0') || 0.5` is 0.5, because 0 is falsy — so the one station a
+     * reader is most likely to ask for by hand was the one station this could
+     * not open. Only a value that is not a number falls back now.
+     */
+    const requested = Number(params.get('t') ?? '0.5');
+    const t = Number.isFinite(requested) ? Math.min(1, Math.max(0, requested)) : 0.5;
+
+    let tries = 0;
+    const open = () => {
+      const element = modelStore.elements.get(elementId);
+      const solved = resultsStore.results !== null || resultsStore.results3D !== null;
+      if (element && solved) {
+        const a = modelStore.nodes.get(element.nodeI);
+        const b = modelStore.nodes.get(element.nodeJ);
+        if (!a || !b) return;
+        resultsStore.stressQuery = {
+          elementId,
+          t,
+          worldX: a.x + (b.x - a.x) * t,
+          worldY: a.y + (b.y - a.y) * t,
+          worldZ: (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * t,
+        };
+        /*
+         * On desktop Basic the section panel is docked inside the Advanced
+         * tab of the right panel, so the query alone sets up an answer with
+         * nowhere to appear. On mobile the panel floats and the query is
+         * enough — which is why this looked like it worked on a phone and did
+         * nothing on a laptop.
+         */
+        if (uiStore.appMode === 'basico' && !uiStore.isMobile) openBasicPanel('advanced');
+        return;
+      }
+      if (tries++ < 60) setTimeout(open, 120);
+    };
+    open();
+  }
+
+  /**
+   * `?proTab=<id>` opens PRO on one of its tabs.
+   *
+   * The companion of `?inspect` for the other half of the application. A post
+   * about CIRSOC verification has to land the reader on the verification, and
+   * that lives in PRO's `design` tab rather than in Basic's section panel.
+   *
+   * NOT named `tab`: that parameter already carries the project tab's slug
+   * (see `replaceAppUrl`), and quietly overloading it would make a shared
+   * link rename someone's project.
+   */
+  /**
+   * `?kin=1` opens the kinematic analysis panel.
+   *
+   * The third of the deep links a post can use, beside `?inspect` and
+   * `?proTab`. Unlike those two it waits for nothing: the report is derived
+   * from geometry and supports alone, so it is ready before the solver is —
+   * and on the model this exists for, the solver never succeeds at all.
+   */
+  function openKinematicFromUrl(params: URLSearchParams) {
+    if (params.get('kin') !== '1') return;
+    uiStore.showKinematicPanel = true;
+    /*
+     * On desktop Basic the report is docked inside the Advanced tab of the
+     * right panel (see BasicPanel.svelte), so raising the flag on its own
+     * opens a panel that is never mounted. On mobile it floats and the flag
+     * is enough — the same asymmetry that made `?inspect` look like it
+     * worked on a phone and did nothing on a laptop.
+     *
+     * No retry loop, unlike `openInspectFromUrl`: that one waits for the
+     * solver, and this report needs only geometry and supports. By the time
+     * the example loader resolves, both are in place.
+     */
+    if (uiStore.appMode === 'basico' && !uiStore.isMobile) openBasicPanel('advanced', { toggle: false });
+  }
+
+  function openProTabFromUrl(params: URLSearchParams) {
+    const tab = params.get('proTab');
+    if (!tab) return;
+    // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
+    // there but not here makes `?proTab=` silently no-op for it.
+    const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
+      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics'];
+    if (!VALID.includes(tab)) return;
+    uiStore.proActiveTab = tab;
+  }
+
   function findTabBySlug(tabSlug: string | null) {
     if (!tabSlug) return null;
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
@@ -194,21 +341,43 @@
 
   function shouldShowLanding() {
     const params = new URLSearchParams(location.search);
-    return !params.has('embed') && !isAppRoute(location.pathname) && !isDemoRoute(location.pathname);
+    return !params.has('embed') && !isAppRoute(location.pathname) && !isDemoRoute(location.pathname)
+      && !isBlogRoute(location.pathname);
   }
 
   let showLanding = $state(shouldShowLanding());
+  let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
+  /** The address the blog reads its slug from; kept in state so it is reactive. */
+  let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
+
+  /**
+   * Move between the public pages without reloading the document.
+   *
+   * The site is a static bundle, so a real navigation to /blog would be a 404
+   * that bounces through `/?route=/blog`. Everything public — the landing's
+   * blog entry, the blog's own links, the way back home — comes through here.
+   */
+  function navigatePublic(path: string) {
+    // Public links are written unprefixed ('/blog') and land prefixed
+    // ('/pt/blog'), so a language never falls off mid-visit.
+    history.pushState(null, '', publicHref(path, publicI18n.locale));
+    syncRouteState();
+  }
 
   function enterApp() {
     if (!isAppRoute(location.pathname)) {
       history.pushState(null, '', modeToPath(currentAppMode));
     }
     showLanding = false;
+    showBlog = false;
   }
 
   function syncRouteState() {
+    adoptLocaleFromPath();
+    showBlog = isBlogRoute(location.pathname);
+    blogPath = publicRoute(location.pathname).path;
     showLanding = shouldShowLanding();
-    if (!showLanding) {
+    if (!showLanding && !showBlog) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -224,6 +393,10 @@
   // Listen for enter-app event from LandingPage "Try Demo" buttons
   if (typeof window !== 'undefined') {
     window.addEventListener('stabileo-enter-app', enterApp);
+    window.addEventListener('stabileo-navigate', (e) => {
+      const path = (e as CustomEvent<string>).detail;
+      if (typeof path === 'string') navigatePublic(path);
+    });
   }
 
   // ─── Per-mode model persistence ───
@@ -425,6 +598,19 @@
     }
   }
 
+  function handleOpenPanelEvent(e: Event) {
+    const panel = (e as CustomEvent<string>).detail;
+    /*
+     * `toggle: false` — "open" means open.
+     *
+     * The default is a toggle, which is right for a button that owns its panel
+     * and wrong for a walkthrough: two consecutive steps both asking for the
+     * results panel closed it on the second, and the card that followed
+     * pointed at a panel it had just dismissed.
+     */
+    if (typeof panel === 'string') openBasicPanel(panel, { toggle: false });
+  }
+
   function handleExportPNG() {
     const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
     if (canvas) downloadCanvasPNG(canvas);
@@ -460,7 +646,12 @@
     if (isDemoRoute(location.pathname)) {
       history.replaceState(null, '', modeToPath(currentAppMode));
       syncRouteState();
-      setTimeout(() => tourStore.start(buildTourSteps()), 600);
+      /*
+       * `/demo` opens the shortest walkthrough rather than the old fourteen-step
+       * tour of everything. The rest are in Project → Tutorials, where someone
+       * who wants one can pick the question they actually have.
+       */
+      setTimeout(() => startDemo(DEFAULT_DEMO), 600);
     }
 
     // Check for URL hash (shared model link or embed)
@@ -490,8 +681,22 @@
             if (attempt < 40) setTimeout(() => tryFit(attempt + 1), 60);
           };
           tryFit(0);
-        }).catch(() => {
-          // Silently ignore unknown example ids
+          openInspectFromUrl(queryParams);
+          openProTabFromUrl(queryParams);
+          openKinematicFromUrl(queryParams);
+        }).catch((err) => {
+          /*
+           * Reported, not swallowed.
+           *
+           * This used to be an empty catch commented "silently ignore unknown
+           * example ids", and it did far more than that: a fixture missing
+           * `plates` threw `json.plates is not iterable` from inside the
+           * loader, the whole `then` above was skipped, and the page rendered
+           * a half-loaded model with no deep link applied and no sign that
+           * anything had failed. An unknown id is worth ignoring quietly; a
+           * broken one is not.
+           */
+          console.error(`[stabileo] example "${exampleId}" failed to load:`, err);
         });
       }, 80);
     }
@@ -604,6 +809,16 @@
     // Cancel any pending debounced live calc so the manual solve supersedes it.
     const handleGlobalSolve = () => { cancelPendingLiveCalc(); runGlobalSolve(); };
     window.addEventListener('stabileo-solve', handleGlobalSolve);
+    /*
+     * Open a right-hand panel from outside the ribbon.
+     *
+     * The guided walkthroughs need this: a step that points at a button
+     * inside the Advanced panel has nothing to point at while the panel is
+     * shut, and reaching into `openBasicPanel` from a step definition would
+     * put a piece of the shell's layout inside a data structure that
+     * describes tour cards.
+     */
+    window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
       saveWorkspaceToLocalStorage();
@@ -615,12 +830,21 @@
       window.removeEventListener('stabileo-dxf-drop', handleDxfDropEvent);
       window.removeEventListener('stabileo-import-ifc', handleIfcImportEvent);
       window.removeEventListener('stabileo-solve', handleGlobalSolve);
+      window.removeEventListener('stabileo-open-panel', handleOpenPanelEvent);
       window.removeEventListener('popstate', onPopState);
     };
   });
 
+  /**
+   * The address bar follows the editor's mode — but only while the editor is
+   * what the reader is looking at. The blog is a public page mounted over the
+   * same application instance, so without the `showBlog` guard this rewrote
+   * /blog/<slug> to /app/basic the moment a post opened: the page was right
+   * and the URL was wrong, which is the worst of both, since the link a reader
+   * copies or reloads is the wrong one.
+   */
   $effect(() => {
-    if (showLanding || typeof window === 'undefined') return;
+    if (showLanding || showBlog || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
@@ -750,14 +974,16 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} />
 
-{#if showLanding}
+{#if showBlog}
+  <BlogPage path={blogPath} />
+{:else if showLanding}
   <LandingPage />
 {/if}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
-      <button class="logo-home" onclick={() => { showLanding = true; history.pushState(null, '', '/'); }} title={t('app.backHome')}>
+      <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
         <span class="logo-icon">△</span>
         <span class="logo-text">Stabileo</span>
       </button>
@@ -931,15 +1157,15 @@
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
         <ProRibbon
-          onExamples={(btn) => proPanelRef?.examples(btn)}
-          onSolve={() => proPanelRef?.solve()}
-          onReport={() => proPanelRef?.report()}
+          onExamples={(btn) => { uiStore.proPanelVisible = true; proPanelRef?.examples(btn); }}
+          onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
+          onReport={() => { uiStore.proPanelVisible = true; proPanelRef?.report(); }}
           canSolve={proPanelRef?.canSolve() ?? false}
           canReport={proPanelRef?.canReport() ?? false}
           isSolving={proPanelRef?.isSolving() ?? false}
           errorCount={proPanelRef?.errorCount() ?? 0}
           proPanel={uiStore.proActiveTab}
-          onOpenProject={() => (uiStore.proActiveTab = 'project')}
+          onOpenProject={() => { uiStore.proActiveTab = 'project'; uiStore.proPanelVisible = true; }}
         />
     {/if}
 
@@ -981,14 +1207,50 @@
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <StressPickHint />
+        <!-- The colour map's scale. One component for both viewports: the ramp
+             is defined once, so the legend that explains it should be too. -->
+        <ColourScaleLegend />
         {#if uiStore.simplified2DMode}
+          {@const st = uiStore.simplified2DStats}
           <div class="simplified-banner">
-            <span>{t('app.simplified2d.banner')}</span>
-            {#if uiStore.simplified2DStats}
+            <!--
+              A slice and a projection are different models with different
+              things wrong with them, and the banner is the only place that
+              says which one you are looking at. "Simplified" covered both and
+              told you nothing about either — a cut at Y = 6 is not simplified,
+              it is one frame of the building, and reading its results as the
+              whole structure's is the mistake this line exists to prevent.
+            -->
+            <span>
+              {#if st?.offset !== undefined && st.plane}
+                {t('switch2d.sliceBanner')} — {st.plane === 'xy' ? 'Z' : st.plane === 'xz' ? 'Y' : 'X'} = {st.offset} m
+              {:else}
+                {t('app.simplified2d.banner')}
+              {/if}
+            </span>
+            {#if st}
               <span class="simplified-stats">
-                {uiStore.simplified2DStats.mergedNodes > 0 ? `${uiStore.simplified2DStats.mergedNodes} ${t('app.simplified2d.merged')}` : ''}
-                {uiStore.simplified2DStats.removedElements > 0 ? ` · ${uiStore.simplified2DStats.removedElements} ${t('app.simplified2d.removed')}` : ''}
-                {uiStore.simplified2DStats.duplicateElements > 0 ? ` · ${uiStore.simplified2DStats.duplicateElements} ${t('app.simplified2d.duplicates')}` : ''}
+                {st.mergedNodes > 0 ? `${st.mergedNodes} ${t('app.simplified2d.merged')}` : ''}
+                {st.removedElements > 0 ? ` · ${st.removedElements} ${t('app.simplified2d.removed')}` : ''}
+                {st.duplicateElements > 0 ? ` · ${st.duplicateElements} ${t('app.simplified2d.duplicates')}` : ''}
+                {(st.droppedCrossing ?? 0) + (st.droppedElsewhere ?? 0) > 0
+                  ? ` · ${(st.droppedCrossing ?? 0) + (st.droppedElsewhere ?? 0)} ${t('switch2d.leftBehind')}`
+                  : ''}
+                <!--
+                  And the load, which is the one that has to survive to HERE.
+                  The dialog warns before the cut; this banner is what stays on
+                  screen while the results are read. Missing members make a
+                  frame look weaker than it is, and a reader distrusts it.
+                  Missing LOAD makes it look stronger — it solves, reports zero,
+                  and reads as safe — so the count belongs in the standing
+                  context and not only in the moment before the decision.
+                -->
+                {#if (st.droppedLoads ?? 0) > 0}
+                  <!-- Its own element, with a test id, so the guard on it can
+                       be written without pinning a translated string. -->
+                  <span data-testid="s2d-dropped-loads" data-count={st.droppedLoads}
+                  >{' · '}{st.droppedLoads} {t('switch2d.loadsLeftBehind')}</span>
+                {/if}
               </span>
             {/if}
           </div>
@@ -1041,8 +1303,24 @@
     {/if}
 
     {#if !uiStore.isMobile}
-      {#if uiStore.appMode === 'pro' && uiStore.proPanelVisible}
-        <aside class="sidebar right pro-sidebar" style:width="{uiStore.proPanelWidth}px" style:overflow="visible">
+      {#if uiStore.appMode === 'pro'}
+        <!--
+          Closed means hidden, not unmounted.
+          ─────────────────────────────────────
+          The ribbon is bound to this panel's instance (`bind:this`): Solve, Report,
+          the example menu and the MODEL badge's error count all live on it. The ✕
+          used to unmount the panel, which nulled that binding — the ribbon's
+          commands silently no-opped and the badge read "✓ clean" on a model with
+          errors. Hiding keeps the instance alive, so closing the panel changes
+          what you see and nothing else. Both viewports resize themselves with a
+          ResizeObserver, so the canvas follows without help.
+        -->
+        <aside
+          class="sidebar right pro-sidebar"
+          class:pro-sidebar-closed={!uiStore.proPanelVisible}
+          style:width="{uiStore.proPanelWidth}px"
+          style:overflow="visible"
+        >
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div class="pro-resize-handle" onmousedown={(e) => startProResize(e)}></div>
           <!--
@@ -1065,20 +1343,21 @@
           >×</button>
           <ProPanel bind:this={proPanelRef} />
         </aside>
-      {:else if uiStore.appMode === 'pro' && !uiStore.proPanelVisible && !uiStore.isMobile}
-        <!-- A closed panel has to be reopenable from where it closed. -->
-        <!--
-          A bare chevron on the canvas edge is not a clue. It says what it
-          reopens, running up the tab, so a panel you closed is findable
-          without hunting for a 16 px strip.
-        -->
-        <button
-          class="pro-panel-reopen"
-          onclick={() => { uiStore.proPanelVisible = true; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }}
-          title={t('proRibbon.reopenPanel')}
-          aria-label={t('proRibbon.reopenPanel')}
-          data-testid="pro-panel-reopen"
-        ><span class="ppr-text">‹ {t('proRibbon.reopenPanel')}</span></button>
+        {#if !uiStore.proPanelVisible}
+          <!-- A closed panel has to be reopenable from where it closed. -->
+          <!--
+            A bare chevron on the canvas edge is not a clue. It says what it
+            reopens, running up the tab, so a panel you closed is findable
+            without hunting for a 16 px strip.
+          -->
+          <button
+            class="pro-panel-reopen"
+            onclick={() => { uiStore.proPanelVisible = true; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }}
+            title={t('proRibbon.reopenPanel')}
+            aria-label={t('proRibbon.reopenPanel')}
+            data-testid="pro-panel-reopen"
+          ><span class="ppr-text">‹ {t('proRibbon.reopenPanel')}</span></button>
+        {/if}
       {:else if uiStore.appMode === 'educativo'}
         <aside class="sidebar right edu-sidebar">
           <EducativePanel />
@@ -1225,6 +1504,13 @@
 <ContextMenu />
 
 <HelpOverlay />
+
+<!--
+  Modal over the whole app, so it sits with the other dialogs rather than
+  inside the viewport: what it decides replaces the model, which is not a
+  viewport-scoped act.
+-->
+<SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
 
 <DxfImportDialog
   open={showDxfImport}
@@ -1524,6 +1810,11 @@
     position: relative;
     z-index: 40;
     flex-shrink: 0;
+  }
+
+  /* Hidden, not unmounted — see the aside's comment in the markup above. */
+  .pro-sidebar-closed {
+    display: none;
   }
 
   /* ─── PRO command bar with dropdowns ─── */

@@ -9,6 +9,7 @@ import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import type { TabState } from './tabs.svelte';
+import { resetSwitchBackup } from './switch-2d';
 import { t } from '../i18n';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import {
@@ -181,6 +182,10 @@ export function deserializeProject(text: string): boolean {
   historyStore.pushState();
   modelStore.restore(data.snapshot);
   modelStore.model.name = data.name;
+  // A different model now occupies the store: any 3D original held for the
+  // simplified-2D round trip belongs to the model that was just replaced, and
+  // restoring it from here on would wipe THIS one. (See switch-2d.ts.)
+  resetSwitchBackup();
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
   // Restoring analysisMode below already yields the right appMode.
@@ -582,9 +587,10 @@ export function downloadSVG(): void {
 
 // ─── Export Excel ────────────────────────────────────────────────
 
-export function downloadExcel(): void {
+export async function downloadExcel(): Promise<void> {
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  exportToExcel({ filename: `${safeName}.xlsx` });
+  // Async because xlsx is fetched on demand — see lib/export/excel.ts.
+  await exportToExcel({ filename: `${safeName}.xlsx` });
 }
 
 // ─── PDF Report ─────────────────────────────────────────────────

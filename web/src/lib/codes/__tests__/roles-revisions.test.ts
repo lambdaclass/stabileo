@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { teAt } from '../../i18n/engine-text';
-import { shippedLocales } from '../../i18n/store.svelte';
+import { allShippedLocales as shippedLocales } from '../../i18n/locales/all';
 import {
   DESIGN_ONLY_ROLES, LOAD_AFFECTING_ROLES, REGULATION_ROLES, ROLE_CATALOG,
   bindRole, bindingLabel, defaultRegulations, isLoadAffecting, migrateRegulations,

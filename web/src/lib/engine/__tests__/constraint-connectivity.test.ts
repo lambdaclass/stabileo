@@ -78,7 +78,13 @@ function baseModel3D(extraNodeId: number): ModelData {
   };
 }
 
-const ORPHAN_RX = /is not connected to any element|no está conectado a ningún elemento/i;
+/*
+ * The word for a bar. Basic calls it a member in English and a barra in
+ * Spanish and Portuguese — "element" was ambiguous with plates and quads, and
+ * the app now reserves it for them. Matched loosely because this test is about
+ * the orphan check firing at all, not about the wording.
+ */
+const ORPHAN_RX = /is not connected to any (?:element|member)|no está conectado a ninguna? (?:elemento|barra)/i;
 const DISCONNECTED_GRAPH_RX = /disconnected.*graph|grafo desconectado/i;
 
 function assertNotOrphanError(result: unknown, label: string) {

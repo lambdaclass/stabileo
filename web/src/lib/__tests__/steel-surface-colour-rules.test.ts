@@ -129,16 +129,27 @@ describe('no metallic surface puts the brand colour on an error background', () 
     }
   });
 
-  it('and the three concrete instances are still where the reconciliation says they are', () => {
+  it('and two of the three concrete instances are fixed, the third is not', () => {
     /*
-     * Not a metallic assertion — a cross-check that the report M1 handed H1 is still accurate. If
-     * H1 fixes them, this fails and the reconciliation document has to be updated, which is the
-     * correct outcome: a report nobody notices going stale is worse than no report.
+     * Not a metallic assertion — a cross-check that the report M1 handed H1 is still accurate.
+     *
+     * The version this replaces asserted the three instances were STILL THERE, and said in its
+     * own words: «If H1 fixes them, this fails and the reconciliation document has to be updated,
+     * which is the correct outcome: a report nobody notices going stale is worse than no report.»
+     *
+     * That is what happened. H1's token work reached `main`, merging `main` into M1 brought it,
+     * and the test fired exactly as designed. So it is turned around — from reporting a defect to
+     * guarding its repair — and `docs/handoffs/m1-token-proposal-reconciliation.md` records the
+     * closure.
      */
     const badge = read('components/pro/design/OutcomeBadge.svelte');
-    expect(badge).toMatch(/\.badge-fail\s*\{[^}]*var\(--st-accent\)/);
-    expect(badge).toMatch(/\.badge-outcome-SECTION_INADEQUATE\s*\{[^}]*var\(--st-accent\)/);
-    expect(read('components/pro/design/DesignToolbar.svelte'))
+    expect(badge, '.badge-fail is back on the brand colour')
+      .not.toMatch(/\.badge-fail\s*\{[^}]*var\(--st-accent\)/);
+    expect(badge, 'SECTION_INADEQUATE is back on the brand colour')
+      .not.toMatch(/\.badge-outcome-SECTION_INADEQUATE\s*\{[^}]*var\(--st-accent\)/);
+    // The third is still open. Asserted as such, so the day it is fixed this fires again and the
+    // reconciliation gets its final update rather than quietly going stale.
+    expect(read('components/pro/design/DesignToolbar.svelte'), '.banner-block was fixed; update the reconciliation')
       .toMatch(/\.banner-block\s*\{[^}]*var\(--st-accent\)/);
   });
 });

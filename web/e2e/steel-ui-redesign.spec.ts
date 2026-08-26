@@ -157,6 +157,15 @@ test.describe('@smoke metallic states stay honest', () => {
   test('U7 — every status renders a glyph AND a word, and none of them approves', async (
     { pro: page },
   ) => {
+    /**
+     * An empty model short-circuits the panel at `steelStore.isEmpty`, leaving ZERO badges —
+     * and a loop over zero badges asserts nothing. Generate a truss first, so the loop below
+     * reads the states it exists to check, and guard the count so it can never go vacuous.
+     */
+    await openTab(page, 'generators');
+    await page.getByTestId('gen-generate').click();
+    await expect(page.getByTestId('gen-result')).toBeVisible();
+
     await openTab(page, 'steel');
     const panel = page.getByTestId('pro-steel-panel');
     await expect(panel).toBeVisible();
@@ -189,7 +198,10 @@ test.describe('@smoke metallic states stay honest', () => {
      * The claim was never about the prose. It is that no MEMBER is presented in a passing state,
      * and members carry their state in a badge. So the badges are what gets read.
      */
-    const badges = await page.locator('[data-testid^="steel-status-"]').allInnerTexts();
+    const badgeLoc = page.locator('[data-testid^="steel-status-"]');
+    const n = await badgeLoc.count();
+    expect(n, 'the badge loop must read a non-empty set of member states').toBeGreaterThan(0);
+    const badges = await badgeLoc.allInnerTexts();
     for (const b of badges) {
       const lower = b.toLowerCase();
       for (const passing of ['verified', 'verificado', 'ok', 'approved', 'aprobado']) {

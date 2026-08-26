@@ -11,6 +11,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -18,8 +19,15 @@ jobs:
         with:
           components: clippy, rust-src
 
+      # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
+      # here hangs the job until the 6 h default timeout (seen on main and on
+      # PR #154, 2026-08-19 — the job sat in this step for over an hour). The
+      # step timeout turns the hang into a fast failure.
       - name: Install mold linker
-        run: sudo apt-get update && sudo apt-get install -y mold
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -36,6 +44,7 @@ jobs:
   # equal the old combined filter's count).
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -43,8 +52,15 @@ jobs:
         with:
           components: rust-src
 
+      # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
+      # here hangs the job until the 6 h default timeout (seen on main and on
+      # PR #154, 2026-08-19 — the job sat in this step for over an hour). The
+      # step timeout turns the hang into a fast failure.
       - name: Install mold linker
-        run: sudo apt-get update && sudo apt-get install -y mold
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -111,8 +127,15 @@ jobs:
         with:
           components: rust-src
 
+      # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
+      # here hangs the job until the 6 h default timeout (seen on main and on
+      # PR #154, 2026-08-19 — the job sat in this step for over an hour). The
+      # step timeout turns the hang into a fast failure.
       - name: Install mold linker
-        run: sudo apt-get update && sudo apt-get install -y mold
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -137,8 +160,15 @@ jobs:
         with:
           components: rust-src
 
+      # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
+      # here hangs the job until the 6 h default timeout (seen on main and on
+      # PR #154, 2026-08-19 — the job sat in this step for over an hour). The
+      # step timeout turns the hang into a fast failure.
       - name: Install mold linker
-        run: sudo apt-get update && sudo apt-get install -y mold
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -193,6 +223,12 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # `npm run build` prerenders the public pages by driving the app in a
+      # browser (web/scripts/prerender.ts). Chromium is a build input now.
+      - name: Install Chromium for prerendering
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
       - name: Build
         working-directory: web
         run: npm run build
@@ -246,6 +282,21 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # BLOCKING: functional DOM + hook assertions.
+      #
+      # `@landing` was added to this grep on 2026-08-19 and taken out the same
+      # day. The whole landing suite failed here in a way it does not fail
+      # locally: the twelve blog cases passed, the first landing case passed,
+      # and from the second onwards EVERY test timed out at 60 s "while setting
+      # up context" — `browser.newContext` never returning, one wedged browser
+      # rather than any assertion about the page. With `workers: 1` the landing
+      # spec runs after ~190 heavier cases, and the leading suspicion is the
+      # hero's continuous rAF animation under software GL on a 2-core runner,
+      # not anything the spec asserts. Diagnosing that belongs to whoever owns
+      # this harness; guessing at it through 30-minute CI iterations does not.
+      #
+      # The blog spec is tagged `@smoke` directly, so the public pages are not
+      # entirely unguarded here. `npx playwright test --grep @landing` is the
+      # local command for the rest.
       - name: E2E smoke suite
         working-directory: web
         run: npx playwright test --grep @smoke

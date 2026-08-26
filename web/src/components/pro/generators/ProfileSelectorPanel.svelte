@@ -29,6 +29,7 @@
    * general PRO section picker can hand it a different catalogue — a project library, a
    * server — without this file changing. That is the whole point of the seam.
    */
+  import { untrack } from 'svelte';
   import { t, tp } from '../../../lib/i18n';
   import {
     groupByFamily, steelProfileSource,
@@ -74,6 +75,7 @@
   let listEl: HTMLDivElement | undefined = $state();
   /** Whether the property card is open. Remembered across rows, not per row. */
   let cardOpen = $state(true);
+  let dialog: HTMLDivElement | undefined = $state();
 
   /**
    * Profiles pinned for comparison.
@@ -110,19 +112,28 @@
    *
    * An id would survive a filter change and point at a row that is no longer shown, which is
    * how a highlight ends up invisible and Enter picks something the user cannot see. An index
-   * is clamped below on every change, so it always points at something on screen.
+   * is restarted at the first row on every filter change, so it always points at something on
+   * screen.
    */
   let cursor = $state(0);
   $effect(() => {
-    // Reading `flat.length` is what subscribes this to filter and search changes.
-    if (cursor > flat.length - 1) cursor = Math.max(0, flat.length - 1);
+    // Reading `flat.length` is what subscribes this to filter and search changes: a
+    // narrowed list restarts the cursor on its first row rather than leaving it on an
+    // index that now names a different profile.
+    void flat.length;
+    cursor = 0;
   });
 
+  /**
+   * Mount-intended, and `untrack` keeps it that way: subscribing to `flat` or `selected`
+   * would re-run this on every typed character, re-focusing the input and snapping the
+   * cursor back to the previous selection mid-search.
+   */
   $effect(() => {
     input?.focus();
     // Start on the current selection, so opening the panel and pressing Enter is a no-op
     // rather than a silent change to whatever happens to be first.
-    const at = flat.findIndex((e) => e.id === selected);
+    const at = untrack(() => flat.findIndex((e) => e.id === selected));
     if (at >= 0) cursor = at;
   });
 
@@ -206,11 +217,28 @@
    */
   const COMPARED = ['height', 'area', 'mass', 'iy', 'wy', 'ry', 'iz', 'wz', 'rz'] as const;
 
+  /**
+   * Non-modal, so it must behave like one thing only: a popover. Keys are handled on the
+   * dialog itself (nothing outside it is preventDefault'd while it is open), and a click
+   * landing anywhere outside — back in the generator form, say — is a dismissal, not a
+   * background state the form keeps typing into.
+   *
+   * This listener never sees the click that opened the panel: the trigger in
+   * `ProfilePicker` stops propagation, because a trusted click can still be bubbling while
+   * the state flush that mounts this panel runs (the browser checkpoints microtasks between
+   * listeners), and an opening click reaching window would read as an instant dismissal.
+   * Clicks on the trigger while open are likewise stopped there — the trigger's own toggle
+   * closes the panel, and this handler's `onClose` would be a no-op.
+   */
+  function windowClick(e: MouseEvent) {
+    if (dialog && e.target instanceof Node && !dialog.contains(e.target)) onClose();
+  }
+
   const dims = (e: ProfileEntry) =>
     `${e.heightMm}×${e.widthMm} mm · ${e.areaCm2.toFixed(1)} cm² · ${e.massKgPerM.toFixed(1)} kg/m`;
 </script>
 
-<svelte:window onkeydown={keydown} />
+<svelte:window onclick={windowClick} />
 
 <div
   class="sel"
@@ -218,6 +246,9 @@
   aria-modal="false"
   aria-label={label || t('profileSelector.title')}
   data-testid="profile-selector"
+  bind:this={dialog}
+  onkeydown={keydown}
+  tabindex={-1}
 >
   <div class="head">
     <input
@@ -228,6 +259,7 @@
       role="combobox"
       aria-expanded="true"
       aria-controls="profile-selector-list"
+      aria-activedescendant={flat.length > 0 ? `profile-option-${cursor}` : undefined}
       placeholder={t('profileSelector.search')}
       data-testid="profile-search"
     />
@@ -348,6 +380,7 @@
           <span class="row-wrap">
           <button
             type="button"
+            id="profile-option-{at}"
             class="row"
             class:sel={e.id === selected}
             class:cur={at === cursor}

@@ -708,8 +708,8 @@
     padding: 8px 20px; border-radius: 6px; font-size: 12px; font-weight: 600;
     cursor: pointer; border: none; transition: background 0.15s;
   }
-  .al-btn-primary { background: none; color: var(--st-bg); }
-  .al-btn-primary:hover { background: var(--st-surface-3); }
+  .al-btn-primary { background: var(--st-accent); color: var(--st-text-on-accent); }
+  .al-btn-primary:hover { background: var(--st-accent-hover); }
   .al-btn-secondary { background: var(--st-surface-3); color: var(--st-text-2); }
   .al-btn-secondary:hover { background: var(--st-hair-strong); }
 </style>

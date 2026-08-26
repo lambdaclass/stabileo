@@ -28,9 +28,9 @@
 
 <!--
   Ink, not paper. Adding the Basic section put three consecutive paper
-  sections between the hero and the demo (problem, what, basic), which read as
-  one undifferentiated light stretch and lost the deck's alternation. Flipping
-  this one restores it without touching either neighbour.
+  sections in a row (problem, what, basic), which read as one undifferentiated
+  light stretch and lost the deck's alternation. Flipping this one restores it
+  without touching either neighbour.
 -->
 <section class="sec sec--ink what reveal" data-section="what" id="what" aria-labelledby="what-title">
   <div class="wrap">

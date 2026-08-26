@@ -127,6 +127,22 @@ export interface KinematicReport {
 
   // Step 3: Rank verification
   nFreeDofs: number;       // Kff dimension
+  /**
+   * Whether the rank check actually ran.
+   *
+   * `analyzeKinematics` needs the WASM engine. Before it is ready it returns
+   * `mechanismModes: 0` with `rankAnalysis: 'unavailable'` — honestly, since
+   * it also sets `isSolvable: false` and says so in its diagnosis. This report
+   * used to drop that field, so a caller reading `mechanismModes === 0` could
+   * not tell "no mechanisms" from "not checked", and the panel rendered the
+   * second as "the structure is stable".
+   *
+   * That was visible on the all-roller model the blog post embeds: step 2 said
+   * isostatic, step 3 said stable, and the status bar underneath said
+   * "Mechanism — cannot be solved". Three statements, two of them wrong,
+   * on one screen.
+   */
+  rankChecked: boolean;
   hasHiddenMechanism: boolean;
   mechanismModes: number;
   mechanismNodes: number[];
@@ -347,6 +363,7 @@ export function generateKinematicReport(
   // ── Step 3: Rank verification ── (computed before classification so we can adjust it)
 
   const kinResult = analyzeKinematics(input);
+  const rankChecked = kinResult.rankAnalysis !== 'unavailable';
   const mechanismModes = kinResult.mechanismModes;
   const mechanismNodes = kinResult.mechanismNodes;
   const hasHiddenMechanism = degree >= 0 && mechanismModes > 0;
@@ -403,7 +420,7 @@ export function generateKinematicReport(
     hingeDetails, slideDetails, totalC,
     isPureTruss, formula, substitution,
     degree, classification, classificationText,
-    nFreeDofs, hasHiddenMechanism, mechanismModes, mechanismNodes, unconstrainedDofs,
+    nFreeDofs, rankChecked, hasHiddenMechanism, mechanismModes, mechanismNodes, unconstrainedDofs,
     elementAnalysis,
     suggestions,
     isSolvable: kinResult.isSolvable,

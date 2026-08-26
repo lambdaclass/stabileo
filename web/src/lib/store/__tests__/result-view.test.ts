@@ -19,6 +19,7 @@ import { installViewModeRules } from '../view-mode';
 import {
   activeQuantity, activeRepresentation, representationsFor,
   showQuantityAs, commandShowsQuantity,
+  colourScaleSource, hasLiveColourScale, showStressMap, activeMapMeasure,
 } from '../result-view';
 
 /*
@@ -240,5 +241,97 @@ describe('editing and reading stay mutually exclusive', () => {
     showQuantityAs('torsion', 'colourMap');
     expect(uiStore.currentTool).toBe('select');
     expect(activeQuantity()).toBe('torsion');
+  });
+});
+
+/**
+ * The measure selector unmounting itself.
+ *
+ * The shell contours are offered INSIDE the stress-measure select, but the
+ * select was gated on the stress measures alone — choosing "Shell σ Von
+ * Mises" made the control vanish as a direct consequence of using it, and no
+ * ribbon command lit over a map that was plainly on screen. `activeMapMeasure`
+ * is the gate that knows the shells too.
+ */
+describe('the measure selector, shells included', () => {
+  beforeEach(() => {
+    resultsStore.diagramType = 'colorMap' as never;
+  });
+
+  it('names the stress measures AND the shell contours', () => {
+    for (const kind of ['stressRatio', 'vonMises', 'sigmaMax', 'tauMax', 'shellVonMises', 'shellBending'] as const) {
+      resultsStore.colorMapKind = kind;
+      expect(activeMapMeasure(), kind).toBe(kind);
+    }
+  });
+
+  it('says nothing for an internal force or for no map at all', () => {
+    resultsStore.colorMapKind = 'momentY';
+    expect(activeMapMeasure()).toBeNull();
+    resultsStore.diagramType = 'none' as never;
+    expect(activeMapMeasure()).toBeNull();
+  });
+
+  it('lets the select switch to a shell contour without unmounting itself', () => {
+    showStressMap('stressRatio');
+    expect(activeMapMeasure()).toBe('stressRatio');
+    showStressMap('shellVonMises');
+    expect(resultsStore.diagramType).toBe('colorMap');
+    expect(activeMapMeasure()).toBe('shellVonMises');
+  });
+});
+
+/**
+ * The legend outliving its picture.
+ *
+ * Reported from the app: turn the scale on over a stress map, switch to a
+ * bending diagram, and the bar stayed — labelled with the map's maximum, over
+ * a picture that has nothing to do with it. The publisher is the drawing code,
+ * so nothing runs to retract the value; the fix is that the value carries the
+ * name of what drew it and is unusable once that changes.
+ */
+describe('colour scale liveness', () => {
+  beforeEach(() => {
+    resultsStore.setColourScale(null);
+    resultsStore.diagramType = 'none' as never;
+  });
+
+  it('distinguishes two maps of different quantities', () => {
+    showStressMap('vonMises');
+    const a = colourScaleSource();
+    showStressMap('tauMax');
+    expect(colourScaleSource()).not.toBe(a);
+  });
+
+  it('goes dead when the result changes under it', () => {
+    showStressMap('vonMises');
+    resultsStore.setColourScale({ max: 235, unit: 'MPa', source: colourScaleSource() });
+    expect(hasLiveColourScale()).toBe(true);
+
+    showQuantityAs('momentZ', 'diagram');
+    expect(hasLiveColourScale()).toBe(false);
+  });
+
+  it('goes dead between two maps until the new one publishes', () => {
+    showStressMap('vonMises');
+    resultsStore.setColourScale({ max: 235, unit: 'MPa', source: colourScaleSource() });
+
+    // The switch alone must not leave the old maximum readable, even though
+    // both pictures are colour maps and both want a legend.
+    showStressMap('stressRatio');
+    expect(hasLiveColourScale()).toBe(false);
+
+    resultsStore.setColourScale({ max: 1, unit: '', source: colourScaleSource() });
+    expect(hasLiveColourScale()).toBe(true);
+  });
+
+  it('comes back for the same picture without republishing', () => {
+    showStressMap('vonMises');
+    const scale = { max: 235, unit: 'MPa', source: colourScaleSource() };
+    resultsStore.setColourScale(scale);
+    showQuantityAs('momentZ', 'diagram');
+    expect(hasLiveColourScale()).toBe(false);
+    showStressMap('vonMises');
+    expect(hasLiveColourScale()).toBe(true);
   });
 });

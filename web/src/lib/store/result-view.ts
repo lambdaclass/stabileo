@@ -86,7 +86,7 @@ export function activeRepresentation(): Representation | null {
 export function showQuantityAs(q: ResultQuantity, how: Representation): void {
   if (how === 'colourMap') {
     resultsStore.colorMapKind = q as never;
-    showDiagram('colorMap' as never);
+    showDiagram('colorMap');
     return;
   }
   if (how === 'memberColour' && SIGNED_QUANTITIES.has(q)) {
@@ -128,4 +128,92 @@ export function commandShowsQuantity(diagram: string): boolean {
   if (active === null) return false;
   if (diagram === 'axial') return active === 'axial';
   return diagram === active;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Stress measures
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * The measures computed FROM the internal forces rather than being one.
+ *
+ * They belong to no ribbon command that names a force, because each of them
+ * combines several: Von Mises folds normal and shear together, and the
+ * utilisation divides that by the yield strength. So they get a command of
+ * their own, and the panel chooses between them.
+ *
+ * Offered because the section-stress evaluation already produces all four —
+ * naming them costs nothing, and normal and shear SEPARATELY are what answer
+ * "is this member governed by bending or by shear", a question Von Mises
+ * deliberately blurs by design.
+ */
+export type StressMeasure = 'stressRatio' | 'vonMises' | 'sigmaMax' | 'tauMax';
+
+export const STRESS_MEASURES: StressMeasure[] = ['stressRatio', 'vonMises', 'sigmaMax', 'tauMax'];
+
+/** The measure being painted, or null when the map is showing an internal force. */
+export function activeStressMeasure(): StressMeasure | null {
+  if (resultsStore.diagramType !== 'colorMap') return null;
+  const k = resultsStore.colorMapKind;
+  return (STRESS_MEASURES as string[]).includes(k) ? k as StressMeasure : null;
+}
+
+/**
+ * Everything the measure selector can be showing: the four section-stress
+ * measures AND the shell contours.
+ *
+ * The shells are chosen in the same select, so a gate that knows only the
+ * stress measures unmounts the select the moment a shell contour is picked —
+ * the control vanishing as a consequence of using it — and leaves the ribbon
+ * command dark over a picture it claims to own.
+ */
+export type MapMeasure = StressMeasure | 'shellVonMises' | 'shellBending';
+
+/** The measure on screen, shells included, or null for an internal force. */
+export function activeMapMeasure(): MapMeasure | null {
+  if (resultsStore.diagramType !== 'colorMap') return null;
+  const k = resultsStore.colorMapKind;
+  return (STRESS_MEASURES as string[]).includes(k) || k === 'shellVonMises' || k === 'shellBending'
+    ? k as MapMeasure : null;
+}
+
+/**
+ * Paint a stress measure over the members.
+ *
+ * Defaults to utilisation — sigma over fy — because it is the one measure that
+ * answers a question on its own: a number near 1 means the member is at its
+ * limit, whatever its steel and whatever its section. The others are absolute
+ * stresses, and an absolute stress means nothing until you know what it is
+ * being compared against.
+ */
+export function showStressMap(measure: MapMeasure = 'stressRatio'): void {
+  resultsStore.colorMapKind = measure;
+  showDiagram('colorMap');
+}
+
+/**
+ * A name for exactly what is painted right now.
+ *
+ * Used to pair the colour-scale legend with its picture. The legend's numbers
+ * are published by the drawing code, which only runs while it is drawing —
+ * change to a bending diagram and the last map's maximum is still sitting in
+ * the store with nothing on screen to explain it. Comparing this signature at
+ * render time makes that stale value unusable rather than merely discouraged:
+ * there is no path, present or future, that can leave a legend behind.
+ */
+export function colourScaleSource(): string {
+  const dt = resultsStore.diagramType;
+  return dt === 'colorMap' ? `colorMap:${resultsStore.colorMapKind}` : String(dt);
+}
+
+/**
+ * Whether a colour scale is genuinely on screen right now.
+ *
+ * Both the legend and the switch that shows it ask this, and they have to
+ * agree: a checkbox offering to show a legend that cannot appear is a control
+ * that does nothing, which reads as a bug in the checkbox.
+ */
+export function hasLiveColourScale(): boolean {
+  const s = resultsStore.colourScale;
+  return !!s && s.source === colourScaleSource();
 }

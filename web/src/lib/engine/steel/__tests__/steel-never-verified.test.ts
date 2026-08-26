@@ -102,6 +102,7 @@ describe('the metallic components', () => {
     ...walk('components/pro/steel'),
     ...walk('components/pro/generators'),
     'components/pro/ProConnectionsTab.svelte',
+    'components/pro/ProVerificationTab.svelte',
   ];
 
   it('covers every metallic screen there is, including the ones added later', () => {
@@ -129,9 +130,26 @@ describe('the metallic components', () => {
       const src = read(f);
       expect(src, f).not.toMatch(/\.tone-ok\b/);
       expect(src, f).not.toMatch(/tone-(pass|success|verified)\b/);
-      // A bare ✓ is the glyph a reader reads as approval. The joints panel earns its own by
-      // pairing it with a utilisation and an experimental banner; nothing else may use it.
-      if (!f.endsWith('ProConnectionsTab.svelte')) {
+      /*
+       * A bare ✓ is the glyph a reader reads as approval. The joints panel earns its own by
+       * pairing it with a utilisation and an experimental banner; nothing else may use it.
+       *
+       * `ProVerificationTab` is exempt from THIS sweep and from this sweep only. It is a shared
+       * surface: the same tab renders reinforced-concrete rows, where a tick is a legitimate
+       * verdict that main's own guards protect. Scanning the whole file for the glyph asserted
+       * about concrete, which this rule was never about — and it began failing the moment main
+       * was merged in, on a component neither M1 nor M2 wrote.
+       *
+       * What actually matters here is guarded precisely, and separately, by «the verification
+       * tab shows no steel row through the green-tick path»: a steel row's `overallStatus` comes
+       * from the untested CIRSOC 301 table, so routing it through `statusIcon`/`statusClass` is
+       * the green tick this branch exists to kill. That test still runs over this file.
+       *
+       * The wider question — one panel carrying two verdict languages — is open and deliberately
+       * not settled here. See §6.2 of `docs/handoffs/m1-m2-audit.md`.
+       */
+      const SHARED_WITH_CONCRETE = ['ProConnectionsTab.svelte', 'ProVerificationTab.svelte'];
+      if (!SHARED_WITH_CONCRETE.some((n) => f.endsWith(n))) {
         expect(src, `${f} shows a tick`).not.toMatch(/[✓✔]/);
       }
     }
@@ -154,5 +172,17 @@ describe('the metallic components', () => {
     // the number is worth before showing it.
     expect(read('components/pro/steel/SteelPanel.svelte')).toMatch(/experimentalBanner|SteelExperimentalBanner/);
     expect(read('components/pro/ProConnectionsTab.svelte')).toMatch(/conn\.experimentalBanner/);
+  });
+
+  it('the verification tab shows no steel row through the green-tick path', () => {
+    // `statusIcon`/`statusClass` map 'ok' to ✓ and green. A steel row's `overallStatus`
+    // comes from the untested CIRSOC 301 table, so routing the row through that path is the
+    // green tick this branch exists to kill. Steel rows render the steel-status vocabulary
+    // instead, and no steel row may be counted as ok in the summary header.
+    const tab = read('components/pro/ProVerificationTab.svelte');
+    expect(tab).not.toMatch(/statusIcon\(sv\.overallStatus\)/);
+    expect(tab).not.toMatch(/statusClass\(sv\.overallStatus\)/);
+    expect(tab).not.toMatch(/steelVerifications\.filter\([^)]*overallStatus === 'ok'/);
+    expect(tab).toMatch(/SteelStatusBadge/);
   });
 });

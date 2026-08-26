@@ -326,3 +326,29 @@ el contrato acá, y hay un test que falla el día que el token aparezca, para qu
   token para lo que significa. No es de M1.
 - **M1 adopta los tokens** cuando el contrato llegue a esta rama: tres tintes en
   `ProConnectionsTab` y dos en el panel metálico, todos con test que ya los espera.
+
+
+---
+
+## Cierre parcial — al integrar `main` en M1
+
+El trabajo de tokens de H1 llegó a `main`, y el merge explícito de `main` en M1 lo trajo. De las
+**tres instancias de hormigón** que este documento reportaba —marca `--st-accent` sobre fondo de
+error— **dos están corregidas y una sigue abierta**:
+
+| Instancia | Archivo | Estado |
+|---|---|---|
+| `.badge-fail` | `components/pro/design/OutcomeBadge.svelte` | **Corregida** — usa `var(--st-danger)` |
+| `.badge-outcome-SECTION_INADEQUATE` | idem | **Corregida** |
+| `.banner-block` | `components/pro/design/DesignToolbar.svelte` | **Abierta** — sigue `border: 1px solid var(--st-accent)` sobre `rgba(238,34,34,0.14)` |
+
+Los dos tests que vigilaban esto —`steel-surface-colour-rules` y `state-background-contrast`—
+fallaron al integrar, que es exactamente lo que su propio comentario anticipaba: *«si H1 los
+corrige, esto falla y el documento de reconciliación debe actualizarse… un informe que nadie nota
+que envejeció es peor que ningún informe»*. Se dieron vuelta por instancia: las dos corregidas se
+custodian contra su regreso, y la tercera se afirma **como todavía rota**, de modo que el día que
+se arregle vuelva a fallar y este documento reciba su cierre final.
+
+Además, `DesignToolbar` **dejó de nombrar el violeta provisional**. La regla que exigía a cuatro
+componentes nombrarlo pasó a derivarse de los que sí lo nombran, con un piso de tres, para que no
+se vuelva vacua.

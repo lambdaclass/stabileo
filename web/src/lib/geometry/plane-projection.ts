@@ -55,6 +55,66 @@ export function remapNodalLoad2D(plane: DrawPlane, fx3d: number, fy3d: number, f
 }
 
 /**
+ * Below this, a projected load carries nothing and is not a load.
+ *
+ * Not a tolerance on geometry — a threshold on FORCE. A load whose in-plane
+ * component is this small acts on nothing, and the 2D solver would integrate
+ * it to zero anyway; the only question is whether anyone is told it is gone.
+ */
+export const LOAD_EPS = 1e-12;
+
+/**
+ * What a load still carries once projected onto a plane, as a magnitude.
+ *
+ * Existence is not the same question as effect, and for a slice they come
+ * apart: a roof load pointing down the global Z has no component in a
+ * HORIZONTAL frame, so it survives the cut as an object and acts on nothing.
+ * Counting objects made that invisible — the dialog advertised forty loads,
+ * the frame carried none, and the utilisation map painted it uniformly green.
+ *
+ * Summed componentwise rather than normed: this decides "is there anything
+ * here at all", and for that a sum of absolute values is both cheaper and
+ * strictly safer than a norm — it cannot cancel.
+ *
+ * Kinds with no 2D form (a surface load carries `quadId`, and a quad is not
+ * something a plane frame can hold) return 0, which is what makes them show
+ * up as dropped rather than vanish.
+ */
+export function inPlaneLoadMagnitude(
+  load: { type: string; data: Record<string, unknown> },
+  plane: DrawPlane,
+): number {
+  const d = load.data as Record<string, number | undefined>;
+  const abs = (v: number | undefined) => Math.abs(v ?? 0);
+
+  switch (load.type) {
+    case 'nodal3d': {
+      const f = remapNodalLoad2D(plane, d.fx ?? 0, d.fy ?? 0, d.fz ?? 0);
+      return Math.abs(f.fx) + Math.abs(f.fy)
+        + Math.abs(remapMoment2D(plane, d.mx ?? 0, d.my ?? 0, d.mz ?? 0));
+    }
+    case 'nodal': {
+      // The legacy 2D shape stores the vertical in `fz`, falling back to `fy`.
+      const f = remapNodalLoad2D(plane, d.fx ?? 0, d.fz ?? d.fy ?? 0, 0);
+      return Math.abs(f.fx) + Math.abs(f.fy)
+        + Math.abs(remapMoment2D(plane, 0, 0, d.my ?? d.mz ?? 0));
+    }
+    case 'distributed3d':
+      return plane === 'xy'
+        ? abs(d.qYI) + abs(d.qYJ)
+        : abs(d.qZI) + abs(d.qZJ);
+    case 'distributed':
+      return abs(d.qI) + abs(d.qJ);
+    case 'pointOnElement':
+      return abs(d.p) + abs(d.px) + abs(d.my);
+    case 'thermal':
+      return abs(d.dtUniform) + abs(d.dtGradient);
+    default:
+      return 0;
+  }
+}
+
+/**
  * Remap a 3D moment about each axis to the single 2D rotation (about the
  * out-of-plane axis).
  *   XY plane → rotation about Z
@@ -92,12 +152,95 @@ export interface SimplifiedModel {
   materials: Map<number, any>;
   sections: Map<number, any>;
   /** Stats about the reduction */
-  stats: { mergedNodes: number; removedElements: number; duplicateElements: number };
+  stats: {
+    mergedNodes: number; removedElements: number; duplicateElements: number;
+    droppedLoads: number;
+    /**
+     * How many of the INPUT loads reached the 2D model carrying something.
+     *
+     * Not `loads.length`: the builder sums nodal loads that land on one merged
+     * node, so three loads can leave as one and counting the output would say
+     * two went missing when none did. Counting sources keeps
+     * `carriedLoads + droppedLoads` equal to what came in, which is the
+     * property that makes either number trustworthy.
+     */
+    carriedLoads: number;
+  };
 }
 
 export type SimplifiedResult = { ok: true; model: SimplifiedModel } | { ok: false; error: string };
 
+/**
+ * The builder's one failure, as a named constant: the store maps it onto an
+ * i18n key for the dialog, while the legacy toolbar modal still toasts the
+ * sentence itself — which is why it stays an English string at the source.
+ */
+export const PROJECTION_COLLAPSE_ERROR =
+  'All elements collapse or are duplicates in this projection. Use 3D mode.';
+
 const MERGE_TOL = 1e-4;
+
+type ReleaseShape = { my: boolean; mz: boolean; t: boolean };
+
+/**
+ * Which local bending axis is the IN-PLANE one for a member, given the plane
+ * its 2D image will live in.
+ *
+ * The 2D solver reads only `release.mz` as the bending hinge, but a 3D model
+ * stores the in-plane hinge under whichever LOCAL axis is normal to the
+ * plane, and that is not always z: with the canonical auto-orient (local z =
+ * global up projected ⊥ the member; see engine/local-axes-3d.ts), a member
+ * lying in the XZ plane has local y as the plane normal, so its in-plane
+ * hinge is `my` — copying releases verbatim would lose it, and would invent
+ * a phantom hinge from the out-of-plane `mz`. YZ is split: horizontal members
+ * get the normal from local y, vertical (Z-aligned) ones from local z, via
+ * the same near-vertical fallback the solver uses.
+ */
+function inPlaneBendingAxis(
+  plane: DrawPlane,
+  dx: number, dy: number, dz: number,
+): 'my' | 'mz' {
+  const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  if (L < 1e-10) return 'mz';
+  const ex = [dx / L, dy / L, dz / L];
+  // Plane normal: the axis the plane does not contain.
+  const n = plane === 'xy' ? [0, 0, 1] : plane === 'xz' ? [0, 1, 0] : [1, 0, 0];
+  // Replicate the auto-orient: ez = up projected ⊥ ex, horizontal fallback
+  // for near-vertical members, ey = ez × ex.
+  const up = [0, 0, 1];
+  const dotUp = ex[0] * up[0] + ex[1] * up[1] + ex[2] * up[2];
+  let ezRaw: number[];
+  if (Math.abs(dotUp) > 0.999) {
+    const ref = [1, 0, 0];
+    const dotH = ex[0] * ref[0] + ex[1] * ref[1] + ex[2] * ref[2];
+    ezRaw = [ref[0] - dotH * ex[0], ref[1] - dotH * ex[1], ref[2] - dotH * ex[2]];
+  } else {
+    ezRaw = [up[0] - dotUp * ex[0], up[1] - dotUp * ex[1], up[2] - dotUp * ex[2]];
+  }
+  const ezLen = Math.sqrt(ezRaw[0] ** 2 + ezRaw[1] ** 2 + ezRaw[2] ** 2);
+  if (ezLen < 1e-10) return 'mz';
+  const ez = [ezRaw[0] / ezLen, ezRaw[1] / ezLen, ezRaw[2] / ezLen];
+  const ey = [
+    ez[1] * ex[2] - ez[2] * ex[1],
+    ez[2] * ex[0] - ez[0] * ex[2],
+    ez[0] * ex[1] - ez[1] * ex[0],
+  ];
+  const eyDot = Math.abs(ey[0] * n[0] + ey[1] * n[1] + ey[2] * n[2]);
+  const ezDot = Math.abs(ez[0] * n[0] + ez[1] * n[1] + ez[2] * n[2]);
+  return eyDot >= ezDot ? 'my' : 'mz';
+}
+
+/**
+ * Rewrite a 3D release for the 2D model: the hinge about the plane normal
+ * lands in `mz`, where the 2D solver looks for it, and the out-of-plane
+ * bending release is dropped rather than left to masquerade as an in-plane
+ * hinge. Torsion passes through; it means nothing to the 2D solver either
+ * way, and dropping it would only hide what the 3D model said.
+ */
+function remapReleaseToPlane(r: ReleaseShape | undefined, axis: 'my' | 'mz'): ReleaseShape | undefined {
+  if (!r) return r;
+  return { ...r, my: false, mz: axis === 'my' ? r.my : r.mz };
+}
 
 /**
  * Build a simplified 2D model by projecting 3D geometry onto a plane.
@@ -118,8 +261,12 @@ export function buildSimplified2DModel(
 ): SimplifiedResult {
   // 1. Project nodes and merge coincident ones
   const projected = new Map<number, { x: number; y: number }>();
+  // Original 3D coordinates, kept for the release remap: which local axis is
+  // the in-plane one depends on the member's 3D direction (see step 3).
+  const orig3D = new Map<number, { x: number; y: number; z: number }>();
   for (const n of nodes) {
     projected.set(n.id, to2D(plane, n.x, n.y, n.z ?? 0));
+    orig3D.set(n.id, { x: n.x, y: n.y, z: n.z ?? 0 });
   }
 
   // Group nodes by proximity: map original ID → merged ID
@@ -165,11 +312,30 @@ export function buildSimplified2DModel(
     if (edgeSet.has(edgeKey)) { duplicateElements++; continue; } // duplicate
     edgeSet.add(edgeKey);
 
-    outElements.set(e.id, { ...e, nodeI: nI, nodeJ: nJ });
+    /*
+     * Releases cannot cross the projection verbatim: the 2D solver reads only
+     * `mz` as the bending hinge, and a 3D frame's IN-PLANE hinge lives under
+     * whichever local axis is normal to the plane (for an XZ frame that is
+     * `my`, not `mz`). Remap so the hinge survives and the out-of-plane
+     * release does not become a phantom in-plane one.
+     */
+    let releaseI = e.releaseI;
+    let releaseJ = e.releaseJ;
+    if (releaseI || releaseJ) {
+      const a = orig3D.get(e.nodeI);
+      const b = orig3D.get(e.nodeJ);
+      if (a && b) {
+        const axis = inPlaneBendingAxis(plane, b.x - a.x, b.y - a.y, b.z - a.z);
+        releaseI = remapReleaseToPlane(releaseI, axis);
+        releaseJ = remapReleaseToPlane(releaseJ, axis);
+      }
+    }
+
+    outElements.set(e.id, { ...e, nodeI: nI, nodeJ: nJ, releaseI, releaseJ });
   }
 
   if (outElements.size === 0) {
-    return { ok: false, error: 'All elements collapse or are duplicates in this projection. Use 3D mode.' };
+    return { ok: false, error: PROJECTION_COLLAPSE_ERROR };
   }
 
   // 4. Resolve supports — map to merged nodes, remap 3D types to 2D
@@ -205,9 +371,37 @@ export function buildSimplified2DModel(
   }
 
   // 5. Remap loads — sum nodal loads at merged nodes, remap types
-  const nodalSums = new Map<number, { fx: number; fy: number; my: number; caseId?: number }>();
+  // `sources` is how many of the model's loads fed each sum, so a sum that
+  // vanishes can report how many loads went with it rather than counting as one.
+  const nodalSums = new Map<number, { fx: number; fy: number; my: number; caseId?: number; sources: number }>();
   const outLoads: Array<{ type: string; data: Record<string, unknown> }> = [];
   let loadId = 1;
+  /*
+   * Counted, not silently swallowed: a load attached to something the
+   * projection removed, or of a kind 2D cannot carry, is a modelling fact
+   * the user should hear about — "eight loads were left behind" is the
+   * difference between a clean reduction and a quietly weaker structure.
+   */
+  let droppedLoads = 0;
+  // Counted in SOURCE loads, not emitted ones — see `carriedLoads` on the type.
+  let carriedLoads = 0;
+
+  /*
+   * ONE rule for "this carries nothing", shared with the preview.
+   *
+   * Applied per type it drifted immediately: the distributed branch got the
+   * check and `pointOnElement` and `thermal` did not, so a point load of 0 kN
+   * was advertised as nothing by the preview and counted as carried here.
+   * That is the same lie this whole count exists to stop, in a rarer type —
+   * and the library sweep could not see it, because no shipped fixture holds
+   * a zero-magnitude load of those kinds.
+   *
+   * Nodal loads are NOT checked here: several can land on one merged node, and
+   * two that individually carry something can still sum to nothing. That is
+   * decided on the sum, below.
+   */
+  const carriesNothing = (l: { type: string; data: Record<string, unknown> }) =>
+    inPlaneLoadMagnitude(l, plane) < LOAD_EPS;
 
   for (const l of loads) {
     if (l.type === 'nodal' || l.type === 'nodal3d') {
@@ -226,14 +420,14 @@ export function buildSimplified2DModel(
       const key = mergedId * 1000 + (d.caseId ?? 1);
       const prev = nodalSums.get(key);
       if (prev) {
-        prev.fx += fx; prev.fy += fy; prev.my += my;
+        prev.fx += fx; prev.fy += fy; prev.my += my; prev.sources++;
       } else {
-        nodalSums.set(key, { fx, fy, my, caseId: d.caseId });
+        nodalSums.set(key, { fx, fy, my, caseId: d.caseId, sources: 1 });
       }
     } else if (l.type === 'distributed' || l.type === 'distributed3d') {
       const d = l.data as any;
       const elemId = d.elementId;
-      if (!outElements.has(elemId)) continue; // element was removed
+      if (!outElements.has(elemId)) { droppedLoads++; continue; } // element was removed
       let qI: number, qJ: number;
       if (l.type === 'distributed3d') {
         if (plane === 'xz' || plane === 'yz') { qI = d.qZI ?? 0; qJ = d.qZJ ?? 0; }
@@ -241,24 +435,39 @@ export function buildSimplified2DModel(
       } else {
         qI = d.qI ?? 0; qJ = d.qJ ?? 0;
       }
+      if (carriesNothing(l)) { droppedLoads++; continue; }
+      carriedLoads++;
       outLoads.push({ type: 'distributed', data: { id: loadId++, elementId: elemId, qI, qJ, angle: d.angle, isGlobal: d.isGlobal, caseId: d.caseId } });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as any;
-      if (!outElements.has(d.elementId)) continue;
+      if (!outElements.has(d.elementId)) { droppedLoads++; continue; }
+      if (carriesNothing(l)) { droppedLoads++; continue; }
+      carriedLoads++;
       outLoads.push({ type: 'pointOnElement', data: { ...d, id: loadId++ } });
     } else if (l.type === 'thermal') {
       const d = l.data as any;
-      if (!outElements.has(d.elementId)) continue;
+      if (!outElements.has(d.elementId)) { droppedLoads++; continue; }
+      if (carriesNothing(l)) { droppedLoads++; continue; }
+      carriedLoads++;
       outLoads.push({ type: 'thermal', data: { ...d, id: loadId++ } });
+    } else {
+      // 3D-only load types (surface3d, pointOnElement3d, …) have no 2D form.
+      droppedLoads++;
     }
-    // Other 3D-only load types (surface3d, etc.) are silently dropped
   }
 
   // Emit summed nodal loads
   for (const [key, sum] of nodalSums) {
     const nodeId = Math.floor(key / 1000);
-    if (!outNodes.has(nodeId)) continue;
-    if (Math.abs(sum.fx) < 1e-15 && Math.abs(sum.fy) < 1e-15 && Math.abs(sum.my) < 1e-15) continue;
+    // Both of these are losses, and both are counted by how many of the
+    // model's loads went into the sum — a node that merged three loads and
+    // then dropped out took three with it, not one.
+    if (!outNodes.has(nodeId)) { droppedLoads += sum.sources; continue; }
+    if (Math.abs(sum.fx) < LOAD_EPS && Math.abs(sum.fy) < LOAD_EPS && Math.abs(sum.my) < LOAD_EPS) {
+      droppedLoads += sum.sources;
+      continue;
+    }
+    carriedLoads += sum.sources;
     outLoads.push({ type: 'nodal', data: { id: loadId++, nodeId, fx: sum.fx, fz: sum.fy, my: sum.my, caseId: sum.caseId } });
   }
 
@@ -271,7 +480,7 @@ export function buildSimplified2DModel(
       loads: outLoads,
       materials,
       sections,
-      stats: { mergedNodes: totalMergedAway, removedElements, duplicateElements },
+      stats: { mergedNodes: totalMergedAway, removedElements, duplicateElements, droppedLoads, carriedLoads },
     },
   };
 }

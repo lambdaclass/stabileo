@@ -232,8 +232,8 @@
   table.checks td { padding: 2px 5px; border-bottom: 1px solid var(--st-surface-3); color: var(--st-text); }
   .num { text-align: right; font-family: monospace; }
   .strong { font-weight: 700; }
-  .chk-fail td { color: var(--st-text); }
-  .chk-warn td { color: var(--st-text); }
+  .chk-fail td { color: var(--st-danger); }
+  .chk-warn td { color: var(--st-warn); }
   .desc-row td { border-bottom: 1px solid var(--st-surface-3); }
   .desc { font-size: 0.62rem; color: var(--st-text-3); padding-left: 12px !important; }
   .none-note { display: flex; gap: 6px; align-items: center; font-size: 0.68rem; }

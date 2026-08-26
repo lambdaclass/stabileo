@@ -317,8 +317,10 @@ export function createSectionShapes(sec: Section): THREE.Shape[] {
       });
       if (shapes.length > 0) return shapes;
     }
-    // An assembly whose outline could not be built draws nothing rather than a stand-in: a
-    // fabricated I-beam where two angles belong is worse than a wireframe line.
+    // An assembly whose outline could not be built contributes no shapes here; the caller
+    // (`create-element-mesh.ts`) then falls back to a plain cylinder rather than drawing
+    // nothing. What this early return avoids is the other stand-in — a fabricated I-beam
+    // where two angles belong.
     return [];
   }
 

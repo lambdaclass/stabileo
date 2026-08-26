@@ -80,6 +80,8 @@ export interface TestHooks {
   reinforcement(id: number): unknown;
   rebarSummary(id: number): string;
   elementIds(): number[];
+  /** The names of the sections in the model — what the model actually stored. */
+  sectionNames(): string[];
   orientationSuspectCount(): number;
   undoCount(): number;
   canvasInkRatio(): number;
@@ -338,6 +340,24 @@ export async function solveModel(page: Page): Promise<void> {
 export async function computeDemands(page: Page): Promise<void> {
   await page.evaluate(() => window.__stabileoActions.computeDemands());
   await expect.poll(() => page.evaluate(() => window.__stabileo.demandRevision())).toBeGreaterThan(0);
+}
+
+/**
+ * Show the Básico project panel, where the project controls live on desktop.
+ *
+ * Básico is the ribbon, and `BasicPanel` is what renders `ToolbarProject` — so
+ * `project-open-file` is not attached until this panel is showing. Three specs learned
+ * that separately and each grew its own copy of the click; one UI move then read as three
+ * unrelated broken files, which is most of why ten tests looked like ten defects.
+ *
+ * Clicking is conditional because `hdr-project` TOGGLES: `openBasicPanel` defaults
+ * `opts.toggle` to true, so an unconditional click CLOSES the panel for any journey that
+ * opens a project twice, and the file input then detaches mid-test.
+ */
+export async function openBasicProjectPanel(page: Page): Promise<void> {
+  const panel = page.locator('[data-testid="basic-panel"][data-panel="project"]');
+  if (await panel.count() === 0) await page.getByTestId('hdr-project').click();
+  await expect(panel, 'the Básico project panel is showing').toBeVisible();
 }
 
 export { expect };

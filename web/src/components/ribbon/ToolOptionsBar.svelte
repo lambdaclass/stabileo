@@ -4,7 +4,6 @@
   import { uiStore } from '../../lib/store/ui.svelte';
   import { modelStore } from '../../lib/store/model.svelte';
   import { resultsStore } from '../../lib/store/results.svelte';
-  import ToolSelectOptions from '../floating-tools/ToolSelectOptions.svelte';
   import ToolNodeOptions from '../floating-tools/ToolNodeOptions.svelte';
   import ToolElementOptions from '../floating-tools/ToolElementOptions.svelte';
   import ToolSupportOptions from '../floating-tools/ToolSupportOptions.svelte';
@@ -75,9 +74,11 @@
     {#if showOptions}
       <span class="tb-tool-name">{t(`float.${uiStore.currentTool}`)}</span>
       <span class="tb-sep" aria-hidden="true"></span>
-      {#if uiStore.currentTool === 'select'}
-        <ToolSelectOptions />
-      {:else if uiStore.currentTool === 'node'}
+      <!--
+        No select options here any more: they live in the Selection panel, so
+        there is one control for one setting rather than two that can disagree.
+      -->
+      {#if uiStore.currentTool === 'node'}
         <ToolNodeOptions />
       {:else if uiStore.currentTool === 'element'}
         <ToolElementOptions />

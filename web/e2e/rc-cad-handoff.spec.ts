@@ -21,7 +21,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, solveModel, designAll } from './fixtures';
+import { test, expect, solveModel, designAll, openBasicProjectPanel } from './fixtures';
 import type { Page } from '@playwright/test';
 import { validateAgainstSchema } from '../src/lib/export/json-schema-subset';
 import {
@@ -68,8 +68,9 @@ async function openCommittedProject(page: Page) {
   // Desktop Básico is the ribbon, and the project controls live in a panel it opens —
   // `BasicPanel` renders `ToolbarProject`, so nothing is attached until the panel is.
   // This helper was written before the ribbon reached this branch and reached straight
-  // for the input, which no longer exists on load.
-  await page.getByTestId('hdr-project').click();
+  // for the input, which no longer exists on load. The click goes through the shared
+  // opener: `hdr-project` toggles, so an unconditional click can CLOSE the panel.
+  await openBasicProjectPanel(page);
   const input = page.getByTestId('project-open-file');
   await expect(input).toBeAttached();
   await input.setInputFiles(FIXTURE);

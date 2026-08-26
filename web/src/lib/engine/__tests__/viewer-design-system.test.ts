@@ -71,8 +71,9 @@ describe('the 3-D workspace speaks the application design system', () => {
     /**
      * Provisional violet is the case that matters. `three/rebar-scene.ts` feeds `0xa066d3` to
      * a material and cannot read a custom property, and `run-summary-reported.test.ts` asserts
-     * the toolbar agrees with it BY VALUE. Aliasing the panel copies would let the picture and
-     * the words beside it drift apart, which is the one thing the colour exists to prevent.
+     * the overview's provisional chip agrees with it BY VALUE. Aliasing the panel copies would
+     * let the picture and the words beside it drift apart, which is the one thing the colour
+     * exists to prevent.
      */
     const scene = fs.readFileSync(
       path.resolve(__dirname, '../../three/rebar-scene.ts'), 'utf8');

@@ -17,11 +17,12 @@
  *
  * # Why the select mode decides what is collected
  *
- * The 2D viewport has a filter above the canvas — Nodes, Elements, Supports,
- * Loads — and box select only ever gathered nodes and elements, in the Elements
- * branch. In the other three modes dragging did nothing at all: no rectangle
- * appeared, because the drag was never started. The click handlers for those
- * modes ended at "nothing near the cursor, clear the selection".
+ * The viewports have a filter above the canvas — Nodes, Elements, Supports,
+ * Loads — and what a drag gathers follows it: the drag itself starts in every
+ * mode, only the gathering is filtered by kind. (That was not always so. 2D
+ * box select used to gather nodes and elements in the Elements branch alone,
+ * and in the other three modes dragging did nothing at all: no rectangle
+ * appeared, because the drag was never started.)
  *
  * The gathering is filtered by mode rather than done wholesale for a specific
  * reason: what is highlighted has to be what gets deleted. A marquee in
@@ -56,13 +57,24 @@ export interface BoxSelectResult {
   loads: Set<number>;
 }
 
+/**
+ * A point in the model's world, which may or may not have a third dimension.
+ *
+ * `z` is optional rather than a separate 2D and 3D type: the geometry here —
+ * is this point inside the rectangle, does this segment cross it — is identical
+ * either way once the point has been projected, and the only thing that differs
+ * is the projection. Two copies of that geometry is how the two viewports would
+ * start disagreeing about what a marquee selects.
+ */
+export interface WorldPoint { x: number; y: number; z?: number }
+
 /** The minimum this needs to know about the model, in world coordinates. */
 export interface BoxSelectModel {
-  nodes: Iterable<{ id: number; x: number; y: number }>;
+  nodes: Iterable<{ id: number } & WorldPoint>;
   elements: Iterable<{ id: number; nodeI: number; nodeJ: number }>;
   supports: Iterable<{ id: number; nodeId: number }>;
   loads: Iterable<{ type: string; data: Record<string, number | undefined> & { id: number } }>;
-  getNode(id: number): { x: number; y: number } | undefined;
+  getNode(id: number): WorldPoint | undefined;
   getElement(id: number): { nodeI: number; nodeJ: number } | undefined;
 }
 
@@ -70,10 +82,24 @@ export interface BoxSelectInput {
   rect: ScreenRect;
   /** True when the drag went left → right. See the header. */
   isWindow: boolean;
-  mode: BoxSelectMode;
+  /**
+   * Every kind the drag picks up.
+   *
+   * A set rather than one value because a user can turn on multi-kind
+   * selection and ask for nodes AND supports in a single sweep. With that off
+   * it is a set of one, which is the same code path — the alternative, a
+   * single-kind branch beside a multi-kind branch, is two behaviours to keep
+   * in step and one of them would drift.
+   */
+  kinds: ReadonlySet<BoxSelectMode> | BoxSelectMode[];
   model: BoxSelectModel;
-  /** World → screen, the same transform the canvas draws with. */
-  toScreen(wx: number, wy: number): { x: number; y: number };
+  /**
+   * World → screen, the same transform the viewport draws with.
+   *
+   * Takes the point rather than a pair of numbers so a 3D caller can pass the
+   * camera projection without the third coordinate being quietly dropped.
+   */
+  toScreen(p: WorldPoint): { x: number; y: number };
 }
 
 const inside = (x: number, y: number, r: ScreenRect): boolean =>
@@ -104,7 +130,7 @@ function memberEnds(
   const ni = model.getNode(m.nodeI);
   const nj = model.getNode(m.nodeJ);
   if (!ni || !nj) return null;
-  return { a: toScreen(ni.x, ni.y), b: toScreen(nj.x, nj.y) };
+  return { a: toScreen(ni), b: toScreen(nj) };
 }
 
 /**
@@ -126,7 +152,7 @@ function loadExtent(
   if (load.type === 'nodal') {
     const n = model.getNode(d.nodeId as number);
     if (!n) return null;
-    const s = toScreen(n.x, n.y);
+    const s = toScreen(n);
     return { kind: 'point', x: s.x, y: s.y };
   }
 
@@ -138,12 +164,20 @@ function loadExtent(
 
   const dx = nj.x - ni.x;
   const dy = nj.y - ni.y;
-  const L = Math.hypot(dx, dy);
+  const dz = (nj.z ?? 0) - (ni.z ?? 0);
+  // The member's true length, so a position along it means the same thing in
+  // both viewports — using the projected length would put a 3D load at the
+  // wrong station whenever the member ran towards the camera.
+  const L = Math.hypot(dx, dy, dz);
   if (L < 1e-10) return null;
+
+  const along = (t: number): WorldPoint => ({
+    x: ni.x + t * dx, y: ni.y + t * dy, z: (ni.z ?? 0) + t * dz,
+  });
 
   if (load.type === 'pointOnElement') {
     const t = Math.max(0, Math.min(1, (d.a ?? 0) / L));
-    const s = toScreen(ni.x + t * dx, ni.y + t * dy);
+    const s = toScreen(along(t));
     return { kind: 'point', x: s.x, y: s.y };
   }
 
@@ -151,8 +185,8 @@ function loadExtent(
   // not the whole member.
   const t0 = Math.max(0, Math.min(1, (d.a ?? 0) / L));
   const t1 = Math.max(0, Math.min(1, (d.b ?? L) / L));
-  const a = toScreen(ni.x + t0 * dx, ni.y + t0 * dy);
-  const b = toScreen(ni.x + t1 * dx, ni.y + t1 * dy);
+  const a = toScreen(along(t0));
+  const b = toScreen(along(t1));
   return { kind: 'segment', ax: a.x, ay: a.y, bx: b.x, by: b.y };
 }
 
@@ -163,19 +197,34 @@ function loadExtent(
  * back empty rather than absent, so a caller can merge unconditionally.
  */
 export function boxSelect(input: BoxSelectInput): BoxSelectResult {
-  const { rect, isWindow, mode, model, toScreen } = input;
+  const { rect, isWindow, model, toScreen } = input;
+  const kinds = new Set<BoxSelectMode>(input.kinds as Iterable<BoxSelectMode>);
   const out: BoxSelectResult = {
     nodes: new Set(), elements: new Set(), supports: new Set(), loads: new Set(),
   };
 
-  if (mode === 'nodes' || mode === 'elements') {
+  /*
+   * Members do NOT drag their end nodes in with them.
+   *
+   * They used to, on the reasoning that a highlighted member with unlit ends
+   * looks unfinished. But a selection is not only a highlight — it is what
+   * Delete removes, and the two have to be the same set. Sweeping the members
+   * of a frame and pressing Delete took the nodes with them, and with the
+   * nodes went the supports and the nodal loads sitting on them: a gesture
+   * that reads as "remove these bars" wiped the model.
+   *
+   * Wanting both is a real case, and it has a control of its own — the
+   * multi-kind switch, with Nodes and Members both armed. That is the
+   * difference between asking for them and being given them.
+   */
+  if (kinds.has('nodes')) {
     for (const n of model.nodes) {
-      const s = toScreen(n.x, n.y);
+      const s = toScreen(n);
       if (inside(s.x, s.y, rect)) out.nodes.add(n.id);
     }
   }
 
-  if (mode === 'elements') {
+  if (kinds.has('elements')) {
     for (const el of model.elements) {
       const ends = memberEnds(el, model, toScreen);
       if (!ends) continue;
@@ -185,19 +234,19 @@ export function boxSelect(input: BoxSelectInput): BoxSelectResult {
     }
   }
 
-  if (mode === 'supports') {
+  if (kinds.has('supports')) {
     // A support sits at its node, so it is a point like the node is. The
     // symbol drawn under it is decoration; selecting by where the symbol
     // happens to be rendered would depend on the zoom.
     for (const sup of model.supports) {
       const n = model.getNode(sup.nodeId);
       if (!n) continue;
-      const s = toScreen(n.x, n.y);
+      const s = toScreen(n);
       if (inside(s.x, s.y, rect)) out.supports.add(sup.id);
     }
   }
 
-  if (mode === 'loads') {
+  if (kinds.has('loads')) {
     for (const load of model.loads) {
       const ext = loadExtent(load, model, toScreen);
       if (!ext) continue;

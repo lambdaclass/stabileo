@@ -73,7 +73,7 @@
   .badge-text { font-weight: 500; }
   .badge-ok { background: rgba(34, 204, 102, 0.16); color: var(--st-ok); border-color: var(--st-ok); }
   .badge-warn { background: rgba(221, 170, 0, 0.16); color: var(--st-warn); border-color: var(--st-warn); }
-  .badge-fail { background: rgba(238, 34, 34, 0.16); color: var(--st-accent); border-color: var(--st-accent); }
+  .badge-fail { background: rgba(238, 34, 34, 0.16); color: var(--st-danger); border-color: var(--st-danger); }
   /* The same violet the 3-D view paints provisional steel and the detailing panel gives
      the state row. One colour, one meaning, on every surface that names it.
      Still a literal, unlike its four siblings, because that one meaning has no token:
@@ -89,7 +89,7 @@
   }
   .badge-outcome { background: rgba(60, 90, 140, 0.18); color: var(--st-text); border-color: var(--st-info); }
   .badge-outcome-VERIFIED { background: rgba(34, 204, 102, 0.16); color: var(--st-ok); border-color: var(--st-ok); }
-  .badge-outcome-SECTION_INADEQUATE { background: rgba(255, 102, 0, 0.16); color: var(--st-accent); border-color: var(--st-warn); }
+  .badge-outcome-SECTION_INADEQUATE { background: rgba(255, 102, 0, 0.16); color: var(--st-warn); border-color: var(--st-warn); }
   .badge-outcome-SEARCH_EXHAUSTED { background: rgba(180, 120, 220, 0.16); color: var(--st-text); border-color: var(--st-text-3); }
   .badge-flag { background: rgba(70, 80, 100, 0.35); color: var(--st-text); border-color: var(--st-hair-strong); }
   .badge-flag-edited { color: var(--st-text); border-color: var(--st-info); }

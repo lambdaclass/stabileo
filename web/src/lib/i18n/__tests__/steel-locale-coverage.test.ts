@@ -58,12 +58,23 @@ function interpretationKeys(): string[] {
   });
 }
 
-describe('the offered locales, and the eleven that are not', () => {
-  it('offers exactly three, and ships eleven more that no user path reaches', () => {
-    // If this fails because a locale was added, the steel namespace has to grow with it — the
-    // next test is the one that says so.
+describe('the offered locales', () => {
+  it('ships exactly what it offers, and nothing a user path cannot reach', () => {
+    /*
+     * This used to read «offers exactly three, and ships eleven more that no user path reaches»,
+     * and it was a finding rather than a rule: eleven dictionaries were loaded into the bundle
+     * for languages the picker never showed. Merging `main` in brought the narrowing that removed
+     * them, so `dicts` now holds es, en and pt and nothing else. The wart the assertion documented
+     * is gone, and the assertion is now the invariant it was hoping for.
+     *
+     * The eleven files still exist under `locales/`; they are simply no longer loaded. See the
+     * companion describe below, which had to change with this one.
+     *
+     * If this fails because a locale was added, the steel namespace has to grow with it — the
+     * next test is the one that says so.
+     */
     expect([...OFFERED_LOCALES]).toEqual(['es', 'en', 'pt']);
-    expect(shippedLocales().length).toBe(14);
+    expect(shippedLocales().sort()).toEqual([...OFFERED_LOCALES].sort());
   });
 
   it('has the metallic namespace complete in every locale it offers', () => {
@@ -184,16 +195,19 @@ describe('the keys that change how a result is read', () => {
   });
 });
 
-describe('the eleven unreachable locales', () => {
-  it('carry the 22 joints labels that predate the namespace, and none of the namespace itself', () => {
+describe('locales that are shipped but not offered', () => {
+  it('there are none, and the rule still holds for any that come back', () => {
     /*
-     * The finding that makes "offer a fourth locale" more than a translation job: those eleven
-     * dictionaries already hold 22 `conn.*` labels, written before the metallic namespace existed.
-     * So a fourth locale is 292 keys to translate plus 22 to reconcile, and a user of it would
-     * otherwise see 22 translated strings among 292 English ones in the same panel.
+     * This described the eleven dictionaries that were loaded but unreachable, and the 22 `conn.*`
+     * labels they carried from before the metallic namespace existed — which made «offer a fourth
+     * locale» a job of 292 keys to translate plus 22 to reconcile.
+     *
+     * `main` narrowed the loaded set to the three offered ones, so the set is empty today. The
+     * loop is kept rather than deleted: it costs nothing while the set is empty, and it is exactly
+     * what has to run the day a locale is shipped ahead of being offered again.
      */
     const unreachable = shippedLocales().filter((l) => !(OFFERED_LOCALES as readonly string[]).includes(l));
-    expect(unreachable.length).toBe(11);
+    expect(unreachable).toEqual([]);
 
     for (const locale of unreachable) {
       const dict = dictFor(locale);

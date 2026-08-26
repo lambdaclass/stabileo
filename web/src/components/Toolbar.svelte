@@ -1,8 +1,17 @@
 <script lang="ts">
-  import { uiStore, resultsStore, modelStore, historyStore } from '../lib/store';
-  import { saveProject, loadFile, saveSession } from '../lib/store/file';
+  import { uiStore, historyStore } from '../lib/store';
+  import { loadFile } from '../lib/store/file';
   import { t } from '../lib/i18n';
-  import { countCollapsedElements, buildSimplified2DModel, type DrawPlane } from '../lib/geometry/plane-projection';
+  import { type DrawPlane } from '../lib/geometry/plane-projection';
+  /*
+   * The conversion itself lives in the store now, shared with the dialog the
+   * ribbon opens. Two copies of "replace the model, remember the original,
+   * remap the plane, clear the results" is two chances to forget the backup.
+   */
+  import {
+    needsPlaneChoice, collapsedByPlane, projectOnto, eraseAndSwitch,
+    switchPlain, restore3D,
+  } from '../lib/store/switch-2d';
   import { TOOL_KEYS, type ToolKeyId } from '../lib/tool-keys';
 
   import ToolbarResults from './toolbar/ToolbarResults.svelte';
@@ -17,98 +26,25 @@
   let show2DPlaneModal = $state(false);
   let planeCollapsed = $state<Record<DrawPlane, number>>({ xy: 0, xz: 0, yz: 0 });
 
-  function isModelNative2D(): boolean {
-    for (const node of modelStore.nodes.values()) {
-      if (Math.abs(node.z ?? 0) > 1e-9) return false;
-    }
-    const _3dSups = new Set(['fixed3d','pinned3d','spring3d','rollerXZ','rollerXY','rollerYZ','custom3d']);
-    for (const s of modelStore.supports.values()) {
-      if (_3dSups.has(s.type)) return false;
-    }
-    const _3dLoads = new Set(['nodal3d','distributed3d','pointOnElement3d','surface3d']);
-    for (const l of modelStore.loads) {
-      if (_3dLoads.has(l.type)) return false;
-    }
-    return true;
-  }
-
   function computePlaneStats() {
-    const nodeArr = [...modelStore.nodes.values()];
-    const elemArr = [...modelStore.elements.values()];
-    // Count collapsed elements per plane for informational display
-    for (const plane of ['xy', 'xz', 'yz'] as DrawPlane[]) {
-      planeCollapsed[plane] = countCollapsedElements(plane, nodeArr, elemArr);
-    }
+    planeCollapsed = collapsedByPlane();
   }
 
   function handleSwitchTo2D() {
-    if (modelStore.nodes.size === 0 || isModelNative2D()) {
-      uiStore.drawPlane2D = 'xy';
-      uiStore.analysisMode = '2d';
-    } else {
-      computePlaneStats();
-      show2DPlaneModal = true;
-    }
+    if (!needsPlaneChoice()) { switchPlain(); return; }
+    computePlaneStats();
+    show2DPlaneModal = true;
   }
 
-  // Backup of original 3D model for restoration when exiting simplified mode
-  let original3DBackup: { nodes: Map<number, any>; elements: Map<number, any>; supports: Map<number, any>; loads: any[] } | null = null;
-
   function selectPlane(plane: DrawPlane) {
-    const result = buildSimplified2DModel(
-      plane,
-      modelStore.nodes.values(),
-      modelStore.elements.values(),
-      modelStore.supports.values(),
-      modelStore.loads,
-      modelStore.materials,
-      modelStore.sections,
-    );
-    if (!result.ok) {
-      uiStore.toast(result.error, 'error');
-      return;
-    }
-
-    // Backup original 3D model (only once — don't overwrite if already backed up)
-    if (!original3DBackup) {
-      original3DBackup = {
-        nodes: new Map(modelStore.nodes),
-        elements: new Map(modelStore.elements),
-        supports: new Map(modelStore.supports),
-        loads: [...modelStore.loads],
-      };
-    }
-
-    // Replace model with simplified version
-    const m = result.model;
-    modelStore.replaceModelData(m.nodes, m.elements, m.supports, m.loads);
-
-    // In simplified mode, the model data is already in XY convention (projected by the builder).
-    // Set drawPlane2D to 'xy' so the viewport and solver don't double-remap.
-    uiStore.drawPlane2D = 'xy';
-    uiStore.simplified2DMode = true;
-    uiStore.simplified2DStats = m.stats;
-    uiStore.analysisMode = '2d';
-    resultsStore.clear();
+    const outcome = projectOnto(plane);
+    if (!outcome.ok) { uiStore.toast(outcome.error, 'error'); return; }
     show2DPlaneModal = false;
   }
 
   // Restore original 3D model when switching back
   function exitSimplified2D() {
-    if (original3DBackup) {
-      modelStore.replaceModelData(
-        original3DBackup.nodes,
-        original3DBackup.elements,
-        original3DBackup.supports,
-        original3DBackup.loads,
-      );
-      original3DBackup = null;
-    }
-    uiStore.simplified2DMode = false;
-    uiStore.simplified2DStats = null;
-    uiStore.drawPlane2D = 'xy';
-    uiStore.analysisMode = '3d';
-    resultsStore.clear();
+    restore3D();
   }
 
   // Keys come from lib/tool-keys.ts, like every other toolbar in the app.
@@ -209,7 +145,7 @@
       <button class="plane-btn plane-btn-secondary" onclick={() => show2DPlaneModal = false}>
         {t('toolbar.planeModal.stay3d')}
       </button>
-      <button class="plane-btn plane-btn-destructive" onclick={() => { modelStore.clear(); uiStore.simplified2DMode = false; uiStore.simplified2DStats = null; uiStore.drawPlane2D = 'xy'; uiStore.analysisMode = '2d'; resultsStore.clear(); show2DPlaneModal = false; }}>
+      <button class="plane-btn plane-btn-destructive" onclick={() => { eraseAndSwitch(); show2DPlaneModal = false; }}>
         {t('toolbar.planeModal.eraseAndSwitch')}
       </button>
     </div>

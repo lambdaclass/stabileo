@@ -64,13 +64,24 @@
     filtering happen.
   -->
   <div class="pick">
+    <!--
+      `stopPropagation` is load-bearing, not hygiene.
+
+      This component's state flushes in a microtask, and the browser runs a microtask
+      checkpoint after EACH listener of a real (trusted) click — so the panel below can be
+      mounted, and its `<svelte:window onclick>` dismissal listener attached, while the click
+      that opened it is still bubbling. Without this stop the opening click reaches window,
+      the panel reads it as "clicked outside" and closes itself in the same gesture. Synthetic
+      `el.click()` dispatches inside a running script, so no checkpoint happens mid-dispatch —
+      which is why the bug never showed in unit-level clicks and only real input hit it.
+    -->
     <button
       id={`prof-${role}`}
       type="button"
       class="trigger"
       aria-haspopup="dialog"
       aria-expanded={open}
-      onclick={() => (open = !open)}
+      onclick={(e) => { e.stopPropagation(); open = !open; }}
       data-testid={`gen-profile-trigger-${role}`}
     >{spec.profileName}</button>
 

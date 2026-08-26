@@ -192,10 +192,16 @@ const BUDGET_MS = {
  * left is the app's own work: the filter, the tally, the visibility pass and the raycast. Measured
  * on this runner, hiding a family in that state costs 377 ms and clearing an isolation 176 ms. A
  * returning rebuild would be seconds and would fail here immediately.
+ *
+ * The bounds carry ~20% headroom over the shared runner's reality, not over the idle-machine
+ * numbers above: #155 measured this same 7-storey model class at 2543–2645 ms on the shared CI
+ * runner (2026-08-21) and moved its geometry bound 2500→3000 for it. The same treatment is applied
+ * here (1500→1800, 2500→3000) — a tight bound calibrated below the runner's observed cost is not a
+ * gate, it is a flake.
  */
 const TIGHT_MS = {
-  'small control': 1500,
-  '7-storey building': 2500,
+  'small control': 1800,
+  '7-storey building': 3000,
 } as const;
 
 /** The small control model builds its own scene; it is seconds, and it keeps one full path measured. */

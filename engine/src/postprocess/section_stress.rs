@@ -162,9 +162,24 @@ fn compute_q_and_b(y: f64, rs: &ResolvedSection) -> (f64, f64) {
             (q_flange + q_web, 2.0 * rs.t)
         }
         "CHS" => {
+            // A horizontal cut at height y severs TWO walls, so `b = 2t` — and
+            // `Q` must then be the first moment of the WHOLE area above the
+            // cut, both sides. With theta measured from the crown
+            // (cos theta = y/R), integrating `t·R dphi` at height `R cos phi`
+            // from the free edge down to theta gives `t·R²·sin theta` per side:
+            //     Q(y) = 2·t·R²·sin theta = 2·t·R·sqrt(R² − y²)
+            //     tau  = V·Q/(I·b) = V·R·sqrt(R² − y²)/I  →  tau_max = 2V/A,
+            // the classic thin-tube result.
+            //
+            // This paired a ONE-sided Q with a two-sided b — half the magnitude
+            // and the wrong (parabolic) shape, reporting V/A where a tube peaks
+            // at 2V/A. The TypeScript closed form was corrected for exactly
+            // that pairing and the engine was not, so the drawn diagram and the
+            // design number disagreed by a factor of two, with the engine — the
+            // one that actually runs in the browser — on the LOW side.
             let r = rs.h / 2.0;
-            if y.abs() >= r { return (0.0, rs.t); }
-            let q = rs.t * (r * r - y * y);
+            if y.abs() >= r { return (0.0, 2.0 * rs.t); }
+            let q = 2.0 * rs.t * r * (r * r - y * y).sqrt();
             (q, 2.0 * rs.t)
         }
         "L" => {

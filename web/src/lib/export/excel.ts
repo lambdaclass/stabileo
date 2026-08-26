@@ -12,7 +12,22 @@
  * 6. Secciones - Section properties
  */
 
-import * as XLSX from 'xlsx';
+/*
+ * xlsx is loaded on demand, not with the module.
+ *
+ * It is 875 KB of source and it was in the main chunk, which every landing
+ * and blog page downloads — to render an article, in a browser that may never
+ * open the editor at all. Nothing here runs until someone asks for a
+ * spreadsheet, so nothing here needs to be in the bundle until then.
+ *
+ * The helpers below keep using `XLSX` as a module-level binding: they are all
+ * reachable only from `exportToExcel`, which awaits the import first. That is
+ * why this is a `let` rather than being threaded through ten signatures.
+ */
+// Type-only: erased at build time, so it costs the bundle nothing.
+import type * as Xlsx from 'xlsx';
+type XlsxModule = typeof import('xlsx');
+let XLSX!: XlsxModule;
 import { modelStore, resultsStore, uiStore } from '../store';
 import { isMode3D } from '../store/file';
 import { t } from '../i18n';
@@ -47,13 +62,43 @@ interface ExcelExportOptions {
   onlyExtras?: boolean;
 }
 
+/**
+ * Resolve the spreadsheet library, or say that it could not be resolved.
+ *
+ * ── Why this returns null instead of throwing ──
+ *
+ * Splitting xlsx into its own chunk bought 142 KB off every public page, and
+ * it introduced a failure mode that bundled code does not have: the import can
+ * fail on its own. A deploy that replaced the hashed filename while a tab was
+ * still open, a dropped connection, a proxy that blocks the request — none of
+ * which could touch a library that was already in the chunk the app booted
+ * from.
+ *
+ * Every caller is a click handler that does not await (`onclick={downloadExcel}`
+ * and its two siblings), so a rejection here would surface as an unhandled
+ * promise and NOTHING on screen: the reader presses Excel and the application
+ * appears to ignore them. Reporting and returning null means every caller ends
+ * the same way — the user has been told, and no path throws into a handler
+ * that was never going to catch it.
+ */
+export async function loadXlsxModule(): Promise<XlsxModule | null> {
+  try {
+    XLSX ??= await import('xlsx');
+    return XLSX;
+  } catch (err) {
+    console.error('[stabileo] the spreadsheet library failed to load:', err);
+    uiStore.toast(t('excel.loadFailed'), 'error');
+    return null;
+  }
+}
+
 export const releaseLabel = (r?: { my: boolean; mz: boolean; t: boolean }): string => {
   if (!r) return '';
   const parts = [r.my && 'My', r.mz && 'Mz', r.t && 'T'].filter(Boolean);
   return parts.join('+');
 };
 
-function createSummarySheet(): XLSX.WorkSheet {
+function createSummarySheet(): Xlsx.WorkSheet {
   const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
@@ -135,7 +180,7 @@ function createSummarySheet(): XLSX.WorkSheet {
   return ws;
 }
 
-function createElementsSheet(): XLSX.WorkSheet {
+function createElementsSheet(): Xlsx.WorkSheet {
   const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
@@ -223,7 +268,7 @@ function createElementsSheet(): XLSX.WorkSheet {
   return ws;
 }
 
-function createNodesSheet(): XLSX.WorkSheet {
+function createNodesSheet(): Xlsx.WorkSheet {
   const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
@@ -280,7 +325,7 @@ function createNodesSheet(): XLSX.WorkSheet {
   return ws;
 }
 
-function createReactionsSheet(): XLSX.WorkSheet {
+function createReactionsSheet(): Xlsx.WorkSheet {
   const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
@@ -350,7 +395,7 @@ function createReactionsSheet(): XLSX.WorkSheet {
   return ws;
 }
 
-function createMaterialsSheet(): XLSX.WorkSheet {
+function createMaterialsSheet(): Xlsx.WorkSheet {
   const headers = ['ID', t('excel.name'), 'E (MPa)', 'ν', 'ρ (kN/m³)', 'fy (MPa)'];
   const data: (string | number)[][] = [headers];
 
@@ -363,7 +408,7 @@ function createMaterialsSheet(): XLSX.WorkSheet {
   return ws;
 }
 
-function createSectionsSheet(): XLSX.WorkSheet {
+function createSectionsSheet(): Xlsx.WorkSheet {
   const is3D = isMode3D(uiStore.analysisMode);
   const headers = ['ID', t('excel.name'), t('excel.shape'), 'A (m²)', 'Iy (m⁴)'];
   if (is3D) headers.push('Iz (m⁴)', 'J (m⁴)');
@@ -383,7 +428,19 @@ function createSectionsSheet(): XLSX.WorkSheet {
   return ws;
 }
 
-export function exportToExcel(options: ExcelExportOptions = {}): void {
+export async function exportToExcel(options: ExcelExportOptions = {}): Promise<void> {
+  if (!(await loadXlsxModule())) return;
+
+  /*
+   * Everything below reads the stores, and it reads them AFTER the await.
+   *
+   * Only the first export of a session actually waits — the module is cached
+   * afterwards — and nobody edits a model between pressing a button and the
+   * file arriving. But the workbook is a snapshot taken at resolution, not at
+   * the click, and in an application that spends this much effort on a result
+   * matching the model that produced it, that is worth saying out loud rather
+   * than leaving for someone to discover.
+   */
   const {
     filename = 'analisis-estructural.xlsx',
     includeResults = true,
