@@ -796,6 +796,22 @@ const steelEn: Record<string, string> = {
   'conn.checkState.adequate': 'adequate',
   'conn.checkState.exceeded': 'exceeded',
   'conn.checkState.unavailable': 'not evaluated',
+  /*
+   * The auxiliary calculator's own vocabulary.
+   *
+   * Deliberately NOT `conn.checkState.*`. That set belongs to the designed joint, where a state
+   * is reached through a mapped clause; this block is the manual Vu/Tu calculator, which has no
+   * mapped clause and used to end in a green tick. Reusing `adequate` here would have been the
+   * same claim in better manners, so the words describe what the arithmetic found and say
+   * nothing about the connection.
+   */
+  'conn.aux.label': 'Auxiliary manual check — not the joint\'s verdict',
+  'conn.aux.within': 'within',
+  'conn.aux.near': 'near the limit',
+  'conn.aux.over': 'over the limit',
+  'conn.aux.satisfied': 'satisfied',
+  'conn.aux.notSatisfied': 'not satisfied',
+  'conn.aux.normativeElsewhere': 'The joint\'s state is the one designed in step 1. This calculation runs on the values typed above and decides nothing about the connection.',
   'conn.weld.title': 'Weld',
   'conn.weld.add': 'Add weld',
   'conn.weld.remove': 'Remove weld',

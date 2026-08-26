@@ -347,8 +347,34 @@
     return n.toFixed(1);
   }
 
-  function statusClass(s: 'ok' | 'warn' | 'fail'): string {
-    return `st-${s}`;
+  /**
+   * How the AUXILIARY calculator presents its outcome — and why it has its own vocabulary.
+   *
+   * This block is the manual Vu/Tu calculator that predates the joint design in §1. It is
+   * labelled experimental at its own entry point, and it used to end in a card whose governing
+   * row carried a **green ✓** on `--st-ok`. Two verdict languages then lived in one panel: the
+   * designed joint, which never says "verified" and speaks `incomplete / notVerifiable /
+   * designed / exceeded`, and this, which showed the one glyph every reader takes for approval.
+   * A tick beside a utilisation is read as "the joint is fine", and nothing here is entitled to
+   * say that: no mapped clause, no test, no external benchmark.
+   *
+   * So the outcome is stated, and it is stated in words this panel uses nowhere else. Not
+   * `adequate` — that is the canonical check vocabulary, and borrowing it would be the same
+   * confusion with better manners. `within / near / over` describes what the arithmetic found
+   * and claims nothing about the joint.
+   *
+   * There is no success colour in the map, and that is the point rather than an oversight:
+   * `within` is the panel's ordinary text colour. Exceeding is still red, because a warning is
+   * not an approval and suppressing it would trade one misreading for a worse one.
+   *
+   * The joint's actual state comes from `designedJoint` in §1 and is rendered there. This card
+   * does not restate it.
+   */
+  function auxTone(s: 'ok' | 'warn' | 'fail'): string {
+    return s === 'ok' ? 'aux-within' : s === 'warn' ? 'aux-near' : 'aux-over';
+  }
+  function auxStateKey(s: 'ok' | 'warn' | 'fail'): string {
+    return s === 'ok' ? 'conn.aux.within' : s === 'warn' ? 'conn.aux.near' : 'conn.aux.over';
   }
 
   /**
@@ -1128,11 +1154,29 @@
   </StageSection>
 
   <!-- ── 2 · Bolts ───────────────────────────────────────────────── -->
+  <!--
+    ── Neither calculating section is ever `done` ──
+
+    `StageSection` paints its `done` state as a ✓ in `--st-ok` — the success token — and both of
+    these reached it the moment a result object existed. Not when the result was good: when it
+    EXISTED. A bolt group over its capacity turned its own header green, and so did pressing
+    Verify on the defaults, where Vu and Tu are 0 and the utilisation is 0% because nothing was
+    asked of the joint. Taking the tick out of the result card and leaving it on the card's own
+    header would have moved the claim rather than withdrawn it.
+
+    `optional` is the honest state: an auxiliary manual calculation is optional by definition,
+    and it does not complete, because completing is something §1 owns on this panel. The badge
+    carries the utilisation, which is how a reader sees that it ran. `blocked` still applies
+    before a joint is picked — a real prerequisite, not a verdict.
+
+    §1, joint DETECTION, keeps its `done` deliberately: it means the detector ran and found
+    joints. A fact about a step, with nothing said about whether any joint is adequate.
+  -->
   <StageSection
     step={2}
     title={t('conn.sec.bolts.title')}
     purpose={t('conn.sec.bolts.purpose')}
-    state={boltResult ? 'done' : selectedJoint ? 'current' : 'blocked'}
+    state={selectedJoint ? 'optional' : 'blocked'}
     blockedBy={t('conn.sec.bolts.blocked')}
     badge={boltResult ? `${(boltResult.governingRatio * 100).toFixed(0)}%` : undefined}
     testid="conn-sec-bolts"
@@ -1160,17 +1204,19 @@
           <button class="conn-btn-verify" onclick={runBoltCheck}>{t('conn.verify')}</button>
         </div>
         {#if boltResult}
-          <div class="conn-result-card {statusClass(boltResult.status)}">
+          <div class="conn-result-card {auxTone(boltResult.status)}" data-testid="conn-bolt-result">
+            <p class="conn-aux-label" data-testid="conn-bolt-aux-label">{t('conn.aux.label')}</p>
             <div class="conn-result-row"><span>{t('conn.shear')}</span><span>φRn={fmtN(boltResult.phiRnShear)} kN — {(boltResult.ratioShear * 100).toFixed(0)}%</span></div>
             <div class="conn-result-row"><span>{t('conn.tension')}</span><span>φRn={fmtN(boltResult.phiRnTension)} kN — {(boltResult.ratioTension * 100).toFixed(0)}%</span></div>
             <div class="conn-result-row"><span>{t('conn.bearing')}</span><span>φRn={fmtN(boltResult.phiRnBearing)} kN — {(boltResult.ratioBearing * 100).toFixed(0)}%</span></div>
             <div class="conn-result-row"><span>{t('conn.interaction')}</span><span>{(boltResult.ratioInteraction * 100).toFixed(0)}%</span></div>
             <div class="conn-result-governing">
               {t('conn.governing')}: {(boltResult.governingRatio * 100).toFixed(0)}%
-              <span class="conn-status-icon {statusClass(boltResult.status)}">
-                {boltResult.status === 'ok' ? '✓' : boltResult.status === 'warn' ? '⚠' : '✗'}
+              <span class="conn-aux-state {auxTone(boltResult.status)}" data-aux-state={boltResult.status}>
+                {t(auxStateKey(boltResult.status))}
               </span>
             </div>
+            <p class="conn-aux-normative" data-testid="conn-bolt-aux-normative">{t('conn.aux.normativeElsewhere')}</p>
           </div>
         {/if}
 
@@ -1194,11 +1240,29 @@
   </StageSection>
 
   <!-- ── 3 · Welds ───────────────────────────────────────────────── -->
+  <!--
+    ── Neither calculating section is ever `done` ──
+
+    `StageSection` paints its `done` state as a ✓ in `--st-ok` — the success token — and both of
+    these reached it the moment a result object existed. Not when the result was good: when it
+    EXISTED. A bolt group over its capacity turned its own header green, and so did pressing
+    Verify on the defaults, where Vu and Tu are 0 and the utilisation is 0% because nothing was
+    asked of the joint. Taking the tick out of the result card and leaving it on the card's own
+    header would have moved the claim rather than withdrawn it.
+
+    `optional` is the honest state: an auxiliary manual calculation is optional by definition,
+    and it does not complete, because completing is something §1 owns on this panel. The badge
+    carries the utilisation, which is how a reader sees that it ran. `blocked` still applies
+    before a joint is picked — a real prerequisite, not a verdict.
+
+    §1, joint DETECTION, keeps its `done` deliberately: it means the detector ran and found
+    joints. A fact about a step, with nothing said about whether any joint is adequate.
+  -->
   <StageSection
     step={3}
     title={t('conn.sec.welds.title')}
     purpose={t('conn.sec.welds.purpose')}
-    state={weldResult ? 'done' : selectedJoint ? 'current' : 'blocked'}
+    state={selectedJoint ? 'optional' : 'blocked'}
     blockedBy={t('conn.sec.welds.blocked')}
     badge={weldResult ? `${(weldResult.ratio * 100).toFixed(0)}%` : undefined}
     testid="conn-sec-welds"
@@ -1221,17 +1285,25 @@
           <button class="conn-btn-verify" onclick={runWeldCheck}>{t('conn.verify')}</button>
         </div>
         {#if weldResult}
-          <div class="conn-result-card {statusClass(weldResult.status)}">
+          <div class="conn-result-card {auxTone(weldResult.status)}" data-testid="conn-weld-result">
+            <p class="conn-aux-label" data-testid="conn-weld-aux-label">{t('conn.aux.label')}</p>
             <div class="conn-result-row"><span>{t('conn.throat')}</span><span>te={weldResult.throatEff.toFixed(1)} mm</span></div>
             <div class="conn-result-row"><span>{t('conn.capacity')}</span><span>φRn={fmtN(weldResult.phiRn)} kN</span></div>
-            <div class="conn-result-row"><span>{t('conn.sizeRange')}</span><span>{weldResult.minSize}–{weldResult.maxSize} mm {weldResult.sizeOk ? '✓' : '✗'}</span></div>
-            <div class="conn-result-row"><span>L ≥ 4a</span><span>{weldResult.lengthOk ? '✓' : '✗'}</span></div>
+            <!--
+              The two geometric conditions used to read `✓` / `✗`. A tick on a size range is the
+              same glyph the governing row was giving up, and a reader who sees three of them in
+              one card does not distinguish "the leg is in range" from "the joint is fine".
+              Stated in words, in this block's own vocabulary.
+            -->
+            <div class="conn-result-row"><span>{t('conn.sizeRange')}</span><span>{weldResult.minSize}–{weldResult.maxSize} mm — {weldResult.sizeOk ? t('conn.aux.satisfied') : t('conn.aux.notSatisfied')}</span></div>
+            <div class="conn-result-row"><span>L ≥ 4a</span><span>{weldResult.lengthOk ? t('conn.aux.satisfied') : t('conn.aux.notSatisfied')}</span></div>
             <div class="conn-result-governing">
               {t('conn.utilization')}: {(weldResult.ratio * 100).toFixed(0)}%
-              <span class="conn-status-icon {statusClass(weldResult.status)}">
-                {weldResult.status === 'ok' ? '✓' : weldResult.status === 'warn' ? '⚠' : '✗'}
+              <span class="conn-aux-state {auxTone(weldResult.status)}" data-aux-state={weldResult.status}>
+                {t(auxStateKey(weldResult.status))}
               </span>
             </div>
+            <p class="conn-aux-normative" data-testid="conn-weld-aux-normative">{t('conn.aux.normativeElsewhere')}</p>
           </div>
         {/if}
 
@@ -1499,12 +1571,28 @@
     padding: 6px 8px; border-radius: 4px; font-size: 0.7rem;
     background: rgba(127, 212, 204, 0.05); border: 1px solid var(--st-surface-3);
   }
-  .conn-result-card.st-fail { border-color: rgba(229, 72, 42, 0.3); background: rgba(229, 72, 42, 0.05); }
-  .conn-result-card.st-warn { border-color: rgba(217, 164, 65, 0.3); background: rgba(217, 164, 65, 0.05); }
+  /*
+   * No `.aux-within` rule, deliberately: an outcome this block is not entitled to call a pass
+   * gets the card's ordinary border and no tint. Over and near keep theirs — a warning is not
+   * an approval, and muting it would trade one misreading for a worse one.
+   */
+  .conn-result-card.aux-over { border-color: rgba(229, 72, 42, 0.3); background: rgba(229, 72, 42, 0.05); }
+  .conn-result-card.aux-near { border-color: rgba(217, 164, 65, 0.3); background: rgba(217, 164, 65, 0.05); }
   .conn-result-row { display: flex; justify-content: space-between; padding: 2px 0; color: var(--st-text-2); }
   .conn-result-governing { display: flex; justify-content: space-between; padding: 4px 0 0; font-weight: 600; color: var(--st-text); border-top: 1px solid var(--st-surface-3); margin-top: 4px; }
-  .conn-status-icon { font-size: 0.85rem; }
-  .conn-status-icon.st-ok { color: var(--st-ok); }
-  .conn-status-icon.st-warn { color: var(--st-warn); }
-  .conn-status-icon.st-fail { color: var(--st-danger); }
+  /* The outcome, in words. `aux-within` is the panel's ordinary text colour — there is no
+     success token here, which is the whole point of the state being auxiliary. */
+  .conn-aux-state { font-size: 0.68rem; font-weight: 600; text-transform: lowercase; }
+  .conn-aux-state.aux-within { color: var(--st-text-2); }
+  .conn-aux-state.aux-near { color: var(--st-warn); }
+  .conn-aux-state.aux-over { color: var(--st-danger); }
+  /* Says what the card is before any number in it is read. */
+  .conn-aux-label {
+    margin: 0 0 4px; font-size: 0.62rem; line-height: 1.35; color: var(--st-text-3);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  /* And where the joint's actual state comes from, so this card is not mistaken for it. */
+  .conn-aux-normative {
+    margin: 4px 0 0; font-size: 0.62rem; line-height: 1.35; color: var(--st-text-3);
+  }
 </style>
