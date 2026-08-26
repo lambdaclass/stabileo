@@ -329,13 +329,19 @@
   .st-marked { color: var(--st-text-2); }
 
   /*
-   * The id, one level down. Smaller and dimmer, and `--st-text-3` is the token reserved for
-   * exactly this — text that is present for reference rather than for reading.
+   * The id, one level down — smaller, but NOT dimmer than AA allows.
+   *
+   * This said `--st-text-3` was "the token reserved for exactly this: text present for reference
+   * rather than for reading". Measured, that reasoning does not survive: at 10,9 px it resolves
+   * to 3,74 against this surface where AA asks 4,5, and `concrete-copy-contrast` reported every
+   * bar id in the list. `--st-text-3` is the INACTIVE token — a disabled control, a caret
+   * pointing at nothing — and a bar mark is the string a fabricator reads off the screen to find
+   * it on the schedule. Size carries the hierarchy; contrast does not have to.
    */
   .bar-id {
     font-family: monospace;
     font-size: 0.68rem;
-    color: var(--st-text-3);
+    color: var(--st-text-2);
     user-select: all;
   }
   .bar-dia, .bar-len { min-width: 4rem; }
@@ -406,5 +412,6 @@
     font-size: 0.68rem;
     color: var(--st-text-2);
   }
-  .owners { color: var(--st-text-3); }
+  /* Same measurement, same token: the members a bar belongs to are read, not decoration. */
+  .owners { color: var(--st-text-2); }
 </style>

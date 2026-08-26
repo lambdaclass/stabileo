@@ -5185,6 +5185,8 @@ const en: Record<string, string> = {
   'detailing.convergence.emptyScope': 'No family selected. Tick the families to design before this can be documentation of anything.',
   // The qualifier, so no claim above can be read as one about the whole building.
   'detailing.convergence.outOfScope': 'Out of scope, and present in the model: {families}.',
+  'detailing.doc.scope': 'This set covers: {families}.',
+  'detailing.doc.scopeNone': 'no family',
   'detailing.convergence.family.column': 'columns',
   'detailing.convergence.family.beam': 'beams',
   'detailing.convergence.family.slab': 'slabs',

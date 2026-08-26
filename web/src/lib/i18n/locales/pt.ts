@@ -3934,6 +3934,8 @@ const pt: Translations = {
   'detailing.convergence.incomplete': 'Detalhamento técnico de {families}: {detailed} de {applicable} elementos. Não é documentação construtiva.',
   'detailing.convergence.emptyScope': 'Nenhuma família selecionada. Marque as famílias a dimensionar antes que isto possa documentar algo.',
   'detailing.convergence.outOfScope': 'Fora do escopo, e presentes no modelo: {families}.',
+  'detailing.doc.scope': 'Este conjunto cobre: {families}.',
+  'detailing.doc.scopeNone': 'nenhuma família',
   'detailing.convergence.family.column': 'colunas',
   'detailing.convergence.family.beam': 'vigas',
   'detailing.convergence.family.slab': 'lajes',

@@ -286,12 +286,13 @@
   .note { margin: 0; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2); }
 
   .group { display: flex; flex-direction: column; gap: 0.3rem; }
+  /* A group heading is read. Uppercase and letter-spacing carry the hierarchy, not dimming. */
   h5 {
     margin: 0;
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--st-text-3);
+    color: var(--st-text-2);
   }
 
   .family { display: flex; flex-direction: column; gap: 0.2rem; }
@@ -341,7 +342,19 @@
 
   .row-label { font-weight: 600; color: var(--st-text); }
   /* The technical id: monospace, secondary, and never the row's name. */
-  .row-id { font-family: var(--st-mono); font-size: 0.66rem; color: var(--st-text-3); }
-  .row-state { font-size: 0.66rem; color: var(--st-text-3); }
+  /*
+    `--st-text-2`, not `--st-text-3`.
+
+    Measured by `concrete-copy-contrast`: at 10,6 px these resolved to 3,62 against the panel
+    surface, where AA asks 4,5. `--st-text-3` is the INACTIVE token — a disabled control, a caret
+    that is not pointing at anything — and it is not a colour for copy a reader has to read.
+    `h1-text-3-contrast-proposal.md` says so about the other 462 sites; these eight are this
+    branch's own, so they are fixed here rather than filed there.
+
+    An element id is the thing a reader looks up to find the member on a drawing. It is the last
+    string on this row that should be the hardest to read.
+  */
+  .row-id { font-family: var(--st-mono); font-size: 0.66rem; color: var(--st-text-2); }
+  .row-state { font-size: 0.66rem; color: var(--st-text-2); }
   button.undetailed .row-label { color: var(--st-text-2); }
 </style>

@@ -151,12 +151,14 @@
   /* A sentence, so `--st-text-2`: `--st-text-3` is for glyphs and rules and measures under
      AA as copy — see `tokens.css` and `RcExportLog`. */
   .unnamed { margin: 0.15rem 0 0; font-size: 0.68rem; color: var(--st-text-2); line-height: 1.35; }
+  /* The comment two lines up applies to this heading as well, and it was the one exception
+     left: measured at 3,74 against 4,5. Uppercase and letter-spacing carry the hierarchy. */
   .codes-head {
     margin: 0.45rem 0 0.15rem;
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--st-text-3);
+    color: var(--st-text-2);
   }
 
   ul.codes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.1rem; }

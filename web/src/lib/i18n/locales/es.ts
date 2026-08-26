@@ -5177,6 +5177,8 @@ const es: Record<string, string> = {
   'detailing.convergence.incomplete': 'Detallado técnico de {families}: {detailed} de {applicable} elementos. No es documentación constructiva.',
   'detailing.convergence.emptyScope': 'Ninguna familia seleccionada. Tildá las familias a diseñar antes de que esto pueda documentar algo.',
   'detailing.convergence.outOfScope': 'Fuera del alcance, y presentes en el modelo: {families}.',
+  'detailing.doc.scope': 'Este juego cubre: {families}.',
+  'detailing.doc.scopeNone': 'ninguna familia',
   'detailing.convergence.family.column': 'columnas',
   'detailing.convergence.family.beam': 'vigas',
   'detailing.convergence.family.slab': 'losas',

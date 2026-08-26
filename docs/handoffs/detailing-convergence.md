@@ -177,9 +177,12 @@ npm run test        → 0   (7391 pasan · 12 skip · 1 todo — 394 archivos)
 E2E, puerto dedicado 6301, todos en verde:
 
 ```
-detailing-convergence (13)  · pro-design-gates · pro-panel-consistency · pro-panel-structure
-pro-design-scopes           · h1e-refused-state · pro-workflow-shell · documents · detailing
+detailing-convergence (14)  · h1e-refused-state · pro-design-gates · pro-panel-consistency
+pro-panel-structure         · pro-design-scopes · pro-workflow-shell · documents · detailing
 detailing-review            · floor-design · floor-families-document · pro-documents-stage
+h1b-panel-navigation        · h1c-documents-flow · i18n-languages · concrete-copy-contrast
+f3-member-list              · f3-bar-states
+                                                          → 214 pasan, 0 fallan
 ```
 
 Idiomas: en · es · pt, sobre la afirmación **y sobre los nombres de familia** — una frase que
@@ -220,6 +223,27 @@ Más, contra el motor real: la corrida sin hambrear converge sobre el alcance de
 hambreada queda `INCOMPLETE` con huecos `refused` **todos de familia `column`**; un alcance
 sólo-vigas **converge sobre ese mismo modelo hambreado**, nombrando las columnas que no cubre; el
 comando sigue habilitado; y regenerar con la sección restaurada vuelve a converger.
+
+## 7 bis. La deuda de contraste de H2, cerrada de paso
+
+`concrete-copy-contrast` estaba en 7 rojos, registrados como heredados. **No eran de H1**:
+`205f40b1` es de esta rama. Medidos y arreglados, todos a un token de distancia:
+
+| sitio | qué medía | ahora |
+|---|---|---|
+| `.row-id` · `.row-state` de `RcMemberList` | 3,62 contra 4,5 | `--st-text-2` |
+| `.bar-id` · `.owners` de `RcBarList` | 3,74 contra 4,5 | `--st-text-2` |
+| `h5` de `RcMemberList`, `.codes-head` de `RcTitleBlockFields` | 3,74 | `--st-text-2` |
+
+El séptimo era distinto y vale escribirlo: `.sub` de `RcSubStage` es un **contenedor**, no copia.
+No declara color, hereda `--st-text`, y `.pro-panel .sub` lo empezó a encontrar primero cuando
+F2.1 metió el paso de pisos adentro de DISEÑAR — la misma reubicación que se llevó B15 y
+`pro-design-scopes`, en su tercera forma. El auditor tenía razón y el componente también: la
+colisión era el nombre de la clase. Renombrado a `.substage`, sin lista de excepciones.
+
+`--st-text-3` es el token de lo **inactivo** — un control deshabilitado, un cursor que no apunta a
+nada. Un id de elemento es lo que un fabricante lee para encontrar la barra en la planilla; el
+tamaño lleva la jerarquía, el contraste no tiene por qué.
 
 ## 8. Lo que sigue
 

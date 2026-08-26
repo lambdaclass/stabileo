@@ -56,7 +56,7 @@
   };
 </script>
 
-<details class="sub" data-testid={testid} data-state={state} bind:open>
+<details class="substage" data-testid={testid} data-state={state} bind:open>
   <summary>
     <!--
       A dot, not a number. It marks that this is a step without claiming a position in the
@@ -92,7 +92,19 @@
    * it. No nested scroller: the column scrolls, and a stage that scrolled inside a stage would
    * make the wheel ambiguous — the defect `StageSection` records having removed.
    */
-  .sub {
+  /*
+    `.substage` and not `.sub`.
+
+    `.sub` is a COPY selector elsewhere on this surface — a subtitle, in `RebarEditorBeam` and
+    `RebarEditorColumn` — and `concrete-copy-contrast` audits it by name, asserting it resolves to
+    `--st-text-2`. This is a container: it declares no colour, so it inherits `--st-text`, and
+    `.pro-panel .sub` matched it first once F2.1 moved the floors step inside the DISEÑAR stage.
+
+    The auditor was right and the component was right; the class name was the collision. Renaming
+    it here keeps the audit measuring exactly what it means to measure, with no exception list —
+    the same relocation that took B15 and `pro-design-scopes` with it, in its third form.
+  */
+  .substage {
     flex: 0 0 auto;
     margin: 0.4rem 0 0 0.5rem;
     border-left: 2px solid var(--st-hair);
@@ -137,7 +149,7 @@
   .title { font-size: 0.8rem; font-weight: 600; color: var(--st-text); }
 
   .state { font-size: 0.68rem; color: var(--st-text-2); }
-  .sub[data-state='done'] .state { color: var(--st-ok); }
+  .substage[data-state='done'] .state { color: var(--st-ok); }
 
   .badge {
     font-size: 0.68rem;

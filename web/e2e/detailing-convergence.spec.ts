@@ -28,7 +28,7 @@
  * members; here it is held on the ordinary path.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const notice = (page: Page) => page.getByTestId('detailing-convergence');
@@ -215,4 +215,35 @@ test.describe('the claim holds its layout and its three languages', () => {
       await expect(n).toHaveAttribute('data-state', 'converged');
     });
   }
+});
+
+test.describe('@smoke the document states its scope on screen too', () => {
+  test('DC-S the Documents stage names the families the set covers', async ({ pro: page }) => {
+    /*
+     * The on-screen half of the same sentence the exports carry.
+     *
+     * `document-render.test.ts` asserts the stamp reaches the report, the schedule and the DXF.
+     * This asserts it is beside the BUTTONS that produce them: a reader who checks the scope
+     * only by opening the file has already sent it to somebody.
+     */
+    await loadModel(page, 'rc-design-qa-8');
+    await designAll(page);
+    await openDetailing(page);
+    await page.getByTestId('cmd-generate-detailing').click();
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as {
+        __stabileo: { detailingAssemblies(): unknown[] };
+      }).__stabileo.detailingAssemblies().length), { timeout: 120_000 })
+      .toBeGreaterThan(0);
+
+    await openDocumentsStage(page);
+    await page.getByTestId('doc-report').click();
+
+    const scope = page.getByTestId('doc-scope');
+    await expect(scope).toBeVisible();
+    await expect(scope).toContainText('columns');
+    await expect(scope).toContainText('beams');
+    // A bare frame leaves nothing out, and an empty exclusion line would read as a redaction.
+    await expect(page.getByTestId('doc-scope-out')).toHaveCount(0);
+  });
 });

@@ -32,6 +32,7 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import { reviewRank } from '../../../lib/engine/detailing/assembly';
+  import type { DesignFamily } from '../../../lib/engine/design/design-families';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
   import {
     renderReportHtml, renderDrawings, renderSchedule,
@@ -199,6 +200,17 @@
    * same locale keys. Not a new set of rules: the same sentences, said before the click instead
    * of after it. Which is the principle the note under `issue-submit` already states.
    */
+  /**
+   * Families as words, in the reader's language.
+   *
+   * The same keys `RcConvergenceNotice` uses, so the strip and the document cannot come to name
+   * the same scope two different ways.
+   */
+  const familyWords = (fs: readonly DesignFamily[]) =>
+    (fs.length === 0
+      ? [t('detailing.doc.scopeNone')]
+      : fs.map((f) => t(`detailing.convergence.family.${f}`))).join(', ');
+
   const reviewBlockers = $derived.by(() => {
     const out: string[] = [];
     if (!selected) { out.push(t('detailing.doc.need.assembly')); return out; }
@@ -236,6 +248,23 @@
         <span class="badge badge-{d.readiness.toLowerCase()}">{t(`detailing.doc.readiness.${d.readiness}`)}</span>
         <span data-testid="doc-revision">{tp('detailing.doc.revision', { n: d.revision.number })}</span>
         <span data-testid="doc-maturity">{t(maturityLabelKey(d.maturity))}</span>
+      </p>
+      <!--
+        The scope this document answers for, beside the readiness badge that qualifies it.
+
+        `readiness` is a statement about the assemblies in the set; a reader takes a badge to be
+        a statement about the building. Those coincide only when the set covers every family the
+        model has, and a run scoped to beams and columns does not. The exports carry the same
+        sentence through `scopeStatement` — this is the on-screen half, next to the buttons that
+        produce them rather than only inside the files they produce.
+      -->
+      <p class="doc-scope" data-testid="doc-scope">
+        {tp('detailing.doc.scope', { families: familyWords(d.scope) })}
+        {#if d.outOfScope.length > 0}
+          <span class="out" data-testid="doc-scope-out">
+            {tp('detailing.convergence.outOfScope', { families: familyWords(d.outOfScope) })}
+          </span>
+        {/if}
       </p>
       {#if d.openConflicts.length > 0}
         <p class="warn" data-testid="doc-conflicts">
@@ -420,6 +449,15 @@
     font-weight: 600;
     color: var(--st-text);
   }
+
+  /* The scope, in the same register as the readiness line it qualifies. */
+  .doc-scope {
+    margin: 0.15rem 0 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--st-text-2);
+  }
+  .doc-scope .out { display: block; margin-top: 0.1rem; }
 
   .doc-state { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; font-size: 0.7rem; color: var(--st-text-2); }
   .badge { font-size: 0.66rem; font-weight: 600; padding: 0.02rem 0.35rem; border-radius: 3px; background: var(--st-surface-3); color: var(--st-text); }
