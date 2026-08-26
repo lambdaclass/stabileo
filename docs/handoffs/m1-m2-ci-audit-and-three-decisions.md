@@ -333,3 +333,63 @@ abierta en `m1-token-proposal-reconciliation.md` §343.
 `concurrency`, el job de typecheck/`svelte-check`, la etiqueta `run-e2e`, y las tres suites que no
 mira nadie (`@slow`, `@perf`, `basic-selection-permutations`). Ninguno es de estas ramas y los
 cuatro cambian lo que un verde significa.
+
+---
+
+# Parte IV · El CI real de estas cuatro correcciones
+
+Dos *pushes*, dos corridas, y entre ellas la prueba que la Parte I sólo tenía prestada de M1.
+
+| Run | SHA | Contenido | `e2e` | Resto |
+|---|---|---|---|---|
+| `33008435572` | `4b0afd2b` | **las tres decisiones** + el prerrequisito | **success** | los 6 en verde |
+| `33008828740` · intento 1 | `8e6cc467` | lo mismo **+ un commit de sólo documentación** | **failure** | los 6 en verde |
+| `33008828740` · intento 2 | `8e6cc467` | idéntico, relanzado | **success** | los 6 en verde |
+
+El diff entre `4b0afd2b` y `8e6cc467` es **un archivo markdown, 335 líneas insertadas**, que no
+entra en ningún *bundle*. No puede cambiar el comportamiento de `basic-demos`.
+
+Y el fallo del intento 1 fue **exactamente el mismo test** que dejó a M1 en rojo sobre su sha
+duplicado: `basic-demos.spec.ts:285 › the section walkthrough`, `Expected: "sliders" / Received:
+"pick"`, con `prerender.spec.ts:240` marcado *flaky* al lado, igual que allá.
+
+Así que ahora hay **tres** demostraciones independientes de que el `e2e` de este repositorio
+produce verde y rojo sobre el mismo código:
+
+1. M1, dos corridas sobre `9883e2bd` con un segundo de diferencia — una verde, una roja;
+2. M2, `4b0afd2b` verde contra `8e6cc467` rojo, separados sólo por documentación;
+3. M2, `8e6cc467` intento 1 rojo e intento 2 verde — **el mismo sha, el mismo workflow**.
+
+`gh pr checks 164` hoy da los siete en verde, porque muestra el último intento. Ése es el
+comportamiento que la Parte I §3 señala: sin `concurrency` y sin distinguir intentos, la lista de
+checks de un PR informa el último resultado, no el conjunto.
+
+## Jobs, verificados de nuevo sobre estas corridas
+
+| Job | Esperado | Obtenido |
+|---|---|---|
+| `lint` | sí | pass |
+| `test` | sí | pass |
+| `suite (1)` / `suite (2)` | sí | pass |
+| `web` (build + vitest) | sí | pass |
+| `e2e` (`--grep @smoke`) | sí | pass en el segundo intento |
+| `bench` | **no** (`if: ref == main`) | skipping |
+| typecheck / `svelte-check` | **no existe job** | — |
+| E2E `@slow` y baselines visuales | **no** (sin etiqueta `run-e2e`) | no corrieron |
+
+Rama base de #164: `feat/pro-steel-m1`, sin cambios. Conflictos: `git merge-tree` limpio contra su
+base y contra `main`. Ningún job ausente que no esté explicado arriba.
+
+## CI contra ejecución local
+
+| | CI (Linux, `--grep @smoke`) | Local (darwin, suite completa) |
+|---|---|---|
+| Alcance | 340 tests | **800 pasan / 5 fallan / 1 flaky**, 67 specs, 43,2 min |
+| `basic-demos:285` | **falla** (intento 1), pasa en el 2 | pasa |
+| `basic-demos:160` | pasa | *flaky* — falla el 1.er intento, pasa el reintento |
+| `basic-selection-permutations` | **no corre** (sin etiqueta) | falla — igual en main limpio |
+| `viewport-perf @perf` | **no corre** | falla — igual en main limpio |
+| `rc-design-visual` baselines | **no corre** (sin `run-e2e`) | falla 1 px — igual en main limpio |
+
+Las tres últimas filas son la razón por la que un verde de CI en este repositorio no es una
+afirmación sobre la suite: tres de los cinco fallos locales viven en specs que el CI no ejecuta.

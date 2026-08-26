@@ -162,6 +162,14 @@ funcionando.
 
 ## 6 · Hallazgos abiertos: decisión de producto, no regresiones
 
+> **Cerrados.** Los tres se decidieron e implementaron: §6.1 en `4a458b39` (con el prerrequisito
+> `806e1289`), §6.2 en `8e538631`, §6.3 en `4b0afd2b`. Las divergencias respecto de lo propuesto
+> están en `m1-m2-open-findings-proposals.md` y el detalle en
+> `m1-m2-ci-audit-and-three-decisions.md`. §6.4, el CSS muerto, sigue abierto y creció: ver §20.
+>
+> El texto de abajo se conserva como el estado en que se encontraron.
+
+
 Ninguno se corrigió porque ninguno es una regresión y los tres exceden «claramente dentro del
 scope». Se documentan con evidencia para que el usuario decida.
 
@@ -350,6 +358,12 @@ M2 tiene menos errores de tipo que M1 pese a contenerlo: sus 40 commits corrigie
 
 ## 16 · Conflictos restantes: los cuatro fallos E2E de M2
 
+> **Superado por §19**, que los vuelve a medir contra un checkout limpio de `origin/main` con
+> `node_modules` y el artefacto WASM compartidos, compara el texto del fallo y mide la tasa de
+> `basic-demos:160`. La clasificación se sostiene; la evidencia es más fuerte y `viewport-perf`
+> resultó no ser un umbral.
+
+
 Ninguno es de acero. **Los cuatro reproducen en un checkout limpio de `origin/main`.**
 
 | Fallo | Aislado | En main puro | Clasificación |
@@ -382,3 +396,126 @@ no se actualizó.**
 - `9e749fcc` — merge de M1 en M2
 - `cf99f655` — el contador de nudos que el merge perdió
 - `db57dbf9` — propuestas de los tres hallazgos abiertos
+
+
+---
+
+# Parte III · Reverificación tras las tres decisiones
+
+Todo lo de acá es posterior a `806e1289`, `4a458b39`, `8e538631` y `4b0afd2b`.
+
+## 19 · Los cinco fallos E2E, clasificados contra main limpio
+
+Suite completa en la rama: **800 pasan, 5 fallan, 1 flaky, 4 saltados** — 43,2 min, 67 specs,
+puerto dedicado.
+
+El control se corrió en un *worktree* de `origin/main` (`2b0851a9`) con `node_modules` enlazado y
+el artefacto WASM copiado: `engine/` y `package-lock.json` son **idénticos** entre main y M2, así
+que la única variable bajo prueba es el fuente de `web/`. Esto importaba: M2 tocó
+`web/src/lib/three/nodes-instanced.ts` y `node-scale.ts` en `a47d6208`, que es justo lo que
+ejercitan la selección 3D y `viewport-perf`, así que la clasificación previa no se podía dar por
+buena.
+
+| # | Fallo | En la rama | En `origin/main` limpio | Texto del fallo | Clasificación |
+|---|---|---|---|---|---|
+| 1 | `basic-selection-permutations` **2D** | falla | **falla** | `armed kinds for elements+nodes`, línea 108, `-1/+0` | **Defecto preexistente** |
+| 2 | `basic-selection-permutations` **3D** | falla | **falla** | idéntico al 2D | **Defecto preexistente** |
+| 3 | `rc-design-visual` overlay legend | falla | **falla** | `696px → 697px, 645 píxeles, ratio 0.03` | **Defecto preexistente**, no bloqueante por diseño |
+| 4 | `viewport-perf` `@perf` | falla en `3d-nave-industrial` y `3d-building` | **falla** en `la-bombonera` | `keyboard.up: Test timeout of 60000ms exceeded`, `orbitByKeyboard`, línea 211 | **Problema de entorno / arnés** |
+| 5 | `basic-demos:160` | *flaky* | *flaky* | clic sintético sobre blanco en movimiento | **Flakiness declarada** |
+
+Los textos de 1, 2 y 3 son **idénticos carácter por carácter** entre las dos ramas. Ninguna de las
+dos ramas toca `basic-demos` ni `basic-selection-permutations`.
+
+**El 4 no es un umbral, que es lo que se creía.** No falla por FPS: falla en `keyboard.up`, un
+`ArrowLeft` mantenido que no se suelta dentro de los 60 s. Por eso le toca un modelo distinto cada
+corrida — el que esté corriendo cuando se traba. Mismo modo de falla en main. `@perf` además no
+corre nunca en CI.
+
+**El 3 pertenece a main, no a estas ramas.** El baseline `darwin` es del 2026-07-25, ninguna rama
+tocó `e2e/__screenshots__`, y el diff de un píxel reproduce igual en main. **No se actualizó
+ningún snapshot.**
+
+## 20 · `basic-demos:160`, con la tasa medida
+
+No se declara verde por haber pasado una vez — y la primera medición, aislada, resultó ser la
+engañosa.
+
+| Condición | Rama | `origin/main` limpio |
+|---|---|---|
+| Aislado, `--repeat-each=10` · falla el **primer intento** | **0 / 10** | **1 / 10** |
+| En contexto, archivo completo `--repeat-each=3` · falla el **primer intento** | **3 / 3** | **3 / 3** |
+| Reintentos que hizo falta consumir | `#1` las tres veces | `#1` dos veces, **`#2` una** |
+| Duración del intento que falla | ~24,7 s | ~24,7 s |
+| Duración del reintento que pasa | ~10,6 s | ~9,5 s |
+
+**No es un *flake* de baja tasa: es determinista y depende de la sesión.** Corrido solo no falla
+casi nunca. Corrido después de sus hermanos, en la misma sesión de navegador que `workers: 1`
+impone, **falla el primer intento siempre** y se recupera en un contexto nuevo — y la diferencia de
+tiempos lo delata: el intento que falla quema ~25 s esperando, el reintento pasa en ~10 s.
+
+Consecuencias que sólo se ven midiendo las dos condiciones:
+
+- **repetirlo aislado no ejercita la condición en que falla.** El 0/10 de la rama, que fue lo
+  primero que se midió, habría alcanzado para declararlo verde y habría sido una conclusión falsa;
+- **`--retries=0` no tiene efecto acá.** `basic-demos.spec.ts:159` trae
+  `test.describe.configure({ retries: 2 })`, con su propio comentario: *«el recorrido es
+  determinista y se verificó como tal… lo que no es determinista es aterrizar un clic sintético
+  sobre un blanco en movimiento, y un reintento es la forma honesta de decirlo»*. El repositorio ya
+  había clasificado este test; lo que la medición agrega es que ese presupuesto de reintentos **se
+  consume en todas las corridas**, no ocasionalmente, y que main llegó a necesitar los dos;
+- por eso el `1 flaky` que aparece en toda suite completa es el comportamiento esperado, no un
+  incidente.
+
+**Clasificación: flakiness, determinista y dependiente de la sesión, idéntica en las dos ramas —
+main marginalmente peor.** No es regresión de M1/M2 y no se relajó ningún timeout: el
+`test.setTimeout(180_000)` y el presupuesto de reintentos son los que ya traía el spec.
+
+## 21 · Las tres correcciones, confirmadas de punta a punta
+
+Por área, contadas sobre la suite completa de la rama:
+
+| Área | Specs | Pasan | Fallan |
+|---|---|---|---|
+| Selector de secciones | 4 | 67 | 0 |
+| Generadores | 4 | 55 | 0 |
+| Materiales | 2 | 16 | 0 |
+| Composición / presillas | 1 | 24 | 0 |
+| Cold-formed C/Z | 1 | 15 | 0 |
+| Nudos | 4 | 49 | 0 |
+| Uniones | 3 | 66 | 0 |
+| 3D | 7 | 65 | 4 |
+| Workflow metálico | 3 | 58 | 0 |
+
+Los 4 de «3D» son exactamente `basic-selection-permutations` (2) y `viewport-perf` (2) de §19. Los
+specs metálicos de 3D —`m2-3d-joints`, `m2-joint-3d`, `rebar-3d`— están en verde.
+
+Y las tres afirmaciones, cada una con la prueba que la sostiene:
+
+1. **El catálogo inline ya no es una segunda fuente.** `ProSectionsTab` no importa `FAMILY_LIST`,
+   `PROFILE_FAMILIES`, `searchProfiles`, `familyToShape`, `SECTION_SHAPES` ni
+   `computeSectionProperties`; escribe al modelo **una sola vez** y a través de
+   `toSectionFields(choice, 0)`; y su entrada es un `<button>`, no un `<tr onclick>`. Las quince
+   familias siguen creando sección con área y con `profileFamily`, recorridas desde `FAMILY_LIST`.
+2. **El veredicto auxiliar no usa `✓` ni lenguaje de aprobación.** El barrido de
+   `steel-never-verified` ya no exime `ProConnectionsTab`; queda un solo `done` en el panel y es el
+   de detección; y un E2E aprieta «Verify» con los valores por defecto y lee de la ficha renderizada
+   el glifo, la redacción y **el color comparado contra `--st-ok` resuelto en el mismo documento**.
+3. **`SectionFigure` usa tokens compartidos.** La regla de literales se invirtió y se enumera desde
+   los directorios, así que una superficie metálica nueva queda cubierta por defecto; el `fill` del
+   vacío y el `background` del contenedor se afirman **iguales sea cual sea el token**; y un E2E
+   sobre un SHS hueco lee los dos valores computados del navegador y exige que coincidan.
+
+## 22 · Lo que sigue abierto
+
+Además de §6.4, que creció: **`.conn-ratio-badge`**. `main` borró esas reglas en `2c79ed52`
+—asunto: *«review fixes: no green tick for steel»*— y la resolución por unión del merge `9883e2bd`
+las revivió. **Ninguna plantilla las aplica en ninguna rama** (`class="conn-ratio-badge"`: 0 en
+main, 0 en M1 antes del merge, 0 en el merge, 0 en M2). M1 gastó `851fd57b` arreglando su contraste
+y `steel-surface-colour-rules.test.ts` las fija leyendo el texto del CSS, así que el test pasa sobre
+código que el navegador no pinta. Es producto en las dos direcciones y **no se cierra acá**.
+
+Al lado, medido: **`svelte-check` no reporta nada para `ProConnectionsTab.svelte`**. Se le agregó un
+selector deliberadamente muerto y devolvió **0** menciones, contra **9** de `ProVerificationTab` en
+la misma corrida. Es la explicación de cómo lo anterior pasó inadvertido; la causa no se
+diagnosticó.

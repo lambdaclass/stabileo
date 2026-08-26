@@ -1,8 +1,20 @@
-# Hallazgos abiertos de M1/M2 — propuestas, sin implementar
+# Hallazgos abiertos de M1/M2 — propuestas, y cómo se implementaron
 
-Los tres puntos siguientes **no se implementaron**. Cada uno es una decisión de producto, no una
-regresión, y este documento existe para que la decisión se tome con los archivos, el riesgo y el
-costo de prueba a la vista.
+> **Estado: los tres están implementados.** Este documento se conserva como el registro de lo que
+> se propuso, para que las **divergencias** entre la propuesta y lo que se hizo estén a la vista y
+> se puedan revertir como decisión y no descubrir como sorpresa. Cada sección abre ahora con su
+> estado. El detalle de ejecución está en `m1-m2-ci-audit-and-three-decisions.md`.
+>
+> | # | Decisión | Commit | Divergencia |
+> |---|---|---|---|
+> | — | *(prerrequisito)* una sección construida por el modal no tenía geometría | `806e1289` | no estaba previsto: lo destapó la decisión 1 |
+> | 1 | Catálogo inline duplicado | `4a458b39` | **sí** — se retiró también el *builder* |
+> | 2 | Dos sistemas de veredicto | `8e538631` | **sí** — vocabulario propio, no el badge metálico |
+> | 3 | Colores hardcodeados de `SectionFigure` | `4b0afd2b` | **sí** — `--st-hair-strong`, no `--st-hair` |
+
+Los tres puntos siguientes eran, al escribirse, decisiones de producto y no regresiones. Este
+documento existe para que la decisión se tomara con los archivos, el riesgo y el costo de prueba
+a la vista, y ahora también para que quede el contraste entre lo propuesto y lo hecho.
 
 Propuesta inicial del usuario, que estas tres secciones desarrollan:
 
@@ -13,6 +25,25 @@ Propuesta inicial del usuario, que estas tres secciones desarrollan:
 ---
 
 ## 1 · Catálogo inline duplicado
+
+> **Implementado — `4a458b39`.** `ProSectionsTab` pasó de 724 a 205 líneas.
+>
+> **Divergencia con la «propuesta mínima» de abajo, que decía «no se toca el builder».** El
+> *builder* inline también se retiró, porque la instrucción de ejecución fue que el modal quede
+> como única fuente de **creación** y `BuiltSectionPanel` lee exactamente las mismas listas
+> (`SECTION_SHAPES`, `THIN_SHAPES`, `SOLID_SHAPES`) que leía el formulario inline: dejarlo habría
+> dejado una segunda fuente de alta. Es la divergencia de mayor alcance de este trabajo.
+>
+> **Prerrequisito que la decisión destapó, y que había que arreglar primero** (`806e1289`): la
+> rama `built` de `toSectionFields` descartaba `tw`, `tf`, `t` y `tl`, así que una sección
+> construida **por el modal** resolvía `properties-only` con `missing: ['tw','tf']` donde la
+> construida por el formulario inline resolvía `geometry-backed`. Sin dibujo y fuera de todo
+> helper que despache por forma, ya desde `hollow-rect`. Borrar el camino que funcionaba antes de
+> arreglar el que quedaba habría cambiado un duplicado por una rotura.
+>
+> `ColdFormedPanel` **no se tocó**: es un tercer camino de alta, pero el catálogo paramétrico C/Z
+> no es una de las quince familias y no tiene equivalente en el modal.
+
 
 ### Archivos afectados
 
@@ -66,6 +97,28 @@ está migrado y el panel profundo de M1 se conserva dentro del modal.
 ---
 
 ## 2 · Dos sistemas de veredicto
+
+> **Implementado — `8e538631`.**
+>
+> **La tilde estaba en dos lugares, no en uno.** Además de la ficha de resultado, `StageSection`
+> pinta su estado `done` como `✓` en `--st-ok`, y las dos secciones de cálculo llegaban a `done`
+> **apenas existía un objeto resultado** — no cuando el resultado era bueno. Un grupo de bulones
+> por encima de su capacidad ponía su propio encabezado en verde, igual que apretar «Verify» con
+> los valores por defecto, donde Vu y Tu son 0. Sacar el glifo de la ficha y dejarlo en el
+> encabezado habría mudado la afirmación, no retirado.
+>
+> **Divergencia con la propuesta**, que decía «reemplazar `✓ / ⚠ / ✗` por el badge de estado
+> metálico»: no se hizo. Los cuatro estados metálicos describen el estado de diseño de una barra,
+> no un ratio de utilización, y mapear «0,4» a alguno de ellos es un error de categoría — además
+> de ser exactamente la mezcla de estados que la instrucción pedía evitar. El bloque recibió
+> vocabulario propio, `within / near the limit / over the limit`, deliberadamente distinto del
+> canónico (`conn.checkState.adequate` es «cumple» en español: la colisión estaba a una palabra).
+>
+> Las secciones son `optional`, nunca `done`. **§1, la detección de nudos, conserva su `done` a
+> propósito**: significa que el detector corrió y encontró nudos, sin decir nada sobre adecuación.
+> La exención de `ProConnectionsTab` en `steel-never-verified` se retiró; la de
+> `ProVerificationTab` se conserva, y sólo ella.
+
 
 ### Archivos afectados
 
@@ -123,6 +176,32 @@ y su guard; habría que revisar la lista de exenciones al cerrar.
 
 ## 3 · Colores hardcodeados de `SectionFigure`
 
+> **Implementado — `4b0afd2b`.**
+>
+> **Divergencia con la propuesta, y es la que importa: `--st-hair` era la lectura obvia y era la
+> equivocada.** Compuesto sobre la fila da **1,48**, por debajo del **1,74** del literal `#24486e`:
+> el marco habría quedado *más tenue* que antes. Se usó `--st-hair-strong` — 2,03 sobre la fila y
+> 2,07 sobre el pozo, a la par o por encima del literal en los dos fondos. Hay además una razón
+> estructural: dentro del modal esta figura vive adentro de un pozo `.preview` que ya es
+> `--st-hair`, y un marco anidado del mismo token que su contenedor es un marco que nadie ve.
+>
+> El pozo y el relleno de vacío sí fueron a `--st-bg` como se proponía, pero desde la hoja de
+> estilos y no como atributo `fill`: no porque `fill="var(…)"` no renderice —el modal ya le pasa
+> un `var(--st-value)` como `stroke` y dibuja— sino porque un atributo en la plantilla no es algo
+> que un test pueda relacionar con la regla que pinta el fondo con el que debe coincidir.
+>
+> El cuarto literal, `#566` del guión del vacío, no figuraba en la propuesta: daba **3,02**, bajo
+> AA. Pasó a `--st-text-2`, **7,00**.
+>
+> La prueba propuesta era «E2E visual acotada… contra baseline nueva». Se hizo más fuerte y sin
+> agregar un *gate* de píxeles: el E2E lee del navegador el `fill` computado del polígono de vacío
+> y el `background-color` computado del contenedor, y exige que sean iguales. **Ningún snapshot se
+> actualizó**, y las dos baselines que existen son de hormigón.
+>
+> «Los dos temas» no es hoy verificable: `tokens.css` no tiene `prefers-color-scheme` ni
+> `data-theme`. Seguir el tema es lo que este cambio **habilita**.
+
+
 ### Archivos afectados
 
 | Archivo | Rol |
@@ -165,7 +244,13 @@ de generador, así que el cambio se ve en ambos; ninguna lógica cambia.
 
 ---
 
-## Orden sugerido
+## Orden sugerido — y el que se siguió
+
+Se siguió **1 → 2 → 3** y no el sugerido, porque la decisión 1 destapó el defecto de geometría de
+`806e1289` y ese defecto condiciona qué significa «el modal es la única fuente». Las otras dos son
+independientes entre sí.
+
+### El orden que se había sugerido
 
 1. **(3)** es el más barato y no toca comportamiento.
 2. **(2)** es el de mayor consecuencia para el usuario: es el que puede hacerle creer que algo fue
