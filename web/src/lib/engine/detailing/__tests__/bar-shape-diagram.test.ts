@@ -196,3 +196,62 @@ describe('the diagram for a mark', () => {
     expect(rcShapeForMark(['l1'], barOf)).toEqual(rcShapeForMark(['l1'], barOf));
   });
 });
+
+/**
+ * The drawn shape and the exported row are the SAME bar.
+ *
+ * The requirement is "verificar que la forma dibujada sea la misma que se exporta a la planilla"
+ * and "no reemplazar la longitud real por una suma simplificada de cotas rectas". Both are
+ * properties of one number — `cuttingLength`, which is `developedLength(segments)` — and both
+ * fail silently: a schedule whose total was the sum of its own leg dimensions looks perfectly
+ * consistent and orders short steel.
+ */
+describe('the length on the schedule is the developed length', () => {
+  /*
+   * `buildSchedule` reads `BarMark.cuttingLength`, `assignMarks` reads `BarPath.cuttingLength`,
+   * and that is `developedLength(segments)` — every straight run plus every arc at r·θ. The
+   * diagram's legs and bends are a decomposition OF it, so they add back up to it.
+   */
+  it('the legs and the bends add back up to the cutting length', () => {
+    for (const b of [straight(), ell(), hooked]) {
+      const r = rcShapeDiagram(b);
+      expect(r.ok, b.id).toBe(true);
+      if (!r.ok) continue;
+      expect(r.diagram.straightM + r.diagram.bendsM).toBeCloseTo(b.cuttingLength, 9);
+    }
+  });
+
+  /*
+   * And the two are NOT the same number when the bar bends. This is the assertion that would
+   * fail if somebody ever "simplified" the total to the sum of the drawn dimensions: on a
+   * hooked bar the arcs are real steel and the leg list does not contain them.
+   */
+  it('the sum of the drawn legs is SHORTER than the cut length on a bent bar', () => {
+    const r = rcShapeDiagram(hooked);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.diagram.straightM).toBeLessThan(hooked.cuttingLength);
+    expect(r.diagram.bendsM).toBeGreaterThan(0);
+  });
+
+  it('and they ARE the same on a straight bar, which has no bends', () => {
+    const r = rcShapeDiagram(straight());
+    if (!r.ok) throw new Error('refused');
+    expect(r.diagram.straightM).toBeCloseTo(straight().cuttingLength, 9);
+    expect(r.diagram.bendsM).toBe(0);
+  });
+
+  /*
+   * The mark a row is for and the bar the diagram is drawn from are the same object. A schedule
+   * that drew mark B4 from a bar of mark B7 would be internally consistent and wrong, and
+   * nothing on screen would show it.
+   */
+  it('the diagram for a mark is drawn from a bar that mark names', () => {
+    const bars = new Map([['l1', ell()], ['s1', straight()]]);
+    const r = rcShapeForMark(['l1'], (id) => bars.get(id));
+    if (!r?.ok) throw new Error('refused');
+    // `ell()` is the two-leg bar; `straight()` is one leg. Drawing the wrong one is visible here.
+    expect(r.diagram.legs).toHaveLength(2);
+    expect(r.diagram.straightM + r.diagram.bendsM).toBeCloseTo(ell().cuttingLength, 9);
+  });
+});

@@ -52,6 +52,7 @@
   import { modelStore } from '../../../lib/store/model.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import RcRegenerationWarning from './RcRegenerationWarning.svelte';
   import {
     currentRcStage, rcStageTodoKey,
     type RcModelReadiness, type RcStage, type RcStageId,
@@ -310,6 +311,9 @@
                onchange={(e) => detailingStore.setAutoGenerate(e.currentTarget.checked)} />
         {t('detailing.cmd.autoShort')}
       </label>
+
+      <!-- What regenerating is about to replace, before it runs. See the component. -->
+      <RcRegenerationWarning />
     </div>
 
     <!--

@@ -226,6 +226,19 @@
                   the legs so the two add up would produce a bar that is right on the schedule
                   and long in the shop.
                 -->
+                <!--
+                  The developed length, on the diagram, in the same unit as the legs.
+
+                  The legs are a fabrication instruction and the total is what gets CUT, and a
+                  reader comparing them needs both in millimetres — the table's own Cut length
+                  column is in metres, three columns to the right. It is `cuttingLength`, which
+                  is `developedLength(segments)`: straight runs plus every arc at r·θ. Never the
+                  sum of the leg dimensions, which omits the steel in the bends — on a Ø8 tie
+                  with four 135° hooks that is 188 mm of a 1 650 mm bar.
+                -->
+                <span class="total" data-testid={`shape-total-${r.mark}`}>
+                  {tp('detailing.shape.developed', { n: mm(r.cuttingLengthM) })}
+                </span>
                 {#if shape?.ok && shape.diagram.bendsM > 0.0005}
                   <span class="bends" data-testid={`shape-bends-${r.mark}`}>
                     {tp('detailing.shape.bends', { n: mm(shape.diagram.bendsM) })}
@@ -302,7 +315,9 @@
   svg.shape { display: block; color: var(--st-text); }
   svg.shape text { fill: var(--st-text-2); font-family: var(--st-sans); }
 
-  .bends { display: block; font-size: 0.64rem; color: var(--st-text-3); }
+  /* The total leads the two lines under the drawing: it is what gets cut. */
+  .total { display: block; font-size: 0.68rem; font-weight: 600; color: var(--st-text); }
+  .bends { display: block; font-size: 0.64rem; color: var(--st-text-2); }
   .hooks { display: block; font-size: 0.64rem; color: var(--st-text-2); }
   /*
     That the hooks were folded is a statement about the DRAWING, so it sits under the table with

@@ -5119,16 +5119,16 @@ const en: Record<string, string> = {
   'detailing.titleBlock.subtitle': 'Stage / sector',
   'detailing.titleBlock.office': 'Office',
   'detailing.titleBlock.codes': 'Codes',
+  'detailing.titleBlock.codesFromRegulations': 'The codes come from the Reglamentos stage. To change them, change the selection there: the title block follows it.',
   'detailing.titleBlock.noCodes': 'No regulation is bound yet; the sheets will cite none.',
-  'detailing.titleBlock.declared': 'declared by the author, not verified by this application',
-  'detailing.titleBlock.addCode': 'Add a code of your own',
-  'detailing.titleBlock.add': 'Add',
-  'detailing.titleBlock.removeCode': 'Remove the code {code}',
-  'detailing.titleBlock.codesFull': 'The title block takes {n} declared codes; remove one to add another.',
   'detailing.titleBlock.unnamed': 'The works has no name: the sheets will carry no identification.',
   // The bending diagram. `shapeCode` returns the grouping key — `LH90`, `bent3` — which is not
   // a fabrication instruction; the diagram and its legs are.
   'detailing.shape.legs': '{shape}: legs of {legs} mm',
+  'detailing.shape.developed': 'Cut length {n} mm',
+  'detailing.regen.willReplace': 'Regenerating will replace the hand-edited reinforcement of {n} unlocked member(s): {ids}. Lock the ones you want to keep before regenerating.',
+  'detailing.regen.willKeep': '{n} locked member(s) are kept: {ids}.',
+  'detailing.regen.unknownRetouches': 'This project has no record of what was hand-edited — it comes from a file written before that was stored — so what a regeneration would replace cannot be stated. It does not mean there is nothing to lose.',
   'detailing.shape.bends': '+{n} mm in bends',
   'detailing.shape.nonPlanar': 'No diagram: {shape} is bent about two axes and there is no honest flat shape to draw. See the elevation.',
   'detailing.shape.degenerate': 'No diagram: {shape} has no geometry with length.',
@@ -5146,6 +5146,8 @@ const en: Record<string, string> = {
   'detailing.exports.fromRevision': 'from revision {n}',
   'detailing.exports.stale': 'It came out of revision {was}; the project is on {now}. The file in the folder no longer describes what is there.',
   'detailing.exports.failed': 'The generation failed: {error}',
+  'detailing.exports.retouchLocked': 'Hand-edited and LOCKED ({n}): {ids}. A regeneration keeps them.',
+  'detailing.exports.retouchUnlocked': 'Hand-edited and NOT locked ({n}): {ids}. The next regeneration replaces them.',
   'detailing.exports.retouchNone': 'No member in this emission carried hand-edited reinforcement.',
   'detailing.exports.retouchSome': '{n} member(s) with hand-edited reinforcement: {ids}.',
   'detailing.exports.retouchUnknown': 'No record of hand edits: the file predates that information being stored. It is not the same as "none".',
@@ -5206,7 +5208,7 @@ const en: Record<string, string> = {
   'detailing.joint.memo.nominalShear': 'Vn = {coefficient} λ √f′c Aj = {vn} kN; φVn = {phiVn} kN against Vu = {vu} kN.',
 
   'detailing.barsCount': 'Longitudinal reinforcement ({n} bars)',
-  'detailing.lockBar': 'Lock',
+  'detailing.lockBar': 'Lock member',
   'detailing.bar.technicalId': "Technical bar identifier",
   // The three states a bar can be in. Provisional outranks the mark axis on the badge: "not
   // marked yet" resolves by coordinating again, "provisional" decides whether a sheet may issue.
@@ -5222,21 +5224,21 @@ const en: Record<string, string> = {
   // Lock and unlock. The state says what the bar IS; the action says what the control WILL DO,
   // and they never share a key — a toggle labelled with its own state reads `Locked` while
   // locking.
-  'detailing.bar.lock.pinned': 'Locked',
+  'detailing.bar.lock.pinned': 'Member locked',
   'detailing.bar.lock.free': 'Free',
   // The accessible name carries the row's own label. Two hundred buttons announcing `Lock` name
   // nothing at all.
-  'detailing.bar.lock.pinNamed': 'Lock bar {name}',
-  'detailing.bar.lock.releaseNamed': 'Unlock bar {name}',
+  'detailing.bar.lock.pinNamed': 'Lock the member bar {name} belongs to',
+  'detailing.bar.lock.releaseNamed': 'Unlock the member bar {name} belongs to',
   // A lock is consumed at two granularities: `runDetailing` takes the BAR, the repair loop takes
   // every member it owns. Locking a continuous bar freezes the column as well as the beam.
-  'detailing.bar.lock.freezesOne': 'Freezes the design of member {ids}.',
-  'detailing.bar.lock.freezesMany': 'Freezes the design of {n} members ({ids}): the bar runs continuously through all of them.',
+  'detailing.bar.lock.freezesOne': 'Locks the whole of member {ids}: a regeneration keeps all of its reinforcement, not only this bar.',
+  'detailing.bar.lock.freezesMany': 'Locks {n} whole members ({ids}): the bar runs continuously through all of them, so a regeneration keeps the complete reinforcement of all {n}.',
   'detailing.bar.lock.pinOnProposal': 'The lock preserves a proposal; it does not make it issuable.',
-  'detailing.bar.census.pinned': '{n} locked',
-  'detailing.bar.lock.frozenMembers': 'freezing the design of {n} member(s): {ids}',
+  'detailing.bar.census.pinned': '{n} member(s) locked',
+  'detailing.bar.lock.frozenMembers': 'locking {n} whole member(s): {ids}',
   'detailing.bar.lock.pinnedProvisional': '{n} on provisional steel',
-  'detailing.unlockBar': 'Unlock',
+  'detailing.unlockBar': 'Unlock member',
   'detailing.barRole.longitudinal': 'Longitudinal',
   'detailing.barRole.transverse': 'Transverse',
 

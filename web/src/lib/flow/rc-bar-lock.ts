@@ -1,24 +1,29 @@
 /**
- * What pinning a bar actually does — and to how much of the model.
+ * What pinning does, and what it is a pin ON.
  *
- * ── The gap this module closes ─────────────────────────────────────
+ * ── The unit is the MEMBER, and that is a product decision ──────────
  *
- * `detailingStore.toggleLock` sets one boolean on one bar, and the row said `Fijar` / `Liberar`
- * and nothing else. That reads as a per-bar preference. It is not one. Two engines consume the
- * flag and they consume it at two different granularities:
+ * "Fijar congela el elemento/miembro completo. Si el usuario modifica una barra de una viga,
+ * fijar esa modificación congela la viga completa frente a regeneraciones posteriores."
  *
- *   `runDetailing`  takes `lockedBars` — the bar itself is never regenerated. Per BAR.
- *   the repair loop takes `lockedMembers`, and `lockedMemberIds()` builds that set by walking
- *                   every locked bar's `ownerElementIds`. Per MEMBER.
+ * It had to be DECIDED rather than inferred, because the two engines that consume the flag
+ * consume it at two different granularities and neither is wrong on its own:
  *
- * So pinning one bar freezes the DESIGN of every member that bar belongs to, and a bar
- * continuous over a support belongs to the beam it was designed for and to the column it passes
- * through. One pin on a continuous bar therefore stops the feedback loop from repairing a
- * column the user never looked at, silently, with nothing on screen saying so.
+ *   `runDetailing`  takes `lockedBars` — those bars are carried through untouched. Per BAR.
+ *   the repair loop takes `lockedMembers`, built by walking every locked bar's
+ *                   `ownerElementIds`. Per MEMBER.
  *
- * That reach is what this module computes. It is the same trap §9.1 and `rc-bar-status.ts`
- * document twice already: a fact that is true per bar being presented as if the bar were the
- * whole of its consequence.
+ * Pinned per BAR, a regeneration kept the pinned bar and replaced every other bar in the same
+ * beam — so a user who pinned the arrangement they had just edited got that one bar back inside
+ * a cage that had moved around it. Pinning the MEMBER means the store sets the flag on every bar
+ * the member owns, so both engines see the same frozen set and the two granularities agree.
+ *
+ * ── The reach a user cannot otherwise see ───────────────────────────
+ *
+ * A bar continuous over a support belongs to the beam it was designed for AND to the column it
+ * passes through, so pinning through it freezes both. That is what this module computes and what
+ * the row states — the same trap §9.1 and `rc-bar-status.ts` document twice already: a fact that
+ * is true per bar presented as if the bar were the whole of its consequence.
  *
  * ── Reading it, not re-deriving it ─────────────────────────────────
  *
@@ -168,7 +173,15 @@ export function rcBarLock(
  * screen. The census is built the same way the set is, so it reports the set's size.
  */
 export interface RcBarLockCensus {
-  /** Bars pinned. */
+  /**
+   * Bars carrying the flag.
+   *
+   * NOT what any surface leads with. A lock is a lock on the member, so one press flags every
+   * bar the member owns — fourteen of them on an ordinary beam — while the viewer and every
+   * export count that as one locked member. A list that led with the bar count would be a
+   * fourth opinion about the same lock. Kept because the two numbers relate and a test asserts
+   * how, not because anything renders it.
+   */
   pinned: number;
   /** Members frozen by at least one pin, ascending and unique. */
   frozenMembers: readonly number[];
@@ -196,4 +209,46 @@ export function rcBarLockCensus(locks: readonly RcBarLock[]): RcBarLockCensus {
 /** Whether anything is pinned at all — the condition the summary line renders under. */
 export function rcHasPins(census: RcBarLockCensus): boolean {
   return census.pinned > 0;
+}
+
+/**
+ * Which bars a press on one bar's control flips, and to what.
+ *
+ * ── The rule, as a function rather than as a comment ───────────────
+ *
+ * A pin is a pin on the MEMBER, so pressing the control on any bar of a member flips every bar
+ * that member owns. This is that rule: it was four lines inside `detailingStore.toggleLock` with
+ * a paragraph above them explaining what they meant, which is exactly the shape of thing that
+ * gets "simplified" back to `b.id === barId` by somebody reading the code and not the paragraph.
+ *
+ * The frozen set is the pressed bar's own `ownerElementIds`, which is what `lockedMemberIds()`
+ * walks — so the bars this returns and the members the repair loop refuses to repair are one
+ * fact. A bar continuous over a support therefore flips the column's bars as well as the beam's,
+ * which is the reach `rcBarLock` states on the row before the press.
+ *
+ * Returns the ids and the value, never a mutated list: the caller owns the assembly and this
+ * module owns the rule.
+ */
+export interface RcLockToggle {
+  /** Bar ids to write `locked` on. Empty when the pressed bar is not in the list. */
+  barIds: readonly string[];
+  /** What to write. The opposite of what the PRESSED bar currently is. */
+  locked: boolean;
+  /** The members being frozen or released, ascending — what the caller may report. */
+  members: readonly number[];
+}
+
+export function rcLockToggle(
+  bars: readonly RcBarLockLike[], barId: string,
+): RcLockToggle {
+  const pressed = bars.find((b) => b.id === barId);
+  if (!pressed) return { barIds: [], locked: false, members: [] };
+  const members = new Set(pressed.ownerElementIds);
+  return {
+    barIds: bars
+      .filter((b) => b.ownerElementIds.some((id) => members.has(id)))
+      .map((b) => b.id),
+    locked: pressed.locked !== true,
+    members: [...members].sort((a, b) => a - b),
+  };
 }

@@ -265,6 +265,63 @@ export function rcRetouchProvenance(
   return known ? rcRetouch(members) : RC_RETOUCH_UNKNOWN;
 }
 
+/**
+ * What a regeneration is about to do to the hand edits in this project.
+ *
+ * ── The three sets, and why the middle one is the point ────────────
+ *
+ * "Un retoque manual no fijado puede ser reemplazado por regeneración. Un retoque fijado debe
+ * conservarse. Regenerar debe advertir qué cambios manuales no fijados se perderán."
+ *
+ * So a regeneration divides the retouched members in two, and the division is a LOCK question,
+ * not a design question: `runDetailing` carries a locked member's bars through untouched and
+ * re-details everything else from the design outcomes. A hand edit on an unlocked member is
+ * therefore replaced — correctly, that is what regenerating means — and the only thing wrong
+ * with it is that nobody was told.
+ *
+ * ── Why it is computed before, not reported after ──────────────────
+ *
+ * Because a warning that arrives after the work is gone is not a warning. This is a prediction
+ * made from the state a regeneration will read, and it is what the command shows before it
+ * runs; `RcEditConsequence` is the after.
+ *
+ * `unknown` provenance survives, as everywhere else: a project that never recorded which
+ * members were retouched cannot be told which of them are about to be replaced, and inventing
+ * an empty list would say "nothing will be lost" on no evidence.
+ */
+export interface RcRegenerationImpact {
+  /** Retouched members a lock protects. Kept, bar for bar. */
+  kept: readonly number[];
+  /** Retouched members nothing protects. Their reinforcement is re-designed. */
+  replaced: readonly number[];
+  /**
+   * True when the project has no record of what was retouched.
+   *
+   * The list is then empty and means nothing — not "nothing will be lost". A caller must word
+   * the two differently, which is why this is a flag and not an empty array.
+   */
+  unknown: boolean;
+}
+
+export function rcRegenerationImpact(
+  retouched: RcRetouchProvenance, lockedMembers: Iterable<number>,
+): RcRegenerationImpact {
+  if (retouched.status !== 'known') {
+    return { kept: [], replaced: [], unknown: retouched.status === 'unknown' };
+  }
+  const locked = new Set(lockedMembers);
+  return {
+    kept: retouched.members.filter((id) => locked.has(id)),
+    replaced: retouched.members.filter((id) => !locked.has(id)),
+    unknown: false,
+  };
+}
+
+/** Whether a regeneration would cost the user anything it has to warn about. */
+export function rcRegenerationWarns(i: RcRegenerationImpact): boolean {
+  return i.unknown || i.replaced.length > 0;
+}
+
 /** Whether a count may be rendered. False for both `unknown` and `notApplicable`. */
 export function rcRetouchIsCountable(p: RcRetouchProvenance): boolean {
   return p.status === 'known';

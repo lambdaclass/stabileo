@@ -58,26 +58,26 @@ export interface SheetRotulo {
 /**
  * The norms every sheet of this project prints, verified ones first.
  *
- * The VERIFIED half is READ from the regulation bindings, which is what the verification
- * actually ran against — never composed from the author's config. Translated here because this
- * layer is the locale boundary: `roles.ts` keeps an instrument's name as a KEY precisely so a
- * stored project stays readable when the catalogue changes under it.
+ * READ from the regulation bindings — the Reglamentos stage's own selection — and never from
+ * anything the author typed. Takes no config at all, which is what makes that unmissable.
+ * Translated here because this layer is the locale boundary: `roles.ts` keeps an instrument's
+ * name as a KEY precisely so a stored project stays readable when the catalogue changes.
  *
  * A role with no adapter bound is skipped rather than printed empty: "no code governs shear"
  * and "a code governs shear and I cannot name it" are different statements, and only the first
  * is true of an unbound role.
  */
-export function titleBlockCodesFor(config: RcTitleBlockConfig): RcTitleBlockCode[] {
+export function titleBlockCodes(): RcTitleBlockCode[] {
   const bound = REGULATION_ROLES
     .map((role) => regulationsStore.binding(role))
     .filter((b) => b.adapterId !== null)
     .map((b) => ({ label: t(b.nameKey), edition: b.edition, jurisdiction: b.jurisdiction }));
-  return rcTitleBlockCodes(bound, config);
+  return rcTitleBlockCodes(bound);
 }
 
-/** The rótulo a sheet is stamped with: the author's fields plus the project's norms. */
+/** The rótulo a sheet is stamped with: the author's fields plus the project's bound norms. */
 export function rotuloFor(config: RcTitleBlockConfig): SheetRotulo {
-  return { ...config, codes: titleBlockCodesFor(config) };
+  return { ...config, codes: titleBlockCodes() };
 }
 
 /**

@@ -25,10 +25,14 @@ NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin
 `cmd-open-3d` **se queda** en `DesignToolbar` —es una herramienta transversal del visor, no una
 acción del pipeline— y que `cmd-group-detailing` por lo tanto no se retira. Ver §7.5.
 
-**Los once objetivos de Detalle están hechos y verdes.** §8 está cerrado: 1-4 en §9, el 5 en
-§9.8, y 6 a 11 en §9.6 — un commit por objetivo. §9.6.1 registra el patrón que se repitió cinco
-veces en esta tanda (un contrato escrito, testeado, y sin ningún consumidor de producción) y
-§9.6.2 las decisiones que un lector va a querer discutir.
+**Los once objetivos de Detalle están hechos y verdes, y los cinco contratos que estaban
+escritos sin consumidor están conectados** (§9.6.1, con la tabla de qué los llama). §8 está
+cerrado: 1-4 en §9, el 5 en §9.8, 6 a 11 en §9.6.
+
+**Antes de tocar Detalle, leer §9.6.2.** Son las decisiones de producto que él fijó, y una de
+ellas corrigió lo que esta rama había construido: **fijar congela el MIEMBRO, no la barra**. Las
+otras cuatro —longitud real en la planilla, normas del rótulo no editables, aviso antes de
+regenerar, y qué dice Documentos— están ahí con sus porqués.
 
 **Lo próximo NO es otro objetivo de §8.** Lo único que queda para declarar H2 completo es el
 endurecimiento de readiness/convergencia (§7.6), que sigue sin empezar: es un cambio de
@@ -78,7 +82,7 @@ edición, verificación, convergencia y documentación.
 | **F2.6** persistencia | ✅ | — |
 | **Semántica de Diseñar** | ✅ `4ab876b5` | — |
 | **F3 · reubicación** | ✅ **pasos 1-5 completos** | — |
-| **F3 · Detalle** | ✅ **objetivos 1-11 completos** | §9, §9.6, §9.8 |
+| **F3 · Detalle** | ✅ **1-11 completos + decisiones de producto** | §9, §9.6, §9.6.2, §9.8 |
 | **Readiness / convergencia** | ⛔ bloque separado, sin empezar | §7.6 |
 
 ### Commits de esta rama, en orden
@@ -783,46 +787,76 @@ Seis commits, uno por objetivo, cada uno con su tanda verde.
 
 **Los once objetivos de §8 están cerrados.** Con el 1-5 de §9 y §9.8, §8 queda completo.
 
-#### 9.6.1 Las cinco cosas que estaban escritas y no las llamaba nadie
+#### 9.6.1 Las cinco cosas que estaban escritas y no las llamaba nadie — conectadas
 
-Es el patrón de esta tanda, y vale registrarlo porque se repitió cinco veces: el contrato
+Es el patrón de esta tanda y vale registrarlo, porque se repitió cinco veces: el contrato
 existía, tenía tests unitarios, y **no tenía consumidor de producción**. Un test unitario prueba
 que una función calcula; no prueba que alguien la llame — que es exactamente lo que
 `document-liveness.test.ts` dice de sí mismo.
 
-| escrito | quién no lo llamaba | qué costaba |
+| contrato | consumidor de producción | qué costaba no tenerlo |
 |---|---|---|
-| `detailingStore.invalidate` | nadie | una edición de armadura no llegaba a los conjuntos: la lámina, la planilla y el 3-D seguían describiendo el acero anterior |
-| `exportRecordStore.record` | nadie | la lista de emisiones estaba vacía en todo proyecto que existió |
-| `RcEditConsequence` | nadie | — |
-| `RcRetouchProvenance` | sólo el tipo del `ExportRecord` | ninguna exportación decía qué se había retocado a mano |
-| `sectionAt` (setter) | nadie | **toda** lámina de sección de la app era un corte en x = 0 |
+| `detailingStore.invalidate` | `applyEdit`, desde `_setOnReinforcementCommit` | una edición no llegaba a los conjuntos: lámina, planilla y 3-D seguían mostrando el acero anterior |
+| `exportRecordStore.record` | `withExportLog`, en las tres exportaciones | la lista de emisiones estaba vacía en todo proyecto que existió |
+| `RcEditConsequence` | lo devuelve `applyEdit`; lo muestra `RcEditNotice` | nadie sabía qué niveles dejaban de estar al día |
+| `RcRetouchProvenance` | `retouchedIn` / `retouchSplitIn`, en cada exportación y en la lámina | ninguna exportación decía qué se había retocado a mano |
+| setter de `sectionAt` | el control de estación en `DetailingWorkflow` | **toda** lámina de sección de la app era un corte en x = 0 |
 
-#### 9.6.2 Decisiones que un lector va a querer discutir
+`f3-product-decisions.spec.ts` recorre los ocho puntos de verificación contra un edificio real,
+en cadena: editar → invalidar → fijar → regenerar → exportar → registrar. Los ocho pasan.
 
-**El pin congela el MIEMBRO, no la barra.** `runDetailing` recibe `lockedBars` y no regenera esa
-barra; el lazo de reparación recibe `lockedMemberIds()`, que camina los `ownerElementIds` de cada
-barra fijada. Fijar una barra continua sobre un apoyo congela también la columna. La fila lo dice
-ahora (`rc-bar-lock.ts`) y el censo une en vez de sumar, porque `lockedMemberIds()` es un `Set`.
+#### 9.6.2 Las decisiones de producto, fijadas
 
-**El plano de doblado se mide sobre el CUERPO, no sobre el camino entero.** Los ganchos a 135° de
-un estribo giran hacia el núcleo — fuera del plano del estribo, por diseño. La primera versión
-midió el camino completo y rechazó los 8 212 estribos del modelo: las formas que más se doblan
-eran las únicas sin dibujo. Se recortan los ganchos por su longitud desarrollada, se abaten al
+Las tomó él, y esta sección es el contrato. Lo que sigue **no** es "lo que salió": es lo que hay
+que respetar al tocar cualquiera de estas superficies.
+
+**Fijar congela el MIEMBRO, no la barra.** Ésta estaba mal. `runDetailing` honra `lockedBars`
+por BARRA y el lazo de reparación honra `lockedMemberIds()` por MIEMBRO: fijando sólo la barra
+apretada, una regeneración conservaba esa barra y reemplazaba todas las demás del mismo elemento
+— el usuario recuperaba su barra dentro de una jaula que se le había movido alrededor. Ahora
+`rcLockToggle` marca **todas** las barras del miembro, así que los dos motores ven el mismo
+conjunto congelado. Una barra continua sobre un apoyo congela también la columna, y la fila lo
+dice antes de apretar. El estado se ve en Detalle (`data-bar-lock` + censo), en 3-D
+(`SceneModel.lockedMembers`, en el panel de selección tanto para una barra como para un miembro)
+y en Documentos. Una sola semántica, un solo origen: `lockedMemberIds()`.
+
+**La longitud de la planilla es el desarrollo real.** `cuttingLength` es
+`developedLength(segments)` — rectos más cada arco a r·θ — y ya lo era; faltaba mostrarlo junto
+al esquema y **probar** que nadie lo va a "simplificar" a la suma de las cotas rectas.
+`bar-shape-diagram.test.ts` fija que `straightM + bendsM === cuttingLength` y que en una barra
+doblada la suma de los tramos es **menor** que el largo de corte. En un estribo Ø8 con ganchos a
+135° eso son 188 mm sobre 1 650.
+
+**Las normas del rótulo salen de Reglamentos y no se editan.** Se quitó lo que había: un autor
+podía DECLARAR una norma propia, que salía marcada como no verificada. Fuera por decisión.
+`rcTitleBlockCodes` toma las vinculaciones y **ningún segundo argumento** — que es lo que hace
+que "no editable" sea una propiedad del tipo y no una regla que alguien tiene que recordar. El
+checkbox para ocultar normas queda como extensión futura y deliberadamente no está: un control
+que puede esconder una norma vigente es la misma falla que uno que puede renombrarla. Título y
+subtítulo siguen configurables.
+
+**Regenerar avisa antes.** `rcRegenerationImpact` parte los retocados en dos por la pregunta del
+candado: los fijados se conservan, los no fijados los reemplaza la regeneración —correctamente,
+eso es regenerar— y hasta ahora nadie lo decía. El aviso está **al lado del comando**, no en un
+diálogo: una confirmación que se descarta siempre deja de leerse. Documentos separa las dos
+afirmaciones, que son distintas: retocado y FIJADO es lo que el próximo run conserva; retocado y
+no fijado está en esa lámina y no va a sobrevivir.
+
+**`unknown` sobrevive a todo.** Un proyecto abierto de un archivo anterior al registro no puede
+decir qué se retocó y por lo tanto tampoco qué va a perder. Ni el aviso, ni la lámina, ni
+Documentos dicen "ninguno" ahí. Es la sustitución que el tipo de cuatro estados existe para
+impedir, y ahora aparece en tres superficies nuevas.
+
+#### 9.6.2b Lo que un lector va a querer discutir igual
+
+**El esquema mide el plano sobre el CUERPO, no sobre el camino entero.** Los ganchos a 135° de un
+estribo giran hacia el núcleo — fuera del plano del estribo, por diseño. Medir el camino completo
+rechazaba los 8 212 estribos del modelo. Se recortan por su longitud desarrollada, se abaten al
 plano como hace cualquier planilla, y la fila dice que se abatieron.
 
-**Las normas del rótulo no se editan.** La verificación corrió contra las que están vinculadas.
-Un campo que pudiera contradecirla haría que ninguna lámina del juego fuese falsable. El autor
-puede DECLARAR una norma propia y sale marcada como declarada, no verificada.
-
-**Una exportación declara SUS retocados, no los del proyecto.** `rcRetouchWithin` acota al
-conjunto de elementos del documento. Y deja `unknown` en `unknown`: un archivo que nunca registró
-esa información no pasa a saberla por preguntar por menos elementos.
-
-**Regenerar NO conserva un retoque manual.** `runDetailing` detalla desde los outcomes del
-diseño, así que una regeneración reproduce el armado diseñado. No es un defecto: la respuesta de
-la app a "conservá mi arreglo" es el pin, y D21 lo asserta. `f3-edit-retroactive.spec.ts` E6 dice
-explícitamente que no asserta lo contrario.
+**Regenerar no conserva un retoque NO fijado, y eso es correcto.** `runDetailing` detalla desde
+los outcomes del diseño. La respuesta de la app a "conservá mi arreglo" es el candado, y ahora
+el comando lo dice antes de correr.
 
 #### 9.6.3 Lo que se movió, y por qué
 
@@ -838,11 +872,33 @@ extrayendo, que es lo que la propia gate manda ("la respuesta es extraer, no sub
 
 #### 9.6.4 Rojos preexistentes, registrados
 
-Regla 5 de §A. **B15 y B9 de `rc-design.spec.ts` estaban rojos en árbol limpio en `6c090835`**,
-antes de esta serie — confirmado haciendo checkout de ese commit. Arreglados en commit propio,
-`4a8ff151`: B15 asertaba que `design-table-scroll` era el scroller, y dejó de serlo cuando F2.1
-metió `ProDesignTab` dentro de la etapa DISEÑAR. B9 sólo fallaba en el mismo worker después de
-B15. **Es la cuarta vez que la serie hereda un rojo.**
+Regla 5 de §A, y esta vez la partición se hizo bien: **checkout de `6c090835`, correr, comparar**.
+No razonar sobre el diff.
+
+**Arreglados en commit propio** (`4a8ff151`): B15 y B9 de `rc-design.spec.ts`. B15 asertaba que
+`design-table-scroll` era el scroller, y dejó de serlo cuando F2.1 metió `ProDesignTab` dentro de
+la etapa DISEÑAR; B9 sólo fallaba en el mismo worker después de B15.
+
+**Heredados y NO tocados** — rojos en `6c090835`, fuera del radio de esta tanda:
+
+| spec | qué |
+|---|---|
+| `concrete-copy-contrast` (7) | `.row-id` de `RcMemberList` a `--st-text-3`, de `205f40b1` |
+| `pro-design-scopes` (6) | — |
+| `floor-families-document` FD-E | la gate de revisión |
+| `rc-design-visual` overlay legend | baseline visual, declarado no bloqueante |
+
+**Uno que sí era mío**: `h1b-panel-navigation` "the design panel skips no level", en los tres
+idiomas. `RcExportLog` abría con `<h5>` bajo el `<h3>` de `DocumentsSection`. Es el mismo salto
+`h3 → h5` que el propio spec registra haber encontrado una vez en "Engineer review", en ese
+mismo archivo. Arreglado.
+
+Y una advertencia de método, que costó dos triajes. Estos fallaron en alguna corrida completa y
+**pasan en aislamiento**: `f3-member-list @slow`, `h1a`, `i18n-languages`, `pro-project-files`,
+`rebar-workspace-focus`, `tab-reactivation`, `rebar-toggles` y `rc-design` B15. La suite entera
+son 849 tests en un worker durante ~57 min, y los dos últimos fallaron por **timeout** —"the solve
+did not finish in 480 s", `page.evaluate: Test timeout` — no por una aserción. Antes de perseguir
+uno de esos: mirar si el error es un timeout, y correrlo solo.
 
 ### 9.7 Las gates de esta área
 
@@ -855,10 +911,13 @@ npx playwright test e2e/f3-member-list.spec.ts e2e/f3-selection-to-viewer.spec.t
   e2e/f3-selection-from-viewer.spec.ts e2e/pro-panel-consistency.spec.ts \
   e2e/pro-panel-structure.spec.ts
 
-# Los seis de esta tanda. Los tres @slow diseñan un edificio real; los otros siembran.
+# Los seis de esta tanda, más la cadena de las decisiones de producto.
+# `f3-product-decisions` recorre los ocho puntos de verificación contra un edificio real y
+# barre los cuatro anchos y los tres idiomas de las tres superficies nuevas.
 npx playwright test e2e/f3-bar-lock.spec.ts e2e/f3-sheet-geometry.spec.ts \
   e2e/f3-title-block.spec.ts e2e/f3-bending-schedule.spec.ts \
-  e2e/f3-edit-retroactive.spec.ts e2e/f3-export-log.spec.ts
+  e2e/f3-edit-retroactive.spec.ts e2e/f3-export-log.spec.ts \
+  e2e/f3-product-decisions.spec.ts
 
 npx playwright test e2e/f3-bar-states.spec.ts e2e/detailing.spec.ts \
   e2e/detailing-review.spec.ts e2e/detailing-sheet-fieldset.spec.ts \
@@ -867,7 +926,9 @@ npx playwright test e2e/f3-bar-states.spec.ts e2e/detailing.spec.ts \
 # Los dos auditores que esta tanda hizo fallar y hay que correr aunque no parezca:
 #   h1c   contraste de TODA copia nueva en Documentos — `--st-text-3` no es color de texto
 #   concrete-design-raw-colours / concrete-status-tokens — la deuda de colores crudos no crece
-npx playwright test e2e/h1c-documents-flow.spec.ts
+#   h1b   orden de encabezados: un `h5` bajo un `h3` saltea un nivel. Pasó dos veces en
+#         `DocumentsSection`, y la segunda fue `RcExportLog`.
+npx playwright test e2e/h1c-documents-flow.spec.ts e2e/h1b-panel-navigation.spec.ts
 npx vitest run --project unit src/lib/__tests__/concrete-design-raw-colours.test.ts \
   src/lib/__tests__/concrete-status-tokens.test.ts
 

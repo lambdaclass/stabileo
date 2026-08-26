@@ -137,65 +137,42 @@ test.describe('@smoke the author’s half reaches the sheet', () => {
 
 test.describe('@smoke the project’s half is stated, not edited', () => {
   /*
-   * The verification ran against the bound regulations. A control that could remove one would
-   * let a sheet claim a provenance the run never had, on the one surface whose whole purpose is
-   * stating that provenance.
+   * The decision, asserted as an ABSENCE. The rótulo shows the regulations selected in the
+   * Reglamentos stage and offers no way to change them here: no field, no delete button, and no
+   * form to add one of your own. A control that could change a governing code would let a sheet
+   * claim a provenance the run never had, on the one surface whose purpose is stating it.
    */
-  test('T6 — a verified code has no control that could remove it', async ({ pro: page }) => {
+  test('T6 — the codes are text, with no control that could edit them', async ({ pro: page }) => {
     await ready(page);
-    const verified = page.locator('[data-testid="rotulo-code-verified"]');
-    expect(await verified.count()).toBeGreaterThan(0);
-    await expect(verified.first().getByTestId('rotulo-code-remove')).toHaveCount(0);
+    const codes = page.getByTestId('rotulo-codes');
+    await expect(codes).toBeVisible();
+    expect(await codes.locator('input, button, select, textarea').count()).toBe(0);
+    // And no form to add one, either.
+    await expect(page.getByTestId('rotulo-code-input')).toHaveCount(0);
+    await expect(page.getByTestId('rotulo-code-add')).toHaveCount(0);
   });
 
-  test('T7 — and it reaches the sheet marked as verified', async ({ pro: page }) => {
+  test('T7 — and it says where they come from, so the list is not a forgotten field', async ({ pro: page }) => {
+    await ready(page);
+    await expect(page.getByTestId('rotulo-codes-source'))
+      .toContainText('come from the Reglamentos stage');
+  });
+
+  test('T8 — the bound regulation reaches the sheet', async ({ pro: page }) => {
     await ready(page);
     const codes = (await sheet(page) as Sheet).title.codes ?? [];
     expect(codes.length).toBeGreaterThan(0);
-    expect(codes[0].source).toBe('verified');
-    expect(codes[0].qualifierKey).toBeNull();
-  });
-
-  /* An author's own code IS removable, and is qualified where it stands. */
-  test('T8 — a declared code is added, marked and removable', async ({ pro: page }) => {
-    await ready(page);
-    await page.getByTestId('rotulo-code-input').fill('Ordenanza municipal 4711');
-    await page.getByTestId('rotulo-code-add').click();
-
-    const declared = page.locator('[data-testid="rotulo-code-declared"]');
-    await expect(declared).toHaveCount(1);
-    await expect(declared).toContainText('Ordenanza municipal 4711');
-    await expect(declared).toContainText('not verified by this application');
-
-    await declared.getByTestId('rotulo-code-remove').click();
-    await expect(declared).toHaveCount(0);
-  });
-
-  test('T9 — and it reaches the sheet as declared, never as verified', async ({ pro: page }) => {
-    await ready(page);
-    await page.getByTestId('rotulo-code-input').fill('Norma del cliente 9');
-    await page.getByTestId('rotulo-code-add').click();
-
-    await expect.poll(async () => {
-      const codes = (await sheet(page) as Sheet).title.codes ?? [];
-      return codes.find((c) => c.text === 'Norma del cliente 9')?.source;
-    }).toBe('declared');
+    expect(codes[0].text).toContain('CIRSOC');
   });
 
   /*
-   * Bounded at four. A form that accepts a fifth and stores nothing is the worst of the three
-   * possible behaviours, so the control disables itself and says why.
+   * "Si cambia la selección de Reglamentos, el rótulo se actualiza."
+   *
+   * Asserted where it can be asserted honestly — `detailing-title-block-source.test.ts` drives
+   * the bindings directly and compares the list against them, and `title-block-config.test.ts`
+   * pins that different bindings give a different list. Reaching Reglamentos through the UI to
+   * rebind a role is a five-screen journey whose failure would be about that journey.
    */
-  test('T10 — the fifth declared code is refused in the control, not silently dropped', async ({ pro: page }) => {
-    await ready(page);
-    for (const n of [1, 2, 3, 4]) {
-      await page.getByTestId('rotulo-code-input').fill(`Norma ${n}`);
-      await page.getByTestId('rotulo-code-add').click();
-    }
-    await expect(page.getByTestId('rotulo-codes-full')).toBeVisible();
-    await expect(page.getByTestId('rotulo-code-input')).toBeDisabled();
-    await expect(page.getByTestId('rotulo-code-add')).toBeDisabled();
-  });
 });
 
 test.describe('@smoke the rótulo reaches the drawing', () => {
@@ -207,21 +184,17 @@ test.describe('@smoke the rótulo reaches the drawing', () => {
     await expect(page.getByTestId('sheet-preview')).toContainText('Edificio Los Álamos');
   });
 
-  test('T12 — and so is the code, with its qualifier', async ({ pro: page }) => {
+  test('T12 — and so are the bound codes', async ({ pro: page }) => {
     await ready(page);
-    await page.getByTestId('rotulo-code-input').fill('Ordenanza 4711');
-    await page.getByTestId('rotulo-code-add').click();
-
-    const preview = page.getByTestId('sheet-preview');
-    await expect(preview).toContainText('Ordenanza 4711');
     /*
-     * In SPANISH, while this suite runs the interface in English — and that is the sheet's own
-     * convention, stated on `TitleBlock.provisionalNote`: "a drawing is a document; an Argentine
-     * engineer wants it in Spanish even when reading the app in English". `sheetToSvg` takes an
-     * explicit locale and the sheet path passes none, so the drawing is emitted in `es` while
-     * the panel above it follows the interface. Asserting the English string here would have
-     * pinned the opposite convention by accident.
+     * In SPANISH, while this suite runs the interface in English — the sheet's own convention,
+     * stated on `TitleBlock.provisionalNote`: "a drawing is a document; an Argentine engineer
+     * wants it in Spanish even when reading the app in English". `sheetToSvg` takes an explicit
+     * locale and the sheet path passes none.
+     *
+     * The instrument's NAME is not translated by that: it is the regulation's own name, which
+     * is the same string in every locale.
      */
-    await expect(preview).toContainText('no verificada por esta aplicación');
+    await expect(page.getByTestId('sheet-preview')).toContainText('CIRSOC');
   });
 });

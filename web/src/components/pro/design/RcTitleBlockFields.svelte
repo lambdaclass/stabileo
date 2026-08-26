@@ -6,13 +6,16 @@
    *
    * Because they have different owners, and `title-block-config.ts` spends its header on why
    * that line is fixed. The identification is the author's and is editable. The norms are the
-   * regulations the verification actually ran against, read from the bindings, and they are
-   * printed here as TEXT — not as fields, not as a list with a delete button beside each one.
-   * A control that could remove one would let a sheet claim a provenance the run never had,
+   * regulations selected in the Reglamentos stage, and they are printed here as TEXT — not as
+   * fields, not as a list with a delete button beside each one, not as a list an author can add
+   * to. A control that could change one would let a sheet claim a provenance the run never had,
    * and the sheet is the one surface whose whole purpose is stating that provenance.
    *
-   * What an author CAN do is declare a code they also worked to. It is added to the same list,
-   * marked, and qualified on the sheet itself.
+   * The list follows Reglamentos. Rebind a role there and the rótulo says so on the next
+   * render, because it is read from the bindings rather than copied into the project.
+   *
+   * A per-code visibility switch is a FUTURE extension and deliberately absent: a control that
+   * could hide a governing code is the same failure as one that could rename it.
    *
    * ── Its own component ──────────────────────────────────────────────
    *
@@ -22,30 +25,14 @@
   import { t, tp } from '../../../lib/i18n';
   import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import {
-    RC_MAX_DECLARED_CODES, RC_TITLE_BLOCK_LIMITS, rcTitleBlockNamed,
+    RC_TITLE_BLOCK_LIMITS, rcTitleBlockNamed,
   } from '../../../lib/engine/detailing/title-block-config';
-
-  /** The code the author is typing. Local because it is a draft, not a stored value. */
-  let draft = $state('');
 
   const config = $derived(detailingSheet.titleBlockConfig);
   const codes = $derived(detailingSheet.titleBlockCodes);
-  const declared = $derived(config.declaredCodes ?? []);
-  const full = $derived(declared.length >= RC_MAX_DECLARED_CODES);
 
   function set(field: 'project' | 'subtitle' | 'office', value: string) {
     detailingSheet.setTitleBlock({ [field]: value });
-  }
-
-  function addCode() {
-    const v = draft.trim();
-    if (!v || full) return;
-    detailingSheet.setTitleBlock({ declaredCodes: [...declared, v] });
-    draft = '';
-  }
-
-  function removeCode(code: string) {
-    detailingSheet.setTitleBlock({ declaredCodes: declared.filter((c) => c !== code) });
   }
 </script>
 
@@ -106,7 +93,7 @@
   {/if}
 
   <!--
-    The norms. Read-only for the verified ones — see the header.
+    The norms, as they stand in Reglamentos. Read-only — see the header.
   -->
   <p class="codes-head">{t('detailing.titleBlock.codes')}</p>
   {#if codes.length === 0}
@@ -114,47 +101,17 @@
   {:else}
     <ul class="codes" data-testid="rotulo-codes">
       {#each codes as c (c.text)}
-        <li data-testid={`rotulo-code-${c.source}`} data-source={c.source}>
-          <span class="code-text">{c.text}</span>
-          {#if c.qualifierKey}
-            <span class="qualifier">{t(c.qualifierKey)}</span>
-            <button
-              type="button"
-              class="drop"
-              data-testid="rotulo-code-remove"
-              aria-label={tp('detailing.titleBlock.removeCode', { code: c.text })}
-              onclick={() => removeCode(c.text)}
-            >×</button>
-          {/if}
-        </li>
+        <li data-testid="rotulo-code"><span class="code-text">{c.text}</span></li>
       {/each}
     </ul>
-  {/if}
+    <!--
+      Where they come from, said once.
 
-  <!--
-    Adding one. Bounded at four, and the control says so instead of silently ignoring the fifth
-    — `rcNormaliseTitleBlock` would drop it, and a form that accepts a value and stores nothing
-    is the worst of the three possible behaviours.
-  -->
-  <div class="add">
-    <label class="add-label">
-      <span class="sr-only">{t('detailing.titleBlock.addCode')}</span>
-      <input
-        type="text"
-        data-testid="rotulo-code-input"
-        maxlength={RC_TITLE_BLOCK_LIMITS.code}
-        placeholder={t('detailing.titleBlock.addCode')}
-        disabled={full}
-        bind:value={draft}
-        onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCode(); } }}
-      />
-    </label>
-    <button type="button" data-testid="rotulo-code-add" disabled={full || draft.trim() === ''}
-            onclick={addCode}>{t('detailing.titleBlock.add')}</button>
-  </div>
-  {#if full}
-    <p class="unnamed" data-testid="rotulo-codes-full">
-      {tp('detailing.titleBlock.codesFull', { n: RC_MAX_DECLARED_CODES })}
+      Without it the list reads as a field somebody forgot to make editable. It is not: it is a
+      projection of the Reglamentos stage, and the way to change it is to change that.
+    -->
+    <p class="unnamed" data-testid="rotulo-codes-source">
+      {t('detailing.titleBlock.codesFromRegulations')}
     </p>
   {/if}
 </fieldset>
@@ -211,42 +168,12 @@
     font-size: 0.7rem;
   }
   .code-text { color: var(--st-text); }
+
   /*
-    A declared code is dimmer AND carries the word. Neither alone: the tint is not readable as
-    a claim, and the word is what a reader acts on — the same rule the bar states pass.
+    The `.qualifier`, `.drop` and `.add` rules left with the controls they styled. Svelte scopes
+    styles per component, so a copy kept here would reach nothing — it would be dead text the
+    next reader has to prove is dead, which is what `DetailingWorkflow`'s bar-list rules were.
   */
-  li[data-source='declared'] .code-text { color: var(--st-text-2); }
-  .qualifier { font-size: 0.64rem; color: var(--st-warn); }
-  .drop {
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 3px;
-    background: var(--st-surface-2);
-    color: var(--st-text-2);
-    font: inherit;
-    font-size: 0.66rem;
-    line-height: 1;
-    padding: 0.05rem 0.28rem;
-    cursor: pointer;
-  }
-  .drop:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .drop:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
-
-  .add { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
-  .add-label { flex: 1; margin: 0; }
-  .add button {
-    padding: 0.12rem 0.45rem;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 3px;
-    background: var(--st-surface-2);
-    color: var(--st-text-2);
-    font: inherit;
-    font-size: 0.7rem;
-    cursor: pointer;
-  }
-  .add button:hover:not(:disabled) { background: var(--st-surface-3); color: var(--st-text); }
-  .add button:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
-  .add button:disabled { opacity: 0.55; cursor: not-allowed; }
-
   /* Visible to a screen reader, not to the eye: the placeholder is not an accessible name. */
   .sr-only {
     position: absolute;

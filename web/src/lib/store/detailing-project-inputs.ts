@@ -34,6 +34,10 @@ import type { MemberDesignOutcome } from '../engine/design/outcome';
 import type { BentUpPolicy } from '../engine/detailing/generate-beam';
 import { DEFAULT_COVER, DEFAULT_REBAR_FY } from '../engine/design/member-context';
 import { rebarHash } from '../engine/design/rebar-hash';
+import { designRunStore } from './design-run.svelte';
+import {
+  rcRegenerationImpact, rcRetouchProvenance, type RcRegenerationImpact,
+} from '../flow/rc-selection';
 import type { CertificateEntry } from '../engine/detailing/document-model';
 
 export function designOutcomeMap(): ReadonlyMap<number, MemberDesignOutcome> {
@@ -277,4 +281,25 @@ export function collectCertificates(
     }
   }
   return out;
+}
+
+/**
+ * What a regeneration is about to do to this project's hand edits.
+ *
+ * A reading of two stores — which members were retouched, and which are locked — and it holds
+ * nothing, so it lives here rather than on `detailing.svelte.ts`. Both are read from the
+ * PERSISTED model for the reason `buildDocument` documents: this is read in the same gesture
+ * that presses the command, and a `$derived` that has not recomputed would report a project
+ * with no detailing and warn about nothing.
+ */
+export function regenerationImpact(): RcRegenerationImpact {
+  const persisted = modelStore.model.detailing?.assemblies ?? [];
+  return rcRegenerationImpact(
+    rcRetouchProvenance(
+      designRunStore.manualProvenanceKnown,
+      persisted.length > 0,
+      designRunStore.manualOverrides,
+    ),
+    lockedMemberIds(),
+  );
 }

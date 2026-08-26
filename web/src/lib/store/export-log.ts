@@ -35,8 +35,10 @@ import {
   EXPORT_CANNOT_ASSERT, type ExportKind, type ExportRecord,
 } from '../flow/rc-export-record';
 import {
-  rcRetouchProvenance, rcRetouchWithin, type RcRetouchProvenance,
+  rcRegenerationImpact, rcRetouchProvenance, rcRetouchWithin,
+  type RcRegenerationImpact, type RcRetouchProvenance,
 } from '../flow/rc-selection';
+import { lockedMemberIds } from './detailing-project-inputs';
 import type { DocumentModel } from '../engine/detailing/document-model';
 
 /** The members a document covers: the union of what its assemblies claim, ascending. */
@@ -64,6 +66,25 @@ export function retouchedIn(doc: DocumentModel): RcRetouchProvenance {
     designRunStore.manualOverrides,
   );
   return rcRetouchWithin(project, documentMembers(doc));
+}
+
+/**
+ * The retouched members of this document, split by whether a lock protects them.
+ *
+ * ── Why a document says both ───────────────────────────────────────
+ *
+ * "Documentos debe indicar qué elementos fueron retocados y cuáles fueron reemplazados." They
+ * are different claims about the steel on the page. A LOCKED retouch is the arrangement the
+ * engineer chose and it is what the next regeneration will keep; an unlocked one is an
+ * arrangement that is on this drawing and will not survive the next run. A reader deciding
+ * whether to issue needs to know which of the two they are looking at, and a single count of
+ * "retouched" answers neither question.
+ *
+ * Reads the locks from `lockedMemberIds()`, the same set the engines receive, so the document,
+ * the regeneration warning and the viewer cannot form three opinions about what is frozen.
+ */
+export function retouchSplitIn(doc: DocumentModel): RcRegenerationImpact {
+  return rcRegenerationImpact(retouchedIn(doc), lockedMemberIds());
 }
 
 /**

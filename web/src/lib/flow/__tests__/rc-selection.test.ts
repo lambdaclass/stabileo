@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import {
   RC_ELEMENT_GROUPS, RC_RETOUCH_NOT_APPLICABLE, RC_RETOUCH_UNKNOWN, rcEditConsequence,
   rcFamiliesIn, rcGroupCounts, rcGroupLabelKey, rcGroupOf, rcResolveTarget, rcRetouch,
+  rcRegenerationImpact, rcRegenerationWarns,
   rcRetouchIsCountable, rcRetouchProvenance, rcRetouchWithin,
 } from '../rc-selection';
 import { SCENE_SOLID_KINDS, type SceneSolidKind } from '../../engine/detailing/scene-model';
@@ -254,5 +255,54 @@ describe('rcRetouchWithin', () => {
     const out = rcRetouchWithin(rcRetouch([11, 3]), [11, 3]);
     expect(rcRetouchIsCountable(out)).toBe(true);
     expect(out.members).toEqual([3, 11]);
+  });
+});
+
+/**
+ * D4 — what a regeneration is about to replace.
+ *
+ * The division is a LOCK question: `runDetailing` carries a locked member's bars through
+ * untouched and re-details everything else from the design outcomes. A hand edit on an unlocked
+ * member is replaced, correctly — the defect was that nobody was told before it happened.
+ */
+describe('rcRegenerationImpact', () => {
+  it('keeps the retouched members a lock protects and replaces the rest', () => {
+    const i = rcRegenerationImpact(rcRetouch([3, 7, 11]), [7]);
+    expect(i.kept).toEqual([7]);
+    expect(i.replaced).toEqual([3, 11]);
+    expect(i.unknown).toBe(false);
+  });
+
+  it('warns when anything would be replaced, and not when nothing would', () => {
+    expect(rcRegenerationWarns(rcRegenerationImpact(rcRetouch([3]), []))).toBe(true);
+    expect(rcRegenerationWarns(rcRegenerationImpact(rcRetouch([3]), [3]))).toBe(false);
+    expect(rcRegenerationWarns(rcRegenerationImpact(rcRetouch([]), []))).toBe(false);
+  });
+
+  /*
+   * A lock on a member nobody retouched protects nothing that needs protecting, and must not
+   * appear as if it had: `kept` is a statement about HAND EDITS, not about locks.
+   */
+  it('does not report a lock on an untouched member as something kept', () => {
+    expect(rcRegenerationImpact(rcRetouch([3]), [3, 99]).kept).toEqual([3]);
+  });
+
+  /*
+   * A project with no record cannot be told which of its edits are about to go, and an empty
+   * list there would read as "nothing will be lost" on no evidence. The flag forces the caller
+   * to word it as the absence it is.
+   */
+  it('says it does not know, rather than saying nothing will be lost', () => {
+    const i = rcRegenerationImpact(RC_RETOUCH_UNKNOWN, []);
+    expect(i.unknown).toBe(true);
+    expect(i.replaced).toEqual([]);
+    expect(rcRegenerationWarns(i)).toBe(true);
+  });
+
+  /* Nothing designed: no subject, so nothing to warn about. */
+  it('warns about nothing when nothing has been designed', () => {
+    const i = rcRegenerationImpact(RC_RETOUCH_NOT_APPLICABLE, []);
+    expect(i.unknown).toBe(false);
+    expect(rcRegenerationWarns(i)).toBe(false);
   });
 });

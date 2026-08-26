@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   rcTitleField, rcNormaliseTitleBlock, rcTitleBlockCodes, rcTitleBlockNamed,
-  RC_TITLE_BLOCK_LIMITS, RC_MAX_DECLARED_CODES,
+  RC_TITLE_BLOCK_LIMITS,
 } from '../title-block-config';
 
 const BOUND = [
@@ -44,28 +44,12 @@ describe('a field is one line, and short', () => {
 
 describe('normalising the config', () => {
   it('drops empty fields rather than storing blanks', () => {
-    expect(rcNormaliseTitleBlock({ project: '  ', subtitle: '', declaredCodes: ['', ' '] }))
-      .toEqual({});
+    expect(rcNormaliseTitleBlock({ project: '  ', subtitle: '' })).toEqual({});
   });
 
   it('keeps what was written, normalised', () => {
-    expect(rcNormaliseTitleBlock({
-      project: ' Edificio  Los Álamos ', office: 'Estudio X', declaredCodes: [' NBR 6118 '],
-    })).toEqual({
-      project: 'Edificio Los Álamos', office: 'Estudio X', declaredCodes: ['NBR 6118'],
-    });
-  });
-
-  /* Two identical lines on a rótulo read as two instruments whose names happen to match. */
-  it('deduplicates declared codes', () => {
-    expect(rcNormaliseTitleBlock({ declaredCodes: ['NBR 6118', 'NBR 6118'] }).declaredCodes)
-      .toEqual(['NBR 6118']);
-  });
-
-  it('bounds how many codes an author may declare', () => {
-    const many = Array.from({ length: RC_MAX_DECLARED_CODES + 3 }, (_, i) => `Code ${i}`);
-    expect(rcNormaliseTitleBlock({ declaredCodes: many }).declaredCodes)
-      .toHaveLength(RC_MAX_DECLARED_CODES);
+    expect(rcNormaliseTitleBlock({ project: ' Edificio  Los Álamos ', office: 'Estudio X' }))
+      .toEqual({ project: 'Edificio Los Álamos', office: 'Estudio X' });
   });
 
   it('clips each field to its own limit', () => {
@@ -76,54 +60,49 @@ describe('normalising the config', () => {
     expect(c.subtitle).toHaveLength(RC_TITLE_BLOCK_LIMITS.subtitle);
     expect(c.office).toHaveLength(RC_TITLE_BLOCK_LIMITS.office);
   });
+
+  /*
+   * The author's half carries no codes at all. An earlier draft let one declare an extra
+   * regulation; it is out by decision, and a stored project that still carries the field must
+   * not be able to smuggle it back onto a sheet.
+   */
+  it('drops a declared-code field left over from an older project', () => {
+    const legacy = { project: 'Obra', declaredCodes: ['Ordenanza 4711'] } as never;
+    expect(rcNormaliseTitleBlock(legacy)).toEqual({ project: 'Obra' });
+  });
 });
 
 describe('the codes a sheet prints', () => {
   it('states every bound regulation, with its edition and jurisdiction', () => {
-    const codes = rcTitleBlockCodes(BOUND);
-    expect(codes.map((c) => c.text)).toEqual([
+    expect(rcTitleBlockCodes(BOUND).map((c) => c.text)).toEqual([
       'CIRSOC 201 · 2025 (Nacional)', 'CIRSOC 103 · 2013',
     ]);
-    expect(codes.every((c) => c.source === 'verified')).toBe(true);
   });
 
   /*
-   * The whole reason the two are not one list of strings. A declared code is a statement by the
-   * author that this application did not check, and a rótulo that presented it like the others
-   * would be making a claim on the app's behalf.
+   * The whole point of the decision. The rótulo is a projection of the Reglamentos stage, so
+   * the function takes the bindings and NOTHING else — there is no second argument an author's
+   * text could arrive through, which is what makes "not editable" a property of the type rather
+   * than a rule somebody has to remember.
    */
-  it('marks an author’s own code as declared, and qualifies it', () => {
-    const codes = rcTitleBlockCodes(BOUND, { declaredCodes: ['Ordenanza municipal 4711'] });
-    const own = codes.find((c) => c.text === 'Ordenanza municipal 4711')!;
-    expect(own.source).toBe('declared');
-    expect(own.qualifierKey).toBe('detailing.titleBlock.declared');
+  it('takes the bindings and nothing else', () => {
+    expect(rcTitleBlockCodes.length).toBe(1);
   });
 
-  it('puts the verified ones first, always', () => {
-    const codes = rcTitleBlockCodes(BOUND, { declaredCodes: ['AAA — sorts first alphabetically'] });
-    expect(codes[0].source).toBe('verified');
-    expect(codes[codes.length - 1].source).toBe('declared');
+  it('follows the bindings when they change', () => {
+    const before = rcTitleBlockCodes(BOUND);
+    const after = rcTitleBlockCodes([{ label: 'CIRSOC 201', edition: '2005' }]);
+    expect(after.map((c) => c.text)).toEqual(['CIRSOC 201 · 2005']);
+    expect(after).not.toEqual(before);
   });
 
-  /*
-   * A declaration cannot overwrite what the run used. Printed twice — once qualified as
-   * unverified — a reader would reasonably conclude the two lines meant different things.
-   */
-  it('drops a declaration that repeats a verified code', () => {
-    const codes = rcTitleBlockCodes(BOUND, { declaredCodes: ['CIRSOC 201 · 2025 (Nacional)'] });
-    expect(codes.filter((c) => c.text.startsWith('CIRSOC 201'))).toHaveLength(1);
-    expect(codes[0].source).toBe('verified');
+  it('prints nothing when nothing governs', () => {
+    expect(rcTitleBlockCodes([])).toEqual([]);
   });
 
-  it('prints the verified codes even when the author configured nothing', () => {
-    expect(rcTitleBlockCodes(BOUND, {})).toHaveLength(2);
-  });
-
-  it('prints nothing when nothing governs and nothing was declared', () => {
-    expect(rcTitleBlockCodes([], {})).toEqual([]);
-  });
-
-  it('does not repeat a bound regulation bound twice under two roles', () => {
+  /* One instrument bound to two roles is one line: printed twice it reads as two instruments
+     whose names happen to match. */
+  it('does not repeat a regulation bound twice under two roles', () => {
     expect(rcTitleBlockCodes([BOUND[0], BOUND[0]])).toHaveLength(1);
   });
 });

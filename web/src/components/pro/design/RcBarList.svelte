@@ -131,11 +131,19 @@
     moment its content appears is not reliably announced, because assistive technology has to
     have been watching it beforehand.
   -->
+  <!--
+    The summary counts MEMBERS, because that is what a lock is a lock on.
+
+    Counting the flagged BARS would read "14 locked" after one press on a beam with fourteen
+    bars, while the viewer and every export count that as one locked member — and "no crear una
+    semántica distinta entre lista, visor y exportaciones" is the decision. `rcBarLockCensus`
+    still carries the bar count; nothing leads with it.
+  -->
   <p class="pins" data-testid="bar-pins" aria-live="polite">
     {#if rcHasPins(pins)}
       <span class="chip st-pinned" data-testid="bar-pins-count">
         <span aria-hidden="true">⬤</span>
-        {tp('detailing.bar.census.pinned', { n: pins.pinned })}
+        {tp('detailing.bar.census.pinned', { n: pins.frozenMembers.length })}
       </span>
       <span class="frozen" data-testid="bar-pins-frozen">
         {tp('detailing.bar.lock.frozenMembers', {

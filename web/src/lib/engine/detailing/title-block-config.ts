@@ -14,12 +14,15 @@
  *   which edition, under which jurisdiction and by which route it applies, and the verification
  *   ran against exactly those. That is not a preference; it is what was checked.
  *
- * So the author's half is free text and the app's half is read-only. An author may ADD a code
- * they also worked to — a municipal ordinance, a client standard — and it is printed as
- * `declared`, beside the verified ones and distinguishable from them. What they may not do is
- * edit or remove a verified one, because the only thing a title block is for is stating what
- * the drawing was produced under, and a field that could quietly disagree with the run would
- * make every sheet in the set unfalsifiable.
+ * So the author's half is free text and the app's half is READ-ONLY — not "editable with a
+ * qualifier", read-only. The title block states what the drawing was produced under, and a
+ * field that could disagree with the run would make every sheet in the set unfalsifiable.
+ *
+ * An earlier draft let an author DECLARE an extra code, printed beside the verified ones and
+ * marked as unverified. That is out by decision: the rótulo shows the regulations selected in
+ * the Reglamentos stage and nothing else, and it follows that selection when it changes. A
+ * per-code visibility switch is a future extension and is deliberately not here — a control
+ * that could hide a governing code is the same failure as one that could rename it.
  *
  * ── Why "brief" is enforced rather than advised ────────────────────
  *
@@ -43,8 +46,6 @@ export interface RcTitleBlockConfig {
   subtitle?: string;
   /** Who drew it. */
   office?: string;
-  /** Codes the author declares they ALSO worked to. Never replaces a verified one. */
-  declaredCodes?: string[];
 }
 
 /**
@@ -59,35 +60,18 @@ export const RC_TITLE_BLOCK_LIMITS = {
   project: 80,
   subtitle: 60,
   office: 60,
-  code: 60,
 } as const;
-
-/**
- * How many codes an author may declare.
- *
- * Four, for the same reason `MAX_CONFLICT_NOTES` is twelve: a note block is read, not searched.
- * The VERIFIED codes are not bounded — every one of them is a statement about the run and
- * dropping any would be dropping evidence.
- */
-export const RC_MAX_DECLARED_CODES = 4;
 
 /**
  * One norm, as the rótulo prints it.
  *
- * `verified` — this application checked the design against it. `declared` — the author states
- * they also worked to it, and nothing in this application verified that. The distinction is
- * the whole reason the two are not one list of strings.
+ * A plain text and nothing else. It carried a `source` and a qualifier while an author could
+ * declare a code of their own; with that removed every entry is a regulation this application
+ * verified against, and a single-valued discriminator is a field a reader has to check to learn
+ * nothing.
  */
 export interface RcTitleBlockCode {
   text: string;
-  source: 'verified' | 'declared';
-  /**
-   * i18n key qualifying a declared code. Null for a verified one, which needs no qualifier.
-   *
-   * A declared code with no qualifier beside it reads as a claim this application makes. It
-   * does not make it.
-   */
-  qualifierKey: string | null;
 }
 
 /** A regulation binding, reduced to what a rótulo prints. Translated by the caller. */
@@ -118,34 +102,22 @@ export function rcNormaliseTitleBlock(config: RcTitleBlockConfig): RcTitleBlockC
   const project = rcTitleField(config.project, RC_TITLE_BLOCK_LIMITS.project);
   const subtitle = rcTitleField(config.subtitle, RC_TITLE_BLOCK_LIMITS.subtitle);
   const office = rcTitleField(config.office, RC_TITLE_BLOCK_LIMITS.office);
-  const declaredCodes = (config.declaredCodes ?? [])
-    .map((c) => rcTitleField(c, RC_TITLE_BLOCK_LIMITS.code))
-    .filter((c) => c.length > 0)
-    // Deduplicated, because two identical lines on a rótulo read as two different instruments
-    // whose names happen to match.
-    .filter((c, i, all) => all.indexOf(c) === i)
-    .slice(0, RC_MAX_DECLARED_CODES);
   return {
     ...(project ? { project } : {}),
     ...(subtitle ? { subtitle } : {}),
     ...(office ? { office } : {}),
-    ...(declaredCodes.length > 0 ? { declaredCodes } : {}),
   };
 }
 
 /**
- * The codes the sheet prints: the verified ones the run used, then the author's declarations.
+ * The codes the sheet prints: the regulations bound in the Reglamentos stage, and only those.
  *
- * Verified first and always. A declared code that repeats a verified one is DROPPED rather
- * than printed twice — the verified entry already says it and says more, and a reader seeing
- * `CIRSOC 201 · 2025` twice, once qualified as unverified, would reasonably conclude the two
- * lines meant different things.
+ * In the order the roles are bound, deduplicated — one instrument bound to two roles is one
+ * line on a rótulo, and printing it twice would read as two instruments whose names happen to
+ * match. Nothing the author can type reaches this list; see the header for why.
  */
-export function rcTitleBlockCodes(
-  bound: readonly RcBoundCode[],
-  config: RcTitleBlockConfig = {},
-): RcTitleBlockCode[] {
-  const verified: RcTitleBlockCode[] = [];
+export function rcTitleBlockCodes(bound: readonly RcBoundCode[]): RcTitleBlockCode[] {
+  const out: RcTitleBlockCode[] = [];
   const seen = new Set<string>();
   for (const b of bound) {
     const text = [b.label, b.edition].filter(Boolean).join(' · ')
@@ -153,17 +125,9 @@ export function rcTitleBlockCodes(
     const key = text.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    verified.push({ text, source: 'verified', qualifierKey: null });
+    out.push({ text });
   }
-  const declared: RcTitleBlockCode[] = [];
-  for (const raw of rcNormaliseTitleBlock(config).declaredCodes ?? []) {
-    if (seen.has(raw.toLowerCase())) continue;
-    seen.add(raw.toLowerCase());
-    declared.push({
-      text: raw, source: 'declared', qualifierKey: 'detailing.titleBlock.declared',
-    });
-  }
-  return [...verified, ...declared];
+  return out;
 }
 
 /**

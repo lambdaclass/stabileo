@@ -772,18 +772,8 @@ export function sheetToDxf(sheet: Sheet, arcs: DrawnArc[] = [], locale = 'es'): 
   if (sheet.title.subtitle) put(sheet.title.subtitle);
   if (sheet.title.office) put(sheet.title.office);
   put(`${sheet.title.sheetNumber} — ${sheet.title.title}`);
-  /*
-    The norms, one line, verified ones first.
-
-    A declared code is qualified where it stands rather than in a footnote: the qualifier is the
-    only thing separating a statement this application checked from one it did not, and a
-    footnote is exactly as far away as the reader's attention is short.
-  */
-  for (const c of sheet.title.codes ?? []) {
-    put(c.source === 'declared'
-      ? `${c.text} — ${tAt('detailing.titleBlock.declared', locale)}`
-      : c.text);
-  }
+  // The norms, one line each, exactly as the Reglamentos stage has them.
+  for (const c of sheet.title.codes ?? []) put(c.text);
   put(`Reglamento: ${sheet.title.codeEdition}   Escala 1:${sheet.title.scale}`);
   put(`Revisión ${sheet.title.revision} — estado ${sheet.title.reviewState}`);
   if (sheet.title.reviewer) put(`Revisado por: ${sheet.title.reviewer} (${sheet.title.reviewedAt ?? ''})`);
@@ -1099,13 +1089,7 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
   if (sheet.title.subtitle) line(sheet.title.subtitle, 'normal', '#333', 0.08);
   if (sheet.title.office) line(sheet.title.office, 'normal', '#444', 0.07);
   line(`${sheet.title.sheetNumber} — ${sheet.title.title}`, 'bold');
-  for (const c of sheet.title.codes ?? []) {
-    // Declared codes are dimmer AND qualified. Neither alone: the tint is not readable as a
-    // claim and the qualifier is what a reader acts on.
-    line(c.source === 'declared'
-      ? `${c.text} — ${tAt('detailing.titleBlock.declared', locale)}`
-      : c.text, 'normal', c.source === 'declared' ? '#666' : '#111', 0.075);
-  }
+  for (const c of sheet.title.codes ?? []) line(c.text, 'normal', '#111', 0.075);
   line(`${sheet.title.codeEdition} · Escala 1:${sheet.title.scale} · Revisión ${sheet.title.revision} · ${sheet.title.reviewState}`);
   if (sheet.title.reviewer) line(`Revisado por: ${sheet.title.reviewer} — ${sheet.title.reviewedAt ?? ''}`);
   if (sheet.title.clauses.length > 0) line(`Artículos: ${sheet.title.clauses.join('; ')}`, 'normal', '#444', 0.07);

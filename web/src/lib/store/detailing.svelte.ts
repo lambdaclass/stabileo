@@ -20,7 +20,10 @@ import { provisionalKeys } from '../engine/detailing/coordinate-floor';
 import type { BarConflict } from '../engine/detailing/collision';
 import { buildSchedule, buildTitleBlock } from '../engine/detailing/drawings';
 import { rotuloFor } from './detailing-sheet-inputs';
-import { rcEditConsequence, type RcEditConsequence } from '../flow/rc-selection';
+import {
+  rcEditConsequence, type RcEditConsequence, type RcRegenerationImpact,
+} from '../flow/rc-selection';
+import { rcLockToggle } from '../flow/rc-bar-lock';
 import { clause } from '../codes/regulation';
 import {
   detailingReadiness, runDetailing,
@@ -65,7 +68,8 @@ export type { SheetSelection } from './detailing-sheet.svelte';
  */
 import {
   CONCRETE_REGULATION_ID, DEFAULT_WALL_BAR_DIA_MM, bentUpPolicy, currentConcreteEdition,
-  collectCertificates, designOutcomeMap, lockedMemberIds, maxPersistedRevision, resolveAggregate,
+  collectCertificates, designOutcomeMap, lockedMemberIds, maxPersistedRevision,
+  regenerationImpact, resolveAggregate,
   resolveConcreteProperties, resolveSpacingMargin, resolveVerifierId, statedAggregate,
 } from './detailing-project-inputs';
 import {
@@ -104,12 +108,7 @@ function createDetailingStore() {
    * or the section is the limit. Null when no adapter could enumerate candidates.
    */
   let lastFeedbackLoop = $state<DesignFeedbackLoopResult | null>(null);
-  /**
-   * The consequence of the last reinforcement edit — see `applyEdit`.
-   *
-   * Session state, not persisted: it names the levels that stopped being current, and a
-   * regeneration answers it. A reopened project either has the assemblies or does not.
-   */
+  /** The last edit's consequence — see `applyEdit`. Session state; a regeneration answers it. */
   let lastEdit = $state<RcEditConsequence | null>(null);
 
   const store = $derived<DetailingStore>(modelStore.model.detailing ?? emptyDetailingStore());
@@ -590,16 +589,12 @@ function createDetailingStore() {
     },
 
     /**
-     * A reinforcement edit, made retroactive — objective 10. See `rcEditConsequence` for the
-     * rule and for the half of it that was missing.
-     *
-     * It replaces `invalidate(changedElements)`, which had no production caller — that absence
-     * WAS the defect — and which retired the current document before deciding whether anything
-     * had changed. Two ways to invalidate, one of them wrong, is one too many.
+     * A reinforcement edit, made retroactive — objective 10. `rcEditConsequence` states the rule
+     * and the half of it that was missing, and why `invalidate()` (no caller, retired the
+     * document before deciding anything had changed) is gone.
      *
      * NOT during a run: `publishRepairedReinforcement` writes through the same transaction, and
-     * the repair loop would invalidate the assemblies the run is about to replace wholesale.
-     * A generation produces the assemblies; it does not contradict them.
+     * the loop would invalidate the assemblies the run is about to replace wholesale.
      */
     applyEdit(written: Iterable<number>): RcEditConsequence {
       const ids = [...written];
@@ -628,6 +623,8 @@ function createDetailingStore() {
     /** What the last edit invalidated. Null once a regeneration has answered it. */
     get lastEdit(): RcEditConsequence | null { return lastEdit; },
 
+    /** What regenerating would do to the hand edits here. See `regenerationImpact`. */
+    get regenerationImpact(): RcRegenerationImpact { return regenerationImpact(); },
     /**
      * Pin or unpin a bar; a pinned bar is a hard constraint on regeneration.
      *
@@ -642,11 +639,14 @@ function createDetailingStore() {
      */
     toggleLock(barId: string): void {
       if (!selected) return;
-      if (!selected.bars.some((b) => b.id === barId)) return;
+      // A pin is a pin on the MEMBER — `rcLockToggle` owns that rule and the reasons for it.
+      const flip = rcLockToggle(selected.bars, barId);
+      if (flip.barIds.length === 0) return;
+      const ids = new Set(flip.barIds);
       retireDocument();
       replace({
         ...selected,
-        bars: selected.bars.map((b) => (b.id === barId ? { ...b, locked: !b.locked } : b)),
+        bars: selected.bars.map((b) => (ids.has(b.id) ? { ...b, locked: flip.locked } : b)),
       });
       void requestAutosave('detailing');
     },

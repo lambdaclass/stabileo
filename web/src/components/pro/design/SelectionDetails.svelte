@@ -39,10 +39,23 @@
      * next to it. See `torsion-notice.ts`.
      */
     torsionUnevaluated?: boolean;
+    /**
+     * Members the engineer locked — `SceneModel.lockedMembers`.
+     *
+     * Passed in rather than read, like every other fact this panel reports, and per MEMBER
+     * because that is what a lock is a lock on. It is the statement that survives a
+     * regeneration: these members keep the reinforcement they have while everything else is
+     * re-detailed around them, and the 3-D view is where a reader can see which.
+     */
+    lockedMembers?: readonly number[];
   }
   const {
     bar, solid, conflict, elementIds, status, reason, torsionUnevaluated = false,
+    lockedMembers = [],
   }: Props = $props();
+
+  /** The selected members that are locked. Empty is a real answer and renders nothing. */
+  const lockedHere = $derived(elementIds.filter((id) => lockedMembers.includes(id)));
 
   const fmt = (n: number, d = 2): string => n.toFixed(d);
 
@@ -107,7 +120,28 @@
       <dt>{t('detailing.scene.families')}</dt>
       <dd>{t(`detailing.scene.kind.${solid.kind}`)}</dd>
     {/if}
+    <!--
+      Whether this member is locked — the same question the bar branch answers, asked of the
+      member, because a lock is a lock on the MEMBER. Both states, always: "free" is a real
+      answer and a row that appeared only when locked would leave a reader unable to tell it
+      from a panel that does not say.
+    -->
+    <dt>{t('detailing.scene.pin')}</dt>
+    <dd data-testid="rebar-sel-member-lock"
+        data-lock={lockedHere.length > 0 ? 'pinned' : 'free'}>
+      <span aria-hidden="true">{lockedHere.length > 0 ? '⬤' : '◯'}</span>
+      {lockedHere.length > 0
+        ? t('detailing.bar.lock.pinned') : t('detailing.bar.lock.free')}
+    </dd>
   </dl>
+  {#if lockedHere.length > 0}
+    <p class="pin-reach" data-testid="rebar-sel-member-lock-note">
+      {tp(lockedHere.length > 1
+        ? 'detailing.bar.lock.freezesMany' : 'detailing.bar.lock.freezesOne', {
+        n: lockedHere.length, ids: lockedHere.join(', '),
+      })}
+    </p>
+  {/if}
 {:else}
   <p class="hint">{t('detailing.scene.noSelection')}</p>
 {/if}

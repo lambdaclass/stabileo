@@ -100,18 +100,32 @@ test.describe('@smoke a pin lands on the bar it was pressed for', () => {
    * suite could only reach `.first()` and no test could tell a pin on the right bar from a pin
    * on any bar.
    */
-  test('L1 — pressing one row’s control pins that row and no other', async ({ pro: page }) => {
+  test('L1 — a press locks every bar of the member, not only the row pressed', async ({ pro: page }) => {
     await ready(page);
-
-    await expect(page.getByTestId('bar-L-through')).toHaveAttribute('data-bar-lock', 'free');
-    await page.getByTestId('barlock-L-through').click();
-
-    await expect(page.getByTestId('bar-L-through')).toHaveAttribute('data-bar-lock', 'pinned');
     await expect(page.getByTestId('bar-L-inside')).toHaveAttribute('data-bar-lock', 'free');
-    await expect(page.getByTestId('bar-L-prop')).toHaveAttribute('data-bar-lock', 'free');
+
+    // `L-inside` and `L-prop` are both member 50's; `L-through` owns 50 and 60.
+    await page.getByTestId('barlock-L-inside').click();
+
+    for (const id of ['L-inside', 'L-prop', 'L-through']) {
+      await expect(page.getByTestId(`bar-${id}`), id).toHaveAttribute('data-bar-lock', 'pinned');
+    }
   });
 
-  test('L2 — and pressing it again releases it', async ({ pro: page }) => {
+  /*
+   * The reach, as an operation. `L-through` is continuous over the support, so locking through
+   * it freezes the column's steel as well — which is what `lockedMemberIds()` would report
+   * either way, and locking only the beam's bars would leave the two disagreeing.
+   */
+  test('L1b — locking through a continuous bar locks both members', async ({ pro: page }) => {
+    await ready(page);
+    await page.getByTestId('barlock-L-through').click();
+    await expect(page.getByTestId('barlocknote-L-through')).toContainText('50, 60');
+    // And every bar of member 50 went with it.
+    await expect(page.getByTestId('bar-L-inside')).toHaveAttribute('data-bar-lock', 'pinned');
+  });
+
+  test('L2 — and pressing it again releases the whole member', async ({ pro: page }) => {
     await ready(page);
     const control = page.getByTestId('barlock-L-inside');
 
@@ -119,7 +133,9 @@ test.describe('@smoke a pin lands on the bar it was pressed for', () => {
     await expect(control).toHaveAttribute('aria-pressed', 'true');
     await control.click();
     await expect(control).toHaveAttribute('aria-pressed', 'false');
-    await expect(page.getByTestId('bar-L-inside')).toHaveAttribute('data-bar-lock', 'free');
+    for (const id of ['L-inside', 'L-prop', 'L-through']) {
+      await expect(page.getByTestId(`bar-${id}`), id).toHaveAttribute('data-bar-lock', 'free');
+    }
   });
 });
 
@@ -135,7 +151,7 @@ test.describe('@smoke the pin says what it froze', () => {
     await page.getByTestId('barlock-L-through').click();
 
     const note = page.getByTestId('barlocknote-L-through');
-    await expect(note).toContainText('2 members');
+    await expect(note).toContainText('2 whole members');
     await expect(note).toContainText('50, 60');
     await expect(note).toContainText('continuously');
   });
@@ -145,7 +161,8 @@ test.describe('@smoke the pin says what it froze', () => {
     await page.getByTestId('barlock-L-inside').click();
 
     const note = page.getByTestId('barlocknote-L-inside');
-    await expect(note).toContainText('member 50');
+    // The whole of it, and the row says so: locking a bar is locking the member.
+    await expect(note).toContainText('the whole of member 50');
     await expect(note).not.toContainText('continuously');
   });
 
@@ -189,15 +206,18 @@ test.describe('@smoke the summary is what a keyboard reader is told', () => {
    * The union, on screen. Two pins that share member 50 freeze three members between them —
    * 50, 60 — not four. It is the same set `lockedMemberIds()` hands the repair loop.
    */
-  test('L8 — two pins report the union of what they freeze, not the sum', async ({ pro: page }) => {
+  test('L8 — the summary reports the members frozen, not the bars flagged', async ({ pro: page }) => {
     await ready(page);
+    // One press. It flags three bars — every bar of member 50 — and freezes two members,
+    // because `L-through` carries the lock on into the column.
     await page.getByTestId('barlock-L-inside').click();
-    await page.getByTestId('barlock-L-through').click();
 
-    await expect(page.getByTestId('bar-pins-count')).toContainText('2 locked');
     const frozen = page.getByTestId('bar-pins-frozen');
-    await expect(frozen).toContainText('2 member');
     await expect(frozen).toContainText('50, 60');
+    await expect(frozen).toContainText('2 whole member');
+    // And the chip counts MEMBERS, not the bars carrying the flag. One press flagged three
+    // bars; the viewer and every export call that two locked members, and so does this.
+    await expect(page.getByTestId('bar-pins-count')).toContainText('2 member(s) locked');
   });
 });
 
@@ -231,9 +251,9 @@ test.describe('@smoke the control is operable and does not lose the keyboard', (
     await ready(page);
     const control = page.getByTestId('barlock-L-inside');
 
-    await expect(control).toHaveAttribute('aria-label', 'Lock bar A1');
+    await expect(control).toHaveAttribute('aria-label', 'Lock the member bar A1 belongs to');
     await control.click();
-    await expect(control).toHaveAttribute('aria-label', 'Unlock bar A1');
+    await expect(control).toHaveAttribute('aria-label', 'Unlock the member bar A1 belongs to');
   });
 
   /* The state is legible with the colour removed, the rule R7 holds severity to. */
@@ -242,10 +262,10 @@ test.describe('@smoke the control is operable and does not lose the keyboard', (
     const control = page.getByTestId('barlock-L-inside');
 
     await expect(control).toContainText('◯');
-    await expect(control).toContainText('Lock');
+    await expect(control).toContainText('Lock member');
     await control.click();
     await expect(control).toContainText('⬤');
-    await expect(control).toContainText('Unlock');
+    await expect(control).toContainText('Unlock member');
   });
 });
 
@@ -259,16 +279,18 @@ test.describe('@smoke the pin is one fact, not two', () => {
    */
   test('L12 — the pin is on the model the moment it is pressed', async ({ pro: page }) => {
     await ready(page);
-    await page.getByTestId('barlock-L-through').click();
+    await page.getByTestId('barlock-L-inside').click();
 
     // The OBSERVATION hook `detailing.spec.ts` uses, reading `modelStore.model.detailing` —
-    // which is where the assemblies live and what a reopened project will contain.
+    // which is where the assemblies live and what a reopened project will contain. Every bar of
+    // member 50 carries the flag, which is what makes `runDetailing`'s per-BAR `lockedBars` and
+    // the repair loop's per-MEMBER `lockedMemberIds()` describe the same frozen set.
     const pinned = await page.evaluate(() =>
       (window.__stabileo as unknown as {
         detailingAssemblies(): Array<{ bars: Array<{ id: string; locked?: boolean }> }>;
       }).detailingAssemblies()
-        .flatMap((a) => a.bars).filter((b) => b.locked).map((b) => b.id));
-    expect(pinned).toEqual(['L-through']);
+        .flatMap((a) => a.bars).filter((b) => b.locked).map((b) => b.id).sort());
+    expect(pinned).toEqual(['L-inside', 'L-prop', 'L-through']);
   });
 
   /*

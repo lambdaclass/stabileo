@@ -5112,16 +5112,16 @@ const es: Record<string, string> = {
   'detailing.titleBlock.subtitle': 'Etapa / sector',
   'detailing.titleBlock.office': 'Estudio',
   'detailing.titleBlock.codes': 'Normas',
+  'detailing.titleBlock.codesFromRegulations': 'Las normas salen de la etapa Reglamentos. Para cambiarlas, cambiá la selección ahí: el rótulo la sigue.',
   'detailing.titleBlock.noCodes': 'Ningún reglamento está vinculado todavía; las láminas no van a citar ninguno.',
-  'detailing.titleBlock.declared': 'declarada por el autor, no verificada por esta aplicación',
-  'detailing.titleBlock.addCode': 'Agregar una norma propia',
-  'detailing.titleBlock.add': 'Agregar',
-  'detailing.titleBlock.removeCode': 'Quitar la norma {code}',
-  'detailing.titleBlock.codesFull': 'El rótulo admite {n} normas declaradas; quitá una para agregar otra.',
   'detailing.titleBlock.unnamed': 'La obra no tiene nombre: las láminas van a salir sin identificación.',
   // El esquema de doblado. `shapeCode` devuelve la clave de agrupamiento —`LH90`, `bent3`—
   // que no es una instrucción de fabricación; el esquema y sus tramos sí lo son.
   'detailing.shape.legs': '{shape}: tramos de {legs} mm',
+  'detailing.shape.developed': 'Largo de corte {n} mm',
+  'detailing.regen.willReplace': 'Regenerar va a reemplazar la armadura retocada a mano de {n} elemento(s) no fijados: {ids}. Fijá los que quieras conservar antes de regenerar.',
+  'detailing.regen.willKeep': 'Se conservan {n} elemento(s) fijados: {ids}.',
+  'detailing.regen.unknownRetouches': 'Este proyecto no tiene registro de qué se retocó a mano —viene de un archivo anterior a que se guardara—, así que no se puede decir qué va a reemplazar la regeneración. No significa que no haya nada que perder.',
   'detailing.shape.bends': '+{n} mm en dobleces',
   'detailing.shape.nonPlanar': 'Sin esquema: {shape} está doblada en dos planos y no hay una forma plana honesta que dibujar. Ver la elevación.',
   'detailing.shape.degenerate': 'Sin esquema: {shape} no tiene geometría con longitud.',
@@ -5139,6 +5139,8 @@ const es: Record<string, string> = {
   'detailing.exports.fromRevision': 'de la revisión {n}',
   'detailing.exports.stale': 'Salió de la revisión {was}; el proyecto va por la {now}. El archivo que está en la carpeta ya no describe lo que hay.',
   'detailing.exports.failed': 'La generación falló: {error}',
+  'detailing.exports.retouchLocked': 'Retocados a mano y FIJADOS ({n}): {ids}. Se conservan al regenerar.',
+  'detailing.exports.retouchUnlocked': 'Retocados a mano y NO fijados ({n}): {ids}. La próxima regeneración los reemplaza.',
   'detailing.exports.retouchNone': 'Ningún elemento de esta emisión llevaba armadura retocada a mano.',
   'detailing.exports.retouchSome': '{n} elemento(s) con armadura retocada a mano: {ids}.',
   'detailing.exports.retouchUnknown': 'Sin registro de retoques manuales: el archivo es anterior a que se guardara esa información. No es lo mismo que "ninguno".',
@@ -5199,7 +5201,7 @@ const es: Record<string, string> = {
   'detailing.joint.memo.nominalShear': 'Vn = {coefficient} λ √f´c Aj = {vn} kN; φVn = {phiVn} kN contra Vu = {vu} kN.',
 
   'detailing.barsCount': 'Armadura longitudinal ({n} barras)',
-  'detailing.lockBar': 'Fijar',
+  'detailing.lockBar': 'Fijar el elemento',
   'detailing.bar.technicalId': "Identificador técnico de la barra",
   // Los tres estados de una barra. "Provisoria" gana la chapa por encima del eje de marca:
   // "sin marca" se resuelve volviendo a coordinar, "provisoria" decide si la lámina se emite.
@@ -5214,21 +5216,21 @@ const es: Record<string, string> = {
   'detailing.bar.census.provisional': '{n} provisoria(s)',
   // Fijar/liberar. El estado dice qué ES la barra; la acción dice qué HARÁ el botón, y nunca
   // comparten clave: un interruptor rotulado con su propio estado lee "Fijada" mientras fija.
-  'detailing.bar.lock.pinned': 'Fijada',
+  'detailing.bar.lock.pinned': 'Elemento fijado',
   'detailing.bar.lock.free': 'Libre',
   // El nombre accesible lleva el rótulo de la fila. Doscientos botones que anuncian "Fijar" no
   // nombran nada.
-  'detailing.bar.lock.pinNamed': 'Fijar la barra {name}',
-  'detailing.bar.lock.releaseNamed': 'Liberar la barra {name}',
+  'detailing.bar.lock.pinNamed': 'Fijar el elemento de la barra {name}',
+  'detailing.bar.lock.releaseNamed': 'Liberar el elemento de la barra {name}',
   // Una fijación se consume en dos granularidades: runDetailing toma la BARRA, el lazo de
   // reparación toma todos sus elementos. Fijar una barra continua congela también la columna.
-  'detailing.bar.lock.freezesOne': 'Congela el diseño del elemento {ids}.',
-  'detailing.bar.lock.freezesMany': 'Congela el diseño de {n} elementos ({ids}): la barra es continua a través de todos.',
+  'detailing.bar.lock.freezesOne': 'Fija el elemento {ids} entero: al regenerar se conserva todo su armado, no sólo esta barra.',
+  'detailing.bar.lock.freezesMany': 'Fija {n} elementos enteros ({ids}): la barra es continua a través de todos, así que al regenerar se conserva el armado completo de los {n}.',
   'detailing.bar.lock.pinOnProposal': 'La fijación conserva una propuesta: no la vuelve emitible.',
-  'detailing.bar.census.pinned': '{n} fijada(s)',
-  'detailing.bar.lock.frozenMembers': 'congelan el diseño de {n} elemento(s): {ids}',
+  'detailing.bar.census.pinned': '{n} elemento(s) fijado(s)',
+  'detailing.bar.lock.frozenMembers': 'fijan {n} elemento(s) enteros: {ids}',
   'detailing.bar.lock.pinnedProvisional': '{n} sobre armadura provisoria',
-  'detailing.unlockBar': 'Liberar',
+  'detailing.unlockBar': 'Liberar el elemento',
   'detailing.barRole.longitudinal': 'Longitudinal',
   'detailing.barRole.transverse': 'Transversal',
 

@@ -408,6 +408,7 @@
             solid={selectedSolid}
             conflict={rebarWorkspace.selection?.conflict ?? null}
             elementIds={selectedElementIds}
+            lockedMembers={built?.scene.lockedMembers ?? []}
             status={selectedStatus}
             reason={selectedStatus ? reasons.get(selectedStatus.elementId) ?? null : null}
             torsionUnevaluated={selectedElementIds.some(

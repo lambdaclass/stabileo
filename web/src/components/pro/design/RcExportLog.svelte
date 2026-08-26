@@ -32,6 +32,7 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { exportRecordStore } from '../../../lib/store/export-record.svelte';
   import { rcRetouchIsCountable } from '../../../lib/flow/rc-selection';
+  import { retouchSplitIn } from '../../../lib/store/export-log';
   import type { ExportRecord } from '../../../lib/flow/rc-export-record';
 
   const records = $derived(exportRecordStore.exports);
@@ -67,10 +68,54 @@
         n: r.retouched.members.length, ids: r.retouched.members.slice(0, 8).join(', '),
       });
   }
+
+  /**
+   * What the CURRENT document says about its hand edits, split by lock.
+   *
+   * A record describes a file that left; this describes the document on screen, and it splits
+   * the two claims a reader deciding whether to issue actually needs: which members carry an
+   * arrangement an engineer chose and locked, and which carry one the next regeneration will
+   * replace. Both are on the drawing; only one of them is going to stay there.
+   */
+  const doc = $derived(detailingStore.document);
+  const split = $derived(doc ? retouchSplitIn(doc) : null);
 </script>
 
+<!--
+  `h4` and not `h5`.
+
+  This section sits under `DocumentsSection`'s `h3`, and its sibling — `Engineer review` — is an
+  `h4`. An `h5` here skips a level, which is the exact jump `h1b-panel-navigation.spec.ts` was
+  written for: its own comment records finding `h3 → h5` at "Engineer review" in all three
+  languages, in this same file. The reader navigating by heading has to be able to tell whether
+  this list is a sibling of the documents or a part of them.
+-->
 <section class="exports" data-testid="export-log" aria-label={t('detailing.exports.title')}>
-  <h5>{t('detailing.exports.title')}</h5>
+  <h4>{t('detailing.exports.title')}</h4>
+
+  <!--
+    The hand edits in the document on screen, and which of them survive a regeneration.
+    Above the emission list, because it is about what would go out NEXT rather than what already
+    did.
+  -->
+  {#if split && !split.unknown && (split.kept.length > 0 || split.replaced.length > 0)}
+    <p class="split" data-testid="doc-retouch-split">
+      {#if split.kept.length > 0}
+        <span data-testid="doc-retouch-kept">
+          {tp('detailing.exports.retouchLocked', {
+            n: split.kept.length, ids: split.kept.slice(0, 8).join(', '),
+          })}
+        </span>
+      {/if}
+      {#if split.replaced.length > 0}
+        <span class="replaced" data-testid="doc-retouch-replaced">
+          {tp('detailing.exports.retouchUnlocked', {
+            n: split.replaced.length, ids: split.replaced.slice(0, 8).join(', '),
+          })}
+        </span>
+      {/if}
+    </p>
+  {/if}
 
   {#if rows.length === 0}
     <!--
@@ -128,7 +173,7 @@
 
 <style>
   .exports { margin-top: 0.75rem; border-top: 1px solid var(--st-hair); padding-top: 0.5rem; }
-  h5 { margin: 0 0 0.3rem; font-size: 0.78rem; }
+  h4 { margin: 0 0 0.3rem; font-size: 0.78rem; }
   /*
     `--st-text-2` and not `--st-text-3` for every SENTENCE here.
 
@@ -154,6 +199,11 @@
   /* "We have no record" is the one that must not read like "none": amber, like every other
      absence of a fact on this surface. */
   .retouch[data-retouch='unknown'] { color: var(--st-warn); }
+
+  .split { margin: 0 0 0.35rem; font-size: 0.7rem; line-height: 1.4; color: var(--st-text-2); }
+  .split > span { display: block; }
+  /* What will NOT survive the next run is the half a reader has to act on. */
+  .replaced { color: var(--st-warn); }
 
   ul.cannot {
     margin-top: 0.4rem;

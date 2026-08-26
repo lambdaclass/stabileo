@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  rcBarLock, rcBarLockCensus, rcHasPins, type RcBarLockLike,
+  rcBarLock, rcBarLockCensus, rcHasPins, rcLockToggle, type RcBarLockLike,
 } from '../rc-bar-lock';
 
 const bar = (id: string, owners: number[], locked?: boolean): RcBarLockLike =>
@@ -174,5 +174,61 @@ describe('rcBarLockCensus', () => {
     }
     const c = rcBarLockCensus(bars.map((b) => rcBarLock(b)));
     expect(c.frozenMembers).toEqual([...engineSet].sort((a, z) => a - z));
+  });
+});
+
+/**
+ * D1 — a press flips the whole member, not the bar it landed on.
+ *
+ * The rule was four lines inside `detailingStore.toggleLock` under a paragraph explaining what
+ * they meant, which is exactly the shape of thing that gets "simplified" back to
+ * `b.id === barId` by somebody reading the code and not the paragraph.
+ */
+describe('rcLockToggle', () => {
+  const beam = [
+    bar('b1', [50]), bar('b2', [50]), bar('b3', [50]),
+    bar('c1', [60]),
+    // Continuous over the support: it belongs to the beam AND the column.
+    bar('through', [50, 60]),
+  ];
+
+  it('flips every bar of the member, not only the one pressed', () => {
+    const f = rcLockToggle(beam, 'b2');
+    expect(f.locked).toBe(true);
+    expect([...f.barIds].sort()).toEqual(['b1', 'b2', 'b3', 'through']);
+  });
+
+  /*
+   * The reach, as an operation rather than as a sentence: pressing a continuous bar freezes the
+   * column's bars too, because the column is one of its owners and `lockedMemberIds()` will
+   * report it frozen either way. Flipping only the beam's would leave the two disagreeing.
+   */
+  it('flips both members’ bars when the pressed bar is continuous', () => {
+    const f = rcLockToggle(beam, 'through');
+    expect([...f.barIds].sort()).toEqual(['b1', 'b2', 'b3', 'c1', 'through']);
+    expect(f.members).toEqual([50, 60]);
+  });
+
+  it('releases from the state of the bar that was PRESSED', () => {
+    const locked = beam.map((b) => ({ ...b, locked: true }));
+    expect(rcLockToggle(locked, 'b1').locked).toBe(false);
+  });
+
+  /*
+   * A member half-locked cannot happen through this function — but if a stored project ever
+   * carried one, the press still resolves from the bar under the user's finger, which is the
+   * only state they can see.
+   */
+  it('resolves a half-locked member from the pressed bar', () => {
+    const mixed = [
+      { ...bar('b1', [50]), locked: true },
+      { ...bar('b2', [50]), locked: false },
+    ];
+    expect(rcLockToggle(mixed, 'b2').locked).toBe(true);
+    expect(rcLockToggle(mixed, 'b1').locked).toBe(false);
+  });
+
+  it('does nothing for a bar this assembly does not hold', () => {
+    expect(rcLockToggle(beam, 'ghost')).toEqual({ barIds: [], locked: false, members: [] });
   });
 });

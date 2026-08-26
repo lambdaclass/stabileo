@@ -35,7 +35,7 @@ import { emptyDetailingStore } from '../engine/detailing/assembly';
 import { sheetToSvg, type Sheet } from '../engine/detailing/drawings';
 import {
   buildElevationSheet, buildSectionSheet, rotuloFor, sheetMembers, stationsFor,
-  titleBlockCodesFor,
+  titleBlockCodes,
 } from './detailing-sheet-inputs';
 import {
   rcNormaliseTitleBlock, type RcTitleBlockCode, type RcTitleBlockConfig,
@@ -63,9 +63,15 @@ function createDetailingSheetStore() {
    * panel that re-renders on selection, on sheet kind and on every conflict step.
    */
   const members = $derived.by(() => sheetMembers());
-  const config = $derived<RcTitleBlockConfig>(
-    modelStore.model.detailing?.titleBlock ?? {},
-  );
+  /**
+   * The rótulo as PERSISTED.
+   *
+   * A function and not a `$derived`, for the trap `buildDocument` documents: a derived does not
+   * necessarily recompute inside the synchronous turn that wrote its dependency, and
+   * `setTitleBlock` writes and is read back in the same gesture. Reading the derived, a field
+   * typed and then immediately projected onto a sheet came out as the value before it.
+   */
+  const config = (): RcTitleBlockConfig => modelStore.model.detailing?.titleBlock ?? {};
 
   return {
     get kind(): SheetSelection { return kind; },
@@ -93,7 +99,7 @@ function createDetailingSheetStore() {
       const a = detailingStore.selected;
       if (!a) return null;
       // The rótulo travels with the sheet, so a preview and the DXF are one statement.
-      const rotulo = rotuloFor(config);
+      const rotulo = rotuloFor(config());
       return kind === 'section'
         ? buildSectionSheet(a, members, this.sectionAt, rotulo)
         : buildElevationSheet(a, members, rotulo);
@@ -105,10 +111,15 @@ function createDetailingSheetStore() {
     },
 
     /** The project's rótulo. Empty on a project nobody has identified — never a stand-in name. */
-    get titleBlockConfig(): RcTitleBlockConfig { return config; },
+    get titleBlockConfig(): RcTitleBlockConfig { return config(); },
 
-    /** The norms every sheet prints, verified ones first. See `titleBlockCodesFor`. */
-    get titleBlockCodes(): RcTitleBlockCode[] { return titleBlockCodesFor(config); },
+    /**
+     * The norms every sheet prints — the Reglamentos stage's selection.
+     *
+     * Takes no config: nothing the author types reaches this list, and it follows a rebinding
+     * the moment one happens because it reads the bindings rather than a copy of them.
+     */
+    get titleBlockCodes(): RcTitleBlockCode[] { return titleBlockCodes(); },
 
     /**
      * Write the rótulo, normalised on the way IN.
@@ -120,7 +131,7 @@ function createDetailingSheetStore() {
      * with the rótulo that has just stopped being current.
      */
     setTitleBlock(patch: RcTitleBlockConfig): void {
-      const next = rcNormaliseTitleBlock({ ...config, ...patch });
+      const next = rcNormaliseTitleBlock({ ...config(), ...patch });
       detailingStore.supersedeDocuments();
       const store = modelStore.model.detailing ?? emptyDetailingStore();
       modelStore.model.detailing = { ...store, titleBlock: next };

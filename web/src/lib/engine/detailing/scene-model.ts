@@ -351,6 +351,22 @@ export interface SceneModel {
    */
   provisionalMembers: number[];
   /**
+   * Members the engineer LOCKED, ascending.
+   *
+   * ── Why the viewer carries it, and carries it per member ────────
+   *
+   * A lock is a pin on the MEMBER — `rc-bar-lock.ts` states the decision — and it is the
+   * statement that survives a regeneration: those members keep the reinforcement they have
+   * while every other member is re-detailed around them. A reader inspecting the cage in 3-D,
+   * which is where a continuous bar's second owner is actually visible, could otherwise not
+   * tell which members the next regeneration is going to leave alone.
+   *
+   * Derived from the bars' own `locked` flag exactly the way `lockedMemberIds()` derives the
+   * set the engines receive, so the viewer, the list and the regeneration are three readings of
+   * one fact. Not a second flag kept by the scene.
+   */
+  lockedMembers: number[];
+  /**
    * Members carrying torsion no check in this application evaluates, ascending.
    *
    * A third list beside the other two, and a third kind of incompleteness: `unreinforcedMembers`
@@ -673,6 +689,7 @@ export function buildSceneModel(doc: DocumentModel, opts: SceneOptions = {}): Sc
       .flatMap((s) => s.elementIds)
       .sort((x, y) => x - y),
     provisionalMembers: provisionalMembersOf(doc),
+    lockedMembers: lockedMembersOf(doc),
     torsionUnevaluatedMembers: torsionUnevaluatedOf(doc),
   };
 }
@@ -701,6 +718,24 @@ function torsionUnevaluatedOf(doc: DocumentModel): number[] {
  * to the beam it was designed for. The bar is correctly marked in both; the COLUMN's design
  * is certified, and calling it provisional would understate what was actually verified.
  */
+/**
+ * Members the engineer locked, from the bars that carry the flag.
+ *
+ * The SAME walk `lockedMemberIds()` performs — every locked bar's `ownerElementIds` into a set
+ * — because that is the set `runDetailing` and the repair loop are handed. A viewer that
+ * computed it any other way would be showing a frozen set the regeneration does not use.
+ */
+function lockedMembersOf(doc: DocumentModel): number[] {
+  const out = new Set<number>();
+  for (const a of doc.assemblies) {
+    for (const b of a.bars) {
+      if (!b.locked) continue;
+      for (const id of b.ownerElementIds) out.add(id);
+    }
+  }
+  return [...out].sort((x, y) => x - y);
+}
+
 function provisionalMembersOf(doc: DocumentModel): number[] {
   const out = new Set<number>();
   for (const a of doc.assemblies) for (const id of a.source.provisionalMembers ?? []) out.add(id);
@@ -947,6 +982,10 @@ export function filterScene(scene: SceneModel, f: SceneFilter): SceneModel {
     // off would be telling the user what they had just asked not to see. The torsion warning
     // rides with it, for exactly the same reason.
     provisionalMembers: scene.provisionalMembers,
+    // And the locked set, for the same reason: switching a layer off does not unfreeze a
+    // member, and a viewer that stopped naming the frozen ones would be answering a question
+    // about the FILTER with a statement about the project.
+    lockedMembers: scene.lockedMembers,
     torsionUnevaluatedMembers: scene.torsionUnevaluatedMembers,
   };
 }
