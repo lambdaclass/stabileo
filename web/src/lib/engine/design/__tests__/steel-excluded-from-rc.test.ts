@@ -18,7 +18,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  buildAllMemberContexts, buildAllMemberContextsUnfiltered, buildMemberContext,
+  buildAllMemberContexts, buildAllMemberContextsUnfiltered,
   type ContextModelData,
 } from '../member-context';
 import { designMember } from '../candidate-search';
@@ -130,12 +130,21 @@ describe('a declared grade overrides the magnitude here too', () => {
 });
 
 describe('a member with no material at all', () => {
-  it('is left out, and says why when asked unfiltered', () => {
+  it('stays in the table, blocked on the missing material, instead of vanishing', () => {
+    // `unknown` is not metallic — it is unfinished input, and dropping it would make
+    // "you forgot to set a material" look like "this member does not exist".
     const model = mixedModel();
     model.materials.delete(1);
-    expect([...buildAllMemberContexts(model, { demands, stations }).keys()]).toEqual([2]);
-    const ctx = buildMemberContext(1, model, { demands, stations })!;
+    const ctxs = buildAllMemberContexts(model, { demands, stations });
+    expect([...ctxs.keys()].sort()).toEqual([1, 2]);
+    const ctx = ctxs.get(1)!;
     expect(ctx.materialFamily).toBe('unknown');
     expect(ctx.blocking).toContain('missingMaterial');
+  });
+
+  it('but the steel member stays excluded', () => {
+    // The pass-through is for `unknown` only; the metallic exclusion is unchanged.
+    const ctxs = buildAllMemberContexts(mixedModel(), { demands, stations });
+    expect([...ctxs.keys()]).toEqual([2]);
   });
 });

@@ -163,8 +163,12 @@
           <span class="n">{counts.warn}</span>
           <span class="label">{t('design.counts.warn')}</span>
         </li>
-        <!-- A proposal is its own thing: neither a pass nor a failure, and never folded into one. -->
-        <li class="row tone-warn" data-testid="summary-count-provisional">
+        <!--
+          A proposal is its own thing: neither a pass nor a failure, and never folded into one.
+          It gets its own tone — the violet every other surface paints a proposal with — rather
+          than the amber of a warning, because a retained candidate is not something gone wrong.
+        -->
+        <li class="row tone-prov" data-testid="summary-count-provisional">
           <span class="glyph" aria-hidden="true">◐</span>
           <span class="n">{counts.provisional}</span>
           <span class="label">{t('design.counts.provisional')}</span>
@@ -284,6 +288,15 @@
   .tone-warn .glyph { color: var(--st-warn); }
   .tone-bad .glyph, .tone-bad .n { color: var(--st-danger); }
   .tone-muted { color: var(--st-text-3); }
+  /*
+     The same violet the 3-D view paints provisional steel with, and `OutcomeBadge`,
+     `RebarStatusPanel` and `ProvisionalBanner` name the state with. Deliberately a literal
+     while its neighbours are tokens: the authority is `three/rebar-scene.ts`, which feeds
+     `0xa066d3` to a Three.js material and cannot read a custom property, and
+     `run-summary-reported.test.ts` asserts that this chip agrees with it by value. A `var()`
+     here would break that agreement without replacing it.
+  */
+  .tone-prov .glyph, .tone-prov .n { color: #a066d3; }
 
   .open3d { display: flex; flex-direction: column; gap: 0.2rem; }
   .open3d-btn {

@@ -4,6 +4,7 @@
   import { generateShareURL, loadFromShareLink, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
   import ToolbarExamples from './ToolbarExamples.svelte';
+  import DemoMenu from '../DemoMenu.svelte';
   import CalcReportDialog from '../CalcReportDialog.svelte';
 
   let fileInput: HTMLInputElement;
@@ -116,6 +117,16 @@
   -->
   <div class="proj-block">
     <ToolbarExamples flat={true} />
+  </div>
+
+  <!--
+    Directly under the examples, and for the same reason they are here: both
+    are things the app hands you rather than things you build. A reader who
+    has just been offered a model to open is the reader most likely to want
+    to be shown what to do with it.
+  -->
+  <div class="proj-block">
+    <DemoMenu />
   </div>
 
   <!--

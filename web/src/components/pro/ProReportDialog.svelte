@@ -233,8 +233,8 @@
     padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600;
     cursor: pointer; border: none; transition: background 0.15s;
   }
-  .rpt-btn-primary { background: none; color: var(--st-bg); }
-  .rpt-btn-primary:hover { background: var(--st-surface-3); }
+  .rpt-btn-primary { background: var(--st-accent); color: var(--st-text-on-accent); }
+  .rpt-btn-primary:hover { background: var(--st-accent-hover); }
   .rpt-btn-secondary { background: var(--st-surface-3); color: var(--st-text-2); }
   .rpt-btn-secondary:hover { background: var(--st-hair-strong); }
   .rpt-btn-sm { padding: 3px 8px; font-size: 10px; border-radius: 3px; cursor: pointer; border: none; }

@@ -802,6 +802,26 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
                     (reactions would be reported in the rotated support frame)".to_string());
     }
 
+    /*
+     * A nine-node shell cannot be staged, and says so instead of vanishing.
+     *
+     * `ConstructionStage3D` has `plates_added` and `quads_added` but no list
+     * for quad9s, because nothing in the application builds one and so no
+     * stage could name it. That leaves the field in exactly the state this
+     * change exists to abolish: accepted by serde, activated by nothing,
+     * dropped in silence — which is how the plates and quads beside it were
+     * lost for as long as they were.
+     *
+     * Refusing is the choice the inclined-support guard above already makes,
+     * for the same reason: no answer beats a plausible wrong one. When a stage
+     * list arrives for them, this goes and the filter joins the two below.
+     */
+    if !input.quad9s.is_empty() {
+        return Err("Nine-node shell elements are not yet supported in staged construction \
+                    analysis (no stage can activate them, so they would be silently \
+                    omitted from every stage)".to_string());
+    }
+
     // Build DOF numbering from the full structure (all nodes, all elements)
     let full_input = staged_to_full_solver_input_3d(input);
     super::linear::validate_input_3d(&full_input)?;
@@ -823,6 +843,10 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
     let mut cumulative_u = vec![0.0; n];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new(); // node_ids
+    // Shells track their own active sets: their ids are their own, and a plate
+    // may share a number with an element.
+    let mut active_plates: HashSet<usize> = HashSet::new();
+    let mut active_quads: HashSet<usize> = HashSet::new();
     let mut stage_results = Vec::new();
 
     for (stage_idx, stage) in input.stages.iter().enumerate() {
@@ -839,10 +863,22 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
         for &sid in &stage.supports_removed {
             active_supports.remove(&sid);
         }
+        for &pid in &stage.plates_added {
+            active_plates.insert(pid);
+        }
+        for &pid in &stage.plates_removed {
+            active_plates.remove(&pid);
+        }
+        for &qid in &stage.quads_added {
+            active_quads.insert(qid);
+        }
+        for &qid in &stage.quads_removed {
+            active_quads.remove(&qid);
+        }
 
         // Build a SolverInput3D for this stage with only active elements/supports/loads
         let stage_input = build_stage_solver_input_3d(
-            input, &active_elements, &active_supports, stage,
+            input, &active_elements, &active_supports, &active_plates, &active_quads, stage,
         );
 
         // Assemble stiffness using existing 3D assembler
@@ -978,9 +1014,29 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         loads: input.loads.clone(),
         constraints: input.constraints.clone(),
         left_hand: None,
-        plates: HashMap::new(),
-        quads: HashMap::new(),
-        quad9s: HashMap::new(),
+        /*
+         * EVERY shell, active or not, because this input decides the DOF LAYOUT
+         * and the shells are what widen it.
+         *
+         * Not the node set: `DofNumbering::build_3d` takes its node ids from
+         * `input.nodes` unconditionally, so a node that only a later-stage slab
+         * touches already has a number either way. What the shells decide is
+         * `dofs_per_node`:
+         *
+         *     let has_plate = !plates.is_empty() || !quads.is_empty() || …;
+         *     let dofs_per_node = if has_warping { 7 }
+         *                         else if has_frame || has_plate { 6 }
+         *                         else { 3 };
+         *
+         * With frames present that is already 6 and nothing moves. With NONE —
+         * a model staged out of slabs and walls alone — passing empty maps here
+         * numbered three DOFs per node, which cannot carry plate bending at
+         * all. So the stage that finally adds a slab would have had nowhere to
+         * assemble its rotations.
+         */
+        plates: input.plates.clone(),
+        quads: input.quads.clone(),
+        quad9s: input.quad9s.clone(),
         solid_shells: HashMap::new(),
         curved_shells: HashMap::new(),
         curved_beams: vec![],
@@ -993,6 +1049,8 @@ fn build_stage_solver_input_3d(
     input: &StagedInput3D,
     active_elements: &HashSet<usize>,
     active_supports: &HashSet<usize>,
+    active_plates: &HashSet<usize>,
+    active_quads: &HashSet<usize>,
     stage: &ConstructionStage3D,
 ) -> SolverInput3D {
     let elements: HashMap<String, SolverElement3D> = input.elements.iter()
@@ -1009,6 +1067,19 @@ fn build_stage_solver_input_3d(
         .filter_map(|&idx| input.loads.get(idx).cloned())
         .collect();
 
+    // Only the shells this stage has reached, by the same rule the members
+    // follow. A slab cast in stage 3 must not stiffen stages 1 and 2 — that is
+    // the whole point of a staged analysis, and including them always would be
+    // a different wrong answer from dropping them always.
+    let plates: HashMap<String, SolverPlateElement> = input.plates.iter()
+        .filter(|(_, p)| active_plates.contains(&p.id))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let quads: HashMap<String, SolverQuadElement> = input.quads.iter()
+        .filter(|(_, q)| active_quads.contains(&q.id))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+
     SolverInput3D {
         nodes: input.nodes.clone(),
         materials: input.materials.clone(),
@@ -1018,8 +1089,11 @@ fn build_stage_solver_input_3d(
         loads,
         constraints: input.constraints.clone(),
         left_hand: None,
-        plates: HashMap::new(),
-        quads: HashMap::new(),
+        plates,
+        quads,
+        // quad9s carry no per-stage list yet, and `solve_staged_3d` refuses an
+        // input that has any — so this is empty because there are none, not
+        // because they were quietly left out.
         quad9s: HashMap::new(),
         solid_shells: HashMap::new(),
         curved_shells: HashMap::new(),

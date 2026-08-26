@@ -169,9 +169,8 @@ test.describe('the chosen profile persists into the model', () => {
     // the label changes.
     await page.getByTestId('gen-generate').click();
     await expect(page.getByTestId('gen-result')).toBeVisible();
-    const names = await page.evaluate(() =>
-      [...(window.__stabileo as any).sectionNames?.() ?? []] as string[]);
-    if (names.length > 0) expect(names.join(' ')).toContain('HEB 220');
+    const names = await page.evaluate(() => window.__stabileo.sectionNames());
+    expect(names.join(' ')).toContain('HEB 220');
   });
 
   test('survives closing and reopening the picker', async ({ pro: page }) => {

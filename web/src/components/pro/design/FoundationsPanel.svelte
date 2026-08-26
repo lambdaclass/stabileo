@@ -481,11 +481,11 @@
   .issues { margin-top: 0.5rem; gap: 0.15rem; }
   .issues li { font-size: 0.74rem; padding: 0.15rem 0.4rem; border-radius: 3px; }
   /* Blocking is never green; advisory is never red. */
-  .issues li.blocking { background: var(--st-surface-2); color: var(--st-text); }
-  .issues li.advisory { background: var(--st-surface-3); color: var(--st-text); }
+  .issues li.blocking { background: var(--st-surface-2); color: var(--st-danger); }
+  .issues li.advisory { background: var(--st-surface-3); color: var(--st-warn); }
   .badge.incomplete {
     margin-left: auto; font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.35rem;
-    border-radius: 3px; background: var(--st-surface-3); color: var(--st-text);
+    border-radius: 3px; background: var(--st-surface-3); color: var(--st-danger);
   }
   /*
     Controls on the design system, not on the browser's defaults.

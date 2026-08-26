@@ -58,6 +58,8 @@ function createTourStore() {
     get isActive() { return _isActive; },
     get currentStepIndex() { return _currentStepIndex; },
     get currentStep(): TourStep | null { return _steps[_currentStepIndex] ?? null; },
+    /** Set by the overlay; read by the walkthrough tests to explain a hang. */
+    armedForTest: false,
     get totalSteps() { return _steps.length; },
     get isFirstStep() { return _currentStepIndex === 0; },
     get isLastStep() { return _currentStepIndex === _steps.length - 1; },
@@ -132,7 +134,37 @@ function createTourStore() {
         return;
       }
       const el = document.querySelector(step.target);
-      _targetRect = el ? el.getBoundingClientRect() : null;
+      if (!el) { _targetRect = null; return; }
+
+      /*
+       * Clamped to the window.
+       *
+       * A scrollable panel reports the rectangle of its whole CONTENT once it
+       * has been scrolled, not the part on screen — so scrolling inside the
+       * section-analysis panel sent the highlight up past the panel, through
+       * the ribbon, and level with the language selector. The reader sees a
+       * box around most of the application and nothing indicating what the
+       * step is about.
+       *
+       * Every anchor a step points at is something visible, so the visible
+       * intersection is the honest rectangle. Kept here rather than in the
+       * overlay because both the mask and the ring read it, and two clamps is
+       * one place for them to disagree.
+       */
+      const r = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const left = Math.max(0, r.left);
+      const top = Math.max(0, r.top);
+      const right = Math.min(vw, r.right);
+      const bottom = Math.min(vh, r.bottom);
+      _targetRect = {
+        left, top, right, bottom,
+        width: Math.max(0, right - left),
+        height: Math.max(0, bottom - top),
+        x: left, y: top,
+        toJSON: () => ({}),
+      } as DOMRect;
     },
   };
 }

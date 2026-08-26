@@ -114,6 +114,8 @@ const steelEn: Record<string, string> = {
   'generator.problem.panelsAtLeastOne': 'There must be at least one panel per half.',
   'generator.problem.divisionsAtLeastOne': 'There must be at least one division.',
   'generator.problem.framesAtLeastTwo': 'A shed needs at least two frames.',
+  'generator.problem.tooManyPanels': 'More panels per half than the generator will build.',
+  'generator.problem.tooManyFrames': 'More frames than the generator will build.',
   'generator.problem.negative': 'The value cannot be negative.',
   'generator.problem.heightPositive': 'The height must be greater than zero.',
   'generator.problem.widthPositive': 'The width must be greater than zero.',

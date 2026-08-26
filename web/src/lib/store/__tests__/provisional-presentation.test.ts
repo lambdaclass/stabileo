@@ -38,7 +38,7 @@ import {
   matchesFilter, sortRows, type DesignRow,
 } from '../../../components/pro/design/design-view';
 import en from '../../i18n/locales/en';
-import { shippedLocales, dictFor } from '../../i18n/store.svelte';
+import { allShippedLocales as shippedLocales, allDictFor as dictFor } from '../../i18n/locales/all';
 
 // ─── The rule ────────────────────────────────────────────────────
 

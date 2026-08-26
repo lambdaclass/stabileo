@@ -1045,7 +1045,7 @@ pub struct StagedInput {
     pub constraints: Vec<Constraint>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct StagedInput3D {
     pub nodes: HashMap<String, SolverNode3D>,
@@ -1057,9 +1057,25 @@ pub struct StagedInput3D {
     pub stages: Vec<ConstructionStage3D>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
+    /*
+     * Shells. These had no field here at all, and the caller sends them:
+     * `input3DToWireObject` emits `plates` and `quads` for every 3D payload,
+     * so serde — with no `deny_unknown_fields` on this struct — dropped them
+     * without a word. A building staged with floor slabs and shear walls was
+     * analysed as the bare frame, and nothing said so.
+     *
+     * Defaulted so a payload that carries no shells still deserialises, and so
+     * older stored inputs keep working.
+     */
+    #[serde(default)]
+    pub plates: HashMap<String, SolverPlateElement>,
+    #[serde(default)]
+    pub quads: HashMap<String, SolverQuadElement>,
+    #[serde(default)]
+    pub quad9s: HashMap<String, SolverQuad9Element>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConstructionStage3D {
     pub name: String,
@@ -1075,6 +1091,23 @@ pub struct ConstructionStage3D {
     pub supports_removed: Vec<usize>,
     #[serde(default)]
     pub prestress_loads: Vec<PrestressLoad>,
+    /*
+     * Shells enter and leave a stage the way members do, and by their OWN ids:
+     * a plate and an element can carry the same number, so one combined list
+     * would activate the wrong thing.
+     *
+     * A stage that names none adds none — the same rule `elements_added`
+     * follows. A model whose slabs stand from the first stage says so by
+     * listing them there, which is what the panel already does for members.
+     */
+    #[serde(default)]
+    pub plates_added: Vec<usize>,
+    #[serde(default)]
+    pub plates_removed: Vec<usize>,
+    #[serde(default)]
+    pub quads_added: Vec<usize>,
+    #[serde(default)]
+    pub quads_removed: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

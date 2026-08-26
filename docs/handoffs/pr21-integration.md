@@ -9,10 +9,11 @@ completos y testados. Lo pendiente está en §7.
 
 ## 1. Cómo leer esta rama
 
-52 archivos, **+9710 / −28**. Todo el contenido está en **41 archivos nuevos**; sobre
-archivos preexistentes hay **11 ediciones**, todas chicas y todas justificadas abajo. Ese
-reparto es deliberado: #125 toca 253 archivos y #132 toca 61, y medí la superposición antes
-de escribir nada.
+76 archivos, **+14124 / −76** (medido el 2026-08-21 con `git diff --stat cb93d7a2 HEAD`;
+la cifra original de este informe, 52 archivos +9710/−28, es del 2026-08-12 y quedó
+atrás). El contenido está en **57 archivos nuevos**; sobre archivos preexistentes hay
+**19 ediciones**, todas justificadas abajo y en §3. Ese reparto es deliberado: #125 toca
+253 archivos y #132 toca 61, y medí la superposición antes de escribir nada.
 
 | Archivo existente | Líneas | ¿Lo tocan? | Qué se hizo |
 |---|---|---|---|
@@ -178,10 +179,15 @@ Si el merge se complica: `fixtureApi()` puede volver a ser una copia local dentr
 `generator-apply.ts`. Se pierde la garantía de que las dos listas de bindings no diverjan,
 que es justo lo que la extracción compra.
 
-### 3.7 i18n → cero conflicto por diseño
+### 3.7 i18n → conflicto acotado, no cero
 
-Las ~112 claves viven en `locales/steel/{es,en}.ts` y se fusionan en `store.svelte.ts`, que
-ninguno de los dos PRs toca. `es.ts` y `en.ts` quedan intactos.
+Las claves del acero viven en `locales/steel/{es,en,pt}.ts` y se fusionan en
+`store.svelte.ts`, que ninguno de los dos PRs toca. Eso sigue igual. Lo que ya no vale
+es la afirmación original de este informe ("`es.ts` y `en.ts` quedan intactos"): desde
+entonces los diccionarios compartidos crecieron **+82 líneas cada uno** (`conn.*`,
+`proRibbon.*`, `profileSelector.*`). Son adiciones puras — no se reescribe ninguna clave
+existente — así que un choque con #125 o #132 seguiría siendo de fusión mecánica, pero
+hay que verificarlo en el rebase en lugar de asumirlo.
 
 **Cuando ambos hayan entrado**, fusionarlas dentro de los diccionarios principales es un
 copiar y pegar, y ahí conviene traducirlas a los otros 12 idiomas (hoy caen a inglés, que es
@@ -218,7 +224,9 @@ tocó ese archivo. **Después del rebase, confirmar que el archivo sigue borrado
    en esta sesión: el preview de PR20 estaba en 4173 y dos corridas mías dieron fallos que no
    eran míos. El comentario en `playwright.config.ts` ya lo advierte.
    La huella del hormigón (`rc-baseline-digest.test.ts`) tiene que seguir dando
-   `1bd4d9c1d575b085`.
+   `c6a055ef135d0a71` — regrabada el 2026-08-15 contra `origin/main@d6b32ff0` (el
+   valor anterior, `1bd4d9c1d575b085`, quedó obsoleto por un cambio de `main`, no de
+   esta rama; la evidencia está en el comentario del propio test, líneas 139–180).
 
 **Sobre la única falla que da la suite E2E completa en macOS:**
 

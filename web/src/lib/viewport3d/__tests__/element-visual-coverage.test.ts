@@ -19,6 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { forEachElementVisual } from '../results-sync';
 
 /** Just enough context: the two registries the helper walks. */
@@ -77,5 +78,77 @@ describe('the registries disagreeing', () => {
 
   it('handles an empty model without throwing', () => {
     expect(visit(ctxWith([], []))).toEqual([]);
+  });
+});
+
+/**
+ * The rule, enforced on the code rather than trusted to memory.
+ *
+ * The helper above has been correct since the day it was written, and the bug
+ * came back anyway — twice. Not because anyone changed it, but because the
+ * next piece of code that needed to colour every member iterated the partial
+ * map instead of calling it, and iterating a map that is *usually* complete
+ * works in every case anyone checks by hand.
+ *
+ * The third occurrence was `syncSelection`: selecting a member in Basic 3D
+ * highlighted nothing at all, on every model, because in wireframe there were
+ * no groups to iterate. The colour maps had been fixed; this had not.
+ *
+ * So the guard is on the pattern: a loop over `elementGroups` may not push a
+ * colour into the batched mesh, because the members it misses are exactly the
+ * ones whose only colour lives there.
+ *
+ * It reads source text, with the limits that implies — a loop written some
+ * other way slips past. It catches the shape that has actually recurred three
+ * times, which is what a guard is for.
+ */
+describe('nothing colours members by walking the partial registry', () => {
+  const FILES = [
+    'src/lib/viewport3d/scene-sync.ts',
+    'src/lib/viewport3d/results-sync.ts',
+    'src/components/Viewport3D.svelte',
+  ];
+
+  /** The body of a brace-balanced block starting at `open`. */
+  function blockAt(src: string, open: number): string {
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') {
+        depth--;
+        if (depth === 0) return src.slice(open, i + 1);
+      }
+    }
+    return src.slice(open);
+  }
+
+  it('no loop over elementGroups writes a batched colour', () => {
+    const offenders: string[] = [];
+    for (const file of FILES) {
+      const src = readFileSync(file, 'utf8');
+      const re = /for \(const \[[^\]]*\] of (?:ctx\.)?elementGroups\)\s*\{/g;
+      for (const m of src.matchAll(re)) {
+        const body = blockAt(src, m.index! + m[0].length - 1);
+        if (/\.setBaseColor\(|elementsBatched\.setColor\(/.test(body)) {
+          const line = src.slice(0, m.index).split('\n').length;
+          offenders.push(`${file}:${line}`);
+        }
+      }
+    }
+    expect(offenders, `use forEachElementVisual instead:\n${offenders.join('\n')}`).toEqual([]);
+  });
+
+  it('the guard can see the files it claims to check', () => {
+    // A renamed file would make the loop above pass over nothing at all,
+    // which is the failure mode of every source-reading test.
+    for (const file of FILES) {
+      expect(readFileSync(file, 'utf8').length, file).toBeGreaterThan(1000);
+    }
+  });
+
+  it('and the helper is genuinely used by the selection sync', () => {
+    const src = readFileSync('src/lib/viewport3d/scene-sync.ts', 'utf8');
+    const fn = src.slice(src.indexOf('export function syncSelection'));
+    expect(fn.slice(0, fn.indexOf('\n}\n'))).toContain('forEachElementVisual');
   });
 });

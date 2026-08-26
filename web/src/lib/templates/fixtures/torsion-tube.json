@@ -1,0 +1,80 @@
+{
+  "name": "Tubo en torsión — CHS 105×5",
+  "materials": [
+    {
+      "id": 1,
+      "name": "Acero A36",
+      "e": 200000,
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 250
+    }
+  ],
+  "sections": [
+    {
+      "id": 1,
+      "name": "CHS 105×5",
+      "a": 0.0015708,
+      "iy": 1.9684e-06,
+      "iz": 1.9684e-06,
+      "j": 3.9368e-06,
+      "b": 0.105,
+      "h": 0.105,
+      "t": 0.005,
+      "shape": "CHS"
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 2,
+      "x": 2,
+      "y": 0,
+      "z": 0
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  ],
+  "supports": [
+    {
+      "id": 1,
+      "nodeId": 1,
+      "type": "fixed3d"
+    }
+  ],
+  "loads": [
+    {
+      "type": "nodal3d",
+      "data": {
+        "id": 1,
+        "nodeId": 2,
+        "fx": 0,
+        "fy": 0,
+        "fz": 0,
+        "mx": 1,
+        "my": 0,
+        "mz": 0
+      }
+    }
+  ],
+  "plates": [],
+  "quads": [],
+  "constraints": [],
+  "loadCases": [],
+  "combinations": []
+}

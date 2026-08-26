@@ -16,7 +16,7 @@
  * because that assertion is true throughout every failure mode they cover.
  */
 
-import { test, expect, PRO_URL } from './fixtures';
+import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -35,23 +35,12 @@ async function openTab(page: Page, tab: 'generators' | 'steel'): Promise<void> {
   await page.getByTestId(`pr-cmd-${tab}`).click();
 }
 
-async function modelCounts(page: Page): Promise<{ nodes: number; elements: number }> {
-  return page.evaluate(() => {
-    const h = window.__stabileo as unknown as { elementIds(): number[]; modelVersion(): number };
-    void h.modelVersion();
-    return { nodes: -1, elements: h.elementIds().length };
-  });
+async function modelCounts(page: Page): Promise<{ elements: number }> {
+  return page.evaluate(() => ({ elements: window.__stabileo.elementIds().length }));
 }
 
-test.beforeEach(async ({ page }) => {
-  await page.goto(PRO_URL);
-  await expect
-    .poll(() => page.evaluate(() => (window.__stabileo as unknown as { solverReady(): boolean }).solverReady()))
-    .toBe(true);
-});
-
 test.describe('generators', () => {
-  test('G1 — the count beside Generate is the count that lands in the model @smoke', async ({ page }) => {
+  test('G1 — the count beside Generate is the count that lands in the model @smoke', async ({ pro: page }) => {
     await openTab(page, 'generators');
     const panel = page.getByTestId('pro-generators-panel');
     await expect(panel).toBeVisible();
@@ -73,7 +62,7 @@ test.describe('generators', () => {
     await expect(page.getByTestId('gen-result')).not.toContainText(/mismatch|Discrepancia/i);
   });
 
-  test('G1b — a shed lands whole, through the same path', async ({ page }) => {
+  test('G1b — a shed lands whole, through the same path', async ({ pro: page }) => {
     await openTab(page, 'generators');
     await page.getByTestId('gen-kind-shed').click();
     const promised = await page.getByTestId('gen-preview').innerText();
@@ -85,7 +74,7 @@ test.describe('generators', () => {
     expect((await modelCounts(page)).elements).toBe(members);
   });
 
-  test('G2 — the section figure tracks the arrangement, not only the profile', async ({ page }) => {
+  test('G2 — the section figure tracks the arrangement, not only the profile', async ({ pro: page }) => {
     await openTab(page, 'generators');
     const row = page.getByTestId('gen-profile-chord');
     const figure = row.locator('svg').first();
@@ -123,13 +112,13 @@ test.describe('generators', () => {
     await expect(figure.locator('polygon')).toHaveCount(4);
   });
 
-  test('G2b — the figure carries an accessible name stating the assembled size', async ({ page }) => {
+  test('G2b — the figure carries an accessible name stating the assembled size', async ({ pro: page }) => {
     await openTab(page, 'generators');
     const figure = page.getByTestId('gen-profile-chord').locator('svg').first();
     await expect(figure).toHaveAttribute('aria-label', /\d+×\d+\s*mm/);
   });
 
-  test('the previews are drawn, and a shed gets both views', async ({ page }) => {
+  test('the previews are drawn, and a shed gets both views', async ({ pro: page }) => {
     await openTab(page, 'generators');
     const previews = page.getByTestId('gen-previews');
     await expect(previews.locator('svg')).toHaveCount(1);
@@ -151,7 +140,7 @@ test.describe('the metallic surface', () => {
     await expect(page.getByTestId('gen-result')).toBeVisible();
   }
 
-  test('S1 — every metallic member is listed, and none of them as verified @smoke', async ({ page }) => {
+  test('S1 — every metallic member is listed, and none of them as verified @smoke', async ({ pro: page }) => {
     await generateTruss(page);
     await openTab(page, 'steel');
 
@@ -170,7 +159,7 @@ test.describe('the metallic surface', () => {
     await expect(page.getByTestId('pro-steel-panel')).not.toContainText('✓');
   });
 
-  test('S1b — each status carries text, not colour alone', async ({ page }) => {
+  test('S1b — each status carries text, not colour alone', async ({ pro: page }) => {
     await generateTruss(page);
     await openTab(page, 'steel');
     const badge = page.getByTestId('steel-status-badge').first();
@@ -180,7 +169,7 @@ test.describe('the metallic surface', () => {
     expect(name.replace(/[○⚗—·]/g, '').trim().length).toBeGreaterThan(0);
   });
 
-  test('S2 — the experimental warning is present before anything else in the panel', async ({ page }) => {
+  test('S2 — the experimental warning is present before anything else in the panel', async ({ pro: page }) => {
     await openTab(page, 'steel');
     const banner = page.getByTestId('steel-experimental-banner');
     await expect(banner).toBeVisible();
@@ -197,14 +186,14 @@ test.describe('the metallic surface', () => {
     await expect(banner.locator('button')).toHaveCount(0);
   });
 
-  test('S2b — an empty model says WHICH kind of nothing it has', async ({ page }) => {
+  test('S2b — an empty model says WHICH kind of nothing it has', async ({ pro: page }) => {
     await openTab(page, 'steel');
     // Fresh PRO session: no elements at all, which is a different message from "no steel".
     await expect(page.getByTestId('steel-empty')).toBeVisible();
     await expect(page.getByTestId('steel-empty')).not.toHaveText('');
   });
 
-  test('the capability gaps are listed, so the absence is legible before modelling', async ({ page }) => {
+  test('the capability gaps are listed, so the absence is legible before modelling', async ({ pro: page }) => {
     await openTab(page, 'steel');
     const gaps = page.getByTestId('steel-gaps');
     await expect(gaps).toBeVisible();

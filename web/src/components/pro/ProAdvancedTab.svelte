@@ -285,7 +285,7 @@
 
   let thDt = $state(0.01);
   let thNSteps = $state(200);
-  let thDir = $state<'X' | 'Y'>('X');
+  let thDir = $state<'X' | 'Y' | 'Z'>('X');
   let thDamping = $state(0.05);
   let thMethod = $state<'newmark' | 'hht'>('newmark');
   let thAccelText = $state('');
@@ -336,8 +336,14 @@
         beta,
         gamma,
         dampingXi: thDamping,
-        groundAccel,
-        groundDirection: thDir,
+        // `TimeHistoryInput3D` takes one acceleration series per global
+        // axis. The old payload sent the 2D pair { groundAccel,
+        // groundDirection }, which hit no field at all — so the run went
+        // ahead with ZERO ground motion and the static loads as the only
+        // excitation.
+        groundAccelX: thDir === 'X' ? groundAccel : undefined,
+        groundAccelY: thDir === 'Y' ? groundAccel : undefined,
+        groundAccelZ: thDir === 'Z' ? groundAccel : undefined,
       });
       thResult = res;
     } catch (e: any) {
@@ -401,6 +407,14 @@
   let nlIncrements = $state(10);
   let nlFiberIntPts = $state(5);
   let nlResult = $state<any | null>(null);
+  // Displacements never sit at the top level: the incremental solvers
+  // (corotational, fiber) nest them under `.results`, and pushover nests
+  // them under each step's `.results` — so read the last step's.
+  const nlDisplacements = $derived(
+    nlResult?.results?.displacements
+      ?? nlResult?.steps?.[nlResult.steps.length - 1]?.results?.displacements
+      ?? []
+  );
 
   function handleNonlinear() {
     solveError = null;
@@ -620,17 +634,31 @@
   }
 
   const contactEntries = $derived([...contactBehaviors.entries()]);
+  // The result's per-element status list is `elementStatus` (with
+  // `status: 'active' | 'inactive'`); the old read looked for a
+  // `deactivated` field that has never existed, so it never reported.
+  const contactDeactivatedCount = $derived(
+    ((contactResult?.elementStatus ?? []) as { status: string }[])
+      .filter(s => s.status === 'inactive').length
+  );
 
   function handleContact() {
     solveError = null;
     solving = true;
     try {
       const input = buildInput();
-      const elements: any[] = [];
+      // `ContactInput3D.element_behaviors` is a map keyed on the element id
+      // holding the exact snake_case strings the engine matches; the old
+      // `{ contactElements: [...] }` payload hit no field, so serde dropped
+      // it and the "contact" solve ran as a plain linear one.
+      const elementBehaviors: Record<string, string> = {};
       for (const [elementId, behavior] of contactBehaviors) {
-        elements.push({ elementId, behavior });
+        elementBehaviors[String(elementId)] =
+          behavior === 'tensionOnly' ? 'tension_only'
+          : behavior === 'compressionOnly' ? 'compression_only'
+          : 'normal';
       }
-      const res = solveContact3D({ solver: input, contactElements: elements });
+      const res = solveContact3D({ solver: input, elementBehaviors });
       contactResult = res;
       if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
@@ -641,8 +669,16 @@
 
   // ─── 11. Staged Construction ───────────────────────────────────
 
-  let stages = $state<{ name: string; elementsAdded: number[]; elementsRemoved: number[]; loadIndices: number[] }[]>([]);
+  let stages = $state<{
+    name: string; elementsAdded: number[]; elementsRemoved: number[]; loadIndices: number[];
+    platesAdded: number[]; platesRemoved: number[];
+    quadsAdded: number[]; quadsRemoved: number[];
+  }[]>([]);
   let stagedResult = $state<any | null>(null);
+
+  /** The model's shells, so a stage can name them the way it names members. */
+  const plateIds = $derived([...modelStore.plates.keys()]);
+  const quadIds = $derived([...modelStore.quads.keys()]);
 
   function addStage() {
     stages = [...stages, {
@@ -651,6 +687,20 @@
       // the whole model and later stages are cut back from it by hand.
       elementsAdded: stages.length === 0 ? [...elementIds] : [],
       elementsRemoved: [], loadIndices: [],
+      /*
+       * Slabs and walls follow the members: the first stage starts with all of
+       * them, later stages start empty. They used to reach the engine and be
+       * dropped there — `StagedInput3D` had no field for them, and with no
+       * `deny_unknown_fields` serde discarded them silently, so a building
+       * staged with its floors was analysed as the bare frame.
+       */
+      platesAdded: stages.length === 0 ? [...plateIds] : [],
+      quadsAdded: stages.length === 0 ? [...quadIds] : [],
+      // And they leave the same way. A slab struck after it has done its
+      // temporary work is as much a stage as a slab cast, and the engine
+      // takes `platesRemoved`/`quadsRemoved` for exactly that — leaving the
+      // fields unsent would have made half of what it accepts unreachable.
+      platesRemoved: [], quadsRemoved: [],
     }];
   }
 
@@ -673,6 +723,12 @@
           elementsAdded: s.elementsAdded,
           elementsRemoved: s.elementsRemoved,
           loadIndices: s.loadIndices,
+          // Shells carry their OWN ids: a plate and a member can share a
+          // number, so one combined list would activate the wrong thing.
+          platesAdded: s.platesAdded,
+          platesRemoved: s.platesRemoved,
+          quadsAdded: s.quadsAdded,
+          quadsRemoved: s.quadsRemoved,
         })),
       });
       stagedResult = res;
@@ -1135,7 +1191,7 @@
         <div class="adv-form">
           <label class="adv-label">dt (s): <input type="number" class="adv-num" bind:value={thDt} min={0.001} max={1} step={0.001} /></label>
           <label class="adv-label">Pasos: <input type="number" class="adv-num adv-num-wide" bind:value={thNSteps} min={1} max={10000} /></label>
-          <label class="adv-label">Dir: <select class="adv-sel" bind:value={thDir}><option value="X">X</option><option value="Y">Y</option></select></label>
+          <label class="adv-label">Dir: <select class="adv-sel" bind:value={thDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
           <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={thDamping} min={0} max={1} step={0.01} /></label>
           <label class="adv-label">Método: <select class="adv-sel" bind:value={thMethod}><option value="newmark">Newmark</option><option value="hht">HHT-&#x03B1;</option></select></label>
         </div>
@@ -1238,7 +1294,9 @@
           read fields none of them has (`loadFactor`, `numHinges`), so a
           successful pushover displayed a blank line. Pushover reports its
           collapse factor and its hinges; the incremental solvers report the
-          path they walked.
+          path they walked. `converged` only exists on the incremental
+          results (CorotationalResult3D / FiberNonlinearResult3D) — pushover's
+          PlasticResult3D has no such notion, so the guard hides it there.
         -->
         <div class="adv-inline">
           {#if nlResult.collapseFactor != null}λ_c={fmtNum(nlResult.collapseFactor)}{/if}
@@ -1246,8 +1304,8 @@
           {#if nlResult.isMechanism != null} — {nlResult.isMechanism ? t('pro.mechanism') : t('pro.stable')}{/if}
           {#if nlResult.converged != null} — {nlResult.converged ? t('pro.converged') : t('pro.notConverged')}{/if}
           {#if nlResult.steps != null} — {nlResult.steps.length} {t('pro.steps')}{/if}
-          {#if nlResult.displacements?.length}
-            — δmax={fmtNum(Math.max(...nlResult.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
+          {#if nlDisplacements.length}
+            — δmax={fmtNum(Math.max(...nlDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
           {/if}
         </div>
       {/if}
@@ -1389,7 +1447,9 @@
         <div class="adv-result-title">{t('pro.resultSsi')}</div>
         <div class="adv-inline">
           <span>{t('pro.convergence')}: {ssiResult.converged ? t('pro.yes') : t('pro.no')}</span> — <span>{t('pro.iterations')}: {ssiResult.iterations ?? '?'}</span>
-          {#if ssiResult.maxDisplacement != null} — <span>{t('pro.maxDisp')}: {fmtNum(ssiResult.maxDisplacement)} m</span>{/if}
+          <!-- `SSIResult3D` has no maxDisplacement of its own; the
+               displacements nest under `.results`. -->
+          {#if ssiResult.results?.displacements?.length} — <span>{t('pro.maxDisp')}: {fmtNum(Math.max(...ssiResult.results.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m</span>{/if}
         </div>
       {/if}
       {/if}
@@ -1433,7 +1493,7 @@
         <div class="adv-result-title">{t('pro.resultContact')}</div>
         <div class="adv-inline">
           <span>{t('pro.convergence')}: {contactResult.converged ? t('pro.yes') : t('pro.no')}</span> — <span>{t('pro.iterations')}: {contactResult.iterations ?? '?'}</span>
-          {#if contactResult.deactivated} — <span>{t('pro.deactivatedElems')}: {contactResult.deactivated.length}</span>{/if}
+          {#if contactDeactivatedCount > 0} — <span>{t('pro.deactivatedElems')}: {contactDeactivatedCount}</span>{/if}
         </div>
       {/if}
       {/if}
@@ -1451,6 +1511,32 @@
             <div class="adv-form">
               <label class="adv-label">{t('pro.addElemIds')} <input type="text" class="adv-text" value={stage.elementsAdded.join(',')} oninput={(e) => { stage.elementsAdded = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
             </div>
+            <!--
+              Shells get their own rows, and only when the model has them: a
+              field for something that does not exist reads as a feature that
+              is broken. They are listed separately from members because the
+              ids are separate — a plate and a member may share a number.
+            -->
+            {#if plateIds.length}
+              <div class="adv-form">
+                <label class="adv-label">{t('pro.addPlateIds')} <input type="text" class="adv-text" value={stage.platesAdded.join(',')} oninput={(e) => { stage.platesAdded = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
+              </div>
+            {/if}
+            {#if quadIds.length}
+              <div class="adv-form">
+                <label class="adv-label">{t('pro.addQuadIds')} <input type="text" class="adv-text" value={stage.quadsAdded.join(',')} oninput={(e) => { stage.quadsAdded = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
+              </div>
+            {/if}
+            {#if plateIds.length}
+              <div class="adv-form">
+                <label class="adv-label">{t('pro.removePlateIds')} <input type="text" class="adv-text" value={stage.platesRemoved.join(',')} oninput={(e) => { stage.platesRemoved = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
+              </div>
+            {/if}
+            {#if quadIds.length}
+              <div class="adv-form">
+                <label class="adv-label">{t('pro.removeQuadIds')} <input type="text" class="adv-text" value={stage.quadsRemoved.join(',')} oninput={(e) => { stage.quadsRemoved = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
+              </div>
+            {/if}
             <div class="adv-form">
               <label class="adv-label">{t('pro.removeElemIds')} <input type="text" class="adv-text" value={stage.elementsRemoved.join(',')} oninput={(e) => { stage.elementsRemoved = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
             </div>
@@ -1465,11 +1551,16 @@
         <div class="adv-result-title">{t('pro.resultStaged')}</div>
         <div class="adv-inline">
           {#if stagedResult.stages}
+            <!-- `StageResult3D` is { stageName, stageIndex, results } — it has
+                 no `converged`, so every stage used to render a bare
+                 "solved". The per-stage peaks live under `.results`. -->
             {#each stagedResult.stages as sr, i}
-              <div>{t('pro.stageN').replace('{n}', String(i + 1))}: {sr.converged != null ? (sr.converged ? t('pro.ok') : t('pro.noConv')) : t('pro.solved')}</div>
+              <div>{t('pro.stageN').replace('{n}', String(i + 1))}: {sr.stageName}{#if sr.results?.displacements?.length} — δmax={fmtNum(Math.max(...sr.results.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m{/if}</div>
             {/each}
           {/if}
-          {#if stagedResult.totalDisplacement != null} <span>{t('pro.totalMaxDisp')}: {fmtNum(stagedResult.totalDisplacement)} m</span>{/if}
+          <!-- The finished model's peaks live under `finalResults`; there is
+               no `totalDisplacement`. -->
+          {#if stagedResult.finalResults?.displacements?.length} <span>{t('pro.totalMaxDisp')}: {fmtNum(Math.max(...stagedResult.finalResults.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m</span>{/if}
         </div>
       {/if}
       {/if}
@@ -1668,6 +1759,8 @@
           {#if constrainedResult.displacements?.length}
             δmax={fmtNum(Math.max(...constrainedResult.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
           {/if}
+          <!-- Not dead: the export returns a bare AnalysisResults3D, but
+               solve_constrained_3d fills its constraintForces. -->
           {#if constrainedResult.constraintForces?.length} — {constrainedResult.constraintForces.length} {t('pro.constraintForcesCount')}{/if}
         </div>
       {/if}

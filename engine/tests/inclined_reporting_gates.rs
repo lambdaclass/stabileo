@@ -417,9 +417,10 @@ fn staged_rejects_inclined_supports_3d() {
             load_indices: vec![],
             supports_added: vec![],
             supports_removed: vec![],
-            prestress_loads: vec![],
+            prestress_loads: vec![], ..Default::default()
         }],
         constraints: vec![],
+        ..Default::default()
     };
     let result = staged::solve_staged_3d(&staged_input);
     let err = result.expect_err("staged 3D solve must reject inclined supports");

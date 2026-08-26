@@ -137,11 +137,29 @@ describe('the defect the measurement found', () => {
     expect(contrast(PALETTE.danger, over('#ee2222', 0.14, SURFACE))).toBeGreaterThan(AA_TEXT);
   });
 
-  it('names the two components, so the fix has an address', () => {
-    // Source-level, so the assertion points at the file to edit rather than at a number.
-    expect(read('components/pro/design/OutcomeBadge.svelte'))
-      .toMatch(/\.badge-fail\s*\{[^}]*var\(--st-accent\)/);
-    expect(read('components/pro/design/DesignToolbar.svelte'))
+  it('and both components now carry the role colour, not the brand one', () => {
+    /*
+     * This used to assert the DEFECT — that `.badge-fail` and `.banner-block` still reached for
+     * `--st-accent`, the primary-action vermillion, on an error background — so that the fix had
+     * an address. Merging `main` in brought the fix: `.badge-fail` is `--st-danger` now, and
+     * `DesignToolbar` no longer carries the rule at all.
+     *
+     * Turned around rather than deleted. A test that documents a defect is worth exactly as long
+     * as the defect lasts; the same file, asserted the other way, is a guard against it coming
+     * back.
+     */
+    const badge = read('components/pro/design/OutcomeBadge.svelte');
+    expect(badge).toMatch(/\.badge-fail\s*\{[^}]*var\(--st-danger\)/);
+    expect(badge, 'the brand vermillion is back on the failure badge')
+      .not.toMatch(/\.badge-fail\s*\{[^}]*var\(--st-accent\)/);
+    /*
+     * `.banner-block` is the one of the three that is NOT fixed, and it is asserted as still
+     * broken rather than skipped. Two of the three instances the reconciliation reported were
+     * repaired by H1's token work; this one still puts `--st-accent`, the primary-action
+     * vermillion, on an error background. Leaving it unasserted would let the report go stale in
+     * the other direction — the failure mode this pair of tests exists to prevent.
+     */
+    expect(read('components/pro/design/DesignToolbar.svelte'), 'the banner was fixed; update the reconciliation')
       .toMatch(/\.banner-block\s*\{[^}]*var\(--st-accent\)/);
   });
 });
@@ -249,15 +267,30 @@ describe('the one violet, as it is guarded today', () => {
      */
     const scene = read('lib/three/rebar-scene.ts');
     expect(scene).toContain('0xa066d3');
-    for (const f of [
+    /*
+     * Asserted over the files that DO name it, rather than over a fixed list of four.
+     *
+     * `DesignToolbar` stopped naming the violet when `main` was merged in, and a hand-kept list
+     * turns that into a failure about a file that simply no longer participates. What the rule is
+     * actually about is that the value does not DRIFT between the places that use it, so the list
+     * is derived and the count is guarded so the check cannot quietly become vacuous.
+     */
+    const CANDIDATES = [
       'components/pro/design/RebarStatusPanel.svelte',
       'components/pro/design/DesignToolbar.svelte',
       'components/pro/design/ProvisionalBanner.svelte',
       'components/pro/design/OutcomeBadge.svelte',
-    ]) {
+    ];
+    const naming = CANDIDATES.filter((f) => {
       const src = read(f);
-      const hasLiteral = /#a066d3/i.test(src) || /rgba\(160,\s*102,\s*211/.test(src);
-      expect(hasLiteral, `${f} no longer names the provisional violet`).toBe(true);
+      return /#a066d3/i.test(src) || /rgba\(160,\s*102,\s*211/.test(src);
+    });
+    expect(naming.length, 'nothing names the provisional violet any more').toBeGreaterThanOrEqual(3);
+    for (const f of naming) {
+      const src = read(f);
+      // One value, spelled one way, wherever it appears.
+      const others = src.match(/#[0-9a-f]{6}/gi)?.filter((h) => /^#a0/i.test(h)) ?? [];
+      for (const hex of others) expect(hex.toLowerCase(), `${f} spells the violet differently`).toBe('#a066d3');
     }
   });
 

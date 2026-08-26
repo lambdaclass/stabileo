@@ -45,11 +45,59 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # The build prerenders the public pages by driving the real application in
+      # a browser (web/scripts/prerender.ts), so one is needed here. Without it
+      # the build fails loudly, which is the intended failure: a deploy that
+      # silently skipped prerendering would put the site back to answering 404
+      # to every crawler, and nothing on the page would look wrong.
+      - name: Install Chromium for prerendering
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
       - name: Build
         working-directory: web
         run: npm run build
         env:
           BASE_PATH: /
+
+      - name: Verify the public pages were prerendered
+        working-directory: web
+        run: |
+          # A crawler must receive text, not an empty shell. These four files
+          # are the difference between the site being indexable and not, and a
+          # prerender that half-ran would leave a build that looks fine.
+          for f in index.html es/index.html pt/blog/index.html es/blog/the-determinism-boundary/index.html; do
+            test -f "dist/$f" || { echo "prerender missing: dist/$f"; exit 1; }
+            chars=$(sed -e 's/<script[^>]*>.*<\/script>//g' -e 's/<[^>]*>/ /g' "dist/$f" | tr -s ' \n' ' ' | wc -c)
+            if [ "$chars" -lt 800 ]; then echo "dist/$f carries only $chars characters of text"; exit 1; fi
+          done
+          test -f dist/sitemap.xml || { echo 'sitemap.xml missing'; exit 1; }
+          test -f dist/robots.txt || { echo 'robots.txt missing'; exit 1; }
+
+          # Text is not enough: a capture that ran in the wrong language, or
+          # one taken before the head was rewritten, produces a file of exactly
+          # the right size saying exactly the wrong thing. Each page has to be
+          # in ITS language and has to name ITS own address.
+          #
+          # e2e/prerender.spec.ts covers this properly, in a browser, in the
+          # blocking CI job. This is the last gate before the bytes go live,
+          # and it costs a grep.
+          check() {
+            grep -q "$2" "dist/$1" || { echo "dist/$1 does not carry: $2"; exit 1; }
+          }
+          check en/index.html 'A free and open structural-analysis platform'
+          check es/index.html 'Una plataforma gratuita y abierta de cálculo estructural'
+          check pt/index.html 'Uma plataforma gratuita e aberta de cálculo estrutural'
+          check en/index.html '<link rel="canonical" href="https://stabileo.com/en"'
+          check es/index.html '<link rel="canonical" href="https://stabileo.com/es"'
+          check pt/index.html '<link rel="canonical" href="https://stabileo.com/pt"'
+          # The root is a doorway: English content, consolidating into /en.
+          check index.html '<link rel="canonical" href="https://stabileo.com/en"'
+          check es/blog/the-determinism-boundary/index.html \
+            '<link rel="canonical" href="https://stabileo.com/es/blog/the-determinism-boundary"'
+          check es/blog/the-determinism-boundary/index.html 'application/ld+json'
+
+          echo "prerendered pages verified"
 
       - name: Verify custom-domain asset paths
         working-directory: web

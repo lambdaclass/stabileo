@@ -420,7 +420,7 @@
   .primary:not(:disabled) { border-color: var(--st-interactive); font-weight: 600; }
   .code { font-size: 0.75rem; opacity: 0.9; }
   /* An unresolved code is never green. */
-  .warn { padding: 0.1rem 0.35rem; border-radius: 3px; background: var(--st-surface-3); color: var(--st-text); }
+  .warn { padding: 0.1rem 0.35rem; border-radius: 3px; background: var(--st-surface-3); color: var(--st-warn); }
   .families { display: flex; gap: 0.3rem; border-bottom: 1px solid var(--st-hair); }
   .families button {
     background: none; border:  1px solid var(--st-hair); border-bottom: 2px solid transparent; color: inherit;
@@ -433,7 +433,7 @@
   th, td { text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid rgba(143, 163, 179,0.2); }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   /* Over-utilised is never green. */
-  .num.over { color: var(--st-text); font-weight: 600; }
+  .num.over { color: var(--st-danger); font-weight: 600; }
   .ceiling {
     margin-left: 0.3rem; font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.3rem;
     border-radius: 3px; background: var(--st-surface-2); color: var(--st-text);
@@ -441,10 +441,11 @@
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
   .prereqs li, .unsupported li, .assumptions li { font-size: 0.75rem; opacity: 0.9; }
   .issues > li { font-size: 0.75rem; padding: 0.2rem 0.4rem; border-radius: 3px; }
-  .issues > li.blocking { background: var(--st-surface-2); color: var(--st-text); }
+  /* Blocking is never green. */
+  .issues > li.blocking { background: var(--st-surface-2); color: var(--st-danger); }
   .issues ul { margin-left: 0.6rem; }
   .assumptions li { background: var(--st-surface-3); color: var(--st-text); padding: 0.15rem 0.4rem; border-radius: 3px; }
-  .err { color: var(--st-text); }
+  .err { color: var(--st-danger); }
   summary { cursor: pointer; font-size: 0.78rem; }
 
   /* The contract: what it does, what it leaves alone, what comes next. */

@@ -98,13 +98,13 @@
     downloadBlob(`detailing-rev${doc.revision.number}.dxf`, 'application/dxf', set.dxf);
   }
 
-  function exportXlsx() {
+  async function exportXlsx() {
     const doc = currentDoc();
     if (!doc) return;
     const sheets = renderSchedule(doc, {
       locale: i18n.locale, projectName: t('detailing.doc.project'),
     });
-    exportToExcel({
+    await exportToExcel({
       filename: `detailing-rev${doc.revision.number}.xlsx`,
       onlyExtras: true,
       extraSheets: sheets.map((s) => ({ name: s.name, rows: s.aoa })),
