@@ -35,10 +35,16 @@ import type { BentUpPolicy } from '../engine/detailing/generate-beam';
 import { DEFAULT_COVER, DEFAULT_REBAR_FY } from '../engine/design/member-context';
 import { rebarHash } from '../engine/design/rebar-hash';
 import { designRunStore } from './design-run.svelte';
+import type { DesignFamily } from '../engine/design/design-families';
+import { detailingReadiness, type DetailingReadiness } from '../engine/detailing/run-detailing';
 import {
   rcRegenerationImpact, rcRetouchProvenance, type RcRegenerationImpact,
 } from '../flow/rc-selection';
-import type { CertificateEntry } from '../engine/detailing/document-model';
+import {
+  buildDocumentModel, type CertificateEntry, type DocumentModel,
+} from '../engine/detailing/document-model';
+import type { DetailingAssembly } from '../engine/detailing/assembly';
+import type { LapInterval } from '../engine/detailing/lap-materialize';
 
 export function designOutcomeMap(): ReadonlyMap<number, MemberDesignOutcome> {
   const out = new Map<number, MemberDesignOutcome>();
@@ -51,6 +57,118 @@ export function designOutcomeMap(): ReadonlyMap<number, MemberDesignOutcome> {
 
 
 /** The concrete edition currently bound to the `concrete` role. */
+/**
+ * The document, from the persisted assemblies and the project's own state.
+ *
+ * ── Why it is here and not in the store ────────────────────────────
+ *
+ * Every argument it assembles is a project input — the concrete edition, the verifier, the
+ * revision vector, the scope — and this file is where those are resolved. The store was at its
+ * 800-line ceiling, and the choice this forced is the right one anyway: `buildDocument` was a
+ * forty-line argument list inside a method, none of it store state.
+ *
+ * The caller supplies what only it knows: which assemblies are persisted, the laps the last run
+ * produced, and the revision and authorship of this issue.
+ */
+export function buildProjectDocument(input: {
+  assemblies: readonly DetailingAssembly[];
+  laps: readonly LapInterval[];
+  revisionNumber: number;
+  author: string;
+  at: string;
+}): DocumentModel {
+  return buildDocumentModel({
+    seriesId: 'detailing',
+    revision: {
+      number: input.revisionNumber,
+      at: input.at,
+      author: input.author,
+      // The persisted source, by name rather than by argument.
+      detailingRevision: maxPersistedRevision(),
+      demandRevision: verificationStore.demandRevision,
+    },
+    regulations: [{ id: CONCRETE_REGULATION_ID, edition: currentConcreteEdition() }],
+    assemblies: input.assemblies,
+    laps: input.laps,
+    certificates: collectCertificates(input.assemblies),
+    // The vector as it stands NOW, so a family certificate stamped at an earlier analysis is
+    // reported as STALE rather than compared against its own vector and found equal. Omitting
+    // this would produce a document that structurally cannot detect staleness.
+    currentRevisions: {
+      analysis: regulationsStore.revisions.analysis,
+      loads: regulationsStore.revisions.combination,
+      regulation: regulationsStore.revisions.regulationConfig,
+      // The per-entity revision is per RECORD, so there is no single project-wide value to
+      // compare against. Each record's own entity revision is used, which makes this field a
+      // no-op for the comparison and keeps a footing edit detectable through the geometry and
+      // input hashes instead.
+      entity: -1,
+    },
+    /*
+     * The scope the document answers for, so every export can state it.
+     *
+     * From the SAME function the strip and the command read, at the moment the document is
+     * built. A drawing is read on a site by someone who was not in the room when the scope was
+     * chosen, and "issued for construction" without "beams and columns; the slabs are not in
+     * this set" is a true claim that will be taken as a false one.
+     */
+    convergence: currentReadiness().convergence,
+  });
+}
+
+/**
+ * Readiness and convergence as they stand right now.
+ *
+ * ── Why it lives here and not in the store ─────────────────────────
+ *
+ * Two call sites need the SAME answer: the `readiness` getter, which drives the command and the
+ * strip, and the document builder, which stamps the scope onto every export. Two sites deriving
+ * it separately is how a document comes to state a scope the command never ran — and the store
+ * is at its 800-line ceiling, which is what made the choice between "one function" and "two
+ * derivations" concrete rather than stylistic.
+ *
+ * The SCOPE enters here: `designRunStore.familySelection` is the same array the command bar
+ * states its scope from and the boxes below the table tick. A second source for it is how a run
+ * comes to report a coverage it did not have.
+ *
+ * Adding a family re-opens the claim and removing one closes it, with no bookkeeping: nothing is
+ * stored, so the next call measures the selection in force.
+ */
+export function currentReadiness(): DetailingReadiness {
+  return detailingReadiness({
+    contexts: verificationStore.contexts,
+    outcomes: designOutcomeMap(),
+    scope: designRunStore.familySelection,
+    presentFloorFamilies: presentFloorFamilies(),
+  });
+}
+
+/**
+ * The floor families the MODEL holds — slabs, walls, footings.
+ *
+ * ── Why this exists, and why it is families and not members ────────
+ *
+ * `detailingReadiness` sees `verificationStore.contexts`, which is the FRAME: beams and columns.
+ * A slab is not a `MemberContext` — the floor pass owns it — so nothing inside that function can
+ * tell a bare frame from a frame under twelve slab panels. Without this, the scope qualifier on
+ * the convergence claim would be empty on exactly the building it exists for, and "design
+ * converged" would read as "the building is ready".
+ *
+ * Slabs and walls are reported together whenever the model holds shell panels, for the reason
+ * `DesignFamilyPanel` states about its own census: a shell becomes one or the other only when
+ * the floor pass classifies it, and deciding here would be a second authority guessing. That the
+ * qualifier may name a family the classification would later rule out is the conservative error
+ * — it over-qualifies the claim rather than under-qualifying it.
+ *
+ * Read from the same places the panel reads, never re-derived.
+ */
+export function presentFloorFamilies(): DesignFamily[] {
+  const out: DesignFamily[] = [];
+  if (modelStore.model.quads.size > 0) out.push('slab', 'wall');
+  if (modelStore.model.footings.size > 0) out.push('footing');
+  return out;
+}
+
 export function currentConcreteEdition(): RegulationEdition {
   const e = regulationsStore.binding('concrete').edition;
   return (e === '2005' ? '2005' : '2025') as RegulationEdition;

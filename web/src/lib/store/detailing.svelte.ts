@@ -26,16 +26,17 @@ import {
 import { rcLockToggle } from '../flow/rc-bar-lock';
 import { clause } from '../codes/regulation';
 import {
-  detailingReadiness, runDetailing,
+  runDetailing,
   type DetailingReadiness, type RunDetailingResult,
 } from '../engine/detailing/run-detailing';
 import { verificationStore } from './verification.svelte';
+import { designRunStore } from './design-run.svelte';
 import { rebarHash } from '../engine/design/rebar-hash';
 import { getDesignCode } from '../engine/design/code-adapter';
 import {
   runDesignFeedbackLoop, type DesignFeedbackLoopResult,
 } from '../engine/detailing/design-feedback-loop';
-import { buildDocumentModel, supersede, type DocumentModel } from '../engine/detailing/document-model';
+import { supersede, type DocumentModel } from '../engine/detailing/document-model';
 import { regulationsStore } from './regulations.svelte';
 import {
   floorDesignReadiness, runFloorDesign,
@@ -68,7 +69,8 @@ export type { SheetSelection } from './detailing-sheet.svelte';
  */
 import {
   CONCRETE_REGULATION_ID, DEFAULT_WALL_BAR_DIA_MM, bentUpPolicy, currentConcreteEdition,
-  collectCertificates, designOutcomeMap, lockedMemberIds, maxPersistedRevision,
+  buildProjectDocument, currentReadiness, designOutcomeMap, lockedMemberIds,
+  maxPersistedRevision, presentFloorFamilies,
   regenerationImpact, resolveAggregate,
   resolveConcreteProperties, resolveSpacingMargin, resolveVerifierId, statedAggregate,
 } from './detailing-project-inputs';
@@ -255,13 +257,20 @@ function createDetailingStore() {
      *
      * Drives the enabled/disabled state of the Generate command and the text beside it.
      * Cheap: it inspects outcomes, it does not generate anything.
+     *
+     * ── The scope is the user's, and it is read here ───────────────────
+     *
+     * `convergence` is measured against the families the user SELECTED, so this is where the
+     * selection enters: `designRunStore.familySelection` is the same array the command bar
+     * states its scope from and the boxes below the table tick. Reading it here rather than
+     * threading it through every caller is what keeps the claim and the command naming the same
+     * families — a second source for the scope is how a run comes to report a coverage it did
+     * not have.
+     *
+     * Adding a family re-opens the claim and removing one closes it, with no bookkeeping: this
+     * getter is derived, so the next read measures the selection in force.
      */
-    get readiness(): DetailingReadiness {
-      return detailingReadiness({
-        contexts: verificationStore.contexts,
-        outcomes: designOutcomeMap(),
-      });
-    },
+    get readiness(): DetailingReadiness { return currentReadiness(); },
 
     get autoGenerate() { return modelStore.model.detailingAuto !== false; },
     setAutoGenerate(on: boolean): void { modelStore.model.detailingAuto = on; },
@@ -290,6 +299,16 @@ function createDetailingStore() {
           nodes: modelStore.nodes as never,
           elements: modelStore.elements as never,
           edition: currentConcreteEdition(),
+          /*
+           * The scope the run answers for, from the same place the readiness getter reads it.
+           *
+           * The assemblies carry their constructibility verdict, and that verdict is now
+           * relative to a scope — so the scope has to travel with the run rather than be
+           * re-derived by whoever reads the result later. A claim whose denominator was decided
+           * after the fact is not a measurement.
+           */
+          scope: designRunStore.familySelection,
+          presentFloorFamilies: presentFloorFamilies(),
           // Explicit argument wins so the golden chain can pin an identity; otherwise the
           // verification that actually ran supplies it. Never a bare '' default.
           verifierId: opts.verifierId ?? resolveVerifierId(),
@@ -729,36 +748,12 @@ function createDetailingStore() {
        */
       const persisted = modelStore.model.detailing ?? emptyDetailingStore();
       if (persisted.assemblies.length === 0) return null;
-      const laps = lastRun?.lapping.laps ?? [];
-      const certificates = collectCertificates(persisted.assemblies);
-      const doc = buildDocumentModel({
-        seriesId: 'detailing',
-        revision: {
-          number: documentRevision,
-          at: opts.at,
-          author: opts.author,
-          // Already the persisted source — `persisted` IS `modelStore.model.detailing` — so
-          // this is the same read the helper now performs, by name rather than by argument.
-          detailingRevision: maxPersistedRevision(),
-          demandRevision: verificationStore.demandRevision,
-        },
-        regulations: [{ id: CONCRETE_REGULATION_ID, edition: currentConcreteEdition() }],
+      const doc = buildProjectDocument({
         assemblies: persisted.assemblies,
-        laps,
-        certificates,
-        // The vector as it stands NOW, so a family certificate stamped at an earlier analysis
-        // is reported as STALE rather than compared against its own vector and found equal.
-        // Omitting this would produce a document that structurally cannot detect staleness.
-        currentRevisions: {
-          analysis: regulationsStore.revisions.analysis,
-          loads: regulationsStore.revisions.combination,
-          regulation: regulationsStore.revisions.regulationConfig,
-          // The per-entity revision is per RECORD, so there is no single project-wide value
-          // to compare against. Each record's own entity revision is used, which makes this
-          // field a no-op for the comparison and keeps a footing edit detectable through the
-          // geometry and input hashes instead.
-          entity: -1,
-        },
+        laps: lastRun?.lapping.laps ?? [],
+        revisionNumber: documentRevision,
+        author: opts.author,
+        at: opts.at,
       });
       currentDocument = doc;
       return doc;

@@ -22,6 +22,7 @@
 import { buildTitleBlock, buildSchedule, scheduleToAoa, sheetToDxf, sheetToSvg,
   drawElevation, drawSection, barArcs, type Sheet, type Projection } from './drawings';
 import type { DocumentAssembly, DocumentModel, OpenConflict } from './document-model';
+import type { DesignFamily } from '../design/design-families';
 import { footingPlanCentre, type FloorFamilyDesignRecord } from './family-record';
 import type { SceneModel } from './scene-model';
 import type { ElementStatus } from './element-status';
@@ -139,25 +140,80 @@ function positionLabel(
 }
 
 /** The readiness banner every output carries. Not decoration — it is the claim. */
+const FAMILY_WORD: Record<DesignFamily, { es: string; en: string }> = {
+  column: { es: 'COLUMNAS', en: 'COLUMNS' },
+  beam: { es: 'VIGAS', en: 'BEAMS' },
+  slab: { es: 'LOSAS', en: 'SLABS' },
+  wall: { es: 'TABIQUES', en: 'WALLS' },
+  footing: { es: 'FUNDACIONES', en: 'FOUNDATIONS' },
+};
+
+/**
+ * What this document covers, and what the building has that it does not.
+ *
+ * ── Why every export carries this ──────────────────────────────────
+ *
+ * `readiness` is a statement about the assemblies in the set. A reader takes a sheet stamped
+ * ISSUED FOR CONSTRUCTION to be a statement about the building. Those coincide exactly when the
+ * set covers every family the model holds, and a run scoped to beams and columns does not.
+ *
+ * A drawing is read on a site by someone who was not in the room when the scope was chosen, so
+ * the qualifier cannot live in the app: it has to be on the paper, beside the stamp it
+ * qualifies. `ALCANCE: VIGAS Y COLUMNAS · NO INCLUYE: LOSAS` is the difference between a true
+ * claim and a true claim that will be read as a false one.
+ *
+ * Empty on a document with no scope information rather than an invented one — see
+ * `buildDocumentModel`. A set that names no families is visibly wrong; a set that silently
+ * claims all of them is not.
+ *
+ * Same es/other split `readinessBanner` uses, and for the same reason: this is a stamp on a
+ * sheet, not interface copy, and it goes through the same one-line path.
+ */
+export function scopeStatement(doc: DocumentModel, locale: string): string {
+  const es = locale.startsWith('es');
+  const words = (fs: readonly DesignFamily[]) =>
+    fs.map((f) => FAMILY_WORD[f][es ? 'es' : 'en']).join(', ');
+  if (doc.scope.length === 0) {
+    return es ? 'ALCANCE NO DECLARADO' : 'SCOPE NOT STATED';
+  }
+  const covers = `${es ? 'ALCANCE' : 'SCOPE'}: ${words(doc.scope)}`;
+  return doc.outOfScope.length === 0
+    ? covers
+    : `${covers} · ${es ? 'NO INCLUYE' : 'NOT IN THIS SET'}: ${words(doc.outOfScope)}`;
+}
+
 export function readinessBanner(doc: DocumentModel, locale: string): string {
   const es = locale.startsWith('es');
-  switch (doc.readiness) {
-    case 'ISSUED':
-      return es ? 'EMITIDO PARA CONSTRUCCIÓN' : 'ISSUED FOR CONSTRUCTION';
-    case 'REVIEWED':
-      return es ? 'REVISADO' : 'REVIEWED';
-    case 'FOR_REVIEW':
-      return es ? 'PARA REVISIÓN — NO APTO PARA CONSTRUCCIÓN'
-        : 'FOR REVIEW — NOT FOR CONSTRUCTION';
-    case 'SUPERSEDED':
-      return es
-        ? `REEMPLAZADO POR LA REVISIÓN ${doc.supersededBy ?? '?'} — NO APTO PARA CONSTRUCCIÓN`
-        : `SUPERSEDED BY REVISION ${doc.supersededBy ?? '?'} — NOT FOR CONSTRUCTION`;
-    default:
-      return es
-        ? `BORRADOR DE REVISIÓN — ${doc.openConflicts.length} CONFLICTO(S) SIN RESOLVER — NO APTO PARA CONSTRUCCIÓN`
-        : `REVIEW DRAFT — ${doc.openConflicts.length} UNRESOLVED CONFLICT(S) — NOT FOR CONSTRUCTION`;
-  }
+  const scope = scopeStatement(doc, locale);
+  /*
+   * The scope rides on the banner rather than sitting somewhere else on the sheet.
+   *
+   * Every renderer already prints the banner — that is what makes it the one line guaranteed to
+   * reach the reader — and a qualifier printed anywhere else is a qualifier that some export
+   * will eventually drop. It is appended to EVERY state, including the ones that already say
+   * NOT FOR CONSTRUCTION: a draft of a partial scope is still a partial scope, and the reader
+   * deciding whether the slabs are coming needs the answer on the draft too.
+   */
+  const state = (() => {
+    switch (doc.readiness) {
+      case 'ISSUED':
+        return es ? 'EMITIDO PARA CONSTRUCCIÓN' : 'ISSUED FOR CONSTRUCTION';
+      case 'REVIEWED':
+        return es ? 'REVISADO' : 'REVIEWED';
+      case 'FOR_REVIEW':
+        return es ? 'PARA REVISIÓN — NO APTO PARA CONSTRUCCIÓN'
+          : 'FOR REVIEW — NOT FOR CONSTRUCTION';
+      case 'SUPERSEDED':
+        return es
+          ? `REEMPLAZADO POR LA REVISIÓN ${doc.supersededBy ?? '?'} — NO APTO PARA CONSTRUCCIÓN`
+          : `SUPERSEDED BY REVISION ${doc.supersededBy ?? '?'} — NOT FOR CONSTRUCTION`;
+      default:
+        return es
+          ? `BORRADOR DE REVISIÓN — ${doc.openConflicts.length} CONFLICTO(S) SIN RESOLVER — NO APTO PARA CONSTRUCCIÓN`
+          : `REVIEW DRAFT — ${doc.openConflicts.length} UNRESOLVED CONFLICT(S) — NOT FOR CONSTRUCTION`;
+    }
+  })();
+  return `${state} — ${scope}`;
 }
 
 function esc(s: string): string {
@@ -1412,10 +1468,20 @@ function elevationAndSection(
     */
     const retouch = retouchNote(opts.retouched, opts.locale);
 
+    /*
+      And the scope, in the same note block and for the same reason.
+
+      The schedule gets it through `readinessBanner` in its title; the report prints the banner
+      at the head. A DXF sheet has neither, and it is the output most likely to reach a site on
+      its own — so the one line that says which families this set covers has to be ON it.
+    */
+    const scopeNote = scopeStatement(doc, opts.locale);
+    const sheetNotes = [scopeNote, ...(retouch ? [retouch] : [])];
+
     n += 1;
     const elevation = drawElevation({
       assembly: a.source,
-      extraNotes: retouch ? [retouch] : [],
+      extraNotes: sheetNotes,
       outlines: [{
         points: [
           { x: s0.x, y: s0.y, z: Math.min(...zs) },

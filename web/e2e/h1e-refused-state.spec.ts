@@ -228,8 +228,10 @@ test.describe('@slow a refusal is never dressed as a result', () => {
        * design rather than converge it. The assertion above at line 96 already relies on this.
        *
        * What is withheld is the claim. The strip says so before the run, and
-       * `wholeModelDetailed` — the sixteenth constructibility condition — withholds it in the
-       * gate afterwards, which is what stops the document reaching ISSUED.
+       * `selectedScopeDetailed` — the sixteenth constructibility condition — withholds it in the
+       * gate afterwards, which is what stops the document reaching ISSUED. The columns ARE in
+       * the scope here: the default selection is the frame pair, so the refusal is inside what
+       * this run claims to cover, which is precisely when it must block.
        */
       await expect(page.getByTestId('cmd-generate-detailing')).toBeEnabled();
 

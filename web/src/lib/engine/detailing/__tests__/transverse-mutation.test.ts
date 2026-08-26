@@ -20,7 +20,7 @@ import { runDesign } from '../../design/candidate-search';
 import { cirsoc201Adapter } from '../../design/adapters/cirsoc201-adapter';
 import { runDetailing, type RunDetailingResult } from '../run-detailing';
 import { assessConstructibility, type ConstructibilityFacts } from '../constructibility';
-import { undetailedMemberCount } from '../design-convergence';
+import { undetailedScopeCount } from '../design-convergence';
 import { classifyPair, type ClassificationContext } from '../classify';
 import { detectCollisions } from '../collision';
 import { rebarHash } from '../../design/rebar-hash';
@@ -63,7 +63,7 @@ function facts(): ConstructibilityFacts {
      * fixture rather than a measurement of it — exactly what the docstring above forbids. If
      * this fixture ever stops converging, the reference facts stop passing and say why.
      */
-    undetailedModelMembers: undetailedMemberCount(r.readiness.convergence),
+    undetailedScopeMembers: undetailedScopeCount(r.readiness.convergence),
     familyRequirements: noFloorFamilies(),
   };
 }

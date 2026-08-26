@@ -55,18 +55,30 @@ function ui() { return UI_FILES.map(read).join('\n'); }
 
 describe('the DocumentModel has a production caller', () => {
   it('the store builds it', () => {
-    const s = read(STORE);
+    /*
+     * Read across the LAYER, which is what this claim always meant — the note on `STORE_LAYER`
+     * says so, and the extraction it anticipated has now happened. `buildDocument` assembled
+     * forty lines of project inputs inside a method, none of it store state, and the 800-line
+     * ceiling made that concrete; it is `buildProjectDocument` in `detailing-project-inputs.ts`
+     * now.
+     *
+     * The routing half is asserted separately and on the STORE file, because that is the part
+     * that would go dead: a builder nobody calls is exactly the failure this file exists for.
+     */
+    const s = storeLayer();
     expect(s).toContain('buildDocumentModel');
-    expect(s).toMatch(/buildDocument\s*\(/);
+    expect(s).toMatch(/buildProjectDocument\s*\(/);
+    expect(read(STORE)).toMatch(/buildDocument\s*\(/);
+    expect(read(STORE)).toContain('buildProjectDocument(');
   });
 
   it('the store, not a test, supplies the certificates', () => {
     const s = storeLayer();
     expect(s).toContain('rebarHash');
     expect(s).toContain('certifiedHashFor');
-    // And the store still ROUTES it: a reading nobody calls is the dead path this file exists
-    // to catch, and it would be dead in exactly the same way one file over.
-    expect(read(STORE)).toContain('collectCertificates(');
+    // And the layer still ROUTES it: a reading nobody calls is the dead path this file exists
+    // to catch. It moved with the builder that consumes it, one file over and in the same call.
+    expect(s).toContain('collectCertificates(');
   });
 
   it('the UI calls the store rather than assembling a model itself', () => {

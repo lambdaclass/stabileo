@@ -68,8 +68,10 @@ import {
 import { detectCollisions } from './collision';
 import { assessConstructibility } from './constructibility';
 import {
-  assessDesignConvergence, undetailedMemberCount, type DesignConvergence,
+  assessDesignConvergence, undetailedScopeCount,
+  type DesignConvergence, type ScopedMember,
 } from './design-convergence';
+import { DEFAULT_DESIGN_FAMILIES, type DesignFamily } from '../design/design-families';
 import { noFloorFamilies } from './family-record';
 import { envelopeIsComplete } from './coordination-search';
 import { materialiseLaps, lapIndex, lapBetween, type PlannedTransition, type LapInterval } from './lap-materialize';
@@ -114,6 +116,19 @@ export interface RunDetailingInput {
   /** Who is accountable for the result. */
   verifierId: string;
   demandRevision: number;
+  /**
+   * The families the user asked this run to cover.
+   *
+   * Optional, defaulting to the frame pair — which is exactly what this function has always
+   * detailed, so every existing caller keeps its behaviour. It is what `convergence` is measured
+   * against, and therefore what the resulting assemblies may CLAIM: see `design-convergence.ts`.
+   */
+  scope?: readonly DesignFamily[];
+  /**
+   * Floor families the model holds. None of them is a `MemberContext`, so this function cannot
+   * see them, and the scope qualifier on the claim would be empty without them.
+   */
+  presentFloorFamilies?: readonly DesignFamily[];
   /** Revision of the previous assemblies, so regeneration increments. */
   previousRevision?: number;
   maxAggregateSizeMm: number;
@@ -195,7 +210,12 @@ export interface DetailingReadiness {
    * `ready` and this answer two different questions and both are needed. `ready` gates the
    * command — may it run at all — and this gates the claim. Detailing a frame with refused
    * columns is an ordinary operation and stays enabled; calling the result construction
-   * documentation is not, and `wholeModelDetailed` is what refuses it.
+   * documentation is not, and `selectedScopeDetailed` is what refuses it.
+   *
+   * Measured against the SELECTED families, not the whole model: designing beams and columns on
+   * a building that also has slabs is a complete piece of work, and a global denominator would
+   * declare it permanently unconverged for slabs nobody asked to design. See
+   * `design-convergence.ts`.
    *
    * Carried here rather than computed by each caller so the two cannot disagree about which
    * members are in the drawing: `detailable` decides, and this is measured against it.
@@ -213,6 +233,25 @@ export interface DetailingReadiness {
 export function detailingReadiness(input: {
   contexts: ReadonlyMap<number, MemberContext>;
   outcomes: ReadonlyMap<number, MemberDesignOutcome>;
+  /**
+   * The families the user asked for. Defaults to the frame pair, which is what this function
+   * has always detailed.
+   *
+   * Optional so the many callers that only want `ready` and `prerequisites` are unchanged —
+   * neither of those reads it. `convergence` does, and a caller that cares about the claim
+   * passes `designRunStore.familySelection`. A default of `DEFAULT_DESIGN_FAMILIES` rather than
+   * "everything" is the conservative one here: it is the scope the frame pass actually covers.
+   */
+  scope?: readonly DesignFamily[];
+  /**
+   * Floor families the MODEL holds — slabs, walls, footings.
+   *
+   * None of them is a `MemberContext`, so this function cannot see them, and without them the
+   * qualifier on the claim would be empty on exactly the building it exists for: a frame that
+   * converged, sitting under slabs nobody designed. Supplied by the caller from the same
+   * authority `DesignFamilyPanel` reads.
+   */
+  presentFloorFamilies?: readonly DesignFamily[];
 }): DetailingReadiness {
   const prerequisites: Prerequisite[] = [];
   const detailable: number[] = [];
@@ -221,17 +260,22 @@ export function detailingReadiness(input: {
   const noStations: number[] = [];
   const suspect: number[] = [];
   /**
-   * Every member this design has to answer for.
+   * Every member of the model, with the family it belongs to.
    *
    * Collected in the same loop and by the same rule as `detailable`, so the two cannot come to
-   * disagree about the population. Convergence is the difference between these two lists, and a
-   * difference between two lists built by different rules would measure the rules.
+   * disagree about the population. Convergence is the difference between these two lists
+   * restricted to the scope, and lists built by different rules would measure the rules.
+   *
+   * The family comes from `elementType`, which for a frame context is `beam` or `column` — the
+   * two family names those types carry. Walls are skipped above and slabs and footings never
+   * reach this map; the floor pass owns them, and `assessDesignConvergence` reports whichever of
+   * them the model has as out of scope through its own member list.
    */
-  const applicable: number[] = [];
+  const members: ScopedMember[] = [];
 
   for (const [id, ctx] of input.contexts) {
     if (ctx.elementType === 'wall') continue;   // PR18 owns walls.
-    applicable.push(id);
+    members.push({ elementId: id, family: ctx.elementType });
     const outcome = input.outcomes.get(id);
     /**
      * A PROVISIONAL_BIAXIAL member is detailed, and is not thereby verified.
@@ -278,7 +322,9 @@ export function detailingReadiness(input: {
     detailable: detailable.sort((a, b) => a - b),
     prerequisites,
     convergence: assessDesignConvergence({
-      applicableIds: applicable,
+      members,
+      scope: input.scope ?? DEFAULT_DESIGN_FAMILIES,
+      alsoPresent: input.presentFloorFamilies,
       detailedIds: detailable,
       outcomes: input.outcomes,
     }),
@@ -2376,7 +2422,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
        * design has not converged. Withholding the claim on every assembly is what makes the
        * document unable to reach ISSUED, which is the outcome this condition is for.
        */
-      undetailedModelMembers: undetailedMemberCount(readiness.convergence),
+      undetailedScopeMembers: undetailedScopeCount(readiness.convergence),
     });
     const gated = evaluateState({
       bars: result.assembly.bars,

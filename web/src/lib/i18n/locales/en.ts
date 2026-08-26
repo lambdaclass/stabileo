@@ -5179,9 +5179,17 @@ const en: Record<string, string> = {
   'detailing.cmd.autoAfterDesign': 'Generate detailing automatically after a successful design',
   // What the run about to be pressed will produce. Three claims, never merged: see
   // `design-convergence.ts`.
-  'detailing.convergence.converged': 'Construction documentation: all {applicable} members detailed and verified.',
-  'detailing.convergence.proposal': 'Provisional proposal: all {applicable} members detailed, {provisional} carrying an unverified proposal.',
-  'detailing.convergence.incomplete': 'Technical detailing: {detailed} of {applicable} members. Not construction documentation.',
+  'detailing.convergence.converged': 'Construction documentation for {families}: all {applicable} members detailed and verified.',
+  'detailing.convergence.proposal': 'Provisional proposal for {families}: all {applicable} members detailed, {provisional} carrying an unverified proposal.',
+  'detailing.convergence.incomplete': 'Technical detailing for {families}: {detailed} of {applicable} members. Not construction documentation.',
+  'detailing.convergence.emptyScope': 'No family selected. Tick the families to design before this can be documentation of anything.',
+  // The qualifier, so no claim above can be read as one about the whole building.
+  'detailing.convergence.outOfScope': 'Out of scope, and present in the model: {families}.',
+  'detailing.convergence.family.column': 'columns',
+  'detailing.convergence.family.beam': 'beams',
+  'detailing.convergence.family.slab': 'slabs',
+  'detailing.convergence.family.wall': 'walls',
+  'detailing.convergence.family.footing': 'foundations',
   'detailing.convergence.refused': '{n} member(s) the design refused — change the section: {ids}',
   'detailing.convergence.unsupported': '{n} member(s) need a check this app does not implement: {ids}',
   'detailing.convergence.demandUnavailable': '{n} member(s) have no demands, section or material: {ids}',

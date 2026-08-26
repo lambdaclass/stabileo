@@ -107,7 +107,7 @@ function input(over: Partial<FloorCoordinationInput> = {}): FloorCoordinationInp
       prohibitedConflicts: 0, reverifiedMembers: 2, certificateHashMatches: 2,
       spacingNotCodeLegal: 0, spacingNotPlacementRobust: 0,
       // Both members of this fixture were detailed; nothing is outside the drawing.
-      undetailedModelMembers: 0,
+      undetailedScopeMembers: 0,
       unsupportedRules: 0, staleAssemblies: 0,
       familyRequirements: noFloorFamilies(),
     }),

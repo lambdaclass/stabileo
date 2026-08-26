@@ -36,6 +36,8 @@ import type { DetailingAssembly, ReviewState } from './assembly';
 import type { BarConflict } from './collision';
 import type { LapInterval } from './lap-materialize';
 import type { ConstructibilityAssessment } from './constructibility';
+import type { DesignConvergence } from './design-convergence';
+import type { DesignFamily } from '../design/design-families';
 import {
   certificateFreshness, finalGeometryHashOf, reinforcementHashOf,
   type FamilyCertificate, type FloorFamily, type FloorFamilyDesignRecord,
@@ -183,6 +185,27 @@ export interface DocumentModel {
   /** Rolled up across assemblies. */
   maturity: Maturity;
   assumptions: EngineMessage[];
+  /**
+   * The families this document answers for, and the ones it does not.
+   *
+   * ── Why a document carries a scope at all ──────────────────────────
+   *
+   * Because `readiness` is a statement about the ASSEMBLIES in it, and a reader takes a
+   * REVIEWED or ISSUED document to be a statement about the building. Those are the same
+   * sentence exactly when the document covers everything the building has, and a run scoped to
+   * beams and columns does not.
+   *
+   * So the scope travels with the document and out through every export. A sheet that says
+   * "issued for construction" and does not say "beams and columns; the slabs are not in this
+   * set" is a true claim that will be read as a false one, and a drawing is read on a site by
+   * someone who was not in the room when the scope was chosen.
+   *
+   * `outOfScope` names families the MODEL HAS and this document does not cover. It is empty on
+   * a building whose every family was designed, which is the only case where the unqualified
+   * reading is the right one.
+   */
+  scope: DesignFamily[];
+  outOfScope: DesignFamily[];
   /** One-line statement of what this document is. Translated at the boundary. */
   summary: EngineMessage;
 }
@@ -347,6 +370,19 @@ export function buildDocumentModel(input: {
    * silently benign.
    */
   currentRevisions?: FamilyCertificate['revisions'];
+  /**
+   * The convergence the run reported, for the scope this document states.
+   *
+   * Passed in rather than recomputed: the denominator a claim was measured against has to be the
+   * one that produced it, and a document that re-derived its own scope from the assemblies in it
+   * would always report "covers exactly what it covers" — a tautology in the shape of a
+   * measurement.
+   *
+   * Absent means the caller has no scope information, and the document reports an EMPTY scope
+   * with nothing out of it rather than inventing one. That is visible — an export with no
+   * families named — instead of silently benign.
+   */
+  convergence?: Pick<DesignConvergence, 'scope' | 'outOfScope'>;
 }): DocumentModel {
   const docAssemblies: DocumentAssembly[] = input.assemblies.map((a) => {
     const layers = [...new Set(a.bars.map((b) => b.layerId).filter(Boolean) as string[])]
@@ -484,6 +520,8 @@ export function buildDocumentModel(input: {
       ...docAssemblies.flatMap((a) => a.assumptions),
       ...docAssemblies.flatMap((a) => a.families.flatMap((r) => r.assumptions)),
     ],
+    scope: [...(input.convergence?.scope ?? [])],
+    outOfScope: [...(input.convergence?.outOfScope ?? [])],
     summary: msg(
       readiness === 'REVIEW_DRAFT'
         ? 'detailing.document.reviewDraft'

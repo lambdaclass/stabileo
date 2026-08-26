@@ -121,7 +121,7 @@ describe('rc-design-qa-8 reaches CONSTRUCTIBLE through the production path', () 
       // passes — which is the assertion that matters here: the sixteenth condition must not
       // gate a design that converged, and a fixture where it silently blocked would have made
       // the whole acceptance path unreachable rather than stricter.
-      'wholeModelDetailed',
+      'selectedScopeDetailed',
     ].sort();
     for (const a of run().assemblies) {
       const conditions = a.constructibility?.conditions ?? [];

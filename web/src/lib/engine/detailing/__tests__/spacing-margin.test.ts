@@ -118,7 +118,7 @@ describe('placementRobust gates CONSTRUCTIBLE', () => {
     unsupportedRules: 0, staleAssemblies: 0,
     // All four members drawn. This file is about the spacing margin, and a coverage
     // shortfall here would block the gate for a reason none of its tests are asking about.
-    undetailedModelMembers: 0,
+    undetailedScopeMembers: 0,
     familyRequirements: noFloorFamilies(),
   };
 

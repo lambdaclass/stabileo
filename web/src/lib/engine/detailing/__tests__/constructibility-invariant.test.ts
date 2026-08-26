@@ -42,7 +42,7 @@ const PERFECT: ConstructibilityFacts = {
   staleAssemblies: 0,
   // The drawing covers the model. Every count above is over the 248 members that were drawn;
   // this is the one that says no member of the model was left out of them.
-  undetailedModelMembers: 0,
+  undetailedScopeMembers: 0,
   // A beam/column assembly. Three requirements at `applicable: 0` is the MEASUREMENT that
   // it contains no panels, walls or footings — not an omission, which is why the field is
   // required. The family conditions are vacuously satisfied and say so.
@@ -75,7 +75,7 @@ const FLAGSHIP: ConstructibilityFacts = {
   staleAssemblies: 0,
   // The flagship's search covered all 248 members. Its defects were physical, not coverage,
   // and recording a shortfall it never had would put an invented number in a measured row.
-  undetailedModelMembers: 0,
+  undetailedScopeMembers: 0,
   // The flagship is a frame. It had no floor families on that date either.
   familyRequirements: noFloorFamilies(),
 };
@@ -166,7 +166,7 @@ describe('all sixteen conditions, one at a time', () => {
     // the exact shape of the state the condition was added for — the four verified columns of
     // a twelve-column frame, scaled up — and the whole point is that nothing else moves: every
     // other count still describes a flawless cage.
-    wholeModelDetailed: { undetailedModelMembers: 1 },
+    selectedScopeDetailed: { undetailedScopeMembers: 1 },
   };
 
   it('covers every condition in the exported list', () => {
@@ -214,10 +214,10 @@ describe('the two failure verdicts mean different things', () => {
      * geometry that is already sound. Reporting it as CONFLICTED would send the engineer to
      * the one place the answer is not.
      */
-    const a = assessConstructibility({ ...PERFECT, undetailedModelMembers: 8 });
+    const a = assessConstructibility({ ...PERFECT, undetailedScopeMembers: 8 });
     expect(a.verdict).toBe('NOT_ESTABLISHED');
     expect(constructibilityState(a)).toBe('COORDINATED');
-    expect(a.conditions.find((c) => c.condition === 'wholeModelDetailed')!.failing).toBe(8);
+    expect(a.conditions.find((c) => c.condition === 'selectedScopeDetailed')!.failing).toBe(8);
   });
 });
 
