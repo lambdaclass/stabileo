@@ -202,8 +202,10 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
 
         let diag = x[j];
 
-        // Strict mode: fail on non-SPD
-        if diag <= strict_threshold {
+        // Strict mode: fail on non-SPD. `!(diag > t)` (not `diag <= t`) so a
+        // NaN pivot — where every comparison is false — is also rejected
+        // instead of producing a NaN-filled factor reported as success.
+        if !(diag > strict_threshold) {
             return None;
         }
 
@@ -330,6 +332,18 @@ mod tests {
         assert!((x[0] - 1.0).abs() < 1e-10, "x[0]={}", x[0]);
         assert!((x[1] - 2.0).abs() < 1e-10, "x[1]={}", x[1]);
         assert!((x[2] - 3.0).abs() < 1e-10, "x[2]={}", x[2]);
+    }
+
+    #[test]
+    fn test_nan_diagonal_is_rejected() {
+        // A NaN pivot fails every `diag <= threshold` comparison, so the guard
+        // must be written as `!(diag > threshold)` to catch it.
+        let a = make_spd(&[
+            f64::NAN, 2.0, 1.0,
+            2.0, 5.0, 3.0,
+            1.0, 3.0, 6.0,
+        ], 3);
+        assert!(sparse_cholesky_solve_full(&a, &[1.0, 2.0, 3.0]).is_none());
     }
 
     #[test]
