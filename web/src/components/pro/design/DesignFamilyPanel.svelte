@@ -117,9 +117,10 @@
    * Where a family stands, in the seven states a reviewer actually distinguishes.
    *
    * The engine reports four (`designed` / `skipped` / `noElements` / `failed`). The three this
-   * adds are not new authority: `notRun` is the absence of a report, `refused` and `provisional`
-   * are counts the same report already carries, promoted to the row because "designed" with
-   * eleven refusals in it is not the same answer as "designed".
+   * adds are not new authority: `notRun` is the absence of a report, `refused` is a count the
+   * same report already carries, promoted to the row because "designed" with eleven refusals in
+   * it is not the same answer as "designed", and `provisional` is the run's provisional set
+   * scoped to this family's own members (see `provisionalOf`).
    */
   function stateOf(f: DesignFamily): { id: string; glyph: string; label: string } {
     const r = report?.families.find((x) => x.family === f);
@@ -143,13 +144,32 @@
         label: tp('design.families.state.refused', { n: r.refused }),
       };
     }
-    if (provisionalCount > 0) {
+    if (provisionalOf(f) > 0) {
       return { id: 'provisional', glyph: '◐', label: t('design.families.state.provisional') };
     }
     return { id: 'designed', glyph: '✓', label: t('design.families.state.designed') };
   }
 
-  const provisionalCount = $derived(designRunStore.provisionalIds.size);
+  /**
+   * How many of THIS family's members are provisional.
+   *
+   * `provisionalIds` is run-global: reading its size here stamped "◐ provisional" on every
+   * row — column, slab, wall, footing — after a frame run with one provisional beam. The
+   * report carries no per-family provisional count, so the row's count is derived by
+   * intersecting the global set with the family's own members: the frame families read
+   * `verificationStore.contexts`, the same map `designFamilies` split the run on, and the
+   * floor families own no member ids at all — a slab assembly never lands in
+   * `provisionalIds`, so the badge can only ever belong to a frame row.
+   */
+  function provisionalOf(f: DesignFamily): number {
+    if (f !== 'column' && f !== 'beam') return 0;
+    let n = 0;
+    for (const id of designRunStore.provisionalIds) {
+      const ctx = verificationStore.contexts.get(id);
+      if ((ctx as { elementType?: string } | undefined)?.elementType === f) n += 1;
+    }
+    return n;
+  }
 </script>
 
 <section class="families" data-testid="design-families">

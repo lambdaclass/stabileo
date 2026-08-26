@@ -323,7 +323,6 @@
 <style>
   .toolbar { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px;
     background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3); flex-shrink: 0; }
-  .code-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   /*
     Groups, not a row of buttons.
 
@@ -341,22 +340,6 @@
     color: var(--st-text-3);
   }
   .group-items { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .code-indicator {
-    display: inline-flex; align-items: baseline; gap: 6px;
-    padding: 4px 8px; border: 1px solid var(--st-surface-3); border-radius: 4px;
-    background: var(--st-surface-3); font-size: 0.78rem; white-space: nowrap;
-  }
-  .code-indicator.unbound { border-color: var(--st-hair-strong); background: var(--st-bg); }
-  .code-role { opacity: 0.7; }
-  .code-gate {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 0.78rem; color: var(--st-warn);
-  }
-  .code-gate-link {
-    background: none; border:  none; padding: 0; color: var(--st-info);
-    text-decoration: underline; cursor: pointer; font-size: inherit;
-  }
-  .code-name { font-weight: 600; }
   .cmd { padding: 4px 10px; background: var(--st-surface-3); border: 1px solid var(--st-info);
     border-radius: 4px; color: var(--st-text); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
   .cmd:hover:not(:disabled) { background: var(--st-hair-strong); }
@@ -377,7 +360,7 @@
 
   .progress { display: flex; align-items: center; gap: 8px; }
   .progress-bar { flex: 1; height: 5px; background: var(--st-surface-3); border-radius: 3px; overflow: hidden; }
-  .progress-fill { height: 100%; background: none; transition: width 0.15s linear; }
+  .progress-fill { height: 100%; background: var(--st-accent); transition: width 0.15s linear; }
   .progress-text { font-size: 0.7rem; color: var(--st-text-2); font-family: monospace; }
 
   .cmd-detailing { background: var(--st-hair-strong); }
@@ -431,22 +414,32 @@
     color: var(--st-warn);
   }
   .detailing-blockers { margin: 0.3rem 0 0; font-size: 0.76rem; opacity: 0.85; }
-  .detailing-auto { display: inline-flex; gap: 0.3rem; align-items: center; font-size: 0.76rem; margin-top: 0.3rem; }
-  .counts { display: flex; gap: 9px; flex-wrap: wrap; font-size: 0.72rem; font-family: monospace; }
-  .count { color: var(--st-text-2); }
-  .count-sep { color: var(--st-text-3); }
-  /* `.c-fail` and `.c-sect` were both `--st-accent`: the brand vermillion, reading a result
-     as though it were an action. Both go to `--st-danger`. Worth stating plainly: they were
-     ALREADY indistinguishable from each other, and still are — this fixes the token, not
-     that. */
-  .c-ok { color: var(--st-ok); } .c-warn { color: var(--st-warn); } .c-fail { color: var(--st-danger); }
-  .c-unavail { color: var(--st-text-2); } .c-stale { color: var(--st-text); }
-  .c-sect { color: var(--st-danger); } .c-exh { color: var(--st-text); } .c-unsup { color: var(--st-text-2); }
-  /* The same violet the 3-D view paints a proposal with. Deliberately still a literal while
-     its neighbours are tokens: `three/rebar-scene.ts` owns this colour as a numeric hex for a
-     Three.js material, and `run-summary-reported.test.ts` asserts that this file agrees with
-     it by value. A `var()` here would break that agreement without replacing it. */
-  .c-prov { color: #a066d3; }
+  /*
+    MERGED: the count rules are gone from here, and that is H1's own conclusion arriving by the
+    base's hand.
+
+    H1 moved the regulation read-out and the member counts OUT of this bar and into
+    `DesignOverview.svelte` — the comment at the top of the markup says so, and says nothing was
+    duplicated. What it did not do was delete the rules those elements left behind, so `.counts`,
+    `.count`, `.count-sep` and the nine `.c-*` sat here styling nothing.
+    `feat/pro-steel-family` deleted them, and measured against this file's own markup that is
+    exactly right: none of those fourteen selectors appears in it.
+
+    Nothing of H1's is lost with them. Its correction — `.c-fail` and `.c-sect` off the brand
+    `--st-accent` and onto `--st-danger`, because a result must not read as an action — lives on
+    the surface that renders the counts, where `.tone-bad` is already `--st-danger`.
+
+    `.c-prov` is the one worth naming. Its literal `#a066d3` was held equal to
+    `three/rebar-scene.ts` by a gate, and `run-summary-reported.test.ts` has since moved that
+    assertion onto the overview with the reason written into it: ".c-prov in the toolbar kept
+    this green while styling nothing". Deleting it here is what that note asks for, and the base
+    supplies the chip it asks for on the other side.
+
+    `.detailing-auto` is the exception and is NOT deleted: the markup still renders it at
+    `data-testid="detailing-auto-label"`. It is defined once now, beside `.cmd-detailing` above,
+    in the fuller form that carries the `:focus-within` outline — this second copy was a
+    duplicate that lost the focus ring.
+  */
 
   .banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     padding: 5px 9px; border-radius: 4px; font-size: 0.73rem; line-height: 1.45; }

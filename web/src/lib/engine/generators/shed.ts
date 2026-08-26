@@ -100,12 +100,21 @@ export const DEFAULT_SHED_PARAMS: ShedParams = Object.freeze({
   fixedBase: true,
 });
 
+/**
+ * The most frames the generator will repeat. A hundred frames of the default truss and
+ * latticed columns is already a building of tens of thousands of members; past it the tab
+ * hangs generating a model no on-screen solve would survive.
+ */
+export const MAX_SHED_FRAMES = 100;
+
 export function validateShedParams(p: ShedParams): ParamProblem[] {
   const out: ParamProblem[] = [];
   if (!(p.spanM > 0)) out.push({ field: 'spanM', key: 'generator.problem.spanPositive' });
   if (!(p.bayM > 0)) out.push({ field: 'spanM', key: 'generator.problem.bayPositive' });
   if (!Number.isInteger(p.frames) || p.frames < 2) {
     out.push({ field: 'panelsPerHalf', key: 'generator.problem.framesAtLeastTwo' });
+  } else if (p.frames > MAX_SHED_FRAMES) {
+    out.push({ field: 'panelsPerHalf', key: 'generator.problem.tooManyFrames' });
   }
   if (!(p.clearHeightM > 0)) out.push({ field: 'riseM', key: 'generator.problem.heightPositive' });
   if (p.roof) out.push(...validateTrussParams({ ...p.truss, spanM: p.spanM } as TrussParams));
@@ -287,6 +296,17 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
       place(b, truss, (n) => ({ x: n.x, y, z: n.z + p.clearHeightM }));
     }
   }
+
+  /*
+   * The truss's continuity assumptions survive the placement — its chords and web are
+   * still what they were — but its SUPPORT condition does not: the truss was generated
+   * with a pin and a roller at its bearings, and the shed omits those supports entirely,
+   * standing instead on the column bases below. Copying `supportsSimple` into the shed's
+   * provenance would record a bearing condition the model does not have, so it is dropped
+   * here rather than at the truss, where it is true. The base fixity that actually holds
+   * is recorded by the columns' own assumptions (`baseFixed` / `baseChordsPinned`).
+   */
+  b.assumptions.delete('generator.assume.supportsSimple');
 
   // ── Beams ──
   //

@@ -7,8 +7,9 @@
  * a lie.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
+import { historyStore } from '../history.svelte';
 import { applyGeneratedModel, matchesPreview } from '../generator-apply';
 import { generateTruss, DEFAULT_TRUSS_PARAMS } from '../../engine/generators/truss-topology';
 import { generateShed, DEFAULT_SHED_PARAMS } from '../../engine/generators/shed';
@@ -29,6 +30,36 @@ const PROFILES: EmitOptions['profiles'] = {
 const AT = '2026-08-12T00:00:00.000Z';
 
 beforeEach(() => { modelStore.clear(); });
+
+describe('applyGeneratedModel — undo', () => {
+  beforeAll(async () => {
+    // history.svelte.ts wires modelStore._setHistoryPush from a queueMicrotask.
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  it('is ONE undo step back to the model that was replaced — never the empty in-between', () => {
+    // A non-empty model on screen, then Generate over it.
+    const first = emitModel(generateLatticeColumn({ divisions: 6 }), { name: 'Columna', profiles: PROFILES });
+    applyGeneratedModel(first, { source: 'generator-lattice-column', atIso: AT, params: {} });
+    const before = { nodes: modelStore.nodes.size, elements: modelStore.elements.size };
+    expect(before.elements).toBeGreaterThan(0);
+
+    // Only the Generate under test may be on the stack.
+    historyStore.clear();
+
+    const second = emitModel(generateTruss({ panelsPerHalf: 3 }), { name: 'Cercha', profiles: PROFILES });
+    applyGeneratedModel(second, { source: 'generator-truss', atIso: AT, params: {} });
+    expect(modelStore.elements.size).toBe(second.json.elements.length);
+    expect(historyStore.undoCount).toBe(1);
+
+    historyStore.undo();
+    // The replaced model is back — not the empty model a clear-then-load pair would leave.
+    expect(modelStore.nodes.size).toBe(before.nodes);
+    expect(modelStore.elements.size).toBe(before.elements);
+    expect(modelStore.model.name).toBe('Columna');
+    expect(historyStore.canUndo).toBe(false);
+  });
+});
 
 describe('applyGeneratedModel — a truss', () => {
   it('puts exactly what the preview promised into the store', () => {

@@ -200,6 +200,32 @@
     <circle cx="11" cy="5.5" r="1.1" fill="currentColor" stroke="none" />
     <circle cx="20.5" cy="10" r="1.1" fill="currentColor" stroke="none" />
     <circle cx="12.5" cy="15" r="1.1" fill="currentColor" stroke="none" />
+  {:else if name === 'fit'}
+    <!--
+      Zoom to fit: a frame closing IN on the drawing. Four corner brackets and
+      arrows pointing inward — the shape every viewer uses for it, and legible
+      at 18 px where the ⊞ glyph it replaces read as a generic grid.
+    -->
+    <path d="M3 8V4.6a1.6 1.6 0 0 1 1.6-1.6H8" />
+    <path d="M16 3h3.4A1.6 1.6 0 0 1 21 4.6V8" />
+    <path d="M21 16v3.4a1.6 1.6 0 0 1-1.6 1.6H16" />
+    <path d="M8 21H4.6A1.6 1.6 0 0 1 3 19.4V16" />
+    <rect x="8.5" y="8.5" width="7" height="7" rx="0.6" opacity="0.5" />
+
+  {:else if name === 'stress'}
+    <!--
+      A member with the stress varying along it: the bar, and four bands of
+      increasing weight reading left to right. Not a colour ramp — these icons
+      are one stroke in `currentColor` so they tint with the button state — so
+      the gradient is carried by SPACING, which reads at 22 px where a colour
+      would not survive being greyed out.
+    -->
+    <rect x="3" y="9" width="18" height="6" rx="0.6" />
+    <path d="M7 9v6" opacity="0.35" />
+    <path d="M11 9v6" opacity="0.6" />
+    <path d="M14.5 9v6" opacity="0.8" />
+    <path d="M17.5 9v6" />
+
   {:else if name === 'examples'}
     <path d="M4 6.5h16M4 12h16M4 17.5h10" />
   {:else if name === 'project'}

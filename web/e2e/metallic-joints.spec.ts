@@ -43,8 +43,10 @@ async function generateSteel(page: Page) {
 test.describe('@smoke joint detection is scoped to metallic participation', () => {
   test('a purely concrete model offers no joints, and says why rather than showing an empty list',
     async ({ pro: page }) => {
-      // The PRO fixture is a 7-storey reinforced-concrete building: every joint in it is
-      // concrete, so the correct answer is none — not "here are 200 joints, pick one".
+      // A 7-storey reinforced-concrete building: every joint in it is concrete, so the
+      // correct answer is none — not "here are 200 joints, pick one". The bare PRO page is
+      // an EMPTY model, where "zero joints, blocked" would pass vacuously.
+      await page.evaluate(async () => { await window.__stabileoActions.loadExample('pro-edificio-7p'); });
       await openJoints(page);
       await expect(page.getByTestId('conn-sec-joints')).toHaveAttribute('data-state', 'blocked');
       await expect(page.getByTestId('conn-sec-joints-purpose')).toContainText(/no joint with any metallic member/i);

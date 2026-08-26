@@ -85,6 +85,61 @@ fn validation_stress_pure_shear() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 2b. Circular tube: τ_max = 2V/A
+// ═══════════════════════════════════════════════════════════════
+
+/// A thin circular tube peaks at TWICE the mean shear, not once.
+///
+/// Reference: the standard table of shear-shape factors — the thin tube is the
+/// κ = 2 case, beside the solid rectangle's 3/2 above and the solid circle's
+/// 4/3.
+///
+/// This is a regression guard as much as a validation. `compute_q_and_b` paired
+/// a ONE-sided first moment `t(R²−y²)` with a TWO-sided width `2t`, which
+/// reports `V/A` — exactly half. The TypeScript closed form had been corrected
+/// for that pairing and the engine had not, so the drawn diagram and the design
+/// number disagreed by a factor of two, with the engine on the low side and
+/// nothing comparing them.
+#[test]
+fn validation_stress_circular_tube_peaks_at_twice_the_mean() {
+    // CHS 300 x 8, on the mid-line: A = 2πRt, I = πR³t.
+    let d = 0.3_f64;
+    let t = 0.008_f64;
+    let r_mid = (d - t) / 2.0;
+    let a = 2.0 * std::f64::consts::PI * r_mid * t;
+    let i = std::f64::consts::PI * r_mid.powi(3) * t;
+
+    let v = 100.0_f64;
+    let input = SectionStressInput {
+        element_forces: make_ef(0.0, v, 0.0),
+        section: SectionGeometry {
+            shape: "CHS".to_string(),
+            h: d, b: d,
+            tw: None, tf: None, t: Some(t),
+            a, iy: i, iz: i, j: None,
+        },
+        fy: Some(FY),
+        t: 0.0,
+        y_fiber: None,
+    };
+    let result = compute_section_stress_2d(&input);
+
+    let peak = result.distribution.iter()
+        .map(|p| p.tau.abs())
+        .fold(0.0_f64, f64::max);
+    let mean = v / a / 1000.0; // MPa
+    let ratio = peak / mean;
+
+    // Thin-wall theory gives exactly 2; a real wall of t/R ≈ 5.5% lands a few
+    // per cent above, so the band sits above the ideal rather than around it —
+    // and it excludes 1, which is what the one-sided pairing reported.
+    assert!(
+        (1.95..=2.20).contains(&ratio),
+        "circular tube τ_max/(V/A) = {ratio:.4}, expected ≈2 (the bug reported ≈1)"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 3. Combined N+M: σ(y) = N/A + My/I, Neutral Axis Shift
 // ═══════════════════════════════════════════════════════════════
 

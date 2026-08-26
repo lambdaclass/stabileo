@@ -24,7 +24,7 @@ const RADIAL_SEGMENTS = 8;
 export type HeatmapVariable =
   | 'moment' | 'shear' | 'axial'
   | 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'torsion'
-  | 'stressRatio' | 'vonMises';
+  | 'stressRatio' | 'vonMises' | 'sigmaMax' | 'tauMax';
 
 interface SectionProps {
   A: number;
@@ -32,7 +32,13 @@ interface SectionProps {
   Iy: number;
   h: number;
   b: number;
-  fy: number;
+  /**
+   * Yield strength in kPa (the solver's stress unit), or null when the
+   * material has none. The model store carries fy in MPa; the conversion is
+   * the caller's job. Null means "utilisation cannot be computed for this
+   * member" — the painters skip it rather than assume a steel strength.
+   */
+  fy: number | null;
 }
 
 /**
@@ -63,16 +69,33 @@ function sampleValue(ef: ElementForces3D, variable: HeatmapVariable, t: number, 
     case 'shearZ':
     case 'torsion':
       return Math.abs(evaluateDiagramAt(ef, variable, t));
+    /*
+     * The four measures come from one section-stress evaluation, so offering
+     * them costs nothing beyond naming them. Normal and shear separately are
+     * what answer "is this member governed by bending or by shear" — a
+     * question the combined Von Mises deliberately blurs.
+     */
     case 'stressRatio':
-    case 'vonMises': {
+    case 'vonMises':
+    case 'sigmaMax':
+    case 'tauMax': {
       const N = evaluateDiagramAt(ef, 'axial', t);
       const Vy = evaluateDiagramAt(ef, 'shearY', t);
       const Vz = evaluateDiagramAt(ef, 'shearZ', t);
       const Mx = evaluateDiagramAt(ef, 'torsion', t);
       const My = evaluateDiagramAt(ef, 'momentY', t);
       const Mz = evaluateDiagramAt(ef, 'momentZ', t);
-      const stress = computeSectionStress(N, Vy, Vz, Mx, My, Mz, sec.A, sec.Iz, sec.Iy, sec.h, sec.b, sec.fy);
-      return variable === 'stressRatio' ? stress.ratio : stress.vonMises;
+      /*
+       * A null fy reaches the evaluation as the default only so the ABSOLUTE
+       * stresses still compute — they do not divide by anything. The ratio it
+       * then produces is fictitious, which is why the stressRatio painter
+       * skips a null-fy member upstream instead of sampling it.
+       */
+      const stress = computeSectionStress(N, Vy, Vz, Mx, My, Mz, sec.A, sec.Iz, sec.Iy, sec.h, sec.b, sec.fy ?? 355_000);
+      return variable === 'stressRatio' ? stress.ratio
+        : variable === 'vonMises' ? stress.vonMises
+        : variable === 'sigmaMax' ? stress.sigmaMax
+        : stress.tauMax;
     }
   }
 }

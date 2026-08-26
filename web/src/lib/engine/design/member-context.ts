@@ -287,6 +287,12 @@ export function buildMemberContext(
  * metallic surface lists them, with a census that says how many there are — see
  * `steel/steel-inventory.ts` — so nothing disappears, it just stops being counted as
  * concrete that failed.
+ *
+ * `unknown` is the exception that stays: a member whose material is missing or
+ * unclassifiable is not metallic, it is unfinished input. Omitting it would make "you
+ * forgot to set a material" indistinguishable from "this member does not exist", so it
+ * keeps its context and reaches the table blocked on `missingMaterial` — a visible row
+ * the user can act on, exactly as before the metallic exclusion existed.
  */
 export function buildAllMemberContexts(
   model: ContextModelData,
@@ -296,7 +302,7 @@ export function buildAllMemberContexts(
   for (const id of model.elements.keys()) {
     const ctx = buildMemberContext(id, model, opts);
     if (!ctx) continue;
-    if (ctx.materialFamily !== 'concrete') continue;
+    if (ctx.materialFamily !== 'concrete' && ctx.materialFamily !== 'unknown') continue;
     out.set(id, ctx);
   }
   return out;

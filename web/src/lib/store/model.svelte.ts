@@ -40,6 +40,10 @@ import type { ModelProvenance } from '../model/provenance';
 export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
+// Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
+// hoisted function declaration and is only ever CALLED at runtime (clear(),
+// below), never during module initialisation.
+import { resetSwitchBackup } from './switch-2d';
 
 export interface Node {
   id: number;
@@ -2266,6 +2270,11 @@ function createModelStore() {
       model.provenance = undefined;
       lastKinematicResult = null;
       uiStore.useNative3DPresentation();
+      // Whatever a 3D→2D switch was holding for restore belongs to the model
+      // that just ceased to exist; keeping it would let a later "restore 3D"
+      // overwrite the NEXT model. (File open is covered in file.ts; undo/redo
+      // deliberately is not — see switch-2d.ts.)
+      resetSwitchBackup();
     },
 
     /** Replace model geometry data in-place (for simplified 2D model swap). No undo. */

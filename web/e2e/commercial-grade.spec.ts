@@ -158,7 +158,7 @@ test.describe('the steel a profile arrives in', () => {
 
     // An IPN and an American steel: buildable, but not what any mill stocks.
     await chooseProfileForSharedSection(page, /CIRSOC/, 5);
-    await openTab(page, 'Elements');
+    await openTab(page, 'Members');
     await expect(page.locator('.pairing-note')).toHaveCount(0);
 
     const select = page.locator('table select').first();
@@ -181,7 +181,7 @@ test.describe('the steel a profile arrives in', () => {
       await page.waitForTimeout(400);
       await page.locator('.profile-row').nth(2).click();
       await page.waitForTimeout(800);
-      await openTab(page, 'Elements');
+      await openTab(page, 'Members');
     }
 
     const opts2 = await page.locator('table select').first().evaluate((el) =>

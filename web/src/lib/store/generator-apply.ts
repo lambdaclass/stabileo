@@ -65,11 +65,16 @@ export function applyGeneratedModel(g: GeneratedModel, opts: ApplyOptions): Appl
   };
 
   // The same path `loadExample` takes: one undo step, one bulk mutation, and the canonical
-  // section state settled once at the end rather than per section as they arrive.
+  // section state settled once at the end rather than per section as they arrive. The batch
+  // wrapper is what makes it ONE undo step — without it `clear()` pushes a snapshot and
+  // `bulkMutate()` pushes a second one (of the now-empty model), so the first Ctrl+Z would
+  // restore nothing and the promise in `generator.ui.replacesModel` would be a lie.
   const api = modelStore.fixtureApi();
-  modelStore.clear();
-  modelStore.bulkMutate(() => {
-    loadFixture({ ...g.json, name: opts.name ?? g.json.name }, api as never);
+  modelStore.batch(() => {
+    modelStore.clear();
+    modelStore.bulkMutate(() => {
+      loadFixture({ ...g.json, name: opts.name ?? g.json.name }, api as never);
+    });
   });
   modelStore.refreshCanonicalSections();
   modelStore.model.provenance = provenance;

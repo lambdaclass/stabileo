@@ -34,7 +34,7 @@
  * identity, and never the prose.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, openBasicProjectPanel } from './fixtures';
 import type { Page } from '@playwright/test';
 import { CIRSOC_VERIFIER_ID } from '../src/lib/engine/design/adapters/cirsoc201-adapter';
 
@@ -55,9 +55,10 @@ const EXPECTED_VERIFIER = `${CIRSOC_VERIFIER_ID}.2025`;
 async function openProject(page: Page) {
   await page.locator('[data-tour="mode-toggle"] button').first().click();
   // Desktop Básico is the ribbon, and the project controls live in a panel it opens —
-  // `BasicPanel` renders `ToolbarProject`, so the input is not attached on load. Third
-  // copy of this helper; `rc-cad-handoff.spec.ts` carries the same opening click.
-  await page.getByTestId('hdr-project').click();
+  // `BasicPanel` renders `ToolbarProject`, so the input is not attached on load. The
+  // shared opener clicks conditionally: `hdr-project` toggles, and a journey that
+  // already has the panel open would CLOSE it with an unconditional click.
+  await openBasicProjectPanel(page);
   const input = page.getByTestId('project-open-file');
   await expect(input).toBeAttached();
   await input.setInputFiles(FIXTURE);

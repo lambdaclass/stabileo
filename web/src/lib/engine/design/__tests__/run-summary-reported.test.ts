@@ -47,6 +47,8 @@ const TOOLBAR_FILES = [
 
 const outcomeSrc = readFileSync(OUTCOME, 'utf8');
 const toolbarSrc = TOOLBAR_FILES.map((f) => readFileSync(f, 'utf8')).join('\n');
+/** The surface the provisional chip actually renders on — the violet claim is about THIS file. */
+const overviewSrc = readFileSync(TOOLBAR_FILES[1], 'utf8');
 
 /**
  * The summary field each outcome is tallied into, read from the switch that does it.
@@ -117,9 +119,27 @@ describe('every design-run bucket reaches the user', () => {
   it('gives the proposals their own chip, with the violet the rest of the app uses', () => {
     // Named separately because this is the one that was missing, and because the colour is
     // load-bearing: violet means "proposal" in the 3-D view and the detailing panel too.
-    expect(toolbarSrc).toContain('data-testid="summary-count-provisional"');
-    expect(toolbarSrc).toContain("t('design.counts.provisional')");
-    expect(toolbarSrc).toContain('#a066d3');
+    // Asserted against the overview itself — the chip and its tone must live on the same
+    // surface, or the violet could be supplied by a rule nothing references (it was:
+    // `.c-prov` in the toolbar kept this green while styling nothing).
+    expect(overviewSrc).toContain('data-testid="summary-count-provisional"');
+    expect(overviewSrc).toContain("t('design.counts.provisional')");
+    /*
+     * The TOKEN, not the hex.
+     *
+     * This asserted `#a066d3` literally, because when it was written there was no name for that
+     * colour and the only way to hold the chip equal to `three/rebar-scene.ts` was to compare two
+     * copies of a hex. `--st-provisional` exists now, and rule 3 of `shared-status-tokens.test.ts`
+     * holds it equal to what Three.js paints as a RESOLVED colour — a stronger guarantee than
+     * two literals that happen to match, and one that survives a palette change.
+     *
+     * The claim is unchanged: this chip carries the proposal violet, and it is the same violet
+     * the viewport uses.
+     */
+    expect(overviewSrc, 'the provisional chip carries the proposal violet')
+      .toContain('var(--st-provisional)');
+    expect(overviewSrc, 'the chip row uses the violet tone').toMatch(
+      /tone-prov[^"]*"[^>]*data-testid="summary-count-provisional"/);
   });
 
   it('drives that chip from the DISPLAY count, not from the run outcome', () => {

@@ -104,6 +104,8 @@
   import SectionStressPanel from './components/SectionStressPanel.svelte';
   import KinematicPanel from './components/KinematicPanel.svelte';
   import StressPickHint from './components/stress/StressPickHint.svelte';
+  import ColourScaleLegend from './components/ColourScaleLegend.svelte';
+  import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
@@ -931,15 +933,15 @@
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
         <ProRibbon
-          onExamples={(btn) => proPanelRef?.examples(btn)}
-          onSolve={() => proPanelRef?.solve()}
-          onReport={() => proPanelRef?.report()}
+          onExamples={(btn) => { uiStore.proPanelVisible = true; proPanelRef?.examples(btn); }}
+          onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
+          onReport={() => { uiStore.proPanelVisible = true; proPanelRef?.report(); }}
           canSolve={proPanelRef?.canSolve() ?? false}
           canReport={proPanelRef?.canReport() ?? false}
           isSolving={proPanelRef?.isSolving() ?? false}
           errorCount={proPanelRef?.errorCount() ?? 0}
           proPanel={uiStore.proActiveTab}
-          onOpenProject={() => (uiStore.proActiveTab = 'project')}
+          onOpenProject={() => { uiStore.proActiveTab = 'project'; uiStore.proPanelVisible = true; }}
         />
     {/if}
 
@@ -981,14 +983,50 @@
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <StressPickHint />
+        <!-- The colour map's scale. One component for both viewports: the ramp
+             is defined once, so the legend that explains it should be too. -->
+        <ColourScaleLegend />
         {#if uiStore.simplified2DMode}
+          {@const st = uiStore.simplified2DStats}
           <div class="simplified-banner">
-            <span>{t('app.simplified2d.banner')}</span>
-            {#if uiStore.simplified2DStats}
+            <!--
+              A slice and a projection are different models with different
+              things wrong with them, and the banner is the only place that
+              says which one you are looking at. "Simplified" covered both and
+              told you nothing about either — a cut at Y = 6 is not simplified,
+              it is one frame of the building, and reading its results as the
+              whole structure's is the mistake this line exists to prevent.
+            -->
+            <span>
+              {#if st?.offset !== undefined && st.plane}
+                {t('switch2d.sliceBanner')} — {st.plane === 'xy' ? 'Z' : st.plane === 'xz' ? 'Y' : 'X'} = {st.offset} m
+              {:else}
+                {t('app.simplified2d.banner')}
+              {/if}
+            </span>
+            {#if st}
               <span class="simplified-stats">
-                {uiStore.simplified2DStats.mergedNodes > 0 ? `${uiStore.simplified2DStats.mergedNodes} ${t('app.simplified2d.merged')}` : ''}
-                {uiStore.simplified2DStats.removedElements > 0 ? ` · ${uiStore.simplified2DStats.removedElements} ${t('app.simplified2d.removed')}` : ''}
-                {uiStore.simplified2DStats.duplicateElements > 0 ? ` · ${uiStore.simplified2DStats.duplicateElements} ${t('app.simplified2d.duplicates')}` : ''}
+                {st.mergedNodes > 0 ? `${st.mergedNodes} ${t('app.simplified2d.merged')}` : ''}
+                {st.removedElements > 0 ? ` · ${st.removedElements} ${t('app.simplified2d.removed')}` : ''}
+                {st.duplicateElements > 0 ? ` · ${st.duplicateElements} ${t('app.simplified2d.duplicates')}` : ''}
+                {(st.droppedCrossing ?? 0) + (st.droppedElsewhere ?? 0) > 0
+                  ? ` · ${(st.droppedCrossing ?? 0) + (st.droppedElsewhere ?? 0)} ${t('switch2d.leftBehind')}`
+                  : ''}
+                <!--
+                  And the load, which is the one that has to survive to HERE.
+                  The dialog warns before the cut; this banner is what stays on
+                  screen while the results are read. Missing members make a
+                  frame look weaker than it is, and a reader distrusts it.
+                  Missing LOAD makes it look stronger — it solves, reports zero,
+                  and reads as safe — so the count belongs in the standing
+                  context and not only in the moment before the decision.
+                -->
+                {#if (st.droppedLoads ?? 0) > 0}
+                  <!-- Its own element, with a test id, so the guard on it can
+                       be written without pinning a translated string. -->
+                  <span data-testid="s2d-dropped-loads" data-count={st.droppedLoads}
+                  >{' · '}{st.droppedLoads} {t('switch2d.loadsLeftBehind')}</span>
+                {/if}
               </span>
             {/if}
           </div>
@@ -1041,8 +1079,24 @@
     {/if}
 
     {#if !uiStore.isMobile}
-      {#if uiStore.appMode === 'pro' && uiStore.proPanelVisible}
-        <aside class="sidebar right pro-sidebar" style:width="{uiStore.proPanelWidth}px" style:overflow="visible">
+      {#if uiStore.appMode === 'pro'}
+        <!--
+          Closed means hidden, not unmounted.
+          ─────────────────────────────────────
+          The ribbon is bound to this panel's instance (`bind:this`): Solve, Report,
+          the example menu and the MODEL badge's error count all live on it. The ✕
+          used to unmount the panel, which nulled that binding — the ribbon's
+          commands silently no-opped and the badge read "✓ clean" on a model with
+          errors. Hiding keeps the instance alive, so closing the panel changes
+          what you see and nothing else. Both viewports resize themselves with a
+          ResizeObserver, so the canvas follows without help.
+        -->
+        <aside
+          class="sidebar right pro-sidebar"
+          class:pro-sidebar-closed={!uiStore.proPanelVisible}
+          style:width="{uiStore.proPanelWidth}px"
+          style:overflow="visible"
+        >
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div class="pro-resize-handle" onmousedown={(e) => startProResize(e)}></div>
           <!--
@@ -1065,20 +1119,21 @@
           >×</button>
           <ProPanel bind:this={proPanelRef} />
         </aside>
-      {:else if uiStore.appMode === 'pro' && !uiStore.proPanelVisible && !uiStore.isMobile}
-        <!-- A closed panel has to be reopenable from where it closed. -->
-        <!--
-          A bare chevron on the canvas edge is not a clue. It says what it
-          reopens, running up the tab, so a panel you closed is findable
-          without hunting for a 16 px strip.
-        -->
-        <button
-          class="pro-panel-reopen"
-          onclick={() => { uiStore.proPanelVisible = true; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }}
-          title={t('proRibbon.reopenPanel')}
-          aria-label={t('proRibbon.reopenPanel')}
-          data-testid="pro-panel-reopen"
-        ><span class="ppr-text">‹ {t('proRibbon.reopenPanel')}</span></button>
+        {#if !uiStore.proPanelVisible}
+          <!-- A closed panel has to be reopenable from where it closed. -->
+          <!--
+            A bare chevron on the canvas edge is not a clue. It says what it
+            reopens, running up the tab, so a panel you closed is findable
+            without hunting for a 16 px strip.
+          -->
+          <button
+            class="pro-panel-reopen"
+            onclick={() => { uiStore.proPanelVisible = true; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }}
+            title={t('proRibbon.reopenPanel')}
+            aria-label={t('proRibbon.reopenPanel')}
+            data-testid="pro-panel-reopen"
+          ><span class="ppr-text">‹ {t('proRibbon.reopenPanel')}</span></button>
+        {/if}
       {:else if uiStore.appMode === 'educativo'}
         <aside class="sidebar right edu-sidebar">
           <EducativePanel />
@@ -1225,6 +1280,13 @@
 <ContextMenu />
 
 <HelpOverlay />
+
+<!--
+  Modal over the whole app, so it sits with the other dialogs rather than
+  inside the viewport: what it decides replaces the model, which is not a
+  viewport-scoped act.
+-->
+<SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
 
 <DxfImportDialog
   open={showDxfImport}
@@ -1524,6 +1586,11 @@
     position: relative;
     z-index: 40;
     flex-shrink: 0;
+  }
+
+  /* Hidden, not unmounted — see the aside's comment in the markup above. */
+  .pro-sidebar-closed {
+    display: none;
   }
 
   /* ─── PRO command bar with dropdowns ─── */

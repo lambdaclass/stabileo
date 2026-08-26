@@ -126,6 +126,13 @@ export const DEFAULT_TRUSS_PARAMS: TrussParams = Object.freeze({
   webContinuity: 'truss',
 });
 
+/**
+ * The most panels per half the generator will build. Two hundred panels is already a
+ * truss of ~800 members — far past anything the shipped examples ask for — and past it
+ * the panel spends minutes on a model nobody can solve on screen.
+ */
+export const MAX_PANELS_PER_HALF = 100;
+
 // ─── Output ──────────────────────────────────────────────────────────
 
 export interface GenNode {
@@ -199,10 +206,16 @@ export function validateTrussParams(p: TrussParams): ParamProblem[] {
   if (!(p.spanM > 0)) bad('spanM', 'generator.problem.spanPositive');
   if (!Number.isInteger(p.panelsPerHalf) || p.panelsPerHalf < 1) {
     bad('panelsPerHalf', 'generator.problem.panelsAtLeastOne');
+  } else if (p.panelsPerHalf > MAX_PANELS_PER_HALF) {
+    // A count, not a proportion: past this the tab spends minutes building a truss nobody
+    // can solve on screen. Refused here rather than hung on.
+    bad('panelsPerHalf', 'generator.problem.tooManyPanels');
   }
-  if (p.endDepthM < 0) bad('endDepthM', 'generator.problem.negative');
-  if (p.riseM < 0) bad('riseM', 'generator.problem.negative');
-  if (p.plateauM < 0) bad('plateauM', 'generator.problem.negative');
+  // `!(x >= 0)`, not `x < 0`: NaN fails the first and passes the second, and a NaN depth
+  // would sail through into the geometry.
+  if (!(p.endDepthM >= 0)) bad('endDepthM', 'generator.problem.negative');
+  if (!(p.riseM >= 0)) bad('riseM', 'generator.problem.negative');
+  if (!(p.plateauM >= 0)) bad('plateauM', 'generator.problem.negative');
 
   if (p.kind === 'trapezoidal' && p.plateauM >= p.spanM) {
     bad('plateauM', 'generator.problem.plateauExceedsSpan');
@@ -428,7 +441,13 @@ function rolledPortal(p: TrussParams, assumptions: string[]): Topology {
 function slopeOf(p: TrussParams): number | null {
   if (p.kind === 'pratt' || p.kind === 'arch') return null;
   if (p.riseM === 0) return null;
-  const run = p.halfTruss ? p.spanM : p.spanM / 2;
+  let run = p.halfTruss ? p.spanM : p.spanM / 2;
+  // The plateau shortens the run the rise is climbed over — `pitchRise` spends it on
+  // `half − flatHalf`, so the reported slope has to be measured over the same run or the
+  // number and the roof disagree (and the purlins roll to the roof, not to the number).
+  if (!p.halfTruss && p.kind === 'trapezoidal') {
+    run -= Math.min(p.plateauM, p.spanM * 0.999) / 2;
+  }
   if (run <= 0) return null;
   return (p.riseM / run) * 100;
 }

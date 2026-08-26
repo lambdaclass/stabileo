@@ -22,8 +22,9 @@
  *    reinforcement-only edit" directly, instead of inferring it from timing.
  *  - the revision counters replace arbitrary waits with `expect.poll` on real state.
  *
- * Nothing here mutates app state except `loadExample`, which is the same call the
- * examples menu makes. The bundle cost is trivial and the object is absent unless the
+ * Nothing here mutates app state except `loadExample` (the same call the
+ * examples menu makes) and `clearSelection` (the same call pressing Escape
+ * makes). The bundle cost is trivial and the object is absent unless the
  * query flag is present, so production pages never expose it.
  */
 
@@ -104,9 +105,31 @@ export interface StabileoTestHooks {
     reasonKeys: string[];
   } | null;
   selection(): number[];
+  /**
+   * Everything selected, by kind.
+   *
+   * `selection()` reports members alone, which is enough while a selection can
+   * only BE members. It cannot answer whether a drag in Supports mode picked
+   * up the supports it drew a rectangle around — the question that mattered
+   * when three of the four filters silently selected nothing.
+   */
+  selectionByKind(): { nodes: number[]; elements: number[]; supports: number[]; loads: number[] };
+  /** Which kinds a drag is currently armed to pick up. */
+  armedKinds(): string[];
+  /** How many nodes and supports the model holds — what a delete must not touch. */
+  nodeCount(): number;
+  supportCount(): number;
   reinforcement(elementId: number): unknown;
   rebarSummary(elementId: number): string;
   elementIds(): number[];
+  /**
+   * The names of the sections in the model, e.g. `HEB 220`.
+   *
+   * Added so a spec can assert that the profile a selector hands back is the id the
+   * generator stores — without it the only observable was the trigger's display text,
+   * which says nothing about what landed in the model.
+   */
+  sectionNames(): string[];
   orientationSuspectCount(): number;
   undoCount(): number;
   /** Non-background pixel count of the main canvas — a blank-render sanity check. */
@@ -180,6 +203,8 @@ export interface StabileoTestHooks {
  */
 export interface StabileoTestActions {
   loadExample(name: string): Promise<void>;
+  /** Reset the selection between gestures — the position, not the subject. */
+  clearSelection(): void;
   /** Runs the same global solve the toolbar button triggers. */
   solve(): Promise<void>;
   /** Activate the RC Design tab (the table only exists while it is selected). */
@@ -319,9 +344,22 @@ export function installE2EHooks(): void {
       };
     },
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
+    armedKinds: () => [...uiStore.selectKinds].sort(),
+    nodeCount: () => modelStore.nodes.size,
+    supportCount: () => modelStore.supports.size,
+    selectionByKind: () => {
+      const sorted = (s: Iterable<number>) => [...s].sort((a, b) => a - b);
+      return {
+        nodes: sorted(uiStore.selectedNodes),
+        elements: sorted(uiStore.selectedElements),
+        supports: sorted(uiStore.selectedSupports),
+        loads: sorted(uiStore.selectedLoads),
+      };
+    },
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
+    sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,
@@ -371,6 +409,8 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    /** Reset the selection between gestures — the position, not the subject. */
+    clearSelection: () => { uiStore.clearSelection(); },
     solve: async () => { await runGlobalSolve(); },
     openDesignTab: () => { uiStore.proActiveTab = 'design'; },
     computeDemands: () => designRunStore.computeDemands(),

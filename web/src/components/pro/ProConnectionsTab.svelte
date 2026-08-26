@@ -1,7 +1,6 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { steelStore } from '../../lib/store/steel.svelte';
-  import { isSteel } from '../../lib/engine/steel/material-family';
   import { t, tp } from '../../lib/i18n';
   /*
    * The concrete workflow's section shell, reused rather than reinvented.
@@ -33,32 +32,43 @@
    *
    * The classification is the one the metallic inventory already computes — same verdict,
    * same inference rules, same provenance — so this panel and the Profile design panel cannot
-   * disagree about what is metallic.
+   * disagree about what is metallic. No `isSteel` re-filter here: the inventory only ever
+   * contains steel verdicts (`steel-inventory.ts` skips every non-steel element).
    */
   const metallicElementIds = $derived(new Set(
-    steelStore.members.filter((m) => isSteel(m.family)).map((m) => m.elementId),
+    steelStore.members.map((m) => m.elementId),
   ));
 
   // ─── Joint detection (reactive) ──────────────
-  const joints = $derived.by(() => {
+  const detected = $derived.by(() => {
     void(modelStore.nodes.size + modelStore.elements.size + modelStore.supports.size);
-    return detectJoints(modelStore.nodes, modelStore.elements as any, modelStore.supports as any, {
-      isMetallic: (id) => metallicElementIds.has(id),
-    });
+    return detectJoints(modelStore.nodes, modelStore.elements as any, modelStore.supports as any);
   });
 
   /**
-   * Joints the filter removed — counted, not silently dropped.
+   * One detection pass, two views of it.
    *
-   * A panel that quietly shows fewer rows than the model has joints is a panel a user will
-   * eventually distrust. Saying "14 non-metallic joints are not listed here" is both the
-   * honest version and the more useful one: it tells them the filter is working.
+   * The unfiltered run returns every joint; the metallic split `detectJoints` would compute
+   * from its `isMetallic` predicate is applied here instead, against the same set the
+   * predicate would have closed over — a joint stays listed while at least one of its
+   * members is metallic. Running detection a second time just to count what the filter
+   * dropped would re-walk every node and element on every model change.
+   *
+   * Joints the filter removes are counted, not silently dropped. A panel that quietly
+   * shows fewer rows than the model has joints is a panel a user will eventually
+   * distrust. Saying "14 non-metallic joints are not listed here" is both the honest
+   * version and the more useful one: it tells them the filter is working.
    */
-  const allJointCount = $derived.by(() => {
-    void(modelStore.nodes.size + modelStore.elements.size + modelStore.supports.size);
-    return detectJoints(modelStore.nodes, modelStore.elements as any, modelStore.supports as any).length;
-  });
-  const hiddenJointCount = $derived(Math.max(0, allJointCount - joints.length));
+  const joints = $derived(detected.flatMap((j) => {
+    const metallic = j.elementIds.filter((id) => metallicElementIds.has(id));
+    if (metallic.length === 0) return [];
+    return [{
+      ...j,
+      metallicElementIds: metallic,
+      nonMetallicElementIds: j.elementIds.filter((id) => !metallicElementIds.has(id)),
+    }];
+  }));
+  const hiddenJointCount = $derived(detected.length - joints.length);
 
   let selectedJointId = $state<number | null>(null);
 
@@ -569,17 +579,10 @@
   }
   .conn-btn-auto:hover { background: rgba(127, 212, 204, 0.1); }
   .conn-btn-verify {
-    padding: 4px 12px; font-size: 0.72rem; font-weight: 600; color: var(--st-bg);
-    background: none; border:  1px solid var(--st-hair); border-radius: 4px; cursor: pointer;
+    padding: 4px 12px; font-size: 0.72rem; font-weight: 600; color: var(--st-text);
+    background: var(--st-surface-3); border:  1px solid var(--st-info); border-radius: 4px; cursor: pointer;
   }
-  .conn-btn-verify:hover { background: var(--st-surface-3); }
-
-  .conn-ratio-badge {
-    font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 8px; margin-left: auto;
-  }
-  .conn-ratio-badge.st-ok { background: rgba(34, 204, 102, 0.2); color: var(--st-ok); }
-  .conn-ratio-badge.st-warn { background: rgba(217, 164, 65, 0.2); color: var(--st-warn); }
-  .conn-ratio-badge.st-fail { background: rgba(229, 72, 42, 0.2); color: var(--st-accent); }
+  .conn-btn-verify:hover { background: var(--st-hair-strong); }
 
   .conn-result-card {
     padding: 6px 8px; border-radius: 4px; font-size: 0.7rem;
@@ -592,5 +595,5 @@
   .conn-status-icon { font-size: 0.85rem; }
   .conn-status-icon.st-ok { color: var(--st-ok); }
   .conn-status-icon.st-warn { color: var(--st-warn); }
-  .conn-status-icon.st-fail { color: var(--st-accent); }
+  .conn-status-icon.st-fail { color: var(--st-danger); }
 </style>
