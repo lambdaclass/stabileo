@@ -97,6 +97,46 @@ describe('a built choice', () => {
   it('has no composition: there is no catalogue part to name', () => {
     expect(toSectionFields(built, 0)!.composition).toBeUndefined();
   });
+
+  /*
+   * The four thicknesses, which this branch used to drop.
+   *
+   * `computeSectionProperties` returns `tw`, `tf`, `t` and `tl`; the built branch copied `a`,
+   * `iy`, `iz`, `j`, `b`, `h` and `shape` and stopped. For a section with no catalogue entry
+   * those four ARE the outline: `resolveCanonicalSection` switches on `shape` and calls
+   * `need('b','h','tw','tf')`, so a lipped channel built through the modal came back
+   * `properties-only` with `missing: ['tw','tf']` — undrawn, unextruded, and invisible to every
+   * clause helper that dispatches on shape. The effect is asserted in
+   * `built-section-contract.test.ts`; this pins the record itself.
+   */
+  it('carries the wall thicknesses, which the outline is made of', () => {
+    const c: SectionChoice = {
+      kind: 'built', name: 'C 200', shapeType: 'C-custom',
+      params: { h: 0.2, b: 0.075, tw: 0.006, tf: 0.009, tl: 0.004 },
+      props: {
+        a: 3e-3, iy: 1e-5, iz: 1e-6, b: 0.075, h: 0.2, shape: 'C',
+        tw: 0.006, tf: 0.009, tl: 0.004,
+      },
+      rotationDeg: 'auto',
+    };
+    const f = toSectionFields(c, 0)!;
+    expect(f.tw).toBe(0.006);
+    expect(f.tf).toBe(0.009);
+    // The lip is its own input: `createSectionShape` substitutes the FLANGE when it is absent,
+    // so a dropped `tl` draws a different section from the one whose properties were computed.
+    expect(f.tl).toBe(0.004);
+  });
+
+  /*
+   * And absent stays absent. A rectangle has no wall, and writing `tw: undefined` onto the
+   * section would be a key that reads as a dimension nobody set rather than one that does not
+   * apply — `need()` treats both as missing, but the record should not claim the question was
+   * asked.
+   */
+  it('writes no thickness for a shape that has none', () => {
+    const f = toSectionFields(built, 0)!;
+    for (const k of ['tw', 'tf', 't', 'tl'] as const) expect(k in f).toBe(false);
+  });
 });
 
 describe('isStandard', () => {

@@ -59,6 +59,25 @@ export interface SectionFields {
   b?: number;
   h?: number;
   shape?: string;
+  /*
+   * The wall thicknesses, for a BUILT section only.
+   *
+   * A catalogue pick does not need them here: `resolveCanonicalSection` finds the entry from
+   * the name and reads the published `tw`/`tf`/`t`/`r` off the catalogue, which is the only
+   * authority for a rolled profile's outline. A built section has no entry, so the resolver
+   * switches on `shape` and reads these four off the section itself — and `need()` treats an
+   * absent one as a missing dimension.
+   *
+   * Leaving them out is therefore not a smaller record, it is a section with no geometry:
+   * measured, `properties-only` with `missing: ['tw','tf']` for a lipped channel built through
+   * the modal, against `geometry-backed` for the identical section built through the tab it
+   * replaces. Undrawn, unextruded, and outside every clause helper that dispatches on shape.
+   */
+  tw?: number;
+  tf?: number;
+  t?: number;
+  /** Lip thickness, C-channel only. `createSectionShape` substitutes `tf` when it is absent. */
+  tl?: number;
 }
 
 /**
@@ -127,6 +146,11 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
     ...(props.j !== undefined ? { j: props.j } : {}),
     ...(props.b !== undefined ? { b: props.b } : {}),
     ...(props.h !== undefined ? { h: props.h } : {}),
+    // The four the resolver needs for a section with no catalogue entry. See `SectionFields`.
+    ...(props.tw !== undefined ? { tw: props.tw } : {}),
+    ...(props.tf !== undefined ? { tf: props.tf } : {}),
+    ...(props.t !== undefined ? { t: props.t } : {}),
+    ...(props.tl !== undefined ? { tl: props.tl } : {}),
     shape: props.shape,
   };
 }
