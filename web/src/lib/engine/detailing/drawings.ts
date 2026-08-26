@@ -35,6 +35,7 @@ import { tAt } from '../../i18n/store.svelte';
 import { formatClause, type ClauseRef } from '../../codes/regulation';
 import type { BarConflict } from './collision';
 import type { BarMark, DetailingAssembly, UnsupportedCondition } from './assembly';
+import type { RcTitleBlockCode } from './title-block-config';
 
 // ─── Projection ──────────────────────────────────────────────────
 
@@ -86,6 +87,24 @@ export type SheetKind =
 export interface TitleBlock {
   sheetNumber: string;
   title: string;
+  /**
+   * The works, the stage and the office — the author's half of the rótulo.
+   *
+   * Absent when the project has not been identified, and that absence is printed as nothing.
+   * Every export used to be headed `t('detailing.doc.project')` — a translated word meaning
+   * "Project" — and a drawing set whose every sheet says "Proyecto" identifies nothing.
+   */
+  project?: string;
+  subtitle?: string;
+  office?: string;
+  /**
+   * The norms this sheet is produced under, verified ones first.
+   *
+   * The app's half, and read-only for a reason `title-block-config.ts` states: the verification
+   * ran against exactly these, so a field that could disagree with the run would make every
+   * sheet in the set unfalsifiable. An author's own declarations ride here too and are marked.
+   */
+  codes?: RcTitleBlockCode[];
   /** e.g. 'CIRSOC 201 2025'. */
   codeEdition: string;
   /** Clauses the content on this sheet was produced under. */
@@ -217,13 +236,29 @@ export function buildTitleBlock(opts: {
   assembly: DetailingAssembly;
   clauses: readonly ClauseRef[];
   scale?: number;
+  /**
+   * The rótulo the project configured. Absent on a project that has identified nothing.
+   *
+   * Passed in rather than read, for the reason every input to this module is: a title block is
+   * a claim a SHEET makes, and a pure builder that reached into live state could stamp one
+   * sheet with a project name edited after the drawing it heads was produced.
+   */
+  rotulo?: {
+    project?: string; subtitle?: string; office?: string;
+    codes?: readonly RcTitleBlockCode[];
+  };
 }): TitleBlock {
   const a = opts.assembly;
   const superseded = a.review !== undefined && a.review.revision !== a.detailingRevision;
   const unique = [...new Set(opts.clauses.map(formatClause))].sort();
+  const r = opts.rotulo;
   return {
     sheetNumber: opts.sheetNumber,
     title: opts.title,
+    ...(r?.project ? { project: r.project } : {}),
+    ...(r?.subtitle ? { subtitle: r.subtitle } : {}),
+    ...(r?.office ? { office: r.office } : {}),
+    ...(r?.codes && r.codes.length > 0 ? { codes: [...r.codes] } : {}),
     codeEdition: `CIRSOC 201 ${a.provenance.edition}`,
     clauses: unique,
     revision: a.detailingRevision,
@@ -379,6 +414,11 @@ export interface ElevationInput {
   extraPolylines?: readonly DrawnPolyline[];
   /** Notes to print under the standard ones: what could not be drawn, what was not dimensioned. */
   extraNotes?: readonly string[];
+  /** The project's rótulo, stamped on the title block. See `buildTitleBlock`. */
+  rotulo?: {
+    project?: string; subtitle?: string; office?: string;
+    codes?: readonly RcTitleBlockCode[];
+  };
 }
 
 /**
@@ -453,6 +493,7 @@ export function drawElevation(input: ElevationInput): Sheet {
     title: buildTitleBlock({
       sheetNumber: input.sheetNumber, title: input.title,
       assembly: input.assembly, clauses: input.clauses, scale: input.scale,
+      rotulo: input.rotulo,
     }),
     polylines, circles, texts, dimensions,
     notes: [
@@ -505,6 +546,11 @@ export interface SectionInput {
   /** The specified cover line, in the same section coordinates as `outline`. */
   coverLine?: readonly Pt2[];
   extraNotes?: readonly string[];
+  /** The project's rótulo, stamped on the title block. See `buildTitleBlock`. */
+  rotulo?: {
+    project?: string; subtitle?: string; office?: string;
+    codes?: readonly RcTitleBlockCode[];
+  };
 }
 
 /**
@@ -581,6 +627,7 @@ export function drawSection(input: SectionInput): Sheet {
     title: buildTitleBlock({
       sheetNumber: input.sheetNumber, title: input.title,
       assembly: input.assembly, clauses: input.clauses, scale: input.scale ?? 20,
+      rotulo: input.rotulo,
     }),
     polylines, circles, texts, dimensions,
     notes: [
@@ -713,7 +760,30 @@ export function sheetToDxf(sheet: Sheet, arcs: DrawnArc[] = [], locale = 'es'): 
       '10', num(sheet.extents.min.x), '20', num(ty), '30', '0.0', '40', '0.06', '1', s);
     ty -= 0.12;
   };
+  /*
+    The rótulo, above the sheet's own name.
+
+    The works comes first because it is what a reader needs to know before anything else on the
+    page means something, and it is printed only when the project HAS one. An unnamed project
+    prints nothing here, which is different from the `t('detailing.doc.project')` — "Project" —
+    that used to head every export.
+  */
+  if (sheet.title.project) put(sheet.title.project);
+  if (sheet.title.subtitle) put(sheet.title.subtitle);
+  if (sheet.title.office) put(sheet.title.office);
   put(`${sheet.title.sheetNumber} — ${sheet.title.title}`);
+  /*
+    The norms, one line, verified ones first.
+
+    A declared code is qualified where it stands rather than in a footnote: the qualifier is the
+    only thing separating a statement this application checked from one it did not, and a
+    footnote is exactly as far away as the reader's attention is short.
+  */
+  for (const c of sheet.title.codes ?? []) {
+    put(c.source === 'declared'
+      ? `${c.text} — ${tAt('detailing.titleBlock.declared', locale)}`
+      : c.text);
+  }
   put(`Reglamento: ${sheet.title.codeEdition}   Escala 1:${sheet.title.scale}`);
   put(`Revisión ${sheet.title.revision} — estado ${sheet.title.reviewState}`);
   if (sheet.title.reviewer) put(`Revisado por: ${sheet.title.reviewer} (${sheet.title.reviewedAt ?? ''})`);
@@ -931,7 +1001,17 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
   const pad = 0.5;
   const w = Math.max(1e-6, max.x - min.x + 2 * pad);
   const h = Math.max(1e-6, max.y - min.y + 2 * pad);
-  const noteH = 0.16 * (sheet.notes.length + 7);
+  /*
+    Room for the title block AND the rótulo.
+
+    It was a fixed `+ 7`, which covered the sheet name, the regulation line, the reviewer, the
+    clauses and the provisional note. The rótulo adds up to three identification lines and one
+    per norm, and a block sized for seven simply ran off the bottom of the viewBox — the same
+    cropping the dimensions hit before they counted towards the extents.
+  */
+  const rotuloLines = (sheet.title.project ? 1 : 0) + (sheet.title.subtitle ? 1 : 0)
+    + (sheet.title.office ? 1 : 0) + (sheet.title.codes?.length ?? 0);
+  const noteH = 0.16 * (sheet.notes.length + rotuloLines + 7);
   const totalH = h + noteH;
   const heightPx = Math.round((widthPx * totalH) / w);
 
@@ -1013,7 +1093,19 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
       `font-weight="${weight}" font-family="sans-serif">${esc(s)}</text>`);
     by += 0.16;
   };
+  // The works leads, in the heaviest line on the page, and only when there is one. See the
+  // DXF writer for why an unnamed project prints nothing rather than the word "Project".
+  if (sheet.title.project) line(sheet.title.project, 'bold', '#111', 0.11);
+  if (sheet.title.subtitle) line(sheet.title.subtitle, 'normal', '#333', 0.08);
+  if (sheet.title.office) line(sheet.title.office, 'normal', '#444', 0.07);
   line(`${sheet.title.sheetNumber} — ${sheet.title.title}`, 'bold');
+  for (const c of sheet.title.codes ?? []) {
+    // Declared codes are dimmer AND qualified. Neither alone: the tint is not readable as a
+    // claim and the qualifier is what a reader acts on.
+    line(c.source === 'declared'
+      ? `${c.text} — ${tAt('detailing.titleBlock.declared', locale)}`
+      : c.text, 'normal', c.source === 'declared' ? '#666' : '#111', 0.075);
+  }
   line(`${sheet.title.codeEdition} · Escala 1:${sheet.title.scale} · Revisión ${sheet.title.revision} · ${sheet.title.reviewState}`);
   if (sheet.title.reviewer) line(`Revisado por: ${sheet.title.reviewer} — ${sheet.title.reviewedAt ?? ''}`);
   if (sheet.title.clauses.length > 0) line(`Artículos: ${sheet.title.clauses.join('; ')}`, 'normal', '#444', 0.07);

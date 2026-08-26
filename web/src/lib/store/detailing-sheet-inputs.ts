@@ -21,6 +21,12 @@
 
 import { modelStore } from './model.svelte';
 import { verificationStore } from './verification.svelte';
+import { regulationsStore } from './regulations.svelte';
+import { t } from '../i18n';
+import { REGULATION_ROLES } from '../codes/roles';
+import {
+  rcTitleBlockCodes, type RcTitleBlockConfig,
+} from '../engine/detailing/title-block-config';
 import { membersFromModel } from '../engine/detailing/member-geometry';
 import type { MemberGeometry } from '../engine/detailing/scene-model';
 import {
@@ -33,6 +39,46 @@ import {
 import { samplePath } from '../codes/cirsoc201/bar-geometry';
 import { clause } from '../codes/regulation';
 import type { DetailingAssembly } from '../engine/detailing/assembly';
+import type { RcTitleBlockCode } from '../engine/detailing/title-block-config';
+
+/**
+ * The rótulo a sheet is stamped with — the author's identification and the project's norms.
+ *
+ * Passed down rather than read here, for the reason `buildTitleBlock` states: a sheet's title
+ * block is a claim that SHEET makes, and a builder that reached into live state could head a
+ * drawing with a project name edited after the drawing was produced.
+ */
+export interface SheetRotulo {
+  project?: string;
+  subtitle?: string;
+  office?: string;
+  codes?: readonly RcTitleBlockCode[];
+}
+
+/**
+ * The norms every sheet of this project prints, verified ones first.
+ *
+ * The VERIFIED half is READ from the regulation bindings, which is what the verification
+ * actually ran against — never composed from the author's config. Translated here because this
+ * layer is the locale boundary: `roles.ts` keeps an instrument's name as a KEY precisely so a
+ * stored project stays readable when the catalogue changes under it.
+ *
+ * A role with no adapter bound is skipped rather than printed empty: "no code governs shear"
+ * and "a code governs shear and I cannot name it" are different statements, and only the first
+ * is true of an unbound role.
+ */
+export function titleBlockCodesFor(config: RcTitleBlockConfig): RcTitleBlockCode[] {
+  const bound = REGULATION_ROLES
+    .map((role) => regulationsStore.binding(role))
+    .filter((b) => b.adapterId !== null)
+    .map((b) => ({ label: t(b.nameKey), edition: b.edition, jurisdiction: b.jurisdiction }));
+  return rcTitleBlockCodes(bound, config);
+}
+
+/** The rótulo a sheet is stamped with: the author's fields plus the project's norms. */
+export function rotuloFor(config: RcTitleBlockConfig): SheetRotulo {
+  return { ...config, codes: titleBlockCodesFor(config) };
+}
 
 /**
  * The concrete the sheets draw, resolved from the model.
@@ -91,7 +137,7 @@ function clausesFor(assembly: DetailingAssembly) {
  * turn one into the other.
  */
 export function buildElevationSheet(
-  assembly: DetailingAssembly, members: readonly MemberGeometry[],
+  assembly: DetailingAssembly, members: readonly MemberGeometry[], rotulo?: SheetRotulo,
 ): Sheet {
   const ids = assembly.elementIds ?? [];
   const { outlines, refused } = memberOutlines(ids, members, ELEVATION_X);
@@ -117,6 +163,7 @@ export function buildElevationSheet(
     clauses: clausesFor(assembly),
     sheetNumber: `${assembly.id}-E`,
     title: `${assembly.label} — elevación`,
+    rotulo,
   });
 }
 
@@ -133,6 +180,7 @@ export function buildElevationSheet(
  */
 export function buildSectionSheet(
   assembly: DetailingAssembly, members: readonly MemberGeometry[], station: number,
+  rotulo?: SheetRotulo,
 ): Sheet {
   const ids = assembly.elementIds ?? [];
   /*
@@ -173,5 +221,6 @@ export function buildSectionSheet(
     title: cut
       ? `${assembly.label} — sección elem. ${cut.elementId} en x = ${station.toFixed(2)} m`
       : `${assembly.label} — sección en x = ${station.toFixed(2)} m`,
+    rotulo,
   });
 }

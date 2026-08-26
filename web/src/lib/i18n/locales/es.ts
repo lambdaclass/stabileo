@@ -5103,6 +5103,22 @@ const es: Record<string, string> = {
   'detailing.conflict.clearance': 'Separación libre insuficiente',
   'detailing.sheet': 'Lámina',
   'detailing.sheet.elevation': 'Elevación',
+  // El rótulo. La identificación es del autor; las normas son del proyecto y no se editan:
+  // la verificación corrió contra esas y un campo que pudiera contradecirla haría que ninguna
+  // lámina del juego fuese falsable. Ver `title-block-config.ts`.
+  'detailing.titleBlock.legend': 'Rótulo',
+  'detailing.titleBlock.project': 'Obra',
+  'detailing.titleBlock.projectHint': 'Ej.: Edificio Los Álamos — estructura',
+  'detailing.titleBlock.subtitle': 'Etapa / sector',
+  'detailing.titleBlock.office': 'Estudio',
+  'detailing.titleBlock.codes': 'Normas',
+  'detailing.titleBlock.noCodes': 'Ningún reglamento está vinculado todavía; las láminas no van a citar ninguno.',
+  'detailing.titleBlock.declared': 'declarada por el autor, no verificada por esta aplicación',
+  'detailing.titleBlock.addCode': 'Agregar una norma propia',
+  'detailing.titleBlock.add': 'Agregar',
+  'detailing.titleBlock.removeCode': 'Quitar la norma {code}',
+  'detailing.titleBlock.codesFull': 'El rótulo admite {n} normas declaradas; quitá una para agregar otra.',
+  'detailing.titleBlock.unnamed': 'La obra no tiene nombre: las láminas van a salir sin identificación.',
   'detailing.sheet.station': 'Corte en x',
   'detailing.sheet.stationRange': 'entre {min} y {max} m',
   'detailing.sheet.section': 'Sección transversal',

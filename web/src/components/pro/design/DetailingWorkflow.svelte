@@ -17,8 +17,10 @@
   import SheetPreview from './SheetPreview.svelte';
   import DetailingProblems from './DetailingProblems.svelte';
   import RcBarList from './RcBarList.svelte';
+  import RcTitleBlockFields from './RcTitleBlockFields.svelte';
   import { uiStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import { REVIEW_STATES, reviewRank } from '../../../lib/engine/detailing/assembly';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
   import { rcConflictLabel } from '../../../lib/flow/rc-bar-label';
@@ -271,8 +273,8 @@
             <input
               type="radio" name="sheetKind" value="elevation"
               data-testid="sheet-kind-elevation"
-              checked={detailingStore.sheetKind === 'elevation'}
-              onchange={() => detailingStore.setSheetKind('elevation')}
+              checked={detailingSheet.kind === 'elevation'}
+              onchange={() => detailingSheet.setKind('elevation')}
             />
             {t('detailing.sheet.elevation')}
           </label>
@@ -280,8 +282,8 @@
             <input
               type="radio" name="sheetKind" value="section"
               data-testid="sheet-kind-section"
-              checked={detailingStore.sheetKind === 'section'}
-              onchange={() => detailingStore.setSheetKind('section')}
+              checked={detailingSheet.kind === 'section'}
+              onchange={() => detailingSheet.setKind('section')}
             />
             {t('detailing.sheet.section')}
           </label>
@@ -299,8 +301,8 @@
             their own plan, and typing 4,25 is the gesture. The range is stated on the control
             so what it accepts is visible rather than discovered by being refused.
           -->
-          {#if detailingStore.sheetKind === 'section' && detailingStore.sectionRange}
-            {@const r = detailingStore.sectionRange}
+          {#if detailingSheet.kind === 'section' && detailingSheet.sectionRange}
+            {@const r = detailingSheet.sectionRange}
             <label class="station">
               <span>{t('detailing.sheet.station')}</span>
               <input
@@ -309,10 +311,10 @@
                 step="0.05"
                 min={r.min.toFixed(2)}
                 max={r.max.toFixed(2)}
-                value={detailingStore.sectionAt.toFixed(2)}
+                value={detailingSheet.sectionAt.toFixed(2)}
                 onchange={(e) => {
                   const v = Number((e.currentTarget as HTMLInputElement).value);
-                  if (Number.isFinite(v)) detailingStore.setSectionAt(v);
+                  if (Number.isFinite(v)) detailingSheet.setSectionAt(v);
                 }}
               />
               <span class="range" data-testid="sheet-station-range">
@@ -326,6 +328,22 @@
       </div>
 
       <!--
+        The rótulo, under the sheet controls and OUTSIDE them.
+
+        It is not a sheet control: the kind and the station choose which drawing you are
+        looking at, and the rótulo is a property of the project that every drawing carries. It
+        sat inside `.sheet-controls` for one commit and the cost was immediate —
+        `detailing-sheet-fieldset.spec.ts` locates that group as `.sheet-controls fieldset` and
+        a second fieldset there made the locator ambiguous. The spec was right about the
+        grouping; the markup was wrong.
+
+        Its own component because this panel is at its 600-line ceiling, and because the
+        author's half and the app's half of a title block need different controls — see
+        `RcTitleBlockFields.svelte`.
+      -->
+      <RcTitleBlockFields />
+
+      <!--
         The sheet, with a title and a way to see it properly.
 
         It was a bare `<div>` of SVG in a column a few hundred pixels wide: a 1:50 elevation
@@ -333,7 +351,7 @@
         which level or which kind of sheet you were looking at. A drawing you cannot read is not
         a preview of a drawing.
 
-        Expanding opens the SAME `detailingStore.sheetSvg` in a full-window dialog — the official
+        Expanding opens the SAME `detailingSheet.svg` in a full-window dialog — the official
         sheet projection, not a second renderer — so what you enlarge is exactly what the DXF and
         the report carry.
       -->

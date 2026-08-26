@@ -32,6 +32,7 @@ import type { BarConflict } from './collision';
 import type { ConstructibilityAssessment } from './constructibility';
 import { msg, type EngineMessage } from '../../codes/message';
 import type { FamilyCertificate, FloorFamilyDesignRecord } from './family-record';
+import { rcNormaliseTitleBlock, type RcTitleBlockConfig } from './title-block-config';
 
 /**
  * Bumped to 2 when floor-family design records became part of the persisted assembly.
@@ -529,6 +530,15 @@ export function isDemandStale(a: DetailingAssembly, currentDemandRevision: numbe
 export interface DetailingStore {
   version: number;
   assemblies: DetailingAssembly[];
+  /**
+   * The project's rótulo — the works, the stage, the office, the author's declared codes.
+   *
+   * On the store and therefore on the MODEL, because it is a project decision and not a
+   * browser one: the same project opened on another machine is the same works. Optional, and
+   * an absent one is a project nobody has identified yet — which prints nothing rather than
+   * the word "Project". See `title-block-config.ts`.
+   */
+  titleBlock?: RcTitleBlockConfig;
 }
 
 export function emptyDetailingStore(): DetailingStore {
@@ -632,7 +642,30 @@ export function migrateDetailingStore(raw: unknown): DetailingMigration {
     });
   }
 
-  return { store: { version: DETAILING_SCHEMA_VERSION, assemblies }, notices };
+  /*
+   * The rótulo rides through, normalised, and is ABSENT when the file has none.
+   *
+   * Normalised on the way in rather than trusted: this function's whole job is that a corrupt
+   * or hand-edited payload cannot reach the app, and the title fields are the one part of the
+   * store a user types into. A newline surviving here would break the DXF `TEXT` entity of
+   * every sheet in the project, on somebody else's machine.
+   *
+   * Absent stays absent — the rule the family records and the member-level statements above
+   * follow. An empty rótulo invented here would be indistinguishable from one an author had
+   * cleared on purpose, and neither is a claim this function is entitled to make.
+   */
+  const rawTitle = (src as { titleBlock?: unknown }).titleBlock;
+  const titleBlock = rawTitle && typeof rawTitle === 'object'
+    ? rcNormaliseTitleBlock(rawTitle as RcTitleBlockConfig) : null;
+
+  return {
+    store: {
+      version: DETAILING_SCHEMA_VERSION,
+      assemblies,
+      ...(titleBlock && Object.keys(titleBlock).length > 0 ? { titleBlock } : {}),
+    },
+    notices,
+  };
 }
 
 /**

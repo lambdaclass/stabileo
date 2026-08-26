@@ -30,6 +30,7 @@
    */
   import { t, tp, i18n } from '../../../lib/i18n';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import { reviewRank } from '../../../lib/engine/detailing/assembly';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
   import {
@@ -74,12 +75,24 @@
     URL.revokeObjectURL(url);
   }
 
+  /**
+   * What heads every export.
+   *
+   * The project's rótulo when it has one, and the generic word only when it does not. All three
+   * exports used `t('detailing.doc.project')` unconditionally — a translated word meaning
+   * "Project" — so a drawing set, a report and a schedule of a real works were all headed with
+   * a noun. The rótulo is the same one the sheets carry, so the four cannot disagree.
+   */
+  function projectName(): string {
+    return detailingSheet.titleBlockConfig.project || t('detailing.doc.project');
+  }
+
   function exportReport() {
     const doc = currentDoc();
     if (!doc) return;
     const html = renderReportHtml(
       doc,
-      { locale: i18n.locale, projectName: t('detailing.doc.project') },
+      { locale: i18n.locale, projectName: projectName() },
       (k, params) => tp(k, params ?? {}),
     );
     // Printed through the browser rather than a bundled PDF writer: better typography, no
@@ -93,7 +106,7 @@
     const doc = currentDoc();
     if (!doc) return;
     const set = renderDrawings(doc, {
-      locale: i18n.locale, projectName: t('detailing.doc.project'),
+      locale: i18n.locale, projectName: projectName(),
     });
     downloadBlob(`detailing-rev${doc.revision.number}.dxf`, 'application/dxf', set.dxf);
   }
@@ -102,7 +115,7 @@
     const doc = currentDoc();
     if (!doc) return;
     const sheets = renderSchedule(doc, {
-      locale: i18n.locale, projectName: t('detailing.doc.project'),
+      locale: i18n.locale, projectName: projectName(),
     });
     exportToExcel({
       filename: `detailing-rev${doc.revision.number}.xlsx`,

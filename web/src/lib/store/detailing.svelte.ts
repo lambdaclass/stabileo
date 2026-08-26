@@ -18,12 +18,8 @@ import {
 } from '../engine/detailing/assembly';
 import { provisionalKeys } from '../engine/detailing/coordinate-floor';
 import type { BarConflict } from '../engine/detailing/collision';
-import {
-  buildSchedule, buildTitleBlock, sheetToSvg, type Sheet,
-} from '../engine/detailing/drawings';
-import {
-  buildElevationSheet, buildSectionSheet, sheetMembers, stationsFor,
-} from './detailing-sheet-inputs';
+import { buildSchedule, buildTitleBlock } from '../engine/detailing/drawings';
+import { rotuloFor } from './detailing-sheet-inputs';
 import { clause } from '../codes/regulation';
 import {
   detailingReadiness, runDetailing,
@@ -52,7 +48,14 @@ import { t, tp } from '../i18n';
 import type { MemberDesignOutcome } from '../engine/design/outcome';
 import { DAGG_ASSUMED_MM } from '../codes/project-code-settings';
 
-export type SheetSelection = 'elevation' | 'section';
+/**
+ * The sheet surface — kind, station, rótulo, SVG — is `detailing-sheet.svelte.ts`.
+ *
+ * It left when objectives 7 and 8 gave it real geometry and a title block, because the ceiling
+ * gate says what to do when a change needs more room: extract, do not raise the number. It is
+ * a store of its own and not another `-inputs.ts` module because it holds state.
+ */
+export type { SheetSelection } from './detailing-sheet.svelte';
 
 /**
  * The model readings this store routes. Twenty functions that answer one question each and
@@ -73,15 +76,6 @@ import {
 function createDetailingStore() {
   let selectedId = $state<string | null>(null);
   let conflictIndex = $state(0);
-  let sheetKind = $state<SheetSelection>('elevation');
-  /**
-   * Where the user asked the section to be cut, or null while they have not.
-   *
-   * Null is not zero. It WAS zero and no control ever set it, so every section sheet in the app
-   * was a cut at the model's origin — a column line on a framed building, which is why it came
-   * out as a tall slice down a column. `sectionStations` resolves the default.
-   */
-  let sectionAtOverride = $state<number | null>(null);
   let lastError = $state<string | null>(null);
   let reviewOpen = $state(false);
   let generating = $state(false);
@@ -171,19 +165,6 @@ function createDetailingStore() {
     }
   }
 
-  /**
-   * The concrete the sheets draw, resolved once per model change.
-   *
-   * A `$derived` and not a call in the getter, for `scene-cache.ts`'s measured reason:
-   * `sheetMembers` allocates on every call and `sheetSvg` is read on every reactive touch.
-   */
-  const sheetMemberGeometry = $derived.by(() => sheetMembers());
-
-  /** The station range and default for the assembly on screen. See `sectionStations`. */
-  function sectionStationsNow() {
-    return stationsFor(selected, sheetMemberGeometry);
-  }
-
   function replace(assembly: DetailingAssembly): void {
     write({
       ...store,
@@ -198,14 +179,6 @@ function createDetailingStore() {
     get conflicts() { return conflicts; },
     get conflictIndex() { return conflictIndex; },
     get currentConflict(): BarConflict | null { return conflicts[conflictIndex] ?? null; },
-    get sheetKind() { return sheetKind; },
-    /** The station the section is cut at: the user's, or mid-span of the longest member. */
-    get sectionAt(): number { return sectionAtOverride ?? sectionStationsNow()?.preferred ?? 0; },
-    /** The range a station control may offer. Null when nothing on the sheet has geometry. */
-    get sectionRange(): { min: number; max: number } | null {
-      const s = sectionStationsNow();
-      return s ? { min: s.min, max: s.max } : null;
-    },
     get lastError() { return lastError; },
     get reviewOpen() { return reviewOpen; },
 
@@ -229,9 +202,6 @@ function createDetailingStore() {
       conflictIndex = 0;
       lastError = null;
     },
-
-    setSheetKind(k: SheetSelection): void { sheetKind = k; },
-    setSectionAt(x: number): void { sectionAtOverride = x; },
 
     nextConflict(): void {
       if (conflicts.length === 0) return;
@@ -673,32 +643,20 @@ function createDetailingStore() {
       return true;
     },
 
-    /** The sheet for the current selection. Geometry lives in `detailing-sheet-inputs.ts`. */
-    get sheet(): Sheet | null {
-      if (!selected) return null;
-      if (sheetKind === 'section') {
-        return buildSectionSheet(selected, sheetMemberGeometry, this.sectionAt);
-      }
-      return buildElevationSheet(selected, sheetMemberGeometry);
-    },
-
-    get sheetSvg(): string | null {
-      const s = this.sheet;
-      return s ? sheetToSvg(s) : null;
-    },
-
     get schedule() {
       if (!selected) return null;
       return buildSchedule(selected.marks, 12,
         selected.unsupported.map((u) => `${u.key}: ${u.message}`));
     },
 
+    /** The schedule's own title block. Carries the same rótulo as the sheets. */
     get titleBlock() {
       if (!selected) return null;
       return buildTitleBlock({
         sheetNumber: `${selected.id}-P`, title: `${selected.label} — planilla`,
         assembly: selected,
         clauses: [clause('cirsoc-201', selected.provenance.edition, '25.2')],
+        rotulo: rotuloFor(store.titleBlock ?? {}),
       });
     },
 

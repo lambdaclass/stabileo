@@ -32,8 +32,16 @@ const STORE_MAX = 800;
 const FILE_MAX = 500;
 
 describe('the detailing store stays a store', () => {
-  it('is under the 800-line store ceiling', () => {
-    expect(loc('detailing.svelte.ts')).toBeLessThan(STORE_MAX);
+  it.each([
+    'detailing.svelte.ts',
+    /*
+     * The sheet surface left when objectives 7 and 8 gave it real geometry and a rótulo, and it
+     * is pinned here for the reason the assembly store is: it holds state, so it is a store,
+     * and a store that is not measured is a store that grows.
+     */
+    'detailing-sheet.svelte.ts',
+  ])('%s is under the 800-line store ceiling', (file) => {
+    expect(loc(file)).toBeLessThan(STORE_MAX);
   });
 
   /*
@@ -52,6 +60,8 @@ describe('the detailing store stays a store', () => {
      * should come down when the joint reconstruction moves to `lib/engine/detailing/`.
      */
     ['detailing-footing-inputs.ts', 560],
+    /* The sheet's readings: member concrete, cover, station, rótulo codes. */
+    ['detailing-sheet-inputs.ts', FILE_MAX],
   ])('%s is under %i lines', (file, max) => {
     expect(loc(file as string)).toBeLessThan(max as number);
   });
@@ -70,6 +80,7 @@ describe('the detailing store stays a store', () => {
     'detailing-project-inputs.ts',
     'detailing-floor-inputs.ts',
     'detailing-footing-inputs.ts',
+    'detailing-sheet-inputs.ts',
   ])('%s declares no state', (file) => {
     const src = readFileSync(resolve(HERE, '..', file), 'utf8');
     expect(src, 'a readings module must not declare runes')

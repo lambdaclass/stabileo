@@ -5110,6 +5110,22 @@ const en: Record<string, string> = {
   'detailing.conflict.clearance': 'Insufficient clear spacing',
   'detailing.sheet': 'Sheet',
   'detailing.sheet.elevation': 'Elevation',
+  // The rótulo. The identification is the author's; the codes are the project's and are not
+  // editable: the verification ran against exactly those, and a field that could disagree with
+  // the run would make every sheet in the set unfalsifiable. See `title-block-config.ts`.
+  'detailing.titleBlock.legend': 'Title block',
+  'detailing.titleBlock.project': 'Works',
+  'detailing.titleBlock.projectHint': 'e.g. Los Álamos building — structure',
+  'detailing.titleBlock.subtitle': 'Stage / sector',
+  'detailing.titleBlock.office': 'Office',
+  'detailing.titleBlock.codes': 'Codes',
+  'detailing.titleBlock.noCodes': 'No regulation is bound yet; the sheets will cite none.',
+  'detailing.titleBlock.declared': 'declared by the author, not verified by this application',
+  'detailing.titleBlock.addCode': 'Add a code of your own',
+  'detailing.titleBlock.add': 'Add',
+  'detailing.titleBlock.removeCode': 'Remove the code {code}',
+  'detailing.titleBlock.codesFull': 'The title block takes {n} declared codes; remove one to add another.',
+  'detailing.titleBlock.unnamed': 'The works has no name: the sheets will carry no identification.',
   'detailing.sheet.station': 'Cut at x',
   'detailing.sheet.stationRange': 'between {min} and {max} m',
   'detailing.sheet.section': 'Cross-section',

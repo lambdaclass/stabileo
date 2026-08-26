@@ -29,6 +29,7 @@
 
 import { modelStore, verificationStore, uiStore, historyStore } from '../store';
 import { detailingStore } from '../store/detailing.svelte';
+import { detailingSheet } from '../store/detailing-sheet.svelte';
 import { rebarWorkspace } from '../store/rebar-workspace.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
@@ -137,6 +138,14 @@ export interface StabileoTestHooks {
    * concrete, steel and cover line are three layers with three meanings.
    */
   detailingSheet(): unknown;
+  /**
+   * The project's rótulo as PERSISTED, not as the panel renders it.
+   *
+   * An OBSERVATION hook, and the distinction is the point: the field is a project decision that
+   * has to survive being reopened, and reading it back off the input that wrote it would assert
+   * only that the DOM kept a value.
+   */
+  detailingTitleBlock(): unknown;
   /**
    * How many times the 3-D viewport has BUILT its tube geometry.
    *
@@ -351,7 +360,9 @@ export function installE2EHooks(): void {
     detailingAssemblies: () =>
       JSON.parse(JSON.stringify(modelStore.model.detailing?.assemblies ?? [])),
     detailingSchedule: () => JSON.parse(JSON.stringify(detailingStore.schedule ?? null)),
-    detailingSheet: () => JSON.parse(JSON.stringify(detailingStore.sheet ?? null)),
+    detailingSheet: () => JSON.parse(JSON.stringify(detailingSheet.sheet ?? null)),
+    detailingTitleBlock: () =>
+      JSON.parse(JSON.stringify(modelStore.model.detailing?.titleBlock ?? null)),
     rebarSceneBuilds,
     rebarSceneCensus: liveRebarSceneCensus,
     canvasCount: () => document.querySelectorAll('canvas').length,
