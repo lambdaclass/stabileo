@@ -66,10 +66,53 @@ test.describe('reaching the modal', () => {
 });
 
 test.describe('focus', () => {
-  test('lands inside the dialog when it opens', async ({ page }) => {
+  test('lands on the search box, which is what a user types into first', async ({ page }) => {
     await openModal(page);
-    const active = page.locator('[data-autofocus]');
-    await expect(active).toBeFocused();
+
+    /*
+     * Stronger than the assertion it replaces, which only asked that `[data-autofocus]` — the
+     * division tab — had focus. That passed while the catalogue's search box, which
+     * `ProfileSelectorPanel` focuses on mount, was being overridden by the dialog a microtask
+     * later; and with focus on a tab, ArrowDown walked the tabs instead of the profile list.
+     */
+    await expect(page.getByTestId('profile-search')).toBeFocused();
+    // And still inside the dialog, which is what the old assertion was really protecting.
+    expect(await page.evaluate(() => {
+      const dlg = document.querySelector('[data-testid="pro-section-modal"]');
+      return !!dlg && !!document.activeElement && dlg.contains(document.activeElement);
+    })).toBe(true);
+  });
+
+  /*
+   * The regression that cost the whole keyboard path.
+   *
+   * `ProfileSelectorPanel` handled keys on `<svelte:window>`, which was right while it WAS the
+   * popover and wrong the moment it was rendered inside this dialog: it saw every key in the
+   * page, so Enter aimed at Apply was intercepted, `preventDefault()`ed and re-routed to «pick
+   * the row under the cursor». The button was focused and enabled and could not be activated,
+   * so a keyboard user could choose a profile and had no way to commit it.
+   *
+   * Asserted through the effect rather than the implementation: press Enter on Apply and the
+   * dialog must close. A test that checked which element carries the listener would pass on the
+   * next arrangement that breaks this one.
+   */
+  test('Enter activates a button in the dialog while the catalogue is open', async ({ page }) => {
+    await openModal(page);
+    await expect(page.getByTestId('profile-selector')).toBeVisible();
+    await expect(page.getByTestId('section-apply')).toBeEnabled();
+
+    await page.getByTestId('section-apply').press('Enter');
+    await expect(page.getByTestId('pro-section-modal')).toHaveCount(0);
+  });
+
+  test('and falls back to the division tab where there is no search', async ({ page }) => {
+    await openModal(page);
+    await page.getByTestId('section-division-build').click();
+    // The builder has no catalogue to search, so the tab is the right landing place.
+    expect(await page.evaluate(() => {
+      const dlg = document.querySelector('[data-testid="pro-section-modal"]');
+      return !!dlg && !!document.activeElement && dlg.contains(document.activeElement);
+    })).toBe(true);
   });
 
   /*

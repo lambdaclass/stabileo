@@ -210,14 +210,26 @@
     `${e.heightMm}×${e.widthMm} mm · ${e.areaCm2.toFixed(1)} cm² · ${e.massKgPerM.toFixed(1)} kg/m`;
 </script>
 
-<svelte:window onkeydown={keydown} />
+<!--
+  Keys are handled on the PANEL, not on the window.
 
+  `<svelte:window onkeydown>` was right while this panel WAS the popover: nothing else was on
+  screen to compete with. It is wrong now that the panel is rendered inside the section dialog,
+  because a window-level handler sees every key in the page — so it intercepted Enter aimed at
+  the dialog's own Apply and Cancel buttons, called `preventDefault()` on it, and re-routed it to
+  «pick the row under the cursor». A keyboard user could open the dialog, find a profile, and
+  then had no way to commit it: the button was focused, enabled, and could not be activated.
+
+  A handler on the container still catches everything the panel needs, because keydown bubbles
+  from whichever descendant has focus, and the panel focuses its own search box on mount.
+-->
 <div
   class="sel"
   role="dialog"
   aria-modal="false"
   aria-label={label || t('profileSelector.title')}
   data-testid="profile-selector"
+  onkeydown={keydown}
 >
   <div class="head">
     <input

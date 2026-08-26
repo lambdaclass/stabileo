@@ -132,7 +132,26 @@
       returnFocus = document.activeElement as HTMLElement | null;
       draft = { ...untrack(() => spec) };
       // A microtask, so the dialog is in the DOM before focus moves into it.
-      queueMicrotask(() => dialogEl?.querySelector<HTMLElement>('[data-autofocus]')?.focus());
+      queueMicrotask(() => {
+        /*
+         * The search box wins when there is one.
+         *
+         * `data-autofocus` sits on the division tab, and focusing it stole focus from the
+         * catalogue's own search input — which `ProfileSelectorPanel` focuses on mount for the
+         * reason its comment gives: the first thing anyone does is type. The panel's effect runs
+         * on mount and this microtask runs after it, so the tab won every time.
+         *
+         * The cost was not only the missing caret. With focus on a tab, ArrowDown walked the tab
+         * list instead of the profile list, so the whole keyboard path through the catalogue —
+         * type, arrow, Enter — stopped working from the generator rows. Found by auditing the
+         * built product, not by a failing unit test: five specs in `profile-selector.spec.ts`
+         * had been failing against the new dialog.
+         *
+         * The tab remains the fallback, which is what the build division needs: it has no search.
+         */
+        const search = dialogEl?.querySelector<HTMLElement>('[data-testid="profile-search"]');
+        (search ?? dialogEl?.querySelector<HTMLElement>('[data-autofocus]'))?.focus();
+      });
     } else if (!isOpen && wasOpen) {
       wasOpen = false;
       const el = returnFocus;

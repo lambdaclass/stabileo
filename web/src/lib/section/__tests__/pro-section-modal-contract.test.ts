@@ -106,8 +106,21 @@ describe('the dialog behaves like a dialog', () => {
   });
 
   it('moves focus INTO the dialog when it opens', () => {
+    /*
+     * Both landing places, and the search first.
+     *
+     * The assertion this replaces pinned the exact call that focused `[data-autofocus]` — the
+     * division tab. That was the wrong target: the catalogue's search box is what a user types
+     * into, and focusing the tab instead meant ArrowDown walked the tabs rather than the profile
+     * list. The tab stays as the fallback for the build division, which has no search.
+     *
+     * `e2e/m2-section-modal.spec.ts` asserts the effect in a browser; this only guards that the
+     * dialog still reaches inside ITSELF for the element, rather than focusing something in the
+     * page behind it.
+     */
     expect(MODAL).toContain('data-autofocus');
-    expect(MODAL).toMatch(/querySelector<HTMLElement>\('\[data-autofocus\]'\)\?\.focus\(\)/);
+    expect(MODAL).toMatch(/dialogEl\?\.querySelector<HTMLElement>\('\[data-testid="profile-search"\]'\)/);
+    expect(MODAL).toMatch(/dialogEl\?\.querySelector<HTMLElement>\('\[data-autofocus\]'\)/);
   });
 
   it('the backdrop is a real button, so it has a name and a keyboard', () => {
