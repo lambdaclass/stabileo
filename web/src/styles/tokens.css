@@ -170,6 +170,22 @@
      ──────────────────────────────────────────────────────────────────── */
   --st-sheet-h: 45vh;
 
+  /* ── The phone's bottom bar, as a number ──────────────────────────────
+     PRO and Education keep a fixed bar at the foot of the screen. Three
+     boxes have to agree about how tall it is — the bar itself, the sheet
+     that must stop above it, and `.app-body`, which gives up the height so
+     the model is never under either — and before this token they did not.
+     Both padding rules wrote `padding-bottom` on the same element, so the
+     later one simply won, the bar's 60 px was never reserved, and the bar
+     covered the bottom 61 px of every PRO panel opened on a phone.
+
+     `.mobile-bottom-bar` sets its height FROM this value rather than
+     growing to fit, which is what makes the number true instead of a
+     guess: 45 px of button, 8 px above it, and the home-indicator inset
+     below, on the handsets that have one.
+     ──────────────────────────────────────────────────────────────────── */
+  --st-bar-h: calc(53px + max(8px, env(safe-area-inset-bottom, 0px)));
+
   /* ── Semantic: surfaces ────────────────────────────────────────────────
      Four depths, dark to light. The old palette had six near-identical navy
      blues (#1a1a2e, #16213e, #0f3460, #1a3050, #0a1a30, #0f2840) doing this

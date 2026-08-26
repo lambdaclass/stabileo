@@ -1117,12 +1117,20 @@
         A fifth stage would have claimed it IS a step. Filing it under Analysis
         would have claimed it only reads results.
 
-        `data-dev` marks it as unfinished on the button itself, so the state is
-        visible before the panel is opened rather than only inside it.
+        It says △ AI, and that is the whole naming argument: the triangle is
+        the mark beside the word Stabileo in this same header, so a button that
+        repeats it and adds AI reads as Stabileo AI without spending the width
+        to spell it. A generic robot or sparkle glyph would have named a
+        category instead of this product.
+
+        NOT `class="btn"`. That class sets padding and a radius and no colour
+        at all — `.btn-primary` and `.btn-secondary` are what carry the ground
+        — so wearing it alone left the browser's own #efefef button in a dark
+        header. This one is styled outright.
       -->
       {#if uiStore.appMode === 'basico' || uiStore.appMode === 'pro'}
         <button
-          class="btn btn-ai"
+          class="btn-ai"
           class:on={aiPanelOpen}
           onclick={openAiPanel}
           title="{t('ai.title')} — {t('ai.devShort')}"
@@ -1131,7 +1139,7 @@
           data-testid="ai-open"
         >
           <span class="ai-glyph" aria-hidden="true">△</span>
-          <span class="ai-dev-dot" aria-hidden="true"></span>
+          <span class="ai-word">AI</span>
         </button>
       {/if}
 
@@ -2450,17 +2458,34 @@
      be legible BEFORE the panel opens — a reader who has to open something to
      learn it does not work has already spent the trip.
   */
-  .btn-ai { position: relative; }
-  .ai-glyph { font-size: 0.95rem; line-height: 1; }
-  .ai-dev-dot {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--st-warn);
+  /*
+     Built from `.btn-settings`, its neighbour: same transparent ground, same
+     hairline, same `--st-accent` when lit. The corner reads as one row of
+     controls that way, and the assistant does not arrive looking like a
+     promotion for itself.
+
+     Only two things separate it. The triangle is always `--st-accent` — it is
+     the brand mark, not a state — and the radius is a pill rather than a
+     circle, because this control carries a word.
+  */
+  .btn-ai {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 26px;
+    padding: 0 0.45rem;
+    background: transparent;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 999px;
+    color: var(--st-text-2);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
   }
+  .btn-ai:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .btn-ai.on { border-color: var(--st-accent); color: var(--st-text); }
+
+  .ai-glyph { font-size: 0.85rem; line-height: 1; color: var(--st-accent); }
+  .ai-word { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.07em; }
 
   /*
      The floating △ is gone; Stabileo AI opens from the header corner. Its
@@ -3010,6 +3035,10 @@
     left: 0;
     right: 0;
     z-index: 100;
+    /* Declared, not intrinsic — see `--st-bar-h` in tokens.css. The sheet
+       above it and `.app-body` both dodge exactly this many pixels. */
+    height: var(--st-bar-h);
+    box-sizing: border-box;
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -3289,7 +3318,12 @@
      */
     .drawer-right {
       top: auto;
-      bottom: 0;
+      /*
+         Above the bar, not under it. Every shell that draws this sheet on a
+         phone also draws the bottom bar — PRO and Education, the two modes
+         that are not Basic — so the offset is unconditional here.
+      */
+      bottom: var(--st-bar-h);
       left: 0;
       right: 0;
       width: 100%;
@@ -3312,6 +3346,23 @@
       max-height: var(--st-sheet-h);
       display: flex;
       flex-direction: column;
+    }
+
+    /*
+       The panel takes the sheet's height, and no more than it.
+       ───────────────────────────────────────────────────────
+       `.pro-panel` came in as `flex: 0 1 auto` with the default
+       `min-height: auto`, which in a flex column means "as tall as my
+       contents and never shorter". So the panel ran 26 px past the bottom of
+       the sheet that was supposed to be holding it — its own scroller could
+       not take the slack, because the box above the scroller had already
+       refused to. Everything below that line sat under the phone's bottom
+       bar, in every tab, which is why it read as content going missing rather
+       than as a panel being too tall.
+    */
+    .drawer-right.drawer-shared :global(.pro-panel) {
+      flex: 1;
+      min-height: 0;
     }
 
     /* The handle row: the grab fills it, the ✕ sits on top at the right. */
@@ -3360,7 +3411,19 @@
     }
 
     .app-body-bottom-bar {
-      padding-bottom: 60px;
+      padding-bottom: var(--st-bar-h);
+    }
+
+    /*
+       Both at once, which is the case that was wrong.
+       ──────────────────────────────────────────────
+       A PRO phone with a panel open wears both classes, and both wrote
+       `padding-bottom`. Equal specificity, so the later rule won outright
+       instead of adding to the earlier one: the sheet's height was reserved
+       and the bar's was not. This says the sum, once.
+    */
+    .app-body-sheet.app-body-bottom-bar {
+      padding-bottom: calc(var(--st-sheet-h) + var(--st-bar-h));
     }
 
     /*
