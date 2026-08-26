@@ -49,7 +49,19 @@ test.describe('@smoke joint detection is scoped to metallic participation', () =
       await page.evaluate(async () => { await window.__stabileoActions.loadExample('pro-edificio-7p'); });
       await openJoints(page);
       await expect(page.getByTestId('conn-sec-joints')).toHaveAttribute('data-state', 'blocked');
-      await expect(page.getByTestId('conn-sec-joints-purpose')).toContainText(/no joint with any metallic member/i);
+      /*
+       * Asserted on what the sentence has to SAY, not on the sentence.
+       *
+       * M1 wrote «no joint with any metallic member»; M2 replaced it with one that also names
+       * the count — «The model has 84 joint(s), and none can be shown: no member meeting them is
+       * classified as metallic». Better, and it broke a match on the old wording the moment M1
+       * and M2 were merged. What matters is that the panel explains the absence by the metallic
+       * classification instead of rendering an empty list, and that it does not claim the model
+       * has no joints when it has 84.
+       */
+      const purpose = page.getByTestId('conn-sec-joints-purpose');
+      await expect(purpose).toContainText(/metallic/i);
+      await expect(purpose).toContainText(/none|no member|no joint/i);
       await expect(page.getByTestId('conn-joint-count')).toHaveText('0');
     });
 

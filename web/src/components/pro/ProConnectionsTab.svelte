@@ -94,7 +94,7 @@
    */
   const emptyReason = $derived.by((): 'hasJoints' | 'noModel' | 'noneMetallic' => {
     if (joints.length > 0) return 'hasJoints';
-    return allJointCount > 0 ? 'noneMetallic' : 'noModel';
+    return detected.length > 0 ? 'noneMetallic' : 'noModel';
   });
 
   /** How many members the app could not classify at all. The number that explains the absence. */
@@ -407,7 +407,7 @@
     purpose={t('conn.sec.joints.purpose')}
     state={joints.length > 0 ? 'done' : 'blocked'}
     blockedBy={emptyReason === 'noneMetallic'
-      ? tp('conn.jointsNotShown', { n: allJointCount })
+      ? tp('conn.jointsNotShown', { n: hiddenJointCount })
       : t('conn.sec.joints.blocked')}
     badge={joints.length}
     testid="conn-sec-joints"
@@ -432,7 +432,7 @@
           would fix it.
         -->
         <div class="conn-empty conn-empty-blocked" data-testid="conn-none-metallic">
-          <p>{tp('conn.jointsNotShown', { n: allJointCount })}</p>
+          <p>{tp('conn.jointsNotShown', { n: hiddenJointCount })}</p>
           {#if unclassifiedCount > 0}
             <p class="conn-why" data-testid="conn-none-metallic-why">
               {tp('conn.jointsUnclassified', { n: unclassifiedCount })}
