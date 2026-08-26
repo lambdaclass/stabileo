@@ -29,6 +29,14 @@ pub struct SymbolicCholesky {
     /// snode_upd[t]: prior supernodes whose columns update supernode t
     /// (their row structure contains at least one column of t).
     pub snode_upd: Vec<Vec<usize>>,
+    /// Structure of the permuted matrix P·A·Pᵀ (lower-triangle CSC) and the
+    /// source map pa_src[p] = index into the original `a.values` of the entry
+    /// at permuted position p. Lets numeric_cholesky permute values with a
+    /// single O(nnz) gather instead of re-tripletizing and re-sorting on every
+    /// factorization.
+    pub pa_col_ptr: Vec<usize>,
+    pub pa_row_idx: Vec<usize>,
+    pub pa_src: Vec<usize>,
 }
 
 /// Numeric factorization result.
@@ -70,8 +78,34 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
     let n = a.n;
     let iperm = inverse_perm(perm);
 
-    // Apply permutation
-    let pa = a.permute_symmetric(perm);
+    // Permuted structure P·A·Pᵀ (lower triangle) plus the source map
+    // pa_src[p] = index of that entry in the original `a`. One sort here in
+    // the symbolic phase; the numeric phase then permutes values with an
+    // O(nnz) gather instead of re-sorting triplets per factorization.
+    // (No duplicate (row, col) can arise: A is lower-triangle without
+    // duplicates and iperm is a bijection.)
+    let nnz = a.col_ptr[n];
+    let mut trip: Vec<(usize, usize, usize)> = Vec::with_capacity(nnz);
+    for j in 0..n {
+        let nj = iperm[j];
+        for k in a.col_ptr[j]..a.col_ptr[j + 1] {
+            let ni = iperm[a.row_idx[k]];
+            let (r, c) = if ni >= nj { (ni, nj) } else { (nj, ni) };
+            trip.push((c, r, k));
+        }
+    }
+    trip.sort_unstable_by_key(|&(c, r, _)| (c, r));
+    let mut pa_col_ptr = vec![0usize; n + 1];
+    let mut pa_row_idx = Vec::with_capacity(nnz);
+    let mut pa_src = Vec::with_capacity(nnz);
+    for &(c, r, k) in &trip {
+        pa_col_ptr[c + 1] += 1;
+        pa_row_idx.push(r);
+        pa_src.push(k);
+    }
+    for c in 0..n {
+        pa_col_ptr[c + 1] += pa_col_ptr[c];
+    }
 
     // Elimination tree of the permuted matrix, computed directly from the
     // graph of A (Liu's algorithm with path compression, O(nnz·α(n))).
@@ -81,8 +115,8 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
     const NONE: usize = usize::MAX;
     let mut row_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
     for j in 0..n {
-        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            let i = pa.row_idx[k];
+        for k in pa_col_ptr[j]..pa_col_ptr[j + 1] {
+            let i = pa_row_idx[k];
             if i > j {
                 row_cols[i].push(j);
             }
@@ -133,8 +167,8 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
         l_row_idx.push(j); // diagonal first
         let tail_start = l_row_idx.len();
 
-        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            let i = pa.row_idx[k];
+        for k in pa_col_ptr[j]..pa_col_ptr[j + 1] {
+            let i = pa_row_idx[k];
             if i > j && mark[i] != j {
                 mark[i] = j;
                 l_row_idx.push(i);
@@ -228,6 +262,9 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
         l_nnz,
         snode_start,
         snode_upd,
+        pa_col_ptr,
+        pa_row_idx,
+        pa_src,
     }
 }
 
@@ -249,8 +286,18 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
 pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<NumericCholesky> {
     let n = sym.n;
 
-    // Apply permutation to get numeric values
-    let pa = a.permute_symmetric(&sym.perm);
+    // Permuted values via the map precomputed in the symbolic phase: one
+    // O(nnz) gather, no triplet rebuild, no sort. `a` must have the same
+    // sparsity structure as the matrix the symbolic phase was built from
+    // (that is the standing contract of symbolic reuse).
+    debug_assert_eq!(a.n, n);
+    debug_assert_eq!(a.col_ptr.len(), n + 1);
+    let mut pa_values = vec![0.0f64; sym.pa_src.len()];
+    for (p, &k) in sym.pa_src.iter().enumerate() {
+        pa_values[p] = a.values[k];
+    }
+    let pa_col_ptr = &sym.pa_col_ptr;
+    let pa_row_idx = &sym.pa_row_idx;
 
     let mut l_values = vec![0.0f64; sym.l_nnz];
 
@@ -304,11 +351,11 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
         }
         for d in 0..width {
             let j = s + d;
-            for p in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-                let i = pa.row_idx[p];
+            for p in pa_col_ptr[j]..pa_col_ptr[j + 1] {
+                let i = pa_row_idx[p];
                 // struct(A[:,j]) ⊆ struct(L[:,j]) ⊆ panel rows
                 debug_assert_eq!(map_gen[i], gen);
-                panel[d * rows + map_pos[i]] = pa.values[p];
+                panel[d * rows + map_pos[i]] = pa_values[p];
             }
         }
 
