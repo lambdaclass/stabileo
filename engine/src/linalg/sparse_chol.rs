@@ -1,7 +1,9 @@
-/// Sparse Cholesky factorization (left-looking, supernodal-free).
+/// Sparse Cholesky factorization (supernodal: left-looking between supernodes,
+/// dense right-looking within each supernode panel).
 ///
-/// Two-phase: symbolic (AMD + elimination tree + column counts) then numeric.
-/// Symbolic phase can be reused when sparsity pattern is unchanged (P-Delta).
+/// Two-phase: symbolic (AMD + elimination tree + column counts + supernode
+/// partition) then numeric. Symbolic phase can be reused when sparsity
+/// pattern is unchanged (P-Delta).
 
 use super::sparse::CscMatrix;
 use super::amd::{amd_order, inverse_perm};
@@ -18,6 +20,15 @@ pub struct SymbolicCholesky {
     pub l_row_idx: Vec<usize>, // row indices for L (structure only)
     pub parent: Vec<isize>,    // elimination tree: parent[j] = parent of j, or -1 for root
     pub l_nnz: usize,
+    /// Fundamental supernode partition: snode_start[t] is the first column of
+    /// supernode t; its column range is snode_start[t]..snode_start[t+1]
+    /// (or n for the last). Within supernode t, column s+d has row structure
+    /// l_row_idx[l_col_ptr[s]+d .. l_col_ptr[s]+rows], so the supernode's
+    /// values form a dense trapezoidal block inside the CSC storage.
+    pub snode_start: Vec<usize>,
+    /// snode_upd[t]: prior supernodes whose columns update supernode t
+    /// (their row structure contains at least one column of t).
+    pub snode_upd: Vec<Vec<usize>>,
 }
 
 /// Numeric factorization result.
@@ -149,6 +160,64 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
         .map(|&p| if p == NONE { -1 } else { p as isize })
         .collect();
 
+    // Fundamental supernodes: consecutive columns j, j+1 merge when j+1 is
+    // j's etree parent and their column counts differ by exactly one, which
+    // for Cholesky means their row structures coincide below the block.
+    let mut snode_start: Vec<usize> = Vec::new();
+    {
+        let mut j = 0;
+        while j < n {
+            snode_start.push(j);
+            let mut cnt = l_col_ptr[j + 1] - l_col_ptr[j];
+            while j + 1 < n
+                && parent_isize[j] == j + 1
+                && l_col_ptr[j + 2] - l_col_ptr[j + 1] == cnt - 1
+            {
+                j += 1;
+                cnt -= 1;
+            }
+            j += 1;
+        }
+    }
+    let snode_end = |t: usize| -> usize {
+        if t + 1 < snode_start.len() { snode_start[t + 1] } else { n }
+    };
+
+    // Supernode index of each column.
+    let mut snode_of = vec![0usize; n];
+    for t in 0..snode_start.len() {
+        for j in snode_start[t]..snode_end(t) {
+            snode_of[j] = t;
+        }
+    }
+
+    // For each supernode t, the prior supernodes that update it: those with
+    // at least one column k whose L structure contains a column of t.
+    // Built from row -> columns lists over L's structure (below diagonal),
+    // then collapsed to supernode granularity with a per-t stamp.
+    let mut row_to_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for k in 0..n {
+        for p in l_col_ptr[k]..l_col_ptr[k + 1] {
+            let i = l_row_idx[p];
+            if i > k {
+                row_to_cols[i].push(k);
+            }
+        }
+    }
+    let mut seen = vec![NONE; snode_start.len()];
+    let mut snode_upd: Vec<Vec<usize>> = vec![Vec::new(); snode_start.len()];
+    for t in 0..snode_start.len() {
+        for j in snode_start[t]..snode_end(t) {
+            for &k in &row_to_cols[j] {
+                let tk = snode_of[k];
+                if tk != t && seen[tk] != t {
+                    seen[tk] = t;
+                    snode_upd[t].push(tk);
+                }
+            }
+        }
+    }
+
     SymbolicCholesky {
         n,
         perm: perm.to_vec(),
@@ -157,6 +226,8 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
         l_row_idx,
         parent,
         l_nnz,
+        snode_start,
+        snode_upd,
     }
 }
 
@@ -168,6 +239,13 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
 /// into a garbage solution. Callers that need drilling-DOF stabilization
 /// apply an explicit diagonal shift to K_ff and verify by iterative
 /// refinement against the original matrix (see `solver::linear`).
+///
+/// Supernodal: each supernode's values form a dense trapezoidal block inside
+/// the CSC storage (column s+d of the supernode starting at s occupies
+/// l_col_ptr[s+d]..l_col_ptr[s+d+1] with row structure
+/// l_row_idx[l_col_ptr[s]+d .. l_col_ptr[s]+rows]), so updates between
+/// supernodes run as dense loops over a cache-resident panel instead of
+/// per-column sparse axpys with indirect indexing.
 pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<NumericCholesky> {
     let n = sym.n;
 
@@ -176,68 +254,148 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
 
     let mut l_values = vec![0.0f64; sym.l_nnz];
 
-    // Dense column accumulator
-    let mut x = vec![0.0f64; n];
-
     // Strict threshold: use absolute threshold like dense Cholesky.
     // A previous 1e-12 * max_diag relative threshold was too aggressive for
     // shell matrices where drilling DOF pivots are naturally 4+ orders
     // smaller than membrane pivots.
     let strict_threshold = 1e-15;
 
-    // Precompute nonzero-column lists: for each row j, which columns k < j have L[j,k] != 0.
-    let mut nz_cols_for_row: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
-    for k in 0..n {
-        for p in sym.l_col_ptr[k]..sym.l_col_ptr[k + 1] {
-            let i = sym.l_row_idx[p];
-            if i > k {
-                nz_cols_for_row[i].push((k, p));
-            }
-        }
+    let ns = sym.snode_start.len();
+    let snode_end = |t: usize| -> usize {
+        if t + 1 < ns { sym.snode_start[t + 1] } else { n }
+    };
+
+    // Panel capacity: max over supernodes of rows × width.
+    let mut max_panel = 0usize;
+    for t in 0..ns {
+        let s = sym.snode_start[t];
+        let rows = sym.l_col_ptr[s + 1] - sym.l_col_ptr[s];
+        max_panel = max_panel.max(rows * snode_end(t).saturating_sub(s));
     }
+    // Dense supernode panel, column-major: panel[d * rows + p] holds the
+    // value for column s+d at the row l_row_idx[l_col_ptr[s]+p].
+    let mut panel = vec![0.0f64; max_panel.max(1)];
+    // Generation-stamped row -> panel position map (valid when gen matches).
+    let mut map_pos = vec![0usize; n.max(1)];
+    let mut map_gen = vec![0usize; n.max(1)];
+    let mut gen = 0usize;
+    // Row correspondence for the current (K, J) update pair:
+    // positions in K's row list and matching positions in J's panel.
+    let mut pair_k: Vec<usize> = Vec::new();
+    let mut pair_j: Vec<usize> = Vec::new();
 
-    for j in 0..n {
-        let l_start = sym.l_col_ptr[j];
-        let l_end = sym.l_col_ptr[j + 1];
-        for k in l_start..l_end {
-            x[sym.l_row_idx[k]] = 0.0;
+    for t in 0..ns {
+        let s = sym.snode_start[t];
+        let e = snode_end(t);
+        let width = e - s;
+        let jb = sym.l_col_ptr[s];
+        let rows = sym.l_col_ptr[s + 1] - jb;
+
+        gen += 1;
+        for p in 0..rows {
+            let r = sym.l_row_idx[jb + p];
+            map_pos[r] = p;
+            map_gen[r] = gen;
         }
 
-        // Scatter A[:,j] into accumulator
-        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            x[pa.row_idx[k]] = pa.values[k];
+        // Zero the panel and scatter A's columns s..e into it.
+        for v in panel[..width * rows].iter_mut() {
+            *v = 0.0;
         }
-
-        // Left-looking updates
-        for &(k, pos_jk) in &nz_cols_for_row[j] {
-            let ljk = l_values[pos_jk];
-            if ljk.abs() < 1e-30 {
-                continue;
+        for d in 0..width {
+            let j = s + d;
+            for p in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+                let i = pa.row_idx[p];
+                // struct(A[:,j]) ⊆ struct(L[:,j]) ⊆ panel rows
+                debug_assert_eq!(map_gen[i], gen);
+                panel[d * rows + map_pos[i]] = pa.values[p];
             }
-            let lk_end = sym.l_col_ptr[k + 1];
-            for p in pos_jk..lk_end {
-                let i = sym.l_row_idx[p];
-                x[i] -= l_values[p] * ljk;
+        }
+
+        // Gather updates from prior supernodes.
+        for &tk in &sym.snode_upd[t] {
+            let ks = sym.snode_start[tk];
+            let kw = snode_end(tk) - ks;
+            let kb = sym.l_col_ptr[ks];
+            let krows = sym.l_col_ptr[ks + 1] - kb;
+            let k_row = &sym.l_row_idx[kb..kb + krows];
+
+            // Positions of J's columns [s, e) inside K's (sorted) row list.
+            let p_lo = k_row.partition_point(|&r| r < s);
+            let p_hi = k_row.partition_point(|&r| r < e);
+            debug_assert!(p_lo < p_hi, "updater supernode must touch J's columns");
+            debug_assert!(p_lo >= kw, "J's columns lie below K's diagonal block");
+
+            // Rows of K at or below s that belong to J's panel. This must
+            // include J's own diagonal-block rows (positions p_lo..p_hi):
+            // the update for panel column j covers every row i >= j in K's
+            // structure — including i = j (the L[j,k]^2 diagonal term) and
+            // i in (j, e) — not just the rows below the block.
+            pair_k.clear();
+            pair_j.clear();
+            for q in p_lo..krows {
+                let r = k_row[q];
+                if map_gen[r] == gen {
+                    pair_k.push(q);
+                    pair_j.push(map_pos[r]);
+                }
+            }
+
+            // Column ks+d of K starts at l_col_ptr[ks+d]; entry (row position
+            // q, column d) of the dense trapezoid lives at l_col_ptr[ks+d]+q-d.
+            for d in 0..kw {
+                let col_base = sym.l_col_ptr[ks + d] - d;
+                // Only pairs with q >= pj contribute to panel column j;
+                // both are ascending, so the start index only moves forward.
+                let mut idx0 = 0;
+                for pj in p_lo..p_hi {
+                    let jcol = k_row[pj] - s; // column within the panel
+                    while idx0 < pair_k.len() && pair_k[idx0] < pj {
+                        idx0 += 1;
+                    }
+                    let u = l_values[col_base + pj];
+                    if u == 0.0 {
+                        continue;
+                    }
+                    for idx in idx0..pair_k.len() {
+                        panel[jcol * rows + pair_j[idx]] -= l_values[col_base + pair_k[idx]] * u;
+                    }
+                }
             }
         }
 
-        let diag = x[j];
-
-        // Strict mode: fail on non-SPD. `!(diag > t)` (not `diag <= t`) so a
-        // NaN pivot — where every comparison is false — is also rejected
-        // instead of producing a NaN-filled factor reported as success.
-        if !(diag > strict_threshold) {
-            return None;
+        // Dense partial Cholesky of the panel: factor the leading width×width
+        // block, then scale the subdiagonal block (right-looking, in cache).
+        for d in 0..width {
+            let diag = panel[d * rows + d];
+            // `!(diag > t)` (not `diag <= t`) so a NaN pivot — where every
+            // comparison is false — is also rejected instead of producing a
+            // NaN-filled factor reported as success.
+            if !(diag > strict_threshold) {
+                return None;
+            }
+            let l = diag.sqrt();
+            panel[d * rows + d] = l;
+            for p in (d + 1)..rows {
+                panel[d * rows + p] /= l;
+            }
+            for d2 in (d + 1)..width {
+                let f = panel[d * rows + d2]; // L[s+d2, s+d]
+                if f == 0.0 {
+                    continue;
+                }
+                for p in d2..rows {
+                    panel[d2 * rows + p] -= f * panel[d * rows + p];
+                }
+            }
         }
 
-        let ljj = x[j].sqrt();
-
-        for k in l_start..l_end {
-            let i = sym.l_row_idx[k];
-            if i == j {
-                l_values[k] = ljj;
-            } else {
-                l_values[k] = x[i] / ljj;
+        // Scatter back into CSC storage: column s+d keeps panel rows d..rows.
+        for d in 0..width {
+            let j = s + d;
+            let dst = sym.l_col_ptr[j];
+            for q in 0..(rows - d) {
+                l_values[dst + q] = panel[d * rows + d + q];
             }
         }
     }
@@ -603,6 +761,160 @@ mod tests {
             assert_matches_reference(k, &amd, &format!("{name} amd"));
             let rcm = rcm_order(k.n, &k.col_ptr, &k.row_idx);
             assert_matches_reference(k, &rcm, &format!("{name} rcm"));
+        }
+    }
+
+    /// Simplicial (column-by-column) numeric factorization: the algorithm the
+    /// supernodal `numeric_cholesky` replaced. Kept only as a differential
+    /// reference for the tests below.
+    fn numeric_simplicial_reference(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Vec<f64>> {
+        let n = sym.n;
+        let pa = a.permute_symmetric(&sym.perm);
+        let mut l_values = vec![0.0f64; sym.l_nnz];
+        let mut x = vec![0.0f64; n];
+        let strict_threshold = 1e-15;
+
+        let mut nz_cols_for_row: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
+        for k in 0..n {
+            for p in sym.l_col_ptr[k]..sym.l_col_ptr[k + 1] {
+                let i = sym.l_row_idx[p];
+                if i > k {
+                    nz_cols_for_row[i].push((k, p));
+                }
+            }
+        }
+
+        for j in 0..n {
+            let l_start = sym.l_col_ptr[j];
+            let l_end = sym.l_col_ptr[j + 1];
+            for k in l_start..l_end {
+                x[sym.l_row_idx[k]] = 0.0;
+            }
+            for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+                x[pa.row_idx[k]] = pa.values[k];
+            }
+            for &(k, pos_jk) in &nz_cols_for_row[j] {
+                let ljk = l_values[pos_jk];
+                if ljk.abs() < 1e-30 {
+                    continue;
+                }
+                let lk_end = sym.l_col_ptr[k + 1];
+                for p in pos_jk..lk_end {
+                    let i = sym.l_row_idx[p];
+                    x[i] -= l_values[p] * ljk;
+                }
+            }
+            let diag = x[j];
+            if !(diag > strict_threshold) {
+                return None;
+            }
+            let ljj = x[j].sqrt();
+            for k in l_start..l_end {
+                let i = sym.l_row_idx[k];
+                if i == j {
+                    l_values[k] = ljj;
+                } else {
+                    l_values[k] = x[i] / ljj;
+                }
+            }
+        }
+        Some(l_values)
+    }
+
+    /// Compare supernodal numeric against the simplicial reference.
+    /// Not bit-for-bit (update order differs within panels), so use a
+    /// tolerance scaled by the largest |L| entry.
+    fn assert_numeric_matches_reference(a: &CscMatrix, ordering: CholOrdering, ctx: &str) {
+        let sym = Rc::new(symbolic_cholesky_with(a, ordering));
+        let num = numeric_cholesky(&sym, a).unwrap_or_else(|| panic!("{ctx}: supernodal failed"));
+        let reference =
+            numeric_simplicial_reference(&sym, a).unwrap_or_else(|| panic!("{ctx}: simplicial failed"));
+        assert_eq!(num.l_values.len(), reference.len(), "{ctx}: length");
+        let scale = reference.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+        for (idx, (&got, &want)) in num.l_values.iter().zip(&reference).enumerate() {
+            let tol = 1e-9 * scale.max(1.0);
+            assert!(
+                (got - want).abs() <= tol,
+                "{ctx}: l_values[{idx}] = {got:.6e}, reference {want:.6e} (scale {scale:.3e})"
+            );
+        }
+    }
+
+    #[test]
+    fn test_numeric_supernodal_matches_simplicial() {
+        // Dense-ish SPD (forces multi-column supernodes after ordering).
+        let n = 12;
+        let mut dense = vec![0.0; n * n];
+        let seed: Vec<f64> = (0..n * n).map(|i| ((i * 7 + 3) % 17) as f64 / 17.0 - 0.5).collect();
+        for i in 0..n {
+            for j in 0..n {
+                let mut sum = 0.0;
+                for k in 0..n {
+                    sum += seed[k * n + i] * seed[k * n + j];
+                }
+                dense[i * n + j] = sum;
+            }
+            dense[i * n + i] += 10.0;
+        }
+        let a = make_spd(&dense, n);
+        assert_numeric_matches_reference(&a, CholOrdering::Amd, "dense-ish 12 amd");
+        assert_numeric_matches_reference(&a, CholOrdering::Rcm, "dense-ish 12 rcm");
+
+        // Banded chain (supernodes of size 1 — the trivial case must work too).
+        let n = 30;
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            rows.push(i);
+            cols.push(i);
+            vals.push(4.0);
+            if i + 1 < n {
+                rows.push(i + 1);
+                cols.push(i);
+                vals.push(-1.0);
+            }
+        }
+        let a = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+        assert_numeric_matches_reference(&a, CholOrdering::Amd, "chain amd");
+
+        // Arrowhead (one big dense root supernode under identity ordering).
+        let n = 10;
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            rows.push(i);
+            cols.push(i);
+            vals.push(10.0);
+            if i > 0 {
+                rows.push(i);
+                cols.push(0);
+                vals.push(1.0);
+            }
+        }
+        let a = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+        assert_numeric_matches_reference(&a, CholOrdering::Amd, "arrowhead amd");
+        assert_numeric_matches_reference(&a, CholOrdering::Rcm, "arrowhead rcm");
+    }
+
+    #[test]
+    fn test_numeric_supernodal_matches_simplicial_on_fixtures() {
+        use crate::solver::{assembly, dof::DofNumbering};
+        use crate::types::SolverInput3D;
+
+        let fixtures: [(&str, &str); 4] = [
+            ("nave-industrial", include_str!("../../tests/fixtures/ex-3d-nave-industrial-input.json")),
+            ("tower", include_str!("../../tests/fixtures/ex-3d-tower-input.json")),
+            ("space-truss", include_str!("../../tests/fixtures/ex-3d-space-truss-input.json")),
+            ("building-case1", include_str!("../../tests/fixtures/ex-3d-building-case1-input.json")),
+        ];
+        for (name, json) in fixtures {
+            let input: SolverInput3D = serde_json::from_str(json).expect("parse fixture");
+            let dof_num = DofNumbering::build_3d(&input);
+            let asm = assembly::assemble_sparse_3d(&input, &dof_num, false);
+            let k = &asm.k_ff;
+            if k.n == 0 {
+                continue;
+            }
+            assert_numeric_matches_reference(k, CholOrdering::Amd, &format!("{name} amd"));
+            assert_numeric_matches_reference(k, CholOrdering::Rcm, &format!("{name} rcm"));
         }
     }
 }
