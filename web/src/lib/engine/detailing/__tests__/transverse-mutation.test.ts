@@ -20,6 +20,7 @@ import { runDesign } from '../../design/candidate-search';
 import { cirsoc201Adapter } from '../../design/adapters/cirsoc201-adapter';
 import { runDetailing, type RunDetailingResult } from '../run-detailing';
 import { assessConstructibility, type ConstructibilityFacts } from '../constructibility';
+import { undetailedMemberCount } from '../design-convergence';
 import { classifyPair, type ClassificationContext } from '../classify';
 import { detectCollisions } from '../collision';
 import { rebarHash } from '../../design/rebar-hash';
@@ -55,6 +56,14 @@ function facts(): ConstructibilityFacts {
     reverifiedMembers: a.elementIds.length, certificateHashMatches: a.elementIds.length,
     spacingNotCodeLegal: 0, spacingNotPlacementRobust: 0,
     unsupportedRules: 0, staleAssemblies: 0,
+    /*
+     * Read off the run, like every other number in this function.
+     *
+     * The alternative was a literal zero, and it would have been an assumption about the
+     * fixture rather than a measurement of it — exactly what the docstring above forbids. If
+     * this fixture ever stops converging, the reference facts stop passing and say why.
+     */
+    undetailedModelMembers: undetailedMemberCount(r.readiness.convergence),
     familyRequirements: noFloorFamilies(),
   };
 }

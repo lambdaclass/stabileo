@@ -104,7 +104,7 @@ describe('rc-design-qa-8 reaches CONSTRUCTIBLE through the production path', () 
     expect(run().assemblies.flatMap((a) => a.conflicts)).toEqual([]);
   });
 
-  it('ALL FIFTEEN conditions pass', () => {
+  it('ALL SIXTEEN conditions pass', () => {
     // Asserted by name rather than by count, so a condition that stopped being evaluated
     // could not pass this by disappearing.
     const expected = [
@@ -117,6 +117,11 @@ describe('rc-design-qa-8 reaches CONSTRUCTIBLE through the production path', () 
       // satisfied by a MEASURED empty requirement. They are asserted here by name because
       // this fixture is the frame path's proof that adding them did not silently gate it.
       'allApplicableFamiliesCertified', 'noStaleFamilyCertificate',
+      // And the whole-model condition. This fixture designs every member it holds, so it
+      // passes — which is the assertion that matters here: the sixteenth condition must not
+      // gate a design that converged, and a fixture where it silently blocked would have made
+      // the whole acceptance path unreachable rather than stricter.
+      'wholeModelDetailed',
     ].sort();
     for (const a of run().assemblies) {
       const conditions = a.constructibility?.conditions ?? [];

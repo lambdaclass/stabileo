@@ -67,6 +67,9 @@ import {
 } from './torsion-notice';
 import { detectCollisions } from './collision';
 import { assessConstructibility } from './constructibility';
+import {
+  assessDesignConvergence, undetailedMemberCount, type DesignConvergence,
+} from './design-convergence';
 import { noFloorFamilies } from './family-record';
 import { envelopeIsComplete } from './coordination-search';
 import { materialiseLaps, lapIndex, lapBetween, type PlannedTransition, type LapInterval } from './lap-materialize';
@@ -186,6 +189,18 @@ export interface DetailingReadiness {
   detailable: number[];
   /** Exactly what is missing, with counts, so the UI never says "run design first". */
   prerequisites: Prerequisite[];
+  /**
+   * What the resulting detailing may be CALLED, measured against the whole model.
+   *
+   * `ready` and this answer two different questions and both are needed. `ready` gates the
+   * command — may it run at all — and this gates the claim. Detailing a frame with refused
+   * columns is an ordinary operation and stays enabled; calling the result construction
+   * documentation is not, and `wholeModelDetailed` is what refuses it.
+   *
+   * Carried here rather than computed by each caller so the two cannot disagree about which
+   * members are in the drawing: `detailable` decides, and this is measured against it.
+   */
+  convergence: DesignConvergence;
 }
 
 /**
@@ -205,9 +220,18 @@ export function detailingReadiness(input: {
   const noReinforcement: number[] = [];
   const noStations: number[] = [];
   const suspect: number[] = [];
+  /**
+   * Every member this design has to answer for.
+   *
+   * Collected in the same loop and by the same rule as `detailable`, so the two cannot come to
+   * disagree about the population. Convergence is the difference between these two lists, and a
+   * difference between two lists built by different rules would measure the rules.
+   */
+  const applicable: number[] = [];
 
   for (const [id, ctx] of input.contexts) {
     if (ctx.elementType === 'wall') continue;   // PR18 owns walls.
+    applicable.push(id);
     const outcome = input.outcomes.get(id);
     /**
      * A PROVISIONAL_BIAXIAL member is detailed, and is not thereby verified.
@@ -253,6 +277,11 @@ export function detailingReadiness(input: {
     ready: detailable.length > 0,
     detailable: detailable.sort((a, b) => a - b),
     prerequisites,
+    convergence: assessDesignConvergence({
+      applicableIds: applicable,
+      detailedIds: detailable,
+      outcomes: input.outcomes,
+    }),
   };
 }
 
@@ -2333,6 +2362,21 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         }).conflicts.filter((c) => c.severity !== 'marginal').length,
       unsupportedRules: result.assembly.unsupported.length + unsupportedRun.length,
       staleAssemblies: 0,
+      /**
+       * The one condition measured on the MODEL rather than on this assembly.
+       *
+       * Every count above is over `elementIds`, which is this level's detailed members — the
+       * right population for "is this cage sound" and the wrong one for "is this cage the whole
+       * cage". A member the design refused never reached `byLevel`, so no per-assembly count can
+       * see it, and fifteen conditions measured over four members out of twelve all passed.
+       *
+       * The same number goes to every assembly on purpose. Construction documentation is issued
+       * from the DOCUMENT, which aggregates assemblies and takes the lowest state among them; a
+       * level that happens to be clean is not a licence to build one storey of a structure whose
+       * design has not converged. Withholding the claim on every assembly is what makes the
+       * document unable to reach ISSUED, which is the outcome this condition is for.
+       */
+      undetailedModelMembers: undetailedMemberCount(readiness.convergence),
     });
     const gated = evaluateState({
       bars: result.assembly.bars,

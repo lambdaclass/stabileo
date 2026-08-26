@@ -193,6 +193,8 @@ describe('earned review state', () => {
       prohibitedConflicts: 0, reverifiedMembers: 1, certificateHashMatches: 1,
       spacingNotCodeLegal: 0, spacingNotPlacementRobust: 0,
       unsupportedRules: 0, staleAssemblies: 0,
+      // The one member of this fixture is the whole of its model.
+      undetailedModelMembers: 0,
       // A beam line: no panels, walls or footings. Measured, not omitted.
       familyRequirements: noFloorFamilies(),
     }),

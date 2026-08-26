@@ -35,7 +35,7 @@ import {
 } from './family-record';
 
 /**
- * The fifteen conditions, in the order they are evaluated and reported.
+ * The sixteen conditions, in the order they are evaluated and reported.
  *
  * The thirteenth — `allRequiredTransversePathsMaterialised` — was added when the transverse
  * cage became physical. Without it the gate had no way to tell a floor whose stirrups exist
@@ -51,6 +51,14 @@ import {
  * exists to prevent, and it is now impossible to express: the frame conditions count frame
  * members, the family conditions count family members, and each is measured against what is
  * APPLICABLE rather than against a flag a caller could set.
+ *
+ * The sixteenth — `wholeModelDetailed` — is the same lesson a third time, and the first one
+ * measured on something OUTSIDE the assembly. Every condition above it is evaluated over the
+ * members that were drawn, because `runDetailing` details `readiness.detailable` and
+ * `applicableMembers` is `elementIds.length`. So a frame with eight refused columns and four
+ * verified ones produced a cage of four that was complete, clash-free and fully certified — and
+ * satisfied all fifteen. The claim was true of the drawing and false of the structure, which is
+ * the failure this module exists to make impossible. See `design-convergence.ts`.
  */
 export const CONSTRUCTIBILITY_CONDITIONS = [
   'completeEnvelope',
@@ -68,6 +76,7 @@ export const CONSTRUCTIBILITY_CONDITIONS = [
   'allSpacingPlacementRobust',
   'noUnsupportedRule',
   'noStaleUpstreamRevision',
+  'wholeModelDetailed',
 ] as const;
 
 export type ConstructibilityCondition = (typeof CONSTRUCTIBILITY_CONDITIONS)[number];
@@ -138,6 +147,25 @@ export interface ConstructibilityFacts {
   /** Assemblies whose upstream demand revision has moved on. */
   staleAssemblies: number;
   /**
+   * Members of the MODEL that this detailing does not answer for.
+   *
+   * ── Why it is a separate number from `applicableMembers` ───────────
+   *
+   * `applicableMembers` counts what entered the assembly, and every condition above is measured
+   * against it. That is correct for all of them: they ask whether the cage that was drawn is
+   * sound. This one asks a question none of them can — whether the cage that was drawn is the
+   * whole cage — and it cannot be answered from inside the assembly, because a member with no
+   * verified design never reaches it.
+   *
+   * Supplied by the caller from `assessDesignConvergence`, and a raw count for the reason the
+   * whole interface is raw counts: a caller that can pass `wholeModelDetailed: true` can pass it
+   * wrongly, and "3 of 248 undetailed" and "245 of 248 undetailed" are the same boolean and
+   * completely different situations.
+   *
+   * Zero on a fully converged design, which is the only value that lets the gate through.
+   */
+  undetailedModelMembers: number;
+  /**
    * Certificate evidence for the floor families, one entry per family, ALWAYS present.
    *
    * ── Why it is required rather than optional ─────────────────────────
@@ -175,7 +203,7 @@ function cond(
 /**
  * Decide whether this detailing may be called constructible.
  *
- * All fifteen or none. There is no partial credit and no "mostly": an engineer reading
+ * All sixteen or none. There is no partial credit and no "mostly": an engineer reading
  * CONSTRUCTIBLE is entitled to assume every one of these was checked.
  *
  * The distinction between the two failure verdicts is about what the engineer does next.
@@ -273,6 +301,10 @@ export function assessConstructibility(f: ConstructibilityFacts): Constructibili
       msg('detailing.constructible.unsupported', { n: f.unsupportedRules })),
     cond('noStaleUpstreamRevision', f.staleAssemblies === 0, f.staleAssemblies,
       msg('detailing.constructible.stale', { n: f.staleAssemblies })),
+    // The whole-structure condition. Everything above is about the drawing; this is about what
+    // the drawing leaves out.
+    cond('wholeModelDetailed', f.undetailedModelMembers === 0, f.undetailedModelMembers,
+      msg('detailing.constructible.undetailed', { n: f.undetailedModelMembers })),
   ];
 
   const blocking = conditions.filter((c) => !c.passed).map((c) => c.condition);

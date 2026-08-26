@@ -888,6 +888,14 @@ la etapa DISEÑAR; B9 sólo fallaba en el mismo worker después de B15.
 | `floor-families-document` FD-E | la gate de revisión |
 | `rc-design-visual` overlay legend | baseline visual, declarado no bloqueante |
 
+> **Corrección, 2026-08-26.** `pro-design-scopes` (6) **no era heredado**. Era rojo en
+> `6c090835`, que es un commit de esta misma rama, y el marco de "heredado" acá era *esta tanda*
+> — pero como estado del PR era deuda de H2: la misma reubicación de F2.1 que rompió B15 hizo que
+> el selector ofreciera sólo las familias que el modelo tiene, y los tests leían cinco filas de un
+> proyecto vacío. `floor-families-document` FD-E **sí** era heredado, verificado corriendo el spec
+> sobre `feat/pro-concrete-h1`: 18 pasan y ése falla. Los dos están arreglados y el detalle está
+> en `detailing-convergence.md` §5.
+
 **Uno que sí era mío**: `h1b-panel-navigation` "the design panel skips no level", en los tres
 idiomas. `RcExportLog` abría con `<h5>` bajo el `<h3>` de `DocumentsSection`. Es el mismo salto
 `h3 → h5` que el propio spec registra haber encontrado una vez en "Engineer review", en ese

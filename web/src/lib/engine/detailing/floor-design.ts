@@ -857,6 +857,26 @@ export function buildFloorAssembly(input: FloorAssemblyInput): FloorAssemblyResu
     prohibitedConflicts: prohibited,
     reverifiedMembers: 0,
     certificateHashMatches: 0,
+    /**
+     * Zero for the same reason `applicableMembers` is zero, and with the same limit stated.
+     *
+     * The sixteenth condition asks whether the FRAME detailing covers every frame member the
+     * model holds. This pass has no frame members — its population is the families, and
+     * `allApplicableFamiliesCertified` is the condition that counts them. Measuring frame
+     * convergence here would mean threading the whole model's contexts and outcomes into a pass
+     * that designs shells and foundations, to answer a question its own assembly does not raise.
+     *
+     * ── The gap this leaves, named rather than papered over ────────────
+     *
+     * On a project that has both, the frame's own assemblies carry the condition and the
+     * document takes the LOWEST state among its assemblies, so an unconverged frame withholds
+     * the document's claim whatever this floor reached. What is genuinely uncovered is a project
+     * with slabs and footings and a frame that was never designed at all: this floor may reach
+     * CONSTRUCTIBLE on the strength of its own complete family evidence. That is a narrower
+     * claim than it looks — the floor really is designed and certified — but it is not a
+     * statement about the columns holding it up, and no condition here makes one.
+     */
+    undetailedModelMembers: 0,
     familyRequirements,
     spacingNotCodeLegal: conflicts.filter((c) => c.pairClass === 'sameLayerSpacing'
       || c.pairClass === 'betweenLayerSpacing' || c.pairClass === 'crossMemberSpacing').length,

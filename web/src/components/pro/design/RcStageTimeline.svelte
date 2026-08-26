@@ -53,6 +53,7 @@
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import RcRegenerationWarning from './RcRegenerationWarning.svelte';
+  import RcConvergenceNotice from './RcConvergenceNotice.svelte';
   import {
     currentRcStage, rcStageTodoKey,
     type RcModelReadiness, type RcStage, type RcStageId,
@@ -327,6 +328,8 @@
     {#if !detailingReady.ready && detailingBlockers}
       <p class="detailing-blockers" data-testid="detailing-prerequisites">{detailingBlockers}</p>
     {/if}
+    <!-- What the run will produce, once there is a run to describe. See the component. -->
+    <RcConvergenceNotice />
 
   <p class="hint" data-testid="rc-stage-hint">
     {#if openLabel}

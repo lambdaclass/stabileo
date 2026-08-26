@@ -212,6 +212,40 @@ test.describe('@slow a refusal is never dressed as a result', () => {
       }
     });
 
+  test('the drawing is offered, and is not offered as construction documentation',
+    async ({ pro: page }) => {
+      await withRefusedMembers(page);
+      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+
+      /*
+       * The two halves of the rule, on the one fixture in the suite that reaches the state it
+       * is about. Eight columns are SEARCH_EXHAUSTED and four verify, so `runDetailing` draws
+       * four members of a twelve-member frame.
+       *
+       * The command stays ENABLED — that is not an oversight, it is the point. Detailing a
+       * partly designed frame is how the effect of the refused members on the rest of the cage
+       * becomes visible, and disabling the button would take away the tool used to converge the
+       * design rather than converge it. The assertion above at line 96 already relies on this.
+       *
+       * What is withheld is the claim. The strip says so before the run, and
+       * `wholeModelDetailed` — the sixteenth constructibility condition — withholds it in the
+       * gate afterwards, which is what stops the document reaching ISSUED.
+       */
+      await expect(page.getByTestId('cmd-generate-detailing')).toBeEnabled();
+
+      const notice = page.getByTestId('detailing-convergence');
+      await expect(notice).toBeVisible();
+      await expect(notice).toHaveAttribute('data-state', 'incomplete');
+      await expect(notice).toContainText('Not construction documentation');
+
+      // And the shortfall names the members and their remedy. "Change the section" is the only
+      // move that helps a refused column, and it is the one a bare count would not suggest.
+      const gaps = page.getByTestId('detailing-convergence-gaps');
+      await expect(gaps).toBeVisible();
+      await expect(gaps).toContainText('change the section');
+      expect((await gaps.innerText()).match(/\d+/), 'the gap counts its members').not.toBeNull();
+    });
+
   test('and the counts separate it from a failure and from a verified member',
     async ({ pro: page }) => {
       await withRefusedMembers(page);
