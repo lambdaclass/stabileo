@@ -22,19 +22,18 @@ async function openSectionsTab(page: Page): Promise<void> {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-sections').click();
   /*
-   * "Add section" is a collapsed `<details>`, and the trigger lives inside it.
+   * "Add section" used to be a collapsed `<details>` with the trigger inside it, and this
+   * helper expanded it — the button WAS in the DOM but not visible, so an earlier version of
+   * this file timed out with "element is not visible" on every test.
    *
-   * My first version of this file went straight for the trigger and every test in it timed out
-   * with "element is not visible" — the button WAS in the DOM, which is why the locator
-   * resolved and the failure read as a stuck click rather than a missing control. Expanding the
-   * disclosure is not a workaround: adding a section is what the panel is for, and this is the
-   * path a user takes.
+   * The disclosure is gone with the inline catalogue it was hiding. A `<details>` whose whole
+   * body is one button is a click that reveals a click, so the button is the panel now. The
+   * region keeps its test id, and this asserts the trigger is reachable WITHOUT a gesture —
+   * which is the property that changed, and the one worth failing on if it comes back.
    */
   const add = page.getByTestId('pro-add-section-panel');
-  await expect(add).toBeAttached();
-  if (!(await add.evaluate((el) => (el as HTMLDetailsElement).open))) {
-    await add.locator('summary').click();
-  }
+  await expect(add).toBeVisible();
+  await expect(add.getByTestId('pro-open-section-modal')).toBeVisible();
 }
 
 async function openModal(page: Page): Promise<void> {

@@ -216,30 +216,73 @@ describe('the sections tab reaches the modal, and stops shaping profiles by hand
     resolve(__dirname, '../../../components/pro/ProSectionsTab.svelte'), 'utf8',
   );
 
+  /**
+   * The tab with its prose removed.
+   *
+   * The absence assertions below name the machinery that must not come back — `SECTION_SHAPES`,
+   * `<tr onclick>`, a second `addSection`. A comment EXPLAINING why each was removed contains
+   * every one of those strings, so reading the raw file makes the file's own documentation fail
+   * its own test, and the only way to pass is to stop explaining the decision. Stripping
+   * comments first is what lets the component say why it is shaped this way.
+   */
+  const CODE = TAB
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
   it('mounts the modal and offers a way in', () => {
     expect(TAB).toContain('ProSectionModal');
     expect(TAB).toContain('pro-open-section-modal');
   });
 
   /*
-   * The local `shapeForFamily` this replaces knew six families and returned `'CHS'` — a round
-   * tube — for everything else. Measured across all fifteen: **eight diverged from the
-   * catalogue's own map, seven of them to CHS**, including every American wide-flange (W),
-   * both American channels (C, MC), the tees and the square tubes. The eighth, HEA, came back
-   * `'H'` where the catalogue says `'I'`.
+   * There is no second catalogue on this tab, and that is the whole decision.
    *
-   * Stiffness was not affected — `a`, `iy` and `iz` are written from the profile's own numbers
-   * and the canonical resolver returned the same properties either way, which I checked before
-   * claiming otherwise. What the wrong shape does affect is everything DISPATCHED on it: the
-   * drawn outline, the shear-flow path, the 3-D extrusion, and the clause helpers that ask what
-   * shape a member is — `flangeWidthForSlenderness` answers `null` for a CHS, so §F.6.2 would
-   * have reported a W-section beam out of scope.
+   * It used to carry the old Basic strip inline — `FAMILY_LIST` buttons, `searchProfiles`, and
+   * a table whose rows called `modelStore.addSection` directly through a local `addProfile`.
+   * Two surfaces onto one catalogue, and the inline one was the poorer by four measures: no
+   * arrangement, gap or rotation (it never built a `ProfileSpec`), no standards body / design
+   * code / depth filter, no data sheet, and `<tr onclick>` rows no keyboard could reach.
    *
-   * `familyToShape` was already imported by this file and simply never called.
+   * Asserted as absence of the MACHINERY rather than absence of a rendered table, because a
+   * table is easy to hide and easy to bring back. A tab that imports no catalogue cannot grow
+   * a second picker without this failing first.
    */
-  it('uses the catalogue map, which is exhaustive, not a local one that is not', () => {
-    expect(TAB).toContain('familyToShape(p.family)');
-    expect(TAB).not.toContain('function shapeForFamily');
+  it('holds no catalogue of its own', () => {
+    for (const gone of [
+      'FAMILY_LIST',        // the fifteen family buttons
+      'PROFILE_FAMILIES',   // the rows behind them
+      'searchProfiles',     // its own search
+      'familyToShape',      // its own family → shape mapping
+      'function addProfile', // its own add path, bypassing ProfileSpec
+      'SECTION_SHAPES',     // and the inline build form, duplicating the `build` division
+      'computeSectionProperties',
+    ]) {
+      expect(CODE, `${gone} must not be back on the sections tab`).not.toContain(gone);
+    }
+  });
+
+  /*
+   * One writer to the model, and it goes through the choice type.
+   *
+   * `toSectionFields` is where composition, gap, rotation, provenance and — since the defect
+   * this decision surfaced — the wall thicknesses are decided. A second `addSection` call is
+   * how the inline path drifted away from it in the first place.
+   */
+  it('writes to the model exactly once, through the choice', () => {
+    expect([...CODE.matchAll(/modelStore\.addSection/g)]).toHaveLength(1);
+    expect(TAB).toContain('toSectionFields(choice, 0)');
+  });
+
+  /*
+   * And the way in is a button, not a row.
+   *
+   * `<tr onclick>` is what the inline catalogue used, and it is unreachable by keyboard: no
+   * tab stop, no Enter, no role. It must not come back on this tab in any form.
+   */
+  it('offers the trigger as a button a keyboard can reach', () => {
+    expect(CODE).not.toContain('<tr onclick');
+    expect(TAB).toMatch(/<button[^>]*data-testid="pro-open-section-modal"/s);
   });
 
   it('passes the auto-rotation fallback explicitly', () => {

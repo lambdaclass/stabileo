@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { toSectionFields, isStandard, type SectionChoice } from '../section-choice';
 import { defaultProfileSpec } from '../profile-spec';
+import { FAMILY_LIST, PROFILE_FAMILIES } from '../../data/steel-profiles';
 import { composeBuiltUp } from '../../engine/generators/built-up-section';
 import { resolveProfile } from '../../engine/generators/profile-resolve';
 
@@ -136,6 +137,31 @@ describe('a built choice', () => {
   it('writes no thickness for a shape that has none', () => {
     const f = toSectionFields(built, 0)!;
     for (const k of ['tw', 'tf', 't', 'tl'] as const) expect(k in f).toBe(false);
+  });
+});
+
+/**
+ * The surviving path can still create everything the removed one could.
+ *
+ * `ProSectionsTab` used to add a section by calling `modelStore.addSection` from an inline
+ * table row; that path is gone and `toSectionFields` is the only one left. Fifteen families is
+ * not a number to take on trust after a deletion, so it is read from the catalogue and walked —
+ * a family that stopped resolving, or a sixteenth that appeared, fails here.
+ */
+describe('every family the catalogue publishes', () => {
+  it('resolves to a section with an area, through the one remaining path', () => {
+    expect(FAMILY_LIST).toHaveLength(15);
+    for (const family of FAMILY_LIST) {
+      const rows = PROFILE_FAMILIES[family];
+      expect(rows?.length, `${family} has rows`).toBeGreaterThan(0);
+      // The middle of the family, so the test is not pinned to whichever row happens to be first.
+      const rep = rows![Math.floor(rows!.length / 2)];
+      const f = toSectionFields({ kind: 'standard', spec: defaultProfileSpec(rep.name) }, 0);
+      expect(f, `${family}: ${rep.name} resolves`).not.toBeNull();
+      expect(f!.a, `${family}: ${rep.name} has an area`).toBeGreaterThan(0);
+      // Provenance: the family travels with the section, which the inline row never wrote.
+      expect(f!.profileFamily, `${family}: ${rep.name} names its family`).toBe(family);
+    }
   });
 });
 
