@@ -56,61 +56,95 @@ pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> Symbolic
     // Apply permutation
     let pa = a.permute_symmetric(&perm);
 
-    // Direct left-looking symbolic factorization.
-    // For each column j, the nonzero rows of L[:,j] are determined by:
-    //   1. rows from A[:,j] with row > j (original entries)
-    //   2. rows from L[:,k] for each k < j where L[j,k] != 0 (fill-in from updates)
-    // This is O(nnz(L)²) worst case but guaranteed correct.
+    // Etree-based symbolic factorization.
+    //
+    // The nonzero rows of L[:,j] are the rows of A[:,j] below the diagonal
+    // plus the rows below j of every CHILD of j in the elimination tree
+    // (fill propagates child → parent, so merging children captures it all).
+    // The previous version was left-looking without the tree: each column
+    // merged the full row lists of every earlier column k with L[j,k] != 0,
+    // which is O(nnz(L)²) worst case, and then built the tree from the
+    // result and never used it. Computing the tree first makes each entry
+    // of L propagate only along its etree path.
 
-    let mut l_col_ptr = vec![0usize; n + 1];
-    let mut l_row_idx_build: Vec<Vec<usize>> = vec![Vec::new(); n];
-
-    // For efficient lookup: row_to_cols[i] = list of columns k < i where L[i,k] != 0
-    let mut row_to_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
-
+    // Elimination tree of the permuted matrix, computed from A's pattern
+    // (Liu's algorithm with path compression; the etree of A is the etree of
+    // L). `pa` stores the lower triangle by column; the walk needs it by row
+    // (row i, adjacent j < i), so build the pattern transpose first. Rows
+    // come out sorted: entries are appended in increasing column order.
+    let mut row_ptr = vec![0usize; n + 1];
     for j in 0..n {
-        // Start with rows from A[:,j]
-        let mut col_set = Vec::new();
-        col_set.push(j); // diagonal
-
-        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            let i = pa.row_idx[k];
-            if i > j {
-                col_set.push(i);
+        for p in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+            if pa.row_idx[p] > j {
+                row_ptr[pa.row_idx[p] + 1] += 1;
             }
         }
-
-        // Merge rows from previous columns k where L[j,k] != 0
-        for &k in &row_to_cols[j] {
-            // Add all rows > j from column k
-            for &row in &l_row_idx_build[k] {
-                if row > j {
-                    col_set.push(row);
+    }
+    for i in 0..n {
+        row_ptr[i + 1] += row_ptr[i];
+    }
+    let mut row_cols = vec![0usize; row_ptr[n]];
+    {
+        let mut next = row_ptr.clone();
+        for j in 0..n {
+            for p in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+                let i = pa.row_idx[p];
+                if i > j {
+                    row_cols[next[i]] = j;
+                    next[i] += 1;
                 }
-            }
-        }
-
-        col_set.sort_unstable();
-        col_set.dedup();
-        l_row_idx_build[j] = col_set;
-
-        // Register this column in row_to_cols for future columns
-        for &row in &l_row_idx_build[j] {
-            if row > j {
-                row_to_cols[row].push(j);
             }
         }
     }
 
-    // Build elimination tree from the computed structure (parent[j] = min row > j in L[:,j])
     let mut parent = vec![-1isize; n];
-    for j in 0..n {
-        for &row in &l_row_idx_build[j] {
-            if row > j {
-                parent[j] = row as isize;
-                break; // first row > j (sorted)
+    let mut ancestor = vec![-1isize; n];
+    for i in 0..n {
+        for p in row_ptr[i]..row_ptr[i + 1] {
+            let mut r = row_cols[p];
+            while ancestor[r] != -1 && ancestor[r] != i as isize {
+                let t = ancestor[r] as usize;
+                ancestor[r] = i as isize;
+                r = t;
+            }
+            if ancestor[r] == -1 {
+                parent[r] = i as isize;
+                ancestor[r] = i as isize;
             }
         }
+    }
+
+    // Children of each node, in increasing order (parents are always larger).
+    let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for j in 0..n {
+        if parent[j] >= 0 {
+            children[parent[j] as usize].push(j);
+        }
+    }
+
+    // Column structures, in increasing order: children are finished before
+    // their parent, and the merge only borrows them — a column's list is
+    // part of the final structure, so it must survive being merged upward.
+    let mut l_col_ptr = vec![0usize; n + 1];
+    let mut l_row_idx_build: Vec<Vec<usize>> = vec![Vec::new(); n];
+
+    for j in 0..n {
+        // Rows of A[:,j] below the diagonal — already sorted (from_triplets
+        // sorts by (col, row)).
+        let a_col = &pa.row_idx[pa.col_ptr[j]..pa.col_ptr[j + 1]];
+        let a_below = &a_col[a_col.partition_point(|&i| i <= j)..];
+
+        let mut col = Vec::with_capacity(a_below.len() + 1);
+        col.push(j); // diagonal
+        col.extend_from_slice(a_below);
+
+        for &c in &children[j] {
+            let child = &l_row_idx_build[c];
+            let suffix = &child[child.partition_point(|&i| i <= j)..];
+            col = merge_sorted_unique(col, suffix);
+        }
+
+        l_row_idx_build[j] = col;
     }
 
     // Build compressed l_row_idx and l_col_ptr
@@ -131,6 +165,30 @@ pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> Symbolic
         parent,
         l_nnz,
     }
+}
+
+/// Union of two sorted index lists, as a new sorted list without duplicates.
+/// `a` is consumed, `b` is borrowed.
+fn merge_sorted_unique(a: Vec<usize>, b: &[usize]) -> Vec<usize> {
+    let mut out = Vec::with_capacity(a.len() + b.len());
+    let mut i = 0;
+    let mut j = 0;
+    while i < a.len() && j < b.len() {
+        if a[i] < b[j] {
+            out.push(a[i]);
+            i += 1;
+        } else if b[j] < a[i] {
+            out.push(b[j]);
+            j += 1;
+        } else {
+            out.push(a[i]);
+            i += 1;
+            j += 1;
+        }
+    }
+    out.extend_from_slice(&a[i..]);
+    out.extend_from_slice(&b[j..]);
+    out
 }
 
 /// Compute numeric Cholesky factorization given symbolic structure.
@@ -433,5 +491,136 @@ mod tests {
         let num = numeric_cholesky(&sym, &a).unwrap();
         let cond = sparse_condition_estimate(&num);
         assert!((cond - 1.0).abs() < 1e-10); // L = diag(2,2), ratio = 1
+    }
+
+    /// The pre-etree symbolic factorization (direct left-looking, merging the
+    /// row lists of every earlier column k with L[j,k] != 0). Kept as the
+    /// reference oracle for the etree-based implementation: both must produce
+    /// the exact same L structure and the same elimination tree.
+    fn reference_symbolic_structure(pa: &CscMatrix) -> (Vec<usize>, Vec<usize>, Vec<isize>) {
+        let n = pa.n;
+        let mut l_col_ptr = vec![0usize; n + 1];
+        let mut l_row_idx_build: Vec<Vec<usize>> = vec![Vec::new(); n];
+        // row_to_cols[i] = list of columns k < i where L[i,k] != 0
+        let mut row_to_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
+
+        for j in 0..n {
+            let mut col_set = Vec::new();
+            col_set.push(j);
+            for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+                let i = pa.row_idx[k];
+                if i > j {
+                    col_set.push(i);
+                }
+            }
+            for &k in &row_to_cols[j] {
+                for &row in &l_row_idx_build[k] {
+                    if row > j {
+                        col_set.push(row);
+                    }
+                }
+            }
+            col_set.sort_unstable();
+            col_set.dedup();
+            l_row_idx_build[j] = col_set;
+            for &row in &l_row_idx_build[j] {
+                if row > j {
+                    row_to_cols[row].push(j);
+                }
+            }
+        }
+
+        let mut parent = vec![-1isize; n];
+        for j in 0..n {
+            for &row in &l_row_idx_build[j] {
+                if row > j {
+                    parent[j] = row as isize;
+                    break;
+                }
+            }
+        }
+
+        let mut l_row_idx = Vec::new();
+        for j in 0..n {
+            l_col_ptr[j] = l_row_idx.len();
+            l_row_idx.extend_from_slice(&l_row_idx_build[j]);
+        }
+        l_col_ptr[n] = l_row_idx.len();
+        (l_col_ptr, l_row_idx, parent)
+    }
+
+    #[test]
+    fn test_etree_symbolic_matches_reference() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+
+        let mut rng = StdRng::seed_from_u64(0x5eed);
+        // Grid meshes (structured, what the solver actually sees), diagonal
+        // matrices, and random symmetric patterns at several sizes/densities.
+        for trial in 0..200 {
+            let n = 1 + (rng.gen::<usize>() % 40);
+            let density = 0.05 + rng.gen::<f64>() * 0.45;
+            let grid = trial % 2 == 0;
+
+            let mut rows = vec![];
+            let mut cols = vec![];
+            let mut vals = vec![];
+            for i in 0..n {
+                rows.push(i);
+                cols.push(i);
+                vals.push(n as f64 + 1.0); // diagonal dominance → SPD
+            }
+            if grid {
+                // n ≈ side² grid with 5-point stencil
+                let side = (n as f64).sqrt().ceil() as usize;
+                for r in 0..side {
+                    for c in 0..side {
+                        let i = r * side + c;
+                        if i >= n { continue; }
+                        for (dr, dc) in [(1usize, 0usize), (0, 1)] {
+                            let r2 = r + dr;
+                            let c2 = c + dc;
+                            let k = r2 * side + c2;
+                            if r2 < side && c2 < side && k < n {
+                                rows.push(k.max(i));
+                                cols.push(k.min(i));
+                                vals.push(-1.0);
+                            }
+                        }
+                    }
+                }
+            } else {
+                for j in 0..n {
+                    for i in (j + 1)..n {
+                        if rng.gen::<f64>() < density {
+                            rows.push(i);
+                            cols.push(j);
+                            vals.push(rng.gen::<f64>() - 0.5);
+                        }
+                    }
+                }
+            }
+            let a = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+
+            for ordering in [CholOrdering::Amd, CholOrdering::Rcm] {
+                let sym = symbolic_cholesky_with(&a, ordering);
+                let pa = a.permute_symmetric(&sym.perm);
+                let (ref_ptr, ref_idx, ref_parent) = reference_symbolic_structure(&pa);
+
+                assert_eq!(sym.l_col_ptr, ref_ptr, "l_col_ptr mismatch, trial {trial} n={n} grid={grid} {ordering:?}");
+                assert_eq!(sym.l_row_idx, ref_idx, "l_row_idx mismatch, trial {trial} n={n} grid={grid} {ordering:?}");
+                assert_eq!(sym.parent, ref_parent, "parent mismatch, trial {trial} n={n} grid={grid} {ordering:?}");
+                assert_eq!(sym.l_nnz, ref_idx.len());
+
+                // And the structure must actually factor + solve.
+                let num = numeric_cholesky(&Rc::new(sym), &a).expect("SPD matrix should factor");
+                let b: Vec<f64> = (0..n).map(|i| (i + 1) as f64).collect();
+                let x = sparse_cholesky_solve(&num, &b);
+                let ax = a.sym_mat_vec(&x);
+                for i in 0..n {
+                    assert!((ax[i] - b[i]).abs() < 1e-6 * (n as f64), "solve residual, trial {trial} row {i}");
+                }
+            }
+        }
     }
 }
