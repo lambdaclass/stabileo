@@ -5103,6 +5103,8 @@ const es: Record<string, string> = {
   'detailing.conflict.clearance': 'Separación libre insuficiente',
   'detailing.sheet': 'Lámina',
   'detailing.sheet.elevation': 'Elevación',
+  'detailing.sheet.station': 'Corte en x',
+  'detailing.sheet.stationRange': 'entre {min} y {max} m',
   'detailing.sheet.section': 'Sección transversal',
   'detailing.schedule': 'Planilla de doblado',
   'detailing.mark': 'Marca',

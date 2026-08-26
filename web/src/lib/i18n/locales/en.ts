@@ -5110,6 +5110,8 @@ const en: Record<string, string> = {
   'detailing.conflict.clearance': 'Insufficient clear spacing',
   'detailing.sheet': 'Sheet',
   'detailing.sheet.elevation': 'Elevation',
+  'detailing.sheet.station': 'Cut at x',
+  'detailing.sheet.stationRange': 'between {min} and {max} m',
   'detailing.sheet.section': 'Cross-section',
   'detailing.schedule': 'Bar bending schedule',
   'detailing.mark': 'Mark',

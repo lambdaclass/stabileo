@@ -19,9 +19,11 @@ import {
 import { provisionalKeys } from '../engine/detailing/coordinate-floor';
 import type { BarConflict } from '../engine/detailing/collision';
 import {
-  ELEVATION_X, buildSchedule, buildTitleBlock, drawElevation, drawSection, sheetToSvg,
-  type Sheet,
+  buildSchedule, buildTitleBlock, sheetToSvg, type Sheet,
 } from '../engine/detailing/drawings';
+import {
+  buildElevationSheet, buildSectionSheet, sheetMembers, stationsFor,
+} from './detailing-sheet-inputs';
 import { clause } from '../codes/regulation';
 import {
   detailingReadiness, runDetailing,
@@ -33,10 +35,7 @@ import { getDesignCode } from '../engine/design/code-adapter';
 import {
   runDesignFeedbackLoop, type DesignFeedbackLoopResult,
 } from '../engine/detailing/design-feedback-loop';
-import {
-  buildDocumentModel, supersede,
-  type CertificateEntry, type DocumentModel,
-} from '../engine/detailing/document-model';
+import { buildDocumentModel, supersede, type DocumentModel } from '../engine/detailing/document-model';
 import { regulationsStore } from './regulations.svelte';
 import {
   floorDesignReadiness, runFloorDesign,
@@ -62,7 +61,7 @@ export type SheetSelection = 'elevation' | 'section';
  */
 import {
   CONCRETE_REGULATION_ID, DEFAULT_WALL_BAR_DIA_MM, bentUpPolicy, currentConcreteEdition,
-  designOutcomeMap, lockedMemberIds, maxPersistedRevision, resolveAggregate,
+  collectCertificates, designOutcomeMap, lockedMemberIds, maxPersistedRevision, resolveAggregate,
   resolveConcreteProperties, resolveSpacingMargin, resolveVerifierId, statedAggregate,
 } from './detailing-project-inputs';
 import {
@@ -75,7 +74,14 @@ function createDetailingStore() {
   let selectedId = $state<string | null>(null);
   let conflictIndex = $state(0);
   let sheetKind = $state<SheetSelection>('elevation');
-  let sectionAt = $state(0);
+  /**
+   * Where the user asked the section to be cut, or null while they have not.
+   *
+   * Null is not zero. It WAS zero and no control ever set it, so every section sheet in the app
+   * was a cut at the model's origin — a column line on a framed building, which is why it came
+   * out as a tall slice down a column. `sectionStations` resolves the default.
+   */
+  let sectionAtOverride = $state<number | null>(null);
   let lastError = $state<string | null>(null);
   let reviewOpen = $state(false);
   let generating = $state(false);
@@ -165,6 +171,19 @@ function createDetailingStore() {
     }
   }
 
+  /**
+   * The concrete the sheets draw, resolved once per model change.
+   *
+   * A `$derived` and not a call in the getter, for `scene-cache.ts`'s measured reason:
+   * `sheetMembers` allocates on every call and `sheetSvg` is read on every reactive touch.
+   */
+  const sheetMemberGeometry = $derived.by(() => sheetMembers());
+
+  /** The station range and default for the assembly on screen. See `sectionStations`. */
+  function sectionStationsNow() {
+    return stationsFor(selected, sheetMemberGeometry);
+  }
+
   function replace(assembly: DetailingAssembly): void {
     write({
       ...store,
@@ -180,7 +199,13 @@ function createDetailingStore() {
     get conflictIndex() { return conflictIndex; },
     get currentConflict(): BarConflict | null { return conflicts[conflictIndex] ?? null; },
     get sheetKind() { return sheetKind; },
-    get sectionAt() { return sectionAt; },
+    /** The station the section is cut at: the user's, or mid-span of the longest member. */
+    get sectionAt(): number { return sectionAtOverride ?? sectionStationsNow()?.preferred ?? 0; },
+    /** The range a station control may offer. Null when nothing on the sheet has geometry. */
+    get sectionRange(): { min: number; max: number } | null {
+      const s = sectionStationsNow();
+      return s ? { min: s.min, max: s.max } : null;
+    },
     get lastError() { return lastError; },
     get reviewOpen() { return reviewOpen; },
 
@@ -206,7 +231,7 @@ function createDetailingStore() {
     },
 
     setSheetKind(k: SheetSelection): void { sheetKind = k; },
-    setSectionAt(x: number): void { sectionAt = x; },
+    setSectionAt(x: number): void { sectionAtOverride = x; },
 
     nextConflict(): void {
       if (conflicts.length === 0) return;
@@ -594,21 +619,14 @@ function createDetailingStore() {
     /**
      * Pin or unpin a bar; a pinned bar is a hard constraint on regeneration.
      *
-     * ── Retired only once something is GOING to change ───────────────
+     * Retired only once something is GOING to change: `retireDocument()` used to run before the
+     * guard, so a toggle naming nothing cost the user the document they had built and did
+     * nothing — the defect `review()` documents below, still here.
      *
-     * `retireDocument()` used to run first, before the guard and before the bar was looked for.
-     * So a toggle with nothing selected — or naming a bar this assembly does not hold — cost
-     * the user the document they had built and accomplished nothing. Exactly the defect
-     * `review()` documents two methods down, in the same file, and it was still here.
-     *
-     * ── Persisted, not merely written ────────────────────────────────
-     *
-     * `write` puts the assemblies on the model, which is where they live, and that alone does
-     * not reach disk: `requestAutosave` is what does, and it is asked for after every expensive
-     * operation precisely because the 30 s timer is not a guarantee. A pin is a decision an
-     * engineer makes and then closes the tab on, and it was the one detailing mutation that
-     * never asked. The regeneration honours pins; a pin that did not survive the session was a
-     * guarantee about a flag the project no longer carried.
+     * And PERSISTED, not merely written. `write` puts the assemblies on the model; only
+     * `requestAutosave` reaches disk, which is why every expensive operation asks for one. A
+     * pin is a decision an engineer makes and then closes the tab on, and it was the single
+     * detailing mutation that never asked.
      */
     toggleLock(barId: string): void {
       if (!selected) return;
@@ -655,28 +673,13 @@ function createDetailingStore() {
       return true;
     },
 
-    /** The sheet for the current selection, or null when nothing is selected. */
+    /** The sheet for the current selection. Geometry lives in `detailing-sheet-inputs.ts`. */
     get sheet(): Sheet | null {
       if (!selected) return null;
-      const clauses = [clause('cirsoc-201', selected.provenance.edition, '9.7.3'),
-        clause('cirsoc-201', selected.provenance.edition, '25.2')];
       if (sheetKind === 'section') {
-        return drawSection({
-          assembly: selected, atX: sectionAt,
-          outline: [
-            { x: -0.15, y: -0.30 }, { x: 0.15, y: -0.30 },
-            { x: 0.15, y: 0.30 }, { x: -0.15, y: 0.30 },
-          ],
-          projection: ELEVATION_X, clauses,
-          sheetNumber: `${selected.id}-S`, title: `${selected.label} — sección`,
-        });
+        return buildSectionSheet(selected, sheetMemberGeometry, this.sectionAt);
       }
-      return drawElevation({
-        assembly: selected,
-        outlines: [],
-        projection: ELEVATION_X, clauses,
-        sheetNumber: `${selected.id}-E`, title: `${selected.label} — elevación`,
-      });
+      return buildElevationSheet(selected, sheetMemberGeometry);
     },
 
     get sheetSvg(): string | null {
@@ -727,28 +730,7 @@ function createDetailingStore() {
       const persisted = modelStore.model.detailing ?? emptyDetailingStore();
       if (persisted.assemblies.length === 0) return null;
       const laps = lastRun?.lapping.laps ?? [];
-      const certificates: CertificateEntry[] = [];
-      for (const a of persisted.assemblies) {
-        for (const id of a.elementIds) {
-          const reinf = verificationStore.reinforcementFor(id);
-          const result = verificationStore.providedFor(id);
-          const current = reinf ? rebarHash(reinf) : '';
-          const certified = verificationStore.certifiedHashFor(id);
-          certificates.push({
-            elementId: id,
-            certifiedHash: certified,
-            currentHash: current,
-            // Empty on either side means the question was never answered, which is not a
-            // match. Silence is not agreement.
-            matches: certified !== '' && current !== '' && certified === current,
-            verifierId: a.provenance.verifierId,
-            status: result?.overallStatus === 'ok' ? 'ok'
-              : result?.overallStatus === 'warn' ? 'warn'
-                : result?.overallStatus === 'fail' ? 'fail' : 'notRun',
-            provisional: verificationStore.outcomeFor(id)?.outcome === 'PROVISIONAL_BIAXIAL',
-          });
-        }
-      }
+      const certificates = collectCertificates(persisted.assemblies);
       const doc = buildDocumentModel({
         seriesId: 'detailing',
         revision: {

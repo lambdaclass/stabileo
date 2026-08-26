@@ -22,6 +22,22 @@ const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 
 const STORE = 'lib/store/detailing.svelte.ts';
 /**
+ * The STORE LAYER, which is more than one file and always was.
+ *
+ * `detailing.svelte.ts` has an 800-line ceiling that `detailing-store-ceiling.test.ts`
+ * enforces, and readings that hold no state live beside it in `detailing-*-inputs.ts` — twenty
+ * of them already did. The certificate join moved there when objective 7's sheet geometry took
+ * the room. The claim being tested never was "this file contains that call": it is "the
+ * production store supplies the certificates, not a test", and reading the layer keeps that
+ * claim true across the next extraction as well.
+ */
+const STORE_LAYER = [
+  STORE,
+  'lib/store/detailing-project-inputs.ts',
+];
+
+function storeLayer() { return STORE_LAYER.map(read).join('\n'); }
+/**
  * The UI these assertions are about is now TWO components.
  *
  * The report, the drawings, the schedule and the 3-D view moved out of the detailing panel and
@@ -45,9 +61,12 @@ describe('the DocumentModel has a production caller', () => {
   });
 
   it('the store, not a test, supplies the certificates', () => {
-    const s = read(STORE);
+    const s = storeLayer();
     expect(s).toContain('rebarHash');
     expect(s).toContain('certifiedHashFor');
+    // And the store still ROUTES it: a reading nobody calls is the dead path this file exists
+    // to catch, and it would be dead in exactly the same way one file over.
+    expect(read(STORE)).toContain('collectCertificates(');
   });
 
   it('the UI calls the store rather than assembling a model itself', () => {

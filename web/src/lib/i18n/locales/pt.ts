@@ -4131,6 +4131,8 @@ const pt: Translations = {
   'detailing.shape': 'Forma',
   'detailing.sheet': 'Prancha',
   'detailing.sheet.elevation': 'Elevação',
+  'detailing.sheet.station': 'Corte em x',
+  'detailing.sheet.stationRange': 'entre {min} e {max} m',
   'detailing.sheet.section': 'Seção transversal',
   'detailing.skip.liftProducedNoBars': 'Este trecho de pilar não produziu barras próprias; a sua armadura é levada por um trecho contíguo do mesmo montante.',
   'detailing.skip.missingNode': 'Falta no modelo um nó que este elemento referencia.',

@@ -285,6 +285,43 @@
             />
             {t('detailing.sheet.section')}
           </label>
+
+          <!--
+            Where the section is cut.
+
+            `sectionAt` was initialised to zero and NOTHING set it, so every section sheet in
+            the app was a cut at the model's origin — a column line on a framed building, which
+            is why the section came out as a tall slice down a column instead of the beam
+            section it was opened for. The store now defaults it to mid-span of the longest
+            member on the sheet; this is how a reviewer moves it somewhere else.
+
+            A number input and not a slider: a station is a coordinate an engineer reads off
+            their own plan, and typing 4,25 is the gesture. The range is stated on the control
+            so what it accepts is visible rather than discovered by being refused.
+          -->
+          {#if detailingStore.sheetKind === 'section' && detailingStore.sectionRange}
+            {@const r = detailingStore.sectionRange}
+            <label class="station">
+              <span>{t('detailing.sheet.station')}</span>
+              <input
+                type="number"
+                data-testid="sheet-station"
+                step="0.05"
+                min={r.min.toFixed(2)}
+                max={r.max.toFixed(2)}
+                value={detailingStore.sectionAt.toFixed(2)}
+                onchange={(e) => {
+                  const v = Number((e.currentTarget as HTMLInputElement).value);
+                  if (Number.isFinite(v)) detailingStore.setSectionAt(v);
+                }}
+              />
+              <span class="range" data-testid="sheet-station-range">
+                {tp('detailing.sheet.stationRange', {
+                  min: r.min.toFixed(2), max: r.max.toFixed(2),
+                })}
+              </span>
+            </label>
+          {/if}
         </fieldset>
       </div>
 
@@ -471,6 +508,29 @@
   */
   fieldset { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 0.3rem 0.5rem; }
   legend { font-size: 0.75rem; padding: 0 0.3rem; color: var(--st-text-2); }
+
+  /* The station sits on its own line: it is a value, not a third choice among the two kinds. */
+  .station {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem;
+    margin-top: 0.25rem;
+    font-size: 0.72rem;
+  }
+  .station input {
+    width: 5.5rem;
+    padding: 0.1rem 0.3rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+  .station input:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  /* What the control accepts, stated rather than discovered by being refused. */
+  .station .range { color: var(--st-text-3); font-size: 0.66rem; }
 
   table.schedule { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
   /* A wide schedule scrolls itself instead of stretching the panel. */

@@ -130,6 +130,14 @@ export interface StabileoTestHooks {
   /** Bar-schedule totals for the selected assembly. */
   detailingSchedule(): unknown;
   /**
+   * The current sheet as the drawing engine built it, before any renderer touched it.
+   *
+   * An OBSERVATION hook. The alternative is to assert on the SVG string, and a `<path d="M…">`
+   * cannot answer which LAYER a polyline is on — which is the whole question for a sheet whose
+   * concrete, steel and cover line are three layers with three meanings.
+   */
+  detailingSheet(): unknown;
+  /**
    * How many times the 3-D viewport has BUILT its tube geometry.
    *
    * The property the viewport benchmark asserts, rather than infers from a stopwatch: a layer
@@ -343,6 +351,7 @@ export function installE2EHooks(): void {
     detailingAssemblies: () =>
       JSON.parse(JSON.stringify(modelStore.model.detailing?.assemblies ?? [])),
     detailingSchedule: () => JSON.parse(JSON.stringify(detailingStore.schedule ?? null)),
+    detailingSheet: () => JSON.parse(JSON.stringify(detailingStore.sheet ?? null)),
     rebarSceneBuilds,
     rebarSceneCensus: liveRebarSceneCensus,
     canvasCount: () => document.querySelectorAll('canvas').length,

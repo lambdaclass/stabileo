@@ -396,8 +396,15 @@ function rectBase(
  * projection of it onto the section plane and the global x axis stands in — the same
  * degenerate case every framing convention has to name, made explicit here rather than
  * producing a zero-length cross product and a NaN.
+ *
+ * ── Why it is exported ─────────────────────────────────────────
+ *
+ * `sheet-geometry.ts` draws the same concrete on a 2-D sheet and needs the same frame. A
+ * second copy of this arithmetic is a second convention for which way a rolled section faces,
+ * and the two would agree until the first raking column — at which point the elevation and the
+ * 3-D view would show the same member in two orientations with nothing to say which was right.
  */
-function memberBase(m: MemberGeometry): { base: Point3[]; extrude: Point3 } {
+export function memberBase(m: MemberGeometry): { base: Point3[]; extrude: Point3 } {
   const ax = { x: m.end.x - m.start.x, y: m.end.y - m.start.y, z: m.end.z - m.start.z };
   const len = Math.hypot(ax.x, ax.y, ax.z) || 1;
   const n = { x: ax.x / len, y: ax.y / len, z: ax.z / len };
