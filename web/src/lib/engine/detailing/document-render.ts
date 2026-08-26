@@ -25,12 +25,56 @@ import type { DocumentAssembly, DocumentModel, OpenConflict } from './document-m
 import { footingPlanCentre, type FloorFamilyDesignRecord } from './family-record';
 import type { SceneModel } from './scene-model';
 import type { ElementStatus } from './element-status';
+import type { RcRetouchProvenance } from '../../flow/rc-selection';
 import {
   drawColumnDetail, drawGeneralPlan, drawHorizontalSection, drawLevelPlan, levelsOf,
 } from './structure-drawings';
 import { blockingCount, buildConflictInventory } from './conflict-inventory';
 import { drawFooting } from './family-drawings';
 import { drawSlab, drawWall } from './slab-wall-drawings';
+
+/**
+ * What a document says about the hand edits in it — one sentence, three writers.
+ *
+ * Written once because the report, the DXF note block and the schedule's header must not be
+ * able to disagree about it, and because the four states have to be told apart in the same way
+ * everywhere: `unknown` is a file that never recorded the information, and `known` with no
+ * members is a project stating that nothing was retouched. A writer that rendered the first as
+ * the second would be making the one false statement `rcRetouchProvenance` exists to prevent.
+ *
+ * `null` when there is nothing to say — no provenance supplied, or nothing designed — and the
+ * callers print nothing rather than a negative.
+ */
+export function retouchNote(
+  p: RcRetouchProvenance | undefined, locale: string,
+): string | null {
+  if (!p || p.status === 'notApplicable') return null;
+  const es = locale.startsWith('es');
+  if (p.status === 'unknown') {
+    return es
+      ? 'RETOCADOS A MANO: SIN REGISTRO. Este proyecto se abrió de un archivo anterior a que se '
+        + 'guardara esta información. No significa que no se haya retocado ninguna armadura: '
+        + 'significa que la aplicación no lo sabe y no puede afirmarlo en esta lámina.'
+      : 'HAND EDITS: NO RECORD. This project was opened from a file written before this '
+        + 'information was stored. It does not mean no reinforcement was retouched: it means '
+        + 'the application does not know and cannot assert it on this sheet.';
+  }
+  if (p.members.length === 0) {
+    return es
+      ? 'RETOCADOS A MANO: ninguno. Toda la armadura de este documento proviene del diseño '
+        + 'automático y de la coordinación.'
+      : 'HAND EDITS: none. Every bar in this document comes from the automatic design and the '
+        + 'coordination.';
+  }
+  const ids = p.members.join(', ');
+  return es
+    ? `RETOCADOS A MANO: ${p.members.length} elemento(s) de este documento (${ids}) llevan `
+      + 'armadura editada a mano. Su verificación es la de la armadura que hay, no la del '
+      + 'diseño automático que reemplazó.'
+    : `HAND EDITS: ${p.members.length} member(s) in this document (${ids}) carry hand-edited `
+      + 'reinforcement. Their verification is of the steel that is there, not of the automatic '
+      + 'design it replaced.';
+}
 
 /** Everything the renderers need that is not in the model: locale and presentation. */
 export interface RenderOptions {
@@ -48,6 +92,23 @@ export interface RenderOptions {
   scene?: SceneModel;
   /** Design status per member, for the notes those sheets carry. */
   statusOf?: (elementId: number) => ElementStatus | undefined;
+  /**
+   * Which of this document's members were retouched by hand, and whether that is knowable.
+   *
+   * ── Why it is a four-state value and not a list ────────────────
+   *
+   * §4 asks every export to state its manually retouched elements, and the honest answer has
+   * three failure modes that an array cannot express. `rc-selection.ts` spends its header on
+   * the one that matters: `known` with no members is a real claim — nothing was retouched —
+   * and `unknown` is a file that never recorded the information. They render identically
+   * unless something forces them apart, and only one of them is a statement about the
+   * project. A report printing "manually retouched: none" for a file that has no record would
+   * be false in the one place whose purpose is to say what is in the drawing.
+   *
+   * Absent means the caller did not supply it, which is a fourth thing again and is rendered
+   * as nothing at all rather than as a negative.
+   */
+  retouched?: RcRetouchProvenance;
   /** Elevations to cut horizontal sections at, m. */
   sectionElevations?: readonly number[];
   /** Commercial stock length for the schedule, m. */
@@ -126,6 +187,21 @@ export function renderReportHtml(
   rows.push(`<h1>${esc(opts.projectName)}</h1>`);
   rows.push(`<p class="banner ${draft ? 'draft' : 'ok'}">${esc(readinessBanner(doc, opts.locale))}</p>`);
   rows.push(`<p class="summary">${esc(translate(doc.summary.key, doc.summary.params))}</p>`);
+
+  /*
+    What was retouched by hand, at the TOP.
+
+    §4's requirement, and it belongs beside the readiness banner for the reason the provisional
+    note is there: a reader deciding whether to trust a document needs to know which of its
+    steel a person put there before they read what the checks say about it.
+  */
+  {
+    const retouch = retouchNote(opts.retouched, opts.locale);
+    if (retouch) {
+      rows.push(`<p class="banner ${opts.retouched?.status === 'unknown' ? 'draft' : 'ok'} `
+        + `retouched">${esc(retouch)}</p>`);
+    }
+  }
 
   /**
    * Provisional members, at the TOP of the report and again in their own section.
@@ -1326,9 +1402,20 @@ function elevationAndSection(
         .map((c) => conflictNote(c, opts.locale)),
     ];
 
+    /*
+      The hand-edit statement, ON the drawing.
+
+      §4 asks every EXPORT to state its retouched members, and a DXF that carried it only in
+      the file name would not be carrying it: the sheet is what gets printed and pinned up. It
+      goes in the note block with the readiness and the conflicts, which is where a reader
+      already looks for what this drawing cannot promise.
+    */
+    const retouch = retouchNote(opts.retouched, opts.locale);
+
     n += 1;
     const elevation = drawElevation({
       assembly: a.source,
+      extraNotes: retouch ? [retouch] : [],
       outlines: [{
         points: [
           { x: s0.x, y: s0.y, z: Math.min(...zs) },
@@ -1435,6 +1522,16 @@ export function renderSchedule(
       assembly: a.source,
       clauses: doc.refs,
     }), opts.locale);
+
+    /*
+      The hand-edit statement, at the head of the sheet.
+
+      Row 3 and not the note block at the bottom: a workbook is scrolled, and somebody ordering
+      steel from row 40 never sees a footnote under row 200. It is the same sentence the report
+      and the drawings carry, from `retouchNote`, so the three cannot disagree about it.
+    */
+    const retouch = retouchNote(opts.retouched, opts.locale);
+    if (retouch) aoa.splice(3, 0, [retouch]);
 
     // The references a fabricator needs to place the bar, appended to the standard table:
     // which members it belongs to, and which layer it sits in.

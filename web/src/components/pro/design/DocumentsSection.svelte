@@ -40,6 +40,8 @@
   import RebarScenePanel from './RebarScenePanel.svelte';
   import { openRebar3D } from '../../../lib/store/rebar-open';
   import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
+  import { retouchedIn, withExportLog } from '../../../lib/store/export-log';
+  import RcExportLog from './RcExportLog.svelte';
 
   let docError = $state<string | null>(null);
   let show3d = $state(false);
@@ -87,41 +89,59 @@
     return detailingSheet.titleBlockConfig.project || t('detailing.doc.project');
   }
 
+  /**
+   * Every export, recorded — objective 11.
+   *
+   * `exportRecordStore.record()` had no caller at all: the three handlers wrote a blob and told
+   * nobody, so the emission list was empty in every project that has ever existed, and a user
+   * who exported the drawings and then edited a footing had no way to know the file in their
+   * folder no longer corresponded. `withExportLog` records the failure path too, because the
+   * afternoon somebody pressed the button four times and got nothing is precisely the afternoon
+   * the list is for.
+   */
   function exportReport() {
     const doc = currentDoc();
     if (!doc) return;
-    const html = renderReportHtml(
-      doc,
-      { locale: i18n.locale, projectName: projectName() },
-      (k, params) => tp(k, params ?? {}),
-    );
-    // Printed through the browser rather than a bundled PDF writer: better typography, no
-    // dependency, and the user picks the paper size.
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
-    else downloadBlob(`detailing-rev${doc.revision.number}.html`, 'text/html', html);
+    const filename = `detailing-rev${doc.revision.number}.html`;
+    withExportLog({ kind: 'report', doc, filename, at: new Date().toISOString() }, () => {
+      const html = renderReportHtml(
+        doc,
+        { locale: i18n.locale, projectName: projectName(), retouched: retouchedIn(doc) },
+        (k, params) => tp(k, params ?? {}),
+      );
+      // Printed through the browser rather than a bundled PDF writer: better typography, no
+      // dependency, and the user picks the paper size.
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+      else downloadBlob(filename, 'text/html', html);
+    });
   }
 
   function exportDxf() {
     const doc = currentDoc();
     if (!doc) return;
-    const set = renderDrawings(doc, {
-      locale: i18n.locale, projectName: projectName(),
+    const filename = `detailing-rev${doc.revision.number}.dxf`;
+    withExportLog({ kind: 'dxf', doc, filename, at: new Date().toISOString() }, () => {
+      const set = renderDrawings(doc, {
+        locale: i18n.locale, projectName: projectName(), retouched: retouchedIn(doc),
+      });
+      downloadBlob(filename, 'application/dxf', set.dxf);
     });
-    downloadBlob(`detailing-rev${doc.revision.number}.dxf`, 'application/dxf', set.dxf);
   }
 
   function exportXlsx() {
     const doc = currentDoc();
     if (!doc) return;
     const sheets = renderSchedule(doc, {
-      locale: i18n.locale, projectName: projectName(),
+      locale: i18n.locale, projectName: projectName(), retouched: retouchedIn(doc),
     });
-    exportToExcel({
-      filename: `detailing-rev${doc.revision.number}.xlsx`,
-      onlyExtras: true,
-      extraSheets: sheets.map((s) => ({ name: s.name, rows: s.aoa })),
-    });
+    const filename = `detailing-rev${doc.revision.number}.xlsx`;
+    withExportLog({ kind: 'xlsx', doc, filename, at: new Date().toISOString() }, () =>
+      exportToExcel({
+        filename,
+        onlyExtras: true,
+        extraSheets: sheets.map((s) => ({ name: s.name, rows: s.aoa })),
+      }));
   }
 
   /**
@@ -266,6 +286,15 @@
     {#if docError}
       <p class="err" role="alert" data-testid="doc-error">{docError}</p>
     {/if}
+
+    <!--
+      What has left this project, and whether it still corresponds.
+
+      Under the export buttons, because it is the answer to a question those buttons raise:
+      the file in somebody's folder came out of a revision, and the project has moved on since.
+      See `RcExportLog.svelte`.
+    -->
+    <RcExportLog />
 
     <!-- ── The fourth projection ────────────────────────────────
          Same document instance as the three exports above, so what is orbited, what is

@@ -269,3 +269,33 @@ export function rcRetouchProvenance(
 export function rcRetouchIsCountable(p: RcRetouchProvenance): boolean {
   return p.status === 'known';
 }
+
+/**
+ * The retouch provenance of one DOCUMENT: the project's, narrowed to what that document covers.
+ *
+ * ── Why an export may not state the project's whole set ─────────────
+ *
+ * §4 asks every export to state "its manually retouched elements", and the emphasis is on ITS.
+ * A drawing set of level 3 that listed a hand edit on level 7 would be making a statement about
+ * steel it does not contain, on a sheet somebody signs — and the reader has no way to tell
+ * which of the listed members are on the pages in front of them. Narrowing is the difference
+ * between a document that describes itself and one that describes the project it came from.
+ *
+ * ── And why the narrowing does not apply to the other two states ────
+ *
+ * `unknown` survives intersection, and that is the whole point of it being a state rather than
+ * an empty list: a file that never recorded which members were retouched does not become able
+ * to answer the question for a smaller set of them. Intersecting an unknown with anything and
+ * reporting `known` + empty would turn "we have no record" into "none were", which is the one
+ * substitution `rcRetouchProvenance` exists to prevent.
+ *
+ * `notApplicable` survives for the same reason in the other direction: nothing was designed, so
+ * no scope within it has a retouched member either.
+ */
+export function rcRetouchWithin(
+  p: RcRetouchProvenance, scope: Iterable<number>,
+): RcRetouchProvenance {
+  if (p.status !== 'known') return p;
+  const inScope = new Set(scope);
+  return rcRetouch(p.members.filter((id) => inScope.has(id)));
+}

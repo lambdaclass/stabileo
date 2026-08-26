@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import {
   RC_ELEMENT_GROUPS, RC_RETOUCH_NOT_APPLICABLE, RC_RETOUCH_UNKNOWN, rcEditConsequence,
   rcFamiliesIn, rcGroupCounts, rcGroupLabelKey, rcGroupOf, rcResolveTarget, rcRetouch,
-  rcRetouchIsCountable, rcRetouchProvenance,
+  rcRetouchIsCountable, rcRetouchProvenance, rcRetouchWithin,
 } from '../rc-selection';
 import { SCENE_SOLID_KINDS, type SceneSolidKind } from '../../engine/detailing/scene-model';
 import es from '../../i18n/locales/es';
@@ -217,5 +217,42 @@ describe('retouch provenance has four states, and three of them are not "none"',
     expect(rcRetouchIsCountable(rcRetouch([]))).toBe(true);
     expect(rcRetouchIsCountable(RC_RETOUCH_UNKNOWN)).toBe(false);
     expect(rcRetouchIsCountable(RC_RETOUCH_NOT_APPLICABLE)).toBe(false);
+  });
+});
+
+/**
+ * Objective 11 — a document states ITS retouched members, not the project's.
+ *
+ * The emphasis is §4's. A drawing set of level 3 that listed a hand edit on level 7 makes a
+ * statement about steel it does not contain, on a sheet somebody signs.
+ */
+describe('rcRetouchWithin', () => {
+  it('keeps only the members the document covers', () => {
+    const p = rcRetouch([3, 7, 11]);
+    expect(rcRetouchWithin(p, [3, 11, 99])).toEqual({ status: 'known', members: [3, 11] });
+  });
+
+  it('is a real claim when the document covers none of them', () => {
+    expect(rcRetouchWithin(rcRetouch([7]), [3])).toEqual({ status: 'known', members: [] });
+  });
+
+  /*
+   * The substitution the whole four-state type exists to prevent. A file that never recorded
+   * which members were retouched does not become able to answer the question for a smaller set
+   * of them, and reporting `known` + empty would turn "we have no record" into "none were".
+   */
+  it('leaves an unknown provenance unknown, whatever the scope', () => {
+    expect(rcRetouchWithin(RC_RETOUCH_UNKNOWN, [1, 2, 3])).toEqual(RC_RETOUCH_UNKNOWN);
+    expect(rcRetouchWithin(RC_RETOUCH_UNKNOWN, [])).toEqual(RC_RETOUCH_UNKNOWN);
+  });
+
+  it('leaves notApplicable alone for the same reason, in the other direction', () => {
+    expect(rcRetouchWithin(RC_RETOUCH_NOT_APPLICABLE, [1])).toEqual(RC_RETOUCH_NOT_APPLICABLE);
+  });
+
+  it('is still countable after narrowing, and still sorted', () => {
+    const out = rcRetouchWithin(rcRetouch([11, 3]), [11, 3]);
+    expect(rcRetouchIsCountable(out)).toBe(true);
+    expect(out.members).toEqual([3, 11]);
   });
 });

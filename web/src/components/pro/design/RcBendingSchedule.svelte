@@ -309,7 +309,7 @@
     the other things the table says about itself. Dim rather than amber: it is the ordinary
     case for a tie, not a gap.
   */
-  .folded { margin: 0.15rem 0 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.35; }
+  .folded { margin: 0.15rem 0 0; font-size: 0.64rem; color: var(--st-text-2); line-height: 1.35; }
   .code { font-family: var(--st-mono); font-size: 0.7rem; }
   /* No picture is a statement, not a blank. Amber, because it is a gap the reader must act on. */
   .nodiagram { display: block; font-size: 0.64rem; color: var(--st-warn); line-height: 1.3; }

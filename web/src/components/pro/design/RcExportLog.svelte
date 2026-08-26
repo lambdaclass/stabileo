@@ -1,0 +1,166 @@
+<script lang="ts">
+  /**
+   * What left this project, out of which revision, and whether it still corresponds.
+   *
+   * ── The question it answers ────────────────────────────────────────
+   *
+   * `rc-export-record.ts` names it in its first paragraph: "a user who exported the drawings,
+   * edited a footing and came back to Documentos has no way to know the file in their folder no
+   * longer corresponds." The model knew — `revision`, `supersededDocuments` — and nothing
+   * connected that to the files that had left, because `exportRecordStore.record()` had no
+   * caller. It has one now, and this is where the record is read.
+   *
+   * ── Stale is information, not a fault ──────────────────────────────
+   *
+   * Exporting and then continuing to edit is a normal working pattern, and marking it as an
+   * error would train people to ignore the mark. It is stated as what it is: the file came out
+   * of revision 4 and the project is on 6.
+   *
+   * ── The retouch line, and the four states ──────────────────────────
+   *
+   * `known` with no members and `unknown` render identically unless something forces them apart,
+   * and only one of them is a claim about the project. `rcRetouchIsCountable` is the guard, and
+   * the two are worded so that no reader could mistake one for the other.
+   *
+   * ── Why there is no "clear" button ─────────────────────────────────
+   *
+   * A record is a historical fact: a file left the app and is in somebody's folder. Undoing a
+   * model change cannot un-happen that, which is the rule `project-provenance.ts` spends its
+   * header on, and a control that erased the list would let a project forget what it issued.
+   */
+  import { t, tp, i18n } from '../../../lib/i18n';
+  import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { exportRecordStore } from '../../../lib/store/export-record.svelte';
+  import { rcRetouchIsCountable } from '../../../lib/flow/rc-selection';
+  import type { ExportRecord } from '../../../lib/flow/rc-export-record';
+
+  const records = $derived(exportRecordStore.exports);
+  /**
+   * The revision a record is compared against.
+   *
+   * The CURRENT document's when there is one, and the last one built otherwise. Zero means
+   * nothing has been built this session, and nothing is then marked stale — a record cannot
+   * have gone out of date against a revision the app cannot name.
+   */
+  const current = $derived(detailingStore.document?.revision.number ?? 0);
+
+  function stale(r: ExportRecord): boolean {
+    return current > 0 && exportRecordStore.isStale(r, current);
+  }
+
+  /** Newest first: the last thing that left is the one being asked about. */
+  const rows = $derived([...records].reverse());
+
+  function when(iso: string): string {
+    // `Intl` and not a hand-rolled format: the record's own timestamp is ISO and what a reader
+    // wants is their own locale's rendering of it.
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(i18n.locale);
+  }
+
+  function retouchText(r: ExportRecord): string {
+    if (r.retouched.status === 'notApplicable') return '';
+    if (!rcRetouchIsCountable(r.retouched)) return t('detailing.exports.retouchUnknown');
+    return r.retouched.members.length === 0
+      ? t('detailing.exports.retouchNone')
+      : tp('detailing.exports.retouchSome', {
+        n: r.retouched.members.length, ids: r.retouched.members.slice(0, 8).join(', '),
+      });
+  }
+</script>
+
+<section class="exports" data-testid="export-log" aria-label={t('detailing.exports.title')}>
+  <h5>{t('detailing.exports.title')}</h5>
+
+  {#if rows.length === 0}
+    <!--
+      An empty list means "we have no record", never "nothing was exported".
+      `export-record.svelte.ts` is explicit that nothing in the UI may present it as a negative
+      claim — a project opened from a file written before the field existed has an empty list
+      and may well have had drawings issued from it.
+    -->
+    <p class="note" data-testid="export-log-empty">{t('detailing.exports.empty')}</p>
+  {:else}
+    <ul>
+      {#each rows as r, i (`${r.at}-${r.kind}-${i}`)}
+        <li data-testid={`export-record-${i}`} data-kind={r.kind}
+            data-state={r.error ? 'failed' : stale(r) ? 'stale' : 'current'}>
+          <p class="line">
+            <span class="kind">{t(`detailing.exports.kind.${r.kind}`)}</span>
+            <code class="file">{r.filename}</code>
+            <span class="rev">{tp('detailing.exports.fromRevision', { n: r.revision })}</span>
+            <span class="at">{when(r.at)}</span>
+          </p>
+
+          {#if r.error}
+            <p class="failed" data-testid={`export-record-error-${i}`}>
+              {tp('detailing.exports.failed', { error: r.error })}
+            </p>
+          {:else if stale(r)}
+            <!-- The whole reason the record is kept. Stated, never coloured as a fault. -->
+            <p class="stale" data-testid={`export-record-stale-${i}`}>
+              {tp('detailing.exports.stale', { was: r.revision, now: current })}
+            </p>
+          {/if}
+
+          {#if retouchText(r)}
+            <p class="retouch" data-testid={`export-record-retouch-${i}`}
+               data-retouch={r.retouched.status}>{retouchText(r)}</p>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+
+    <!--
+      What a browser export cannot assert, once, under the list.
+
+      `EXPORT_CANNOT_ASSERT` rides on every record so the UI never has to remember the entries,
+      and it is printed once rather than per row because it is true of all of them equally — a
+      list that repeated four caveats beside four files is four caveats nobody reads.
+    -->
+    <ul class="cannot" data-testid="export-log-cannot">
+      {#each rows[0].limitations as key (key)}
+        <li>{t(key)}</li>
+      {/each}
+    </ul>
+  {/if}
+</section>
+
+<style>
+  .exports { margin-top: 0.75rem; border-top: 1px solid var(--st-hair); padding-top: 0.5rem; }
+  h5 { margin: 0 0 0.3rem; font-size: 0.78rem; }
+  /*
+    `--st-text-2` and not `--st-text-3` for every SENTENCE here.
+
+    `tokens.css` states what `--st-text-3` is for — glyphs and rules, under WCAG 2.1 §1.4.11's
+    3:1 — and that "the 489 sites that used it as copy are the defect". At 0.7 rem on this
+    surface it measures 3.74 against the 4.5 that copy needs, which is exactly what
+    `h1c-documents-flow.spec.ts`'s contrast audit reported when this list first appeared.
+  */
+  .note { margin: 0; font-size: 0.7rem; color: var(--st-text-2); line-height: 1.4; }
+
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+  li { font-size: 0.72rem; }
+
+  .line { display: flex; flex-wrap: wrap; gap: 0.3rem 0.5rem; margin: 0; align-items: baseline; }
+  .kind { font-weight: 600; color: var(--st-text); }
+  .file { font-family: var(--st-mono); font-size: 0.68rem; color: var(--st-text-2); }
+  .rev, .at { font-size: 0.66rem; color: var(--st-text-2); }
+
+  /* Stale is information: amber, and worded as a comparison rather than as a failure. */
+  .stale { margin: 0.05rem 0 0; font-size: 0.68rem; color: var(--st-warn); }
+  .failed { margin: 0.05rem 0 0; font-size: 0.68rem; color: var(--st-danger); }
+  .retouch { margin: 0.05rem 0 0; font-size: 0.68rem; color: var(--st-text-2); line-height: 1.35; }
+  /* "We have no record" is the one that must not read like "none": amber, like every other
+     absence of a fact on this surface. */
+  .retouch[data-retouch='unknown'] { color: var(--st-warn); }
+
+  ul.cannot {
+    margin-top: 0.4rem;
+    padding-left: 0.9rem;
+    list-style: disc;
+    font-size: 0.64rem;
+    color: var(--st-text-2);
+    line-height: 1.35;
+  }
+</style>

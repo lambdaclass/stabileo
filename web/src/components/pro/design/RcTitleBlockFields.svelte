@@ -191,7 +191,9 @@
   input[type='text']:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   input[type='text']:disabled { opacity: 0.55; cursor: not-allowed; }
 
-  .unnamed { margin: 0.15rem 0 0; font-size: 0.68rem; color: var(--st-text-3); line-height: 1.35; }
+  /* A sentence, so `--st-text-2`: `--st-text-3` is for glyphs and rules and measures under
+     AA as copy — see `tokens.css` and `RcExportLog`. */
+  .unnamed { margin: 0.15rem 0 0; font-size: 0.68rem; color: var(--st-text-2); line-height: 1.35; }
   .codes-head {
     margin: 0.45rem 0 0.15rem;
     font-size: 0.66rem;
