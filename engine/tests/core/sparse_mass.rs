@@ -360,12 +360,18 @@ const GOLDEN_MODAL_FRAME_OMEGA: [f64; 6] = [
 
 /// ω² eigenvalues from the pre-refactor sparse Lanczos on the 8×8 plate
 /// (first near-zero noise mode excluded by the λ > 1 filter).
+/// Recaptured after the quotient-graph AMD rewrite (`perf/amd-quotient-graph`):
+/// the new elimination order changes floating-point rounding in the K
+/// factorization, shifting modes by ~1e-9..1e-8 relative. The recaptured
+/// values are as close or closer to the fully-dense generalized Lanczos path
+/// (cross-checked at capture time, worst rel diff 5.2e-8 on the degenerate
+/// plate modes, ≤ 3e-9 on the rest) than the previous goldens were.
 const GOLDEN_MODAL_SHELL_LAMBDA: [f64; 5] = [
-    9.395776230070056e2,
-    6.439919296650598e3,
-    6.439919400675166e3,
-    1.666449230853947e4,
-    3.138785766668246e4,
+    9.395776298679303e2,
+    6.439919370751724e3,
+    6.439919685722792e3,
+    1.6664495885072418e4,
+    3.138787964140850e4,
 ];
 
 #[test]
@@ -458,10 +464,13 @@ const GOLDEN_BUCKLING_3D: [f64; 4] = [
     // π²/2 and π² exactly — the analytical Euler cantilever, in the 2:1 ratio the
     // two bending axes require. The previous values were not a clean multiple of
     // anything, which is what a wrong recurrence looks like from the outside.
-    4.934802200097371e0,
-    9.869604402913636e0,
-    4.441322215031543e1,
-    8.882644430568224e1,
+    // Recaptured after the quotient-graph AMD rewrite: the new elimination
+    // order shifts the values by ~1e-10 relative and lands them even closer
+    // to the analytical π²/2 and π² (rel err 4.2e-11 and 3.4e-11).
+    4.934802200338300e0,
+    9.869604400752904e0,
+    4.4413222150346584e1,
+    8.882644430544299e1,
 ];
 
 #[test]

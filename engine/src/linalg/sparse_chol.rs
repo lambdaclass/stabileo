@@ -45,16 +45,22 @@ pub fn symbolic_cholesky(a: &CscMatrix) -> SymbolicCholesky {
 
 /// Compute symbolic Cholesky factorization with explicit ordering choice.
 pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> SymbolicCholesky {
-    let n = a.n;
-
     let perm = match ordering {
-        CholOrdering::Amd => amd_order(n, &a.col_ptr, &a.row_idx),
-        CholOrdering::Rcm => rcm_order(n, &a.col_ptr, &a.row_idx),
+        CholOrdering::Amd => amd_order(a.n, &a.col_ptr, &a.row_idx),
+        CholOrdering::Rcm => rcm_order(a.n, &a.col_ptr, &a.row_idx),
     };
-    let iperm = inverse_perm(&perm);
+    symbolic_cholesky_with_perm(a, &perm)
+}
+
+/// Compute symbolic Cholesky factorization with a caller-provided permutation
+/// (perm[new] = old). Used to compare orderings and to reuse externally
+/// computed fill-reducing permutations.
+pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCholesky {
+    let n = a.n;
+    let iperm = inverse_perm(perm);
 
     // Apply permutation
-    let pa = a.permute_symmetric(&perm);
+    let pa = a.permute_symmetric(perm);
 
     // Direct left-looking symbolic factorization.
     // For each column j, the nonzero rows of L[:,j] are determined by:
@@ -124,7 +130,7 @@ pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> Symbolic
 
     SymbolicCholesky {
         n,
-        perm,
+        perm: perm.to_vec(),
         iperm,
         l_col_ptr,
         l_row_idx,
