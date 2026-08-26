@@ -7,13 +7,12 @@
 ## §A — Cómo retomar
 
 **Rama:** `feat/pro-concrete-h2` · **PR:** [#170](https://github.com/lambdaclass/stabileo/pull/170) (draft)
-**HEAD esperado:** `6afe56d2` · **32 commits** sobre `feat/pro-concrete-h1` · **árbol limpio, pusheado**
+**HEAD esperado:** `4a8ff151` · **39 commits** sobre `feat/pro-concrete-h1` · **árbol limpio**
 
 ```bash
 cd web
 git status --porcelain          # debe estar vacío
-git log --oneline -1            # 6afe56d2 feat(detailing): a bar says what state it is in …
-git log --oneline origin/feat/pro-concrete-h2..HEAD   # debe estar vacío: remoto sincronizado
+git log --oneline -1            # 4a8ff151 test(design): B15 asserts against the scroller …
 NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin nuevos
 ```
 
@@ -26,16 +25,20 @@ NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck   # baseline 479, sin
 `cmd-open-3d` **se queda** en `DesignToolbar` —es una herramienta transversal del visor, no una
 acción del pipeline— y que `cmd-group-detailing` por lo tanto no se retira. Ver §7.5.
 
-**Los objetivos 1 a 5 de Detalle están hechos y verdes** (§9). Quedan **seis: 6 a 11**.
-Lo próximo es el **objetivo 6** — fijar/liberar con estética Stabileo y estados accesibles.
-Ver §9.8, que además explica por qué el 6 aterriza en `RcBarList.svelte` y no en el panel.
+**Los once objetivos de Detalle están hechos y verdes.** §8 está cerrado: 1-4 en §9, el 5 en
+§9.8, y 6 a 11 en §9.6 — un commit por objetivo. §9.6.1 registra el patrón que se repitió cinco
+veces en esta tanda (un contrato escrito, testeado, y sin ningún consumidor de producción) y
+§9.6.2 las decisiones que un lector va a querer discutir.
 
-**El objetivo 5 quedó en `6afe56d2`, aparte**, y el rojo preexistente que destapó en
-`db929428`, también aparte.
+**Lo próximo NO es otro objetivo de §8.** Lo único que queda para declarar H2 completo es el
+endurecimiento de readiness/convergencia (§7.6), que sigue sin empezar: es un cambio de
+comportamiento con su propio radio y rompe fixtures que detallan modelos no convergidos a
+propósito. Antes de tocarlo, leer §9.6.3 — el store de detalle tocó su techo de 800 líneas tres
+veces en esta tanda y las tres se resolvió extrayendo, que es lo que la propia gate manda.
 
-**El endurecimiento de readiness/convergencia sigue siendo un bloque separado**, sin empezar.
-Ver §7.6: es un cambio de comportamiento con su propio radio, y rompe fixtures que detallan
-modelos no convergidos a propósito. No mezclarlo con una reubicación.
+**Los rojos preexistentes B15 y B9 quedaron arreglados en `4a8ff151`, aparte** — confirmados en
+árbol limpio en `6c090835`, antes de esta serie. Ver §9.6.4: es la cuarta vez que la serie hereda
+un rojo.
 
 ### Reglas vigentes de la rama
 
@@ -54,10 +57,14 @@ edición, verificación, convergencia y documentación.
    dos peores salidas, y las dos aparecieron por arrancar sin margen.
 4. **Después de cada fase, correr `pro-panel-consistency` y `pro-panel-structure`**, no sólo las
    specs del área tocada. Una regresión de F1 vivió un commit entero por saltearlas.
-5. **Un rojo preexistente no se hereda en silencio.** El paso 4 encontró dos, y los dos habían
-   quedado de pasos anteriores de esta misma serie sin que §A los registrara: uno del paso 2 y uno
-   del commit de extracción. Los dos se confirmaron en árbol limpio antes de tocarlos y se
-   arreglaron en commits propios. Ver §7.7. Si una tanda termina con rojos, van acá.
+5. **Un rojo preexistente no se hereda en silencio.** El paso 4 encontró dos, el objetivo 5 uno
+   más, y los objetivos 6-11 dos (§9.6.4). Los cinco se confirmaron en árbol limpio antes de
+   tocarlos —haciendo checkout del commit anterior a la tanda, no razonando sobre el diff— y se
+   arreglaron en commits propios. Ver §7.7 y §9.6.4. Si una tanda termina con rojos, van acá.
+6. **Correr los auditores transversales, no sólo las specs del área.** Esta tanda hizo fallar dos
+   que nadie hubiera corrido: `h1c-documents-flow` mide el contraste de TODA copia nueva en
+   Documentos, y `concrete-design-raw-colours` no deja crecer la deuda de colores crudos. Las dos
+   fallaron por una línea de CSS copiada de la de al lado. Están en §9.7.
 
 ---
 
@@ -71,7 +78,7 @@ edición, verificación, convergencia y documentación.
 | **F2.6** persistencia | ✅ | — |
 | **Semántica de Diseñar** | ✅ `4ab876b5` | — |
 | **F3 · reubicación** | ✅ **pasos 1-5 completos** | — |
-| **F3 · Detalle** | 🔶 **objetivos 1-5 ✅**, 6-11 abiertos | §8.1, §9 |
+| **F3 · Detalle** | ✅ **objetivos 1-11 completos** | §9, §9.6, §9.8 |
 | **Readiness / convergencia** | ⛔ bloque separado, sin empezar | §7.6 |
 
 ### Commits de esta rama, en orden
@@ -109,6 +116,14 @@ fcbc422d  feat(pro): a member picked in the viewer is the one the list points at
 1bc40fdc  docs: objectives 1-4 of Detalle are done
 db929428  test(floor): F6 and F10 assert the review gate's current contract  ← rojo preexistente
 6afe56d2  feat(detailing): a bar says what state it is in, and a conflict names bars  ← obj. 5
+6c090835  docs: objective 5 is done, and the three decisions that shaped it
+b5fb8df2  feat(detailing): a pinned bar says which members it froze          ← obj. 6
+2229286c  feat(detailing): the sheets carry the concrete they draw steel for ← obj. 7
+b967b882  feat(detailing): a sheet says which works it belongs to            ← obj. 8
+a6735297  feat(detailing): the Shape column becomes a bending diagram        ← obj. 9
+933b2f5e  feat(detailing): an edit reaches the detailing it invalidates      ← obj. 10
+f52857d9  feat(documents): every export records itself, and its hand edits   ← obj. 11
+4a8ff151  test(design): B15 asserts against the scroller the layout has      ← rojo preexistente
 ```
 
 ---
@@ -540,9 +555,10 @@ clasificar un timeout.
 
 ---
 
-## §8 — Los objetivos de Detalle que siguen abiertos
+## §8 — Los doce objetivos de Detalle
 
-Uno de doce hecho (`a4198d0e`, nombres de barra). Faltan:
+**Cerrados los doce.** Este §8 queda como el enunciado contra el que se trabajó; el estado está
+en §9 (1-4), §9.8 (5) y §9.6 (6-11). La lista original, para que el enunciado siga leyéndose:
 
 1. agrupación barras / placas / fundaciones — contrato listo en `rc-selection.ts`, sin UI;
 2. listar vigas y columnas; resto sólo si existe;
@@ -752,22 +768,81 @@ registrarlo** — §A regla 5.
 (`h5`, `.field input`, `.field textarea`), restos de cuando Documentos se mudó a
 `DocumentsSection.svelte`. Salen como warnings de build y son previas a este bloque.
 
-### 9.6 Objetivos 6 a 11, pendientes
+### 9.6 Objetivos 6 a 11 — hechos
 
-6. fijar/liberar con estética Stabileo y estados accesibles — **el 5 ya está verde; empieza acá**.
-   Aterriza en `RcBarList.svelte`, no en el panel: el botón `bar-lock` y su `aria-pressed` ya
-   viven ahí, y la fila ya tiene `data-bar-state`. La lista **no** es un `listbox` hoy y fue
-   deliberado — las barras no se seleccionan, así que un `role="option"` anunciaría una selección
-   que no existe. Si el 6 hace la fila seleccionable, eso cambia, y el canal es
-   `rebarWorkspace.selection` (§9.2), nunca estado local;
-7. láminas con contorno, recubrimientos, armaduras, cotas y orientación;
-8. rótulo breve configurable con título y normas;
-9. planilla de doblado con esquema gráfico por forma;
-10. ediciones retroactivas Detalle ↔ 3-D — contrato `RcEditConsequence`, sin implementar;
-11. trazabilidad de retocados para Documentos — contrato listo y persistido, sin conectar.
+Seis commits, uno por objetivo, cada uno con su tanda verde.
 
-**H2 no se declara completo hasta cerrar los once objetivos reales.** Cubrir los cinco frentes de
-§8.1 no equivale a cerrar §8.
+| obj. | qué | commit |
+|---|---|---|
+| 6 | fijar/liberar, y hasta dónde llega una fijación | `b5fb8df2` |
+| 7 | láminas con contorno, recubrimiento y cotas | `2229286c` |
+| 8 | rótulo breve configurable | `b967b882` |
+| 9 | planilla de doblado con esquema gráfico | `a6735297` |
+| 10 | ediciones retroactivas Detalle ↔ 3-D | `933b2f5e` |
+| 11 | trazabilidad de retocados para Documentos | `f52857d9` |
+
+**Los once objetivos de §8 están cerrados.** Con el 1-5 de §9 y §9.8, §8 queda completo.
+
+#### 9.6.1 Las cinco cosas que estaban escritas y no las llamaba nadie
+
+Es el patrón de esta tanda, y vale registrarlo porque se repitió cinco veces: el contrato
+existía, tenía tests unitarios, y **no tenía consumidor de producción**. Un test unitario prueba
+que una función calcula; no prueba que alguien la llame — que es exactamente lo que
+`document-liveness.test.ts` dice de sí mismo.
+
+| escrito | quién no lo llamaba | qué costaba |
+|---|---|---|
+| `detailingStore.invalidate` | nadie | una edición de armadura no llegaba a los conjuntos: la lámina, la planilla y el 3-D seguían describiendo el acero anterior |
+| `exportRecordStore.record` | nadie | la lista de emisiones estaba vacía en todo proyecto que existió |
+| `RcEditConsequence` | nadie | — |
+| `RcRetouchProvenance` | sólo el tipo del `ExportRecord` | ninguna exportación decía qué se había retocado a mano |
+| `sectionAt` (setter) | nadie | **toda** lámina de sección de la app era un corte en x = 0 |
+
+#### 9.6.2 Decisiones que un lector va a querer discutir
+
+**El pin congela el MIEMBRO, no la barra.** `runDetailing` recibe `lockedBars` y no regenera esa
+barra; el lazo de reparación recibe `lockedMemberIds()`, que camina los `ownerElementIds` de cada
+barra fijada. Fijar una barra continua sobre un apoyo congela también la columna. La fila lo dice
+ahora (`rc-bar-lock.ts`) y el censo une en vez de sumar, porque `lockedMemberIds()` es un `Set`.
+
+**El plano de doblado se mide sobre el CUERPO, no sobre el camino entero.** Los ganchos a 135° de
+un estribo giran hacia el núcleo — fuera del plano del estribo, por diseño. La primera versión
+midió el camino completo y rechazó los 8 212 estribos del modelo: las formas que más se doblan
+eran las únicas sin dibujo. Se recortan los ganchos por su longitud desarrollada, se abaten al
+plano como hace cualquier planilla, y la fila dice que se abatieron.
+
+**Las normas del rótulo no se editan.** La verificación corrió contra las que están vinculadas.
+Un campo que pudiera contradecirla haría que ninguna lámina del juego fuese falsable. El autor
+puede DECLARAR una norma propia y sale marcada como declarada, no verificada.
+
+**Una exportación declara SUS retocados, no los del proyecto.** `rcRetouchWithin` acota al
+conjunto de elementos del documento. Y deja `unknown` en `unknown`: un archivo que nunca registró
+esa información no pasa a saberla por preguntar por menos elementos.
+
+**Regenerar NO conserva un retoque manual.** `runDetailing` detalla desde los outcomes del
+diseño, así que una regeneración reproduce el armado diseñado. No es un defecto: la respuesta de
+la app a "conservá mi arreglo" es el pin, y D21 lo asserta. `f3-edit-retroactive.spec.ts` E6 dice
+explícitamente que no asserta lo contrario.
+
+#### 9.6.3 Lo que se movió, y por qué
+
+El techo de 800 líneas de `detailing.svelte.ts` se tocó tres veces y las tres se resolvió
+extrayendo, que es lo que la propia gate manda ("la respuesta es extraer, no subir el número"):
+
+- `detailing-sheet-inputs.ts` — la geometría de las láminas (obj. 7);
+- `detailing-sheet.svelte.ts` — **un store nuevo**: tipo de lámina, estación, rótulo, SVG (obj. 8);
+- `collectCertificates` a `detailing-project-inputs.ts`.
+
+`DetailingWorkflow.svelte` tocó su techo de 600 dos veces: salieron `RcTitleBlockFields`,
+`RcBendingSchedule` y `RcEditNotice`.
+
+#### 9.6.4 Rojos preexistentes, registrados
+
+Regla 5 de §A. **B15 y B9 de `rc-design.spec.ts` estaban rojos en árbol limpio en `6c090835`**,
+antes de esta serie — confirmado haciendo checkout de ese commit. Arreglados en commit propio,
+`4a8ff151`: B15 asertaba que `design-table-scroll` era el scroller, y dejó de serlo cuando F2.1
+metió `ProDesignTab` dentro de la etapa DISEÑAR. B9 sólo fallaba en el mismo worker después de
+B15. **Es la cuarta vez que la serie hereda un rojo.**
 
 ### 9.7 Las gates de esta área
 
@@ -778,13 +853,29 @@ export NODE_OPTIONS=""  # el del entorno rompe npx vitest / npx playwright — v
 
 npx playwright test e2e/f3-member-list.spec.ts e2e/f3-selection-to-viewer.spec.ts \
   e2e/f3-selection-from-viewer.spec.ts e2e/pro-panel-consistency.spec.ts \
-  e2e/pro-panel-structure.spec.ts          # 56 ✅
+  e2e/pro-panel-structure.spec.ts
+
+# Los seis de esta tanda. Los tres @slow diseñan un edificio real; los otros siembran.
+npx playwright test e2e/f3-bar-lock.spec.ts e2e/f3-sheet-geometry.spec.ts \
+  e2e/f3-title-block.spec.ts e2e/f3-bending-schedule.spec.ts \
+  e2e/f3-edit-retroactive.spec.ts e2e/f3-export-log.spec.ts
+
 npx playwright test e2e/f3-bar-states.spec.ts e2e/detailing.spec.ts \
-  e2e/detailing-review.spec.ts e2e/floor-design.spec.ts   # obj. 5 + lo que toca
+  e2e/detailing-review.spec.ts e2e/detailing-sheet-fieldset.spec.ts \
+  e2e/documents.spec.ts e2e/floor-design.spec.ts
+
+# Los dos auditores que esta tanda hizo fallar y hay que correr aunque no parezca:
+#   h1c   contraste de TODA copia nueva en Documentos — `--st-text-3` no es color de texto
+#   concrete-design-raw-colours / concrete-status-tokens — la deuda de colores crudos no crece
+npx playwright test e2e/h1c-documents-flow.spec.ts
+npx vitest run --project unit src/lib/__tests__/concrete-design-raw-colours.test.ts \
+  src/lib/__tests__/concrete-status-tokens.test.ts
+
 npx vitest run --project unit src/lib/flow/__tests__/ \
-  src/lib/store/__tests__/rebar-workspace-selection.test.ts   # 180 ✅
+  src/lib/store/__tests__/ src/lib/engine/detailing/__tests__/
 npx vitest run --project unit src/lib/i18n/__tests__/         # paridad de 13 locales
 npx vitest run --project unit rc-design-gates                 # el techo de 600 líneas
+npx vitest run --project unit detailing-store-ceiling         # el de 800 del store
 NODE_OPTIONS="--max-old-space-size=4096" npm run typecheck && npm run build
 ```
 
