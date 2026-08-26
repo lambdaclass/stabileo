@@ -5119,6 +5119,15 @@ const es: Record<string, string> = {
   'detailing.titleBlock.removeCode': 'Quitar la norma {code}',
   'detailing.titleBlock.codesFull': 'El rótulo admite {n} normas declaradas; quitá una para agregar otra.',
   'detailing.titleBlock.unnamed': 'La obra no tiene nombre: las láminas van a salir sin identificación.',
+  // El esquema de doblado. `shapeCode` devuelve la clave de agrupamiento —`LH90`, `bent3`—
+  // que no es una instrucción de fabricación; el esquema y sus tramos sí lo son.
+  'detailing.shape.legs': '{shape}: tramos de {legs} mm',
+  'detailing.shape.bends': '+{n} mm en dobleces',
+  'detailing.shape.nonPlanar': 'Sin esquema: {shape} está doblada en dos planos y no hay una forma plana honesta que dibujar. Ver la elevación.',
+  'detailing.shape.degenerate': 'Sin esquema: {shape} no tiene geometría con longitud.',
+  'detailing.shape.hook': 'gancho {angle}° · {ext} mm',
+  'detailing.shape.hookPair': '2 × {hook}',
+  'detailing.shape.hooksFolded': 'Los ganchos se dibujan abatidos al plano del cuerpo; su medida es la indicada, no la del esquema.',
   'detailing.sheet.station': 'Corte en x',
   'detailing.sheet.stationRange': 'entre {min} y {max} m',
   'detailing.sheet.section': 'Sección transversal',

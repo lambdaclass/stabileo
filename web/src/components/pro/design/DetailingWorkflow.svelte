@@ -18,6 +18,7 @@
   import DetailingProblems from './DetailingProblems.svelte';
   import RcBarList from './RcBarList.svelte';
   import RcTitleBlockFields from './RcTitleBlockFields.svelte';
+  import RcBendingSchedule from './RcBendingSchedule.svelte';
   import { uiStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
@@ -357,45 +358,14 @@
       -->
       <SheetPreview assemblyLabel={selected?.label ?? ''} bind:open={sheetOpen} />
 
-      {#if detailingStore.schedule}
-        {@const s = detailingStore.schedule}
-        <!-- A wide schedule scrolls itself rather than widening the panel around it. -->
-        <div class="scroll-x">
-        <table class="schedule" data-testid="schedule">
-          <caption>{t('detailing.schedule')}</caption>
-          <thead>
-            <tr>
-              <th scope="col">{t('detailing.mark')}</th>
-              <th scope="col">Ø</th>
-              <th scope="col">{t('detailing.shape')}</th>
-              <th scope="col">{t('detailing.schedule.purpose')}</th>
-              <th scope="col">{t('detailing.qty')}</th>
-              <th scope="col">{t('detailing.cutLength')}</th>
-              <th scope="col">{t('detailing.mass')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each s.rows as r (r.mark)}
-              <tr>
-                <td>{r.mark}</td><td>{r.diameterMm}</td><td>{r.shape}</td>
-                <td data-testid="schedule-purpose">{r.role === 'longitudinal'
-                  ? t(`detailing.schedule.purpose.${r.purpose ?? 'resistant'}`) : '—'}</td>
-                <td>{r.quantity}</td><td>{r.cuttingLengthM.toFixed(2)}</td>
-                <td>{r.massKg.toFixed(1)}</td>
-              </tr>
-            {/each}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row" colspan="4">{t('detailing.total')}</th>
-              <td>{s.totals.quantity}</td>
-              <td>{s.totals.totalLengthM.toFixed(1)}</td>
-              <td data-testid="schedule-mass">{s.totals.massKg.toFixed(1)}</td>
-            </tr>
-          </tfoot>
-        </table>
-        </div>
-      {/if}
+      <!--
+        The bending schedule, with a diagram per shape.
+
+        It printed `shapeCode`'s grouping key — `LH90`, `bent3` — in the Shape column, which is
+        what `assignMarks` groups on and not something a bender can fabricate from. The table
+        and its diagrams are `RcBendingSchedule.svelte`; this panel is at its 600-line ceiling.
+      -->
+      <RcBendingSchedule />
 
       <!-- ── Documents ──────────────────────────────────────────────
            All three exports build from ONE DocumentModel, so a report, a drawing set and
@@ -550,12 +520,11 @@
   /* What the control accepts, stated rather than discovered by being refused. */
   .station .range { color: var(--st-text-3); font-size: 0.66rem; }
 
-  table.schedule { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
-  /* A wide schedule scrolls itself instead of stretching the panel. */
-  .scroll-x { overflow-x: auto; max-width: 100%; }
-  caption { text-align: left; font-weight: 600; padding-bottom: 0.25rem; }
-  th, td { border: 1px solid var(--st-hair-strong); padding: 0.2rem 0.4rem; text-align: right; }
-  th[scope='col'], td:first-child, td:nth-child(3) { text-align: left; }
+  /*
+    The schedule's rules left with the schedule, to `RcBendingSchedule.svelte`. Svelte scopes
+    styles per component, so a copy kept here would not reach those cells anyway — it would be
+    dead text the next reader has to prove is dead, which is what the bar list's rules were.
+  */
   .documents { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border, var(--st-text)); }
   .doc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
   .doc-state { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; }

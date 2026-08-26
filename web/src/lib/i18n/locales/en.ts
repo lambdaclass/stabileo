@@ -5126,6 +5126,15 @@ const en: Record<string, string> = {
   'detailing.titleBlock.removeCode': 'Remove the code {code}',
   'detailing.titleBlock.codesFull': 'The title block takes {n} declared codes; remove one to add another.',
   'detailing.titleBlock.unnamed': 'The works has no name: the sheets will carry no identification.',
+  // The bending diagram. `shapeCode` returns the grouping key — `LH90`, `bent3` — which is not
+  // a fabrication instruction; the diagram and its legs are.
+  'detailing.shape.legs': '{shape}: legs of {legs} mm',
+  'detailing.shape.bends': '+{n} mm in bends',
+  'detailing.shape.nonPlanar': 'No diagram: {shape} is bent about two axes and there is no honest flat shape to draw. See the elevation.',
+  'detailing.shape.degenerate': 'No diagram: {shape} has no geometry with length.',
+  'detailing.shape.hook': 'hook {angle}° · {ext} mm',
+  'detailing.shape.hookPair': '2 × {hook}',
+  'detailing.shape.hooksFolded': 'The hooks are drawn folded into the plane of the body; their dimension is the one stated, not the one on the diagram.',
   'detailing.sheet.station': 'Cut at x',
   'detailing.sheet.stationRange': 'between {min} and {max} m',
   'detailing.sheet.section': 'Cross-section',
