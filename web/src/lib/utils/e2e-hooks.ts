@@ -30,6 +30,10 @@
 
 import { modelStore, verificationStore, uiStore, historyStore } from '../store';
 import { detailingStore } from '../store/detailing.svelte';
+import { detailingSheet } from '../store/detailing-sheet.svelte';
+import { exportRecordStore } from '../store/export-record.svelte';
+import { retouchedIn } from '../store/export-log';
+import { renderDrawings } from '../engine/detailing/document-render';
 import { rebarWorkspace } from '../store/rebar-workspace.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
@@ -106,6 +110,16 @@ export interface StabileoTestHooks {
   } | null;
   selection(): number[];
   /**
+   * What the REBAR WORKSPACE has selected, which is a different channel from `selection()`.
+   *
+   * `selection()` reads `uiStore.selectedElements` — the app's element selection, driven by the
+   * 2-D viewport and the design table. This reads `rebarWorkspace.selection`, the single channel
+   * the detailing list and the 3-D viewer share. Exposed so a test can assert that clicking a row
+   * writes THAT channel and no parallel one: comparing this against the rows' `aria-selected` is
+   * how "two independent representations of the same element" becomes checkable.
+   */
+  rebarSelection(): number[];
+  /**
    * Everything selected, by kind.
    *
    * `selection()` reports members alone, which is enough while a selection can
@@ -142,6 +156,32 @@ export interface StabileoTestHooks {
   detailingAssemblies(): unknown;
   /** Bar-schedule totals for the selected assembly. */
   detailingSchedule(): unknown;
+  /**
+   * The current sheet as the drawing engine built it, before any renderer touched it.
+   *
+   * An OBSERVATION hook. The alternative is to assert on the SVG string, and a `<path d="M…">`
+   * cannot answer which LAYER a polyline is on — which is the whole question for a sheet whose
+   * concrete, steel and cover line are three layers with three meanings.
+   */
+  detailingSheet(): unknown;
+  /**
+   * The project's rótulo as PERSISTED, not as the panel renders it.
+   *
+   * An OBSERVATION hook, and the distinction is the point: the field is a project decision that
+   * has to survive being reopened, and reading it back off the input that wrote it would assert
+   * only that the DOM kept a value.
+   */
+  detailingTitleBlock(): unknown;
+  /** The emission records as PERSISTED. An OBSERVATION hook. */
+  exportRecords(): unknown;
+  /**
+   * The drawing set's DXF, rendered from the current document.
+   *
+   * An OBSERVATION hook, and the only route a test has to what the sheet actually carries: the
+   * export hands a blob to the browser and loses sight of it — which is the first entry in
+   * `EXPORT_CANNOT_ASSERT`. Returns null when there is nothing coordinated to draw.
+   */
+  detailingDxf(): string | null;
   /**
    * How many times the 3-D viewport has BUILT its tube geometry.
    *
@@ -344,6 +384,8 @@ export function installE2EHooks(): void {
       };
     },
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
+    rebarSelection: () =>
+      [...(rebarWorkspace.selection?.elementIds ?? [])].sort((a, b) => a - b),
     armedKinds: () => [...uiStore.selectKinds].sort(),
     nodeCount: () => modelStore.nodes.size,
     supportCount: () => modelStore.supports.size,
@@ -369,6 +411,17 @@ export function installE2EHooks(): void {
     detailingAssemblies: () =>
       JSON.parse(JSON.stringify(modelStore.model.detailing?.assemblies ?? [])),
     detailingSchedule: () => JSON.parse(JSON.stringify(detailingStore.schedule ?? null)),
+    detailingSheet: () => JSON.parse(JSON.stringify(detailingSheet.sheet ?? null)),
+    detailingTitleBlock: () =>
+      JSON.parse(JSON.stringify(modelStore.model.detailing?.titleBlock ?? null)),
+    exportRecords: () => JSON.parse(JSON.stringify(exportRecordStore.exports)),
+    detailingDxf: () => {
+      const doc = detailingStore.buildDocument({ author: 'e2e', at: new Date().toISOString() });
+      if (!doc) return null;
+      return renderDrawings(doc, {
+        locale: 'es', projectName: 'e2e', retouched: retouchedIn(doc),
+      }).dxf;
+    },
     rebarSceneBuilds,
     rebarSceneCensus: liveRebarSceneCensus,
     canvasCount: () => document.querySelectorAll('canvas').length,

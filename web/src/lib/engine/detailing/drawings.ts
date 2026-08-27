@@ -35,6 +35,7 @@ import { tAt } from '../../i18n/store.svelte';
 import { formatClause, type ClauseRef } from '../../codes/regulation';
 import type { BarConflict } from './collision';
 import type { BarMark, DetailingAssembly, UnsupportedCondition } from './assembly';
+import type { RcTitleBlockCode } from './title-block-config';
 
 // ─── Projection ──────────────────────────────────────────────────
 
@@ -86,6 +87,24 @@ export type SheetKind =
 export interface TitleBlock {
   sheetNumber: string;
   title: string;
+  /**
+   * The works, the stage and the office — the author's half of the rótulo.
+   *
+   * Absent when the project has not been identified, and that absence is printed as nothing.
+   * Every export used to be headed `t('detailing.doc.project')` — a translated word meaning
+   * "Project" — and a drawing set whose every sheet says "Proyecto" identifies nothing.
+   */
+  project?: string;
+  subtitle?: string;
+  office?: string;
+  /**
+   * The norms this sheet is produced under, verified ones first.
+   *
+   * The app's half, and read-only for a reason `title-block-config.ts` states: the verification
+   * ran against exactly these, so a field that could disagree with the run would make every
+   * sheet in the set unfalsifiable. An author's own declarations ride here too and are marked.
+   */
+  codes?: RcTitleBlockCode[];
   /** e.g. 'CIRSOC 201 2025'. */
   codeEdition: string;
   /** Clauses the content on this sheet was produced under. */
@@ -118,7 +137,25 @@ export interface DrawnPolyline {
 
 export interface DrawnCircle { layer: string; centre: Pt2; radius: number }
 export interface DrawnText { layer: string; at: Pt2; height: number; text: string }
-export interface DrawnDimension { layer: string; from: Pt2; to: Pt2; label: string; offset: number }
+export interface DrawnDimension {
+  layer: string;
+  from: Pt2;
+  to: Pt2;
+  label: string;
+  /** How far off the measured line the witness line sits, in the axis it is NOT measuring. */
+  offset: number;
+  /**
+   * Which sheet axis this dimension measures. `'x'` when absent.
+   *
+   * ── Why the field had to exist ─────────────────────────────────
+   *
+   * Both writers assumed horizontal: the witness line was emitted from `from.y + offset` to
+   * `to.y + offset` and the label centred between the two x's. A member's DEPTH and a
+   * section's HEIGHT are the two numbers a reinforcement drawing is read for, and either one
+   * came out as a horizontal line of zero length with the label stacked on top of it.
+   */
+  axis?: 'x' | 'y';
+}
 
 export interface Sheet {
   kind: SheetKind;
@@ -152,9 +189,28 @@ export const LAYERS = {
   punching: 'RC-PUNCHING',
   /** A slab or wall opening. Its own layer for the same reason. */
   opening: 'RC-OPENING',
+  /**
+   * The specified cover line inside a section.
+   *
+   * Its own layer for `punching`'s reason: it is neither concrete nor a dimension. It is the
+   * design's requirement drawn where the steel can be checked against it, and a reviewer wants
+   * it isolated while a fabricator building the cage wants it off.
+   */
+  cover: 'RC-COVER',
 } as const;
 
-function extentsOf(polylines: DrawnPolyline[], circles: DrawnCircle[]): Sheet['extents'] {
+/**
+ * The sheet's bounding box.
+ *
+ * Dimensions count towards it. They did not, and the moment a sheet carried any they were
+ * cropped: `sheetToSvg` builds its viewBox from the extents plus a fixed 0.5 m pad, and a
+ * witness line sitting 0.3 m off the concrete with a label below it lands outside that pad on
+ * the side it is drawn on. A dimension a reader cannot see is not a dimension.
+ */
+function extentsOf(
+  polylines: DrawnPolyline[], circles: DrawnCircle[],
+  dimensions: readonly DrawnDimension[] = [],
+): Sheet['extents'] {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   const eat = (p: Pt2) => {
     minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
@@ -164,6 +220,10 @@ function extentsOf(polylines: DrawnPolyline[], circles: DrawnCircle[]): Sheet['e
   for (const c of circles) {
     eat({ x: c.centre.x - c.radius, y: c.centre.y - c.radius });
     eat({ x: c.centre.x + c.radius, y: c.centre.y + c.radius });
+  }
+  for (const d of dimensions) {
+    const w = witness(d);
+    eat(w.a); eat(w.b); eat(w.label);
   }
   if (!Number.isFinite(minX)) return { min: { x: 0, y: 0 }, max: { x: 0, y: 0 } };
   return { min: { x: minX, y: minY }, max: { x: maxX, y: maxY } };
@@ -176,13 +236,29 @@ export function buildTitleBlock(opts: {
   assembly: DetailingAssembly;
   clauses: readonly ClauseRef[];
   scale?: number;
+  /**
+   * The rótulo the project configured. Absent on a project that has identified nothing.
+   *
+   * Passed in rather than read, for the reason every input to this module is: a title block is
+   * a claim a SHEET makes, and a pure builder that reached into live state could stamp one
+   * sheet with a project name edited after the drawing it heads was produced.
+   */
+  rotulo?: {
+    project?: string; subtitle?: string; office?: string;
+    codes?: readonly RcTitleBlockCode[];
+  };
 }): TitleBlock {
   const a = opts.assembly;
   const superseded = a.review !== undefined && a.review.revision !== a.detailingRevision;
   const unique = [...new Set(opts.clauses.map(formatClause))].sort();
+  const r = opts.rotulo;
   return {
     sheetNumber: opts.sheetNumber,
     title: opts.title,
+    ...(r?.project ? { project: r.project } : {}),
+    ...(r?.subtitle ? { subtitle: r.subtitle } : {}),
+    ...(r?.office ? { office: r.office } : {}),
+    ...(r?.codes && r.codes.length > 0 ? { codes: [...r.codes] } : {}),
     codeEdition: `CIRSOC 201 ${a.provenance.edition}`,
     clauses: unique,
     revision: a.detailingRevision,
@@ -326,6 +402,23 @@ export interface ElevationInput {
   scale?: number;
   /** Stirrup zones to dimension, in projected x. */
   stirrupZones?: Array<{ from: number; to: number; label: string }>;
+  /**
+   * Dimensions the caller has already resolved — lengths, depths, covers.
+   *
+   * Built by `sheet-geometry.ts` and passed in rather than computed here, so this module stays
+   * a renderer of a `Sheet` and one module owns where a witness line goes. It also keeps the
+   * arithmetic assertable without constructing an assembly.
+   */
+  dimensions?: readonly DrawnDimension[];
+  /** Lines that are neither concrete nor steel — the cover line, and anything like it. */
+  extraPolylines?: readonly DrawnPolyline[];
+  /** Notes to print under the standard ones: what could not be drawn, what was not dimensioned. */
+  extraNotes?: readonly string[];
+  /** The project's rótulo, stamped on the title block. See `buildTitleBlock`. */
+  rotulo?: {
+    project?: string; subtitle?: string; office?: string;
+    codes?: readonly RcTitleBlockCode[];
+  };
 }
 
 /**
@@ -351,6 +444,22 @@ export function drawElevation(input: ElevationInput): Sheet {
   const markOf = new Map<string, string>();
   for (const m of input.assembly.marks) for (const id of m.barIds) markOf.set(id, m.mark);
 
+  /**
+   * Marks already labelled on this sheet.
+   *
+   * ── One label per mark, not one per bar ────────────────────────
+   *
+   * A mark is a fabrication TYPE — `assignMarks` groups identical items under it — so every
+   * stirrup in a zone carries the same one. Labelling each bar put `B4 Ø8` on screen once per
+   * stirrup: on `rc-design-qa-8` that is a solid band of overlapping text across the top of
+   * the beam, and it got worse the more steel the design produced. The text was legible only
+   * on the sheets with the least reinforcement on them.
+   *
+   * Nothing is lost, because nothing was said twice: the second `B4 Ø8` carried no information
+   * the first did not. The quantity behind a mark is the schedule's job, and it states it.
+   */
+  const labelled = new Set<string>();
+
   for (const bar of input.assembly.bars) {
     const pts = samplePath(bar).map((p) => project(p, input.projection));
     polylines.push({
@@ -358,7 +467,8 @@ export function drawElevation(input: ElevationInput): Sheet {
       points: pts, closed: false,
     });
     const mark = markOf.get(bar.id);
-    if (mark && pts.length > 0) {
+    if (mark && pts.length > 0 && !labelled.has(mark)) {
+      labelled.add(mark);
       const mid = pts[Math.floor(pts.length / 2)];
       texts.push({
         layer: LAYERS.mark, at: { x: mid.x, y: mid.y + 0.04 }, height: 0.05,
@@ -374,6 +484,8 @@ export function drawElevation(input: ElevationInput): Sheet {
       label: z.label, offset: -0.35,
     });
   }
+  dimensions.push(...(input.dimensions ?? []));
+  polylines.push(...(input.extraPolylines ?? []));
 
   const circles: DrawnCircle[] = [];
   return {
@@ -381,13 +493,17 @@ export function drawElevation(input: ElevationInput): Sheet {
     title: buildTitleBlock({
       sheetNumber: input.sheetNumber, title: input.title,
       assembly: input.assembly, clauses: input.clauses, scale: input.scale,
+      rotulo: input.rotulo,
     }),
     polylines, circles, texts, dimensions,
-    notes: noteLines(input.assembly.conflicts, input.assembly.unsupported,
-      input.assembly.provisionalMembers ?? [],
-      input.assembly.torsionUnevaluatedMembers ?? [],
-      hangerTopMembersOf(input.assembly)),
-    extents: extentsOf(polylines, circles),
+    notes: [
+      ...noteLines(input.assembly.conflicts, input.assembly.unsupported,
+        input.assembly.provisionalMembers ?? [],
+        input.assembly.torsionUnevaluatedMembers ?? [],
+        hangerTopMembersOf(input.assembly)),
+      ...(input.extraNotes ?? []),
+    ],
+    extents: extentsOf(polylines, circles, dimensions),
   };
 }
 
@@ -406,6 +522,35 @@ export interface SectionInput {
   sheetNumber: string;
   title: string;
   scale?: number;
+  /**
+   * Draw only the steel belonging to these members. Every crossing bar when absent.
+   *
+   * ── Why a section needs this ───────────────────────────────────
+   *
+   * The plane is cut through the whole assembly, and an assembly is a LEVEL: a beam line, the
+   * columns under it, and every transverse beam framing into it. So the bars that cross
+   * `atX` include steel from members metres away across the sheet's third axis — measured on
+   * `rc-design-qa-8`, a bar at u = −4,84 m inside an outline 300 mm wide.
+   *
+   * Drawn against one member's outline that reads as reinforcement bursting out of the
+   * concrete. It is not: it is another beam's steel, correctly placed, in a drawing that
+   * never said which member it was a section of. A section is a section OF something, and
+   * this is that something.
+   *
+   * Ownership, not proximity: a bar continuous over a support belongs to the beam and to the
+   * column, and it appears in both their sections because it is in both.
+   */
+  restrictToMembers?: readonly number[];
+  /** b, h and the cover, resolved by `sheet-geometry.ts`. */
+  dimensions?: readonly DrawnDimension[];
+  /** The specified cover line, in the same section coordinates as `outline`. */
+  coverLine?: readonly Pt2[];
+  extraNotes?: readonly string[];
+  /** The project's rótulo, stamped on the title block. See `buildTitleBlock`. */
+  rotulo?: {
+    project?: string; subtitle?: string; office?: string;
+    codes?: readonly RcTitleBlockCode[];
+  };
 }
 
 /**
@@ -422,11 +567,17 @@ export function drawSection(input: SectionInput): Sheet {
   const polylines: DrawnPolyline[] = [{
     layer: LAYERS.outline, points: input.outline, closed: true,
   }];
+  if (input.coverLine && input.coverLine.length >= 3) {
+    polylines.push({ layer: LAYERS.cover, points: [...input.coverLine], closed: true });
+  }
 
   const markOf = new Map<string, string>();
   for (const m of input.assembly.marks) for (const id of m.barIds) markOf.set(id, m.mark);
 
+  const wanted = input.restrictToMembers ? new Set(input.restrictToMembers) : null;
+
   for (const bar of input.assembly.bars) {
+    if (wanted && !bar.ownerElementIds.some((id) => wanted.has(id))) continue;
     const pts = samplePath(bar);
     let crossing: Point3 | null = null;
     for (let i = 0; i + 1 < pts.length; i++) {
@@ -470,18 +621,23 @@ export function drawSection(input: SectionInput): Sheet {
     }
   }
 
+  const dimensions = [...(input.dimensions ?? [])];
   return {
     kind: 'section',
     title: buildTitleBlock({
       sheetNumber: input.sheetNumber, title: input.title,
       assembly: input.assembly, clauses: input.clauses, scale: input.scale ?? 20,
+      rotulo: input.rotulo,
     }),
-    polylines, circles, texts, dimensions: [],
-    notes: noteLines(input.assembly.conflicts, input.assembly.unsupported,
-      input.assembly.provisionalMembers ?? [],
-      input.assembly.torsionUnevaluatedMembers ?? [],
-      hangerTopMembersOf(input.assembly)),
-    extents: extentsOf(polylines, circles),
+    polylines, circles, texts, dimensions,
+    notes: [
+      ...noteLines(input.assembly.conflicts, input.assembly.unsupported,
+        input.assembly.provisionalMembers ?? [],
+        input.assembly.torsionUnevaluatedMembers ?? [],
+        hangerTopMembersOf(input.assembly)),
+      ...(input.extraNotes ?? []),
+    ],
+    extents: extentsOf(polylines, circles, dimensions),
   };
 }
 
@@ -489,6 +645,56 @@ export function drawSection(input: SectionInput): Sheet {
 
 function num(v: number): string {
   return (Math.abs(v) < 1e-12 ? 0 : v).toFixed(6);
+}
+
+/**
+ * Where a dimension's witness line and its label go, for both writers.
+ *
+ * One function because the SVG and the DXF have to place the same line in the same place. They
+ * placed it with two copies of the same three expressions, and only one of those copies would
+ * have been taught about `axis` — which is how a sheet and the DXF exported from it come to
+ * carry different drawings.
+ *
+ * `'y'` offsets in x and labels to the side; `'x'` offsets in y and labels below. The label
+ * clearance is a tenth of the text height below the line for a horizontal one and a small gap
+ * beyond the line for a vertical one, because a vertical label centred ON the line sits on top
+ * of the geometry it is measuring.
+ */
+function witness(d: DrawnDimension): { a: Pt2; b: Pt2; label: Pt2; anchor: 'start' | 'end' | 'middle' } {
+  // The label goes on the FAR side of the witness line from the geometry, which is the side the
+  // offset points to. Anchoring it inwards is how `r 25` came to be printed across the concrete
+  // it was measuring — the one dimension on the sheet drawn on the right.
+  const away = Math.sign(d.offset) || -1;
+  const gap = 0.06 * away;
+  if (d.axis === 'y') {
+    const x = d.from.x + d.offset;
+    return {
+      a: { x, y: d.from.y },
+      b: { x, y: d.to.y },
+      label: { x: x + gap, y: (d.from.y + d.to.y) / 2 },
+      anchor: away > 0 ? 'start' : 'end',
+    };
+  }
+  const y = d.from.y + d.offset;
+  return {
+    a: { x: d.from.x, y },
+    b: { x: d.to.x, y },
+    label: { x: (d.from.x + d.to.x) / 2, y: y + gap },
+    anchor: 'middle',
+  };
+}
+
+/**
+ * Text height for a dimension label, in model units, scaled to the sheet.
+ *
+ * A fixed 0.05 m is a sensible caption on a 7 m elevation and a banner across a 300 mm
+ * section: it was 17 % of the section's width, and `550` came out taller than the bars it was
+ * measuring. Clamped at both ends so a very long sheet does not get microscopic labels and a
+ * very small one does not get a stroke-thin caption.
+ */
+function labelHeight(sheet: Sheet): number {
+  const w = Math.max(1e-6, sheet.extents.max.x - sheet.extents.min.x);
+  return Math.min(0.05, Math.max(0.012, w / 40));
 }
 
 /**
@@ -538,12 +744,13 @@ export function sheetToDxf(sheet: Sheet, arcs: DrawnArc[] = [], locale = 'es'): 
   for (const d of sheet.dimensions) {
     // R12 has no simple associative dimension; emit the witness line and the label,
     // which is what a fabricator reads anyway.
+    const w = witness(d);
     out.push('0', 'LINE', '8', d.layer,
-      '10', num(d.from.x), '20', num(d.from.y + d.offset), '30', '0.0',
-      '11', num(d.to.x), '21', num(d.to.y + d.offset), '31', '0.0');
+      '10', num(w.a.x), '20', num(w.a.y), '30', '0.0',
+      '11', num(w.b.x), '21', num(w.b.y), '31', '0.0');
     out.push('0', 'TEXT', '8', d.layer,
-      '10', num((d.from.x + d.to.x) / 2), '20', num(d.from.y + d.offset - 0.05), '30', '0.0',
-      '40', '0.05', '1', d.label);
+      '10', num(w.label.x), '20', num(w.label.y), '30', '0.0',
+      '40', num(labelHeight(sheet)), '1', d.label);
   }
 
   // Title block and notes as text, so the sheet is self-describing in CAD too.
@@ -553,7 +760,20 @@ export function sheetToDxf(sheet: Sheet, arcs: DrawnArc[] = [], locale = 'es'): 
       '10', num(sheet.extents.min.x), '20', num(ty), '30', '0.0', '40', '0.06', '1', s);
     ty -= 0.12;
   };
+  /*
+    The rótulo, above the sheet's own name.
+
+    The works comes first because it is what a reader needs to know before anything else on the
+    page means something, and it is printed only when the project HAS one. An unnamed project
+    prints nothing here, which is different from the `t('detailing.doc.project')` — "Project" —
+    that used to head every export.
+  */
+  if (sheet.title.project) put(sheet.title.project);
+  if (sheet.title.subtitle) put(sheet.title.subtitle);
+  if (sheet.title.office) put(sheet.title.office);
   put(`${sheet.title.sheetNumber} — ${sheet.title.title}`);
+  // The norms, one line each, exactly as the Reglamentos stage has them.
+  for (const c of sheet.title.codes ?? []) put(c.text);
   put(`Reglamento: ${sheet.title.codeEdition}   Escala 1:${sheet.title.scale}`);
   put(`Revisión ${sheet.title.revision} — estado ${sheet.title.reviewState}`);
   if (sheet.title.reviewer) put(`Revisado por: ${sheet.title.reviewer} (${sheet.title.reviewedAt ?? ''})`);
@@ -771,7 +991,17 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
   const pad = 0.5;
   const w = Math.max(1e-6, max.x - min.x + 2 * pad);
   const h = Math.max(1e-6, max.y - min.y + 2 * pad);
-  const noteH = 0.16 * (sheet.notes.length + 7);
+  /*
+    Room for the title block AND the rótulo.
+
+    It was a fixed `+ 7`, which covered the sheet name, the regulation line, the reviewer, the
+    clauses and the provisional note. The rótulo adds up to three identification lines and one
+    per norm, and a block sized for seven simply ran off the bottom of the viewBox — the same
+    cropping the dimensions hit before they counted towards the extents.
+  */
+  const rotuloLines = (sheet.title.project ? 1 : 0) + (sheet.title.subtitle ? 1 : 0)
+    + (sheet.title.office ? 1 : 0) + (sheet.title.codes?.length ?? 0);
+  const noteH = 0.16 * (sheet.notes.length + rotuloLines + 7);
   const totalH = h + noteH;
   const heightPx = Math.round((widthPx * totalH) / w);
 
@@ -787,9 +1017,19 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
     if (pl.points.length < 2) continue;
     const d = pl.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(4)} ${p.y.toFixed(4)}`).join(' ')
       + (pl.closed ? ' Z' : '');
-    const stroke = pl.layer === LAYERS.outline ? '#333' : pl.layer === LAYERS.stirrup ? '#0a7' : '#c33';
+    const stroke = pl.layer === LAYERS.outline ? '#333'
+      : pl.layer === LAYERS.cover ? '#888'
+        : pl.layer === LAYERS.stirrup ? '#0a7' : '#c33';
     const wdt = pl.layer === LAYERS.outline ? 0.012 : 0.008;
-    parts.push(`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${wdt}"/>`);
+    /*
+      The cover line is DASHED, and that is the whole of what distinguishes it from concrete.
+
+      It is a requirement, not a face. Drawn solid at this weight it reads as a second, inner
+      member — which is exactly how a reviewer comes to measure the wrong edge. Grey and dashed
+      is the convention every hand-drawn section already uses for it.
+    */
+    const dash = pl.layer === LAYERS.cover ? ' stroke-dasharray="0.03 0.02"' : '';
+    parts.push(`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${wdt}"${dash}/>`);
   }
   for (const c of sheet.circles) {
     const fill = c.layer === LAYERS.stirrup ? '#0a7' : '#c33';
@@ -797,9 +1037,23 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
       `r="${Math.max(c.radius, 0.006).toFixed(4)}" fill="${fill}"/>`);
   }
   for (const d of sheet.dimensions) {
-    parts.push(`<path d="M${d.from.x.toFixed(4)} ${(d.from.y + d.offset).toFixed(4)} ` +
-      `L${d.to.x.toFixed(4)} ${(d.to.y + d.offset).toFixed(4)}" stroke="#666" ` +
+    const w = witness(d);
+    parts.push(`<path d="M${w.a.x.toFixed(4)} ${w.a.y.toFixed(4)} ` +
+      `L${w.b.x.toFixed(4)} ${w.b.y.toFixed(4)}" stroke="#666" ` +
       'stroke-width="0.006" fill="none"/>');
+    /*
+      Extension lines, from the geometry out to the witness line.
+
+      A witness line floating beside a member does not say WHICH edges it measures, and on a
+      sheet with a dozen members that is the difference between a dimension and a stray line.
+      Two short ticks are what a hand drawing puts there and they cost one path each.
+    */
+    const tick = (from: Pt2, to: Pt2) =>
+      parts.push(`<path d="M${from.x.toFixed(4)} ${from.y.toFixed(4)} ` +
+        `L${to.x.toFixed(4)} ${to.y.toFixed(4)}" stroke="#999" ` +
+        'stroke-width="0.004" fill="none"/>');
+    tick(d.from, w.a);
+    tick(d.to, w.b);
   }
   parts.push('</g>');
 
@@ -809,10 +1063,17 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
     parts.push(`<text x="${(t.at.x + pad - min.x).toFixed(4)}" y="${ty(t.at.y).toFixed(4)}" ` +
       `font-size="${t.height}" fill="#111" font-family="sans-serif">${esc(t.text)}</text>`);
   }
+  const dimText = labelHeight(sheet);
   for (const d of sheet.dimensions) {
-    parts.push(`<text x="${((d.from.x + d.to.x) / 2 + pad - min.x).toFixed(4)}" ` +
-      `y="${ty(d.from.y + d.offset - 0.06).toFixed(4)}" font-size="0.05" ` +
-      `fill="#444" font-family="sans-serif" text-anchor="middle">${esc(d.label)}</text>`);
+    const w = witness(d);
+    // A vertical dimension's label reads across the page rather than along its own line:
+    // rotating it would be truer to a CAD sheet and unreadable in a 34 rem panel, which is the
+    // surface this SVG exists for. The DXF keeps the same placement, and CAD is where a reader
+    // who wants the rotated form opens it.
+    parts.push(`<text x="${(w.label.x + pad - min.x).toFixed(4)}" ` +
+      `y="${ty(w.label.y).toFixed(4)}" font-size="${dimText.toFixed(4)}" ` +
+      `fill="#444" font-family="sans-serif" ` +
+      `text-anchor="${w.anchor}">${esc(d.label)}</text>`);
   }
 
   // Title block and notes.
@@ -822,7 +1083,13 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
       `font-weight="${weight}" font-family="sans-serif">${esc(s)}</text>`);
     by += 0.16;
   };
+  // The works leads, in the heaviest line on the page, and only when there is one. See the
+  // DXF writer for why an unnamed project prints nothing rather than the word "Project".
+  if (sheet.title.project) line(sheet.title.project, 'bold', '#111', 0.11);
+  if (sheet.title.subtitle) line(sheet.title.subtitle, 'normal', '#333', 0.08);
+  if (sheet.title.office) line(sheet.title.office, 'normal', '#444', 0.07);
   line(`${sheet.title.sheetNumber} — ${sheet.title.title}`, 'bold');
+  for (const c of sheet.title.codes ?? []) line(c.text, 'normal', '#111', 0.075);
   line(`${sheet.title.codeEdition} · Escala 1:${sheet.title.scale} · Revisión ${sheet.title.revision} · ${sheet.title.reviewState}`);
   if (sheet.title.reviewer) line(`Revisado por: ${sheet.title.reviewer} — ${sheet.title.reviewedAt ?? ''}`);
   if (sheet.title.clauses.length > 0) line(`Artículos: ${sheet.title.clauses.join('; ')}`, 'normal', '#444', 0.07);

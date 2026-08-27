@@ -267,7 +267,8 @@ test.describe('@smoke the floor-family deliverable, end to end', () => {
    *
    * This test used to CLICK `review-submit` and read `review-error`. The button is disabled
    * whenever `reviewBlockers` is non-empty, so the click could never land and the test spent its
-   * whole 60 s timeout retrying it.
+   * whole 60 s timeout retrying it — the failure it showed in CI, and one that had been there
+   * since the control moved rather than one the redesign introduced.
    *
    * The control was not weakened; the refusal was moved EARLIER. `reviewBlockers` states the
    * same three refusals `assembly.ts` raises, from the same locale keys, before the click rather

@@ -16,10 +16,16 @@
   import { t, tp } from '../../../lib/i18n';
   import SheetPreview from './SheetPreview.svelte';
   import DetailingProblems from './DetailingProblems.svelte';
+  import RcBarList from './RcBarList.svelte';
+  import RcTitleBlockFields from './RcTitleBlockFields.svelte';
+  import RcBendingSchedule from './RcBendingSchedule.svelte';
+  import RcEditNotice from './RcEditNotice.svelte';
   import { uiStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import { REVIEW_STATES, reviewRank } from '../../../lib/engine/detailing/assembly';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
+  import { rcConflictLabel } from '../../../lib/flow/rc-bar-label';
 
   /** Bound to the sheet dialog, so a conflict can open the drawing it is on. */
   let sheetOpen = $state(false);
@@ -52,6 +58,48 @@
   function goToMember(elementId: number) {
     uiStore.selectElement(elementId);
   }
+
+  /**
+   * Bar id → drawing mark, for the selected assembly.
+   *
+   * `assignMarks` groups identical fabricated items and records the ids that share each mark,
+   * so this is a read of what the coordination already decided rather than a second marking.
+   * A bar with no mark is absent from the map on purpose — see `rcBarLabel`.
+   */
+  const markOf = $derived.by(() => {
+    const m = new Map<string, string>();
+    for (const mk of selected?.marks ?? []) for (const id of mk.barIds) m.set(id, mk.mark);
+    return m;
+  });
+
+  /**
+   * Members of this assembly whose OWN design is a proposal.
+   *
+   * The assembly's own field. It is what `scene-model.ts` builds the 3-D view's
+   * `provisionalMembers` from and what the workspace banner counts, so the bar list, the viewer
+   * and the banner are three readings of one fact rather than three derivations of it. Deriving
+   * it here from bar ownership is the specific mistake `provisionalMembersOf` documents.
+   */
+  const provisionalMembers = $derived(new Set(selected?.provisionalMembers ?? []));
+
+  /** Bar id → the bar, so a conflict can name the two it involves instead of quoting their keys. */
+  const barById = $derived.by(() => {
+    const m = new Map<string, (typeof detailingStore.assemblies)[number]['bars'][number]>();
+    for (const b of selected?.bars ?? []) m.set(b.id, b);
+    return m;
+  });
+
+  /**
+   * The conflicts, named.
+   *
+   * Resolved here rather than inside `DetailingProblems` because the join needs the assembly's
+   * bars and its marks, and that component is deliberately given facts rather than sources — it
+   * "ranks and routes, and computes nothing". A conflict whose bar is not in this assembly keeps
+   * its key as the label; `rcConflictSide` reports that, and the component renders it as the
+   * reference text it is.
+   */
+  const conflictLabels = $derived(detailingStore.conflicts.map((c) =>
+    rcConflictLabel(c, (id) => barById.get(id), (id) => markOf.get(id))));
 
 </script>
 
@@ -93,6 +141,9 @@
       {/if}
     </button>
   </div>
+
+  <!-- What the last reinforcement edit invalidated, and the command that answers it. -->
+  <RcEditNotice />
 
   <aside
     class="assemblies"
@@ -191,6 +242,7 @@
       -->
       <DetailingProblems
         conflicts={detailingStore.conflicts}
+        conflictLabels={conflictLabels}
         conflictIndex={detailingStore.conflictIndex}
         stateBlockers={selected.stateBlockers ?? []}
         unsupported={selected.unsupported}
@@ -206,26 +258,18 @@
         Longitudinal reinforcement, bar by bar, with the lock control the coordination
         pipeline honours. Without this the "locked bars survive regeneration" guarantee is
         real in the engine and unreachable in the product.
-      -->
 
-      <details class="bars" data-testid="bar-list">
-        <summary>{tp('detailing.barsCount', { n: selected.bars.length })}</summary>
-        <ul class="barlist">
-          {#each selected.bars as bar (bar.id)}
-            <li data-testid={`bar-${bar.id}`} class:locked={bar.locked}>
-              <span class="bar-id">{bar.id}</span>
-              <span class="bar-dia">Ø{bar.diameterMm}</span>
-              <span class="bar-len">{bar.cuttingLength.toFixed(2)} m</span>
-              <span class="bar-role">{t(`detailing.barRole.${bar.role}`)}</span>
-              <button data-testid="bar-lock" class="lock"
-                      aria-pressed={bar.locked === true}
-                      onclick={() => detailingStore.toggleLock(bar.id)}>
-                {bar.locked ? t('detailing.unlockBar') : t('detailing.lockBar')}
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </details>
+        The list itself is `RcBarList.svelte`, mounted once. It leads with the MARK rather than
+        the engine's key, and says which of the three states each bar is in; both decisions live
+        in `rc-bar-label.ts` and `rc-bar-status.ts` so they can be asserted without a browser.
+        It moved out because this panel is at its 600-line ceiling and objective 5 adds to it.
+      -->
+      <RcBarList
+        bars={selected.bars}
+        markOf={markOf}
+        provisionalMembers={provisionalMembers}
+        onToggleLock={(id) => detailingStore.toggleLock(id)}
+      />
 
       <div class="sheet-controls">
         <fieldset>
@@ -234,8 +278,8 @@
             <input
               type="radio" name="sheetKind" value="elevation"
               data-testid="sheet-kind-elevation"
-              checked={detailingStore.sheetKind === 'elevation'}
-              onchange={() => detailingStore.setSheetKind('elevation')}
+              checked={detailingSheet.kind === 'elevation'}
+              onchange={() => detailingSheet.setKind('elevation')}
             />
             {t('detailing.sheet.elevation')}
           </label>
@@ -243,13 +287,66 @@
             <input
               type="radio" name="sheetKind" value="section"
               data-testid="sheet-kind-section"
-              checked={detailingStore.sheetKind === 'section'}
-              onchange={() => detailingStore.setSheetKind('section')}
+              checked={detailingSheet.kind === 'section'}
+              onchange={() => detailingSheet.setKind('section')}
             />
             {t('detailing.sheet.section')}
           </label>
+
+          <!--
+            Where the section is cut.
+
+            `sectionAt` was initialised to zero and NOTHING set it, so every section sheet in
+            the app was a cut at the model's origin — a column line on a framed building, which
+            is why the section came out as a tall slice down a column instead of the beam
+            section it was opened for. The store now defaults it to mid-span of the longest
+            member on the sheet; this is how a reviewer moves it somewhere else.
+
+            A number input and not a slider: a station is a coordinate an engineer reads off
+            their own plan, and typing 4,25 is the gesture. The range is stated on the control
+            so what it accepts is visible rather than discovered by being refused.
+          -->
+          {#if detailingSheet.kind === 'section' && detailingSheet.sectionRange}
+            {@const r = detailingSheet.sectionRange}
+            <label class="station">
+              <span>{t('detailing.sheet.station')}</span>
+              <input
+                type="number"
+                data-testid="sheet-station"
+                step="0.05"
+                min={r.min.toFixed(2)}
+                max={r.max.toFixed(2)}
+                value={detailingSheet.sectionAt.toFixed(2)}
+                onchange={(e) => {
+                  const v = Number((e.currentTarget as HTMLInputElement).value);
+                  if (Number.isFinite(v)) detailingSheet.setSectionAt(v);
+                }}
+              />
+              <span class="range" data-testid="sheet-station-range">
+                {tp('detailing.sheet.stationRange', {
+                  min: r.min.toFixed(2), max: r.max.toFixed(2),
+                })}
+              </span>
+            </label>
+          {/if}
         </fieldset>
       </div>
+
+      <!--
+        The rótulo, under the sheet controls and OUTSIDE them.
+
+        It is not a sheet control: the kind and the station choose which drawing you are
+        looking at, and the rótulo is a property of the project that every drawing carries. It
+        sat inside `.sheet-controls` for one commit and the cost was immediate —
+        `detailing-sheet-fieldset.spec.ts` locates that group as `.sheet-controls fieldset` and
+        a second fieldset there made the locator ambiguous. The spec was right about the
+        grouping; the markup was wrong.
+
+        Its own component because this panel is at its 600-line ceiling, and because the
+        author's half and the app's half of a title block need different controls — see
+        `RcTitleBlockFields.svelte`.
+      -->
+      <RcTitleBlockFields />
 
       <!--
         The sheet, with a title and a way to see it properly.
@@ -259,51 +356,20 @@
         which level or which kind of sheet you were looking at. A drawing you cannot read is not
         a preview of a drawing.
 
-        Expanding opens the SAME `detailingStore.sheetSvg` in a full-window dialog — the official
+        Expanding opens the SAME `detailingSheet.svg` in a full-window dialog — the official
         sheet projection, not a second renderer — so what you enlarge is exactly what the DXF and
         the report carry.
       -->
       <SheetPreview assemblyLabel={selected?.label ?? ''} bind:open={sheetOpen} />
 
-      {#if detailingStore.schedule}
-        {@const s = detailingStore.schedule}
-        <!-- A wide schedule scrolls itself rather than widening the panel around it. -->
-        <div class="scroll-x">
-        <table class="schedule" data-testid="schedule">
-          <caption>{t('detailing.schedule')}</caption>
-          <thead>
-            <tr>
-              <th scope="col">{t('detailing.mark')}</th>
-              <th scope="col">Ø</th>
-              <th scope="col">{t('detailing.shape')}</th>
-              <th scope="col">{t('detailing.schedule.purpose')}</th>
-              <th scope="col">{t('detailing.qty')}</th>
-              <th scope="col">{t('detailing.cutLength')}</th>
-              <th scope="col">{t('detailing.mass')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each s.rows as r (r.mark)}
-              <tr>
-                <td>{r.mark}</td><td>{r.diameterMm}</td><td>{r.shape}</td>
-                <td data-testid="schedule-purpose">{r.role === 'longitudinal'
-                  ? t(`detailing.schedule.purpose.${r.purpose ?? 'resistant'}`) : '—'}</td>
-                <td>{r.quantity}</td><td>{r.cuttingLengthM.toFixed(2)}</td>
-                <td>{r.massKg.toFixed(1)}</td>
-              </tr>
-            {/each}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row" colspan="4">{t('detailing.total')}</th>
-              <td>{s.totals.quantity}</td>
-              <td>{s.totals.totalLengthM.toFixed(1)}</td>
-              <td data-testid="schedule-mass">{s.totals.massKg.toFixed(1)}</td>
-            </tr>
-          </tfoot>
-        </table>
-        </div>
-      {/if}
+      <!--
+        The bending schedule, with a diagram per shape.
+
+        It printed `shapeCode`'s grouping key — `LH90`, `bent3` — in the Shape column, which is
+        what `assignMarks` groups on and not something a bender can fabricate from. The table
+        and its diagrams are `RcBendingSchedule.svelte`; this panel is at its 600-line ceiling.
+      -->
+      <RcBendingSchedule />
 
       <!-- ── Documents ──────────────────────────────────────────────
            All three exports build from ONE DocumentModel, so a report, a drawing set and
@@ -323,21 +389,29 @@
 
 <style>
   /*
-    Two columns that can actually shrink, sized by the PANEL and not by the window.
+    ── One column, stated once, instead of a grid that was never on ───
 
-    Was `minmax(12rem, 18rem) 1fr` with a `@media (max-width: 800px)` fallback, and both halves
-    were wrong in the same place: a `1fr` track refuses to go below its content's min-content
-    width, so the bar-schedule table and the sheet pushed the grid wider than the panel and the
-    state pills and the preview were clipped on the right; and the media query asks about the
-    WINDOW, so on a 1280 px screen it never fired even though the panel itself is about 540 px.
+    Five declarations stood here and reached nothing: `grid-template-columns` and `gap` on
+    `.detailing`, a second `grid-template-columns` under `[data-list='closed']`,
+    `grid-column: 1 / -1` on `.topbar`, and a `@container (max-width: 34rem)` that collapsed the
+    whole thing to one track.
 
-    `minmax(0, …)` lets both tracks shrink, and a container query asks the question that matters.
-  */
-  /*
-    One column when the list is hidden, two when it is not.
+    `.detailing` never declared `display: grid`. Measured in the browser: `display: block`,
+    `grid-template-columns: minmax(128px, 192px) minmax(0px, 1fr)` — computed and inert — and
+    `container-type: normal`, so the container query had no container to resolve against and was
+    asking about the WINDOW, which is the exact defect the comment that stood here claimed to
+    have fixed. The panel has been a single stacked column at every width since the day it was
+    written, and `pro-detailing-layout.spec.ts` says so in its own words: "at 1280×720 the right
+    panel is about 540 px … so the section is ALREADY one column".
 
-    `data-list` drives it rather than a media query: the question is what the READER asked for,
-    and the panel's width is answered separately by the container query at the bottom.
+    So the single column is DECLARED rather than arrived at by accident, and `data-list` decides
+    only whether the list is IN it — through the `hidden` attribute, which is a question about
+    what the reader asked for and not about tracks.
+
+    Nothing moves: this is the layout that has been on screen. What goes is a description of a
+    different one — and the grid was the wrong idea for this surface, not a typo. At 540 px an
+    8–12 rem list beside the drawing leaves the drawing about 380, which is the crop the list
+    toggle exists to undo.
   */
   .topbar {
     display: flex;
@@ -349,6 +423,7 @@
     border-bottom: 1px solid var(--st-hair);
   }
   .result { margin: 0; font-size: 0.7rem; color: var(--st-text-2); }
+
   .list-toggle {
     display: inline-flex; align-items: baseline; gap: 0.3rem;
     padding: 0.1rem 0.4rem;
@@ -363,20 +438,17 @@
   .list-toggle:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .current-level { font-weight: 600; color: var(--st-text); }
 
-  .detailing[data-list='closed'] { grid-template-columns: minmax(0, 1fr); }
-  .detailing[data-list='closed'] .topbar,
-  .detailing[data-list='open'] .topbar { grid-column: 1 / -1; }
-
   .detailing {
-    grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
-    gap: 1rem;
+    /* `block`, which is what it has always computed to. Declared so the next reader does not
+       have to prove it, and NOT changed to a flex column: a `gap` there would move every child
+       and this edit is a correction to the description, not to the layout. */
+    display: block;
     padding: 0.75rem;
     font-size: 0.85rem;
     height: 100%;
     overflow: auto;
   }
   h4 { margin: 0 0 0.4rem; font-size: 0.9rem; }
-  h5 { margin: 0 0 0.3rem; font-size: 0.85rem; }
   .empty { opacity: 0.7; }
   ul { list-style: none; margin: 0; padding: 0; }
   .assemblies button { width: 100%; text-align: left; padding: 0.4rem 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; background: none; border: 1px solid transparent; border-radius: 4px; color: inherit; cursor: pointer; }
@@ -417,17 +489,12 @@
     border-left: 3px solid var(--st-danger);
   }
   .ok { color: var(--st-ok); }
-  details.bars { margin: 0.5rem 0; }
-  details.bars summary { cursor: pointer; font-size: 0.8rem; }
-  ul.barlist { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 16rem; overflow: auto; }
-  ul.barlist > li { display: flex; gap: 0.5rem; align-items: center; font-size: 0.76rem; padding: 0.15rem 0; border-top: 1px solid var(--st-hair); }
-  ul.barlist > li.locked { background: var(--st-blue); }
-  .bar-id { font-family: monospace; min-width: 7rem; }
-  .bar-dia, .bar-len { min-width: 4rem; }
-  .bar-role { flex: 1; opacity: 0.8; }
-  .lock { font-size: 0.7rem; padding: 0.05rem 0.35rem; }
-  .conflict-nav { display: flex; align-items: center; gap: 0.5rem; }
-  .conflict-nav button { min-width: 1.8rem; }
+  /*
+    The bar list's rules left with the bar list, to `RcBarList.svelte`. Svelte scopes styles per
+    component, so a copy kept here would not reach those rows anyway — it would be dead text that
+    the next reader has to prove is dead. `.conflict-nav` went the same way when the conflicts
+    moved to `DetailingProblems.svelte`, and was still here.
+  */
   /*
     The sheet's control group, on the same footing as every other one.
 
@@ -440,30 +507,56 @@
   fieldset { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 0.3rem 0.5rem; }
   legend { font-size: 0.75rem; padding: 0 0.3rem; color: var(--st-text-2); }
 
-  table.schedule { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
-  /* A wide schedule scrolls itself instead of stretching the panel. */
-  .scroll-x { overflow-x: auto; max-width: 100%; }
-  caption { text-align: left; font-weight: 600; padding-bottom: 0.25rem; }
-  th, td { border: 1px solid var(--st-hair-strong); padding: 0.2rem 0.4rem; text-align: right; }
-  th[scope='col'], td:first-child, td:nth-child(3) { text-align: left; }
-  .documents { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border, var(--st-text)); }
-  .doc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-  .doc-state { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; }
-  .badge { padding: 2px 8px; border-radius: 3px; font-weight: 600; font-size: 11px; }
-  /* Inverted chip: a light ground, so the PLAIN hue rather than the `-text` variant — which
-     is what `tokens.css` says the two strengths are for. `--st-accent` on `--st-text` was
-     3.85; `--st-red` is 6.04. */
-  .badge-review_draft, .badge-superseded { background: var(--st-text); color: var(--st-red); }
-  .badge-for_review { background: var(--st-text); color: var(--st-hair-strong); }
-  .badge-reviewed, .badge-issued { background: var(--st-text); color: var(--st-hair-strong); }
-  .superseded-docs { margin-top: 8px; font-size: 12px; }
+  /* The station sits on its own line: it is a value, not a third choice among the two kinds. */
+  .station {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem;
+    margin-top: 0.25rem;
+    font-size: 0.72rem;
+  }
+  .station input {
+    width: 5.5rem;
+    padding: 0.1rem 0.3rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+  .station input:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  /* What the control accepts, stated rather than discovered by being refused. */
+  .station .range { color: var(--st-text-3); font-size: 0.66rem; }
 
-  .review { margin-top: 0.75rem; border-top: 1px solid var(--st-hair-strong); padding-top: 0.6rem; }
-  .disclaimer { font-size: 0.75rem; opacity: 0.8; margin: 0 0 0.4rem; }
-  .field { display: block; margin: 0.35rem 0; }
-  .field input, .field textarea { display: block; width: 100%; max-width: 28rem; padding: 0.25rem 0.4rem; }
-  .ack { display: block; margin: 0.2rem 0; }
-  .actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-  /* One column once the PANEL is narrow — the width a reader actually has. */
-  @container (max-width: 34rem) { .detailing { grid-template-columns: minmax(0, 1fr); } }
+  /*
+    The schedule's rules left with the schedule, to `RcBendingSchedule.svelte`. Svelte scopes
+    styles per component, so a copy kept here would not reach those cells anyway — it would be
+    dead text the next reader has to prove is dead, which is what the bar list's rules were.
+  */
+
+  /*
+    ── Eighteen selectors for markup this panel no longer has ─────────
+
+    `.documents`, `.doc-actions`, `.doc-state`, `.badge`, the four `.badge-*` chips,
+    `.superseded-docs`, `.review`, `.disclaimer`, `.field`, `.ack` and `.actions` styled the
+    report buttons, the review form and the readiness chips — all of which moved to
+    `DocumentsSection.svelte` when Documents became a stage of the panel rather than the tail of
+    this one. Svelte scopes styles to the declaring component, so not one of them had reached
+    anything since; `DocumentsSection` carries its own.
+
+    Only THREE of the eighteen were REPORTED, and that is the reason to delete the rest rather
+    than wait for the build to name them: `h5`, `.field input` and `.field textarea` are all it
+    flags, because Svelte's unused-selector pass does not report a bare class selector it cannot
+    prove unreachable. So the build kept saying "three" about eighteen, and the fifteen silent
+    ones are exactly the decoys `.autosave-banner` taught this tree about — a rule left behind
+    after its markup leaves is not a spare, it is something the next person edits expecting an
+    effect. Two of them even carry measured contrast ratios, which is what makes them convincing.
+
+    `h5` is the eighteenth: the only `<h5>` in this panel's markup left with the bar list.
+
+    The `@container (max-width: 34rem)` that stood at the end went too — see the note at the top
+    of this block for why it never had a container to ask.
+  */
 </style>

@@ -143,3 +143,57 @@ describe('selecting a conflict marker', () => {
     expect(rebarWorkspace.selection?.conflict).toBeUndefined();
   });
 });
+
+/**
+ * Selecting from the detailing list — §8 objective 3.
+ *
+ * The list writes this channel and holds nothing of its own, so these are the assertions that
+ * stand behind "there is one source of truth". They exercise the store rather than the component
+ * on purpose: a rune, a browser and a WebGL context are not needed to prove which member is
+ * selected, and `rebar-workspace-open.spec.ts` already pays for the ones that are.
+ */
+describe('selecting a member from the list', () => {
+  beforeEach(() => rebarWorkspace.reset());
+
+  it('selects exactly the member asked for, by id and not by position', () => {
+    rebarWorkspace.selectAndFocus(42);
+    expect(rebarWorkspace.selection?.elementIds).toEqual([42]);
+    // No bar and no solid: a list selection names the MEMBER, which is what `sameSelection`
+    // had to be taught to compare on.
+    expect(rebarWorkspace.selection?.barId).toBeUndefined();
+    expect(rebarWorkspace.selection?.solidId).toBeUndefined();
+  });
+
+  it('points the camera at that member in the same gesture', () => {
+    rebarWorkspace.selectAndFocus(7);
+    expect(rebarWorkspace.focusRequest?.elementId).toBe(7);
+  });
+
+  it('re-focuses when the same member is picked again', () => {
+    rebarWorkspace.selectAndFocus(7);
+    const first = rebarWorkspace.focusRequest?.nonce;
+    rebarWorkspace.selectAndFocus(7);
+    // The nonce advances even though the selection did not, or clicking the row a second time
+    // would not bring the camera back to a member the user had panned away from.
+    expect(rebarWorkspace.focusRequest?.nonce).toBeGreaterThan(first!);
+  });
+
+  it('changing the selection replaces it rather than accumulating members', () => {
+    rebarWorkspace.selectAndFocus(1);
+    rebarWorkspace.selectAndFocus(2);
+    expect(rebarWorkspace.selection?.elementIds).toEqual([2]);
+  });
+
+  it('keeps the previous member on the history stack, so going back works from the list', () => {
+    rebarWorkspace.selectAndFocus(1);
+    rebarWorkspace.selectAndFocus(2);
+    rebarWorkspace.goBack();
+    expect(rebarWorkspace.selection?.elementIds).toEqual([1]);
+  });
+
+  it('clears through the same channel, leaving no residue behind', () => {
+    rebarWorkspace.selectAndFocus(5);
+    rebarWorkspace.select(null);
+    expect(rebarWorkspace.selection).toBeNull();
+  });
+});

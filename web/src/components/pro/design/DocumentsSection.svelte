@@ -28,17 +28,27 @@
    * about what they describe, which is the failure `DocumentModel` exists to prevent. Nothing here
    * can set REVIEWED or ISSUED on its own: the engine refuses and the refusal is shown verbatim.
    */
-  import { t, tp, i18n } from '../../../lib/i18n';
+  import { t, tp } from '../../../lib/i18n';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import { reviewRank } from '../../../lib/engine/detailing/assembly';
+  import type { DesignFamily } from '../../../lib/engine/design/design-families';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
-  import {
-    renderReportHtml, renderDrawings, renderSchedule,
-  } from '../../../lib/engine/detailing/document-render';
-  import { exportToExcel } from '../../../lib/export/excel';
   import RebarScenePanel from './RebarScenePanel.svelte';
   import { openRebar3D } from '../../../lib/store/rebar-open';
   import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
+  import RcExportLog from './RcExportLog.svelte';
+  import RcDocumentScope from './RcDocumentScope.svelte';
+  import RcDocumentPreview from './RcDocumentPreview.svelte';
+  import {
+    downloadBlob, exportDetailingDxf, exportDetailingReport, exportDetailingXlsx,
+  } from '../../../lib/store/document-exports';
+  import { designRunStore } from '../../../lib/store/design-run.svelte';
+  import { documentScope } from '../../../lib/store/document-scope.svelte';
+  import { documentableMembers } from '../../../lib/store/detailing-project-inputs';
+  import {
+    documentScopeBlocker, resolveDocumentScope,
+  } from '../../../lib/flow/rc-document-scope';
 
   let docError = $state<string | null>(null);
   let show3d = $state(false);
@@ -50,79 +60,100 @@
   const allAcknowledged = $derived(provisional.every((k) => acknowledged.includes(k)));
 
   /**
+   * What the next export covers — resolved once, here, and read by everything below.
+   *
+   * A FUNCTION and not a `$derived`, for the trap `buildDocument` and `detailingSheet` both
+   * document: a derived does not necessarily recompute inside the synchronous turn that wrote its
+   * dependency, and an export is one gesture and one tick. A stale scope would narrow a document
+   * to the members that were documentable before the last regeneration.
+   *
+   * The base comes from Diseñar's family selection — `designRunStore.familySelection`, the same
+   * array the command bar states its scope from and `currentReadiness()` measures convergence
+   * against. A second source for it is how a document comes to declare a coverage it did not have.
+   */
+  const members = () => documentableMembers();
+  function scopeNow() {
+    return resolveDocumentScope({
+      members: members(),
+      designFamilies: designRunStore.familySelection,
+      requested: documentScope.requested,
+    });
+  }
+
+  /**
    * Build the document, or say why not.
    *
-   * Every export goes through this, so all of them consume the SAME model instance and the same
-   * revision.
+   * Every export and every preview goes through this, so all of them consume the SAME model
+   * instance, the same revision AND the same narrowing.
+   *
+   * Two refusals before it builds, worded apart: nothing documentable in this project, and
+   * nothing selected. A single "nothing to export" would send half the users to Diseñar and the
+   * other half to a checkbox, and only one of them would be right.
    */
   function currentDoc() {
     docError = null;
+    const scope = scopeNow();
+    const blocked = documentScopeBlocker(scope);
+    if (blocked) {
+      docError = t(`detailing.doc.select.${blocked}`);
+      return null;
+    }
     const doc = detailingStore.buildDocument({
       author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
       at: new Date().toISOString(),
+      // Only when it is a narrowing. A whole set carries no selection to declare — see
+      // `DocumentModel.selection`.
+      scope: scope.whole ? null : { elements: scope.elements, families: scope.families },
     });
     if (!doc) docError = t('detailing.doc.noCoordinated');
     return doc;
   }
 
-  function downloadBlob(name: string, type: string, content: string) {
-    const url = URL.createObjectURL(new Blob([content], { type }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function exportReport() {
-    const doc = currentDoc();
-    if (!doc) return;
-    const html = renderReportHtml(
-      doc,
-      { locale: i18n.locale, projectName: t('detailing.doc.project') },
-      (k, params) => tp(k, params ?? {}),
-    );
-    // Printed through the browser rather than a bundled PDF writer: better typography, no
-    // dependency, and the user picks the paper size.
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
-    else downloadBlob(`detailing-rev${doc.revision.number}.html`, 'text/html', html);
-  }
-
-  function exportDxf() {
-    const doc = currentDoc();
-    if (!doc) return;
-    const set = renderDrawings(doc, {
-      locale: i18n.locale, projectName: t('detailing.doc.project'),
-    });
-    downloadBlob(`detailing-rev${doc.revision.number}.dxf`, 'application/dxf', set.dxf);
-  }
-
-  function exportXlsx() {
-    const doc = currentDoc();
-    if (!doc) return;
-    const sheets = renderSchedule(doc, {
-      locale: i18n.locale, projectName: t('detailing.doc.project'),
-    });
-    exportToExcel({
-      filename: `detailing-rev${doc.revision.number}.xlsx`,
-      onlyExtras: true,
-      extraSheets: sheets.map((s) => ({ name: s.name, rows: s.aoa })),
-    });
+  /**
+   * What heads every export.
+   *
+   * The project's rótulo when it has one, and the generic word only when it does not. All three
+   * exports used `t('detailing.doc.project')` unconditionally — a translated word meaning
+   * "Project" — so a drawing set, a report and a schedule of a real works were all headed with
+   * a noun. The rótulo is the same one the sheets carry, so the four cannot disagree.
+   */
+  function projectName(): string {
+    return detailingSheet.titleBlockConfig.project || t('detailing.doc.project');
   }
 
   /**
-   * Open the 3-D view on a FRESHLY built document.
+   * Every export, recorded — objective 11.
    *
-   * Not on `detailingStore.document`, which may be a revision built before the last edit. Going
-   * through `openRebar3D` is what makes the picture and the three exports projections of the same
-   * instance rather than of two documents that happen to agree.
+   * `exportRecordStore.record()` had no caller at all: the three handlers wrote a blob and told
+   * nobody, so the emission list was empty in every project that has ever existed. The writing
+   * itself is `document-exports.ts`; what stays here is the ONE build and the refusals.
+   */
+  function runExport(write: (doc: ReturnType<typeof currentDoc> & object) => void) {
+    const doc = currentDoc();
+    if (!doc) return;
+    write(doc);
+  }
+
+  const exportCtx = () => ({ projectName: projectName(), at: new Date().toISOString() });
+
+  /**
+   * Open the 3-D view on a FRESHLY built document, narrowed like the other three.
+   *
+   * Not on `detailingStore.document`, which may be a revision built before the last edit. And
+   * with the SAME scope: this button is the fourth projection of the document being issued, so a
+   * viewer showing the whole cage beside three narrowed files would be the fourth answer to "what
+   * does this cover". The viewer on the Diseñar row passes no scope, deliberately — see
+   * `openRebar3D`.
    */
   function open3d() {
     docError = null;
+    const scope = scopeNow();
+    const blocked = documentScopeBlocker(scope);
+    if (blocked) { docError = t(`detailing.doc.select.${blocked}`); return; }
     const r = openRebar3D({
       author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
       at: new Date().toISOString(),
+      scope: scope.whole ? null : { elements: scope.elements, families: scope.families },
     });
     if (!r.ok) { docError = t('detailing.doc.noCoordinated'); return; }
     show3d = true;
@@ -166,6 +197,17 @@
    * same locale keys. Not a new set of rules: the same sentences, said before the click instead
    * of after it. Which is the principle the note under `issue-submit` already states.
    */
+  /**
+   * Families as words, in the reader's language.
+   *
+   * The same keys `RcConvergenceNotice` uses, so the strip and the document cannot come to name
+   * the same scope two different ways.
+   */
+  const familyWords = (fs: readonly DesignFamily[]) =>
+    (fs.length === 0
+      ? [t('detailing.doc.scopeNone')]
+      : fs.map((f) => t(`detailing.convergence.family.${f}`))).join(', ');
+
   const reviewBlockers = $derived.by(() => {
     const out: string[] = [];
     if (!selected) { out.push(t('detailing.doc.need.assembly')); return out; }
@@ -197,12 +239,38 @@
   <section class="documents" data-testid="documents" aria-labelledby="documents-title">
     <h3 id="documents-title">{t('detailing.doc.title')}</h3>
 
+    <!--
+      What this stage is, and what Detalle is — on the screen and not only in this file's header.
+      §4 asks for "la diferencia conceptual con Detalle, escrita en la pantalla", and the header
+      comment above was the only place it was written: a reader of the app never sees it. Detalle
+      coordinates the cage; this issues a set of documents about it, and only one of the two
+      carries a professional declaration.
+    -->
+    <p class="vs-detailing" data-testid="doc-vs-detailing">{t('detailing.doc.vsDetailing')}</p>
+
     {#if detailingStore.document}
       {@const d = detailingStore.document}
       <p class="doc-state" data-testid="doc-readiness">
         <span class="badge badge-{d.readiness.toLowerCase()}">{t(`detailing.doc.readiness.${d.readiness}`)}</span>
         <span data-testid="doc-revision">{tp('detailing.doc.revision', { n: d.revision.number })}</span>
         <span data-testid="doc-maturity">{t(maturityLabelKey(d.maturity))}</span>
+      </p>
+      <!--
+        The scope this document answers for, beside the readiness badge that qualifies it.
+
+        `readiness` is a statement about the assemblies in the set; a reader takes a badge to be
+        a statement about the building. Those coincide only when the set covers every family the
+        model has, and a run scoped to beams and columns does not. The exports carry the same
+        sentence through `scopeStatement` — this is the on-screen half, next to the buttons that
+        produce them rather than only inside the files they produce.
+      -->
+      <p class="doc-scope" data-testid="doc-scope">
+        {tp('detailing.doc.scope', { families: familyWords(d.scope) })}
+        {#if d.outOfScope.length > 0}
+          <span class="out" data-testid="doc-scope-out">
+            {tp('detailing.convergence.outOfScope', { families: familyWords(d.outOfScope) })}
+          </span>
+        {/if}
       </p>
       {#if d.openConflicts.length > 0}
         <p class="warn" data-testid="doc-conflicts">
@@ -243,16 +311,46 @@
       <p class="muted" data-testid="doc-none">{t('detailing.doc.notBuilt')}</p>
     {/if}
 
+    <!--
+      What to document, above the buttons that document it.
+
+      Diseñar owns the families; this may only narrow them to elements. The whole argument is in
+      `rc-document-scope.ts`; what matters for the ORDER is that a user reads what an export will
+      contain before pressing the control that produces it.
+    -->
+    <RcDocumentScope scope={scopeNow()} members={members()} />
+
     <div class="doc-actions">
-      <button data-testid="doc-report" onclick={exportReport}>{t('detailing.doc.report')}</button>
-      <button data-testid="doc-dxf" onclick={exportDxf}>{t('detailing.doc.dxf')}</button>
-      <button data-testid="doc-xlsx" onclick={exportXlsx}>{t('detailing.doc.xlsx')}</button>
+      <button data-testid="doc-report"
+              onclick={() => runExport((d) => exportDetailingReport(d, exportCtx()))}>
+        {t('detailing.doc.report')}
+      </button>
+      <button data-testid="doc-dxf"
+              onclick={() => runExport((d) => exportDetailingDxf(d, exportCtx()))}>
+        {t('detailing.doc.dxf')}
+      </button>
+      <button data-testid="doc-xlsx"
+              onclick={() => runExport((d) => exportDetailingXlsx(d, exportCtx()))}>
+        {t('detailing.doc.xlsx')}
+      </button>
       <button data-testid="doc-3d" onclick={open3d}>{t('detailing.scene.open')}</button>
     </div>
 
     {#if docError}
       <p class="err" role="alert" data-testid="doc-error">{docError}</p>
     {/if}
+
+    <!-- The drawing and the schedule before they leave, from the same document instance. -->
+    <RcDocumentPreview resolve={currentDoc} projectName={projectName()} />
+
+    <!--
+      What has left this project, and whether it still corresponds.
+
+      Under the export buttons, because it is the answer to a question those buttons raise:
+      the file in somebody's folder came out of a revision, and the project has moved on since.
+      See `RcExportLog.svelte`.
+    -->
+    <RcExportLog />
 
     <!-- ── The fourth projection ────────────────────────────────
          Same document instance as the three exports above, so what is orbited, what is
@@ -378,6 +476,20 @@
     font-weight: 600;
     color: var(--st-text);
   }
+
+  /* What this stage is, before what it holds. Copy contrast, so `--st-text-2`. */
+  .vs-detailing {
+    margin: 0 0 0.3rem; font-size: 0.7rem; line-height: 1.4; color: var(--st-text-2);
+  }
+
+  /* The scope, in the same register as the readiness line it qualifies. */
+  .doc-scope {
+    margin: 0.15rem 0 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--st-text-2);
+  }
+  .doc-scope .out { display: block; margin-top: 0.1rem; }
 
   .doc-state { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; font-size: 0.7rem; color: var(--st-text-2); }
   .badge { font-size: 0.66rem; font-weight: 600; padding: 0.02rem 0.35rem; border-radius: 3px; background: var(--st-surface-3); color: var(--st-text); }

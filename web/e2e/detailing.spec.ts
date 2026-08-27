@@ -227,12 +227,12 @@ test.describe('@smoke the review gate on generated work', () => {
 
     /*
      * This used to click `review-submit` unnamed and assert a `review-error` came back. That
-     * journey is no longer possible, and the change is deliberate: this branch disabled the
-     * button until there is an engineer and the provisional calculations are acknowledged, and
-     * moved the reasons NEXT TO it as `review-blockers`. `h1-manual-qa.md` states the contract —
-     * "the button is disabled until you put your name in and accept the provisional
-     * calculations, and the reasons are written beside it. If the button is grey with no
-     * explanation, THAT is a bug."
+     * journey is no longer possible, and the change is deliberate: H1 disabled the button until
+     * there is an engineer and the provisional calculations are acknowledged, and moved the
+     * reasons NEXT TO it as `review-blockers`. `h1-manual-qa.md` states the contract — "the
+     * button is disabled until you put your name in and accept the provisional calculations, and
+     * the reasons are written beside it. If the button is grey with no explanation, THAT is a
+     * bug."
      *
      * So the assertion moves from "clicking it errors" to "it refuses in advance and names what
      * is missing", which is the stronger claim: a reason you read before pressing beats an error
@@ -419,7 +419,10 @@ test.describe('@smoke generated detailing persists and respects locks', () => {
     await generateDetailing(page);
     await firstAssembly(page).click();
     await page.getByTestId('bar-list').locator('summary').click();
-    const lock = page.getByTestId('bar-lock').first();
+    // Objective 6 gave the control a per-bar testid. It was the literal `bar-lock` on every
+    // row, which is why this could only ever reach `.first()`; `f3-bar-lock.spec.ts` asserts
+    // that a press lands on the bar it was pressed for, which that testid made unassertable.
+    const lock = page.locator('[data-testid^="barlock-"]').first();
     test.skip(await lock.count() === 0, 'no lock control rendered for this assembly');
     await lock.click();
 

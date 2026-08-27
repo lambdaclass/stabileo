@@ -241,6 +241,15 @@
      ──────────────────────────────────────────────────────────────────── */
   --st-danger-bg: rgba(192, 57, 43, 0.14);    /* --st-red   at --st-vermillion-dim's alpha */
   --st-warn-bg: rgba(184, 134, 11, 0.14);     /* --st-amber at the same */
+  /* A row the engineer PINNED. `--st-blue` at the same alpha as the two above.
+
+     It exists because the pinned row in `RcBarList` was `background: var(--st-blue)` — the
+     plain hue, opaque, under 0.76 rem body text and a `--st-text-3` monospace id. That is the
+     failure the block above this one describes: a plain hue is for area, and `--st-text` on
+     this one measures 3.69. The tint keeps the panel reading through it, and the row states
+     which state it is in with a 2 px rule in the plain hue on its leading edge — the same
+     shape `--st-provisional-bg` is used in one component over. */
+  --st-pinned-bg: rgba(44, 108, 180, 0.14);   /* --st-blue  at the same */
 
   /* ── Semantic: provisional ─────────────────────────────────────────────
      A fifth status, and the only one the 3-D viewer owns.

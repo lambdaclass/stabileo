@@ -342,11 +342,46 @@ describe('the torsion amber is one colour with one meaning', () => {
     }
   });
 
-  it('and both reach for the same two tokens', () => {
-    for (const f of FILES) {
-      const css = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
-      expect(css, `${f} body text`).toMatch(/color: var\(--st-text\)/);
-      expect(css, `${f} emphasis`).toMatch(/strong \{ color: var\(--st-warn\)/);
+  /**
+   * Re-pointed by F6, and the property got STRONGER rather than weaker.
+   *
+   * The notice's body copy is no longer declared in `TorsionBanner.svelte`: the fold F6 adds is
+   * chrome both standing notices wear, so the shape moved to `RebarNotice.svelte` and each band
+   * kept only its own tone. So the body colour is now declared ONCE for both notices instead of
+   * twice, which is the direction this describe block wants — the two literals it replaced were
+   * equal by coincidence, and two tokens in two files were equal by convention.
+   *
+   * What is asserted is therefore split the way the code is: the shared shell owns the body text,
+   * each band owns its `strong`, and `SelectionDetails` — which is not a notice and has no shell
+   * — still owns both. Nothing here accepts a missing declaration: every file named has to carry
+   * the token it is responsible for.
+   */
+  it('and every one of them reaches for the same two tokens', () => {
+    const shell = read('RebarNotice.svelte').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(shell, 'the shared notice shell sets the body copy').toMatch(/color: var\(--st-text\)/);
+
+    // `:global(strong)` because the element belongs to the shell; the TONE belongs to the band.
+    const torsion = read('TorsionBanner.svelte').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(torsion, 'TorsionBanner emphasis')
+      .toMatch(/strong\) \{ color: var\(--st-warn\)/);
+
+    const details = read('SelectionDetails.svelte').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(details, 'SelectionDetails body text').toMatch(/color: var\(--st-text\)/);
+    expect(details, 'SelectionDetails emphasis')
+      .toMatch(/strong \{ color: var\(--st-warn\)/);
+  });
+
+  /**
+   * The provisional notice wears the same shell and must not have picked up the amber with it.
+   *
+   * Added with the extraction, because a shared shell is exactly where two states come to share a
+   * colour: `ProvisionalBanner`'s violet and `TorsionBanner`'s amber are different meanings, and
+   * the whole reason the shell declares no tone is so neither can inherit the other's.
+   */
+  it('the shared shell declares no state colour of its own', () => {
+    const shell = read('RebarNotice.svelte').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const tone of ['--st-warn', '--st-provisional', '--st-danger']) {
+      expect(shell, `RebarNotice must not own ${tone}`).not.toContain(tone);
     }
   });
 

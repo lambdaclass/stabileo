@@ -696,6 +696,19 @@ export interface InfluenceLineResult {
 }
 
 function createModelStore() {
+  /**
+   * Where the project's own history comes from when a snapshot is taken.
+   *
+   * Late-bound in `store/index.ts`, exactly like `_setOnMutation` and `_setOnResultsPublish`,
+   * because importing `project-provenance` here would close a cycle: it reaches
+   * `design-run` → `verification` → `regulations`, and `regulations` reads `modelStore.model`
+   * at module scope. The cycle is real — it fails at import time with
+   * `Cannot read properties of undefined (reading 'model')` — and late binding is how this
+   * store already solves it for its other cross-store hooks.
+   */
+  let _captureProvenance:
+    (() => Pick<ModelSnapshot, 'exports' | 'manualEdits'>) | null = null;
+
   const normalize2DSupportType = (type: SupportType): SupportType =>
     type === 'rollerY' ? 'rollerZ' : type;
   const canonicalSupportDz = (support: Partial<Support>): number | undefined => support.dz ?? support.dy;
@@ -1259,6 +1272,12 @@ function createModelStore() {
         regulations: snap.regulations
           ? (JSON.parse(JSON.stringify(snap.regulations)) as StoredRegulations)
           : undefined,
+        // What was emitted and what was retouched by hand. Read from their own stores rather
+        // than from `model`, because neither is model data: an emission belongs to the project's
+        // history and a hand edit to the session's. They ride here so that save, autosave and
+        // tab capture carry them at once — and `restore()` ignores them on the way back, so
+        // undo cannot un-happen an export. See `project-provenance.ts`.
+        ..._captureProvenance?.(),
         revisions: snap.revisions ? { ...snap.revisions } : undefined,
         // Cloned one level deeper than the other Map families because `pedestal` is a
         // nested object: a shallow `{ ...v }` would share it between the snapshot and the
@@ -1290,6 +1309,10 @@ function createModelStore() {
       return result;
     },
 
+    _setCaptureProvenance(fn: () => Pick<ModelSnapshot, 'exports' | 'manualEdits'>): void {
+      _captureProvenance = fn;
+    },
+
     restore(rawSnapshot: ModelSnapshot): void {
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
       //
@@ -1313,6 +1336,11 @@ function createModelStore() {
       // `plainDeepCopy` rather than `$state.snapshot`: compiled for the server the rune is the
       // identity function, so the guarantee would hold in the browser and evaporate under the
       // test suite — which is where it has to be provable.
+      // `exports` and `manualEdits` are deliberately NOT read here. This is the undo/redo path
+      // as well as the file-open path, and an export is a historical fact: the undo entry was
+      // pushed before the file was written, so restoring its emission list would silently delete
+      // a record of something that really happened. They are adopted once per project by
+      // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const s = plainDeepCopy(rawSnapshot);
       modelVersion++;
       _onMutation?.();

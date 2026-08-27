@@ -4,6 +4,10 @@
   import { downloadText } from '../../lib/store/file';
   import { t } from '../../lib/i18n';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
+  // The raw forces report is one more answer to "which output am I reading", which is the
+  // question this tab's strip already asks. It is NOT in Documentos: §5 keeps raw solver
+  // results and reinforcement design as two documents.
+  import ProForcesReport from './ProForcesReport.svelte';
   import {
     componentUnit,
     diagramTypeToComponent,
@@ -317,7 +321,16 @@
    */
   let resSection = $state('reactions');
 
-  const RES_SECTIONS = $derived([
+  /**
+   * `always` marks a section that is offered whatever the counts say.
+   *
+   * The strip disables a section with nothing in it — that is the point of showing the counts.
+   * Two sections are not tables of results and have nothing to count: the query, and the forces
+   * report, whose own blockers explain what is missing in words.
+   */
+  type ResSection = { id: string; labelKey: string; count: () => number; always?: boolean };
+
+  const RES_SECTIONS: ResSection[] = $derived([
     { id: 'reactions', labelKey: 'pro.reactionsTitle', count: () => results?.reactions.length ?? 0 },
     { id: 'forces', labelKey: 'pro.forcesTitle', count: () => results?.elementForces.length ?? 0 },
     { id: 'displacements', labelKey: 'pro.displacementsTitle', count: () => results?.displacements.length ?? 0 },
@@ -330,7 +343,11 @@
     { id: 'constraints', labelKey: 'pro.constraintForces',
       count: () => (results?.constraintForces?.length ?? 0) || resultsStore.constraintForces3D.length },
     { id: 'diagnostics', labelKey: 'pro.diagnosticsTitle', count: () => results?.diagnostics?.length ?? 0 },
-    { id: 'query', labelKey: 'pro.queryTitle', count: () => 1 },
+    { id: 'query', labelKey: 'pro.queryTitle', count: () => 1, always: true },
+    // Always offered, like the query: a report you cannot reach until the model is solved is a
+    // report whose configuration you cannot read either, and its own blockers say what is
+    // missing far better than a greyed-out tab does.
+    { id: 'report', labelKey: 'design.forcesReport.title', count: () => 1, always: true },
   ]);
 
   /*
@@ -342,8 +359,8 @@
    */
   $effect(() => {
     const cur = RES_SECTIONS.find(x => x.id === resSection);
-    if (!cur || cur.id === 'query' || cur.count() > 0) return;
-    const next = RES_SECTIONS.find(x => x.id !== 'query' && x.count() > 0);
+    if (!cur || cur.always || cur.count() > 0) return;
+    const next = RES_SECTIONS.find(x => !x.always && x.count() > 0);
     // Nothing anywhere means there is no solve yet, and the selection is still
     // a perfectly good intention — moving it would strand the panel on the
     // query, which is where it used to end up and never come back from.
@@ -549,15 +566,19 @@
             class:on={resSection === sec.id}
             role="tab"
             aria-selected={resSection === sec.id}
-            disabled={n === 0 && sec.id !== 'query'}
+            disabled={n === 0 && !sec.always}
             onclick={() => (resSection = sec.id)}
             data-testid="res-tab-{sec.id}"
           >
             {t(sec.labelKey)}
-            {#if sec.id !== 'query'}<span class="res-tab-n">{n}</span>{/if}
+            {#if !sec.always}<span class="res-tab-n">{n}</span>{/if}
           </button>
         {/each}
       </div>
+
+      {#if resSection === 'report'}
+        <ProForcesReport />
+      {/if}
 
       {#if resSection === 'query'}
         <div class="pro-query">

@@ -1,0 +1,125 @@
+<script lang="ts">
+  /**
+   * Where the current selection is reported: a column beside the cage, not a strip under it.
+   *
+   * ── The measurement this exists to answer ──────────────────────────
+   *
+   * F6 §6 asks for "a selection panel on the right, aligned with the app". It was at the BOTTOM
+   * of the stage, full width, and measured on a 1280×720 window it was 1008 × 96 px with a bar
+   * selected and **15 px** with nothing selected — a hairline in the place the reader was told to
+   * look. So it was simultaneously wide enough for nothing and short enough to disappear.
+   *
+   * A column is the right shape for what it holds: a `<dl>` of a dozen short label/value pairs
+   * reads down, not across, and at 1008 px wide those pairs were a line of text with a metre of
+   * blank beside them.
+   *
+   * ── Where `SIDE_PANEL_MIN_WIDTH` comes from ────────────────────────
+   *
+   * From the arithmetic, not from a round figure. With the rail open the canvas is the window
+   * minus its 17 rem, and this panel wants another 17:
+   *
+   *     1280   canvas 1008 → ~740 left for the cage    readable
+   *     1024   canvas  752 → ~490                      a slot
+   *      900   canvas  628 → ~370                      a slot
+   *
+   * A viewport of 370 px is the exact defect this file's parent records about the sidebar the
+   * overlay was built to escape — "inspecting a cage of thousands of bars through a slot a few
+   * hundred pixels wide". So the threshold sits at 1100, above the widest width that fails, and
+   * below it the panel is a strip under the canvas: the same content, the same testid, one fewer
+   * column. `RebarWorkspace` measures 1280 · 1024 · 900 · 820, and only the first can pay.
+   *
+   * ── Why the shape is CSS, and why the PARENT owns it ───────────────
+   *
+   * It was a prop, driven from the same resize handler the rail's own threshold uses, and that
+   * was wrong in a way a measurement caught: `rebar-3d.spec.ts` opens the workspace at desktop
+   * size and resizes to 390 px, and the canvas came out **118 px wide** — 390 minus this panel's
+   * 272. A `resize` handler runs AFTER layout, so any test or user that reads the page in the
+   * same turn as the resize sees the desktop shape. Layout that depends on JS is layout that is
+   * briefly wrong, and on a 390 px window "briefly wrong" is the whole viewport.
+   *
+   * So the shape is a media query, correct at paint time. It lives in `RebarWorkspace` rather
+   * than here because putting the panel beside the canvas also means turning `.stage` into a
+   * row: those are one decision, and split across two components they would be one number
+   * written twice. The parent promotes this element; the default below is the narrow shape.
+   *
+   * ── Why it is a component at all ───────────────────────────────────
+   *
+   * `RebarWorkspace.svelte` sits within a few lines of the 600-line ceiling
+   * `rc-design-gates.test.ts` enforces, and this is layout the workspace does not otherwise need
+   * to hold. `SelectionDetails` still renders the CONTENT; this is the box it sits in.
+   */
+  import { t } from '../../../lib/i18n';
+
+  interface Props {
+    /** The member the camera is on, echoed as data so a spec can read it without Three.js. */
+    focusedElement: number | null;
+    /** Whether anything is selected, so the region can say which state it is in. */
+    hasSelection: boolean;
+    children: import('svelte').Snippet;
+  }
+  const { focusedElement, hasSelection, children }: Props = $props();
+</script>
+
+<!--
+  A named region with a visible heading, which the strip never had.
+
+  Without one the panel was an unlabelled box of numbers, and with nothing selected an unlabelled
+  box of one grey sentence. The name is what makes it reachable by landmark, and that matters here
+  more than usual: the selection is often made in a canvas a screen reader cannot describe at all.
+
+  `aria-labelledby` rather than `aria-label`, so the region and the heading are one string. A label
+  duplicating a visible heading is announced twice.
+-->
+<aside
+  class="inspector"
+  data-testid="rebar-inspector"
+  data-focused={focusedElement ?? ''}
+  data-selected={hasSelection ? 'true' : 'false'}
+  aria-labelledby="rebar-inspector-title"
+>
+  <h3 id="rebar-inspector-title">{t('detailing.scene.selection.title')}</h3>
+  {@render children()}
+</aside>
+
+<style>
+  .inspector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    /* Its own height, never the content's: an empty selection must not collapse the box, and a
+       bar with a long pin-reach sentence must not stretch the workspace. Stated the same way as
+       the rail opposite, and for the same reason. */
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 0.6rem;
+    overflow-y: auto;
+    background: var(--st-surface);
+    /* The floor the 15 px measurement was missing. A panel that reports "nothing selected" has
+       to be legible while it says so. */
+    min-height: 3.2rem;
+  }
+
+  /*
+    The DEFAULT is the strip under the canvas, and the column is the promotion.
+
+    Stated in this direction on purpose: the narrow shape is the safe one — it can never take
+    width the viewport needs — so a window that has not been measured yet gets it rather than a
+    17 rem column. `RebarWorkspace` promotes this element to a column in the one media query that
+    also turns `.stage` into a row; the promotion is the parent's because those two are the same
+    decision. See `RebarWorkspace.svelte`.
+  */
+  .inspector {
+    width: auto;
+    max-height: 9rem;
+    border-top: 1px solid var(--st-hair);
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--st-text-2);
+  }
+</style>

@@ -43,7 +43,7 @@ function scene(solids: SceneSolid[], bars: SceneBar[] = []): SceneModel {
     bars, solids, conflicts: [],
     facets: { assemblies: [], families: [], roles: [], layers: [] },
     bounds: null, unresolvedMembers: [], unreinforcedMembers: [],
-  provisionalMembers: [],
+  provisionalMembers: [], lockedMembers: [],
     torsionUnevaluatedMembers: [],
   };
 }
@@ -99,6 +99,60 @@ describe('the states a member can be in', () => {
 });
 
 // ─── The report ──────────────────────────────────────────────────
+
+describe('the document is the authority on a proposal, not the session', () => {
+  /**
+   * The defect this pins, measured on the 7-storey building after a RESTORE.
+   *
+   * `verificationStore` is runtime-only — nothing hydrates it — so a project reopened from the
+   * autosave has no design outcome for any member. `statusOf` reads "no outcome, steel exists"
+   * as MODELLED, which is right for floor steel and wrong for a proposal: the viewer reported
+   * `MODELLED 203` while its own provisional banner, reading the persisted
+   * `scene.provisionalMembers`, said 5 members carry a proposal that may not be built.
+   *
+   * Two readings of one fact, disagreeing in the dangerous direction. The document's record is
+   * the one that survives, so it is the one the state has to come from.
+   */
+  it('reports PROVISIONAL for a member the document recorded as one, with no outcome present', () => {
+    const s = scene([solid(3, { reinforced: true })], [barFor(3)]);
+    s.provisionalMembers = [3];
+
+    const r = reportElementStatus(s, new Map<number, DesignOutcomeSummary>());
+
+    expect(r.entries[0].status, 'a persisted proposal is not finished work').toBe('PROVISIONAL');
+    expect(r.counts.PROVISIONAL).toBe(1);
+    expect(r.counts.MODELLED).toBe(0);
+    expect(r.present, 'and the filter offers the state').toContain('PROVISIONAL');
+  });
+
+  it('never lets that record UPGRADE a member the session knows is worse', () => {
+    /**
+     * The reverse direction, which is the one a fix like this gets wrong.
+     *
+     * A member can be recorded provisional by the document AND be failing now — an edit to its
+     * section does exactly that. FAILED and REFUSED are the states with a different remedy, and
+     * a persisted proposal may not soften either of them.
+     */
+    const s = scene([solid(4, { reinforced: true })], [barFor(4)]);
+    s.provisionalMembers = [4];
+
+    const failing = reportElementStatus(s, new Map<number, DesignOutcomeSummary>([
+      [4, { verificationStatus: 'fail', verificationLimiting: ['flexure'] }],
+    ]));
+    expect(failing.entries[0].status).toBe('FAILED');
+
+    const refused = reportElementStatus(s, new Map<number, DesignOutcomeSummary>([
+      [4, { outcome: 'SEARCH_EXHAUSTED' }],
+    ]));
+    expect(refused.entries[0].status).toBe('REFUSED');
+  });
+
+  it('leaves a member the document did NOT record alone', () => {
+    const s = scene([solid(5, { reinforced: true })], [barFor(5)]);
+    const r = reportElementStatus(s, new Map<number, DesignOutcomeSummary>());
+    expect(r.entries[0].status, 'floor steel with no outcome stays MODELLED').toBe('MODELLED');
+  });
+});
 
 describe('the report covers what is on screen', () => {
   it('is driven by the SOLIDS, so a member with no outcome still gets a state', () => {

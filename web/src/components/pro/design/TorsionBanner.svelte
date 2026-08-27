@@ -22,6 +22,7 @@
    * drift into saying four different things.
    */
   import { t, tp } from '../../../lib/i18n';
+  import RebarNotice from './RebarNotice.svelte';
 
   interface Props {
     /** How many members carry unevaluated torsion. Zero renders nothing. */
@@ -31,25 +32,31 @@
 </script>
 
 {#if count > 0}
-  <p class="torsion-banner" data-testid="rebar-torsion-banner" data-count={count}>
-    <strong>{t('detailing.scene.torsionLabel')}</strong>
-    {tp('detailing.scene.torsionBanner', { n: count })}
-  </p>
+  <!--
+    Folding leaves the label and the count. The missing VERIFICATION is the whole content of this
+    notice, so a fold that removed the words would remove the fact — see `RebarNotice.svelte`.
+  -->
+  <div class="torsion-band">
+    <RebarNotice
+      kind="torsion"
+      {count}
+      testid="rebar-torsion-banner"
+      label={t('detailing.scene.torsionLabel')}
+      detail={tp('detailing.scene.torsionBanner', { n: count })}
+    />
+  </div>
 {/if}
 
 <style>
-  .torsion-banner {
-    margin: 0;
-    padding: 0.4rem 0.75rem;
+  .torsion-band {
     /* Amber, which is neither the violet of a proposal nor the red of a conflict: this is an
        unverified action, not an unbuildable bar and not a clash. One colour, one meaning. */
     background: var(--st-surface-3);
     border-bottom: 1px solid var(--st-warn);
-    color: var(--st-text);
-    font-size: 0.76rem;
-    line-height: 1.4;
   }
   /* `--st-warn`, not the `#d4762a` the scene paints unreinforced bars with: a torsion
-     advisory and an unreinforced bar are unrelated states that happened to share an orange. */
-  .torsion-banner strong { color: var(--st-warn); letter-spacing: 0.02em; }
+     advisory and an unreinforced bar are unrelated states that happened to share an orange.
+     `:global` for the reason `ProvisionalBanner` states: the `<strong>` is the shared shell's
+     markup, and the tone is this notice's meaning rather than the shell's business. */
+  .torsion-band :global(strong) { color: var(--st-warn); }
 </style>

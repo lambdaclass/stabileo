@@ -14,8 +14,17 @@
    * The same warning belongs on the drawing sheets, the schedule and the report, and each of
    * those is rendered by a different module. This is the workspace's copy of it, kept small
    * and separate so the four cannot drift into saying four different things.
+   *
+   * ── The fold, and why it does not contradict the paragraph above ───
+   *
+   * F6 asks for these notices to be compact and closable. "Permanent" above is a claim about
+   * the SENTENCE, not about 48 px of chrome: folded, the label and the count stay at full
+   * contrast and only the explanation goes away, so the drawing can never come to look finished.
+   * The mechanism is `RebarNotice.svelte`; the state is session-scoped and keyed on the count,
+   * so a regeneration that changes the number re-opens this by itself.
    */
   import { t, tp } from '../../../lib/i18n';
+  import RebarNotice from './RebarNotice.svelte';
 
   interface Props {
     /** How many members carry a proposal. Zero renders nothing. */
@@ -25,16 +34,24 @@
 </script>
 
 {#if count > 0}
-  <p class="provisional-banner" data-testid="rebar-provisional-banner" data-count={count}>
-    <strong>{t('design.provisional.notForConstruction')}</strong>
-    {tp('detailing.scene.provisionalBanner', { n: count })}
-  </p>
+  <!--
+    The violet band is declared HERE and not in `RebarNotice`, because the colour is this
+    notice's meaning: it is the one the 3-D view paints provisional steel with, and a shared
+    shell that owned it would have to know which fact it was wearing.
+  -->
+  <div class="provisional-band">
+    <RebarNotice
+      kind="provisional"
+      {count}
+      testid="rebar-provisional-banner"
+      label={t('design.provisional.notForConstruction')}
+      detail={tp('detailing.scene.provisionalBanner', { n: count })}
+    />
+  </div>
 {/if}
 
 <style>
-  .provisional-banner {
-    margin: 0;
-    padding: 0.4rem 0.75rem;
+  .provisional-band {
     /* The same violet the 3-D view paints provisional steel with. One colour, one meaning —
        and now one definition. The three literals here were the values the token was derived
        FROM, so adopting it changes no pixel except the body copy, which goes from `#e2d3f5`
@@ -42,9 +59,9 @@
        carrying the state. The same shape `FootingMatPhysicalPanel` measured its way into. */
     background: var(--st-provisional-bg);
     border-bottom: 1px solid var(--st-provisional);
-    color: var(--st-text);
-    font-size: 0.76rem;
-    line-height: 1.4;
   }
-  .provisional-banner strong { color: var(--st-provisional-text); letter-spacing: 0.02em; }
+  /* The claim's own colour. `:global` because the `<strong>` belongs to `RebarNotice`'s markup
+     and Svelte scopes styles to the component that declares them — the alternative is a `tone`
+     prop that would put this notice's palette inside the shared shell. */
+  .provisional-band :global(strong) { color: var(--st-provisional-text); }
 </style>

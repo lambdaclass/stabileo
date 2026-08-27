@@ -23,9 +23,16 @@ async function openFloors(page: Page) {
   await page.getByTestId('pr-stage-design').click();
   await page.getByTestId('pr-cmd-design').click();
   const section = page.getByTestId('floor-families');
-  // The stage lives inside a disclosure; open it if it is closed.
+  /*
+   * Opened by testid, not by its prose.
+   *
+   * This used to click the first element whose text matched the purpose sentence, and F2 broke
+   * it: `ProDesignTab` moved INSIDE the Diseñar stage and now renders above the floor sub-step,
+   * so six elements match "slabs, walls" and `.first()` is one of them rather than the summary.
+   * Every other spec that reaches this panel already addresses the disclosure directly.
+   */
   if (!(await section.isVisible().catch(() => false))) {
-    await page.getByText(/slabs, walls|losas, tabiques|lajes, paredes/i).first().click();
+    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
   }
   await expect(section).toBeVisible();
 }

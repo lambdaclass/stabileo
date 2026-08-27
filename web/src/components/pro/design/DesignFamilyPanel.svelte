@@ -23,7 +23,7 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
   import {
-    DESIGN_FAMILIES, DEFAULT_DESIGN_FAMILIES, totalsOf,
+    DESIGN_FAMILIES, availableDesignFamilies, totalsOf,
     type DesignFamily, type DesignRunReport,
   } from '../../../lib/engine/design/design-families';
 
@@ -42,8 +42,69 @@
    * not a property of the structure. Persisting it into the project would make a saved file
    * carry someone's last click as if it were a design decision.
    */
-  let selection = $state<DesignFamily[]>([...DEFAULT_DESIGN_FAMILIES]);
-  let report = $state<DesignRunReport | null>(null);
+  /**
+   * The scope of the next run lives in the store, not here.
+   *
+   * The command that runs it is in the command bar, a component away. While this was local
+   * state there had to be a second button beside the boxes to reach it — and two buttons that
+   * design different scopes is the contradiction §2 names. There is one command now, and it
+   * reads this.
+   */
+  const selection = $derived(designRunStore.familySelection);
+
+  /**
+   * Which families this model can be asked to design at all.
+   *
+   * Beams and columns come from the classified members. Slabs and walls are offered together
+   * whenever the model holds shell panels, because a shell becomes one or the other only when
+   * the floor pass classifies it — deciding here would be a second authority, and the census
+   * below already refuses to guess. Footings come from the model's own footing list.
+   */
+  const available = $derived(availableDesignFamilies({
+    /*
+     * Frame members, from the MODEL — not from `verificationStore.contexts`.
+     *
+     * The contexts are populated by the demand pass, so keying availability on them offered no
+     * boxes at all on a freshly loaded building: the two families every reinforced-concrete
+     * frame has disappeared until the user had already run the step the selector is supposed to
+     * scope. Beams and columns are offered whenever there are frame elements; the census column
+     * beside each box is what says how many, and it already answers "unknown" when it cannot
+     * count yet.
+     */
+    column: modelStore.elements.size,
+    beam: modelStore.elements.size,
+    /*
+     * Slabs and walls together, whenever the model holds shell panels. A shell becomes one or
+     * the other only when the floor pass classifies it; deciding here would be a second
+     * authority, and the census already refuses to guess.
+     */
+    slab: shellCount,
+    wall: shellCount,
+    footing: modelStore.model.footings.size,
+  }));
+
+  /*
+   * There is no second, "effective" scope here.
+   *
+   * An earlier version pruned the store's selection in an `$effect`, and that was destructive:
+   * on a project with no model nothing is available, so it wiped the default to empty — and
+   * since pruning only removes, beams and columns never came back once a model loaded. The
+   * command sat disabled on a perfectly designable building.
+   *
+   * The selector only OFFERS families the model has, so the stored intent cannot name a phantom
+   * one in practice; and if it ever did, the run already reports `noElements` for a family the
+   * model does not contain rather than failing. Intent stays intent.
+   */
+  /**
+   * The last run's report, read from the store.
+   *
+   * It used to be local `$state` filled by this panel's own run button. F2 moved the command to
+   * the bar and removed that button, which left the assignment unreachable — so the report block
+   * silently stopped appearing, and with it the distinction between a family SKIPPED because it
+   * was not asked for and one with NO MEMBERS because the model has none. Three E2E tests caught
+   * it; the fix is that the run and its report live in the same place.
+   */
+  const report = $derived(designRunStore.lastFamilyReport);
   let running = $state(false);
 
   const summary = $derived(
@@ -54,21 +115,9 @@
       }));
 
   function toggle(f: DesignFamily) {
-    selection = selection.includes(f)
+    designRunStore.setFamilySelection(selection.includes(f)
       ? selection.filter((x) => x !== f)
-      : [...selection, f];
-  }
-
-  function run() {
-    if (selection.length === 0) return;
-    running = true;
-    try {
-      report = designRunStore.designFamilies(selection, {
-        verifierId: 'cirsoc201.provided.v2.2025',
-      });
-    } finally {
-      running = false;
-    }
+      : [...selection, f]);
   }
 
   const totals = $derived(report ? totalsOf(report) : null);
@@ -207,7 +256,7 @@
     The census and the state are here BEFORE anything runs.
   -->
   <ul class="boxes" data-testid="design-family-rows">
-    {#each DESIGN_FAMILIES as f (f)}
+    {#each available as f (f)}
       {@const c = census[f]}
       {@const st = stateOf(f)}
       <li class="frow" data-testid={`design-family-row-${f}`} data-state={st.id}>
@@ -234,11 +283,11 @@
 
   <div class="bulk">
     <button type="button" data-testid="design-family-all"
-            onclick={() => { selection = [...DESIGN_FAMILIES]; }}>
+            onclick={() => designRunStore.setFamilySelection(available)}>
       {t('design.families.selectAll')}
     </button>
     <button type="button" data-testid="design-family-none"
-            onclick={() => { selection = []; }}>
+            onclick={() => designRunStore.setFamilySelection([])}>
       {t('design.families.clear')}
     </button>
   </div>
@@ -257,15 +306,15 @@
     </p>
   {/if}
 
-  <button
-    class="run"
-    type="button"
-    data-testid="cmd-design-families"
-    disabled={!canDesign || selection.length === 0 || running}
-    onclick={run}
-  >
-    {running ? t('design.families.running') : t('design.families.runScoped')}
-  </button>
+  <!--
+    No run button here.
+
+    There used to be one — `cmd-design-families` — beside the boxes, next to `cmd-design-all` in
+    the command bar. Two commands that design different scopes is the contradiction §2 names, and
+    a user could not tell from either label which one covered what. The command bar's button runs
+    THIS selection now and states its scope beside itself; this panel chooses the scope and
+    reports what the run did.
+  -->
 
   {#if report}
     <div class="result" data-testid="design-family-result">

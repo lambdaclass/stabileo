@@ -616,5 +616,178 @@ for (const [label, register] of [
       await expect(page.getByTestId('rebar-canvas')).toBeVisible();
       await expect(target).toBeChecked();
     });
+
+    /**
+     * F7 — the three operations everything above skips, and the one that dominates them all.
+     *
+     * The tests above all begin with the workspace ALREADY OPEN, so the most expensive operation
+     * in this feature had no measurement anywhere: the open itself. `open-timeline.ts` has
+     * recorded its six phases in the product since PR20, and nothing read them.
+     *
+     * Measured on the 7-storey building at 1280×720 on this runner, first open:
+     *
+     *     click        0 ms
+     *     document   143 ms   the DocumentModel, synchronous, inside the handler
+     *     scene      412 ms   the projection — 269 ms of sampling 23 393 bars
+     *     renderer   558 ms   WebGL context, camera, controls
+     *     geometry   782 ms   1 458 540 triangles and 8 116 markers on the GPU
+     *     frame     2135 ms   ← 1 353 ms, the driver flushing that upload
+     *
+     * So two thirds of a two-second open is the first frame, and that is a GPU fill cost on a
+     * software rasteriser, not app work — the same conclusion `open-timeline.ts` reached from the
+     * other direction after a profile blamed `setSize` for 1,7 s of it.
+     *
+     * What that makes this test: a RECORD with a ceiling on the phases the app controls, and a
+     * report of the one it does not. It is deliberately not an optimisation: the geometry is
+     * already batched, the markers already retessellated, the projection already cached, and
+     * cutting the frame further means drawing less than the document contains, which is the one
+     * thing F7 forbids.
+     */
+    register('the open, the sheet and a regeneration, timed', async (page, label) => {
+      const rows: Array<[string, string]> = [];
+      const start = await counters(page);
+
+      /**
+       * The open that is measured is a REOPEN, and that is the honest one to bound.
+       *
+       * The registrar has already opened the workspace, so closing and reopening is what this can
+       * time without a second setup — and it is also the gesture a user repeats. It costs slightly
+       * MORE than a first open, not less: `openRebar3D` rebuilds the document deliberately (see
+       * `rebar-open.ts` on why a rebuilt document is still a new statement), so the projection
+       * cache misses by design and every phase runs again.
+       */
+      await page.getByTestId('rebar-workspace-close').click();
+      await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
+      await openDocumentsStage(page);
+
+      const opened = await timed(page,
+        () => page.getByTestId('doc-3d').click(),
+        async () => {
+          await expect(page.getByTestId('rebar-workspace')).toBeVisible();
+          await expect(page.getByTestId('rebar-canvas')).toBeVisible();
+          await expect
+            .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()),
+              { timeout: 180_000 })
+            .toBeGreaterThan(start.builds);
+        });
+
+      const phases = await page.evaluate(() => window.__stabileo.openTimeline());
+      rows.push(['open, wall clock', `${opened.total} ms`]);
+      for (const p of ['click', 'document', 'scene', 'renderer', 'geometry', 'frame'] as const) {
+        if (phases[p] === undefined) continue;
+        rows.push([`  phase ${p}`, `${phases[p]} ms`]);
+      }
+
+      /**
+       * The ceiling is on `geometry`, not on `frame`.
+       *
+       * Everything up to the geometry being handed to the GPU is this application's own work —
+       * building the document, projecting the scene, creating the context, tubing the bars — and
+       * it is what a regression would land in. The gap from there to the first frame is the
+       * driver, and on SwiftShader it is most of the number; bounding it would make this a test
+       * of the runner's rasteriser.
+       *
+       * The bound is ~2,5× the observed 782 ms on the big model, in the same spirit as the
+       * budgets above: wide enough not to flake on a loaded shared runner, tight enough that the
+       * return of a second build pass — which was measured as exactly this, doubled — fails here.
+       */
+      const geometryCeiling = label === 'small control' ? 1500 : 2000;
+      if (phases.geometry !== undefined) {
+        expect(phases.geometry,
+          `document + projection + context + tubes (${label})`).toBeLessThan(geometryCeiling);
+      }
+      /**
+       * And the phases are ORDERED, which is the cheap check that catches a mismarked phase.
+       *
+       * A phase recorded in the wrong place would still produce six plausible numbers; only their
+       * order says the timeline describes the sequence it claims to.
+       */
+      const seq = (['click', 'document', 'scene', 'renderer', 'geometry', 'frame'] as const)
+        .map((p) => phases[p]).filter((n): n is number => n !== undefined);
+      expect(seq, 'the phases are non-decreasing')
+        .toEqual([...seq].sort((a, b) => a - b));
+
+      /**
+       * ONE build for one open — the property the deferred first build exists to protect.
+       *
+       * The rebuild effect used to win the race against the deferred build and do the whole pass
+       * itself, which the deferred build then repeated: two full passes over every tube, per
+       * visit, measured on this counter.
+       */
+      expect((await counters(page)).builds - start.builds, 'one open, one build').toBe(1);
+
+      // ── The sheet, which is a different renderer entirely ──────
+      await page.getByTestId('rebar-workspace-close').click();
+      await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
+      const disclosure = page.getByTestId('detailing-disclosure');
+      if (await disclosure.getAttribute('open') === null) {
+        await disclosure.locator('> summary').click();
+      }
+      const expand = page.getByTestId('sheet-expand');
+      if (await expand.count()) {
+        /**
+         * The baseline is taken HERE, with the workspace closed, and that is the whole point.
+         *
+         * `start` was captured while the overlay was up — three canvases — and the first version
+         * of this compared against it after closing, so it read the overlay's own correct teardown
+         * as the sheet losing a canvas. The question is what the SHEET adds, so the count before
+         * the sheet is the only valid baseline for it.
+         */
+        const beforeSheet = await counters(page);
+        const sheet = await timed(page, () => expand.click(),
+          () => expect(page.getByTestId('sheet-figure')).toBeVisible());
+        rows.push(['open the sheet full-window', `${sheet.total} ms`]);
+        await page.keyboard.press('Escape');
+        // The sheet is SVG from `detailingSheet.svg` and touches no WebGL. If it ever starts
+        // adding a canvas or a context, that is the thing to know about it.
+        const afterSheet = await counters(page);
+        expect(afterSheet.canvases, 'the sheet adds no canvas').toBe(beforeSheet.canvases);
+        expect(afterSheet.contexts, 'and no WebGL context').toBe(beforeSheet.contexts);
+      }
+
+      /**
+       * ── Regenerating the detailing, and the one page where it cannot be timed ──
+       *
+       * On a page that ran the pipeline this session the command is a regeneration and is timed.
+       * On a RESTORED project it is disabled, and that turned out to be a real property rather
+       * than a test problem: `verificationStore` is runtime-only, so a reopened project carries
+       * its model, its reinforcement and its detailing but no design DEMANDS — and regenerating
+       * needs them. The button says exactly that ("No members have design demands yet. Solve the
+       * model and run the code check first."), which is the app being honest about a limitation
+       * of the restore rather than offering a command that would refuse.
+       *
+       * So the two paths assert different things about the same control, and neither is skipped
+       * quietly: one measures the gesture, the other pins the refusal AND that it explains itself.
+       * The same runtime-only store is what made a restored proposal read as MODELLED — see
+       * `docs/handoffs/f6-viewer-and-f7-performance.md` §4.
+       */
+      const regen = page.getByTestId('cmd-generate-detailing');
+      if (await regen.isEnabled()) {
+        const regenerated = await timed(page, () => regen.click(),
+          () => expect
+            .poll(() => page.evaluate(
+              () => (window.__stabileo.detailingAssemblies() as unknown[]).length),
+            { timeout: 300_000 })
+            .toBeGreaterThan(0));
+        rows.push(['regenerate the detailing', `${regenerated.total} ms`]);
+      } else {
+        rows.push(['regenerate the detailing', 'not reachable on a restored project']);
+        const why = await regen.getAttribute('title');
+        expect(why, 'a disabled command names its own prerequisite').toBeTruthy();
+        /**
+         * And the prerequisite is stated as TEXT too, not only in a `title`.
+         *
+         * A tooltip explains itself to a mouse and to nothing else. `RcStageTimeline` renders the
+         * same sentence in `detailing-prerequisites`, and `pro-design-gates` asserts the two are
+         * the same sentence; this checks the visible half is actually there on this page.
+         */
+        await expect(page.getByTestId('detailing-prerequisites'),
+          'and says so on the page, not only on hover').toBeVisible();
+      }
+
+      const w = Math.max(...rows.map(([k]) => k.length));
+      console.log(`\nF7 operations — ${label}\n${
+        rows.map(([k, v]) => `  ${k.padEnd(w)}  ${v}`).join('\n')}\n`);
+    });
   });
 }

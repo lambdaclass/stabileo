@@ -76,13 +76,50 @@ export function cycleTabWithin(root: HTMLElement | null, e: KeyboardEvent): bool
 export function captureFocus(root: HTMLElement | null): () => void {
   // Read once, at the transition into open. `document.activeElement` at any later point is
   // whatever this function has already moved focus to, which would make the restore a no-op.
-  const opener = document.activeElement as HTMLElement | null;
+  const active = document.activeElement as HTMLElement | null;
+  /**
+   * `<body>` is not an opener, and treating it as one is how this module came to perform the
+   * exact move it exists to prevent.
+   *
+   * The browser parks `document.activeElement` on `<body>` whenever the focused control is
+   * disabled or unmounted. `RebarWorkspace`'s openers set a pending state before yielding the
+   * frame the overlay mounts in, and while that state DISABLED the button the sequence was:
+   * blur the button, land on `<body>`, record `<body>`, and on close focus it — i.e. drop the
+   * user at the top of the document while reporting a successful restore. Measured in a focus
+   * trace: `out← cmd-open-3d` then `focus(BODY)`, with no `focus(cmd-open-3d)` in between.
+   *
+   * The callers are fixed at their cause (see `DesignToolbar.open3d`). This is the guard that
+   * keeps the next one from reintroducing it silently: an unusable opener means NO restore, so
+   * focus stays wherever the browser left it instead of being actively sent to the top.
+   */
+  const opener = active && active !== document.body && active !== document.documentElement
+    ? active
+    : null;
   root?.focus();
   return () => {
     // `isConnected` guards the case where the opener was unmounted while the dialog was up —
     // typically because the dialog covers the panel that owns it. Focusing a detached node
     // silently sends focus to `<body>`, i.e. the top of the document, which is the outcome
     // this whole module exists to prevent.
-    if (opener?.isConnected) opener.focus();
+    /**
+     * ── Why the restore does not SCROLL ────────────────────────────
+     *
+     * Restoring focus is about the keyboard. Scrolling the opener back to the top of its
+     * container is a side effect of `focus()`, and it undoes work the page did on purpose while
+     * the dialog was up.
+     *
+     * Measured, and it is not hypothetical: selecting a member in the 3-D viewer makes
+     * `RcMemberList` scroll that member's row into view in the panel behind the overlay. Closing
+     * then focused `cmd-open-3d`, which lives in an earlier stage of the same scrolling column —
+     * so the panel jumped back up and the row the user had just picked was off screen again.
+     * `f3-selection-from-viewer` caught it the moment the restore started working at all: with
+     * focus going to `<body>`, nothing scrolled and the defect could not appear.
+     *
+     * `preventScroll` keeps both properties. The keyboard is where the user left it, whatever the
+     * page has scrolled to, and the next Tab scrolls to whatever it lands on. For every dialog
+     * whose opener is still where it was — which is the ordinary case — this changes nothing at
+     * all: there is no scrolling to prevent.
+     */
+    if (opener?.isConnected) opener.focus({ preventScroll: true });
   };
 }

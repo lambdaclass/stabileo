@@ -157,7 +157,7 @@ test.describe('@smoke at 1280×720 no enabled command is out of reach', () => {
       await expect.poll(() => page.locator('[class*=toast]').count(), { timeout: 60_000 }).toBe(0);
 
       const checked: string[] = [];
-      for (const id of [...COMMANDS, 'cmd-design-families', 'floor-design-run',
+      for (const id of [...COMMANDS, 'floor-design-run',
         'batch-open', 'next-failing', 'review-changes']) {
         const el = page.getByTestId(id);
         if (await el.count() === 0) continue;
