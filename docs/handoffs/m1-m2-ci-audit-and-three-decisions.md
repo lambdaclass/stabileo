@@ -596,9 +596,20 @@ las fijaban. Y en su lugar, escritas a mano porque el compilador no las escribe 
    vez sin que algo lo diga;
 2. las dos sub-secciones siguen pasándole el porcentaje a `StageSection` — el número que los badges
    llevaban sigue en pantalla;
-3. ningún elemento del panel lleva `st-ok` / `st-warn` / `st-fail` — un ratio no recibe **ningún**
-   matiz de estado, y el vocabulario propio del bloque auxiliar (`within / near the limit / over the
-   limit`, de `8e538631`) sigue siendo lo único con derecho a opinar sobre él.
+3. el panel no construye un nombre de clase a partir de un estado — un ratio no recibe **ningún**
+   matiz, y el vocabulario propio del bloque auxiliar (`within / near the limit / over the limit`,
+   de `8e538631`) sigue siendo lo único con derecho a opinar sobre él.
+
+La tercera se escribió mal la primera vez y se corrigió en `66259cee`. Pedía que ningún atributo
+`class` llevara `st-ok`, `st-warn` o `st-fail` escritos — cosa que también era cierta **con los
+badges en pantalla**, porque `statusClass` era ``return `st-${s}` `` y las tres cadenas nunca
+estuvieron en el archivo. Una guarda que su propio defecto habría pasado no es una guarda. Ahora
+afirma la forma —que no haya un helper que convierta un estado en una clase— y conserva la otra al
+lado. Verificado contra `b71432cd^`: la aserción nueva falla ahí, la vieja pasa.
+
+Es el mismo hecho dos veces, y conviene dejarlo dicho: **la interpolación que le escondió el nombre
+de la clase a un `grep` es la interpolación que le impidió a Svelte podar las reglas** (§32). Un
+defecto, dos síntomas.
 
 La lista vacía de `--st-accent`-sobre-tinte-rojo **se conserva**: la forma del defecto sobrevive a
 la única regla que la tenía. La aserción de que la selección puede seguir usando `--st-accent` se
