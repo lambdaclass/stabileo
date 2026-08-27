@@ -206,8 +206,44 @@ export interface DocumentModel {
    */
   scope: DesignFamily[];
   outOfScope: DesignFamily[];
+  /**
+   * What this document was narrowed to, or null for the whole documentable set.
+   *
+   * Set by `narrowDocument` and by nothing else. `buildDocumentModel` never sets it, because a
+   * document that was not narrowed has no selection to report and `{ elements: everything }`
+   * would be a claim dressed as a fact — the reader could not tell a whole set from a selection
+   * that happens to cover it.
+   */
+  selection?: DocumentSelection | null;
   /** One-line statement of what this document is. Translated at the boundary. */
   summary: EngineMessage;
+}
+
+/**
+ * The narrowing a document carries, so every projection of it states the same subset.
+ *
+ * ── Why the document carries this and not the panel ────────────────
+ *
+ * Because the file is what leaves. A panel that knew the selection and a document that did not
+ * would put the subset on screen and the whole set in the folder, which is the failure
+ * `DocumentModel` exists to prevent, one level out.
+ */
+export interface DocumentSelection {
+  /** The members this document contains, ascending. */
+  elements: number[];
+  /** How many the project could have documented. `elements.length` out of this. */
+  ofBase: number;
+  /** The families `elements` belongs to. A subset of `scope`, never more. */
+  families: DesignFamily[];
+  /**
+   * Members NOT selected whose steel appears anyway, because a bar is one physical piece.
+   *
+   * A bar continuous over a support belongs to the beam it was designed for AND to the column it
+   * passes through. Selecting the beam and not the column cannot cut that bar in half, so the
+   * bar is drawn and the column is named here. Silence would leave a reader counting steel
+   * against a member list that does not contain its owner.
+   */
+  sharedWith: number[];
 }
 
 /**

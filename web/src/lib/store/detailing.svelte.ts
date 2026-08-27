@@ -18,13 +18,11 @@ import {
 } from '../engine/detailing/assembly';
 import { provisionalKeys } from '../engine/detailing/coordinate-floor';
 import type { BarConflict } from '../engine/detailing/collision';
-import { buildSchedule, buildTitleBlock } from '../engine/detailing/drawings';
-import { rotuloFor } from './detailing-sheet-inputs';
+import { buildSchedule } from '../engine/detailing/drawings';
 import {
   rcEditConsequence, type RcEditConsequence, type RcRegenerationImpact,
 } from '../flow/rc-selection';
 import { rcLockToggle } from '../flow/rc-bar-lock';
-import { clause } from '../codes/regulation';
 import {
   runDetailing,
   type DetailingReadiness, type RunDetailingResult,
@@ -71,7 +69,7 @@ import {
   CONCRETE_REGULATION_ID, DEFAULT_WALL_BAR_DIA_MM, bentUpPolicy, currentConcreteEdition,
   buildProjectDocument, currentReadiness, designOutcomeMap, lockedMemberIds,
   maxPersistedRevision, presentFloorFamilies,
-  regenerationImpact, resolveAggregate,
+  regenerationImpact, resolveAggregate, type RcDocumentationScope,
   resolveConcreteProperties, resolveSpacingMargin, resolveVerifierId, statedAggregate,
 } from './detailing-project-inputs';
 import {
@@ -710,16 +708,9 @@ function createDetailingStore() {
         selected.unsupported.map((u) => `${u.key}: ${u.message}`));
     },
 
-    /** The schedule's own title block. Carries the same rótulo as the sheets. */
-    get titleBlock() {
-      if (!selected) return null;
-      return buildTitleBlock({
-        sheetNumber: `${selected.id}-P`, title: `${selected.label} — planilla`,
-        assembly: selected,
-        clauses: [clause('cirsoc-201', selected.provenance.edition, '25.2')],
-        rotulo: rotuloFor(store.titleBlock ?? {}),
-      });
-    },
+    // `get titleBlock()` was here: the schedule's own rótulo, built on every read and rendered by
+    // nobody — grepped across the tree before removing. The one that DOES reach a schedule comes
+    // from the document, through `renderSchedule`. Computed and never rendered, fifth instance.
 
     /**
      * Build the DocumentModel from the CURRENT coordinated state.
@@ -733,7 +724,20 @@ function createDetailingStore() {
      * arrangement is a different thing from a coordinated cage, and showing one while
      * labelling it the other is the failure this whole workflow exists to prevent.
      */
-    buildDocument(opts: { author: string; at: string }): DocumentModel | null {
+    buildDocument(opts: {
+      author: string;
+      at: string;
+      /**
+       * The documentation scope, when the caller has one. Omitted means the whole set.
+       *
+       * A PARAMETER and not a read of `documentScope`, because the two viewers are different
+       * operations: `doc-3d` is the fourth projection of the document being issued, and
+       * `cmd-open-3d` on the Diseñar row is a tool for looking at the whole cage the design
+       * produced. Reading the narrowing here would make the design command show a subset chosen
+       * in another stage. `families` is supplied for the reason `narrowDocument` states.
+       */
+      scope?: RcDocumentationScope | null;
+    }): DocumentModel | null {
       /**
        * Read from the PERSISTED store, not from the `store` derived.
        *
@@ -754,6 +758,7 @@ function createDetailingStore() {
         revisionNumber: documentRevision,
         author: opts.author,
         at: opts.at,
+        scope: opts.scope ?? null,
       });
       currentDocument = doc;
       return doc;

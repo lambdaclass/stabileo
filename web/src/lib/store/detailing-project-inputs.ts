@@ -40,9 +40,11 @@ import { detailingReadiness, type DetailingReadiness } from '../engine/detailing
 import {
   rcRegenerationImpact, rcRetouchProvenance, type RcRegenerationImpact,
 } from '../flow/rc-selection';
+import type { RcDocumentableMember } from '../flow/rc-document-scope';
 import {
   buildDocumentModel, type CertificateEntry, type DocumentModel,
 } from '../engine/detailing/document-model';
+import { narrowDocument } from '../engine/detailing/document-narrow';
 import type { DetailingAssembly } from '../engine/detailing/assembly';
 import type { LapInterval } from '../engine/detailing/lap-materialize';
 
@@ -76,8 +78,10 @@ export function buildProjectDocument(input: {
   revisionNumber: number;
   author: string;
   at: string;
+  /** The documentation narrowing, when there is one. Null or absent is the whole set. */
+  scope?: RcDocumentationScope | null;
 }): DocumentModel {
-  return buildDocumentModel({
+  const whole = buildDocumentModel({
     seriesId: 'detailing',
     revision: {
       number: input.revisionNumber,
@@ -114,6 +118,30 @@ export function buildProjectDocument(input: {
      */
     convergence: currentReadiness().convergence,
   });
+  /*
+   * Built over EVERYTHING, then narrowed. Never built over the subset.
+   *
+   * `buildDocumentModel` decides `readiness` from the assemblies it is handed, so filtering them
+   * first would measure the claim over the selection — and narrowing a conflicted project down to
+   * one clean beam would open `Issue for construction`. `document-narrow.ts` carries the whole
+   * argument and the property it buys: a narrowed document never claims more than the set it came
+   * from.
+   */
+  return input.scope
+    ? narrowDocument(whole, input.scope.elements, input.scope.families)
+    : whole;
+}
+
+/**
+ * What a caller narrowing a document must state.
+ *
+ * The families travel with the elements because `narrowDocument` is pure and may not read a
+ * `MemberContext` to work out whether element 12 is a beam. `resolveDocumentScope` produces both
+ * against the design scope, so the pair cannot disagree.
+ */
+export interface RcDocumentationScope {
+  elements: readonly number[];
+  families: readonly DesignFamily[];
 }
 
 /**
@@ -141,6 +169,52 @@ export function currentReadiness(): DetailingReadiness {
     scope: designRunStore.familySelection,
     presentFloorFamilies: presentFloorFamilies(),
   });
+}
+
+/**
+ * Every member the drawing contains, with the families its steel belongs to.
+ *
+ * ── Why the PERSISTED assemblies and not the readiness ─────────────
+ *
+ * `currentReadiness().detailable` is what the NEXT run would draw. This is what the document
+ * actually contains, which is a different question the moment a model is edited after a run: a
+ * member that stopped being detailable is still on the sheets until somebody regenerates, and a
+ * scope offering it as "not documentable" would be describing a document nobody has built.
+ *
+ * ── Why the context is the authority, and the record the fallback ──
+ *
+ * `MemberContext.elementType` is `beam`, `column` or `wall` — the frame classification, and the
+ * same one `detailingReadiness` builds its convergence member list from. Reading it first is what
+ * keeps the two consistent. The family RECORDS are then added, never substituted: a footing's
+ * record is owned by the column it carries, so element 10 legitimately carries both a column's
+ * steel and a footing's, and `rc-document-scope.ts` documents why collapsing that to one family
+ * breaks a real project in whichever direction it is collapsed.
+ *
+ * A member with neither is reported with NO family. That is not a hole to be filled with a guess:
+ * see `RcDocumentScope.unclassified`, which keeps it in the set and says so.
+ */
+export function documentableMembers(): RcDocumentableMember[] {
+  const persisted = modelStore.model.detailing?.assemblies ?? [];
+  const families = new Map<number, Set<DesignFamily>>();
+  const add = (id: number, f?: DesignFamily) => {
+    const set = families.get(id) ?? new Set<DesignFamily>();
+    if (f) set.add(f);
+    families.set(id, set);
+  };
+
+  for (const a of persisted) {
+    for (const id of a.elementIds) {
+      const ctx = verificationStore.contexts.get(id);
+      add(id, ctx?.elementType);
+    }
+    for (const r of a.families ?? []) {
+      for (const id of r.ownerElementIds) add(id, r.family);
+    }
+  }
+
+  return [...families]
+    .sort(([a], [b]) => a - b)
+    .map(([elementId, fs]) => ({ elementId, families: [...fs] }));
 }
 
 /**

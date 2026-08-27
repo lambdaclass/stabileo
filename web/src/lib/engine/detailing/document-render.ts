@@ -176,10 +176,45 @@ export function scopeStatement(doc: DocumentModel, locale: string): string {
   if (doc.scope.length === 0) {
     return es ? 'ALCANCE NO DECLARADO' : 'SCOPE NOT STATED';
   }
-  const covers = `${es ? 'ALCANCE' : 'SCOPE'}: ${words(doc.scope)}`;
-  return doc.outOfScope.length === 0
+  const covers = `${es ? 'ALCANCE' : 'SCOPE'}: ${words(doc.selection?.families ?? doc.scope)}`;
+  const out = doc.outOfScope.length === 0
     ? covers
     : `${covers} · ${es ? 'NO INCLUYE' : 'NOT IN THIS SET'}: ${words(doc.outOfScope)}`;
+  return doc.selection ? `${out} · ${memberStatement(doc.selection, es)}` : out;
+}
+
+/**
+ * The members a narrowed document contains, on the paper.
+ *
+ * ── Why the count AND the ids ──────────────────────────────────────
+ *
+ * The count is what a reader checks a drawing set against; the ids are what they check an
+ * individual sheet against. "12 of 40" without the list cannot be verified, and the list without
+ * "of 40" does not say that anything is missing — which is the only reason this line exists.
+ *
+ * Truncated at twenty ids, and the truncation SAYS SO. A stamp that silently stopped at twenty
+ * would be a member list that is wrong in exactly the projects where it matters most, and the
+ * count beside it is what stays complete.
+ *
+ * Only on a narrowed document. A whole set has no selection to declare, and printing "40 of 40"
+ * on every sheet would train the reader to skip the line that matters on the one sheet that was
+ * narrowed. See `DocumentModel.selection`.
+ */
+function memberStatement(sel: NonNullable<DocumentModel['selection']>, es: boolean): string {
+  const shown = sel.elements.slice(0, 20);
+  const more = sel.elements.length - shown.length;
+  const ids = more > 0
+    ? `${shown.join(', ')} ${es ? `y ${more} más` : `and ${more} more`}`
+    : shown.join(', ');
+  const head = es
+    ? `ELEMENTOS: ${sel.elements.length} de ${sel.ofBase}`
+    : `MEMBERS: ${sel.elements.length} of ${sel.ofBase}`;
+  const shared = sel.sharedWith.length === 0
+    ? ''
+    : ` · ${es
+      ? `ACERO COMPARTIDO CON: ${sel.sharedWith.join(', ')}`
+      : `STEEL SHARED WITH: ${sel.sharedWith.join(', ')}`}`;
+  return `${head} (${ids})${shared}`;
 }
 
 export function readinessBanner(doc: DocumentModel, locale: string): string {

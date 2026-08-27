@@ -36,6 +36,7 @@
 import type { ModelSnapshot } from './history.svelte';
 import { exportRecordStore } from './export-record.svelte';
 import { designRunStore } from './design-run.svelte';
+import { documentScope } from './document-scope.svelte';
 
 /** The provenance fields of a snapshot, taken from the live session. */
 export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'manualEdits'> {
@@ -60,6 +61,14 @@ export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'man
 export function hydrateProjectProvenance(s: Pick<ModelSnapshot, 'exports' | 'manualEdits'>): void {
   exportRecordStore.hydrate(s.exports);
   designRunStore.hydrateManual(s.manualEdits);
+  /*
+   * The documents narrowing is NOT hydrated, because it is not stored. It is dropped.
+   *
+   * It rides here rather than in a fourth wiring for the same reason the two above do: this is
+   * the one place a project becomes live. A selection that survived a file open would make the
+   * new project export a subset the previous one chose — see `document-scope.svelte.ts`.
+   */
+  documentScope.reset();
 }
 
 /**
@@ -71,4 +80,5 @@ export function hydrateProjectProvenance(s: Pick<ModelSnapshot, 'exports' | 'man
 export function resetProjectProvenance(): void {
   exportRecordStore.reset();
   designRunStore.hydrateManual([]);
+  documentScope.reset();
 }

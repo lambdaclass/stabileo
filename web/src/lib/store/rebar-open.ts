@@ -44,12 +44,21 @@
 import { detailingStore } from './detailing.svelte';
 import { rebarWorkspace } from './rebar-workspace.svelte';
 import { markOpenPhase } from '../utils/open-timeline';
+import type { DesignFamily } from '../engine/design/design-families';
 
 export interface OpenRebar3DOptions {
   /** Shown on the sheets. Falls back to the caller's own "unnamed" string. */
   author: string;
   /** ISO timestamp stamped on the revision. Passed in so callers stay testable. */
   at: string;
+  /**
+   * The documentation scope, for the entry point that sits beside the exports.
+   *
+   * `doc-3d` is the fourth projection of the document being issued and must show what the other
+   * three contain. The three entries that are NOT beside the exports pass nothing and get the
+   * whole cage, which is what a design tool should show. See `buildDocument`.
+   */
+  scope?: { elements: readonly number[]; families: readonly DesignFamily[] } | null;
 }
 
 export type OpenRebar3DResult =
@@ -88,7 +97,9 @@ export function openRebar3D(opts: OpenRebar3DOptions): OpenRebar3DResult {
   // The phases of an open are recorded where they happen — see `open-timeline.ts` for why
   // attributing this from the outside got it wrong twice.
   markOpenPhase('click');
-  const doc = detailingStore.buildDocument({ author: opts.author, at: opts.at });
+  const doc = detailingStore.buildDocument({
+    author: opts.author, at: opts.at, scope: opts.scope ?? null,
+  });
   if (!doc) return { ok: false, reason: 'no-document' };
   markOpenPhase('document');
   rebarWorkspace.openWorkspace();

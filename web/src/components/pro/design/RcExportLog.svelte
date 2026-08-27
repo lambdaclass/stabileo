@@ -59,6 +59,31 @@
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(i18n.locale);
   }
 
+  /**
+   * The members an emission contained — §4's "elementos incluidos", finally rendered.
+   *
+   * The field has been on `ExportRecord` since F0 and `logExport` has always filled it from
+   * `documentMembers(doc)`. Nothing read it, in either language, so the one thing a reader needs
+   * in order to check a file against a project — what is in it — was recorded and invisible. It is
+   * the pattern §9.6.1 names: a contract written, with no consumer.
+   *
+   * Count AND ids, capped at eight with the cap stated. The count is what a set is checked
+   * against; the ids are what a sheet is checked against; and a list that silently stopped at
+   * eight would be wrong in exactly the projects where it matters.
+   */
+  function elementsText(r: ExportRecord): string {
+    if (r.elements.length === 0) {
+      // Empty is legitimate and means the whole document — `ExportRecord.elements` says so. It
+      // must not read as "no members", which is why it gets its own sentence.
+      return t('detailing.exports.elementsWhole');
+    }
+    const shown = r.elements.slice(0, 8);
+    return tp('detailing.exports.elements', {
+      n: r.elements.length,
+      ids: r.elements.length > 8 ? `${shown.join(', ')}…` : shown.join(', '),
+    });
+  }
+
   function retouchText(r: ExportRecord): string {
     if (r.retouched.status === 'notApplicable') return '';
     if (!rcRetouchIsCountable(r.retouched)) return t('detailing.exports.retouchUnknown');
@@ -148,6 +173,9 @@
             </p>
           {/if}
 
+          <!-- What was in it, above what was retouched in it: the set before its qualifier. -->
+          <p class="elements" data-testid={`export-record-elements-${i}`}>{elementsText(r)}</p>
+
           {#if retouchText(r)}
             <p class="retouch" data-testid={`export-record-retouch-${i}`}
                data-retouch={r.retouched.status}>{retouchText(r)}</p>
@@ -195,7 +223,9 @@
   /* Stale is information: amber, and worded as a comparison rather than as a failure. */
   .stale { margin: 0.05rem 0 0; font-size: 0.68rem; color: var(--st-warn); }
   .failed { margin: 0.05rem 0 0; font-size: 0.68rem; color: var(--st-danger); }
-  .retouch { margin: 0.05rem 0 0; font-size: 0.68rem; color: var(--st-text-2); line-height: 1.35; }
+  .elements, .retouch {
+    margin: 0.05rem 0 0; font-size: 0.68rem; color: var(--st-text-2); line-height: 1.35;
+  }
   /* "We have no record" is the one that must not read like "none": amber, like every other
      absence of a fact on this surface. */
   .retouch[data-retouch='unknown'] { color: var(--st-warn); }
