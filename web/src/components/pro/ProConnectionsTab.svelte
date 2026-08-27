@@ -584,53 +584,6 @@
   }
   .conn-btn-verify:hover { background: var(--st-hair-strong); }
 
-  .conn-ratio-badge {
-    font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 8px; margin-left: auto;
-    /* Transparent, so the three states are the same size and a change of status does not shift
-       the row. `OutcomeBadge` reserves its border the same way, for the same reason. */
-    border: 1px solid transparent;
-  }
-  /*
-    ── The three ratio badges: the role moves to the border, the label goes neutral ──
-
-    Each of these reports the governing demand/capacity ratio of a bolt group or a weld, as a
-    label on a tinted fill. A 0.62rem chip has no room for a rule beside it, so the fill is the
-    signal — and each used to carry its role colour AS THE LABEL. Composited over the two grounds
-    this panel sits on, that does not hold:
-
-        .st-ok    --st-ok      3.75 / 3.64   ✗ under AA
-        .st-warn  --st-warn    5.22 / 5.03   ✓
-        .st-fail  --st-accent  3.55 / 3.41   ✗ under AA — and the brand colour, not the status red
-
-    Two of the three were illegible, and the failing one was also reaching for `--st-accent`: the
-    primary-action vermillion rather than `--st-danger`. Swapping in the status red does not rescue
-    it either, because at this alpha it is 4.46 over `--st-surface-2`.
-
-    `--st-danger-bg` at the contract's 0.14 would give 4.96, but that token landed in H1's
-    `dfa20d8b` and is not on this branch yet; referencing it here would be an undefined custom
-    property, which draws nothing at all and is the failure `design-tokens-resolve.test.ts` exists
-    to catch. So the tints stay literal and migrating them is one line in the commit that adopts
-    the contract here.
-
-    What changes is where the role lives. `--st-text` on these fills is 10.3–13.1, and the role
-    keeps a border, which needs only the 3:1 WCAG 2.1 §1.4.11 asks of a non-text boundary and
-    clears it on all three. It is the pattern H1's own migration settled on for
-    `DesignToolbar .banner-block`: a status surface, a status border, neutral text.
-
-    All three are changed rather than only the failing one. They are a set read one after another,
-    and leaving `.st-warn` as the single badge whose label carries the hue would make the
-    difference between states look like it meant something it does not.
-  */
-  .conn-ratio-badge.st-ok {
-    background: rgba(34, 204, 102, 0.2); color: var(--st-text); border-color: var(--st-ok);
-  }
-  .conn-ratio-badge.st-warn {
-    background: rgba(217, 164, 65, 0.2); color: var(--st-text); border-color: var(--st-warn);
-  }
-  .conn-ratio-badge.st-fail {
-    background: rgba(229, 72, 42, 0.2); color: var(--st-text); border-color: var(--st-danger);
-  }
-
   .conn-result-card {
     padding: 6px 8px; border-radius: 4px; font-size: 0.7rem;
     background: rgba(127, 212, 204, 0.05); border: 1px solid var(--st-surface-3);
