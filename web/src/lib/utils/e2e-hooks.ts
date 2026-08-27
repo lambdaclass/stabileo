@@ -30,6 +30,7 @@
 
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { detailingStore } from '../store/detailing.svelte';
+import { jointDesignStore } from '../store/joint-design.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
@@ -182,6 +183,18 @@ export interface StabileoTestHooks {
   canvasInkRatio(): number;
   /** Project regulation settings, as persisted. Read-only. */
   codeSettings(): unknown;
+  /**
+   * The joint designs the project carries, as persisted — I-06.
+   *
+   * Read off `model.jointDesigns`, which is the field a `.ded` actually writes. A spec that
+   * asserted the PANEL still showed bolts after an open would pass on a panel that had kept a
+   * local copy; this reads the project.
+   */
+  jointDesigns(): unknown;
+  /** Stored joints reconciliation refused for this model, with the reason — I-07. */
+  jointObsolete(): Array<{ nodeId: number; reason: string }>;
+  /** Node ids whose stored design applies to the model that is open now. */
+  jointDesignedNodeIds(): number[];
   /** Verifier id on an element's certificate — carries the edition it was produced under. */
   certificateVerifierId(elementId: number): string | null;
   /** Coordinated detailing assemblies, as persisted. Read-only. */
@@ -415,6 +428,9 @@ export function installE2EHooks(): void {
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,
     codeSettings: () => JSON.parse(JSON.stringify(modelStore.model.codeSettings ?? null)),
+    jointDesigns: () => JSON.parse(JSON.stringify(modelStore.model.jointDesigns ?? null)),
+    jointObsolete: () => jointDesignStore.obsolete.map((o) => ({ ...o })),
+    jointDesignedNodeIds: () => [...jointDesignStore.designedNodeIds],
     certificateVerifierId: (id: number) =>
       verificationStore.outcomeFor(id)?.certificate?.verifierId ?? null,
     detailingAssemblies: () =>

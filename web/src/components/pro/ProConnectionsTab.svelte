@@ -123,6 +123,20 @@
   const chosen = $derived(selectedJointId === null ? {} : jointDesignStore.choicesFor(selectedJointId));
 
   /**
+   * Stored joint designs that do not match the model that is open now — I-07.
+   *
+   * The store keys choices by node id, and an id only means something inside the model that
+   * issued it. A joint whose node is gone, has moved, or has a different fan of members on it is
+   * NOT applied — `choicesFor` answers empty for it — and it must not be invisible either. An
+   * obsolete entry that is merely ignored is indistinguishable from a joint nobody ever designed,
+   * and one of those two is work the user did.
+   *
+   * So it is said, with the reason and with a way out. Silence here would be the same defect the
+   * store avoids, moved from the model into the panel.
+   */
+  const obsoleteJoints = $derived(jointDesignStore.obsolete);
+
+  /**
    * The one field the user last typed something unusable into, and why.
    *
    * Kept as a single slot rather than a map: the panel shows one line, and a stale complaint
@@ -425,6 +439,43 @@
   <div class="conn-banner" role="note" data-testid="conn-experimental-banner">
     {t('conn.experimentalBanner')}
   </div>
+
+  <!--
+    Joints the project carries that this model cannot claim — I-07.
+
+    Above the joint list rather than inside it, because these nodes are not IN the list: the
+    reason they are obsolete is that the model has no such joint. Each one names its reason,
+    because «obsolete» alone does not tell a user whether to look for a deleted node, a moved
+    one, or a member they added — and those are three different things to go and do.
+  -->
+  {#if obsoleteJoints.length > 0}
+    <div class="conn-obsolete" role="note" data-testid="conn-obsolete-notice">
+      <p class="conn-obsolete-title" data-testid="conn-obsolete-title">
+        {tp('conn.obsolete.title', { n: obsoleteJoints.length })}
+      </p>
+      <p class="conn-obsolete-why">{t('conn.obsolete.why')}</p>
+      <ul class="conn-obsolete-list">
+        {#each obsoleteJoints as o (o.nodeId)}
+          <li data-testid={`conn-obsolete-${o.nodeId}`}>
+            <span class="conn-obsolete-node">N{o.nodeId}</span>
+            <span class="conn-obsolete-reason" data-testid={`conn-obsolete-reason-${o.nodeId}`}
+              >{t(`conn.obsolete.reason.${o.reason}`)}</span>
+            <button
+              type="button" class="conn-obsolete-drop"
+              data-testid={`conn-obsolete-discard-${o.nodeId}`}
+              onclick={() => jointDesignStore.clear(o.nodeId)}
+            >{t('conn.obsolete.discardOne')}</button>
+          </li>
+        {/each}
+      </ul>
+      <!-- The remedy, said as an action. A notice with no way out is a complaint. -->
+      <button
+        type="button" class="conn-obsolete-drop-all"
+        data-testid="conn-obsolete-discard-all"
+        onclick={() => jointDesignStore.discardObsolete()}
+      >{t('conn.obsolete.discardAll')}</button>
+    </div>
+  {/if}
 
   <!-- ── 1 · Joint detection ─────────────────────────────────────── -->
   <StageSection
@@ -1363,6 +1414,37 @@
     background: rgba(221, 170, 0, 0.10); border: 1px solid var(--st-warn);
     color: var(--st-text); font-size: 0.68rem; line-height: 1.45;
   }
+  /*
+    The obsolete-joints notice.
+
+    Warn-toned like the maturity banner and not danger-toned: nothing is broken and no number is
+    wrong. Work exists that this model cannot claim, which is a thing to resolve rather than a
+    failure. The reason and the node id carry the meaning; the tint only ranks it.
+  */
+  .conn-obsolete {
+    margin: 0 0 8px; padding: 7px 9px; border-radius: 4px;
+    background: rgba(221, 170, 0, 0.08); border-left: 2px solid var(--st-warn);
+    font-size: 0.66rem; line-height: 1.45; color: var(--st-text);
+  }
+  .conn-obsolete-title { margin: 0 0 3px; font-weight: 600; }
+  .conn-obsolete-why { margin: 0 0 5px; color: var(--st-text-2); font-size: 0.64rem; }
+  .conn-obsolete-list {
+    list-style: none; margin: 0 0 6px; padding: 0;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .conn-obsolete-list li { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .conn-obsolete-node { font-family: var(--st-mono, monospace); color: var(--st-text); }
+  .conn-obsolete-reason { color: var(--st-text-2); font-size: 0.64rem; }
+  .conn-obsolete-drop, .conn-obsolete-drop-all {
+    background: transparent; color: var(--st-text-2);
+    border: 1px solid var(--st-hair); border-radius: 3px;
+    padding: 1px 7px; font-size: 0.62rem; cursor: pointer;
+  }
+  .conn-obsolete-drop:hover, .conn-obsolete-drop-all:hover { color: var(--st-text); }
+  .conn-obsolete-drop:focus-visible, .conn-obsolete-drop-all:focus-visible {
+    outline: 2px solid var(--st-value); outline-offset: 1px;
+  }
+
   /* One sentence explaining a section, in the panel's own secondary colour. */
   .conn-explain {
     margin: 0 0 6px; font-size: 0.66rem; line-height: 1.45; color: var(--st-text-2);
