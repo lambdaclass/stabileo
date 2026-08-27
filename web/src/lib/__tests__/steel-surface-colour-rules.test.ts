@@ -275,11 +275,22 @@ describe('the ratio badges are gone, and the ratio is not', () => {
     expect(src).toMatch(/badge=\{weldResult \? `\$\{\(weldResult\.ratio \* 100\)/);
   });
 
-  it('and says nothing about it with a colour, which is the point of the removal', () => {
-    // `st-ok` / `st-warn` / `st-fail` were the three state classes those spans carried. A ratio on
-    // this panel gets no status hue at all now: the auxiliary block's own vocabulary
-    // (`within / near the limit / over the limit`) is the only thing entitled to comment on it.
-    expect(read(CONN)).not.toMatch(/class="[^"]*\bst-(ok|warn|fail)\b/);
+  it('and builds no class name that would give one a status hue', () => {
+    /*
+     * Written as a shape rather than as three strings, because the three strings were never in the
+     * file. The spans read `class="conn-ratio-badge {statusClass(...)}"` and `statusClass` was
+     * `return \`st-${s}\``, so grepping this component for `st-ok` would have called it clean on
+     * the day the badges were on screen — and the same interpolation is why the compiler could not
+     * prune the rules either. One defect, two symptoms.
+     *
+     * So: no helper on this panel turns a status into a class name, and no class attribute carries
+     * one written out. A ratio gets no status hue by either route, and the auxiliary block's own
+     * vocabulary (`within / near the limit / over the limit`) stays the only thing entitled to
+     * comment on it.
+     */
+    const src = read(CONN);
+    expect(src, 'a status-to-class helper is back').not.toMatch(/`st-\$\{/);
+    expect(src, 'a status class is written out').not.toMatch(/class="[^"]*\bst-(ok|warn|fail)\b/);
   });
 
   it('selection still uses --st-accent, which is what that token is for', () => {
