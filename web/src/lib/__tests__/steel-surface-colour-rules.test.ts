@@ -248,22 +248,40 @@ describe('what M1 added needs nothing from the contract', () => {
  * asserted the result: an entire commit, and five assertions, about CSS the browser never painted.
  *
  * Nothing caught it because nothing could. Svelte prunes unused selectors and warns, but it stops
- * as soon as a component has a class attribute it cannot read statically — and this one has four
- * (`class="conn-result-card {auxTone(...)}"`). 30 of the repository's 169 styled components are
- * blind the same way, 24 of them under `components/pro/`. `svelte-check` reports what the compiler
- * reports, so the measurement that found "0 diagnostics for ProConnectionsTab" was reading a real
- * silence with a cause upstream of the checker.
+ * as soon as a component has a class attribute it cannot read statically — and this one has four,
+ * of the form `class="conn-result-card {…(status)}"`. 30 of the repository's 169 styled components
+ * are blind the same way, 24 of them under `components/pro/`. `svelte-check` reports what the
+ * compiler reports, so the measurement that found "0 diagnostics for ProConnectionsTab" was
+ * reading a real silence with a cause upstream of the checker.
  *
- * So the guard is written by hand here, because the compiler will not write it: the rules are gone
- * and the number they used to carry is still on the screen.
+ * So the guard is written by hand here, because the compiler will not write it: the class is gone
+ * from the component and the number it used to carry is still on the screen.
+ *
+ * ── What this deliberately does NOT assert ──────────────────────
+ *
+ * That no helper on this panel turns a status into a class name. A version of this test did, and
+ * it was wrong twice over. It failed on M1 — correctly: `statusClass` is still applied there to
+ * `.conn-result-card` and `.conn-status-icon`, the pre-M2 auxiliary verdict, green ✓ in `--st-ok`
+ * included. `8e538631` is what retires that on M2, and `steel-never-verified` (with the
+ * `ProConnectionsTab` exemption removed) and `metallic-joints.spec.ts` are what guard it there.
+ * Removing dead badge CSS is not the commit entitled to legislate it, and a test both branches run
+ * cannot assert a property only one of them has.
+ *
+ * It was wrong on its own terms as well. `statusClass` was `return \`st-${s}\``, so the strings
+ * `st-ok`, `st-warn` and `st-fail` were never in the file — a grep for them called this component
+ * clean on the day the badges were on screen. Which is the same fact as the paragraph above: the
+ * interpolation that hid the class name from a grep is the interpolation that stopped the compiler
+ * pruning the rules. One defect, two symptoms.
  */
 describe('the ratio badges are gone, and the ratio is not', () => {
   const CONN = 'components/pro/ProConnectionsTab.svelte';
 
-  it('leaves no rule behind, so a union merge cannot revive them unnoticed', () => {
-    // `main` deleted this block in `2c79ed52` ("no green tick for steel"); resolving
-    // `ProConnectionsTab.svelte` by keeping both sides is how it came back the first time.
-    expect(styles(CONN), '.conn-ratio-badge is back — check the merge resolution')
+  it('leaves no trace in the component, so a union merge cannot revive it unnoticed', () => {
+    // The whole file, not just the stylesheet: the rules and a class attribute applying them are
+    // the two ways this comes back. `main` deleted the block in `2c79ed52` ("no green tick for
+    // steel"), and resolving `ProConnectionsTab.svelte` by keeping both sides is how it returned
+    // the first time.
+    expect(read(CONN), '.conn-ratio-badge is back — check the merge resolution')
       .not.toContain('conn-ratio-badge');
   });
 
@@ -273,24 +291,6 @@ describe('the ratio badges are gone, and the ratio is not', () => {
     const src = read(CONN);
     expect(src).toMatch(/badge=\{boltResult \? `\$\{\(boltResult\.governingRatio \* 100\)/);
     expect(src).toMatch(/badge=\{weldResult \? `\$\{\(weldResult\.ratio \* 100\)/);
-  });
-
-  it('and builds no class name that would give one a status hue', () => {
-    /*
-     * Written as a shape rather than as three strings, because the three strings were never in the
-     * file. The spans read `class="conn-ratio-badge {statusClass(...)}"` and `statusClass` was
-     * `return \`st-${s}\``, so grepping this component for `st-ok` would have called it clean on
-     * the day the badges were on screen — and the same interpolation is why the compiler could not
-     * prune the rules either. One defect, two symptoms.
-     *
-     * So: no helper on this panel turns a status into a class name, and no class attribute carries
-     * one written out. A ratio gets no status hue by either route, and the auxiliary block's own
-     * vocabulary (`within / near the limit / over the limit`) stays the only thing entitled to
-     * comment on it.
-     */
-    const src = read(CONN);
-    expect(src, 'a status-to-class helper is back').not.toMatch(/`st-\$\{/);
-    expect(src, 'a status class is written out').not.toMatch(/class="[^"]*\bst-(ok|warn|fail)\b/);
   });
 
   it('selection still uses --st-accent, which is what that token is for', () => {
