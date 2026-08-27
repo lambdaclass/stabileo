@@ -314,15 +314,31 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
     expect(Math.abs(walled - bare!) / bare!).toBeLessThan(0.05);
   });
 
+  /*
+   * One `it` per configuration, and the split is about the budget rather than the style.
+   *
+   * These were one test looping over both, so one case did two shed generations and two full
+   * solves — the heaviest pair in the file — inside a single 5 s default timeout. 1,65 s on the
+   * machine this was written on, and over 5 s on a CI runner inside the 8100-test pool, where it
+   * timed out. Split, each does one solve and gets its own budget: same two assertions, no timeout
+   * declared, no coverage dropped.
+   *
+   * It also names which configuration failed. The loop reported the timeout against the `it`,
+   * which is the same message whichever of the two was slow — or wrong.
+   */
   it('stays free along the building with wall bracing alone', () => {
-    for (const params of [
-      { ...PINNED, wallBracing: true },
+    const d = displacementOf(emit({ ...PINNED, wallBracing: true }, 'Longitudinal'), -20);
+    expect(d).not.toBeNull();
+    expect(d!).toBeGreaterThan(1e6);
+  });
+
+  it('stays free along the building even with the roof plane braced in every bay', () => {
+    const d = displacementOf(emit(
       { ...PINNED, wallBracing: true, roofBracing: true, bracingBays: 'all' as const },
-    ]) {
-      const d = displacementOf(emit(params, 'Longitudinal'), -20);
-      expect(d).not.toBeNull();
-      expect(d!).toBeGreaterThan(1e6);
-    }
+      'Longitudinal',
+    ), -20);
+    expect(d).not.toBeNull();
+    expect(d!).toBeGreaterThan(1e6);
   });
 
   it('needs the vertical bracing, exactly as a fixed-base shed does', () => {
