@@ -286,7 +286,6 @@ test.describe('@smoke the selection panel is a column, and has a floor under it'
       .toBeGreaterThanOrEqual(wide.canvas!.x + wide.canvas!.w - 1);
     expect(wide.inspector!.h, 'it is a column, not a strip')
       .toBeGreaterThan(wide.canvas!.h / 2);
-    await expect(page.getByTestId('rebar-inspector')).toHaveAttribute('data-layout', 'column');
 
     /**
      * The floor. `min-height` is what the 15 px was missing, and it holds with NOTHING selected —
@@ -296,16 +295,38 @@ test.describe('@smoke the selection panel is a column, and has a floor under it'
       'nothing is selected yet, which is the case that measured 15 px').toEqual([]);
     expect(wide.inspector!.h, 'an empty panel is still legible').toBeGreaterThan(40);
 
+    /**
+     * The narrow shapes, asserted on GEOMETRY and not on an attribute.
+     *
+     * It used to be `data-layout`, set from a `side` prop the workspace computed from
+     * `window.innerWidth`. `rebar-3d.spec.ts` caught what that costs: a resize handler runs after
+     * layout, so a window resized to 390 px still had the desktop shape when the page was read
+     * and the canvas came out 118 px wide. The shape is a media query now, and what a test can
+     * usefully ask is where the boxes actually are — which is what the resize race made wrong,
+     * and which an attribute the same JS also set could never have caught.
+     */
     for (const width of [1024, 900, 820]) {
       await page.setViewportSize({ width, height: 720 });
-      await expect(page.getByTestId('rebar-inspector'))
-        .toHaveAttribute('data-layout', 'stacked');
       const m = await geometry(page);
       expect(m.inspector!.y, `at ${width} the panel is UNDER the canvas`)
         .toBeGreaterThan(m.canvas!.y);
+      expect(m.canvas!.w, `at ${width} the canvas keeps the width, minus the rail only`)
+        .toBeGreaterThan(width - 300);
       expect(m.inspector!.h, `at ${width} it still has a floor`).toBeGreaterThan(40);
       expect(m.bodyScrollW, `at ${width} nothing overflows sideways`).toBe(m.clientW);
     }
+
+    /**
+     * And a phone, which is where the resize race actually showed up.
+     *
+     * 390 px is `rebar-3d.spec.ts`'s own width for this. Asserted here too because that spec
+     * checks the RAIL folding and happened to catch this; the panel is this file's subject.
+     */
+    await page.setViewportSize({ width: 390, height: 844 });
+    const phone = await geometry(page);
+    expect(phone.canvas!.w, 'on a phone the panel takes no width at all')
+      .toBeGreaterThan(300);
+    expect(phone.inspector!.y, 'it is under the canvas').toBeGreaterThan(phone.canvas!.y);
   });
 });
 

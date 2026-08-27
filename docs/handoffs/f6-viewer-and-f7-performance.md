@@ -181,9 +181,31 @@ defecto exacto que el encabezado de `RebarWorkspace` registra sobre el sidebar d
 overlay se construyó para escapar. Debajo del umbral el panel es una franja bajo el canvas, con el
 mismo contenido y el mismo testid.
 
-El número se declara **una vez**: la dirección de `.stage` y la forma del panel son la misma
-decisión, y dos media queries en dos componentes serían ese número escrito dos veces. `RebarWorkspace`
-ya observa la ventana para el umbral del rail; también es dueño de éste y pasa la respuesta.
+El número se declara **una vez**, en una sola media query de `RebarWorkspace` que hace fila a
+`.stage` y promueve el panel a columna: son la misma decisión, y dos media queries en dos
+componentes serían ese número escrito dos veces.
+
+### 6.1 El segundo defecto que introduje, y por qué el layout no puede depender de JS
+
+La primera versión puso la forma del panel en **estado** —`window.innerWidth >= 1100`, recalculado
+en `onResize` y pasado como prop— con el argumento de que así el número vivía en un solo lugar.
+`rebar-3d.spec.ts`, que ya existía, lo cazó: abre el visor en escritorio, redimensiona a 390 px, y
+el canvas salió de **118 px de ancho**. Que es 390 − 272, el ancho del panel.
+
+Un handler de `resize` corre **después** del layout, así que una ventana recién redimensionada
+todavía tiene la forma anterior cuando la página se lee. Layout que depende de JS es layout que
+está brevemente mal, y en 390 px "brevemente mal" es el viewport entero. El rail sí puede ser
+estado, porque es un **gesto** del usuario que el código no debe pelear; la forma del panel no es
+gesto de nadie.
+
+Ahora es CSS, correcta al pintar, con la forma angosta como default —la segura, porque nunca
+puede tomar ancho que el viewport necesita— y la columna como promoción del padre. Se fueron el
+prop, el estado y el atributo `data-layout`; el spec propio pasó a verificar **geometría real**,
+que además es más fuerte: el atributo lo escribía el mismo JS que estaba mal, así que no podía
+haber cazado esto.
+
+**Dos regresiones propias en este bloque, las dos cazadas por specs preexistentes** — el scroll del
+foco por `f3-selection-from-viewer` y ésta por `rebar-3d`. Ninguna se veía leyendo el código.
 
 ## 7. El CSS que describía otra pantalla
 

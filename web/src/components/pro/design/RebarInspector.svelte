@@ -28,13 +28,19 @@
    * below it the panel is a strip under the canvas: the same content, the same testid, one fewer
    * column. `RebarWorkspace` measures 1280 · 1024 · 900 · 820, and only the first can pay.
    *
-   * ── Why the shape is a PROP and not a media query ──────────────────
+   * ── Why the shape is CSS, and why the PARENT owns it ───────────────
    *
-   * Because the parent has to know it too. Putting the panel beside the canvas means turning
-   * `.stage` into a row, and that decision and this one are the same decision — expressed as two
-   * media queries in two components they are one number written twice, which is the drift this
-   * tree keeps finding. `RebarWorkspace` already observes the window for the rail's own
-   * threshold; it owns this one as well and hands the answer down.
+   * It was a prop, driven from the same resize handler the rail's own threshold uses, and that
+   * was wrong in a way a measurement caught: `rebar-3d.spec.ts` opens the workspace at desktop
+   * size and resizes to 390 px, and the canvas came out **118 px wide** — 390 minus this panel's
+   * 272. A `resize` handler runs AFTER layout, so any test or user that reads the page in the
+   * same turn as the resize sees the desktop shape. Layout that depends on JS is layout that is
+   * briefly wrong, and on a 390 px window "briefly wrong" is the whole viewport.
+   *
+   * So the shape is a media query, correct at paint time. It lives in `RebarWorkspace` rather
+   * than here because putting the panel beside the canvas also means turning `.stage` into a
+   * row: those are one decision, and split across two components they would be one number
+   * written twice. The parent promotes this element; the default below is the narrow shape.
    *
    * ── Why it is a component at all ───────────────────────────────────
    *
@@ -45,15 +51,13 @@
   import { t } from '../../../lib/i18n';
 
   interface Props {
-    /** True while the panel is a column beside the canvas rather than a strip under it. */
-    side: boolean;
     /** The member the camera is on, echoed as data so a spec can read it without Three.js. */
     focusedElement: number | null;
     /** Whether anything is selected, so the region can say which state it is in. */
     hasSelection: boolean;
     children: import('svelte').Snippet;
   }
-  const { side, focusedElement, hasSelection, children }: Props = $props();
+  const { focusedElement, hasSelection, children }: Props = $props();
 </script>
 
 <!--
@@ -68,11 +72,9 @@
 -->
 <aside
   class="inspector"
-  class:side
   data-testid="rebar-inspector"
   data-focused={focusedElement ?? ''}
   data-selected={hasSelection ? 'true' : 'false'}
-  data-layout={side ? 'column' : 'stacked'}
   aria-labelledby="rebar-inspector-title"
 >
   <h3 id="rebar-inspector-title">{t('detailing.scene.selection.title')}</h3>
@@ -97,15 +99,16 @@
     min-height: 3.2rem;
   }
 
-  /* Beside the canvas. 17 rem is the rail's width opposite it, so the cage sits between two
-     equal columns rather than off-centre. */
-  .inspector.side {
-    width: 17rem;
-    border-left: 1px solid var(--st-hair);
-  }
+  /*
+    The DEFAULT is the strip under the canvas, and the column is the promotion.
 
-  /* Under the canvas, where the window cannot afford a third column. */
-  .inspector:not(.side) {
+    Stated in this direction on purpose: the narrow shape is the safe one — it can never take
+    width the viewport needs — so a window that has not been measured yet gets it rather than a
+    17 rem column. `RebarWorkspace` promotes this element to a column in the one media query that
+    also turns `.stage` into a row; the promotion is the parent's because those two are the same
+    decision. See `RebarWorkspace.svelte`.
+  */
+  .inspector {
     width: auto;
     max-height: 9rem;
     border-top: 1px solid var(--st-hair);

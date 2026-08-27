@@ -62,16 +62,15 @@
   let railOpen = $state(
     typeof window === 'undefined' ? true : window.innerWidth > 860);
 
-  /**
-   * The width below which the selection panel stops being a third column.
+  /*
+   * The selection panel's shape is CSS, not state — see the one media query at the bottom.
    *
-   * Declared ONCE and used twice, because `.stage`'s direction and the panel's own shape are the
-   * same decision — two media queries in two components would be this number written twice.
-   * `RebarInspector.svelte` records how it was arrived at from the canvas arithmetic.
+   * It WAS state, computed here from `window.innerWidth` and handed down as a prop, and
+   * `rebar-3d.spec.ts` caught what that costs: a resize handler runs after layout, so a window
+   * resized to 390 px still had the desktop shape when the page was read, and the canvas came
+   * out 118 px wide — 390 minus the panel's 272. The rail can afford to be state because it is a
+   * user GESTURE this must not fight; the panel's shape is nobody's gesture.
    */
-  const SIDE_PANEL_MIN_WIDTH = 1100;
-  let inspectorSide = $state(
-    typeof window === 'undefined' ? true : window.innerWidth >= SIDE_PANEL_MIN_WIDTH);
 
   const doc = $derived(detailingStore.document);
 
@@ -297,9 +296,6 @@
       wasWide = wide;
       railOpen = wide;
     }
-    // Recomputed on every resize rather than on the crossing, unlike the rail above: the rail's
-    // state is a user gesture this must not fight, and the panel's shape is nobody's gesture.
-    inspectorSide = window.innerWidth >= SIDE_PANEL_MIN_WIDTH;
   }
 </script>
 
@@ -339,7 +335,7 @@
         {/if}
       </aside>
 
-      <main class="stage" class:side-panel={inspectorSide}>
+      <main class="stage">
         <!--
           The canvas and its absence states, as ONE flex child: `.stage` is a row once the panel
           moves beside the cage, and without this wrapper the "still building" pill and the two
@@ -421,7 +417,6 @@
         </div>
 
         <RebarInspector
-          side={inspectorSide}
           {focusedElement}
           hasSelection={rebarWorkspace.selection !== null}
         >
@@ -534,10 +529,7 @@
    */
   .rail > :global(*) { flex: 0 0 auto; }
   .body:not(.rail-open) .rail { display: none; }
-  /* A column, or a row once the window can afford a third one. `side-panel` comes from
-     `SIDE_PANEL_MIN_WIDTH`, which also drives the panel's own shape — one number, one decision. */
   .stage { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; position: relative; }
-  .stage.side-panel { flex-direction: row; }
   /* The canvas takes what the panel leaves. `min-width: 0` is what lets it actually shrink
      instead of pushing the panel off the right edge. */
   .canvas-area { flex: 1 1 auto; min-width: 0; min-height: 0;
@@ -592,7 +584,30 @@
       box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
     }
   }
-  /* `.inspector` is `RebarInspector.svelte`'s element now, and both its shapes live with it. The
-     `max-height: 9rem` that stood here went along unchanged; what it gained is a floor, which is
-     what the 15 px measurement was missing. */
+  /*
+    ── The selection panel becomes a third column, in ONE place ───────
+
+    Both halves of one decision: the stage turns into a row, and the panel it now sits beside
+    becomes a column. Two media queries in two components would be this number written twice,
+    and a prop driven from a resize handler was worse — see the note in the script.
+
+    1100 px comes from the arithmetic rather than from a round figure. With the rail open the
+    canvas is the window minus its 17 rem and the panel wants another 17: at 1280 that leaves
+    ~740 px of cage, at 1024 ~490 and at 900 ~370. A 370 px viewport is the slot this overlay
+    was built to escape — see this file's own header. Below the threshold the panel keeps its
+    default shape, a strip under the canvas.
+
+    `:global` because `.inspector` is `RebarInspector.svelte`'s element and Svelte scopes styles
+    to the declaring component. Reached through `.stage >` so it can only ever promote the panel
+    that is a child of this stage.
+  */
+  @media (min-width: 1100px) {
+    .stage { flex-direction: row; }
+    .stage > :global(.inspector) {
+      width: 17rem;
+      max-height: none;
+      border-top: 0;
+      border-left: 1px solid var(--st-hair);
+    }
+  }
 </style>
