@@ -594,3 +594,245 @@ fn test_guyan_prescribed_displacement_is_rejected() {
         .expect_err("Guyan with prescribed displacements must be rejected");
     assert!(err.contains("prescribed"), "error should mention prescribed displacements, got: {}", err);
 }
+
+// ---------------------------------------------------------------------------
+// Sparse-path tests: nf >= SPARSE_THRESHOLD (64) exercises the CSC assembly +
+// sparse K_II factorization paths (2D), instead of the dense fallback.
+// ---------------------------------------------------------------------------
+
+/// Build a 30-element simply-supported beam (31 nodes, nf = 90 free DOFs),
+/// large enough to take the sparse reduction path (nf >= 64).
+///
+/// Layout: Node 1 (pinned) --- 30 frame elements --- Node 31 (rollerX)
+/// Uniform distributed load on all elements + nodal load at midspan.
+fn large_ss_beam() -> SolverInput {
+    let n_elem = 30;
+    let mut nodes = HashMap::new();
+    for i in 0..=n_elem {
+        let id = i + 1;
+        nodes.insert(id.to_string(), node(id, 10.0 * i as f64 / n_elem as f64, 0.0));
+    }
+
+    let mut elements = HashMap::new();
+    for i in 0..n_elem {
+        let id = i + 1;
+        elements.insert(id.to_string(), frame(id, i + 1, i + 2));
+    }
+
+    let mut loads: Vec<SolverLoad> = (1..=n_elem)
+        .map(|id| SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: id, q_i: -10.0, q_j: -10.0, a: None, b: None,
+        }))
+        .collect();
+    loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 16, fx: 0.0, fz: -50.0, my: 0.0 }));
+
+    SolverInput {
+        nodes,
+        materials: hm(vec![(1, mat())]),
+        sections: hm(vec![(1, sec())]),
+        elements,
+        supports: hm(vec![
+            (1, pinned(1, 1)),
+            (2, roller_x(2, n_elem + 1)),
+        ]),
+        loads,
+        constraints: vec![],
+        connectors: HashMap::new(),
+    }
+}
+
+/// Same large beam plus an auxiliary node hanging off midspan, coupled to the
+/// beam by an EqualDOF constraint — exercises the sparse C'·K·C reduction.
+fn large_ss_beam_equal_dof() -> SolverInput {
+    let mut input = large_ss_beam();
+    input.nodes.insert("100".to_string(), node(100, 5.0, -1.0));
+    input.elements.insert("100".to_string(), frame(100, 16, 100));
+    input.constraints = vec![
+        Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 16, slave_node: 100, dofs: vec![0, 1],
+        }),
+    ];
+    input
+}
+
+// Test 10: sparse Guyan (nf >= 64) — displacements and reactions match the
+// full linear solve; condensed K is symmetric.
+#[test]
+fn test_guyan_sparse_large_beam_matches_linear() {
+    let solver = large_ss_beam();
+
+    let guyan_input = GuyanInput {
+        solver: solver.clone(),
+        boundary_nodes: vec![10, 20],
+    };
+
+    let guyan_result = guyan_reduce_2d(&guyan_input).unwrap();
+    assert_eq!(guyan_result.n_boundary, 6, "2 boundary nodes × 3 DOFs");
+    assert!(guyan_result.n_interior >= 64, "interior should dominate");
+
+    let linear_result = linear::solve_2d(&solver).unwrap();
+
+    let tol = 1e-6;
+    for ld in &linear_result.displacements {
+        let gd = guyan_result.displacements.iter()
+            .find(|d| d.node_id == ld.node_id)
+            .unwrap_or_else(|| panic!("Missing node {} in Guyan result", ld.node_id));
+        assert!((gd.ux - ld.ux).abs() < tol, "Node {} ux: Guyan {:.9} vs Linear {:.9}", ld.node_id, gd.ux, ld.ux);
+        assert!((gd.uz - ld.uz).abs() < tol, "Node {} uz: Guyan {:.9} vs Linear {:.9}", ld.node_id, gd.uz, ld.uz);
+        assert!((gd.ry - ld.ry).abs() < tol, "Node {} ry: Guyan {:.9} vs Linear {:.9}", ld.node_id, gd.ry, ld.ry);
+    }
+
+    for lr in &linear_result.reactions {
+        let gr = guyan_result.reactions.iter()
+            .find(|r| r.node_id == lr.node_id)
+            .unwrap_or_else(|| panic!("Missing reaction at node {} in Guyan result", lr.node_id));
+        assert!((gr.rx - lr.rx).abs() < 1e-4, "Node {} rx: Guyan {:.6} vs Linear {:.6}", lr.node_id, gr.rx, lr.rx);
+        assert!((gr.rz - lr.rz).abs() < 1e-4, "Node {} rz: Guyan {:.6} vs Linear {:.6}", lr.node_id, gr.rz, lr.rz);
+        assert!((gr.my - lr.my).abs() < 1e-4, "Node {} my: Guyan {:.6} vs Linear {:.6}", lr.node_id, gr.my, lr.my);
+    }
+
+    let nb = guyan_result.n_boundary;
+    let k = &guyan_result.k_condensed;
+    for i in 0..nb {
+        for j in (i + 1)..nb {
+            let diff = (k[i * nb + j] - k[j * nb + i]).abs();
+            let scale = k[i * nb + j].abs().max(k[j * nb + i].abs()).max(1e-12);
+            assert!(diff / scale < 1e-9, "K_condensed not symmetric at ({}, {})", i, j);
+        }
+    }
+}
+
+// Test 11: sparse Guyan with an EqualDOF constraint — the C'·K·C reduction
+// stays sparse; displacements match the constrained linear solve, and the
+// slave node follows the master.
+#[test]
+fn test_guyan_sparse_large_beam_with_equal_dof() {
+    let solver = large_ss_beam_equal_dof();
+
+    let guyan_input = GuyanInput {
+        solver: solver.clone(),
+        boundary_nodes: vec![10, 20],
+    };
+
+    let guyan_result = guyan_reduce_2d(&guyan_input).unwrap();
+    let linear_result = linear::solve_2d(&solver).unwrap();
+
+    let tol = 1e-6;
+    for ld in &linear_result.displacements {
+        let gd = guyan_result.displacements.iter()
+            .find(|d| d.node_id == ld.node_id)
+            .unwrap_or_else(|| panic!("Missing node {} in Guyan result", ld.node_id));
+        assert!((gd.ux - ld.ux).abs() < tol, "Node {} ux: Guyan {:.9} vs Linear {:.9}", ld.node_id, gd.ux, ld.ux);
+        assert!((gd.uz - ld.uz).abs() < tol, "Node {} uz: Guyan {:.9} vs Linear {:.9}", ld.node_id, gd.uz, ld.uz);
+        assert!((gd.ry - ld.ry).abs() < tol, "Node {} ry: Guyan {:.9} vs Linear {:.9}", ld.node_id, gd.ry, ld.ry);
+    }
+
+    // EqualDOF: slave (100) translations equal master (16) translations.
+    let master = guyan_result.displacements.iter().find(|d| d.node_id == 16).unwrap();
+    let slave = guyan_result.displacements.iter().find(|d| d.node_id == 100).unwrap();
+    assert!((master.ux - slave.ux).abs() < 1e-10, "EqualDOF ux: master {} vs slave {}", master.ux, slave.ux);
+    assert!((master.uz - slave.uz).abs() < 1e-10, "EqualDOF uz: master {} vs slave {}", master.uz, slave.uz);
+}
+
+// Test 12: sparse Craig-Bampton (nf >= 64) — the BB block of K_reduced is the
+// Guyan-condensed stiffness of the same partition (Ψ_s = −K_II⁻¹K_IB makes
+// TᵀKT's BB block exactly the static condensation), and frequencies are sane.
+#[test]
+fn test_craig_bampton_sparse_large_beam() {
+    let solver = large_ss_beam();
+    let densities: HashMap<String, f64> = hm(vec![(1, 7850.0)]);
+    let boundary_nodes = vec![10, 20];
+
+    let cb_result = craig_bampton_2d(&CraigBamptonInput {
+        solver: solver.clone(),
+        boundary_nodes: boundary_nodes.clone(),
+        n_modes: 5,
+        densities,
+    }).unwrap();
+
+    assert_eq!(cb_result.n_reduced, cb_result.n_boundary + cb_result.n_modes_kept);
+    assert_eq!(cb_result.k_reduced.len(), cb_result.n_reduced * cb_result.n_reduced);
+    assert_eq!(cb_result.m_reduced.len(), cb_result.n_reduced * cb_result.n_reduced);
+
+    for (i, &f) in cb_result.interior_frequencies.iter().enumerate() {
+        assert!(f > 0.0 && f.is_finite(), "Interior frequency {} should be positive, got {:.6e}", i, f);
+    }
+    for i in 1..cb_result.interior_frequencies.len() {
+        assert!(
+            cb_result.interior_frequencies[i] >= cb_result.interior_frequencies[i - 1] - 1e-6,
+            "Interior frequencies not monotonic: f[{}]={:.4} < f[{}]={:.4}",
+            i, cb_result.interior_frequencies[i], i - 1, cb_result.interior_frequencies[i - 1]
+        );
+    }
+
+    // BB block of K_reduced == Guyan-condensed stiffness (exact identity).
+    let guyan_result = guyan_reduce_2d(&GuyanInput {
+        solver,
+        boundary_nodes,
+    }).unwrap();
+
+    let nb = cb_result.n_boundary;
+    let nr = cb_result.n_reduced;
+    assert_eq!(nb, guyan_result.n_boundary);
+    for i in 0..nb {
+        for j in 0..nb {
+            let cb = cb_result.k_reduced[i * nr + j];
+            let gy = guyan_result.k_condensed[i * nb + j];
+            let scale = gy.abs().max(1e-12);
+            assert!(
+                (cb - gy).abs() / scale < 1e-6,
+                "BB block mismatch at ({}, {}): CB {:.9e} vs Guyan {:.9e}",
+                i, j, cb, gy
+            );
+        }
+    }
+
+    // Modal mass block should be diagonal (modes are M-orthonormal).
+    for m1 in 0..cb_result.n_modes_kept {
+        let diag = cb_result.m_reduced[(nb + m1) * nr + (nb + m1)].abs();
+        for m2 in 0..cb_result.n_modes_kept {
+            if m1 == m2 { continue; }
+            let off = cb_result.m_reduced[(nb + m1) * nr + (nb + m2)].abs();
+            assert!(
+                off <= 1e-6 * diag.max(1e-30),
+                "M_reduced modal block not diagonal at ({}, {}): off={:.3e} diag={:.3e}",
+                m1, m2, off, diag
+            );
+        }
+    }
+}
+
+// Test 13: sparse Craig-Bampton with an EqualDOF constraint — exercises the
+// sparse C'·K·C / C'·M·C reductions; reduced matrices stay symmetric.
+#[test]
+fn test_craig_bampton_sparse_large_beam_with_equal_dof() {
+    let solver = large_ss_beam_equal_dof();
+    let densities: HashMap<String, f64> = hm(vec![(1, 7850.0)]);
+
+    let result = craig_bampton_2d(&CraigBamptonInput {
+        solver,
+        boundary_nodes: vec![10, 20],
+        n_modes: 4,
+        densities,
+    }).unwrap();
+
+    assert_eq!(result.n_reduced, result.n_boundary + result.n_modes_kept);
+    for (i, &f) in result.interior_frequencies.iter().enumerate() {
+        assert!(f > 0.0 && f.is_finite(), "Interior frequency {} should be positive, got {:.6e}", i, f);
+    }
+
+    let nr = result.n_reduced;
+    for (mat, name) in [(&result.k_reduced, "K"), (&result.m_reduced, "M")] {
+        for i in 0..nr {
+            for j in (i + 1)..nr {
+                let a = mat[i * nr + j];
+                let b = mat[j * nr + i];
+                let diff = (a - b).abs();
+                if diff > 1e-10 {
+                    let scale = a.abs().max(b.abs());
+                    assert!(diff / scale < 1e-8, "{}_reduced not symmetric at ({}, {}): {:.6e} vs {:.6e}", name, i, j, a, b);
+                }
+            }
+        }
+    }
+}
