@@ -69,8 +69,23 @@
    * noticeable moment on a large model, so without yielding first the browser never paints the
    * pending state and the button looks like it did nothing — the exact complaint that put this
    * command on the main row in the first place.
+   *
+   * ── Why the pending state does not DISABLE this button ─────────────
+   *
+   * It did, and that is what made Escape drop the user at `<body>` instead of returning them
+   * here. Chromium blurs a focused control when it becomes disabled, and `opening3d` is set
+   * before the yield above — so by the time the overlay mounted, `document.activeElement` was
+   * already `<body>` and `captureFocus` recorded THAT as the opener. `<body>` is connected, so
+   * the `isConnected` guard passed and the restore focused it, which `dialog-focus.ts` names as
+   * the one outcome it exists to prevent. Measured in the focus trace: `out← cmd-open-3d`, then
+   * `focus(BODY)`, and no `focus(cmd-open-3d)` at all.
+   *
+   * The control now stays focusable, says `aria-busy` while it works, and refuses re-entry here
+   * rather than by removing itself from the tab order. `SelectionDetails` documents the same
+   * defect in its unmounting form; this was its disabled form.
    */
   async function open3d() {
+    if (opening3d) return;
     open3dError = null;
     opening3d = true;
     await new Promise((r) => requestAnimationFrame(() => r(null)));
@@ -221,7 +236,8 @@
       class="cmd cmd-3d"
       data-testid="cmd-open-3d"
       onclick={open3d}
-      disabled={!canOpen3d || opening3d || detailingBusy}
+      disabled={!canOpen3d || detailingBusy}
+      aria-busy={opening3d ? 'true' : undefined}
       title={canOpen3d ? '' : t('detailing.scene.openBlocked')}
     >
       <span aria-hidden="true">◫</span>
@@ -329,8 +345,14 @@
 </div>
 
 <style>
-  /* The scope, next to the command that will run it. Secondary text, never a control. */
-  .cmd-scope { font-size: 0.68rem; color: var(--st-text-2); align-self: center; }
+  /*
+    `.cmd-scope` and `.cmd-all` are gone: F3 moved the design command and its scope read-out to
+    `RcStageTimeline`, which carries its own `.scope` and `.cmd-run`, and both rules have been
+    reported as unused on every build since. Deleted for the reason the two panels above it
+    record — a rule left behind after its markup leaves is a decoy, not a spare — and `.cmd-all`
+    is the sharper case: it is the green-bordered "run everything" paint, so the next reader
+    editing it would be editing the look of a button that is now defined elsewhere.
+  */
   .toolbar { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px;
     background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3); flex-shrink: 0; }
   /*
@@ -356,7 +378,6 @@
   .cmd:disabled { opacity: 0.4; cursor: not-allowed; }
   .cmd:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .cmd-primary { background: var(--st-surface-3); border-color: var(--st-info); color: var(--st-text); }
-  .cmd-all { background: var(--st-hair-strong); border-color: var(--st-ok); color: var(--st-text); }
   .cmd-cancel { background: var(--st-hair-strong); border-color: var(--st-accent); color: var(--st-text); }
   .split { position: relative; display: flex; }
   .cmd-caret { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 4px 6px; }
