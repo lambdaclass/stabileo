@@ -84,6 +84,18 @@ async function armSelect(page: Page) {
  * armed — a selection filter that selects nothing is not a state worth
  * having, so the last kind cannot be turned off. Removing first would hit
  * that floor and silently leave an extra kind on.
+ *
+ * The state is read from `aria-pressed`, which is the attribute the panel
+ * actually publishes: `SelectionPanel` renders plain toggle BUTTONS rather
+ * than radios-that-become-checkboxes, deliberately, because a radiogroup owes
+ * a roving tabindex the list never implemented. This read was `aria-checked`
+ * — always `null` on a button — and the two reads below therefore inverted
+ * each other: the first click armed a kind and the second, seeing `null`
+ * again, toggled it straight back off. The audit failed on the first
+ * two-kind permutation, in both viewports, and had done so from the start:
+ * this file carries no `@smoke` tag and CI's e2e job runs `--grep @smoke`,
+ * so it had never run remotely. Assert on the attribute the component
+ * documents, not on the one a checkbox would have had.
  */
 async function armKinds(page: Page, kinds: Kind[]) {
   const multi = page.getByTestId('multi-kind');
@@ -95,12 +107,12 @@ async function armKinds(page: Page, kinds: Kind[]) {
     if (!(await multi.isChecked())) await multi.check();
     for (const k of kinds) {
       const item = page.getByTestId(`select-mode-${k}`);
-      if ((await item.getAttribute('aria-checked')) !== 'true') await item.click();
+      if ((await item.getAttribute('aria-pressed')) !== 'true') await item.click();
     }
     for (const k of KINDS) {
       if (kinds.includes(k)) continue;
       const item = page.getByTestId(`select-mode-${k}`);
-      if ((await item.getAttribute('aria-checked')) === 'true') await item.click();
+      if ((await item.getAttribute('aria-pressed')) === 'true') await item.click();
     }
   }
 
