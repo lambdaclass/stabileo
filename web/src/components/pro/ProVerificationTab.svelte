@@ -32,6 +32,7 @@
   import type { QuantitySummary } from '../../lib/engine/quantity-takeoff';
   import type { SteelVerification } from '../../lib/engine/codes/argentina/cirsoc301';
   import SteelExperimentalBanner from './steel/SteelExperimentalBanner.svelte';
+  import SteelStatusBadge from './steel/SteelStatusBadge.svelte';
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
   import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
@@ -674,7 +675,9 @@
     return n.toFixed(2);
   }
 
-  const countOk = $derived(verifications.filter(v => v.overallStatus === 'ok').length + steelVerifications.filter(v => v.overallStatus === 'ok').length);
+  // Steel never counts toward ok: a CIRSOC 301 row is EXPERIMENTAL evidence, not a pass —
+  // there is no metallic design authority behind it (see engine/steel/steel-status.ts).
+  const countOk = $derived(verifications.filter(v => v.overallStatus === 'ok').length);
   const countFail = $derived(verifications.filter(v => v.overallStatus === 'fail').length + steelVerifications.filter(v => v.overallStatus === 'fail').length);
   const countWarn = $derived(verifications.filter(v => v.overallStatus === 'warn').length + steelVerifications.filter(v => v.overallStatus === 'warn').length);
 
@@ -1425,14 +1428,15 @@
             <thead><tr><th>Elem</th><th>Nu</th><th>Muz</th><th>Muy</th><th>Vu</th><th>{t('pro.interaction')}</th><th></th></tr></thead>
             <tbody>
               {#each steelVerifications as sv}
-                <tr class={statusClass(sv.overallStatus)} onclick={() => { toggleSteelExpand(sv.elementId); selectElementInViewport(sv.elementId); }} style="cursor:pointer">
+                <!-- No statusClass on the row: 'ok' from cirsoc301 is a computed number, not a pass. -->
+                <tr onclick={() => { toggleSteelExpand(sv.elementId); selectElementInViewport(sv.elementId); }} style="cursor:pointer">
                   <td class="col-id">{sv.elementId}</td>
                   <td class="col-num">{fmtNum(sv.Nu)}</td>
                   <td class="col-num">{fmtNum(sv.Muz)}</td>
                   <td class="col-num">{fmtNum(sv.Muy)}</td>
                   <td class="col-num">{fmtNum(sv.Vu)}</td>
                   <td class="col-num">{sv.interaction?.ratio != null ? sv.interaction.ratio.toFixed(2) : '—'}</td>
-                  <td class="col-status"><span class={statusClass(sv.overallStatus)}>{statusIcon(sv.overallStatus)}</span></td>
+                  <td class="col-status"><SteelStatusBadge status="EXPERIMENTAL" compact /></td>
                 </tr>
                 {#if expandedSteelId === sv.elementId}
                   <tr class="detail-row">

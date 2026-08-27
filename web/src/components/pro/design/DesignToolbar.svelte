@@ -333,7 +333,6 @@
   .cmd-scope { font-size: 0.68rem; color: var(--st-text-2); align-self: center; }
   .toolbar { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px;
     background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3); flex-shrink: 0; }
-  .code-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   /*
     Groups, not a row of buttons.
 
@@ -351,22 +350,6 @@
     color: var(--st-text-3);
   }
   .group-items { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .code-indicator {
-    display: inline-flex; align-items: baseline; gap: 6px;
-    padding: 4px 8px; border: 1px solid var(--st-surface-3); border-radius: 4px;
-    background: var(--st-surface-3); font-size: 0.78rem; white-space: nowrap;
-  }
-  .code-indicator.unbound { border-color: var(--st-hair-strong); background: var(--st-bg); }
-  .code-role { opacity: 0.7; }
-  .code-gate {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 0.78rem; color: var(--st-warn);
-  }
-  .code-gate-link {
-    background: none; border:  none; padding: 0; color: var(--st-info);
-    text-decoration: underline; cursor: pointer; font-size: inherit;
-  }
-  .code-name { font-weight: 600; }
   .cmd { padding: 4px 10px; background: var(--st-surface-3); border: 1px solid var(--st-info);
     border-radius: 4px; color: var(--st-text); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
   .cmd:hover:not(:disabled) { background: var(--st-hair-strong); }
@@ -387,7 +370,7 @@
 
   .progress { display: flex; align-items: center; gap: 8px; }
   .progress-bar { flex: 1; height: 5px; background: var(--st-surface-3); border-radius: 3px; overflow: hidden; }
-  .progress-fill { height: 100%; background: none; transition: width 0.15s linear; }
+  .progress-fill { height: 100%; background: var(--st-accent); transition: width 0.15s linear; }
   .progress-text { font-size: 0.7rem; color: var(--st-text-2); font-family: monospace; }
 
   /*
@@ -433,21 +416,28 @@
     font-size: 0.72rem;
     color: var(--st-warn);
   }
-  .counts { display: flex; gap: 9px; flex-wrap: wrap; font-size: 0.72rem; font-family: monospace; }
-  .count { color: var(--st-text-2); }
-  .count-sep { color: var(--st-text-3); }
-  /* `.c-fail` and `.c-sect` were both `--st-accent`: the brand vermillion, reading a result
-     as though it were an action. Both go to `--st-danger`. Worth stating plainly: they were
-     ALREADY indistinguishable from each other, and still are — this fixes the token, not
-     that. */
-  .c-ok { color: var(--st-ok); } .c-warn { color: var(--st-warn); } .c-fail { color: var(--st-danger); }
-  .c-unavail { color: var(--st-text-2); } .c-stale { color: var(--st-text); }
-  .c-sect { color: var(--st-danger); } .c-exh { color: var(--st-text); } .c-unsup { color: var(--st-text-2); }
-  /* The same violet the 3-D view paints a proposal with. Deliberately still a literal while
-     its neighbours are tokens: `three/rebar-scene.ts` owns this colour as a numeric hex for a
-     Three.js material, and `run-summary-reported.test.ts` asserts that this file agrees with
-     it by value. A `var()` here would break that agreement without replacing it. */
-  .c-prov { color: #a066d3; }
+  /*
+    MERGED (H1 → H2). Two deletions meet here, and both stand.
+
+    H1's, arriving by the base's hand: `.counts`, `.count`, `.count-sep` and the nine `.c-*`
+    styled nothing once H1 moved the regulation read-out and the member counts out of this bar
+    and into `DesignOverview.svelte`. Measured against this file's markup that is still exactly
+    right — none of those fourteen selectors appears in it.
+
+    Nothing of H1's is lost with them. Its correction — `.c-fail` and `.c-sect` off the brand
+    `--st-accent` and onto `--st-danger`, because a result must not read as an action — lives on
+    the surface that renders the counts, where `.tone-bad` is already `--st-danger`. And
+    `.c-prov`'s literal `#a066d3` was held equal to `three/rebar-scene.ts` by a gate that
+    `run-summary-reported.test.ts` has since moved onto the overview, with the reason written
+    into it: ".c-prov in the toolbar kept this green while styling nothing".
+
+    H2's: `.detailing-blockers` goes too, and for the same rule rather than against H1. H1 kept
+    it because H1's markup still rendered `detailing-prerequisites` here. H2 moved the detailing
+    command, its prerequisites and the auto-detailing preference to the DETALLE stage of
+    `RcStageTimeline.svelte`, which defines `.detailing-blockers` and `.detailing-auto` beside
+    the markup that uses them. Carrying H1's copy across would leave a second dead rule on this
+    surface — and `pro-design-workflow.spec.ts` asserts `toHaveCount(1)` on exactly those ids.
+  */
 
   .banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     padding: 5px 9px; border-radius: 4px; font-size: 0.73rem; line-height: 1.45; }

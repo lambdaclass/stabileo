@@ -107,10 +107,21 @@ test.describe('arming the analysis', () => {
 
     await page.locator('.ssp-close').first().click();
     await expect(page.locator('.ssp-panel')).toHaveCount(0);
-    // Stress mode has no visible control of its own, so being left in it is
-    // unrecoverable. The Select tool being active again is the observable
-    // proof that it was disarmed.
-    await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveClass(/on|active/);
+    /*
+     * Stress mode has no visible control of its own, so being left in it is
+     * unrecoverable.
+     *
+     * Checked on the STATE rather than on a lit button. It used to look for a
+     * ribbon command called "Select" and assert its highlight, and there is no
+     * such command any more: the pointer mode moved onto the model, and what
+     * the ribbon now calls Selection is the panel that chooses which KINDS get
+     * picked up. Reading the armed kinds asks the question the test means —
+     * "is the pointer back to selecting things" — and does not care where the
+     * control that sets it happens to live.
+     */
+    await expect
+      .poll(() => page.evaluate(() => window.__stabileo.armedKinds()))
+      .not.toContain('stress');
   });
 });
 

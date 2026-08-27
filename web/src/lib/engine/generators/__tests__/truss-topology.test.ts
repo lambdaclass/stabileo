@@ -9,7 +9,8 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, generateTruss, validateTrussParams,
+  DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, MAX_PANELS_PER_HALF,
+  generateTruss, validateTrussParams,
   type Topology, type TrussKind, type TrussParams,
 } from '../truss-topology';
 
@@ -243,6 +244,25 @@ describe('generateTruss — slope is derived, never asserted', () => {
     expect(generateTruss(P({ spanM: 10, riseM: 1, halfTruss: true })).slopePercent).toBeCloseTo(10, 9);
   });
 
+  it('with a plateau, reports the slope the rafters actually have', () => {
+    // The plateau flattens the central 3 m, so the 1 m rise is spent over 5 − 1.5 = 3.5 m
+    // of run: 28.57 %, not the 20 % a plain rise-over-half-span would claim.
+    const t = generateTruss(P({ kind: 'trapezoidal', spanM: 10, riseM: 1, plateauM: 3, panelsPerHalf: 10 }));
+    expect(t.slopePercent).toBeCloseTo((1 / 3.5) * 100, 9);
+
+    // And that is the number the purlins roll to: the steepest chord segment IS the
+    // reported slope, so the model and the preview cannot disagree.
+    const half = t.nodes.length / 2;
+    const top = t.nodes.slice(half).sort((a, b) => a.x - b.x);
+    let steepest = 0;
+    for (let i = 1; i < top.length; i++) {
+      const run = top[i].x - top[i - 1].x;
+      if (run < 1e-9) continue;
+      steepest = Math.max(steepest, ((top[i].z - top[i - 1].z) / run) * 100);
+    }
+    expect(steepest).toBeCloseTo(t.slopePercent!, 6);
+  });
+
   it('reports no slope where the top chord is level', () => {
     expect(generateTruss(P({ kind: 'pratt' })).slopePercent).toBeNull();
     expect(generateTruss(P({ kind: 'trapezoidal', riseM: 0, endDepthM: 1 })).slopePercent).toBeNull();
@@ -329,6 +349,21 @@ describe('validateTrussParams — reports everything at once', () => {
   it('refuses a plateau at least as long as the span', () => {
     expect(validateTrussParams(P({ kind: 'trapezoidal', spanM: 10, plateauM: 10 })).map((x) => x.key))
       .toContain('generator.problem.plateauExceedsSpan');
+  });
+
+  it('rejects NaN wherever it rejects a negative', () => {
+    // `x < 0` is false for NaN, so a NaN depth or rise would pass a `< 0` check and sail
+    // into the geometry. The guards are `!(x >= 0)` precisely so they catch it.
+    const problems = validateTrussParams(P({ endDepthM: NaN, riseM: NaN, plateauM: NaN }));
+    expect(problems.map((x) => x.key)).toContain('generator.problem.negative');
+    expect(problems.map((x) => x.field))
+      .toEqual(expect.arrayContaining(['endDepthM', 'riseM', 'plateauM']));
+  });
+
+  it('refuses a panel count the tab could not survive building', () => {
+    expect(validateTrussParams(P({ panelsPerHalf: MAX_PANELS_PER_HALF + 1 })).map((x) => x.key))
+      .toContain('generator.problem.tooManyPanels');
+    expect(validateTrussParams(P({ panelsPerHalf: MAX_PANELS_PER_HALF }))).toEqual([]);
   });
 
   it('stops the generator rather than producing a degenerate truss', () => {

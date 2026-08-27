@@ -42,6 +42,13 @@ function walk(dir: string, out: string[] = []): string[] {
  *
  * A key built by concatenation — `t('a.' + b)` — is invisible here, which is
  * one more reason the codebase writes them out in full.
+ *
+ * It is not the only blind spot, and the other one is bigger: a key held in a
+ * DATA STRUCTURE and passed as a variable — `t(cmd.labelKey)` — is equally
+ * invisible. The whole ribbon is built that way, and 41 of its keys were
+ * missing from Portuguese while this guard reported full coverage. The
+ * namespace check below closes that: whatever the call site looks like, a
+ * namespace the UI uses must exist in all three dictionaries.
  */
 function usedKeys(): Set<string> {
   const keys = new Set<string>();
@@ -128,4 +135,44 @@ describe('Basic mode is fully translated', () => {
     }
     expect(issues).toEqual([]);
   });
+});
+
+/**
+ * Namespaces every Basic surface draws from, checked as WHOLE namespaces.
+ *
+ * The scan above can only see literal `t('...')` calls. These namespaces are
+ * populated from data structures — ribbon commands, catalogue notes, grade
+ * sources — where the key is a field and reaches `t()` as a variable. Nothing
+ * in the source text says they are used at all.
+ *
+ * So they are checked by key parity instead: English is the reference, and a
+ * key it has here must exist in the other two. That is a stricter test than
+ * the scan and a weaker one than checking they are all reachable, which is the
+ * right trade — an unused translated key costs nothing; a missing one ships
+ * English to a Spanish reader.
+ */
+describe('namespaces filled from data, which the scan cannot see', () => {
+  /*
+   * `float.` and `selection.` earn their place the same way `ribbon.` did:
+   * the list of what a drag can pick up is an array of records, and its
+   * labels reach `t()` as `t(m.key)`. `float.selectShells` was missing from
+   * Portuguese with every other check green.
+   */
+  const NAMESPACES = [
+    'ribbon.', 'cat.', 'grade.src.', 'stress.tt.', 'pairing.',
+    'float.', 'selection.', 'config.tip.', 'switch2d.',
+  ];
+
+  for (const ns of NAMESPACES) {
+    it(`${ns}* is complete in es and pt`, () => {
+      const keys = writtenKeys('en').filter((k) => k.startsWith(ns));
+      expect(keys.length, `${ns} must actually have keys`).toBeGreaterThan(0);
+
+      for (const lang of ['es', 'pt']) {
+        const have = new Set(writtenKeys(lang));
+        const missing = keys.filter((k) => !have.has(k));
+        expect(missing, `${lang} is missing:\n${missing.join('\n')}`).toEqual([]);
+      }
+    });
+  }
 });

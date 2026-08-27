@@ -139,6 +139,23 @@ Son decisiones tomadas y documentadas. Reportarlas otra vez cuesta tiempo a todo
 
 ---
 
+## 6 bis. Dos cosas que cambiaron al integrar la base (2026-08-26)
+
+`feat/pro-steel-family` avanzó 44 commits mientras H1 estaba cerrada, y el merge trajo dos
+cambios **visibles** que la guía escrita antes no describe. No son defectos: mirálos y confirmá
+que se comportan así.
+
+| qué | antes en H1 | ahora | por qué |
+|---|---|---|---|
+| la barra de progreso de una corrida | invisible — `background: none` | se llena con el color de acción de la app | la base restauró un relleno que la base común había dejado vacío. Al lado sigue el contador en texto: el porcentaje **no** se lee del color |
+| el chip de propuestas en el resumen de diseño | tono ámbar, igual que una advertencia | tono violeta propio | una propuesta no es algo que salió mal. Es el mismo violeta que el visor 3-D le pone al acero provisional y que el badge de `OutcomeBadge` ya usaba |
+
+Lo que **sí** hay que reportar de estos dos: que el violeta del chip y el del visor 3-D se vean
+distintos entre sí. Están atados por un test que compara el color resuelto, así que si a ojo no
+coinciden, hay algo real que mirar.
+
+---
+
 ## 7. Lo que ningún test cubre — mirá acá primero
 
 Por orden de probabilidad de encontrar algo:

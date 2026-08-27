@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SHED_PARAMS, generateShed, validateShedParams, type ShedParams } from '../shed';
+import { DEFAULT_SHED_PARAMS, MAX_SHED_FRAMES, generateShed, validateShedParams, type ShedParams } from '../shed';
 import type { MemberRole } from '../member-roles';
 
 const P = (over: Partial<ShedParams> = {}): ShedParams => ({
@@ -205,6 +205,27 @@ describe('generateShed — purlins', () => {
   });
 });
 
+describe('generateShed — provenance claims only what the building has', () => {
+  it('does not claim a roller: the truss supports are not in the shed', () => {
+    const shed = generateShed(P({ roof: true, purlins: true, frames: 3 }));
+    expect(shed.assumptions).not.toContain('generator.assume.supportsSimple');
+    expect(shed.supports.every((s) => s.type !== 'rollerX')).toBe(true);
+    // The truss's own assumptions still hold for its members and must survive.
+    expect(shed.assumptions).toContain('generator.assume.chordsContinuous');
+    expect(shed.assumptions).toContain('generator.assume.webPinned');
+  });
+
+  it('still records the base fixity the shed actually stands on', () => {
+    const fixed = generateShed(P({ columnKind: 'lattice', fixedBase: true, frames: 2 }));
+    expect(fixed.assumptions).toContain('generator.assume.baseFixed');
+    const pinned = generateShed(P({
+      columnKind: 'lattice', fixedBase: false, frames: 2,
+      column: { ...DEFAULT_SHED_PARAMS.column, fixedBase: false },
+    }));
+    expect(pinned.assumptions).toContain('generator.assume.baseChordsPinned');
+  });
+});
+
 describe('generateShed — every truss kind assembles', () => {
   it.each(['trapezoidal', 'parallelChord', 'pratt', 'arch'] as const)('%s', (kind) => {
     const shed = generateShed(P({
@@ -270,6 +291,12 @@ describe('validateShedParams', () => {
   it('needs at least two frames to be a building', () => {
     expect(validateShedParams(P({ frames: 1 })).map((x) => x.key))
       .toContain('generator.problem.framesAtLeastTwo');
+  });
+
+  it('refuses a frame count the tab could not survive building', () => {
+    expect(validateShedParams(P({ frames: MAX_SHED_FRAMES + 1 })).map((x) => x.key))
+      .toContain('generator.problem.tooManyFrames');
+    expect(validateShedParams(P({ frames: MAX_SHED_FRAMES }))).toEqual([]);
   });
 
   it('carries the truss\'s own problems up rather than swallowing them', () => {

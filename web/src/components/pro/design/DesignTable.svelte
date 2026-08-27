@@ -210,8 +210,8 @@
   .row:hover td { background: var(--st-surface-3); }
   .row.focused td { background: var(--st-surface-3); box-shadow: inset 2px 0 0 var(--st-value); }
   .row.expanded td { background: var(--st-surface-3); }
-  .row-fail td { color: var(--st-text); }
-  .row-warn td { color: var(--st-text); }
+  .row-fail td { color: var(--st-danger); }
+  .row-warn td { color: var(--st-warn); }
   .row-unavailable td { color: var(--st-text-2); }
   .row-stale td { color: var(--st-text); }
   .col-chk { width: 22px; }

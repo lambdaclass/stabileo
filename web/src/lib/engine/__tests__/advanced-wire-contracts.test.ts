@@ -10,12 +10,21 @@
  * where it wants parameters per material, the section analyser sent a named
  * shape where it wants polygons, and so on. Every one of them failed at the
  * deserialiser with "Parse error: missing field ...", which the panel then
- * displayed as the single word "Error".
+ * displayed as the single word "Error". (Contact and time history were the
+ * exceptions: their payloads hit no field at all — `contactElements` on one,
+ * the 2D `groundAccel`/`groundDirection` pair on the other — and with no
+ * `deny_unknown_fields` serde dropped them silently, so the "contact" solve
+ * ran as a plain linear one and the time history ran with zero ground
+ * motion.)
  *
- * These tests call the same wrappers with the same payload shapes the panel
- * builds. They are contract tests: a payload that no longer parses is a
- * regression, whatever the numbers come out as. They need the real WASM
- * engine, because the deserialiser IS the thing under test.
+ * These tests call the same wrappers with payload shapes hand-copied from
+ * the panel — nothing enforces the match, so when the panel changes, update
+ * these by hand. The contact and time-history tests below additionally
+ * assert that the input actually reaches the solver, because a parse-only
+ * check cannot catch a payload the deserialiser silently ignores. They are
+ * contract tests: a payload that no longer parses is a regression, whatever
+ * the numbers come out as. They need the real WASM engine, because the
+ * deserialiser IS the thing under test.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
@@ -26,6 +35,7 @@ import {
   solveHarmonic3D, solveSSI3D, solveStaged3D, solveCreepShrinkage3D,
   solveWithImperfections3D, computeInfluenceLine3D, solveMultiCase3D,
   analyzeSection, solveConstrained3D, solveWinkler3D, solveContact3D,
+  solveTimeHistory3D,
   solveArcLength, solveDisplacementControl, solveCable2D, guyanReduce2D,
   craigBampton2D,
 } from '../wasm-solver';
@@ -172,13 +182,52 @@ describe('advanced analyses: 3D payloads the engine accepts', () => {
     expect(res.results, 'Winkler has no nested results field').toBeUndefined();
   });
 
-  it('contact returns a wrapper with an iteration count', () => {
+  it('time history takes one ground series per axis, and the motion reaches the solver', () => {
+    const accel = Array.from({ length: 50 }, (_, i) => 0.3 * Math.sin(2 * Math.PI * 2 * i * 0.02));
+    const base = {
+      solver: input3D(), densities: densities(),
+      timeStep: 0.02, nSteps: 50, method: 'newmark', beta: 0.25, gamma: 0.5, dampingXi: 0.05,
+    };
+    const peak = (r: any) => Math.max(
+      ...r.peakDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0)),
+    );
+    const res = solveTimeHistory3D({ ...base, groundAccelX: accel });
+    // The old payload sent the 2D pair { groundAccel, groundDirection },
+    // which hit no field on TimeHistoryInput3D: `has_ground` stayed false
+    // and the run fell back to the static loads as the only excitation. If
+    // the per-axis series is ever dropped again, `res` degenerates to
+    // exactly this — so the two peaks must differ.
+    const dropped = solveTimeHistory3D({ ...base, groundAccel: accel, groundDirection: 'X' });
+    expect(res.nSteps).toBe(50);
+    expect(peak(res)).toBeGreaterThan(0);
+    expect(
+      Math.abs(peak(res) - peak(dropped)),
+      'a run whose ground motion arrived must not match a zero-ground run',
+    ).toBeGreaterThan(1e-6);
+  });
+
+  it('contact takes element behaviors keyed on the element id, and they engage', () => {
+    // Push the left column down along its own axis so it is unambiguously in
+    // compression (the fixture's own loads land off-axis and leave it in
+    // tension): a tension-only behavior must then knock it out. A
+    // behavior-less linear solve reports an EMPTY elementStatus — if the
+    // engine ignores the map (as it did with the old `contactElements`
+    // payload, which hit no field and was silently dropped), both
+    // assertions below fail.
+    const columnId = [...modelStore.elements.keys()][0];
+    const topLeft = [...modelStore.nodes.values()].find(n => n.x === 0 && n.z === 3)!;
+    modelStore.addNodalLoad3D(topLeft.id, 0, 0, -50, 0, 0, 0);
     const res = solveContact3D({
       solver: input3D(),
-      contactElements: [{ elementId: [...modelStore.elements.keys()][0], behavior: 'tensionOnly' }],
+      // `ContactInput3D.element_behaviors`; the engine matches the exact
+      // snake_case strings 'tension_only' / 'compression_only'.
+      elementBehaviors: { [String(columnId)]: 'tension_only' },
     });
     expect(res.results.displacements.length).toBeGreaterThan(0);
     expect(typeof res.iterations).toBe('number');
+    const column = res.elementStatus.find((s: { elementId: number }) => s.elementId === columnId);
+    expect(column, 'the behavior should produce a status entry').toBeTruthy();
+    expect(column.status, 'a compressed tension-only column should go slack').toBe('inactive');
   });
 
   it('the section analyser takes polygons, not a named shape', () => {

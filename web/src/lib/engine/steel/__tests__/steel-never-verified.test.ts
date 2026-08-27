@@ -86,6 +86,7 @@ describe('the metallic components', () => {
     'components/pro/steel/SteelExperimentalBanner.svelte',
     'components/pro/generators/ProGeneratorsPanel.svelte',
     'components/pro/ProConnectionsTab.svelte',
+    'components/pro/ProVerificationTab.svelte',
   ];
 
   it('never name a VERIFIED status of their own', () => {
@@ -101,5 +102,17 @@ describe('the metallic components', () => {
     // the number is worth before showing it.
     expect(read('components/pro/steel/SteelPanel.svelte')).toMatch(/experimentalBanner|SteelExperimentalBanner/);
     expect(read('components/pro/ProConnectionsTab.svelte')).toMatch(/conn\.experimentalBanner/);
+  });
+
+  it('the verification tab shows no steel row through the green-tick path', () => {
+    // `statusIcon`/`statusClass` map 'ok' to ✓ and green. A steel row's `overallStatus`
+    // comes from the untested CIRSOC 301 table, so routing the row through that path is the
+    // green tick this branch exists to kill. Steel rows render the steel-status vocabulary
+    // instead, and no steel row may be counted as ok in the summary header.
+    const tab = read('components/pro/ProVerificationTab.svelte');
+    expect(tab).not.toMatch(/statusIcon\(sv\.overallStatus\)/);
+    expect(tab).not.toMatch(/statusClass\(sv\.overallStatus\)/);
+    expect(tab).not.toMatch(/steelVerifications\.filter\([^)]*overallStatus === 'ok'/);
+    expect(tab).toMatch(/SteelStatusBadge/);
   });
 });

@@ -9,6 +9,7 @@ import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import type { TabState } from './tabs.svelte';
+import { resetSwitchBackup } from './switch-2d';
 import { t } from '../i18n';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import {
@@ -184,6 +185,10 @@ export function deserializeProject(text: string): boolean {
   // A file written before these fields existed hydrates to "we do not know", not to "none".
   hydrateProjectProvenance(data.snapshot);
   modelStore.model.name = data.name;
+  // A different model now occupies the store: any 3D original held for the
+  // simplified-2D round trip belongs to the model that was just replaced, and
+  // restoring it from here on would wipe THIS one. (See switch-2d.ts.)
+  resetSwitchBackup();
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
   // Restoring analysisMode below already yields the right appMode.

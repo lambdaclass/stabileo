@@ -754,6 +754,10 @@
     // `pro.tabConnections` would have put "Uniones metálicas" on the ribbon and "Conexiones"
     // on the panel it opens, which is two names for one place.
     connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
+    // Same rule for the two metallic destinations: the heading repeats the ribbon command
+    // (`proRibbon.cmdSteelStructures` / `proRibbon.cmdSteelProfiles`), not the fallback
+    // "Nodes" the map used to produce for both.
+    steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
   };
 </script>
 

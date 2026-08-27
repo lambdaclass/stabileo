@@ -163,8 +163,12 @@
           <span class="n">{counts.warn}</span>
           <span class="label">{t('design.counts.warn')}</span>
         </li>
-        <!-- A proposal is its own thing: neither a pass nor a failure, and never folded into one. -->
-        <li class="row tone-warn" data-testid="summary-count-provisional">
+        <!--
+          A proposal is its own thing: neither a pass nor a failure, and never folded into one.
+          It gets its own tone — the violet every other surface paints a proposal with — rather
+          than the amber of a warning, because a retained candidate is not something gone wrong.
+        -->
+        <li class="row tone-prov" data-testid="summary-count-provisional">
           <span class="glyph" aria-hidden="true">◐</span>
           <span class="n">{counts.provisional}</span>
           <span class="label">{t('design.counts.provisional')}</span>
@@ -284,6 +288,23 @@
   .tone-warn .glyph { color: var(--st-warn); }
   .tone-bad .glyph, .tone-bad .n { color: var(--st-danger); }
   .tone-muted { color: var(--st-text-3); }
+  /*
+     The same violet the 3-D view paints provisional steel with, and `OutcomeBadge`,
+     `RebarStatusPanel` and `ProvisionalBanner` name the state with.
+
+     MERGED. This chip arrives from `feat/pro-steel-family` as the literal `#a066d3`, with a
+     comment explaining that a `var()` would break the agreement with `three/rebar-scene.ts`,
+     which feeds `0xa066d3` to a Three.js material and cannot read a custom property. That was
+     true when it was written and is not true here: H1 created `--st-provisional` for exactly
+     this, and rule 3 of `shared-status-tokens.test.ts` holds it equal to what Three.js paints,
+     compared as a RESOLVED colour. The agreement is kept by a test rather than by two copies of
+     a hex, which is the stronger of the two arrangements — and it is the same conclusion H1
+     already reached one file over, in `OutcomeBadge`'s `.badge-provisional`.
+
+     So the token, not the literal: `concrete-design-raw-colours.test.ts` gives this file a
+     ceiling of zero and it stays at zero, with nothing about the colour left to chance.
+  */
+  .tone-prov .glyph, .tone-prov .n { color: var(--st-provisional); }
 
   .open3d { display: flex; flex-direction: column; gap: 0.2rem; }
   .open3d-btn {

@@ -220,9 +220,10 @@ test.describe('@smoke floor conflicts and review', () => {
      * This used to fill the engineer, press `review-submit` and assert a `review-error` came
      * back. That journey no longer exists: H1 disabled the button until there is an engineer and
      * the provisional calculations are acknowledged, and moved the reasons next to it as
-     * `review-blockers`. D7 in `detailing.spec.ts` was moved to that contract in `76e9180c` and
-     * this test and F6 were not, so both sat red against a control that can no longer be
-     * clicked. Same contract, asserted the same way here.
+     * `review-blockers`. The production change was correct and these tests were simply left
+     * behind it, measuring a control that can no longer be clicked. D7 in `detailing.spec.ts`
+     * was moved to that contract in `76e9180c` and this test and F6 were not, so both sat red.
+     * Same contract, asserted the same way here.
      */
     await openDocuments(page);
     await page.getByTestId('review-engineer').fill('Ing. R. Pérez');
@@ -236,6 +237,8 @@ test.describe('@smoke floor conflicts and review', () => {
     // And it names WHICH one, so the refusal is actionable.
     await expect(blockers).toContainText('assembly');
 
+    // The acknowledgement is what the refusal asked for, so the control opens — the other half
+    // of the gate, and the reason this is not merely an assertion that a button is grey.
     await page.getByTestId('ack-assembly').check();
     await expect(page.getByTestId('review-submit')).toBeEnabled();
     await page.getByTestId('review-submit').click();

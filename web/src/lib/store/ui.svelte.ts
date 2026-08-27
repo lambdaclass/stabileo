@@ -121,6 +121,26 @@ function createUIStore() {
   let selectMode = $state<SelectMode>('elements');
 
   /**
+   * Selecting more than one KIND of thing at a time.
+   *
+   * Off by default, and that default is the point: with one kind active a click
+   * on a node that carries a support and a load has exactly one meaning, and
+   * the status bar can say what was selected without qualifying it. Turning
+   * this on trades that certainty for reach — useful when you want the nodes
+   * AND the supports of a storey in one drag, and confusing as a permanent
+   * setting.
+   *
+   * `selectMode` stays the primary kind, because two dozen callers read it and
+   * because the special modes — section stress, shells — are single by nature:
+   * a stress query is a question about one point, and shells share an id space
+   * with frame elements so mixing them would mis-resolve a Delete.
+   */
+  let multiKindSelect = $state<boolean>(false);
+
+  /** Kinds a click or a drag picks up. Never empty: one is always active. */
+  let selectKinds = $state<Set<SelectMode>>(new Set(['elements']));
+
+  /**
    * Called when a build tool is armed, so the results view can stand down.
    *
    * A hook rather than a direct call: this store must not import the results
@@ -164,6 +184,16 @@ function createUIStore() {
 
   // Visualization toggles
   let showNodeLabels = $state<boolean>(true);
+  /**
+   * The colour-map scale, bottom-left of the viewport.
+   *
+   * On by default: a gradient with no scale says where the peaks are and not
+   * how big they are, which is half the information and the half people
+   * assume. It is a preference rather than a fixed part of the drawing because
+   * a reader comparing two models side by side already knows the scale and
+   * wants the pixels back.
+   */
+  let showColourScale = $state<boolean>(true);
   let showElementLabels = $state<boolean>(false);
   let showLengths = $state<boolean>(false);
   let elementColorMode = $state<ElementColorMode>('uniform');
@@ -310,9 +340,33 @@ function createUIStore() {
   // 'yz' = Y horizontal, Z vertical
   let drawPlane2D = $state<'xy' | 'xz' | 'yz'>('xy');
 
-  // Simplified 2D model mode — when a 3D model is projected to 2D, editing is disabled
+  /**
+   * Whether the "what do we carry into 2D" dialog is open.
+   *
+   * State rather than a component-local flag because the thing that OPENS it
+   * — the ribbon's dimension button — and the dialog itself live in different
+   * subtrees, and passing a callback down through the ribbon's command table
+   * would put a piece of this workflow inside a data structure that describes
+   * buttons.
+   */
+  let switchTo2DPrompt = $state(false);
+
+  // Simplified 2D model mode — when a 3D model is projected or sliced to 2D,
+  // editing is disabled: the model on screen is a derivative, and an edit to it
+  // would have nowhere to go back to in the 3D original.
   let simplified2DMode = $state(false);
-  let simplified2DStats = $state<{ mergedNodes: number; removedElements: number; duplicateElements: number } | null>(null);
+  /**
+   * What the conversion did, for the banner.
+   *
+   * The dropped counts and the plane are optional because a projection has no
+   * cut to report and the older callers do not set them — an absent count is
+   * "not applicable here", which is what the banner needs to distinguish.
+   */
+  let simplified2DStats = $state<{
+    mergedNodes: number; removedElements: number; duplicateElements: number;
+    droppedCrossing?: number; droppedElsewhere?: number; droppedLoads?: number;
+    plane?: 'xy' | 'xz' | 'yz'; offset?: number;
+  } | null>(null);
   // Explicit 3D viewport presentation mode.
   // `upright2dIn3d` is only for flat 2D models intentionally shown standing up on XZ.
   let viewportPresentation3D = $state<ViewportPresentation3D>('native3d');
@@ -416,6 +470,10 @@ function createUIStore() {
       selectedElements = new Set();
     }
     selectMode = v;
+    // The set follows the primary kind whenever multi is off, so the two can
+    // never disagree about what a single-kind selection means.
+    if (!multiKindSelect) selectKinds = new Set([v]);
+    else selectKinds = new Set([...selectKinds, v]);
   }
 
   return {
@@ -513,6 +571,45 @@ function createUIStore() {
     get selectMode() { return selectMode; },
     set selectMode(v: SelectMode) { applySelectMode(v); },
 
+    get multiKindSelect() { return multiKindSelect; },
+    /**
+     * Turning it OFF collapses to the primary kind rather than to whatever
+     * happens to be first in the set: the user picked that one, and a setting
+     * that resets to something else on being switched off is a setting that
+     * loses work.
+     */
+    set multiKindSelect(v: boolean) {
+      multiKindSelect = v;
+      if (!v) selectKinds = new Set([selectMode]);
+    },
+
+    get selectKinds() { return selectKinds; },
+
+    /** Whether a click or a drag currently picks up this kind of thing. */
+    selectsKind(k: SelectMode): boolean {
+      return multiKindSelect ? selectKinds.has(k) : selectMode === k;
+    },
+
+    /**
+     * Add or remove a kind, only meaningful while multi is on.
+     *
+     * Refuses to remove the last one: a selection tool that selects nothing is
+     * not a mode, it is a broken tool, and the user would have to guess that
+     * ticking something is what brings it back.
+     */
+    toggleSelectKind(k: SelectMode): void {
+      if (!multiKindSelect) { applySelectMode(k); return; }
+      const next = new Set(selectKinds);
+      if (next.has(k)) {
+        if (next.size === 1) return;
+        next.delete(k);
+        if (selectMode === k) selectMode = [...next][0];
+      } else {
+        next.add(k);
+      }
+      selectKinds = next;
+    },
+
     get selectedNodes() { return selectedNodes; },
     get selectedElements() { return selectedElements; },
     get selectedLoads() { return selectedLoads; },
@@ -578,6 +675,9 @@ function createUIStore() {
 
     get showNodeLabels() { return showNodeLabels; },
     set showNodeLabels(v: boolean) { showNodeLabels = v; },
+
+    get showColourScale() { return showColourScale; },
+    set showColourScale(v: boolean) { showColourScale = v; },
     get showElementLabels() { return showElementLabels; },
     set showElementLabels(v: boolean) { showElementLabels = v; },
     get showLengths() { return showLengths; },
@@ -779,6 +879,8 @@ function createUIStore() {
     _setModelFlatnessProvider(fn: () => boolean) { _isModelFlat2D = fn; },
     get drawPlane2D() { return drawPlane2D; },
     set drawPlane2D(v: 'xy' | 'xz' | 'yz') { drawPlane2D = v; },
+    get switchTo2DPrompt() { return switchTo2DPrompt; },
+    set switchTo2DPrompt(v: boolean) { switchTo2DPrompt = v; },
     get simplified2DMode() { return simplified2DMode; },
     set simplified2DMode(v: boolean) { simplified2DMode = v; },
     get simplified2DStats() { return simplified2DStats; },

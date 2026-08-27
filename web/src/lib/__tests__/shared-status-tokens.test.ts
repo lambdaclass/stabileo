@@ -400,6 +400,13 @@ describe('--st-accent stays an action, not a status', () => {
       + 'outlines destructive controls with. A border, so the 3:1 bar applies and it clears it.',
     'RebarEditorBeam.svelte|.mini-rm { color: var(--st-text-2); border-color: var(--st-accent); }':
       'action — the remove button. Border again, and the label is --st-text-2.',
+    'DesignToolbar.svelte|.progress-fill { height: 100%; background: var(--st-accent); transition: width 0.15s linear; }':
+      'action — the fill of the run\'s own progress bar, and the accent is what this '
+      + 'application paints an action in progress with. Not a status: it says nothing about any '
+      + 'member, and the run\'s state is the words beside it. Nor a contrast site — it is a '
+      + 'decorative fill inside a track, with the count written next to it in --st-text-2, so '
+      + 'nothing here is read off the colour. Arrived from feat/pro-steel-family, which restored '
+      + 'a fill that the merge base had left at `background: none` — an invisible progress bar.',
     "RebarSchematics.svelte|fill={bar.index < 4 ? 'var(--st-accent)' : 'var(--st-warn)'}":
       'neither — it distinguishes corner bars from intermediate ones in a diagram, which is data '
       + 'and not a verdict. Left alone rather than renamed: worth noting, though, that the same '

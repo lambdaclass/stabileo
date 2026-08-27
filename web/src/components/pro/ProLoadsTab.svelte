@@ -988,7 +988,6 @@
 
   /* Load Cases */
   .pro-cases-section { border-bottom: 1px solid var(--st-surface-3); padding: 6px 10px; }
-  .pro-section-label { font-size: 0.78rem; color: var(--st-text-2); font-weight: 600; cursor: pointer; padding: 2px 0; }
   .pro-section-content { padding: 6px 0 2px; }
 
   /* Load case table */
@@ -1034,11 +1033,16 @@
   .case-x { background: none; border:  none; color: var(--st-text-3); font-size: 0.8rem; cursor: pointer; padding: 0 0 0 4px; line-height: 1; }
   .case-x:hover { color: var(--st-danger); }
 
+  /*
+     One hue per case type, all five distinguishable at 6px. D keeps the old turquoise's
+     job via its token successor; Lr takes the green so it stops colliding with L's amber.
+     These are category marks, not status — the table's own column, not a verdict.
+  */
   .case-type-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st-text-3); flex-shrink: 0; }
-  .case-type-dot.type-d { background: none; }
+  .case-type-dot.type-d { background: var(--st-value); }
   .case-type-dot.type-l { background: var(--st-warn); }
   .case-type-dot.type-w { background: var(--st-info); }
-  .case-type-dot.type-lr { background: var(--st-warn); }
+  .case-type-dot.type-lr { background: var(--st-ok); }
   .case-type-dot.type-e { background: var(--st-accent); }
 
   .pro-case-add {

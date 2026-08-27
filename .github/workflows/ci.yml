@@ -11,6 +11,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -18,8 +19,15 @@ jobs:
         with:
           components: clippy, rust-src
 
+      # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
+      # here hangs the job until the 6 h default timeout (seen on main and on
+      # PR #154, 2026-08-19 — the job sat in this step for over an hour). The
+      # step timeout turns the hang into a fast failure.
       - name: Install mold linker
-        run: sudo apt-get update && sudo apt-get install -y mold
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -36,6 +44,7 @@ jobs:
   # equal the old combined filter's count).
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -43,8 +52,15 @@ jobs:
         with:
           components: rust-src
 
+      # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
+      # here hangs the job until the 6 h default timeout (seen on main and on
+      # PR #154, 2026-08-19 — the job sat in this step for over an hour). The
+      # step timeout turns the hang into a fast failure.
       - name: Install mold linker
-        run: sudo apt-get update && sudo apt-get install -y mold
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -111,8 +127,15 @@ jobs:
         with:
           components: rust-src
 
+      # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
+      # here hangs the job until the 6 h default timeout (seen on main and on
+      # PR #154, 2026-08-19 — the job sat in this step for over an hour). The
+      # step timeout turns the hang into a fast failure.
       - name: Install mold linker
-        run: sudo apt-get update && sudo apt-get install -y mold
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -137,8 +160,15 @@ jobs:
         with:
           components: rust-src
 
+      # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
+      # here hangs the job until the 6 h default timeout (seen on main and on
+      # PR #154, 2026-08-19 — the job sat in this step for over an hour). The
+      # step timeout turns the hang into a fast failure.
       - name: Install mold linker
-        run: sudo apt-get update && sudo apt-get install -y mold
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:

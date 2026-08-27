@@ -229,14 +229,15 @@ test.describe('@smoke the review gate on generated work', () => {
      * This used to click `review-submit` unnamed and assert a `review-error` came back. That
      * journey is no longer possible, and the change is deliberate: H1 disabled the button until
      * there is an engineer and the provisional calculations are acknowledged, and moved the
-     * reasons NEXT TO it as `review-blockers`. Its manual-QA guide states the contract — "the
+     * reasons NEXT TO it as `review-blockers`. `h1-manual-qa.md` states the contract — "the
      * button is disabled until you put your name in and accept the provisional calculations, and
      * the reasons are written beside it. If the button is grey with no explanation, THAT is a
      * bug."
      *
      * So the assertion moves from "clicking it errors" to "it refuses in advance and names what
      * is missing", which is the stronger claim: a reason you read before pressing beats an error
-     * you get after.
+     * you get after. Nothing in production changed to make this pass — the test was measuring a
+     * control that had already moved.
      */
     const submit = page.getByTestId('review-submit');
     await expect(submit, 'unnamed, it refuses in advance').toBeDisabled();

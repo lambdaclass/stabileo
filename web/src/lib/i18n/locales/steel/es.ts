@@ -112,6 +112,8 @@ const steelEs: Record<string, string> = {
   'generator.problem.panelsAtLeastOne': 'Tiene que haber al menos un panel por mitad.',
   'generator.problem.divisionsAtLeastOne': 'Tiene que haber al menos una división.',
   'generator.problem.framesAtLeastTwo': 'Una nave necesita al menos dos pórticos.',
+  'generator.problem.tooManyPanels': 'Más paneles por mitad de los que el generador construye.',
+  'generator.problem.tooManyFrames': 'Más pórticos de los que el generador construye.',
   'generator.problem.negative': 'El valor no puede ser negativo.',
   'generator.problem.heightPositive': 'La altura tiene que ser mayor que cero.',
   'generator.problem.widthPositive': 'El ancho tiene que ser mayor que cero.',

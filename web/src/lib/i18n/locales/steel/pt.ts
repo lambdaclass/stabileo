@@ -118,6 +118,8 @@ const steelPt: Record<string, string> = {
   'generator.problem.panelsAtLeastOne': 'É preciso haver ao menos um painel por metade.',
   'generator.problem.divisionsAtLeastOne': 'É preciso haver ao menos uma divisão.',
   'generator.problem.framesAtLeastTwo': 'Um galpão precisa de ao menos dois pórticos.',
+  'generator.problem.tooManyPanels': 'Mais painéis por metade do que o gerador constrói.',
+  'generator.problem.tooManyFrames': 'Mais pórticos do que o gerador constrói.',
   'generator.problem.negative': 'O valor não pode ser negativo.',
   'generator.problem.heightPositive': 'A altura precisa ser maior que zero.',
   'generator.problem.widthPositive': 'A largura precisa ser maior que zero.',
