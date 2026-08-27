@@ -5660,6 +5660,9 @@ const en: Record<string, string> = {
   'detailing.scene.hangerTopShort': 'assembly ↑',
   'detailing.scene.selectedElement': 'Member',
   'detailing.scene.noSelection': 'Nothing selected. Click a bar or a member.',
+  // The selection panel's own name. It is a REGION, reachable by landmark, because the
+  // selection is often made in a canvas a screen reader cannot describe.
+  'detailing.scene.selection.title': 'Selection',
   'detailing.scene.parentElement': 'Belongs to',
   'detailing.scene.statusFilterHint': 'Filter by state and pick a member to centre the camera on it.',
   'detailing.scene.panelHint': 'Inspection happens in the full-screen workspace.',
@@ -5685,6 +5688,10 @@ const en: Record<string, string> = {
   'detailing.scene.provisionalLegend': 'Provisional proposal — secondary axis unverified',
   'detailing.scene.provisionalBanner': '{n} members carry a provisional proposal. Their steel is real geometry from the primary-axis design; their secondary axis is not verified by any check in this app. NOT VALID FOR CONSTRUCTION.',
   'detailing.scene.torsionLabel': 'TORSION NOT EVALUATED — FEATURE IN DEVELOPMENT',
+  // The fold on a standing viewer notice. It folds the EXPLANATION; the claim and the count
+  // stay, so neither word may suggest the warning goes away. See `RebarNotice.svelte`.
+  'detailing.scene.notice.fold': 'Fold',
+  'detailing.scene.notice.expand': 'Why',
   'detailing.scene.torsionBanner': '{n} member(s) carry torsion according to the analysis and no check in this app verifies it. The geometry and the reinforcement are what the design produced; what is missing is the verification. Do not use as a final verification. To be addressed in PR21.',
   'detailing.scene.torsionMember': 'Torsion not evaluated — the analysis reports torsion in this member and this app does not verify it. Feature in development; do not use as a final verification. To be addressed in PR21.',
   'detailing.scene.conflict.severity.overlap': 'Interpenetration',

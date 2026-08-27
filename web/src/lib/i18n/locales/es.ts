@@ -5644,6 +5644,9 @@ const es: Record<string, string> = {
   'detailing.scene.hangerTopShort': 'armado ↑',
   'detailing.scene.selectedElement': 'Elemento',
   'detailing.scene.noSelection': 'Nada seleccionado. Hacé clic en una barra o en un elemento.',
+  // El nombre del panel de selección. Es una REGIÓN, alcanzable por landmark, porque la
+  // selección se hace muchas veces en un canvas que un lector de pantalla no puede describir.
+  'detailing.scene.selection.title': 'Selección',
   'detailing.scene.parentElement': 'Pertenece a',
   'detailing.scene.statusFilterHint': 'Filtrá por estado y elegí un elemento para centrar la cámara.',
   'detailing.scene.panelHint': 'La inspección se hace en el visor a pantalla completa.',
@@ -5669,6 +5672,10 @@ const es: Record<string, string> = {
   'detailing.scene.provisionalLegend': 'Propuesta provisional — eje secundario sin verificar',
   'detailing.scene.provisionalBanner': '{n} elementos llevan una propuesta provisional. Su armadura es geometría real del diseño del eje principal; su eje secundario no lo verifica ninguna comprobación de esta app. NO APTO PARA CONSTRUCCIÓN.',
   'detailing.scene.torsionLabel': 'TORSIÓN NO EVALUADA — FUNCIÓN EN DESARROLLO',
+  // El pliegue de un aviso permanente del visor. Pliega la EXPLICACIÓN; la afirmación y el
+  // recuento quedan, así que ninguna palabra puede sugerir que el aviso desaparece.
+  'detailing.scene.notice.fold': 'Plegar',
+  'detailing.scene.notice.expand': 'Por qué',
   'detailing.scene.torsionBanner': '{n} elemento(s) reciben torsión según el análisis y ninguna comprobación de esta app la verifica. La geometría y la armadura son las que produjo el diseño; lo que falta es la verificación. No usar como verificación final. Se corregirá en PR21.',
   'detailing.scene.torsionMember': 'Torsión no evaluada — el análisis reporta torsión en este elemento y esta app no la verifica. Función en desarrollo; no usar como verificación final. Se corregirá en PR21.',
   'detailing.scene.conflict.severity.overlap': 'Interpenetración',

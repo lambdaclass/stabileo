@@ -4262,6 +4262,9 @@ const pt: Translations = {
   'detailing.scene.layers': 'Camadas',
   'detailing.scene.mark': 'Marca',
   'detailing.scene.noSelection': 'Nada selecionado. Clique em uma barra ou em um elemento.',
+  // O nome do painel de seleção. É uma REGIÃO, alcançável por landmark, porque a seleção é
+  // feita muitas vezes num canvas que um leitor de ecrã não consegue descrever.
+  'detailing.scene.selection.title': 'Seleção',
   'detailing.scene.noWebgl': 'Este navegador não consegue mostrar 3D.',
   'detailing.scene.noneOfState': 'Nenhum elemento neste estado.',
   'detailing.scene.opacity': 'Opacidade do concreto',
@@ -4297,6 +4300,10 @@ const pt: Translations = {
   'detailing.scene.title': 'Vista 3D da armadura',
   'detailing.scene.torsionBanner': '{n} elemento(s) recebem torção segundo a análise e nenhuma comprovação deste aplicativo a verifica. A geometria e a armadura são as que o dimensionamento produziu; o que falta é a verificação. Não usar como verificação final. Será corrigido no PR21.',
   'detailing.scene.torsionLabel': 'TORÇÃO NÃO AVALIADA — FUNÇÃO EM DESENVOLVIMENTO',
+  // A dobra de um aviso permanente do visualizador. Dobra a EXPLICAÇÃO; a afirmação e a
+  // contagem ficam, portanto nenhuma palavra pode sugerir que o aviso desaparece.
+  'detailing.scene.notice.fold': 'Dobrar',
+  'detailing.scene.notice.expand': 'Por quê',
   'detailing.scene.torsionMember': 'Torção não avaliada — a análise reporta torção neste elemento e este aplicativo não a verifica. Função em desenvolvimento; não usar como verificação final. Será corrigido no PR21.',
   'detailing.scene.unmarked': 'sem marca',
   'detailing.scene.unreinforcedCount': '{n} elemento(s) sem armadura — desenhados em laranja',

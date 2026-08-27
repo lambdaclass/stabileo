@@ -43,6 +43,7 @@
   import ProvisionalBanner from './ProvisionalBanner.svelte';
   import TorsionBanner from './TorsionBanner.svelte';
   import SelectionDetails from './SelectionDetails.svelte';
+  import RebarInspector from './RebarInspector.svelte';
   import { buildOutcomeSummaries } from '../../../lib/store/element-status-join';
   import RebarLayersPanel from './RebarLayersPanel.svelte';
   import { markOpenPhase } from '../../../lib/utils/open-timeline';
@@ -60,6 +61,17 @@
    */
   let railOpen = $state(
     typeof window === 'undefined' ? true : window.innerWidth > 860);
+
+  /**
+   * The width below which the selection panel stops being a third column.
+   *
+   * Declared ONCE and used twice, because `.stage`'s direction and the panel's own shape are the
+   * same decision — two media queries in two components would be this number written twice.
+   * `RebarInspector.svelte` records how it was arrived at from the canvas arithmetic.
+   */
+  const SIDE_PANEL_MIN_WIDTH = 1100;
+  let inspectorSide = $state(
+    typeof window === 'undefined' ? true : window.innerWidth >= SIDE_PANEL_MIN_WIDTH);
 
   const doc = $derived(detailingStore.document);
 
@@ -285,6 +297,9 @@
       wasWide = wide;
       railOpen = wide;
     }
+    // Recomputed on every resize rather than on the crossing, unlike the rail above: the rail's
+    // state is a user gesture this must not fight, and the panel's shape is nobody's gesture.
+    inspectorSide = window.innerWidth >= SIDE_PANEL_MIN_WIDTH;
   }
 </script>
 
@@ -324,7 +339,13 @@
         {/if}
       </aside>
 
-      <main class="stage">
+      <main class="stage" class:side-panel={inspectorSide}>
+        <!--
+          The canvas and its absence states, as ONE flex child: `.stage` is a row once the panel
+          moves beside the cage, and without this wrapper the "still building" pill and the two
+          empty states would each become a column of their own beside the viewport.
+        -->
+        <div class="canvas-area">
         {#if built}
           <!--
             The WHOLE scene, plus the filter as a separate input.
@@ -397,11 +418,12 @@
             </p>
           {/if}
         {/if}
+        </div>
 
-        <div
-          class="inspector"
-          data-testid="rebar-inspector"
-          data-focused={focusedElement ?? ''}
+        <RebarInspector
+          side={inspectorSide}
+          {focusedElement}
+          hasSelection={rebarWorkspace.selection !== null}
         >
           <SelectionDetails
             bar={selectedBar}
@@ -414,7 +436,7 @@
             torsionUnevaluated={selectedElementIds.some(
               (id) => built?.scene.torsionUnevaluatedMembers.includes(id) ?? false)}
           />
-        </div>
+        </RebarInspector>
       </main>
     </div>
   </div>
@@ -512,7 +534,14 @@
    */
   .rail > :global(*) { flex: 0 0 auto; }
   .body:not(.rail-open) .rail { display: none; }
+  /* A column, or a row once the window can afford a third one. `side-panel` comes from
+     `SIDE_PANEL_MIN_WIDTH`, which also drives the panel's own shape — one number, one decision. */
   .stage { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; position: relative; }
+  .stage.side-panel { flex-direction: row; }
+  /* The canvas takes what the panel leaves. `min-width: 0` is what lets it actually shrink
+     instead of pushing the panel off the right edge. */
+  .canvas-area { flex: 1 1 auto; min-width: 0; min-height: 0;
+    display: flex; flex-direction: column; position: relative; }
   /* Over the canvas, not in the layout: appearing must not resize the viewport, because a
      resize reallocates the drawing buffer and that is the cost this is announcing. */
   .building {
@@ -529,7 +558,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-  .stage :global(.rebar-viewport) { flex: 1 1 auto; border: none; border-radius: 0; }
+  .canvas-area :global(.rebar-viewport) { flex: 1 1 auto; border: none; border-radius: 0; }
 
   /*
      Twenty-six rules stood here and reached nothing.
@@ -562,8 +591,8 @@
       background: var(--st-surface);
       box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
     }
-    /* `.inspector dl` went with the rest: the list is `SelectionDetails`' markup now, and it
-       already collapses to two columns at every width. The container is still ours. */
-    .inspector { max-height: 9rem; }
   }
+  /* `.inspector` is `RebarInspector.svelte`'s element now, and both its shapes live with it. The
+     `max-height: 9rem` that stood here went along unchanged; what it gained is a floor, which is
+     what the 15 px measurement was missing. */
 </style>
