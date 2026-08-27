@@ -296,3 +296,239 @@ describe('the materials tab uses the conversion instead of hand-picking fields',
     }
   });
 });
+
+/**
+ * B-01, closed: the materials tab holds no second source of material creation.
+ *
+ * The tab used to carry THREE controls that added a material — a strip of preset buttons, the
+ * button that opens the dialog, and a `<details>` form for a hand-entered one. The two
+ * catalogue paths were not the old defect: both went through `toMaterialFields`, so every field
+ * travelled by either. What the inline strip lacked was the origin filter, the data sheet's
+ * per-field authority, the thickness bands, the deep grade panel and the dialog's keyboard —
+ * and it was the path nearer to hand, so a user took the poorer catalogue without knowing a
+ * richer one existed.
+ *
+ * Asserted as absence of the MACHINERY rather than absence of a rendered strip, for the same
+ * reason `pro-section-modal-contract.test.ts` does: a list is easy to hide and easy to bring
+ * back. A tab that imports no catalogue cannot grow a second picker without this failing first.
+ */
+describe('the materials tab is not a second source of material creation', () => {
+  const TAB = readFileSync(
+    resolve(__dirname, '../../../components/pro/ProMaterialsTab.svelte'), 'utf8',
+  );
+
+  /*
+   * The tab with its prose removed.
+   *
+   * The absence assertions below name the machinery that must not come back, and the comment
+   * EXPLAINING why each was removed contains every one of those strings. Reading the raw file
+   * would make the file's own documentation fail its own test, and the only way to pass would
+   * be to stop explaining the decision. Stripping comments first is what lets the component say
+   * why it is shaped this way.
+   */
+  const CODE = TAB
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  it('holds no catalogue of its own', () => {
+    for (const gone of [
+      'MATERIAL_CATEGORIES', // the six category tabs
+      'searchPresets',       // its own search over the presets
+      'MaterialPreset',      // the rows behind them
+      'function addPreset',  // its own add path, beside the dialog's
+      'cat-tabs',
+      'preset-item',
+    ]) {
+      expect(CODE, gone).not.toContain(gone);
+    }
+  });
+
+  it('holds no hand-entry form of its own', () => {
+    for (const gone of ['function addCustom', 'showCustom', 'custom-form', 'newRho']) {
+      expect(CODE, gone).not.toContain(gone);
+    }
+  });
+
+  /*
+   * One call site, and it is the dialog's.
+   *
+   * `addMaterial` still appears — the tab is where the dialog's choice lands — but exactly once,
+   * and inside `applyChoice`. Counting is what catches a second writer that a name-based check
+   * would miss, because the second one would be called something else.
+   */
+  it('writes a material in exactly one place, through the conversion', () => {
+    expect([...CODE.matchAll(/modelStore\.addMaterial\(/g)]).toHaveLength(1);
+    expect(CODE).toContain('toMaterialFields');
+    // `updateMaterial` stays: the two per-material project settings EDIT, they do not create.
+    expect(CODE).toContain('updateMaterial');
+  });
+
+  it('still reaches the dialog, and asks it for the hand-entry division', () => {
+    expect(TAB).toContain('ProMaterialModal');
+    expect(TAB).toContain('pro-open-material-modal');
+    expect(TAB).toContain('allowCustom');
+    // The region keeps its name, so the surface stays findable by the id the QA sheet uses.
+    expect(TAB).toContain('pro-add-material-panel');
+  });
+
+  /*
+   * The trigger is not behind a disclosure any more.
+   *
+   * It was a collapsed `<details>` because it hid a picker the height of the panel. With the
+   * picker gone, a disclosure would be a click that reveals a button — and the E2E helper that
+   * had to open it first is the evidence that the extra step was real.
+   */
+  it('does not hide the one trigger behind a disclosure', () => {
+    expect(CODE).not.toContain('<details');
+  });
+});
+
+/**
+ * The hand-entered material: what it writes, and the four fields it refuses to invent.
+ */
+describe('a custom material states what it is, and no more', () => {
+  const custom = { kind: 'custom', name: 'S275', e: 210000, nu: 0.3, rho: 78.5, fy: 275 } as const;
+
+  it('writes the five fields it was given', () => {
+    expect(toMaterialFields(custom)).toEqual({
+      name: 'S275', e: 210000, nu: 0.3, rho: 78.5, fy: 275,
+    });
+  });
+
+  /*
+   * The inverse of the defect this module exists for. There, a field the source HAD was being
+   * dropped; here, a field the source does NOT have must not be synthesised. A `gradeId` of `''`
+   * would satisfy a lookup that then returns nothing, and a `standard` of `'—'` would print as
+   * an authority on the data sheet.
+   */
+  it('invents no grade, no standard and no origin', () => {
+    const f = toMaterialFields(custom) as unknown as Record<string, unknown>;
+    for (const absent of ['gradeId', 'standard', 'region', 'fu']) {
+      expect(f, absent).not.toHaveProperty(absent);
+    }
+  });
+
+  it('omits fy entirely when the material has no yield point', () => {
+    const noFy = { kind: 'custom', name: 'X', e: 30000, nu: 0.2, rho: 24 } as const;
+    expect(toMaterialFields(noFy)).not.toHaveProperty('fy');
+  });
+
+  /*
+   * It declares no grade, and that is a fact about the material rather than a shortcoming of
+   * the form. `materialFamilyOf` therefore falls back to `fy`, which is exactly what the
+   * panel's own note says on screen — and what the generators' `allowCustom = false` avoids.
+   */
+  it('declares no grade, and carries no id to persist', () => {
+    expect(declaresGrade(custom)).toBe(false);
+    expect(choiceGradeId(custom)).toBeNull();
+    const family = materialFamilyOf(toMaterialFields(custom) as never, catalogueGradeFamily);
+    expect(family).toMatchObject({ family: 'steel', basis: 'inferredFromFy' });
+    /*
+     * And the inference says so on screen. This is the one place a custom material is worse than
+     * a catalogued one, and the caveat key is how that reaches the user rather than staying a
+     * property of the classifier.
+     */
+    expect(family.caveatKey).toBeTruthy();
+  });
+});
+
+/**
+ * The dialog's second division, and the keyboard it must not break.
+ */
+describe('the dialog carries the hand-entry division the tab gave up', () => {
+  const read = (p: string) =>
+    readFileSync(resolve(__dirname, '../../../components/pro', p), 'utf8');
+  const MODAL = read('material/ProMaterialModal.svelte');
+  const PANEL = read('material/CustomMaterialPanel.svelte');
+
+  it('offers exactly two divisions, and only when the caller allows the second', () => {
+    expect(MODAL).toContain('material-division-catalogue');
+    expect(MODAL).toContain('material-division-custom');
+    expect(MODAL).toContain('role="tablist"');
+    // The strip is absent for a caller that forbids it, rather than a single disabled tab.
+    expect(MODAL).toMatch(/\{#if allowCustom\}/);
+    expect(MODAL).toContain('allowCustom = false');
+  });
+
+  /*
+   * A caller that forbids the division must not be left showing it. Without this the generators
+   * could land on `custom` — for instance if the prop were bound and flipped — and their
+   * `onApply` keeps only `choiceGradeId`, which a custom material answers with `null`: a control
+   * that appears to do nothing.
+   */
+  it('cannot be left on a division the caller forbids', () => {
+    expect(MODAL).toMatch(/if \(!allowCustom && division === 'custom'\) division = 'catalogue'/);
+  });
+
+  /*
+   * The arrow keys steer the LIST. On the hand-entry division there is no list, and they belong
+   * to the text fields being typed in — stealing them there is how a caret stops moving.
+   */
+  it('gives the arrow keys back to the form on the hand-entry division', () => {
+    expect(MODAL).toMatch(/if \(division === 'custom'\)\s*\{\s*\n?\s*if \(e\.key !== 'Tab'\) return;/);
+  });
+
+  it('keeps Escape and the Tab trap on both divisions', () => {
+    expect(MODAL).toContain("e.key === 'Escape'");
+    expect(MODAL).toContain("e.key !== 'Tab'");
+    expect(MODAL).toContain('returnFocus');
+  });
+
+  /* Focus has somewhere to land on the new division too. */
+  it('has an autofocus target on the hand-entry division', () => {
+    expect(PANEL).toContain('data-autofocus');
+    expect(MODAL).toContain('[data-autofocus]');
+  });
+
+  it('refuses to write a material the form cannot describe', () => {
+    expect(MODAL).toContain('canApply');
+    expect(MODAL).toContain('disabled={!canApply}');
+    // And says WHY, rather than leaving a disabled button as the only feedback.
+    expect(PANEL).toContain('material-custom-problem');
+  });
+
+  /*
+   * The bounds are on the physics. The inline form checked only `isNaN`, so `nu = 3` and
+   * `rho = -78.5` both reached the model — a Poisson ratio outside (-1, 0.5) means a negative
+   * bulk or shear modulus, and the solver would take it.
+   */
+  it('bounds Poisson, E and the unit weight', () => {
+    expect(PANEL).toContain('nuV <= -1 || nuV >= 0.5');
+    expect(PANEL).toMatch(/eV === null \|\| eV <= 0/);
+    expect(PANEL).toMatch(/rhoV === null \|\| rhoV < 0/);
+  });
+
+  /* A Spanish keyboard produces a decimal comma, and `parseFloat('0,3')` is `0`. */
+  it('reads a decimal comma rather than silently truncating it', () => {
+    expect(PANEL).toContain("replace(',', '.')");
+  });
+
+  it('gives every control one focus ring, and uses tokens for it', () => {
+    expect(PANEL).toContain(':focus-visible');
+    expect(PANEL).toContain('--st-value');
+    const style = PANEL.slice(PANEL.indexOf('<style>'));
+    expect([...style.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0])).toEqual([]);
+  });
+});
+
+/**
+ * The generators keep the narrow selector, and that is the half worth pinning.
+ *
+ * `onApply` there keeps `choiceGradeId(choice)` and nothing else. A custom material answers that
+ * with `null`, so offering the division would put a control on screen that reads as «no grade
+ * chosen» after the user filled in five fields.
+ */
+describe('the generators do not get the hand-entry division', () => {
+  const GEN = readFileSync(
+    resolve(__dirname, '../../../components/pro/generators/ProGeneratorsPanel.svelte'), 'utf8',
+  );
+
+  it('mounts the shared selector without allowing custom', () => {
+    expect(GEN).toContain('ProMaterialModal');
+    const mount = GEN.slice(GEN.indexOf('<ProMaterialModal'));
+    const tag = mount.slice(0, mount.indexOf('/>'));
+    expect(tag).toContain('categories={METAL_CATEGORIES}');
+    expect(tag).not.toContain('allowCustom');
+  });
+});

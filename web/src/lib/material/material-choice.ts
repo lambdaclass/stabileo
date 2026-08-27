@@ -40,7 +40,20 @@ export type MaterialChoice =
    * category, and its `fyMPa` is explicitly «the value for the FIRST thickness band» rather
    * than a single number. Flattening one into the other would lose which is which.
    */
-  | { kind: 'grade'; grade: GradeEntry };
+  | { kind: 'grade'; grade: GradeEntry }
+  /**
+   * A material the project states by hand, because the catalogue does not carry it.
+   *
+   * The third way in, and the reason it is a `MaterialChoice` at all: it used to be a form on
+   * `ProMaterialsTab` that called `modelStore.addMaterial` with its own literal, which made the
+   * tab a second source of material creation beside the modal. Folding it into the choice type
+   * is what let the tab stop writing to the model.
+   *
+   * It carries no `gradeId`, no `standard` and no `region` — not because they are optional here,
+   * but because a hand-entered material HAS none of them. Synthesising any of the three is the
+   * defect this module was written to prevent, one direction over.
+   */
+  | { kind: 'custom'; name: string; e: number; nu: number; rho: number; fy?: number };
 
 /** The subset of `Material` a choice writes. Deliberately not the whole interface. */
 export interface MaterialFields {
@@ -88,6 +101,15 @@ export function toMaterialFields(choice: MaterialChoice): MaterialFields {
       ...(p.region ? { region: p.region } : {}),
     };
   }
+  if (choice.kind === 'custom') {
+    return {
+      name: choice.name,
+      e: choice.e,
+      nu: choice.nu,
+      rho: choice.rho,
+      ...(choice.fy !== undefined ? { fy: choice.fy } : {}),
+    };
+  }
   const g = choice.grade;
   return {
     /*
@@ -108,10 +130,14 @@ export function toMaterialFields(choice: MaterialChoice): MaterialFields {
 
 /** Whether a choice can name the family it belongs to, rather than leaving it to be inferred. */
 export function declaresGrade(choice: MaterialChoice): boolean {
-  return choice.kind === 'grade' || Boolean(choice.preset.gradeId);
+  if (choice.kind === 'grade') return true;
+  if (choice.kind === 'custom') return false;
+  return Boolean(choice.preset.gradeId);
 }
 
 /** The id a choice persists as, so a selection survives a reload. Null when it has none. */
 export function choiceGradeId(choice: MaterialChoice): string | null {
-  return choice.kind === 'grade' ? choice.grade.id : (choice.preset.gradeId ?? null);
+  if (choice.kind === 'grade') return choice.grade.id;
+  if (choice.kind === 'custom') return null;
+  return choice.preset.gradeId ?? null;
 }

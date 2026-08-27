@@ -18,6 +18,14 @@
    * grade id on screen, the thickness bands with the standard that publishes them, and the
    * per-field authority.
    *
+   * ── Two divisions, because there are two kinds of answer ───────────
+   *
+   * `catalogue` is everything above. `custom` is a material the project states by hand, and it
+   * is here because it used to be a form on `ProMaterialsTab` that wrote to the model directly:
+   * the one capability the inline path had and this dialog did not. Offered only when the
+   * caller says so — see `allowCustom` — because a generator asks for a GRADE, and a custom
+   * material has none.
+   *
    * ── What a selection means ─────────────────────────────────────────
    *
    * It configures the model, and it now configures it COMPLETELY: `gradeId`, `standard`,
@@ -29,6 +37,7 @@
   import { t } from '../../../lib/i18n';
   import MaterialDataSheet from './MaterialDataSheet.svelte';
   import GradePickerPanel from '../steel/GradePickerPanel.svelte';
+  import CustomMaterialPanel from './CustomMaterialPanel.svelte';
   import {
     materialPresetSource, type MaterialPresetSource,
   } from '../../../lib/material/preset-source';
@@ -56,11 +65,28 @@
     categories?: readonly string[];
     /** Swappable catalogue. Defaults to the one this app ships, like the other two pickers. */
     source?: MaterialPresetSource;
+    /**
+     * Whether to offer the hand-entered division.
+     *
+     * Off by default, and that default is the interesting half. The materials tab turns it on,
+     * because stating a material the catalogue does not carry is a legitimate project decision
+     * and this dialog is now the only place to do it. The generators leave it off: their
+     * `onApply` keeps `choiceGradeId(choice)` and nothing else, so a custom material would
+     * arrive as `null` and read on screen as «no grade chosen» — a control that appears to do
+     * nothing. Narrowing the shared selector, again, rather than shipping a second one.
+     */
+    allowCustom?: boolean;
   }
   const {
     open, selected = '', onApply, onClose, label = '', categories,
-    source = materialPresetSource,
+    source = materialPresetSource, allowCustom = false,
   }: Props = $props();
+
+  /** The two divisions. `custom` is unreachable unless the caller allows it. */
+  type Division = 'catalogue' | 'custom';
+  let division = $state<Division>('catalogue');
+  // A caller that stops allowing it must not leave the dialog showing a division it forbids.
+  $effect(() => { if (!allowCustom && division === 'custom') division = 'catalogue'; });
 
   const ALL_CATEGORIES = $derived(source.categories());
   const CATEGORIES = $derived(
@@ -154,7 +180,23 @@
     regions = regions.includes(r) ? regions.filter((x) => x !== r) : [...regions, r];
   }
 
+  /** The custom division's draft, or null while its form cannot produce a material. */
+  let customDraft = $state<MaterialChoice | null>(null);
+
+  /*
+   * For the catalogue division this asks whether a row is FOCUSED; for the custom division,
+   * whether the five fields make a material. The metals have no Apply at all — picking a grade
+   * in `GradePickerPanel` is itself the commit.
+   */
+  const canApply = $derived(division === 'custom' ? customDraft !== null : focused !== null);
+
   function apply() {
+    if (division === 'custom') {
+      if (!customDraft) return;
+      onApply(customDraft);
+      onClose();
+      return;
+    }
     if (!focused) return;
     onApply({ kind: 'preset', preset: focused });
     onClose();
@@ -163,6 +205,14 @@
   /** Same trap as the section modal, for the same reason. */
   function keydown(e: KeyboardEvent) {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
+    /*
+     * The arrow keys steer the LIST. On the custom division there is no list — they belong to
+     * the text fields the user is typing in, and stealing them there is how a caret stops
+     * moving.
+     */
+    if (division === 'custom') {
+      if (e.key !== 'Tab') return;
+    }
     if (e.key === 'ArrowDown') { e.preventDefault(); cursor = Math.min(cursor + 1, results.length - 1); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); cursor = Math.max(cursor - 1, 0); return; }
     if (e.key === 'Home') { e.preventDefault(); cursor = 0; return; }
@@ -195,6 +245,32 @@
         <button type="button" class="close" onclick={onClose} aria-label={t('material.modal.close')}>✕</button>
       </header>
 
+      <!--
+        Exactly two divisions, and only when the caller allows the second.
+
+        A tablist of one is a label pretending to be a control, so the strip is absent entirely
+        for the generators rather than rendered with a single disabled tab.
+      -->
+      {#if allowCustom}
+        <div class="divisions" role="tablist" aria-label={t('material.modal.divisions')}>
+          <button
+            type="button" role="tab"
+            aria-selected={division === 'catalogue'}
+            class:active={division === 'catalogue'}
+            data-testid="material-division-catalogue"
+            onclick={() => (division = 'catalogue')}
+          >{t('material.modal.catalogue')}</button>
+          <button
+            type="button" role="tab"
+            aria-selected={division === 'custom'}
+            class:active={division === 'custom'}
+            data-testid="material-division-custom"
+            onclick={() => (division = 'custom')}
+          >{t('material.modal.custom')}</button>
+        </div>
+      {/if}
+
+      {#if division === 'catalogue'}
       <div class="filters">
         <!--
           Search and region belong to whichever body is on screen, not to both.
@@ -235,9 +311,19 @@
         </div>
         {/if}
       </div>
+      {/if}
 
       <div class="body">
-        {#if isMetal}
+        {#if division === 'custom'}
+          <!--
+            The hand-entered division. It has no catalogue, no region filter and no data sheet,
+            because there is no source to attribute a number to — which is exactly what its own
+            note says on screen.
+          -->
+          <div class="grades">
+            <CustomMaterialPanel onDraft={(c) => (customDraft = c)} />
+          </div>
+        {:else if isMetal}
           <!--
             The deep panel, unchanged. Its testids — `grade-list`, `grade-search`,
             `grade-family-*`, `grade-region-*`, `grade-bands`, `grade-option-*` — are the ones
@@ -281,7 +367,7 @@
         {/if}
 
         <aside class="side">
-          {#if sheet && !isMetal}
+          {#if sheet && !isMetal && division === 'catalogue'}
             <details bind:open={sheetOpen} data-testid="material-sheet-toggle">
               <summary>{t('material.sheet.title')}</summary>
               <MaterialDataSheet {sheet} />
@@ -292,15 +378,22 @@
 
       <footer>
         <span class="current" data-testid="material-current">
-          {isMetal ? (structuralGradeSource.byId(gradeIdForSelection ?? '')?.designation ?? '—') : (focused?.name ?? '—')}
+          {#if division === 'custom'}
+            {customDraft?.kind === 'custom' ? customDraft.name : '—'}
+          {:else if isMetal}
+            {structuralGradeSource.byId(gradeIdForSelection ?? '')?.designation ?? '—'}
+          {:else}
+            {focused?.name ?? '—'}
+          {/if}
         </span>
         <!-- Said once, at the end. Choosing a grade configures the model; it does not check it. -->
         <span class="caveat" data-testid="material-caveat">{t('material.modal.noAuthority')}</span>
         <button type="button" class="ghost" onclick={onClose}>{t('material.modal.cancel')}</button>
-        {#if !isMetal}
+        <!-- The metals commit by picking a grade in the panel, so they have no Apply. -->
+        {#if division === 'custom' || !isMetal}
           <button
             type="button" class="primary" onclick={apply}
-            disabled={!focused} data-testid="material-apply"
+            disabled={!canApply} data-testid="material-apply"
           >{t('material.modal.apply')}</button>
         {/if}
       </footer>
@@ -322,6 +415,16 @@
   h2 { margin: 0; font-size: 0.9rem; }
   .close { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 1rem; }
   .close:hover { color: var(--st-text); }
+
+  .divisions { display: flex; gap: 4px; padding: 0 14px 8px; }
+  .divisions button {
+    padding: 4px 10px; font-size: 0.72rem; cursor: pointer;
+    background: transparent; color: var(--st-text-2);
+    border: 1px solid var(--st-hair); border-radius: 4px;
+  }
+  .divisions button.active {
+    background: var(--st-interactive); border-color: var(--st-interactive); color: var(--st-bg);
+  }
 
   .filters { display: flex; flex-direction: column; gap: 6px; padding: 0 14px 8px; }
   input[type='search'] {
