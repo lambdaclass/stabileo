@@ -364,7 +364,24 @@ violeta de una propuesta y el ámbar de una torsión se contagian.
 Es la cuarta vez en esta serie que un gate de fuentes se reapunta al mudarse el código, y la cuarta
 vez que la propiedad queda más fuerte, no más débil.
 
-### 8.2 La inanición del solve, otra vez, y no es una regresión
+### 8.2 Un `vite preview` huérfano, y las 21 fallas que no existían
+
+Vale anotarlo porque cuesta una hora cada vez que pasa, y porque el propio
+`playwright.config.ts` ya lo describe. Al cortar una corrida trabada quedó vivo un
+`vite preview` en el puerto derivado de este worktree (5401), sirviendo el `dist/` de un
+`npm run build` **manual** — es decir, sin `VITE_E2E=1`. Con `reuseExistingServer` activo en
+local, la corrida siguiente se enganchó a ese servidor y **las 21 pruebas fallaron idénticas**
+en `page.waitForFunction: Test timeout of 60000ms exceeded`, esperando un `window.__stabileo`
+que ese bundle no contiene.
+
+La firma es inconfundible y conviene reconocerla: **todas las fallas con el mismo tiempo
+exacto**, ninguna con una aserción de producto. Matar el listener del puerto derivado y
+repetir dio **41/41 en 2,5 minutos**. Ninguna de esas 21 era real.
+
+Regla práctica: después de un `npm run build` a mano en este worktree, verificar que no quedó
+nada escuchando en la banda 5200–6199 antes de correr Playwright.
+
+### 8.3 La inanición del solve, otra vez, y no es una regresión
 
 Dos corridas de los specs del 7 pisos murieron en la preparación con
 `the solve did not finish in 480 s`, sin fallback a secuencial. Es exactamente
