@@ -81,6 +81,29 @@ categoría. Donde una entrada no tenga precondición o limitación, dice **—**
 (`feat/pro-steel-m2`, base `feat/pro-steel-m1`). «Compartida» = superficie que también usa hormigón
 o Basic.
 
+**Prioridad:** las entradas revisadas llevan **crítica / alta / media / baja**. Donde no la lleven,
+la categoría manda: *QA obligatorio* se lee como **alta** salvo que diga otra cosa.
+
+### 0.5 Revisión del 2026-08-27 — seis entradas cambiaron de veredicto
+
+Este inventario se escribió **antes** de que entraran B-01, I-06, I-07 e I-08 a M2. Cinco entradas
+describían el estado anterior y **cuatro de ellas afirmaban lo contrario de lo que la rama hace
+hoy**. Eso no es una imprecisión de redacción: un revisor que siguiera la entrada vieja iba a
+esperar el defecto, encontrar el arreglo, y reportar el arreglo como defecto — o peor, concluir que
+la rama está rota.
+
+| Entrada | Decía | Dice ahora | Commit |
+|---|---|---|---|
+| **B-01** | tres vías de alta de material conviven; decisión de producto pendiente | **el diálogo es la única vía**; ya no hay decisión pendiente | `9ed71247` |
+| **B-13** | material a medida como control inline, validado con `isNaN` | **división del diálogo**, con cotas sobre la física y coma decimal | `9ed71247` |
+| **I-06** | las uniones **no** se guardan; fuera de alcance | **se guardan** en `StructureModel.jointDesigns`; sólo las elecciones | `d12ad5cb` |
+| **I-07** | posible arrastre entre modelos, a verificar | **reconciliación en cada lectura**, con tres razones y dos remedios | `d12ad5cb` |
+| **I-08** | el link pierde cuatro campos | **las uniones viajan** (`SHARE_VERSION 5`, clave `jd`); los cuatro campos de sección siguen sin viajar | `9c9f9506` |
+| **E-25** | *(no existía)* | **superficie nueva**: aviso de uniones obsoletas | `d12ad5cb` |
+
+Lo que **no** cambió: A-01 sigue siendo la decisión de producto abierta, y sigue documentada en
+`a-01-decision.md`. Es la simétrica de B-01 para **secciones**, y es la única de las dos que queda.
+
 ---
 
 # A · Selector de secciones
@@ -670,30 +693,42 @@ Precondición común: PRO, pestaña **Materiales** (cinta **Modelo** → *Propie
 
 ---
 
-### B-01 · Dos caminos de alta que siguen conviviendo
+### B-01 · El diálogo es la única vía de alta ✅ CERRADO
 
-- **UI:** desplegable *Agregar material* con **pestañas de categoría + buscador + lista de presets**
-  y, dentro, el botón **Elegir material** que abre el diálogo.
-- **Archivo:** `web/src/components/pro/ProMaterialsTab.svelte` (líneas ~128–200)
-- **Técnico:** `addPreset(p)` → `toMaterialFields({ kind: 'preset', preset: p })` **vs.**
-  `applyChoice(choice)` → `toMaterialFields(choice)`
-- **Rama:** **M2** agregó el modal (`9ef17d8d`) **sin retirar** la lista inline. Modificada.
+> **Reescrita el 2026-08-27.** La versión anterior de esta entrada decía que **convivían tres**
+> caminos de alta y la clasificaba como decisión de producto pendiente. Ya no es cierto: el trabajo
+> `9ed71247` retiró la ruta inline. Se deja el cambio anotado porque un revisor que pruebe la
+> entrada vieja va a buscar una lista de presets que no existe y va a concluir que algo se rompió.
+
+- **UI:** panel *Agregar material* reducido a **un** botón — **Elegir material** — que abre el
+  diálogo. La tabla de materiales del proyecto queda debajo, sin cambios.
+- **Archivo:** `web/src/components/pro/ProMaterialsTab.svelte` (531 → 264 líneas)
+- **Técnico:** un solo `modelStore.addMaterial(`, dentro de `applyChoice`. La pestaña ya **no
+  importa** `MATERIAL_CATEGORIES`, `searchPresets` ni `MaterialPreset` — verificado: cero
+  referencias.
+- **Rama:** **M2**. **Modificada** respecto de la versión anterior de M2, y es una **regresión
+  potencial** para quien ya conocía la ruta corta.
 - **Acceso:** Materiales → *Agregar material*.
 - **Precondiciones:** —
-- **Pasos:** contar cuántos controles del panel dan de alta un material.
-- **Esperado (hoy):** **tres** — la lista inline de presets, el botón que abre el diálogo, y el
-  formulario de material a medida.
-- **Estados alternativos:** —
-- **Riesgos:** **es el mismo hallazgo §6.1 que se cerró para secciones y que para materiales quedó
-  abierto.** No es el defecto viejo — los dos caminos pasan hoy por `toMaterialFields`, así que
-  `gradeId`, `standard`, `region` y `fu` viajan por los dos. Lo que la ruta inline **no** tiene es
-  el filtro por procedencia, la ficha con la autoridad por campo, las bandas de espesor, el panel
-  profundo de grados y el teclado del diálogo. Un usuario que entra por la ruta corta ve un
-  catálogo más pobre y no sabe que hay otro.
+- **Pasos:** 1) contar los controles del panel que dan de alta un material; 2) abrir el diálogo y
+  confirmar que están las dos divisiones (`material-division-catalogue`, `material-division-custom`);
+  3) agregar un acero por catálogo; 4) agregar un **hormigón** y una **madera** por el mismo
+  diálogo.
+- **Esperado:** **uno solo** (`pro-open-material-modal`). Y el diálogo conserva todo lo que la ruta
+  corta no tenía: filtro por procedencia, ficha con autoridad por campo, bandas de espesor con su
+  norma, panel profundo de grados y teclado completo. Los materiales **no metálicos** siguen
+  llegando por acá.
+- **Estados alternativos:** desde un **generador** el diálogo abre **sin** la división *custom*
+  (`allowCustom = false`): un material a medida no tiene grado, y el generador guarda un grado — el
+  control aparecería como que no hace nada. Ver **B-14**.
+- **Riesgos:** el `<details>` que envolvía el panel desapareció. Si alguien esperaba el disclosure,
+  ahora ve el botón directamente — es intencional: con el selector afuera, un disclosure era un clic
+  para revelar un botón.
 - **Requiere:** —
 - **Normativa:** —
-- **Categoría:** **QA obligatorio** — y es una **decisión de producto pendiente**, simétrica a la
-  decisión 1
+- **Categoría:** **QA obligatorio** — porque retira una ruta que existía; **ya no es** una decisión
+  de producto pendiente
+- **Prioridad:** **alta**
 
 ---
 
@@ -914,22 +949,39 @@ Precondición común: PRO, pestaña **Materiales** (cinta **Modelo** → *Propie
 
 ---
 
-### B-13 · Material a medida (sin grado)
+### B-13 · Material a medida — ahora una división del diálogo, con cotas físicas
 
-- **UI:** `+ Material personalizado` → nombre, E, ν, densidad, fy.
-- **Archivo:** `ProMaterialsTab.svelte` (`addCustom`)
-- **Técnico:** escribe un `Material` **sin** `gradeId`
-- **Rama:** compartida, sin cambios en M1/M2.
-- **Acceso:** Materiales → *Agregar material* → Material personalizado.
+> **Reescrita el 2026-08-27.** Cambió la **ruta** (era un control inline de la pestaña, ahora es una
+> división del diálogo) y cambió la **validación** (era `isNaN`, ahora son cotas sobre la física).
+
+- **UI:** diálogo de materiales → división **Material personalizado** → nombre, E, ν, densidad, fy.
+- **Archivo:** `web/src/components/pro/material/CustomMaterialPanel.svelte` *(nuevo)*
+- **Técnico:** `MaterialChoice` con `kind: 'custom'`. **No emite** `gradeId`, `standard` ni `region`
+  — un material a mano no tiene ninguno de los tres, y sintetizarlos sería el mismo defecto que
+  `material-choice.ts` existe para evitar, en la dirección contraria.
+- **Rama:** **M2**. **Modificada** — es la única capacidad que la ruta inline tenía en exclusiva, y
+  se movió **antes** de retirarla.
+- **Acceso:** Materiales → *Elegir material* → división **Material personalizado**
+  (`material-division-custom`).
 - **Precondiciones:** —
-- **Pasos:** 1) crear uno con fy 250; 2) asignarlo; 3) mirar la columna **Grado**.
-- **Esperado:** la celda dice **«sin declarar»** y arriba aparece el aviso de que **la familia se
-  dedujo de la magnitud de fy**.
-- **Estados alternativos:** los dos casos (con grado y sin grado) en el mismo modelo **conviven**,
-  cada fila con lo suyo.
-- **Riesgos:** este es el camino por el que un modelo viejo llega sin grado, y es el que hace visible
-  la inferencia. Ver **I-02**.
-- **Categoría:** **QA obligatorio**
+- **Pasos:** 1) crear uno con fy 250 (`material-custom-name`, `-e`, `-nu`, `-rho`, `-fy`);
+  2) asignarlo y mirar la columna **Grado**; 3) probar **ν = 3**; 4) probar **densidad = −78,5**;
+  5) escribir **`0,3`** con coma en ν.
+- **Esperado:** (2) la celda dice **«sin declarar»** y aparece el aviso de que la familia se dedujo
+  de la magnitud de fy; (3) y (4) **rechazados con motivo** en `material-custom-problem` — ν fuera
+  de (−1; 0,5) es un módulo volumétrico o de corte negativo; (5) se lee como **0,3**, no como 0.
+- **Estados alternativos:** con grado y sin grado **conviven** en el mismo modelo, cada fila con lo
+  suyo. `material-custom-caveat` declara que este material no tiene grado.
+- **Riesgos:** el formulario viejo sólo chequeaba `isNaN`, así que **`ν = 3` y `ρ = −78,5` llegaban
+  al modelo**, y `parseFloat('0,3')` daba `0` — un Poisson que el formulario aceptaba. Las tres cosas
+  son casos límite que conviene mirar a mano, porque son los que la validación nueva cierra.
+- **Requiere:** —
+- **Normativa:** —
+- **Categoría:** **QA obligatorio** **[3×]** — las siete claves `material.custom.*` viven en el
+  bundle **de acero** (`locales/steel/{en,es,pt}.ts`), verificadas presentes en los tres; una de
+  ellas es la advertencia larga de que un material a medida no declara grado ni procedencia, y es
+  la que hay que leer completa en cada idioma
+- **Prioridad:** **alta** — toca la física que entra al solver
 
 ---
 
@@ -2116,6 +2168,43 @@ Precondición común: PRO, cinta **Diseño** → *Metálicas* → **Uniones met�
 
 ---
 
+### E-25 · Aviso de uniones obsoletas ⭐ SUPERFICIE NUEVA
+
+> **Agregada el 2026-08-27.** No existía cuando se escribió este inventario: la creó `d12ad5cb` al
+> cerrar **I-07**. Es la mitad visible de esa reparación, y la parte que un revisor no va a encontrar
+> buscando en la lista original.
+
+- **UI:** nota al pie del panel de uniones: **cuántas** uniones quedaron colgadas, **por qué** cada
+  una, y **dos remedios** — descartar una, o descartar todas.
+- **Archivo:** `web/src/components/pro/ProConnectionsTab.svelte` (`conn-obsolete-notice`,
+  `conn-obsolete-title`, `conn-obsolete-{nodeId}`, `conn-obsolete-reason-{nodeId}`,
+  `conn-obsolete-discard-{nodeId}`, `conn-obsolete-discard-all`)
+- **Técnico:** `jointDesignStore.obsolete` — se conserva la unión, **no se aplica**
+  (`choicesFor` responde vacío) y **no se itera** (`designedNodeIds` la excluye, así que un documento
+  no la tabula).
+- **Rama:** **M2**. **Nueva.**
+- **Acceso:** cinta **Diseño** → *Metálicas* → **Uniones metálicas**, al pie.
+- **Precondiciones:** un modelo con al menos un nudo diseñado, y después modificado.
+- **Pasos:** 1) diseñar tres nudos; 2) **borrar** uno; 3) **mover** otro; 4) agregarle **una barra**
+  al tercero; 5) leer el aviso; 6) **descartar una**; 7) **descartar todas**; 8) confirmar que un
+  documento/exportación **no** las tabula; 9) recorrerlo en `Español` / `English` / `Português`.
+- **Esperado:** (5) tres entradas, con `nodeMissing`, `nodeMoved` y `topologyChanged`
+  respectivamente, cada una como **oración**, no como código; (6) desaparece sólo ésa; (7) el aviso
+  entero desaparece; (8) las obsoletas no aparecen en ningún conteo de uniones diseñadas.
+- **Estados alternativos:** sin obsoletas el aviso **no se renderiza** — vale confirmar que no queda
+  un contenedor vacío. Un nudo obsoleto se reporta como `notDesigned` en el panel, porque **para este
+  modelo** nada se diseñó ahí.
+- **Riesgos:** el punto de todo esto es que **una entrada obsoleta que simplemente se ignora es
+  indistinguible de una unión que nadie diseñó nunca**, y una de las dos es trabajo que el usuario
+  hizo. Si el aviso no aparece, el usuario pierde trabajo sin enterarse. Es el ítem con el peor modo
+  de falla silencioso de esta sección.
+- **Requiere:** —
+- **Normativa:** —
+- **Categoría:** **QA obligatorio** **[3×]**
+- **Prioridad:** **crítica**
+
+---
+
 # F · Soldaduras
 
 Precondición común: Uniones metálicas → nudo seleccionado → sub-sección **Soldadura** del bloque de
@@ -2822,72 +2911,116 @@ Precondición común: panel PRO → pestaña **Proyecto** (o el botón *Proyecto
 
 ---
 
-### I-06 · Los diseños de unión **no** se guardan
+### I-06 · Los diseños de unión **sí** se guardan ✅ CERRADO
+
+> **Reescrita el 2026-08-27.** La versión anterior decía que **no** se guardaban y lo clasificaba
+> como fuera de alcance. `d12ad5cb` lo cerró. Un revisor que pruebe la entrada vieja va a esperar
+> `notDesigned` después de reabrir y va a reportar como defecto el comportamiento correcto.
 
 - **UI:** los bulones, la chapa, la soldadura y las presillas elegidas para cada nudo.
-- **Archivo:** `web/src/lib/store/joint-design.svelte.ts`
-- **Técnico:** el store guarda **sólo las elecciones**, en memoria. **No aparece en `snapshot()`, ni
-  en `restore()`, ni en el codec de URL, ni en ningún serializador.**
-- **Rama:** **M2** (`1f95f42f`). **Hallazgo de este inventario.**
+- **Archivo:** `web/src/lib/store/joint-design.svelte.ts` + `StructureModel.jointDesigns`
+- **Técnico:** el campo vive **en el modelo** y el store es una **vista** sobre él — la misma forma
+  que `regulations.svelte.ts`. Por eso viaja `.ded`, undo/redo, captura de pestaña y autosave
+  **gratis**: las cuatro rutas pasan por `snapshot()`/`restore()`.
+- **Rama:** **M2**. **Nueva.**
 - **Acceso:** Uniones → diseñar un nudo → Proyecto → Guardar → recargar → Abrir.
 - **Precondiciones:** nave calculada, un nudo diseñado.
-- **Pasos:** 1) diseñar un nudo completo; 2) guardar el proyecto; 3) recargar la página; 4) abrirlo;
-  5) volver a Uniones y seleccionar el mismo nudo.
-- **Esperado (a confirmar en pantalla):** el nudo vuelve a **`notDesigned`**.
-- **Estados alternativos:** dentro de la misma sesión el diseño sí sobrevive a cambiar de pestaña y
-  volver.
-- **Riesgos:** **es la única capacidad de M2 cuyo resultado no se puede conservar.** Es coherente con
-  el diseño del store —guarda elecciones y recalcula todo lo demás, para que un diseño no pueda
-  describir un modelo que ya cambió— pero significa que el trabajo de diseñar veinte nudos de la
-  nave se pierde al cerrar. Vale decidir si eso entra al alcance o se declara.
+- **Pasos:** 1) diseñar un nudo completo; 2) guardar el `.ded`; 3) recargar la página; 4) abrirlo;
+  5) volver a Uniones y seleccionar el mismo nudo; 6) **deshacer** con Ctrl+Z después de diseñar;
+  7) abrir el `.ded` en un editor y buscar `capacityKN`, `holesM`, `utilisation`, `checks`.
+- **Esperado:** (5) el nudo vuelve **con sus elecciones**; (6) el undo deshace el diseño; (7) **los
+  cuatro campos no están** — sólo se guardan las elecciones, y demandas, capacidades, contorno de
+  chapa y estaciones de presilla se **recalculan al leer**.
+- **Estados alternativos:** un proyecto **anterior** no tiene el campo, y su ausencia se lee como
+  «no se diseñó ninguna unión», que es la respuesta verdadera. Y ausente **se queda ausente** en
+  `snapshot()`, porque `restore(snapshot())` tiene que ser un no-op — Cancel sobre un borrador CAD
+  está implementado así.
+- **Riesgos:** la regla que sostiene todo esto es que **una unión guardada no puede reportar una
+  verificación contra un miembro que ya no está**. Vale mirar que después de reabrir el nudo muestre
+  su verificación **recalculada** y no un número congelado.
+- **Requiere:** —
 - **Normativa:** —
-- **Categoría:** **Fuera del alcance actual** + **QA obligatorio** (confirmarlo y declararlo)
+- **Categoría:** **QA obligatorio**
+- **Prioridad:** **crítica** — es persistencia de trabajo del usuario, y su modo de falla silencioso
+  es mostrar un veredicto viejo
 
 ---
 
-### I-07 · El store de uniones no se limpia al cargar otro modelo
+### I-07 · Un id de nudo no es una identidad ✅ CERRADO
 
-- **UI:** posible arrastre entre modelos dentro de la misma sesión.
-- **Archivo:** `joint-design.svelte.ts` — expone `reset()` y **nadie lo llama**
-- **Técnico:** las elecciones se guardan por **id de nodo**; `designFor` recalcula contra el modelo
-  actual
-- **Rama:** **M2**. **Hallazgo de este inventario, a verificar en pantalla.**
+> **Reescrita el 2026-08-27.** La versión anterior describía el arrastre entre modelos como hallazgo
+> a verificar. `d12ad5cb` lo cerró, y lo cerró **conservando** el trabajo en vez de borrarlo — así
+> que lo que hay que probar ahora es distinto y hay más superficie (ver **E-25**).
+
+- **UI:** ninguna unión aparece como elegida en un modelo donde no se eligió; y las que quedaron
+  colgadas se **dicen** en el panel, con su motivo.
+- **Archivo:** `joint-design.svelte.ts`, `lib/connection/joint-choices.ts`
+  (`reconcileJointDesigns`)
+- **Técnico:** cada unión guarda contra qué se diseñó — `atMm` (dónde estaba el nudo, al milímetro)
+  y `memberCount` (cuántas barras lo tocaban) — y se **reconcilia en cada lectura**, no una vez al
+  cargar: borrar un nudo a mitad de sesión deja su unión obsoleta **en el acto**.
+- **Rama:** **M2**. **Nueva.**
 - **Acceso:** Uniones.
 - **Precondiciones:** dos modelos distintos en la misma sesión.
-- **Pasos:** 1) cargar la nave, diseñar el nudo **N5** con bulones y chapa; 2) **sin recargar la
-  página**, cargar otro ejemplo; 3) ir a Uniones y seleccionar el nudo **N5** del modelo nuevo.
-- **Esperado (a confirmar):** debería estar **`notDesigned`**. Si aparece con los bulones del modelo
-  anterior, el arrastre es real.
-- **Riesgos:** el diseño **se recalcula** contra el modelo nuevo, así que no puede reportar una
-  capacidad contra un miembro borrado — pero **sí puede presentar como elegido algo que el usuario
-  nunca eligió para este modelo**. Es exactamente la forma de defecto que esta rama persiguió tres
-  veces: **un valor plausible ocupando el lugar de un dato ausente**.
+- **Pasos:** 1) cargar la nave, diseñar **N5** con bulones y chapa; 2) **sin recargar**, cargar otro
+  ejemplo; 3) Uniones → seleccionar **N5** del modelo nuevo; 4) volver a la nave, **borrar** un nudo
+  diseñado; 5) **mover** un nudo diseñado; 6) agregarle **una barra más** a un nudo diseñado.
+- **Esperado:** (3) **`notDesigned`** — reemplazar el proyecto **es** el reset, porque `restore()` y
+  `clear()` reemplazan el campo; (4) razón **`nodeMissing`**; (5) razón **`nodeMoved`**;
+  (6) razón **`topologyChanged`**.
+- **Estados alternativos:** una unión obsoleta **no se borra** (sería tirar trabajo por un nudo
+  movido) y **no se aplica** (sería la asociación silenciosa). Se conserva, no se itera —un documento
+  no la tabula— y se declara en pantalla.
+- **Riesgos:** el **orden** de las tres razones importa y está afirmado: un nudo ausente tampoco
+  tiene barras, así que chequear el conteo primero reportaría cada nudo borrado como cambio de
+  topología y mandaría al usuario a buscar una barra que nunca sacó. Vale confirmar en pantalla que
+  un nudo borrado dice `nodeMissing` y no `topologyChanged`.
+- **Requiere:** —
+- **Normativa:** —
 - **Categoría:** **QA obligatorio**
+- **Prioridad:** **crítica** — es la forma de defecto que esta rama persiguió tres veces: un valor
+  plausible ocupando el lugar de un dato ausente
 
 ---
 
-### I-08 · El link compartido pierde cuatro campos
+### I-08 · El link: las uniones **sí** viajan; los cuatro campos de sección **no**
+
+> **Reescrita el 2026-08-27.** La entrada tenía **una** mitad y ahora tiene dos, con estados
+> opuestos. `9c9f9506` cerró la mitad de uniones; la de secciones sigue abierta y **no es de acero**
+> — es de hormigón y de acero por igual.
 
 - **UI:** botón **Copiar link** de la pestaña Proyecto — y también el link que **cada reporte de
   feedback adjunta automáticamente**, y los ejercicios de Education.
-- **Archivo:** `web/src/lib/utils/url-sharing.ts:187` (`compressV2`)
-- **Técnico:** la sección viaja como tupla posicional
-  `[id, name, a, iz, {s,b,h,w,f,t,iy,j,rot}]` — **once campos de quince**
-- **Rama:** **preexistente**; detectado por **M1** al probar el contrato `built`, ampliado por M2.
-  **No implementado a propósito**: `SHARE_VERSION` es un formato versionado sobre archivo compartido
-  con hormigón. Handoff en `share-codec-fields.md`.
+- **Archivo:** `web/src/lib/utils/url-sharing.ts` (`SHARE_VERSION = 5`),
+  `lib/connection/joint-share.ts`
+- **Rama:** mitad de uniones: **M2, nueva**. Mitad de secciones: **preexistente**, detectada por M1.
 - **Acceso:** Proyecto → Compartir → Copiar link.
-- **Precondiciones:** un modelo con un armado y con un C/Z paramétrico.
+- **Precondiciones:** un modelo con un armado, con un C/Z paramétrico **y con un nudo diseñado**.
+
+**Mitad cerrada — las uniones viajan.**
+- **Pasos:** 1) diseñar un nudo; 2) copiar el link; 3) abrirlo en una pestaña nueva; 4) Uniones →
+  seleccionar el nudo; 5) mover el nudo **antes** de copiar el link y repetir.
+- **Esperado:** (4) el nudo vuelve **con sus elecciones**, por la clave `jd`; (5) vuelve como
+  **obsoleto con su razón** — la huella `atMm`/`memberCount` de **I-07** viaja con el link, así que
+  la reconciliación funciona igual del otro lado. Nada calculado viaja.
+- **Estados alternativos:** un lector que **precede** a `jd` lo ignora; `sv >= 3` y `sv >= 4` siguen
+  satisfechos por 5, así que los links viejos siguen abriendo.
+
+**Mitad abierta — la procedencia de la sección se degrada.**
 - **Pasos:** 1) armar el modelo de **I-01**; 2) copiar el link; 3) abrirlo en una pestaña nueva;
   4) mirar las secciones.
-- **Esperado (hoy):** **el análisis está bien** —el solver tiene área e inercias— y lo que se degrada
-  es la **procedencia**: se pierden `composition`, `profileFamily`, `tl` y `built`. Un armado
-  compartido por URL **vuelve sin su composición**, y un C/Z vuelve sin el espesor de labio (con lo
-  cual `case 'C'` sustituye el espesor **del ala**).
-- **Riesgos:** el peor caso es el **widget de feedback**: si un usuario reporta un problema con una
-  sección armada, **el link que llega al issue reconstruye el modelo sin el campo del que habla el
-  reporte**.
-- **Categoría:** **Limitación conocida** + **QA obligatorio** (confirmar el alcance de la pérdida)
+- **Esperado (hoy):** **el análisis está bien** —el solver tiene área e inercias— y lo que se pierde
+  es `composition`, `profileFamily`, `tl` y `built`. Un armado vuelve **sin su composición**, y un
+  C/Z vuelve **sin el espesor de labio** (con lo cual `case 'C'` sustituye el espesor **del ala**).
+- **Riesgos:** el peor caso sigue siendo el **widget de feedback**: si un usuario reporta un problema
+  con una sección armada, el link que llega al issue reconstruye el modelo **sin el campo del que
+  habla el reporte**. Y hay un borde nuevo anotado en `share-codec-fields.md` §7: acoplar la versión
+  del contenedor de URL a la del modelo.
+- **Requiere:** —
+- **Normativa:** —
+- **Categoría:** mitad de uniones **QA obligatorio**; mitad de secciones **limitación conocida que
+  no bloquea** — no es de estas ramas
+- **Prioridad:** uniones **alta**; secciones **media**
 
 ---
 
@@ -2986,15 +3119,19 @@ C-14, E-01, E-06, E-22, E-23, H-16, I-05, I-08, I-09, I-11**.
 
 | Categoría | Cantidad |
 |---|---|
-| **QA obligatorio antes del merge** | **102** |
+| **QA obligatorio antes del merge** | **103** |
 | **QA recomendado** | **20** |
 | **Sólo verificación automática** | **6** |
 | **Limitación conocida** | **12** |
-| **Fuera del alcance actual** | **6** |
-| **Total** | **146** |
+| **Fuera del alcance actual** | **5** |
+| **Total** | **147** |
 
 Diez entradas llevan **dos** categorías (p. ej. *limitación conocida* + *QA obligatorio, que
 lo diga*); en esta tabla cuenta la primera, que es la que manda para el merge.
+
+> **Recuento corregido el 2026-08-27.** +1 función (**E-25**, superficie nueva) y **I-06** salió de
+> *fuera del alcance* a *QA obligatorio*, porque dejó de ser una capacidad ausente y pasó a ser una
+> capacidad que hay que probar. Las revisiones de esta fecha están listadas en §0.5.
 
 ## J.3 · Por recorrido
 
@@ -3004,12 +3141,12 @@ lo diga*); en esta tabla cuenta la primera, que es la que manda para el merge.
 | **B · Selector de materiales** | 17 | 11 |
 | **C · Generadores** | 15 | 9 |
 | **D · Workflow metálico** | 15 | 11 |
-| **E · Uniones abulonadas** | 24 | 21 |
+| **E · Uniones abulonadas** | 25 | 22 |
 | **F · Soldaduras** | 11 | 7 |
 | **G · Presillas y compuestos** | 12 | 9 |
 | **H · Nudos y visor 3D** | 16 | 11 |
-| **I · Persistencia y exportaciones** | 11 | 5 |
-| **Total** | **146** | **102** |
+| **I · Persistencia y exportaciones** | 11 | 6 |
+| **Total** | **147** | **103** |
 
 ## J.4 · Las seis que existen en código y no tienen superficie
 
@@ -3031,22 +3168,64 @@ ningún import.
 
 ## K.1 · Estado medido de las dos ramas
 
-Comprobado localmente al escribir este documento:
+> **Re-medido el 2026-08-27, y cambió lo suficiente para importar.** Las dos cabezas se movieron, el
+> retraso contra `main` pasó de 6 a **9** commits, y los tres nuevos son **del solver**. La tabla
+> vieja queda reemplazada, no anotada: un estado de merge desactualizado es peor que ninguno.
 
 | | M1 (#156) | M2 (#164) |
 |---|---|---|
-| Cabeza | `3abf86c4` | `33699b9b` |
+| Cabeza | `b5d0cf49` | `14c10a2e` |
 | Base del PR | **`main`** | `feat/pro-steel-m1` |
 | Sincronía con `origin` | **0 / 0** | **0 / 0** |
-| `git merge-tree` contra su base | **limpio** | **limpio** |
-| Detrás de `main` | **6 commits** | idem, a través de M1 |
+| `git merge-tree` contra `main` | **limpio**, 0 conflictos | idem, a través de M1 |
+| Detrás de `main` | **9 commits** | idem |
+| `mergeStateStatus` | **BLOCKED** (ruleset, no CI) | **UNSTABLE** (CI en rojo) |
+| `mergeable` | MERGEABLE | MERGEABLE |
 | Estado del PR | OPEN, **draft** | OPEN, **draft** |
+| CI sobre la cabeza | **todo verde** | `lint` · `test` · `suite (1)` · `suite (2)` **verde**; **`e2e` rojo**; `web` corriendo |
 
-Los seis commits de `main` que M1 no tiene son `b579de87`, `2b0851a9`, `cc814798`, `8726ec03`,
-`5194752e`, `71426e85` — favicon, README, el gate de assets de desarrollo, y **una optimización del
-motor** (`8726ec03`, factorizar la tangente una vez por iteración de control por desplazamiento).
-Los cinco primeros no tocan ningún archivo de M1 ni de M2. **El sexto sí es del motor**, así que la
-integración conviene medirla, no suponerla.
+**Los nueve commits de `main` que faltan, y por qué esta vez no son cosmética.** Cinco son los de
+antes (favicon, README, gate de assets, la tangente factorizada). Los **cuatro nuevos son del
+motor**:
+
+| Commit | Qué |
+|---|---|
+| `c6b7af71` | AMD reescrito como grafo cociente con grados aproximados |
+| `672b17b2` | patrón simbólico de Cholesky por árbol de eliminación |
+| `7d856b1f` | Cholesky numérico supernodal sobre paneles densos |
+| `9a2f26d2` | rechazo de pivotes `NaN`, y test de contrato de tensión de placa térmica |
+| `8af9b9d6` | el control por desplazamiento deja de reportar un éxito que no ganó |
+| `0844f01d` | **CI: sube artefactos de Playwright y declara `retries` sobre el test de canvas flaky** |
+
+Dos consecuencias concretas:
+
+1. **Reescribir el ordenamiento y la factorización cambia los números que salen del solver** —dentro
+   de la tolerancia, es de esperar, pero **es de esperar, no está medido para estas ramas**. Todo lo
+   que en este inventario compara una solicitación contra un valor conviene re-mirarlo **después** de
+   traer `main`, no antes. Es la razón más fuerte para que el merge de `main` vaya **antes** del
+   recorrido de QA y no después.
+2. **`0844f01d` es la contención del flake** que el addendum de `m1-m2-b01-i06-i07.md` describe.
+   Traer `main` es lo que la pone en estas ramas. Hasta entonces ese test puede enrojecer el job
+   `e2e` de cualquiera de los dos PR **sin que sea un defecto de estas ramas**.
+
+### K.1.1 · El rojo de `e2e` en M2, ubicado
+
+El job `e2e` de la cabeza `14c10a2e` falló **en 28 segundos**, y la suite tarda veintidós minutos: no
+llegó a correr un test. El paso que falló es **`Build WASM engine`** — el instalador de `wasm-pack`,
+que es exactamente lo que el PR **#137** («pin and cache wasm-pack instead of curl-piping the
+installer») existe para arreglar.
+
+**Es la tercera causa distinta de rojo en `e2e` que estas ramas vieron**, y conviene no confundirlas:
+
+| Causa | Naturaleza | Dónde se arregla |
+|---|---|---|
+| El flake del walkthrough de sección | intermitente, acotado y **no** diagnosticado | `main`, por `0844f01d` (`retries`) |
+| El `aria-pressed` de `basic-selection-permutations` | defecto real, **de origen** | ya arreglado, en M1 |
+| **`Build WASM engine`** ← ésta | infraestructura de CI, no código | `main`, por **#137** |
+
+**Ninguna de las tres es del trabajo de M1 ni de M2.** Pero la tercera significa que **el `e2e` de M2
+no está probado verde sobre su cabeza actual**, y eso es un hecho que hay que decir antes de aceptar
+la rama, no después. La corrida anterior completa (`13086a93`) fue verde entera.
 
 ## K.2 · Recomendación de merge de M1 (#156)
 
@@ -3062,23 +3241,28 @@ acá es superficie que el usuario toca, no líneas.
   el compilador y no el checker, y quedó documentada;
 - `mergeStateStatus: BLOCKED` **no es CI**: el ruleset de la organización sobre la rama por defecto
   no declara **ningún** status check requerido. Lo único que bloquea es **la aprobación que falta**;
-- **condición**: su cabeza se movió tres veces después del verde de `9883e2bd` (`6448e89d`,
-  `66259cee`, `3abf86c4`), y el segundo de esos tres **rompió el job `web` de M1** antes de
-  retirarse. **Hay que mirar el CI de `3abf86c4`, no el de `9883e2bd`**;
-- **condición 2**: traer los 6 commits de `main` — `merge-tree` da limpio — y volver a correr los
-  gates locales, por `8726ec03`.
+- **condición (actualizada el 2026-08-27)**: la cabeza volvió a moverse a **`b5d0cf49`**, y el CI de
+  esa cabeza está **verde entero**. Ya no hay que mirar un sha viejo: **`b5d0cf49` es el evaluado**;
+- **condición 2 (reforzada)**: traer los **9** commits de `main` — `merge-tree` da limpio, 0
+  conflictos — y volver a correr los gates locales. Ya no es por una optimización: son **cuatro
+  commits que reescriben el ordenamiento y la factorización del solver**. Ver K.1.
 
 **Salir de draft, pedir la aprobación, y mergear.**
 
 ## K.3 · Recomendación de merge de M2 (#164)
 
-**No mergear todavía, y no por CI.** Faltan tres cosas y ninguna es un test rojo:
+**No mergear todavía.** Actualizado el 2026-08-27: ahora son **cuatro** cosas, y una **sí** es un job
+rojo — aunque no sea un test rojo:
 
-1. **el recorrido de QA de este documento**, o al menos sus 102 obligatorios. M2 aporta **91** de las
-   146 funciones y **casi todo lo que un usuario toca**;
-2. **dos decisiones de producto abiertas** — K.4;
+1. **el recorrido de QA de este documento**, o al menos sus 103 obligatorios. M2 aporta **92** de las
+   147 funciones y **casi todo lo que un usuario toca**;
+2. **una decisión de producto abierta** — A-01. Eran dos; B-01 se cerró (§0.5);
 3. **reapuntar la base**: hoy es `feat/pro-steel-m1`. Cuando M1 entre a `main`, la base de #164 pasa
-   a ser `main` y el diff no crece, igual que pasó con `feat/pro-steel-family`.
+   a ser `main` y el diff no crece, igual que pasó con `feat/pro-steel-family`;
+4. **`mergeStateStatus: UNSTABLE`** — el job `e2e` de la cabeza actual está rojo. Ubicado en
+   **K.1.1**: es el instalador de `wasm-pack`, no código de M2. **No es un bloqueante de producto,
+   pero sí un bloqueante de proceso**: nadie debería aceptar una rama cuyo `e2e` no corrió. Se
+   resuelve trayendo `main` (que además trae la contención del flake) o relanzando el job.
 
 ## K.4 · Orden
 
@@ -3109,13 +3293,17 @@ Separados de lo que **parece** bloqueante y no lo es.
 
 ### Bloqueantes de verdad
 
+> **Reescrita el 2026-08-27.** Dos de los cinco bloqueantes se cerraron y uno cambió de naturaleza.
+
 | # | Qué | Por qué bloquea |
 |---|---|---|
-| **1** | **Los 102 ítems de QA obligatorio** de este documento, y en particular los cinco de máxima prioridad: **D-09** (la verificación nunca `hecho`), **E-21** (el cálculo auxiliar sin veredicto), **C-05** (Pratt/Howe), **A-18** (el centroide) y **E-07** (las solicitaciones que fueron cero en todos los modelos) | los cinco son casos en que la app **afirmaba algo falso** y ningún test los detectó |
-| **2** | **B-01 — la lista inline de materiales sigue siendo una segunda fuente** | es el mismo hallazgo §6.1 que se cerró para secciones; dejarlo es cerrar la mitad de una decisión |
-| **3** | **A-01 — el *builder* inline se retiró y la propuesta escrita decía no tocarlo** | es la divergencia de mayor alcance de M2; revertirla después del merge cuesta mucho más |
-| **4** | **I-06 / I-07 — las uniones no se guardan, y el store no se limpia al cargar otro modelo** | I-07 es la forma de defecto que esta rama persiguió tres veces: **un valor plausible ocupando el lugar de un dato ausente**. Hay que verificarlo en pantalla antes del merge |
+| **1** | **Los 103 ítems de QA obligatorio** de este documento, y en particular los ocho de máxima prioridad: **D-09** (la verificación nunca `hecho`), **E-21** (el cálculo auxiliar sin veredicto), **C-05** (Pratt/Howe), **A-18** (el centroide), **E-07** (las solicitaciones que fueron cero en todos los modelos), **E-25** (el aviso de uniones obsoletas), **I-06** (las uniones que ahora se guardan) e **I-07** (la reconciliación) | los cinco primeros son casos en que la app **afirmaba algo falso** y ningún test los detectó; los tres últimos son **capacidad nueva sin recorrer a mano** |
+| **2** | ~~**B-01** — la lista inline de materiales~~ | **CERRADO** por `9ed71247`. Queda como **QA obligatorio** porque retira una ruta que existía, no como bloqueante de decisión |
+| **3** | **A-01 — el *builder* inline se retiró y la propuesta escrita decía no tocarlo** | **sigue abierto**, y ahora es la **única** decisión de producto pendiente. Es la divergencia de mayor alcance de M2; revertirla después del merge cuesta mucho más. Las cuatro alternativas, en lenguaje de producto, en `a-01-decision.md` |
+| **4** | ~~**I-06 / I-07** — las uniones no se guardan y el store no se limpia~~ | **CERRADOS** por `d12ad5cb`. Pasan de bloqueante-de-alcance a **QA obligatorio de prioridad crítica**: hay que recorrer en pantalla la persistencia, las tres razones de obsolescencia y los dos remedios |
 | **5** | **La aprobación de #156** | el ruleset la exige y no exige ningún status check |
+| **6** | **Traer `main` ANTES del recorrido de QA** | los cuatro commits de solver de K.1 reescriben ordenamiento y factorización. Recorrer 103 ítems contra números que van a cambiar es recorrerlos dos veces |
+| **7** | **El `e2e` de M2 sobre su cabeza actual** | rojo por el instalador de `wasm-pack` (K.1.1). No es de M2, pero nadie debería aceptar una rama cuyo `e2e` no corrió |
 
 ### Lo que **no** bloquea, con la evidencia de por qué
 
@@ -3144,7 +3332,12 @@ es el lugar para arreglar:
 4. **`css_unused_selector` no cubre 30 de los 169 componentes con estilos, 24 de ellos bajo `pro/`**
    — `css-prune` deja de podar en cuanto un componente tiene un `class` que el compilador no puede
    leer estáticamente. Mientras eso siga así, **el CSS muerto en esas superficies sólo lo encuentra
-   un censo a mano**.
+   un censo a mano**;
+5. **el instalador de `wasm-pack` se baja por `curl` en cada corrida** — agregado el 2026-08-27,
+   porque dejó de ser hipotético: es lo que puso en rojo el `e2e` de la cabeza de M2 (K.1.1), en 28
+   segundos y sin correr un test. El arreglo ya está escrito y abierto: **PR #137**, «pin and cache
+   wasm-pack instead of curl-piping the installer». **Es de `main`, no de estas ramas**, y mientras
+   no entre cualquier PR del repositorio puede enrojecer por esto.
 
 ## K.6 · Recomendación explícita sobre `/clear`
 
@@ -3156,7 +3349,7 @@ El razonamiento, sin vueltas:
   rutas, precondiciones, pasos, riesgos, atribución por rama, categorías y el estado de merge —
   está acá y en los tres handoffs que continúa. No hay nada en la ventana de contexto que no esté
   escrito;
-- **el QA es tuyo, no mío.** Los 102 obligatorios se hacen en el navegador. Nada de eso necesita que
+- **el QA es tuyo, no mío.** Los 103 obligatorios se hacen en el navegador. Nada de eso necesita que
   yo tenga cargada la historia de cómo se llegó hasta acá;
 - **lo que sigue después del QA es otro trabajo** — cerrar B-01, decidir sobre A-01, verificar I-06 e
   I-07, traer main a M1 — y arranca mejor con la cabeza limpia y este documento como entrada, que
@@ -3203,3 +3396,56 @@ que un aviso aparezca **cuando el usuario espera verlo**; que la **previsualizac
 no sólo que cambie; que los tres idiomas **suenen escritos por una persona**; que el **tono** de los
 cinco hechos de alcance de los conformados se lea como una capacidad y cuatro límites y no como
 cinco refutaciones; y que un dibujo en 3D **no parezca terminado** cuando no lo está.
+
+---
+
+# L · Candidatos a M3
+
+**Agregada el 2026-08-27.** El objetivo declarado del QA manual es **decidir qué correcciones entran
+en M3**, y este documento no tenía esa lista: tenía bloqueantes de merge, que es otra cosa. Un
+bloqueante hay que resolverlo **antes** de aceptar la rama; un candidato a M3 es algo que se puede
+aceptar con la rama y arreglar después, y confundirlos es lo que convierte un merge en un rehén.
+
+**Nada de esta sección está implementado, y M3 no está abierto.** Es material para la decisión.
+
+## L.1 · Lo que el QA puede convertir en trabajo de M3
+
+Ordenado por lo que cuesta si se deja, no por lo que cuesta arreglarlo.
+
+| # | Candidato | Origen | Por qué puede esperar | Prioridad |
+|---|---|---|---|---|
+| **1** | **A-01 — el *builder* paramétrico quedó a un clic de distancia** | decisión abierta, `a-01-decision.md` | **no es un defecto**: la capacidad está completa y ganó poder reeditarse. Lo que cambió es por dónde se entra. Si el QA dice que el clic extra molesta, la vuelta atrás es acotada y conocida | **alta** — es la única decisión de producto abierta |
+| **2** | **Los cuatro campos de sección que el link no lleva** (`composition`, `profileFamily`, `tl`, `built`) | I-08, mitad abierta | el análisis viaja correcto; lo que se degrada es la procedencia. **No es de acero**: es del codec compartido con hormigón | **media** — el peor caso es el link del widget de feedback |
+| **3** | **`SectionShapeBuilder.svelte` es un componente entero sin montar** | J.4 punto 6 | la capacidad no se perdió, la tiene el modal. Es deuda de limpieza con una decisión de producto adentro (`m1-section-shape-builder.md`) | **baja** |
+| **4** | **Las seis capacidades que existen en código y no tienen superficie** | J.4 | cada una es una decisión de alcance, no un arreglo. La más filosa es el `notVerifiable` del grupo de bulones: **existe y no hay control que lo alcance** | **media** para la de bulones, **baja** para las otras cinco |
+| **5** | **La caída del renderer 3D** | K.5, «lo que no bloquea» | **preexistente y peor en la rama base** (10 % contra 12 %, y 17,5 % en Chrome real). Mitigada, no reparada. Fuera del alcance autorizado de estas ramas | **media** — es una caída, aunque no sea nueva |
+| **6** | **Las presillas y las soldaduras no se dibujan en 3D** | G-12, F-11, H-12, H-13 | están **declaradas**, no silenciadas. Un usuario que diseña una presilla y no la ve en el visor puede creer que no se aplicó | **media** |
+| **7** | **Los huecos de CI** — `concurrency`, jobs de `typecheck` y `svelte-check`, `run-e2e`, `wasm-pack` (#137) | K.5, «deuda que no es de estas ramas» | **no son de M1 ni de M2**. Van a PRs propios contra `main`. El de `wasm-pack` ya existe: **#137** | **alta** para `wasm-pack` y `concurrency`; **media** para los otros |
+
+## L.2 · Lo que el QA puede descubrir, y donde va a estar
+
+Los ítems de este inventario con el peor **modo de falla silencioso** — los que, si están mal, no
+se ven mal. Si el QA encuentra algo, lo más probable es que sea uno de éstos, y conviene mirarlos
+primero:
+
+| Ítem | Qué falla en silencio |
+|---|---|
+| **E-25** | una unión obsoleta que no se anuncia es indistinguible de una que nadie diseñó — y una de las dos es trabajo del usuario |
+| **I-06** | un veredicto **congelado** en vez de recalculado: la unión reabierta mostraría una verificación contra un miembro que cambió |
+| **I-07** | una elección que el usuario **nunca hizo para este modelo**, presentada como hecha |
+| **D-09** | una verificación que se declare `hecho` cuando no lo está |
+| **E-21** | el cálculo auxiliar Vu/Tu leído como veredicto |
+| **E-07** | una solicitación gobernante en **cero** que se lea como «no hay demanda» en vez de «no se calculó» |
+| **A-18** | un centroide mal ubicado en la ficha — el número se ve plausible siempre |
+| **B-13** | ν o ρ físicamente imposibles entrando al solver (era el defecto del formulario viejo) |
+
+## L.3 · Qué NO debería entrar a M3
+
+Para que la lista no crezca por inercia:
+
+- **nada que este inventario clasifique como «sólo verificación automática»** — la suite lo cubre;
+- **nada de los cinco fallos E2E locales ni de la baseline visual de 1 px**: los seis reproducen
+  idénticos en `origin/main` y ninguna rama de acero los toca;
+- **el flake del walkthrough de sección**: la contención está en `main` (`0844f01d`) y llega por
+  merge. Diagnosticarlo es trabajo aparte y **está acotado, no diagnosticado** — el estado honesto;
+- **los `@perf`**: no corren en CI en ninguna rama, así que un rojo ahí no es información nueva.
