@@ -292,6 +292,23 @@ export function isKnownBiaxialLimitation(
 
 export function statusOf(
   hasSteel: boolean, summary: DesignOutcomeSummary | undefined,
+  /**
+   * Whether the DOCUMENT recorded this member's steel as a proposal.
+   *
+   * `DocumentModel` carries it — `assembly.source.provisionalMembers`, which the scene surfaces
+   * as `provisionalMembers` — and it is the only half of this answer that survives being saved
+   * and reopened. `verificationStore` is runtime-only: nothing hydrates it, so a restored
+   * project arrives with no outcome for any member, and the branch below then read "steel, no
+   * outcome" as MODELLED for all of them. Measured on the restored 7-storey building: the status
+   * panel said `MODELLED 203` while the provisional banner, reading this same record, said 5
+   * members carry a proposal that may not be built.
+   *
+   * Consulted LAST, never first. The session's outcome is the more specific answer where it
+   * exists, and the FAILED and REFUSED preempts above stay in front of this: an edit can make a
+   * member that was recorded provisional genuinely fail now, and a persisted proposal may not
+   * soften a live failure. Defaults to false so every existing caller keeps its answer.
+   */
+  documentProvisional = false,
 ): ElementStatus {
   /**
    * A failing verification outranks everything below it — with one exception.
@@ -356,7 +373,13 @@ export function statusOf(
      * that NOT_EVALUATED would be false — the family record and its certificate are the
      * evidence — so the presence of steel is taken at face value here and the family
      * certificate remains the authority on whether it may be built.
+     *
+     * Except where the DOCUMENT says the steel is a proposal. Taking steel at face value is
+     * right for floor steel, which has no per-element outcome by construction; it is wrong for
+     * a member whose own assembly recorded it as provisional, and after a restore that is
+     * every proposal in the project. See `documentProvisional`.
      */
+    if (hasSteel && documentProvisional) return 'PROVISIONAL';
     return hasSteel ? 'MODELLED' : 'NOT_EVALUATED';
   }
 
@@ -443,6 +466,14 @@ export function reportElementStatus(
     resistantOf.has(id) ? 'resistant' : hangerOf.has(id) ? 'hangerProvisional' : 'none';
   const seen = new Set<number>();
   const entries: ElementStatusEntry[] = [];
+  /**
+   * The members the DOCUMENT recorded as proposals.
+   *
+   * The same array the provisional banner counts, so the panel and the banner are two readings
+   * of one fact rather than two derivations of it — which is what they were, and they disagreed
+   * on every restored project. See `statusOf`'s third parameter.
+   */
+  const documentProvisional = new Set(scene.provisionalMembers);
 
   for (const s of scene.solids) {
     for (const id of s.elementIds) {
@@ -452,7 +483,7 @@ export function reportElementStatus(
       const hasSteel = steelOf.has(id) || s.reinforced;
       entries.push({
         elementId: id,
-        status: statusOf(hasSteel, summary),
+        status: statusOf(hasSteel, summary, documentProvisional.has(id)),
         hasSteel,
         topSteel: topSteelOf(id),
         outcome: summary?.outcome,
