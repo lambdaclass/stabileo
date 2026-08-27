@@ -387,37 +387,18 @@
     matched nothing. Removed rather than corrected — the caps are the wrong idea, not a typo.)
   */
   /*
-    Why this stage carries a tag.
+    ── Five rules for markup this file no longer owns ─────────────────
 
-    "Slabs, walls and foundations" sits beside "Coordinated detailing" as a peer, and a reader has
-    no way to tell that it is OPTIONAL and that it runs BEFORE detailing when the building has
-    shells. It stays a section of its own — a frame-only building never opens it, and folding it
-    into detailing would make every project pay for a step most do not need — but it now says
-    which step it is.
+    `.stage-tag`, `.count`, `summary`, `summary:focus-visible` and `.attention` styled the
+    disclosure headers this tab used to render itself. It renders none of them now: `StageSection`
+    and `RcSubStage` own the `<summary>`, the step number, the badge and the attention chip, and
+    they carry their own copies. Svelte scopes styles to the declaring component, so all five have
+    reached nothing since the extraction — and the build reports all five, on every run.
+
+    Deleted rather than kept, and this file already records why in the two notes above: a rule
+    left behind after its markup leaves is a decoy the next person edits expecting an effect. The
+    `.stage-tag` note is the clearest case — it argues a product decision about an optional stage
+    saying which step it is, and that argument is now made by `RcSubStage`'s own `state` chip,
+    which is where the reader will look for it.
   */
-  .stage-tag {
-    font-size: 0.65rem; font-weight: 600; letter-spacing: 0.03em;
-    padding: 0.05rem 0.35rem; border-radius: 3px;
-    border: 1px solid var(--st-hair-strong); color: var(--st-text-2);
-  }
-  .count { font-size: 0.72rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 3px; background: rgba(143, 163, 179,0.3); }
-  summary {
-    cursor: pointer;
-    padding: 0.45rem 1rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  summary:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
-  /* Assumed state is never green. */
-  .attention {
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 0.1rem 0.4rem;
-    border-radius: 3px;
-    background: var(--st-surface-3);
-    color: var(--st-text);
-  }
 </style>

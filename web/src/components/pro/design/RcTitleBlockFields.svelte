@@ -176,14 +176,13 @@
     styles per component, so a copy kept here would reach nothing — it would be dead text the
     next reader has to prove is dead, which is what `DetailingWorkflow`'s bar-list rules were.
   */
-  /* Visible to a screen reader, not to the eye: the placeholder is not an accessible name. */
-  .sr-only {
-    position: absolute;
-    width: 1px; height: 1px;
-    padding: 0; margin: -1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-    border: 0;
-  }
+  /*
+    `.sr-only` is gone with the same reasoning as the three rules above it.
+
+    It was written for the note "the placeholder is not an accessible name", and this panel's
+    fields carry visible `<label>`s instead — so there has been no `.sr-only` element here to
+    style, and the build has said so on every run. This one is worth naming rather than deleting
+    quietly: an accessibility helper left behind reads as accessibility that is handled. Anything
+    added later that needs it can copy `RcStageTimeline`'s, which is live and does reach markup.
+  */
 </style>

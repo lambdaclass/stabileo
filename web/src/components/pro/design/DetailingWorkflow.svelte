@@ -389,21 +389,29 @@
 
 <style>
   /*
-    Two columns that can actually shrink, sized by the PANEL and not by the window.
+    ── One column, stated once, instead of a grid that was never on ───
 
-    Was `minmax(12rem, 18rem) 1fr` with a `@media (max-width: 800px)` fallback, and both halves
-    were wrong in the same place: a `1fr` track refuses to go below its content's min-content
-    width, so the bar-schedule table and the sheet pushed the grid wider than the panel and the
-    state pills and the preview were clipped on the right; and the media query asks about the
-    WINDOW, so on a 1280 px screen it never fired even though the panel itself is about 540 px.
+    Five declarations stood here and reached nothing: `grid-template-columns` and `gap` on
+    `.detailing`, a second `grid-template-columns` under `[data-list='closed']`,
+    `grid-column: 1 / -1` on `.topbar`, and a `@container (max-width: 34rem)` that collapsed the
+    whole thing to one track.
 
-    `minmax(0, …)` lets both tracks shrink, and a container query asks the question that matters.
-  */
-  /*
-    One column when the list is hidden, two when it is not.
+    `.detailing` never declared `display: grid`. Measured in the browser: `display: block`,
+    `grid-template-columns: minmax(128px, 192px) minmax(0px, 1fr)` — computed and inert — and
+    `container-type: normal`, so the container query had no container to resolve against and was
+    asking about the WINDOW, which is the exact defect the comment that stood here claimed to
+    have fixed. The panel has been a single stacked column at every width since the day it was
+    written, and `pro-detailing-layout.spec.ts` says so in its own words: "at 1280×720 the right
+    panel is about 540 px … so the section is ALREADY one column".
 
-    `data-list` drives it rather than a media query: the question is what the READER asked for,
-    and the panel's width is answered separately by the container query at the bottom.
+    So the single column is DECLARED rather than arrived at by accident, and `data-list` decides
+    only whether the list is IN it — through the `hidden` attribute, which is a question about
+    what the reader asked for and not about tracks.
+
+    Nothing moves: this is the layout that has been on screen. What goes is a description of a
+    different one — and the grid was the wrong idea for this surface, not a typo. At 540 px an
+    8–12 rem list beside the drawing leaves the drawing about 380, which is the crop the list
+    toggle exists to undo.
   */
   .topbar {
     display: flex;
@@ -430,20 +438,17 @@
   .list-toggle:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .current-level { font-weight: 600; color: var(--st-text); }
 
-  .detailing[data-list='closed'] { grid-template-columns: minmax(0, 1fr); }
-  .detailing[data-list='closed'] .topbar,
-  .detailing[data-list='open'] .topbar { grid-column: 1 / -1; }
-
   .detailing {
-    grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
-    gap: 1rem;
+    /* `block`, which is what it has always computed to. Declared so the next reader does not
+       have to prove it, and NOT changed to a flex column: a `gap` there would move every child
+       and this edit is a correction to the description, not to the layout. */
+    display: block;
     padding: 0.75rem;
     font-size: 0.85rem;
     height: 100%;
     overflow: auto;
   }
   h4 { margin: 0 0 0.4rem; font-size: 0.9rem; }
-  h5 { margin: 0 0 0.3rem; font-size: 0.85rem; }
   .empty { opacity: 0.7; }
   ul { list-style: none; margin: 0; padding: 0; }
   .assemblies button { width: 100%; text-align: left; padding: 0.4rem 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; background: none; border: 1px solid transparent; border-radius: 4px; color: inherit; cursor: pointer; }
@@ -530,24 +535,28 @@
     styles per component, so a copy kept here would not reach those cells anyway — it would be
     dead text the next reader has to prove is dead, which is what the bar list's rules were.
   */
-  .documents { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border, var(--st-text)); }
-  .doc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-  .doc-state { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; }
-  .badge { padding: 2px 8px; border-radius: 3px; font-weight: 600; font-size: 11px; }
-  /* Inverted chip: a light ground, so the PLAIN hue rather than the `-text` variant — which
-     is what `tokens.css` says the two strengths are for. `--st-accent` on `--st-text` was
-     3.85; `--st-red` is 6.04. */
-  .badge-review_draft, .badge-superseded { background: var(--st-text); color: var(--st-red); }
-  .badge-for_review { background: var(--st-text); color: var(--st-hair-strong); }
-  .badge-reviewed, .badge-issued { background: var(--st-text); color: var(--st-hair-strong); }
-  .superseded-docs { margin-top: 8px; font-size: 12px; }
 
-  .review { margin-top: 0.75rem; border-top: 1px solid var(--st-hair-strong); padding-top: 0.6rem; }
-  .disclaimer { font-size: 0.75rem; opacity: 0.8; margin: 0 0 0.4rem; }
-  .field { display: block; margin: 0.35rem 0; }
-  .field input, .field textarea { display: block; width: 100%; max-width: 28rem; padding: 0.25rem 0.4rem; }
-  .ack { display: block; margin: 0.2rem 0; }
-  .actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-  /* One column once the PANEL is narrow — the width a reader actually has. */
-  @container (max-width: 34rem) { .detailing { grid-template-columns: minmax(0, 1fr); } }
+  /*
+    ── Eighteen selectors for markup this panel no longer has ─────────
+
+    `.documents`, `.doc-actions`, `.doc-state`, `.badge`, the four `.badge-*` chips,
+    `.superseded-docs`, `.review`, `.disclaimer`, `.field`, `.ack` and `.actions` styled the
+    report buttons, the review form and the readiness chips — all of which moved to
+    `DocumentsSection.svelte` when Documents became a stage of the panel rather than the tail of
+    this one. Svelte scopes styles to the declaring component, so not one of them had reached
+    anything since; `DocumentsSection` carries its own.
+
+    Only THREE of the eighteen were REPORTED, and that is the reason to delete the rest rather
+    than wait for the build to name them: `h5`, `.field input` and `.field textarea` are all it
+    flags, because Svelte's unused-selector pass does not report a bare class selector it cannot
+    prove unreachable. So the build kept saying "three" about eighteen, and the fifteen silent
+    ones are exactly the decoys `.autosave-banner` taught this tree about — a rule left behind
+    after its markup leaves is not a spare, it is something the next person edits expecting an
+    effect. Two of them even carry measured contrast ratios, which is what makes them convincing.
+
+    `h5` is the eighteenth: the only `<h5>` in this panel's markup left with the bar list.
+
+    The `@container (max-width: 34rem)` that stood at the end went too — see the note at the top
+    of this block for why it never had a container to ask.
+  */
 </style>
