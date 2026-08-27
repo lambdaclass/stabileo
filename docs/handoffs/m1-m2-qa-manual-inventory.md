@@ -3182,7 +3182,7 @@ ningún import.
 | `mergeStateStatus` | **BLOCKED** (ruleset, no CI) | **UNSTABLE** (CI en rojo) |
 | `mergeable` | MERGEABLE | MERGEABLE |
 | Estado del PR | OPEN, **draft** | OPEN, **draft** |
-| CI sobre la cabeza | **todo verde** | `lint` · `test` · `suite (1)` · `suite (2)` **verde**; **`e2e` rojo**; `web` corriendo |
+| CI sobre la cabeza | **todo verde** | `lint` · `test` · `suite (1)` · `suite (2)` · `web` **verde**; **`e2e` rojo en el intento 1**, relanzado |
 
 **Los nueve commits de `main` que faltan, y por qué esta vez no son cosmética.** Cinco son los de
 antes (favicon, README, gate de assets, la tangente factorizada). Los **cuatro nuevos son del
@@ -3223,9 +3223,22 @@ installer») existe para arreglar.
 | El `aria-pressed` de `basic-selection-permutations` | defecto real, **de origen** | ya arreglado, en M1 |
 | **`Build WASM engine`** ← ésta | infraestructura de CI, no código | `main`, por **#137** |
 
-**Ninguna de las tres es del trabajo de M1 ni de M2.** Pero la tercera significa que **el `e2e` de M2
-no está probado verde sobre su cabeza actual**, y eso es un hecho que hay que decir antes de aceptar
-la rama, no después. La corrida anterior completa (`13086a93`) fue verde entera.
+**Ninguna de las tres es del trabajo de M1 ni de M2.** Y hay dos evidencias más de que ésta era
+infraestructura y no código:
+
+- **todos los demás jobs de esa misma cabeza pasaron** — `lint`, `test`, `suite (1)`, `suite (2)` y
+  `web`, o sea la suite unitaria completa y los dos gates nombrados. Un defecto de M2 no produce un
+  rojo que sólo aparece en el paso que instala una herramienta;
+- **la corrida se relanzó** (`run_attempt = 2`, `e2e` arrancado 20:06 UTC). Un relanzamiento que pasa
+  sobre el mismo sha es la firma de un flake de infraestructura, y este repositorio ya la vio cuatro
+  veces con el mismo sha en dos colores.
+
+La corrida anterior completa (`13086a93`) también fue verde entera.
+
+**Cómo leer esto al aceptar la rama:** si el intento 2 pasa, el bloqueante 7 de K.5 **se cae solo** y
+M2 queda con CI verde entero. Si vuelve a fallar en el mismo paso, sigue sin ser de M2 — pero
+entonces conviene que **#137** entre antes, porque el `e2e` de cualquier PR del repositorio queda
+sujeto a la suerte de un `curl`.
 
 ## K.2 · Recomendación de merge de M1 (#156)
 
