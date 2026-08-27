@@ -596,20 +596,34 @@ las fijaban. Y en su lugar, escritas a mano porque el compilador no las escribe 
    vez sin que algo lo diga;
 2. las dos sub-secciones siguen pasándole el porcentaje a `StageSection` — el número que los badges
    llevaban sigue en pantalla;
-3. el panel no construye un nombre de clase a partir de un estado — un ratio no recibe **ningún**
-   matiz, y el vocabulario propio del bloque auxiliar (`within / near the limit / over the limit`,
-   de `8e538631`) sigue siendo lo único con derecho a opinar sobre él.
+3. la primera aserción mira **el archivo entero**, no sólo la hoja: las reglas y un atributo
+   `class` que las aplique son las dos formas en que esto vuelve.
 
-La tercera se escribió mal la primera vez y se corrigió en `66259cee`. Pedía que ningún atributo
-`class` llevara `st-ok`, `st-warn` o `st-fail` escritos — cosa que también era cierta **con los
-badges en pantalla**, porque `statusClass` era ``return `st-${s}` `` y las tres cadenas nunca
-estuvieron en el archivo. Una guarda que su propio defecto habría pasado no es una guarda. Ahora
-afirma la forma —que no haya un helper que convierta un estado en una clase— y conserva la otra al
-lado. Verificado contra `b71432cd^`: la aserción nueva falla ahí, la vieja pasa.
+### La tercera guarda, que se escribió mal dos veces
 
-Es el mismo hecho dos veces, y conviene dejarlo dicho: **la interpolación que le escondió el nombre
-de la clase a un `grep` es la interpolación que le impidió a Svelte podar las reglas** (§32). Un
-defecto, dos síntomas.
+Se intentó una tercera y no sobrevivió. Vale la pena el párrafo porque las dos versiones fallaron
+por razones distintas y la segunda la encontró CI, no yo.
+
+**Primera versión** (`6448e89d`): que ningún atributo `class` del panel llevara `st-ok`, `st-warn`
+o `st-fail` escritos. Cierto — y **también cierto con los badges en pantalla**, porque `statusClass`
+era ``return `st-${s}` `` y las tres cadenas nunca estuvieron en el archivo. Una guarda que su
+propio defecto habría pasado no es una guarda.
+
+**Segunda versión** (`66259cee`): prohibir la *forma*, `` `st-${ ``, verificada contra `b71432cd^`,
+donde falla. Pasó en M2 y **rompió el job `web` de M1**, correctamente: en M1 `statusClass` **sigue
+aplicándose** a `.conn-result-card` y `.conn-status-icon` —el veredicto auxiliar previo, con su ✓
+verde en `--st-ok`—. Eso es exactamente lo que `8e538631` retira **en M2**, y lo que ahí guardan
+`steel-never-verified` (sin la exención de `ProConnectionsTab`) y `metallic-joints.spec.ts`. Borrar
+CSS muerto no es el commit con derecho a legislarlo, y **un test que corren las dos ramas no puede
+afirmar una propiedad que sólo tiene una**. Retirada en `3abf86c4`; el razonamiento queda en el
+comentario del bloque, que es donde sirve.
+
+El error propio, dicho sin adornos: se pusieron dos aserciones sobre M1 sin correr la suite de M1
+después de escribirlas. La segunda vez sí se corrió — 7400 en verde — antes de empujar.
+
+Y queda el hecho que las dos versiones destapan, que es el mismo dos veces: **la interpolación que
+le escondió el nombre de la clase a un `grep` es la interpolación que le impidió a Svelte podar las
+reglas** (§32). Un defecto, dos síntomas.
 
 La lista vacía de `--st-accent`-sobre-tinte-rojo **se conserva**: la forma del defecto sobrevive a
 la única regla que la tenía. La aserción de que la selección puede seguir usando `--st-accent` se
