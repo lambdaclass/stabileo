@@ -149,6 +149,15 @@ test.describe('the three generators', () => {
     await page.getByTestId('profile-search').fill('MC18x58');
     await page.getByTestId('profile-option-MC18x58').click();
 
+    /*
+     * The arrangement list, and the choice, now live in the modal.
+     *
+     * They used to be three controls on this row AND three inside the dialog, both writing the
+     * same `ProfileSpec`, so the row could say `doubleBack` while the dialog showed whatever it
+     * had last drafted. M2 made the dialog the single source of truth, which means the row only
+     * changes when the choice is APPLIED — and this test, written against the old row, picked a
+     * profile and then asserted on a row that had never been told about it.
+     */
     const row = page.getByTestId(`gen-profile-${role}`);
     const arrangement = row.getByLabel(/arrangement|disposición|disposição/i);
     const options = await arrangement.locator('option').allInnerTexts();
@@ -156,6 +165,8 @@ test.describe('the three generators', () => {
     // placement is measured from it, so `canCompose` refuses them rather than emitting a section
     // whose properties are one profile's.
     expect(options.length, `arrangements offered: ${options.join(', ')}`).toBe(1);
+
+    await page.getByTestId('section-apply').click();
     // And the reason is on screen for that role, not just an absence in a dropdown.
     await expect(page.getByTestId(`gen-refused-${role}`)).toBeVisible();
   });

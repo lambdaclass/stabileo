@@ -153,8 +153,33 @@ export const CIRSOC301_PROMOTION_KEY = 'steel.promotion.needsClauseMapAndBenchma
  */
 export const CIRSOC301_JS_ASSUMPTIONS: readonly string[] = Object.freeze([
   'steel.assume.unbracedLengthIsMemberLength',
-  'steel.assume.webAndFlangeThicknessInferred',
-  'steel.assume.ultimateStrengthInferred',
   'steel.assume.noSectionClassification',
-  'steel.assume.noTests',
+  'steel.assume.netAreaEqualsGross',
+  'steel.assume.noPlasticMomentCap',
+  'steel.assume.noTorsionalBuckling',
+  'steel.assume.momentGradientIsUnity',
+  'steel.assume.torsionalConstantZeroWhenAbsent',
 ]);
+
+/*
+ * ── Three entries left this list, and why that matters ─────────────
+ *
+ * It used to carry `webAndFlangeThicknessInferred`, `ultimateStrengthInferred` and `noTests`. All
+ * three were true when written and none is true now:
+ *
+ *   · the thicknesses and `Fu` are no longer inferred — `verification-service.ts` REQUIRES them and
+ *     reports the element as skipped when they are absent, via `missingSteelInputs`;
+ *   · the checker has 18 benchmark tests in `cirsoc301-benchmarks.test.ts`.
+ *
+ * Declaring an assumption the app no longer makes is not a harmless excess of caution. It is the
+ * same defect as hiding one, pointing the other way: a reader who finds one warning stale discounts
+ * the rest, and the ones that remain — the unbraced length above all — are the ones that must be
+ * believed.
+ *
+ * The four that arrived came out of the clause-mapping exercise, each verified against the code:
+ * `Ae = Ag` with no hole deduction, no `1,5·My` cap on the plastic moment, no torsional or
+ * flexural-torsional buckling (§E.4), and `Cb` fixed at 1,0 — `const Cb = 1.0`, under the
+ * checker's own comment «Simplificacion con Cb=1.0», which is the uniform-moment case and
+ * conservative for most spans. Plus the caller's `J = 0` when the section carries no torsional
+ * constant, which removes the torsional term from `Lr` entirely.
+ */

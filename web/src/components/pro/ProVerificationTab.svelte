@@ -364,6 +364,12 @@
       results,
       { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
       stationData?.demands,
+      /*
+       * The full station diagrams, for F.1.1's Cb. One added argument, optional, read only by the
+       * steel path — no concrete behaviour depends on it, and its absence keeps Cb at the 1,0 the
+       * clause permits.
+       */
+      stationData?.stations,
     );
     steelVerifications = steelVerifs;
 

@@ -113,17 +113,16 @@ export const COLD_FORMED_SCOPE: readonly ColdFormedScopeEntry[] = Object.freeze(
 export const COLD_FORMED_AVAILABLE = COLD_FORMED_SCOPE.filter((e) => e.kind === 'available');
 export const COLD_FORMED_LIMITS = COLD_FORMED_SCOPE.filter((e) => e.kind === 'unavailable');
 
-/**
- * The extra thing a ZED needs said, on top of the five.
+/*
+ * The zed's rotated axes used to live here as `COLD_FORMED_ZED_AXES_KEY`, with its own rule
+ * (`shape === 'Z'`) and its own sentence. Both are gone: the rule is now `section/axes.ts` and the
+ * sentence is `section.axes.notPrincipal.zed`.
  *
- * A zed is only point-symmetric, so its product of inertia is nonzero and its principal axes are
- * rotated — and this app has no field for a product of inertia anywhere. Analysing one about its
- * geometric axes is therefore correct only if the member cannot bend out of that plane, which for
- * a sheeted purlin is usually the case and is exactly the provision that lives in the cold-formed
- * code the app does not have.
+ * Deliberate de-duplication, not tidying. That predicate has to cover the 37 catalogued ANGLES as
+ * well as the zed, and two surfaces warning on two different rules is worse than one surface
+ * warning — a reader who sees the notice on a zed and not on an angle learns that the app is
+ * inconsistent, not that their section is unsymmetric.
  *
- * So the honest line is neither «wrong» nor «fine»: the assumption that would make it valid
- * cannot be cited. Kept separate from `COLD_FORMED_SCOPE` because it applies to one shape and
- * showing it beside a channel would be a warning about nothing.
+ * What stays here is the SCOPE: five facts about cold-formed sections specifically. The axes are a
+ * property of a shape, not of a family, so they belong in the shape module.
  */
-export const COLD_FORMED_ZED_AXES_KEY = 'steel.coldFormed.zedAxesNotPrincipal';

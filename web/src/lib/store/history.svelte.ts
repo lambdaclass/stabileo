@@ -9,6 +9,7 @@ import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
 import type { Footing, FootingMatPreferences } from '../model/footing';
 import type { ProjectGeotechnical } from '../model/geotechnical';
+import type { StoredJointDesigns } from '../connection/joint-choices';
 
 export interface ModelSnapshot {
   name?: string;
@@ -66,6 +67,14 @@ export interface ModelSnapshot {
   revisions?: RevisionVector;
   /** Coordinated detailing assemblies. Absent on models saved before PR17. */
   detailing?: DetailingStore;
+  /**
+   * The joint designs the project carries — the bolts, plate, weld and battens chosen per node.
+   *
+   * Choices only; every capacity and every outline is recomputed from the model on read, so a
+   * restored joint cannot report a check against a member that no longer exists. Absent on
+   * snapshots taken before this existed, which reads as no joints designed.
+   */
+  jointDesigns?: StoredJointDesigns;
 }
 
 const MAX_HISTORY = 50;

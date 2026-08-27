@@ -81,27 +81,34 @@ test.describe('generators', () => {
 
     // A channel, so the arrangement is geometrically visible at all.
     //
-    // Driven through the searchable picker rather than a `<select>`: the profile dropdown was
-    // replaced by a trigger and a panel, so this is the click path a user now has. The
-    // assertions below are untouched — only the way the profile is chosen changed.
+    // Driven through the PRO section modal, which is where the whole `ProfileSpec` now lives.
+    // The row used to carry arrangement, gap and rotation as its own controls AND the modal
+    // carried them too — two writers of one object, free to disagree the moment one of them was
+    // touched. The assertions below are untouched; only the path to the arrangement changed.
+    const pickArrangement = async (value: string) => {
+      await page.getByTestId('gen-profile-trigger-chord').click();
+      await page.getByTestId('section-arrangement').selectOption(value);
+      await page.getByTestId('section-apply').click();
+      await expect(page.getByTestId('pro-section-modal')).toBeHidden();
+    };
+
     await page.getByTestId('gen-profile-trigger-chord').click();
     await page.getByTestId('profile-search').fill('UPN 100');
     await page.getByTestId('profile-option-UPN 100').click();
+    await page.getByTestId('section-apply').click();
     await expect(figure.locator('polygon')).toHaveCount(1);
 
-    // With the profile dropdown gone, arrangement is the FIRST select in the row.
-    const arrangement = row.locator('select').first();
-    await arrangement.selectOption('doubleBack');
+    await pickArrangement('doubleBack');
     await expect(figure.locator('polygon')).toHaveCount(2);
     const back = await figure.innerHTML();
 
-    await arrangement.selectOption('doubleFacing');
+    await pickArrangement('doubleFacing');
     await expect(figure.locator('polygon')).toHaveCount(2);
     // Same count, same overall width — and a DIFFERENT drawing. That difference is the whole
     // reason the figure exists: `][` and `[]` cannot be told apart from any dimension.
     expect(await figure.innerHTML()).not.toBe(back);
 
-    await arrangement.selectOption('quadBox');
+    await pickArrangement('quadBox');
     await expect(figure.locator('polygon')).toHaveCount(4);
   });
 

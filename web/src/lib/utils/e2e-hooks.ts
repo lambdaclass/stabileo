@@ -30,6 +30,7 @@
 
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { detailingStore } from '../store/detailing.svelte';
+import { jointDesignStore } from '../store/joint-design.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
@@ -106,6 +107,22 @@ export interface StabileoTestHooks {
   } | null;
   selection(): number[];
   /**
+   * The selected NODE ids, sorted.
+   *
+   * `selection()` returns elements. A joint is a node, and the 3-D specs need to assert that the
+   * joint highlighted in the scene is the one the list has — which is a statement about nodes.
+   */
+  selectedNodeIds(): number[];
+  /** The node-marker radius the scene is drawing, metres. Null before the scene exists. */
+  nodeMarkerRadius(): number | null;
+  /**
+   * How many meshes the selected joint contributes to the scene.
+   *
+   * A plate plus one cylinder per bolt. Zero means nothing was drawn — which for an undesigned
+   * or incomplete joint is the correct answer, and is what the specs assert.
+   */
+  jointMeshCount(): number;
+  /**
    * Everything selected, by kind.
    *
    * `selection()` reports members alone, which is enough while a selection can
@@ -166,6 +183,18 @@ export interface StabileoTestHooks {
   canvasInkRatio(): number;
   /** Project regulation settings, as persisted. Read-only. */
   codeSettings(): unknown;
+  /**
+   * The joint designs the project carries, as persisted — I-06.
+   *
+   * Read off `model.jointDesigns`, which is the field a `.ded` actually writes. A spec that
+   * asserted the PANEL still showed bolts after an open would pass on a panel that had kept a
+   * local copy; this reads the project.
+   */
+  jointDesigns(): unknown;
+  /** Stored joints reconciliation refused for this model, with the reason — I-07. */
+  jointObsolete(): Array<{ nodeId: number; reason: string }>;
+  /** Node ids whose stored design applies to the model that is open now. */
+  jointDesignedNodeIds(): number[];
   /** Verifier id on an element's certificate — carries the edition it was produced under. */
   certificateVerifierId(elementId: number): string | null;
   /** Coordinated detailing assemblies, as persisted. Read-only. */
@@ -351,6 +380,15 @@ export function installE2EHooks(): void {
       };
     },
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
+    selectedNodeIds: () => [...uiStore.selectedNodes].sort((a, b) => a - b),
+    /*
+     * Published by `Viewport3D` when it resizes the markers. Null rather than a default, so a
+     * spec can tell "the scene has not drawn yet" from "the radius is small".
+     */
+    nodeMarkerRadius: () =>
+      (window as unknown as { __nodeRadius?: number }).__nodeRadius ?? null,
+    jointMeshCount: () =>
+      (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
     tourStep: () => {
@@ -390,6 +428,9 @@ export function installE2EHooks(): void {
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,
     codeSettings: () => JSON.parse(JSON.stringify(modelStore.model.codeSettings ?? null)),
+    jointDesigns: () => JSON.parse(JSON.stringify(modelStore.model.jointDesigns ?? null)),
+    jointObsolete: () => jointDesignStore.obsolete.map((o) => ({ ...o })),
+    jointDesignedNodeIds: () => [...jointDesignStore.designedNodeIds],
     certificateVerifierId: (id: number) =>
       verificationStore.outcomeFor(id)?.certificate?.verifierId ?? null,
     detailingAssemblies: () =>

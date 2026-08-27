@@ -24,7 +24,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { generateTruss, type TrussParams } from '../truss-topology';
+import { WEB_PATTERNS, generateTruss, type TrussParams } from '../truss-topology';
 import { generateLatticeColumn } from '../lattice-column';
 import { generateShed, DEFAULT_SHED_PARAMS } from '../shed';
 import { emitModel, defaultProfileSpec, type EmitOptions } from '../emit';
@@ -109,6 +109,38 @@ describe('a generated truss solves', () => {
       }
     },
   );
+
+  /*
+   * Every web pattern, and the subdivided variant, on the solver.
+   *
+   * The geometry tests next door check that the diagonals lean the right way and that the
+   * subdivision splits rather than crosses. Neither of those catches a mechanism, and a
+   * mechanism is exactly what a new web pattern risks: Warren drops the interior posts, and
+   * the subdivision introduces two nodes per panel whose only restraint is the members
+   * deliberately added around them. A singular stiffness matrix comes back as a string here,
+   * and an under-braced one shows up as a displacement no 24 m truss has under 10 kN.
+   */
+  it.each(WEB_PATTERNS)('holds up with a %s web', (webPattern) => {
+    const g = emitModel(
+      generateTruss({ kind: 'pratt', spanM: 24, depthM: 2, panelsPerHalf: 4, webPattern }),
+      { name: webPattern, profiles: PROFILES },
+    );
+    const { res } = solveGenerated(g.json as never, highestNode(g.json), -10);
+    expect(typeof res, typeof res === 'string' ? String(res) : '').not.toBe('string');
+    const r = res as { displacements: Array<{ ux: number; uy: number; uz: number }> };
+    for (const d of r.displacements) expect(Math.hypot(d.ux, d.uy, d.uz)).toBeLessThan(0.5);
+  });
+
+  it.each(WEB_PATTERNS)('holds up with a subdivided %s web', (webPattern) => {
+    const g = emitModel(
+      generateTruss({ kind: 'pratt', spanM: 24, depthM: 2, panelsPerHalf: 4, webPattern, subdivideDiagonals: true }),
+      { name: `${webPattern}-sub`, profiles: PROFILES },
+    );
+    const { res } = solveGenerated(g.json as never, highestNode(g.json), -10);
+    expect(typeof res, typeof res === 'string' ? String(res) : '').not.toBe('string');
+    const r = res as { displacements: Array<{ ux: number; uy: number; uz: number }> };
+    for (const d of r.displacements) expect(Math.hypot(d.ux, d.uy, d.uz)).toBeLessThan(0.5);
+  });
 
   it('holds up as a monopitch', () => {
     const g = emitModel(

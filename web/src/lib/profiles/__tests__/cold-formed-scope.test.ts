@@ -13,9 +13,11 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  COLD_FORMED_SCOPE, COLD_FORMED_AVAILABLE, COLD_FORMED_LIMITS, COLD_FORMED_ZED_AXES_KEY,
+  COLD_FORMED_SCOPE, COLD_FORMED_AVAILABLE, COLD_FORMED_LIMITS,
   type ColdFormedScopeFact,
 } from '../cold-formed-scope';
+import * as scope from '../cold-formed-scope';
+import { axesNoticeKeyFor } from '../../section/axes';
 import es from '../../i18n/locales/steel/es';
 import en from '../../i18n/locales/steel/en';
 import pt from '../../i18n/locales/steel/pt';
@@ -57,6 +59,26 @@ describe('all five facts, in reading order', () => {
   });
 });
 
+describe('the axes rule does NOT live here', () => {
+  it('exports no axes key of its own any more', () => {
+    /*
+     * It used to: `COLD_FORMED_ZED_AXES_KEY`, with its own predicate (`shape === 'Z'`). Both moved
+     * to `section/axes.ts`, because the rotated axes are a property of a SHAPE and not of the
+     * cold-formed family — the 37 catalogued angles have the same problem.
+     *
+     * Asserted as an absence so the duplicate cannot come back quietly. Two surfaces warning on
+     * two different predicates teaches a reader that the app is inconsistent, not that their
+     * section is unsymmetric.
+     */
+    expect(Object.keys(scope)).not.toContain('COLD_FORMED_ZED_AXES_KEY');
+    expect(Object.keys(scope).some((k) => /axes/i.test(k))).toBe(false);
+  });
+
+  it('and the shared rule is the one that answers for a zed', () => {
+    expect(axesNoticeKeyFor('Z')).toBe('section.axes.notPrincipal.zed');
+  });
+});
+
 describe('clauses appear only where a normative claim is made', () => {
   it('cites a clause for the two that are about regulations', () => {
     const byFact = new Map(COLD_FORMED_SCOPE.map((e) => [e.fact, e]));
@@ -86,15 +108,15 @@ describe('every key resolves in all three offered languages', () => {
         expect(dict[entry.key], `${name}: ${entry.key}`).toBeTruthy();
         expect(dict[entry.key].length, `${name}: ${entry.key} is a sentence`).toBeGreaterThan(20);
       }
-      expect(dict[COLD_FORMED_ZED_AXES_KEY], `${name}: zed axes`).toBeTruthy();
     }
   });
 
-  it('keeps the zed warning’s placeholder in every language', () => {
+  it('keeps the measured-angle placeholder in every language', () => {
     // A lost `{angle}` turns «rotated 23°» into «rotated », which is the weaker of the two
-    // warnings and reads like a rendering bug.
+    // warnings and reads like a rendering bug. The sentence lives in the cold-formed namespace
+    // because only this surface has the geometry to measure it.
     for (const [name, dict] of Object.entries(dicts)) {
-      expect(dict[COLD_FORMED_ZED_AXES_KEY], `${name}`).toContain('{angle}');
+      expect(dict['steel.coldFormed.axesAngle'], `${name}`).toContain('{angle}');
     }
   });
 

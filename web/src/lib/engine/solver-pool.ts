@@ -38,6 +38,13 @@ interface PoolWorker {
   worker: WorkerLike;
   ready: boolean;
   pending: Map<number, PendingSolve>;
+  /**
+   * Whether this worker has completed at least one job.
+   *
+   * The difference between a worker that has been INSTANTIATED and one that has EXECUTED, which
+   * is the distinction the crash below turns on.
+   */
+  warmed: boolean;
 }
 
 let pool: PoolWorker[] = [];
@@ -52,6 +59,54 @@ export function setWorkerFactoryForTests(factory: (() => WorkerLike) | null): vo
 }
 
 /** Maximum number of workers to create */
+/*
+ * ── Why the first job on each worker is run on its own ──────────────
+ *
+ * Several freshly-instantiated workers beginning a large solve **in the same instant** takes the
+ * browser process down. Not an exception and not a rejected promise: the page dies. Chromium
+ * aborts with `signal 4, ILL_ILLTRP` — the illegal instruction a failed internal CHECK emits —
+ * and because the page has stopped existing, every promise pending in it never settles. The
+ * symptom is a solve that "hangs" forever while the solve itself takes 60 ms.
+ *
+ * ── What was measured ───────────────────────────────────────────────
+ *
+ * Sessions of load-the-shed-and-solve (633 elements, 3 load cases, 3 workers), counting
+ * `page.on('crash')`. One variable at a time, 40 sessions per arm unless noted:
+ *
+ *   · baseline, simultaneous dispatch ......................... 7.5-10 %
+ *   · worker pool disabled entirely (main thread) ............. 0 / 40
+ *   · one worker (the three cases run one after another) ...... 0 / 40
+ *   · small model, three workers, same dispatch ............... 0 / 40
+ *   · the shed loaded but never solved ........................ 0 / 40
+ *   · workers created one at a time, then dispatched together .. 7.5 %
+ *   · one compiled module per worker instead of a shared one .. 12.5 %
+ *   · `--js-flags=--no-wasm-tier-up` .......................... 15 %
+ *   · full Chromium channel instead of the headless shell ..... 7.5 %
+ *   · Chromium 151 instead of 148 ............................. 22.5 %
+ *   · **real Google Chrome** .................................. 17.5 %
+ *
+ * So it is not the GL backend, not memory (peak RSS differs by 63 MB between one worker and
+ * three), not module sharing, not the WASM tier-up, and not the browser build — the newer one is
+ * worse. It reproduces in the browser users actually run, which is why this is mitigated in the
+ * product and not in the test harness.
+ *
+ * ── Why only the FIRST job on each worker ───────────────────────────
+ *
+ * 60 sessions solving three times each — 180 solves — produced 7 crashes, and **all seven were on
+ * the first solve**. None of the ~113 solves with already-executed workers crashed. The trigger
+ * is one worker's first execution coinciding with another's, so once a worker has completed a job
+ * it is `warmed` and the pool goes back to dispatching everything at once.
+ *
+ * The cost is bounded and paid once per session: the first solve runs up to `workers` cases one
+ * after another. On the shed that is about 60 ms against 58 ms for the parallel version.
+ *
+ * ── What this is, and what it is not ────────────────────────────────
+ *
+ * It removes the condition that was measured to trigger the crash. It does not fix the crash: the
+ * fault is below this file, in the WASM execution path or in V8, and this branch may not touch
+ * the solver, Rust, Cargo or the WASM sources. Treat it as a mitigation with a residual risk, not
+ * as a repair.
+ */
 const DEFAULT_WORKER_COUNT = 4;
 const MAX_WORKERS = Math.min(
   typeof navigator !== 'undefined'
@@ -70,7 +125,7 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
         { type: 'module' },
       );
 
-    const pw: PoolWorker = { worker, ready: false, pending: new Map() };
+    const pw: PoolWorker = { worker, ready: false, warmed: false, pending: new Map() };
 
     worker.onmessage = (e: MessageEvent) => {
       const msg = e.data;
@@ -87,6 +142,8 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
         const p = pw.pending.get(msg.id);
         if (p) {
           pw.pending.delete(msg.id);
+          // It has now executed, not merely been instantiated. See COLD_START_STAGGER_MS.
+          pw.warmed = true;
           if (msg.error) p.reject(new Error(msg.error));
           else p.resolve(msg.result);
         }
@@ -172,8 +229,8 @@ async function ensurePool(): Promise<void> {
  * because the caller's fallback swallows the throw, so this string may be the only trace
  * the failure ever leaves.
  */
-function runJob(type: 'solve' | 'solve3d', input: any): Promise<any> {
-  const pw = pool.reduce((a, b) => (a.pending.size <= b.pending.size ? a : b));
+function runJob(type: 'solve' | 'solve3d', input: any, target?: PoolWorker): Promise<any> {
+  const pw = target ?? pool.reduce((a, b) => (a.pending.size <= b.pending.size ? a : b));
   const msgId = nextId++;
   return new Promise((resolve, reject) => {
     pw.pending.set(msgId, { resolve, reject });
@@ -225,8 +282,38 @@ export async function solveParallel(
   await ensurePool();
 
   const results = new Map<number, any>();
+  const queue = [...cases];
+
+  /*
+   * The cold pass: one job at a time, each on a DIFFERENT worker that has not executed yet.
+   *
+   * Both halves are load-bearing. Awaiting is what guarantees no two first executions overlap;
+   * naming the target worker is what makes each pass actually warm a new one. An earlier version
+   * separated the dispatches with a timer and let `runJob` choose, and because a job finished
+   * before the next was released, every one of them went to worker 0 — the pool never warmed, so
+   * every solve for the rest of the session paid the delay and none of them ran in parallel. The
+   * regression test in `solver-pool-cold-start.test.ts` is what caught that.
+   */
+  /*
+   * Only the workers this dispatch can actually reach.
+   *
+   * The pool may be larger than the number of cases — `solve2DInWorker`'s `ensurePool()` sizes it
+   * from `hardwareConcurrency` — and `Promise.all` over N cases never touches more than N of
+   * them. Looking at the whole pool meant a pool of eight with three cases never finished
+   * warming, so every solve for the rest of the session paid the serial pass and none of them
+   * ran in parallel. The regression test caught that too.
+   */
+  const reachable = pool.slice(0, cases.length);
+  while (queue.length > 0) {
+    const target = reachable.find((pw) => !pw.warmed);
+    if (!target) break;
+    const { id, input } = queue.shift()!;
+    results.set(id, await runJob('solve3d', input, target));
+  }
+
+  // Everything left runs the way the pool exists to run it.
   await Promise.all(
-    cases.map(({ id, input }) =>
+    queue.map(({ id, input }) =>
       runJob('solve3d', input).then(result => { results.set(id, result); }),
     ),
   );

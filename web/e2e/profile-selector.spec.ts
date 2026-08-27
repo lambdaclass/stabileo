@@ -38,6 +38,20 @@ async function openPicker(page: Page) {
   await expect(page.getByTestId('profile-selector')).toBeVisible();
 }
 
+/*
+ * Confirm the choice, from the keyboard.
+ *
+ * The row's picker is now the section dialog, and a dialog that also carries the arrangement,
+ * the gap and the rotation cannot commit on Enter in the list: Enter picks the PROFILE, and the
+ * composition follows. So the commit moved to Apply, and these tests press it rather than click
+ * it — the point they defend is that the whole path works without a mouse, and that point is
+ * unchanged.
+ */
+async function applyFromKeyboard(page: Page): Promise<void> {
+  await page.getByTestId('section-apply').press('Enter');
+  await expect(page.getByTestId('profile-selector')).toHaveCount(0);
+}
+
 test.describe('@smoke the profile selector opens and narrows', () => {
   test('the trigger shows the current profile rather than a placeholder', async ({ pro: page }) => {
     await openGenerators(page);
@@ -107,7 +121,7 @@ test.describe('@smoke the profile selector is usable from the keyboard alone', (
       await openPicker(page);
       await page.getByTestId('profile-search').fill('HEB 200');
       await page.keyboard.press('Enter');
-      await expect(page.getByTestId('profile-selector')).toHaveCount(0);
+      await applyFromKeyboard(page);
       await expect(trigger(page)).toHaveText(/HEB 200/);
     });
 
@@ -137,6 +151,7 @@ test.describe('@smoke the profile selector is usable from the keyboard alone', (
     await page.getByTestId('profile-search').fill('HEB');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
+    await applyFromKeyboard(page);
     await expect(trigger(page)).toHaveText(/HEB/);
   });
 });
@@ -146,6 +161,7 @@ test.describe('the chosen profile persists into the model', () => {
     await openPicker(page);
     await page.getByTestId('profile-search').fill('HEB 220');
     await page.getByTestId('profile-option-HEB 220').click();
+    await applyFromKeyboard(page);
     await expect(trigger(page)).toHaveText(/HEB 220/);
 
     // Generate, then read the model back: the section name that lands must be the catalogue
@@ -161,6 +177,7 @@ test.describe('the chosen profile persists into the model', () => {
     await openPicker(page);
     await page.getByTestId('profile-search').fill('UPN 140');
     await page.getByTestId('profile-option-UPN 140').click();
+    await applyFromKeyboard(page);
     await trigger(page).click();
     // Reopened, the selection is still marked, so a user can see what they picked.
     await expect(page.getByTestId('profile-option-UPN 140')).toHaveAttribute('aria-selected', 'true');
