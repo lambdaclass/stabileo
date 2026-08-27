@@ -323,6 +323,25 @@ export function shapeCode(bar: BarPath): string {
 }
 
 /**
+ * The mass a mark carries, kg.
+ *
+ * Exported so it has ONE definition. `assignMarks` computes it when a mark is minted, and
+ * `document-narrow.ts` recomputes it when a mark is narrowed to a subset of its bars — and a
+ * schedule row whose mass came from a second copy of this arithmetic is a schedule row that will
+ * eventually disagree with the drawing beside it.
+ *
+ * Steel at 7 850 kg/m³, bar area from the nominal diameter. Linear in the quantity because a mark
+ * groups identical fabricated items: that is what a mark IS, and it is why narrowing one is
+ * arithmetic rather than a re-measurement.
+ */
+export function markMassKg(
+  diameterMm: number, cuttingLengthM: number, quantity: number,
+): number {
+  const area = Math.PI * (diameterMm / 2000) ** 2;
+  return area * cuttingLengthM * 7850 * quantity;
+}
+
+/**
  * Assign bar marks deterministically.
  *
  * Grouped by (diameter, rounded cut length, shape) and then sorted so the same input
@@ -354,14 +373,13 @@ export function assignMarks(bars: readonly BarPath[], prefix = 'B'): BarMark[] {
     const [dia, len, shape] = key.split('|');
     const diameterMm = Number(dia);
     const cuttingLength = Number(len);
-    const area = Math.PI * (diameterMm / 2000) ** 2;
     return {
       mark: `${prefix}${i + 1}`,
       diameterMm,
       cuttingLength,
       quantity: list.length,
       shape,
-      massKg: area * cuttingLength * 7850 * list.length,
+      massKg: markMassKg(diameterMm, cuttingLength, list.length),
       barIds: list.map((b) => b.id).sort(),
       role: list[0].role,
       ...(list[0].purpose ? { purpose: list[0].purpose } : {}),
