@@ -22,7 +22,7 @@
 import { buildTitleBlock, buildSchedule, scheduleToAoa, sheetToDxf, sheetToSvg,
   drawElevation, drawSection, barArcs, type Sheet, type Projection } from './drawings';
 import type { DocumentAssembly, DocumentModel, OpenConflict } from './document-model';
-import type { DesignFamily } from '../design/design-families';
+import { DESIGN_FAMILIES, type DesignFamily } from '../design/design-families';
 import { footingPlanCentre, type FloorFamilyDesignRecord } from './family-record';
 import type { SceneModel } from './scene-model';
 import type { ElementStatus } from './element-status';
@@ -176,10 +176,28 @@ export function scopeStatement(doc: DocumentModel, locale: string): string {
   if (doc.scope.length === 0) {
     return es ? 'ALCANCE NO DECLARADO' : 'SCOPE NOT STATED';
   }
-  const covers = `${es ? 'ALCANCE' : 'SCOPE'}: ${words(doc.selection?.families ?? doc.scope)}`;
-  const out = doc.outOfScope.length === 0
+  const here = doc.selection?.families ?? doc.scope;
+  const covers = `${es ? 'ALCANCE' : 'SCOPE'}: ${words(here)}`;
+  /*
+   * What is NOT in this set: two different absences, in one list.
+   *
+   * `outOfScope` is what the MODEL has and the design never covered. A narrowing adds a second
+   * kind: a family the design DID cover and this document does not, because no member of it was
+   * selected. Printing only the first would stamp `SCOPE: BEAMS` on a beams-only selection of a
+   * beams-and-columns project without ever saying the columns are elsewhere — and a reader who
+   * knows the design covered them would take this set to contain them.
+   *
+   * Deduplicated and in `DESIGN_FAMILIES` order, so the same two absences always read the same
+   * way round.
+   */
+  const dropped = doc.selection
+    ? doc.scope.filter((f) => !doc.selection!.families.includes(f))
+    : [];
+  const absent = DESIGN_FAMILIES.filter(
+    (f) => doc.outOfScope.includes(f) || dropped.includes(f));
+  const out = absent.length === 0
     ? covers
-    : `${covers} · ${es ? 'NO INCLUYE' : 'NOT IN THIS SET'}: ${words(doc.outOfScope)}`;
+    : `${covers} · ${es ? 'NO INCLUYE' : 'NOT IN THIS SET'}: ${words(absent)}`;
   return doc.selection ? `${out} · ${memberStatement(doc.selection, es)}` : out;
 }
 

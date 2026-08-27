@@ -59,8 +59,9 @@
   const ROW_CAP = 40;
   let rowsTotal = $state(0);
 
-  function opts() {
-    return { locale: i18n.locale, projectName, retouched: undefined };
+  /** The same options the exports render with, including the document's own hand edits. */
+  function opts(doc: DocumentModel) {
+    return { locale: i18n.locale, projectName, retouched: retouchedIn(doc) };
   }
 
   function reset() { sheets = []; table = null; sheetIndex = 0; rowsTotal = 0; }
@@ -70,7 +71,7 @@
     const doc = resolve();
     if (!doc) { status = PREVIEW_IDLE; return; }
     try {
-      const set = renderDrawings(doc, { ...opts(), retouched: retouchedIn(doc) });
+      const set = renderDrawings(doc, opts(doc));
       sheets = set.sheets.map((s) => ({ name: s.name, svg: s.svg }));
       status = {
         target: {
@@ -94,7 +95,7 @@
     const doc = resolve();
     if (!doc) { status = PREVIEW_IDLE; return; }
     try {
-      const built = renderSchedule(doc, { ...opts(), retouched: retouchedIn(doc) });
+      const built = renderSchedule(doc, opts(doc));
       const first = built[0];
       rowsTotal = first ? first.aoa.length : 0;
       table = first ? { name: first.name, rows: first.aoa.slice(0, ROW_CAP) } : null;

@@ -192,6 +192,15 @@ por el `seriesId` de un documento de detallado y sus filas llevan los miembros r
 documento**. Un `seriesId` fabricado metería una fila en la lista de emisiones de detallado
 reclamando una revisión de plano con la que no tiene nada que ver. No lo cambié.
 
+### 4.4 Dos ausencias distintas en la misma línea del estampado
+
+`outOfScope` es lo que el **modelo** tiene y el diseño nunca cubrió. Una reducción crea una
+segunda ausencia: una familia que el diseño **sí** cubrió y este documento no, porque no se
+seleccionó ningún miembro de ella. Estampar sólo la primera pondría **`ALCANCE: VIGAS`** en una
+selección sólo-vigas de un proyecto de vigas y columnas, sin decir nunca dónde están las columnas
+— y un lector que sabe que el diseño las cubrió tomaría este juego como que las contiene. Las dos
+van en `NO INCLUYE`, deduplicadas y en orden de `DESIGN_FAMILIES`.
+
 ## 6. Dos hallazgos del camino, y presupuesto de líneas
 
 - **`detailingStore.titleBlock` no tenía consumidor.** El rótulo propio de la planilla, construido

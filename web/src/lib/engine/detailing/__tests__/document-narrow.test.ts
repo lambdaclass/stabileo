@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDocumentModel, type CertificateEntry } from '../document-model';
 import { narrowDocument } from '../document-narrow';
 import { assignMarks, type DetailingAssembly } from '../assembly';
-import { renderSchedule } from '../document-render';
+import { renderSchedule, scopeStatement } from '../document-render';
 import { buildStraightBarWithHooks, type BarPath } from '../../../codes/cirsoc201/bar-geometry';
 import type { BarConflict } from '../collision';
 import type { LapInterval } from '../lap-materialize';
@@ -258,6 +258,50 @@ describe('a mark keeps its label and loses the bars that left', () => {
     for (const m of narrowed.assemblies[0].source.marks) {
       expect(m.ownerElementIds.some((id) => id === 1)).toBe(true);
     }
+  });
+});
+
+// ─── The stamp on the paper ──────────────────────────────────────
+
+describe('the stamp declares the members, and both kinds of absence', () => {
+  it('a whole set carries no member line', () => {
+    const s = scopeStatement(doc(), 'en');
+    expect(s).toContain('SCOPE: COLUMNS, BEAMS');
+    expect(s).toContain('NOT IN THIS SET: SLABS');
+    expect(s, 'nothing was narrowed, so there is no selection to declare')
+      .not.toContain('MEMBERS');
+  });
+
+  it('a narrowed set names the count, the ids and the total', () => {
+    const s = scopeStatement(narrowDocument(doc(), [1], ['beam']), 'en');
+    expect(s).toContain('MEMBERS: 1 of 2');
+    expect(s).toContain('(1)');
+  });
+
+  it('names the unselected owners of steel that is drawn anyway', () => {
+    const s = scopeStatement(narrowDocument(doc(), [1], ['beam']), 'en');
+    expect(s).toContain('STEEL SHARED WITH: 2');
+  });
+
+  it('a family the design covered and this document does not is NOT IN THIS SET', () => {
+    /*
+     * The gap this closes. `outOfScope` is what the model has and the design never covered; a
+     * narrowing creates a second absence — a family the design DID cover, dropped because no
+     * member of it was selected. Printing only the first would stamp `SCOPE: BEAMS` on a
+     * beams-only selection of a beams-and-columns project and never say where the columns are.
+     */
+    const s = scopeStatement(narrowDocument(doc(), [1], ['beam']), 'en');
+    expect(s).toContain('SCOPE: BEAMS');
+    expect(s, 'the columns the design covered, and this set does not')
+      .toContain('NOT IN THIS SET: COLUMNS, SLABS');
+  });
+
+  it('says the same two things in Spanish', () => {
+    const s = scopeStatement(narrowDocument(doc(), [1], ['beam']), 'es');
+    expect(s).toContain('ALCANCE: VIGAS');
+    expect(s).toContain('NO INCLUYE: COLUMNAS, LOSAS');
+    expect(s).toContain('ELEMENTOS: 1 de 2');
+    expect(s).toContain('ACERO COMPARTIDO CON: 2');
   });
 });
 
