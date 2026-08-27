@@ -393,3 +393,138 @@ base y contra `main`. Ningún job ausente que no esté explicado arriba.
 
 Las tres últimas filas son la razón por la que un verde de CI en este repositorio no es una
 afirmación sobre la suite: tres de los cinco fallos locales viven en specs que el CI no ejecuta.
+
+---
+
+# Parte V · Por qué #156 aparecía sin pasar CI, y qué era en realidad
+
+`gh pr checks 156` daba los siete en verde y salía con código 0. La interfaz de GitHub mostraba el
+PR como no aprobado. **Las dos cosas eran ciertas**, y la diferencia es lo que el comando no
+muestra.
+
+## 23 · El rojo, localizado
+
+Sobre `9883e2bd` —la cabeza de M1, que es el propio merge de main— viven **14 check runs**, no
+siete, porque hay **dos check suites de github-actions**:
+
+| Suite | Run | Conclusión |
+|---|---|---|
+| `89180668079` | `32921288831` | success |
+| `89180668976` | `32921289231` | **failure** |
+
+De los 14, exactamente **uno** era rojo: `e2e` del run `32921289231`. Todo lo demás, en las dos
+suites, success o skipped. `gh pr checks` imprime **una fila por nombre de check y muestra la
+última**, así que el rojo no aparecía ahí; el rollup de suites y la interfaz sí lo cuentan.
+
+Comparación que lo cierra: sobre la cabeza de M2 hay **una sola** suite de github-actions, success.
+La diferencia entre los dos PR no era el código, era el número de suites.
+
+## 24 · Por qué hubo dos corridas sobre el mismo sha
+
+La línea de tiempo del PR lo fecha:
+
+```
+02:03:28Z   base_ref_changed        ← #156 reapuntado de feat/pro-steel-family a main
+02:03:30Z   run 32921288831 creado  ← success
+02:03:31Z   run 32921289231 creado  ← failure
+```
+
+Las dos con `event=pull_request`, `run_attempt=1`, el mismo `head_sha`, el mismo actor y el mismo
+PR. El *push* del merge y el cambio de rama base ocurrieron con dos segundos de diferencia y
+GitHub encoló **dos** corridas sobre la misma cabeza. Sin bloque `concurrency`, ninguna canceló a
+la otra: las dos corrieron los ~28 minutos completos, y una de las dos pisó el *flake*.
+
+**Clasificación: job mal configurado.** El cambio de base era legítimo y necesario —
+`feat/pro-steel-family` ya estaba contenida en main — y la duplicación es del workflow, no de la
+rama.
+
+## 25 · La suite `render`, que no era el problema
+
+Hay una tercera suite sobre el sha, de la app **`render`**, en estado `queued` con **0 check
+runs**, y por eso el *status* combinado del commit da `pending`. Aparece igual sobre M1, sobre M2
+y **sobre `main`**, así que no distingue nada y no explica el rojo. Es una integración dormida.
+Se anota para que nadie la persiga como causa.
+
+## 26 · Reproducción local
+
+Worktree de `origin/feat/pro-steel-m1` con `node_modules` enlazado y el WASM copiado — `engine/` y
+`package-lock.json` son idénticos entre M1 y M2, así que la única variable es el fuente de `web/`.
+
+| Condición | Resultado |
+|---|---|
+| `basic-demos.spec.ts` completo ×3, `--retries=0` | `:285` **pasa 3/3** — 3,3 s · 8,0 s · 3,4 s |
+| `--grep @smoke` completo, **lo mismo que corre el CI** | **336 pasan, 0 fallan, 1 flaky, 4 saltados** — 10,5 min |
+
+El `1 flaky` es `:160`, el de siempre. La forma es **idéntica a la de la corrida verde de CI**
+(336 pasan / 1 flaky / 4 saltados). **`:285` no reproduce en darwin.**
+
+Y el número que da el mecanismo: **CI tarda 25,4 min para la misma suite que localmente tarda
+10,5 — 2,4×**. El test hace cuatro clics sintéticos sobre un canvas y espera que uno impacte un
+miembro; en un runner de 2 núcleos con GL por software, ese margen es otro.
+
+## 27 · La asimetría de reintentos, que es lo que hace que este test pueda enrojecer
+
+`basic-demos.spec.ts:159` declara `test.describe.configure({ retries: 2 })` **sólo** para
+`@smoke drawing a beam` (`:160`), con su propio comentario explicando que aterrizar un clic
+sintético sobre un blanco en movimiento no es determinista.
+
+`@smoke the section walkthrough` (`:285`) hace exactamente lo mismo —`page.mouse.click` sobre el
+canvas, en cuatro fracciones verticales— y **no tiene presupuesto propio**: sólo el del config,
+`CI ? 1 : 0`. Por eso `:160` sale *flaky* y `:285` sale **rojo**.
+
+**No se corrigió acá, a propósito.** `basic-demos.spec.ts` es **idéntico byte a byte entre M1 y
+main**: es un spec del modo Básico que ni M1 ni M2 tocan. Cambiarlo desde una rama de acero le
+daría a M1 la propiedad de un archivo que no le corresponde y crearía una superficie de merge con
+main sin razón de producto. La corrección pertenece a main.
+
+## 28 · Clasificación
+
+| Hallazgo | Clasificación |
+|---|---|
+| `e2e` rojo del run `32921289231` (`basic-demos:285`) | **Flakiness**, dependiente de plataforma: sólo en el runner de CI |
+| Dos corridas sobre el mismo sha | **Job mal configurado** — falta `concurrency`, disparado por un `base_ref_changed` legítimo |
+| `gh pr checks` en verde con un rojo vivo | **Job mal configurado** — deduplica por nombre y muestra el último intento |
+| Suite `render` en `queued` | **Entorno** — integración dormida, igual en main; no es causa |
+| `mergeStateStatus: BLOCKED` | **Branch protection** — falta la aprobación; el ruleset **no declara ningún status check requerido** |
+| Rama base / conflictos | **Sin problema** — `merge-tree` limpio contra main y contra M2 |
+| Código de M1 | **Sin problema** — 74 archivos difieren de main y **cero** son del modo Básico |
+
+## 29 · CI relanzado
+
+`gh run rerun 32921289231 --failed`, sobre el **mismo sha**, sin tocar una línea:
+
+| Run | Intento | `e2e` | Suite |
+|---|---|---|---|
+| `32921288831` | 1 | success | success |
+| `32921289231` | 1 | **failure** | failure |
+| `32921289231` | **2** | **success** | **success** |
+
+Ahora los 14 check runs sobre `9883e2bd` son success o skipped y **las dos suites concluyen
+success**. #156 dejó de aparecer en rojo sin que cambiara el código, que es la definición del
+*flake* y la cuarta demostración del mismo sha con dos colores.
+
+M2 sigue con los siete en verde sobre su cabeza.
+
+## 30 · Lo que NO se hizo, y por qué
+
+**No se agregó `concurrency` a `ci.yml`.** Es la corrección real del §24 y no es maquillaje, pero
+`.github/workflows/ci.yml` es infraestructura de main: aplicarla desde una rama de acero le hace
+cargar a M1 o M2 una política de CI de todo el repositorio, ajena al alcance metálico, que sólo
+llegaría a main cuando el PR de acero se integre. Además hay un matiz que conviene decidir con la
+cabeza fría y no de paso: con `cancel-in-progress: true` la primera corrida se cancela a mitad, y
+una corrida cancelada tampoco es un verde — cambia un rojo por un cancelado salvo que el grupo se
+elija con cuidado. El parche que corresponde, para quien sea dueño de main:
+
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+```
+
+**No se commiteó nada sobre M1.** Cualquier commit movería su cabeza fuera de `9883e2bd` y dejaría
+sin efecto el verde que se acaba de obtener: haría falta otra corrida de 28 minutos para volver al
+mismo punto. M1 queda intacta, en su sha verde, y todo esto se documenta desde M2, que es donde ya
+vive la auditoría.
+
+**No se tocó `basic-demos.spec.ts`** (§27), ni snapshots, ni timeouts, ni solver, Rust, Cargo o
+WASM.
