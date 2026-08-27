@@ -34,6 +34,14 @@ pub struct SymbolicCholesky {
     /// at permuted position p. Lets numeric_cholesky permute values with a
     /// single O(nnz) gather instead of re-tripletizing and re-sorting on every
     /// factorization.
+    ///
+    /// This is a deliberate memory-for-time trade: `pa_row_idx` and `pa_src`
+    /// add 2·nnz(A) usizes to every cached symbolic factorization — about
+    /// 6.4 MB at nnz(A) = 400k — and P-Delta holds one across every load step.
+    /// It buys back a full O(nnz log nnz) sort and a triplet rebuild per
+    /// numeric factorization, which those same iterative paths pay repeatedly.
+    /// On wasm32, where memory growth is user-visible, that is the axis to
+    /// watch if the trade is ever revisited.
     pub pa_col_ptr: Vec<usize>,
     pub pa_row_idx: Vec<usize>,
     pub pa_src: Vec<usize>,
@@ -287,15 +295,28 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
     let n = sym.n;
 
     // Permuted values via the map precomputed in the symbolic phase: one
-    // O(nnz) gather, no triplet rebuild, no sort. `a` must have the same
-    // sparsity structure as the matrix the symbolic phase was built from
-    // (that is the standing contract of symbolic reuse).
+    // O(nnz) gather, no triplet rebuild, no sort.
+    //
+    // `a` must have the SAME SPARSITY STRUCTURE as the matrix the symbolic
+    // phase was built from — the standing contract of symbolic reuse. That is
+    // worth asserting on nnz and not only on the dimensions: `pa_src` holds
+    // positions into the original `a.values`, so a matrix with the same `n` but
+    // a different pattern reads the wrong entries. It is silent whenever the
+    // value array happens to be long enough, and an index panic when it is not.
     debug_assert_eq!(a.n, n);
     debug_assert_eq!(a.col_ptr.len(), n + 1);
-    let mut pa_values = vec![0.0f64; sym.pa_src.len()];
-    for (p, &k) in sym.pa_src.iter().enumerate() {
-        pa_values[p] = a.values[k];
-    }
+    debug_assert_eq!(
+        a.col_ptr[n],
+        sym.pa_src.len(),
+        "numeric_cholesky: matrix has {} nonzeros, symbolic was built for {} — \
+         symbolic reuse requires an unchanged sparsity pattern",
+        a.col_ptr[n],
+        sym.pa_src.len(),
+    );
+    // Collected rather than zero-filled and overwritten: the fill was a memset
+    // of nnz f64 per factorization, inside the function whose whole point is to
+    // stop doing per-factorization work.
+    let pa_values: Vec<f64> = sym.pa_src.iter().map(|&k| a.values[k]).collect();
     let pa_col_ptr = &sym.pa_col_ptr;
     let pa_row_idx = &sym.pa_row_idx;
 
