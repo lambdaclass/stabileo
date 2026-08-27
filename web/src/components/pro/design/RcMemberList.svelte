@@ -31,7 +31,9 @@
   import { modelStore } from '../../../lib/store/model.svelte';
   import { verificationStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
   import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
+  import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import {
     rcMemberList, rcHasListableMembers, rcHasUnclassifiedFamilies,
     type RcMemberListInput, type RcFamilyCensus,
@@ -154,6 +156,62 @@
     rebarWorkspace.selectAndFocus(elementId);
   }
 
+  /*
+   * ── The entry F6 found missing, and what was broken without it ─────
+   *
+   * DETALLE was the ONE pipeline stage with no way into the 3-D viewer. Measured by walking the
+   * five disclosures and collecting every control that opens it: MODELADO has
+   * `overview-open-3d`, DISEÑAR has `cmd-open-3d`, DOCUMENTOS has `doc-3d`, the ribbon has
+   * `pr-cmd-rebar3d`, and DETALLE had `[]`.
+   *
+   * That is not merely an absent shortcut. `selectAndFocus` above writes the selection AND files
+   * a camera request, and the effect that serves that request lives inside the overlay — so with
+   * the workspace closed, clicking a row here highlighted it, queued a focus nothing would
+   * perform, and left the reader with no route to the member they had just chosen. The stage that
+   * details the steel could not show it.
+   *
+   * It is the SAME operation as the other four — `openRebar3D`, one document instance, no second
+   * projection — so this is a fifth entry point and not a fifth behaviour. `rebar-open.ts` states
+   * why that is the right shape for this command and the wrong shape for a stage command: it
+   * advances no stage, it has four deliberate entries already, and it is "a transversal tool for
+   * looking at what the pipeline produced, reachable from wherever that result is being read".
+   * This stage is where it is read.
+   */
+  let opening3d = $state(false);
+  let open3dError = $state<string | null>(null);
+  const canOpen3d = $derived(canOpenRebar3D());
+  const assemblyCount = $derived(rebar3DAssemblyCount());
+
+  /**
+   * The selected member travels INTO the open workspace, and nothing new carries it.
+   *
+   * `rebarWorkspace.selection` survives the open — that is the whole point of the channel — and
+   * the pending focus request survives with it, so the camera lands on whatever the reader had
+   * already picked from this list. Re-selecting here would be a second write of a value that is
+   * already correct.
+   *
+   * The button stays focusable while it works, for the reason `DesignToolbar.open3d` records:
+   * disabling a focused control blurs it, and the overlay then records `<body>` as the thing to
+   * return focus to on Escape.
+   */
+  async function open3d() {
+    if (opening3d) return;
+    open3dError = null;
+    opening3d = true;
+    // Yielded so the pending label paints: the document build is synchronous and takes a
+    // noticeable moment on a large model.
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    try {
+      const res = openRebar3D({
+        author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+        at: new Date().toISOString(),
+      });
+      if (!res.ok) open3dError = t('detailing.doc.noCoordinated');
+    } finally {
+      opening3d = false;
+    }
+  }
+
   /**
    * Arrow keys move within a family's rows, and the selection follows focus.
    *
@@ -199,6 +257,37 @@
   `listbox` because that is what they are: one element is current, arrow keys move between them.
 -->
 <section class="member-list" data-testid="rc-member-list" aria-label={t('design.memberList.title')}>
+  <!--
+    The way into the viewer, above the rows it is about.
+
+    Disabled — not hidden — while there is nothing coordinated to draw, and the reason is stated
+    as text rather than only as a `title`: a tooltip explains itself to a mouse and to nothing
+    else, which is the rule the rest of this flow already follows.
+  -->
+  <p class="open3d">
+    <button
+      type="button"
+      class="open3d-btn"
+      data-testid="member-list-open-3d"
+      onclick={open3d}
+      disabled={!canOpen3d}
+      aria-busy={opening3d ? 'true' : undefined}
+    >
+      <span aria-hidden="true">◫</span>
+      {opening3d ? t('detailing.scene.opening') : t('detailing.scene.openMain')}
+      {#if canOpen3d}
+        <span class="n3d" data-testid="member-list-open-3d-count">{assemblyCount}</span>
+      {/if}
+    </button>
+    {#if !canOpen3d}
+      <span class="need" data-testid="member-list-open-3d-need"
+        >{t('detailing.scene.openBlocked')}</span>
+    {/if}
+  </p>
+  {#if open3dError}
+    <p class="err" role="alert" data-testid="member-list-open-3d-error">{open3dError}</p>
+  {/if}
+
   {#if !hasRows}
     <!--
       Nothing to enumerate, and the two reasons for that are different statements.
@@ -284,6 +373,31 @@
     font-family: var(--st-sans);
   }
   .note { margin: 0; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2); }
+
+  /* The entry to the viewer, and the sentence that explains a refusal. */
+  .open3d {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.5rem;
+    margin: 0;
+  }
+  /* The paint every command on this surface carries: C1 of `pro-panel-consistency` rejects a
+     control with neither a surface nor a border of ours, and a bare button is exactly that. */
+  .open3d-btn {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 3px 9px;
+    border: 1px solid var(--st-info); border-radius: 4px;
+    background: var(--st-surface-3); color: var(--st-text);
+    font: inherit; font-size: 0.72rem; font-weight: 600;
+    cursor: pointer;
+  }
+  .open3d-btn:hover:not(:disabled) { background: var(--st-hair-strong); }
+  /* Dimmer and still legible — a disabled command has to explain itself. */
+  .open3d-btn:disabled { opacity: 0.5; cursor: not-allowed; border-color: var(--st-hair-strong); }
+  .open3d-btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  .n3d { font-family: var(--st-mono); font-variant-numeric: tabular-nums; }
+  /* `--st-text-2` and not `--st-text-3`: this is copy a reader has to read, which is the
+     measurement `concrete-copy-contrast` records about the eight sites below. */
+  .need { font-size: 0.68rem; color: var(--st-text-2); }
+  .err { margin: 0; font-size: 0.7rem; line-height: 1.35; color: var(--st-text); }
 
   .group { display: flex; flex-direction: column; gap: 0.3rem; }
   /* A group heading is read. Uppercase and letter-spacing carry the hierarchy, not dimming. */
