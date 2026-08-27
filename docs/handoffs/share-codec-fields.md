@@ -228,6 +228,19 @@ clave opcional nueva, nunca como quinta posición.
 `JOINT_DESIGNS_SCHEMA_VERSION` que escribe el `.ded`: una sola versión para el campo, en los dos
 formatos.
 
+**Y el filo de eso, dicho antes de que lo encuentre alguien de la peor manera.** Acoplar las dos
+versiones tiene una consecuencia que no es obvia: `unpackJointDesigns` **rechaza el link entero** si
+`jd.v` no es la versión que este build lee (§7.3). Entonces, el día que alguien incremente
+`JOINT_DESIGNS_SCHEMA_VERSION` por una razón de **`.ded`** —que es el otro consumidor de la
+constante—, todos los links ya compartidos dejan de abrir **completos**, no «sin uniones».
+
+No es un defecto hoy: con una sola versión en circulación el camino es inalcanzable. Es una trampa
+para el próximo cambio, y tiene arreglo chico cuando se quiera tomarlo — separar la versión del
+contenedor de URL de la del modelo, o tratar una versión desconocida de `jd` como «no puedo leer
+estas uniones» en lugar de «no puedo leer este link». **Lo segundo contradice la decisión de §7.3**,
+así que no es un parche mecánico: es la misma disyuntiva de esa sección, y hay que elegirla a
+propósito. Queda anotado para M3 y no se toca acá.
+
 ## 7.2 · Qué NO viaja, y por qué eso es el punto
 
 **Nada calculado.** `packJointDesigns` recorre una **tabla de campos** y no emite nada más, así que
