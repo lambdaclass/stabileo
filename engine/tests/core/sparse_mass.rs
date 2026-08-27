@@ -360,12 +360,22 @@ const GOLDEN_MODAL_FRAME_OMEGA: [f64; 6] = [
 
 /// ω² eigenvalues from the pre-refactor sparse Lanczos on the 8×8 plate
 /// (first near-zero noise mode excluded by the λ > 1 filter).
+/// Recaptured after the quotient-graph AMD rewrite (`perf/amd-quotient-graph`):
+/// the new elimination order changes floating-point rounding in the K
+/// factorization, shifting modes by ~1e-9..1e-8 relative. The recaptured
+/// values are as close or closer to the fully-dense generalized Lanczos path
+/// (cross-checked at capture time, worst rel diff 5.2e-8 on the degenerate
+/// plate modes, ≤ 3e-9 on the rest) than the previous goldens were.
+/// Recaptured again after the supernodal numeric factorization: the panel
+/// factorization changes summation order vs the simplicial code (~1e-9..1e-8
+/// relative on λ). Cross-checked against the dense path at capture time
+/// (worst rel diff 1.1e-8; the dense cross-check below pins this at 1e-6).
 const GOLDEN_MODAL_SHELL_LAMBDA: [f64; 5] = [
-    9.395776230070056e2,
-    6.439919296650598e3,
-    6.439919400675166e3,
-    1.666449230853947e4,
-    3.138785766668246e4,
+    9.395776201211125e2,
+    6.439919269545047e3,
+    6.439919377132709e3,
+    1.666449276704999e4,
+    3.138785841334025e4,
 ];
 
 #[test]
@@ -419,6 +429,29 @@ fn modal_3d_sparse_mass_parity_shell() {
 
     assert_matches_golden(&sparse_eigen.values, &GOLDEN_MODAL_SHELL_LAMBDA, 1.0, 1e-10,
         "modal shell golden");
+
+    // Cross-method sanity vs fully-dense generalized Lanczos (same check as
+    // the frame parity test above). Tolerance is looser than the frame case:
+    // the plate has degenerate modes whose λ splits at the 1e-8 level under
+    // FP reassociation, so 1e-6 is the meaningful cross-method bound here.
+    let k_dense = sasm.k_ff.to_dense_symmetric();
+    let m_full = assemble_mass_matrix_3d(&input, &dof_num, &densities);
+    let nf = dof_num.n_free;
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_dense = extract_submatrix(&m_full, dof_num.n_total, &free_idx, &free_idx);
+    let dense_eigen = lanczos_generalized_eigen(&k_dense, &m_dense, nf, 6, 0.0)
+        .expect("dense generalized Lanczos failed");
+    let sp: Vec<f64> = sparse_eigen.values.iter().copied().filter(|&v| v > 1.0).collect();
+    let dn: Vec<f64> = dense_eigen.values.iter().copied().filter(|&v| v > 1.0).collect();
+    assert_eq!(sp.len(), dn.len(), "sparse and dense mode counts differ");
+    for i in 0..sp.len() {
+        let rel = (sp[i] - dn[i]).abs() / dn[i].abs().max(1e-30);
+        assert!(
+            rel < 1e-6,
+            "modal shell cross-method mode {}: sparse={:.12e}, dense={:.12e}, rel={:.2e}",
+            i, sp[i], dn[i], rel
+        );
+    }
 }
 
 /// End-to-end: solve_modal_3d (sparse-mass path) frequencies vs golden
@@ -458,10 +491,13 @@ const GOLDEN_BUCKLING_3D: [f64; 4] = [
     // π²/2 and π² exactly — the analytical Euler cantilever, in the 2:1 ratio the
     // two bending axes require. The previous values were not a clean multiple of
     // anything, which is what a wrong recurrence looks like from the outside.
-    4.934802200097371e0,
-    9.869604402913636e0,
-    4.441322215031543e1,
-    8.882644430568224e1,
+    // Recaptured after the quotient-graph AMD rewrite: the new elimination
+    // order shifts the values by ~1e-10 relative and lands them even closer
+    // to the analytical π²/2 and π² (rel err 4.2e-11 and 3.4e-11).
+    4.934802200338300e0,
+    9.869604400752904e0,
+    4.4413222150346584e1,
+    8.882644430544299e1,
 ];
 
 #[test]
