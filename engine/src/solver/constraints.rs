@@ -20,8 +20,11 @@ use super::linear;
 
 /// Result of building constraint transformation.
 pub struct ConstraintTransform {
-    /// Transformation matrix C: n_total × n_independent (row-major)
-    pub c_matrix: Vec<f64>,
+    /// Transformation matrix C: n_total × n_independent, sparse (dual CSR/CSC).
+    /// C is near-identity — one unit entry per independent DOF plus a few
+    /// entries per dependent DOF — so nnz is O(n_total) and the dense form
+    /// would waste O(n_total × n_independent) memory.
+    pub c: SparseTransform,
     /// Number of independent DOFs (after constraints applied)
     pub n_independent: usize,
     /// Total DOFs
@@ -30,6 +33,208 @@ pub struct ConstraintTransform {
     pub independent_dofs: Vec<usize>,
     /// Set of dependent (constrained) global DOF indices
     pub dependent_dofs: HashSet<usize>,
+}
+
+/// Sparse matrix in dual CSR + CSC form, for the constraint transform C.
+///
+/// Rows are physical DOFs, columns are independent DOFs. CSR answers "what
+/// does this DOF depend on" (expand, reduce-vector); CSC answers "who depends
+/// on this independent DOF" (particular solution, K·C products).
+#[derive(Debug, Clone)]
+pub struct SparseTransform {
+    pub n_rows: usize,
+    pub n_cols: usize,
+    // CSR
+    pub row_ptr: Vec<usize>,
+    pub col_idx: Vec<usize>,
+    pub vals: Vec<f64>,
+    // CSC (transpose of the same entries)
+    pub col_ptr: Vec<usize>,
+    pub row_idx: Vec<usize>,
+    pub csc_vals: Vec<f64>,
+}
+
+impl SparseTransform {
+    /// Build from per-row (column, value) lists. Rows must be sorted by column
+    /// and free of duplicate columns.
+    pub fn from_rows(n_rows: usize, n_cols: usize, rows: Vec<Vec<(usize, f64)>>) -> Self {
+        assert_eq!(rows.len(), n_rows);
+        let nnz: usize = rows.iter().map(|r| r.len()).sum();
+        let mut row_ptr = vec![0usize; n_rows + 1];
+        let mut col_idx = Vec::with_capacity(nnz);
+        let mut vals = Vec::with_capacity(nnz);
+        for (i, row) in rows.iter().enumerate() {
+            row_ptr[i + 1] = row_ptr[i] + row.len();
+            for &(j, v) in row {
+                col_idx.push(j);
+                vals.push(v);
+            }
+        }
+
+        // Transpose to CSC via counting sort.
+        let mut col_ptr = vec![0usize; n_cols + 1];
+        for &j in &col_idx {
+            col_ptr[j + 1] += 1;
+        }
+        for j in 0..n_cols {
+            col_ptr[j + 1] += col_ptr[j];
+        }
+        let mut row_idx = vec![0usize; nnz];
+        let mut csc_vals = vec![0.0; nnz];
+        {
+            let mut next = col_ptr[..n_cols].to_vec();
+            for i in 0..n_rows {
+                for p in row_ptr[i]..row_ptr[i + 1] {
+                    let j = col_idx[p];
+                    row_idx[next[j]] = i;
+                    csc_vals[next[j]] = vals[p];
+                    next[j] += 1;
+                }
+            }
+        }
+
+        SparseTransform { n_rows, n_cols, row_ptr, col_idx, vals, col_ptr, row_idx, csc_vals }
+    }
+
+    /// y = C * x  (x: n_cols, y: n_rows)
+    pub fn mul_vec(&self, x: &[f64]) -> Vec<f64> {
+        assert_eq!(x.len(), self.n_cols);
+        let mut y = vec![0.0; self.n_rows];
+        self.mul_vec_into(x, &mut y);
+        y
+    }
+
+    /// y += C * x
+    pub fn mul_vec_into(&self, x: &[f64], y: &mut [f64]) {
+        for i in 0..self.n_rows {
+            let mut sum = 0.0;
+            for p in self.row_ptr[i]..self.row_ptr[i + 1] {
+                sum += self.vals[p] * x[self.col_idx[p]];
+            }
+            y[i] += sum;
+        }
+    }
+
+    /// y = C^T * x  (x: n_rows, y: n_cols)
+    pub fn mul_transpose_vec(&self, x: &[f64]) -> Vec<f64> {
+        assert_eq!(x.len(), self.n_rows);
+        let mut y = vec![0.0; self.n_cols];
+        for i in 0..self.n_rows {
+            let xi = x[i];
+            if xi == 0.0 {
+                continue;
+            }
+            for p in self.row_ptr[i]..self.row_ptr[i + 1] {
+                y[self.col_idx[p]] += self.vals[p] * xi;
+            }
+        }
+        y
+    }
+
+    /// Reduced matrix K_red = C^T · K · C with K dense symmetric (n_rows × n_rows,
+    /// row-major). Returns dense n_cols × n_cols (row-major).
+    /// Cost O(nnz(C) · n_rows) instead of the dense triple loop's O(n_rows² · n_cols).
+    pub fn reduce_dense(&self, k: &[f64]) -> Vec<f64> {
+        let m = self.n_rows;
+        let p = self.n_cols;
+        // KC[l, j'] accumulation scattered by C's rows:
+        // K_red[j, j'] += Σ_l C[l,j] · K[l,l'] · C[l',j']
+        // Stream K row by row: for each l, distribute row l of K over the
+        // (small) column sets of C's rows l and l'.
+        let mut k_red = vec![0.0; p * p];
+        for l in 0..m {
+            for pa in self.row_ptr[l]..self.row_ptr[l + 1] {
+                let (j, ca) = (self.col_idx[pa], self.vals[pa]);
+                // l' < l half: entry K[l, l'] at k[l*m + l']
+                for l2 in 0..l {
+                    let kv = k[l * m + l2];
+                    if kv == 0.0 {
+                        continue;
+                    }
+                    let c = ca * kv;
+                    for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
+                        let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
+                        k_red[j * p + j2] += c * cb;
+                        k_red[j2 * p + j] += c * cb;
+                    }
+                }
+                // diagonal l' == l
+                let kv = k[l * m + l];
+                for pb in self.row_ptr[l]..self.row_ptr[l + 1] {
+                    let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
+                    k_red[j * p + j2] += ca * kv * cb;
+                }
+            }
+        }
+        k_red
+    }
+
+    /// Reduced matrix K_red = C^T · K · C with K sparse symmetric (lower-triangle
+    /// CSC). Returns lower-triangle CSC of the symmetric n_cols × n_cols result.
+    /// Cost O(Σ_{(l,l')∈K} deg(l)·deg(l')) — near-linear in nnz(K) for the
+    /// near-identity transforms MPCs produce.
+    pub fn reduce_sparse(&self, k: &crate::linalg::sparse::CscMatrix) -> crate::linalg::sparse::CscMatrix {
+        let mut rows = Vec::new();
+        let mut cols = Vec::new();
+        let mut vals = Vec::new();
+        // K stores (row >= col): entry (l, l2) with l >= l2 stands for both
+        // (l, l2) and (l2, l) in the double sum over ordered index pairs.
+        // Emissions land on ORDERED target slots (j, j2): slot (j,j2) and its
+        // mirror (j2,j) get their own terms, so duplicates must be merged per
+        // ordered slot — letting from_triplets fold upper slots into lower
+        // ones would double-count.
+        for l2 in 0..k.n {
+            for pk in k.col_ptr[l2]..k.col_ptr[l2 + 1] {
+                let l = k.row_idx[pk];
+                let kv = k.values[pk];
+                for pa in self.row_ptr[l]..self.row_ptr[l + 1] {
+                    let (j, ca) = (self.col_idx[pa], self.vals[pa]);
+                    for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
+                        let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
+                        rows.push(j);
+                        cols.push(j2);
+                        vals.push(ca * kv * cb);
+                    }
+                }
+                if l != l2 {
+                    // Transposed orientation (l2, l)
+                    for pa in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
+                        let (j, ca) = (self.col_idx[pa], self.vals[pa]);
+                        for pb in self.row_ptr[l]..self.row_ptr[l + 1] {
+                            let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
+                            rows.push(j);
+                            cols.push(j2);
+                            vals.push(ca * kv * cb);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Merge equal ordered slots, then keep only the lower triangle of the
+        // result (K_red is symmetric: the upper slot totals are redundant).
+        let mut trip: Vec<(usize, usize, f64)> =
+            rows.into_iter().zip(cols).zip(vals).map(|((r, c), v)| (c, r, v)).collect();
+        trip.sort_unstable_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
+        let mut rows = Vec::new();
+        let mut cols = Vec::new();
+        let mut vals = Vec::new();
+        let mut i = 0;
+        while i < trip.len() {
+            let (c, r, mut v) = trip[i];
+            i += 1;
+            while i < trip.len() && trip[i].0 == c && trip[i].1 == r {
+                v += trip[i].2;
+                i += 1;
+            }
+            if r >= c {
+                rows.push(r);
+                cols.push(c);
+                vals.push(v);
+            }
+        }
+        crate::linalg::sparse::CscMatrix::from_triplets(self.n_cols, &rows, &cols, &vals)
+    }
 }
 
 /// Constrained analysis input (2D).
@@ -672,47 +877,73 @@ pub fn build_constraint_transform(
         indep_map.insert(d, i);
     }
 
-    // Build C matrix: n_total × n_independent
-    let mut c = vec![0.0; n * n_indep];
-
-    // Independent DOFs: C[global_dof, indep_idx] = 1
+    // Build C sparsely: one row per DOF, entries (independent_col, coeff).
+    // Independent DOFs get a unit row; dependent rows are resolved by
+    // multi-pass substitution over their masters' rows (same convergence
+    // semantics as the previous dense build: max 10 passes, stop when the
+    // largest entry change is < 1e-14).
+    let mut rows: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
     for (i, &d) in independent_dofs.iter().enumerate() {
-        c[d * n_indep + i] = 1.0;
+        rows[d] = vec![(i, 1.0)];
     }
 
-    // Resolve chained dependencies (master-of-master) via multi-pass substitution.
-    //
-    // For each dependent DOF: C[dep, :] = Σ(coeff_k * C[master_k, :])
-    // If a master is independent, its C row is a unit vector (already set).
-    // If a master is also dependent, we substitute its C row transitively.
-    //
-    // Process: rebuild each dependent row from scratch each pass, using current C rows
-    // of its masters. Iterate until stable (max 10 passes).
+    // Scratch for sparse row combination (generation-stamped accumulator).
+    let mut acc = vec![0.0f64; n_indep];
+    let mut stamp = vec![0usize; n_indep];
+    let mut gen = 0usize;
+    let mut touched: Vec<usize> = Vec::new();
+
     for _pass in 0..10 {
         let mut max_change = 0.0f64;
 
         for (&dep_dof, terms) in &dep_equations {
-            // Recompute row from scratch: C[dep, :] = Σ(coeff * C[master, :])
-            let mut new_row = vec![0.0; n_indep];
+            // new_row = Σ(coeff * row[master])
+            gen += 1;
+            touched.clear();
             for &(master_dof, coeff) in terms {
-                for j in 0..n_indep {
-                    new_row[j] += coeff * c[master_dof * n_indep + j];
+                for &(j, v) in &rows[master_dof] {
+                    if stamp[j] != gen {
+                        stamp[j] = gen;
+                        acc[j] = 0.0;
+                        touched.push(j);
+                    }
+                    acc[j] += coeff * v;
                 }
             }
+            touched.sort_unstable();
 
-            // Check convergence
-            for j in 0..n_indep {
-                let diff = (new_row[j] - c[dep_dof * n_indep + j]).abs();
-                if diff > max_change { max_change = diff; }
-                c[dep_dof * n_indep + j] = new_row[j];
+            // Compare against the current row (both sorted by column).
+            let old = &rows[dep_dof];
+            let mut oi = 0;
+            for &j in &touched {
+                let nv = acc[j];
+                while oi < old.len() && old[oi].0 < j {
+                    if old[oi].1.abs() > max_change { max_change = old[oi].1.abs(); }
+                    oi += 1;
+                }
+                if oi < old.len() && old[oi].0 == j {
+                    let diff = (nv - old[oi].1).abs();
+                    if diff > max_change { max_change = diff; }
+                    oi += 1;
+                } else if nv.abs() > max_change {
+                    max_change = nv.abs();
+                }
             }
+            while oi < old.len() {
+                if old[oi].1.abs() > max_change { max_change = old[oi].1.abs(); }
+                oi += 1;
+            }
+
+            let new_row: Vec<(usize, f64)> =
+                touched.iter().map(|&j| (j, acc[j])).collect();
+            rows[dep_dof] = new_row;
         }
 
         if max_change < 1e-14 { break; }
     }
 
     ConstraintTransform {
-        c_matrix: c,
+        c: SparseTransform::from_rows(n, n_indep, rows),
         n_independent: n_indep,
         n_total: n,
         independent_dofs,
@@ -859,25 +1090,9 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         f_f[i] -= k_fr_ur[i];
     }
 
-    // Extract the free part of C (rows for free DOFs only)
-    // C is n_total × n_independent. We need rows 0..nf (free DOFs)
-    let n_indep = ct.n_independent;
-
-    // Identify which independent DOFs are free (< nf)
-    let free_indep: Vec<usize> = ct.independent_dofs.iter()
-        .enumerate()
-        .filter(|(_, &d)| d < nf)
-        .map(|(i, _)| i)
-        .collect();
-    let n_free_indep = free_indep.len();
-
-    // Build C_ff: nf × n_free_indep (free rows, free-independent columns)
-    let mut c_ff = vec![0.0; nf * n_free_indep];
-    for i in 0..nf {
-        for (j_new, &j_old) in free_indep.iter().enumerate() {
-            c_ff[i * n_free_indep + j_new] = ct.c_matrix[i * n_indep + j_old];
-        }
-    }
+    // Extract the free part of C (rows for free DOFs only), sparse.
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf);
+    let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters must
     // follow them. u_f = C_ff * q + u_p with u_p = C_fr * u_r (restrained
@@ -887,8 +1102,11 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         if d >= nf {
             let v = u_r[d - nf];
             if v != 0.0 {
-                for i in 0..nf {
-                    u_p[i] += ct.c_matrix[i * n_indep + j] * v;
+                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
+                    let i = ct.c.row_idx[p];
+                    if i < nf {
+                        u_p[i] += ct.c.csc_vals[p] * v;
+                    }
                 }
             }
         }
@@ -909,8 +1127,8 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
 
     // K_reduced = C_ff^T * K_ff * C_ff
     // F_reduced = C_ff^T * F_f
-    let k_reduced = ct_k_c(&c_ff, &k_ff, nf, n_free_indep);
-    let f_reduced = ct_f(&c_ff, &f_f, nf, n_free_indep);
+    let k_reduced = fcs.reduce_matrix(&k_ff);
+    let f_reduced = fcs.reduce_vector(&f_f);
 
     // Solve reduced system
     let mut used_fallback = false;
@@ -929,7 +1147,7 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     };
 
     // Recover free DOF displacements: u_f = C_ff * u_indep
-    let mut u_f = c_times_u(&c_ff, &u_indep, nf, n_free_indep);
+    let mut u_f = fcs.expand_solution(&u_indep);
     if has_up {
         for i in 0..nf {
             u_f[i] += u_p[i];
@@ -962,7 +1180,6 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     // to keep the reduced (free-free) system's RHS consistent for solving
     // q; reusing the already-corrected f_f here would double-count u_p's
     // contribution and misreport the constraint force.
-    let fcs = FreeConstraintSystem { c_ff, n_free_indep, nf };
     let raw_forces = match &k_ff_up_opt {
         Some(k_ff_up) => {
             let mut f_f_true = f_f.clone();
@@ -983,12 +1200,11 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     // equilibrium with the applied load both for pure settlement (prescribed
     // u_r) and for a loaded slave tied to a fixed (u_r = 0) master.
     for &(i, g_i) in &raw_forces {
-        for (j, &d) in ct.independent_dofs.iter().enumerate() {
+        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
+            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
+            let d = ct.independent_dofs[j];
             if d >= nf {
-                let coeff = ct.c_matrix[i * n_indep + j];
-                if coeff != 0.0 {
-                    reactions_vec[d - nf] += coeff * g_i;
-                }
+                reactions_vec[d - nf] += coeff * g_i;
             }
         }
     }
@@ -1092,7 +1308,13 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let nf = dof_num.n_free;
     let nr = n - nf;
 
-    let asm = assembly::assemble_3d(&input.solver, &dof_num);
+    // Sparse assembly: k_ff (free block) + k_full (full n×n, for the
+    // prescribed-DOF correction and reactions). The constrained path used to
+    // assemble K densely (n×n) and reduce with a dense C (nf × n_indep) —
+    // with a single rigid diaphragm that dominated both memory and time.
+    let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, true);
+    let k_full = sasm.k_full.as_ref().expect("build_k_full=true");
+    let k_ff = &sasm.k_ff;
 
     // Build prescribed displacements
     let mut u_r = vec![0.0; nr];
@@ -1158,32 +1380,17 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         None, Some(&input.solver.nodes),
     );
 
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
+    let mut f_f: Vec<f64> = sasm.f[..nf].to_vec();
 
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-    let mut f_f = extract_subvec(&asm.f, &free_idx);
-
-    let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
-    let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+    // Modify for prescribed displacements: f_f -= K_fr * u_r
+    let k_fr_ur = k_full.sparse_cross_block_matvec(&u_r, nf);
     for i in 0..nf {
         f_f[i] -= k_fr_ur[i];
     }
 
-    let n_indep = ct.n_independent;
-    let free_indep: Vec<usize> = ct.independent_dofs.iter()
-        .enumerate()
-        .filter(|(_, &d)| d < nf)
-        .map(|(i, _)| i)
-        .collect();
-    let n_free_indep = free_indep.len();
-
-    let mut c_ff = vec![0.0; nf * n_free_indep];
-    for i in 0..nf {
-        for (j_new, &j_old) in free_indep.iter().enumerate() {
-            c_ff[i * n_free_indep + j_new] = ct.c_matrix[i * n_indep + j_old];
-        }
-    }
+    // Free part of C (rows 0..nf, free-independent columns), sparse.
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf);
+    let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters must
     // follow them. u_f = C_ff * q + u_p with u_p = C_fr * u_r (restrained
@@ -1193,8 +1400,11 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         if d >= nf {
             let v = u_r[d - nf];
             if v != 0.0 {
-                for i in 0..nf {
-                    u_p[i] += ct.c_matrix[i * n_indep + j] * v;
+                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
+                    let i = ct.c.row_idx[p];
+                    if i < nf {
+                        u_p[i] += ct.c.csc_vals[p] * v;
+                    }
                 }
             }
         }
@@ -1206,67 +1416,54 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let mut k_ff_up_opt: Option<Vec<f64>> = None;
     if has_up {
         // RHS correction: f_f -= K_ff * u_p (the -K_fr*u_r term already exists).
-        let k_ff_up = mat_vec_rect(&k_ff, &u_p, nf, nf);
+        let k_ff_up = k_ff.sym_mat_vec(&u_p);
         for i in 0..nf {
             f_f[i] -= k_ff_up[i];
         }
         k_ff_up_opt = Some(k_ff_up);
     }
 
-    let k_reduced = ct_k_c(&c_ff, &k_ff, nf, n_free_indep);
-    let f_reduced = ct_f(&c_ff, &f_f, nf, n_free_indep);
+    // K_reduced = C_ff^T * K_ff * C_ff, computed as a sparse triple product
+    // over the triplets of K (near-linear in nnz(K) for MPC transforms).
+    let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let f_reduced = fcs.reduce_vector(&f_f);
 
     let mut used_fallback = false;
-    let u_indep = if n_free_indep >= 64 {
-        let k_sparse = CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep);
-        match sparse_cholesky_solve_full(&k_sparse, &f_reduced) {
-            Some(u) => u,
-            None => {
-                used_fallback = true;
-                let mut k_work = k_reduced;
-                let mut f_work = f_reduced.clone();
-                lu_solve(&mut k_work, &mut f_work, n_free_indep)
-                    .ok_or("Singular stiffness in 3D constrained system")?
-            }
-        }
-    } else {
-        let mut k_work = k_reduced.clone();
-        match cholesky_solve(&mut k_work, &f_reduced, n_free_indep) {
-            Some(u) => u,
-            None => {
-                used_fallback = true;
-                let mut k_work = k_reduced;
-                let mut f_work = f_reduced.clone();
-                lu_solve(&mut k_work, &mut f_work, n_free_indep)
-                    .ok_or("Singular stiffness in 3D constrained system")?
-            }
+    let u_indep = match sparse_cholesky_solve_full(&k_reduced, &f_reduced) {
+        Some(u) => u,
+        None => {
+            used_fallback = true;
+            let mut k_work = k_reduced.to_dense_symmetric();
+            let mut f_work = f_reduced.clone();
+            lu_solve(&mut k_work, &mut f_work, n_free_indep)
+                .ok_or("Singular stiffness in 3D constrained system")?
         }
     };
 
-    let mut u_f = c_times_u(&c_ff, &u_indep, nf, n_free_indep);
+    let mut u_f = fcs.expand_solution(&u_indep);
     if has_up {
         for i in 0..nf {
             u_f[i] += u_p[i];
         }
     }
 
-    // NaN/Inf guard, matching the unconstrained paths. `cholesky_solve` reports success on
-    // any pivot > 1e-15 without inspecting the solved values, so a blown-up reduced system
-    // can reach here as finite-looking `Some(..)`. Nothing downstream re-checks.
+    // NaN/Inf guard, matching the unconstrained paths. The sparse Cholesky
+    // reports success on any pivot > 1e-15 without inspecting the solved
+    // values, so a blown-up reduced system can reach here as finite-looking
+    // `Some(..)`. Nothing downstream re-checks.
     super::linear::assert_finite_3d(&u_f)?;
 
     let mut u_full = vec![0.0; n];
     for i in 0..nf { u_full[i] = u_f[i]; }
     for i in 0..nr { u_full[nf + i] = u_r[i]; }
 
-    let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
-    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
-    let f_r = extract_subvec(&asm.f, &rest_idx);
-    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
-    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+    // Reactions: R = K·u_full − F on the restrained rows, via the full
+    // sparse K (covers both the K_rf·u_f and K_rr·u_r blocks).
+    let f_r: Vec<f64> = sasm.f[nf..].to_vec();
+    let ku_full = k_full.sym_mat_vec(&u_full);
     let mut reactions_vec = vec![0.0; nr];
     for i in 0..nr {
-        reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
+        reactions_vec[i] = ku_full[nf + i] - f_r[i];
     }
 
     // Compute constraint forces at dependent DOFs. Use f_f as it stood
@@ -1274,14 +1471,13 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     // to keep the reduced (free-free) system's RHS consistent for solving
     // q; reusing the already-corrected f_f here would double-count u_p's
     // contribution and misreport the constraint force.
-    let fcs = FreeConstraintSystem { c_ff, n_free_indep, nf };
     let raw_forces = match &k_ff_up_opt {
         Some(k_ff_up) => {
             let mut f_f_true = f_f.clone();
             for i in 0..nf { f_f_true[i] += k_ff_up[i]; }
-            fcs.compute_constraint_forces(&k_ff, &u_f, &f_f_true)
+            fcs.compute_constraint_forces_sparse(k_ff, &u_f, &f_f_true)
         }
-        None => fcs.compute_constraint_forces(&k_ff, &u_f, &f_f),
+        None => fcs.compute_constraint_forces_sparse(k_ff, &u_f, &f_f),
     };
     let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, &dof_num);
 
@@ -1295,12 +1491,11 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     // equilibrium with the applied load both for pure settlement (prescribed
     // u_r) and for a loaded slave tied to a fixed (u_r = 0) master.
     for &(i, g_i) in &raw_forces {
-        for (j, &d) in ct.independent_dofs.iter().enumerate() {
+        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
+            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
+            let d = ct.independent_dofs[j];
             if d >= nf {
-                let coeff = ct.c_matrix[i * n_indep + j];
-                if coeff != 0.0 {
-                    reactions_vec[d - nf] += coeff * g_i;
-                }
+                reactions_vec[d - nf] += coeff * g_i;
             }
         }
     }
@@ -1309,7 +1504,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     // mirrors linear::solve_3d so the constrained path reports reactions and
     // displacements in the same GLOBAL axes as the equilibrium summary below
     // (reactions_vec/f_r stay in the rotated frame; only u_full is reversed).
-    for it in &asm.inclined_transforms {
+    for it in &sasm.inclined_transforms {
         assembly::reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
     }
 
@@ -1318,40 +1513,34 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
 
     // Build reactions for output
     let mut reactions = linear::build_reactions_3d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
+        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &sasm.inclined_transforms,
     );
     reactions.sort_by_key(|r| r.node_id);
 
     // Compute actual residual: ||K_ff*u_f - f_f|| / ||f_f||
     let rel_residual = {
+        let ku = k_ff.sym_mat_vec(&u_f);
         let mut res2 = 0.0f64;
         let mut fnorm2 = 0.0f64;
         for i in 0..nf {
-            let mut ku_i = 0.0;
-            for j in 0..nf {
-                ku_i += k_ff[i * nf + j] * u_f[j];
-            }
-            let r = ku_i - f_f[i];
+            let r = ku[i] - f_f[i];
             res2 += r * r;
             fnorm2 += f_f[i] * f_f[i];
         }
         res2.sqrt() / fnorm2.sqrt().max(1e-30)
     };
 
-    let equilibrium = linear::compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual, &asm.inclined_transforms);
+    let equilibrium = linear::compute_equilibrium_summary_3d(&sasm.f, &reactions_vec, &dof_num, rel_residual, &sasm.inclined_transforms);
 
     // Solver-path diagnostic — report the actual solver that produced the result
     let (path_code, path_sev) = if used_fallback {
         (DiagnosticCode::SparseFallbackDenseLu, Severity::Warning)
-    } else if n_free_indep >= 64 {
-        (DiagnosticCode::SparseCholesky, Severity::Info)
     } else {
-        (DiagnosticCode::DenseLu, Severity::Info)
+        (DiagnosticCode::SparseCholesky, Severity::Info)
     };
     let solver_label = match path_code {
         DiagnosticCode::SparseFallbackDenseLu => "Cholesky failed, dense LU fallback",
-        DiagnosticCode::SparseCholesky => "Sparse Cholesky",
-        _ => "Dense",
+        _ => "Sparse Cholesky",
     };
     constraint_diags.push(StructuredDiagnostic::global(
         path_code,
@@ -1425,8 +1614,8 @@ fn get_node_offset(
 /// transform) so that any solver can easily reduce K, M, F and expand
 /// the solution back to full DOFs.
 pub struct FreeConstraintSystem {
-    /// C_ff matrix: nf × n_free_indep (row-major)
-    pub c_ff: Vec<f64>,
+    /// C_ff matrix: nf × n_free_indep, sparse (dual CSR/CSC)
+    pub c_ff: SparseTransform,
     /// Number of free independent DOFs (reduced system size)
     pub n_free_indep: usize,
     /// Number of free DOFs (unreduced)
@@ -1460,37 +1649,54 @@ impl FreeConstraintSystem {
     }
 
     fn from_transform(ct: &ConstraintTransform, nf: usize) -> Self {
-        let n_indep = ct.n_independent;
-        let free_indep: Vec<usize> = ct.independent_dofs.iter()
-            .enumerate()
-            .filter(|(_, &d)| d < nf)
-            .map(|(i, _)| i)
-            .collect();
-        let n_free_indep = free_indep.len();
-
-        let mut c_ff = vec![0.0; nf * n_free_indep];
-        for i in 0..nf {
-            for (j_new, &j_old) in free_indep.iter().enumerate() {
-                c_ff[i * n_free_indep + j_new] = ct.c_matrix[i * n_indep + j_old];
+        // Keep only the free-independent columns, remapped to 0..n_free_indep.
+        let mut col_map = vec![usize::MAX; ct.n_independent];
+        let mut n_free_indep = 0;
+        for (j_old, &d) in ct.independent_dofs.iter().enumerate() {
+            if d < nf {
+                col_map[j_old] = n_free_indep;
+                n_free_indep += 1;
             }
         }
 
-        FreeConstraintSystem { c_ff, n_free_indep, nf }
+        // Slice rows 0..nf (free DOFs) and remap columns.
+        let mut rows: Vec<Vec<(usize, f64)>> = vec![Vec::new(); nf];
+        for i in 0..nf {
+            for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
+                let j_old = ct.c.col_idx[p];
+                if col_map[j_old] != usize::MAX {
+                    rows[i].push((col_map[j_old], ct.c.vals[p]));
+                }
+            }
+        }
+
+        FreeConstraintSystem {
+            c_ff: SparseTransform::from_rows(nf, n_free_indep, rows),
+            n_free_indep,
+            nf,
+        }
     }
 
-    /// Reduce a symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff
+    /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff
+    /// (dense p×p out; the nonlinear/dynamic paths feed dense matrices).
     pub fn reduce_matrix(&self, k_ff: &[f64]) -> Vec<f64> {
-        ct_k_c(&self.c_ff, k_ff, self.nf, self.n_free_indep)
+        self.c_ff.reduce_dense(k_ff)
+    }
+
+    /// Reduce a sparse symmetric matrix (lower-triangle CSC):
+    /// K_reduced = C_ff^T * K_ff * C_ff as lower-triangle CSC.
+    pub fn reduce_matrix_sparse(&self, k_ff: &CscMatrix) -> CscMatrix {
+        self.c_ff.reduce_sparse(k_ff)
     }
 
     /// Reduce a force vector: F_reduced = C_ff^T * F_f
     pub fn reduce_vector(&self, f_f: &[f64]) -> Vec<f64> {
-        ct_f(&self.c_ff, f_f, self.nf, self.n_free_indep)
+        self.c_ff.mul_transpose_vec(f_f)
     }
 
     /// Expand solution: u_f = C_ff * u_indep
     pub fn expand_solution(&self, u_indep: &[f64]) -> Vec<f64> {
-        c_times_u(&self.c_ff, u_indep, self.nf, self.n_free_indep)
+        self.c_ff.mul_vec(u_indep)
     }
 
     /// Map reduced-space DOF indices back to physical free DOF indices.
@@ -1500,43 +1706,47 @@ impl FreeConstraintSystem {
     pub fn map_reduced_to_physical(&self) -> Vec<usize> {
         let mut map = vec![0usize; self.n_free_indep];
         for j in 0..self.n_free_indep {
-            for i in 0..self.nf {
-                if (self.c_ff[i * self.n_free_indep + j] - 1.0).abs() < 1e-14 {
-                    // Verify it's an identity row
-                    let others_zero = (0..self.n_free_indep)
-                        .filter(|&k| k != j)
-                        .all(|k| self.c_ff[i * self.n_free_indep + k].abs() < 1e-14);
-                    if others_zero {
-                        map[j] = i;
-                        break;
-                    }
+            for p in self.c_ff.col_ptr[j]..self.c_ff.col_ptr[j + 1] {
+                let i = self.c_ff.row_idx[p];
+                if (self.c_ff.csc_vals[p] - 1.0).abs() < 1e-14 && self.is_unit_row(i) {
+                    map[j] = i;
+                    break;
                 }
             }
         }
         map
     }
 
-    /// Map a free DOF index to its position in the reduced (independent) space.
-    /// Returns None if the DOF is dependent (constrained away).
-    ///
-    /// An independent DOF at position `i` in the unreduced system maps to
-    /// column `j` in C_ff where C_ff[i, j] == 1. We find this by scanning row i.
-    pub fn map_dof_to_reduced(&self, free_dof: usize) -> Option<usize> {
-        if free_dof >= self.nf { return None; }
-        let row_start = free_dof * self.n_free_indep;
-        // An independent DOF has exactly one 1.0 in its row
-        for j in 0..self.n_free_indep {
-            if (self.c_ff[row_start + j] - 1.0).abs() < 1e-14 {
-                // Check this is the only nonzero in the row (independent DOF pattern)
-                let others_zero = (0..self.n_free_indep)
-                    .filter(|&k| k != j)
-                    .all(|k| self.c_ff[row_start + k].abs() < 1e-14);
-                if others_zero {
-                    return Some(j);
+    /// True if row i is the identity pattern: exactly one entry ≥ 1e-14 in
+    /// magnitude and that entry is ≈ 1.0 (mirrors the dense checks, which
+    /// treated sub-1e-14 entries as zero).
+    fn unit_row_col(&self, i: usize) -> Option<usize> {
+        let mut found = None;
+        for p in self.c_ff.row_ptr[i]..self.c_ff.row_ptr[i + 1] {
+            if self.c_ff.vals[p].abs() >= 1e-14 {
+                if found.is_some() {
+                    return None; // more than one significant entry
                 }
+                found = Some(p);
             }
         }
-        None // DOF is dependent
+        let p = found?;
+        if (self.c_ff.vals[p] - 1.0).abs() < 1e-14 {
+            Some(self.c_ff.col_idx[p])
+        } else {
+            None
+        }
+    }
+
+    fn is_unit_row(&self, i: usize) -> bool {
+        self.unit_row_col(i).is_some()
+    }
+
+    /// Map a free DOF index to its position in the reduced (independent) space.
+    /// Returns None if the DOF is dependent (constrained away).
+    pub fn map_dof_to_reduced(&self, free_dof: usize) -> Option<usize> {
+        if free_dof >= self.nf { return None; }
+        self.unit_row_col(free_dof)
     }
 
     /// Compute constraint forces at dependent (constrained) DOFs.
@@ -1558,11 +1768,25 @@ impl FreeConstraintSystem {
             }
             residual[i] = ku - f_f[i];
         }
+        self.collect_dependent_forces(&residual)
+    }
 
-        // Identify dependent DOFs (those not in the identity pattern of C_ff)
+    /// Same, with K_ff in sparse (lower-triangle CSC) form.
+    pub fn compute_constraint_forces_sparse(
+        &self,
+        k_ff: &CscMatrix,
+        u_f: &[f64],
+        f_f: &[f64],
+    ) -> Vec<(usize, f64)> {
+        let ku = k_ff.sym_mat_vec(u_f);
+        let residual: Vec<f64> = (0..self.nf).map(|i| ku[i] - f_f[i]).collect();
+        self.collect_dependent_forces(&residual)
+    }
+
+    fn collect_dependent_forces(&self, residual: &[f64]) -> Vec<(usize, f64)> {
         let mut forces = Vec::new();
         for i in 0..self.nf {
-            // Check if this is a dependent DOF (not a unit row in C_ff)
+            // Dependent DOFs are those not in the identity pattern of C_ff
             if self.map_dof_to_reduced(i).is_none() {
                 if residual[i].abs() > 1e-15 {
                     forces.push((i, residual[i]));
@@ -1573,62 +1797,65 @@ impl FreeConstraintSystem {
     }
 }
 
-/// Compute C^T * K * C where C is (m × p) and K is (m × m), result is (p × p).
-fn ct_k_c(c: &[f64], k: &[f64], m: usize, p: usize) -> Vec<f64> {
-    // temp = K * C  (m × p)
-    let mut temp = vec![0.0; m * p];
-    for i in 0..m {
-        for j in 0..p {
-            let mut sum = 0.0;
-            for l in 0..m {
-                sum += k[i * m + l] * c[l * p + j];
-            }
-            temp[i * p + j] = sum;
-        }
-    }
-    // result = C^T * temp  (p × p)
-    let mut result = vec![0.0; p * p];
-    for i in 0..p {
-        for j in 0..p {
-            let mut sum = 0.0;
-            for l in 0..m {
-                sum += c[l * p + i] * temp[l * p + j];
-            }
-            result[i * p + j] = sum;
-        }
-    }
-    result
-}
-
-/// Compute C^T * f where C is (m × p) and f is (m), result is (p).
-fn ct_f(c: &[f64], f: &[f64], m: usize, p: usize) -> Vec<f64> {
-    let mut result = vec![0.0; p];
-    for i in 0..p {
-        let mut sum = 0.0;
-        for l in 0..m {
-            sum += c[l * p + i] * f[l];
-        }
-        result[i] = sum;
-    }
-    result
-}
-
-/// Compute C * u where C is (m × p) and u is (p), result is (m).
-fn c_times_u(c: &[f64], u: &[f64], m: usize, p: usize) -> Vec<f64> {
-    let mut result = vec![0.0; m];
-    for i in 0..m {
-        let mut sum = 0.0;
-        for j in 0..p {
-            sum += c[i * p + j] * u[j];
-        }
-        result[i] = sum;
-    }
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pins the sparse triple product: reduce_sparse must equal reduce_dense
+    /// (and a naive C^T·K·C) entry by entry. Regression test for a bug where
+    /// ordered (j,j') and (j',j) emissions were merged by from_triplets and
+    /// double-counted the off-diagonal.
+    #[test]
+    fn sparse_reduce_matches_dense_reduce() {
+        // C: 5 physical rows, 2 independent columns. Rows 2..4 depend on the
+        // independent ones: equal-dof (single entry) and diaphragm-style
+        // kinematics (two entries with an offset coefficient).
+        let c = SparseTransform::from_rows(5, 2, vec![
+            vec![(0usize, 1.0f64)],
+            vec![(1, 1.0)],
+            vec![(0, 1.0)],
+            vec![(1, 1.0)],
+            vec![(0, 1.0), (1, 0.5)],
+        ]);
+
+        let n = 5;
+        let mut k = vec![0.0; n * n];
+        for i in 0..n {
+            for j in 0..n {
+                k[i * n + j] = (10 * i + j + 1) as f64;
+                k[j * n + i] = k[i * n + j];
+            }
+        }
+
+        let dense_red = c.reduce_dense(&k);
+        let sparse_red = c.reduce_sparse(&CscMatrix::from_dense_symmetric(&k, n)).to_dense_symmetric();
+
+        // Naive reference from the row lists.
+        let rows_of_c: [Vec<(usize, f64)>; 5] = [
+            vec![(0, 1.0)], vec![(1, 1.0)], vec![(0, 1.0)], vec![(1, 1.0)], vec![(0, 1.0), (1, 0.5)],
+        ];
+        let mut naive = vec![0.0; 4];
+        for (j, j2) in [(0usize, 0usize), (0, 1), (1, 0), (1, 1)] {
+            let mut s = 0.0;
+            for l in 0..n {
+                for l2 in 0..n {
+                    for &(cj, vj) in &rows_of_c[l] {
+                        for &(cj2, vj2) in &rows_of_c[l2] {
+                            if cj == j && cj2 == j2 {
+                                s += vj * k[l * n + l2] * vj2;
+                            }
+                        }
+                    }
+                }
+            }
+            naive[j * 2 + j2] = s;
+        }
+
+        for i in 0..4 {
+            assert!((dense_red[i] - naive[i]).abs() < 1e-9, "dense[{i}]={} naive={}", dense_red[i], naive[i]);
+            assert!((sparse_red[i] - naive[i]).abs() < 1e-9, "sparse[{i}]={} naive={}", sparse_red[i], naive[i]);
+        }
+    }
 
     fn make_two_beam_model() -> SolverInput {
         // Two beams: 0--1--2, all frame elements, node 0 fixed, node 2 has load

@@ -174,6 +174,61 @@ impl CscMatrix {
         dense
     }
 
+    /// Extract the diagonal (zeros where no explicit diagonal entry exists).
+    pub fn diagonal(&self) -> Vec<f64> {
+        let mut d = vec![0.0; self.n];
+        for j in 0..self.n {
+            // Row indices within a column are sorted ascending and the
+            // diagonal is the smallest possible row, so it comes first.
+            let p = self.col_ptr[j];
+            if p < self.col_ptr[j + 1] && self.row_idx[p] == j {
+                d[j] = self.values[p];
+            }
+        }
+        d
+    }
+
+    /// Linear combination sa·A + sb·B over the union of both sparsity patterns
+    /// (e.g. Newmark's K_eff = a·K + b·M). Both inputs are lower-triangle CSC
+    /// with sorted row indices; the per-column merge is linear time. Entries
+    /// whose combined value rounds to |v| <= 1e-30 are dropped.
+    pub fn linear_combination(sa: f64, a: &CscMatrix, sb: f64, b: &CscMatrix) -> CscMatrix {
+        assert_eq!(a.n, b.n, "linear_combination: dimension mismatch");
+        let n = a.n;
+        let mut col_ptr = vec![0usize; n + 1];
+        let mut row_idx = Vec::with_capacity(a.nnz() + b.nnz());
+        let mut values = Vec::with_capacity(a.nnz() + b.nnz());
+        for j in 0..n {
+            let (mut pa, mut pb) = (a.col_ptr[j], b.col_ptr[j]);
+            let (ea, eb) = (a.col_ptr[j + 1], b.col_ptr[j + 1]);
+            while pa < ea || pb < eb {
+                let (row, v) = if pb >= eb || (pa < ea && a.row_idx[pa] < b.row_idx[pb]) {
+                    let r = a.row_idx[pa];
+                    let v = sa * a.values[pa];
+                    pa += 1;
+                    (r, v)
+                } else if pa >= ea || b.row_idx[pb] < a.row_idx[pa] {
+                    let r = b.row_idx[pb];
+                    let v = sb * b.values[pb];
+                    pb += 1;
+                    (r, v)
+                } else {
+                    let r = a.row_idx[pa];
+                    let v = sa * a.values[pa] + sb * b.values[pb];
+                    pa += 1;
+                    pb += 1;
+                    (r, v)
+                };
+                if v.abs() > 1e-30 {
+                    row_idx.push(row);
+                    values.push(v);
+                }
+            }
+            col_ptr[j + 1] = row_idx.len();
+        }
+        CscMatrix { n, col_ptr, row_idx, values }
+    }
+
     /// Extract principal submatrix for given indices (returns new CscMatrix).
     pub fn extract_principal_submatrix(&self, indices: &[usize]) -> CscMatrix {
         let m = indices.len();
@@ -358,6 +413,39 @@ mod tests {
         let y = a.sym_mat_vec(&x);
         assert!((y[0] - 8.0).abs() < 1e-15);  // 4*1 + 2*2
         assert!((y[1] - 8.0).abs() < 1e-15);  // 2*1 + 3*2
+    }
+
+    #[test]
+    fn test_linear_combination() {
+        // A = [[4, 2], [2, 3]], B = [[1, 0], [0, 5]] (diagonal)
+        let a = CscMatrix::from_triplets(
+            2,
+            &[0, 1, 1],
+            &[0, 0, 1],
+            &[4.0, 2.0, 3.0],
+        );
+        let b = CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[1.0, 5.0]);
+        // 2*A + 0.5*B = [[8.5, 4], [4, 8.5]]
+        let c = CscMatrix::linear_combination(2.0, &a, 0.5, &b);
+        let d = c.to_dense_symmetric();
+        assert!((d[0] - 8.5).abs() < 1e-14);
+        assert!((d[1] - 4.0).abs() < 1e-14);
+        assert!((d[3] - 8.5).abs() < 1e-14);
+
+        // Disjoint patterns: A + 0*B keeps A's pattern with B's zeros dropped
+        let e = CscMatrix::from_triplets(2, &[1], &[0], &[7.0]);
+        let f = CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[1.0, 1.0]);
+        let g = CscMatrix::linear_combination(1.0, &e, 1.0, &f);
+        assert_eq!(g.nnz(), 3);
+        let dg = g.to_dense_symmetric();
+        assert!((dg[0] - 1.0).abs() < 1e-15);
+        assert!((dg[1] - 7.0).abs() < 1e-15 && (dg[2] - 7.0).abs() < 1e-15);
+        assert!((dg[3] - 1.0).abs() < 1e-15);
+
+        // Exact cancellation drops the entry
+        let h = CscMatrix::linear_combination(1.0, &a, -2.0, &a); // = -A
+        let i = CscMatrix::linear_combination(1.0, &a, 1.0, &h); // A + (-A) = 0
+        assert_eq!(i.nnz(), 0, "A - A should have an empty pattern");
     }
 
     #[test]
