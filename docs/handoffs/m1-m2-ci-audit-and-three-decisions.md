@@ -278,9 +278,15 @@ Puerto dedicado en todas las corridas; nunca 4173.
 
 # Parte III · Lo que queda abierto
 
-Ninguno se cerró. Cada uno tiene la evidencia para decidir.
+Ninguno se cerró **al escribirse esta parte**. Cada uno tiene la evidencia para decidir. Los dos
+primeros se cerraron después, en la **Parte VI**: §3.1 se borró (§31) y §3.2 resultó ser el
+compilador y no el checker (§32). Se conservan como estaban para que se vea qué se sabía antes de
+buscar la causa.
 
 ## 3.1 · `.conn-ratio-badge`: CSS que main borró y la unión revivió
+
+> **Cerrado en §31 — borrado en `6448e89d`, sobre M1.** La atribución de abajo está incompleta: el
+> huerfanato es de `b71432cd`, un commit de M1, dos días anterior al de main.
 
 `main` eliminó las reglas en `2c79ed52`, un commit cuyo asunto es literalmente *«review fixes: no
 green tick for steel»*. El merge de main en M1 (`9883e2bd`) resolvió el conflicto de
@@ -305,6 +311,11 @@ decidió mejorarlos. Borrarlos acá tiraría el trabajo de contraste de M1 sin p
 dejarlos le devuelve a main, en el merge, un CSS que sacó a propósito.
 
 ## 3.2 · `svelte-check` no ve `ProConnectionsTab.svelte`
+
+> **Diagnosticado en §32, y el título es engañoso.** `svelte-check` sí revisa el archivo: una sonda
+> de tipos inyectada se reporta en `2:9`. Lo que no existe es la advertencia de CSS, porque
+> `css-prune` deja de podar en cuanto un componente tiene un `class` que no puede leer estáticamente
+> — 30 de 169 componentes del repositorio, 24 bajo `pro/`.
 
 Medido: se le agregó `.zz-probe-unused { color: red; }`, un selector deliberadamente muerto, y
 `svelte-check --output human` devolvió **0** menciones de `zz-probe` y **0** de
@@ -528,3 +539,179 @@ vive la auditoría.
 
 **No se tocó `basic-demos.spec.ts`** (§27), ni snapshots, ni timeouts, ni solver, Rust, Cargo o
 WASM.
+
+---
+
+# Parte VI · Los dos hallazgos que quedaban, cerrados
+
+La Parte III dejó `.conn-ratio-badge` (§3.1) y la ceguera de `svelte-check` (§3.2) abiertos con la
+evidencia a la vista. Los dos se auditaron hasta la causa. Uno se borró; el otro resultó no ser lo
+que parecía y no se toca.
+
+## 31 · `.conn-ratio-badge` — CSS muerto, borrado
+
+### El censo, en las tres direcciones
+
+| Ref | `conn-ratio-badge` | `class="conn-ratio-badge` |
+|---|---|---|
+| `origin/main` | 0 | 0 |
+| `origin/feat/pro-steel-m1` (antes de este trabajo) | 4 | **0** |
+| `origin/feat/pro-steel-m2` (antes de este trabajo) | 4 | **0** |
+
+Las cuatro apariciones estaban **todas dentro de `<style>`** — en M1, entre las líneas 587 y 632 de
+un bloque que empieza en la 472. Ninguna plantilla, en ninguna rama, aplicaba jamás la clase, y
+`statusClass()`, el helper que elegía entre `st-ok`, `st-warn` y `st-fail`, tampoco existe ya.
+
+### Quién la dejó huérfana — y no fue main
+
+La Parte III atribuía el huerfanato a `2c79ed52` de main y a la resolución por unión del merge
+`9883e2bd`. Eso explica cómo **volvió**, no cómo murió. `git log -S 'class="conn-ratio-badge'`
+señala a **`b71432cd`**, del 2026-08-19, que es un commit **de M1**: el que parte *Metallic joints*
+en cuatro `StageSection`. Ahí el ratio se mudó al `badge` neutro del shell —
+
+```
+badge={boltResult ? `${(boltResult.governingRatio * 100).toFixed(0)}%` : undefined}
+badge={weldResult ? `${(weldResult.ratio  * 100).toFixed(0)}%` : undefined}
+```
+
+— y los dos `<span class="conn-ratio-badge {statusClass(...)}">` se borraron con él. Las cuatro
+reglas quedaron.
+
+**Dos días después, `851fd57b` midió el contraste de esas reglas y reescribió los tres estados**, y
+`steel-surface-colour-rules.test.ts` fijó el resultado en cinco aserciones. Un commit entero y una
+suite sobre CSS que el navegador nunca pintó. `2c79ed52` de main llegó a la misma conclusión por su
+cuenta y borró el bloque; el merge lo revivió.
+
+El orden importa para la pregunta de producto que la Parte III dejó planteada. No hay dos
+decisiones enfrentadas —«main dice que no van badges, M1 dice que sí»—: **M1 ya los había sacado de
+la pantalla antes que main**, y lo que main borró después fue el resto. Borrarlas no tira el trabajo
+de contraste de M1: ese trabajo se hizo sobre reglas que M1 misma había dejado sin consumidor.
+
+### Qué se borró, y qué guarda quedó en su lugar
+
+`6448e89d`, sobre **M1**, sin ninguna otra cosa adentro: 47 líneas de CSS y las cinco aserciones que
+las fijaban. Y en su lugar, escritas a mano porque el compilador no las escribe (§32):
+
+1. la hoja del panel no contiene `conn-ratio-badge` — un merge por unión no las revive una segunda
+   vez sin que algo lo diga;
+2. las dos sub-secciones siguen pasándole el porcentaje a `StageSection` — el número que los badges
+   llevaban sigue en pantalla;
+3. ningún elemento del panel lleva `st-ok` / `st-warn` / `st-fail` — un ratio no recibe **ningún**
+   matiz de estado, y el vocabulario propio del bloque auxiliar (`within / near the limit / over the
+   limit`, de `8e538631`) sigue siendo lo único con derecho a opinar sobre él.
+
+La lista vacía de `--st-accent`-sobre-tinte-rojo **se conserva**: la forma del defecto sobrevive a
+la única regla que la tenía. La aserción de que la selección puede seguir usando `--st-accent` se
+copió textual.
+
+Ni `✓` ni veredicto normativo volvieron por accidente: la tercera guarda es exactamente eso, y
+`metallic-joints.spec.ts` sigue afirmando que con las dos calculadoras corridas ninguna sub-sección
+muestra una tilde.
+
+### Por qué sobre M1 y no sobre M2
+
+Contradice el §30, que dejó M1 intacta para no perder su verde de 28 minutos. La razón para
+cambiar de criterio es que **el CSS es de M1**: dejarlo ahí significa que #156, al integrarse,
+le devuelve a main precisamente el bloque que main borró a propósito, y que el próximo merge de M1
+en M2 lo revive de nuevo. El commit va a M1 y baja a M2 por merge (`--no-ff`, sin conflictos: el
+bloque era idéntico carácter por carácter en las dos ramas). El costo es una corrida nueva de CI
+sobre M1, que se verificó verde.
+
+## 32 · `svelte-check` — el archivo sí se revisa; lo que no se revisa es su CSS
+
+### Qué cubre hoy, medido
+
+| | Alcance | Corre en CI |
+|---|---|---|
+| `npm run check` | `svelte-check --tsconfig ./tsconfig.json`; `include: ["src/**/*.ts", "src/**/*.svelte"]` → **1694 archivos** | **no** |
+| `npm run check:gate` | la misma corrida; sólo **falla** por errores en 11 rutas de `GUARDED_PATHS` | **no** |
+| `npm run typecheck` | `tsc` contra una baseline de 473 errores | **no** |
+
+`ProConnectionsTab.svelte` **está** dentro de `src/**/*.svelte`. No es un problema de configuración
+ni de alcance.
+
+### La prueba que separa las cuatro hipótesis
+
+Se le inyectaron **dos** sondas al archivo y se corrió `svelte-check` una vez:
+
+```
+const zzProbeType: number = 'not a number';   // sonda de tipos
+.zz-probe-unused { color: red; }              // sonda de selector muerto
+```
+
+Resultado:
+
+```
+ERROR "src/components/pro/ProConnectionsTab.svelte" 2:9 "Type 'string' is not assignable to type 'number'."
+COMPLETED 1694 FILES 559 ERRORS 287 WARNINGS 149 FILES_WITH_PROBLEMS
+```
+
+**El error de tipos aparece. El selector muerto no.** Contra las cuatro hipótesis del encargo:
+
+- *ausencia de configuración* — **no** para este archivo; sí como hueco de CI, que es otra cosa y
+  está abajo;
+- *componente no alcanzable* — **no**: se compila, se revisa y reporta;
+- *selector/test muerto* — **sí**, y es §31;
+- *error real no detectado* — **sí**, pero acotado a `css_unused_selector` y con la causa **aguas
+  arriba de `svelte-check`**, en el compilador.
+
+### La causa
+
+`svelte/compiler`, fase 2, `analyze_component`: las reglas se marcan usadas recorriendo los
+elementos, y `css-prune` es **conservador por diseño** — si un elemento tiene un atributo `class`
+que el compilador no puede leer estáticamente, no puede saber qué clases lleva y deja de podar.
+Reproducción mínima, sin nada del repositorio:
+
+```svelte
+<div class="a">{x}</div>       <style>.zz-dead { color: red; }</style>   → Unused CSS selector ".zz-dead"
+<div class="a {x}">hi</div>    <style>.zz-dead { color: red; }</style>   → sin advertencias
+```
+
+`ProConnectionsTab.svelte` tiene cuatro atributos de esa forma, todos de `8e538631`:
+`class="conn-result-card {auxTone(...)}"` y `class="conn-aux-state {auxTone(...)}"`. Con uno solo
+alcanza.
+
+No es un defecto de este componente. Medido sobre el árbol entero —una sonda muerta agregada a cada
+componente y compilado— **30 de los 169 componentes con `<style>` son ciegos igual, y 24 de ellos
+están bajo `components/pro/`**: `ProVerificationTab`, `ProAutoLoadsDialog`, `DesignTable`,
+`OutcomeBadge`, `GradePickerPanel`, `ProfileSelectorPanel`, `SteelStatusBadge`, entre otros. Los 139
+restantes sí reportan, y de hecho la corrida base trae 116 `Unused CSS selector` de otros archivos:
+el mecanismo funciona, y donde no funciona es por esta razón.
+
+Es decir: la medición de la Parte III era correcta y la lectura que insinuaba —«`svelte-check` no
+mira este archivo»— era falsa. Lo mira. Lo que no existe es la advertencia.
+
+### Lo que NO se hizo, y el cambio propuesto para quien sea dueño de main
+
+**No se agregó ningún job a CI.** La razón principal no es el costo: es que **no habría servido**.
+Un job de `svelte-check` sobre `9883e2bd` habría dado exactamente 0 menciones de
+`ProConnectionsTab.svelte`, igual que a mano. El hallazgo §31 no lo encuentra ninguna configuración
+de CI, porque el compilador no lo emite.
+
+Dicho eso, el hueco de CI de §2 de la Parte I es real e independiente, y ahora está costeado:
+
+| | Medido acá |
+|---|---|
+| `npm run check:gate` de punta a punta | **14,4 s** |
+| Errores en rutas guardadas hoy | 0 |
+| Errores en `pro/steel`, `pro/generators`, `pro/section`, `pro/material`, `lib/connection`, `lib/section` | **0** |
+| Errores repo-wide (informativos, no fallan) | 558, de los cuales **429 en `src/lib/engine`** |
+
+- **Archivos:** `.github/workflows/ci.yml` — un paso más en el job `web` que ya existe, después de
+  `npm ci`, no un job nuevo: no hay checkout ni instalación extra, el costo marginal es esa cadena
+  de 15 s. Y `web/scripts/svelte-check-gate.mjs`, agregando a `GUARDED_PATHS` las rutas metálicas,
+  que hoy están en cero y por lo tanto entran gratis.
+- **Impacto:** cero sobre las corridas actuales, porque el gate ya pasa. Convierte en rojo cualquier
+  error de tipos **nuevo** en superficie metálica; deja los 429 de `lib/engine` como backlog
+  informativo, que es el diseño explícito del script.
+- **Tests:** los que ya tiene — el gate es su propio test. Corresponde además una aserción de
+  contrato de que las rutas metálicas figuran en `GUARDED_PATHS`, para que una limpieza futura no
+  las saque en silencio.
+
+No se aplica desde acá por lo mismo que el `concurrency` del §30: `ci.yml` es infraestructura de
+main y una rama de acero no es el lugar para cambiar la política de CI de todo el repositorio.
+
+**La limitación que queda documentada**, y que ningún job arregla: `css_unused_selector` no cubre
+30 de los 169 componentes con estilos, 24 de ellos en `pro/`. Mientras eso siga así, el CSS muerto
+en esas superficies **sólo lo encuentra un censo a mano**, del tipo que encontró §31 — o una
+aserción escrita a mano, del tipo que lo reemplazó.

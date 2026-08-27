@@ -508,6 +508,13 @@ Y las tres afirmaciones, cada una con la prueba que la sostiene:
 
 ## 22 · Lo que sigue abierto
 
+> **Los dos se cerraron después**, en la Parte VI de `m1-m2-ci-audit-and-three-decisions.md`:
+> `.conn-ratio-badge` era CSS muerto desde `b71432cd` —un commit de M1, no de main— y se borró en
+> `6448e89d`; y `svelte-check` sí revisa `ProConnectionsTab.svelte`, lo que no emite es la
+> advertencia de CSS, por una poda conservadora del compilador que afecta a 30 de los 169
+> componentes con estilos. Esta sección queda como estaba, con lo que se sabía antes de buscar la
+> causa.
+
 Además de §6.4, que creció: **`.conn-ratio-badge`**. `main` borró esas reglas en `2c79ed52`
 —asunto: *«review fixes: no green tick for steel»*— y la resolución por unión del merge `9883e2bd`
 las revivió. **Ninguna plantilla las aplica en ninguna rama** (`class="conn-ratio-badge"`: 0 en
