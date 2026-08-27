@@ -1818,6 +1818,9 @@ fn assemble_element_loads_3d_mapped(
 /// Sparse assembly result: CSC lower-triangle Kff + dense force vector.
 pub struct SparseAssemblyResult {
     pub k_ff: CscMatrix,
+    /// Full n×n K (all DOFs), only when requested — for reactions and
+    /// prescribed-DOF corrections without a dense assembly.
+    pub k_full: Option<CscMatrix>,
     pub f: Vec<f64>,       // n_total force vector (same as dense)
     pub max_diag_k: f64,
     pub artificial_dofs: Vec<usize>,
@@ -1836,6 +1839,14 @@ pub struct SparseAssemblyResult3D {
 
 /// Assemble sparse Kff for 2D. Returns CSC lower-triangle of the free-DOF block.
 pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> SparseAssemblyResult {
+    assemble_sparse_2d_ex(input, dof_num, false)
+}
+
+/// Sparse 2D assembly with optional full-K (all DOFs) alongside the free block.
+///
+/// Triplets are collected unfiltered (the free×free filter is applied when
+/// building k_ff); with `build_k_full` the full n×n matrix is kept too.
+pub fn assemble_sparse_2d_ex(input: &SolverInput, dof_num: &DofNumbering, build_k_full: bool) -> SparseAssemblyResult {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let mut f_global = vec![0.0; n];
@@ -1876,9 +1887,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
                 dof_num.global_dof(elem.node_j, 1).unwrap(),
             ];
             for i in 0..4 {
-                if truss_dofs[i] >= nf { continue; }
                 for j in 0..4 {
-                    if truss_dofs[j] >= nf { continue; }
                     let gi = truss_dofs[i];
                     let gj = truss_dofs[j];
                     if gi >= gj {
@@ -1887,7 +1896,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
                         trip_vals.push(k_elem[i * 4 + j]);
                     }
                 }
-                diag_vals[truss_dofs[i]] += k_elem[i * 4 + i];
+                if truss_dofs[i] < nf { diag_vals[truss_dofs[i]] += k_elem[i * 4 + i]; }
             }
 
             // Assemble thermal FEF for 2D truss elements (sparse path)
@@ -1921,9 +1930,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
             let ndof = elem_dofs.len();
 
             for i in 0..ndof {
-                if elem_dofs[i] >= nf { continue; }
                 for j in 0..ndof {
-                    if elem_dofs[j] >= nf { continue; }
                     let gi = elem_dofs[i];
                     let gj = elem_dofs[j];
                     if gi >= gj {
@@ -1932,7 +1939,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
                         trip_vals.push(k_glob[i * ndof + j]);
                     }
                 }
-                diag_vals[elem_dofs[i]] += k_glob[i * ndof + i];
+                if elem_dofs[i] < nf { diag_vals[elem_dofs[i]] += k_glob[i * ndof + i]; }
             }
 
             let load_refs: Vec<&SolverLoad> = input.loads.iter().collect();
@@ -1956,9 +1963,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
         let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
         let ndof = dofs.len();
         for i in 0..ndof {
-            if dofs[i] >= nf { continue; }
             for j in 0..ndof {
-                if dofs[j] >= nf { continue; }
                 let gi = dofs[i];
                 let gj = dofs[j];
                 if gi >= gj {
@@ -1967,7 +1972,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
                     trip_vals.push(ke[i * 6 + j]);
                 }
             }
-            diag_vals[dofs[i]] += ke[i * 6 + i];
+            if dofs[i] < nf { diag_vals[dofs[i]] += ke[i * 6 + i]; }
         }
     }
 
@@ -2040,8 +2045,29 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
         }
     }
 
-    let k_ff = CscMatrix::from_triplets(nf, &trip_rows, &trip_cols, &trip_vals);
-    SparseAssemblyResult { k_ff, f: f_global, max_diag_k: max_diag, artificial_dofs }
+    let k_full = if build_k_full {
+        Some(CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals))
+    } else {
+        None
+    };
+    // The triplets cover all DOFs; k_ff keeps only the free×free block.
+    let (ff_rows, ff_cols, ff_vals): (Vec<usize>, Vec<usize>, Vec<f64>) = if n == nf {
+        (trip_rows, trip_cols, trip_vals)
+    } else {
+        let mut fr = Vec::new();
+        let mut fc = Vec::new();
+        let mut fv = Vec::new();
+        for t in 0..trip_rows.len() {
+            if trip_rows[t] < nf && trip_cols[t] < nf {
+                fr.push(trip_rows[t]);
+                fc.push(trip_cols[t]);
+                fv.push(trip_vals[t]);
+            }
+        }
+        (fr, fc, fv)
+    };
+    let k_ff = CscMatrix::from_triplets(nf, &ff_rows, &ff_cols, &ff_vals);
+    SparseAssemblyResult { k_ff, k_full, f: f_global, max_diag_k: max_diag, artificial_dofs }
 }
 
 /// Apply inclined support rotation to COO triplets and force vector.

@@ -64,6 +64,44 @@ pub fn rayleigh_damping_matrix(m: &[f64], k: &[f64], n: usize, a0: f64, a1: f64)
     c
 }
 
+/// Sparse counterpart of `rayleigh_from_modes`: same anchoring logic, with the
+/// two-mode eigensolve on the sparse Lanczos path and the last-resort diagonal
+/// estimate read from the CSC diagonal.
+pub fn rayleigh_from_modes_sparse(
+    k: &crate::linalg::sparse::CscMatrix,
+    m: &crate::linalg::sparse::CscMatrix,
+    xi: f64,
+) -> (f64, f64) {
+    if let Some(result) = crate::linalg::lanczos_generalized_eigen_sparse(k, m, 2, 0.0) {
+        let positive: Vec<f64> = result.values.iter().copied().filter(|&v| v > 1e-10).collect();
+        if positive.len() >= 2 {
+            return rayleigh_coefficients(positive[0].sqrt(), positive[1].sqrt(), xi);
+        } else if positive.len() == 1 {
+            let omega1 = positive[0].sqrt();
+            // One usable mode: bracket it rather than anchoring twice on the same
+            // frequency, which would leave the curve unconstrained on one side.
+            return rayleigh_coefficients(omega1, 3.0 * omega1, xi);
+        }
+    }
+
+    // Last resort: the smallest diagonal ratio, which at least tracks the softest
+    // DOF rather than the average of all of them.
+    let kd = k.diagonal();
+    let md = m.diagonal();
+    let mut omega1_sq = f64::INFINITY;
+    for i in 0..k.n {
+        let (kii, mii) = (kd[i], md[i]);
+        if mii > 1e-20 && kii > 1e-20 {
+            omega1_sq = omega1_sq.min(kii / mii);
+        }
+    }
+    if !omega1_sq.is_finite() || omega1_sq < 1e-20 {
+        return (0.0, 0.0);
+    }
+    let omega1 = omega1_sq.sqrt();
+    rayleigh_coefficients(omega1, 3.0 * omega1, xi)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
