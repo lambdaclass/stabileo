@@ -887,7 +887,7 @@ fn sparse_buckling_parity() {
 
     // Get linear forces for geometric stiffness
     let lin = linear::solve_3d(&input).unwrap();
-    let mut kg_full = dedaliano_engine::solver::geometric_stiffness::build_kg_from_forces_3d(&input, &dof_num, &lin.element_forces);
+    let mut kg = dedaliano_engine::solver::geometric_stiffness::build_kg_from_forces_3d(&input, &dof_num, &lin.element_forces);
     if !input.quads.is_empty() {
         let mut u_full = vec![0.0; n];
         for d in &lin.displacements {
@@ -896,13 +896,13 @@ fn sparse_buckling_parity() {
                 if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) { u_full[dof] = v; }
             }
         }
-        dedaliano_engine::solver::geometric_stiffness::add_quad_geometric_stiffness_3d(&input, &dof_num, &u_full, &mut kg_full);
+        dedaliano_engine::solver::geometric_stiffness::add_quad_geometric_stiffness_3d(&input, &dof_num, &u_full, &mut kg);
     }
 
-    let free_idx: Vec<usize> = (0..nf).collect();
     let sasm = assemble_sparse_3d(&input, &dof_num, false);
     let k_ff_dense = sasm.k_ff.to_dense_symmetric();
-    let kg_ff = extract_submatrix(&kg_full, n, &free_idx, &free_idx);
+    // Kg triplets cover the free block directly; densify for the Jacobi reference.
+    let kg_ff = kg.into_csc().to_dense_symmetric();
     let mut neg_kg = vec![0.0; nf * nf];
     for i in 0..nf * nf { neg_kg[i] = -kg_ff[i]; }
 
