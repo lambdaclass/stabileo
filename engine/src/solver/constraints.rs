@@ -57,8 +57,24 @@ pub struct SparseTransform {
 impl SparseTransform {
     /// Build from per-row (column, value) lists. Rows must be sorted by column
     /// and free of duplicate columns.
+    ///
+    /// That precondition is load-bearing and invisible when violated: `mul_vec`
+    /// and `mul_transpose_vec` still return the right answer on an unsorted row,
+    /// so a test would not notice, but `from_transform` then emits an unsorted
+    /// `c_ff`, and `build_constraint_transform`'s convergence check merges
+    /// `touched` against `old` assuming both are sorted — it would compute the
+    /// wrong `max_change` and could stop iterating on an unconverged chain, or
+    /// double-count a master given a duplicate column. Hence the debug assert.
     pub fn from_rows(n_rows: usize, n_cols: usize, rows: Vec<Vec<(usize, f64)>>) -> Self {
         assert_eq!(rows.len(), n_rows);
+        debug_assert!(
+            rows.iter().all(|r| r.windows(2).all(|w| w[0].0 < w[1].0)),
+            "SparseTransform rows must be sorted by column and free of duplicates",
+        );
+        debug_assert!(
+            rows.iter().flatten().all(|&(j, _)| j < n_cols),
+            "SparseTransform column index out of range",
+        );
         let nnz: usize = rows.iter().map(|r| r.len()).sum();
         let mut row_ptr = vec![0usize; n_rows + 1];
         let mut col_idx = Vec::with_capacity(nnz);
@@ -131,22 +147,33 @@ impl SparseTransform {
         y
     }
 
-    /// Reduced matrix K_red = C^T · K · C with K dense symmetric (n_rows × n_rows,
+    /// Reduced matrix K_red = C^T · K · C with K dense (n_rows × n_rows,
     /// row-major). Returns dense n_cols × n_cols (row-major).
     /// Cost O(nnz(C) · n_rows) instead of the dense triple loop's O(n_rows² · n_cols).
+    ///
+    /// K is read in full and is NOT assumed symmetric. An earlier version read
+    /// only the lower triangle and mirrored each off-diagonal contribution,
+    /// which quietly narrowed the contract of the `ct_k_c` it replaced: that one
+    /// summed over the whole matrix. Roughly fifteen dense callers reach here —
+    /// corotational tangent stiffness, the buckling K_g, time integration, SSI,
+    /// kinematics, cables — and any of them carrying round-off asymmetry, or a
+    /// genuinely unsymmetric geometric term, would have had its strictly-upper
+    /// half discarded and replaced by the lower mirror, with no diagnostic.
+    ///
+    /// Reading the full matrix costs the same: the mirrored version scanned half
+    /// the rows and wrote twice per term, this scans all of them and writes once.
     pub fn reduce_dense(&self, k: &[f64]) -> Vec<f64> {
         let m = self.n_rows;
         let p = self.n_cols;
-        // KC[l, j'] accumulation scattered by C's rows:
-        // K_red[j, j'] += Σ_l C[l,j] · K[l,l'] · C[l',j']
+        assert_eq!(k.len(), m * m, "reduce_dense expects an n_rows × n_rows matrix");
+        // K_red[j, j'] += Σ_{l,l'} C[l,j] · K[l,l'] · C[l',j']
         // Stream K row by row: for each l, distribute row l of K over the
         // (small) column sets of C's rows l and l'.
         let mut k_red = vec![0.0; p * p];
         for l in 0..m {
             for pa in self.row_ptr[l]..self.row_ptr[l + 1] {
                 let (j, ca) = (self.col_idx[pa], self.vals[pa]);
-                // l' < l half: entry K[l, l'] at k[l*m + l']
-                for l2 in 0..l {
+                for l2 in 0..m {
                     let kv = k[l * m + l2];
                     if kv == 0.0 {
                         continue;
@@ -155,14 +182,7 @@ impl SparseTransform {
                     for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
                         k_red[j * p + j2] += c * cb;
-                        k_red[j2 * p + j] += c * cb;
                     }
-                }
-                // diagonal l' == l
-                let kv = k[l * m + l];
-                for pb in self.row_ptr[l]..self.row_ptr[l + 1] {
-                    let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
-                    k_red[j * p + j2] += ca * kv * cb;
                 }
             }
         }
@@ -174,9 +194,14 @@ impl SparseTransform {
     /// Cost O(Σ_{(l,l')∈K} deg(l)·deg(l')) — near-linear in nnz(K) for the
     /// near-identity transforms MPCs produce.
     pub fn reduce_sparse(&self, k: &crate::linalg::sparse::CscMatrix) -> crate::linalg::sparse::CscMatrix {
-        let mut rows = Vec::new();
-        let mut cols = Vec::new();
-        let mut vals = Vec::new();
+        // Emitted as (col, row, value) so ONE sort leaves them in CSC order and
+        // the result can be built in place. The earlier version pushed into
+        // three parallel vectors, copied them into this tuple form, sorted,
+        // merged into three more vectors and handed those to `from_triplets`,
+        // which copied once more and sorted a second time — four full copies of
+        // ~9·nnz(K) triplets live at once, and a second sort of data already in
+        // (col, row) order.
+        let mut trip: Vec<(usize, usize, f64)> = Vec::new();
         // K stores (row >= col): entry (l, l2) with l >= l2 stands for both
         // (l, l2) and (l2, l) in the double sum over ordered index pairs.
         // Emissions land on ORDERED target slots (j, j2): slot (j,j2) and its
@@ -189,36 +214,33 @@ impl SparseTransform {
                 let kv = k.values[pk];
                 for pa in self.row_ptr[l]..self.row_ptr[l + 1] {
                     let (j, ca) = (self.col_idx[pa], self.vals[pa]);
+                    let cak = ca * kv;
                     for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
-                        rows.push(j);
-                        cols.push(j2);
-                        vals.push(ca * kv * cb);
+                        trip.push((j2, j, cak * cb));
                     }
                 }
                 if l != l2 {
                     // Transposed orientation (l2, l)
                     for pa in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j, ca) = (self.col_idx[pa], self.vals[pa]);
+                        let cak = ca * kv;
                         for pb in self.row_ptr[l]..self.row_ptr[l + 1] {
                             let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
-                            rows.push(j);
-                            cols.push(j2);
-                            vals.push(ca * kv * cb);
+                            trip.push((j2, j, cak * cb));
                         }
                     }
                 }
             }
         }
 
-        // Merge equal ordered slots, then keep only the lower triangle of the
-        // result (K_red is symmetric: the upper slot totals are redundant).
-        let mut trip: Vec<(usize, usize, f64)> =
-            rows.into_iter().zip(cols).zip(vals).map(|((r, c), v)| (c, r, v)).collect();
+        // Merge equal ordered slots, keep the lower triangle (K_red is
+        // symmetric, so the upper slot totals are redundant), and build the CSC
+        // directly — the run is already in (col, row) order and duplicate-free.
         trip.sort_unstable_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
-        let mut rows = Vec::new();
-        let mut cols = Vec::new();
-        let mut vals = Vec::new();
+        let mut col_ptr = vec![0usize; self.n_cols + 1];
+        let mut row_idx: Vec<usize> = Vec::new();
+        let mut values: Vec<f64> = Vec::new();
         let mut i = 0;
         while i < trip.len() {
             let (c, r, mut v) = trip[i];
@@ -227,13 +249,23 @@ impl SparseTransform {
                 v += trip[i].2;
                 i += 1;
             }
-            if r >= c {
-                rows.push(r);
-                cols.push(c);
-                vals.push(v);
+            // Same drop every other sparse producer applies — `from_dense_symmetric`,
+            // which the 3D path used to go through, and `assemble_stiffness_sparse_3d`,
+            // whose comment explains it: near-zero entries kept as structural
+            // nonzeros let Cholesky succeed on a singular matrix, and they hand AMD a
+            // denser elimination graph than the model actually has, filling in more
+            // than the dense path did and eroding the speedup this reduction exists
+            // for. Terms that cancel exactly land here as 0.0.
+            if r >= c && v.abs() > 1e-30 {
+                row_idx.push(r);
+                values.push(v);
+                col_ptr[c + 1] += 1;
             }
         }
-        crate::linalg::sparse::CscMatrix::from_triplets(self.n_cols, &rows, &cols, &vals)
+        for c in 0..self.n_cols {
+            col_ptr[c + 1] += col_ptr[c];
+        }
+        crate::linalg::sparse::CscMatrix { n: self.n_cols, col_ptr, row_idx, values }
     }
 }
 
@@ -934,9 +966,20 @@ pub fn build_constraint_transform(
                 oi += 1;
             }
 
-            let new_row: Vec<(usize, f64)> =
-                touched.iter().map(|&j| (j, acc[j])).collect();
-            rows[dep_dof] = new_row;
+            // Drop columns whose terms cancelled. `touched` is stamped on FIRST
+            // touch, before any value is known, so a chain like
+            // `u_a = u_b + u_c` with `u_b = u_m`, `u_c = -u_m` leaves
+            // `acc[j_m] == 0.0` and would otherwise store `(j_m, 0.0)` in C.
+            // That fake nonzero survives into `c_ff` and then makes both
+            // reductions emit a whole deg-sized block of zero products into
+            // K_red for every K nonzero on this row — pattern pollution that
+            // reaches AMD as extra edges. Classification is unaffected either
+            // way (`unit_row_col` already filters at 1e-14).
+            rows[dep_dof] = touched
+                .iter()
+                .filter(|&&j| acc[j] != 0.0)
+                .map(|&j| (j, acc[j]))
+                .collect();
         }
 
         if max_change < 1e-14 { break; }
@@ -1313,7 +1356,14 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     // assemble K densely (n×n) and reduce with a dense C (nf × n_indep) —
     // with a single rigid diaphragm that dominated both memory and time.
     let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, true);
-    let k_full = sasm.k_full.as_ref().expect("build_k_full=true");
+    // Every other precondition in this function returns Err, and it is reached
+    // from the WASM dispatch — a panic here crosses the FFI boundary as an abort
+    // rather than a solver message. Unreachable while the call above passes
+    // `true`, which is exactly why it should not be an `expect`.
+    let k_full = sasm
+        .k_full
+        .as_ref()
+        .ok_or("internal: sparse assembly did not build the full stiffness matrix")?;
     let k_ff = &sasm.k_ff;
 
     // Build prescribed displacements
@@ -1383,9 +1433,18 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let mut f_f: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Modify for prescribed displacements: f_f -= K_fr * u_r
-    let k_fr_ur = k_full.sparse_cross_block_matvec(&u_r, nf);
-    for i in 0..nf {
-        f_f[i] -= k_fr_ur[i];
+    //
+    // Guarded: `sparse_cross_block_matvec` walks every nonzero of the full n×n K,
+    // and `u_r` is all zeros for every model whose supports prescribe no
+    // settlement — which is nearly all of them. The `has_up` check below was
+    // already doing this for the particular solution, but only after this scan
+    // had run.
+    let has_prescribed = u_r.iter().any(|&v| v != 0.0);
+    if has_prescribed {
+        let k_fr_ur = k_full.sparse_cross_block_matvec(&u_r, nf);
+        for i in 0..nf {
+            f_f[i] -= k_fr_ur[i];
+        }
     }
 
     // Free part of C (rows 0..nf, free-independent columns), sparse.
@@ -1533,14 +1592,17 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let equilibrium = linear::compute_equilibrium_summary_3d(&sasm.f, &reactions_vec, &dof_num, rel_residual, &sasm.inclined_transforms);
 
     // Solver-path diagnostic — report the actual solver that produced the result
-    let (path_code, path_sev) = if used_fallback {
-        (DiagnosticCode::SparseFallbackDenseLu, Severity::Warning)
+    // One dispatch, not two: the label used to be re-derived by matching on the
+    // code this `if` had just produced, with a catch-all arm that would silently
+    // mislabel any path code added here later.
+    let (path_code, path_sev, solver_label) = if used_fallback {
+        (
+            DiagnosticCode::SparseFallbackDenseLu,
+            Severity::Warning,
+            "Cholesky failed, dense LU fallback",
+        )
     } else {
-        (DiagnosticCode::SparseCholesky, Severity::Info)
-    };
-    let solver_label = match path_code {
-        DiagnosticCode::SparseFallbackDenseLu => "Cholesky failed, dense LU fallback",
-        _ => "Sparse Cholesky",
+        (DiagnosticCode::SparseCholesky, Severity::Info, "Sparse Cholesky")
     };
     constraint_diags.push(StructuredDiagnostic::global(
         path_code,
