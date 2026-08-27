@@ -6,6 +6,8 @@
 use super::sparse::CscMatrix;
 use super::amd::{amd_order, inverse_perm};
 use super::rcm::rcm_order;
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 use std::rc::Rc;
 
 /// Symbolic factorization result — reusable for same sparsity pattern.
@@ -72,86 +74,157 @@ pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> Symbolic
     // L). `pa` stores the lower triangle by column; the walk needs it by row
     // (row i, adjacent j < i), so build the pattern transpose first. Rows
     // come out sorted: entries are appended in increasing column order.
-    let mut row_ptr = vec![0usize; n + 1];
-    for j in 0..n {
-        for p in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            if pa.row_idx[p] > j {
-                row_ptr[pa.row_idx[p] + 1] += 1;
-            }
-        }
-    }
-    for i in 0..n {
-        row_ptr[i + 1] += row_ptr[i];
-    }
-    let mut row_cols = vec![0usize; row_ptr[n]];
-    {
-        let mut next = row_ptr.clone();
+    // Scoped: the transpose and the ancestor array are dead the moment the tree
+    // is built, and everything after this is the allocation-heavy part. Holding
+    // ~nnz(A)/2 usizes across it costs about 1 MB on a 256×256 grid for nothing.
+    let parent = {
+        let mut row_ptr = vec![0usize; n + 1];
         for j in 0..n {
             for p in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-                let i = pa.row_idx[p];
-                if i > j {
-                    row_cols[next[i]] = j;
-                    next[i] += 1;
+                if pa.row_idx[p] > j {
+                    row_ptr[pa.row_idx[p] + 1] += 1;
                 }
             }
         }
-    }
-
-    let mut parent = vec![-1isize; n];
-    let mut ancestor = vec![-1isize; n];
-    for i in 0..n {
-        for p in row_ptr[i]..row_ptr[i + 1] {
-            let mut r = row_cols[p];
-            while ancestor[r] != -1 && ancestor[r] != i as isize {
-                let t = ancestor[r] as usize;
-                ancestor[r] = i as isize;
-                r = t;
-            }
-            if ancestor[r] == -1 {
-                parent[r] = i as isize;
-                ancestor[r] = i as isize;
+        for i in 0..n {
+            row_ptr[i + 1] += row_ptr[i];
+        }
+        let mut row_cols = vec![0usize; row_ptr[n]];
+        {
+            let mut next = row_ptr.clone();
+            for j in 0..n {
+                for p in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+                    let i = pa.row_idx[p];
+                    if i > j {
+                        row_cols[next[i]] = j;
+                        next[i] += 1;
+                    }
+                }
             }
         }
-    }
 
-    // Children of each node, in increasing order (parents are always larger).
-    let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+        let mut parent = vec![-1isize; n];
+        let mut ancestor = vec![-1isize; n];
+        for i in 0..n {
+            for p in row_ptr[i]..row_ptr[i + 1] {
+                let mut r = row_cols[p];
+                while ancestor[r] != -1 && ancestor[r] != i as isize {
+                    let t = ancestor[r] as usize;
+                    ancestor[r] = i as isize;
+                    r = t;
+                }
+                if ancestor[r] == -1 {
+                    parent[r] = i as isize;
+                    ancestor[r] = i as isize;
+                }
+            }
+        }
+        parent
+    };
+
+    // Children of each node, as a flat counting-sorted list — the same shape as
+    // the pattern transpose above, for the same reason. A `Vec<Vec<usize>>` here
+    // costs n heap allocations plus n Vec headers (1.6 MB at n = 65,536) and
+    // scatters the children of one node across the heap, which is a poor trade
+    // for a structure read exactly once, in order.
+    let mut child_ptr = vec![0usize; n + 2];
     for j in 0..n {
         if parent[j] >= 0 {
-            children[parent[j] as usize].push(j);
+            child_ptr[parent[j] as usize + 1] += 1;
+        }
+    }
+    for j in 0..n {
+        child_ptr[j + 1] += child_ptr[j];
+    }
+    let mut child_idx = vec![0usize; child_ptr[n]];
+    {
+        let mut next = child_ptr.clone();
+        for j in 0..n {
+            if parent[j] >= 0 {
+                let p = parent[j] as usize;
+                child_idx[next[p]] = j;
+                next[p] += 1;
+            }
         }
     }
 
-    // Column structures, in increasing order: children are finished before
-    // their parent, and the merge only borrows them — a column's list is
-    // part of the final structure, so it must survive being merged upward.
+    // Column structures, built straight into the flat array.
+    //
+    // Children are finished before their parent and never revisited after it,
+    // so a parent can read its children's rows out of `l_row_idx` itself. The
+    // previous version kept a second `Vec<Vec<usize>>` of the same total size
+    // alive until the very end, which doubled the peak of the structure phase —
+    // on a wasm32 build, where memory growth is user-visible, that is the whole
+    // budget twice over for no benefit.
+    //
+    // The merge is k-way and allocation-free. It used to be pairwise, one fresh
+    // `Vec` per child, with no short-circuit for a child that contributes
+    // nothing: node j cost Θ(children(j) · |L[:,j]|) whether or not the children
+    // had anything to add. On a "broom" — many degree-1 leaves hanging off one
+    // hub — AMD eliminates the leaves first, so the hub ends up with thousands
+    // of children whose suffixes are ALL empty, and the merge work grew as
+    // Θ(n^1.5) while nnz(L) stayed linear: 518 ms at n = 160,401, entirely
+    // spent copying a column onto itself. That is the same class of blowup this
+    // rewrite exists to remove, so it does not get to come back in the fix.
     let mut l_col_ptr = vec![0usize; n + 1];
-    let mut l_row_idx_build: Vec<Vec<usize>> = vec![Vec::new(); n];
+    // nnz(L) is not known until the loop finishes, but starting from zero costs
+    // ~log2(nnz(L)) reallocations, each copying everything written so far. The
+    // permuted pattern is the right order of magnitude to start from.
+    let mut l_row_idx: Vec<usize> = Vec::with_capacity(pa.row_idx.len() * 2);
+    // Reused across columns: one allocation for the whole factorization.
+    let mut scratch: Vec<usize> = Vec::new();
+    let mut heap: BinaryHeap<Reverse<(usize, usize)>> = BinaryHeap::new();
 
     for j in 0..n {
-        // Rows of A[:,j] below the diagonal — already sorted (from_triplets
-        // sorts by (col, row)).
-        let a_col = &pa.row_idx[pa.col_ptr[j]..pa.col_ptr[j + 1]];
-        let a_below = &a_col[a_col.partition_point(|&i| i <= j)..];
+        // Set BEFORE the merge, not after: a child c reads
+        // `l_row_idx[l_col_ptr[c]..l_col_ptr[c + 1]]`, and for the child c = j-1
+        // that end pointer is `l_col_ptr[j]` — this iteration's own start. Writing
+        // it at the end of the body left that one child reading a stale bound.
+        l_col_ptr[j] = l_row_idx.len();
 
-        let mut col = Vec::with_capacity(a_below.len() + 1);
-        col.push(j); // diagonal
-        col.extend_from_slice(a_below);
+        scratch.clear();
+        scratch.push(j); // diagonal, and strictly below every row that follows
+        {
+            // `sources` borrows `l_row_idx`; the borrow ends with this block, so
+            // the column can be appended to the same vector immediately after.
+            let mut sources: Vec<&[usize]> = Vec::new();
 
-        for &c in &children[j] {
-            let child = &l_row_idx_build[c];
-            let suffix = &child[child.partition_point(|&i| i <= j)..];
-            col = merge_sorted_unique(col, suffix);
+            // Rows of A[:,j] below the diagonal. `pa` comes from `from_triplets`,
+            // which sorts by (col, row) and sums duplicates, so every slice fed
+            // to the merge is strictly increasing. That is now a PRECONDITION of
+            // the merge rather than something it re-establishes with a sort, so
+            // it is asserted: if `permute_symmetric` ever stops sorting, the
+            // `partition_point` calls silently return an arbitrary split and L
+            // comes out structurally wrong, with nothing downstream to catch it.
+            let a_col = &pa.row_idx[pa.col_ptr[j]..pa.col_ptr[j + 1]];
+            debug_assert!(
+                a_col.windows(2).all(|w| w[0] < w[1]),
+                "permuted column {j} must be strictly increasing",
+            );
+            let a_below = &a_col[a_col.partition_point(|&i| i <= j)..];
+            if !a_below.is_empty() {
+                sources.push(a_below);
+            }
+
+            // Each child's rows below j. Dropping the empty ones is what keeps a
+            // node with many contributionless children cheap.
+            for ci in child_ptr[j]..child_ptr[j + 1] {
+                let c = child_idx[ci];
+                let child = &l_row_idx[l_col_ptr[c]..l_col_ptr[c + 1]];
+                debug_assert!(
+                    child.windows(2).all(|w| w[0] < w[1]),
+                    "child column {c} must be strictly increasing",
+                );
+                let suffix = &child[child.partition_point(|&i| i <= j)..];
+                if !suffix.is_empty() {
+                    sources.push(suffix);
+                }
+            }
+
+            merge_runs_into(&mut scratch, &sources, &mut heap);
         }
 
-        l_row_idx_build[j] = col;
-    }
-
-    // Build compressed l_row_idx and l_col_ptr
-    let mut l_row_idx = Vec::new();
-    for j in 0..n {
-        l_col_ptr[j] = l_row_idx.len();
-        l_row_idx.extend_from_slice(&l_row_idx_build[j]);
+        l_row_idx.extend_from_slice(&scratch);
     }
     l_col_ptr[n] = l_row_idx.len();
     let l_nnz = l_row_idx.len();
@@ -167,28 +240,72 @@ pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> Symbolic
     }
 }
 
-/// Union of two sorted index lists, as a new sorted list without duplicates.
-/// `a` is consumed, `b` is borrowed.
-fn merge_sorted_unique(a: Vec<usize>, b: &[usize]) -> Vec<usize> {
-    let mut out = Vec::with_capacity(a.len() + b.len());
-    let mut i = 0;
-    let mut j = 0;
-    while i < a.len() && j < b.len() {
-        if a[i] < b[j] {
-            out.push(a[i]);
-            i += 1;
-        } else if b[j] < a[i] {
-            out.push(b[j]);
-            j += 1;
-        } else {
-            out.push(a[i]);
-            i += 1;
-            j += 1;
+/// Append the union of several STRICTLY INCREASING runs to `out`, in order.
+///
+/// Preconditions, all debug-asserted at the call site: every run is strictly
+/// increasing, and every value in every run is greater than `out`'s current last
+/// element. The contract is the union of strictly-increasing runs, not "a merge
+/// that removes duplicates" — the earlier helper claimed the latter and only
+/// delivered the former, dropping values repeated across two inputs but copying
+/// straight through a value repeated inside one. Nothing relied on the
+/// difference, but a future caller reading the doc would have, and the result
+/// would be duplicate row indices that `numeric_cholesky` consumes in silence.
+///
+/// `heap` is borrowed rather than allocated so the whole factorization pays for
+/// one; it is only touched for three runs or more.
+fn merge_runs_into(
+    out: &mut Vec<usize>,
+    sources: &[&[usize]],
+    heap: &mut BinaryHeap<Reverse<(usize, usize)>>,
+) {
+    match sources.len() {
+        // A single already-ordered run is a copy, and no run at all is nothing.
+        // Both are the common case and neither should touch the heap.
+        0 => {}
+        1 => out.extend_from_slice(sources[0]),
+        2 => {
+            let (a, b) = (sources[0], sources[1]);
+            let (mut i, mut j) = (0, 0);
+            while i < a.len() && j < b.len() {
+                match a[i].cmp(&b[j]) {
+                    std::cmp::Ordering::Less => {
+                        out.push(a[i]);
+                        i += 1;
+                    }
+                    std::cmp::Ordering::Greater => {
+                        out.push(b[j]);
+                        j += 1;
+                    }
+                    std::cmp::Ordering::Equal => {
+                        out.push(a[i]);
+                        i += 1;
+                        j += 1;
+                    }
+                }
+            }
+            out.extend_from_slice(&a[i..]);
+            out.extend_from_slice(&b[j..]);
+        }
+        _ => {
+            // k-way, so a node with many contributing children costs
+            // O(total · log k) rather than the Θ(k · |column|) a pairwise fold
+            // would spend re-copying the accumulated column once per child.
+            heap.clear();
+            let mut cursor = vec![0usize; sources.len()];
+            for (k, s) in sources.iter().enumerate() {
+                heap.push(Reverse((s[0], k)));
+            }
+            while let Some(Reverse((v, k))) = heap.pop() {
+                if *out.last().expect("out always carries the diagonal") != v {
+                    out.push(v);
+                }
+                cursor[k] += 1;
+                if cursor[k] < sources[k].len() {
+                    heap.push(Reverse((sources[k][cursor[k]], k)));
+                }
+            }
         }
     }
-    out.extend_from_slice(&a[i..]);
-    out.extend_from_slice(&b[j..]);
-    out
 }
 
 /// Compute numeric Cholesky factorization given symbolic structure.
@@ -555,12 +672,27 @@ mod tests {
         use rand::{Rng, SeedableRng};
 
         let mut rng = StdRng::seed_from_u64(0x5eed);
-        // Grid meshes (structured, what the solver actually sees), diagonal
-        // matrices, and random symmetric patterns at several sizes/densities.
-        for trial in 0..200 {
-            let n = 1 + (rng.gen::<usize>() % 40);
-            let density = 0.05 + rng.gen::<f64>() * 0.45;
-            let grid = trial % 2 == 0;
+        // Three shapes, because two were not enough.
+        //
+        // Grids and uniform-random patterns both produce elimination trees where
+        // almost every node has one child, so the many-children merge — the one
+        // that has to combine several child columns at once — went completely
+        // unexercised. That is how a Θ(n^1.5) merge shipped green: the suite
+        // could not distinguish it from a linear one. The `broom` shape is built
+        // to hit it: a hub joined to everything, with a crowd of degree-1 leaves
+        // that a minimum-degree ordering eliminates first, leaving the hub with
+        // as many children as there are leaves.
+        //
+        // `n` stays small here because this test is about STRUCTURE, asserted
+        // bit-exactly against the reference. The cost property is now structural
+        // rather than policed by a test: `merge_runs_into` reads each source
+        // exactly once, so a column costs Θ(Σ|sources|) no matter how the
+        // children are distributed.
+        for trial in 0..300 {
+            let n = rng.gen_range(1..41);
+            let density = rng.gen_range(0.05..0.5);
+            let shape = trial % 3;
+            let grid = shape == 0;
 
             let mut rows = vec![];
             let mut cols = vec![];
@@ -568,9 +700,27 @@ mod tests {
             for i in 0..n {
                 rows.push(i);
                 cols.push(i);
-                vals.push(n as f64 + 1.0); // diagonal dominance → SPD
+                vals.push(4.0 * n as f64 + 1.0); // diagonal dominance → SPD
             }
-            if grid {
+            if shape == 2 {
+                // Broom: node 0 is the hub, the last `clique` nodes form a dense
+                // block that also hangs off it, and everything between is a leaf
+                // attached to the hub alone.
+                let clique = (n / 6).max(2).min(n);
+                let first_clique = n - clique;
+                for i in 1..n {
+                    rows.push(i);
+                    cols.push(0);
+                    vals.push(-1.0);
+                }
+                for a in first_clique..n {
+                    for b in (a + 1)..n {
+                        rows.push(b);
+                        cols.push(a);
+                        vals.push(-1.0);
+                    }
+                }
+            } else if grid {
                 // n ≈ side² grid with 5-point stencil
                 let side = (n as f64).sqrt().ceil() as usize;
                 for r in 0..side {
@@ -592,10 +742,10 @@ mod tests {
             } else {
                 for j in 0..n {
                     for i in (j + 1)..n {
-                        if rng.gen::<f64>() < density {
+                        if rng.gen_range(0.0..1.0) < density {
                             rows.push(i);
                             cols.push(j);
-                            vals.push(rng.gen::<f64>() - 0.5);
+                            vals.push(rng.gen_range(-0.5..0.5));
                         }
                     }
                 }
@@ -607,9 +757,9 @@ mod tests {
                 let pa = a.permute_symmetric(&sym.perm);
                 let (ref_ptr, ref_idx, ref_parent) = reference_symbolic_structure(&pa);
 
-                assert_eq!(sym.l_col_ptr, ref_ptr, "l_col_ptr mismatch, trial {trial} n={n} grid={grid} {ordering:?}");
-                assert_eq!(sym.l_row_idx, ref_idx, "l_row_idx mismatch, trial {trial} n={n} grid={grid} {ordering:?}");
-                assert_eq!(sym.parent, ref_parent, "parent mismatch, trial {trial} n={n} grid={grid} {ordering:?}");
+                assert_eq!(sym.l_col_ptr, ref_ptr, "l_col_ptr mismatch, trial {trial} n={n} shape={shape} {ordering:?}");
+                assert_eq!(sym.l_row_idx, ref_idx, "l_row_idx mismatch, trial {trial} n={n} shape={shape} {ordering:?}");
+                assert_eq!(sym.parent, ref_parent, "parent mismatch, trial {trial} n={n} shape={shape} {ordering:?}");
                 assert_eq!(sym.l_nnz, ref_idx.len());
 
                 // And the structure must actually factor + solve.
