@@ -144,10 +144,16 @@ test.describe('@smoke unsupported conditions by family', () => {
     await openPanel(page);
     await expect(page.getByTestId('unsupported-list')).toContainText('INPRES-CIRSOC 103 Parte II');
 
+    /*
+     * "Blocks the review" is asserted where the block now lives: on the disabled control and the
+     * reasons written beside it. See the note in F10 — the click-then-error journey was removed
+     * when the refusal moved in front of the button, and this test was not moved with it.
+     */
     await openDocuments(page);
     await page.getByTestId('review-engineer').fill('Ing. R. Pérez');
-    await page.getByTestId('review-submit').click();
-    await expect(page.getByTestId('review-error')).toBeVisible();
+    await expect(page.getByTestId('review-submit')).toBeDisabled();
+    // The floor is COORDINATED, one rank below constructible, and the blocker says so by name.
+    await expect(page.getByTestId('review-blockers')).toContainText('COORDINATED');
   });
 
   test('F7 — an unsupported foundation type produces no numbers to mistake for a check', async ({ pro: page }) => {
@@ -200,19 +206,31 @@ test.describe('@smoke floor conflicts and review', () => {
     await seedInto(page, [floor()]);
     await openPanel(page);
 
-    // Provisional, so a bare review is refused.
+    /*
+     * Provisional, so the review is refused — BEFORE the click, not after it.
+     *
+     * This used to fill the engineer, press `review-submit` and assert a `review-error` came
+     * back. That journey no longer exists: this branch disabled the button until there is an
+     * engineer and the provisional calculations are acknowledged, and moved the reasons next to
+     * it as `review-blockers`. The production change was correct and these tests were simply
+     * left behind it, measuring a control that can no longer be clicked.
+     */
     await openDocuments(page);
     await page.getByTestId('review-engineer').fill('Ing. R. Pérez');
-    await page.getByTestId('review-submit').click();
+
     // In ENGLISH, because this spec runs in the default `en` locale. It used to assert the
     // Spanish word "provisorios" and pass — which is the proof that the refusal was a Spanish
     // literal built inside a pure module and shown to an English-locale user unchanged.
-    const error = page.getByTestId('review-error');
-    await expect(error).toContainText('provisional calculations without express acceptance');
+    await expect(page.getByTestId('review-submit')).toBeDisabled();
+    const blockers = page.getByTestId('review-blockers');
+    await expect(blockers).toContainText('provisional');
     // And it names WHICH one, so the refusal is actionable.
-    await expect(error).toContainText('assembly');
+    await expect(blockers).toContainText('assembly');
 
+    // The acknowledgement is what the refusal asked for, so the control opens — the other half
+    // of the gate, and the reason this is not merely an assertion that a button is grey.
     await page.getByTestId('ack-assembly').check();
+    await expect(page.getByTestId('review-submit')).toBeEnabled();
     await page.getByTestId('review-submit').click();
     await expect(page.getByTestId('review-error')).toBeHidden();
     await expect(page.getByTestId('assembly-state')).toContainText('Reviewed');

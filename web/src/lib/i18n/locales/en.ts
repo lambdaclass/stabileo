@@ -5464,6 +5464,10 @@ const en: Record<string, string> = {
   'detailing.doc.dxf': 'Drawings / DXF',
   'detailing.doc.xlsx': 'Bar schedule / XLSX',
   'detailing.doc.notBuilt': 'No document built yet',
+  'detailing.doc.contents.assemblies': 'Assemblies',
+  'detailing.doc.contents.certificates': 'Certificates',
+  'detailing.doc.contents.clauses': 'Clauses relied on',
+  'detailing.doc.contents.assumptions': 'Assumptions',
   'detailing.doc.revision': 'Revision {n}',
   'detailing.doc.conflicts': '{n} unresolved conflict(s) — review draft only',
   'detailing.doc.noCoordinated': 'No coordinated detailing exists. Generate and coordinate first; the pre-coordination reinforcement is not a substitute.',
@@ -5494,7 +5498,7 @@ const en: Record<string, string> = {
   'detailing.scene.outcome.SEARCH_EXHAUSTED': 'search exhausted',
   'detailing.scene.outcome.UNSUPPORTED': 'unsupported',
   'detailing.scene.workspace.title': '3-D reinforcement workspace',
-  'detailing.scene.workspace.close': 'Back to the model',
+  'detailing.scene.workspace.close': 'Back to the workflow',
   'detailing.scene.openWorkspace': 'Open 3-D workspace',
   'detailing.scene.layers': 'Layers',
   'detailing.scene.kind.column': 'Columns',
@@ -6048,6 +6052,48 @@ const en: Record<string, string> = {
   'detailing.floorRun.next': 'Run the coordinated detailing, which coordinates whatever bars exist by then. The 3-D view and the documents are projections of that result.',
   'detailing.floorRun.runningNote': 'Running the whole building. This pass cannot be interrupted.',
   'detailing.floorRun.whenToRun': 'Optional, and it runs BEFORE detailing. "Design all" designs the frame — columns and beams; this designs the slabs and walls it carries, and the footings if you ask for them. A frame-only building can skip it.',
+  // ════════════════════════════════════════════════════════════════════════
+  // H1 · design.floor.state.* — honest states for the floor families
+  //
+  // A contiguous block on purpose. Keys of one namespace inserted piecemeal
+  // are what produced 64 and then 15 duplicates when branches merged: two
+  // independent insertions at the same places, which git accepts without
+  // flagging a conflict. A block reads as one insertion.
+  //
+  // M1 will need these dictionaries for `conn.gap.aluminium.scope`. Add that
+  // as ANOTHER headed block, not interleaved here.
+  // ════════════════════════════════════════════════════════════════════════
+  'design.floor.state.error': 'Pass failed',
+  'design.floor.state.notRun': 'Not run',
+  'design.floor.state.noElements': 'No elements',
+  'design.floor.state.skipped': 'Skipped',
+  'design.floor.state.designed': 'Designed',
+  'design.floor.state.refused': 'Refused',
+  'design.floor.state.provisional': 'Provisional',
+  'design.floor.state.why.error': 'The floor pass failed. Any figure still on screen belongs to an earlier run and does not describe this model.',
+  'design.floor.state.why.notRun': 'The floor design has not run, so nothing is classified. Not that there are no elements — that nobody has looked at them.',
+  'design.floor.state.why.noElements': 'The model has no elements of this family. That is a fact about the model, known without running anything.',
+  'design.floor.state.why.skipped': 'The pass classified these and neither designed nor refused them: they fell outside its scope.',
+  'design.floor.state.why.designed': 'Designed with a complete result: reinforcement, shear check and cited clauses.',
+  'design.floor.state.why.refused': 'The pass refused to design. Each refusal names its element and the condition that stopped it.',
+  'design.floor.state.why.provisional': 'It designed, and something is incomplete: unvalidated maturity, or conditions the design itself does not cover. It is not a verification.',
+  'design.floor.state.countUnavailable': 'No figure',
+  'design.floor.state.countUnavailableWhy': 'No number is shown because there is none: a 0 would say the pass counted and found nothing.',
+  'design.floor.state.scopeTitle': 'Scope of the last run',
+  'design.floor.state.scopeNone': 'No floor run yet.',
+  'design.floor.state.scope': 'Classified {classified} · designed {designed} · refused {refused} · skipped {skipped}',
+  'design.floor.state.offFamilyTitle': 'Classified as neither slab nor wall',
+  'design.floor.state.offFamily': '{inclined} inclined · {degenerate} degenerate',
+  'design.floor.state.offFamilyWhy': 'Shells the pass classified that are neither slab nor wall: a ramp or a pitched slab lands in "inclined", and geometry the classifier could not resolve lands in "degenerate". Neither is designed, and neither is dropped in silence.',
+  'design.floor.state.nextTitle': 'What to do now',
+  'design.floor.state.next.error': 'Read the error message and run the floor design again.',
+  'design.floor.state.next.notRun': 'Run "Design and detail floors" to classify and design these families.',
+  'design.floor.state.next.noElements': 'There is nothing to do for this family in this model.',
+  'design.floor.state.next.skipped': 'Find out why they fell outside the scope before issuing documents.',
+  'design.floor.state.next.designed': 'Run the coordinated detailing so this reinforcement reaches the documents.',
+  'design.floor.state.next.refused': 'Read each refused condition: those are the ones to resolve in the model.',
+  'design.floor.state.next.provisional': 'Review the uncovered conditions before treating this design as final.',
+  'design.floor.state.scopeVsAll': '"Design all" designs the frame — columns and beams — and touches no shell and no footing. "Design and detail floors" does the opposite: shells and footings, leaving the frame untouched. They are two passes over different families, not two scopes of one pass.',
 
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',

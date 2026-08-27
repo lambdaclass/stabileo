@@ -177,12 +177,21 @@
         </div>
 
 <style>
-  .cad-export { margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid #3a3a3a; }
+  .cad-export {
+    margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--st-hair-strong);
+  }
   .cad-export h5 { margin: 0; font-size: 0.8rem; }
   .cad-export .ok { margin: 0.4rem 0 0; font-size: 0.74rem; }
-  .cad-export .failed { margin-top: 0.4rem; font-size: 0.74rem; color: #ffe4e4; }
+  /* `#5c1a1a`/`#ffe4e4` again — the same hand-mixed pair `FootingMatPhysicalPanel` carried,
+     in the same panel family. `--st-danger-bg` is the tinted band it always was, and the
+     words go to full contrast (12.82 at worst) with the rule carrying the severity, which is
+     the form its sibling measured its way into. */
+  .cad-export .failed { margin-top: 0.4rem; font-size: 0.74rem; color: var(--st-text); }
   .cad-export .failed p { margin: 0 0 0.2rem; font-weight: 600; }
-  .cad-export .failed li { padding: 0.15rem 0.4rem; border-radius: 3px; background: #5c1a1a; }
+  .cad-export .failed li {
+    padding: 0.15rem 0.4rem; border-radius: 3px;
+    background: var(--st-danger-bg); border-left: 3px solid var(--st-danger);
+  }
   .cad-export .details li { background: none; opacity: 0.85; }
   .cad-export .details code { font-size: 0.7rem; word-break: break-all; }
   .note { margin: 0.3rem 0 0; font-size: 0.72rem; opacity: 0.75; line-height: 1.35; }

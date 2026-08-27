@@ -45,6 +45,12 @@ web/src/lib/wasm
 
 # Playwright artifacts (traces, videos, HTML report). Baselines under
 # web/e2e/__screenshots__/ ARE committed.
+
+# Throwaway diagnostics. Three `__probe*.spec.ts` reached `feat/pro-concrete-h1` through a
+# `git add -A` and would have run in a QA sweep: no assertions, `console.log` output, and one of
+# them with a ten-minute timeout. `__screenshots__` above is the deliberate exception and stays.
+web/e2e/__probe*.spec.ts
+
 web/e2e/.artifacts/
 web/e2e/.report/
 web/test-results/

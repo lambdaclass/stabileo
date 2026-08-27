@@ -35,12 +35,16 @@
   .provisional-banner {
     margin: 0;
     padding: 0.4rem 0.75rem;
-    /* The same violet the 3-D view paints provisional steel with. One colour, one meaning. */
-    background: rgba(160, 102, 211, 0.16);
-    border-bottom: 1px solid #a066d3;
-    color: #e2d3f5;
+    /* The same violet the 3-D view paints provisional steel with. One colour, one meaning —
+       and now one definition. The three literals here were the values the token was derived
+       FROM, so adopting it changes no pixel except the body copy, which goes from `#e2d3f5`
+       (11.98 on this band) to `--st-text` (13.00): the sentence at full contrast, the emphasis
+       carrying the state. The same shape `FootingMatPhysicalPanel` measured its way into. */
+    background: var(--st-provisional-bg);
+    border-bottom: 1px solid var(--st-provisional);
+    color: var(--st-text);
     font-size: 0.76rem;
     line-height: 1.4;
   }
-  .provisional-banner strong { color: #d8b4ff; letter-spacing: 0.02em; }
+  .provisional-banner strong { color: var(--st-provisional-text); letter-spacing: 0.02em; }
 </style>

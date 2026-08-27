@@ -218,12 +218,45 @@ test.describe('@smoke inspecting generated reinforcement', () => {
 // ─── The review gate ─────────────────────────────────────────────
 
 test.describe('@smoke the review gate on generated work', () => {
-  test('D7 — a review needs a named engineer', async ({ pro: page }) => {
+  test('D7 — a review needs a named engineer, and says so before you press', async (
+    { pro: page },
+  ) => {
     await generateDetailing(page);
     await firstAssembly(page).click();
     await openDocuments(page);
-    await page.getByTestId('review-submit').click();
-    await expect(page.getByTestId('review-error')).toBeVisible();
+
+    /*
+     * This used to click `review-submit` unnamed and assert a `review-error` came back. That
+     * journey is no longer possible, and the change is deliberate: this branch disabled the
+     * button until there is an engineer and the provisional calculations are acknowledged, and
+     * moved the reasons NEXT TO it as `review-blockers`. `h1-manual-qa.md` states the contract —
+     * "the button is disabled until you put your name in and accept the provisional
+     * calculations, and the reasons are written beside it. If the button is grey with no
+     * explanation, THAT is a bug."
+     *
+     * So the assertion moves from "clicking it errors" to "it refuses in advance and names what
+     * is missing", which is the stronger claim: a reason you read before pressing beats an error
+     * you get after. Nothing in production changed to make this pass — the test was measuring a
+     * control that had already moved.
+     */
+    const submit = page.getByTestId('review-submit');
+    await expect(submit, 'unnamed, it refuses in advance').toBeDisabled();
+
+    const blockers = page.getByTestId('review-blockers');
+    await expect(blockers, 'and it is never grey without an explanation').toBeVisible();
+    expect((await blockers.innerText()).trim().length,
+      'the reasons are written, not implied').toBeGreaterThan(10);
+
+    // Naming the engineer removes that reason. Whether the button becomes usable depends on the
+    // provisional acknowledgements too, which D9 covers; what matters here is that the blocker
+    // list responds to the field it names.
+    const before = (await blockers.innerText()).trim();
+    await page.getByTestId('review-engineer').fill('Ing. Bauti');
+    await expect
+      .poll(async () => (await blockers.count()) === 0
+        || (await blockers.innerText()).trim() !== before,
+        { message: 'naming the engineer changes what is missing' })
+      .toBe(true);
   });
 
   test('D9 — the review gate refuses while the assembly is below CONSTRUCTIBLE, and says why',
