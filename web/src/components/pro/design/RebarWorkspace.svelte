@@ -63,13 +63,9 @@
     typeof window === 'undefined' ? true : window.innerWidth > 860);
 
   /*
-   * The selection panel's shape is CSS, not state — see the one media query at the bottom.
-   *
-   * It WAS state, computed here from `window.innerWidth` and handed down as a prop, and
-   * `rebar-3d.spec.ts` caught what that costs: a resize handler runs after layout, so a window
-   * resized to 390 px still had the desktop shape when the page was read, and the canvas came
-   * out 118 px wide — 390 minus the panel's 272. The rail can afford to be state because it is a
-   * user GESTURE this must not fight; the panel's shape is nobody's gesture.
+   * The selection panel's shape is CSS, not state — see the media query at the bottom, and
+   * `RebarInspector.svelte` for the 118 px measurement that moved it there. The rail can afford
+   * to be state because it is a user GESTURE this must not fight; a panel's shape is not.
    */
 
   const doc = $derived(detailingStore.document);
@@ -585,29 +581,16 @@
     }
   }
   /*
-    ── The selection panel becomes a third column, in ONE place ───────
-
-    Both halves of one decision: the stage turns into a row, and the panel it now sits beside
-    becomes a column. Two media queries in two components would be this number written twice,
-    and a prop driven from a resize handler was worse — see the note in the script.
-
-    1100 px comes from the arithmetic rather than from a round figure. With the rail open the
-    canvas is the window minus its 17 rem and the panel wants another 17: at 1280 that leaves
-    ~740 px of cage, at 1024 ~490 and at 900 ~370. A 370 px viewport is the slot this overlay
-    was built to escape — see this file's own header. Below the threshold the panel keeps its
-    default shape, a strip under the canvas.
-
-    `:global` because `.inspector` is `RebarInspector.svelte`'s element and Svelte scopes styles
-    to the declaring component. Reached through `.stage >` so it can only ever promote the panel
-    that is a child of this stage.
+    The selection panel becomes a third column, and the stage becomes a row — both halves of one
+    decision, so one media query. `RebarInspector.svelte` records where 1100 comes from and why
+    the shape is CSS rather than the prop it started as. `:global` because `.inspector` is that
+    component's element, reached through `.stage >` so it can only promote this stage's own panel.
   */
   @media (min-width: 1100px) {
     .stage { flex-direction: row; }
     .stage > :global(.inspector) {
-      width: 17rem;
-      max-height: none;
-      border-top: 0;
-      border-left: 1px solid var(--st-hair);
+      width: 17rem; max-height: none;
+      border-top: 0; border-left: 1px solid var(--st-hair);
     }
   }
 </style>
