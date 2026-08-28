@@ -488,16 +488,35 @@ const GOLDEN_BUCKLING_2D: [f64; 4] = [
 /// Load factors from pre-refactor `solve_buckling_3d` on the 3D cantilever
 /// column with Iy=2e-4, Iz=1e-4 (n_elem=60 → nf=354 → sparse op path).
 const GOLDEN_BUCKLING_3D: [f64; 4] = [
-    // π²/2 and π² exactly — the analytical Euler cantilever, in the 2:1 ratio the
-    // two bending axes require. The previous values were not a clean multiple of
+    // π²/2, π², 9π²/2, 9π² — the analytical Euler cantilever, in the 2:1 ratio
+    // the two bending axes require and the 1:9 ratio the first two modes of each
+    // axis require. The pre-refactor values were not a clean multiple of
     // anything, which is what a wrong recurrence looks like from the outside.
-    // Recaptured after the quotient-graph AMD rewrite: the new elimination
-    // order shifts the values by ~1e-10 relative and lands them even closer
-    // to the analytical π²/2 and π² (rel err 4.2e-11 and 3.4e-11).
-    4.934802200338300e0,
-    9.869604400752904e0,
-    4.4413222150346584e1,
-    8.882644430544299e1,
+    //
+    // Recaptured twice since. First after the quotient-graph AMD rewrite, whose
+    // new elimination order moved them ~1e-10. Then after the Lanczos recurrence
+    // moved its inner product from -Kg to K: the basis is different, so the
+    // floating-point path is different, and mode 0 moved 2.4e-10.
+    //
+    // That second recapture cost a little accuracy rather than gaining it —
+    // modes 0 and 1 sit 1.98e-10 and 3.46e-10 from the closed form, against
+    // 4.2e-11 and 3.4e-11 before. Worth stating plainly: the K inner product is
+    // not here to sharpen these four numbers, it is here to keep the iteration
+    // on the sparse path (see `buckling_lanczos_stays_sparse_when_kg_is_indefinite`),
+    // and a shift ten orders below any engineering tolerance is what it costs.
+    //
+    // Modes 2 and 3 sit 5.3e-8 from the closed form. That is discretization —
+    // 60 elements resolving the second buckling mode — not the solver, and it
+    // was equally present in the previous golden.
+    //
+    // The 1e-10 gate is a change-detector on an iterative eigensolver, not an
+    // accuracy claim. It fires on any reordering of floating-point work, which
+    // is precisely its job; when it fires, check against the closed form above
+    // before recapturing.
+    4.934802201521506e0,
+    9.869604397670097e0,
+    4.441322215148967e1,
+    8.882644430636768e1,
 ];
 
 #[test]
@@ -526,6 +545,78 @@ fn buckling_3d_sparse_op_parity() {
     let result = buckling::solve_buckling_3d(&input, 4).unwrap();
     let actual: Vec<f64> = result.modes.iter().map(|m| m.load_factor).collect();
     assert_matches_golden(&actual, &GOLDEN_BUCKLING_3D, 0.0, 1e-10, "buckling 3D golden");
+
+    // The golden pins the exact floating-point path; the closed form pins the
+    // answer. Keep both: when a recurrence or ordering change trips the golden,
+    // this is what says whether the new numbers are still right.
+    let pi2 = std::f64::consts::PI * std::f64::consts::PI;
+    for (i, &exact) in [pi2 / 2.0, pi2, 9.0 * pi2 / 2.0, 9.0 * pi2].iter().enumerate() {
+        let rel = (actual[i] - exact).abs() / exact;
+        // 1e-6 covers the 5.3e-8 discretization error on modes 2 and 3 with room
+        // to spare, and is still ~4 orders tighter than any wrong recurrence.
+        assert!(
+            rel < 1e-6,
+            "buckling 3D mode {i} = {:.12e} is {:.2e} from the analytical Euler \
+             cantilever {:.12e}: the eigenvalues are no longer physical",
+            actual[i], rel, exact,
+        );
+    }
+}
+
+/// 3D buckling must survive a section that declares warping constants.
+///
+/// `DofNumbering::build_3d` numbers SEVEN DOFs per node as soon as any section
+/// sets `cw`, so `element_dofs` returns 14 entries instead of 12.
+/// `build_kg_from_forces_3d` builds a 12x12 `kg_global` and used that 14 as its
+/// stride: `kg_global[10 * 14 + 4]` is 144, one past the end of a 144-element
+/// array. `add_geometric_stiffness_3d`, in the same file, remaps through
+/// `DOF_MAP_12_TO_14` for exactly this reason; the buckling path did not.
+///
+/// Natively that is a clean index panic. In the shipped wasm32 build it is an
+/// abort that crosses the FFI boundary — the module traps and the caller gets
+/// no solver error to report, just a dead engine.
+///
+/// No test in the suite combined a warping section with 3D buckling, which is
+/// why it shipped. This is that test: it is a crash gate, so it asserts the
+/// call returns at all, plus enough physics to catch a silently wrong remap.
+#[test]
+fn buckling_3d_survives_warping_dofs() {
+    let n_elem = 20;
+    let p = 100.0;
+    let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: n_elem + 1,
+        fx: -p, fy: 0.0, fz: 0.0,
+        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+    })];
+    let mut input = make_3d_beam(
+        n_elem, 10.0, E, 0.3, A, 2e-4, IZ, J, vec![true; 6], None, loads,
+    );
+
+    // The trigger: one section with `cw` set widens every node to 7 DOFs.
+    for s in input.sections.values_mut() {
+        s.cw = Some(2.03e-6);
+    }
+    assert_eq!(
+        DofNumbering::build_3d(&input).dofs_per_node, 7,
+        "fixture must produce 7 DOFs per node, or it does not exercise the remap \
+         and this test proves nothing",
+    );
+
+    let result = buckling::solve_buckling_3d(&input, 2)
+        .expect("3D buckling on a warping section must not fail");
+
+    // The warping DOF is uncoupled from flexural buckling in this cantilever, so
+    // the governing mode is still the Euler value the same beam gives without
+    // `cw`. A remap that lands Kg entries on the wrong DOFs would still return
+    // *something*; this is what says the entries went where they belong.
+    let pi2 = std::f64::consts::PI * std::f64::consts::PI;
+    let rel = (result.modes[0].load_factor - pi2 / 2.0).abs() / (pi2 / 2.0);
+    assert!(
+        rel < 1e-4,
+        "governing load factor {:.9e} is {:.2e} from the analytical π²/2 = {:.9e}: \
+         the warping remap put Kg entries on the wrong DOFs",
+        result.modes[0].load_factor, rel, pi2 / 2.0,
+    );
 }
 
 /// The generalized eigenpath must return actual EIGENVECTORS.
