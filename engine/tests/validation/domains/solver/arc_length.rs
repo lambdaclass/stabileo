@@ -642,3 +642,148 @@ fn test_load_displacement_path_continuity() {
         }
     }
 }
+
+/// Build a cantilever beam discretized into `n_elem` frame elements:
+/// node 0 fixed, tip node `n_elem` free at (L, 0), tip load fz.
+fn make_cantilever_meshed(n_elem: usize, l: f64, fz: f64) -> SolverInput {
+    let mut nodes = Vec::new();
+    let mut elements = Vec::new();
+    for i in 0..=n_elem {
+        nodes.push((i, node(i, l * i as f64 / n_elem as f64, 0.0)));
+    }
+    for i in 0..n_elem {
+        elements.push((i + 1, frame(i + 1, i, i + 1)));
+    }
+    SolverInput {
+        nodes: hm(nodes),
+        materials: hm(vec![(1, steel())]),
+        sections: hm(vec![(1, beam_section())]),
+        elements: hm(elements),
+        supports: hm(vec![(0, fixed(0, 0))]),
+        loads: vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: n_elem, fx: 0.0, fz, my: 0.0,
+        })],
+        constraints: vec![],
+        connectors: HashMap::new(),
+    }
+}
+
+/// Test 9: Sparse Cholesky path (nf >= 64) traces the same equilibrium path
+/// as the dense path for the same physics.
+///
+/// A 30-element cantilever has 90 free DOFs (>= SPARSE_THRESHOLD = 64), so
+/// `factor_tangent` uses sparse Cholesky; a 21-element mesh of the same
+/// cantilever has 63 free DOFs and stays on the dense path. Both are the
+/// same physical problem at different mesh densities, so the traced
+/// load-displacement curves must agree within mesh-convergence tolerance.
+#[test]
+fn test_arc_length_sparse_path_matches_dense_path() {
+    use dedaliano_engine::solver::dof::DofNumbering;
+
+    let solver_sparse = make_cantilever_meshed(30, 5.0, -10.0);
+    let solver_dense = make_cantilever_meshed(21, 5.0, -10.0);
+
+    // Sanity: the two meshes really sit on opposite sides of the threshold
+    let nf_sparse = DofNumbering::build_2d(&solver_sparse).n_free;
+    let nf_dense = DofNumbering::build_2d(&solver_dense).n_free;
+    assert!(nf_sparse >= 64, "sparse-path model should have >= 64 free DOFs, got {nf_sparse}");
+    assert!(nf_dense < 64, "dense-path model should have < 64 free DOFs, got {nf_dense}");
+
+    let make_input = |solver: SolverInput| ArcLengthInput {
+        solver,
+        max_steps: 20,
+        max_iter: 30,
+        tolerance: 1e-6,
+        initial_ds: 0.5,
+        min_ds: 1e-6,
+        max_ds: 2.0,
+        target_iter: 5,
+    };
+
+    let sparse = solve_arc_length(&make_input(solver_sparse)).unwrap();
+    let dense = solve_arc_length(&make_input(solver_dense)).unwrap();
+
+    // Sparse path converges and traces a sensible load-displacement curve:
+    // multiple steps, positive increasing load factor, growing tip deflection
+    assert!(!sparse.steps.is_empty(), "Sparse path should produce steps");
+    let sparse_converged: Vec<&EquilibriumStep> =
+        sparse.steps.iter().filter(|s| s.converged).collect();
+    assert!(
+        sparse_converged.len() >= 5,
+        "Sparse path should have at least 5 converged steps, got {}",
+        sparse_converged.len()
+    );
+    for window in sparse_converged.windows(2) {
+        assert!(
+            window[1].load_factor >= window[0].load_factor - 1e-10,
+            "Stable cantilever: load factor should not decrease ({} -> {})",
+            window[0].load_factor, window[1].load_factor
+        );
+    }
+    assert!(sparse.final_load_factor > 0.0, "Final load factor should be positive");
+
+    let tip_sparse = sparse.results.displacements.iter()
+        .find(|d| d.node_id == 30).unwrap();
+    let tip_dense = dense.results.displacements.iter()
+        .find(|d| d.node_id == 21).unwrap();
+    assert!(tip_sparse.uz < 0.0, "Tip should deflect downward, got {}", tip_sparse.uz);
+
+    // Parity: final load factor and tip displacement agree within 2%
+    let lambda_rel = ((sparse.final_load_factor - dense.final_load_factor)
+        / dense.final_load_factor).abs();
+    assert!(
+        lambda_rel < 0.02,
+        "Final load factor parity: sparse={} dense={} (rel diff {})",
+        sparse.final_load_factor, dense.final_load_factor, lambda_rel
+    );
+    let uz_rel = ((tip_sparse.uz - tip_dense.uz) / tip_dense.uz).abs();
+    assert!(
+        uz_rel < 0.02,
+        "Tip displacement parity: sparse={} dense={} (rel diff {})",
+        tip_sparse.uz, tip_dense.uz, uz_rel
+    );
+}
+
+/// Test 10: Displacement control on a model above the sparse threshold
+/// converges and matches the dense-path load factor at the same target.
+#[test]
+fn test_displacement_control_sparse_path_matches_dense_path() {
+    use dedaliano_engine::solver::dof::DofNumbering;
+
+    let target = -0.02;
+    let run = |n_elem: usize| -> DisplacementControlResult {
+        let solver = make_cantilever_meshed(n_elem, 5.0, -10.0);
+        solve_displacement_control(&DisplacementControlInput {
+            solver,
+            control_node: n_elem,
+            control_dof: 1, // uy
+            target_displacement: target,
+            n_steps: 10,
+            max_iter: 30,
+            tolerance: 1e-6,
+        })
+        .unwrap()
+    };
+
+    let sparse = run(30); // 90 free DOFs -> sparse Cholesky
+    let dense = run(21);  // 63 free DOFs -> dense path
+    assert!(DofNumbering::build_2d(&make_cantilever_meshed(30, 5.0, -10.0)).n_free >= 64);
+
+    assert!(sparse.converged, "Sparse displacement control should converge");
+    assert!(dense.converged, "Dense displacement control should converge");
+
+    let tip_sparse = sparse.results.displacements.iter()
+        .find(|d| d.node_id == 30).unwrap();
+    assert!(
+        (tip_sparse.uz - target).abs() < 1e-4,
+        "Control DOF should reach target: got {} expected {target}", tip_sparse.uz
+    );
+
+    let lambda_rel = ((sparse.final_load_factor - dense.final_load_factor)
+        / dense.final_load_factor).abs();
+    assert!(
+        lambda_rel < 0.02,
+        "Load factor parity at target displacement: sparse={} dense={} (rel diff {})",
+        sparse.final_load_factor, dense.final_load_factor, lambda_rel
+    );
+}

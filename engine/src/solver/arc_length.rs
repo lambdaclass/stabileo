@@ -14,6 +14,8 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::corotational::assemble_corotational_public;
 use super::constraints::FreeConstraintSystem;
+use super::linear::SPARSE_THRESHOLD;
+use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 
 /// Arc-length analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +124,12 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
+    // Sparse symbolic factorization cache (ns >= SPARSE_THRESHOLD only): the
+    // tangent's sparsity pattern is constant within a solve call, so the
+    // symbolic phase is computed once and only the numeric phase repeats
+    // per iteration.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     // Reference load vector
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
@@ -156,11 +164,10 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-        let k_s = if let Some(ref cs) = cs { cs.reduce_matrix(&k_ff) } else { k_ff };
 
         let du_hat_s = {
             // New tangent each step: factor once, solve the predictor RHS.
-            let tangent = factor_tangent(&k_s, ns)?;
+            let tangent = factor_tangent(&k_ff, nf, ns, &cs, &mut sparse_sym_cache)?;
             solve_with_tangent(&tangent, &f_ref_s, ns)?
         };
         let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s) } else { du_hat_s };
@@ -222,9 +229,8 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             // K_T * δu_r = R   (residual correction)
             // K_T * δu_t = f_ref (tangent correction)
             let k_ff_new = extract_submatrix(&k_t_new, n, &free_idx, &free_idx);
-            let k_s_new = if let Some(ref cs) = cs { cs.reduce_matrix(&k_ff_new) } else { k_ff_new };
             let residual_s = if let Some(ref cs) = cs { cs.reduce_vector(&residual) } else { residual.clone() };
-            let tangent = factor_tangent(&k_s_new, ns)?;
+            let tangent = factor_tangent(&k_ff_new, nf, ns, &cs, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
             let du_t_s = solve_with_tangent(&tangent, &f_ref_s, ns)?;
             let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s) } else { du_r_s };
@@ -360,6 +366,12 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     let cs_dc = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
 
+    // Sparse symbolic factorization cache (ns >= SPARSE_THRESHOLD only): the
+    // tangent's sparsity pattern is constant within a solve call, so the
+    // symbolic phase is computed once and only the numeric phase repeats
+    // per iteration.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     // Find global DOF index for control point
     let control_global = dof_num.map.get(&(input.control_node, input.control_dof))
         .ok_or("Control node/DOF not found in free DOFs")?;
@@ -424,9 +436,8 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             // K_T * δu_t = f_ref (tangent correction)
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let k_s_dc = if let Some(ref cs) = cs_dc { cs.reduce_matrix(&k_ff) } else { k_ff };
             let residual_s = if let Some(ref cs) = cs_dc { cs.reduce_vector(&residual) } else { residual.clone() };
-            let tangent = factor_tangent(&k_s_dc, ns_dc)?;
+            let tangent = factor_tangent(&k_ff, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
             let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;
             let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s) } else { du_r_s };
@@ -509,32 +520,76 @@ fn dot_product(a: &[f64], b: &[f64]) -> f64 {
 }
 
 /// Tangent stiffness factored once, reusable for multiple right-hand sides.
-/// Both decompositions (Cholesky with LU fallback) match what the previous
-/// per-RHS solve did, so one factor for two RHS gives identical results to
-/// factoring twice.
+/// The dense decompositions (Cholesky with LU fallback) match what the
+/// previous per-RHS solve did, so one factor for two RHS gives identical
+/// results to factoring twice. Above `SPARSE_THRESHOLD` independent DOFs the
+/// tangent is factored with sparse Cholesky instead (symbolic phase cached
+/// per solve call in `SparseSymbolicCache`).
 enum FactoredTangent {
     /// Cholesky factor L (lower triangle stored in n*n array)
     Cholesky { l: Vec<f64> },
     /// LU decomposition with partial pivoting
     Lu { a: Vec<f64>, piv: Vec<usize> },
+    /// Sparse Cholesky numeric factor (ns >= SPARSE_THRESHOLD)
+    Sparse { num: NumericCholesky },
 }
 
-/// Factor K_T once (Cholesky first, LU fallback) for repeated solves.
-fn factor_tangent(k_ff: &[f64], nf: usize) -> Result<FactoredTangent, String> {
-    let mut l = k_ff.to_vec();
-    if cholesky_decompose(&mut l, nf) {
-        return Ok(FactoredTangent::Cholesky { l });
+/// Factor K_T once for repeated solves over multiple right-hand sides.
+///
+/// `k_ff` is the dense free block; constraint reduction happens inside:
+/// sparse (`reduce_matrix_sparse`) at or above `SPARSE_THRESHOLD` independent
+/// DOFs, dense (`reduce_matrix`) below it, keeping the dense path
+/// byte-identical to before.
+///
+/// Sparse path: symbolic factorization is cached across iterations (the
+/// pattern is constant within a solve call); if the numeric phase reports a
+/// non-SPD tangent, falls back to dense LU, size-capped by
+/// `MAX_DENSE_FALLBACK_DOFS` — mirrors `corotational::solve_tangent_sparse` /
+/// `time_integration::factor_effective_stiffness`.
+fn factor_tangent(
+    k_ff: &[f64],
+    nf: usize,
+    ns: usize,
+    cs: &Option<FreeConstraintSystem>,
+    cache: &mut Option<SparseSymbolicCache>,
+) -> Result<FactoredTangent, String> {
+    if ns >= SPARSE_THRESHOLD {
+        let k_s_csc = tangent_free_sparse(k_ff, nf, cs);
+        let sym = cached_symbolic(cache, &k_s_csc);
+        if let Some(num) = numeric_cholesky(sym, &k_s_csc) {
+            return Ok(FactoredTangent::Sparse { num });
+        }
+        // Sparse Cholesky reports a non-SPD tangent: dense LU fallback,
+        // size-capped like corotational/time_integration.
+        if ns > MAX_DENSE_FALLBACK_DOFS {
+            return Err(format!(
+                "Tangent stiffness is not SPD (sparse Cholesky) and the dense LU fallback would need a {ns}×{ns} dense matrix ({} MB), over the {MAX_DENSE_FALLBACK_DOFS}-DOF ceiling",
+                8 * ns * ns / 1_000_000
+            ));
+        }
+        return factor_tangent_lu(k_s_csc.to_dense_symmetric(), ns);
     }
 
-    // LU with partial pivoting — identical factorization phase to `lu_solve`.
-    let mut a = k_ff.to_vec();
-    let mut piv: Vec<usize> = (0..nf).collect();
+    let k_s = if let Some(ref cs) = cs { cs.reduce_matrix(k_ff) } else { k_ff.to_vec() };
+    let mut l = k_s.clone();
+    if cholesky_decompose(&mut l, ns) {
+        return Ok(FactoredTangent::Cholesky { l });
+    }
+    factor_tangent_lu(k_s, ns)
+}
 
-    for k in 0..nf {
-        let mut max_val = a[piv[k] * nf + k].abs();
+/// Dense LU factorization with partial pivoting — identical factorization
+/// phase to `lu_solve`. Shared by the below-threshold path and the sparse
+/// non-SPD fallback.
+fn factor_tangent_lu(k_s: Vec<f64>, ns: usize) -> Result<FactoredTangent, String> {
+    let mut a = k_s;
+    let mut piv: Vec<usize> = (0..ns).collect();
+
+    for k in 0..ns {
+        let mut max_val = a[piv[k] * ns + k].abs();
         let mut max_row = k;
-        for i in (k + 1)..nf {
-            let val = a[piv[i] * nf + k].abs();
+        for i in (k + 1)..ns {
+            let val = a[piv[i] * ns + k].abs();
             if val > max_val {
                 max_val = val;
                 max_row = i;
@@ -547,13 +602,13 @@ fn factor_tangent(k_ff: &[f64], nf: usize) -> Result<FactoredTangent, String> {
 
         piv.swap(k, max_row);
 
-        let pivot = a[piv[k] * nf + k];
-        for i in (k + 1)..nf {
-            let factor = a[piv[i] * nf + k] / pivot;
-            a[piv[i] * nf + k] = factor;
-            for j in (k + 1)..nf {
-                let val = a[piv[k] * nf + j];
-                a[piv[i] * nf + j] -= factor * val;
+        let pivot = a[piv[k] * ns + k];
+        for i in (k + 1)..ns {
+            let factor = a[piv[i] * ns + k] / pivot;
+            a[piv[i] * ns + k] = factor;
+            for j in (k + 1)..ns {
+                let val = a[piv[k] * ns + j];
+                a[piv[i] * ns + j] -= factor * val;
             }
         }
     }
@@ -561,9 +616,9 @@ fn factor_tangent(k_ff: &[f64], nf: usize) -> Result<FactoredTangent, String> {
     Ok(FactoredTangent::Lu { a, piv })
 }
 
-/// Solve with a pre-factored tangent. The substitution steps are identical to
-/// `cholesky_solve` / `lu_solve`, so results match a fresh per-RHS solve bit
-/// for bit.
+/// Solve with a pre-factored tangent. The dense substitution steps are
+/// identical to `cholesky_solve` / `lu_solve`, so dense results match a
+/// fresh per-RHS solve bit for bit.
 fn solve_with_tangent(factored: &FactoredTangent, rhs: &[f64], nf: usize) -> Result<Vec<f64>, String> {
     match factored {
         FactoredTangent::Cholesky { l } => {
@@ -594,6 +649,56 @@ fn solve_with_tangent(factored: &FactoredTangent, rhs: &[f64], nf: usize) -> Res
             }
             Ok(x)
         }
+        FactoredTangent::Sparse { num } => Ok(sparse_cholesky_solve(num, rhs)),
+    }
+}
+
+/// Sparse symbolic Cholesky factorization cached across iterations. The
+/// tangent's sparsity pattern is constant within a solve call (structure
+/// and constraints don't change), so the symbolic phase runs once and only
+/// the numeric phase repeats per iteration. `col_ptr`/`row_idx` fingerprint
+/// the pattern the symbolic was built from: if a later tangent's pattern
+/// differs (an entry crossing exactly zero), the symbolic is rebuilt.
+/// Mirrors `corotational::SparseSymbolicCache`.
+struct SparseSymbolicCache {
+    col_ptr: Vec<usize>,
+    row_idx: Vec<usize>,
+    sym: std::rc::Rc<SymbolicCholesky>,
+}
+
+/// Return the symbolic factorization for `k_s`, building (or rebuilding) it
+/// only when the pattern changed since the last call.
+fn cached_symbolic<'a>(
+    cache: &'a mut Option<SparseSymbolicCache>,
+    k_s: &CscMatrix,
+) -> &'a std::rc::Rc<SymbolicCholesky> {
+    let stale = match cache {
+        Some(c) => c.col_ptr != k_s.col_ptr || c.row_idx != k_s.row_idx,
+        None => true,
+    };
+    if stale {
+        *cache = Some(SparseSymbolicCache {
+            col_ptr: k_s.col_ptr.clone(),
+            row_idx: k_s.row_idx.clone(),
+            sym: std::rc::Rc::new(symbolic_cholesky(k_s)),
+        });
+    }
+    &cache.as_ref().unwrap().sym
+}
+
+/// Convert the dense free block of the tangent to CSC and apply constraint
+/// reduction in sparse form (used when ns >= SPARSE_THRESHOLD).
+/// Mirrors `corotational::tangent_free_sparse`.
+fn tangent_free_sparse(
+    k_ff: &[f64],
+    nf: usize,
+    cs: &Option<FreeConstraintSystem>,
+) -> CscMatrix {
+    let k_ff_csc = CscMatrix::from_dense_symmetric(k_ff, nf);
+    if let Some(ref cs) = cs {
+        cs.reduce_matrix_sparse(&k_ff_csc)
+    } else {
+        k_ff_csc
     }
 }
 
