@@ -22,6 +22,7 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::linear;
 use super::constraints::FreeConstraintSystem;
+use super::sparse_tangent::{SparseSymbolicCache, tangent_free_sparse, solve_tangent_sparse};
 
 /// Result of a cable analysis.
 #[derive(Debug, Clone)]
@@ -187,6 +188,11 @@ pub fn solve_cable_2d(
     let mut converged = false;
     let mut total_iterations = 0;
 
+    // Sparse symbolic Cholesky reused across iterations (the Ernst
+    // correction changes values, not the pattern; the fingerprinted cache
+    // rebuilds the symbolic if a value ever crosses exactly zero).
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for iter in 0..max_iter {
         total_iterations = iter + 1;
 
@@ -256,12 +262,19 @@ pub fn solve_cable_2d(
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
         let f_f: Vec<f64> = f_global[..nf].to_vec();
-        let (k_solve, f_solve) = if let Some(ref cs) = cs {
-            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+        let u_indep = if ns >= linear::SPARSE_THRESHOLD {
+            // Sparse path: CSC + sparse Cholesky with cached symbolic.
+            let f_solve = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
+            let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+            solve_tangent_sparse(&k_csc, &f_solve, &mut sparse_sym_cache)?
         } else {
-            (k_ff, f_f)
+            let (k_solve, f_solve) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            } else {
+                (k_ff, f_f)
+            };
+            solve_system(&k_solve, &f_solve, ns)?
         };
-        let u_indep = solve_system(&k_solve, &f_solve, ns)?;
         let u_f = if let Some(ref cs) = cs {
             cs.expand_solution(&u_indep)
         } else {
@@ -483,6 +496,11 @@ pub fn solve_cable_3d(
     let mut converged = false;
     let mut total_iterations = 0;
 
+    // Sparse symbolic Cholesky reused across iterations (the Ernst
+    // correction changes values, not the pattern; the fingerprinted cache
+    // rebuilds the symbolic if a value ever crosses exactly zero).
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for iter in 0..max_iter {
         total_iterations = iter + 1;
 
@@ -537,12 +555,19 @@ pub fn solve_cable_3d(
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
         let f_f: Vec<f64> = f_global[..nf].to_vec();
-        let (k_solve, f_solve) = if let Some(ref cs) = cs {
-            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+        let u_indep = if ns >= linear::SPARSE_THRESHOLD {
+            // Sparse path: CSC + sparse Cholesky with cached symbolic.
+            let f_solve = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
+            let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+            solve_tangent_sparse(&k_csc, &f_solve, &mut sparse_sym_cache)?
         } else {
-            (k_ff, f_f)
+            let (k_solve, f_solve) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            } else {
+                (k_ff, f_f)
+            };
+            solve_system(&k_solve, &f_solve, ns)?
         };
-        let u_indep = solve_system(&k_solve, &f_solve, ns)?;
         let u_f = if let Some(ref cs) = cs {
             cs.expand_solution(&u_indep)
         } else {
