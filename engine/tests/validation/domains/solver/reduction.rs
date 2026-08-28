@@ -823,15 +823,16 @@ fn test_craig_bampton_sparse_large_beam_with_equal_dof() {
 
     let nr = result.n_reduced;
     for (mat, name) in [(&result.k_reduced, "K"), (&result.m_reduced, "M")] {
+        // Tolerance scales with the matrix norm, not the entry pair: entries
+        // that are analytically zero pick up rounding-level asymmetry from the
+        // different operation order of the sparse products.
+        let scale = mat.iter().map(|v| v.abs()).fold(0.0f64, f64::max).max(1.0);
         for i in 0..nr {
             for j in (i + 1)..nr {
                 let a = mat[i * nr + j];
                 let b = mat[j * nr + i];
                 let diff = (a - b).abs();
-                if diff > 1e-10 {
-                    let scale = a.abs().max(b.abs());
-                    assert!(diff / scale < 1e-8, "{}_reduced not symmetric at ({}, {}): {:.6e} vs {:.6e}", name, i, j, a, b);
-                }
+                assert!(diff <= 1e-8 * scale, "{}_reduced not symmetric at ({}, {}): {:.6e} vs {:.6e} (scale {:.3e})", name, i, j, a, b, scale);
             }
         }
     }
