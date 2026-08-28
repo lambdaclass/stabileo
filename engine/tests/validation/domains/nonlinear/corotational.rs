@@ -5,7 +5,7 @@
 ///   2. Mattiasson elastica — cantilever large deflection (PL²/EI=1.0)
 ///   3. P-Delta regression — corotational ≈ P-Delta for small displacements
 ///   4. Williams toggle — convergence through snap-through
-use dedaliano_engine::solver::{corotational, pdelta};
+use dedaliano_engine::solver::{assembly, corotational, pdelta};
 use dedaliano_engine::types::*;
 use crate::common::*;
 
@@ -375,5 +375,105 @@ fn validation_corotational_sparse_path_cantilever() {
         rel_mod < 1e-4,
         "Sparse full-NR vs modified-NR: full={:.8e}, modified={:.8e}, rel={:.4e}",
         d_fine.uz, d_mod.uz, rel_mod
+    );
+}
+
+// ================================================================
+// 6. Sparse Newton path with an inclined roller (triplet assembly +
+//    triplet inclined-support transform)
+// ================================================================
+//
+// Propped cantilever: node 1 fixed, last node on an inclined roller at
+// θ = 0.6 rad (restrains the rotated normal, couples ux/uz), vertical point
+// load at midspan. 22 elements → 23 nodes → nf = 3·23 − 4 = 65 ≥ 64, so the
+// Newton loop assembles the tangent as triplets and rotates it with
+// apply_inclined_transform_triplets_2d; a 10-element model of the same
+// structure (nf = 29 < 64) stays on the dense path. Hermitian frame
+// elements are exact for a nodal point load, so both meshes must give
+// the same midspan deflection — a dense-vs-sparse parity check that
+// fails if the triplet inclined transform rotates K or f_int wrongly.
+
+#[test]
+fn validation_corotational_sparse_path_inclined_roller() {
+    let l: f64 = 6.0;
+    let a: f64 = 0.01;
+    let iz: f64 = 1e-4;
+    let p: f64 = 10.0;
+    // SolverSupport.angle is consumed raw by inclined_rotation_matrix_2d
+    // (radians); use one value consistently for the support and the check.
+    let theta = 0.6;
+
+    let build = |n_elem: usize| {
+        let elem_len = l / n_elem as f64;
+        let nodes: Vec<_> = (0..=n_elem)
+            .map(|i| (i + 1, i as f64 * elem_len, 0.0))
+            .collect();
+        let elems: Vec<_> = (0..n_elem)
+            .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
+            .collect();
+        let mid_node = n_elem / 2 + 1;
+        let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
+        })];
+        // Placeholder roller, patched to an inclined roller below
+        // (make_input does not expose the angle field).
+        let mut input = make_input(
+            nodes, vec![(1, E, 0.3)], vec![(1, a, iz)],
+            elems, vec![(1, 1, "fixed"), (2, n_elem + 1, "rollerX")], loads,
+        );
+        let sup = input.supports.get_mut("2").unwrap();
+        sup.support_type = "inclinedRoller".to_string();
+        sup.angle = Some(theta);
+        (input, mid_node, n_elem + 1)
+    };
+
+    // Sparse Newton path: nf = 65 >= 64
+    let (input_fine, mid_fine, roller_fine) = build(22);
+    let fine = corotational::solve_corotational_2d(&input_fine, 50, 1e-6, 5, false).unwrap();
+    assert!(fine.converged, "Sparse-path inclined model should converge");
+
+    // Kinematic check: the roller node must not move normal to the
+    // incline — per inclined_rotation_matrix_2d, local[1] (normal) =
+    // sin(θ)·ux + cos(θ)·uz must vanish relative to the node's own
+    // displacement magnitude.
+    let r = assembly::inclined_rotation_matrix_2d(theta);
+    let d_roller = fine.results.displacements.iter()
+        .find(|d| d.node_id == roller_fine).unwrap();
+    let normal = r[1][0] * d_roller.ux + r[1][1] * d_roller.uz;
+    let characteristic = d_roller.ux.abs().max(d_roller.uz.abs()).max(1e-30);
+    assert!(
+        normal.abs() / characteristic < 1e-6,
+        "Roller node should be restrained normal to the incline: normal={:.3e}, \
+         characteristic={:.3e} (ux={:.3e}, uz={:.3e})",
+        normal, characteristic, d_roller.ux, d_roller.uz
+    );
+
+    // Dense Newton path on the same structure, coarser mesh: nf = 29 < 64.
+    let (input_coarse, mid_coarse, _) = build(10);
+    let coarse = corotational::solve_corotational_2d(&input_coarse, 50, 1e-6, 5, false).unwrap();
+    assert!(coarse.converged, "Dense-path inclined model should converge");
+
+    let uz_fine = fine.results.displacements.iter()
+        .find(|d| d.node_id == mid_fine).unwrap().uz;
+    let uz_coarse = coarse.results.displacements.iter()
+        .find(|d| d.node_id == mid_coarse).unwrap().uz;
+    let rel = (uz_fine - uz_coarse).abs() / uz_coarse.abs().max(1e-15);
+    assert!(
+        rel < 1e-4,
+        "Dense vs sparse parity (inclined): fine={:.8e}, coarse={:.8e}, rel={:.4e}",
+        uz_fine, uz_coarse, rel
+    );
+
+    // Modified NR on the sparse path (cached sparse factorization over the
+    // rotated triplet pattern)
+    let fine_mod = corotational::solve_corotational_2d(&input_fine, 50, 1e-6, 5, true).unwrap();
+    assert!(fine_mod.converged, "Sparse modified-NR (inclined) should converge");
+    let uz_mod = fine_mod.results.displacements.iter()
+        .find(|d| d.node_id == mid_fine).unwrap().uz;
+    let rel_mod = (uz_fine - uz_mod).abs() / uz_fine.abs().max(1e-15);
+    assert!(
+        rel_mod < 1e-4,
+        "Sparse full-NR vs modified-NR (inclined): full={:.8e}, modified={:.8e}, rel={:.4e}",
+        uz_fine, uz_mod, rel_mod
     );
 }
