@@ -126,16 +126,58 @@
     e.preventDefault();
   }
 
+  /**
+   * The same resize, for a reader who is not dragging anything.
+   *
+   * The `:focus-visible` rule below was already written, which says the handle
+   * was meant to take focus — but without `tabindex` nothing could give it
+   * focus and the rule never matched. That left the sheet drag-only: a
+   * keyboard, a switch, or voice control could open the panel and not choose
+   * how much of the screen it takes.
+   *
+   * Arrows move by one viewport hundredth, Page by ten, Home/End go to the
+   * stops. `aria-valuenow` and its bounds are on the element for the same
+   * reason the keys are here — a separator that resizes is a slider to
+   * anything that is not a mouse.
+   */
+  function key(e: KeyboardEvent) {
+    const step =
+      e.key === 'ArrowUp' ? 1
+      : e.key === 'ArrowDown' ? -1
+      : e.key === 'PageUp' ? 10
+      : e.key === 'PageDown' ? -10
+      : 0;
+
+    let next = vh;
+    if (step !== 0) next = vh + step;
+    else if (e.key === 'Home') next = MIN;
+    else if (e.key === 'End') next = MAX;
+    else return;
+
+    vh = Math.min(MAX, Math.max(MIN, next));
+    try { localStorage.setItem(storageKey, String(Math.round(vh))); } catch { /* private mode */ }
+    e.preventDefault();
+    // Same re-frame the drag does, for the same reason: the canvas just changed
+    // height and the framing that preceded the keystroke is wrong for what is left.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+      onResizeEnd?.();
+    }));
+  }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="grab"
   class:dragging
   onpointerdown={start}
+  onkeydown={key}
   role="separator"
+  tabindex="0"
   aria-orientation="horizontal"
   aria-label={t('ribbon.resize')}
+  aria-valuenow={Math.round(vh)}
+  aria-valuemin={MIN}
+  aria-valuemax={MAX}
   data-testid="sheet-grab"
 >
   <span class="pill"></span>
