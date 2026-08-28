@@ -34,6 +34,7 @@ pub mod creep_shrinkage;
 pub mod reduction;
 pub mod conditioning;
 pub mod sparse_assembly;
+pub(crate) mod sparse_tangent;
 pub mod pre_solve_gates;
 
 pub use dof::*;

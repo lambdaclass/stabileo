@@ -15,6 +15,7 @@ use super::assembly;
 use super::corotational::assemble_corotational_public;
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
+use super::sparse_tangent::{cached_symbolic, tangent_free_sparse, SparseSymbolicCache};
 use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 
 /// Arc-length analysis input.
@@ -544,7 +545,7 @@ enum FactoredTangent {
 /// Sparse path: symbolic factorization is cached across iterations (the
 /// pattern is constant within a solve call); if the numeric phase reports a
 /// non-SPD tangent, falls back to dense LU, size-capped by
-/// `MAX_DENSE_FALLBACK_DOFS` — mirrors `corotational::solve_tangent_sparse` /
+/// `MAX_DENSE_FALLBACK_DOFS` — mirrors `sparse_tangent::solve_tangent_sparse` /
 /// `time_integration::factor_effective_stiffness`.
 fn factor_tangent(
     k_ff: &[f64],
@@ -653,54 +654,8 @@ fn solve_with_tangent(factored: &FactoredTangent, rhs: &[f64], nf: usize) -> Res
     }
 }
 
-/// Sparse symbolic Cholesky factorization cached across iterations. The
-/// tangent's sparsity pattern is constant within a solve call (structure
-/// and constraints don't change), so the symbolic phase runs once and only
-/// the numeric phase repeats per iteration. `col_ptr`/`row_idx` fingerprint
-/// the pattern the symbolic was built from: if a later tangent's pattern
-/// differs (an entry crossing exactly zero), the symbolic is rebuilt.
-/// Mirrors `corotational::SparseSymbolicCache`.
-struct SparseSymbolicCache {
-    col_ptr: Vec<usize>,
-    row_idx: Vec<usize>,
-    sym: std::rc::Rc<SymbolicCholesky>,
-}
-
-/// Return the symbolic factorization for `k_s`, building (or rebuilding) it
-/// only when the pattern changed since the last call.
-fn cached_symbolic<'a>(
-    cache: &'a mut Option<SparseSymbolicCache>,
-    k_s: &CscMatrix,
-) -> &'a std::rc::Rc<SymbolicCholesky> {
-    let stale = match cache {
-        Some(c) => c.col_ptr != k_s.col_ptr || c.row_idx != k_s.row_idx,
-        None => true,
-    };
-    if stale {
-        *cache = Some(SparseSymbolicCache {
-            col_ptr: k_s.col_ptr.clone(),
-            row_idx: k_s.row_idx.clone(),
-            sym: std::rc::Rc::new(symbolic_cholesky(k_s)),
-        });
-    }
-    &cache.as_ref().unwrap().sym
-}
-
-/// Convert the dense free block of the tangent to CSC and apply constraint
-/// reduction in sparse form (used when ns >= SPARSE_THRESHOLD).
-/// Mirrors `corotational::tangent_free_sparse`.
-fn tangent_free_sparse(
-    k_ff: &[f64],
-    nf: usize,
-    cs: &Option<FreeConstraintSystem>,
-) -> CscMatrix {
-    let k_ff_csc = CscMatrix::from_dense_symmetric(k_ff, nf);
-    if let Some(ref cs) = cs {
-        cs.reduce_matrix_sparse(&k_ff_csc)
-    } else {
-        k_ff_csc
-    }
-}
+// Sparse symbolic factorization cache and tangent conversion helpers now
+// live in `super::sparse_tangent` (shared with corotational and contact).
 
 /// Add spring stiffness from supports to tangent stiffness and internal forces.
 fn add_spring_stiffness(
