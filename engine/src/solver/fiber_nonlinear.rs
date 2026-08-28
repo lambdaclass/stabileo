@@ -15,6 +15,7 @@ use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_
 use super::dof::DofNumbering;
 use super::assembly;
 use super::constraints::FreeConstraintSystem;
+use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse, solve_tangent_sparse};
 
 /// Fiber nonlinear analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,6 +112,11 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
     let mut total_iters = 0;
     let mut converged = true;
 
+    // Sparse symbolic Cholesky reused across increments/iterations (the
+    // tangent pattern is constant; the fingerprinted cache rebuilds it if
+    // it ever changes). Used only when ns >= SPARSE_THRESHOLD.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     // Incremental loading
     for inc in 1..=input.n_increments {
         let load_factor = inc as f64 / input.n_increments as f64;
@@ -118,6 +124,9 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
         let mut nr_converged = false;
         let mut cached_l: Option<(Vec<f64>, usize)> = None;
+        // Modified-NR sparse cache: numeric factor of the increment's first
+        // tangent (sparse analogue of cached_l).
+        let mut cached_sparse_num: Option<NumericCholesky> = None;
 
         for _iter in 0..input.max_iter {
             total_iters += 1;
@@ -176,7 +185,27 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                 r_f
             };
 
-            let delta_u_indep = if input.modified_nr {
+            let delta_u_indep = if ns >= super::linear::SPARSE_THRESHOLD {
+                // Sparse path: CSC + sparse Cholesky with cached symbolic.
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+                if input.modified_nr {
+                    if cached_sparse_num.is_none() {
+                        let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
+                        cached_sparse_num = numeric_cholesky(sym, &k_csc);
+                    }
+                    if let Some(ref num) = cached_sparse_num {
+                        sparse_cholesky_solve(num, &r_s)
+                    } else {
+                        // Sparse factorization failed — fall back to full NR
+                        // for this increment (same semantics as dense path).
+                        solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                    }
+                } else {
+                    solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                }
+            } else if input.modified_nr {
                 if let Some((ref l, sz)) = cached_l {
                     let y = forward_solve(l, &r_s, sz);
                     back_solve(l, &y, sz)
@@ -579,12 +608,20 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
     let mut total_iters = 0;
     let mut converged = true;
 
+    // Sparse symbolic Cholesky reused across increments/iterations (the
+    // tangent pattern is constant; the fingerprinted cache rebuilds it if
+    // it ever changes). Used only when ns >= SPARSE_THRESHOLD.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for inc in 1..=input.n_increments {
         let load_factor = inc as f64 / input.n_increments as f64;
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
         let mut cached_l: Option<(Vec<f64>, usize)> = None;
+        // Modified-NR sparse cache: numeric factor of the increment's first
+        // tangent (sparse analogue of cached_l).
+        let mut cached_sparse_num: Option<NumericCholesky> = None;
 
         for _iter in 0..input.max_iter {
             total_iters += 1;
@@ -637,7 +674,27 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                 r_f
             };
 
-            let delta_u_indep = if input.modified_nr {
+            let delta_u_indep = if ns >= super::linear::SPARSE_THRESHOLD {
+                // Sparse path: CSC + sparse Cholesky with cached symbolic.
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+                if input.modified_nr {
+                    if cached_sparse_num.is_none() {
+                        let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
+                        cached_sparse_num = numeric_cholesky(sym, &k_csc);
+                    }
+                    if let Some(ref num) = cached_sparse_num {
+                        sparse_cholesky_solve(num, &r_s)
+                    } else {
+                        // Sparse factorization failed — fall back to full NR
+                        // for this increment (same semantics as dense path).
+                        solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                    }
+                } else {
+                    solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                }
+            } else if input.modified_nr {
                 if let Some((ref l, sz)) = cached_l {
                     let y = forward_solve(l, &r_s, sz);
                     back_solve(l, &y, sz)
