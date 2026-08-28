@@ -29,6 +29,26 @@ pub struct SymbolicCholesky {
     /// snode_upd[t]: prior supernodes whose columns update supernode t
     /// (their row structure contains at least one column of t).
     pub snode_upd: Vec<Vec<usize>>,
+    /// Structure of the permuted matrix P·A·Pᵀ (lower-triangle CSC) and the
+    /// source map pa_src[p] = index into the original `a.values` of the entry
+    /// at permuted position p. Lets numeric_cholesky permute values with a
+    /// single O(nnz) gather instead of re-tripletizing and re-sorting on every
+    /// factorization.
+    ///
+    /// This is a deliberate memory-for-time trade: `pa_row_idx` and `pa_src`
+    /// add 2·nnz(A) usizes to every cached symbolic factorization — about
+    /// 6.4 MB at nnz(A) = 400k — and P-Delta holds one across every load step.
+    /// It buys back a full O(nnz log nnz) sort and a triplet rebuild per
+    /// numeric factorization, which those same iterative paths pay repeatedly.
+    /// On wasm32, where memory growth is user-visible, that is the axis to
+    /// watch if the trade is ever revisited.
+    pub pa_col_ptr: Vec<usize>,
+    pub pa_row_idx: Vec<usize>,
+    pub pa_src: Vec<usize>,
+    /// Structural fingerprint of the matrix `pa_src` was built from: the
+    /// contract that symbolic reuse must not break, in a form the numeric
+    /// phase can check in O(nnz) against an O(nnz·flops) factorization.
+    pub pa_fingerprint: u64,
 }
 
 /// Numeric factorization result.
@@ -68,10 +88,72 @@ pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> Symbolic
 /// computed fill-reducing permutations.
 pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCholesky {
     let n = a.n;
+    // Restored: `permute_symmetric`, which this replaces, asserted this at the
+    // top before doing any work. Without it a wrong-length permutation fails
+    // further down as a bare index-out-of-bounds that names nothing — and this
+    // is a pub entry point documented as taking externally computed orderings.
+    assert_eq!(perm.len(), n, "permutation length must equal the matrix order");
     let iperm = inverse_perm(perm);
 
-    // Apply permutation
-    let pa = a.permute_symmetric(perm);
+    // A must have no duplicate (row, col). `from_triplets` guarantees it, but
+    // CscMatrix has public fields, so a hand-built matrix can carry duplicates —
+    // and unlike the `from_triplets` path this replaces, the map cannot SUM
+    // them: two entries landing on one slot would both survive as separate
+    // positions and the panel scatter, which assigns rather than accumulates,
+    // would keep whichever the sort happened to place last. Checked once here,
+    // in the symbolic phase, rather than per factorization.
+    for j in 0..n {
+        let col = &a.row_idx[a.col_ptr[j]..a.col_ptr[j + 1]];
+        assert!(
+            col.windows(2).all(|w| w[0] < w[1]),
+            "column {j} of A must be strictly increasing and duplicate-free",
+        );
+    }
+
+    // Permuted structure P·A·Pᵀ (lower triangle) plus the source map
+    // pa_src[p] = index of that entry in the original `a`. The numeric phase
+    // then permutes values with an O(nnz) gather instead of re-sorting
+    // triplets per factorization.
+    //
+    // Bucketed by column with a counting sort, not a comparison sort: nothing
+    // downstream needs the rows ordered WITHIN a pa column. The column build
+    // re-sorts `l_row_idx[tail_start..]` itself, `row_cols[i]` comes out
+    // ascending because the outer loop is over j regardless, and the panel
+    // scatter reaches its slot through `map_pos`. So an O(nnz log nnz) sort
+    // over a 24-byte triplet buffer — ~9.6 MB of transient allocation at
+    // nnz = 400k, on a wasm32 heap — bought ordering no consumer reads.
+    let nnz = a.col_ptr[n];
+    let mut pa_col_ptr = vec![0usize; n + 1];
+    for j in 0..n {
+        let nj = iperm[j];
+        for k in a.col_ptr[j]..a.col_ptr[j + 1] {
+            let ni = iperm[a.row_idx[k]];
+            let c = if ni >= nj { nj } else { ni };
+            pa_col_ptr[c + 1] += 1;
+        }
+    }
+    for c in 0..n {
+        pa_col_ptr[c + 1] += pa_col_ptr[c];
+    }
+    let mut pa_row_idx = vec![0usize; nnz];
+    let mut pa_src = vec![0usize; nnz];
+    {
+        let mut cursor = pa_col_ptr.clone();
+        for j in 0..n {
+            let nj = iperm[j];
+            for k in a.col_ptr[j]..a.col_ptr[j + 1] {
+                let ni = iperm[a.row_idx[k]];
+                let (r, c) = if ni >= nj { (ni, nj) } else { (nj, ni) };
+                pa_row_idx[cursor[c]] = r;
+                pa_src[cursor[c]] = k;
+                cursor[c] += 1;
+            }
+        }
+    }
+
+    // Structural fingerprint of the matrix this map was built from. See
+    // `numeric_cholesky` for why nnz alone is not enough to police reuse.
+    let pa_fingerprint = structural_fingerprint(a);
 
     // Elimination tree of the permuted matrix, computed directly from the
     // graph of A (Liu's algorithm with path compression, O(nnz·α(n))).
@@ -81,8 +163,8 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
     const NONE: usize = usize::MAX;
     let mut row_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
     for j in 0..n {
-        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            let i = pa.row_idx[k];
+        for k in pa_col_ptr[j]..pa_col_ptr[j + 1] {
+            let i = pa_row_idx[k];
             if i > j {
                 row_cols[i].push(j);
             }
@@ -133,8 +215,8 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
         l_row_idx.push(j); // diagonal first
         let tail_start = l_row_idx.len();
 
-        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            let i = pa.row_idx[k];
+        for k in pa_col_ptr[j]..pa_col_ptr[j + 1] {
+            let i = pa_row_idx[k];
             if i > j && mark[i] != j {
                 mark[i] = j;
                 l_row_idx.push(i);
@@ -228,7 +310,36 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
         l_nnz,
         snode_start,
         snode_upd,
+        pa_col_ptr,
+        pa_row_idx,
+        pa_src,
+        pa_fingerprint,
     }
+}
+
+/// A cheap structural digest of a CSC pattern: order, column pointers and row
+/// indices. Values are deliberately NOT included — reuse across changed values
+/// is the whole point of the symbolic phase; reuse across a changed PATTERN is
+/// what has to be caught.
+///
+/// FxHash-style multiply-xor rather than DefaultHasher: this runs once per
+/// numeric factorization, and SipHash over nnz indices is real work next to a
+/// gather. Collisions here mean a missed diagnostic on an already-broken
+/// caller, never a wrong answer on a correct one, so 64 bits of a fast mixer is
+/// the right trade.
+fn structural_fingerprint(a: &CscMatrix) -> u64 {
+    const K: u64 = 0x517c_c1b7_2722_0a95;
+    let mut h: u64 = a.n as u64;
+    let mut mix = |v: usize| {
+        h = (h.rotate_left(5) ^ v as u64).wrapping_mul(K);
+    };
+    for &p in &a.col_ptr {
+        mix(p);
+    }
+    for &i in &a.row_idx {
+        mix(i);
+    }
+    h
 }
 
 /// Compute numeric Cholesky factorization given symbolic structure.
@@ -249,8 +360,46 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
 pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<NumericCholesky> {
     let n = sym.n;
 
-    // Apply permutation to get numeric values
-    let pa = a.permute_symmetric(&sym.perm);
+    // Permuted values come from the map precomputed in the symbolic phase: an
+    // O(nnz) gather, no triplet rebuild, no sort.
+    //
+    // That turns a SOFT contract into a HARD one, and the guard has to match.
+    // The `permute_symmetric(&sym.perm)` this replaces recomputed the permuted
+    // matrix from whatever was passed in, so reuse tolerated a drifting
+    // pattern; `pa_src` holds positions into the values array of the matrix the
+    // symbolic was built from, and reading them against a different pattern
+    // gathers neighbouring entries into every slot past the first divergence.
+    // Cholesky then succeeds and returns displacements for a matrix nobody
+    // assembled.
+    //
+    // This is reachable, not hypothetical. Both P-Delta loops cache one
+    // symbolic (`pdelta.rs:88`, `:331`) and rebuild `k_csc` every iteration
+    // through `CscMatrix::from_dense_symmetric`, whose `|v| > 1e-30` filter
+    // makes the pattern VALUE-dependent — and the geometric stiffness changes
+    // every iteration by design. On the unconstrained path the pattern is
+    // pinned by K's element topology, since K_G occupies the same DOF pairs;
+    // with constraints, `reduce_matrix` can produce entries that cancel, and
+    // where they cancel moves as K_G moves.
+    //
+    // So: `assert!`, not `debug_assert!` — the release wasm32 build is the one
+    // that ships, and `permute_symmetric` ran its own `assert_eq!` there on
+    // every factorization, so debug-only would be a downgrade of a live check.
+    // And the fingerprint, not nnz: one entry dropping below the threshold
+    // while another rises above it leaves nnz identical.
+    assert_eq!(a.n, n, "numeric_cholesky: matrix order does not match the symbolic");
+    assert_eq!(a.col_ptr.len(), n + 1, "numeric_cholesky: malformed column pointers");
+    assert_eq!(
+        structural_fingerprint(a),
+        sym.pa_fingerprint,
+        "numeric_cholesky: sparsity pattern differs from the one the symbolic \
+         factorization was built for ({} nonzeros now, {} then) — symbolic reuse \
+         requires an unchanged pattern, not merely an unchanged shape",
+        a.col_ptr[n],
+        sym.pa_src.len(),
+    );
+
+    let pa_col_ptr = &sym.pa_col_ptr;
+    let pa_row_idx = &sym.pa_row_idx;
 
     let mut l_values = vec![0.0f64; sym.l_nnz];
 
@@ -304,11 +453,15 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
         }
         for d in 0..width {
             let j = s + d;
-            for p in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-                let i = pa.row_idx[p];
+            for p in pa_col_ptr[j]..pa_col_ptr[j + 1] {
+                let i = pa_row_idx[p];
                 // struct(A[:,j]) ⊆ struct(L[:,j]) ⊆ panel rows
                 debug_assert_eq!(map_gen[i], gen);
-                panel[d * rows + map_pos[i]] = pa.values[p];
+                // Gathered straight from the source. Staging these into an
+                // nnz-sized `pa_values` first meant one heap allocation and a
+                // full write-then-read pass over nnz per factorization — the
+                // per-call work this map exists to remove.
+                panel[d * rows + map_pos[i]] = a.values[sym.pa_src[p]];
             }
         }
 
@@ -591,6 +744,89 @@ mod tests {
         let a = make_spd(&[1.0, 2.0, 2.0, 1.0], 2);
         let b = vec![1.0, 1.0];
         assert!(sparse_cholesky_solve_full(&a, &b).is_none());
+    }
+
+
+    /// Reusing a symbolic factorization across a CHANGED PATTERN must fail loudly.
+    ///
+    /// This is the contract the permutation map turned from soft into hard. The
+    /// `permute_symmetric` it replaced rebuilt the permuted matrix from whatever
+    /// was passed in; `pa_src` holds positions into the values array of the
+    /// matrix the symbolic was built from, so reading it against a different
+    /// pattern gathers neighbouring entries and returns a factorization of a
+    /// matrix nobody assembled.
+    ///
+    /// It is reachable: both P-Delta loops cache one symbolic and rebuild the
+    /// CSC every iteration through `from_dense_symmetric`, whose `|v| > 1e-30`
+    /// filter makes the pattern depend on the values.
+    ///
+    /// Two shapes, because the cheap guard only catches one of them.
+    #[test]
+    #[should_panic(expected = "sparsity pattern differs")]
+    fn numeric_cholesky_rejects_a_shorter_pattern() {
+        // 3x3 tridiagonal, then the same matrix with the (2,1) coupling gone.
+        let a = CscMatrix::from_triplets(
+            3,
+            &[0, 1, 1, 2, 2],
+            &[0, 0, 1, 1, 2],
+            &[10.0, 1.0, 8.0, 2.0, 6.0],
+        );
+        let thinner = CscMatrix::from_triplets(
+            3,
+            &[0, 1, 1, 2],
+            &[0, 0, 1, 2],
+            &[10.0, 1.0, 8.0, 6.0],
+        );
+        let sym = Rc::new(symbolic_cholesky(&a));
+        let _ = numeric_cholesky(&sym, &thinner);
+    }
+
+    /// The same nonzero COUNT with a different pattern is the case a length
+    /// check cannot see, and the one P-Delta can actually produce: one entry
+    /// drops below the threshold while another rises above it.
+    #[test]
+    #[should_panic(expected = "sparsity pattern differs")]
+    fn numeric_cholesky_rejects_an_equal_length_but_shifted_pattern() {
+        // Both have five entries; the off-diagonal moved from (2,1) to (2,0).
+        let a = CscMatrix::from_triplets(
+            3,
+            &[0, 1, 1, 2, 2],
+            &[0, 0, 1, 1, 2],
+            &[10.0, 1.0, 8.0, 2.0, 6.0],
+        );
+        let shifted = CscMatrix::from_triplets(
+            3,
+            &[0, 1, 2, 1, 2],
+            &[0, 0, 0, 1, 2],
+            &[10.0, 1.0, 2.0, 8.0, 6.0],
+        );
+        assert_eq!(a.nnz(), shifted.nnz(), "the point of this case is equal nnz");
+        let sym = Rc::new(symbolic_cholesky(&a));
+        let _ = numeric_cholesky(&sym, &shifted);
+    }
+
+    /// And the legitimate use keeps working: same pattern, different values.
+    /// This is what P-Delta and the regularization retry actually do, and it is
+    /// the case the guard must NOT reject.
+    #[test]
+    fn numeric_cholesky_accepts_new_values_on_the_same_pattern() {
+        let pattern_rows = [0usize, 1, 1, 2, 2];
+        let pattern_cols = [0usize, 0, 1, 1, 2];
+        let a1 = CscMatrix::from_triplets(3, &pattern_rows, &pattern_cols,
+            &[10.0, 1.0, 8.0, 2.0, 6.0]);
+        let a2 = CscMatrix::from_triplets(3, &pattern_rows, &pattern_cols,
+            &[20.0, 3.0, 15.0, 4.0, 12.0]);
+
+        let sym = Rc::new(symbolic_cholesky(&a1));
+        let b = vec![1.0, 2.0, 3.0];
+        for a in [&a1, &a2] {
+            let num = numeric_cholesky(&sym, a).expect("SPD matrix should factor");
+            let x = sparse_cholesky_solve(&num, &b);
+            let ax = a.sym_mat_vec(&x);
+            for i in 0..3 {
+                assert!((ax[i] - b[i]).abs() < 1e-10, "A*x != b at row {i}");
+            }
+        }
     }
 
     #[test]
