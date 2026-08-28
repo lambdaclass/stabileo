@@ -52,7 +52,6 @@
 
   let vh = $state(stored());
   let dragging = $state(false);
-  let frame = 0;
 
   function publish() {
     // One decimal: a pointer delta over a viewport hundredth produces fifteen
@@ -60,14 +59,34 @@
     document.documentElement.style.setProperty('--st-sheet-h', `${vh.toFixed(1)}vh`);
   }
 
+  /*
+   * Publishing is the effect's job, and the ONLY place it happens.
+   *
+   * `publish()` reads `vh`, so this effect tracks it and re-runs on every
+   * change — which is what a drag produces, one per pointermove. An earlier
+   * version also scheduled a `requestAnimationFrame` inside the drag handler
+   * to throttle the writes; it could not throttle anything, because this
+   * effect had already published synchronously by the time the frame ran. The
+   * rAF is gone rather than the effect: setting one custom property is cheap,
+   * and the browser coalesces the style recalc to the next frame regardless.
+   */
   $effect(() => {
     publish();
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-      // Handed back on unmount, so `.app-body` stops reserving height for a
-      // panel that is no longer there.
-      document.documentElement.style.removeProperty('--st-sheet-h');
-    };
+  });
+
+  /*
+   * Handing the property back is a SEPARATE effect, deliberately.
+   *
+   * An effect's teardown runs before every re-run, not only on destroy. With
+   * the cleanup living in the effect above — which tracks `vh` — each drag
+   * step removed `--st-sheet-h` and immediately set it again. Nothing painted
+   * in between so nothing flickered, but the comment said "on unmount" and it
+   * was not. This effect reads no state, so it runs once and its teardown is
+   * genuinely the unmount, letting `.app-body` stop reserving height for a
+   * panel that is no longer there.
+   */
+  $effect(() => {
+    return () => document.documentElement.style.removeProperty('--st-sheet-h');
   });
 
   function start(e: PointerEvent) {
@@ -79,10 +98,8 @@
 
     const move = (ev: PointerEvent) => {
       // Dragging UP grows the sheet, which is the direction it grows on screen.
+      // The write is all this does: the effect above publishes it.
       vh = Math.min(MAX, Math.max(MIN, startVh + (startY - ev.clientY) / unit));
-      if (!frame) {
-        frame = requestAnimationFrame(() => { frame = 0; publish(); });
-      }
     };
 
     const up = () => {
@@ -108,6 +125,7 @@
     window.addEventListener('pointercancel', up);
     e.preventDefault();
   }
+
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->

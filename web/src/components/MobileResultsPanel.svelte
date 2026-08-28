@@ -45,7 +45,12 @@
   The Basic-only reopen tab that used to sit here is gone with it.
 -->
 {#if uiStore.isMobile && uiStore.mobileResultsPanelOpen && uiStore.appMode === 'pro'}
-  <div class="mrp-panel" class:mrp-pro={uiStore.appMode === 'pro'} style="top: {uiStore.appMode === 'pro' ? 4 : uiStore.floatingToolsTopOffset}px">
+  <!--
+    The `appMode === 'pro'` branches that used to be in here are gone: the
+    block above already requires it, so each one only ever took its PRO arm.
+    A ternary that cannot go both ways reads like a decision and is not one.
+  -->
+  <div class="mrp-panel mrp-pro" style="top: 4px">
     <div class="mrp-header">
       <span class="mrp-title">{t('mobile.results')}</span>
       <button class="mrp-close" onclick={() => uiStore.mobileResultsPanelOpen = false}>&times;</button>
@@ -53,7 +58,7 @@
     <div class="mrp-body">
       <!-- Solve button — always present -->
       <button class="mrp-solve" onclick={handleSolve} disabled={!hasModel}>
-        {uiStore.appMode === 'pro' ? t('pro.solve') : is3D ? t('results.solve3d') : t('results.solve')}
+        {t('pro.solve')}
       </button>
 
       {#if hasResults}
@@ -76,9 +81,8 @@
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'torsion'} onclick={() => resultsStore.diagramType = 'torsion'}>{t('results.torsion')}</button>
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'}>{t('results.axialColors')}</button>
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'}>{t('results.colorMap')}</button>
-            {#if uiStore.appMode === 'pro'}
-              <button class="mrp-btn" class:active={resultsStore.diagramType === 'verification'} onclick={() => resultsStore.diagramType = 'verification'}>{t('results.verification') !== 'results.verification' ? t('results.verification') : 'Verification'}</button>
-            {/if}
+            <!-- Also unconditional now: this whole panel is PRO. -->
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'verification'} onclick={() => resultsStore.diagramType = 'verification'}>{t('results.verification') !== 'results.verification' ? t('results.verification') : 'Verification'}</button>
           {/if}
         </div>
 
