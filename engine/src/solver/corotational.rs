@@ -342,7 +342,7 @@ fn assemble_corotational(
 /// n×n matrix. `f_int` is accumulated over ALL n DOFs exactly as in the dense
 /// path — reactions at restrained DOFs are computed from `f_int`, not from K.
 #[allow(clippy::too_many_arguments)]
-fn assemble_corotational_triplets_2d(
+pub(crate) fn assemble_corotational_triplets_2d(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],

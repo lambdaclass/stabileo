@@ -12,10 +12,12 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly;
-use super::corotational::assemble_corotational_public;
+use super::corotational::{assemble_corotational_public, assemble_corotational_triplets_2d};
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
-use super::sparse_tangent::{cached_symbolic, tangent_free_sparse, SparseSymbolicCache};
+use super::sparse_tangent::{
+    cached_symbolic, tangent_free_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
+};
 use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 
 /// Arc-length analysis input.
@@ -125,6 +127,11 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
+    // At or above SPARSE_THRESHOLD independent DOFs the tangent is assembled
+    // as lower-triangle triplets feeding the CSC sparse solve — no O(n²)
+    // dense tangent is ever built; below the threshold, dense n×n as before.
+    let sparse = ns >= SPARSE_THRESHOLD;
+
     // Sparse symbolic factorization cache (ns >= SPARSE_THRESHOLD only): the
     // tangent's sparsity pattern is constant within a solve call, so the
     // symbolic phase is computed once and only the numeric phase repeats
@@ -158,17 +165,11 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let mut step = 0;
     while step < input.max_steps {
         // Predictor: solve K_T * δu_hat = f_ref
-        let mut f_int = vec![0.0; n];
-        let mut k_t = vec![0.0; n * n];
-        assemble_corotational_public(&input.solver, &dof_num, &u_full, &mut f_int, &mut k_t);
-        add_spring_stiffness(&input.solver, &dof_num, &u_full, &mut f_int, &mut k_t);
-
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
 
         let du_hat_s = {
             // New tangent each step: factor once, solve the predictor RHS.
-            let tangent = factor_tangent(&k_ff, nf, ns, &cs, &mut sparse_sym_cache)?;
+            let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
             solve_with_tangent(&tangent, &f_ref_s, ns)?
         };
         let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s) } else { du_hat_s };
@@ -203,10 +204,8 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             total_iters += 1;
 
             // Compute residual
-            let mut f_int_new = vec![0.0; n];
-            let mut k_t_new = vec![0.0; n * n];
-            assemble_corotational_public(&input.solver, &dof_num, &u_full, &mut f_int_new, &mut k_t_new);
-            add_spring_stiffness(&input.solver, &dof_num, &u_full, &mut f_int_new, &mut k_t_new);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+            let f_int_new = &asm_t.f_int;
 
             let mut residual = vec![0.0; nf];
             for i in 0..nf {
@@ -229,9 +228,8 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             // Two-system solve with a single factorization per iteration:
             // K_T * δu_r = R   (residual correction)
             // K_T * δu_t = f_ref (tangent correction)
-            let k_ff_new = extract_submatrix(&k_t_new, n, &free_idx, &free_idx);
             let residual_s = if let Some(ref cs) = cs { cs.reduce_vector(&residual) } else { residual.clone() };
-            let tangent = factor_tangent(&k_ff_new, nf, ns, &cs, &mut sparse_sym_cache)?;
+            let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
             let du_t_s = solve_with_tangent(&tangent, &f_ref_s, ns)?;
             let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s) } else { du_r_s };
@@ -322,13 +320,19 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 
     // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs {
-        let mut f_int_final = vec![0.0; n];
-        let mut k_t_final = vec![0.0; n * n];
-        assemble_corotational_public(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
-        add_spring_stiffness(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_int_final[..nf]);
+        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let raw = if sparse {
+            // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
+            // dense final tangent is never built on the sparse path.
+            let k_ff_csc = tangent_free_sparse_triplets(
+                &asm_final.trip_rows, &asm_final.trip_cols, &asm_final.trip_vals, nf, &None,
+            );
+            fcs.compute_constraint_forces_sparse(&k_ff_csc, &u_full[..nf], &asm_final.f_int[..nf])
+        } else {
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
+            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
+        };
         super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
     } else {
         vec![]
@@ -366,6 +370,11 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     // Build constraint system (if constraints present)
     let cs_dc = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
+
+    // At or above SPARSE_THRESHOLD independent DOFs the tangent is assembled
+    // as lower-triangle triplets feeding the CSC sparse solve — no O(n²)
+    // dense tangent is ever built; below the threshold, dense n×n as before.
+    let sparse = ns_dc >= SPARSE_THRESHOLD;
 
     // Sparse symbolic factorization cache (ns >= SPARSE_THRESHOLD only): the
     // tangent's sparsity pattern is constant within a solve call, so the
@@ -410,10 +419,8 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             total_iters += 1;
 
             // Compute tangent stiffness and internal forces
-            let mut f_int = vec![0.0; n];
-            let mut k_t = vec![0.0; n * n];
-            assemble_corotational_public(&input.solver, &dof_num, &u_full, &mut f_int, &mut k_t);
-            add_spring_stiffness(&input.solver, &dof_num, &u_full, &mut f_int, &mut k_t);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+            let f_int = &asm_t.f_int;
 
             // Residual
             let mut residual = vec![0.0; nf];
@@ -435,10 +442,8 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             // Two-system solve with a single factorization per iteration:
             // K_T * δu_r = R   (residual correction)
             // K_T * δu_t = f_ref (tangent correction)
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
             let residual_s = if let Some(ref cs) = cs_dc { cs.reduce_vector(&residual) } else { residual.clone() };
-            let tangent = factor_tangent(&k_ff, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
+            let tangent = factor_assembled(&asm_t, n, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
             let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;
             let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s) } else { du_r_s };
@@ -479,13 +484,19 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
 
     // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs_dc {
-        let mut f_int_final = vec![0.0; n];
-        let mut k_t_final = vec![0.0; n * n];
-        assemble_corotational_public(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
-        add_spring_stiffness(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_int_final[..nf]);
+        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let raw = if sparse {
+            // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
+            // dense final tangent is never built on the sparse path.
+            let k_ff_csc = tangent_free_sparse_triplets(
+                &asm_final.trip_rows, &asm_final.trip_cols, &asm_final.trip_vals, nf, &None,
+            );
+            fcs.compute_constraint_forces_sparse(&k_ff_csc, &u_full[..nf], &asm_final.f_int[..nf])
+        } else {
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
+            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
+        };
         super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
     } else {
         vec![]
@@ -541,12 +552,6 @@ enum FactoredTangent {
 /// sparse (`reduce_matrix_sparse`) at or above `SPARSE_THRESHOLD` independent
 /// DOFs, dense (`reduce_matrix`) below it, keeping the dense path
 /// byte-identical to before.
-///
-/// Sparse path: symbolic factorization is cached across iterations (the
-/// pattern is constant within a solve call); if the numeric phase reports a
-/// non-SPD tangent, falls back to dense LU, size-capped by
-/// `MAX_DENSE_FALLBACK_DOFS` — mirrors `sparse_tangent::solve_tangent_sparse` /
-/// `time_integration::factor_effective_stiffness`.
 fn factor_tangent(
     k_ff: &[f64],
     nf: usize,
@@ -556,19 +561,7 @@ fn factor_tangent(
 ) -> Result<FactoredTangent, String> {
     if ns >= SPARSE_THRESHOLD {
         let k_s_csc = tangent_free_sparse(k_ff, nf, cs);
-        let sym = cached_symbolic(cache, &k_s_csc);
-        if let Some(num) = numeric_cholesky(sym, &k_s_csc) {
-            return Ok(FactoredTangent::Sparse { num });
-        }
-        // Sparse Cholesky reports a non-SPD tangent: dense LU fallback,
-        // size-capped like corotational/time_integration.
-        if ns > MAX_DENSE_FALLBACK_DOFS {
-            return Err(format!(
-                "Tangent stiffness is not SPD (sparse Cholesky) and the dense LU fallback would need a {ns}×{ns} dense matrix ({} MB), over the {MAX_DENSE_FALLBACK_DOFS}-DOF ceiling",
-                8 * ns * ns / 1_000_000
-            ));
-        }
-        return factor_tangent_lu(k_s_csc.to_dense_symmetric(), ns);
+        return factor_tangent_sparse(&k_s_csc, ns, cache);
     }
 
     let k_s = if let Some(ref cs) = cs { cs.reduce_matrix(k_ff) } else { k_ff.to_vec() };
@@ -577,6 +570,32 @@ fn factor_tangent(
         return Ok(FactoredTangent::Cholesky { l });
     }
     factor_tangent_lu(k_s, ns)
+}
+
+/// Sparse factorization of an already constraint-reduced CSC tangent:
+/// symbolic factorization is cached across iterations (the pattern is
+/// constant within a solve call); if the numeric phase reports a non-SPD
+/// tangent, falls back to dense LU, size-capped by `MAX_DENSE_FALLBACK_DOFS` —
+/// mirrors `sparse_tangent::solve_tangent_sparse` /
+/// `time_integration::factor_effective_stiffness`.
+fn factor_tangent_sparse(
+    k_s_csc: &CscMatrix,
+    ns: usize,
+    cache: &mut Option<SparseSymbolicCache>,
+) -> Result<FactoredTangent, String> {
+    let sym = cached_symbolic(cache, k_s_csc);
+    if let Some(num) = numeric_cholesky(sym, k_s_csc) {
+        return Ok(FactoredTangent::Sparse { num });
+    }
+    // Sparse Cholesky reports a non-SPD tangent: dense LU fallback,
+    // size-capped like corotational/time_integration.
+    if ns > MAX_DENSE_FALLBACK_DOFS {
+        return Err(format!(
+            "Tangent stiffness is not SPD (sparse Cholesky) and the dense LU fallback would need a {ns}×{ns} dense matrix ({} MB), over the {MAX_DENSE_FALLBACK_DOFS}-DOF ceiling",
+            8 * ns * ns / 1_000_000
+        ));
+    }
+    factor_tangent_lu(k_s_csc.to_dense_symmetric(), ns)
 }
 
 /// Dense LU factorization with partial pivoting — identical factorization
@@ -658,14 +677,16 @@ fn solve_with_tangent(factored: &FactoredTangent, rhs: &[f64], nf: usize) -> Res
 // live in `super::sparse_tangent` (shared with corotational and contact).
 
 /// Add spring stiffness from supports to tangent stiffness and internal forces.
+/// `scatter` receives the diagonal stiffness entries: dense `k_t[gi*n+gj]` for
+/// the small-model path, lower-triangle triplets for the sparse path (mirrors
+/// corotational's `add_spring_contributions`).
 fn add_spring_stiffness(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
     f_int: &mut [f64],
-    k_t: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let n = dof_num.n_total;
     for sup in input.supports.values() {
         if sup.support_type != "spring" { continue; }
         let springs = [(0, sup.kx), (1, sup.ky), (2, sup.kz)];
@@ -673,13 +694,85 @@ fn add_spring_stiffness(
             if let Some(k) = k_opt {
                 if k > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        k_t[d * n + d] += k;
+                        scatter(d, d, k);
                         f_int[d] += k * u_full[d];
                     }
                 }
             }
         }
     }
+}
+
+/// Co-rotational tangent + internal forces for one Newton iteration: dense n×n
+/// tangent below `SPARSE_THRESHOLD`, lower-triangle (gi >= gj) COO triplets at
+/// or above it — the sparse path never materializes the O(n²) dense tangent.
+/// `f_int` is accumulated over ALL n DOFs identically in both paths.
+struct TangentAssembly {
+    f_int: Vec<f64>,
+    /// Dense n×n tangent (dense path only; empty on the sparse path)
+    k_t: Vec<f64>,
+    /// Lower-triangle triplets (sparse path only)
+    trip_rows: Vec<usize>,
+    trip_cols: Vec<usize>,
+    trip_vals: Vec<f64>,
+}
+
+fn assemble_tangent(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    sparse: bool,
+) -> TangentAssembly {
+    let n = dof_num.n_total;
+    let mut f_int = vec![0.0; n];
+    let mut k_t: Vec<f64> = Vec::new();
+    let mut trip_rows: Vec<usize> = Vec::new();
+    let mut trip_cols: Vec<usize> = Vec::new();
+    let mut trip_vals: Vec<f64> = Vec::new();
+
+    if sparse {
+        assemble_corotational_triplets_2d(
+            input, dof_num, u_full, &mut f_int,
+            &mut trip_rows, &mut trip_cols, &mut trip_vals,
+        );
+        add_spring_stiffness(input, dof_num, u_full, &mut f_int, &mut |gi, gj, v| {
+            debug_assert!(gi >= gj, "spring stiffness is diagonal");
+            trip_rows.push(gi);
+            trip_cols.push(gj);
+            trip_vals.push(v);
+        });
+    } else {
+        k_t = vec![0.0; n * n];
+        assemble_corotational_public(input, dof_num, u_full, &mut f_int, &mut k_t);
+        add_spring_stiffness(input, dof_num, u_full, &mut f_int, &mut |gi, gj, v| {
+            k_t[gi * n + gj] += v;
+        });
+    }
+
+    TangentAssembly { f_int, k_t, trip_rows, trip_cols, trip_vals }
+}
+
+/// Factor the assembled tangent once for repeated solves over multiple
+/// right-hand sides. Sparse path: free×free triplets -> constraint-reduced CSC
+/// -> cached-symbolic sparse Cholesky. Dense path: extract the free block and
+/// factor exactly as before.
+fn factor_assembled(
+    asm: &TangentAssembly,
+    n: usize,
+    nf: usize,
+    ns: usize,
+    cs: &Option<FreeConstraintSystem>,
+    cache: &mut Option<SparseSymbolicCache>,
+) -> Result<FactoredTangent, String> {
+    if ns >= SPARSE_THRESHOLD {
+        let k_s_csc = tangent_free_sparse_triplets(
+            &asm.trip_rows, &asm.trip_cols, &asm.trip_vals, nf, cs,
+        );
+        return factor_tangent_sparse(&k_s_csc, ns, cache);
+    }
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let k_ff = extract_submatrix(&asm.k_t, n, &free_idx, &free_idx);
+    factor_tangent(&k_ff, nf, ns, cs, cache)
 }
 
 #[cfg(test)]
