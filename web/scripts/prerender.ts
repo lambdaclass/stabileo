@@ -155,7 +155,9 @@ async function capture(browser: Browser, base: string, locale: Locale, path: str
     }
   }, locale);
 
-  const href = path === '/' ? `/${locale}` : `/${locale}${path}`;
+  // Visited in the same slashed form the site publishes, so the capture
+  // happens on the address a reader actually lands on.
+  const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
   // The landing reveals sections on scroll; a capture of the top of the page
   // would ship most of the copy inside elements that are still transparent.
@@ -251,17 +253,20 @@ async function main() {
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
         LOCALES.flatMap((locale) =>
           paths.map((path) => {
-            const loc = `${ORIGIN}/${locale}${path === '/' ? '' : path}`;
+            // Trailing slash, matching the canonical the page declares — see
+            // publicHref in src/lib/i18n/public-routes.ts. Without it every
+            // entry in this file was a URL that answers 301.
+            const loc = `${ORIGIN}/${locale}${path === '/' ? '' : path}/`;
             const alts = LOCALES.map(
               (l) =>
-                `    <xhtml:link rel="alternate" hreflang="${l}" href="${ORIGIN}/${l}${path === '/' ? '' : path}"/>`,
+                `    <xhtml:link rel="alternate" hreflang="${l}" href="${ORIGIN}/${l}${path === '/' ? '' : path}/"/>`,
             ).join('\n');
             // x-default follows the page, exactly as it does in the pages'
             // own <head> — see alternateUrls() in src/lib/i18n/public-routes.ts.
             // This was `${ORIGIN}/${DEFAULT_LOCALE}` for every entry, which
             // pointed the default of every URL in the file at the English home
             // page instead of at the page declaring it.
-            const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}`;
+            const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}/`;
             return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${TODAY}</lastmod>\n${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
           }),
         ).join('\n') +

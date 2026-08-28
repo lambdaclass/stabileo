@@ -40,10 +40,25 @@ describe('parsePublicPath', () => {
 });
 
 describe('publicHref / publicUrl', () => {
-  it('builds the prefixed form', () => {
-    expect(publicHref('/blog/x', 'pt')).toBe('/pt/blog/x');
-    expect(publicHref('/', 'es')).toBe('/es');
-    expect(publicUrl('/blog', 'en')).toBe(`${SITE_ORIGIN}/en/blog`);
+  it('builds the prefixed form, with the trailing slash the host serves', () => {
+    /*
+     * The slash is the point. Pages are directories on disk and GitHub Pages
+     * answers a directory with a 301 to the slashed form, so the unslashed
+     * URLs these used to return were addresses the site redirects rather than
+     * addresses it serves — and they were what the canonical, the hreflang
+     * set and the sitemap all named.
+     */
+    expect(publicHref('/blog/x', 'pt')).toBe('/pt/blog/x/');
+    expect(publicHref('/', 'es')).toBe('/es/');
+    expect(publicUrl('/blog', 'en')).toBe(`${SITE_ORIGIN}/en/blog/`);
+  });
+
+  it('never emits a double slash, whatever the caller passes', () => {
+    expect(publicHref('/blog/', 'en')).toBe('/en/blog/');
+    expect(publicHref('blog', 'en')).toBe('/en/blog/');
+    for (const href of [publicHref('/', 'en'), publicHref('/blog/', 'pt')]) {
+      expect(href).not.toMatch(/\/\//);
+    }
   });
 
   it('round-trips with the parser', () => {
@@ -67,7 +82,7 @@ describe('alternateUrls', () => {
     // that is not canonical for itself. The PATH has to follow the page, and
     // it did not: this asserted `${SITE_ORIGIN}/en` while the site was telling
     // crawlers that unmatched readers of every post belonged on the home page.
-    expect(alts.find((a) => a.hreflang === 'x-default')!.href).toBe(`${SITE_ORIGIN}/en/blog/x`);
+    expect(alts.find((a) => a.hreflang === 'x-default')!.href).toBe(`${SITE_ORIGIN}/en/blog/x/`);
   });
 
   it('keeps x-default on the page it is declared on, for every route', () => {

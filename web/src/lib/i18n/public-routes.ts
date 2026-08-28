@@ -64,10 +64,33 @@ export function parsePublicPath(pathname: string): PublicRoute {
 	return { locale: null, path: pathname === '' ? '/' : pathname };
 }
 
-/** `('/blog/x', 'pt')` → `/pt/blog/x`. The root of a language has no trailing slash. */
+/**
+ * `('/blog/x', 'pt')` → `/pt/blog/x/`. Every public URL ends in a slash.
+ *
+ * ── Why the trailing slash is not cosmetic ──
+ *
+ * The pages are directories on disk — `dist/pt/blog/x/index.html` — and
+ * GitHub Pages answers a directory request with a **301 to the slashed
+ * form**. That cannot be turned off. So `/pt/blog/x` was never an address
+ * this site serves; it was an address it redirects.
+ *
+ * These functions feed the canonical link, the hreflang set, the sitemap and
+ * every internal link, and they all named the unslashed form. The result was
+ * a site whose sitemap listed eighteen redirects, and whose pages each
+ * declared a canonical URL that redirected back to the page declaring it.
+ *
+ * Google resolves that chain in practice. What it says about the language
+ * links is sharper: the canonical and the hreflang have to agree, and if they
+ * do not it may ignore the hreflang — which would cost the three-language
+ * linkage this whole URL scheme exists to express.
+ *
+ * `parsePublicPath` reads both forms, so old links keep working; they take
+ * the one redirect they always did.
+ */
 export function publicHref(path: string, locale: PublicLocale): string {
 	const clean = path === '/' ? '' : path.startsWith('/') ? path : `/${path}`;
-	return `/${locale}${clean}`;
+	// Guard the double slash: a caller may already have passed '/blog/'.
+	return `/${locale}${clean.replace(/\/+$/, '')}/`;
 }
 
 /** The same, absolute. Canonical and hreflang may not be relative. */

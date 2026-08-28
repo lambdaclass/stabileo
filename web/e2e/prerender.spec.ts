@@ -110,7 +110,9 @@ async function expectPrerenderedShape(page: Page) {
 }
 
 async function expectLinks(page: Page, path: string, locale: Locale) {
-  const canonicalPath = path === '/' ? '' : path;
+  // Trailing slash: the address the host serves, and now the one the page
+  // declares. See publicHref in src/lib/i18n/public-routes.ts.
+  const canonicalPath = `${path === '/' ? '' : path}/`;
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',
     `${ORIGIN}/${locale}${canonicalPath}`,
@@ -171,7 +173,7 @@ test.describe('@smoke prerender', () => {
         const data = JSON.parse(raw!);
         expect(data['@type']).toBe('BlogPosting');
         expect(data.inLanguage).toBe(locale);
-        expect(data.url).toBe(`${ORIGIN}/${locale}/blog/${SLUG}`);
+        expect(data.url).toBe(`${ORIGIN}/${locale}/blog/${SLUG}/`);
       } finally {
         await close();
       }
@@ -190,12 +192,12 @@ test.describe('@smoke prerender', () => {
       const hrefs = await page
         .locator('#prerender a[href^="/es"]')
         .evaluateAll((els) => els.map((e) => e.getAttribute('href') ?? ''));
-      expect(hrefs, 'the landing must link to the blog index').toContain('/es/blog');
+      expect(hrefs, 'the landing must link to the blog index').toContain('/es/blog/');
       // Named by shape rather than by slug: the section previews whatever is
       // newest, so pinning a slug here would fail on the next post rather than
       // on a broken link.
       expect(
-        hrefs.filter((h) => /^\/es\/blog\/[^/]+$/.test(h)),
+        hrefs.filter((h) => /^\/es\/blog\/[^/]+\/$/.test(h)),
         'and straight into a post, in the reader’s language',
       ).not.toHaveLength(0);
     } finally {
@@ -210,7 +212,7 @@ test.describe('@smoke prerender', () => {
     try {
       await expectPrerenderedShape(page);
       await expect(page.locator('#prerender')).toContainText(HERO.en);
-      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${ORIGIN}/en`);
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${ORIGIN}/en/`);
     } finally {
       await close();
     }
@@ -231,7 +233,7 @@ test.describe('@smoke prerender', () => {
     try {
       await page.goto('/?utm_source=review');
       // Generous: this is the only test here that boots the application.
-      await expect(page).toHaveURL(/\/pt\?utm_source=review$/, { timeout: 30_000 });
+      await expect(page).toHaveURL(/\/pt\/\?utm_source=review$/, { timeout: 30_000 });
     } finally {
       await ctx.close();
     }
