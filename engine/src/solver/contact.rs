@@ -27,6 +27,9 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::linear;
 use super::constraints::FreeConstraintSystem;
+use super::sparse_tangent::{
+    solve_tangent_sparse, tangent_free_sparse, SparseSymbolicCache,
+};
 
 use serde::{Serialize, Deserialize};
 
@@ -320,6 +323,13 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
     // Element-level oscillation tracking for diagnostics
     let mut elem_flip_count: HashMap<usize, usize> = HashMap::new();
 
+    // Sparse symbolic factorization cache (ns >= SPARSE_THRESHOLD only): the
+    // CSC pattern fingerprint detects active-set changes (a gap or
+    // node-to-surface pair opening/closing adds or removes entries in the
+    // free block), so the symbolic phase is rebuilt only when the pattern
+    // actually changes between contact iterations.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     // Augmented Lagrangian outer loop
     let al_outer_iters = if al_factor > 0.0 { al_max_iter } else { 1 };
     let mut al_iter_count: usize = 0;
@@ -564,13 +574,23 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
             let f_f: Vec<f64> = asm.f[..nf].to_vec();
-            let (k_s, f_s) = if let Some(ref cs) = cs {
-                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            let u_indep = if ns >= linear::SPARSE_THRESHOLD {
+                // Sparse path: CSC + optional constraint reduction in sparse
+                // form, then sparse Cholesky (cached symbolic, LU fallback
+                // capped by MAX_DENSE_FALLBACK_DOFS on non-SPD systems).
+                let f_s = if let Some(ref cs) = cs {
+                    cs.reduce_vector(&f_f)
+                } else {
+                    f_f
+                };
+                let k_s_csc = tangent_free_sparse(&k_ff, nf, &cs);
+                solve_tangent_sparse(&k_s_csc, &f_s, &mut sparse_sym_cache)?
             } else {
-                (k_ff, f_f)
-            };
-
-            let u_indep = {
+                let (k_s, f_s) = if let Some(ref cs) = cs {
+                    (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+                } else {
+                    (k_ff, f_f)
+                };
                 let mut k_work = k_s.clone();
                 match cholesky_solve(&mut k_work, &f_s, ns) {
                     Some(u) => u,
@@ -953,6 +973,13 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
     // Element-level oscillation tracking for diagnostics
     let mut elem_flip_count: HashMap<usize, usize> = HashMap::new();
 
+    // Sparse symbolic factorization cache (ns >= SPARSE_THRESHOLD only): the
+    // CSC pattern fingerprint detects active-set changes (a gap opening or
+    // closing adds or removes entries in the free block), so the symbolic
+    // phase is rebuilt only when the pattern actually changes between
+    // contact iterations.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     // Augmented Lagrangian outer loop
     let al_outer_iters = if al_factor > 0.0 { al_max_iter } else { 1 };
     let mut al_iter_count: usize = 0;
@@ -1054,13 +1081,23 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
             let f_f: Vec<f64> = asm.f[..nf].to_vec();
-            let (k_s, f_s) = if let Some(ref cs) = cs {
-                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            let u_indep = if ns >= linear::SPARSE_THRESHOLD {
+                // Sparse path: CSC + optional constraint reduction in sparse
+                // form, then sparse Cholesky (cached symbolic, LU fallback
+                // capped by MAX_DENSE_FALLBACK_DOFS on non-SPD systems).
+                let f_s = if let Some(ref cs) = cs {
+                    cs.reduce_vector(&f_f)
+                } else {
+                    f_f
+                };
+                let k_s_csc = tangent_free_sparse(&k_ff, nf, &cs);
+                solve_tangent_sparse(&k_s_csc, &f_s, &mut sparse_sym_cache)?
             } else {
-                (k_ff, f_f)
-            };
-
-            let u_indep = {
+                let (k_s, f_s) = if let Some(ref cs) = cs {
+                    (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+                } else {
+                    (k_ff, f_f)
+                };
                 let mut k_work = k_s.clone();
                 match cholesky_solve(&mut k_work, &f_s, ns) {
                     Some(u) => u,

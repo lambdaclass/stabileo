@@ -536,3 +536,113 @@ fn test_convergence_stable_problem() {
     let e1_info = result.element_status.iter().find(|e| e.element_id == 1).unwrap();
     assert_eq!(e1_info.status, "active", "Tension-only bar under tension should stay active");
 }
+
+/// Test 9: Sparse solve path (nf >= SPARSE_THRESHOLD) matches the dense path.
+///
+/// A cantilever pressed axially against a rigid wall via a gap element is
+/// meshed twice: coarsely (4 elements, 12 free DOFs -> dense Cholesky) and
+/// finely (24 elements, 72 free DOFs -> sparse Cholesky with the cached
+/// symbolic factorization rebuilt when the gap closes and the CSC pattern
+/// changes). The axial response is mesh-independent, so both paths must
+/// produce the same tip displacement and gap force.
+#[test]
+fn test_sparse_path_parity_with_dense() {
+    // EA/L_total = 200*1000*0.01/24 = 83.333 kN/m; gap: g = 0.001 m, k = 5000 kN/m.
+    // P = 500 kN closes the gap (open-state tip disp P*L/EA = 6.0 m >> g).
+    // Closed state (penalty adds k to K with no RHS offset):
+    // u = P/(EA/L + k) = 500/5083.333 = 0.098361 m > g -> stays closed,
+    // gap force = k*(u - g) = 486.8 kN.
+    let length = 24.0;
+    let gap_open = 0.001;
+    let gap_k = 5000.0;
+    let load = 500.0;
+
+    let make_model = |n_elem: usize| {
+        let mut nodes: Vec<(usize, SolverNode)> = Vec::new();
+        let mut elems: Vec<(usize, SolverElement)> = Vec::new();
+        for i in 0..=n_elem {
+            nodes.push((i + 1, node(i + 1, length * i as f64 / n_elem as f64, 0.0)));
+        }
+        for i in 0..n_elem {
+            elems.push((i + 1, frame(i + 1, i + 1, i + 2)));
+        }
+        let tip = n_elem + 1;
+        let wall = n_elem + 2;
+        nodes.push((wall, node(wall, length + gap_open, 0.0)));
+
+        let solver = SolverInput {
+            nodes: hm(nodes),
+            materials: hm(vec![(1, mat())]),
+            sections: hm(vec![(1, sec())]),
+            elements: hm(elems),
+            supports: hm(vec![
+                (1, fixed(1, 1)),
+                (2, fixed(2, wall)),
+            ]),
+            loads: vec![
+                SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: load, fz: 0.0, my: 0.0 }),
+            ],
+            constraints: vec![],
+            connectors: HashMap::new(),
+        };
+
+        ContactInput {
+            solver,
+            element_behaviors: HashMap::new(),
+            gap_elements: vec![GapElement {
+                id: 1,
+                node_i: tip,
+                node_j: wall,
+                direction: 0,
+                initial_gap: gap_open,
+                stiffness: gap_k,
+                friction: None,
+                friction_direction: None,
+                friction_coefficient: None,
+            }],
+            uplift_supports: vec![],
+            max_iter: Some(30),
+            tolerance: None,
+            augmented_lagrangian: None,
+            max_flips: None,
+            damping_coefficient: None,
+            al_max_iter: None,
+            contact_type: ContactType::default(),
+            node_to_surface_pairs: vec![],
+        }
+    };
+
+    // Coarse: nf = 3 * 4 = 12 < SPARSE_THRESHOLD -> dense path.
+    let dense = solve_contact_2d(&make_model(4)).unwrap();
+    // Fine: nf = 3 * 24 = 72 >= SPARSE_THRESHOLD -> sparse path.
+    let sparse = solve_contact_2d(&make_model(24)).unwrap();
+
+    assert!(dense.converged, "dense-path contact solve should converge");
+    assert!(sparse.converged, "sparse-path contact solve should converge");
+    assert_eq!(dense.gap_status[0].status, "closed", "contact should be detected (dense)");
+    assert_eq!(sparse.gap_status[0].status, "closed", "contact should be detected (sparse)");
+
+    // Analytical tip displacement for the closed-gap state.
+    let ea_l = 200.0 * 1000.0 * 0.01 / length;
+    let u_exact = load / (ea_l + gap_k);
+    let u_dense = -dense.gap_status[0].displacement;
+    let u_sparse = -sparse.gap_status[0].displacement;
+    assert!(
+        (u_dense - u_exact).abs() / u_exact < 1e-6,
+        "dense tip displacement {} vs analytical {}",
+        u_dense, u_exact
+    );
+    assert!(
+        (u_sparse - u_exact).abs() / u_exact < 1e-6,
+        "sparse tip displacement {} vs analytical {}",
+        u_sparse, u_exact
+    );
+
+    // Sparse/dense parity on gap displacement and transmitted force.
+    let rel_disp = (u_sparse - u_dense).abs() / u_dense.abs().max(1e-30);
+    assert!(rel_disp < 1e-6, "sparse/dense tip displacement parity: {}", rel_disp);
+    let f_dense = dense.gap_status[0].force.abs();
+    let f_sparse = sparse.gap_status[0].force.abs();
+    let rel_force = (f_sparse - f_dense).abs() / f_dense.max(1e-30);
+    assert!(rel_force < 1e-6, "sparse/dense gap force parity: {}", rel_force);
+}
