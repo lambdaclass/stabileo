@@ -488,16 +488,35 @@ const GOLDEN_BUCKLING_2D: [f64; 4] = [
 /// Load factors from pre-refactor `solve_buckling_3d` on the 3D cantilever
 /// column with Iy=2e-4, Iz=1e-4 (n_elem=60 → nf=354 → sparse op path).
 const GOLDEN_BUCKLING_3D: [f64; 4] = [
-    // π²/2 and π² exactly — the analytical Euler cantilever, in the 2:1 ratio the
-    // two bending axes require. The previous values were not a clean multiple of
+    // π²/2, π², 9π²/2, 9π² — the analytical Euler cantilever, in the 2:1 ratio
+    // the two bending axes require and the 1:9 ratio the first two modes of each
+    // axis require. The pre-refactor values were not a clean multiple of
     // anything, which is what a wrong recurrence looks like from the outside.
-    // Recaptured after the quotient-graph AMD rewrite: the new elimination
-    // order shifts the values by ~1e-10 relative and lands them even closer
-    // to the analytical π²/2 and π² (rel err 4.2e-11 and 3.4e-11).
-    4.934802200338300e0,
-    9.869604400752904e0,
-    4.4413222150346584e1,
-    8.882644430544299e1,
+    //
+    // Recaptured twice since. First after the quotient-graph AMD rewrite, whose
+    // new elimination order moved them ~1e-10. Then after the Lanczos recurrence
+    // moved its inner product from -Kg to K: the basis is different, so the
+    // floating-point path is different, and mode 0 moved 2.4e-10.
+    //
+    // That second recapture cost a little accuracy rather than gaining it —
+    // modes 0 and 1 sit 1.98e-10 and 3.46e-10 from the closed form, against
+    // 4.2e-11 and 3.4e-11 before. Worth stating plainly: the K inner product is
+    // not here to sharpen these four numbers, it is here to keep the iteration
+    // on the sparse path (see `buckling_lanczos_stays_sparse_when_kg_is_indefinite`),
+    // and a shift ten orders below any engineering tolerance is what it costs.
+    //
+    // Modes 2 and 3 sit 5.3e-8 from the closed form. That is discretization —
+    // 60 elements resolving the second buckling mode — not the solver, and it
+    // was equally present in the previous golden.
+    //
+    // The 1e-10 gate is a change-detector on an iterative eigensolver, not an
+    // accuracy claim. It fires on any reordering of floating-point work, which
+    // is precisely its job; when it fires, check against the closed form above
+    // before recapturing.
+    4.934802201521506e0,
+    9.869604397670097e0,
+    4.441322215148967e1,
+    8.882644430636768e1,
 ];
 
 #[test]
@@ -526,6 +545,22 @@ fn buckling_3d_sparse_op_parity() {
     let result = buckling::solve_buckling_3d(&input, 4).unwrap();
     let actual: Vec<f64> = result.modes.iter().map(|m| m.load_factor).collect();
     assert_matches_golden(&actual, &GOLDEN_BUCKLING_3D, 0.0, 1e-10, "buckling 3D golden");
+
+    // The golden pins the exact floating-point path; the closed form pins the
+    // answer. Keep both: when a recurrence or ordering change trips the golden,
+    // this is what says whether the new numbers are still right.
+    let pi2 = std::f64::consts::PI * std::f64::consts::PI;
+    for (i, &exact) in [pi2 / 2.0, pi2, 9.0 * pi2 / 2.0, 9.0 * pi2].iter().enumerate() {
+        let rel = (actual[i] - exact).abs() / exact;
+        // 1e-6 covers the 5.3e-8 discretization error on modes 2 and 3 with room
+        // to spare, and is still ~4 orders tighter than any wrong recurrence.
+        assert!(
+            rel < 1e-6,
+            "buckling 3D mode {i} = {:.12e} is {:.2e} from the analytical Euler \
+             cantilever {:.12e}: the eigenvalues are no longer physical",
+            actual[i], rel, exact,
+        );
+    }
 }
 
 /// The generalized eigenpath must return actual EIGENVECTORS.
