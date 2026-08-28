@@ -19,6 +19,7 @@ use super::linear::{
 };
 use super::prestress::prestress_fef_2d;
 use super::constraints::FreeConstraintSystem;
+use super::sparse_tangent::{SparseSymbolicCache, tangent_free_sparse, solve_tangent_sparse};
 use crate::element::cable::cable_self_weight;
 
 /// Solve a 2D staged construction analysis.
@@ -72,6 +73,11 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
     let mut active_supports: HashSet<usize> = HashSet::new();
     let mut cumulative_loads: Vec<SolverLoad> = Vec::new();
     let mut stage_results = Vec::new();
+
+    // Sparse symbolic Cholesky cache, reused across stages where the active
+    // set keeps the same sparsity pattern (the fingerprinted cache rebuilds
+    // it when a stage changes the pattern). Used only when ns >= SPARSE_THRESHOLD.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
     for (stage_idx, stage) in input.stages.iter().enumerate() {
         // Update active sets
@@ -158,15 +164,19 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             continue;
         }
 
-        // Reduce with constraint system if present
-        let (k_s, f_s) = if let Some(ref cs) = cs {
-            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
-        } else {
-            (k_ff, f_f)
-        };
-
         // Solve for incremental displacements in (possibly reduced) space
-        let u_s_inc = {
+        let u_s_inc = if ns >= super::linear::SPARSE_THRESHOLD {
+            // Sparse path: CSC + sparse Cholesky with cached symbolic.
+            let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
+            let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
+        } else {
+            // Reduce with constraint system if present
+            let (k_s, f_s) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            } else {
+                (k_ff, f_f)
+            };
             let mut k_work = k_s.clone();
             match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
@@ -598,6 +608,10 @@ fn iterate_cables_staged_2d(
     const MAX_CABLE_ITER: usize = 30;
     const CABLE_TOL: f64 = 1e-4;
 
+    // Sparse symbolic Cholesky cache for the per-iteration solves (pattern
+    // constant; fingerprint rebuilds it if an Ernst correction crosses zero).
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     // Precompute cable geometry
     struct CableInfo {
         elem_id: usize,
@@ -721,7 +735,14 @@ fn iterate_cables_staged_2d(
             f_f[i] -= k_fr_ur[i];
         }
 
-        let u_f = {
+        let u_f = if nf >= super::linear::SPARSE_THRESHOLD {
+            // Sparse path: CSC + sparse Cholesky with cached symbolic.
+            let k_csc = tangent_free_sparse(&k_ff, nf, &None);
+            match solve_tangent_sparse(&k_csc, &f_f, &mut sparse_sym_cache) {
+                Ok(u) => u,
+                Err(_) => break, // Can't solve, keep current state
+            }
+        } else {
             let mut k_work = k_ff.clone();
             match cholesky_solve(&mut k_work, &f_f, nf) {
                 Some(u) => u,
@@ -849,6 +870,11 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
     let mut active_quads: HashSet<usize> = HashSet::new();
     let mut stage_results = Vec::new();
 
+    // Sparse symbolic Cholesky cache, reused across stages where the active
+    // set keeps the same sparsity pattern (the fingerprinted cache rebuilds
+    // it when a stage changes the pattern). Used only when ns >= SPARSE_THRESHOLD.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for (stage_idx, stage) in input.stages.iter().enumerate() {
         // Update active sets
         for &eid in &stage.elements_added {
@@ -930,15 +956,19 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             continue;
         }
 
-        // Reduce with constraint system if present
-        let (k_s, f_s) = if let Some(ref cs) = cs {
-            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
-        } else {
-            (k_ff, f_f)
-        };
-
         // Solve for incremental displacements in (possibly reduced) space
-        let u_s_inc = {
+        let u_s_inc = if ns >= super::linear::SPARSE_THRESHOLD {
+            // Sparse path: CSC + sparse Cholesky with cached symbolic.
+            let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
+            let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
+        } else {
+            // Reduce with constraint system if present
+            let (k_s, f_s) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            } else {
+                (k_ff, f_f)
+            };
             let mut k_work = k_s.clone();
             match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,

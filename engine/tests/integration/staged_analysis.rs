@@ -623,3 +623,111 @@ fn staged_braced_frame_matches_linear_results() {
         );
     }
 }
+
+/// Test N: sparse-path parity — same two-stage construction on meshes just
+/// below (n_elem=20, nf=63, dense) and just above (n_elem=24, nf=69, sparse)
+/// SPARSE_THRESHOLD. Stage 1 builds an unloaded cantilever from the fixed
+/// end, stage 2 adds the rest plus the far support and the loads. Since no
+/// load acts during stage 1, the final state must equal a linear solve of
+/// the full structure under the stage-2 loads — check each mesh against its
+/// own linear reference.
+#[test]
+fn staged_sparse_path_matches_linear_reference() {
+    for n_elem in [20usize, 24] {
+        let length = 24.0;
+        let half = n_elem / 2;
+
+        let mut nodes = HashMap::new();
+        for i in 0..=n_elem {
+            let id = i + 1;
+            nodes.insert(id.to_string(), SolverNode {
+                id, x: length * i as f64 / n_elem as f64, z: 0.0,
+            });
+        }
+
+        let mut materials = HashMap::new();
+        materials.insert("m1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+
+        let mut sections = HashMap::new();
+        sections.insert("s1".into(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None });
+
+        let mut elements = HashMap::new();
+        for i in 0..n_elem {
+            elements.insert((i + 1).to_string(), SolverElement {
+                id: i + 1, elem_type: "frame".into(),
+                node_i: i + 1, node_j: i + 2,
+                material_id: 1, section_id: 1,
+                hinge_start: false, hinge_end: false,
+            });
+        }
+
+        let mut supports = HashMap::new();
+        supports.insert("s1".into(), SolverSupport {
+            id: 1, node_id: 1, support_type: "fixed".into(),
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
+        });
+        supports.insert("s2".into(), SolverSupport {
+            id: 2, node_id: n_elem + 1, support_type: "pinned".into(),
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
+        });
+
+        // Uniform-ish nodal load on the interior deck nodes (stage 2).
+        let loads: Vec<SolverLoad> = (1..n_elem)
+            .map(|i| SolverLoad::Nodal(SolverNodalLoad {
+                node_id: i + 1, fx: 0.0, fz: -10.0, my: 0.0,
+            }))
+            .collect();
+        let load_indices: Vec<usize> = (0..loads.len()).collect();
+
+        let staged_input = StagedInput {
+            nodes: nodes.clone(),
+            materials: materials.clone(),
+            sections: sections.clone(),
+            elements: elements.clone(),
+            supports: supports.clone(),
+            loads: loads.clone(),
+            stages: vec![
+                ConstructionStage {
+                    name: "Cantilever".into(),
+                    elements_added: (1..=half).collect(),
+                    elements_removed: vec![],
+                    load_indices: vec![],
+                    supports_added: vec![1],
+                    supports_removed: vec![],
+                    prestress_loads: vec![],
+                },
+                ConstructionStage {
+                    name: "Full span".into(),
+                    elements_added: (half + 1..=n_elem).collect(),
+                    elements_removed: vec![],
+                    load_indices,
+                    supports_added: vec![2],
+                    supports_removed: vec![],
+                    prestress_loads: vec![],
+                },
+            ],
+            constraints: vec![],
+        };
+
+        let staged = solve_staged_2d(&staged_input).unwrap();
+
+        let normal_input = SolverInput {
+            nodes, materials, sections, elements, supports, loads,
+            constraints: vec![], connectors: HashMap::new(),
+        };
+        let normal = dedaliano_engine::solver::linear::solve_2d(&normal_input).unwrap();
+
+        let mid = n_elem / 2 + 1;
+        let uz_staged = staged.final_results.displacements.iter()
+            .find(|d| d.node_id == mid).unwrap().uz;
+        let uz_normal = normal.displacements.iter()
+            .find(|d| d.node_id == mid).unwrap().uz;
+
+        let rel = (uz_staged - uz_normal).abs() / uz_normal.abs().max(1e-15);
+        assert!(
+            rel < 1e-6,
+            "n_elem={} staged vs linear midspan: staged={:.8e}, linear={:.8e}",
+            n_elem, uz_staged, uz_normal
+        );
+    }
+}
