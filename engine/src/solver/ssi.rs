@@ -20,6 +20,7 @@ use super::assembly;
 use super::linear;
 use super::soil_curves::{SoilCurve, evaluate_soil_curve};
 use super::constraints::FreeConstraintSystem;
+use super::sparse_tangent::{SparseSymbolicCache, tangent_free_sparse, solve_tangent_sparse};
 
 /// Soil spring attached to a node along a pile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +123,11 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
     let mut converged = false;
     let mut total_iters = 0;
 
+    // Sparse symbolic Cholesky reused across iterations (spring stiffnesses
+    // change values, not the pattern; the fingerprinted cache rebuilds the
+    // symbolic if an entry ever crosses exactly zero).
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
@@ -141,13 +147,18 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
         let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
         let f_f: Vec<f64> = f_global[..nf].to_vec();
 
-        let (k_s, f_s) = if let Some(ref cs) = cs {
-            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+        let u_indep = if ns >= linear::SPARSE_THRESHOLD {
+            // Sparse path: CSC + sparse Cholesky with cached symbolic.
+            let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
+            let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
         } else {
-            (k_ff, f_f)
-        };
+            let (k_s, f_s) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            } else {
+                (k_ff, f_f)
+            };
 
-        let u_indep = {
             let mut k_work = k_s.clone();
             match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
@@ -274,6 +285,11 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     let mut converged = false;
     let mut total_iters = 0;
 
+    // Sparse symbolic Cholesky reused across iterations (spring stiffnesses
+    // change values, not the pattern; the fingerprinted cache rebuilds the
+    // symbolic if an entry ever crosses exactly zero).
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
@@ -291,13 +307,18 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
         let f_f: Vec<f64> = f_global[..nf].to_vec();
 
-        let (k_s, f_s) = if let Some(ref cs) = cs {
-            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+        let u_indep = if ns >= linear::SPARSE_THRESHOLD {
+            // Sparse path: CSC + sparse Cholesky with cached symbolic.
+            let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
+            let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
         } else {
-            (k_ff, f_f)
-        };
+            let (k_s, f_s) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            } else {
+                (k_ff, f_f)
+            };
 
-        let u_indep = {
             let mut k_work = k_s.clone();
             match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
