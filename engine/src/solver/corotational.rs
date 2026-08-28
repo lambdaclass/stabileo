@@ -6,7 +6,7 @@ use super::assembly;
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
-    cached_symbolic, solve_tangent_sparse, SparseSymbolicCache,
+    cached_symbolic, solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 
 /// Resolve the local-Y reference ONCE from the INITIAL element geometry so the
@@ -775,37 +775,8 @@ fn solve_with_cached_factor(factor: &CachedTangentFactor, r_s: &[f64]) -> Vec<f6
 }
 
 // Sparse symbolic factorization cache and tangent solve helpers now live in
-// `super::sparse_tangent` (shared with arc_length and contact).
-
-/// Build the constraint-reduced CSC tangent for the sparse path directly from
-/// lower-triangle COO triplets of the full (n×n) tangent: keeps the free×free
-/// block (rows/cols < nf) and applies the constraint reduction in sparse form.
-/// Replaces the dense `extract_submatrix` + `tangent_free_sparse` conversion,
-/// so no O(n²) dense tangent is ever built on the sparse path.
-fn tangent_free_sparse_triplets(
-    trip_rows: &[usize],
-    trip_cols: &[usize],
-    trip_vals: &[f64],
-    nf: usize,
-    cs: &Option<FreeConstraintSystem>,
-) -> CscMatrix {
-    let mut fr = Vec::with_capacity(trip_rows.len());
-    let mut fc = Vec::with_capacity(trip_rows.len());
-    let mut fv = Vec::with_capacity(trip_rows.len());
-    for t in 0..trip_rows.len() {
-        if trip_rows[t] < nf && trip_cols[t] < nf {
-            fr.push(trip_rows[t]);
-            fc.push(trip_cols[t]);
-            fv.push(trip_vals[t]);
-        }
-    }
-    let k_ff = CscMatrix::from_triplets(nf, &fr, &fc, &fv);
-    if let Some(ref cs) = cs {
-        cs.reduce_matrix_sparse(&k_ff)
-    } else {
-        k_ff
-    }
-}
+// `super::sparse_tangent` (shared with arc_length, contact and fiber_nonlinear),
+// including `tangent_free_sparse_triplets` used by the sparse paths above.
 
 fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize) -> Result<Vec<f64>, String> {
     let mut k_work = k_ff.to_vec();

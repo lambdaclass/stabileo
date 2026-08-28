@@ -1,8 +1,9 @@
 //! Sparse-tangent helpers shared by the nonlinear solvers (corotational,
 //! arc-length, contact): a symbolic Cholesky factorization cached across
 //! Newton iterations, conversion of the dense free block of the tangent to
-//! constraint-reduced CSC form, and an SPD sparse solve with a size-capped
-//! dense LU fallback.
+//! constraint-reduced CSC form (plus a triplet-based variant that never
+//! materializes the dense tangent), and an SPD sparse solve with a
+//! size-capped dense LU fallback.
 //!
 //! Hoisted verbatim from `corotational.rs` (the reference implementation);
 //! `arc_length.rs` carried near-identical private copies. The only
@@ -61,6 +62,36 @@ pub(crate) fn tangent_free_sparse(
         cs.reduce_matrix_sparse(&k_ff_csc)
     } else {
         k_ff_csc
+    }
+}
+
+/// Build the constraint-reduced CSC tangent for the sparse path directly from
+/// lower-triangle COO triplets of the full (n×n) tangent: keeps the free×free
+/// block (rows/cols < nf) and applies the constraint reduction in sparse form.
+/// Replaces the dense `extract_submatrix` + `tangent_free_sparse` conversion,
+/// so no O(n²) dense tangent is ever built on the sparse path.
+pub(crate) fn tangent_free_sparse_triplets(
+    trip_rows: &[usize],
+    trip_cols: &[usize],
+    trip_vals: &[f64],
+    nf: usize,
+    cs: &Option<FreeConstraintSystem>,
+) -> CscMatrix {
+    let mut fr = Vec::with_capacity(trip_rows.len());
+    let mut fc = Vec::with_capacity(trip_rows.len());
+    let mut fv = Vec::with_capacity(trip_rows.len());
+    for t in 0..trip_rows.len() {
+        if trip_rows[t] < nf && trip_cols[t] < nf {
+            fr.push(trip_rows[t]);
+            fc.push(trip_cols[t]);
+            fv.push(trip_vals[t]);
+        }
+    }
+    let k_ff = CscMatrix::from_triplets(nf, &fr, &fc, &fv);
+    if let Some(ref cs) = cs {
+        cs.reduce_matrix_sparse(&k_ff)
+    } else {
+        k_ff
     }
 }
 

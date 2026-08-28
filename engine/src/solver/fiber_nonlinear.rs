@@ -15,7 +15,7 @@ use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_
 use super::dof::DofNumbering;
 use super::assembly;
 use super::constraints::FreeConstraintSystem;
-use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse, solve_tangent_sparse};
+use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse_triplets, solve_tangent_sparse};
 
 /// Fiber nonlinear analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,24 +131,59 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         for _iter in 0..input.max_iter {
             total_iters += 1;
 
-            // Assemble tangent stiffness and internal forces from fiber elements
+            // Assemble tangent stiffness and internal forces from fiber elements.
+            // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
+            // or above it, as lower-triangle COO triplets that feed the CSC
+            // sparse solve directly — no O(n²) dense matrix is ever built.
+            // NOTE: unlike the corotational solver, fiber never rotates the
+            // tangent for inclined supports; both paths preserve that.
             let mut f_int = vec![0.0; n];
-            let mut k_t = vec![0.0; n * n];
+            let sparse_tangent = ns >= super::linear::SPARSE_THRESHOLD;
+            let mut k_t: Vec<f64> = Vec::new();
+            let mut trip_rows: Vec<usize> = Vec::new();
+            let mut trip_cols: Vec<usize> = Vec::new();
+            let mut trip_vals: Vec<f64> = Vec::new();
 
-            assemble_fiber_elements(
-                &input.solver, &input.fiber_sections, &dof_num,
-                &u_full, &mut elem_states, n_ip,
-                &mut f_int, &mut k_t,
-            );
+            if sparse_tangent {
+                let mut scatter = |gi: usize, gj: usize, v: f64| {
+                    if gi >= gj {
+                        trip_rows.push(gi);
+                        trip_cols.push(gj);
+                        trip_vals.push(v);
+                    }
+                };
+                assemble_fiber_elements(
+                    &input.solver, &input.fiber_sections, &dof_num,
+                    &u_full, &mut elem_states, n_ip,
+                    &mut f_int, &mut scatter,
+                );
 
-            // Add non-fiber elements (truss, elastic frame without fiber section)
-            assemble_elastic_elements(
-                &input.solver, &input.fiber_sections, &dof_num,
-                &u_full, &mut f_int, &mut k_t,
-            );
+                // Add non-fiber elements (truss, elastic frame without fiber section)
+                assemble_elastic_elements(
+                    &input.solver, &input.fiber_sections, &dof_num,
+                    &u_full, &mut f_int, &mut scatter,
+                );
 
-            // Add spring contributions
-            add_springs(&input.solver, &dof_num, &u_full, &mut f_int, &mut k_t);
+                // Add spring contributions
+                add_springs(&input.solver, &dof_num, &u_full, &mut f_int, &mut scatter);
+            } else {
+                k_t = vec![0.0; n * n];
+                let mut scatter = |gi: usize, gj: usize, v: f64| k_t[gi * n + gj] += v;
+                assemble_fiber_elements(
+                    &input.solver, &input.fiber_sections, &dof_num,
+                    &u_full, &mut elem_states, n_ip,
+                    &mut f_int, &mut scatter,
+                );
+
+                // Add non-fiber elements (truss, elastic frame without fiber section)
+                assemble_elastic_elements(
+                    &input.solver, &input.fiber_sections, &dof_num,
+                    &u_full, &mut f_int, &mut scatter,
+                );
+
+                // Add spring contributions
+                add_springs(&input.solver, &dof_num, &u_full, &mut f_int, &mut scatter);
+            }
 
             // Residual
             let mut residual = vec![0.0; n];
@@ -185,24 +220,35 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                 r_f
             };
 
-            let delta_u_indep = if ns >= super::linear::SPARSE_THRESHOLD {
-                // Sparse path: CSC + sparse Cholesky with cached symbolic.
-                let free_idx: Vec<usize> = (0..nf).collect();
-                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-                let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+            let delta_u_indep = if sparse_tangent {
+                // Sparse path: CSC free block built directly from the
+                // lower-triangle triplets (no dense n×n tangent), then
+                // sparse Cholesky with cached symbolic.
                 if input.modified_nr {
-                    if cached_sparse_num.is_none() {
-                        let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
-                        cached_sparse_num = numeric_cholesky(sym, &k_csc);
-                    }
                     if let Some(ref num) = cached_sparse_num {
                         sparse_cholesky_solve(num, &r_s)
                     } else {
-                        // Sparse factorization failed — fall back to full NR
-                        // for this increment (same semantics as dense path).
-                        solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                        let k_csc = tangent_free_sparse_triplets(
+                            &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+                        );
+                        let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
+                        match numeric_cholesky(sym, &k_csc) {
+                            Some(num) => {
+                                let result = sparse_cholesky_solve(&num, &r_s);
+                                cached_sparse_num = Some(num);
+                                result
+                            }
+                            None => {
+                                // Sparse factorization failed — fall back to full NR
+                                // for this increment (same semantics as dense path).
+                                solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                            }
+                        }
                     }
                 } else {
+                    let k_csc = tangent_free_sparse_triplets(
+                        &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+                    );
                     solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
                 }
             } else if input.modified_nr {
@@ -305,16 +351,17 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         let mut f_int_final = vec![0.0; n];
         let mut k_t_final = vec![0.0; n * n];
         let mut elem_states_copy = elem_states;
+        let mut scatter = |gi: usize, gj: usize, v: f64| k_t_final[gi * n + gj] += v;
         assemble_fiber_elements(
             &input.solver, &input.fiber_sections, &dof_num,
             &u_full, &mut elem_states_copy, n_ip,
-            &mut f_int_final, &mut k_t_final,
+            &mut f_int_final, &mut scatter,
         );
         assemble_elastic_elements(
             &input.solver, &input.fiber_sections, &dof_num,
-            &u_full, &mut f_int_final, &mut k_t_final,
+            &u_full, &mut f_int_final, &mut scatter,
         );
-        add_springs(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
+        add_springs(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut scatter);
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_total[..nf]);
@@ -343,6 +390,9 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 }
 
 /// Assemble fiber element contributions to global K_t and f_int.
+///
+/// `scatter(gi, gj, v)` accumulates one tangent entry: dense `k_t[gi*n+gj]`
+/// for the small-model path, lower-triangle triplets for the sparse path.
 fn assemble_fiber_elements(
     solver: &SolverInput,
     fiber_sections: &HashMap<String, FiberSectionDef>,
@@ -351,9 +401,8 @@ fn assemble_fiber_elements(
     elem_states: &mut HashMap<usize, ElementFiberState>,
     n_ip: usize,
     f_int: &mut [f64],
-    k_t: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let n = dof_num.n_total;
     let node_by_id: HashMap<usize, &SolverNode> = solver.nodes.values().map(|n| (n.id, n)).collect();
 
     for elem in solver.elements.values() {
@@ -416,22 +465,22 @@ fn assemble_fiber_elements(
         for i in 0..6 {
             f_int[dofs[i]] += f_global[i];
             for j in 0..6 {
-                k_t[dofs[i] * n + dofs[j]] += k_global[i * 6 + j];
+                scatter(dofs[i], dofs[j], k_global[i * 6 + j]);
             }
         }
     }
 }
 
 /// Assemble elastic (non-fiber) frame elements.
+/// `scatter` receives the tangent entries (see `assemble_fiber_elements`).
 fn assemble_elastic_elements(
     solver: &SolverInput,
     fiber_sections: &HashMap<String, FiberSectionDef>,
     dof_num: &DofNumbering,
     u_full: &[f64],
     f_int: &mut [f64],
-    k_t: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let n = dof_num.n_total;
     let node_by_id: HashMap<usize, &SolverNode> = solver.nodes.values().map(|n| (n.id, n)).collect();
     let mat_by_id: HashMap<usize, &SolverMaterial> = solver.materials.values().map(|m| (m.id, m)).collect();
     let sec_by_id: HashMap<usize, &SolverSection> = solver.sections.values().map(|s| (s.id, s)).collect();
@@ -466,7 +515,7 @@ fn assemble_elastic_elements(
 
             for &(i, j, val) in &k_entries {
                 if i < dofs.len() && j < dofs.len() {
-                    k_t[dofs[i] * n + dofs[j]] += ea_l * val;
+                    scatter(dofs[i], dofs[j], ea_l * val);
                 }
             }
 
@@ -502,7 +551,7 @@ fn assemble_elastic_elements(
 
             for i in 0..6 {
                 for j in 0..6 {
-                    k_t[dofs[i] * n + dofs[j]] += k_global[i * 6 + j];
+                    scatter(dofs[i], dofs[j], k_global[i * 6 + j]);
                     f_int[dofs[i]] += k_global[i * 6 + j] * u_full[dofs[j]];
                 }
             }
@@ -511,14 +560,14 @@ fn assemble_elastic_elements(
 }
 
 /// Add spring stiffness and forces.
+/// `scatter` receives the diagonal stiffness entries (see above).
 fn add_springs(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
     f_int: &mut [f64],
-    k_t: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let n = dof_num.n_total;
     for sup in solver.supports.values() {
         if sup.support_type != "spring" { continue; }
         let springs = [(0, sup.kx), (1, sup.ky), (2, sup.kz)];
@@ -526,7 +575,7 @@ fn add_springs(
             if let Some(k) = k_opt {
                 if k > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        k_t[d * n + d] += k;
+                        scatter(d, d, k);
                         f_int[d] += k * u_full[d];
                     }
                 }
@@ -626,19 +675,49 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         for _iter in 0..input.max_iter {
             total_iters += 1;
 
+            // Assemble tangent stiffness and internal forces from fiber elements.
+            // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
+            // or above it, as lower-triangle COO triplets that feed the CSC
+            // sparse solve directly — no O(n²) dense matrix is ever built.
             let mut f_int = vec![0.0; n];
-            let mut k_t = vec![0.0; n * n];
+            let sparse_tangent = ns >= super::linear::SPARSE_THRESHOLD;
+            let mut k_t: Vec<f64> = Vec::new();
+            let mut trip_rows: Vec<usize> = Vec::new();
+            let mut trip_cols: Vec<usize> = Vec::new();
+            let mut trip_vals: Vec<f64> = Vec::new();
 
-            assemble_fiber_elements_3d(
-                &input.solver, &input.fiber_sections, &dof_num,
-                &u_full, &mut elem_states, n_ip,
-                &mut f_int, &mut k_t,
-            );
+            if sparse_tangent {
+                let mut scatter = |gi: usize, gj: usize, v: f64| {
+                    if gi >= gj {
+                        trip_rows.push(gi);
+                        trip_cols.push(gj);
+                        trip_vals.push(v);
+                    }
+                };
+                assemble_fiber_elements_3d(
+                    &input.solver, &input.fiber_sections, &dof_num,
+                    &u_full, &mut elem_states, n_ip,
+                    &mut f_int, &mut scatter,
+                );
 
-            assemble_elastic_elements_3d(
-                &input.solver, &input.fiber_sections, &dof_num,
-                &u_full, &mut f_int, &mut k_t,
-            );
+                assemble_elastic_elements_3d(
+                    &input.solver, &input.fiber_sections, &dof_num,
+                    &u_full, &mut f_int, &mut scatter,
+                );
+            } else {
+                k_t = vec![0.0; n * n];
+                let mut scatter = |gi: usize, gj: usize, v: f64| k_t[gi * n + gj] += v;
+                assemble_fiber_elements_3d(
+                    &input.solver, &input.fiber_sections, &dof_num,
+                    &u_full, &mut elem_states, n_ip,
+                    &mut f_int, &mut scatter,
+                );
+
+                assemble_elastic_elements_3d(
+                    &input.solver, &input.fiber_sections, &dof_num,
+                    &u_full, &mut f_int, &mut scatter,
+                );
+            }
 
             // Residual
             let mut residual = vec![0.0; n];
@@ -674,24 +753,35 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                 r_f
             };
 
-            let delta_u_indep = if ns >= super::linear::SPARSE_THRESHOLD {
-                // Sparse path: CSC + sparse Cholesky with cached symbolic.
-                let free_idx: Vec<usize> = (0..nf).collect();
-                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-                let k_csc = tangent_free_sparse(&k_ff, nf, &cs);
+            let delta_u_indep = if sparse_tangent {
+                // Sparse path: CSC free block built directly from the
+                // lower-triangle triplets (no dense n×n tangent), then
+                // sparse Cholesky with cached symbolic.
                 if input.modified_nr {
-                    if cached_sparse_num.is_none() {
-                        let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
-                        cached_sparse_num = numeric_cholesky(sym, &k_csc);
-                    }
                     if let Some(ref num) = cached_sparse_num {
                         sparse_cholesky_solve(num, &r_s)
                     } else {
-                        // Sparse factorization failed — fall back to full NR
-                        // for this increment (same semantics as dense path).
-                        solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                        let k_csc = tangent_free_sparse_triplets(
+                            &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+                        );
+                        let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
+                        match numeric_cholesky(sym, &k_csc) {
+                            Some(num) => {
+                                let result = sparse_cholesky_solve(&num, &r_s);
+                                cached_sparse_num = Some(num);
+                                result
+                            }
+                            None => {
+                                // Sparse factorization failed — fall back to full NR
+                                // for this increment (same semantics as dense path).
+                                solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                            }
+                        }
                     }
                 } else {
+                    let k_csc = tangent_free_sparse_triplets(
+                        &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+                    );
                     solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
                 }
             } else if input.modified_nr {
@@ -789,14 +879,15 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         let mut f_int_final = vec![0.0; n];
         let mut k_t_final = vec![0.0; n * n];
         let mut elem_states_copy = elem_states;
+        let mut scatter = |gi: usize, gj: usize, v: f64| k_t_final[gi * n + gj] += v;
         assemble_fiber_elements_3d(
             &input.solver, &input.fiber_sections, &dof_num,
             &u_full, &mut elem_states_copy, n_ip,
-            &mut f_int_final, &mut k_t_final,
+            &mut f_int_final, &mut scatter,
         );
         assemble_elastic_elements_3d(
             &input.solver, &input.fiber_sections, &dof_num,
-            &u_full, &mut f_int_final, &mut k_t_final,
+            &u_full, &mut f_int_final, &mut scatter,
         );
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
@@ -830,6 +921,9 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 }
 
 /// Assemble 3D fiber element contributions.
+///
+/// `scatter(gi, gj, v)` accumulates one tangent entry: dense `k_t[gi*n+gj]`
+/// for the small-model path, lower-triangle triplets for the sparse path.
 fn assemble_fiber_elements_3d(
     solver: &SolverInput3D,
     fiber_sections: &HashMap<String, FiberSectionDef>,
@@ -838,9 +932,8 @@ fn assemble_fiber_elements_3d(
     elem_states: &mut HashMap<usize, ElementFiberState>,
     n_ip: usize,
     f_int: &mut [f64],
-    k_t: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let n = dof_num.n_total;
     let node_by_id: HashMap<usize, &SolverNode3D> = solver.nodes.values().map(|n| (n.id, n)).collect();
     let mat_by_id: HashMap<usize, &SolverMaterial> = solver.materials.values().map(|m| (m.id, m)).collect();
     let sec_by_id: HashMap<usize, &SolverSection3D> = solver.sections.values().map(|s| (s.id, s)).collect();
@@ -913,22 +1006,22 @@ fn assemble_fiber_elements_3d(
         for i in 0..12 {
             f_int[dofs[i]] += f_global[i];
             for j in 0..12 {
-                k_t[dofs[i] * n + dofs[j]] += k_global[i * 12 + j];
+                scatter(dofs[i], dofs[j], k_global[i * 12 + j]);
             }
         }
     }
 }
 
 /// Assemble elastic (non-fiber) 3D frame elements.
+/// `scatter` receives the tangent entries (see `assemble_fiber_elements_3d`).
 fn assemble_elastic_elements_3d(
     solver: &SolverInput3D,
     fiber_sections: &HashMap<String, FiberSectionDef>,
     dof_num: &DofNumbering,
     u_full: &[f64],
     f_int: &mut [f64],
-    k_t: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let n = dof_num.n_total;
     let node_by_id: HashMap<usize, &SolverNode3D> = solver.nodes.values().map(|n| (n.id, n)).collect();
     let mat_by_id: HashMap<usize, &SolverMaterial> = solver.materials.values().map(|m| (m.id, m)).collect();
     let sec_by_id: HashMap<usize, &SolverSection3D> = solver.sections.values().map(|s| (s.id, s)).collect();
@@ -974,7 +1067,7 @@ fn assemble_elastic_elements_3d(
 
         for i in 0..12 {
             for j in 0..12 {
-                k_t[dofs[i] * n + dofs[j]] += k_global[i * 12 + j];
+                scatter(dofs[i], dofs[j], k_global[i * 12 + j]);
                 f_int[dofs[i]] += k_global[i * 12 + j] * u_full[dofs[j]];
             }
         }
