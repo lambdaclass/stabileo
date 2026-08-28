@@ -289,3 +289,91 @@ fn validation_modified_nr_parity_2d() {
         full.iterations, modified.iterations
     );
 }
+
+
+// ================================================================
+// 5. Sparse Newton path (nf >= SPARSE_THRESHOLD = 64)
+// ================================================================
+//
+// Cantilever under a transverse tip load, discretized into 30 frame
+// elements: 31 nodes, node 1 fixed, so nf = 30 × 3 = 90 ≥ 64 and the
+// Newton solve takes the sparse Cholesky path. A 10-element model of the
+// same structure (nf = 30 < 64) takes the dense path — since Hermitian
+// beam elements are exact for a tip load, both must give the same tip
+// deflection, which doubles as a dense-vs-sparse parity check.
+//
+// Analytical (Euler-Bernoulli, small deflection): δ_tip = P·L³/(3·E·I)
+
+#[test]
+fn validation_corotational_sparse_path_cantilever() {
+    let e_mpa = E;
+    let l: f64 = 6.0;
+    let a: f64 = 0.01;
+    let iz: f64 = 1e-4;
+    let p: f64 = 10.0;
+
+    let e_eff = e_mpa * 1000.0; // kN/m²
+    let delta_analytical = p * l.powi(3) / (3.0 * e_eff * iz);
+
+    let build = |n_elem: usize| {
+        let elem_len = l / n_elem as f64;
+        let nodes: Vec<_> = (0..=n_elem)
+            .map(|i| (i + 1, i as f64 * elem_len, 0.0))
+            .collect();
+        let elems: Vec<_> = (0..n_elem)
+            .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
+            .collect();
+        let sups = vec![(1, 1, "fixed")];
+        let tip = n_elem + 1;
+        let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: tip, fx: 0.0, fz: -p, my: 0.0,
+        })];
+        (
+            make_input(nodes, vec![(1, e_mpa, 0.3)], vec![(1, a, iz)], elems, sups, loads),
+            tip,
+        )
+    };
+
+    // Sparse Newton path: nf = 90 >= 64
+    let (input_fine, tip_fine) = build(30);
+    let fine = corotational::solve_corotational_2d(&input_fine, 50, 1e-6, 5, false).unwrap();
+    assert!(fine.converged, "Sparse-path cantilever should converge");
+
+    let d_fine = fine.results.displacements.iter()
+        .find(|d| d.node_id == tip_fine).unwrap();
+    let uz_fine = d_fine.uz.abs();
+    let err = (uz_fine - delta_analytical).abs() / delta_analytical;
+    assert!(
+        err < 0.01,
+        "Sparse path: tip δ={:.6e} m, analytical={:.6e} m, error={:.2}%",
+        uz_fine, delta_analytical, err * 100.0
+    );
+
+    // Dense Newton path on the same structure, coarser mesh: nf = 30 < 64.
+    // Beam elements are exact for a tip load, so this is a dense-vs-sparse
+    // parity check on the same physical problem.
+    let (input_coarse, tip_coarse) = build(10);
+    let coarse = corotational::solve_corotational_2d(&input_coarse, 50, 1e-6, 5, false).unwrap();
+    assert!(coarse.converged, "Dense-path cantilever should converge");
+
+    let d_coarse = coarse.results.displacements.iter()
+        .find(|d| d.node_id == tip_coarse).unwrap();
+    let rel = (d_fine.uz - d_coarse.uz).abs() / d_coarse.uz.abs().max(1e-15);
+    assert!(
+        rel < 1e-4,
+        "Dense vs sparse parity: fine={:.8e}, coarse={:.8e}, rel={:.4e}",
+        d_fine.uz, d_coarse.uz, rel
+    );
+
+    // Modified NR on the sparse path (cached sparse factorization)
+    let fine_mod = corotational::solve_corotational_2d(&input_fine, 50, 1e-6, 5, true).unwrap();
+    assert!(fine_mod.converged, "Sparse modified-NR should converge");
+    let d_mod = fine_mod.results.displacements.iter()
+        .find(|d| d.node_id == tip_fine).unwrap();
+    let rel_mod = (d_fine.uz - d_mod.uz).abs() / d_fine.uz.abs().max(1e-15);
+    assert!(
+        rel_mod < 1e-4,
+        "Sparse full-NR vs modified-NR: full={:.8e}, modified={:.8e}, rel={:.4e}",
+        d_fine.uz, d_mod.uz, rel_mod
+    );
+}
