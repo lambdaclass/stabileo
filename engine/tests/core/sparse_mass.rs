@@ -563,6 +563,62 @@ fn buckling_3d_sparse_op_parity() {
     }
 }
 
+/// 3D buckling must survive a section that declares warping constants.
+///
+/// `DofNumbering::build_3d` numbers SEVEN DOFs per node as soon as any section
+/// sets `cw`, so `element_dofs` returns 14 entries instead of 12.
+/// `build_kg_from_forces_3d` builds a 12x12 `kg_global` and used that 14 as its
+/// stride: `kg_global[10 * 14 + 4]` is 144, one past the end of a 144-element
+/// array. `add_geometric_stiffness_3d`, in the same file, remaps through
+/// `DOF_MAP_12_TO_14` for exactly this reason; the buckling path did not.
+///
+/// Natively that is a clean index panic. In the shipped wasm32 build it is an
+/// abort that crosses the FFI boundary — the module traps and the caller gets
+/// no solver error to report, just a dead engine.
+///
+/// No test in the suite combined a warping section with 3D buckling, which is
+/// why it shipped. This is that test: it is a crash gate, so it asserts the
+/// call returns at all, plus enough physics to catch a silently wrong remap.
+#[test]
+fn buckling_3d_survives_warping_dofs() {
+    let n_elem = 20;
+    let p = 100.0;
+    let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: n_elem + 1,
+        fx: -p, fy: 0.0, fz: 0.0,
+        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+    })];
+    let mut input = make_3d_beam(
+        n_elem, 10.0, E, 0.3, A, 2e-4, IZ, J, vec![true; 6], None, loads,
+    );
+
+    // The trigger: one section with `cw` set widens every node to 7 DOFs.
+    for s in input.sections.values_mut() {
+        s.cw = Some(2.03e-6);
+    }
+    assert_eq!(
+        DofNumbering::build_3d(&input).dofs_per_node, 7,
+        "fixture must produce 7 DOFs per node, or it does not exercise the remap \
+         and this test proves nothing",
+    );
+
+    let result = buckling::solve_buckling_3d(&input, 2)
+        .expect("3D buckling on a warping section must not fail");
+
+    // The warping DOF is uncoupled from flexural buckling in this cantilever, so
+    // the governing mode is still the Euler value the same beam gives without
+    // `cw`. A remap that lands Kg entries on the wrong DOFs would still return
+    // *something*; this is what says the entries went where they belong.
+    let pi2 = std::f64::consts::PI * std::f64::consts::PI;
+    let rel = (result.modes[0].load_factor - pi2 / 2.0).abs() / (pi2 / 2.0);
+    assert!(
+        rel < 1e-4,
+        "governing load factor {:.9e} is {:.2e} from the analytical π²/2 = {:.9e}: \
+         the warping remap put Kg entries on the wrong DOFs",
+        result.modes[0].load_factor, rel, pi2 / 2.0,
+    );
+}
+
 /// The generalized eigenpath must return actual EIGENVECTORS.
 ///
 /// Every other gate on this path compares one Lanczos implementation against
