@@ -70,12 +70,13 @@ pub fn solve_modal_2d(
         return Err("No mass assigned — set material densities".into());
     }
 
-    // Assemble M (dense); K is assembled sparse for large models, dense otherwise.
-    // SKIPPED in the sparse-unconstrained branch below, which assembles the mass
-    // as CSC directly — a dense mass is O(n²) memory and assembly time.
+    // Assemble M (dense) only for the small-model branch below. The sparse
+    // branches assemble the mass as CSC directly — a dense mass is O(n²)
+    // memory and assembly time. With the sparse constraint transform, the
+    // constrained branch no longer needs the dense mass either.
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
-    let need_dense_mass = nf < SPARSE_THRESHOLD || cs.is_some();
+    let need_dense_mass = nf < SPARSE_THRESHOLD;
     let m_full = if need_dense_mass {
         Some(assemble_mass_matrix_2d(input, &dof_num, densities))
     } else {
@@ -86,22 +87,23 @@ pub fn solve_modal_2d(
     let m_ff = m_full.as_ref().map(|m| extract_submatrix(m, n, &free_idx, &free_idx));
 
     // Solve K·φ = λ·M·φ where λ = ω²
-    // Large unconstrained models: triplet sparse assembly + sparse shift-invert
-    // Lanczos (mirrors the 3D modal wiring); constraints still reduce dense K.
-    // The mass is assembled as CSC directly in the sparse-unconstrained branch —
-    // a dense mass costs O(n²) memory and assembly time for nothing there.
+    // Large models (constrained or not): triplet sparse assembly + sparse
+    // shift-invert Lanczos; the constraint transform reduces K and M as
+    // sparse triple products (CᵀKC over triplets), never densifying.
     let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
     let (result, ns, m_solve) = if nf >= SPARSE_THRESHOLD {
         let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
+        // Assembled once: the branch below differs in whether the matrices are
+        // reduced, not in how they are built.
+        let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
         if let Some(ref cs) = cs {
-            let k_ff = sasm.k_ff.to_dense_symmetric();
-            let k_solve = cs.reduce_matrix(&k_ff);
-            let m_solve = cs.reduce_matrix(m_ff.as_ref().unwrap());
-            let result = lanczos_generalized_eigen(&k_solve, &m_solve, cs.n_free_indep, num_modes, 0.0)
+            let k_solve = cs.reduce_matrix_sparse(&sasm.k_ff);
+            let m_solve = cs.reduce_matrix_sparse(&m_csc);
+            let result = lanczos_generalized_eigen_sparse(&k_solve, &m_solve, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
-            (result, cs.n_free_indep, m_solve)
+            m_csc_opt = Some(m_solve);
+            (result, cs.n_free_indep, Vec::new())
         } else {
-            let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
             let result = lanczos_generalized_eigen_sparse(&sasm.k_ff, &m_csc, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
             m_csc_opt = Some(m_csc);
@@ -320,36 +322,23 @@ pub fn solve_modal_3d(
     let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
-    // Mass matrix: sparse CSC (free block) on the no-constraint path — avoids
-    // the n² dense allocation entirely. The constraint path still needs the
-    // dense mass for `reduce_matrix` (documented reduction blocker).
-    let m_sparse_ff = if cs.is_none() {
-        Some(assemble_mass_matrix_3d_sparse(input, &dof_num, densities))
-    } else {
-        None
-    };
-    let m_solve = if let Some(ref cs) = cs {
-        let m_full = assemble_mass_matrix_3d(input, &dof_num, densities);
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
-        Some(cs.reduce_matrix(&m_ff))
-    } else {
-        None
-    };
+    // Mass matrix: sparse CSC (free block). With the sparse constraint
+    // transform, the constraint path also stays sparse end to end — K and M
+    // reduce as sparse triple products, no dense n² allocation anywhere.
+    let m_sparse_ff = assemble_mass_matrix_3d_sparse(input, &dof_num, densities);
 
-    let result = if let Some(ref m_csc) = m_sparse_ff {
-        // Sparse path: sparse K and sparse M, no dense n² matrices
-        lanczos_generalized_eigen_sparse(&sasm.k_ff, m_csc, num_modes, 0.0)
-            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?
+    // Reduced-space matrices owned here so both branches can borrow them.
+    let k_red;
+    let m_red;
+    let (k_solve, m_solve): (&CscMatrix, &CscMatrix) = if let Some(ref cs) = cs {
+        k_red = cs.reduce_matrix_sparse(&sasm.k_ff);
+        m_red = cs.reduce_matrix_sparse(&m_sparse_ff);
+        (&k_red, &m_red)
     } else {
-        // Constraint path: needs dense K for reduce_matrix
-        let k_ff = sasm.k_ff.to_dense_symmetric();
-        let cs = cs.as_ref().unwrap();
-        let k_solve = cs.reduce_matrix(&k_ff);
-        let m_dense = m_solve.as_ref().unwrap();
-        lanczos_generalized_eigen(&k_solve, m_dense, ns, num_modes, 0.0)
-            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?
+        (&sasm.k_ff, &m_sparse_ff)
     };
+    let result = lanczos_generalized_eigen_sparse(k_solve, m_solve, num_modes, 0.0)
+        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
 
     let num_modes = num_modes.min(ns);
 
@@ -384,11 +373,7 @@ pub fn solve_modal_3d(
 
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
 
-        let m_phi = if let Some(ref m_csc) = m_sparse_ff {
-            m_csc.sym_mat_vec(&phi_s)
-        } else {
-            mat_vec_sub(m_solve.as_ref().unwrap(), &phi_s, ns)
-        };
+        let m_phi = m_solve.sym_mat_vec(&phi_s);
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         let phi_m_rx: f64 = r_x_s.iter().zip(m_phi.iter()).map(|(r, mp)| r * mp).sum();
