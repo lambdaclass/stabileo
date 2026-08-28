@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, untrack, tick } from 'svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
   import StatusBar from './components/StatusBar.svelte';
@@ -894,6 +894,21 @@
 
   // ─── PRO panel drag-resize ────────────────────────────────────────
   let proPanelRef: any = $state(null);
+  /**
+   * What `ProPanel.canSolve()` answers, for when there is no panel to ask.
+   *
+   * It is `hasModel && !solving` there, and `hasModel` is exactly this — see
+   * `ProPanel.svelte`. `solving` is that component's own state and cannot be
+   * read from here, but it does not have to be: this value is only consulted
+   * when no panel is mounted, and a solve cannot be running inside a component
+   * that does not exist.
+   *
+   * Kept next to `proPanelRef` on purpose. If `canSolve()` there ever grows a
+   * condition, this is the other half that has to learn about it.
+   */
+  const proMobileCanSolve = $derived(
+    modelStore.nodes.size > 0 && modelStore.elements.size > 0,
+  );
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
   let proSettingsOpen = $state(false);
   /**
@@ -1261,10 +1276,36 @@
           data-testid="pmt-pointer"
         ><Icon name={uiStore.currentTool === 'select' ? 'select' : 'pan'} size={19} /></button>
 
+        <!--
+          Calcular cannot ask the panel whether it can solve, because on a
+          phone the panel is not there to ask.
+          ─────────────────────────────────────────────────────────────────
+          `proPanelRef` is bound by the PRO panel, and on a phone that panel
+          mounts only inside `{#if uiStore.isMobile && uiStore.rightDrawerOpen}`.
+          With the sheet closed there is no instance, so the ref is null —
+          `!(null?.canSolve() ?? false)` is `true` and the button renders
+          disabled. Disabled, its own onclick cannot fire, so it cannot open
+          the sheet that would create the panel that would enable it. On first
+          load the sheet IS closed, so Calcular was dead until the reader
+          happened to press Selection (the only other control that opens it),
+          and went dead again on every close.
+
+          So: ask the panel while it exists, and the model otherwise. Nothing
+          can be mid-solve when no panel is mounted, which is the only part of
+          `canSolve()` the model cannot answer.
+        -->
         <button
           class="pmt-btn pmt-solve"
-          onclick={() => { uiStore.rightDrawerOpen = true; proPanelRef?.solve(); }}
-          disabled={!(proPanelRef?.canSolve() ?? false)}
+          onclick={async () => {
+            uiStore.rightDrawerOpen = true;
+            // The panel does not exist yet on the first press — it mounts as a
+            // result of the line above. `tick()` waits for that, and then the
+            // solve goes through ProPanel so it keeps the pre-solve quality
+            // gate; dispatching `stabileo-solve` instead would skip it.
+            await tick();
+            proPanelRef?.solve();
+          }}
+          disabled={!(proPanelRef ? proPanelRef.canSolve() : proMobileCanSolve)}
           title={t('pro.solve')}
           data-testid="pmt-solve"
         ><Icon name="solve" size={19} /></button>

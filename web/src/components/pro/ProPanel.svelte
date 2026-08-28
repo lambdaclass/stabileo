@@ -4,6 +4,23 @@
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import { buildProStages, PRO_TAB_STAGE, type ProCmd } from '../../lib/pro/stages';
+  /*
+   * The four the phone's command grid needs.
+   *
+   * `proStages` below builds the same context `ProRibbon` builds, and it was
+   * copied without these: `openRebar3D`, `detailingAuthor`, `canOpenRebar3D`
+   * and `detailingStore` were all referenced and none were imported. The phone
+   * grid reads `proStages` and evaluates each command's gate, so the panel
+   * threw `ReferenceError: canOpenRebar3D is not defined` the moment it
+   * mounted — the whole PRO phone shell, not one button.
+   *
+   * Nothing caught it because the desktop ribbon builds its own context from
+   * its own imports and never touches this one, and no test mounted the phone
+   * panel. `e2e/pro-mobile-shell.spec.ts` is the one that does now.
+   */
+  import { detailingStore } from '../../lib/store/detailing.svelte';
+  import { detailingAuthor } from '../../lib/store/detailing-author.svelte';
+  import { canOpenRebar3D, openRebar3D } from '../../lib/store/rebar-open';
   import Icon from '../ribbon/Icon.svelte';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
