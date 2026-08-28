@@ -57,8 +57,29 @@ pub struct SparseTransform {
 impl SparseTransform {
     /// Build from per-row (column, value) lists. Rows must be sorted by column
     /// and free of duplicate columns.
+    ///
+    /// That precondition is load-bearing and invisible when violated: `mul_vec`
+    /// and `mul_transpose_vec` still return the right answer on an unsorted row,
+    /// so a test would not notice, but `from_transform` then emits an unsorted
+    /// `c_ff`, and `build_constraint_transform`'s convergence check merges
+    /// `touched` against `old` assuming both are sorted — it would compute the
+    /// wrong `max_change` and could stop iterating on an unconverged chain, or
+    /// double-count a master given a duplicate column. Hence the debug assert.
     pub fn from_rows(n_rows: usize, n_cols: usize, rows: Vec<Vec<(usize, f64)>>) -> Self {
         assert_eq!(rows.len(), n_rows);
+        // `assert!`, not `debug_assert!`: the release WASM build is the one
+        // that ships, and the doc above says a violation is SILENTLY wrong
+        // there — an unconverged chain and wrong displacements, no crash, no
+        // diagnostic. The check is O(nnz) over data the very next loop already
+        // walks O(nnz) times, so it costs nothing measurable.
+        assert!(
+            rows.iter().all(|r| r.windows(2).all(|w| w[0].0 < w[1].0)),
+            "SparseTransform rows must be sorted by column and free of duplicates",
+        );
+        assert!(
+            rows.iter().flatten().all(|&(j, _)| j < n_cols),
+            "SparseTransform column index out of range",
+        );
         let nnz: usize = rows.iter().map(|r| r.len()).sum();
         let mut row_ptr = vec![0usize; n_rows + 1];
         let mut col_idx = Vec::with_capacity(nnz);
@@ -131,38 +152,51 @@ impl SparseTransform {
         y
     }
 
-    /// Reduced matrix K_red = C^T · K · C with K dense symmetric (n_rows × n_rows,
+    /// Reduced matrix K_red = C^T · K · C with K dense (n_rows × n_rows,
     /// row-major). Returns dense n_cols × n_cols (row-major).
     /// Cost O(nnz(C) · n_rows) instead of the dense triple loop's O(n_rows² · n_cols).
+    ///
+    /// K is read in full and is NOT assumed symmetric. An earlier version read
+    /// only the lower triangle and mirrored each off-diagonal contribution,
+    /// which quietly narrowed the contract of the `ct_k_c` it replaced: that one
+    /// summed over the whole matrix. Roughly fifteen dense callers reach here —
+    /// corotational tangent stiffness, the buckling K_g, time integration, SSI,
+    /// kinematics, cables — and any of them carrying round-off asymmetry, or a
+    /// genuinely unsymmetric geometric term, would have had its strictly-upper
+    /// half discarded and replaced by the lower mirror, with no diagnostic.
+    ///
+    /// Reading the full matrix costs the same: the mirrored version scanned half
+    /// the rows and wrote twice per term, this scans all of them and writes once.
     pub fn reduce_dense(&self, k: &[f64]) -> Vec<f64> {
         let m = self.n_rows;
         let p = self.n_cols;
-        // KC[l, j'] accumulation scattered by C's rows:
-        // K_red[j, j'] += Σ_l C[l,j] · K[l,l'] · C[l',j']
-        // Stream K row by row: for each l, distribute row l of K over the
-        // (small) column sets of C's rows l and l'.
+        assert_eq!(k.len(), m * m, "reduce_dense expects an n_rows × n_rows matrix");
+        // K_red[j, j'] += Σ_{l,l'} C[l,j] · K[l,l'] · C[l',j']
+        //
+        // The K scan is the OUTER loop over l', not nested inside the walk of
+        // C's row l: each entry of K is then read exactly once. With the scan
+        // inside, row l of K was re-read once per nonzero in C's row l — that
+        // is deg(l) times for every diaphragm and rigid-link slave, which is
+        // precisely the case this reduction exists for. The dominant term here
+        // is that scan, nnz(C)·m, so the waste was proportional to the fraction
+        // of slave DOFs.
         let mut k_red = vec![0.0; p * p];
         for l in 0..m {
-            for pa in self.row_ptr[l]..self.row_ptr[l + 1] {
-                let (j, ca) = (self.col_idx[pa], self.vals[pa]);
-                // l' < l half: entry K[l, l'] at k[l*m + l']
-                for l2 in 0..l {
-                    let kv = k[l * m + l2];
-                    if kv == 0.0 {
-                        continue;
-                    }
-                    let c = ca * kv;
-                    for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
-                        let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
-                        k_red[j * p + j2] += c * cb;
-                        k_red[j2 * p + j] += c * cb;
-                    }
+            let row_l = self.row_ptr[l]..self.row_ptr[l + 1];
+            if row_l.is_empty() {
+                continue;
+            }
+            for l2 in 0..m {
+                let kv = k[l * m + l2];
+                if kv == 0.0 {
+                    continue;
                 }
-                // diagonal l' == l
-                let kv = k[l * m + l];
-                for pb in self.row_ptr[l]..self.row_ptr[l + 1] {
-                    let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
-                    k_red[j * p + j2] += ca * kv * cb;
+                for pa in row_l.clone() {
+                    let c = self.vals[pa] * kv;
+                    let j = self.col_idx[pa];
+                    for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
+                        k_red[j * p + self.col_idx[pb]] += c * self.vals[pb];
+                    }
                 }
             }
         }
@@ -174,9 +208,31 @@ impl SparseTransform {
     /// Cost O(Σ_{(l,l')∈K} deg(l)·deg(l')) — near-linear in nnz(K) for the
     /// near-identity transforms MPCs produce.
     pub fn reduce_sparse(&self, k: &crate::linalg::sparse::CscMatrix) -> crate::linalg::sparse::CscMatrix {
-        let mut rows = Vec::new();
-        let mut cols = Vec::new();
-        let mut vals = Vec::new();
+        // Same precondition the dense twin asserts. Without it, a K narrower
+        // than C's row count silently drops every row from k.n upward and
+        // returns an under-stiff reduced system with no diagnostic; a wider one
+        // is an index panic, which on wasm32 crosses the FFI boundary as an
+        // abort rather than a solver error.
+        assert_eq!(
+            k.n, self.n_rows,
+            "reduce_sparse expects K of order n_rows ({}), got {}",
+            self.n_rows, k.n,
+        );
+        // Emitted as (col, row, value) so ONE sort leaves them in CSC order and
+        // the result can be built in place. The earlier version pushed into
+        // three parallel vectors, copied them into this tuple form, sorted,
+        // merged into three more vectors and handed those to `from_triplets`,
+        // which copied once more and sorted a second time — four full copies of
+        // ~9·nnz(K) triplets live at once, and a second sort of data already in
+        // (col, row) order.
+        //
+        // Only lower-triangle slots are emitted. Every contribution to a slot
+        // (j, j2) is complete on its own, so the upper mirrors were built and
+        // sorted only to be dropped by the `r >= c` filter below — half the
+        // tuples, and half the sort, for nothing. On a constrained shell model
+        // with nnz(K_ff) in the millions that is hundreds of MB of transient
+        // 24-byte tuples inside a wasm32 heap.
+        let mut trip: Vec<(usize, usize, f64)> = Vec::with_capacity(k.nnz() * 2);
         // K stores (row >= col): entry (l, l2) with l >= l2 stands for both
         // (l, l2) and (l2, l) in the double sum over ordered index pairs.
         // Emissions land on ORDERED target slots (j, j2): slot (j,j2) and its
@@ -189,36 +245,37 @@ impl SparseTransform {
                 let kv = k.values[pk];
                 for pa in self.row_ptr[l]..self.row_ptr[l + 1] {
                     let (j, ca) = (self.col_idx[pa], self.vals[pa]);
+                    let cak = ca * kv;
                     for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
-                        rows.push(j);
-                        cols.push(j2);
-                        vals.push(ca * kv * cb);
+                        if j >= j2 {
+                            trip.push((j2, j, cak * cb));
+                        }
                     }
                 }
                 if l != l2 {
                     // Transposed orientation (l2, l)
                     for pa in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j, ca) = (self.col_idx[pa], self.vals[pa]);
+                        let cak = ca * kv;
                         for pb in self.row_ptr[l]..self.row_ptr[l + 1] {
                             let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
-                            rows.push(j);
-                            cols.push(j2);
-                            vals.push(ca * kv * cb);
+                            if j >= j2 {
+                                trip.push((j2, j, cak * cb));
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Merge equal ordered slots, then keep only the lower triangle of the
-        // result (K_red is symmetric: the upper slot totals are redundant).
-        let mut trip: Vec<(usize, usize, f64)> =
-            rows.into_iter().zip(cols).zip(vals).map(|((r, c), v)| (c, r, v)).collect();
+        // Merge equal ordered slots, keep the lower triangle (K_red is
+        // symmetric, so the upper slot totals are redundant), and build the CSC
+        // directly — the run is already in (col, row) order and duplicate-free.
         trip.sort_unstable_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
-        let mut rows = Vec::new();
-        let mut cols = Vec::new();
-        let mut vals = Vec::new();
+        let mut col_ptr = vec![0usize; self.n_cols + 1];
+        let mut row_idx: Vec<usize> = Vec::new();
+        let mut values: Vec<f64> = Vec::new();
         let mut i = 0;
         while i < trip.len() {
             let (c, r, mut v) = trip[i];
@@ -227,13 +284,23 @@ impl SparseTransform {
                 v += trip[i].2;
                 i += 1;
             }
-            if r >= c {
-                rows.push(r);
-                cols.push(c);
-                vals.push(v);
+            // Same drop every other sparse producer applies — `from_dense_symmetric`,
+            // which the 3D path used to go through, and `assemble_stiffness_sparse_3d`,
+            // whose comment explains it: near-zero entries kept as structural
+            // nonzeros let Cholesky succeed on a singular matrix, and they hand AMD a
+            // denser elimination graph than the model actually has, filling in more
+            // than the dense path did and eroding the speedup this reduction exists
+            // for. Terms that cancel exactly land here as 0.0.
+            if r >= c && v.abs() > 1e-30 {
+                row_idx.push(r);
+                values.push(v);
+                col_ptr[c + 1] += 1;
             }
         }
-        crate::linalg::sparse::CscMatrix::from_triplets(self.n_cols, &rows, &cols, &vals)
+        for c in 0..self.n_cols {
+            col_ptr[c + 1] += col_ptr[c];
+        }
+        crate::linalg::sparse::CscMatrix { n: self.n_cols, col_ptr, row_idx, values }
     }
 }
 
@@ -934,9 +1001,20 @@ pub fn build_constraint_transform(
                 oi += 1;
             }
 
-            let new_row: Vec<(usize, f64)> =
-                touched.iter().map(|&j| (j, acc[j])).collect();
-            rows[dep_dof] = new_row;
+            // Drop columns whose terms cancelled. `touched` is stamped on FIRST
+            // touch, before any value is known, so a chain like
+            // `u_a = u_b + u_c` with `u_b = u_m`, `u_c = -u_m` leaves
+            // `acc[j_m] == 0.0` and would otherwise store `(j_m, 0.0)` in C.
+            // That fake nonzero survives into `c_ff` and then makes both
+            // reductions emit a whole deg-sized block of zero products into
+            // K_red for every K nonzero on this row — pattern pollution that
+            // reaches AMD as extra edges. Classification is unaffected either
+            // way (`unit_row_col` already filters at 1e-14).
+            rows[dep_dof] = touched
+                .iter()
+                .filter(|&&j| acc[j] != 0.0)
+                .map(|&j| (j, acc[j]))
+                .collect();
         }
 
         if max_change < 1e-14 { break; }
@@ -1083,11 +1161,19 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
     let mut f_f = extract_subvec(&asm.f, &free_idx);
 
-    // Modify for prescribed displacements
-    let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
-    let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
-    for i in 0..nf {
-        f_f[i] -= k_fr_ur[i];
+    // Modify for prescribed displacements.
+    //
+    // Guarded, same as the 3D path: u_r is all zeros for every model whose
+    // supports prescribe no settlement, which is nearly all of them, and the
+    // unguarded form allocates a dense nf×nr block and multiplies it to add a
+    // vector of zeros.
+    let has_prescribed = u_r.iter().any(|&v| v != 0.0);
+    if has_prescribed {
+        let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
+        let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+        for i in 0..nf {
+            f_f[i] -= k_fr_ur[i];
+        }
     }
 
     // Extract the free part of C (rows for free DOFs only), sparse.
@@ -1313,7 +1399,14 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     // assemble K densely (n×n) and reduce with a dense C (nf × n_indep) —
     // with a single rigid diaphragm that dominated both memory and time.
     let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, true);
-    let k_full = sasm.k_full.as_ref().expect("build_k_full=true");
+    // Every other precondition in this function returns Err, and it is reached
+    // from the WASM dispatch — a panic here crosses the FFI boundary as an abort
+    // rather than a solver message. Unreachable while the call above passes
+    // `true`, which is exactly why it should not be an `expect`.
+    let k_full = sasm
+        .k_full
+        .as_ref()
+        .ok_or("internal: sparse assembly did not build the full stiffness matrix")?;
     let k_ff = &sasm.k_ff;
 
     // Build prescribed displacements
@@ -1383,9 +1476,18 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let mut f_f: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Modify for prescribed displacements: f_f -= K_fr * u_r
-    let k_fr_ur = k_full.sparse_cross_block_matvec(&u_r, nf);
-    for i in 0..nf {
-        f_f[i] -= k_fr_ur[i];
+    //
+    // Guarded: `sparse_cross_block_matvec` walks every nonzero of the full n×n K,
+    // and `u_r` is all zeros for every model whose supports prescribe no
+    // settlement — which is nearly all of them. The `has_up` check below was
+    // already doing this for the particular solution, but only after this scan
+    // had run.
+    let has_prescribed = u_r.iter().any(|&v| v != 0.0);
+    if has_prescribed {
+        let k_fr_ur = k_full.sparse_cross_block_matvec(&u_r, nf);
+        for i in 0..nf {
+            f_f[i] -= k_fr_ur[i];
+        }
     }
 
     // Free part of C (rows 0..nf, free-independent columns), sparse.
@@ -1533,14 +1635,17 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let equilibrium = linear::compute_equilibrium_summary_3d(&sasm.f, &reactions_vec, &dof_num, rel_residual, &sasm.inclined_transforms);
 
     // Solver-path diagnostic — report the actual solver that produced the result
-    let (path_code, path_sev) = if used_fallback {
-        (DiagnosticCode::SparseFallbackDenseLu, Severity::Warning)
+    // One dispatch, not two: the label used to be re-derived by matching on the
+    // code this `if` had just produced, with a catch-all arm that would silently
+    // mislabel any path code added here later.
+    let (path_code, path_sev, solver_label) = if used_fallback {
+        (
+            DiagnosticCode::SparseFallbackDenseLu,
+            Severity::Warning,
+            "Cholesky failed, dense LU fallback",
+        )
     } else {
-        (DiagnosticCode::SparseCholesky, Severity::Info)
-    };
-    let solver_label = match path_code {
-        DiagnosticCode::SparseFallbackDenseLu => "Cholesky failed, dense LU fallback",
-        _ => "Sparse Cholesky",
+        (DiagnosticCode::SparseCholesky, Severity::Info, "Sparse Cholesky")
     };
     constraint_diags.push(StructuredDiagnostic::global(
         path_code,
@@ -1620,6 +1725,16 @@ pub struct FreeConstraintSystem {
     pub n_free_indep: usize,
     /// Number of free DOFs (unreduced)
     pub nf: usize,
+    /// Which free DOFs are dependent, carried from `ConstraintTransform`
+    /// rather than re-derived from the shape of C_ff.
+    ///
+    /// The pattern cannot answer this. A slave tied one-to-one to a FREE master
+    /// — `EqualDOF` between two free nodes, the rotational rows of every
+    /// `RigidLink` and `EccentricConnection`, a zero-offset `Diaphragm` — has
+    /// the row `[(col_of_master, 1.0)]`, which is indistinguishable from the
+    /// row of an independent DOF. Sniffing it classified those as independent
+    /// and dropped their constraint forces from the results entirely.
+    dependent: Vec<bool>,
 }
 
 impl FreeConstraintSystem {
@@ -1670,11 +1785,26 @@ impl FreeConstraintSystem {
             }
         }
 
+        // Authoritative, from the transform that decided it.
+        let mut dependent = vec![false; nf];
+        for &d in &ct.dependent_dofs {
+            if d < nf {
+                dependent[d] = true;
+            }
+        }
+
         FreeConstraintSystem {
             c_ff: SparseTransform::from_rows(nf, n_free_indep, rows),
             n_free_indep,
             nf,
+            dependent,
         }
+    }
+
+    /// Whether free DOF `i` is constrained (a slave). Answered from the
+    /// constraint definitions, not from the shape of C_ff — see the field.
+    pub fn is_dependent(&self, i: usize) -> bool {
+        self.dependent[i]
     }
 
     /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff
@@ -1786,11 +1916,14 @@ impl FreeConstraintSystem {
     fn collect_dependent_forces(&self, residual: &[f64]) -> Vec<(usize, f64)> {
         let mut forces = Vec::new();
         for i in 0..self.nf {
-            // Dependent DOFs are those not in the identity pattern of C_ff
-            if self.map_dof_to_reduced(i).is_none() {
-                if residual[i].abs() > 1e-15 {
-                    forces.push((i, residual[i]));
-                }
+            // Asked, not inferred. This used to test
+            // `map_dof_to_reduced(i).is_none()`, i.e. "does row i look like an
+            // identity row of C_ff" — which is true of every slave tied
+            // one-to-one to a free master, so their constraint forces were
+            // silently missing from the results. A rigid link reported no
+            // transferred moment.
+            if self.is_dependent(i) && residual[i].abs() > 1e-15 {
+                forces.push((i, residual[i]));
             }
         }
         forces
@@ -1820,10 +1953,14 @@ mod tests {
 
         let n = 5;
         let mut k = vec![0.0; n * n];
+        // Lower triangle written once and mirrored, so the fixture is symmetric
+        // by construction rather than by loop order — the previous form wrote
+        // every entry twice and relied on the later visit overwriting the first.
         for i in 0..n {
-            for j in 0..n {
-                k[i * n + j] = (10 * i + j + 1) as f64;
-                k[j * n + i] = k[i * n + j];
+            for j in 0..=i {
+                let v = (10 * i + j + 1) as f64;
+                k[i * n + j] = v;
+                k[j * n + i] = v;
             }
         }
 
@@ -1855,6 +1992,158 @@ mod tests {
             assert!((dense_red[i] - naive[i]).abs() < 1e-9, "dense[{i}]={} naive={}", dense_red[i], naive[i]);
             assert!((sparse_red[i] - naive[i]).abs() < 1e-9, "sparse[{i}]={} naive={}", sparse_red[i], naive[i]);
         }
+    }
+
+
+
+    /// `reduce_dense` must read ALL of K, not the lower triangle mirrored.
+    ///
+    /// The contract is documented at length on the function because roughly
+    /// fifteen dense callers — corotational tangent stiffness, the buckling
+    /// K_g, time integration, SSI, kinematics, cables — can hand it a matrix
+    /// carrying round-off asymmetry or a genuinely unsymmetric geometric term.
+    /// Nothing tested it: the sibling test's K is symmetric by construction, so
+    /// re-introducing the mirroring would pass every assertion there.
+    ///
+    /// Here K is deliberately asymmetric, and the expected value is the plain
+    /// triple sum over BOTH indices, which mirroring cannot reproduce.
+    #[test]
+    fn reduce_dense_reads_an_asymmetric_k_in_full() {
+        let rows_of_c: Vec<Vec<(usize, f64)>> = vec![
+            vec![(0usize, 1.0f64)],
+            vec![(1, 1.0)],
+            vec![(0, 2.0), (1, -1.0)],
+        ];
+        let c = SparseTransform::from_rows(3, 2, rows_of_c.clone());
+
+        // K[l][l2] = l*3 + l2 + 1 — every entry differs from its transpose.
+        let n = 3;
+        let mut k = vec![0.0; n * n];
+        for l in 0..n {
+            for l2 in 0..n {
+                k[l * n + l2] = (l * 3 + l2 + 1) as f64;
+            }
+        }
+        assert_ne!(k[0 * n + 1], k[1 * n + 0], "the fixture must be asymmetric");
+
+        let got = c.reduce_dense(&k);
+
+        // Σ_{l,l'} C[l,j]·K[l,l']·C[l',j'], written out.
+        let mut want = vec![0.0; 4];
+        for j in 0..2 {
+            for j2 in 0..2 {
+                let mut s = 0.0;
+                for l in 0..n {
+                    for l2 in 0..n {
+                        for &(cj, vj) in &rows_of_c[l] {
+                            for &(cj2, vj2) in &rows_of_c[l2] {
+                                if cj == j && cj2 == j2 {
+                                    s += vj * k[l * n + l2] * vj2;
+                                }
+                            }
+                        }
+                    }
+                }
+                want[j * 2 + j2] = s;
+            }
+        }
+
+        for i in 0..4 {
+            assert!(
+                (got[i] - want[i]).abs() < 1e-9,
+                "entry {i}: got {} want {} — a lower-triangle-and-mirror read would differ here",
+                got[i], want[i],
+            );
+        }
+        // And the reduced result is itself asymmetric, which is the whole point:
+        // a mirroring implementation can only ever produce a symmetric one.
+        assert!(
+            (got[1] - got[2]).abs() > 1e-9,
+            "C^T·K·C of an asymmetric K must stay asymmetric; got {} and {}",
+            got[1], got[2],
+        );
+    }
+
+    /// A dependent DOF whose terms cancel leaves an EMPTY row in C, and both
+    /// reductions must handle it.
+    ///
+    /// `build_constraint_transform` now drops columns whose accumulated
+    /// coefficient is exactly zero, so `u_a = u_b + u_c` with `u_b = u_m` and
+    /// `u_c = -u_m` produces a row with no entries at all. Nothing covered that
+    /// shape in either reduction.
+    #[test]
+    fn reductions_handle_an_empty_c_row() {
+        let rows_of_c: Vec<Vec<(usize, f64)>> = vec![
+            vec![(0usize, 1.0f64)],
+            vec![],            // every term cancelled
+            vec![(1, 1.0)],
+        ];
+        let c = SparseTransform::from_rows(3, 2, rows_of_c.clone());
+
+        let n = 3;
+        let mut k = vec![0.0; n * n];
+        for l in 0..n {
+            for l2 in 0..=l {
+                let v = (10 * l + l2 + 1) as f64;
+                k[l * n + l2] = v;
+                k[l2 * n + l] = v;
+            }
+        }
+
+        let dense_red = c.reduce_dense(&k);
+        let sparse_red = c
+            .reduce_sparse(&CscMatrix::from_dense_symmetric(&k, n))
+            .to_dense_symmetric();
+
+        // The empty row contributes nothing, so the result is K over rows 0 and 2.
+        let want = [k[0 * n + 0], k[0 * n + 2], k[2 * n + 0], k[2 * n + 2]];
+        for i in 0..4 {
+            assert!(
+                (dense_red[i] - want[i]).abs() < 1e-9,
+                "dense[{i}]={} want {}", dense_red[i], want[i],
+            );
+            assert!(
+                (sparse_red[i] - want[i]).abs() < 1e-9,
+                "sparse[{i}]={} want {}", sparse_red[i], want[i],
+            );
+        }
+    }
+
+    /// A slave tied ONE-TO-ONE to a free master must still report its
+    /// constraint force.
+    ///
+    /// This is the case the C_ff pattern cannot distinguish. `EqualDOF` between
+    /// two free nodes gives the slave the row `[(col_of_master, 1.0)]`, which
+    /// looks exactly like the identity row of an independent DOF, so deriving
+    /// dependency from the pattern classified the slave as independent and
+    /// dropped its force from `constraint_forces` entirely. The same row shape
+    /// comes from the rotational terms of every `RigidLink` and
+    /// `EccentricConnection` and from a zero-offset `Diaphragm`, so this was
+    /// never an edge case — a rigid link reported no transferred moment at all.
+    ///
+    /// Two free tips tied in uz with only one of them loaded: the tie is
+    /// load-bearing, so the force list may not come back empty.
+    #[test]
+    fn equal_dof_between_free_nodes_reports_its_constraint_force() {
+        let solver = make_two_beam_model();
+        let constraints = vec![Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 2,
+            slave_node: 1,
+            dofs: vec![1],
+        })];
+
+        let result = solve_constrained_2d(&ConstrainedInput { solver, constraints })
+            .expect("constrained solve should succeed");
+
+        assert!(
+            !result.constraint_forces.is_empty(),
+            "a one-to-one tie between free nodes must report a constraint force, got none",
+        );
+        let total: f64 = result.constraint_forces.iter().map(|f| f.force.abs()).sum();
+        assert!(
+            total > 1e-9,
+            "constraint force should be non-negligible, got {total:e}",
+        );
     }
 
     fn make_two_beam_model() -> SolverInput {

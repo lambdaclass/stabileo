@@ -93,8 +93,10 @@ pub fn solve_modal_2d(
     let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
     let (result, ns, m_solve) = if nf >= SPARSE_THRESHOLD {
         let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
+        // Assembled once: the branch below differs in whether the matrices are
+        // reduced, not in how they are built.
+        let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
         if let Some(ref cs) = cs {
-            let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
             let k_solve = cs.reduce_matrix_sparse(&sasm.k_ff);
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
             let result = lanczos_generalized_eigen_sparse(&k_solve, &m_solve, num_modes, 0.0)
@@ -102,7 +104,6 @@ pub fn solve_modal_2d(
             m_csc_opt = Some(m_solve);
             (result, cs.n_free_indep, Vec::new())
         } else {
-            let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
             let result = lanczos_generalized_eigen_sparse(&sasm.k_ff, &m_csc, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
             m_csc_opt = Some(m_csc);

@@ -642,3 +642,190 @@ fn test_load_displacement_path_continuity() {
         }
     }
 }
+
+// ==================== Displacement control: contract tests ====================
+//
+// These pin behaviour that was wrong and reported as success. Each one failed
+// before the fix in the way its comment describes; weakening them needs a reason.
+
+/// Two identical cantilevers whose tips are tied together in uz by an EqualDOF
+/// constraint. The smallest model that puts displacement control on the reduced
+/// path, which is what the convergence test has to measure.
+fn make_twin_cantilever_tied(l: f64, fz: f64) -> SolverInput {
+    SolverInput {
+        nodes: hm(vec![
+            (0, node(0, 0.0, 0.0)),
+            (1, node(1, l, 0.0)),
+            (2, node(2, 0.0, 2.0)),
+            (3, node(3, l, 2.0)),
+        ]),
+        materials: hm(vec![(1, steel())]),
+        sections: hm(vec![(1, beam_section())]),
+        elements: hm(vec![(1, frame(1, 0, 1)), (2, frame(2, 2, 3))]),
+        supports: hm(vec![(0, fixed(0, 0)), (1, fixed(1, 2))]),
+        loads: vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 1, fx: 0.0, fz, my: 0.0,
+        })],
+        constraints: vec![Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 1,
+            slave_node: 3,
+            dofs: vec![1],
+        })],
+        connectors: HashMap::new(),
+    }
+}
+
+fn dc_input(solver: SolverInput, target: f64, n_steps: usize) -> DisplacementControlInput {
+    DisplacementControlInput {
+        solver,
+        control_node: 1,
+        control_dof: 1,
+        target_displacement: target,
+        n_steps,
+        max_iter: 30,
+        tolerance: 1e-8,
+    }
+}
+
+/// A constrained model must converge, and the load factor must be right.
+///
+/// The Newton step solves the reduced system (Cᵀ K C, Cᵀ R), so the iteration
+/// drives Cᵀ R to zero. Testing the FULL residual could never be satisfied: at a
+/// constrained equilibrium R equals the constraint reaction forces and stays
+/// nonzero, so step 1 exhausted max_iter and the run was truncated after it.
+///
+/// The load factor is the real check, not just `converged`. Two identical beams
+/// sharing the tip displacement need exactly twice the load of one.
+#[test]
+fn test_displacement_control_converges_with_constraints() {
+    let target = -0.005;
+    let tied = solve_displacement_control(&dc_input(
+        make_twin_cantilever_tied(3.0, -10.0),
+        target,
+        10,
+    ))
+    .expect("constrained displacement control should solve");
+    let single =
+        solve_displacement_control(&dc_input(make_cantilever(3.0, -10.0), target, 10))
+            .expect("unconstrained displacement control should solve");
+
+    assert!(
+        tied.converged,
+        "a constrained model must converge; got converged=false after {} iterations",
+        tied.total_iterations
+    );
+    assert_eq!(tied.steps.len(), 10, "every step must run, not just the first");
+
+    let ctrl = tied.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
+    assert!(
+        (ctrl.uz - target).abs() < 1e-9,
+        "control DOF must reach its target: got {} expected {}",
+        ctrl.uz,
+        target
+    );
+
+    // Two beams tied at the tip carry the same displacement for twice the load.
+    let ratio = tied.final_load_factor / single.final_load_factor;
+    assert!(
+        (ratio - 2.0).abs() < 1e-6,
+        "tied pair should need exactly twice the load of one beam; ratio = {}",
+        ratio
+    );
+}
+
+/// Every reported step must be a real point on the equilibrium path.
+///
+/// The displacement side of the convergence test used to compare an absolute
+/// displacement in model units against the dimensionless residual tolerance
+/// (`disp_error.abs() < tolerance * 10.0`). Any step whose increment was smaller
+/// than that figure was declared converged having done no work: with this target
+/// 19 of the 20 reported points sat at the origin with load factor zero, and only
+/// the last one moved. The endpoint was right, the path was fabricated.
+#[test]
+fn test_displacement_control_reports_a_real_path_at_small_scale() {
+    let target = -1e-7;
+    let n_steps = 20;
+    let r = solve_displacement_control(&dc_input(make_cantilever(3.0, -10.0), target, n_steps))
+        .expect("small-scale displacement control should solve");
+
+    assert!(r.converged);
+    assert_eq!(r.steps.len(), n_steps);
+
+    // Each step sits at its own share of the target, and the load factor rises
+    // with it. Neither may be pinned at zero.
+    for (i, s) in r.steps.iter().enumerate() {
+        let expected = (i + 1) as f64 * target / n_steps as f64;
+        assert!(
+            (s.control_displacement - expected).abs() < 1e-16,
+            "step {} should sit at {:e}, got {:e}",
+            s.step,
+            expected,
+            s.control_displacement
+        );
+        assert!(
+            s.load_factor.abs() > 0.0,
+            "step {} reports load factor exactly zero — it did no work",
+            s.step
+        );
+    }
+
+    // Strictly increasing magnitude: a real path, not a flat line with one jump.
+    for w in r.steps.windows(2) {
+        assert!(
+            w[1].load_factor.abs() > w[0].load_factor.abs(),
+            "load factor must grow along the path: {} then {}",
+            w[0].load_factor,
+            w[1].load_factor
+        );
+    }
+}
+
+/// Degenerate input is rejected instead of being reported as a converged run.
+///
+/// These all arrive through the public WASM entry, which deserializes the struct
+/// straight from caller JSON. `n_steps = 0` made `delta_d` infinite and skipped
+/// the step loop, so the untouched zero state came back as `converged: true`.
+#[test]
+fn test_displacement_control_rejects_degenerate_input() {
+    let cases: Vec<(&str, DisplacementControlInput)> = vec![
+        ("n_steps = 0", dc_input(make_cantilever(3.0, -10.0), -0.005, 0)),
+        ("target = 0", dc_input(make_cantilever(3.0, -10.0), 0.0, 10)),
+        ("target = NaN", dc_input(make_cantilever(3.0, -10.0), f64::NAN, 10)),
+        ("max_iter = 0", {
+            let mut i = dc_input(make_cantilever(3.0, -10.0), -0.005, 10);
+            i.max_iter = 0;
+            i
+        }),
+        ("tolerance = 0", {
+            let mut i = dc_input(make_cantilever(3.0, -10.0), -0.005, 10);
+            i.tolerance = 0.0;
+            i
+        }),
+        (
+            "zero reference load",
+            dc_input(
+                {
+                    let mut s = make_cantilever(3.0, -10.0);
+                    s.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+                        node_id: 1,
+                        fx: 0.0,
+                        fz: 0.0,
+                        my: 0.0,
+                    })];
+                    s
+                },
+                -0.005,
+                10,
+            ),
+        ),
+    ];
+
+    for (label, input) in cases {
+        let r = solve_displacement_control(&input);
+        assert!(
+            r.is_err(),
+            "{label}: degenerate input must be an error, got converged={:?}",
+            r.map(|x| x.converged)
+        );
+    }
+}
