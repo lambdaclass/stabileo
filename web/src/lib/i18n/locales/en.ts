@@ -4601,7 +4601,7 @@ const en: Record<string, string> = {
   'conn.gap.aluminium.title': 'Aluminium outside the filter',
   'conn.gap.aluminium.exists': 'The metallic-participation filter, over members classified as steel.',
   'conn.gap.aluminium.missing': 'Aluminium. The filter uses isSteel(), and materialFamilyOf cannot tell aluminium from steel by the magnitude of fy until the material declares its grade.',
-  'conn.gap.aluminium.scope': 'Models with aluminium members: their joints can fall outside this list even though the metallic inventory does list them.',
+  'conn.gap.aluminium.scope': 'Models with aluminium members: their joints fall outside this list, and the metallic inventory does not list them either — it names them in a notice, because the bolt and electrode tables are steel\u2019s.',
   'conn.gap.aluminium.note': 'And the bolt and electrode tables are steel: applying them to aluminium would be wrong even if the joint appeared.',
   'conn.gap.fvExcl.title': 'Threads excluded from the shear plane, untabulated for 4.6 and 5.6',
   'conn.gap.fvExcl.exists': 'The threads-included value, for all four grades.',

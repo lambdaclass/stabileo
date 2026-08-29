@@ -22,6 +22,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import steelEs from '../locales/steel/es';
 import steelEn from '../locales/steel/en';
+import steelPt from '../locales/steel/pt';
 
 const SRC = join(import.meta.dirname, '../../..');
 
@@ -44,6 +45,10 @@ function literalKeys(): Set<string> {
   const files = [
     ...walk('lib/engine/steel'),
     ...walk('lib/engine/generators'),
+    // The catalogue layers emit note keys of their own — an unavailable property, or a pairing
+    // verdict, has to say why.
+    ...walk('lib/profiles'),
+    ...walk('lib/grades'),
     'lib/engine/design/adapters/cirsoc301-capabilities.ts',
     ...walk('components/pro/steel'),
     ...walk('components/pro/generators'),
@@ -60,10 +65,13 @@ function literalKeys(): Set<string> {
 }
 
 describe('steel and generator translation keys', () => {
-  it('ships the same key set in Spanish and English', () => {
+  it('ships the same key set in Spanish, English and Portuguese', () => {
+    // Portuguese was checked by nothing. It is one of the three languages the metallic surface
+    // is offered in, and a key missing from it renders as the key itself for a Brazilian user
+    // — the same failure the other two are guarded against, unguarded.
     const es = Object.keys(steelEs).sort();
-    const en = Object.keys(steelEn).sort();
-    expect(es).toEqual(en);
+    expect(Object.keys(steelEn).sort()).toEqual(es);
+    expect(Object.keys(steelPt).sort()).toEqual(es);
   });
 
   it('translates every key it ships, in both languages', () => {
@@ -74,6 +82,10 @@ describe('steel and generator translation keys', () => {
     for (const [k, v] of Object.entries(steelEn)) {
       expect(v.trim().length, `en ${k} is empty`).toBeGreaterThan(0);
       expect(v, `en ${k} was left as its own key`).not.toBe(k);
+    }
+    for (const [k, v] of Object.entries(steelPt)) {
+      expect(v.trim().length, `pt ${k} is empty`).toBeGreaterThan(0);
+      expect(v, `pt ${k} was left as its own key`).not.toBe(k);
     }
   });
 
@@ -91,6 +103,7 @@ describe('steel and generator translation keys', () => {
    */
   it('has a translation for every key built from a template', async () => {
     const { STEEL_MEMBER_STATUSES } = await import('../../engine/steel/steel-status');
+    const { STEEL_EMPTY_REASONS } = await import('../../engine/steel/steel-inventory');
     const { MEMBER_ROLES } = await import('../../engine/generators/member-roles');
     const { STRUCTURAL_MATERIAL_FAMILIES } = await import('../../engine/steel/material-family');
     const { STEEL_CAPABILITY_KEYS } = await import('../../engine/design/adapters/cirsoc301-capabilities');
@@ -98,6 +111,10 @@ describe('steel and generator translation keys', () => {
     const { OUTLINE_UNAVAILABLE_REASONS } = await import('../../engine/generators/section-outline');
     const { TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS } = await import('../../engine/generators/truss-topology');
     const { LACING_PATTERNS } = await import('../../engine/generators/lattice-column');
+    const { BRACING_BAYS } = await import('../../engine/generators/shed');
+    const { PROPERTY_ORDER, PROPERTY_BASES } = await import('../../profiles/properties');
+    const { GRADE_PROPERTY_ORDER, GRADE_BASES, GRADE_FAMILIES, populatedRegions } =
+      await import('../../grades/catalogue');
 
     const expected = [
       ...STEEL_MEMBER_STATUSES.map((s) => `steel.status.${s}`),
@@ -106,8 +123,9 @@ describe('steel and generator translation keys', () => {
       ...STRUCTURAL_MATERIAL_FAMILIES.map((f) => `steel.family.${f}`),
       ...STEEL_CAPABILITY_KEYS.map((k) => `steel.capability.${k}`),
       'steel.kind.beam', 'steel.kind.column', 'steel.kind.wall',
-      'steel.panel.empty.noElements', 'steel.panel.empty.noneMetallic',
-      'steel.panel.empty.allUnclassified',
+      // Expanded from the union rather than listed: the three that were listed by hand are
+      // now four, and the fourth would have shipped untranslated.
+      ...STEEL_EMPTY_REASONS.map((r) => `steel.panel.empty.${r}`),
       // Everything the generators panel builds from an enumeration. A value added to any of
       // these unions fails here until it is translated, which is the point.
       ...BUILT_UP_ARRANGEMENTS.map((a) => `generator.arrangement.${a}`),
@@ -115,11 +133,23 @@ describe('steel and generator translation keys', () => {
       ...ARCH_CURVES.map((c) => `generator.archCurve.${c}`),
       ...WEB_PATTERNS.map((w) => `generator.webPattern.${w}`),
       ...LACING_PATTERNS.map((l) => `generator.lacing.${l}`),
+      ...BRACING_BAYS.map((b) => `generator.bracingBays.${b}`),
       // Built from templates by `torsionBasisKey` and `outlineUnavailableKey`, so a regex over
       // the source cannot see them — which is exactly how one of these would ship rendering
       // its own key.
       ...BUILT_UP_TORSION_BASES.map((b) => `generator.builtUp.torsion.${b}`),
       ...OUTLINE_UNAVAILABLE_REASONS.map((u) => `generator.outline.${u}`),
+      // The section card's rows and the badge that says where each number came from. Both are
+      // built from a template, so both would otherwise ship as their own keys.
+      ...PROPERTY_ORDER.map((k) => `steel.props.label.${k}`),
+      ...PROPERTY_BASES.map((b) => `steel.props.basis.${b}`),
+      ...PROPERTY_BASES.map((b) => `steel.props.basis.title.${b}`),
+      // The grade card, its authority badges, and the two axes its chips are built from.
+      ...GRADE_PROPERTY_ORDER.map((k) => `steel.grades.label.${k}`),
+      ...GRADE_BASES.map((b) => `steel.grades.basis.${b}`),
+      ...GRADE_BASES.map((b) => `steel.grades.basis.title.${b}`),
+      ...GRADE_FAMILIES.map((f) => `steel.grades.family.${f}`),
+      ...populatedRegions().map((r) => `steel.grades.region.${r}`),
     ];
     const missing = expected.filter((k) => !(k in steelEs)).sort();
     expect(missing, `template keys not translated:\n${missing.join('\n')}`).toEqual([]);
@@ -127,7 +157,7 @@ describe('steel and generator translation keys', () => {
 
   it('reaches the app through the shipped dictionaries, not only the module', async () => {
     const { dictFor } = await import('../store.svelte');
-    for (const locale of ['es', 'en']) {
+    for (const locale of ['es', 'en', 'pt']) {
       const d = dictFor(locale);
       expect(d['steel.panel.title'], locale).toBeTruthy();
       expect(d['generator.role.chord'], locale).toBeTruthy();
@@ -180,5 +210,67 @@ describe('the experimental warnings cannot be conditioned away', () => {
     expect(banner).toBeGreaterThan(0);
     expect(table).toBeGreaterThan(0);
     expect(banner).toBeLessThan(table);
+  });
+});
+
+/**
+ * The joints panel's own strings, which nothing checked.
+ *
+ * `conn.*` lives in the MAIN dictionaries rather than in the steel namespace — PR21 put it
+ * there — so the parity gate above, which reads `locales/steel/*`, never saw it. That is 77
+ * keys carrying the five limitation disclosures, unverified in three languages: exactly the
+ * material whose absence would render as `conn.gap.baseMetal.missing` inside a panel whose
+ * whole purpose is to say what it does not compute.
+ *
+ * Asserted here rather than in the shared files' own suite because this is the steel surface's
+ * gate, and because reading them is not editing them: the main dictionaries are shared files
+ * under the overlap protocol and M1 does not touch them.
+ */
+describe('the joints panel speaks all three offered languages', () => {
+  it('ships the same conn.* key set in Spanish, English and Portuguese', async () => {
+    const [{ default: es }, { default: en }, { default: pt }] = await Promise.all([
+      import('../locales/es'), import('../locales/en'), import('../locales/pt'),
+    ]);
+    const connKeys = (d: Record<string, string>) => Object.keys(d).filter((k) => k.startsWith('conn.')).sort();
+    const base = connKeys(es);
+    expect(base.length).toBeGreaterThan(50);
+    expect(connKeys(en)).toEqual(base);
+    expect(connKeys(pt)).toEqual(base);
+  });
+
+  it('translates every facet of every limitation the panel renders', async () => {
+    const [{ default: es }, { default: en }, { default: pt }] = await Promise.all([
+      import('../locales/es'), import('../locales/en'), import('../locales/pt'),
+    ]);
+    // The ids are read off the panel source, so a limitation added there without its five
+    // sentences fails here instead of rendering its own keys into the disclosure block.
+    const tab = read('components/pro/ProConnectionsTab.svelte');
+    const block = tab.slice(tab.indexOf('const GAPS = ['), tab.indexOf('] as const;'));
+    const ids = [...block.matchAll(/id: '([A-Za-z]+)'/g)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThanOrEqual(5);
+
+    const facets = ['title', 'exists', 'missing', 'scope', 'note'];
+    for (const [name, dict] of [['es', es], ['en', en], ['pt', pt]] as const) {
+      for (const id of ids) {
+        for (const facet of facets) {
+          const key = `conn.gap.${id}.${facet}`;
+          expect((dict as Record<string, string>)[key], `${name} ${key}`).toBeTruthy();
+        }
+      }
+    }
+  });
+
+  it('keeps the warning that belongs beside a result out of the footnote list', async () => {
+    // The rule from PR21: a gap that changes how a number should be read has to appear next to
+    // the number. `fvExcl` is the case — the fallback is silent and tied to a checkbox the user
+    // is ticking — so its own warning must exist in the panel, not only in the gap block.
+    const tab = read('components/pro/ProConnectionsTab.svelte');
+    const warningAt = tab.indexOf('data-testid="conn-fvexcl-warning"');
+    const gapsAt = tab.indexOf('data-testid="conn-gaps"');
+    expect(warningAt).toBeGreaterThan(0);
+    expect(gapsAt).toBeGreaterThan(0);
+    expect(warningAt).toBeLessThan(gapsAt);
+    const { default: es } = await import('../locales/es');
+    expect((es as Record<string, string>)['conn.bolts.fvExclWarning']).toBeTruthy();
   });
 });

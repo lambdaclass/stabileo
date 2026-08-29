@@ -108,7 +108,13 @@ export interface Section {
   iz: number; // m⁴ — moment of inertia about Z-axis (vertical)
   b?: number; // m
   h?: number; // m
-  shape?: 'I' | 'H' | 'U' | 'L' | 'RHS' | 'CHS' | 'rect' | 'generic' | 'T' | 'invL' | 'C';
+  /**
+   * `'Z'` is the lipped cold-formed zed, added because a Z could not otherwise be stored or
+   * drawn: `createSectionShape` dispatches on this field, so a section without a literal here
+   * has no outline. Field meanings follow `'C'` exactly — `t` is the lip LENGTH and `tl` the lip
+   * thickness — so nothing else about a Z section is new. See `profiles/cold-formed.ts`.
+   */
+  shape?: 'I' | 'H' | 'U' | 'L' | 'RHS' | 'CHS' | 'rect' | 'generic' | 'T' | 'invL' | 'C' | 'Z';
   tw?: number;  // m - espesor alma (web thickness)
   tf?: number;  // m - espesor ala (flange thickness)
   t?: number;   // m - espesor pared (wall thickness, hollow sections) / lip length (C-channel)
@@ -124,6 +130,62 @@ export interface Section {
    * section/steel pairing matches what mills actually roll.
    */
   profileFamily?: string;
+  /**
+   * How a PARAMETRIC section was built: which template, and the numbers typed into it.
+   *
+   * ── What it is not ────────────────────────────────────────────────
+   *
+   * Not `composition`. That field names parts of the CATALOGUE — `profileName` is documented as
+   * "exact catalogue name" — and a section built from a template has no catalogue part to name.
+   * Writing one would be the defect `composition` exists to close: the make-up of a section
+   * stated in a string nobody can act on.
+   *
+   * Not provenance either. `ModelProvenance` records where a whole MODEL came from; this is a
+   * property of one section, and a project can mix a built section with catalogue picks.
+   *
+   * ── What it buys, stated precisely ────────────────────────────────
+   *
+   * The derived numbers were already stored: `a`, `iy`, `iz`, `j`, plus `shape` and the
+   * thicknesses. What was NOT stored is the INPUT, and three things follow from that:
+   *
+   *   1. **A built section cannot be edited.** Reopening a project, the only way to change a web
+   *      thickness is to delete the section and retype every parameter, because nothing recorded
+   *      what they were.
+   *   2. **Its origin is unanswerable.** A catalogue pick carries `profileFamily`, an assembly
+   *      carries `composition`, and a built section carried neither — so "where did this come
+   *      from" had no answer for exactly one of the three ways a section can be created.
+   *   3. **A parameter the apply path forgets is invisible.** The lipped channel is the live case:
+   *      `computeSectionProperties` takes `tl` — lip thickness — as its own input and returns it,
+   *      the apply path dropped it, and `createSectionShape`'s `case 'C'` falls back to the FLANGE
+   *      thickness when it is absent. So the properties were computed from one lip and the outline
+   *      drawn with another, and the two agreed only while a user left them equal. With the inputs
+   *      travelling on the section, that class of loss is detectable instead of silent.
+   *
+   * ── Declarative, like `composition` ───────────────────────────────
+   *
+   * Nothing in the properties path reads it. `a`/`iy`/`iz`/`j` on this section stay
+   * authoritative, and the canonical resolver is not handed a second opinion about the geometry.
+   * It is a record of an input, not a source of truth about an output.
+   *
+   * ── Where it persists, and where it does not ──────────────────────
+   *
+   * Optional, so every stored model predating it stays valid — and `snapshot()` spreads the
+   * section wholesale while `restore()` copies it, so `.ded`, undo/redo and tab capture carry it
+   * with no change to any of them.
+   *
+   * A SHARE LINK does not. `compressV2` in `utils/url-sharing.ts` encodes a section as the
+   * positional tuple `[id, name, a, iz, {s,b,h,w,f,t,iy,j,rot}]`, which has never carried `tl`,
+   * `profileFamily` or `composition` either — so an assembly shared by URL already comes back
+   * without its make-up. Widening that format is a separate, versioned decision
+   * (`SHARE_VERSION`); `built-section-contract.test.ts` pins the current loss so it is a stated
+   * limitation and not a surprise.
+   */
+  built?: {
+    /** Template id from `data/section-shapes.ts`, e.g. `I-custom`, `hollow-rect`, `C-custom`. */
+    shapeType: string;
+    /** The parameters as entered, in the units that template declares (metres for lengths). */
+    params: Record<string, number>;
+  };
   /**
    * What this section is MADE OF, when it is an assembly of catalogue profiles.
    *

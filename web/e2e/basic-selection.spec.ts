@@ -118,7 +118,7 @@ test.describe('box select in Basic 2D', () => {
     await page.getByTestId('rb-cmd-select').click();
     await page.getByTestId('multi-kind').check();
     const nodesItem = page.getByTestId('select-mode-nodes');
-    if ((await nodesItem.getAttribute('aria-checked')) !== 'true') await nodesItem.click();
+    if ((await nodesItem.getAttribute('aria-pressed')) !== 'true') await nodesItem.click();
 
     await sweepAll(page);
     const got = await picked(page);
@@ -152,7 +152,7 @@ test.describe('box select in Basic 2D', () => {
     await page.getByTestId('multi-kind').check();
     for (const k of ['nodes', 'supports', 'loads']) {
       const item = page.getByTestId(`select-mode-${k}`);
-      if ((await item.getAttribute('aria-checked')) !== 'true') await item.click();
+      if ((await item.getAttribute('aria-pressed')) !== 'true') await item.click();
     }
     await sweepAll(page);
 

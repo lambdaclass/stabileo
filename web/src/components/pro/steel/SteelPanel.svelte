@@ -27,10 +27,13 @@
   import { steelStore } from '../../../lib/store/steel.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { bindingLabel } from '../../../lib/codes/roles';
+  import { maturityLabelKey } from '../../../lib/codes/maturity';
   import { formatClause } from '../../../lib/codes/regulation';
   import { te } from '../../../lib/i18n/engine-text';
   import { STRUCTURAL_MATERIAL_FAMILIES } from '../../../lib/engine/steel/material-family';
+  import { structuralGradeSource } from '../../../lib/grades/catalogue';
   import SteelStatusBadge from './SteelStatusBadge.svelte';
+  import ColdFormedPanel from './ColdFormedPanel.svelte';
 
   const inv = $derived(steelStore.inventory);
   const kinds = $derived(steelStore.countByKind);
@@ -44,6 +47,19 @@
       .map((f) => ({ family: f, n: inv.census.byFamily[f] }))
       .filter((r) => r.n > 0),
   );
+
+  /**
+   * The grade behind a member, resolved for display.
+   *
+   * The inventory carries the id and nothing else, because it is pure. Resolution happens here,
+   * which also means a stored id the catalogue no longer knows shows as unresolved rather than
+   * as a blank — a project saved against a withdrawn grade should say so.
+   */
+  function gradeOf(gradeId: string | undefined) {
+    if (!gradeId) return null;
+    const g = structuralGradeSource.byId(gradeId);
+    return g ? { designation: g.designation, standard: g.productStandard } : null;
+  }
 
   const emptyMessage = $derived(
     inv.emptyReason
@@ -68,9 +84,34 @@
     <p class="sub">{t('steel.panel.subtitle')}</p>
   </header>
 
+  <!--
+    Which code, which EDITION, and how mature the app's support for it is.
+
+    The edition was the piece missing. A project can declare CIRSOC 301 and the panel said so, but
+    not which text — and `roles.ts` offers 2018 for steel while the concrete role carries both a
+    2005 and a 2025, so an edition is a real choice the reader could not see. Both fields are on
+    the binding already (`RoleBinding.edition`, `.maturity`), copied there at bind time precisely
+    so a stored project stays readable, so this is a read and not a new contract.
+
+    The catalogue's own `noteKey` — the sentence that says the official text ships with the app and
+    what is missing is the adapter — is NOT on the binding and there is no exported lookup by
+    `adapterId`. Adding one means editing `lib/codes/roles.ts`, which is the shared regulation
+    catalogue. Reported for coordination rather than edited; see `m1-m2-scope-split.md` §3.
+  -->
   <section class="code-line" data-testid="steel-code-line">
     {#if codeLabel}
       <span>{tp('steel.panel.codeDeclared', { name: codeLabel })}</span>
+      {#if steelBinding.edition}
+        <span class="edition" data-testid="steel-code-edition"
+          >{tp('steel.panel.codeEdition', { edition: steelBinding.edition })}</span>
+      {/if}
+      <!--
+        The maturity of the SUPPORT, which is a different fact from the state of the binding.
+        `UNSUPPORTED` with the code declared is the honest resting state of every steel project
+        here: the declaration is recorded and nothing is computed from it.
+      -->
+      <span class="maturity" data-testid="steel-code-maturity"
+        >{t(maturityLabelKey(steelBinding.maturity))}</span>
       {#if !steelStore.steelCodeUsable}
         <span class="tag" data-testid="steel-code-experimental">{t('steel.panel.codeExperimental')}</span>
       {/if}
@@ -121,6 +162,7 @@
             <th scope="col">{t('steel.table.kind')}</th>
             <th scope="col">{t('steel.table.section')}</th>
             <th scope="col">{t('steel.table.material')}</th>
+            <th scope="col">{t('steel.table.grade')}</th>
             <th scope="col" class="num">{t('steel.table.length')}</th>
             <th scope="col">{t('steel.table.status')}</th>
           </tr>
@@ -132,6 +174,25 @@
               <td>{t(`steel.kind.${m.memberKind}`)}</td>
               <td>{m.sectionName}</td>
               <td>{m.materialName}</td>
+              <!--
+                The declared grade, with the standard that defines it.
+
+                Two standards can give the same designation to different steels, so a
+                designation on its own is not a specification. Where the project declared
+                nothing the cell says which of the two reasons applies — no grade recorded, or
+                a grade the catalogue no longer knows — instead of being empty.
+              -->
+              <td data-testid={`steel-grade-${m.elementId}`}>
+                {#if gradeOf(m.gradeId)}
+                  {@const g = gradeOf(m.gradeId)!}
+                  <span class="grade-name">{g.designation}</span>
+                  <span class="grade-std">{g.standard}</span>
+                {:else if m.gradeId}
+                  <span class="grade-unknown" title={m.gradeId}>{t('steel.table.gradeUnresolved')}</span>
+                {:else}
+                  <span class="grade-none">{t('steel.table.gradeNone')}</span>
+                {/if}
+              </td>
               <td class="num">{m.lengthM.toFixed(2)}</td>
               <td><SteelStatusBadge status={m.state.status} /></td>
             </tr>
@@ -160,6 +221,19 @@
       {/each}
     </ul>
   </details>
+
+  <!--
+    The cold-formed selector.
+
+    Mounted here rather than as a new PRO tab on purpose: `ProPanel.svelte` is the shared tab host
+    — it carries the concrete tabs too — and this is the metallic surface. A cold-formed section is
+    steel, so the place a user looks for it is the steel screen.
+
+    It is the one part of this panel that CREATES something rather than reporting on the model.
+    That does not make it a design surface: what it produces is geometry, and the five facts it
+    renders at the top say so before a user can add anything.
+  -->
+  <ColdFormedPanel />
 </div>
 
 <style>
@@ -228,4 +302,13 @@
     outline: 2px solid var(--st-value);
     outline-offset: 1px;
   }
+  /* The grade cell holds two facts, so it stacks them rather than running them together. */
+  .grade-name { font-family: var(--st-mono, monospace); }
+  .grade-std { display: block; font-size: 0.58rem; color: var(--st-text-3); }
+  .grade-none, .grade-unknown { color: var(--st-text-3); font-size: 0.6rem; }
+  .grade-unknown { border-bottom: 1px dotted var(--st-warn); }
+  /* The edition and the maturity sit beside the name, quieter than it: they qualify the
+     declaration rather than being the declaration. */
+  .edition { font-size: 0.64rem; color: var(--st-text-2); }
+  .maturity { font-size: 0.6rem; color: var(--st-text-3); text-transform: uppercase; letter-spacing: 0.04em; }
 </style>

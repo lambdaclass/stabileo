@@ -327,8 +327,20 @@ test.describe('@smoke the section walkthrough', () => {
     await expect.poll(() => stepId(page), { timeout: 60_000 }).toBe('arm');
     await advance(page, 'pick');
 
-    const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+    /*
+     * The box is measured before EACH click, not once — the same correction the walkthrough test
+     * above already carries, for the same reason.
+     *
+     * A click that lands on a member opens the property panel, and that reflows the canvas. So a
+     * box captured before the loop aims attempts 2 to 4 at where the canvas used to be, and the
+     * step never leaves `pick`: it fails having missed four times in a row while reporting only
+     * that `sliders` never arrived. Observed on CI, on a run whose only delta from a green one was
+     * a vitest file this spec does not read.
+     */
+    const canvasBox = async () =>
+      (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
     for (const fy of [0.5, 0.55, 0.45, 0.6]) {
+      const box = await canvasBox();
       await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * fy);
       await page.waitForTimeout(700);
       if ((await stepId(page)) !== 'pick') break;
