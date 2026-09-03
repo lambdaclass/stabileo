@@ -314,14 +314,39 @@ test.describe('@smoke the section walkthrough', () => {
      * keep every rung inside the pick radius.
      */
     const met = () => page.evaluate(() => window.__stabileo.tourStep()?.met ?? false);
+    const pick = () => page.evaluate(() => window.__stabileo.viewportPick());
     const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+
+    /*
+     * Say what the viewport thought, on every rung.
+     * ────────────────────────────────────────────
+     * This step has now failed on CI in a way no artifact explained. A click
+     * is recorded as a station only when `selectMode` is 'stress' and there
+     * are results; the walkthrough arms the first and solves for the second,
+     * several steps earlier. When neither the screenshot nor the a11y tree
+     * shows those, "the mode was disarmed" and "the click missed the member"
+     * produce the same picture — a card still waiting.
+     *
+     * So the run reports both, per rung, and the failure message carries the
+     * last reading. Cheap on a step that is waiting by definition, and it
+     * turns the next red run into a diagnosis instead of another guess.
+     */
+    const trail: string[] = [];
     for (const fy of [0.5, 0.52, 0.48, 0.54, 0.46]) {
       await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * fy);
       await page.waitForTimeout(300);
+      const p = await pick();
+      trail.push(
+        `fy=${fy} mode=${p.selectMode} tool=${p.tool} results=${p.hasResults} query=${p.hasStressQuery}`,
+      );
       if (await met()) break;
     }
+    const seen = trail.join('\n  ');
+
     // It hung here: the condition read the DOM, which nothing re-evaluates.
-    await expect.poll(() => stepId(page), { timeout: 15_000 }).toBe('sliders');
+    await expect
+      .poll(() => stepId(page), { timeout: 15_000, message: `viewport per click:\n  ${seen}` })
+      .toBe('sliders');
   });
 });
 
