@@ -292,11 +292,33 @@ test.describe('@smoke the section walkthrough', () => {
     await expect.poll(() => stepId(page), { timeout: 60_000 }).toBe('arm');
     await advance(page, 'pick');
 
+    /*
+     * Stop clicking once the step's own condition is met — not once the card
+     * has moved.
+     * ────────────────────────────────────────────────────────────────────
+     * The two are about a second apart. `pick` waits on
+     * `resultsStore.stressQuery !== null` and advances from a 300 ms poll
+     * plus a deliberate 800 ms pause, so a hit is invisible to `stepId` for
+     * roughly 1.1 s while this loop comes back around every 700 ms.
+     *
+     * That mattered because a click that MISSES the member does not merely
+     * fail to help: Viewport's stress branch takes its `else` and sets
+     * `stressQuery = null`. The old ladder ran to ±0.1 of the canvas height
+     * — about 54 px against a 0.3 m ≈ 36 px pick radius — so its last rung
+     * was a guaranteed miss, and on a runner loaded enough to delay the poll
+     * past the loop it undid a pick nobody had observed yet. The step then
+     * waited on a condition that had been true and was not any more, which is
+     * how this failed three times in a row on CI and never once locally.
+     *
+     * So: read `met` rather than the card, leave the instant it is true, and
+     * keep every rung inside the pick radius.
+     */
+    const met = () => page.evaluate(() => window.__stabileo.tourStep()?.met ?? false);
     const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
-    for (const fy of [0.5, 0.55, 0.45, 0.6]) {
+    for (const fy of [0.5, 0.52, 0.48, 0.54, 0.46]) {
       await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * fy);
-      await page.waitForTimeout(700);
-      if ((await stepId(page)) !== 'pick') break;
+      await page.waitForTimeout(300);
+      if (await met()) break;
     }
     // It hung here: the condition read the DOM, which nothing re-evaluates.
     await expect.poll(() => stepId(page), { timeout: 15_000 }).toBe('sliders');
