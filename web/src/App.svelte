@@ -114,6 +114,39 @@
    * Phone only. On a desktop the panel takes width from a canvas that has
    * plenty, and the existing framing stays legible.
    */
+  /* ── Stabileo AI, as a panel destination ───────────────────────────────
+   *
+   * Not a container of its own any more. In Basic it is a value of `basicPanel`
+   * like `results` or `project`; in PRO it is a `proActiveTab` like any other.
+   * Both already know how to be a side panel on a desktop and the bottom sheet
+   * on a phone, how to be dragged, and how to answer the density setting — so
+   * the assistant gets all of that by being one of them rather than by having
+   * any of it written again.
+   *
+   * It also removes the PRO bug at the root: `AiDrawer` was a flex child of
+   * `.app-body`, which is a ROW in Basic and a COLUMN in PRO. Written for the
+   * row (`width: 380px; height: 100%`), as a column item it took the full
+   * height and left the model's container with none — the canvas fell to 80×80
+   * and PRO looked broken. A panel cannot do that, because it is not a new
+   * participant in that layout.
+   */
+  const aiPanelOpen = $derived(
+    uiStore.appMode === 'pro'
+      ? uiStore.rightDrawerOpen && uiStore.proActiveTab === 'ai'
+      : basicPanel === 'ai',
+  );
+
+  function openAiPanel() {
+    if (uiStore.appMode === 'pro') {
+      if (aiPanelOpen) { uiStore.rightDrawerOpen = false; return; }
+      uiStore.proActiveTab = 'ai';
+      uiStore.rightDrawerOpen = true;
+      uiStore.proPanelVisible = true;
+    } else {
+      openBasicPanel('ai');
+    }
+  }
+
   /* ── PRO's phone camera button ─────────────────────────────────────────
    *
    * The stage selector that used to live here moved into the sheet, beside the
@@ -1087,6 +1120,45 @@
         not the document, which is what everything else in this corner does.
       -->
       <!--
+        Stabileo AI, beside Settings, in both modes and at every width.
+        ─────────────────────────────────────────────────────────────
+        It belongs to no stage and to no ribbon group, and that is a statement
+        about what it is rather than a placement of convenience. The assistant
+        spans modelling, results and design — so it is not a step of the work,
+        which is exactly what `PRO_TAB_STAGE` already says about Project by
+        mapping it to `''`. Things that act on the APPLICATION rather than on a
+        step live in this corner; the assistant is one of them.
+
+        A fifth stage would have claimed it IS a step. Filing it under Analysis
+        would have claimed it only reads results.
+
+        It says △ AI, and that is the whole naming argument: the triangle is
+        the mark beside the word Stabileo in this same header, so a button that
+        repeats it and adds AI reads as Stabileo AI without spending the width
+        to spell it. A generic robot or sparkle glyph would have named a
+        category instead of this product.
+
+        NOT `class="btn"`. That class sets padding and a radius and no colour
+        at all — `.btn-primary` and `.btn-secondary` are what carry the ground
+        — so wearing it alone left the browser's own #efefef button in a dark
+        header. This one is styled outright.
+      -->
+      {#if uiStore.appMode === 'basico' || uiStore.appMode === 'pro'}
+        <button
+          class="btn-ai"
+          class:on={aiPanelOpen}
+          onclick={openAiPanel}
+          title="{t('ai.title')} — {t('ai.devShort')}"
+          aria-label="{t('ai.title')} — {t('ai.devShort')}"
+          data-dev="1"
+          data-testid="ai-open"
+        >
+          <span class="ai-glyph" aria-hidden="true">△</span>
+          <span class="ai-word">AI</span>
+        </button>
+      {/if}
+
+      <!--
         At every width, now.
         ────────────────────
         This was `!uiStore.isMobile`, which took the button off a phone — while
@@ -1578,9 +1650,11 @@
 
     </div><!-- /pro-body-row (class only applied in PRO) -->
 
-    {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
-      <AiDrawer />
-    {/if}
+    <!--
+      `AiDrawer` is not mounted here any more. Its content is rendered inside
+      the panels — see `BasicPanel` and `ProPanel` — so it stops being a second
+      layout participant. That is what fixed PRO.
+    -->
   </div>
 
   {#if !uiStore.isMobile}
@@ -1816,11 +1890,16 @@
   <!-- <FeedbackWidget /> -->
 {/if}
 
-{#if !showLanding && !uiStore.isMobile && !uiStore.embedMode && !uiStore.aiDrawerOpen}
-  <button class="ai-fab" onclick={() => uiStore.aiDrawerOpen = true} title="Stabileo AI">
-    △
-  </button>
-{/if}
+<!--
+  The floating △ is gone. Stabileo AI opens from the header corner instead — see
+  `ai-open` beside the settings button — for the reason the corner exists: it is
+  where the controls that act on the APPLICATION live, as opposed to the ones
+  that act on a step of the work.
+
+  The button also had to be hidden whenever the assistant was open, because it
+  was a "open" with no "close"; a control in the corner is a toggle and does not
+  need that.
+-->
 
 <TourOverlay />
 
@@ -2379,8 +2458,21 @@
     color: white;
   }
 
+  /*
+     One row, one centre line.
+     ─────────────────────────
+     This was `align-items: normal`, which in a flex row means stretch — so
+     the help button and the language select, having no height of their own,
+     grew to the row's 32 px, while the two controls that DO declare a height
+     stayed 26 px and were left sitting against the top edge. Four controls
+     side by side on three different centre lines.
+
+     `center` is the rule; the two heights below are what keeps centring from
+     also making those two look smaller than the pair beside them.
+  */
   .header-actions {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
   }
@@ -2413,47 +2505,50 @@
     background: var(--st-surface-3);
   }
 
-  .ai-fab {
-    position: fixed;
-    bottom: 24px;
-    /*
-       Over the canvas, not over the panel. Fixed at the viewport's corner it
-       covered the bottom-right of the right panel — enough to swallow the last
-       row of the step-by-step wizard, and enough to intercept clicks meant for
-       whatever was underneath it.
-    */
-    right: calc(24px + var(--st-right-panel-w, 0px));
-    z-index: 100;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: var(--st-surface-2);
-    border: 2px solid var(--st-hair-strong);
-    color: var(--st-text);
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    cursor: pointer;
+  /*
+     Stabileo AI's entry point, beside Settings.
+     ──────────────────────────────────────────
+     A dot in `--st-warn` on the corner of the glyph, because the state has to
+     be legible BEFORE the panel opens — a reader who has to open something to
+     learn it does not work has already spent the trip.
+  */
+  /*
+     Built from `.btn-settings`, its neighbour: same transparent ground, same
+     hairline, same `--st-accent` when lit. The corner reads as one row of
+     controls that way, and the assistant does not arrive looking like a
+     promotion for itself.
+
+     Only two things separate it. The triangle is always `--st-accent` — it is
+     the brand mark, not a state — and the radius is a pill rather than a
+     circle, because this control carries a word.
+  */
+  .btn-ai {
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    gap: 0.25rem;
+    /* 32 px, which is what the help button and the language select come out
+       at when they stretch — see `.header-actions`. */
+    height: 32px;
+    padding: 0 0.55rem;
+    background: transparent;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 999px;
+    color: var(--st-text-2);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
   }
+  .btn-ai:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .btn-ai.on { border-color: var(--st-accent); color: var(--st-text); }
 
-  .ai-fab:hover {
-    background: var(--st-surface-3);
-    border-color: var(--st-interactive);
-    color: var(--st-value);
-    transform: scale(1.05);
-  }
+  .ai-glyph { font-size: 0.95rem; line-height: 1; color: var(--st-accent); }
+  .ai-word { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; }
 
-  .ai-fab.active {
-    background: var(--st-surface-3);
-    border-color: var(--st-interactive);
-    color: var(--st-value);
-    box-shadow: 0 4px 16px rgba(78, 205, 196, 0.3);
-  }
+  /*
+     The floating △ is gone; Stabileo AI opens from the header corner. Its
+     styles went with it — a fixed 48 px circle that had to dodge the right
+     panel's width and hide itself whenever the assistant was open.
+  */
+
 
   .btn-help {
     background: transparent;
@@ -2484,8 +2579,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    /* Square, and the same 32 px as everything else in this row. */
+    width: 32px;
+    height: 32px;
     padding: 0;
     background: transparent;
     border: 1px solid var(--st-hair-strong);
@@ -2996,6 +3092,10 @@
     left: 0;
     right: 0;
     z-index: 100;
+    /* Declared, not intrinsic — see `--st-bar-h` in tokens.css. The sheet
+       above it and `.app-body` both dodge exactly this many pixels. */
+    height: var(--st-bar-h);
+    box-sizing: border-box;
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -3275,7 +3375,12 @@
      */
     .drawer-right {
       top: auto;
-      bottom: 0;
+      /*
+         Above the bar, not under it. Every shell that draws this sheet on a
+         phone also draws the bottom bar — PRO and Education, the two modes
+         that are not Basic — so the offset is unconditional here.
+      */
+      bottom: var(--st-bar-h);
       left: 0;
       right: 0;
       width: 100%;
@@ -3298,6 +3403,23 @@
       max-height: var(--st-sheet-h);
       display: flex;
       flex-direction: column;
+    }
+
+    /*
+       The panel takes the sheet's height, and no more than it.
+       ───────────────────────────────────────────────────────
+       `.pro-panel` came in as `flex: 0 1 auto` with the default
+       `min-height: auto`, which in a flex column means "as tall as my
+       contents and never shorter". So the panel ran 26 px past the bottom of
+       the sheet that was supposed to be holding it — its own scroller could
+       not take the slack, because the box above the scroller had already
+       refused to. Everything below that line sat under the phone's bottom
+       bar, in every tab, which is why it read as content going missing rather
+       than as a panel being too tall.
+    */
+    .drawer-right.drawer-shared :global(.pro-panel) {
+      flex: 1;
+      min-height: 0;
     }
 
     /* The handle row: the grab fills it, the ✕ sits on top at the right. */
@@ -3346,7 +3468,19 @@
     }
 
     .app-body-bottom-bar {
-      padding-bottom: 60px;
+      padding-bottom: var(--st-bar-h);
+    }
+
+    /*
+       Both at once, which is the case that was wrong.
+       ──────────────────────────────────────────────
+       A PRO phone with a panel open wears both classes, and both wrote
+       `padding-bottom`. Equal specificity, so the later rule won outright
+       instead of adding to the earlier one: the sheet's height was reserved
+       and the bar's was not. This says the sum, once.
+    */
+    .app-body-sheet.app-body-bottom-bar {
+      padding-bottom: calc(var(--st-sheet-h) + var(--st-bar-h));
     }
 
     /*

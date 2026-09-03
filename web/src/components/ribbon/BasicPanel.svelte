@@ -14,6 +14,7 @@
   import { dsmStepsStore } from '../../lib/store/dsmSteps.svelte';
   import { uiStore } from '../../lib/store/ui.svelte';
   import SheetGrab from '../SheetGrab.svelte';
+  import AiDrawer from '../AiDrawer.svelte';
   import { resultsStore } from '../../lib/store/results.svelte';
 
   /**
@@ -216,6 +217,8 @@
       <ToolbarConfig flat />
     {:else if panel === 'project'}
       <ToolbarProject flat />
+    {:else if panel === 'ai'}
+      <AiDrawer docked />
     {:else if panel === 'data'}
       <!--
         Model data and the step-by-step wizard used to live in a SECOND right

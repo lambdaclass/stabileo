@@ -22,6 +22,7 @@
   import { detailingAuthor } from '../../lib/store/detailing-author.svelte';
   import { canOpenRebar3D, openRebar3D } from '../../lib/store/rebar-open';
   import Icon from '../ribbon/Icon.svelte';
+  import AiDrawer from '../AiDrawer.svelte';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -839,6 +840,27 @@
   let proGridOpen = $state(true);
   $effect(() => { gridStage; proGridOpen = true; });
 
+  /*
+   * A stage-less tab has no errand, so the grid has nothing to be open for.
+   * ──────────────────────────────────────────────────────────────────────
+   * `PRO_TAB_STAGE` maps Project and the assistant to `''` — they act on the
+   * application, not on a step of the work — and neither appears in the
+   * stage's groups. Leaving the grid up in front of them shows a list you
+   * cannot get back to what you are reading from.
+   *
+   * The Project CELL already collapsed the grid on its way out, which covered
+   * the reader who arrives through the panel and nobody who arrives from
+   * anywhere else. `openAiPanel` in App.svelte sets `proActiveTab` from the
+   * header, so on a phone the assistant rendered UNDERNEATH the whole command
+   * grid — 750 px down a 300 px sheet, reachable only by scrolling past every
+   * command in the stage. That is the overlap; this is the rule that covers
+   * both doors.
+   *
+   * Declared after the effect above so that when both answer the same change
+   * this one settles it: effects run in creation order.
+   */
+  $effect(() => { if (PRO_TAB_STAGE[uiStore.proActiveTab] === '') proGridOpen = false; });
+
   /**
    * The command the panel is currently showing, if any.
    *
@@ -893,6 +915,7 @@
 
   /** What the panel calls each destination. */
   const TAB_TITLE: Record<string, string> = {
+    ai: 'ai.title',
     project: 'ribbon.project', nodes: 'pro.tabNodes', elements: 'pro.tabElements',
     shells: 'pro.tabShells', materials: 'pro.tabMaterials', sections: 'pro.tabSections',
     supports: 'pro.tabSupports', constraints: 'pro.tabConstraints', loads: 'pro.tabLoads',
@@ -1178,7 +1201,9 @@
           <ProGeneratorsPanel />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
-        {:else if activeTab === 'diagnostics'}
+        {:else if activeTab === 'ai'}
+      <AiDrawer docked />
+    {:else if activeTab === 'diagnostics'}
           <ProDiagnosticsTab />
         {/if}
       </svelte:boundary>
@@ -1757,6 +1782,15 @@
   /* ─── Content area ─── */
   .pro-content {
     flex: 1;
+    /*
+       Without this the scroller is not a scroller. `flex: 1` sets the grow
+       factor, but a flex item's `min-height` defaults to `auto`, so this box
+       still refuses to be shorter than its contents — it grew 26 px past the
+       bottom of `.pro-panel` and put that much of every tab underneath the
+       phone's bottom bar. It scrolled, so the clipping read as the panel
+       simply ending there.
+    */
+    min-height: 0;
     overflow-y: auto;
     padding: 0;
   }

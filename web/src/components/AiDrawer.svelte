@@ -6,6 +6,26 @@
   import type { ModelSnapshot } from '../lib/store/history.svelte';
   import { compactSnapshotForAi, isValidReleaseShape, normalizeSnapshotReleases } from '../lib/ai/build-model';
 
+  /**
+   * `docked` — the body without its own chrome, for rendering inside a panel.
+   *
+   * The assistant used to be a 380 px container beside the app. It is a panel
+   * destination now, so the heading, the ✕ and — on a phone — the sheet and its
+   * drag all come from the panel. See `BasicPanel` and `ProPanel`.
+   */
+  let { docked = false }: { docked?: boolean } = $props();
+
+  /**
+   * The assistant is not usable yet, and every control says so from one place.
+   *
+   * A banner that announces "in development" above an input you can still type
+   * into is a notice its own surface contradicts — the reader believes the box,
+   * not the label. So this flag disables what would otherwise accept work, and
+   * the banner explains what the disabling means. One constant, so the day it
+   * ships there is one line to change and no control left behind still greyed.
+   */
+  const AI_IN_DEVELOPMENT = true;
+
   type AiTab = 'review' | 'explain' | 'query' | 'build';
   let activeTab = $state<AiTab>('build');
 
@@ -527,31 +547,46 @@
     }
   }
 
+  /*
+   * Only the undocked form has its own ✕, and nothing renders that any more —
+   * the panels provide it. Kept as the one place a standalone drawer would
+   * close from, should the component ever be mounted on its own again.
+   */
   function close() {
     uiStore.aiDrawerOpen = false;
   }
 </script>
 
-<aside class="ai-drawer">
-  <!-- Header -->
-  <div class="drawer-header">
-    <span class="drawer-title">Stabileo AI</span>
-    <button class="close-btn" onclick={close} title="Close">×</button>
-  </div>
+<!--
+  `docked` — rendered inside a panel rather than as a container of its own.
+  ───────────────────────────────────────────────────────────────────────
+  The panel already draws a heading and a ✕, and on a phone it is the bottom
+  sheet with its drag handle. Keeping our own would be a second title and a
+  second close button four millimetres apart, which is what a standalone drawer
+  needed and a docked body must not have. Same convention as `KinematicPanel`
+  and `WhatIfPanel`.
+-->
+<svelte:element this={docked ? 'div' : 'aside'} class="ai-drawer" class:ai-docked={docked}>
+  {#if !docked}
+    <div class="drawer-header">
+      <span class="drawer-title">Stabileo AI</span>
+      <button class="close-btn" onclick={close} title="Close">×</button>
+    </div>
+  {/if}
 
   <!-- Tabs -->
   <div class="tab-bar">
-    <button class="tab" class:active={activeTab === 'build'} onclick={() => activeTab = 'build'}>Build</button>
-    <button class="tab" class:active={activeTab === 'review'} onclick={() => activeTab = 'review'}>Review</button>
-    <button class="tab" class:active={activeTab === 'explain'} onclick={() => activeTab = 'explain'}>Explain</button>
-    <button class="tab" class:active={activeTab === 'query'} onclick={() => activeTab = 'query'}>Query</button>
+    <button class="tab" class:active={activeTab === 'build'} onclick={() => activeTab = 'build'}>{t('ai.tabBuild')}</button>
+    <button class="tab" class:active={activeTab === 'review'} onclick={() => activeTab = 'review'}>{t('ai.tabReview')}</button>
+    <button class="tab" class:active={activeTab === 'explain'} onclick={() => activeTab = 'explain'}>{t('ai.tabExplain')}</button>
+    <button class="tab" class:active={activeTab === 'query'} onclick={() => activeTab = 'query'}>{t('ai.tabQuery')}</button>
   </div>
 
   <!-- Body -->
   {#if activeTab === 'review'}
     <div class="drawer-body">
       {#if !reviewResponse && !reviewLoading}
-        <button class="action-btn" disabled={!hasResults} onclick={handleReview}>
+        <button class="action-btn" disabled={AI_IN_DEVELOPMENT || !hasResults} onclick={handleReview}>
           {t('ai.reviewModel')}
         </button>
         {#if !hasResults}
@@ -636,19 +671,33 @@
       <!-- Chat messages -->
       <div class="chat-messages" bind:this={chatContainer}>
         {#if chatMessages.length === 0}
+          <!--
+            The empty state is the panel, most of the time.
+            ──────────────────────────────────────────────
+            Nothing has been asked yet and nothing can be, so this is what a
+            reader actually sees — it is worth designing rather than filling.
+
+            The examples are chips, not a stack of italic lines. A chip is the
+            shape of something you can pick, which is the truthful shape here:
+            they are the sentences this assistant is built to understand, and
+            picking one will write it into the composer once there is an
+            assistant to send it to. Until then they are inert, and `disabled`
+            says so rather than a cursor discovering it.
+          -->
           <div class="chat-empty">
-            {#if hasModelOnCanvas}
-              <p class="chat-empty-title">Describe a structure or change</p>
-              <p class="chat-empty-hint">Try: "add one bay on the right"</p>
-              <p class="chat-empty-hint">Or: "add a story"</p>
-              <p class="chat-empty-hint">Or: "change all beams to IPE 400"</p>
-              <p class="chat-empty-hint">Or: "build a new 3-story frame"</p>
-            {:else}
-              <p class="chat-empty-title">Describe a structure</p>
-              <p class="chat-empty-hint">Try: "simply supported beam, 6m, 10 kN/m"</p>
-              <p class="chat-empty-hint">Or: "portal frame, 8m span, 5m height"</p>
-              <p class="chat-empty-hint">Or: "build a bridge with two piers"</p>
-            {/if}
+            <span class="chat-empty-mark" aria-hidden="true">△</span>
+            <p class="chat-empty-title">
+              {hasModelOnCanvas ? t('ai.emptyChange') : t('ai.emptyBuild')}
+            </p>
+            <div class="chat-empty-chips">
+              {#each (hasModelOnCanvas ? ['ai.exBay', 'ai.exStory', 'ai.exProfile', 'ai.exFrame3'] : ['ai.exBeam', 'ai.exPortal', 'ai.exBridge']) as k (k)}
+                <button
+                  class="chat-chip"
+                  disabled={AI_IN_DEVELOPMENT}
+                  onclick={() => (chatInput = t(k))}
+                >{t(k)}</button>
+              {/each}
+            </div>
           </div>
         {/if}
         {#each chatMessages as msg}
@@ -707,16 +756,16 @@
       <div class="chat-input-row">
         <textarea
           class="chat-input"
-          placeholder={hasModelOnCanvas ? "Describe a change or new structure..." : "Describe what to build..."}
+          placeholder={AI_IN_DEVELOPMENT ? t('ai.devPlaceholder') : (hasModelOnCanvas ? t('ai.describeChange') : t('ai.describeBuild'))}
           bind:value={chatInput}
           onkeydown={handleBuildKeydown}
-          disabled={buildLoading || !!pendingDraft}
+          disabled={AI_IN_DEVELOPMENT || buildLoading || !!pendingDraft}
           rows="2"
         ></textarea>
         {#if buildLoading}
           <button class="chat-send stop-btn" onclick={handleAbortBuild} title="Stop">■</button>
         {:else}
-          <button class="chat-send" onclick={() => handleBuildSend()} disabled={!chatInput.trim() || !!pendingDraft}>→</button>
+          <button class="chat-send" onclick={() => handleBuildSend()} disabled={AI_IN_DEVELOPMENT || !chatInput.trim() || !!pendingDraft} data-testid="ai-send">→</button>
         {/if}
       </div>
     </div>
@@ -739,74 +788,173 @@
       </div>
     </div>
   {/if}
-</aside>
+
+  <!--
+    The in-development notice — quiet, and last.
+    ───────────────────────────────────────────
+    It sits at the foot of the panel in every tab, because the thing it
+    qualifies is the panel, not one view of it.
+
+    An earlier version was a `--st-warn` banner above the tabs. That read as a
+    warning about the model — the colour the app uses for "your structure has a
+    problem" — when it is a note about the feature. Demoted to a hairline rule
+    and `--st-text-3`: present wherever you look, loud nowhere.
+
+    The claim is not carried by this text alone. `AI_IN_DEVELOPMENT` also
+    disables the composer and its send button, and the placeholder says why, so
+    the first thing a reader tries is the thing that tells them. A notice the
+    interface contradicts is worse than no notice.
+  -->
+  <p class="ai-dev-note" data-testid="ai-dev-note">
+    <span class="ai-dev-mark" aria-hidden="true"></span>
+    {t('ai.devNote')}
+  </p>
+</svelte:element>
 
 <style>
   .ai-drawer {
     width: 380px;
     height: 100%;
-    background: #16213e;
-    border-left: 1px solid #0f3460;
+    background: var(--st-surface);
+    border-left: 1px solid var(--st-hair);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     flex-shrink: 0;
   }
 
+  /* ── The in-development notice ──────────────────────────────────────
+     A footnote, not a warning. It is the last thing in the panel, separated by
+     a hairline instead of a filled box, and it borrows no semantic colour —
+     `--st-warn` in this application means the structure has a problem, and
+     spending it on "this feature is unfinished" makes both meanings weaker.
+     ───────────────────────────────────────────────────────────────── */
+  .ai-dev-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 7px 12px calc(7px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--st-hair);
+    color: var(--st-text-3);
+    font-size: 0.65rem;
+    line-height: 1.4;
+  }
+  /* A dot rather than an icon: at 5 px an icon is noise, and the sentence is
+     the message. It only has to say "this line is a status, not body copy". */
+  .ai-dev-mark {
+    width: 5px;
+    height: 5px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--st-text-3);
+  }
+
+  /* Docked: the panel owns the box, so this contributes no chrome of its own. */
+  .ai-drawer.ai-docked {
+    width: auto;
+    background: none;
+    border-left: none;
+    /*
+       Takes the height the panel offers, when the panel is a column that has
+       height to offer — which is the phone sheet, and PRO's desktop drawer.
+       Where the parent is ordinary flow the `flex` shorthand is simply
+       ignored and the drawer stays content-sized, as it was.
+
+       This is what puts the footnote at the FOOT. Content-sized, it landed
+       directly under the composer with the rest of the panel empty below it
+       on desktop, and at y≈1017 on a 667 px phone — a note about the feature
+       that you had to scroll past the feature to reach.
+    */
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  /* Whatever room is left goes above the note, not below it. */
+  .ai-drawer.ai-docked .ai-dev-note { margin-top: auto; }
+
   .drawer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid #0f3460;
+    border-bottom: 1px solid var(--st-hair);
     flex-shrink: 0;
   }
 
   .drawer-title {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #ccc;
+    color: var(--st-text);
     letter-spacing: 0.03em;
   }
 
   .close-btn {
     background: none;
     border: none;
-    color: #666;
+    color: var(--st-text-3);
     font-size: 1.2rem;
     cursor: pointer;
     padding: 0 0.2rem;
     line-height: 1;
   }
-  .close-btn:hover { color: #e94560; }
+  .close-btn:hover { color: var(--st-text-2); }
 
-  /* ─── Tabs ─── */
+  /* ─── Tabs ───────────────────────────────────────────────────────────
+     A segmented control, not the underlined row this panel used to carry.
+     The four views are one exclusive choice, and a recessed track with a
+     raised active segment says that in the shape itself — an underline only
+     says it in colour. It is also the one piece of chrome here allowed to be
+     more finished than the rest of the app: a real track, a lifted thumb.
+     ─────────────────────────────────────────────────────────────────── */
   .tab-bar {
     display: flex;
-    border-bottom: 1px solid #0f3460;
+    gap: 2px;
     flex-shrink: 0;
+    margin: 8px 12px 4px;
+    padding: 2px;
+    border-radius: 7px;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair);
   }
 
   .tab {
     flex: 1;
-    padding: 0.4rem 0;
+    padding: 0.34rem 0;
     background: none;
     border: none;
-    border-bottom: 2px solid transparent;
-    color: #666;
-    font-size: 0.68rem;
+    border-radius: 5px;
+    color: var(--st-text-3);
+    font-size: 0.64rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s;
   }
-  .tab:hover { color: #aaa; background: rgba(255, 255, 255, 0.02); }
-  .tab.active { color: #4ecdc4; border-bottom-color: #4ecdc4; }
+  .tab:hover { color: var(--st-text-2); }
+  .tab.active {
+    color: var(--st-text);
+    background: var(--st-surface-3);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
+  }
+  /* The lit segment is named by a rule under it rather than by tinting the
+     whole chip — the tint would compete with the accent the body already
+     spends on values. */
+  .tab.active { box-shadow: 0 1px 2px rgb(0 0 0 / 0.28), inset 0 -2px 0 -1px var(--st-accent); }
 
   /* ─── Body ─── */
   .drawer-body {
     flex: 1;
+    /*
+       Required, not decorative. A flex item defaults to `min-height: auto`,
+       which refuses to shrink below its content — so the body grew past the
+       drawer's box, `overflow: hidden` clipped the tail, and on a 300 px PRO
+       sheet the lower half of the panel became unreachable. With this the
+       body scrolls inside the drawer and the footnote keeps its place at the
+       bottom edge.
+    */
+    min-height: 0;
     overflow-y: auto;
     padding: 0.75rem;
     display: flex;
@@ -818,16 +966,16 @@
   .action-btn {
     width: 100%;
     padding: 0.55rem;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
+    background: var(--st-hair);
+    border: 1px solid var(--st-surface-3);
     border-radius: 4px;
-    color: #ccc;
+    color: var(--st-text);
     cursor: pointer;
     font-size: 0.78rem;
     font-weight: 600;
     transition: all 0.2s;
   }
-  .action-btn:hover:not(:disabled) { background: #1a4a7a; color: white; }
+  .action-btn:hover:not(:disabled) { background: var(--st-surface-3); color: white; }
   .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   /* ─── Loading ─── */
@@ -837,7 +985,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 1rem 0;
-    color: #888;
+    color: var(--st-text-3);
   }
   .loading-text { font-size: 0.78rem; }
 
@@ -845,8 +993,8 @@
     display: inline-block;
     width: 16px;
     height: 16px;
-    border: 2px solid #444;
-    border-top-color: #4ecdc4;
+    border: 2px solid var(--st-hair);
+    border-top-color: var(--st-accent);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
   }
@@ -855,8 +1003,8 @@
     display: inline-block;
     width: 12px;
     height: 12px;
-    border: 2px solid #444;
-    border-top-color: #4ecdc4;
+    border: 2px solid var(--st-hair);
+    border-top-color: var(--st-accent);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
     flex-shrink: 0;
@@ -864,14 +1012,14 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .hint { color: #555; font-size: 0.73rem; font-style: italic; margin: 0; }
+  .hint { color: var(--st-hair-strong); font-size: 0.73rem; font-style: italic; margin: 0; }
 
   .error-box {
     background: rgba(233, 69, 96, 0.12);
     border: 1px solid rgba(233, 69, 96, 0.4);
     border-radius: 4px;
     padding: 0.5rem 0.6rem;
-    color: #e94560;
+    color: var(--st-text-2);
     font-size: 0.73rem;
     word-break: break-word;
   }
@@ -894,8 +1042,8 @@
 
   .regen-btn {
     background: none;
-    border: 1px solid #333;
-    color: #777;
+    border: 1px solid var(--st-hair);
+    color: var(--st-text-3);
     width: 28px;
     height: 28px;
     border-radius: 4px;
@@ -906,29 +1054,29 @@
     justify-content: center;
     transition: all 0.15s;
   }
-  .regen-btn:hover:not(:disabled) { border-color: #4ecdc4; color: #4ecdc4; }
+  .regen-btn:hover:not(:disabled) { border-color: var(--st-accent); color: var(--st-accent); }
   .regen-btn:disabled { opacity: 0.4; }
 
-  .summary { color: #bbb; font-size: 0.76rem; line-height: 1.5; margin: 0; }
+  .summary { color: var(--st-text-2); font-size: 0.76rem; line-height: 1.5; margin: 0; }
 
   /* ─── Findings ─── */
-  .section-label { color: #777; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .section-label { color: var(--st-text-3); font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
   .findings { display: flex; flex-direction: column; gap: 0.35rem; }
 
   .finding {
     width: 100%;
     background: rgba(255, 255, 255, 0.02);
-    border: 1px solid #252535;
+    border: 1px solid var(--st-surface-2);
     border-radius: 5px;
     padding: 0;
     cursor: pointer;
     text-align: left;
-    color: #ccc;
+    color: var(--st-text);
     transition: border-color 0.15s;
   }
-  .finding:hover { border-color: #3a3a4a; }
-  .finding.expanded { border-color: #4a4a5a; }
+  .finding:hover { border-color: var(--st-hair); }
+  .finding.expanded { border-color: var(--st-hair-strong); }
 
   .finding-header { display: flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.55rem; }
 
@@ -943,31 +1091,31 @@
     line-height: 1.3;
   }
   .finding-title { flex: 1; font-size: 0.73rem; font-weight: 500; }
-  .finding-chevron { color: #555; font-size: 0.65rem; }
+  .finding-chevron { color: var(--st-hair-strong); font-size: 0.65rem; }
 
-  .finding-body { padding: 0.4rem 0.55rem 0.5rem; border-top: 1px solid #252535; }
-  .finding-body p { margin: 0 0 0.3rem; font-size: 0.72rem; color: #999; line-height: 1.45; }
-  .recommendation { color: #aaa !important; font-style: italic; }
+  .finding-body { padding: 0.4rem 0.55rem 0.5rem; border-top: 1px solid var(--st-surface-2); }
+  .finding-body p { margin: 0 0 0.3rem; font-size: 0.72rem; color: var(--st-text-2); line-height: 1.45; }
+  .recommendation { color: var(--st-text-2) !important; font-style: italic; }
 
   .finding-actions { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
   .finding-action {
     background: none;
-    border: 1px solid #333;
-    color: #888;
+    border: 1px solid var(--st-hair);
+    color: var(--st-text-3);
     font-size: 0.65rem;
     padding: 0.2rem 0.45rem;
     border-radius: 3px;
     cursor: pointer;
     transition: all 0.15s;
   }
-  .finding-action:hover { border-color: #4ecdc4; color: #4ecdc4; }
+  .finding-action:hover { border-color: var(--st-accent); color: var(--st-accent); }
 
-  .no-findings { color: #4caf50; font-size: 0.73rem; margin: 0; }
+  .no-findings { color: var(--st-ok); font-size: 0.73rem; margin: 0; }
 
   .collapsible-section { font-size: 0.72rem; }
-  .collapsible-section ol, .collapsible-section ul { margin: 0.2rem 0 0; padding-left: 1.1rem; color: #999; line-height: 1.5; }
+  .collapsible-section ol, .collapsible-section ul { margin: 0.2rem 0 0; padding-left: 1.1rem; color: var(--st-text-2); line-height: 1.5; }
 
-  .meta { color: #444; font-size: 0.6rem; text-align: right; padding-top: 0.3rem; border-top: 1px solid #1a1a2e; }
+  .meta { color: var(--st-hair); font-size: 0.6rem; text-align: right; padding-top: 0.3rem; border-top: 1px solid var(--st-surface-2); }
 
   /* ─── Placeholder tabs ─── */
   .placeholder {
@@ -981,17 +1129,17 @@
   }
   .placeholder-icon {
     font-size: 1.5rem;
-    color: #333;
+    color: var(--st-hair);
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    border: 2px solid #252535;
+    border: 2px solid var(--st-surface-2);
     display: flex;
     align-items: center;
     justify-content: center;
     margin-bottom: 0.3rem;
   }
-  .placeholder p { color: #666; font-size: 0.75rem; margin: 0; line-height: 1.4; }
+  .placeholder p { color: var(--st-text-3); font-size: 0.75rem; margin: 0; line-height: 1.4; }
 
   /* ─── Build / Chat ─── */
   .build-container {
@@ -1021,19 +1169,48 @@
     padding: 2rem 0;
   }
 
-  .chat-empty-title {
-    color: #888;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin: 0;
+  /* The brand mark, held well back — it identifies the surface without
+     asking to be looked at, which is the whole job of an empty state. */
+  .chat-empty-mark {
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--st-accent);
+    opacity: 0.28;
+    margin-bottom: 0.15rem;
   }
 
-  .chat-empty-hint {
-    color: #555;
-    font-size: 0.7rem;
-    margin: 0;
-    font-style: italic;
+  .chat-empty-title {
+    color: var(--st-text-2);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0 0 0.55rem;
   }
+
+  .chat-empty-chips {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+    width: 100%;
+    max-width: 260px;
+  }
+
+  /* Stated as things you could pick, and greyed because you cannot yet. The
+     italic hint lines this replaces looked like an apology for the panel. */
+  .chat-chip {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    color: var(--st-text-2);
+    font-size: 0.7rem;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .chat-chip:hover:not(:disabled) { border-color: var(--st-hair-strong); color: var(--st-text); }
+  .chat-chip:disabled { opacity: 0.55; cursor: default; }
 
   .chat-msg {
     display: flex;
@@ -1062,41 +1239,41 @@
   }
 
   .chat-user .chat-bubble {
-    background: #1a4a7a;
-    color: #ddd;
+    background: var(--st-surface-3);
+    color: var(--st-text);
     border-bottom-right-radius: 2px;
   }
 
   .chat-ai .chat-bubble {
     background: rgba(255, 255, 255, 0.04);
-    border: 1px solid #252535;
-    color: #bbb;
+    border: 1px solid var(--st-surface-2);
+    color: var(--st-text-2);
     border-bottom-left-radius: 2px;
   }
 
   .chat-system .chat-bubble {
     background: rgba(78, 205, 196, 0.08);
     border: 1px solid rgba(78, 205, 196, 0.2);
-    color: #4ecdc4;
+    color: var(--st-accent);
     font-size: 0.68rem;
     padding: 0.3rem 0.5rem;
   }
 
   .chat-msg.building .chat-bubble {
-    color: #888;
+    color: var(--st-text-3);
     font-style: italic;
   }
 
   .change-summary {
     font-size: 0.62rem;
-    color: #4ecdc4;
+    color: var(--st-accent);
     padding: 0 0.2rem;
     font-weight: 500;
   }
 
   .raw-response {
     font-size: 0.6rem;
-    color: #888;
+    color: var(--st-text-3);
     padding: 0.15rem 0.2rem;
   }
   .raw-response summary {
@@ -1106,7 +1283,7 @@
   .raw-response pre {
     margin: 0.25rem 0 0;
     padding: 0.4rem;
-    background: #1a1a2e;
+    background: var(--st-surface-2);
     border-radius: 4px;
     white-space: pre-wrap;
     word-break: break-all;
@@ -1116,7 +1293,7 @@
   }
 
   .chat-meta {
-    color: #444;
+    color: var(--st-hair);
     font-size: 0.58rem;
     padding: 0 0.2rem;
   }
@@ -1126,7 +1303,7 @@
     display: flex;
     gap: 0.4rem;
     padding: 0.45rem 0.75rem;
-    border-top: 1px solid #0f3460;
+    border-top: 1px solid var(--st-hair);
     flex-shrink: 0;
   }
 
@@ -1143,30 +1320,30 @@
 
   .draft-apply {
     background: rgba(78, 205, 196, 0.15);
-    border-color: #4ecdc4;
-    color: #4ecdc4;
+    border-color: var(--st-accent);
+    color: var(--st-accent);
   }
   .draft-apply:hover { background: rgba(78, 205, 196, 0.25); }
 
   .draft-retry {
     background: rgba(240, 165, 0, 0.1);
-    border-color: #f0a500;
-    color: #f0a500;
+    border-color: var(--st-warn);
+    color: var(--st-warn);
   }
   .draft-retry:hover { background: rgba(240, 165, 0, 0.2); }
 
   .draft-cancel {
     background: rgba(255, 255, 255, 0.03);
-    border-color: #444;
-    color: #888;
+    border-color: var(--st-hair);
+    color: var(--st-text-3);
   }
-  .draft-cancel:hover { background: rgba(255, 255, 255, 0.06); color: #bbb; }
+  .draft-cancel:hover { background: rgba(255, 255, 255, 0.06); color: var(--st-text-2); }
 
   /* ─── Post-build review ─── */
   .post-build-bar {
     display: flex;
     padding: 0.35rem 0.75rem;
-    border-top: 1px solid #0f3460;
+    border-top: 1px solid var(--st-hair);
     flex-shrink: 0;
   }
 
@@ -1176,7 +1353,7 @@
     background: rgba(79, 195, 247, 0.08);
     border: 1px solid rgba(79, 195, 247, 0.3);
     border-radius: 5px;
-    color: #4fc3f7;
+    color: var(--st-info);
     font-size: 0.7rem;
     font-weight: 600;
     cursor: pointer;
@@ -1189,7 +1366,7 @@
   .fix-issues-btn {
     background: rgba(240, 165, 0, 0.08);
     border-color: rgba(240, 165, 0, 0.3);
-    color: #f0a500;
+    color: var(--st-warn);
   }
   .fix-issues-btn:hover {
     background: rgba(240, 165, 0, 0.15);
@@ -1201,17 +1378,17 @@
     display: flex;
     gap: 0.4rem;
     padding: 0.5rem 0.75rem;
-    border-top: 1px solid #0f3460;
+    border-top: 1px solid var(--st-hair);
     flex-shrink: 0;
     align-items: flex-end;
   }
 
   .chat-input {
     flex: 1;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
+    background: var(--st-hair);
+    border: 1px solid var(--st-surface-3);
     border-radius: 6px;
-    color: #ddd;
+    color: var(--st-text);
     font-size: 0.75rem;
     padding: 0.4rem 0.5rem;
     resize: none;
@@ -1220,10 +1397,10 @@
   }
   .chat-input:focus {
     outline: none;
-    border-color: #4ecdc4;
+    border-color: var(--st-accent);
   }
   .chat-input::placeholder {
-    color: #555;
+    color: var(--st-hair-strong);
   }
   .chat-input:disabled {
     opacity: 0.5;
@@ -1232,10 +1409,10 @@
   .chat-send {
     width: 36px;
     height: 36px;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
+    background: var(--st-hair);
+    border: 1px solid var(--st-surface-3);
     border-radius: 6px;
-    color: #ccc;
+    color: var(--st-text);
     font-size: 1rem;
     cursor: pointer;
     display: flex;
@@ -1245,9 +1422,9 @@
     flex-shrink: 0;
   }
   .chat-send:hover:not(:disabled) {
-    background: #1a4a7a;
-    border-color: #4ecdc4;
-    color: #4ecdc4;
+    background: var(--st-surface-3);
+    border-color: var(--st-accent);
+    color: var(--st-accent);
   }
   .chat-send:disabled {
     opacity: 0.4;
@@ -1255,8 +1432,8 @@
   }
   .stop-btn {
     background: rgba(233, 69, 96, 0.15);
-    border-color: #e94560;
-    color: #e94560;
+    border-color: var(--st-text-2);
+    color: var(--st-text-2);
     font-size: 0.7rem;
   }
   .stop-btn:hover {
