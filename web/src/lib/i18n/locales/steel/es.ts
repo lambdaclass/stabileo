@@ -791,6 +791,13 @@ const steelEs: Record<string, string> = {
   'batten.missing.memberLength': 'Longitud del miembro',
   'batten.segmentsBelowMinimum': 'El reglamento pide tres tramos como mínimo (E.6.3.2(b)(2)).',
   'joint.state.notDesigned': 'Sin diseñar',
+  // ─── La unión en 3-D ───
+  // `joint.scene.notDesigned` la emite `jointSceneLayout` y no tenía traducción en ningún
+  // idioma: nadie la renderizaba hasta que el panel empezó a decir por qué el visor está vacío.
+  'joint.scene.notDesigned': 'Todavía no se dibuja nada: esta unión no tiene diseño.',
+  'conn.scene.emptyTitle': 'Todavía no se puede dibujar',
+  'conn.scene.inspect': 'Encuadrar la unión',
+  'conn.scene.hint': 'La chapa mide unos cientos de milímetros dentro de un edificio de decenas de metros, así que hay que encuadrarla para inspeccionarla.',
   'joint.state.incomplete': 'Incompleta',
   'joint.state.designed': 'Diseñada',
   'joint.state.exceeded': 'Excedida',

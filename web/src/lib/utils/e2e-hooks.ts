@@ -123,6 +123,16 @@ export interface StabileoTestHooks {
    */
   jointMeshCount(): number;
   /**
+   * What the joint scene actually contains, or null when nothing is drawn.
+   *
+   * A count cannot tell a plate from a bolt, nor an ORIENTED plate from an axis-aligned one —
+   * and that distinction is the whole of this block: with the plate drawn axis-aligned while its
+   * bolts were placed in the member frame, four of six bolts on a real shed joint stood outside
+   * the plate. `boltsInsidePlate` is that property, computed against the layout's own frame, so
+   * an E2E on the real building asserts it instead of a fixture standing in for it.
+   */
+  jointScene(): unknown;
+  /**
    * Everything selected, by kind.
    *
    * `selection()` reports members alone, which is enough while a selection can
@@ -389,6 +399,7 @@ export function installE2EHooks(): void {
       (window as unknown as { __nodeRadius?: number }).__nodeRadius ?? null,
     jointMeshCount: () =>
       (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
+    jointScene: () => (window as unknown as { __jointScene?: unknown }).__jointScene ?? null,
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
     tourStep: () => {

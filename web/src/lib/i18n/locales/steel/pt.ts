@@ -789,6 +789,13 @@ const steelPt: Record<string, string> = {
   'batten.missing.memberLength': 'Comprimento do membro',
   'batten.segmentsBelowMinimum': 'O regulamento exige ao menos três trechos (E.6.3.2(b)(2)).',
   'joint.state.notDesigned': 'Sem projeto',
+  // ─── A ligação em 3-D ───
+  // `joint.scene.notDesigned` é emitida por `jointSceneLayout` e não tinha tradução em nenhum
+  // idioma: ninguém a renderizava até o painel começar a dizer por que o visor está vazio.
+  'joint.scene.notDesigned': 'Ainda não se desenha nada: esta ligação não tem projeto.',
+  'conn.scene.emptyTitle': 'Ainda não é possível desenhar',
+  'conn.scene.inspect': 'Enquadrar a ligação',
+  'conn.scene.hint': 'A chapa tem algumas centenas de milímetros dentro de um edifício de dezenas de metros, por isso precisa de enquadramento para ser inspecionada.',
   'joint.state.incomplete': 'Incompleta',
   'joint.state.designed': 'Projetada',
   'joint.state.exceeded': 'Excedida',
