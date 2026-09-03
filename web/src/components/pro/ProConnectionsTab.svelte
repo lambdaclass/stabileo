@@ -561,6 +561,39 @@
         <p class="conn-explain" data-testid="conn-mixed-note">{t('conn.joints.mixedNote')}</p>
       {/if}
 
+      <!--
+        The 3-D view, and what it says when it has nothing to show.
+
+        Two halves of one honesty problem. `jointSceneLayout` decides whether a joint has
+        drawable geometry and, when it does not, names WHY — but the viewport used to discard
+        those keys and simply draw nothing, so «this joint has no geometry yet» looked exactly
+        like «nothing is selected». Now the reasons are rendered, so an empty viewport explains
+        itself instead of looking broken.
+
+        The inspect button exists because the geometry is correct and unusable at the same time:
+        a plate is a couple of hundred millimetres across in a shed tens of metres wide, which is
+        under a pixel at model zoom. It is a command rather than an automatic re-frame — moving
+        someone's camera because they clicked a row is not help.
+      -->
+      <div class="conn-scene" data-testid="conn-scene">
+        {#if uiStore.jointSceneEmptyReasons.length > 0}
+          <p class="conn-scene-empty" role="note" data-testid="conn-scene-empty">
+            <span class="conn-scene-empty-title">{t('conn.scene.emptyTitle')}</span>
+            {#each uiStore.jointSceneEmptyReasons as key (key)}
+              <span class="conn-scene-reason" data-testid="conn-scene-reason">{t(key)}</span>
+            {/each}
+          </p>
+        {:else}
+          <button
+            type="button"
+            class="conn-scene-inspect"
+            data-testid="conn-scene-inspect"
+            onclick={() => window.dispatchEvent(new Event('stabileo-zoom-to-joint'))}
+          >{t('conn.scene.inspect')}</button>
+          <span class="conn-explain" data-testid="conn-scene-hint">{t('conn.scene.hint')}</span>
+        {/if}
+      </div>
+
       <!-- ── The design: the governing demand, the choices, and the verdicts ── -->
       {#if design}
         <section class="jd" data-testid="joint-design">
@@ -1421,6 +1454,27 @@
     wrong. Work exists that this model cannot claim, which is a thing to resolve rather than a
     failure. The reason and the node id carry the meaning; the tint only ranks it.
   */
+  /* ── The 3-D view of the joint ── */
+  .conn-scene {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    margin: 0 0 8px;
+  }
+  .conn-scene-empty {
+    margin: 0; padding: 7px 9px; border-radius: 4px;
+    /* The neutral surface, not the warning one: «no geometry yet» is a state, not a problem. */
+    background: var(--st-surface-2); border-left: 2px solid var(--st-hair-strong);
+    font-size: 0.66rem; line-height: 1.45; color: var(--st-text-2);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .conn-scene-empty-title { font-weight: 600; color: var(--st-text); }
+  .conn-scene-reason { color: var(--st-text-2); }
+  .conn-scene-inspect {
+    padding: 3px 9px; border-radius: 3px; cursor: pointer;
+    background: var(--st-surface-2); color: var(--st-text);
+    border: 1px solid var(--st-hair-strong); font-size: 0.66rem;
+  }
+  .conn-scene-inspect:hover { border-color: var(--st-text-2); }
+
   .conn-obsolete {
     margin: 0 0 8px; padding: 7px 9px; border-radius: 4px;
     background: rgba(221, 170, 0, 0.08); border-left: 2px solid var(--st-warn);
