@@ -347,6 +347,7 @@
 
   .proj-heading:first-child { margin-top: 0; }
 
+
   /* Examples brings its own headings, so it only needs the spacing. */
   .proj-block { margin: 0.9rem 0 0; }
 

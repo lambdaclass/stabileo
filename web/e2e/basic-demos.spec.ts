@@ -327,14 +327,61 @@ test.describe('@smoke the section walkthrough', () => {
     await expect.poll(() => stepId(page), { timeout: 60_000 }).toBe('arm');
     await advance(page, 'pick');
 
+    /*
+     * Stop clicking once the step's own condition is met — not once the card
+     * has moved.
+     * ────────────────────────────────────────────────────────────────────
+     * The two are about a second apart. `pick` waits on
+     * `resultsStore.stressQuery !== null` and advances from a 300 ms poll
+     * plus a deliberate 800 ms pause, so a hit is invisible to `stepId` for
+     * roughly 1.1 s while this loop comes back around every 700 ms.
+     *
+     * That mattered because a click that MISSES the member does not merely
+     * fail to help: Viewport's stress branch takes its `else` and sets
+     * `stressQuery = null`. The old ladder ran to ±0.1 of the canvas height
+     * — about 54 px against a 0.3 m ≈ 36 px pick radius — so its last rung
+     * was a guaranteed miss, and on a runner loaded enough to delay the poll
+     * past the loop it undid a pick nobody had observed yet. The step then
+     * waited on a condition that had been true and was not any more, which is
+     * how this failed three times in a row on CI and never once locally.
+     *
+     * So: read `met` rather than the card, leave the instant it is true, and
+     * keep every rung inside the pick radius.
+     */
+    const met = () => page.evaluate(() => window.__stabileo.tourStep()?.met ?? false);
+    const pick = () => page.evaluate(() => window.__stabileo.viewportPick());
     const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
-    for (const fy of [0.5, 0.55, 0.45, 0.6]) {
+
+    /*
+     * Say what the viewport thought, on every rung.
+     * ────────────────────────────────────────────
+     * This step has now failed on CI in a way no artifact explained. A click
+     * is recorded as a station only when `selectMode` is 'stress' and there
+     * are results; the walkthrough arms the first and solves for the second,
+     * several steps earlier. When neither the screenshot nor the a11y tree
+     * shows those, "the mode was disarmed" and "the click missed the member"
+     * produce the same picture — a card still waiting.
+     *
+     * So the run reports both, per rung, and the failure message carries the
+     * last reading. Cheap on a step that is waiting by definition, and it
+     * turns the next red run into a diagnosis instead of another guess.
+     */
+    const trail: string[] = [];
+    for (const fy of [0.5, 0.52, 0.48, 0.54, 0.46]) {
       await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * fy);
-      await page.waitForTimeout(700);
-      if ((await stepId(page)) !== 'pick') break;
+      await page.waitForTimeout(300);
+      const p = await pick();
+      trail.push(
+        `fy=${fy} mode=${p.selectMode} tool=${p.tool} results=${p.hasResults} query=${p.hasStressQuery}`,
+      );
+      if (await met()) break;
     }
+    const seen = trail.join('\n  ');
+
     // It hung here: the condition read the DOM, which nothing re-evaluates.
-    await expect.poll(() => stepId(page), { timeout: 15_000 }).toBe('sliders');
+    await expect
+      .poll(() => stepId(page), { timeout: 15_000, message: `viewport per click:\n  ${seen}` })
+      .toBe('sliders');
   });
 });
 

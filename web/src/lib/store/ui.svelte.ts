@@ -7,6 +7,16 @@ import type { Element3DMetadata } from '../model/element-3d-metadata';
 export type Tool = 'select' | 'node' | 'element' | 'support' | 'load' | 'pan' | 'influenceLine';
 
 /**
+ * How big the controls inside a panel are on a phone.
+ *
+ * `compact` is the density the panels were written at — 22–25 px rows, made
+ * for a desktop sidebar. `comfortable` lifts them to a 44 px touch target at
+ * the cost of a taller, more-scrolled panel. Neither is right for everybody,
+ * which is why this is a preference and not a fix.
+ */
+export type TouchDensity = 'compact' | 'comfortable';
+
+/**
  * Tools that build the model, as opposed to selecting or panning.
  *
  * THE one list. The tool setter, the view-mode rules, the ribbon and the data
@@ -293,6 +303,38 @@ function createUIStore() {
   // Unit system — persisted in localStorage
   const savedUnitSystem = hasLocalStorage() ? localStorage.getItem('stabileo-unitSystem') : null;
   let unitSystem = $state<UnitSystem>((savedUnitSystem === 'Imperial' ? 'Imperial' : 'SI') as UnitSystem);
+
+  /*
+   * How big the controls INSIDE a panel are on a phone. Persisted.
+   *
+   * The panels were written for a 320 px desktop sidebar, so their rows are
+   * 22–25 px tall. That is dense but it is also legible and it fits a lot in a
+   * sheet — which is why it stays the default. It is not right for everyone or
+   * for every hand, and "44 px everywhere" is not either: it pushes the
+   * results table a further 125 px down a sheet that already scrolls.
+   *
+   * So it is a setting rather than a verdict. Read as an attribute on the root
+   * element (see `applyTouchDensity`), because the rules that answer to it live
+   * across several components and a global stylesheet is the one place that can
+   * reach all of them at once.
+   */
+  const savedDensity = hasLocalStorage() ? localStorage.getItem('stabileo-touch-density') : null;
+  let touchDensity = $state<TouchDensity>(savedDensity === 'comfortable' ? 'comfortable' : 'compact');
+
+  /*
+   * Written to the DOM rather than threaded through components.
+   *
+   * The rows this governs belong to ToolbarResults, the DataTable and the
+   * selectors around them — components that share no parent worth passing a
+   * prop through, and whose own styles are scoped. An attribute on the root and
+   * one global stylesheet reaches all of them, and adding a control to the set
+   * later is a CSS edit rather than a new prop on four components.
+   */
+  function applyTouchDensity() {
+    if (typeof document === 'undefined') return;
+    document.documentElement.dataset.touchDensity = touchDensity;
+  }
+  applyTouchDensity();
 
   // What-If exploration mode (not persisted — temporary)
   let showWhatIf = $state<boolean>(false);
@@ -779,6 +821,19 @@ function createUIStore() {
 
     /** Top offset (px) for viewport overlay buttons (zoom, camera controls, clip panel) */
     get floatingToolsTopOffset(): number {
+      /*
+       * Basic does not mount FloatingTools at any width.
+       *
+       * The offset exists to clear a strip that FLOATS OVER the canvas. Basic's
+       * commands are on the ribbon, which sits above the viewport and takes its
+       * own space, so there is nothing here to clear — but `showFloatingTools`
+       * is a persisted user setting rather than a statement about what is
+       * mounted, and it stays true from whenever the strip was last used. The
+       * result was the zoom and camera buttons hanging 44 px below the top of a
+       * canvas with nothing above them.
+       */
+      // `appMode === 'basico'`, spelled from the local it derives from.
+      if (analysisMode !== 'pro' && analysisMode !== 'edu') return 12;
       if (!showFloatingTools) return 12;
       // rows=1 → 56px (main bar only), rows=2 → 86px, rows=3 → 116px
       return 12 + 44 + (floatingToolsRows - 1) * 30;
@@ -788,6 +843,13 @@ function createUIStore() {
     set showTooltips(v: boolean) {
       showTooltips = v;
       if (hasLocalStorage()) localStorage.setItem('stabileo-tooltips', String(v));
+    },
+
+    get touchDensity() { return touchDensity; },
+    set touchDensity(v: TouchDensity) {
+      touchDensity = v;
+      if (hasLocalStorage()) localStorage.setItem('stabileo-touch-density', v);
+      applyTouchDensity();
     },
 
     get showHelpPanel() { return showHelpPanel; },

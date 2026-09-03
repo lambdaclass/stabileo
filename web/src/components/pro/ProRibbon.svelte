@@ -14,6 +14,7 @@
   import { detailingAuthor } from '../../lib/store/detailing-author.svelte';
   import { canOpenRebar3D, openRebar3D } from '../../lib/store/rebar-open';
   import Icon from '../ribbon/Icon.svelte';
+  import { buildProStages, PRO_TAB_STAGE, type ProStage, type ProCmd } from '../../lib/pro/stages';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../../lib/geometry/coordinate-system';
 
   /**
@@ -87,49 +88,6 @@
   let exampleBtn: HTMLButtonElement | undefined = $state();
   let openMenu = $state<string | null>(null);
 
-  /* ── Stages ───────────────────────────────────────────────────────────
-   *
-   * Four, not five. Examples and DXF are document commands and live in the
-   * block on the left with Project and Save; Report is the deliverable of an
-   * analysis, not a file operation, so it sits in ANALYSE beside Solve. With
-   * those placed, a DOCUMENT tab had nothing left to hold.
-   */
-  type Cmd = {
-    id: string;
-    labelKey: string;
-    icon?: string;
-    /** A literal symbol, for N / My / Vz — these are not translated. */
-    label?: string;
-    /** Turns the icon, for a force about a perpendicular axis. */
-    rotate?: number;
-    /** Destination: which panel view this opens. */
-    tab?: string;
-    /** Sets the diagram drawn on the model. */
-    diagram?: string;
-    action?: () => void;
-    enabled?: () => boolean;
-    /**
-     * One sentence saying what the command opens, when its label cannot.
-     *
-     * "Generators" names a category, not a destination; "Metallic structures" plus this says
-     * what you get. Rendered into the `title` AND into a visually-hidden description the
-     * button points at, because a `title` reaches neither a keyboard nor a screen reader.
-     */
-    descKey?: string;
-    /**
-     * The steps still missing, as i18n keys, when the command is gated.
-     *
-     * Returned as a LIST rather than a sentence so the disabled button can name each one —
-     * `ribbon.needsSolve` said only "solve first", which is not what is missing when the
-     * model is solved and the detailing has not been generated.
-     */
-    blockedKeys?: () => string[];
-    /** Shown only when the group is expanded. */
-    overflow?: boolean;
-  };
-  type Group = { id: string; labelKey: string; cmds: Cmd[] };
-  type Stage = { id: string; labelKey: string; home: string; groups: Group[] };
-
   const solved = $derived(resultsStore.results3D != null || resultsStore.results != null);
 
   /*
@@ -140,17 +98,6 @@
     resultsStore.diagramType === 'axialColor' ? 'axial' : resultsStore.diagramType,
   );
 
-  /**
-   * What is still missing before the reinforcement can be viewed in 3-D.
-   *
-   * The same ladder `WorkflowStages` walks, read from the same three stores, and returned as
-   * keys so the caller words it. Three named steps instead of one "solve first": the command
-   * is equally unavailable on an unsolved model and on a solved, designed one whose detailing
-   * has never been generated, and those are not the same instruction.
-   *
-   * It reports; it does not act. Pressing a disabled command must never quietly run the design
-   * — a user who wanted that would have pressed Design.
-   */
   function rebar3DMissingSteps(): string[] {
     const steps: string[] = [];
     if (resultsStore.results3D == null && resultsStore.results == null) {
@@ -168,257 +115,28 @@
     });
   }
 
-  const STAGES: Stage[] = $derived([
-    {
-      id: 'model',
-      labelKey: 'proRibbon.stageModel',
-      home: 'nodes',
-      groups: [
-        {
-          id: 'geometry',
-          labelKey: 'ribbon.groupDraw',
-          cmds: [
-            { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
-            { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
-            { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
-          ],
-        },
-        {
-          id: 'properties',
-          labelKey: 'proRibbon.groupProperties',
-          cmds: [
-            { id: 'materials', labelKey: 'pro.tabMaterials', icon: 'material', tab: 'materials' },
-            { id: 'sections', labelKey: 'pro.tabSections', icon: 'section', tab: 'sections' },
-          ],
-        },
-        /*
-         * Generators are their own sub-section, to the RIGHT of Properties.
-         *
-         * They were folded into Draw, beside nodes and elements, on the reasoning that a
-         * generator draws. It does — but Draw is where you place one thing at a time, and a
-         * generator replaces the whole model from a parameter form. Sitting in the same group
-         * as `Nodes` made it read as one more drawing tool, and sitting anywhere near
-         * Properties made it read as a property of the model.
-         *
-         * Last in the stage because that is the order of the work: draw or generate, then
-         * give what you have its materials and sections.
-         */
-        {
-          id: 'generators',
-          labelKey: 'proRibbon.groupGenerators',
-          cmds: [
-            {
-              // Named for what it opens, not for its category. "Generators" is the SECTION;
-              // a button repeating it would say the same word twice and still not say that
-              // what comes out is a truss, a latticed column or a shed.
-              id: 'generators',
-              labelKey: 'proRibbon.cmdSteelStructures',
-              descKey: 'proRibbon.cmdSteelStructuresDesc',
-              icon: 'examples',
-              tab: 'generators',
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'conditions',
-      labelKey: 'ribbon.groupConditions',
-      home: 'supports',
-      groups: [
-        {
-          id: 'restraints',
-          labelKey: 'proRibbon.groupRestraints',
-          cmds: [
-            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
-            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
-          ],
-        },
-        {
-          id: 'loads',
-          labelKey: 'proRibbon.groupLoads',
-          cmds: [
-            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'analyse',
-      labelKey: 'ribbon.tabAnalyse',
-      home: 'results',
-      groups: [
-        {
-          id: 'run',
-          labelKey: 'proRibbon.groupRun',
-          cmds: [
-            { id: 'solve', labelKey: 'pro.solve', icon: 'solve', action: onSolve, enabled: () => canSolve },
-            { id: 'advanced', labelKey: 'ribbon.advanced', icon: 'advanced', tab: 'advanced' },
-          ],
-        },
-        /*
-         * The diagrams belong in the ribbon, as they do in Basic.
-         *
-         * They were a <select> inside the Results panel — eleven entries in a
-         * dropdown, for the control an engineer touches more than any other
-         * after solving. Basic reaches them in one click from the row that is
-         * always on screen, and there is no reason PRO should be slower at the
-         * same job. Same order and same symbols as Basic (N, My, Vz, Mz, Vy,
-         * T), because a user who moves between modes should not have to
-         * relearn where the moment diagram is.
-         */
-        {
-          id: 'diagrams',
-          labelKey: 'ribbon.tabResults',
-          cmds: [
-            { id: 'none', labelKey: 'ribbon.noDiagram', icon: 'none', diagram: 'none', enabled: () => solved },
-            { id: 'deformed', labelKey: 'ribbon.deformed', icon: 'deformed', diagram: 'deformed', enabled: () => solved },
-            { id: 'axial', label: F2D.axial, labelKey: 'ribbon.nameAxial', icon: 'axial', diagram: 'axial', enabled: () => solved },
-            { id: 'momentY', label: 'My', labelKey: 'ribbon.nameMomentY', icon: 'moment', diagram: 'momentY', enabled: () => solved },
-            { id: 'shearZ', label: 'Vz', labelKey: 'ribbon.nameShearZ', icon: 'shear', diagram: 'shearZ', enabled: () => solved },
-            { id: 'momentZ', label: 'Mz', labelKey: 'ribbon.nameMomentZ', icon: 'moment', rotate: 90, diagram: 'momentZ', enabled: () => solved },
-            { id: 'shearY', label: 'Vy', labelKey: 'ribbon.nameShearY', icon: 'shear', rotate: 90, diagram: 'shearY', enabled: () => solved },
-            { id: 'torsion', label: 'T', labelKey: 'ribbon.nameTorsion', icon: 'torsion', diagram: 'torsion', enabled: () => solved },
-          ],
-        },
-        /*
-         * Not quantities: whole-model colourings. A colour map paints every
-         * member by a variable you choose, and the verification map paints them
-         * by their code-check outcome — neither is "a diagram of X", so they do
-         * not belong in the row of six that are.
-         */
-        {
-          id: 'maps',
-          labelKey: 'proRibbon.groupMaps',
-          cmds: [
-            { id: 'colorMap', labelKey: 'pro.diagColorMap', icon: 'view2d', diagram: 'colorMap', enabled: () => solved },
-            { id: 'verification', labelKey: 'pro.diagVerification', icon: 'support', diagram: 'verification', enabled: () => solved },
-          ],
-        },
-        {
-          id: 'inspect',
-          labelKey: 'proRibbon.groupInspect',
-          cmds: [
-            { id: 'results', labelKey: 'ribbon.results', icon: 'data', tab: 'results', enabled: () => solved },
-            { id: 'diagnostics', labelKey: 'pro.tabDiagnostics', icon: 'advanced', tab: 'diagnostics' },
-          ],
-        },
-        {
-          id: 'output',
-          labelKey: 'proRibbon.groupOutput',
-          cmds: [
-            { id: 'report', labelKey: 'pro.reportBtn', icon: 'project', action: onReport, enabled: () => canReport },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'design',
-      labelKey: 'proRibbon.stageDesign',
-      home: 'design',
-      groups: [
-        /*
-         * Two materials, two sub-sections — not one group with three buttons.
-         *
-         * The first arrangement put Design, Metallic structures and Connections side by side
-         * under the Concrete heading, which said that the metallic surface was part of the
-         * concrete workflow. It is not: it is a different material, a different code, and a
-         * different maturity. Reading the row left to right you could not tell which button
-         * designed concrete and which one did not.
-         *
-         * Same stage, because an engineer on a mixed structure moves between them without
-         * changing where they are. Separate groups, because that is the sentence the ribbon
-         * is for: what this does, and to what.
-         */
-        {
-          id: 'rc',
-          labelKey: 'proRibbon.groupDesign',
-          cmds: [
-            {
-              // "Design" alone answered nothing once a second material appeared beside it.
-              id: 'design',
-              labelKey: 'proRibbon.cmdRebarDesign',
-              descKey: 'proRibbon.cmdRebarDesignDesc',
-              icon: 'settings',
-              tab: 'design',
-            },
-            {
-              /*
-               * The SAME operation as the button on the Design overview and the one inside
-               * the detailing section. All of them call `openRebar3D`, so the cage on screen
-               * is a projection of one document instance — three ways in, one thing that
-               * happens. A fourth viewer is exactly what this must not be.
-               */
-              id: 'rebar3d',
-              labelKey: 'proRibbon.cmdRebar3D',
-              descKey: 'proRibbon.cmdRebar3DDesc',
-              icon: 'view3d',
-              action: openRebar3DFromRibbon,
-              enabled: () => canOpenRebar3D(),
-              blockedKeys: rebar3DMissingSteps,
-            },
-          ],
-        },
-        {
-          id: 'steel',
-          labelKey: 'proRibbon.groupSteel',
-          cmds: [
-            {
-              /*
-               * The entry point the future profile workflow lands on — the same tab that
-               * today shows the metallic inventory. Deliberately NOT a second button beside
-               * the old "Metallic structures" one: that button became this one.
-               *
-               * Its label says `design`, and the panel it opens says in its own banner that
-               * it verifies nothing. That is the honest pairing: the command names the place,
-               * the surface states its maturity. See `steel.panel.experimentalBanner`.
-               */
-              id: 'steel',
-              labelKey: 'proRibbon.cmdSteelProfiles',
-              descKey: 'proRibbon.cmdSteelProfilesDesc',
-              icon: 'section',
-              tab: 'steel',
-            },
-            {
-              /*
-               * Renamed from "Connections" after auditing what it does, not before.
-               *
-               * `ProConnectionsTab` computes exactly two things — `checkBoltGroup` and
-               * `checkFilletWeld` — over bolt grades 4.6 to 10.9 and fillet welds with a
-               * plate thickness and an Fexx. Both are steel connection checks; there is no
-               * concrete, timber or masonry path in `connection-design.ts`, which mentions
-               * no material at all. So the narrower name hides nothing.
-               *
-               * What it does NOT narrow: mixed joints. `ProConnectionsTab` hands
-               * `detectJoints` the metallic inventory's verdict, so a joint with no
-               * metallic member at all is not listed — and the panel says how many it
-               * hid. A steel beam framing into a concrete column still is listed, with
-               * its members split by material, because that is a real detail an
-               * engineer checks.
-               */
-              id: 'connections',
-              labelKey: 'proRibbon.cmdSteelJoints',
-              descKey: 'proRibbon.cmdSteelJointsDesc',
-              icon: 'element',
-              tab: 'connections',
-            },
-          ],
-        },
-      ],
-    },
-  ]);
+  /*
+   * The command tree lives in `lib/pro/stages.ts`, not here.
+   *
+   * The phone draws the same commands as a grid inside its panel — it cannot
+   * fit a four-stage ribbon in 375 px — so the definition is shared rather than
+   * owned by whichever surface needed it first. Adding a command is one line
+   * there and both surfaces get it, and a coherence test guards the rules a new
+   * entry has to satisfy.
+   */
+  const STAGES: ProStage[] = $derived(buildProStages({
+    solved,
+    canSolve,
+    canReport,
+    onSolve,
+    onReport,
+    onRebar3D: openRebar3DFromRibbon,
+    canRebar3D: () => canOpenRebar3D(),
+    rebar3DMissingSteps,
+  }));
 
-  /** Which stage owns the panel view currently open. */
-  const TAB_STAGE: Record<string, string> = {
-    // Project is reached from its own button, not from a tab, so it belongs to
-    // no stage — the tab row simply keeps showing the stage you came from.
-    project: '',
-    nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
-    generators: 'model',
-    supports: 'conditions', constraints: 'conditions', loads: 'conditions',
-    advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
-    design: 'design', steel: 'design', connections: 'design',
-  };
+  /** Which stage owns the panel view — shared with the phone grid. */
+  const TAB_STAGE = PRO_TAB_STAGE;
 
   /*
    * The visible tab follows the panel, not a separate selection.
@@ -438,7 +156,7 @@
   const activeStage = $derived(mappedStage || lastStage);
   const stage = $derived(STAGES.find(s => s.id === activeStage) ?? STAGES[0]);
 
-  function openStage(s: Stage) {
+  function openStage(s: ProStage) {
     // Landing on a stage lands on its first destination, so the panel always
     // agrees with the tab.
     if (TAB_STAGE[uiStore.proActiveTab] !== s.id) uiStore.proActiveTab = s.home;
@@ -446,7 +164,7 @@
     openMenu = null;
   }
 
-  function run(c: Cmd) {
+  function run(c: ProCmd) {
     if (c.enabled && !c.enabled()) return;
     if (c.diagram) resultsStore.diagramType = c.diagram as never;
     // A command that names a destination must SHOW it: the panel can be closed

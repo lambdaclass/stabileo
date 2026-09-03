@@ -1,22 +1,20 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, untrack, tick } from 'svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
-  import Toolbar from './components/Toolbar.svelte';
-  import PropertyPanel from './components/PropertyPanel.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
   import DespieceInspector from './components/DespieceInspector.svelte';
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
-  import DataTable from './components/DataTable.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, tabManager, historyStore } from './lib/store';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
-  import StepWizard from './components/dsm/StepWizard.svelte';
   import { resolveDeleteTargets } from './lib/store/delete-selection';
+  import { cameraActions } from './lib/pro/camera-actions';
+  import SheetGrab from './components/SheetGrab.svelte';
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
@@ -96,9 +94,60 @@
    * is what the ribbon does for every other command that owns a panel.
    */
   $effect(() => {
-    if (dsmStepsStore.isOpen && uiStore.appMode === 'basico' && !uiStore.isMobile) {
+    if (dsmStepsStore.isOpen && uiStore.appMode === 'basico') {
       basicPanel = 'data';
     }
+  });
+
+  /**
+   * Re-frame when the phone's sheet takes the canvas's height, or gives it back.
+   *
+   * The sheet is 58 % of the screen, so opening one takes the canvas from about
+   * 550 px tall to about 200 and closing it does the reverse. A framing computed
+   * for either of those is wrong for the other by more than the model is tall —
+   * open Results on a framed beam and the beam is simply below the viewport.
+   *
+   * Only the OPEN/SHUT transition, not a change of which panel is showing:
+   * moving from Results to Model data does not resize anything, and refitting
+   * there would throw away a pan the reader had just made for no reason.
+   *
+   * Phone only. On a desktop the panel takes width from a canvas that has
+   * plenty, and the existing framing stays legible.
+   */
+  /* ── PRO's phone camera button ─────────────────────────────────────────
+   *
+   * The stage selector that used to live here moved into the sheet, beside the
+   * one that picks a command — two halves of "where am I" belong together, and
+   * a phone bar has better uses for two slots. See `ProPanel.svelte`.
+   */
+  let camMenu = $state(false);
+  let camPickId = $state('fit');
+  const camActions = $derived(cameraActions());
+  /*
+   * Falls back to the first action rather than to whatever `camPickId` held.
+   * The list is built from store state, so an id can stop existing if the set
+   * ever changes; a face that renders `undefined` is worse than one that has
+   * quietly gone back to Zoom-to-fit.
+   */
+  const camPicked = $derived(camActions.find((c) => c.id === camPickId) ?? camActions[0]);
+
+  let sheetWasOpen = false;
+  $effect(() => {
+    const open = uiStore.isMobile && uiStore.appMode === 'basico' && !!basicPanel;
+    if (open === sheetWasOpen) return;
+    sheetWasOpen = open;
+    if (modelStore.nodes.size === 0) return;
+    /*
+     * Two frames, not one. The class that reserves the height lands with this
+     * same update; the canvas is resized by a ResizeObserver reacting to it,
+     * and `zoom-to-fit` measures the backing store — so a fit dispatched in the
+     * same tick measures the size the canvas is about to stop being. This is
+     * the hazard commit 72f5c9e0 hardened the fit against; the delay keeps the
+     * two from racing in the first place.
+     */
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+    }));
   });
   import WhatIfPanel from './components/WhatIfPanel.svelte';
   import SectionStressPanel from './components/SectionStressPanel.svelte';
@@ -458,8 +507,6 @@
   let ifcFileInput: HTMLInputElement;
   let dxfFileInput: HTMLInputElement;
 
-  // Derive showResults from whether results exist — no manual management needed
-  const showResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
   let showImportDialog = $state(false);
   let importText = $state('');
   let autosaveData = $state<DedalFile | null>(null);
@@ -607,7 +654,12 @@
      * and wrong for a walkthrough: two consecutive steps both asking for the
      * results panel closed it on the second, and the card that followed
      * pointed at a panel it had just dismissed.
+     *
+     * A `null` detail CLOSES it. On a phone the panel is a sheet over the
+     * model, so a command that has finished its job — picking an example — has
+     * to be able to get out of the way of the thing it just produced.
      */
+    if (panel === null) { closeBasicPanel(); return; }
     if (typeof panel === 'string') openBasicPanel(panel, { toggle: false });
   }
 
@@ -902,6 +954,21 @@
 
   // ─── PRO panel drag-resize ────────────────────────────────────────
   let proPanelRef: any = $state(null);
+  /**
+   * What `ProPanel.canSolve()` answers, for when there is no panel to ask.
+   *
+   * It is `hasModel && !solving` there, and `hasModel` is exactly this — see
+   * `ProPanel.svelte`. `solving` is that component's own state and cannot be
+   * read from here, but it does not have to be: this value is only consulted
+   * when no panel is mounted, and a solve cannot be running inside a component
+   * that does not exist.
+   *
+   * Kept next to `proPanelRef` on purpose. If `canSolve()` there ever grows a
+   * condition, this is the other half that has to learn about it.
+   */
+  const proMobileCanSolve = $derived(
+    modelStore.nodes.size > 0 && modelStore.elements.size > 0,
+  );
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
   let proSettingsOpen = $state(false);
   /**
@@ -980,6 +1047,24 @@
   <LandingPage />
 {/if}
 
+{#snippet autosavePrompt()}
+      <div class="autosave-inline" class:autosave-older={autosaveStamp.older} data-testid="autosave-prompt">
+        <span class="autosave-text">
+          {t('app.autosaveFound')} <strong>{autosaveData?.name}</strong>
+          {#if autosaveStamp.timestamp}
+            <span class="autosave-stamp">({new Date(autosaveStamp.timestamp).toLocaleString()})</span>
+          {/if}
+        </span>
+        {#if autosaveStamp.older}
+          <!-- Said here, not only in a toast: a user who dismissed the toast must still be
+               able to see that what they are about to restore is not their newest save. -->
+          <span class="autosave-warning">{t('file.autosaveOlderRestored')}</span>
+        {/if}
+        <button class="banner-btn restore" onclick={restoreAutosave}>{t('app.restore')}</button>
+        <button class="banner-btn discard" onclick={discardAutosave}>{t('app.discard')}</button>
+      </div>
+{/snippet}
+
 <div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
@@ -1022,29 +1107,17 @@
     <!--
       "A saved project was found — Restore / Discard", beside the tabs.
       ────────────────────────────────────────────────────────────────
-      This used to be a full-width banner under the header, which pushed the
-      whole application down by its own height the moment the page loaded. It
-      was replaced with an inline prompt next to the tab strip — the tabs are
-      what it is about, since restoring opens one — but only the styles landed:
-      the markup was deleted with the banner and never put back, so the offer to
-      restore your last session simply stopped appearing.
+      Inline here on a DESKTOP, where the row has the width for it — the tabs
+      are what it is about, since restoring opens one.
+
+      Not on a phone. This header holds a logo, a mode selector, a project name
+      and a settings button in 375 px; the prompt was rendered into whatever was
+      left, which measured **19 px wide by 54 tall** — present in the DOM, past
+      every test that asks whether it exists, and unreadable. It is drawn over
+      the top of the model instead; see the viewport below.
     -->
-    {#if showAutosaveBanner}
-      <div class="autosave-inline" class:autosave-older={autosaveStamp.older} data-testid="autosave-prompt">
-        <span class="autosave-text">
-          {t('app.autosaveFound')} <strong>{autosaveData?.name}</strong>
-          {#if autosaveStamp.timestamp}
-            <span class="autosave-stamp">({new Date(autosaveStamp.timestamp).toLocaleString()})</span>
-          {/if}
-        </span>
-        {#if autosaveStamp.older}
-          <!-- Said here, not only in a toast: a user who dismissed the toast must still be
-               able to see that what they are about to restore is not their newest save. -->
-          <span class="autosave-warning">{t('file.autosaveOlderRestored')}</span>
-        {/if}
-        <button class="banner-btn restore" onclick={restoreAutosave}>{t('app.restore')}</button>
-        <button class="banner-btn discard" onclick={discardAutosave}>{t('app.discard')}</button>
-      </div>
+    {#if showAutosaveBanner && !uiStore.isMobile}
+      {@render autosavePrompt()}
     {/if}
 
     <div class="header-actions">
@@ -1073,7 +1146,21 @@
         language — rather than in the ribbon. It configures the application,
         not the document, which is what everything else in this corner does.
       -->
-      {#if uiStore.appMode === 'basico' && !uiStore.isMobile}
+      <!--
+        At every width, now.
+        ────────────────────
+        This was `!uiStore.isMobile`, which took the button off a phone — while
+        the language selector had been moved INTO the panel it opens, precisely
+        because the header slot was too expensive at that width. The setting was
+        hidden from where it was and hosted where nothing could open it, and the
+        control-size preference later joined it there.
+
+        A phone keeps it in the same corner as a desktop for the same reason it
+        is here at all: it configures the application rather than the document,
+        and the corner is where the application-level controls live. Same place
+        on both, so there is one thing to learn.
+      -->
+      {#if uiStore.appMode === 'basico'}
         <button
           class="btn btn-settings"
           class:on={basicPanel === 'settings'}
@@ -1096,7 +1183,13 @@
         Every click worked. The state flipped, the panel mounted, and it rendered where nobody
         could see it.
       -->
-      {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
+      <!--
+        At every width, as in Basic. It was `!isMobile`, so a phone had no way
+        into PRO's settings at all — the same omission Basic had, found the same
+        way, and fixed the same way: the corner is where the application-level
+        controls live and a phone has that corner too.
+      -->
+      {#if uiStore.appMode === 'pro'}
         <div class="settings-anchor">
           <button
             class="btn btn-settings"
@@ -1139,20 +1232,44 @@
     </div>
   </header>
 
-  {#if uiStore.appMode === 'basico' && !uiStore.isMobile}
+  <!--
+    One shell, both widths.
+    ───────────────────────
+    Mobile used to mount a different application here: the old left Toolbar in a
+    drawer plus a floating tool strip, while everything built since the ribbon
+    landed — the pointer mode on the model, the Selection panel, the results
+    selectors, the colour-scale switch, the walkthroughs — was reachable only
+    through the ribbon. Any new work on Basic had to be done twice or it
+    silently shipped to desktop alone, and that is how a phone came to have no
+    way at all to reach half the application.
+
+    The ribbon DEGRADES rather than forking. Below 768 px it drops to icons on
+    one horizontally scrollable row, the group captions give way to the rules
+    that already separate the groups, and the document commands move to the end
+    so the per-gesture ones keep the reachable side. Four size variants, no
+    variant dropping a command — see `Ribbon.svelte`.
+  -->
+  {#if uiStore.appMode === 'basico'}
     <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
     <ToolOptionsBar />
   {/if}
 
-  <div class="app-body" class:app-body-pro={uiStore.appMode === 'pro'}>
-    {#if uiStore.appMode === 'basico' && uiStore.isMobile}
-      <!-- Mobile keeps the old panel: a ribbon needs width the phone does not have. -->
-      {#if uiStore.leftSidebarOpen}
-        <aside class="sidebar left">
-          <Toolbar />
-        </aside>
-      {/if}
-    {/if}
+  <!--
+    The bottom-bar reservation follows the bottom bar.
+    ─────────────────────────────────────────────────
+    `.app-body` gave up 60 px at the foot of every phone screen for the mobile
+    bar. Basic has no bar any more, and an unconditional reservation would leave
+    a 60 px band of nothing under the canvas — on the axis this whole revamp is
+    trying to buy back.
+  -->
+  <div
+    class="app-body"
+    class:app-body-pro={uiStore.appMode === 'pro'}
+    class:app-body-bottom-bar={uiStore.isMobile && uiStore.appMode !== 'basico'}
+    class:app-body-sheet={uiStore.isMobile
+      && ((uiStore.appMode === 'basico' && !!basicPanel)
+        || (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen))}
+  >
 
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1169,29 +1286,144 @@
         />
     {/if}
 
+    <!--
+      PRO's phone bar.
+      ────────────────
+      The desktop shows four STAGES and, under the one you are in, its groups.
+      That cannot be shrunk: ANALYSE alone carries fifteen commands and a touch
+      row holds about nine. So the row keeps only what is per-gesture — the
+      pointer, undo, redo, solve — plus the stage you are in, and the stage's
+      commands are drawn as a grid inside the panel, where they can wrap.
+
+      The consequence that matters for a mode still being built: adding a
+      command changes the grid's length and nothing else. This row is a fixed
+      set of verbs and it stays that size however large PRO gets.
+
+      Same slot rules as Basic's: `flex: 1 1 0`, so the row is exactly as wide
+      as the screen at every width and never scrolls.
+    -->
     {#if uiStore.appMode === 'pro' && uiStore.isMobile}
+      <!--
+        A positioned wrapper, because the stage menu is `top: 100%` of it.
+        Without one it resolves against a distant ancestor and opens at the
+        bottom of the page — the same way Basic's cluster menu did before
+        `.ribbon` was given a `position`, and it is invisible until someone
+        opens the menu on a phone.
+      -->
+      <div class="pmt-wrap">
       <div class="pro-mobile-toolbar">
-        <button class="pmt-btn" class:active={uiStore.currentTool === 'pan'} onclick={() => uiStore.currentTool = 'pan'}>✋</button>
-        <button class="pmt-btn pmt-undo" onclick={() => historyStore.undo()} disabled={!historyStore.canUndo}>↶</button>
-        <button class="pmt-btn pmt-undo" onclick={() => historyStore.redo()} disabled={!historyStore.canRedo}>↷</button>
-        <button class="pmt-btn pmt-results" class:active={uiStore.mobileResultsPanelOpen} onclick={() => uiStore.mobileResultsPanelOpen = !uiStore.mobileResultsPanelOpen} title="Results & Solve">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
-            <line x1="2" y1="17" x2="22" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-            <path d="M2,17 Q7,5 12,17 Q17,5 22,17" stroke="#e94560" stroke-width="1.8" fill="none"/>
-          </svg>
-        </button>
-        <button class="pmt-btn" class:active={uiStore.currentTool === 'select'} onclick={() => uiStore.currentTool = 'select'}>↖</button>
-        {#if uiStore.currentTool === 'select'}
-          {#each [
-            { id: 'nodes', key: 'float.selectNodes' },
-            { id: 'elements', key: 'float.selectElements' },
-            { id: 'shells', key: 'float.selectShells' },
-            { id: 'supports', key: 'float.selectSupports' },
-            { id: 'loads', key: 'float.selectLoads' },
-          ] as const as sm}
-            <button class="pmt-sel" class:active={uiStore.selectMode === sm.id} onclick={() => uiStore.selectMode = sm.id}>{t(sm.key)}</button>
+        <button class="pmt-btn" onclick={() => historyStore.undo()} disabled={!historyStore.canUndo} title={t('toolbar.undo')}
+        ><Icon name="undo" size={18} /></button>
+        <button class="pmt-btn" onclick={() => historyStore.redo()} disabled={!historyStore.canRedo} title={t('toolbar.redo')}
+        ><Icon name="redo" size={18} /></button>
+
+        <span class="pmt-rule" aria-hidden="true"></span>
+
+        <!--
+          Selection arms the pointer AND shows its options in the sheet below,
+          which is where a phone has room for five translated words. On a
+          desktop those chips ride in the bar; here the bar has six slots.
+        -->
+        <button
+          class="pmt-btn pmt-pointer"
+          class:armed={uiStore.currentTool === 'select'}
+          onclick={() => {
+            const on = uiStore.currentTool === 'select';
+            uiStore.currentTool = on ? 'pan' : 'select';
+            if (!on) uiStore.rightDrawerOpen = true;
+          }}
+          title={uiStore.currentTool === 'select' ? t('float.select') : t('float.pan')}
+          data-testid="pmt-pointer"
+        ><Icon name={uiStore.currentTool === 'select' ? 'select' : 'pan'} size={19} /></button>
+
+        <!--
+          Calcular cannot ask the panel whether it can solve, because on a
+          phone the panel is not there to ask.
+          ─────────────────────────────────────────────────────────────────
+          `proPanelRef` is bound by the PRO panel, and on a phone that panel
+          mounts only inside `{#if uiStore.isMobile && uiStore.rightDrawerOpen}`.
+          With the sheet closed there is no instance, so the ref is null —
+          `!(null?.canSolve() ?? false)` is `true` and the button renders
+          disabled. Disabled, its own onclick cannot fire, so it cannot open
+          the sheet that would create the panel that would enable it. On first
+          load the sheet IS closed, so Calcular was dead until the reader
+          happened to press Selection (the only other control that opens it),
+          and went dead again on every close.
+
+          So: ask the panel while it exists, and the model otherwise. Nothing
+          can be mid-solve when no panel is mounted, which is the only part of
+          `canSolve()` the model cannot answer.
+        -->
+        <button
+          class="pmt-btn pmt-solve"
+          onclick={async () => {
+            uiStore.rightDrawerOpen = true;
+            // The panel does not exist yet on the first press — it mounts as a
+            // result of the line above. `tick()` waits for that, and then the
+            // solve goes through ProPanel so it keeps the pre-solve quality
+            // gate; dispatching `stabileo-solve` instead would skip it.
+            await tick();
+            proPanelRef?.solve();
+          }}
+          disabled={!(proPanelRef ? proPanelRef.canSolve() : proMobileCanSolve)}
+          title={t('pro.solve')}
+          data-testid="pmt-solve"
+        ><Icon name="solve" size={19} /></button>
+
+        <!--
+          The camera stack, as one split button.
+          ──────────────────────────────────────
+          The face is whichever view control you used last — Zoom-to-fit until
+          you choose otherwise — and the caret opens the rest, each with its
+          name, because ⊤ and ⊡ and ⊟ are not self-explanatory at 11 px. The
+          nine buttons that used to run down the right edge of the model are
+          gone from it; see `lib/pro/camera-actions.ts`.
+        -->
+        <div class="pmt-split">
+          <button
+            class="pmt-btn pmt-cam"
+            onclick={() => camPicked.run()}
+            class:armed={camPicked.active?.() ?? false}
+            title={t(camPicked.labelKey)}
+            data-testid="pmt-camera"
+          >
+            {#if camPicked.icon}
+              <Icon name={camPicked.icon} size={19} />
+            {:else}
+              <span class="pmt-cam-glyph">{camPicked.glyph}</span>
+            {/if}
+          </button>
+          <button
+            class="pmt-cam-more"
+            class:open={camMenu}
+            onclick={() => camMenu = !camMenu}
+            aria-expanded={camMenu}
+            aria-label={t('viewport3d.zoomToFit')}
+            data-testid="pmt-camera-more"
+          ><span class="pmt-caret" aria-hidden="true"></span></button>
+        </div>
+      </div>
+
+      {#if camMenu}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <div class="pmt-backdrop" onclick={() => camMenu = false}></div>
+        <div class="pmt-menu" data-testid="pmt-camera-menu">
+          {#each camActions as ca (ca.id)}
+            <button
+              class="pmt-menu-item pmt-cam-item"
+              class:active={ca.active?.() ?? false}
+              data-testid="pmt-cam-{ca.id}"
+              onclick={() => { camPickId = ca.id; ca.run(); camMenu = false; }}
+            >
+              <span class="pmt-cam-item-icon">
+                {#if ca.icon}<Icon name={ca.icon} size={17} />{:else}{ca.glyph}{/if}
+              </span>
+              <span>{t(ca.labelKey)}</span>
+            </button>
           {/each}
-        {/if}
+        </div>
+      {/if}
       </div>
     {/if}
 
@@ -1206,6 +1438,20 @@
         {/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
+        <!--
+          The restore offer, over the top of the model.
+          ────────────────────────────────────────────
+          Phone only, and inside the viewport so it lands under whatever shell
+          that mode happens to have — Basic's ribbon and options bar are 87 px
+          taller than PRO's single row, and an offset measured against the
+          window would be wrong for one of them. Clear of the canvas's own
+          controls on the right, the same 56 px the toasts leave.
+        -->
+        {#if showAutosaveBanner && uiStore.isMobile}
+          <div class="autosave-over-model" data-testid="autosave-over-model">
+            {@render autosavePrompt()}
+          </div>
+        {/if}
         <StressPickHint />
         <!-- The colour map's scale. One component for both viewports: the ramp
              is defined once, so the legend that explains it should be too. -->
@@ -1265,20 +1511,29 @@
           sent the teacher to Basic to build the model, save a file and come
           back to open it.
 
-          This is the bar Basic already uses on a phone: node, element,
-          support, load and their options, and nothing about solving or
-          results, which an exercise author has no use for.
+          Node, element, support, load and their options, and nothing about
+          solving or results, which an exercise author has no use for.
+
+          Education ONLY, now. This strip used to be Basic's phone toolbar as
+          well, which made it half of the parallel mobile interface: the tools
+          were here while every other command was on a ribbon the phone never
+          mounted. Basic now mounts the ribbon at every width, and the armed
+          tool's options belong to `ToolOptionsBar` under it — so keeping the
+          strip on a phone would be two controls for one job, one of them
+          floating over the model.
         -->
-        {#if (uiStore.appMode === 'basico' && uiStore.isMobile) || (uiStore.appMode === 'educativo' && eduStore.authoring)}
+        {#if uiStore.appMode === 'educativo' && eduStore.authoring}
           <FloatingTools />
         {/if}
         <!--
           Advanced analyses float over the canvas only where there is nothing to
-          dock them into. In desktop Basic the right panel is that place, and
-          BasicPanel renders them there instead — otherwise Kinematic and
-          Explore end up as two boxes covering the structure they describe.
+          dock them into. In Basic the right panel is that place — at BOTH
+          widths, since the phone has it too now — and BasicPanel renders them
+          there instead; otherwise Kinematic and Explore end up as two boxes
+          covering the structure they describe, which on a 375 px screen means
+          covering all of it.
         -->
-        {#if !(uiStore.appMode === 'basico' && !uiStore.isMobile)}
+        {#if uiStore.appMode !== 'basico'}
           <WhatIfPanel />
           <SectionStressPanel />
           <KinematicPanel />
@@ -1298,7 +1553,16 @@
       </main>
     </div>
 
-    {#if uiStore.appMode === 'basico' && basicPanel && !uiStore.isMobile}
+    <!--
+      The one panel a ribbon command opens, at both widths.
+      ────────────────────────────────────────────────────
+      On a phone it lays itself out as a bottom sheet rather than a side panel —
+      see the size variant in `BasicPanel.svelte`. That is the same decision the
+      old right drawer already made and for the same measured reason: as a side
+      drawer it took 319 px of 375, so opening the results hid the structure
+      they describe. The two have to share the axis there is more of.
+    -->
+    {#if uiStore.appMode === 'basico' && basicPanel}
       <BasicPanel panel={basicPanel} bind:dataTab={basicDataTab} onClose={closeBasicPanel} />
     {/if}
 
@@ -1362,34 +1626,14 @@
         <aside class="sidebar right edu-sidebar">
           <EducativePanel />
         </aside>
-      {:else if uiStore.appMode === 'basico' && uiStore.isMobile}
-        <!--
-          Desktop Basic serves model data and the DSM wizard through the one
-          ribbon panel. This legacy sidebar, with its own edge toggle, stays only
-          for mobile, where there is no ribbon to route them through.
-        -->
-        {#if !uiStore.aiDrawerOpen}
-          <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
-            {uiStore.rightSidebarOpen ? '▸' : '◂'}
-          </button>
-        {/if}
-        {#if uiStore.rightSidebarOpen}
-          <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
-            {#if dsmStepsStore.isOpen}
-              <StepWizard />
-            {:else}
-              <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-                {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
-              </button>
-              {#if uiStore.showDataTable}
-                <div class="data-table-sidebar">
-                  <DataTable />
-                </div>
-              {/if}
-            {/if}
-          </aside>
-        {/if}
       {/if}
+      <!--
+        A `basico && isMobile` branch used to sit here, holding a legacy right
+        sidebar with its own edge toggle for model data and the DSM wizard. It
+        was unreachable: this whole block is `!isMobile`, so the branch asked
+        for a width its parent had already excluded. Removed rather than moved —
+        BasicPanel serves both of those on the phone now, in the sheet.
+      -->
     {/if}
 
     </div><!-- /pro-body-row (class only applied in PRO) -->
@@ -1405,51 +1649,100 @@
     </footer>
   {/if}
 
-  <!-- Mobile drawers (overlay on top of canvas) -->
-  {#if uiStore.isMobile && uiStore.leftDrawerOpen && uiStore.appMode === 'basico'}
-    <div class="drawer-backdrop" onclick={() => uiStore.leftDrawerOpen = false}></div>
-    <aside class="drawer drawer-left">
-      <Toolbar />
-    </aside>
-  {/if}
-  {#if uiStore.isMobile && uiStore.rightDrawerOpen}
-    <div class="drawer-backdrop" onclick={() => uiStore.rightDrawerOpen = false}></div>
-    <aside class="drawer drawer-right" data-tour="right-sidebar">
+  <!--
+    Mobile drawers (overlay on top of canvas) — PRO and Education only.
+    ──────────────────────────────────────────────────────────────────
+    Basic had both of these, and together they WERE the parallel interface: the
+    left one held the old Toolbar, the right one held PropertyPanel and a second
+    copy of the model-data table. Both are gone from Basic. The ribbon is
+    mounted at every width now and its commands open BasicPanel, which lays
+    itself out as the bottom sheet on a phone — so the drawers would be a second
+    route to the same content, disagreeing with the ribbon about what is open.
+
+    The left Toolbar is not mounted anywhere in Basic any more, at either width.
+    It was ALSO being mounted a second time in `.app-body` behind
+    `leftSidebarOpen`, where `.sidebar { display: none }` hid it below 768 px —
+    so a phone carried two live copies of a 2,400-line component it never
+    showed, and every id inside it, `ex-group-2d` among them, existed twice.
+  -->
+  {#if uiStore.isMobile && uiStore.rightDrawerOpen && uiStore.appMode !== 'basico'}
+    <!--
+      No backdrop in PRO, and the sheet SHARES the screen there.
+      ─────────────────────────────────────────────────────────
+      The dimmed backdrop is right for a drawer you step into and out of. It is
+      wrong for PRO's panel, which is where the work happens: with it, opening
+      the panel to pick a command made the bar above it untappable, so changing
+      stage meant closing the panel, changing, and opening it again. The bar and
+      the panel are two halves of one control surface and both have to be live.
+
+      Education keeps the backdrop — its panel IS a modal errand.
+    -->
+    {#if uiStore.appMode !== 'pro'}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div class="drawer-backdrop" onclick={() => uiStore.rightDrawerOpen = false}></div>
+    {/if}
+    <aside class="drawer drawer-right" class:drawer-shared={uiStore.appMode === 'pro'}>
       {#if uiStore.appMode === 'pro'}
-        <ProPanel />
+        <!--
+          The same handle Basic's sheet has. PRO's did not, which was never a
+          decision — the drag was written inside `BasicPanel` and PRO's panel is
+          a different component. Both are a sheet sharing the screen with the
+          model along the axis where the reader's needs pull opposite ways.
+        -->
+        <div class="drawer-sheet-top">
+          <SheetGrab storageKey="stabileo-pro-sheet-vh" />
+          <button
+            class="drawer-sheet-close"
+            onclick={() => uiStore.rightDrawerOpen = false}
+            title={t('ribbon.close')}
+            aria-label={t('ribbon.close')}
+            data-testid="pro-sheet-close"
+          >×</button>
+        </div>
+        <!--
+          BOUND, like the desktop one.
+          ───────────────────────────
+          `proPanelRef` was only ever bound to the desktop instance, so on a
+          phone it was null: the bar's Calcular read `canSolve()` off nothing,
+          rendered permanently disabled, and would have done nothing if pressed.
+          One binding, one instance at a time — the two are mutually exclusive —
+          so the bar's Calcular and the ANALYSE grid's now call the same method
+          on the same component.
+        -->
+        <ProPanel bind:this={proPanelRef} />
       {:else if uiStore.appMode === 'educativo'}
         <EducativePanel />
-      {:else if dsmStepsStore.isOpen}
-        <StepWizard />
-      {:else}
-        <PropertyPanel {showResults} />
-        <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-          {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
-        </button>
-        {#if uiStore.showDataTable}
-          <div class="data-table-sidebar">
-            <DataTable />
-          </div>
-        {/if}
       {/if}
     </aside>
   {/if}
 
-  <!-- Mobile bottom bar -->
-  {#if uiStore.isMobile}
+  <!--
+    Mobile bottom bar — PRO and Education only, for the same reason.
+    Basic's two buttons opened the two drawers above. With the ribbon carrying
+    every command, a bar whose whole job was to reveal a different set of them
+    is 60 px of screen bought back for the model.
+  -->
+  {#if uiStore.isMobile && uiStore.appMode !== 'basico'}
     <nav class="mobile-bottom-bar">
-      {#if uiStore.appMode === 'basico'}
-        <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
-          ☰
-        </button>
-        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
-          ⚙
-        </button>
-      {:else}
-        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}>
-          {uiStore.appMode === 'pro' ? '\u26A1' : '\uD83D\uDCD0'}
-        </button>
-      {/if}
+      <!--
+        A drawn icon, like everything else in this shell.
+        ────────────────────────────────────────────────
+        It was ⚡ — a Unicode glyph that renders as a colour emoji on most
+        phones, at whatever weight and optical size the platform font decides.
+        Beside the ribbon's line icons it read as a sticker. `Icon` draws on the
+        same 24-unit grid at the same stroke weight and takes `currentColor`, so
+        it tints with the button instead of ignoring it. Same reasoning as the
+        ribbon's own icons — see `ribbon/Icon.svelte`.
+      -->
+      <button
+        class="mobile-bar-btn"
+        class:active={uiStore.rightDrawerOpen}
+        onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen}
+        title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}
+        aria-label={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}
+        data-testid="mobile-panel-toggle"
+      ><Icon name={uiStore.appMode === 'pro' ? 'data' : 'settings'} size={20} /></button>
     </nav>
   {/if}
 </div>
@@ -2429,6 +2722,47 @@
   }
 
   /* Toast notifications */
+  /*
+     The phone's restore offer, over the model rather than in the header.
+     ───────────────────────────────────────────────────────────────────
+     `absolute` inside `.viewport-container`, so it sits under whichever shell
+     the mode has without anything measuring it. Wraps, because "Se encontró un
+     proyecto guardado — <nombre> (fecha)" plus two buttons is more than one
+     375 px line, and a prompt that clips is the bug this is fixing.
+  */
+  .autosave-over-model {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    /* Clear of the canvas's own controls, the same lane the toasts leave. */
+    right: 56px;
+    z-index: 40;
+  }
+
+  .autosave-over-model :global(.autosave-inline) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    max-width: none;
+    padding: 8px 10px;
+    border-radius: var(--st-radius);
+    background: var(--st-surface);
+    border: 1px solid var(--st-accent);
+    box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.6);
+  }
+
+  /* The name and date take the first line; the two answers take the second. */
+  .autosave-over-model :global(.autosave-text) { flex: 1 1 100%; min-width: 0; }
+  .autosave-over-model :global(.autosave-warning) { flex: 1 1 100%; }
+
+  .autosave-over-model :global(.banner-btn) {
+    flex: 1 1 0;
+    min-height: 44px;
+    min-width: 0;
+  }
+
   .toast-container {
     position: fixed;
     /*
@@ -2445,11 +2779,27 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    /*
+       The BOX must not take the tap; only the toasts inside it may.
+       ────────────────────────────────────────────────────────────
+       This container is `position: fixed` at z-index 1100 and, on a phone, was
+       pinned top AND bottom — so while any toast was on screen an invisible
+       div covered the entire viewport and swallowed every touch that was not
+       on the toast itself. A solve raises a toast, and for the seconds it
+       lived the canvas underneath could not be panned, tapped or drawn on.
+
+       Declared here rather than in the phone rule because it is right at every
+       width: a notification is something you read, and the empty space around
+       it belongs to whatever is underneath.
+    */
+    pointer-events: none;
   }
 
   .toast {
     position: relative;
     padding: 0.6rem 2rem 0.6rem 1rem;
+    /* The toast itself is interactive again — it has a ✕ and sometimes an action. */
+    pointer-events: auto;
     border-radius: 6px;
     font-size: 0.85rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
@@ -2473,6 +2823,38 @@
     padding: 0 2px;
   }
   .toast-dismiss:hover { opacity: 1; }
+
+  /*
+     On a phone the ✕ is the whole point of the toast lasting.
+     ────────────────────────────────────────────────────────
+     A toast auto-dismisses, so the button exists for the reader who wants it
+     gone NOW — it sits over the model. At 0.5 opacity and a 12 px hit area it
+     was neither visible enough to notice nor big enough to hit with a thumb,
+     which on a touch screen means it may as well not be there.
+
+     Full opacity, a 44 px target, and a ring so it reads as a control rather
+     than as part of the message.
+  */
+  @media (max-width: 767px) {
+    .toast {
+      padding: 0.7rem 3rem 0.7rem 0.9rem;
+    }
+
+    .toast-dismiss {
+      top: 50%;
+      right: 4px;
+      transform: translateY(-50%);
+      opacity: 1;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.22);
+    }
+  }
 
   .toast-action {
     align-self: flex-end;
@@ -2705,42 +3087,188 @@
   }
 
   /* ─── Mobile PRO upper toolbar ─── */
+  .pmt-wrap { position: relative; flex: none; }
+
+  /* ── PRO's phone bar ─────────────────────────────────────────────────
+     Same slot rules as Basic's row: every control is `flex: 1 1 0`, so seven
+     slots divide exactly the width there is and nothing scrolls or is cut. The
+     old bar was fixed 36×34 buttons with `flex-wrap`, which meant the select
+     modes pushed it onto a second line and the whole thing was under the 44 px
+     target besides.
+     ────────────────────────────────────────────────────────────────── */
   .pro-mobile-toolbar {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 3px;
-    padding: 4px 8px;
+    padding: 3px 4px;
     background: var(--st-surface-2);
     border-bottom: 1px solid var(--st-hair-strong);
     flex-shrink: 0;
-    flex-wrap: wrap;
   }
   .pmt-btn {
-    width: 36px; height: 34px;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
     display: flex; align-items: center; justify-content: center;
     font-size: 1rem;
     color: var(--st-text-2);
     background: var(--st-surface-2);
     border: 1px solid var(--st-hair);
-    border-radius: 6px;
+    border-radius: var(--st-radius);
     cursor: pointer;
   }
   .pmt-btn:hover { color: var(--st-text); }
-  .pmt-btn.active { color: var(--st-text); background: var(--st-accent); border-color: var(--st-danger); }
-  .pmt-btn.pmt-undo { font-size: 0.9rem; width: 34px; }
-  .pmt-btn.pmt-undo:disabled { opacity: 0.2; cursor: not-allowed; }
-  .pmt-btn.pmt-results { padding: 0 8px; }
-  .pmt-btn.pmt-results.active { background: rgba(233, 69, 96, 0.2); border-color: var(--st-accent); }
-  .pmt-sel {
-    padding: 4px 8px;
-    font-size: 0.7rem;
-    color: var(--st-text-2);
+  .pmt-btn:disabled { opacity: 0.34; cursor: default; }
+  /*
+     ONE accent in the row at a time, and it means "the panel is showing this".
+     Project and the stage are the only two that can carry it, and exactly one
+     of them does whenever the panel is open.
+  */
+  .pmt-btn.active {
+    background: var(--st-selected-bg);
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+
+  /*
+     Armed and open are NOT that. A pointer mode and an open menu are states of
+     the control itself, so they are drawn as a filled key — no accent, nothing
+     that could be mistaken for a second selection.
+  */
+  .pmt-btn.armed,
+  .pmt-btn.open {
+    background: var(--st-surface-3);
+    color: var(--st-text);
+  }
+
+  /*
+     The select-mode chips moved to the panel — five translated words never fit
+     in 375 px, which is why this bar used to wrap onto a second line whenever
+     Select was armed. Their styles went with them.
+  */
+
+  /* The document trio reads as a group, the same way the ribbon's does. */
+  .pmt-rule {
+    flex: none;
+    width: 1px;
+    align-self: stretch;
+    background: var(--st-hair);
+    margin: 0 2px;
+  }
+
+  /*
+     The camera split button: a face and a caret, sharing one slot's worth of
+     border so it reads as one control rather than two crowded ones.
+  */
+  .pmt-split {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+  .pmt-split .pmt-cam {
+    flex: 1 1 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+  }
+  .pmt-cam-glyph { font-size: 0.95rem; line-height: 1; }
+
+  .pmt-cam-more {
+    flex: none;
+    width: 20px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 4px;
+    border: 1px solid var(--st-hair);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-radius: 0 var(--st-radius) var(--st-radius) 0;
+    color: var(--st-text-2);
     cursor: pointer;
   }
-  .pmt-sel.active { color: var(--st-text); background: var(--st-accent); border-color: var(--st-danger); }
+  .pmt-cam-more.open { background: var(--st-surface-3); color: var(--st-text); }
+
+  .pmt-caret {
+    flex: none;
+    width: 0; height: 0;
+    border-left: 3.5px solid transparent;
+    border-right: 3.5px solid transparent;
+    border-top: 4px solid currentColor;
+    opacity: 0.75;
+  }
+
+  /* Icon and name on one row: ⊤ and ⊡ and ⊟ do not explain themselves. */
+  .pmt-cam-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-family: var(--st-sans);
+    font-size: 0.8rem;
+  }
+  .pmt-cam-item-icon {
+    flex: none;
+    width: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--st-text);
+  }
+
+  /* Same pattern as the Basic ribbon's cluster menu, including the backdrop:
+     without it the tap that dismisses the menu lands on the model behind it. */
+  .pmt-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: transparent;
+  }
+  .pmt-menu {
+    position: absolute;
+    z-index: 71;
+    left: 4px;
+    right: 4px;
+    background: var(--st-surface);
+    border: 1px solid var(--st-hair-strong);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.55);
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .pmt-menu-item {
+    min-height: 44px;
+    padding: 0 12px;
+    text-align: left;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
+    font-family: var(--st-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .pmt-menu-item.active {
+    background: var(--st-selected-bg);
+    border-color: var(--st-accent);
+    color: var(--st-text);
+  }
+  /*
+     What was here: a second `.pmt-btn.active`, `.pmt-undo`, `.pmt-results` and
+     a duplicate `.pmt-sel`, all for the old fixed-size bar. They described
+     classes the markup no longer uses, and the `.pmt-sel` copy sat AFTER the
+     new one and quietly won — a 36 px chip painted as a 25 px one, which is
+     exactly the kind of cascade collision two rules for one class produce.
+  */
 
   /* ─── Mobile mode selector ─── */
   .mode-select-mobile {
@@ -2765,6 +3293,106 @@
   .mode-select-mobile option { background: var(--st-surface); color: var(--st-text); font-weight: 500; padding: 6px; }
 
   /* ===== Mobile Responsive ===== */
+  /*
+   * Touch targets on a phone.
+   *
+   * Fourteen controls in this shell sat below the 44 px minimum, and the worst
+   * of them are in the header: the mode switcher at 133×26 and the tab-add
+   * button at 23×22. A 23 px target is not a small button, it is a button that
+   * takes two or three attempts, and the header is the first thing a new user
+   * touches.
+   *
+   * Sized for 375 px — an iPhone SE or a mini. Whatever fits there fits a
+   * larger handset; the reverse is what produced this.
+   */
+  @media (max-width: 767px) {
+    .app-header :global(button),
+    .app-header select {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /*
+     * The language selector leaves the header.
+     *
+     * It spends a permanent slot on a control a phone user touches once, in
+     * the row with the least space in the application. It lives in Settings
+     * on a phone, with the other things you set and forget.
+     */
+    .lang-select { display: none; }
+
+    /*
+     * The right panel becomes a bottom sheet.
+     *
+     * As a side drawer it was 319 px of a 375 px screen — 85 % of the width and
+     * the full height — so opening the results, the model data or the settings
+     * hid the structure they describe. On a phone the two have to share the
+     * screen along the axis there is more of, which is vertical.
+     *
+     * Just over half the height: enough for a table to be worth reading, and
+     * it leaves the model in the upper portion where the reader can see what
+     * a value refers to.
+     */
+    .drawer-right {
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      max-width: none;
+      height: 58vh;
+      max-height: 58vh;
+      border-left: none;
+      border-top: 1px solid var(--st-hair-strong);
+      border-radius: 12px 12px 0 0;
+      animation-name: sheet-slide-up;
+    }
+
+    /*
+       PRO's sheet takes the height `.app-body` gives up for it, so the model
+       above it is really there rather than covered — the same arrangement
+       Basic's panel uses, and the same token, so the two cannot drift.
+    */
+    .drawer-right.drawer-shared {
+      height: var(--st-sheet-h);
+      max-height: var(--st-sheet-h);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* The handle row: the grab fills it, the ✕ sits on top at the right. */
+    .drawer-sheet-top {
+      display: flex;
+      align-items: center;
+      flex: none;
+      position: relative;
+    }
+    .drawer-sheet-top :global(.grab) { flex: 1; }
+    .drawer-sheet-close {
+      position: absolute;
+      right: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--st-text-2);
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    @keyframes sheet-slide-up {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+  }
+
   @media (max-width: 767px) {
     .sidebar {
       display: none !important;
@@ -2777,8 +3405,26 @@
       display: none !important;
     }
 
-    .app-body {
+    .app-body-bottom-bar {
       padding-bottom: 60px;
+    }
+
+    /*
+       The sheet SHARES the screen with the canvas; it does not sit on top of it.
+       ─────────────────────────────────────────────────────────────────────────
+       As a plain overlay the panel covered the lower 58 % of a canvas that was
+       still sized, and framed, to the full viewport — so choosing a moment
+       diagram put the diagram behind the panel that had just been opened to
+       control it, and the visible strip showed empty grid. The model was drawn;
+       it was simply underneath.
+
+       Reserving the height instead makes the canvas the size it appears to be.
+       Both viewports carry a ResizeObserver, so the backing store follows on its
+       own, and `--st-sheet-h` (in `styles/tokens.css`) is the one place the
+       height is written — the panel reads the same token for its own box.
+    */
+    .app-body-sheet {
+      padding-bottom: var(--st-sheet-h);
     }
 
     .app-header {
@@ -2790,8 +3436,22 @@
       display: none;
     }
 
+    /*
+       Settings keeps its corner and gets a thumb-sized target there. The
+       project name gives up the width for it — a truncated title reads the
+       same at 84 px as at 120, and the only other control in this row is one
+       a reader has to be able to hit.
+    */
+    .header-actions .btn-settings {
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .project-name {
-      max-width: 120px;
+      max-width: 84px;
       font-size: 0.75rem;
     }
 
@@ -2808,10 +3468,32 @@
       margin: 0 0.15rem;
     }
 
+    /*
+       Below the shell, over the model, never across the commands.
+       ──────────────────────────────────────────────────────────
+       At `top: 50px` the toast landed on the ribbon: "Cálculo exitoso" covered
+       the diagram commands the reader was about to press because of it. The
+       header, ribbon and options bar occupy the first 142 px, so the message
+       starts just under them and sits on the canvas, which is the one surface
+       with nothing to press on it.
+
+       `bottom: auto` matters as much as the `top`. The desktop rule anchors
+       the container to the BOTTOM, and setting a top without clearing that
+       left a fixed box pinned at both ends — i.e. the full height of the
+       screen. See `pointer-events` below for what that cost.
+    */
     .toast-container {
-      right: 10px;
+      /*
+         Stops short of the canvas's own two buttons — pointer mode and
+         zoom-to-fit sit at the top-right of the model, from x = 331. Running
+         the toast to the edge put its ✕ directly on top of them: two round
+         controls overlapping, one of them unreachable for as long as the
+         message lasted, which reads as a bug even though it heals itself.
+      */
+      right: 56px;
       left: 10px;
-      top: 50px;
+      top: 146px;
+      bottom: auto;
     }
 
     .toast {

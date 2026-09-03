@@ -119,6 +119,18 @@ export interface StabileoTestHooks {
   /** What the viewport is drawing — the walkthrough audit reads this. */
   diagramType(): string;
   /**
+   * What a click on the canvas would currently mean, and whether the viewport
+   * has anything to answer it with.
+   *
+   * A walkthrough step that waits on a click failed only on CI, and neither a
+   * screenshot nor the accessibility tree can show which precondition was
+   * missing: the click is recorded as a station only when the mode is
+   * `stress` AND there are results to read. Both are store fields no other
+   * hook exposed, which left "the mode was disarmed" indistinguishable from
+   * "the click missed the member".
+   */
+  viewportPick(): { selectMode: string; tool: string; hasResults: boolean; hasStressQuery: boolean };
+  /**
    * The guided step on screen, or null.
    *
    * Exposed for the walkthrough audit: checking that a step can reach what it
@@ -353,6 +365,12 @@ export function installE2EHooks(): void {
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
+    viewportPick: () => ({
+      selectMode: String(uiStore.selectMode),
+      tool: String(uiStore.currentTool),
+      hasResults: resultsStore.results !== null,
+      hasStressQuery: resultsStore.stressQuery !== null,
+    }),
     tourStep: () => {
       const st = tourStore.currentStep;
       return st ? {

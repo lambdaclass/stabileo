@@ -5071,5 +5071,12 @@ const pt: Translations = {
   'whatif.section': 'Seção',
   'whatif.thermal': 'Térmica',
   'whatif.title': 'Explorar',
+  'config.tip.language': 'O idioma de toda a interface. Também está no cabeçalho em telas maiores.',
+  'config.touchDensity': 'Tamanho dos controles',
+  'config.densityCompact': 'Compacto',
+  'config.densityComfortable': 'Confortável',
+  'config.tip.touchDensity': 'O tamanho dos controles dentro dos painéis, apenas no telefone. Compacto mostra mais tabela de uma vez; Confortável aumenta tudo para 44 px e afasta um pouco os resultados.',
+  'config.mobileSection': 'Celular',
+  'ribbon.groupModel': 'Modelagem',
 };
 export default pt;
