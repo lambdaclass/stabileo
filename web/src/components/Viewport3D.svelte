@@ -11,7 +11,7 @@
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
-  import { nodeRadiusFor, nodeRadiusForSections, diagonalOf } from '../lib/three/node-scale';
+  import { nodeRadiusFor, diagonalOf } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
   import { buildJointMeshes } from '../lib/three/joint-meshes';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
@@ -225,25 +225,39 @@
     return 'default';
   });
 
-    /*
-   * Markers sized from the model, not from a constant.
+  /*
+   * Markers sized from the model, not from a constant — and DRAWN or not according to the mode.
    *
    * The fixed 0.07 m this replaces was tuned for a mid-sized frame and was wrong at both ends:
    * a third of a member on a 2 m detail model, a speck on a 30 m shed. The picking bench
    * earlier in this branch measured the on-screen span at 8 px to 144 px for the same marker.
    *
-   * Re-evaluated on model changes AND on the render mode, because the section view halves it:
-   * with the extruded profiles drawn, a full-size sphere at every panel point buries the
-   * geometry that mode exists to show. It never drops below the picking floor —
-   * `NodesInstanced` raycasts the visible mesh, so the marker IS the target.
+   * ── The mode rule, stated once and here ─────────────────────────────
+   *
+   * **`sections` draws no node markers at all. Every other mode draws them.**
+   *
+   * That mode exists to show the extruded profiles, and now also the plate and bolts of a
+   * designed joint. A sphere at every panel point sits on top of exactly that: 300 of them on the
+   * shed, with the joint being inspected 190 mm wide underneath one. Halving the radius — what
+   * this did before — made them smaller and left them in front of the geometry; the joint was
+   * still behind a sphere.
+   *
+   * Hiding rather than shrinking used to cost picking, and `setDrawn` is what removes that cost:
+   * the mesh leaves the render list and stays in the scene graph, so the marker is invisible and
+   * still the raycast target. See `NodesInstanced.setDrawn`.
+   *
+   * And because the marker is then a PICK TARGET and nothing else, it takes the ordinary radius
+   * rather than the halved one: a smaller target in the mode where it cannot be seen is the worst
+   * of both.
    */
   $effect(() => {
     void modelStore.modelVersion;
     const mode = uiStore.renderMode3D;
     const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
-    nodesInstanced.setRadius(
-      mode === 'sections' ? nodeRadiusForSections(extent) : nodeRadiusFor(extent),
-    );
+    const drawn = mode !== 'sections';
+    nodesInstanced.setDrawn(drawn);
+    nodesInstanced.setRadius(nodeRadiusFor(extent));
+    (window as unknown as { __nodeMarkersDrawn?: boolean }).__nodeMarkersDrawn = drawn;
   });
 
   /**
@@ -274,6 +288,13 @@
     (window as unknown as { __jointScene?: unknown }).__jointScene = null;
     jointBoundingRadiusM = 0;
     jointCentreM = null;
+    /*
+     * Restore the node marker first, unconditionally.
+     *
+     * Every path out of this effect below is a path with no joint drawn, and a suppressed marker
+     * left behind on one of them is a node that vanished for good.
+     */
+    nodesInstanced.suppress(null);
     if (selected.length !== 1) { uiStore.jointSceneEmptyReasons = []; return; }
 
     const nodeId = selected[0];
@@ -307,6 +328,15 @@
 
     const built = buildJointMeshes(layout, nodeId);
     for (const mesh of built.meshes) jointsParent.add(mesh);
+    /*
+     * The joint's own node marker is collapsed while its geometry is on screen.
+     *
+     * That marker sits at the joint origin — the centre of the plate — and on the shed it is a
+     * sphere wider than the 190 mm plate, so «frame the joint» produced a close-up of a red ball
+     * with a plate behind it. Only ever done when there ARE meshes, because those meshes are the
+     * replacement pick target; with nothing drawn the marker is all there is.
+     */
+    if (built.meshes.length > 0) nodesInstanced.suppress(nodeId);
     jointBoundingRadiusM = built.boundingRadiusM;
     jointCentreM = layout.plate ? { ...layout.plate.centreM } : null;
 

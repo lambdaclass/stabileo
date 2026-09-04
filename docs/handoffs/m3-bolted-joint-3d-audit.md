@@ -204,3 +204,108 @@ el bucle de render: 0,28 ms una vez al elegir un nudo, contra 16,7 ms de presupu
 decisión ya estaba y sigue siendo correcta a este costo—, y hay 6 mallas más por las cabezas. Con
 un grupo de 24 bulones son 49 mallas, que sigue siendo despreciable contra la escena pero es el
 número a mirar si alguna vez se dibujan varias uniones a la vez.
+
+
+---
+
+# 5 · Bloque 1b — el visor como flujo de usuario
+
+Reproducido a mano en `http://127.0.0.1:4005/app/pro?e2e=1` sobre `3d-nave-industrial`
+(232 nudos, 633 barras, **226 uniones detectadas**), con capturas en cada paso.
+
+## 5.1 · El camino exacto al visor
+
+```
+PRO  →  cinta DESIGN  →  «Metallic joints»  →  fila N51  →  llenar el diseño
+     →  «Frame the joint»  →  selector «View»
+```
+
+Los rótulos ya eran correctos y **no se cambiaron**: la etapa dice **DESIGN**, el comando dice
+**«Metallic joints»**, el panel se titula **METALLIC JOINTS**. La fila nombra el nudo (`N51`),
+lista las barras concurrentes (`E88, E94, …`) y marca cuáles son metálicas.
+
+## 5.2 · Los tres problemas reproducidos
+
+### (a) Una esfera roja tapaba la unión — en el modo por defecto
+
+La captura después de «Frame the joint» es la prueba: la chapa está bien orientada y con sus
+agujeros, y **una esfera de nudo cubre el centro**, escondiendo los bulones. Pasa en
+**wireframe**, no sólo en secciones: el marcador del nudo está en el origen de la unión, que es el
+centro de la chapa, y en la nave es **más ancho que la chapa de 190 mm**.
+
+**Es el resaltado de selección tapando lo que resalta.**
+
+### (b) El selector de modo no estaba en el DOM
+
+Con el panel de uniones abierto, `document.querySelectorAll('select')` **no contiene ninguno** con
+la opción `sections`. No es que estuviera escondido: vive en una sección de config del toolbar que
+**no está montada** en esa pantalla. El único modo que dibuja las barras como perfiles reales
+alrededor de la unión era **inalcanzable desde la única pantalla donde se inspecciona una unión**.
+
+### (c) En secciones, las esferas se habían achicado, no ocultado
+
+`nodeRadiusForSections` las reducía a la mitad. Su propio comentario decía por qué se quedaba ahí:
+*«a node that cannot be clicked in one mode and can in another is worse than a small one»* — o sea,
+ocultarlas costaba el picking. El resultado era esferas más chicas **igual delante** de la
+geometría.
+
+## 5.3 · La regla de visibilidad de nudos, explícita
+
+Son **dos reglas separadas**, porque responden preguntas distintas:
+
+| Regla | Alcance | Qué hace |
+|---|---|---|
+| **A — por modo** | `sections` | **no dibuja ningún marcador**. Los demás modos los dibujan |
+| **B — por selección** | cualquier modo | el marcador **del nudo cuya unión se está dibujando** se colapsa, y sólo mientras hay mallas |
+
+**Cómo se ocultan sin perder el picking**, que es lo que hacía imposible la regla A:
+
+- **A** usa `material.visible = false`. `WebGLRenderer.projectObject` no encola una malla cuyo
+  material es invisible, e `InstancedMesh.raycast` **no consulta el material**. La malla sale del
+  render y sigue en el grafo de escena: invisible y clicqueable.
+  **No es `mesh.visible = false`** — eso la habría sacado también del raycaster, que es el error
+  que esta API existe para evitar. Hay un test que lo afirma.
+- **B** colapsa la escala de **una** instancia, conservando su posición, su color y su índice. Y se
+  aplica **sólo cuando la unión tiene mallas**, porque esas mallas son el blanco de picking de
+  reemplazo (`jointPickable`). Sin geometría dibujada no se colapsa nada: ahí el marcador es todo
+  lo que hay.
+
+**Y el radio vuelve al normal en `sections`.** Con nada dibujado el radio es un **blanco de
+click**, y un blanco a la mitad en el modo donde no se ve es lo peor de las dos cosas.
+
+`nodeRadiusForSections` quedó **retirada pero exportada**, documentada como decisión revertida —
+no equivocada — con sus tests intactos.
+
+## 5.4 · Lo demás que se corrigió
+
+- **Selector «View» en el panel de uniones**, con las tres opciones, ligado al **mismo**
+  `uiStore.renderMode3D` que el select de config. Un solo estado, dos formas de llegar.
+- **Y fuera del condicional.** Primero lo puse dentro de la rama «hay geometría», y un test lo
+  destapó: el ajuste desaparecía justo cuando el usuario decide cómo mirar una unión que todavía no
+  terminó de diseñar. El modo es del **visor**, no de la unión.
+
+## 5.5 · Rendimiento de este bloque
+
+| Operación | Costo |
+|---|---|
+| `setDrawn` (cambio de modo) | **0,02 µs** |
+| `suppress` (cambio de unión, 300 nudos) | **0,79 µs** |
+| `upsert` de 300 nudos, con y sin supresión | 0,021 ms vs 0,011 ms |
+
+El −49 % del `upsert` es **ruido de JIT, no una mejora**: los dos valores son ~0,01–0,02 ms para
+300 nudos y la comparación no es estable a esa escala. Lo honesto es «indistinguible». Ninguna de
+las dos reglas agrega trabajo por frame: `setDrawn` toca un booleano y `suppress` reescribe una
+matriz de instancia.
+
+## 5.6 · Limitaciones que siguen, de este bloque
+
+- **La regla B es por nudo seleccionado, no por oclusión.** Un marcador de un nudo *vecino* puede
+  seguir tapando parcialmente la unión si está muy cerca. En la nave no ocurre a la distancia de
+  encuadre; en un nudo de celosía muy denso podría. Resolverlo bien es oclusión por distancia a la
+  cámara, que es otro bloque.
+- **`solid` y `wireframe` siguen dibujando los 300 marcadores.** Es deliberado: ahí son la forma
+  de ver y elegir nudos. Sólo se colapsa el de la unión abierta.
+- **Iluminación y contraste no se tocaron.** Con la esfera fuera, la chapa y las cabezas se leen
+  bien en las capturas; cambiar luces afectaría toda la escena y no sólo el visor de uniones.
+- **No se agregó ni actualizó ninguna baseline visual.** Las capturas de esta auditoría son
+  evidencia de reproducción, no snapshots de test.
