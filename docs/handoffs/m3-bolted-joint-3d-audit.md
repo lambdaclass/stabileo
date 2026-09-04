@@ -309,3 +309,25 @@ matriz de instancia.
   bien en las capturas; cambiar luces afectaría toda la escena y no sólo el visor de uniones.
 - **No se agregó ni actualizó ninguna baseline visual.** Las capturas de esta auditoría son
   evidencia de reproducción, no snapshots de test.
+
+
+---
+
+# 6 · El inventario de QA de la integración
+
+El inventario exhaustivo de QA manual para **M1 + M2 + M3** vive en un archivo propio:
+
+**`docs/handoffs/m1-m2-m3-qa-inventory.md`**
+
+Cubre los 24 bloques pedidos, separado en A (QA obligatorio) · B (recomendado) · C (bloqueantes) ·
+D (aptos para M3) · E (limitaciones aceptadas) · F (código sin recorrido de usuario) · G (checklist
+manual). Su **§H** es la parte operativa: **cómo deben incorporarse los hallazgos futuros en M3**,
+incluida la regla de que M1 y M2 están congeladas y que un defecto de cualquiera de las dos se
+corrige **igual en M3**, diciendo en el commit de qué rama es.
+
+Dos cosas del inventario que conviene saber sin abrirlo:
+
+- **cada afirmación está marcada** `[V]` verificada contra el código en esa sesión, `[M]` medida
+  ejecutando algo, o `[H]` heredada de un handoff y **no** re-verificada. Lo `[H]` es pista, no
+  hecho;
+- **no se implementó ninguna corrección**, ni siquiera las de un renglón.
