@@ -3,6 +3,12 @@
 **Fecha:** 2026-09-03. **Rama de lectura:** `feat/pro-steel-m3` (`5c8bbbf7`).
 **Servidor:** exclusivamente **`http://127.0.0.1:4005`** (`vite dev` con `VITE_E2E=1`, cwd
 `stabileo-m3/web`). El **4004** sirve M1+M2 y **no se toca**.
+**Compuerta de partida:** suite E2E completa sobre M3 (`c735c2c1`) — **[M] 841 pass · 1 failed ·
+1 flaky · 4 skipped · 1 sin correr**, 39,5 min. La única falla es la baseline darwin de 1 px
+(E-13), que se arregla actualizando un snapshot y por eso no se toca. **Cero fallas en superficie
+metálica**: `m3-bolted-joint-3d` 14/14, `m2-joint-3d` 10/10, `m2-joint-persistence` 7/7,
+`m2-steel-workflow` 14/14, `generators-steel` 10/10.
+
 **Estado:** inventario. **No se implementó ninguna corrección.** M1 y M2 están congeladas; **M3 es
 la única rama autorizada** a recibir después los cambios que salgan de este QA.
 
