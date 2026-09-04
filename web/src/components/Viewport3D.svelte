@@ -11,8 +11,9 @@
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
-  import { nodeRadiusFor, nodeRadiusForSections, diagonalOf } from '../lib/three/node-scale';
+  import { nodeRadiusFor, diagonalOf } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
+  import { buildJointMeshes } from '../lib/three/joint-meshes';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
   import { ElementsBatched } from '../lib/three/elements-batched';
@@ -89,6 +90,13 @@
   // ─── Raycaster ───────────────────────────────────────────────
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
+  /*
+   * How big the selected joint is, and where. Written by the joint effect, read by
+   * `zoomToJoint` — a plate is ~190 x 130 x 12 mm inside a shed 20 m across, which is well under
+   * a pixel at model zoom, so it cannot be inspected without a way to frame it.
+   */
+  let jointBoundingRadiusM = 0;
+  let jointCentreM: { x: number; y: number; z: number } | null = null;
   let hoveredData: { type: string; id: number } | null = null;
   let hoveredNodeId3D = $state<number | null>(null);
   let mouseDownPos = { x: 0, y: 0 };
@@ -217,25 +225,39 @@
     return 'default';
   });
 
-    /*
-   * Markers sized from the model, not from a constant.
+  /*
+   * Markers sized from the model, not from a constant — and DRAWN or not according to the mode.
    *
    * The fixed 0.07 m this replaces was tuned for a mid-sized frame and was wrong at both ends:
    * a third of a member on a 2 m detail model, a speck on a 30 m shed. The picking bench
    * earlier in this branch measured the on-screen span at 8 px to 144 px for the same marker.
    *
-   * Re-evaluated on model changes AND on the render mode, because the section view halves it:
-   * with the extruded profiles drawn, a full-size sphere at every panel point buries the
-   * geometry that mode exists to show. It never drops below the picking floor —
-   * `NodesInstanced` raycasts the visible mesh, so the marker IS the target.
+   * ── The mode rule, stated once and here ─────────────────────────────
+   *
+   * **`sections` draws no node markers at all. Every other mode draws them.**
+   *
+   * That mode exists to show the extruded profiles, and now also the plate and bolts of a
+   * designed joint. A sphere at every panel point sits on top of exactly that: 300 of them on the
+   * shed, with the joint being inspected 190 mm wide underneath one. Halving the radius — what
+   * this did before — made them smaller and left them in front of the geometry; the joint was
+   * still behind a sphere.
+   *
+   * Hiding rather than shrinking used to cost picking, and `setDrawn` is what removes that cost:
+   * the mesh leaves the render list and stays in the scene graph, so the marker is invisible and
+   * still the raycast target. See `NodesInstanced.setDrawn`.
+   *
+   * And because the marker is then a PICK TARGET and nothing else, it takes the ordinary radius
+   * rather than the halved one: a smaller target in the mode where it cannot be seen is the worst
+   * of both.
    */
   $effect(() => {
     void modelStore.modelVersion;
     const mode = uiStore.renderMode3D;
     const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
-    nodesInstanced.setRadius(
-      mode === 'sections' ? nodeRadiusForSections(extent) : nodeRadiusFor(extent),
-    );
+    const drawn = mode !== 'sections';
+    nodesInstanced.setDrawn(drawn);
+    nodesInstanced.setRadius(nodeRadiusFor(extent));
+    (window as unknown as { __nodeMarkersDrawn?: boolean }).__nodeMarkersDrawn = drawn;
   });
 
   /**
@@ -263,7 +285,17 @@
       (m.material as THREE.Material)?.dispose?.();
     }
     (window as unknown as { __jointMeshCount?: number }).__jointMeshCount = 0;
-    if (selected.length !== 1) return;
+    (window as unknown as { __jointScene?: unknown }).__jointScene = null;
+    jointBoundingRadiusM = 0;
+    jointCentreM = null;
+    /*
+     * Restore the node marker first, unconditionally.
+     *
+     * Every path out of this effect below is a path with no joint drawn, and a suppressed marker
+     * left behind on one of them is a node that vanished for good.
+     */
+    nodesInstanced.suppress(null);
+    if (selected.length !== 1) { uiStore.jointSceneEmptyReasons = []; return; }
 
     const nodeId = selected[0];
     const joints = detectJoints(
@@ -283,26 +315,65 @@
       : { x: 1, y: 0, z: 0 };
 
     const layout = jointSceneLayout(design, axis);
+    /*
+     * Why nothing is drawn, published rather than swallowed.
+     *
+     * The layout has always said why it produced nothing — `emptyReasonKeys` — and this effect
+     * used to drop it on the floor and return, so a joint with no drawable geometry was
+     * indistinguishable from a joint nobody had selected. The panel renders these keys; see
+     * `jointSceneEmptyReasons` in `ui.svelte.ts`.
+     */
+    uiStore.jointSceneEmptyReasons = [...layout.emptyReasonKeys];
     if (!hasSceneContent(layout)) return;
 
-    if (layout.plate) {
-      const g = new THREE.BoxGeometry(layout.plate.lengthM, layout.plate.widthM, layout.plate.thicknessM);
-      const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
-        color: 0x8899aa, roughness: 0.6, metalness: 0.3, transparent: true, opacity: 0.85,
-      }));
-      mesh.position.set(layout.plate.centreM.x, layout.plate.centreM.y, layout.plate.centreM.z);
-      mesh.userData = { type: 'jointPlate', nodeId };
-      jointsParent.add(mesh);
+    const built = buildJointMeshes(layout, nodeId);
+    for (const mesh of built.meshes) jointsParent.add(mesh);
+    /*
+     * The joint's own node marker is collapsed while its geometry is on screen.
+     *
+     * That marker sits at the joint origin — the centre of the plate — and on the shed it is a
+     * sphere wider than the 190 mm plate, so «frame the joint» produced a close-up of a red ball
+     * with a plate behind it. Only ever done when there ARE meshes, because those meshes are the
+     * replacement pick target; with nothing drawn the marker is all there is.
+     */
+    if (built.meshes.length > 0) nodesInstanced.suppress(nodeId);
+    jointBoundingRadiusM = built.boundingRadiusM;
+    jointCentreM = layout.plate ? { ...layout.plate.centreM } : null;
+
+    /*
+     * What the scene actually contains, published for the specs.
+     *
+     * A count of meshes was all this used to expose, and a count cannot tell a plate from a
+     * bolt, nor an oriented plate from an axis-aligned one. The containment flag is computed
+     * from the layout's own frame — the property whose absence let four of six bolts stand
+     * outside the plate on the shed — so an E2E on the real building can assert it rather than
+     * trusting a unit fixture to stand in for it.
+     */
+    const dot = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) =>
+      a.x * b.x + a.y * b.y + a.z * b.z;
+    let boltsInsidePlate = true;
+    if (layout.plate && layout.frame) {
+      const c = layout.plate.centreM;
+      for (const bolt of layout.bolts) {
+        const d = { x: bolt.centreM.x - c.x, y: bolt.centreM.y - c.y, z: bolt.centreM.z - c.z };
+        if (Math.abs(dot(d, layout.frame.u)) > layout.plate.lengthM / 2 + 1e-9
+          || Math.abs(dot(d, layout.frame.v)) > layout.plate.widthM / 2 + 1e-9) {
+          boltsInsidePlate = false;
+        }
+      }
     }
-    for (const bolt of layout.bolts) {
-      const g = new THREE.CylinderGeometry(bolt.diameterM / 2, bolt.diameterM / 2, bolt.lengthM * 2, 10);
-      const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
-        color: 0x445566, roughness: 0.4, metalness: 0.7,
-      }));
-      mesh.position.set(bolt.centreM.x, bolt.centreM.y, bolt.centreM.z);
-      mesh.userData = { type: 'jointBolt', nodeId };
-      jointsParent.add(mesh);
-    }
+    (window as unknown as { __jointScene?: unknown }).__jointScene = {
+      nodeId,
+      plates: built.meshes.filter((m) => m.userData.type === 'jointPlate').length,
+      shanks: built.meshes.filter((m) => m.userData.part === 'shank').length,
+      heads: built.meshes.filter((m) => m.userData.part === 'head').length,
+      holes: layout.plate?.holes.length ?? 0,
+      holeDiameterMm: (layout.plate?.holes[0]?.diameterM ?? 0) * 1000,
+      boltDiameterMm: (layout.bolts[0]?.diameterM ?? 0) * 1000,
+      boltsInsidePlate,
+      boundingRadiusM: built.boundingRadiusM,
+      state: design.state,
+    };
     // Published for the specs: how many meshes the joint contributed. Zero is a legitimate and
     // asserted answer, so it is a count rather than a boolean.
     (window as unknown as { __jointMeshCount?: number }).__jointMeshCount = jointsParent.children.length;
@@ -719,6 +790,11 @@
     const handleZoomToFitEvent = () => { zoomToFit(); }; // zoomToFit() calls invalidate() internally
     window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
+    // Frame the selected joint — dispatched by the connections panel's inspect button. Same
+    // window-event route the zoom-to-fit key already uses, so the panel needs no viewport ref.
+    const handleZoomToJointEvent = () => { zoomToJoint(); };
+    window.addEventListener('stabileo-zoom-to-joint', handleZoomToJointEvent);
+
     // Listen for camera restore event (dispatched on tab switch)
     const handleRestoreCamera = () => {
       const pos = uiStore.cameraPosition3D;
@@ -780,6 +856,7 @@
       renderer.dispose();
       controls.dispose();
       window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
+      window.removeEventListener('stabileo-zoom-to-joint', handleZoomToJointEvent);
       window.removeEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', onNavKeyDown);
@@ -1950,6 +2027,29 @@
       return; // consume the click while picking (no normal selection / clear)
     }
 
+    /*
+     * ── A click on the joint's own steel keeps the joint selected ──
+     *
+     * The joint meshes live in `jointsParent`, and no raycast consulted it. So a click on the
+     * plate you were inspecting hit nothing, fell through to «no hit → clear the selection»,
+     * and DELETED the geometry you had just clicked on: the meshes exist only for the selected
+     * node. Inspecting a joint by clicking it was the one gesture guaranteed to close it.
+     *
+     * Selecting the node again rather than doing nothing is deliberate — it is what makes the
+     * selection bidirectional. The list already drives the scene; this is the scene driving the
+     * list, and with `addToSel` honoured so shift-click still accumulates.
+     */
+    {
+      const jointHits = raycaster.intersectObjects(jointsParent.children, true);
+      for (const hit of jointHits) {
+        const ud = hit.object.userData as { jointPickable?: boolean; nodeId?: number } | undefined;
+        if (ud?.jointPickable && typeof ud.nodeId === 'number') {
+          uiStore.selectNode(ud.nodeId, e.shiftKey || e.ctrlKey || e.metaKey);
+          return;
+        }
+      }
+    }
+
     // ── Despiece inspection: while the free-body view is active, a click inspects
     // the converging actions (node) or both member ends (member) — without
     // disturbing the normal selection used when Despiece is off. ──
@@ -2534,6 +2634,43 @@
 
   function zoomToFit() {
     _zoomToFit(camera, controls, modelStore.nodes, orthoCamera, container);
+    invalidate();
+  }
+
+  /**
+   * Frame the selected joint, so it can actually be looked at.
+   *
+   * A designed plate is a couple of hundred millimetres across and the shed around it is tens of
+   * metres, so at model zoom the joint is smaller than a pixel: the geometry was correct and
+   * unusable at the same time. This puts the orbit target on the joint and pulls the camera to a
+   * distance derived from the joint's own bounding radius — measured from the parts, heads
+   * included, so a bolt head is not cropped.
+   *
+   * It does NOT fire on selection. Re-framing the camera because someone clicked a row would
+   * take the view away from a user who was looking at the whole structure; this is a command
+   * they ask for, next to «zoom to fit».
+   */
+  function zoomToJoint() {
+    if (!camera || !controls || !jointCentreM || jointBoundingRadiusM <= 0) return;
+    const centre = new THREE.Vector3(jointCentreM.x, jointCentreM.y, jointCentreM.z);
+    // Three radii back: the joint fills a comfortable part of the frame without touching the
+    // near plane, on either camera.
+    const distance = jointBoundingRadiusM * 3;
+    const direction = camera.position.clone().sub(controls.target).normalize();
+    if (direction.lengthSq() < 1e-9) direction.set(1, 1, 1).normalize();
+    controls.target.copy(centre);
+    camera.position.copy(centre).addScaledVector(direction, distance);
+    if (camera === orthoCamera) {
+      // An orthographic camera does not zoom by moving, so its frustum is what has to shrink.
+      const aspect = container ? container.clientWidth / container.clientHeight : 1;
+      const halfH = jointBoundingRadiusM * 1.5;
+      orthoCamera.top = halfH;
+      orthoCamera.bottom = -halfH;
+      orthoCamera.left = -halfH * aspect;
+      orthoCamera.right = halfH * aspect;
+      orthoCamera.updateProjectionMatrix();
+    }
+    controls.update();
     invalidate();
   }
 

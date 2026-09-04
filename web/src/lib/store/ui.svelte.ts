@@ -260,6 +260,14 @@ function createUIStore() {
   // all (full representation). External actions, drawn once, never mirrored.
   let despieceLoadMode = $state<'off' | 'resultant' | 'all'>('off');
   // Click inspection target while Despiece is active (null = none).
+  /**
+   * Why the selected joint draws nothing, as i18n keys. Empty when it draws.
+   *
+   * `jointSceneLayout` has always produced these; the viewport used to drop them and return,
+   * which made «this joint has no drawable geometry» indistinguishable from «no joint is
+   * selected». The connections panel renders them, so an empty viewport says why it is empty.
+   */
+  let jointSceneEmptyReasons = $state<string[]>([]);
   let despieceInspect = $state<{ type: 'node' | 'member'; id: number } | null>(null);
 
   // Active load case for load tool
@@ -753,6 +761,8 @@ function createUIStore() {
     set despieceCombineVectors(v: boolean) { despieceCombineVectors = v; },
     get despieceLoadMode() { return despieceLoadMode; },
     set despieceLoadMode(v: 'off' | 'resultant' | 'all') { despieceLoadMode = v; },
+    get jointSceneEmptyReasons() { return jointSceneEmptyReasons; },
+    set jointSceneEmptyReasons(v: string[]) { jointSceneEmptyReasons = v; },
     get despieceInspect() { return despieceInspect; },
     set despieceInspect(v: { type: 'node' | 'member'; id: number } | null) { despieceInspect = v; },
 

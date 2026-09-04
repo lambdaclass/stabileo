@@ -55,6 +55,16 @@ export class NodesInstanced {
   private _mat4 = new THREE.Matrix4();
   private _color = new THREE.Color();
 
+  /**
+   * The one node whose marker is collapsed, or null.
+   *
+   * See `suppress` — this is the joint being inspected, whose marker would otherwise sit exactly
+   * on top of the plate and bolts it belongs to.
+   */
+  private suppressedId: number | null = null;
+  /** Last known position per id, so a suppression can be undone without a model round-trip. */
+  private posById = new Map<number, [number, number, number]>();
+
   constructor(opts: NodesInstancedOpts = {}) {
     this.radius = opts.radius ?? DEFAULT_RADIUS;
     this.capacity = Math.max(1, opts.initialCapacity ?? DEFAULT_INITIAL_CAPACITY);
@@ -94,6 +104,37 @@ export class NodesInstanced {
     return this.radius;
   }
 
+  /**
+   * Whether the markers are DRAWN. They stay pickable either way.
+   *
+   * ── Why a visibility flag and not a smaller sphere ──────────────────
+   *
+   * «Modelo con secciones» exists to show the extruded profiles and, now, the plate and bolts of
+   * a designed joint. A marker at every panel point sits exactly on top of that geometry: on the
+   * shed it is a sphere at each of 300 nodes, and the joint being inspected is 190 mm wide
+   * underneath one of them.
+   *
+   * The previous answer was to halve the radius, and its own comment gave the reason it stopped
+   * there: «a node that cannot be clicked in one mode and can in another is worse than a small
+   * one». That reason is sound and this method is what removes it — `material.visible = false`
+   * takes the mesh out of the RENDER list (`WebGLRenderer.projectObject` skips a mesh whose
+   * material is invisible) while leaving the object itself in the scene graph, and
+   * `InstancedMesh.raycast` never consults the material. So the marker stops being drawn and
+   * does not stop being clickable.
+   *
+   * That is also why the radius goes back to the ordinary one when hidden: with nothing drawn,
+   * the radius is a PICK TARGET, and a halved target would make a node harder to hit in the very
+   * mode where it is invisible.
+   */
+  setDrawn(drawn: boolean): void {
+    this.mat.visible = drawn;
+  }
+
+  /** Whether the markers are currently drawn. Read by the specs. */
+  get drawn(): boolean {
+    return this.mat.visible;
+  }
+
   /** Insert or move a node. Allocates an instance slot if new. */
   upsert(id: number, x: number, y: number, z: number): void {
     let idx = this.idToIndex.get(id);
@@ -109,9 +150,64 @@ export class NodesInstanced {
         this.setBaseColor(id, COLORS.node);
       }
     }
-    this._mat4.makeTranslation(x, y, z);
+    this.posById.set(id, [x, y, z]);
+    this.writeMatrix(idx, id, x, y, z);
+  }
+
+  /**
+   * Write one instance's matrix, collapsed to nothing when the node is suppressed.
+   *
+   * A zero scale rather than a removal: the instance keeps its slot, its colour and its id
+   * mapping, so undoing the suppression is one matrix write instead of a rebuild.
+   */
+  private writeMatrix(idx: number, id: number, x: number, y: number, z: number): void {
+    if (id === this.suppressedId) {
+      this._mat4.makeScale(0, 0, 0);
+      this._mat4.setPosition(x, y, z);
+    } else {
+      this._mat4.makeTranslation(x, y, z);
+    }
     this.mesh.setMatrixAt(idx, this._mat4);
     this.mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
+   * Collapse ONE node's marker — the joint being inspected — or `null` to restore.
+   *
+   * ── Why the selected node in particular ─────────────────────────────
+   *
+   * The marker for a joint's node sits at the joint's origin, which is the centre of the plate
+   * that joint draws. On the shed it is a sphere wider than the 190 mm plate, so «frame the
+   * joint» delivered a close-up of a red ball with a plate behind it. The highlight was hiding
+   * the thing it was highlighting.
+   *
+   * The joint keeps its selection cue: its own plate and bolts are drawn, the panel row is
+   * marked, and the status bar names the node. What is removed is the one marker that can only
+   * ever be in front of it.
+   *
+   * ── Picking is not lost, and that is a precondition ─────────────────
+   *
+   * The caller suppresses only while the joint HAS meshes, and those meshes are pickable and
+   * select this same node (`jointPickable` in `joint-meshes.ts`). So the target does not
+   * disappear, it changes shape from a sphere to the joint itself. With no joint drawn there is
+   * nothing to hide behind and nothing is suppressed.
+   */
+  suppress(id: number | null): void {
+    if (id === this.suppressedId) return;
+    const previous = this.suppressedId;
+    this.suppressedId = id;
+    for (const changed of [previous, id]) {
+      if (changed === null) continue;
+      const idx = this.idToIndex.get(changed);
+      const pos = this.posById.get(changed);
+      if (idx === undefined || !pos) continue;
+      this.writeMatrix(idx, changed, pos[0], pos[1], pos[2]);
+    }
+  }
+
+  /** The node whose marker is collapsed, or null. Read by the specs. */
+  get suppressed(): number | null {
+    return this.suppressedId;
   }
 
   /** Remove a node. Swap-pops the last instance into the removed slot. */
