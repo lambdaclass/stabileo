@@ -782,6 +782,7 @@ const steelEn: Record<string, string> = {
   // locale: nothing rendered it until the panel started saying why the viewport is empty.
   'joint.scene.notDesigned': 'Nothing is drawn yet: this joint has no design.',
   'conn.scene.emptyTitle': 'Not drawable yet',
+  'conn.scene.mode': 'View',
   'conn.scene.inspect': 'Frame the joint',
   'conn.scene.hint': 'The plate is a few hundred millimetres inside a building tens of metres across, so it needs framing to be inspected.',
   'joint.state.incomplete': 'Incomplete',

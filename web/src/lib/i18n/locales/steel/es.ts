@@ -796,6 +796,7 @@ const steelEs: Record<string, string> = {
   // idioma: nadie la renderizaba hasta que el panel empezó a decir por qué el visor está vacío.
   'joint.scene.notDesigned': 'Todavía no se dibuja nada: esta unión no tiene diseño.',
   'conn.scene.emptyTitle': 'Todavía no se puede dibujar',
+  'conn.scene.mode': 'Vista',
   'conn.scene.inspect': 'Encuadrar la unión',
   'conn.scene.hint': 'La chapa mide unos cientos de milímetros dentro de un edificio de decenas de metros, así que hay que encuadrarla para inspeccionarla.',
   'joint.state.incomplete': 'Incompleta',

@@ -576,6 +576,26 @@
         someone's camera because they clicked a row is not help.
       -->
       <div class="conn-scene" data-testid="conn-scene">
+        <!--
+          The render mode, always available — it belongs to the VIEWER, not to this joint.
+
+          Two things were wrong before. It lived only in a toolbar config section that is not
+          mounted while this panel is open, so with the joints panel up the `select` was not
+          merely hard to find: it was not in the DOM at all. And when it was first moved here it
+          went inside the «there is geometry» branch, which made the setting disappear exactly
+          when a user is deciding how to look at a joint they have not finished designing.
+
+          Same `uiStore.renderMode3D` the config select binds to — one setting, two ways in, no
+          second piece of state.
+        -->
+        <label class="conn-scene-mode">
+          <span>{t('conn.scene.mode')}</span>
+          <select data-testid="conn-scene-mode" bind:value={uiStore.renderMode3D}>
+            <option value="wireframe">{t('config.wireframe')}</option>
+            <option value="solid">{t('config.solid')}</option>
+            <option value="sections">{t('config.sections')}</option>
+          </select>
+        </label>
         {#if uiStore.jointSceneEmptyReasons.length > 0}
           <p class="conn-scene-empty" role="note" data-testid="conn-scene-empty">
             <span class="conn-scene-empty-title">{t('conn.scene.emptyTitle')}</span>
@@ -1474,6 +1494,12 @@
     border: 1px solid var(--st-hair-strong); font-size: 0.66rem;
   }
   .conn-scene-inspect:hover { border-color: var(--st-text-2); }
+  .conn-scene-mode { display: flex; align-items: center; gap: 5px; font-size: 0.66rem; color: var(--st-text-2); }
+  .conn-scene-mode select {
+    background: var(--st-surface-2); color: var(--st-text);
+    border: 1px solid var(--st-hair-strong); border-radius: 3px;
+    font-size: 0.66rem; padding: 2px 4px;
+  }
 
   .conn-obsolete {
     margin: 0 0 8px; padding: 7px 9px; border-radius: 4px;

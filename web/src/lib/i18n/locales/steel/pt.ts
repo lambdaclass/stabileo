@@ -794,6 +794,7 @@ const steelPt: Record<string, string> = {
   // idioma: ninguém a renderizava até o painel começar a dizer por que o visor está vazio.
   'joint.scene.notDesigned': 'Ainda não se desenha nada: esta ligação não tem projeto.',
   'conn.scene.emptyTitle': 'Ainda não é possível desenhar',
+  'conn.scene.mode': 'Vista',
   'conn.scene.inspect': 'Enquadrar a ligação',
   'conn.scene.hint': 'A chapa tem algumas centenas de milímetros dentro de um edifício de dezenas de metros, por isso precisa de enquadramento para ser inspecionada.',
   'joint.state.incomplete': 'Incompleta',
