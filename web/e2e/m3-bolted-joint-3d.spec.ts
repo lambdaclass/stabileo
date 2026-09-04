@@ -306,3 +306,138 @@ test.describe('M3 — one entity behind the panel and the scene', () => {
     expect(designed).toContain(s.nodeId);
   });
 });
+
+// ── The viewer as a workflow ──────────────────────────────────────────────
+
+const nodeMarkers = (page: Page) =>
+  page.evaluate(() => (window as unknown as {
+    __stabileo?: { nodeMarkersDrawn?: () => boolean };
+  }).__stabileo?.nodeMarkersDrawn?.() ?? true);
+
+const renderMode = (page: Page) =>
+  page.evaluate(() => (window as unknown as {
+    __stabileo?: { renderMode3D?: () => string };
+  }).__stabileo?.renderMode3D?.() ?? '');
+
+test.describe('@smoke M3 — the path to the joint viewer is reachable', () => {
+  test('Design → Metallic joints → a row names its node and its members', async ({ page }) => {
+    await openSolvedShed(page);
+
+    // The two controls that make the path explicit, both visible before they are used.
+    await expect(page.getByTestId('pr-stage-design')).toBeVisible();
+    await page.getByTestId('pr-stage-design').click();
+    await expect(page.getByTestId('pr-cmd-connections')).toBeVisible();
+    await page.getByTestId('pr-cmd-connections').click();
+    await expect(page.getByTestId('conn-sec-joints')).toBeVisible();
+
+    // The list names nodes, so «which joint am I on» is answerable from the panel.
+    const row = page.locator('.conn-joint-row').first();
+    await expect(row).toContainText(/N\d+/);
+    await row.click();
+
+    // And the selection is stated in both directions: the panel row and the model selection.
+    const s = await selectedNodes(page);
+    expect(s).toHaveLength(1);
+    await expect(page.getByTestId('conn-joint-members')).toBeVisible();
+  });
+
+  test('the render mode is reachable from the joints panel, not only from config', async ({ page }) => {
+    await openSolvedShed(page);
+    await openJointPanel(page);
+    await page.locator('.conn-joint-row').first().click();
+    await designSelectedJoint(page);
+    await expect.poll(() => meshCount(page)).toBeGreaterThan(0);
+
+    /*
+     * Reproducing the flow found this: with the joints panel open, the render-mode `select` was
+     * not merely hard to find — it was NOT IN THE DOM, because it lives in a toolbar config
+     * section that is not mounted here. The one mode that draws members as real profiles around
+     * the joint was unreachable from the one screen where a joint is inspected.
+     */
+    const mode = page.getByTestId('conn-scene-mode');
+    await expect(mode).toBeVisible();
+    await mode.selectOption('sections');
+    await expect.poll(() => renderMode(page)).toBe('sections');
+
+    // One setting, not two: it drives the same store the config select binds to.
+    await mode.selectOption('wireframe');
+    await expect.poll(() => renderMode(page)).toBe('wireframe');
+  });
+});
+
+test.describe('@smoke M3 — node markers by viewer mode', () => {
+  test('«Modelo con secciones» draws no node markers, and the joint stays drawn', async ({ page }) => {
+    await openSolvedShed(page);
+    await openJointPanel(page);
+    await page.locator('.conn-joint-row').first().click();
+    await designSelectedJoint(page);
+    await expect.poll(() => meshCount(page)).toBeGreaterThan(0);
+
+    // Markers are drawn in the default mode.
+    expect(await renderMode(page)).toBe('wireframe');
+    expect(await nodeMarkers(page)).toBe(true);
+
+    await page.getByTestId('conn-scene-mode').selectOption('sections');
+    await expect.poll(() => renderMode(page)).toBe('sections');
+
+    /*
+     * The rule, asserted as a rule: sections draws NO markers. Not smaller ones — the previous
+     * answer halved the radius and left them in front of the geometry, so the 190 mm plate was
+     * still behind a sphere.
+     */
+    await expect.poll(() => nodeMarkers(page)).toBe(false);
+
+    // And the geometry the mode exists to show is still there.
+    const s = (await scene(page))!;
+    expect(s.plates).toBe(1);
+    expect(s.shanks).toBe(6);
+    expect(s.holes).toBe(6);
+    expect(await meshCount(page)).toBeGreaterThan(0);
+  });
+
+  test('markers come back in the other modes', async ({ page }) => {
+    await openSolvedShed(page);
+    await openJointPanel(page);
+    await page.locator('.conn-joint-row').first().click();
+    const mode = page.getByTestId('conn-scene-mode');
+
+    await mode.selectOption('sections');
+    await expect.poll(() => nodeMarkers(page)).toBe(false);
+    for (const m of ['solid', 'wireframe'] as const) {
+      await mode.selectOption(m);
+      await expect.poll(() => renderMode(page)).toBe(m);
+      await expect.poll(() => nodeMarkers(page)).toBe(true);
+    }
+  });
+
+  test('hiding the markers does not break node picking or joint selection', async ({ page }) => {
+    await openSolvedShed(page);
+    await openJointPanel(page);
+    await page.locator('.conn-joint-row').first().click();
+    await designSelectedJoint(page);
+    await expect.poll(() => meshCount(page)).toBeGreaterThan(0);
+    const before = await selectedNodes(page);
+
+    await page.getByTestId('conn-scene-mode').selectOption('sections');
+    await expect.poll(() => nodeMarkers(page)).toBe(false);
+    await page.getByTestId('conn-scene-inspect').click();
+    await page.waitForTimeout(300);
+
+    /*
+     * The precondition for hiding at all. `NodesInstanced.setDrawn` takes the mesh out of the
+     * RENDER list and leaves it in the scene graph, so the raycaster still finds it — and the
+     * joint's own steel is pickable too. A click on the framed joint must keep it selected
+     * rather than clear the selection.
+     */
+    const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(300);
+    expect(await selectedNodes(page)).toEqual(before);
+    expect(await meshCount(page)).toBeGreaterThan(0);
+
+    // Switching back out of sections must not have lost the selection either.
+    await page.getByTestId('conn-scene-mode').selectOption('wireframe');
+    await expect.poll(() => nodeMarkers(page)).toBe(true);
+    expect(await selectedNodes(page)).toEqual(before);
+  });
+});
