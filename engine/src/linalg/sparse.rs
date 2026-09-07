@@ -123,6 +123,17 @@ impl CscMatrix {
 
     /// Apply symmetric permutation: B = P*A*P^T.
     /// perm[new_i] = old_i.
+    ///
+    /// KEPT ON PURPOSE, though nothing in the solver calls it any more: the
+    /// symbolic phase now precomputes a permutation map and the numeric phase
+    /// gathers through it, so this is only reached from the reference oracle in
+    /// `sparse_chol`'s tests — which is exactly its value. That oracle is what
+    /// checks the map against the straightforward permute-and-sort it replaced.
+    /// Delete this and the tests lose the independent implementation they
+    /// compare against, which is the opposite of what removing dead code is for.
+    ///
+    /// Note for anyone reusing it: unlike the map, this goes through
+    /// `from_triplets` and therefore SUMS duplicate (row, col) entries.
     pub fn permute_symmetric(&self, perm: &[usize]) -> CscMatrix {
         let n = self.n;
         assert_eq!(perm.len(), n);
