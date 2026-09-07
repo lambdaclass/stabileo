@@ -731,3 +731,135 @@ fn staged_sparse_path_matches_linear_reference() {
         );
     }
 }
+
+/// Test N+1: staged construction WITH cable stays, meshes straddling
+/// SPARSE_THRESHOLD (n_elem=20 → nf=63 dense; n_elem=24 → nf=69 sparse).
+/// Exercises the sparse Ernst-correction branch of iterate_cables_staged_2d.
+/// Stage 1: pylon + first half of the deck as an unloaded cantilever.
+/// Stage 2: second half + far support + cable stays + deck loads.
+#[test]
+fn staged_sparse_path_with_cables_parity() {
+    let mut mid_defs = Vec::new();
+    for (n_elem, mid_node) in [(20usize, 11usize), (24, 13)] {
+        let length = 24.0;
+        let half = n_elem / 2;
+        let pylon_top = n_elem + 2;
+
+        let mut nodes = HashMap::new();
+        for i in 0..=n_elem {
+            let id = i + 1;
+            nodes.insert(id.to_string(), SolverNode {
+                id, x: length * i as f64 / n_elem as f64, z: 0.0,
+            });
+        }
+        nodes.insert(pylon_top.to_string(), SolverNode { id: pylon_top, x: 0.0, z: 12.0 });
+
+        let mut materials = HashMap::new();
+        materials.insert("m1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+
+        let mut sections = HashMap::new();
+        sections.insert("s1".into(), SolverSection { id: 1, a: 0.05, iz: 1e-3, as_y: None });
+        sections.insert("s2".into(), SolverSection { id: 2, a: 0.002, iz: 1e-8, as_y: None });
+
+        let mut elements = HashMap::new();
+        for i in 0..n_elem {
+            elements.insert((i + 1).to_string(), SolverElement {
+                id: i + 1, elem_type: "frame".into(),
+                node_i: i + 1, node_j: i + 2,
+                material_id: 1, section_id: 1,
+                hinge_start: false, hinge_end: false,
+            });
+        }
+        // Pylon
+        elements.insert((n_elem + 1).to_string(), SolverElement {
+            id: n_elem + 1, elem_type: "frame".into(),
+            node_i: 1, node_j: pylon_top,
+            material_id: 1, section_id: 1,
+            hinge_start: false, hinge_end: false,
+        });
+        // Cable stays to the deck quarter points (activate in stage 2).
+        let cable_ids: Vec<usize> = [n_elem / 4, n_elem / 2, 3 * n_elem / 4]
+            .iter()
+            .enumerate()
+            .map(|(k, &q)| {
+                let id = 100 + k + 1;
+                elements.insert(id.to_string(), SolverElement {
+                    id, elem_type: "cable".into(),
+                    node_i: pylon_top, node_j: q + 1,
+                    material_id: 1, section_id: 2,
+                    hinge_start: false, hinge_end: false,
+                });
+                id
+            })
+            .collect();
+
+        let mut supports = HashMap::new();
+        supports.insert("s1".into(), SolverSupport {
+            id: 1, node_id: 1, support_type: "fixed".into(),
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
+        });
+        supports.insert("s2".into(), SolverSupport {
+            id: 2, node_id: n_elem + 1, support_type: "pinned".into(),
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
+        });
+
+        // Constant total deck load (-240 kN) regardless of mesh density.
+        let per_node = -240.0 / (n_elem - 1) as f64;
+        let loads: Vec<SolverLoad> = (1..n_elem)
+            .map(|i| SolverLoad::Nodal(SolverNodalLoad {
+                node_id: i + 1, fx: 0.0, fz: per_node, my: 0.0,
+            }))
+            .collect();
+        let load_indices: Vec<usize> = (0..loads.len()).collect();
+
+        let mut stage2_elements: Vec<usize> = (half + 1..=n_elem).collect();
+        stage2_elements.extend_from_slice(&cable_ids);
+
+        let staged_input = StagedInput {
+            nodes, materials, sections, elements, supports, loads,
+            stages: vec![
+                ConstructionStage {
+                    name: "Cantilever + pylon".into(),
+                    elements_added: (1..=half).chain(std::iter::once(n_elem + 1)).collect(),
+                    elements_removed: vec![],
+                    load_indices: vec![],
+                    supports_added: vec![1],
+                    supports_removed: vec![],
+                    prestress_loads: vec![],
+                },
+                ConstructionStage {
+                    name: "Full span + stays".into(),
+                    elements_added: stage2_elements,
+                    elements_removed: vec![],
+                    load_indices,
+                    supports_added: vec![2],
+                    supports_removed: vec![],
+                    prestress_loads: vec![],
+                },
+            ],
+            constraints: vec![],
+        };
+
+        let result = solve_staged_2d(&staged_input).unwrap();
+        let uz_mid = result.final_results.displacements.iter()
+            .find(|d| d.node_id == mid_node).unwrap().uz;
+        assert!(uz_mid.is_finite() && uz_mid < 0.0,
+            "n_elem={}: midspan should deflect downward, got {}", n_elem, uz_mid);
+
+        // Cables should carry tension in the final state.
+        for &cid in &cable_ids {
+            let ef = result.final_results.element_forces.iter()
+                .find(|e| e.element_id == cid);
+            assert!(ef.is_some(), "n_elem={}: cable {} should have forces", n_elem, cid);
+        }
+        mid_defs.push(uz_mid);
+    }
+
+    // Dense (n_elem=20) vs sparse (n_elem=24) midspan parity.
+    let rel = (mid_defs[0] - mid_defs[1]).abs() / mid_defs[0].abs().max(1e-15);
+    assert!(
+        rel < 0.05,
+        "Staged+cable dense/sparse midspan parity: dense={:.6e}, sparse={:.6e}",
+        mid_defs[0], mid_defs[1]
+    );
+}
