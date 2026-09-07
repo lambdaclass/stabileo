@@ -390,6 +390,25 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     }
     let ctrl = *control_global;
 
+    // Degenerate inputs, rejected before any work. These all reach here through
+    // the public WASM entry point, which deserializes the whole struct from
+    // caller JSON, so `n_steps` and `target_displacement` are whatever was sent.
+    // Without these the function returns `converged: true` for an analysis that
+    // never ran: `n_steps = 0` makes `delta_d` infinite and skips the step loop
+    // entirely, leaving the initial zero state to be reported as the answer.
+    if input.n_steps == 0 {
+        return Err("Number of displacement steps must be at least 1".into());
+    }
+    if input.max_iter == 0 {
+        return Err("Max iterations must be at least 1".into());
+    }
+    if !input.target_displacement.is_finite() || input.target_displacement == 0.0 {
+        return Err("Target displacement must be finite and non-zero".into());
+    }
+    if !input.tolerance.is_finite() || input.tolerance <= 0.0 {
+        return Err("Convergence tolerance must be finite and positive".into());
+    }
+
     // Reference load
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
@@ -398,6 +417,16 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     } else {
         f_ref.clone()
     };
+    // Loop-invariant: f_ref is built once and never mutated.
+    let f_ref_norm = vec_norm(&f_ref);
+    // Same guard `solve_arc_length` applies. Without a reference load the
+    // tangent correction du_t is zero, so d_lambda is pinned at zero and the
+    // control DOF is never driven anywhere — the solver would burn
+    // n_steps * max_iter corotational assemblies to report a failure whose
+    // cause was in the input all along.
+    if f_ref_norm < 1e-15 {
+        return Err("Zero reference load".into());
+    }
 
     let mut u_full = vec![0.0; n];
     let mut lambda = 0.0_f64;
@@ -406,6 +435,13 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     let mut overall_converged = true;
 
     let delta_d = input.target_displacement / input.n_steps as f64;
+    // Scale for the displacement side of the convergence test. See the check
+    // itself for why it must be relative.
+    let disp_scale = delta_d.abs();
+    // #174 hoisted a loop-invariant `free_idx` here for the dense
+    // `extract_submatrix` call in the iteration. `factor_assembled` owns that
+    // extraction now and builds the index vector only on the branch that needs
+    // it, so the hoisted copy has no remaining reader.
 
     for step in 0..input.n_steps {
         let target_disp = (step + 1) as f64 * delta_d;
@@ -431,10 +467,36 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             // Displacement constraint: u[ctrl] = target_disp
             let disp_error = target_disp - u_full[ctrl];
 
-            // Check convergence
-            let r_norm = vec_norm(&residual);
-            let f_ext_norm = (lambda.abs() * vec_norm(&f_ref)).max(1.0);
-            if r_norm / f_ext_norm < input.tolerance && disp_error.abs() < input.tolerance * 10.0 {
+            // Reduce once. This vector is BOTH what the convergence test has to
+            // measure and the right-hand side the Newton step needs, so computing
+            // it here costs nothing extra and removes a full copy of the residual
+            // on the unconstrained path.
+            //
+            // Measuring the reduced residual is the correctness point. The Newton
+            // step below solves the reduced system (Cᵀ K C, Cᵀ R), so the iteration
+            // drives Cᵀ R to zero — not R. At a constrained equilibrium R equals the
+            // constraint reaction forces and stays nonzero forever, so testing the
+            // full residual meant no constrained model could ever converge: step 1
+            // exhausted max_iter and the whole analysis was truncated after it.
+            // `solve_arc_length` has always reduced here.
+            let residual_s = if let Some(ref cs) = cs_dc {
+                cs.reduce_vector(&residual)
+            } else {
+                residual
+            };
+            let r_norm = vec_norm(&residual_s);
+            let f_ext_norm = (lambda.abs() * f_ref_norm).max(1.0);
+            // The displacement side is measured RELATIVE to the increment this step
+            // asks for. It used to be `disp_error.abs() < tolerance * 10.0`, which
+            // compares a displacement in model units against the dimensionless
+            // residual tolerance: any step whose increment happened to be smaller
+            // than that figure was declared converged having done no work at all.
+            // With target 1e-7 over 20 steps, 19 of the 20 reported path points sat
+            // at the origin with load factor zero and only the last did anything —
+            // a fabricated equilibrium path from a method whose entire purpose is
+            // to trace the real one.
+            let disp_ok = disp_error.abs() <= input.tolerance * disp_scale;
+            if r_norm / f_ext_norm < input.tolerance && disp_ok {
                 step_converged = true;
                 break;
             }
@@ -442,7 +504,12 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             // Two-system solve with a single factorization per iteration:
             // K_T * δu_r = R   (residual correction)
             // K_T * δu_t = f_ref (tangent correction)
-            let residual_s = if let Some(ref cs) = cs_dc { cs.reduce_vector(&residual) } else { residual.clone() };
+            //
+            // `residual_s` is the reduced residual the convergence test above
+            // already built — the same vector this right-hand side needs. An
+            // earlier version of this branch shadowed it with a second
+            // `cs.reduce_vector(&residual)`, which is the recompute #174
+            // removed; the sparse dispatch below does not need it back.
             let tangent = factor_assembled(&asm_t, n, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
             let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;

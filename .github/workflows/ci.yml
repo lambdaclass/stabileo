@@ -336,6 +336,16 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
+      # Every e2e failure since this landed has been undiagnosable, and this step is
+      # why: both paths are DOT-directories, and `upload-artifact@v4` excludes hidden
+      # files unless told otherwise. The run log says so plainly —
+      #   include-hidden-files: false
+      #   No files were found with the provided path: web/e2e/.report
+      # — and `if-no-files-found: ignore` turned that into silence rather than a
+      # warning. So the traces, videos, failure screenshots and the HTML report were
+      # produced on every run and thrown away on every run, which is how one canvas
+      # test stayed red across three unrelated PRs with nobody able to see what it
+      # saw. `warn` restores the signal if the paths ever go stale again.
       - name: Upload Playwright artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -344,5 +354,6 @@ jobs:
           path: |
             web/e2e/.report
             web/e2e/.artifacts
+          include-hidden-files: true
           retention-days: 14
-          if-no-files-found: ignore
+          if-no-files-found: warn

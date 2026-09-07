@@ -653,16 +653,50 @@ impl<'a> MatVecOp for SparseSymMatVec<'a> {
 pub struct SparseShiftInvertOp<'a> {
     factor: super::sparse_chol::NumericCholesky,
     b_csc: &'a CscMatrix,
+    /// The matrix defining the inner product the Lanczos recurrence runs in.
+    ///
+    /// `lanczos_tridiag` builds a B-orthogonal basis, which needs its inner
+    /// product to come from a POSITIVE DEFINITE matrix — otherwise
+    /// `⟨q, Bq⟩` can be negative and the recurrence has no meaning.
+    ///
+    /// For the modal problem K⁻¹M that matrix can be M, which is positive
+    /// (semi-)definite. For BUCKLING it cannot: the operator is K⁻¹(−Kg) and
+    /// −Kg is indefinite for any model carrying both tension and compression,
+    /// which is nearly all of them. Using it produced NaN from
+    /// `dot(q, Bq).sqrt()` at the seed, and mid-iteration a negative B-norm was
+    /// clamped to zero by `.max(0.0)` and read as an invariant subspace —
+    /// truncating the basis and returning eigenvalues from a set of vectors
+    /// that are not B-orthogonal, with no fallback.
+    ///
+    /// K works for both: it is SPD by construction, and A = K⁻¹B is self-adjoint
+    /// in ⟨·,·⟩_K because ⟨Ax, y⟩_K = xᵀBy = ⟨x, Ay⟩_K. The Ritz values are
+    /// unchanged — θ = μ either way — only the basis is built in a metric that
+    /// exists.
+    inner: &'a CscMatrix,
 }
 
 impl<'a> SparseShiftInvertOp<'a> {
-    /// Build from sparse K_ff (SPD) and sparse B_ff (symmetric, lower-triangle CSC).
-    /// Returns None if sparse Cholesky fails.
-    pub fn new(k_csc: &CscMatrix, b_csc: &'a CscMatrix) -> Option<Self> {
+    /// Build from sparse K_ff (SPD) and sparse B_ff (symmetric, lower-triangle
+    /// CSC), running the recurrence in the B inner product.
+    ///
+    /// Only valid when B is positive (semi-)definite — the modal case, where
+    /// B is the mass matrix. For an indefinite B use `new_k_inner_product`.
+    pub fn new(k_csc: &'a CscMatrix, b_csc: &'a CscMatrix) -> Option<Self> {
         assert_eq!(k_csc.n, b_csc.n, "K and B must have the same dimension");
         let sym = Rc::new(symbolic_cholesky(k_csc));
         let factor = numeric_cholesky(&sym, k_csc)?;
-        Some(Self { factor, b_csc })
+        Some(Self { factor, b_csc, inner: b_csc })
+    }
+
+    /// Same operator, with the recurrence running in the K inner product.
+    ///
+    /// This is the form buckling needs: K is SPD, so the metric is well defined
+    /// whatever the sign content of B.
+    pub fn new_k_inner_product(k_csc: &'a CscMatrix, b_csc: &'a CscMatrix) -> Option<Self> {
+        assert_eq!(k_csc.n, b_csc.n, "K and B must have the same dimension");
+        let sym = Rc::new(symbolic_cholesky(k_csc));
+        let factor = numeric_cholesky(&sym, k_csc)?;
+        Some(Self { factor, b_csc, inner: k_csc })
     }
 }
 
@@ -676,8 +710,8 @@ impl<'a> MatVecOp for SparseShiftInvertOp<'a> {
     }
     fn dim(&self) -> usize { self.b_csc.n }
     fn b_mul(&self, x: &[f64], y: &mut [f64]) {
-        let r = self.b_csc.sym_mat_vec(x);
-        y[..self.b_csc.n].copy_from_slice(&r);
+        let r = self.inner.sym_mat_vec(x);
+        y[..self.inner.n].copy_from_slice(&r);
     }
 }
 
@@ -787,7 +821,10 @@ pub fn lanczos_buckling_eigen_sparse(
 
     // Large n: sparse shift-invert Lanczos.
     // Operator: K⁻¹·(-Kg)·x — largest eigenvalues are the largest μ.
-    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, neg_kg) {
+    //
+    // K, not −Kg, as the inner product: −Kg is indefinite whenever the model
+    // carries tension and compression together. See `new_k_inner_product`.
+    if let Some(si_op) = SparseShiftInvertOp::new_k_inner_product(k_ff, neg_kg) {
         let params = LanczosParams {
             max_iter: 300,
             tol: 1e-10,
@@ -835,6 +872,119 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Buckling must stay on the SPARSE path when -Kg is indefinite.
+    ///
+    /// `(-Kg)φ = μKφ` has an indefinite right-hand matrix for any model carrying
+    /// tension and compression at once — nearly all of them. The Lanczos
+    /// recurrence builds a basis orthogonal in some inner product, and that
+    /// product must come from a positive definite matrix. So it runs in K, which
+    /// is SPD by construction, not in -Kg.
+    ///
+    /// The symptom is not a wrong answer: `lanczos_buckling_eigen_sparse` falls
+    /// back to dense Jacobi when the iteration bails, so the eigenvalues come
+    /// back correct either way and a numbers-only test cannot see the defect.
+    /// What it loses is the entire point of the sparse path — that fallback
+    /// calls `to_dense_symmetric()` on both K and -Kg, which is exactly the
+    /// n×n densification the sparse buckling work exists to remove. The
+    /// optimization silently did not apply to the models that need it.
+    ///
+    /// So this test asserts on the ITERATION, not on the numbers: run the two
+    /// operators directly, past the fallback, and check that the -Kg metric
+    /// bails and the K metric does not.
+    #[test]
+    fn buckling_lanczos_stays_sparse_when_kg_is_indefinite() {
+        let n = 300;
+        let k = 4;
+
+        // K: SPD tridiagonal.
+        let (mut kr, mut kc, mut kv) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            kr.push(i);
+            kc.push(i);
+            kv.push(4.0);
+            if i + 1 < n {
+                kr.push(i + 1);
+                kc.push(i);
+                kv.push(-1.0);
+            }
+        }
+        let k_ff = CscMatrix::from_triplets(n, &kr, &kc, &kv);
+
+        // -Kg: mostly tension, a few compressed DOFs. Predominantly negative so
+        // the deterministic Lanczos seed lands with a NEGATIVE -Kg-norm, which
+        // is what turns `dot(q, Bq).sqrt()` into NaN.
+        let (mut gr, mut gc, mut gv) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            gr.push(i);
+            gc.push(i);
+            gv.push(if i % 7 == 0 { 1.0 } else { -1.0 });
+        }
+        let neg_kg = CscMatrix::from_triplets(n, &gr, &gc, &gv);
+        assert!(
+            gv.iter().any(|&v| v < 0.0) && gv.iter().any(|&v| v > 0.0),
+            "the fixture must be indefinite for this test to mean anything",
+        );
+
+        let params = LanczosParams {
+            max_iter: 300,
+            tol: 1e-10,
+            subspace_dim: Some((4 * k).max(40).min(n)),
+        };
+
+        // The -Kg metric cannot carry the recurrence: it bails, and the caller
+        // silently densifies.
+        let with_kg_metric = SparseShiftInvertOp::new(&k_ff, &neg_kg)
+            .and_then(|op| lanczos_irlm(&op, k, true, &params));
+        assert!(
+            with_kg_metric.is_none(),
+            "running the recurrence in an indefinite -Kg should not produce a result; \
+             if this ever starts succeeding, check that it is not returning \
+             eigenvalues from a non-B-orthogonal basis",
+        );
+
+        // The K metric does carry it.
+        let sparse = SparseShiftInvertOp::new_k_inner_product(&k_ff, &neg_kg)
+            .and_then(|op| lanczos_irlm(&op, k, true, &params))
+            .expect("the K inner product must carry the iteration through");
+
+        // And it agrees with the dense reference on the governing mode.
+        let dense = solve_generalized_eigen(
+            &neg_kg.to_dense_symmetric(),
+            &k_ff.to_dense_symmetric(),
+            n,
+            200,
+        )
+        .expect("dense reference should solve");
+
+        let top = |vals: &[f64]| -> f64 {
+            vals.iter()
+                .copied()
+                .filter(|v| v.is_finite() && *v > 1e-12)
+                .fold(f64::MIN, f64::max)
+        };
+        // And the public entry point must actually take that path. The dense
+        // fallback returns ALL n eigenvalues so the caller can hunt for positive
+        // mu; the sparse path returns at most k. That difference is what makes
+        // the fallback observable from outside without instrumenting it.
+        let via_entry_point = lanczos_buckling_eigen_sparse(&k_ff, &neg_kg, k)
+            .expect("entry point must produce a result");
+        assert!(
+            via_entry_point.values.len() <= k,
+            "lanczos_buckling_eigen_sparse returned {} eigenvalues for k = {k}: that is \
+             the dense fallback, so the sparse path silently did not apply",
+            via_entry_point.values.len(),
+        );
+
+        let (mu_sparse, mu_dense) = (top(&sparse.values), top(&dense.values));
+        assert!(mu_sparse.is_finite(), "sparse path produced no finite positive eigenvalue");
+        let rel = (mu_sparse - mu_dense).abs() / mu_dense.abs().max(1e-30);
+        assert!(
+            rel < 1e-6,
+            "governing mu disagrees with the dense reference: sparse {mu_sparse} \
+             vs dense {mu_dense} (rel {rel:e})",
+        );
+    }
 
     /// Pre-sparse-mass shift-invert operator holding B as a dense matrix.
     /// Kept as a parity reference: same sparse Cholesky factorization of K,

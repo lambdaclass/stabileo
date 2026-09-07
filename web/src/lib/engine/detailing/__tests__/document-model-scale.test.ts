@@ -20,7 +20,24 @@
  * asserting on the RATIO is immune to how fast the machine is: linear work doubles, quadratic
  * work quadruples, and the gap between 2 and 4 is wide enough to call without a stopwatch.
  *
- * Both sizes are run twice and the faster taken, so a stray GC pause inflates neither.
+ * ── Immune to speed is not immune to CONTENTION (2026-08-27) ───────
+ *
+ * The ratio cancels a uniformly slower machine. It does not cancel a machine that is slow
+ * for only part of the measurement, and that is what a shared 2-core runner does: this
+ * failed CI at `small=13.0ms large=52.7ms ratio=3.85` while the same commit measured
+ * 1.83–2.34 locally across repeated runs, on code the branch did not touch. Only the large
+ * run had to lose the CPU for the ratio to read as quadratic.
+ *
+ * `Math.min` over repeats is the defence, so it takes more of them: five per size rather
+ * than two. Contention now has to hit EVERY sample of the large size and MISS every sample
+ * of the small one, instead of winning a single coin flip. The threshold stays at 3 —
+ * raising it is the move that would let a real quadratic back in, which is the failure this
+ * file exists to prevent.
+ *
+ * The measurement-free version of this test would count the comparisons `buildDocumentModel`
+ * performs instead of timing it, which is what the original defect was really about — a pair
+ * of `includes` scans per record. That needs a counter in production code; if this flakes
+ * again, that is the fix, not a looser bound.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -82,7 +99,10 @@ function timeBuild(n: number): number {
     });
     return performance.now() - t0;
   };
-  return Math.min(run(), run());
+  // Five samples, not two: see the note on contention at the top of the file.
+  let best = Infinity;
+  for (let i = 0; i < 5; i++) best = Math.min(best, run());
+  return best;
 }
 
 describe('buildDocumentModel scales linearly in the number of bars', () => {

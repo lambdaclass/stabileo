@@ -34,8 +34,20 @@ impl KgTriplets {
     }
 
     /// Lower-triangle CSC of the free block (duplicates summed).
+    ///
+    /// Drops entries below 1e-30, matching `CscMatrix::from_dense_symmetric`,
+    /// which is what produced this matrix before it was assembled from
+    /// triplets. Without the filter every emitted pair becomes a structural
+    /// nonzero, and element Kg is nonzero only on translational DOFs: a quad
+    /// emits 300 pairs of which about 78 are nonzero, a quad9 emits 1485 of
+    /// which about 378 are. The resulting CSC stored roughly 4x the real
+    /// nonzeros of a shell model, and that is paid on every Lanczos iteration
+    /// through `sym_mat_vec` and quadratically through `reduce_sparse` on the
+    /// constrained path — eroding the O(nnz) win this assembly exists for.
     pub fn into_csc(self) -> CscMatrix {
-        CscMatrix::from_triplets(self.nf, &self.rows, &self.cols, &self.vals)
+        let mut k = CscMatrix::from_triplets(self.nf, &self.rows, &self.cols, &self.vals);
+        k.drop_below_threshold(1e-30);
+        k
     }
 }
 
@@ -352,10 +364,22 @@ pub fn build_kg_from_forces_3d(
             // Transform to global: Kg_global = T^T * Kg_local * T
             let kg_global = transform_stiffness(&kg_local, &t, 12);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-            let ndof = elem_dofs.len();
-            for i in 0..ndof {
+            // kg_global is 12x12, but `elem_dofs` is 14 wide on models where any
+            // section declares `cw` — `DofNumbering::build_3d` then numbers seven
+            // DOFs per node. Indexing a 144-element array with a stride of 14
+            // walks off the end (kg_global[10 * 14 + 4] = 144): an index panic
+            // that on wasm32 crosses the FFI boundary as an abort rather than a
+            // solver error. `add_geometric_stiffness_3d`, in this same file,
+            // remaps through DOF_MAP_12_TO_14 for exactly this reason; this path
+            // did not.
+            let map: &[usize] = if dof_num.dofs_per_node >= 7 {
+                &DOF_MAP_12_TO_14
+            } else {
+                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            };
+            for i in 0..12 {
                 for j in 0..=i {
-                    kg.add(elem_dofs[i], elem_dofs[j], kg_global[i * ndof + j]);
+                    kg.add(elem_dofs[map[i]], elem_dofs[map[j]], kg_global[i * 12 + j]);
                 }
             }
         }
