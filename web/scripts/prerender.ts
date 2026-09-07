@@ -39,12 +39,24 @@ import { chromium, type Browser } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, dirname, extname } from 'node:path';
+import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rootHandoffScript } from './root-handoff';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DIST = join(ROOT, 'dist');
+/**
+ * Where the prerendered site is written, and where the static server serves from.
+ *
+ * `dist/` for a real build. `PRERENDER_OUT` overrides it so a test can point this
+ * at a throwaway directory and check the published URLs against a build it made
+ * itself. The alternative — reading a checked-out `dist/` — proves less and costs
+ * more: it is gitignored, is rewritten by `build`, `build:only` and Playwright's
+ * `VITE_E2E=1` webServer alike, and is absent on a fresh clone. A gate that reads
+ * it either asserts against whichever build ran last, or skips itself.
+ */
+const DIST = process.env.PRERENDER_OUT
+  ? resolve(process.env.PRERENDER_OUT)
+  : join(ROOT, 'dist');
 const ORIGIN = 'https://stabileo.com';
 const LOCALES = ['en', 'es', 'pt'] as const;
 /**
@@ -214,7 +226,10 @@ ${extraScript ? `<script>${extraScript}</script>` : ''}
 
 async function main() {
   if (!existsSync(join(DIST, 'index.html'))) {
-    throw new Error('prerender: dist/index.html is missing — run the build first');
+    // Names the directory it actually looked in: with PRERENDER_OUT set that is
+    // not `dist/`, and a message that says otherwise sends the reader hunting
+    // through a tree this run never touched.
+    throw new Error(`prerender: ${join(DIST, 'index.html')} is missing — run the build first`);
   }
   await assertLocalesMatchTheApp();
   /*
