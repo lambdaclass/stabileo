@@ -8,6 +8,28 @@
  * the four-span, three-storey building of §6.3. They are not illustrative
  * figures, so they are not to be rounded, re-derived or "improved" here — if a
  * value ever needs changing, it changes in the paper first.
+ *
+ * ── The §6.1 inversion, and why the obvious explanation of it is wrong ──
+ *
+ * The demand rising from 80.8 to 105.6 kN·m when the beam grows is the whole
+ * argument of the post, and it used to be explained as "a stiffer section
+ * attracts more moment". That heuristic is about parallel load paths and it
+ * has the mechanism backwards here.
+ *
+ * Statics fixes the SUM: for a symmetric portal under a UDL, end moment plus
+ * mid-span moment is qL²/8 = 135 kN·m at both sections. Stiffness only decides
+ * the split. With a = EI_beam/L and c = EI_col/h, slope-deflection gives
+ *
+ *     M_end = 180·c / (a + 2c)      →  0 as a/c → ∞
+ *
+ * so a beam that stiffens RELATIVE TO ITS COLUMNS loses end restraint and
+ * approaches the simply supported case, and the mid-span moment — the one the
+ * table reports as Mu — grows towards 135. The columns attract LESS, not more.
+ * Checked against the paper's own figures: 25×40 gives 54.3 / 80.7 and 30×55
+ * gives 29.5 / 105.5, reproducing both quoted values to within 0.1 %.
+ *
+ * The prose deliberately states the mechanism without those intermediate
+ * numbers, because they are not in the paper and everything numeric here is.
  */
 import type { Post } from '../types';
 
@@ -61,7 +83,7 @@ export const determinismBoundary: Post = {
             ['Corregido', '30×55 cm', '3Ø16', '105,6', '108,6', '0,97', 'Sí'],
           ],
         },
-        { k: 'p', t: 'Mirá la tercera columna de números. Al agrandar la viga de 25×40 a 30×55, la demanda no baja: sube de 80,8 a 105,6 kN·m. En un pórtico hiperestático una sección más rígida atrae mayor momento, de modo que la verificación correcta exige volver a resolver el modelo y no sólo recalcular la capacidad de la sección nueva.' },
+        { k: 'p', t: 'Mirá la tercera columna de números. Al agrandar la viga de 25×40 a 30×55, la demanda no baja: sube de 80,8 a 105,6 kN·m. En un pórtico hiperestático la suma del momento de extremo y el del centro del vano está fijada por la estática; lo que cambia con la rigidez es el reparto. Una viga más rígida en relación con sus columnas recibe menos empotramiento de ellas y se acerca al caso biapoyado, así que su momento de centro —el que gobierna acá— crece. Por eso la verificación correcta exige volver a resolver el modelo y no sólo recalcular la capacidad de la sección nueva.' },
         { k: 'quote', t: 'Un agente que estimara el efecto sin recalcular se equivocaría, y sonaría igual de convincente al hacerlo.' },
         { k: 'p', t: 'Ese es el argumento entero, en un número. No es que el solver sea más rápido: es que la intuición sobre "agrandar la sección mejora la verificación" es falsa en cuanto la estructura es hiperestática, y sólo el solver lo sabe.' },
 
@@ -159,7 +181,7 @@ export const determinismBoundary: Post = {
             ['Corrected', '30×55 cm', '3Ø16', '105.6', '108.6', '0.97', 'Yes'],
           ],
         },
-        { k: 'p', t: 'Look at the third column of numbers. Enlarging the beam from 25×40 to 30×55 does not lower the demand: it raises it, from 80.8 to 105.6 kN·m. In a statically indeterminate frame a stiffer section attracts more moment, so a correct check requires solving the model again and not merely recomputing the capacity of the new section.' },
+        { k: 'p', t: 'Look at the third column of numbers. Enlarging the beam from 25×40 to 30×55 does not lower the demand: it raises it, from 80.8 to 105.6 kN·m. In a statically indeterminate frame the sum of the end moment and the mid-span moment is fixed by statics; what stiffness changes is how the two share it. A beam that is stiffer relative to its columns gets less end restraint from them and moves towards the simply supported case, so its mid-span moment — the governing one here — grows. That is why a correct check requires solving the model again and not merely recomputing the capacity of the new section.' },
         { k: 'quote', t: 'An agent that estimated the effect without re-solving would get it wrong, and would sound just as convincing while doing so.' },
         { k: 'p', t: 'That is the whole argument, in one number. It is not that the solver is faster: it is that the intuition "a bigger section improves the check" is false as soon as the structure is indeterminate, and only the solver knows it.' },
 
@@ -257,7 +279,7 @@ export const determinismBoundary: Post = {
             ['Corrigido', '30×55 cm', '3Ø16', '105,6', '108,6', '0,97', 'Sim'],
           ],
         },
-        { k: 'p', t: 'Olhe a terceira coluna de números. Ao aumentar a viga de 25×40 para 30×55, a demanda não cai: sobe de 80,8 para 105,6 kN·m. Num pórtico hiperestático uma seção mais rígida atrai maior momento, de modo que a verificação correta exige resolver o modelo de novo e não apenas recalcular a capacidade da nova seção.' },
+        { k: 'p', t: 'Olhe a terceira coluna de números. Ao aumentar a viga de 25×40 para 30×55, a demanda não cai: sobe de 80,8 para 105,6 kN·m. Num pórtico hiperestático a soma do momento de extremidade e do momento no meio do vão é fixada pela estática; o que muda com a rigidez é a repartição. Uma viga mais rígida em relação aos seus pilares recebe menos engastamento deles e se aproxima do caso biapoiado, de modo que o seu momento no meio do vão — o que governa aqui — cresce. Por isso a verificação correta exige resolver o modelo de novo e não apenas recalcular a capacidade da nova seção.' },
         { k: 'quote', t: 'Um agente que estimasse o efeito sem recalcular erraria, e soaria igualmente convincente ao fazê-lo.' },
         { k: 'p', t: 'Esse é o argumento inteiro, em um número. Não é que o solver seja mais rápido: é que a intuição de que "aumentar a seção melhora a verificação" é falsa assim que a estrutura é hiperestática, e só o solver sabe disso.' },
 

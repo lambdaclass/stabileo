@@ -1,10 +1,11 @@
 <!--
   The Stabileo mark, for the README and anywhere else the project needs a logo.
 
-  Same geometry and same colour as web/public/favicon.svg — an open triangle
-  in the brand vermillion #e5482a (`--st-vermillion`). The ink background is
-  #0c1620, the page colour of stabileo.com, so the mark reads the same on
-  GitHub in light or dark mode.
+  The same mark as web/public/favicon.svg — an open triangle in the brand
+  vermillion #e5482a (`--st-vermillion`) — inset to sit inside the rounded
+  tile, so the proportions are its own and not a scaled copy of the favicon.
+  The ink background is #0c1620, the page colour of stabileo.com, so the mark
+  reads the same on GitHub in light or dark mode.
 
   It replaces Logo.png, which still carried the previous brand: a blue
   triangle with the wordmark "Dedaliano" under it.

@@ -115,6 +115,18 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.post-title')).toHaveCount(0);
   });
 
+  test('a nested address is a missing post, not the index', async ({ page }) => {
+    // App.svelte routes anything under /blog/ here, so this address IS the
+    // blog's to answer. It used to answer with the INDEX: the slug pattern
+    // required a single segment, missed entirely, and fell through to the
+    // "no slug" branch — which draws a working-looking page under an address
+    // that promised a post.
+    await boot(page, '/blog/no-such-post/and-deeper');
+
+    await expect(page.locator('.blog-head h1')).toHaveText('That post does not exist.');
+    await expect(page.locator('.post-card')).toHaveCount(0);
+  });
+
   test('the post reads in each offered language', async ({ page }) => {
     const first: Record<string, string> = {
       en: 'The determinism boundary: why an AI agent must not do the arithmetic',
