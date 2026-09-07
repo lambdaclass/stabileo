@@ -280,8 +280,43 @@ test.describe('@smoke the cards do not contradict the screen', () => {
   });
 });
 
-/** The section walkthrough waits on a click that opens a panel. */
+/**
+ * The section walkthrough waits on a click that opens a panel.
+ *
+ * ── Retries, declared rather than hidden (2026-08-27) ──
+ *
+ * Same reasoning as `drawing a beam` above, for a harder version of the same
+ * problem. That one clicks a moving target; this one has to LAND a click on an
+ * existing member, and it finds the member by guessing — four points down the
+ * middle of the canvas, stopping at whichever one changes the step. Placing a
+ * node works wherever it lands, which is why the other test is unaffected.
+ *
+ * The guess is flaky in CI, and the evidence is not circumstantial: the same
+ * commit on `feat/pro-steel-m2` failed at 01:36 and passed at 01:41 on
+ * 2026-08-27, and `main` went green through this suite at 21:41 the night
+ * before. It fails on branches that touch nothing outside `engine/`, and when it
+ * goes it takes the specs after it down with it — Playwright reports those as
+ * `browser.newContext: Test ended`, so the blame lands on whatever ran next
+ * rather than here. It cost PRs #175 and #176 a day each that way.
+ *
+ * A retry rather than a retag. Moving it to `@slow` would stop it gating the
+ * thing it actually guards, and would leave the guess exactly as fragile — the
+ * flake would just land on main instead. The suite's rule that a test passing
+ * only on retry is a bug is aimed at hiding an UNKNOWN; this is a named,
+ * measured gesture problem with the same shape as its neighbour, which is
+ * precisely why that one already carries `retries: 2`.
+ *
+ * This is containment, not a diagnosis, and not the end of it. Nobody could
+ * diagnose it before because the failure artifacts never reached CI: both upload
+ * paths are dot-directories and `upload-artifact@v4` was dropping them silently.
+ * That is fixed in the same change, so the next failure here arrives with its
+ * trace, its video and its screenshot. The repair to aim for is asking the app
+ * where the member is instead of guessing — still clicking the canvas, which is
+ * the point of the test, just not blindly. If the retries stop absorbing it,
+ * that is the signal to do that work, not to raise them.
+ */
 test.describe('@smoke the section walkthrough', () => {
+  test.describe.configure({ retries: 2 });
   test('advances when the reader clicks the member', async ({ page }) => {
     test.setTimeout(150_000);
     await openBasic(page);
