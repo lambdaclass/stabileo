@@ -120,6 +120,25 @@
       tw: computed.tw,
       tf: computed.tf,
       t: computed.t,
+      /*
+       * The lip thickness, which this path was dropping.
+       *
+       * `computeSectionProperties` takes `tl` as its own input for a lipped channel and returns
+       * it, and `createSectionShape`'s `case 'C'` falls back to the FLANGE thickness when it is
+       * absent. So the properties were computed from one lip and the outline drawn with another,
+       * and the two agreed only for as long as a user left them equal — which is the usual case
+       * for cold-formed sheet and therefore the reason nobody noticed.
+       */
+      tl: computed.tl,
+      /*
+       * And the inputs themselves, so the section can say how it was made.
+       *
+       * Without this the derived numbers survive a save and the parameters do not: a built
+       * section could not be re-edited, and it was the one kind of section with no answer to
+       * "where did this come from" — a catalogue pick has `profileFamily`, an assembly has
+       * `composition`. Declarative: nothing reads it to compute anything.
+       */
+      built: { shapeType: activeShape, params: { ...paramValues } },
     });
   }
 

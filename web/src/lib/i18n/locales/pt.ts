@@ -412,7 +412,7 @@ const pt: Translations = {
   'conn.gap.aluminium.exists': 'O filtro por participação metálica, sobre membros classificados como aço.',
   'conn.gap.aluminium.missing': 'O alumínio. O filtro usa isSteel(), e materialFamilyOf não distingue alumínio de aço pela magnitude de fy enquanto o material não declarar seu grau.',
   'conn.gap.aluminium.note': 'Além disso, as tabelas de parafusos e eletrodos são de aço: aplicá-las ao alumínio seria incorreto mesmo que o nó aparecesse.',
-  'conn.gap.aluminium.scope': 'Modelos com membros de alumínio: seus nós podem ficar fora desta lista mesmo que o inventário metálico os liste.',
+  'conn.gap.aluminium.scope': 'Modelos com membros de alumínio: seus nós ficam fora desta lista, e o inventário metálico também não os lista — ele os nomeia em um aviso, porque as tabelas de parafusos e eletrodos são de aço.',
   'conn.gap.aluminium.title': 'Alumínio fora do filtro',
   'conn.gap.baseMetal.exists': 'A capacidade da solda de filete: garganta efetiva, fator de comprimento e φRn do metal de adição.',
   'conn.gap.baseMetal.missing': 'A ruptura do metal base. `checkFilletWeld` recebe a espessura da chapa, mas não seu Fu, portanto nunca compara a solda com a chapa que une.',
