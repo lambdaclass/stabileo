@@ -28,7 +28,7 @@ use super::assembly;
 use super::linear;
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{
-    solve_tangent_sparse, tangent_free_sparse, SparseSymbolicCache,
+    solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 
 use serde::{Serialize, Deserialize};
@@ -330,6 +330,44 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
     // actually changes between contact iterations.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
+    // Dispatch dense vs sparse once per solve call (not per iteration).
+    let use_sparse = ns >= linear::SPARSE_THRESHOLD;
+
+    // Sparse base (use_sparse only): the base structure does not change
+    // between contact iterations — only the contact/penalty corrections do —
+    // so the stiffness is assembled once as CSC via the same builders the
+    // production sparse path in linear.rs uses (inclined transforms applied
+    // on triplets; assemble_2d is exactly this stiffness + load-vector
+    // composition), and the free×free block is cached as triplets. Each
+    // iteration appends the contact correction triplets and rebuilds the
+    // CSC, so no dense n×n matrix is ever assembled on this path.
+    let sparse_stiff = if use_sparse {
+        Some(super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num))
+    } else {
+        None
+    };
+    let f_base: Vec<f64> = sparse_stiff.as_ref().map_or_else(Vec::new, |s| {
+        assembly::assemble_load_vector_2d(
+            &input.solver, &input.solver.loads, &dof_num, &s.inclined_transforms_2d,
+        )
+    });
+    let mut base_tr: Vec<usize> = Vec::new();
+    let mut base_tc: Vec<usize> = Vec::new();
+    let mut base_tv: Vec<f64> = Vec::new();
+    if let Some(ref s) = sparse_stiff {
+        let k = &s.k_ff;
+        base_tr.reserve(k.nnz());
+        base_tc.reserve(k.nnz());
+        base_tv.reserve(k.nnz());
+        for j in 0..nf {
+            for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                base_tr.push(k.row_idx[p]);
+                base_tc.push(j);
+                base_tv.push(k.values[p]);
+            }
+        }
+    }
+
     // Augmented Lagrangian outer loop
     let al_outer_iters = if al_factor > 0.0 { al_max_iter } else { 1 };
     let mut al_iter_count: usize = 0;
@@ -350,203 +388,74 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
             // Save previous displacement for damping computation
             u_prev.copy_from_slice(&u_full);
 
-            // Base assembly
-            let mut asm = assembly::assemble_2d(&input.solver, &dof_num);
+            let u_indep = if use_sparse {
+                // Sparse path (ns >= SPARSE_THRESHOLD): rebuild the corrected
+                // CSC from the cached base free×free triplets plus this
+                // iteration's contact corrections — lower-triangle, free
+                // DOFs only (from_triplets normalizes and sums duplicates).
+                // Corrections for elements/gaps that went inactive simply
+                // vanish from the per-iteration list, so no explicit removal
+                // of previously-added stiffness is needed.
+                let mut rows = base_tr.clone();
+                let mut cols = base_tc.clone();
+                let mut vals = base_tv.clone();
+                let mut f_f: Vec<f64> = f_base[..nf].to_vec();
 
-            // Deactivate elements based on status
-            for (eid, status) in &elem_status {
-                if *status == ContactStatus::Inactive {
-                    // Subtract this element's stiffness from global K
-                    if let Some(&elem) = elem_by_id.get(eid) {
-                        let ni = node_by_id[&elem.node_i];
-                        let nj = node_by_id[&elem.node_j];
-                        let mat = mat_by_id[&elem.material_id];
-                        let sec = sec_by_id[&elem.section_id];
+                // Deactivate elements based on status (same values and sign
+                // conventions as the dense path's -= on asm.k, pushed as
+                // negative triplets)
+                for (eid, status) in &elem_status {
+                    if *status == ContactStatus::Inactive {
+                        if let Some(&elem) = elem_by_id.get(eid) {
+                            let ni = node_by_id[&elem.node_i];
+                            let nj = node_by_id[&elem.node_j];
+                            let mat = mat_by_id[&elem.material_id];
+                            let sec = sec_by_id[&elem.section_id];
 
-                        let dx = nj.x - ni.x;
-                        let dy = nj.z - ni.z;
-                        let l = (dx * dx + dy * dy).sqrt();
-                        let cos = dx / l;
-                        let sin = dy / l;
-                        let e = mat.e * 1000.0;
+                            let dx = nj.x - ni.x;
+                            let dy = nj.z - ni.z;
+                            let l = (dx * dx + dy * dy).sqrt();
+                            let cos = dx / l;
+                            let sin = dy / l;
+                            let e = mat.e * 1000.0;
 
-                        if elem.elem_type == "truss" || elem.elem_type == "cable" {
-                            let k_elem = element::truss_global_stiffness_2d(e, sec.a, l, cos, sin);
-                            let truss_dofs = [
-                                dof_num.global_dof(elem.node_i, 0).unwrap(),
-                                dof_num.global_dof(elem.node_i, 1).unwrap(),
-                                dof_num.global_dof(elem.node_j, 0).unwrap(),
-                                dof_num.global_dof(elem.node_j, 1).unwrap(),
-                            ];
-                            for i in 0..4 {
-                                for j in 0..4 {
-                                    asm.k[truss_dofs[i] * n + truss_dofs[j]] -= k_elem[i * 4 + j];
+                            if elem.elem_type == "truss" || elem.elem_type == "cable" {
+                                let k_elem = element::truss_global_stiffness_2d(e, sec.a, l, cos, sin);
+                                let truss_dofs = [
+                                    dof_num.global_dof(elem.node_i, 0).unwrap(),
+                                    dof_num.global_dof(elem.node_i, 1).unwrap(),
+                                    dof_num.global_dof(elem.node_j, 0).unwrap(),
+                                    dof_num.global_dof(elem.node_j, 1).unwrap(),
+                                ];
+                                for i in 0..4 {
+                                    for j in 0..=i {
+                                        let (gi, gj) = (truss_dofs[i], truss_dofs[j]);
+                                        if gi < nf && gj < nf {
+                                            rows.push(gi);
+                                            cols.push(gj);
+                                            vals.push(-k_elem[i * 4 + j]);
+                                        }
+                                    }
                                 }
-                            }
-                        } else {
-                            let phi = sec.as_y.map(|as_y| {
-                                let g = e / (2.0 * (1.0 + mat.nu));
-                                12.0 * e * sec.iz / (g * as_y * l * l)
-                            }).unwrap_or(0.0);
-                            let k_local = element::frame_local_stiffness_2d(
-                                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
-                            );
-                            let t = element::frame_transform_2d(cos, sin);
-                            let k_glob = crate::linalg::transform_stiffness(&k_local, &t, 6);
-                            let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-                            let ndof = elem_dofs.len();
-                            for i in 0..ndof {
-                                for j in 0..ndof {
-                                    asm.k[elem_dofs[i] * n + elem_dofs[j]] -= k_glob[i * ndof + j];
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Add gap element stiffness for closed gaps
-            for (gi, gap) in input.gap_elements.iter().enumerate() {
-                if gap_status[gi] == ContactStatus::Active {
-                    // Gap is closed -- add normal penalty stiffness
-                    let dir = gap.direction.min(1); // 2D: 0=X, 1=Z
-                    if let (Some(&di), Some(&dj)) = (
-                        dof_num.map.get(&(gap.node_i, dir)),
-                        dof_num.map.get(&(gap.node_j, dir)),
-                    ) {
-                        asm.k[di * n + di] += gap.stiffness;
-                        asm.k[dj * n + dj] += gap.stiffness;
-                        asm.k[di * n + dj] -= gap.stiffness;
-                        asm.k[dj * n + di] -= gap.stiffness;
-
-                        // AL force contribution: add lambda to RHS
-                        if al_factor > 0.0 && gap_lambda[gi].abs() > 1e-20 {
-                            if di < nf { asm.f[di] -= gap_lambda[gi]; }
-                            if dj < nf { asm.f[dj] += gap_lambda[gi]; }
-                        }
-
-                        // Contact damping force: F_damp = c * (u - u_prev)
-                        // Applied as an additional force opposing the velocity (displacement change)
-                        if damping_coeff > 0.0 && gap_flip_count[gi] > 0 {
-                            let vel_i = u_full.get(di).copied().unwrap_or(0.0) - u_prev.get(di).copied().unwrap_or(0.0);
-                            let vel_j = u_full.get(dj).copied().unwrap_or(0.0) - u_prev.get(dj).copied().unwrap_or(0.0);
-                            let f_damp_i = damping_coeff * vel_i;
-                            let f_damp_j = damping_coeff * vel_j;
-                            if di < nf { asm.f[di] -= f_damp_i; }
-                            if dj < nf { asm.f[dj] -= f_damp_j; }
-                            // Also add damping to diagonal for numerical stability
-                            asm.k[di * n + di] += damping_coeff;
-                            asm.k[dj * n + dj] += damping_coeff;
-                        }
-                    }
-                    // Add tangential friction stiffness
-                    let mu_eff = gap.friction.or(gap.friction_coefficient);
-                    if let (Some(mu), Some(fdir)) = (mu_eff, gap.friction_direction) {
-                        let fdir = fdir.min(1);
-                        if let (Some(&fi), Some(&fj)) = (
-                            dof_num.map.get(&(gap.node_i, fdir)),
-                            dof_num.map.get(&(gap.node_j, fdir)),
-                        ) {
-                            let k_fric = mu * gap.stiffness;
-                            asm.k[fi * n + fi] += k_fric;
-                            asm.k[fj * n + fj] += k_fric;
-                            asm.k[fi * n + fj] -= k_fric;
-                            asm.k[fj * n + fi] -= k_fric;
-                        }
-                    }
-                }
-            }
-
-            // Node-to-surface contact contributions
-            for (pi, pair) in input.node_to_surface_pairs.iter().enumerate() {
-                if n2s_status[pi] == ContactStatus::Active {
-                    // Project slave node onto master segment to find normal direction
-                    let (normal, _xi, _gap_val) = project_slave_onto_segment_2d(
-                        pair, &node_by_id, &dof_num, &u_full,
-                    );
-
-                    // Add penalty stiffness in normal direction
-                    // Normal is [nx, ny]. Penalty acts on slave node DOFs.
-                    let slave_dof_x = dof_num.map.get(&(pair.slave_node, 0)).copied();
-                    let slave_dof_y = dof_num.map.get(&(pair.slave_node, 1)).copied();
-                    let master_a_dof_x = dof_num.map.get(&(pair.master_segment.node_a, 0)).copied();
-                    let master_a_dof_y = dof_num.map.get(&(pair.master_segment.node_a, 1)).copied();
-                    let master_b_dof_x = dof_num.map.get(&(pair.master_segment.node_b, 0)).copied();
-                    let master_b_dof_y = dof_num.map.get(&(pair.master_segment.node_b, 1)).copied();
-
-                    let xi_param = _xi.clamp(0.0, 1.0);
-                    let na = 1.0 - xi_param; // shape function for node_a
-                    let nb = xi_param;       // shape function for node_b
-
-                    // Assemble penalty stiffness in normal direction:
-                    // The gap = (u_slave - (na*u_a + nb*u_b)) . normal
-                    // K_penalty = k * N^T * N where N maps DOFs to gap
-                    // N = [nx, ny, -na*nx, -na*ny, -nb*nx, -nb*ny]
-                    let nx = normal[0];
-                    let ny = normal[1];
-                    let n_vec = [nx, ny, -na * nx, -na * ny, -nb * nx, -nb * ny];
-                    let dof_indices = [slave_dof_x, slave_dof_y,
-                                       master_a_dof_x, master_a_dof_y,
-                                       master_b_dof_x, master_b_dof_y];
-
-                    for i in 0..6 {
-                        if let Some(di) = dof_indices[i] {
-                            for j in 0..6 {
-                                if let Some(dj) = dof_indices[j] {
-                                    asm.k[di * n + dj] += pair.stiffness * n_vec[i] * n_vec[j];
-                                }
-                            }
-                            // AL force contribution for node-to-surface
-                            if al_factor > 0.0 && n2s_lambda[pi].abs() > 1e-20 {
-                                if di < nf {
-                                    asm.f[di] -= n2s_lambda[pi] * n_vec[i];
-                                }
-                            }
-                        }
-                    }
-
-                    // Friction for node-to-surface
-                    if let Some(mu) = pair.friction_coefficient {
-                        // Tangential direction is perpendicular to normal in 2D
-                        let tx = -ny;
-                        let ty = nx;
-                        let t_vec = [tx, ty, -na * tx, -na * ty, -nb * tx, -nb * ty];
-
-                        // Compute current normal force for friction limit
-                        let gap_val = _gap_val;
-                        let normal_force = if gap_val < 0.0 { pair.stiffness * (-gap_val) } else { 0.0 };
-                        let max_friction = mu * normal_force;
-
-                        // Compute tangential displacement
-                        let mut tang_disp = 0.0;
-                        for k in 0..6 {
-                            if let Some(dk) = dof_indices[k] {
-                                tang_disp += t_vec[k] * u_full.get(dk).copied().unwrap_or(0.0);
-                            }
-                        }
-
-                        let fric_stiff = if max_friction > 1e-20 && tang_disp.abs() > 1e-20 {
-                            // Regularized Coulomb: use penalty in tangential direction
-                            // but limit force to mu*N
-                            let _tang_force = (pair.stiffness * tang_disp).clamp(-max_friction, max_friction);
-                            // Effective tangential stiffness
-                            if (pair.stiffness * tang_disp).abs() <= max_friction {
-                                pair.stiffness // sticking
                             } else {
-                                0.0 // sliding -- force is constant, no additional stiffness
-                            }
-                        } else {
-                            pair.stiffness // default to full sticking stiffness
-                        };
-
-                        // Add tangential penalty stiffness
-                        if fric_stiff > 0.0 {
-                            let k_fric = mu * fric_stiff;
-                            for i in 0..6 {
-                                if let Some(di) = dof_indices[i] {
-                                    for j in 0..6 {
-                                        if let Some(dj) = dof_indices[j] {
-                                            asm.k[di * n + dj] += k_fric * t_vec[i] * t_vec[j];
+                                let phi = sec.as_y.map(|as_y| {
+                                    let g = e / (2.0 * (1.0 + mat.nu));
+                                    12.0 * e * sec.iz / (g * as_y * l * l)
+                                }).unwrap_or(0.0);
+                                let k_local = element::frame_local_stiffness_2d(
+                                    e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+                                );
+                                let t = element::frame_transform_2d(cos, sin);
+                                let k_glob = crate::linalg::transform_stiffness(&k_local, &t, 6);
+                                let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+                                let ndof = elem_dofs.len();
+                                for i in 0..ndof {
+                                    for j in 0..=i {
+                                        let (gi, gj) = (elem_dofs[i], elem_dofs[j]);
+                                        if gi < nf && gj < nf {
+                                            rows.push(gi);
+                                            cols.push(gj);
+                                            vals.push(-k_glob[i * ndof + j]);
                                         }
                                     }
                                 }
@@ -554,38 +463,411 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
                         }
                     }
                 }
-            }
 
-            // Release uplift supports that are inactive
-            for (&nid, status) in &uplift_status {
-                if *status == ContactStatus::Inactive {
-                    // Remove vertical constraint (DOF 1 = Y)
-                    if let Some(&d) = dof_num.map.get(&(nid, 1)) {
-                        if d >= nf {
-                            // It's a restrained DOF -- we can't easily un-restrain it
-                            // Instead, add a zero-stiffness spring (already done by not adding K)
-                            // This is handled by the assembly having already included it
+                // Add gap element stiffness for closed gaps
+                for (gi, gap) in input.gap_elements.iter().enumerate() {
+                    if gap_status[gi] == ContactStatus::Active {
+                        // Gap is closed -- add normal penalty stiffness
+                        let dir = gap.direction.min(1); // 2D: 0=X, 1=Z
+                        if let (Some(&di), Some(&dj)) = (
+                            dof_num.map.get(&(gap.node_i, dir)),
+                            dof_num.map.get(&(gap.node_j, dir)),
+                        ) {
+                            if di < nf {
+                                rows.push(di); cols.push(di); vals.push(gap.stiffness);
+                            }
+                            if dj < nf {
+                                rows.push(dj); cols.push(dj); vals.push(gap.stiffness);
+                            }
+                            if di < nf && dj < nf {
+                                rows.push(di); cols.push(dj); vals.push(-gap.stiffness);
+                            }
+
+                            // AL force contribution: add lambda to RHS
+                            if al_factor > 0.0 && gap_lambda[gi].abs() > 1e-20 {
+                                if di < nf { f_f[di] -= gap_lambda[gi]; }
+                                if dj < nf { f_f[dj] += gap_lambda[gi]; }
+                            }
+
+                            // Contact damping force: F_damp = c * (u - u_prev)
+                            // Applied as an additional force opposing the velocity (displacement change)
+                            if damping_coeff > 0.0 && gap_flip_count[gi] > 0 {
+                                let vel_i = u_full.get(di).copied().unwrap_or(0.0) - u_prev.get(di).copied().unwrap_or(0.0);
+                                let vel_j = u_full.get(dj).copied().unwrap_or(0.0) - u_prev.get(dj).copied().unwrap_or(0.0);
+                                let f_damp_i = damping_coeff * vel_i;
+                                let f_damp_j = damping_coeff * vel_j;
+                                if di < nf { f_f[di] -= f_damp_i; }
+                                if dj < nf { f_f[dj] -= f_damp_j; }
+                                // Also add damping to diagonal for numerical stability
+                                if di < nf {
+                                    rows.push(di); cols.push(di); vals.push(damping_coeff);
+                                }
+                                if dj < nf {
+                                    rows.push(dj); cols.push(dj); vals.push(damping_coeff);
+                                }
+                            }
+                        }
+                        // Add tangential friction stiffness
+                        let mu_eff = gap.friction.or(gap.friction_coefficient);
+                        if let (Some(mu), Some(fdir)) = (mu_eff, gap.friction_direction) {
+                            let fdir = fdir.min(1);
+                            if let (Some(&fi), Some(&fj)) = (
+                                dof_num.map.get(&(gap.node_i, fdir)),
+                                dof_num.map.get(&(gap.node_j, fdir)),
+                            ) {
+                                let k_fric = mu * gap.stiffness;
+                                if fi < nf {
+                                    rows.push(fi); cols.push(fi); vals.push(k_fric);
+                                }
+                                if fj < nf {
+                                    rows.push(fj); cols.push(fj); vals.push(k_fric);
+                                }
+                                if fi < nf && fj < nf {
+                                    rows.push(fi); cols.push(fj); vals.push(-k_fric);
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            // Solve
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-            let f_f: Vec<f64> = asm.f[..nf].to_vec();
-            let u_indep = if ns >= linear::SPARSE_THRESHOLD {
-                // Sparse path: CSC + optional constraint reduction in sparse
-                // form, then sparse Cholesky (cached symbolic, LU fallback
-                // capped by MAX_DENSE_FALLBACK_DOFS on non-SPD systems).
+                // Node-to-surface contact contributions
+                for (pi, pair) in input.node_to_surface_pairs.iter().enumerate() {
+                    if n2s_status[pi] == ContactStatus::Active {
+                        // Project slave node onto master segment to find normal direction
+                        let (normal, _xi, _gap_val) = project_slave_onto_segment_2d(
+                            pair, &node_by_id, &dof_num, &u_full,
+                        );
+
+                        // Add penalty stiffness in normal direction
+                        // Normal is [nx, ny]. Penalty acts on slave node DOFs.
+                        let slave_dof_x = dof_num.map.get(&(pair.slave_node, 0)).copied();
+                        let slave_dof_y = dof_num.map.get(&(pair.slave_node, 1)).copied();
+                        let master_a_dof_x = dof_num.map.get(&(pair.master_segment.node_a, 0)).copied();
+                        let master_a_dof_y = dof_num.map.get(&(pair.master_segment.node_a, 1)).copied();
+                        let master_b_dof_x = dof_num.map.get(&(pair.master_segment.node_b, 0)).copied();
+                        let master_b_dof_y = dof_num.map.get(&(pair.master_segment.node_b, 1)).copied();
+
+                        let xi_param = _xi.clamp(0.0, 1.0);
+                        let na = 1.0 - xi_param; // shape function for node_a
+                        let nb = xi_param;       // shape function for node_b
+
+                        // Assemble penalty stiffness in normal direction:
+                        // The gap = (u_slave - (na*u_a + nb*u_b)) . normal
+                        // K_penalty = k * N^T * N where N maps DOFs to gap
+                        // N = [nx, ny, -na*nx, -na*ny, -nb*nx, -nb*ny]
+                        let nx = normal[0];
+                        let ny = normal[1];
+                        let n_vec = [nx, ny, -na * nx, -na * ny, -nb * nx, -nb * ny];
+                        let dof_indices = [slave_dof_x, slave_dof_y,
+                                           master_a_dof_x, master_a_dof_y,
+                                           master_b_dof_x, master_b_dof_y];
+
+                        for i in 0..6 {
+                            if let Some(di) = dof_indices[i] {
+                                for j in 0..=i {
+                                    if let Some(dj) = dof_indices[j] {
+                                        if di < nf && dj < nf {
+                                            rows.push(di);
+                                            cols.push(dj);
+                                            vals.push(pair.stiffness * n_vec[i] * n_vec[j]);
+                                        }
+                                    }
+                                }
+                                // AL force contribution for node-to-surface
+                                if al_factor > 0.0 && n2s_lambda[pi].abs() > 1e-20 && di < nf {
+                                    f_f[di] -= n2s_lambda[pi] * n_vec[i];
+                                }
+                            }
+                        }
+
+                        // Friction for node-to-surface
+                        if let Some(mu) = pair.friction_coefficient {
+                            // Tangential direction is perpendicular to normal in 2D
+                            let tx = -ny;
+                            let ty = nx;
+                            let t_vec = [tx, ty, -na * tx, -na * ty, -nb * tx, -nb * ty];
+
+                            // Compute current normal force for friction limit
+                            let gap_val = _gap_val;
+                            let normal_force = if gap_val < 0.0 { pair.stiffness * (-gap_val) } else { 0.0 };
+                            let max_friction = mu * normal_force;
+
+                            // Compute tangential displacement
+                            let mut tang_disp = 0.0;
+                            for k in 0..6 {
+                                if let Some(dk) = dof_indices[k] {
+                                    tang_disp += t_vec[k] * u_full.get(dk).copied().unwrap_or(0.0);
+                                }
+                            }
+
+                            let fric_stiff = if max_friction > 1e-20 && tang_disp.abs() > 1e-20 {
+                                // Regularized Coulomb: use penalty in tangential direction
+                                // but limit force to mu*N
+                                let _tang_force = (pair.stiffness * tang_disp).clamp(-max_friction, max_friction);
+                                // Effective tangential stiffness
+                                if (pair.stiffness * tang_disp).abs() <= max_friction {
+                                    pair.stiffness // sticking
+                                } else {
+                                    0.0 // sliding -- force is constant, no additional stiffness
+                                }
+                            } else {
+                                pair.stiffness // default to full sticking stiffness
+                            };
+
+                            // Add tangential penalty stiffness
+                            if fric_stiff > 0.0 {
+                                let k_fric = mu * fric_stiff;
+                                for i in 0..6 {
+                                    if let Some(di) = dof_indices[i] {
+                                        for j in 0..=i {
+                                            if let Some(dj) = dof_indices[j] {
+                                                if di < nf && dj < nf {
+                                                    rows.push(di);
+                                                    cols.push(dj);
+                                                    vals.push(k_fric * t_vec[i] * t_vec[j]);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 let f_s = if let Some(ref cs) = cs {
                     cs.reduce_vector(&f_f)
                 } else {
                     f_f
                 };
-                let k_s_csc = tangent_free_sparse(&k_ff, nf, &cs);
+                let k_s_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &cs);
                 solve_tangent_sparse(&k_s_csc, &f_s, &mut sparse_sym_cache)?
             } else {
+                // Dense path (ns < SPARSE_THRESHOLD): legacy per-iteration
+                // dense assembly, unchanged.
+                let mut asm = assembly::assemble_2d(&input.solver, &dof_num);
+
+                // Deactivate elements based on status
+                for (eid, status) in &elem_status {
+                    if *status == ContactStatus::Inactive {
+                        // Subtract this element's stiffness from global K
+                        if let Some(&elem) = elem_by_id.get(eid) {
+                            let ni = node_by_id[&elem.node_i];
+                            let nj = node_by_id[&elem.node_j];
+                            let mat = mat_by_id[&elem.material_id];
+                            let sec = sec_by_id[&elem.section_id];
+
+                            let dx = nj.x - ni.x;
+                            let dy = nj.z - ni.z;
+                            let l = (dx * dx + dy * dy).sqrt();
+                            let cos = dx / l;
+                            let sin = dy / l;
+                            let e = mat.e * 1000.0;
+
+                            if elem.elem_type == "truss" || elem.elem_type == "cable" {
+                                let k_elem = element::truss_global_stiffness_2d(e, sec.a, l, cos, sin);
+                                let truss_dofs = [
+                                    dof_num.global_dof(elem.node_i, 0).unwrap(),
+                                    dof_num.global_dof(elem.node_i, 1).unwrap(),
+                                    dof_num.global_dof(elem.node_j, 0).unwrap(),
+                                    dof_num.global_dof(elem.node_j, 1).unwrap(),
+                                ];
+                                for i in 0..4 {
+                                    for j in 0..4 {
+                                        asm.k[truss_dofs[i] * n + truss_dofs[j]] -= k_elem[i * 4 + j];
+                                    }
+                                }
+                            } else {
+                                let phi = sec.as_y.map(|as_y| {
+                                    let g = e / (2.0 * (1.0 + mat.nu));
+                                    12.0 * e * sec.iz / (g * as_y * l * l)
+                                }).unwrap_or(0.0);
+                                let k_local = element::frame_local_stiffness_2d(
+                                    e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+                                );
+                                let t = element::frame_transform_2d(cos, sin);
+                                let k_glob = crate::linalg::transform_stiffness(&k_local, &t, 6);
+                                let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+                                let ndof = elem_dofs.len();
+                                for i in 0..ndof {
+                                    for j in 0..ndof {
+                                        asm.k[elem_dofs[i] * n + elem_dofs[j]] -= k_glob[i * ndof + j];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Add gap element stiffness for closed gaps
+                for (gi, gap) in input.gap_elements.iter().enumerate() {
+                    if gap_status[gi] == ContactStatus::Active {
+                        // Gap is closed -- add normal penalty stiffness
+                        let dir = gap.direction.min(1); // 2D: 0=X, 1=Z
+                        if let (Some(&di), Some(&dj)) = (
+                            dof_num.map.get(&(gap.node_i, dir)),
+                            dof_num.map.get(&(gap.node_j, dir)),
+                        ) {
+                            asm.k[di * n + di] += gap.stiffness;
+                            asm.k[dj * n + dj] += gap.stiffness;
+                            asm.k[di * n + dj] -= gap.stiffness;
+                            asm.k[dj * n + di] -= gap.stiffness;
+
+                            // AL force contribution: add lambda to RHS
+                            if al_factor > 0.0 && gap_lambda[gi].abs() > 1e-20 {
+                                if di < nf { asm.f[di] -= gap_lambda[gi]; }
+                                if dj < nf { asm.f[dj] += gap_lambda[gi]; }
+                            }
+
+                            // Contact damping force: F_damp = c * (u - u_prev)
+                            // Applied as an additional force opposing the velocity (displacement change)
+                            if damping_coeff > 0.0 && gap_flip_count[gi] > 0 {
+                                let vel_i = u_full.get(di).copied().unwrap_or(0.0) - u_prev.get(di).copied().unwrap_or(0.0);
+                                let vel_j = u_full.get(dj).copied().unwrap_or(0.0) - u_prev.get(dj).copied().unwrap_or(0.0);
+                                let f_damp_i = damping_coeff * vel_i;
+                                let f_damp_j = damping_coeff * vel_j;
+                                if di < nf { asm.f[di] -= f_damp_i; }
+                                if dj < nf { asm.f[dj] -= f_damp_j; }
+                                // Also add damping to diagonal for numerical stability
+                                asm.k[di * n + di] += damping_coeff;
+                                asm.k[dj * n + dj] += damping_coeff;
+                            }
+                        }
+                        // Add tangential friction stiffness
+                        let mu_eff = gap.friction.or(gap.friction_coefficient);
+                        if let (Some(mu), Some(fdir)) = (mu_eff, gap.friction_direction) {
+                            let fdir = fdir.min(1);
+                            if let (Some(&fi), Some(&fj)) = (
+                                dof_num.map.get(&(gap.node_i, fdir)),
+                                dof_num.map.get(&(gap.node_j, fdir)),
+                            ) {
+                                let k_fric = mu * gap.stiffness;
+                                asm.k[fi * n + fi] += k_fric;
+                                asm.k[fj * n + fj] += k_fric;
+                                asm.k[fi * n + fj] -= k_fric;
+                                asm.k[fj * n + fi] -= k_fric;
+                            }
+                        }
+                    }
+                }
+
+                // Node-to-surface contact contributions
+                for (pi, pair) in input.node_to_surface_pairs.iter().enumerate() {
+                    if n2s_status[pi] == ContactStatus::Active {
+                        // Project slave node onto master segment to find normal direction
+                        let (normal, _xi, _gap_val) = project_slave_onto_segment_2d(
+                            pair, &node_by_id, &dof_num, &u_full,
+                        );
+
+                        // Add penalty stiffness in normal direction
+                        // Normal is [nx, ny]. Penalty acts on slave node DOFs.
+                        let slave_dof_x = dof_num.map.get(&(pair.slave_node, 0)).copied();
+                        let slave_dof_y = dof_num.map.get(&(pair.slave_node, 1)).copied();
+                        let master_a_dof_x = dof_num.map.get(&(pair.master_segment.node_a, 0)).copied();
+                        let master_a_dof_y = dof_num.map.get(&(pair.master_segment.node_a, 1)).copied();
+                        let master_b_dof_x = dof_num.map.get(&(pair.master_segment.node_b, 0)).copied();
+                        let master_b_dof_y = dof_num.map.get(&(pair.master_segment.node_b, 1)).copied();
+
+                        let xi_param = _xi.clamp(0.0, 1.0);
+                        let na = 1.0 - xi_param; // shape function for node_a
+                        let nb = xi_param;       // shape function for node_b
+
+                        // Assemble penalty stiffness in normal direction:
+                        // The gap = (u_slave - (na*u_a + nb*u_b)) . normal
+                        // K_penalty = k * N^T * N where N maps DOFs to gap
+                        // N = [nx, ny, -na*nx, -na*ny, -nb*nx, -nb*ny]
+                        let nx = normal[0];
+                        let ny = normal[1];
+                        let n_vec = [nx, ny, -na * nx, -na * ny, -nb * nx, -nb * ny];
+                        let dof_indices = [slave_dof_x, slave_dof_y,
+                                           master_a_dof_x, master_a_dof_y,
+                                           master_b_dof_x, master_b_dof_y];
+
+                        for i in 0..6 {
+                            if let Some(di) = dof_indices[i] {
+                                for j in 0..6 {
+                                    if let Some(dj) = dof_indices[j] {
+                                        asm.k[di * n + dj] += pair.stiffness * n_vec[i] * n_vec[j];
+                                    }
+                                }
+                                // AL force contribution for node-to-surface
+                                if al_factor > 0.0 && n2s_lambda[pi].abs() > 1e-20 {
+                                    if di < nf {
+                                        asm.f[di] -= n2s_lambda[pi] * n_vec[i];
+                                    }
+                                }
+                            }
+                        }
+
+                        // Friction for node-to-surface
+                        if let Some(mu) = pair.friction_coefficient {
+                            // Tangential direction is perpendicular to normal in 2D
+                            let tx = -ny;
+                            let ty = nx;
+                            let t_vec = [tx, ty, -na * tx, -na * ty, -nb * tx, -nb * ty];
+
+                            // Compute current normal force for friction limit
+                            let gap_val = _gap_val;
+                            let normal_force = if gap_val < 0.0 { pair.stiffness * (-gap_val) } else { 0.0 };
+                            let max_friction = mu * normal_force;
+
+                            // Compute tangential displacement
+                            let mut tang_disp = 0.0;
+                            for k in 0..6 {
+                                if let Some(dk) = dof_indices[k] {
+                                    tang_disp += t_vec[k] * u_full.get(dk).copied().unwrap_or(0.0);
+                                }
+                            }
+
+                            let fric_stiff = if max_friction > 1e-20 && tang_disp.abs() > 1e-20 {
+                                // Regularized Coulomb: use penalty in tangential direction
+                                // but limit force to mu*N
+                                let _tang_force = (pair.stiffness * tang_disp).clamp(-max_friction, max_friction);
+                                // Effective tangential stiffness
+                                if (pair.stiffness * tang_disp).abs() <= max_friction {
+                                    pair.stiffness // sticking
+                                } else {
+                                    0.0 // sliding -- force is constant, no additional stiffness
+                                }
+                            } else {
+                                pair.stiffness // default to full sticking stiffness
+                            };
+
+                            // Add tangential penalty stiffness
+                            if fric_stiff > 0.0 {
+                                let k_fric = mu * fric_stiff;
+                                for i in 0..6 {
+                                    if let Some(di) = dof_indices[i] {
+                                        for j in 0..6 {
+                                            if let Some(dj) = dof_indices[j] {
+                                                asm.k[di * n + dj] += k_fric * t_vec[i] * t_vec[j];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Release uplift supports that are inactive
+                for (&nid, status) in &uplift_status {
+                    if *status == ContactStatus::Inactive {
+                        // Remove vertical constraint (DOF 1 = Y)
+                        if let Some(&d) = dof_num.map.get(&(nid, 1)) {
+                            if d >= nf {
+                                // It's a restrained DOF -- we can't easily un-restrain it
+                                // Instead, add a zero-stiffness spring (already done by not adding K)
+                                // This is handled by the assembly having already included it
+                            }
+                        }
+                    }
+                }
+
+                // Solve
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+                let f_f: Vec<f64> = asm.f[..nf].to_vec();
                 let (k_s, f_s) = if let Some(ref cs) = cs {
                     (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
                 } else {
@@ -980,6 +1262,40 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
     // contact iterations.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
+    // Dispatch dense vs sparse once per solve call (not per iteration).
+    let use_sparse = ns >= linear::SPARSE_THRESHOLD;
+
+    // Sparse base (use_sparse only): the base structure does not change
+    // between contact iterations — only the contact/penalty corrections do —
+    // so the base is assembled once as CSC (same builders the production
+    // sparse path in linear.rs uses) and the free×free block cached as
+    // triplets. Each iteration appends the contact correction triplets and
+    // rebuilds the CSC, so no dense n×n matrix is ever assembled on this
+    // path. k_full is not needed: reactions/constraint forces are not
+    // computed from the iteration matrix (results reuse linear helpers).
+    let sparse_asm = if use_sparse {
+        Some(assembly::assemble_sparse_3d(input_solver, &dof_num, false))
+    } else {
+        None
+    };
+    let f_base: Vec<f64> = sparse_asm.as_ref().map_or_else(Vec::new, |s| s.f.clone());
+    let mut base_tr: Vec<usize> = Vec::new();
+    let mut base_tc: Vec<usize> = Vec::new();
+    let mut base_tv: Vec<f64> = Vec::new();
+    if let Some(ref s) = sparse_asm {
+        let k = &s.k_ff;
+        base_tr.reserve(k.nnz());
+        base_tc.reserve(k.nnz());
+        base_tv.reserve(k.nnz());
+        for j in 0..nf {
+            for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                base_tr.push(k.row_idx[p]);
+                base_tc.push(j);
+                base_tv.push(k.values[p]);
+            }
+        }
+    }
+
     // Augmented Lagrangian outer loop
     let al_outer_iters = if al_factor > 0.0 { al_max_iter } else { 1 };
     let mut al_iter_count: usize = 0;
@@ -999,100 +1315,221 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
             // Save previous displacement for damping computation
             u_prev.copy_from_slice(&u_full);
 
-            let mut asm = assembly::assemble_3d(input_solver, &dof_num);
+            let u_indep = if use_sparse {
+                // Sparse path (ns >= SPARSE_THRESHOLD): rebuild the corrected
+                // CSC from the cached base free×free triplets plus this
+                // iteration's contact corrections — lower-triangle, free
+                // DOFs only (from_triplets normalizes and sums duplicates).
+                // Corrections for elements/gaps that went inactive simply
+                // vanish from the per-iteration list, so no explicit removal
+                // of previously-added stiffness is needed.
+                let mut rows = base_tr.clone();
+                let mut cols = base_tc.clone();
+                let mut vals = base_tv.clone();
+                let mut f_f: Vec<f64> = f_base[..nf].to_vec();
 
-            // Deactivate elements
-            for (eid, status) in &elem_status {
-                if *status == ContactStatus::Inactive {
-                    if let Some(&elem) = elem_by_id.get(eid) {
-                        if elem.elem_type == "truss" || elem.elem_type == "cable" {
-                            let ni = node_by_id[&elem.node_i];
-                            let nj = node_by_id[&elem.node_j];
-                            let mat = mat_by_id[&elem.material_id];
-                            let sec = sec_by_id[&elem.section_id];
+                // Deactivate elements (same subtraction as the dense path's
+                // scatter_truss_3d(.., -ea_l, ..): -ea_l * (sign_a*dir[i]) *
+                // (sign_b*dir[j]) per pair, lower-triangle)
+                for (eid, status) in &elem_status {
+                    if *status == ContactStatus::Inactive {
+                        if let Some(&elem) = elem_by_id.get(eid) {
+                            if elem.elem_type == "truss" || elem.elem_type == "cable" {
+                                let ni = node_by_id[&elem.node_i];
+                                let nj = node_by_id[&elem.node_j];
+                                let mat = mat_by_id[&elem.material_id];
+                                let sec = sec_by_id[&elem.section_id];
 
-                            let dx = nj.x - ni.x;
-                            let dy = nj.y - ni.y;
-                            let dz = nj.z - ni.z;
-                            let l = (dx * dx + dy * dy + dz * dz).sqrt();
-                            let e = mat.e * 1000.0;
-                            let ea_l = e * sec.a / l;
-                            let dir = [dx / l, dy / l, dz / l];
+                                let dx = nj.x - ni.x;
+                                let dy = nj.y - ni.y;
+                                let dz = nj.z - ni.z;
+                                let l = (dx * dx + dy * dy + dz * dz).sqrt();
+                                let e = mat.e * 1000.0;
+                                let ea_l = e * sec.a / l;
+                                let dir = [dx / l, dy / l, dz / l];
 
-                            element::scatter_truss_3d(
-                                &mut asm.k, n, -ea_l, &dir,
-                                elem.node_i, elem.node_j, &dof_num.map,
-                            );
+                                let mut sdofs = [usize::MAX; 6];
+                                let mut coef = [0.0; 6];
+                                for a in 0..2 {
+                                    let node_a = if a == 0 { elem.node_i } else { elem.node_j };
+                                    let sign = if a == 0 { 1.0 } else { -1.0 };
+                                    for i in 0..3 {
+                                        coef[a * 3 + i] = sign * dir[i];
+                                        if let Some(&d) = dof_num.map.get(&(node_a, i)) {
+                                            sdofs[a * 3 + i] = d;
+                                        }
+                                    }
+                                }
+                                for p in 0..6 {
+                                    for q in 0..=p {
+                                        let (dp, dq) = (sdofs[p], sdofs[q]);
+                                        if dp < nf && dq < nf {
+                                            rows.push(dp);
+                                            cols.push(dq);
+                                            vals.push(-ea_l * coef[p] * coef[q]);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            // Add gap element stiffness for closed gaps
-            for (gi, gap) in input.gap_elements.iter().enumerate() {
-                if gap_status[gi] == ContactStatus::Active {
-                    let dir = gap.direction.min(2); // 3D: 0=X, 1=Y, 2=Z
-                    if let (Some(&di), Some(&dj)) = (
-                        dof_num.map.get(&(gap.node_i, dir)),
-                        dof_num.map.get(&(gap.node_j, dir)),
-                    ) {
-                        asm.k[di * n + di] += gap.stiffness;
-                        asm.k[dj * n + dj] += gap.stiffness;
-                        asm.k[di * n + dj] -= gap.stiffness;
-                        asm.k[dj * n + di] -= gap.stiffness;
-
-                        // AL force contribution
-                        if al_factor > 0.0 && gap_lambda[gi].abs() > 1e-20 {
-                            if di < nf { asm.f[di] -= gap_lambda[gi]; }
-                            if dj < nf { asm.f[dj] += gap_lambda[gi]; }
-                        }
-
-                        // Contact damping force
-                        if damping_coeff > 0.0 && gap_flip_count[gi] > 0 {
-                            let vel_i = u_full.get(di).copied().unwrap_or(0.0) - u_prev.get(di).copied().unwrap_or(0.0);
-                            let vel_j = u_full.get(dj).copied().unwrap_or(0.0) - u_prev.get(dj).copied().unwrap_or(0.0);
-                            let f_damp_i = damping_coeff * vel_i;
-                            let f_damp_j = damping_coeff * vel_j;
-                            if di < nf { asm.f[di] -= f_damp_i; }
-                            if dj < nf { asm.f[dj] -= f_damp_j; }
-                            asm.k[di * n + di] += damping_coeff;
-                            asm.k[dj * n + dj] += damping_coeff;
-                        }
-                    }
-                    // Add tangential friction stiffness
-                    let mu_eff = gap.friction.or(gap.friction_coefficient);
-                    if let (Some(mu), Some(fdir)) = (mu_eff, gap.friction_direction) {
-                        let fdir = fdir.min(2);
-                        if let (Some(&fi), Some(&fj)) = (
-                            dof_num.map.get(&(gap.node_i, fdir)),
-                            dof_num.map.get(&(gap.node_j, fdir)),
+                // Add gap element stiffness for closed gaps
+                for (gi, gap) in input.gap_elements.iter().enumerate() {
+                    if gap_status[gi] == ContactStatus::Active {
+                        let dir = gap.direction.min(2); // 3D: 0=X, 1=Y, 2=Z
+                        if let (Some(&di), Some(&dj)) = (
+                            dof_num.map.get(&(gap.node_i, dir)),
+                            dof_num.map.get(&(gap.node_j, dir)),
                         ) {
-                            let k_fric = mu * gap.stiffness;
-                            asm.k[fi * n + fi] += k_fric;
-                            asm.k[fj * n + fj] += k_fric;
-                            asm.k[fi * n + fj] -= k_fric;
-                            asm.k[fj * n + fi] -= k_fric;
+                            if di < nf {
+                                rows.push(di); cols.push(di); vals.push(gap.stiffness);
+                            }
+                            if dj < nf {
+                                rows.push(dj); cols.push(dj); vals.push(gap.stiffness);
+                            }
+                            if di < nf && dj < nf {
+                                rows.push(di); cols.push(dj); vals.push(-gap.stiffness);
+                            }
+
+                            // AL force contribution
+                            if al_factor > 0.0 && gap_lambda[gi].abs() > 1e-20 {
+                                if di < nf { f_f[di] -= gap_lambda[gi]; }
+                                if dj < nf { f_f[dj] += gap_lambda[gi]; }
+                            }
+
+                            // Contact damping force
+                            if damping_coeff > 0.0 && gap_flip_count[gi] > 0 {
+                                let vel_i = u_full.get(di).copied().unwrap_or(0.0) - u_prev.get(di).copied().unwrap_or(0.0);
+                                let vel_j = u_full.get(dj).copied().unwrap_or(0.0) - u_prev.get(dj).copied().unwrap_or(0.0);
+                                let f_damp_i = damping_coeff * vel_i;
+                                let f_damp_j = damping_coeff * vel_j;
+                                if di < nf { f_f[di] -= f_damp_i; }
+                                if dj < nf { f_f[dj] -= f_damp_j; }
+                                if di < nf {
+                                    rows.push(di); cols.push(di); vals.push(damping_coeff);
+                                }
+                                if dj < nf {
+                                    rows.push(dj); cols.push(dj); vals.push(damping_coeff);
+                                }
+                            }
+                        }
+                        // Add tangential friction stiffness
+                        let mu_eff = gap.friction.or(gap.friction_coefficient);
+                        if let (Some(mu), Some(fdir)) = (mu_eff, gap.friction_direction) {
+                            let fdir = fdir.min(2);
+                            if let (Some(&fi), Some(&fj)) = (
+                                dof_num.map.get(&(gap.node_i, fdir)),
+                                dof_num.map.get(&(gap.node_j, fdir)),
+                            ) {
+                                let k_fric = mu * gap.stiffness;
+                                if fi < nf {
+                                    rows.push(fi); cols.push(fi); vals.push(k_fric);
+                                }
+                                if fj < nf {
+                                    rows.push(fj); cols.push(fj); vals.push(k_fric);
+                                }
+                                if fi < nf && fj < nf {
+                                    rows.push(fi); cols.push(fj); vals.push(-k_fric);
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            // Solve
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-            let f_f: Vec<f64> = asm.f[..nf].to_vec();
-            let u_indep = if ns >= linear::SPARSE_THRESHOLD {
-                // Sparse path: CSC + optional constraint reduction in sparse
-                // form, then sparse Cholesky (cached symbolic, LU fallback
-                // capped by MAX_DENSE_FALLBACK_DOFS on non-SPD systems).
                 let f_s = if let Some(ref cs) = cs {
                     cs.reduce_vector(&f_f)
                 } else {
                     f_f
                 };
-                let k_s_csc = tangent_free_sparse(&k_ff, nf, &cs);
+                let k_s_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &cs);
                 solve_tangent_sparse(&k_s_csc, &f_s, &mut sparse_sym_cache)?
             } else {
+                // Dense path (ns < SPARSE_THRESHOLD): legacy per-iteration
+                // dense assembly, unchanged.
+                let mut asm = assembly::assemble_3d(input_solver, &dof_num);
+
+                // Deactivate elements
+                for (eid, status) in &elem_status {
+                    if *status == ContactStatus::Inactive {
+                        if let Some(&elem) = elem_by_id.get(eid) {
+                            if elem.elem_type == "truss" || elem.elem_type == "cable" {
+                                let ni = node_by_id[&elem.node_i];
+                                let nj = node_by_id[&elem.node_j];
+                                let mat = mat_by_id[&elem.material_id];
+                                let sec = sec_by_id[&elem.section_id];
+
+                                let dx = nj.x - ni.x;
+                                let dy = nj.y - ni.y;
+                                let dz = nj.z - ni.z;
+                                let l = (dx * dx + dy * dy + dz * dz).sqrt();
+                                let e = mat.e * 1000.0;
+                                let ea_l = e * sec.a / l;
+                                let dir = [dx / l, dy / l, dz / l];
+
+                                element::scatter_truss_3d(
+                                    &mut asm.k, n, -ea_l, &dir,
+                                    elem.node_i, elem.node_j, &dof_num.map,
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Add gap element stiffness for closed gaps
+                for (gi, gap) in input.gap_elements.iter().enumerate() {
+                    if gap_status[gi] == ContactStatus::Active {
+                        let dir = gap.direction.min(2); // 3D: 0=X, 1=Y, 2=Z
+                        if let (Some(&di), Some(&dj)) = (
+                            dof_num.map.get(&(gap.node_i, dir)),
+                            dof_num.map.get(&(gap.node_j, dir)),
+                        ) {
+                            asm.k[di * n + di] += gap.stiffness;
+                            asm.k[dj * n + dj] += gap.stiffness;
+                            asm.k[di * n + dj] -= gap.stiffness;
+                            asm.k[dj * n + di] -= gap.stiffness;
+
+                            // AL force contribution
+                            if al_factor > 0.0 && gap_lambda[gi].abs() > 1e-20 {
+                                if di < nf { asm.f[di] -= gap_lambda[gi]; }
+                                if dj < nf { asm.f[dj] += gap_lambda[gi]; }
+                            }
+
+                            // Contact damping force
+                            if damping_coeff > 0.0 && gap_flip_count[gi] > 0 {
+                                let vel_i = u_full.get(di).copied().unwrap_or(0.0) - u_prev.get(di).copied().unwrap_or(0.0);
+                                let vel_j = u_full.get(dj).copied().unwrap_or(0.0) - u_prev.get(dj).copied().unwrap_or(0.0);
+                                let f_damp_i = damping_coeff * vel_i;
+                                let f_damp_j = damping_coeff * vel_j;
+                                if di < nf { asm.f[di] -= f_damp_i; }
+                                if dj < nf { asm.f[dj] -= f_damp_j; }
+                                asm.k[di * n + di] += damping_coeff;
+                                asm.k[dj * n + dj] += damping_coeff;
+                            }
+                        }
+                        // Add tangential friction stiffness
+                        let mu_eff = gap.friction.or(gap.friction_coefficient);
+                        if let (Some(mu), Some(fdir)) = (mu_eff, gap.friction_direction) {
+                            let fdir = fdir.min(2);
+                            if let (Some(&fi), Some(&fj)) = (
+                                dof_num.map.get(&(gap.node_i, fdir)),
+                                dof_num.map.get(&(gap.node_j, fdir)),
+                            ) {
+                                let k_fric = mu * gap.stiffness;
+                                asm.k[fi * n + fi] += k_fric;
+                                asm.k[fj * n + fj] += k_fric;
+                                asm.k[fi * n + fj] -= k_fric;
+                                asm.k[fj * n + fi] -= k_fric;
+                            }
+                        }
+                    }
+                }
+
+                // Solve
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+                let f_f: Vec<f64> = asm.f[..nf].to_vec();
                 let (k_s, f_s) = if let Some(ref cs) = cs {
                     (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
                 } else {
