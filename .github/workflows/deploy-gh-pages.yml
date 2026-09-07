@@ -88,14 +88,37 @@ jobs:
           check en/index.html 'A free and open structural-analysis platform'
           check es/index.html 'Una plataforma gratuita y abierta de cálculo estructural'
           check pt/index.html 'Uma plataforma gratuita e aberta de cálculo estrutural'
-          check en/index.html '<link rel="canonical" href="https://stabileo.com/en"'
-          check es/index.html '<link rel="canonical" href="https://stabileo.com/es"'
-          check pt/index.html '<link rel="canonical" href="https://stabileo.com/pt"'
-          # The root is a doorway: English content, consolidating into /en.
-          check index.html '<link rel="canonical" href="https://stabileo.com/en"'
+          #
+          # ── The trailing slash is part of the assertion ──
+          #
+          # These patterns close the quote right after the path, so they pin the
+          # WHOLE href and not a prefix of it. That is deliberate: '/en' would
+          # also match '/enormous'. It also means the slash matters, and this
+          # gate went stale when #172 moved the canonicals to '/en/' — it kept
+          # demanding the form that answers 301 and blocked every deploy from
+          # 2026-09-07 on, including the fix itself.
+          #
+          # GitHub Pages serves '/en/' with 200 and 301s '/en' to it, so the
+          # slash is the URL that resolves. `publicHref` in
+          # src/lib/i18n/public-routes.ts is the single source, and
+          # e2e/prerender.spec.ts asserts the same shape in a browser.
+          check en/index.html '<link rel="canonical" href="https://stabileo.com/en/"'
+          check es/index.html '<link rel="canonical" href="https://stabileo.com/es/"'
+          check pt/index.html '<link rel="canonical" href="https://stabileo.com/pt/"'
+          # The root is a doorway: English content, consolidating into /en/.
+          check index.html '<link rel="canonical" href="https://stabileo.com/en/"'
           check es/blog/the-determinism-boundary/index.html \
-            '<link rel="canonical" href="https://stabileo.com/es/blog/the-determinism-boundary"'
+            '<link rel="canonical" href="https://stabileo.com/es/blog/the-determinism-boundary/"'
           check es/blog/the-determinism-boundary/index.html 'application/ld+json'
+
+          # Every advertised URL must be one that answers 200, not one that
+          # redirects. The sitemap is where a stale slash does the most damage:
+          # the deploy of 2026-08-28 shipped a sitemap whose every <loc> was a
+          # 301. Assert the shape here rather than trusting the generator.
+          if grep -oE '<loc>[^<]*</loc>' dist/sitemap.xml | grep -vE '<loc>https://stabileo\.com/(en|es|pt)(/[^<]*)?/</loc>'; then
+            echo 'sitemap.xml carries a <loc> that is not a trailing-slash locale URL (those answer 301).'
+            exit 1
+          fi
 
           echo "prerendered pages verified"
 
