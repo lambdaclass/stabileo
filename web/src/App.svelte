@@ -133,7 +133,18 @@
   if (typeof window !== 'undefined') {
     const redirectedRoute = new URLSearchParams(location.search).get('route');
     if (redirectedRoute) {
-      history.replaceState(null, '', redirectedRoute);
+      /*
+       * Restored through the URL builder, not verbatim.
+       *
+       * 404.html hands the path over exactly as it was typed or shared, and
+       * putting that straight back in the address bar reinstates whatever
+       * shape it had — including the unslashed form the site no longer
+       * publishes. A reader arriving on an old link would then be looking at
+       * an address that disagrees with the page's own canonical.
+       */
+      const { locale, path } = parsePublicPath(redirectedRoute.split('?')[0]);
+      const normalised = locale ? publicHref(path, locale) : redirectedRoute;
+      history.replaceState(null, '', normalised);
     }
   }
 
