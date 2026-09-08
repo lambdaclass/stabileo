@@ -2,8 +2,7 @@
   import { t } from '../../lib/i18n';
   import { uiStore, modelStore, resultsStore } from '../../lib/store';
   import {
-    saveProject, saveSession, loadFile, downloadResultsCSV,
-    downloadExcel, isMode3D,
+    saveProject, saveSession, loadFile, isMode3D,
   } from '../../lib/store/file';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
 
@@ -105,11 +104,72 @@
 
 <div class="pp" data-testid="pro-project-tab">
   <!--
-    What is open, before what you can do to it. The panel used to start with three buttons and
-    never state which project they applied to.
+    Starting a model comes before describing the one that is open.
+    ─────────────────────────────────────────────────────────────
+    The panel opened on "Documento abierto", which is the right FIRST FACT for a
+    session already under way and the wrong first thing for the reader who came
+    here to begin. Examples, a DXF plan and an IFC import are the three ways a
+    PRO model starts, and the reader who needs them is the one who has nothing
+    open to read about.
+  -->
+  <section class="pp-card">
+  <h4 class="pp-heading pp-heading-first">{t('proProject.newModel')}</h4>
+
+  <button
+    class="pp-btn pp-btn-wide pp-disclose"
+    onclick={() => (showExamples = !showExamples)}
+    aria-expanded={showExamples}
+    data-testid="pp-examples"
+  >
+    <span>{t('pro.exampleBtn')}</span>
+    <span class="pp-caret">{showExamples ? '▾' : '▸'}</span>
+  </button>
+
+  {#if showExamples}
+    <div class="pp-gallery" data-testid="pp-gallery">
+      {#each groups as g (g.title)}
+        <div class="pp-gal-group">{g.title}</div>
+        {#each g.examples as ex (ex.nameKey)}
+          <button class="pp-ex" onclick={() => { onLoadExample(ex); showExamples = false; }}>
+            <span class="pp-ex-name">{t(ex.nameKey)}</span>
+            <span class="pp-ex-desc">{t(ex.descKey)}</span>
+            <span class="pp-ex-meta">
+              {ex.stats.nodes} {t('pro.stats.nodes')} · {ex.stats.members} {t('pro.stats.members')}
+              {#if ex.stats.shells}· {ex.stats.shells} {t('pro.stats.shells')}{/if}
+            </span>
+          </button>
+        {/each}
+      {/each}
+    </div>
+  {/if}
+
+  <!--
+    Two importers, each with what it actually does. "DXF plan" named a file
+    format and left the rest to guesswork — it takes an architectural floor
+    plan and proposes a structure from it, which is a different promise from
+    "open a file".
+  -->
+  <div class="pp-row">
+    <button
+      class="pp-btn pp-btn-grow"
+      onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}
+    >{t('cad.proBarBtn')}</button>
+    <button class="pp-help" title={t('proProject.dxfHelp')} aria-label={t('proProject.dxfHelp')}>?</button>
+  </div>
+  <div class="pp-row">
+    <button
+      class="pp-btn pp-btn-grow"
+      onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))}
+    >{t('project.openIfc')}</button>
+    <button class="pp-help" title={t('proProject.ifcHelp')} aria-label={t('proProject.ifcHelp')}>?</button>
+  </div>
+  </section>
+
+  <!--
+    What is open, and only then what you can do to it.
   -->
   <section class="pp-card" data-testid="pp-document">
-    <h4 class="pp-heading pp-heading-first">{t('proProject.documentSection')}</h4>
+    <h4 class="pp-heading">{t('proProject.documentSection')}</h4>
     <dl class="pp-facts">
       <dt>{t('proProject.documentName')}</dt>
       <dd data-testid="pp-doc-name">{docName}</dd>
@@ -183,78 +243,13 @@
     </button>
   </section>
 
-  <section class="pp-card">
-  <h4 class="pp-heading">{t('proProject.newModel')}</h4>
-
-  <button
-    class="pp-btn pp-btn-wide pp-disclose"
-    onclick={() => (showExamples = !showExamples)}
-    aria-expanded={showExamples}
-    data-testid="pp-examples"
-  >
-    <span>{t('pro.exampleBtn')}</span>
-    <span class="pp-caret">{showExamples ? '▾' : '▸'}</span>
-  </button>
-
-  {#if showExamples}
-    <div class="pp-gallery" data-testid="pp-gallery">
-      {#each groups as g (g.title)}
-        <div class="pp-gal-group">{g.title}</div>
-        {#each g.examples as ex (ex.nameKey)}
-          <button class="pp-ex" onclick={() => { onLoadExample(ex); showExamples = false; }}>
-            <span class="pp-ex-name">{t(ex.nameKey)}</span>
-            <span class="pp-ex-desc">{t(ex.descKey)}</span>
-            <span class="pp-ex-meta">
-              {ex.stats.nodes} {t('pro.stats.nodes')} · {ex.stats.members} {t('pro.stats.members')}
-              {#if ex.stats.shells}· {ex.stats.shells} {t('pro.stats.shells')}{/if}
-            </span>
-          </button>
-        {/each}
-      {/each}
-    </div>
-  {/if}
 
   <!--
-    Two importers, each with what it actually does. "DXF plan" named a file
-    format and left the rest to guesswork — it takes an architectural floor
-    plan and proposes a structure from it, which is a different promise from
-    "open a file".
+    Export used to be a card here: Excel, CSV, PNG. Those are done from where the
+    thing being exported lives — the results table exports its own numbers, the
+    viewport its own picture — so a second set of buttons in Project was a
+    parallel route that had to be kept in step with them.
   -->
-  <div class="pp-row">
-    <button
-      class="pp-btn pp-btn-grow"
-      onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}
-    >{t('cad.proBarBtn')}</button>
-    <button class="pp-help" title={t('proProject.dxfHelp')} aria-label={t('proProject.dxfHelp')}>?</button>
-  </div>
-  <div class="pp-row">
-    <button
-      class="pp-btn pp-btn-grow"
-      onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))}
-    >{t('project.openIfc')}</button>
-    <button class="pp-help" title={t('proProject.ifcHelp')} aria-label={t('proProject.ifcHelp')}>?</button>
-  </div>
-  </section>
-
-  <section class="pp-card">
-  <h4 class="pp-heading">{t('project.export')}</h4>
-  <div class="pp-grid">
-    <button class="pp-btn" onclick={() => downloadExcel()} title={t('project.exportExcelTooltip')}>Excel</button>
-    <button
-      class="pp-btn"
-      onclick={() => downloadResultsCSV()}
-      disabled={!solved}
-      title={solved ? t('project.exportCsvTooltip') : t('ribbon.needsSolve')}
-    >CSV</button>
-    <button
-      class="pp-btn"
-      onclick={() => window.dispatchEvent(new Event('stabileo-export-png'))}
-      disabled={!hasModel}
-      title={t('project.exportPngTooltip')}
-    >PNG</button>
-  </div>
-
-  </section>
 
   <!--
     Sharing is a link to this model, not a file — different verb, own heading.

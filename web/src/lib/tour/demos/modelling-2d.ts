@@ -130,6 +130,20 @@ export function buildModelling2D(): TourStep[] {
       autoAdvance: true,
     },
 
+    /*
+     * These two open the sheet themselves rather than inheriting it.
+     *
+     * On a phone `ANCHORS.ribbonCommand` resolves to `dt-tab-sections` and
+     * `dt-tab-materials`, which live INSIDE the data sheet — so both steps
+     * were pointing at elements that exist only while it is open, and the
+     * only thing opening it was the `load` step several cards earlier. A
+     * reader who closed the sheet to look at what they had drawn lost the
+     * anchor for the rest of the walkthrough.
+     *
+     * `openPanel` is `toggle: false`, so asking for a panel that is already
+     * up is a no-op — a step can say what it needs without knowing what came
+     * before it, which is the property that makes these safe to re-enter.
+     */
     {
       id: 'sections',
       target: ANCHORS.ribbonCommand('sections'),
@@ -137,6 +151,7 @@ export function buildModelling2D(): TourStep[] {
       description: t('demo.modelling.sectionsDesc'),
       position: 'bottom',
       allowInteraction: true,
+      onEnter: () => openPanel('data'),
     },
 
     {
@@ -146,6 +161,7 @@ export function buildModelling2D(): TourStep[] {
       description: t('demo.modelling.materialsDesc'),
       position: 'bottom',
       allowInteraction: true,
+      onEnter: () => openPanel('data'),
     },
 
     {

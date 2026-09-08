@@ -328,25 +328,57 @@ test.describe('@smoke the section walkthrough', () => {
     await advance(page, 'pick');
 
     /*
-     * The box is measured before EACH click, not once — the same correction the walkthrough test
-     * above already carries, for the same reason.
+    /*
+     * Two independent corrections, both needed.
+     * ────────────────────────────────────────
+     * MAIN's, and the one that explains why nothing registered: the canvas
+     * box is measured before EACH click, not once. A click that lands
+     * reflows the canvas, so a box captured before the loop aims every
+     * later attempt at where the canvas used to be — four misses in a row,
+     * reported only as `sliders` never arriving.
      *
-     * A click that lands on a member opens the property panel, and that reflows the canvas. So a
-     * box captured before the loop aims attempts 2 to 4 at where the canvas used to be, and the
-     * step never leaves `pick`: it fails having missed four times in a row while reporting only
-     * that `sliders` never arrived. Observed on CI, on a run whose only delta from a green one was
-     * a vitest file this spec does not read.
+     * THIS BRANCH's, and the reason a miss is not free: Viewport's stress
+     * branch takes its `else` and sets `stressQuery = null`, which is
+     * exactly the condition `pick` waits on. Measured directly — a click at
+     * 0.50 gives `met=true`, the next at 0.60 gives `met=false` with the
+     * step still on `pick`. The ladder ran to ±0.1 of the canvas height,
+     * about 54 px against a 0.3 m ≈ 36 px pick radius, so its last rung was
+     * a guaranteed miss that could undo a hit.
+     *
+     * It could undo one because the advance is not immediate: a 300 ms poll
+     * plus a deliberate 800 ms pause, roughly 1.1 s, while the loop came
+     * back every 700 ms and asked whether the CARD had moved. So: read
+     * `met`, leave the instant it is true, and keep every rung inside the
+     * radius.
      */
+    const met = () => page.evaluate(() => window.__stabileo.tourStep()?.met ?? false);
+    const pick = () => page.evaluate(() => window.__stabileo.viewportPick());
     const canvasBox = async () =>
       (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
-    for (const fy of [0.5, 0.55, 0.45, 0.6]) {
+
+    /*
+     * And the run says what the viewport thought, per rung. A click counts as
+     * a station only when `selectMode` is 'stress' and there are results;
+     * neither is in a screenshot or the a11y tree, so a disarmed mode and a
+     * missed member used to produce the same picture — a card still waiting.
+     */
+    const trail: string[] = [];
+    for (const fy of [0.5, 0.52, 0.48, 0.54, 0.46]) {
       const box = await canvasBox();
       await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * fy);
-      await page.waitForTimeout(700);
-      if ((await stepId(page)) !== 'pick') break;
+      await page.waitForTimeout(300);
+      const p = await pick();
+      trail.push(
+        `fy=${fy} mode=${p.selectMode} tool=${p.tool} results=${p.hasResults} query=${p.hasStressQuery}`,
+      );
+      if (await met()) break;
     }
+    const seen = trail.join('\n  ');
+
     // It hung here: the condition read the DOM, which nothing re-evaluates.
-    await expect.poll(() => stepId(page), { timeout: 15_000 }).toBe('sliders');
+    await expect
+      .poll(() => stepId(page), { timeout: 15_000, message: `viewport per click:\n  ${seen}` })
+      .toBe('sliders');
   });
 });
 

@@ -111,7 +111,20 @@
         await modelStore.loadExample(ex.id);
         resultsStore.clear();
         resultsStore.clear3D();
-        if (uiStore.isMobile) uiStore.leftDrawerOpen = false;
+        /*
+         * On a phone, get out of the way of the model you just loaded.
+         *
+         * This used to close `leftDrawerOpen`, the old Toolbar drawer this list
+         * lived in. That drawer is gone: the list is in BasicPanel now, which on
+         * a phone is a bottom sheet covering the lower 58 % of the canvas. The
+         * zoom-to-fit below frames the model in the WHOLE canvas, sheet or no
+         * sheet, so leaving it open put the structure behind it and the example
+         * appeared not to load at all.
+         *
+         * Desktop keeps the panel: there it sits beside the model rather than
+         * over it, and closing it would throw away the list you may want again.
+         */
+        if (uiStore.isMobile) window.dispatchEvent(new CustomEvent('stabileo-open-panel', { detail: null }));
         setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50);
       }}>
         <span class="example-name">{t(ex.nameKey)}</span>
