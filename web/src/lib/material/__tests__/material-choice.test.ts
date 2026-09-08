@@ -239,6 +239,29 @@ describe('the materials tab uses the conversion instead of hand-picking fields',
     expect(MODAL).toContain('data-autofocus');
   });
 
+  it('captures before the DOM updates, latches the transition, and restores a frame later', () => {
+    /*
+     * The same three-part restore the section modal carries, and the same reason for pinning it
+     * at the source: all three are invisible in behaviour until all three are present, so an
+     * edit that drops one looks harmless.
+     *
+     *   · `$effect.pre` — child effects run FIRST, and this dialog's body focuses its own search
+     *     box on mount. A plain `$effect` captures THAT as the thing to return focus to, and
+     *     returning focus to a node being removed sends it to `<body>`.
+     *   · the `wasOpen` latch — without it the capture re-runs while the dialog is open and
+     *     lands back inside it.
+     *   · `requestAnimationFrame` — restoring synchronously loses to the teardown that follows.
+     *
+     * `pro-section-modal-contract.test.ts` pins this for the section modal, where the bug was
+     * measured; this modal has the identical code and its comment says so, and nothing was
+     * holding it. The e2e that would catch a regression — `m2-material-modal`, including «focus
+     * lands inside and cannot escape» — is not tagged, so it does not run in CI.
+     */
+    expect(MODAL).toContain('$effect.pre(');
+    expect(MODAL).toContain('let wasOpen = false;');
+    expect(MODAL).toContain('requestAnimationFrame(() => el?.focus?.())');
+  });
+
   it('walks the list with the keyboard, not only the mouse', () => {
     for (const key of ['ArrowDown', 'ArrowUp', 'Home', 'End']) {
       expect(MODAL, key).toContain(`e.key === '${key}'`);
