@@ -534,13 +534,6 @@ const ru: Translations = {
   'status.hintAddLoads': 'Приложите нагрузки (L)',
   'status.hintReadyToSolve': 'Готово к расчёту (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'Результаты',
-  'mobile.resultsAndSolve': 'Результаты и расчёт',
-  'mobile.scale': 'Масштаб',
-  'mobile.values': 'Значения',
-  'mobile.buildAndSolve': 'Соберите конструкцию и нажмите Рассчитать.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'Выбрать (V)',
   'tooltip.toolSelect.desc': 'Имеет 5 подрежимов: Узлы, Элементы, Опоры, Нагрузки и Напряжения. Переключение на плавающей панели.',

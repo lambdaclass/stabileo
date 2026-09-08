@@ -177,7 +177,6 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
 
   it('PRO UI seams should treat pro mode as a 3D result/modeling path', () => {
     const aiDrawer = readFileSync(new URL('../../../components/AiDrawer.svelte', import.meta.url), 'utf8');
-    const mobileResults = readFileSync(new URL('../../../components/MobileResultsPanel.svelte', import.meta.url), 'utf8');
     const sectionStress = readFileSync(new URL('../../../components/SectionStressPanel.svelte', import.meta.url), 'utf8');
     const aiReview = readFileSync(new URL('../../../components/toolbar/ToolbarAiReview.svelte', import.meta.url), 'utf8');
     // Copy/paste moved out of Toolbar with the rest of the keyboard layer:
@@ -188,7 +187,6 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
 
     expect(aiDrawer, 'AiDrawer.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(aiDrawer, 'AiDrawer.svelte should send canonical 3D mode to the AI backend').toContain("const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');");
-    expect(mobileResults, 'MobileResultsPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(sectionStress, 'SectionStressPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(aiReview, 'ToolbarAiReview.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(toolbar, 'KeyboardShortcuts.svelte should treat pro as 3D when pasting copied geometry').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");

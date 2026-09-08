@@ -534,13 +534,6 @@ const zh: Translations = {
   'status.hintAddLoads': '施加荷载 (L)',
   'status.hintReadyToSolve': '准备就绪，可以计算 (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': '结果',
-  'mobile.resultsAndSolve': '结果与计算',
-  'mobile.scale': '比例',
-  'mobile.values': '数值',
-  'mobile.buildAndSolve': '建立结构并点击计算。',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': '选择 (V)',
   'tooltip.toolSelect.desc': '有5个子模式：节点、单元、支座、荷载和应力。在浮动工具栏中切换。',

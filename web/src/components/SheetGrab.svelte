@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { t } from '../lib/i18n';
 
   /**
@@ -34,10 +35,8 @@
      * has not said anything about the other.
      */
     storageKey: string;
-    /** Called when a drag ENDS — see below. */
-    onResizeEnd?: () => void;
   };
-  let { storageKey, onResizeEnd }: Props = $props();
+  let { storageKey }: Props = $props();
 
   const MIN = 22;
   const MAX = 86;
@@ -89,7 +88,24 @@
     return () => document.documentElement.style.removeProperty('--st-sheet-h');
   });
 
+  /*
+   * The listeners a drag installs live on `window`, not on this element, so
+   * unmounting the handle does not remove them — a drag in progress when the
+   * sheet closes (or the mode switches) would leak `move` and keep resizing a
+   * sheet that is gone. `detachDrag` is the current drag's teardown; destroy
+   * runs it if a drag is still in flight.
+   */
+  let detachDrag: (() => void) | null = null;
+  onDestroy(() => detachDrag?.());
+
   function start(e: PointerEvent) {
+    /*
+     * One drag at a time. A second finger landing on the handle mid-drag would
+     * otherwise install a second pair of window listeners and re-anchor the
+     * sheet to ITS start point, and the two drags would fight over `vh` until
+     * both fingers lifted.
+     */
+    if (detachDrag) return;
     dragging = true;
     const startY = e.clientY;
     const startVh = vh;
@@ -103,11 +119,12 @@
     };
 
     const up = () => {
+      detachDrag = null;
       dragging = false;
-      try { localStorage.setItem(storageKey, String(Math.round(vh))); } catch { /* private mode */ }
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
+      try { localStorage.setItem(storageKey, String(Math.round(vh))); } catch { /* private mode */ }
       /*
        * Re-frame once, at the END. The canvas has just changed height by as
        * much as 60 % of the screen, so the framing that preceded the drag is
@@ -116,7 +133,6 @@
        */
       requestAnimationFrame(() => requestAnimationFrame(() => {
         window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
-        onResizeEnd?.();
       }));
     };
 
@@ -124,6 +140,13 @@
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
     e.preventDefault();
+
+    detachDrag = () => {
+      dragging = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
   }
 
   /**
@@ -161,7 +184,6 @@
     // height and the framing that preceded the keystroke is wrong for what is left.
     requestAnimationFrame(() => requestAnimationFrame(() => {
       window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
-      onResizeEnd?.();
     }));
   }
 </script>

@@ -102,10 +102,15 @@
   /**
    * Re-frame when the phone's sheet takes the canvas's height, or gives it back.
    *
-   * The sheet is 58 % of the screen, so opening one takes the canvas from about
-   * 550 px tall to about 200 and closing it does the reverse. A framing computed
-   * for either of those is wrong for the other by more than the model is tall —
-   * open Results on a framed beam and the beam is simply below the viewport.
+   * The sheet is `--st-sheet-h` tall — on a phone, nearly half the screen — so
+   * opening one takes a large bite out of the canvas's height and closing it
+   * gives the height back. A framing computed for either of those is wrong for
+   * the other by more than the model is tall — open Results on a framed beam
+   * and the beam is simply below the viewport.
+   *
+   * Both sheets: Basic's panel is one and PRO's is the other (its open state is
+   * `rightDrawerOpen` on a phone), and each reserves its height through the
+   * same `.app-body-sheet` padding, so one transition watcher covers the two.
    *
    * Only the OPEN/SHUT transition, not a change of which panel is showing:
    * moving from Results to Model data does not resize anything, and refitting
@@ -133,7 +138,9 @@
 
   let sheetWasOpen = false;
   $effect(() => {
-    const open = uiStore.isMobile && uiStore.appMode === 'basico' && !!basicPanel;
+    const open = uiStore.isMobile
+      && ((uiStore.appMode === 'basico' && !!basicPanel)
+        || (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen));
     if (open === sheetWasOpen) return;
     sheetWasOpen = open;
     if (modelStore.nodes.size === 0) return;
@@ -156,7 +163,6 @@
   import ColourScaleLegend from './components/ColourScaleLegend.svelte';
   import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
   import TabBar from './components/TabBar.svelte';
-  import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
@@ -419,7 +425,6 @@
     historyStore.clear();
     uiStore.proPanelVisible = true;
     uiStore.proPanelWidth = 540;
-    uiStore.leftDrawerOpen = false;
     uiStore.rightDrawerOpen = false;
     // Restore target mode's model or start empty
     const saved = modeSnapshots.get(target);
@@ -1244,11 +1249,11 @@
     -->
     {#if uiStore.appMode === 'pro' && uiStore.isMobile}
       <!--
-        A positioned wrapper, because the stage menu is `top: 100%` of it.
-        Without one it resolves against a distant ancestor and opens at the
-        bottom of the page — the same way Basic's cluster menu did before
-        `.ribbon` was given a `position`, and it is invisible until someone
-        opens the menu on a phone.
+        A positioned wrapper, because the camera menu is `position: absolute`
+        inside it. Without one its `left`/`right` resolve against a distant
+        ancestor — the same way Basic's cluster menu did before `.ribbon` was
+        given a `position` — and the menu is invisible until someone opens it
+        on a phone.
       -->
       <div class="pmt-wrap">
       <div class="pro-mobile-toolbar">
@@ -1478,7 +1483,6 @@
           <SectionStressPanel />
           <KinematicPanel />
         {/if}
-        <MobileResultsPanel />
         <!--
           Basic only, but in BOTH its layouts. The shortcuts used to ride along
           inside the left Toolbar, which desktop no longer renders — so they
@@ -3059,21 +3063,12 @@
   }
   .pmt-btn:hover { color: var(--st-text); }
   .pmt-btn:disabled { opacity: 0.34; cursor: default; }
-  /*
-     ONE accent in the row at a time, and it means "the panel is showing this".
-     Project and the stage are the only two that can carry it, and exactly one
-     of them does whenever the panel is open.
-  */
-  .pmt-btn.active {
-    background: var(--st-selected-bg);
-    border-color: var(--st-accent);
-    color: var(--st-accent);
-  }
 
   /*
-     Armed and open are NOT that. A pointer mode and an open menu are states of
-     the control itself, so they are drawn as a filled key — no accent, nothing
-     that could be mistaken for a second selection.
+     Armed and open are states of the control itself — a pointer mode, an open
+     menu — not a selection, so they are drawn as a filled key, without the
+     accent that elsewhere in this shell marks "this is what you are looking
+     at".
   */
   .pmt-btn.armed,
   .pmt-btn.open {
@@ -3269,9 +3264,10 @@
      * hid the structure they describe. On a phone the two have to share the
      * screen along the axis there is more of, which is vertical.
      *
-     * Just over half the height: enough for a table to be worth reading, and
-     * it leaves the model in the upper portion where the reader can see what
-     * a value refers to.
+     * The height is the sheet token: `tokens.css` documents why 58vh — "just
+     * over half, so a table is worth reading" — failed at exactly that job, and
+     * the token is the one place the number is written, so this sheet and the
+     * two with grab handles cannot drift apart.
      */
     .drawer-right {
       top: auto;
@@ -3280,8 +3276,8 @@
       right: 0;
       width: 100%;
       max-width: none;
-      height: 58vh;
-      max-height: 58vh;
+      height: var(--st-sheet-h);
+      max-height: var(--st-sheet-h);
       border-left: none;
       border-top: 1px solid var(--st-hair-strong);
       border-radius: 12px 12px 0 0;

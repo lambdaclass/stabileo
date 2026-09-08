@@ -80,8 +80,6 @@
     enabled?: () => boolean;
     /** Only meaningful for a 3D frame; explains its own greying in 2D. */
     needs3d?: boolean;
-    /** Sole command of its group: drawn larger, since it carries the group. */
-    prominent?: boolean;
   };
 
   type Group = { id: string; labelKey: string; cmds: Cmd[] };
@@ -840,21 +838,6 @@
     transition: background 0.12s, color 0.12s, border-color 0.12s;
   }
 
-  /*
-     The lone command of a group has to read as one, so it takes the height the
-     icon-plus-label pairs beside it occupy and a larger glyph to fill it.
-  */
-  .rb-cmd.prominent {
-    justify-content: center;
-    align-self: stretch;
-    padding: 0.45rem 0.7rem;
-  }
-
-  .rb-cmd.prominent :global(svg) {
-    width: 30px;
-    height: 30px;
-  }
-
   .rb-cmd:hover:not(:disabled) { background: var(--st-surface-3); color: var(--st-text); }
 
   .rb-cmd.active {
@@ -1208,11 +1191,6 @@
       border-color: var(--st-accent);
       background: var(--st-selected-bg);
     }
-
-    /* `prominent` sizes a lone command to carry its group's height; with the
-       captions gone there is no extra height to carry. */
-    .rb-cmd.prominent { padding: 0; }
-    .rb-cmd.prominent :global(svg) { width: 22px; height: 22px; }
   }
 
 </style>

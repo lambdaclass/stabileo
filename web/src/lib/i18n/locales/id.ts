@@ -540,13 +540,6 @@ const id: Translations = {
   'status.hintAddLoads': 'Terapkan beban (L)',
   'status.hintReadyToSolve': 'Siap untuk dihitung (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'Hasil',
-  'mobile.resultsAndSolve': 'Hasil dan hitung',
-  'mobile.scale': 'Skala',
-  'mobile.values': 'Nilai',
-  'mobile.buildAndSolve': 'Bangun struktur dan tekan Hitung.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'Pilih (V)',
   'tooltip.toolSelect.desc': 'Memiliki 5 sub-mode: Titik simpul, Elemen, Tumpuan, Beban, dan Tegangan. Ganti di bilah mengambang.',

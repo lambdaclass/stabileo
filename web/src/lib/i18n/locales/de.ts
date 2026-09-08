@@ -535,13 +535,6 @@ const de: Translations = {
   'status.hintAddLoads': 'Bringen Sie Lasten auf (L)',
   'status.hintReadyToSolve': 'Bereit zum Berechnen (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'Ergebnisse',
-  'mobile.resultsAndSolve': 'Ergebnisse und Berechnen',
-  'mobile.scale': 'Skalierung',
-  'mobile.values': 'Werte',
-  'mobile.buildAndSolve': 'Struktur erstellen und Berechnen drücken.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'Auswählen (V)',
   'tooltip.toolSelect.desc': 'Hat 5 Untermodi: Knoten, Elemente, Auflager, Lasten und Spannungen. In der Werkzeugleiste wechseln.',

@@ -533,13 +533,6 @@ const tr: Translations = {
   'status.hintAddLoads': 'Yük uygulayın (L)',
   'status.hintReadyToSolve': 'Çözmeye hazır (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'Sonuçlar',
-  'mobile.resultsAndSolve': 'Sonuçlar ve çöz',
-  'mobile.scale': 'Ölçek',
-  'mobile.values': 'Değerler',
-  'mobile.buildAndSolve': 'Yapıyı oluşturun ve Çöz\'e basın.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'Seç (V)',
   'tooltip.toolSelect.desc': '5 alt modu vardır: Düğümler, Elemanlar, Mesnetler, Yükler ve Gerilmeler. Yüzen çubuktan değiştirin.',

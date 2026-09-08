@@ -137,6 +137,13 @@ export function buildModelling2D(): TourStep[] {
       description: t('demo.modelling.sectionsDesc'),
       position: 'bottom',
       allowInteraction: true,
+      /*
+       * On a phone the anchor is a tab INSIDE the data sheet, which exists
+       * only while the sheet is open — the drawing steps happen to leave it
+       * open, but a step that needs a surface has to open it itself rather
+       * than inherit it from whichever step ran before.
+       */
+      onEnter: () => openPanel('data'),
     },
 
     {
@@ -146,6 +153,8 @@ export function buildModelling2D(): TourStep[] {
       description: t('demo.modelling.materialsDesc'),
       position: 'bottom',
       allowInteraction: true,
+      // Same reason as the sections step above.
+      onEnter: () => openPanel('data'),
     },
 
     {

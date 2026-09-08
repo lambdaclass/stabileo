@@ -533,13 +533,6 @@ const hi: Translations = {
   'status.hintAddLoads': 'भार लगाएँ (L)',
   'status.hintReadyToSolve': 'हल करने के लिए तैयार (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'परिणाम',
-  'mobile.resultsAndSolve': 'परिणाम और हल',
-  'mobile.scale': 'पैमाना',
-  'mobile.values': 'मान',
-  'mobile.buildAndSolve': 'संरचना बनाएँ और हल दबाएँ।',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'चयन (V)',
   'tooltip.toolSelect.desc': '5 उप-मोड हैं: नोड, तत्व, आधार, भार और प्रतिबल। फ्लोटिंग बार में बदलें।',

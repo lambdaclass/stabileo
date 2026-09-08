@@ -533,13 +533,6 @@ const fr: Translations = {
   'status.hintAddLoads': 'Appliquez des charges (L)',
   'status.hintReadyToSolve': 'Prêt à calculer (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'Résultats',
-  'mobile.resultsAndSolve': 'Résultats et calcul',
-  'mobile.scale': 'Échelle',
-  'mobile.values': 'Valeurs',
-  'mobile.buildAndSolve': 'Construisez la structure puis appuyez sur Calculer.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'Sélectionner (V)',
   'tooltip.toolSelect.desc': 'Possède 5 sous-modes : Nœuds, Éléments, Appuis, Charges et Contraintes. Changez dans la barre flottante.',

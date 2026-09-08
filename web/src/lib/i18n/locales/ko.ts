@@ -540,13 +540,6 @@ const ko: Translations = {
   'status.hintAddLoads': '하중을 적용하세요 (L)',
   'status.hintReadyToSolve': '계산 준비 완료 (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': '결과',
-  'mobile.resultsAndSolve': '결과 및 계산',
-  'mobile.scale': '축척',
-  'mobile.values': '값',
-  'mobile.buildAndSolve': '구조물을 구성하고 계산을 누르세요.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': '선택 (V)',
   'tooltip.toolSelect.desc': '5가지 하위 모드가 있습니다: 절점, 요소, 지점, 하중, 응력. 플로팅 바에서 변경하세요.',

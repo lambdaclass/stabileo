@@ -62,11 +62,6 @@ export function runSolve() {
   } else {
     uiStore.toast(t('results.emptyModelError'), 'error');
   }
-  // Auto-close drawer on mobile after solve, show floating results panel
-  if (uiStore.isMobile) {
-    uiStore.leftDrawerOpen = false;
-    uiStore.mobileResultsPanelOpen = true;
-  }
 }
 
 export async function runSolve3D() {
@@ -113,9 +108,5 @@ export async function runSolve3D() {
     );
   } else {
     uiStore.toast(t('results.emptyModelError'), 'error');
-  }
-  if (uiStore.isMobile) {
-    uiStore.leftDrawerOpen = false;
-    uiStore.mobileResultsPanelOpen = true;
   }
 }

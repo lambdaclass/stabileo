@@ -880,13 +880,6 @@ const en: Record<string, string> = {
   'status.hintAddLoads': 'Apply loads (L)',
   'status.hintReadyToSolve': 'Ready to solve (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'Results',
-  'mobile.resultsAndSolve': 'Results and solve',
-  'mobile.scale': 'Scale',
-  'mobile.values': 'Values',
-  'mobile.buildAndSolve': 'Build the structure and press Solve.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'Select (V)',
   'tooltip.toolSelect.desc': 'Has 5 sub-modes: Nodes, Members, Supports, Loads, and Stresses. Switch in the floating bar.',
@@ -5833,7 +5826,6 @@ const en: Record<string, string> = {
   'material.spacingMargin': 'Additional bar-spacing margin',
   'material.spacingMarginHelp': 'Additional project-specified margin above the regulatory minimum. CIRSOC does not prescribe this value.',
 
-
   // ─── Foundations: the footing entity ───────────────────────────
   'footing.issue.unnamed': 'Footing {id} has no label.',
   'footing.issue.planDimension': 'Footing {footing}: plan dimension {axis} is {value} m. Dimension the footing before checking it.',
@@ -5868,7 +5860,6 @@ const en: Record<string, string> = {
   'geotechnical.assumption.groundwaterRecordedOnly': '{profile}: groundwater recorded at {depth} m. It is recorded only — no buoyancy or effective-stress check consumes it yet.',
   'geotechnical.migration.bearingDropped': '{profile}: the stored allowable bearing pressure was not a usable number and was cleared. State it again before checking any footing on this profile.',
 
-
   // ─── Foundations: the design run ───────────────────────────────
   'footing.run.kindNotImplemented': 'Footing {footing} is modelled as {kind}, which is not implemented. It was not checked as an isolated footing, because that would give a wrong answer with the appearance of a right one.',
   'footing.run.nodeMissing': 'Footing {footing}: node {node} is not in the model.',
@@ -5902,7 +5893,6 @@ const en: Record<string, string> = {
   'detailing.footingRun.activeResultSet': 'Active result set (no combination solved)',
 
   'footing.run.perimeterOppositeFaces': 'Footing {footing}: two OPPOSITE faces of the critical perimeter reach the footing edge. §22.6.5.3 tabulates α_s for interior, edge and corner cases only, and this is none of them — applying a corner α_s to a perimeter of a different shape would be the wrong coefficient, so punching is not checked.',
-
 
   // ─── Floors and foundations: the visible workflow ──────────────
   'detailing.floorRun.title': 'Slabs, walls and foundations',
@@ -6141,7 +6131,6 @@ const en: Record<string, string> = {
   'ribbon.groupProject': 'Project',
   'ribbon.needsSolve': 'solve the model first',
   'ribbon.groupDraw': 'Draw',
-  'ribbon.groupData': 'Data',
   'ribbon.momentY': 'My',
   'ribbon.momentZ': 'Mz',
   'ribbon.shearZ': 'Vz',
@@ -6157,7 +6146,6 @@ const en: Record<string, string> = {
   'ribbon.nameMomentZ': 'Bending moment about z',
   'ribbon.nameShearY': 'Shear along y',
   'ribbon.nameShearZ': 'Shear along z',
-
 
   // ─── PRO design detail: copy that was hard-coded in English (PR20 i18n pass) ───
   'design.detail.check': 'Check',

@@ -540,13 +540,6 @@ const ja: Translations = {
   'status.hintAddLoads': '荷重を適用しましょう（L）',
   'status.hintReadyToSolve': '計算の準備ができました（Enter）',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': '結果',
-  'mobile.resultsAndSolve': '結果と計算',
-  'mobile.scale': '縮尺',
-  'mobile.values': '値',
-  'mobile.buildAndSolve': '構造を組み立てて計算を押してください。',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': '選択 (V)',
   'tooltip.toolSelect.desc': '5つのサブモードがあります：節点、要素、支点、荷重、応力。フローティングバーで切り替えます。',

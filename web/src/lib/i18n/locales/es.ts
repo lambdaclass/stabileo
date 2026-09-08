@@ -873,13 +873,6 @@ const es: Record<string, string> = {
   'status.hintAddLoads': 'Aplicá cargas (L)',
   'status.hintReadyToSolve': 'Listo para calcular (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'Resultados',
-  'mobile.resultsAndSolve': 'Resultados y calcular',
-  'mobile.scale': 'Escala',
-  'mobile.values': 'Valores',
-  'mobile.buildAndSolve': 'Armá la estructura y presioná Calcular.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'Seleccionar (V)',
   'tooltip.toolSelect.desc': 'Tiene 5 sub-modos: Nodos, Barras, Apoyos, Cargas y Tensiones. Cambiá en la barra flotante.',
@@ -5820,7 +5813,6 @@ const es: Record<string, string> = {
   'material.spacingMargin': 'Margen adicional entre barras',
   'material.spacingMarginHelp': 'Margen adicional definido por el proyecto por encima del mínimo reglamentario. CIRSOC no prescribe este valor.',
 
-
   // ─── Fundaciones: la entidad zapata ───────────────────────────
   'footing.issue.unnamed': 'La zapata {id} no tiene rótulo.',
   'footing.issue.planDimension': 'Zapata {footing}: la dimensión en planta {axis} es {value} m. Dimensionar la zapata antes de verificarla.',
@@ -5855,7 +5847,6 @@ const es: Record<string, string> = {
   'geotechnical.assumption.groundwaterRecordedOnly': '{profile}: napa registrada a {depth} m. Sólo queda registrada: todavía ninguna verificación de flotación o de tensiones efectivas la consume.',
   'geotechnical.migration.bearingDropped': '{profile}: la tensión admisible almacenada no era un número utilizable y se borró. Declararla de nuevo antes de verificar cualquier zapata sobre este perfil.',
 
-
   // ─── Fundaciones: la corrida de diseño ─────────────────────────
   'footing.run.kindNotImplemented': 'La zapata {footing} está modelada como {kind}, que no está implementado. No se verificó como zapata aislada, porque eso daría un resultado incorrecto con apariencia de correcto.',
   'footing.run.nodeMissing': 'Zapata {footing}: el nudo {node} no está en el modelo.',
@@ -5889,7 +5880,6 @@ const es: Record<string, string> = {
   'detailing.footingRun.activeResultSet': 'Conjunto de resultados activo (ninguna combinación resuelta)',
 
   'footing.run.perimeterOppositeFaces': 'Zapata {footing}: dos caras OPUESTAS del perímetro crítico llegan al borde de la zapata. El art. 22.6.5.3 tabula α_s sólo para los casos interior, de borde y de esquina, y éste no es ninguno de ellos: aplicar el α_s de esquina a un perímetro de otra forma sería usar el coeficiente equivocado, por lo que no se verifica el punzonado.',
-
 
   // ─── Pisos y fundaciones: el flujo visible ─────────────────────
   'detailing.floorRun.title': 'Losas, tabiques y fundaciones',
@@ -6133,7 +6123,6 @@ const es: Record<string, string> = {
   'ribbon.groupProject': 'Proyecto',
   'ribbon.needsSolve': 'primero resolvé el modelo',
   'ribbon.groupDraw': 'Dibujar',
-  'ribbon.groupData': 'Datos',
   'ribbon.momentY': 'My',
   'ribbon.momentZ': 'Mz',
   'ribbon.shearZ': 'Vz',
@@ -6149,7 +6138,6 @@ const es: Record<string, string> = {
   'ribbon.nameMomentZ': 'Momento flector respecto a z',
   'ribbon.nameShearY': 'Corte según y',
   'ribbon.nameShearZ': 'Corte según z',
-
 
   // ─── PRO design detail: copy that was hard-coded in English (PR20 i18n pass) ───
   'design.detail.check': 'Verificación',

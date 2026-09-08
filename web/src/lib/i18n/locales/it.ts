@@ -533,13 +533,6 @@ const it: Translations = {
   'status.hintAddLoads': 'Applica carichi (L)',
   'status.hintReadyToSolve': 'Pronto per il calcolo (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'Risultati',
-  'mobile.resultsAndSolve': 'Risultati e calcolo',
-  'mobile.scale': 'Scala',
-  'mobile.values': 'Valori',
-  'mobile.buildAndSolve': 'Costruisci la struttura e premi Calcola.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'Seleziona (V)',
   'tooltip.toolSelect.desc': 'Ha 5 sotto-modalità: Nodi, Elementi, Vincoli, Carichi e Tensioni. Cambia nella barra flottante.',

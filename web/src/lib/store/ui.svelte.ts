@@ -344,9 +344,7 @@ function createUIStore() {
 
   // Mobile responsive
   let windowWidth = $state(initialWindowWidth);
-  let leftDrawerOpen = $state(false);
   let rightDrawerOpen = $state(false);
-  let mobileResultsPanelOpen = $state(false);
 
   // Desktop sidebar toggles
   let rightSidebarOpen = $state(false);
@@ -874,12 +872,8 @@ function createUIStore() {
     get isMobile() { return windowWidth < 768; },
     get windowWidth() { return windowWidth; },
     set windowWidth(w: number) { windowWidth = w; },
-    get leftDrawerOpen() { return leftDrawerOpen; },
-    set leftDrawerOpen(v: boolean) { leftDrawerOpen = v; },
     get rightDrawerOpen() { return rightDrawerOpen; },
     set rightDrawerOpen(v: boolean) { rightDrawerOpen = v; },
-    get mobileResultsPanelOpen() { return mobileResultsPanelOpen; },
-    set mobileResultsPanelOpen(v: boolean) { mobileResultsPanelOpen = v; },
     get rightSidebarOpen() { return rightSidebarOpen; },
     set rightSidebarOpen(v: boolean) { rightSidebarOpen = v; },
     get leftSidebarOpen() { return leftSidebarOpen; },
@@ -1202,7 +1196,6 @@ function createUIStore() {
       contextMenu = null;
       showWhatIf = false;
       showKinematicPanel = false;
-      mobileResultsPanelOpen = false;
       measureMode = false;
       measurePoints = [];
       liveCalcError = null;

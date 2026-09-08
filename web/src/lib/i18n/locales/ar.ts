@@ -540,13 +540,6 @@ const ar: Translations = {
   'status.hintAddLoads': 'طبّق أحمالاً (L)',
   'status.hintReadyToSolve': 'جاهز للحساب (Enter)',
 
-  // ─── MobileResultsPanel.svelte ───
-  'mobile.results': 'النتائج',
-  'mobile.resultsAndSolve': 'النتائج والحساب',
-  'mobile.scale': 'المقياس',
-  'mobile.values': 'القيم',
-  'mobile.buildAndSolve': 'أنشئ المنشأ واضغط حساب.',
-
   // ─── Toolbar.svelte HELP_TEXTS (tooltips) ───
   'tooltip.toolSelect.title': 'تحديد (V)',
   'tooltip.toolSelect.desc': 'يحتوي على 5 أوضاع فرعية: عقد، عناصر، مساند، أحمال وإجهادات. غيّرها من الشريط العائم.',
