@@ -93,7 +93,7 @@ type StoredDesigns = {
 const designs = (page: Page) =>
   page.evaluate(() => window.__stabileo.jointDesigns() as StoredDesigns);
 
-test.describe('I-06 · the joint work survives a save and an open', () => {
+test.describe('@slow I-06 · the joint work survives a save and an open', () => {
   test('a designed joint is written to the file and comes back from it', async ({ page }) => {
     await page.goto(PRO_URL);
     await loadModel(page, '3d-nave-industrial');
@@ -165,7 +165,7 @@ test.describe('I-06 · the joint work survives a save and an open', () => {
   });
 });
 
-test.describe('I-07 · joints do not follow you into another model', () => {
+test.describe('@slow I-07 · joints do not follow you into another model', () => {
   /*
    * The finding, reproduced exactly: design a joint, load another example WITHOUT reloading the
    * page, and look at the same node id. It used to come back wearing the previous model's bolts.

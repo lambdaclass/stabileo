@@ -49,7 +49,7 @@ function assertNoApprovalClaim(text: string): void {
   }
 }
 
-test.describe('a joint arrives undesigned and says so', () => {
+test.describe('@slow a joint arrives undesigned and says so', () => {
   test('starts at notDesigned', async ({ page }) => {
     await openShedJoint(page);
     await expect(page.getByTestId('joint-design-state')).toHaveAttribute('data-state', 'notDesigned');
@@ -75,7 +75,7 @@ test.describe('a joint arrives undesigned and says so', () => {
   });
 });
 
-test.describe('without an analysis there is nothing to check against', () => {
+test.describe('@slow without an analysis there is nothing to check against', () => {
   /*
    * The state the first version of this file mistook for a bug. A joint on an unsolved model has
    * bolts, a plate and no demand — so §J.3.6 and §J.3.10 cannot run, and saying so is the
@@ -97,7 +97,7 @@ test.describe('without an analysis there is nothing to check against', () => {
   });
 });
 
-test.describe('choosing bolts runs the checks', () => {
+test.describe('@slow choosing bolts runs the checks', () => {
   test('every check names its clause, including the ones that could not run', async ({ page }) => {
     await openShedJoint(page, true);
     /*
@@ -151,7 +151,7 @@ test.describe('choosing bolts runs the checks', () => {
   });
 });
 
-test.describe('the plate appears once its thickness is given', () => {
+test.describe('@slow the plate appears once its thickness is given', () => {
   async function designFully(page: Page): Promise<void> {
     await openShedJoint(page, true);
     await page.getByTestId('jd-count').fill('6');
@@ -191,7 +191,7 @@ test.describe('the plate appears once its thickness is given', () => {
   });
 });
 
-test.describe('nothing calls itself verified', () => {
+test.describe('@slow nothing calls itself verified', () => {
   test('no VERIFIED and no green tick language, in any state', async ({ page }) => {
     await openShedJoint(page);
     for (const [id, v] of [['jd-count', '6'], ['jd-plate-t', '12'], ['jd-plate-fu', '400']] as const) {
@@ -204,7 +204,7 @@ test.describe('nothing calls itself verified', () => {
   });
 });
 
-test.describe('the design survives changing joints', () => {
+test.describe('@slow the design survives changing joints', () => {
   test('each joint keeps its own', async ({ page }) => {
     await openShedJoint(page);
     await page.getByTestId('jd-count').fill('8');
@@ -220,7 +220,7 @@ test.describe('the design survives changing joints', () => {
   });
 });
 
-test.describe('the states a user can actually reach', () => {
+test.describe('@slow the states a user can actually reach', () => {
   async function solvedJoint(page: Page): Promise<void> {
     await openShedJoint(page, true);
   }
