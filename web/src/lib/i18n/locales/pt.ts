@@ -4226,7 +4226,6 @@ const pt: Translations = {
   'ribbon.examples': 'Exemplos',
   'ribbon.groupConditions': 'Condições',
   'ribbon.groupCreate': 'Criar',
-  'ribbon.groupData': 'Dados',
   'ribbon.groupDiagrams': 'Diagramas',
   'ribbon.groupDraw': 'Desenhar',
   'ribbon.groupEdit': 'Editar',

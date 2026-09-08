@@ -133,7 +133,19 @@
 
   let sheetWasOpen = false;
   $effect(() => {
-    const open = uiStore.isMobile && uiStore.appMode === 'basico' && !!basicPanel;
+    /*
+     * Both sheets, because both take the same height from the same canvas.
+     *
+     * This read `appMode === 'basico'`, which was true when Basic was the
+     * only mode with a sheet. PRO has one now — same `--st-sheet-h`, same
+     * reservation on `.app-body` — and without this it opened over a model
+     * still framed for the full viewport: 45 vh of canvas gone and the
+     * structure sitting wherever it had been, usually half behind the sheet.
+     */
+    const open =
+      uiStore.isMobile &&
+      ((uiStore.appMode === 'basico' && !!basicPanel) ||
+        (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen));
     if (open === sheetWasOpen) return;
     sheetWasOpen = open;
     if (modelStore.nodes.size === 0) return;
@@ -419,7 +431,6 @@
     historyStore.clear();
     uiStore.proPanelVisible = true;
     uiStore.proPanelWidth = 540;
-    uiStore.leftDrawerOpen = false;
     uiStore.rightDrawerOpen = false;
     // Restore target mode's model or start empty
     const saved = modeSnapshots.get(target);
@@ -1244,11 +1255,18 @@
     -->
     {#if uiStore.appMode === 'pro' && uiStore.isMobile}
       <!--
-        A positioned wrapper, because the stage menu is `top: 100%` of it.
-        Without one it resolves against a distant ancestor and opens at the
-        bottom of the page — the same way Basic's cluster menu did before
-        `.ribbon` was given a `position`, and it is invisible until someone
-        opens the menu on a phone.
+        A positioned wrapper, so the camera menu resolves against THIS bar.
+        ──────────────────────────────────────────────────────────────────
+        `.pmt-menu` is absolute with `left: 4px; right: 4px` and no `top`, so
+        it drops from its static position under the row and takes its width
+        from whichever ancestor is positioned. Without this one that is a
+        distant ancestor, and the menu spans the page instead of the bar —
+        the same way Basic's cluster menu did before `.ribbon` was given a
+        `position`, and just as invisible until someone opens it on a phone.
+
+        This used to say "the stage menu", which the bar carried when the
+        stage selector lived up here. That moved into the sheet's left pill;
+        the camera menu is what needs the wrapper now.
       -->
       <div class="pmt-wrap">
       <div class="pro-mobile-toolbar">
@@ -1309,6 +1327,39 @@
           title={t('pro.solve')}
           data-testid="pmt-solve"
         ><Icon name="solve" size={19} /></button>
+
+        <!--
+          The floating results panel, which had lost its only door.
+          ────────────────────────────────────────────────────────
+          `MobileResultsPanel` says of itself that "PRO mobile has no ribbon,
+          and its own toolbar carries the button that opens this". This bar
+          replaced that toolbar and did not bring the button, so the panel was
+          reachable exactly one way: it opened ITSELF after every solve, on top
+          of the results sheet — the two-panels-arguing arrangement this branch
+          removed from Basic — and once dismissed with its ✕ nothing could
+          bring it back short of solving again.
+
+          Both halves are fixed. The auto-open is gone from all five solve
+          paths, because the sheet already answers a solve by showing Results
+          (`ProPanel.solve()` sets `proActiveTab = 'results'`), so a second
+          surface over it only ever covered the first. And the panel gets its
+          door back rather than being deleted: the deformed animation and its
+          speed live nowhere else in PRO, not even on the desktop, so dropping
+          it would have removed a control instead of fixing a bug.
+        -->
+        <button
+          class="pmt-btn"
+          class:active={uiStore.mobileResultsPanelOpen}
+          onclick={() => (uiStore.mobileResultsPanelOpen = !uiStore.mobileResultsPanelOpen)}
+          disabled={!resultsStore.results && !resultsStore.results3D}
+          title={t('mobile.results')}
+          aria-pressed={uiStore.mobileResultsPanelOpen}
+          data-testid="pmt-results"
+        ><!-- `data`, which is what PRO's own Results command carries in
+             `lib/pro/stages.ts` — one concept, one glyph. There is no
+             `results` icon, and inventing one here would have given the same
+             idea two faces on one screen. -->
+          <Icon name="data" size={19} /></button>
 
         <!--
           The camera stack, as one split button.
@@ -3060,9 +3111,17 @@
   .pmt-btn:hover { color: var(--st-text); }
   .pmt-btn:disabled { opacity: 0.34; cursor: default; }
   /*
-     ONE accent in the row at a time, and it means "the panel is showing this".
-     Project and the stage are the only two that can carry it, and exactly one
-     of them does whenever the panel is open.
+     `active` means "this is open"; `armed` means "this is the mode you are in".
+     ─────────────────────────────────────────────────────────────────────────
+     One control in the row carries `active` — the results button, lit while
+     its panel is up — and one carries `armed`: the pointer, and the camera
+     face when the view it names is the current one. Two words because they
+     are two claims, and a reader who sees both lit is not looking at a
+     contradiction.
+
+     This used to say Project and the stage were the only two that could carry
+     it. Both left the bar for the sheet; the rule outlived the controls it
+     described.
   */
   .pmt-btn.active {
     background: var(--st-selected-bg);
@@ -3269,9 +3328,13 @@
      * hid the structure they describe. On a phone the two have to share the
      * screen along the axis there is more of, which is vertical.
      *
-     * Just over half the height: enough for a table to be worth reading, and
-     * it leaves the model in the upper portion where the reader can see what
-     * a value refers to.
+     * The height comes from `--st-sheet-h`, the same number Basic's panel and
+     * PRO's sheet use. It was a literal 58vh here — the value the token was
+     * MOVED AWAY from, and tokens.css says why: 58 was chosen to make a
+     * results table worth reading and did not manage it, while costing the
+     * model more than half the screen. Education kept the old number simply
+     * because it was written before the token existed, so the three surfaces
+     * disagreed about how tall a sheet is.
      */
     .drawer-right {
       top: auto;
@@ -3280,8 +3343,8 @@
       right: 0;
       width: 100%;
       max-width: none;
-      height: 58vh;
-      max-height: 58vh;
+      height: var(--st-sheet-h);
+      max-height: var(--st-sheet-h);
       border-left: none;
       border-top: 1px solid var(--st-hair-strong);
       border-radius: 12px 12px 0 0;
@@ -3289,13 +3352,12 @@
     }
 
     /*
-       PRO's sheet takes the height `.app-body` gives up for it, so the model
-       above it is really there rather than covered — the same arrangement
-       Basic's panel uses, and the same token, so the two cannot drift.
+       A column, so the handle row stays put and the panel below it scrolls.
+       The height is not repeated here any more: the rule above now gives every
+       sheet the same token, and two rules setting one value is how these came
+       to disagree in the first place.
     */
     .drawer-right.drawer-shared {
-      height: var(--st-sheet-h);
-      max-height: var(--st-sheet-h);
       display: flex;
       flex-direction: column;
     }

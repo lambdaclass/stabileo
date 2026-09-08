@@ -6133,7 +6133,6 @@ const es: Record<string, string> = {
   'ribbon.groupProject': 'Proyecto',
   'ribbon.needsSolve': 'primero resolvé el modelo',
   'ribbon.groupDraw': 'Dibujar',
-  'ribbon.groupData': 'Datos',
   'ribbon.momentY': 'My',
   'ribbon.momentZ': 'Mz',
   'ribbon.shearZ': 'Vz',

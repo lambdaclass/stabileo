@@ -34,10 +34,8 @@
      * has not said anything about the other.
      */
     storageKey: string;
-    /** Called when a drag ENDS — see below. */
-    onResizeEnd?: () => void;
   };
-  let { storageKey, onResizeEnd }: Props = $props();
+  let { storageKey }: Props = $props();
 
   const MIN = 22;
   const MAX = 86;
@@ -85,11 +83,29 @@
    * genuinely the unmount, letting `.app-body` stop reserving height for a
    * panel that is no longer there.
    */
+  /**
+   * Teardown for the listeners a drag installs, held where more than the
+   * drag can reach it.
+   *
+   * They were removed only in `up()`, which assumes every gesture ends the
+   * way it began. Two do not: unmounting mid-drag left three window
+   * listeners running against a component that was gone, and a SECOND
+   * `pointerdown` — a second finger — installed a second set that closed
+   * over its own stale `startY`/`startVh`, so whichever one answered last
+   * decided the height.
+   */
+  let releaseDrag: (() => void) | null = null;
+
   $effect(() => {
-    return () => document.documentElement.style.removeProperty('--st-sheet-h');
+    return () => {
+      releaseDrag?.();
+      document.documentElement.style.removeProperty('--st-sheet-h');
+    };
   });
 
   function start(e: PointerEvent) {
+    // A second finger replaces the first gesture rather than racing it.
+    releaseDrag?.();
     dragging = true;
     const startY = e.clientY;
     const startVh = vh;
@@ -102,12 +118,17 @@
       vh = Math.min(MAX, Math.max(MIN, startVh + (startY - ev.clientY) / unit));
     };
 
-    const up = () => {
-      dragging = false;
-      try { localStorage.setItem(storageKey, String(Math.round(vh))); } catch { /* private mode */ }
+    const detach = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
+      releaseDrag = null;
+    };
+
+    const up = () => {
+      dragging = false;
+      try { localStorage.setItem(storageKey, String(Math.round(vh))); } catch { /* private mode */ }
+      detach();
       /*
        * Re-frame once, at the END. The canvas has just changed height by as
        * much as 60 % of the screen, so the framing that preceded the drag is
@@ -116,13 +137,13 @@
        */
       requestAnimationFrame(() => requestAnimationFrame(() => {
         window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
-        onResizeEnd?.();
       }));
     };
 
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
+    releaseDrag = detach;
     e.preventDefault();
   }
 
@@ -161,7 +182,6 @@
     // height and the framing that preceded the keystroke is wrong for what is left.
     requestAnimationFrame(() => requestAnimationFrame(() => {
       window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
-      onResizeEnd?.();
     }));
   }
 </script>

@@ -20,11 +20,30 @@ const EXPECT_DIAGRAM = {
   shearZ: ['shear', 'shearZ'], stress: 'colorMap',
 };
 
+/*
+ * The viewport is an argument, because the anchors depend on it.
+ *
+ * `ANCHORS.ribbonCommand` resolves differently below 768 px — a phone points
+ * at `dt-tab-*` inside the data sheet where a desktop points at `rb-cmd-*` —
+ * so a walkthrough can be whole at 1500 px and broken at 375 with the audit
+ * reporting nothing. It only ever ran the desktop width, which is the one
+ * width these repairs were NOT about.
+ *
+ *   node scripts/audit-demos.mjs              # 1500×950, as before
+ *   node scripts/audit-demos.mjs 375 667      # the phone
+ */
+const [argW, argH] = process.argv.slice(2);
+const VIEWPORT = { width: Number(argW) || 1500, height: Number(argH) || 950 };
+
 const b = await chromium.launch();
 let problems = 0;
+console.log(`viewport ${VIEWPORT.width}×${VIEWPORT.height}`);
 
 for (const id of DEMOS) {
-  const c = await b.newContext({ viewport: { width: 1500, height: 950 } });
+  const c = await b.newContext({
+    viewport: VIEWPORT,
+    ...(VIEWPORT.width < 768 ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : {}),
+  });
   await c.addInitScript(() => {
     localStorage.setItem('stabileo-lang', 'es');
     localStorage.setItem('stabileo-lang-manual', '1');

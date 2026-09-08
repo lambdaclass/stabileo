@@ -30,6 +30,8 @@
 
 import { test, expect, loadModel } from './fixtures';
 
+type Page = import('@playwright/test').Page;
+
 /** Small enough that a solve is quick; real enough that `hasModel` is true. */
 const SMALL = 'rc-qa-diagnostic';
 
@@ -103,5 +105,67 @@ test.describe('@smoke PRO phone bar — Calcular', () => {
       page.getByTestId('pmt-solve'),
       'closing the sheet unmounts the panel and nulls the ref; Calcular must survive it',
     ).toBeEnabled();
+  });
+});
+
+/**
+ * The floating results panel, and the door it lost.
+ *
+ * `MobileResultsPanel` is PRO-only and used to be opened by a button on the
+ * toolbar this bar replaced. The bar arrived without it, so the panel was
+ * reachable one way only — it opened itself after every solve, over the
+ * results sheet — and its ✕ was a one-way exit.
+ *
+ * Both halves are asserted, because fixing either alone leaves a defect: an
+ * opener with the auto-open still in place restores two panels arguing over
+ * one screen, and dropping the auto-open without an opener makes the panel
+ * unreachable outright.
+ */
+test.describe('@smoke PRO phone bar — the results panel', () => {
+  const panel = (page: Page) => page.locator('.mrp-panel');
+
+  test('a solve does not raise it, and the bar can', async ({ pro: page }) => {
+    await page.setViewportSize(PHONE);
+    await loadModel(page, SMALL);
+
+    const opener = page.getByTestId('pmt-results');
+    await expect(opener, 'nothing to read yet, so nothing to open').toBeDisabled();
+
+    await page.getByTestId('pmt-solve').click();
+    await expect
+      .poll(() => page.evaluate(() => window.__stabileo.solveCount()))
+      .toBeGreaterThan(0);
+
+    /*
+     * The sheet answers the solve. A second surface on top of it is the bug,
+     * not the feature — `ProPanel.solve()` has already switched to Results.
+     */
+    await expect(page.getByTestId('pm-stage-toggle'), 'the sheet opens').toBeVisible();
+    await expect(
+      panel(page),
+      'a solve must not raise the floating panel over the sheet',
+    ).toHaveCount(0);
+
+    await expect(opener, 'with results, the bar can offer it').toBeEnabled();
+    await opener.click();
+    await expect(panel(page), 'the bar opens it').toHaveCount(1);
+  });
+
+  test('its ✕ is not a one-way exit', async ({ pro: page }) => {
+    await page.setViewportSize(PHONE);
+    await loadModel(page, SMALL);
+    await page.getByTestId('pmt-solve').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount())).toBeGreaterThan(0);
+
+    const opener = page.getByTestId('pmt-results');
+    await opener.click();
+    await expect(panel(page)).toHaveCount(1);
+
+    await page.locator('.mrp-close').click();
+    await expect(panel(page)).toHaveCount(0);
+
+    // THE regression. Before this, the only way back was to solve again.
+    await opener.click();
+    await expect(panel(page), 'closing it must not strand the reader').toHaveCount(1);
   });
 });

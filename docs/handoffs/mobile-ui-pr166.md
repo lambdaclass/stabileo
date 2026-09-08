@@ -614,8 +614,10 @@ the served `assets/index-*.js` hash matches the build you just made.
   for two commits. Fixed in `6a350081` — Settings opens from Project, the
   phone's app menu. **When moving a control "into X for width W", check that X
   can be opened at width W.**
-- Left behind by 5.1, harmless but worth knowing: `uiStore.leftDrawerOpen` and
-  `uiStore.leftSidebarOpen` are now vestigial. Their only remaining readers are
-  `src/lib/tour/tour-steps.ts`, which **nothing imports** — dead code kept
-  compiling. Deleting that file and the two store fields is a clean sweep for
-  whoever wants it; it was left out of 5.1 to keep that commit about the shell.
+- Left behind by 5.1 and swept in review: `uiStore.leftDrawerOpen` and
+  `uiStore.leftSidebarOpen` were vestigial, their only remaining readers in
+  `src/lib/tour/tour-steps.ts`, which nothing imported. The file and both store
+  fields are gone. The lesson worth keeping is how it read from outside: a
+  field with a getter, a setter and live writers looks maintained, and only a
+  reader census says otherwise — `solve.ts` was still setting `leftDrawerOpen`
+  on every mobile solve, for a drawer that had stopped existing.
