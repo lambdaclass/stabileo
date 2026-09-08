@@ -119,12 +119,30 @@ describe('the declared assumptions describe what the app ACTUALLY does', () => {
     expect(CIRSOC301_JS_ASSUMPTIONS).not.toContain('steel.assume.noTests');
   });
 
+  it('and no longer claims the plastic moment is uncapped, because it is not', () => {
+    /*
+     * `steel.assume.noPlasticMomentCap` reads «the Mp ≤ 1,5·My cap of expression F.2.1 is not
+     * applied: the plastic moment has no upper bound». It IS applied, on both axes —
+     * `Math.min(MpUncapped, MpCap)` for F.2.1 and `Math.min(MpUncapped, 1,5·MyWeak)` for F.6.1.
+     *
+     * This entry arrived from the clause-mapping exercise, which found the gap, and was made
+     * false by the fix that same exercise prompted. That is how a list like this goes stale: the
+     * entry is written when the gap is found and nobody revisits it when the gap is closed.
+     *
+     * One-sided on purpose, like the `noTests` case above: the behaviour is pinned by
+     * `describe('F.2.1 and F.6.1 — the 1,5·My cap, now applied')` in
+     * `cirsoc301-benchmarks.test.ts`, which asserts both that the cap does not bind on a rolled
+     * I-section and that it DOES on a shape whose Zx/Sx exceeds 1,5. Repeating that here would
+     * be a second copy of the same geometry, drifting from the first.
+     */
+    expect(CIRSOC301_JS_ASSUMPTIONS).not.toContain('steel.assume.noPlasticMomentCap');
+  });
+
   it('still claims the ones that are still true', () => {
     for (const key of [
       'steel.assume.unbracedLengthIsMemberLength',
       'steel.assume.noSectionClassification',
       'steel.assume.netAreaEqualsGross',
-      'steel.assume.noPlasticMomentCap',
       'steel.assume.noTorsionalBuckling',
       'steel.assume.momentGradientIsUnity',
       'steel.assume.torsionalConstantZeroWhenAbsent',

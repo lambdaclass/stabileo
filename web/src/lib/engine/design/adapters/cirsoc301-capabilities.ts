@@ -155,29 +155,34 @@ export const CIRSOC301_JS_ASSUMPTIONS: readonly string[] = Object.freeze([
   'steel.assume.unbracedLengthIsMemberLength',
   'steel.assume.noSectionClassification',
   'steel.assume.netAreaEqualsGross',
-  'steel.assume.noPlasticMomentCap',
   'steel.assume.noTorsionalBuckling',
   'steel.assume.momentGradientIsUnity',
   'steel.assume.torsionalConstantZeroWhenAbsent',
 ]);
 
 /*
- * ── Three entries left this list, and why that matters ─────────────
+ * ── Four entries left this list, and why that matters ──────────────
  *
- * It used to carry `webAndFlangeThicknessInferred`, `ultimateStrengthInferred` and `noTests`. All
- * three were true when written and none is true now:
+ * It used to carry `webAndFlangeThicknessInferred`, `ultimateStrengthInferred`, `noTests` and
+ * `noPlasticMomentCap`. All four were true when written and none is true now:
  *
  *   · the thicknesses and `Fu` are no longer inferred — `verification-service.ts` REQUIRES them and
  *     reports the element as skipped when they are absent, via `missingSteelInputs`;
- *   · the checker has 18 benchmark tests in `cirsoc301-benchmarks.test.ts`.
+ *   · the checker has 18 benchmark tests in `cirsoc301-benchmarks.test.ts`;
+ *   · the `Mp ≤ 1,5·My` cap IS applied now, on both axes — `Math.min(MpUncapped, MpCap)` for
+ *     F.2.1 and `Math.min(MpUncapped, 1,5·MyWeak)` for F.6.1, with `describe('F.2.1 and F.6.1 —
+ *     the 1,5·My cap, now applied')` over both. Its assumption arrived from the clause-mapping
+ *     exercise below and was made false by the fix that same exercise prompted, which is exactly
+ *     how a list like this goes stale: the entry is written when the gap is found and nobody
+ *     revisits it when the gap is closed.
  *
  * Declaring an assumption the app no longer makes is not a harmless excess of caution. It is the
  * same defect as hiding one, pointing the other way: a reader who finds one warning stale discounts
  * the rest, and the ones that remain — the unbraced length above all — are the ones that must be
  * believed.
  *
- * The four that arrived came out of the clause-mapping exercise, each verified against the code:
- * `Ae = Ag` with no hole deduction, no `1,5·My` cap on the plastic moment, no torsional or
+ * The three that arrived and REMAIN came out of the clause-mapping exercise, each verified
+ * against the code: `Ae = Ag` with no hole deduction, no torsional or
  * flexural-torsional buckling (§E.4), and `Cb` fixed at 1,0 — `const Cb = 1.0`, under the
  * checker's own comment «Simplificacion con Cb=1.0», which is the uniform-moment case and
  * conservative for most spans. Plus the caller's `J = 0` when the section carries no torsional

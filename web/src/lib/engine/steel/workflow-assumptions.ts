@@ -97,11 +97,14 @@ const UNIVERSAL: readonly MemberAssumption[] = Object.freeze([
     source: 'assumed',
     routeOutKey: 'steel.assume.route.boltGeometry',
   },
-  {
-    key: 'steel.assume.noPlasticMomentCap',
-    source: 'assumed',
-    routeOutKey: 'steel.assume.route.implementCap',
-  },
+  /*
+   * `noPlasticMomentCap` was here, with `route.implementCap` as its way out. That route was
+   * taken: `Math.min(MpUncapped, MpCap)` applies F.2.1 and F.6.1 on both axes, pinned by
+   * `describe('F.2.1 and F.6.1 — the 1,5·My cap, now applied')`. An assumption whose route out
+   * has been walked is not an assumption any more, and `CIRSOC301_JS_ASSUMPTIONS` no longer
+   * carries it either — the two lists are required to agree by `workflow-assumptions.test.ts`,
+   * which is what caught this one still being here.
+   */
   {
     key: 'steel.assume.noTorsionalBuckling',
     source: 'assumed',
