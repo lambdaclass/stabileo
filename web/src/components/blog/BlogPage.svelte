@@ -76,7 +76,9 @@
 </script>
 
 <div class="landing blog" bind:this={pageEl}>
-  <BlogNav />
+  <!-- `slug`, not `post`: an unknown slug is still inside a post's address,
+       and that reader needs the way back to the index more than anyone. -->
+  <BlogNav inPost={!!slug} />
 
   {#if slug && !post}
     <section class="sec sec--ink blog-head">

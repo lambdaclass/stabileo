@@ -39,6 +39,7 @@ import {
   FAMILY_CLASSIFICATION, DESIGN_CODES, familiesForCode,
   type FamilyClassification, type SectionSeries, type GeometryFidelity,
 } from '../data/section-catalog';
+import { IRAM_L } from '../data/iram-angles';
 
 /** The catalogue name. What the model stores, and what `resolveProfile` looks up. */
 export type ProfileId = string;
@@ -57,14 +58,29 @@ export type ProfileId = string;
  * So the classification is read from there and nothing about it is duplicated. Two maps of the
  * same fact drift, and the one with real published standards in it is not the one to lose.
  *
- * ── One inherited imprecision, stated rather than smoothed ─────────
+ * ── The one family with two provenances ───────────────────────────
  *
- * `FAMILY_CLASSIFICATION.L` names `EN 10056-1`, while `PROFILE_FAMILIES.L` is
- * `[...L, ...IRAM_L]` — two tables merged, with nothing on the rows saying which is which. The
- * classification is therefore right about most of that family and optimistic about the rest.
- * Reported here because a selector that quietly disagreed with the catalogue it reads would be
- * worse than one that inherits a known gap, and fixing it means splitting the array, which is
- * the catalogue's job and not this module's.
+ * `FAMILY_CLASSIFICATION.L` names `EN 10056-1`. `PROFILE_FAMILIES.L` is `[...L, ...IRAM_L]` —
+ * the European equal-leg angles plus the Argentine series tabulated for CIRSOC 301-EL. So the
+ * family declaration is right about part of that family and optimistic about the rest, and PR21
+ * recorded that as an inherited gap it would not close.
+ *
+ * It is closed here, and the way it is closed is the point. The provenance is NOT guessed from
+ * a row: it is read from WHICH SOURCE ARRAY the row came from, which is a fact the tables
+ * carry and the merged array loses. `IRAM_L` is imported and its ids are the ones that get the
+ * IRAM standard; everything else in the family keeps the European one. Move a profile between
+ * those two files and the answer here moves with it, because nothing is transcribed.
+ *
+ * Two things that follow, and both are deliberate:
+ *
+ *   · the FAMILY is reported as carrying more than one standard — `mixed` — rather than one of
+ *     them being chosen to stand for both. A picker that prints `EN 10056-1` over a group
+ *     holding fourteen IRAM angles is stating something false about eleven of them.
+ *   · `section-catalog.ts` is not edited. It is a shared file — Basic's own section picker
+ *     reads `FAMILY_CLASSIFICATION` — so the single-standard declaration there is reported for
+ *     coordination instead of changed under another branch's feet. Nothing here disagrees with
+ *     it: the family standard is still what it says, and what is added is the per-row detail
+ *     the merged array had thrown away.
  */
 
 /**
@@ -78,10 +94,20 @@ export interface ProfileEntry {
   id: ProfileId;
   name: string;
   family: ProfileFamily;
-  /** The dimensional standard the numbers come from, e.g. `EN 10365`. Not a design code. */
+  /**
+   * The dimensional standard THIS PROFILE's numbers come from, e.g. `EN 10365`. Not a design
+   * code, and not necessarily the one its family declares — see the header on the angles.
+   */
   standard: string;
-  /** Who publishes it, which is the axis worth grouping and filtering on. */
+  /** Who publishes that standard, which is the axis worth grouping and filtering on. */
   standardsBody: FamilyClassification['standardsBody'];
+  /**
+   * True when this profile's own standard is not the one its family declares.
+   *
+   * Present so a row can be marked without the reader having to compare two strings, and so a
+   * test can assert that the marked set is exactly the merged-in one.
+   */
+  standardDiffersFromFamily: boolean;
   /** Shape family — the grouping main's own picker uses. */
   series: SectionSeries;
   /** How faithfully the outline can be drawn and analysed. */
@@ -106,6 +132,16 @@ export interface ProfileQuery {
   standardsBodies?: readonly FamilyClassification['standardsBody'][];
   /** A design code id from `DESIGN_CODES` — keeps only the families that code's practice uses. */
   designCode?: string;
+  /**
+   * Depth bounds in mm, inclusive. Either end may be omitted.
+   *
+   * The geometric axis a section is actually chosen on: a beam is picked to fit a depth the
+   * architecture allows, and "everything between 200 and 300 mm" is a question the picker could
+   * not answer before. Bounded on the DEPTH rather than on area or mass because depth is the
+   * dimension a drawing constrains.
+   */
+  heightMinMm?: number;
+  heightMaxMm?: number;
 }
 
 export interface ProfileGroup {
@@ -126,15 +162,72 @@ export interface ProfileSource {
   families(): readonly ProfileFamily[];
   classify(family: ProfileFamily): FamilyClassification;
   designCodes(): readonly { id: string; label: string }[];
+  /**
+   * Every dimensional standard the family's rows come from.
+   *
+   * On the interface rather than left to the UI to work out, because a source backed by a
+   * project's own library has the same question to answer and the same right to answer it
+   * differently. A single-standard source returns one entry and the header reads as before.
+   */
+  standards(family: ProfileFamily): readonly string[];
+}
+
+/**
+ * The profiles whose provenance the merged family array threw away.
+ *
+ * Keyed by id, which is the catalogue name — the same identifier the model stores — so this
+ * is a lookup and not a pattern match on a label. Built from `IRAM_L` itself: the membership
+ * test is "this row is in that file", never "this name looks Argentine".
+ *
+ * `IRAM-IAS U 500-558` is the standard `iram-angles.ts` names in its own header, and the
+ * country and body follow from it. Fidelity is NOT overridden: how faithfully an angle can be
+ * drawn is a property of having both fillet radii, which both subsets have, and the family
+ * declaration is right about it.
+ */
+const MERGED_IN: ReadonlyMap<ProfileId, Pick<FamilyClassification, 'standard' | 'standardsBody' | 'country'>> =
+  new Map(IRAM_L.map((p) => [p.name, {
+    standard: 'IRAM-IAS U 500-558',
+    standardsBody: 'IRAM-IAS' as const,
+    country: 'AR',
+  }]));
+
+/** Standards present in a family, in first-appearance order. One entry for all but the angles. */
+const STANDARDS_BY_FAMILY: ReadonlyMap<ProfileFamily, readonly string[]> = (() => {
+  const out = new Map<ProfileFamily, string[]>();
+  for (const p of ALL_PROFILES) {
+    const std = MERGED_IN.get(p.name)?.standard ?? FAMILY_CLASSIFICATION[p.family].standard;
+    const list = out.get(p.family);
+    if (!list) out.set(p.family, [std]);
+    else if (!list.includes(std)) list.push(std);
+  }
+  return out;
+})();
+
+/**
+ * Every dimensional standard a family's rows actually come from.
+ *
+ * More than one means the group header must say so rather than print the first. Derived from
+ * the rows, so a family that stops being mixed stops being reported as mixed.
+ */
+export function standardsInFamily(family: ProfileFamily): readonly string[] {
+  return STANDARDS_BY_FAMILY.get(family) ?? [FAMILY_CLASSIFICATION[family].standard];
+}
+
+/** True when a family's rows do not share one dimensional standard. */
+export function familyHasMixedStandards(family: ProfileFamily): boolean {
+  return standardsInFamily(family).length > 1;
 }
 
 function toEntry(p: SteelProfile): ProfileEntry {
+  const declared = FAMILY_CLASSIFICATION[p.family];
+  const own = MERGED_IN.get(p.name);
   return {
     id: p.name,
     name: p.name,
     family: p.family,
-    standard: FAMILY_CLASSIFICATION[p.family].standard,
-    standardsBody: FAMILY_CLASSIFICATION[p.family].standardsBody,
+    standard: own?.standard ?? declared.standard,
+    standardsBody: own?.standardsBody ?? declared.standardsBody,
+    standardDiffersFromFamily: own !== undefined,
     series: FAMILY_CLASSIFICATION[p.family].series,
     fidelity: FAMILY_CLASSIFICATION[p.family].fidelity,
     shape: familyToShape(p.family),
@@ -166,6 +259,12 @@ export function queryProfiles(query: ProfileQuery = {}): ProfileEntry[] {
     if (families && !families.has(e.family)) return false;
     if (bodies && !bodies.has(e.standardsBody)) return false;
     if (byCode && !byCode.has(e.family)) return false;
+    // A bound of `undefined` is not a bound — written as an explicit comparison rather than a
+    // default of 0 / Infinity so that absence and zero stay different things. An unusable bound
+    // (a half-typed number reaching this as NaN) empties the list, which the empty state then
+    // explains; that is deliberate, and better than silently ignoring what the user typed.
+    if (query.heightMinMm !== undefined && !(e.heightMm >= query.heightMinMm)) return false;
+    if (query.heightMaxMm !== undefined && !(e.heightMm <= query.heightMaxMm)) return false;
     if (text && !norm(e.name).includes(text)) return false;
     return true;
   });
@@ -196,6 +295,7 @@ export const steelProfileSource: ProfileSource = {
   families: () => FAMILY_LIST,
   classify: (family) => FAMILY_CLASSIFICATION[family],
   designCodes: () => DESIGN_CODES.map((c) => ({ id: c.id, label: c.label })),
+  standards: (family) => standardsInFamily(family),
 };
 
 /** Every family the catalogue actually has rows for. */

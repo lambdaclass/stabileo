@@ -58,24 +58,9 @@ pub fn solve_buckling_2d(
         return Err("No free DOFs".into());
     }
 
-    // 2. Build geometric stiffness from linear axial forces
-    let kg_full = build_kg_from_forces_2d(input, &dof_num, &linear.element_forces);
-
-    // 3. Extract free-DOF submatrices
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let sasm = assemble_sparse_2d(input, &dof_num);
-
-    // Negate Kg (we solve K·φ = λ·(-Kg)·φ for positive eigenvalues)
-    let kg_ff_raw = extract_submatrix(&kg_full, n, &free_idx, &free_idx);
-    let mut neg_kg_ff = vec![0.0; nf * nf];
-    for i in 0..nf * nf {
-        neg_kg_ff[i] = -kg_ff_raw[i];
-    }
-
-    // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
-
-    // Check if any element is in compression
+    // 2. Check for compression before assembling anything. There are no surface
+    //    elements on the 2D path, so the axial forces answer this on their own —
+    //    a frame in pure tension can bail here and skip both assemblies below.
     let has_compression = linear.element_forces.iter().any(|ef| {
         (ef.n_start + ef.n_end) / 2.0 < -1e-6
     });
@@ -83,24 +68,38 @@ pub fn solve_buckling_2d(
         return Err("No compressed elements — buckling not applicable".into());
     }
 
-    // 4. Solve generalized eigenvalue: (-Kg)·φ = μ·K·φ  (K is SPD)
-    // No-constraint path: sparse shift-invert Lanczos (K⁻¹(-Kg)x, K factorized by sparse Cholesky).
-    // Constraint path: dense Jacobi (needs dense K for reduce_matrix).
-    let (result, ns) = if let Some(cs_ref) = cs.as_ref() {
-        let k_ff = sasm.k_ff.to_dense_symmetric();
-        let k_solve = cs_ref.reduce_matrix(&k_ff);
-        let neg_kg_solve = cs_ref.reduce_matrix(&neg_kg_ff);
-        let ns = cs_ref.n_free_indep;
-        let r = solve_generalized_eigen(&neg_kg_solve, &k_solve, ns, 200)
-            .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
-        (r, ns)
-    } else {
-        // -Kg is element-sparse: CSC matvec is O(nnz) per Lanczos iteration.
-        let neg_kg_csc = CscMatrix::from_dense_symmetric(&neg_kg_ff, nf);
-        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_csc, num_modes)
-            .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
-        (r, nf)
+    // 3. Build geometric stiffness from linear axial forces (sparse free block;
+    //    the eigensolver below is sparse, so a dense n×n Kg was pure waste).
+    //    Negate it in place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues,
+    //    and nothing reads the un-negated Kg.
+    let neg_kg_csc = {
+        let mut kg_csc = build_kg_from_forces_2d(input, &dof_num, &linear.element_forces).into_csc();
+        for v in kg_csc.values.iter_mut() {
+            *v = -*v;
+        }
+        kg_csc
     };
+
+    // 4. Sparse stiffness of the free block
+    let sasm = assemble_sparse_2d(input, &dof_num);
+
+    // Apply constraint transform if present
+    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+
+    // 5. Solve generalized eigenvalue: (-Kg)·φ = μ·K·φ  (K is SPD), sparse
+    // shift-invert Lanczos in both branches; with constraints, K and -Kg are
+    // reduced as sparse triple products first.
+    let k_red;
+    let kg_red;
+    let (k_solve, kg_solve, ns): (&CscMatrix, &CscMatrix, usize) = if let Some(cs_ref) = cs.as_ref() {
+        k_red = cs_ref.reduce_matrix_sparse(&sasm.k_ff);
+        kg_red = cs_ref.reduce_matrix_sparse(&neg_kg_csc);
+        (&k_red, &kg_red, cs_ref.n_free_indep)
+    } else {
+        (&sasm.k_ff, &neg_kg_csc, nf)
+    };
+    let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
+        .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
@@ -235,11 +234,28 @@ pub fn solve_buckling_3d(
 
     if nf == 0 { return Err("No free DOFs".into()); }
 
-    let mut kg_full = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
+    let has_frame_compression = linear.element_forces.iter().any(|ef| {
+        (ef.n_start + ef.n_end) / 2.0 < -1e-6
+    });
+    let has_surfaces = !input.quads.is_empty()
+        || !input.plates.is_empty()
+        || !input.quad9s.is_empty()
+        || !input.solid_shells.is_empty()
+        || !input.curved_shells.is_empty();
 
-    // Add quad/solid-shell/curved-shell geometric stiffness from stress resultants
-    if !input.quads.is_empty() || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() {
-        // Reconstruct displacement vector from linear results
+    // Bail before assembling anything. The full gate below also asks whether the
+    // assembled -Kg has non-trivial entries, but that question only arises when
+    // there are surfaces to assemble: with no compressed frame and no surface
+    // elements at all, no amount of assembly can change the answer.
+    if !has_frame_compression && !has_surfaces {
+        return Err("No compressed elements — buckling not applicable".into());
+    }
+
+    let mut kg = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
+
+    if has_surfaces {
+        // Reconstruct the displacement vector from the linear results once, for
+        // every surface family that needs it.
         let mut u_full = vec![0.0; n];
         for d in &linear.displacements {
             let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
@@ -251,80 +267,74 @@ pub fn solve_buckling_3d(
         }
         if !input.quads.is_empty() {
             super::geometric_stiffness::add_quad_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg_full,
+                input, &dof_num, &u_full, &mut kg,
             );
         }
         if !input.quad9s.is_empty() {
             super::geometric_stiffness::add_quad9_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg_full,
+                input, &dof_num, &u_full, &mut kg,
             );
         }
         if !input.solid_shells.is_empty() {
             super::geometric_stiffness::add_solid_shell_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg_full,
+                input, &dof_num, &u_full, &mut kg,
             );
         }
         if !input.curved_shells.is_empty() {
             super::geometric_stiffness::add_curved_shell_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg_full,
+                input, &dof_num, &u_full, &mut kg,
+            );
+        }
+        // Plate (DKT triangle) geometric stiffness from membrane stress resultants,
+        // off the same u_full.
+        if !input.plates.is_empty() {
+            add_plate_geometric_stiffness_3d(
+                input, &dof_num, &u_full, &mut kg,
             );
         }
     }
 
-    // Add plate (DKT triangle) geometric stiffness from membrane stress resultants
-    if !input.plates.is_empty() {
-        let mut u_full = vec![0.0; n];
-        for d in &linear.displacements {
-            let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
-            for (i, &v) in vals.iter().enumerate() {
-                if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
-                    u_full[dof] = v;
-                }
-            }
-        }
-        add_plate_geometric_stiffness_3d(
-            input, &dof_num, &u_full, &mut kg_full,
-        );
-    }
-
-    let free_idx: Vec<usize> = (0..nf).collect();
     let sasm = assemble_sparse_3d(input, &dof_num, false);
 
-    let kg_ff_raw = extract_submatrix(&kg_full, n, &free_idx, &free_idx);
-    let mut neg_kg_ff = vec![0.0; nf * nf];
-    for i in 0..nf * nf { neg_kg_ff[i] = -kg_ff_raw[i]; }
+    // Negate Kg (we solve K·φ = λ·(-Kg)·φ for positive eigenvalues), in place:
+    // Kg is not read again, and on a large shell model its values vector is the
+    // single biggest allocation in this function.
+    let neg_kg_csc = {
+        let mut kg_csc = kg.into_csc();
+        for v in kg_csc.values.iter_mut() {
+            *v = -*v;
+        }
+        kg_csc
+    };
 
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
 
-    let has_frame_compression = linear.element_forces.iter().any(|ef| {
-        (ef.n_start + ef.n_end) / 2.0 < -1e-6
-    });
-    // Also check if shell geometric stiffness has non-trivial entries
-    let has_shell_kg = (!input.quads.is_empty() || !input.plates.is_empty() || !input.quad9s.is_empty() || !input.solid_shells.is_empty())
-        && neg_kg_ff.iter().any(|&v| v.abs() > 1e-15);
+    // The rest of the gate, now that -Kg exists: surfaces carry no axial force
+    // to test, so the only way to know they contribute is to look at what they
+    // assembled. `has_surfaces` spans every family including `curved_shells`,
+    // whose Kg is built above like all the others — omitting it here turned away
+    // a model made only of curved shells under pure compression, with a
+    // populated -Kg, as "no compressed elements".
+    let has_shell_kg = has_surfaces && neg_kg_csc.values.iter().any(|&v| v.abs() > 1e-15);
     if !has_frame_compression && !has_shell_kg {
         return Err("No compressed elements — buckling not applicable".into());
     }
 
-    // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ.
-    // No-constraint path: sparse shift-invert Lanczos (K⁻¹(-Kg)x, K factorized by sparse Cholesky).
-    // Constraint path: dense Jacobi (needs dense K for reduce_matrix).
-    let (result, ns) = if let Some(cs_ref) = cs.as_ref() {
-        let k_ff = sasm.k_ff.to_dense_symmetric();
-        let k_solve = cs_ref.reduce_matrix(&k_ff);
-        let neg_kg_solve = cs_ref.reduce_matrix(&neg_kg_ff);
-        let ns = cs_ref.n_free_indep;
-        let r = solve_generalized_eigen(&neg_kg_solve, &k_solve, ns, 200)
-            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
-        (r, ns)
+    // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ. Sparse shift-invert
+    // Lanczos in both branches; with constraints, K and -Kg are reduced as
+    // sparse triple products first.
+    let k_red;
+    let kg_red;
+    let (k_solve, kg_solve, ns): (&CscMatrix, &CscMatrix, usize) = if let Some(cs_ref) = cs.as_ref() {
+        k_red = cs_ref.reduce_matrix_sparse(&sasm.k_ff);
+        kg_red = cs_ref.reduce_matrix_sparse(&neg_kg_csc);
+        (&k_red, &kg_red, cs_ref.n_free_indep)
     } else {
-        // -Kg is element-sparse: CSC matvec is O(nnz) per Lanczos iteration.
-        let neg_kg_csc = CscMatrix::from_dense_symmetric(&neg_kg_ff, nf);
-        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_csc, num_modes)
-            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
-        (r, nf)
+        (&sasm.k_ff, &neg_kg_csc, nf)
     };
+    let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
+        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();

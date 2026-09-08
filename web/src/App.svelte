@@ -194,7 +194,18 @@
   if (typeof window !== 'undefined') {
     const redirectedRoute = new URLSearchParams(location.search).get('route');
     if (redirectedRoute) {
-      history.replaceState(null, '', redirectedRoute);
+      /*
+       * Restored through the URL builder, not verbatim.
+       *
+       * 404.html hands the path over exactly as it was typed or shared, and
+       * putting that straight back in the address bar reinstates whatever
+       * shape it had — including the unslashed form the site no longer
+       * publishes. A reader arriving on an old link would then be looking at
+       * an address that disagrees with the page's own canonical.
+       */
+      const { locale, path } = parsePublicPath(redirectedRoute.split('?')[0]);
+      const normalised = locale ? publicHref(path, locale) : redirectedRoute;
+      history.replaceState(null, '', normalised);
     }
   }
 
@@ -346,6 +357,53 @@
       if (tries++ < 60) setTimeout(open, 120);
     };
     open();
+  }
+
+  /**
+   * `?proTab=<id>` opens PRO on one of its tabs.
+   *
+   * The companion of `?inspect` for the other half of the application. A post
+   * about CIRSOC verification has to land the reader on the verification, and
+   * that lives in PRO's `design` tab rather than in Basic's section panel.
+   *
+   * NOT named `tab`: that parameter already carries the project tab's slug
+   * (see `replaceAppUrl`), and quietly overloading it would make a shared
+   * link rename someone's project.
+   */
+  /**
+   * `?kin=1` opens the kinematic analysis panel.
+   *
+   * The third of the deep links a post can use, beside `?inspect` and
+   * `?proTab`. Unlike those two it waits for nothing: the report is derived
+   * from geometry and supports alone, so it is ready before the solver is —
+   * and on the model this exists for, the solver never succeeds at all.
+   */
+  function openKinematicFromUrl(params: URLSearchParams) {
+    if (params.get('kin') !== '1') return;
+    uiStore.showKinematicPanel = true;
+    /*
+     * On desktop Basic the report is docked inside the Advanced tab of the
+     * right panel (see BasicPanel.svelte), so raising the flag on its own
+     * opens a panel that is never mounted. On mobile it floats and the flag
+     * is enough — the same asymmetry that made `?inspect` look like it
+     * worked on a phone and did nothing on a laptop.
+     *
+     * No retry loop, unlike `openInspectFromUrl`: that one waits for the
+     * solver, and this report needs only geometry and supports. By the time
+     * the example loader resolves, both are in place.
+     */
+    if (uiStore.appMode === 'basico' && !uiStore.isMobile) openBasicPanel('advanced', { toggle: false });
+  }
+
+  function openProTabFromUrl(params: URLSearchParams) {
+    const tab = params.get('proTab');
+    if (!tab) return;
+    // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
+    // there but not here makes `?proTab=` silently no-op for it.
+    const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
+      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics'];
+    if (!VALID.includes(tab)) return;
+    uiStore.proActiveTab = tab;
   }
 
   function findTabBySlug(tabSlug: string | null) {
@@ -698,8 +756,21 @@
           };
           tryFit(0);
           openInspectFromUrl(queryParams);
-        }).catch(() => {
-          // Silently ignore unknown example ids
+          openProTabFromUrl(queryParams);
+          openKinematicFromUrl(queryParams);
+        }).catch((err) => {
+          /*
+           * Reported, not swallowed.
+           *
+           * This used to be an empty catch commented "silently ignore unknown
+           * example ids", and it did far more than that: a fixture missing
+           * `plates` threw `json.plates is not iterable` from inside the
+           * loader, the whole `then` above was skipped, and the page rendered
+           * a half-loaded model with no deep link applied and no sign that
+           * anything had failed. An unknown id is worth ignoring quietly; a
+           * broken one is not.
+           */
+          console.error(`[stabileo] example "${exampleId}" failed to load:`, err);
         });
       }, 80);
     }

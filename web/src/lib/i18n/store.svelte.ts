@@ -1,43 +1,45 @@
 import es from './locales/es';
 import en from './locales/en';
 import pt from './locales/pt';
-import de from './locales/de';
-import fr from './locales/fr';
-import it from './locales/it';
-import tr from './locales/tr';
-import hi from './locales/hi';
-import ja from './locales/ja';
-import ko from './locales/ko';
-import ru from './locales/ru';
-import zh from './locales/zh';
-import ar from './locales/ar';
-import id from './locales/id';
 import steelEs from './locales/steel/es';
 import steelEn from './locales/steel/en';
 import steelPt from './locales/steel/pt';
 import type { Translations } from './types';
 
 /**
- * The shipped dictionaries.
+ * The dictionaries the application actually speaks.
  *
- * `steel/*` is folded in here rather than pasted into `es.ts` and `en.ts`. Those two files
- * are being edited heavily by PR #125 and PR #132 at the same time as this branch, and a
- * hundred keys inserted through the middle of them would be a hundred merge conflicts for
- * no benefit — a key is worth the same whichever module it arrives from. Fold them into the
- * main dictionaries once both PRs have landed; until then this costs nothing.
+ * ── Why only three ──
  *
- * Portuguese is folded in for the same reason the other two are, and is NOT optional the way
- * the remaining locales are: `OFFERED_LOCALES` is es/en/pt, and `pro-flow-coverage.test.ts`
- * requires every key a PRO surface renders to exist in all three. The metallic family is new
- * PRO surface, so leaving it to fall back would be exactly the silent English that gate was
- * written to stop. The other eleven locales are not offered in the picker and keep falling
- * back, which is what already happens for most namespaces outside `design.*`.
+ * This used to hold all fourteen on disk, so that re-enabling one was a single
+ * edit. Measured on the bundle, the eleven the app refuses to switch to came
+ * to 2.0 MB — the largest single item in it, ahead of the solver and ahead of
+ * Three.js — shipped to every reader of a blog page written in three
+ * languages. They were unreachable, not just unused: setLocale rejects an
+ * unoffered code, detectBrowserLocale only returns offered ones, and no
+ * production caller passes a locale to tAt.
+ *
+ * The other eleven now live in ./locales/all.ts, which only the gates import,
+ * so the translation work is still kept and still checked. Re-enabling one is
+ * still a single edit: add it here and to OFFERED_LOCALES.
+ *
+ * ── Why the steel spread stays ──
+ *
+ * `steel/*` arrived from #135 while this branch was open, and the two changes
+ * rewrote the same object. The merge keeps BOTH halves, and the reason is
+ * worth recording because "take the shorter one" is the obvious mistake here:
+ * the metallic keys exist ONLY in `locales/steel/*` — `es.ts` has zero of
+ * them — so dropping the spread does not fall back to English, it renders the
+ * raw key. `pro-flow-coverage.test.ts` would catch it, but by then it reads as
+ * a puzzling red rather than as this decision.
+ *
+ * Folding steel into es/en/pt and nothing else is #135's rule, unchanged: they
+ * are the offered three, and a PRO surface must speak all of them.
  */
 const dicts: Record<string, Translations> = {
   es: { ...es, ...steelEs },
   en: { ...en, ...steelEn },
   pt: { ...pt, ...steelPt },
-  de, fr, it, tr, hi, ja, ko, ru, zh, ar, id,
 };
 
 /** Safe localStorage check — vitest defines localStorage but without working methods. */
@@ -130,7 +132,13 @@ export function tAt(key: string, locale: string): string {
 	return (dict as any)[key] ?? (dicts.en as any)[key] ?? key;
 }
 
-/** Every locale the app ships. Used by the locale-parity gate. */
+/**
+ * Every locale the app ships — which is now exactly what it offers.
+ *
+ * For the full set on disk, including the ones not offered, use
+ * `allShippedLocales()` from ./locales/all.ts. That module is gate-only: see
+ * the note there about what importing it costs.
+ */
 export function shippedLocales(): string[] {
 	return Object.keys(dicts);
 }

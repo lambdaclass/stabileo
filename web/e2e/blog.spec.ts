@@ -61,7 +61,7 @@ test.describe('@smoke blog', () => {
     // The editor syncs the URL to its own mode on every render. If that sync
     // ever stops excluding the blog, the page will be right and the address
     // will say /app/basic — which is the link a reader copies.
-    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}$`));
+    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}/$`));
     await expect(page).toHaveTitle(/— Stabileo$/);
   });
 
@@ -71,7 +71,30 @@ test.describe('@smoke blog', () => {
     await boot(page, `/?route=%2Fblog%2F${SLUG}`);
 
     await expect(page.locator('.post-title')).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}$`));
+    /*
+     * No trailing slash required here, and that is deliberate. This route
+     * carries no language prefix — it is the shape links handed out before
+     * the prefixes existed — and App.svelte restores those verbatim rather
+     * than rewriting somebody's saved address. A PREFIXED route is
+     * normalised through publicHref; see the case below.
+     */
+    await expect(page).toHaveURL(new RegExp(`/blog/${SLUG}/?$`));
+
+    /*
+     * The same handoff WITH a language prefix — the form the site published
+     * before the slashes and that people already hold. That one IS normalised
+     * through publicHref, so the address bar and the page's own canonical do
+     * not disagree.
+     *
+     * Folded into this test rather than given its own, on purpose: one browser
+     * runs all 327 e2e cases with `workers: 1`, and it wedges near the end with
+     * `browser.newContext: Test ended`. Every added case brings that forward.
+     * Two navigations in one context cost nothing; a second test costs a
+     * context. See the note in .github/workflows/ci.yml.
+     */
+    await page.goto(`/?route=%2Fes%2Fblog%2F${SLUG}`);
+    await expect(page.locator('.post-title')).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
   });
 
   test('the browser back button returns to the post', async ({ page }) => {
@@ -90,6 +113,18 @@ test.describe('@smoke blog', () => {
 
     await expect(page.locator('.blog-head h1')).toHaveText('That post does not exist.');
     await expect(page.locator('.post-title')).toHaveCount(0);
+  });
+
+  test('a nested address is a missing post, not the index', async ({ page }) => {
+    // App.svelte routes anything under /blog/ here, so this address IS the
+    // blog's to answer. It used to answer with the INDEX: the slug pattern
+    // required a single segment, missed entirely, and fell through to the
+    // "no slug" branch — which draws a working-looking page under an address
+    // that promised a post.
+    await boot(page, '/blog/no-such-post/and-deeper');
+
+    await expect(page.locator('.blog-head h1')).toHaveText('That post does not exist.');
+    await expect(page.locator('.post-card')).toHaveCount(0);
   });
 
   test('the post reads in each offered language', async ({ page }) => {
@@ -128,7 +163,7 @@ test.describe('@smoke blog', () => {
       await page.locator('.landing.blog select.nav-lang').selectOption(to);
 
       await expect(page.locator('.post-title')).toHaveText(TITLES[to]);
-      await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}$`));
+      await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}/$`));
       await expect(page.locator('html')).toHaveAttribute('lang', to);
       // The picker reports where you are, not where you were.
       await expect(page.locator('.landing.blog select.nav-lang')).toHaveValue(to);
@@ -145,19 +180,26 @@ test.describe('@smoke blog', () => {
 
     await page.locator('.landing.blog select.nav-lang').selectOption('en');
 
-    await expect(page).toHaveURL(/\/en\/blog$/);
+    await expect(page).toHaveURL(/\/en\/blog\/$/);
     await expect(lead).toContainText(/code checks/i);
     await expect(page.locator(`.post-card[data-slug="${SLUG}"] .post-card-title`)).toHaveText(TITLES.en);
   });
 
   test('the browser back button undoes a language switch', async ({ page }) => {
-    await boot(page, `/pt/blog/${SLUG}`);
+    /*
+     * Booted on the slashed address on purpose. In production the host 301s
+     * `/pt/blog/x` to it before the application loads, so that is the URL a
+     * reader is ever on; `vite preview` serves both, so booting unslashed
+     * here would test a state the site cannot actually be in — and then
+     * `goBack` would return to it.
+     */
+    await boot(page, `/pt/blog/${SLUG}/`);
     await page.locator('.landing.blog select.nav-lang').selectOption('es');
-    await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}$`));
+    await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
 
     await page.goBack();
 
-    await expect(page).toHaveURL(new RegExp(`/pt/blog/${SLUG}$`));
+    await expect(page).toHaveURL(new RegExp(`/pt/blog/${SLUG}/$`));
     await expect(page.locator('.post-title')).toHaveText(TITLES.pt);
   });
 
@@ -205,6 +247,152 @@ test.describe('@smoke blog', () => {
     await expect(app.locator('body')).toContainText('12.73');
   });
 
+  test('the CIRSOC post opens PRO on the check it describes', async ({ page }) => {
+    /*
+     * The other half of the embed contract: this post's subject lives in PRO's
+     * design workflow, not in Basic's section panel, so it opens `/app/pro`.
+     *
+     * The caption names the three buttons the reader has to press, and the
+     * editor inside the frame runs in the reader's language — so the caption
+     * has to name them in that language too. An English caption on a Spanish
+     * page sends someone hunting for a button that says something else.
+     */
+    /*
+     * Booted explicitly in Spanish. `boot`'s init script runs in EVERY frame,
+     * the embedded editor included, so leaving the default would have the
+     * harness itself force the iframe into English and then assert it is not.
+     */
+    await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
+
+    const embed = page.locator('.post-embed');
+    await embed.scrollIntoViewIfNeeded();
+    await expect(embed.locator('iframe')).toHaveCount(0);
+
+    const caption = await embed.locator('figcaption').innerText();
+    expect(caption).toContain('Calcular solicitaciones');
+    expect(caption).toContain('Verificar según norma');
+    expect(caption).toContain('Diseñar todo');
+
+    await embed.locator('.post-embed-start').click();
+    await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?/);
+
+    const app = page.frameLocator('.post-embed iframe');
+    await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
+    // The buttons the caption promises are really there, in this language.
+    await expect(app.getByTestId('cmd-compute-demands')).toHaveText('Calcular solicitaciones');
+    await expect(app.getByTestId('cmd-code-check')).toHaveText('Verificar según norma');
+  });
+
+  /*
+   * The caption promises a RESULT, not just two labelled buttons — and that is
+   * the half that broke. It used to name two buttons and quote D/C = 0.81; the
+   * two buttons leave the table reading "no reinforcement / not verified", and
+   * 0.81 never appeared on screen at all. Asserting the labels exist could not
+   * catch that. This runs the flow the caption describes, to the end, and reads
+   * the number back.
+   */
+  test('the CIRSOC embed reaches the state its caption promises', async ({ page }) => {
+    test.slow();
+    await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
+
+    const embed = page.locator('.post-embed');
+    await embed.scrollIntoViewIfNeeded();
+    await embed.locator('.post-embed-start').click();
+
+    const app = page.frameLocator('.post-embed iframe');
+    await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
+
+    // Exactly the three presses the caption asks for, in its order. Each wait is
+    // the toolbar's own disabled state — the workflow's real gate: code check arms
+    // only once demands exist and the previous run is no longer busy. A bare
+    // `toBeVisible` on the body would wait on nothing.
+    await app.getByTestId('cmd-compute-demands').click();
+    await expect(app.getByTestId('cmd-code-check')).toBeEnabled({ timeout: 60_000 });
+    await app.getByTestId('cmd-code-check').click();
+    await expect(app.getByTestId('cmd-design-all')).toBeEnabled({ timeout: 60_000 });
+    await app.getByTestId('cmd-design-all').click();
+
+    // Verified, not "sin verificar", and at the utilisation the caption quotes.
+    const table = app.locator('body');
+    await expect(table).toContainText('0.89', { timeout: 90_000 });
+    await expect(table).toContainText('0.86');
+    await expect(table).toContainText('1.2D+1.6L');
+    await expect(table).not.toContainText('sin armadura');
+  });
+
+  /*
+   * The kinematic embed, checked the way the CIRSOC one had to be: by driving
+   * it to the end and reading the panel back, not by asserting a button exists.
+   *
+   * Two real defects were found this way while writing the post. The fixture
+   * was missing `plates`, which threw inside the example loader and was
+   * swallowed by an empty catch — the model half-loaded and the deep link
+   * never ran. And `?kin=1` raised the panel flag without opening the Advanced
+   * tab that hosts the report on desktop Basic, so it worked on a phone and
+   * did nothing on a laptop.
+   */
+  test('the kinematic embed reaches the state its caption promises', async ({ page }) => {
+    test.slow();
+    await boot(page, '/es/blog/conceptual-side-advanced-tools', 'es');
+
+    const embed = page.locator('.post-embed');
+    await embed.scrollIntoViewIfNeeded();
+    await embed.locator('.post-embed-start').click();
+    await expect(embed.locator('iframe')).toHaveAttribute('src', /example=hidden-mechanism&kin=1/);
+
+    const app = page.frameLocator('.post-embed iframe');
+    // The report is docked in the Advanced tab; if the deep link fails to open
+    // it, nothing below this line can pass.
+    // 'Avanzado' in the DOM; the ribbon uppercases it in CSS.
+    await expect(app.getByTestId('bp-title')).toHaveText('Avanzado', { timeout: 60_000 });
+
+    const body = app.locator('body');
+    await expect(body).toContainText('g = 3×2 + 3 − 3×3 = 0');
+    /*
+     * Generous timeouts on the rank check, and the reason is worth keeping.
+     *
+     * Step 3 needs the WASM engine, and `?kin=1` opens the panel before it has
+     * loaded. The panel says "not verified yet" and retries until the engine
+     * arrives — so this waits for the answer rather than for the first paint.
+     * CI failed here once with the panel claiming the structure was STABLE,
+     * which was the bug this timeout must not hide: see rankChecked in
+     * kinematic-report.ts.
+     */
+    await expect(body).toContainText('NO suficiente', { timeout: 30_000 });
+    await expect(body).toContainText('1 modo de mecanismo', { timeout: 30_000 });
+    // And it must never have settled on the opposite claim.
+    await expect(body).not.toContainText('La estructura es estable');
+    // The verdict the post's table quotes, in the words the panel uses.
+    await expect(body).toContainText('no se puede resolver');
+  });
+
+  test('a post offers the way back to the index, and the index does not', async ({ page }) => {
+    /*
+     * There was no way back. The logo goes to the landing, so returning to the
+     * index from a post meant landing → scroll to the blog section → enter
+     * again. The link is deliberately absent on the index itself, which is
+     * what made the landing's "Blog" nav item useless here in the first place.
+     */
+    await boot(page, `/es/blog/${SLUG}`, 'es');
+    const back = page.locator('.landing.blog .nav-blog-link');
+    await expect(back).toBeVisible();
+    await expect(back).toHaveText('Blog');
+    // A real href, so it is crawlable and middle-clickable, not a button.
+    await expect(back).toHaveAttribute('href', '/es/blog/');
+    // And it sits before the GitHub box, where the ask put it.
+    const order = await page.locator('.landing.blog .nav-actions > *').evaluateAll((els) =>
+      els.map((e) => e.className.toString().split(' ')[0]),
+    );
+    expect(order[0]).toBe('nav-blog-link');
+    expect(order[1]).toBe('nav-gh');
+
+    await back.click();
+    await expect(page).toHaveURL(/\/es\/blog\/$/);
+    await expect(page.locator('.post-card')).not.toHaveCount(0);
+    // Now on the index, it is gone.
+    await expect(page.locator('.landing.blog .nav-blog-link')).toHaveCount(0);
+  });
+
   test('a post describes itself to a search engine', async ({ page }) => {
     // The byline on screen is prose; this is the only machine-readable
     // statement of who wrote the post and when. Without it a result is a page
@@ -218,7 +406,7 @@ test.describe('@smoke blog', () => {
     expect(data.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(data.author.map((a: { name: string }) => a.name)).toContain('Bautista Chesta');
     // It must claim the address it is actually served at, in this language.
-    expect(data.url).toBe(`https://stabileo.com/es/blog/${SLUG}`);
+    expect(data.url).toBe(`https://stabileo.com/es/blog/${SLUG}/`);
     expect(data.mainEntityOfPage['@id']).toBe(data.url);
   });
 
@@ -230,28 +418,28 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
-      'https://stabileo.com/es/blog',
+      'https://stabileo.com/es/blog/',
     );
 
     await boot(page, `/pt/blog/${SLUG}`);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
-      `https://stabileo.com/pt/blog/${SLUG}`,
+      `https://stabileo.com/pt/blog/${SLUG}/`,
     );
     // And it points at its siblings, which is how they get discovered at all.
     const alts = await page
       .locator('link[rel="alternate"][hreflang]')
       .evaluateAll((els) => els.map((e) => `${e.getAttribute('hreflang')} ${e.getAttribute('href')}`).sort());
     expect(alts).toEqual([
-      `en https://stabileo.com/en/blog/${SLUG}`,
-      `es https://stabileo.com/es/blog/${SLUG}`,
-      `pt https://stabileo.com/pt/blog/${SLUG}`,
+      `en https://stabileo.com/en/blog/${SLUG}/`,
+      `es https://stabileo.com/es/blog/${SLUG}/`,
+      `pt https://stabileo.com/pt/blog/${SLUG}/`,
       // x-default names the English version of THIS POST. English because the
       // root declares /en as its canonical, so pointing the default at the
       // root would name a URL that is not canonical for itself — and this
       // post's path because a default that jumps to the home page sends every
       // unmatched reader away from the thing they were about to be shown.
-      `x-default https://stabileo.com/en/blog/${SLUG}`,
+      `x-default https://stabileo.com/en/blog/${SLUG}/`,
     ]);
   });
 
@@ -301,7 +489,7 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.landing .hero-ctas .hero-blog')).toHaveCount(0);
 
     await link.click();
-    await expect(page).toHaveURL(/\/blog$/);
+    await expect(page).toHaveURL(/\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
   });
 
@@ -313,7 +501,7 @@ test.describe('@smoke blog', () => {
     await expect(section).toBeVisible();
 
     await section.locator('.btn-primary').click();
-    await expect(page).toHaveURL(/\/blog$/);
+    await expect(page).toHaveURL(/\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
   });
 

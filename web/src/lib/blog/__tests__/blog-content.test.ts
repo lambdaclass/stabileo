@@ -41,9 +41,20 @@ describe('blog posts', () => {
     expect(POSTS.length).toBeGreaterThan(0);
   });
 
-  it('lists newest first', () => {
+  it('lists in the curated reading order, and that order is unambiguous', () => {
+    const orders = POSTS.map((p) => p.order);
+    expect([...orders].sort((a, b) => a - b)).toEqual(orders);
+    // Two posts sharing an order makes the index depend on array position,
+    // which is exactly the accident `order` exists to remove.
+    expect(new Set(orders).size).toBe(POSTS.length);
+  });
+
+  it('publishes in the same direction it is read', () => {
+    // Not a hard requirement — `order` decides and dates are free to diverge
+    // later — but while they do agree, a post dated before the one above it
+    // is far more likely to be a typo than a decision.
     const dates = POSTS.map((p) => p.date);
-    expect([...dates].sort((a, b) => b.localeCompare(a))).toEqual(dates);
+    expect([...dates].sort()).toEqual(dates);
   });
 
   for (const post of POSTS) {
@@ -108,7 +119,7 @@ describe('blog posts', () => {
               : b.k === 'table'
                 ? `table:${b.head.length}x${b.rows.length}`
                 : b.k === 'embed'
-                  ? `embed:${b.query}`
+                  ? `embed:${b.mode ?? 'basic'}:${b.query}`
                   : b.k,
           );
         for (const locale of LOCALES) {
