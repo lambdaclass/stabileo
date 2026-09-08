@@ -589,3 +589,80 @@ fn benchmark_ssi_vertical_pile_capacity() {
         );
     }
 }
+
+// ================================================================
+// Sparse-path parity: nf straddling SPARSE_THRESHOLD (64)
+// ================================================================
+//
+// Same soft-clay lateral pile at two mesh densities: n_elem=20 gives
+// nf = 63 (dense path), n_elem=22 gives nf = 66 (sparse path). Both
+// discretize the same continuous problem (spring tributary lengths scale
+// with the mesh), so head deflections must agree closely.
+
+fn lateral_pile_case(n_elem: usize) -> SSIInput {
+    let d_pile: f64 = 1.0;
+    let length = 20.0;
+    let su = 50.0;
+    let gamma_eff = 9.0;
+    let eps_50 = 0.01;
+    let h_load = 200.0;
+
+    let iz: f64 = std::f64::consts::PI * d_pile.powi(4) / 64.0;
+    let a: f64 = std::f64::consts::PI * d_pile * d_pile / 4.0;
+    let e_mpa: f64 = 500_000.0 / iz / 1000.0;
+
+    let mut solver = build_pile_2d(n_elem, length, e_mpa, a, iz);
+    solver.loads.push(SolverLoad::Nodal(SolverNodalLoad {
+        node_id: 1,
+        fx: h_load,
+        fz: 0.0,
+        my: 0.0,
+    }));
+
+    let dy = length / n_elem as f64;
+    let soil_springs = (1..n_elem)
+        .map(|i| SoilSpring {
+            node_id: i + 1,
+            direction: 0,
+            curve: SoilCurve::PySoftClay {
+                su,
+                gamma_eff,
+                d: d_pile,
+                depth: i as f64 * dy,
+                eps_50,
+            },
+            tributary_length: dy,
+        })
+        .collect();
+
+    SSIInput {
+        solver,
+        soil_springs,
+        max_iter: 200,
+        tolerance: 1e-4,
+    }
+}
+
+#[test]
+fn ssi_sparse_path_parity_with_dense() {
+    let dense_in = lateral_pile_case(20);
+    let sparse_in = lateral_pile_case(24);
+
+    let r_dense = solve_ssi_2d(&dense_in).expect("Dense SSI solve failed");
+    let r_sparse = solve_ssi_2d(&sparse_in).expect("Sparse SSI solve failed");
+    assert!(r_dense.converged, "Dense path should converge");
+    assert!(r_sparse.converged, "Sparse path should converge");
+
+    let head = |r: &SSIResult| r.results.displacements.iter()
+        .find(|d| d.node_id == 1).unwrap().ux;
+    let ux_dense = head(&r_dense);
+    let ux_sparse = head(&r_sparse);
+
+    let rel = (ux_dense - ux_sparse).abs() / ux_dense.abs().max(1e-15);
+    assert!(
+        rel < 0.07,
+        "Pile head deflection parity: dense={:.6e}, sparse={:.6e}, rel={:.4}",
+        ux_dense, ux_sparse, rel
+    );
+}
+

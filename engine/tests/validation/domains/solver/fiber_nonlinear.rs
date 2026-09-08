@@ -687,3 +687,138 @@ fn fiber_modified_nr_parity() {
         d_full.uz, d_mod.uz, rel_uy
     );
 }
+
+// ---------------------------------------------------------------------------
+// Test 10 -- Sparse-path parity (nf >= SPARSE_THRESHOLD)
+//
+// Same elastic cantilever meshed just below (20 elements, nf = 60) and just
+// above (22 elements, nf = 66) the sparse threshold. The elastic prismatic
+// beam under tip load has a linear moment diagram, integrated exactly by the
+// fiber elements' Gauss points, so both meshes solve the same problem and
+// their tip deflections must agree to rounding level. Also exercises the
+// modified-NR sparse cache.
+// ---------------------------------------------------------------------------
+
+fn cantilever_fiber_2d_meshed(
+    n_elem: usize,
+    length: f64,
+    b: f64,
+    h: f64,
+    n_layers: usize,
+    material: FiberMaterial,
+    fz: f64,
+    modified_nr: bool,
+) -> FiberNonlinearInput {
+    let a = b * h;
+    let iz = b * h * h * h / 12.0;
+
+    let mut nodes = HashMap::new();
+    for i in 0..=n_elem {
+        nodes.insert(
+            i.to_string(),
+            SolverNode { id: i, x: length * i as f64 / n_elem as f64, z: 0.0 },
+        );
+    }
+
+    let mut materials = HashMap::new();
+    materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+
+    let mut sections = HashMap::new();
+    sections.insert("1".into(), SolverSection { id: 1, a, iz, as_y: None });
+
+    let mut elements = HashMap::new();
+    for i in 0..n_elem {
+        elements.insert(
+            (i + 1).to_string(),
+            SolverElement {
+                id: i + 1,
+                elem_type: "frame".into(),
+                node_i: i,
+                node_j: i + 1,
+                material_id: 1,
+                section_id: 1,
+                hinge_start: false,
+                hinge_end: false,
+            },
+        );
+    }
+
+    let mut supports = HashMap::new();
+    supports.insert("0".into(), SolverSupport {
+        id: 0,
+        node_id: 0,
+        support_type: "fixed".into(),
+        kx: None, ky: None, kz: None,
+        dx: None, dz: None, dry: None, angle: None,
+    });
+
+    let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: n_elem,
+        fx: 0.0,
+        fz,
+        my: 0.0,
+    })];
+
+    let solver = SolverInput {
+        nodes,
+        materials,
+        sections,
+        elements,
+        supports,
+        loads,
+        constraints: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let mut fiber_sections = HashMap::new();
+    fiber_sections.insert("1".into(), rectangular_fiber_section(b, h, n_layers, material));
+
+    FiberNonlinearInput {
+        solver,
+        fiber_sections,
+        n_integration_points: 5,
+        max_iter: 200,
+        tolerance: 1e-8,
+        n_increments: 1,
+        modified_nr,
+    }
+}
+
+#[test]
+fn fiber_sparse_path_parity_with_dense() {
+    let (b, h, length, p) = (0.2, 0.4, 5.0, -50.0);
+    let material = FiberMaterial::Elastic { e: 200_000.0 };
+
+    // nf = 3 * n_elem (cantilever: node 0 fixed). 20 -> 60 (dense), 22 -> 66 (sparse).
+    let dense_in = cantilever_fiber_2d_meshed(20, length, b, h, 10, material.clone(), p, false);
+    let sparse_in = cantilever_fiber_2d_meshed(22, length, b, h, 10, material.clone(), p, false);
+
+    let r_dense = solve_fiber_nonlinear_2d(&dense_in).unwrap();
+    let r_sparse = solve_fiber_nonlinear_2d(&sparse_in).unwrap();
+    assert!(r_dense.converged, "Dense path should converge");
+    assert!(r_sparse.converged, "Sparse path should converge");
+
+    let d_dense = r_dense.results.displacements.iter().find(|d| d.node_id == 20).unwrap();
+    let d_sparse = r_sparse.results.displacements.iter().find(|d| d.node_id == 22).unwrap();
+
+    // Both match the closed-form tip deflection (mesh-independent here).
+    let e_kn_m2 = 200_000.0 * 1000.0;
+    let iz = b * h.powi(3) / 12.0;
+    let analytical = p.abs() * length.powi(3) / (3.0 * e_kn_m2 * iz);
+    for (name, d) in [("dense", d_dense), ("sparse", d_sparse)] {
+        let rel = (d.uz.abs() - analytical).abs() / analytical;
+        assert!(rel < 0.02, "{name} tip deflection vs analytical: uz={:.6e}, analytical={:.6e}", d.uz, analytical);
+    }
+
+    // Dense vs sparse parity.
+    let rel = (d_dense.uz - d_sparse.uz).abs() / d_dense.uz.abs().max(1e-15);
+    assert!(rel < 1e-4, "dense/sparse tip parity: dense={:.8e}, sparse={:.8e}", d_dense.uz, d_sparse.uz);
+
+    // Modified NR through the sparse cache must agree with full NR.
+    let modified_in = cantilever_fiber_2d_meshed(22, length, b, h, 10, material, p, true);
+    let r_mod = solve_fiber_nonlinear_2d(&modified_in).unwrap();
+    assert!(r_mod.converged, "Modified NR (sparse cache) should converge");
+    let d_mod = r_mod.results.displacements.iter().find(|d| d.node_id == 22).unwrap();
+    let rel_mod = (d_mod.uz - d_sparse.uz).abs() / d_sparse.uz.abs().max(1e-15);
+    assert!(rel_mod < 1e-4, "full/modified NR sparse parity: full={:.8e}, modified={:.8e}", d_sparse.uz, d_mod.uz);
+}
