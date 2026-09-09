@@ -5,6 +5,9 @@ import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
 import { migrateRegulations, type StoredRegulations } from '../codes/roles';
+import {
+  cloneStoredJointDesigns, type StoredJointDesigns,
+} from '../connection/joint-choices';
 import type { RevisionVector } from '../codes/revisions';
 import {
   defaultFootingMatPreferences, migrateFootingMatPreferences, migrateFootings, newFooting,
@@ -722,6 +725,19 @@ export interface StructureModel {
   /** The revision vector every downstream result is stamped against. */
   revisions?: RevisionVector;
   /**
+   * The joint designs the project carries — I-06.
+   *
+   * On the model for exactly the reason `codeSettings` and `regulations` are: `.ded` save/open,
+   * undo/redo, tab capture and autosave all go through `snapshot()`/`restore()`, so a field that
+   * lives here travels all four for free and a field that lives in a side store travels none of
+   * them. `jointDesignStore` held these in a `$state` Map and in nothing else, so twenty
+   * designed joints were lost on closing the tab.
+   *
+   * Only the CHOICES, never a computed capacity. Absent on projects saved before this existed,
+   * which reads as «no joints were designed» — the true answer for them.
+   */
+  jointDesigns?: StoredJointDesigns;
+  /**
    * Coordinated detailing assemblies.
    *
    * Persisted with the model for the same reason codeSettings is: a coordinated floor
@@ -1322,6 +1338,18 @@ function createModelStore() {
           ? (JSON.parse(JSON.stringify(snap.regulations)) as StoredRegulations)
           : undefined,
         revisions: snap.revisions ? { ...snap.revisions } : undefined,
+        /*
+         * Cloned deeply, because `choices.bolts` and `choices.battens` are nested objects: a
+         * shallow copy would leave the saved project sharing them with the live model, so
+         * editing a batten gap would rewrite the undo entry meant to go back before it.
+         *
+         * Absent stays absent, like `regulations` above — `restore(snapshot())` has to be a
+         * no-op, and materialising an empty container here would make a cancelled CAD draft
+         * differ from its own starting point.
+         */
+        jointDesigns: snap.jointDesigns
+          ? cloneStoredJointDesigns(snap.jointDesigns as StoredJointDesigns)
+          : undefined,
         // Cloned one level deeper than the other Map families because `pedestal` is a
         // nested object: a shallow `{ ...v }` would share it between the snapshot and the
         // live model, so editing a pedestal would silently rewrite the undo entry.
@@ -1509,6 +1537,22 @@ function createModelStore() {
       // actually carries, so zeroing it on open would make every stored certificate look
       // freshly current.
       model.revisions = s.revisions ? { ...s.revisions } : undefined;
+      /*
+       * The joint designs, restored as stored — and this line is the whole of I-07.
+       *
+       * Loading another model REPLACES the field instead of merging into it, so a second model
+       * in the same session cannot inherit the first one's joints: a snapshot without the field
+       * lands as `undefined`, which the store reads as no joints at all. That is why nothing has
+       * to remember to call `reset()`; replacing the project IS the reset.
+       *
+       * The stored joints are not filtered here. They are matched against the live nodes and
+       * elements on every read — see `reconcileJointDesigns` — because a node deleted after the
+       * project opened has to make its joint obsolete too, and a load-time pass would have
+       * already run.
+       */
+      model.jointDesigns = s.jointDesigns
+        ? cloneStoredJointDesigns(s.jointDesigns)
+        : undefined;
       // Footings and the ground they bear on. `migrateFootings` drops a footing whose
       // stored node reference is not a number rather than repairing it — a footing
       // attached to nothing has no reaction, and inventing a node moves someone's
@@ -2297,6 +2341,9 @@ function createModelStore() {
       // previously open project happened to be designed to.
       model.codeSettings = defaultCodeSettings();
       model.detailing = emptyDetailingStore();
+      // A new project has no designed joints. Same reasoning as the soil two blocks up: keeping
+      // them would attach the previous project's bolts to this one's node ids.
+      model.jointDesigns = undefined;
       // Reset materials/sections to defaults
       model.materials = new Map([[1, { ...defaultMaterial }]]);
       // Resolve the default profile's canonical state too. `clear()` runs on

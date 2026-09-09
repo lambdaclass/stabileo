@@ -60,6 +60,27 @@ function styles(file: string): string {
   return at === -1 ? '' : src.slice(at);
 }
 
+/**
+ * The style block with its comments removed.
+ *
+ * The literal rules below ban `#rrggbb` from a metallic surface. A comment RECORDING which
+ * literals were replaced, and what each was measured at, contains those very strings — so
+ * reading the raw block makes a component's own migration notes fail the rule the migration
+ * satisfied, and the only way to pass is to delete the reasoning. What the rule is about is what
+ * the browser paints.
+ */
+function declarations(file: string): string {
+  return styles(file).replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/** A component with every kind of comment removed — CSS, block and line. */
+function code(file: string): string {
+  return read(file)
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+}
+
 /** CSS rules, split crudely on `}` — enough to ask what a single declaration block contains. */
 function ruleBlocks(css: string): string[] {
   return css.split('}').map((s) => s.trim()).filter(Boolean);
@@ -201,15 +222,58 @@ describe('SteelStatusBadge keeps the hatch that makes it readable without hue', 
 });
 
 describe('what M1 added needs nothing from the contract', () => {
-  it('carries no hardcoded colour in the two pickers', () => {
+  /**
+   * The surfaces still carrying a literal colour, named rather than counted.
+   *
+   * This used to be the inverse — two files asserted to be clean — which meant every metallic
+   * component EXCEPT those two could hardcode a colour and nothing would say so. `SectionFigure`
+   * was exactly that: four literals on a component the clean-list did not mention.
+   *
+   * Enumerated from the directories and inverted, so a surface added later is covered by
+   * default and the remaining debt has to be written down to pass. `TopologyPreview` is the one
+   * left: nine literals, including the same `#071322` the figure used for its well. It is a
+   * separate decision — the two previews sit in the same panel, and moving one without the
+   * other is a choice about how they should relate, not a cleanup.
+   */
+  const LITERALS_REMAIN = ['components/pro/generators/TopologyPreview.svelte'];
+
+  it('leaves a literal colour on exactly the surfaces still owed a migration', () => {
+    const offenders = METALLIC.filter((f) => /#[0-9a-f]{3,6}\b/i.test(declarations(f)));
+    expect(offenders.sort()).toEqual([...LITERALS_REMAIN].sort());
+  });
+
+  it('carries no hardcoded colour in the pickers or the section figure', () => {
     // The state the older surfaces are trying to reach. Asserted so it cannot regress while the
     // migration is happening elsewhere.
     for (const f of [
       'components/pro/steel/GradePickerPanel.svelte',
       'components/pro/generators/ProfileSelectorPanel.svelte',
+      'components/pro/generators/SectionFigure.svelte',
     ]) {
-      expect(styles(f), `${f} hardcodes a colour`).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+      expect(declarations(f), `${f} hardcodes a colour`).not.toMatch(/#[0-9a-f]{3,6}\b/i);
     }
+  });
+
+  /**
+   * The void and the well are the same token, and that is the property — not the token's name.
+   *
+   * A void is a hole. Drawn in anything other than exactly the background behind it, it reads as
+   * a darker solid, and the figure stops showing which parts of a built-up section are material.
+   * Two literals kept equal by hand is how that drifts, so the equality is asserted on the
+   * DECLARATIONS: whatever `.fig` paints its background with, `polygon` fills with.
+   */
+  it('fills a void with the very value the figure is drawn on', () => {
+    const css = declarations('components/pro/generators/SectionFigure.svelte');
+    const fig = css.match(/\.fig\s*\{[^}]*background:\s*([^;]+);/)?.[1]?.trim();
+    const poly = css.match(/polygon\s*\{[^}]*fill:\s*([^;]+);/)?.[1]?.trim();
+    expect(fig, '.fig declares a background').toBeTruthy();
+    expect(poly, 'polygon declares a fill').toBeTruthy();
+    expect(poly).toBe(fig);
+    // And it comes from the stylesheet rather than from a presentation attribute — not because
+    // `fill="var(…)"` would fail to render (the modal hands this component a `var(--st-value)`
+    // stroke and it draws), but because an attribute in the template is not something the
+    // assertion above can relate to the rule painting the background it must match.
+    expect(code('components/pro/generators/SectionFigure.svelte')).not.toMatch(/fill=\{?['"`]?var\(/);
   });
 
   it('lists the metallic consumers the new tokens would and would not reach', () => {
