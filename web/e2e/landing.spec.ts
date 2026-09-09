@@ -666,21 +666,28 @@ test.describe('@landing the model the deck states', () => {
     ]);
   });
 
-  test('the free half is promised free, and the paid half is not oversold', async ({ page }) => {
+  test('the product sections describe the product and price nothing', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
 
-    await expect(page.locator('section[data-section="pro-calc"]')).toContainText(
-      'va a ser gratuito y open source siempre',
-    );
-
     /*
-     * "Probably" paid, and open while it is built. Not "will be paid", which
-     * commits us, and not silence, which is how a landing ends up contradicting
-     * the plan later.
+     * Prices are stated once, in the pricing section. Each product section
+     * argued its own for a draft, and a page that describes a capability and
+     * then defends its price in the same breath reads as a sales page. If a
+     * price sentence creeps back into one of these, this fails.
      */
-    const design = page.locator('section[data-section="pro-design"]');
-    await expect(design).toContainText('Probablemente sea pago');
-    await expect(design).toContainText('el acceso es libre');
+    for (const id of ['basic', 'pro-calc', 'pro-design', 'ai']) {
+      /*
+       * Prose only. The status badge is allowed to carry a word like "gratis"
+       * — it is a two-word marker at a glance, not the page arguing a price —
+       * and this is about the paragraphs that used to defend one.
+       */
+      const prose = (await page.locator(`section[data-section="${id}"] p`).allInnerTexts())
+        .join(' ')
+        .toLowerCase();
+      for (const word of ['pago', 'gratuito', 'gratis', 'cobrar', 'universidades']) {
+        expect(prose, `"${word}" belongs in the pricing section, not in ${id}`).not.toContain(word);
+      }
+    }
   });
 
   test('the promise to public universities carries its one exception', async ({ page }) => {
@@ -696,25 +703,39 @@ test.describe('@landing the model the deck states', () => {
     await expect(edu).toContainText('La única excepción es la IA');
   });
 
-  test('the AI section shows no picture of something that does not exist', async ({ page }) => {
-    await bootLanding(page);
-    await expect(page.locator('section[data-section="ai"]')).toBeVisible();
-    await expect(page.locator('section[data-section="ai"] img')).toHaveCount(0);
+  test('the AI section shows the panel, and the panel shows a decision', async ({ page }) => {
+    await bootLanding(page, { locale: 'es' });
+    const ai = page.locator('section[data-section="ai"]');
+    await expect(ai).toBeVisible();
+
+    // The screenshot is the argument the section makes: the agent proposes and
+    // a person applies. A picture of the agent acting alone would contradict
+    // the copy beside it.
+    const img = ai.locator('img');
+    await expect(img).toHaveCount(1);
+    await expect(img).toHaveAttribute('alt', /propone|aplicarl/i);
   });
 
-  test('the footer links the four accounts, and opens none of them in place', async ({ page }) => {
+  test('the footer links the five accounts, and opens none of them in place', async ({ page }) => {
     await bootLanding(page);
 
     const links = page.locator('.landing .footer-social a');
-    await expect(links).toHaveCount(4);
+    await expect(links).toHaveCount(5);
 
     const hrefs = await links.evaluateAll((els) => els.map((e) => e.getAttribute('href') ?? ''));
     expect([...hrefs].sort()).toEqual([
       'https://discord.gg/Q53rp7FKXA',
+      'https://ergodicgroup.com/',
       'https://www.instagram.com/stabileoapp/',
       'https://www.linkedin.com/company/stabileo',
       'https://x.com/Stabileoapp',
     ]);
+
+    // Labelled by handle, not by platform: a reader scanning a footer knows
+    // what Instagram is and does not know what to search for.
+    const labels = await links.evaluateAll((els) => els.map((e) => e.textContent?.trim() ?? ''));
+    expect(labels).toContain('stabileoapp');
+    expect(labels).toContain('@stabileoapp');
 
     for (const rel of await links.evaluateAll((els) => els.map((e) => e.getAttribute('rel')))) {
       expect(rel).toContain('noreferrer');

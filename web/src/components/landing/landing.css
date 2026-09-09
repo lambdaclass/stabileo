@@ -863,8 +863,17 @@
   height: auto;
 }
 
+/*
+   A caption belongs to the picture ABOVE it, and the spacing has to say so.
+
+   This was symmetric — up to 1.7rem of padding all round — while `.card-row`
+   separates cards by a 1px hairline. So a caption sat ~27px below its own
+   screenshot and 1px above the next one, and read as a label for the wrong
+   image. The top is tight now and the bottom keeps the air, which is the
+   proximity rule the rest of the page already follows.
+*/
 .landing .card-media .card-body {
-  padding: clamp(1.2rem, 2vw, 1.7rem);
+  padding: 0.7rem clamp(1.2rem, 2vw, 1.7rem) clamp(1.3rem, 2.2vw, 1.9rem);
   border-top: 1px solid var(--card-hair);
 }
 

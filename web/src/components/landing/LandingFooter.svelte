@@ -43,7 +43,9 @@
       {#each SOCIAL_LINKS as s}
         <li>
           <a href={s.href} target="_blank" rel="noreferrer" data-social={s.id}>
-            <span class="social-mark" aria-hidden="true">{@html ICONS[s.id]}</span>
+            {#if ICONS[s.id]}
+              <span class="social-mark" aria-hidden="true">{@html ICONS[s.id]}</span>
+            {/if}
             <span>{s.label}</span>
           </a>
         </li>

@@ -7,14 +7,13 @@
    * PRO, the half that is free and stays free.
    *
    * Split from the old single PRO section because the two halves are priced
-   * differently and the landing's job is to make that legible: the engine is
-   * free forever, the code checks probably are not. One section arguing both
-   * at once is what made the previous version hedge.
+   * differently. What each costs is stated once, in the pricing section at the
+   * end of the deck — not here, where it interrupted the product with an
+   * argument about revenue.
    */
   const shots = [
     { base: 'pro-building-model', w: 1600, h: 876, alt: 'landing.shotProModelAlt', title: 'landing.shotProModelTitle' },
     { base: 'pro-building-axial', w: 1600, h: 876, alt: 'landing.shotProAxialAlt', title: 'landing.shotProAxialTitle' },
-    { base: '3d-industrial', w: 1600, h: 876, alt: 'landing.shotIndustrialAlt', title: 'landing.shotIndustrialTitle', wide: true },
   ];
 </script>
 
@@ -36,7 +35,5 @@
         </article>
       {/each}
     </div>
-
-    <p class="mode-note mode-note--strong">{t('landing.proCalcFree')}</p>
   </div>
 </section>

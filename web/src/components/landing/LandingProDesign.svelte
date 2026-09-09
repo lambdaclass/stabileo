@@ -6,10 +6,10 @@
   /**
    * The half that will be charged for, and says so.
    *
-   * Stating a future price on a public page is a commitment, so the wording is
-   * the cautious one: PROBABLY paid, once finished, with open access while it
-   * is being built and a permanent exemption for public universities. That is
-   * the one-page business model's position, not a softer version of it.
+   * What this will cost is said once, in the pricing section at the end. It
+   * was said here too for one draft, and a section that describes a capability
+   * and then argues about its price in the same breath reads as a sales page
+   * rather than a product page.
    */
 </script>
 
@@ -29,8 +29,5 @@
         <div class="card-body"><h3>{t('landing.shotRebarTitle')}</h3></div>
       </article>
     </div>
-
-    <p class="mode-note">{t('landing.proDesignPaid')}</p>
-    <p class="mode-note mode-note--strong">{t('landing.proDesignUni')}</p>
   </div>
 </section>
