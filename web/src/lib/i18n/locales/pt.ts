@@ -3845,6 +3845,7 @@ const pt: Translations = {
   'project.loadError': 'Erro ao carregar arquivo',
   // ─── CIRSOC Flex (components/CirsocFlexPanel.svelte) ───
   'ribbon.flex': 'CIRSOC Flex',
+  'flex.short': 'Flex',
   'flex.title': 'CIRSOC Flex',
   'flex.case.label': 'Caso',
   'flex.case.rectFlexure': 'Retangular — flexão simples',

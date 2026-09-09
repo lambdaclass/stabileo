@@ -737,6 +737,7 @@ const es: Record<string, string> = {
   'project.emptyModel': 'Modelo vacío',
   // ─── CIRSOC Flex (components/CirsocFlexPanel.svelte) ───
   'ribbon.flex': 'CIRSOC Flex',
+  'flex.short': 'Flex',
   'flex.title': 'CIRSOC Flex',
   'flex.case.label': 'Caso',
   'flex.case.rectFlexure': 'Rectangular — flexión simple',
