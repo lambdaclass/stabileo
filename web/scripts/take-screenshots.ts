@@ -168,7 +168,6 @@ async function main() {
       const { modelStore, resultsStore, uiStore } = await import('/src/lib/store/index.ts');
       modelStore.loadExample('portal-frame');
       resultsStore.clear();
-      uiStore.leftSidebarOpen = true;
       uiStore.rightSidebarOpen = false;
       setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
     });
@@ -192,7 +191,6 @@ async function main() {
       const { modelStore, resultsStore, uiStore } = await import('/src/lib/store/index.ts');
       modelStore.loadExample('portal-frame');
       resultsStore.clear();
-      uiStore.leftSidebarOpen = false;
       uiStore.rightSidebarOpen = false;
       setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
     });
@@ -240,7 +238,6 @@ async function main() {
     await page.evaluate(async () => {
       const { modelStore, resultsStore, uiStore } = await import('/src/lib/store/index.ts');
       uiStore.analysisMode = '3d';
-      uiStore.leftSidebarOpen = false;
       uiStore.rightSidebarOpen = false;
     });
     await sleep(1500);
@@ -288,7 +285,6 @@ async function main() {
     await page.evaluate(async () => {
       const { uiStore } = await import('/src/lib/store/index.ts');
       uiStore.analysisMode = '3d';
-      uiStore.leftSidebarOpen = false;
       uiStore.rightSidebarOpen = false;
     });
     await sleep(1500);

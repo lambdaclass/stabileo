@@ -13,7 +13,7 @@
 
 import type { TourStep } from '../../store/tour.svelte';
 import { t } from '../../i18n';
-import { ANCHORS, loadExample, solve, hasResults, setDimension, asideCard, openPanel } from '../demo-helpers';
+import { ANCHORS, loadExample, solve, hasResults, setDimension, asideCard, openPanel, openCluster } from '../demo-helpers';
 import { resultsStore } from '../../store';
 import { showStressMap } from '../../store/result-view';
 
@@ -33,7 +33,18 @@ function diagram(id: string, kind: string, key: string): TourStep {
      * reader can walk the whole tutorial with the Project panel still open,
      * reading cards about a right-hand panel they are not looking at.
      */
-    onEnter: () => { resultsStore.diagramType = kind as never; openPanel('results'); },
+    /*
+     * `openCluster` before the panel, and a no-op on a desktop.
+     *
+     * On a phone the diagram commands are inside the Results menu, so the
+     * spotlight has nothing to land on until it is open. Opening it here rather
+     * than in each of the five steps keeps the rule where the target is chosen.
+     */
+    onEnter: () => {
+      resultsStore.diagramType = kind as never;
+      if (ANCHORS.needsCluster(id)) openCluster('results');
+      openPanel('results');
+    },
   };
 }
 
@@ -115,7 +126,11 @@ export function buildResults(): TourStep[] {
        * map while a bending diagram stayed on screen, and a reader following
        * along saw the words contradict the picture.
        */
-      onEnter: () => { showStressMap('stressRatio'); openPanel('results'); },
+      onEnter: () => {
+        showStressMap('stressRatio');
+        if (ANCHORS.needsCluster('stress')) openCluster('results');
+        openPanel('results');
+      },
     },
 
     {

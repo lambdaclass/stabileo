@@ -174,7 +174,7 @@
         <div class="input-group">
           <label>{t('results.diagramScale')}:</label>
           <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = Math.max(1, resultsStore.deformedScale - (resultsStore.deformedScale <= 10 ? 1 : resultsStore.deformedScale <= 100 ? 5 : 50))} title={t('results.decreaseScale')}>◀</button>
-          <input type="range" min="1" max="1000" step="1" bind:value={resultsStore.deformedScale} style="width: 80px" />
+          <input type="range" min="1" max="1000" step="1" bind:value={resultsStore.deformedScale} />
           <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = Math.min(1000, resultsStore.deformedScale + (resultsStore.deformedScale < 10 ? 1 : resultsStore.deformedScale < 100 ? 5 : 50))} title={t('results.increaseScale')}>▶</button>
           <span style="font-size: 0.7rem; color: #888">{Math.round(resultsStore.deformedScale)}×</span>
         </div>
@@ -182,7 +182,7 @@
         <div class="input-group">
           <label>{t('results.diagramScale')}:</label>
           <button class="scale-step-btn" onclick={() => resultsStore.diagramScale = Math.max(0.1, +(resultsStore.diagramScale - 0.1).toFixed(1))} title={t('results.decreaseScale')}>◀</button>
-          <input type="range" min="0.1" max="5" step="0.1" bind:value={resultsStore.diagramScale} style="width: 80px" />
+          <input type="range" min="0.1" max="5" step="0.1" bind:value={resultsStore.diagramScale} />
           <button class="scale-step-btn" onclick={() => resultsStore.diagramScale = Math.min(5, +(resultsStore.diagramScale + 0.1).toFixed(1))} title={t('results.increaseScale')}>▶</button>
           <span style="font-size: 0.7rem; color: #888">{resultsStore.diagramScale.toFixed(1)}x</span>
         </div>
@@ -195,7 +195,7 @@
         {#if resultsStore.animateDeformed}
           <div class="input-group">
             <label>{t('results.speed')}:</label>
-            <input type="range" min="0.25" max="3" step="0.25" bind:value={resultsStore.animSpeed} style="width: 80px" />
+            <input type="range" min="0.25" max="3" step="0.25" bind:value={resultsStore.animSpeed} />
             <span style="font-size: 0.7rem; color: #888">{resultsStore.animSpeed.toFixed(2)}x</span>
           </div>
         {/if}
@@ -208,7 +208,7 @@
         {#if resultsStore.ilAnimating}
           <div class="input-group">
             <label>{t('results.speed')}:</label>
-            <input type="range" min="0.25" max="3" step="0.25" bind:value={resultsStore.ilAnimSpeed} style="width: 80px" />
+            <input type="range" min="0.25" max="3" step="0.25" bind:value={resultsStore.ilAnimSpeed} />
             <span style="font-size: 0.7rem; color: #888">{resultsStore.ilAnimSpeed.toFixed(2)}x</span>
           </div>
         {/if}
@@ -609,12 +609,54 @@
     color: var(--st-text);
   }
 
+  /*
+     The width used to be an inline `style="width: 80px"` on each of the four
+     sliders. Inline beats a stylesheet, so a phone could not widen them without
+     `!important` — and an 80 px track asked a thumb to hit one of fifty steps
+     inside a fifth of the screen. Declared here instead, so the media query
+     below can simply take over.
+  */
   .input-group input[type="range"] {
     -webkit-appearance: auto;
     appearance: auto;
     accent-color: var(--st-accent);
     background: transparent;
     border: none;
+    width: 80px;
+  }
+
+  /* ── The phone ────────────────────────────────────────────────────
+     A scale slider takes the whole width it can get. It is the control the
+     reader touches most while reading a diagram — the value it sets is the
+     difference between a curve you can see and a flat line — and on a phone
+     the row has nothing else competing for that space once the label and the
+     steppers have taken theirs.
+     ─────────────────────────────────────────────────────────────── */
+  @media (max-width: 767px) {
+    .input-group input[type="range"] {
+      /* Grows into whatever the row has left, rather than a fixed guess. */
+      flex: 1 1 auto;
+      width: auto;
+      min-width: 0;
+    }
+
+    /*
+       The label goes on its own line so the slider gets the whole one.
+       ────────────────────────────────────────────────────────────────
+       Kept inline, "Escala diagrama:" took 40 % of a 375 px row and left the
+       slider 157 px — wider than the 80 it started at, and still a fifth of
+       the screen for a control with fifty steps. The label is four words the
+       reader takes in once; the track is what the thumb has to land on.
+    */
+    .input-group:has(input[type="range"]) {
+      width: 100%;
+      flex-wrap: wrap;
+      row-gap: 0.2rem;
+    }
+
+    .input-group:has(input[type="range"]) label {
+      flex: 0 0 100%;
+    }
   }
 
   .input-group select {

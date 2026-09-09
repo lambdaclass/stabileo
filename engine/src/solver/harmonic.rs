@@ -7,6 +7,7 @@ use super::assembly::*;
 use super::mass_matrix::*;
 use super::damping::*;
 use super::constraints::FreeConstraintSystem;
+use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 
 // ==================== Types ====================
 
@@ -93,25 +94,49 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
         return Err("Target DOF is restrained".into());
     }
 
-    // Assemble K, M, F — sparse first for large unconstrained models (dense K
-    // and M are O(n²) memory and assembly time; the sparse modal path exists
-    // and was unused here).
+    // Assemble K, M, F — sparse first for large models (dense K and M are
+    // O(n²) memory and assembly time). Constraints reduce as sparse triple
+    // products, so the constrained case stays sparse end to end too.
     let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
-    if cs.is_none() && nf >= super::linear::SPARSE_THRESHOLD {
+    if nf >= super::linear::SPARSE_THRESHOLD {
         let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num);
         let f_full = crate::solver::assembly::assemble_load_vector_2d(
             &input.solver, &input.solver.loads, &dof_num, &sasm.inclined_transforms_2d,
         );
         let f_ff: Vec<f64> = f_full[..nf].to_vec();
         let m_csc = assemble_mass_matrix_2d_sparse(&input.solver, &dof_num, &input.densities);
+        // Reduced-space matrices owned here so both branches can borrow them.
+        let k_red;
+        let m_red;
+        let (k_sp, m_sp, f_sp): (&CscMatrix, &CscMatrix, Vec<f64>) = if let Some(ref cs) = cs {
+            k_red = cs.reduce_matrix_sparse(&sasm.k_ff);
+            m_red = cs.reduce_matrix_sparse(&m_csc);
+            (&k_red, &m_red, cs.reduce_vector(&f_ff))
+        } else {
+            (&sasm.k_ff, &m_csc, f_ff)
+        };
+        let target_s = if let Some(ref cs) = cs {
+            cs.map_dof_to_reduced(target_dof)
+                .ok_or("Target DOF is dependent (constrained)")?
+        } else {
+            target_dof
+        };
         if let Some((response_points, peak_frequency, peak_amplitude)) =
-            solve_harmonic_modal_sparse(&sasm.k_ff, &m_csc, &f_ff, &input.frequencies, input.damping_ratio, target_dof)
+            solve_harmonic_modal_sparse(k_sp, m_sp, &f_sp, &input.frequencies, input.damping_ratio, target_s)
         {
             return Ok(HarmonicResult { response_points, peak_frequency, peak_amplitude });
         }
-        // Sparse modal found no usable modes (or Lanczos failed) — fall through
-        // to the dense modal/direct paths below.
+        // Sparse modal found no usable modes (or Lanczos failed). The dense
+        // paths below are O(n²) memory — past the dense ceiling, fail loudly
+        // instead of allocating (mirrors time_integration's dense cap).
+        if ns > MAX_DENSE_FALLBACK_DOFS {
+            return Err(format!(
+                "Harmonic analysis: sparse modal solve failed and the dense fallback would need {ns}×{ns} dense matrices ({} MB each), over the {MAX_DENSE_FALLBACK_DOFS}-DOF ceiling",
+                8 * ns * ns / 1_000_000
+            ));
+        }
     }
 
     let asm = assemble_2d(&input.solver, &dof_num);
@@ -123,8 +148,6 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
     let f_ff: Vec<f64> = asm.f[..nf].to_vec();
 
     // Apply constraint reduction if constraints present
-    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-
     let (k_s, m_s, f_s) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.reduce_vector(&f_ff))
     } else {
@@ -223,24 +246,45 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 
     // Apply constraint reduction if constraints present
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
-    // No constraints: try sparse modal path with sparse mass
-    // (avoids the dense n² mass matrix entirely)
-    if cs.is_none() {
-        let m_csc = assemble_mass_matrix_3d_sparse(&input.solver, &dof_num, &input.densities);
-        if let Some((response_points, peak_frequency, peak_amplitude)) =
-            solve_harmonic_modal_sparse(&sasm.k_ff, &m_csc, &f_ff, &input.frequencies, input.damping_ratio, target_dof)
-        {
-            return Ok(HarmonicResult { response_points, peak_frequency, peak_amplitude });
-        }
+    // Sparse modal path with sparse mass (avoids the dense n² mass matrix).
+    // Constraints reduce as sparse triple products, so the constrained case
+    // stays sparse end to end too.
+    let m_csc = assemble_mass_matrix_3d_sparse(&input.solver, &dof_num, &input.densities);
+    let k_red;
+    let m_red;
+    let (k_sp, m_sp, f_sp): (&CscMatrix, &CscMatrix, Vec<f64>) = if let Some(ref cs) = cs {
+        k_red = cs.reduce_matrix_sparse(&sasm.k_ff);
+        m_red = cs.reduce_matrix_sparse(&m_csc);
+        (&k_red, &m_red, cs.reduce_vector(&f_ff))
+    } else {
+        (&sasm.k_ff, &m_csc, f_ff.clone())
+    };
+    let target_s = if let Some(ref cs) = cs {
+        cs.map_dof_to_reduced(target_dof)
+            .ok_or("Target DOF is dependent (constrained)")?
+    } else {
+        target_dof
+    };
+    if let Some((response_points, peak_frequency, peak_amplitude)) =
+        solve_harmonic_modal_sparse(k_sp, m_sp, &f_sp, &input.frequencies, input.damping_ratio, target_s)
+    {
+        return Ok(HarmonicResult { response_points, peak_frequency, peak_amplitude });
     }
 
-    // Dense path: convert to dense for constraints or sparse failure
+    // Dense path: only below the dense ceiling — a sparse-modal failure on a
+    // large model must not trigger an O(n²) allocation (WASM address space).
+    if ns > MAX_DENSE_FALLBACK_DOFS {
+        return Err(format!(
+            "Harmonic analysis: sparse modal solve failed and the dense fallback would need {ns}×{ns} dense matrices ({} MB each), over the {MAX_DENSE_FALLBACK_DOFS}-DOF ceiling",
+            8 * ns * ns / 1_000_000
+        ));
+    }
     let m_full = assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
     let free_idx: Vec<usize> = (0..nf).collect();
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let k_ff = sasm.k_ff.to_dense_symmetric();
-    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     let (k_s, m_s, f_s) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.reduce_vector(&f_ff))
@@ -472,6 +516,14 @@ pub fn solve_complex_system(
 ) -> Result<(Vec<f64>, Vec<f64>), String> {
     let omega2 = omega * omega;
     let n2 = 2 * n;
+    // The 2n×2n dense block system is 4× the memory of a dense n×n — past the
+    // dense ceiling this blows the WASM address space, so fail loudly.
+    if n2 > MAX_DENSE_FALLBACK_DOFS {
+        return Err(format!(
+            "Harmonic direct solve: the dense 2n×2n system would be {n2}×{n2} ({} MB), over the {MAX_DENSE_FALLBACK_DOFS}-DOF ceiling",
+            8 * n2 * n2 / 1_000_000
+        ));
+    }
     let mut a = vec![0.0; n2 * n2];
     let mut rhs = vec![0.0; n2];
 

@@ -1,0 +1,138 @@
+/*
+ * Comfortable touch density — a phone preference, off by default.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ## Why this is a setting and not a fix
+ *
+ * The panels a phone shows in the bottom sheet were written for a 320 px
+ * desktop sidebar. Their rows are 22–25 px tall, and two of them — the diagram
+ * scale steppers — are 13 px. Measured against a 44 px touch target that is
+ * plainly too small.
+ *
+ * But "make everything 44 px" is not free, and the cost is not cosmetic. It
+ * adds about 125 px to the results panel's content, which turns 87 px of
+ * scrolling into roughly 212 before the results table is reachable. Denser
+ * rows show more of the answer; bigger rows are easier to hit. Which one wins
+ * depends on the hand and the handset, so the reader chooses.
+ *
+ * `compact` is the default because it is what the panels already are, and
+ * because on a small screen seeing more of a table is worth something real.
+ *
+ * ## How it works
+ *
+ * `uiStore.touchDensity` writes `data-touch-density` on <html>. Everything
+ * below answers to `comfortable`, and only below 768 px — a desktop mouse has
+ * never needed 44 px and widening the desktop panel would be a regression
+ * dressed as an accessibility win.
+ *
+ * These selectors reach INTO other components on purpose. The rows belong to
+ * ToolbarResults, the DataTable, PRO's tabs and the selectors around them, whose
+ * styles are scoped and which share no useful parent; a global sheet is the one
+ * place that can address them together.
+ *
+ * Scoped to the two sheets — `.basic-panel` and PRO's `.pro-panel` — so it can
+ * only ever reach panel contents. PRO was left out at first, which meant the
+ * setting was offered in PRO's own Settings and did nothing there. An option
+ * that lies is worse than one that is missing.
+ *
+ * ## Adding a control to this
+ *
+ * Measure first, with a panel OPEN — the probe in docs/handoffs/mobile-ui-pr166.md
+ * reports nothing useful against an empty model. Then add its selector to the
+ * matching block below rather than writing a new one, so the rules stay
+ * grouped by what they do and not by when they were added.
+ */
+
+@media (max-width: 767px) {
+  :root[data-touch-density='comfortable'] .basic-panel,
+  :root[data-touch-density='comfortable'] .pro-panel {
+    /* One number, so a row and the control inside it cannot disagree. */
+    --td-target: 44px;
+    --td-gap: 8px;
+  }
+
+  /* ── Anything the reader picks from ──────────────────────────────── */
+
+  :root[data-touch-density='comfortable'] .basic-panel select,
+  :root[data-touch-density='comfortable'] .pro-panel select,
+  :root[data-touch-density='comfortable'] .basic-panel input[type='text'],
+  :root[data-touch-density='comfortable'] .pro-panel input[type='text'],
+  :root[data-touch-density='comfortable'] .basic-panel input[type='number'],
+  :root[data-touch-density='comfortable'] .pro-panel input[type='number'] {
+    min-height: var(--td-target);
+    font-size: 0.9rem;
+    padding-block: 0.35rem;
+  }
+
+  /* ── Buttons, including the segmented pairs and the sub-tabs ─────── */
+
+  :root[data-touch-density='comfortable'] .basic-panel button,
+  :root[data-touch-density='comfortable'] .pro-panel button {
+    min-height: var(--td-target);
+  }
+
+  /*
+     The steppers are the reason this setting exists: 19×13 and 18×13, the
+     smallest controls in the application. Square, so the width comes up with
+     the height rather than leaving a 44 px-tall sliver.
+  */
+  :root[data-touch-density='comfortable'] .basic-panel .input-group button,
+  :root[data-touch-density='comfortable'] .pro-panel .input-group button {
+    min-width: var(--td-target);
+  }
+
+  /* ── Room between them ───────────────────────────────────────────── */
+
+  :root[data-touch-density='comfortable'] .basic-panel .input-group,
+  :root[data-touch-density='comfortable'] .pro-panel .input-group,
+  :root[data-touch-density='comfortable'] .basic-panel .seg,
+  :root[data-touch-density='comfortable'] .pro-panel .seg,
+  :root[data-touch-density='comfortable'] .basic-panel .results-sub-tabs,
+  :root[data-touch-density='comfortable'] .pro-panel .results-sub-tabs {
+    gap: var(--td-gap);
+    flex-wrap: wrap;
+  }
+
+  /*
+     A range slider's thumb is the target, not its track, and the track is what
+     `min-height` grows. The thumb is sized directly.
+  */
+  :root[data-touch-density='comfortable'] .basic-panel input[type='range'],
+  :root[data-touch-density='comfortable'] .pro-panel input[type='range'] {
+    height: var(--td-target);
+  }
+  :root[data-touch-density='comfortable'] .basic-panel input[type='range']::-webkit-slider-thumb,
+  :root[data-touch-density='comfortable'] .pro-panel input[type='range']::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+  :root[data-touch-density='comfortable'] .basic-panel input[type='range']::-moz-range-thumb,
+  :root[data-touch-density='comfortable'] .pro-panel input[type='range']::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  /*
+     A checkbox cannot be grown by `min-height` — it has an intrinsic box — so
+     it is scaled from its own centre and given back the space that costs.
+  */
+  :root[data-touch-density='comfortable'] .basic-panel input[type='checkbox'],
+  :root[data-touch-density='comfortable'] .pro-panel input[type='checkbox'] {
+    transform: scale(1.5);
+    transform-origin: left center;
+    margin-right: 0.5rem;
+  }
+
+  /*
+     The data table stays dense on purpose, and it is the one exception.
+     It is a grid of NUMBERS to read, not of controls to hit; 44 px rows would
+     put four of them on a screen and turn reading a model into scrolling
+     through one. Its editable cells still answer to the rules above.
+  */
+  :root[data-touch-density='comfortable'] .basic-panel table td,
+  :root[data-touch-density='comfortable'] .pro-panel table td,
+  :root[data-touch-density='comfortable'] .basic-panel table th,
+  :root[data-touch-density='comfortable'] .pro-panel table th {
+    min-height: 0;
+  }
+}

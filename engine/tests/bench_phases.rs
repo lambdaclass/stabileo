@@ -593,7 +593,7 @@ fn sparse_vs_dense_comparison() {
             None => "N/A".to_string(),
         };
         let speedup_str = match dense {
-            Some(d) if sparse_us > 0 => format!("{:.1}x", d as f64 / sparse_us as f64),
+            Some(d) if sparse_us > 0.0 => format!("{:.1}x", d as f64 / sparse_us as f64),
             _ => "N/A".to_string(),
         };
 
@@ -1319,7 +1319,7 @@ fn modified_nr_vs_full_nr_measurement() {
         for i in 0..=n_elem {
             nodes.insert(
                 (i + 1).to_string(),
-                SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+                SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
             );
         }
 
@@ -1344,14 +1344,14 @@ fn modified_nr_vs_full_nr_measurement() {
         supports.insert("1".into(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         let tip_id = n_elem + 1;
         let solver = SolverInput {
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_id, fx: 0.0, fy: load, mz: 0.0,
+                node_id: tip_id, fx: 0.0, fz: load, my: 0.0,
             })],
             constraints: vec![], connectors: HashMap::new(),
         };
@@ -1403,7 +1403,7 @@ fn modified_nr_vs_full_nr_measurement() {
 
         let d_full = full.results.displacements.iter().find(|d| d.node_id == tip_id).unwrap();
         let d_mod = modified.results.displacements.iter().find(|d| d.node_id == tip_id).unwrap();
-        let rel = (d_full.uy - d_mod.uy).abs() / d_full.uy.abs().max(1e-15);
+        let rel = (d_full.uz - d_mod.uz).abs() / d_full.uz.abs().max(1e-15);
 
         let speedup = if mod_us > 0 { full_us as f64 / mod_us as f64 } else { 0.0 };
 
