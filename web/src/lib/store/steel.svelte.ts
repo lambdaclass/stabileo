@@ -29,6 +29,7 @@ import {
   buildSteelInventory, countByKind, totalSteelLength,
   type InventoryModel, type SteelInventory,
 } from '../engine/steel/steel-inventory';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { CIRSOC301_CAPABILITIES, STEEL_CAPABILITY_KEYS } from '../engine/design/adapters/cirsoc301-capabilities';
 import { explainUnsupported, type UnsupportedNotice } from '../codes/capability';
 
@@ -82,10 +83,19 @@ function createSteelStore() {
     const value = buildSteelInventory(inventoryModel(), {
       hasDemands,
       authorityBound: bound,
-      // PR #132's grade catalogue is not on this branch. When it lands, this is the one
-      // call site that changes: pass `(id) => gradeById(id)?.family ?? null` mapped onto
-      // `StructuralMaterialFamily`, and every inference in the app becomes a declaration.
-      lookupGrade: undefined,
+      // The catalogue this used to wait for is here: `structural-grades.ts` and
+      // `non-metal-grades.ts` came in with PR #132, an ancestor of this branch's base.
+      // H1 supplied `catalogueGradeFamily` and wired the design path
+      // (`design-run.svelte.ts`); this was the other call site, and its comment still
+      // said the catalogue "is not on this branch" — the one thing that was certainly
+      // no longer true.
+      //
+      // What it changes here: without a lookup, `materialFamilyOf` infers the family
+      // from the MAGNITUDE of `fy`, which cannot tell aluminium from steel — the gap
+      // `conn.gap.aluminium.missing` states in the user's own words. So an aluminium
+      // member was counted as steel. It is now classified from its declared grade and
+      // skipped, which is what an inventory OF STEEL means.
+      lookupGrade: catalogueGradeFamily,
     });
     cache = { key, value };
     return value;

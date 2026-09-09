@@ -6064,7 +6064,7 @@ const es: Record<string, string> = {
   'design.floor.state.provisional': 'Provisional',
   'design.floor.state.why.error': 'La pasada de pisos falló. Cualquier número que quede en pantalla es de una corrida anterior y no describe el modelo actual.',
   'design.floor.state.why.notRun': 'Todavía no se corrió el diseño de pisos, así que no hay nada clasificado. No es que no haya elementos: es que no se los miró.',
-  'design.floor.state.why.noElements': 'El modelo no tiene elementos de esta familia. Es un hecho del modelo y se sabe sin correr nada.',
+  'design.floor.state.why.noElements': 'El modelo no tiene elementos de esta familia: o no hay ninguno, o la corrida clasificó en otras familias todos los que encontró.',
   'design.floor.state.why.skipped': 'La pasada clasificó estos elementos y no los diseñó ni los rechazó: quedaron fuera de su alcance.',
   'design.floor.state.why.designed': 'Diseñado con resultado completo: armaduras, verificación de corte y cláusulas citadas.',
   'design.floor.state.why.refused': 'La pasada se negó a diseñar. Cada rechazo nombra su elemento y la condición que lo detuvo.',

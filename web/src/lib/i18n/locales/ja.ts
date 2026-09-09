@@ -3446,7 +3446,7 @@ const ja: Translations = {
   'design.floor.state.provisional': 'Provisional',
   'design.floor.state.why.error': 'The floor pass failed. Any figure still on screen belongs to an earlier run and does not describe this model.',
   'design.floor.state.why.notRun': 'The floor design has not run, so nothing is classified. Not that there are no elements — that nobody has looked at them.',
-  'design.floor.state.why.noElements': 'The model has no elements of this family. That is a fact about the model, known without running anything.',
+  'design.floor.state.why.noElements': 'The model has no elements of this family: either there are none at all, or the run classified every one it found into other families.',
   'design.floor.state.why.skipped': 'The pass classified these and neither designed nor refused them: they fell outside its scope.',
   'design.floor.state.why.designed': 'Designed with a complete result: reinforcement, shear check and cited clauses.',
   'design.floor.state.why.refused': 'The pass refused to design. Each refusal names its element and the condition that stopped it.',

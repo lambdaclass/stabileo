@@ -83,6 +83,31 @@ describe('no figure is invented before the pass classifies anything', () => {
     // A real zero: the run classified, and none of them was a slab.
     expect(lookedAndFoundNone.classified).toBe(0);
     expect(lookedAndFoundNone.countsUnavailable).toBe(false);
+    // The headline too, which this case used to leave unasserted. It read `skipped` —
+    // "classified, and neither designed nor refused" — for a family nothing had been
+    // classified into. A model of walls has no slabs, and that is what it now says.
+    expect(lookedAndFoundNone.kind).toBe('noElements');
+  });
+
+  it('an absent family is noElements even when the model is full of the other one', () => {
+    // The guard on `readiness.shellCount` cannot reach this: that count is model-wide, so
+    // forty walls keep it far from zero while the slabs family is empty.
+    const r = floorFamilyStates(input({
+      readiness: { shellCount: 40 },
+      run: {
+        ...emptyRun,
+        classifications: Array.from({ length: 40 }, (_, i) => ({
+          elementId: i + 1, family: 'wall' as const,
+        })),
+        walls: Array.from({ length: 40 }, () => VALIDATED),
+      },
+    }));
+
+    expect(of(r, 'slabs').kind).toBe('noElements');
+    expect(of(r, 'slabs').classified).toBe(0);
+    // The family that IS there is unaffected — the new branch must not swallow real work.
+    expect(of(r, 'walls').kind).toBe('designed');
+    expect(of(r, 'walls').designed).toBe(40);
   });
 });
 

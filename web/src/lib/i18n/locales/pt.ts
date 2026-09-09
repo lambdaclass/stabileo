@@ -5032,7 +5032,7 @@ const pt: Translations = {
   'design.floor.state.provisional': 'Provisório',
   'design.floor.state.why.error': 'A passagem de pisos falhou. Qualquer número ainda na tela é de uma execução anterior e não descreve este modelo.',
   'design.floor.state.why.notRun': 'O dimensionamento de pisos não foi executado, portanto nada está classificado. Não é que não existam elementos: é que ninguém olhou para eles.',
-  'design.floor.state.why.noElements': 'O modelo não tem elementos desta família. É um fato do modelo, conhecido sem executar nada.',
+  'design.floor.state.why.noElements': 'O modelo não tem elementos desta família: ou não há nenhum, ou a execução classificou em outras famílias todos os que encontrou.',
   'design.floor.state.why.skipped': 'A passagem classificou estes e não os dimensionou nem os recusou: ficaram fora do seu escopo.',
   'design.floor.state.why.designed': 'Dimensionado com resultado completo: armaduras, verificação de cisalhamento e cláusulas citadas.',
   'design.floor.state.why.refused': 'A passagem recusou dimensionar. Cada recusa nomeia seu elemento e a condição que a impediu.',
