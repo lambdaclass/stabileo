@@ -1,5 +1,5 @@
 /**
- * The section calculator, from the ribbon.
+ * The section calculator, from the bottom of the Advanced list.
  *
  * The clauses are covered by unit tests — 25 of them across the flanged and
  * circular modules, plus the 77 the rectangular engine already had. What none
@@ -22,7 +22,13 @@ const CASES = ['rect-flexure', 'tee-flexure', 'rect-column', 'circ-column', 'rec
 async function openFlex(page: Page) {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
-  await page.getByTestId('rb-cmd-flex').click();
+  /*
+   * Reached from the bottom of the Advanced list, not from the ribbon. It was
+   * a ribbon command until its two-word label wrapped and took ten pixels of
+   * canvas off every Basic user; see the commit that moved it.
+   */
+  await page.getByTestId('rb-cmd-advanced').click();
+  await page.getByTestId('adv-flex').click();
   await expect(page.getByTestId('flex-panel')).toBeVisible();
 }
 
@@ -106,7 +112,15 @@ test.describe('@smoke CIRSOC Flex', () => {
     const steps = page.locator('.fp-memo li');
     expect(await steps.count()).toBeGreaterThan(2);
 
-    await expect(page.locator('.fp-attrib')).toContainText('CIRSOC 201-2005');
-    await expect(page.locator('.fp-attrib')).toContainText('Ortega');
+    /*
+     * Two footnotes now, and they must stay two: one about the tool being in
+     * test, one about whose clauses these are. A reader who found only the
+     * first would think the CODE is provisional, which it is not.
+     */
+    const notes = page.locator('.fp-attrib');
+    await expect(notes).toHaveCount(2);
+    await expect(notes.first()).toContainText(/testeo|under test|testes/);
+    await expect(notes.last()).toContainText('CIRSOC 201-2005');
+    await expect(notes.last()).toContainText('Ortega');
   });
 });

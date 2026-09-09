@@ -315,6 +315,12 @@
     should be able to tell at a glance which of the two they are looking at,
     and a reader who does not should know which document to argue with.
   -->
+  <!--
+    Two small lines, and they say different things. The first is about the
+    tool's maturity, the second about whose rules it implements — a reader who
+    conflates them would think the CODE is provisional, which it is not.
+  -->
+  <p class="fp-attrib">{t('flex.betaNote')}</p>
   <p class="fp-attrib">{t('flex.attribution')}</p>
 </div>
 

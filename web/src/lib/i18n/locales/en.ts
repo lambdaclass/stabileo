@@ -744,6 +744,8 @@ const en: Record<string, string> = {
   'project.emptyModel': 'Empty model',
   // ─── CIRSOC Flex (components/CirsocFlexPanel.svelte) ───
   'ribbon.flex': 'CIRSOC Flex',
+  'flex.beta': 'beta',
+  'flex.betaNote': 'A feature still under test: check the results before using them on a project.',
   'flex.short': 'Flex',
   'flex.title': 'CIRSOC Flex',
   'flex.case.label': 'Case',

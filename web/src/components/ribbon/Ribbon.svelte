@@ -305,14 +305,6 @@
          * the question is "will this section hold", and the alternative was a
          * sixth group holding one command.
          */
-        /*
-         * `flex.short` on the button, `flex.title` in the tooltip. The full
-         * name wraps to two lines at this size, and a wrapped label does not
-         * cost one button — it makes the whole ribbon 10 px taller and takes
-         * that off the canvas for every Basic user, on every screen, forever.
-         * The tour tests found it: their canvas coordinates all moved.
-         */
-        { id: 'flex', icon: 'stress', labelKey: 'flex.short', nameKey: 'flex.title', panel: 'flex' },
       ],
     },
     {

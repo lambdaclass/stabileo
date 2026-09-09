@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '../../lib/i18n';
-  import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import ToolbarResults from '../toolbar/ToolbarResults.svelte';
   import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarAdvanced from '../toolbar/ToolbarAdvanced.svelte';
@@ -201,8 +200,6 @@
       <SelectionPanel />
     {:else if panel === 'results'}
       <ToolbarResults hideDiagrams flat />
-    {:else if panel === 'flex'}
-      <CirsocFlexPanel />
     {:else if panel === 'advanced'}
       <ToolbarAdvanced flat />
       <!--
