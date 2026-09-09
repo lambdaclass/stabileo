@@ -48,9 +48,16 @@
 {/if}
 
 <style>
-  .torsion-band {
-    /* Amber, which is neither the violet of a proposal nor the red of a conflict: this is an
-       unverified action, not an unbuildable bar and not a clash. One colour, one meaning. */
+  /*
+    Amber, which is neither the violet of a proposal nor the red of a conflict: this is an
+    unverified action, not an unbuildable bar and not a clash. One colour, one meaning.
+
+    On the NOTICE and not on this wrapper, for the reason `ProvisionalBanner` sets out at
+    length: the specs measure the element carrying `data-testid`, so that is the element the
+    state has to be painted on. Same pixels either way — `.notice` has `margin: 0` and fills
+    the wrapper — but only one of the two arrangements can be checked.
+  */
+  .torsion-band :global(.notice) {
     background: var(--st-surface-3);
     border-bottom: 1px solid var(--st-warn);
   }

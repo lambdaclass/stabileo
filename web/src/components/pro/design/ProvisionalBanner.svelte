@@ -51,12 +51,27 @@
 {/if}
 
 <style>
-  .provisional-band {
-    /* The same violet the 3-D view paints provisional steel with. One colour, one meaning —
-       and now one definition. The three literals here were the values the token was derived
-       FROM, so adopting it changes no pixel except the body copy, which goes from `#e2d3f5`
-       (11.98 on this band) to `--st-text` (13.00): the sentence at full contrast, the emphasis
-       carrying the state. The same shape `FootingMatPhysicalPanel` measured its way into. */
+  /*
+    The same violet the 3-D view paints provisional steel with. One colour, one meaning —
+    and now one definition. The three literals here were the values the token was derived
+    FROM, so adopting it changes no pixel except the body copy, which goes from `#e2d3f5`
+    (11.98 on this band) to `--st-text` (13.00): the sentence at full contrast, the emphasis
+    carrying the state. The same shape `FootingMatPhysicalPanel` measured its way into.
+
+    ── On the NOTICE, not on this wrapper ──────────────────────────────
+
+    F6 first put these two declarations on `.provisional-band` and left `data-testid` on the
+    notice inside it. The band still looked right — `.notice` has `margin: 0` and fills the
+    wrapper, so the same pixels were painted — but the specs read `getComputedStyle` of the
+    element carrying the testid, and that element had no background of its own: the guard for
+    this colour went on reporting `rgba(0, 0, 0, 0)` against a violet nobody had removed.
+
+    So the state goes on the element that is measured. `:global(.notice)` for the same reason
+    the `<strong>` rule below needs it — the markup belongs to `RebarNotice` and Svelte scopes
+    styles to the component that declares them. The wrapper stays as the scoping anchor, which
+    is the only job it ever had.
+  */
+  .provisional-band :global(.notice) {
     background: var(--st-provisional-bg);
     border-bottom: 1px solid var(--st-provisional);
   }
