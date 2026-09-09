@@ -3,6 +3,8 @@ const es: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
+  'landing.shotEduAlt': 'Un ejercicio en el modo educativo: el pórtico a la izquierda y, a la derecha, los pasos con los campos de reacciones que el alumno completa.',
+  'landing.shotEduTitle': 'El alumno resuelve; la app corrige',
   'landing.shotAiTitle': 'Propone el cambio; vos lo aplicás',
   'landing.shotAiAlt': 'Panel de Stabileo IA: un pedido en lenguaje natural y el cambio que la IA propone antes de aplicarlo.',
   'landing.ebPricing': 'PRECIOS',

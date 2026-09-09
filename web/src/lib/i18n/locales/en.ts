@@ -3,6 +3,8 @@ const en: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
+  'landing.shotEduAlt': 'An exercise in Education mode: the frame on the left and, on the right, the steps with the reaction fields the student fills in.',
+  'landing.shotEduTitle': 'The student solves; the app marks',
   'landing.shotAiTitle': 'It proposes the change; you apply it',
   'landing.shotAiAlt': 'The Stabileo AI panel: a request in plain language and the change the AI proposes before it is applied.',
   'landing.ebPricing': 'PRICING',

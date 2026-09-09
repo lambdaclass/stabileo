@@ -877,13 +877,50 @@
   border-top: 1px solid var(--card-hair);
 }
 
-/* ─── REAL TIME ──────────────────────────────────────────────────────────── */
+/* ─── A SECTION LAID OUT AS A SPLIT ──────────────────────────────────────
 
-.landing .rt-grid {
+   Copy on the left, one screenshot on the right, at the size it really has.
+
+   The AI panel is 1240×1026 and occupies about a third of the application
+   window. Rendered as a full-width card it came out roughly four times that,
+   which misrepresents the product and makes the least finished mode the
+   loudest thing on the page. Capping the image column is what keeps the
+   picture honest.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.landing .mode-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: clamp(2rem, 5vw, 4.5rem);
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+  gap: clamp(2rem, 4vw, 3.5rem);
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.landing .mode-split-shot {
+  margin: 0;
+  border: 1px solid var(--hair);
+  background: var(--card);
+}
+
+.landing .mode-split-shot picture,
+.landing .mode-split-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Same proximity rule as the media cards: close to the picture above it. */
+.landing .mode-split-shot figcaption {
+  padding: 0.7rem clamp(1rem, 1.6vw, 1.4rem) clamp(1rem, 1.8vw, 1.5rem);
+  border-top: 1px solid var(--card-hair);
+  font-family: var(--lp-sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--lp-paper-2);
+}
+
+@media (max-width: 860px) {
+  .landing .mode-split { grid-template-columns: minmax(0, 1fr); }
 }
 
 .landing .tick-list {
@@ -1567,7 +1604,6 @@
   .landing .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .landing .analogies { grid-template-columns: 1fr; gap: 1.25rem; }
   .landing .hero-grid { grid-template-columns: 1fr; }
-  .landing .rt-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 1000px) {

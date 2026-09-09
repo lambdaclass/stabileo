@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 const pt: Translations = {
   // ─── Landing ───
+  'landing.shotEduAlt': 'Um exercício no modo educacional: o pórtico à esquerda e, à direita, os passos com os campos de reações que o aluno preenche.',
+  'landing.shotEduTitle': 'O aluno resolve; o app corrige',
   'landing.shotAiTitle': 'Propõe a mudança; você a aplica',
   'landing.shotAiAlt': 'Painel do Stabileo IA: um pedido em linguagem natural e a mudança que a IA propõe antes de aplicá-la.',
   'landing.ebPricing': 'PREÇOS',

@@ -6,12 +6,15 @@
   /**
    * The agent, with the one view of it that exists.
    *
-   * This section carried no picture for a draft, on the grounds that there was
-   * nothing finished to show. There is: the panel takes a request in plain
-   * language and puts the proposed change in front of you — the element it
-   * removes, the count it changes, the re-check it will run — with Cancel and
-   * Apply. That screen IS the argument the section makes, which is that the
-   * AI proposes and a person decides.
+   * Laid out as a split rather than as a full-width card. The panel is 1240 by
+   * 1026 — nearly square, and about a third of a screen in the application —
+   * so a card the width of the deck rendered it four times the size it is in
+   * the product, which is both wrong and the loudest thing on the page. It
+   * sits beside the copy at the size it actually has.
+   *
+   * The screen IS the argument the section makes: a request in plain language,
+   * the change set out before anything happens, and Cancel next to Apply. The
+   * agent proposes and a person decides.
    */
 </script>
 
@@ -19,17 +22,19 @@
   <div class="wrap">
     <Eyebrow n="04" label={t('landing.ebAi')} />
 
-    <div class="mode-head">
-      <h2 id="ai-title" class="display">{t('landing.aiH')}</h2>
-      <span class="badge badge-dev">{t('landing.badgeDevPaid')}</span>
-    </div>
-    <p class="lead">{t('landing.aiP')}</p>
+    <div class="mode-split">
+      <div class="mode-split-text">
+        <div class="mode-head">
+          <h2 id="ai-title" class="display">{t('landing.aiH')}</h2>
+          <span class="badge badge-dev">{t('landing.badgeDevPaid')}</span>
+        </div>
+        <p class="lead">{t('landing.aiP')}</p>
+      </div>
 
-    <div class="card-row cols-1 cap-shots">
-      <article class="card card-media card-wide">
-        <Shot base="ai-panel" w={1240} h={1026} alt={t('landing.shotAiAlt')} sizes="(max-width: 760px) 92vw, 62vw" />
-        <div class="card-body"><h3>{t('landing.shotAiTitle')}</h3></div>
-      </article>
+      <figure class="mode-split-shot">
+        <Shot base="ai-panel" w={1240} h={1026} alt={t('landing.shotAiAlt')} sizes="(max-width: 860px) 92vw, 34vw" />
+        <figcaption>{t('landing.shotAiTitle')}</figcaption>
+      </figure>
     </div>
   </div>
 </section>
