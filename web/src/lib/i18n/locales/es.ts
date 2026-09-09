@@ -735,7 +735,7 @@ const es: Record<string, string> = {
   'project.copyLink': 'Copiar enlace',
   'project.pasteLink': 'Pegar enlace',
   'project.emptyModel': 'Modelo vacío',
-  'project.longLink': 'Enlace largo ({n} chars) — puede no funcionar en todos los navegadores',
+  'project.longLink': 'Enlace largo ({n} caracteres): el navegador lo abre bien, pero algunos mails y chats lo cortan al pegarlo. Si falla, mandá el archivo .ded.',
   'project.linkCopied': 'Enlace copiado al portapapeles',
   'project.noLinkFound': 'No se encontró un enlace de Stabileo en el portapapeles',
   'project.linkLoadedNewTab': 'Enlace cargado en nueva pestaña',

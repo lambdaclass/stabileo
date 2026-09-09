@@ -742,7 +742,7 @@ const en: Record<string, string> = {
   'project.copyLink': 'Copy link',
   'project.pasteLink': 'Paste link',
   'project.emptyModel': 'Empty model',
-  'project.longLink': 'Long link ({n} chars) \u2014 may not work in all browsers',
+  'project.longLink': 'Long link ({n} characters): browsers open it fine, but some mail and chat clients cut it when pasted. If it fails, send the .ded file instead.',
   'project.linkCopied': 'Link copied to clipboard',
   'project.noLinkFound': 'No Stabileo link found in clipboard',
   'project.linkLoadedNewTab': 'Link loaded in new tab',

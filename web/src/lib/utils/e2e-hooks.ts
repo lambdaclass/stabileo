@@ -165,6 +165,19 @@ export interface StabileoTestHooks {
   rebarSummary(elementId: number): string;
   elementIds(): number[];
   /**
+   * Everything the portable formats have to carry, as one count per kind.
+   *
+   * `nodeCount` and `elementIds` covered the two easy halves of a model. What a
+   * share link or a `.ded` actually has to survive is the rest — the loads, the
+   * cases, the combinations — and a format that dropped those still passed
+   * every hook there was. One census, so a portability test asserts on the
+   * whole model rather than on the parts that happen to be exposed.
+   */
+  modelCensus(): {
+    nodes: number; elements: number; materials: number; sections: number;
+    supports: number; loads: number; loadCases: number; combinations: number;
+  };
+  /**
    * The names of the sections in the model, e.g. `HEB 220`.
    *
    * Added so a spec can assert that the profile a selector hands back is the id the
@@ -403,6 +416,19 @@ export function installE2EHooks(): void {
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
+    modelCensus: () => {
+      const s = modelStore.snapshot();
+      return {
+        nodes: s.nodes?.length ?? 0,
+        elements: s.elements?.length ?? 0,
+        materials: s.materials?.length ?? 0,
+        sections: s.sections?.length ?? 0,
+        supports: s.supports?.length ?? 0,
+        loads: s.loads?.length ?? 0,
+        loadCases: s.loadCases?.length ?? 0,
+        combinations: s.combinations?.length ?? 0,
+      };
+    },
     sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,

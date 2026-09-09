@@ -3843,7 +3843,7 @@ const pt: Translations = {
   'project.linkCopied': 'Link copiado para a área de transferência',
   'project.linkLoadedNewTab': 'Link carregado em nova aba',
   'project.loadError': 'Erro ao carregar arquivo',
-  'project.longLink': 'Link longo ({n} caracteres) — pode não funcionar em todos os navegadores',
+  'project.longLink': 'Link longo ({n} caracteres): o navegador abre sem problema, mas alguns e-mails e chats o cortam ao colar. Se falhar, envie o arquivo .ded.',
   'project.noLinkFound': 'Nenhum link Stabileo encontrado na área de transferência',
   'project.open': 'Abrir',
   'project.openDed': 'Abrir .ded',
