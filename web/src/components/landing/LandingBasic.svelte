@@ -6,24 +6,34 @@
   /**
    * Basic mode: the one mode that is finished enough to hand a stranger.
    *
-   * The four screenshots below used to sit in the solver-capabilities section,
-   * where they illustrated the engine's breadth and were read as evidence for
+   * These screenshots used to sit in the solver-capabilities section, where
+   * they illustrated the engine's breadth and were read as evidence for
    * capabilities that Basic cannot actually reach. They are all Basic-mode
-   * views, so they belong here, and every file has a producer in
-   * scripts/take-screenshots.ts.
+   * views, so they belong here.
+   *
+   * Paired on purpose, 2D then 3D: the diagram first, then what the section
+   * under it is doing. Section analysis is the part a reader is least likely
+   * to expect from a browser tab, so it gets the longer caption of the four.
+   *
+   * `3d-frame` and `3d-industrial` were one file until the shed earned a card
+   * of its own: the six-degrees-of-freedom card now shows a space frame, which
+   * is what it was always claiming, and the shed closes the row by saying the
+   * examples menu is not the limit.
    */
   const shots = [
-    { base: '2d-moments', alt: 'landing.capAlt2d', title: 'landing.capShot2dTitle', body: 'landing.capShot2dBody' },
-    { base: '3d-industrial', alt: 'landing.capAlt3d', title: 'landing.capShot3dTitle', body: 'landing.capShot3dBody' },
-    { base: '2d-section-analysis', alt: 'landing.capAltStress2d', title: 'landing.capShotStress2dTitle', body: 'landing.capShotStress2dBody' },
-    { base: '3d-section-analysis', alt: 'landing.capAltStress3d', title: 'landing.capShotStress3dTitle', body: 'landing.capShotStress3dBody' },
+    { base: '2d-moments', w: 1600, h: 997, alt: 'landing.capAlt2d', title: 'landing.capShot2dTitle', body: 'landing.capShot2dBody' },
+    { base: '2d-section-analysis', w: 1600, h: 997, alt: 'landing.capAltStress2d', title: 'landing.capShotStress2dTitle', body: 'landing.capShotStress2dBody' },
+    { base: '3d-frame', w: 1600, h: 876, alt: 'landing.capAlt3d', title: 'landing.capShot3dTitle', body: 'landing.capShot3dBody' },
+    { base: '3d-section-analysis', w: 1600, h: 876, alt: 'landing.capAltStress3d', title: 'landing.capShotStress3dTitle', body: 'landing.capShotStress3dBody' },
+    // Wide, and the closing argument rather than one capability among four.
+    { base: '3d-industrial', w: 1600, h: 876, alt: 'landing.capAltIndustrial', title: 'landing.capShotIndustrialTitle', body: 'landing.capShotIndustrialBody', wide: true },
   ];
 
   /*
    * Live re-solving joined this list when the section it used to own was
    * removed. It is a real differentiator, but it is one feature among several
-   * and it is opt-in, so it reads better as a Basic capability than as its own
-   * chapter between the demo and the solver matrix.
+   * and it is opt-in, so it reads better as a Basic capability than as a
+   * chapter of its own ahead of the solver matrix.
    */
   const points = ['basicPt1', 'basicPt2', 'basicPt6', 'basicPt3', 'basicPt4', 'basicPt5'];
 </script>
@@ -46,8 +56,8 @@
 
     <div class="card-row cols-2 cap-shots">
       {#each shots as sh}
-        <article class="card card-media">
-          <Shot base={sh.base} alt={t(sh.alt)} />
+        <article class="card card-media" class:card-wide={sh.wide}>
+          <Shot base={sh.base} w={sh.w} h={sh.h} alt={t(sh.alt)} sizes={sh.wide ? '(max-width: 760px) 92vw, 92vw' : undefined} />
           <div class="card-body">
             <h3>{t(sh.title)}</h3>
             <p>{t(sh.body)}</p>
@@ -56,6 +66,6 @@
       {/each}
     </div>
 
-    <p class="mode-note">{t('landing.basicDemoNote')}</p>
+    <p class="mode-note">{t('landing.basicNote')}</p>
   </div>
 </section>

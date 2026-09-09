@@ -20,6 +20,7 @@ use super::assembly;
 use super::linear;
 use super::soil_curves::{SoilCurve, evaluate_soil_curve};
 use super::constraints::FreeConstraintSystem;
+use super::sparse_tangent::{SparseSymbolicCache, tangent_free_sparse_triplets, solve_tangent_sparse};
 
 /// Soil spring attached to a node along a pile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,8 +104,53 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
-    // Base assembly (without soil springs)
-    let base_asm = assembly::assemble_2d(&input.solver, &dof_num);
+    // Constraint system (built once before iteration)
+    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
+    // Dispatch dense vs sparse once per solve call (not per iteration).
+    let use_sparse = ns >= linear::SPARSE_THRESHOLD;
+
+    // Base assembly (without soil springs). Below the sparse threshold: the
+    // legacy dense n×n path, unchanged. At or above it: CSC assembly (k_ff
+    // for the per-iteration solves) — no dense n×n matrix is ever built.
+    let dense_asm = if use_sparse {
+        None
+    } else {
+        Some(assembly::assemble_2d(&input.solver, &dof_num))
+    };
+    let sparse_stiff = if use_sparse {
+        Some(super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num))
+    } else {
+        None
+    };
+    let f_global = if let Some(ref s) = sparse_stiff {
+        assembly::assemble_load_vector_2d(
+            &input.solver, &input.solver.loads, &dof_num, &s.inclined_transforms_2d,
+        )
+    } else {
+        dense_asm.as_ref().unwrap().f.clone()
+    };
+
+    // Base free×free triplets, cached once (sparse path only): each iteration
+    // concatenates them with the soil-spring diagonal triplets and rebuilds
+    // the corrected CSC, so spring stiffnesses never accumulate into the base.
+    let mut base_tr: Vec<usize> = Vec::new();
+    let mut base_tc: Vec<usize> = Vec::new();
+    let mut base_tv: Vec<f64> = Vec::new();
+    if let Some(ref s) = sparse_stiff {
+        let k = &s.k_ff;
+        base_tr.reserve(k.nnz());
+        base_tc.reserve(k.nnz());
+        base_tv.reserve(k.nnz());
+        for j in 0..nf {
+            for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                base_tr.push(k.row_idx[p]);
+                base_tc.push(j);
+                base_tv.push(k.values[p]);
+            }
+        }
+    }
 
     // Initialize secant stiffnesses (use initial tangent from curves)
     let mut spring_k: Vec<f64> = input.soil_springs.iter()
@@ -114,40 +160,62 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
         })
         .collect();
 
-    // Constraint system (built once before iteration)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
-    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-
     let mut u_full = vec![0.0; n];
     let mut converged = false;
     let mut total_iters = 0;
 
+    // Sparse symbolic Cholesky reused across iterations (spring stiffnesses
+    // change values, not the pattern; the fingerprinted cache rebuilds the
+    // symbolic if an entry ever crosses exactly zero).
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
-        // Assemble: base K + soil springs
-        let mut k_global = base_asm.k.clone();
-        let f_global = base_asm.f.clone();
-
-        for (si, spring) in input.soil_springs.iter().enumerate() {
-            let dir = spring.direction.min(dof_num.dofs_per_node - 1);
-            if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
-                k_global[d * n + d] += spring_k[si];
+        let u_indep = if use_sparse {
+            // Sparse path: rebuild the corrected CSC from the cached base
+            // triplets plus the soil-spring diagonal triplets — no dense
+            // matrix. Springs on restrained DOFs are dropped (they never
+            // entered k_ff in the dense path either).
+            let mut rows = base_tr.clone();
+            let mut cols = base_tc.clone();
+            let mut vals = base_tv.clone();
+            for (si, spring) in input.soil_springs.iter().enumerate() {
+                let dir = spring.direction.min(dof_num.dofs_per_node - 1);
+                if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
+                    if d < nf {
+                        rows.push(d);
+                        cols.push(d);
+                        vals.push(spring_k[si]);
+                    }
+                }
             }
-        }
-
-        // Solve
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
-        let f_f: Vec<f64> = f_global[..nf].to_vec();
-
-        let (k_s, f_s) = if let Some(ref cs) = cs {
-            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            let f_f: Vec<f64> = f_global[..nf].to_vec();
+            let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
+            let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &cs);
+            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
         } else {
-            (k_ff, f_f)
-        };
+            // Assemble: base K + soil springs
+            let mut k_global = dense_asm.as_ref().unwrap().k.clone();
 
-        let u_indep = {
+            for (si, spring) in input.soil_springs.iter().enumerate() {
+                let dir = spring.direction.min(dof_num.dofs_per_node - 1);
+                if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
+                    k_global[d * n + d] += spring_k[si];
+                }
+            }
+
+            // Solve
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
+            let f_f: Vec<f64> = f_global[..nf].to_vec();
+
+            let (k_s, f_s) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            } else {
+                (k_ff, f_f)
+            };
+
             let mut k_work = k_s.clone();
             match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
@@ -217,9 +285,13 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
 
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&base_asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &base_asm.f[..nf]);
+        let raw = if let Some(ref s) = sparse_stiff {
+            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_full[..nf], &f_global[..nf])
+        } else {
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
+            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_global[..nf])
+        };
         super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
     } else {
         vec![]
@@ -255,13 +327,54 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
-    let base_asm = assembly::assemble_3d(&expanded_solver, &dof_num);
-
     // Constraint system (built once before iteration). Use the expanded model:
     // expansion adds new nodes/elements but preserves the original IDs that
     // constraints reference.
     let cs = FreeConstraintSystem::build_3d(&expanded_solver.constraints, &dof_num, &expanded_solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
+    // Dispatch dense vs sparse once per solve call (not per iteration).
+    let use_sparse = ns >= linear::SPARSE_THRESHOLD;
+
+    // Base assembly (without soil springs). Below the sparse threshold: the
+    // legacy dense n×n path, unchanged. At or above it: CSC assembly (k_ff
+    // for the per-iteration solves; no k_full needed — SSI reports no
+    // reactions) — no dense n×n matrix is ever built.
+    let dense_asm = if use_sparse {
+        None
+    } else {
+        Some(assembly::assemble_3d(&expanded_solver, &dof_num))
+    };
+    let sparse_asm = if use_sparse {
+        Some(assembly::assemble_sparse_3d(&expanded_solver, &dof_num, false))
+    } else {
+        None
+    };
+    let f_global = if let Some(ref s) = sparse_asm {
+        s.f.clone()
+    } else {
+        dense_asm.as_ref().unwrap().f.clone()
+    };
+
+    // Base free×free triplets, cached once (sparse path only): each iteration
+    // concatenates them with the soil-spring diagonal triplets and rebuilds
+    // the corrected CSC, so spring stiffnesses never accumulate into the base.
+    let mut base_tr: Vec<usize> = Vec::new();
+    let mut base_tc: Vec<usize> = Vec::new();
+    let mut base_tv: Vec<f64> = Vec::new();
+    if let Some(ref s) = sparse_asm {
+        let k = &s.k_ff;
+        base_tr.reserve(k.nnz());
+        base_tc.reserve(k.nnz());
+        base_tv.reserve(k.nnz());
+        for j in 0..nf {
+            for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                base_tr.push(k.row_idx[p]);
+                base_tc.push(j);
+                base_tv.push(k.values[p]);
+            }
+        }
+    }
 
     let mut spring_k: Vec<f64> = input.soil_springs.iter()
         .map(|s| {
@@ -274,30 +387,56 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     let mut converged = false;
     let mut total_iters = 0;
 
+    // Sparse symbolic Cholesky reused across iterations (spring stiffnesses
+    // change values, not the pattern; the fingerprinted cache rebuilds the
+    // symbolic if an entry ever crosses exactly zero).
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
-        let mut k_global = base_asm.k.clone();
-        let f_global = base_asm.f.clone();
-
-        for (si, spring) in input.soil_springs.iter().enumerate() {
-            let dir = spring.direction.min(dof_num.dofs_per_node - 1);
-            if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
-                k_global[d * n + d] += spring_k[si];
+        let u_indep = if use_sparse {
+            // Sparse path: rebuild the corrected CSC from the cached base
+            // triplets plus the soil-spring diagonal triplets — no dense
+            // matrix. Springs on restrained DOFs are dropped (they never
+            // entered k_ff in the dense path either).
+            let mut rows = base_tr.clone();
+            let mut cols = base_tc.clone();
+            let mut vals = base_tv.clone();
+            for (si, spring) in input.soil_springs.iter().enumerate() {
+                let dir = spring.direction.min(dof_num.dofs_per_node - 1);
+                if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
+                    if d < nf {
+                        rows.push(d);
+                        cols.push(d);
+                        vals.push(spring_k[si]);
+                    }
+                }
             }
-        }
-
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
-        let f_f: Vec<f64> = f_global[..nf].to_vec();
-
-        let (k_s, f_s) = if let Some(ref cs) = cs {
-            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            let f_f: Vec<f64> = f_global[..nf].to_vec();
+            let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
+            let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &cs);
+            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
         } else {
-            (k_ff, f_f)
-        };
+            let mut k_global = dense_asm.as_ref().unwrap().k.clone();
 
-        let u_indep = {
+            for (si, spring) in input.soil_springs.iter().enumerate() {
+                let dir = spring.direction.min(dof_num.dofs_per_node - 1);
+                if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
+                    k_global[d * n + d] += spring_k[si];
+                }
+            }
+
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
+            let f_f: Vec<f64> = f_global[..nf].to_vec();
+
+            let (k_s, f_s) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+            } else {
+                (k_ff, f_f)
+            };
+
             let mut k_work = k_s.clone();
             match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
@@ -365,9 +504,13 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&base_asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &base_asm.f[..nf]);
+        let raw = if let Some(ref s) = sparse_asm {
+            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_full[..nf], &f_global[..nf])
+        } else {
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
+            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_global[..nf])
+        };
         super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
     } else {
         vec![]

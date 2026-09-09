@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
-  import { enterApp, scrollToId } from './landing-utils';
+  import { enterApp } from './landing-utils';
+  import PublicLink from './PublicLink.svelte';
   import Eyebrow from './Eyebrow.svelte';
   import TrussFigure from './TrussFigure.svelte';
 
@@ -17,8 +18,27 @@
 
       <div class="hero-ctas">
         <button class="btn btn-primary btn-lg" onclick={() => enterApp()}>{t('landing.heroCtaPrimary')}</button>
-        <button class="btn btn-ghost btn-lg" onclick={() => scrollToId('demo')}>{t('landing.heroCtaSecondary')}</button>
+        <!--
+          The hero had a second button here, pointing at /demo, the guided
+          tour. That route is being retired by the tutorials workstream, so
+          the button is gone rather than left aiming at a 404 — a dead link
+          looks exactly like a working one until it is pressed, and this one
+          sat in the first screen.
+
+          The hero keeps one action and the quiet blog link below it. When
+          /demo returns as the no-login entry point, a second button here is
+          a two-line change.
+        -->
       </div>
+
+      <!--
+        The blog, on the first screen but deliberately at a third level: a mono
+        link on its own line, not a third button. The hero's job is to get
+        someone into the editor, and two buttons plus a link reads as one
+        decision with a footnote, where three buttons would read as three
+        equal choices.
+      -->
+      <PublicLink to="/blog" class="link-arrow hero-blog">{t('landing.heroBlogLink')}</PublicLink>
 
       <!--
         The three modes, named in the first screen.

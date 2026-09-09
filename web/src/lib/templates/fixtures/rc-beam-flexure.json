@@ -1,0 +1,171 @@
+{
+  "name": "Viga de hormigón — verificación a flexión",
+  "materials": [
+    {
+      "id": 1,
+      "name": "H-25",
+      "e": 23500,
+      "nu": 0.2,
+      "rho": 25,
+      "fy": 25
+    }
+  ],
+  "sections": [
+    {
+      "id": 1,
+      "name": "Viga 20×40",
+      "a": 0.08000000000000002,
+      "iy": 0.001066666666666667,
+      "iz": 0.00026666666666666673,
+      "j": 0.00035,
+      "b": 0.2,
+      "h": 0.4,
+      "shape": "rect"
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 2,
+      "x": 2.5,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 3,
+      "x": 5.0,
+      "y": 0,
+      "z": 0
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 2,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  ],
+  "supports": [
+    {
+      "id": 1,
+      "nodeId": 1,
+      "type": "pinned3d"
+    },
+    {
+      "id": 2,
+      "nodeId": 3,
+      "type": "rollerZ"
+    }
+  ],
+  "loads": [
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 1,
+        "elementId": 1,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -12.0,
+        "qZJ": -12.0,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 2,
+        "elementId": 2,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -12.0,
+        "qZJ": -12.0,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 3,
+        "elementId": 1,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -8.0,
+        "qZJ": -8.0,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 4,
+        "elementId": 2,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -8.0,
+        "qZJ": -8.0,
+        "caseId": 2
+      }
+    }
+  ],
+  "plates": [],
+  "quads": [],
+  "constraints": [],
+  "loadCases": [
+    {
+      "id": 1,
+      "type": "D",
+      "name": "Permanente"
+    },
+    {
+      "id": 2,
+      "type": "L",
+      "name": "Sobrecarga"
+    }
+  ],
+  "combinations": [
+    {
+      "id": 1,
+      "name": "1.4D",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.4
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "1.2D+1.6L",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 1.6
+        }
+      ]
+    }
+  ]
+}

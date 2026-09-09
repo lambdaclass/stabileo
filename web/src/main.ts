@@ -1,7 +1,30 @@
+// FIRST, deliberately: the dev-only favicon swap must run before the dev server
+// resolves the CSS and component graph, or the tab paints the production icon and
+// flips seconds later. Eliminated from production builds — see the module.
+import './dev-favicon';
 import './styles/tokens.css';
+// After the tokens, which it reads, and global because the rows it governs
+// live in several components with scoped styles. See the file's own header.
+import './styles/touch-density.css';
 import 'katex/dist/katex.min.css';
 import App from './App.svelte';
 import { mount } from 'svelte';
+
+/*
+ * The prerendered page steps aside as the application takes over.
+ *
+ * `scripts/prerender.ts` writes real HTML for every public route so a crawler
+ * gets content and a 200 instead of the 404 this static host used to answer.
+ * That markup lives in its own element rather than inside #app, because Svelte
+ * would append to #app and the reader would briefly see the page twice.
+ *
+ * It is NOT hydrated. The markup was captured from a running browser, so it
+ * carries none of the anchors hydration needs, and pretending otherwise would
+ * produce a subtly wrong DOM. Removing it costs one paint and keeps the
+ * rendered result the app's own — the prerender is a photograph for machines,
+ * never a second implementation of the page.
+ */
+document.getElementById('prerender')?.remove();
 
 const app = mount(App, {
   target: document.getElementById('app')!,

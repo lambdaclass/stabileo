@@ -12,12 +12,23 @@ import { COLORS } from './selection-helpers';
 const DEFAULT_RADIUS = 0.07;
 const DEFAULT_INITIAL_CAPACITY = 64;
 
-let _sharedGeo: THREE.SphereGeometry | null = null;
+/**
+ * Sphere geometry, cached PER RADIUS.
+ *
+ * The cache used to hold one geometry and ignore the argument, so the first radius ever asked
+ * for won for the rest of the session. Nothing noticed while the radius was a constant; it
+ * becomes a silent wrong answer the moment it depends on the model, which is what
+ * `setRadius` below now does.
+ */
+const _geoByRadius = new Map<number, THREE.SphereGeometry>();
 function getSharedGeo(radius: number): THREE.SphereGeometry {
-  if (!_sharedGeo) {
-    _sharedGeo = new THREE.SphereGeometry(radius, 16, 12);
+  const key = Math.round(radius * 1e4) / 1e4;
+  let geo = _geoByRadius.get(key);
+  if (!geo) {
+    geo = new THREE.SphereGeometry(key, 16, 12);
+    _geoByRadius.set(key, geo);
   }
-  return _sharedGeo;
+  return geo;
 }
 
 export interface NodesInstancedOpts {
@@ -57,6 +68,30 @@ export class NodesInstanced {
     this.mesh.count = 0;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.userData = { type: 'nodeBatch', indexToId: this.indexToId };
+  }
+
+  /**
+   * Resize the markers.
+   *
+   * A no-op when the radius is unchanged, because rebuilding the mesh throws away every instance
+   * matrix and the caller would have to re-`upsert` the whole model. The geometry is shared and
+   * cached, so switching between two sizes — the ordinary view and the section view — costs
+   * nothing after the first time.
+   *
+   * The instance matrices are preserved: the mesh keeps its own `instanceMatrix`, and only the
+   * geometry each instance is drawn with changes.
+   */
+  setRadius(radius: number): void {
+    const key = Math.round(radius * 1e4) / 1e4;
+    if (key === Math.round(this.radius * 1e4) / 1e4) return;
+    this.radius = key;
+    this.geo = getSharedGeo(key);
+    this.mesh.geometry = this.geo;
+  }
+
+  /** The radius currently drawn, metres. */
+  get currentRadius(): number {
+    return this.radius;
   }
 
   /** Insert or move a node. Allocates an instance slot if new. */
@@ -152,6 +187,12 @@ export class NodesInstanced {
     this.mesh.count = 0;
   }
 
+  /**
+   * The material is this instance's own; the GEOMETRY is shared and is not disposed here.
+   *
+   * Disposing it would pull the geometry out from under any other `NodesInstanced` holding the
+   * same radius — and the cache hands the same object to all of them.
+   */
   dispose(): void {
     this.clear();
     this.mat.dispose();

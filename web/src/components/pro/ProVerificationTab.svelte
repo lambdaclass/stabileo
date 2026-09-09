@@ -37,7 +37,11 @@
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
   import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
   import { t } from '../../lib/i18n';
-  import * as XLSX from 'xlsx';
+  // xlsx on demand: 875 KB that only matters once someone exports a schedule.
+  // Through the loader in lib/export/excel.ts rather than a bare `import()`,
+  // so a chunk that fails to arrive is reported here the same way it is there
+  // instead of leaving this button silently inert.
+  import { loadXlsxModule } from '../../lib/export/excel';
   import { computeStationDemands, runUnifiedVerification, runSteelVerification } from '../../lib/engine/verification-service';
 
   /** Normative code options for design checks */
@@ -360,6 +364,12 @@
       results,
       { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
       stationData?.demands,
+      /*
+       * The full station diagrams, for F.1.1's Cb. One added argument, optional, read only by the
+       * steel path — no concrete behaviour depends on it, and its absence keeps Cb at the 1,0 the
+       * clause permits.
+       */
+      stationData?.stations,
     );
     steelVerifications = steelVerifs;
 
@@ -944,8 +954,10 @@
   const barMarks = $derived(verifications.length > 0 ? computeBarMarks(verifications, elementLengthMap) : []);
 
   /** Export rebar schedule + quantities to XLSX */
-  function exportRebarSchedule() {
+  async function exportRebarSchedule() {
     if (rebarSchedule.length === 0) return;
+    const XLSX = await loadXlsxModule();
+    if (!XLSX) return;   // the loader has already said so
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: Grouped rebar schedule

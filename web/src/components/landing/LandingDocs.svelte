@@ -12,7 +12,7 @@
 
 <section class="sec sec--ink docs reveal" data-section="docs" id="docs" aria-labelledby="docs-title">
   <div class="wrap">
-    <Eyebrow n="13" label={t('landing.ebDocs')} />
+    <Eyebrow n="12" label={t('landing.ebDocs')} />
     <h2 id="docs-title" class="display">{t('landing.docsH')}</h2>
     <p class="lead">{t('landing.docsP')}</p>
 

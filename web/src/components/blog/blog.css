@@ -1,0 +1,394 @@
+/*
+   The blog, on the landing's visual system.
+   ─────────────────────────────────────────────────────────────────────────
+   Everything here sits under `.landing`, so the shell, the grounds
+   (`sec--ink` / `sec--paper`), the type scale, the buttons and the colour
+   tokens are the landing's and are not restated. What this file adds is the
+   one thing the landing does not have: a reading column and the elements that
+   live inside it.
+
+   No colour is hardcoded. A block reads --fg / --fg-2 / --hair / --card from
+   the ground it is on, exactly as a landing section does, which is why the
+   same markup is legible on ink and on paper.
+*/
+
+.landing.blog {
+  scroll-behavior: auto; /* a new post jumps to its top; it does not scroll there */
+}
+
+.landing.blog .blog-head {
+  padding-top: clamp(6rem, 12vw, 9rem);
+  padding-bottom: clamp(2.5rem, 5vw, 4rem);
+}
+
+/* The index is one column, top to bottom: the masthead sits over the cards
+   rather than starting at the full-bleed left edge the landing sections use. */
+.landing.blog .blog-head .wrap,
+.landing.blog .blog-list .wrap {
+  max-width: 58rem;
+}
+
+/* ─── INDEX ──────────────────────────────────────────────────────────────── */
+
+.landing.blog .post-cards {
+  list-style: none;
+  /* The index is a reading surface too: a card the full 1360px wide sets its
+     excerpt to a measure nobody wants to read. */
+  max-width: 58rem;
+  margin: 0 auto;
+  padding: 0;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.landing.blog .post-card {
+  background: var(--card);
+  border: 1px solid var(--card-hair);
+  border-radius: var(--lp-radius);
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.landing.blog .post-card-meta,
+.landing.blog .post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-family: var(--lp-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.landing.blog .post-card h2 {
+  margin: 0;
+}
+
+.landing.blog .post-card-title {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-family: var(--lp-display);
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.landing.blog .post-card-title:hover {
+  color: var(--accent-text);
+}
+
+.landing.blog .post-card p {
+  margin: 0;
+  color: var(--fg-2);
+  max-width: 60ch;
+}
+
+/* In a grid a stretched button centres its own text; the link has to claim
+   only the width of its words. */
+.landing.blog .post-card .link-arrow {
+  justify-self: start;
+  text-align: left;
+}
+
+/* ─── POST ───────────────────────────────────────────────────────────────── */
+
+.landing.blog .post {
+  padding-top: clamp(5rem, 10vw, 7.5rem);
+}
+
+/*
+   The reading column: narrower than a landing section, because a paragraph
+   set to the full 1360px measure is a paragraph nobody finishes. The tables
+   are allowed to scroll past it — a row of seven numbers reads worse wrapped
+   than a little wider than the prose around it.
+*/
+.landing.blog .post-wrap {
+  max-width: 46rem;
+}
+
+.landing.blog .post-back {
+  display: inline-block;
+  margin-bottom: 2rem;
+}
+
+.landing.blog .post-title {
+  margin: 0 0 1.25rem;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+}
+
+.landing.blog .post-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.landing.blog .post-tags li {
+  font-family: var(--lp-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+.landing.blog .post-excerpt {
+  margin: 1.75rem 0 0;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--hair);
+  font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+  line-height: 1.65;
+  color: var(--fg);
+}
+
+.landing.blog .post-body {
+  font-size: 1.02rem;
+  line-height: 1.75;
+}
+
+.landing.blog .post-h {
+  font-family: var(--lp-display);
+  font-size: clamp(1.35rem, 2.6vw, 1.8rem);
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+  margin: 3rem 0 1rem;
+}
+
+.landing.blog .post-p {
+  margin: 0 0 1.15rem;
+  color: var(--fg-2);
+}
+
+.landing.blog .post-list {
+  margin: 0 0 1.5rem;
+  padding-left: 1.25rem;
+  color: var(--fg-2);
+}
+
+.landing.blog .post-list li {
+  margin-bottom: 0.6rem;
+}
+
+.landing.blog .post-list li::marker {
+  color: var(--accent-text);
+}
+
+.landing.blog .post-quote {
+  margin: 2rem 0;
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--lp-accent);
+  font-family: var(--lp-display);
+  font-size: clamp(1.15rem, 2.2vw, 1.45rem);
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+
+.landing.blog .post-note {
+  display: block;
+  margin: 2rem 0;
+  padding: 1.1rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--card-hair);
+  border-left: 2px solid var(--lp-blue);
+  border-radius: var(--lp-radius);
+  font-size: 0.95rem;
+  color: var(--fg-2);
+}
+
+/* ─── TABLES ─────────────────────────────────────────────────────────────── */
+
+.landing.blog .post-figure {
+  margin: 2.25rem 0;
+}
+
+/*
+   A table of seven columns does not fit the reading column, and shrinking the
+   prose to fit it would be the wrong trade. Past 1100px the figure steps out
+   of the column on both sides; below that it stays put and scrolls.
+*/
+@media (min-width: 1100px) {
+  .landing.blog .post-figure {
+    margin-inline: -6rem;
+  }
+}
+
+/* The scroller moves, never the page: a seven-column table on a phone would
+   otherwise widen the document and let the whole article slide sideways. */
+.landing.blog .post-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--hair);
+  border-radius: var(--lp-radius);
+}
+
+.landing.blog .post-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--lp-mono);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.landing.blog .post-table th,
+.landing.blog .post-table td {
+  padding: 0.6rem 0.9rem;
+  text-align: right;
+  border-bottom: 1px solid var(--hair);
+  color: var(--fg-2);
+}
+
+.landing.blog .post-table thead th {
+  text-align: right;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg);
+  background: var(--card);
+}
+
+/* The first column names the row; it is a label, so it reads left. */
+.landing.blog .post-table th:first-child,
+.landing.blog .post-table thead th:first-child {
+  text-align: left;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.landing.blog .post-table tbody tr:last-child th,
+.landing.blog .post-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.landing.blog .post-figure figcaption {
+  margin-top: 0.65rem;
+  font-size: 0.8rem;
+  color: var(--fg-2);
+}
+
+.landing.blog .post-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 3.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--hair);
+}
+
+/* ─── EMBEDDED EDITOR ────────────────────────────────────────────────────── */
+
+/*
+   The editor inside a post. It steps out of the reading column like a table
+   does, and for the same reason: the application needs room to lay itself out
+   as a desktop, and a 46rem column would force it into its phone shape on a
+   laptop.
+*/
+.landing.blog .post-embed {
+  margin: 2.5rem 0;
+}
+
+/*
+   The embed breaks all the way out of the reading column, not just a little.
+   At -6rem it measured about 930px, which is enough to be cramped and not
+   enough for the editor's own layout — the worst of both. Given the full
+   width it can show the interface as it really is.
+*/
+@media (min-width: 1100px) {
+  .landing.blog .post-embed {
+    width: min(var(--lp-max), calc(100vw - 2 * var(--lp-gut)));
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+.landing.blog .post-embed-frame {
+  position: relative;
+  /* Clear of the article's sticky nav, so the editor's ribbon is reachable. */
+  scroll-margin-top: 76px;
+  height: clamp(420px, 68vh, 780px);
+  border: 1px solid var(--hair);
+  border-radius: var(--lp-radius);
+  overflow: hidden;
+  background: var(--lp-ink);
+}
+
+.landing.blog .post-embed-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.landing.blog .post-embed-start {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.landing.blog .post-embed-play {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--lp-accent);
+  color: var(--lp-accent);
+  font-size: 1.1rem;
+  padding-left: 4px; /* optical centring of the triangle */
+}
+
+.landing.blog .post-embed-start:hover .post-embed-play {
+  background: var(--lp-accent);
+  color: var(--lp-paper-2);
+}
+
+.landing.blog .post-embed-start-label {
+  font-family: var(--lp-display);
+  font-size: 1.05rem;
+}
+
+.landing.blog .post-embed-start-note,
+.landing.blog .post-embed figcaption {
+  font-size: 0.8rem;
+  color: var(--fg-2);
+  max-width: 46ch;
+}
+
+.landing.blog .post-embed figcaption {
+  margin-top: 0.65rem;
+  max-width: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.landing.blog .post-embed figcaption a {
+  font-family: var(--lp-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}

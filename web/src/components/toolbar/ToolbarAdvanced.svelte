@@ -487,6 +487,7 @@
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined}
         class:active={uiStore.showKinematicPanel}
+        data-testid="adv-kinematic"
         onclick={() => uiStore.showKinematicPanel = !uiStore.showKinematicPanel}>
         {t('advanced.kinematicAnalysis')}
       </button>
@@ -555,6 +556,7 @@
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1"
         class:active={uiStore.currentTool === 'select' && uiStore.selectMode === 'stress'}
+        data-testid="adv-stress"
         onclick={() => {
           // A toggle, like every other analysis here. It used to be one-way:
           // it armed a picking mode and the only way back out was to pick a

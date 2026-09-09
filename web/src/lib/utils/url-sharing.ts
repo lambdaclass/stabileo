@@ -11,8 +11,17 @@ import { NO_RELEASE, type Release } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
 import { noteAxisConventionMigrationIfNeeded } from '../store/file';
+import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share';
 
-const SHARE_VERSION = 4;
+/**
+ * The wire schema tag.
+ *
+ * 5 = the joint designs travel (`jd`). 4 = typed per-axis releases (`ri`/`rj`). 3 = legacy
+ * `hs`/`he` booleans plus the iy/iz convention. Compatible in both directions: 4 → 5 added a new
+ * TOP-LEVEL key and no position to any existing tuple, and the two migrations below key off
+ * `sv >= 3` and `sv >= 4`, which 5 satisfies. A reader that predates `jd` ignores it.
+ */
+const SHARE_VERSION = 5;
 
 function packRelease(r: Release | undefined): Record<string, unknown> | undefined {
   if (!r) return undefined;
@@ -317,6 +326,16 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
   // crosses a trust boundary. Small structured object; deflate handles the size.
   if (snapshot.provenance) c.pv = snapshot.provenance;
 
+  /*
+   * The joint designs — I-08. NOT kept verbatim, unlike the four above.
+   *
+   * `joint-share.ts` walks a field table, so the CHOICES travel and nothing computed can, even if
+   * a capacity somehow reached the model. Absent when there are none, which is what makes «no
+   * joint decisions» distinguishable from «an empty joint designed at every node».
+   */
+  const jd = packJointDesigns(snapshot.jointDesigns);
+  if (jd) c.jd = jd;
+
   // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?,
   //          connector?, footing?, soilProfile?]
   // Appended at the END so a link shared before footings existed still decodes: the
@@ -477,6 +496,18 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
 
     // Provenance (CAD-draft tag) — undefined for ordinary models
     provenance: c.pv as ModelSnapshot['provenance'],
+
+    /*
+     * The joint designs — I-08. Validated rather than cast, because a URL is user-editable and
+     * this is the one field whose contents end up presented to the user as «what you chose».
+     * `unpackJointDesigns` throws on a payload that is not what it claims to be, and the `catch`
+     * in `decompressV2` turns that into the null this function's callers already handle.
+     *
+     * Absent stays absent. Reconciliation against the OPEN model then decides which of these
+     * still apply — so a link opened over a different project reports its joints obsolete instead
+     * of matching them by node id.
+     */
+    jointDesigns: unpackJointDesigns(c.jd),
 
     // NextId
     nextId: (() => {

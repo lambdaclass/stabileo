@@ -587,9 +587,10 @@ export function downloadSVG(): void {
 
 // ─── Export Excel ────────────────────────────────────────────────
 
-export function downloadExcel(): void {
+export async function downloadExcel(): Promise<void> {
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  exportToExcel({ filename: `${safeName}.xlsx` });
+  // Async because xlsx is fetched on demand — see lib/export/excel.ts.
+  await exportToExcel({ filename: `${safeName}.xlsx` });
 }
 
 // ─── PDF Report ─────────────────────────────────────────────────

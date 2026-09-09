@@ -18,7 +18,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { dictFor, shippedLocales, tAt, OFFERED_LOCALES } from '../store.svelte';
+import { tAt, OFFERED_LOCALES } from '../store.svelte';
+import { allShippedLocales as shippedLocales, allDictFor as dictFor } from '../locales/all';
 import { OCCUPANCY_TABLE_2025 } from '../../codes/cirsoc101/live-loads';
 import { REGULATION_ROLES, optionsForRole } from '../../codes/roles';
 

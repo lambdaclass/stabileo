@@ -62,11 +62,16 @@ export function runSolve() {
   } else {
     uiStore.toast(t('results.emptyModelError'), 'error');
   }
-  // Auto-close drawer on mobile after solve, show floating results panel
-  if (uiStore.isMobile) {
-    uiStore.leftDrawerOpen = false;
-    uiStore.mobileResultsPanelOpen = true;
-  }
+  /*
+   * A solve no longer opens anything by itself on a phone.
+   *
+   * `leftDrawerOpen` closed the old Toolbar drawer, which nothing renders any
+   * more — the write survived the drawer. `mobileResultsPanelOpen` raised the
+   * floating results panel, which on Basic does not exist at all (the panel
+   * requires `appMode === 'pro'`) and on PRO landed on top of the results
+   * sheet that `ProPanel.solve()` had just opened. The panel is now opened by
+   * the bar's own button, and only when it is asked for.
+   */
 }
 
 export async function runSolve3D() {
@@ -114,8 +119,5 @@ export async function runSolve3D() {
   } else {
     uiStore.toast(t('results.emptyModelError'), 'error');
   }
-  if (uiStore.isMobile) {
-    uiStore.leftDrawerOpen = false;
-    uiStore.mobileResultsPanelOpen = true;
-  }
+  // Same as above: a solve opens no panel of its own on a phone.
 }

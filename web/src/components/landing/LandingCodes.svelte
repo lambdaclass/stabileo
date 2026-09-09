@@ -70,7 +70,7 @@
 
 <section class="sec sec--paper codes reveal" data-section="codes" id="codes" aria-labelledby="codes-title">
   <div class="wrap">
-    <Eyebrow n="08" label={t('landing.ebCodes')} />
+    <Eyebrow n="07" label={t('landing.ebCodes')} />
     <h2 id="codes-title" class="display">{t('landing.codesH')}</h2>
     <p class="lead">{t('landing.codesLead')}</p>
     <p class="cirsoc-intro">{t('landing.cirsocP')}</p>

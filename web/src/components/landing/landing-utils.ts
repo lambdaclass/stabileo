@@ -1,37 +1,55 @@
+import { setPublicLocale, type PublicLocale } from '../../lib/i18n/store.svelte';
+import { parsePublicPath } from '../../lib/i18n/public-routes';
+
 export const REPO_URL = 'https://github.com/lambdaclass/stabileo';
 export const DOCS_HUB_URL = `${REPO_URL}/blob/main/docs/README.md`;
 export const QUICK_START_URL = `${REPO_URL}/blob/main/docs/QUICKSTART.md`;
 export const AI_WORKFLOW_URL = `${REPO_URL}/blob/main/docs/AI_MODELING_WORKFLOW.md`;
 export const SOLVER_REF_URL = `${REPO_URL}/blob/main/docs/SOLVER_REFERENCE.md`;
 
-/** Example ids the demo offers. `?example=<id>` is App.svelte's existing contract. */
-export type DemoExample = { id: string; key: string };
-
-export const DEMO_EXAMPLES: DemoExample[] = [
-  { id: 'cantilever', key: 'landing.demoEx1' },
-  { id: 'portal-frame', key: 'landing.demoEx2' },
-  { id: 'truss', key: 'landing.demoEx3' },
-  { id: '3d-portal-frame', key: 'landing.demoEx4' },
-];
-
-/** URL for the embedded demo iframe. Unchanged embed/example contract. */
-export function demoEmbedUrl(id: string) {
-  return `/app/basic?embed&example=${id}`;
-}
-
-/**
- * URL that opens the full editor with the same example preloaded.
- * `?example=` is read by App.svelte independently of `embed`, so this needs no
- * change to the application.
- */
-export function editorExampleUrl(id: string) {
-  return `/app/basic?example=${id}`;
-}
-
 export function enterApp() {
   window.dispatchEvent(new CustomEvent('stabileo-enter-app'));
 }
 
+/**
+ * Move between the public pages — the landing and the blog — without
+ * reloading the document.
+ *
+ * A plain `<a href="/blog">` would work in production and would be wrong
+ * anyway: the site is static, so the browser would fetch /blog, get the 404
+ * page, and bounce through `/?route=/blog` with a visible flash. App.svelte
+ * listens for this and swaps the page in place.
+ */
+export function goPublic(path: string) {
+  window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: path }));
+}
+
+/**
+ * Change language on a public page: set it, then move to the same route under
+ * the new prefix.
+ *
+ * Setting the locale alone would leave a Portuguese page at `/es/blog/x`. The
+ * address is the part that gets shared and indexed, so it is the part that has
+ * to be right — the rendering follows it, never the other way round.
+ */
+export function switchPublicLocale(locale: PublicLocale) {
+  setPublicLocale(locale);
+  goPublic(parsePublicPath(window.location.pathname).path);
+}
+
+/**
+ * Scroll to a section.
+ *
+ * One smooth scroll, which is all this should ever have needed.
+ *
+ * An earlier version re-asserted the target every 220 ms because clicking
+ * "Estado" landed 2,418 px short. That fixed the symptom and felt like a
+ * spring: each re-assertion restarted the animation, so the page arrived in
+ * visible steps. The cause was elsewhere — the screenshots reserved no height
+ * until they decoded, so the target moved while the scroll was travelling.
+ * Now they declare their intrinsic size (see Shot.svelte), the page stops
+ * growing underneath the scroll, and one call lands.
+ */
 export function scrollToId(id: string, root?: HTMLElement | null) {
   const el = (root ?? document).querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
   el?.scrollIntoView({ behavior: 'smooth', block: 'start' });

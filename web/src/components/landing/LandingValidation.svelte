@@ -43,7 +43,7 @@
 
 <section class="sec sec--ink validation reveal" data-section="validation" id="validation" aria-labelledby="validation-title">
   <div class="wrap">
-    <Eyebrow n="07" label={t('landing.ebValidation')} />
+    <Eyebrow n="06" label={t('landing.ebValidation')} />
     <h2 id="validation-title" class="display">{t('landing.valH')}</h2>
     <p class="lead">{t('landing.valP')}</p>
 

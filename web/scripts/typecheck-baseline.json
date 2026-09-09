@@ -1,5 +1,5 @@
 {
-	"total": 479,
+	"total": 473,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -1031,36 +1031,6 @@
 			"file": "src/lib/engine/station-design-forces.ts",
 			"code": "TS6196",
 			"message": "'BeamRegions' is declared but never used.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS2339",
-			"message": "Property 'a' does not exist on type '{ id: number; name: string; b?: number | undefined; h?: number | undefined; }'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS2339",
-			"message": "Property 'e' does not exist on type '{ id: number; name: string; fy?: number | undefined; }'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS2339",
-			"message": "Property 'iy' does not exist on type '{ id: number; name: string; b?: number | undefined; h?: number | undefined; }'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS2339",
-			"message": "Property 'iz' does not exist on type '{ id: number; name: string; b?: number | undefined; h?: number | undefined; }'.",
-			"count": 2
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS2339",
-			"message": "Property 'j' does not exist on type '{ id: number; name: string; b?: number | undefined; h?: number | undefined; }'.",
 			"count": 1
 		},
 		{
