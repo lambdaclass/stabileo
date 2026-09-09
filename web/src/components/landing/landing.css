@@ -1787,3 +1787,112 @@
     height: 46px;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   The model table, and the social row in the footer.
+   Added with the shorter deck (September 2026).
+   ───────────────────────────────────────────────────────────── */
+
+/* The table scrolls inside its own box. Three columns on a phone is the one
+   place this page can widen the document, and a landing that slides sideways
+   reads as broken. */
+.landing .model-table-wrap {
+  overflow-x: auto;
+  margin: 1.6rem 0 1rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.landing .model-table {
+  width: 100%;
+  min-width: 30rem;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.landing .model-table th,
+.landing .model-table td {
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid rgba(143, 163, 179, 0.18);
+}
+
+.landing .model-table thead th {
+  font-family: var(--lp-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-slate-2);
+  border-bottom-color: rgba(143, 163, 179, 0.32);
+}
+
+.landing .model-table tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.landing .model-table td { color: var(--lp-slate-2); }
+
+.landing .model-table .price {
+  text-align: right;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Colour carries the same distinction the words do, never on its own. */
+.landing .model-table .tone-free .price { color: #4ba36b; }
+.landing .model-table .tone-paid .price { color: var(--lp-accent); }
+.landing .model-table .tone-tbd .price { color: var(--lp-slate-2); }
+
+/* A closing line that is the point of its section, not an aside. */
+.landing .mode-note--strong {
+  color: var(--lp-paper-2);
+  font-weight: 500;
+}
+
+/* ── Footer: social ── */
+.landing .footer-social {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 1.4rem;
+  border-top: 1px solid rgba(143, 163, 179, 0.14);
+}
+
+.landing .footer-social-label {
+  font-family: var(--lp-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-slate-2);
+  margin: 0;
+}
+
+.landing .footer-social ul {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.landing .footer-social a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid rgba(143, 163, 179, 0.22);
+  border-radius: var(--lp-radius);
+  color: var(--lp-slate-2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.landing .footer-social a:hover {
+  color: var(--lp-paper-2);
+  border-color: rgba(143, 163, 179, 0.45);
+}
+
+.landing .social-mark { display: inline-flex; }

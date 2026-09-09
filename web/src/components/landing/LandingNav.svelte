@@ -7,15 +7,17 @@
 
   const LOCALE_NAMES: Record<string, string> = { en: 'English', es: 'Español', pt: 'Português' };
 
+  /*
+   * Five stops, one per section of the deck. `codes` and `status` went with
+   * the sections they pointed at; `ai` is new. A nav item that scrolls to
+   * nothing is worse than one that is missing.
+   */
   const links = [
     { id: 'basic', key: 'landing.navBasic' },
-    { id: 'codes', key: 'landing.navCodes' },
-    { id: 'education', key: 'landing.navEducation' },
     { id: 'pro', key: 'landing.navPro' },
-    { id: 'status', key: 'landing.navStatus' },
-    // Scrolls to the section at the foot of the deck rather than leaving for
-    // /blog: the nav's job here is to say the blog exists, and the section
-    // below shows what is in it before asking anyone to leave the page.
+    { id: 'ai', key: 'landing.navAi' },
+    { id: 'education', key: 'landing.navEducation' },
+    { id: 'pricing', key: 'landing.ebPricing' },
     { id: 'blog', key: 'landing.navBlog' },
   ];
 
