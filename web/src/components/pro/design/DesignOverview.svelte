@@ -290,13 +290,21 @@
   .tone-muted { color: var(--st-text-3); }
   /*
      The same violet the 3-D view paints provisional steel with, and `OutcomeBadge`,
-     `RebarStatusPanel` and `ProvisionalBanner` name the state with. Deliberately a literal
-     while its neighbours are tokens: the authority is `three/rebar-scene.ts`, which feeds
-     `0xa066d3` to a Three.js material and cannot read a custom property, and
-     `run-summary-reported.test.ts` asserts that this chip agrees with it by value. A `var()`
-     here would break that agreement without replacing it.
+     `RebarStatusPanel` and `ProvisionalBanner` name the state with.
+
+     MERGED. This chip arrives from `feat/pro-steel-family` as the literal `#a066d3`, with a
+     comment explaining that a `var()` would break the agreement with `three/rebar-scene.ts`,
+     which feeds `0xa066d3` to a Three.js material and cannot read a custom property. That was
+     true when it was written and is not true here: H1 created `--st-provisional` for exactly
+     this, and rule 3 of `shared-status-tokens.test.ts` holds it equal to what Three.js paints,
+     compared as a RESOLVED colour. The agreement is kept by a test rather than by two copies of
+     a hex, which is the stronger of the two arrangements — and it is the same conclusion H1
+     already reached one file over, in `OutcomeBadge`'s `.badge-provisional`.
+
+     So the token, not the literal: `concrete-design-raw-colours.test.ts` gives this file a
+     ceiling of zero and it stays at zero, with nothing about the colour left to chance.
   */
-  .tone-prov .glyph, .tone-prov .n { color: #a066d3; }
+  .tone-prov .glyph, .tone-prov .n { color: var(--st-provisional); }
 
   .open3d { display: flex; flex-direction: column; gap: 0.2rem; }
   .open3d-btn {

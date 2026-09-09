@@ -43,11 +43,13 @@
     padding: 0.4rem 0.75rem;
     /* Amber, which is neither the violet of a proposal nor the red of a conflict: this is an
        unverified action, not an unbuildable bar and not a clash. One colour, one meaning. */
-    background: rgba(212, 118, 42, 0.16);
-    border-bottom: 1px solid #d4762a;
-    color: #f2ddc6;
+    background: var(--st-surface-3);
+    border-bottom: 1px solid var(--st-warn);
+    color: var(--st-text);
     font-size: 0.76rem;
     line-height: 1.4;
   }
-  .torsion-banner strong { color: #ffbe7a; letter-spacing: 0.02em; }
+  /* `--st-warn`, not the `#d4762a` the scene paints unreinforced bars with: a torsion
+     advisory and an unreinforced bar are unrelated states that happened to share an orange. */
+  .torsion-banner strong { color: var(--st-warn); letter-spacing: 0.02em; }
 </style>

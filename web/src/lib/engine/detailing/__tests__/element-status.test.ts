@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  statusOf, reportElementStatus, ELEMENT_STATUS_ORDER,
+  statusOf, reportElementStatus, ELEMENT_STATUS_ORDER, NOT_FOR_CONSTRUCTION_STATUSES,
   type DesignOutcomeSummary,
 } from '../element-status';
 import type { SceneModel, SceneSolid, SceneBar } from '../scene-model';
@@ -274,5 +274,108 @@ describe('what a member\'s top steel is', () => {
       new Map([[4, { outcome: 'VERIFIED' } as DesignOutcomeSummary]]));
     expect(r.entries[0].topSteel).toBe('resistant');
     expect(r.hangerTopMembers).toEqual([]);
+  });
+});
+
+/**
+ * A design refusal is not a reinforcement failure, and the rail must not say it is.
+ *
+ * ── What was wrong ─────────────────────────────────────────────────
+ *
+ * `FAILED` was tested first, unconditionally. A member whose design was REFUSED also fails
+ * verification — the refusal happened precisely because nothing in the code-permitted envelope
+ * verified — so `FAILED` won every time and `REFUSED` was unreachable. Measured in the browser
+ * on a starved column: `SEARCH_EXHAUSTED` ×8 in the design table, `failed 5 · refused 0` in the
+ * rail.
+ *
+ * The two mean different remedies, which is the whole reason they are two states. This module's
+ * own header says so:
+ *
+ *     - the design was refused   → change the section, or design by hand
+ *
+ * Reporting a refusal as a failure sends the reader to change reinforcement that no reinforcement
+ * can fix.
+ *
+ * ── What `FAILED` first was FOR, and still is ──────────────────────
+ *
+ * Its comment describes one case and only one: "a member can carry steel, have a VERIFIED design
+ * outcome from an earlier run, and still fail verification now — an edit to the section or the
+ * loads does exactly that." That case still preempts, because nothing else would name it: the
+ * outcome says VERIFIED and the truth is that it is not.
+ *
+ * So the rule is: `FAILED` wins when the OUTCOME DOES NOT ALREADY EXPLAIN the failure.
+ */
+describe('a refusal outranks the failure it caused', () => {
+  const failing = (outcome: DesignOutcomeSummary['outcome']): DesignOutcomeSummary => ({
+    outcome, verificationStatus: 'fail',
+  } as DesignOutcomeSummary);
+
+  it('SEARCH_EXHAUSTED is REFUSED, even though verification also fails', () => {
+    expect(statusOf(false, failing('SEARCH_EXHAUSTED'))).toBe('REFUSED');
+    // With steel too: a refused member should not have any, but the state is the outcome's.
+    expect(statusOf(true, failing('SEARCH_EXHAUSTED'))).toBe('REFUSED');
+  });
+
+  it('SECTION_INADEQUATE is REFUSED for the same reason', () => {
+    expect(statusOf(false, failing('SECTION_INADEQUATE'))).toBe('REFUSED');
+  });
+
+  it('UNSUPPORTED keeps its own name rather than collapsing into FAILED', () => {
+    // "A required check is not implemented for this member. No arrangement can pass." The
+    // verification failing is a consequence of that, not new information.
+    expect(statusOf(false, failing('UNSUPPORTED'))).toBe('UNSUPPORTED');
+  });
+
+  it('but a VERIFIED outcome that now fails is still FAILED — the case the guard exists for',
+    () => {
+      /*
+       * The regression this pairs with. An edit to the section or the loads makes a member with a
+       * VERIFIED design outcome fail verification now, and MODELLED there would show a green
+       * member the app knows is not green.
+       */
+      expect(statusOf(true, failing('VERIFIED'))).toBe('FAILED');
+      expect(statusOf(false, failing('VERIFIED'))).toBe('FAILED');
+    });
+
+  it('and so is a failing member with no design outcome at all', () => {
+    // Nothing else can be said about it, so the verification is the whole answer.
+    expect(statusOf(true, { verificationStatus: 'fail' } as DesignOutcomeSummary))
+      .toBe('FAILED');
+  });
+
+  it('the biaxial exception is untouched', () => {
+    /*
+     * A PROVISIONAL_BIAXIAL member fails the authoritative verifier BY CONSTRUCTION, and the
+     * narrow exception that keeps it out of FAILED predates this change and must survive it.
+     */
+    const provisional = {
+      outcome: 'PROVISIONAL_BIAXIAL', verificationStatus: 'fail',
+      verificationLimiting: ['biaxial'],
+    } as unknown as DesignOutcomeSummary;
+    expect(statusOf(true, provisional)).toBe('PROVISIONAL');
+    // And a proposal that ALSO fails on something else is still FAILED — the exception is narrow.
+    const alsoFlexure = {
+      outcome: 'PROVISIONAL_BIAXIAL', verificationStatus: 'fail',
+      verificationLimiting: ['biaxial', 'flexure'],
+    } as unknown as DesignOutcomeSummary;
+    expect(statusOf(true, alsoFlexure)).toBe('FAILED');
+  });
+
+  it('no path produces a state that could be read as finished work', () => {
+    /*
+     * The standing rule, checked across the change rather than at one call site: every state a
+     * failing or refused member can reach is in `NOT_FOR_CONSTRUCTION_STATUSES`, which the
+     * viewport legend, the sheets, the schedule and the report all consume.
+     */
+    const reached = [
+      statusOf(false, failing('SEARCH_EXHAUSTED')),
+      statusOf(false, failing('SECTION_INADEQUATE')),
+      statusOf(false, failing('UNSUPPORTED')),
+      statusOf(true, failing('VERIFIED')),
+    ];
+    for (const s of reached) {
+      expect(NOT_FOR_CONSTRUCTION_STATUSES, `${s} must never read as finished`).toContain(s);
+      expect(s).not.toBe('MODELLED');
+    }
   });
 });

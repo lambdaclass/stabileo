@@ -4064,6 +4064,10 @@ const pt: Translations = {
   'detailing.doc.dxf': 'Desenhos / DXF',
   'detailing.doc.noCoordinated': 'Não existe armadura coordenada. Gere e coordene primeiro; a armadura anterior à coordenação não a substitui.',
   'detailing.doc.notBuilt': 'Ainda não foi gerado nenhum documento',
+  'detailing.doc.contents.assemblies': 'Conjuntos',
+  'detailing.doc.contents.certificates': 'Certificados',
+  'detailing.doc.contents.clauses': 'Cláusulas invocadas',
+  'detailing.doc.contents.assumptions': 'Pressupostos',
   'detailing.doc.project': 'Armadura coordenada',
   'detailing.doc.report': 'Relatório / PDF',
   'detailing.doc.revision': 'Revisão {n}',
@@ -4139,6 +4143,14 @@ const pt: Translations = {
   'detailing.qty': 'Qtd.',
   'detailing.recordReview': 'Registrar revisão',
   'detailing.review': 'Revisão do profissional',
+  // The four refusals `applyReview` raises and the store translates. They were missing here
+  // while `en` and `es` both had them, so a Portuguese user was refused in English — and now
+  // that `DocumentsSection` states them BEFORE the click, in `review-blockers`, the gap is on
+  // screen rather than only in an error. See `docs/handoffs/h1c-documents-audit.md` §4.
+  'detailing.review.notConstructible': 'O conjunto está no estado {state}; só pode ser revisado a partir de CONSTRUCTIBLE.',
+  'detailing.review.engineerRequired': 'Deve ser indicado o profissional que revisa.',
+  'detailing.review.provisionalOutstanding': 'Há cálculos provisórios sem aceitação expressa: {keys}. Um cálculo provisório pode ser aceito, mas deve ser feito deliberadamente.',
+  'detailing.review.provisionalNotAcknowledged': 'Falta a aceitação expressa dos cálculos provisórios.',
   'detailing.review.notRecorded': 'Não foi possível registrar a revisão.',
   'detailing.reviewedBy': 'Revisado por {engineer} em {at} (revisão {revision}).',
   'detailing.revision': 'Rev. {n}',
@@ -4216,7 +4228,7 @@ const pt: Translations = {
   'detailing.scene.unreinforcedCount': '{n} elemento(s) sem armadura — desenhados em laranja',
   'detailing.scene.unresolved': 'Sem concreto desenhado em {n} elemento(s): {ids}',
   'detailing.scene.unresolvedWhy': 'A sua seção não declara um retângulo b×h. Mostra-se a lacuna em vez de inventar uma seção.',
-  'detailing.scene.workspace.close': 'Voltar ao modelo',
+  'detailing.scene.workspace.close': 'Voltar ao workflow',
   'detailing.scene.workspace.title': 'Visualizador 3D de armaduras',
   'detailing.schedule': 'Planilha de dobragem',
   'detailing.schedule.purpose': 'Função',
@@ -5000,6 +5012,48 @@ const pt: Translations = {
   'detailing.floorRun.next': 'Execute o detalhamento coordenado, que coordena as barras que existirem então. A vista 3D e os documentos são projeções desse resultado.',
   'detailing.floorRun.runningNote': 'A processar todo o edifício. Esta passagem não pode ser interrompida.',
   'detailing.floorRun.whenToRun': 'Opcional, e roda ANTES do detalhamento. «Dimensionar tudo» dimensiona o pórtico — pilares e vigas; isto dimensiona as lajes e paredes que ele suporta, e as sapatas se você as pedir. Um edifício só de pórticos pode pulá-lo.',
+  // ════════════════════════════════════════════════════════════════════════
+  // H1 · design.floor.state.* — estados honestos das famílias de piso
+  //
+  // Bloco contíguo de propósito. Chaves de um mesmo namespace inseridas de
+  // forma dispersa são o que produziu 64 e depois 15 duplicatas ao fundir
+  // ramos: duas inserções independentes nos mesmos lugares, que o git aceita
+  // sem sinalizar conflito. Um bloco se lê como uma inserção.
+  //
+  // M1 precisará destes dicionários para `conn.gap.aluminium.scope`. Inserir
+  // essa mudança como OUTRO bloco com cabeçalho, não intercalada aqui.
+  // ════════════════════════════════════════════════════════════════════════
+  'design.floor.state.error': 'Erro na passagem',
+  'design.floor.state.notRun': 'Não executado',
+  'design.floor.state.noElements': 'Sem elementos',
+  'design.floor.state.skipped': 'Omitido',
+  'design.floor.state.designed': 'Dimensionado',
+  'design.floor.state.refused': 'Recusado',
+  'design.floor.state.provisional': 'Provisório',
+  'design.floor.state.why.error': 'A passagem de pisos falhou. Qualquer número ainda na tela é de uma execução anterior e não descreve este modelo.',
+  'design.floor.state.why.notRun': 'O dimensionamento de pisos não foi executado, portanto nada está classificado. Não é que não existam elementos: é que ninguém olhou para eles.',
+  'design.floor.state.why.noElements': 'O modelo não tem elementos desta família. É um fato do modelo, conhecido sem executar nada.',
+  'design.floor.state.why.skipped': 'A passagem classificou estes e não os dimensionou nem os recusou: ficaram fora do seu escopo.',
+  'design.floor.state.why.designed': 'Dimensionado com resultado completo: armaduras, verificação de cisalhamento e cláusulas citadas.',
+  'design.floor.state.why.refused': 'A passagem recusou dimensionar. Cada recusa nomeia seu elemento e a condição que a impediu.',
+  'design.floor.state.why.provisional': 'Dimensionou, e algo ficou incompleto: maturidade não validada, ou condições que o próprio dimensionamento não cobre. Não é uma verificação.',
+  'design.floor.state.countUnavailable': 'Sem dado',
+  'design.floor.state.countUnavailableWhy': 'Nenhum número é exibido porque não existe: um 0 diria que a passagem contou e não encontrou nada.',
+  'design.floor.state.scopeTitle': 'Escopo da última execução',
+  'design.floor.state.scopeNone': 'Ainda não houve execução de pisos.',
+  'design.floor.state.scope': 'Classificou {classified} · dimensionou {designed} · recusou {refused} · omitiu {skipped}',
+  'design.floor.state.offFamilyTitle': 'Classificados como nem laje nem parede',
+  'design.floor.state.offFamily': '{inclined} inclinados · {degenerate} degenerados',
+  'design.floor.state.offFamilyWhy': 'Cascas que a passagem classificou e que não são laje nem parede: uma rampa ou uma laje inclinada cai em «inclinado», e uma geometria que o classificador não conseguiu resolver cai em «degenerado». Nenhuma é dimensionada, e nenhuma é descartada em silêncio.',
+  'design.floor.state.nextTitle': 'O que fazer agora',
+  'design.floor.state.next.error': 'Leia a mensagem de erro e execute o dimensionamento de pisos novamente.',
+  'design.floor.state.next.notRun': 'Execute «Dimensionar e detalhar pisos» para classificar e dimensionar estas famílias.',
+  'design.floor.state.next.noElements': 'Não há nada a fazer para esta família neste modelo.',
+  'design.floor.state.next.skipped': 'Descubra por que ficaram fora do escopo antes de emitir documentos.',
+  'design.floor.state.next.designed': 'Execute o detalhamento coordenado para que estas armaduras cheguem aos documentos.',
+  'design.floor.state.next.refused': 'Leia cada condição recusada: são essas que precisam ser resolvidas no modelo.',
+  'design.floor.state.next.provisional': 'Revise as condições não cobertas antes de tratar este dimensionamento como definitivo.',
+  'design.floor.state.scopeVsAll': '«Dimensionar tudo» dimensiona o pórtico — pilares e vigas — e não toca nenhuma casca nem sapata. «Dimensionar e detalhar pisos» faz o oposto: cascas e sapatas, deixando o pórtico intacto. São duas passagens sobre famílias diferentes, não dois escopos da mesma.',
 
   'design.memo.flexure': 'Flexão',
   'design.memo.shear': 'Cortante',

@@ -152,6 +152,33 @@
    * The button was simply disabled. A control that governs a construction issue and explains
    * itself with nothing but grey is the one place in this panel where silence is least excusable.
    */
+  /**
+   * What stands between this set and `Record review`, in the store's own words.
+   *
+   * `Record review` had no `disabled` and no explanation. Clicking it with an unaccepted
+   * provisional calculation called `detailingStore.review`, which refuses — and refused AFTER
+   * `retireDocument()` had already run, so the document the user had just built was superseded by
+   * a click that accomplished nothing. That ordering is fixed in the store as well; this gate is
+   * the half that stops the user reaching a refusal at all.
+   *
+   * These are the SAME three refusals `assembly.ts` raises and the store translates
+   * (`notConstructible` at line 481, `engineerRequired`, `provisionalOutstanding`), reusing the
+   * same locale keys. Not a new set of rules: the same sentences, said before the click instead
+   * of after it. Which is the principle the note under `issue-submit` already states.
+   */
+  const reviewBlockers = $derived.by(() => {
+    const out: string[] = [];
+    if (!selected) { out.push(t('detailing.doc.need.assembly')); return out; }
+    if (reviewRank(selected.state) < reviewRank('CONSTRUCTIBLE')) {
+      out.push(tp('detailing.review.notConstructible', { state: selected.state }));
+    }
+    if (!detailingAuthor.name.trim()) out.push(t('detailing.review.engineerRequired'));
+    if (provisional.length > 0 && !allAcknowledged) {
+      out.push(tp('detailing.review.provisionalOutstanding', { keys: provisional.join(', ') }));
+    }
+    return out;
+  });
+
   const issueBlockers = $derived.by(() => {
     const out: string[] = [];
     if (!selected) { out.push(t('detailing.doc.need.assembly')); return out; }
@@ -180,6 +207,36 @@
       {#if d.openConflicts.length > 0}
         <p class="warn" data-testid="doc-conflicts">
           {tp('detailing.doc.conflicts', { n: d.openConflicts.length })}
+        </p>
+      {/if}
+      <!--
+        WHAT this document is, and not only how ready it is.
+
+        The stage used to show readiness, revision and maturity — three states and no content.
+        A reader could not tell whether "Revision 1" covered one assembly or forty, which codes
+        it was verified against, or whether it carried assumptions. Every figure here is already
+        in `DocumentModel`; none of it is new state, and nothing is computed that the document
+        does not already say.
+
+        No fabricated zeros: this block only renders once `detailingStore.document` exists, so
+        every count below is a count that has been taken.
+      -->
+      <dl class="doc-contents" data-testid="doc-contents">
+        <dt>{t('detailing.doc.contents.assemblies')}</dt>
+        <dd data-testid="doc-count-assemblies">{d.assemblies.length}</dd>
+        <dt>{t('detailing.doc.contents.certificates')}</dt>
+        <dd data-testid="doc-count-certificates">{d.certificates.length}</dd>
+        <dt>{t('detailing.doc.contents.clauses')}</dt>
+        <dd data-testid="doc-count-clauses">{d.refs.length}</dd>
+        {#if d.assumptions.length > 0}
+          <dt>{t('detailing.doc.contents.assumptions')}</dt>
+          <dd data-testid="doc-count-assumptions">{d.assumptions.length}</dd>
+        {/if}
+      </dl>
+      {#if d.regulations.length > 0}
+        <!-- The editions the verification actually used, not the ones currently selected. -->
+        <p class="doc-regs" data-testid="doc-regulations">
+          {d.regulations.map((r) => `${r.id} ${r.edition}`).join(' · ')}
         </p>
       {/if}
     {:else}
@@ -221,7 +278,10 @@
   </section>
 
   <section class="review" aria-labelledby="review-title">
-    <h5 id="review-title">{t('detailing.review')}</h5>
+    <!-- `h4`, not `h5`. The section's own title above is an `h3`, so this skipped a level and a
+         reader navigating by heading could not tell whether the review was a sibling of the
+         documents or a part of them. -->
+    <h4 id="review-title">{t('detailing.review')}</h4>
     <p class="disclaimer" data-testid="review-disclaimer">{t('detailing.notLegalSignoff')}</p>
 
     {#if selected.review}
@@ -263,7 +323,11 @@
     </label>
 
     <div class="actions">
-      <button data-testid="review-submit" onclick={() => submitReview('REVIEWED')}>
+      <button
+        data-testid="review-submit"
+        disabled={reviewBlockers.length > 0}
+        onclick={() => submitReview('REVIEWED')}
+      >
         {t('detailing.recordReview')}
       </button>
       <button
@@ -281,6 +345,9 @@
       and explains itself with nothing but grey is the one place in this panel where silence is
       least excusable.
     -->
+    {#if reviewBlockers.length > 0}
+      <p class="need" data-testid="review-blockers">{reviewBlockers.join(' ')}</p>
+    {/if}
     {#if issueBlockers.length > 0}
       <p class="need" data-testid="issue-blockers">{issueBlockers.join(' ')}</p>
     {/if}
@@ -305,7 +372,7 @@
 
   /* One heading level per rank, so the two groups do not compete. */
   .documents-stage :global(h3),
-  .documents-stage :global(h5) {
+  .documents-stage :global(h4) {
     margin: 0 0 0.2rem;
     font-size: 0.75rem;
     font-weight: 600;
@@ -346,6 +413,18 @@
   .actions button[data-testid='issue-submit']:not(:disabled) { border-color: var(--st-interactive); font-weight: 600; }
 
   .review { border-top: 1px solid var(--st-hair); padding-top: 0.5rem; }
+  .doc-contents {
+    display: grid; grid-template-columns: auto auto; gap: 0.05rem 0.5rem;
+    margin: 0.3rem 0 0; font-size: 0.7rem; justify-content: start;
+  }
+  .doc-contents dt { color: var(--st-text-2); }
+  .doc-contents dd {
+    margin: 0; font-family: var(--st-mono); font-variant-numeric: tabular-nums;
+  }
+  .doc-regs {
+    margin: 0.2rem 0 0; font-size: 0.66rem; color: var(--st-text-2);
+    font-family: var(--st-mono);
+  }
   .disclaimer { margin: 0 0 0.3rem; font-size: 0.66rem; line-height: 1.35; color: var(--st-text-2); }
   .reviewed { margin: 0 0 0.3rem; font-size: 0.68rem; color: var(--st-ok); }
 

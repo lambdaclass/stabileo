@@ -45,6 +45,9 @@
   }: Props = $props();
 
   const fmt = (n: number, d = 2): string => n.toFixed(d);
+
+  /** True while an isolation is active. Drives one button rather than two. */
+  const isolating = $derived(rebarWorkspace.isolated.length > 0);
 </script>
 
 {#if bar}
@@ -101,18 +104,29 @@
       {t('detailing.scene.torsionMember')}
     </p>
   {/if}
+  <!--
+    ONE button that changes, not two that replace each other.
+
+    This was an `{#if}/{:else}` pair, and that is a keyboard dead end: clicking `rebar-isolate`
+    flips the condition, Svelte DESTROYS the button that was just pressed and creates the other
+    one, and the focused element leaves the DOM — so focus falls to `<body>` and the next Tab
+    restarts at the top of the document. Measured: `focus=body` after isolating, and again after
+    clearing.
+
+    The same node now stays put and swaps its label, action and testid, so focus survives. The two
+    testids are kept exactly as they were, because they name the STATE and existing specs read
+    them that way.
+  -->
   <div class="sel-actions">
-    {#if rebarWorkspace.isolated.length > 0}
-      <button type="button" data-testid="rebar-clear-isolation"
-              onclick={() => rebarWorkspace.clearIsolation()}>
-        {t('detailing.scene.clearIsolation')}
-      </button>
-    {:else}
-      <button type="button" data-testid="rebar-isolate"
-              onclick={() => rebarWorkspace.isolate(rebarWorkspace.selection?.elementIds ?? [])}>
-        {t('detailing.scene.isolate')}
-      </button>
-    {/if}
+    <button
+      type="button"
+      data-testid={isolating ? 'rebar-clear-isolation' : 'rebar-isolate'}
+      onclick={() => (isolating
+        ? rebarWorkspace.clearIsolation()
+        : rebarWorkspace.isolate(rebarWorkspace.selection?.elementIds ?? []))}
+    >
+      {isolating ? t('detailing.scene.clearIsolation') : t('detailing.scene.isolate')}
+    </button>
   </div>
 {/if}
 
@@ -122,12 +136,17 @@
     margin: 0; font-size: 0.74rem;
   }
   dt { color: var(--text-muted, #8b93a3); }
-  dd { margin: 0; }
+  /* Its sibling `ConflictInspector` marked its `dd` as a figure column and this one never did,
+     though both report measured values in the same rail — a clearance in one, a diameter and
+     a length in the other. Same treatment now. */
+  dd { margin: 0; font-family: var(--st-mono); font-variant-numeric: tabular-nums; }
   .hint { margin: 0; font-size: 0.72rem; color: var(--text-muted, #8b93a3); }
   .sel-status { margin: 0.3rem 0 0; font-size: 0.74rem; }
-  /* The same amber the workspace banner uses. One colour, one meaning. */
-  .sel-torsion { margin: 0.25rem 0 0; font-size: 0.74rem; color: #f2ddc6; }
-  .sel-torsion strong { color: #ffbe7a; }
+  /* The same amber the workspace banner uses. One colour, one meaning — so this pair and
+     `TorsionBanner`'s moved to the tokens together. Tokenising one of the two would have
+     broken the equality this comment exists to state. */
+  .sel-torsion { margin: 0.25rem 0 0; font-size: 0.74rem; color: var(--st-text); }
+  .sel-torsion strong { color: var(--st-warn); }
   .lim { color: var(--text-muted, #8b93a3); }
   .sel-reason {
     margin: 0.15rem 0 0; font-size: 0.7rem; line-height: 1.35;
@@ -138,5 +157,5 @@
     background: none; border: 1px solid var(--st-border, #2c3444); border-radius: 4px;
     color: inherit; font-size: 0.72rem; padding: 0.2rem 0.45rem; cursor: pointer;
   }
-  .sel-actions button:hover { border-color: #6fa8ff; color: #d7dce6; }
+  .sel-actions button:hover { border-color: var(--st-interactive); color: var(--st-text); }
 </style>

@@ -414,11 +414,41 @@
     color: var(--st-warn);
   }
   .detailing-blockers { margin: 0.3rem 0 0; font-size: 0.76rem; opacity: 0.85; }
+  /*
+    MERGED: the count rules are gone from here, and that is H1's own conclusion arriving by the
+    base's hand.
+
+    H1 moved the regulation read-out and the member counts OUT of this bar and into
+    `DesignOverview.svelte` — the comment at the top of the markup says so, and says nothing was
+    duplicated. What it did not do was delete the rules those elements left behind, so `.counts`,
+    `.count`, `.count-sep` and the nine `.c-*` sat here styling nothing.
+    `feat/pro-steel-family` deleted them, and measured against this file's own markup that is
+    exactly right: none of those fourteen selectors appears in it.
+
+    Nothing of H1's is lost with them. Its correction — `.c-fail` and `.c-sect` off the brand
+    `--st-accent` and onto `--st-danger`, because a result must not read as an action — lives on
+    the surface that renders the counts, where `.tone-bad` is already `--st-danger`.
+
+    `.c-prov` is the one worth naming. Its literal `#a066d3` was held equal to
+    `three/rebar-scene.ts` by a gate, and `run-summary-reported.test.ts` has since moved that
+    assertion onto the overview with the reason written into it: ".c-prov in the toolbar kept
+    this green while styling nothing". Deleting it here is what that note asks for, and the base
+    supplies the chip it asks for on the other side.
+
+    `.detailing-auto` is the exception and is NOT deleted: the markup still renders it at
+    `data-testid="detailing-auto-label"`. It is defined once now, beside `.cmd-detailing` above,
+    in the fuller form that carries the `:focus-within` outline — this second copy was a
+    duplicate that lost the focus ring.
+  */
 
   .banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     padding: 5px 9px; border-radius: 4px; font-size: 0.73rem; line-height: 1.45; }
-  .banner-block { background: rgba(238,34,34,0.14); border: 1px solid var(--st-accent); color: var(--st-text); }
-  .banner-warn { background: rgba(255,102,0,0.13); border: 1px solid var(--st-warn); color: var(--st-text); }
+  .banner-block { background: var(--st-danger-bg); border: 1px solid var(--st-danger); color: var(--st-text); }
+  /* Orange to amber, authorised as a semantic correction: `rgba(255,102,0,.13)` was a fifth
+     amber family that existed in three files and matched neither `--st-amber` nor
+     `--st-warn`, which is the very border this banner already used. Now the fill and the
+     rule come from one hue. */
+  .banner-warn { background: var(--st-warn-bg); border: 1px solid var(--st-warn); color: var(--st-text); }
   .banner-info { background: rgba(127, 212, 204,0.11); border: 1px solid var(--st-hair-strong); color: var(--st-text); }
   .banner-stale { border: 1px solid var(--st-text-3); color: var(--st-text);
     background: repeating-linear-gradient(45deg, rgba(138,143,122,0.16) 0 6px, rgba(93,97,84,0.16) 6px 12px); }

@@ -30,12 +30,13 @@
 
 import { modelStore, verificationStore, uiStore, historyStore } from '../store';
 import { detailingStore } from '../store/detailing.svelte';
+import { rebarWorkspace } from '../store/rebar-workspace.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
 import { runGlobalSolve } from '../engine/live-calc';
 import {
-  liveRebarSceneCensus, rebarSceneBuilds, type RebarSceneCensus,
+  liveRebarSceneCensus, liveRebarSceneConflictAt, rebarSceneBuilds, type RebarSceneCensus,
 } from '../three/rebar-scene';
 import { sceneCacheStats } from '../engine/detailing/scene-cache';
 import { openTimeline, type OpenPhase } from './open-timeline';
@@ -211,6 +212,29 @@ export interface StabileoTestActions {
   seedDetailing(assemblies: unknown): void;
   selectAssembly(id: string): void;
   reviewAssembly(record: unknown): boolean;
+  /**
+   * Select the conflict drawn in a marker slot, as clicking that marker would.
+   *
+   * A TEST MUTATOR, and the only route to `ConflictInspector` that a test has: the panel renders
+   * from `selection.conflict`, which is set by clicking a marker in the WebGL scene — raycast
+   * against the canvas, at a screen position no test can compute reliably.
+   *
+   * Returns false when the slot draws nothing, so a caller can tell "no conflict there" from
+   * "selected one".
+   */
+  selectConflict(slot?: number): boolean;
+  /**
+   * Resize a section, as the sections table would.
+   *
+   * A TEST MUTATOR. It exists because no fixture in the tree produces a REFUSED member: all three
+   * RC examples design to `VERIFIED` or `PROVISIONAL_BIAXIAL`, and there is no UI route to a
+   * section's dimensions — `ProSectionsTab` and `SectionChanger` carry no `data-testid` between
+   * them, and `BatchEditDialog` edits reinforcement.
+   *
+   * It changes a dimension and nothing else. The refusal that follows is the real engine's, on a
+   * section that genuinely cannot carry its demand — not a state written into a store.
+   */
+  updateSection(id: number, data: unknown): void;
   toggleBarLock(barId: string): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -374,6 +398,15 @@ export function installE2EHooks(): void {
     selectAssembly: (id: string) => { detailingStore.select(id); },
     reviewAssembly: (record: unknown) =>
       detailingStore.review(record as never),
+    selectConflict: (slot = 0) => {
+      const conflict = liveRebarSceneConflictAt(slot);
+      if (!conflict) return false;
+      rebarWorkspace.selectConflict(conflict);
+      return true;
+    },
+    updateSection: (id: number, data: unknown) => {
+      modelStore.updateSection(id, data as never);
+    },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
     /** Reset the selection between gestures — the position, not the subject. */
