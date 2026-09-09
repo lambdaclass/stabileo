@@ -299,6 +299,13 @@
             if (EDIT_TOOLS.includes(uiStore.currentTool)) uiStore.currentTool = 'select';
           } },
         { id: 'advanced', icon: 'advanced', labelKey: 'ribbon.advanced', panel: 'advanced' },
+        /*
+         * A calculator, not an analysis — it never looks at the model. It
+         * sits under ANALYSE anyway because that is where a reader goes when
+         * the question is "will this section hold", and the alternative was a
+         * sixth group holding one command.
+         */
+        { id: 'flex', icon: 'stress', labelKey: 'flex.title', panel: 'flex' },
       ],
     },
     {
