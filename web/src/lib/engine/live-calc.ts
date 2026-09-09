@@ -15,7 +15,7 @@ import { requestAutosave } from '../store/autosave-service';
 import { t } from '../i18n';
 import { initSolver, isWasmReady } from './wasm-solver';
 import { computeGoverning2D, computeGoverning3D } from './governing-case';
-import { reportSolverDiagnostics } from './solve-diagnostics';
+import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 
@@ -150,6 +150,15 @@ async function liveCalc2D(isStale: () => boolean): Promise<void> {
 export async function runGlobalSolve(): Promise<void> {
   // Supersede any in-flight solve (live calc or an earlier manual solve).
   const isStale = nextSolveGuard();
+
+  // Pre-solve model hygiene, for the modes that had none. PRO is excluded
+  // because ProPanel already renders these in its diagnostics panel and refuses
+  // to run on errors — toasting here too would double-report them.
+  //
+  // Deliberately here and not in `runLiveCalc`: live calc re-solves on every
+  // edit, so the same warning would fire on each keystroke of a half-built
+  // model. A manual solve is the moment the user asserts the model is ready.
+  if (uiStore.analysisMode !== 'pro') reportModelDiagnostics();
   if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
     await ensureWasmReady('runGlobalSolve');
     await globalSolve3D(isStale);

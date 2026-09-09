@@ -12,7 +12,9 @@
  */
 
 import { uiStore } from '../store/ui.svelte';
+import { modelStore } from '../store/model.svelte';
 import { t } from '../i18n';
+import { checkModel } from './model-diagnostics';
 import type { SolverDiagnostic } from './types';
 
 /** Max diagnostics surfaced at once, so a noisy model cannot bury the UI. */
@@ -31,4 +33,49 @@ export function reportSolverDiagnostics(diags?: SolverDiagnostic[]): void {
     const msg = t(d.message) !== d.message ? t(d.message) : d.message;
     uiStore.toast(msg, d.severity === 'error' ? 'error' : 'info');
   }
+}
+
+/**
+ * `checkModel` against the live store.
+ *
+ * The ModelData literal was written out twice in `ProPanel.svelte` already; this
+ * is the shared builder so the Basic path does not become a third copy that can
+ * drift from the other two.
+ */
+export function checkCurrentModel(): SolverDiagnostic[] {
+  return checkModel({
+    nodes: modelStore.nodes,
+    elements: modelStore.elements,
+    materials: modelStore.materials,
+    sections: modelStore.sections,
+    supports: modelStore.supports,
+    loads: modelStore.loads as never,
+    loadCases: modelStore.model.loadCases,
+    plates: modelStore.model.plates,
+    quads: modelStore.model.quads,
+    connectors: modelStore.model.connectors,
+    constraints: modelStore.model.constraints,
+  });
+}
+
+/**
+ * Pre-solve model hygiene for the paths that are not PRO.
+ *
+ * `checkModel` defines 21 checks — 13 of them severity `error` — and until now
+ * it was called ONLY from `pro/` components. A Basic user solving a model with
+ * duplicated members, a zero-area section or an orphan support got numbers and
+ * no warning at all; the duplicate-member case is issue #181, reported from the
+ * 2D workflow where none of this ran.
+ *
+ * Reports, never blocks: PRO refuses to solve on errors because it owns a
+ * panel that explains them, whereas here a toast is the whole channel, and
+ * silently refusing a solve the user asked for is worse than a wrong number
+ * they were warned about. Blocking is a product decision, not a bug fix.
+ *
+ * Errors sort ahead of warnings because only MAX_TOASTS surface, and burying an
+ * error under two warnings is the exact failure this exists to end.
+ */
+export function reportModelDiagnostics(): void {
+  const rank = (d: SolverDiagnostic) => (d.severity === 'error' ? 0 : 1);
+  reportSolverDiagnostics([...checkCurrentModel()].sort((a, b) => rank(a) - rank(b)));
 }

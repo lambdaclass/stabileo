@@ -51,7 +51,7 @@
   import ProConnectionsTab from './ProConnectionsTab.svelte';
   import SteelPanel from './steel/SteelPanel.svelte';
   import ProGeneratorsPanel from './generators/ProGeneratorsPanel.svelte';
-  import { checkModel } from '../../lib/engine/model-diagnostics';
+  import { checkCurrentModel } from '../../lib/engine/solve-diagnostics';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
   type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics';
@@ -366,19 +366,7 @@
 
   /** Pre-solve model quality check — returns error diagnostics if any. */
   function getModelErrors(): import('../../lib/engine/types').SolverDiagnostic[] {
-    return checkModel({
-      nodes: modelStore.nodes,
-      elements: modelStore.elements,
-      materials: modelStore.materials,
-      sections: modelStore.sections,
-      supports: modelStore.supports,
-      loads: modelStore.loads as any,
-      loadCases: modelStore.model.loadCases,
-      plates: modelStore.model.plates,
-      quads: modelStore.model.quads,
-      connectors: modelStore.model.connectors,
-      constraints: modelStore.model.constraints,
-    }).filter(d => d.severity === 'error');
+    return checkCurrentModel().filter(d => d.severity === 'error');
   }
 
   /** Reactive count of blocking model errors (for UI state). */
@@ -421,19 +409,9 @@
     const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
     const general = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
     const solver = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
-    const modelDiags = checkModel({
-      nodes: modelStore.nodes,
-      elements: modelStore.elements,
-      materials: modelStore.materials,
-      sections: modelStore.sections,
-      supports: modelStore.supports,
-      loads: modelStore.loads as any,
-      loadCases: modelStore.model.loadCases,
-      plates: modelStore.model.plates,
-      quads: modelStore.model.quads,
-      connectors: modelStore.model.connectors,
-      constraints: modelStore.model.constraints,
-    });
+    // Reads the same store properties the inline literal did, synchronously
+    // inside this derived, so the dependency set is unchanged.
+    const modelDiags = checkCurrentModel();
     const merged = [...modelDiags];
     for (const sd of [...general, ...solver]) {
       const isDupe = merged.some(
@@ -1067,7 +1045,8 @@
       Global visibility is not lost. The ribbon's MODEL badge still carries the count, under the
       same arming rule, so the fact is reachable from any tab without interrupting from all of
       them. `modelErrorCount` stays exported for the ribbon and for the pre-solve gate — the
-      gate reads `checkModel` directly and is not affected by anything the user hides.
+      gate reads the diagnostics itself, via `checkCurrentModel`, and is not affected by
+      anything the user hides.
     -->
   </header>
 
