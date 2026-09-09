@@ -10,6 +10,50 @@
   let fileInput: HTMLInputElement;
   let showCalcReport = $state(false);
 
+  // ─── Excel import ────────────────────────────────────────────────
+  let xlsInput: HTMLInputElement;
+  /**
+   * The last import's report, or null.
+   *
+   * Kept on screen rather than toasted. A toast is the wrong shape for this:
+   * what is useful is a list of rows to go and fix, the reader needs it while
+   * they are back in the spreadsheet, and a message that removes itself after
+   * four seconds turns "row 47 wants a number in x" into "something was wrong".
+   */
+  let xlsReport = $state<import('../../lib/excel-import/apply').ImportOutcome | null>(null);
+
+  async function handleImportExcel(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // so choosing the same file twice fires again
+    if (!file) return;
+
+    try {
+      const { importExcelFile } = await import('../../lib/excel-import/apply');
+      const outcome = await importExcelFile(file);
+      if (!outcome) return; // the library failed to load, and said so
+      xlsReport = outcome;
+      if (outcome.loaded.nodes > 0) {
+        uiStore.toast(
+          t('xls.ui.imported')
+            .replace('{n}', String(outcome.loaded.nodes))
+            .replace('{e}', String(outcome.loaded.elements)),
+          outcome.problems.length > 0 ? 'info' : 'success',
+        );
+      } else {
+        uiStore.toast(t('xls.ui.nothingLoaded'), 'error');
+      }
+    } catch (err) {
+      console.error('[stabileo] Excel import failed:', err);
+      uiStore.toast(t('xls.ui.unreadable'), 'error');
+    }
+  }
+
+  async function handleDownloadTemplate() {
+    const { downloadTemplate } = await import('../../lib/excel-import/template');
+    await downloadTemplate();
+  }
+
   let showProject = $state(false);
   let showProjectExtras = $state(false);
 
@@ -186,7 +230,61 @@
         <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-coords'))} title={t('project.pasteCoordsTooltip')}>
           {t('project.pasteCoords')}
         </button>
+        <!--
+          Two buttons, because one of them is the answer to "what do I put in
+          it?". An importer on its own is a guessing game: the reader has a
+          spreadsheet of their own and no way to learn that we call a column
+          `nodeI` except by importing, reading the error and trying again.
+        -->
+        <button class="file-btn" onclick={handleDownloadTemplate} title={t('xls.ui.templateTooltip')} data-testid="xls-template">
+          {t('xls.ui.template')}
+        </button>
+        <button class="file-btn" onclick={() => xlsInput?.click()} title={t('xls.ui.importTooltip')} data-testid="xls-import">
+          {t('xls.ui.import')}
+        </button>
       </div>
+
+      {#if xlsReport}
+        <!--
+          The report stays until it is dismissed, and it lists rows rather than
+          counting them: "row 47 wants a number in x" is something a reader can
+          act on in the spreadsheet they still have open, and "12 problems" is
+          not. Capped at fifteen because a file with more than that has one
+          systematic mistake, not fifteen — the sixteenth line would not teach
+          anything the first three have not.
+        -->
+        <div class="xls-report" data-testid="xls-report">
+          <div class="xls-report-head">
+            <span>
+              {t('xls.ui.reportTitle')
+                .replace('{n}', String(xlsReport.loaded.nodes))
+                .replace('{e}', String(xlsReport.loaded.elements))}
+            </span>
+            <button class="xls-report-close" onclick={() => (xlsReport = null)} aria-label={t('ribbon.close')}>×</button>
+          </div>
+
+          {#if xlsReport.unknownSheets.length > 0}
+            <p class="xls-report-note">
+              {t('xls.ui.unknownSheets').replace('{s}', xlsReport.unknownSheets.join(', '))}
+            </p>
+          {/if}
+
+          {#if xlsReport.problems.length === 0}
+            <p class="xls-report-ok">{t('xls.ui.noProblems')}</p>
+          {:else}
+            <ul class="xls-report-list">
+              {#each xlsReport.problems.slice(0, 15) as p}
+                <li><strong>{p.sheet} · {t('xls.ui.row')} {p.row}</strong> — {p.message}</li>
+              {/each}
+            </ul>
+            {#if xlsReport.problems.length > 15}
+              <p class="xls-report-note">
+                {t('xls.ui.andMore').replace('{n}', String(xlsReport.problems.length - 15))}
+              </p>
+            {/if}
+          {/if}
+        </div>
+      {/if}
       <span class="file-sub-header">{t('project.share')}</span>
       <div class="file-grid">
         <button class="file-btn" onclick={handleCopyShareLink} title={t('project.copyLinkTooltip')}>
@@ -215,9 +313,64 @@
   onchange={handleLoadFile}
 />
 
+<input
+  bind:this={xlsInput}
+  data-testid="xls-input"
+  type="file"
+  accept=".xlsx,.xls"
+  style="display:none"
+  onchange={handleImportExcel}
+/>
+
 <CalcReportDialog bind:open={showCalcReport} />
 
 <style>
+  /* ─── The Excel import report ────────────────────────────────────
+     Framed but not alarmed: most imports that produce one still produced a
+     model, so this is a list of things to go and fix, not a failure. The
+     severity lives in the individual lines, and `--st-warn` across the whole
+     box would overstate every one of them.
+     ─────────────────────────────────────────────────────────────── */
+  .xls-report {
+    margin-top: 0.4rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    font-size: 0.7rem;
+    line-height: 1.45;
+  }
+  .xls-report-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: var(--st-text);
+    font-weight: 600;
+  }
+  .xls-report-close {
+    background: none;
+    border: none;
+    color: var(--st-text-3);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.2rem;
+  }
+  .xls-report-close:hover { color: var(--st-text); }
+  .xls-report-ok { margin: 0.3rem 0 0; color: var(--st-ok); }
+  .xls-report-note { margin: 0.3rem 0 0; color: var(--st-text-3); }
+  .xls-report-list {
+    /* Long reports scroll inside the box; the panel keeps its own length. */
+    margin: 0.35rem 0 0;
+    padding-left: 1rem;
+    max-height: 190px;
+    overflow-y: auto;
+    color: var(--st-text-2);
+  }
+  .xls-report-list li { margin-bottom: 0.2rem; }
+  .xls-report-list strong { color: var(--st-text); font-weight: 600; }
+
   .toolbar-section {
     display: flex;
     flex-direction: column;
