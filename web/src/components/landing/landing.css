@@ -418,18 +418,25 @@
   flex: none;
 }
 
+/*
+   The mark, not a monogram.
+
+   This was a filled accent tile with an "S" in it, so the brand on the
+   landing was not the brand inside the editor one click later. It holds
+   BrandMark now — the same triangle as the favicon and the app header — and
+   carries the accent as `color`, which the SVG picks up via `currentColor`.
+*/
 .landing .nav-logo {
   display: grid;
   place-items: center;
   width: 26px;
   height: 26px;
-  border-radius: var(--lp-radius);
-  background: var(--lp-accent);
-  color: #fff;
-  font-family: var(--lp-display);
-  font-weight: 700;
-  font-size: 0.9rem;
+  color: var(--lp-accent);
   flex: none;
+}
+
+.landing .brand-mark {
+  display: block;
 }
 
 .landing .nav-name {

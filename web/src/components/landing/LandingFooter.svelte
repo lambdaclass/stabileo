@@ -2,6 +2,7 @@
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import { REPO_URL, DOCS_HUB_URL, enterApp, SOCIAL_LINKS } from './landing-utils';
   import PublicLink from './PublicLink.svelte';
+  import BrandMark from './BrandMark.svelte';
 
   const year = new Date().getFullYear();
 
@@ -22,7 +23,7 @@
 <footer class="sec sec--ink lp-footer">
   <div class="wrap footer-grid">
     <div class="footer-brand">
-      <span class="nav-logo" aria-hidden="true">S</span>
+      <span class="nav-logo"><BrandMark /></span>
       <div>
         <p class="footer-name">Stabileo</p>
         <p class="footer-tagline">{t('landing.footTagline')}</p>

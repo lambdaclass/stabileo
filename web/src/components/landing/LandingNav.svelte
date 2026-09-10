@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tPublic as t, publicI18n, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
   import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale } from './landing-utils';
+  import BrandMark from './BrandMark.svelte';
 
   let stars = $state<number | null>(null);
   let open = $state(false);
@@ -38,7 +39,7 @@
 <nav class="nav" aria-label={t('landing.navPrimary')}>
   <div class="nav-inner">
     <button class="nav-brand" onclick={() => go('top')} aria-label={t('landing.navBackToTop')}>
-      <span class="nav-logo" aria-hidden="true">S</span>
+      <span class="nav-logo"><BrandMark /></span>
       <span class="nav-name">Stabileo</span>
     </button>
 
