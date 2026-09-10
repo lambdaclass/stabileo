@@ -44,8 +44,21 @@ export const PHI_TENSION = 0.90;
 /** φ for a compression-controlled section with closed ties, §9.3.2.2(b). */
 export const PHI_COMPRESSION_TIED = 0.65;
 
-/** φ for a compression-controlled section with a spiral, §9.3.2.2(a). */
-export const PHI_COMPRESSION_SPIRAL = 0.75;
+/**
+ * φ for a compression-controlled section with a spiral, §9.3.2.2(a).
+ *
+ * 0.70, which is CIRSOC 201-2005's value. ACI 318-08 raised it to 0.75 and
+ * that is the number most tables published after 2008 carry — this module
+ * had it, and against the INTI-CIRSOC workbook's own worked example it made
+ * a 40 cm spiral column come out with 15 % LESS steel than the regulation
+ * asks for. Unconservative, and invisible without something to compare to.
+ *
+ * The application declares CIRSOC 201 (`lib/codes/regulation.ts`), so the
+ * regulation's number is the one it uses. If ACI is ever offered as an
+ * alternative this becomes a function of the selected code rather than a
+ * constant, and the ties value below stays 0.65 either way.
+ */
+export const PHI_COMPRESSION_SPIRAL = 0.70;
 
 /** Net tensile strain at which a section is tension-controlled, §10.3.4. */
 export const EPSILON_TENSION_CONTROLLED = 0.005;
@@ -76,8 +89,9 @@ export function yieldStrain(fy: number): number {
  * as though it were brittle.
  *
  * `confinement` decides the lower end: a spiral keeps the core together after
- * the shell spalls and a tie does not, so the code credits it with 0.75
- * against 0.65.
+ * the shell spalls and a tie does not, so the code credits it with 0.70
+ * against 0.65. See `PHI_COMPRESSION_SPIRAL` for why it is 0.70 and not the
+ * 0.75 most post-2008 tables print.
  */
 export function phiFromStrain(
   epsT: number,

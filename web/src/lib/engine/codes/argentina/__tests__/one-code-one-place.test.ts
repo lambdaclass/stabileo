@@ -107,9 +107,15 @@ describe('the clauses themselves', () => {
   });
 
   it('a spiral starts its ramp higher than ties, and ends in the same place', () => {
+    /*
+     * 0.70, not the 0.75 this once asserted. That is ACI 318-08's value and
+     * CIRSOC 201-05 keeps 0.70; the workbook comparison in
+     * `cirsoc-flex-worked-examples.test.ts` is what caught it, and the
+     * consequence was a spiral column sized 15 % light.
+     */
     const fy = 420;
     const ey = yieldStrain(fy);
-    expect(phiFromStrain(ey, fy, 'spiral')).toBeCloseTo(0.75, 10);
+    expect(phiFromStrain(ey, fy, 'spiral')).toBeCloseTo(0.70, 10);
     expect(phiFromStrain(ey, fy, 'ties')).toBeCloseTo(0.65, 10);
     expect(phiFromStrain(0.005, fy, 'spiral')).toBe(PHI_TENSION);
   });
