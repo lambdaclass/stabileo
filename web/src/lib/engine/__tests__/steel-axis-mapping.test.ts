@@ -19,8 +19,9 @@
  * plateau. Unconservative — the direction that matters.
  *
  * Nothing tested it. The CIRSOC benchmarks enter `cirsoc301.ts` directly with parameters already
- * in the CHECKER's convention, so they never cross this mapping, and no other test imports the
- * builder. The fix was held in place by a comment.
+ * in the CHECKER's convention, so they never cross this mapping, and no other test imported the
+ * builder. The fix was held in place by a comment. (`steel-demand-axis-mapping.test.ts` now pins
+ * the DEMAND side of the same cross, through the real solver.)
  *
  * ── Why it asserts on Lp ───────────────────────────────────────────
  *
@@ -60,13 +61,15 @@ const model = {
   supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' }]]),
 } as any;
 
-/** Strong-axis moment only, so flexure governs and `flexureZ` is populated. */
+/** Strong-axis moment only, so flexure governs and `flexureZ` is populated.
+ *  `my` is the strong-axis channel — the demand side of the same cross, pinned end-to-end
+ *  in `steel-demand-axis-mapping.test.ts`. */
 const results = {
   elementForces: [{
     elementId: 1,
     nStart: 0, nEnd: 0,
-    mzStart: 10, mzEnd: 0,
-    myStart: 0, myEnd: 0,
+    mzStart: 0, mzEnd: 0,
+    myStart: 10, myEnd: 0,
     vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0,
   }],
 } as any;
