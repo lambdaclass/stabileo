@@ -150,3 +150,116 @@ describe('the safety condition, stated the way the sheet states it', () => {
     expect(rel(r.rho, 0.0237067)).toBeLessThan(1e-3);
   });
 });
+
+
+describe('FCR-CIR-VERIF — the circular sheet, and its six points', () => {
+  /*
+   * D 0.40, d's 0.03, twelve bars, Ast 86.52 cm², SPIRAL, Pu 1000, Mu 300.
+   * The sheet reports MVres/MVsol = 0.99972 — this section fails, just.
+   */
+  const outline: Outline = { kind: 'circle', D: 0.40 };
+  const mat = { fc: 25, fy: 420, confinement: 'spiral' as const };
+  const Rs = 0.20 - 0.03;
+  const bars: Bar[] = Array.from({ length: 12 }, (_, i) => {
+    const a = (2 * Math.PI * i) / 12;
+    return { x: Rs * Math.sin(a), y: Rs * Math.cos(a), area: (86.52e-4) / 12 };
+  });
+  const curve = interactionCurve(outline, bars, mat, -Math.PI / 2, 400);
+
+  it('the axial cap, which pins φ = 0.70 AND the 0.85 spiral factor', () => {
+    /*
+     * Published 3641.6016 kN. Two clauses at once: only 0.70 × 0.85 × Po
+     * lands here. It is the number that showed our spiral φ had been ACI's
+     * 0.75, and it is exact.
+     */
+    /* Relative: the circle is a 360-gon, 0.005 % short of πr². */
+    expect(rel(Math.max(...curve.map((p) => p.phiPn)), 3641.6016)).toBeLessThan(1e-4);
+  });
+
+  it('the maximum tension', () => {
+    // Published −3270.4560 kN = 0.90 × Ast · fy
+    expect(rel(Math.min(...curve.map((p) => p.phiPn)), -3270.456)).toBeLessThan(2e-3);
+  });
+
+  it('yield strain in the far steel', () => {
+    // Published φMn 299.6415, φPn 1002.5282, φ = 0.70
+    const at = curve.reduce((m, p) =>
+      Math.abs(p.epsilonT - yieldStrain(420)) < Math.abs(m.epsilonT - yieldStrain(420)) ? p : m,
+    curve[0]);
+    expect(rel(Math.abs(at.phiMnx), 299.6415)).toBeLessThan(0.02);
+    expect(rel(at.phiPn, 1002.5282)).toBeLessThan(0.02);
+    expect(at.phi).toBeCloseTo(0.70, 2);
+  });
+
+  it('pure flexure', () => {
+    // Published φMn 363.4409 at φPn = 0
+    const at = curve.reduce((m, p) => (Math.abs(p.phiPn) < Math.abs(m.phiPn) ? p : m), curve[0]);
+    expect(rel(Math.abs(at.phiMnx), 363.4409)).toBeLessThan(0.02);
+  });
+
+  it('and the sheet’s verdict: this section does NOT pass', () => {
+    /*
+     * MVres/MVsol = 0.99972, under one by three parts in ten thousand. A
+     * method that rounded generously would call it a pass, which is the
+     * whole reason a boundary case is worth testing.
+     */
+    const r = solveFlex({
+      kase: 'FCR-CIR', mode: 'verify',
+      fc: 25, fy: 420, confinement: 'spiral', deductDisplacedConcrete: true,
+      b: 0.3, h: 0.3, dPrime: 0.05, dPrimeS: 0.03, dPrimeH: 0.05, dPrimeV: 0.05,
+      holeB: 0, holeH: 0, bf: 1.37, hf: 0.1, bw: 0.12,
+      D: 0.40, Dint: 0, barCount: 12, barAtExtremeFibre: true,
+      ratioAsPrime: 1, pctA1: 50, pctA2: 50, pctA3: 0, nA1: 4, nA2: 4, nA3: 4,
+      AstGiven: 86.52, levels: [],
+      Pu: 1000, Mu: 300, Muy: 0,
+    });
+    /* Their ratio is ours inverted; theirs is 0.99972, so ours is just over 1. */
+    expect(rel(r.ratio, 1 / 0.9997205)).toBeLessThan(0.015);
+  });
+});
+
+describe('FCO-VERIF — the biaxial sheet', () => {
+  /*
+   * 30 × 30, d'sh = d'sv = 0.05, As1 = As2 = 10.676 cm² over four bars each,
+   * Pu 500, Mxu 100, Myu 0. Published: φMn/Mu = 1.00035, Pu(max) = 1437.2337.
+   */
+  const INPUT: FlexInput = {
+    kase: 'FCO', mode: 'verify',
+    fc: 25, fy: 420, confinement: 'ties', deductDisplacedConcrete: true,
+    b: 0.30, h: 0.30, dPrime: 0.05, dPrimeS: 0.05, dPrimeH: 0.05, dPrimeV: 0.05,
+    holeB: 0, holeH: 0, bf: 1.37, hf: 0.10, bw: 0.12,
+    D: 0.40, Dint: 0, barCount: 12, barAtExtremeFibre: true,
+    ratioAsPrime: 1, pctA1: 50, pctA2: 50, pctA3: 0, nA1: 4, nA2: 4, nA3: 4,
+    AstGiven: 21.352, levels: [],
+    Pu: 500, Mu: 100, Muy: 0,
+  };
+
+  it('lays the eight bars out as the sheet prints them', () => {
+    const r = solveFlex(INPUT);
+    expect(r.bars).toHaveLength(8);
+    expect([...new Set(r.bars.map((b) => +b.y.toFixed(4)))].sort()).toEqual([-0.1, 0.1]);
+  });
+
+  it('the §10.9.1 bounds and the flexural minimum', () => {
+    const r = solveFlex(INPUT);
+    expect(r.AstMinCm2).toBeCloseTo(9.0, 6);
+    expect(r.AstMaxCm2).toBeCloseTo(72.0, 6);
+    expect(rel(r.AsMinCm2, 2.5)).toBeLessThan(1e-3);
+  });
+
+  it('the axial cap the sheet prints for this steel', () => {
+    // Published Pu(max) = 1437.23372 kN = 0.65 × 0.80 × Po
+    const curve = interactionCurve(
+      { kind: 'rect', b: 0.30, h: 0.30 }, solveFlex(INPUT).bars,
+      { fc: 25, fy: 420 }, Math.PI / 2, 200,
+    );
+    expect(Math.max(...curve.map((p) => p.phiPn))).toBeCloseTo(1437.2337, 1);
+  });
+
+  it('and its verdict, which is a pass by three parts in ten thousand', () => {
+    // Published φMn/Mu = 1.0003512 — ours is the reciprocal.
+    const r = solveFlex(INPUT);
+    expect(rel(r.ratio, 1 / 1.0003512)).toBeLessThan(0.015);
+    expect(r.ok).toBe(true);
+  });
+});
