@@ -35,7 +35,13 @@
     { mod: 'modProCalc',   firms: FREE, unis: FREE },
     { mod: 'modProDesign', firms: { k: 'pricePaidLow', tone: 'paid' }, unis: FREE },
     { mod: 'modEdu',       firms: FREE, unis: FREE },
-    { mod: 'modAi',        firms: { k: 'pricePerToken', tone: 'paid' }, unis: { k: 'pricePerToken', tone: 'paid' } },
+    /*
+     * The AI's university cell is deliberately blank. Repeating "pago por
+     * token" there answered a question the paragraph below answers better: a
+     * university can connect its own language-model API. A price in the cell
+     * contradicted that; a blank leaves the explanation to do the work.
+     */
+    { mod: 'modAi',        firms: { k: 'pricePerToken', tone: 'paid' }, unis: null },
   ];
 </script>
 
@@ -60,7 +66,11 @@
             <tr>
               <th scope="row">{t('landing.' + r.mod)}</th>
               <td class="price is-{r.firms.tone}">{t('landing.' + r.firms.k)}</td>
-              <td class="price is-{r.unis.tone}">{t('landing.' + r.unis.k)}</td>
+              {#if r.unis}
+                <td class="price is-{r.unis.tone}">{t('landing.' + r.unis.k)}</td>
+              {:else}
+                <td class="price"></td>
+              {/if}
             </tr>
           {/each}
         </tbody>

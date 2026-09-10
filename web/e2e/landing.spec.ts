@@ -662,7 +662,9 @@ test.describe('@landing the model the deck states', () => {
       ['PRO · Cálculo', 'Gratis', 'Gratis'],
       ['PRO · Diseño normativo', 'Pago, a precios bajos', 'Gratis'],
       ['Educativo', 'Gratis', 'Gratis'],
-      ['Stabileo IA', 'Pago por token', 'Pago por token'],
+      // Blank on purpose: a university brings its own model API, and the
+      // paragraph under the table is where that is explained.
+      ['Stabileo IA', 'Pago por token', ''],
     ]);
   });
 
@@ -702,16 +704,18 @@ test.describe('@landing the model the deck states', () => {
     await expect(pricing).toContainText('gratuito para las universidades');
 
     /*
-     * And the table has to say the same thing. It does not, quite: every
-     * module is free for universities EXCEPT Stabileo AI, which is priced per
-     * token for everyone. Asserted as it actually is rather than as the
-     * sentence above reads — if the two are ever reconciled, this is the test
-     * that has to change with them.
+     * And the table agrees. Every module is free for universities, and the
+     * AI's cell is blank rather than priced: what a university pays for the
+     * agent depends on the model API it brings, which the paragraph under the
+     * table explains and a number in a cell would contradict.
      */
     const unis = await pricing
       .locator('.model-table tbody tr')
       .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent?.trim() ?? ''));
-    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', 'Gratis', 'Pago por token']);
+    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', 'Gratis', '']);
+
+    // And the explanation is actually there, since the blank now depends on it.
+    await expect(pricing).toContainText('conectar la API del modelo de lenguaje');
   });
 
   test('the AI section shows the panel, and the panel shows a decision', async ({ page }) => {
