@@ -224,6 +224,15 @@ fn a3_building_column_removal() {
     // reconstruction measures 3.97 on the moment itself. The sections were NOT
     // tuned to close that gap — doing so would be fitting the structure to a
     // published number rather than reporting what the model does.
+    //
+    // NOTE — this band cannot fail on its own. The two assertions above pin
+    // 62.90 ± 0.5 and 249.76 ± 1.0, which already bound the quotient to
+    // 3.92‥4.02; anything that reached this line has passed 3.5‥4.5 by
+    // construction. It is kept because it NAMES the result — a reader looking
+    // for what the case study demonstrates finds it here rather than having to
+    // divide two hogging moments — but it is a restatement, not a third check,
+    // and reading it as independent coverage would overstate what this test
+    // holds.
     let amplification = my_damaged / my_intact;
     assert!(
         (3.5..4.5).contains(&amplification),
