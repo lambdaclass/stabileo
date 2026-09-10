@@ -3926,7 +3926,7 @@ const pt: Translations = {
   'flex.out.memo': 'Memória de cálculo',
   'flex.out.sectionTooSmall': 'A seção não basta nem com 8 %',
   'flex.out.checkInputs': 'Revise os dados',
-  'flex.scope': 'As oito planilhas são comparadas. Coincidem dentro de 0,5 %, salvo duas diferenças declaradas: o ângulo inicial do anel em seções circulares (vale ~0,9 % e a planilha não diz qual usa) e as propostas de barras e armadura comprimida oferecidas aqui, que a planilha não calcula. Com normas posteriores a 2005 os resultados podem diferir e não são comparados com a planilha.',
+  'flex.scope': 'As oito planilhas são comparadas, incluindo o bloco de armadura dupla. Coincidem dentro de 2 %, salvo o ângulo inicial do anel em seções circulares — vale ~0,9 % e a planilha não declara qual usa; onde diferem, aqui arma-se mais. A proposta de barras e diâmetros é um acréscimo: a planilha para na área. Com normas posteriores a 2005 os resultados podem diferir e não são comparados com a planilha.',
   'flex.attribution': 'Cláusulas do CIRSOC 201-2005. Implementação própria, testada contra os resultados da planilha CIRSOC_FLEX do INTI-CIRSOC (D. A. Ortega).',
   // ─── Excel import (lib/excel-import) ───
   'xls.sheet.plates': 'Placas triangulares ou quadrangulares (cascas).',

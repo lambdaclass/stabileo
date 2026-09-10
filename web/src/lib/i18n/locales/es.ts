@@ -806,7 +806,7 @@ const es: Record<string, string> = {
   'flex.out.memo': 'Memoria de cálculo',
   'flex.out.sectionTooSmall': 'La sección no alcanza ni con el 8 %',
   'flex.out.checkInputs': 'Revisá los datos',
-  'flex.scope': 'Se contrastan las ocho hojas de la planilla. Coinciden dentro del 0,5 %, salvo dos diferencias declaradas: el arranque del anillo en secciones circulares (vale ~0,9 % y la planilla no dice cuál usa) y que acá se proponen barras y armadura comprimida, que la planilla no calcula. Con reglamentos posteriores al 2005 los resultados pueden diferir y no se contrastan contra la planilla.',
+  'flex.scope': 'Se contrastan las ocho hojas de la planilla, incluido su bloque de armadura doble. Coinciden dentro del 2 %, salvo el arranque del anillo en secciones circulares, que vale ~0,9 % y la planilla no declara cuál usa; donde difieren, acá se arma más. La propuesta de barras y diámetros es un agregado nuestro: la planilla llega hasta el área. Con reglamentos posteriores al 2005 los resultados pueden diferir y no se contrastan contra la planilla.',
   'flex.attribution': 'Cláusulas del CIRSOC 201-2005. Implementación propia y testeado frente a resultados de la planilla CIRSOC_FLEX de INTI-CIRSOC (D. A. Ortega).',
   // ─── Excel import (lib/excel-import) ───
   'xls.sheet.plates': 'Placas triangulares o cuadrangulares (cáscaras).',
