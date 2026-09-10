@@ -151,14 +151,14 @@ export async function runGlobalSolve(): Promise<void> {
   // Supersede any in-flight solve (live calc or an earlier manual solve).
   const isStale = nextSolveGuard();
 
-  // Pre-solve model hygiene, for the modes that had none. PRO is excluded
-  // because ProPanel already renders these in its diagnostics panel and refuses
-  // to run on errors — toasting here too would double-report them.
+  // Pre-solve model hygiene, for the modes that had none. The PRO exclusion
+  // is inside `reportModelDiagnostics` itself, so this call site — like the
+  // one in `actions/solve.ts` — cannot forget it.
   //
   // Deliberately here and not in `runLiveCalc`: live calc re-solves on every
   // edit, so the same warning would fire on each keystroke of a half-built
   // model. A manual solve is the moment the user asserts the model is ready.
-  if (uiStore.analysisMode !== 'pro') reportModelDiagnostics();
+  reportModelDiagnostics();
   if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
     await ensureWasmReady('runGlobalSolve');
     await globalSolve3D(isStale);

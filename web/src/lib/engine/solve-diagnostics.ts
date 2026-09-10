@@ -74,8 +74,15 @@ export function checkCurrentModel(): SolverDiagnostic[] {
  *
  * Errors sort ahead of warnings because only MAX_TOASTS surface, and burying an
  * error under two warnings is the exact failure this exists to end.
+ *
+ * The PRO exclusion lives HERE, not at the call sites: the app has two solve
+ * entry points (`runGlobalSolve` for the event path, `runSolve` for Enter, the
+ * ribbon and Calcular), and a guard each caller has to remember is a guard one
+ * of them eventually forgets. PRO reports these same diagnostics in its own
+ * panel and refuses to run on errors, so toasting too would double-report.
  */
 export function reportModelDiagnostics(): void {
+  if (uiStore.analysisMode === 'pro') return;
   const rank = (d: SolverDiagnostic) => (d.severity === 'error' ? 0 : 1);
   reportSolverDiagnostics([...checkCurrentModel()].sort((a, b) => rank(a) - rank(b)));
 }

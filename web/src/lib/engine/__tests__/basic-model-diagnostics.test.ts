@@ -17,6 +17,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { runGlobalSolve } from '../live-calc';
 import { reportModelDiagnostics, checkCurrentModel } from '../solve-diagnostics';
+import { runSolve } from '../../actions/solve';
 import { modelStore, uiStore } from '../../store';
 import { t } from '../../i18n';
 
@@ -89,18 +90,32 @@ describe('Basic-mode pre-solve model diagnostics (issue #181)', () => {
     expect(duplicateToasts(toast)).toBe(1);
   });
 
+  it('a Basic solve through runSolve — Enter, the ribbon, Calcular — reports it too', () => {
+    // The entry point the Basic UI actually uses: KeyboardShortcuts, the
+    // ribbon's Solve command and ToolbarResults all call `runSolve`, not
+    // `runGlobalSolve`. Wiring only the event path would leave issue #181
+    // silent on every path its user takes.
+    buildModelWithDuplicateMember();
+    const toast = vi.spyOn(uiStore, 'toast').mockImplementation(() => {});
+
+    runSolve();
+
+    expect(duplicateToasts(toast)).toBe(1);
+  });
+
   it('stays silent in PRO, which reports the same diagnostics in its own panel', async () => {
     buildModelWithDuplicateMember();
     const toast = vi.spyOn(uiStore, 'toast').mockImplementation(() => {});
     uiStore.analysisMode = 'pro';
 
+    // The exclusion lives inside the reporter — not at any call site — so a
+    // direct call is a no-op in PRO and no future solve entry point can
+    // forget the guard.
     reportModelDiagnostics();
-    expect(duplicateToasts(toast)).toBe(1); // direct call still reports…
+    expect(toast).not.toHaveBeenCalled();
 
-    toast.mockClear();
-    // …but the solve path must not, or PRO users get every diagnostic twice:
-    // once from ProPanel's panel and once from here. Other toasts (a WASM
-    // error, a mechanism) are none of this test's business, hence the filter.
+    // The event-path solve is silent for the same reason. Other toasts (a
+    // WASM error, a mechanism) are none of this test's business, hence the filter.
     await runGlobalSolve().catch(() => {});
     expect(duplicateToasts(toast)).toBe(0);
   });
