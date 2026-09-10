@@ -36,14 +36,12 @@
  * special case for the tension side, which is the reason for choosing it.
  */
 
-const EPSILON_CU = 0.003;
+import {
+  EPSILON_CU, beta1, phiFromStrain, axialCap, COLUMN_STEEL_RATIO,
+} from './cirsoc201-basis';
+
 const ES_KPA = 200_000 * 1000; // kN/m²
 
-/** β₁ per §10.2.7.3. */
-function beta1(fc: number): number {
-  if (fc <= 28) return 0.85;
-  return Math.max(0.65, 0.85 - (0.05 * (fc - 28)) / 7);
-}
 
 export interface CircularParams {
   /** Outside diameter, m. */
@@ -140,7 +138,6 @@ export function barRing(D: number, cover: number, barCount: number): Array<{ z: 
 /** One point of the curve, for a given neutral-axis depth. */
 function pointAt(p: CircularParams, c: number): CircularPoint {
   const { D, fc, fy, cover, AstCm2, barCount } = p;
-  const spiral = p.confinement === 'spiral';
   const fc_kPa = fc * 1000;
   const fy_kPa = fy * 1000;
   const R = D / 2;
@@ -174,11 +171,7 @@ function pointAt(p: CircularParams, c: number): CircularPoint {
 
   /* φ from the net tensile strain in the outermost tension bar (§9.3.2). */
   const epsT = Math.abs(Math.min(epsMostTensile, 0));
-  const phiC = spiral ? 0.75 : 0.65;
-  let phi: number;
-  if (epsT >= 0.005) phi = 0.90;
-  else if (epsT <= ey) phi = phiC;
-  else phi = phiC + (0.90 - phiC) * ((epsT - ey) / (0.005 - ey));
+  const phi = phiFromStrain(epsT, fy, p.confinement ?? 'ties');
 
   /*
    * §10.3.6's cap on axial load, applied to the DESIGN value.
@@ -189,8 +182,7 @@ function pointAt(p: CircularParams, c: number): CircularPoint {
    */
   const Ag = Math.PI * R * R;
   const Ast = AstCm2 * 1e-4;
-  const Pn0 = 0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast;
-  const phiPnMax = phiC * (spiral ? 0.85 : 0.80) * Pn0;
+  const phiPnMax = axialCap(fc, fy, Ag, Ast, p.confinement ?? 'ties');
 
   const phiPn = Math.min(phi * Pn, phiPnMax);
   return { phiPn, phiMn: phi * Mn, c, epsT, phi };
@@ -335,8 +327,8 @@ export function designCircular(
   Mu: number,
 ): { AstCm2: number; ratio: number; check: CircularCheck } | null {
   const Ag = Math.PI * (p.D / 2) ** 2;
-  const lo0 = 0.01 * Ag * 1e4; // cm², §10.9.1 minimum
-  const hi0 = 0.08 * Ag * 1e4; // cm², §10.9.1 maximum
+  const lo0 = COLUMN_STEEL_RATIO.min * Ag * 1e4; // cm², §10.9.1
+  const hi0 = COLUMN_STEEL_RATIO.max * Ag * 1e4; // cm², §10.9.1
 
   const at = (AstCm2: number) => checkColumnCircular({ ...p, AstCm2 }, Pu, Mu);
 

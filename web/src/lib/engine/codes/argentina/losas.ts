@@ -6,6 +6,7 @@
 
 import { REBAR_DB } from './cirsoc201';
 import type { VerifStatus } from './cirsoc201';
+import { beta1, yieldStrain } from './cirsoc201-basis';
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -84,12 +85,6 @@ const B_UNIT = 1.0; // unit width = 1 m
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
-/** β1 per CIRSOC 201 */
-function beta1(fc: number): number {
-  if (fc <= 28) return 0.85;
-  const b = 0.85 - 0.05 * (fc - 28) / 7;
-  return Math.max(0.65, b);
-}
 
 /** Effective depth for slabs (single layer) */
 function slabEffectiveDepth(h: number, cover: number, barDia: number): number {
@@ -124,10 +119,15 @@ function computeAsFlexure(
   const c = a / beta1(fc);
   if (c > 0) {
     const epsilonT = 0.003 * (d - c) / c;
+    /*
+     * The same ramp every other section type in this module uses. It was
+     * spelled out here with 0.0021 — the yield strain of a 420 bar — which
+     * is right for that bar and only that one; see `cirsoc201-basis.ts`.
+     */
     if (epsilonT >= 0.005) {
       phi = 0.9;
-    } else if (epsilonT >= 0.0021) {
-      phi = 0.65 + 0.25 * (epsilonT - 0.0021) / (0.005 - 0.0021);
+    } else if (epsilonT >= yieldStrain(fy)) {
+      phi = 0.65 + 0.25 * (epsilonT - yieldStrain(fy)) / (0.005 - yieldStrain(fy));
     } else {
       phi = 0.65;
     }
