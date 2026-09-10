@@ -235,6 +235,14 @@ export interface CircularCheck {
   status: 'ok' | 'fail';
   epsT: number;
   phi: number;
+  /**
+   * Neutral axis depth at the point on the curve the demand lands on, m.
+   *
+   * Reported because the panel draws the section: without it the column is
+   * the one case that shows bars and no compression block, which reads as
+   * the drawing having failed rather than as an omission.
+   */
+  c: number;
   steps: string[];
 }
 
@@ -270,7 +278,7 @@ export function checkColumnCircular(p: CircularParams, Pu: number, Mu: number): 
     steps.push(`Flexión pura: φMn,máx = ${best.toFixed(2)} kN·m`);
     return {
       Pu, Mu: MuAbs, phiPn: 0, phiMn: best, ratio,
-      status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, steps,
+      status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, c: at.c, steps,
     };
   }
 
@@ -305,7 +313,7 @@ export function checkColumnCircular(p: CircularParams, Pu: number, Mu: number): 
 
   return {
     Pu, Mu: MuAbs, phiPn: capP, phiMn: capM, ratio,
-    status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, steps,
+    status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, c: at.c, steps,
   };
 }
 

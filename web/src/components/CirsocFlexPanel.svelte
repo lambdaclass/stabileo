@@ -35,6 +35,12 @@
   import {
     checkColumnCircular, designCircular, generateCircularInteraction,
   } from '../lib/engine/codes/argentina/cirsoc201-circular';
+  import {
+    rectCapacity, flangedCapacity, sizeByBisection,
+  } from '../lib/engine/codes/argentina/cirsoc201-capacity';
+  import SectionDrawing from './SectionDrawing.svelte';
+  import type { SectionShape } from '../lib/engine/codes/argentina/section-shape';
+  import { beta1 } from '../lib/engine/codes/argentina/cirsoc201-basis';
 
   /** The five cases the workbook offers, in its own order. */
   type Case = 'rect-flexure' | 'tee-flexure' | 'rect-column' | 'circ-column' | 'rect-biaxial';
@@ -46,6 +52,23 @@
     { id: 'circ-column', labelKey: 'flex.case.circColumn' },
     { id: 'rect-biaxial', labelKey: 'flex.case.rectBiaxial' },
   ];
+
+  /**
+   * Sizing or checking, and the reader says which.
+   *
+   * The workbook keeps them as separate sheets — five that dimension, three
+   * that verify — and the split is real: one takes a demand and returns
+   * steel, the other takes steel and returns capacity. Inferring the mode
+   * from whether an As field happened to be filled in would make it a guess,
+   * and the two answers to a given section are different enough that a reader
+   * has to know which one they are looking at.
+   *
+   * Offered on all five cases, including the two the workbook only
+   * dimensions. Verifying a beam somebody else detailed is an ordinary thing
+   * to want, and it costs nothing here.
+   */
+  type Mode = 'design' | 'verify';
+  let mode = $state<Mode>('design');
 
   let kase = $state<Case>('rect-flexure');
 
@@ -101,49 +124,60 @@
    * heaviest case here scans forty points of an interaction curve, which is
    * microseconds. Nothing is cached, so nothing can be stale.
    */
+  /** Metres, for the drawing and the engine alike. */
+  const shape = $derived.by((): SectionShape => {
+    if (kase === 'tee-flexure') return { kind: 'tee', bf: bf / 100, hf: hf / 100, bw: bw / 100, h: h / 100 };
+    if (kase === 'circ-column') return { kind: 'circle', D: D / 100 };
+    return { kind: 'rect', b: b / 100, h: h / 100 };
+  });
+
+  const circGeom = $derived({
+    D: D / 100, fc, fy, cover: cover / 100, barCount,
+    confinement: (spiral ? 'spiral' : 'ties') as 'spiral' | 'ties',
+    deductDisplacedConcrete: deductDisplaced,
+  });
+
+  type Row = [string, string];
+
+  /*
+   * Everything is recomputed on every keystroke, and that is affordable: the
+   * heaviest case scans forty points of an interaction curve, microseconds.
+   * Nothing is cached, so nothing can be stale.
+   */
   const result = $derived.by(() => {
     try {
-      switch (kase) {
-        case 'rect-flexure': {
-          const r = checkFlexure(params, Mu);
+      const cm = (m: number) => `${(m * 100).toFixed(2)} cm`;
+
+      // ── Sizing ────────────────────────────────────────────────────
+      if (mode === 'design') {
+        if (kase === 'rect-flexure' || kase === 'tee-flexure') {
+          const r = kase === 'tee-flexure'
+            ? checkFlexureFlanged(params, { bf: bf / 100, hf: hf / 100, bw: bw / 100 }, Mu)
+            : checkFlexure(params, Mu);
+          const tee = 'withinFlange' in r ? r : null;
           return {
             headline: `As = ${r.AsReq.toFixed(2)} cm²`,
             rows: [
               [t('flex.out.asFlexural'), `${r.AsFlexural.toFixed(2)} cm²`],
               [t('flex.out.asMin'), `${r.AsMin.toFixed(2)} cm²`],
               [t('flex.out.asMax'), `${r.AsMax.toFixed(2)} cm²`],
-              [t('flex.out.bars'), r.bars],
-              [t('flex.out.phiMn'), `${r.phiMn.toFixed(2)} kN·m`],
-              [t('flex.out.d'), `${(r.d * 100).toFixed(1)} cm`],
-              [t('flex.out.a'), `${(r.a * 100).toFixed(1)} cm`],
+              ...(tee ? [[t('flex.out.asFlange'), `${tee.AsFlange.toFixed(2)} cm²`]] as Row[] : []),
               ...(r.isDoublyReinforced
-                ? [[t('flex.out.asComp'), `${(r.AsComp ?? 0).toFixed(2)} cm²`] as [string, string]]
-                : []),
-            ] as Array<[string, string]>,
-            ratio: r.ratio,
-            ok: r.status !== 'fail',
-            steps: r.steps,
-          };
-        }
-
-        case 'tee-flexure': {
-          const r = checkFlexureFlanged(params, { bf: bf / 100, hf: hf / 100, bw: bw / 100 }, Mu);
-          return {
-            headline: `As = ${r.AsReq.toFixed(2)} cm²`,
-            rows: [
-              [t('flex.out.blockIn'), r.withinFlange ? t('flex.out.inFlange') : t('flex.out.inWeb')],
-              [t('flex.out.asFlange'), `${r.AsFlange.toFixed(2)} cm²`],
-              [t('flex.out.asMin'), `${r.AsMin.toFixed(2)} cm²`],
+                ? [[t('flex.out.asComp'), `${(r.AsComp ?? 0).toFixed(2)} cm²`]] as Row[] : []),
+              [t('flex.out.bars'), r.bars],
+              [t('flex.out.d'), cm(r.d)],
+              /* The workbook prints these four at the REQUIRED steel. */
+              [t('flex.out.aReq'), cm(r.aReq)],
+              [t('flex.out.c'), cm(r.c)],
+              [t('flex.out.cMax'), cm(r.cMax)],
+              [t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`],
               [t('flex.out.phiMn'), `${r.phiMn.toFixed(2)} kN·m`],
-              [t('flex.out.d'), `${(r.d * 100).toFixed(1)} cm`],
-            ] as Array<[string, string]>,
-            ratio: r.ratio,
-            ok: r.status !== 'fail',
-            steps: r.steps,
+            ] as Row[],
+            ratio: r.ratio, ok: r.status !== 'fail', steps: r.steps,
+            draw: { a: r.aReq, c: r.c, AsCm2: r.AsReq, bars: Math.max(r.barCount, 2) },
           };
         }
-
-        case 'rect-column': {
+        if (kase === 'rect-column') {
           const r = checkColumn(params, Pu, Mu);
           return {
             headline: `Ast = ${r.AsTotal.toFixed(2)} cm²`,
@@ -152,81 +186,141 @@
               [t('flex.out.phiPn'), `${r.phiPn.toFixed(1)} kN`],
               [t('flex.out.phiMn'), `${r.phiMn.toFixed(2)} kN·m`],
               [t('flex.out.stirrups'), `Ø${r.stirrupDia} c/${r.stirrupSpacing.toFixed(0)} cm`],
-            ] as Array<[string, string]>,
-            ratio: r.ratio,
-            ok: r.status !== 'fail',
-            steps: r.steps,
+            ] as Row[],
+            ratio: r.ratio, ok: r.status !== 'fail', steps: r.steps,
+            draw: { AsCm2: r.AsTotal, bars: Math.max(r.barCount, 4) },
           };
         }
-
-        case 'circ-column': {
-          const geom = {
-            D: D / 100, fc, fy, cover: cover / 100, barCount,
-            confinement: (spiral ? 'spiral' : 'ties') as 'spiral' | 'ties',
-            deductDisplacedConcrete: deductDisplaced,
-          };
-          const sized = designCircular(geom, Pu, Mu);
-          const diag = generateCircularInteraction({ ...geom, AstCm2: sized?.AstCm2 ?? AsGiven });
-          const chk = sized?.check ?? checkColumnCircular({ ...geom, AstCm2: AsGiven }, Pu, Mu);
+        if (kase === 'circ-column') {
+          const sized = designCircular(circGeom, Pu, Mu);
+          const diag = generateCircularInteraction({ ...circGeom, AstCm2: sized?.AstCm2 ?? AsGiven });
+          const chk = sized?.check ?? checkColumnCircular({ ...circGeom, AstCm2: AsGiven }, Pu, Mu);
+          const Ast = sized?.AstCm2 ?? AsGiven;
           return {
-            headline: sized
-              ? `Ast = ${sized.AstCm2.toFixed(2)} cm²`
-              : t('flex.out.sectionTooSmall'),
+            headline: sized ? `Ast = ${Ast.toFixed(2)} cm²` : t('flex.out.sectionTooSmall'),
             rows: [
-              [t('flex.out.barsRing'), `${barCount} × ${((sized?.AstCm2 ?? AsGiven) / barCount).toFixed(2)} cm²`],
+              [t('flex.out.barsRing'), `${barCount} × ${(Ast / barCount).toFixed(2)} cm²`],
               [t('flex.out.phiPn'), `${chk.phiPn.toFixed(1)} kN`],
               [t('flex.out.phiMn'), `${chk.phiMn.toFixed(2)} kN·m`],
               [t('flex.out.epsT'), `${(chk.epsT * 1000).toFixed(2)} ‰`],
               [t('flex.out.phi'), chk.phi.toFixed(3)],
               [t('flex.out.balanced'),
                 `${diag.balanced.phiPn.toFixed(0)} kN / ${diag.balanced.phiMn.toFixed(1)} kN·m`],
-            ] as Array<[string, string]>,
-            ratio: chk.ratio,
-            ok: sized !== null && chk.status === 'ok',
-            steps: chk.steps,
+            ] as Row[],
+            ratio: chk.ratio, ok: sized !== null && chk.status === 'ok', steps: chk.steps,
+            draw: { a: beta1(fc) * chk.c, c: chk.c, AsCm2: Ast, bars: barCount },
           };
         }
-
-        case 'rect-biaxial': {
-          const r = checkBiaxial(params, Pu, Muy, Muz, AsGiven);
-          return {
-            /*
-             * The biaxial case sizes nothing — it asks whether an Ast you
-             * already chose is enough — so the headline is the Bresler
-             * capacity rather than a repeat of the ratio printed under it.
-             */
-            headline: `φPn = ${r.phiPn.toFixed(1)} kN`,
-            rows: [
-              [t('flex.out.phiPn0'), `${r.phiPn0.toFixed(1)} kN`],
-              [`φPn (Muz)`, `${r.phiPnx.toFixed(1)} kN`],
-              [`φPn (Muy)`, `${r.phiPny.toFixed(1)} kN`],
-              [t('flex.out.phiPnBresler'), `${r.phiPn.toFixed(1)} kN`],
-            ] as Array<[string, string]>,
-            ratio: r.ratio,
-            ok: r.status !== 'fail',
-            steps: r.steps,
-          };
-        }
+        /*
+         * Biaxial sizing has no closed form either, so it bisects on the same
+         * check the verify mode runs. That is the point of routing it through
+         * `sizeByBisection`: switching modes must not switch method.
+         */
+        const Ag = (b / 100) * (h / 100);
+        const sized = sizeByBisection(
+          (As) => checkBiaxial(params, Pu, Muy, Muz, As).ratio,
+          0.01 * Ag * 1e4, 0.08 * Ag * 1e4,
+        );
+        const Ast = sized?.AsCm2 ?? AsGiven;
+        const r = checkBiaxial(params, Pu, Muy, Muz, Ast);
+        return {
+          headline: sized ? `Ast = ${Ast.toFixed(2)} cm²` : t('flex.out.sectionTooSmall'),
+          rows: [
+            [t('flex.out.phiPn0'), `${r.phiPn0.toFixed(1)} kN`],
+            ['φPn (Muz)', `${r.phiPnx.toFixed(1)} kN`],
+            ['φPn (Muy)', `${r.phiPny.toFixed(1)} kN`],
+            [t('flex.out.phiPnBresler'), `${r.phiPn.toFixed(1)} kN`],
+          ] as Row[],
+          ratio: r.ratio, ok: sized !== null && r.status !== 'fail', steps: r.steps,
+          draw: { AsCm2: Ast, bars: Math.max(barCount, 4) },
+        };
       }
+
+      // ── Checking ──────────────────────────────────────────────────
+      if (kase === 'rect-flexure' || kase === 'tee-flexure') {
+        const cap = kase === 'tee-flexure'
+          ? flangedCapacity(params, { bf: bf / 100, hf: hf / 100, bw: bw / 100 }, AsGiven)
+          : rectCapacity(params, AsGiven);
+        const ratio = cap.phiMn > 1e-9 ? Mu / cap.phiMn : Infinity;
+        return {
+          headline: `φMn = ${cap.phiMn.toFixed(2)} kN·m`,
+          rows: [
+            [t('flex.out.mn'), `${cap.Mn.toFixed(2)} kN·m`],
+            [t('flex.out.aReq'), cm(cap.a)],
+            [t('flex.out.c'), cm(cap.c)],
+            [t('flex.out.epsT'), `${(cap.epsilonT * 1000).toFixed(2)} ‰`],
+            [t('flex.out.phi'), cap.phi.toFixed(3)],
+            [t('flex.out.asMin'), `${cap.AsMin.toFixed(2)} cm²`],
+          ] as Row[],
+          ratio,
+          /* Below the minimum is a failure even if the moment fits. */
+          ok: ratio <= 1 && !cap.belowMinimum,
+          steps: cap.steps,
+          draw: { a: cap.a, c: cap.c, AsCm2: AsGiven, bars: Math.max(barCount, 2) },
+        };
+      }
+      if (kase === 'circ-column') {
+        const chk = checkColumnCircular({ ...circGeom, AstCm2: AsGiven }, Pu, Mu);
+        const diag = generateCircularInteraction({ ...circGeom, AstCm2: AsGiven });
+        return {
+          headline: `φPn = ${chk.phiPn.toFixed(1)} kN`,
+          rows: [
+            [t('flex.out.phiMn'), `${chk.phiMn.toFixed(2)} kN·m`],
+            [t('flex.out.epsT'), `${(chk.epsT * 1000).toFixed(2)} ‰`],
+            [t('flex.out.phi'), chk.phi.toFixed(3)],
+            [t('flex.out.balanced'),
+              `${diag.balanced.phiPn.toFixed(0)} kN / ${diag.balanced.phiMn.toFixed(1)} kN·m`],
+          ] as Row[],
+          ratio: chk.ratio, ok: chk.status === 'ok', steps: chk.steps,
+          draw: { a: beta1(fc) * chk.c, c: chk.c, AsCm2: AsGiven, bars: barCount },
+        };
+      }
+      if (kase === 'rect-biaxial') {
+        const r = checkBiaxial(params, Pu, Muy, Muz, AsGiven);
+        return {
+          headline: `φPn = ${r.phiPn.toFixed(1)} kN`,
+          rows: [
+            [t('flex.out.phiPn0'), `${r.phiPn0.toFixed(1)} kN`],
+            ['φPn (Muz)', `${r.phiPnx.toFixed(1)} kN`],
+            ['φPn (Muy)', `${r.phiPny.toFixed(1)} kN`],
+          ] as Row[],
+          ratio: r.ratio, ok: r.status !== 'fail', steps: r.steps,
+          draw: { AsCm2: AsGiven, bars: Math.max(barCount, 4) },
+        };
+      }
+      /* Rectangular column, checked on the same ray the circular one uses. */
+      const r = checkColumn(params, Pu, Mu);
+      return {
+        headline: `φPn = ${r.phiPn.toFixed(1)} kN`,
+        rows: [
+          [t('flex.out.phiMn'), `${r.phiMn.toFixed(2)} kN·m`],
+          [t('flex.out.asGivenRow'), `${AsGiven.toFixed(2)} cm²`],
+          [t('flex.out.asReqRow'), `${r.AsTotal.toFixed(2)} cm²`],
+        ] as Row[],
+        ratio: r.AsTotal > 0 ? r.AsTotal / Math.max(AsGiven, 1e-6) : 0,
+        ok: AsGiven >= r.AsTotal,
+        steps: r.steps,
+        draw: { AsCm2: AsGiven, bars: Math.max(barCount, 4) },
+      };
     } catch (err) {
       /*
        * A half-typed field is a normal state, not an error worth a stack
-       * trace. Every input below is a number field, so the realistic failure
-       * is a geometry that momentarily makes no sense — a cover deeper than
-       * the section while somebody is still typing the height.
+       * trace — a cover deeper than the section while somebody is still
+       * typing the height.
        */
       return {
         headline: t('flex.out.checkInputs'),
-        rows: [] as Array<[string, string]>,
-        ratio: NaN,
-        ok: false,
+        rows: [] as Row[], ratio: NaN, ok: false,
         steps: [String((err as Error)?.message ?? err)],
+        draw: { AsCm2: 0, bars: 4 },
       };
     }
   });
 
+
   const showsAxial = $derived(kase === 'rect-column' || kase === 'circ-column' || kase === 'rect-biaxial');
-  const showsGivenAs = $derived(kase === 'rect-biaxial');
+  /** The steel is an INPUT whenever we are checking, and for biaxial always. */
+  const showsGivenAs = $derived(mode === 'verify' || kase === 'rect-biaxial');
 </script>
 
 <div class="flex-panel" data-testid="flex-panel">
@@ -236,6 +330,17 @@
     round column is not something CIRSOC 201 offers a method for. Two
     selectors would have offered combinations that do not exist.
   -->
+  <!--
+    Sizing or checking, first, because it changes what the fields below MEAN:
+    in one mode the steel is an answer and in the other it is a question.
+  -->
+  <div class="fp-modes" role="group" aria-label={t('flex.mode.label')}>
+    <button class="fp-mode" class:on={mode === 'design'} onclick={() => (mode = 'design')}
+      data-testid="flex-mode-design">{t('flex.mode.design')}</button>
+    <button class="fp-mode" class:on={mode === 'verify'} onclick={() => (mode = 'verify')}
+      data-testid="flex-mode-verify">{t('flex.mode.verify')}</button>
+  </div>
+
   <label class="fp-field">
     <span>{t('flex.case.label')}</span>
     <select bind:value={kase} data-testid="flex-case">
@@ -293,6 +398,22 @@
     a table of the numbers that produced it, and the code's own steps below —
     which is the order the spreadsheet this replaces is read in.
   -->
+  <!--
+    The drawing sits with the answer, not with the inputs. It is a check on
+    what was computed — the block, the neutral axis and the bars the numbers
+    beside it describe — so it has to move when they do.
+  -->
+  <div class="fp-figure">
+    <SectionDrawing
+      {shape}
+      cover={cover / 100}
+      a={result.draw.a}
+      c={result.draw.c}
+      barCount={result.draw.bars}
+      AsCm2={result.draw.AsCm2}
+    />
+  </div>
+
   <div class="fp-result" class:fp-fail={!result.ok} data-testid="flex-result">
     <div class="fp-headline">{result.headline}</div>
     {#if Number.isFinite(result.ratio)}
@@ -344,6 +465,46 @@
     flex-direction: column;
     gap: 0.5rem;
     font-size: 0.75rem;
+  }
+
+  /* ── Sizing / checking ───────────────────────────────────────────
+     A segmented pair rather than a dropdown: two exclusive options that
+     change the meaning of the form belong where they can both be seen.
+     ─────────────────────────────────────────────────────────────── */
+  .fp-modes {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--st-hair);
+    border-radius: 7px;
+    background: var(--st-surface-2);
+  }
+  .fp-mode {
+    flex: 1;
+    padding: 0.3rem 0;
+    background: none;
+    border: none;
+    border-radius: 5px;
+    color: var(--st-text-3);
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+  }
+  .fp-mode.on {
+    background: var(--st-surface-3);
+    color: var(--st-text);
+    box-shadow: inset 0 -2px 0 -1px var(--st-accent);
+  }
+
+  .fp-figure {
+    margin-top: 0.4rem;
+    padding: 0.4rem;
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
   }
 
   .fp-heading {

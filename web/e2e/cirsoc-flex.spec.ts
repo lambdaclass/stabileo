@@ -59,6 +59,57 @@ test.describe('@smoke CIRSOC Flex', () => {
     expect(errors, 'no case may throw').toEqual([]);
   });
 
+  test('both modes answer every case, and the section is drawn for each', async ({ page }) => {
+    test.setTimeout(180_000);
+    await openFlex(page);
+
+    /*
+     * The drawing is the check on the inputs — a flange narrower than its web,
+     * a cover deeper than the section — so it has to be there in every
+     * combination, not only the one the panel opens on. Counting shapes
+     * rather than asserting an image: what matters is that something was
+     * drawn from the current numbers, and a screenshot would fail on a
+     * colour change.
+     */
+    const drawing = page.getByTestId('section-drawing');
+    for (const mode of ['design', 'verify']) {
+      await page.getByTestId(`flex-mode-${mode}`).click();
+      for (const id of CASES) {
+        await page.getByTestId('flex-case').selectOption(id);
+        await expect(drawing, `${mode}/${id}`).toBeVisible();
+        const shapes = await drawing.locator('svg circle, svg path').count();
+        expect(shapes, `${mode}/${id} drew nothing`).toBeGreaterThan(1);
+        expect(await resultText(page), `${mode}/${id}`).toMatch(/\d/);
+      }
+    }
+  });
+
+  test('sizing and checking are different questions with consistent answers', async ({ page }) => {
+    test.setTimeout(180_000);
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('rect-flexure');
+
+    /*
+     * Size the section, then hand the steel it asked for back to the checker.
+     * The capacity it reports must cover the moment that produced it — if it
+     * did not, one of the two modes is applying a different method, which is
+     * the failure this pair exists to catch.
+     */
+    await page.getByTestId('flex-mode-design').click();
+    const sized = (await resultText(page)).match(/As = ([\d.]+)/);
+    expect(sized, 'sizing must report an area').not.toBeNull();
+
+    await page.getByTestId('flex-mode-verify').click();
+    const asField = page.getByText(/Ast provided|Ast adoptada/).locator('..').locator('input');
+    await asField.fill(sized![1]);
+    await asField.blur();
+
+    const ratio = (await resultText(page)).match(/Ratio = ([\d.]+)/);
+    expect(ratio, 'checking must report a ratio').not.toBeNull();
+    expect(Number(ratio![1]), 'the steel sizing asked for must pass the check')
+      .toBeLessThanOrEqual(1.02);
+  });
+
   test('the answer follows the demand', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
