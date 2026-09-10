@@ -17,7 +17,8 @@ import { test, expect } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
-const CASES = ['rect-flexure', 'tee-flexure', 'rect-column', 'circ-column', 'rect-biaxial'];
+/** The workbook's own sheet names, which the selector now uses. */
+const CASES = ['FSR', 'FST', 'FCR', 'FCR-CIR', 'FCO'];
 
 async function openFlex(page: Page) {
   await page.goto('/app/basic?e2e=1');
@@ -87,7 +88,7 @@ test.describe('@smoke CIRSOC Flex', () => {
   test('sizing and checking are different questions with consistent answers', async ({ page }) => {
     test.setTimeout(180_000);
     await openFlex(page);
-    await page.getByTestId('flex-case').selectOption('rect-flexure');
+    await page.getByTestId('flex-case').selectOption('FSR');
 
     /*
      * Size the section, then hand the steel it asked for back to the checker.
@@ -123,7 +124,7 @@ test.describe('@smoke CIRSOC Flex', () => {
     // Mu is the first field in the Demand block for the simple-bending case.
     const muField = page.getByText('Mu [kN·m]').locator('..').locator('input');
 
-    await page.getByTestId('flex-case').selectOption('rect-flexure');
+    await page.getByTestId('flex-case').selectOption('FSR');
     const light = await readAs();
     await muField.fill('200');
     await muField.blur();
@@ -137,7 +138,7 @@ test.describe('@smoke CIRSOC Flex', () => {
   test('a section that cannot work is said to fail, not quietly sized', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
-    await page.getByTestId('flex-case').selectOption('rect-flexure');
+    await page.getByTestId('flex-case').selectOption('FSR');
 
     /*
      * A 20×50 beam asked for ten times what it can carry. The panel must mark

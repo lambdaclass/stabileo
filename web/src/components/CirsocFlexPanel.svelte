@@ -26,306 +26,204 @@
    * it replaces is read that way, line by line.
    */
   import { t } from '../lib/i18n';
-  import {
-    checkFlexure, checkBiaxial,
-    ASSUMED_FLEXURE_BAR_DIA_MM,
-    type ConcreteDesignParams,
-  } from '../lib/engine/codes/argentina/cirsoc201';
-  import { checkFlexureFlanged } from '../lib/engine/codes/argentina/cirsoc201-flanged';
-  import {
-    checkColumnCircular, designCircular, generateCircularInteraction,
-  } from '../lib/engine/codes/argentina/cirsoc201-circular';
-  import {
-    rectCapacity, flangedCapacity, sizeByBisection,
-    rectColumnCheck, designRectColumn,
-  } from '../lib/engine/codes/argentina/cirsoc201-capacity';
+  import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
   import SectionDrawing from './SectionDrawing.svelte';
   import type { SectionShape } from '../lib/engine/codes/argentina/section-shape';
-  import { beta1 } from '../lib/engine/codes/argentina/cirsoc201-basis';
 
-  /** The five cases the workbook offers, in its own order. */
-  type Case = 'rect-flexure' | 'tee-flexure' | 'rect-column' | 'circ-column' | 'rect-biaxial';
-
-  const CASES: Array<{ id: Case; labelKey: string }> = [
-    { id: 'rect-flexure', labelKey: 'flex.case.rectFlexure' },
-    { id: 'tee-flexure', labelKey: 'flex.case.teeFlexure' },
-    { id: 'rect-column', labelKey: 'flex.case.rectColumn' },
-    { id: 'circ-column', labelKey: 'flex.case.circColumn' },
-    { id: 'rect-biaxial', labelKey: 'flex.case.rectBiaxial' },
+  /** The five sheets, by the workbook's own names. */
+  const CASES: Array<{ id: FlexCase; labelKey: string }> = [
+    { id: 'FSR', labelKey: 'flex.case.rectFlexure' },
+    { id: 'FST', labelKey: 'flex.case.teeFlexure' },
+    { id: 'FCR', labelKey: 'flex.case.rectColumn' },
+    { id: 'FCR-CIR', labelKey: 'flex.case.circColumn' },
+    { id: 'FCO', labelKey: 'flex.case.rectBiaxial' },
   ];
 
   /**
-   * Sizing or checking, and the reader says which.
+   * Sizing or checking, chosen rather than inferred.
    *
-   * The workbook keeps them as separate sheets — five that dimension, three
-   * that verify — and the split is real: one takes a demand and returns
-   * steel, the other takes steel and returns capacity. Inferring the mode
-   * from whether an As field happened to be filled in would make it a guess,
-   * and the two answers to a given section are different enough that a reader
-   * has to know which one they are looking at.
-   *
-   * Offered on all five cases, including the two the workbook only
-   * dimensions. Verifying a beam somebody else detailed is an ordinary thing
-   * to want, and it costs nothing here.
+   * The workbook keeps them as separate sheets and the split is real: one
+   * takes a demand and returns steel, the other takes steel and returns
+   * capacity.
    */
   type Mode = 'design' | 'verify';
   let mode = $state<Mode>('design');
+  let kase = $state<FlexCase>('FCR');
 
-  let kase = $state<Case>('rect-flexure');
+  /**
+   * Each sheet arrives with its own published example loaded.
+   *
+   * Not decoration: the fastest way to trust a calculator is to open it on a
+   * case whose answer is printed somewhere else, and these are the five the
+   * workbook ships. Switching case rewrites only the fields that example
+   * defines, so a reader who has typed their own section into the shared
+   * fields does not lose it silently — they lose it loudly, which is the
+   * lesser evil against a form that half-remembers.
+   */
+  function loadExampleFor(next: FlexCase) {
+    if (next === 'FSR') { b = 12; h = 40; dPrime = 3.4; dPrimeS = 3.4; Mu = 52; Pu = 0; }
+    if (next === 'FST') { bf = 137; hf = 10; bw = 12; h = 40; dPrime = 3.2; dPrimeS = 3.2; Mu = 52; Pu = 0; }
+    if (next === 'FCR') { b = 30; h = 30; dPrime = 5; dPrimeS = 5; ratioAsPrime = 1; Pu = 500; Mu = 100; }
+    if (next === 'FCR-CIR') { D = 40; Dint = 0; dPrimeS = 3; barCount = 12; spiral = true; Pu = 1000; Mu = 300; }
+    if (next === 'FCO') { b = 30; h = 30; dPrimeH = 5; dPrimeV = 5; pctA1 = 50; pctA2 = 50; pctA3 = 0; nA1 = 4; nA2 = 4; Pu = 500; Mu = 100; Muy = 0; }
+    kase = next;
+  }
 
-  // ── Materials ──────────────────────────────────────────────────────
+  // ── 1. Datos generales, as the sheet heads them ────────────────────
   let fc = $state(25);
   let fy = $state(420);
-  let cover = $state(3);      // cm, to the bar centre
-  let stirrup = $state(8);    // mm
-
-  // ── Geometry, in centimetres because that is how sections are said ──
-  let b = $state(20);
-  let h = $state(50);
-  let bf = $state(100);
-  let hf = $state(10);
-  let bw = $state(20);
-  let D = $state(50);
-  let barCount = $state(8);
   let spiral = $state(false);
-  let deductDisplaced = $state(false);
+  /*
+   * Defaults ON. A bar inside the stress block occupies concrete the block
+   * is already credited with, so leaving it out counts that area twice and
+   * overstates capacity — and it is what makes our answers land on the
+   * workbook's.
+   */
+  let deduct = $state(true);
 
-  // ── Demands ────────────────────────────────────────────────────────
-  let Mu = $state(80);
-  let Pu = $state(600);
-  let Muy = $state(60);
-  let Muz = $state(40);
-  /** For the cases that verify a section rather than size one. */
-  let AsGiven = $state(20);
+  // ── 2. Sección ─────────────────────────────────────────────────────
+  /* Centimetres in the fields, metres in the engine. One place converts. */
+  /*
+   * The defaults are the workbook's own worked example for FCR — 30×30,
+   * d' = d's = 5 cm, Pu 500, Mu 100 — so opening the panel shows a case a
+   * reader can look up rather than an empty form. The other sheets change
+   * what they need when picked.
+   */
+  let b = $state(30);
+  let h = $state(30);
+  /** To the bar CENTRE, which is what the sheet asks for. */
+  let dPrime = $state(5);
+  let dPrimeS = $state(5);
+  /** FCO carries two covers, horizontal and vertical. */
+  let dPrimeH = $state(5);
+  let dPrimeV = $state(5);
+  /** The sheet's b_h / h_h — a rectangular void. */
+  let holeB = $state(0);
+  let holeH = $state(0);
+  // T
+  let bf = $state(137);
+  let hf = $state(10);
+  let bw = $state(12);
+  // Circular
+  let D = $state(40);
+  let Dint = $state(0);
+  let barCount = $state(12);
+  let atFibre = $state(true);
+
+  // ── 3. Armaduras y solicitaciones ──────────────────────────────────
+  /** The sheet's A's/As. */
+  let ratioAsPrime = $state(1);
+  let pctA1 = $state(50);
+  let pctA2 = $state(50);
+  let pctA3 = $state(0);
+  let nA1 = $state(4);
+  let nA2 = $state(4);
+  let nA3 = $state(4);
+  /** Verification: the steel already there. */
+  let AstGiven = $state(20);
+  /**
+   * FCR-VERIF's five levels, each a distance from the BOTTOM face and an
+   * area. Five because that is what the sheet offers; empty rows are ignored.
+   */
+  let levels = $state<Array<{ distanceFromBottom: number; areaCm2: number }>>([
+    { distanceFromBottom: 5, areaCm2: 0 },
+    { distanceFromBottom: 15, areaCm2: 0 },
+    { distanceFromBottom: 25, areaCm2: 0 },
+    { distanceFromBottom: 0, areaCm2: 0 },
+    { distanceFromBottom: 0, areaCm2: 0 },
+  ]);
+
+  let Pu = $state(500);
+  let Mu = $state(100);
+  let Muy = $state(0);
 
   /*
-   * The cover field says "to the bar centre" (`flex.in.cover`), and the
-   * circular case uses it exactly that way. The flexure family expects cover
-   * to the STIRRUP — `checkFlexure` subtracts the stirrup and half a bar
-   * itself — so the same number must be converted once, here. Without the
-   * conversion a 3 cm cover to the bar centre is read as 3 cm to the stirrup,
-   * d comes out stirrup + half a bar short of what the reader stated, and the
-   * printed steps contradict the label the reader filled in.
+   * One call, whichever sheet is on screen.
+   *
+   * `solveFlex` owns which engine each case goes through, so this component
+   * holds inputs and formatting and nothing else. That is what let every
+   * agreement with the workbook be reached in a unit test rather than in a
+   * browser — see `cirsoc-flex-all-sheets.test.ts`.
    */
-  const coverToStirrup = $derived(
-    Math.max(cover / 100 - stirrup / 1000 - ASSUMED_FLEXURE_BAR_DIA_MM / 2000, 0),
-  );
-
-  /** Centimetres in the fields, metres in the engine. One place converts. */
-  const params = $derived<ConcreteDesignParams>({
-    fc, fy,
-    cover: coverToStirrup,
-    b: b / 100,
-    h: h / 100,
-    stirrupDia: stirrup,
+  const input = $derived<FlexInput>({
+    kase, mode,
+    fc, fy, confinement: spiral ? 'spiral' : 'ties', deductDisplacedConcrete: deduct,
+    b: b / 100, h: h / 100,
+    dPrime: dPrime / 100, dPrimeS: dPrimeS / 100,
+    dPrimeH: dPrimeH / 100, dPrimeV: dPrimeV / 100,
+    holeB: holeB / 100, holeH: holeH / 100,
+    bf: bf / 100, hf: hf / 100, bw: bw / 100,
+    D: D / 100, Dint: Dint / 100, barCount, barAtExtremeFibre: atFibre,
+    ratioAsPrime, pctA1, pctA2, pctA3, nA1, nA2, nA3,
+    AstGiven, levels: levels.filter((l) => l.areaCm2 > 0)
+      .map((l) => ({ distanceFromBottom: l.distanceFromBottom / 100, areaCm2: l.areaCm2 })),
+    Pu, Mu, Muy,
   });
 
-  /*
-   * Everything is recomputed on every keystroke, and that is affordable: the
-   * heaviest case here scans forty points of an interaction curve, which is
-   * microseconds. Nothing is cached, so nothing can be stale.
-   */
-  /** Metres, for the drawing and the engine alike. */
-  const shape = $derived.by((): SectionShape => {
-    if (kase === 'tee-flexure') return { kind: 'tee', bf: bf / 100, hf: hf / 100, bw: bw / 100, h: h / 100 };
-    if (kase === 'circ-column') return { kind: 'circle', D: D / 100 };
-    return { kind: 'rect', b: b / 100, h: h / 100 };
-  });
-
-  const circGeom = $derived({
-    D: D / 100, fc, fy, cover: cover / 100, barCount,
-    confinement: (spiral ? 'spiral' : 'ties') as 'spiral' | 'ties',
-    deductDisplacedConcrete: deductDisplaced,
-  });
-
-  type Row = [string, string];
-
-  /*
-   * Everything is recomputed on every keystroke, and that is affordable: the
-   * heaviest case scans forty points of an interaction curve, microseconds.
-   * Nothing is cached, so nothing can be stale.
-   */
-  const result = $derived.by(() => {
+  const out = $derived.by(() => {
     try {
-      const cm = (m: number) => `${(m * 100).toFixed(2)} cm`;
-
-      // ── Sizing ────────────────────────────────────────────────────
-      if (mode === 'design') {
-        if (kase === 'rect-flexure' || kase === 'tee-flexure') {
-          const r = kase === 'tee-flexure'
-            ? checkFlexureFlanged(params, { bf: bf / 100, hf: hf / 100, bw: bw / 100 }, Mu)
-            : checkFlexure(params, Mu);
-          const tee = 'withinFlange' in r ? r : null;
-          return {
-            headline: `As = ${r.AsReq.toFixed(2)} cm²`,
-            rows: [
-              [t('flex.out.asFlexural'), `${r.AsFlexural.toFixed(2)} cm²`],
-              [t('flex.out.asMin'), `${r.AsMin.toFixed(2)} cm²`],
-              [t('flex.out.asMax'), `${r.AsMax.toFixed(2)} cm²`],
-              ...(tee ? [[t('flex.out.asFlange'), `${tee.AsFlange.toFixed(2)} cm²`]] as Row[] : []),
-              ...(r.isDoublyReinforced
-                ? [[t('flex.out.asComp'), `${(r.AsComp ?? 0).toFixed(2)} cm²`]] as Row[] : []),
-              [t('flex.out.bars'), r.bars],
-              [t('flex.out.d'), cm(r.d)],
-              /* The workbook prints these four at the REQUIRED steel. */
-              [t('flex.out.aReq'), cm(r.aReq)],
-              [t('flex.out.c'), cm(r.c)],
-              [t('flex.out.cMax'), cm(r.cMax)],
-              [t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`],
-              [t('flex.out.phiMn'), `${r.phiMn.toFixed(2)} kN·m`],
-            ] as Row[],
-            ratio: r.ratio, ok: r.status !== 'fail', steps: r.steps,
-            draw: { a: r.aReq, c: r.c, AsCm2: r.AsReq, bars: Math.max(r.barCount, 2) },
-          };
-        }
-        if (kase === 'rect-column') {
-          /*
-           * On the interaction diagram, not on `checkColumn`. That function
-           * adds a flexural steel to half an axial steel and calls it a
-           * design; swept against the real curve it ran from 71 % to 171 %
-           * of what is actually required. See `rectColumnCheck`.
-           */
-          const sized = designRectColumn(params, Pu, Mu, barCount);
-          const Ast = sized?.AstCm2 ?? AsGiven;
-          const chk = sized?.check ?? rectColumnCheck(params, AsGiven, Pu, Mu, barCount);
-          return {
-            headline: sized ? `Ast = ${Ast.toFixed(2)} cm²` : t('flex.out.sectionTooSmall'),
-            rows: [
-              [t('flex.out.barsRing'), `${barCount} × ${(Ast / barCount).toFixed(2)} cm²`],
-              [t('flex.out.phiPn'), `${chk.phiPn.toFixed(1)} kN`],
-              [t('flex.out.phiMn'), `${chk.phiMn.toFixed(2)} kN·m`],
-            ] as Row[],
-            ratio: chk.ratio, ok: sized !== null && chk.status === 'ok', steps: chk.steps,
-            draw: { a: beta1(fc) * chk.c, c: chk.c, AsCm2: Ast, bars: Math.max(barCount, 4) },
-          };
-        }
-        if (kase === 'circ-column') {
-          const sized = designCircular(circGeom, Pu, Mu);
-          const diag = generateCircularInteraction({ ...circGeom, AstCm2: sized?.AstCm2 ?? AsGiven });
-          const chk = sized?.check ?? checkColumnCircular({ ...circGeom, AstCm2: AsGiven }, Pu, Mu);
-          const Ast = sized?.AstCm2 ?? AsGiven;
-          return {
-            headline: sized ? `Ast = ${Ast.toFixed(2)} cm²` : t('flex.out.sectionTooSmall'),
-            rows: [
-              [t('flex.out.barsRing'), `${barCount} × ${(Ast / barCount).toFixed(2)} cm²`],
-              [t('flex.out.phiPn'), `${chk.phiPn.toFixed(1)} kN`],
-              [t('flex.out.phiMn'), `${chk.phiMn.toFixed(2)} kN·m`],
-              [t('flex.out.epsT'), `${(chk.epsT * 1000).toFixed(2)} ‰`],
-              [t('flex.out.phi'), chk.phi.toFixed(3)],
-              [t('flex.out.balanced'),
-                `${diag.balanced.phiPn.toFixed(0)} kN / ${diag.balanced.phiMn.toFixed(1)} kN·m`],
-            ] as Row[],
-            ratio: chk.ratio, ok: sized !== null && chk.status === 'ok', steps: chk.steps,
-            draw: { a: beta1(fc) * chk.c, c: chk.c, AsCm2: Ast, bars: barCount },
-          };
-        }
-        /*
-         * Biaxial sizing has no closed form either, so it bisects on the same
-         * check the verify mode runs. That is the point of routing it through
-         * `sizeByBisection`: switching modes must not switch method.
-         */
-        const Ag = (b / 100) * (h / 100);
-        const sized = sizeByBisection(
-          (As) => checkBiaxial(params, Pu, Muy, Muz, As).ratio,
-          0.01 * Ag * 1e4, 0.08 * Ag * 1e4,
-        );
-        const Ast = sized?.AsCm2 ?? AsGiven;
-        const r = checkBiaxial(params, Pu, Muy, Muz, Ast);
-        return {
-          headline: sized ? `Ast = ${Ast.toFixed(2)} cm²` : t('flex.out.sectionTooSmall'),
-          rows: [
-            [t('flex.out.phiPn0'), `${r.phiPn0.toFixed(1)} kN`],
-            ['φPn (Muz)', `${r.phiPnx.toFixed(1)} kN`],
-            ['φPn (Muy)', `${r.phiPny.toFixed(1)} kN`],
-            [t('flex.out.phiPnBresler'), `${r.phiPn.toFixed(1)} kN`],
-          ] as Row[],
-          ratio: r.ratio, ok: sized !== null && r.status !== 'fail', steps: r.steps,
-          draw: { AsCm2: Ast, bars: Math.max(barCount, 4) },
-        };
-      }
-
-      // ── Checking ──────────────────────────────────────────────────
-      if (kase === 'rect-flexure' || kase === 'tee-flexure') {
-        const cap = kase === 'tee-flexure'
-          ? flangedCapacity(params, { bf: bf / 100, hf: hf / 100, bw: bw / 100 }, AsGiven)
-          : rectCapacity(params, AsGiven);
-        const ratio = cap.phiMn > 1e-9 ? Mu / cap.phiMn : Infinity;
-        return {
-          headline: `φMn = ${cap.phiMn.toFixed(2)} kN·m`,
-          rows: [
-            [t('flex.out.mn'), `${cap.Mn.toFixed(2)} kN·m`],
-            [t('flex.out.aReq'), cm(cap.a)],
-            [t('flex.out.c'), cm(cap.c)],
-            [t('flex.out.epsT'), `${(cap.epsilonT * 1000).toFixed(2)} ‰`],
-            [t('flex.out.phi'), cap.phi.toFixed(3)],
-            [t('flex.out.asMin'), `${cap.AsMin.toFixed(2)} cm²`],
-          ] as Row[],
-          ratio,
-          /* Below the minimum is a failure even if the moment fits. */
-          ok: ratio <= 1 && !cap.belowMinimum,
-          steps: cap.steps,
-          draw: { a: cap.a, c: cap.c, AsCm2: AsGiven, bars: Math.max(barCount, 2) },
-        };
-      }
-      if (kase === 'circ-column') {
-        const chk = checkColumnCircular({ ...circGeom, AstCm2: AsGiven }, Pu, Mu);
-        const diag = generateCircularInteraction({ ...circGeom, AstCm2: AsGiven });
-        return {
-          headline: `φPn = ${chk.phiPn.toFixed(1)} kN`,
-          rows: [
-            [t('flex.out.phiMn'), `${chk.phiMn.toFixed(2)} kN·m`],
-            [t('flex.out.epsT'), `${(chk.epsT * 1000).toFixed(2)} ‰`],
-            [t('flex.out.phi'), chk.phi.toFixed(3)],
-            [t('flex.out.balanced'),
-              `${diag.balanced.phiPn.toFixed(0)} kN / ${diag.balanced.phiMn.toFixed(1)} kN·m`],
-          ] as Row[],
-          ratio: chk.ratio, ok: chk.status === 'ok', steps: chk.steps,
-          draw: { a: beta1(fc) * chk.c, c: chk.c, AsCm2: AsGiven, bars: barCount },
-        };
-      }
-      if (kase === 'rect-biaxial') {
-        const r = checkBiaxial(params, Pu, Muy, Muz, AsGiven);
-        return {
-          headline: `φPn = ${r.phiPn.toFixed(1)} kN`,
-          rows: [
-            [t('flex.out.phiPn0'), `${r.phiPn0.toFixed(1)} kN`],
-            ['φPn (Muz)', `${r.phiPnx.toFixed(1)} kN`],
-            ['φPn (Muy)', `${r.phiPny.toFixed(1)} kN`],
-          ] as Row[],
-          ratio: r.ratio, ok: r.status !== 'fail', steps: r.steps,
-          draw: { AsCm2: AsGiven, bars: Math.max(barCount, 4) },
-        };
-      }
-      /* Rectangular column, on the same ray and the same curve as sizing. */
-      const chk = rectColumnCheck(params, AsGiven, Pu, Mu, barCount);
-      return {
-        headline: `φPn = ${chk.phiPn.toFixed(1)} kN`,
-        rows: [
-          [t('flex.out.phiMn'), `${chk.phiMn.toFixed(2)} kN·m`],
-          [t('flex.out.asGivenRow'), `${AsGiven.toFixed(2)} cm²`],
-        ] as Row[],
-        ratio: chk.ratio, ok: chk.status === 'ok', steps: chk.steps,
-        draw: { a: beta1(fc) * chk.c, c: chk.c, AsCm2: AsGiven, bars: Math.max(barCount, 4) },
-      };
-    } catch (err) {
-      /*
-       * A half-typed field is a normal state, not an error worth a stack
-       * trace — a cover deeper than the section while somebody is still
-       * typing the height.
-       */
-      return {
-        headline: t('flex.out.checkInputs'),
-        rows: [] as Row[], ratio: NaN, ok: false,
-        steps: [String((err as Error)?.message ?? err)],
-        draw: { AsCm2: 0, bars: 4 },
-      };
+      return { r: solveFlex(input), err: null as string | null };
+    } catch (e) {
+      /* A half-typed field is an ordinary state, not a stack trace. */
+      return { r: null, err: String((e as Error)?.message ?? e) };
     }
   });
 
+  /** The drawing takes the very bars the calculation used. */
+  const shape = $derived.by((): SectionShape => {
+    const o = out.r?.outline;
+    if (!o) return { kind: 'rect', b: b / 100, h: h / 100 };
+    if (o.kind === 'tee') return { kind: 'tee', bf: o.bf, hf: o.hf, bw: o.bw, h: o.h };
+    if (o.kind === 'circle') return { kind: 'circle', D: o.D };
+    return { kind: 'rect', b: o.b, h: o.h };
+  });
 
-  const showsAxial = $derived(kase === 'rect-column' || kase === 'circ-column' || kase === 'rect-biaxial');
-  /** The steel is an INPUT whenever we are checking, and for biaxial always. */
-  const showsGivenAs = $derived(mode === 'verify' || kase === 'rect-biaxial');
+  const fmt = (v: number | undefined, digits = 2, unit = '') =>
+    v === undefined || !Number.isFinite(v) ? '—' : `${v.toFixed(digits)}${unit ? ' ' + unit : ''}`;
+  const cmOf = (m: number | undefined) => (m === undefined ? '—' : `${(m * 100).toFixed(2)} cm`);
+
+  /** The rows each sheet prints, in the order it prints them. */
+  const rows = $derived.by((): Array<[string, string]> => {
+    const r = out.r;
+    if (!r) return [];
+    const isColumn = kase !== 'FSR' && kase !== 'FST';
+    const base: Array<[string, string]> = [];
+
+    if (r.AsPrimeCm2 !== undefined && r.AsCm2 !== undefined && isColumn) {
+      base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
+      base.push([t('flex.out.asTension'), fmt(r.AsCm2, 3, 'cm²')]);
+    } else if (!isColumn) {
+      base.push([t('flex.out.asFlexural'), fmt(r.AsCm2, 3, 'cm²')]);
+      if ((r.AsPrimeCm2 ?? 0) > 0) base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
+    }
+    base.push([t('flex.out.rho'), r.rho.toFixed(6)]);
+    base.push([t('flex.out.asMin'), fmt(r.AsMinCm2, 3, 'cm²')]);
+    if (r.AstMinCm2 !== undefined) {
+      base.push([t('flex.out.astMin'), fmt(r.AstMinCm2, 3, 'cm²')]);
+      base.push([t('flex.out.astMax'), fmt(r.AstMaxCm2, 3, 'cm²')]);
+    }
+    base.push([t('flex.out.aReq'), cmOf(r.a)]);
+    base.push([t('flex.out.c'), cmOf(r.c)]);
+    if (r.cMax !== undefined) base.push([t('flex.out.cMax'), cmOf(r.cMax)]);
+    if (r.epsilonT !== undefined) base.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
+    if (r.phi !== undefined) base.push([t('flex.out.phi'), r.phi.toFixed(3)]);
+    if (r.phiPn !== undefined && isColumn) base.push([t('flex.out.phiPn'), fmt(r.phiPn, 1, 'kN')]);
+    if (r.phiMn !== undefined) base.push([t('flex.out.phiMn'), fmt(r.phiMn, 2, 'kN·m')]);
+    return base;
+  });
+
+  const headline = $derived.by(() => {
+    const r = out.r;
+    if (!r) return t('flex.out.checkInputs');
+    if (r.impossible) return t('flex.out.sectionTooSmall');
+    if (mode === 'verify') return `${t('flex.out.ratio')} = ${r.ratio.toFixed(3)}`;
+    return kase === 'FSR' || kase === 'FST'
+      ? `As = ${r.AstCm2.toFixed(3)} cm²`
+      : `Ast = ${r.AstCm2.toFixed(3)} cm²`;
+  });
+
+  const showsAxial = $derived(kase === 'FCR' || kase === 'FCR-CIR' || kase === 'FCO');
+
 </script>
 
 <div class="flex-panel" data-testid="flex-panel">
@@ -348,7 +246,7 @@
 
   <label class="fp-field">
     <span>{t('flex.case.label')}</span>
-    <select bind:value={kase} data-testid="flex-case">
+    <select value={kase} onchange={(e) => loadExampleFor(e.currentTarget.value as FlexCase)} data-testid="flex-case">
       {#each CASES as c (c.id)}
         <option value={c.id}>{t(c.labelKey)}</option>
       {/each}
@@ -359,50 +257,109 @@
   <div class="fp-grid">
     <label class="fp-field"><span>f'c [MPa]</span><input type="number" bind:value={fc} min="15" step="1" /></label>
     <label class="fp-field"><span>fy [MPa]</span><input type="number" bind:value={fy} min="220" step="10" /></label>
-    <label class="fp-field"><span>{t('flex.in.cover')} [cm]</span><input type="number" bind:value={cover} min="1" step="0.5" /></label>
-    <label class="fp-field"><span>{t('flex.in.stirrup')} [mm]</span><input type="number" bind:value={stirrup} min="6" step="2" /></label>
+    {#if kase === 'FCR' || kase === 'FCR-CIR' || kase === 'FCO'}
+      <label class="fp-check"><input type="checkbox" bind:checked={spiral} /><span>{t('flex.in.spiral')}</span></label>
+    {/if}
+    <label class="fp-check"><input type="checkbox" bind:checked={deduct} /><span>{t('flex.in.deduct')}</span></label>
   </div>
 
   <h4 class="fp-heading">{t('flex.section.geometry')}</h4>
   <div class="fp-grid">
-    {#if kase === 'tee-flexure'}
-      <label class="fp-field"><span>bf [cm]</span><input type="number" bind:value={bf} min="1" step="5" /></label>
+    {#if kase === 'FST'}
+      <label class="fp-field"><span>b (ala) [cm]</span><input type="number" bind:value={bf} min="1" step="5" /></label>
       <label class="fp-field"><span>hf [cm]</span><input type="number" bind:value={hf} min="1" step="1" /></label>
       <label class="fp-field"><span>bw [cm]</span><input type="number" bind:value={bw} min="1" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
-    {:else if kase === 'circ-column'}
+      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
+      <label class="fp-field"><span>d′ [cm]</span><input type="number" bind:value={dPrime} min="1" step="0.5" /></label>
+    {:else if kase === 'FCR-CIR'}
       <label class="fp-field"><span>D [cm]</span><input type="number" bind:value={D} min="15" step="5" /></label>
+      <!-- The sheet's `D int` — a hollow pier. -->
+      <label class="fp-field"><span>D int [cm]</span><input type="number" bind:value={Dint} min="0" step="5" /></label>
+      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
       <label class="fp-field"><span>{t('flex.in.barCount')}</span><input type="number" bind:value={barCount} min="4" max="48" step="1" /></label>
-      <label class="fp-check"><input type="checkbox" bind:checked={spiral} /><span>{t('flex.in.spiral')}</span></label>
-      <label class="fp-check"><input type="checkbox" bind:checked={deductDisplaced} /><span>{t('flex.in.deduct')}</span></label>
+      <label class="fp-check"><input type="checkbox" bind:checked={atFibre} /><span>{t('flex.in.atFibre')}</span></label>
+    {:else if kase === 'FCO'}
+      <label class="fp-field"><span>b [cm]</span><input type="number" bind:value={b} min="5" step="5" /></label>
+      <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
+      <label class="fp-field"><span>d′sh [cm]</span><input type="number" bind:value={dPrimeH} min="1" step="0.5" /></label>
+      <label class="fp-field"><span>d′sv [cm]</span><input type="number" bind:value={dPrimeV} min="1" step="0.5" /></label>
+      <label class="fp-field"><span>b_h [cm]</span><input type="number" bind:value={holeB} min="0" step="5" /></label>
+      <label class="fp-field"><span>h_h [cm]</span><input type="number" bind:value={holeH} min="0" step="5" /></label>
     {:else}
       <label class="fp-field"><span>b [cm]</span><input type="number" bind:value={b} min="5" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
+      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
+      <label class="fp-field"><span>d′ [cm]</span><input type="number" bind:value={dPrime} min="1" step="0.5" /></label>
+      {#if kase === 'FCR'}
+        <label class="fp-field"><span>b_h [cm]</span><input type="number" bind:value={holeB} min="0" step="5" /></label>
+        <label class="fp-field"><span>h_h [cm]</span><input type="number" bind:value={holeH} min="0" step="5" /></label>
+      {/if}
     {/if}
   </div>
+
+  {#if kase === 'FCO'}
+    <!--
+      A1 / A2 / A3 — the sheet's own distribution, and its own rule that the
+      three percentages add to 100. Said rather than silently normalised: a
+      reader whose numbers do not add up has made a mistake worth seeing.
+    -->
+    <h4 class="fp-heading">{t('flex.section.distribution')}</h4>
+    <div class="fp-grid">
+      <label class="fp-field"><span>A1 [%]</span><input type="number" bind:value={pctA1} min="0" max="100" step="5" /></label>
+      <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
+      <label class="fp-field"><span>A2 [%]</span><input type="number" bind:value={pctA2} min="0" max="100" step="5" /></label>
+      <label class="fp-field"><span>N° A2</span><input type="number" bind:value={nA2} min="0" max="20" step="1" /></label>
+      <label class="fp-field"><span>A3 [%]</span><input type="number" bind:value={pctA3} min="0" max="100" step="5" /></label>
+      <label class="fp-field"><span>N° A3</span><input type="number" bind:value={nA3} min="0" max="20" step="1" /></label>
+    </div>
+    {#if pctA1 + pctA2 + pctA3 !== 100}
+      <p class="fp-warn">{t('flex.warn.pct').replace('{n}', String(pctA1 + pctA2 + pctA3))}</p>
+    {/if}
+  {/if}
+
+  {#if kase === 'FCR' && mode === 'design'}
+    <h4 class="fp-heading">{t('flex.section.distribution')}</h4>
+    <div class="fp-grid">
+      <label class="fp-field"><span>A′s / As</span><input type="number" bind:value={ratioAsPrime} min="0" max="1" step="0.1" /></label>
+    </div>
+  {/if}
+
+  {#if kase === 'FCR' && mode === 'verify'}
+    <!--
+      Five levels, each a distance from the BOTTOM face — the sheet's own
+      arrangement, and the one thing a two-layer model cannot express. A row
+      with zero area is ignored, which is how the sheet treats an empty level.
+    -->
+    <h4 class="fp-heading">{t('flex.section.levels')}</h4>
+    <table class="fp-levels">
+      <thead><tr><th></th><th>{t('flex.in.levelDist')} [cm]</th><th>As [cm²]</th></tr></thead>
+      <tbody>
+        {#each levels as lvl, k}
+          <tr>
+            <th>{k + 1}</th>
+            <td><input type="number" bind:value={lvl.distanceFromBottom} min="0" step="1" /></td>
+            <td><input type="number" bind:value={lvl.areaCm2} min="0" step="0.5" /></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
 
   <h4 class="fp-heading">{t('flex.section.demand')}</h4>
   <div class="fp-grid">
-    {#if kase === 'rect-biaxial'}
+    {#if showsAxial}
       <label class="fp-field"><span>Pu [kN]</span><input type="number" bind:value={Pu} step="10" /></label>
-      <label class="fp-field"><span>Muy [kN·m]</span><input type="number" bind:value={Muy} step="5" /></label>
-      <label class="fp-field"><span>Muz [kN·m]</span><input type="number" bind:value={Muz} step="5" /></label>
-    {:else}
-      <label class="fp-field"><span>Mu [kN·m]</span><input type="number" bind:value={Mu} step="5" /></label>
-      {#if showsAxial}
-        <label class="fp-field"><span>Pu [kN]</span><input type="number" bind:value={Pu} step="10" /></label>
-      {/if}
     {/if}
-    {#if showsGivenAs}
-      <label class="fp-field"><span>{t('flex.in.asGiven')} [cm²]</span><input type="number" bind:value={AsGiven} min="0" step="1" /></label>
+    <label class="fp-field"><span>{kase === 'FCO' ? 'Mxu' : 'Mu'} [kN·m]</span><input type="number" bind:value={Mu} step="5" /></label>
+    {#if kase === 'FCO'}
+      <label class="fp-field"><span>Myu [kN·m]</span><input type="number" bind:value={Muy} step="5" /></label>
+    {/if}
+    {#if mode === 'verify' && !(kase === 'FCR' && levels.some((l) => l.areaCm2 > 0))}
+      <label class="fp-field"><span>{t('flex.in.asGiven')} [cm²]</span><input type="number" bind:value={AstGiven} min="0" step="1" /></label>
     {/if}
   </div>
 
-  <!--
-    The answer, then the working. A headline anybody can copy onto a drawing,
-    a table of the numbers that produced it, and the code's own steps below —
-    which is the order the spreadsheet this replaces is read in.
-  -->
   <!--
     The drawing sits with the answer, not with the inputs. It is a check on
     what was computed — the block, the neutral axis and the bars the numbers
@@ -411,26 +368,26 @@
   <div class="fp-figure">
     <SectionDrawing
       {shape}
-      cover={cover / 100}
-      a={result.draw.a}
-      c={result.draw.c}
-      barCount={result.draw.bars}
-      AsCm2={result.draw.AsCm2}
+      cover={(kase === 'FCR-CIR' ? dPrimeS : kase === 'FCO' ? dPrimeV : dPrimeS) / 100}
+      a={out.r?.a}
+      c={out.r?.c}
+      barCount={out.r?.bars.length ?? 4}
+      AsCm2={(out.r?.bars ?? []).reduce((acc, bar) => acc + bar.area, 0) * 1e4}
     />
   </div>
 
-  <div class="fp-result" class:fp-fail={!result.ok} data-testid="flex-result">
-    <div class="fp-headline">{result.headline}</div>
-    {#if Number.isFinite(result.ratio)}
+  <div class="fp-result" class:fp-fail={!(out.r?.ok ?? false)} data-testid="flex-result">
+    <div class="fp-headline">{headline}</div>
+    {#if out.r && Number.isFinite(out.r.ratio)}
       <div class="fp-ratio">
-        {t('flex.out.ratio')} = <strong>{result.ratio.toFixed(3)}</strong>
-        <span class="fp-verdict">{result.ok ? t('flex.out.ok') : t('flex.out.notOk')}</span>
+        {t('flex.out.ratio')} = <strong>{out.r.ratio.toFixed(3)}</strong>
+        <span class="fp-verdict">{out.r.ok ? t('flex.out.ok') : t('flex.out.notOk')}</span>
       </div>
     {/if}
-    {#if result.rows.length > 0}
+    {#if rows.length > 0}
       <table class="fp-table">
         <tbody>
-          {#each result.rows as [label, value]}
+          {#each rows as [label, value]}
             <tr><th>{label}</th><td>{value}</td></tr>
           {/each}
         </tbody>
@@ -441,7 +398,7 @@
   <details class="fp-memo">
     <summary>{t('flex.out.memo')}</summary>
     <ol>
-      {#each result.steps as step}<li>{step}</li>{/each}
+      {#each (out.r?.steps ?? [out.err ?? '']) as step}<li>{step}</li>{/each}
     </ol>
   </details>
 
@@ -510,6 +467,36 @@
     border: 1px solid var(--st-hair);
     border-radius: var(--st-radius);
     background: var(--st-surface-2);
+  }
+
+  .fp-warn {
+    margin: 0.2rem 0 0;
+    color: var(--st-warn);
+    font-size: 0.66rem;
+  }
+
+  /* The five levels, as a compact grid rather than ten loose fields. */
+  .fp-levels {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.68rem;
+  }
+  .fp-levels th {
+    color: var(--st-text-3);
+    font-weight: 400;
+    text-align: left;
+    padding: 0.1rem 0.3rem 0.1rem 0;
+  }
+  .fp-levels td { padding: 0.1rem 0.15rem; }
+  .fp-levels input {
+    width: 100%;
+    padding: 0.2rem 0.3rem;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+    font-family: inherit;
+    font-size: 0.7rem;
   }
 
   .fp-heading {
