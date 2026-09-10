@@ -45,7 +45,16 @@ export type VerifStatus = 'ok' | 'fail' | 'warn';
 export interface FlexureResult {
   Mu: number;          // design moment (kN·m)
   d: number;           // effective depth (m)
-  a: number;           // stress block depth (m)
+  a: number;           // stress block depth for the PROVIDED bars (m)
+  /**
+   * The same four quantities at the REQUIRED steel, which is what a worked
+   * example in a textbook or a spreadsheet prints. See the note where they
+   * are computed.
+   */
+  aReq: number;        // stress block depth for AsFlexural (m)
+  c: number;           // neutral axis depth at AsFlexural (m)
+  cMax: number;        // c at εt = 5 ‰ — the tension-controlled limit (m)
+  epsilonT: number;    // net tensile strain at AsFlexural
   AsReq: number;       // required steel area (cm²) — already max(AsFlexural, AsMin)
   /**
    * Steel required by FLEXURAL STRENGTH alone, cm² — before any minimum is applied.
@@ -535,8 +544,27 @@ export function checkFlexure(
     );
   }
 
+  /*
+   * The state of the section at the steel it REQUIRES, alongside the state at
+   * the steel it will be built with.
+   *
+   * `a` above is the block for `AsProv` — the bars actually selected, which
+   * are always a little more than asked for. That is the honest number for
+   * the member as built, and it is not the number a published example prints:
+   * a worked calculation stops at the requirement. Anyone cross-checking
+   * against one found our `a` 50 % larger and no way to tell why.
+   *
+   * So both are reported, named. Outputs only — nothing above this line reads
+   * them, and no existing caller's numbers move.
+   */
+  const aReq = (AsFlexural * 1e-4 * fy_kPa) / (alpha1 * fc_kPa * b);
+  const cReq = aReq / b1;
+  const cMax = (d * 0.003) / (0.003 + 0.005); // c at εt = 5 ‰, §10.3.4
+  const epsilonTReq = cReq > 1e-9 ? (0.003 * (d - cReq)) / cReq : Infinity;
+
   return {
     Mu: MuAbs, d, a: aFinal,
+    aReq, c: cReq, cMax, epsilonT: epsilonTReq,
     AsReq: AsDesign,
     AsFlexural,
     AsMin, AsMax,
