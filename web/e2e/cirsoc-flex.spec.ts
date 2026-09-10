@@ -166,13 +166,17 @@ test.describe('@smoke CIRSOC Flex', () => {
 
     /*
      * Two footnotes now, and they must stay two: one about the tool being in
-     * test, one about whose clauses these are. A reader who found only the
-     * first would think the CODE is provisional, which it is not.
+     * whose clauses these are, one about how far the checking goes. The
+     * second is the one that erodes: "tested against the workbook" invites a
+     * reader to hear "identical", and the two places we are NOT identical
+     * have to survive every future edit to this panel.
      */
     const notes = page.locator('.fp-attrib');
     await expect(notes).toHaveCount(2);
-    await expect(notes.first()).toContainText(/testeo|under test|testes/);
-    await expect(notes.last()).toContainText('CIRSOC 201-2005');
-    await expect(notes.last()).toContainText('Ortega');
+    await expect(notes.first()).toContainText('CIRSOC 201-2005');
+    await expect(notes.first()).toContainText(/CIRSOC_FLEX/);
+    /* The named exceptions, not just the reassuring half. */
+    await expect(notes.first()).toContainText('Ortega');
+    await expect(notes.last()).toContainText(/circular|circulares|anillo|ring|anel/);
   });
 });

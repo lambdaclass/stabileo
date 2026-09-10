@@ -28,7 +28,7 @@ import {
 } from './cirsoc201-section';
 import { twoLevels, levelsFromBottom, facesA1A2A3, ring, flexural } from './cirsoc201-layouts';
 import { COLUMN_STEEL_RATIO, minFlexuralSteelCm2, beta1 } from './cirsoc201-basis';
-import { chooseBars, chooseBarsForCount, type BarChoice } from './cirsoc201-bars';
+import { chooseBars, chooseBarsForCount, chooseBarsPerLevel, type BarChoice } from './cirsoc201-bars';
 
 export type FlexCase =
   | 'FSR'           // rectangular, simple bending
@@ -439,18 +439,40 @@ export function solveFlex(i: FlexInput): FlexOutput {
   const b1 = beta1(i.fc);
 
   /*
-   * A count the reader already chose, so only the diameter is open. The
-   * workbook stops at areas here; a column sheet that says 21.35 cm² and
-   * not "8 Ø20" leaves the question of whether the steel fits unanswered.
+   * ── Bars, and what the layout's entries actually mean ────────────
+   *
+   * The workbook stops at areas on its column sheets; a sheet that says
+   * 21.35 cm² and not "8 Ø20" leaves the question of whether the steel fits
+   * unanswered. Supplying it means reading each layout's entries correctly,
+   * and they do not all mean the same thing:
+   *
+   *   FCR      TWO LEVELS, each a lumped area — not two bars
+   *   FCR-CIR  a real ring, one entry per bar
+   *   FCO      real positions on the three faces, one entry per bar
+   *
+   * Treating FCR's two levels as two bars is what produced "2 Ø32" for a
+   * section that had just been told it needs 21.31 cm², and two bars is not
+   * a rectangular column under §10.9.2 either.
    */
-  const choice = chooseBarsForCount(AstCm2, bars.length);
+  const choice = i.kase === 'FCR'
+    ? chooseBarsPerLevel(AstCm2 / 2, {
+        widthM: i.b, coverM: Math.max(i.dPrimeS, i.dPrime) - 0.008, stirrupMm: 8,
+      })
+    /*
+     * No layout, no proposal. A percentage split that lands on zero bars —
+     * every share set to 0 %, or a count of zero — has no arrangement to
+     * price, and `chooseBarsForCount` asked for one anyway would invent a
+     * count out of its own minimum and present it as the reader's layout.
+     */
+    : bars.length > 0 ? chooseBarsForCount(AstCm2, bars.length) : undefined;
 
   steps.push(
     `Diagrama de interacción por compatibilidad de deformaciones, ${bars.length} barras`,
     `Capacidad sobre la recta de excentricidad: φPn = ${u.phiPn.toFixed(1)} kN, φMn = ${u.phiMn.toFixed(2)} kN·m`,
     `c = ${cm(u.c)}, a = ${cm(b1 * u.c)}, εt = ${(u.epsilonT * 1000).toFixed(2)} ‰ → φ = ${u.phi.toFixed(3)}`,
     `Relación demanda/capacidad = ${u.ratio.toFixed(3)}`,
-    `Armadura: ${choice.label} (${choice.areaCm2.toFixed(2)} cm²)`,
+    choice ? `Armadura: ${choice.label} (${choice.areaCm2.toFixed(2)} cm²)`
+      : 'Sin barras: la distribución no ubica ninguna',
   );
 
   const r = i.ratioAsPrime;

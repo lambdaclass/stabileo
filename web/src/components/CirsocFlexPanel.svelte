@@ -29,6 +29,9 @@
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
   import SectionDrawing from './SectionDrawing.svelte';
   import type { SectionShape } from '../lib/engine/codes/argentina/section-shape';
+  import {
+    DESIGN_CODES, DEFAULT_DESIGN_CODE, findDesignCode,
+  } from '../lib/engine/codes/design-codes';
 
   /** The five sheets, by the workbook's own names. */
   const CASES: Array<{ id: FlexCase; labelKey: string }> = [
@@ -47,6 +50,17 @@
    * capacity.
    */
   type Mode = 'design' | 'verify';
+  /**
+   * The code, first, because it governs everything under it.
+   *
+   * Defaults to CIRSOC 201-2005: this calculator reproduces the CIRSOC_FLEX
+   * workbook, that workbook is a 2005 document, and its published examples
+   * are what the answers are checked against. See `design-codes.ts` for why
+   * that differs from PRO, which designs to the edition in force.
+   */
+  let codeKey = $state(DEFAULT_DESIGN_CODE);
+  const code = $derived(findDesignCode(codeKey));
+
   let mode = $state<Mode>('design');
   let kase = $state<FlexCase>('FCR');
 
@@ -196,6 +210,49 @@
       base.push([t('flex.out.asFlexural'), fmt(r.AsCm2, 3, 'cm²')]);
       if ((r.AsPrimeCm2 ?? 0) > 0) base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
     }
+    /*
+     * ── The bars, next to the area that asked for them ──────────────
+     *
+     * An area is not a design. "Ast = 21.35 cm²" leaves the reader with the
+     * question they actually came with — does that fit across the face —
+     * and the workbook's column sheets stop there too. Putting the count and
+     * diameter one row below the area is the whole of the addition, and it
+     * is what turns the two composite-flexure cases from a number into
+     * something you could draw.
+     *
+     * Sizing only. In `verify` the bars are an INPUT: echoing back an
+     * arrangement the reader typed, as though it were a proposal, would be
+     * the panel telling them what they just told it.
+     */
+    if (mode === 'design' && r.barChoice) {
+      const fits = r.barChoice.fitsInOneLayer;
+      base.push([
+        /*
+         * "Ring" only where there IS a ring. FCR's proposal is per LEVEL —
+         * this many across the top face and this many across the bottom —
+         * and calling that a ring would misdescribe the arrangement the
+         * number belongs to.
+         */
+        kase === 'FCR-CIR' ? t('flex.out.barsRing')
+          : kase === 'FCR' ? t('flex.out.barsPerLevel')
+          : t('flex.out.bars'),
+        /*
+         * The chosen bars give slightly MORE than was asked for — bars come
+         * in sizes — so the area they deliver is shown beside them. Without
+         * it a reader comparing against `As` sees two numbers that disagree
+         * and no reason why.
+         */
+        `${r.barChoice.label} (${r.barChoice.areaCm2.toFixed(2)} cm²)`
+          + (fits === false ? ` — ${t('flex.out.barsTight')}` : ''),
+      ]);
+    }
+    if (mode === 'design' && r.barChoiceComp) {
+      base.push([
+        t('flex.out.barsComp'),
+        `${r.barChoiceComp.label} (${r.barChoiceComp.areaCm2.toFixed(2)} cm²)`
+          + (r.barChoiceComp.fitsInOneLayer === false ? ` — ${t('flex.out.barsTight')}` : ''),
+      ]);
+    }
     base.push([t('flex.out.rho'), r.rho.toFixed(6)]);
     base.push([t('flex.out.asMin'), fmt(r.AsMinCm2, 3, 'cm²')]);
     if (r.AstMinCm2 !== undefined) {
@@ -234,7 +291,22 @@
     selectors would have offered combinations that do not exist.
   -->
   <!--
-    Sizing or checking, first, because it changes what the fields below MEAN:
+    The code, above everything. What follows are its clauses, and a reader
+    who has not noticed which edition is selected has not read the answer.
+  -->
+  <label class="fp-field">
+    <span>{t('flex.code.label')}</span>
+    <select bind:value={codeKey} data-testid="flex-code">
+      {#each DESIGN_CODES as c (c.key)}
+        <option value={c.key} disabled={!c.implemented}>
+          {c.label}{c.implemented ? '' : ' — ' + t(c.reasonKey ?? 'flex.code.notYet')}
+        </option>
+      {/each}
+    </select>
+  </label>
+
+  <!--
+    Sizing or checking, then, because it changes what the fields below MEAN:
     in one mode the steel is an answer and in the other it is a question.
   -->
   <div class="fp-modes" role="group" aria-label={t('flex.mode.label')}>
@@ -403,22 +475,17 @@
   </details>
 
   <!--
-    Whose rules these are, and whose they are not.
-    ─────────────────────────────────────────────
-    The clauses implemented here are CIRSOC 201-2005's. The spreadsheet most
-    people know this calculation from is INTI-CIRSOC's, by Daniel A. Ortega,
-    and none of it is reproduced — not its sheets, not its layout, not its
-    macros. Saying so is worth two lines: a reader who knows that workbook
-    should be able to tell at a glance which of the two they are looking at,
-    and a reader who does not should know which document to argue with.
+    Whose rules these are, and how far the checking goes.
+    ────────────────────────────────────────────────────
+    The second line is not hedging. "Tested against the workbook" is a claim
+    with edges, and a reader deciding whether to lean on a number needs to
+    know where they are: the five design sheets and the three verification
+    sheets are reproduced, and the two places our answer is not theirs are
+    named. Without it, "tested" reads as "identical", which it is not — and
+    the difference matters most exactly where a section sits on the boundary.
   -->
-  <!--
-    Two small lines, and they say different things. The first is about the
-    tool's maturity, the second about whose rules it implements — a reader who
-    conflates them would think the CODE is provisional, which it is not.
-  -->
-  <p class="fp-attrib">{t('flex.betaNote')}</p>
   <p class="fp-attrib">{t('flex.attribution')}</p>
+  <p class="fp-attrib">{t('flex.scope')}</p>
 </div>
 
 <style>
