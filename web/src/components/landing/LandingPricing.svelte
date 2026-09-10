@@ -34,7 +34,12 @@
     { mod: 'modBasic',     firms: FREE, unis: FREE },
     { mod: 'modProCalc',   firms: FREE, unis: FREE },
     { mod: 'modProDesign', firms: { k: 'pricePaidLow', tone: 'paid' }, unis: FREE },
-    { mod: 'modEdu',       firms: FREE, unis: FREE },
+    /*
+     * Education's firms cell is blank, not "free". The mode is aimed at
+     * teaching; saying "gratis" to a firm invites the question of what a firm
+     * would do with it, which the row cannot answer in two words.
+     */
+    { mod: 'modEdu',       firms: null, unis: FREE },
     /*
      * The AI's university cell is deliberately blank. Repeating "pago por
      * token" there answered a question the paragraph below answers better: a
@@ -65,12 +70,14 @@
           {#each rows as r}
             <tr>
               <th scope="row">{t('landing.' + r.mod)}</th>
-              <td class="price is-{r.firms.tone}">{t('landing.' + r.firms.k)}</td>
-              {#if r.unis}
-                <td class="price is-{r.unis.tone}">{t('landing.' + r.unis.k)}</td>
-              {:else}
-                <td class="price"></td>
-              {/if}
+              {#each [r.firms, r.unis] as cell}
+                {#if cell}
+                  <td class="price is-{cell.tone}">{t('landing.' + cell.k)}</td>
+                {:else}
+                  <!-- Blank on purpose. See the row definitions above. -->
+                  <td class="price"></td>
+                {/if}
+              {/each}
             </tr>
           {/each}
         </tbody>
