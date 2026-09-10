@@ -163,8 +163,8 @@ describe('the interaction curve', () => {
      * working correctly. Where it acts is the intermediate points, whose
      * concrete block is computed from the segment alone.
      */
-    const off = generateCircularInteraction(COL).balanced;
-    const on = generateCircularInteraction({ ...COL, deductDisplacedConcrete: true }).balanced;
+    const off = generateCircularInteraction({ ...COL, deductDisplacedConcrete: false }).balanced;
+    const on = generateCircularInteraction(COL).balanced;
     expect(on.phiPn).toBeLessThan(off.phiPn);
     /* A per cent or two — if it were more, something else is being subtracted. */
     const drop = 1 - on.phiPn / off.phiPn;

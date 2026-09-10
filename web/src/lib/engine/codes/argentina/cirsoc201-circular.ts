@@ -63,11 +63,11 @@ export interface CircularParams {
   /**
    * Subtract the concrete the compression bars displace.
    *
-   * The workbook this module answers to offers it as a switch, and it is a
-   * real effect: a bar in the compression zone occupies concrete that is
-   * already being counted. It is worth a per cent or two, always on the
-   * conservative side when off, and off is what the rectangular path here
-   * does — so it defaults to off and the two agree unless asked otherwise.
+   * DEFAULTS TO ON. A bar in the compression zone occupies concrete the
+   * block is already credited with, so leaving it out counts that area
+   * twice and overstates the capacity — the opposite of what an earlier
+   * version of this comment claimed. Against the workbook's own circular
+   * example, off was 5 % light on steel.
    */
   deductDisplacedConcrete?: boolean;
   /** Points on the curve. */
@@ -158,7 +158,7 @@ function pointAt(p: CircularParams, c: number): CircularPoint {
     const eps = c > 1e-6 ? (EPSILON_CU * (c - bar.d)) / c : -10 * ey;
     const fs = Math.max(-fy_kPa, Math.min(fy_kPa, eps * ES_KPA)); // kN/m²
     let F = AsBar * fs; // + compression
-    if (p.deductDisplacedConcrete && eps > 0 && bar.d <= a) {
+    if ((p.deductDisplacedConcrete ?? true) && eps > 0 && bar.d <= a) {
       F -= AsBar * 0.85 * fc_kPa;
     }
     Ps += F;
