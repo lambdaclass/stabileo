@@ -2940,6 +2940,11 @@ const en: Record<string, string> = {
   'excel.sheetNodes': 'Nodes',
   'excel.sheetReactions': 'Reactions',
   'excel.sheetMaterials': 'Materials',
+  'excel.sheetShells': 'Shells',
+  'excel.sheetCombinations': 'Combinations',
+  'excel.noShells': 'The model has no shells.',
+  'excel.noCombinations': 'The model has no solved combinations.',
+  'excel.combination': 'Combination',
   'excel.sheetSections': 'Sections',
 
   // ─── DXF export/import ───
