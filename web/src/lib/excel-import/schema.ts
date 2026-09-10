@@ -94,10 +94,17 @@ export const SHEETS: SheetSpec[] = [
       // every 2D workbook carry a column of noughts to say "still flat".
       { key: 'z', unit: 'm', helpKey: 'xls.col.z', example: 0 },
     ],
+    /*
+     * Four nodes, not three: they close a rectangle, so the Plates and Quads
+     * examples further down have real corners to point at. The template's
+     * sheets have to describe ONE model — an example that references a node
+     * the reader cannot see teaches the format wrong.
+     */
     examples: [
       [1, 0, 0, 0],
       [2, 6, 0, 0],
       [3, 6, 4, 0],
+      [4, 0, 4, 0],
     ],
   },
 
@@ -113,11 +120,17 @@ export const SHEETS: SheetSpec[] = [
       { key: 'section', required: true, helpKey: 'xls.col.sectionRef', example: 1 },
       { key: 'hingeStart', helpKey: 'xls.col.hingeStart', example: 'no' },
       { key: 'hingeEnd', helpKey: 'xls.col.hingeEnd', example: 'no' },
+      /*
+       * `rollAngle` is per MEMBER and not per section, because members that
+       * share a profile do not share an orientation — every purlin on a
+       * pitched roof uses one section and each is rolled by its own slope.
+       */
+      { key: 'rollAngle', unit: '°', helpKey: 'xls.col.rollAngle', example: '' },
     ],
     examples: [
-      [1, 'frame', 1, 2, 1, 1, 'no', 'no'],
-      [2, 'frame', 2, 3, 1, 1, 'no', 'no'],
-      [3, 'truss', 1, 3, 1, 2, 'no', 'no'],
+      [1, 'frame', 1, 2, 1, 1, 'no', 'no', ''],
+      [2, 'frame', 2, 3, 1, 1, 'no', 'no', ''],
+      [3, 'truss', 1, 3, 1, 2, 'no', 'no', ''],
     ],
   },
 
@@ -172,13 +185,30 @@ export const SHEETS: SheetSpec[] = [
   {
     name: 'Supports',
     titleKey: 'xls.sheet.supports',
+    /*
+     * A support is not only a type. Springs and prescribed displacements are
+     * ordinary modelling — a footing on soil, a settlement to be checked —
+     * and a workbook that could not carry them would send the reader back to
+     * the editor to redo by hand what they had already typed.
+     */
     columns: [
       { key: 'node', required: true, helpKey: 'xls.col.supportNode', example: 1 },
       { key: 'type', required: true, helpKey: 'xls.col.supportType', example: 'fixed' },
+      { key: 'angle', unit: '°', helpKey: 'xls.col.supportAngle', example: '' },
+      { key: 'kx', unit: 'kN/m', helpKey: 'xls.col.kx', example: '' },
+      { key: 'ky', unit: 'kN/m', helpKey: 'xls.col.ky', example: '' },
+      { key: 'kz', unit: 'kN/m', helpKey: 'xls.col.kz', example: '' },
+      { key: 'krx', unit: 'kN·m/rad', helpKey: 'xls.col.krx', example: '' },
+      { key: 'kry', unit: 'kN·m/rad', helpKey: 'xls.col.kry', example: '' },
+      { key: 'krz', unit: 'kN·m/rad', helpKey: 'xls.col.krz', example: '' },
+      { key: 'dx', unit: 'm', helpKey: 'xls.col.dx', example: '' },
+      { key: 'dy', unit: 'm', helpKey: 'xls.col.dy', example: '' },
+      { key: 'dz', unit: 'm', helpKey: 'xls.col.dz', example: '' },
     ],
     examples: [
-      [1, 'fixed'],
-      [2, 'pinned'],
+      [1, 'fixed', '', '', '', '', '', '', '', '', '', ''],
+      [2, 'pinned', '', '', '', '', '', '', '', '', '', ''],
+      [3, 'spring', '', 12000, 12000, '', '', '', '', '', '', ''],
     ],
   },
 
@@ -234,6 +264,56 @@ export const SHEETS: SheetSpec[] = [
       ['1.2D+1.0W', 1, 1.2],
       ['1.2D+1.0W', 3, 1.0],
     ],
+  },
+
+  {
+    name: 'Plates',
+    titleKey: 'xls.sheet.plates',
+    /*
+     * Three or four node ids per shell, in one cell, separated by anything
+     * that is not a digit. A column per corner would have needed two sheets —
+     * triangles and quads — for one idea, and the reader would have had to
+     * know which.
+     */
+    columns: [
+      { key: 'id', required: true, helpKey: 'xls.col.plateId', example: 1 },
+      { key: 'nodes', required: true, helpKey: 'xls.col.plateNodes', example: '1 2 3' },
+      { key: 'material', required: true, helpKey: 'xls.col.materialRef', example: 1 },
+      { key: 'thickness', unit: 'm', required: true, helpKey: 'xls.col.thickness', example: 0.15 },
+    ],
+    examples: [[1, '1 2 3', 1, 0.15]],
+  },
+
+  {
+    name: 'Quads',
+    titleKey: 'xls.sheet.quads',
+    columns: [
+      { key: 'id', required: true, helpKey: 'xls.col.quadId', example: 1 },
+      { key: 'nodes', required: true, helpKey: 'xls.col.quadNodes', example: '1 2 3 4' },
+      { key: 'material', required: true, helpKey: 'xls.col.materialRef', example: 1 },
+      { key: 'thickness', unit: 'm', required: true, helpKey: 'xls.col.thickness', example: 0.15 },
+    ],
+    examples: [[1, '1 2 3 4', 1, 0.15]],
+  },
+
+  {
+    name: 'Constraints',
+    titleKey: 'xls.sheet.constraints',
+    /*
+     * A rigid diaphragm or a link between nodes. `master` plus a list of
+     * slaves covers the diaphragm; `nodeI`/`nodeJ` covers a link. Both are
+     * accepted and the type says which is being described, because the
+     * alternative was a sheet per constraint kind for what a reader thinks of
+     * as one table.
+     */
+    columns: [
+      { key: 'type', required: true, helpKey: 'xls.col.constraintType', example: 'rigidDiaphragm' },
+      { key: 'master', helpKey: 'xls.col.constraintMaster', example: 1 },
+      { key: 'slaves', helpKey: 'xls.col.constraintSlaves', example: '2 3 4' },
+      { key: 'nodeI', helpKey: 'xls.col.nodeI', example: '' },
+      { key: 'nodeJ', helpKey: 'xls.col.nodeJ', example: '' },
+    ],
+    examples: [['rigidDiaphragm', 1, '2 3', '', '']],
   },
 
   {
