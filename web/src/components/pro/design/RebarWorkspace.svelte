@@ -37,6 +37,7 @@
   } from '../../../lib/engine/detailing/element-status';
   import RebarViewport3D from './RebarViewport3D.svelte';
   import RebarStatusPanel from './RebarStatusPanel.svelte';
+  import RebarWorkspaceHeader from './RebarWorkspaceHeader.svelte';
   import ProvisionalBanner from './ProvisionalBanner.svelte';
   import TorsionBanner from './TorsionBanner.svelte';
   import SelectionDetails from './SelectionDetails.svelte';
@@ -282,54 +283,17 @@
     bind:this={dialogEl}
     tabindex="-1"
   >
-    <header class="topbar">
-      <button
-        class="rail-toggle"
-        type="button"
-        data-testid="rebar-rail-toggle"
-        aria-expanded={railOpen}
-        onclick={() => { railOpen = !railOpen; }}
-      >☰</button>
-      <h2>{t('detailing.scene.workspace.title')}</h2>
-      {#if built}
-        <span class="badge" data-testid="rebar-workspace-readiness">
-          {t(`detailing.doc.readiness.${built.scene.readiness}`)}
-        </span>
-        <span class="rev">
-          {tp('detailing.doc.revision', { n: built.scene.revision })}
-        </span>
-      {/if}
-      {#if summary}
-        <span class="sum" data-testid="rebar-workspace-summary">
-          {tp('detailing.scene.summary', {
-            bars: summary.barCount,
-            length: fmt(summary.totalLength),
-            mass: fmt(summary.massKg, 1),
-          })}
-        </span>
-      {/if}
-      <span class="spacer"></span>
-      {#if rebarWorkspace.canGoBack}
-        <button
-          type="button"
-          data-testid="rebar-back"
-          onclick={() => rebarWorkspace.goBack()}
-        >← {t('detailing.scene.back')}</button>
-      {/if}
-      <button
-        type="button"
-        data-testid="rebar-fit-view"
-        onclick={() => viewport?.fitView()}
-      >
-        {t('detailing.scene.reset')}
-      </button>
-      <button
-        class="close"
-        type="button"
-        data-testid="rebar-workspace-close"
-        onclick={() => rebarWorkspace.close()}
-      >✕ {t('detailing.scene.workspace.close')}</button>
-    </header>
+    <RebarWorkspaceHeader
+      readiness={built?.scene.readiness ?? null}
+      revision={built?.scene.revision ?? null}
+      {summary}
+      {fmt}
+      bind:railOpen
+      canGoBack={rebarWorkspace.canGoBack}
+      onBack={() => rebarWorkspace.goBack()}
+      onFitView={() => viewport?.fitView()}
+      onClose={() => rebarWorkspace.close()}
+    />
 
     <ProvisionalBanner count={built?.scene.provisionalMembers.length ?? 0} />
     <TorsionBanner count={built?.scene.torsionUnevaluatedMembers.length ?? 0} />
@@ -427,6 +391,11 @@
     background: var(--st-bg);
     color: var(--st-text);
 
+    /* Mounted OUTSIDE `.app-container`, the one element declaring the app font, so it
+       inherited `-apple-system`. The mount point is deliberate and stays; see
+       `docs/handoffs/h1a-concrete-flow-audit.md` §4. */
+    font-family: var(--st-sans);
+
     /*
        ── Why the workspace looked like a different application ───────
 
@@ -456,6 +425,12 @@
     --panel: var(--st-surface);
   }
 
+  /* Controls do not inherit a font: 12 buttons and 13 inputs in here were Arial. Scoped to
+     `.workspace` — the rest of the application has the same defect at a far larger scale and is
+     not H1's file to fix. `font-family`, not `font`, which would reset deliberate sizes. */
+  .workspace :global(button), .workspace :global(input),
+  .workspace :global(select), .workspace :global(textarea) { font-family: inherit; }
+
   /* The container is `tabindex="-1"` purely as a landing pad for focus on open, so it can
      never be tabbed TO and a ring around the whole window would only say "something is
      broken". Every control inside it keeps its own. */
@@ -468,34 +443,6 @@
     tokens are the same ones the PRO panel and the ribbon use, so the overlay is a VIEW of this
     app rather than another one. Nothing about the scene, the batching or the states changed.
   */
-  .topbar {
-    display: flex; align-items: center; gap: 0.6rem;
-    padding: 0.45rem 0.75rem;
-    border-bottom: 1px solid var(--st-hair);
-    background: var(--st-surface);
-    flex: 0 0 auto;
-    flex-wrap: wrap;
-  }
-  /* The same heading weight the panel headers use, so the two read as one hierarchy. */
-  .topbar h2 { margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--st-text); }
-  .spacer { flex: 1 1 auto; }
-  /* The same pill the design surface uses for a state, not a lookalike. */
-  .badge {
-    font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 3px; font-weight: 600;
-    background: var(--st-surface-3); color: var(--st-text);
-  }
-  .rev, .sum { font-size: 0.74rem; color: var(--st-text-2); }
-  .topbar button {
-    font-size: 0.76rem; padding: 0.25rem 0.6rem; cursor: pointer;
-    background: var(--st-surface-3); color: var(--st-text);
-    border: 1px solid var(--st-hair-strong); border-radius: 4px;
-  }
-  .topbar button:hover { background: var(--st-hair-strong); }
-  .topbar button:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
-  /* Leaving is the one action here that changes where you are, so it carries the accent border. */
-  .topbar button.close { border-color: var(--st-interactive); }
-  .rail-toggle { display: none; }
-
   .body { display: flex; flex: 1 1 auto; min-height: 0; }
   .rail {
     width: 17rem; flex: 0 0 auto; overflow-y: auto;
@@ -569,9 +516,6 @@
    * reason the workspace exists. The rail is one tap away and starts closed.
    */
   @media (max-width: 860px) {
-    .rail-toggle { display: inline-block; }
-    .topbar h2 { font-size: 0.85rem; }
-    .rev, .sum { display: none; }
     .body { position: relative; }
     .rail {
       position: absolute; inset: 0 auto 0 0; z-index: 2;

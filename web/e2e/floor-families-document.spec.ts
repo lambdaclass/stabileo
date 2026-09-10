@@ -262,6 +262,21 @@ test.describe('@smoke the floor-family deliverable, end to end', () => {
    * review gate is live in the browser, names its own reason, and cannot be walked past by
    * filling in a name. A test that engineered the fixture into CONSTRUCTIBLE would be testing a
    * floor nobody has.
+   *
+   * ── Where the refusal is read, and why it moved ────────────────────
+   *
+   * This test used to CLICK `review-submit` and read `review-error`. The button is disabled
+   * whenever `reviewBlockers` is non-empty, so the click could never land and the test spent its
+   * whole 60 s timeout retrying it.
+   *
+   * The control was not weakened; the refusal was moved EARLIER. `reviewBlockers` states the
+   * same three refusals `assembly.ts` raises, from the same locale keys, before the click rather
+   * than after it — the principle this panel already applied to `issue-submit`. A refusal an
+   * engineer reads only by pressing a button is a refusal they discover by trying to sign off.
+   *
+   * So the assertions are unchanged in substance and stronger in one respect: the gate must be
+   * unwalkable AND say so with the name filled in, which is the state a user reaches just before
+   * signing. `floor-design.spec.ts` reads the same control the same way.
    */
   test('FD-E the review gate is live and refuses a floor that is not CONSTRUCTIBLE',
     async ({ pro: page }) => {
@@ -280,18 +295,22 @@ test.describe('@smoke the floor-family deliverable, end to end', () => {
 
       await page.getByTestId('review-engineer').fill('Bauti');
       await page.getByTestId('review-notes').fill('QA journey');
-      await page.getByTestId('review-submit').click();
 
       // Refused, with the reason on screen and the state named — not silently ignored, and not
-      // recorded.
-      const error = page.getByTestId('review-error');
-      await expect(error).toBeVisible();
+      // recorded. Everything a user could supply has been supplied: the acknowledgements, the
+      // engineer and the notes. What remains is the state, and the state is not negotiable.
+      await expect(page.getByTestId('review-submit')).toBeDisabled();
+      const blockers = page.getByTestId('review-blockers');
+      await expect(blockers).toBeVisible();
       // The refusal names the STATE that blocked it and the state it needs. Both are
       // engineering identifiers and stay untranslated; the sentence around them does not — this
       // message used to be a Spanish literal built inside a pure module, so an English-locale
       // user was refused in Spanish. Found by this journey.
-      await expect(error).toContainText('CONSTRUCTIBLE');
-      await expect(error).toContainText('only be reviewed');
+      await expect(blockers).toContainText('CONSTRUCTIBLE');
+      await expect(blockers).toContainText('only be reviewed');
+      // And the reason it gives is the STATE, not the two things the user already did: a blocker
+      // list still asking for a name after one was typed would be the same dead end in words.
+      await expect(blockers).not.toContainText('engineer');
       await expect(page.getByTestId('review-record')).toHaveCount(0);
 
       // And the blocking conditions are visible, so the reason is actionable rather than a

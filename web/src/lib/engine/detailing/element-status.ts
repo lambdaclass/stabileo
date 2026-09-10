@@ -313,7 +313,37 @@ export function statusOf(
    * biaxial one. A proposal that also fails on flexure or shear is a different situation and
    * keeps FAILED, because then there is something wrong beyond the known limitation.
    */
-  if (summary?.verificationStatus === 'fail' && !isKnownBiaxialLimitation(summary)) {
+  /*
+   * ── And the second exception: an outcome that already explains the failure ──
+   *
+   * A member whose design was REFUSED also fails verification — the refusal happened precisely
+   * because nothing in the code-permitted envelope verified. Testing FAILED unconditionally made
+   * `REFUSED` unreachable: measured on a starved column, the design table said
+   * `SEARCH_EXHAUSTED` ×8 while the rail said `failed 5 · refused 0`.
+   *
+   * The two states mean different remedies, which is the whole reason there are two of them —
+   * this file's own header says a refusal means "change the section, or design by hand". Calling
+   * it a failure sends the reader to change reinforcement that no reinforcement can fix.
+   *
+   * So FAILED preempts unless the outcome already names the reason. Listed explicitly rather than
+   * as "anything but VERIFIED", which is what the first version of this said and which broke the
+   * biaxial exception above: `PROVISIONAL_BIAXIAL` does NOT explain a flexure failure, and a
+   * proposal that fails on something beyond the known limitation must stay FAILED. Two existing
+   * tests caught it, which is the argument for the allowlist.
+   *
+   * `DEMAND_UNAVAILABLE` is not here either: a member with no demand that somehow fails
+   * verification is not a case the outcome accounts for.
+   *
+   * Both sides stay in `NOT_FOR_CONSTRUCTION_STATUSES`, so nothing here can make a refusal read
+   * as finished work.
+   */
+  const EXPLAINS_ITS_OWN_FAILURE = ['SEARCH_EXHAUSTED', 'SECTION_INADEQUATE', 'UNSUPPORTED'];
+  const outcomeExplainsIt = summary?.outcome !== undefined
+    && EXPLAINS_ITS_OWN_FAILURE.includes(summary.outcome);
+
+  if (summary?.verificationStatus === 'fail'
+    && !isKnownBiaxialLimitation(summary)
+    && !outcomeExplainsIt) {
     return 'FAILED';
   }
 

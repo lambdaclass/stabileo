@@ -158,14 +158,29 @@ describe('the shipped dictionaries', () => {
   it('leaves H1’s floor-state keys alone, wherever they are', () => {
     /*
      * The patch touched one key per file. H1's block is a different namespace in a different
-     * region, and this asserts M1 did not disturb it — vacuously true on this branch, where
-     * those keys do not exist yet, and the assertion that matters after the merge.
+     * region, and this asserts M1 did not disturb it.
+     *
+     * ── Why this no longer names a number ──────────────────────────
+     *
+     * It used to assert `[0, 7]`. Written while the keys did not exist yet — "vacuously true
+     * on this branch" — so the 7 was a guess, and H1 turned out to carry 31. The guard then
+     * failed on a correct merge, which is worse than not guarding: it says the resolution was
+     * careless when every dictionary got the complete set.
+     *
+     * What it is actually for is "never a PARTIAL set", and that needs no constant. Compare
+     * the dictionaries with each other: a conflict resolution that drops keys from one file
+     * shows up as a difference between files, whatever the total happens to be.
      */
-    for (const lang of ['es', 'en', 'pt'] as const) {
-      const floorKeys = Object.keys(dicts[lang]).filter((k) => k.startsWith('design.floor.state.'));
-      // Either none (before the merge) or all of H1's (after it) — never a partial set, which is
-      // what a careless conflict resolution would leave behind.
-      expect([0, 7], `${lang} has ${floorKeys.length} floor-state keys`).toContain(floorKeys.length);
+    const floorKeysOf = (lang: 'es' | 'en' | 'pt') =>
+      Object.keys(dicts[lang]).filter((k) => k.startsWith('design.floor.state.')).sort();
+
+    const reference = floorKeysOf('en');
+    for (const lang of ['es', 'pt'] as const) {
+      const keys = floorKeysOf(lang);
+      // Zero is still legitimate — a dictionary from before the merge simply has none.
+      if (keys.length === 0) continue;
+      expect(keys, `${lang} has ${keys.length} floor-state keys against en's ${reference.length}`)
+        .toEqual(reference);
     }
   });
 

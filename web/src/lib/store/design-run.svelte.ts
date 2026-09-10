@@ -25,6 +25,7 @@ import { censusRcCheckability } from '../engine/auto-verify';
 import {
   buildAllMemberContexts, buildCriticalSectionMap, type ContextModelData, type MemberContext,
 } from '../engine/design/member-context';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { runOrientationDiagnostic } from '../engine/design/orientation-diagnostic';
 import { runDesign, designMember, DEFAULT_RUN_MS } from '../engine/design/candidate-search';
 import { getDesignCode, type DesignCodeId } from '../engine/design/code-adapter';
@@ -125,6 +126,38 @@ function createDesignRunStore() {
         codeEdition: concreteEdition(),
         concrete: modelStore.model.codeSettings?.concrete,
         solveGeneration: verificationStore.solveGeneration,
+        /*
+         * A DECLARED grade decides the material family. An inferred one is the fallback.
+         *
+         * ── The defect this closes ──────────────────────────────────
+         *
+         * `materialFamilyOf` needs both a `gradeId` and a lookup: `if (material.gradeId &&
+         * lookupGrade)`. The gradeId has always arrived — `md.materials` is the live map, so
+         * the real `Material` objects flow through — but nothing in production ever supplied
+         * the lookup. So the declared branch never ran and every material was classified by
+         * the MAGNITUDE of `fy`, with `fy <= 80 MPa` read as concrete.
+         *
+         * Timber C24 is 24 MPa. It was being classified as concrete and admitted to the
+         * reinforced-concrete pipeline, where 24 MPa reads as an ordinary f'c. The grade is in
+         * the catalogue (`non-metal-grades.ts`, `en338-c24`, family `timber`) and was simply
+         * never consulted. Aluminium below the threshold had the same problem.
+         *
+         * ── What this changes, and it is not only timber ─────────────
+         *
+         * Classification moves from inference to declaration, so members can CHANGE PIPELINE
+         * in both directions: one that declares a steel grade and has a low `fy` leaves the
+         * concrete design set, and one whose stored grade the catalogue no longer knows falls
+         * back to the inference exactly as before. `buildAllMemberContexts` keeps only
+         * `materialFamily === 'concrete'`, so this is the boundary between the concrete
+         * pipeline and the metallic inventory — see the note in `grade-family.ts`.
+         *
+         * The lookup itself is M1's `catalogueGradeFamily`, taken as-is rather than
+         * reimplemented: two functions answering "what family is this grade" would be two
+         * answers, and this one is already the one the metallic surface uses. Its contract is
+         * `(gradeId) => StructuralMaterialFamily | null`, where null means "this catalogue
+         * cannot answer" and the caller falls back.
+         */
+        lookupGrade: catalogueGradeFamily,
       });
       verificationStore.setDemandData(contexts, orient.issues);
       resultsStore.diagramType = 'verification';

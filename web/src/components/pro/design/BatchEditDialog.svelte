@@ -319,7 +319,7 @@
   h2 { margin: 0; font-size: 0.92rem; color: var(--st-text); }
   .x { background: none; border:  1px solid var(--st-hair); color: var(--st-text-2); font-size: 1.2rem; cursor: pointer; line-height: 1; }
   .meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.72rem; color: var(--st-text-2); }
-  .muted { color: var(--st-text-3); }
+  .muted { color: var(--st-text-2); }
   .warn-inline { color: var(--st-text); }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; }
   fieldset { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 4px 7px 6px; margin: 0; }
@@ -338,8 +338,8 @@
   .prow { display: flex; gap: 7px; align-items: center; flex-wrap: wrap;
     padding: 1px 0; font-size: 0.66rem; color: var(--st-text); border-bottom: 1px solid var(--st-surface-3); }
   .prow.blocked { color: var(--st-text); }
-  .prow.nochange { color: var(--st-text-3); }
-  .pid { min-width: 34px; } .pkind { min-width: 46px; color: var(--st-text-3); }
+  .prow.nochange { color: var(--st-text-2); }
+  .pid { min-width: 34px; } .pkind { min-width: 46px; color: var(--st-text-2); }
   .pblock { flex: 1; } .pchanges { flex: 1; } .putil { color: var(--st-text-2); }
   .mono { font-family: monospace; }
   .summary { margin-top: 4px; font-size: 0.7rem; color: var(--st-text-2); font-weight: 600; }
