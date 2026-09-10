@@ -91,19 +91,20 @@ export interface SingleProfile {
   j: number | null;
 }
 
+import type { BuiltUpArrangement } from '../../section/profile-spec';
+
 // ─── Arrangements ────────────────────────────────────────────────────
 
-export const BUILT_UP_ARRANGEMENTS = [
-  'single',
-  'doubleBack',
-  'doubleFacing',
-  'doubleParallel',
-  'doubleX',
-  'quadBack',
-  'quadBox',
-] as const;
-
-export type BuiltUpArrangement = (typeof BUILT_UP_ARRANGEMENTS)[number];
+/*
+ * The list itself now lives in `lib/section/profile-spec.ts`, and is re-exported here.
+ *
+ * A section picked in the sections tab has an arrangement and no generator anywhere near it,
+ * so the vocabulary belongs below the generators rather than inside them. The placement table
+ * stays here, where it has always been, because THAT is generator geometry. Re-exporting means
+ * every existing `from './built-up-section'` import keeps resolving unchanged.
+ */
+export { BUILT_UP_ARRANGEMENTS, isBuiltUpArrangement } from '../../section/profile-spec';
+export type { BuiltUpArrangement } from '../../section/profile-spec';
 
 /**
  * One copy of the profile inside the assembly.

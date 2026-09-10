@@ -5,6 +5,52 @@ use super::dof::DofNumbering;
 /// Maps 12-DOF element indices to 14-DOF positions, skipping warping DOFs 6 and 13.
 const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 
+/// Triplet accumulator for geometric-stiffness assembly: keeps only the
+/// free×free block (buckling solves on free DOFs) and converts to a
+/// lower-triangle CSC. Replaces the previous dense n×n build, which was
+/// O(n²) memory on the one path (buckling) whose eigensolver is sparse.
+pub struct KgTriplets {
+    nf: usize,
+    rows: Vec<usize>,
+    cols: Vec<usize>,
+    vals: Vec<f64>,
+}
+
+impl KgTriplets {
+    pub fn new(nf: usize) -> Self {
+        KgTriplets { nf, rows: Vec::new(), cols: Vec::new(), vals: Vec::new() }
+    }
+
+    /// Add one contribution. Element matrices are symmetric, so callers emit
+    /// each unordered local pair once (lower triangle); from_triplets sums
+    /// contributions of elements sharing a DOF pair.
+    #[inline]
+    pub fn add(&mut self, i: usize, j: usize, v: f64) {
+        if i < self.nf && j < self.nf {
+            self.rows.push(i);
+            self.cols.push(j);
+            self.vals.push(v);
+        }
+    }
+
+    /// Lower-triangle CSC of the free block (duplicates summed).
+    ///
+    /// Drops entries below 1e-30, matching `CscMatrix::from_dense_symmetric`,
+    /// which is what produced this matrix before it was assembled from
+    /// triplets. Without the filter every emitted pair becomes a structural
+    /// nonzero, and element Kg is nonzero only on translational DOFs: a quad
+    /// emits 300 pairs of which about 78 are nonzero, a quad9 emits 1485 of
+    /// which about 378 are. The resulting CSC stored roughly 4x the real
+    /// nonzeros of a shell model, and that is paid on every Lanczos iteration
+    /// through `sym_mat_vec` and quadratically through `reduce_sparse` on the
+    /// constrained path — eroding the O(nnz) win this assembly exists for.
+    pub fn into_csc(self) -> CscMatrix {
+        let mut k = CscMatrix::from_triplets(self.nf, &self.rows, &self.cols, &self.vals);
+        k.drop_below_threshold(1e-30);
+        k
+    }
+}
+
 /// Add geometric stiffness to the global stiffness matrix based on current axial forces.
 /// Used by P-Delta and Buckling analyses.
 pub fn add_geometric_stiffness_2d(
@@ -153,9 +199,8 @@ pub fn build_kg_from_forces_2d(
     input: &SolverInput,
     dof_num: &DofNumbering,
     element_forces: &[ElementForces],
-) -> Vec<f64> {
-    let n = dof_num.n_total;
-    let mut k_g = vec![0.0; n * n];
+) -> KgTriplets {
+    let mut kg = KgTriplets::new(dof_num.n_free);
     let elem_by_id: std::collections::HashMap<usize, &SolverElement> = input.elements.values().map(|e| (e.id, e)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
 
@@ -191,8 +236,10 @@ pub fn build_kg_from_forces_2d(
                 dof_num.global_dof(elem.node_j, 1).unwrap(),
             ];
             for i in 0..4 {
-                for j in 0..4 {
-                    k_g[truss_dofs[i] * n + truss_dofs[j]] += kg_local[i * 4 + j];
+                // Symmetric element matrix: emit each unordered pair once
+                // (lower triangle); from_triplets sums across elements.
+                for j in 0..=i {
+                    kg.add(truss_dofs[i], truss_dofs[j], kg_local[i * 4 + j]);
                 }
             }
         } else {
@@ -222,13 +269,13 @@ pub fn build_kg_from_forces_2d(
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
             let ndof = elem_dofs.len();
             for i in 0..ndof {
-                for j in 0..ndof {
-                    k_g[elem_dofs[i] * n + elem_dofs[j]] += kg_global[i * ndof + j];
+                for j in 0..=i {
+                    kg.add(elem_dofs[i], elem_dofs[j], kg_global[i * ndof + j]);
                 }
             }
         }
     }
-    k_g
+    kg
 }
 
 /// Build 3D geometric stiffness matrix from element forces.
@@ -236,9 +283,8 @@ pub fn build_kg_from_forces_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     element_forces: &[ElementForces3D],
-) -> Vec<f64> {
-    let n = dof_num.n_total;
-    let mut k_g = vec![0.0; n * n];
+) -> KgTriplets {
+    let mut kg = KgTriplets::new(dof_num.n_free);
     let left_hand = input.left_hand.unwrap_or(false);
     let elem_by_id: std::collections::HashMap<usize, &SolverElement3D> = input.elements.values().map(|e| (e.id, e)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
@@ -274,8 +320,8 @@ pub fn build_kg_from_forces_3d(
                 .chain((0..3).map(|i| dof_num.global_dof(elem.node_j, i).unwrap()))
                 .collect();
             for i in 0..6 {
-                for j in 0..6 {
-                    k_g[truss_dofs[i] * n + truss_dofs[j]] += kg_local[i * 6 + j];
+                for j in 0..=i {
+                    kg.add(truss_dofs[i], truss_dofs[j], kg_local[i * 6 + j]);
                 }
             }
         } else {
@@ -318,10 +364,22 @@ pub fn build_kg_from_forces_3d(
             // Transform to global: Kg_global = T^T * Kg_local * T
             let kg_global = transform_stiffness(&kg_local, &t, 12);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-            let ndof = elem_dofs.len();
-            for i in 0..ndof {
-                for j in 0..ndof {
-                    k_g[elem_dofs[i] * n + elem_dofs[j]] += kg_global[i * ndof + j];
+            // kg_global is 12x12, but `elem_dofs` is 14 wide on models where any
+            // section declares `cw` — `DofNumbering::build_3d` then numbers seven
+            // DOFs per node. Indexing a 144-element array with a stride of 14
+            // walks off the end (kg_global[10 * 14 + 4] = 144): an index panic
+            // that on wasm32 crosses the FFI boundary as an abort rather than a
+            // solver error. `add_geometric_stiffness_3d`, in this same file,
+            // remaps through DOF_MAP_12_TO_14 for exactly this reason; this path
+            // did not.
+            let map: &[usize] = if dof_num.dofs_per_node >= 7 {
+                &DOF_MAP_12_TO_14
+            } else {
+                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            };
+            for i in 0..12 {
+                for j in 0..=i {
+                    kg.add(elem_dofs[map[i]], elem_dofs[map[j]], kg_global[i * 12 + j]);
                 }
             }
         }
@@ -330,7 +388,7 @@ pub fn build_kg_from_forces_3d(
     // curved shells) is NOT built here — it needs the displacement vector to
     // compute membrane stresses. Callers add it separately via
     // add_*_geometric_stiffness_3d (see buckling.rs).
-    k_g
+    kg
 }
 
 /// Add quad geometric stiffness to a pre-built Kg matrix, given displacements.
@@ -339,9 +397,8 @@ pub fn add_quad_geometric_stiffness_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    k_g: &mut [f64],
+    kg: &mut KgTriplets,
 ) {
-    let n = dof_num.n_total;
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
 
@@ -382,8 +439,8 @@ pub fn add_quad_geometric_stiffness_3d(
 
         let ndof = quad_dofs.len();
         for i in 0..ndof {
-            for j in 0..ndof {
-                k_g[quad_dofs[i] * n + quad_dofs[j]] += kg_global[i * ndof + j];
+            for j in 0..=i {
+                kg.add(quad_dofs[i], quad_dofs[j], kg_global[i * ndof + j]);
             }
         }
     }
@@ -395,9 +452,8 @@ pub fn add_plate_geometric_stiffness_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    k_g: &mut [f64],
+    kg: &mut KgTriplets,
 ) {
-    let n = dof_num.n_total;
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
 
@@ -434,8 +490,8 @@ pub fn add_plate_geometric_stiffness_3d(
 
         let ndof = plate_dofs.len();
         for i in 0..ndof {
-            for j in 0..ndof {
-                k_g[plate_dofs[i] * n + plate_dofs[j]] += kg_global[i * ndof + j];
+            for j in 0..=i {
+                kg.add(plate_dofs[i], plate_dofs[j], kg_global[i * ndof + j]);
             }
         }
     }
@@ -446,9 +502,8 @@ pub fn add_quad9_geometric_stiffness_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    k_g: &mut [f64],
+    kg: &mut KgTriplets,
 ) {
-    let n = dof_num.n_total;
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
 
@@ -484,8 +539,8 @@ pub fn add_quad9_geometric_stiffness_3d(
 
         let ndof = q9_dofs.len();
         for i in 0..ndof {
-            for j in 0..ndof {
-                k_g[q9_dofs[i] * n + q9_dofs[j]] += kg_global[i * ndof + j];
+            for j in 0..=i {
+                kg.add(q9_dofs[i], q9_dofs[j], kg_global[i * ndof + j]);
             }
         }
     }
@@ -496,9 +551,8 @@ pub fn add_solid_shell_geometric_stiffness_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    k_g: &mut [f64],
+    kg: &mut KgTriplets,
 ) {
-    let n = dof_num.n_total;
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
 
@@ -524,8 +578,8 @@ pub fn add_solid_shell_geometric_stiffness_3d(
 
         let ndof = ss_dofs.len();
         for i in 0..ndof {
-            for j in 0..ndof {
-                k_g[ss_dofs[i] * n + ss_dofs[j]] += kg_elem[i * ndof + j];
+            for j in 0..=i {
+                kg.add(ss_dofs[i], ss_dofs[j], kg_elem[i * ndof + j]);
             }
         }
     }
@@ -536,9 +590,8 @@ pub fn add_curved_shell_geometric_stiffness_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    k_g: &mut [f64],
+    kg: &mut KgTriplets,
 ) {
-    let n = dof_num.n_total;
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
 
@@ -568,8 +621,8 @@ pub fn add_curved_shell_geometric_stiffness_3d(
 
         let ndof = cs_dofs.len();
         for i in 0..ndof {
-            for j in 0..ndof {
-                k_g[cs_dofs[i] * n + cs_dofs[j]] += kg_elem[i * ndof + j];
+            for j in 0..=i {
+                kg.add(cs_dofs[i], cs_dofs[j], kg_elem[i * ndof + j]);
             }
         }
     }

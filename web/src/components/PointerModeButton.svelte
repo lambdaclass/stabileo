@@ -56,8 +56,14 @@
   };
   const iconName = $derived(isPan ? 'pan' : isSelect ? 'select' : (TOOL_ICON[tool] ?? 'select'));
   /** What the mode IS — present tense, because that is what the reader is in. */
+  /*
+   * Pan says something different in 3D, and the difference is the most asked
+   * question about the viewport: the same drag that slides a 2D drawing
+   * ORBITS a 3D model, and sliding it there needs Shift. "Drag to move the
+   * view" is not vague in 3D, it is wrong.
+   */
   const mode = $derived(
-    isPan ? t('viewport.modePan')
+    isPan ? (uiStore.analysisMode === '3d' ? t('viewport.modePan3d') : t('viewport.modePan'))
     : isSelect ? t('viewport.modeSelect')
     : t(TOOL_LABEL[tool] ?? 'float.select'),
   );

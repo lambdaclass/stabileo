@@ -23,6 +23,7 @@
  * be asserting about a decision the module had already made. `vi.resetModules()` plus a dynamic
  * import is what makes "open the app in a Portuguese browser" a thing this file can say.
  */
+import { allShippedLocales } from '../locales/all';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
 type Store = typeof import('../store.svelte');
@@ -75,12 +76,22 @@ describe('the languages the app offers', () => {
       expect(store.tAt('lang.pt', 'en')).toBe('Português');
     });
 
-  it('ships more dictionaries than it offers, and keeps them', async () => {
-    // Deleting them would throw away real translation work, and re-enabling one is a single
-    // edit to OFFERED_LOCALES. What must not happen is OFFERING one that is incomplete.
+  it('bundles exactly the dictionaries it offers, and keeps the rest on disk', async () => {
+    /*
+     * This used to assert the opposite — that the store ships MORE than it
+     * offers — because holding all fourteen made re-enabling one a single
+     * edit. Measured, the eleven unoffered ones were 2.0 MB of the bundle,
+     * the largest single item in it, downloaded by every reader of a blog
+     * page. They are unreachable at runtime, so nobody could ever see them.
+     *
+     * They are not deleted: ./locales/all.ts still holds all fourteen and the
+     * parity gates still read every one, so the translation work is kept and
+     * kept correct. What must not come back is loading them in a browser.
+     */
     const { store } = await boot(['en']);
-    expect(store.shippedLocales().length).toBeGreaterThan(store.OFFERED_LOCALES.length);
-    for (const code of store.OFFERED_LOCALES) expect(store.shippedLocales()).toContain(code);
+    expect(store.shippedLocales().sort()).toEqual([...store.OFFERED_LOCALES].sort());
+    expect(allShippedLocales().length).toBeGreaterThan(store.OFFERED_LOCALES.length);
+    for (const code of store.OFFERED_LOCALES) expect(allShippedLocales()).toContain(code);
   });
 });
 

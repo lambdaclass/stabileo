@@ -3,6 +3,7 @@
 // All dimensions in meters; output SVG path fits within ~160px (viewBox -90..90).
 
 import type { SectionShape } from '../data/steel-profiles';
+import { zedOutline } from '../profiles/cold-formed';
 
 export interface SectionDrawingParams {
   shape: SectionShape;
@@ -168,6 +169,33 @@ export function crossSectionPath(p: SectionDrawingParams): string {
         `L ${-bf},${hh}`,                       // bottom-left
         'Z',
       ].join(' ');
+    }
+
+    case 'Z': {
+      /*
+       * Lipped (cold-formed) zed.
+       *
+       * Added because without it a zed falls to the `default:` below and is drawn as a plain
+       * RECTANGLE — a WRONG outline rather than a missing one, in every 2D surface that draws a
+       * section. `createZShape` covers the 3D viewport; this covers the rest.
+       *
+       * The vertex loop is not written here. It comes from `zedOutline`, the single definition
+       * this app has for the shape, so the 2D and 3D drawings cannot drift — which is the failure
+       * this file's own `case 'C'` illustrates, being a third hand-written copy of the channel.
+       *
+       * Two transforms are applied, and both are this file's conventions rather than the
+       * outline's: `zedOutline` puts the web's outer face at `x = 0` with `+y` up, while the cases
+       * here centre on the bounding box with `+y` DOWN. A zed's point-symmetry centre is at
+       * `x = tw/2`, so centring is that one shift.
+       *
+       * Nothing in Basic mode can reach this: no `SECTION_SHAPES` template emits shape `'Z'`, so
+       * only the cold-formed catalogue produces one.
+       */
+      const lipThk = p.tl ?? p.tf;
+      const pts = zedOutline(p.h, p.b, p.tw, p.tf, p.t, lipThk);
+      const cx = p.tw / 2;
+      const d = pts.map((q, i) => `${i === 0 ? 'M' : 'L'} ${(q.x - cx) * sc},${-q.y * sc}`);
+      return [...d, 'Z'].join(' ');
     }
 
     default: {

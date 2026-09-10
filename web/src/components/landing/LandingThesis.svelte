@@ -23,7 +23,7 @@
 
 <section class="sec sec--ink thesis reveal" data-section="thesis" id="thesis" aria-labelledby="thesis-title">
   <div class="wrap">
-    <Eyebrow n="11" label={t('landing.ebThesis')} />
+    <Eyebrow n="10" label={t('landing.ebThesis')} />
     <div class="mode-head">
       <h2 id="thesis-title" class="display">
         {t('landing.thH1')} <em>{t('landing.thH2')}</em>

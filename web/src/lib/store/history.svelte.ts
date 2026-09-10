@@ -10,6 +10,7 @@ import type { ModelProvenance } from '../model/provenance';
 import type { Footing, FootingMatPreferences } from '../model/footing';
 import type { ProjectGeotechnical } from '../model/geotechnical';
 import type { ExportRecord } from '../flow/rc-export-record';
+import type { StoredJointDesigns } from '../connection/joint-choices';
 
 export interface ModelSnapshot {
   name?: string;
@@ -82,6 +83,14 @@ export interface ModelSnapshot {
    */
   exports?: ExportRecord[];
   manualEdits?: number[];
+  /**
+   * The joint designs the project carries — the bolts, plate, weld and battens chosen per node.
+   *
+   * Choices only; every capacity and every outline is recomputed from the model on read, so a
+   * restored joint cannot report a check against a member that no longer exists. Absent on
+   * snapshots taken before this existed, which reads as no joints designed.
+   */
+  jointDesigns?: StoredJointDesigns;
 }
 
 const MAX_HISTORY = 50;

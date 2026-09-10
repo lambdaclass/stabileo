@@ -596,9 +596,11 @@ fn diagnostics_parity_constrained_3d() {
     let r = solve_constrained_3d(&ci).unwrap();
     assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "constrained-3D");
 
-    // Small model → dense path
-    assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::DenseLu),
-        "small constrained 3D model should use dense path");
+    // The constrained 3D path is sparse end-to-end regardless of size (the
+    // dense reduced-matrix path was removed with the dense C_ff); small models
+    // also report SparseCholesky.
+    assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::SparseCholesky),
+        "constrained 3D model should use the sparse Cholesky path");
 }
 
 #[test]

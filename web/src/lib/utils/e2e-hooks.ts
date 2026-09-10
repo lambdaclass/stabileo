@@ -28,17 +28,19 @@
  * query flag is present, so production pages never expose it.
  */
 
-import { modelStore, verificationStore, uiStore, historyStore } from '../store';
+import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { detailingStore } from '../store/detailing.svelte';
 import { detailingSheet } from '../store/detailing-sheet.svelte';
 import { exportRecordStore } from '../store/export-record.svelte';
 import { retouchedIn } from '../store/export-log';
 import { renderDrawings } from '../engine/detailing/document-render';
 import { rebarWorkspace } from '../store/rebar-workspace.svelte';
+import { jointDesignStore } from '../store/joint-design.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
 import { runGlobalSolve } from '../engine/live-calc';
+import { tourStore } from '../store/tour.svelte';
 import {
   liveRebarSceneCensus, liveRebarSceneConflictAt, rebarSceneBuilds, type RebarSceneCensus,
 } from '../three/rebar-scene';
@@ -120,6 +122,22 @@ export interface StabileoTestHooks {
    */
   rebarSelection(): number[];
   /**
+   * The selected NODE ids, sorted.
+   *
+   * `selection()` returns elements. A joint is a node, and the 3-D specs need to assert that the
+   * joint highlighted in the scene is the one the list has — which is a statement about nodes.
+   */
+  selectedNodeIds(): number[];
+  /** The node-marker radius the scene is drawing, metres. Null before the scene exists. */
+  nodeMarkerRadius(): number | null;
+  /**
+   * How many meshes the selected joint contributes to the scene.
+   *
+   * A plate plus one cylinder per bolt. Zero means nothing was drawn — which for an undesigned
+   * or incomplete joint is the correct answer, and is what the specs assert.
+   */
+  jointMeshCount(): number;
+  /**
    * Everything selected, by kind.
    *
    * `selection()` reports members alone, which is enough while a selection can
@@ -130,6 +148,48 @@ export interface StabileoTestHooks {
   selectionByKind(): { nodes: number[]; elements: number[]; supports: number[]; loads: number[] };
   /** Which kinds a drag is currently armed to pick up. */
   armedKinds(): string[];
+  /** What the viewport is drawing — the walkthrough audit reads this. */
+  diagramType(): string;
+  /**
+   * What a click on the canvas would currently mean, and whether the viewport
+   * has anything to answer it with.
+   *
+   * A walkthrough step that waits on a click failed only on CI, and neither a
+   * screenshot nor the accessibility tree can show which precondition was
+   * missing: the click is recorded as a station only when the mode is
+   * `stress` AND there are results to read. Both are store fields no other
+   * hook exposed, which left "the mode was disarmed" indistinguishable from
+   * "the click missed the member".
+   */
+  viewportPick(): { selectMode: string; tool: string; hasResults: boolean; hasStressQuery: boolean };
+  /**
+   * The guided step on screen, or null.
+   *
+   * Exposed for the walkthrough audit: checking that a step can reach what it
+   * asks the reader to click means knowing which step it is and whether it
+   * allows interaction, and neither is visible in the DOM. `armed`/`waits`/`met`
+   * explain a hang — whether the advance was armed on entry, whether the step
+   * waits on the reader at all, and whether its condition currently holds.
+   */
+  tourStep(): {
+    id: string;
+    target: string;
+    allowInteraction: boolean;
+    armed: boolean;
+    waits: boolean;
+    met: boolean | null;
+  } | null;
+  /** Which tool is armed, for the same reason. */
+  currentTool(): string;
+  /**
+   * Where a node sits on screen, in CSS pixels.
+   *
+   * A test that draws has to click ON the nodes it just placed, and it cannot
+   * reuse the coordinates it clicked: snapping moves a node to the nearest
+   * grid intersection, which at a metre spacing is up to half a grid square
+   * away from the pointer.
+   */
+  nodeScreenPos(id: number): { x: number; y: number } | null;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   nodeCount(): number;
   supportCount(): number;
@@ -150,6 +210,18 @@ export interface StabileoTestHooks {
   canvasInkRatio(): number;
   /** Project regulation settings, as persisted. Read-only. */
   codeSettings(): unknown;
+  /**
+   * The joint designs the project carries, as persisted — I-06.
+   *
+   * Read off `model.jointDesigns`, which is the field a `.ded` actually writes. A spec that
+   * asserted the PANEL still showed bolts after an open would pass on a panel that had kept a
+   * local copy; this reads the project.
+   */
+  jointDesigns(): unknown;
+  /** Stored joints reconciliation refused for this model, with the reason — I-07. */
+  jointObsolete(): Array<{ nodeId: number; reason: string }>;
+  /** Node ids whose stored design applies to the model that is open now. */
+  jointDesignedNodeIds(): number[];
   /** Verifier id on an element's certificate — carries the edition it was produced under. */
   certificateVerifierId(elementId: number): string | null;
   /** Coordinated detailing assemblies, as persisted. Read-only. */
@@ -386,7 +458,41 @@ export function installE2EHooks(): void {
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
     rebarSelection: () =>
       [...(rebarWorkspace.selection?.elementIds ?? [])].sort((a, b) => a - b),
+    selectedNodeIds: () => [...uiStore.selectedNodes].sort((a, b) => a - b),
+    /*
+     * Published by `Viewport3D` when it resizes the markers. Null rather than a default, so a
+     * spec can tell "the scene has not drawn yet" from "the radius is small".
+     */
+    nodeMarkerRadius: () =>
+      (window as unknown as { __nodeRadius?: number }).__nodeRadius ?? null,
+    jointMeshCount: () =>
+      (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     armedKinds: () => [...uiStore.selectKinds].sort(),
+    diagramType: () => String(resultsStore.diagramType),
+    viewportPick: () => ({
+      selectMode: String(uiStore.selectMode),
+      tool: String(uiStore.currentTool),
+      hasResults: resultsStore.results !== null,
+      hasStressQuery: resultsStore.stressQuery !== null,
+    }),
+    tourStep: () => {
+      const st = tourStore.currentStep;
+      return st ? {
+        id: st.id, target: st.target, allowInteraction: !!st.allowInteraction,
+        armed: tourStore.armedForTest,
+        waits: !!st.waitFor, met: st.waitFor ? !!st.waitFor() : null,
+      } : null;
+    },
+    currentTool: () => String(uiStore.currentTool),
+    nodeScreenPos: (id: number) => {
+      const n = modelStore.nodes.get(id);
+      if (!n) return null;
+      const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+      if (!canvas) return null;
+      const p = uiStore.worldToScreen(n.x, (n as { z?: number }).z ?? n.y);
+      const r = canvas.getBoundingClientRect();
+      return { x: r.left + p.x, y: r.top + p.y };
+    },
     nodeCount: () => modelStore.nodes.size,
     supportCount: () => modelStore.supports.size,
     selectionByKind: () => {
@@ -406,6 +512,9 @@ export function installE2EHooks(): void {
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,
     codeSettings: () => JSON.parse(JSON.stringify(modelStore.model.codeSettings ?? null)),
+    jointDesigns: () => JSON.parse(JSON.stringify(modelStore.model.jointDesigns ?? null)),
+    jointObsolete: () => jointDesignStore.obsolete.map((o) => ({ ...o })),
+    jointDesignedNodeIds: () => [...jointDesignStore.designedNodeIds],
     certificateVerifierId: (id: number) =>
       verificationStore.outcomeFor(id)?.certificate?.verifierId ?? null,
     detailingAssemblies: () =>

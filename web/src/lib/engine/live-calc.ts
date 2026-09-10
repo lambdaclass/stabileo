@@ -213,7 +213,6 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
       return null;
     }
     resultsStore.setResults3D(r);
-    if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
     const timeStr = formatSolveTiming(r.timings);
     uiStore.toast(
       `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
@@ -249,7 +248,6 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
     resultsStore.setGoverning3D(computeGoverning3D(comboResult.perCombo, comboNames));
 
-    if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
     const elapsed = performance.now() - t0;
     const timeStr = elapsed >= 1000 ? (elapsed / 1000).toFixed(2) + ' s' : elapsed.toFixed(0) + ' ms';
     const nBars = firstCaseResult?.elementForces.length ?? 0;
@@ -344,7 +342,6 @@ async function globalSolve2D(isStale: () => boolean): Promise<void> {
     }
   }
 
-  if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
   const timeStr = formatSolveTiming(r.timings);
   uiStore.toast(
     `${t('results.calcSuccess')}${classText}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}${comboText}`,

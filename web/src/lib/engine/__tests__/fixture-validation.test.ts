@@ -16,14 +16,21 @@ import { loadFixture, type JSONModel } from '../../templates/load-fixture';
 import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
 import { solve } from '../wasm-solver';
 import { solve3D } from '../wasm-solver';
-import { is2DFixture, is3DFixture } from '../../templates/fixture-index';
+import { is2DFixture, is3DFixture, INTENTIONALLY_UNSOLVABLE } from '../../templates/fixture-index';
+import { generateKinematicReport } from '../kinematic-report';
 
 // ─── Fixture discovery ──────────────────────────────────────────
 
 const fixtureDir = 'src/lib/templates/fixtures';
 const allFixtures = readdirSync(fixtureDir)
   .filter(f => f.endsWith('.json'))
-  .map(f => f.replace('.json', ''));
+  .map(f => f.replace('.json', ''))
+  /*
+   * Models designed not to solve are out of every audit below, which all
+   * assert the opposite. See INTENTIONALLY_UNSOLVABLE — the exclusion is
+   * declared beside the registry, not hidden in a test.
+   */
+  .filter(f => !INTENTIONALLY_UNSOLVABLE.has(f));
 
 // Separate registered 2D and 3D fixtures
 const fixtures2D = allFixtures.filter(f => is2DFixture(f));
@@ -291,5 +298,71 @@ describe('Fixture registry completeness', () => {
     // tower-3d is a known orphan (superseded by tower-3d-2/4)
     const unexpected = unregistered.filter(f => f !== 'tower-3d');
     expect(unexpected).toEqual([]);
+  });
+});
+
+// ─── Fixtures that must NOT solve ───────────────────────────────
+
+/*
+ * The other half of the exclusion above.
+ *
+ * Filtering these out of the audits removes the assertion that they work; it
+ * must not remove the assertion that they still don't. A fixture that quietly
+ * starts solving has stopped being the thing it was written to be — for
+ * `hidden-mechanism` that means the blog post embedded on it now demonstrates
+ * nothing, and no other test in the repository would notice.
+ */
+describe('Fixtures that are meant to fail', () => {
+  for (const name of INTENTIONALLY_UNSOLVABLE) {
+    it(`${name} — still refuses to solve, and says why`, async () => {
+      const json = loadFixtureFile(name);
+      const { model, api } = createStoreMock();
+      loadFixture(json, api);
+      const input = buildSolverInput2D(model);
+      expect(input).not.toBeNull();
+
+      expect(() => solve(input!)).toThrow(/singular|mechanism/i);
+
+      // And the kinematic report explains it rather than only failing: the
+      // formula's verdict, the numerical one, and the disagreement between
+      // them are what the post is about.
+      const report = generateKinematicReport(input!);
+      expect(report).not.toBeNull();
+      expect(report!.degree).toBe(0);
+      expect(report!.hasHiddenMechanism).toBe(true);
+      expect(report!.mechanismModes).toBe(1);
+      expect(report!.isSolvable).toBe(false);
+    });
+  }
+});
+
+// ─── "Not checked" is not "stable" ──────────────────────────────
+
+describe('the kinematic report never passes an unrun check off as a result', () => {
+  /*
+   * `analyzeKinematics` returns `mechanismModes: 0` when the WASM engine is
+   * not ready, together with `rankAnalysis: 'unavailable'` and
+   * `isSolvable: false`. The report used to drop that last signal, so the
+   * panel read zero modes and announced "no mechanisms detected — the
+   * structure is stable" about a model it had not examined.
+   *
+   * CI caught it on the all-roller model the blog post embeds: step 2 said
+   * isostatic, step 3 said stable, and the status bar said "Mechanism —
+   * cannot be solved". Locally it never reproduced, because the engine was
+   * always warm by the time the panel opened.
+   */
+  it('reports whether the rank check ran at all', () => {
+    const json = loadFixtureFile('hidden-mechanism');
+    const { model, api } = createStoreMock();
+    loadFixture(json, api);
+    const report = generateKinematicReport(buildSolverInput2D(model)!)!;
+
+    // In this environment the engine IS ready, so the check ran and found it.
+    expect(report.rankChecked).toBe(true);
+    expect(report.mechanismModes).toBe(1);
+
+    // The invariant that matters: zero modes may only be trusted when the
+    // check actually ran. Anything reading mechanismModes must consult this.
+    expect(report.rankChecked || report.mechanismModes === 0).toBe(true);
   });
 });

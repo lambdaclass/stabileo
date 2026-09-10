@@ -67,7 +67,7 @@
 
 export type ProfileFamily = 'IPE' | 'IPN' | 'HEB' | 'HEA' | 'W' | 'HP' | 'M' | 'C' | 'MC' | 'T' | 'UPN' | 'L' | 'RHS' | 'SHS' | 'CHS';
 
-export type SectionShape = 'I' | 'H' | 'U' | 'L' | 'RHS' | 'CHS' | 'rect' | 'generic' | 'T' | 'invL' | 'C';
+export type SectionShape = 'I' | 'H' | 'U' | 'L' | 'RHS' | 'CHS' | 'rect' | 'generic' | 'T' | 'invL' | 'C' | 'Z';
 
 import { IRAM_CHS, IRAM_SHS, IRAM_RHS } from './iram-tubes';
 import { IRAM_W } from './iram-wf';

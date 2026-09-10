@@ -5,6 +5,9 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::linear::{compute_plate_stresses, compute_quad_stresses};
 use super::constraints::FreeConstraintSystem;
+use super::sparse_tangent::{
+    solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
+};
 
 /// Free DOFs threshold: use sparse solver when n_free >= this.
 const SPARSE_THRESHOLD: usize = 64;
@@ -112,6 +115,12 @@ pub fn solve_nonlinear_material_2d(
     // failed run does not claim the full load was applied.
     let mut last_converged_factor = 0.0f64;
 
+    // Sparse symbolic factorization cache (ns >= SPARSE_THRESHOLD only): the
+    // tangent's sparsity pattern is constant within a solve call (yielding
+    // scales values, not the pattern), so the symbolic phase runs once and
+    // only the numeric phase repeats per Newton iteration.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for inc in 1..=n_increments {
         let load_factor = inc as f64 / n_increments as f64;
 
@@ -138,9 +147,16 @@ pub fn solve_nonlinear_material_2d(
             total_nr_iterations += 1;
 
             // Assemble tangent stiffness with current element states (possibly reduced).
-            // This matrix has no u-dependence, so it starts in TRUE global
-            // frame (unrotated) and can be rotated directly.
-            let mut k_t = assemble_tangent_stiffness(solver, &dof_num, &states);
+            // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
+            // or above it, as lower-triangle COO triplets that feed the CSC
+            // sparse solve directly — no O(n²) dense tangent is built per
+            // iteration. The tangent has no u-dependence, so it starts in
+            // TRUE global frame (unrotated) and can be rotated directly.
+            let sparse_tangent = ns >= SPARSE_THRESHOLD;
+            let mut k_t: Vec<f64> = Vec::new();
+            let mut trip_rows: Vec<usize> = Vec::new();
+            let mut trip_cols: Vec<usize> = Vec::new();
+            let mut trip_vals: Vec<f64> = Vec::new();
 
             // Elements compute internal force via per-element local-frame
             // transforms that assume TRUE global nodal displacements —
@@ -157,9 +173,25 @@ pub fn solve_nonlinear_material_2d(
             // (already rotated by assemble_2d above) so the residual/solve
             // below stay consistent — without this, the reduced-EI tangent
             // stiffness would enforce "restrain literal global Z" instead
-            // of "restrain normal to the incline."
-            for it in &asm.inclined_transforms_2d {
-                assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
+            // of "restrain normal to the incline." The sparse path applies
+            // the same rotation to the triplets + f_int (triplet K rotation
+            // + f rotation == dense apply_inclined_transform_2d).
+            if sparse_tangent {
+                assemble_tangent_stiffness_triplets(
+                    solver, &dof_num, &states,
+                    &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                );
+                for it in &asm.inclined_transforms_2d {
+                    assembly::apply_inclined_transform_triplets_2d(
+                        &mut trip_rows, &mut trip_cols, &mut trip_vals, &it.dofs, &it.r,
+                    );
+                    assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
+                }
+            } else {
+                k_t = assemble_tangent_stiffness(solver, &dof_num, &states);
+                for it in &asm.inclined_transforms_2d {
+                    assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
+                }
             }
 
             // Residual: R = F_ext - f_int
@@ -181,15 +213,28 @@ pub fn solve_nonlinear_material_2d(
             // The prescribed-displacement coupling K_fr * u_r is already in
             // the residual via f_int (u_full carries the restrained values),
             // so the RHS is the residual itself.
-            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-
-            let (k_s, rhs_s) = if let Some(ref cs) = cs {
-                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_free))
+            let delta_u_indep = if sparse_tangent {
+                // CSC free block built directly from the rotated lower-triangle
+                // triplets (free×free filter + constraint reduction in sparse
+                // form); solved with cached-symbolic sparse Cholesky.
+                let k_s_csc = tangent_free_sparse_triplets(
+                    &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+                );
+                let rhs_s = if let Some(ref cs) = cs {
+                    cs.reduce_vector(&r_free)
+                } else {
+                    r_free
+                };
+                solve_tangent_sparse(&k_s_csc, &rhs_s, &mut sparse_sym_cache)?
             } else {
-                (k_ff, r_free)
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                let (k_s, rhs_s) = if let Some(ref cs) = cs {
+                    (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_free))
+                } else {
+                    (k_ff, r_free)
+                };
+                solve_system(k_s, rhs_s, ns)?
             };
-
-            let delta_u_indep = solve_system(k_s, rhs_s, ns)?;
             let delta_u_f = if let Some(ref cs) = cs {
                 cs.expand_solution(&delta_u_indep)
             } else {
@@ -341,6 +386,7 @@ fn lookup_capacities(input: &NonlinearMaterialInput, elem: &SolverElement) -> (f
 // Assemble global tangent stiffness with reduced EI for yielded elements.
 // ---------------------------------------------------------------------------
 
+/// Dense (n×n) tangent — small models and the once-per-solve reaction pass.
 fn assemble_tangent_stiffness(
     solver: &SolverInput,
     dof_num: &DofNumbering,
@@ -348,6 +394,40 @@ fn assemble_tangent_stiffness(
 ) -> Vec<f64> {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
+    assemble_tangent_stiffness_scatter(solver, dof_num, states, &mut |gi, gj, v| {
+        k_global[gi * n + gj] += v;
+    });
+    k_global
+}
+
+/// Lower-triangle COO triplet tangent for the sparse large-model path
+/// (ns >= SPARSE_THRESHOLD): identical entries, never materialized dense.
+fn assemble_tangent_stiffness_triplets(
+    solver: &SolverInput,
+    dof_num: &DofNumbering,
+    states: &[(usize, ElementState)],
+    trip_rows: &mut Vec<usize>,
+    trip_cols: &mut Vec<usize>,
+    trip_vals: &mut Vec<f64>,
+) {
+    assemble_tangent_stiffness_scatter(solver, dof_num, states, &mut |gi, gj, v| {
+        if gi >= gj {
+            trip_rows.push(gi);
+            trip_cols.push(gj);
+            trip_vals.push(v);
+        }
+    });
+}
+
+/// `scatter(gi, gj, v)` accumulates one tangent entry: dense `k[gi*n+gj]`
+/// for the small-model path, lower-triangle triplets for the sparse path.
+fn assemble_tangent_stiffness_scatter(
+    solver: &SolverInput,
+    dof_num: &DofNumbering,
+    states: &[(usize, ElementState)],
+    scatter: &mut impl FnMut(usize, usize, f64),
+) {
+    let n = dof_num.n_total;
 
     let node_by_id: std::collections::HashMap<usize, &SolverNode> =
         solver.nodes.values().map(|n| (n.id, n)).collect();
@@ -355,6 +435,17 @@ fn assemble_tangent_stiffness(
         solver.materials.values().map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> =
         solver.sections.values().map(|s| (s.id, s)).collect();
+
+    // Diagonal accumulator for the artificial-stiffness scale below: the
+    // scatter target (dense matrix or triplet list) is opaque to this
+    // function, so the assembled diagonal is tracked alongside.
+    let mut diag = vec![0.0f64; n];
+    let mut scatter_diag = |gi: usize, gj: usize, v: f64| {
+        if gi == gj {
+            diag[gi] += v;
+        }
+        scatter(gi, gj, v);
+    };
 
     for elem in solver.elements.values() {
         let node_i = node_by_id[&elem.node_i];
@@ -381,7 +472,7 @@ fn assemble_tangent_stiffness(
             ];
             for i in 0..4 {
                 for j in 0..4 {
-                    k_global[truss_dofs[i] * n + truss_dofs[j]] += k_elem[i * 4 + j];
+                    scatter_diag(truss_dofs[i], truss_dofs[j], k_elem[i * 4 + j]);
                 }
             }
         } else {
@@ -407,7 +498,7 @@ fn assemble_tangent_stiffness(
             let ndof = elem_dofs.len();
             for i in 0..ndof {
                 for j in 0..ndof {
-                    k_global[elem_dofs[i] * n + elem_dofs[j]] += k_glob[i * ndof + j];
+                    scatter_diag(elem_dofs[i], elem_dofs[j], k_glob[i * ndof + j]);
                 }
             }
         }
@@ -418,21 +509,21 @@ fn assemble_tangent_stiffness(
         if let Some(kx) = sup.kx {
             if kx > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                    k_global[d * n + d] += kx;
+                    scatter_diag(d, d, kx);
                 }
             }
         }
         if let Some(ky) = sup.ky {
             if ky > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                    k_global[d * n + d] += ky;
+                    scatter_diag(d, d, ky);
                 }
             }
         }
         if let Some(kz) = sup.kz {
             if kz > 0.0 && dof_num.dofs_per_node >= 3 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    k_global[d * n + d] += kz;
+                    scatter_diag(d, d, kz);
                 }
             }
         }
@@ -441,8 +532,8 @@ fn assemble_tangent_stiffness(
     // Artificial rotational stiffness for all-hinged nodes.
     if dof_num.dofs_per_node >= 3 {
         let mut max_diag = 0.0f64;
-        for i in 0..n {
-            max_diag = max_diag.max(k_global[i * n + i].abs());
+        for &d in &diag {
+            max_diag = max_diag.max(d.abs());
         }
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
 
@@ -483,14 +574,12 @@ fn assemble_tangent_stiffness(
             if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
                 if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
                     if idx < dof_num.n_free {
-                        k_global[idx * n + idx] += artificial_k;
+                        scatter(idx, idx, artificial_k);
                     }
                 }
             }
         }
     }
-
-    k_global
 }
 
 // ---------------------------------------------------------------------------
@@ -677,31 +766,20 @@ fn yield_utilization(n: f64, m: f64, np: f64, mp: f64) -> f64 {
 }
 
 // ---------------------------------------------------------------------------
-// Solve a linear system, choosing between sparse and dense solvers.
+// Solve a linear system with the dense solver. Only called on the small-model
+// path (ns/nf < SPARSE_THRESHOLD); larger systems go through
+// `sparse_tangent::solve_tangent_sparse` directly from triplets.
 // ---------------------------------------------------------------------------
 
 fn solve_system(k_ff: Vec<f64>, rhs: Vec<f64>, nf: usize) -> Result<Vec<f64>, String> {
-    if nf >= SPARSE_THRESHOLD {
-        let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
-        match sparse_cholesky_solve_full(&k_ff_sparse, &rhs) {
-            Some(u) => Ok(u),
-            None => {
-                let mut k_work = k_ff;
-                let mut f_work = rhs;
-                lu_solve(&mut k_work, &mut f_work, nf)
-                    .ok_or_else(|| "Singular tangent stiffness matrix".to_string())
-            }
-        }
-    } else {
-        let mut k_work = k_ff.clone();
-        match cholesky_solve(&mut k_work, &rhs, nf) {
-            Some(u) => Ok(u),
-            None => {
-                let mut k_work = k_ff;
-                let mut f_work = rhs;
-                lu_solve(&mut k_work, &mut f_work, nf)
-                    .ok_or_else(|| "Singular tangent stiffness matrix".to_string())
-            }
+    let mut k_work = k_ff.clone();
+    match cholesky_solve(&mut k_work, &rhs, nf) {
+        Some(u) => Ok(u),
+        None => {
+            let mut k_work = k_ff;
+            let mut f_work = rhs;
+            lu_solve(&mut k_work, &mut f_work, nf)
+                .ok_or_else(|| "Singular tangent stiffness matrix".to_string())
         }
     }
 }
@@ -910,6 +988,10 @@ pub fn solve_nonlinear_material_3d(
     // Last increment that actually converged — see the 2D solver.
     let mut last_converged_factor = 0.0f64;
 
+    // See the 2D solver: cached symbolic factorization for the
+    // nf >= SPARSE_THRESHOLD sparse tangent path.
+    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
     for inc in 1..=n_increments {
         let load_factor = inc as f64 / n_increments as f64;
 
@@ -933,8 +1015,14 @@ pub fn solve_nonlinear_material_3d(
             // See the 2D solver's identical comment: k_t has no u-dependence
             // (rotate directly); f_int needs TRUE global u for its
             // per-element local-frame transforms (reverse first, rotate
-            // the result back after).
-            let mut k_t = assemble_tangent_stiffness_3d(solver, &dof_num, &states);
+            // the result back after). Below SPARSE_THRESHOLD the tangent is
+            // assembled dense (n×n); at or above it, as lower-triangle COO
+            // triplets — no O(n²) dense tangent is built per iteration.
+            let sparse_tangent = nf >= SPARSE_THRESHOLD;
+            let mut k_t: Vec<f64> = Vec::new();
+            let mut trip_rows: Vec<usize> = Vec::new();
+            let mut trip_cols: Vec<usize> = Vec::new();
+            let mut trip_vals: Vec<f64> = Vec::new();
 
             let mut u_geom = u_full.clone();
             for it in &asm.inclined_transforms {
@@ -942,8 +1030,24 @@ pub fn solve_nonlinear_material_3d(
             }
             let mut f_int = compute_global_internal_forces_3d(solver, &dof_num, &u_geom, &states);
 
-            for it in &asm.inclined_transforms {
-                assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
+            if sparse_tangent {
+                assemble_tangent_stiffness_3d_triplets(
+                    solver, &dof_num, &states,
+                    &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                );
+                // Triplet K rotation + f rotation == dense
+                // apply_inclined_transform below.
+                for it in &asm.inclined_transforms {
+                    assembly::apply_inclined_transform_triplets(
+                        &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                        &mut f_int, &it.dofs, &it.r,
+                    );
+                }
+            } else {
+                k_t = assemble_tangent_stiffness_3d(solver, &dof_num, &states);
+                for it in &asm.inclined_transforms {
+                    assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
+                }
             }
 
             let mut residual = vec![0.0; n];
@@ -962,9 +1066,19 @@ pub fn solve_nonlinear_material_3d(
             // The prescribed-displacement coupling K_fr * u_r is already in
             // the residual via f_int (u_full carries the restrained values),
             // so the RHS is the residual itself.
-            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-
-            let delta_u_f = solve_system(k_ff, r_free, nf)?;
+            let delta_u_f = if sparse_tangent {
+                // The 3D Newton loop does not constraint-reduce (unlike 2D —
+                // cs is only used for the final constraint-forces report), so
+                // the sparse CSC is built without a constraint system to
+                // match the dense path exactly.
+                let k_s_csc = tangent_free_sparse_triplets(
+                    &trip_rows, &trip_cols, &trip_vals, nf, &None,
+                );
+                solve_tangent_sparse(&k_s_csc, &r_free, &mut sparse_sym_cache)?
+            } else {
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                solve_system(k_ff, r_free, nf)?
+            };
 
             // Update displacements (free DOFs; restrained stay at this
             // increment's prescribed values set before the loop).
@@ -1107,6 +1221,7 @@ fn lookup_capacities_3d(input: &NonlinearMaterialInput3D, elem: &SolverElement3D
 // 3D tangent stiffness assembly with reduced EI for yielded elements.
 // ---------------------------------------------------------------------------
 
+/// Dense (n×n) tangent — small models and the once-per-solve reaction pass.
 fn assemble_tangent_stiffness_3d(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
@@ -1114,6 +1229,39 @@ fn assemble_tangent_stiffness_3d(
 ) -> Vec<f64> {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
+    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, &mut |gi, gj, v| {
+        k_global[gi * n + gj] += v;
+    });
+    k_global
+}
+
+/// Lower-triangle COO triplet tangent for the sparse large-model path
+/// (nf >= SPARSE_THRESHOLD): identical entries, never materialized dense.
+fn assemble_tangent_stiffness_3d_triplets(
+    solver: &SolverInput3D,
+    dof_num: &DofNumbering,
+    states: &[(usize, ElementState3D)],
+    trip_rows: &mut Vec<usize>,
+    trip_cols: &mut Vec<usize>,
+    trip_vals: &mut Vec<f64>,
+) {
+    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, &mut |gi, gj, v| {
+        if gi >= gj {
+            trip_rows.push(gi);
+            trip_cols.push(gj);
+            trip_vals.push(v);
+        }
+    });
+}
+
+/// `scatter(gi, gj, v)` accumulates one tangent entry: dense `k[gi*n+gj]`
+/// for the small-model path, lower-triangle triplets for the sparse path.
+fn assemble_tangent_stiffness_3d_scatter(
+    solver: &SolverInput3D,
+    dof_num: &DofNumbering,
+    states: &[(usize, ElementState3D)],
+    scatter: &mut impl FnMut(usize, usize, f64),
+) {
     let left_hand = solver.left_hand.unwrap_or(false);
 
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> =
@@ -1152,10 +1300,10 @@ fn assemble_tangent_stiffness_3d(
             for i in 0..3 {
                 for j in 0..3 {
                     let kij = ea_l * dir[i] * dir[j];
-                    k_global[truss_dofs[i] * n + truss_dofs[j]] += kij;
-                    k_global[truss_dofs[i + 3] * n + truss_dofs[j + 3]] += kij;
-                    k_global[truss_dofs[i] * n + truss_dofs[j + 3]] -= kij;
-                    k_global[truss_dofs[i + 3] * n + truss_dofs[j]] -= kij;
+                    scatter(truss_dofs[i], truss_dofs[j], kij);
+                    scatter(truss_dofs[i + 3], truss_dofs[j + 3], kij);
+                    scatter(truss_dofs[i], truss_dofs[j + 3], -kij);
+                    scatter(truss_dofs[i + 3], truss_dofs[j], -kij);
                 }
             }
         } else {
@@ -1200,7 +1348,7 @@ fn assemble_tangent_stiffness_3d(
                 let ndof = elem_dofs.len();
                 for i in 0..ndof {
                     for j in 0..ndof {
-                        k_global[elem_dofs[i] * n + elem_dofs[j]] += k_glob[i * ndof + j];
+                        scatter(elem_dofs[i], elem_dofs[j], k_glob[i * ndof + j]);
                     }
                 }
             } else {
@@ -1214,7 +1362,7 @@ fn assemble_tangent_stiffness_3d(
                 let ndof = elem_dofs.len();
                 for i in 0..ndof {
                     for j in 0..ndof {
-                        k_global[elem_dofs[i] * n + elem_dofs[j]] += k_glob[i * ndof + j];
+                        scatter(elem_dofs[i], elem_dofs[j], k_glob[i * ndof + j]);
                     }
                 }
             }
@@ -1231,14 +1379,12 @@ fn assemble_tangent_stiffness_3d(
             if let Some(k) = k_val {
                 if k > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        k_global[d * n + d] += k;
+                        scatter(d, d, k);
                     }
                 }
             }
         }
     }
-
-    k_global
 }
 
 // ---------------------------------------------------------------------------

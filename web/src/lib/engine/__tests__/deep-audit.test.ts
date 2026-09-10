@@ -16,7 +16,7 @@ import { computeDiagramValueAt, computeDeformedShape } from '../diagrams';
 import { computeDiagram3D, evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
 import { analyzeSectionStress } from '../section-stress';
 import { analyzeSectionStress3D } from '../section-stress-3d';
-import { is2DFixture, is3DFixture } from '../../templates/fixture-index';
+import { is2DFixture, is3DFixture, INTENTIONALLY_UNSOLVABLE } from '../../templates/fixture-index';
 import type { ElementForces3D } from '../types-3d';
 
 // ─── Fixture discovery ──────────────────────────────────────────
@@ -24,7 +24,13 @@ import type { ElementForces3D } from '../types-3d';
 const fixtureDir = 'src/lib/templates/fixtures';
 const allFixtures = readdirSync(fixtureDir)
   .filter(f => f.endsWith('.json'))
-  .map(f => f.replace('.json', ''));
+  .map(f => f.replace('.json', ''))
+  /*
+   * Models designed not to solve are out of every audit below, which all
+   * assert the opposite. See INTENTIONALLY_UNSOLVABLE — the exclusion is
+   * declared beside the registry, not hidden in a test.
+   */
+  .filter(f => !INTENTIONALLY_UNSOLVABLE.has(f));
 
 const fixtures2D = allFixtures.filter(f => is2DFixture(f));
 const fixtures3D = allFixtures.filter(f => is3DFixture(f));

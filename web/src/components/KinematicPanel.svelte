@@ -60,7 +60,27 @@
     }
     report = generateKinematicReport(input, slidingJoints);
     lastAnalyzedVersion = modelStore.modelVersion;
+
+    /*
+     * If the rank check could not run, come back for it.
+     *
+     * `analyzeKinematics` needs the WASM engine, and the panel can be opened
+     * before it has loaded — a deep link like `?kin=1` does exactly that. The
+     * report is honest about it (`rankChecked: false`) and the panel now says
+     * so, but "not verified yet" is a state to leave, not to sit in. Bounded,
+     * so a browser where WASM never arrives stops asking rather than polling
+     * for the life of the page.
+     */
+    if (report && !report.rankChecked && rankRetries < 40) {
+      rankRetries++;
+      setTimeout(() => {
+        if (uiStore.showKinematicPanel) recompute();
+      }, 250);
+    }
   }
+
+  /** Attempts spent waiting for the engine. Reset whenever the panel opens. */
+  let rankRetries = 0;
 
   // Main reactive logic: auto-recompute when appropriate
   $effect(() => {
@@ -69,6 +89,7 @@
       if (lastAnalyzedVersion !== -1) {
         lastAnalyzedVersion = -1;
         report = null;
+        rankRetries = 0;
       }
       return;
     }
@@ -134,7 +155,7 @@
       <div class="kp-body">
 
         {#if isStale}
-          <button class="kp-stale-btn" onclick={recompute}>
+          <button class="kp-stale-btn" data-testid="kin-stale" onclick={recompute}>
             {t('kinematic.stale')}
           </button>
         {/if}
@@ -229,7 +250,17 @@
               {@html t('kinematic.matrixExplanation').replaceAll('{n}', String(report.nFreeDofs))}
             </div>
 
-            {#if report.mechanismModes === 0}
+            {#if !report.rankChecked}
+              <!--
+                The check could not run — the WASM engine was not ready. This
+                used to fall into the branch below and announce that the
+                structure is stable, which is a claim nothing had verified.
+                Not knowing is a third state and it has to look like one.
+              -->
+              <div class="kp-result kp-warn-bg">
+                {t('kinematic.rankUnavailable')}
+              </div>
+            {:else if report.mechanismModes === 0}
               <div class="kp-result kp-ok-bg">
                 {t('kinematic.noMechanisms')}
               </div>
