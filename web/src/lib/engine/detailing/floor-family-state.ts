@@ -18,8 +18,10 @@
  *   notRun       `run === null`                    — the pass has not produced a result
  *   noElements   `readiness.shellCount === 0`      — model fact, knowable WITHOUT running
  *                `footingCount === 0`
- *                nothing classified into the family — the same fact, established BY the run
- *                when the model-wide count cannot see it (a building of walls has no slabs)
+ *                nothing classified into the family, WHEN the run classified something —
+ *                the same fact, established BY the run where the model-wide count cannot see
+ *                it (a building of walls has no slabs). The proviso matters: an empty
+ *                classification list is not evidence of absence, only of nothing being read.
  *   skipped      classified in the family, and in neither the designed nor the refused set
  *   designed     `run.slabs[]` / `run.walls[]`     — real results with layers and shear
  *   refused      `run.unsupported[]`               — each entry names its element
@@ -201,9 +203,25 @@ function shellState(key: 'slabs' | 'walls', input: FloorFamilyInput): FloorFamil
   // "skipped" list, and inventing one would be the same sin as the zero this replaces.
   const skipped = Math.max(0, classified - designed - refused);
 
-  // The run classified shells, and none of them into this family. See the header: this is
-  // an absence established BY the run, so the counts are stated rather than withheld.
-  const kind: FloorFamilyStateKind = classified === 0
+  /*
+   * The run classified shells, and none of them into this family. See the header: an absence
+   * established BY the run, so the counts are stated rather than withheld.
+   *
+   * ── Why the run has to have classified SOMETHING ───────────────
+   *
+   * `classifications` does not cover every shell. `run-floor-design.ts` pushes a shell whose
+   * nodes it cannot resolve straight to `unsupported` and `continue`s, so it never reaches the
+   * list. A model whose shells all fail that way leaves `classifications` empty while the
+   * model plainly has shells — and reading `classified === 0` alone would then tell the
+   * engineer their building contains no slabs AND no walls, which is a stronger and falser
+   * claim than the `skipped` this branch was written to replace.
+   *
+   * So the conclusion needs the run to have classified something. With an empty list there is
+   * no evidence of absence, only evidence that nothing could be read, and the fall-through
+   * keeps the weaker word.
+   */
+  const classifiedAnything = input.run.classifications.length > 0;
+  const kind: FloorFamilyStateKind = classified === 0 && classifiedAnything
     ? 'noElements'
     : headline({ designed, refused, provisional, skipped });
 

@@ -109,6 +109,28 @@ describe('no figure is invented before the pass classifies anything', () => {
     expect(of(r, 'walls').kind).toBe('designed');
     expect(of(r, 'walls').designed).toBe(40);
   });
+
+  it('does not call it noElements when the run classified nothing at all', () => {
+    /*
+     * The case that makes `classified === 0` insufficient on its own.
+     *
+     * `run-floor-design.ts` sends a shell whose nodes it cannot resolve straight to
+     * `unsupported` and `continue`s, so that shell never enters `classifications`. A model
+     * where every shell fails that way has shells and an EMPTY classification list — and
+     * concluding absence from it would tell the engineer the building has no slabs and no
+     * walls, which is worse than the `skipped` it replaced, not better.
+     *
+     * An empty list is not evidence of absence. It is evidence that nothing could be read.
+     */
+    const r = floorFamilyStates(input({
+      readiness: { shellCount: 12 },
+      run: { ...emptyRun, unsupported: [{ elementId: 1 }, { elementId: 2 }] },
+    }));
+
+    for (const fam of ['slabs', 'walls'] as const) {
+      expect(of(r, fam).kind, `${fam} must not claim the model has none`).not.toBe('noElements');
+    }
+  });
 });
 
 describe('sin elementos — a fact about the model, not about the run', () => {
