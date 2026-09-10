@@ -30,16 +30,15 @@
    * thing in words and the opposite in colour.
    */
   const FREE = { k: 'priceFree', tone: 'free' } as const;
+  /*
+   * In the order the page introduced them: Basic, PRO Analysis, PRO Design,
+   * the agent, Education. The table read Education before the agent, so the
+   * one row a reader had not met yet arrived out of sequence.
+   */
   const rows = [
     { mod: 'modBasic',     firms: FREE, unis: FREE },
     { mod: 'modProCalc',   firms: FREE, unis: FREE },
     { mod: 'modProDesign', firms: { k: 'pricePaidLow', tone: 'paid' }, unis: FREE },
-    /*
-     * Education's firms cell is blank, not "free". The mode is aimed at
-     * teaching; saying "gratis" to a firm invites the question of what a firm
-     * would do with it, which the row cannot answer in two words.
-     */
-    { mod: 'modEdu',       firms: null, unis: FREE },
     /*
      * The AI's university cell is deliberately blank. Repeating "pago por
      * token" there answered a question the paragraph below answers better: a
@@ -47,6 +46,12 @@
      * contradicted that; a blank leaves the explanation to do the work.
      */
     { mod: 'modAi',        firms: { k: 'pricePerToken', tone: 'paid' }, unis: null },
+    /*
+     * Education's firms cell is blank, not "free". The mode is aimed at
+     * teaching; saying "gratis" to a firm invites the question of what a firm
+     * would do with it, which the row cannot answer in two words.
+     */
+    { mod: 'modEdu',       firms: null, unis: FREE },
   ];
 </script>
 

@@ -661,10 +661,10 @@ test.describe('@landing the model the deck states', () => {
       ['Básico', 'Gratis', 'Gratis'],
       ['PRO · Cálculo', 'Gratis', 'Gratis'],
       ['PRO · Diseño normativo', 'Pago, a precios bajos', 'Gratis'],
-      ['Educativo', '', 'Gratis'],
       // Blank on purpose: a university brings its own model API, and the
       // paragraph under the table is where that is explained.
       ['Stabileo IA', 'Pago por token', ''],
+      ['Educativo', '', 'Gratis'],
     ]);
   });
 
@@ -712,14 +712,14 @@ test.describe('@landing the model the deck states', () => {
     const unis = await pricing
       .locator('.model-table tbody tr')
       .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent?.trim() ?? ''));
-    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', 'Gratis', '']);
+    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', '', 'Gratis']);
 
     // And the firms column, where Education is blank for the same kind of
     // reason: a price there would answer a question the mode does not pose.
     const firms = await pricing
       .locator('.model-table tbody tr')
       .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[0]?.textContent?.trim() ?? ''));
-    expect(firms).toEqual(['Gratis', 'Gratis', 'Pago, a precios bajos', '', 'Pago por token']);
+    expect(firms).toEqual(['Gratis', 'Gratis', 'Pago, a precios bajos', 'Pago por token', '']);
 
     // And the explanation is actually there, since the blank now depends on it.
     await expect(pricing).toContainText('conectar la API del modelo de lenguaje');
