@@ -756,3 +756,51 @@ test.describe('@landing the model the deck states', () => {
     }
   });
 });
+
+/*
+ * The deck in the three languages it ships.
+ *
+ * `t()` falls back to English and then to the key itself, so a locale missing
+ * a key does not error — it renders `landing.proCalcH` on the page, or worse,
+ * quietly shows English to a Portuguese reader. Both failures look like a
+ * working page to anyone who does not read that language.
+ */
+test.describe('@landing every language gets the whole deck', () => {
+  const HEADING = {
+    es: 'Un desarrollo abierto con varias aristas',
+    en: 'An open project with several sides to it',
+    pt: 'Um desenvolvimento aberto com várias arestas',
+  } as const;
+
+  const FREE = { es: 'Gratis', en: 'Free', pt: 'Grátis' } as const;
+
+  for (const locale of ['es', 'en', 'pt'] as const) {
+    test(`${locale}: eight sections, no raw keys, and a priced table`, async ({ page }) => {
+      await bootLanding(page, { locale });
+
+      const order = await page
+        .locator('.landing > section[data-section]')
+        .evaluateAll((els) => els.map((el) => el.getAttribute('data-section')));
+      expect(order).toEqual([...SECTIONS]);
+
+      // A key that reached the page as text is a missing translation.
+      const body = await page.locator('.landing').innerText();
+      expect(body, `${locale} renders a raw i18n key`).not.toMatch(/\blanding\.[a-zA-Z]/);
+
+      await expect(page.locator('.landing #pricing-title')).toHaveText(HEADING[locale]);
+
+      // Five modules, and the free ones say so in this language rather than
+      // falling through to English.
+      const rows = page.locator('section[data-section="pricing"] .model-table tbody tr');
+      await expect(rows).toHaveCount(5);
+      await expect(rows.first().locator('td').first()).toHaveText(FREE[locale]);
+
+      // Every picture carries a description someone can hear.
+      const alts = await page.locator('.landing img').evaluateAll((els) =>
+        els.map((e) => e.getAttribute('alt') ?? ''),
+      );
+      expect(alts.length).toBeGreaterThan(5);
+      for (const alt of alts) expect(alt.trim().length, `${locale}: an image with no alt`).toBeGreaterThan(10);
+    });
+  }
+});

@@ -22,12 +22,20 @@
    * and repeated Education twice to split public from private universities;
    * they are one audience now and everything is free for them.
    */
+  /*
+   * Five modules, two audiences, and the tone belongs to the CELL.
+   *
+   * PRO · Design is paid for firms and free for universities. With the tone
+   * on the row, that "Gratis" came out in the paid red — the table saying one
+   * thing in words and the opposite in colour.
+   */
+  const FREE = { k: 'priceFree', tone: 'free' } as const;
   const rows = [
-    { mod: 'modBasic',     firms: 'priceFree',     unis: 'priceFree' },
-    { mod: 'modProCalc',   firms: 'priceFree',     unis: 'priceFree' },
-    { mod: 'modProDesign', firms: 'pricePaidLow',  unis: 'priceFree',     tone: 'paid' },
-    { mod: 'modEdu',       firms: 'priceFree',     unis: 'priceFree' },
-    { mod: 'modAi',        firms: 'pricePerToken', unis: 'pricePerToken', tone: 'paid' },
+    { mod: 'modBasic',     firms: FREE, unis: FREE },
+    { mod: 'modProCalc',   firms: FREE, unis: FREE },
+    { mod: 'modProDesign', firms: { k: 'pricePaidLow', tone: 'paid' }, unis: FREE },
+    { mod: 'modEdu',       firms: FREE, unis: FREE },
+    { mod: 'modAi',        firms: { k: 'pricePerToken', tone: 'paid' }, unis: { k: 'pricePerToken', tone: 'paid' } },
   ];
 </script>
 
@@ -49,10 +57,10 @@
         </thead>
         <tbody>
           {#each rows as r}
-            <tr class={`tone-${r.tone ?? 'free'}`}>
+            <tr>
               <th scope="row">{t('landing.' + r.mod)}</th>
-              <td class="price">{t('landing.' + r.firms)}</td>
-              <td class="price">{t('landing.' + r.unis)}</td>
+              <td class="price is-{r.firms.tone}">{t('landing.' + r.firms.k)}</td>
+              <td class="price is-{r.unis.tone}">{t('landing.' + r.unis.k)}</td>
             </tr>
           {/each}
         </tbody>

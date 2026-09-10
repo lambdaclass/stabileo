@@ -1532,7 +1532,16 @@
 
 /* ─── FOOTER ─────────────────────────────────────────────────────────────── */
 
+/*
+   The footer is a footer, not another chapter.
+
+   It inherited `.sec`'s padding — up to 8.5rem — so its top rule sat a
+   third of a screen above the first thing under it, and the band between
+   read as a section with nothing in it. A footer wants far less air above
+   its content than a section does.
+*/
 .landing .lp-footer {
+  padding-top: clamp(2.2rem, 4vw, 3.4rem);
   padding-bottom: 2.5rem;
   border-top: 1px solid rgba(143, 163, 179, 0.16);
 }
@@ -1975,9 +1984,10 @@
 .landing .model-table thead th:not(:first-child) { width: 22%; }
 
 /* Colour carries the same distinction the words do, never on its own. */
-.landing .model-table .tone-free .price { color: #4ba36b; }
-.landing .model-table .tone-paid .price { color: var(--lp-accent); }
-.landing .model-table .tone-tbd .price { color: var(--lp-slate-2); }
+/* Per CELL, not per row. "PRO · Diseño" is paid for firms and free for
+   universities; colouring the row painted that free in the paid red. */
+.landing .model-table .price.is-free { color: #4ba36b; }
+.landing .model-table .price.is-paid { color: var(--lp-accent); }
 
 /* A closing line that is the point of its section, not an aside. */
 .landing .mode-note--strong {
