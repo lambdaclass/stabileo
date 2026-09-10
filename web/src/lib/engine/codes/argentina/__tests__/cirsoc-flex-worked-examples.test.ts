@@ -33,6 +33,7 @@ import { checkFlexureFlanged } from '../cirsoc201-flanged';
 import { checkColumn } from '../cirsoc201';
 import { designCircular, checkColumnCircular } from '../cirsoc201-circular';
 import { COLUMN_STEEL_RATIO } from '../cirsoc201-basis';
+import { designRectColumn } from '../cirsoc201-capacity';
 
 /** `d's` minus the 8 mm `effectiveDepth` adds for the assumed Ø16 bar. */
 const coverFor = (dPrimeS: number) => dPrimeS - 0.008;
@@ -139,26 +140,31 @@ describe('FCR — rectangular section under axial load and bending', () => {
   });
 
   /**
-   * ── A KNOWN DEVIATION, pinned rather than hidden ─────────────────
+   * The panel does not use `checkColumn`, and this is why.
    *
-   * The workbook solves the section by strain compatibility and gets
-   * 21.34 cm². `checkColumn` splits the demand into a flexural part and an
-   * axial part and adds the steel — its own steps say so — which is a
-   * straight-line reading of the interaction diagram and lands at 25.69 cm²,
-   * about 20 % MORE steel.
+   * Against the workbook's example it returns 25.69 cm² for a published
+   * 21.34 — but the 20 % is not the problem, the SIGN is not guaranteed.
+   * Swept against the real interaction diagram the same rule ran from 71 %
+   * to 171 % of the steel required, light in the high-moment corner. See
+   * `rect-column-on-the-curve.test.ts`.
    *
-   * Conservative, so nothing unsafe ships, and worth knowing before these
-   * numbers are used to cross-check PRO's concrete design: they will not
-   * match a hand calculation, and the difference is method, not error.
-   *
-   * The bound is asserted both ways. If someone replaces the straight line
-   * with the real curve — `generateInteractionDiagram` already exists — this
-   * test fails, which is the notification that the deviation is gone.
+   * Pinned here so the old rule's behaviour stays documented while it is
+   * still in the file, and quoted by PRO's memos.
    */
-  it('is about 20 % conservative against the workbook, and that is the method', () => {
-    const published = 21.3354;
-    expect(r.AsTotal / published).toBeGreaterThan(1.10);
-    expect(r.AsTotal / published).toBeLessThan(1.30);
+  it('the old estimator is 20 % heavy HERE, and not reliably heavy anywhere', () => {
+    expect(r.AsTotal / 21.3354).toBeGreaterThan(1.10);
+    expect(r.AsTotal / 21.3354).toBeLessThan(1.30);
+  });
+
+  it('what the panel actually uses lands within 10 % of the published steel', () => {
+    const sized = designRectColumn(
+      { fc: 25, fy: 420, cover: 0.042, b: 0.30, h: 0.30, stirrupDia: 0 },
+      500, 100, 8,
+    );
+    expect(sized).not.toBeNull();
+    const ratio = sized!.AstCm2 / 21.3354;
+    expect(ratio, `ours ${sized!.AstCm2.toFixed(2)} vs published 21.34`).toBeGreaterThan(0.95);
+    expect(ratio).toBeLessThan(1.10);
   });
 });
 

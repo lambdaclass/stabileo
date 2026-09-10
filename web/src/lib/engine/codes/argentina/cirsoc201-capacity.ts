@@ -24,6 +24,8 @@
 import { beta1, phiFromStrain, EPSILON_CU, minFlexuralSteelCm2 } from './cirsoc201-basis';
 import type { ConcreteDesignParams } from './cirsoc201';
 import { flangedBlockDepth, type FlangedGeometry } from './cirsoc201-flanged';
+import { generateInteractionDiagram } from './interaction-diagram';
+import { COLUMN_STEEL_RATIO } from './cirsoc201-basis';
 
 export interface Capacity {
   /** Depth of the equivalent rectangular block, m. */
@@ -185,4 +187,129 @@ export function sizeByBisection(
     if (ratioAt(mid) > 1) lo = mid; else hi = mid;
   }
   return { AsCm2: hi, ratio: ratioAt(hi) };
+}
+
+
+// ── Rectangular columns, on the real curve ─────────────────────────
+
+export interface ColumnCheck {
+  /** Capacity on the ray from the origin through (Mu, Pu). */
+  phiPn: number;
+  phiMn: number;
+  ratio: number;
+  status: 'ok' | 'fail';
+  /** Neutral axis depth at that point, m. */
+  c: number;
+  epsilonT: number;
+  phi: number;
+  steps: string[];
+}
+
+/**
+ * Is (Pu, Mu) inside the section's interaction diagram?
+ *
+ * ── Why this exists when `checkColumn` already did ─────────────────
+ *
+ * `checkColumn` does not read the diagram. It sizes the steel for the moment
+ * as an isolated couple, sizes more steel to carry the whole axial load on
+ * the bars alone, halves the second, and adds them. Its own comments say
+ * "rough" and "simplified", and the adapter that PRO designs through says
+ * plainly that these estimators are not the authoritative path — PRO uses a
+ * strain-compatible verifier.
+ *
+ * The additive rule has no interaction in it, and a column HAS interaction:
+ * moderate axial compression raises the moment capacity, which is the whole
+ * bulge of the curve up to the balance point. Swept against the real diagram
+ * over nine points of a 30×30, it ran from 71 % to 171 % of the steel
+ * actually required — conservative in the middle, and up to 29 % LIGHT in
+ * the high-moment corner. Conservative on average is not a safety property.
+ *
+ * So the panel reads the curve, the same way the circular module does, with
+ * the same ray comparison: hold the eccentricity and ask how much further
+ * the column could be pushed. `checkColumn` is left alone — nothing else
+ * calls it, and rewriting a function PRO's memos still quote is a separate
+ * decision from fixing what the panel shows.
+ */
+export function rectColumnCheck(
+  params: ConcreteDesignParams,
+  AstCm2: number,
+  Pu: number,
+  Mu: number,
+  barCount = 8,
+  barDia = 20,
+): ColumnCheck {
+  const { fc, fy, b, h, cover, stirrupDia } = params;
+  const diag = generateInteractionDiagram({
+    b, h, fc, fy,
+    /* The diagram measures to the bar centre; the params carry clear cover. */
+    cover: cover + stirrupDia / 1000 + barDia / 2000,
+    AsProv: AstCm2, barCount, barDia, nPoints: 60,
+  });
+
+  const MuAbs = Math.abs(Mu);
+  const steps = [
+    `Sección ${(b * 100).toFixed(0)}×${(h * 100).toFixed(0)} cm, Ast = ${AstCm2.toFixed(2)} cm²`,
+    `Pu = ${Pu.toFixed(1)} kN, Mu = ${MuAbs.toFixed(2)} kN·m`,
+    `Diagrama de interacción: ${diag.points.length} puntos por compatibilidad de deformaciones`,
+  ];
+
+  /* Pure bending: the ray lies along the moment axis and cannot be crossed. */
+  if (Math.abs(Pu) < 1e-9) {
+    let best = 0;
+    let at = diag.points[0];
+    for (const p of diag.points) if (p.phiPn >= 0 && p.phiMn > best) { best = p.phiMn; at = p; }
+    const ratio = best > 0 ? MuAbs / best : Infinity;
+    steps.push(`Flexión pura: φMn,máx = ${best.toFixed(2)} kN·m`);
+    return {
+      phiPn: 0, phiMn: best, ratio, status: ratio <= 1 ? 'ok' : 'fail',
+      c: at.c, epsilonT: 0, phi: 0, steps,
+    };
+  }
+
+  const slope = MuAbs / Pu;
+  let capP = 0;
+  let capM = 0;
+  let at = diag.points[0];
+  for (let i = 0; i < diag.points.length - 1; i++) {
+    const A = diag.points[i];
+    const B = diag.points[i + 1];
+    const fA = A.phiMn - slope * A.phiPn;
+    const fB = B.phiMn - slope * B.phiPn;
+    if (fA === 0 || fA * fB < 0) {
+      const t = fA / (fA - fB);
+      capP = A.phiPn + t * (B.phiPn - A.phiPn);
+      capM = A.phiMn + t * (B.phiMn - A.phiMn);
+      at = Math.abs(t) < 0.5 ? A : B;
+      break;
+    }
+  }
+
+  const ratio = Math.hypot(capM, capP) > 1e-9
+    ? Math.hypot(MuAbs, Pu) / Math.hypot(capM, capP)
+    : Infinity;
+  steps.push(`Capacidad sobre la recta de excentricidad: φPn = ${capP.toFixed(1)} kN, φMn = ${capM.toFixed(2)} kN·m`);
+  steps.push(`Relación demanda/capacidad = ${ratio.toFixed(3)}`);
+
+  return {
+    phiPn: capP, phiMn: capM, ratio, status: ratio <= 1 ? 'ok' : 'fail',
+    c: at.c, epsilonT: 0, phi: 0, steps,
+  };
+}
+
+/** The steel a rectangular column needs, bisected on `rectColumnCheck`. */
+export function designRectColumn(
+  params: ConcreteDesignParams,
+  Pu: number,
+  Mu: number,
+  barCount = 8,
+  barDia = 20,
+): { AstCm2: number; check: ColumnCheck } | null {
+  const Ag = params.b * params.h;
+  const sized = sizeByBisection(
+    (Ast) => rectColumnCheck(params, Ast, Pu, Mu, barCount, barDia).ratio,
+    COLUMN_STEEL_RATIO.min * Ag * 1e4,
+    COLUMN_STEEL_RATIO.max * Ag * 1e4,
+  );
+  if (!sized) return null;
+  return { AstCm2: sized.AsCm2, check: rectColumnCheck(params, sized.AsCm2, Pu, Mu, barCount, barDia) };
 }

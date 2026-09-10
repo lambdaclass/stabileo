@@ -27,7 +27,7 @@
    */
   import { t } from '../lib/i18n';
   import {
-    checkFlexure, checkColumn, checkBiaxial,
+    checkFlexure, checkBiaxial,
     ASSUMED_FLEXURE_BAR_DIA_MM,
     type ConcreteDesignParams,
   } from '../lib/engine/codes/argentina/cirsoc201';
@@ -37,6 +37,7 @@
   } from '../lib/engine/codes/argentina/cirsoc201-circular';
   import {
     rectCapacity, flangedCapacity, sizeByBisection,
+    rectColumnCheck, designRectColumn,
   } from '../lib/engine/codes/argentina/cirsoc201-capacity';
   import SectionDrawing from './SectionDrawing.svelte';
   import type { SectionShape } from '../lib/engine/codes/argentina/section-shape';
@@ -178,17 +179,24 @@
           };
         }
         if (kase === 'rect-column') {
-          const r = checkColumn(params, Pu, Mu);
+          /*
+           * On the interaction diagram, not on `checkColumn`. That function
+           * adds a flexural steel to half an axial steel and calls it a
+           * design; swept against the real curve it ran from 71 % to 171 %
+           * of what is actually required. See `rectColumnCheck`.
+           */
+          const sized = designRectColumn(params, Pu, Mu, barCount);
+          const Ast = sized?.AstCm2 ?? AsGiven;
+          const chk = sized?.check ?? rectColumnCheck(params, AsGiven, Pu, Mu, barCount);
           return {
-            headline: `Ast = ${r.AsTotal.toFixed(2)} cm²`,
+            headline: sized ? `Ast = ${Ast.toFixed(2)} cm²` : t('flex.out.sectionTooSmall'),
             rows: [
-              [t('flex.out.bars'), r.bars],
-              [t('flex.out.phiPn'), `${r.phiPn.toFixed(1)} kN`],
-              [t('flex.out.phiMn'), `${r.phiMn.toFixed(2)} kN·m`],
-              [t('flex.out.stirrups'), `Ø${r.stirrupDia} c/${r.stirrupSpacing.toFixed(0)} cm`],
+              [t('flex.out.barsRing'), `${barCount} × ${(Ast / barCount).toFixed(2)} cm²`],
+              [t('flex.out.phiPn'), `${chk.phiPn.toFixed(1)} kN`],
+              [t('flex.out.phiMn'), `${chk.phiMn.toFixed(2)} kN·m`],
             ] as Row[],
-            ratio: r.ratio, ok: r.status !== 'fail', steps: r.steps,
-            draw: { AsCm2: r.AsTotal, bars: Math.max(r.barCount, 4) },
+            ratio: chk.ratio, ok: sized !== null && chk.status === 'ok', steps: chk.steps,
+            draw: { a: beta1(fc) * chk.c, c: chk.c, AsCm2: Ast, bars: Math.max(barCount, 4) },
           };
         }
         if (kase === 'circ-column') {
@@ -288,19 +296,16 @@
           draw: { AsCm2: AsGiven, bars: Math.max(barCount, 4) },
         };
       }
-      /* Rectangular column, checked on the same ray the circular one uses. */
-      const r = checkColumn(params, Pu, Mu);
+      /* Rectangular column, on the same ray and the same curve as sizing. */
+      const chk = rectColumnCheck(params, AsGiven, Pu, Mu, barCount);
       return {
-        headline: `φPn = ${r.phiPn.toFixed(1)} kN`,
+        headline: `φPn = ${chk.phiPn.toFixed(1)} kN`,
         rows: [
-          [t('flex.out.phiMn'), `${r.phiMn.toFixed(2)} kN·m`],
+          [t('flex.out.phiMn'), `${chk.phiMn.toFixed(2)} kN·m`],
           [t('flex.out.asGivenRow'), `${AsGiven.toFixed(2)} cm²`],
-          [t('flex.out.asReqRow'), `${r.AsTotal.toFixed(2)} cm²`],
         ] as Row[],
-        ratio: r.AsTotal > 0 ? r.AsTotal / Math.max(AsGiven, 1e-6) : 0,
-        ok: AsGiven >= r.AsTotal,
-        steps: r.steps,
-        draw: { AsCm2: AsGiven, bars: Math.max(barCount, 4) },
+        ratio: chk.ratio, ok: chk.status === 'ok', steps: chk.steps,
+        draw: { a: beta1(fc) * chk.c, c: chk.c, AsCm2: AsGiven, bars: Math.max(barCount, 4) },
       };
     } catch (err) {
       /*
