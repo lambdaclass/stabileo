@@ -873,8 +873,24 @@
    proximity rule the rest of the page already follows.
 */
 .landing .card-media .card-body {
-  padding: 0.7rem clamp(1.2rem, 2vw, 1.7rem) clamp(1.3rem, 2.2vw, 1.9rem);
+  padding: 0.55rem clamp(1rem, 1.6vw, 1.4rem) clamp(1.5rem, 2.6vw, 2.2rem);
   border-top: 1px solid var(--card-hair);
+}
+
+/*
+   A caption is a label, not a heading.
+
+   It was rendering at the card `h3` size, which on a row of screenshots is
+   the largest text in the section and competes with the section's own title.
+   Small, and tight against the picture above it — the space below is what
+   separates it from the NEXT picture, which it does not describe.
+*/
+.landing .card-media .card-body h3 {
+  font-family: var(--lp-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 0;
 }
 
 /* ─── A SECTION LAID OUT AS A SPLIT ──────────────────────────────────────
@@ -914,9 +930,12 @@
   padding: 0.7rem clamp(1rem, 1.6vw, 1.4rem) clamp(1rem, 1.8vw, 1.5rem);
   border-top: 1px solid var(--card-hair);
   font-family: var(--lp-sans);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--lp-paper-2);
+  /* Section-aware. `--lp-paper-2` is the light ink of the DARK sections, so
+     on a paper section the caption was white on white — invisible, and it
+     read as a blank band under the picture. */
+  color: var(--fg);
 }
 
 @media (max-width: 860px) {
@@ -1233,6 +1252,14 @@
 .landing .mode-head h2 { flex: 1 1 20ch; }
 .landing .mode-head .badge { flex: none; margin-top: 0.5rem; }
 
+/* Consecutive notes read as one block: only the first carries the rule, or
+   the section ends in a ladder of hairlines that look like table rows. */
+.landing .mode-note + .mode-note {
+  margin-top: 0.9rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .landing .mode-note {
   margin-top: 2rem;
   padding-top: 1.2rem;
@@ -1510,12 +1537,67 @@
   border-top: 1px solid rgba(143, 163, 179, 0.16);
 }
 
+/*
+   Two columns, one hairline, no empty bands.
+
+   The footer had grown into three stacked strips — brand and links, then a
+   "follow us" row with its own rule, then the legal line with another — each
+   separated by a border and a lot of nothing. On a wide screen it read as
+   three unrelated footers. Links and accounts now share the right column; the
+   rule appears once, above the copyright.
+*/
 .landing .footer-grid {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 2rem;
+  gap: clamp(2rem, 5vw, 4rem);
   flex-wrap: wrap;
+}
+
+.landing .footer-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.landing .footer-tagline {
+  max-width: 34ch;
+}
+
+.landing .footer-social {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.landing .footer-social a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.34rem 0.6rem;
+  border: 1px solid rgba(143, 163, 179, 0.22);
+  border-radius: var(--lp-radius);
+  color: var(--lp-slate-2);
+  text-decoration: none;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.landing .footer-social a:hover {
+  color: var(--lp-paper-2);
+  border-color: rgba(143, 163, 179, 0.45);
+}
+
+.landing .social-mark { display: inline-flex; }
+
+@media (max-width: 700px) {
+  .landing .footer-right { align-items: flex-start; }
+  .landing .footer-social { justify-content: flex-start; }
 }
 
 .landing .footer-brand {
@@ -1561,13 +1643,15 @@
 }
 
 .landing .footer-legal {
-  margin-top: 2.5rem;
-  padding-top: 1.4rem;
+  margin-top: 1.8rem;
+  padding-top: 1.1rem;
   border-top: 1px solid rgba(143, 163, 179, 0.14);
 }
 
 .landing .footer-legal p {
   margin: 0;
+  /* The WhatsApp button floats bottom-right; keep the line clear of it. */
+  padding-right: 4.5rem;
   font-family: var(--lp-mono);
   font-size: 0.7rem;
   letter-spacing: 0.05em;
@@ -1849,6 +1933,9 @@
 
 .landing .model-table {
   width: 100%;
+  /* Three short columns stretched across a 1660px section put the prices a
+     screen away from the module they belong to. */
+  max-width: 56rem;
   min-width: 30rem;
   border-collapse: collapse;
   font-size: 0.95rem;
@@ -1877,11 +1964,15 @@
 
 .landing .model-table td { color: var(--lp-slate-2); }
 
+.landing .model-table thead th:not(:first-child),
+.landing .model-table thead th:not(:first-child),
 .landing .model-table .price {
   text-align: right;
   font-weight: 600;
   white-space: nowrap;
 }
+
+.landing .model-table thead th:not(:first-child) { width: 22%; }
 
 /* Colour carries the same distinction the words do, never on its own. */
 .landing .model-table .tone-free .price { color: #4ba36b; }
@@ -1894,50 +1985,66 @@
   font-weight: 500;
 }
 
-/* ── Footer: social ── */
-.landing .footer-social {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding-top: 1.4rem;
-  border-top: 1px solid rgba(143, 163, 179, 0.14);
+
+
+/* ─── TWO PICTURES, ONE CAPTION ──────────────────────────────────────────
+
+   PRO's building shots are a pair: the model, and the same model carrying a
+   result. One sentence describes both, and repeating it under each read as a
+   mistake rather than as a pair.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.landing .shot-pair {
+  margin: 1.5rem 0 0;
+  border: 1px solid var(--hair);
+  background: var(--card);
 }
 
-.landing .footer-social-label {
-  font-family: var(--lp-sans);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--lp-slate-2);
-  margin: 0;
+.landing .shot-pair-images {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hair);
 }
 
-.landing .footer-social ul {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* No `:global()` here — this is a plain stylesheet, not a Svelte <style>
+   block, and the invalid selector took the whole rule down with it: the two
+   screenshots rendered at natural size and overflowed the section. */
+.landing .shot-pair-images picture,
+.landing .shot-pair-images img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
-.landing .footer-social a {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.7rem;
-  border: 1px solid rgba(143, 163, 179, 0.22);
-  border-radius: var(--lp-radius);
-  color: var(--lp-slate-2);
-  text-decoration: none;
-  font-size: 0.85rem;
-  white-space: nowrap;
+.landing .shot-pair figcaption {
+  padding: clamp(1rem, 1.8vw, 1.4rem) clamp(1rem, 1.6vw, 1.4rem);
+  border-top: 1px solid var(--card-hair);
+  color: var(--fg-2);
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
-.landing .footer-social a:hover {
-  color: var(--lp-paper-2);
-  border-color: rgba(143, 163, 179, 0.45);
+@media (max-width: 760px) {
+  .landing .shot-pair-images { grid-template-columns: minmax(0, 1fr); }
 }
 
-.landing .social-mark { display: inline-flex; }
+/* The split's caption follows the same rule as the cards: small, and a label. */
+.landing .mode-split-shot figcaption {
+  font-size: 0.9rem;
+}
+
+/* In the split the head is one narrow column, so `space-between` pushed the
+   badge to a second line with a 1.5rem gap and it read as a stray button.
+   It sits under the title as a tag, close to it. */
+.landing .mode-split .mode-head {
+  display: block;
+}
+
+.landing .mode-split .mode-head .badge {
+  margin: 0.9rem 0 0;
+}
+
+.landing .mode-split-text .lead {
+  margin-top: 1.1rem;
+}

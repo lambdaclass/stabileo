@@ -11,9 +11,13 @@
    * end of the deck — not here, where it interrupted the product with an
    * argument about revenue.
    */
+  /*
+   * Two pictures, ONE caption underneath both. It was the same sentence
+   * repeated under each, which reads as a mistake rather than as a pair.
+   */
   const shots = [
-    { base: 'pro-building-model', w: 1600, h: 876, alt: 'landing.shotProModelAlt', title: 'landing.shotProModelTitle' },
-    { base: 'pro-building-axial', w: 1600, h: 876, alt: 'landing.shotProAxialAlt', title: 'landing.shotProAxialTitle' },
+    { base: 'pro-building-model', w: 1600, h: 876, alt: 'landing.shotProModelAlt' },
+    { base: 'pro-building-axial', w: 1600, h: 876, alt: 'landing.shotProAxialAlt' },
   ];
 </script>
 
@@ -27,13 +31,14 @@
     </div>
     <p class="lead">{t('landing.proCalcP')}</p>
 
-    <div class="card-row cols-2 cap-shots">
-      {#each shots as sh}
-        <article class="card card-media" class:card-wide={sh.wide}>
-          <Shot base={sh.base} w={sh.w} h={sh.h} alt={t(sh.alt)} sizes={sh.wide ? '(max-width: 760px) 92vw, 92vw' : undefined} />
-          <div class="card-body"><h3>{t(sh.title)}</h3></div>
-        </article>
-      {/each}
-    </div>
+    <figure class="shot-pair">
+      <div class="shot-pair-images">
+        {#each shots as sh}
+          <Shot base={sh.base} w={sh.w} h={sh.h} alt={t(sh.alt)} sizes="(max-width: 760px) 92vw, 46vw" />
+        {/each}
+      </div>
+      <figcaption>{t('landing.proCalcShots')}</figcaption>
+    </figure>
+
   </div>
 </section>

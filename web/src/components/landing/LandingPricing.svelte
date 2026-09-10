@@ -17,13 +17,17 @@
    * document, and a landing that prices a module differently from the plan is
    * worse than a landing that does not price it at all.
    */
+  /*
+   * Five modules, two audiences. The previous shape had a "for whom" column
+   * and repeated Education twice to split public from private universities;
+   * they are one audience now and everything is free for them.
+   */
   const rows = [
-    { mod: 'modBasic',      who: 'whoAll',           price: 'priceFreeAlways', tone: 'free' },
-    { mod: 'modProCalc',    who: 'whoAll',           price: 'priceFree',       tone: 'free' },
-    { mod: 'modProDesign',  who: 'whoFirms',         price: 'pricePaid',       tone: 'paid' },
-    { mod: 'modEdu',        who: 'whoPublicUni',     price: 'priceFree',       tone: 'free' },
-    { mod: 'modEdu',        who: 'whoPrivateUni',    price: 'priceTbd',        tone: 'tbd'  },
-    { mod: 'modAi',         who: 'whoAll',           price: 'pricePaid',       tone: 'paid' },
+    { mod: 'modBasic',     firms: 'priceFree',     unis: 'priceFree' },
+    { mod: 'modProCalc',   firms: 'priceFree',     unis: 'priceFree' },
+    { mod: 'modProDesign', firms: 'pricePaidLow',  unis: 'priceFree',     tone: 'paid' },
+    { mod: 'modEdu',       firms: 'priceFree',     unis: 'priceFree' },
+    { mod: 'modAi',        firms: 'pricePerToken', unis: 'pricePerToken', tone: 'paid' },
   ];
 </script>
 
@@ -38,25 +42,24 @@
       <table class="model-table">
         <thead>
           <tr>
-            <th scope="col">{t('landing.modelColModule')}</th>
-            <th scope="col">{t('landing.modelColWho')}</th>
-            <th scope="col">{t('landing.modelColPrice')}</th>
+            <th scope="col"><span class="sr-only">{t('landing.ebPricing')}</span></th>
+            <th scope="col">{t('landing.colFirms')}</th>
+            <th scope="col">{t('landing.colUnis')}</th>
           </tr>
         </thead>
         <tbody>
           {#each rows as r}
-            <tr class={`tone-${r.tone}`}>
+            <tr class={`tone-${r.tone ?? 'free'}`}>
               <th scope="row">{t('landing.' + r.mod)}</th>
-              <td>{t('landing.' + r.who)}</td>
-              <td class="price">{t('landing.' + r.price)}</td>
+              <td class="price">{t('landing.' + r.firms)}</td>
+              <td class="price">{t('landing.' + r.unis)}</td>
             </tr>
           {/each}
         </tbody>
       </table>
     </div>
 
-    <p class="mode-note mode-note--strong">{t('landing.pricingUni')}</p>
-    <p class="mode-note">{t('landing.modelNote')}</p>
+    <p class="mode-note">{t('landing.pricingLowNote')}</p>
     <p class="mode-note">{t('landing.pricingCommunity')}</p>
   </div>
 </section>

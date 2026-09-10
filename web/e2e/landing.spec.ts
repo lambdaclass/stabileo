@@ -172,7 +172,7 @@ test.describe('@landing landing page', () => {
      * hostage: a switcher that only repaints the top would pass otherwise.
      */
     await expect(page.locator('.landing #pricing-title')).toHaveText(
-      'Un desarrollo abierto, con dos módulos que algún día se van a cobrar.',
+      'Un desarrollo abierto con varias aristas',
     );
 
     expect(await page.evaluate(() => localStorage.getItem('stabileo-lang'))).toBe('es');
@@ -646,7 +646,7 @@ test.describe('@landing landing page', () => {
  * made to universities — costs more than a broken layout.
  */
 test.describe('@landing the model the deck states', () => {
-  test('the table names every module, who it is for, and what it costs', async ({ page }) => {
+  test('the table prices every module for both audiences', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
 
     const rows = await page
@@ -655,14 +655,14 @@ test.describe('@landing the model the deck states', () => {
         trs.map((tr) => [...tr.querySelectorAll('th,td')].map((c) => c.textContent?.trim() ?? '')),
       );
 
-    // The six rows of the one-page business model, in its order.
+    // Five modules, two audiences. Universities are one audience now: public
+    // and private were separate rows and everything is free for both.
     expect(rows).toEqual([
-      ['Básico', 'Todos', 'Gratis, siempre'],
-      ['PRO · Cálculo', 'Todos', 'Gratis'],
-      ['PRO · Diseño normativo', 'Empresas y estudios', 'Pago'],
-      ['Educativo', 'Universidad pública', 'Gratis'],
-      ['Educativo', 'Universidad privada', 'A definir'],
-      ['Stabileo IA', 'Todos', 'Pago'],
+      ['Básico', 'Gratis', 'Gratis'],
+      ['PRO · Cálculo', 'Gratis', 'Gratis'],
+      ['PRO · Diseño normativo', 'Pago, a precios bajos', 'Gratis'],
+      ['Educativo', 'Gratis', 'Gratis'],
+      ['Stabileo IA', 'Pago por token', 'Pago por token'],
     ]);
   });
 
@@ -690,17 +690,28 @@ test.describe('@landing the model the deck states', () => {
     }
   });
 
-  test('the promise to public universities carries its one exception', async ({ page }) => {
+  test('what universities pay is said in one place, and the table agrees', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
 
-    const edu = page.locator('section[data-section="education"]');
-    await expect(edu).toContainText('gratis para las universidades públicas');
     /*
-     * The carve-out travels with the promise. Alone, "everything is free for
-     * public universities" is wider than what we can keep: the agent has a
-     * per-use cost, and the model table says so two screens above.
+     * The promise used to live in the Education section as well. It is here
+     * only now, so there is one statement to keep true instead of two that
+     * can drift.
      */
-    await expect(edu).toContainText('La única excepción es la IA');
+    const pricing = page.locator('section[data-section="pricing"]');
+    await expect(pricing).toContainText('gratuito para las universidades');
+
+    /*
+     * And the table has to say the same thing. It does not, quite: every
+     * module is free for universities EXCEPT Stabileo AI, which is priced per
+     * token for everyone. Asserted as it actually is rather than as the
+     * sentence above reads — if the two are ever reconciled, this is the test
+     * that has to change with them.
+     */
+    const unis = await pricing
+      .locator('.model-table tbody tr')
+      .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent?.trim() ?? ''));
+    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', 'Gratis', 'Pago por token']);
   });
 
   test('the AI section shows the panel, and the panel shows a decision', async ({ page }) => {

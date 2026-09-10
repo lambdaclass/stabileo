@@ -4,12 +4,11 @@
   import Shot from './Shot.svelte';
 
   /**
-   * Education, and the sentence the whole page exists to be able to say.
+   * Education: the round trip, and one picture of a student inside it.
    *
-   * The public-university exemption is stated here rather than in the model
-   * table alone, because this is the section the people it applies to will
-   * read. It carries the AI carve-out with it: leaving that out would make the
-   * promise wider than the one we can keep.
+   * What each audience pays is in the pricing section, not here. This one
+   * carried the university promise for a draft and it belonged with the rest
+   * of the prices, in one place, where it cannot drift out of step.
    */
 </script>
 
@@ -29,6 +28,5 @@
       </article>
     </div>
 
-    <p class="mode-note mode-note--strong">{t('landing.eduUni')}</p>
   </div>
 </section>

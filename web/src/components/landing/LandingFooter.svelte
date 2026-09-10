@@ -29,28 +29,27 @@
       </div>
     </div>
 
-    <nav class="footer-links" aria-label={t('landing.footNav')}>
-      <a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a>
-      <a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a>
-      <PublicLink to="/blog">{t('landing.footBlog')}</PublicLink>
-      <button onclick={() => enterApp()}>{t('landing.footLaunch')}</button>
-    </nav>
-  </div>
+    <div class="footer-right">
+      <nav class="footer-links" aria-label={t('landing.footNav')}>
+        <a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a>
+        <a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a>
+        <PublicLink to="/blog">{t('landing.footBlog')}</PublicLink>
+        <button onclick={() => enterApp()}>{t('landing.footLaunch')}</button>
+      </nav>
 
-  <div class="wrap footer-social">
-    <p class="footer-social-label">{t('landing.footSocial')}</p>
-    <ul>
-      {#each SOCIAL_LINKS as s}
-        <li>
-          <a href={s.href} target="_blank" rel="noreferrer" data-social={s.id}>
-            {#if ICONS[s.id]}
-              <span class="social-mark" aria-hidden="true">{@html ICONS[s.id]}</span>
-            {/if}
-            <span>{s.label}</span>
-          </a>
-        </li>
-      {/each}
-    </ul>
+      <ul class="footer-social" aria-label={t('landing.footSocial')}>
+        {#each SOCIAL_LINKS as s}
+          <li>
+            <a href={s.href} target="_blank" rel="noreferrer" data-social={s.id}>
+              {#if ICONS[s.id]}
+                <span class="social-mark" aria-hidden="true">{@html ICONS[s.id]}</span>
+              {/if}
+              <span>{s.label}</span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    </div>
   </div>
 
   <div class="wrap footer-legal">
