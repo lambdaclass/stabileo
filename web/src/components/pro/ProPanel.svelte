@@ -12,10 +12,21 @@
    *   the report assembly        → `lib/engine/pro-report-inputs.ts` (nine readings of the model)
    *
    * plus 110 lines of CSS whose class names appear in no markup in this tree — `.pm-tool`,
-   * `.pm-sel`, `.pro-actions`, `.pro-example-btn`, `.pro-solve-btn`, `.pro-report-btn` and the
+   * `.pro-actions`, `.pro-example-btn`, `.pro-solve-btn`, `.pro-report-btn` and the
    * rest of the desktop action bar, which moved to the ribbon and left its rules behind. They
    * were `css_unused_selector` warnings on every build, which is exactly how `.pro-quality-gate`
    * and `.autosave-banner` survived a release each.
+   *
+   * ── And what the merge with main put back ──────────────────────────
+   *
+   * This file is NOT 537 lines any more. Merging main brought the PRO phone shell, which lives
+   * inline here: the pill row, the command grid, the select-mode row and their styling. The
+   * three extractions above survived and the `GATE: ProPanel was decomposed` test still checks
+   * them — but the ceiling gate in the same describe FAILS, at 1 098 lines against 600, and it
+   * is left failing rather than raised. The shell is the next thing to extract, and it is the
+   * gate saying so.
+   *
+   * `.pm-sel` was on the dead list above and came back live with that shell.
    *
    * ── What did NOT move, and why ─────────────────────────────────────
    *
@@ -1018,10 +1029,16 @@
   /*
      The desktop action bar's rules lived here — `.pro-actions`, `.pro-example-wrap`,
      `.pro-example-btn`, `.pro-solve-btn`, `.pro-report-btn` — plus the mobile tool row's
-     `.pm-tools-row`, `.pm-tool` and `.pm-sel`. Solve, Report and Examples became ribbon
+     `.pm-tools-row` and `.pm-tool`. Solve, Report and Examples became ribbon
      commands and the mobile tools moved to the upper toolbar in `App.svelte`; the markup went
      and the twenty-odd selectors stayed, styling nothing, for as long as nobody read the build
      warnings. Deleted rather than kept "in case", which is what `.pro-quality-gate` was.
+
+     `.pm-sel` was on that list and is NOT any more. Merging main in brought the phone panel's
+     select-mode row with it — `.pm-select-modes` at the top of this file's markup uses
+     `.pm-sel` on every button — so the rule below styles something again. Removed from the
+     list rather than left in it: a note that says a live selector is dead is worse than no
+     note, because the next person to read the build warnings will trust it.
   */
 
   .pro-solve-error {
