@@ -68,6 +68,7 @@
     </div>
 
     <p class="mode-note">{t('landing.pricingLowNote')}</p>
+    <p class="mode-note">{t('landing.pricingAiNote')}</p>
     <p class="mode-note">{t('landing.pricingCommunity')}</p>
   </div>
 </section>

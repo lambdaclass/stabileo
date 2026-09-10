@@ -3,6 +3,7 @@ const es: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
+  'landing.pricingAiNote': 'Stabileo IA es una función paga por lo que cuesta sostenerla. A las universidades y a quienes participen del desarrollo queremos darles la opción de conectar la API del modelo de lenguaje que prefieran, y probarla así por su cuenta.',
   'landing.pricingLowNote': 'Los módulos de diseño se van a cobrar a empresas y particulares, con precios uno o dos órdenes de magnitud por debajo de los de la competencia.',
   'landing.pricePerToken': 'Pago por token',
   'landing.pricePaidLow': 'Pago, a precios bajos',
@@ -52,7 +53,7 @@ const es: Record<string, string> = {
   'landing.heroP': 'Una plataforma abierta de análisis estructural. El solver corre en tu máquina: sin instalar nada y sin licencias.',
   'landing.heroCtaPrimary': 'Abrir el editor',
   'landing.heroBlogLink': 'Leer nuestro blog',
-  'landing.heroMetaA': 'Sin instalar. Sin licencias.',
+  'landing.heroMetaA': 'Funciona en cualquier navegador',
   'landing.heroMetaB': 'Código abierto',
   'landing.heroMetaC': 'Hecho en Argentina · FIUBA · Ergodic Group',
   'landing.modBasic': 'Básico',
