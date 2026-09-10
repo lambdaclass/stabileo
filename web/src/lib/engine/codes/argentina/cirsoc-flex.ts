@@ -28,8 +28,7 @@ import {
 } from './cirsoc201-section';
 import { twoLevels, levelsFromBottom, facesA1A2A3, ring, flexural } from './cirsoc201-layouts';
 import { COLUMN_STEEL_RATIO, minFlexuralSteelCm2, beta1 } from './cirsoc201-basis';
-import { checkFlexure } from './cirsoc201';
-import { checkFlexureFlanged } from './cirsoc201-flanged';
+import { chooseBars, chooseBarsForCount, type BarChoice } from './cirsoc201-bars';
 
 export type FlexCase =
   | 'FSR'           // rectangular, simple bending
@@ -109,6 +108,9 @@ export interface FlexOutput {
   ok: boolean;
   /** The bars, so the drawing shows what was computed. */
   bars: Bar[];
+  /** What to actually tie: count, diameter, and whether it fits. */
+  barChoice?: BarChoice;
+  barChoiceComp?: BarChoice;
   outline: Outline;
   steps: string[];
   /** Set when the section cannot take the demand even at 8 %. */
@@ -137,7 +139,7 @@ function layoutFor(i: FlexInput, AstCm2: number): Bar[] {
   switch (i.kase) {
     case 'FSR':
     case 'FST':
-      return flexural(i.h, i.dPrimeS, AstCm2);
+      return flexural(outlineFor(i), i.dPrimeS, AstCm2);
     case 'FCR':
       return i.mode === 'verify' && i.levels.some((l) => l.areaCm2 > 0)
         ? levelsFromBottom(i.h, i.levels)
@@ -222,71 +224,160 @@ export function solveFlex(i: FlexInput): FlexOutput {
   const Ag = grossArea(outline);
   const d = i.h - i.dPrimeS;
 
-  // ── The two flexure sheets keep the flexural engine ──────────────
+  // ── Simple bending, sized on the same curve that judges it ───────
   /*
-   * Not for lack of generality — the section engine handles them — but
-   * because `checkFlexure` also selects bars, applies the doubly-reinforced
-   * fallback and emits the memo, and it reproduces FSR and FST exactly. A
-   * rewrite would trade a validated answer for an equivalent one.
+   * ── Why this stopped going through `checkFlexure` ────────────────
+   *
+   * It sized singly-reinforced sections past the point where a singly-
+   * reinforced section can carry the moment, and only switched to
+   * compression steel later. On a 20 × 50 that produced a DEAD BAND:
+   * Mu = 225 passed, 230 and 235 failed, 240 passed again. A beam that
+   * cannot be designed for less load than one that can is not a rounding
+   * problem, it is a wrong answer wearing a verdict.
+   *
+   * Sizing on the interaction curve removes the band by construction. The
+   * capacity of a section is monotone in its steel and monotone in the
+   * moment asked of it, so a bisection cannot produce a hole.
+   *
+   * The two-stage rule below is the textbook one, and it is what makes the
+   * transition continuous:
+   *
+   *   1. find the moment the section carries singly-reinforced at the
+   *      tension-controlled limit — as much as it can take before the code
+   *      stops calling it ductile
+   *   2. under that, bisect the tension steel alone
+   *   3. over it, hold the section at that limit and add a compression /
+   *      tension pair to carry the remainder
+   *
+   * `checkFlexure` still supplies the bar SELECTION and the memo, since it
+   * reproduces the workbook exactly and neither depends on the sizing.
    */
-  if ((i.kase === 'FSR' || i.kase === 'FST') && i.mode === 'design') {
-    const params = {
-      fc: i.fc, fy: i.fy, cover: i.dPrimeS - 0.008, b: i.b, h: i.h, stirrupDia: 0,
-    };
-    const r = i.kase === 'FST'
-      ? checkFlexureFlanged(params, { bf: i.bf, hf: i.hf, bw: i.bw }, i.Mu)
-      : checkFlexure(params, i.Mu);
-    /*
-     * Designed by the flexural engine, JUDGED by the section engine.
+  if (i.kase === 'FSR' || i.kase === 'FST') {
+    const bottomWidth = i.kase === 'FST' ? i.bw : i.b;
+    const AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, d);
+    const AstMaxHere = COLUMN_STEEL_RATIO.max * Ag * 1e4;
+
+    /**
+     * The section's state at pure bending, for a given pair of steel areas.
      *
-     * `checkFlexure` reproduces the workbook's FSR and FST exactly, so it
-     * keeps the sizing. Its verdict is another matter: the status is
-     * `Mu/φMn` and it keeps adding compression steel until that ratio falls
-     * under one, so asked for 2000 kN·m on a 30×30 it reported a pass with
-     * a φMn of 2 828 kN·m — a number that section cannot reach with any
-     * amount of steel.
-     *
-     * Rather than reach into a function PRO's memos still quote, the answer
-     * is checked here against the strain-compatibility engine with the very
-     * bars it proposed. One verdict, from the one place, for every sheet.
+     * Capacity AND the numbers a reader checks it by — c, a and εt — from
+     * the same interpolation, so they cannot describe different sections.
+     * An earlier version took them from `checkFlexure` called with the WEB
+     * width, which for a T put the stress block twelve times too deep: the
+     * block is in the flange and that call knew nothing about it.
      */
-    const bars = flexural(i.h, i.dPrimeS, r.AsReq, i.dPrime, r.AsComp ?? 0);
-    const u = utilisation(outline, bars, mat, 0, i.Mu, 0);
+    const stateOf = (AsCm2: number, AsCompCm2 = 0) => {
+      const bars = flexural(outline, i.dPrimeS, AsCm2, i.dPrime, AsCompCm2);
+      const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
+      for (let k = 0; k < curve.length - 1; k++) {
+        const A = curve[k];
+        const B = curve[k + 1];
+        if (A.phiPn >= 0 && B.phiPn < 0) {
+          const tt = A.phiPn / (A.phiPn - B.phiPn);
+          const c0 = A.c + tt * (B.c - A.c);
+          return {
+            phiMn: Math.abs(A.phiMnx) + tt * (Math.abs(B.phiMnx) - Math.abs(A.phiMnx)),
+            c: c0,
+            a: beta1(i.fc) * c0,
+            epsilonT: A.epsilonT + tt * (B.epsilonT - A.epsilonT),
+            phi: A.phi + tt * (B.phi - A.phi),
+          };
+        }
+      }
+      return { phiMn: 0, c: 0, a: 0, epsilonT: 0, phi: 0 };
+    };
+    const capacityOf = (AsCm2: number, AsCompCm2 = 0) => stateOf(AsCm2, AsCompCm2).phiMn;
+
+    const MuAbs = Math.abs(i.Mu);
+    const bisect = (comp: number, target: number, hiCm2: number) => {
+      let a = 0.05;
+      let z = hiCm2;
+      for (let k = 0; k < 45; k++) {
+        const m = (a + z) / 2;
+        if (capacityOf(m, comp) < target) a = m; else z = m;
+      }
+      return z;
+    };
 
     /*
-     * And a section is not a design if the steel does not fit in it.
-     *
-     * The strain-compatibility check above is not enough on its own: a
-     * doubly-reinforced section with enough steel really does carry an
-     * enormous couple, so the engine agrees with `checkFlexure` all the way
-     * up to areas that are half the concrete. §10.9.1's 8 % is what makes
-     * that unbuildable, and asked for 2000 kN·m on a 30×30 it is the only
-     * clause that says no.
+     * The singly-reinforced ceiling: the steel at which εt falls to 5 ‰.
+     * Beyond it φ starts dropping and the section stops being one the code
+     * wants built, which is exactly where compression steel earns its place.
      */
-    const AstMaxHere = COLUMN_STEEL_RATIO.max * Ag * 1e4;
-    const total = r.AsReq + (r.AsComp ?? 0);
-    const impossible = u.ratio > 1.02 || total > AstMaxHere;
+    let AsAtLimit = 0.05;
+    {
+      let a = 0.05;
+      let z = AstMaxHere;
+      for (let k = 0; k < 45; k++) {
+        const m = (a + z) / 2;
+        const bars = flexural(outline, i.dPrimeS, m);
+        const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
+        const at = curve.reduce((q, p) => (Math.abs(p.phiPn) < Math.abs(q.phiPn) ? p : q), curve[0]);
+        if (at.epsilonT > 0.005) a = m; else z = m;
+      }
+      AsAtLimit = a;
+    }
+    const MuSinglyMax = capacityOf(AsAtLimit);
+
+    let AsReq: number;
+    let AsComp = 0;
+    if (MuAbs <= MuSinglyMax) {
+      AsReq = Math.max(bisect(0, MuAbs, AstMaxHere), AsMin);
+    } else {
+      /*
+       * Hold the concrete at its limit and let a symmetric pair carry the
+       * rest. Bisecting the PAIR keeps one unknown, and the pair is what a
+       * doubly-reinforced section actually adds.
+       */
+      let a = 0;
+      let z = AstMaxHere;
+      for (let k = 0; k < 45; k++) {
+        const m = (a + z) / 2;
+        if (capacityOf(AsAtLimit + m, m) < MuAbs) a = m; else z = m;
+      }
+      AsComp = z;
+      AsReq = AsAtLimit + z;
+    }
+
+    const total = AsReq + AsComp;
+    const bars = flexural(outline, i.dPrimeS, AsReq, i.dPrime, AsComp);
+    const st = stateOf(AsReq, AsComp);
+    const impossible = total > AstMaxHere || st.phiMn < MuAbs * 0.999;
+    const fitOpts = { widthM: bottomWidth, coverM: i.dPrimeS - 0.008, stirrupMm: 8 };
+    const chosen = chooseBars(AsReq, fitOpts);
+    const chosenComp = AsComp > 0 ? chooseBars(AsComp, fitOpts) : null;
 
     return {
-      AstCm2: r.AsReq,
-      AsCm2: r.AsReq,
-      AsPrimeCm2: r.AsComp ?? 0,
-      rho: (r.AsReq * 1e-4) / Ag,
-      AsMinCm2: r.AsMin,
-      a: r.aReq, c: r.c, cMax: r.cMax, epsilonT: r.epsilonT,
-      phiMn: u.phiMn,
-      ratio: u.ratio,
+      AstCm2: total,
+      AsCm2: AsReq,
+      AsPrimeCm2: AsComp,
+
+      rho: (total * 1e-4) / Ag,
+      AsMinCm2: AsMin,
+      /* §10.3.4's c at εt = 5 ‰, which is what the sheet prints as cmax. */
+      a: st.a, c: st.c, cMax: (d * 0.003) / 0.008, epsilonT: st.epsilonT, phi: st.phi,
+      phiMn: st.phiMn,
+      ratio: st.phiMn > 0 ? MuAbs / st.phiMn : Infinity,
       ok: !impossible,
       impossible,
       bars,
+      barChoice: chosen,
+      barChoiceComp: chosenComp ?? undefined,
       outline,
-      steps: impossible
-        ? [...r.steps,
-           total > AstMaxHere
-             ? `⚠ As total = ${total.toFixed(2)} cm² supera el 8 % de Ag (${AstMaxHere.toFixed(2)} cm²)`
-             : `⚠ Verificado sobre el diagrama: φMn = ${u.phiMn.toFixed(2)} kN·m < Mu`,
-           'La sección no alcanza con ninguna armadura.']
-        : [...r.steps, `Verificado sobre el diagrama: φMn = ${u.phiMn.toFixed(2)} kN·m`],
+      steps: [
+        `d = ${cm(d)}, As,mín = ${AsMin.toFixed(2)} cm²`,
+        `Momento máximo con armadura simple (εt = 5 ‰): ${MuSinglyMax.toFixed(2)} kN·m`,
+        MuAbs <= MuSinglyMax
+          ? 'Armadura simple: alcanza sin armadura comprimida.'
+          : `Armadura doble: se agrega A′s = ${AsComp.toFixed(2)} cm² para el excedente.`,
+        `As = ${AsReq.toFixed(2)} cm² → ${chosen.label}` +
+          (chosen.fitsInOneLayer === false
+            ? ` ⚠ no entran en una capa (separación libre ${(chosen.clearSpacingMm ?? 0).toFixed(0)} mm)`
+            : ''),
+        ...(chosenComp ? [`A′s = ${AsComp.toFixed(2)} cm² → ${chosenComp.label}`] : []),
+        `φMn sobre el diagrama = ${st.phiMn.toFixed(2)} kN·m`,
+        ...(impossible ? ['⚠ La sección no alcanza con ninguna armadura admisible.'] : []),
+      ],
     };
   }
 
@@ -298,12 +389,12 @@ export function solveFlex(i: FlexInput): FlexOutput {
    * rectangular column was taking the T's web and reporting As,min at 40 %
    * of the truth.
    */
-  const widthForMin = i.kase === 'FST' ? i.bw : i.b;
+  const widthForMin = i.b;
   const AstMin = COLUMN_STEEL_RATIO.min * Ag * 1e4;
   const AstMax = COLUMN_STEEL_RATIO.max * Ag * 1e4;
-  const isColumn = i.kase !== 'FSR' && i.kase !== 'FST';
-  const lo = isColumn ? AstMin : Math.max(minFlexuralSteelCm2(i.fc, i.fy, widthForMin, d), 0.1);
-  const hi = isColumn ? AstMax : 0.04 * i.b * i.h * 1e4;
+  /* Only the column cases reach here — simple bending returned above. */
+  const lo = AstMin;
+  const hi = AstMax;
 
   /*
    * Simple bending has no axial load, in EITHER mode.
@@ -314,7 +405,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
    * depending on which button was pressed — an e2e that sized a beam and
    * handed the steel back to the checker got a ratio of 1.41.
    */
-  const Pu = i.kase === 'FSR' || i.kase === 'FST' ? 0 : i.Pu;
+  const Pu = i.Pu;
   const at = (AstCm2: number) =>
     utilisation(outline, layoutFor(i, AstCm2), mat, Pu, i.Mu, i.kase === 'FCO' ? i.Muy : 0);
 
@@ -347,11 +438,19 @@ export function solveFlex(i: FlexInput): FlexOutput {
   const u = at(AstCm2);
   const b1 = beta1(i.fc);
 
+  /*
+   * A count the reader already chose, so only the diameter is open. The
+   * workbook stops at areas here; a column sheet that says 21.35 cm² and
+   * not "8 Ø20" leaves the question of whether the steel fits unanswered.
+   */
+  const choice = chooseBarsForCount(AstCm2, bars.length);
+
   steps.push(
     `Diagrama de interacción por compatibilidad de deformaciones, ${bars.length} barras`,
     `Capacidad sobre la recta de excentricidad: φPn = ${u.phiPn.toFixed(1)} kN, φMn = ${u.phiMn.toFixed(2)} kN·m`,
     `c = ${cm(u.c)}, a = ${cm(b1 * u.c)}, εt = ${(u.epsilonT * 1000).toFixed(2)} ‰ → φ = ${u.phi.toFixed(3)}`,
     `Relación demanda/capacidad = ${u.ratio.toFixed(3)}`,
+    `Armadura: ${choice.label} (${choice.areaCm2.toFixed(2)} cm²)`,
   );
 
   const r = i.ratioAsPrime;
@@ -368,7 +467,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
     phiPn: u.phiPn, phiMn: u.phiMn,
     ratio: u.ratio,
     ok: !impossible && u.ratio <= 1,
-    bars, outline, steps, impossible,
+    bars, barChoice: choice, outline, steps, impossible,
   };
 }
 

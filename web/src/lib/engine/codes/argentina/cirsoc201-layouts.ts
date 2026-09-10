@@ -16,7 +16,23 @@
  * Coordinates are metres from the section centroid, matching `Bar`.
  */
 
-import type { Bar } from './cirsoc201-section';
+import type { Bar, Outline } from './cirsoc201-section';
+import { outlineRings } from './cirsoc201-section';
+
+/**
+ * The extreme fibres of an outline, measured on its own axes.
+ *
+ * Needed because not every section is centred on mid-height. `teePolygon`
+ * puts the origin at the CENTROID, which for a T sits well above the middle
+ * — so a bar placed at `-(h/2 - cover)` lands in the wrong place, and the
+ * error grows with the flange. It cost 25 % on the workbook's own T until
+ * the sizing bisection was checked against it.
+ */
+function fibres(outline: Outline): { top: number; bottom: number } {
+  const { outer } = outlineRings(outline);
+  const ys = outer.map((p) => p.y);
+  return { top: Math.max(...ys), bottom: Math.min(...ys) };
+}
 
 /** Steel spread evenly over a list of positions. */
 function spread(positions: Array<{ x: number; y: number }>, totalM2: number): Bar[] {
@@ -178,13 +194,14 @@ export function ring(
  * a precision about placement the method does not have.
  */
 export function flexural(
-  h: number,
+  outline: Outline,
   dPrimeS: number,
   AsCm2: number,
   dPrime = 0,
   AsCompCm2 = 0,
 ): Bar[] {
-  const bars: Bar[] = [{ x: 0, y: -(h / 2 - dPrimeS), area: AsCm2 * 1e-4 }];
-  if (AsCompCm2 > 0) bars.push({ x: 0, y: h / 2 - dPrime, area: AsCompCm2 * 1e-4 });
+  const { top, bottom } = fibres(outline);
+  const bars: Bar[] = [{ x: 0, y: bottom + dPrimeS, area: AsCm2 * 1e-4 }];
+  if (AsCompCm2 > 0) bars.push({ x: 0, y: top - dPrime, area: AsCompCm2 * 1e-4 });
   return bars;
 }
