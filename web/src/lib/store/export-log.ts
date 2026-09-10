@@ -124,17 +124,44 @@ export function logExport(opts: {
  * saying nothing about the afternoon a user pressed the button four times and got nothing —
  * which is precisely the afternoon the list is for. The error is re-thrown to the caller so the
  * panel can show it; recording is not swallowing.
+ *
+ * ── An async `run` is followed to its end ─────────────────────────
+ *
+ * This was `try { run(); log(); }` and nothing else, which is correct for a `run` that writes a
+ * blob synchronously and wrong for one that returns a promise. `exportDetailingXlsx` returns
+ * one: `exportToExcel` is async. So the log recorded SUCCESS the instant the promise was
+ * created, the `catch` had already returned by the time it rejected, and a failed spreadsheet
+ * export was written into the emission list as a spreadsheet that exists.
+ *
+ * The header above says "recording is not swallowing". That was true of two of the three
+ * exports. It is now true of all three.
+ *
+ * `main` had reached the same fault from the other side — `exportXlsx` was made `async` with an
+ * `await` on `exportToExcel` — and the fix did not survive H2 moving the exporters into
+ * `document-exports.ts`. Repairing it HERE rather than at that call site is what keeps it fixed
+ * for the next async exporter, instead of for this one.
  */
 export function withExportLog<T>(
   opts: { kind: ExportKind; doc: DocumentModel; filename: string; at: string },
   run: () => T,
 ): T {
+  const fail = (e: unknown) => {
+    logExport({ ...opts, error: e instanceof Error ? e.message : String(e) });
+  };
   try {
     const out = run();
+    if (out instanceof Promise) {
+      // Log on settle, not on creation. The promise is returned unchanged and still rejects
+      // for the caller — the panel's error path is unaffected.
+      return out.then(
+        (v) => { logExport(opts); return v; },
+        (e) => { fail(e); throw e; },
+      ) as unknown as T;
+    }
     logExport(opts);
     return out;
   } catch (e) {
-    logExport({ ...opts, error: e instanceof Error ? e.message : String(e) });
+    fail(e);
     throw e;
   }
 }

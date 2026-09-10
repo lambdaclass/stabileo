@@ -157,6 +157,46 @@ describe('wrapping an export', () => {
     expect(exportRecordStore.exports[0].state).toBe('failed');
     expect(exportRecordStore.exports[0].error).toBe('boom');
   });
+
+  /*
+   * ── The async export, which the two above do not cover ───────────
+   *
+   * `exportDetailingXlsx` hands this wrapper a `run` that returns a PROMISE, because
+   * `exportToExcel` is async. A wrapper that logs straight after calling `run()` records
+   * success the instant the promise is created — before the export has done anything — and its
+   * `catch` has already returned by the time the promise rejects.
+   *
+   * So a failed spreadsheet export was written into the emission list as a spreadsheet that
+   * exists, which is the one thing the list must never say. Both directions are pinned here:
+   * the two tests above would stay green with the async path broken, which is how it got here.
+   */
+  it('waits for an async export before recording it as ready', async () => {
+    let settle: () => void = () => {};
+    const pending = new Promise<string>((res) => { settle = () => res('xlsx'); });
+
+    const out = withExportLog(
+      { kind: 'xlsx', doc: doc(), filename: 'a.xlsx', at: AT }, () => pending);
+
+    // Nothing recorded yet: the export has not happened, only been started.
+    expect(exportRecordStore.exports, 'recorded before the export finished').toHaveLength(0);
+
+    settle();
+    await out;
+    expect(exportRecordStore.exports).toHaveLength(1);
+    expect(exportRecordStore.exports[0].state).toBe('ready');
+  });
+
+  it('records an async rejection as failed, and still rejects', async () => {
+    const out = withExportLog(
+      { kind: 'xlsx', doc: doc(), filename: 'a.xlsx', at: AT },
+      () => Promise.reject(new Error('disk full')),
+    );
+
+    await expect(out).rejects.toThrow('disk full');
+    expect(exportRecordStore.exports).toHaveLength(1);
+    expect(exportRecordStore.exports[0].state, 'a failed export logged as ready').toBe('failed');
+    expect(exportRecordStore.exports[0].error).toBe('disk full');
+  });
 });
 
 describe('a record outlives the revision it came from', () => {
