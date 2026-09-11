@@ -1,5 +1,5 @@
 /**
- * The blog's index: every post, newest first.
+ * The blog's index: every post, in the order they are meant to be read.
  *
  * A file, not a fetch. The site is a static bundle served from GitHub Pages
  * with no backend of its own, so posts ship with the application and are as
@@ -7,10 +7,23 @@
  */
 import type { Post } from './types';
 import { determinismBoundary } from './posts/determinism-boundary';
+import { conceptualAdvanced } from './posts/conceptual-advanced';
+import { cirsoc201Flexure } from './posts/cirsoc-201-flexure';
 import { torsionTheories } from './posts/torsion-theories';
 
-/** Newest first. `date` is a plain ISO day, so a string sort is a date sort. */
-export const POSTS: Post[] = [determinismBoundary, torsionTheories].sort((a, b) => b.date.localeCompare(a.date));
+/**
+ * By `order`, not by date.
+ *
+ * Four posts that build on each other are a series, not a feed: the one that
+ * frames the argument is the oldest, and sorting by recency put it last and
+ * opened the blog with the most specialised piece instead. See Post.order.
+ */
+export const POSTS: Post[] = [
+  determinismBoundary,
+  conceptualAdvanced,
+  cirsoc201Flexure,
+  torsionTheories,
+].sort((a, b) => a.order - b.order);
 
 export function findPost(slug: string): Post | undefined {
   return POSTS.find((p) => p.slug === slug);

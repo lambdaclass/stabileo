@@ -34,10 +34,8 @@
      * has not said anything about the other.
      */
     storageKey: string;
-    /** Called when a drag ENDS — see below. */
-    onResizeEnd?: () => void;
   };
-  let { storageKey, onResizeEnd }: Props = $props();
+  let { storageKey }: Props = $props();
 
   const MIN = 22;
   const MAX = 86;
@@ -52,7 +50,6 @@
 
   let vh = $state(stored());
   let dragging = $state(false);
-  let frame = 0;
 
   function publish() {
     // One decimal: a pointer delta over a viewport hundredth produces fifteen
@@ -60,17 +57,55 @@
     document.documentElement.style.setProperty('--st-sheet-h', `${vh.toFixed(1)}vh`);
   }
 
+  /*
+   * Publishing is the effect's job, and the ONLY place it happens.
+   *
+   * `publish()` reads `vh`, so this effect tracks it and re-runs on every
+   * change — which is what a drag produces, one per pointermove. An earlier
+   * version also scheduled a `requestAnimationFrame` inside the drag handler
+   * to throttle the writes; it could not throttle anything, because this
+   * effect had already published synchronously by the time the frame ran. The
+   * rAF is gone rather than the effect: setting one custom property is cheap,
+   * and the browser coalesces the style recalc to the next frame regardless.
+   */
   $effect(() => {
     publish();
+  });
+
+  /*
+   * Handing the property back is a SEPARATE effect, deliberately.
+   *
+   * An effect's teardown runs before every re-run, not only on destroy. With
+   * the cleanup living in the effect above — which tracks `vh` — each drag
+   * step removed `--st-sheet-h` and immediately set it again. Nothing painted
+   * in between so nothing flickered, but the comment said "on unmount" and it
+   * was not. This effect reads no state, so it runs once and its teardown is
+   * genuinely the unmount, letting `.app-body` stop reserving height for a
+   * panel that is no longer there.
+   */
+  /**
+   * Teardown for the listeners a drag installs, held where more than the
+   * drag can reach it.
+   *
+   * They were removed only in `up()`, which assumes every gesture ends the
+   * way it began. Two do not: unmounting mid-drag left three window
+   * listeners running against a component that was gone, and a SECOND
+   * `pointerdown` — a second finger — installed a second set that closed
+   * over its own stale `startY`/`startVh`, so whichever one answered last
+   * decided the height.
+   */
+  let releaseDrag: (() => void) | null = null;
+
+  $effect(() => {
     return () => {
-      if (frame) cancelAnimationFrame(frame);
-      // Handed back on unmount, so `.app-body` stops reserving height for a
-      // panel that is no longer there.
+      releaseDrag?.();
       document.documentElement.style.removeProperty('--st-sheet-h');
     };
   });
 
   function start(e: PointerEvent) {
+    // A second finger replaces the first gesture rather than racing it.
+    releaseDrag?.();
     dragging = true;
     const startY = e.clientY;
     const startVh = vh;
@@ -79,18 +114,21 @@
 
     const move = (ev: PointerEvent) => {
       // Dragging UP grows the sheet, which is the direction it grows on screen.
+      // The write is all this does: the effect above publishes it.
       vh = Math.min(MAX, Math.max(MIN, startVh + (startY - ev.clientY) / unit));
-      if (!frame) {
-        frame = requestAnimationFrame(() => { frame = 0; publish(); });
-      }
+    };
+
+    const detach = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      releaseDrag = null;
     };
 
     const up = () => {
       dragging = false;
       try { localStorage.setItem(storageKey, String(Math.round(vh))); } catch { /* private mode */ }
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
+      detach();
       /*
        * Re-frame once, at the END. The canvas has just changed height by as
        * much as 60 % of the screen, so the framing that preceded the drag is
@@ -99,25 +137,67 @@
        */
       requestAnimationFrame(() => requestAnimationFrame(() => {
         window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
-        onResizeEnd?.();
       }));
     };
 
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
+    releaseDrag = detach;
     e.preventDefault();
+  }
+
+  /**
+   * The same resize, for a reader who is not dragging anything.
+   *
+   * The `:focus-visible` rule below was already written, which says the handle
+   * was meant to take focus — but without `tabindex` nothing could give it
+   * focus and the rule never matched. That left the sheet drag-only: a
+   * keyboard, a switch, or voice control could open the panel and not choose
+   * how much of the screen it takes.
+   *
+   * Arrows move by one viewport hundredth, Page by ten, Home/End go to the
+   * stops. `aria-valuenow` and its bounds are on the element for the same
+   * reason the keys are here — a separator that resizes is a slider to
+   * anything that is not a mouse.
+   */
+  function key(e: KeyboardEvent) {
+    const step =
+      e.key === 'ArrowUp' ? 1
+      : e.key === 'ArrowDown' ? -1
+      : e.key === 'PageUp' ? 10
+      : e.key === 'PageDown' ? -10
+      : 0;
+
+    let next = vh;
+    if (step !== 0) next = vh + step;
+    else if (e.key === 'Home') next = MIN;
+    else if (e.key === 'End') next = MAX;
+    else return;
+
+    vh = Math.min(MAX, Math.max(MIN, next));
+    try { localStorage.setItem(storageKey, String(Math.round(vh))); } catch { /* private mode */ }
+    e.preventDefault();
+    // Same re-frame the drag does, for the same reason: the canvas just changed
+    // height and the framing that preceded the keystroke is wrong for what is left.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+    }));
   }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="grab"
   class:dragging
   onpointerdown={start}
+  onkeydown={key}
   role="separator"
+  tabindex="0"
   aria-orientation="horizontal"
   aria-label={t('ribbon.resize')}
+  aria-valuenow={Math.round(vh)}
+  aria-valuemin={MIN}
+  aria-valuemax={MAX}
   data-testid="sheet-grab"
 >
   <span class="pill"></span>

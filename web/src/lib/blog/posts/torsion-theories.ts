@@ -22,7 +22,8 @@ import type { Post } from '../types';
 
 export const torsionTheories: Post = {
   slug: 'torsion-bredt-saint-venant',
-  date: '2026-08-21',
+  date: '2026-08-29',
+  order: 4,
   authors: ['Bautista Chesta'],
   tagKeys: ['blog.tag.sections', 'blog.tag.theory'],
   i18n: {

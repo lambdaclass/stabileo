@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, untrack, tick } from 'svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
   import StatusBar from './components/StatusBar.svelte';
@@ -166,7 +166,19 @@
 
   let sheetWasOpen = false;
   $effect(() => {
-    const open = uiStore.isMobile && uiStore.appMode === 'basico' && !!basicPanel;
+    /*
+     * Both sheets, because both take the same height from the same canvas.
+     *
+     * This read `appMode === 'basico'`, which was true when Basic was the
+     * only mode with a sheet. PRO has one now — same `--st-sheet-h`, same
+     * reservation on `.app-body` — and without this it opened over a model
+     * still framed for the full viewport: 45 vh of canvas gone and the
+     * structure sitting wherever it had been, usually half behind the sheet.
+     */
+    const open =
+      uiStore.isMobile &&
+      ((uiStore.appMode === 'basico' && !!basicPanel) ||
+        (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen));
     if (open === sheetWasOpen) return;
     sheetWasOpen = open;
     if (modelStore.nodes.size === 0) return;
@@ -215,7 +227,18 @@
   if (typeof window !== 'undefined') {
     const redirectedRoute = new URLSearchParams(location.search).get('route');
     if (redirectedRoute) {
-      history.replaceState(null, '', redirectedRoute);
+      /*
+       * Restored through the URL builder, not verbatim.
+       *
+       * 404.html hands the path over exactly as it was typed or shared, and
+       * putting that straight back in the address bar reinstates whatever
+       * shape it had — including the unslashed form the site no longer
+       * publishes. A reader arriving on an old link would then be looking at
+       * an address that disagrees with the page's own canonical.
+       */
+      const { locale, path } = parsePublicPath(redirectedRoute.split('?')[0]);
+      const normalised = locale ? publicHref(path, locale) : redirectedRoute;
+      history.replaceState(null, '', normalised);
     }
   }
 
@@ -369,6 +392,53 @@
     open();
   }
 
+  /**
+   * `?proTab=<id>` opens PRO on one of its tabs.
+   *
+   * The companion of `?inspect` for the other half of the application. A post
+   * about CIRSOC verification has to land the reader on the verification, and
+   * that lives in PRO's `design` tab rather than in Basic's section panel.
+   *
+   * NOT named `tab`: that parameter already carries the project tab's slug
+   * (see `replaceAppUrl`), and quietly overloading it would make a shared
+   * link rename someone's project.
+   */
+  /**
+   * `?kin=1` opens the kinematic analysis panel.
+   *
+   * The third of the deep links a post can use, beside `?inspect` and
+   * `?proTab`. Unlike those two it waits for nothing: the report is derived
+   * from geometry and supports alone, so it is ready before the solver is —
+   * and on the model this exists for, the solver never succeeds at all.
+   */
+  function openKinematicFromUrl(params: URLSearchParams) {
+    if (params.get('kin') !== '1') return;
+    uiStore.showKinematicPanel = true;
+    /*
+     * On desktop Basic the report is docked inside the Advanced tab of the
+     * right panel (see BasicPanel.svelte), so raising the flag on its own
+     * opens a panel that is never mounted. On mobile it floats and the flag
+     * is enough — the same asymmetry that made `?inspect` look like it
+     * worked on a phone and did nothing on a laptop.
+     *
+     * No retry loop, unlike `openInspectFromUrl`: that one waits for the
+     * solver, and this report needs only geometry and supports. By the time
+     * the example loader resolves, both are in place.
+     */
+    if (uiStore.appMode === 'basico' && !uiStore.isMobile) openBasicPanel('advanced', { toggle: false });
+  }
+
+  function openProTabFromUrl(params: URLSearchParams) {
+    const tab = params.get('proTab');
+    if (!tab) return;
+    // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
+    // there but not here makes `?proTab=` silently no-op for it.
+    const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
+      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics'];
+    if (!VALID.includes(tab)) return;
+    uiStore.proActiveTab = tab;
+  }
+
   function findTabBySlug(tabSlug: string | null) {
     if (!tabSlug) return null;
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
@@ -452,7 +522,6 @@
     historyStore.clear();
     uiStore.proPanelVisible = true;
     uiStore.proPanelWidth = 540;
-    uiStore.leftDrawerOpen = false;
     uiStore.rightDrawerOpen = false;
     // Restore target mode's model or start empty
     const saved = modeSnapshots.get(target);
@@ -720,8 +789,21 @@
           };
           tryFit(0);
           openInspectFromUrl(queryParams);
-        }).catch(() => {
-          // Silently ignore unknown example ids
+          openProTabFromUrl(queryParams);
+          openKinematicFromUrl(queryParams);
+        }).catch((err) => {
+          /*
+           * Reported, not swallowed.
+           *
+           * This used to be an empty catch commented "silently ignore unknown
+           * example ids", and it did far more than that: a fixture missing
+           * `plates` threw `json.plates is not iterable` from inside the
+           * loader, the whole `then` above was skipped, and the page rendered
+           * a half-loaded model with no deep link applied and no sign that
+           * anything had failed. An unknown id is worth ignoring quietly; a
+           * broken one is not.
+           */
+          console.error(`[stabileo] example "${exampleId}" failed to load:`, err);
         });
       }, 80);
     }
@@ -927,6 +1009,21 @@
 
   // ─── PRO panel drag-resize ────────────────────────────────────────
   let proPanelRef: any = $state(null);
+  /**
+   * What `ProPanel.canSolve()` answers, for when there is no panel to ask.
+   *
+   * It is `hasModel && !solving` there, and `hasModel` is exactly this — see
+   * `ProPanel.svelte`. `solving` is that component's own state and cannot be
+   * read from here, but it does not have to be: this value is only consulted
+   * when no panel is mounted, and a solve cannot be running inside a component
+   * that does not exist.
+   *
+   * Kept next to `proPanelRef` on purpose. If `canSolve()` there ever grows a
+   * condition, this is the other half that has to learn about it.
+   */
+  const proMobileCanSolve = $derived(
+    modelStore.nodes.size > 0 && modelStore.elements.size > 0,
+  );
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
   let proSettingsOpen = $state(false);
   /**
@@ -1301,11 +1398,18 @@
     -->
     {#if uiStore.appMode === 'pro' && uiStore.isMobile}
       <!--
-        A positioned wrapper, because the stage menu is `top: 100%` of it.
-        Without one it resolves against a distant ancestor and opens at the
-        bottom of the page — the same way Basic's cluster menu did before
-        `.ribbon` was given a `position`, and it is invisible until someone
-        opens the menu on a phone.
+        A positioned wrapper, so the camera menu resolves against THIS bar.
+        ──────────────────────────────────────────────────────────────────
+        `.pmt-menu` is absolute with `left: 4px; right: 4px` and no `top`, so
+        it drops from its static position under the row and takes its width
+        from whichever ancestor is positioned. Without this one that is a
+        distant ancestor, and the menu spans the page instead of the bar —
+        the same way Basic's cluster menu did before `.ribbon` was given a
+        `position`, and just as invisible until someone opens it on a phone.
+
+        This used to say "the stage menu", which the bar carried when the
+        stage selector lived up here. That moved into the sheet's left pill;
+        the camera menu is what needs the wrapper now.
       -->
       <div class="pmt-wrap">
       <div class="pro-mobile-toolbar">
@@ -1333,13 +1437,72 @@
           data-testid="pmt-pointer"
         ><Icon name={uiStore.currentTool === 'select' ? 'select' : 'pan'} size={19} /></button>
 
+        <!--
+          Calcular cannot ask the panel whether it can solve, because on a
+          phone the panel is not there to ask.
+          ─────────────────────────────────────────────────────────────────
+          `proPanelRef` is bound by the PRO panel, and on a phone that panel
+          mounts only inside `{#if uiStore.isMobile && uiStore.rightDrawerOpen}`.
+          With the sheet closed there is no instance, so the ref is null —
+          `!(null?.canSolve() ?? false)` is `true` and the button renders
+          disabled. Disabled, its own onclick cannot fire, so it cannot open
+          the sheet that would create the panel that would enable it. On first
+          load the sheet IS closed, so Calcular was dead until the reader
+          happened to press Selection (the only other control that opens it),
+          and went dead again on every close.
+
+          So: ask the panel while it exists, and the model otherwise. Nothing
+          can be mid-solve when no panel is mounted, which is the only part of
+          `canSolve()` the model cannot answer.
+        -->
         <button
           class="pmt-btn pmt-solve"
-          onclick={() => { uiStore.rightDrawerOpen = true; proPanelRef?.solve(); }}
-          disabled={!(proPanelRef?.canSolve() ?? false)}
+          onclick={async () => {
+            uiStore.rightDrawerOpen = true;
+            // The panel does not exist yet on the first press — it mounts as a
+            // result of the line above. `tick()` waits for that, and then the
+            // solve goes through ProPanel so it keeps the pre-solve quality
+            // gate; dispatching `stabileo-solve` instead would skip it.
+            await tick();
+            proPanelRef?.solve();
+          }}
+          disabled={!(proPanelRef ? proPanelRef.canSolve() : proMobileCanSolve)}
           title={t('pro.solve')}
           data-testid="pmt-solve"
         ><Icon name="solve" size={19} /></button>
+
+        <!--
+          The floating results panel, which had lost its only door.
+          ────────────────────────────────────────────────────────
+          `MobileResultsPanel` says of itself that "PRO mobile has no ribbon,
+          and its own toolbar carries the button that opens this". This bar
+          replaced that toolbar and did not bring the button, so the panel was
+          reachable exactly one way: it opened ITSELF after every solve, on top
+          of the results sheet — the two-panels-arguing arrangement this branch
+          removed from Basic — and once dismissed with its ✕ nothing could
+          bring it back short of solving again.
+
+          Both halves are fixed. The auto-open is gone from all five solve
+          paths, because the sheet already answers a solve by showing Results
+          (`ProPanel.solve()` sets `proActiveTab = 'results'`), so a second
+          surface over it only ever covered the first. And the panel gets its
+          door back rather than being deleted: the deformed animation and its
+          speed live nowhere else in PRO, not even on the desktop, so dropping
+          it would have removed a control instead of fixing a bug.
+        -->
+        <button
+          class="pmt-btn"
+          class:active={uiStore.mobileResultsPanelOpen}
+          onclick={() => (uiStore.mobileResultsPanelOpen = !uiStore.mobileResultsPanelOpen)}
+          disabled={!resultsStore.results && !resultsStore.results3D}
+          title={t('mobile.results')}
+          aria-pressed={uiStore.mobileResultsPanelOpen}
+          data-testid="pmt-results"
+        ><!-- `data`, which is what PRO's own Results command carries in
+             `lib/pro/stages.ts` — one concept, one glyph. There is no
+             `results` icon, and inventing one here would have given the same
+             idea two faces on one screen. -->
+          <Icon name="data" size={19} /></button>
 
         <!--
           The camera stack, as one split button.
@@ -3119,9 +3282,17 @@
   .pmt-btn:hover { color: var(--st-text); }
   .pmt-btn:disabled { opacity: 0.34; cursor: default; }
   /*
-     ONE accent in the row at a time, and it means "the panel is showing this".
-     Project and the stage are the only two that can carry it, and exactly one
-     of them does whenever the panel is open.
+     `active` means "this is open"; `armed` means "this is the mode you are in".
+     ─────────────────────────────────────────────────────────────────────────
+     One control in the row carries `active` — the results button, lit while
+     its panel is up — and one carries `armed`: the pointer, and the camera
+     face when the view it names is the current one. Two words because they
+     are two claims, and a reader who sees both lit is not looking at a
+     contradiction.
+
+     This used to say Project and the stage were the only two that could carry
+     it. Both left the bar for the sheet; the rule outlived the controls it
+     described.
   */
   .pmt-btn.active {
     background: var(--st-selected-bg);
@@ -3328,9 +3499,13 @@
      * hid the structure they describe. On a phone the two have to share the
      * screen along the axis there is more of, which is vertical.
      *
-     * Just over half the height: enough for a table to be worth reading, and
-     * it leaves the model in the upper portion where the reader can see what
-     * a value refers to.
+     * The height comes from `--st-sheet-h`, the same number Basic's panel and
+     * PRO's sheet use. It was a literal 58vh here — the value the token was
+     * MOVED AWAY from, and tokens.css says why: 58 was chosen to make a
+     * results table worth reading and did not manage it, while costing the
+     * model more than half the screen. Education kept the old number simply
+     * because it was written before the token existed, so the three surfaces
+     * disagreed about how tall a sheet is.
      */
     .drawer-right {
       top: auto;
@@ -3344,8 +3519,8 @@
       right: 0;
       width: 100%;
       max-width: none;
-      height: 58vh;
-      max-height: 58vh;
+      height: var(--st-sheet-h);
+      max-height: var(--st-sheet-h);
       border-left: none;
       border-top: 1px solid var(--st-hair-strong);
       border-radius: 12px 12px 0 0;
@@ -3353,13 +3528,12 @@
     }
 
     /*
-       PRO's sheet takes the height `.app-body` gives up for it, so the model
-       above it is really there rather than covered — the same arrangement
-       Basic's panel uses, and the same token, so the two cannot drift.
+       A column, so the handle row stays put and the panel below it scrolls.
+       The height is not repeated here any more: the rule above now gives every
+       sheet the same token, and two rules setting one value is how these came
+       to disagree in the first place.
     */
     .drawer-right.drawer-shared {
-      height: var(--st-sheet-h);
-      max-height: var(--st-sheet-h);
       display: flex;
       flex-direction: column;
     }

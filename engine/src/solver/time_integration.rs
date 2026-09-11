@@ -49,33 +49,33 @@ pub fn solve_time_history_2d(
         return Err("No free DOFs -- all nodes are fully restrained".into());
     }
 
-    // 1. Assemble K and F_static
-    let asm = assembly::assemble_2d(&input.solver, &dof_num);
+    // 1. Assemble K (sparse; full-K kept for peak reactions) and F_static
+    let sasm = assembly::assemble_sparse_2d_ex(&input.solver, &dof_num, true);
 
-    // 2. Assemble mass matrix M
-    let m_full = mass_matrix::assemble_mass_matrix_2d(&input.solver, &dof_num, &input.densities);
+    // 2. Assemble mass matrix M (sparse CSC, free block)
+    let m_ff = mass_matrix::assemble_mass_matrix_2d_sparse(&input.solver, &dof_num, &input.densities);
 
-    // 3. Extract free-DOF partitions
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
-    let f_static = extract_subvec(&asm.f, &free_idx);
+    // 3. Free-DOF force vector
+    let f_static: Vec<f64> = sasm.f[..nf].to_vec();
 
     // 3a. Precompute the ground-acceleration influence product M*r once —
     // r and M are time-invariant, so it must not be rebuilt per time step.
     let m_ground_r = build_ground_influence_2d(input, &dof_num, nf, &m_ff);
 
     // 3b. Constraint reduction: reduce K, M to independent DOF space
+    // (sparse triple products — no dense reduced matrices)
     let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, m_s) = if let Some(ref cs) = cs {
-        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff))
+        (cs.reduce_matrix_sparse(&sasm.k_ff), cs.reduce_matrix_sparse(&m_ff))
     } else {
-        (k_ff.clone(), m_ff.clone())
+        (sasm.k_ff.clone(), m_ff.clone())
     };
 
-    // 4. Compute damping matrix in reduced space
-    let c_s = compute_damping_matrix(&k_s, &m_s, ns, input.damping_xi);
+    // 4. Damping in reduced space: C = a0·M + a1·K, anchored on the first
+    // two modes (sparse Lanczos). None when no damping was requested.
+    let rayleigh = compute_damping_sparse(&k_s, &m_s, input.damping_xi);
+    let c_s: Option<&CscMatrix> = rayleigh.as_ref().map(|(c, _, _)| c);
 
     // 5. Determine method parameters
     let dt = input.time_step;
@@ -97,16 +97,16 @@ pub fn solve_time_history_2d(
     }
 
     // 6. Form effective stiffness: K_eff = K + gamma/(beta*dt)*C + 1/(beta*dt^2)*M
+    // With C = a0·M + a1·K this folds into a two-term combination over the
+    // union of the K and M patterns.
     let dt2 = dt * dt;
     let c1 = 1.0 / (beta * dt2);         // coefficient for M
     let c2 = gamma / (beta * dt);         // coefficient for C
-    let mut k_eff = vec![0.0; ns * ns];
-    for i in 0..ns * ns {
-        k_eff[i] = k_s[i] + c2 * c_s[i] + c1 * m_s[i];
-    }
+    let (a0, a1) = rayleigh.as_ref().map(|(_, a0, a1)| (*a0, *a1)).unwrap_or((0.0, 0.0));
+    let k_eff = CscMatrix::linear_combination(1.0 + c2 * a1, &k_s, c1 + c2 * a0, &m_s);
 
-    // 7. Factor K_eff once (Cholesky with LU fallback)
-    let factored = factor_effective_stiffness(&k_eff, ns)?;
+    // 7. Factor K_eff once (sparse Cholesky, dense LU fallback with size cap)
+    let factored = factor_effective_stiffness(&k_eff)?;
 
     // 8. Initialize state vectors in reduced space (all zero at t=0)
     let mut u = vec![0.0; ns];   // displacement (reduced)
@@ -117,7 +117,7 @@ pub fn solve_time_history_2d(
     // Force is computed in nf space then reduced
     let f_0_nf = compute_force_at_step(input, &dof_num, nf, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
-    compute_initial_acceleration(&m_s, &c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
+    compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
 
     // 9. Prepare history storage -- track all nodes
     let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
@@ -167,7 +167,7 @@ pub fn solve_time_history_2d(
 
         // Compute effective load (all in ns space)
         let f_eff = compute_effective_load(
-            &f_next, &f_prev, &m_s, &c_s, &u, &v, &a_vec, ns,
+            &f_next, &f_prev, &m_s, c_s, &u, &v, &a_vec, ns,
             beta, gamma, dt, input.alpha,
         );
 
@@ -228,8 +228,11 @@ pub fn solve_time_history_2d(
     let peak_displacements = build_peak_displacements(&dof_num, &node_histories);
 
     // Peak reactions: compute at the peak displacement time step (u_at_peak is nf-space)
+    // Peak reactions: compute at the peak displacement time step (u_at_peak is nf-space)
     let peak_reactions = compute_reactions_at_state(
-        &input.solver, &dof_num, &asm.k, &asm.f, &u_at_peak, nf, n,
+        &input.solver, &dof_num,
+        sasm.k_full.as_ref().expect("assemble_sparse_2d_ex with build_k_full"),
+        &sasm.f, &u_at_peak, nf, n,
     );
 
     let method_name = if input.alpha.is_some() {
@@ -306,60 +309,73 @@ fn validate_integration_params(
     Ok(())
 }
 
-/// Compute the Rayleigh damping matrix for free DOFs.
-/// If damping_xi is None, returns a zero matrix.
-fn compute_damping_matrix(
-    k_ff: &[f64], m_ff: &[f64], nf: usize, damping_xi: Option<f64>,
-) -> Vec<f64> {
+/// Memory ceiling for dense fallbacks in the dynamic path: past this many
+/// reduced DOFs a dense ns×ns matrix is ~300 MB per copy, and WASM would run
+/// out of address space. Fail loudly instead of allocating.
+pub(crate) const MAX_DENSE_FALLBACK_DOFS: usize = 6000;
+
+/// Rayleigh damping C = a0·M + a1·K in sparse form, anchored on the
+/// structure's first two modes (sparse Lanczos). None when no damping.
+fn compute_damping_sparse(
+    k_s: &CscMatrix, m_s: &CscMatrix, damping_xi: Option<f64>,
+) -> Option<(CscMatrix, f64, f64)> {
     let xi = match damping_xi {
         Some(x) if x > 0.0 => x,
-        _ => return vec![0.0; nf * nf],
+        _ => return None,
     };
 
-    // Anchored on the structure's real first two modes. This used to call
-    // `estimate_fundamental_frequency` — √(Σ|K_ii|/Σ|M_ii|), a mass-weighted average
-    // of diagonal ratios, not a fundamental frequency — which on a 10-storey frame
-    // read 1027 rad/s against a true 1.15 and over-damped the dominant mode ~669×.
-    let (a0, a1) = damping::rayleigh_from_modes(k_ff, m_ff, nf, xi);
-    damping::rayleigh_damping_matrix(m_ff, k_ff, nf, a0, a1)
+    // Anchored on the structure's real first two modes (see the note in
+    // damping::rayleigh_from_modes for why the diagonal estimate is only a
+    // last resort).
+    let (a0, a1) = damping::rayleigh_from_modes_sparse(k_s, m_s, xi);
+    Some((CscMatrix::linear_combination(a0, m_s, a1, k_s), a0, a1))
+}
+
+/// Solve A·x = b with A sparse symmetric: sparse Cholesky first, dense LU
+/// (size-capped) as fallback.
+fn solve_spd_sparse_or_dense(a: &CscMatrix, b: &[f64], what: &str) -> Result<Vec<f64>, String> {
+    if let Some(x) = sparse_cholesky_solve_full(a, b) {
+        return Ok(x);
+    }
+    let n = a.n;
+    if n > MAX_DENSE_FALLBACK_DOFS {
+        return Err(format!(
+            "{what}: sparse Cholesky failed and the dense LU fallback would need a {n}×{n} dense matrix ({} MB), over the {MAX_DENSE_FALLBACK_DOFS}-DOF ceiling",
+            8 * n * n / 1_000_000
+        ));
+    }
+    let mut a_work = a.to_dense_symmetric();
+    let mut b_work = b.to_vec();
+    lu_solve(&mut a_work, &mut b_work, n)
+        .ok_or_else(|| format!("{what}: singular matrix (sparse Cholesky and dense LU both failed)"))
 }
 
 /// Compute initial acceleration: M * a0 = F0 - C*v0 - K*u0.
 /// Since typically u0=v0=0, this simplifies, but we handle the general case.
+///
+/// The mass matrix can be singular (lumped mass with massless rotational
+/// DOFs); the sparse Cholesky correctly reports that, and the fallback chain
+/// mirrors the previous dense path: LU, then the lumped diagonal solve.
 fn compute_initial_acceleration(
-    m: &[f64], c: &[f64], k: &[f64],
+    m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix,
     u: &[f64], v: &[f64], f: &[f64],
     n: usize, a: &mut [f64],
 ) {
     // rhs = F - C*v - K*u
-    let kv = mat_vec(k, u, n);
-    let cv = mat_vec(c, v, n);
+    let kv = k.sym_mat_vec(u);
+    let cv = c.map_or_else(|| vec![0.0; n], |c| c.sym_mat_vec(v));
     let mut rhs = vec![0.0; n];
     for i in 0..n {
         rhs[i] = f[i] - cv[i] - kv[i];
     }
 
-    // Solve M * a = rhs
-    let mut m_work = m.to_vec();
-    match cholesky_solve(&mut m_work, &rhs, n) {
-        Some(result) => {
-            a.copy_from_slice(&result);
-        }
-        None => {
-            // Fallback: LU solve
-            let mut m_work2 = m.to_vec();
-            let mut rhs2 = rhs.clone();
-            match lu_solve(&mut m_work2, &mut rhs2, n) {
-                Some(result) => {
-                    a.copy_from_slice(&result);
-                }
-                None => {
-                    // Last resort: lumped mass approximation (diagonal)
-                    for i in 0..n {
-                        let mii = m[i * n + i];
-                        a[i] = if mii.abs() > 1e-30 { rhs[i] / mii } else { 0.0 };
-                    }
-                }
+    match solve_spd_sparse_or_dense(m, &rhs, "initial acceleration") {
+        Ok(x) => a.copy_from_slice(&x),
+        Err(_) => {
+            // Last resort: lumped mass approximation (diagonal)
+            let md = m.diagonal();
+            for i in 0..n {
+                a[i] = if md[i].abs() > 1e-30 { rhs[i] / md[i] } else { 0.0 };
             }
         }
     }
@@ -373,7 +389,7 @@ fn build_ground_influence_2d(
     input: &TimeHistoryInput,
     dof_num: &DofNumbering,
     nf: usize,
-    m_ff: &[f64],
+    m_ff: &CscMatrix,
 ) -> Option<Vec<f64>> {
     input.ground_accel.as_ref()?;
 
@@ -393,7 +409,7 @@ fn build_ground_influence_2d(
         }
     }
 
-    Some(mat_vec(m_ff, &r, nf))
+    Some(m_ff.sym_mat_vec(&r))
 }
 
 /// Compute the external force vector at a given time step.
@@ -534,7 +550,7 @@ fn assemble_force_record(
 /// Compute the effective load vector for the Newmark/HHT step.
 fn compute_effective_load(
     f_next: &[f64], f_prev: &[f64],
-    m: &[f64], c: &[f64],
+    m: &CscMatrix, c: Option<&CscMatrix>,
     u: &[f64], v: &[f64], a: &[f64],
     n: usize,
     beta: f64, gamma: f64, dt: f64,
@@ -554,15 +570,20 @@ fn compute_effective_load(
     for i in 0..n {
         m_contrib[i] = inv_beta_dt2 * u[i] + inv_beta_dt * v[i] + half_beta_m1 * a[i];
     }
-    let m_part = mat_vec(m, &m_contrib, n);
+    let m_part = m.sym_mat_vec(&m_contrib);
 
     // C contribution vector: C * (c2*u + c4*v + c5*a)
     //   c2 = gamma/(beta*dt), c4 = gamma/beta - 1, c5 = dt/2*(gamma/beta - 2)
-    let mut c_contrib = vec![0.0; n];
-    for i in 0..n {
-        c_contrib[i] = gamma_beta_dt * u[i] + gamma_beta_m1 * v[i] + dt_half_gamma_beta_m2 * a[i];
-    }
-    let c_part = mat_vec(c, &c_contrib, n);
+    let c_part = match c {
+        Some(c) => {
+            let mut c_contrib = vec![0.0; n];
+            for i in 0..n {
+                c_contrib[i] = gamma_beta_dt * u[i] + gamma_beta_m1 * v[i] + dt_half_gamma_beta_m2 * a[i];
+            }
+            c.sym_mat_vec(&c_contrib)
+        }
+        None => vec![0.0; n],
+    };
 
     let mut f_eff = vec![0.0; n];
 
@@ -587,22 +608,31 @@ fn compute_effective_load(
 
 /// Stores the factored effective stiffness matrix for repeated back-substitution.
 enum FactoredMatrix {
-    /// Cholesky factor (lower triangular L stored in n*n array)
-    Cholesky { l: Vec<f64>, n: usize },
-    /// LU decomposition (pivoted)
+    /// Sparse Cholesky factor (the common case).
+    Sparse(NumericCholesky),
+    /// LU decomposition (pivoted), dense — only when the sparse factorization
+    /// reports the matrix as non-SPD, and only under the size ceiling.
     Lu { a: Vec<f64>, piv: Vec<usize>, n: usize },
 }
 
-/// Factor the effective stiffness matrix. Try Cholesky first, fall back to LU.
-fn factor_effective_stiffness(k_eff: &[f64], n: usize) -> Result<FactoredMatrix, String> {
-    // Try Cholesky
-    let mut l = k_eff.to_vec();
-    if cholesky_decompose(&mut l, n) {
-        return Ok(FactoredMatrix::Cholesky { l, n });
+/// Factor the effective stiffness matrix once: sparse Cholesky, dense LU
+/// fallback (size-capped) for the non-SPD case.
+fn factor_effective_stiffness(k_eff: &CscMatrix) -> Result<FactoredMatrix, String> {
+    let n = k_eff.n;
+    let sym = std::rc::Rc::new(symbolic_cholesky(k_eff));
+    if let Some(num) = numeric_cholesky(&sym, k_eff) {
+        return Ok(FactoredMatrix::Sparse(num));
+    }
+
+    if n > MAX_DENSE_FALLBACK_DOFS {
+        return Err(format!(
+            "Effective stiffness is not SPD (sparse Cholesky) and the dense LU fallback would need a {n}×{n} dense matrix ({} MB), over the {MAX_DENSE_FALLBACK_DOFS}-DOF ceiling",
+            8 * n * n / 1_000_000
+        ));
     }
 
     // Fallback: LU with partial pivoting
-    let mut a = k_eff.to_vec();
+    let mut a = k_eff.to_dense_symmetric();
     let mut piv: Vec<usize> = (0..n).collect();
 
     for k in 0..n {
@@ -639,10 +669,7 @@ fn factor_effective_stiffness(k_eff: &[f64], n: usize) -> Result<FactoredMatrix,
 /// Solve using the pre-factored matrix: K_eff * x = b.
 fn solve_with_factored(factored: &FactoredMatrix, b: &[f64], _n: usize) -> Vec<f64> {
     match factored {
-        FactoredMatrix::Cholesky { l, n } => {
-            let y = forward_solve(l, b, *n);
-            back_solve(l, &y, *n)
-        }
+        FactoredMatrix::Sparse(num) => sparse_cholesky_solve(num, b),
         FactoredMatrix::Lu { a, piv, n } => {
             let n = *n;
             // Forward substitution (Ly = Pb)
@@ -754,11 +781,40 @@ fn find_peak_with_sign(values: &[f64]) -> f64 {
     peak
 }
 
+/// Reactions at the restrained DOFs for a dynamic state: R = K_rf·u_f − F_r
+/// (restrained DOFs stay at zero — no prescribed motion in time history).
+/// k_full is the full n×n stiffness as lower-triangle CSC: the K_rf block
+/// lives in columns j < nf at rows i ≥ nf.
+fn reactions_vec_from_kfull(k_full: &CscMatrix, f_full: &[f64], u_free: &[f64], nf: usize) -> Vec<f64> {
+    let n = k_full.n;
+    let nr = n - nf;
+    let mut reactions_vec = vec![0.0; nr];
+    if nr == 0 {
+        return reactions_vec;
+    }
+    for j in 0..nf {
+        let uj = u_free[j];
+        if uj == 0.0 {
+            continue;
+        }
+        for p in k_full.col_ptr[j]..k_full.col_ptr[j + 1] {
+            let i = k_full.row_idx[p];
+            if i >= nf {
+                reactions_vec[i - nf] += k_full.values[p] * uj;
+            }
+        }
+    }
+    for i in 0..nr {
+        reactions_vec[i] -= f_full[nf + i];
+    }
+    reactions_vec
+}
+
 /// Compute reactions at a specific displacement state using the full stiffness matrix.
 fn compute_reactions_at_state(
     solver_input: &SolverInput,
     dof_num: &DofNumbering,
-    k_full: &[f64],
+    k_full: &CscMatrix,
     f_full: &[f64],
     u_free: &[f64],
     nf: usize,
@@ -776,17 +832,7 @@ fn compute_reactions_at_state(
     }
     // Restrained DOFs remain zero (no prescribed displacements in dynamic analysis)
 
-    // R = K_rf * u_f - F_r
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
-    let k_rf = extract_submatrix(k_full, n, &rest_idx, &free_idx);
-    let f_r = extract_subvec(f_full, &rest_idx);
-    let k_rf_uf = mat_vec_rect(&k_rf, u_free, nr, nf);
-
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = k_rf_uf[i] - f_r[i];
-    }
+    let reactions_vec = reactions_vec_from_kfull(k_full, f_full, u_free, nf);
 
     let mut reactions = Vec::new();
     for sup in solver_input.supports.values() {
@@ -882,33 +928,32 @@ pub fn solve_time_history_3d(
         return Err("No free DOFs -- all nodes are fully restrained".into());
     }
 
-    // 1. Assemble K and F_static
-    let asm = assembly::assemble_3d(input_solver, &dof_num);
+    // 1. Assemble K (sparse; full-K kept for peak reactions) and F_static
+    let sasm = assembly::assemble_sparse_3d(input_solver, &dof_num, true);
 
-    // 2. Assemble mass matrix M
-    let m_full = mass_matrix::assemble_mass_matrix_3d(input_solver, &dof_num, &input.densities);
+    // 2. Assemble mass matrix M (sparse CSC, free block)
+    let m_ff = mass_matrix::assemble_mass_matrix_3d_sparse(input_solver, &dof_num, &input.densities);
 
-    // 3. Extract free-DOF partitions
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
-    let f_static = extract_subvec(&asm.f, &free_idx);
+    // 3. Free-DOF force vector
+    let f_static: Vec<f64> = sasm.f[..nf].to_vec();
 
     // 3a. Precompute the per-direction ground-acceleration influence product
     // M*r once — r and M are time-invariant, so it must not be rebuilt per step.
     let m_ground_r_3d = build_ground_influence_3d(input, &dof_num, nf, &m_ff);
 
-    // 3b. Constraint reduction
+    // 3b. Constraint reduction (sparse triple products — no dense reduced matrices)
     let cs3 = FreeConstraintSystem::build_3d(&input_solver.constraints, &dof_num, &input_solver.nodes);
     let ns = cs3.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, m_s) = if let Some(ref cs) = cs3 {
-        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff))
+        (cs.reduce_matrix_sparse(&sasm.k_ff), cs.reduce_matrix_sparse(&m_ff))
     } else {
-        (k_ff.clone(), m_ff.clone())
+        (sasm.k_ff.clone(), m_ff.clone())
     };
 
-    // 4. Compute damping matrix in reduced space
-    let c_s = compute_damping_matrix(&k_s, &m_s, ns, input.damping_xi);
+    // 4. Damping in reduced space: C = a0·M + a1·K, anchored on the first
+    // two modes (sparse Lanczos). None when no damping was requested.
+    let rayleigh = compute_damping_sparse(&k_s, &m_s, input.damping_xi);
+    let c_s: Option<&CscMatrix> = rayleigh.as_ref().map(|(c, _, _)| c);
 
     // 5. Determine method parameters
     let dt = input.time_step;
@@ -928,17 +973,17 @@ pub fn solve_time_history_3d(
         return Err("Newmark beta must be positive".into());
     }
 
-    // 6. Form effective stiffness in reduced space
+    // 6. Form effective stiffness in reduced space:
+    // K_eff = K + c2·C + c1·M — folds into a two-term combination over the
+    // union of the K and M patterns (C = a0·M + a1·K).
     let dt2 = dt * dt;
     let c1 = 1.0 / (beta * dt2);
     let c2 = gamma / (beta * dt);
-    let mut k_eff = vec![0.0; ns * ns];
-    for i in 0..ns * ns {
-        k_eff[i] = k_s[i] + c2 * c_s[i] + c1 * m_s[i];
-    }
+    let (a0, a1) = rayleigh.as_ref().map(|(_, a0, a1)| (*a0, *a1)).unwrap_or((0.0, 0.0));
+    let k_eff = CscMatrix::linear_combination(1.0 + c2 * a1, &k_s, c1 + c2 * a0, &m_s);
 
-    // 7. Factor K_eff once
-    let factored = factor_effective_stiffness(&k_eff, ns)?;
+    // 7. Factor K_eff once (sparse Cholesky; dense LU fallback with size cap)
+    let factored = factor_effective_stiffness(&k_eff)?;
 
     // 8. Initialize state vectors in reduced space
     let mut u = vec![0.0; ns];
@@ -948,7 +993,7 @@ pub fn solve_time_history_3d(
     // Force computed in nf space, then reduced
     let f_0_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ground_r_3d, &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
-    compute_initial_acceleration(&m_s, &c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
+    compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
 
     // 9. Prepare history storage
     let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
@@ -1000,7 +1045,7 @@ pub fn solve_time_history_3d(
         let f_next = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
         let f_eff = compute_effective_load(
-            &f_next, &f_prev, &m_s, &c_s, &u, &v, &a_vec, ns,
+            &f_next, &f_prev, &m_s, c_s, &u, &v, &a_vec, ns,
             beta, gamma, dt, input.alpha,
         );
 
@@ -1053,7 +1098,9 @@ pub fn solve_time_history_3d(
 
     // u_at_peak is in nf space
     let peak_reactions = compute_reactions_at_state_3d(
-        input_solver, &dof_num, &asm.k, &asm.f, &u_at_peak, nf, n,
+        input_solver, &dof_num,
+        sasm.k_full.as_ref().expect("assemble_sparse_3d with build_k_full"),
+        &sasm.f, &u_at_peak, nf, n,
     );
 
     let method_name = if input.alpha.is_some() {
@@ -1084,7 +1131,7 @@ fn build_ground_influence_3d(
     input: &TimeHistoryInput3D,
     dof_num: &DofNumbering,
     nf: usize,
-    m_ff: &[f64],
+    m_ff: &CscMatrix,
 ) -> [Option<Vec<f64>>; 3] {
     let accel_dirs: [(Option<&Vec<f64>>, usize); 3] = [
         (input.ground_accel_x.as_ref(), 0), // X → local DOF 0
@@ -1103,7 +1150,7 @@ fn build_ground_influence_3d(
                     }
                 }
             }
-            *slot = Some(mat_vec(m_ff, &r, nf));
+            *slot = Some(m_ff.sym_mat_vec(&r));
         }
     }
     out
@@ -1317,7 +1364,7 @@ fn build_peak_displacements_3d(
 fn compute_reactions_at_state_3d(
     solver_input: &SolverInput3D,
     dof_num: &DofNumbering,
-    k_full: &[f64],
+    k_full: &CscMatrix,
     f_full: &[f64],
     u_free: &[f64],
     nf: usize,
@@ -1333,16 +1380,7 @@ fn compute_reactions_at_state_3d(
         u_full[i] = u_free[i];
     }
 
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
-    let k_rf = extract_submatrix(k_full, n, &rest_idx, &free_idx);
-    let f_r = extract_subvec(f_full, &rest_idx);
-    let k_rf_uf = mat_vec_rect(&k_rf, u_free, nr, nf);
-
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = k_rf_uf[i] - f_r[i];
-    }
+    let reactions_vec = reactions_vec_from_kfull(k_full, f_full, u_free, nf);
 
     let dpn = dof_num.dofs_per_node;
     let mut reactions = Vec::new();

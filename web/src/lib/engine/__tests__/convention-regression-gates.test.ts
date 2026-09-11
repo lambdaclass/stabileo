@@ -204,10 +204,15 @@ describe('SEAM 3: My/Mz axis identity preservation', () => {
     expect(src).not.toContain('MuzMax = Math.max(_mzM, _myM)');
   });
 
-  it('ProPanel.svelte Mu computation uses only mzStart/mzEnd', () => {
-    const src = readSource('../../../components/pro/ProPanel.svelte');
-    // Mu should reference mzStart and mzEnd only
+  it('the report\'s combo summary computes Mu from mzStart/mzEnd only', () => {
+    // F5 moved this out of `ProPanel.svelte`, where the assembly used to live, into
+    // `pro-report-inputs.ts`. The claim is unchanged: the report's per-combination Mu is the
+    // STRONG-axis moment, never the larger of the two. Only the file it is asserted against
+    // moved — which is the same shape as the three location assertions §7.7 records.
+    const src = readSource('../pro-report-inputs.ts');
     expect(src).toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
+    expect(src, 'must not magnitude-sort My against Mz')
+      .not.toContain('Math.max(Math.abs(ef.mzStart), Math.abs(ef.myStart))');
   });
 
   it('section-stress-3d.ts Navier formula uses PR [12] axis pairing', () => {

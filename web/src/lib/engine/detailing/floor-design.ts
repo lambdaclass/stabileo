@@ -857,6 +857,22 @@ export function buildFloorAssembly(input: FloorAssemblyInput): FloorAssemblyResu
     prohibitedConflicts: prohibited,
     reverifiedMembers: 0,
     certificateHashMatches: 0,
+    /**
+     * Zero because this pass's SCOPE is the floor families, and it covers them.
+     *
+     * The condition asks whether the drawing covers every member of every SELECTED family. This
+     * pass has no frame members — its population is the slabs, walls and footings, and
+     * `allApplicableFamiliesCertified` and `noStaleFamilyCertificate` are the two conditions
+     * that count them, per family, against what is applicable. A shortfall in this pass's own
+     * scope is therefore already measured, twice, by instruments that fit it.
+     *
+     * What this must NOT do is import the frame's shortfall. A floor designed and certified on a
+     * building whose columns were never designed is a true claim about the floor, and the
+     * qualifier that keeps it from being read as a claim about the building is
+     * `DesignConvergence.outOfScope` — carried on the document and every export — not a
+     * condition here failing for a reason outside its subject.
+     */
+    undetailedScopeMembers: 0,
     familyRequirements,
     spacingNotCodeLegal: conflicts.filter((c) => c.pairClass === 'sameLayerSpacing'
       || c.pairClass === 'betweenLayerSpacing' || c.pairClass === 'crossMemberSpacing').length,

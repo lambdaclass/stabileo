@@ -332,24 +332,55 @@ export function computeSectionProperties(
     case 'C-custom': {
       const { h, b, tw, tf, c, tl } = params;
       if (!h || !b || !tw || !tf || !c || !tl || h <= 0 || b <= 0 || tw <= 0 || tf <= 0 || c <= 0 || tl <= 0) return null;
-      if (2 * tf >= h || tw >= b || c + tf > h / 2) return null;
+      /*
+         ── The OUTER-FACE convention ────────────────────────────────────
+
+         `c` is the lip depth measured from the flange's OUTER face. That is how a cold-formed
+         designation reads — in `C 100x50x15x2` the `15` is the total lip depth measured from
+         outside — and it is what BOTH drawing implementations already do: `createCShape` walks
+         from `-halfH`, and `crossSectionPath`'s `'C'` from `-hh + lip`.
+
+         This calculation was the odd one out. It measured from the flange's MID-LINE
+         (`(h - tf)/2 - c/2`), so with the same `c` it counted `2t²` more material than either
+         drawing: 452 mm² against 444 on a `C 100x50x15x2`, about 1.8 %. Two parts of the
+         application described different objects, and the one that disagreed with the designation
+         was this one — a user typing 15 got a lip 15 + t/2 deep.
+
+         So the lip that ADDS material is only the part beyond the flange, `c - tf`.
+         `cold-formed-lip-convention.test.ts` checks A, Iy and Iz against the moments of the
+         polygon `createCShape` actually walks, on a grid, and they agree to machine precision.
+
+         Two consequences taken on purpose, not by omission:
+
+         · The validity bound loosens. Lips collide when `c > h/2`, not `c + tf > h/2`.
+         · `c <= tf` stops being an error and becomes a PLAIN CHANNEL. That is what the drawing
+           already did — `createCShape` renders an unlipped channel for `lip <= tf` while this
+           function happily added `2·c·tl` of lip — so for `c <= tf` the app used to compute a
+           section with a lip and draw one without. `Math.max(0, …)` closes it by construction,
+           with no new guard: the useful lip is ≤ 0 exactly when the drawing refuses to draw one.
+
+         Convention decided in `docs/handoffs/m2-lip-convention-proposal.md` (M1). H1 owns this
+         file because it also holds the concrete templates.
+      */
+      if (2 * tf >= h || tw >= b || c > h / 2) return null;
       const hw = h - 2 * tf;
-      const a = tw * hw + 2 * b * tf + 2 * c * tl;
+      const cl = Math.max(0, c - tf);   // lip beyond the flange; 0 means a plain channel
+      const a = tw * hw + 2 * b * tf + 2 * cl * tl;
       // Iy (about Y horizontal): h-dominated, symmetric
       const iyWeb = (tw * hw ** 3) / 12;
       const iyFlanges = 2 * ((b * tf ** 3) / 12 + b * tf * ((h - tf) / 2) ** 2);
-      const yLipCenter = (h - tf) / 2 - c / 2;
-      const iyLips = 2 * ((tl * c ** 3) / 12 + tl * c * yLipCenter ** 2);
+      const yLipCenter = (h - c - tf) / 2;
+      const iyLips = 2 * ((tl * cl ** 3) / 12 + tl * cl * yLipCenter ** 2);
       // Iz (about Z vertical): z-centroid not centered
-      const zBar = (tw * hw * (tw / 2) + 2 * b * tf * (b / 2) + 2 * c * tl * (b - tl / 2)) / a;
+      const zBar = (tw * hw * (tw / 2) + 2 * b * tf * (b / 2) + 2 * cl * tl * (b - tl / 2)) / a;
       const izWeb = (hw * tw ** 3) / 12 + hw * tw * (tw / 2 - zBar) ** 2;
       const izFlanges = 2 * ((tf * b ** 3) / 12 + b * tf * (b / 2 - zBar) ** 2);
-      const izLips = 2 * ((c * tl ** 3) / 12 + c * tl * (b - tl / 2 - zBar) ** 2);
+      const izLips = 2 * ((cl * tl ** 3) / 12 + cl * tl * (b - tl / 2 - zBar) ** 2);
       return {
         a,
         iy: iyWeb + iyFlanges + iyLips,
         iz: izWeb + izFlanges + izLips,
-        j: (1 / 3) * (hw * tw ** 3 + 2 * b * tf ** 3 + 2 * c * tl ** 3),
+        j: (1 / 3) * (hw * tw ** 3 + 2 * b * tf ** 3 + 2 * cl * tl ** 3),
         b, h, tw, tf,
         t: c,
         tl,

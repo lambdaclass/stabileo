@@ -37,7 +37,9 @@
 </script>
 
 <section class="layers">
-  <h4>{t('detailing.scene.layers')}</h4>
+  <!-- `h3`: the workspace title is the overlay's `h2`, so a rail panel is its child. This was
+       an `h4` and skipped a level — the jump H1-A measured in all three languages. -->
+  <h3>{t('detailing.scene.layers')}</h3>
   {#each SOLID_KINDS as kind (kind)}
     <label>
       <input
@@ -104,7 +106,7 @@
 </section>
 
 <section class="section-cut">
-  <h4>{t('detailing.scene.section')}</h4>
+  <h3>{t('detailing.scene.section')}</h3>
   <select
     data-testid="rebar-section-axis"
     value={sectionAxis}
@@ -145,7 +147,7 @@
      are counted next to the picture. -->
 {#if summary}
   <section class="tally" data-testid="rebar-tally">
-    <h4>{t('detailing.scene.tally.title')}</h4>
+    <h3>{t('detailing.scene.tally.title')}</h3>
     <p class="totals">
       <span>{t('detailing.scene.tally.solids')} <strong>{summary.solidCount}</strong></span>
       <span>{t('detailing.scene.tally.reinforced')}
@@ -165,7 +167,8 @@
       </tbody>
     </table>
     {#if pieces.length > 0}
-      <h5>{t('detailing.scene.pieces.title')}</h5>
+      <!-- Nested inside the tally, so one level below it. -->
+      <h4>{t('detailing.scene.pieces.title')}</h4>
       <table data-testid="rebar-pieces">
         <tbody>
           {#each pieces as [kind, n] (kind)}
@@ -195,7 +198,7 @@
     Layers / Section / What the scene contains / Model status were four different weights and
     sizes with no separators, which is a large part of why the viewer read as another program.
   */
-  h4, h5 {
+  h3, h4 {
     margin: 0 0 0.3rem;
     font-size: 0.72rem;
     font-weight: 600;
@@ -204,7 +207,7 @@
     color: var(--st-text-2);
   }
   section { display: flex; flex-direction: column; }
-  h4 { margin: 0 0 0.25rem; font-size: 0.8rem; }
+  h3 { margin: 0 0 0.25rem; font-size: 0.8rem; }
   label {
     display: flex; align-items: center; gap: 0.35rem;
     font-size: 0.76rem; padding: 0.08rem 0; cursor: pointer;
@@ -220,13 +223,16 @@
     border: 1px solid var(--st-hair-strong); border-radius: 4px;
     padding: 0.2rem 0.5rem;
   }
-  .tally h5 { margin: 0.35rem 0 0.15rem; font-size: 0.75rem; }
+  .tally h4 { margin: 0.35rem 0 0.15rem; font-size: 0.75rem; }
   .tally table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
   .tally th {
     text-align: left; font-weight: 400; color: var(--st-text-2);
     padding: 0.08rem 0;
   }
-  .tally td { text-align: right; font-variant-numeric: tabular-nums; padding: 0.08rem 0; }
+  .tally td {
+    text-align: right; font-family: var(--st-mono); font-variant-numeric: tabular-nums;
+    padding: 0.08rem 0;
+  }
   .tally .totals {
     display: flex; flex-direction: column; gap: 0.05rem;
     margin: 0 0 0.25rem; font-size: 0.72rem; color: var(--st-text-2);

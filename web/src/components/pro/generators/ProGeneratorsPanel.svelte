@@ -24,7 +24,7 @@
   import { modelStore } from '../../../lib/store/model.svelte';
   import { applyGeneratedModel, matchesPreview } from '../../../lib/store/generator-apply';
   import {
-    DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS,
+    DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS, subdivisionApplies,
     generateTruss, validateTrussParams, type Topology, type TrussParams,
   } from '../../../lib/engine/generators/truss-topology';
   import {
@@ -32,12 +32,25 @@
     generateLatticeColumn, validateLatticeColumnParams, type LatticeColumnParams,
   } from '../../../lib/engine/generators/lattice-column';
   import {
-    DEFAULT_SHED_PARAMS, generateShed, validateShedParams, type ShedParams,
+    BRACING_BAYS, DEFAULT_SHED_PARAMS, generateShed, validateShedParams, type ShedParams,
   } from '../../../lib/engine/generators/shed';
   import {
     emitModel, requiredRoles, validateProfiles, defaultProfileSpec,
-    type EmitOptions, type ProfileSpec,
+    type EmitOptions, type GeneratorMaterial, type ProfileSpec,
   } from '../../../lib/engine/generators/emit';
+  import ProMaterialModal from '../material/ProMaterialModal.svelte';
+  import { choiceGradeId } from '../../../lib/material/material-choice';
+
+  /**
+   * The metal categories, which is what a steel generator can emit.
+   *
+   * Concrete and timber are real materials with real presets; they are simply not something
+   * `emitModel` can build a truss out of, and offering them would be offering a choice the
+   * emitter must then refuse.
+   */
+  const METAL_CATEGORIES = ['acero', 'conformado', 'inox', 'aluminio'] as const;
+  import { pairing, structuralGradeSource } from '../../../lib/grades/catalogue';
+  import { resolveProfile } from '../../../lib/engine/generators/profile-resolve';
   import type { MemberRole } from '../../../lib/engine/generators/member-roles';
   import type { ProvenanceSource } from '../../../lib/model/provenance';
   import ProfilePicker from './ProfilePicker.svelte';
@@ -99,6 +112,29 @@
   );
 
   /**
+   * Bracing that does not reach the ground, named before Generate rather than after Solve.
+   *
+   * The measurement in `shed-bracing.test.ts`: the shed has no longitudinal load path at all,
+   * and the three bracing members only make one together. Roof bracing alone triangulates a
+   * plate that still slides; vertical bracing alone ties the roof to an eave line that is itself
+   * held by nothing but the columns' weak-axis bending. So a partial selection is a real state a
+   * user can be in, and the honest thing is to say what is still missing from the path.
+   *
+   * A `status`, not an `alert`, and it never blocks Generate: someone may want the geometry to
+   * brace it their own way, and half a system is not an invalid parameter.
+   */
+  const bracingNotice = $derived.by(() => {
+    if (kind !== 'shed') return null;
+    const any = shed.roofBracing || shed.trussBracing || shed.wallBracing;
+    if (!any) return null;
+    const all = shed.roofBracing && shed.trussBracing && shed.wallBracing;
+    if (all) {
+      return shed.longitudinalBeams ? null : t('generator.notice.bracingWithoutEaveBeams');
+    }
+    return t('generator.notice.bracingIncomplete');
+  });
+
+  /**
    * The topology, or null while the parameters are invalid.
    *
    * The generators throw on bad input by design, so the guard is here rather than inside a
@@ -133,6 +169,74 @@
     topology !== null && paramProblems.length === 0 && profileProblems.length === 0,
   );
 
+  /**
+   * The grade every generated member is made of, or null for the placeholder.
+   *
+   * `emit.ts` has carried `GeneratorMaterial.gradeId` since PR21 and has never been given one:
+   * a generated model took `PLACEHOLDER_STEEL` — A36, which is not an Argentine grade — and
+   * declared `generator.assume.placeholderGrade` to say so. Choosing here is what makes that
+   * assumption disappear, and it is a one-line change at the call site precisely because the
+   * field was already there.
+   */
+  let gradeId = $state<string | null>(null);
+  let gradeOpen = $state(false);
+
+  /**
+   * Whether the preview is docked to the bottom of the panel.
+   *
+   * Docked by default, because the preview is the feedback loop: the whole point of typing a
+   * span is watching the drawing change, and until now it sat inline in a single scrolling
+   * column and left the viewport as soon as the parameters were scrolled. Unlockable, because
+   * on a short viewport a docked preview costs the parameters the room they need — and that is
+   * the user's call, not a rule.
+   */
+  let previewDocked = $state(true);
+
+  const grade = $derived(gradeId ? structuralGradeSource.byId(gradeId) : null);
+
+  /**
+   * The material handed to the emitter.
+   *
+   * Null while no grade is chosen, which is what keeps the placeholder and its disclosure: an
+   * emitter that received a half-filled material would have to invent the rest.
+   */
+  const material = $derived.by((): GeneratorMaterial | null => {
+    if (!grade) return null;
+    return {
+      name: grade.designation,
+      e: grade.eMPa,
+      nu: grade.nu,
+      rho: grade.rhoKNM3,
+      // The headline value, which is the first thickness band. The member's governing
+      // thickness is not known here — the generator places profiles, it does not size them —
+      // so resolving a band would be inventing the decision that picks one.
+      fy: grade.fyMPa,
+      gradeId: grade.id,
+    };
+  });
+
+  /**
+   * Which of the chosen profiles this grade is not ordinarily rolled in.
+   *
+   * One grade is applied to every member, and the roles do not all take the same section
+   * family: a shed's chords are I-sections and its diagonals are angles. So the pairing question
+   * has one answer per role, and the useful report is the list of roles where the answer is
+   * "this family is not rolled in that steel" — a matter of cost and lead time, never of
+   * correctness, and nothing is blocked by it.
+   */
+  const unusualRoles = $derived.by(() => {
+    if (!gradeId) return [] as string[];
+    const out: string[] = [];
+    for (const role of roles) {
+      const spec = profiles[role];
+      if (!spec) continue;
+      const family = resolveProfile(spec.profileName)?.family;
+      if (!family) continue;
+      if (pairing(family, gradeId).verdict === 'unusual') out.push(role);
+    }
+    return out;
+  });
+
   let lastResult = $state<string | null>(null);
 
   const SOURCE: Record<Kind, ProvenanceSource> = {
@@ -153,7 +257,10 @@
 
   function generate() {
     if (!topology || !canGenerate) return;
-    const opts: EmitOptions = { name: nameOf(), profiles };
+    const opts: EmitOptions = {
+      name: nameOf(), profiles,
+      ...(material ? { material } : {}),
+    };
     const g = emitModel(topology, opts);
     const r = applyGeneratedModel(g, {
       source: SOURCE[kind],
@@ -187,136 +294,7 @@
   <span class="fhint" id={`gen-hint-${key}`}>{t(`generator.hint.${key}`)}</span>
 {/snippet}
 
-<div class="gen" data-testid="pro-generators-panel">
-  <header>
-    <h3>{t('generator.ui.title')}</h3>
-    <p class="sub">{t('generator.ui.subtitle')}</p>
-  </header>
-
-  <div class="kinds" role="group" aria-label={t('generator.ui.title')}>
-    {#each [['truss', 'kindTruss'], ['column', 'kindColumn'], ['shed', 'kindShed']] as [k, key] (k)}
-      <button
-        type="button"
-        class:active={kind === k}
-        data-testid={`gen-kind-${k}`}
-        aria-pressed={kind === k}
-        onclick={() => { kind = k as Kind; }}
-      >{t(`generator.ui.${key}`)}</button>
-    {/each}
-  </div>
-
-  <!-- ── Parameters ── -->
-  <div class="fields">
-    {#if kind === 'truss'}
-      <label><span>{t('generator.ui.kindTruss')}</span>
-        <select bind:value={truss.kind}>
-          {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
-        </select></label>
-      <label>{@render fieldHead('span')}<input type="number" min="0.5" step="0.5" bind:value={truss.spanM} aria-describedby="gen-hint-span" /></label>
-      <label>{@render fieldHead('rise')}<input type="number" min="0" step="0.1" bind:value={truss.riseM} aria-describedby="gen-hint-rise" /></label>
-      {#if truss.kind === 'trapezoidal' || truss.kind === 'arch'}
-        <label>{@render fieldHead('endDepth')}<input type="number" min="0" step="0.1" bind:value={truss.endDepthM} aria-describedby="gen-hint-endDepth" /></label>
-      {/if}
-      {#if truss.kind === 'parallelChord' || truss.kind === 'pratt'}
-        <label>{@render fieldHead('depth')}<input type="number" min="0.1" step="0.1" bind:value={truss.depthM} aria-describedby="gen-hint-depth" /></label>
-      {/if}
-      {#if truss.kind === 'trapezoidal'}
-        <label>{@render fieldHead('plateau')}<input type="number" min="0" step="0.1" bind:value={truss.plateauM} aria-describedby="gen-hint-plateau" /></label>
-      {/if}
-      {#if truss.kind === 'arch'}
-        <label><span>{t('generator.ui.archCurve')}</span>
-          <select bind:value={truss.archCurve}>
-            {#each ARCH_CURVES as c (c)}<option value={c}>{t(`generator.archCurve.${c}`)}</option>{/each}
-          </select></label>
-      {/if}
-      {#if truss.kind !== 'rolledPortal'}
-        <label>{@render fieldHead('panels')}<input type="number" min="1" step="1" bind:value={truss.panelsPerHalf} aria-describedby="gen-hint-panels" /></label>
-        <label><span>{t('generator.ui.webPattern')}</span>
-          <select bind:value={truss.webPattern}>
-            {#each WEB_PATTERNS as w (w)}<option value={w}>{t(`generator.webPattern.${w}`)}</option>{/each}
-          </select></label>
-      {/if}
-      <label class="check"><input type="checkbox" bind:checked={truss.halfTruss} /><span>{t('generator.ui.halfTruss')}</span></label>
-
-    {:else if kind === 'column'}
-      <label>{@render fieldHead('height')}<input type="number" min="0.5" step="0.5" bind:value={column.heightM} aria-describedby="gen-hint-height" /></label>
-      <label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={column.widthM} aria-describedby="gen-hint-width" /></label>
-      <label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={column.divisions} aria-describedby="gen-hint-divisions" /></label>
-      <label><span>{t('generator.ui.lacing')}</span>
-        <select bind:value={column.lacing}>
-          {#each LACING_PATTERNS as l (l)}<option value={l}>{t(`generator.lacing.${l}`)}</option>{/each}
-        </select></label>
-      <label class="check"><input type="checkbox" bind:checked={column.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
-
-    {:else}
-      <label><span>{t('generator.ui.spanVT')}</span><input type="number" min="1" step="0.5" bind:value={shed.spanM} /></label>
-      <label>{@render fieldHead('bayVP')}<input type="number" min="1" step="0.5" bind:value={shed.bayM} aria-describedby="gen-hint-bayVP" /></label>
-      <label>{@render fieldHead('frames')}<input type="number" min="2" step="1" bind:value={shed.frames} aria-describedby="gen-hint-frames" /></label>
-      <label>{@render fieldHead('clearHeight')}<input type="number" min="1" step="0.5" bind:value={shed.clearHeightM} aria-describedby="gen-hint-clearHeight" /></label>
-      <label><span>{t('generator.ui.columnKind')}</span>
-        <select bind:value={shed.columnKind}>
-          <option value="lattice">{t('generator.ui.columnLattice')}</option>
-          <option value="solid">{t('generator.ui.columnSolid')}</option>
-        </select></label>
-      {#if shed.columnKind === 'lattice'}
-        <label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={shed.column.widthM} aria-describedby="gen-hint-width" /></label>
-        <label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={shed.column.divisions} aria-describedby="gen-hint-divisions" /></label>
-      {/if}
-      <label class="check"><input type="checkbox" bind:checked={shed.longitudinalBeams} /><span>{t('generator.ui.beams')}</span></label>
-      <label class="check"><input type="checkbox" bind:checked={shed.roof} /><span>{t('generator.ui.roof')}</span></label>
-      {#if shed.roof}
-        <label><span>{t('generator.ui.kindTruss')}</span>
-          <select bind:value={shed.truss.kind}>
-            {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
-          </select></label>
-        <label>{@render fieldHead('rise')}<input type="number" min="0" step="0.1" bind:value={shed.truss.riseM} aria-describedby="gen-hint-rise" /></label>
-        <label>{@render fieldHead('panels')}<input type="number" min="1" step="1" bind:value={shed.truss.panelsPerHalf} aria-describedby="gen-hint-panels" /></label>
-        <label class="check"><input type="checkbox" bind:checked={shed.truss.halfTruss} /><span>{t('generator.ui.halfTruss')}</span></label>
-        <label class="check"><input type="checkbox" bind:checked={shed.purlins} /><span>{t('generator.ui.purlins')}</span></label>
-      {/if}
-      <label class="check"><input type="checkbox" bind:checked={shed.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
-    {/if}
-  </div>
-
-  {#if paramProblems.length > 0}
-    <ul class="problems" id="gen-param-problems" role="alert" data-testid="gen-param-problems">
-      {#each paramProblems as p, i (i)}<li>{t(p.key)}</li>{/each}
-    </ul>
-  {/if}
-
-  <!--
-    `status`, not `alert`: nothing is wrong yet and Generate stays available. It is announced
-    when it appears, which is the moment the user unticks Purlins — before Generate, not after
-    Solve refuses.
-  -->
-  {#if stabilityNotice}
-    <p class="notice" role="status" data-testid="gen-stability-notice">{stabilityNotice}</p>
-  {/if}
-
-  <!-- ── Profiles, only for the roles this topology actually places ── -->
-  {#if roles.length > 0}
-    <h4>{t('generator.ui.profiles')}</h4>
-    {#each roles as role (role)}
-      <ProfilePicker
-        {role}
-        spec={profiles[role]}
-        onChange={(next) => { profiles = { ...profiles, [role]: next }; }}
-      />
-    {/each}
-  {/if}
-
-  {#if profileProblems.length > 0}
-    <ul class="problems" id="gen-profile-problems" role="alert" data-testid="gen-profile-problems">
-      {#each profileProblems as p, i (i)}
-        <li>{t(p.key).replace('{role}', p.role ? t(`generator.role.${p.role}`) : '').replace('{name}', String(p.params?.name ?? ''))}</li>
-      {/each}
-    </ul>
-  {/if}
-
-  <!--
-    The drawing and the count, both from the same topology object Generate then emits — so
-    the picture, the numbers and the model agree by construction rather than by care.
-  -->
+{#snippet previewAndActions()}
   {#if topology}
     <div class="previews" data-testid="gen-previews">
       {#if frameElevation}
@@ -393,6 +371,263 @@
   {#if lastResult}
     <p class="result" data-testid="gen-result" role="status">{lastResult}</p>
   {/if}
+{/snippet}
+
+<div class="gen" data-testid="pro-generators-panel">
+  <header>
+    <h3>{t('generator.ui.title')}</h3>
+    <p class="sub">{t('generator.ui.subtitle')}</p>
+  </header>
+
+  <div class="kinds" role="group" aria-label={t('generator.ui.title')}>
+    {#each [['truss', 'kindTruss'], ['column', 'kindColumn'], ['shed', 'kindShed']] as [k, key] (k)}
+      <button
+        type="button"
+        class:active={kind === k}
+        data-testid={`gen-kind-${k}`}
+        aria-pressed={kind === k}
+        onclick={() => { kind = k as Kind; }}
+      >{t(`generator.ui.${key}`)}</button>
+    {/each}
+  </div>
+
+  <!--
+    Everything above the dock scrolls. The dock does not.
+
+    Two regions rather than one column with `position: sticky`: sticky inside a scroller keeps
+    the element in flow, so the drawing would still push the Generate button off the bottom on
+    a short viewport. A flex column with one `min-height: 0` scroller and a fixed footer is what
+    actually pins it.
+  -->
+  <div class="gen-scroll" data-testid="gen-scroll">
+
+  <!-- ── Parameters ── -->
+  <div class="fields">
+    {#if kind === 'truss'}
+      <label><span>{t('generator.ui.kindTruss')}</span>
+        <select bind:value={truss.kind}>
+          {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
+        </select></label>
+      <label>{@render fieldHead('span')}<input type="number" min="0.5" step="0.5" bind:value={truss.spanM} aria-describedby="gen-hint-span" /></label>
+      <label>{@render fieldHead('rise')}<input type="number" min="0" step="0.1" bind:value={truss.riseM} aria-describedby="gen-hint-rise" /></label>
+      {#if truss.kind === 'trapezoidal' || truss.kind === 'arch'}
+        <label>{@render fieldHead('endDepth')}<input type="number" min="0" step="0.1" bind:value={truss.endDepthM} aria-describedby="gen-hint-endDepth" /></label>
+      {/if}
+      {#if truss.kind === 'parallelChord' || truss.kind === 'pratt'}
+        <label>{@render fieldHead('depth')}<input type="number" min="0.1" step="0.1" bind:value={truss.depthM} aria-describedby="gen-hint-depth" /></label>
+      {/if}
+      {#if truss.kind === 'trapezoidal'}
+        <label>{@render fieldHead('plateau')}<input type="number" min="0" step="0.1" bind:value={truss.plateauM} aria-describedby="gen-hint-plateau" /></label>
+      {/if}
+      {#if truss.kind === 'arch'}
+        <label><span>{t('generator.ui.archCurve')}</span>
+          <select bind:value={truss.archCurve}>
+            {#each ARCH_CURVES as c (c)}<option value={c}>{t(`generator.archCurve.${c}`)}</option>{/each}
+          </select></label>
+      {/if}
+      {#if truss.kind !== 'rolledPortal'}
+        <label>{@render fieldHead('panels')}<input type="number" min="1" step="1" bind:value={truss.panelsPerHalf} aria-describedby="gen-hint-panels" data-testid="gen-panels" /></label>
+        <label><span>{t('generator.ui.webPattern')}</span>
+          <select bind:value={truss.webPattern} data-testid="gen-web-pattern">
+            {#each WEB_PATTERNS as w (w)}<option value={w}>{t(`generator.webPattern.${w}`)}</option>{/each}
+          </select></label>
+        <!--
+          Shown only where it does something. `subdivisionApplies` refuses a single panel per
+          half, where the new panel point would land on the existing midspan one, so the
+          control cannot be ticked into a no-op.
+        -->
+        {#if subdivisionApplies(truss)}
+          <label class="check">
+            <input type="checkbox" bind:checked={truss.subdivideDiagonals} data-testid="gen-subdivide" />
+            <span>{t('generator.ui.subdivideDiagonals')}</span>
+          </label>
+          <p class="gen-hint" data-testid="gen-subdivide-hint">{t('generator.ui.subdivideDiagonalsHelp')}</p>
+        {/if}
+      {/if}
+      <label class="check"><input type="checkbox" bind:checked={truss.halfTruss} /><span>{t('generator.ui.halfTruss')}</span></label>
+
+    {:else if kind === 'column'}
+      <label>{@render fieldHead('height')}<input type="number" min="0.5" step="0.5" bind:value={column.heightM} aria-describedby="gen-hint-height" /></label>
+      <label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={column.widthM} aria-describedby="gen-hint-width" /></label>
+      <label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={column.divisions} aria-describedby="gen-hint-divisions" /></label>
+      <label><span>{t('generator.ui.lacing')}</span>
+        <select bind:value={column.lacing}>
+          {#each LACING_PATTERNS as l (l)}<option value={l}>{t(`generator.lacing.${l}`)}</option>{/each}
+        </select></label>
+      <label class="check"><input type="checkbox" bind:checked={column.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
+
+    {:else}
+      <label><span>{t('generator.ui.spanVT')}</span><input type="number" min="1" step="0.5" bind:value={shed.spanM} /></label>
+      <label>{@render fieldHead('bayVP')}<input type="number" min="1" step="0.5" bind:value={shed.bayM} aria-describedby="gen-hint-bayVP" /></label>
+      <label>{@render fieldHead('frames')}<input type="number" min="2" step="1" bind:value={shed.frames} aria-describedby="gen-hint-frames" /></label>
+      <label>{@render fieldHead('clearHeight')}<input type="number" min="1" step="0.5" bind:value={shed.clearHeightM} aria-describedby="gen-hint-clearHeight" /></label>
+      <label><span>{t('generator.ui.columnKind')}</span>
+        <select bind:value={shed.columnKind}>
+          <option value="lattice">{t('generator.ui.columnLattice')}</option>
+          <option value="solid">{t('generator.ui.columnSolid')}</option>
+        </select></label>
+      {#if shed.columnKind === 'lattice'}
+        <label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={shed.column.widthM} aria-describedby="gen-hint-width" /></label>
+        <label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={shed.column.divisions} aria-describedby="gen-hint-divisions" /></label>
+      {/if}
+      <label class="check"><input type="checkbox" bind:checked={shed.longitudinalBeams} /><span>{t('generator.ui.beams')}</span></label>
+      <label class="check"><input type="checkbox" bind:checked={shed.roof} /><span>{t('generator.ui.roof')}</span></label>
+      {#if shed.roof}
+        <label><span>{t('generator.ui.kindTruss')}</span>
+          <select bind:value={shed.truss.kind}>
+            {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
+          </select></label>
+        <label>{@render fieldHead('rise')}<input type="number" min="0" step="0.1" bind:value={shed.truss.riseM} aria-describedby="gen-hint-rise" /></label>
+        <label>{@render fieldHead('panels')}<input type="number" min="1" step="1" bind:value={shed.truss.panelsPerHalf} aria-describedby="gen-hint-panels" /></label>
+        <label class="check"><input type="checkbox" bind:checked={shed.truss.halfTruss} /><span>{t('generator.ui.halfTruss')}</span></label>
+        <label class="check"><input type="checkbox" bind:checked={shed.purlins} /><span>{t('generator.ui.purlins')}</span></label>
+      {/if}
+      <label class="check"><input type="checkbox" bind:checked={shed.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
+
+      <!--
+        Bracing, as three switches rather than one.
+
+        They are three different members doing three different jobs, and collapsing them into
+        "Bracing" would hide the fact the measurement turned up: bracing the roof PLANE anchors
+        nothing on its own. The path is roof plane → vertical bracing between trusses → eave line
+        → eave beams → braced wall → ground, and a user who ticks one box and gets 10^11 m of
+        displacement learns nothing from a single control.
+
+        `shed-bracing.test.ts` measures each one's contribution by removing it.
+      -->
+      <label class="check"><input type="checkbox" bind:checked={shed.roofBracing} />
+        <span>{t('generator.ui.roofBracing')}</span></label>
+      <label class="check"><input type="checkbox" bind:checked={shed.trussBracing} />
+        <span>{t('generator.ui.trussBracing')}</span></label>
+      <label class="check"><input type="checkbox" bind:checked={shed.wallBracing} />
+        <span>{t('generator.ui.wallBracing')}</span></label>
+      {#if shed.roofBracing || shed.trussBracing || shed.wallBracing}
+        <label><span>{t('generator.ui.bracingBays')}</span>
+          <select bind:value={shed.bracingBays} data-testid="gen-bracing-bays">
+            {#each BRACING_BAYS as b (b)}<option value={b}>{t(`generator.bracingBays.${b}`)}</option>{/each}
+          </select></label>
+      {/if}
+    {/if}
+  </div>
+
+  {#if paramProblems.length > 0}
+    <ul class="problems" id="gen-param-problems" role="alert" data-testid="gen-param-problems">
+      {#each paramProblems as p, i (i)}<li>{t(p.key)}</li>{/each}
+    </ul>
+  {/if}
+
+  <!--
+    `status`, not `alert`: nothing is wrong yet and Generate stays available. It is announced
+    when it appears, which is the moment the user unticks Purlins — before Generate, not after
+    Solve refuses.
+  -->
+  {#if stabilityNotice}
+    <p class="notice" role="status" data-testid="gen-stability-notice">{stabilityNotice}</p>
+  {/if}
+  {#if bracingNotice}
+    <p class="notice" role="status" data-testid="gen-bracing-notice">{bracingNotice}</p>
+  {/if}
+
+  <!-- ── Profiles, only for the roles this topology actually places ── -->
+  {#if roles.length > 0}
+    <h4>{t('generator.ui.profiles')}</h4>
+    {#each roles as role (role)}
+      <ProfilePicker
+        {role}
+        spec={profiles[role]}
+        onChange={(next) => { profiles = { ...profiles, [role]: next }; }}
+      />
+    {/each}
+  {/if}
+
+  <!--
+    ── The material, once, for every member the generator places ──
+
+    One grade rather than one per role. A generated frame is fabricated from one steel, and a
+    per-role material would be a modelling capability the generator has no use for — while the
+    role-by-role CONSEQUENCE of the single choice, which sections that steel is not ordinarily
+    rolled in, is reported below.
+  -->
+  <h4>{t('generator.ui.material')}</h4>
+  <div class="grade-line" data-testid="gen-grade-line">
+    <button
+      type="button"
+      class="grade-trigger"
+      aria-expanded={gradeOpen}
+      onclick={() => (gradeOpen = !gradeOpen)}
+      data-testid="gen-grade-trigger"
+    >{grade ? grade.designation : t('steel.grades.none')}</button>
+    {#if grade}
+      <span class="grade-meta">{grade.productStandard} · fy {grade.fyMPa} MPa</span>
+      <button type="button" class="grade-clear" onclick={() => { gradeId = null; }}
+              data-testid="gen-grade-clear">{t('generator.ui.materialClear')}</button>
+    {:else}
+      <!--
+        What the model gets INSTEAD, named. An empty control beside "no grade" leaves a user to
+        assume the members have no material at all; they have a placeholder, and the generated
+        model declares it as an assumption.
+      -->
+      <span class="grade-meta">{t('generator.ui.materialPlaceholder')}</span>
+    {/if}
+  </div>
+  <p class="grade-note" data-testid="gen-grade-scope">{t('generator.ui.materialScope')}</p>
+
+  <!--
+    The same selector the materials tab opens, narrowed to the metals.
+
+    It used to be `GradePickerPanel`, an inline popover over the grade database. That panel is
+    good and is still what the modal's own list is measured against, but having two material
+    surfaces in PRO meant two places to keep in step — and only one of them carried the
+    thickness bands and the per-field authority. Narrowing the shared one to the metal
+    categories keeps the catalogue, the sheet, the keyboard and the conversion identical, and
+    shortens only the tab strip.
+  -->
+  <ProMaterialModal
+    open={gradeOpen}
+    selected={grade?.designation ?? ''}
+    label={t('generator.ui.material')}
+    categories={METAL_CATEGORIES}
+    onApply={(choice) => { gradeId = choiceGradeId(choice); }}
+    onClose={() => (gradeOpen = false)}
+  />
+
+  <!--
+    The pairing note sits with the controls it is about. A warning that a grade is unusual for
+    the diagonals is useless three sections away from the control that chose the diagonals.
+  -->
+  {#if unusualRoles.length > 0}
+    <p class="notice" role="status" data-testid="gen-grade-pairing">
+      {tp('generator.notice.gradeUnusualForRoles', {
+        grade: grade?.designation ?? '',
+        roles: unusualRoles.map((r) => t(`generator.role.${r}`)).join(', '),
+      })}
+    </p>
+  {/if}
+
+  {#if profileProblems.length > 0}
+    <ul class="problems" id="gen-profile-problems" role="alert" data-testid="gen-profile-problems">
+      {#each profileProblems as p, i (i)}
+        <li>{t(p.key).replace('{role}', p.role ? t(`generator.role.${p.role}`) : '').replace('{name}', String(p.params?.name ?? ''))}</li>
+      {/each}
+    </ul>
+  {/if}
+
+    {#if !previewDocked}{@render previewAndActions()}{/if}
+  </div><!-- /gen-scroll -->
+
+  <!--
+    The drawing and the count, both from the same topology object Generate then emits — so
+    the picture, the numbers and the model agree by construction rather than by care.
+  -->
+  <div class="gen-dock" class:docked={previewDocked} data-testid="gen-dock">
+    <button
+      type="button" class="dock-toggle" data-testid="gen-dock-toggle"
+      aria-pressed={previewDocked}
+      onclick={() => (previewDocked = !previewDocked)}
+    >{previewDocked ? t('generator.ui.previewUnlock') : t('generator.ui.previewLock')}</button>
+    {#if previewDocked}{@render previewAndActions()}{/if}
+  </div>
+
 
   <p class="model-note">
     {tp('generator.ui.currentModel', {
@@ -402,7 +637,55 @@
 </div>
 
 <style>
-  .gen { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; height: 100%; overflow-y: auto; }
+  /*
+    The panel is a column with one scroller and one fixed footer, not a single scroller.
+    `min-height: 0` on the scroller is what lets it actually shrink inside the flex parent —
+    without it the default `min-height: auto` makes it as tall as its content and the dock is
+    pushed off the bottom, which is the same failure the dock exists to fix.
+  */
+  .gen { display: flex; flex-direction: column; padding: 10px 12px; height: 100%; overflow: hidden; }
+  .gen-scroll { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; }
+  .gen-dock { display: flex; flex-direction: column; gap: 8px; }
+  .gen-dock.docked {
+    flex-shrink: 0;
+    border-top: 1px solid var(--st-hair);
+    margin-top: 8px; padding-top: 8px;
+    /* Bounded, so a tall drawing cannot take the whole panel and leave no parameters. */
+    max-height: 55%; overflow-y: auto;
+  }
+  .dock-toggle {
+    align-self: flex-end; padding: 2px 8px; font-size: 0.64rem; cursor: pointer;
+    background: transparent; color: var(--st-text-3);
+    border: 1px solid var(--st-hair); border-radius: 3px;
+  }
+  .dock-toggle:hover { color: var(--st-text-2); }
+  .dock-toggle:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+
+  /*
+    Number inputs: the spinner overlaps the value at this size.
+
+    The controls in this panel are 4–6 rem wide with right-aligned numbers, and WebKit's
+    inner spin button is drawn INSIDE that box — so `24.50` renders under a pair of arrows and
+    the last digit is unreadable. Firefox's `appearance: textfield` does the same job through a
+    different property, so both are set.
+
+    What this does NOT do is remove the behaviour. `step`, `min` and `max` still apply, the
+    Up and Down arrow keys still step the value, and the field is still `type="number"`, so a
+    screen reader still announces it as a spinbutton and a mobile keyboard is still numeric.
+    Only the painted arrows go.
+  */
+  .gen input[type='number']::-webkit-outer-spin-button,
+  .gen input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+  .gen input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+    /* The room the arrows used to take, given back to the number. */
+    padding-right: 6px;
+  }
   h3 { margin: 0; font-size: 0.86rem; font-weight: 600; }
   h4 { margin: 6px 0 2px; font-size: 0.74rem; font-weight: 600; color: var(--st-text-2); }
   .sub { margin: 2px 0 0; font-size: 0.7rem; color: var(--st-text-2); }
@@ -448,6 +731,21 @@
   .go:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 2px; }
   .result { margin: 0; font-size: 0.7rem; color: var(--st-ok); }
   .model-note { margin: 0; font-size: 0.66rem; color: var(--st-text-3); }
+
+  /* The material row reads like a profile row, because it is the same kind of choice. */
+  .grade-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
+  .grade-trigger {
+    font-family: var(--st-mono, monospace); font-size: 0.68rem;
+    padding: 3px 7px; min-width: 7.5rem; text-align: left; cursor: pointer;
+    background: var(--st-surface); color: var(--st-text);
+    border: 1px solid var(--st-hair); border-radius: 3px;
+  }
+  .grade-meta { font-size: 0.62rem; color: var(--st-text-3); }
+  .grade-clear {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.6rem; color: var(--st-text-3); text-decoration: underline;
+  }
+  .grade-note { margin: 0 0 6px; font-size: 0.6rem; color: var(--st-text-3); line-height: 1.35; }
 
   /*
     One focus ring for every control in this panel.

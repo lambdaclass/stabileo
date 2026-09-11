@@ -32,10 +32,21 @@
    */
   import { t, tp } from '../../../lib/i18n';
   import type { BarConflict } from '../../../lib/engine/detailing/collision';
+  import type { RcConflictLabel } from '../../../lib/flow/rc-bar-label';
 
   interface Props {
     /** Already filtered to the reportable severities by the store. */
     conflicts: BarConflict[];
+    /**
+     * The same conflicts, named for a person — index for index with `conflicts`.
+     *
+     * The row used to read `{c.barA} / {c.barB}`: two engine keys, in monospace, as the primary
+     * text of the line a reviewer reads first. That is the defect `rc-bar-label.ts` was written
+     * for, one component over, and it survived because `BarConflict` carries ids and nothing
+     * else — the mark has to be joined in from the assembly. The caller does that join, because
+     * this component is given facts and computes none.
+     */
+    conflictLabels: RcConflictLabel[];
     conflictIndex: number;
     /** What stands between this assembly and the next review state. */
     stateBlockers: string[];
@@ -52,7 +63,7 @@
     onShowOnSheet: () => void;
   }
   const {
-    conflicts, conflictIndex, stateBlockers, unsupported, stateLabel,
+    conflicts, conflictLabels, conflictIndex, stateBlockers, unsupported, stateLabel,
     onSelectConflict, onPrev, onNext, onGoToMember, onShowOnSheet,
   }: Props = $props();
 
@@ -64,8 +75,14 @@
     return `${(m * 1000).toFixed(0)} mm`;
   }
 
-  function severityLabel(s: string): string {
-    return s === 'overlap' ? t('detailing.conflict.overlap') : t('detailing.conflict.clearance');
+  /**
+   * The two bars, named.
+   *
+   * Never blank and never a lone slash: an unresolvable side keeps its key, which is the only
+   * true thing left to say about a bar this assembly does not hold.
+   */
+  function pairLead(l: RcConflictLabel): string {
+    return `${l.a.lead} / ${l.b.lead}`;
   }
 </script>
 
@@ -123,6 +140,7 @@
 
       <ul class="list" data-testid="conflict-list">
         {#each conflicts as c, i (`${c.barA}|${c.barB}|${i}`)}
+          {@const l = conflictLabels[i]}
           <li
             class="item"
             class:current={i === conflictIndex}
@@ -134,9 +152,25 @@
               different destinations, so they are two different controls rather than one row that
               does something different depending on where you hit it.
             -->
+            <!--
+              The bars lead by their MARKS, and the keys go underneath.
+
+              Both keys are always shown, not only when a side failed to resolve. Two physically
+              distinct bars can share one mark — a mark is a fabrication type, not an identity —
+              so a row reading `B4 / B4` is a real and legitimate clash that would otherwise look
+              like a bar colliding with itself. `sameMark` is exactly that case; the keys are the
+              only thing that tells the two apart, so they are never the hidden half of the row.
+            -->
             <button type="button" class="row" onclick={() => onSelectConflict(i)}>
-              <span class="sev">{severityLabel(c.severity)}</span>
-              <span class="bars">{c.barA} / {c.barB}</span>
+              <span class="sev">{t(l.severityKey)}</span>
+              <span class="pair">
+                <span class="pair-lead" data-testid={`conflict-lead-${i}`}>{pairLead(l)}</span>
+                <code class="pair-ids" data-testid={`conflict-ids-${i}`}
+                      title={t('detailing.bar.technicalId')}>{c.barA} / {c.barB}</code>
+                {#if l.classLabelKey}
+                  <span class="pair-class">{t(l.classLabelKey)}</span>
+                {/if}
+              </span>
               <span class="nums">
                 {mm(c.clearance)} / {mm(c.required)}
                 <span class="short">−{mm(c.shortfall)}</span>
@@ -167,9 +201,12 @@
       -->
       {#if conflicts[conflictIndex]}
         {@const c = conflicts[conflictIndex]}
+        {@const l = conflictLabels[conflictIndex]}
         <p class="detail" data-testid="conflict-detail">
-          {severityLabel(c.severity)} — {c.barA} / {c.barB}:
+          {t(l.severityKey)} — {pairLead(l)}:
           {mm(c.clearance)} / {mm(c.required)}
+          <!-- The keys, kept: this line is what a reviewer copies into a bug report. -->
+          <code class="pair-ids" data-testid="conflict-detail-ids">{c.barA} / {c.barB}</code>
         </p>
       {/if}
     </div>
@@ -291,7 +328,22 @@
     outline-offset: 1px;
   }
   .sev { font-weight: 600; color: var(--st-danger); white-space: nowrap; }
-  .bars { font-family: var(--st-mono, monospace); overflow: hidden; text-overflow: ellipsis; }
+  /*
+    The pair stacks: the marks on top in the row's own type, the keys under them in the token
+    reserved for reference text. `.bars` was one monospace line because the keys WERE the label;
+    now the label is the marks and the keys are what you copy.
+  */
+  .pair { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .pair-lead { font-weight: 600; color: var(--st-text); overflow: hidden; text-overflow: ellipsis; }
+  .pair-ids {
+    font-family: var(--st-mono, monospace);
+    font-size: 0.62rem;
+    color: var(--st-text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: all;
+  }
+  .pair-class { font-size: 0.62rem; color: var(--st-text-2); }
   .nums { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .short { color: var(--st-danger); font-weight: 600; }
 

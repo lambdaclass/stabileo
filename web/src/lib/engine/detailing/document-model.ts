@@ -36,6 +36,8 @@ import type { DetailingAssembly, ReviewState } from './assembly';
 import type { BarConflict } from './collision';
 import type { LapInterval } from './lap-materialize';
 import type { ConstructibilityAssessment } from './constructibility';
+import type { DesignConvergence } from './design-convergence';
+import type { DesignFamily } from '../design/design-families';
 import {
   certificateFreshness, finalGeometryHashOf, reinforcementHashOf,
   type FamilyCertificate, type FloorFamily, type FloorFamilyDesignRecord,
@@ -183,8 +185,65 @@ export interface DocumentModel {
   /** Rolled up across assemblies. */
   maturity: Maturity;
   assumptions: EngineMessage[];
+  /**
+   * The families this document answers for, and the ones it does not.
+   *
+   * ── Why a document carries a scope at all ──────────────────────────
+   *
+   * Because `readiness` is a statement about the ASSEMBLIES in it, and a reader takes a
+   * REVIEWED or ISSUED document to be a statement about the building. Those are the same
+   * sentence exactly when the document covers everything the building has, and a run scoped to
+   * beams and columns does not.
+   *
+   * So the scope travels with the document and out through every export. A sheet that says
+   * "issued for construction" and does not say "beams and columns; the slabs are not in this
+   * set" is a true claim that will be read as a false one, and a drawing is read on a site by
+   * someone who was not in the room when the scope was chosen.
+   *
+   * `outOfScope` names families the MODEL HAS and this document does not cover. It is empty on
+   * a building whose every family was designed, which is the only case where the unqualified
+   * reading is the right one.
+   */
+  scope: DesignFamily[];
+  outOfScope: DesignFamily[];
+  /**
+   * What this document was narrowed to, or null for the whole documentable set.
+   *
+   * Set by `narrowDocument` and by nothing else. `buildDocumentModel` never sets it, because a
+   * document that was not narrowed has no selection to report and `{ elements: everything }`
+   * would be a claim dressed as a fact — the reader could not tell a whole set from a selection
+   * that happens to cover it.
+   */
+  selection?: DocumentSelection | null;
   /** One-line statement of what this document is. Translated at the boundary. */
   summary: EngineMessage;
+}
+
+/**
+ * The narrowing a document carries, so every projection of it states the same subset.
+ *
+ * ── Why the document carries this and not the panel ────────────────
+ *
+ * Because the file is what leaves. A panel that knew the selection and a document that did not
+ * would put the subset on screen and the whole set in the folder, which is the failure
+ * `DocumentModel` exists to prevent, one level out.
+ */
+export interface DocumentSelection {
+  /** The members this document contains, ascending. */
+  elements: number[];
+  /** How many the project could have documented. `elements.length` out of this. */
+  ofBase: number;
+  /** The families `elements` belongs to. A subset of `scope`, never more. */
+  families: DesignFamily[];
+  /**
+   * Members NOT selected whose steel appears anyway, because a bar is one physical piece.
+   *
+   * A bar continuous over a support belongs to the beam it was designed for AND to the column it
+   * passes through. Selecting the beam and not the column cannot cut that bar in half, so the
+   * bar is drawn and the column is named here. Silence would leave a reader counting steel
+   * against a member list that does not contain its owner.
+   */
+  sharedWith: number[];
 }
 
 /**
@@ -347,6 +406,19 @@ export function buildDocumentModel(input: {
    * silently benign.
    */
   currentRevisions?: FamilyCertificate['revisions'];
+  /**
+   * The convergence the run reported, for the scope this document states.
+   *
+   * Passed in rather than recomputed: the denominator a claim was measured against has to be the
+   * one that produced it, and a document that re-derived its own scope from the assemblies in it
+   * would always report "covers exactly what it covers" — a tautology in the shape of a
+   * measurement.
+   *
+   * Absent means the caller has no scope information, and the document reports an EMPTY scope
+   * with nothing out of it rather than inventing one. That is visible — an export with no
+   * families named — instead of silently benign.
+   */
+  convergence?: Pick<DesignConvergence, 'scope' | 'outOfScope'>;
 }): DocumentModel {
   const docAssemblies: DocumentAssembly[] = input.assemblies.map((a) => {
     const layers = [...new Set(a.bars.map((b) => b.layerId).filter(Boolean) as string[])]
@@ -484,6 +556,8 @@ export function buildDocumentModel(input: {
       ...docAssemblies.flatMap((a) => a.assumptions),
       ...docAssemblies.flatMap((a) => a.families.flatMap((r) => r.assumptions)),
     ],
+    scope: [...(input.convergence?.scope ?? [])],
+    outOfScope: [...(input.convergence?.outOfScope ?? [])],
     summary: msg(
       readiness === 'REVIEW_DRAFT'
         ? 'detailing.document.reviewDraft'

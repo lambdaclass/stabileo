@@ -347,3 +347,109 @@ fn cable_3d_simple() {
     let d2 = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     assert!(d2.uz < 0.0, "Node 2 should deflect downward in z: uz={}", d2.uz);
 }
+
+/// Harp-stayed deck: fixed pylon at x=0 (12 m tall), deck fixed at x=0 and
+/// roller at x=L, cable stays from the pylon top to the deck quarter points.
+/// nf = 3 * n_elem + 3 (free deck nodes + pylon top): n_elem=20 gives 63
+/// (dense path), n_elem=24 gives 75 (sparse path).
+fn make_stayed_deck(n_elem: usize) -> SolverInput {
+    let length = 24.0;
+
+    let mut nodes = HashMap::new();
+    for i in 0..=n_elem {
+        let id = i + 1;
+        nodes.insert(id.to_string(), SolverNode {
+            id, x: length * i as f64 / n_elem as f64, z: 0.0,
+        });
+    }
+    let pylon_top = n_elem + 2;
+    nodes.insert(pylon_top.to_string(), SolverNode { id: pylon_top, x: 0.0, z: 12.0 });
+
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+
+    let mut sections = HashMap::new();
+    sections.insert("1".to_string(), SolverSection { id: 1, a: 0.05, iz: 1.0e-3, as_y: None });
+    sections.insert("2".to_string(), SolverSection { id: 2, a: 0.002, iz: 1.0e-8, as_y: None });
+
+    let mut elements = HashMap::new();
+    for i in 0..n_elem {
+        elements.insert((i + 1).to_string(), SolverElement {
+            id: i + 1, elem_type: "frame".to_string(),
+            node_i: i + 1, node_j: i + 2,
+            material_id: 1, section_id: 1,
+            hinge_start: false, hinge_end: false,
+        });
+    }
+    elements.insert((n_elem + 1).to_string(), SolverElement {
+        id: n_elem + 1, elem_type: "frame".to_string(),
+        node_i: 1, node_j: pylon_top,
+        material_id: 1, section_id: 1,
+        hinge_start: false, hinge_end: false,
+    });
+    // Cable stays to the deck quarter points.
+    for (k, &q) in [n_elem / 4, n_elem / 2, 3 * n_elem / 4].iter().enumerate() {
+        let id = 100 + k + 1;
+        elements.insert(id.to_string(), SolverElement {
+            id, elem_type: "cable".to_string(),
+            node_i: pylon_top, node_j: q + 1,
+            material_id: 1, section_id: 2,
+            hinge_start: false, hinge_end: false,
+        });
+    }
+
+    let mut supports = HashMap::new();
+    supports.insert("1".to_string(), SolverSupport {
+        id: 1, node_id: 1, support_type: "fixed".to_string(),
+        kx: None, ky: None, kz: None,
+        dx: None, dz: None, dry: None, angle: None,
+    });
+    supports.insert("2".to_string(), SolverSupport {
+        id: 2, node_id: n_elem + 1, support_type: "roller".to_string(),
+        kx: None, ky: None, kz: None,
+        dx: None, dz: None, dry: None, angle: None,
+    });
+
+    let mut loads = Vec::new();
+    // Constant total deck load (-240 kN) regardless of mesh density.
+    let per_node = -240.0 / (n_elem - 1) as f64;
+    for i in 1..n_elem {
+        loads.push(SolverLoad::Nodal(SolverNodalLoad {
+            node_id: i + 1, fx: 0.0, fz: per_node, my: 0.0,
+        }));
+    }
+
+    SolverInput {
+        nodes, materials, sections, elements, supports, loads,
+        constraints: vec![], connectors: HashMap::new(),
+    }
+}
+
+#[test]
+fn cable_sparse_path_parity_with_dense() {
+    // Densities enable the Ernst sag correction, so the iterative loop
+    // actually iterates.
+    let densities: HashMap<String, f64> = [("1".to_string(), 7850.0)].into_iter().collect();
+
+    let dense_in = make_stayed_deck(20);
+    let sparse_in = make_stayed_deck(24);
+
+    let r_dense = cable::solve_cable_2d(&dense_in, &densities, 50, 1e-8).unwrap();
+    let r_sparse = cable::solve_cable_2d(&sparse_in, &densities, 50, 1e-8).unwrap();
+    assert!(r_dense.converged, "Dense path should converge");
+    assert!(r_sparse.converged, "Sparse path should converge");
+
+    // Max cable tension parity (same structure, same stays).
+    let t_dense = r_dense.cable_forces.iter().map(|c| c.tension).fold(0.0f64, f64::max);
+    let t_sparse = r_sparse.cable_forces.iter().map(|c| c.tension).fold(0.0f64, f64::max);
+    assert!(t_dense > 0.0 && t_sparse > 0.0, "Cables should be in tension");
+    let rel_t = (t_dense - t_sparse).abs() / t_dense;
+    assert!(rel_t < 0.02, "Cable tension parity: dense={:.6e}, sparse={:.6e}", t_dense, t_sparse);
+
+    // Deck midspan deflection parity (negative = downward).
+    let mid_dense = r_dense.results.displacements.iter().find(|d| d.node_id == 11).unwrap().uz;
+    let mid_sparse = r_sparse.results.displacements.iter().find(|d| d.node_id == 13).unwrap().uz;
+    assert!(mid_dense < 0.0 && mid_sparse < 0.0, "Deck should deflect downward");
+    let rel_d = (mid_dense - mid_sparse).abs() / mid_dense.abs();
+    assert!(rel_d < 0.02, "Midspan deflection parity: dense={:.6e}, sparse={:.6e}", mid_dense, mid_sparse);
+}

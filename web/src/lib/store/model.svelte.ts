@@ -5,6 +5,9 @@ import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
 import { migrateRegulations, type StoredRegulations } from '../codes/roles';
+import {
+  cloneStoredJointDesigns, type StoredJointDesigns,
+} from '../connection/joint-choices';
 import type { RevisionVector } from '../codes/revisions';
 import {
   defaultFootingMatPreferences, migrateFootingMatPreferences, migrateFootings, newFooting,
@@ -108,7 +111,13 @@ export interface Section {
   iz: number; // m⁴ — moment of inertia about Z-axis (vertical)
   b?: number; // m
   h?: number; // m
-  shape?: 'I' | 'H' | 'U' | 'L' | 'RHS' | 'CHS' | 'rect' | 'generic' | 'T' | 'invL' | 'C';
+  /**
+   * `'Z'` is the lipped cold-formed zed, added because a Z could not otherwise be stored or
+   * drawn: `createSectionShape` dispatches on this field, so a section without a literal here
+   * has no outline. Field meanings follow `'C'` exactly — `t` is the lip LENGTH and `tl` the lip
+   * thickness — so nothing else about a Z section is new. See `profiles/cold-formed.ts`.
+   */
+  shape?: 'I' | 'H' | 'U' | 'L' | 'RHS' | 'CHS' | 'rect' | 'generic' | 'T' | 'invL' | 'C' | 'Z';
   tw?: number;  // m - espesor alma (web thickness)
   tf?: number;  // m - espesor ala (flange thickness)
   t?: number;   // m - espesor pared (wall thickness, hollow sections) / lip length (C-channel)
@@ -124,6 +133,62 @@ export interface Section {
    * section/steel pairing matches what mills actually roll.
    */
   profileFamily?: string;
+  /**
+   * How a PARAMETRIC section was built: which template, and the numbers typed into it.
+   *
+   * ── What it is not ────────────────────────────────────────────────
+   *
+   * Not `composition`. That field names parts of the CATALOGUE — `profileName` is documented as
+   * "exact catalogue name" — and a section built from a template has no catalogue part to name.
+   * Writing one would be the defect `composition` exists to close: the make-up of a section
+   * stated in a string nobody can act on.
+   *
+   * Not provenance either. `ModelProvenance` records where a whole MODEL came from; this is a
+   * property of one section, and a project can mix a built section with catalogue picks.
+   *
+   * ── What it buys, stated precisely ────────────────────────────────
+   *
+   * The derived numbers were already stored: `a`, `iy`, `iz`, `j`, plus `shape` and the
+   * thicknesses. What was NOT stored is the INPUT, and three things follow from that:
+   *
+   *   1. **A built section cannot be edited.** Reopening a project, the only way to change a web
+   *      thickness is to delete the section and retype every parameter, because nothing recorded
+   *      what they were.
+   *   2. **Its origin is unanswerable.** A catalogue pick carries `profileFamily`, an assembly
+   *      carries `composition`, and a built section carried neither — so "where did this come
+   *      from" had no answer for exactly one of the three ways a section can be created.
+   *   3. **A parameter the apply path forgets is invisible.** The lipped channel is the live case:
+   *      `computeSectionProperties` takes `tl` — lip thickness — as its own input and returns it,
+   *      the apply path dropped it, and `createSectionShape`'s `case 'C'` falls back to the FLANGE
+   *      thickness when it is absent. So the properties were computed from one lip and the outline
+   *      drawn with another, and the two agreed only while a user left them equal. With the inputs
+   *      travelling on the section, that class of loss is detectable instead of silent.
+   *
+   * ── Declarative, like `composition` ───────────────────────────────
+   *
+   * Nothing in the properties path reads it. `a`/`iy`/`iz`/`j` on this section stay
+   * authoritative, and the canonical resolver is not handed a second opinion about the geometry.
+   * It is a record of an input, not a source of truth about an output.
+   *
+   * ── Where it persists, and where it does not ──────────────────────
+   *
+   * Optional, so every stored model predating it stays valid — and `snapshot()` spreads the
+   * section wholesale while `restore()` copies it, so `.ded`, undo/redo and tab capture carry it
+   * with no change to any of them.
+   *
+   * A SHARE LINK does not. `compressV2` in `utils/url-sharing.ts` encodes a section as the
+   * positional tuple `[id, name, a, iz, {s,b,h,w,f,t,iy,j,rot}]`, which has never carried `tl`,
+   * `profileFamily` or `composition` either — so an assembly shared by URL already comes back
+   * without its make-up. Widening that format is a separate, versioned decision
+   * (`SHARE_VERSION`); `built-section-contract.test.ts` pins the current loss so it is a stated
+   * limitation and not a surprise.
+   */
+  built?: {
+    /** Template id from `data/section-shapes.ts`, e.g. `I-custom`, `hollow-rect`, `C-custom`. */
+    shapeType: string;
+    /** The parameters as entered, in the units that template declares (metres for lengths). */
+    params: Record<string, number>;
+  };
   /**
    * What this section is MADE OF, when it is an assembly of catalogue profiles.
    *
@@ -660,6 +725,19 @@ export interface StructureModel {
   /** The revision vector every downstream result is stamped against. */
   revisions?: RevisionVector;
   /**
+   * The joint designs the project carries — I-06.
+   *
+   * On the model for exactly the reason `codeSettings` and `regulations` are: `.ded` save/open,
+   * undo/redo, tab capture and autosave all go through `snapshot()`/`restore()`, so a field that
+   * lives here travels all four for free and a field that lives in a side store travels none of
+   * them. `jointDesignStore` held these in a `$state` Map and in nothing else, so twenty
+   * designed joints were lost on closing the tab.
+   *
+   * Only the CHOICES, never a computed capacity. Absent on projects saved before this existed,
+   * which reads as «no joints were designed» — the true answer for them.
+   */
+  jointDesigns?: StoredJointDesigns;
+  /**
    * Coordinated detailing assemblies.
    *
    * Persisted with the model for the same reason codeSettings is: a coordinated floor
@@ -696,6 +774,19 @@ export interface InfluenceLineResult {
 }
 
 function createModelStore() {
+  /**
+   * Where the project's own history comes from when a snapshot is taken.
+   *
+   * Late-bound in `store/index.ts`, exactly like `_setOnMutation` and `_setOnResultsPublish`,
+   * because importing `project-provenance` here would close a cycle: it reaches
+   * `design-run` → `verification` → `regulations`, and `regulations` reads `modelStore.model`
+   * at module scope. The cycle is real — it fails at import time with
+   * `Cannot read properties of undefined (reading 'model')` — and late binding is how this
+   * store already solves it for its other cross-store hooks.
+   */
+  let _captureProvenance:
+    (() => Pick<ModelSnapshot, 'exports' | 'manualEdits'>) | null = null;
+
   const normalize2DSupportType = (type: SupportType): SupportType =>
     type === 'rollerY' ? 'rollerZ' : type;
   const canonicalSupportDz = (support: Partial<Support>): number | undefined => support.dz ?? support.dy;
@@ -1259,7 +1350,25 @@ function createModelStore() {
         regulations: snap.regulations
           ? (JSON.parse(JSON.stringify(snap.regulations)) as StoredRegulations)
           : undefined,
+        // What was emitted and what was retouched by hand. Read from their own stores rather
+        // than from `model`, because neither is model data: an emission belongs to the project's
+        // history and a hand edit to the session's. They ride here so that save, autosave and
+        // tab capture carry them at once — and `restore()` ignores them on the way back, so
+        // undo cannot un-happen an export. See `project-provenance.ts`.
+        ..._captureProvenance?.(),
         revisions: snap.revisions ? { ...snap.revisions } : undefined,
+        /*
+         * Cloned deeply, because `choices.bolts` and `choices.battens` are nested objects: a
+         * shallow copy would leave the saved project sharing them with the live model, so
+         * editing a batten gap would rewrite the undo entry meant to go back before it.
+         *
+         * Absent stays absent, like `regulations` above — `restore(snapshot())` has to be a
+         * no-op, and materialising an empty container here would make a cancelled CAD draft
+         * differ from its own starting point.
+         */
+        jointDesigns: snap.jointDesigns
+          ? cloneStoredJointDesigns(snap.jointDesigns as StoredJointDesigns)
+          : undefined,
         // Cloned one level deeper than the other Map families because `pedestal` is a
         // nested object: a shallow `{ ...v }` would share it between the snapshot and the
         // live model, so editing a pedestal would silently rewrite the undo entry.
@@ -1290,6 +1399,10 @@ function createModelStore() {
       return result;
     },
 
+    _setCaptureProvenance(fn: () => Pick<ModelSnapshot, 'exports' | 'manualEdits'>): void {
+      _captureProvenance = fn;
+    },
+
     restore(rawSnapshot: ModelSnapshot): void {
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
       //
@@ -1313,6 +1426,11 @@ function createModelStore() {
       // `plainDeepCopy` rather than `$state.snapshot`: compiled for the server the rune is the
       // identity function, so the guarantee would hold in the browser and evaporate under the
       // test suite — which is where it has to be provable.
+      // `exports` and `manualEdits` are deliberately NOT read here. This is the undo/redo path
+      // as well as the file-open path, and an export is a historical fact: the undo entry was
+      // pushed before the file was written, so restoring its emission list would silently delete
+      // a record of something that really happened. They are adopted once per project by
+      // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const s = plainDeepCopy(rawSnapshot);
       modelVersion++;
       _onMutation?.();
@@ -1447,6 +1565,22 @@ function createModelStore() {
       // actually carries, so zeroing it on open would make every stored certificate look
       // freshly current.
       model.revisions = s.revisions ? { ...s.revisions } : undefined;
+      /*
+       * The joint designs, restored as stored — and this line is the whole of I-07.
+       *
+       * Loading another model REPLACES the field instead of merging into it, so a second model
+       * in the same session cannot inherit the first one's joints: a snapshot without the field
+       * lands as `undefined`, which the store reads as no joints at all. That is why nothing has
+       * to remember to call `reset()`; replacing the project IS the reset.
+       *
+       * The stored joints are not filtered here. They are matched against the live nodes and
+       * elements on every read — see `reconcileJointDesigns` — because a node deleted after the
+       * project opened has to make its joint obsolete too, and a load-time pass would have
+       * already run.
+       */
+      model.jointDesigns = s.jointDesigns
+        ? cloneStoredJointDesigns(s.jointDesigns)
+        : undefined;
       // Footings and the ground they bear on. `migrateFootings` drops a footing whose
       // stored node reference is not a number rather than repairing it — a footing
       // attached to nothing has no reaction, and inventing a node moves someone's
@@ -2235,6 +2369,9 @@ function createModelStore() {
       // previously open project happened to be designed to.
       model.codeSettings = defaultCodeSettings();
       model.detailing = emptyDetailingStore();
+      // A new project has no designed joints. Same reasoning as the soil two blocks up: keeping
+      // them would attach the previous project's bolts to this one's node ids.
+      model.jointDesigns = undefined;
       // Reset materials/sections to defaults
       model.materials = new Map([[1, { ...defaultMaterial }]]);
       // Resolve the default profile's canonical state too. `clear()` runs on

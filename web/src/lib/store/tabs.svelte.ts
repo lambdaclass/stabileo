@@ -11,6 +11,7 @@ import type { DiagramType } from './results.svelte';
 import type { Tool, SelectMode, ElementColorMode } from './ui.svelte';
 import type { ViewportPresentation3D } from '../geometry/coordinate-system';
 import { t, isDefaultName } from '../i18n';
+import { hydrateProjectProvenance } from './project-provenance';
 
 export interface TabState {
   id: string;
@@ -183,6 +184,9 @@ function createTabManager() {
 
       // Restore model
       modelStore.restore(state.modelSnapshot);
+      // Each tab is its own project, so its emission list and hand-edit set travel with it.
+      // Not done by `restore()`, which is also the undo path — see project-provenance.ts.
+      hydrateProjectProvenance(state.modelSnapshot);
       modelStore.model.name = state.name;
       // A legacy (pre-metadata) 3D tab restored from a saved session must get the
       // same convention note as a .ded open — not silently re-evaluated.

@@ -1,3 +1,7 @@
+// FIRST, deliberately: the dev-only favicon swap must run before the dev server
+// resolves the CSS and component graph, or the tab paints the production icon and
+// flips seconds later. Eliminated from production builds — see the module.
+import './dev-favicon';
 import './styles/tokens.css';
 // After the tokens, which it reads, and global because the rows it governs
 // live in several components with scoped styles. See the file's own header.

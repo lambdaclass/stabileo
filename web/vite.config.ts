@@ -48,6 +48,17 @@ const PRODUCTION_BUILD_TESTS = [
   // `npm ls --omit=dev --all`, which walks the whole dependency tree. Same reason again: it
   // spawns, so it belongs here rather than competing with 300 other files for a worker.
   'src/lib/export/__tests__/third-party-notices.test.ts',
+  // Spawns a real `vite build` to prove the production bundle carries nothing that only
+  // exists on a development machine. It reads a build it made itself rather than a
+  // checked-out dist/, precisely so it cannot skip itself into a green.
+  // NOTE: no apostrophes or quotes in these comments — `configArray` in
+  // harness-architecture.test.ts harvests every quoted run inside this array.
+  'src/lib/utils/__tests__/no-dev-assets-in-build.test.ts',
+  // Spawns a vite build AND a prerender pass, then checks that every URL the sitemap
+  // publishes is a file the host serves rather than an address it redirects. It builds
+  // its own for the same reason as the one above: reading a checked-out dist/ let it
+  // skip itself into a green on any machine where nobody had built.
+  'src/lib/i18n/__tests__/published-urls-resolve.test.ts',
 ];
 
 

@@ -1529,6 +1529,18 @@ fn benchmark_shell_thermal_free_expansion() {
         d.uz.abs() < expected_disp * 0.05,
         "uz={:.6e} should be near zero (free expansion)", d.uz
     );
+
+    // Free expansion is stress-free: σ = D·(B·u − ε_thermal) ≈ 0.
+    // Without the thermal-strain subtraction this model reports a spurious
+    // σ ≈ E·α·ΔT/(1−ν), so a small absolute tolerance is a real contract.
+    let sigma_scale = e_mpa * 1000.0 * alpha * dt / (1.0 - nu);
+    for qs in &result.quad_stresses {
+        assert!(
+            qs.von_mises < sigma_scale * 0.02,
+            "quad {}: von_mises = {:.6e}, expected ~0 (free thermal expansion)",
+            qs.element_id, qs.von_mises
+        );
+    }
 }
 
 /// Benchmark: restrained thermal plate.
@@ -1619,6 +1631,28 @@ fn benchmark_shell_thermal_restrained() {
         max_fx > 1e-6,
         "Max |fx| reaction = {:.6e} — should be non-trivial for restrained thermal", max_fx
     );
+
+    // Contract for thermal stress recovery (σ = D·(B·u − ε_thermal)):
+    // with u ≈ 0 everywhere, each quad must report σ_xx = σ_yy = −E·α·ΔT/(1−ν).
+    // Displacement and equilibrium checks cannot catch a missing ε_thermal
+    // subtraction — with that bug this model reports σ = 0 and still passes.
+    let sigma_expected = -e_solver * alpha * dt / (1.0 - nu);
+    assert!(
+        !result.quad_stresses.is_empty(),
+        "restrained thermal plate must report quad stresses"
+    );
+    for qs in &result.quad_stresses {
+        assert!(
+            (qs.sigma_xx - sigma_expected).abs() / sigma_expected.abs() < 0.02,
+            "quad {}: sigma_xx = {:.6e}, expected {:.6e}",
+            qs.element_id, qs.sigma_xx, sigma_expected
+        );
+        assert!(
+            (qs.sigma_yy - sigma_expected).abs() / sigma_expected.abs() < 0.02,
+            "quad {}: sigma_yy = {:.6e}, expected {:.6e}",
+            qs.element_id, qs.sigma_yy, sigma_expected
+        );
+    }
 }
 
 /// Benchmark: thermal gradient bending of a simply-supported plate.

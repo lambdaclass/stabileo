@@ -344,7 +344,7 @@
     align-items: baseline;
   }
   .role-name { font-size: 0.72rem; font-weight: 600; color: var(--st-text); }
-  .role-purpose { margin: 0; font-size: 0.66rem; line-height: 1.35; color: var(--st-text-3); }
+  .role-purpose { margin: 0; font-size: 0.66rem; line-height: 1.35; color: var(--st-text-2); }
   .role-value { font-size: 0.68rem; color: var(--st-text-2); }
 
   /* The badges wrap as a group of their own rather than fighting the selector for the row. */
@@ -381,7 +381,7 @@
   }
   dt { font-weight: 600; color: var(--st-text-2); }
   dd { margin: 0; color: var(--st-text-2); }
-  .note { font-size: 0.66rem; line-height: 1.35; color: var(--st-text-3); margin: 0.25rem 0 0; }
+  .note { font-size: 0.66rem; line-height: 1.35; color: var(--st-text-2); margin: 0.25rem 0 0; }
 
   /* ── Notices ──────────────────────────────────────────────────── */
   .notice {

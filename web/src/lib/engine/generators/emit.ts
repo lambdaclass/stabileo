@@ -32,32 +32,26 @@ import type { MemberRole } from './member-roles';
 import { rolesPresent, tallyRoles } from './member-roles';
 import type { GenSupport, Topology } from './truss-topology';
 import {
-  composeBuiltUp, torsionBasisKey, type BuiltUpArrangement, type BuiltUpSection,
+  composeBuiltUp, torsionBasisKey, type BuiltUpSection,
 } from './built-up-section';
 import { canCompose, resolveProfile, type ResolvedProfile } from './profile-resolve';
 import { familyToShape } from '../../data/steel-profiles';
+import type { ProfileSpec } from '../../section/profile-spec';
 
 /** What a role is made of. */
-export interface ProfileSpec {
-  /** Exact catalogue name, e.g. `IPE 160`, `L 75x75x6`. */
-  profileName: string;
-  arrangement: BuiltUpArrangement;
-  /** Gap between the parts of a compound section, mm. */
-  gapMm: number;
-  /**
-   * Section rotation about the member axis, degrees, or `'auto'`.
-   *
-   * `'auto'` defers to whatever roll the GENERATOR computed for each member — a purlin
-   * laid on a pitched roof knows its own slope, and the emitter does not. A number
-   * overrides that for every member of the role, which is what the "customise rotation"
-   * switch does.
-   */
-  rotationDeg: number | 'auto';
-}
-
-export function defaultProfileSpec(profileName: string): ProfileSpec {
-  return { profileName, arrangement: 'single', gapMm: 0, rotationDeg: 'auto' };
-}
+/*
+ * `ProfileSpec` moved to `lib/section/profile-spec.ts` and is re-exported here.
+ *
+ * The type was generator-private, and the consequence was concrete: the only code that ever
+ * wrote `Section.composition` was this file, so a back-to-back angle could be obtained by
+ * generating a truss and by no other route. The section selector needs the same vocabulary,
+ * and a selector is not a generator, so the vocabulary moved down a layer.
+ *
+ * Nothing about emission changes. Every `from './emit'` import of `ProfileSpec` or
+ * `defaultProfileSpec` still resolves, and the tests that pin this file were not touched.
+ */
+export type { ProfileSpec } from '../../section/profile-spec';
+export { defaultProfileSpec } from '../../section/profile-spec';
 
 /** The material the generated members are made of. */
 export interface GeneratorMaterial {

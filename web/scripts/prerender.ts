@@ -39,12 +39,24 @@ import { chromium, type Browser } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, dirname, extname } from 'node:path';
+import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rootHandoffScript } from './root-handoff';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DIST = join(ROOT, 'dist');
+/**
+ * Where the prerendered site is written, and where the static server serves from.
+ *
+ * `dist/` for a real build. `PRERENDER_OUT` overrides it so a test can point this
+ * at a throwaway directory and check the published URLs against a build it made
+ * itself. The alternative — reading a checked-out `dist/` — proves less and costs
+ * more: it is gitignored, is rewritten by `build`, `build:only` and Playwright's
+ * `VITE_E2E=1` webServer alike, and is absent on a fresh clone. A gate that reads
+ * it either asserts against whichever build ran last, or skips itself.
+ */
+const DIST = process.env.PRERENDER_OUT
+  ? resolve(process.env.PRERENDER_OUT)
+  : join(ROOT, 'dist');
 const ORIGIN = 'https://stabileo.com';
 const LOCALES = ['en', 'es', 'pt'] as const;
 /**
@@ -155,7 +167,9 @@ async function capture(browser: Browser, base: string, locale: Locale, path: str
     }
   }, locale);
 
-  const href = path === '/' ? `/${locale}` : `/${locale}${path}`;
+  // Visited in the same slashed form the site publishes, so the capture
+  // happens on the address a reader actually lands on.
+  const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
   // The landing reveals sections on scroll; a capture of the top of the page
   // would ship most of the copy inside elements that are still transparent.
@@ -212,7 +226,10 @@ ${extraScript ? `<script>${extraScript}</script>` : ''}
 
 async function main() {
   if (!existsSync(join(DIST, 'index.html'))) {
-    throw new Error('prerender: dist/index.html is missing — run the build first');
+    // Names the directory it actually looked in: with PRERENDER_OUT set that is
+    // not `dist/`, and a message that says otherwise sends the reader hunting
+    // through a tree this run never touched.
+    throw new Error(`prerender: ${join(DIST, 'index.html')} is missing — run the build first`);
   }
   await assertLocalesMatchTheApp();
   /*
@@ -251,17 +268,20 @@ async function main() {
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
         LOCALES.flatMap((locale) =>
           paths.map((path) => {
-            const loc = `${ORIGIN}/${locale}${path === '/' ? '' : path}`;
+            // Trailing slash, matching the canonical the page declares — see
+            // publicHref in src/lib/i18n/public-routes.ts. Without it every
+            // entry in this file was a URL that answers 301.
+            const loc = `${ORIGIN}/${locale}${path === '/' ? '' : path}/`;
             const alts = LOCALES.map(
               (l) =>
-                `    <xhtml:link rel="alternate" hreflang="${l}" href="${ORIGIN}/${l}${path === '/' ? '' : path}"/>`,
+                `    <xhtml:link rel="alternate" hreflang="${l}" href="${ORIGIN}/${l}${path === '/' ? '' : path}/"/>`,
             ).join('\n');
             // x-default follows the page, exactly as it does in the pages'
             // own <head> — see alternateUrls() in src/lib/i18n/public-routes.ts.
             // This was `${ORIGIN}/${DEFAULT_LOCALE}` for every entry, which
             // pointed the default of every URL in the file at the English home
             // page instead of at the page declaring it.
-            const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}`;
+            const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}/`;
             return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${TODAY}</lastmod>\n${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
           }),
         ).join('\n') +
