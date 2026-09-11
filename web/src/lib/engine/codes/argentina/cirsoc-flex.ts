@@ -326,20 +326,22 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * the code wants built, which is exactly where compression steel earns
      * its place.
      */
-    const sizeOnce = () => {
-      let AsAtLimit = 0.05;
-      {
-        let a = 0.05;
-        let z = AstMaxHere;
-        for (let k = 0; k < 45; k++) {
-          const m = (a + z) / 2;
-          const bars = flexural(outline, effCover, m);
-          const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
-          const at = curve.reduce((q, p) => (Math.abs(p.phiPn) < Math.abs(q.phiPn) ? p : q), curve[0]);
-          if (at.epsilonT > 0.005) a = m; else z = m;
-        }
-        AsAtLimit = a;
+    /** The steel at which εt falls to 5 ‰ — shared by both modes. */
+    const singlyLimit = () => {
+      let a = 0.05;
+      let z = AstMaxHere;
+      for (let k = 0; k < 45; k++) {
+        const m = (a + z) / 2;
+        const bars = flexural(outline, effCover, m);
+        const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
+        const at = curve.reduce((q, p) => (Math.abs(p.phiPn) < Math.abs(q.phiPn) ? p : q), curve[0]);
+        if (at.epsilonT > 0.005) a = m; else z = m;
       }
+      return a;
+    };
+
+    const sizeOnce = () => {
+      const AsAtLimit = singlyLimit();
       const MuSinglyMax = capacityOf(AsAtLimit);
 
       if (MuAbs <= MuSinglyMax) {
@@ -369,17 +371,43 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * again, because the centre is already inside it.
      */
     const fitOpts = { widthM: bottomWidth, coverM: i.dPrimeS, heightM: i.h };
-    let pass = sizeOnce();
-    let chosen = chooseBars(pass.AsReq, fitOpts);
-    let layerPasses = 0;
-    for (; layerPasses < 8; layerPasses++) {
-      const produced = chosen.centroidFromFaceM ?? i.dPrimeS;
-      if (Math.abs(produced - effCover) < 1e-4) break;
-      effCover = produced;
+
+    /*
+     * ── Verify asks a different question, and had no answer ────────
+     *
+     * This branch did not exist. In `verify` the beam cases fell through to
+     * the sizing code, which designs the section to the moment and then
+     * reports the ratio between them — necessarily 1.000. A reader could
+     * enter 2 cm² against 150 kN·m on a 20 × 50 and be told it verifies,
+     * because nothing ever looked at the number they typed. The column
+     * cases had the branch; the beams were never given one.
+     *
+     * Here the steel is an INPUT. The bars still have to go somewhere, so
+     * the layering runs — 40 cm² in a 20 cm web stacks whether the reader
+     * chose it or the sizing did, and `d` follows — but nothing is resized:
+     * the capacity that comes out is the capacity of what they described.
+     */
+    let pass: { AsReq: number; AsComp: number; MuSinglyMax: number };
+    let chosen: BarChoice;
+    if (i.mode === 'verify') {
+      const given = Math.max(i.AstGiven, 0);
+      chosen = chooseBars(given, fitOpts);
+      effCover = chosen.centroidFromFaceM ?? i.dPrimeS;
       dEff = i.h - effCover;
       AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, dEff);
+      pass = { AsReq: given, AsComp: 0, MuSinglyMax: capacityOf(singlyLimit()) };
+    } else {
       pass = sizeOnce();
       chosen = chooseBars(pass.AsReq, fitOpts);
+      for (let layerPasses = 0; layerPasses < 8; layerPasses++) {
+        const produced = chosen.centroidFromFaceM ?? i.dPrimeS;
+        if (Math.abs(produced - effCover) < 1e-4) break;
+        effCover = produced;
+        dEff = i.h - effCover;
+        AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, dEff);
+        pass = sizeOnce();
+        chosen = chooseBars(pass.AsReq, fitOpts);
+      }
     }
 
     const MuSinglyMax = pass.MuSinglyMax;
@@ -401,11 +429,21 @@ export function solveFlex(i: FlexInput): FlexOutput {
     const chosenComp = AsComp > 0
       ? chooseBars(AsComp, { ...fitOpts, coverM: i.dPrime })
       : null;
-    const impossible =
+    /*
+     * `impossible` means "no admissible reinforcement makes this section
+     * work", which is a statement about the SECTION. In verify the reader
+     * supplied the steel, so a shortfall is not the section being too small
+     * — it is their bars being too few, and the ratio is what says so.
+     * Conflating the two would answer "make it bigger" to someone who could
+     * simply add a bar.
+     */
+    const cannotPlace =
       total > AstMaxHere
-      || st.phiMn < MuAbs * 0.999
       || chosen.placeable === false
       || (chosenComp?.placeable === false);
+    const shortOfDemand = st.phiMn < MuAbs * 0.999;
+    const impossible = i.mode === 'verify' ? cannotPlace : (cannotPlace || shortOfDemand);
+    const verifies = !cannotPlace && !shortOfDemand;
 
     return {
       AstCm2: total,
@@ -418,7 +456,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
       a: st.a, c: st.c, cMax: (dEff * 0.003) / 0.008, epsilonT: st.epsilonT, phi: st.phi,
       phiMn: st.phiMn,
       ratio: st.phiMn > 0 ? MuAbs / st.phiMn : Infinity,
-      ok: !impossible,
+      ok: verifies,
       impossible,
       bars,
       barChoice: chosen,
@@ -431,9 +469,11 @@ export function solveFlex(i: FlexInput): FlexOutput {
             + `As,mín = ${AsMin.toFixed(2)} cm²`
           : `d = ${cm(dEff)}, As,mín = ${AsMin.toFixed(2)} cm²`,
         `Momento máximo con armadura simple (εt = 5 ‰): ${MuSinglyMax.toFixed(2)} kN·m`,
-        MuAbs <= MuSinglyMax
-          ? 'Armadura simple: alcanza sin armadura comprimida.'
-          : `Armadura doble: se agrega A′s = ${AsComp.toFixed(2)} cm² para el excedente.`,
+        ...(i.mode === 'verify'
+          ? [`Armadura adoptada: As = ${AsReq.toFixed(2)} cm² (dato)`]
+          : [MuAbs <= MuSinglyMax
+              ? 'Armadura simple: alcanza sin armadura comprimida.'
+              : `Armadura doble: se agrega A′s = ${AsComp.toFixed(2)} cm² para el excedente.`]),
         `As = ${AsReq.toFixed(2)} cm² → ${chosen.label}`
           + (chosen.layers && chosen.layers > 1
             ? ` en ${chosen.layers} capas (separación libre ${(chosen.clearSpacingMm ?? 0).toFixed(0)} mm)`
@@ -443,7 +483,13 @@ export function solveFlex(i: FlexInput): FlexOutput {
           : []),
         ...(chosenComp ? [`A′s = ${AsComp.toFixed(2)} cm² → ${chosenComp.label}`] : []),
         `φMn sobre el diagrama = ${st.phiMn.toFixed(2)} kN·m`,
-        ...(impossible ? ['⚠ La sección no alcanza con ninguna armadura admisible.'] : []),
+        ...(i.mode === 'verify' && shortOfDemand
+          ? [`⚠ No verifica: φMn = ${st.phiMn.toFixed(2)} < Mu = ${MuAbs.toFixed(2)} kN·m`]
+          : []),
+        ...(impossible && i.mode !== 'verify'
+          ? ['⚠ La sección no alcanza con ninguna armadura admisible.'] : []),
+        ...(i.mode === 'verify' && AsReq < AsMin
+          ? [`⚠ As = ${AsReq.toFixed(2)} cm² < As,mín = ${AsMin.toFixed(2)} cm² (§9.6.1.2)`] : []),
       ],
     };
   }

@@ -35,7 +35,7 @@ async function openFlex(page: Page) {
 
 const resultText = (page: Page) => page.getByTestId('flex-result').innerText();
 
-test.describe('@smoke CIRSOC Flex', () => {
+test.describe('@smoke the reinforced-concrete calculator', () => {
   test('opens with no model on screen and answers every case', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
@@ -172,11 +172,32 @@ test.describe('@smoke CIRSOC Flex', () => {
      * have to survive every future edit to this panel.
      */
     const notes = page.locator('.fp-attrib');
-    await expect(notes).toHaveCount(2);
+    await expect(notes).toHaveCount(1);
     await expect(notes.first()).toContainText('CIRSOC 201-2005');
     await expect(notes.first()).toContainText(/CIRSOC_FLEX/);
-    /* The named exceptions, not just the reassuring half. */
     await expect(notes.first()).toContainText('Ortega');
-    await expect(notes.last()).toContainText(/circular|circulares|anillo|ring|anel/);
+
+    /*
+     * The scope is folded, and it has to OPEN — a caveat behind a summary
+     * that never expands is a caveat that was removed with extra steps.
+     */
+    const scope = page.locator('.fp-scope');
+    await expect(scope).toHaveCount(1);
+    await scope.locator('summary').click();
+    await expect(scope).toContainText(/circular|circulares|anillo|ring|anel/);
+    await expect(scope).toContainText(/capa|layer|camada/);
+
+    /*
+     * And both belong to the 2005 edition alone. Under any other code they
+     * are not merely stale, they vouch for numbers this panel did not
+     * produce — so they must be gone, not greyed.
+     */
+    const code = page.getByTestId('flex-code');
+    const other = await code.locator('option:not([disabled])').count();
+    if (other > 1) {
+      await code.selectOption({ index: 1 });
+      await expect(page.locator('.fp-attrib')).toHaveCount(0);
+      await expect(page.locator('.fp-scope')).toHaveCount(0);
+    }
   });
 });

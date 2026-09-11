@@ -629,6 +629,7 @@
   <button
     class="rb-cmd"
     class:active={isActive(c)}
+    class:go={c.id === 'solve'}
     class:labelled
     disabled={!on}
     data-testid="rb-cmd-{c.id}"
@@ -828,6 +829,31 @@
   }
 
   .rb-cmds { display: flex; align-items: flex-start; gap: 0.1rem; }
+
+  /* ── The one command that DOES something ─────────────────────────
+     Everything else on the ribbon changes what you are drawing or what you
+     are looking at; this runs the analysis. It was the same grey as its
+     neighbours, so the single button people come to the app to press looked
+     like a view toggle. Red, and only here — an accent that appears twice
+     stops being an accent.
+
+     Colour alone is never the signal: the glyph is a play triangle and the
+     label still says Calcular, so nothing depends on telling red from grey.
+     ─────────────────────────────────────────────────────────────── */
+  .rb-cmd.go {
+    color: var(--st-danger);
+  }
+
+  .rb-cmd.go:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--st-danger) 12%, transparent);
+    border-color: color-mix(in srgb, var(--st-danger) 45%, transparent);
+    color: var(--st-danger);
+  }
+
+  /* Disabled wins: a command that cannot run must not look inviting. */
+  .rb-cmd.go:disabled {
+    color: var(--st-text-3);
+  }
 
   .rb-cmd {
     display: flex;

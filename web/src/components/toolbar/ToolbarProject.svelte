@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { uiStore, resultsStore, tabManager } from '../../lib/store';
+  import { uiStore, resultsStore } from '../../lib/store';
   import { saveProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, isMode3D } from '../../lib/store/file';
-  import { generateShareURL, loadFromShareLink, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
+  import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
   import ToolbarExamples from './ToolbarExamples.svelte';
   import DemoMenu from '../DemoMenu.svelte';
@@ -9,6 +9,23 @@
 
   let fileInput: HTMLInputElement;
   let showCalcReport = $state(false);
+
+  /*
+   * ── Which "?" is open ───────────────────────────────────────────
+   *
+   * Same affordance as the Advanced list, because it answers the same kind
+   * of question: what does this actually do. The export buttons needed it
+   * badly — six of them sat in one row labelled Excel, PDF, DXF, SVG, PNG,
+   * CSV, and nothing on screen said that two of those write results, one
+   * writes a document, and three photograph the view. A reader looking for
+   * "the file I can send my colleague to open" had six equally plausible
+   * candidates and no way to choose.
+   */
+  let helpKey = $state<string | null>(null);
+  function toggleHelp(key: string, e: MouseEvent) {
+    e.stopPropagation();
+    helpKey = helpKey === key ? null : key;
+  }
 
   // ─── Excel import ────────────────────────────────────────────────
   let xlsInput: HTMLInputElement;
@@ -77,28 +94,6 @@
     }
     await navigator.clipboard.writeText(result.url);
     uiStore.toast(t('project.linkCopied'), 'success');
-  }
-
-  async function handlePasteShareLink() {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (!text || !text.includes('#data=') && !text.includes('#embed=')) {
-        uiStore.toast(t('project.noLinkFound'), 'error');
-        return;
-      }
-      // Create a new tab and load the shared model into it
-      tabManager.createTab();
-      const ok = loadFromShareLink(text);
-      if (!ok) {
-        uiStore.toast(t('project.invalidLink'), 'error');
-        return;
-      }
-      // Sync tab name with the restored model name
-      tabManager.syncActiveTabName();
-      uiStore.toast(t('project.linkLoadedNewTab'), 'success');
-    } catch {
-      uiStore.toast(t('project.clipboardError'), 'error');
-    }
   }
 
 
@@ -186,61 +181,129 @@
   {/if}
   {#if flat || showProjectExtras}
     <div class="sub-section-content">
+      <!--
+        ── Grouped by what comes out, not by file extension ──────────
+        Three different things wear the word "export" here: numbers you can
+        keep working with, a document you hand in, and a picture of the
+        screen. Grouping them that way is the whole change — the buttons are
+        the same, but a reader can now find the one they meant.
+      -->
+      {#snippet helpPanel(key: string, labelKey: string, textKey: string)}
+        {#if helpKey === key}
+          <div class="proj-help-panel">
+            <strong>{t(labelKey)}</strong>
+            <p>{t(textKey)}</p>
+          </div>
+        {/if}
+      {/snippet}
+
       <span class="file-sub-header">{t('project.export')}</span>
-      <div class="file-grid">
-        <button
-          class="file-btn"
-          onclick={downloadExcel}
-          title={t('project.exportExcelTooltip')}
-        >
-          Excel
-        </button>
-        <button class="file-btn" onclick={() => showCalcReport = true} title={t('project.exportPdfTooltip')}>
-          PDF
-        </button>
-        <button class="file-btn" onclick={downloadDXF} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.exportDxfTooltip')}>
-          DXF
-        </button>
-        <button class="file-btn" onclick={downloadSVG} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.exportSvgTooltip')}>
-          SVG
-        </button>
-        <button class="file-btn" onclick={handleExportPNG} title={t('project.exportPngTooltip')}>
-          PNG
-        </button>
-        <button
-          class="file-btn"
-          onclick={downloadResultsCSV}
-          disabled={!resultsStore.results && !resultsStore.results3D}
-          title={t('project.exportCsvTooltip')}
-        >
-          CSV
-        </button>
+
+      <div class="file-sub-group">
+        <span class="file-group-label">
+          {t('project.exportResults')}
+          <button
+            class="proj-help-btn"
+            onclick={(e) => toggleHelp('exp-results', e)}
+            class:active={helpKey === 'exp-results'}
+            aria-label={t('project.exportResults')}
+            data-testid="help-exp-results"
+          >?</button>
+        </span>
+        <div class="file-grid">
+          <button class="file-btn" onclick={downloadExcel} title={t('project.exportExcelTooltip')}>
+            Excel
+          </button>
+          <button
+            class="file-btn"
+            onclick={downloadResultsCSV}
+            disabled={!resultsStore.results && !resultsStore.results3D}
+            title={t('project.exportCsvTooltip')}
+          >
+            CSV
+          </button>
+        </div>
       </div>
-      <span class="file-sub-header">{t('project.importLabel')}</span>
+      {@render helpPanel('exp-results', 'project.exportResults', 'project.exportResultsHelp')}
+
+      <div class="file-sub-group">
+        <span class="file-group-label">
+          {t('project.exportReport')}
+          <button
+            class="proj-help-btn"
+            onclick={(e) => toggleHelp('exp-report', e)}
+            class:active={helpKey === 'exp-report'}
+            aria-label={t('project.exportReport')}
+            data-testid="help-exp-report"
+          >?</button>
+        </span>
+        <div class="file-grid">
+          <button class="file-btn" onclick={() => showCalcReport = true} title={t('project.exportPdfTooltip')}>
+            PDF
+          </button>
+        </div>
+      </div>
+      {@render helpPanel('exp-report', 'project.exportReport', 'project.exportReportHelp')}
+
+      <div class="file-sub-group">
+        <span class="file-group-label">
+          {t('project.exportView')}
+          <button
+            class="proj-help-btn"
+            onclick={(e) => toggleHelp('exp-view', e)}
+            class:active={helpKey === 'exp-view'}
+            aria-label={t('project.exportView')}
+            data-testid="help-exp-view"
+          >?</button>
+        </span>
+        <div class="file-grid">
+          <button class="file-btn" onclick={downloadDXF} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.exportDxfTooltip')}>
+            DXF
+          </button>
+          <button class="file-btn" onclick={downloadSVG} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.exportSvgTooltip')}>
+            SVG
+          </button>
+          <button class="file-btn" onclick={handleExportPNG} title={t('project.exportPngTooltip')}>
+            PNG
+          </button>
+        </div>
+      </div>
+      {@render helpPanel('exp-view', 'project.exportView', 'project.exportViewHelp')}
+
+      <!--
+        ── Import, cut down to what Básico actually has ──────────────
+        `.ded` came off because the big Abrir button above already does it,
+        and two controls for one action is how a reader ends up unsure which
+        one they are supposed to use. DXF and IFC were built for PRO, where
+        they still live; neither was ever exercised in Básico.
+
+        What is left is the spreadsheet, and its template beside it — an
+        importer on its own is a guessing game, because the reader has a
+        spreadsheet of their own and no way to learn what we call a column
+        except by importing, reading the error and trying again.
+      -->
+      <span class="file-sub-header">
+        {t('project.importLabel')}
+        <button
+          class="proj-help-btn"
+          onclick={(e) => toggleHelp('import', e)}
+          class:active={helpKey === 'import'}
+          aria-label={t('project.importLabel')}
+          data-testid="help-import"
+        >?</button>
+      </span>
       <div class="file-grid">
-        <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openDedTooltip')}>
-          {t('project.openDed')}
+        <button class="file-btn" onclick={() => xlsInput?.click()} title={t('xls.ui.importTooltip')} data-testid="xls-import">
+          {t('xls.ui.import')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} title={isMode3D(uiStore.analysisMode) ? t('project.openDxfCadTooltip') : t('project.openDxfTooltip')}>
-          {t('project.openDxf')}
-        </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))} title={t('project.openIfcTooltip')}>
-          {t('project.openIfc')}
-        </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-coords'))} title={t('project.pasteCoordsTooltip')}>
-          {t('project.pasteCoords')}
-        </button>
-        <!--
-          Two buttons, because one of them is the answer to "what do I put in
-          it?". An importer on its own is a guessing game: the reader has a
-          spreadsheet of their own and no way to learn that we call a column
-          `nodeI` except by importing, reading the error and trying again.
-        -->
         <button class="file-btn" onclick={handleDownloadTemplate} title={t('xls.ui.templateTooltip')} data-testid="xls-template">
           {t('xls.ui.template')}
         </button>
-        <button class="file-btn" onclick={() => xlsInput?.click()} title={t('xls.ui.importTooltip')} data-testid="xls-import">
-          {t('xls.ui.import')}
+      </div>
+      {@render helpPanel('import', 'project.importLabel', 'project.importHelp')}
+      <div class="file-grid">
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-coords'))} title={t('project.pasteCoordsTooltip')}>
+          {t('project.pasteCoords')}
         </button>
       </div>
 
@@ -285,13 +348,17 @@
           {/if}
         </div>
       {/if}
+      <!--
+        ── One button, because the other one was the browser's job ───
+        "Pegar link" read a link from the clipboard and opened it. The only
+        thing it did that the address bar does not is open it in a NEW tab,
+        leaving the current model alone — a real difference, and not one
+        worth a permanent control next to the one people came for.
+      -->
       <span class="file-sub-header">{t('project.share')}</span>
       <div class="file-grid">
         <button class="file-btn" onclick={handleCopyShareLink} title={t('project.copyLinkTooltip')}>
           {t('project.copyLink')}
-        </button>
-        <button class="file-btn" onclick={handlePasteShareLink} title={t('project.pasteLinkTooltip')}>
-          {t('project.pasteLink')}
         </button>
       </div>
     </div>
@@ -514,8 +581,79 @@
     cursor: not-allowed;
   }
 
-  .file-sub-header {
+  /* ── Grouped exports ─────────────────────────────────────────────
+     A label per group with its own "?", so the three kinds of export are
+     told apart before the buttons are read rather than after.
+     ─────────────────────────────────────────────────────────────── */
+  .file-sub-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .file-group-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--st-text-3);
+  }
+
+  .proj-help-btn {
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 50%;
+    background: var(--st-surface-2);
+    color: var(--st-text-3);
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .proj-help-btn:hover,
+  .proj-help-btn.active {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+
+  .proj-help-panel {
+    margin: 0 0 0.4rem;
+    padding: 0.4rem 0.5rem;
+    border-left: 2px solid var(--st-accent);
+    background: var(--st-surface-2);
+    border-radius: 0 3px 3px 0;
+    font-size: 0.66rem;
+    line-height: 1.45;
+    color: var(--st-text-2);
+  }
+
+  .proj-help-panel strong {
     display: block;
+    margin-bottom: 0.15rem;
+    color: var(--st-text);
+  }
+
+  .proj-help-panel p {
+    margin: 0;
+  }
+
+  .file-sub-header {
+    /* Inline-flex so the "?" sits on the label rather than under it. */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
     font-family: var(--st-mono);
     font-size: 0.62rem;
     text-transform: uppercase;

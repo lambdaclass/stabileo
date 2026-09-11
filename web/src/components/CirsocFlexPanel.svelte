@@ -207,7 +207,11 @@
       base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
       base.push([t('flex.out.asTension'), fmt(r.AsCm2, 3, 'cm²')]);
     } else if (!isColumn) {
-      base.push([t('flex.out.asFlexural'), fmt(r.AsCm2, 3, 'cm²')]);
+      /* In `verify` this is the reader's own number, not one we worked out. */
+      base.push([
+        mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asFlexural'),
+        fmt(r.AsCm2, 3, 'cm²'),
+      ]);
       if ((r.AsPrimeCm2 ?? 0) > 0) base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
     }
     /*
@@ -288,7 +292,13 @@
     const r = out.r;
     if (!r) return t('flex.out.checkInputs');
     if (r.impossible) return t('flex.out.sectionTooSmall');
-    if (mode === 'verify') return `${t('flex.out.ratio')} = ${r.ratio.toFixed(3)}`;
+    /*
+     * In `verify` the ratio already has its own row right below, with the
+     * verdict beside it. Repeating it as the headline printed the same
+     * number twice in a row and said nothing new. The capacity is the other
+     * half of that comparison, and the number a reader wants next.
+     */
+    if (mode === 'verify') return `φMn = ${(r.phiMn ?? 0).toFixed(2)} kN·m`;
     return kase === 'FSR' || kase === 'FST'
       ? `As = ${r.AstCm2.toFixed(3)} cm²`
       : `Ast = ${r.AstCm2.toFixed(3)} cm²`;
@@ -501,8 +511,25 @@
     named. Without it, "tested" reads as "identical", which it is not — and
     the difference matters most exactly where a section sits on the boundary.
   -->
-  <p class="fp-attrib">{t('flex.attribution')}</p>
-  <p class="fp-attrib">{t('flex.scope')}</p>
+  <!--
+    ── Both lines belong to ONE edition ──────────────────────────────
+    The attribution names CIRSOC 201-2005 and the scope describes how far it
+    was checked against a 2005 workbook. Neither says anything true about a
+    different code, so under a different code neither is shown — leaving
+    them up would be the panel vouching for numbers it did not produce.
+
+    The scope folds away because of what it is: a paragraph you read once,
+    when deciding whether to trust the tool, and never again. Open by
+    default it pushed the answer up the panel; gone altogether it would be
+    the caveat quietly disappearing. A closed summary is the honest middle.
+  -->
+  {#if code?.key === DEFAULT_DESIGN_CODE}
+    <p class="fp-attrib">{t('flex.attribution')}</p>
+    <details class="fp-scope">
+      <summary>{t('flex.scopeSummary')}</summary>
+      <p>{t('flex.scope')}</p>
+    </details>
+  {/if}
 </div>
 
 <style>
@@ -677,6 +704,37 @@
     overflow-y: auto;
     font-size: 0.68rem;
     line-height: 1.5;
+  }
+
+  .fp-scope {
+    font-size: 0.62rem;
+    line-height: 1.5;
+    color: var(--st-text-3);
+    margin: -0.15rem 0 0;
+  }
+
+  .fp-scope summary {
+    cursor: pointer;
+    color: var(--st-text-3);
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+  }
+
+  .fp-scope summary::-webkit-details-marker { display: none; }
+
+  .fp-scope summary::before {
+    content: '▸';
+    font-size: 0.55rem;
+  }
+
+  .fp-scope[open] summary::before { content: '▾'; }
+
+  .fp-scope p {
+    margin: 0.3rem 0 0;
   }
 
   .fp-attrib {
