@@ -65,6 +65,7 @@ describe('the downloaded template', () => {
     const { model } = parseWorkbook(roundTrip());
     const nodes = new Set(model.nodes.map((n) => n.id));
     const elems = new Set(model.elements.map((e) => e.id));
+    const quads = new Set(model.quads.map((q) => q.id));
     const cases = new Set(model.loadCases.map((c) => c.id));
 
     expect(model.nodes.length).toBeGreaterThan(0);
@@ -72,11 +73,15 @@ describe('the downloaded template', () => {
       expect(nodes.has(e.nodeI), `member ${e.id} → node ${e.nodeI}`).toBe(true);
       expect(nodes.has(e.nodeJ), `member ${e.id} → node ${e.nodeJ}`).toBe(true);
     }
+    for (const q of model.quads) {
+      for (const nd of q.nodes) expect(nodes.has(nd), `quad ${q.id} → node ${nd}`).toBe(true);
+    }
     for (const l of model.loads) {
       const d = l.data as Record<string, number>;
       expect(cases.has(d.caseId), `a ${l.type} load names case ${d.caseId}`).toBe(true);
       if (d.nodeId !== undefined) expect(nodes.has(d.nodeId)).toBe(true);
       if (d.elementId !== undefined) expect(elems.has(d.elementId)).toBe(true);
+      if (d.quadId !== undefined) expect(quads.has(d.quadId)).toBe(true);
     }
   });
 
@@ -117,5 +122,20 @@ describe('the downloaded template', () => {
 
     const nodal = modelStore.loads.find((l) => l.type === 'nodal');
     expect((nodal!.data as { fz: number }).fz, 'fy gravity becomes fz on the x–z plane').toBe(-20);
+
+    // The three types the format used to refuse: all of them now arrive,
+    // with their values, on the thing they point at.
+    expect(modelStore.model.quads.size, 'the quad from the Quads sheet').toBeGreaterThan(0);
+    const surface = modelStore.loads.find((l) => l.type === 'surface3d');
+    expect(surface, 'the surface example must reach the store').toBeDefined();
+    expect((surface!.data as { q: number }).q).toBe(-5);
+
+    const point3d = modelStore.loads.find((l) => l.type === 'pointOnElement3d');
+    expect(point3d, 'the 3D point load must reach the store').toBeDefined();
+    expect((point3d!.data as { py: number }).py).toBe(-35);
+
+    const thermalQuad = modelStore.loads.find((l) => l.type === 'thermalQuad3d');
+    expect(thermalQuad, 'the thermal quad example must reach the store').toBeDefined();
+    expect((thermalQuad!.data as { dtUniform: number }).dtUniform).toBe(12);
   });
 });

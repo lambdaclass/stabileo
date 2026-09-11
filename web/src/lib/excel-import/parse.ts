@@ -115,21 +115,6 @@ const SUPPORT_TYPES = [
   'fixed3d', 'pinned3d', 'rollerXZ', 'rollerXY', 'rollerYZ', 'spring3d',
 ] as const;
 
-/*
- * Load types the format knows but cannot deliver yet, with the reason a
- * reader can act on. Kept out of the "unknown type" error on purpose: the
- * type EXISTS in the model, the import path is what is missing, and those
- * are different conversations to have with a spreadsheet.
- */
-const NOT_IMPORTABLE = {
-  pointOnElement3d:
-    '"pointOnElement3d" todavía no es importable: el cargador de modelos no lo conecta',
-  surface3d:
-    '"surface3d" carga sobre quads, y el formato no tiene hoja de quads todavía',
-  thermalQuad3d:
-    '"thermalQuad3d" carga sobre quads, y el formato no tiene hoja de quads todavía',
-} as const;
-
 /** Rows of a sheet, keyed by the columns the format knows. Blank rows dropped. */
 function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]): Row[] {
   if (aoa.length === 0) return [];
@@ -358,6 +343,30 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   }
   counts.Members = model.elements.length;
 
+  // ── Quads ────────────────────────────────────────────────────────
+  /*
+   * The target of the two quad loads (surface3d, thermalQuad3d), and the
+   * reason they are no longer refused. References are checked here for the
+   * same reason members' are: at this point the row still has a number.
+   */
+  for (const row of readSheet(grab('Quads'), 'Quads', problems)) {
+    const id = reqNum(row, 'id', 'Quads', problems);
+    const materialId = reqNum(row, 'material', 'Quads', problems);
+    const thickness = reqNum(row, 'thickness', 'Quads', problems);
+    const ns = [reqNum(row, 'n1', 'Quads', problems), reqNum(row, 'n2', 'Quads', problems),
+      reqNum(row, 'n3', 'Quads', problems), reqNum(row, 'n4', 'Quads', problems)];
+    if (id === null || materialId === null || thickness === null || ns.some((x) => x === null)) continue;
+    const missing: string[] = [];
+    ns.forEach((nd, i) => { if (!nodeIds.has(nd!)) missing.push(`n${i + 1}=${nd}`); });
+    if (!matIds.has(materialId)) missing.push(`material=${materialId}`);
+    if (missing.length) {
+      problems.push({ sheet: 'Quads', row: row.n, message: `no existe: ${missing.join(', ')}` });
+      continue;
+    }
+    model.quads.push({ id, nodes: ns as number[], materialId, thickness });
+  }
+  counts.Quads = model.quads.length;
+
   // ── Supports ─────────────────────────────────────────────────────
   /*
    * The type is checked against the store's own set, case-insensitively —
@@ -434,6 +443,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
 
   // ── Loads ────────────────────────────────────────────────────────
   const elemIds = new Set(model.elements.map((e) => e.id));
+  const quadIds = new Set(model.quads.map((q) => q.id));
   let loadId = 1;
   for (const row of readSheet(grab('Loads'), 'Loads', problems)) {
     const rawType = str(row.cells.type);
@@ -454,35 +464,24 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       continue;
     }
 
-    /*
-     * Three of the nine types are refused by name rather than misread.
-     * `loadFixture` has no case for `pointOnElement3d` (the fixture API never
-     * bound `addPointLoadOnElement3D`), so the row would vanish between parse
-     * and store; and the two quad loads have no Quads sheet to point at.
-     * A row that cannot survive the trip must say so here, while it still
-     * has a number.
-     */
-    const notImportable = NOT_IMPORTABLE[type as keyof typeof NOT_IMPORTABLE];
-    if (notImportable) {
-      problems.push({ sheet: 'Loads', row: row.n, column: 'type', message: notImportable });
-      continue;
-    }
-
     const nodeId = num(row.cells.node);
     const elementId = num(row.cells.member);
+    const quadId = num(row.cells.quad);
     const wantsNode = type.startsWith('nodal');
-    const target = wantsNode ? nodeId : elementId;
-    const targetSet = wantsNode ? nodeIds : elemIds;
-    const what = wantsNode ? 'nodo' : 'barra';
+    const wantsQuad = type === 'surface3d' || type === 'thermalQuad3d';
+    const target = wantsNode ? nodeId : wantsQuad ? quadId : elementId;
+    const targetSet = wantsNode ? nodeIds : wantsQuad ? quadIds : elemIds;
+    const what = wantsNode ? 'un nodo' : wantsQuad ? 'un quad' : 'una barra';
+    const whatThe = wantsNode ? 'el nodo' : wantsQuad ? 'el quad' : 'la barra';
     if (target === null) {
       problems.push({
         sheet: 'Loads', row: row.n,
-        message: `"${type}" necesita ${wantsNode ? 'un nodo' : 'una barra'}`,
+        message: `"${type}" necesita ${what}`,
       });
       continue;
     }
     if (!targetSet.has(target)) {
-      problems.push({ sheet: 'Loads', row: row.n, message: `no existe el ${what} ${target}` });
+      problems.push({ sheet: 'Loads', row: row.n, message: `no existe ${whatThe} ${target}` });
       continue;
     }
 
@@ -511,6 +510,10 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
         const fz2d = num(row.cells.fz) ?? num(row.cells.fy) ?? 0;
         Object.assign(data, { fz: fz2d, my: n('mz') });
       }
+    } else if (wantsQuad) {
+      data.quadId = target;
+      if (type === 'surface3d') Object.assign(data, { q: n('qi') });
+      else Object.assign(data, { dtUniform: n('dt'), dtGradient: n('dtg') });
     } else {
       data.elementId = target;
       if (type === 'distributed') {
@@ -536,6 +539,9 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
         Object.assign(data, { qYI: n('qi'), qYJ: n('qj'), qZI: n('qzi'), qZJ: n('qzj') });
       } else if (type === 'pointOnElement') {
         Object.assign(data, { p: n('p'), a: n('a') });
+      } else if (type === 'pointOnElement3d') {
+        // Local components, from their own columns — fx..fz stay global.
+        Object.assign(data, { a: n('a'), py: n('py'), pz: n('pz') });
       } else if (type === 'thermal') {
         Object.assign(data, { dtUniform: n('dt'), dtGradient: n('dtg') });
       }

@@ -233,25 +233,49 @@ describe('a row fails on its own', () => {
     expect(r.problems[0].message).toContain('vertical');
   });
 
-  it('refuses the load types the loader cannot deliver, by name', () => {
-    /*
-     * `loadFixture` has no case for pointOnElement3d, and the two quad loads
-     * have no Quads sheet to point at. Parsing them "successfully" would drop
-     * the row between parse and store with the report saying nothing.
-     */
+  it('reads quads, and fails a row that points at something missing', () => {
     const b = goodBook();
-    b.Loads = aoa(
-      ['type', 'case', 'member', 'P [kN]', 'a [m]'],
-      ['pointOnElement3d', 1, 1, -35, 2.5],
-      ['surface3d', 1, 1, -5, ''],
-      ['thermalQuad3d', 1, 1, '', ''],
+    b.Quads = aoa(
+      ['id', 'n1', 'n2', 'n3', 'n4', 'material', 'thickness [m]'],
+      [1, 1, 2, 3, 1, 1, 0.15],
+      [2, 1, 2, 3, 99, 1, 0.15],
     );
     const r = parseWorkbook(b);
+    expect(r.model.quads).toHaveLength(1);
+    expect(r.model.quads[0]).toMatchObject({ id: 1, nodes: [1, 2, 3, 1], materialId: 1, thickness: 0.15 });
+    expect(r.problems[0]).toMatchObject({ sheet: 'Quads', row: 3 });
+    expect(r.problems[0].message).toContain('n4=99');
+  });
+
+  it('targets quad loads at quads, with the keys the loader reads', () => {
+    const b = goodBook();
+    b.Quads = aoa(['id', 'n1', 'n2', 'n3', 'n4', 'material', 'thickness [m]'], [1, 1, 2, 3, 1, 1, 0.15]);
+    b.Loads = aoa(
+      ['type', 'case', 'member', 'quad', 'qi [kN/m]', 'dT [°C]', 'dTg [°C]'],
+      ['surface3d', 1, '', 1, -5, '', ''],
+      ['thermalQuad3d', 2, '', 1, '', 12, 4],
+    );
+    const loads = parseWorkbook(b).model.loads;
+    expect(loads[0].data).toMatchObject({ quadId: 1, q: -5, caseId: 1 });
+    expect(loads[1].data).toMatchObject({ quadId: 1, dtUniform: 12, dtGradient: 4, caseId: 2 });
+  });
+
+  it('reads a 3D point load with its local components from their own columns', () => {
+    const b = goodBook();
+    b.Loads = aoa(
+      ['type', 'case', 'member', 'a [m]', 'py [kN]', 'pz [kN]'],
+      ['pointOnElement3d', 1, 1, 2.5, -35, 0],
+    );
+    const loads = parseWorkbook(b).model.loads;
+    expect(loads[0].data).toMatchObject({ elementId: 1, a: 2.5, py: -35, pz: 0 });
+  });
+
+  it('fails a quad load that points at a quad that is not there', () => {
+    const b = goodBook();
+    b.Loads = aoa(['type', 'case', 'quad', 'qi [kN/m]'], ['surface3d', 1, 7, -5]);
+    const r = parseWorkbook(b);
     expect(r.model.loads).toHaveLength(0);
-    expect(r.problems).toHaveLength(3);
-    expect(r.problems[0].message).toContain('pointOnElement3d');
-    expect(r.problems[1].message).toContain('surface3d');
-    expect(r.problems[2].message).toContain('thermalQuad3d');
+    expect(r.problems[0].message).toContain('quad 7');
   });
 
   it('reports an unknown column once, without dropping the sheet', () => {
