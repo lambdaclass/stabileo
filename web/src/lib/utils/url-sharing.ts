@@ -49,7 +49,31 @@ function unpackRelease(packed: unknown): Release {
   return r;
 }
 
-const MAX_URL_SAFE = 2000; // Characters — beyond this, many browsers/servers truncate
+/**
+ * When a share link is long enough to be worth mentioning.
+ *
+ * This was 2000, described as the point "beyond this, many browsers/servers
+ * truncate". Both halves were wrong, and together they talked people out of
+ * links that work.
+ *
+ * Servers never see it. The payload rides in the FRAGMENT — `#data=…` — which
+ * a browser keeps to itself and never puts on the wire, so there is no request
+ * line to overflow and no proxy to trim it.
+ *
+ * And browsers are nowhere near 2000; that number is the old Internet Explorer
+ * address-bar limit. Measured on the 3D industrial shed — 232 nodes, 633
+ * members, 242 loads — the link is 10 667 characters, opens in a clean tab,
+ * and restores every node, member, material, section, support, load, load case
+ * and combination with nothing lost. The test beside this file pins that.
+ *
+ * What DOES cut a long link is whatever you paste it into: mail clients wrap
+ * plain text, and some chat clients linkify only the first stretch. That is a
+ * property of the destination, not of the link, so the notice says so and
+ * points at the file, which has no length at all. 16 000 is roughly where a
+ * wrapped line stops being recoverable by hand — below it the warning would
+ * fire on models that share fine, which is how the old one lost its meaning.
+ */
+const MAX_URL_SAFE = 16_000;
 
 // ─── v2 format prefix ─────────────────────────────────────────────────────
 // v2 compressed strings start with "2." so we can tell them apart from v1
