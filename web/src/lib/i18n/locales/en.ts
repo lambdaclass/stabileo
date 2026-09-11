@@ -786,6 +786,7 @@ const en: Record<string, string> = {
   'flex.case.rectBiaxial': 'Rectangular — biaxial bending',
   'flex.section.materials': 'Materials',
   'flex.section.geometry': 'Geometry',
+  'flex.geometryNote': '(this tool’s geometry is not linked to the model: the Case and these fields define it)',
   'flex.section.demand': 'Demand',
   'flex.in.cover': 'Cover to bar centre',
   'flex.in.stirrup': 'Stirrup',

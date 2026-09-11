@@ -3899,6 +3899,7 @@ const pt: Translations = {
   'flex.case.rectBiaxial': 'Retangular — flexo-compressão oblíqua',
   'flex.section.materials': 'Materiais',
   'flex.section.geometry': 'Geometria',
+  'flex.geometryNote': '(a geometria desta função não está vinculada ao modelo: o Caso e estes campos a definem)',
   'flex.section.demand': 'Solicitação',
   'flex.in.cover': 'Cobrimento ao eixo',
   'flex.in.stirrup': 'Estribo',

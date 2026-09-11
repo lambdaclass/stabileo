@@ -181,13 +181,6 @@
   {/if}
   {#if flat || showProjectExtras}
     <div class="sub-section-content">
-      <!--
-        ── Grouped by what comes out, not by file extension ──────────
-        Three different things wear the word "export" here: numbers you can
-        keep working with, a document you hand in, and a picture of the
-        screen. Grouping them that way is the whole change — the buttons are
-        the same, but a reader can now find the one they meant.
-      -->
       {#snippet helpPanel(key: string, labelKey: string, textKey: string)}
         {#if helpKey === key}
           <div class="proj-help-panel">
@@ -197,6 +190,52 @@
         {/if}
       {/snippet}
 
+      <!--
+        ── Import first ─────────────────────────────────────────────
+        The order follows the work: a model arrives before it leaves. Export
+        sat on top because it was written first, which put the six buttons
+        nobody needs yet above the one thing a reader opening an empty app
+        is looking for.
+      -->
+      <!--
+        ── Import, cut down to what Básico actually has ──────────────
+        `.ded` came off because the big Abrir button above already does it,
+        and two controls for one action is how a reader ends up unsure which
+        one they are supposed to use. DXF and IFC were built for PRO, where
+        they still live; neither was ever exercised in Básico.
+
+        What is left is the spreadsheet, and its template beside it — an
+        importer on its own is a guessing game, because the reader has a
+        spreadsheet of their own and no way to learn what we call a column
+        except by importing, reading the error and trying again.
+      -->
+      <span class="file-sub-header">
+        {t('project.importLabel')}
+        <button
+          class="proj-help-btn"
+          onclick={(e) => toggleHelp('import', e)}
+          class:active={helpKey === 'import'}
+          aria-label={t('project.importLabel')}
+          data-testid="help-import"
+        >?</button>
+      </span>
+      <div class="file-grid">
+        <button class="file-btn" onclick={() => xlsInput?.click()} title={t('xls.ui.importTooltip')} data-testid="xls-import">
+          {t('xls.ui.import')}
+        </button>
+        <button class="file-btn" onclick={handleDownloadTemplate} title={t('xls.ui.templateTooltip')} data-testid="xls-template">
+          {t('xls.ui.template')}
+        </button>
+      </div>
+      {@render helpPanel('import', 'project.importLabel', 'project.importHelp')}
+
+      <!--
+        ── Grouped by what comes out, not by file extension ──────────
+        Three different things wear the word "export" here: numbers you can
+        keep working with, a document you hand in, and a picture of the
+        screen. Grouping them that way is the whole change — the buttons are
+        the same, but a reader can now find the one they meant.
+      -->
       <span class="file-sub-header">{t('project.export')}</span>
 
       <div class="file-sub-group">
@@ -270,42 +309,6 @@
       </div>
       {@render helpPanel('exp-view', 'project.exportView', 'project.exportViewHelp')}
 
-      <!--
-        ── Import, cut down to what Básico actually has ──────────────
-        `.ded` came off because the big Abrir button above already does it,
-        and two controls for one action is how a reader ends up unsure which
-        one they are supposed to use. DXF and IFC were built for PRO, where
-        they still live; neither was ever exercised in Básico.
-
-        What is left is the spreadsheet, and its template beside it — an
-        importer on its own is a guessing game, because the reader has a
-        spreadsheet of their own and no way to learn what we call a column
-        except by importing, reading the error and trying again.
-      -->
-      <span class="file-sub-header">
-        {t('project.importLabel')}
-        <button
-          class="proj-help-btn"
-          onclick={(e) => toggleHelp('import', e)}
-          class:active={helpKey === 'import'}
-          aria-label={t('project.importLabel')}
-          data-testid="help-import"
-        >?</button>
-      </span>
-      <div class="file-grid">
-        <button class="file-btn" onclick={() => xlsInput?.click()} title={t('xls.ui.importTooltip')} data-testid="xls-import">
-          {t('xls.ui.import')}
-        </button>
-        <button class="file-btn" onclick={handleDownloadTemplate} title={t('xls.ui.templateTooltip')} data-testid="xls-template">
-          {t('xls.ui.template')}
-        </button>
-      </div>
-      {@render helpPanel('import', 'project.importLabel', 'project.importHelp')}
-      <div class="file-grid">
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-coords'))} title={t('project.pasteCoordsTooltip')}>
-          {t('project.pasteCoords')}
-        </button>
-      </div>
 
       {#if xlsReport}
         <!--

@@ -9,7 +9,7 @@
   import { resultsStore } from '../../lib/store/results.svelte';
   import Icon from './Icon.svelte';
   import { runSolve } from '../../lib/actions/solve';
-  import { TOOL_KEY_MAP } from '../../lib/tool-keys';
+  import { TOOL_KEY_MAP, TOOL_DATA_TAB } from '../../lib/tool-keys';
   import { saveProject } from '../../lib/store/file';
 
   /**
@@ -252,16 +252,16 @@
       id: 'draw',
       labelKey: 'ribbon.groupDraw',
       cmds: [
-        { id: 'node', icon: 'node', labelKey: 'float.node', tool: 'node', panel: 'data', dataTab: 'nodes' },
-        { id: 'element', icon: 'element', labelKey: 'float.element', tool: 'element', panel: 'data', dataTab: 'elements' },
+        { id: 'node', icon: 'node', labelKey: 'float.node', tool: 'node', panel: 'data', dataTab: TOOL_DATA_TAB.node },
+        { id: 'element', icon: 'element', labelKey: 'float.element', tool: 'element', panel: 'data', dataTab: TOOL_DATA_TAB.element },
       ],
     },
     {
       id: 'conditions',
       labelKey: 'ribbon.groupConditions',
       cmds: [
-        { id: 'support', icon: 'support', labelKey: 'float.support', tool: 'support', panel: 'data', dataTab: 'supports' },
-        { id: 'load', icon: 'load', labelKey: 'float.load', tool: 'load', panel: 'data', dataTab: 'loads' },
+        { id: 'support', icon: 'support', labelKey: 'float.support', tool: 'support', panel: 'data', dataTab: TOOL_DATA_TAB.support },
+        { id: 'load', icon: 'load', labelKey: 'float.load', tool: 'load', panel: 'data', dataTab: TOOL_DATA_TAB.load },
       ],
     },
     {

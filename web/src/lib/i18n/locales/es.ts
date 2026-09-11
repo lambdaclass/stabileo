@@ -779,6 +779,7 @@ const es: Record<string, string> = {
   'flex.case.rectBiaxial': 'Rectangular — flexión compuesta oblicua',
   'flex.section.materials': 'Materiales',
   'flex.section.geometry': 'Geometría',
+  'flex.geometryNote': '(la geometría de esta función no está vinculada al modelo: la define el Caso y estos campos)',
   'flex.section.demand': 'Solicitación',
   'flex.in.cover': 'Recubrimiento a eje',
   'flex.in.stirrup': 'Estribo',

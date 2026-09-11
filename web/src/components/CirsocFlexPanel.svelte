@@ -63,7 +63,14 @@
   const code = $derived(findDesignCode(codeKey));
 
   let mode = $state<Mode>('design');
-  let kase = $state<FlexCase>('FCR');
+  /*
+   * Simple bending on a rectangle, because it is the case people come for.
+   * It opened on FCR — a rectangular column under axial load and moment —
+   * which is the workbook's own first sheet order but not the first thing
+   * anyone asks a concrete calculator. A reader who wanted a beam had to
+   * notice the case selector before the answer on screen made sense.
+   */
+  let kase = $state<FlexCase>('FSR');
 
   /**
    * Each sheet arrives with its own published example loaded.
@@ -104,11 +111,11 @@
    * reader can look up rather than an empty form. The other sheets change
    * what they need when picked.
    */
-  let b = $state(30);
-  let h = $state(30);
+  let b = $state(12);
+  let h = $state(40);
   /** To the bar CENTRE, which is what the sheet asks for. */
-  let dPrime = $state(5);
-  let dPrimeS = $state(5);
+  let dPrime = $state(3.4);
+  let dPrimeS = $state(3.4);
   /** FCO carries two covers, horizontal and vertical. */
   let dPrimeH = $state(5);
   let dPrimeV = $state(5);
@@ -172,8 +179,8 @@
     { distanceFromBottom: 0, areaCm2: 0 },
   ]);
 
-  let Pu = $state(500);
-  let Mu = $state(100);
+  let Pu = $state(0);
+  let Mu = $state(52);
   let Muy = $state(0);
 
   /*
@@ -386,6 +393,14 @@
   </div>
 
   <h4 class="fp-heading">{t('flex.section.geometry')}</h4>
+  <!--
+    A calculator inside a modelling app invites one specific wrong
+    assumption: that the section on screen is the section of whatever member
+    is selected. It is not, and never was — the shape comes from the Case and
+    the numbers from these fields. One line, because the assumption is cheap
+    to form and expensive to discover.
+  -->
+  <p class="fp-note">{t('flex.geometryNote')}</p>
   <div class="fp-grid">
     {#if kase === 'FST'}
       <label class="fp-field"><span>b (ala) [cm]</span><input type="number" bind:value={bf} min="1" step="5" /></label>
@@ -803,6 +818,13 @@
     overflow-y: auto;
     font-size: 0.68rem;
     line-height: 1.5;
+  }
+
+  .fp-note {
+    margin: -0.15rem 0 0.1rem;
+    font-size: 0.6rem;
+    line-height: 1.4;
+    color: var(--st-text-3);
   }
 
   .fp-scope {

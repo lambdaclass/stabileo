@@ -53,6 +53,21 @@
    */
   $effect(() => { syncModelTabWithResults(basicPanel, basicDataTab); });
 
+  /*
+   * The keyboard layer is mounted far from here and does not own the panel,
+   * so it asks by event. See `lib/tool-keys.ts` for why, and for the one
+   * table that says which tool edits which tab.
+   */
+  $effect(() => {
+    const onOpen = (e: Event) => {
+      const d = (e as CustomEvent<import('./lib/tool-keys').OpenPanelRequest>).detail;
+      if (!d) return;
+      openBasicPanel(d.panel, { toggle: d.toggle, dataTab: d.dataTab });
+    };
+    window.addEventListener(OPEN_PANEL_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_PANEL_EVENT, onOpen);
+  });
+
   function openBasicPanel(panel: string | null, opts: { toggle?: boolean; dataTab?: string } = {}) {
     const toggle = opts.toggle !== false;
     // Remembered rather than overwritten with undefined: the ribbon lights the
@@ -203,6 +218,7 @@
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
+  import { OPEN_PANEL_EVENT } from './lib/tool-keys';
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
