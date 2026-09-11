@@ -787,6 +787,8 @@ const es: Record<string, string> = {
   'flex.out.barsPerLevel': 'Barras por nivel',
   'flex.out.barsComp': 'Barras comprimidas',
   'flex.out.barsTight': 'no entran en una capa',
+  'flex.out.barsLayers': 'en {n} capas',
+  'flex.out.barsWontFit': 'no entran en la sección',
   'flex.out.phiMn': 'φMn',
   'flex.out.phiPn': 'φPn',
   'flex.out.phiPn0': 'φPn₀ (axil puro)',
@@ -806,7 +808,7 @@ const es: Record<string, string> = {
   'flex.out.memo': 'Memoria de cálculo',
   'flex.out.sectionTooSmall': 'La sección no alcanza ni con el 8 %',
   'flex.out.checkInputs': 'Revisá los datos',
-  'flex.scope': 'Se contrastan las ocho hojas de la planilla, incluido su bloque de armadura doble. Coinciden dentro del 2 %, salvo el arranque del anillo en secciones circulares, que vale ~0,9 % y la planilla no declara cuál usa; donde difieren, acá se arma más. La propuesta de barras y diámetros es un agregado nuestro: la planilla llega hasta el área. Con reglamentos posteriores al 2005 los resultados pueden diferir y no se contrastan contra la planilla.',
+  'flex.scope': 'Se contrastan las ocho hojas de la planilla, incluido su bloque de armadura doble. Coinciden dentro del 2 % mientras la armadura entra en una capa. Diferencias declaradas: el arranque del anillo en secciones circulares (~0,9 %, la planilla no declara cuál usa); acá se proponen barras y diámetros, que la planilla no calcula; y cuando el acero no entra en una capa acá se arma en varias y se toma d al baricentro del grupo, con lo cual pide más acero que la planilla, que siempre supone una capa. Donde difieren, acá se arma más. Con reglamentos posteriores al 2005 los resultados pueden diferir y no se contrastan contra la planilla.',
   'flex.attribution': 'Cláusulas del CIRSOC 201-2005. Implementación propia y testeado frente a resultados de la planilla CIRSOC_FLEX de INTI-CIRSOC (D. A. Ortega).',
   // ─── Excel import (lib/excel-import) ───
   'xls.sheet.plates': 'Placas triangulares o cuadrangulares (cáscaras).',

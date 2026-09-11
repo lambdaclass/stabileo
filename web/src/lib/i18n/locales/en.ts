@@ -794,6 +794,8 @@ const en: Record<string, string> = {
   'flex.out.barsPerLevel': 'Bars per level',
   'flex.out.barsComp': 'Compression bars',
   'flex.out.barsTight': 'do not fit in one layer',
+  'flex.out.barsLayers': 'in {n} layers',
+  'flex.out.barsWontFit': 'will not fit in the section',
   'flex.out.phiMn': 'φMn',
   'flex.out.phiPn': 'φPn',
   'flex.out.phiPn0': 'φPn₀ (pure axial)',
@@ -813,7 +815,7 @@ const en: Record<string, string> = {
   'flex.out.memo': 'Calculation steps',
   'flex.out.sectionTooSmall': 'The section fails even at 8 %',
   'flex.out.checkInputs': 'Check the inputs',
-  'flex.scope': 'All eight sheets are compared, including their double-reinforcement block. They agree within 2 %, apart from the ring’s starting angle on circular sections — worth ~0.9 %, and the workbook does not state which it uses; where they differ, ours is the heavier. The bar and diameter proposals are an addition: the workbook stops at the area. Under editions later than 2005 results may differ and are not checked against the workbook.',
+  'flex.scope': 'All eight sheets are compared, including their double-reinforcement block. They agree within 2 % while the steel fits in one layer. Stated differences: the ring’s starting angle on circular sections (~0.9 %, and the workbook does not say which it uses); the bar and diameter proposals offered here, which the workbook does not compute; and, once the steel no longer fits in one layer, the bars are stacked here and d is taken to the group’s centroid, which asks for more steel than the workbook, which always assumes a single layer. Where they differ, ours is the heavier. Under editions later than 2005 results may differ and are not checked against the workbook.',
   'flex.attribution': 'CIRSOC 201-2005 clauses. Our own implementation, tested against the results of INTI-CIRSOC’s CIRSOC_FLEX workbook (D. A. Ortega).',
   // ─── Excel import (lib/excel-import) ───
   'xls.sheet.plates': 'Triangular or quadrilateral shells.',

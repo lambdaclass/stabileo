@@ -224,8 +224,23 @@
      * arrangement the reader typed, as though it were a proposal, would be
      * the panel telling them what they just told it.
      */
+    /*
+     * ── A second layer is a detail, not a warning ──────────────────
+     *
+     * Stacking bars is what a detailer does when the web is full, so the
+     * row says how many layers and stops. The warning is reserved for the
+     * case that actually needs one: steel that will not go in at all.
+     * Flagging every two-layer beam as a problem is how the panel came to
+     * look like it was failing ordinary sections.
+     */
+    const layerNote = (c: NonNullable<typeof r.barChoice>) =>
+      c.placeable === false
+        ? ` — ${t('flex.out.barsWontFit')}`
+        : (c.layers ?? 1) > 1
+          ? ` — ${t('flex.out.barsLayers').replace('{n}', String(c.layers))}`
+          : '';
+
     if (mode === 'design' && r.barChoice) {
-      const fits = r.barChoice.fitsInOneLayer;
       base.push([
         /*
          * "Ring" only where there IS a ring. FCR's proposal is per LEVEL —
@@ -243,14 +258,14 @@
          * and no reason why.
          */
         `${r.barChoice.label} (${r.barChoice.areaCm2.toFixed(2)} cm²)`
-          + (fits === false ? ` — ${t('flex.out.barsTight')}` : ''),
+          + layerNote(r.barChoice),
       ]);
     }
     if (mode === 'design' && r.barChoiceComp) {
       base.push([
         t('flex.out.barsComp'),
         `${r.barChoiceComp.label} (${r.barChoiceComp.areaCm2.toFixed(2)} cm²)`
-          + (r.barChoiceComp.fitsInOneLayer === false ? ` — ${t('flex.out.barsTight')}` : ''),
+          + layerNote(r.barChoiceComp),
       ]);
     }
     base.push([t('flex.out.rho'), r.rho.toFixed(6)]);
@@ -443,7 +458,9 @@
       cover={(kase === 'FCR-CIR' ? dPrimeS : kase === 'FCO' ? dPrimeV : dPrimeS) / 100}
       a={out.r?.a}
       c={out.r?.c}
-      barCount={out.r?.bars.length ?? 4}
+      barCount={out.r?.barChoice?.count ?? out.r?.bars.length ?? 4}
+      perLayer={out.r?.barChoice?.perLayer}
+      layerPitchM={((out.r?.barChoice?.diameter ?? 0) + 25) / 1000}
       AsCm2={(out.r?.bars ?? []).reduce((acc, bar) => acc + bar.area, 0) * 1e4}
     />
   </div>

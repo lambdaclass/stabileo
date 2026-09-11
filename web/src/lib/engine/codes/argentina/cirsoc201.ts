@@ -6,7 +6,7 @@
 
 import type { SolverDiagnostic } from '../../types';
 import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
-import { beta1, yieldStrain } from './cirsoc201-basis';
+import { beta1, yieldStrain, phiFromStrain } from './cirsoc201-basis';
 
 // ─── Rebar Database ─────────────────────────────────────────────
 
@@ -363,24 +363,53 @@ export function checkFlexure(
       const aLimit = b1 * cLimit;
       const CcLimit = alpha1 * fc_kPa * aLimit * b;
       const MnStar = CcLimit * (d - aLimit / 2);
-      const MdStar = phi * MnStar;
+      /*
+       * φ belongs to the section `MnStar` describes — the one at cLimit,
+       * εt = 4 ‰ — not to the trial that got us here. `phi` above is the
+       * trial's, and using it to judge and to size the LIMIT section is the
+       * same mismatch that made the branch below disagree with this one.
+       */
+      const phiAtLimit = phiFromStrain(0.004, fy);
+      const MdStar = phiAtLimit * MnStar;
       steps.push(`εt = ${(epsilonT * 1000).toFixed(2)}‰ → zona transición → φ = ${phi.toFixed(3)}`);
 
+      /*
+       * ── The ductility floor has to bind here too ───────────────
+       *
+       * Re-solving at the reduced φ produces a heavier section, and nothing
+       * below re-checked what that did to εt. It could — and did — land
+       * under §10.3.5's 4 ‰ floor for a flexural member, so the singly path
+       * kept designing sections the code does not allow, and then handed
+       * over to the doubly path which anchors AT 4 ‰. The two branches met
+       * at different places and the required steel DROPPED by 17 % as the
+       * moment rose through the switch.
+       *
+       * So the candidate is computed first and accepted only if it is still
+       * a section the code permits.
+       */
+      let singlyWorks = false;
       if (MdStar >= MuDesign) {
-        // Sufficient without A's, just recalculate As
         const RnNew = MuDesign / (phi * b * d * d);
         const termNew = 2 * RnNew / (alpha1 * fc_kPa);
         if (termNew < 1) {
           const rhoNew = (alpha1 * fc / fy) * (1 - Math.sqrt(1 - termNew));
-          AsReq = rhoNew * b * d * 1e4;
-          a = (AsReq * 1e-4 * fy_kPa) / (alpha1 * fc_kPa * b);
-          c = a / b1;
+          const AsTry = rhoNew * b * d * 1e4;
+          const aTry = (AsTry * 1e-4 * fy_kPa) / (alpha1 * fc_kPa * b);
+          const cTry = aTry / b1;
+          const epsTry = cTry > 1e-9 ? (0.003 * (d - cTry)) / cTry : Infinity;
+          if (epsTry >= 0.004) {
+            AsReq = AsTry;
+            a = aTry;
+            c = cTry;
+            singlyWorks = true;
+          }
         }
-      } else {
+      }
+      if (!singlyWorks) {
         // Needs compression reinforcement
         isDoubly = true;
         steps.push(`φMn* = ${MdStar.toFixed(2)} < Mu → se necesita A's (doble armadura)`);
-        const deltaM = MuDesign / phi - MnStar;
+        const deltaM = MuDesign / phiAtLimit - MnStar;
         const jds = d - dPrime;
         const Cs = deltaM / jds; // kN
         // Check if A's yields: ε's = 3‰·(c-d')/c
@@ -389,7 +418,15 @@ export function checkFlexure(
         AsCompReq = (Cs / (fsPrime - alpha1 * fc_kPa)) * 1e4; // cm²
         // Extra tension steel to balance compression: As_extra = Cs / fy
         const AsExtra = (Cs / fy_kPa) * 1e4; // cm²
-        AsReq = AsMaxSingly + AsExtra; // total tension steel
+        /*
+         * The steel that balances `MnStar`, which is the moment at cLimit —
+         * εt = 4 ‰. `AsMaxSingly` is the steel at εt = 5 ‰, a DIFFERENT
+         * section, and pairing it with this moment was the other half of the
+         * discontinuity: the anchor's moment and the anchor's steel have to
+         * describe the same section or the two branches cannot meet.
+         */
+        const AsAtLimit = (CcLimit / fy_kPa) * 1e4; // cm²
+        AsReq = AsAtLimit + AsExtra; // total tension steel
         a = aLimit;
         c = cLimit;
         steps.push(`ΔM = ${(deltaM).toFixed(2)} kN·m, Cs = ${(Cs).toFixed(2)} kN`);
@@ -398,7 +435,21 @@ export function checkFlexure(
     } else {
       // εt < 2.1‰ — compression-controlled, definitely needs A's
       isDoubly = true;
-      phi = 0.65;
+      /*
+       * φ AT THE SECTION BEING DESIGNED, not at the rejected trial.
+       *
+       * This branch designs to `cTarget` — εt = 4 ‰ — exactly like the
+       * "sección insuficiente" branch below it. It used to size ΔM with
+       * φ = 0.65, the value for the compression-controlled trial it had just
+       * discarded, while its twin used φ at 4 ‰. Same section, two φ, and
+       * the required steel fell 17 % as the moment rose through the point
+       * where one branch hands over to the other.
+       *
+       * 0.65 is the conservative side of that pair, so nothing built to it
+       * was light — but a design that gets cheaper as the load grows is
+       * telling the reader something false about the section.
+       */
+      phi = phiFromStrain(0.004, fy);
       steps.push(`εt = ${(epsilonT * 1000).toFixed(2)}‰ < 2.1‰ → se necesita A's`);
 
       // Use c at εt = 4‰ (c/d = 3/7) as the target for doubly reinforced

@@ -3907,6 +3907,8 @@ const pt: Translations = {
   'flex.out.barsPerLevel': 'Barras por nível',
   'flex.out.barsComp': 'Barras comprimidas',
   'flex.out.barsTight': 'não cabem numa camada',
+  'flex.out.barsLayers': 'em {n} camadas',
+  'flex.out.barsWontFit': 'não cabem na seção',
   'flex.out.phiMn': 'φMn',
   'flex.out.phiPn': 'φPn',
   'flex.out.phiPn0': 'φPn₀ (axial puro)',
@@ -3926,7 +3928,7 @@ const pt: Translations = {
   'flex.out.memo': 'Memória de cálculo',
   'flex.out.sectionTooSmall': 'A seção não basta nem com 8 %',
   'flex.out.checkInputs': 'Revise os dados',
-  'flex.scope': 'As oito planilhas são comparadas, incluindo o bloco de armadura dupla. Coincidem dentro de 2 %, salvo o ângulo inicial do anel em seções circulares — vale ~0,9 % e a planilha não declara qual usa; onde diferem, aqui arma-se mais. A proposta de barras e diâmetros é um acréscimo: a planilha para na área. Com normas posteriores a 2005 os resultados podem diferir e não são comparados com a planilha.',
+  'flex.scope': 'As oito planilhas são comparadas, incluindo o bloco de armadura dupla. Coincidem dentro de 2 % enquanto a armadura cabe numa camada. Diferenças declaradas: o ângulo inicial do anel em seções circulares (~0,9 %, e a planilha não declara qual usa); as propostas de barras e diâmetros oferecidas aqui, que a planilha não calcula; e, quando o aço não cabe numa camada, aqui empilha-se em várias e toma-se d no baricentro do grupo, o que exige mais aço que a planilha, que sempre supõe uma camada. Onde diferem, aqui arma-se mais. Com normas posteriores a 2005 os resultados podem diferir e não são comparados com a planilha.',
   'flex.attribution': 'Cláusulas do CIRSOC 201-2005. Implementação própria, testada contra os resultados da planilha CIRSOC_FLEX do INTI-CIRSOC (D. A. Ortega).',
   // ─── Excel import (lib/excel-import) ───
   'xls.sheet.plates': 'Placas triangulares ou quadrangulares (cascas).',

@@ -114,14 +114,30 @@ describe('above the singly-reinforced limit, both propose top steel', () => {
     expect(above.AsPrimeCm2 ?? 0).toBeGreaterThan(0);
   });
 
-  for (const Mu of [90, 100, 110, 120]) {
-    it(`Mu = ${Mu} kN·m: within 2 % of the sheet, and on the safe side`, () => {
+  /*
+   * ── Only while the steel fits in one layer ─────────────────────
+   *
+   * The sheet places all tension steel at d′s and never revisits it. That is
+   * exact while one layer holds the bars, and optimistic once it does not:
+   * its own example section is a 12 cm web, which takes two Ø25 and no more.
+   * Past about 10 cm² the bars must stack, the group's centroid rises, `d`
+   * falls and the section needs MORE steel than the sheet says.
+   *
+   * So the comparison is split. Where both describe the same section, they
+   * must agree closely. Where they do not, the difference is named and its
+   * direction is pinned, because a reader cross-checking against the
+   * workbook will see two different numbers and deserves to know which of
+   * the two accounts for the second layer.
+   */
+  for (const Mu of [90, 100, 110]) {
+    it(`Mu = ${Mu} kN·m: one layer, so within 2 % of the sheet`, () => {
       const w = workbookDouble(G.b, G.h, G.ds, G.dPrime, G.fc, G.fy, Mu);
       const r = solveFlex({
         mode: 'design', kase: 'FSR', fc: G.fc, fy: G.fy, b: G.b, h: G.h,
         dPrimeS: G.ds, dPrime: G.dPrime, Pu: 0, Mu,
       } as unknown as FlexInput);
 
+      expect(r.barChoice!.layers, 'still a single layer').toBe(1);
       const As = r.AsCm2!;
       const AsPrime = r.AsPrimeCm2!;
       expect(AsPrime, 'top steel is proposed').toBeGreaterThan(0);
@@ -139,6 +155,44 @@ describe('above the singly-reinforced limit, both propose top steel', () => {
       expect(As, 'never lighter than the sheet').toBeGreaterThanOrEqual(w.AsCm2);
     });
   }
+
+  it('once the bars must stack, it asks for more than the sheet — and says why', () => {
+    /*
+     * Mu = 120 kN·m on the sheet's own 12 × 40 section. Three Ø25 no longer
+     * fit side by side in a 12 cm web, so they go 2 + 1, the centroid moves
+     * from 34 mm to 51 mm off the face, and `d` drops by 17 mm.
+     *
+     * The sheet answers 10.08 cm² at the full 36.6 cm depth. That depth is
+     * not available to those bars. Ours is the heavier answer and it is
+     * heavier for a reason that can be pointed at.
+     */
+    const Mu = 120;
+    const w = workbookDouble(G.b, G.h, G.ds, G.dPrime, G.fc, G.fy, Mu);
+    const r = solveFlex({
+      mode: 'design', kase: 'FSR', fc: G.fc, fy: G.fy, b: G.b, h: G.h,
+      dPrimeS: G.ds, dPrime: G.dPrime, Pu: 0, Mu,
+    } as unknown as FlexInput);
+
+    expect(r.barChoice!.layers, 'two layers').toBe(2);
+    expect(r.AsCm2!, 'heavier than the sheet').toBeGreaterThan(w.AsCm2);
+
+    /* And the extra steel is explained by the lost depth, not by drift. */
+    const centroid = r.barChoice!.centroidFromFaceM!;
+    expect(centroid, 'centroid has moved off the cover').toBeGreaterThan(G.ds + 0.005);
+    const dLost = centroid - G.ds;
+    /*
+     * A first-order check: the steel scales roughly as 1/d, so losing
+     * `dLost` off a lever arm of about `d − a/2` should cost a few per cent
+     * and not thirty. It ties the divergence to the geometry rather than
+     * leaving "ours is bigger" as the whole story.
+     */
+    const expectedRise = dLost / (G.h - G.ds);
+    expect(r.AsCm2! / w.AsCm2 - 1).toBeGreaterThan(expectedRise * 0.3);
+    expect(r.AsCm2! / w.AsCm2 - 1).toBeLessThan(expectedRise * 3);
+
+    /* The memo has to say it, or a reader cannot reconcile the two numbers. */
+    expect(r.steps.join(' ')).toMatch(/capas|baricentro/);
+  });
 
   it('the compression steel it proposes is bars, not just an area', () => {
     /*

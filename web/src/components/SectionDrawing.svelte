@@ -45,11 +45,22 @@
     c?: number;
     /** How many bars to draw. A beam gets them in one bottom layer. */
     barCount?: number;
+    /**
+     * Bars in each layer, counted from the tension face. When the steel does
+     * not fit across the web it stacks, and a drawing that still shows one
+     * row is showing a section that was not designed.
+     */
+    perLayer?: number[];
+    /** Centre-to-centre between layers, m. */
+    layerPitchM?: number;
     /** Total steel, cm² — sets the drawn bar diameter so it reads to scale. */
     AsCm2?: number;
   }
 
-  let { shape, cover, a, c, barCount = 4, AsCm2 = 0 }: Props = $props();
+  let {
+    shape, cover, a, c, barCount = 4, AsCm2 = 0,
+    perLayer = undefined, layerPitchM = 0,
+  }: Props = $props();
 
   const PAD = 14;
   const BOX = 170;
@@ -100,13 +111,27 @@
     }
     const width = shape.kind === 'tee' ? shape.bw : shape.b;
     const x0 = shape.kind === 'tee' ? (shape.bf - shape.bw) / 2 : 0;
-    const y = geom.h - cover;
-    const n = Math.max(2, Math.min(barCount, 8));
     /* Inset by the cover so the outermost bars sit inside the section. */
     const usable = Math.max(width - 2 * cover, width * 0.2);
-    for (let i = 0; i < n; i++) {
-      out.push({ x: x0 + cover + (n === 1 ? usable / 2 : (usable * i) / (n - 1)), y });
-    }
+
+    /*
+     * The real stack when the caller knows it. Layers run UP from the
+     * tension face, fullest first, which is both how they are detailed and
+     * how the centroid behind `d` was computed — a drawing that disagreed
+     * with that centroid would quietly contradict the numbers beside it.
+     */
+    const rows = perLayer && perLayer.length > 0
+      ? perLayer
+      : [Math.max(2, Math.min(barCount, 8))];
+    const pitch = layerPitchM > 0 ? layerPitchM : 0;
+
+    rows.forEach((count, layer) => {
+      const n = Math.max(1, Math.min(count, 10));
+      const y = geom.h - cover - layer * pitch;
+      for (let i = 0; i < n; i++) {
+        out.push({ x: x0 + cover + (n === 1 ? usable / 2 : (usable * i) / (n - 1)), y });
+      }
+    });
     return out;
   });
 

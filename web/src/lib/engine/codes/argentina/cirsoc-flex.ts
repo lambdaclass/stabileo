@@ -254,8 +254,27 @@ export function solveFlex(i: FlexInput): FlexOutput {
    */
   if (i.kase === 'FSR' || i.kase === 'FST') {
     const bottomWidth = i.kase === 'FST' ? i.bw : i.b;
-    const AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, d);
     const AstMaxHere = COLUMN_STEEL_RATIO.max * Ag * 1e4;
+
+    /*
+     * ── The effective cover is an OUTPUT, not an input ──────────────
+     *
+     * `d = h − d′s` is only true while the tension steel fits in one layer.
+     * Ask a 20 cm web for 40 cm² and it does not: the bars go in two or
+     * three layers, the group's centroid sits above the first layer, and `d`
+     * is smaller than the field said. Smaller `d` means more steel, which
+     * can mean another layer — so the two have to be solved together rather
+     * than in sequence.
+     *
+     * Hence the loop below. It starts from the reader's cover, sizes, lays
+     * the bars out, takes the centroid back as the new cover and sizes
+     * again, until the cover it assumed and the cover the bars produce agree
+     * to a tenth of a millimetre. It converges in two or three passes
+     * because each layer moves the centroid by less than the last.
+     */
+    let effCover = i.dPrimeS;
+    let dEff = i.h - effCover;
+    let AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, dEff);
 
     /**
      * The section's state at pure bending, for a given pair of steel areas.
@@ -267,7 +286,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * block is in the flange and that call knew nothing about it.
      */
     const stateOf = (AsCm2: number, AsCompCm2 = 0) => {
-      const bars = flexural(outline, i.dPrimeS, AsCm2, i.dPrime, AsCompCm2);
+      const bars = flexural(outline, effCover, AsCm2, i.dPrime, AsCompCm2);
       const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
       for (let k = 0; k < curve.length - 1; k++) {
         const A = curve[k];
@@ -300,30 +319,36 @@ export function solveFlex(i: FlexInput): FlexOutput {
     };
 
     /*
-     * The singly-reinforced ceiling: the steel at which εt falls to 5 ‰.
-     * Beyond it φ starts dropping and the section stops being one the code
-     * wants built, which is exactly where compression steel earns its place.
+     * One sizing pass, at whatever `effCover` currently says.
+     *
+     * The singly-reinforced ceiling inside it is the steel at which εt falls
+     * to 5 ‰. Beyond it φ starts dropping and the section stops being one
+     * the code wants built, which is exactly where compression steel earns
+     * its place.
      */
-    let AsAtLimit = 0.05;
-    {
-      let a = 0.05;
-      let z = AstMaxHere;
-      for (let k = 0; k < 45; k++) {
-        const m = (a + z) / 2;
-        const bars = flexural(outline, i.dPrimeS, m);
-        const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
-        const at = curve.reduce((q, p) => (Math.abs(p.phiPn) < Math.abs(q.phiPn) ? p : q), curve[0]);
-        if (at.epsilonT > 0.005) a = m; else z = m;
+    const sizeOnce = () => {
+      let AsAtLimit = 0.05;
+      {
+        let a = 0.05;
+        let z = AstMaxHere;
+        for (let k = 0; k < 45; k++) {
+          const m = (a + z) / 2;
+          const bars = flexural(outline, effCover, m);
+          const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
+          const at = curve.reduce((q, p) => (Math.abs(p.phiPn) < Math.abs(q.phiPn) ? p : q), curve[0]);
+          if (at.epsilonT > 0.005) a = m; else z = m;
+        }
+        AsAtLimit = a;
       }
-      AsAtLimit = a;
-    }
-    const MuSinglyMax = capacityOf(AsAtLimit);
+      const MuSinglyMax = capacityOf(AsAtLimit);
 
-    let AsReq: number;
-    let AsComp = 0;
-    if (MuAbs <= MuSinglyMax) {
-      AsReq = Math.max(bisect(0, MuAbs, AstMaxHere), AsMin);
-    } else {
+      if (MuAbs <= MuSinglyMax) {
+        return {
+          AsReq: Math.max(bisect(0, MuAbs, AstMaxHere), AsMin),
+          AsComp: 0,
+          MuSinglyMax,
+        };
+      }
       /*
        * Hold the concrete at its limit and let a symmetric pair carry the
        * rest. Bisecting the PAIR keeps one unknown, and the pair is what a
@@ -335,17 +360,52 @@ export function solveFlex(i: FlexInput): FlexOutput {
         const m = (a + z) / 2;
         if (capacityOf(AsAtLimit + m, m) < MuAbs) a = m; else z = m;
       }
-      AsComp = z;
-      AsReq = AsAtLimit + z;
+      return { AsReq: AsAtLimit + z, AsComp: z, MuSinglyMax };
+    };
+
+    /*
+     * Bars and depth, solved together. `fitOpts` takes the cover to the bar
+     * CENTRE, which is what the reader typed — the stirrup is not subtracted
+     * again, because the centre is already inside it.
+     */
+    const fitOpts = { widthM: bottomWidth, coverM: i.dPrimeS, heightM: i.h };
+    let pass = sizeOnce();
+    let chosen = chooseBars(pass.AsReq, fitOpts);
+    let layerPasses = 0;
+    for (; layerPasses < 8; layerPasses++) {
+      const produced = chosen.centroidFromFaceM ?? i.dPrimeS;
+      if (Math.abs(produced - effCover) < 1e-4) break;
+      effCover = produced;
+      dEff = i.h - effCover;
+      AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, dEff);
+      pass = sizeOnce();
+      chosen = chooseBars(pass.AsReq, fitOpts);
     }
 
+    const MuSinglyMax = pass.MuSinglyMax;
+    const AsReq = pass.AsReq;
+    const AsComp = pass.AsComp;
+
     const total = AsReq + AsComp;
-    const bars = flexural(outline, i.dPrimeS, AsReq, i.dPrime, AsComp);
+    const bars = flexural(outline, effCover, AsReq, i.dPrime, AsComp);
     const st = stateOf(AsReq, AsComp);
-    const impossible = total > AstMaxHere || st.phiMn < MuAbs * 0.999;
-    const fitOpts = { widthM: bottomWidth, coverM: i.dPrimeS - 0.008, stirrupMm: 8 };
-    const chosen = chooseBars(AsReq, fitOpts);
-    const chosenComp = AsComp > 0 ? chooseBars(AsComp, fitOpts) : null;
+    /*
+     * ── What makes a section impossible ────────────────────────────
+     *
+     * Not "the bars do not fit in one layer" — that is what a second layer
+     * is for, and treating it as failure is what made the panel refuse
+     * ordinary beams. A section is impossible when the steel cannot be
+     * PLACED at all within `maxLayers`, when it exceeds the ratio ceiling,
+     * or when the curve simply does not reach the moment.
+     */
+    const chosenComp = AsComp > 0
+      ? chooseBars(AsComp, { ...fitOpts, coverM: i.dPrime })
+      : null;
+    const impossible =
+      total > AstMaxHere
+      || st.phiMn < MuAbs * 0.999
+      || chosen.placeable === false
+      || (chosenComp?.placeable === false);
 
     return {
       AstCm2: total,
@@ -355,7 +415,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
       rho: (total * 1e-4) / Ag,
       AsMinCm2: AsMin,
       /* §10.3.4's c at εt = 5 ‰, which is what the sheet prints as cmax. */
-      a: st.a, c: st.c, cMax: (d * 0.003) / 0.008, epsilonT: st.epsilonT, phi: st.phi,
+      a: st.a, c: st.c, cMax: (dEff * 0.003) / 0.008, epsilonT: st.epsilonT, phi: st.phi,
       phiMn: st.phiMn,
       ratio: st.phiMn > 0 ? MuAbs / st.phiMn : Infinity,
       ok: !impossible,
@@ -365,15 +425,22 @@ export function solveFlex(i: FlexInput): FlexOutput {
       barChoiceComp: chosenComp ?? undefined,
       outline,
       steps: [
-        `d = ${cm(d)}, As,mín = ${AsMin.toFixed(2)} cm²`,
+        chosen.layers && chosen.layers > 1
+          ? `d = ${cm(dEff)} al baricentro de ${chosen.layers} capas `
+            + `(${chosen.perLayer?.join('+')}), no ${cm(i.h - i.dPrimeS)} — `
+            + `As,mín = ${AsMin.toFixed(2)} cm²`
+          : `d = ${cm(dEff)}, As,mín = ${AsMin.toFixed(2)} cm²`,
         `Momento máximo con armadura simple (εt = 5 ‰): ${MuSinglyMax.toFixed(2)} kN·m`,
         MuAbs <= MuSinglyMax
           ? 'Armadura simple: alcanza sin armadura comprimida.'
           : `Armadura doble: se agrega A′s = ${AsComp.toFixed(2)} cm² para el excedente.`,
-        `As = ${AsReq.toFixed(2)} cm² → ${chosen.label}` +
-          (chosen.fitsInOneLayer === false
-            ? ` ⚠ no entran en una capa (separación libre ${(chosen.clearSpacingMm ?? 0).toFixed(0)} mm)`
+        `As = ${AsReq.toFixed(2)} cm² → ${chosen.label}`
+          + (chosen.layers && chosen.layers > 1
+            ? ` en ${chosen.layers} capas (separación libre ${(chosen.clearSpacingMm ?? 0).toFixed(0)} mm)`
             : ''),
+        ...(chosen.placeable === false
+          ? [`⚠ No entran ni en ${3} capas: la sección es angosta para esta solicitación.`]
+          : []),
         ...(chosenComp ? [`A′s = ${AsComp.toFixed(2)} cm² → ${chosenComp.label}`] : []),
         `φMn sobre el diagrama = ${st.phiMn.toFixed(2)} kN·m`,
         ...(impossible ? ['⚠ La sección no alcanza con ninguna armadura admisible.'] : []),
@@ -456,7 +523,8 @@ export function solveFlex(i: FlexInput): FlexOutput {
    */
   const choice = i.kase === 'FCR'
     ? chooseBarsPerLevel(AstCm2 / 2, {
-        widthM: i.b, coverM: Math.max(i.dPrimeS, i.dPrime) - 0.008, stirrupMm: 8,
+        /* Cover to the bar centre, as the reader typed it — see `chooseBars`. */
+        widthM: i.b, coverM: Math.max(i.dPrimeS, i.dPrime), heightM: i.h,
       })
     /*
      * No layout, no proposal. A percentage split that lands on zero bars —
