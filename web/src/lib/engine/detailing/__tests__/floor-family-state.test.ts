@@ -83,6 +83,53 @@ describe('no figure is invented before the pass classifies anything', () => {
     // A real zero: the run classified, and none of them was a slab.
     expect(lookedAndFoundNone.classified).toBe(0);
     expect(lookedAndFoundNone.countsUnavailable).toBe(false);
+    // The headline too, which this case used to leave unasserted. It read `skipped` —
+    // "classified, and neither designed nor refused" — for a family nothing had been
+    // classified into. A model of walls has no slabs, and that is what it now says.
+    expect(lookedAndFoundNone.kind).toBe('noElements');
+  });
+
+  it('an absent family is noElements even when the model is full of the other one', () => {
+    // The guard on `readiness.shellCount` cannot reach this: that count is model-wide, so
+    // forty walls keep it far from zero while the slabs family is empty.
+    const r = floorFamilyStates(input({
+      readiness: { shellCount: 40 },
+      run: {
+        ...emptyRun,
+        classifications: Array.from({ length: 40 }, (_, i) => ({
+          elementId: i + 1, family: 'wall' as const,
+        })),
+        walls: Array.from({ length: 40 }, () => VALIDATED),
+      },
+    }));
+
+    expect(of(r, 'slabs').kind).toBe('noElements');
+    expect(of(r, 'slabs').classified).toBe(0);
+    // The family that IS there is unaffected — the new branch must not swallow real work.
+    expect(of(r, 'walls').kind).toBe('designed');
+    expect(of(r, 'walls').designed).toBe(40);
+  });
+
+  it('does not call it noElements when the run classified nothing at all', () => {
+    /*
+     * The case that makes `classified === 0` insufficient on its own.
+     *
+     * `run-floor-design.ts` sends a shell whose nodes it cannot resolve straight to
+     * `unsupported` and `continue`s, so that shell never enters `classifications`. A model
+     * where every shell fails that way has shells and an EMPTY classification list — and
+     * concluding absence from it would tell the engineer the building has no slabs and no
+     * walls, which is worse than the `skipped` it replaced, not better.
+     *
+     * An empty list is not evidence of absence. It is evidence that nothing could be read.
+     */
+    const r = floorFamilyStates(input({
+      readiness: { shellCount: 12 },
+      run: { ...emptyRun, unsupported: [{ elementId: 1 }, { elementId: 2 }] },
+    }));
+
+    for (const fam of ['slabs', 'walls'] as const) {
+      expect(of(r, fam).kind, `${fam} must not claim the model has none`).not.toBe('noElements');
+    }
   });
 });
 
@@ -216,6 +263,40 @@ describe('inclined and degenerate shells are not dropped', () => {
     const off = offFamilyShells(input({ readiness: { shellCount: 4 }, run }))!;
     expect(off.inclined).toBe(2);
     expect(off.degenerate).toBe(1);
+    expect(off.total).toBe(3);
+  });
+
+  it('counts the ones the run could not read, which belonged to no family at all', () => {
+    /*
+     * The third way out of a tab, and the one nothing counted.
+     *
+     * `run-floor-design.ts` sends a shell whose nodes it cannot resolve straight to
+     * `unsupported` and `continue`s, so it enters no classification. A family's refusals are
+     * `inFamily.filter(refused)`, which by construction cannot see a shell that is in no
+     * family — so those refusals appeared in NO count anywhere: not in slabs, not in walls,
+     * not in off-family.
+     *
+     * Element 9 below is that shell: refused, never classified.
+     */
+    const off = offFamilyShells(input({
+      readiness: { shellCount: 5 },
+      run: { ...run, unsupported: [{ elementId: 9 }] },
+    }))!;
+
+    expect(off.unreadable, 'the refusal nothing could see').toBe(1);
+    expect(off.total, 'and it reaches the total the card renders on').toBe(4);
+  });
+
+  it('does not double-count a refusal that WAS classified', () => {
+    // An inclined shell raises an `unsupported` too — `run-floor-design` pushes one for every
+    // inclined and degenerate it classifies. Counting it as unreadable as well would report
+    // the same shell twice, in two categories that mean different things.
+    const off = offFamilyShells(input({
+      readiness: { shellCount: 4 },
+      run: { ...run, unsupported: [{ elementId: 2 }, { elementId: 4 }] },
+    }))!;
+
+    expect(off.unreadable, 'element 2 and 4 are classified, not unreadable').toBe(0);
     expect(off.total).toBe(3);
   });
 

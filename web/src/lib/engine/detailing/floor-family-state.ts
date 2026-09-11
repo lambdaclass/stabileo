@@ -18,6 +18,10 @@
  *   notRun       `run === null`                    — the pass has not produced a result
  *   noElements   `readiness.shellCount === 0`      — model fact, knowable WITHOUT running
  *                `footingCount === 0`
+ *                nothing classified into the family, WHEN the run classified something —
+ *                the same fact, established BY the run where the model-wide count cannot see
+ *                it (a building of walls has no slabs). The proviso matters: an empty
+ *                classification list is not evidence of absence, only of nothing being read.
  *   skipped      classified in the family, and in neither the designed nor the refused set
  *   designed     `run.slabs[]` / `run.walls[]`     — real results with layers and shear
  *   refused      `run.unsupported[]`               — each entry names its element
@@ -47,7 +51,13 @@ export type FloorFamilyKey = 'slabs' | 'walls' | 'foundations';
 export type FloorFamilyStateKind =
   /** The pass threw. Any figures on hand belong to an earlier run. */
   | 'error'
-  /** The model has nothing of this family. Known without running. */
+  /**
+   * The model has nothing of this family.
+   *
+   * Known without running when the model has no shells at all, and known FROM the run when
+   * it classified shells and put none of them here. The second case carries real zero
+   * counts; the first carries nulls, because nothing has counted anything yet.
+   */
   | 'noElements'
   /** No run has classified anything yet. Counts are unknown, not zero. */
   | 'notRun'
@@ -111,10 +121,15 @@ export interface FloorFamilyInput {
    * The store's last error.
    *
    * NOTE — this channel is shared with the beam/column pass: `detailingStore.lastError` is
-   * written by `generate()` too. So an error raised by a beam run will colour the floor
-   * families until the next floor run clears it. Attributing it precisely needs a per-pass
-   * error on the store, which is a store change and is recorded as debt rather than guessed
-   * at here.
+   * written by `generate()` too. So an error raised by a beam run reaches the floor families
+   * until the next floor run clears it. Attributing it precisely needs a per-pass error on
+   * the store, which is a store change and is recorded as debt rather than guessed at here.
+   *
+   * Worth stating plainly, because "colour" undersold it: `error` outranks every other
+   * branch and returns the `empty` state, so a beam-pass failure does not tint the floor
+   * figures — it WITHHOLDS them, replacing counts a floor run had already established with
+   * nulls. Until the debt above is paid, that is a real loss of information and not a
+   * cosmetic one.
    */
   error: string | null;
 }
@@ -122,10 +137,11 @@ export interface FloorFamilyInput {
 /** A design that is not fully validated, or that names conditions it could not cover. */
 function isProvisional(d: DesignedProbe): boolean {
   if (d.unsupported && d.unsupported.length > 0) return true;
-  const level = d.maturity?.level;
   // Absent or non-validated maturity is provisional. Only an explicit VALIDATED clears it —
-  // the default must be the cautious reading, never the flattering one.
-  return level == null || level !== 'VALIDATED';
+  // the default must be the cautious reading, never the flattering one. An absent level is
+  // already covered by the inequality; spelling out `== null` first read as though it were
+  // a separate case and was not.
+  return d.maturity?.level !== 'VALIDATED';
 }
 
 function headline(s: {
@@ -149,6 +165,19 @@ function shellFamily(key: FloorFamilyKey): ShellFamily | null {
  * walls" is a fact about the building and does not need a design pass to be true. It
  * therefore outranks `notRun`: telling someone their model has no walls is more useful than
  * telling them a pass has not run over the walls they do not have.
+ *
+ * ── Why it is decided twice ────────────────────────────────────────
+ *
+ * `readiness.shellCount` is the count of ALL shells in the model — `collectShells()`, not a
+ * per-family census — so it can only answer "this model has no shells at all". A building
+ * with forty slabs and no walls has `shellCount === 40`, so the walls family fell past this
+ * guard and out of the bottom of `headline()` as `skipped`, whose own contract reads
+ * "classified, and neither designed nor refused". Nothing had been classified into it.
+ *
+ * That is the same misreporting this module was written to end — an absence dressed as
+ * something else — so once a run exists, a family with nothing classified into it is
+ * `noElements` on the run's own evidence. Its counts are real zeros, not nulls: the run
+ * DID look. That is the difference from the pre-run branch above, which cannot count.
  */
 function shellState(key: 'slabs' | 'walls', input: FloorFamilyInput): FloorFamilyState {
   const empty = {
@@ -174,9 +203,31 @@ function shellState(key: 'slabs' | 'walls', input: FloorFamilyInput): FloorFamil
   // "skipped" list, and inventing one would be the same sin as the zero this replaces.
   const skipped = Math.max(0, classified - designed - refused);
 
+  /*
+   * The run classified shells, and none of them into this family. See the header: an absence
+   * established BY the run, so the counts are stated rather than withheld.
+   *
+   * ── Why the run has to have classified SOMETHING ───────────────
+   *
+   * `classifications` does not cover every shell. `run-floor-design.ts` pushes a shell whose
+   * nodes it cannot resolve straight to `unsupported` and `continue`s, so it never reaches the
+   * list. A model whose shells all fail that way leaves `classifications` empty while the
+   * model plainly has shells — and reading `classified === 0` alone would then tell the
+   * engineer their building contains no slabs AND no walls, which is a stronger and falser
+   * claim than the `skipped` this branch was written to replace.
+   *
+   * So the conclusion needs the run to have classified something. With an empty list there is
+   * no evidence of absence, only evidence that nothing could be read, and the fall-through
+   * keeps the weaker word.
+   */
+  const classifiedAnything = input.run.classifications.length > 0;
+  const kind: FloorFamilyStateKind = classified === 0 && classifiedAnything
+    ? 'noElements'
+    : headline({ designed, refused, provisional, skipped });
+
   return {
     family: key,
-    kind: headline({ designed, refused, provisional, skipped }),
+    kind,
     classified, designed, refused, provisional, skipped,
     inclined: input.run.classifications.filter((c) => c.family === 'inclined').length,
     degenerate: input.run.classifications.filter((c) => c.family === 'degenerate').length,
@@ -228,16 +279,35 @@ export function floorFamilyStates(input: FloorFamilyInput): FloorFamilyState[] {
 }
 
 /**
- * Shells the run classified as neither slab nor wall.
+ * Shells the run could not put in a family tab.
  *
  * Surfaced separately because they belong to no tab and were therefore invisible. `null` when
  * no run has classified anything — the same rule as every other count here.
+ *
+ * ── Three ways out of a tab, not two ───────────────────────────────
+ *
+ * `inclined` and `degenerate` are CLASSIFIED and then unplaceable: the classifier read the
+ * geometry and the answer was a ramp, or a shape it could not resolve.
+ *
+ * `unreadable` never got that far. `run-floor-design.ts` sends a shell whose nodes it cannot
+ * resolve straight to `unsupported` and `continue`s, so it enters no classification at all —
+ * and `shellState` counts a family's refusals as `inFamily.filter(refused)`, which by
+ * construction cannot see a shell that is in no family. A model whose shells all fail that way
+ * showed two families of zeros and not one word about the refusals.
+ *
+ * That is the failure mode this module's header names — "a shell the app cannot design is a
+ * fact the engineer needs; silently dropping it is the failure mode this module is written
+ * against" — reached by a third route nobody had counted. Reported here rather than attributed
+ * to slabs or walls, because attributing it would be inventing the classification the run could
+ * not make.
  */
 export function offFamilyShells(input: FloorFamilyInput): {
-  inclined: number; degenerate: number; total: number;
+  inclined: number; degenerate: number; unreadable: number; total: number;
 } | null {
   if (!input.run) return null;
   const inclined = input.run.classifications.filter((c) => c.family === 'inclined').length;
   const degenerate = input.run.classifications.filter((c) => c.family === 'degenerate').length;
-  return { inclined, degenerate, total: inclined + degenerate };
+  const classified = new Set(input.run.classifications.map((c) => c.elementId));
+  const unreadable = input.run.unsupported.filter((u) => !classified.has(u.elementId)).length;
+  return { inclined, degenerate, unreadable, total: inclined + degenerate + unreadable };
 }

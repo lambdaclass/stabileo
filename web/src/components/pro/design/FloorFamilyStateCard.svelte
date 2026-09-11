@@ -17,7 +17,7 @@
     /** The store's error text, shown verbatim rather than paraphrased. */
     error: string | null;
     /** Shells classified as neither slab nor wall. `null` when no run has classified any. */
-    offFamily: { inclined: number; degenerate: number; total: number } | null;
+    offFamily: { inclined: number; degenerate: number; unreadable: number; total: number } | null;
   }
   const { state, error, offFamily }: Props = $props();
 
@@ -83,6 +83,17 @@
         })}</span>
       </p>
       <p class="off-why">{t('design.floor.state.offFamilyWhy')}</p>
+      <!--
+        The unreadable ones get their own line, not a third number in the one above.
+        `inclined` and `degenerate` were CLASSIFIED and then had no tab; these were never
+        classified at all, and the remedy differs — a ramp is a shape the app does not design,
+        a shell with unresolvable nodes is a shell to go and fix in the model.
+      -->
+      {#if offFamily.unreadable > 0}
+        <p class="off-why" data-testid="floor-off-family-unreadable">
+          {tp('design.floor.state.offFamilyUnreadable', { n: offFamily.unreadable })}
+        </p>
+      {/if}
     </section>
   {/if}
 
