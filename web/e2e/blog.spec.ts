@@ -270,7 +270,19 @@ test.describe('@smoke blog', () => {
 
     const caption = await embed.locator('figcaption').innerText();
     expect(caption).toContain('Calcular solicitaciones');
-    expect(caption).toContain('Verificar según norma');
+    /*
+     * «Calcular acero requerido», not «Verificar según norma».
+     *
+     * H2 renamed this command, and the rename is the correction: `runCodeCheck` reads results,
+     * demands and the code adapter and never looks at a provided bar — it publishes what the
+     * CODE REQUIRES. Sitting in a group labelled "Verify", ahead of "Design", it said the
+     * reinforcement had been checked before any existed.
+     *
+     * This caption had ALREADY worked around the old name in prose — "hasta que no hay barras
+     * no hay nada que verificar" — which is the same point the rename makes structurally. The
+     * post now names the button for what it does and keeps the explanation.
+     */
+    expect(caption).toContain('Calcular acero requerido');
     expect(caption).toContain('Diseñar todo');
 
     await embed.locator('.post-embed-start').click();
@@ -280,7 +292,7 @@ test.describe('@smoke blog', () => {
     await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
     // The buttons the caption promises are really there, in this language.
     await expect(app.getByTestId('cmd-compute-demands')).toHaveText('Calcular solicitaciones');
-    await expect(app.getByTestId('cmd-code-check')).toHaveText('Verificar según norma');
+    await expect(app.getByTestId('cmd-code-check')).toHaveText('Calcular acero requerido');
   });
 
   /*
