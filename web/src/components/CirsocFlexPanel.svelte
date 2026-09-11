@@ -309,7 +309,10 @@
       ]);
     }
     base.push([t('flex.out.rho'), r.rho.toFixed(6)]);
-    base.push([t('flex.out.asMin'), fmt(r.AsMinCm2, 3, 'cm²')]);
+    /* Beams only: a column's floor is §10.9.1, printed as Ast,mín below. */
+    if (Number.isFinite(r.AsMinCm2)) {
+      base.push([t('flex.out.asMin'), fmt(r.AsMinCm2!, 3, 'cm²')]);
+    }
     if (r.AstMinCm2 !== undefined) {
       base.push([t('flex.out.astMin'), fmt(r.AstMinCm2, 3, 'cm²')]);
       base.push([t('flex.out.astMax'), fmt(r.AstMaxCm2, 3, 'cm²')]);

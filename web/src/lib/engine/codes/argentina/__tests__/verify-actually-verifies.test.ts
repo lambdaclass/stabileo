@@ -127,7 +127,7 @@ describe('checking respects the same geometry as sizing', () => {
      * arithmetic and still be a section the code will not accept.
      */
     const r = verify(5, 0.5);
-    expect(r.AsCm2!).toBeLessThan(r.AsMinCm2);
+    expect(r.AsCm2!).toBeLessThan(r.AsMinCm2!);
     expect(r.steps.map((s) => s.key)).toContain('flex.step.belowMin');
   });
 

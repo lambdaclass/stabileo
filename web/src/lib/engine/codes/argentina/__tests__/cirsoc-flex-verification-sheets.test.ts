@@ -244,7 +244,7 @@ describe('FCO-VERIF — the biaxial sheet', () => {
     const r = solveFlex(INPUT);
     expect(r.AstMinCm2).toBeCloseTo(9.0, 6);
     expect(r.AstMaxCm2).toBeCloseTo(72.0, 6);
-    expect(rel(r.AsMinCm2, 2.5)).toBeLessThan(1e-3);
+    expect(rel(r.AsMinCm2!, 2.5)).toBeLessThan(1e-3);
   });
 
   it('the axial cap the sheet prints for this steel', () => {

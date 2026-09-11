@@ -98,7 +98,12 @@ export interface FlexOutput {
   /** Geometric ratio over the gross area. */
   rho: number;
   /** §9.6.1.2 flexural minimum, cm². */
-  AsMinCm2: number;
+  /**
+   * §9.6.1.2's flexural minimum. Beams only — a column answers to §10.9.1's
+   * 1 % of the gross area, which is `AstMinCm2`, and asking for a beam rule
+   * on a circular section produced a NaN the panel printed as "NaN cm²".
+   */
+  AsMinCm2?: number;
   /** §10.9.1 column bounds, cm². Absent for the flexure sheets. */
   AstMinCm2?: number;
   AstMaxCm2?: number;
@@ -183,12 +188,43 @@ function utilisation(
   const cap = (p: (typeof curve)[number]) => Math.hypot(p.phiMnx, p.phiMny);
 
   if (Math.abs(Pu) < 1e-9) {
-    let best = curve[0];
-    for (const p of curve) if (p.phiPn >= 0 && cap(p) > cap(best)) best = p;
-    const m = cap(best);
+    /*
+     * ── Pure bending is where the curve CROSSES zero, not its nose ──
+     *
+     * This took the greatest moment anywhere on the curve with φPn ≥ 0.
+     * That point is the balance region, reached under substantial axial
+     * compression — the widest part of the diagram. Crediting a section
+     * carrying no axial load with the capacity it would have under 300 kN
+     * of compression is unconservative, and by a lot: a 30 × 30 asked for
+     * 100 kN·m at Pu = 0 came back wanting 16.3 cm² where Pu = 2 kN wanted
+     * 24.5. The workbook settles which is right — its own FCR-VERIF section
+     * prints 87.79 kN·m of pure flexure for 21.34 cm², so 100 kN·m cannot
+     * be carried by less steel than that.
+     *
+     * The crossing is what the beam path has always used. Same curve, same
+     * interpolation, so the two agree at the axis they share.
+     */
+    for (let k = 0; k < curve.length - 1; k++) {
+      const A = curve[k];
+      const B = curve[k + 1];
+      if (A.phiPn >= 0 && B.phiPn < 0) {
+        const t = A.phiPn / (A.phiPn - B.phiPn);
+        const m = cap(A) + t * (cap(B) - cap(A));
+        return {
+          ratio: m > 1e-9 ? Mres / m : Infinity,
+          phiPn: 0,
+          phiMn: m,
+          c: A.c + t * (B.c - A.c),
+          epsilonT: A.epsilonT + t * (B.epsilonT - A.epsilonT),
+          phi: A.phi + t * (B.phi - A.phi),
+        };
+      }
+    }
+    /* No crossing: every point carries compression, so it cannot bend alone. */
+    const last = curve[curve.length - 1];
     return {
-      ratio: m > 0 ? Mres / m : Infinity,
-      phiPn: 0, phiMn: m, c: best.c, epsilonT: best.epsilonT, phi: best.phi,
+      ratio: Infinity, phiPn: 0, phiMn: 0,
+      c: last.c, epsilonT: last.epsilonT, phi: last.phi,
     };
   }
 
@@ -222,7 +258,6 @@ export function solveFlex(i: FlexInput): FlexOutput {
   const outline = outlineFor(i);
   const mat = materials(i);
   const Ag = grossArea(outline);
-  const d = i.h - i.dPrimeS;
 
   // ── Simple bending, sized on the same curve that judges it ───────
   /*
@@ -503,7 +538,6 @@ export function solveFlex(i: FlexInput): FlexOutput {
    * rectangular column was taking the T's web and reporting As,min at 40 %
    * of the truth.
    */
-  const widthForMin = i.b;
   const AstMin = COLUMN_STEEL_RATIO.min * Ag * 1e4;
   const AstMax = COLUMN_STEEL_RATIO.max * Ag * 1e4;
   /* Only the column cases reach here — simple bending returned above. */
@@ -600,7 +634,19 @@ export function solveFlex(i: FlexInput): FlexOutput {
       ? { AsCm2: AstCm2 / (1 + r), AsPrimeCm2: (AstCm2 * r) / (1 + r) }
       : {}),
     rho: (AstCm2 * 1e-4) / Ag,
-    AsMinCm2: minFlexuralSteelCm2(i.fc, i.fy, widthForMin, d),
+    /*
+     * §9.6.1.2's flexural minimum, where the section HAS a width and a
+     * depth to apply it to. The workbook prints it on its rectangular
+     * column sheets — 2.5 cm² for the 30 × 30 — so it is reported here too.
+     *
+     * A circular section has neither: `i.b` and `i.h` are not set, so the
+     * rule was being evaluated on `undefined` and NaN reached the panel,
+     * which printed "NaN cm²" under As mínima. A column's real floor is
+     * §10.9.1's 1 % of Ag either way, and that is `AstMinCm2` below.
+     */
+    ...(Number.isFinite(i.b) && Number.isFinite(i.h) && i.b > 0 && i.h > 0
+      ? { AsMinCm2: minFlexuralSteelCm2(i.fc, i.fy, i.b, i.h - i.dPrimeS) }
+      : {}),
     AstMinCm2: AstMin,
     AstMaxCm2: AstMax,
     c: u.c, a: b1 * u.c, epsilonT: u.epsilonT, phi: u.phi,

@@ -50,7 +50,7 @@ describe('FSR — rectangular, simple bending', () => {
    * a closed form's. 0.012 % against a published number is agreement.
    */
   it('As', () => near(r.AsCm2!, 4.145276, 1e-3));
-  it('As,min', () => near(r.AsMinCm2, 1.464, 1e-3));
+  it('As,min', () => near(r.AsMinCm2!, 1.464, 1e-3));
   it('a and c', () => { near(r.a!, 0.0682751, 1e-4); near(r.c!, 0.0803237, 1e-4); });
   it('cmax and εt', () => { near(r.cMax!, 0.13725, 1e-4); near(r.epsilonT!, 0.0106697, 1e-4); });
 });
@@ -59,7 +59,7 @@ describe('FST — flanged, simple bending', () => {
   const r = solveFlex({ ...BASE, kase: 'FST', b: 0.12, h: 0.40, dPrime: 0.032, dPrimeS: 0.032, Pu: 0, Mu: 52 });
 
   it('As', () => near(r.AsCm2!, 3.766011, 1e-3));
-  it('As,min, taken off the web', () => near(r.AsMinCm2, 1.472, 1e-3));
+  it('As,min, taken off the web', () => near(r.AsMinCm2!, 1.472, 1e-3));
   it('a, well inside the flange', () => {
     near(r.a!, 0.0054331, 1e-3);
     expect(r.a!).toBeLessThan(0.10);
@@ -79,7 +79,7 @@ describe('FCR — rectangular column, two levels', () => {
     expect(r.AstMinCm2).toBeCloseTo(9.0, 6);
     expect(r.AstMaxCm2).toBeCloseTo(72.0, 6);
   });
-  it('As,min for simple bending', () => near(r.AsMinCm2, 2.5, 1e-3));
+  it('As,min for simple bending', () => near(r.AsMinCm2!, 2.5, 1e-3));
 });
 
 describe('FCR-CIR — circular column, spiral', () => {
