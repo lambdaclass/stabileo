@@ -401,7 +401,7 @@ export function runSteelVerification(
     if (L <= 0) continue;
 
     // Use station demands when available (same path as RC), fallback to endpoints
-    let NuMax: number, MuzMax: number, MuyMax: number, VuMax: number;
+    let NuMax: number, MuStrongMax: number, MuWeakMax: number, VuMax: number;
     const sd = stationDemands?.get(ef.elementId);
     if (sd) {
       const dems = sd.demands;
@@ -413,13 +413,13 @@ export function runSteelVerification(
         dems.find(d => d.category === 'N_compression')?.absValue ?? 0,
         dems.find(d => d.category === 'N_tension')?.absValue ?? 0,
       );
-      MuzMax = Math.max(
-        dems.find(d => d.category === 'Mz+')?.absValue ?? 0,
-        dems.find(d => d.category === 'Mz-')?.absValue ?? 0,
-      );
-      MuyMax = Math.max(
+      MuStrongMax = Math.max(
         dems.find(d => d.category === 'My+')?.absValue ?? 0,
         dems.find(d => d.category === 'My-')?.absValue ?? 0,
+      );
+      MuWeakMax = Math.max(
+        dems.find(d => d.category === 'Mz+')?.absValue ?? 0,
+        dems.find(d => d.category === 'Mz-')?.absValue ?? 0,
       );
       VuMax = Math.max(
         dems.find(d => d.category === 'Vy')?.absValue ?? 0,
@@ -428,10 +428,35 @@ export function runSteelVerification(
     } else {
       // Endpoint fallback (same as legacy path)
       NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      MuzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-      MuyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+      MuStrongMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+      MuWeakMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
       VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
     }
+
+    /*
+     * ── The DEMAND side of the axis mapping, which crosses the same way ──
+     *
+     * The inertia swap below (`Iz ← section.iy`) exists because the checker's names and
+     * this app's names cross — and the demands must cross with them, because each moment
+     * is rated against the capacity of the axis it bends about:
+     *
+     *   solver `my` bends over the section depth and pairs with `iy` — the STRONG axis of
+     *   an unrolled tall section (types-3d.ts; solver-service forces local z = global up,
+     *   «gravity → My») — so it is the checker's `Muz`, the moment the lateral-torsional
+     *   buckling check runs on. Solver `mz` pairs with `iz`, the weak axis → `Muy`.
+     *
+     * This used to send `Muz ← mz` and `Muy ← my` straight through while the inertias were
+     * already crossed, and both directions of the error were live. A gravity-loaded IPE
+     * beam carries its whole moment in `my` with `mz ≡ 0`: the strong-axis check (with
+     * LTB) ran on zero and passed vacuously — a 6 m unbraced IPE 200 at 7 kN·m is past its
+     * elastic-LTB capacity and reported ratio 0,00 — while the real moment was rated
+     * against the WEAK-axis modulus (φMn 9,01 kN·m against 44,34 kN·m strong), reporting
+     * ratio 2,22 FAIL on a beam at 45 % of its true capacity.
+     *
+     * `VuMax` does not cross: the checker's single shear check rates the web area against
+     * the larger of the two shear components, and an envelope of both is conservative
+     * regardless of which axis produced it.
+     */
 
     /*
      * ── Inputs are required, not invented ────────────────────────────
@@ -455,10 +480,10 @@ export function runSteelVerification(
     /*
      * ── Cb from the moment diagram, F.1.1 ────────────────────────────
      *
-     * The stations already exist for the RC path; this reads the strong-axis moment (`mz`, which is
-     * what `Muz` feeds) across every combo and takes the envelope of |M| per station. The envelope
-     * rather than one combo, because `Lb` here is the whole member and the governing diagram is the
-     * one that produced `MuzMax`.
+     * The stations already exist for the RC path; this reads the strong-axis moment (`my`, which is
+     * what `Muz` feeds — see the demand mapping above) across every combo and takes the envelope of
+     * |M| per station. The envelope rather than one combo, because `Lb` here is the whole member
+     * and the governing diagram is the one that produced `MuStrongMax`.
      *
      * `momentGradient` decides whether F.1.1 applies at all — it refuses for a cantilever's free
      * end, for a singly-symmetric section in double curvature (§F.1(4) wants both flanges checked,
@@ -474,7 +499,7 @@ export function runSteelVerification(
       for (const combo of stationsForElement.comboResults) {
         for (const st of combo.stations) {
           const prev = byT.get(st.t) ?? 0;
-          if (Math.abs(st.mz) > Math.abs(prev)) byT.set(st.t, st.mz);
+          if (Math.abs(st.my) > Math.abs(prev)) byT.set(st.t, st.my);
         }
       }
       for (const [t, m] of byT) diagram.push({ t, m });
@@ -534,7 +559,9 @@ export function runSteelVerification(
     };
 
     verifs.push(verifySteelElement({
-      elementId: ef.elementId, Nu: NuMax, Muy: MuyMax, Muz: MuzMax, Vu: VuMax, params: sdp,
+      // Muz/Muy are the CHECKER's names (strong/weak); the values come from the solver's
+      // my/mz channels — the same cross the inertias take above.
+      elementId: ef.elementId, Nu: NuMax, Muz: MuStrongMax, Muy: MuWeakMax, Vu: VuMax, params: sdp,
     }));
   }
 
