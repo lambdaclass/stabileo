@@ -47,11 +47,12 @@
         what the product is or which parts of it exist. Re-solving now appears
         as its own section further down; positioning belongs here.
       -->
-      <ul class="hero-modes">
-        <li><span class="hero-mode-name">{t('landing.heroModeBasic')}</span><span class="hero-mode-st hero-mode-st-today">{t('landing.heroModeBasicSt')}</span></li>
-        <li><span class="hero-mode-name">{t('landing.heroModeEdu')}</span><span class="hero-mode-st">{t('landing.heroModeEduSt')}</span></li>
-        <li><span class="hero-mode-name">{t('landing.heroModePro')}</span><span class="hero-mode-st">{t('landing.heroModeProSt')}</span></li>
-      </ul>
+      <!--
+        The three mode cards used to sit here. The model table is the next
+        thing on the page and says the same in more detail — who each mode is
+        for and what it costs — so repeating it in the hero was the deck
+        arguing with itself before it had started.
+      -->
 
       <dl class="hero-meta">
         <div><dt>{t('landing.heroMetaA')}</dt></div>

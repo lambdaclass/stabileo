@@ -43,7 +43,16 @@ function usedKeys(): string[] {
 }
 
 /** Keys built at runtime as `'landing.' + key`, which the regex cannot see. */
-const COMPUTED_PREFIXED = ['capLin', 'capNl', 'capEl', 'capTd', 'stT', 'stPa', 'stR'];
+/*
+ * Keys a component builds at runtime — `t('landing.' + key)` — so the scan
+ * over the source never sees them and only this list keeps them in parity.
+ *
+ * The capability matrix (`capLin`, `capNl`, `capEl`, `capTd`) and the status
+ * ladder (`stT`, `stPa`, `stR`) were the whole of this list until the deck was
+ * shortened; both sections are gone and so are their keys. Basic's four bullet
+ * points are what is left.
+ */
+const COMPUTED_PREFIXED = ['basicPt'];
 
 describe('public landing i18n', () => {
   const keys = usedKeys();
@@ -122,8 +131,15 @@ describe('public landing i18n', () => {
     const tech = (v: string) => [...new Set(v.match(TECH) ?? [])].sort();
 
     it('has a plausible number of public keys to check', () => {
-      // A scope that silently shrank to nothing would make all six vacuous.
-      expect(publicKeys.length).toBeGreaterThan(300);
+      /*
+       * A scope that silently shrank to nothing would make all six vacuous.
+       *
+       * The bar was 300 while the landing carried fourteen sections and 314
+       * `landing.*` keys. The shorter deck is 107 of them plus the blog's, and
+       * that reduction is the point of the change rather than an accident —
+       * so the number moves with it. It still has to catch a collapse.
+       */
+      expect(publicKeys.length).toBeGreaterThan(100);
     });
 
     for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'en')) {

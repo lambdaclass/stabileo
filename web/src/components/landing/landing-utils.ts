@@ -100,3 +100,20 @@ export async function fetchGithubStars(): Promise<number | null> {
     return cached?.stars ?? null;
   }
 }
+
+/**
+ * Where Stabileo is, off its own site.
+ *
+ * Declared once so the footer, and anything that comes after it, cannot
+ * disagree about an address. External and untrusted in the ordinary sense:
+ * every anchor built from these carries `rel="noreferrer"`.
+ */
+export const SOCIAL_LINKS = [
+  // The handle, not the platform. Someone scanning a footer already knows what
+  // Instagram is; what they do not know is what to search for.
+  { id: 'instagram', label: 'stabileoapp', href: 'https://www.instagram.com/stabileoapp/' },
+  { id: 'x', label: '@stabileoapp', href: 'https://x.com/Stabileoapp' },
+  { id: 'linkedin', label: 'Stabileo', href: 'https://www.linkedin.com/company/stabileo' },
+  { id: 'discord', label: 'Discord', href: 'https://discord.gg/Q53rp7FKXA' },
+  { id: 'ergodic', label: 'Ergodic Group', href: 'https://ergodicgroup.com/' },
+] as const;
