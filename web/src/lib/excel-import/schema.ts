@@ -98,6 +98,26 @@ export const SHEETS: SheetSpec[] = [
       [1, 0, 0, 0],
       [2, 6, 0, 0],
       [3, 6, 4, 0],
+      [4, 0, 4, 0],
+    ],
+  },
+
+  {
+    name: 'Quads',
+    titleKey: 'xls.sheet.quads',
+    columns: [
+      { key: 'id', required: true, helpKey: 'xls.col.quadId', example: 1 },
+      // Four nodes, in order around the perimeter — the same rule the 3D
+      // viewport applies when you draw one.
+      { key: 'n1', required: true, helpKey: 'xls.col.quadNode', example: 1 },
+      { key: 'n2', required: true, helpKey: 'xls.col.quadNode', example: 2 },
+      { key: 'n3', required: true, helpKey: 'xls.col.quadNode', example: 3 },
+      { key: 'n4', required: true, helpKey: 'xls.col.quadNode', example: 4 },
+      { key: 'material', required: true, helpKey: 'xls.col.materialRef', example: 1 },
+      { key: 'thickness', unit: 'm', required: true, helpKey: 'xls.col.thickness', example: 0.15 },
+    ],
+    examples: [
+      [1, 1, 2, 3, 4, 1, 0.15],
     ],
   },
 
@@ -244,6 +264,8 @@ export const SHEETS: SheetSpec[] = [
       { key: 'case', required: true, helpKey: 'xls.col.loadCase', example: 1 },
       { key: 'node', helpKey: 'xls.col.loadNode', example: '' },
       { key: 'member', helpKey: 'xls.col.loadMember', example: '' },
+      // The target of the two quad loads (surface3d, thermalQuad3d).
+      { key: 'quad', helpKey: 'xls.col.loadQuad', example: '' },
       { key: 'fx', unit: 'kN', helpKey: 'xls.col.fx', example: '' },
       { key: 'fy', unit: 'kN', helpKey: 'xls.col.fy', example: '' },
       { key: 'fz', unit: 'kN', helpKey: 'xls.col.fz', example: '' },
@@ -259,14 +281,22 @@ export const SHEETS: SheetSpec[] = [
       { key: 'dir', helpKey: 'xls.col.dir', example: '' },
       { key: 'P', unit: 'kN', helpKey: 'xls.col.P', example: '' },
       { key: 'a', unit: 'm', helpKey: 'xls.col.a', example: '' },
+      // Local components for pointOnElement3d — its own columns rather than
+      // reusing fx..fz, which for a nodal load are GLOBAL and would mean two
+      // things in one cell.
+      { key: 'py', unit: 'kN', helpKey: 'xls.col.py', example: '' },
+      { key: 'pz', unit: 'kN', helpKey: 'xls.col.pz', example: '' },
       { key: 'dT', unit: '°C', helpKey: 'xls.col.dT', example: '' },
       { key: 'dTg', unit: '°C', helpKey: 'xls.col.dTg', example: '' },
     ],
     examples: [
-      ['nodal', 1, 3, '', 0, -20, '', '', '', '', '', '', '', '', '', '', '', '', ''],
-      ['distributed', 1, '', 2, '', '', '', '', '', '', -10, -10, '', '', 'global', '', '', '', ''],
-      ['pointOnElement', 2, '', 2, '', '', '', '', '', '', '', '', '', '', '', -35, 2.5, '', ''],
-      ['thermal', 3, '', 1, '', '', '', '', '', '', '', '', '', '', '', '', '', 20, 0],
+      ['nodal', 1, 3, '', '', 0, -20, '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+      ['distributed', 1, '', 2, '', '', '', '', '', '', '', -10, -10, '', '', 'global', '', '', '', '', '', ''],
+      ['pointOnElement', 2, '', 2, '', '', '', '', '', '', '', '', '', '', '', '', -35, 2.5, '', '', '', ''],
+      ['pointOnElement3d', 2, '', 2, '', '', '', '', '', '', '', '', '', '', '', '', '', 2.5, -35, 0, '', ''],
+      ['surface3d', 1, '', '', 1, '', '', '', '', '', '', -5, '', '', '', '', '', '', '', '', '', ''],
+      ['thermal', 3, '', 1, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 20, 0],
+      ['thermalQuad3d', 3, '', '', 1, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 12, 4],
     ],
   },
 ];

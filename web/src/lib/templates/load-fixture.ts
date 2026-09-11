@@ -66,7 +66,9 @@ export interface FixtureLoader {
   // 3D loads
   addDistributedLoad3D?(elemId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number): number;
   addNodalLoad3D?(nodeId: number, fx: number, fy: number, fz: number, mx: number, my: number, mz: number, caseId?: number): number;
+  addPointLoadOnElement3D?(elementId: number, a: number, py: number, pz: number, caseId?: number): number;
   addSurfaceLoad3D?(quadId: number, q: number, caseId?: number): number;
+  addThermalLoadQuad3D?(quadId: number, dtUniform: number, dtGradient: number, caseId?: number): number;
   // Shell elements
   addPlate?(nodes: number[], materialId: number, thickness: number): number;
   addQuad?(nodes: number[], materialId: number, thickness: number): number;
@@ -181,6 +183,26 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
     api.addSupport(nodeId, type, hasSpring, hasOpts);
   }
 
+  // Plates and quads come BEFORE the loads: `surface3d` and `thermalQuad3d`
+  // loads point at quads through `quadMap`, which is only populated here.
+  // Loading shells after the loads used to leave every quad reference to the
+  // `?? d.quadId` fallback — right while fixture and store ids happen to
+  // coincide, wrong the day they do not.
+  // Plates
+  for (const p of json.plates) {
+    const mappedNodes = p.nodes.map(n => nodeMap.get(n)!);
+    const matId = matMap.get(p.materialId) ?? p.materialId;
+    api.addPlate?.(mappedNodes, matId, p.thickness);
+  }
+
+  // Quads
+  for (const q of json.quads) {
+    const mappedNodes = q.nodes.map(n => nodeMap.get(n)!);
+    const matId = matMap.get(q.materialId) ?? q.materialId;
+    const newId = api.addQuad?.(mappedNodes, matId, q.thickness);
+    if (newId != null) quadMap.set(q.id, newId);
+  }
+
   // Loads
   for (const load of json.loads) {
     const d = load.data;
@@ -227,27 +249,26 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
         );
         break;
       }
+      case 'pointOnElement3d': {
+        api.addPointLoadOnElement3D?.(
+          elemMap.get(d.elementId as number)!, d.a as number, d.py as number, d.pz as number,
+          d.caseId as number | undefined,
+        );
+        break;
+      }
       case 'surface3d': {
         const qId = quadMap.get(d.quadId as number) ?? d.quadId as number;
         api.addSurfaceLoad3D?.(qId, d.q as number, d.caseId as number | undefined);
         break;
       }
+      case 'thermalQuad3d': {
+        const qId = quadMap.get(d.quadId as number) ?? d.quadId as number;
+        api.addThermalLoadQuad3D?.(
+          qId, d.dtUniform as number, d.dtGradient as number, d.caseId as number | undefined,
+        );
+        break;
+      }
     }
-  }
-
-  // Plates
-  for (const p of json.plates) {
-    const mappedNodes = p.nodes.map(n => nodeMap.get(n)!);
-    const matId = matMap.get(p.materialId) ?? p.materialId;
-    api.addPlate?.(mappedNodes, matId, p.thickness);
-  }
-
-  // Quads
-  for (const q of json.quads) {
-    const mappedNodes = q.nodes.map(n => nodeMap.get(n)!);
-    const matId = matMap.get(q.materialId) ?? q.materialId;
-    const newId = api.addQuad?.(mappedNodes, matId, q.thickness);
-    if (newId != null) quadMap.set(q.id, newId);
   }
 
   // Constraints
