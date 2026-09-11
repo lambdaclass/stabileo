@@ -857,6 +857,8 @@ const en: Record<string, string> = {
   'xls.col.mz': 'Moment about Z.',
   'xls.col.qi': 'Distributed load at the start end.',
   'xls.col.qj': 'Distributed load at the end.',
+  'xls.col.qzi': 'For distributed3d: local-Z load at the start end (qi/qj carry local Y).',
+  'xls.col.qzj': 'For distributed3d: local-Z load at the end.',
   'xls.col.dir': 'Direction of the distributed load: global or local.',
   'xls.col.P': 'Point load on the member.',
   'xls.col.a': 'Distance from the start end to the point load.',

@@ -117,19 +117,30 @@ describe('reading a workbook', () => {
     expect(parseWorkbook(b).model.nodes[0].x).toBe(1.25);
   });
 
-  it('carries every load type through with its own fields', () => {
+  it('carries every importable load type through with the keys the loader reads', () => {
+    /*
+     * The assertions are the keys in loadFixture's switch, not the column
+     * names: `my` (not `m`), `dtUniform` (not `deltaT`), `qYI`…`qZJ` (not
+     * `qI`/`qJ` on the 3D arm), `isGlobal` (not `direction`). The first draft
+     * wrote column-shaped keys and every one of these rows loaded with its
+     * values gone; this pins the loader's contract so it cannot drift back.
+     */
     const b = goodBook();
     b.Loads = aoa(
-      ['type', 'case', 'node', 'member', 'fz [kN]', 'mx [kN·m]', 'qi [kN/m]', 'qj [kN/m]', 'dT [°C]'],
-      ['nodal3d', 1, 3, '', -12, 4, '', '', ''],
-      ['distributed3d', 1, '', 1, '', '', -8, -3, ''],
-      ['thermal', 2, '', 1, '', '', '', '', 20],
+      ['type', 'case', 'node', 'member', 'fz [kN]', 'mz [kN·m]', 'mx [kN·m]', 'qi [kN/m]', 'qj [kN/m]', 'qzi [kN/m]', 'qzj [kN/m]', 'dir', 'dT [°C]', 'dTg [°C]'],
+      ['nodal', 1, 3, '', -12, 6, '', '', '', '', '', '', '', ''],
+      ['nodal3d', 1, 3, '', -12, '', 4, '', '', '', '', '', '', ''],
+      ['distributed', 1, '', 1, '', '', '', -10, -10, '', '', 'global', '', ''],
+      ['distributed3d', 1, '', 1, '', '', '', -8, -3, -5, -2, '', '', ''],
+      ['thermal', 2, '', 1, '', '', '', '', '', '', '', '', 20, 4],
     );
     const loads = parseWorkbook(b).model.loads;
-    expect(loads.map((l) => l.type)).toEqual(['nodal3d', 'distributed3d', 'thermal']);
-    expect(loads[0].data).toMatchObject({ nodeId: 3, fz: -12, mx: 4, caseId: 1 });
-    expect(loads[1].data).toMatchObject({ elementId: 1, qI: -8, qJ: -3 });
-    expect(loads[2].data).toMatchObject({ elementId: 1, deltaT: 20, caseId: 2 });
+    expect(loads.map((l) => l.type)).toEqual(['nodal', 'nodal3d', 'distributed', 'distributed3d', 'thermal']);
+    expect(loads[0].data).toMatchObject({ nodeId: 3, fz: -12, my: 6, caseId: 1 });
+    expect(loads[1].data).toMatchObject({ nodeId: 3, fz: -12, mx: 4, caseId: 1 });
+    expect(loads[2].data).toMatchObject({ elementId: 1, qI: -10, qJ: -10, isGlobal: true });
+    expect(loads[3].data).toMatchObject({ elementId: 1, qYI: -8, qYJ: -3, qZI: -5, qZJ: -2 });
+    expect(loads[4].data).toMatchObject({ elementId: 1, dtUniform: 20, dtGradient: 4, caseId: 2 });
   });
 });
 
@@ -171,6 +182,76 @@ describe('a row fails on its own', () => {
     const b = goodBook();
     b.Loads = aoa(['type', 'case', 'node', 'member'], ['distributed', 1, 3, '']);
     expect(parseWorkbook(b).problems[0].message).toContain('barra');
+  });
+
+  it('rejects a support type it does not know, because the solver would restrain nothing', () => {
+    /*
+     * The solver's restraint switch ends in `default: return false` — an
+     * unknown type is a support holding no DOF, and the import would say
+     * success. "Fixed" with a capital is the typo a hand-filled sheet will
+     * actually contain, and it must NOT fail: the match is case-insensitive.
+     */
+    const b = goodBook();
+    b.Supports = aoa(['node', 'type'], [1, 'Fixed'], [2, 'empotrado'], [3, 'pinned']);
+    const r = parseWorkbook(b);
+    expect(r.model.supports.map((s) => s.type)).toEqual(['fixed', 'pinned']);
+    expect(r.problems).toHaveLength(1);
+    expect(r.problems[0]).toMatchObject({ sheet: 'Supports', row: 3 });
+    expect(r.problems[0].message).toContain('empotrado');
+  });
+
+  it('refuses custom3d rather than importing a support with no restraints', () => {
+    const b = goodBook();
+    b.Supports = aoa(['node', 'type'], [1, 'custom3d']);
+    const r = parseWorkbook(b);
+    expect(r.model.supports).toHaveLength(0);
+    expect(r.problems[0].message).toContain('custom3d');
+  });
+
+  it('rejects a member type it does not know instead of silently making it a frame', () => {
+    // "trus" was a frame before this check, with the stiffness that implies.
+    const b = goodBook();
+    b.Members = aoa(
+      ['id', 'type', 'nodeI', 'nodeJ', 'material', 'section'],
+      [1, 'trus', 1, 2, 1, 1],
+      [2, 'truss', 2, 3, 1, 1],
+    );
+    const r = parseWorkbook(b);
+    expect(r.model.elements.map((e) => e.type)).toEqual(['truss']);
+    expect(r.problems[0].message).toContain('trus');
+  });
+
+  it('rejects a distributed direction it does not know instead of importing local', () => {
+    const b = goodBook();
+    b.Loads = aoa(
+      ['type', 'case', 'member', 'qi [kN/m]', 'qj [kN/m]', 'dir'],
+      ['distributed', 1, 1, -10, -10, 'vertical'],
+    );
+    const r = parseWorkbook(b);
+    expect(r.model.loads).toHaveLength(0);
+    expect(r.problems[0]).toMatchObject({ sheet: 'Loads', column: 'dir' });
+    expect(r.problems[0].message).toContain('vertical');
+  });
+
+  it('refuses the load types the loader cannot deliver, by name', () => {
+    /*
+     * `loadFixture` has no case for pointOnElement3d, and the two quad loads
+     * have no Quads sheet to point at. Parsing them "successfully" would drop
+     * the row between parse and store with the report saying nothing.
+     */
+    const b = goodBook();
+    b.Loads = aoa(
+      ['type', 'case', 'member', 'P [kN]', 'a [m]'],
+      ['pointOnElement3d', 1, 1, -35, 2.5],
+      ['surface3d', 1, 1, -5, ''],
+      ['thermalQuad3d', 1, 1, '', ''],
+    );
+    const r = parseWorkbook(b);
+    expect(r.model.loads).toHaveLength(0);
+    expect(r.problems).toHaveLength(3);
+    expect(r.problems[0].message).toContain('pointOnElement3d');
+    expect(r.problems[1].message).toContain('surface3d');
+    expect(r.problems[2].message).toContain('thermalQuad3d');
   });
 
   it('reports an unknown column once, without dropping the sheet', () => {

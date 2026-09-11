@@ -104,6 +104,32 @@ function str(v: unknown): string {
   return v == null ? '' : String(v).trim();
 }
 
+/*
+ * The support types the store accepts (model.svelte.ts), minus `custom3d`,
+ * which a single cell cannot describe. Matched case-insensitively and written
+ * back in canonical casing, so "rollerx" imports and "rollerX" is what the
+ * solver sees.
+ */
+const SUPPORT_TYPES = [
+  'fixed', 'pinned', 'rollerX', 'rollerY', 'rollerZ', 'spring',
+  'fixed3d', 'pinned3d', 'rollerXZ', 'rollerXY', 'rollerYZ', 'spring3d',
+] as const;
+
+/*
+ * Load types the format knows but cannot deliver yet, with the reason a
+ * reader can act on. Kept out of the "unknown type" error on purpose: the
+ * type EXISTS in the model, the import path is what is missing, and those
+ * are different conversations to have with a spreadsheet.
+ */
+const NOT_IMPORTABLE = {
+  pointOnElement3d:
+    '"pointOnElement3d" todavía no es importable: el cargador de modelos no lo conecta',
+  surface3d:
+    '"surface3d" carga sobre quads, y el formato no tiene hoja de quads todavía',
+  thermalQuad3d:
+    '"thermalQuad3d" carga sobre quads, y el formato no tiene hoja de quads todavía',
+} as const;
+
 /** Rows of a sheet, keyed by the columns the format knows. Blank rows dropped. */
 function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]): Row[] {
   if (aoa.length === 0) return [];
@@ -310,9 +336,22 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       continue;
     }
 
-    const type = str(row.cells.type).toLowerCase() === 'truss' ? 'truss' : 'frame';
+    /*
+     * The type is an enum, not a default. Anything that is not "truss" used
+     * to become a frame silently — and "trus" is exactly the typo a
+     * spreadsheet is going to contain. A member read with the wrong stiffness
+     * is the failure this file exists to catch, so the row fails instead.
+     */
+    const rawType = str(row.cells.type).toLowerCase();
+    if (rawType !== 'frame' && rawType !== 'truss') {
+      problems.push({
+        sheet: 'Members', row: row.n, column: 'type',
+        message: `tipo "${str(row.cells.type)}" desconocido — válidos: frame, truss`,
+      });
+      continue;
+    }
     model.elements.push({
-      id, type, nodeI, nodeJ, materialId, sectionId,
+      id, type: rawType, nodeI, nodeJ, materialId, sectionId,
       hingeStart: truthy(row.cells.hingestart),
       hingeEnd: truthy(row.cells.hingeend),
     });
@@ -320,6 +359,15 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   counts.Members = model.elements.length;
 
   // ── Supports ─────────────────────────────────────────────────────
+  /*
+   * The type is checked against the store's own set, case-insensitively —
+   * and this is the check the whole file exists for. The solver's restraint
+   * switch ends in `default: return false`, so an unrecognised type is a
+   * support that restrains NOTHING: "Fixed" with a capital, or "empotrado"
+   * from someone working in the Spanish UI, imports as a mechanism with the
+   * report saying success. `custom3d` is refused rather than misread: its
+   * restraints live in per-DOF fields a single cell cannot carry.
+   */
   let supportId = 1;
   for (const row of readSheet(grab('Supports'), 'Supports', problems)) {
     const nodeId = reqNum(row, 'node', 'Supports', problems);
@@ -329,7 +377,22 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       problems.push({ sheet: 'Supports', row: row.n, message: `no existe el nodo ${nodeId}` });
       continue;
     }
-    model.supports.push({ id: supportId++, nodeId, type });
+    if (type.toLowerCase() === 'custom3d') {
+      problems.push({
+        sheet: 'Supports', row: row.n, column: 'type',
+        message: '"custom3d" necesita restricciones por GDL que una celda no puede expresar',
+      });
+      continue;
+    }
+    const canonical = SUPPORT_TYPES.find((s) => s.toLowerCase() === type.toLowerCase());
+    if (!canonical) {
+      problems.push({
+        sheet: 'Supports', row: row.n, column: 'type',
+        message: `tipo "${type}" desconocido — válidos: ${SUPPORT_TYPES.join(', ')}`,
+      });
+      continue;
+    }
+    model.supports.push({ id: supportId++, nodeId, type: canonical });
   }
   counts.Supports = model.supports.length;
 
@@ -391,6 +454,20 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       continue;
     }
 
+    /*
+     * Three of the nine types are refused by name rather than misread.
+     * `loadFixture` has no case for `pointOnElement3d` (the fixture API never
+     * bound `addPointLoadOnElement3D`), so the row would vanish between parse
+     * and store; and the two quad loads have no Quads sheet to point at.
+     * A row that cannot survive the trip must say so here, while it still
+     * has a number.
+     */
+    const notImportable = NOT_IMPORTABLE[type as keyof typeof NOT_IMPORTABLE];
+    if (notImportable) {
+      problems.push({ sheet: 'Loads', row: row.n, column: 'type', message: notImportable });
+      continue;
+    }
+
     const nodeId = num(row.cells.node);
     const elementId = num(row.cells.member);
     const wantsNode = type.startsWith('nodal');
@@ -409,24 +486,58 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       continue;
     }
 
+    /*
+     * The keys written here are the ones `loadFixture` reads — its switch is
+     * the contract, not the column names. The first draft wrote `m` where the
+     * loader reads `my`, `deltaT` where it reads `dtUniform`, `qI`/`qJ` where
+     * the 3D arm reads `qYI`…`qZJ`, and a `direction` string the loader never
+     * looks at: every one of those rows imported "successfully" with its
+     * values gone. The parse tests now assert the loader's keys, and the
+     * round-trip test asserts a value out the far side.
+     */
     const n = (k: string) => num(row.cells[k]) ?? 0;
     const data: Record<string, unknown> = { id: loadId++, caseId };
     if (wantsNode) {
       Object.assign(data, { nodeId: target, fx: n('fx'), fy: n('fy'), fz: n('fz') });
       if (type === 'nodal3d') Object.assign(data, { mx: n('mx'), my: n('my'), mz: n('mz') });
-      else Object.assign(data, { m: n('mz') });
+      else {
+        /*
+         * The 2D wire plane is x–z: vertical is fz, and the loader's 2D arm
+         * reads only fz. A reader who thinks in x–y writes their gravity
+         * load in fy — the store itself forgives exactly this elsewhere
+         * (canonicalLoadFz is `fz ?? fy ?? 0`), so the column is honoured
+         * here the same way rather than dropped.
+         */
+        const fz2d = num(row.cells.fz) ?? num(row.cells.fy) ?? 0;
+        Object.assign(data, { fz: fz2d, my: n('mz') });
+      }
     } else {
       data.elementId = target;
-      if (type.startsWith('distributed')) {
+      if (type === 'distributed') {
         Object.assign(data, { qI: n('qi'), qJ: n('qj') });
-        const dir = str(row.cells.dir);
-        if (dir) data.direction = dir.toLowerCase();
-      } else if (type.startsWith('pointOnElement')) {
+        /*
+         * `dir` is `isGlobal`, the only two values the model has. Anything
+         * else fails the row: silently importing a "global" load as local is
+         * right for a horizontal beam and wrong for anything inclined, with
+         * no sign of which happened.
+         */
+        const dir = str(row.cells.dir).toLowerCase();
+        if (dir === 'global') data.isGlobal = true;
+        else if (dir !== '' && dir !== 'local') {
+          problems.push({
+            sheet: 'Loads', row: row.n, column: 'dir',
+            message: `dirección "${str(row.cells.dir)}" desconocida — válidas: global, local`,
+          });
+          continue;
+        }
+      } else if (type === 'distributed3d') {
+        // Local components by definition — qY then qZ; the sheet's qi/qj
+        // carry qY, qzi/qzj carry qZ.
+        Object.assign(data, { qYI: n('qi'), qYJ: n('qj'), qZI: n('qzi'), qZJ: n('qzj') });
+      } else if (type === 'pointOnElement') {
         Object.assign(data, { p: n('p'), a: n('a') });
-      } else if (type.startsWith('thermal')) {
-        Object.assign(data, { deltaT: n('dt'), deltaTGradient: n('dtg') });
-      } else if (type === 'surface3d') {
-        Object.assign(data, { q: n('qi') });
+      } else if (type === 'thermal') {
+        Object.assign(data, { dtUniform: n('dt'), dtGradient: n('dtg') });
       }
     }
     model.loads.push({ type, data });

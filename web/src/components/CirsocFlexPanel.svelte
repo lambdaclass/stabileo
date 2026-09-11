@@ -28,6 +28,7 @@
   import { t } from '../lib/i18n';
   import {
     checkFlexure, checkColumn, checkBiaxial,
+    ASSUMED_FLEXURE_BAR_DIA_MM,
     type ConcreteDesignParams,
   } from '../lib/engine/codes/argentina/cirsoc201';
   import { checkFlexureFlanged } from '../lib/engine/codes/argentina/cirsoc201-flanged';
@@ -73,10 +74,23 @@
   /** For the cases that verify a section rather than size one. */
   let AsGiven = $state(20);
 
+  /*
+   * The cover field says "to the bar centre" (`flex.in.cover`), and the
+   * circular case uses it exactly that way. The flexure family expects cover
+   * to the STIRRUP — `checkFlexure` subtracts the stirrup and half a bar
+   * itself — so the same number must be converted once, here. Without the
+   * conversion a 3 cm cover to the bar centre is read as 3 cm to the stirrup,
+   * d comes out stirrup + half a bar short of what the reader stated, and the
+   * printed steps contradict the label the reader filled in.
+   */
+  const coverToStirrup = $derived(
+    Math.max(cover / 100 - stirrup / 1000 - ASSUMED_FLEXURE_BAR_DIA_MM / 2000, 0),
+  );
+
   /** Centimetres in the fields, metres in the engine. One place converts. */
   const params = $derived<ConcreteDesignParams>({
     fc, fy,
-    cover: cover / 100,
+    cover: coverToStirrup,
     b: b / 100,
     h: h / 100,
     stirrupDia: stirrup,

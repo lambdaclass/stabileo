@@ -252,6 +252,10 @@ export const SHEETS: SheetSpec[] = [
       { key: 'mz', unit: 'kN·m', helpKey: 'xls.col.mz', example: '' },
       { key: 'qi', unit: 'kN/m', helpKey: 'xls.col.qi', example: '' },
       { key: 'qj', unit: 'kN/m', helpKey: 'xls.col.qj', example: '' },
+      // qZ for distributed3d only — qi/qj carry qY. Two more columns rather
+      // than overloading the first two, so a 2D row reads exactly as before.
+      { key: 'qzi', unit: 'kN/m', helpKey: 'xls.col.qzi', example: '' },
+      { key: 'qzj', unit: 'kN/m', helpKey: 'xls.col.qzj', example: '' },
       { key: 'dir', helpKey: 'xls.col.dir', example: '' },
       { key: 'P', unit: 'kN', helpKey: 'xls.col.P', example: '' },
       { key: 'a', unit: 'm', helpKey: 'xls.col.a', example: '' },
@@ -259,10 +263,10 @@ export const SHEETS: SheetSpec[] = [
       { key: 'dTg', unit: '°C', helpKey: 'xls.col.dTg', example: '' },
     ],
     examples: [
-      ['nodal', 1, 3, '', 0, -20, '', '', '', '', '', '', '', '', '', '', ''],
-      ['distributed', 1, '', 2, '', '', '', '', '', '', -10, -10, 'global', '', '', '', ''],
-      ['pointOnElement', 2, '', 2, '', '', '', '', '', '', '', '', '', -35, 2.5, '', ''],
-      ['thermal', 3, '', 1, '', '', '', '', '', '', '', '', '', '', '', 20, 0],
+      ['nodal', 1, 3, '', 0, -20, '', '', '', '', '', '', '', '', '', '', '', '', ''],
+      ['distributed', 1, '', 2, '', '', '', '', '', '', -10, -10, '', '', 'global', '', '', '', ''],
+      ['pointOnElement', 2, '', 2, '', '', '', '', '', '', '', '', '', '', '', -35, 2.5, '', ''],
+      ['thermal', 3, '', 1, '', '', '', '', '', '', '', '', '', '', '', '', '', 20, 0],
     ],
   },
 ];

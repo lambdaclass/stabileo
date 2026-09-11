@@ -3958,6 +3958,8 @@ const pt: Translations = {
   'xls.col.mz': 'Momento em torno de Z.',
   'xls.col.qi': 'Carga distribuída na extremidade inicial.',
   'xls.col.qj': 'Carga distribuída na extremidade final.',
+  'xls.col.qzi': 'Para distributed3d: carga em Z local na extremidade inicial (qi/qj levam Y local).',
+  'xls.col.qzj': 'Para distributed3d: carga em Z local na extremidade final.',
   'xls.col.dir': 'Direção da distribuída: global ou local.',
   'xls.col.P': 'Carga pontual sobre a barra.',
   'xls.col.a': 'Distância da extremidade inicial até a carga pontual.',

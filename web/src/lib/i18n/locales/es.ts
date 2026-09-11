@@ -850,6 +850,8 @@ const es: Record<string, string> = {
   'xls.col.mz': 'Momento alrededor de Z.',
   'xls.col.qi': 'Carga distribuida en el extremo inicial.',
   'xls.col.qj': 'Carga distribuida en el extremo final.',
+  'xls.col.qzi': 'Para distributed3d: carga en Z local en el extremo inicial (qi/qj llevan Y local).',
+  'xls.col.qzj': 'Para distributed3d: carga en Z local en el extremo final.',
   'xls.col.dir': 'Dirección de la distribuida: global o local.',
   'xls.col.P': 'Carga puntual sobre la barra.',
   'xls.col.a': 'Distancia desde el extremo inicial hasta la carga puntual.',

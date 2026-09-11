@@ -322,9 +322,9 @@ export function checkColumnCircular(p: CircularParams, Pu: number, Mu: number): 
  *
  * Bisection on the total area rather than a closed form, because there is no
  * closed form: the capacity depends on where every bar sits, and the bars move
- * when the count changes. Twelve halvings over a range bounded by the code's
- * own limits — §10.9.1's 1 % and 8 % of the gross area — land inside a tenth
- * of a square centimetre, which is finer than any bar schedule.
+ * when the count changes. Forty halvings over a range bounded by the code's
+ * own limits — §10.9.1's 1 % and 8 % of the gross area — land far inside a
+ * tenth of a square centimetre, which is finer than any bar schedule.
  *
  * Returns `null` when 8 % is not enough. That is a section too small for the
  * load, and answering with the maximum would be a design that does not work.

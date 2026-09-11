@@ -19,6 +19,8 @@ import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 import { buildTemplateWorkbook } from '../template';
 import { parseWorkbook } from '../parse';
+import { applyWorkbook } from '../apply';
+import { modelStore } from '../../store';
 import { SHEETS, INSTRUCTIONS_SHEET } from '../schema';
 
 /** Write the workbook to a buffer and read it back the way the importer does. */
@@ -89,10 +91,31 @@ describe('the downloaded template', () => {
     const { model } = parseWorkbook(roundTrip());
     const thermal = model.loads.find((l) => l.type === 'thermal');
     expect(thermal, 'the thermal example row must survive the round trip').toBeDefined();
-    expect((thermal!.data as Record<string, number>).deltaT).toBe(20);
+    expect((thermal!.data as Record<string, number>).dtUniform).toBe(20);
 
     const nodal = model.loads.find((l) => l.type === 'nodal');
     expect((nodal!.data as Record<string, number>).fy).toBe(-20);
     expect((nodal!.data as Record<string, number>).qI, 'a nodal load has no qI').toBeUndefined();
+  });
+
+  it('delivers load VALUES to the store, not just load rows', () => {
+    /*
+     * The regression the parse-level tests could not see: the parser wrote
+     * keys the loader never reads (`deltaT`, `m`, `direction`, `qI` on the
+     * 3D arm), so loads arrived with their values undefined while the report
+     * counted them. A value out the far side is the only proof the whole
+     * chain agrees on the keys. The template's own rows are the case: its
+     * thermal ΔT, and its nodal gravity load written in fy by a reader who
+     * thinks in x–y.
+     */
+    const outcome = applyWorkbook(roundTrip());
+    expect(outcome.problems, JSON.stringify(outcome.problems)).toEqual([]);
+
+    const thermal = modelStore.loads.find((l) => l.type === 'thermal');
+    expect(thermal, 'the thermal example must reach the store').toBeDefined();
+    expect((thermal!.data as { dtUniform: number }).dtUniform).toBe(20);
+
+    const nodal = modelStore.loads.find((l) => l.type === 'nodal');
+    expect((nodal!.data as { fz: number }).fz, 'fy gravity becomes fz on the x–z plane').toBe(-20);
   });
 });
