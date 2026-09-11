@@ -730,8 +730,20 @@
       <!-- Apply / Retry / Cancel bar -->
       {#if pendingDraft}
         <div class="draft-actions">
-          <button class="draft-btn draft-apply" onclick={handleApply}>Apply</button>
-          <button class="draft-btn draft-retry" onclick={handleRetry}>Retry</button>
+          <!--
+            Apply and Retry are gated; Cancel deliberately is NOT.
+
+            The two on the left commit or re-request a draft — `handleApply` solves and keeps
+            it, `handleRetry` asks for another. Both are the panel doing work it says it is not
+            ready to do.
+
+            Cancel only clears `pendingDraft`. Gating it would mean that if a draft ever
+            reached the screen by a path this chain did not foresee, the reader would be left
+            holding one with no way out of it. A disabled escape is not a safer state than an
+            enabled one; it is the same state with the door locked.
+          -->
+          <button class="draft-btn draft-apply" onclick={handleApply} disabled={AI_IN_DEVELOPMENT}>Apply</button>
+          <button class="draft-btn draft-retry" onclick={handleRetry} disabled={AI_IN_DEVELOPMENT}>Retry</button>
           <button class="draft-btn draft-cancel" onclick={handleCancel}>Cancel</button>
         </div>
       {/if}
@@ -739,7 +751,21 @@
       <!-- Fix solver issues -->
       {#if justApplied && lastSolverDiagnostics.length > 0 && !pendingDraft}
         <div class="post-build-bar">
-          <button class="post-build-btn fix-issues-btn" onclick={handleFixIssues} disabled={buildLoading}>
+          <!--
+            `AI_IN_DEVELOPMENT` here too, and this is the one control where it matters most.
+
+            `handleFixIssues` calls `historyStore.pushState()` and `fastRebuild()` — it is the
+            only thing in this panel that MUTATES THE USER'S MODEL. Every other control carries
+            the constant explicitly; this one was gated only by `buildLoading`.
+
+            It is unreachable today, and that is exactly the problem: it renders behind
+            `justApplied && lastSolverDiagnostics.length > 0`, `justApplied` is set only by
+            `handleApply`, which returns early without a `pendingDraft`, which only the disabled
+            composer can create. Four state variables deep, and the panel's claim that it is
+            unfinished rests on that chain staying unbroken rather than on the constant that
+            says so. One `AI_IN_DEVELOPMENT ||` makes the guarantee stated instead of derived.
+          -->
+          <button class="post-build-btn fix-issues-btn" onclick={handleFixIssues} disabled={AI_IN_DEVELOPMENT || buildLoading}>
             Fix {lastSolverDiagnostics.length} solver issue{lastSolverDiagnostics.length > 1 ? 's' : ''}
           </button>
         </div>
