@@ -266,6 +266,40 @@ describe('inclined and degenerate shells are not dropped', () => {
     expect(off.total).toBe(3);
   });
 
+  it('counts the ones the run could not read, which belonged to no family at all', () => {
+    /*
+     * The third way out of a tab, and the one nothing counted.
+     *
+     * `run-floor-design.ts` sends a shell whose nodes it cannot resolve straight to
+     * `unsupported` and `continue`s, so it enters no classification. A family's refusals are
+     * `inFamily.filter(refused)`, which by construction cannot see a shell that is in no
+     * family — so those refusals appeared in NO count anywhere: not in slabs, not in walls,
+     * not in off-family.
+     *
+     * Element 9 below is that shell: refused, never classified.
+     */
+    const off = offFamilyShells(input({
+      readiness: { shellCount: 5 },
+      run: { ...run, unsupported: [{ elementId: 9 }] },
+    }))!;
+
+    expect(off.unreadable, 'the refusal nothing could see').toBe(1);
+    expect(off.total, 'and it reaches the total the card renders on').toBe(4);
+  });
+
+  it('does not double-count a refusal that WAS classified', () => {
+    // An inclined shell raises an `unsupported` too — `run-floor-design` pushes one for every
+    // inclined and degenerate it classifies. Counting it as unreadable as well would report
+    // the same shell twice, in two categories that mean different things.
+    const off = offFamilyShells(input({
+      readiness: { shellCount: 4 },
+      run: { ...run, unsupported: [{ elementId: 2 }, { elementId: 4 }] },
+    }))!;
+
+    expect(off.unreadable, 'element 2 and 4 are classified, not unreadable').toBe(0);
+    expect(off.total).toBe(3);
+  });
+
   it('does not count them as slabs or walls', () => {
     const r = floorFamilyStates(input({ readiness: { shellCount: 4 }, run }));
     expect(of(r, 'slabs').classified).toBe(1);

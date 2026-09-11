@@ -279,16 +279,35 @@ export function floorFamilyStates(input: FloorFamilyInput): FloorFamilyState[] {
 }
 
 /**
- * Shells the run classified as neither slab nor wall.
+ * Shells the run could not put in a family tab.
  *
  * Surfaced separately because they belong to no tab and were therefore invisible. `null` when
  * no run has classified anything — the same rule as every other count here.
+ *
+ * ── Three ways out of a tab, not two ───────────────────────────────
+ *
+ * `inclined` and `degenerate` are CLASSIFIED and then unplaceable: the classifier read the
+ * geometry and the answer was a ramp, or a shape it could not resolve.
+ *
+ * `unreadable` never got that far. `run-floor-design.ts` sends a shell whose nodes it cannot
+ * resolve straight to `unsupported` and `continue`s, so it enters no classification at all —
+ * and `shellState` counts a family's refusals as `inFamily.filter(refused)`, which by
+ * construction cannot see a shell that is in no family. A model whose shells all fail that way
+ * showed two families of zeros and not one word about the refusals.
+ *
+ * That is the failure mode this module's header names — "a shell the app cannot design is a
+ * fact the engineer needs; silently dropping it is the failure mode this module is written
+ * against" — reached by a third route nobody had counted. Reported here rather than attributed
+ * to slabs or walls, because attributing it would be inventing the classification the run could
+ * not make.
  */
 export function offFamilyShells(input: FloorFamilyInput): {
-  inclined: number; degenerate: number; total: number;
+  inclined: number; degenerate: number; unreadable: number; total: number;
 } | null {
   if (!input.run) return null;
   const inclined = input.run.classifications.filter((c) => c.family === 'inclined').length;
   const degenerate = input.run.classifications.filter((c) => c.family === 'degenerate').length;
-  return { inclined, degenerate, total: inclined + degenerate };
+  const classified = new Set(input.run.classifications.map((c) => c.elementId));
+  const unreadable = input.run.unsupported.filter((u) => !classified.has(u.elementId)).length;
+  return { inclined, degenerate, unreadable, total: inclined + degenerate + unreadable };
 }

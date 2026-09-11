@@ -3469,6 +3469,7 @@ const id: Translations = {
   'design.floor.state.offFamilyTitle': 'Classified as neither slab nor wall',
   'design.floor.state.offFamily': '{inclined} inclined · {degenerate} degenerate',
   'design.floor.state.offFamilyWhy': 'Shells the pass classified that are neither slab nor wall: a ramp or a pitched slab lands in "inclined", and geometry the classifier could not resolve lands in "degenerate". Neither is designed, and neither is dropped in silence.',
+  'design.floor.state.offFamilyUnreadable': "{n} more could not be read at all: their nodes do not resolve, so the pass refused them before classifying anything and they belong to none of the families above. That is a model to repair, not a shape the app declines to design.",
   'design.floor.state.nextTitle': 'What to do now',
   'design.floor.state.next.error': 'Read the error message and run the floor design again.',
   'design.floor.state.next.notRun': 'Run "Design and detail floors" to classify and design these families.',

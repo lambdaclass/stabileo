@@ -6077,6 +6077,7 @@ const es: Record<string, string> = {
   'design.floor.state.offFamilyTitle': 'Clasificados fuera de losa y tabique',
   'design.floor.state.offFamily': '{inclined} inclinados · {degenerate} degenerados',
   'design.floor.state.offFamilyWhy': 'Cáscaras que la pasada clasificó y que no son losa ni tabique: una rampa o una losa en pendiente cae en «inclinado», y una geometría que el clasificador no pudo resolver cae en «degenerado». Ninguna se diseña, y ninguna se descarta en silencio.',
+  'design.floor.state.offFamilyUnreadable': "{n} más no se pudieron leer: sus nodos no resuelven, así que la pasada las rechazó antes de clasificar nada y no pertenecen a ninguna de las familias de arriba. Eso es un modelo a corregir, no una forma que la app se niegue a diseñar.",
   'design.floor.state.nextTitle': 'Qué hacer ahora',
   'design.floor.state.next.error': 'Revisá el mensaje del error y volvé a correr el diseño de pisos.',
   'design.floor.state.next.notRun': 'Corré «Diseñar y detallar pisos» para clasificar y diseñar estas familias.',

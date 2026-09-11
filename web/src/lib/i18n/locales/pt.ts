@@ -5045,6 +5045,7 @@ const pt: Translations = {
   'design.floor.state.offFamilyTitle': 'Classificados como nem laje nem parede',
   'design.floor.state.offFamily': '{inclined} inclinados · {degenerate} degenerados',
   'design.floor.state.offFamilyWhy': 'Cascas que a passagem classificou e que não são laje nem parede: uma rampa ou uma laje inclinada cai em «inclinado», e uma geometria que o classificador não conseguiu resolver cai em «degenerado». Nenhuma é dimensionada, e nenhuma é descartada em silêncio.',
+  'design.floor.state.offFamilyUnreadable': "{n} mais não puderam ser lidas: seus nós não resolvem, então a passagem as recusou antes de classificar qualquer coisa e não pertencem a nenhuma das famílias acima. Isso é um modelo a corrigir, não uma forma que o app se recuse a dimensionar.",
   'design.floor.state.nextTitle': 'O que fazer agora',
   'design.floor.state.next.error': 'Leia a mensagem de erro e execute o dimensionamento de pisos novamente.',
   'design.floor.state.next.notRun': 'Execute «Dimensionar e detalhar pisos» para classificar e dimensionar estas famílias.',
