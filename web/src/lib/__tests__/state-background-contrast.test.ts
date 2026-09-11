@@ -3,15 +3,27 @@
  *
  * ── What this is, today ────────────────────────────────────────────
  *
- * A companion to `docs/handoffs/m1-h1-token-proposal.md`, which proposes `--st-danger-bg`,
- * `--st-warn-bg` and a three-token provisional split. **None of that is implemented**: this file
- * changes no token and no component. It computes the numbers the proposal rests on, so they can be
- * checked by running something instead of by trusting a table, and it pins the one defect the
- * measurement turned up.
+ * A companion to `docs/handoffs/m1-h1-token-proposal.md`, which proposed `--st-danger-bg`,
+ * `--st-warn-bg` and a three-token provisional split.
  *
- * The day the contract is agreed and implemented, this stops being documentation and becomes the
- * gate: the `PROPOSED` block below turns into a read of `tokens.css`, and the `CURRENT` block
- * disappears with the literals it describes.
+ * **That day came.** H1 (#161) shipped the contract, and this file said what to do when it did:
+ * "the day the contract is agreed and implemented, this stops being documentation and becomes
+ * the gate". So the four assertions that read "not yet" are turned around rather than deleted —
+ * each one now guards the state it used to be waiting for.
+ *
+ * It still computes every ratio rather than trusting a table, which is the part that was never
+ * about the proposal.
+ *
+ * ── What turned around, and why each one had to ────────────────────
+ *
+ * Four tests here were written to FAIL the moment the work landed, which is the honest way to
+ * track someone else's pending change: a suite that stays green through it is a suite that was
+ * not watching. Merging `main` into H1 tripped all four at once.
+ *
+ *   · the three tokens now exist in `tokens.css`, so their absence is no longer the premise;
+ *   · `.banner-block` was the last of the three brand-colour-on-error rules, and H1 fixed it;
+ *   · the violet's consumer list was hand-kept and H1 changed who names the literal;
+ *   · the violet IS reached through a token now, in four components.
  *
  * ── The defect ─────────────────────────────────────────────────────
  *
@@ -34,7 +46,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SRC = new URL('../..', import.meta.url).pathname;
@@ -101,13 +113,20 @@ describe('the palette values this file reasons about are the ones shipped', () =
     expect(css).toContain('--st-ink-3: #13212d');
   });
 
-  it('confirms the three background tokens do not exist yet', () => {
-    // The premise of the proposal. If one of them appears, the contract was implemented and this
-    // file has to be migrated — which is the point of asserting it.
+  it('confirms the three background tokens are defined', () => {
+    /*
+     * This asserted their ABSENCE, as the premise of the proposal, and said that if one of them
+     * appeared the file had to be migrated. All three appeared with H1.
+     *
+     * Asserted with their values, not merely by name: the arithmetic in this file composites
+     * `#c0392b` and `#b8860b` at 14 %, and every ratio below is about nothing at all if the
+     * shipped token drifts to a different hue or alpha. Absence is cheap to assert; agreement
+     * is what the measurements need.
+     */
     const css = read('styles/tokens.css');
-    expect(css).not.toContain('--st-danger-bg');
-    expect(css).not.toContain('--st-warn-bg');
-    expect(css).not.toContain('--st-provisional');
+    expect(css).toMatch(/--st-danger-bg:\s*rgba\(192,\s*57,\s*43,\s*0?\.14\)/);
+    expect(css).toMatch(/--st-warn-bg:\s*rgba\(184,\s*134,\s*11,\s*0?\.14\)/);
+    expect(css).toMatch(/--st-provisional:\s*#a066d3/);
   });
 });
 
@@ -153,14 +172,16 @@ describe('the defect the measurement found', () => {
     expect(badge, 'the brand vermillion is back on the failure badge')
       .not.toMatch(/\.badge-fail\s*\{[^}]*var\(--st-accent\)/);
     /*
-     * `.banner-block` is the one of the three that is NOT fixed, and it is asserted as still
-     * broken rather than skipped. Two of the three instances the reconciliation reported were
-     * repaired by H1's token work; this one still puts `--st-accent`, the primary-action
-     * vermillion, on an error background. Leaving it unasserted would let the report go stale in
-     * the other direction — the failure mode this pair of tests exists to prevent.
+     * `.banner-block` was the third and last, asserted as still broken so the report could not
+     * go stale in the other direction. Its failure message said "the banner was fixed; update
+     * the reconciliation", and merging H1 is what fixed it — so this is that update.
+     *
+     * All three instances now carry the role colour. The assertion stays, pointed the other
+     * way, because the defect was reintroduced once already.
      */
-    expect(read('components/pro/design/DesignToolbar.svelte'), 'the banner was fixed; update the reconciliation')
-      .toMatch(/\.banner-block\s*\{[^}]*var\(--st-accent\)/);
+    expect(read('components/pro/design/DesignToolbar.svelte'),
+      'the brand vermillion is back on the block banner')
+      .not.toMatch(/\.banner-block\s*\{[^}]*var\(--st-accent\)/);
   });
 });
 
@@ -275,16 +296,24 @@ describe('the one violet, as it is guarded today', () => {
      * actually about is that the value does not DRIFT between the places that use it, so the list
      * is derived and the count is guarded so the check cannot quietly become vacuous.
      */
-    const CANDIDATES = [
-      'components/pro/design/RebarStatusPanel.svelte',
-      'components/pro/design/DesignToolbar.svelte',
-      'components/pro/design/ProvisionalBanner.svelte',
-      'components/pro/design/OutcomeBadge.svelte',
-    ];
-    const naming = CANDIDATES.filter((f) => {
-      const src = read(f);
-      return /#a066d3/i.test(src) || /rgba\(160,\s*102,\s*211/.test(src);
-    });
+    /*
+     * The candidate list was four filenames kept by hand, and H1 moved the ground under it:
+     * `FloorFamilyStateCard` is new and names the violet, `OutcomeBadge` and `ProvisionalBanner`
+     * moved to `var(--st-provisional)` and stopped, and the count guard then failed over WHO was
+     * on a list rather than over anything drifting.
+     *
+     * So the list is read off the directory. The comment above already said the point is that
+     * the value does not drift between the places that use it — that is a question about the
+     * files that exist, not about a list someone remembered to update.
+     */
+    const designDir = join(SRC, 'components/pro/design');
+    const naming = readdirSync(designDir)
+      .filter((f) => f.endsWith('.svelte'))
+      .map((f) => `components/pro/design/${f}`)
+      .filter((f) => {
+        const src = read(f);
+        return /#a066d3/i.test(src) || /rgba\(160,\s*102,\s*211/.test(src);
+      });
     expect(naming.length, 'nothing names the provisional violet any more').toBeGreaterThanOrEqual(3);
     for (const f of naming) {
       const src = read(f);
@@ -294,16 +323,29 @@ describe('the one violet, as it is guarded today', () => {
     }
   });
 
-  it('is not yet referenced through a token anywhere, which is the state to change', () => {
-    // If this fails, the contract was implemented and §3.3's ordering has to be checked: the
-    // token, then the equivalence test, then the consumers.
-    for (const f of [
-      'components/pro/design/RebarStatusPanel.svelte',
-      'components/pro/design/DesignToolbar.svelte',
-      'components/pro/design/ProvisionalBanner.svelte',
-    ]) {
-      expect(read(f), `${f} migrated before the token exists`).not.toContain('var(--st-provisional');
-    }
+  it('is reached through the token now, and §3.3 kept its ordering', () => {
+    /*
+     * This asserted that NOTHING referenced the token yet, and said that if it failed, §3.3's
+     * ordering had to be checked: the token, then the equivalence test, then the consumers.
+     * It failed because H1 landed all three, so here is that check, asserted rather than taken
+     * on trust.
+     *
+     * The ordering matters more than it looks. A consumer that moves to `var()` before the
+     * token exists renders with no colour at all, and a token that lands without the
+     * equivalence test above leaves the viewport free to drift away from the panels — which is
+     * the pair this whole describe block is holding together.
+     */
+    const css = read('styles/tokens.css');
+    expect(css, 'the token itself, first').toMatch(/--st-provisional:\s*#a066d3/);
+
+    const consumers = ['OutcomeBadge', 'ProvisionalBanner']
+      .map((c) => `components/pro/design/${c}.svelte`)
+      .filter((f) => read(f).includes('var(--st-provisional'));
+    expect(consumers.length, 'no consumer reaches the violet through the token').toBeGreaterThan(0);
+
+    // And the 3-D side still carries the literal, because a Three.js material cannot read a
+    // custom property. That is the exception H1 documented, not an unmigrated consumer.
+    expect(read('lib/three/rebar-scene.ts')).toContain('0xa066d3');
   });
 });
 

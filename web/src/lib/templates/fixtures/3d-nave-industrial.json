@@ -7,14 +7,23 @@
       "e": 200000,
       "nu": 0.3,
       "rho": 78.5,
-      "fy": 250
+      "fy": 250,
+      "fu": 400,
+      "gradeId": "astm-a36",
+      "standard": "ASTM A36",
+      "region": "US"
     },
     {
       "id": 2,
       "name": "Acero A36",
       "e": 200000,
       "nu": 0.3,
-      "rho": 78.5
+      "rho": 78.5,
+      "fy": 250,
+      "fu": 400,
+      "gradeId": "astm-a36",
+      "standard": "ASTM A36",
+      "region": "US"
     }
   ],
   "sections": [

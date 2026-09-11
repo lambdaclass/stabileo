@@ -20,7 +20,8 @@ import { designRunStore } from '../../store/design-run.svelte';
 import { verificationStore } from '../../store/verification.svelte';
 import { isSolverReady } from '../../engine/wasm-solver';
 import {
-  DEFAULT_DESIGN_FAMILIES, DESIGN_FAMILIES, totalsOf,
+  DEFAULT_DESIGN_FAMILIES, availableDesignFamilies, initialDesignSelection,
+  pruneDesignSelection, DESIGN_FAMILIES, totalsOf,
   type DesignFamily, type DesignRunReport,
 } from '../../engine/design/design-families';
 import '../../engine/design/adapters/cirsoc201-adapter';
@@ -57,19 +58,71 @@ function familiesWithSteel(): Set<string> {
 
 // ─── The default ─────────────────────────────────────────────────
 
-describe('what "design all" means when nobody has chosen', () => {
-  it('covers the frame and the floors, and leaves foundations out', () => {
+describe('what the design command covers when nobody has chosen', () => {
+  it('is beams and columns, and nothing that needs an input the user has not given', () => {
     /**
-     * Documented rather than assumed. Everything in the default is decided by the analysis
-     * the user has already run; a footing additionally needs a ground profile with an
-     * allowable bearing pressure, and including it by default would make the default action
-     * report a failure the user did not ask for and cannot fix from that screen.
+     * Narrowed from `['column', 'beam', 'slab', 'wall']`, and the narrowing is the interesting
+     * part rather than the list.
+     *
+     * The wide default existed to close a real defect: "Design all" designed beams and columns
+     * only, slabs came from a second command in another disclosure, and the button named "all"
+     * produced a building with no floors without saying so.
+     *
+     * That defect only stays closed under one condition, which is the same one the footing box
+     * already relied on: the scope has to be VISIBLE before the command runs. An unticked family
+     * on screen is a choice; an unticked family nobody can see is the old defect with a smaller
+     * default. `availableDesignFamilies` and the scope read-out beside the command are what pay
+     * for this line.
      */
-    expect([...DEFAULT_DESIGN_FAMILIES].sort())
-      .toEqual(['beam', 'column', 'slab', 'wall']);
+    expect([...DEFAULT_DESIGN_FAMILIES].sort()).toEqual(['beam', 'column']);
+    /*
+     * Footings stay out for a reason that is not about defaults at all: they need a ground
+     * profile with an allowable bearing pressure, and without one the run records that it could
+     * not verify them — a failure the user did not ask for and cannot fix from that screen.
+     */
     expect(DEFAULT_DESIGN_FAMILIES).not.toContain('footing');
-    // But the family exists and is offered, so "not designed" is visible rather than absent.
-    expect(DESIGN_FAMILIES).toContain('footing');
+    // Every family is still OFFERED, so "not designed" is visible rather than absent.
+    for (const f of ['slab', 'wall', 'footing']) expect(DESIGN_FAMILIES).toContain(f);
+  });
+});
+
+describe('a family the model does not have is not offered', () => {
+  it('offers only what the model contains', () => {
+    expect(availableDesignFamilies({ beam: 4, column: 6 })).toEqual(['column', 'beam']);
+    expect(availableDesignFamilies({ beam: 4, column: 6, slab: 2 }))
+      .toEqual(['column', 'beam', 'slab']);
+  });
+
+  /*
+   * Absent, not disabled. A checkbox for something the building does not contain is a question
+   * with one answer, and the panel has to keep "this model has no walls" distinguishable from
+   * "the walls have not been designed" — a control that could only say the second blurs it.
+   */
+  it('drops a family whose count is zero as firmly as one that is missing', () => {
+    expect(availableDesignFamilies({ beam: 1, wall: 0 })).toEqual(['beam']);
+    expect(availableDesignFamilies({})).toEqual([]);
+  });
+
+  it('lists them in selector order whatever order they were counted in', () => {
+    expect(availableDesignFamilies({ footing: 1, beam: 1, column: 1 }))
+      .toEqual(['column', 'beam', 'footing']);
+  });
+
+  it('the initial selection is the default intersected with what exists', () => {
+    expect(initialDesignSelection({ beam: 2, column: 2, slab: 9 })).toEqual(['column', 'beam']);
+    // A frame with no columns must not open with a column ticked.
+    expect(initialDesignSelection({ beam: 2 })).toEqual(['beam']);
+    expect(initialDesignSelection({})).toEqual([]);
+  });
+
+  /*
+   * The model can change under a selection made earlier. A family the user ticked and then
+   * emptied has to drop out, or the command reports a scope covering something not there.
+   */
+  it('prunes a selection when the model loses a family', () => {
+    expect(pruneDesignSelection(['column', 'beam', 'slab'], { column: 1, beam: 1 }))
+      .toEqual(['column', 'beam']);
+    expect(pruneDesignSelection(['slab'], { beam: 1 })).toEqual([]);
   });
 });
 

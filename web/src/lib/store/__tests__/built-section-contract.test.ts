@@ -38,6 +38,8 @@ import { compressSnapshot, decompressSnapshot } from '../../utils/url-sharing';
 import { historyStore } from '../history.svelte';
 import { SECTION_SHAPES, computeSectionProperties } from '../../data/section-shapes';
 import { createSectionShape } from '../../three/section-profiles';
+import { toSectionFields } from '../../section/section-choice';
+import { resolveCanonicalSection } from '../../section/canonical';
 
 /** The parameters a template ships with, read from the template — never restated here. */
 function templateDefaults(shapeType: string): Record<string, number> {
@@ -342,5 +344,60 @@ describe('visualisation — the outline the viewer draws', () => {
     modelStore.clear();
     modelStore.restore(snap);
     expect(createSectionShape(sectionById(id))!.getPoints()).toEqual(before);
+  });
+});
+
+/**
+ * The modal's apply path writes the same record the tab's did.
+ *
+ * ── Why this exists ───────────────────────────────────────────────────
+ *
+ * `ProSectionsTab` used to build a section two ways: an inline form that wrote the computed
+ * properties AND the thicknesses, and a button opening `ProSectionModal`, whose Apply goes
+ * through `toSectionFields`. Only the first was covered here, and the second was dropping
+ * `tw`, `tf`, `t` and `tl` — `SectionFields` had no such fields.
+ *
+ * Nothing caught it. The properties are identical either way, so area, inertia, mass and every
+ * solver result agreed; what differed was the GEOMETRY, and only for a section with no
+ * catalogue entry to fall back on. Measured before the fix: a lipped channel applied from the
+ * modal resolved `properties-only` with `missing: ['tw','tf']` while the identical section from
+ * the inline form resolved `geometry-backed`.
+ *
+ * Now that the modal is the only way in, this is the test that says the way in is complete. It
+ * compares the two paths rather than asserting a state per template, so a template that is
+ * legitimately properties-only cannot make it fail, and neither path can quietly become the
+ * poorer one.
+ */
+describe('the modal path — the only way a built section reaches the model', () => {
+  /** Add a section the way `ProSectionModal`'s Apply does: a `SectionChoice`, through `toSectionFields`. */
+  function addViaModal(shapeType: string, overrides: Record<string, number> = {}) {
+    const params = { ...templateDefaults(shapeType), ...overrides };
+    const props = computeSectionProperties(shapeType as never, params);
+    if (!props) throw new Error(`template ${shapeType} rejected its own defaults`);
+    const fields = toSectionFields(
+      { kind: 'built', name: `${shapeType} modal`, shapeType, params, props, rotationDeg: 'auto' },
+      0,
+    );
+    if (!fields) throw new Error(`toSectionFields refused ${shapeType}`);
+    return modelStore.addSection(fields as never);
+  }
+
+  it('resolves to the same geometry state as the form it replaced, for every template', () => {
+    for (const def of SECTION_SHAPES) {
+      if (!computeSectionProperties(def.id, templateDefaults(def.id))) continue;
+      modelStore.clear();
+      const viaModal = resolveCanonicalSection(sectionById(addViaModal(def.id)));
+      const viaForm = resolveCanonicalSection(sectionById(addBuilt(def.id).id));
+      expect(viaModal.state, `${def.id}: modal vs form`).toBe(viaForm.state);
+    }
+  });
+
+  it('draws the lip that was typed, not the flange standing in for it', () => {
+    // `createSectionShape`'s `case 'C'` substitutes `tf` when `tl` is absent, and the template
+    // ships them equal — so the difference is only observable once the lip is moved off it.
+    modelStore.clear();
+    const modal = createSectionShape(sectionById(addViaModal('C-custom', { tl: 0.003 })))!;
+    const form = createSectionShape(sectionById(addBuilt('C-custom', { tl: 0.003 }).id))!;
+    expect(modal.getPoints()).toEqual(form.getPoints());
   });
 });

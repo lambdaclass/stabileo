@@ -116,6 +116,9 @@ describe('placementRobust gates CONSTRUCTIBLE', () => {
     prohibitedConflicts: 0, reverifiedMembers: 4, certificateHashMatches: 4,
     spacingNotCodeLegal: 0, spacingNotPlacementRobust: 0,
     unsupportedRules: 0, staleAssemblies: 0,
+    // All four members drawn. This file is about the spacing margin, and a coverage
+    // shortfall here would block the gate for a reason none of its tests are asking about.
+    undetailedScopeMembers: 0,
     familyRequirements: noFloorFamilies(),
   };
 

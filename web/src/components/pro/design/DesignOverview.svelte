@@ -77,7 +77,28 @@
     return out;
   });
 
+  /**
+   * Build the document and open the workspace.
+   *
+   * ── Why the pending state does not DISABLE this button ─────────────
+   *
+   * It did, and that is what made Escape drop the user at the top of the document.
+   *
+   * Chromium blurs a focused control the moment it becomes disabled. `opening3d` is set before
+   * this handler yields a frame, so the sequence was: click → the button disables → the browser
+   * blurs it → `document.activeElement` is `<body>` → the overlay mounts and `captureFocus`
+   * records `<body>` as the opener. `<body>` is connected, so the `isConnected` guard passes and
+   * the restore focuses it — which `dialog-focus.ts` names as "the outcome this whole module
+   * exists to prevent". Measured: `out← cmd-open-3d`, then `focus(BODY)`, with no
+   * `focus(cmd-open-3d)` anywhere in the trace.
+   *
+   * So the control stays focusable and reports its pending state with `aria-busy` instead, and
+   * re-entry is refused here rather than by taking the button away. The same defect one
+   * component over is what `SelectionDetails` already documents about a button that unmounts
+   * under the user's focus; this is the disabled form of it.
+   */
   async function open3d() {
+    if (opening3d) return;
     open3dError = null;
     opening3d = true;
     // Held across a frame so the pending state actually paints: the build is synchronous and can
@@ -221,7 +242,8 @@
       class="open3d-btn"
       data-testid="overview-open-3d"
       onclick={open3d}
-      disabled={!canOpen3d || opening3d}
+      disabled={!canOpen3d}
+      aria-busy={opening3d ? 'true' : undefined}
     >
       <span aria-hidden="true">◫</span>
       {opening3d ? t('detailing.scene.opening') : t('detailing.scene.openMain')}
@@ -290,13 +312,21 @@
   .tone-muted { color: var(--st-text-3); }
   /*
      The same violet the 3-D view paints provisional steel with, and `OutcomeBadge`,
-     `RebarStatusPanel` and `ProvisionalBanner` name the state with. Deliberately a literal
-     while its neighbours are tokens: the authority is `three/rebar-scene.ts`, which feeds
-     `0xa066d3` to a Three.js material and cannot read a custom property, and
-     `run-summary-reported.test.ts` asserts that this chip agrees with it by value. A `var()`
-     here would break that agreement without replacing it.
+     `RebarStatusPanel` and `ProvisionalBanner` name the state with.
+
+     MERGED. This chip arrives from `feat/pro-steel-family` as the literal `#a066d3`, with a
+     comment explaining that a `var()` would break the agreement with `three/rebar-scene.ts`,
+     which feeds `0xa066d3` to a Three.js material and cannot read a custom property. That was
+     true when it was written and is not true here: H1 created `--st-provisional` for exactly
+     this, and rule 3 of `shared-status-tokens.test.ts` holds it equal to what Three.js paints,
+     compared as a RESOLVED colour. The agreement is kept by a test rather than by two copies of
+     a hex, which is the stronger of the two arrangements — and it is the same conclusion H1
+     already reached one file over, in `OutcomeBadge`'s `.badge-provisional`.
+
+     So the token, not the literal: `concrete-design-raw-colours.test.ts` gives this file a
+     ceiling of zero and it stays at zero, with nothing about the colour left to chance.
   */
-  .tone-prov .glyph, .tone-prov .n { color: #a066d3; }
+  .tone-prov .glyph, .tone-prov .n { color: var(--st-provisional); }
 
   .open3d { display: flex; flex-direction: column; gap: 0.2rem; }
   .open3d-btn {

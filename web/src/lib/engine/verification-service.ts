@@ -32,6 +32,7 @@ import { extractBeamStationsGrouped3D, isSolverReady } from './wasm-solver';
 import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
 import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
+import { momentGradient, type StationMoment } from './steel/moment-gradient';
 import type { GoverningPerElement3D } from './governing-case';
 import type { CheckStatus, MemberDesignResult, DesignCheckSummary } from './design-check-results';
 
@@ -263,10 +264,124 @@ export function runCirsocDesign(
  *
  * Phase 2 target: Unified WASM verify_members handles both RC and steel.
  */
+/**
+ * The inputs the CIRSOC 301 checker needs and this app does not always have.
+ *
+ * ── Why this is a list and not a boolean ──────────────────────────
+ *
+ * A member skipped for want of a flange thickness and a member skipped for want of an ultimate
+ * strength are two different problems with two different fixes: the first is a section from the
+ * catalogue away, the second a material property. Reporting "not verified" for both is the kind
+ * of answer that makes a user re-run the analysis, which changes nothing.
+ *
+ * `SteelDesignParams` types every one of these as required, so before this existed the call site
+ * filled the gaps with guesses. Naming them is what let the guesses go.
+ */
+export type SteelInputGap =
+  /** `Fu`. Needed for the tension rupture limit state. */
+  | 'ultimateStrength'
+  /** `h`, the overall depth. Needed for the shear area and for `ho` in the LTB length. */
+  | 'depth'
+  /** `b`, the flange width. */
+  | 'flangeWidth'
+  /** `tw`. Decides the shear area and the web slenderness. */
+  | 'webThickness'
+  /** `tf`. Decides the flange slenderness and the plastic modulus. */
+  | 'flangeThickness'
+  /**
+   * `Iy` — the strong-axis inertia, in this app's naming.
+   *
+   * Its absence used to be papered over with `Iz`, substituting one principal inertia for the
+   * other. On an IPE 200 that is a factor of 13.7, so it is listed rather than defaulted.
+   */
+  | 'strongAxisInertia'
+  /** `Iz` — the weak-axis inertia. Every limit state starts from it. */
+  | 'weakAxisInertia'
+  /** `A`, the gross area. */
+  | 'area';
+
+/**
+ * Section fields the steel path reads.
+ *
+ * Every one optional, because `AutoVerifyModelData.sections` declares only `{ id, name, b?, h? }`
+ * while the runtime object carries the rest. Writing them as optional extras makes the real object
+ * ASSIGNABLE to this type — no cast — where the previous code reached for `as any` and lost every
+ * check on the way.
+ */
+type SteelSectionData = {
+  a?: number; iz?: number; iy?: number; h?: number; b?: number;
+  tw?: number; tf?: number; j?: number;
+};
+/** Material fields the steel path reads, on the same footing. */
+type SteelMaterialData = { fy?: number; e?: number; fu?: number };
+
+/**
+ * Which inputs are missing for one element. Empty means the checker can run.
+ *
+ * Pure and exported so a surface can ask the same question the verification path asks, rather
+ * than inferring it from an absent result.
+ */
+export function missingSteelInputs(
+  section: SteelSectionData,
+  material: SteelMaterialData,
+): SteelInputGap[] {
+  const gaps: SteelInputGap[] = [];
+  if (material.fu == null || material.fu <= 0) gaps.push('ultimateStrength');
+  if (section.h == null || section.h <= 0) gaps.push('depth');
+  if (section.b == null || section.b <= 0) gaps.push('flangeWidth');
+  if (section.tw == null || section.tw <= 0) gaps.push('webThickness');
+  if (section.tf == null || section.tf <= 0) gaps.push('flangeThickness');
+  if (section.iy == null || section.iy <= 0) gaps.push('strongAxisInertia');
+  // The weak axis and the area are what every limit state starts from; a section without them is
+  // not a section this checker can see at all.
+  if (section.iz == null || section.iz <= 0) gaps.push('weakAxisInertia');
+  if (section.a == null || section.a <= 0) gaps.push('area');
+  return gaps;
+}
+
+/** i18n key for a gap, so a surface never prints a raw enum. */
+export const steelInputGapKey = (gap: SteelInputGap): string => `steel.inputGap.${gap}`;
+
+export interface SteelInputCompleteness {
+  elementId: number;
+  gaps: SteelInputGap[];
+}
+
+/**
+ * Every metallic element whose inputs are incomplete, with what is missing.
+ *
+ * The counterpart to the `continue` in `runSteelVerification`: skipping is defensible only if
+ * something can say what was skipped. A surface that shows this is showing the difference between
+ * «we checked and it failed» and «we could not check», which is the distinction the whole metallic
+ * state machine exists to keep.
+ */
+export function steelInputCompleteness(model: AutoVerifyModelData): SteelInputCompleteness[] {
+  const out: SteelInputCompleteness[] = [];
+  for (const [, elem] of model.elements) {
+    const section = model.sections.get(elem.sectionId);
+    const material = model.materials.get(elem.materialId);
+    if (!section || !material) continue;
+    if (!material.fy || material.fy <= 80) continue;  // concrete, not steel
+    const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
+    if (gaps.length > 0) out.push({ elementId: elem.id, gaps });
+  }
+  return out;
+}
+
 export function runSteelVerification(
   results3D: AnalysisResults3D,
   model: AutoVerifyModelData,
   stationDemands?: Map<number, ElementDesignDemands>,
+  /**
+   * The full station diagrams, when the caller has them.
+   *
+   * Separate from `stationDemands`, which carries only the GOVERNING station per category. F.1.1
+   * needs the moment at the quarter, mid and three-quarter points of the unbraced segment, and
+   * interpolating those from a handful of governing stations would produce a number that looks
+   * computed and rests on a coarse sample. So the real diagram is asked for, and its absence means
+   * `Cb = 1` — which the clause permits — rather than a worse estimate.
+   */
+  stationDiagrams?: Map<number, ElementStationResult>,
 ): SteelVerification[] {
   const verifs: SteelVerification[] = [];
 
@@ -318,19 +433,104 @@ export function runSteelVerification(
       VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
     }
 
+    /*
+     * ── Inputs are required, not invented ────────────────────────────
+     *
+     * This block used to fill every missing property with a guess: `Fu = 1.25·Fy`, `h = 0.3`,
+     * `b = 0.15`, `tw = b/10`, `tf = b/15`, `Iy = Iz`, `J = 0`. Seven substitutions, none of
+     * them sourced, feeding a checker whose output is a capacity.
+     *
+     * A guessed thickness is not a conservative simplification — it decides the section
+     * classification and the shear area — and `Iy = Iz` was the worst of them: it substituted
+     * one principal inertia for the other, which on an IPE 200 is a factor of 13.7.
+     *
+     * So the element is SKIPPED when an input is missing, which is what this loop already does
+     * for a member with no section, no material, or a concrete strength. Skipping is not silence:
+     * `steelInputCompleteness()` below reports exactly which elements were left out and why, so a
+     * surface can say it instead of a user wondering where their steel went.
+     */
+    const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
+    if (gaps.length > 0) continue;
+
+    /*
+     * ── Cb from the moment diagram, F.1.1 ────────────────────────────
+     *
+     * The stations already exist for the RC path; this reads the strong-axis moment (`mz`, which is
+     * what `Muz` feeds) across every combo and takes the envelope of |M| per station. The envelope
+     * rather than one combo, because `Lb` here is the whole member and the governing diagram is the
+     * one that produced `MuzMax`.
+     *
+     * `momentGradient` decides whether F.1.1 applies at all — it refuses for a cantilever's free
+     * end, for a singly-symmetric section in double curvature (§F.1(4) wants both flanges checked,
+     * which this app cannot do), and for a shape with no axis of symmetry.
+     *
+     * Absent stations leave `Cb` undefined and the checker falls back to 1,0, which the clause
+     * permits. So this can only ever raise a capacity from the conservative floor, never lower it.
+     */
+    const diagram: StationMoment[] = [];
+    const stationsForElement = stationDiagrams?.get(ef.elementId);
+    if (stationsForElement) {
+      const byT = new Map<number, number>();
+      for (const combo of stationsForElement.comboResults) {
+        for (const st of combo.stations) {
+          const prev = byT.get(st.t) ?? 0;
+          if (Math.abs(st.mz) > Math.abs(prev)) byT.set(st.t, st.mz);
+        }
+      }
+      for (const [t, m] of byT) diagram.push({ t, m });
+    }
+    const grad = momentGradient({
+      stations: diagram,
+      shape: (section as { shape?: string }).shape,
+      // A free cantilever end is a topology fact this loop does not have; left undefined rather
+      // than guessed, which keeps `Cb = 1` for those members via the diagram path.
+    });
+
     const sdp: SteelDesignParams = {
-      Fy: material.fy,
-      Fu: (material as any).fu ?? material.fy * 1.25,
-      E: material.e,
-      A: section.a,
-      Iz: section.iz,
-      Iy: section.iy ?? section.iz,
-      h: section.h ?? 0.3,
-      b: section.b ?? 0.15,
-      tw: (section as any).tw ?? (section.b ? section.b / 10 : 0.01),
-      tf: (section as any).tf ?? (section.b ? section.b / 15 : 0.01),
+      Fy: material.fy!,
+      Fu: (material as SteelMaterialData).fu!,
+      E: (material as SteelMaterialData).e!,
+      A: (section as SteelSectionData).a!,
+      /*
+       * ── The axis mapping, which is a SWAP and not a typo ───────────
+       *
+       * `SteelDesignParams` documents `Iz` as «inercia eje fuerte» and `Iy` as «eje debil».
+       * This app's convention is the other way round: `section.iy` is about Y horizontal — the
+       * `b·h³/12` term, so the STRONG axis of a tall section — and `section.iz` is about Z
+       * vertical, the weak one. See `data/section-shapes.ts`, whose `case 'rect'` labels both.
+       *
+       * The two names therefore cross. This used to pass them straight through, and the
+       * consequence was not cosmetic: `checkSteelFlexure` takes `ry = √(Iy/A)` as the WEAK-axis
+       * radius of gyration and sets `Lp = 1.76·ry·√(E/Fy)` from it. Fed the strong axis, `ry` came
+       * out √13.7 ≈ 3.7× too large on an IPE 200, `Lp` with it, and a beam that needed a
+       * lateral-torsional reduction was judged to be inside the plateau — unconservative.
+       *
+       * Compression was unaffected, because it takes `max(KLrx, KLry)` and a maximum does not
+       * care which name each came under. Only the narrative in `steps` was mislabelled there.
+       */
+      Iz: (section as SteelSectionData).iy!,   // checker's STRONG  <- app's strong
+      Iy: (section as SteelSectionData).iz!,   // checker's WEAK    <- app's weak
+      h: section.h!,
+      b: section.b!,
+      tw: (section as SteelSectionData).tw!,
+      tf: (section as SteelSectionData).tf!,
+      /*
+       * `Lb = L`: the member is assumed unbraced over its whole length.
+       *
+       * Left as it is, deliberately. It is the one remaining assumption here that cannot be
+       * removed by requiring an input, because the model has nowhere to record a brace — and
+       * replacing it with a guessed fraction of `L` would be exactly the invention the rest of
+       * this block just stopped making. It is conservative for flexure on its own, which is why
+       * it is tolerable; it is documented as
+       * `steel.assume.unbracedLengthIsMemberLength`, and the workflow's verification stage names
+       * it as a blocker. See `docs/handoffs/m2-lb-assumption.md` for where a real `Lb` would come
+       * from.
+       */
       L, Lb: L,
-      J: section.j ?? 0,
+      // Only when F.1.1 was actually evaluated. Every other basis means «use the permitted 1,0»,
+      // and passing 1,0 explicitly would make the steps claim a computation that did not happen.
+      ...(grad.basis === 'computed' ? { Cb: grad.cb } : {}),
+      J: (section as SteelSectionData).j ?? 0,
     };
 
     verifs.push(verifySteelElement({

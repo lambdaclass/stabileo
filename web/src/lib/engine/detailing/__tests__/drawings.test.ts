@@ -81,10 +81,24 @@ describe('elevation sheets', () => {
     expect(bar.points.length).toBeGreaterThan(4);
   });
 
-  it('labels each bar with its mark and diameter', () => {
+  /*
+   * One label per MARK, not per bar.
+   *
+   * A mark is a fabrication type, so every stirrup in a zone carries the same one. Labelling
+   * each bar put the same `B4 Ø8` on screen once per stirrup — on `rc-design-qa-8` a solid band
+   * of overlapping text across the top of the beam, and it got worse the more steel the design
+   * produced. Nothing is lost: the second `B4 Ø8` carried nothing the first did not, and the
+   * quantity behind a mark is what the schedule states.
+   *
+   * The three bars here are two identical straights and one hooked, which `assignMarks` groups
+   * into two marks — so two labels, not three.
+   */
+  it('labels each MARK once, with its diameter', () => {
     const s = elevation();
     const marks = s.texts.filter((t) => t.layer === LAYERS.mark);
-    expect(marks.length).toBe(3);
+    expect(new Set(assembly().marks.map((m) => m.mark)).size).toBe(2);
+    expect(marks).toHaveLength(2);
+    expect(new Set(marks.map((m) => m.text)).size).toBe(2);
     expect(marks[0].text).toMatch(/^B\d+ Ø20$/);
   });
 

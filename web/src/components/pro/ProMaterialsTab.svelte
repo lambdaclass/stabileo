@@ -1,57 +1,61 @@
 <script lang="ts">
+  /**
+   * The PRO materials tab: the list of materials, and one way to add to it.
+   *
+   * ── Why there is only one ──────────────────────────────────────────
+   *
+   * This tab used to carry a whole second material picker inline — six category tabs, a search
+   * box, a strip of preset buttons that added a material on click, and a `<details>` form for a
+   * hand-entered one — beside the button that opens `ProMaterialModal`. THREE controls on one
+   * panel that all added a material, which is the finding that was closed for sections and left
+   * open here.
+   *
+   * The two catalogue paths were not the old defect: both went through `toMaterialFields`, so
+   * `gradeId`, `standard`, `region` and `fu` travelled by either. What the inline strip did not
+   * have was the origin filter, the data sheet with the per-field authority, the thickness bands
+   * with the standard that publishes them, the deep grade panel, and the dialog's keyboard. A
+   * user who took the short route saw a poorer catalogue and had no way to know a richer one
+   * existed — and the short route was the one nearer to hand.
+   *
+   * The custom form WAS exclusive, so it moved into the dialog as its second division
+   * (`CustomMaterialPanel`) before any of this was deleted. Removing the only surface that
+   * offers a capability is a different decision from relocating it, and only one of the two was
+   * asked for.
+   *
+   * What stays here is what this tab is for: the materials already in the model, and the two
+   * per-material project settings — maximum aggregate size and bar-spacing margin — which edit
+   * a material rather than create one.
+   */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { DAGG_MAX_MM, DAGG_MIN_MM } from '../../lib/codes/project-code-settings';
-  import {
-    MATERIAL_CATEGORIES, searchPresets,
-    type MaterialPreset,
-  } from '../../lib/data/material-presets';
+  import ProMaterialModal from './material/ProMaterialModal.svelte';
+  import { toMaterialFields, type MaterialChoice } from '../../lib/material/material-choice';
 
-  let activeCategory = $state<string>('hormigon');
-  let searchQuery = $state('');
-  let filtered = $derived(searchPresets(searchQuery, activeCategory));
-
-  // Custom material form
-  let showCustom = $state(false);
-  let newName = $state('');
-  let newE = $state('');
-  let newNu = $state('');
-  let newRho = $state('');
-  let newFy = $state('');
   let aggError = $state<string | null>(null);
   let marginError = $state<string | null>(null);
   /** A margin larger than this is a data-entry error, not a conservative project. */
   const MARGIN_MAX_MM = 50;
 
+  /** The PRO material modal: the shipped catalogue, plus the axes Basic's picker cannot show. */
+  let modalOpen = $state(false);
+
+  /**
+   * The one place this tab writes a material.
+   *
+   * The conversion lives in `material-choice.ts` because more than one surface writes materials,
+   * and a field dropped in one of them stays invisible until something downstream misclassifies
+   * a member. `materialFamilyOf` prefers a declared grade and otherwise falls back to `fy > 80`,
+   * so a dropped `gradeId` is not cosmetic: aluminium 5052-H32, at fy = 195, came back
+   * classified as **steel** and joined the metallic inventory. Measured in
+   * `material/__tests__/material-choice.test.ts`.
+   */
+  function applyChoice(choice: MaterialChoice) {
+    modelStore.addMaterial(toMaterialFields(choice) as never);
+  }
+
   const materials = $derived([...modelStore.materials.values()]);
-
-  function addPreset(p: MaterialPreset) {
-    modelStore.addMaterial({
-      name: p.name,
-      e: p.e,
-      nu: p.nu,
-      rho: p.rho,
-      fy: p.fy,
-    });
-  }
-
-  function addCustom() {
-    const e = parseFloat(newE);
-    const nu = parseFloat(newNu);
-    const rho = parseFloat(newRho);
-    const fy = parseFloat(newFy);
-    if (!newName.trim() || isNaN(e) || isNaN(nu) || isNaN(rho)) return;
-    modelStore.addMaterial({
-      name: newName.trim(),
-      e,
-      nu,
-      rho,
-      fy: isNaN(fy) ? undefined : fy,
-    });
-    newName = ''; newE = ''; newNu = ''; newRho = ''; newFy = '';
-    showCustom = false;
-  }
 
   /**
    * Set (or clear) the maximum nominal coarse-aggregate size.
@@ -110,73 +114,20 @@
 </script>
 
 <div class="pro-mat">
-  <!-- Collapsible add-material panel -->
-  <details class="add-panel">
-    <summary class="add-panel-summary">{t('pro.addMaterialPanel')}</summary>
-    <div class="add-panel-body">
+  <!--
+    One control, and no disclosure around it.
 
-  <!-- Category tabs -->
-  <div class="cat-tabs">
-    {#each MATERIAL_CATEGORIES as cat}
-      <button
-        class:active={activeCategory === cat.id}
-        onclick={() => { activeCategory = cat.id; searchQuery = ''; }}
-      >{t(cat.label)}</button>
-    {/each}
+    It was a collapsed `<details>` because it hid a picker the height of the panel. With the
+    picker gone, a disclosure would be a click that reveals a button — so the button is the
+    panel. The test id stays on the region so the surface keeps its name, exactly as the
+    sections tab did.
+  -->
+  <div class="add-panel" data-testid="pro-add-material-panel">
+    <button
+      type="button" class="open-modal" data-testid="pro-open-material-modal"
+      onclick={() => (modalOpen = true)}
+    >{t('pro.addMaterialPanel')}</button>
   </div>
-
-  <!-- Search -->
-  <div class="search-wrap">
-    <input type="text" placeholder={t('search.material')} bind:value={searchQuery} />
-  </div>
-
-  <!-- Preset list -->
-  <div class="preset-list">
-    {#each filtered as p}
-      <button class="preset-item" onclick={() => addPreset(p)}>
-        <span class="preset-name">{p.name}</span>
-        <span class="preset-props">
-          E={p.e >= 1000 ? `${(p.e/1000).toFixed(0)}GPa` : `${p.e}MPa`}
-          {#if p.fy}&nbsp; fy={p.fy}MPa{/if}
-          &nbsp; {t('field.density')}={p.rho}
-        </span>
-      </button>
-    {/each}
-    {#if filtered.length === 0}
-      <p class="no-results">{t('search.noResults')}</p>
-    {/if}
-  </div>
-
-  <!-- Custom material toggle -->
-  <div class="custom-section">
-    <button class="custom-toggle" onclick={() => showCustom = !showCustom}>
-      {showCustom ? '−' : '+'} {t('pro.customMaterial')}
-    </button>
-    {#if showCustom}
-      <div class="custom-form">
-        <div class="custom-row">
-          <label><span>{t('pro.thName')}</span>
-            <input type="text" bind:value={newName} placeholder="Ej: Acero S275" /></label>
-        </div>
-        <div class="custom-row">
-          <label><span>E (MPa)</span>
-            <input type="number" bind:value={newE} placeholder="200000" /></label>
-          <label><span>{t('field.poisson')}</span>
-            <input type="number" step="0.01" bind:value={newNu} placeholder="0.3" /></label>
-        </div>
-        <div class="custom-row">
-          <label><span>{t('field.density')} (kN/m³)</span>
-            <input type="number" step="0.1" bind:value={newRho} placeholder="78.5" /></label>
-          <label><span>fy (MPa)</span>
-            <input type="number" bind:value={newFy} placeholder={t('pro.optional')} /></label>
-        </div>
-        <button class="add-btn" onclick={addCustom}>{t('pro.addMaterial')}</button>
-      </div>
-    {/if}
-  </div>
-
-    </div>
-  </details>
 
   <!-- Materials table -->
   <div class="mat-list">
@@ -252,6 +203,18 @@
   </div>
 </div>
 
+<!--
+  `allowCustom`, because this tab is now the only surface that can state a material the
+  catalogue does not carry. The generators leave it off: they keep `choiceGradeId(choice)`, and
+  a custom material has no grade id to keep.
+-->
+<ProMaterialModal
+  open={modalOpen}
+  allowCustom
+  onApply={applyChoice}
+  onClose={() => (modalOpen = false)}
+/>
+
 <style>
   .agg-input { width: 4.5rem; padding: 0.1rem 0.25rem; text-align: right; }
   .agg-error { margin: 0.35rem 0 0; padding: 0.3rem 0.5rem; border-radius: 4px; background: var(--st-accent); color: var(--st-text); font-size: 0.8rem; }
@@ -263,181 +226,28 @@
     overflow: hidden;
   }
 
-  /* ─── Add Panel (collapsible) ─── */
+  /* ─── Add panel ─── */
   .add-panel {
     flex-shrink: 0;
+    padding: 8px 10px;
     border-bottom: 2px solid var(--st-surface-3);
   }
-  .add-panel[open] {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+  /* The trigger. Same shape as the sections tab's, because it is the same decision. */
+  .open-modal {
+    padding: 5px 12px; font-size: 0.74rem; cursor: pointer;
+    background: var(--st-interactive); color: var(--st-bg);
+    border: 1px solid var(--st-interactive); border-radius: 4px;
   }
-  .add-panel-summary {
-    padding: 8px 12px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--st-text-2);
-    cursor: pointer;
-    user-select: none;
-    list-style: none;
-  }
-  .add-panel-summary::-webkit-details-marker { display: none; }
-  .add-panel-summary::before {
-    content: '+ ';
-  }
-  .add-panel[open] > .add-panel-summary::before {
-    content: '− ';
-  }
-  .add-panel-summary:hover { color: var(--st-text-2); }
-  .add-panel-body {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+  .open-modal:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 
-  /* ─── Category Tabs ─── */
-  .cat-tabs {
-    display: flex;
-    border-bottom: 2px solid var(--st-surface-3);
-    flex-shrink: 0;
-  }
-  .cat-tabs button {
-    flex: 1;
-    padding: 0.45rem 0.4rem;
-    border: none;
-    background: transparent;
-    color: var(--st-text-3);
-    cursor: pointer;
-    font-size: 0.72rem;
-    font-weight: 500;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    transition: all 0.15s;
-  }
-  .cat-tabs button:hover { color: var(--st-text-2); }
-  .cat-tabs button.active { color: var(--st-text-2); border-bottom-color: var(--st-value); }
-
-  /* ─── Search ─── */
-  .search-wrap {
-    padding: 6px 8px;
-    flex-shrink: 0;
-  }
-  .search-wrap input {
-    width: 100%;
-    padding: 5px 8px;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    color: var(--st-text);
-    font-size: 0.78rem;
-  }
-  .search-wrap input::placeholder { color: var(--st-text-3); }
-  .search-wrap input:focus { outline: none; border-color: var(--st-text-2); }
-
-  /* ─── Preset List ─── */
-  .preset-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0 6px;
-    min-height: 0;
-  }
-  .preset-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    padding: 6px 8px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    color: var(--st-text-2);
-    cursor: pointer;
-    font-size: 0.78rem;
-    text-align: left;
-    transition: all 0.12s;
-  }
-  .preset-item:hover {
-    background: var(--st-surface-3);
-    border-color: var(--st-value);
-    color: white;
-  }
-  .preset-name { font-weight: 600; white-space: nowrap; }
-  .preset-props { font-size: 0.65rem; color: var(--st-text-3); white-space: nowrap; }
-  .preset-item:hover .preset-props { color: var(--st-text-2); }
-
+  /* ─── Add panel ─── */
+  /* The `.no-results` rule stays: the materials TABLE uses it for its empty row. */
   .no-results {
     text-align: center;
     color: var(--st-text-3);
     font-size: 0.75rem;
     padding: 1rem;
   }
-
-  /* ─── Custom Material ─── */
-  .custom-section {
-    flex-shrink: 0;
-    border-top: 1px solid var(--st-surface-3);
-    padding: 4px 8px 6px;
-  }
-  .custom-toggle {
-    background: none;
-    border:  1px solid var(--st-hair);
-    color: var(--st-text-3);
-    font-size: 0.75rem;
-    cursor: pointer;
-    padding: 4px 0;
-    width: 100%;
-    text-align: left;
-  }
-  .custom-toggle:hover { color: var(--st-text-2); }
-
-  .custom-form {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding-top: 4px;
-  }
-  .custom-row {
-    display: flex;
-    gap: 8px;
-  }
-  .custom-row label {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 0.7rem;
-    color: var(--st-text-3);
-  }
-  .custom-row input {
-    padding: 4px 6px;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    color: var(--st-text);
-    font-size: 0.75rem;
-    font-family: monospace;
-  }
-  .custom-row input:focus { outline: none; border-color: var(--st-text-2); }
-
-  .add-btn {
-    margin-top: 4px;
-    padding: 5px 12px;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 4px;
-    color: var(--st-text-2);
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 600;
-    align-self: flex-start;
-    transition: all 0.15s;
-  }
-  .add-btn:hover { background: var(--st-hair-strong); color: white; }
 
   /* ─── Materials Table ─── */
   .mat-list {
@@ -446,10 +256,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-  }
-  .add-panel[open] ~ .mat-list {
-    flex: 0 0 auto;
-    max-height: 160px;
   }
   .mat-list-header {
     padding: 5px 10px;

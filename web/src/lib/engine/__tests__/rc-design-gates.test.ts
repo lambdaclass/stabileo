@@ -230,6 +230,50 @@ describe('GATE: ProDesignTab was decomposed', () => {
   });
 });
 
+describe('GATE: ProPanel was decomposed', () => {
+  /**
+   * The panel that F5 had to touch, and could not.
+   *
+   * `h1-h2-scope-split.md` §1.6 names this file as one of the two with no line budget left in
+   * the places the scope lands: 1 319 lines against a 600 ceiling, and the host of the report
+   * button §5 needed. The ceiling was a repo-wide guideline with no gate on this file, which is
+   * how it reached 1 319 in the first place — every other component under `pro/design` has had
+   * one since PR15.
+   */
+  const panel = read('../../../components/pro/ProPanel.svelte');
+
+  it('stays inside the 600-LOC component ceiling', () => {
+    const loc = panel.split('\n').length;
+    expect(loc, `ProPanel.svelte is ${loc} lines`).toBeLessThan(600);
+  });
+
+  it('delegates the catalogue, the overlay and the report assembly', () => {
+    // The three responsibilities that left. Naming them individually is the point: a future
+    // edit that inlines any one of them back is what the ceiling alone would only catch once
+    // the file had already grown past 600.
+    expect(panel, 'the example catalogue is data').toContain("from '../../lib/data/pro-examples'");
+    expect(panel, 'the example gallery is its own overlay').toContain('<ProExampleMenu');
+    expect(panel, 'the report is assembled outside the panel')
+      .toContain("from '../../lib/engine/pro-report-inputs'");
+  });
+
+  it('keeps the pre-solve gate, which is the panel\'s own refusal', () => {
+    // `handleSolve` routes to Diagnostics and refuses BEFORE running. Moving this out would
+    // separate a command from the reason it is disabled, which is the defect this branch has
+    // already fixed on `review-submit` and on `cmd-generate-detailing`.
+    const code = stripComments(panel);
+    expect(code).toContain('checkModel');
+    expect(code).toContain("uiStore.proActiveTab = 'diagnostics'");
+  });
+
+  it('the extracted example catalogue carries no markup and one loader per fixture', () => {
+    const examples = readCode('../../data/pro-examples.ts');
+    const fixtures = [...examples.matchAll(/loadExample\('([^']+)'\)/g)].map(m => m[1]);
+    expect(fixtures.length).toBeGreaterThan(10);
+    expect(new Set(fixtures).size, 'two cards loading the same fixture').toBe(fixtures.length);
+  });
+});
+
 describe('GATE: fixture corrections', () => {
   it('the flagship fixture authors gravity in the LOCAL Z component on every beam', () => {
     const f = JSON.parse(read('../../templates/fixtures/rc-design-frame.json'));

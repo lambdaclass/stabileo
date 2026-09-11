@@ -329,9 +329,33 @@ test.describe('@smoke RC design workflow', () => {
     const target = ids[40];
     await page.getByTestId(`row-checkbox-${ids[0]}`).check();
     await page.getByTestId(`row-expand-${target}`).click();
-    await page.getByTestId('design-table-scroll').evaluate((el) => { el.scrollTop = 600; });
-    const scrollBefore = await page.getByTestId('design-table-scroll').evaluate((el) => el.scrollTop);
-    expect(scrollBefore).toBeGreaterThan(0);
+
+    /*
+     * Scroll whatever actually scrolls, rather than assuming the table does.
+     *
+     * `design-table-scroll` carries `overflow: auto` and used to be the scroller, back when
+     * `ProDesignTab` was a full-height tab. F2.1 moved it inside the DISEÑAR stage, where
+     * nothing gives `height: 100%` a definite parent to resolve against — so the table lays
+     * out at its full content height (18 793 px for the flagship's 409 rows) and the PANEL
+     * scrolls instead. That is not a defect: `pro-panel-structure.spec.ts` S5 forbids an open
+     * stage being its own scroller, and a table that scrolled inside a scrolling stage would
+     * be the nested scroller this codebase has already paid for once.
+     *
+     * So the assertion this test is FOR — expansion, selection and reading position survive a
+     * re-verification — is made against the scroller the layout actually has. It kept
+     * asserting the old one and failed on a layout question rather than on its own subject.
+     */
+    const scroller = await page.getByTestId('design-table-scroll').evaluateHandle((el) => {
+      let n: HTMLElement | null = el as HTMLElement;
+      while (n) {
+        if (n.scrollHeight - n.clientHeight > 100) return n;
+        n = n.parentElement;
+      }
+      return document.scrollingElement as HTMLElement;
+    });
+    await scroller.evaluate((el) => { (el as HTMLElement).scrollTop = 600; });
+    const scrollBefore = await scroller.evaluate((el) => (el as HTMLElement).scrollTop);
+    expect(scrollBefore, 'something on this screen scrolls').toBeGreaterThan(0);
 
     // Design just the expanded member — a reinforcement-only change.
     await page.evaluate((id) => window.__stabileoActions.autoDesign([id]), target);
@@ -339,7 +363,7 @@ test.describe('@smoke RC design workflow', () => {
 
     await expect(page.getByTestId(`design-detail-${target}`)).toBeVisible();
     await expect(page.getByTestId(`row-checkbox-${ids[0]}`)).toBeChecked();
-    const scrollAfter = await page.getByTestId('design-table-scroll').evaluate((el) => el.scrollTop);
+    const scrollAfter = await scroller.evaluate((el) => (el as HTMLElement).scrollTop);
     expect(Math.abs(scrollAfter - scrollBefore)).toBeLessThan(40);
   });
 

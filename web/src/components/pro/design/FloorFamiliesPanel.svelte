@@ -24,6 +24,11 @@
   import { modelStore } from '../../../lib/store/model.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import FoundationsPanel from './FoundationsPanel.svelte';
+  import FloorFamilyStateCard from './FloorFamilyStateCard.svelte';
+  import {
+    floorFamilyStates, offFamilyShells,
+    type FloorFamilyKey, type FloorFamilyState,
+  } from '../../../lib/engine/detailing/floor-family-state';
 
   type Family = 'slabs' | 'walls' | 'foundations';
   let family = $state<Family>('slabs');
@@ -37,11 +42,42 @@
   const concreteCode = $derived(regulationsStore.concreteDesignCode());
   const concreteProblem = $derived(regulationsStore.concreteDesignProblem());
 
-  const slabCount = $derived(floorRun?.slabs.length ?? 0);
-  const wallCount = $derived(floorRun?.walls.length ?? 0);
-  const checkedFootings = $derived(
-    (footingRun?.outcomes ?? []).filter((o) => o.check !== null).length,
-  );
+  /**
+   * The per-family state, from real sources only.
+   *
+   * This replaces `floorRun?.slabs.length ?? 0` and its two siblings. That `?? 0` rendered a
+   * hard zero in the family tab whenever no run had happened, so a project that had never
+   * been through the floor pass reported that it had NO SLABS — which reads as a fact about
+   * the building and was a fact about the button. `floor-family-state.ts` returns `null` for
+   * a count it cannot state, and the markup renders a reason in its place.
+   */
+  const famStates = $derived(floorFamilyStates({
+    run: floorRun,
+    readiness: { shellCount: readiness.shellCount },
+    footingCount,
+    footingRun,
+    error: detailingStore.lastError,
+  }));
+  const stateOf = $derived((k: FloorFamilyKey) => famStates.find((f) => f.family === k)!);
+  /** Shells classified as neither slab nor wall — invisible before this. */
+  const offFamily = $derived(offFamilyShells({
+    run: floorRun,
+    readiness: { shellCount: readiness.shellCount },
+    footingCount,
+    footingRun,
+    error: detailingStore.lastError,
+  }));
+
+  /** Glyph per state, so the state is never carried by colour alone. */
+  const GLYPH: Record<FloorFamilyState['kind'], string> = {
+    error: '✕', notRun: '·', noElements: '—', skipped: '○',
+    designed: '✓', refused: '✕', provisional: '⚗',
+  };
+
+  const checkedFootings = $derived(stateOf('foundations').designed ?? 0);
+
+  /** The selected family's state. A `$derived`, because `{@const}` may only sit inside a block. */
+  const st = $derived(stateOf(family));
 
   /**
    * The punching joints of each panel, keyed by panel id.
@@ -165,16 +201,39 @@
 
   <nav class="families" aria-label={t('detailing.floorRun.families')}>
     {#each [
-      { key: 'slabs' as Family, label: t('detailing.floorRun.slabs'), n: slabCount },
-      { key: 'walls' as Family, label: t('detailing.floorRun.walls'), n: wallCount },
-      { key: 'foundations' as Family, label: t('detailing.floorRun.foundations'), n: footingCount },
+      { key: 'slabs' as Family, label: t('detailing.floorRun.slabs') },
+      { key: 'walls' as Family, label: t('detailing.floorRun.walls') },
+      { key: 'foundations' as Family, label: t('detailing.floorRun.foundations') },
     ] as f (f.key)}
+      {@const st = stateOf(f.key)}
       <button role="tab" aria-selected={family === f.key} class:active={family === f.key}
               data-testid={`floor-family-${f.key}`} onclick={() => (family = f.key)}>
-        {f.label}<span class="n">{f.n}</span>
+        {f.label}
+        <!--
+          A count, or the reason there is none. `countsUnavailable` is the only path that
+          prints a word instead of a figure, and it prints one rather than a zero.
+        -->
+        {#if st.countsUnavailable}
+          <span class="no-n" data-testid={`floor-family-${f.key}-nofigure`}
+                title={t('design.floor.state.countUnavailableWhy')}>—</span>
+        {:else}
+          <span class="n" data-testid={`floor-family-${f.key}-count`}>{st.classified}</span>
+        {/if}
+        <span class="st" data-state={st.kind} data-testid={`floor-family-${f.key}-state`}>
+          <span aria-hidden="true">{GLYPH[st.kind]}</span>
+          {t(`design.floor.state.${st.kind}`)}
+        </span>
       </button>
     {/each}
   </nav>
+
+  <!--
+    The state of the selected family — its own component, because this panel is at the repo's
+    600-LOC ceiling and `rc-design-gates.test.ts` enforces it. Raising the ceiling to fit a new
+    block is how a panel becomes four applications stacked vertically; extracting is the rule
+    the guidance already states.
+  -->
+  <FloorFamilyStateCard state={st} error={detailingStore.lastError} {offFamily} />
 
   {#if family === 'slabs'}
     {@const slabs = floorRun?.slabs ?? []}
@@ -388,6 +447,7 @@
 </div>
 
 <style>
+
   .stage-note {
     margin: 0 0 0.5rem; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2);
   }
@@ -430,7 +490,21 @@
   .n { font-size: 0.7rem; font-weight: 600; padding: 0.05rem 0.3rem; border-radius: 3px; background: var(--st-hair); }
   .empty { opacity: 0.75; font-style: italic; }
   table { border-collapse: collapse; width: 100%; font-size: 0.78rem; }
-  th, td { text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid rgba(143, 163, 179,0.2); }
+  /*
+     `.no-n` lives here because the MARKUP does.
+
+     The rule was written in `FloorFamilyStateCard` when that component was extracted to get
+     the panel under the 600-line ceiling — the CSS went across, the `<span>` stayed. Svelte
+     scopes a selector to the component that declares it, so it has matched nothing since, and
+     the marker that exists to print a DASH instead of a fabricated zero has been rendering at
+     full size and full contrast, reading as primary content rather than as an absence.
+
+     The build reported it as an unused selector the whole time.
+  */
+  .no-n { font-size: 0.66rem; color: var(--st-text-2); margin-left: 3px; }
+  th, td {
+    text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid var(--st-border);
+  }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   /* Over-utilised is never green. */
   .num.over { color: var(--st-danger); font-weight: 600; }

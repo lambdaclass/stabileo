@@ -377,7 +377,7 @@
 
 <style>
   .mat-physical {
-    margin-top: 0.6rem; border-top: 1px solid rgba(128,128,128,0.3); padding-top: 0.5rem;
+    margin-top: 0.6rem; border-top: 1px solid var(--st-hair-strong); padding-top: 0.5rem;
     font-size: 0.82rem;
   }
   h5 { margin: 0 0 0.3rem; font-size: 0.8rem; }
@@ -391,31 +391,54 @@
   dt { opacity: 0.85; }
   dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   .directions { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.6rem; }
-  .direction { border: 1px solid rgba(128,128,128,0.25); border-radius: 4px; padding: 0.45rem; }
+  .direction { border: 1px solid var(--st-border); border-radius: 4px; padding: 0.45rem; }
   /* Wide content scrolls inside its own box; the panel itself never scrolls sideways. */
   .scroll { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; margin: 0.2rem 0 0.35rem; font-size: 0.7rem; }
-  th, td { border: 1px solid rgba(128,128,128,0.3); padding: 0.12rem 0.3rem; text-align: left; font-variant-numeric: tabular-nums; }
-  th { background: rgba(128,128,128,0.15); font-weight: 600; }
+  th, td { border: 1px solid var(--st-border); padding: 0.12rem 0.3rem; text-align: left; font-variant-numeric: tabular-nums; }
+  th { background: var(--st-surface-2); font-weight: 600; }
   tfoot td { font-weight: 600; }
-  tr.chosen { background: rgba(128,128,128,0.18); font-weight: 600; }
+  tr.chosen { background: var(--st-selected-bg); font-weight: 600; }
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
   .issues li { font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 3px; }
-  /* Blocking is never green; a policy note is never red. */
-  .issues li.blocking { background: #5c1a1a; color: #ffe4e4; }
-  .issues li.advisory { background: #7a5b00; color: #fff6dd; }
+  /*
+     Blocking is never green; a policy note is never red.
+
+     The status rides the left RULE and the message keeps `--st-text`. Measured, because the
+     obvious version is worse: `--st-danger` on `--st-surface-3` is 4.89:1, which passes AA,
+     while the `#ffe4e4`-on-`#5c1a1a` band it replaces was 10.80:1. Halving a paragraph's
+     contrast to gain a hue is a bad trade, and `DesignToolbar`'s `.banner-warn` already had
+     the answer: full-contrast text, status-coloured border. 14.4:1 here.
+
+     Unchanged and worth naming: blocking vs advisory is distinguished by colour alone, and
+     was before this too. `concrete-status-tokens.test.ts` records it as an open gap rather
+     than letting the tokenisation pass for a fix of it.
+  */
+  .issues li.blocking {
+    background: var(--st-surface-3); color: var(--st-text);
+    border-left: 3px solid var(--st-danger);
+  }
+  .issues li.advisory {
+    background: var(--st-surface-3); color: var(--st-text);
+    border-left: 3px solid var(--st-warn);
+  }
   .steps li { font-size: 0.7rem; margin-bottom: 0.15rem; }
   /* Not-verified is never green: it is the state a reader is most likely to mistake for done. */
   .pending, .stale {
     margin: 0.4rem 0 0; font-size: 0.74rem; padding: 0.25rem 0.4rem; border-radius: 3px;
-    background: #7a5b00; color: #fff6dd;
+    background: var(--st-surface-3); color: var(--st-text);
+    border-left: 3px solid var(--st-warn);
   }
-  .stale { background: #5c1a1a; color: #ffe4e4; font-weight: 600; }
+  .stale { border-left-color: var(--st-danger); font-weight: 600; }
   .badge { font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.3rem; border-radius: 3px; }
-  .badge.geom-MODELED, .badge.anch-VERIFIED { background: rgba(128,128,128,0.3); }
-  .badge.geom-RECONCILIATION_FAILED, .badge.anch-FAILED { background: #5c1a1a; color: #ffe4e4; }
-  .badge.geom-NOT_MODELED, .badge.anch-NOT_EVALUATED { background: #7a5b00; color: #fff6dd; }
+  .badge.geom-MODELED, .badge.anch-VERIFIED { background: var(--st-surface-3); }
+  .badge.geom-RECONCILIATION_FAILED, .badge.anch-FAILED {
+    background: var(--st-surface-3); color: var(--st-danger);
+  }
+  .badge.geom-NOT_MODELED, .badge.anch-NOT_EVALUATED {
+    background: var(--st-surface-3); color: var(--st-warn);
+  }
   td.ok { color: inherit; }
-  td.bad { background: #5c1a1a; color: #ffe4e4; }
+  td.bad { background: var(--st-surface-3); color: var(--st-danger); font-weight: 600; }
   summary { cursor: pointer; font-size: 0.78rem; }
 </style>
