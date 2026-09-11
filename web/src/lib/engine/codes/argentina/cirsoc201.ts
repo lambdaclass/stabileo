@@ -512,6 +512,25 @@ export function checkFlexure(
   if (ratio > 1.0) status = 'fail';
   else if (ratio > 0.9) status = 'warn';
 
+  /*
+   * A practical ceiling, stated as one because CIRSOC does not state it.
+   *
+   * The doubly-reinforced path above is unbounded by construction: anchored
+   * at εt = 4‰, every extra kN·m is another couple of compression and
+   * tension steel, and the arithmetic never says no — a 20×50 beam "carries"
+   * 9 000 kN·m with 600 cm² of steel. No clause caps the steel in a beam,
+   * but the bars do not fit: 4 % of b·h is the usual practical maximum, the
+   * value the codes themselves use where congestion is the binding concern.
+   * Past it the honest answer is a bigger section, not a bigger number.
+   */
+  const AsMaxPractical = 0.04 * b * h * 1e4; // cm²
+  if (AsDesign > AsMaxPractical) {
+    status = 'fail';
+    steps.push(
+      `⚠ As,req = ${AsDesign.toFixed(1)} cm² supera el máximo práctico ${AsMaxPractical.toFixed(1)} cm² (4 %·b·h) — sección insuficiente: agrandar la sección`,
+    );
+  }
+
   return {
     Mu: MuAbs, d, a: aFinal,
     AsReq: AsDesign,
