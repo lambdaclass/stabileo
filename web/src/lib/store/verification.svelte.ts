@@ -454,7 +454,10 @@ function createVerificationStore() {
     /**
      * Utilization for display: ALWAYS demand/capacity.
      *
-     * Null when the member has no provided reinforcement AND no code-check baseline.
+     * Null when nothing can answer: no provided verification CARRYING A STRENGTH CHECK, and no
+     * code-check baseline for the member. Not the same as "no reinforcement" — a member whose
+     * provided verification ran and checked no strength falls through to the baseline exactly
+     * as an unreinforced one does, and reads the same from here.
      *
      * NOT null when the utilization is non-finite: that returns `99`, a sentinel, and the
      * docstring used to say "null when unavailable" and stop there — which is how a magic
