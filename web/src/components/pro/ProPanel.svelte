@@ -73,7 +73,7 @@
    */
   import ProSteelWorkflowTab from './ProSteelWorkflowTab.svelte';
   import ProGeneratorsPanel from './generators/ProGeneratorsPanel.svelte';
-  import { checkModel } from '../../lib/engine/model-diagnostics';
+  import { checkCurrentModel } from '../../lib/engine/solve-diagnostics';
   import { createPhoneShell } from '../../lib/pro/phone-shell.svelte';
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
@@ -115,19 +115,7 @@
 
   /** Pre-solve model quality check — returns error diagnostics if any. */
   function getModelErrors(): import('../../lib/engine/types').SolverDiagnostic[] {
-    return checkModel({
-      nodes: modelStore.nodes,
-      elements: modelStore.elements,
-      materials: modelStore.materials,
-      sections: modelStore.sections,
-      supports: modelStore.supports,
-      loads: modelStore.loads as any,
-      loadCases: modelStore.model.loadCases,
-      plates: modelStore.model.plates,
-      quads: modelStore.model.quads,
-      connectors: modelStore.model.connectors,
-      constraints: modelStore.model.constraints,
-    }).filter(d => d.severity === 'error');
+    return checkCurrentModel().filter(d => d.severity === 'error');
   }
 
   /** Reactive count of blocking model errors (for UI state). */
@@ -322,7 +310,8 @@
       Global visibility is not lost. The ribbon's MODEL badge still carries the count, under the
       same arming rule, so the fact is reachable from any tab without interrupting from all of
       them. `modelErrorCount` stays exported for the ribbon and for the pre-solve gate — the
-      gate reads `checkModel` directly and is not affected by anything the user hides.
+      gate reads the diagnostics itself, via `checkCurrentModel`, and is not affected by
+      anything the user hides.
     -->
   </header>
 
