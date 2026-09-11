@@ -165,9 +165,50 @@
   });
 
   const naY = $derived(c && c > 0 ? Y(Math.min(c, geom.h)) : null);
+  /*
+   * ── Maximise ────────────────────────────────────────────────────
+   *
+   * At 170 px a section is a thumbnail: enough to confirm the shape is the
+   * one you meant, not enough to read where the bars sit or how deep the
+   * compression block runs — which is exactly what the drawing is for once
+   * there are two or three layers in it.
+   *
+   * Same affordance as the stress panel's cross-section, and the same
+   * escape hatches: Escape, and a click anywhere off the figure. The panel
+   * behind keeps its own clicks, because the controls for the very figure
+   * on display live there — dimming them would be backwards.
+   */
+  let maximized = $state(false);
+
+  $effect(() => {
+    if (!maximized) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') maximized = false; };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 </script>
 
-<figure class="sd" data-testid="section-drawing">
+<figure class="sd" class:sd-max={maximized} data-testid="section-drawing">
+  {#if maximized}
+    <!--
+      A backdrop that only closes. It sits behind the figure and takes the
+      click; the toolbar above it keeps working, so the reader can change a
+      number and watch the big drawing follow.
+    -->
+    <button
+      class="sd-backdrop"
+      onclick={() => (maximized = false)}
+      aria-label={t('flex.draw.minimise')}
+      tabindex="-1"
+    ></button>
+  {/if}
+  <button
+    class="sd-max-btn"
+    onclick={() => (maximized = !maximized)}
+    title={maximized ? t('flex.draw.minimise') : t('flex.draw.maximise')}
+    aria-label={maximized ? t('flex.draw.minimise') : t('flex.draw.maximise')}
+    data-testid="section-maximise"
+  >{maximized ? '⤡' : '⛶'}</button>
   <svg viewBox="0 0 {BOX} {BOX}" role="img" aria-label={t('flex.draw.alt')}>
     <defs>
       <pattern id="sd-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
@@ -207,11 +248,78 @@
     margin: 0;
     display: flex;
     justify-content: center;
+    /* The button anchors to this box, so it has to be the containing block. */
+    position: relative;
   }
   .sd svg {
     width: 100%;
     max-width: 170px;
     height: auto;
+  }
+
+  .sd-max-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    width: 20px;
+    height: 18px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 0.6rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text-3);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .sd-max-btn:hover {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+
+  /* ── Maximised ───────────────────────────────────────────────────
+     Fixed rather than grown in place: the panel it lives in is a narrow
+     column, and a figure that merely got wider would still be 300 px.
+     ─────────────────────────────────────────────────────────────── */
+  .sd.sd-max {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    align-items: center;
+    padding: 24px;
+  }
+
+  .sd-backdrop {
+    position: fixed;
+    inset: 0;
+    border: none;
+    padding: 0;
+    cursor: zoom-out;
+    /* Lifts the figure off whatever is behind without hiding it. */
+    background: rgba(8, 16, 22, 0.82);
+  }
+
+  .sd.sd-max svg {
+    position: relative;
+    z-index: 1;
+    max-width: min(78vh, 92vw);
+    width: min(78vh, 92vw);
+  }
+
+  .sd.sd-max .sd-max-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 2;
+    width: 26px;
+    height: 24px;
+    font-size: 0.75rem;
   }
 
   .sd-outline {

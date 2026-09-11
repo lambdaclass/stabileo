@@ -200,4 +200,53 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
       await expect(page.locator('.fp-scope')).toHaveCount(0);
     }
   });
+
+  /*
+   * ── Checking a section is done holding a drawing, not an area ─────
+   *
+   * The workbook asks for cm² per level and says the bar count it draws is
+   * only indicative. That is a fine INPUT contract and a poor interface:
+   * nobody arrives at a check holding 29.454 cm², they arrive holding
+   * "6 Ø25", and converting by hand is a place to slip a digit.
+   */
+  test('bars convert to an area, and the area still takes a number', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-mode-verify').click();
+    await page.waitForTimeout(300);
+
+    await page.getByTestId('ast-bar-count').fill('6');
+    await page.getByTestId('ast-bar-count').dispatchEvent('input');
+    await page.getByTestId('ast-bar-dia').selectOption('25');
+    await expect(page.getByTestId('ast-given')).toHaveValue('29.454');
+
+    /* Changing only the diameter re-converts, without retyping the count. */
+    await page.getByTestId('ast-bar-dia').selectOption('20');
+    await expect(page.getByTestId('ast-given')).toHaveValue('18.852');
+
+    /*
+     * And the area remains the authority. A section detailed in something
+     * other than whole bars must still be checkable, which is why this is a
+     * convenience over the field rather than a replacement for it.
+     */
+    await page.getByTestId('ast-given').fill('13.7');
+    await page.getByTestId('ast-given').blur();
+    await expect(page.getByTestId('ast-given')).toHaveValue('13.7');
+  });
+
+  test('the section drawing can be opened up and closed again', async ({ page }) => {
+    await openFlex(page);
+    const svg = page.locator('[data-testid="section-drawing"] svg');
+    const small = await svg.boundingBox();
+
+    await page.getByTestId('section-maximise').click();
+    await page.waitForTimeout(350);
+    const big = await svg.boundingBox();
+    expect(big!.width).toBeGreaterThan(small!.width * 2);
+
+    /* Escape, because a thing that covers the screen must have a way out. */
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    const back = await svg.boundingBox();
+    expect(Math.round(back!.width)).toBe(Math.round(small!.width));
+  });
 });

@@ -28,6 +28,7 @@
   import { t } from '../lib/i18n';
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
   import SectionDrawing from './SectionDrawing.svelte';
+  import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
   import type { SectionShape } from '../lib/engine/codes/argentina/section-shape';
   import {
     DESIGN_CODES, DEFAULT_DESIGN_CODE, findDesignCode,
@@ -135,6 +136,30 @@
   let nA3 = $state(4);
   /** Verification: the steel already there. */
   let AstGiven = $state(20);
+
+  /*
+   * ── Bars, because nobody checks a section in cm² ────────────────
+   *
+   * The workbook asks for an AREA per level and says outright that the bar
+   * count it draws is "indicativo" — the schematic shows whether a level
+   * exists, not what is in it. So area is the honest input and it stays the
+   * one the calculation reads.
+   *
+   * But nobody arrives at a check holding 10.668 cm². They arrive holding a
+   * drawing that says 6 Ø15, and converting by hand is both a chore and a
+   * place to slip a digit. These two fields do that conversion and write
+   * the result into the area beside them; typing an area directly still
+   * works, which is what you want for a section that was never detailed in
+   * round bar counts.
+   */
+  const DIAMETERS = REBAR_DB.filter((r) => r.diameter >= 6).map((r) => r.diameter);
+  const areaOf = (n: number, dia: number) =>
+    n * (REBAR_DB.find((r) => r.diameter === dia)?.area ?? 0);
+
+  let levelBars = $state(
+    Array.from({ length: 5 }, () => ({ n: 0, dia: 16 })),
+  );
+  let astBars = $state({ n: 0, dia: 16 });
   /**
    * FCR-VERIF's five levels, each a distance from the BOTTOM face and an
    * area. Five because that is what the sheet offers; empty rows are ignored.
@@ -430,17 +455,41 @@
     -->
     <h4 class="fp-heading">{t('flex.section.levels')}</h4>
     <table class="fp-levels">
-      <thead><tr><th></th><th>{t('flex.in.levelDist')} [cm]</th><th>As [cm²]</th></tr></thead>
+      <thead>
+        <tr>
+          <th></th>
+          <th>{t('flex.in.levelDist')} [cm]</th>
+          <th>n</th>
+          <th>Ø</th>
+          <th>As [cm²]</th>
+        </tr>
+      </thead>
       <tbody>
         {#each levels as lvl, k}
           <tr>
             <th>{k + 1}</th>
             <td><input type="number" bind:value={lvl.distanceFromBottom} min="0" step="1" /></td>
+            <td>
+              <input
+                type="number" min="0" max="20" step="1"
+                bind:value={levelBars[k].n}
+                oninput={() => { if (levelBars[k].n > 0) lvl.areaCm2 = areaOf(levelBars[k].n, levelBars[k].dia); }}
+              />
+            </td>
+            <td>
+              <select
+                bind:value={levelBars[k].dia}
+                onchange={() => { if (levelBars[k].n > 0) lvl.areaCm2 = areaOf(levelBars[k].n, levelBars[k].dia); }}
+              >
+                {#each DIAMETERS as d}<option value={d}>{d}</option>{/each}
+              </select>
+            </td>
             <td><input type="number" bind:value={lvl.areaCm2} min="0" step="0.5" /></td>
           </tr>
         {/each}
       </tbody>
     </table>
+    <p class="fp-levels-note">{t('flex.in.levelsNote')}</p>
   {/if}
 
   <h4 class="fp-heading">{t('flex.section.demand')}</h4>
@@ -453,7 +502,31 @@
       <label class="fp-field"><span>Myu [kN·m]</span><input type="number" bind:value={Muy} step="5" /></label>
     {/if}
     {#if mode === 'verify' && !(kase === 'FCR' && levels.some((l) => l.areaCm2 > 0))}
-      <label class="fp-field"><span>{t('flex.in.asGiven')} [cm²]</span><input type="number" bind:value={AstGiven} min="0" step="1" /></label>
+      <!--
+        Bars on the left, the area they come to on the right. The area is
+        what the calculation reads — see the note by `astBars` — so it stays
+        editable for a section whose steel is not a round bar count.
+      -->
+      <label class="fp-field fp-field-bars">
+        <span>{t('flex.in.asBars')}</span>
+        <span class="fp-bars-row">
+          <input
+            type="number" min="0" max="60" step="1"
+            bind:value={astBars.n}
+            oninput={() => { if (astBars.n > 0) AstGiven = areaOf(astBars.n, astBars.dia); }}
+            data-testid="ast-bar-count"
+          />
+          <span class="fp-bars-x">Ø</span>
+          <select
+            bind:value={astBars.dia}
+            onchange={() => { if (astBars.n > 0) AstGiven = areaOf(astBars.n, astBars.dia); }}
+            data-testid="ast-bar-dia"
+          >
+            {#each DIAMETERS as d}<option value={d}>{d}</option>{/each}
+          </select>
+        </span>
+      </label>
+      <label class="fp-field"><span>{t('flex.in.asGiven')} [cm²]</span><input type="number" bind:value={AstGiven} min="0" step="1" data-testid="ast-given" /></label>
     {/if}
   </div>
 
@@ -599,6 +672,32 @@
     padding: 0.1rem 0.3rem 0.1rem 0;
   }
   .fp-levels td { padding: 0.1rem 0.15rem; }
+  .fp-levels-note {
+    margin: 0.25rem 0 0;
+    font-size: 0.6rem;
+    line-height: 1.4;
+    color: var(--st-text-3);
+  }
+
+  .fp-bars-row {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .fp-bars-row input { width: 3ch; }
+  .fp-bars-row select { flex: 1; min-width: 0; }
+
+  .fp-bars-x {
+    color: var(--st-text-3);
+    font-size: 0.7rem;
+  }
+
+  .fp-levels select {
+    width: 100%;
+    min-width: 0;
+  }
+
   .fp-levels input {
     width: 100%;
     padding: 0.2rem 0.3rem;
