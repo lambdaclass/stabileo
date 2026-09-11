@@ -844,6 +844,17 @@
     color: var(--st-danger);
   }
 
+  /*
+     The glyph as well as the word. `.rb-icon` sets its own colour, so the
+     inherited red stopped at the label and the triangle stayed grey — the
+     button ended up two colours, which reads as a mistake rather than as
+     emphasis. Same specificity as the rule it overrides, so it has to come
+     after it; the disabled rule below then comes after this one, because a
+     command that cannot run must not look inviting.
+  */
+  .rb-cmd.go .rb-icon { color: var(--st-danger); }
+  .rb-cmd.go:disabled .rb-icon { color: var(--st-text-2); }
+
   .rb-cmd.go:hover:not(:disabled) {
     background: color-mix(in srgb, var(--st-danger) 12%, transparent);
     border-color: color-mix(in srgb, var(--st-danger) 45%, transparent);
