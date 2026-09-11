@@ -24,23 +24,37 @@ export const FRAME_FAMILIES: readonly DesignFamily[] = ['column', 'beam'];
 export const FLOOR_FAMILIES: readonly DesignFamily[] = ['slab', 'wall', 'footing'];
 
 /**
- * What "Design all" designs when the user has not chosen.
+ * What the design command covers when the user has not chosen.
  *
- * ── Why foundations are NOT in it ──────────────────────────────────
+ * ── Beams and columns, and nothing else ────────────────────────────
  *
- * Everything else in this list is decided by the analysis the user has already run. A footing
- * is not: it needs a ground profile with an allowable bearing pressure, and until one is
- * supplied the run produces a record that states it could not be verified. Including it by
- * default would mean the default action reports a failure the user did not ask for and cannot
- * fix from this screen.
+ * They are the two families every reinforced-concrete frame has, and the only two the frame
+ * pass can design from the analysis alone. Everything else needs something the user has to
+ * supply or confirm:
  *
- * Foundations are also worked separately in practice — sized against a soil report that
- * arrives on its own schedule — so the default matches how the work is actually staged.
+ *   slabs and walls   come from the floor pass, which is a separate run with its own inputs
+ *                     and its own report, and which a frame-only building never runs at all;
+ *   footings          need a ground profile with an allowable bearing pressure. Until one is
+ *                     supplied the run produces a record stating it could not be verified, so
+ *                     including them by default would make the default action report a failure
+ *                     the user did not ask for and cannot fix from this screen. Foundations are
+ *                     also worked separately in practice, against a soil report that arrives on
+ *                     its own schedule.
  *
- * The selector states this: the box is there, visible and unticked, so "not designed" is a
- * choice the user can see rather than an omission they discover in the 3-D view.
+ * ── This narrowed, and what has to hold for that to be honest ──────
+ *
+ * It used to be `['column', 'beam', 'slab', 'wall']`. The reason it could be that wide was the
+ * defect it was built to close: "Design all" designed beams and columns only, slabs came from a
+ * second command in another disclosure, and the button named "all" produced a building with no
+ * floors without saying so — the user found out from the 3-D view.
+ *
+ * Narrowing it re-opens that risk unless one thing holds, and it is the same condition the
+ * footing box already relied on: **the scope must be visible before the command runs**. An
+ * unticked family that is on screen is a choice; an unticked family nobody can see is the old
+ * defect wearing a smaller default. `availableDesignFamilies` exists so the boxes shown are the
+ * ones the model actually has, and the command states its own scope beside itself.
  */
-export const DEFAULT_DESIGN_FAMILIES: readonly DesignFamily[] = ['column', 'beam', 'slab', 'wall'];
+export const DEFAULT_DESIGN_FAMILIES: readonly DesignFamily[] = ['column', 'beam'];
 
 export type DesignFamilySelection = readonly DesignFamily[];
 
@@ -117,4 +131,51 @@ export function totalsOf(report: DesignRunReport): {
     refused: t.refused + f.refused,
     notModelled: t.notModelled + f.notModelled,
   }), { processed: 0, designed: 0, refused: 0, notModelled: 0 });
+}
+
+/**
+ * The families a model can actually be asked to design.
+ *
+ * A family with no members is not offered. Not disabled, not ticked-and-inert: absent. A
+ * checkbox for something the building does not contain is a question with one answer, and the
+ * panel already has to distinguish "this model has no walls" from "the walls have not been
+ * designed" — a control that could express only the second would blur exactly that line.
+ *
+ * `counts` is what the model holds per family, supplied by the caller. Passed in rather than
+ * read, so this stays pure and can be exercised without a store.
+ *
+ * Order follows `DESIGN_FAMILIES`, so two models with the same families list them the same way.
+ */
+export function availableDesignFamilies(
+  counts: Readonly<Partial<Record<DesignFamily, number>>>,
+): DesignFamily[] {
+  return DESIGN_FAMILIES.filter((f) => (counts[f] ?? 0) > 0);
+}
+
+/**
+ * The selection to start from, given what the model has.
+ *
+ * The default intersected with what exists: a frame with no slabs must not open with a slab
+ * ticked, and a model with nothing in it selects nothing rather than pretending.
+ */
+export function initialDesignSelection(
+  counts: Readonly<Partial<Record<DesignFamily, number>>>,
+): DesignFamily[] {
+  const available = availableDesignFamilies(counts);
+  return DEFAULT_DESIGN_FAMILIES.filter((f) => available.includes(f));
+}
+
+/**
+ * A selection narrowed to what the model still has.
+ *
+ * Called when the model changes under a selection the user made earlier: a family they ticked
+ * and then deleted every member of must drop out, or the command would report a scope covering
+ * something that is not there.
+ */
+export function pruneDesignSelection(
+  selection: DesignFamilySelection,
+  counts: Readonly<Partial<Record<DesignFamily, number>>>,
+): DesignFamily[] {
+  const available = availableDesignFamilies(counts);
+  return DESIGN_FAMILIES.filter((f) => selection.includes(f) && available.includes(f));
 }

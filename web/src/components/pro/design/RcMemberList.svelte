@@ -1,0 +1,474 @@
+<script lang="ts">
+  /**
+   * The Detalle stage's grouped element list — objectives 1 and 2 of §8.
+   *
+   * ── What this component is NOT allowed to do ───────────────────────
+   *
+   * It does not group. `rc-selection.ts` owns that — `rcGroupOf`, `rcFamiliesIn`,
+   * `rcGroupLabelKey` — and `rc-member-list.ts` owns the census built on top of it. Everything
+   * below reads those and renders; a second grouping here is how the list and the layer switches
+   * come to disagree about which family a pedestal is.
+   *
+   * It does not hold a selection. `rebarWorkspace.selection` is the single channel, and objective
+   * 3 will write to it from these rows. Local selection state is precisely the second channel the
+   * contract was written to prevent, so there is none — `selectedIds` below is a READ of the
+   * channel, never a copy of it.
+   *
+   * It does not read `AssemblyKind`. `run-detailing.ts` builds one assembly per level, always
+   * `beamLine`, holding that level's beams AND columns; a count taken from it would file every
+   * column under beams. Families come from the verification contexts, which classify per element.
+   *
+   * ── The three states, on screen ────────────────────────────────────
+   *
+   *   present   the family's total, and how many of them are detailed
+   *   unknown   "not counted yet" — candidates exist, nothing has classified them
+   *   absent    no heading, no rows, nothing selectable
+   *
+   * `unknown` is rendered, always. Hiding it would tell someone their building has no columns
+   * because they have not pressed Compute demands yet.
+   */
+  import { t, tp } from '../../../lib/i18n';
+  import { modelStore } from '../../../lib/store/model.svelte';
+  import { verificationStore } from '../../../lib/store';
+  import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
+  import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
+  import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
+  import {
+    rcMemberList, rcHasListableMembers, rcHasUnclassifiedFamilies,
+    type RcMemberListInput, type RcFamilyCensus,
+  } from '../../../lib/flow/rc-member-list';
+  import type { SceneSolidKind } from '../../../lib/engine/detailing/scene-model';
+
+  /**
+   * Family per element, from the pass that actually classifies them.
+   *
+   * `MemberContext.elementType` is `'beam' | 'column' | 'wall'` — those three and no more, which
+   * is why slabs and pedestals can only ever be `unknown` or `absent` here rather than listed.
+   * Footings come from the model's own footing map, which is a real classification and not a
+   * guess.
+   */
+  const membership = $derived.by(() => {
+    const m = new Map<number, SceneSolidKind>();
+    for (const [id, ctx] of verificationStore.contexts) {
+      const type = ctx.elementType;
+      if (type === 'beam' || type === 'column' || type === 'wall') m.set(id, type);
+    }
+    for (const id of modelStore.model.footings.keys()) m.set(id, 'footing');
+    return m;
+  });
+
+  /** Elements carrying coordinated detailing — the union of every assembly's members. */
+  const detailed = $derived.by(() => {
+    const s = new Set<number>();
+    for (const a of detailingStore.assemblies) for (const id of a.elementIds) s.add(id);
+    return s;
+  });
+
+  /**
+   * What the model holds, where it can be counted at all.
+   *
+   * Beams and columns are both keyed on the frame element count, for the reason
+   * `DesignFamilyPanel` already documents: the demand pass is what tells them apart, so before it
+   * runs the honest answer is "there are candidates" rather than a number per family. That is
+   * exactly what produces `unknown` instead of `absent`.
+   *
+   * Slabs and walls are both keyed on the shell count, because which panel is which is the floor
+   * pass's decision and guessing here would be a second authority.
+   */
+  const shellCount = $derived(modelStore.model.quads.size);
+  const input = $derived<RcMemberListInput>({
+    membership,
+    detailed,
+    modelCounts: {
+      column: modelStore.elements.size,
+      beam: modelStore.elements.size,
+      slab: shellCount,
+      wall: shellCount,
+      footing: modelStore.model.footings.size,
+      // No source classifies pedestals before the footing pass runs, so they stay absent until
+      // one appears in `membership`. Claiming candidates we cannot count would be the inverse lie.
+      pedestal: 0,
+    },
+  });
+
+  const groups = $derived(rcMemberList(input));
+  const hasRows = $derived(rcHasListableMembers(input));
+  const hasUnclassified = $derived(rcHasUnclassifiedFamilies(input));
+
+  /** A READ of the one selection channel. Never a copy, never a second source. */
+  const selectedIds = $derived(new Set(rebarWorkspace.selection?.elementIds ?? []));
+
+  /**
+   * The other direction — objective 4, viewer → list.
+   *
+   * There is nothing to synchronise. `aria-selected` and the highlight already come from the
+   * channel, so a selection made in the 3-D workspace, in its status panel or by a conflict
+   * marker marks the row the moment it lands. What was missing is only that the row may be
+   * somewhere the reader cannot see, in a list of a few hundred members.
+   *
+   * So this scrolls, and that is all it does. `block: 'nearest'` is a no-op when the row is
+   * already visible, which keeps a selection made IN the list from yanking its own container.
+   *
+   * ── Why it does not take DOM focus ─────────────────────────────────
+   *
+   * §8 item 4 words this as "focuses the row", and taking real focus here is the wrong reading of
+   * it. A selection in the viewer comes from a click on the WebGL canvas or on the status panel
+   * inside the overlay; pulling focus out of there on every pick would break the viewer's own
+   * keyboard handling and move the caret out from under someone mid-inspection. Focus-stealing on
+   * a remote state change is the antipattern, not the feature.
+   *
+   * What the row gets instead is the list's TAB STOP, below. Reading lands on the selected member
+   * the moment the keyboard reaches the list, without anything being taken away while it has not.
+   */
+  $effect(() => {
+    const first = rebarWorkspace.selection?.elementIds?.[0];
+    if (first === undefined) return;
+    document.querySelector<HTMLElement>(`[data-testid="rc-member-${first}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+
+  /**
+   * Which row in a family is the tab stop.
+   *
+   * A listbox has ONE, not one per row: tabbing through a hundred members to reach the content
+   * after them is the defect roving tabindex exists to prevent. The selected member wins it so
+   * the keyboard arrives where the viewer left off; with nothing selected it falls to the first
+   * row, because a family whose every row is `-1` cannot be reached by Tab at all.
+   */
+  function tabStopOf(rows: readonly { elementId: number }[]): number | undefined {
+    return rows.find((r) => selectedIds.has(r.elementId))?.elementId ?? rows[0]?.elementId;
+  }
+
+  /**
+   * Select a member — objective 3, and the whole of it.
+   *
+   * `selectAndFocus` was written for this caller and says so: "Select a member from the list AND
+   * point the camera at it. One action because they are one intention." A list that selected
+   * without moving the camera would leave the user hunting for what they just clicked in a cage
+   * of thousands of bars.
+   *
+   * Keyed on `elementId` and never on the row's position. The ordinal in the label is a reading
+   * aid — "Beam 1" is the first beam, not element 1 — and selecting by it would send the viewer
+   * to whatever member happened to sort first.
+   */
+  function selectMember(elementId: number): void {
+    rebarWorkspace.selectAndFocus(elementId);
+  }
+
+  /*
+   * ── The entry F6 found missing, and what was broken without it ─────
+   *
+   * DETALLE was the ONE pipeline stage with no way into the 3-D viewer. Measured by walking the
+   * five disclosures and collecting every control that opens it: MODELADO has
+   * `overview-open-3d`, DISEÑAR has `cmd-open-3d`, DOCUMENTOS has `doc-3d`, the ribbon has
+   * `pr-cmd-rebar3d`, and DETALLE had `[]`.
+   *
+   * That is not merely an absent shortcut. `selectAndFocus` above writes the selection AND files
+   * a camera request, and the effect that serves that request lives inside the overlay — so with
+   * the workspace closed, clicking a row here highlighted it, queued a focus nothing would
+   * perform, and left the reader with no route to the member they had just chosen. The stage that
+   * details the steel could not show it.
+   *
+   * It is the SAME operation as the other four — `openRebar3D`, one document instance, no second
+   * projection — so this is a fifth entry point and not a fifth behaviour. `rebar-open.ts` states
+   * why that is the right shape for this command and the wrong shape for a stage command: it
+   * advances no stage, it has four deliberate entries already, and it is "a transversal tool for
+   * looking at what the pipeline produced, reachable from wherever that result is being read".
+   * This stage is where it is read.
+   */
+  let opening3d = $state(false);
+  let open3dError = $state<string | null>(null);
+  const canOpen3d = $derived(canOpenRebar3D());
+  const assemblyCount = $derived(rebar3DAssemblyCount());
+
+  /**
+   * The selected member travels INTO the open workspace, and nothing new carries it.
+   *
+   * `rebarWorkspace.selection` survives the open — that is the whole point of the channel — and
+   * the pending focus request survives with it, so the camera lands on whatever the reader had
+   * already picked from this list. Re-selecting here would be a second write of a value that is
+   * already correct.
+   *
+   * The button stays focusable while it works, for the reason `DesignToolbar.open3d` records:
+   * disabling a focused control blurs it, and the overlay then records `<body>` as the thing to
+   * return focus to on Escape.
+   */
+  async function open3d() {
+    if (opening3d) return;
+    open3dError = null;
+    opening3d = true;
+    // Yielded so the pending label paints: the document build is synchronous and takes a
+    // noticeable moment on a large model.
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    try {
+      const res = openRebar3D({
+        author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+        at: new Date().toISOString(),
+      });
+      if (!res.ok) open3dError = t('detailing.doc.noCoordinated');
+    } finally {
+      opening3d = false;
+    }
+  }
+
+  /**
+   * Arrow keys move within a family's rows, and the selection follows focus.
+   *
+   * That is the single-select listbox convention, and it is what makes the keyboard produce the
+   * SAME selection as the mouse rather than a second, quieter one. Enter and Space need no
+   * handling — these are real `<button>`s and the browser already fires click for both.
+   *
+   * Escape clears through the same channel. It does not restore a previous selection: `goBack()`
+   * exists for that and is the workspace's own affordance, and having Escape mean two things
+   * depending on history is how a shortcut becomes unpredictable.
+   */
+  function onRowKeydown(e: KeyboardEvent, rows: readonly { elementId: number }[], i: number) {
+    const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+    if (step !== 0) {
+      const next = rows[i + step];
+      if (!next) return;
+      e.preventDefault();
+      selectMember(next.elementId);
+      // Focus follows the selection, or the next arrow press would start from where it was.
+      const el = document.querySelector<HTMLElement>(
+        `[data-testid="rc-member-${next.elementId}"]`);
+      el?.focus();
+      return;
+    }
+    if (e.key === 'Escape' && rebarWorkspace.selection) {
+      e.preventDefault();
+      rebarWorkspace.select(null);
+    }
+  }
+
+  /** The census line a family heading carries, in words rather than only as a number. */
+  function censusText(c: RcFamilyCensus): string {
+    if (c.state === 'unknown') return t('design.families.census.unknown');
+    if (c.state === 'absent') return t('design.families.state.noElements');
+    return tp('design.memberList.detailedOf', { n: c.detailed, total: c.total });
+  }
+</script>
+
+<!--
+  A section per group, a heading per family, a row per member.
+
+  Headings are real headings so a screen reader can jump between groups, and the rows are a
+  `listbox` because that is what they are: one element is current, arrow keys move between them.
+-->
+<section class="member-list" data-testid="rc-member-list" aria-label={t('design.memberList.title')}>
+  <!--
+    The way into the viewer, above the rows it is about.
+
+    Disabled — not hidden — while there is nothing coordinated to draw, and the reason is stated
+    as text rather than only as a `title`: a tooltip explains itself to a mouse and to nothing
+    else, which is the rule the rest of this flow already follows.
+  -->
+  <p class="open3d">
+    <button
+      type="button"
+      class="open3d-btn"
+      data-testid="member-list-open-3d"
+      onclick={open3d}
+      disabled={!canOpen3d}
+      aria-busy={opening3d ? 'true' : undefined}
+    >
+      <span aria-hidden="true">◫</span>
+      {opening3d ? t('detailing.scene.opening') : t('detailing.scene.openMain')}
+      {#if canOpen3d}
+        <span class="n3d" data-testid="member-list-open-3d-count">{assemblyCount}</span>
+      {/if}
+    </button>
+    {#if !canOpen3d}
+      <span class="need" data-testid="member-list-open-3d-need"
+        >{t('detailing.scene.openBlocked')}</span>
+    {/if}
+  </p>
+  {#if open3dError}
+    <p class="err" role="alert" data-testid="member-list-open-3d-error">{open3dError}</p>
+  {/if}
+
+  {#if !hasRows}
+    <!--
+      Nothing to enumerate, and the two reasons for that are different statements.
+      `nothingClassified` is a model with candidates nobody has classified; `emptyModel` is a
+      model with nothing in it. Collapsing them is the defect the census exists to prevent.
+    -->
+    <p class="note" data-testid="rc-member-list-empty">
+      {hasUnclassified
+        ? t('design.memberList.nothingClassified')
+        : t('design.memberList.emptyModel')}
+    </p>
+  {/if}
+
+  {#each groups as g (g.group)}
+    {#if g.render}
+      <div class="group" data-testid={`rc-group-${g.group}`}>
+        <h5 data-testid={`rc-group-label-${g.group}`}>{t(g.labelKey)}</h5>
+
+        {#each g.families as f (f.family)}
+          {#if f.census.state !== 'absent'}
+            <div class="family" data-testid={`rc-family-${f.family}`}
+                 data-state={f.census.state}>
+              <p class="family-head">
+                <span class="family-name" data-testid={`rc-family-label-${f.family}`}
+                  >{t(f.labelKey)}</span>
+                <!--
+                  The state in WORDS, not only as a number or a colour. "not counted yet" and
+                  "no members in this model" are different sentences on purpose.
+                -->
+                <span class="census" data-testid={`rc-family-census-${f.family}`}
+                  >{censusText(f.census)}</span>
+              </p>
+
+              {#if f.census.state === 'present'}
+                {@const tabStop = tabStopOf(f.rows)}
+                <ul role="listbox" aria-label={t(f.labelKey)}
+                    data-testid={`rc-family-rows-${f.family}`}>
+                  {#each f.rows as row, i (row.elementId)}
+                    <li>
+                      <!--
+                        A human label first — "Beam 3", the third beam — and the technical id
+                        after it, as secondary text. The id is what every other surface keys on,
+                        so it is kept rather than hidden; it is just not the name.
+                      -->
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selectedIds.has(row.elementId)}
+                        class:selected={selectedIds.has(row.elementId)}
+                        class:undetailed={!row.detailed}
+                        data-testid={`rc-member-${row.elementId}`}
+                        data-family={row.family}
+                        data-detailed={row.detailed}
+                        tabindex={row.elementId === tabStop ? 0 : -1}
+                        onclick={() => selectMember(row.elementId)}
+                        onkeydown={(e) => onRowKeydown(e, f.rows, i)}
+                      >
+                        <span class="row-label" data-testid={`rc-member-label-${row.elementId}`}
+                          >{t(`design.familySingular.${row.family}`)} {i + 1}</span>
+                        <code class="row-id" data-testid={`rc-member-id-${row.elementId}`}
+                          >{tp('design.memberList.elementId', { id: row.elementId })}</code>
+                        {#if !row.detailed}
+                          <span class="row-state">{t('design.memberList.undetailed')}</span>
+                        {/if}
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+            </div>
+          {/if}
+        {/each}
+      </div>
+    {/if}
+  {/each}
+</section>
+
+<style>
+  .member-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-family: var(--st-sans);
+  }
+  .note { margin: 0; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2); }
+
+  /* The entry to the viewer, and the sentence that explains a refusal. */
+  .open3d {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.5rem;
+    margin: 0;
+  }
+  /* The paint every command on this surface carries: C1 of `pro-panel-consistency` rejects a
+     control with neither a surface nor a border of ours, and a bare button is exactly that. */
+  .open3d-btn {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 3px 9px;
+    border: 1px solid var(--st-info); border-radius: 4px;
+    background: var(--st-surface-3); color: var(--st-text);
+    font: inherit; font-size: 0.72rem; font-weight: 600;
+    cursor: pointer;
+  }
+  .open3d-btn:hover:not(:disabled) { background: var(--st-hair-strong); }
+  /* Dimmer and still legible — a disabled command has to explain itself. */
+  .open3d-btn:disabled { opacity: 0.5; cursor: not-allowed; border-color: var(--st-hair-strong); }
+  .open3d-btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  .n3d { font-family: var(--st-mono); font-variant-numeric: tabular-nums; }
+  /* `--st-text-2` and not `--st-text-3`: this is copy a reader has to read, which is the
+     measurement `concrete-copy-contrast` records about the eight sites below. */
+  .need { font-size: 0.68rem; color: var(--st-text-2); }
+  .err { margin: 0; font-size: 0.7rem; line-height: 1.35; color: var(--st-text); }
+
+  .group { display: flex; flex-direction: column; gap: 0.3rem; }
+  /* A group heading is read. Uppercase and letter-spacing carry the hierarchy, not dimming. */
+  h5 {
+    margin: 0;
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--st-text-2);
+  }
+
+  .family { display: flex; flex-direction: column; gap: 0.2rem; }
+  .family-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.5rem;
+    margin: 0;
+    font-size: 0.72rem;
+  }
+  .family-name { color: var(--st-text); font-weight: 600; }
+  .census { color: var(--st-text-2); }
+  /* Waiting on the demand pass, not empty. Amber rather than the dimmed grey `absent` would
+     have had — it is a state to act on, and the word beside it says which. */
+  .family[data-state='unknown'] .census { color: var(--st-warn); }
+
+  ul { display: flex; flex-direction: column; gap: 0.15rem; margin: 0; padding: 0; list-style: none; }
+
+  /*
+    Every control carries a surface and a border of ours. C1 of `pro-panel-consistency` rejects
+    one left to the browser to paint, and it is right to: that reads as unstyled rather than as
+    deliberately flat.
+  */
+  button {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.4rem;
+    width: 100%;
+    padding: 0.15rem 0.35rem;
+    border: 1px solid var(--st-hair);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text-2);
+    font: inherit;
+    font-size: 0.72rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  button:hover { background: var(--st-surface-3); }
+  button:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  button.selected {
+    border-color: var(--st-interactive);
+    background: var(--st-surface-3);
+    color: var(--st-text);
+  }
+
+  .row-label { font-weight: 600; color: var(--st-text); }
+  /* The technical id: monospace, secondary, and never the row's name. */
+  /*
+    `--st-text-2`, not `--st-text-3`.
+
+    Measured by `concrete-copy-contrast`: at 10,6 px these resolved to 3,62 against the panel
+    surface, where AA asks 4,5. `--st-text-3` is the INACTIVE token — a disabled control, a caret
+    that is not pointing at anything — and it is not a colour for copy a reader has to read.
+    `h1-text-3-contrast-proposal.md` says so about the other 462 sites; these eight are this
+    branch's own, so they are fixed here rather than filed there.
+
+    An element id is the thing a reader looks up to find the member on a drawing. It is the last
+    string on this row that should be the hardest to read.
+  */
+  .row-id { font-family: var(--st-mono); font-size: 0.66rem; color: var(--st-text-2); }
+  .row-state { font-size: 0.66rem; color: var(--st-text-2); }
+  button.undetailed .row-label { color: var(--st-text-2); }
+</style>

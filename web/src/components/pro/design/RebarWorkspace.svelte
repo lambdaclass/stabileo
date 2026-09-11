@@ -26,6 +26,8 @@
   import { modelStore } from '../../../lib/store/model.svelte';
   import { verificationStore } from '../../../lib/store/verification.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
+  import { openRebar3D } from '../../../lib/store/rebar-open';
   import { rebarWorkspace, SOLID_KINDS } from '../../../lib/store/rebar-workspace.svelte';
   import {
     filterScene, summariseScene, type SceneFilter,
@@ -41,6 +43,7 @@
   import ProvisionalBanner from './ProvisionalBanner.svelte';
   import TorsionBanner from './TorsionBanner.svelte';
   import SelectionDetails from './SelectionDetails.svelte';
+  import RebarInspector from './RebarInspector.svelte';
   import { buildOutcomeSummaries } from '../../../lib/store/element-status-join';
   import RebarLayersPanel from './RebarLayersPanel.svelte';
   import { markOpenPhase } from '../../../lib/utils/open-timeline';
@@ -59,7 +62,28 @@
   let railOpen = $state(
     typeof window === 'undefined' ? true : window.innerWidth > 860);
 
+  /*
+   * The selection panel's shape is CSS, not state — see the media query at the bottom, and
+   * `RebarInspector.svelte` for the 118 px measurement that moved it there. The rail can afford
+   * to be state because it is a user GESTURE this must not fight; a panel's shape is not.
+   */
+
   const doc = $derived(detailingStore.document);
+
+  /**
+   * Rebuild the document under the open workspace.
+   *
+   * The SAME operation the four entry points perform — `openRebar3D` builds and opens, and
+   * opening an already-open workspace is a no-op. Calling `buildDocument` directly here would
+   * be a fifth way to produce the picture, which is the thing `rebar-open.ts` exists to stop:
+   * "buttons with the same name must not be different operations".
+   */
+  function rebuildDocument(): void {
+    openRebar3D({
+      author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+      at: new Date().toISOString(),
+    });
+  }
 
   /** The full scene, with concrete for every member the model states. */
   const built = $derived.by(() => {
@@ -308,6 +332,12 @@
       </aside>
 
       <main class="stage">
+        <!--
+          The canvas and its absence states, as ONE flex child: `.stage` is a row once the panel
+          moves beside the cage, and without this wrapper the "still building" pill and the two
+          empty states would each become a column of their own beside the viewport.
+        -->
+        <div class="canvas-area">
         {#if built}
           <!--
             The WHOLE scene, plus the filter as a separate input.
@@ -355,27 +385,49 @@
             </div>
           {/if}
         {:else}
-          <p class="empty" data-testid="rebar-workspace-empty">
-            {t('detailing.scene.empty')}
-          </p>
-        {/if}
+          <!--
+            Two reasons for an empty viewport, and they are different statements.
 
-        <div
-          class="inspector"
-          data-testid="rebar-inspector"
-          data-focused={focusedElement ?? ''}
+            `detailing.scene.empty` reads as "nothing has been coordinated", and until objective
+            10 that was the only way to get here. It no longer is: an edit to a member's
+            reinforcement now retires the current document — which is correct, the cage on
+            screen stopped matching the model — and the viewer went blank claiming there was
+            nothing to draw. There is; it is out of date, which is a different thing and has a
+            different answer.
+
+            The assemblies themselves are what tell the two apart: they exist and are stale, or
+            they do not exist at all.
+          -->
+          {#if detailingStore.assemblies.length > 0}
+            <div class="empty" data-testid="rebar-workspace-stale" role="status">
+              <p>{t('detailing.scene.retired')}</p>
+              <button type="button" data-testid="rebar-workspace-rebuild"
+                      onclick={rebuildDocument}>{t('detailing.scene.rebuild')}</button>
+            </div>
+          {:else}
+            <p class="empty" data-testid="rebar-workspace-empty">
+              {t('detailing.scene.empty')}
+            </p>
+          {/if}
+        {/if}
+        </div>
+
+        <RebarInspector
+          {focusedElement}
+          hasSelection={rebarWorkspace.selection !== null}
         >
           <SelectionDetails
             bar={selectedBar}
             solid={selectedSolid}
             conflict={rebarWorkspace.selection?.conflict ?? null}
             elementIds={selectedElementIds}
+            lockedMembers={built?.scene.lockedMembers ?? []}
             status={selectedStatus}
             reason={selectedStatus ? reasons.get(selectedStatus.elementId) ?? null : null}
             torsionUnevaluated={selectedElementIds.some(
               (id) => built?.scene.torsionUnevaluatedMembers.includes(id) ?? false)}
           />
-        </div>
+        </RebarInspector>
       </main>
     </div>
   </div>
@@ -474,6 +526,10 @@
   .rail > :global(*) { flex: 0 0 auto; }
   .body:not(.rail-open) .rail { display: none; }
   .stage { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; position: relative; }
+  /* The canvas takes what the panel leaves. `min-width: 0` is what lets it actually shrink
+     instead of pushing the panel off the right edge. */
+  .canvas-area { flex: 1 1 auto; min-width: 0; min-height: 0;
+    display: flex; flex-direction: column; position: relative; }
   /* Over the canvas, not in the layout: appearing must not resize the viewport, because a
      resize reallocates the drawing buffer and that is the cost this is announcing. */
   .building {
@@ -490,7 +546,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-  .stage :global(.rebar-viewport) { flex: 1 1 auto; border: none; border-radius: 0; }
+  .canvas-area :global(.rebar-viewport) { flex: 1 1 auto; border: none; border-radius: 0; }
 
   /*
      Twenty-six rules stood here and reached nothing.
@@ -523,8 +579,18 @@
       background: var(--st-surface);
       box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
     }
-    /* `.inspector dl` went with the rest: the list is `SelectionDetails`' markup now, and it
-       already collapses to two columns at every width. The container is still ours. */
-    .inspector { max-height: 9rem; }
+  }
+  /*
+    The selection panel becomes a third column, and the stage becomes a row — both halves of one
+    decision, so one media query. `RebarInspector.svelte` records where 1100 comes from and why
+    the shape is CSS rather than the prop it started as. `:global` because `.inspector` is that
+    component's element, reached through `.stage >` so it can only promote this stage's own panel.
+  */
+  @media (min-width: 1100px) {
+    .stage { flex-direction: row; }
+    .stage > :global(.inspector) {
+      width: 17rem; max-height: none;
+      border-top: 0; border-left: 1px solid var(--st-hair);
+    }
   }
 </style>

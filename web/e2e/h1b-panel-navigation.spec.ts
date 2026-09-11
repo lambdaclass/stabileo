@@ -214,55 +214,37 @@ test.describe('@slow the workflow strip', () => {
     await design(page);
     for (const w of [1280, 1024, 900, 820]) {
       await page.setViewportSize({ width: w, height: 720 });
-      const over = await page.getByTestId('workflow-stages').locator('ol')
+      const over = await page.getByTestId('rc-stage-timeline').locator('ol')
         .evaluate((el) => el.scrollWidth - el.clientWidth);
       expect(over, `no sideways scroll at ${w}`).toBeLessThanOrEqual(1);
     }
   });
 
-  test('no wrapped row ends in a chevron pointing at nothing', async ({ pro: page }) => {
-    /*
-     * `test.fail()` INSIDE the body, not at describe scope.
-     *
-     * At describe scope it marks every test in the block, and the first version did exactly
-     * that: Playwright reported "Expected to fail, but passed" against the sideways-scroll test
-     * above, which passes and should. One misplaced line turned a green assertion into a red
-     * one and would have hidden this one entirely.
-     */
-    test.fail();
+  test('the strip is one row, so no chevron can point at nothing', async ({ pro: page }) => {
     /**
-     * PR20 reported "the workflow strip wraps at 1280×720 with a dangling chevron". H1-A found
-     * no OVERFLOW and said that was a different claim needing a different measurement. This is
-     * it, and the claim is CONFIRMED:
+     * PR20 reported "the workflow strip wraps at 1280x720 with a dangling chevron". H1-A found
+     * no OVERFLOW and said that was a different claim needing a different measurement. H1-B made
+     * that measurement and CONFIRMED it: `WorkflowStages`'s `ol` is `flex-wrap: wrap`, and at
+     * 1280, 1024, 900 and 820 it made the same two rows — five stages, then `stage-documents`
+     * alone — with `.stage:not(:last-child)::after` drawing a chevron at the end of row one.
      *
-     *   `ol` is `flex-wrap: wrap`, and at 1280, 1024, 900 and 820 it makes the same two rows —
-     *   five stages, then `stage-documents` alone. The chevron comes from
-     *   `.stage:not(:last-child)::after`, so `stage-detailing` draws one and it is the last item
-     *   on row 1: a `›` pointing at the end of the line.
+     * It was marked `test.fail()` because `WorkflowStages.svelte` is shared PRO chrome that the
+     * metallic flow renders, and H1 did not edit it unilaterally.
      *
-     *   It is width-independent because the strip lives in the fixed-width PRO sidebar, so it
-     *   is not a narrow-viewport problem at all.
+     * F1 closes it for the concrete flow by a different route: the RC tab has its own strip, and
+     * that strip does not wrap. Five stages on one line, and a row that scrolls sideways rather
+     * than growing a second one — a sticky element cannot be allowed to double its own height.
      *
-     * `test.fail()` because `WorkflowStages.svelte` is shared PRO chrome — M1's metallic flow
-     * renders inside the same strip — and H1 does not edit it unilaterally. Marked rather than
-     * skipped, so the day someone fixes it Playwright reports this as an unexpected PASS and the
-     * marker comes off. A test that asserted the defect would have to be inverted instead.
+     * `WorkflowStages` itself is UNCHANGED and the metallic flow still wraps. That remains an
+     * integration item in `h1-shared-chrome-proposal.md`; it is simply no longer reachable from
+     * here, which is why the marker comes off rather than the test.
      */
-    const rows = await page.getByTestId('workflow-stages').locator('ol').evaluate((ol) => {
-      const items = [...ol.children] as HTMLElement[];
-      const byTop = new Map<number, HTMLElement[]>();
-      for (const li of items) {
-        const t = Math.round(li.getBoundingClientRect().top);
-        if (!byTop.has(t)) byTop.set(t, []);
-        byTop.get(t)!.push(li);
-      }
-      // A row ends in a chevron when its last item is not the last item overall.
-      return [...byTop.values()].map((row) => ({
-        ids: row.map((li) => li.getAttribute('data-testid')),
-        endsWithChevron: row[row.length - 1] !== items[items.length - 1],
-      }));
-    });
-    expect(rows.filter((r) => r.endsWithChevron), 'rows ending in a dangling chevron')
-      .toEqual([]);
+    for (const w of [1280, 1024, 900, 820]) {
+      await page.setViewportSize({ width: w, height: 720 });
+      const tops = await page.getByTestId('rc-stage-timeline').locator('ol')
+        .evaluate((ol) => [...ol.children]
+          .map((li) => Math.round(li.getBoundingClientRect().top)));
+      expect(new Set(tops).size, `one row at ${w}`).toBe(1);
+    }
   });
 });

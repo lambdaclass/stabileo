@@ -17,17 +17,15 @@
   import { diagnosticsWarning } from '../../../lib/store/diagnostics-warning.svelte';
   import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import OutcomeBadge from './OutcomeBadge.svelte';
+  import { rcCancelRun, rcOpenRebar3D } from '../../../lib/flow/rc-commands';
 
   interface Props {
     selectedCount: number;
     hasResults: boolean;
     hasCombinations: boolean;
     editedCount: number;
-    onComputeDemands: () => void;
-    onCodeCheck: () => void;
     onAutoDesignSelected: () => void;
     onAutoDesignUndesigned: () => void;
-    onDesignAll: () => void;
     onReviewChanges: () => void;
     onRevertEdits: () => void;
     onShowOrientation: () => void;
@@ -36,10 +34,25 @@
   }
   let {
     selectedCount, hasResults, hasCombinations, editedCount,
-    onComputeDemands, onCodeCheck, onAutoDesignSelected, onAutoDesignUndesigned,
-    onDesignAll, onReviewChanges, onRevertEdits, onShowOrientation,
+    onCodeCheck, onAutoDesignSelected, onAutoDesignUndesigned,
+    onReviewChanges, onRevertEdits, onShowOrientation,
     onOpenDiagnostics,
   }: Props = $props();
+
+  /**
+   * What the one design command will cover, named rather than counted.
+   *
+   * §2 requires the scope to be readable BEFORE the command runs. The default is narrower than
+   * it used to be, and an unticked family nobody can see is the old "a building with no floors,
+   * and it did not say so" defect wearing a smaller default. The read-out is what pays for the
+   * narrowing.
+   */
+  const scope = $derived(designRunStore.familySelection);
+  const scopeText = $derived(scope.length === 0
+    ? t('design.cmd.scopeNone')
+    : tp('design.cmd.scopeIs', {
+      families: scope.map((f) => t(`design.families.${f}`)).join(', '),
+    }));
 
   let autoMenuOpen = $state(false);
 
@@ -56,16 +69,31 @@
    * noticeable moment on a large model, so without yielding first the browser never paints the
    * pending state and the button looks like it did nothing — the exact complaint that put this
    * command on the main row in the first place.
+   *
+   * ── Why the pending state does not DISABLE this button ─────────────
+   *
+   * It did, and that is what made Escape drop the user at `<body>` instead of returning them
+   * here. Chromium blurs a focused control when it becomes disabled, and `opening3d` is set
+   * before the yield above — so by the time the overlay mounted, `document.activeElement` was
+   * already `<body>` and `captureFocus` recorded THAT as the opener. `<body>` is connected, so
+   * the `isConnected` guard passed and the restore focused it, which `dialog-focus.ts` names as
+   * the one outcome it exists to prevent. Measured in the focus trace: `out← cmd-open-3d`, then
+   * `focus(BODY)`, and no `focus(cmd-open-3d)` at all.
+   *
+   * The control now stays focusable, says `aria-busy` while it works, and refuses re-entry here
+   * rather than by removing itself from the tab order. `SelectionDetails` documents the same
+   * defect in its unmounting form; this was its disabled form.
    */
   async function open3d() {
+    if (opening3d) return;
     open3dError = null;
     opening3d = true;
     await new Promise((r) => requestAnimationFrame(() => r(null)));
     try {
-      const res = openRebar3D({
-        author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
-        at: new Date().toISOString(),
-      });
+      const res = rcOpenRebar3D(
+        detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+        new Date().toISOString(),
+      );
       if (!res.ok) open3dError = t('detailing.doc.noCoordinated');
     } finally {
       opening3d = false;
@@ -98,22 +126,10 @@
   const provisionalCount = $derived(designRunStore.provisionalIds.size);
 
   // ── Detailing ──
-  // The audit's headline finding was that the detailing engines had no production caller.
-  // This is it: a visible command, enabled exactly when the prerequisites hold, and when
-  // it is not, saying which members are in the way and how many.
-  const detailingReady = $derived(detailingStore.readiness);
-  const hasDetailing = $derived(detailingStore.assemblies.length > 0);
+  // The command itself, its prerequisites and the auto-detailing preference moved to the DETALLE
+  // strip — see `RcStageTimeline.svelte`. What stays here is the one fact `Ver modelo 3D` needs:
+  // a generating run must not be interrupted by opening the viewer on a half-written document.
   const detailingBusy = $derived(detailingStore.generating);
-
-  /** Precise prerequisites, so a disabled button is never a dead end. */
-  const detailingBlockers = $derived(
-    detailingReady.prerequisites.map((p) => tp(p.key, { n: p.count,
-      ids: p.elementIds.slice(0, 6).join(', ') })).join(' '),
-  );
-
-  function generateDetailing() {
-    detailingStore.generate();
-  }
 
 
 </script>
@@ -138,10 +154,20 @@
     <div class="cmd-group" data-testid="cmd-group-verify">
       <span class="group-label">{t('design.group.verify')}</span>
       <div class="group-items">
-        <button class="cmd" data-testid="cmd-compute-demands" onclick={onComputeDemands}
-                disabled={!hasResults || busy}>{t('design.cmd.computeDemands')}</button>
-        <button class="cmd" data-testid="cmd-code-check" onclick={onCodeCheck}
-                disabled={!canDesign}>{t('design.cmd.codeCheck')}</button>
+        <!--
+          Compute demands lives in the stage strip now — see `RcStageTimeline.svelte`.
+
+          It produced the SOLICITACIONES from inside the stage that consumes them, grouped under
+          "Verify" ahead of "Design". One implementation still: both called `rcComputeDemands`,
+          and there is no copy of it inside any disclosure.
+        -->
+        <!--
+          Required steel moved to the REGLAMENTOS strip — see `RcStageTimeline.svelte`.
+
+          It computes what the code requires and reads no provided bar, so grouping it under
+          "Verify" ahead of "Design" claimed a check that had not happened. One implementation
+          still: both called `rcCodeCheck`.
+        -->
       </div>
     </div>
 
@@ -167,45 +193,51 @@
       {/if}
     </div>
 
-    <button class="cmd cmd-all" data-testid="cmd-design-all" onclick={onDesignAll}
-            disabled={!canDesign}
-            title={t('design.cmd.designAllScope')}>{t('design.cmd.designAll')}</button>
+    <!--
+      The design command and its scope moved to the DISEÑAR strip — `RcStageTimeline.svelte`.
+
+      Same action, same testids, one implementation. Nothing here draws them any more.
+    -->
       </div>
     </div>
 
     <div class="cmd-group" data-testid="cmd-group-detailing">
       <span class="group-label">{t('design.group.detailing')}</span>
       <div class="group-items">
-    <button class="cmd cmd-detailing" data-testid="cmd-generate-detailing"
-            onclick={generateDetailing}
-            disabled={!detailingReady.ready || detailingBusy || busy}
-            title={detailingReady.ready ? '' : detailingBlockers}>
-      {detailingBusy
-        ? t('detailing.cmd.generating')
-        : hasDetailing ? t('detailing.cmd.regenerate') : t('detailing.cmd.generate')}
-    </button>
-        <!-- The preference that governs the button beside it, next to the button it governs. -->
-        <label class="detailing-auto" data-testid="detailing-auto-label">
-          <input type="checkbox" data-testid="detailing-auto"
-                 checked={detailingStore.autoGenerate}
-                 onchange={(e) => detailingStore.setAutoGenerate(e.currentTarget.checked)} />
-          {t('detailing.cmd.autoShort')}
-        </label>
+        <!--
+          The detailing command moved to the DETALLE strip — see `RcStageTimeline.svelte`.
+
+          It could not be reached with DISEÑAR closed, and navigating to DETALLE by the strip is
+          precisely what closes it. `detailing-prerequisites` and the auto-detailing preference
+          went with it: they are what explain why the command refuses, and left behind they would
+          have turned a disabled command into a riddle. Same action, same testids, one
+          implementation — nothing here draws them any more.
+        -->
 
     <!--
-      `Ver modelo 3D` — the RESULT of everything to its left, and until PR20 it was reachable
-      only from inside the detailing disclosure, two levels below the commands that produce it.
+      `Ver modelo 3D` — the RESULT of everything the pipeline produced, and until PR20 it was
+      reachable only from inside the detailing disclosure, two levels below the commands that
+      produce it.
 
-      It is the same operation as the button that stays down there: both call `openRebar3D`, so
-      the cage on screen is a projection of the same document instance the report, the schedule
-      and the drawings render. It is disabled — not hidden — while there is nothing to draw, and
-      says so, because a command that vanishes teaches nobody what it needs.
+      It is the same operation as the other three ways in — `overview-open-3d`, `doc-3d` and the
+      ribbon's `pr-cmd-rebar3d`: all of them call `openRebar3D`, so the cage on screen is a
+      projection of the same document instance the report, the schedule and the drawings render.
+      It is disabled — not hidden — while there is nothing to draw, and says so, because a command
+      that vanishes teaches nobody what it needs.
+
+      IT STAYS HERE, and that was decided rather than left alone. F3 step 5 audited whether it
+      should follow the pipeline commands into `RcStageTimeline`: it should not. Four deliberate
+      entry points against the strip's one-and-only-one rule, one of them in the ribbon that also
+      serves the metallic flow — which has no RC strip at all — and no stage it advances. The
+      reasoning lives with the operation, in `lib/store/rebar-open.ts`; this is the entry point on
+      the row whose work it shows.
     -->
     <button
       class="cmd cmd-3d"
       data-testid="cmd-open-3d"
       onclick={open3d}
-      disabled={!canOpen3d || opening3d || detailingBusy}
+      disabled={!canOpen3d || detailingBusy}
+      aria-busy={opening3d ? 'true' : undefined}
       title={canOpen3d ? '' : t('detailing.scene.openBlocked')}
     >
       <span aria-hidden="true">◫</span>
@@ -219,7 +251,7 @@
     </div>
 
     {#if busy}
-      <button class="cmd cmd-cancel" data-testid="cmd-cancel" onclick={() => designRunStore.cancel()}>
+      <button class="cmd cmd-cancel" data-testid="cmd-cancel" onclick={rcCancelRun}>
         {t('design.cmd.cancel')}
       </button>
     {/if}
@@ -245,14 +277,6 @@
   {#if open3dError}
     <p class="open3d-error" role="alert" data-testid="cmd-open-3d-error">{open3dError}</p>
   {/if}
-
-  <!-- Why the command is unavailable, in the open, with counts. -->
-  {#if !detailingReady.ready && detailingBlockers}
-    <p class="detailing-blockers" data-testid="detailing-prerequisites">
-      {detailingBlockers}
-    </p>
-  {/if}
-
 
   {#if busy && designRunStore.progress}
     {@const p = designRunStore.progress}
@@ -321,6 +345,14 @@
 </div>
 
 <style>
+  /*
+    `.cmd-scope` and `.cmd-all` are gone: F3 moved the design command and its scope read-out to
+    `RcStageTimeline`, which carries its own `.scope` and `.cmd-run`, and both rules have been
+    reported as unused on every build since. Deleted for the reason the two panels above it
+    record — a rule left behind after its markup leaves is a decoy, not a spare — and `.cmd-all`
+    is the sharper case: it is the green-bordered "run everything" paint, so the next reader
+    editing it would be editing the look of a button that is now defined elsewhere.
+  */
   .toolbar { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px;
     background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3); flex-shrink: 0; }
   /*
@@ -346,7 +378,6 @@
   .cmd:disabled { opacity: 0.4; cursor: not-allowed; }
   .cmd:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .cmd-primary { background: var(--st-surface-3); border-color: var(--st-info); color: var(--st-text); }
-  .cmd-all { background: var(--st-hair-strong); border-color: var(--st-ok); color: var(--st-text); }
   .cmd-cancel { background: var(--st-hair-strong); border-color: var(--st-accent); color: var(--st-text); }
   .split { position: relative; display: flex; }
   .cmd-caret { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 4px 6px; }
@@ -362,13 +393,6 @@
   .progress-bar { flex: 1; height: 5px; background: var(--st-surface-3); border-radius: 3px; overflow: hidden; }
   .progress-fill { height: 100%; background: var(--st-accent); transition: width 0.15s linear; }
   .progress-text { font-size: 0.7rem; color: var(--st-text-2); font-family: monospace; }
-
-  .cmd-detailing { background: var(--st-hair-strong); }
-  .detailing-auto {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 0.68rem; color: var(--st-text-2); white-space: nowrap; cursor: pointer;
-  }
-  .detailing-auto:focus-within { outline: 2px solid var(--st-value); outline-offset: 2px; }
 
   /*
      `Ver modelo 3D` reads as the end of the row, because it is: everything to its left
@@ -413,32 +437,27 @@
     font-size: 0.72rem;
     color: var(--st-warn);
   }
-  .detailing-blockers { margin: 0.3rem 0 0; font-size: 0.76rem; opacity: 0.85; }
   /*
-    MERGED: the count rules are gone from here, and that is H1's own conclusion arriving by the
-    base's hand.
+    MERGED (H1 → H2). Two deletions meet here, and both stand.
 
-    H1 moved the regulation read-out and the member counts OUT of this bar and into
-    `DesignOverview.svelte` — the comment at the top of the markup says so, and says nothing was
-    duplicated. What it did not do was delete the rules those elements left behind, so `.counts`,
-    `.count`, `.count-sep` and the nine `.c-*` sat here styling nothing.
-    `feat/pro-steel-family` deleted them, and measured against this file's own markup that is
-    exactly right: none of those fourteen selectors appears in it.
+    H1's, arriving by the base's hand: `.counts`, `.count`, `.count-sep` and the nine `.c-*`
+    styled nothing once H1 moved the regulation read-out and the member counts out of this bar
+    and into `DesignOverview.svelte`. Measured against this file's markup that is still exactly
+    right — none of those fourteen selectors appears in it.
 
     Nothing of H1's is lost with them. Its correction — `.c-fail` and `.c-sect` off the brand
     `--st-accent` and onto `--st-danger`, because a result must not read as an action — lives on
-    the surface that renders the counts, where `.tone-bad` is already `--st-danger`.
+    the surface that renders the counts, where `.tone-bad` is already `--st-danger`. And
+    `.c-prov`'s literal `#a066d3` was held equal to `three/rebar-scene.ts` by a gate that
+    `run-summary-reported.test.ts` has since moved onto the overview, with the reason written
+    into it: ".c-prov in the toolbar kept this green while styling nothing".
 
-    `.c-prov` is the one worth naming. Its literal `#a066d3` was held equal to
-    `three/rebar-scene.ts` by a gate, and `run-summary-reported.test.ts` has since moved that
-    assertion onto the overview with the reason written into it: ".c-prov in the toolbar kept
-    this green while styling nothing". Deleting it here is what that note asks for, and the base
-    supplies the chip it asks for on the other side.
-
-    `.detailing-auto` is the exception and is NOT deleted: the markup still renders it at
-    `data-testid="detailing-auto-label"`. It is defined once now, beside `.cmd-detailing` above,
-    in the fuller form that carries the `:focus-within` outline — this second copy was a
-    duplicate that lost the focus ring.
+    H2's: `.detailing-blockers` goes too, and for the same rule rather than against H1. H1 kept
+    it because H1's markup still rendered `detailing-prerequisites` here. H2 moved the detailing
+    command, its prerequisites and the auto-detailing preference to the DETALLE stage of
+    `RcStageTimeline.svelte`, which defines `.detailing-blockers` and `.detailing-auto` beside
+    the markup that uses them. Carrying H1's copy across would leave a second dead rule on this
+    surface — and `pro-design-workflow.spec.ts` asserts `toHaveCount(1)` on exactly those ids.
   */
 
   .banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

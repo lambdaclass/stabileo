@@ -77,7 +77,28 @@
     return out;
   });
 
+  /**
+   * Build the document and open the workspace.
+   *
+   * ── Why the pending state does not DISABLE this button ─────────────
+   *
+   * It did, and that is what made Escape drop the user at the top of the document.
+   *
+   * Chromium blurs a focused control the moment it becomes disabled. `opening3d` is set before
+   * this handler yields a frame, so the sequence was: click → the button disables → the browser
+   * blurs it → `document.activeElement` is `<body>` → the overlay mounts and `captureFocus`
+   * records `<body>` as the opener. `<body>` is connected, so the `isConnected` guard passes and
+   * the restore focuses it — which `dialog-focus.ts` names as "the outcome this whole module
+   * exists to prevent". Measured: `out← cmd-open-3d`, then `focus(BODY)`, with no
+   * `focus(cmd-open-3d)` anywhere in the trace.
+   *
+   * So the control stays focusable and reports its pending state with `aria-busy` instead, and
+   * re-entry is refused here rather than by taking the button away. The same defect one
+   * component over is what `SelectionDetails` already documents about a button that unmounts
+   * under the user's focus; this is the disabled form of it.
+   */
   async function open3d() {
+    if (opening3d) return;
     open3dError = null;
     opening3d = true;
     // Held across a frame so the pending state actually paints: the build is synchronous and can
@@ -221,7 +242,8 @@
       class="open3d-btn"
       data-testid="overview-open-3d"
       onclick={open3d}
-      disabled={!canOpen3d || opening3d}
+      disabled={!canOpen3d}
+      aria-busy={opening3d ? 'true' : undefined}
     >
       <span aria-hidden="true">◫</span>
       {opening3d ? t('detailing.scene.opening') : t('detailing.scene.openMain')}

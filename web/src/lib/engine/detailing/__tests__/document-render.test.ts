@@ -11,13 +11,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { renderReportHtml, renderDrawings, renderSchedule, readinessBanner } from '../document-render';
+import {
+  renderReportHtml, renderDrawings, renderSchedule, readinessBanner, scopeStatement,
+} from '../document-render';
 import { buildDocumentModel, type CertificateEntry } from '../document-model';
 import type { DetailingAssembly } from '../assembly';
 import type { BarConflict } from '../collision';
 import { buildStraightBarWithHooks, type BarPath } from '../../../codes/cirsoc201/bar-geometry';
 import { clause } from '../../../codes/regulation';
 import type { LapInterval } from '../lap-materialize';
+import type { DesignFamily } from '../../design/design-families';
 
 const X = { x: 1, y: 0, z: 0 };
 const UP = { x: 0, y: 0, z: 1 };
@@ -68,7 +71,12 @@ const CONFLICT = {
   elementIds: [1, 2], pairClass: 'prohibitedOverlap',
 } as BarConflict;
 
-function doc(over: { conflicts?: BarConflict[]; state?: DetailingAssembly['state'] } = {}) {
+function doc(over: {
+  conflicts?: BarConflict[];
+  state?: DetailingAssembly['state'];
+  /** The scope this document answers for. A frame set under undesigned slabs, by default. */
+  convergence?: { scope: DesignFamily[]; outOfScope: DesignFamily[] };
+} = {}) {
   return buildDocumentModel({
     seriesId: 'S', revision: {
       number: 5, at: '2026-07-27T09:00:00Z', author: 'Bauti',
@@ -77,6 +85,8 @@ function doc(over: { conflicts?: BarConflict[]; state?: DetailingAssembly['state
     regulations: [{ id: 'cirsoc-201', edition: '2025' }],
     assemblies: [assembly({ conflicts: over.conflicts ?? [], state: over.state ?? 'ISSUED' })],
     laps: [LAP], certificates: [CERT],
+    convergence: over.convergence
+      ?? { scope: ['column', 'beam'], outOfScope: ['slab'] },
   });
 }
 
@@ -251,5 +261,95 @@ describe('the banner is localised', () => {
     const base = doc();
     const sup = { ...base, readiness: 'SUPERSEDED' as const, supersededBy: 9 };
     expect(readinessBanner(sup, 'en')).toContain('SUPERSEDED BY REVISION 9');
+  });
+});
+
+// ─── 7 — every export declares exactly the families it covers ────
+
+/**
+ * The qualifier that keeps a true claim from being read as a false one.
+ *
+ * `readiness` is a statement about the assemblies in the set. A reader takes a sheet stamped
+ * ISSUED FOR CONSTRUCTION to be a statement about the BUILDING, and those coincide only when the
+ * set covers every family the model holds. A run scoped to beams and columns does not, and the
+ * person reading the sheet on site was not in the room when the scope was chosen.
+ *
+ * So this is asserted on all three outputs, not on one. The report prints the banner, the
+ * spreadsheet carries it in its title block, and the DXF sheet gets it as a note — each is the
+ * output most likely to reach somebody on its own.
+ */
+describe('every export states the scope it covers, and what it leaves out', () => {
+  const OUT_OF_SCOPE = { scope: ['column', 'beam'] as DesignFamily[],
+    outOfScope: ['slab', 'footing'] as DesignFamily[] };
+
+  it('the statement names the covered families AND the excluded ones', () => {
+    const s = scopeStatement(doc({ convergence: OUT_OF_SCOPE }), 'en');
+    expect(s).toContain('SCOPE: COLUMNS, BEAMS');
+    expect(s).toContain('NOT IN THIS SET: SLABS, FOUNDATIONS');
+  });
+
+  it('a set that covers everything says so without an exclusion clause', () => {
+    // Not an empty "NOT IN THIS SET:" trailing the line. The absence of an exclusion is the
+    // claim, and printing an empty list would read as a redaction.
+    const s = scopeStatement(
+      doc({ convergence: { scope: ['column', 'beam'], outOfScope: [] } }), 'en');
+    expect(s).toBe('SCOPE: COLUMNS, BEAMS');
+  });
+
+  it('a document with no scope information says THAT, rather than claiming all of it', () => {
+    /*
+     * The failure mode this protects: a caller that omits the convergence gets a set naming no
+     * families, which is visibly wrong. A set that silently claimed every family would be a
+     * fabricated claim in the one place it cannot be checked.
+     */
+    const bare = buildDocumentModel({
+      seriesId: 'S', revision: {
+        number: 1, at: '2026-07-27T09:00:00Z', author: 'B',
+        detailingRevision: 1, demandRevision: 1,
+      },
+      regulations: [], assemblies: [assembly({ conflicts: [], state: 'ISSUED' })],
+      laps: [], certificates: [],
+    });
+    expect(bare.scope).toEqual([]);
+    expect(scopeStatement(bare, 'en')).toBe('SCOPE NOT STATED');
+  });
+
+  it('the readiness banner carries it, on the state most likely to be misread', () => {
+    // ISSUED specifically. A draft already says NOT FOR CONSTRUCTION; this is the stamp a
+    // reader acts on, and it is where an unqualified scope does real damage.
+    const banner = readinessBanner(doc({ convergence: OUT_OF_SCOPE }), 'en');
+    expect(banner).toContain('ISSUED FOR CONSTRUCTION');
+    expect(banner).toContain('NOT IN THIS SET: SLABS, FOUNDATIONS');
+  });
+
+  it('and on a draft too — a partial scope is still partial before it is issued', () => {
+    const banner = readinessBanner(
+      doc({ conflicts: [CONFLICT], convergence: OUT_OF_SCOPE }), 'en');
+    expect(banner).toContain('REVIEW DRAFT');
+    expect(banner).toContain('SCOPE: COLUMNS, BEAMS');
+  });
+
+  it('the report prints it', () => {
+    const html = renderReportHtml(doc({ convergence: OUT_OF_SCOPE }), OPTS, T);
+    expect(html).toContain('NOT IN THIS SET: SLABS, FOUNDATIONS');
+  });
+
+  it('the spreadsheet carries it in the sheet the fabricator reads', () => {
+    const sheets = renderSchedule(doc({ convergence: OUT_OF_SCOPE }), OPTS);
+    const flat = sheets.flatMap((s) => s.aoa.flat()).join(' | ');
+    expect(flat).toContain('SCOPE: COLUMNS, BEAMS');
+  });
+
+  it('the DXF sheet carries it as a note, because it has no banner of its own', () => {
+    const set = renderDrawings(doc({ convergence: OUT_OF_SCOPE }), OPTS);
+    const notes = set.sheets.flatMap((s) => s.sheet.notes);
+    expect(notes.some((n) => n.includes('SCOPE: COLUMNS, BEAMS')),
+      `notes were: ${notes.join(' // ')}`).toBe(true);
+  });
+
+  it('and it is translated where the rest of the stamp is', () => {
+    const s = scopeStatement(doc({ convergence: OUT_OF_SCOPE }), 'es');
+    expect(s).toContain('ALCANCE: COLUMNAS, VIGAS');
+    expect(s).toContain('NO INCLUYE: LOSAS, FUNDACIONES');
   });
 });

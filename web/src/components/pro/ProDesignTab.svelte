@@ -50,6 +50,17 @@
   import BatchEditDialog from './design/BatchEditDialog.svelte';
   import ChangedMembersPanel from './design/ChangedMembersPanel.svelte';
   import SectionAdviceDialog from './design/SectionAdviceDialog.svelte';
+  /*
+   * The actions come from `lib/flow/rc-commands.ts`, not from closures here.
+   *
+   * Each used to be an inline arrow that armed the diagnostics warning and then called a store.
+   * Relocating a button to the stage it belongs to would have meant copying that pairing, and a
+   * copied handler is a second source of truth about what the action does. Nothing changes on
+   * screen: same testids, same disabled logic, same store effects, same arming.
+   */
+  import {
+    rcAutoDesignSelected,
+  } from '../../lib/flow/rc-commands';
 
   // ─── View state (survives edits — nothing here is reset by a rebar write) ──
   let filter = $state<RowFilter>('all');
@@ -300,15 +311,12 @@
     selectedCount={batchSelection.length}
     {hasResults} {hasCombinations}
     editedCount={designRunStore.manualOverrides.size}
-    onComputeDemands={() => { diagnosticsWarning.arm(); designRunStore.computeDemands(); }}
-    onCodeCheck={() => { diagnosticsWarning.arm(); designRunStore.runCodeCheck(); }}
-    onAutoDesignSelected={() => { diagnosticsWarning.arm(); designRunStore.autoDesign(batchSelection); }}
+    onAutoDesignSelected={() => rcAutoDesignSelected(batchSelection)}
     onAutoDesignUndesigned={() => {
       diagnosticsWarning.arm();
       const ids = [...verificationStore.contexts.keys()].filter(id => !modelStore.elements.get(id)?.reinforcement);
       designRunStore.autoDesign(ids.length > 0 ? ids : [...verificationStore.contexts.keys()]);
     }}
-    onDesignAll={() => { diagnosticsWarning.arm(); designRunStore.designAll(); }}
     onOpenDiagnostics={() => (uiStore.proActiveTab = 'diagnostics')}
     onReviewChanges={() => (showChanged = true)}
     onRevertEdits={revertAllEdits}

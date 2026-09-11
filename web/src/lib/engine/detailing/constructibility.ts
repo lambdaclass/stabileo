@@ -35,7 +35,7 @@ import {
 } from './family-record';
 
 /**
- * The fifteen conditions, in the order they are evaluated and reported.
+ * The sixteen conditions, in the order they are evaluated and reported.
  *
  * The thirteenth — `allRequiredTransversePathsMaterialised` — was added when the transverse
  * cage became physical. Without it the gate had no way to tell a floor whose stirrups exist
@@ -51,6 +51,22 @@ import {
  * exists to prevent, and it is now impossible to express: the frame conditions count frame
  * members, the family conditions count family members, and each is measured against what is
  * APPLICABLE rather than against a flag a caller could set.
+ *
+ * The sixteenth — `selectedScopeDetailed` — is the same lesson a third time, and the first one
+ * measured on something OUTSIDE the assembly. Every condition above it is evaluated over the
+ * members that were drawn, because `runDetailing` details `readiness.detailable` and
+ * `applicableMembers` is `elementIds.length`. So a frame with eight refused columns and four
+ * verified ones produced a cage of four that was complete, clash-free and fully certified — and
+ * satisfied all fifteen. The claim was true of the drawing and false of what was asked for,
+ * which is the failure this module exists to make impossible.
+ *
+ * Measured against the families the user SELECTED, not against the whole model. Designing beams
+ * and columns on a building that also has slabs is a complete piece of work, and a global
+ * denominator would declare it permanently unconvergeable for slabs nobody asked to design — a
+ * gate that can never be satisfied is a gate people learn to route around. What keeps the
+ * passing verdict honest instead is that the CLAIM names its scope: `assessConstructibility`
+ * decides whether the scope closed, and `DesignConvergence.outOfScope` is what stops
+ * "converged" from being read as "the building is ready". See `design-convergence.ts`.
  */
 export const CONSTRUCTIBILITY_CONDITIONS = [
   'completeEnvelope',
@@ -68,6 +84,7 @@ export const CONSTRUCTIBILITY_CONDITIONS = [
   'allSpacingPlacementRobust',
   'noUnsupportedRule',
   'noStaleUpstreamRevision',
+  'selectedScopeDetailed',
 ] as const;
 
 export type ConstructibilityCondition = (typeof CONSTRUCTIBILITY_CONDITIONS)[number];
@@ -138,6 +155,34 @@ export interface ConstructibilityFacts {
   /** Assemblies whose upstream demand revision has moved on. */
   staleAssemblies: number;
   /**
+   * Members of the SELECTED families that this detailing does not answer for.
+   *
+   * ── Why it is a separate number from `applicableMembers` ───────────
+   *
+   * `applicableMembers` counts what entered the assembly, and every condition above is measured
+   * against it. That is correct for all of them: they ask whether the cage that was drawn is
+   * sound. This one asks a question none of them can — whether the drawing covers everything it
+   * was asked to cover — and it cannot be answered from inside the assembly, because a member
+   * with no verified design never reaches it.
+   *
+   * ── Why the scope and not the model ────────────────────────────────
+   *
+   * Because "the model" is not what anyone claimed. A run scoped to beams and columns makes a
+   * claim about beams and columns, and measuring it against a building's slabs would refuse a
+   * complete piece of work for something outside its own subject. The qualifier that keeps the
+   * claim honest is `DesignConvergence.outOfScope`, carried into the document and every export.
+   *
+   * Supplied by the caller from `undetailedScopeCount`, and a raw count for the reason the whole
+   * interface is raw counts: a caller that can pass `selectedScopeDetailed: true` can pass it
+   * wrongly, and "3 of 248 undetailed" and "245 of 248 undetailed" are the same boolean and
+   * completely different situations.
+   *
+   * Zero on a fully converged scope, which is the only value that lets the gate through. An
+   * empty scope reports one, not zero: there is no cage to certify, and a vacuous pass is the
+   * false completeness this gate exists for.
+   */
+  undetailedScopeMembers: number;
+  /**
    * Certificate evidence for the floor families, one entry per family, ALWAYS present.
    *
    * ── Why it is required rather than optional ─────────────────────────
@@ -175,7 +220,7 @@ function cond(
 /**
  * Decide whether this detailing may be called constructible.
  *
- * All fifteen or none. There is no partial credit and no "mostly": an engineer reading
+ * All sixteen or none. There is no partial credit and no "mostly": an engineer reading
  * CONSTRUCTIBLE is entitled to assume every one of these was checked.
  *
  * The distinction between the two failure verdicts is about what the engineer does next.
@@ -273,6 +318,10 @@ export function assessConstructibility(f: ConstructibilityFacts): Constructibili
       msg('detailing.constructible.unsupported', { n: f.unsupportedRules })),
     cond('noStaleUpstreamRevision', f.staleAssemblies === 0, f.staleAssemblies,
       msg('detailing.constructible.stale', { n: f.staleAssemblies })),
+    // The scope condition. Everything above is about the drawing; this is about what the
+    // drawing was asked to cover and does not.
+    cond('selectedScopeDetailed', f.undetailedScopeMembers === 0, f.undetailedScopeMembers,
+      msg('detailing.constructible.undetailed', { n: f.undetailedScopeMembers })),
   ];
 
   const blocking = conditions.filter((c) => !c.passed).map((c) => c.condition);
