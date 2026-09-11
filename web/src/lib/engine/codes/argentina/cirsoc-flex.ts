@@ -29,6 +29,7 @@ import {
 import { twoLevels, levelsFromBottom, facesA1A2A3, ring, flexural } from './cirsoc201-layouts';
 import { COLUMN_STEEL_RATIO, minFlexuralSteelCm2, beta1 } from './cirsoc201-basis';
 import { chooseBars, chooseBarsForCount, chooseBarsPerLevel, type BarChoice } from './cirsoc201-bars';
+import { msg, type EngineMessage } from '../../../codes/message';
 
 export type FlexCase =
   | 'FSR'           // rectangular, simple bending
@@ -112,12 +113,11 @@ export interface FlexOutput {
   barChoice?: BarChoice;
   barChoiceComp?: BarChoice;
   outline: Outline;
-  steps: string[];
+  /** The working, line by line, as keys the UI turns into sentences. */
+  steps: EngineMessage[];
   /** Set when the section cannot take the demand even at 8 %. */
   impossible?: boolean;
 }
-
-const cm = (m: number) => `${(m * 100).toFixed(2)} cm`;
 
 function materials(i: FlexInput): Materials {
   return {
@@ -464,32 +464,33 @@ export function solveFlex(i: FlexInput): FlexOutput {
       outline,
       steps: [
         chosen.layers && chosen.layers > 1
-          ? `d = ${cm(dEff)} al baricentro de ${chosen.layers} capas `
-            + `(${chosen.perLayer?.join('+')}), no ${cm(i.h - i.dPrimeS)} — `
-            + `As,mín = ${AsMin.toFixed(2)} cm²`
-          : `d = ${cm(dEff)}, As,mín = ${AsMin.toFixed(2)} cm²`,
-        `Momento máximo con armadura simple (εt = 5 ‰): ${MuSinglyMax.toFixed(2)} kN·m`,
+          ? msg('flex.step.dLayers', {
+              d: dEff * 100, layers: chosen.layers,
+              split: chosen.perLayer?.join('+') ?? '', dFlat: (i.h - i.dPrimeS) * 100,
+              asMin: AsMin,
+            })
+          : msg('flex.step.d', { d: dEff * 100, asMin: AsMin }),
+        msg('flex.step.singlyMax', { m: MuSinglyMax }),
         ...(i.mode === 'verify'
-          ? [`Armadura adoptada: As = ${AsReq.toFixed(2)} cm² (dato)`]
+          ? [msg('flex.step.givenAs', { as: AsReq })]
           : [MuAbs <= MuSinglyMax
-              ? 'Armadura simple: alcanza sin armadura comprimida.'
-              : `Armadura doble: se agrega A′s = ${AsComp.toFixed(2)} cm² para el excedente.`]),
-        `As = ${AsReq.toFixed(2)} cm² → ${chosen.label}`
-          + (chosen.layers && chosen.layers > 1
-            ? ` en ${chosen.layers} capas (separación libre ${(chosen.clearSpacingMm ?? 0).toFixed(0)} mm)`
-            : ''),
-        ...(chosen.placeable === false
-          ? [`⚠ No entran ni en ${3} capas: la sección es angosta para esta solicitación.`]
-          : []),
-        ...(chosenComp ? [`A′s = ${AsComp.toFixed(2)} cm² → ${chosenComp.label}`] : []),
-        `φMn sobre el diagrama = ${st.phiMn.toFixed(2)} kN·m`,
+              ? msg('flex.step.singly')
+              : msg('flex.step.doubly', { asComp: AsComp })]),
+        chosen.layers && chosen.layers > 1
+          ? msg('flex.step.asBarsLayers', {
+              as: AsReq, bars: chosen.label, layers: chosen.layers,
+              gap: chosen.clearSpacingMm ?? 0,
+            })
+          : msg('flex.step.asBars', { as: AsReq, bars: chosen.label }),
+        ...(chosen.placeable === false ? [msg('flex.step.wontFit')] : []),
+        ...(chosenComp
+          ? [msg('flex.step.asCompBars', { as: AsComp, bars: chosenComp.label })] : []),
+        msg('flex.step.phiMn', { m: st.phiMn }),
         ...(i.mode === 'verify' && shortOfDemand
-          ? [`⚠ No verifica: φMn = ${st.phiMn.toFixed(2)} < Mu = ${MuAbs.toFixed(2)} kN·m`]
-          : []),
-        ...(impossible && i.mode !== 'verify'
-          ? ['⚠ La sección no alcanza con ninguna armadura admisible.'] : []),
+          ? [msg('flex.step.fails', { phiMn: st.phiMn, mu: MuAbs })] : []),
+        ...(impossible && i.mode !== 'verify' ? [msg('flex.step.impossible')] : []),
         ...(i.mode === 'verify' && AsReq < AsMin
-          ? [`⚠ As = ${AsReq.toFixed(2)} cm² < As,mín = ${AsMin.toFixed(2)} cm² (§9.6.1.2)`] : []),
+          ? [msg('flex.step.belowMin', { as: AsReq, asMin: AsMin })] : []),
       ],
     };
   }
@@ -524,18 +525,18 @@ export function solveFlex(i: FlexInput): FlexOutput {
 
   let AstCm2: number;
   let impossible = false;
-  const steps: string[] = [];
+  const steps: EngineMessage[] = [];
 
   if (i.mode === 'verify') {
     AstCm2 = i.AstGiven;
-    steps.push(`Armadura adoptada: Ast = ${AstCm2.toFixed(2)} cm²`);
+    steps.push(msg('flex.step.givenAst', { ast: AstCm2 }));
   } else if (at(lo).ratio <= 1) {
     AstCm2 = lo;
-    steps.push(`La armadura mínima alcanza: Ast = ${lo.toFixed(2)} cm²`);
+    steps.push(msg('flex.step.minEnough', { ast: lo }));
   } else if (at(hi).ratio > 1) {
     AstCm2 = hi;
     impossible = true;
-    steps.push(`⚠ La sección no verifica ni con el máximo (${hi.toFixed(2)} cm²)`);
+    steps.push(msg('flex.step.noneWorks', { ast: hi }));
   } else {
     let a = lo;
     let z = hi;
@@ -544,7 +545,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
       if (at(m).ratio > 1) a = m; else z = m;
     }
     AstCm2 = z;
-    steps.push(`Ast necesaria por bisección sobre el diagrama: ${AstCm2.toFixed(2)} cm²`);
+    steps.push(msg('flex.step.astByBisection', { ast: AstCm2 }));
   }
 
   const bars = layoutFor(i, AstCm2);
@@ -581,12 +582,15 @@ export function solveFlex(i: FlexInput): FlexOutput {
     : bars.length > 0 ? chooseBarsForCount(AstCm2, bars.length) : undefined;
 
   steps.push(
-    `Diagrama de interacción por compatibilidad de deformaciones, ${bars.length} barras`,
-    `Capacidad sobre la recta de excentricidad: φPn = ${u.phiPn.toFixed(1)} kN, φMn = ${u.phiMn.toFixed(2)} kN·m`,
-    `c = ${cm(u.c)}, a = ${cm(b1 * u.c)}, εt = ${(u.epsilonT * 1000).toFixed(2)} ‰ → φ = ${u.phi.toFixed(3)}`,
-    `Relación demanda/capacidad = ${u.ratio.toFixed(3)}`,
-    choice ? `Armadura: ${choice.label} (${choice.areaCm2.toFixed(2)} cm²)`
-      : 'Sin barras: la distribución no ubica ninguna',
+    msg('flex.step.diagram', { bars: bars.length }),
+    msg('flex.step.onRay', { phiPn: u.phiPn, phiMn: u.phiMn }),
+    msg('flex.step.state', {
+      c: u.c * 100, a: b1 * u.c * 100, epsT: u.epsilonT * 1000, phi: u.phi,
+    }),
+    msg('flex.step.ratio', { ratio: u.ratio }),
+    choice
+      ? msg('flex.step.steel', { bars: choice.label, area: choice.areaCm2 })
+      : msg('flex.step.noBars'),
   );
 
   const r = i.ratioAsPrime;

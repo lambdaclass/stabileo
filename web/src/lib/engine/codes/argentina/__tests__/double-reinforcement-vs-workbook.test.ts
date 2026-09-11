@@ -190,8 +190,12 @@ describe('above the singly-reinforced limit, both propose top steel', () => {
     expect(r.AsCm2! / w.AsCm2 - 1).toBeGreaterThan(expectedRise * 0.3);
     expect(r.AsCm2! / w.AsCm2 - 1).toBeLessThan(expectedRise * 3);
 
-    /* The memo has to say it, or a reader cannot reconcile the two numbers. */
-    expect(r.steps.join(' ')).toMatch(/capas|baricentro/);
+    /*
+     * The memo has to say it, or a reader cannot reconcile the two numbers.
+     * Asserted on the KEY rather than the sentence: the engine emits
+     * `{ key, params }` and the wording is the UI's to change.
+     */
+    expect(r.steps.map((s) => s.key)).toContain('flex.step.dLayers');
   });
 
   it('the compression steel it proposes is bars, not just an area', () => {

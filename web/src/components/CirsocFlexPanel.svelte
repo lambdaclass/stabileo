@@ -26,6 +26,7 @@
    * it replaces is read that way, line by line.
    */
   import { t } from '../lib/i18n';
+  import { teAll } from '../lib/i18n/engine-text';
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
   import SectionDrawing from './SectionDrawing.svelte';
   import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
@@ -672,7 +673,13 @@
   <details class="fp-memo">
     <summary>{t('flex.out.memo')}</summary>
     <ol>
-      {#each (out.r?.steps ?? [out.err ?? '']) as step}<li>{step}</li>{/each}
+      <!--
+        The engine returns `{ key, params }`, never a sentence — see
+        `lib/codes/message.ts`. Translation and number formatting happen
+        here, at the boundary, which is why the memo now reads in the
+        reader's own language instead of always in Spanish.
+      -->
+      {#each (out.r ? teAll(out.r.steps) : [out.err ?? '']) as step}<li>{step}</li>{/each}
     </ol>
   </details>
 

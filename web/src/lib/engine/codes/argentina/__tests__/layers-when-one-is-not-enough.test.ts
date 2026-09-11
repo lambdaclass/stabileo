@@ -133,8 +133,11 @@ describe('the depth follows the bars, not the input field', () => {
 
   it('says so in the memo, so two numbers can be reconciled', () => {
     const r = design(500);
-    expect(r.steps.join(' ')).toMatch(/capas/);
-    expect(r.steps.join(' ')).toMatch(/baricentro/);
+    /* The key, not the sentence — the wording belongs to the locale files. */
+    const keys = r.steps.map((s) => s.key);
+    expect(keys).toContain('flex.step.dLayers');
+    const dStep = r.steps.find((s) => s.key === 'flex.step.dLayers')!;
+    expect(dStep.params!.layers).toBe(r.barChoice!.layers);
   });
 
   it('leaves the single-layer answer exactly as it was', () => {

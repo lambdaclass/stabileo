@@ -55,7 +55,7 @@ describe('the answer moves with the steel', () => {
     const r = verify(150, 2);
     expect(r.ok).toBe(false);
     expect(r.ratio).toBeGreaterThan(1);
-    expect(r.steps.join(' ')).toMatch(/No verifica/i);
+    expect(r.steps.map((s) => s.key)).toContain('flex.step.fails');
   });
 
   it('enough steel verifies', () => {
@@ -128,11 +128,11 @@ describe('checking respects the same geometry as sizing', () => {
      */
     const r = verify(5, 0.5);
     expect(r.AsCm2!).toBeLessThan(r.AsMinCm2);
-    expect(r.steps.join(' ')).toMatch(/As,mín|9\.6\.1\.2/);
+    expect(r.steps.map((s) => s.key)).toContain('flex.step.belowMin');
   });
 
   it('says the steel was a given, not a proposal', () => {
     const r = verify(150, 14);
-    expect(r.steps.join(' ')).toMatch(/dato/);
+    expect(r.steps.map((s) => s.key)).toContain('flex.step.givenAs');
   });
 });
