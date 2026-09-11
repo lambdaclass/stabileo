@@ -34,8 +34,16 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      # Pinned, cached and retried rather than `curl | sh`. The installer script
+      # downloads from the GitHub releases CDN with no retry, so a single 503
+      # there fails the whole deploy — which is what happened on b951e694, the
+      # merge of #131: CI passed on the same commit and only the deploy died, so
+      # main sat undeployed until someone noticed. It also pins the version,
+      # which the script did not: it fetched whatever was current.
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.13.1
 
       - name: Build WASM engine
         run: wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
