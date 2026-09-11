@@ -5483,5 +5483,27 @@ const pt: Translations = {
   'design.stage.readiness.stale': "Os resultados não correspondem às combinações definidas: calcule novamente.",
   'design.stage.readiness.ready': "O modelo está calculado e atualizado.",
   'design.stagePurpose.design': "Escolhe as armaduras de vigas e pilares contra a norma em vigor. O passo de pisos, opcional, é executado aqui dentro.",
+
+  // ── AI panel · merged from basic/ai-panel ─────────────────────────────
+  // One block: this file already records duplicate keys arriving from merges
+  // that scattered a namespace through it.
+  'ai.devShort': 'em desenvolvimento',
+  'ai.tabBuild': 'Construir',
+  'ai.tabReview': 'Revisar',
+  'ai.tabExplain': 'Explicar',
+  'ai.tabQuery': 'Consultar',
+  'ai.emptyBuild': 'Descreva uma estrutura',
+  'ai.emptyChange': 'Descreva uma estrutura ou uma mudança',
+  'ai.exBeam': 'viga simplesmente apoiada, 6 m, 10 kN/m',
+  'ai.exPortal': 'pórtico, 8 m de vão, 5 m de altura',
+  'ai.exBridge': 'uma ponte com dois pilares',
+  'ai.exBay': 'adicione um vão à direita',
+  'ai.exStory': 'adicione um pavimento',
+  'ai.exProfile': 'mude todas as vigas para IPE 400',
+  'ai.exFrame3': 'um pórtico novo de 3 pavimentos',
+  'ai.devNote': 'Em desenvolvimento — ainda não responde nem modifica o modelo.',
+  'ai.devPlaceholder': 'Ainda não disponível',
+  'ai.describeChange': 'Descreva uma mudança ou uma estrutura nova…',
+  'ai.describeBuild': 'Descreva o que construir…',
 };
 export default pt;

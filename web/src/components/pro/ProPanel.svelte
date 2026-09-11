@@ -39,6 +39,7 @@
   import { t } from '../../lib/i18n';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
+  import AiDrawer from '../AiDrawer.svelte';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportConfig, ReportData } from '../../lib/engine/pro-report';
   import { buildProReportData } from '../../lib/engine/pro-report-inputs';
@@ -266,6 +267,7 @@
 
   /** What the panel calls each destination. */
   const TAB_TITLE: Record<string, string> = {
+    ai: 'ai.title',
     project: 'ribbon.project', nodes: 'pro.tabNodes', elements: 'pro.tabElements',
     shells: 'pro.tabShells', materials: 'pro.tabMaterials', sections: 'pro.tabSections',
     supports: 'pro.tabSupports', constraints: 'pro.tabConstraints', loads: 'pro.tabLoads',
@@ -376,7 +378,9 @@
           <ProGeneratorsPanel />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
-        {:else if activeTab === 'diagnostics'}
+        {:else if activeTab === 'ai'}
+      <AiDrawer docked />
+    {:else if activeTab === 'diagnostics'}
           <ProDiagnosticsTab />
         {/if}
       </svelte:boundary>
@@ -464,6 +468,15 @@
   /* ─── Content area ─── */
   .pro-content {
     flex: 1;
+    /*
+       Without this the scroller is not a scroller. `flex: 1` sets the grow
+       factor, but a flex item's `min-height` defaults to `auto`, so this box
+       still refuses to be shorter than its contents — it grew 26 px past the
+       bottom of `.pro-panel` and put that much of every tab underneath the
+       phone's bottom bar. It scrolled, so the clipping read as the panel
+       simply ending there.
+    */
+    min-height: 0;
     overflow-y: auto;
     padding: 0;
   }

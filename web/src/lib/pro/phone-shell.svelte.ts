@@ -114,6 +114,29 @@ export function createPhoneShell(deps: PhoneShellDeps) {
   let gridOpen = $state(true);
   $effect(() => { stage; gridOpen = true; });
 
+  /*
+   * A stage-less tab has no errand, so the grid has nothing to be open for.
+   * ──────────────────────────────────────────────────────────────────────
+   * `PRO_TAB_STAGE` maps Project and the assistant to `''` — they act on the application, not
+   * on a step of the work — and neither appears in the stage's groups. Leaving the grid up in
+   * front of them shows a list you cannot get back to what you are reading from.
+   *
+   * The Project CELL already collapsed the grid on its way out, which covered the reader who
+   * arrives through the panel and nobody who arrives from anywhere else. `openAiPanel` in
+   * `App.svelte` sets `proActiveTab` from the header, so on a phone the assistant rendered
+   * UNDERNEATH the whole command grid — 750 px down a 300 px sheet, reachable only by
+   * scrolling past every command in the stage. This is the rule that covers both doors.
+   *
+   * Declared AFTER the effect above so that when both answer the same change this one settles
+   * it: effects run in creation order.
+   *
+   * It lives here and not in `ProPanel` — where `basic/ai-panel` wrote it — because `gridOpen`
+   * and `PRO_TAB_STAGE` both moved into this module with the shell. Left in the panel it would
+   * have compiled against a `proGridOpen` the merge resurrected and nothing renders, so the
+   * assistant would have gone on opening under the grid with the fix apparently in place.
+   */
+  $effect(() => { if (PRO_TAB_STAGE[uiStore.proActiveTab] === '') gridOpen = false; });
+
   let stageMenuOpen = $state(false);
 
   /*

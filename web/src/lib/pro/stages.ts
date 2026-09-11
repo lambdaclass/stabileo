@@ -353,6 +353,16 @@ export const PRO_TAB_STAGE: Record<string, string> = {
     // Project is reached from its own button, not from a tab, so it belongs to
     // no stage — the tab row simply keeps showing the stage you came from.
     project: '',
+    /*
+     * Stabileo AI, for the same reason and it is worth stating.
+     *
+     * The assistant spans modelling, results and design, so it is not a step of
+     * the work — which is precisely what makes Project stageless too. Giving it
+     * a fifth stage would have claimed it IS a step; filing it under ANALYSE
+     * would have claimed it only reads results. It is reached from the header
+     * corner, where the controls that act on the application live.
+     */
+    ai: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
     generators: 'model',
     supports: 'conditions', constraints: 'conditions', loads: 'conditions',
