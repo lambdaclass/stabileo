@@ -1,6 +1,9 @@
 <script lang="ts">
   import { uiStore, resultsStore } from '../../lib/store';
-  import { saveProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, isMode3D } from '../../lib/store/file';
+  import {
+    loadFile, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, isMode3D,
+    saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
+  } from '../../lib/store/file';
   import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
   import ToolbarExamples from './ToolbarExamples.svelte';
@@ -21,6 +24,34 @@
    * "the file I can send my colleague to open" had six equally plausible
    * candidates and no way to choose.
    */
+  /*
+   * ── Saving asks first ───────────────────────────────────────────
+   *
+   * There were two buttons, "Guardar Pestaña" and "Guardar Sesión", and each
+   * put a .ded in the Downloads folder the instant it was pressed. Two
+   * problems in one: the difference between them was never explained
+   * anywhere a reader would meet it, and neither offered a say in where the
+   * file went — the one question people actually have when saving.
+   *
+   * One button now, and a small dialog that names the two scopes and then
+   * saves. Where the browser can offer a folder chooser it does; where it
+   * cannot the dialog says so rather than implying a choice that will not
+   * appear.
+   */
+  let showSave = $state(false);
+  let saveScope = $state<'tab' | 'session'>('tab');
+  const canChooseFolder = canChooseSaveLocation();
+
+  async function doSave() {
+    const { content, filename } = saveScope === 'session' ? sessionPayload() : projectPayload();
+    const outcome = await saveTextTo(content, filename, 'application/json', {
+      chooseLocation: canChooseFolder,
+    });
+    /* A dismissed chooser is a decision not to save; the dialog stays open. */
+    if (outcome === 'cancelled') return;
+    showSave = false;
+  }
+
   let helpKey = $state<string | null>(null);
   function toggleHelp(key: string, e: MouseEvent) {
     e.stopPropagation();
@@ -137,16 +168,56 @@
   {#if flat || showProject}
   {#if flat}<h4 class="proj-heading">{t('project.fileSection')}</h4>{/if}
   <div class="file-grid">
-    <button class="file-btn" onclick={saveProject} title={t('project.saveTabTooltip')}>
-      {t('project.saveTab')}
-    </button>
-    <button class="file-btn" onclick={saveSession} title={t('project.saveSessionTooltip')}>
-      {t('project.saveSession')}
+    <button class="file-btn" onclick={() => (showSave = true)} title={t('project.saveTooltip')} data-testid="save-open">
+      {t('project.save')}
     </button>
     <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openTooltip')}>
       {t('project.open')}
     </button>
+    <!--
+      Beside Abrir, because that is the pair a reader thinks in: a model
+      arrives as a file or as a link, and the two ways in belong together.
+      It sat at the bottom under a heading of its own, three sections below
+      the button it is the twin of.
+    -->
+    <button class="file-btn" onclick={handleCopyShareLink} title={t('project.copyLinkTooltip')}>
+      {t('project.shareLink')}
+    </button>
   </div>
+
+  {#if showSave}
+    <!--
+      Inline rather than a modal over the canvas: this is a small choice
+      about the panel's own button, and the model behind it is what the
+      reader is deciding about.
+    -->
+    <div class="save-dialog" data-testid="save-dialog">
+      <p class="save-title">{t('project.saveWhat')}</p>
+      <label class="save-opt" class:on={saveScope === 'tab'}>
+        <input type="radio" bind:group={saveScope} value="tab" data-testid="save-scope-tab" />
+        <span>
+          <strong>{t('project.scopeTab')}</strong>
+          <em>{t('project.saveTabWhat')}</em>
+        </span>
+      </label>
+      <label class="save-opt" class:on={saveScope === 'session'}>
+        <input type="radio" bind:group={saveScope} value="session" data-testid="save-scope-session" />
+        <span>
+          <strong>{t('project.scopeSession')}</strong>
+          <em>{t('project.saveSessionWhat')}</em>
+        </span>
+      </label>
+      <p class="save-where">
+        {canChooseFolder ? t('project.saveWherePick') : t('project.saveWhereDownloads')}
+      </p>
+      <div class="save-actions">
+        <button class="file-btn" onclick={() => (showSave = false)}>{t('ribbon.close')}</button>
+        <button class="file-btn save-go" onclick={doSave} data-testid="save-confirm">
+          {t('project.save')}
+        </button>
+      </div>
+    </div>
+  {/if}
   <!--
     Examples belong to the document, like everything else here: they answer
     "which model am I working on". They had their own panel and their own
@@ -173,10 +244,10 @@
     right panel this chevron changed direction and did nothing else.
   -->
   {#if flat}
-    <h4 class="proj-heading">{t('project.exportImport')}</h4>
+    <h4 class="proj-heading">{t('project.importExport')}</h4>
   {:else}
     <button class="sub-section-toggle" onclick={() => showProjectExtras = !showProjectExtras}>
-      {showProjectExtras ? '▾' : '▸'} {t('project.exportImport')}
+      {showProjectExtras ? '▾' : '▸'} {t('project.importExport')}
     </button>
   {/if}
   {#if flat || showProjectExtras}
@@ -209,7 +280,7 @@
         spreadsheet of their own and no way to learn what we call a column
         except by importing, reading the error and trying again.
       -->
-      <span class="file-sub-header">
+      <span class="file-sub-header file-sub-first">
         {t('project.importLabel')}
         <button
           class="proj-help-btn"
@@ -351,19 +422,6 @@
           {/if}
         </div>
       {/if}
-      <!--
-        ── One button, because the other one was the browser's job ───
-        "Pegar link" read a link from the clipboard and opened it. The only
-        thing it did that the address bar does not is open it in a NEW tab,
-        leaving the current model alone — a real difference, and not one
-        worth a permanent control next to the one people came for.
-      -->
-      <span class="file-sub-header">{t('project.share')}</span>
-      <div class="file-grid">
-        <button class="file-btn" onclick={handleCopyShareLink} title={t('project.copyLinkTooltip')}>
-          {t('project.copyLink')}
-        </button>
-      </div>
     </div>
   {/if}
   {/if}
@@ -588,11 +646,18 @@
      A label per group with its own "?", so the three kinds of export are
      told apart before the buttons are read rather than after.
      ─────────────────────────────────────────────────────────────── */
+  /*
+     Indented and railed, because "Resultados / Memoria / Vista" read as three
+     more sections rather than as three kinds of export — they sat at the same
+     margin as the heading above them, so nothing said they were inside it.
+  */
   .file-sub-group {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
-    margin-bottom: 0.3rem;
+    margin: 0 0 0.35rem 0.5rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--st-hair);
   }
 
   .file-group-label {
@@ -632,7 +697,7 @@
   }
 
   .proj-help-panel {
-    margin: 0 0 0.4rem;
+    margin: 0 0 0.4rem 1rem;
     padding: 0.4rem 0.5rem;
     border-left: 2px solid var(--st-accent);
     background: var(--st-surface-2);
@@ -650,6 +715,81 @@
 
   .proj-help-panel p {
     margin: 0;
+  }
+
+  /*
+     The first sub-header sits directly under the section title, so its usual
+     breathing room reads as a gap rather than as separation — the group it
+     labels looked detached from the heading it belongs to.
+  */
+  .file-sub-header.file-sub-first {
+    /* Directly under the section title; its usual breathing room read as a
+       gap, which detached the group from the heading it belongs to. */
+    margin-top: 0;
+  }
+
+  /* ── Save dialog ─────────────────────────────────────────────── */
+  .save-dialog {
+    margin: 0.4rem 0 0.2rem;
+    padding: 0.5rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .save-title {
+    margin: 0;
+    font-size: 0.68rem;
+    color: var(--st-text);
+  }
+
+  .save-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 0.3rem;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.66rem;
+    line-height: 1.35;
+  }
+
+  .save-opt.on {
+    border-color: var(--st-accent);
+    background: var(--st-selected-bg);
+  }
+
+  .save-opt strong {
+    display: block;
+    color: var(--st-text);
+    font-weight: 600;
+  }
+
+  .save-opt em {
+    display: block;
+    font-style: normal;
+    color: var(--st-text-3);
+  }
+
+  .save-where {
+    margin: 0;
+    font-size: 0.6rem;
+    color: var(--st-text-3);
+  }
+
+  .save-actions {
+    display: flex;
+    gap: 0.3rem;
+    justify-content: flex-end;
+  }
+
+  .save-go {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
   }
 
   .file-sub-header {

@@ -29,6 +29,9 @@
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
   import SectionDrawing from './SectionDrawing.svelte';
   import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
+  import { uiStore, resultsStore, modelStore } from '../lib/store';
+  import { stationForces2D, stationForces3D } from '../lib/section/panel';
+  import { demandForCase } from '../lib/engine/codes/argentina/flex-demand-from-model';
   import type { SectionShape } from '../lib/engine/codes/argentina/section-shape';
   import {
     DESIGN_CODES, DEFAULT_DESIGN_CODE, findDesignCode,
@@ -338,6 +341,75 @@
 
   const showsAxial = $derived(kase === 'FCR' || kase === 'FCR-CIR' || kase === 'FCO');
 
+  /*
+   * ── Taking the demand off the model ─────────────────────────────
+   *
+   * The geometry here is deliberately NOT the model's — the Case picks the
+   * shape and these fields size it. The LOADS are a different matter: they
+   * are the one thing a reader has already computed next door, and copying
+   * three numbers off a diagram by hand is both tedious and a place to drop
+   * a sign.
+   *
+   * So the picker is borrowed rather than rebuilt: `selectMode = 'stress'`
+   * is the same crosshair Section Analysis arms, and the viewport already
+   * answers it by writing the element and the station into `stressQuery`.
+   * This watches for that answer, reads the resultants there, and fills in
+   * only what the current Case can use.
+   */
+  let picking = $state(false);
+  let pickNote = $state<string | null>(null);
+
+  function startPicking() {
+    if (!resultsStore.results && !resultsStore.results3D) {
+      pickNote = t('flex.pick.needsResults');
+      return;
+    }
+    pickNote = null;
+    picking = true;
+    resultsStore.stressQuery = null;
+    uiStore.selectMode = 'stress';
+  }
+
+  function stopPicking() {
+    picking = false;
+    if (uiStore.selectMode === 'stress') uiStore.selectMode = 'elements';
+  }
+
+  $effect(() => {
+    if (!picking) return;
+    const q = resultsStore.stressQuery;
+    if (!q) return;
+
+    const is3D = uiStore.analysisMode === '3d';
+    const ef = is3D
+      ? resultsStore.getElementForces3D(q.elementId)
+      : resultsStore.getElementForces(q.elementId);
+    if (!ef) { pickNote = t('flex.pick.noForces'); stopPicking(); return; }
+
+    const f = is3D
+      ? stationForces3D(ef as never, q.t)
+      : stationForces2D(ef as never, q.t);
+
+    /*
+     * The sign flip and the per-Case restraint both live in
+     * `demandForCase`, where they can be tested without a viewport. See the
+     * note there for why they are worth isolating.
+     */
+    const d = demandForCase(f, kase);
+    Mu = d.Mu;
+    if (d.Pu !== undefined) Pu = d.Pu;
+    if (d.Muy !== undefined) Muy = d.Muy;
+
+    const el = modelStore.elements.get(q.elementId);
+    pickNote = t('flex.pick.took')
+      .replace('{el}', String(el?.id ?? q.elementId))
+      .replace('{pct}', String(Math.round(q.t * 100)));
+    stopPicking();
+  });
+
+  /* Leaving the panel must not strand the pointer in a mode with no answer. */
+  $effect(() => () => { if (picking) stopPicking(); });
+
 </script>
 
 <div class="flex-panel" data-testid="flex-panel">
@@ -507,7 +579,22 @@
     <p class="fp-levels-note">{t('flex.in.levelsNote')}</p>
   {/if}
 
-  <h4 class="fp-heading">{t('flex.section.demand')}</h4>
+  <h4 class="fp-heading fp-heading-row">
+    {t('flex.section.demand')}
+    <button
+      class="fp-pick-btn"
+      class:on={picking}
+      onclick={() => (picking ? stopPicking() : startPicking())}
+      title={picking ? t('flex.pick.cancel') : t('flex.pick.tooltip')}
+      aria-label={picking ? t('flex.pick.cancel') : t('flex.pick.tooltip')}
+      data-testid="flex-pick-loads"
+    >⌖</button>
+  </h4>
+  {#if picking}
+    <p class="fp-note fp-note-live">{t('flex.pick.armed')}</p>
+  {:else if pickNote}
+    <p class="fp-note">{pickNote}</p>
+  {/if}
   <div class="fp-grid">
     {#if showsAxial}
       <label class="fp-field"><span>Pu [kN]</span><input type="number" bind:value={Pu} step="10" /></label>
@@ -818,6 +905,40 @@
     overflow-y: auto;
     font-size: 0.68rem;
     line-height: 1.5;
+  }
+
+  .fp-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+  }
+
+  .fp-pick-btn {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 0.72rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text-3);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .fp-pick-btn:hover,
+  .fp-pick-btn.on {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+
+  .fp-note-live {
+    color: var(--st-accent);
   }
 
   .fp-note {
