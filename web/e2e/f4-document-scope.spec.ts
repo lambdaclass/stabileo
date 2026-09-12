@@ -23,7 +23,7 @@
  * and there is no control, so the test is the ABSENCE of one plus the sentence that explains it.
  */
 import {
-  test, expect, designAll, loadModel, openDocumentsStage, solveModel, computeDemands,, setAppLanguage } from './fixtures';
+  test, expect, designAll, loadModel, openDocumentsStage, solveModel, computeDemands, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const QA = 'rc-design-qa-8';
