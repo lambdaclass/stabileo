@@ -70,6 +70,16 @@
    * another tab arrives here already off.
    */
   $effect(() => {
+    /*
+     * BASIC only, and this guard is the whole of a bug worth remembering.
+     *
+     * `eduInBasic` is a Basic setting: in Education proper it is false by
+     * definition, because there is nothing to switch on there — the panel is
+     * the application. Without this line the effect fired the moment a
+     * handed-out link opened an exercise and cleared it again, so every
+     * Education spec that opens one failed with `.exercise-view` not found.
+     */
+    if (uiStore.appMode !== 'basico') return;
     if (uiStore.eduInBasic) return;
     if (basicPanel === 'edu') basicPanel = null;
     if (eduStore.hasExercise || eduStore.borrowedModel !== null) leaveExercise();
