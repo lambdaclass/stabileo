@@ -472,6 +472,23 @@
    * on the model.
    */
 
+  /**
+   * Let go of the button when the click came from a pointer.
+   *
+   * A mouse click leaves DOM focus on the button, and the browser then rings
+   * it — so arming Barra with the mouse and pressing S for Apoyo lights Apoyo
+   * in the accent while Barra keeps a white box around it. Two things look
+   * chosen and only one is.
+   *
+   * `detail` is how the two activations are told apart: a real pointer click
+   * carries a click count of one or more, while Enter and Space on a focused
+   * button dispatch a click with `detail === 0`. So keyboard users keep their
+   * focus and their ring, and the mouse leaves nothing behind.
+   */
+  function releaseMouseFocus(e: MouseEvent) {
+    if (e.detail > 0) (e.currentTarget as HTMLElement | null)?.blur();
+  }
+
   function run(cmd: Cmd) {
     if (cmd.enabled && !cmd.enabled()) return;
 
@@ -575,6 +592,23 @@
    * the canvas, and the canvas has its own legends to say what it is drawing.
    */
   function isActive(cmd: Cmd): boolean {
+    /*
+     * ── Lit means "this is what the panel is showing" ───────────────
+     *
+     * For a tool command this used to mean "…and the pointer is still on
+     * this tool", which made the ribbon and the panel disagree. Arm Node,
+     * then switch the pointer on the model — to Select, or to Move — and the
+     * Data panel goes on showing Nodes, correctly, while Nodo goes dark.
+     * Nothing up top then matches what is on the right.
+     *
+     * The pointer is not what this highlight is about, and it has its own
+     * control over the model that reports it. So a tool command lights on
+     * exactly the same terms as every other command that names a tab: the
+     * panel is open and showing that tab.
+     */
+    if (cmd.tool && cmd.dataTab) {
+      return activePanel === 'data' && activeDataTab === cmd.dataTab;
+    }
     if (cmd.tool) return activePanel === 'data' && uiStore.currentTool === cmd.tool;
     /*
      * A command that names a data tab lights when THAT tab is showing.
@@ -669,7 +703,7 @@
     class:labelled
     disabled={!on}
     data-testid="rb-cmd-{c.id}"
-    onclick={() => { run(c); openCluster = null; }}
+    onclick={(e) => { run(c); openCluster = null; releaseMouseFocus(e); }}
     title={cmdTitle(c, on)}
   >
     <span class="rb-icon"><Icon name={typeof c.icon === 'function' ? c.icon() : c.icon} rotate={c.rotate ?? 0} /></span>
@@ -900,6 +934,23 @@
   /* Disabled wins: a command that cannot run must not look inviting. */
   .rb-cmd.go:disabled {
     color: var(--st-text-3);
+  }
+
+  /*
+     A click leaves DOM focus on the button, and the browser's default ring
+     then sits there looking like a second selection: arm Barra with the
+     mouse, press S for Apoyo, and Apoyo lights in the accent while Barra
+     keeps a white box around it. Two things appear chosen and only one is.
+
+     The ring still matters for anyone navigating by keyboard, so it is not
+     removed — it is narrowed to `:focus-visible`, which is the case it was
+     always for.
+  */
+  .rb-cmd:focus { outline: none; }
+
+  .rb-cmd:focus-visible {
+    outline: 2px solid var(--st-focus);
+    outline-offset: 1px;
   }
 
   .rb-cmd {

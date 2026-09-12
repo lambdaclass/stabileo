@@ -120,4 +120,69 @@ test.describe('@smoke a tool shortcut shows its work', () => {
     await page.waitForTimeout(350);
     await expect(page.locator('.data-table .tabs')).toHaveCount(1);
   });
+
+  test('what is lit up top is what the panel is showing, whatever the pointer does',
+    async ({ page }) => {
+      await openApp(page);
+
+      /*
+       * The report: arm Nodo, then switch the pointer on the model. The Data
+       * panel goes on showing Nodes — correctly, that is still what you are
+       * editing — while Nodo went dark, so nothing in the ribbon matched
+       * what was on the right.
+       *
+       * The pointer is not what this highlight is about. It has its own
+       * control over the model, which reports it.
+       */
+      await page.getByTestId('rb-cmd-node').click();
+      await page.waitForTimeout(300);
+      await expect(page.getByTestId('rb-cmd-node')).toHaveClass(/active/);
+
+      await page.locator('.pointer-mode').click();
+      await page.waitForTimeout(300);
+      await expect
+        .poll(() => page.evaluate(() => window.__stabileo.currentTool()))
+        .not.toBe('node');
+
+      await expect(page.locator('.data-table .tabs'), 'the panel still shows the table')
+        .toHaveCount(1);
+      await expect(
+        page.getByTestId('rb-cmd-node'),
+        'so the ribbon still says so',
+      ).toHaveClass(/active/);
+    });
+
+  test('a mouse click leaves no ring behind, and the keyboard keeps one',
+    async ({ page }) => {
+      await openApp(page);
+
+      /*
+       * Arming Barra with the mouse and pressing S for Apoyo lit Apoyo in the
+       * accent AND left a white focus ring around Barra — two things looking
+       * chosen when only one is. The ring is right for keyboard navigation
+       * and wrong as a leftover, so the button lets go of focus when the
+       * click carried a pointer (`detail > 0`) and keeps it otherwise.
+       */
+      await page.getByTestId('rb-cmd-element').click();
+      await page.keyboard.press('s');
+      await page.waitForTimeout(400);
+
+      await expect(page.getByTestId('rb-cmd-support')).toHaveClass(/active/);
+      await expect(page.getByTestId('rb-cmd-element')).not.toHaveClass(/active/);
+
+      const outline = await page.getByTestId('rb-cmd-element')
+        .evaluate((n) => getComputedStyle(n).outlineStyle);
+      expect(outline, 'no ring on a button the mouse merely touched').toBe('none');
+
+      /* And a keyboard user still sees where they are. */
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(250);
+      const focused = await page.evaluate(() => {
+        const a = document.activeElement as HTMLElement | null;
+        return a ? { tag: a.tagName, outline: getComputedStyle(a).outlineStyle } : null;
+      });
+      expect(focused?.tag).toBe('BUTTON');
+      expect(focused?.outline, 'the keyboard keeps its ring').not.toBe('none');
+    });
 });

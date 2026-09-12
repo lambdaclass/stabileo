@@ -3028,8 +3028,15 @@
      rgba(22, 33, 62) fills and #aabbcc text — so the camera stack stayed the
      colour of the old interface while the ribbon and the panels moved on.
   */
-  .camera-controls button,
-  .cam-btn {
+  /*
+     DIRECT children only. `.cam-item` is a button too, and it lives inside
+     this container — so a bare `.camera-controls button` forced every menu
+     row into a 32 × 32 box, which is the column of empty squares sitting
+     behind the labels. The stack's buttons are its own children; the menu's
+     are not.
+  */
+  .camera-controls > button,
+  .camera-controls > .cam-menu-wrap > .cam-btn {
     width: 32px;
     height: 32px;
     border: 1px solid var(--st-hair-strong);
@@ -3044,8 +3051,8 @@
     transition: background 0.15s, color 0.15s, border-color 0.15s;
   }
 
-  .camera-controls button:hover,
-  .cam-btn:hover {
+  .camera-controls > button:hover,
+  .camera-controls > .cam-menu-wrap > .cam-btn:hover {
     background: var(--st-surface-3);
     color: var(--st-text);
   }
@@ -3107,7 +3114,16 @@
     align-items: center;
     gap: 0.5rem;
     width: 100%;
-    padding: 0.35rem 0.45rem;
+    /*
+       One height for every row. The glyphs are a mixed bag — an SVG icon, box
+       drawing characters, a letter and an emoji — and each brings its own
+       line box, so rows ranged from 23 to 30 px and the list read as ragged.
+       Fixing the row and centring inside it makes the glyph column line up
+       whatever is in it.
+    */
+    min-height: 26px;
+    line-height: 1;
+    padding: 0 0.45rem;
     border: none;
     border-radius: 3px;
     background: none;
@@ -3123,9 +3139,14 @@
   .cam-item.on { color: var(--st-accent); }
 
   .cam-glyph {
-    width: 15px;
-    text-align: center;
+    width: 16px;
     flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Emoji render larger than the box-drawing glyphs at the same size. */
+    font-size: 0.78rem;
+    line-height: 1;
   }
 
   .cam-sep {

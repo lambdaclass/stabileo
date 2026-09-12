@@ -255,3 +255,48 @@ test.describe('the pointer button tip', () => {
     await expect(tip, 'the button keeps focus after a click — the tip must not').toBeHidden();
   });
 });
+
+test.describe('@smoke the kind you asked for is the kind you get', () => {
+  /*
+   * The report: "en el modo seleccionar barras deja seleccionar nodos".
+   *
+   * The elements branch tried a node FIRST and took it if one was near, so
+   * asking for bars and clicking anywhere close to a joint handed back a
+   * node. At a joint the two are always within a few pixels of each other,
+   * which is most of the places anybody clicks on a frame — so the mode was
+   * effectively ignored wherever it mattered.
+   */
+  test('bar mode picks a bar even when the click lands on a node', async ({ page }) => {
+    await openBasic(page);
+    await loadModel(page, 'two-story-frame');
+
+    await page.getByTestId('rb-cmd-select').click();
+    await page.getByTestId('select-mode-elements').click();
+    await page.waitForTimeout(300);
+
+    /* The worst case on purpose: exactly on a node. */
+    const node = await page.evaluate(() => window.__stabileo.nodeScreenPos(2));
+    await page.mouse.click(node!.x, node!.y);
+    await page.waitForTimeout(400);
+
+    const picked = await page.evaluate(() => window.__stabileo.selectionByKind());
+    expect(picked.nodes, 'no node in bar mode').toEqual([]);
+    expect(picked.elements.length, 'a bar was picked instead').toBeGreaterThan(0);
+  });
+
+  test('node mode still picks nodes', async ({ page }) => {
+    await openBasic(page);
+    await loadModel(page, 'two-story-frame');
+
+    await page.getByTestId('rb-cmd-select').click();
+    await page.getByTestId('select-mode-nodes').click();
+    await page.waitForTimeout(300);
+
+    const node = await page.evaluate(() => window.__stabileo.nodeScreenPos(2));
+    await page.mouse.click(node!.x, node!.y);
+    await page.waitForTimeout(400);
+
+    const picked = await page.evaluate(() => window.__stabileo.selectionByKind());
+    expect(picked.nodes.length, 'the other half of the rule').toBeGreaterThan(0);
+  });
+});
