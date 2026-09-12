@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
+  import DataTable from '../DataTable.svelte';
   import { t, tp } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import { findCoincidentNode, beamThrough } from '../../lib/engine/mesh-weld';
@@ -73,13 +74,7 @@
 
 
 
-  function deletePlate(id: number) {
-    modelStore.removePlate(id);
-  }
 
-  function deleteQuad(id: number) {
-    modelStore.removeQuad(id);
-  }
 
   /**
    * Quick mesh generator: given 4 corner node IDs defining a rectangular region
@@ -290,7 +285,6 @@
   }
 
   let showMeshGen = $state(false);
-  let showTable = $state(true);
 
 
   // ─── Viewport node-pick → creator fields ───
@@ -606,83 +600,19 @@
       {/if}
     </div>
 
-    <!-- Table of existing shells -->
-    <div class="section">
-      <button class="section-toggle" onclick={() => showTable = !showTable}>
-        <span class="toggle-arrow">{showTable ? '\u25BE' : '\u25B8'}</span>
-        {t('pro.elemTable').replace('{n}', String(plateCount + quadCount))}
-      </button>
-      {#if showTable}
-        <div class="section-body">
-          {#if plates.length > 0}
-            <div class="table-label">{t('pro.triPlatesDKT')}</div>
-            <div class="pro-shells-table-wrap">
-              <table class="pro-shells-table">
-                <thead>
-                  <tr>
-                    <th class="col-id">ID</th>
-                    <th class="col-nodes">Nodos</th>
-                    <th class="col-family">Family</th>
-                    <th class="col-mat">Material</th>
-                    <th class="col-thick">Esp. (m)</th>
-                    <th class="col-actions"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each plates as plate}
-                    <tr class:selected={uiStore.selectedShells.has('p' + plate.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('p' + plate.id, false); }}>
-                      <td class="col-id">{plate.id}</td>
-                      <td class="col-nodes">{plate.nodes.join(', ')}</td>
-                      <td class="col-family">{plate.shellFamily ?? 'DKT'}</td>
-                      <td class="col-mat"><select class="inline-select" value={plate.materialId} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updatePlate(plate.id, { materialId: parseInt(e.currentTarget.value) })}>{#each [...modelStore.materials.values()] as m}<option value={m.id}>{m.name}</option>{/each}</select></td>
-                      <td class="col-thick"><input class="inline-input" type="number" step="0.001" value={plate.thickness} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updatePlate(plate.id, { thickness: parseFloat(e.currentTarget.value) || plate.thickness })} /></td>
-                      <td class="col-actions">
-                        <button class="pro-delete-btn" onclick={() => deletePlate(plate.id)}>&times;</button>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
+    <!--
+      ── Tools above, the shared table below ────────────────────────────
+      The panel used to draw its own two tables — one of triangles, one of
+      quads — which is a third place shells are listed and a third set of
+      columns to keep in step with the other two. This is the table Basic
+      uses, pinned to shells because the ribbon has already chosen which
+      entity you are working on.
 
-          {#if quads.length > 0}
-            <div class="table-label">{t('pro.quadsMITC4')}</div>
-            <div class="pro-shells-table-wrap">
-              <table class="pro-shells-table">
-                <thead>
-                  <tr>
-                    <th class="col-id">ID</th>
-                    <th class="col-nodes">Nodos</th>
-                    <th class="col-family">Family</th>
-                    <th class="col-mat">Material</th>
-                    <th class="col-thick">Esp. (m)</th>
-                    <th class="col-actions"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each quads as quad}
-                    <tr class:selected={uiStore.selectedShells.has('q' + quad.id)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell('q' + quad.id, false); }}>
-                      <td class="col-id">{quad.id}</td>
-                      <td class="col-nodes">{quad.nodes.join(', ')}</td>
-                      <td class="col-family">{quad.shellFamily ?? 'MITC4'}</td>
-                      <td class="col-mat"><select class="inline-select" value={quad.materialId} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateQuad(quad.id, { materialId: parseInt(e.currentTarget.value) })}>{#each [...modelStore.materials.values()] as m}<option value={m.id}>{m.name}</option>{/each}</select></td>
-                      <td class="col-thick"><input class="inline-input" type="number" step="0.001" value={quad.thickness} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateQuad(quad.id, { thickness: parseFloat(e.currentTarget.value) || quad.thickness })} /></td>
-                      <td class="col-actions">
-                        <button class="pro-delete-btn" onclick={() => deleteQuad(quad.id)}>&times;</button>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-
-          {#if plates.length === 0 && quads.length === 0}
-            <div class="pro-empty">{t('pro.emptyShells')}</div>
-          {/if}
-        </div>
-      {/if}
+      The shape is the same in every modelling panel: what you can DO to this
+      kind of thing at the top, and what the model currently holds underneath.
+    -->
+    <div class="section shell-table">
+      <DataTable pinned="plates" />
     </div>
   </div>
 </div>

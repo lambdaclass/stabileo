@@ -1,6 +1,8 @@
 <script lang="ts">
   import { uiStore, modelStore } from '../lib/store';
   import { EDIT_TOOLS } from '../lib/store/ui.svelte';
+  import PlatesTable from './tables/PlatesTable.svelte';
+  import ConstraintsTable from './tables/ConstraintsTable.svelte';
   import { t } from '../lib/i18n';
   import NodesTable from './tables/NodesTable.svelte';
   import ElementsTable from './tables/ElementsTable.svelte';
@@ -10,7 +12,8 @@
   import SectionsTable from './tables/SectionsTable.svelte';
   import Icon from './ribbon/Icon.svelte';
 
-  type TabId = 'nodes' | 'elements' | 'supports' | 'loads' | 'materials' | 'sections';
+  /* `plates` and `constraints` exist only in PRO; see the TABS list. */
+  type TabId = 'nodes' | 'elements' | 'supports' | 'loads' | 'materials' | 'sections' | 'plates' | 'constraints';
   interface Props {
     /**
      * The open tab, BOUND — the ribbon and this table are two views of one
@@ -22,8 +25,21 @@
      * disagreeing about what is selected is worse than one control.
      */
     activeTab?: string;
+    /**
+     * Show only this entity, with no tab strip.
+     *
+     * PRO puts this table underneath the tools for ONE entity, because its
+     * ribbon has already chosen which one you are working on. A second row of
+     * tabs there would be a second answer to a settled question, and the two
+     * could disagree.
+     */
+    pinned?: TabId;
   }
-  let { activeTab = $bindable('nodes') }: Props = $props();
+  let { activeTab = $bindable('nodes'), pinned = undefined }: Props = $props();
+
+  /* Pinned means the caller chose; the strip is what would let the reader
+     choose again, so it goes with it. */
+  const shown = $derived(pinned ?? activeTab);
 
   /**
    * The tool each tab corresponds to.
@@ -70,19 +86,42 @@
    * phone shows the glyph the reader already learned on a desktop rather than a
    * second drawing of a node. See `ribbon/Icon.svelte`.
    */
-  const TABS: { id: TabId; labelKey: string; icon: string; count: () => number }[] = [
+  const TABS: { id: TabId; labelKey: string; icon: string; count: () => number; pro?: boolean }[] = [
     { id: 'nodes', labelKey: 'data.nodes', icon: 'node', count: () => modelStore.nodes.size },
     { id: 'elements', labelKey: 'data.elements', icon: 'element', count: () => modelStore.elements.size },
     { id: 'supports', labelKey: 'data.supports', icon: 'support', count: () => modelStore.supports.size },
     { id: 'loads', labelKey: 'data.loads', icon: 'load', count: () => modelStore.loads.length },
     { id: 'materials', labelKey: 'data.materials', icon: 'material', count: () => modelStore.materials.size },
     { id: 'sections', labelKey: 'data.sections', icon: 'section', count: () => modelStore.sections.size },
+    /*
+     * Plates and constraints exist only in PRO, and are filtered out below
+     * rather than declared twice. A mode that cannot contain a plate has no
+     * business offering a tab for one; a mode that can must not be missing it.
+     */
+    { id: 'plates', labelKey: 'pro.tabShells', icon: 'shell', count: () => modelStore.plates.size + modelStore.quads.size, pro: true },
+    { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', count: () => (modelStore.model.constraints ?? []).length, pro: true },
   ];
+
+  /**
+   * The tabs this mode actually has, and — when PINNED — only the one asked
+   * for.
+   *
+   * PRO shows this table underneath the tools for one entity, because its
+   * ribbon has already chosen which entity you are working on: a second row
+   * of tabs there would be a second answer to a question already settled, and
+   * the two could disagree.
+   */
+  const VISIBLE = $derived(
+    pinned
+      ? TABS.filter((tb) => tb.id === pinned)
+      : TABS.filter((tb) => !tb.pro || uiStore.appMode === 'pro'),
+  );
 </script>
 
 <div class="data-table" onkeydown={handleKeydown} role="region">
+  {#if !pinned}
   <div class="tabs">
-    {#each TABS as tab (tab.id)}
+    {#each VISIBLE as tab (tab.id)}
       <button
         class:active={activeTab === tab.id}
         onclick={() => pickTab(tab.id)}
@@ -113,20 +152,25 @@
       time.
     -->
   </div>
+  {/if}
 
   <div class="table-wrapper">
-    {#if activeTab === 'nodes'}
+    {#if shown === 'nodes'}
       <NodesTable />
-    {:else if activeTab === 'elements'}
+    {:else if shown === 'elements'}
       <ElementsTable />
-    {:else if activeTab === 'supports'}
+    {:else if shown === 'supports'}
       <SupportsTable />
-    {:else if activeTab === 'loads'}
+    {:else if shown === 'loads'}
       <LoadsTable />
-    {:else if activeTab === 'materials'}
+    {:else if shown === 'materials'}
       <MaterialsTable />
-    {:else if activeTab === 'sections'}
+    {:else if shown === 'sections'}
       <SectionsTable />
+    {:else if shown === 'plates'}
+      <PlatesTable />
+    {:else if shown === 'constraints'}
+      <ConstraintsTable />
     {/if}
   </div>
 </div>
