@@ -95,6 +95,7 @@ export interface ResultsSyncContext {
   nodeLabelsGroup: THREE.Group | null;
   elementLabelsGroup: THREE.Group | null;
   lengthLabelsGroup: THREE.Group | null;
+  shellLabelsGroup: THREE.Group | null;
   verificationLabelsGroup: THREE.Group | null;
 
   // Mutable state flags
@@ -1031,6 +1032,11 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     disposeObject(ctx.elementLabelsGroup);
     ctx.elementLabelsGroup = null;
   }
+  if (ctx.shellLabelsGroup) {
+    ctx.scene.remove(ctx.shellLabelsGroup);
+    disposeObject(ctx.shellLabelsGroup);
+    ctx.shellLabelsGroup = null;
+  }
   if (ctx.lengthLabelsGroup) {
     ctx.scene.remove(ctx.lengthLabelsGroup);
     disposeObject(ctx.lengthLabelsGroup);
@@ -1047,7 +1053,17 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
   }
   const size = box.getSize(new THREE.Vector3());
   const modelSize = Math.max(size.x, size.y, size.z, 1);
+  /*
+     ── Labels are sized on SCREEN, offsets in the world ──────────────
+     `spriteScale` still positions them: an id sits a little up and to the
+     right of its node, and that nudge has to be in model units or it would
+     drift as you zoom. The GLYPH is a different question — see
+     `createTextSpriteCached`: sized with the model it reached a metre and a
+     half of numeral on a building, which is the "the ids are gigantic in PRO"
+     report. `LABEL_SCREEN` is a fraction of the viewport height.
+  */
   const spriteScale = modelSize * 0.025;
+  const LABEL_SCREEN = 0.038;
 
   // Node labels
   if (uiStore.showNodeLabels3D && modelStore.nodes.size > 0) {
@@ -1056,13 +1072,13 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
 
     for (const [id, node] of modelStore.nodes) {
       const pos = projectNodeToScene(node, project2D);
-      const sprite = createTextSpriteCached(String(id), '#ffffff', 28);
+      const sprite = createTextSpriteCached(String(id), '#ffffff', 28, true);
       sprite.position.set(
         pos.x + spriteScale * 0.3,
         pos.y + spriteScale * 0.5,
         pos.z,
       );
-      sprite.scale.set(spriteScale, spriteScale, 1);
+      sprite.scale.set(LABEL_SCREEN, LABEL_SCREEN, 1);
       ctx.nodeLabelsGroup.add(sprite);
     }
     ctx.scene.add(ctx.nodeLabelsGroup);
@@ -1085,9 +1101,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSpriteCached(String(id), '#88ccff', 24);
+      const sprite = createTextSpriteCached(String(id), '#88ccff', 24, true);
       sprite.position.set(mx, my + spriteScale * 0.3, mz);
-      sprite.scale.set(spriteScale * 0.8, spriteScale * 0.8, 1);
+      sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       ctx.elementLabelsGroup.add(sprite);
     }
     ctx.scene.add(ctx.elementLabelsGroup);
@@ -1114,11 +1130,43 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2 - spriteScale * 0.3;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSpriteCached(`${len.toFixed(2)} m`, '#88cc88', 22);
+      const sprite = createTextSpriteCached(`${len.toFixed(2)} m`, '#88cc88', 22, true);
       sprite.position.set(mx, my, mz);
-      sprite.scale.set(spriteScale * 0.7, spriteScale * 0.7, 1);
+      sprite.scale.set(LABEL_SCREEN * 0.75, LABEL_SCREEN * 0.75, 1);
       ctx.lengthLabelsGroup.add(sprite);
     }
     ctx.scene.add(ctx.lengthLabelsGroup);
+  }
+
+  /*
+   * Plate and quad ids, at the face centroid.
+   *
+   * Shells were the one kind of element with no label, which on a raft of
+   * sixty quads means a results row naming element 43 and no way to find it.
+   * The centroid because a shell has no midpoint the way a member does, and
+   * it is the one point inside every convex face.
+   */
+  if (uiStore.showShellLabels3D && (modelStore.plates.size > 0 || modelStore.quads.size > 0)) {
+    ctx.shellLabelsGroup = new THREE.Group();
+    ctx.shellLabelsGroup.name = 'shellLabels';
+
+    const centroidLabel = (ids: readonly number[], text: string) => {
+      let x = 0, y = 0, z = 0, n = 0;
+      for (const nid of ids) {
+        const node = modelStore.nodes.get(nid);
+        if (!node) return;
+        const p = projectNodeToScene(node, project2D);
+        x += p.x; y += p.y; z += p.z; n++;
+      }
+      if (n === 0) return;
+      const sprite = createTextSpriteCached(text, '#ffd479', 24, true);
+      sprite.position.set(x / n, y / n, z / n);
+      sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
+      ctx.shellLabelsGroup!.add(sprite);
+    };
+
+    for (const [id, p] of modelStore.plates) centroidLabel(p.nodes, String(id));
+    for (const [id, q] of modelStore.quads) centroidLabel(q.nodes, String(id));
+    ctx.scene.add(ctx.shellLabelsGroup);
   }
 }

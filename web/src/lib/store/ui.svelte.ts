@@ -505,6 +505,7 @@ function createUIStore() {
   let gridExtent3D_basic = $state<number>(50);
   let showNodeLabels3D_basic = $state<boolean>(true);
   let showElementLabels3D_basic = $state<boolean>(false);
+  let showShellLabels3D_basic = $state<boolean>(false);
   let showLengths3D_basic = $state<boolean>(false);
   let showLoads3D_basic = $state<boolean>(true);
   let visibleLoadCases3D_basic = $state<number[] | null>(null);
@@ -524,6 +525,9 @@ function createUIStore() {
   let gridExtent3D_pro = $state<number>(1000);
   let showNodeLabels3D_pro = $state<boolean>(true);
   let showElementLabels3D_pro = $state<boolean>(false);
+  /* Plate ids. PRO is where shells are modelled, so this is where it matters —
+     Basic keeps the state so the getter has one shape in both modes. */
+  let showShellLabels3D_pro = $state<boolean>(false);
   let showLengths3D_pro = $state<boolean>(false);
   let showLoads3D_pro = $state<boolean>(true);
   let visibleLoadCases3D_pro = $state<number[] | null>(null);
@@ -1091,6 +1095,8 @@ function createUIStore() {
     set showNodeLabels3D(v: boolean) { if (analysisMode === 'pro') showNodeLabels3D_pro = v; else showNodeLabels3D_basic = v; },
     get showElementLabels3D() { return analysisMode === 'pro' ? showElementLabels3D_pro : showElementLabels3D_basic; },
     set showElementLabels3D(v: boolean) { if (analysisMode === 'pro') showElementLabels3D_pro = v; else showElementLabels3D_basic = v; },
+    get showShellLabels3D() { return analysisMode === 'pro' ? showShellLabels3D_pro : showShellLabels3D_basic; },
+    set showShellLabels3D(v: boolean) { if (analysisMode === 'pro') showShellLabels3D_pro = v; else showShellLabels3D_basic = v; },
     get showLengths3D() { return analysisMode === 'pro' ? showLengths3D_pro : showLengths3D_basic; },
     set showLengths3D(v: boolean) { if (analysisMode === 'pro') showLengths3D_pro = v; else showLengths3D_basic = v; },
     get showLoads3D() { return analysisMode === 'pro' ? showLoads3D_pro : showLoads3D_basic; },

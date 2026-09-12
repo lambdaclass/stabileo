@@ -343,7 +343,21 @@
     scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent, jointsParent);
     syncResultsProjection();
 
-    // Camera — isometric-ish view looking at origin
+    /*
+     * ── The far plane has to reach the grid ───────────────────────────
+     *
+     * It was a literal 1000, chosen when the grid was 50 m across. PRO's grid
+     * now opens at a kilometre and goes to ten, and a 1000 m grid reaches
+     * 500 m in each direction: zooming out pushes its far corners through the
+     * far plane and they are CLIPPED — the grid vanishing in chunks, which is
+     * exactly how it was reported. At 10 km the whole floor sits beyond the
+     * plane and nothing draws at all.
+     *
+     * `syncCameraRange` sizes it from whatever has to be visible. The
+     * logarithmic depth buffer is what makes that affordable: spanning 0.1 m
+     * to 40 km on a linear 24-bit depth buffer puts almost all of the
+     * precision in the first few metres and z-fights everything past them.
+     */
     perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
     setCameraUp(perspCamera);
     perspCamera.position.set(12, 8, 12);
@@ -864,7 +878,7 @@
       elementsBatched,
       shellGroups: sceneCtx.shellGroups,
       deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null, despieceGroup: null,
-      reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,
+      reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, shellLabelsGroup: null, verificationLabelsGroup: null,
       lastDeformedAnimScale: null, lastDespieceSep: null,
       colorMapApplied: false,
     };
@@ -2693,6 +2707,30 @@
   function updateGrid() {
     if (!scene) return;
     gridGroup = _updateGrid(scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D, uiStore.workingPlane, uiStore.nodeCreateZ);
+    syncCameraRange();
+  }
+
+  /**
+   * Keep the view frustum big enough for everything that must be drawn.
+   *
+   * The far plane was a literal 1000 from when the grid was 50 m across; see
+   * the note where the cameras are built. A grid of extent E reaches E/2 from
+   * the centre, and the camera can be that far out again, so the diagonal a
+   * frustum has to contain is comfortably a few times E. Generous rather than
+   * tight: the cost of too much range is depth precision, and the logarithmic
+   * buffer is what pays for it; the cost of too little is a floor that
+   * disappears in pieces while you orbit.
+   *
+   * The near plane stays at 0.1 m so zooming into a connection still works.
+   */
+  function syncCameraRange() {
+    const reach = Math.max(uiStore.gridExtent3D, 50);
+    const far = Math.max(2000, reach * 4);
+    for (const cam of [perspCamera, orthoCamera]) {
+      if (!cam || cam.far === far) continue;
+      cam.far = far;
+      cam.updateProjectionMatrix();
+    }
   }
 
   function createFatAxes(): THREE.Group {

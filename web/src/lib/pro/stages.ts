@@ -114,44 +114,31 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
       home: 'nodes',
       groups: [
         /*
-         * ── Drawing, which PRO could not do ──────────────────────────────
+         * ── One Draw group: the table AND the tool are the same command ──
          *
-         * Not a new capability: `Viewport3D` places a node at the pointer and
-         * builds a member from two clicks, and Basic's ribbon has armed those
-         * tools all along. PRO offered `select` and `pan`, so the only way to
-         * add a member to an imported frame was to find two node ids in a
-         * table and type them.
+         * It was briefly two groups — Draw with the pointer tools, Tables with
+         * the grids — and that split the one thing a reader does into two
+         * places. The professional flow is not "choose a way to work": it is
+         * type the nodes with their coordinates in the panel, then click those
+         * nodes to lay members, supports and plates on them. Both halves of
+         * that sentence are Nodes.
          *
-         * Two commands, because two is what the 3-D viewport implements.
-         * There is no shell tool here and there will not be one until the
-         * viewport can draw a shell — a button that arms a tool nothing
-         * listens for is worse than the table it replaces.
+         * So each command opens its table and arms its tool. The pointer box
+         * over the model shows which tool is live and takes you back to
+         * Select, which is the one place a mode is worth announcing.
          *
-         * Its own group, before the tables: placing geometry and tabulating
-         * it are different acts, and the ribbon's groups are how this
-         * application says so.
+         * Plates arm the SHELL PICK rather than a viewport tool: a plate is
+         * three or four nodes, so it is picked by node, and the panel counts
+         * them as they go in. Repeat has no tool because it operates on a
+         * selection that already exists.
          */
         {
           id: 'draw',
           labelKey: 'ribbon.groupDraw',
           cmds: [
-            { id: 'draw-node', labelKey: 'float.node', icon: 'node', tool: 'node', descKey: 'proRibbon.drawNodeDesc' },
-            { id: 'draw-member', labelKey: 'float.element', icon: 'element', tool: 'element', descKey: 'proRibbon.drawMemberDesc' },
-          ],
-        },
-        {
-          id: 'geometry',
-          labelKey: 'proRibbon.groupTables',
-          cmds: [
-            { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
-            { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
+            { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes', tool: 'node' },
+            { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements', tool: 'element' },
             { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
-            /*
-             * Repeating is drawing, in bulk. It belongs beside the tools that
-             * place one thing at a time rather than with the generators,
-             * which replace the whole model from a parameter form — this one
-             * takes what you drew and does it again.
-             */
             { id: 'repeat', labelKey: 'repeat.title', icon: 'element', tab: 'repeat' },
           ],
         },
@@ -181,9 +168,13 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           id: 'conditions',
           labelKey: 'ribbon.groupConditions',
           cmds: [
-            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
+            /* Supports and loads are placed ON nodes and members, so they arm
+               their tools the way the drawing commands do. Constraints tie
+               degrees of freedom between nodes already chosen, which is a
+               form and not a gesture. */
+            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports', tool: 'support' },
             { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
-            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
+            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads', tool: 'load' },
           ],
         },
         /*

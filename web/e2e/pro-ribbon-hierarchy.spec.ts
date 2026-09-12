@@ -44,8 +44,11 @@ test.describe('@smoke Model — Generators is its own sub-section', () => {
     const order = await groupOrder(page);
     expect(order).toContain('properties');
     expect(order.indexOf('generators')).toBeGreaterThan(order.indexOf('properties'));
-    // And it is NOT back in Draw, which is where it started.
-    expect(await groupOf(page, 'nodes')).toBe('geometry');
+    // And it is NOT back in Draw, which is where it started. The geometry
+    // group is called `draw` now: the tables and the pointer tools were
+    // briefly two groups and are one again, because typing a node's
+    // coordinates and clicking a member onto it are one job.
+    expect(await groupOf(page, 'nodes')).toBe('draw');
   });
 
   test('opens the generators panel, and exists exactly once', async ({ pro: page }) => {

@@ -242,6 +242,24 @@
           <span>{t('config.elementIds')}</span>
           </HelpTip>
         </label>
+        <!--
+          Plate ids, under member ids.
+          ───────────────────────────
+          Shells were the one kind of element you could not label, and PRO is
+          where they are modelled: a raft of sixty quads and no way to tell
+          which one the results table is talking about. 3-D only, because a
+          2D model has no shells to number.
+        -->
+        {#if is3Dm}
+          <label class="checkbox-item">
+            <HelpTip text={t('config.tip.shellIds')}>
+            <input type="checkbox" checked={uiStore.showShellLabels3D}
+              data-testid="cfg-shell-ids"
+              onchange={(e) => { uiStore.showShellLabels3D = e.currentTarget.checked; }} />
+            <span>{t('config.shellIds')}</span>
+            </HelpTip>
+          </label>
+        {/if}
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.lengths')}>
           <input type="checkbox" checked={is3Dm ? uiStore.showLengths3D : uiStore.showLengths}

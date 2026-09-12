@@ -42,7 +42,7 @@ function context(batched: ElementsBatched): ResultsSyncContext {
     shellGroups: new Map(),
     deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null, despieceGroup: null,
     reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null,
-    elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,
+    elementLabelsGroup: null, lengthLabelsGroup: null, shellLabelsGroup: null, verificationLabelsGroup: null,
     lastDeformedAnimScale: null, lastDespieceSep: null,
     colorMapApplied: false,
   };

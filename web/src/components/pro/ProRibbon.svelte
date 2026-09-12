@@ -174,10 +174,17 @@
       uiStore.proActiveTab = c.tab;
       uiStore.proPanelVisible = true;
     }
-    /* A drawing command arms the pointer. It deliberately does NOT open a
-       panel: the reader is about to look at the model, and covering it with
-       a table of what they are about to draw is the wrong half of the screen. */
+    /*
+     * A drawing command arms the pointer AND shows its table.
+     *
+     * Those are not two ways of working to choose between — they are the two
+     * halves of one: type the nodes with their coordinates in the panel, then
+     * click those nodes to lay members, supports and plates on them. The
+     * pointer box over the model says which tool is live and takes you back
+     * to Select, which is the one place a mode is worth announcing.
+     */
     if (c.tool) uiStore.currentTool = c.tool as never;
+    else if (c.tab) uiStore.currentTool = 'select';
     c.action?.();
     openMenu = null;
   }

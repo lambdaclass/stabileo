@@ -19,7 +19,7 @@ test.describe('@smoke PRO — drawing geometry with the pointer', () => {
     const before = await page.evaluate(() => window.__stabileo.nodeCount());
 
     await page.getByTestId('pr-stage-model').click();
-    const draw = page.getByTestId('pr-cmd-draw-node');
+    const draw = page.getByTestId('pr-cmd-nodes');
     await expect(draw, 'PRO has a Node command at all').toBeVisible();
     await draw.click();
     await expect(draw, 'and it lights while the tool is armed').toHaveClass(/active/);
@@ -48,7 +48,7 @@ test.describe('@smoke PRO — drawing geometry with the pointer', () => {
 
     const before = await page.evaluate(() => window.__stabileo.elementIds().length);
     await page.getByTestId('pr-stage-model').click();
-    const draw = page.getByTestId('pr-cmd-draw-member');
+    const draw = page.getByTestId('pr-cmd-elements');
     await draw.click();
     await expect(draw).toHaveClass(/active/);
 
@@ -65,16 +65,31 @@ test.describe('@smoke PRO — drawing geometry with the pointer', () => {
       .toBe(before + 1);
   });
 
-  test('drawing does not cover the model with a table', async ({ pro: page }) => {
-    /* The panel is where you read a model and the viewport is where you draw
-       one. A command that arms the pointer and then opens a table has put the
-       reader's attention on the wrong half of the screen. */
+  test('one command gives you the table AND the tool', async ({ pro: page }) => {
+    /*
+     * These were briefly two groups — Draw with the pointer tools, Tables with
+     * the grids — and that split one job into two places. The professional
+     * flow is not a choice between them: type the nodes with their
+     * coordinates in the panel, then click those nodes to lay members on
+     * them. Both halves of that sentence are "Nodes".
+     */
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-nodes').click();
-    await expect(page.getByTestId('pro-panel-title')).toBeVisible();
-    const before = await page.getByTestId('pro-panel-title').textContent();
 
-    await page.getByTestId('pr-cmd-draw-node').click();
-    expect(await page.getByTestId('pro-panel-title').textContent()).toBe(before);
+    await expect(page.getByTestId('pro-panel-title'), 'the table is showing').toBeVisible();
+    expect(await page.evaluate(() => window.__stabileo.currentTool()),
+      'and the tool is armed').toBe('node');
+  });
+
+  test('a command with no tool of its own returns the pointer to Select', async ({ pro: page }) => {
+    /* Otherwise a reader who went to Materials to change a section would
+       still be holding the node tool, and the next click on the model would
+       leave a node behind. */
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-nodes').click();
+    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('node');
+
+    await page.getByTestId('pr-cmd-materials').click();
+    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('select');
   });
 });
