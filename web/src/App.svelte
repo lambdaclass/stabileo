@@ -1085,6 +1085,31 @@
     }
   }
 
+  /*
+   * Publish PRO's panel width, so a toast does not land on the panel.
+   *
+   * Basic solved this once: toasts are anchored bottom-right of the VIEWPORT,
+   * which stopped being the corner of the canvas the moment a docked panel
+   * appeared, so a success message landed on top of the table it was
+   * announcing — semi-transparent, with the numbers showing through. Basic's
+   * panel publishes `--st-right-panel-w` and the toast stack reads it;
+   * PRO's never did, so the same defect was sitting in the other mode.
+   *
+   * Zero when the panel is hidden: closed means the canvas has the corner
+   * back, and a toast that dodges a panel that is not there is just as wrong.
+   */
+  $effect(() => {
+    const root = document.documentElement;
+    if (uiStore.appMode !== 'pro') {
+      /* REMOVED, not zeroed: Basic's panel publishes the same property, and
+         writing 0 here would overwrite the width it had just announced. */
+      root.style.removeProperty('--st-right-panel-w');
+      return;
+    }
+    const w = uiStore.proPanelVisible ? uiStore.proPanelWidth : 0;
+    root.style.setProperty('--st-right-panel-w', `${w}px`);
+  });
+
   function startProResize(e: MouseEvent) {
     e.preventDefault();
     const startX = e.clientX;

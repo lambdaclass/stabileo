@@ -152,6 +152,31 @@ test.describe('@smoke PRO shell — closing the panel', () => {
   });
 });
 
+test.describe('@smoke PRO shell — a toast does not land on the panel', () => {
+  /*
+   * Toasts are anchored bottom-right of the VIEWPORT, which stopped being the
+   * corner of the canvas the moment a docked panel appeared. Basic solved
+   * this once — its panel publishes `--st-right-panel-w` and the toast stack
+   * reads it — and PRO's panel never published anything, so a success message
+   * landed semi-transparent over the results table it was announcing, with
+   * the numbers showing through it.
+   */
+  test('the toast stack clears the open panel, and takes the room back when it closes',
+    async ({ pro: page }) => {
+      const read = () => page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--st-right-panel-w').trim());
+
+      const panelW = (await page.locator('.pro-sidebar').boundingBox())!.width;
+      const published = parseFloat(await read());
+      expect(published, 'the panel says how wide it is').toBeCloseTo(panelW, 0);
+
+      await page.getByTestId('pro-panel-close').click();
+      await expect(page.locator('.pro-sidebar')).toBeHidden();
+      await expect.poll(async () => parseFloat(await read()),
+        { message: 'a toast must not dodge a panel that is not there' }).toBe(0);
+    });
+});
+
 test.describe('@smoke PRO shell — the diagnostics warning', () => {
   test('an untouched PRO says nothing about being empty', async ({ pro: page }) => {
     // The bug report, asserted at the surface. The model is empty and `checkModel` has three
