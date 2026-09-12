@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, untrack, tick } from 'svelte';
+  import LocaleSelect from './components/LocaleSelect.svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
   import StatusBar from './components/StatusBar.svelte';
@@ -1200,17 +1201,24 @@
         work — `tAt` falls back to English per key — but they are largely English underneath, so
         offering them promised a translation the app could not keep. See `OFFERED_LOCALES`.
       -->
-      <select
-        class="lang-select"
-        data-testid="lang-select"
-        aria-label={t('app.language')}
-        value={i18n.locale}
-        onchange={(e) => { setLocale((e.currentTarget as HTMLSelectElement).value); tabManager.updateDefaultNames(); }}
-      >
-        {#each OFFERED_LOCALES as code (code)}
-          <option value={code}>{t(`lang.${code}`)}</option>
-        {/each}
-      </select>
+      <!--
+        The same drawn list as the landing, the blog and the settings panel —
+        this was the LAST native `<select>` of the four, and the one a reader
+        actually meets, since it is the only language control visible without
+        opening anything. A native popup is drawn by the platform, which on
+        macOS puts it beside the control rather than under it; the whole point
+        of `LocaleSelect` is that the list unfolds from the button.
+      -->
+      <div class="hdr-lang">
+        <LocaleSelect
+          value={i18n.locale}
+          options={OFFERED_LOCALES}
+          label={(c) => t(`lang.${c}`)}
+          onChange={(c) => { setLocale(c); tabManager.updateDefaultNames(); }}
+          ariaLabel={t('app.language')}
+          testid="lang-select"
+        />
+      </div>
 
       <!--
         Settings sits with the other application-level controls — help and
@@ -2730,23 +2738,16 @@
   .btn-settings:hover { color: var(--st-text); border-color: var(--st-hair-strong); }
   .btn-settings.on { color: var(--st-accent); border-color: var(--st-accent); }
 
-  .lang-select {
-    background: transparent;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 4px;
-    color: var(--st-text-2);
-    font-size: 0.75rem;
-    padding: 0.2rem 0.3rem;
-    cursor: pointer;
+  /*
+     The control draws itself; what the header owns is the SIZE. 32 px is the
+     height of everything else in this row — help, settings — and a control
+     that is two pixels short of its neighbours is the kind of thing a reader
+     sees without being able to name.
+  */
+  .hdr-lang :global(.ls-btn) {
     height: 32px;
-  }
-  .lang-select:hover {
-    border-color: var(--st-interactive);
-    color: var(--st-value);
-  }
-  .lang-select option {
-    background: var(--st-surface);
-    color: var(--st-text);
+    background: transparent;
+    font-size: 0.75rem;
   }
 
   .btn-toggle {
@@ -3505,7 +3506,7 @@
      * the row with the least space in the application. It lives in Settings
      * on a phone, with the other things you set and forget.
      */
-    .lang-select { display: none; }
+    .hdr-lang { display: none; }
 
     /*
      * The right panel becomes a bottom sheet.
@@ -3921,8 +3922,7 @@
 
   .separator { color: var(--st-hair); font-size: 1rem; }
 
-  .btn-help,
-  .lang-select {
+  .btn-help {
     background: none;
     border: 1px solid var(--st-hair);
     border-radius: var(--st-radius);
@@ -3933,8 +3933,7 @@
     cursor: pointer;
   }
 
-  .btn-help:hover,
-  .lang-select:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .btn-help:hover { background: var(--st-surface-3); color: var(--st-text); }
 
   .btn-help { width: 26px; padding: 0.3rem 0; text-align: center; }
 </style>

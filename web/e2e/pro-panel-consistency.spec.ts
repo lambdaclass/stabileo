@@ -20,7 +20,7 @@
  * the browser styled instead of us, a control with no accessible name, a focus ring that does not
  * exist, and content wider than the panel that holds it.
  */
-import { test, expect } from './fixtures';
+import { test, expect, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** Open every stage, so the sweep sees the whole panel rather than three closed summaries. */
@@ -162,7 +162,7 @@ test.describe('the PRO panel is consistent across the three languages', () => {
       { pro: page },
     ) => {
       await page.setViewportSize({ width: 1280, height: 720 });
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await openEverything(page);
 
       const panelOver = await page.evaluate(() => {

@@ -22,7 +22,7 @@
  * Portuguese: `regulations.rolePurpose.*` is a sentence per role and the longest of them decide
  * whether the row fits.
  */
-import { test, expect } from './fixtures';
+import { test, expect, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function openRegulations(page: Page) {
@@ -122,7 +122,7 @@ test.describe('Project regulations fits the panel in the three languages', () =>
       { pro: page },
     ) => {
       await page.setViewportSize({ width: 1280, height: 720 });
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await openRegulations(page);
       // Open the advanced disclosure too: it used to be indented 11.4rem past a 26rem row.
       const adv = page.getByTestId('role-concrete').locator('details.advanced > summary');

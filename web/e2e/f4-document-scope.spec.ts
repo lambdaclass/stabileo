@@ -23,8 +23,7 @@
  * and there is no control, so the test is the ABSENCE of one plus the sentence that explains it.
  */
 import {
-  test, expect, designAll, loadModel, openDocumentsStage, solveModel, computeDemands,
-} from './fixtures';
+  test, expect, designAll, loadModel, openDocumentsStage, solveModel, computeDemands,, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const QA = 'rc-design-qa-8';
@@ -246,7 +245,7 @@ test.describe('the stage speaks the three languages and holds four widths', () =
       { pro: page },
     ) => {
       await preparedProject(page);
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await expect(page.getByTestId('doc-scope-picker')).toContainText(word);
       // The statement translates too, and is not left in English beside a translated heading —
       // the half-translated state `i18n-coverage-gap.md` is about.
