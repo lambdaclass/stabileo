@@ -2081,6 +2081,7 @@ const es: Record<string, string> = {
 
   // ─── FloatingTools sub-components ───
   'float.selectNodes': 'Nodos',
+  'float.selectMulti': 'Seleccionar varios tipos a la vez',
   'float.selectElements': 'Barras',
   'float.selectShells': 'Shells',
   'float.selectSupports': 'Apoyos',

@@ -264,6 +264,68 @@ export function divergingColor(tn: number): number {
   return c.getHex();
 }
 
+/**
+ * Paint a shell face from values AT ITS CORNERS, so the colour varies across it.
+ *
+ * ── Why a plate should not be one colour ───────────────────────────
+ *
+ * The solver reports most components per ELEMENT, and painting each element
+ * its own flat colour is the honest minimum — it says exactly what was
+ * computed. It also looks like a mosaic: a field that is smooth in the
+ * structure arrives on screen as a patchwork whose edges are mesh artefacts,
+ * and a reader cannot tell a real discontinuity from a change of element.
+ *
+ * Averaging the element values at each shared NODE and interpolating across
+ * the face is what every post-processor does with element-level results, for
+ * exactly that reason. The averaging is the approximation — stated here
+ * rather than implied — and it is the one that makes the picture readable.
+ *
+ * `amplitude` normalises: the largest magnitude for a signed component, the
+ * largest value for an unsigned one.
+ */
+export function applyShellNodalColors(
+  mesh: THREE.Mesh,
+  cornerValues: readonly number[],
+  amplitude: number,
+  isQuad: boolean,
+  signed: boolean,
+): void {
+  const geo = mesh.geometry;
+  const pos = geo.getAttribute('position');
+  if (!pos) return;
+  const posCount = pos.count;
+  const colors = new Float32Array(posCount * 3);
+
+  /*
+   * A triangle is three vertices; a quad is drawn as two triangles sharing a
+   * diagonal, so its six vertices map back to four corners. Same table the
+   * von Mises path uses — the mapping is a property of how the mesh was
+   * built, not of what is being painted.
+   */
+  const vertexToCorner = isQuad ? [0, 1, 2, 0, 2, 3] : [0, 1, 2];
+  const A = Math.abs(amplitude) > 1e-12 ? Math.abs(amplitude) : 1;
+  const colour = new THREE.Color();
+
+  for (let i = 0; i < posCount; i++) {
+    const corner = vertexToCorner[i % vertexToCorner.length] ?? 0;
+    const v = cornerValues[corner] ?? 0;
+    const norm = v / A;
+    const hex = signed ? divergingColor(norm) : heatmapColor(Math.max(0, norm));
+    colour.setHex(hex);
+    colors[i * 3] = colour.r;
+    colors[i * 3 + 1] = colour.g;
+    colors[i * 3 + 2] = colour.b;
+  }
+
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const mat = ensureOwnShellMaterial(mesh);
+  mat.vertexColors = true;
+  mat.color.setHex(0xffffff);
+  /* Visible whatever the render mode: wireframe faces are nearly clear at rest. */
+  mat.opacity = 0.95; mat.transparent = false; mat.depthWrite = true;
+  mat.needsUpdate = true;
+}
+
 /** Flat-colour a shell face mesh by a single hex (per-element contour for
  *  quantities the solver reports only at the element level). Clears any
  *  per-vertex colour so the flat colour shows. */

@@ -19,7 +19,7 @@ import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
-import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellFlatColor, divergingColor, type HeatmapVariable } from '../three/stress-heatmap';
+import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellNodalColors, type HeatmapVariable } from '../three/stress-heatmap';
 import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
 import { shellComponentMeta, shellComponentValue, shellComponentRange } from '../engine/shell-stress';
@@ -812,19 +812,58 @@ function applyShellContour(
     return;
   }
 
-  // ── Other components: flat per-element colour ──
+  /*
+   * ── Other components: averaged at the nodes, not flat per element ──
+   *
+   * The solver reports these per ELEMENT, and one flat colour per element is
+   * the honest minimum — it says exactly what was computed. It also reads as
+   * a mosaic: a field that is smooth through the structure arrives as a
+   * patchwork whose edges are mesh artefacts, and nothing on screen tells a
+   * real discontinuity from a change of element.
+   *
+   * So each element's value is accumulated at the nodes it touches, averaged
+   * there, and interpolated across the face — what a post-processor does
+   * with element-level results, and for this reason. The averaging is the
+   * approximation; it is what makes the picture legible.
+   *
+   * An element whose nodes are shared with nothing still paints its own
+   * value at all of its corners, so a lone plate looks exactly as it did.
+   */
   const { min, max } = shellComponentRange(all, component);
   const A = meta.signed ? Math.max(Math.abs(min), Math.abs(max)) : Math.max(max, 1e-12);
-  for (const [key, group] of ctx.shellGroups) {
+
+  const sum = new Map<number, number>();
+  const count = new Map<number, number>();
+  const cornersOf = new Map<string, number[]>();
+
+  for (const [key] of ctx.shellGroups) {
     const isPlate = key.startsWith('p');
     const id = parseInt(key.substring(1));
     const s = isPlate ? plateById.get(id) : quadById.get(id);
-    if (!s) continue;
+    const geomNodes = isPlate
+      ? modelStore.plates.get(id)?.nodes
+      : modelStore.quads.get(id)?.nodes;
+    if (!s || !geomNodes) continue;
     const v = shellComponentValue(s, component);
-    const norm = A > 1e-12 ? v / A : 0;
-    const hex = meta.signed ? divergingColor(norm) : heatmapColor(Math.max(0, norm));
+    cornersOf.set(key, [...geomNodes]);
+    for (const n of geomNodes) {
+      sum.set(n, (sum.get(n) ?? 0) + v);
+      count.set(n, (count.get(n) ?? 0) + 1);
+    }
+  }
+
+  for (const [key, group] of ctx.shellGroups) {
+    const corners = cornersOf.get(key);
+    if (!corners) continue;
+    const isQuad = key.startsWith('q');
+    const values = corners.map((n) => {
+      const c = count.get(n) ?? 0;
+      return c > 0 ? (sum.get(n) ?? 0) / c : 0;
+    });
     group.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.userData?.shellFace) applyShellFlatColor(child, hex);
+      if (child instanceof THREE.Mesh && child.userData?.shellFace) {
+        applyShellNodalColors(child, values, A, isQuad, meta.signed);
+      }
     });
   }
 }

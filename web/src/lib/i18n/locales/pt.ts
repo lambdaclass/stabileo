@@ -2254,6 +2254,7 @@ const pt: Translations = {
   'float.selectLoads': 'Cargas',
   'float.selectLoadsHint': 'Clique em uma carga para selecioná-la',
   'float.selectNodes': 'Nós',
+  'float.selectMulti': 'Selecionar vários tipos de uma vez',
   'float.selectNodesHint': 'Clique em um nó para selecioná-lo',
   'float.selectShells': 'Cascas',
   'float.selectStress': 'Tensões',

@@ -269,6 +269,29 @@
           ><Icon name="select" size={16} /><span class="pr-caret">▾</span></button>
           {#if openMenu === 'select'}
             <div class="pr-menu">
+              <!--
+                ── One kind, or several ────────────────────────────────
+                The menu offered five kinds and took exactly one, which is
+                right for a click — the most specific thing under the cursor
+                — and wrong for a marquee, where the reason to drag a box
+                round a bay is usually to catch its members AND the loads on
+                them. Basic has had the switch for a while; PRO's menu did
+                not, so a PRO reader had to drag five times.
+
+                Checkboxes once it is on, because with several kinds armed
+                the question stops being "which one" and becomes "which of
+                these", and a radio cannot say that.
+              -->
+              <label class="pr-menu-check">
+                <input
+                  type="checkbox"
+                  checked={uiStore.multiKindSelect}
+                  onchange={(e) => { uiStore.multiKindSelect = e.currentTarget.checked; }}
+                  data-testid="pr-multi-kind"
+                />
+                <span>{t('float.selectMulti')}</span>
+              </label>
+              <div class="pr-menu-sep"></div>
               {#each [
                 { id: 'nodes', key: 'float.selectNodes' },
                 { id: 'elements', key: 'float.selectElements' },
@@ -276,11 +299,23 @@
                 { id: 'supports', key: 'float.selectSupports' },
                 { id: 'loads', key: 'float.selectLoads' },
               ] as const as sm}
-                <button
-                  class="pr-menu-item"
-                  class:active={uiStore.selectMode === sm.id}
-                  onclick={() => { uiStore.selectMode = sm.id as never; openMenu = null; }}
-                >{t(sm.key)}</button>
+                {#if uiStore.multiKindSelect}
+                  <label class="pr-menu-check" data-testid="pr-kind-{sm.id}">
+                    <input
+                      type="checkbox"
+                      checked={uiStore.selectsKind(sm.id as never)}
+                      onchange={() => uiStore.toggleSelectKind(sm.id as never)}
+                    />
+                    <span>{t(sm.key)}</span>
+                  </label>
+                {:else}
+                  <button
+                    class="pr-menu-item"
+                    class:active={uiStore.selectMode === sm.id}
+                    onclick={() => { uiStore.selectMode = sm.id as never; openMenu = null; }}
+                    data-testid="pr-kind-{sm.id}"
+                  >{t(sm.key)}</button>
+                {/if}
               {/each}
             </div>
           {/if}
@@ -606,6 +641,25 @@
     border-radius: var(--st-radius);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     padding: 0.15rem;
+  }
+
+  .pr-menu-check {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.72rem;
+    color: var(--st-text-2);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .pr-menu-check:hover { background: var(--st-surface-3); color: var(--st-text); }
+
+  .pr-menu-sep {
+    height: 1px;
+    margin: 3px 4px;
+    background: var(--st-hair);
   }
 
   .pr-menu-item {
