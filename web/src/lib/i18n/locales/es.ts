@@ -728,6 +728,7 @@ const es: Record<string, string> = {
   'project.saveTabWhat': 'Sólo la pestaña actual: su modelo 2D y 3D, con sus resultados.',
   'project.saveSessionWhat': 'Todas las pestañas abiertas, en un único archivo.',
   'project.saveWherePick': 'Vas a poder elegir la carpeta.',
+  'project.chooseFolder': 'Elegir la carpeta al guardar',
   'project.saveWhereDownloads': 'Tu navegador no permite elegir carpeta: va a Descargas.',
   'project.shareLink': 'Compartir link',
   'project.saveSession': 'Guardar Sesión',

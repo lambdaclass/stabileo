@@ -31,11 +31,21 @@
   let showSave = $state(false);
   let saveScope = $state<'tab' | 'session'>('tab');
   const canChooseFolder = canChooseSaveLocation();
+  /*
+   * Whether to ASK where, when the browser can. On by default where it is
+   * supported, and a choice rather than a fixed behaviour: the picker is a
+   * modal owned by the operating system, and a reader who just wants the
+   * file in Downloads should not have to dismiss one every time. It is also
+   * the honest way to describe what happens — a dismissed picker is a
+   * decision not to save, and that is indistinguishable from a picker that
+   * could not open, so the reader gets to say which they want.
+   */
+  let chooseFolder = $state(canChooseSaveLocation());
 
   async function doSave() {
     const { content, filename } = saveScope === 'session' ? sessionPayload() : projectPayload();
     const outcome = await saveTextTo(content, filename, 'application/json', {
-      chooseLocation: canChooseFolder,
+      chooseLocation: chooseFolder,
     });
     /* A dismissed chooser is a decision not to save; the dialog stays open. */
     if (outcome === 'cancelled') return;
@@ -243,9 +253,14 @@
             <em>{t('project.saveSessionWhat')}</em>
           </span>
         </label>
-        <p class="pp-note">
-          {canChooseFolder ? t('project.saveWherePick') : t('project.saveWhereDownloads')}
-        </p>
+        {#if canChooseFolder}
+          <label class="pp-save-opt" style="padding-left:0">
+            <input type="checkbox" bind:checked={chooseFolder} data-testid="pp-choose-folder" />
+            <span><strong>{t('project.chooseFolder')}</strong></span>
+          </label>
+        {:else}
+          <p class="pp-note">{t('project.saveWhereDownloads')}</p>
+        {/if}
         <div class="pp-row pp-save-actions">
           <button class="pp-btn" onclick={() => (showSave = false)}>{t('ribbon.close')}</button>
           <button class="pp-btn pp-btn-primary" onclick={doSave} data-testid="pp-save-confirm">

@@ -735,6 +735,7 @@ const en: Record<string, string> = {
   'project.saveTabWhat': 'This tab only: its 2D and 3D model, with its results.',
   'project.saveSessionWhat': 'Every open tab, in a single file.',
   'project.saveWherePick': 'You will be able to choose the folder.',
+  'project.chooseFolder': 'Choose the folder when saving',
   'project.saveWhereDownloads': 'Your browser cannot offer a folder chooser: it goes to Downloads.',
   'project.shareLink': 'Share link',
   'project.saveSession': 'Save Session',

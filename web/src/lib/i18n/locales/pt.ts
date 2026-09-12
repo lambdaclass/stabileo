@@ -4120,6 +4120,7 @@ const pt: Translations = {
   'project.saveTabWhat': 'Só a aba atual: seu modelo 2D e 3D, com seus resultados.',
   'project.saveSessionWhat': 'Todas as abas abertas, num único arquivo.',
   'project.saveWherePick': 'Você vai poder escolher a pasta.',
+  'project.chooseFolder': 'Escolher a pasta ao salvar',
   'project.saveWhereDownloads': 'Seu navegador não permite escolher pasta: vai para Downloads.',
   'project.shareLink': 'Compartilhar link',
   'project.saveTabTooltip': 'Salvar todos os dados 2D e 3D da aba atual como arquivo .ded (Ctrl+S)',
