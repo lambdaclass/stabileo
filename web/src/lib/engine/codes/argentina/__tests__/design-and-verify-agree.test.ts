@@ -160,6 +160,21 @@ describe('a little less steel does not pass', () => {
   }
 });
 
+/*
+ * ── These are slow on purpose, and say so ──────────────────────────
+ *
+ * Each point in the sweeps below is a bisection over a 400-point interaction
+ * curve, and the circular case is the dearest of them: forty points takes
+ * about five seconds. That is the default timeout exactly, so under a loaded
+ * machine the suite failed here at random — a timeout, reported as a broken
+ * invariant, which is the worst way to learn that a test is merely slow.
+ *
+ * Raised rather than thinned. The density is the point: the defects these
+ * catch — a dead band, a discontinuity at a branch — are a few kN·m wide,
+ * and a coarser sweep steps straight over them.
+ */
+const SWEEP_TIMEOUT_MS = 30_000;
+
 describe('more demand always costs more steel', () => {
   for (const kase of CASES) {
     it(`${kase}: rising moment never gets cheaper`, () => {
@@ -179,7 +194,7 @@ describe('more demand always costs more steel', () => {
         previous = r.AstCm2;
       }
       expect(previous, `${kase} designed something`).toBeGreaterThan(0);
-    });
+    }, SWEEP_TIMEOUT_MS);
   }
 
   for (const kase of ['FCR', 'FCR-CIR', 'FCO'] as FlexCase[]) {
@@ -230,7 +245,7 @@ describe('more demand always costs more steel', () => {
           .toBeGreaterThanOrEqual(lo - slack);
         expect(real[k]).toBeLessThanOrEqual(hi + slack);
       }
-    });
+    }, SWEEP_TIMEOUT_MS);
   }
 });
 
@@ -259,6 +274,6 @@ describe('checking is monotone in the steel it is given', () => {
         seen += 1;
       }
       expect(seen, `${kase} had points to compare`).toBeGreaterThan(2);
-    });
+    }, SWEEP_TIMEOUT_MS);
   }
 });

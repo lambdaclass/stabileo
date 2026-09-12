@@ -49,6 +49,56 @@
     return materialFamilyOf(m as never).family === 'concrete';
   }
 
+  /** Which material's detail is open. One at a time. */
+  let expandedId = $state<number | null>(null);
+
+  const fmt = (v: number, d = 2) =>
+    Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : '—';
+
+  /**
+   * The properties a reader needs and the table has no room for.
+   *
+   * `G` because every torsional and shear term in the analysis is written in
+   * it, and it was derivable from two visible columns and stated nowhere.
+   * The FAMILY because it decides which code path a member takes — a steel
+   * check or concrete detailing — and the application was reaching that
+   * verdict silently, from `fy` or a declared grade.
+   */
+  function detailOf(m: {
+    e: number; nu: number; rho: number; fy?: number; gradeId?: string; name?: string;
+    maxAggregateSizeMm?: number; spacingMarginMm?: number;
+  }): Array<{ label: string; value: string; note?: string }> {
+    const verdict = materialFamilyOf(m as never);
+    const rows: Array<{ label: string; value: string; note?: string }> = [
+      { label: 'E', value: `${fmt(m.e)} MPa` },
+      { label: 'ν', value: fmt(m.nu, 3) },
+      {
+        label: 'G',
+        value: `${fmt(m.e / (2 * (1 + m.nu)))} MPa`,
+        note: t('materials.shearModulusNote'),
+      },
+      { label: 'ρ', value: `${fmt(m.rho)} kN/m³` },
+      { label: 'fy', value: m.fy == null ? '—' : `${fmt(m.fy)} MPa` },
+      {
+        label: t('materials.family'),
+        value: t(`steel.family.${verdict.family}`) ?? verdict.family,
+        note: t(`steel.basis.${verdict.basis}`) ?? undefined,
+      },
+    ];
+    if (verdict.family === 'concrete') {
+      rows.push({
+        label: t('materials.aggregateShort'),
+        value: m.maxAggregateSizeMm == null
+          ? t('materials.aggregateNotStated') : `${fmt(m.maxAggregateSizeMm)} mm`,
+      });
+      rows.push({
+        label: t('material.spacingMarginShort'),
+        value: `${fmt(m.spacingMarginMm ?? 0)} mm`,
+      });
+    }
+    return rows;
+  }
+
   let aggError = $state<string | null>(null);
   let marginError = $state<string | null>(null);
   /** A margin larger than this is a data-entry error, not a conservative project. */
@@ -208,8 +258,41 @@
                   <span class="na" title={t('materials.concreteOnly')}>—</span>
                 {/if}
               </td>
-              <td><button class="del-btn" onclick={() => removeMat(m.id)}>×</button></td>
+              <td class="col-actions">
+                <button
+                  class="row-act"
+                  title={t('table.showProperties')}
+                  aria-expanded={expandedId === m.id}
+                  onclick={() => (expandedId = expandedId === m.id ? null : m.id)}
+                  data-testid="pro-mat-info-{m.id}"
+                >&#9432;</button>
+                <button class="del-btn" onclick={() => removeMat(m.id)}>×</button>
+              </td>
             </tr>
+            {#if expandedId === m.id}
+              <!--
+                What the table cannot hold without becoming unreadable.
+                ──────────────────────────────────────────────────────
+                G and the family are not decoration: G = E / 2(1+ν) is what
+                every torsion and shear term in the analysis uses, and it was
+                derivable from two columns the reader could see and nowhere
+                stated. The family is what decides which code path a member
+                takes — steel checks, concrete detailing — and it was a
+                verdict the application reached silently.
+              -->
+              <tr class="detail-row">
+                <td colspan="9">
+                  <div class="mat-detail" data-testid="pro-mat-detail-{m.id}">
+                    {#each detailOf(m) as row (row.label)}
+                      <div class="prop">
+                        <span>{row.label}</span>
+                        <span title={row.note ?? ''}>{row.value}</span>
+                      </div>
+                    {/each}
+                  </div>
+                </td>
+              </tr>
+            {/if}
           {/each}
           {#if materials.length === 0}
             <tr><td colspan="9" class="no-results">{t('pro.noMaterials')}</td></tr>
@@ -264,6 +347,43 @@
 
   /* A material with no concrete in it has no aggregate to state. */
   .na { color: var(--st-text-3); }
+
+  .col-actions { text-align: right; white-space: nowrap; }
+
+  .row-act {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    margin-right: 2px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: none;
+    color: var(--st-text-3);
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1;
+  }
+
+  .row-act:hover { color: var(--st-accent); border-color: var(--st-hair-strong); }
+
+  .detail-row > td { padding: 0; background: var(--st-surface-2); }
+
+  .mat-detail {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.15rem 0.7rem;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .prop {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.4rem;
+    font-size: 0.68rem;
+  }
+
+  .prop > span:first-child { color: var(--st-text-3); }
+  .prop > span:last-child { color: var(--st-text); font-variant-numeric: tabular-nums; }
   .agg-error { margin: 0.35rem 0 0; padding: 0.3rem 0.5rem; border-radius: 4px; background: var(--st-accent); color: var(--st-text); font-size: 0.8rem; }
   .agg-note { margin: 0.35rem 0 0; font-size: 0.76rem; opacity: 0.75; line-height: 1.35; }
   .pro-mat {

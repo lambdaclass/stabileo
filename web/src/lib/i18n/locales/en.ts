@@ -5456,6 +5456,8 @@ const en: Record<string, string> = {
   'materials.aggregate': 'Maximum nominal coarse-aggregate size (mm)',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.aggregateHelp': 'Maximum nominal coarse-aggregate size. Used by the minimum bar-spacing rule.',
+  'materials.family': 'Family',
+  'materials.shearModulusNote': 'G = E / 2(1+ν), derived.',
   'materials.concreteOnly': 'Concrete materials only: this is the aggregate size and the spacing between bars.',
   'materials.aggregateNotStated': 'not stated',
   'materials.aggregateInvalid': 'Value must be between {min} and {max} mm.',
