@@ -3874,6 +3874,7 @@ const pt: Translations = {
   'project.exportReport': 'Memória de cálculo',
   'project.exportResultsHelp': 'Números para continuar trabalhando. Excel: uma pasta com o modelo e os resultados — resumo, barras, nós, reações, materiais, seções, placas e combinações, uma planilha cada. CSV: só a tabela de resultados. Nenhum dos dois volta a ser importado aqui: para isso existe o modelo, que usa outras planilhas.',
   'project.exportResults': 'Resultados',
+  'project.exportReportTooltip': 'O relatório completo, como documento imprimível — os mesmos resultados que Excel e CSV levam.',
   'project.exportCsvTooltip': 'Exportar tabela de resultados como CSV',
   'project.exportDxfTooltip': 'Exportar para AutoCAD DXF com diagramas',
   'project.exportExcelTooltip': 'Exportar relatório Excel com todas as planilhas (modelo + resultados)',

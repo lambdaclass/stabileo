@@ -1186,6 +1186,7 @@ const es: Record<string, string> = {
   'project.exportDxfTooltip': 'Exportar a AutoCAD DXF con diagramas',
   'project.exportSvgTooltip': 'Exportar gráfico vectorial SVG',
   'project.exportPngTooltip': 'Exportar captura de pantalla PNG',
+  'project.exportReportTooltip': 'El reporte completo, como documento imprimible — los mismos resultados que llevan Excel y CSV.',
   'project.exportCsvTooltip': 'Exportar tabla de resultados en CSV',
   'project.openDedTooltip': 'Abrir archivo de proyecto (.ded / .json)',
   'project.openDxfTooltip': 'Importar geometría desde archivo AutoCAD DXF',

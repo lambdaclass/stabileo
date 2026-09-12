@@ -959,6 +959,17 @@
     window.addEventListener('stabileo-dxf-drop', handleDxfDropEvent);
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
     window.addEventListener('stabileo-import-ifc', handleIfcImportEvent);
+    /*
+     * Project → Export offers the report beside Excel and CSV: three ways of
+     * getting the same numbers out of the application belong in one place.
+     * The listener is here with the other `stabileo-*` events rather than in
+     * the panel, which is a layout shell with a size ceiling that says so.
+     */
+    const handleOpenReportEvent = () => {
+      uiStore.proPanelVisible = true;
+      proPanelRef?.report();
+    };
+    window.addEventListener('stabileo-open-report', handleOpenReportEvent);
 
     // Global solve event — always mounted (mobile bottom bar dispatches this)
     // Cancel any pending debounced live calc so the manual solve supersedes it.
@@ -984,6 +995,7 @@
       window.removeEventListener('stabileo-import-dxf', handleDxfImportEvent);
       window.removeEventListener('stabileo-dxf-drop', handleDxfDropEvent);
       window.removeEventListener('stabileo-import-ifc', handleIfcImportEvent);
+      window.removeEventListener('stabileo-open-report', handleOpenReportEvent);
       window.removeEventListener('stabileo-solve', handleGlobalSolve);
       window.removeEventListener('stabileo-open-panel', handleOpenPanelEvent);
       window.removeEventListener('popstate', onPopState);

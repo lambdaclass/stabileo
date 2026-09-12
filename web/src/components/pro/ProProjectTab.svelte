@@ -352,6 +352,19 @@
         <HelpTip text={t('project.exportCsvTooltip')}>
           <button class="pp-btn" onclick={() => downloadResultsCSV()} disabled={!solved}>CSV</button>
         </HelpTip>
+        <!--
+          The report is an export of the results, so it is offered with them.
+          ─────────────────────────────────────────────────────────────────
+          It was reachable only from a command in ANALYSE, which put the
+          three ways of getting the same numbers out of the application in
+          two different places. Same dialog, same data — what differs is the
+          document it comes out as.
+        -->
+        <HelpTip text={t('project.exportReportTooltip')}>
+          <button class="pp-btn" data-testid="pp-export-report" disabled={!solved}
+                  onclick={() => window.dispatchEvent(new Event('stabileo-open-report'))}
+          >{t('pro.reportBtn')}</button>
+        </HelpTip>
       </div>
     </div>
     <div class="pp-group">

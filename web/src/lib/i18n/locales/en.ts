@@ -1193,6 +1193,7 @@ const en: Record<string, string> = {
   'project.exportDxfTooltip': 'Export to AutoCAD DXF with diagrams',
   'project.exportSvgTooltip': 'Export vector SVG graphic',
   'project.exportPngTooltip': 'Export PNG screenshot',
+  'project.exportReportTooltip': 'The full report, as a printable document — the same results Excel and CSV carry.',
   'project.exportCsvTooltip': 'Export results table as CSV',
   'project.openDedTooltip': 'Open project file (.ded / .json)',
   'project.openDxfTooltip': 'Import geometry from AutoCAD DXF file',
