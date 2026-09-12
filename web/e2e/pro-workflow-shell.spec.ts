@@ -111,6 +111,47 @@ test.describe('@smoke PRO shell — settings', () => {
   });
 });
 
+test.describe('@smoke PRO shell — closing the panel', () => {
+  /*
+   * "Close does nothing" was not quite true: it did half of one thing.
+   *
+   * `.pro-sidebar-closed { display: none }` is one class, and
+   * `.sidebar.right { display: flex }` is two — so the closed rule LOST the
+   * cascade. Pressing ✕ set the state and the reopen tab duly appeared beside
+   * a panel that was still fully on screen.
+   *
+   * Which is why this asserts the box and not the flag: a state test passed
+   * throughout.
+   */
+  test('the panel actually leaves the screen, and comes back', async ({ pro: page }) => {
+    const panel = page.locator('.pro-sidebar');
+    await expect(panel).toBeVisible();
+    const open = (await panel.boundingBox())!;
+    expect(open.width, 'it starts with real width').toBeGreaterThan(100);
+
+    await page.getByTestId('pro-panel-close').click();
+    await expect(panel, 'closed means gone, not merely flagged').toBeHidden();
+
+    const reopen = page.getByTestId('pro-panel-reopen');
+    await expect(reopen).toBeVisible();
+    await reopen.click();
+    await expect(panel).toBeVisible();
+    expect((await panel.boundingBox())!.width).toBeGreaterThan(100);
+  });
+
+  test('closing it gives the width back to the model', async ({ pro: page }) => {
+    const canvas = page.locator('.viewport-container').first();
+    const before = (await canvas.boundingBox())!.width;
+
+    await page.getByTestId('pro-panel-close').click();
+    await expect(page.locator('.pro-sidebar')).toBeHidden();
+
+    /* The reason to close it at all. A panel that hides without yielding its
+       column is a panel that only pretended to close. */
+    await expect.poll(async () => (await canvas.boundingBox())!.width).toBeGreaterThan(before + 100);
+  });
+});
+
 test.describe('@smoke PRO shell — the diagnostics warning', () => {
   test('an untouched PRO says nothing about being empty', async ({ pro: page }) => {
     // The bug report, asserted at the surface. The model is empty and `checkModel` has three

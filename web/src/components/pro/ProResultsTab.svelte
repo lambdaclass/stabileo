@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { downloadText } from '../../lib/store/file';
   import { t } from '../../lib/i18n';
@@ -83,7 +84,9 @@
   function shellPeak(k: string): number { return shellStats?.[k as keyof typeof shellStats]?.peak ?? 0; }
   function shellNegligible(k: string): boolean { return shellStats?.[k as keyof typeof shellStats]?.status === 'negligible'; }
 
-  const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+  /* Shells are load-carrying too, so a plates-only raft has results to show;
+     see `hasLoadCarrying3D` for why this is not `elements.size > 0`. */
+  const hasModel = $derived(modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model));
   const hasCombinations = $derived(resultsStore.hasCombinations3D);
 
   // View mode

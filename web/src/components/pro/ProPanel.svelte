@@ -40,6 +40,7 @@
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProRepeatPanel from './ProRepeatPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
+  import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
   import { openReport } from '../../lib/engine/pro-report';
@@ -95,7 +96,9 @@
   let solveError = $state<string | null>(null);
   let showExampleMenu = $state(false);
   let exampleButtonEl = $state<HTMLButtonElement | null>(null);
-  const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+  /* A shell carries load, so a plates-only raft is a model. This read
+     `elements.size > 0` and would not arm Calcular; see `hasLoadCarrying3D`. */
+  const hasModel = $derived(modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model));
   const exampleGroups = $derived(proExampleGroups(t));
 
   // Expose action handlers for App.svelte's top strip via bind:this
@@ -285,12 +288,9 @@
   {/if}
 
   <!--
-    The panel says what it is showing, as Basic's does.
-    ──────────────────────────────────────────────────
-    It opened straight into content, so the ✕ floated with nothing beside it
-    and the one thing the panel could not tell you was which of thirteen
-    destinations you were looking at.
-
+    The panel says what it is showing, as Basic's does: it opened straight
+    into content, so the ✕ floated with nothing beside it and the one thing
+    the panel could not tell you was which of thirteen destinations it held.
   -->
   <header class="pro-head">
     <!--
@@ -343,16 +343,12 @@
       <svelte:boundary onerror={(e) => { tabError = String(e); console.error('ProPanel tab error:', e); }}>
         {#if activeTab === 'settings'}
           <!--
-            Settings in the panel, like Basic.
-            ─────────────────────────────────
-            PRO opened them in a dropdown hanging off the header button: a
-            second surface, with its own scroll and its own close, for content
-            the right-hand panel already exists to show. Basic puts them in the
-            panel; there was no reason for PRO to disagree, and two ways of
-            showing one thing is how they drift.
+            Settings in the panel, like Basic. PRO hung them off the header
+            button in a dropdown: a second surface with its own scroll and
+            close, for content this panel already exists to show. `flat`
+            because `inline` leaves every sub-section collapsed, which in a
+            panel is a heading with nothing under it.
           -->
-          <!-- `flat`, like Basic's panel: `inline` leaves every sub-section
-               collapsed, which in a panel is a heading and nothing under it. -->
           <ToolbarConfig flat={true} />
         {:else if activeTab === 'repeat'}
           <ProRepeatPanel />
@@ -487,16 +483,12 @@
     min-height: 0;
     overflow-y: auto;
     /*
-       ── The GUTTER belongs to the panel, not to each tab ──────────────
-       It was `0`, so the inset beside the panel edge was whatever each of
-       eighteen tabs happened to pick for its own sections: Generators had
-       12 px, Settings 3, and the nine that draw a table had none at all —
-       column headings and section backgrounds ran into the panel border.
-
-       0.65rem is Basic's `.bp-body`, deliberately: a reader moving between
-       the two modes should not be able to feel which one they are in from
-       the margins. Horizontal only — the top and bottom are a tab's own
-       business, since a table starts at its heading and a form does not.
+       The GUTTER belongs to the panel, not to each tab. It was `0`, so the
+       inset was whatever each of eighteen tabs picked: Generators 12 px,
+       Settings 3, and the nine that draw a table none at all — headings ran
+       into the border. 0.65rem is Basic's `.bp-body`, so a reader cannot feel
+       which mode they are in from the margins. Horizontal only: the top and
+       bottom are a tab's own business.
     */
     padding: 0 0.65rem;
   }

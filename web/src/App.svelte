@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack, tick } from 'svelte';
   import LocaleSelect from './components/LocaleSelect.svelte';
+  import { hasLoadCarrying3D } from './lib/engine/solver-service';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
   import StatusBar from './components/StatusBar.svelte';
@@ -1059,7 +1060,7 @@
    * condition, this is the other half that has to learn about it.
    */
   const proMobileCanSolve = $derived(
-    modelStore.nodes.size > 0 && modelStore.elements.size > 0,
+    modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model),
   );
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
   /*
@@ -2274,8 +2275,17 @@
     flex-shrink: 0;
   }
 
-  /* Hidden, not unmounted — see the aside's comment in the markup above. */
-  .pro-sidebar-closed {
+  /*
+     Hidden, not unmounted — see the aside's comment in the markup above.
+
+     Three classes, and that is the whole fix: `.sidebar.right` sets
+     `display: flex` at specificity (0,2,0), so a lone `.pro-sidebar-closed`
+     at (0,1,0) LOST the cascade and the panel never hid. Pressing ✕ set the
+     state, the reopen tab appeared beside a panel that was still there, and
+     the report was "close does nothing" — which it did not: it did half of
+     one thing and the other half was outranked.
+  */
+  .sidebar.right.pro-sidebar-closed {
     display: none;
   }
 
