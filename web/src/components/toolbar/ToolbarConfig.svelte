@@ -372,6 +372,33 @@
       </div>
     {/if}
 
+    <!--
+      ── The Educational panel, offered from Basic ────────────────────
+      Educational is a whole mode at the top level, beside Básico and PRO,
+      and that placement claims it is a different application. It is not: the
+      same model, the same solver and the same canvas, with a panel that
+      turns an exercise into a sequence of questions — so a student who
+      wanted to check something the ordinary way had to leave the exercise.
+
+      Last in Settings and off by default, because most sessions are not
+      teaching. Switched on, a command appears at the right-hand end of the
+      ribbon and opens the panel where every other panel opens.
+    -->
+    {#if uiStore.appMode === 'basico'}
+      <div class="input-group">
+        <label class="cfg-check">
+          <input
+            type="checkbox"
+            checked={uiStore.eduInBasic}
+            onchange={(e) => { uiStore.eduInBasic = e.currentTarget.checked; }}
+            data-testid="cfg-edu-in-basic"
+          />
+          <span>{t('config.eduInBasic')}</span>
+        </label>
+        <p class="cfg-hint">{t('config.eduInBasicHint')}</p>
+      </div>
+    {/if}
+
     {#if !inline}
     <button class="config-action-btn live-calc-btn" class:live-calc-active={uiStore.liveCalc}
       onclick={() => uiStore.liveCalc = !uiStore.liveCalc}
@@ -384,6 +411,20 @@
 </div>
 
 <style>
+  .cfg-check {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+  }
+
+  .cfg-hint {
+    margin: 0.2rem 0 0 1.35rem;
+    font-size: 0.62rem;
+    line-height: 1.4;
+    color: var(--st-text-3);
+  }
+
   .toolbar-section {
     display: flex;
     flex-direction: column;

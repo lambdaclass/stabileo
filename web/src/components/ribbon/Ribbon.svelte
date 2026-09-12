@@ -323,6 +323,26 @@
       labelKey: 'ribbon.tabResults',
       cmds: diagramCmds,
     },
+    /*
+     * ── Educational, when the reader has asked for it ────────────────
+     *
+     * Off unless Settings says otherwise, and last in the row on purpose:
+     * it is a way of WORKING on the model that is already there, not a step
+     * in building it, so it belongs after everything that is.
+     *
+     * A group of one, because a group is how the ribbon separates kinds of
+     * work and this is its own kind. It opens a panel like every other
+     * command here, so the highlight means what it means everywhere else.
+     */
+    ...(uiStore.eduInBasic
+      ? [{
+          id: 'edu',
+          labelKey: 'ribbon.edu',
+          cmds: [
+            { id: 'edu', icon: 'examples', labelKey: 'ribbon.edu', panel: 'edu' },
+          ],
+        }]
+      : []),
   ]);
 
   /* ── The phone's row ───────────────────────────────────────────────────

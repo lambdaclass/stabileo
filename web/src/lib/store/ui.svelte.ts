@@ -103,6 +103,23 @@ function createUIStore() {
    * time, with the panel silently undoing their choice.
    */
   let moveMode = $state<'view' | 'nodes'>('view');
+
+  /**
+   * Whether Basic offers the Educational panel.
+   *
+   * Educational is a whole mode at the top level, beside Básico and PRO, and
+   * that placement claims it is a different application. It is not: it is the
+   * same model, the same solver and the same canvas, with a panel that turns
+   * an exercise into a sequence of questions. A student who wants to check
+   * something in the ordinary way has to leave the exercise to do it.
+   *
+   * So Basic can opt into it: off by default, because most sessions are not
+   * teaching, and remembered per browser because it is a preference about how
+   * you work rather than a property of the model.
+   */
+  let eduInBasic = $state(
+    hasLocalStorage() ? localStorage.getItem('stabileo-edu-in-basic') === '1' : false,
+  );
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
   let nodalLoadDir = $state<NodalLoadDir>('fz'); // direction for nodal load placement
@@ -544,6 +561,12 @@ function createUIStore() {
   }
 
   return {
+    get eduInBasic() { return eduInBasic; },
+    set eduInBasic(v: boolean) {
+      eduInBasic = v;
+      try { localStorage.setItem('stabileo-edu-in-basic', v ? '1' : '0'); } catch { /* private mode */ }
+    },
+
     get moveMode() { return moveMode; },
     set moveMode(v: 'view' | 'nodes') { moveMode = v; },
 
