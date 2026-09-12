@@ -339,6 +339,10 @@ function createTabManager() {
           cameraMode3D: uiStore.cameraMode3D,
           showGrid3D: uiStore.showGrid3D,
           gridSize3D: uiStore.gridSize3D,
+          /* The first tab never captured this, so `restore` fell back to its
+             `?? 50` — a fresh tab silently reset a 1000 m PRO grid to fifty
+             metres. Required by `TabState`, and now actually supplied. */
+          gridExtent3D: uiStore.gridExtent3D,
           snapToGrid3D: uiStore.snapToGrid3D,
           showNodeLabels3D: uiStore.showNodeLabels3D,
           showElementLabels3D: uiStore.showElementLabels3D,

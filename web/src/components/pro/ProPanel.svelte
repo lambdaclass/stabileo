@@ -37,7 +37,10 @@
    * branch has already fixed twice.
    */
   import { t } from '../../lib/i18n';
+  import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
+  import ProRepeatPanel from './ProRepeatPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
+  import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
   import { openReport } from '../../lib/engine/pro-report';
@@ -78,7 +81,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics';
+  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'repeat';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -93,7 +96,9 @@
   let solveError = $state<string | null>(null);
   let showExampleMenu = $state(false);
   let exampleButtonEl = $state<HTMLButtonElement | null>(null);
-  const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+  /* A shell carries load, so a plates-only raft is a model. This read
+     `elements.size > 0` and would not arm Calcular; see `hasLoadCarrying3D`. */
+  const hasModel = $derived(modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model));
   const exampleGroups = $derived(proExampleGroups(t));
 
   // Expose action handlers for App.svelte's top strip via bind:this
@@ -268,6 +273,8 @@
     // (`proRibbon.cmdSteelStructures` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.
     steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
+    settings: 'config.title',
+    repeat: 'repeat.title',
   };
 </script>
 
@@ -281,12 +288,9 @@
   {/if}
 
   <!--
-    The panel says what it is showing, as Basic's does.
-    ──────────────────────────────────────────────────
-    It opened straight into content, so the ✕ floated with nothing beside it
-    and the one thing the panel could not tell you was which of thirteen
-    destinations you were looking at.
-
+    The panel says what it is showing, as Basic's does: it opened straight
+    into content, so the ✕ floated with nothing beside it and the one thing
+    the panel could not tell you was which of thirteen destinations it held.
   -->
   <header class="pro-head">
     <!--
@@ -337,7 +341,18 @@
       </div>
     {:else}
       <svelte:boundary onerror={(e) => { tabError = String(e); console.error('ProPanel tab error:', e); }}>
-        {#if activeTab === 'project'}
+        {#if activeTab === 'settings'}
+          <!--
+            Settings in the panel, like Basic. PRO hung them off the header
+            button in a dropdown: a second surface with its own scroll and
+            close, for content this panel already exists to show. `flat`
+            because `inline` leaves every sub-section collapsed, which in a
+            panel is a heading with nothing under it.
+          -->
+          <ToolbarConfig flat={true} />
+        {:else if activeTab === 'repeat'}
+          <ProRepeatPanel />
+        {:else if activeTab === 'project'}
           <ProProjectTab groups={exampleGroups} onLoadExample={loadProExample} />
         {:else if activeTab === 'nodes'}
           <ProNodesTab />
@@ -385,14 +400,14 @@
   onclose={() => showExampleMenu = false}
 />
 
+<!-- `hasQuantities` asks the GEOMETRY, not whether the members were checked. -->
 <ProReportDialog
   open={showReportDialog}
   hasResults={!!resultsStore.results3D}
-  hasVerifications={verificationsRef.length > 0}
   hasAdvanced={Object.keys(advancedResultsRef).length > 0}
-  hasDrift={false}
+  advancedRan={Object.keys(advancedResultsRef)}
   hasDiagnostics={resultsStore.diagnostics3D.length > 0}
-  hasQuantities={verificationsRef.length > 0}
+  hasQuantities={hasLoadCarrying3D(modelStore.model)}
   ongenerate={exportReport}
   onclose={() => { showReportDialog = false; }}
 />
@@ -467,7 +482,15 @@
     */
     min-height: 0;
     overflow-y: auto;
-    padding: 0;
+    /*
+       The GUTTER belongs to the panel, not to each tab. It was `0`, so the
+       inset was whatever each of eighteen tabs picked: Generators 12 px,
+       Settings 3, and the nine that draw a table none at all — headings ran
+       into the border. 0.65rem is Basic's `.bp-body`, so a reader cannot feel
+       which mode they are in from the margins. Horizontal only: the top and
+       bottom are a tab's own business.
+    */
+    padding: 0 0.65rem;
   }
 
   @media (max-width: 767px) {

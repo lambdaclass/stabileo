@@ -11,7 +11,7 @@ import { modelStore, uiStore, resultsStore } from '../store';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
-import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
+import { createDeformedLines, createDeformedShells, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
@@ -19,10 +19,10 @@ import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
-import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellFlatColor, divergingColor, type HeatmapVariable } from '../three/stress-heatmap';
+import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellNodalColors, type HeatmapVariable } from '../three/stress-heatmap';
 import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
-import { shellComponentMeta, shellComponentValue, shellComponentRange } from '../engine/shell-stress';
+import { shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
 /** Cached shouldProjectModelToXZ, keyed on modelVersion + analysisMode + presentation. */
@@ -95,6 +95,7 @@ export interface ResultsSyncContext {
   nodeLabelsGroup: THREE.Group | null;
   elementLabelsGroup: THREE.Group | null;
   lengthLabelsGroup: THREE.Group | null;
+  shellLabelsGroup: THREE.Group | null;
   verificationLabelsGroup: THREE.Group | null;
 
   // Mutable state flags
@@ -265,6 +266,18 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   if (modeColor !== null) {
     ctx.deformedGroup.userData.material.color.setHex(modeColor);
   }
+  /*
+     The shells deform too, and only the members were being drawn: a raft with
+     no bars answered the deformation slider with an empty screen. See
+     `createDeformedShells`.
+  */
+  if (modelStore.plates.size > 0 || modelStore.quads.size > 0) {
+    ctx.deformedGroup.add(createDeformedShells(
+      modelStore.plates, modelStore.quads, getProjectedNodes(), displacements, scale,
+      modeColor ?? 0x22d3a5,
+    ));
+  }
+
   ctx.deformedGroup.userData.sigDt = sigDt;
   ctx.deformedGroup.userData.sigDisp = sigDisp;
   ctx.deformedGroup.userData.sigForces = sigForces;
@@ -443,7 +456,29 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   } else if (dt === 'colorMap') {
     const cmKind = resultsStore.colorMapKind;
 
-    if (cmKind === 'shellVonMises' || cmKind === 'shellBending') {
+    if (cmKind === 'stress') {
+      /*
+       * ── Everything that carries load, unless a kind is switched off ──
+       *
+       * Stress was two entries in a dropdown — von Mises for members, "shell
+       * contour" for plates — so a structure made of both could only ever be
+       * half painted, and a reader had to know which half they were looking
+       * at. A raft with columns on it has stresses in both, and wanting to
+       * see them together is the ordinary case rather than an advanced one.
+       */
+      if (resultsStore.stressShowMembers) {
+        applyFrameHeatmap(ctx, forcesMap, 'vonMises');
+      } else {
+        clearHeatmapMeshes(ctx);
+        forEachElementVisual(ctx, (id, group) => {
+          if (group) { showOriginalMeshes(group, true); setGroupColor(group, 0x888888); }
+          eb.setBaseColor(id, 0x888888);
+        });
+        eb.flush();
+      }
+      if (resultsStore.stressShowShells) applyShellContour(ctx, r3d);
+      else resetShellColors(ctx);
+    } else if (cmKind === 'shellVonMises' || cmKind === 'shellBending') {
       // Shell-only mode: restore frame elements, paint shells by the selected
       // contour component (Von Mises / principal / σ / moment).
       clearHeatmapMeshes(ctx);
@@ -776,7 +811,6 @@ function applyShellContour(
   r3d: NonNullable<typeof resultsStore.results3D>,
 ): void {
   const component = resultsStore.shellContourComponent;
-  const meta = shellComponentMeta(component);
 
   const plateById = new Map<number, NonNullable<typeof r3d.plateStresses>[number]>();
   const quadById = new Map<number, NonNullable<typeof r3d.quadStresses>[number]>();
@@ -812,19 +846,59 @@ function applyShellContour(
     return;
   }
 
-  // ── Other components: flat per-element colour ──
-  const { min, max } = shellComponentRange(all, component);
-  const A = meta.signed ? Math.max(Math.abs(min), Math.abs(max)) : Math.max(max, 1e-12);
-  for (const [key, group] of ctx.shellGroups) {
+  /*
+   * ── Other components: averaged at the nodes, not flat per element ──
+   *
+   * The solver reports these per ELEMENT, and one flat colour per element is
+   * the honest minimum — it says exactly what was computed. It also reads as
+   * a mosaic: a field that is smooth through the structure arrives as a
+   * patchwork whose edges are mesh artefacts, and nothing on screen tells a
+   * real discontinuity from a change of element.
+   *
+   * So each element's value is accumulated at the nodes it touches, averaged
+   * there, and interpolated across the face — what a post-processor does
+   * with element-level results, and for this reason. The averaging is the
+   * approximation; it is what makes the picture legible.
+   *
+   * An element whose nodes are shared with nothing still paints its own
+   * value at all of its corners, so a lone plate looks exactly as it did.
+   */
+  /* The range the results actually occupy — the whole scale is spent on it.
+     See `shellContourColor` for why this is not a symmetric amplitude. */
+  const range = shellComponentRange(all, component);
+
+  const sum = new Map<number, number>();
+  const count = new Map<number, number>();
+  const cornersOf = new Map<string, number[]>();
+
+  for (const [key] of ctx.shellGroups) {
     const isPlate = key.startsWith('p');
     const id = parseInt(key.substring(1));
     const s = isPlate ? plateById.get(id) : quadById.get(id);
-    if (!s) continue;
+    const geomNodes = isPlate
+      ? modelStore.plates.get(id)?.nodes
+      : modelStore.quads.get(id)?.nodes;
+    if (!s || !geomNodes) continue;
     const v = shellComponentValue(s, component);
-    const norm = A > 1e-12 ? v / A : 0;
-    const hex = meta.signed ? divergingColor(norm) : heatmapColor(Math.max(0, norm));
+    cornersOf.set(key, [...geomNodes]);
+    for (const n of geomNodes) {
+      sum.set(n, (sum.get(n) ?? 0) + v);
+      count.set(n, (count.get(n) ?? 0) + 1);
+    }
+  }
+
+  for (const [key, group] of ctx.shellGroups) {
+    const corners = cornersOf.get(key);
+    if (!corners) continue;
+    const isQuad = key.startsWith('q');
+    const values = corners.map((n) => {
+      const c = count.get(n) ?? 0;
+      return c > 0 ? (sum.get(n) ?? 0) / c : 0;
+    });
     group.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.userData?.shellFace) applyShellFlatColor(child, hex);
+      if (child instanceof THREE.Mesh && child.userData?.shellFace) {
+        applyShellNodalColors(child, values, range, isQuad);
+      }
     });
   }
 }
@@ -992,6 +1066,11 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     disposeObject(ctx.elementLabelsGroup);
     ctx.elementLabelsGroup = null;
   }
+  if (ctx.shellLabelsGroup) {
+    ctx.scene.remove(ctx.shellLabelsGroup);
+    disposeObject(ctx.shellLabelsGroup);
+    ctx.shellLabelsGroup = null;
+  }
   if (ctx.lengthLabelsGroup) {
     ctx.scene.remove(ctx.lengthLabelsGroup);
     disposeObject(ctx.lengthLabelsGroup);
@@ -1008,7 +1087,17 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
   }
   const size = box.getSize(new THREE.Vector3());
   const modelSize = Math.max(size.x, size.y, size.z, 1);
+  /*
+     ── Labels are sized on SCREEN, offsets in the world ──────────────
+     `spriteScale` still positions them: an id sits a little up and to the
+     right of its node, and that nudge has to be in model units or it would
+     drift as you zoom. The GLYPH is a different question — see
+     `createTextSpriteCached`: sized with the model it reached a metre and a
+     half of numeral on a building, which is the "the ids are gigantic in PRO"
+     report. `LABEL_SCREEN` is a fraction of the viewport height.
+  */
   const spriteScale = modelSize * 0.025;
+  const LABEL_SCREEN = 0.038;
 
   // Node labels
   if (uiStore.showNodeLabels3D && modelStore.nodes.size > 0) {
@@ -1017,13 +1106,13 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
 
     for (const [id, node] of modelStore.nodes) {
       const pos = projectNodeToScene(node, project2D);
-      const sprite = createTextSpriteCached(String(id), '#ffffff', 28);
+      const sprite = createTextSpriteCached(String(id), '#ffffff', 28, true);
       sprite.position.set(
         pos.x + spriteScale * 0.3,
         pos.y + spriteScale * 0.5,
         pos.z,
       );
-      sprite.scale.set(spriteScale, spriteScale, 1);
+      sprite.scale.set(LABEL_SCREEN, LABEL_SCREEN, 1);
       ctx.nodeLabelsGroup.add(sprite);
     }
     ctx.scene.add(ctx.nodeLabelsGroup);
@@ -1046,9 +1135,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSpriteCached(String(id), '#88ccff', 24);
+      const sprite = createTextSpriteCached(String(id), '#88ccff', 24, true);
       sprite.position.set(mx, my + spriteScale * 0.3, mz);
-      sprite.scale.set(spriteScale * 0.8, spriteScale * 0.8, 1);
+      sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       ctx.elementLabelsGroup.add(sprite);
     }
     ctx.scene.add(ctx.elementLabelsGroup);
@@ -1075,11 +1164,43 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2 - spriteScale * 0.3;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSpriteCached(`${len.toFixed(2)} m`, '#88cc88', 22);
+      const sprite = createTextSpriteCached(`${len.toFixed(2)} m`, '#88cc88', 22, true);
       sprite.position.set(mx, my, mz);
-      sprite.scale.set(spriteScale * 0.7, spriteScale * 0.7, 1);
+      sprite.scale.set(LABEL_SCREEN * 0.75, LABEL_SCREEN * 0.75, 1);
       ctx.lengthLabelsGroup.add(sprite);
     }
     ctx.scene.add(ctx.lengthLabelsGroup);
+  }
+
+  /*
+   * Plate and quad ids, at the face centroid.
+   *
+   * Shells were the one kind of element with no label, which on a raft of
+   * sixty quads means a results row naming element 43 and no way to find it.
+   * The centroid because a shell has no midpoint the way a member does, and
+   * it is the one point inside every convex face.
+   */
+  if (uiStore.showShellLabels3D && (modelStore.plates.size > 0 || modelStore.quads.size > 0)) {
+    ctx.shellLabelsGroup = new THREE.Group();
+    ctx.shellLabelsGroup.name = 'shellLabels';
+
+    const centroidLabel = (ids: readonly number[], text: string) => {
+      let x = 0, y = 0, z = 0, n = 0;
+      for (const nid of ids) {
+        const node = modelStore.nodes.get(nid);
+        if (!node) return;
+        const p = projectNodeToScene(node, project2D);
+        x += p.x; y += p.y; z += p.z; n++;
+      }
+      if (n === 0) return;
+      const sprite = createTextSpriteCached(text, '#ffd479', 24, true);
+      sprite.position.set(x / n, y / n, z / n);
+      sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
+      ctx.shellLabelsGroup!.add(sprite);
+    };
+
+    for (const [id, p] of modelStore.plates) centroidLabel(p.nodes, String(id));
+    for (const [id, q] of modelStore.quads) centroidLabel(q.nodes, String(id));
+    ctx.scene.add(ctx.shellLabelsGroup);
   }
 }

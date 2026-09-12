@@ -323,6 +323,33 @@
       labelKey: 'ribbon.tabResults',
       cmds: diagramCmds,
     },
+    /*
+     * ── Educational, when the reader has asked for it ────────────────
+     *
+     * Off unless Settings says otherwise, and last in the row on purpose:
+     * it is a way of WORKING on the model that is already there, not a step
+     * in building it, so it belongs after everything that is.
+     *
+     * A group of one, because a group is how the ribbon separates kinds of
+     * work and this is its own kind. It opens a panel like every other
+     * command here, so the highlight means what it means everywhere else.
+     */
+    ...(uiStore.eduInBasic
+      ? [{
+          id: 'edu',
+          /*
+           * The GROUP says where you are, the COMMAND says what you get.
+           * Both read "Modo Educativo" before, so the ribbon said the same
+           * words twice and neither of them named a destination — and "mode"
+           * is now the wrong noun anyway, since this stopped being a mode the
+           * moment it moved inside Basic.
+           */
+          labelKey: 'ribbon.groupEdu',
+          cmds: [
+            { id: 'edu', icon: 'examples', labelKey: 'ribbon.edu', panel: 'edu' },
+          ],
+        }]
+      : []),
   ]);
 
   /* ── The phone's row ───────────────────────────────────────────────────

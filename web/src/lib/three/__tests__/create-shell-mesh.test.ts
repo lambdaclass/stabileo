@@ -33,22 +33,44 @@ describe('shellColorForMaterial', () => {
 });
 
 describe('flat shell geometry (solid / wireframe)', () => {
-  it('quad flat face has 6 verts mapped 0-1-2-0-2-3', () => {
+  /*
+   * These asserted six vertices for a quad and three for a plate — the
+   * minimum that draws the shape, and the minimum that can carry a RESULT:
+   * four corner colours across two triangles give a seam down the diagonal
+   * and a field that is flat everywhere in between. The face is subdivided
+   * now, so the count is no longer the invariant; what still has to hold is
+   * that the face is exactly the polygon and that every display vertex is a
+   * stated combination of its corners. See `shell-contour.test.ts`.
+   */
+  it('quad flat face is subdivided, and stays inside its own four corners', () => {
     const g = createQuadMesh(V(0, 0, 0), V(1, 0, 0), V(1, 1, 0), V(0, 1, 0), 1, {
       renderMode: 'solid', thickness: 0.2,
     });
     const geo = faceMeshOf(g).geometry;
-    expect(geo.getAttribute('position').count).toBe(6);
-    expect(geo.userData.vertexNodeIndex).toEqual([0, 1, 2, 0, 2, 3]);
+    const count = geo.getAttribute('position').count;
+    expect(count).toBeGreaterThan(6);
+    const nodeIdx = geo.userData.vertexNodeIndex as number[];
+    expect(nodeIdx.length).toBe(count);
+    expect(Math.max(...nodeIdx)).toBe(3);
+    expect(Math.min(...nodeIdx)).toBe(0);
+    geo.computeBoundingBox();
+    const size = new THREE.Vector3();
+    geo.boundingBox!.getSize(size);
+    expect(size.x).toBeCloseTo(1, 6);
+    expect(size.y).toBeCloseTo(1, 6);
+    expect(size.z).toBeCloseTo(0, 6);
   });
 
-  it('plate flat face has 3 verts mapped 0-1-2', () => {
+  it('plate flat face is subdivided over its three corners', () => {
     const g = createPlateMesh(V(0, 0, 0), V(1, 0, 0), V(0, 1, 0), 1, {
       renderMode: 'wireframe', thickness: 0.1,
     });
     const geo = faceMeshOf(g).geometry;
-    expect(geo.getAttribute('position').count).toBe(3);
-    expect(geo.userData.vertexNodeIndex).toEqual([0, 1, 2]);
+    const count = geo.getAttribute('position').count;
+    expect(count).toBeGreaterThan(3);
+    const nodeIdx = geo.userData.vertexNodeIndex as number[];
+    expect(Math.max(...nodeIdx)).toBe(2);
+    expect((geo.userData.vertexNodeWeights as number[][])[0].length).toBe(3);
   });
 });
 

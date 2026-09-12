@@ -5,14 +5,17 @@
   // SAME colour functions the contour uses so the gradient matches exactly.
   import { resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { divergingColor } from '../../lib/three/stress-heatmap';
-  import { heatmapColor } from '../../lib/three/selection-helpers';
+  import { shellContourColor } from '../../lib/three/stress-heatmap';
   import { shellComponentMeta, shellComponentRange, shellComponentStats } from '../../lib/engine/shell-stress';
 
   // Shell contour mode is selected (regardless of whether data exists).
   const shellMode = $derived(
     resultsStore.diagramType === 'colorMap'
-    && (resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending'),
+    && (resultsStore.colorMapKind === 'shellVonMises'
+      || resultsStore.colorMapKind === 'shellBending'
+      /* The combined stress view paints shells too, unless that kind is off —
+         and a painted field with no scale beside it is a picture of nothing. */
+      || (resultsStore.colorMapKind === 'stress' && resultsStore.stressShowShells)),
   );
   const hasData = $derived(
     !!(resultsStore.results3D?.plateStresses?.length || resultsStore.results3D?.quadStresses?.length),
@@ -40,15 +43,15 @@
   // value range, so the bar reads exactly like the painted shells.
   const gradient = $derived.by(() => {
     const { min, max } = range;
-    const A = meta.signed ? Math.max(Math.abs(min), Math.abs(max)) : Math.max(max, 1e-12);
     const stops: string[] = [];
-    const N = 10;
+    /* Twenty stops, not ten: the ramp has five hues now, so ten samples put a
+       visible corner at each of them. Same function the shells are painted
+       with, so the bar cannot say a different thing from the model. */
+    const N = 20;
     for (let i = 0; i <= N; i++) {
       const t = i / N;
       const v = min + t * (max - min);
-      const norm = A > 1e-12 ? v / A : 0;
-      const c = meta.signed ? divergingColor(norm) : heatmapColor(Math.max(0, norm));
-      stops.push(`${hex(c)} ${(t * 100).toFixed(0)}%`);
+      stops.push(`${hex(shellContourColor(v, min, max))} ${(t * 100).toFixed(0)}%`);
     }
     return `linear-gradient(to top, ${stops.join(', ')})`;
   });

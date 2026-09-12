@@ -8,6 +8,10 @@
     projectAddress: string;
     engineerName: string;
     revision: string;
+    /** False when the letterhead was left blank — the report prints none. */
+    hasProjectInfo?: boolean;
+    /** Which advanced analyses to print, by result key. */
+    advancedPicked?: Record<string, boolean>;
     sections: {
       modelData: boolean;
       results: boolean;
@@ -23,16 +27,16 @@
   interface Props {
     open: boolean;
     hasResults: boolean;
-    hasVerifications: boolean;
     hasAdvanced: boolean;
-    hasDrift: boolean;
+    /** WHICH advanced analyses actually ran — the keys of their results. */
+    advancedRan: string[];
     hasDiagnostics: boolean;
     hasQuantities: boolean;
     ongenerate: (config: ReportConfig) => void;
     onclose: () => void;
   }
 
-  let { open, hasResults, hasVerifications, hasAdvanced, hasDrift, hasDiagnostics, hasQuantities, ongenerate, onclose }: Props = $props();
+  let { open, hasResults, hasAdvanced, advancedRan, hasDiagnostics, hasQuantities, ongenerate, onclose }: Props = $props();
 
   // ─── Persistent state (localStorage) ─────────────────────
   // Migrate old storage key
@@ -63,12 +67,28 @@
 
   let secModelData = $state(true);
   let secResults = $state(true);
-  let secVerification = $state(true);
   let secAdvanced = $state(true);
-  let secDrift = $state(true);
   let secDiagnostics = $state(true);
   let secQuantities = $state(true);
   let secLoads = $state(true);
+
+  /** Which advanced analyses to print, of the ones that ran. */
+  let advancedPicked = $state<Record<string, boolean>>({});
+
+  /*
+   * A letterhead nobody filled in is not a letterhead.
+   *
+   * Five project fields sat at the top of the dialog above the choice of what
+   * to include, and an empty one still printed its label into the document.
+   * The disclosure opens itself when there is something in it, so a reader who
+   * has used it before does not have to go looking.
+   */
+  const hasProjectInfo = $derived(
+    !!(companyName.trim() || engineerName.trim() || projectAddress.trim() || companyLogo),
+  );
+  let infoOpen = $state(
+    !!(saved.companyName || saved.engineerName || saved.projectAddress || saved.companyLogo),
+  );
 
   function handleLogoUpload(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -96,12 +116,18 @@
       projectAddress,
       engineerName,
       revision,
+      /* Blank stays blank: an untouched letterhead prints nothing rather
+         than a row of empty labels. */
+      hasProjectInfo,
+      advancedPicked: { ...advancedPicked },
       sections: {
         modelData: secModelData,
         results: secResults,
-        verification: secVerification,
+        /* A code check is a DESIGN output and is reported from there. */
+        verification: false,
         advancedAnalysis: secAdvanced,
-        storyDrift: secDrift,
+        /* Never implemented; the checkbox was permanently disabled. */
+        storyDrift: false,
         diagnostics: secDiagnostics,
         quantities: secQuantities,
         loads: secLoads,
@@ -125,9 +151,16 @@
     </div>
 
     <div class="rpt-body">
-      <!-- Company & project info -->
-      <fieldset class="rpt-fieldset">
-        <legend>{t('report.projectInfo')}</legend>
+      <!--
+        ── Project data is a disclosure, and an empty one prints nothing ──
+        Five fields most reports do not use were the first thing in the
+        dialog, above the choice of what to include. Collapsed by default;
+        `hasProjectInfo` decides whether the report prints a letterhead at
+        all, so leaving it blank is a decision the document honours rather
+        than a row of empty labels.
+      -->
+      <details class="rpt-details" bind:open={infoOpen}>
+        <summary>{t('report.projectInfo')}{hasProjectInfo ? '' : ` — ${t('report.projectInfoEmpty')}`}</summary>
 
         <div class="rpt-logo-row">
           <label class="rpt-label">{t('report.companyLogo')}</label>
@@ -160,7 +193,7 @@
           <label class="rpt-label">{t('report.revision')}</label>
           <input type="text" bind:value={revision} placeholder="1" class="rpt-input rpt-input-sm" />
         </div>
-      </fieldset>
+      </details>
 
       <!-- Sections to include -->
       <fieldset class="rpt-fieldset">
@@ -169,9 +202,41 @@
           <label class="rpt-check"><input type="checkbox" bind:checked={secModelData} /> {t('report.secModelData')}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secLoads} /> {t('report.secLoads')}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secResults} disabled={!hasResults} /> {t('report.secResults')} {#if !hasResults}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
-          <label class="rpt-check"><input type="checkbox" bind:checked={secVerification} disabled={!hasVerifications} /> {t('report.secVerification')} {#if !hasVerifications}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <!--
+            CIRSOC verification is not here.
+            ───────────────────────────────
+            A code check is a DESIGN output, produced by the design workflow
+            and reported from it. Offering it beside the analysis sections
+            invited a report that mixed "what the structure does" with
+            "whether it passes", and the second one arrives with its own
+            provenance, edition and staleness rules that this dialog knows
+            nothing about.
+
+            Story drift is gone too: it was permanently `hasDrift={false}`,
+            so it has never been anything but a disabled checkbox.
+          -->
           <label class="rpt-check"><input type="checkbox" bind:checked={secAdvanced} disabled={!hasAdvanced} /> {t('report.secAdvanced')} {#if !hasAdvanced}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
-          <label class="rpt-check"><input type="checkbox" bind:checked={secDrift} disabled={!hasDrift} /> {t('report.secDrift')} {#if !hasDrift}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <!--
+            WHICH advanced analyses, and only the ones that ran.
+            ──────────────────────────────────────────────────
+            "Advanced analysis" was one checkbox over as many as six
+            different studies, so a report either carried all of them or
+            none — and nothing said which had actually been performed. A
+            reader cannot tell a modal analysis that was not asked for from
+            one that was asked for and produced nothing.
+          -->
+          {#if secAdvanced && advancedRan.length > 0}
+            <div class="rpt-sub-checks" data-testid="rpt-advanced-picks">
+              {#each advancedRan as key (key)}
+                <label class="rpt-check rpt-check-sub">
+                  <input type="checkbox" checked={advancedPicked[key] ?? true}
+                    data-testid="rpt-adv-{key}"
+                    onchange={(e) => (advancedPicked = { ...advancedPicked, [key]: e.currentTarget.checked })} />
+                  {t(`pro.adv.${key}`) === `pro.adv.${key}` ? key : t(`pro.adv.${key}`)}
+                </label>
+              {/each}
+            </div>
+          {/if}
           <label class="rpt-check"><input type="checkbox" bind:checked={secQuantities} disabled={!hasQuantities} /> {t('report.secQuantities')} {#if !hasQuantities}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secDiagnostics} disabled={!hasDiagnostics} /> {t('report.secDiagnostics')} {#if !hasDiagnostics}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
         </div>

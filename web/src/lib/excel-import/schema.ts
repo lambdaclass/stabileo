@@ -144,10 +144,20 @@ export const SHEETS: SheetSpec[] = [
       { key: 'nu', required: true, helpKey: 'xls.col.nu', example: 0.2 },
       { key: 'rho', unit: 'kN/m³', helpKey: 'xls.col.rho', example: 24 },
       { key: 'fy', unit: 'MPa', helpKey: 'xls.col.fy', example: 420 },
+      /*
+       * The two PRO asks of a concrete MIX, and neither had a column: a
+       * spreadsheet could describe the whole structure and still arrive
+       * without the aggregate size §25.2 needs to space the bars. They are
+       * optional and concrete-only, exactly as they are in the panel.
+       */
+      { key: 'dAgg', unit: 'mm', helpKey: 'xls.col.dAgg', example: '' },
+      { key: 'spacingMargin', unit: 'mm', helpKey: 'xls.col.spacingMargin', example: '' },
     ],
     examples: [
-      [1, 'H-25', 25000, 0.2, 24, 420],
-      [2, 'Acero F-24', 200000, 0.3, 78.5, 235],
+      /* The concrete states its aggregate; the steel leaves both blank, which
+         is the answer for a material that has no mix. */
+      [1, 'H-25', 25000, 0.2, 24, 420, 19, 0],
+      [2, 'Acero F-24', 200000, 0.3, 78.5, 235, '', ''],
     ],
   },
 
@@ -292,8 +302,13 @@ export const SHEETS: SheetSpec[] = [
       { key: 'nodes', required: true, helpKey: 'xls.col.quadNodes', example: '1 2 3 4' },
       { key: 'material', required: true, helpKey: 'xls.col.materialRef', example: 1 },
       { key: 'thickness', unit: 'm', required: true, helpKey: 'xls.col.thickness', example: 0.15 },
+      /* A shell whose four nodes are not coplanar is a different element —
+         solved as a degenerated continuum so the curvature is carried rather
+         than flattened. The model has had the flag; the template had no way
+         to say it, so every imported shell arrived flat. */
+      { key: 'curved', helpKey: 'xls.col.curved', example: 'no' },
     ],
-    examples: [[1, '1 2 3 4', 1, 0.15]],
+    examples: [[1, '1 2 3 4', 1, 0.15, 'no']],
   },
 
   {

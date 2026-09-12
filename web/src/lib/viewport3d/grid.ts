@@ -27,14 +27,58 @@ export function updateGrid(
 
   if (!showGrid) return null;
 
-  const divisions = Math.max(1, Math.round(gridExtent / gridSize3D));
   /*
-   * Neutral, and weaker than a panel hairline. The grid was two navy blues from
-   * the old palette, which put a saturated colour across the whole floor and
-   * left it competing with the model instead of sitting behind it. Centre line
-   * slightly stronger than the rest, which is what a grid is for.
+   * ── Two grids, because one cannot serve both distances ────────────
+   *
+   * A single GridHelper has one spacing, and a line budget forces that
+   * spacing to grow with the extent: ten kilometres inside 400 divisions is a
+   * line every 25 m. At a working zoom the camera then sits INSIDE one cell
+   * and the floor is blank — "set the grid to 10000 and it does not even
+   * show", which is exactly right and was not a rendering fault.
+   *
+   * So: a FINE grid at the spacing that was asked for, covering as much as
+   * the budget allows around the origin, and a COARSE one carrying the full
+   * extent at a round multiple. Close in you read the fine one; zoomed out it
+   * falls below a pixel and the coarse one is what remains. Nothing is
+   * per-frame — two static meshes, chosen once.
+   *
+   * The multiples are round on purpose, so lines land on coordinates a reader
+   * recognises: 1 m becomes 10 m, never 8.3 m.
    */
-  const grid = new THREE.GridHelper(gridExtent, divisions, 0x3d4b57, 0x27333d);
+  const MAX_DIVISIONS = 400;
+  const ROUND_STEPS = [2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+  const spacing = Math.max(gridSize3D, 1e-6);
+
+  const group = new THREE.Group();
+  group.name = 'grid';
+
+  /* The fine grid: the requested spacing, over as much as the budget buys. */
+  const fineExtent = Math.min(gridExtent, spacing * MAX_DIVISIONS);
+  const fineDivisions = Math.max(1, Math.round(fineExtent / spacing));
+  const fine = new THREE.GridHelper(fineExtent, fineDivisions, 0x3d4b57, 0x27333d);
+  group.add(fine);
+
+  /*
+   * The coarse grid, only when the extent reaches past the fine one. Aimed at
+   * ~120 divisions: enough that a line is always in view at any zoom that can
+   * see the whole extent, few enough to stay cheap.
+   */
+  if (gridExtent > fineExtent * 1.01) {
+    const want = gridExtent / 120;
+    let coarse = spacing;
+    for (const k of ROUND_STEPS) {
+      coarse = spacing * k;
+      if (coarse >= want) break;
+    }
+    const coarseDivisions = Math.max(1, Math.min(MAX_DIVISIONS, Math.round(gridExtent / coarse)));
+    /* Dimmer than the fine grid: it is the backdrop, not the ruler. */
+    const far = new THREE.GridHelper(gridExtent, coarseDivisions, 0x33404b, 0x1f2933);
+    /* Under the fine one where they overlap, so the ruler stays on top. */
+    far.renderOrder = -1;
+    group.add(far);
+  }
+
+  const grid: THREE.Object3D = group;
 
   setPlaneOffset(grid, workingPlane, nodeCreateZ);
 

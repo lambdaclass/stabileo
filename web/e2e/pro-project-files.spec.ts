@@ -102,8 +102,29 @@ test.describe('@slow PRO project files', () => {
     await expect(saveBtn, 'PRO exposes Save').toBeVisible();
     await expect(saveBtn).toBeEnabled();
 
-    const downloadPromise = page.waitForEvent('download', { timeout: 60_000 });
+    /*
+     * Save asks what before it writes, as Basic's does. There were two
+     * buttons — one per scope — that each wrote a file the instant they were
+     * pressed, with the difference between a tab and a session explained
+     * nowhere a reader would meet it. The default scope is this tab, which is
+     * what this test has always been about.
+     */
     await saveBtn.click();
+    await expect(page.getByTestId('pp-save-dialog')).toBeVisible();
+    await expect(page.getByTestId('pp-scope-tab')).toBeChecked();
+
+    /*
+     * Straight to Downloads. The folder picker is a modal owned by the
+     * operating system: a headless browser cannot show one, and what it
+     * throws instead is indistinguishable from a reader dismissing it — so
+     * the test says which of the two behaviours it wants, exactly as a
+     * reader would.
+     */
+    const folder = page.getByTestId('pp-choose-folder');
+    if (await folder.count()) await folder.uncheck();
+
+    const downloadPromise = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByTestId('pp-save-confirm').click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.ded$/);
 

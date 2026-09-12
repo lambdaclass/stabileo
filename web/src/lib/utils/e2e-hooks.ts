@@ -28,6 +28,9 @@
  * query flag is present, so production pages never expose it.
  */
 
+import { projectWorld } from '../viewport3d/camera-probe';
+import { projectNodeToScene } from '../geometry/coordinate-system';
+import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { readCamera } from '../viewport3d/camera-probe';
 import { detailingStore } from '../store/detailing.svelte';
@@ -517,6 +520,36 @@ export function installE2EHooks(): void {
     nodeScreenPos: (id: number) => {
       const n = modelStore.nodes.get(id);
       if (!n) return null;
+      /*
+       * The 3-D camera answers first, when there is one.
+       *
+       * `worldToScreen` is the 2D canvas transform. In 2D it is exactly
+       * right; in 3D it returns a confident number that has nothing to do
+       * with where the node is on screen, so a test that clicks "the node"
+       * clicks empty space and concludes the tool is broken. That is a
+       * fabricated failure, and a fabricated PASS is available the same way.
+       */
+      /*
+       * Through the SAME transform the scene draws with.
+       *
+       * A model the application decides to embed flat in 3D is drawn at
+       * (x, 0, y), not at its raw coordinates — so projecting the raw ones
+       * reports a point the node is not at, and a test clicking "the node"
+       * clicks empty space. That is how a working member tool looked broken:
+       * the ray missed by the distance between two coordinate systems.
+       */
+      const scene = projectNodeToScene(n as never, shouldEmbedFlat2DModelIn3D({
+        nodes: modelStore.nodes,
+        elements: modelStore.elements,
+        supports: modelStore.supports,
+        loads: modelStore.model.loads,
+        materials: modelStore.materials,
+        sections: modelStore.sections,
+        plates: modelStore.plates,
+        quads: modelStore.quads,
+      } as never));
+      const projected = projectWorld(scene.x, scene.y, scene.z);
+      if (projected) return projected;
       const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
       if (!canvas) return null;
       const p = uiStore.worldToScreen(n.x, (n as { z?: number }).z ?? n.y);

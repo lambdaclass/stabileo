@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
+  import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
   import { arcPolyline } from '../../lib/engine/curved-beam';
   import MemberOffsetEditor from '../property/MemberOffsetEditor.svelte';
 
@@ -20,6 +21,65 @@
   let pasteError = $state<string | null>(null);
   let selectedRowIdx = $state<number | null>(null);
   let drawMode = $state(false);
+
+  // ── Curved members ───────────────────────────────────────────────
+  let showArc = $state(false);
+  let arcStart = $state('');
+  let arcThrough = $state('');
+  let arcEnd = $state('');
+  let arcSegments = $state(8);
+  let arcError = $state<string | null>(null);
+
+  /** The three picked nodes as points, or null while the form is incomplete. */
+  const arcPts = $derived.by(() => {
+    const ids = [arcStart, arcThrough, arcEnd].map((v) => Number(v));
+    if (ids.some((n) => !Number.isFinite(n) || n <= 0)) return null;
+    const ns = ids.map((id) => modelStore.nodes.get(id));
+    if (ns.some((n) => !n)) return null;
+    return ns.map((n) => ({ x: n!.x, y: n!.y ?? 0, z: (n! as { z?: number }).z ?? 0 }));
+  });
+
+  const arcGeo = $derived(arcPts ? arcThroughThree(arcPts[0], arcPts[1], arcPts[2]) : null);
+  const arcChordError = $derived(arcGeo ? chordError(arcGeo, arcSegments) : 0);
+
+  /**
+   * Draw the curve.
+   *
+   * The ends REUSE the nodes they were picked from — two nodes in the same
+   * place analyse as two nodes, so an arch that created its own springing
+   * points would be a structure cut where it looks joined, with no visible
+   * symptom and a solve that succeeds.
+   */
+  function createArc() {
+    arcError = null;
+    if (!arcPts || !arcGeo) { arcError = t('pro.arcNeedsThree'); return; }
+    const startId = Number(arcStart);
+    const endId = Number(arcEnd);
+    const arcId = Date.now();
+    const made = buildArc(
+      { start: arcPts[0], through: arcPts[1], end: arcPts[2], segments: arcSegments },
+      {
+        addNode: (x, y, z) => modelStore.addNode(x, y, z),
+        /* The arc passes through the middle point by construction, so an even
+           segment count lands a generated point exactly on the node that was
+           picked to define it. Two nodes in one place analyse as two nodes. */
+        nodeAt: (x, y, z) => {
+          for (const [id, n] of modelStore.nodes) {
+            const nz = (n as { z?: number }).z ?? 0;
+            if (Math.hypot(n.x - x, (n.y ?? 0) - y, nz - z) <= NODE_MERGE_TOL) return id;
+          }
+          return null;
+        },
+        addElement: (i, j) => modelStore.addElement(i, j),
+        tag: (elementId, tag) => {
+          const el = modelStore.elements.get(elementId);
+          if (el) modelStore.updateElement(elementId, { arc: { id: tag.arcId, spec: tag.spec } } as never);
+        },
+      },
+      arcId, startId, endId,
+    );
+    if (made.length === 0) arcError = t('pro.arcFailed');
+  }
   let drawNodeI = $state<number | null>(null);
 
   // Sync rows from store on mount. Preserve unsaved rows (id === null).
@@ -242,8 +302,54 @@
       <button class="pro-btn" class:pro-btn-active={drawMode} onclick={toggleDrawMode}>
         {drawMode ? t('pro.stopDrawing') : t('pro.draw')}
       </button>
+      <button class="pro-btn" class:pro-btn-active={showArc} onclick={() => (showArc = !showArc)}
+              data-testid="pro-arc-toggle">{t('pro.curvedMember')}</button>
     </div>
   </div>
+
+  <!--
+    ── A curved member, as an arc through three points ────────────────
+    The solver has straight frame elements and no curved beam, so the arc is
+    MATERIALISED as a chain of them — what every commercial package does, and
+    what lets diagrams, verification, detailing and the results tables keep
+    working unchanged, because they all already understand straight members.
+
+    Three points because that is what an engineer has: the two ends and a
+    point the curve must pass through. Two points and a radius is the same
+    arc stated differently and leaves which way round it goes ambiguous,
+    which is precisely what the middle point settles.
+
+    The segment count is a choice with a number attached: the panel says how
+    far the chain falls inside the true arc, in metres, so "is twelve enough"
+    stops being a feeling.
+  -->
+  {#if showArc}
+    <div class="pro-arc" data-testid="pro-arc-form">
+      <div class="pro-arc-row">
+        <label>{t('pro.arcStart')}</label>
+        <input type="text" bind:value={arcStart} placeholder="N" data-testid="arc-start" />
+        <label>{t('pro.arcThrough')}</label>
+        <input type="text" bind:value={arcThrough} placeholder="N" data-testid="arc-through" />
+        <label>{t('pro.arcEnd')}</label>
+        <input type="text" bind:value={arcEnd} placeholder="N" data-testid="arc-end" />
+      </div>
+      <div class="pro-arc-row">
+        <label>{t('pro.arcSegments')}</label>
+        <input type="number" min="1" max="64" bind:value={arcSegments} data-testid="arc-segments" />
+        {#if arcGeo}
+          <span class="pro-arc-note" data-testid="arc-note">
+            R = {arcGeo.radius.toFixed(3)} m · L = {arcGeo.length.toFixed(3)} m ·
+            {tp('pro.arcError', { mm: (arcChordError * 1000).toFixed(1) })}
+          </span>
+        {/if}
+      </div>
+      {#if arcError}<div class="pro-arc-err" data-testid="arc-error">{arcError}</div>{/if}
+      <div class="pro-arc-row">
+        <button class="pro-btn pro-btn-accent" onclick={createArc} data-testid="arc-create"
+                disabled={!arcGeo}>{t('pro.arcCreate')}</button>
+      </div>
+    </div>
+  {/if}
 
   {#if drawMode}
     <div class="pro-draw-status">
@@ -508,6 +614,20 @@
   }
 
   .pro-elems-table tbody tr { cursor: pointer; transition: background 0.1s; }
+  .pro-arc {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--st-surface-3);
+    background: var(--st-surface-2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pro-arc-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pro-arc-row label { font-size: 0.7rem; color: var(--st-text-3); }
+  .pro-arc-row input { width: 58px; }
+  .pro-arc-note { font-size: 0.68rem; color: var(--st-text-3); }
+  .pro-arc-err { font-size: 0.7rem; color: var(--st-danger); }
+
   .pro-elems-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }
   .pro-elems-table tr.selected { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
   .pro-elems-table tr.unsaved td { opacity: 0.6; }

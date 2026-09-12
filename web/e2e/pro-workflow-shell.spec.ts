@@ -22,60 +22,159 @@ type Page = import('@playwright/test').Page;
 const SMALL = 'rc-qa-diagnostic';
 
 test.describe('@smoke PRO shell — settings', () => {
-  test('the settings button opens a panel that is actually on screen', async ({ pro: page }) => {
+  /*
+   * ── These changed shape, and the change is the point ───────────────
+   *
+   * Settings used to be a dropdown hanging off the gear: a transient popover
+   * with its own scroll, its own close button and its own focus trap. So the
+   * tests here asserted popover properties — Escape dismisses it, a click
+   * outside dismisses it, focus moves inside and comes back.
+   *
+   * They now open in the right-hand panel, where Basic's have always opened
+   * and where every other PRO destination opens. A docked panel is not
+   * dismissed by Escape or by clicking elsewhere; it is dismissed by its own
+   * control or by choosing another destination, and it does not take focus,
+   * because it did not take it away from anything.
+   *
+   * What survives is what was actually worth asserting: the thing is ON
+   * SCREEN with real content in it. That was the bug these tests were
+   * written for — a panel with a size and no `display: none`, positioned
+   * below the bottom of the window — and it is exactly as possible in a
+   * docked panel as in a popover.
+   */
+  test('the gear opens settings in the panel, on screen and with content', async ({ pro: page }) => {
     const gear = page.getByTestId('pro-settings');
     await expect(gear).toBeVisible();
-    await expect(gear, 'closed to begin with').toHaveAttribute('aria-expanded', 'false');
+    await expect(gear, 'off to begin with').toHaveAttribute('aria-pressed', 'false');
 
     await gear.click();
+    await expect(gear).toHaveAttribute('aria-pressed', 'true');
 
-    const panel = page.getByTestId('pro-settings-panel');
-    await expect(panel, 'the panel mounts').toBeVisible();
-    await expect(gear).toHaveAttribute('aria-expanded', 'true');
+    const title = page.getByTestId('pro-panel-title');
+    await expect(title, 'the panel is showing settings').toBeVisible();
 
-    /**
-     * The assertion the old bug would have failed.
-     *
-     * `toBeVisible()` alone would NOT have caught it: the panel had a size and was not
-     * `display: none`, it was simply positioned below the bottom of the window. So this
-     * measures where it landed, against the viewport it has to be inside.
+    /*
+     * Measured against the viewport rather than trusted to `toBeVisible`,
+     * for the reason the original test gave: a panel can have a box, no
+     * `display: none`, and still sit below the fold.
      */
+    const panel = title.locator('xpath=ancestor::*[contains(@class,"pro-panel")][1]');
     const box = await panel.boundingBox();
     expect(box, 'the panel has a box').not.toBeNull();
     const view = page.viewportSize()!;
     expect(box!.y, 'top edge is on screen').toBeGreaterThanOrEqual(0);
     expect(box!.y, 'and not below the fold').toBeLessThan(view.height);
     expect(box!.x + box!.width, 'right edge is on screen').toBeLessThanOrEqual(view.width + 1);
-    expect(box!.height, 'and it has real content in it').toBeGreaterThan(40);
+
+    /* Real content, not a heading over nothing — `inline` used to leave every
+       sub-section collapsed, which is a panel with a title and no body. */
+    expect(await page.locator('.input-group').count(),
+      'the settings themselves are there').toBeGreaterThan(3);
   });
 
-  test('Escape closes it and the gear is where focus goes back to', async ({ pro: page }) => {
-    await page.getByTestId('pro-settings').click();
-    await expect(page.getByTestId('pro-settings-panel')).toBeVisible();
+  test('a second press closes it', async ({ pro: page }) => {
+    const gear = page.getByTestId('pro-settings');
+    await gear.click();
+    await expect(gear).toHaveAttribute('aria-pressed', 'true');
 
-    await page.keyboard.press('Escape');
-    await expect(page.getByTestId('pro-settings-panel')).toHaveCount(0);
-
-    const focused = await page.evaluate(() =>
-      (document.activeElement as HTMLElement | null)?.getAttribute('data-testid') ?? null);
-    expect(focused, 'focus returns to the control that opened it').toBe('pro-settings');
-  });
-
-  test('a click outside closes it', async ({ pro: page }) => {
-    await page.getByTestId('pro-settings').click();
-    await expect(page.getByTestId('pro-settings-panel')).toBeVisible();
-    await page.getByTestId('pro-panel-title').click();
-    await expect(page.getByTestId('pro-settings-panel')).toHaveCount(0);
+    await gear.click();
+    await expect(gear, 'the control that opened it closes it').toHaveAttribute('aria-pressed', 'false');
   });
 
   test('it is reachable and operable from the keyboard alone', async ({ pro: page }) => {
-    await page.getByTestId('pro-settings').focus();
+    const gear = page.getByTestId('pro-settings');
+    await gear.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByTestId('pro-settings-panel')).toBeVisible();
-    const inside = await page.evaluate(() =>
-      !!document.activeElement?.closest('[data-testid="pro-settings-panel"]'));
-    expect(inside, 'focus moves into the panel rather than staying under it').toBe(true);
+    await expect(gear).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('pro-panel-title')).toBeVisible();
+
+    /*
+     * Focus stays on the gear, which is right for a docked panel: it took
+     * nothing away, so it has nothing to give back. The old popover moved
+     * focus inside because it covered the ribbon underneath it.
+     */
+    const focused = await page.evaluate(() =>
+      (document.activeElement as HTMLElement | null)?.getAttribute('data-testid') ?? null);
+    expect(focused).toBe('pro-settings');
   });
+
+  test('choosing another destination leaves settings', async ({ pro: page }) => {
+    await page.getByTestId('pro-settings').click();
+    await expect(page.getByTestId('pro-settings')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.getByTestId('pr-project').click();
+    await expect(
+      page.getByTestId('pro-settings'),
+      'the panel shows one thing, and the ribbon says which',
+    ).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('pro-project-tab')).toBeVisible();
+  });
+});
+
+test.describe('@smoke PRO shell — closing the panel', () => {
+  /*
+   * "Close does nothing" was not quite true: it did half of one thing.
+   *
+   * `.pro-sidebar-closed { display: none }` is one class, and
+   * `.sidebar.right { display: flex }` is two — so the closed rule LOST the
+   * cascade. Pressing ✕ set the state and the reopen tab duly appeared beside
+   * a panel that was still fully on screen.
+   *
+   * Which is why this asserts the box and not the flag: a state test passed
+   * throughout.
+   */
+  test('the panel actually leaves the screen, and comes back', async ({ pro: page }) => {
+    const panel = page.locator('.pro-sidebar');
+    await expect(panel).toBeVisible();
+    const open = (await panel.boundingBox())!;
+    expect(open.width, 'it starts with real width').toBeGreaterThan(100);
+
+    await page.getByTestId('pro-panel-close').click();
+    await expect(panel, 'closed means gone, not merely flagged').toBeHidden();
+
+    const reopen = page.getByTestId('pro-panel-reopen');
+    await expect(reopen).toBeVisible();
+    await reopen.click();
+    await expect(panel).toBeVisible();
+    expect((await panel.boundingBox())!.width).toBeGreaterThan(100);
+  });
+
+  test('closing it gives the width back to the model', async ({ pro: page }) => {
+    const canvas = page.locator('.viewport-container').first();
+    const before = (await canvas.boundingBox())!.width;
+
+    await page.getByTestId('pro-panel-close').click();
+    await expect(page.locator('.pro-sidebar')).toBeHidden();
+
+    /* The reason to close it at all. A panel that hides without yielding its
+       column is a panel that only pretended to close. */
+    await expect.poll(async () => (await canvas.boundingBox())!.width).toBeGreaterThan(before + 100);
+  });
+});
+
+test.describe('@smoke PRO shell — a toast does not land on the panel', () => {
+  /*
+   * Toasts are anchored bottom-right of the VIEWPORT, which stopped being the
+   * corner of the canvas the moment a docked panel appeared. Basic solved
+   * this once — its panel publishes `--st-right-panel-w` and the toast stack
+   * reads it — and PRO's panel never published anything, so a success message
+   * landed semi-transparent over the results table it was announcing, with
+   * the numbers showing through it.
+   */
+  test('the toast stack clears the open panel, and takes the room back when it closes',
+    async ({ pro: page }) => {
+      const read = () => page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--st-right-panel-w').trim());
+
+      const panelW = (await page.locator('.pro-sidebar').boundingBox())!.width;
+      const published = parseFloat(await read());
+      expect(published, 'the panel says how wide it is').toBeCloseTo(panelW, 0);
+
+      await page.getByTestId('pro-panel-close').click();
+      await expect(page.locator('.pro-sidebar')).toBeHidden();
+      await expect.poll(async () => parseFloat(await read()),
+        { message: 'a toast must not dodge a panel that is not there' }).toBe(0);
+    });
 });
 
 test.describe('@smoke PRO shell — the diagnostics warning', () => {
@@ -95,7 +194,9 @@ test.describe('@smoke PRO shell — the diagnostics warning', () => {
   test('Diagnostics carries the control that hides it, and states its scope', async ({ pro: page }) => {
     // Through the ribbon, as a user reaches it: the Analyse stage, then the Diagnostics command.
     await page.getByTestId('pr-stage-analyse').click();
-    await page.getByTestId('pr-cmd-diagnostics').click();
+    /* Diagnostics lives inside Advanced now: it is a check you ask the
+       MODEL to perform, which is what everything else in that panel is. */
+    await page.getByTestId('pr-cmd-advanced').click();
 
     const notify = page.getByTestId('diag-notify');
     await expect(notify).toBeVisible();
@@ -312,13 +413,21 @@ test.describe('@smoke PRO shell — the Project section', () => {
     }
   });
 
-  test('it states what is open and where the autosave lives', async ({ pro: page }) => {
+  test('it says where the autosave lives, and does not restate the document', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
     await expect(page.getByTestId('pro-project-tab')).toBeVisible();
-    await expect(page.getByTestId('pp-doc-name')).toBeVisible();
-    await expect(page.getByTestId('pp-doc-size')).toBeVisible();
     await expect(page.getByTestId('pp-autosave-backend')).toBeVisible();
     await expect(page.getByTestId('pp-autosave-last')).toBeVisible();
+
+    /*
+     * "Documento abierto" is gone, and this asserted it. It listed the file
+     * name, the node and member counts and whether the model was solved —
+     * each of which the application states where it is needed: the name is in
+     * the tab, the counts are the Model tables this panel is one click from,
+     * and solved-or-not is the state of every command in ANALYSE. A second
+     * copy only makes a reader wonder which one is current.
+     */
+    await expect(page.getByTestId('pp-document')).toHaveCount(0);
 
     // One restore surface, and it is not this one.
     await expect(page.locator('[data-testid="pro-project-tab"] button.restore'),

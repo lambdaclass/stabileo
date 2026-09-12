@@ -1,4 +1,5 @@
 import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../geometry/coordinate-system';
+import { resultsStore } from '../store/results.svelte';
 
 /**
  * PRO's command tree — ONE definition, read by every surface that shows it.
@@ -44,6 +45,16 @@ export type ProCmd = {
   rotate?: number;
   /** Destination: which panel view this opens. */
   tab?: string;
+  /**
+   * Arms a POINTER tool rather than opening a destination.
+   *
+   * The viewport has implemented click-to-place nodes and two-click members
+   * since 3D existed, gated on `uiStore.currentTool`. PRO's ribbon set that
+   * value to exactly two things — `select` and `pan` — so the whole of
+   * drawing was unreachable from this mode and geometry had to be typed into
+   * a table by coordinate and by node id. This is the field that reaches it.
+   */
+  tool?: string;
   /** Sets the diagram drawn on the model. */
   diagram?: string;
   action?: () => void;
@@ -103,13 +114,33 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
       labelKey: 'proRibbon.stageModel',
       home: 'nodes',
       groups: [
+        /*
+         * ── One Draw group: the table AND the tool are the same command ──
+         *
+         * It was briefly two groups — Draw with the pointer tools, Tables with
+         * the grids — and that split the one thing a reader does into two
+         * places. The professional flow is not "choose a way to work": it is
+         * type the nodes with their coordinates in the panel, then click those
+         * nodes to lay members, supports and plates on them. Both halves of
+         * that sentence are Nodes.
+         *
+         * So each command opens its table and arms its tool. The pointer box
+         * over the model shows which tool is live and takes you back to
+         * Select, which is the one place a mode is worth announcing.
+         *
+         * Plates arm the SHELL PICK rather than a viewport tool: a plate is
+         * three or four nodes, so it is picked by node, and the panel counts
+         * them as they go in. Repeat has no tool because it operates on a
+         * selection that already exists.
+         */
         {
-          id: 'geometry',
+          id: 'draw',
           labelKey: 'ribbon.groupDraw',
           cmds: [
-            { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
-            { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
+            { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes', tool: 'node' },
+            { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements', tool: 'element' },
             { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
+            { id: 'repeat', labelKey: 'repeat.title', icon: 'element', tab: 'repeat' },
           ],
         },
         {
@@ -118,6 +149,33 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           cmds: [
             { id: 'materials', labelKey: 'pro.tabMaterials', icon: 'material', tab: 'materials' },
             { id: 'sections', labelKey: 'pro.tabSections', icon: 'section', tab: 'sections' },
+          ],
+        },
+        /*
+         * ── Conditions live inside Model ─────────────────────────────
+         *
+         * Supports, constraints and loads were a STAGE of their own, beside
+         * Model and Analyse. They are not a stage: nothing is produced by
+         * moving to them and nothing follows from leaving. They are part of
+         * describing the structure, exactly like its geometry and its
+         * materials — which is why a reader building a frame crossed between
+         * two top-level stages to place a support and then crossed back.
+         *
+         * One group, to the right of Properties and left of Generators: draw
+         * it, give it materials, say how it is held and loaded, and only then
+         * reach for something that replaces the lot.
+         */
+        {
+          id: 'conditions',
+          labelKey: 'ribbon.groupConditions',
+          cmds: [
+            /* Supports and loads are placed ON nodes and members, so they arm
+               their tools the way the drawing commands do. Constraints tie
+               degrees of freedom between nodes already chosen, which is a
+               form and not a gesture. */
+            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports', tool: 'support' },
+            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
+            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads', tool: 'load' },
           ],
         },
         /*
@@ -146,28 +204,6 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
               icon: 'examples',
               tab: 'generators',
             },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'conditions',
-      labelKey: 'ribbon.groupConditions',
-      home: 'supports',
-      groups: [
-        {
-          id: 'restraints',
-          labelKey: 'proRibbon.groupRestraints',
-          cmds: [
-            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
-            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
-          ],
-        },
-        {
-          id: 'loads',
-          labelKey: 'proRibbon.groupLoads',
-          cmds: [
-            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
           ],
         },
       ],
@@ -211,25 +247,39 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           ],
         },
         /*
-         * Not quantities: whole-model colourings. A colour map paints every
-         * member by a variable you choose, and the verification map paints them
-         * by their code-check outcome — neither is "a diagram of X", so they do
-         * not belong in the row of six that are.
+         * ── Stress, beside the quantities rather than above them ────────
+         *
+         * There was a "Colour maps" group holding two commands. One of them,
+         * `colorMap`, was not a quantity at all — it is a WAY OF DRAWING one,
+         * and Basic has said so for a while: pick N and then pick Diagram,
+         * Member colour or Colour map. Keeping a separate button for the
+         * third option meant the ribbon offered "the moment" in one place and
+         * "a colour map (of what?)" in another. The choice belongs with the
+         * quantity, in the Results panel, through the same `showQuantityAs`
+         * Basic uses.
+         *
+         * The other, the CIRSOC verification map, is not an analysis result:
+         * it paints members by the outcome of a code check, which is a design
+         * step. It belongs to the DESIGN workflow and is reached from there.
+         *
+         * What is left is Stress, which IS a quantity and had no button —
+         * only a buried entry in a dropdown. Bars have stresses and so do
+         * plates, and a reader wants either or both.
          */
         {
-          id: 'maps',
-          labelKey: 'proRibbon.groupMaps',
+          id: 'stress',
+          labelKey: 'proRibbon.groupStress',
           cmds: [
-            { id: 'colorMap', labelKey: 'pro.diagColorMap', icon: 'view2d', diagram: 'colorMap', enabled: () => solved },
-            { id: 'verification', labelKey: 'pro.diagVerification', icon: 'support', diagram: 'verification', enabled: () => solved },
-          ],
-        },
-        {
-          id: 'inspect',
-          labelKey: 'proRibbon.groupInspect',
-          cmds: [
-            { id: 'results', labelKey: 'ribbon.results', icon: 'data', tab: 'results', enabled: () => solved },
-            { id: 'diagnostics', labelKey: 'pro.tabDiagnostics', icon: 'advanced', tab: 'diagnostics' },
+            {
+              id: 'stress',
+              labelKey: 'pro.varStress',
+              descKey: 'proRibbon.stressDesc',
+              icon: 'stress',
+              diagram: 'colorMap',
+              action: () => { resultsStore.colorMapKind = 'stress'; },
+              tab: 'results',
+              enabled: () => solved,
+            },
           ],
         },
         {
@@ -363,9 +413,12 @@ export const PRO_TAB_STAGE: Record<string, string> = {
      * corner, where the controls that act on the application live.
      */
     ai: '',
+    /* Settings is reached from the header corner, like the AI drawer. */
+    settings: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
-    generators: 'model',
-    supports: 'conditions', constraints: 'conditions', loads: 'conditions',
+    generators: 'model', repeat: 'model',
+    /* Conditions is a GROUP inside Model now, not a stage of its own. */
+    supports: 'model', constraints: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
     design: 'design', steel: 'design', connections: 'design',
   };

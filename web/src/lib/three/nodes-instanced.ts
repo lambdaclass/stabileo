@@ -87,6 +87,30 @@ export class NodesInstanced {
     this.radius = key;
     this.geo = getSharedGeo(key);
     this.mesh.geometry = this.geo;
+    this.invalidateBounds();
+  }
+
+  /**
+   * Throw away the cached bounds, so the next raycast recomputes them.
+   *
+   * ── The bug this exists to prevent ─────────────────────────────────
+   *
+   * `InstancedMesh.raycast` tests the mesh's bounding sphere before it tests
+   * anything else, and computes that sphere ONCE — on first use, from
+   * whatever instances existed then. Nothing in three invalidates it when
+   * instances are added, moved or resized.
+   *
+   * So on a model built up node by node, the sphere was computed while the
+   * mesh was empty or tiny and every later click was rejected before a single
+   * instance was tested. Clicking a node — the gesture the entire modelling
+   * flow is built on — silently stopped working as the model grew, while a
+   * model LOADED from a file was fine because its mesh was populated before
+   * anything raycast it. That is as confusing a bug as this codebase has had:
+   * the same click works or does not depending on how the model got there.
+   */
+  private invalidateBounds(): void {
+    this.mesh.boundingSphere = null;
+    this.mesh.boundingBox = null;
   }
 
   /** The radius currently drawn, metres. */
@@ -112,6 +136,7 @@ export class NodesInstanced {
     this._mat4.makeTranslation(x, y, z);
     this.mesh.setMatrixAt(idx, this._mat4);
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.invalidateBounds();
   }
 
   /** Remove a node. Swap-pops the last instance into the removed slot. */
@@ -137,6 +162,7 @@ export class NodesInstanced {
     this.count = lastIdx;
     this.mesh.count = this.count;
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.invalidateBounds();
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
 

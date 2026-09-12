@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import {
@@ -1027,6 +1028,18 @@
   {/if}
 
   <div class="adv-scroll">
+
+    <!--
+      ── 0. Diagnostics, which used to be a ribbon command ────────────
+      It sat under Inspect, beside Results, as if it were a view of the
+      analysis. It is not: it is a check you ask the MODEL to perform, before
+      an analysis rather than after one, which is what everything else in this
+      panel is. Run it here and the whole set reads as one list of things the
+      model can be asked.
+    -->
+    <div class="adv-group" data-testid="adv-diagnostics">
+      <ProDiagnosticsTab />
+    </div>
 
     <!-- ── 1. P-Delta ── -->
     <div class="adv-group">

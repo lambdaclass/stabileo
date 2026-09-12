@@ -32,6 +32,7 @@ import { chooseBars, barsPerLayer } from '../cirsoc201-bars';
 /** The section from the bug report. */
 const BEAM = { fc: 25, fy: 420, b: 0.20, h: 0.50, dPrimeS: 0.03, dPrime: 0.03 };
 
+
 const design = (Mu: number, over: Partial<typeof BEAM> = {}) =>
   solveFlex({
     mode: 'design', kase: 'FSR', ...BEAM, ...over, Pu: 0, Mu,

@@ -58,6 +58,8 @@ let authoring = $state(false);
 
 // ─── Public API ────────────────────────────────────────────────────
 
+let borrowedModel = $state<unknown>(null);
+
 export const eduStore = {
   // ── Exercise lifecycle ────────────────────────────────────────
   get exercise() { return currentExercise; },
@@ -96,6 +98,24 @@ export const eduStore = {
   /** Back to browsing — the teacher's own window, or a student who chose to
    *  leave the exercise they were given. */
   markBrowsing() { session = 'browsing'; },
+
+  // ── The model an exercise borrowed ────────────────────────────
+  /*
+   * Opening an exercise REPLACES the model: `loadExercise` clears the store
+   * and builds the exercise's own structure. That was harmless while
+   * Education was a separate application — you went there to do exercises and
+   * the canvas was the exercise's — and it is not harmless inside Basic,
+   * where the reader may have been drawing a frame for an hour.
+   *
+   * So the model is set aside rather than destroyed, and handed back when the
+   * exercise is left. This is the same thing `switchAppMode` does with
+   * `modeSnapshots`; the difference is only that here the two share one mode.
+   *
+   * `unknown` because this module must not import the model store: it is the
+   * store that hands the snapshot in and takes it back out.
+   */
+  get borrowedModel() { return borrowedModel; },
+  set borrowedModel(v: unknown) { borrowedModel = v; },
 
   // ── Authoring ─────────────────────────────────────────────────
   get authoring() { return authoring; },

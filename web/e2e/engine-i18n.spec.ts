@@ -32,7 +32,12 @@ const KEY_PATTERN =
 async function openLoadsTab(page: Page) {
   // The PRO bar is a two-level ribbon now: the stage, then its command. The
   // old bar hid these behind a dropdown that had to be opened first.
-  await page.getByTestId('pr-stage-conditions').click();
+  //
+  // Loads live under MODEL, not under a stage of their own. Supports,
+  // constraints and loads describe the structure the way its geometry does —
+  // nothing is produced by moving to them and nothing follows from leaving —
+  // so they are a group inside Model rather than a phase beside it.
+  await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-loads').click();
 }
 

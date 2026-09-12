@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 /**
  * Playwright configuration (PR15).
@@ -44,6 +46,61 @@ const HOST = '127.0.0.1';
  * derived from the worktree's own directory, which is different for every
  * checkout by construction. E2E_PORT still overrides, for CI or for pinning.
  */
+/**
+ * Is the built bundle older than the source it was built from?
+ *
+ * ── The failure this exists to prevent ─────────────────────────────
+ *
+ * `reuseExistingServer` attaches to a preview that is already listening, and
+ * a preview serves whatever `dist/` held when it started. A run made minutes
+ * after an edit therefore tests the code as it was BEFORE the edit, and says
+ * so in the most convincing possible way: the assertion you just wrote fails,
+ * or — far worse — the one you just broke passes.
+ *
+ * Both have happened here. A settings toggle reported `aria-pressed` absent
+ * when the attribute was plainly in the source; a whole Education suite
+ * reported green against a bundle that predated the effect which broke it,
+ * and CI found the breakage instead. The per-worktree port fixed collisions
+ * BETWEEN checkouts; this fixes the one a single checkout does to itself.
+ *
+ * So: reuse only a build that is at least as new as every source file. The
+ * cost of being wrong is an hour of chasing a defect that is not there, and
+ * the cost of being careful is one rebuild.
+ *
+ * Deliberately shallow about what counts as source — `src`, `e2e`, and the
+ * configs. A stale answer here is safe in one direction only, so when in
+ * doubt it rebuilds.
+ */
+function distIsStale(): boolean {
+  const root = fileURLToPath(new URL('.', import.meta.url));
+  const dist = resolve(root, 'dist', 'index.html');
+  if (!existsSync(dist)) return true;
+  const built = statSync(dist).mtimeMs;
+
+  let newest = 0;
+  const walk = (dir: string, depth = 0): void => {
+    if (depth > 6 || newest > built) return;
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const full = resolve(dir, e.name);
+      if (e.isDirectory()) walk(full, depth + 1);
+      else {
+        const m = statSync(full).mtimeMs;
+        if (m > newest) newest = m;
+      }
+      if (newest > built) return;
+    }
+  };
+  for (const d of ['src', 'e2e']) walk(resolve(root, d));
+  for (const f of ['vite.config.ts', 'playwright.config.ts', 'package.json']) {
+    const full = resolve(root, f);
+    if (existsSync(full)) newest = Math.max(newest, statSync(full).mtimeMs);
+  }
+  return newest > built;
+}
+
 function worktreePort(): number {
   let h = 0;
   /*
@@ -127,7 +184,7 @@ export default defineConfig({
      * build that was never asked for VITE_E2E=1, so every PRO fixture timed out
      * waiting for hooks that bundle does not contain.
      */
-    reuseExistingServer: !process.env.CI && !process.env.E2E_PORT,
+    reuseExistingServer: !process.env.CI && !process.env.E2E_PORT && !distIsStale(),
     timeout: 240_000,
     stdout: 'pipe',
     stderr: 'pipe',

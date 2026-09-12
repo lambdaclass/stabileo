@@ -593,3 +593,58 @@ export function createDeformedLines(
 
   return group;
 }
+
+/**
+ * The deformed shape of the SHELLS.
+ *
+ * ── Why this exists ────────────────────────────────────────────────
+ *
+ * `createDeformedLines` walks `elements`, which are members. A raft modelled
+ * the correct way — plates with a thickness and no bars — therefore produced
+ * an empty deformed shape: the slider moved and nothing on screen answered,
+ * on a structure whose whole behaviour IS its deflection.
+ *
+ * Each face is drawn as its outline through the displaced corners, which is
+ * the deformed mesh every post-processor draws and is what makes a dishing
+ * raft read as a dish. Corner displacements only: the field inside a shell is
+ * the element's own shape functions, and interpolating between four corners
+ * is the honest approximation — the same one the stress contour makes, and
+ * for the same reason.
+ */
+export function createDeformedShells(
+  plates: Map<number, { nodes: readonly number[] }>,
+  quads: Map<number, { nodes: readonly number[] }>,
+  nodes: Map<number, Node>,
+  displacements: Displacement3D[],
+  scale: number,
+  color = 0x22d3a5,
+): THREE.Group {
+  const group = new THREE.Group();
+  group.userData = { type: 'deformedShells' };
+
+  const byNode = new Map<number, Displacement3D>();
+  for (const d of displacements) byNode.set(d.nodeId, d);
+
+  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 });
+
+  const outline = (ids: readonly number[]) => {
+    const pts: THREE.Vector3[] = [];
+    for (const id of ids) {
+      const n = nodes.get(id);
+      if (!n) return;
+      const d = byNode.get(id);
+      pts.push(new THREE.Vector3(
+        n.x + (d?.ux ?? 0) * scale,
+        (n.y ?? 0) + (d?.uy ?? 0) * scale,
+        ((n as { z?: number }).z ?? 0) + (d?.uz ?? 0) * scale,
+      ));
+    }
+    if (pts.length < 3) return;
+    pts.push(pts[0].clone());
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+  };
+
+  for (const [, p] of plates) outline(p.nodes);
+  for (const [, q] of quads) outline(q.nodes);
+  return group;
+}
