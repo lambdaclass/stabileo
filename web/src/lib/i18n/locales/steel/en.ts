@@ -777,6 +777,14 @@ const steelEn: Record<string, string> = {
   'batten.missing.memberLength': 'Member length',
   'batten.segmentsBelowMinimum': 'The code requires at least three segments (E.6.3.2(b)(2)).',
   'joint.state.notDesigned': 'Not designed',
+  // ─── The joint in 3-D ───
+  // `joint.scene.notDesigned` is emitted by `jointSceneLayout` and had no translation in any
+  // locale: nothing rendered it until the panel started saying why the viewport is empty.
+  'joint.scene.notDesigned': 'Nothing is drawn yet: this joint has no design.',
+  'conn.scene.emptyTitle': 'Not drawable yet',
+  'conn.scene.mode': 'View',
+  'conn.scene.inspect': 'Frame the joint',
+  'conn.scene.hint': 'The plate is a few hundred millimetres inside a building tens of metres across, so it needs framing to be inspected.',
   'joint.state.incomplete': 'Incomplete',
   'joint.state.designed': 'Designed',
   'joint.state.exceeded': 'Exceeded',

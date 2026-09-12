@@ -22,6 +22,38 @@ async function jointMeshes(page: Page): Promise<number> {
       .__stabileo?.jointMeshCount?.() ?? -1);
 }
 
+/**
+ * The scene BY PART, not by mesh count.
+ *
+ * These tests used to assert a raw total — 7 for «a plate and six bolts». That number was never
+ * the contract: the contract is one plate, one bolt per hole, and nothing else. M3 draws a bolt
+ * as a shank plus a head, so the total moved to 13 while every word of the contract stayed true.
+ *
+ * Counting parts asserts the contract instead of a consequence of it, and it is strictly
+ * stronger: `shanks === holes` and `heads === shanks` would catch a missing bolt, which a total
+ * of 13 would not.
+ */
+interface JointSceneParts {
+  plates: number; shanks: number; heads: number; holes: number;
+}
+
+async function jointParts(page: Page): Promise<JointSceneParts | null> {
+  return page.evaluate(() =>
+    (window as unknown as { __stabileo?: { jointScene?: () => unknown } })
+      .__stabileo?.jointScene?.() ?? null) as Promise<JointSceneParts | null>;
+}
+
+/** One plate, one shank and one head per hole, and no other mesh in the group. */
+async function expectPlateAndBoltsOnly(page: Page, holes: number): Promise<void> {
+  await expect.poll(async () => (await jointParts(page))?.shanks ?? -1).toBe(holes);
+  const parts = (await jointParts(page))!;
+  expect(parts.plates).toBe(1);
+  expect(parts.holes).toBe(holes);
+  expect(parts.heads).toBe(holes);
+  // Nothing else was added — no batten, no weld, no placeholder.
+  expect(await jointMeshes(page)).toBe(1 + 2 * holes);
+}
+
 async function openSolvedShed(page: Page): Promise<number> {
   const t0 = Date.now();
   await page.goto(PRO_URL);
@@ -92,8 +124,9 @@ test.describe('the plate and bolts appear only once the geometry is complete', (
     await page.locator('.conn-joint-row').first().click();
     await designSelectedJoint(page);
     await expect(page.getByTestId('joint-plate')).toBeVisible();
-    // One plate plus six bolts.
-    await expect.poll(() => jointMeshes(page)).toBe(7);
+    // One plate, one bolt per hole — asserted by part, so a bolt gaining a head does not read
+    // as a broken contract.
+    await expectPlateAndBoltsOnly(page, 6);
   });
 
   test('and the meshes go away when the design is undone', async ({ page }) => {
@@ -154,7 +187,7 @@ test.describe('selection is one channel, in both directions', () => {
     await rows.nth(1).click();
     await rows.nth(0).click();
     await expect(page.getByTestId('jd-count')).toHaveValue('6');
-    await expect.poll(() => jointMeshes(page)).toBe(7);
+    await expectPlateAndBoltsOnly(page, 6);
   });
 });
 
@@ -169,7 +202,9 @@ test.describe('battens and welds are not drawn without geometry', () => {
     await openJointPanel(page);
     await page.locator('.conn-joint-row').first().click();
     await designSelectedJoint(page);
-    await expect.poll(() => jointMeshes(page)).toBe(7);
+    // «Exactly» is the point of this test, and counting parts is what makes it exact: a batten
+    // or a weld mesh would break the `1 + 2 x holes` total.
+    await expectPlateAndBoltsOnly(page, 6);
   });
 });
 
@@ -209,7 +244,7 @@ test.describe('performance, measured on the shed', () => {
     const t3 = Date.now();
     await page.getByTestId('jd-count').fill('8');
     await page.getByTestId('jd-count').blur();
-    await expect.poll(() => jointMeshes(page)).toBe(9);
+    await expect.poll(async () => (await jointParts(page))?.shanks ?? -1).toBe(8);
     const rebuildMs = Date.now() - t3;
 
     // eslint-disable-next-line no-console
