@@ -17,7 +17,8 @@ import { test, expect } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
-const CASES = ['rect-flexure', 'tee-flexure', 'rect-column', 'circ-column', 'rect-biaxial'];
+/** The workbook's own sheet names, which the selector now uses. */
+const CASES = ['FSR', 'FST', 'FCR', 'FCR-CIR', 'FCO'];
 
 async function openFlex(page: Page) {
   await page.goto('/app/basic?e2e=1');
@@ -34,7 +35,7 @@ async function openFlex(page: Page) {
 
 const resultText = (page: Page) => page.getByTestId('flex-result').innerText();
 
-test.describe('@smoke CIRSOC Flex', () => {
+test.describe('@smoke the reinforced-concrete calculator', () => {
   test('opens with no model on screen and answers every case', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
@@ -59,6 +60,57 @@ test.describe('@smoke CIRSOC Flex', () => {
     expect(errors, 'no case may throw').toEqual([]);
   });
 
+  test('both modes answer every case, and the section is drawn for each', async ({ page }) => {
+    test.setTimeout(180_000);
+    await openFlex(page);
+
+    /*
+     * The drawing is the check on the inputs — a flange narrower than its web,
+     * a cover deeper than the section — so it has to be there in every
+     * combination, not only the one the panel opens on. Counting shapes
+     * rather than asserting an image: what matters is that something was
+     * drawn from the current numbers, and a screenshot would fail on a
+     * colour change.
+     */
+    const drawing = page.getByTestId('section-drawing');
+    for (const mode of ['design', 'verify']) {
+      await page.getByTestId(`flex-mode-${mode}`).click();
+      for (const id of CASES) {
+        await page.getByTestId('flex-case').selectOption(id);
+        await expect(drawing, `${mode}/${id}`).toBeVisible();
+        const shapes = await drawing.locator('svg circle, svg path').count();
+        expect(shapes, `${mode}/${id} drew nothing`).toBeGreaterThan(1);
+        expect(await resultText(page), `${mode}/${id}`).toMatch(/\d/);
+      }
+    }
+  });
+
+  test('sizing and checking are different questions with consistent answers', async ({ page }) => {
+    test.setTimeout(180_000);
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FSR');
+
+    /*
+     * Size the section, then hand the steel it asked for back to the checker.
+     * The capacity it reports must cover the moment that produced it — if it
+     * did not, one of the two modes is applying a different method, which is
+     * the failure this pair exists to catch.
+     */
+    await page.getByTestId('flex-mode-design').click();
+    const sized = (await resultText(page)).match(/As = ([\d.]+)/);
+    expect(sized, 'sizing must report an area').not.toBeNull();
+
+    await page.getByTestId('flex-mode-verify').click();
+    const asField = page.getByText(/Ast provided|Ast adoptada/).locator('..').locator('input');
+    await asField.fill(sized![1]);
+    await asField.blur();
+
+    const ratio = (await resultText(page)).match(/Ratio = ([\d.]+)/);
+    expect(ratio, 'checking must report a ratio').not.toBeNull();
+    expect(Number(ratio![1]), 'the steel sizing asked for must pass the check')
+      .toBeLessThanOrEqual(1.02);
+  });
+
   test('the answer follows the demand', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
@@ -72,7 +124,7 @@ test.describe('@smoke CIRSOC Flex', () => {
     // Mu is the first field in the Demand block for the simple-bending case.
     const muField = page.getByText('Mu [kN·m]').locator('..').locator('input');
 
-    await page.getByTestId('flex-case').selectOption('rect-flexure');
+    await page.getByTestId('flex-case').selectOption('FSR');
     const light = await readAs();
     await muField.fill('200');
     await muField.blur();
@@ -86,7 +138,7 @@ test.describe('@smoke CIRSOC Flex', () => {
   test('a section that cannot work is said to fail, not quietly sized', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
-    await page.getByTestId('flex-case').selectOption('rect-flexure');
+    await page.getByTestId('flex-case').selectOption('FSR');
 
     /*
      * A 20×50 beam asked for ten times what it can carry. The panel must mark
@@ -114,13 +166,87 @@ test.describe('@smoke CIRSOC Flex', () => {
 
     /*
      * Two footnotes now, and they must stay two: one about the tool being in
-     * test, one about whose clauses these are. A reader who found only the
-     * first would think the CODE is provisional, which it is not.
+     * whose clauses these are, one about how far the checking goes. The
+     * second is the one that erodes: "tested against the workbook" invites a
+     * reader to hear "identical", and the two places we are NOT identical
+     * have to survive every future edit to this panel.
      */
     const notes = page.locator('.fp-attrib');
-    await expect(notes).toHaveCount(2);
-    await expect(notes.first()).toContainText(/testeo|under test|testes/);
-    await expect(notes.last()).toContainText('CIRSOC 201-2005');
-    await expect(notes.last()).toContainText('Ortega');
+    await expect(notes).toHaveCount(1);
+    await expect(notes.first()).toContainText('CIRSOC 201-2005');
+    await expect(notes.first()).toContainText(/CIRSOC_FLEX/);
+    await expect(notes.first()).toContainText('Ortega');
+
+    /*
+     * The scope is folded, and it has to OPEN — a caveat behind a summary
+     * that never expands is a caveat that was removed with extra steps.
+     */
+    const scope = page.locator('.fp-scope');
+    await expect(scope).toHaveCount(1);
+    await scope.locator('summary').click();
+    await expect(scope).toContainText(/circular|circulares|anillo|ring|anel/);
+    await expect(scope).toContainText(/capa|layer|camada/);
+
+    /*
+     * And both belong to the 2005 edition alone. Under any other code they
+     * are not merely stale, they vouch for numbers this panel did not
+     * produce — so they must be gone, not greyed.
+     */
+    const code = page.getByTestId('flex-code');
+    const other = await code.locator('option:not([disabled])').count();
+    if (other > 1) {
+      await code.selectOption({ index: 1 });
+      await expect(page.locator('.fp-attrib')).toHaveCount(0);
+      await expect(page.locator('.fp-scope')).toHaveCount(0);
+    }
+  });
+
+  /*
+   * ── Checking a section is done holding a drawing, not an area ─────
+   *
+   * The workbook asks for cm² per level and says the bar count it draws is
+   * only indicative. That is a fine INPUT contract and a poor interface:
+   * nobody arrives at a check holding 29.454 cm², they arrive holding
+   * "6 Ø25", and converting by hand is a place to slip a digit.
+   */
+  test('bars convert to an area, and the area still takes a number', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-mode-verify').click();
+    await page.waitForTimeout(300);
+
+    await page.getByTestId('ast-bar-count').fill('6');
+    await page.getByTestId('ast-bar-count').dispatchEvent('input');
+    await page.getByTestId('ast-bar-dia').selectOption('25');
+    await expect(page.getByTestId('ast-given')).toHaveValue('29.454');
+
+    /* Changing only the diameter re-converts, without retyping the count. */
+    await page.getByTestId('ast-bar-dia').selectOption('20');
+    await expect(page.getByTestId('ast-given')).toHaveValue('18.852');
+
+    /*
+     * And the area remains the authority. A section detailed in something
+     * other than whole bars must still be checkable, which is why this is a
+     * convenience over the field rather than a replacement for it.
+     */
+    await page.getByTestId('ast-given').fill('13.7');
+    await page.getByTestId('ast-given').blur();
+    await expect(page.getByTestId('ast-given')).toHaveValue('13.7');
+  });
+
+  test('the section drawing can be opened up and closed again', async ({ page }) => {
+    await openFlex(page);
+    const svg = page.locator('[data-testid="section-drawing"] svg');
+    const small = await svg.boundingBox();
+
+    await page.getByTestId('section-maximise').click();
+    await page.waitForTimeout(350);
+    const big = await svg.boundingBox();
+    expect(big!.width).toBeGreaterThan(small!.width * 2);
+
+    /* Escape, because a thing that covers the screen must have a way out. */
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    const back = await svg.boundingBox();
+    expect(Math.round(back!.width)).toBe(Math.round(small!.width));
   });
 });

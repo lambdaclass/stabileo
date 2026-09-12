@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { pickLanguage } from './fixtures';
 
 /**
  * The blog at /blog.
@@ -160,13 +161,13 @@ test.describe('@smoke blog', () => {
       await boot(page, `/${from}/blog/${SLUG}`);
       await expect(page.locator('.post-title')).toHaveText(TITLES[from]);
 
-      await page.locator('.landing.blog select.nav-lang').selectOption(to);
+      await pickLanguage(page, 'blog-lang', to);
 
       await expect(page.locator('.post-title')).toHaveText(TITLES[to]);
       await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}/$`));
       await expect(page.locator('html')).toHaveAttribute('lang', to);
       // The picker reports where you are, not where you were.
-      await expect(page.locator('.landing.blog select.nav-lang')).toHaveValue(to);
+      await expect(page.getByTestId('blog-lang')).toHaveAttribute('data-value', to);
     });
   }
 
@@ -178,7 +179,7 @@ test.describe('@smoke blog', () => {
     const lead = page.locator('.landing.blog .lead');
     await expect(lead).toContainText(/verificaciones normativas/i);
 
-    await page.locator('.landing.blog select.nav-lang').selectOption('en');
+    await pickLanguage(page, 'blog-lang', 'en');
 
     await expect(page).toHaveURL(/\/en\/blog\/$/);
     await expect(lead).toContainText(/code checks/i);
@@ -194,7 +195,7 @@ test.describe('@smoke blog', () => {
      * `goBack` would return to it.
      */
     await boot(page, `/pt/blog/${SLUG}/`);
-    await page.locator('.landing.blog select.nav-lang').selectOption('es');
+    await pickLanguage(page, 'blog-lang', 'es');
     await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
 
     await page.goBack();

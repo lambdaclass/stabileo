@@ -1518,8 +1518,39 @@
     }
 
     // Block creation/mutation tools in simplified 2D mode
-    if (uiStore.simplified2DMode && uiStore.currentTool !== 'select' && uiStore.currentTool !== 'pan') {
+    if (uiStore.simplified2DMode
+      && uiStore.currentTool !== 'select' && uiStore.currentTool !== 'pan'
+      && uiStore.currentTool !== 'moveNodes') {
       uiStore.toast(t('viewport.simplifiedReadOnly'), 'info');
+      return;
+    }
+
+    /*
+     * ── Move nodes, and ONLY move them ──────────────────────────────
+     *
+     * The whole point of this mode is that the gesture has one outcome.
+     * Inside the Node tool a drag either moves a node or creates one,
+     * depending on whether the press landed within a threshold of an
+     * existing one — so a hand that wanders by a few pixels changes the
+     * model in a way nobody asked for. Here a press that is not on a node
+     * does nothing, which is what "move" should mean.
+     *
+     * Connections come along for free: members are stored by node ID, so a
+     * node that moves carries its bars with it and nothing has to be
+     * relinked.
+     */
+    if (uiStore.currentTool === 'moveNodes') {
+      /*
+       * The same 0.5 m the node tool uses to decide "the cursor is on an
+       * existing node". Two thresholds for one question drift apart.
+       */
+      const onNode = findNearestNode(world.x, world.y, 0.5) ?? findNearestNode(ms.x, ms.y, 0.5);
+      if (!onNode) return;
+      if (!uiStore.selectedNodes.has(onNode.id)) uiStore.selectNode(onNode.id, e.shiftKey);
+      historyStore.pushState();
+      draggedNodeId = onNode.id;
+      dragMoved = false;
+      dragStartWorld = { x: snapped.x, y: snapped.y };
       return;
     }
 
@@ -1961,8 +1992,21 @@
           boxSelect = { startX: mx, startY: my, endX: mx, endY: my };
         }
       } else if (sm === 'nodes') {
-        // ── Nodes mode: select nodes, drag to box select ──
-        const nearNode = findNearestNode(snapped.x, snapped.y, 0.3);
+        /*
+         * ── Nodes mode: select nodes, drag to box select ──
+         *
+         * Hit-tested where the CURSOR is, not where the grid would snap it.
+         * Snapping exists to place things on round coordinates; using it to
+         * ask "what is under the pointer" moves the question to somewhere
+         * the reader is not pointing, and with a coarse grid the answer came
+         * back empty — clicking exactly on a node in node-selection mode
+         * selected nothing at all.
+         *
+         * The snapped point stays as a second chance, for a node that sits
+         * on a grid intersection just outside the tolerance.
+         */
+        const nearNode = findNearestNode(world.x, world.y, 0.3)
+          ?? findNearestNode(snapped.x, snapped.y, 0.3);
         if (nearNode) {
           uiStore.selectNode(nearNode.id, e.shiftKey);
         } else {
@@ -1997,12 +2041,28 @@
           }
         }
 
-        // Select a node. Drag-to-reposition has been moved out of the
-        // select tool because users were accidentally moving nodes while
-        // just trying to inspect / click around the model. Node
-        // repositioning now lives in the node tool only — this branch is
-        // strictly for selection.
-        const nearNode = findNearestNode(snapped.x, snapped.y, 0.3);
+        /*
+         * ── In "bars" mode, a click selects a BAR ────────────────────
+         *
+         * This branch tried a node first and took it if one was near, so
+         * asking to select bars and clicking anywhere close to a joint
+         * handed back a node instead. At a joint the two are always within a
+         * few pixels of each other, which is most of the places anybody
+         * clicks on a frame.
+         *
+         * The node lookup stays for the general fallthrough, where a click
+         * means "whatever is here" and a node — a point — is the more
+         * specific answer. It is skipped when the reader has said which kind
+         * they want.
+         *
+         * Drag-to-reposition is not here and must not come back: users were
+         * moving nodes while trying to inspect the model. That lives in the
+         * Move panel's "mover nodos".
+         */
+        const wantsOnlyElements = sm === 'elements';
+        const nearNode = wantsOnlyElements
+          ? null
+          : findNearestNode(snapped.x, snapped.y, 0.3);
         if (nearNode) {
           uiStore.selectNode(nearNode.id, e.shiftKey);
         } else {
@@ -2285,7 +2345,15 @@
     const world = uiStore.screenToWorld(mx, my);
     const snapped = uiStore.snapWorld(world.x, world.y);
 
-    const nearNode = findNearestNode(snapped.x, snapped.y, 0.3);
+    /*
+     * At the cursor, not at the snapped point. Snapping exists to PLACE
+     * things on round coordinates; asking it what is under the pointer moves
+     * the question somewhere the reader is not pointing. With a coarse grid
+     * a double-click straight on a node found nothing and fell through to
+     * the member underneath — so the bar editor opened for a node.
+     */
+    const nearNode = findNearestNode(world.x, world.y, 0.3)
+      ?? findNearestNode(snapped.x, snapped.y, 0.3);
     if (nearNode) {
       uiStore.editingNodeId = nearNode.id;
       uiStore.editScreenPos = { x: e.clientX, y: e.clientY };
@@ -2306,6 +2374,7 @@
         if (draggedNodeId !== null) return 'grabbing';
         if (uiStore.selectMode === 'stress') return 'crosshair';
         return 'default';
+      case 'moveNodes': return draggedNodeId !== null ? 'grabbing' : 'move';
       case 'node': return uiStore.nodeMode === 'hinge' ? 'pointer' : 'cell';
       case 'element': return 'crosshair';
       case 'support': return 'crosshair';

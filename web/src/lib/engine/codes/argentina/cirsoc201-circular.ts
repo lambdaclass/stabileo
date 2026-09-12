@@ -36,14 +36,12 @@
  * special case for the tension side, which is the reason for choosing it.
  */
 
-const EPSILON_CU = 0.003;
+import {
+  EPSILON_CU, beta1, phiFromStrain, axialCap, COLUMN_STEEL_RATIO,
+} from './cirsoc201-basis';
+
 const ES_KPA = 200_000 * 1000; // kN/m²
 
-/** β₁ per §10.2.7.3. */
-function beta1(fc: number): number {
-  if (fc <= 28) return 0.85;
-  return Math.max(0.65, 0.85 - (0.05 * (fc - 28)) / 7);
-}
 
 export interface CircularParams {
   /** Outside diameter, m. */
@@ -65,11 +63,11 @@ export interface CircularParams {
   /**
    * Subtract the concrete the compression bars displace.
    *
-   * The workbook this module answers to offers it as a switch, and it is a
-   * real effect: a bar in the compression zone occupies concrete that is
-   * already being counted. It is worth a per cent or two, always on the
-   * conservative side when off, and off is what the rectangular path here
-   * does — so it defaults to off and the two agree unless asked otherwise.
+   * DEFAULTS TO ON. A bar in the compression zone occupies concrete the
+   * block is already credited with, so leaving it out counts that area
+   * twice and overstates the capacity — the opposite of what an earlier
+   * version of this comment claimed. Against the workbook's own circular
+   * example, off was 5 % light on steel.
    */
   deductDisplacedConcrete?: boolean;
   /** Points on the curve. */
@@ -140,7 +138,6 @@ export function barRing(D: number, cover: number, barCount: number): Array<{ z: 
 /** One point of the curve, for a given neutral-axis depth. */
 function pointAt(p: CircularParams, c: number): CircularPoint {
   const { D, fc, fy, cover, AstCm2, barCount } = p;
-  const spiral = p.confinement === 'spiral';
   const fc_kPa = fc * 1000;
   const fy_kPa = fy * 1000;
   const R = D / 2;
@@ -161,7 +158,7 @@ function pointAt(p: CircularParams, c: number): CircularPoint {
     const eps = c > 1e-6 ? (EPSILON_CU * (c - bar.d)) / c : -10 * ey;
     const fs = Math.max(-fy_kPa, Math.min(fy_kPa, eps * ES_KPA)); // kN/m²
     let F = AsBar * fs; // + compression
-    if (p.deductDisplacedConcrete && eps > 0 && bar.d <= a) {
+    if ((p.deductDisplacedConcrete ?? true) && eps > 0 && bar.d <= a) {
       F -= AsBar * 0.85 * fc_kPa;
     }
     Ps += F;
@@ -174,11 +171,7 @@ function pointAt(p: CircularParams, c: number): CircularPoint {
 
   /* φ from the net tensile strain in the outermost tension bar (§9.3.2). */
   const epsT = Math.abs(Math.min(epsMostTensile, 0));
-  const phiC = spiral ? 0.75 : 0.65;
-  let phi: number;
-  if (epsT >= 0.005) phi = 0.90;
-  else if (epsT <= ey) phi = phiC;
-  else phi = phiC + (0.90 - phiC) * ((epsT - ey) / (0.005 - ey));
+  const phi = phiFromStrain(epsT, fy, p.confinement ?? 'ties');
 
   /*
    * §10.3.6's cap on axial load, applied to the DESIGN value.
@@ -189,8 +182,7 @@ function pointAt(p: CircularParams, c: number): CircularPoint {
    */
   const Ag = Math.PI * R * R;
   const Ast = AstCm2 * 1e-4;
-  const Pn0 = 0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast;
-  const phiPnMax = phiC * (spiral ? 0.85 : 0.80) * Pn0;
+  const phiPnMax = axialCap(fc, fy, Ag, Ast, p.confinement ?? 'ties');
 
   const phiPn = Math.min(phi * Pn, phiPnMax);
   return { phiPn, phiMn: phi * Mn, c, epsT, phi };
@@ -243,6 +235,14 @@ export interface CircularCheck {
   status: 'ok' | 'fail';
   epsT: number;
   phi: number;
+  /**
+   * Neutral axis depth at the point on the curve the demand lands on, m.
+   *
+   * Reported because the panel draws the section: without it the column is
+   * the one case that shows bars and no compression block, which reads as
+   * the drawing having failed rather than as an omission.
+   */
+  c: number;
   steps: string[];
 }
 
@@ -278,7 +278,7 @@ export function checkColumnCircular(p: CircularParams, Pu: number, Mu: number): 
     steps.push(`Flexión pura: φMn,máx = ${best.toFixed(2)} kN·m`);
     return {
       Pu, Mu: MuAbs, phiPn: 0, phiMn: best, ratio,
-      status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, steps,
+      status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, c: at.c, steps,
     };
   }
 
@@ -313,7 +313,7 @@ export function checkColumnCircular(p: CircularParams, Pu: number, Mu: number): 
 
   return {
     Pu, Mu: MuAbs, phiPn: capP, phiMn: capM, ratio,
-    status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, steps,
+    status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, c: at.c, steps,
   };
 }
 
@@ -335,8 +335,8 @@ export function designCircular(
   Mu: number,
 ): { AstCm2: number; ratio: number; check: CircularCheck } | null {
   const Ag = Math.PI * (p.D / 2) ** 2;
-  const lo0 = 0.01 * Ag * 1e4; // cm², §10.9.1 minimum
-  const hi0 = 0.08 * Ag * 1e4; // cm², §10.9.1 maximum
+  const lo0 = COLUMN_STEEL_RATIO.min * Ag * 1e4; // cm², §10.9.1
+  const hi0 = COLUMN_STEEL_RATIO.max * Ag * 1e4; // cm², §10.9.1
 
   const at = (AstCm2: number) => checkColumnCircular({ ...p, AstCm2 }, Pu, Mu);
 

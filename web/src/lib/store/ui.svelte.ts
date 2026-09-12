@@ -4,7 +4,20 @@ import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } fro
 import type { UnitSystem } from '../utils/units';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 
-export type Tool = 'select' | 'node' | 'element' | 'support' | 'load' | 'pan' | 'influenceLine';
+/**
+ * `moveNodes` is a pointer mode, not a builder.
+ *
+ * Moving a node used to live inside the NODE tool's create-mode: arm Node,
+ * drag an existing one and it moves, miss it by a hand's width and you have
+ * placed a new node instead. One gesture, two outcomes, decided by whether
+ * you hit something — and the only way to find it was to try.
+ *
+ * The select tool deliberately does not drag, and should not: a pointer used
+ * for reading results must not move the model when a click wanders. So
+ * moving nodes gets its own mode, where a drag on a node moves it and
+ * everything else does nothing at all.
+ */
+export type Tool = 'select' | 'node' | 'element' | 'support' | 'load' | 'pan' | 'influenceLine' | 'moveNodes';
 
 /**
  * How big the controls inside a panel are on a phone.
@@ -81,6 +94,15 @@ if (hasLocalStorage()) {
 function createUIStore() {
   const initialWindowWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
   let currentTool = $state<Tool>('pan');
+  /**
+   * Which of the two the Move panel is set to.
+   *
+   * Kept apart from `currentTool` because it must survive leaving the mode:
+   * a reader who chose "mover nodos", went to Selection to check something
+   * and came back to Move would otherwise be dropped into panning every
+   * time, with the panel silently undoing their choice.
+   */
+  let moveMode = $state<'view' | 'nodes'>('view');
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
   let nodalLoadDir = $state<NodalLoadDir>('fz'); // direction for nodal load placement
@@ -517,6 +539,9 @@ function createUIStore() {
   }
 
   return {
+    get moveMode() { return moveMode; },
+    set moveMode(v: 'view' | 'nodes') { moveMode = v; },
+
     get currentTool() { return currentTool; },
     /**
      * Arming a tool is a MODE change, so it carries the rule with it.

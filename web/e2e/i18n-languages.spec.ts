@@ -25,7 +25,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, designAll, loadModel, PRO_URL, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, PRO_URL, openDocumentsStage, setAppLanguage, appLanguage } from './fixtures';
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
@@ -63,7 +63,9 @@ async function bootDetecting(page: Page) {
 
 /** What the picker is showing, as a language code. */
 function pickerValue(page: Page) {
-  return page.getByTestId('lang-select').inputValue();
+  /* `data-value` rather than `inputValue`: the picker is a drawn list now, and
+     the attribute is what it publishes in place of a `<select>`'s value. */
+  return appLanguage(page);
 }
 
 // ─── Detection, fallback, and the picker's contents ──────────────
@@ -113,12 +115,15 @@ test.describe('@smoke the language a browser gets', () => {
 
   test('offers exactly English, Español and Português, named in their own language',
     async ({ pro: page }) => {
-      const options = page.getByTestId('lang-select').locator('option');
+      /* The list only exists while it is open — that is the difference between a
+         drawn list and a `<select>`, whose options are in the DOM either way. */
+      await page.getByTestId('lang-select-button').click();
+      const options = page.getByTestId('lang-select-list').getByRole('option');
       await expect(options).toHaveCount(3);
       expect(await options.allTextContents())
         .toEqual([en['lang.es'], en['lang.en'], en['lang.pt']]);
       expect(await options.evaluateAll((os) =>
-        os.map((o) => (o as HTMLOptionElement).value))).toEqual(['es', 'en', 'pt']);
+        os.map((o) => o.getAttribute('data-value')))).toEqual(['es', 'en', 'pt']);
     });
 
   test('a language nobody offers any more is not restored, and the picker is never blank',
@@ -165,7 +170,7 @@ test.describe('changing language keeps the work', () => {
       solves: window.__stabileo.solveCount(),
     }));
 
-    await page.getByTestId('lang-select').selectOption('pt');
+    await setAppLanguage(page, 'pt');
     await expect(page.getByTestId('cmd-design-all')).toHaveText(pt['design.cmd.designAll']);
 
     const after = await page.evaluate(() => ({
@@ -199,7 +204,7 @@ test.describe('changing language keeps the work', () => {
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
     await page.evaluate(() => window.__stabileoActions.openDesignTab());
 
-    await page.getByTestId('lang-select').selectOption('pt');
+    await setAppLanguage(page, 'pt');
     await expect(page.getByTestId('cmd-design-all')).toHaveText(pt['design.cmd.designAll']);
 
     await page.reload();

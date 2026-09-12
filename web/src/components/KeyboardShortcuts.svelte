@@ -5,7 +5,7 @@
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
   import { hasExplicitLocalY, pickElement3DMetadata } from '../lib/model/element-3d-metadata';
   import { runSolve } from '../lib/actions/solve';
-  import { TOOL_KEYS } from '../lib/tool-keys';
+  import { TOOL_KEYS, TOOL_DATA_TAB, OPEN_PANEL_EVENT, type OpenPanelRequest } from '../lib/tool-keys';
   import { t } from '../lib/i18n';
 
   /**
@@ -56,27 +56,26 @@
   const tools = TOOL_KEYS;
 
   /**
-   * Keep the Data panel's TAB in step with a tool armed from the keyboard.
+   * Arming a tool from the keyboard does what arming it from the ribbon does.
    *
-   * The ribbon lights a drawing tool by `currentTool` and a properties command
-   * (Materials, Sections) by the open data TAB — over the same panel. Arming a
-   * tool here changed only the tool, so with Data open on Materials a press of
-   * N lit BOTH Materials and Node. The ribbon's own tool commands carry the tab
-   * and flip it; the table's tab strip is the other place tab and tool are set
-   * together (`pickTab` in DataTable.svelte), so the keyboard routes through it
-   * rather than duplicating the mapping. No table mounted means the panel is
-   * closed or replaced by the wizard, and there is no lit tab to conflict with.
+   * It used to do strictly less: it set `currentTool` and then tried to click
+   * the matching tab button, which only exists while the Data panel is
+   * already open. Press N with the panel shut and the node tool was armed
+   * with nothing on screen to show it — and the ribbon lights a tool command
+   * only while that panel is open, so Node did not light either. The two
+   * complaints ("no me aparece la pestaña" and "ni la selecciona en la barra
+   * superior") were the same missing step seen twice.
    *
-   * The index into the tab strip is the order of the buttons in DataTable:
-   * nodes, elements, supports, loads, materials, sections.
+   * The shell owns the panel, so this asks rather than reaches: one event,
+   * handled where `basicPanel` actually lives. `toggle: false` because
+   * arming a tool means "show me this", and pressing N twice should re-show
+   * the nodes, not hide them.
    */
-  const TOOL_TAB_INDEX: Record<string, number> = { node: 0, element: 1, support: 2, load: 3 };
-  function syncDataTabWithTool(toolId: string) {
-    const idx = TOOL_TAB_INDEX[toolId];
-    if (idx === undefined) return; // pan/select/influenceLine own no tab
-    const btn = document.querySelector('.data-table .tabs')
-      ?.children[idx] as HTMLButtonElement | undefined;
-    btn?.click();
+  function openForTool(toolId: string) {
+    const dataTab = TOOL_DATA_TAB[toolId as keyof typeof TOOL_DATA_TAB];
+    if (!dataTab) return; // pan/select edit nothing and own no tab
+    const detail: OpenPanelRequest = { panel: 'data', dataTab, toggle: false };
+    window.dispatchEvent(new CustomEvent(OPEN_PANEL_EVENT, { detail }));
   }
 
   function zoomToFit() {
@@ -289,8 +288,8 @@
     if (tool) {
       e.preventDefault();
       uiStore.currentTool = tool.id;
-      // Every edit-tool shortcut, not just N: E/S/L have the same gap.
-      syncDataTabWithTool(tool.id);
+      // Every edit-tool shortcut, not just N: E/S/L had the same gap.
+      openForTool(tool.id);
       return;
     }
 

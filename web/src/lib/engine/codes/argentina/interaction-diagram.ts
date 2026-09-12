@@ -1,3 +1,4 @@
+import { beta1 } from './cirsoc201-basis';
 // P-M Interaction Diagram Generator
 // Generates point-by-point interaction diagrams for reinforced concrete sections
 // per CIRSOC 201 (based on ACI 318). Does NOT modify the solver.
@@ -43,14 +44,6 @@ const PHI_TENSION = 0.90;
 const PHI_COMPRESSION = 0.65;
 const EPSILON_CU = 0.003; // concrete ultimate strain
 
-/**
- * β₁ factor per CIRSOC 201
- */
-function beta1(fc: number): number {
-  if (fc <= 28) return 0.85;
-  const b = 0.85 - 0.05 * (fc - 28) / 7;
-  return Math.max(0.65, b);
-}
 
 /**
  * Generate P-M interaction diagram for a rectangular section

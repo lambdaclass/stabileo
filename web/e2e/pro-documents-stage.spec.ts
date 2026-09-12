@@ -19,7 +19,7 @@
  * measured as document order; that a disabled `Issue for construction` says what it is waiting
  * for in TEXT; and that the stage explains itself when there is nothing to build from.
  */
-import { test, expect } from './fixtures';
+import { test, expect, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -158,7 +158,7 @@ test.describe('the Documents stage speaks the three languages', () => {
     ['pt', 'Documentos'],
   ] as const) {
     test(`E7 ${locale} — the stage is named in the interface's language`, async ({ pro: page }) => {
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await expect(page.getByTestId('documents-disclosure')).toContainText(title);
     });
   }
