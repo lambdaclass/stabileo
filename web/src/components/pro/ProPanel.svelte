@@ -38,6 +38,7 @@
    */
   import { t } from '../../lib/i18n';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
+  import ProRepeatPanel from './ProRepeatPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
@@ -79,7 +80,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings';
+  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'repeat';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -270,6 +271,7 @@
     // "Nodes" the map used to produce for both.
     steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
     settings: 'config.title',
+    repeat: 'repeat.title',
   };
 </script>
 
@@ -352,6 +354,8 @@
           <!-- `flat`, like Basic's panel: `inline` leaves every sub-section
                collapsed, which in a panel is a heading and nothing under it. -->
           <ToolbarConfig flat={true} />
+        {:else if activeTab === 'repeat'}
+          <ProRepeatPanel />
         {:else if activeTab === 'project'}
           <ProProjectTab groups={exampleGroups} onLoadExample={loadProExample} />
         {:else if activeTab === 'nodes'}

@@ -110,6 +110,13 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
             { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
             { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
             { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
+            /*
+             * Repeating is drawing, in bulk. It belongs beside the tools that
+             * place one thing at a time rather than with the generators,
+             * which replace the whole model from a parameter form — this one
+             * takes what you drew and does it again.
+             */
+            { id: 'repeat', labelKey: 'repeat.title', icon: 'element', tab: 'repeat' },
           ],
         },
         {
@@ -367,7 +374,7 @@ export const PRO_TAB_STAGE: Record<string, string> = {
     /* Settings is reached from the header corner, like the AI drawer. */
     settings: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
-    generators: 'model',
+    generators: 'model', repeat: 'model',
     /* Conditions is a GROUP inside Model now, not a stage of its own. */
     supports: 'model', constraints: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
