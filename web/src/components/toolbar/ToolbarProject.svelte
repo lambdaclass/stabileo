@@ -190,7 +190,15 @@
       It sat at the bottom under a heading of its own, three sections below
       the button it is the twin of.
     -->
-    <button class="file-btn" onclick={handleCopyShareLink} title={t('project.copyLinkTooltip')}>
+    <!-- A testid, because the LABEL is what changed here: "Copiar enlace" became
+         "Compartir link" when this moved up beside Abrir, and a spec filtering on
+         the old text stopped finding the button it had always pressed. -->
+    <button
+      class="file-btn"
+      data-testid="project-share-link"
+      onclick={handleCopyShareLink}
+      title={t('project.copyLinkTooltip')}
+    >
       {t('project.shareLink')}
     </button>
   </div>
