@@ -347,6 +347,16 @@ export const SHEETS: SheetSpec[] = [
       ['distributed', 1, '', 2, '', '', '', '', '', '', -10, -10, '', '', 'global', '', '', '', ''],
       ['pointOnElement', 2, '', 2, '', '', '', '', '', '', '', '', '', '', '', -35, 2.5, '', ''],
       ['thermal', 3, '', 1, '', '', '', '', '', '', '', '', '', '', '', '', '', 20, 0],
+      /*
+       * Two 3D rows, because the sheet has columns that only a 3D load type
+       * ever reads — `mx`, `my`, `qzi`, `qzj` — and without an example they
+       * were four headers a reader could fill in and watch do nothing. The
+       * importer read them the whole time; the template simply never showed
+       * how. A format people learn by opening the template has to
+       * demonstrate every column it offers.
+       */
+      ['nodal3d', 1, 3, '', 0, 0, -15, 4, 2, 0, '', '', '', '', '', '', '', '', ''],
+      ['distributed3d', 1, '', 2, '', '', '', '', '', '', -8, -8, -3, -3, 'global', '', '', '', ''],
     ],
   },
 ];

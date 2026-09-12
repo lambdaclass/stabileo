@@ -280,23 +280,40 @@
         spreadsheet of their own and no way to learn what we call a column
         except by importing, reading the error and trying again.
       -->
-      <span class="file-sub-header file-sub-first">
-        {t('project.importLabel')}
-        <button
-          class="proj-help-btn"
-          onclick={(e) => toggleHelp('import', e)}
-          class:active={helpKey === 'import'}
-          aria-label={t('project.importLabel')}
-          data-testid="help-import"
-        >?</button>
-      </span>
-      <div class="file-grid">
-        <button class="file-btn" onclick={() => xlsInput?.click()} title={t('xls.ui.importTooltip')} data-testid="xls-import">
-          {t('xls.ui.import')}
-        </button>
-        <button class="file-btn" onclick={handleDownloadTemplate} title={t('xls.ui.templateTooltip')} data-testid="xls-template">
-          {t('xls.ui.template')}
-        </button>
+      <span class="file-sub-header file-sub-first">{t('project.importLabel')}</span>
+
+      <!--
+        Same shape as the export groups: a labelled, railed row, so the two
+        halves of the section read as siblings rather than as one list of
+        buttons and one grouped set.
+
+        The two buttons are deliberately NOT twins. One takes a file from the
+        reader and one gives a file to them, and they were the same width and
+        weight — which reads as a choice between two ways of importing. The
+        template is the narrower, quieter one, and its label says what it is
+        FOR rather than what it does: the format the file beside it has to be
+        written in.
+      -->
+      <div class="file-sub-group">
+        <span class="file-group-label">
+          {t('xls.ui.groupLabel')}
+          <button
+            class="proj-help-btn"
+            onclick={(e) => toggleHelp('import', e)}
+            class:active={helpKey === 'import'}
+            aria-label={t('project.importLabel')}
+            data-testid="help-import"
+          >?</button>
+        </span>
+        <div class="xls-row">
+          <button class="file-btn xls-main" onclick={() => xlsInput?.click()} title={t('xls.ui.importTooltip')} data-testid="xls-import">
+            {t('xls.ui.import')}
+          </button>
+          <button class="file-btn xls-aside" onclick={handleDownloadTemplate} title={t('xls.ui.templateTooltip')} data-testid="xls-template">
+            {t('xls.ui.template')}
+          </button>
+        </div>
+        <p class="xls-hint">{t('xls.ui.templateHint')}</p>
       </div>
       {@render helpPanel('import', 'project.importLabel', 'project.importHelp')}
 
@@ -459,6 +476,36 @@
      severity lives in the individual lines, and `--st-warn` across the whole
      box would overstate every one of them.
      ─────────────────────────────────────────────────────────────── */
+  /* The importer takes the space; the template asks for less of it. */
+  .xls-row {
+    display: flex;
+    gap: 0.3rem;
+    align-items: stretch;
+  }
+
+  .xls-main { flex: 1 1 auto; }
+
+  .xls-aside {
+    flex: 0 0 auto;
+    font-size: 0.62rem;
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
+    color: var(--st-text-3);
+    background: none;
+  }
+
+  .xls-aside:hover {
+    color: var(--st-accent);
+    border-color: var(--st-accent);
+  }
+
+  .xls-hint {
+    margin: 0.25rem 0 0;
+    font-size: 0.6rem;
+    line-height: 1.4;
+    color: var(--st-text-3);
+  }
+
   .xls-report {
     margin-top: 0.4rem;
     padding: 0.5rem 0.6rem;
