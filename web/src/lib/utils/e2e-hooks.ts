@@ -163,6 +163,20 @@ export interface StabileoTestHooks {
    */
   viewportPick(): { selectMode: string; tool: string; hasResults: boolean; hasStressQuery: boolean };
   /**
+   * The 3D camera, for tests about views and orbiting.
+   *
+   * Published by `Viewport3D` while it is mounted. Reading the axis gizmo
+   * off a screenshot is how an afternoon disappears into guessing which way
+   * "up" ended up; these are the numbers that decide it.
+   */
+  cameraState(): {
+    up: [number, number, number];
+    pos: [number, number, number];
+    target: [number, number, number];
+    /** Angle from the world up axis, in degrees. 0 is straight overhead. */
+    polarDeg: number;
+  } | null;
+  /**
    * The guided step on screen, or null.
    *
    * Exposed for the walkthrough audit: checking that a step can reach what it
@@ -482,6 +496,15 @@ export function installE2EHooks(): void {
       (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
+    cameraState: () => (window as unknown as {
+      __stabileoCamera?: () => {
+        up: [number, number, number];
+        pos: [number, number, number];
+        target: [number, number, number];
+        polarDeg: number;
+      } | null;
+    }).__stabileoCamera?.() ?? null,
+
     viewportPick: () => ({
       selectMode: String(uiStore.selectMode),
       tool: String(uiStore.currentTool),

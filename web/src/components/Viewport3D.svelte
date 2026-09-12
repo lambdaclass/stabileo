@@ -702,6 +702,25 @@
       setLowDetail(false);
       invalidate();
     };
+    /*
+     * The camera, for tests. Views and orbiting are decided by three vectors
+     * and none of them is in the DOM — without this, checking which way "up"
+     * ended up means reading an axis gizmo out of a screenshot.
+     */
+    (window as unknown as { __stabileoCamera?: () => unknown }).__stabileoCamera = () => {
+      if (!camera || !controls) return null;
+      const off = camera.position.clone().sub(controls.target);
+      const polar = off.length() > 1e-9
+        ? (Math.acos(Math.min(1, Math.max(-1, off.clone().normalize().dot(GLOBAL_Z)))) * 180) / Math.PI
+        : 0;
+      return {
+        up: [camera.up.x, camera.up.y, camera.up.z] as [number, number, number],
+        pos: [camera.position.x, camera.position.y, camera.position.z] as [number, number, number],
+        target: [controls.target.x, controls.target.y, controls.target.z] as [number, number, number],
+        polarDeg: polar,
+      };
+    };
+
     controls.addEventListener('start', () => {
       isOrbiting = true;
       dampingFrames = 0;
@@ -3155,15 +3174,29 @@
     background: var(--st-hair);
   }
 
-  .camera-controls button:hover {
-    background: rgba(40, 60, 100, 0.95);
-    color: #ddeeff;
+  /*
+     ── Two leftovers from the old stack, and one of them was a disaster ──
+     When the stack was collapsed into a menu, its size and colour rules were
+     scoped to direct children; these two were missed. The backdrop that
+     closes the menu is a `button` inside this container, full-screen by
+     design — so `:hover` painted rgba(40, 60, 100, 0.95) over the entire
+     application the moment the pointer left the menu box. The whole model
+     went blue.
+
+     They are scoped now, and dressed from the tokens like everything else.
+     `.active-cam` no longer has a user: the states that used it live in the
+     menu and mark themselves with `.cam-item.on`.
+  */
+  .camera-controls > button:hover,
+  .camera-controls > .cam-menu-wrap > .cam-btn:hover {
+    background: var(--st-surface-3);
+    color: var(--st-text);
   }
 
-  .camera-controls button.active-cam {
-    background: rgba(78, 205, 196, 0.25);
-    color: #4ecdc4;
-    border-color: #4ecdc4;
+  .camera-controls > button.active-cam {
+    background: var(--st-selected-bg);
+    color: var(--st-accent);
+    border-color: var(--st-accent);
   }
 
   .clip-controls {
@@ -3173,10 +3206,10 @@
     align-items: center;
     gap: 6px;
     z-index: 10;
-    background: rgba(22, 33, 62, 0.92);
+    background: color-mix(in srgb, var(--st-surface) 92%, transparent);
     padding: 4px 8px;
     border-radius: 4px;
-    border: 1px solid #445;
+    border: 1px solid var(--st-hair-strong);
   }
   .clip-axis-btns {
     display: flex;
@@ -3188,15 +3221,16 @@
     border: 1px solid #445;
     border-radius: 3px;
     background: transparent;
-    color: #aabbcc;
+    color: var(--st-text-2);
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
   }
+  /* Same palette as the menu that turns it on — it appears right beside it. */
   .clip-axis-btns button.active-ax {
-    background: rgba(78, 205, 196, 0.25);
-    color: #4ecdc4;
-    border-color: #4ecdc4;
+    background: var(--st-selected-bg);
+    color: var(--st-accent);
+    border-color: var(--st-accent);
   }
   .clip-slider {
     width: 100px;

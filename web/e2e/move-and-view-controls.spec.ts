@@ -218,4 +218,75 @@ test.describe('@smoke the two controls over a 3D model', () => {
       .evaluate((n) => getComputedStyle(n).borderColor);
     expect(border).not.toBe('rgb(68, 68, 85)');
   });
+
+  test('the menu backdrop paints nothing', async ({ page }) => {
+    await go3D(page);
+    await page.getByTestId('cam-menu').click();
+    await expect(page.getByTestId('cam-menu-pop')).toBeVisible();
+
+    /*
+     * The backdrop that closes the menu is a full-screen BUTTON inside
+     * `.camera-controls`, and a leftover `:hover` rule from the old stack
+     * still matched it — so moving the pointer off the menu painted
+     * rgba(40, 60, 100, 0.95) over the entire application and the whole
+     * model went blue.
+     */
+    await page.mouse.move(400, 500);
+    await page.waitForTimeout(300);
+    const bg = await page.locator('.cam-backdrop')
+      .evaluate((n) => getComputedStyle(n).backgroundColor);
+    expect(bg, 'a backdrop that closes must not also paint').toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test('a plan view keeps the world’s up axis', async ({ page }) => {
+    await go3D(page);
+
+    const before = await page.evaluate(() => window.__stabileo.cameraState());
+    expect(before!.up.map(Math.round)).toEqual([0, 0, 1]);
+
+    await page.getByTestId('cam-menu').click();
+    await page.getByTestId('cam-menu-pop').locator('.cam-item', { hasText: /superior|top/i })
+      .first().click();
+    await page.waitForTimeout(600);
+
+    /*
+     * The plan used to swap `camera.up` to Y, because a camera looking
+     * straight down cannot use the vertical as up. True — and it did not do
+     * what it looked like it did: OrbitControls derives its orbit axis from
+     * `object.up` ONCE, in its constructor, so the assignment changed how the
+     * camera was oriented and nothing about how dragging rotates. Screen-up
+     * and orbit axis disagreed, and the first drag rolled the model over.
+     */
+    const plan = await page.evaluate(() => window.__stabileo.cameraState());
+    expect(plan!.up.map(Math.round), 'still Z-up').toEqual([0, 0, 1]);
+
+    /*
+     * And it stops just short of straight down. Exactly at the pole the
+     * azimuth is undefined, which is what made the first drag spin.
+     */
+    expect(plan!.polarDeg, 'looking down').toBeLessThan(5);
+    expect(plan!.polarDeg, 'but not from the pole itself').toBeGreaterThan(0.2);
+  });
+
+  test('orbiting from a plan view rotates about the same axis as anywhere else',
+    async ({ page }) => {
+      await go3D(page);
+      await page.getByTestId('cam-menu').click();
+      await page.getByTestId('cam-menu-pop').locator('.cam-item', { hasText: /superior|top/i })
+        .first().click();
+      await page.waitForTimeout(600);
+
+      const box = (await page.locator('canvas').first().boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 150, box.y + box.height / 2 - 50, { steps: 14 });
+      await page.mouse.up();
+      await page.waitForTimeout(600);
+
+      const after = await page.evaluate(() => window.__stabileo.cameraState());
+      expect(after!.up.map(Math.round), 'the axis did not change under the drag')
+        .toEqual([0, 0, 1]);
+      expect(after!.polarDeg, 'and the drag actually moved the camera')
+        .toBeGreaterThan(5);
+    });
 });
