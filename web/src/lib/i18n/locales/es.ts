@@ -4196,6 +4196,17 @@ const es: Record<string, string> = {
   'pro.spring3d': 'Resorte 3D',
   'pro.custom3d': 'Personalizado',
   'pro.addToSelection': 'Agregar a {n} nodo(s) seleccionado(s)',
+  'pro.curvedMember': 'Curva',
+  'pro.arcStart': 'Desde',
+  'pro.arcThrough': 'Por',
+  'pro.arcEnd': 'Hasta',
+  'pro.arcSegments': 'Tramos',
+  'pro.arcCreate': 'Dibujar curva',
+  'pro.arcError': 'las cuerdas quedan {mm} mm por dentro del arco',
+  'pro.arcNeedsThree': 'Tres nodos existentes: los dos extremos y uno por donde pasa la curva.',
+  'pro.arcFailed': 'No se dibujó nada — fijate que los tres nodos no estén alineados.',
+  'pro.curvedShell': 'Cáscara (con curvatura)',
+  'pro.curvedShellHint': 'Estos cuatro nodos están {mm} mm fuera de plano. Resuelta plana, la curvatura se pierde — tildá Cáscara para conservarla.',
   'pro.thickness': 'Espesor (m)',
 
   // ─── PRO: Loads ───

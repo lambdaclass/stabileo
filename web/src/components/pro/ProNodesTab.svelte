@@ -170,8 +170,8 @@
   <div class="pro-nodes-header">
     <span class="pro-nodes-count">{t('pro.nNodes').replace('{n}', String(nodeCount))}</span>
     <div class="pro-nodes-actions">
-      <button class="pro-btn" onclick={addEmptyRow}>{t('pro.addNode')}</button>
-      <button class="pro-btn pro-btn-sm" onclick={commitAll} title={t('pro.apply')}>{t('pro.apply')}</button>
+      <button class="pro-btn" onclick={addEmptyRow} data-testid="pro-add-node">{t('pro.addNode')}</button>
+      <button class="pro-btn pro-btn-sm" onclick={commitAll} title={t('pro.apply')} data-testid="pro-apply-nodes">{t('pro.apply')}</button>
       <button class="pro-btn pro-btn-sm pro-btn-danger" onclick={clearAll} title={t('pro.clear')}>{t('pro.clear')}</button>
     </div>
   </div>

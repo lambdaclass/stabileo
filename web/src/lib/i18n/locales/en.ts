@@ -4203,6 +4203,17 @@ const en: Record<string, string> = {
   'pro.spring3d': 'Spring 3D',
   'pro.custom3d': 'Custom',
   'pro.addToSelection': 'Add to {n} selected node(s)',
+  'pro.curvedMember': 'Curved',
+  'pro.arcStart': 'From',
+  'pro.arcThrough': 'Through',
+  'pro.arcEnd': 'To',
+  'pro.arcSegments': 'Segments',
+  'pro.arcCreate': 'Draw curve',
+  'pro.arcError': 'chords fall {mm} mm inside the arc',
+  'pro.arcNeedsThree': 'Three existing nodes: the two ends and one the curve passes through.',
+  'pro.arcFailed': 'Nothing was drawn — check the three nodes are not in a straight line.',
+  'pro.curvedShell': 'Curved shell (cáscara)',
+  'pro.curvedShellHint': 'These four nodes are {mm} mm out of plane. Solved flat, the curvature is lost — tick Curved shell to keep it.',
   'pro.thickness': 'Thickness (m)',
 
   // ─── PRO: Loads ───

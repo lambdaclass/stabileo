@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import { findCoincidentNode, beamThrough } from '../../lib/engine/mesh-weld';
   import { buildBilinearQuadGrid } from '../../lib/engine/shell-mesh-gen';
@@ -20,6 +20,36 @@
   let quadMaterialId = $state(1);
   let quadThickness = $state(0.2);
   let quadFamily = $state<ShellFamily | 'auto'>('auto');
+  /** Solve this quad as a cáscara — a degenerated continuum that keeps its curvature. */
+  let quadCurved = $state(false);
+
+  /**
+   * How far the four picked nodes are from being coplanar, in metres.
+   *
+   * Four points define a plane only when they are coplanar, and whether they
+   * are is arithmetic rather than a matter of opinion. A dome authored as
+   * flat quads is solved as facets and nothing on screen says so, so this
+   * measures the distance of the fourth node from the plane of the other
+   * three and offers the answer.
+   */
+  const quadOutOfPlane = $derived.by(() => {
+    const ids = quadNodes.map((v) => Number(v));
+    if (ids.some((n) => !Number.isFinite(n) || n <= 0)) return null;
+    const pts = ids.map((id) => modelStore.nodes.get(id));
+    if (pts.some((p) => !p)) return null;
+    const [a, b, c, d] = pts.map((p) => ({ x: p!.x, y: p!.y ?? 0, z: (p! as { z?: number }).z ?? 0 }));
+    const u = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+    const v = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
+    const n = {
+      x: u.y * v.z - u.z * v.y,
+      y: u.z * v.x - u.x * v.z,
+      z: u.x * v.y - u.y * v.x,
+    };
+    const len = Math.hypot(n.x, n.y, n.z);
+    if (len < 1e-12) return null;
+    const w = { x: d.x - a.x, y: d.y - a.y, z: d.z - a.z };
+    return Math.abs((w.x * n.x + w.y * n.y + w.z * n.z) / len);
+  });
   let quadRecommendation = $state<ShellRecommendation | null>(null);
 
   // --- Quick mesh generator state ---
@@ -158,8 +188,14 @@
     modelStore.addQuad(nodeIds as [number, number, number, number], quadMaterialId, quadThickness);
     const quads = [...modelStore.model.quads.values()];
     const last = quads[quads.length - 1];
-    if (last) last.shellFamily = family;
+    if (last) {
+      last.shellFamily = family;
+      /* A curved quad goes to the solver as a degenerated continuum rather
+         than a flat MITC4 — see the note beside the checkbox. */
+      if (quadCurved) last.curved = true;
+    }
     quadNodes = ['', '', '', ''];
+    quadCurved = false;
     quadRecommendation = null;
   }
 
@@ -454,6 +490,32 @@
             <label>{t('pro.thickness')}:</label>
             <input type="number" bind:value={quadThickness} step="0.01" min="0.001" class="thick-input" oninput={updateQuadRecommendation} />
           </div>
+          <!--
+            ── A cáscara: the quad that is not flat ─────────────────────
+            The model has carried `curved` since shells existed and the
+            solver reads it — a curved quad is solved as a degenerated
+            continuum, so its curvature carries instead of being flattened
+            into four coplanar corners. There has never been a control for
+            it: the only way to set the flag was to import a spreadsheet.
+
+            Offered, and also DETECTED, because whether four points are
+            coplanar is arithmetic and not a matter of opinion: if the four
+            nodes picked are out of plane, this says so and proposes the
+            answer rather than leaving the reader to discover that their
+            dome was solved as facets.
+          -->
+          <div class="input-row">
+            <label class="curved-check">
+              <input type="checkbox" bind:checked={quadCurved} data-testid="quad-curved" />
+              <span>{t('pro.curvedShell')}</span>
+            </label>
+          </div>
+          {#if quadOutOfPlane != null && quadOutOfPlane > 1e-6 && !quadCurved}
+            <div class="recommendation warn" data-testid="quad-curved-hint">
+              <span class="rec-icon">⚠</span>
+              <span class="rec-text">{tp('pro.curvedShellHint', { mm: (quadOutOfPlane * 1000).toFixed(1) })}</span>
+            </div>
+          {/if}
           <div class="input-row">
             <label>Family:</label>
             <select bind:value={quadFamily} class="family-select">
@@ -1082,6 +1144,9 @@
   }
 
   /* Recommendation display */
+  .curved-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .curved-check input { cursor: pointer; }
+
   .recommendation {
     display: flex;
     align-items: flex-start;

@@ -471,6 +471,19 @@ export interface Element extends Element3DMetadata {
   jointJ?: Joint3D;
   // PRO: provided reinforcement for RC design verification
   reinforcement?: ProvidedReinforcement;
+  /**
+   * The curve this member belongs to, when it was drawn as one.
+   *
+   * The solver has straight elements and no curved beam, so an arc is
+   * MATERIALISED as a chain of them — which is what every package does. The
+   * tag is what keeps that chain one thing afterwards: without it a curve
+   * becomes twelve unrelated bars the moment it is drawn, and re-meshing,
+   * editing or deleting it means finding them by eye.
+   *
+   * See `lib/model/curved-member.ts`. Carries no analysis meaning: the solver
+   * sees straight members and is not told about this.
+   */
+  arc?: { id: number; spec: import('../model/curved-member').ArcSpec };
 }
 
 export type ReleaseEnd = 'i' | 'j';
