@@ -621,7 +621,13 @@
     letter-spacing: 0.11em;
     text-transform: uppercase;
     color: var(--st-text-2);
-    margin: 0.9rem 0 0.4rem;
+    /*
+       Almost nothing below the rule. The block that follows is a flex child
+       of a container with an 8 px gap, so this margin is added to that gap
+       rather than collapsing into it — 0.4rem under a horizontal rule plus
+       8 px of gap is what detached "IMPORTAR" from the heading it belongs to.
+    */
+    margin: 0.9rem 0 0.05rem;
     padding-bottom: 0.15rem;
     border-bottom: 1px solid var(--st-hair);
   }
@@ -651,13 +657,25 @@
      more sections rather than as three kinds of export — they sat at the same
      margin as the heading above them, so nothing said they were inside it.
   */
+  /*
+     Indented and railed, because "Resultados / Memoria / Vista" read as three
+     more sections rather than as three kinds of export. Eight pixels of
+     indent was not enough to say so — the rail is the signal, so it is a
+     visible one, and the group sits far enough in that the eye reads a
+     level rather than a wobble.
+  */
   .file-sub-group {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
-    margin: 0 0 0.35rem 0.5rem;
-    padding-left: 0.5rem;
-    border-left: 1px solid var(--st-hair);
+    margin: 0 0 0.4rem 0.75rem;
+    padding-left: 0.55rem;
+    border-left: 2px solid var(--st-hair-strong);
+  }
+
+  /* The label belongs to the rail, not to the buttons under it. */
+  .file-sub-group .file-group-label {
+    margin-left: -0.1rem;
   }
 
   .file-group-label {
@@ -697,7 +715,7 @@
   }
 
   .proj-help-panel {
-    margin: 0 0 0.4rem 1rem;
+    margin: 0 0 0.4rem 0.8rem;
     padding: 0.4rem 0.5rem;
     border-left: 2px solid var(--st-accent);
     background: var(--st-surface-2);
@@ -722,10 +740,21 @@
      breathing room reads as a gap rather than as separation — the group it
      labels looked detached from the heading it belongs to.
   */
+  /*
+     Directly under the section title. Its own top margin was already zero and
+     the gap persisted, because the gap was never its: the heading carries
+     0.4rem below its rule and the block adds its own. Pulling the first
+     sub-header up by that much closes it without touching either rule.
+  */
   .file-sub-header.file-sub-first {
-    /* Directly under the section title; its usual breathing room read as a
-       gap, which detached the group from the heading it belongs to. */
-    margin-top: 0;
+    /*
+       Pulls back the 8 px flex gap its container inherits from
+       `.toolbar-section`. That gap is right BETWEEN sections and wrong
+       directly under a heading the block belongs to, and it cannot be
+       removed there without spacing every other section differently — so it
+       is compensated here, where it applies to exactly one element.
+    */
+    margin-top: -0.55rem;
   }
 
   /* ── Save dialog ─────────────────────────────────────────────── */

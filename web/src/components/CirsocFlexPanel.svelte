@@ -362,6 +362,8 @@
    */
   let picking = $state(false);
   let pickNote = $state<string | null>(null);
+  /** The tool the reader had armed, to give back when the pick ends. */
+  let toolBeforePick: string | null = null;
 
   function startPicking() {
     if (!resultsStore.results && !resultsStore.results3D) {
@@ -371,12 +373,24 @@
     pickNote = null;
     picking = true;
     resultsStore.stressQuery = null;
+    /*
+     * Both halves, or neither works. `selectMode = 'stress'` says what a
+     * click MEANS; the viewport only reaches that branch when the SELECT
+     * tool is the one armed — in pan a click drags the view and nothing
+     * else. Setting the mode alone left the crosshair showing and every
+     * click doing nothing, which is the worst of the three states.
+     */
+    toolBeforePick = String(uiStore.currentTool);
+    uiStore.currentTool = 'select';
     uiStore.selectMode = 'stress';
   }
 
   function stopPicking() {
     picking = false;
     if (uiStore.selectMode === 'stress') uiStore.selectMode = 'elements';
+    /* Give back the pointer the reader had, not an arbitrary one. */
+    if (toolBeforePick) uiStore.currentTool = toolBeforePick as typeof uiStore.currentTool;
+    toolBeforePick = null;
   }
 
   $effect(() => {
