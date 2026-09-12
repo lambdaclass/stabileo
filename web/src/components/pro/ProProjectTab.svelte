@@ -5,6 +5,7 @@
     loadFile, downloadExcel, downloadResultsCSV, downloadDXF, downloadSVG,
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
+  import HelpTip from '../HelpTip.svelte';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
 
   /**
@@ -112,9 +113,6 @@
 
   $effect(() => { void refreshStatus(); });
 
-  const nodeCount = $derived(modelStore.nodes.size);
-  const elementCount = $derived(modelStore.elements.size);
-  const docName = $derived(modelStore.model.name?.trim() || t('tabBar.newStructure'));
   /*
    * The gallery lives IN the panel, not over the canvas.
    *
@@ -193,18 +191,20 @@
     "open a file".
   -->
   <div class="pp-row">
-    <button
-      class="pp-btn pp-btn-grow"
-      onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}
-    >{t('cad.proBarBtn')}</button>
-    <button class="pp-help" title={t('proProject.dxfHelp')} aria-label={t('proProject.dxfHelp')}>?</button>
+    <HelpTip text={t('proProject.dxfHelp')}>
+      <button
+        class="pp-btn pp-btn-grow"
+        onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}
+      >{t('cad.proBarBtn')}</button>
+    </HelpTip>
   </div>
   <div class="pp-row">
-    <button
-      class="pp-btn pp-btn-grow"
-      onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))}
-    >{t('project.openIfc')}</button>
-    <button class="pp-help" title={t('proProject.ifcHelp')} aria-label={t('proProject.ifcHelp')}>?</button>
+    <HelpTip text={t('proProject.ifcHelp')}>
+      <button
+        class="pp-btn pp-btn-grow"
+        onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))}
+      >{t('project.openIfc')}</button>
+    </HelpTip>
   </div>
   </section>
 
@@ -284,28 +284,38 @@
   <section class="pp-card">
     <h4 class="pp-heading">{t('project.importExport')}</h4>
 
+    <!--
+      ── Import reads like Export, because they are the same kind of list ──
+      Export groups by WHAT COMES OUT, under a caption, in a grid of short
+      buttons. Import was three full-width rows with a `?` hanging off two of
+      them, so two halves of one section were laid out by different rules and
+      the panel read as two panels. Same captions, same grid: what arrives is
+      a spreadsheet or a drawing, and the drawing can be a plan or a model.
+    -->
     <span class="pp-sub">{t('project.importLabel')}</span>
-    <div class="pp-row">
-      <button class="pp-btn pp-btn-grow" onclick={() => xlsInput?.click()} data-testid="pp-xls-import">
-        {t('xls.ui.import')}
-      </button>
-      <button class="pp-btn pp-btn-aside" onclick={handleDownloadTemplate} data-testid="pp-xls-template">
-        {t('xls.ui.template')}
-      </button>
+    <div class="pp-group">
+      <span class="pp-group-label">{t('project.importSpreadsheet')}</span>
+      <div class="pp-grid">
+        <button class="pp-btn" onclick={() => xlsInput?.click()} data-testid="pp-xls-import"
+                title={t('xls.ui.importTooltip')}>{t('xls.ui.import')}</button>
+        <button class="pp-btn pp-btn-quiet" onclick={handleDownloadTemplate} data-testid="pp-xls-template"
+                title={t('xls.ui.templateTooltip')}>{t('xls.ui.template')}</button>
+      </div>
     </div>
-    <div class="pp-row">
-      <button class="pp-btn pp-btn-grow"
-              onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}>
-        {t('cad.proBarBtn')}
-      </button>
-      <button class="pp-help" title={t('proProject.dxfHelp')} aria-label={t('proProject.dxfHelp')}>?</button>
-    </div>
-    <div class="pp-row">
-      <button class="pp-btn pp-btn-grow"
-              onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))}>
-        {t('project.openIfc')}
-      </button>
-      <button class="pp-help" title={t('proProject.ifcHelp')} aria-label={t('proProject.ifcHelp')}>?</button>
+    <div class="pp-group">
+      <span class="pp-group-label">{t('project.importDrawing')}</span>
+      <div class="pp-grid">
+        <HelpTip text={t('proProject.dxfHelp')}>
+          <button class="pp-btn"
+                  onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}
+          >{t('cad.proBarBtn')}</button>
+        </HelpTip>
+        <HelpTip text={t('proProject.ifcHelp')}>
+          <button class="pp-btn"
+                  onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))}
+          >{t('project.openIfc')}</button>
+        </HelpTip>
+      </div>
     </div>
 
     <span class="pp-sub">{t('project.export')}</span>
@@ -327,30 +337,15 @@
   </section>
 
   <!--
-    ── Status, after the work ─────────────────────────────────────────
-    What is open and where it is being kept are facts, not actions. They
-    opened the panel, which put two read-only cards above every button a
-    reader came here to press. Kept — they answer real questions — and moved
-    below the things you do.
+    "Documento abierto" is gone.
+    ───────────────────────────
+    It listed the file name, the node and member counts and whether the model
+    was solved — three facts the application states where they are needed. The
+    name is in the tab, the counts are the Model tables this panel is one
+    click from, and solved-or-not is the state of every command in ANALYSE.
+    Repeating them here bought a card at the cost of making the reader check
+    which copy was current.
   -->
-  <!--
-    What is open, and only then what you can do to it.
-  -->
-  <section class="pp-card" data-testid="pp-document">
-    <h4 class="pp-heading">{t('proProject.documentSection')}</h4>
-    <dl class="pp-facts">
-      <dt>{t('proProject.documentName')}</dt>
-      <dd data-testid="pp-doc-name">{docName}</dd>
-      <dt>{t('proProject.documentSize')}</dt>
-      <dd data-testid="pp-doc-size">
-        {nodeCount} {t('pro.stats.nodes')} · {elementCount} {t('pro.stats.members')}
-      </dd>
-      <dt>{t('proProject.documentSolved')}</dt>
-      <dd data-testid="pp-doc-solved">
-        {solved ? t('proProject.solvedYes') : t('proProject.solvedNo')}
-      </dd>
-    </dl>
-  </section>
 
   <!--
     Autosave: status only. The offer to restore is the inline prompt beside the tabs, and there
@@ -387,10 +382,22 @@
       </p>
     {/if}
 
-    <p class="pp-note">{t('proProject.autosaveRestoreHint')}</p>
-    <button class="pp-btn pp-btn-wide" onclick={refreshStatus} data-testid="pp-autosave-refresh">
-      {t('proProject.autosaveRefresh')}
-    </button>
+    <!--
+      ── The long note moves into the `?` ───────────────────────────────
+      A paragraph explaining where the restore offer appears is worth having
+      and is not worth four lines of a docked panel every time you open it:
+      it answers a question asked once. And the refresh button said nothing
+      about what it refreshes — it re-reads the browser's own store, which
+      matters when another tab has written since this panel was opened, and
+      nothing about the model changes either way. Both are what a `?` is for.
+    -->
+    <div class="pp-row pp-row-end">
+      <HelpTip text={`${t('proProject.autosaveRefreshHelp')} ${t('proProject.autosaveRestoreHint')}`}>
+        <button class="pp-btn pp-btn-grow" onclick={refreshStatus} data-testid="pp-autosave-refresh">
+          {t('proProject.autosaveRefresh')}
+        </button>
+      </HelpTip>
+    </div>
   </section>
 
 
@@ -627,8 +634,7 @@
      through this panel moved an invisible caret. The ring is the shared `--st-focus`, offset
      so it reads against the card rather than merging with the button's own border.
   */
-  .pp-btn:focus-visible,
-  .pp-help:focus-visible {
+  .pp-btn:focus-visible {
     outline: 2px solid var(--st-focus);
     outline-offset: 2px;
     color: var(--st-text);
@@ -657,18 +663,33 @@
   .pp-row { display: flex; gap: 0.3rem; align-items: stretch; margin-top: 0.3rem; }
   .pp-btn-grow { flex: 1; }
 
-  .pp-help {
-    width: 26px;
-    flex: none;
-    background: none;
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    color: var(--st-text-3);
-    font-size: 0.72rem;
-    cursor: help;
-  }
+  /*
+     `.pp-help` is gone with the `?` buttons it styled. They carried a native
+     `title`, which answers only to a patient pointer — a click did nothing,
+     and a control shaped like a question that ignores being asked reads as
+     broken. `HelpTip` wraps the real control instead, and opens on a click.
+  */
 
-  .pp-help:hover { color: var(--st-text); border-color: var(--st-hair-strong); }
+  /* Quieter than its neighbour: the template is what you take AWAY to fill
+     in, next to the button that brings a filled-in one back. */
+  .pp-btn-quiet { color: var(--st-text-3); }
+  .pp-btn-quiet:hover { color: var(--st-text); }
+
+  .pp-row-end { justify-content: flex-end; }
+
+  /*
+     A wrapped control still has to fill its row.
+
+     `HelpTip` is an inline-flex span around whatever it explains, so a
+     `pp-btn-grow` inside one grows against the SPAN and the span shrinks to
+     fit: the DXF and IFC buttons came out half width beside a full-width
+     Examples. The wrapper inherits the growth instead, and the button fills
+     it — the tip changes what a control explains, not how wide it is.
+  */
+  .pp-row :global(.ht-wrap) { flex: 1; min-width: 0; }
+  .pp-row :global(.ht-wrap > button) { width: 100%; }
+  .pp-grid :global(.ht-wrap) { width: 100%; }
+  .pp-grid :global(.ht-wrap > button) { width: 100%; }
 
   .pp-disclose { justify-content: space-between; margin-top: 0.3rem; }
   .pp-caret { font-size: 0.6rem; color: var(--st-text-3); }

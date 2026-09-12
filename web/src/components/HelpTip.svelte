@@ -59,9 +59,12 @@
     timer = setTimeout(() => { open = true; }, delay);
   }
 
+  /* Pinned by a click; hovering away must not undo a deliberate ask. */
+  let pinned = $state(false);
+
   function disarm() {
     if (timer) { clearTimeout(timer); timer = null; }
-    open = false;
+    if (!pinned) open = false;
   }
 
   function onFocusIn(e: FocusEvent) {
@@ -74,18 +77,50 @@
     disarm();
   }
 
+  /*
+   * A click opens it too, and keeps it open.
+   *
+   * Hover is a preference, not a contract: it does not exist on a touch
+   * screen, and on a desktop a reader who has decided they want the
+   * explanation should not have to hold still for 700 ms to get it. Pressing
+   * the thing that looks like a question is the obvious way to ask, and a `?`
+   * that answers to nothing but patience reads as a dead control — which is
+   * exactly how PRO's were reported.
+   *
+   * Toggles, so the same press puts it away.
+   */
+  function toggle(e: MouseEvent) {
+    e.stopPropagation();
+    if (timer) { clearTimeout(timer); timer = null; }
+    pinned = !pinned;
+    open = pinned;
+  }
+
+  /* Pinned open by a click, a tip has to close on the next click elsewhere —
+     otherwise it follows the reader around the panel. */
+  $effect(() => {
+    if (!open) return;
+    const away = () => { pinned = false; open = false; };
+    window.addEventListener('mousedown', away);
+    return () => window.removeEventListener('mousedown', away);
+  });
+
   /* A pending timer that fires after the component is gone would set state on
      a destroyed component — harmless today, a leak the moment this is used in
      a list that re-renders. */
-  onDestroy(disarm);
+  onDestroy(() => { pinned = false; disarm(); });
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
 <span
   class="ht-wrap"
   onmouseenter={arm}
   onmouseleave={disarm}
   onfocusin={onFocusIn}
   onfocusout={onFocusOut}
+  onmousedown={(e) => e.stopPropagation()}
+  onclick={toggle}
 >
   {@render children?.()}
   {#if open}

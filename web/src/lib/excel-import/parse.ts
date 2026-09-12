@@ -225,7 +225,18 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     const e = reqNum(row, 'e', 'Materials', problems);
     const nu = reqNum(row, 'nu', 'Materials', problems);
     if (id === null || name === null || e === null || nu === null) continue;
-    model.materials.push({ id, name, e, nu, rho: num(row.cells.rho) ?? 0, fy: num(row.cells.fy) ?? undefined });
+    /* Optional and concrete-only: an omitted cell means "not stated", which
+       the design surface reports as an explicit assumption rather than a
+       silent default — the same contract the Materials panel has. */
+    const dAgg = num(row.cells.dagg);
+    const margin = num(row.cells.spacingmargin);
+    model.materials.push({
+      id, name, e, nu,
+      rho: num(row.cells.rho) ?? 0,
+      fy: num(row.cells.fy) ?? undefined,
+      ...(dAgg !== null ? { maxAggregateSizeMm: dAgg } : {}),
+      ...(margin !== null ? { spacingMarginMm: margin } : {}),
+    });
   }
   counts.Materials = model.materials.length;
 
@@ -488,7 +499,10 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
         problems.push({ sheet, row: row.n, message: `no existe el material ${materialId}` });
         continue;
       }
-      target.push({ id, nodes, materialId, thickness });
+      /* `curved` exists on quads only — a triangle has no fourth node to
+         leave the plane, so the column is not on the Plates sheet and an
+         absent cell is simply flat. */
+      target.push({ id, nodes, materialId, thickness, ...(truthy(row.cells.curved) ? { curved: true } : {}) });
     }
     counts[sheet] = target.length;
   }

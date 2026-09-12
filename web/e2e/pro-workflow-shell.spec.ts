@@ -386,13 +386,21 @@ test.describe('@smoke PRO shell — the Project section', () => {
     }
   });
 
-  test('it states what is open and where the autosave lives', async ({ pro: page }) => {
+  test('it says where the autosave lives, and does not restate the document', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
     await expect(page.getByTestId('pro-project-tab')).toBeVisible();
-    await expect(page.getByTestId('pp-doc-name')).toBeVisible();
-    await expect(page.getByTestId('pp-doc-size')).toBeVisible();
     await expect(page.getByTestId('pp-autosave-backend')).toBeVisible();
     await expect(page.getByTestId('pp-autosave-last')).toBeVisible();
+
+    /*
+     * "Documento abierto" is gone, and this asserted it. It listed the file
+     * name, the node and member counts and whether the model was solved —
+     * each of which the application states where it is needed: the name is in
+     * the tab, the counts are the Model tables this panel is one click from,
+     * and solved-or-not is the state of every command in ANALYSE. A second
+     * copy only makes a reader wonder which one is current.
+     */
+    await expect(page.getByTestId('pp-document')).toHaveCount(0);
 
     // One restore surface, and it is not this one.
     await expect(page.locator('[data-testid="pro-project-tab"] button.restore'),
