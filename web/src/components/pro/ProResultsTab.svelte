@@ -55,6 +55,35 @@
     const all = [...(r?.plateStresses ?? []), ...(r?.quadStresses ?? [])];
     return all.length ? shellComponentStats(all) : null;
   });
+  /*
+   * ── Open on a component that GOVERNS ──────────────────────────────
+   *
+   * The contour defaulted to von Mises, and on a slab in bending von Mises
+   * is ≈ 0: the plate came out one flat colour with a notice underneath
+   * saying the component was negligible. That reads as "shell results do not
+   * work", and the reader has to already know which of nine components a
+   * raft is about in order to find out otherwise.
+   *
+   * So on the first look at a result set, a component that is actually
+   * varying is chosen — bending first, because a slab or a raft is a bending
+   * problem and that is the overwhelming majority of what shells are used
+   * for here, then membrane, then the rest. Only when the CURRENT choice is
+   * negligible: a component picked by hand is never overridden, and moving
+   * between load cases does not keep yanking the selector around.
+   */
+  const GOVERNING_ORDER = ['mx', 'my', 'mxy', 'sigma1', 'sigmaXx', 'sigmaYy', 'tauXy', 'sigma2', 'vonMises'] as const;
+  let autoPickedFor = $state<object | null>(null);
+  $effect(() => {
+    const stats = shellStats;
+    const r = resultsStore.results3D;
+    if (!stats || !r) return;
+    if (autoPickedFor === r) return;
+    autoPickedFor = r;
+    if (stats[resultsStore.shellContourComponent]?.status !== 'negligible') return;
+    const better = GOVERNING_ORDER.find((k) => stats[k]?.status === 'varying');
+    if (better) resultsStore.shellContourComponent = better;
+  });
+
   // Components grouped by family for the selector optgroups.
   const shellGroups = $derived.by(() => {
     const groups = new Map<ShellComponentGroup, typeof SHELL_CONTOUR_COMPONENTS>();

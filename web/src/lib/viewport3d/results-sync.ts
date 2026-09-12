@@ -22,7 +22,7 @@ import type { Displacement3D } from '../engine/types-3d';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellNodalColors, type HeatmapVariable } from '../three/stress-heatmap';
 import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
-import { shellComponentMeta, shellComponentValue, shellComponentRange } from '../engine/shell-stress';
+import { shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
 /** Cached shouldProjectModelToXZ, keyed on modelVersion + analysisMode + presentation. */
@@ -776,7 +776,6 @@ function applyShellContour(
   r3d: NonNullable<typeof resultsStore.results3D>,
 ): void {
   const component = resultsStore.shellContourComponent;
-  const meta = shellComponentMeta(component);
 
   const plateById = new Map<number, NonNullable<typeof r3d.plateStresses>[number]>();
   const quadById = new Map<number, NonNullable<typeof r3d.quadStresses>[number]>();
@@ -829,8 +828,9 @@ function applyShellContour(
    * An element whose nodes are shared with nothing still paints its own
    * value at all of its corners, so a lone plate looks exactly as it did.
    */
-  const { min, max } = shellComponentRange(all, component);
-  const A = meta.signed ? Math.max(Math.abs(min), Math.abs(max)) : Math.max(max, 1e-12);
+  /* The range the results actually occupy — the whole scale is spent on it.
+     See `shellContourColor` for why this is not a symmetric amplitude. */
+  const range = shellComponentRange(all, component);
 
   const sum = new Map<number, number>();
   const count = new Map<number, number>();
@@ -862,7 +862,7 @@ function applyShellContour(
     });
     group.traverse((child) => {
       if (child instanceof THREE.Mesh && child.userData?.shellFace) {
-        applyShellNodalColors(child, values, A, isQuad, meta.signed);
+        applyShellNodalColors(child, values, range, isQuad);
       }
     });
   }
