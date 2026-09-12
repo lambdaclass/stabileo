@@ -44,6 +44,16 @@ export type ProCmd = {
   rotate?: number;
   /** Destination: which panel view this opens. */
   tab?: string;
+  /**
+   * Arms a POINTER tool rather than opening a destination.
+   *
+   * The viewport has implemented click-to-place nodes and two-click members
+   * since 3D existed, gated on `uiStore.currentTool`. PRO's ribbon set that
+   * value to exactly two things — `select` and `pan` — so the whole of
+   * drawing was unreachable from this mode and geometry had to be typed into
+   * a table by coordinate and by node id. This is the field that reaches it.
+   */
+  tool?: string;
   /** Sets the diagram drawn on the model. */
   diagram?: string;
   action?: () => void;
@@ -103,9 +113,35 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
       labelKey: 'proRibbon.stageModel',
       home: 'nodes',
       groups: [
+        /*
+         * ── Drawing, which PRO could not do ──────────────────────────────
+         *
+         * Not a new capability: `Viewport3D` places a node at the pointer and
+         * builds a member from two clicks, and Basic's ribbon has armed those
+         * tools all along. PRO offered `select` and `pan`, so the only way to
+         * add a member to an imported frame was to find two node ids in a
+         * table and type them.
+         *
+         * Two commands, because two is what the 3-D viewport implements.
+         * There is no shell tool here and there will not be one until the
+         * viewport can draw a shell — a button that arms a tool nothing
+         * listens for is worse than the table it replaces.
+         *
+         * Its own group, before the tables: placing geometry and tabulating
+         * it are different acts, and the ribbon's groups are how this
+         * application says so.
+         */
+        {
+          id: 'draw',
+          labelKey: 'ribbon.groupDraw',
+          cmds: [
+            { id: 'draw-node', labelKey: 'float.node', icon: 'node', tool: 'node', descKey: 'proRibbon.drawNodeDesc' },
+            { id: 'draw-member', labelKey: 'float.element', icon: 'element', tool: 'element', descKey: 'proRibbon.drawMemberDesc' },
+          ],
+        },
         {
           id: 'geometry',
-          labelKey: 'ribbon.groupDraw',
+          labelKey: 'proRibbon.groupTables',
           cmds: [
             { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
             { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },

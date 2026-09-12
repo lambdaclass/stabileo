@@ -174,6 +174,10 @@
       uiStore.proActiveTab = c.tab;
       uiStore.proPanelVisible = true;
     }
+    /* A drawing command arms the pointer. It deliberately does NOT open a
+       panel: the reader is about to look at the model, and covering it with
+       a table of what they are about to draw is the wrong half of the screen. */
+    if (c.tool) uiStore.currentTool = c.tool as never;
     c.action?.();
     openMenu = null;
   }
@@ -380,7 +384,8 @@
               <button
                 class="pr-cmd"
                 class:active={(!!c.tab && uiStore.proActiveTab === c.tab)
-                  || (!!c.diagram && shownDiagram === c.diagram)}
+                  || (!!c.diagram && shownDiagram === c.diagram)
+                  || (!!c.tool && uiStore.currentTool === c.tool)}
                 disabled={!on}
                 onclick={() => run(c)}
                 title={hint ? `${t(c.labelKey)} — ${hint}` : t(c.labelKey)}
