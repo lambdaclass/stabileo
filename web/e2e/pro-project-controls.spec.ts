@@ -24,6 +24,8 @@ test.describe('@smoke PRO — the Project panel', () => {
     // Something to share: an empty model is refused, which is its own answer.
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-nodes').click();
+    /* The ribbon opens the table; the PANEL arms the tool. */
+    await page.getByTestId('draw-node').click();
     const canvas = page.locator('canvas:not(.axis-gizmo)').first();
     const box = (await canvas.boundingBox())!;
     await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5);

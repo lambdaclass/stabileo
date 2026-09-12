@@ -196,6 +196,43 @@ change.
 **Load a whole storey at once.** Surface loads are applied per shell. A
 building has floors, and the floor is the unit a reader thinks in.
 
+## 4b. Selection — what a finite-element program is expected to have
+
+Audited against what PRO had. **Present already:** picking the most specific
+thing under the cursor, a marquee with AutoCAD's Window / Crossing semantics,
+filtering by kind, several kinds at once, and shift to add.
+
+**Built now**, because they were the cheap half of what was missing and every
+one of them is reached hourly:
+
+- **All / None / Invert**, restricted to the kinds being selected. Restricted
+  deliberately: "select all" while a reader is working on members must not hand
+  back every node and plate, because the next thing they do — delete, assign a
+  section — would reach things they cannot see they took.
+- **By id, with ranges**: `3, 7-10, 15`. The tables are numbered and what a
+  reader wants is usually contiguous in them. Ids the model does not have are
+  REPORTED, not dropped — "select 1, 2, 9" quietly giving two of three is the
+  kind of quiet wrongness that ends with a member missing from a design run.
+
+**Still missing, in the order I would build them:**
+
+1. **Select by result.** Every member with utilisation over 1; every node whose
+   displacement exceeds a limit. This is the one on the list that no general
+   CAD program has and every FE program needs, and it is the fastest route from
+   "the model solved" to "here is what to look at".
+2. **Select by property.** All members with section IPE 300, all shells thinner
+   than 200 mm, all nodes carrying a support. Once selection drives operations
+   this becomes the only practical way to edit a large model.
+3. **Select connected.** Everything topologically attached to what is selected —
+   the way you take a whole truss, or find out that half of it is not attached
+   at all, which is the same defect `merge coincident nodes` exists for.
+4. **Isolate / hide.** Show only the selection. A raft with eight storeys over
+   it cannot be inspected any other way.
+5. **Previous selection.** Recall the last set. Cheap, and it turns a
+   mis-click from a loss into an inconvenience.
+6. **Select by plane or level.** Everything at z = 3.00, which is how a
+   building is actually worked on.
+
 ## 5. What I would not build
 
 **A full CAD line/arc/trim toolkit.** The DXF importer is the answer for

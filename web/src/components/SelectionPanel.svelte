@@ -14,8 +14,9 @@
    * strip to key off, and two controls for one setting is how they end up
    * disagreeing.
    */
-  import { uiStore } from '../lib/store';
-  import { t } from '../lib/i18n';
+  import { uiStore, modelStore } from '../lib/store';
+  import { selectAll, invertSelection, selectByIds } from '../lib/model/select-ops';
+  import { t, tp } from '../lib/i18n';
 
   /**
    * Section stress is deliberately absent: it is not a kind of thing to
@@ -40,6 +41,42 @@
   const MODES = $derived(
     uiStore.appMode === 'pro' ? ALL_MODES : ALL_MODES.filter((m) => m.id !== 'shells'),
   );
+
+  // ── Operating on the selection as a set ──────────────────────────
+  let byIdKind = $state<'nodes' | 'elements' | 'plates' | 'quads'>('elements');
+  let byIdText = $state('');
+  let byIdNote = $state('');
+
+  /** The kinds currently being selected, as the set the operations take. */
+  const armedKinds = $derived(new Set(MODES.filter((m) => uiStore.selectsKind(m.id)).map((m) => m.id)));
+
+  function apply(sel: { nodes: Set<number>; elements: Set<number>; shells: Set<string> }) {
+    uiStore.setSelection(sel.nodes, sel.elements, true, sel.shells);
+  }
+
+  function doSelectAll() {
+    apply(selectAll(modelStore.model as never, armedKinds as never));
+  }
+
+  function doInvert() {
+    apply(invertSelection(modelStore.model as never, armedKinds as never, {
+      nodes: new Set(uiStore.selectedNodes),
+      elements: new Set(uiStore.selectedElements),
+      shells: new Set(uiStore.selectedShells),
+    }));
+  }
+
+  function doSelectByIds() {
+    const r = selectByIds(modelStore.model as never, byIdKind, byIdText);
+    apply(r.selection);
+    /* Reported, not dropped: "select 1, 2, 9" quietly giving two of three is
+       the kind of quiet wrongness that ends with a member missing from a
+       design run. */
+    const parts: string[] = [];
+    if (r.missing.length) parts.push(tp('selection.missingIds', { ids: r.missing.join(', ') }));
+    if (r.bad.length) parts.push(tp('selection.badIds', { text: r.bad.join(', ') }));
+    byIdNote = parts.join(' ');
+  }
 </script>
 
 <div class="sel-panel">
@@ -91,10 +128,71 @@
     {/each}
   </div>
   <p class="sel-note">{t('selection.dragNote')}</p>
+
+  <!--
+    ── Operations on the selection AS A SET ──────────────────────────
+    Picking one thing, dragging a Window or Crossing box, filtering by kind:
+    all present. What was missing is everything that treats the selection as
+    a set — take all of it, take none, take the other half, or name what you
+    want by id because you are reading it out of a table.
+
+    "All" is restricted to the kinds above, deliberately. Selecting every node
+    and plate while a reader is working on members means the next thing they
+    do — delete, assign a section — reaches things they cannot see they took.
+  -->
+  <div class="sel-ops">
+    <button class="sel-op" onclick={doSelectAll} data-testid="sel-all">{t('selection.all')}</button>
+    <button class="sel-op" onclick={() => uiStore.clearSelection()} data-testid="sel-none">{t('selection.none')}</button>
+    <button class="sel-op" onclick={doInvert} data-testid="sel-invert">{t('selection.invert')}</button>
+  </div>
+
+  <div class="sel-byid">
+    <label for="sel-id-list">{t('selection.byId')}</label>
+    <div class="sel-byid-row">
+      <select bind:value={byIdKind} data-testid="sel-id-kind" aria-label={t('selection.byId')}>
+        <option value="nodes">{t('float.selectNodes')}</option>
+        <option value="elements">{t('float.selectElements')}</option>
+        {#if uiStore.appMode === 'pro'}
+          <option value="plates">{t('pro.plates')}</option>
+          <option value="quads">{t('pro.quads')}</option>
+        {/if}
+      </select>
+      <input
+        id="sel-id-list" type="text" bind:value={byIdText}
+        placeholder={t('selection.byIdPh')}
+        data-testid="sel-id-text"
+        onkeydown={(e) => { if (e.key === 'Enter') doSelectByIds(); }}
+      />
+      <button class="sel-op" onclick={doSelectByIds} data-testid="sel-id-go">{t('selection.go')}</button>
+    </div>
+    {#if byIdNote}<p class="sel-byid-note" data-testid="sel-id-note">{byIdNote}</p>{/if}
+  </div>
 </div>
 
 <style>
   .sel-panel { padding: 4px 2px; }
+
+  .sel-ops { display: flex; gap: 6px; margin-top: 8px; }
+  .sel-op {
+    flex: 1;
+    padding: 0.32rem 0.4rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    color: var(--st-text-2);
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+  .sel-op:hover { color: var(--st-text); border-color: var(--st-accent); }
+  .sel-op:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
+
+  .sel-byid { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .sel-byid label { font-size: 0.7rem; color: var(--st-text-3); }
+  .sel-byid-row { display: flex; gap: 6px; }
+  .sel-byid-row input { flex: 1; min-width: 0; }
+  .sel-byid-note { font-size: 0.68rem; color: var(--st-warn); margin: 0; }
+
 
   .sel-multi {
     display: flex;
