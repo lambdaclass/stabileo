@@ -2345,7 +2345,15 @@
     const world = uiStore.screenToWorld(mx, my);
     const snapped = uiStore.snapWorld(world.x, world.y);
 
-    const nearNode = findNearestNode(snapped.x, snapped.y, 0.3);
+    /*
+     * At the cursor, not at the snapped point. Snapping exists to PLACE
+     * things on round coordinates; asking it what is under the pointer moves
+     * the question somewhere the reader is not pointing. With a coarse grid
+     * a double-click straight on a node found nothing and fell through to
+     * the member underneath — so the bar editor opened for a node.
+     */
+    const nearNode = findNearestNode(world.x, world.y, 0.3)
+      ?? findNearestNode(snapped.x, snapped.y, 0.3);
     if (nearNode) {
       uiStore.editingNodeId = nearNode.id;
       uiStore.editScreenPos = { x: e.clientX, y: e.clientY };
