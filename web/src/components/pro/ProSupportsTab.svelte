@@ -2,6 +2,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import type { SupportType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
+  import DrawInModelButton from './DrawInModelButton.svelte';
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
@@ -81,6 +82,10 @@
 </script>
 
 <div class="pro-sup">
+  <!-- The one place a drawing mode is entered; see `DrawInModelButton`. -->
+  <div class="pro-draw-row">
+    <DrawInModelButton tool="support" label={t('pro.tabSupports')} icon="support" testid="draw-support" />
+  </div>
   <div class="pro-sup-header">
     <span class="pro-sup-count">{t('pro.nSupports').replace('{n}', String(supports.length))}</span>
   </div>
@@ -191,6 +196,8 @@
 </div>
 
 <style>
+  .pro-draw-row { padding: 6px 10px 2px; }
+
   .pro-sup { display: flex; flex-direction: column; height: 100%; }
 
   .pro-sup-header {

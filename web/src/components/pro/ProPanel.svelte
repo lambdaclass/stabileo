@@ -37,15 +37,15 @@
    * branch has already fixed twice.
    */
   import { t } from '../../lib/i18n';
+  import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProRepeatPanel from './ProRepeatPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
-  import { openReport } from '../../lib/engine/pro-report';
   import type { ReportConfig, ReportData } from '../../lib/engine/pro-report';
-  import { buildProReportData } from '../../lib/engine/pro-report-inputs';
+  import { exportReportAs } from '../../lib/pro/report-export';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
   import { computeStationDemands as computeStationDemandsService, runUnifiedVerification } from '../../lib/engine/verification-service';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
@@ -81,7 +81,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'repeat';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'repeat';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -192,34 +192,16 @@
     showReportDialog = true;
   }
 
-  /**
-   * Hand the assembled report to the print pipeline.
-   *
-   * The screenshot is taken here and not in `pro-report-inputs.ts` because it is a reading of
-   * the DOM at the instant the user pressed the button — the canvas as it is on screen, not a
-   * property of the model. A tainted canvas throws on `toDataURL`; the report goes out without
-   * the picture rather than not going out.
-   */
+  /* The assembly lives in `lib/pro/report-export.ts`: this component is a
+     layout shell, and the 600-line ceiling on it is what said so. */
   function exportReport(config: ReportConfig) {
     showReportDialog = false;
-
-    let screenshot: string | undefined;
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-      try { screenshot = canvas.toDataURL('image/png'); } catch { /* ignore */ }
-    }
-
-    const data = buildProReportData({
+    exportReportAs({
       config,
       verifications: verificationsRef,
-      advancedResults: Object.keys(advancedResultsRef).length > 0
-        ? advancedResultsRef as ReportData['advancedResults']
-        : undefined,
-      screenshot,
+      advancedResults: advancedResultsRef,
       t,
     });
-    if (!data) return;
-    openReport(data);
   }
 
   async function loadProExample(ex: ProExample) {
@@ -260,6 +242,7 @@
 
   /** What the panel calls each destination. */
   const TAB_TITLE: Record<string, string> = {
+    selection: 'ribbon.selection',
     ai: 'ai.title',
     project: 'ribbon.project', nodes: 'pro.tabNodes', elements: 'pro.tabElements',
     shells: 'pro.tabShells', materials: 'pro.tabMaterials', sections: 'pro.tabSections',
@@ -341,7 +324,9 @@
       </div>
     {:else}
       <svelte:boundary onerror={(e) => { tabError = String(e); console.error('ProPanel tab error:', e); }}>
-        {#if activeTab === 'settings'}
+        {#if activeTab === 'selection'}
+          <SelectionPanel />
+        {:else if activeTab === 'settings'}
           <!--
             Settings in the panel, like Basic. PRO hung them off the header
             button in a dropdown: a second surface with its own scroll and
@@ -400,7 +385,6 @@
   onclose={() => showExampleMenu = false}
 />
 
-<!-- `hasQuantities` asks the GEOMETRY, not whether the members were checked. -->
 <ProReportDialog
   open={showReportDialog}
   hasResults={!!resultsStore.results3D}

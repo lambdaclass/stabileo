@@ -63,9 +63,13 @@ test.describe('@smoke PRO — curved geometry', () => {
       'three picked, six made, and the crown reused rather than doubled').toBe(9);
   });
 
-  test('a quad out of plane is offered the curved shell it needs', async ({ pro: page }) => {
+  test('the curved option appears once there are four corners to curve', async ({ pro: page }) => {
+    /* Three points are coplanar by definition, so a triangle is never a
+       cáscara — the control is offered where it can mean something. */
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
-    await expect(page.getByTestId('quad-curved'), 'the control exists at all').toHaveCount(1);
+    await expect(page.getByTestId('quad-curved')).toHaveCount(0);
+    for (let i = 0; i < 4; i++) await page.getByTestId(`shell-node-${i}`).fill(String(i + 1));
+    await expect(page.getByTestId('quad-curved')).toHaveCount(1);
   });
 });

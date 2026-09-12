@@ -21,12 +21,25 @@
    * Section stress is deliberately absent: it is not a kind of thing to
    * select, it is an analysis, reached from Advanced where it belongs.
    */
-  const MODES = [
+  const ALL_MODES = [
     { id: 'elements', key: 'float.selectElements', hint: 'float.selectElementsHint' },
     { id: 'nodes', key: 'float.selectNodes', hint: 'float.selectNodesHint' },
+    { id: 'shells', key: 'float.selectShells', hint: 'float.selectShellsHint' },
     { id: 'supports', key: 'float.selectSupports', hint: 'float.selectSupportsHint' },
     { id: 'loads', key: 'float.selectLoads', hint: 'float.selectLoadsHint' },
   ] as const;
+
+  /*
+   * Shells only where shells exist.
+   *
+   * Basic has no plates, so offering "select plates" there is a control for
+   * something the mode cannot contain. Driven by the MODE rather than by
+   * whether the model happens to have one yet: a kind you cannot select until
+   * you have drawn one is a chicken-and-egg, and PRO is where plates live.
+   */
+  const MODES = $derived(
+    uiStore.appMode === 'pro' ? ALL_MODES : ALL_MODES.filter((m) => m.id !== 'shells'),
+  );
 </script>
 
 <div class="sel-panel">

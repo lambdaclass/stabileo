@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import DrawInModelButton from './DrawInModelButton.svelte';
   import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
 
   interface NodeRow {
@@ -180,8 +181,13 @@
     <div class="pro-paste-error">{pasteError}</div>
   {/if}
 
-  <div class="pro-paste-hint">
-    {t('pro.pasteHintNodes')}
+  <!--
+    The paste tip is gone. Pasting X, Y, Z from a spreadsheet still works —
+    `handlePaste` is untouched — but a permanent line of instruction above a
+    table is read once and then occupies the panel forever.
+  -->
+  <div class="pro-draw-row">
+    <DrawInModelButton tool="node" label={t('pro.tabNodes')} icon="node" testid="draw-node" />
   </div>
 
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -324,6 +330,8 @@
     border-bottom: 1px solid var(--st-surface-3);
     flex-shrink: 0;
   }
+
+  .pro-draw-row { padding: 6px 10px 2px; }
 
   .pro-nodes-table-wrap {
     flex: 1;

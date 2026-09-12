@@ -124,21 +124,44 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
          * nodes to lay members, supports and plates on them. Both halves of
          * that sentence are Nodes.
          *
-         * So each command opens its table and arms its tool. The pointer box
-         * over the model shows which tool is live and takes you back to
-         * Select, which is the one place a mode is worth announcing.
+         * So each command opens its table. It does NOT arm the tool: the
+         * panel that opens carries a "draw this in the model" button, and
+         * that is where the mode is entered. One button in this bar is lit
+         * at a time and it is always the panel you are looking at; being in
+         * a drawing mode is said by the pointer box over the model, which is
+         * where the pointer is and where you switch back to Select.
          *
          * Plates arm the SHELL PICK rather than a viewport tool: a plate is
          * three or four nodes, so it is picked by node, and the panel counts
          * them as they go in. Repeat has no tool because it operates on a
          * selection that already exists.
          */
+        /*
+         * ── What a selection picks up is a SETTING, so it gets a panel ──
+         *
+         * It was a dropdown hanging off the Select button in the top bar,
+         * and a menu that closes on every choice is the wrong shape for a
+         * choice that persists across dozens of gestures. Basic put it in
+         * the panel; this is the same `SelectionPanel` component.
+         *
+         * The pointer MODE — select or pan — is not here at all: it lives on
+         * the model, in the viewport's own mode button, where the pointer
+         * is. Keeping it in this bar meant one button was lit forever, since
+         * the pointer is always in some mode.
+         */
+        {
+          id: 'select',
+          labelKey: 'ribbon.selection',
+          cmds: [
+            { id: 'selection', labelKey: 'ribbon.selection', icon: 'select', tab: 'selection' },
+          ],
+        },
         {
           id: 'draw',
           labelKey: 'ribbon.groupDraw',
           cmds: [
-            { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes', tool: 'node' },
-            { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements', tool: 'element' },
+            { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
+            { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
             { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
             { id: 'repeat', labelKey: 'repeat.title', icon: 'element', tab: 'repeat' },
           ],
@@ -169,13 +192,12 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           id: 'conditions',
           labelKey: 'ribbon.groupConditions',
           cmds: [
-            /* Supports and loads are placed ON nodes and members, so they arm
-               their tools the way the drawing commands do. Constraints tie
-               degrees of freedom between nodes already chosen, which is a
-               form and not a gesture. */
-            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports', tool: 'support' },
+            /* None of these arm a tool: a command in this bar opens its
+               PANEL, and the panel carries the button that arms the tool.
+               See the note on the Draw group. */
+            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
             { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
-            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads', tool: 'load' },
+            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
           ],
         },
         /*
@@ -244,32 +266,14 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
             { id: 'momentZ', label: 'Mz', labelKey: 'ribbon.nameMomentZ', icon: 'moment', rotate: 90, diagram: 'momentZ', enabled: () => solved },
             { id: 'shearY', label: 'Vy', labelKey: 'ribbon.nameShearY', icon: 'shear', rotate: 90, diagram: 'shearY', enabled: () => solved },
             { id: 'torsion', label: 'T', labelKey: 'ribbon.nameTorsion', icon: 'torsion', diagram: 'torsion', enabled: () => solved },
-          ],
-        },
-        /*
-         * ── Stress, beside the quantities rather than above them ────────
-         *
-         * There was a "Colour maps" group holding two commands. One of them,
-         * `colorMap`, was not a quantity at all — it is a WAY OF DRAWING one,
-         * and Basic has said so for a while: pick N and then pick Diagram,
-         * Member colour or Colour map. Keeping a separate button for the
-         * third option meant the ribbon offered "the moment" in one place and
-         * "a colour map (of what?)" in another. The choice belongs with the
-         * quantity, in the Results panel, through the same `showQuantityAs`
-         * Basic uses.
-         *
-         * The other, the CIRSOC verification map, is not an analysis result:
-         * it paints members by the outcome of a code check, which is a design
-         * step. It belongs to the DESIGN workflow and is reached from there.
-         *
-         * What is left is Stress, which IS a quantity and had no button —
-         * only a buried entry in a dropdown. Bars have stresses and so do
-         * plates, and a reader wants either or both.
-         */
-        {
-          id: 'stress',
-          labelKey: 'proRibbon.groupStress',
-          cmds: [
+            /*
+             * Stress belongs with the quantities, at the right of them.
+             *
+             * It had a group of its own holding one command, which made a
+             * caption over a single button and put "the moment" and "the
+             * stress" in two different sections of a bar that otherwise
+             * reads as one row of things a solved model can show.
+             */
             {
               id: 'stress',
               labelKey: 'pro.varStress',
@@ -400,6 +404,9 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
  * to none — the callers keep showing the stage you came from.
  */
 export const PRO_TAB_STAGE: Record<string, string> = {
+    /* What a selection picks up is set while modelling, and the command that
+       opens it sits at the head of MODEL. */
+    selection: 'model',
     // Project is reached from its own button, not from a tab, so it belongs to
     // no stage — the tab row simply keeps showing the stage you came from.
     project: '',

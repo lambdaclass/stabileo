@@ -19,10 +19,14 @@ test.describe('@smoke PRO — drawing geometry with the pointer', () => {
     const before = await page.evaluate(() => window.__stabileo.nodeCount());
 
     await page.getByTestId('pr-stage-model').click();
-    const draw = page.getByTestId('pr-cmd-nodes');
-    await expect(draw, 'PRO has a Node command at all').toBeVisible();
+    await page.getByTestId('pr-cmd-nodes').click();
+    /* The ribbon opens the panel; the PANEL arms the tool. One press used to
+       do both, so opening the table to read a coordinate left the next click
+       on the model placing a node. */
+    const draw = page.getByTestId('draw-node');
+    await expect(draw).toBeVisible();
     await draw.click();
-    await expect(draw, 'and it lights while the tool is armed').toHaveClass(/active/);
+    await expect(draw).toHaveAttribute('aria-pressed', 'true');
 
     const canvas = page.locator('canvas:not(.axis-gizmo)').first();
     const box = (await canvas.boundingBox())!;
@@ -48,9 +52,10 @@ test.describe('@smoke PRO — drawing geometry with the pointer', () => {
 
     const before = await page.evaluate(() => window.__stabileo.elementIds().length);
     await page.getByTestId('pr-stage-model').click();
-    const draw = page.getByTestId('pr-cmd-elements');
+    await page.getByTestId('pr-cmd-elements').click();
+    const draw = page.getByTestId('draw-element');
     await draw.click();
-    await expect(draw).toHaveClass(/active/);
+    await expect(draw).toHaveAttribute('aria-pressed', 'true');
 
     /* Through the 3-D camera: `nodeScreenPos` used to answer with the 2D
        canvas transform, which in 3D is a confident wrong number. */
@@ -65,31 +70,10 @@ test.describe('@smoke PRO — drawing geometry with the pointer', () => {
       .toBe(before + 1);
   });
 
-  test('one command gives you the table AND the tool', async ({ pro: page }) => {
-    /*
-     * These were briefly two groups — Draw with the pointer tools, Tables with
-     * the grids — and that split one job into two places. The professional
-     * flow is not a choice between them: type the nodes with their
-     * coordinates in the panel, then click those nodes to lay members on
-     * them. Both halves of that sentence are "Nodes".
-     */
-    await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-nodes').click();
-
-    await expect(page.getByTestId('pro-panel-title'), 'the table is showing').toBeVisible();
-    expect(await page.evaluate(() => window.__stabileo.currentTool()),
-      'and the tool is armed').toBe('node');
-  });
-
-  test('a command with no tool of its own returns the pointer to Select', async ({ pro: page }) => {
-    /* Otherwise a reader who went to Materials to change a section would
-       still be holding the node tool, and the next click on the model would
-       leave a node behind. */
-    await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-nodes').click();
-    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('node');
-
-    await page.getByTestId('pr-cmd-materials').click();
-    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('select');
-  });
+  /*
+   * "One command gives you the table AND the tool" and "a command with no
+   * tool returns the pointer to Select" moved to `pro-tools-and-panels`,
+   * where they belong now: a ribbon command opens a panel and arms nothing,
+   * and the panel carries the button that arms.
+   */
 });

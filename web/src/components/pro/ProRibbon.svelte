@@ -269,75 +269,23 @@
           disabled={!historyStore.canRedo}
           title="{t('toolbar.redo')} ({mod}+Y)"
         ><Icon name="redo" size={16} /></button>
-        <span class="pr-tool-sep" aria-hidden="true"></span>
-        <div class="pr-dd">
-          <button
-            class="pr-tool"
-            class:active={uiStore.currentTool === 'select'}
-            onclick={() => { uiStore.currentTool = 'select'; openMenu = openMenu === 'select' ? null : 'select'; }}
-            title={t('float.select')}
-            data-testid="pr-select"
-          ><Icon name="select" size={16} /><span class="pr-caret">▾</span></button>
-          {#if openMenu === 'select'}
-            <div class="pr-menu">
-              <!--
-                ── One kind, or several ────────────────────────────────
-                The menu offered five kinds and took exactly one, which is
-                right for a click — the most specific thing under the cursor
-                — and wrong for a marquee, where the reason to drag a box
-                round a bay is usually to catch its members AND the loads on
-                them. Basic has had the switch for a while; PRO's menu did
-                not, so a PRO reader had to drag five times.
+        <!--
+          ── Select and Pan are gone from this bar ────────────────────
+          They are POINTER MODES, and the pointer lives on the model: the
+          viewport's own mode button shows which one is armed and switches
+          back to Select, which is where a reader's hand already is.
 
-                Checkboxes once it is on, because with several kinds armed
-                the question stops being "which one" and becomes "which of
-                these", and a radio cannot say that.
-              -->
-              <label class="pr-menu-check">
-                <input
-                  type="checkbox"
-                  checked={uiStore.multiKindSelect}
-                  onchange={(e) => { uiStore.multiKindSelect = e.currentTarget.checked; }}
-                  data-testid="pr-multi-kind"
-                />
-                <span>{t('float.selectMulti')}</span>
-              </label>
-              <div class="pr-menu-sep"></div>
-              {#each [
-                { id: 'nodes', key: 'float.selectNodes' },
-                { id: 'elements', key: 'float.selectElements' },
-                { id: 'shells', key: 'float.selectShells' },
-                { id: 'supports', key: 'float.selectSupports' },
-                { id: 'loads', key: 'float.selectLoads' },
-              ] as const as sm}
-                {#if uiStore.multiKindSelect}
-                  <label class="pr-menu-check" data-testid="pr-kind-{sm.id}">
-                    <input
-                      type="checkbox"
-                      checked={uiStore.selectsKind(sm.id as never)}
-                      onchange={() => uiStore.toggleSelectKind(sm.id as never)}
-                    />
-                    <span>{t(sm.key)}</span>
-                  </label>
-                {:else}
-                  <button
-                    class="pr-menu-item"
-                    class:active={uiStore.selectMode === sm.id}
-                    onclick={() => { uiStore.selectMode = sm.id as never; openMenu = null; }}
-                    data-testid="pr-kind-{sm.id}"
-                  >{t(sm.key)}</button>
-                {/if}
-              {/each}
-            </div>
-          {/if}
-        </div>
-        <button
-          class="pr-tool"
-          class:active={uiStore.currentTool === 'pan'}
-          onclick={() => { uiStore.currentTool = 'pan'; openMenu = null; }}
-          title={t('float.pan')}
-          data-testid="pr-pan"
-        ><Icon name="pan" size={16} /></button>
+          Keeping them here had two costs. One was a permanently lit button —
+          the pointer is always in some mode, so Move looked switched on
+          forever while the right-hand panel showed something else entirely.
+          The other was the dropdown: which KINDS a selection picks up is a
+          setting that persists across dozens of gestures, and a menu that
+          closes on every choice is the wrong shape for it. Basic put it in
+          the panel; `SelectionPanel` is the same component.
+
+          What lights up in this bar now is exactly one thing: the command
+          whose panel is open.
+        -->
       </div>
 
       <div class="pr-tabs" role="tablist">

@@ -37,8 +37,9 @@ test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
 
     // ── 2. Members, by clicking those nodes ─────────────────────────
     await page.getByTestId('pr-cmd-elements').click();
-    expect(await page.evaluate(() => window.__stabileo.currentTool()),
-      'the member tool comes with its table').toBe('element');
+    /* The ribbon opens the table; the panel arms the tool. */
+    await page.getByTestId('draw-element').click();
+    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('element');
 
     await page.getByTestId('cam-menu').click();
     await page.locator('.cam-menu .cam-item').first().click();
@@ -49,19 +50,22 @@ test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
       expect(p, `node ${id} is on screen`).toBeTruthy();
       await page.mouse.click(p!.x, p!.y);
     };
-    /* A portal: column, beam, column. */
-    for (const [a, b] of [[1, 4], [4, 3], [3, 2]] as const) {
-      await click(a);
-      await click(b);
-    }
+    /*
+     * One continuous chain: 1 → 4 → 3 → 2, which is a portal drawn the way a
+     * reader draws one. The tool CHAINS — after closing a member it takes the
+     * next click as the start of the following one — so clicking the pairs
+     * (1,4) (4,3) (3,2) would place five members, not three. That is the
+     * right behaviour for drawing a polyline and the wrong way to write this.
+     */
+    for (const id of [1, 4, 3, 2] as const) await click(id);
     await expect
       .poll(() => page.evaluate(() => window.__stabileo.elementIds().length))
       .toBe(3);
 
     // ── 3. Supports, on the two feet ────────────────────────────────
     await page.getByTestId('pr-cmd-supports').click();
-    expect(await page.evaluate(() => window.__stabileo.currentTool()),
-      'and the support tool with its own').toBe('support');
+    await page.getByTestId('draw-support').click();
+    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('support');
     for (const id of [1, 2]) await click(id);
     await expect.poll(() => page.evaluate(() => window.__stabileo.supportCount())).toBe(2);
 
@@ -73,16 +77,20 @@ test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
   });
 
   test('moving between tables never leaves a tool armed behind you', async ({ pro: page }) => {
-    /* The failure this prevents: going to Materials to change a section and
-       leaving a node behind on the next click in the model. */
+    /*
+     * Going to Materials to change a section used to leave a node behind on
+     * the next click in the model. A ribbon command opens a panel and arms
+     * nothing now, so the pointer only leaves Select when the reader says so
+     * — and going anywhere else brings it back.
+     */
     await page.getByTestId('pr-stage-model').click();
-    for (const [cmd, tool] of [
-      ['nodes', 'node'], ['elements', 'element'], ['supports', 'support'],
-      ['loads', 'load'], ['materials', 'select'], ['sections', 'select'],
-      ['shells', 'select'], ['constraints', 'select'],
-    ] as const) {
+    await page.getByTestId('pr-cmd-nodes').click();
+    await page.getByTestId('draw-node').click();
+    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('node');
+
+    for (const cmd of ['materials', 'sections', 'constraints', 'elements'] as const) {
       await page.getByTestId(`pr-cmd-${cmd}`).click();
-      expect(await page.evaluate(() => window.__stabileo.currentTool()), cmd).toBe(tool);
+      expect(await page.evaluate(() => window.__stabileo.currentTool()), cmd).toBe('select');
     }
   });
 });

@@ -8,6 +8,8 @@
     projectAddress: string;
     engineerName: string;
     revision: string;
+    /** Which document to produce from the same choices. */
+    format?: 'pdf' | 'xlsx';
     /** False when the letterhead was left blank — the report prints none. */
     hasProjectInfo?: boolean;
     /** Which advanced analyses to print, by result key. */
@@ -106,11 +108,13 @@
     companyLogo = null;
   }
 
-  function handleGenerate() {
+  function handleGenerate(as: 'pdf' | 'xlsx' = 'pdf') {
     // Persist company info for next time
     save({ companyName, companyLogo, projectAddress, engineerName, revision });
 
     ongenerate({
+      /* Which document. The choices above apply to both. */
+      format: as,
       companyName,
       companyLogo,
       projectAddress,
@@ -243,9 +247,20 @@
       </fieldset>
     </div>
 
+    <!--
+      ── Two documents, one set of choices ──────────────────────────────
+      This dialog only ever produced the printable report, so a reader who
+      wanted the same results as a spreadsheet had to leave it, find Export,
+      and get a workbook that knew nothing about what they had just selected.
+      The sections chosen above apply to both: what differs is the document,
+      not the data.
+    -->
     <div class="rpt-footer">
       <button class="rpt-btn rpt-btn-secondary" onclick={onclose}>{t('report.cancel')}</button>
-      <button class="rpt-btn rpt-btn-primary" onclick={handleGenerate}>{t('report.generate')}</button>
+      <button class="rpt-btn" onclick={() => handleGenerate('xlsx')} data-testid="rpt-xlsx"
+      >{t('report.generateXlsx')}</button>
+      <button class="rpt-btn rpt-btn-primary" onclick={() => handleGenerate('pdf')}
+              data-testid="rpt-pdf">{t('report.generate')}</button>
     </div>
   </div>
 </div>

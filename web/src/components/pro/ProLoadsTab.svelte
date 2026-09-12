@@ -2,6 +2,7 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
+  import DrawInModelButton from './DrawInModelButton.svelte';
   import ProAutoLoadsDialog from './ProAutoLoadsDialog.svelte';
 
   let showAutoLoadsDialog = $state(false);
@@ -494,6 +495,10 @@
 </script>
 
 <div class="pro-loads">
+  <!-- The one place a drawing mode is entered; see `DrawInModelButton`. -->
+  <div class="pro-draw-row">
+    <DrawInModelButton tool="load" label={t('pro.tabLoads')} icon="load" testid="draw-load" />
+  </div>
   <!-- Auto-generate button -->
   <div class="pro-autogen-bar">
     <button class="pro-btn-autogen" data-testid="pro-auto-loads-btn"
@@ -906,6 +911,8 @@
 {/if}
 
 <style>
+  .pro-draw-row { padding: 6px 10px 2px; }
+
   /* ── The load-definition selector ──────────────────────────────────── */
 
   .load-tabs {

@@ -11,7 +11,7 @@
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
-  import { nodeRadiusFor, nodeRadiusForSections, diagonalOf } from '../lib/three/node-scale';
+  import { nodeRadiusFor, diagonalOf } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
@@ -250,13 +250,33 @@
    * Called from two places because it depends on two things — the model, and
    * where the camera is — and a single `$effect` cannot see the second.
    */
-  const MIN_NODE_PX = 5;
+  /*
+   * Three, not five.
+   *
+   * Five pixels of RADIUS is a ten-pixel ball, which on a slender frame reads
+   * as a row of beads rather than as joints — "the nodes look like giant
+   * spheres" was exactly right. Three is still a comfortable click target and
+   * stops the marker competing with the structure it marks.
+   */
+  const MIN_NODE_PX = 3;
   let lastNodeDist = -1;
 
   function applyNodeRadius() {
+    /*
+     * Sections mode draws the members as their real cross-sections — the
+     * closest thing to a picture of the built structure — and a sphere at
+     * every joint is the one thing a built structure does not have. The
+     * markers go entirely, rather than shrinking: something small enough not
+     * to intrude is also too small to click, and this view is for looking.
+     */
+    if (uiStore.renderMode3D === 'sections') {
+      nodesInstanced.mesh.visible = false;
+      return;
+    }
+    nodesInstanced.mesh.visible = true;
+
     const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
-    const base = uiStore.renderMode3D === 'sections'
-      ? nodeRadiusForSections(extent) : nodeRadiusFor(extent);
+    const base = nodeRadiusFor(extent);
 
     let floor = 0;
     if (camera && controls && container) {

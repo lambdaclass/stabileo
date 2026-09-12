@@ -30,6 +30,8 @@ export interface ReportConfig {
   projectAddress: string;
   engineerName: string;
   revision: string;
+  /** Which document to produce from the same choices: the printable report or the workbook. */
+  format?: 'pdf' | 'xlsx';
   /** False when the letterhead was left blank — no project block is printed. */
   hasProjectInfo?: boolean;
   /** Which advanced analyses to print, by result key. Absent means all of them. */

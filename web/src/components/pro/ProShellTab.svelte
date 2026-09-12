@@ -5,52 +5,11 @@
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import { findCoincidentNode, beamThrough } from '../../lib/engine/mesh-weld';
   import { buildBilinearQuadGrid } from '../../lib/engine/shell-mesh-gen';
-  import type { ShellFamily, ShellRecommendation } from '../../lib/engine/types-3d';
+  import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
-  // --- Plate (DKT triangle) creator state ---
-  let plateNodes = $state<[string, string, string]>(['', '', '']);
-  let plateMaterialId = $state(1);
-  let plateThickness = $state(0.2);
-  let plateFamily = $state<ShellFamily | 'auto'>('auto');
-  let plateRecommendation = $state<ShellRecommendation | null>(null);
-
-  // --- Quad (MITC4) creator state ---
-  let quadNodes = $state<[string, string, string, string]>(['', '', '', '']);
-  let quadMaterialId = $state(1);
-  let quadThickness = $state(0.2);
-  let quadFamily = $state<ShellFamily | 'auto'>('auto');
-  /** Solve this quad as a cáscara — a degenerated continuum that keeps its curvature. */
-  let quadCurved = $state(false);
-
-  /**
-   * How far the four picked nodes are from being coplanar, in metres.
-   *
-   * Four points define a plane only when they are coplanar, and whether they
-   * are is arithmetic rather than a matter of opinion. A dome authored as
-   * flat quads is solved as facets and nothing on screen says so, so this
-   * measures the distance of the fourth node from the plane of the other
-   * three and offers the answer.
-   */
-  const quadOutOfPlane = $derived.by(() => {
-    const ids = quadNodes.map((v) => Number(v));
-    if (ids.some((n) => !Number.isFinite(n) || n <= 0)) return null;
-    const pts = ids.map((id) => modelStore.nodes.get(id));
-    if (pts.some((p) => !p)) return null;
-    const [a, b, c, d] = pts.map((p) => ({ x: p!.x, y: p!.y ?? 0, z: (p! as { z?: number }).z ?? 0 }));
-    const u = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-    const v = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
-    const n = {
-      x: u.y * v.z - u.z * v.y,
-      y: u.z * v.x - u.x * v.z,
-      z: u.x * v.y - u.y * v.x,
-    };
-    const len = Math.hypot(n.x, n.y, n.z);
-    if (len < 1e-12) return null;
-    const w = { x: d.x - a.x, y: d.y - a.y, z: d.z - a.z };
-    return Math.abs((w.x * n.x + w.y * n.y + w.z * n.z) / len);
-  });
-  let quadRecommendation = $state<ShellRecommendation | null>(null);
+  /* The two creators' state is gone with them — see the note on `newNodeIds`.
+     Three corners make a triangle and four make a quad, so one set serves. */
 
   // --- Quick mesh generator state ---
   let meshCorners = $state<[string, string, string, string]>(['', '', '', '']);
@@ -65,8 +24,6 @@
   let meshSuccess = $state<string | null>(null);
 
   // --- Error states ---
-  let plateError = $state<string | null>(null);
-  let quadError = $state<string | null>(null);
 
   // Available materials
   const materials = $derived([...modelStore.materials.values()]);
@@ -112,92 +69,9 @@
   }
 
   /** Get Vec3 positions from node IDs */
-  function getNodePositions(ids: number[]): Vec3[] | null {
-    const positions: Vec3[] = [];
-    for (const id of ids) {
-      const n = modelStore.nodes.get(id);
-      if (!n) return null;
-      positions.push({ x: n.x, y: n.y, z: n.z ?? 0 });
-    }
-    return positions;
-  }
 
-  /** Run the selector and update recommendation state */
-  function updatePlateRecommendation() {
-    const nodeIds = validateNodeIds(plateNodes, 3);
-    if (!nodeIds || plateThickness <= 0) { plateRecommendation = null; return; }
-    const positions = getNodePositions(nodeIds);
-    if (!positions) { plateRecommendation = null; return; }
-    plateRecommendation = selectShellFamily({ nodes: positions, thickness: plateThickness });
-  }
 
-  function updateQuadRecommendation() {
-    const nodeIds = validateNodeIds(quadNodes, 4);
-    if (!nodeIds || quadThickness <= 0) { quadRecommendation = null; return; }
-    const positions = getNodePositions(nodeIds);
-    if (!positions) { quadRecommendation = null; return; }
-    quadRecommendation = selectShellFamily({ nodes: positions, thickness: quadThickness });
-  }
 
-  function addPlate() {
-    plateError = null;
-    const nodeIds = validateNodeIds(plateNodes, 3);
-    if (!nodeIds) {
-      plateError = t('pro.err3Nodes');
-      return;
-    }
-    if (!modelStore.materials.has(plateMaterialId)) {
-      plateError = t('pro.errMaterial');
-      return;
-    }
-    if (plateThickness <= 0) {
-      plateError = t('pro.errThickness');
-      return;
-    }
-    // Resolve shell family: auto → use recommendation, else use override
-    const family: ShellFamily = plateFamily === 'auto'
-      ? (plateRecommendation?.family ?? 'DKT')
-      : plateFamily;
-    modelStore.addPlate(nodeIds as [number, number, number], plateMaterialId, plateThickness);
-    // Set family on the just-created plate
-    const plates = [...modelStore.model.plates.values()];
-    const last = plates[plates.length - 1];
-    if (last) last.shellFamily = family;
-    plateNodes = ['', '', ''];
-    plateRecommendation = null;
-  }
-
-  function addQuad() {
-    quadError = null;
-    const nodeIds = validateNodeIds(quadNodes, 4);
-    if (!nodeIds) {
-      quadError = t('pro.err4Nodes');
-      return;
-    }
-    if (!modelStore.materials.has(quadMaterialId)) {
-      quadError = t('pro.errMaterial');
-      return;
-    }
-    if (quadThickness <= 0) {
-      quadError = t('pro.errThickness');
-      return;
-    }
-    const family: ShellFamily = quadFamily === 'auto'
-      ? (quadRecommendation?.family ?? 'MITC4')
-      : quadFamily;
-    modelStore.addQuad(nodeIds as [number, number, number, number], quadMaterialId, quadThickness);
-    const quads = [...modelStore.model.quads.values()];
-    const last = quads[quads.length - 1];
-    if (last) {
-      last.shellFamily = family;
-      /* A curved quad goes to the solver as a degenerated continuum rather
-         than a flat MITC4 — see the note beside the checkbox. */
-      if (quadCurved) last.curved = true;
-    }
-    quadNodes = ['', '', '', ''];
-    quadCurved = false;
-    quadRecommendation = null;
-  }
 
   function deletePlate(id: number) {
     modelStore.removePlate(id);
@@ -308,15 +182,116 @@
   }
 
   // Collapse states for sections
-  let showPlateCreator = $state(true);
-  let showQuadCreator = $state(true);
+  /*
+   * ── One creator, because the corner count already decides ──────────
+   *
+   * Two creators ran side by side — "Plate (DKT triangle)" and "Quad
+   * (MITC4)" — each with its own node boxes, material, thickness and family.
+   * Those names are ELEMENT FORMULATIONS, and a reader drawing a slab starts
+   * from its corners, not from a formulation. Three corners is a triangle and
+   * four is a quad: asking which was asking a question the geometry had
+   * already answered.
+   */
+  let newNodeIds = $state<[string, string, string, string]>(['', '', '', '']);
+  let newMaterialId = $state(1);
+  let newThickness = $state(0.2);
+  let newCurved = $state(false);
+  let newError = $state<string | null>(null);
+  let newRecommendation = $state<ShellRecommendation | null>(null);
+
+  /** How many corners have been given — 3 makes a triangle, 4 a quad. */
+  const newCount = $derived(newNodeIds.filter((v) => v.trim() !== '').length);
+
+  /** The corners as points, or null while one is missing or unknown. */
+  const newPts = $derived.by(() => {
+    const ids = newNodeIds.slice(0, newCount).map((v) => Number(v));
+    if (ids.length < 3 || ids.some((n) => !Number.isFinite(n) || n <= 0)) return null;
+    const ns = ids.map((id) => modelStore.nodes.get(id));
+    if (ns.some((n) => !n)) return null;
+    return ns.map((n) => ({ x: n!.x, y: n!.y ?? 0, z: (n! as { z?: number }).z ?? 0 }));
+  });
+
+  /**
+   * How far the fourth corner is from the plane of the other three, metres.
+   *
+   * Three points are coplanar by definition, so this is a question only a
+   * quad can be asked. A dome authored as flat quads is solved as facets and
+   * nothing says so, and whether four points are coplanar is arithmetic
+   * rather than a matter of opinion.
+   */
+  const newOutOfPlane = $derived.by(() => {
+    if (newCount !== 4 || !newPts) return null;
+    const [a, b, c, d] = newPts;
+    const u = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+    const v = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
+    const n = {
+      x: u.y * v.z - u.z * v.y,
+      y: u.z * v.x - u.x * v.z,
+      z: u.x * v.y - u.y * v.x,
+    };
+    const len = Math.hypot(n.x, n.y, n.z);
+    if (len < 1e-12) return null;
+    const w = { x: d.x - a.x, y: d.y - a.y, z: d.z - a.z };
+    return Math.abs((w.x * n.x + w.y * n.y + w.z * n.z) / len);
+  });
+
+  function updateNewRecommendation() {
+    newRecommendation = null;
+    if (!newPts || newThickness <= 0) return;
+    try {
+      newRecommendation = selectShellFamily({ nodes: newPts as Vec3[], thickness: newThickness });
+    } catch { newRecommendation = null; }
+  }
+
+  /** Start or stop picking corners in the model. Four slots; three is a triangle. */
+  function toggleNewPick() {
+    if (uiStore.shellNodePick.active) uiStore.cancelShellNodePick();
+    else uiStore.startShellNodePick('quad', 4);
+  }
+
+  /*
+   * Picks flow back into the boxes as they arrive, so the reader sees the
+   * corners land rather than discovering them when the pick ends.
+   */
+  $effect(() => {
+    const p = uiStore.shellNodePick;
+    if (!p.active) return;
+    const next: [string, string, string, string] = ['', '', '', ''];
+    p.picked.forEach((id, i) => { if (i < 4) next[i] = String(id); });
+    newNodeIds = next;
+  });
+
+  function addShell() {
+    newError = null;
+    const ids = newNodeIds.slice(0, newCount).map((v) => Number(v));
+    if (ids.length < 3) { newError = t('pro.shellNeedNodes'); return; }
+    if (ids.some((n) => !Number.isFinite(n) || !modelStore.nodes.has(n))) {
+      newError = t('pro.errNodesExist');
+      return;
+    }
+    if (new Set(ids).size !== ids.length) { newError = t('pro.errNodesDistinct'); return; }
+    if (!modelStore.materials.has(newMaterialId)) { newError = t('pro.errMaterial'); return; }
+    if (newThickness <= 0) { newError = t('pro.errThickness'); return; }
+
+    if (ids.length === 3) {
+      modelStore.addPlate(ids as [number, number, number], newMaterialId, newThickness);
+    } else {
+      modelStore.addQuad(ids as [number, number, number, number], newMaterialId, newThickness);
+      const quads = [...modelStore.model.quads.values()];
+      const last = quads[quads.length - 1];
+      /* A curved quad goes to the solver as a degenerated continuum rather
+         than a flat MITC4, so its curvature carries. */
+      if (last && newCurved) last.curved = true;
+    }
+    newNodeIds = ['', '', '', ''];
+    newCurved = false;
+    newRecommendation = null;
+    uiStore.cancelShellNodePick();
+  }
+
   let showMeshGen = $state(false);
   let showTable = $state(true);
 
-  function getMaterialName(id: number): string {
-    const m = modelStore.materials.get(id);
-    return m ? m.name : `#${id}`;
-  }
 
   // ─── Viewport node-pick → creator fields ───
   // When the user picks nodes in the 3D viewport, mirror the buffer into the
@@ -330,13 +305,9 @@
     const ids = pick.picked;
     const target = pick.target;
     untrack(() => {
-      if (target === 'plate') {
-        plateNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? '')];
-        updatePlateRecommendation();
-      } else if (target === 'quad') {
-        quadNodes = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
-        updateQuadRecommendation();
-      } else if (target === 'mesh') {
+      /* The creator is one now — see `newNodeIds`, which mirrors picks for
+         itself. What is left here is the mesh generator's own corners. */
+      if (target === 'mesh') {
         meshCorners = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
       }
     });
@@ -402,144 +373,107 @@
       <div class="shell-warn">⚠ {t('pro.shellWarnDisconnected').replace('{n}', String(disconnectedShells))}</div>
     {/if}
 
-    <!-- Plate (DKT triangle) creator -->
+    <!--
+      ── ONE creator: three nodes make a triangle, four make a quad ─────
+      There were two, side by side, near-identical and each with its own
+      node boxes, material, thickness and family: "Plate (DKT triangle)" and
+      "Quad (MITC4)". Those are ELEMENT FORMULATIONS, and a reader drawing a
+      slab does not start from one — they start from the corners. How many
+      corners there are already decides which formulation applies, so asking
+      is asking the reader to answer a question the geometry has answered.
+
+      Pick the nodes; three or four; the panel says what it is about to make
+      and makes it. The formulation is still shown, and still overridable for
+      someone who wants to, under the detail.
+    -->
     <div class="section">
-      <button class="section-toggle" onclick={() => showPlateCreator = !showPlateCreator}>
-        <span class="toggle-arrow">{showPlateCreator ? '\u25BE' : '\u25B8'}</span>
-        {t('pro.plateTriDKT')}
-      </button>
-      {#if showPlateCreator}
-        <div class="section-body">
-          <div class="input-row">
-            <label>{t('pro.nodes')}:</label>
-            <input type="text" bind:value={plateNodes[0]} placeholder="N1" class="node-input" oninput={updatePlateRecommendation} />
-            <input type="text" bind:value={plateNodes[1]} placeholder="N2" class="node-input" oninput={updatePlateRecommendation} />
-            <input type="text" bind:value={plateNodes[2]} placeholder="N3" class="node-input" oninput={updatePlateRecommendation} />
-          </div>
-          <div class="input-row">
-            <button class="pro-btn pro-btn-pick" class:picking={isPicking('plate')} onclick={() => togglePick('plate', 3)}>
-              {pickBtnLabel('plate', 3)}
-            </button>
-          </div>
-          <div class="input-row">
-            <label>{t('pro.thMaterial')}:</label>
-            <select bind:value={plateMaterialId} class="mat-select">
-              {#each materials as m}
-                <option value={m.id}>{m.name}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="input-row">
-            <label>{t('pro.thickness')}:</label>
-            <input type="number" bind:value={plateThickness} step="0.01" min="0.001" class="thick-input" oninput={updatePlateRecommendation} />
-          </div>
-          <div class="input-row">
-            <label>Family:</label>
-            <select bind:value={plateFamily} class="family-select">
-              <option value="auto">Auto{plateRecommendation ? ` (${plateRecommendation.family})` : ''}</option>
-              <option value="DKT">DKT (Kirchhoff)</option>
-              <option value="DKMT" disabled>DKMT (Mindlin) — planned</option>
-            </select>
-          </div>
-          {#if plateRecommendation}
-            <div class="recommendation" class:warn={plateRecommendation.confidence !== 'high'}>
-              <span class="rec-icon">{plateRecommendation.confidence === 'high' ? '\u2713' : '\u26A0'}</span>
-              <span class="rec-text">{plateRecommendation.reason}</span>
-            </div>
-            {#each plateRecommendation.warnings as w}
-              <div class="rec-warning">{w}</div>
-            {/each}
-          {/if}
-          {#if plateError}
-            <div class="field-error">{plateError}</div>
-          {/if}
-          <button class="pro-btn pro-btn-accent" onclick={addPlate}>{t('pro.addPlate')}</button>
+      <div class="shell-new">
+        <div class="input-row">
+          <label>{t('pro.nodes')}:</label>
+          {#each [0, 1, 2, 3] as i (i)}
+            <input
+              type="text" inputmode="numeric"
+              class="node-input"
+              class:optional={i === 3}
+              placeholder={i === 3 ? t('pro.shellFourthPh') : `N${i + 1}`}
+              value={newNodeIds[i]}
+              oninput={(e) => { newNodeIds[i] = e.currentTarget.value; updateNewRecommendation(); }}
+              data-testid="shell-node-{i}"
+            />
+          {/each}
         </div>
-      {/if}
-    </div>
 
-    <!-- Quad (MITC4) creator -->
-    <div class="section">
-      <button class="section-toggle" onclick={() => showQuadCreator = !showQuadCreator}>
-        <span class="toggle-arrow">{showQuadCreator ? '\u25BE' : '\u25B8'}</span>
-        {t('pro.quadMITC4')}
-      </button>
-      {#if showQuadCreator}
-        <div class="section-body">
-          <div class="input-row">
-            <label>{t('pro.nodes')}:</label>
-            <input type="text" bind:value={quadNodes[0]} placeholder="N1" class="node-input" oninput={updateQuadRecommendation} />
-            <input type="text" bind:value={quadNodes[1]} placeholder="N2" class="node-input" oninput={updateQuadRecommendation} />
-            <input type="text" bind:value={quadNodes[2]} placeholder="N3" class="node-input" oninput={updateQuadRecommendation} />
-            <input type="text" bind:value={quadNodes[3]} placeholder="N4" class="node-input" oninput={updateQuadRecommendation} />
-          </div>
-          <div class="input-row">
-            <button class="pro-btn pro-btn-pick" class:picking={isPicking('quad')} onclick={() => togglePick('quad', 4)}>
-              {pickBtnLabel('quad', 4)}
-            </button>
-          </div>
-          <div class="input-row">
-            <label>{t('pro.thMaterial')}:</label>
-            <select bind:value={quadMaterialId} class="mat-select">
-              {#each materials as m}
-                <option value={m.id}>{m.name}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="input-row">
-            <label>{t('pro.thickness')}:</label>
-            <input type="number" bind:value={quadThickness} step="0.01" min="0.001" class="thick-input" oninput={updateQuadRecommendation} />
-          </div>
-          <!--
-            ── A cáscara: the quad that is not flat ─────────────────────
-            The model has carried `curved` since shells existed and the
-            solver reads it — a curved quad is solved as a degenerated
-            continuum, so its curvature carries instead of being flattened
-            into four coplanar corners. There has never been a control for
-            it: the only way to set the flag was to import a spreadsheet.
+        <!--
+          Picking in the model is the ordinary way in, so it is a button that
+          says what it is doing and counts as it goes. Four slots, and it
+          stops at whatever the reader has: three is a triangle.
+        -->
+        <div class="input-row">
+          <button
+            class="pro-btn pro-btn-pick"
+            class:picking={uiStore.shellNodePick.active}
+            onclick={toggleNewPick}
+            data-testid="shell-pick"
+          >{uiStore.shellNodePick.active
+            ? `${t('pro.picking')} ${uiStore.shellNodePick.picked.length}/4 — ${t('pro.cancel')}`
+            : `\u{1F4CD} ${t('pro.pickNodes')}`}</button>
+        </div>
 
-            Offered, and also DETECTED, because whether four points are
-            coplanar is arithmetic and not a matter of opinion: if the four
-            nodes picked are out of plane, this says so and proposes the
-            answer rather than leaving the reader to discover that their
-            dome was solved as facets.
-          -->
+        <div class="input-row">
+          <label>{t('pro.thMaterial')}:</label>
+          <select bind:value={newMaterialId} class="mat-select">
+            {#each materials as m}
+              <option value={m.id}>{m.name}</option>
+            {/each}
+          </select>
+        </div>
+        <div class="input-row">
+          <label>{t('pro.thickness')}:</label>
+          <input type="number" bind:value={newThickness} step="0.01" min="0.001" class="thick-input"
+                 oninput={updateNewRecommendation} data-testid="shell-thickness" />
+        </div>
+
+        <!--
+          A cáscara, offered only where it can mean anything: three points
+          are coplanar by definition, so a triangle is never curved. Whether
+          FOUR are is arithmetic, and the panel measures it rather than
+          leaving a dome to be solved as facets.
+        -->
+        {#if newCount === 4}
           <div class="input-row">
             <label class="curved-check">
-              <input type="checkbox" bind:checked={quadCurved} data-testid="quad-curved" />
+              <input type="checkbox" bind:checked={newCurved} data-testid="quad-curved" />
               <span>{t('pro.curvedShell')}</span>
             </label>
           </div>
-          {#if quadOutOfPlane != null && quadOutOfPlane > 1e-6 && !quadCurved}
+          {#if newOutOfPlane != null && newOutOfPlane > 1e-6 && !newCurved}
             <div class="recommendation warn" data-testid="quad-curved-hint">
               <span class="rec-icon">⚠</span>
-              <span class="rec-text">{tp('pro.curvedShellHint', { mm: (quadOutOfPlane * 1000).toFixed(1) })}</span>
+              <span class="rec-text">{tp('pro.curvedShellHint', { mm: (newOutOfPlane * 1000).toFixed(1) })}</span>
             </div>
           {/if}
-          <div class="input-row">
-            <label>Family:</label>
-            <select bind:value={quadFamily} class="family-select">
-              <option value="auto">Auto{quadRecommendation ? ` (${quadRecommendation.family})` : ''}</option>
-              <option value="MITC4">MITC4 (4-node)</option>
-              <option value="MITC9" disabled>MITC9 (9-node) — planned</option>
-              <option value="SHB8PS" disabled>SHB8PS (solid-shell) — planned</option>
-            </select>
+        {/if}
+
+        {#if newRecommendation}
+          <div class="recommendation" class:warn={newRecommendation.confidence !== 'high'}>
+            <span class="rec-icon">{newRecommendation.confidence === 'high' ? '\u2713' : '\u26A0'}</span>
+            <span class="rec-text">{newRecommendation.reason}</span>
           </div>
-          {#if quadRecommendation}
-            <div class="recommendation" class:warn={quadRecommendation.confidence !== 'high'}>
-              <span class="rec-icon">{quadRecommendation.confidence === 'high' ? '\u2713' : '\u26A0'}</span>
-              <span class="rec-text">{quadRecommendation.reason}</span>
-            </div>
-            {#each quadRecommendation.warnings as w}
-              <div class="rec-warning">{w}</div>
-            {/each}
-          {/if}
-          {#if quadError}
-            <div class="field-error">{quadError}</div>
-          {/if}
-          <button class="pro-btn pro-btn-accent" onclick={addQuad}>{t('pro.addQuad')}</button>
-        </div>
-      {/if}
+          {#each newRecommendation.warnings as w}
+            <div class="rec-warning">{w}</div>
+          {/each}
+        {/if}
+        {#if newError}
+          <div class="field-error" data-testid="shell-error">{newError}</div>
+        {/if}
+
+        <button
+          class="pro-btn pro-btn-accent"
+          onclick={addShell}
+          disabled={newCount < 3}
+          data-testid="shell-add"
+        >{newCount === 4 ? t('pro.addQuad') : newCount === 3 ? t('pro.addPlate') : t('pro.shellNeedNodes')}</button>
+      </div>
     </div>
 
     <!-- Quick mesh generator -->
