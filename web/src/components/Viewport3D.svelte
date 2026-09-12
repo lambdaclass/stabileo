@@ -23,6 +23,7 @@
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
+  import { setCameraProbe } from '../lib/viewport3d/camera-probe';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, syncDespiece3D as _syncDespiece3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
@@ -703,11 +704,12 @@
       invalidate();
     };
     /*
-     * The camera, for tests. Views and orbiting are decided by three vectors
-     * and none of them is in the DOM — without this, checking which way "up"
-     * ended up means reading an axis gizmo out of a screenshot.
+     * Where the camera is, for anyone who needs to ask. See
+     * `lib/viewport3d/camera-probe.ts` for why this is a registry and not a
+     * global: the viewport always ships, and the reserved `__stabileo…`
+     * names may not appear in a production bundle.
      */
-    (window as unknown as { __stabileoCamera?: () => unknown }).__stabileoCamera = () => {
+    setCameraProbe(() => {
       if (!camera || !controls) return null;
       const off = camera.position.clone().sub(controls.target);
       const polar = off.length() > 1e-9
@@ -719,7 +721,7 @@
         target: [controls.target.x, controls.target.y, controls.target.z] as [number, number, number],
         polarDeg: polar,
       };
-    };
+    });
 
     controls.addEventListener('start', () => {
       isOrbiting = true;

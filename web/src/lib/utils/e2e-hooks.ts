@@ -29,6 +29,7 @@
  */
 
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
+import { readCamera } from '../viewport3d/camera-probe';
 import { detailingStore } from '../store/detailing.svelte';
 import { detailingSheet } from '../store/detailing-sheet.svelte';
 import { exportRecordStore } from '../store/export-record.svelte';
@@ -496,14 +497,7 @@ export function installE2EHooks(): void {
       (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
-    cameraState: () => (window as unknown as {
-      __stabileoCamera?: () => {
-        up: [number, number, number];
-        pos: [number, number, number];
-        target: [number, number, number];
-        polarDeg: number;
-      } | null;
-    }).__stabileoCamera?.() ?? null,
+    cameraState: () => readCamera(),
 
     viewportPick: () => ({
       selectMode: String(uiStore.selectMode),
