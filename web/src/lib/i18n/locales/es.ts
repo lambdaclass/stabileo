@@ -5448,6 +5448,7 @@ const es: Record<string, string> = {
   'materials.aggregate': 'Tamaño máximo nominal del agregado grueso (mm)',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.aggregateHelp': 'Tamaño máximo nominal del agregado grueso. Lo usa la regla de separación mínima entre barras.',
+  'materials.concreteOnly': 'Sólo aplica a materiales de hormigón: es el tamaño del árido y la separación entre barras.',
   'materials.aggregateNotStated': 'no indicado',
   'materials.aggregateInvalid': 'El valor debe estar entre {min} y {max} mm.',
   'materials.aggregateNote': 'Dejar en blanco cuando la mezcla no está definida. La superficie de diseño informa entonces una hipótesis explícita en lugar de un valor por defecto silencioso. Cambiarlo no invalida el análisis.',

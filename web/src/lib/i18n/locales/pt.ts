@@ -3146,6 +3146,7 @@ const pt: Translations = {
   'material.woodPine': 'Madeira (pinho)',
   'materials.aggregate': 'Dimensão máxima nominal do agregado graúdo (mm)',
   'materials.aggregateHelp': 'Dimensão máxima nominal do agregado graúdo. É usada pela regra de espaçamento mínimo entre barras.',
+  'materials.concreteOnly': 'Só se aplica a materiais de concreto: é o tamanho do agregado e o espaçamento entre barras.',
   'materials.aggregateInvalid': 'O valor deve estar entre {min} e {max} mm.',
   'materials.aggregateNotStated': 'não indicado',
   'materials.aggregateNote': 'Deixe em branco quando a mistura não estiver definida. A superfície de dimensionamento informa então uma hipótese explícita em vez de um valor padrão silencioso. Alterá-lo não invalida a análise.',

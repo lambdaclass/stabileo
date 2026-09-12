@@ -32,6 +32,22 @@
   import { DAGG_MAX_MM, DAGG_MIN_MM } from '../../lib/codes/project-code-settings';
   import ProMaterialModal from './material/ProMaterialModal.svelte';
   import { toMaterialFields, type MaterialChoice } from '../../lib/material/material-choice';
+  import { materialFamilyOf } from '../../lib/engine/steel/material-family';
+
+  /**
+   * Whether a material is one these two columns have anything to say about.
+   *
+   * D_agg is the maximum nominal coarse-aggregate size and the margin is
+   * extra clear spacing over the code minimum. Both belong to DETAILING
+   * reinforcement in concrete — §25.2's clear spacing is the larger of the
+   * bar, 25 mm and 4/3 of the aggregate — and neither means anything for a
+   * steel section. They were shown for every material all the same, so
+   * "Acero A36" carried an aggregate box, which is not a conservative
+   * default or a harmless blank: it is a question with no answer.
+   */
+  function takesConcreteDetailing(m: { fy?: number; gradeId?: string; name?: string }): boolean {
+    return materialFamilyOf(m as never).family === 'concrete';
+  }
 
   let aggError = $state<string | null>(null);
   let marginError = $state<string | null>(null);
@@ -159,6 +175,7 @@
               <td class="col-num">{m.rho}</td>
               <td class="col-num">{m.fy ?? '—'}</td>
               <td class="col-num">
+                {#if takesConcreteDetailing(m)}
                 <!-- Maximum nominal coarse-aggregate size: a MIX property, so it lives on
                      the material. Blank means "not stated", which the design surface then
                      reports as an explicit assumption rather than a silent default. -->
@@ -170,8 +187,12 @@
                   placeholder={t('materials.aggregateNotStated')}
                   onchange={(e) => setAggregate(m.id, e.currentTarget.value)}
                 />
+                {:else}
+                  <span class="na" title={t('materials.concreteOnly')}>—</span>
+                {/if}
               </td>
               <td class="col-num">
+                {#if takesConcreteDetailing(m)}
                 <!-- Additional bar-spacing margin above the regulatory minimum. A project
                      decision: CIRSOC does not prescribe it, and the default is 0 mm. -->
                 <input
@@ -183,6 +204,9 @@
                   placeholder="0"
                   onchange={(e) => setSpacingMargin(m.id, e.currentTarget.value)}
                 />
+                {:else}
+                  <span class="na" title={t('materials.concreteOnly')}>—</span>
+                {/if}
               </td>
               <td><button class="del-btn" onclick={() => removeMat(m.id)}>×</button></td>
             </tr>
@@ -216,7 +240,30 @@
 />
 
 <style>
-  .agg-input { width: 4.5rem; padding: 0.1rem 0.25rem; text-align: right; }
+  /*
+     Dressed like the table it sits in. These were bare `<input>`s, so the
+     browser drew them white-on-white in a dark panel — two glaring boxes on
+     every row, which is what made a pair of optional detailing fields the
+     loudest thing on the Materials tab.
+  */
+  .agg-input {
+    width: 4.5rem;
+    padding: 0.12rem 0.3rem;
+    text-align: right;
+    border: 1px solid var(--st-hair);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.72rem;
+  }
+
+  .agg-input:hover { border-color: var(--st-hair-strong); }
+  .agg-input:focus { outline: none; border-color: var(--st-accent); }
+  .agg-input::placeholder { color: var(--st-text-3); }
+
+  /* A material with no concrete in it has no aggregate to state. */
+  .na { color: var(--st-text-3); }
   .agg-error { margin: 0.35rem 0 0; padding: 0.3rem 0.5rem; border-radius: 4px; background: var(--st-accent); color: var(--st-text); font-size: 0.8rem; }
   .agg-note { margin: 0.35rem 0 0; font-size: 0.76rem; opacity: 0.75; line-height: 1.35; }
   .pro-mat {

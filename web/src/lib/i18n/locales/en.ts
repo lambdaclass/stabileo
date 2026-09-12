@@ -5455,6 +5455,7 @@ const en: Record<string, string> = {
   'materials.aggregate': 'Maximum nominal coarse-aggregate size (mm)',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.aggregateHelp': 'Maximum nominal coarse-aggregate size. Used by the minimum bar-spacing rule.',
+  'materials.concreteOnly': 'Concrete materials only: this is the aggregate size and the spacing between bars.',
   'materials.aggregateNotStated': 'not stated',
   'materials.aggregateInvalid': 'Value must be between {min} and {max} mm.',
   'materials.aggregateNote': 'Leave blank when the mix is not yet defined. The design surface then reports an explicit assumption instead of a silent default. Changing this does not invalidate the analysis.',

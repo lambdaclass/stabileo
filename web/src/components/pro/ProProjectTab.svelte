@@ -2,7 +2,8 @@
   import { t } from '../../lib/i18n';
   import { uiStore, modelStore, resultsStore } from '../../lib/store';
   import {
-    saveProject, saveSession, loadFile, isMode3D,
+    loadFile, downloadExcel, downloadResultsCSV, downloadDXF, downloadSVG,
+    saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
 
@@ -25,6 +26,38 @@
   type ExGroup = { title: string; examples: Array<Record<string, any>> };
   type Props = { groups: ExGroup[]; onLoadExample: (ex: any) => void };
   let { groups, onLoadExample }: Props = $props();
+
+  /* Saving asks what and where, exactly as Basic does. */
+  let showSave = $state(false);
+  let saveScope = $state<'tab' | 'session'>('tab');
+  const canChooseFolder = canChooseSaveLocation();
+
+  async function doSave() {
+    const { content, filename } = saveScope === 'session' ? sessionPayload() : projectPayload();
+    const outcome = await saveTextTo(content, filename, 'application/json', {
+      chooseLocation: canChooseFolder,
+    });
+    /* A dismissed chooser is a decision not to save; the dialog stays open. */
+    if (outcome === 'cancelled') return;
+    showSave = false;
+  }
+
+  /** The spreadsheet importer, shared with Basic. */
+  let xlsInput = $state<HTMLInputElement | undefined>(undefined);
+
+  async function handleDownloadTemplate() {
+    const { downloadTemplate } = await import('../../lib/excel-import/template');
+    await downloadTemplate();
+  }
+
+  async function handleImportExcel(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    const { importExcelFile } = await import('../../lib/excel-import/apply');
+    await importExcelFile(file);
+  }
 
   let fileInput: HTMLInputElement | undefined = $state();
 
@@ -166,6 +199,126 @@
   </section>
 
   <!--
+    ── Archivo, in Basic's shape ──────────────────────────────────────
+    One Save that asks what and where, Open beside it, and the share link
+    with them — a model arrives as a file or as a link, and the two ways in
+    belong together. PRO had two Save buttons that each wrote a .ded the
+    instant they were pressed, with the difference between "pestaña" and
+    "sesión" explained nowhere a reader would meet it.
+  -->
+  <section class="pp-card">
+    <h4 class="pp-heading">{t('project.fileSection')}</h4>
+    <div class="pp-grid">
+      <button class="pp-btn pp-btn-primary" onclick={() => (showSave = true)}
+              title={t('project.saveTooltip')} data-testid="pp-save">
+        {t('project.save')}
+      </button>
+      <button class="pp-btn" onclick={() => fileInput?.click()}
+              title={t('project.openTooltip')} data-testid="pp-open">
+        {t('project.open')}
+      </button>
+      <button
+        class="pp-btn"
+        onclick={() => window.dispatchEvent(new Event('stabileo-copy-share-link'))}
+        disabled={!hasModel}
+        title={t('project.copyLinkTooltip')}
+        data-testid="pp-share"
+      >{t('project.shareLink')}</button>
+    </div>
+
+    {#if showSave}
+      <div class="pp-save" data-testid="pp-save-dialog">
+        <p class="pp-save-title">{t('project.saveWhat')}</p>
+        <label class="pp-save-opt" class:on={saveScope === 'tab'}>
+          <input type="radio" bind:group={saveScope} value="tab" data-testid="pp-scope-tab" />
+          <span>
+            <strong>{t('project.scopeTab')}</strong>
+            <em>{t('project.saveTabWhat')}</em>
+          </span>
+        </label>
+        <label class="pp-save-opt" class:on={saveScope === 'session'}>
+          <input type="radio" bind:group={saveScope} value="session" data-testid="pp-scope-session" />
+          <span>
+            <strong>{t('project.scopeSession')}</strong>
+            <em>{t('project.saveSessionWhat')}</em>
+          </span>
+        </label>
+        <p class="pp-note">
+          {canChooseFolder ? t('project.saveWherePick') : t('project.saveWhereDownloads')}
+        </p>
+        <div class="pp-row pp-save-actions">
+          <button class="pp-btn" onclick={() => (showSave = false)}>{t('ribbon.close')}</button>
+          <button class="pp-btn pp-btn-primary" onclick={doSave} data-testid="pp-save-confirm">
+            {t('project.save')}
+          </button>
+        </div>
+      </div>
+    {/if}
+  </section>
+
+  <!--
+    ── Importar / Exportar, in that order ─────────────────────────────
+    A model arrives before it leaves. Import carries what Basic has plus the
+    two PRO only has — a DXF floor plan and IFC — and Export groups by what
+    comes out rather than by file extension.
+
+    These call the SAME functions as the surfaces the data lives on: the
+    results table exports its own numbers through `downloadExcel`, and so
+    does this. One route with two doors, not two routes to keep in step.
+  -->
+  <section class="pp-card">
+    <h4 class="pp-heading">{t('project.importExport')}</h4>
+
+    <span class="pp-sub">{t('project.importLabel')}</span>
+    <div class="pp-row">
+      <button class="pp-btn pp-btn-grow" onclick={() => xlsInput?.click()} data-testid="pp-xls-import">
+        {t('xls.ui.import')}
+      </button>
+      <button class="pp-btn pp-btn-aside" onclick={handleDownloadTemplate} data-testid="pp-xls-template">
+        {t('xls.ui.template')}
+      </button>
+    </div>
+    <div class="pp-row">
+      <button class="pp-btn pp-btn-grow"
+              onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}>
+        {t('cad.proBarBtn')}
+      </button>
+      <button class="pp-help" title={t('proProject.dxfHelp')} aria-label={t('proProject.dxfHelp')}>?</button>
+    </div>
+    <div class="pp-row">
+      <button class="pp-btn pp-btn-grow"
+              onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))}>
+        {t('project.openIfc')}
+      </button>
+      <button class="pp-help" title={t('proProject.ifcHelp')} aria-label={t('proProject.ifcHelp')}>?</button>
+    </div>
+
+    <span class="pp-sub">{t('project.export')}</span>
+    <div class="pp-group">
+      <span class="pp-group-label">{t('project.exportResults')}</span>
+      <div class="pp-grid">
+        <button class="pp-btn" onclick={() => downloadExcel()} title={t('project.exportExcelTooltip')}>Excel</button>
+        <button class="pp-btn" onclick={() => downloadResultsCSV()} disabled={!solved}
+                title={t('project.exportCsvTooltip')}>CSV</button>
+      </div>
+    </div>
+    <div class="pp-group">
+      <span class="pp-group-label">{t('project.exportView')}</span>
+      <div class="pp-grid">
+        <button class="pp-btn" onclick={() => downloadDXF()} title={t('project.exportDxfTooltip')}>DXF</button>
+        <button class="pp-btn" onclick={() => downloadSVG()} title={t('project.exportSvgTooltip')}>SVG</button>
+      </div>
+    </div>
+  </section>
+
+  <!--
+    ── Status, after the work ─────────────────────────────────────────
+    What is open and where it is being kept are facts, not actions. They
+    opened the panel, which put two read-only cards above every button a
+    reader came here to press. Kept — they answer real questions — and moved
+    below the things you do.
+  -->
+  <!--
     What is open, and only then what you can do to it.
   -->
   <section class="pp-card" data-testid="pp-document">
@@ -182,24 +335,6 @@
         {solved ? t('proProject.solvedYes') : t('proProject.solvedNo')}
       </dd>
     </dl>
-  </section>
-
-  <section class="pp-card">
-    <h4 class="pp-heading">{t('project.fileSection')}</h4>
-    <div class="pp-grid">
-      <button class="pp-btn pp-btn-primary" onclick={() => saveProject()}
-              title={t('project.saveTabTooltip')} data-testid="pp-save">
-        {t('project.saveTab')}
-      </button>
-      <button class="pp-btn" onclick={() => saveSession()}
-              title={t('project.saveSessionTooltip')} data-testid="pp-save-session">
-        {t('project.saveSession')}
-      </button>
-      <button class="pp-btn" onclick={() => fileInput?.click()}
-              title={t('project.openTooltip')} data-testid="pp-open">
-        {t('project.open')}
-      </button>
-    </div>
   </section>
 
   <!--
@@ -251,20 +386,6 @@
     parallel route that had to be kept in step with them.
   -->
 
-  <!--
-    Sharing is a link to this model, not a file — different verb, own heading.
-  -->
-  <section class="pp-card">
-    <h4 class="pp-heading">{t('project.share')}</h4>
-    <div class="pp-grid">
-      <button
-        class="pp-btn pp-btn-wide"
-        onclick={() => window.dispatchEvent(new Event('stabileo-copy-share-link'))}
-        disabled={!hasModel}
-        title={t('project.copyLinkTooltip')}
-      >{t('project.copyLink')}</button>
-    </div>
-  </section>
 </div>
 
 <!--
@@ -285,6 +406,16 @@
   So: `pp-open-file`, in the `pp-*` family this panel already uses. `e2e/pro-project-files.spec.ts`
   documents the equivalence — same `loadFile` entry point, same `.ded`, same behaviour.
 -->
+<!-- The spreadsheet importer's own input, beside the .ded one. -->
+<input
+  bind:this={xlsInput}
+  data-testid="pp-xls-file"
+  type="file"
+  accept=".xlsx,.xls"
+  style="display:none"
+  onchange={handleImportExcel}
+/>
+
 <input
   bind:this={fileInput}
   data-testid="pp-open-file"
@@ -318,6 +449,71 @@
      Grouped by the verb — what you HAVE, what you save and open, what the autosave is doing,
      how you start something new, what comes out, what you share.
   */
+  /* ── Import / Export, in Basic's visual language ──────────────── */
+  .pp-sub {
+    display: block;
+    margin: 0.5rem 0 0.25rem;
+    font-family: var(--st-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--st-text-3);
+  }
+
+  .pp-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0 0 0.4rem 0.75rem;
+    padding-left: 0.55rem;
+    border-left: 2px solid var(--st-hair-strong);
+  }
+
+  .pp-group-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--st-text-3);
+  }
+
+  /* The template gives a file rather than taking one: narrower and quieter. */
+  .pp-btn-aside {
+    flex: 0 0 auto;
+    font-size: 0.66rem;
+    color: var(--st-text-3);
+  }
+
+  /* ── Save dialog ─────────────────────────────────────────────── */
+  .pp-save {
+    margin-top: 0.45rem;
+    padding: 0.5rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .pp-save-title { margin: 0; font-size: 0.72rem; color: var(--st-text); }
+
+  .pp-save-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 0.3rem;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    line-height: 1.35;
+  }
+
+  .pp-save-opt.on { border-color: var(--st-accent); background: var(--st-selected-bg); }
+  .pp-save-opt strong { display: block; color: var(--st-text); }
+  .pp-save-opt em { display: block; font-style: normal; color: var(--st-text-3); }
+  .pp-save-actions { justify-content: flex-end; }
+
   .pp-card {
     display: flex;
     flex-direction: column;
