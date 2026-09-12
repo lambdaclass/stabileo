@@ -55,6 +55,26 @@
   $effect(() => { syncModelTabWithResults(basicPanel, basicDataTab); });
 
   /*
+   * Switching Educational OFF has to leave the reader where it found them.
+   *
+   * The setting hides the ribbon group and this panel. Without the rest, that
+   * left two things behind: a panel still showing Exercises with nothing in
+   * the ribbon lit — the very mismatch between the bar and the panel this
+   * release set out to remove — and, worse, the reader's own model still held
+   * in the snapshot an exercise borrowed, with the only surface that could
+   * hand it back now gone.
+   *
+   * An effect rather than a line in the checkbox handler: the setting is
+   * restored from storage on boot too, and a reader who switched it off in
+   * another tab arrives here already off.
+   */
+  $effect(() => {
+    if (uiStore.eduInBasic) return;
+    if (basicPanel === 'edu') basicPanel = null;
+    if (eduStore.hasExercise || eduStore.borrowedModel !== null) leaveExercise();
+  });
+
+  /*
    * The keyboard layer is mounted far from here and does not own the panel,
    * so it asks by event. See `lib/tool-keys.ts` for why, and for the one
    * table that says which tool edits which tab.
@@ -227,6 +247,7 @@
   import ProRibbon from './components/pro/ProRibbon.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import { eduStore } from './components/edu/edu-store.svelte';
+  import { leaveExercise } from './components/edu/exercise-session';
   import TourOverlay from './components/TourOverlay.svelte';
   import HelpOverlay from './components/HelpOverlay.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
@@ -1143,15 +1164,36 @@
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>
-          <option value="educativo">{t('app.modeEdu')} (Beta)</option>
           <option value="pro">{t('app.modePro')} (Beta)</option>
+          <!--
+            Educational is not offered here any more; see the toggle below.
+            The option is still RENDERED when that is where you already are,
+            or the select would show a blank for the mode you are in — which
+            is what a `value` with no matching option does.
+          -->
+          {#if uiStore.appMode === 'educativo'}
+            <option value="educativo">{t('app.modeEdu')} (Beta)</option>
+          {/if}
         </select>
       {:else}
+        <!--
+          Two modes, not three.
+          ─────────────────────
+          Educational stopped being a separate application: it is a panel
+          inside Basic, switched on from Settings. Leaving its button here
+          would have said the opposite — that it is a third place to be,
+          with its own model and its own canvas — which is the claim the
+          move was made to retract.
+
+          The MODE still exists and `/app/education` still resolves to it.
+          That is deliberate: a handed-out exercise is a link, and links
+          that already exist have to keep opening. What is gone is the way
+          IN from here, not the destination.
+        -->
         <div class="mode-toggle" data-tour="mode-toggle">
           <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
             {t('app.modeBasic')}
           </button>
-          <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => switchAppMode('educativo')}>{t('app.modeEdu')}<span class="demo-badge">Beta</span></button>
           <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">Beta</span></button>
         </div>
       {/if}
@@ -2152,17 +2194,6 @@
 
   .mode-toggle button.active {
     background: var(--st-accent);
-    color: white;
-  }
-
-  .mode-toggle button.edu-mode-btn {
-    background: var(--st-surface-2);
-    color: var(--st-value);
-    border-left: 1px solid var(--st-hair);
-  }
-
-  .mode-toggle button.edu-mode-btn.active {
-    background: var(--st-surface-3);
     color: white;
   }
 

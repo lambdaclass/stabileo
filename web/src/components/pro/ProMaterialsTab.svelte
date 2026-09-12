@@ -204,13 +204,22 @@
       <table class="mat-table">
         <thead>
           <tr>
+            <!--
+              ── A symbol is not a word ────────────────────────────────
+              The heading row is uppercased, which is right for ID, NAME and
+              MARGIN and destroys everything else: `ν` came out as `Ν` and
+              `γ` as `Γ` — capital Nu and capital Gamma, which denote other
+              quantities entirely — and `fy` as `FY`, which denotes none.
+              A reader was being shown the wrong symbols for Poisson's ratio
+              and specific weight in a table of material constants.
+            -->
             <th>ID</th>
             <th>{t('pro.thName')}</th>
-            <th>E (MPa)</th>
-            <th>{t('field.poisson')}</th>
-            <th>{t('field.density')}</th>
-            <th>fy</th>
-            <th title={t('materials.aggregateHelp')}>{t('materials.aggregateShort')}</th>
+            <th class="sym">E (MPa)</th>
+            <th class="sym">{t('field.poisson')}</th>
+            <th class="sym">{t('field.density')}</th>
+            <th class="sym">f<sub>y</sub></th>
+            <th class="sym" title={t('materials.aggregateHelp')}>{t('materials.aggregateShort')}</th>
             <th title={t('material.spacingMarginHelp')}>{t('material.spacingMarginShort')}</th>
             <th></th>
           </tr>
@@ -454,6 +463,10 @@
     background: var(--st-surface);
     border-bottom: 1px solid var(--st-surface-3);
   }
+  /* Symbols keep their own case; see the heading row for why. */
+  .mat-table th.sym { text-transform: none; }
+  .mat-table th.sym sub { font-size: 0.85em; }
+
   .mat-table td {
     padding: 3px 5px;
     border-bottom: 1px solid var(--st-surface-2);

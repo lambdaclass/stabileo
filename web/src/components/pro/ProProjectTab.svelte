@@ -456,7 +456,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
-    padding: 0.75rem 0.85rem 1.1rem;
+    /* Horizontal inset comes from `.pro-content` now; see ProPanel. */
+    padding: 0.75rem 0 1.1rem;
   }
 
   /*

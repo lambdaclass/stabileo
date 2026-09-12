@@ -337,7 +337,14 @@
     ...(uiStore.eduInBasic
       ? [{
           id: 'edu',
-          labelKey: 'ribbon.edu',
+          /*
+           * The GROUP says where you are, the COMMAND says what you get.
+           * Both read "Modo Educativo" before, so the ribbon said the same
+           * words twice and neither of them named a destination — and "mode"
+           * is now the wrong noun anyway, since this stopped being a mode the
+           * moment it moved inside Basic.
+           */
+          labelKey: 'ribbon.groupEdu',
           cmds: [
             { id: 'edu', icon: 'examples', labelKey: 'ribbon.edu', panel: 'edu' },
           ],

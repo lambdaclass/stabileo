@@ -486,7 +486,19 @@
     */
     min-height: 0;
     overflow-y: auto;
-    padding: 0;
+    /*
+       ── The GUTTER belongs to the panel, not to each tab ──────────────
+       It was `0`, so the inset beside the panel edge was whatever each of
+       eighteen tabs happened to pick for its own sections: Generators had
+       12 px, Settings 3, and the nine that draw a table had none at all —
+       column headings and section backgrounds ran into the panel border.
+
+       0.65rem is Basic's `.bp-body`, deliberately: a reader moving between
+       the two modes should not be able to feel which one they are in from
+       the margins. Horizontal only — the top and bottom are a tab's own
+       business, since a table starts at its heading and a form does not.
+    */
+    padding: 0 0.65rem;
   }
 
   @media (max-width: 767px) {
