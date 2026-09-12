@@ -6528,6 +6528,8 @@ const es: Record<string, string> = {
   'selection.intro': 'Qué toma un clic o un arrastre, y qué borra después Suprimir. Cada tipo trae sólo lo suyo: barrer barras y borrar deja los nodos, apoyos y cargas donde estaban.',
   'selection.dragNote': 'Arrastrá de izquierda a derecha para tomar lo que quede entero adentro; de derecha a izquierda para tomar todo lo que el rectángulo toque.',
   'ribbon.selection': 'Selección',
+  'ribbon.move': 'Mover',
+  'ribbon.ai': 'Stabileo AI',
   'move.title': 'Mover',
   'move.lead': 'Elegí qué se mueve al arrastrar.',
   'move.view': 'Mover la vista',

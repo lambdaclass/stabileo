@@ -4512,6 +4512,8 @@ const pt: Translations = {
   'ribbon.sectionStress': 'Seção',
   'ribbon.sections': 'Seções',
   'ribbon.selection': 'Seleção',
+  'ribbon.move': 'Mover',
+  'ribbon.ai': 'Stabileo AI',
   'move.title': 'Mover',
   'move.lead': 'Escolha o que se move ao arrastar.',
   'move.view': 'Mover a vista',

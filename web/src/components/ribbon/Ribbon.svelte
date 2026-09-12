@@ -474,6 +474,31 @@
 
   function run(cmd: Cmd) {
     if (cmd.enabled && !cmd.enabled()) return;
+
+    /*
+     * ── The two pointer commands arm the pointer ────────────────────
+     *
+     * Move and Selection open a panel that CONFIGURES a pointer mode, and
+     * they were doing only that: you could pick Move, read a panel offering
+     * to move the view, drag, and pan nothing — because the pointer was
+     * still on whatever it had been. A control that describes a mode has to
+     * put you in it.
+     *
+     * Move arms the pointer the panel is already showing, so returning to it
+     * after choosing "mover nodos" does not silently drop you back to
+     * panning. Selection has one destination.
+     *
+     * These are still `panel` commands, not `tool` commands: the ribbon
+     * lights what the panel is showing, and that is exactly what should
+     * light here. A `tool` command would also open the Data table, which is
+     * the wrong place — neither of these edits a table.
+     */
+    if (cmd.id === 'move') {
+      uiStore.currentTool = uiStore.moveMode === 'nodes' ? 'moveNodes' : 'pan';
+    } else if (cmd.id === 'select') {
+      uiStore.currentTool = 'select';
+    }
+
     if (cmd.tool) {
       armTool(cmd.tool);
       /*

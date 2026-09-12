@@ -28,6 +28,11 @@
   const mode = $derived(uiStore.currentTool === 'moveNodes' ? 'nodes' : 'view');
 
   function pick(next: 'view' | 'nodes') {
+    /*
+     * Remembered on the store, not inferred from the pointer: the choice has
+     * to survive going somewhere else and coming back. See `moveMode`.
+     */
+    uiStore.moveMode = next;
     uiStore.currentTool = next === 'nodes' ? 'moveNodes' : 'pan';
   }
 </script>

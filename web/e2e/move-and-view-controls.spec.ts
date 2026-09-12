@@ -47,6 +47,37 @@ test.describe('@smoke moving the view and moving the model', () => {
     await expect(page.getByTestId('move-nodes')).toBeVisible();
   });
 
+  test('clicking Move or Selection arms the pointer, not just the panel', async ({ page }) => {
+    await openBasic(page);
+
+    /*
+     * The report: picking Move showed a panel offering to move the view, and
+     * dragging panned nothing, because the pointer was still on whatever it
+     * had been. A control that describes a mode has to put you in it.
+     */
+    await page.getByTestId('rb-cmd-select').click();
+    await expect
+      .poll(() => page.evaluate(() => window.__stabileo.currentTool()))
+      .toBe('select');
+
+    await page.getByTestId('rb-cmd-move').click();
+    await expect
+      .poll(() => page.evaluate(() => window.__stabileo.currentTool()))
+      .toBe('pan');
+
+    /*
+     * And coming BACK to Move keeps the mode its own panel is showing —
+     * dropping a reader who chose "mover nodos" back into panning would undo
+     * their choice every time they reopened the panel.
+     */
+    await page.getByTestId('move-nodes').click();
+    await page.getByTestId('rb-cmd-select').click();
+    await page.getByTestId('rb-cmd-move').click();
+    await expect
+      .poll(() => page.evaluate(() => window.__stabileo.currentTool()))
+      .toBe('moveNodes');
+  });
+
   test('moving a node carries its members and creates nothing', async ({ page }) => {
     await openBasic(page);
     await loadModel(page, 'two-story-frame');

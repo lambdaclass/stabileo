@@ -94,6 +94,15 @@ if (hasLocalStorage()) {
 function createUIStore() {
   const initialWindowWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
   let currentTool = $state<Tool>('pan');
+  /**
+   * Which of the two the Move panel is set to.
+   *
+   * Kept apart from `currentTool` because it must survive leaving the mode:
+   * a reader who chose "mover nodos", went to Selection to check something
+   * and came back to Move would otherwise be dropped into panning every
+   * time, with the panel silently undoing their choice.
+   */
+  let moveMode = $state<'view' | 'nodes'>('view');
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
   let nodalLoadDir = $state<NodalLoadDir>('fz'); // direction for nodal load placement
@@ -530,6 +539,9 @@ function createUIStore() {
   }
 
   return {
+    get moveMode() { return moveMode; },
+    set moveMode(v: 'view' | 'nodes') { moveMode = v; },
+
     get currentTool() { return currentTool; },
     /**
      * Arming a tool is a MODE change, so it carries the rule with it.

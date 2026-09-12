@@ -6539,6 +6539,8 @@ const en: Record<string, string> = {
   'selection.intro': 'What a click or a drag picks up, and what Delete then removes. Each kind brings only itself: sweeping members and deleting leaves the nodes, supports and loads where they were.',
   'selection.dragNote': 'Drag left to right to take what is entirely inside; right to left to take anything the rectangle touches.',
   'ribbon.selection': 'Selection',
+  'ribbon.move': 'Move',
+  'ribbon.ai': 'Stabileo AI',
   'move.title': 'Move',
   'move.lead': 'Choose what a drag moves.',
   'move.view': 'Move the view',

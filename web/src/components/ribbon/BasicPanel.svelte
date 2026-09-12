@@ -104,7 +104,24 @@
    */
 
   /** Heading, so the panel always says what it is showing. */
-  const title = $derived(t(`ribbon.${panel}`));
+  /*
+   * ── A missing key must not become the heading ───────────────────
+   *
+   * `t()` returns the KEY when it finds nothing, which is the right default
+   * for a label buried in a form and the wrong one for the title of a panel:
+   * opening Stabileo AI showed a heading reading "ribbon.ai", because no
+   * such key existed. The lookup is the same; what changes is that a miss is
+   * treated as a miss.
+   *
+   * `panel-titles.test.ts` asserts every panel this component can show has a
+   * title, so a new panel cannot reintroduce it — this fallback is the
+   * safety net, not the fix.
+   */
+  const title = $derived.by(() => {
+    const key = `ribbon.${panel}`;
+    const text = t(key);
+    return text === key ? '' : text;
+  });
 
   /*
    * Publish the width so fixed-position overlays can stay clear of the panel.
