@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs } from '../../lib/store/result-view';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { downloadText } from '../../lib/store/file';
@@ -436,28 +437,69 @@
           one click away instead of eleven entries down a dropdown. What stays
           here is the part that is NOT a quantity: how axial gets drawn.
         -->
-        {#if resultsStore.diagramType === 'axial' || resultsStore.diagramType === 'axialColor'}
-          <label class="pro-viz-label">{t('results.axialShownAs')}</label>
-          <div class="pro-seg" role="group" aria-label={t('results.axialShownAs')}>
-            <button
-              class="pro-seg-btn"
-              class:on={resultsStore.diagramType === 'axial'}
-              onclick={() => (resultsStore.diagramType = 'axial')}
-              data-testid="pro-axial-as-diagram"
-            >{t('results.asDiagram')}</button>
-            <button
-              class="pro-seg-btn"
-              class:on={resultsStore.diagramType === 'axialColor'}
-              onclick={() => (resultsStore.diagramType = 'axialColor')}
-              data-testid="pro-axial-as-colour"
-            >{t('results.asMemberColour')}</button>
+        <!--
+          ── How the chosen quantity is drawn, through Basic's own control ──
+          This offered Diagram / Member colour for AXIAL alone, and a colour
+          map was a separate ribbon button of its own — so the ribbon named
+          "the moment" in one place and "a colour map (of what?)" in another.
+          A colour map is not a quantity, it is a way of drawing one.
+
+          `representationsFor` and `showQuantityAs` are the same functions
+          Basic's panel calls, deliberately: two implementations of "show N as
+          a colour map" is how the modes drift, and member colour stays
+          axial-only in both for the reason stated there — it is red/blue by
+          SIGN, and a moment's sign is a convention about which fibre is in
+          tension.
+        -->
+        {#if activeQuantity()}
+          {@const shownQuantity = activeQuantity()!}
+          {@const how = activeRepresentation()}
+          <label class="pro-viz-label">{t('results.shownAs')}</label>
+          <div class="pro-seg" role="group" aria-label={t('results.shownAs')}>
+            {#each representationsFor(shownQuantity) as rep}
+              <button
+                class="pro-seg-btn"
+                class:on={how === rep}
+                onclick={() => showQuantityAs(shownQuantity, rep)}
+                data-testid={rep === 'diagram' ? 'pro-shown-as-diagram'
+                  : rep === 'memberColour' ? 'pro-shown-as-colour' : 'pro-shown-as-map'}
+              >{rep === 'diagram' ? t('results.asDiagram')
+                : rep === 'memberColour' ? t('results.asMemberColour')
+                : t('results.asColourMap')}</button>
+            {/each}
           </div>
         {:else}
           <span class="pro-viz-hint">{t('proResults.diagramInRibbon')}</span>
         {/if}
       </div>
 
-      {#if resultsStore.diagramType === 'colorMap'}
+      <!--
+        ── Stress: which kinds are painted ────────────────────────────
+        Stress was two entries in the dropdown below — von Mises for members,
+        "shell contour" for plates — so a structure made of both could only
+        ever be half painted and a reader had to know which half they were
+        looking at. Both are on, and either switches off for a reader who
+        wants one alone.
+      -->
+      {#if resultsStore.diagramType === 'colorMap' && resultsStore.colorMapKind === 'stress'}
+        <div class="pro-viz-row">
+          <label class="pro-viz-label">{t('pro.stressOn')}</label>
+          <label class="pro-viz-check">
+            <input type="checkbox" data-testid="pro-stress-members"
+              checked={resultsStore.stressShowMembers}
+              onchange={(e) => (resultsStore.stressShowMembers = e.currentTarget.checked)} />
+            <span>{t('pro.tabElements')}</span>
+          </label>
+          <label class="pro-viz-check">
+            <input type="checkbox" data-testid="pro-stress-shells"
+              checked={resultsStore.stressShowShells}
+              onchange={(e) => (resultsStore.stressShowShells = e.currentTarget.checked)} />
+            <span>{t('pro.tabShells')}</span>
+          </label>
+        </div>
+      {/if}
+
+      {#if resultsStore.diagramType === 'colorMap' && resultsStore.colorMapKind !== 'stress'}
         <div class="pro-viz-row">
           <label class="pro-viz-label">{t('pro.variableLabel')}</label>
           <select class="pro-viz-sel" bind:value={resultsStore.colorMapKind}>
@@ -469,7 +511,9 @@
             <option value="shellVonMises">{t('pro.shellContour')}</option>
           </select>
         </div>
-        {#if resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending'}
+      {/if}
+      {#if resultsStore.diagramType === 'colorMap'}
+        {#if resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending' || (resultsStore.colorMapKind === 'stress' && resultsStore.stressShowShells)}
           <div class="pro-viz-row">
             <label class="pro-viz-label">{t('pro.shellComponent')}</label>
             <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent}>

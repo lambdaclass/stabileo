@@ -11,7 +11,11 @@
   // Shell contour mode is selected (regardless of whether data exists).
   const shellMode = $derived(
     resultsStore.diagramType === 'colorMap'
-    && (resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending'),
+    && (resultsStore.colorMapKind === 'shellVonMises'
+      || resultsStore.colorMapKind === 'shellBending'
+      /* The combined stress view paints shells too, unless that kind is off —
+         and a painted field with no scale beside it is a picture of nothing. */
+      || (resultsStore.colorMapKind === 'stress' && resultsStore.stressShowShells)),
   );
   const hasData = $derived(
     !!(resultsStore.results3D?.plateStresses?.length || resultsStore.results3D?.quadStresses?.length),

@@ -30,6 +30,10 @@ export interface ReportConfig {
   projectAddress: string;
   engineerName: string;
   revision: string;
+  /** False when the letterhead was left blank — no project block is printed. */
+  hasProjectInfo?: boolean;
+  /** Which advanced analyses to print, by result key. Absent means all of them. */
+  advancedPicked?: Record<string, boolean>;
   sections: {
     modelData: boolean;
     results: boolean;
@@ -411,7 +415,8 @@ export function generateReportHtml(data: ReportData): string {
   if (cfg?.companyLogo) {
     html.push(`<img src="${cfg.companyLogo}" alt="Logo" style="max-height:80px;max-width:250px;margin-bottom:20px" />`);
   }
-  if (cfg?.companyName) {
+  /* An untouched letterhead prints nothing — see `hasProjectInfo`. */
+  if (cfg?.companyName && cfg.hasProjectInfo !== false) {
     html.push(`<div style="font-size:14px;color:#555;letter-spacing:2px;text-transform:uppercase;margin-bottom:30px">${escHtml(cfg.companyName)}</div>`);
   }
   html.push(`<h1>${escHtml(projectName)}</h1>`);
@@ -1303,11 +1308,29 @@ export function generateReportHtml(data: ReportData): string {
 
   // ─── Advanced Analysis Summary ──────────────────────────
   const adv = data.advancedResults;
-  if (showSection('advancedAnalysis') && adv && (adv.pdelta || adv.modal || adv.buckling || adv.spectral)) {
+  /*
+   * ── Only what RAN, and only what was asked for ────────────────────
+   *
+   * "Advanced analysis" was one checkbox over as many as six studies, so a
+   * report carried all of them or none — and a reader could not tell an
+   * analysis that was never asked for from one that was asked for and found
+   * nothing. `advancedPicked` carries the reader's choice; a key that is
+   * absent from it was never run, and the report says nothing about it rather
+   * than printing an empty heading.
+   */
+  const wants = (key: string): boolean => {
+    const picked = cfg?.advancedPicked;
+    return !picked || picked[key] !== false;
+  };
+  const anyAdvanced = !!adv && (
+    (!!adv.pdelta && wants('pdelta')) || (!!adv.modal && wants('modal'))
+    || (!!adv.buckling && wants('buckling')) || (!!adv.spectral && wants('spectral'))
+  );
+  if (showSection('advancedAnalysis') && adv && anyAdvanced) {
     html.push(`<div class="page-break"></div>`);
     html.push(`<h2>${escHtml(tr('report.advancedAnalysis'))}</h2>`);
 
-    if (adv.pdelta) {
+    if (adv.pdelta && wants('pdelta')) {
       html.push(`<h3>${escHtml(tr('report.pdeltaTitle'))}</h3>`);
       html.push(`<table><tbody>`);
       html.push(`<tr><td>${escHtml(tr('report.convergence'))}</td><td class="num">${adv.pdelta.converged ? escHtml(tr('report.yes')) : escHtml(tr('report.no'))}</td></tr>`);
@@ -1318,7 +1341,7 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`</tbody></table>`);
     }
 
-    if (adv.modal && adv.modal.modes.length > 0) {
+    if (adv.modal && wants('modal') && adv.modal.modes.length > 0) {
       html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
       if (adv.modal.totalMass != null) {
         html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 0)} kg</p>`);
@@ -1331,7 +1354,7 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`</tbody></table>`);
     }
 
-    if (adv.buckling && adv.buckling.factors.length > 0) {
+    if (adv.buckling && wants('buckling') && adv.buckling.factors.length > 0) {
       html.push(`<h3>${escHtml(tr('report.bucklingTitle'))}</h3>`);
       html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>${escHtml(tr('report.criticalFactor'))}</th></tr></thead><tbody>`);
       for (let i = 0; i < adv.buckling.factors.length; i++) {
@@ -1340,7 +1363,7 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`</tbody></table>`);
     }
 
-    if (adv.spectral) {
+    if (adv.spectral && wants('spectral')) {
       html.push(`<h3>${escHtml(tr('report.spectralTitle'))}</h3>`);
       html.push(`<table><tbody>`);
       if (adv.spectral.baseShearX != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} X</td><td class="num">${fmtNum(adv.spectral.baseShearX)} kN</td></tr>`);

@@ -3759,6 +3759,7 @@ const es: Record<string, string> = {
 
   // ─── Report Dialog & New Sections ───
   'report.configTitle': 'Configurar Memoria de Cálculo',
+  'report.projectInfoEmpty': 'sin completar, no se imprime nada',
   'report.projectInfo': 'Datos del Proyecto',
   'report.companyLogo': 'Logo empresa',
   'report.removeLogo': 'Quitar',
@@ -4556,6 +4557,10 @@ const es: Record<string, string> = {
   'proResults.diagramInRibbon': 'El diagrama se elige en la barra superior',
   'proResults.outputs': 'Salidas',
   'proRibbon.groupMaps': 'Mapas',
+  'proRibbon.groupStress': 'Tensiones',
+  'pro.stressOn': 'Mostrar en',
+  'pro.varStress': 'Tensiones',
+  'proRibbon.stressDesc': 'Pinta tensiones en todo lo que carga. Barras y placas se prenden y apagan por separado en el panel.',
   'proRibbon.groupInspect': 'Inspeccionar',
   'proProject.startFrom': 'Partir de',
   'proProject.newModel': 'Modelo nuevo',

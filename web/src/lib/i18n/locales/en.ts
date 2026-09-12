@@ -3766,6 +3766,7 @@ const en: Record<string, string> = {
 
   // ─── Report Dialog & New Sections ───
   'report.configTitle': 'Configure Calculation Report',
+  'report.projectInfoEmpty': 'not filled in, nothing will be printed',
   'report.projectInfo': 'Project Information',
   'report.companyLogo': 'Company logo',
   'report.removeLogo': 'Remove',
@@ -4563,6 +4564,10 @@ const en: Record<string, string> = {
   'proResults.diagramInRibbon': 'Pick the diagram in the ribbon above',
   'proResults.outputs': 'Outputs',
   'proRibbon.groupMaps': 'Maps',
+  'proRibbon.groupStress': 'Stress',
+  'pro.stressOn': 'Show on',
+  'pro.varStress': 'Stress',
+  'proRibbon.stressDesc': 'Paints stress on everything that carries load. Members and plates can be switched off separately in the panel.',
   'proRibbon.groupInspect': 'Inspect',
   'proProject.startFrom': 'Start from',
   'proProject.newModel': 'New model',

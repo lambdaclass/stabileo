@@ -400,14 +400,14 @@
   onclose={() => showExampleMenu = false}
 />
 
+<!-- `hasQuantities` asks the GEOMETRY, not whether the members were checked. -->
 <ProReportDialog
   open={showReportDialog}
   hasResults={!!resultsStore.results3D}
-  hasVerifications={verificationsRef.length > 0}
   hasAdvanced={Object.keys(advancedResultsRef).length > 0}
-  hasDrift={false}
+  advancedRan={Object.keys(advancedResultsRef)}
   hasDiagnostics={resultsStore.diagnostics3D.length > 0}
-  hasQuantities={verificationsRef.length > 0}
+  hasQuantities={hasLoadCarrying3D(modelStore.model)}
   ongenerate={exportReport}
   onclose={() => { showReportDialog = false; }}
 />

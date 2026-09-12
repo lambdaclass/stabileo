@@ -194,7 +194,9 @@ test.describe('@smoke PRO shell — the diagnostics warning', () => {
   test('Diagnostics carries the control that hides it, and states its scope', async ({ pro: page }) => {
     // Through the ribbon, as a user reaches it: the Analyse stage, then the Diagnostics command.
     await page.getByTestId('pr-stage-analyse').click();
-    await page.getByTestId('pr-cmd-diagnostics').click();
+    /* Diagnostics lives inside Advanced now: it is a check you ask the
+       MODEL to perform, which is what everything else in that panel is. */
+    await page.getByTestId('pr-cmd-advanced').click();
 
     const notify = page.getByTestId('diag-notify');
     await expect(notify).toBeVisible();

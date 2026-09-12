@@ -16,11 +16,14 @@ test.describe('@smoke PRO — the shell contour opens on something worth looking
     await solveModel(page);
 
     await page.getByTestId('pr-stage-analyse').click();
-    await page.getByTestId('pr-cmd-colorMap').click();
-    await page.getByTestId('pr-cmd-results').click();
-    await page.locator('select.pro-viz-sel').first().selectOption('shellVonMises');
+    /* Stress is one command now: the "Colour maps" group is gone, because a
+       colour map is a way of DRAWING a quantity rather than a quantity. */
+    await page.getByTestId('pr-cmd-stress').click();
+    await page.getByTestId('pro-stress-members').uncheck();
 
-    const component = page.locator('select.pro-viz-sel').nth(1);
+    /* First, not second: in stress mode the variable dropdown is gone —
+       the command already said which variable. */
+    const component = page.locator('select.pro-viz-sel').first();
     await expect(component).toBeVisible();
 
     /*
@@ -44,11 +47,14 @@ test.describe('@smoke PRO — the shell contour opens on something worth looking
     await loadModel(page, 'mat-foundation');
     await solveModel(page);
     await page.getByTestId('pr-stage-analyse').click();
-    await page.getByTestId('pr-cmd-colorMap').click();
-    await page.getByTestId('pr-cmd-results').click();
-    await page.locator('select.pro-viz-sel').first().selectOption('shellVonMises');
+    /* Stress is one command now: the "Colour maps" group is gone, because a
+       colour map is a way of DRAWING a quantity rather than a quantity. */
+    await page.getByTestId('pr-cmd-stress').click();
+    await page.getByTestId('pro-stress-members').uncheck();
 
-    const component = page.locator('select.pro-viz-sel').nth(1);
+    /* First, not second: in stress mode the variable dropdown is gone —
+       the command already said which variable. */
+    const component = page.locator('select.pro-viz-sel').first();
     await component.selectOption('vonMises');
     /* Negligible here, and that is the reader's business: they asked for it,
        possibly to confirm exactly that it is negligible. */

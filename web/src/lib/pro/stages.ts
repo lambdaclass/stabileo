@@ -1,4 +1,5 @@
 import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../geometry/coordinate-system';
+import { resultsStore } from '../store/results.svelte';
 
 /**
  * PRO's command tree — ONE definition, read by every surface that shows it.
@@ -246,25 +247,39 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           ],
         },
         /*
-         * Not quantities: whole-model colourings. A colour map paints every
-         * member by a variable you choose, and the verification map paints them
-         * by their code-check outcome — neither is "a diagram of X", so they do
-         * not belong in the row of six that are.
+         * ── Stress, beside the quantities rather than above them ────────
+         *
+         * There was a "Colour maps" group holding two commands. One of them,
+         * `colorMap`, was not a quantity at all — it is a WAY OF DRAWING one,
+         * and Basic has said so for a while: pick N and then pick Diagram,
+         * Member colour or Colour map. Keeping a separate button for the
+         * third option meant the ribbon offered "the moment" in one place and
+         * "a colour map (of what?)" in another. The choice belongs with the
+         * quantity, in the Results panel, through the same `showQuantityAs`
+         * Basic uses.
+         *
+         * The other, the CIRSOC verification map, is not an analysis result:
+         * it paints members by the outcome of a code check, which is a design
+         * step. It belongs to the DESIGN workflow and is reached from there.
+         *
+         * What is left is Stress, which IS a quantity and had no button —
+         * only a buried entry in a dropdown. Bars have stresses and so do
+         * plates, and a reader wants either or both.
          */
         {
-          id: 'maps',
-          labelKey: 'proRibbon.groupMaps',
+          id: 'stress',
+          labelKey: 'proRibbon.groupStress',
           cmds: [
-            { id: 'colorMap', labelKey: 'pro.diagColorMap', icon: 'view2d', diagram: 'colorMap', enabled: () => solved },
-            { id: 'verification', labelKey: 'pro.diagVerification', icon: 'support', diagram: 'verification', enabled: () => solved },
-          ],
-        },
-        {
-          id: 'inspect',
-          labelKey: 'proRibbon.groupInspect',
-          cmds: [
-            { id: 'results', labelKey: 'ribbon.results', icon: 'data', tab: 'results', enabled: () => solved },
-            { id: 'diagnostics', labelKey: 'pro.tabDiagnostics', icon: 'advanced', tab: 'diagnostics' },
+            {
+              id: 'stress',
+              labelKey: 'pro.varStress',
+              descKey: 'proRibbon.stressDesc',
+              icon: 'stress',
+              diagram: 'colorMap',
+              action: () => { resultsStore.colorMapKind = 'stress'; },
+              tab: 'results',
+              enabled: () => solved,
+            },
           ],
         },
         {

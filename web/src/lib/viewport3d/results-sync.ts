@@ -11,7 +11,7 @@ import { modelStore, uiStore, resultsStore } from '../store';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
-import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
+import { createDeformedLines, createDeformedShells, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
@@ -266,6 +266,18 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   if (modeColor !== null) {
     ctx.deformedGroup.userData.material.color.setHex(modeColor);
   }
+  /*
+     The shells deform too, and only the members were being drawn: a raft with
+     no bars answered the deformation slider with an empty screen. See
+     `createDeformedShells`.
+  */
+  if (modelStore.plates.size > 0 || modelStore.quads.size > 0) {
+    ctx.deformedGroup.add(createDeformedShells(
+      modelStore.plates, modelStore.quads, getProjectedNodes(), displacements, scale,
+      modeColor ?? 0x22d3a5,
+    ));
+  }
+
   ctx.deformedGroup.userData.sigDt = sigDt;
   ctx.deformedGroup.userData.sigDisp = sigDisp;
   ctx.deformedGroup.userData.sigForces = sigForces;
@@ -444,7 +456,29 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   } else if (dt === 'colorMap') {
     const cmKind = resultsStore.colorMapKind;
 
-    if (cmKind === 'shellVonMises' || cmKind === 'shellBending') {
+    if (cmKind === 'stress') {
+      /*
+       * ── Everything that carries load, unless a kind is switched off ──
+       *
+       * Stress was two entries in a dropdown — von Mises for members, "shell
+       * contour" for plates — so a structure made of both could only ever be
+       * half painted, and a reader had to know which half they were looking
+       * at. A raft with columns on it has stresses in both, and wanting to
+       * see them together is the ordinary case rather than an advanced one.
+       */
+      if (resultsStore.stressShowMembers) {
+        applyFrameHeatmap(ctx, forcesMap, 'vonMises');
+      } else {
+        clearHeatmapMeshes(ctx);
+        forEachElementVisual(ctx, (id, group) => {
+          if (group) { showOriginalMeshes(group, true); setGroupColor(group, 0x888888); }
+          eb.setBaseColor(id, 0x888888);
+        });
+        eb.flush();
+      }
+      if (resultsStore.stressShowShells) applyShellContour(ctx, r3d);
+      else resetShellColors(ctx);
+    } else if (cmKind === 'shellVonMises' || cmKind === 'shellBending') {
       // Shell-only mode: restore frame elements, paint shells by the selected
       // contour component (Von Mises / principal / σ / moment).
       clearHeatmapMeshes(ctx);

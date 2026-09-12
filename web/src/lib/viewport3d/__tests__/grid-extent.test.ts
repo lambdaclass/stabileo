@@ -20,7 +20,7 @@ import { updateGrid } from '../grid';
 
 function build(size: number, extent: number): THREE.Object3D {
   const scene = new THREE.Scene();
-  const g = updateGrid(scene, null, true, size, extent, 'xy', 0);
+  const g = updateGrid(scene, null, true, size, extent, 'XY', 0);
   if (!g) throw new Error('no grid');
   return g;
 }
