@@ -450,7 +450,8 @@
     // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
     // there but not here makes `?proTab=` silently no-op for it.
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
-      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics'];
+      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
+      'settings'];
     if (!VALID.includes(tab)) return;
     uiStore.proActiveTab = tab;
   }
@@ -1041,19 +1042,11 @@
     modelStore.nodes.size > 0 && modelStore.elements.size > 0,
   );
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
-  let proSettingsOpen = $state(false);
-  /**
-   * The settings panel element, for focus and for the outside-click test.
-   *
-   * Focus moves into the panel on open and back to the gear on close: the panel covers part of
-   * the ribbon, so leaving focus on a button underneath it is the same defect the 3-D workspace
-   * had. `dialog-focus.ts` owns the mechanism.
+  /*
+   * The settings dropdown is gone: PRO's settings open in the right-hand
+   * panel now, like Basic's, so there is no second surface to hold focus or
+   * to dismiss on an outside click.
    */
-  let proSettingsEl = $state<HTMLDivElement | null>(null);
-  $effect(() => {
-    if (!proSettingsOpen) return;
-    return captureFocus(proSettingsEl);
-  });
 
   // PRO toolbar dropdown state
   type ProDropdown = null | 'select' | 'geometry' | 'properties' | 'conditions' | 'analysis';
@@ -1068,12 +1061,6 @@
     const target = e.target as HTMLElement | null;
     if (openDropdown && !target?.closest('.pro-bar')) {
       openDropdown = null;
-    }
-    // The settings panel closes on a click anywhere outside its own anchor — which includes the
-    // gear itself, whose own handler has already toggled the state by the time this runs, so
-    // the anchor has to be the boundary rather than the panel.
-    if (proSettingsOpen && !target?.closest('.settings-anchor')) {
-      proSettingsOpen = false;
     }
   }
 
@@ -1300,44 +1287,29 @@
         controls live and a phone has that corner too.
       -->
       {#if uiStore.appMode === 'pro'}
-        <div class="settings-anchor">
-          <button
-            class="btn btn-settings"
-            class:on={proSettingsOpen}
-            onclick={() => (proSettingsOpen = !proSettingsOpen)}
-            title={t('config.title')}
-            aria-label={t('config.title')}
-            aria-haspopup="dialog"
-            aria-expanded={proSettingsOpen}
-            aria-controls="pro-settings-panel"
-            data-testid="pro-settings"
-          ><Icon name="settings" size={16} /></button>
-
-          {#if proSettingsOpen}
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <div
-              class="pro-settings-dropdown"
-              id="pro-settings-panel"
-              data-testid="pro-settings-panel"
-              role="dialog"
-              aria-label={t('config.title')}
-              bind:this={proSettingsEl}
-              tabindex="-1"
-              onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); proSettingsOpen = false; } }}
-            >
-              <header class="pro-settings-head">
-                <h2>{t('config.title')}</h2>
-                <button
-                  class="pro-settings-close"
-                  onclick={() => (proSettingsOpen = false)}
-                  aria-label={t('config.close')}
-                  data-testid="pro-settings-close"
-                >✕</button>
-              </header>
-              <ToolbarConfig inline={true} />
-            </div>
-          {/if}
-        </div>
+        <!--
+          ── Settings open in the panel, like Basic ──────────────────
+          This was a dropdown hanging off the button: a second surface with
+          its own scroll and its own close, showing content the right-hand
+          panel already exists for. Two ways of showing one thing is how the
+          two modes drift apart, and Basic's is the one that was right.
+        -->
+        <button
+          class="btn btn-settings"
+          class:on={uiStore.proPanelVisible && uiStore.proActiveTab === 'settings'}
+          onclick={() => {
+            /* A second press closes it, the way the other header controls do. */
+            if (uiStore.proPanelVisible && uiStore.proActiveTab === 'settings') {
+              uiStore.proPanelVisible = false;
+            } else {
+              uiStore.proActiveTab = 'settings';
+              uiStore.proPanelVisible = true;
+            }
+          }}
+          title={t('config.title')}
+          aria-label={t('config.title')}
+          data-testid="pro-settings"
+        ><Icon name="settings" size={16} /></button>
       {/if}
     </div>
   </header>

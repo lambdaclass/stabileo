@@ -1,6 +1,15 @@
 <script lang="ts">
   import { uiStore, resultsStore } from '../../lib/store';
   import LocaleSelect from '../LocaleSelect.svelte';
+
+  /**
+   * The floor sizes worth offering, in metres.
+   *
+   * Round numbers an order of magnitude apart: a test frame, a building, a
+   * site, a district. `updateGrid` coarsens the line spacing at the top end
+   * so a 10 km floor does not ask for twenty thousand line segments.
+   */
+  const GRID_EXTENTS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
   import { unitLabel } from '../../lib/utils/units';
   import { t } from '../../lib/i18n';
   import { setLocale, OFFERED_LOCALES, i18n } from '../../lib/i18n/store.svelte';
@@ -180,13 +189,22 @@
           {#if is3D}
             <div class="input-group" style="flex-direction: column; align-items: stretch;">
               <HelpTip text={t('config.tip.gridExtent')}><label>{t('config.gridExtent')}: {uiStore.gridExtent3D}×{uiStore.gridExtent3D} m</label></HelpTip>
+              <!--
+                Stops, not a linear slider. The range runs from 20 m to 10 km
+                and a linear track would spend nine tenths of its length on
+                sizes nobody uses; the useful sizes are round numbers an order
+                of magnitude apart.
+              -->
               <input
                 type="range"
-                min="20"
-                max="100"
-                step="10"
-                value={uiStore.gridExtent3D}
-                oninput={(e) => { uiStore.gridExtent3D = parseInt(e.currentTarget.value); }}
+                min="0"
+                max={GRID_EXTENTS.length - 1}
+                step="1"
+                value={Math.max(0, GRID_EXTENTS.indexOf(uiStore.gridExtent3D))}
+                oninput={(e) => {
+                  uiStore.gridExtent3D = GRID_EXTENTS[parseInt(e.currentTarget.value)];
+                }}
+                data-testid="cfg-grid-extent"
               />
             </div>
           {/if}

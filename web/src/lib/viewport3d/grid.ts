@@ -27,7 +27,30 @@ export function updateGrid(
 
   if (!showGrid) return null;
 
-  const divisions = Math.max(1, Math.round(gridExtent / gridSize3D));
+  /*
+   * ── A line budget, because the extent is now a real range ────────
+   *
+   * PRO's grid reaches 10 km. At a 1 m spacing that is ten thousand
+   * divisions — twenty thousand line segments — rebuilt every time the
+   * working plane moves, for a floor nobody can see the lines of anyway at
+   * that zoom.
+   *
+   * So the spacing is coarsened when the count would be absurd: the grid
+   * keeps its extent and draws at a multiple of the requested spacing. The
+   * multiple is a round one, so the lines still land on coordinates a
+   * reader recognises — 1 m becomes 10 m, not 8.3 m.
+   */
+  const MAX_DIVISIONS = 400;
+  let spacing = Math.max(gridSize3D, 1e-6);
+  let divisions = Math.max(1, Math.round(gridExtent / spacing));
+  if (divisions > MAX_DIVISIONS) {
+    const rounds = [2, 5, 10, 20, 50, 100, 200, 500, 1000];
+    for (const k of rounds) {
+      if (Math.round(gridExtent / (spacing * k)) <= MAX_DIVISIONS) { spacing *= k; break; }
+    }
+    divisions = Math.max(1, Math.round(gridExtent / spacing));
+    if (divisions > MAX_DIVISIONS) divisions = MAX_DIVISIONS;
+  }
   /*
    * Neutral, and weaker than a panel hairline. The grid was two navy blues from
    * the old palette, which put a saturated colour across the whole floor and

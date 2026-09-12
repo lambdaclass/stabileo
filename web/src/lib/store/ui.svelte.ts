@@ -499,7 +499,12 @@ function createUIStore() {
   let showGrid3D_pro = $state<boolean>(true);
   let snapToGrid3D_pro = $state<boolean>(true);
   let gridSize3D_pro = $state<number>(1);
-  let gridExtent3D_pro = $state<number>(50);
+  /*
+   * PRO models are buildings and sites, not test frames: 50 m of floor runs
+   * out before the model does. A kilometre by default, and the control goes
+   * to ten — `updateGrid` coarsens the spacing so the line count stays sane.
+   */
+  let gridExtent3D_pro = $state<number>(1000);
   let showNodeLabels3D_pro = $state<boolean>(true);
   let showElementLabels3D_pro = $state<boolean>(false);
   let showLengths3D_pro = $state<boolean>(false);

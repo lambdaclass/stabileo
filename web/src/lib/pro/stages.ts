@@ -121,6 +121,29 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           ],
         },
         /*
+         * ── Conditions live inside Model ─────────────────────────────
+         *
+         * Supports, constraints and loads were a STAGE of their own, beside
+         * Model and Analyse. They are not a stage: nothing is produced by
+         * moving to them and nothing follows from leaving. They are part of
+         * describing the structure, exactly like its geometry and its
+         * materials — which is why a reader building a frame crossed between
+         * two top-level stages to place a support and then crossed back.
+         *
+         * One group, to the right of Properties and left of Generators: draw
+         * it, give it materials, say how it is held and loaded, and only then
+         * reach for something that replaces the lot.
+         */
+        {
+          id: 'conditions',
+          labelKey: 'ribbon.groupConditions',
+          cmds: [
+            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
+            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
+            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
+          ],
+        },
+        /*
          * Generators are their own sub-section, to the RIGHT of Properties.
          *
          * They were folded into Draw, beside nodes and elements, on the reasoning that a
@@ -146,28 +169,6 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
               icon: 'examples',
               tab: 'generators',
             },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'conditions',
-      labelKey: 'ribbon.groupConditions',
-      home: 'supports',
-      groups: [
-        {
-          id: 'restraints',
-          labelKey: 'proRibbon.groupRestraints',
-          cmds: [
-            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
-            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
-          ],
-        },
-        {
-          id: 'loads',
-          labelKey: 'proRibbon.groupLoads',
-          cmds: [
-            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
           ],
         },
       ],
@@ -363,9 +364,12 @@ export const PRO_TAB_STAGE: Record<string, string> = {
      * corner, where the controls that act on the application live.
      */
     ai: '',
+    /* Settings is reached from the header corner, like the AI drawer. */
+    settings: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
     generators: 'model',
-    supports: 'conditions', constraints: 'conditions', loads: 'conditions',
+    /* Conditions is a GROUP inside Model now, not a stage of its own. */
+    supports: 'model', constraints: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
     design: 'design', steel: 'design', connections: 'design',
   };

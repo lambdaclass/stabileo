@@ -37,6 +37,7 @@
    * branch has already fixed twice.
    */
   import { t } from '../../lib/i18n';
+  import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
@@ -78,7 +79,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics';
+  type ProTab = 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -268,6 +269,7 @@
     // (`proRibbon.cmdSteelStructures` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.
     steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
+    settings: 'config.title',
   };
 </script>
 
@@ -337,7 +339,20 @@
       </div>
     {:else}
       <svelte:boundary onerror={(e) => { tabError = String(e); console.error('ProPanel tab error:', e); }}>
-        {#if activeTab === 'project'}
+        {#if activeTab === 'settings'}
+          <!--
+            Settings in the panel, like Basic.
+            ─────────────────────────────────
+            PRO opened them in a dropdown hanging off the header button: a
+            second surface, with its own scroll and its own close, for content
+            the right-hand panel already exists to show. Basic puts them in the
+            panel; there was no reason for PRO to disagree, and two ways of
+            showing one thing is how they drift.
+          -->
+          <!-- `flat`, like Basic's panel: `inline` leaves every sub-section
+               collapsed, which in a panel is a heading and nothing under it. -->
+          <ToolbarConfig flat={true} />
+        {:else if activeTab === 'project'}
           <ProProjectTab groups={exampleGroups} onLoadExample={loadProExample} />
         {:else if activeTab === 'nodes'}
           <ProNodesTab />
