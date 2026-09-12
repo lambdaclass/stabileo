@@ -1518,8 +1518,39 @@
     }
 
     // Block creation/mutation tools in simplified 2D mode
-    if (uiStore.simplified2DMode && uiStore.currentTool !== 'select' && uiStore.currentTool !== 'pan') {
+    if (uiStore.simplified2DMode
+      && uiStore.currentTool !== 'select' && uiStore.currentTool !== 'pan'
+      && uiStore.currentTool !== 'moveNodes') {
       uiStore.toast(t('viewport.simplifiedReadOnly'), 'info');
+      return;
+    }
+
+    /*
+     * ── Move nodes, and ONLY move them ──────────────────────────────
+     *
+     * The whole point of this mode is that the gesture has one outcome.
+     * Inside the Node tool a drag either moves a node or creates one,
+     * depending on whether the press landed within a threshold of an
+     * existing one — so a hand that wanders by a few pixels changes the
+     * model in a way nobody asked for. Here a press that is not on a node
+     * does nothing, which is what "move" should mean.
+     *
+     * Connections come along for free: members are stored by node ID, so a
+     * node that moves carries its bars with it and nothing has to be
+     * relinked.
+     */
+    if (uiStore.currentTool === 'moveNodes') {
+      /*
+       * The same 0.5 m the node tool uses to decide "the cursor is on an
+       * existing node". Two thresholds for one question drift apart.
+       */
+      const onNode = findNearestNode(world.x, world.y, 0.5) ?? findNearestNode(ms.x, ms.y, 0.5);
+      if (!onNode) return;
+      if (!uiStore.selectedNodes.has(onNode.id)) uiStore.selectNode(onNode.id, e.shiftKey);
+      historyStore.pushState();
+      draggedNodeId = onNode.id;
+      dragMoved = false;
+      dragStartWorld = { x: snapped.x, y: snapped.y };
       return;
     }
 
@@ -2306,6 +2337,7 @@
         if (draggedNodeId !== null) return 'grabbing';
         if (uiStore.selectMode === 'stress') return 'crosshair';
         return 'default';
+      case 'moveNodes': return draggedNodeId !== null ? 'grabbing' : 'move';
       case 'node': return uiStore.nodeMode === 'hinge' ? 'pointer' : 'cell';
       case 'element': return 'crosshair';
       case 'support': return 'crosshair';

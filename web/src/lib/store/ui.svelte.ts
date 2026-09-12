@@ -4,7 +4,20 @@ import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } fro
 import type { UnitSystem } from '../utils/units';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 
-export type Tool = 'select' | 'node' | 'element' | 'support' | 'load' | 'pan' | 'influenceLine';
+/**
+ * `moveNodes` is a pointer mode, not a builder.
+ *
+ * Moving a node used to live inside the NODE tool's create-mode: arm Node,
+ * drag an existing one and it moves, miss it by a hand's width and you have
+ * placed a new node instead. One gesture, two outcomes, decided by whether
+ * you hit something — and the only way to find it was to try.
+ *
+ * The select tool deliberately does not drag, and should not: a pointer used
+ * for reading results must not move the model when a click wanders. So
+ * moving nodes gets its own mode, where a drag on a node moves it and
+ * everything else does nothing at all.
+ */
+export type Tool = 'select' | 'node' | 'element' | 'support' | 'load' | 'pan' | 'influenceLine' | 'moveNodes';
 
 /**
  * How big the controls inside a panel are on a phone.

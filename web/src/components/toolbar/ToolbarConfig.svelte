@@ -1,5 +1,6 @@
 <script lang="ts">
   import { uiStore, resultsStore } from '../../lib/store';
+  import LocaleSelect from '../LocaleSelect.svelte';
   import { unitLabel } from '../../lib/utils/units';
   import { t } from '../../lib/i18n';
   import { setLocale, OFFERED_LOCALES, i18n } from '../../lib/i18n/store.svelte';
@@ -79,15 +80,16 @@
       -->
       <div class="input-group cfg-lang">
         <HelpTip text={t('config.tip.language')}><label>{t('app.language')}:</label></HelpTip>
-        <select
+        <!-- Same drawn list as the landing: a native popup lands where the
+             platform chooses, which on macOS is beside the control. -->
+        <LocaleSelect
           value={i18n.locale}
-          onchange={(e) => setLocale(e.currentTarget.value)}
-          data-testid="cfg-lang-select"
-        >
-          {#each OFFERED_LOCALES as code (code)}
-        <option value={code}>{t(`lang.${code}`)}</option>
-          {/each}
-        </select>
+          options={OFFERED_LOCALES}
+          label={(c) => t(`lang.${c}`)}
+          onChange={(c) => setLocale(c)}
+          ariaLabel={t('app.language')}
+          testid="cfg-lang"
+        />
       </div>
       <!--
         Control size. The panels came from a desktop sidebar and their rows

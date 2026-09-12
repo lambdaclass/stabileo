@@ -195,6 +195,17 @@
          * stays here is what selecting needs a PANEL for: which kinds of thing
          * a drag picks up.
          */
+        /*
+         * Move is back in the ribbon, and this time it belongs here.
+         *
+         * Pan left because a pointer mode opens no panel, so its highlight
+         * competed with the commands that do. This one DOES open a panel,
+         * because it has a choice to offer: a drag can move the view or it
+         * can move the model, and until now the second lived inside the Node
+         * tool's create-mode — where the same gesture placed a node whenever
+         * the press missed one.
+         */
+        { id: 'move', icon: 'move', labelKey: 'move.title', panel: 'move' },
         { id: 'select', icon: 'select', labelKey: 'ribbon.selection', panel: 'selection' },
         /*
          * One button, not two. A pair where one is always lit reads as a

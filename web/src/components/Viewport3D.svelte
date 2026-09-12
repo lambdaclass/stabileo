@@ -105,6 +105,8 @@
   // ─── Box select state ──────────────────────────────────────
   // Mode to return to when the quick sections toggle is switched off — keeps
   // a 'solid' preference from Settings instead of always landing on wireframe.
+  /** Whether the view-options menu is open. Closed on every mount. */
+  let camMenuOpen = $state(false);
   let renderModeBeforeSections: 'wireframe' | 'solid' = 'wireframe';
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
 
@@ -2705,51 +2707,102 @@
   -->
   {#if !(uiStore.isMobile && uiStore.appMode === 'pro')}
   <div class="camera-controls" data-tour="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
-    <!-- Same stack, same order as 2D: the pointer mode on top, then the view. -->
+    <!--
+      ── Two buttons, not nine ────────────────────────────────────────
+      The stack had grown to nine: fit, three axis views, projection,
+      clipping, measure and the sections toggle, all permanently on screen.
+      That is a 32 px column down the side of the only thing the reader came
+      to look at, and eight of the nine are things you reach for once and
+      then leave alone.
+
+      What stays visible is what changes moment to moment: the pointer mode.
+      Everything about HOW THE MODEL IS SHOWN goes behind one cube, because
+      that is the question they all answer. The menu closes on a choice —
+      picking a view is a thing you do once, not a mode you live in.
+    -->
     <PointerModeButton />
-    <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')} aria-label={t('viewport3d.zoomToFit')}>
-      <Icon name="fit" size={17} />
-    </button>
-    <button onclick={() => setView('top')} title={t('viewport3d.topView')}>⊤</button>
-    <button onclick={() => setView('front')} title={t('viewport3d.frontView')}>⊡</button>
-    <button onclick={() => setView('side')} title={t('viewport3d.sideView')}>⊟</button>
-    <button
-      onclick={toggleCameraMode}
-      title={uiStore.cameraMode3D === 'perspective' ? t('viewport3d.switchToOrtho') : t('viewport3d.switchToPersp')}
-    >
-      {uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}
-    </button>
-    <button
-      onclick={() => { uiStore.clippingEnabled = !uiStore.clippingEnabled; }}
-      title={uiStore.clippingEnabled ? t('viewport3d.disableClipping') : t('viewport3d.enableClipping')}
-      class:active-cam={uiStore.clippingEnabled}
-    >
-      ✂
-    </button>
-    <button
-      onclick={() => { uiStore.measureMode = !uiStore.measureMode; }}
-      title={uiStore.measureMode ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}
-      class:active-cam={uiStore.measureMode}
-    >
-      📏
-    </button>
-    <!-- Quick render-mode toggle: sections ↔ the previous mode (wireframe/solid).
-         Single compact button like the perspective/ortho switch. Shows the mode
-         Returns to the mode that was active before entering sections. -->
-    <button
-      onclick={() => {
-        if (uiStore.renderMode3D === 'sections') {
-          uiStore.renderMode3D = renderModeBeforeSections;
-        } else {
-          renderModeBeforeSections = uiStore.renderMode3D === 'solid' ? 'solid' : 'wireframe';
-          uiStore.renderMode3D = 'sections';
-        }
-      }}
-      class:active-cam={uiStore.renderMode3D === 'sections'}
-      title={uiStore.renderMode3D === 'sections' ? t('config.wireframe') : t('config.sections')}
-    >
-      {uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}
-    </button>
+
+    <div class="cam-menu-wrap">
+      <button
+        class="cam-btn cam-cube"
+        class:on={camMenuOpen}
+        onclick={() => (camMenuOpen = !camMenuOpen)}
+        title={t('viewport3d.viewOptions')}
+        aria-label={t('viewport3d.viewOptions')}
+        aria-expanded={camMenuOpen}
+        data-testid="cam-menu"
+      >
+        <Icon name="viewCube" size={17} />
+        <span class="cam-caret" aria-hidden="true"></span>
+      </button>
+
+      {#if camMenuOpen}
+        <!-- A backdrop that only closes, so the menu does not trap the pointer. -->
+        <button
+          class="cam-backdrop"
+          onclick={() => (camMenuOpen = false)}
+          aria-label={t('ribbon.close')}
+          tabindex="-1"
+        ></button>
+        <div class="cam-menu" data-testid="cam-menu-pop">
+          <button class="cam-item" onclick={() => { zoomToFit(); camMenuOpen = false; }}>
+            <Icon name="fit" size={15} /><span>{t('viewport3d.zoomToFit')}</span>
+          </button>
+          <div class="cam-sep"></div>
+          <button class="cam-item" onclick={() => { setView('top'); camMenuOpen = false; }}>
+            <span class="cam-glyph">⊤</span><span>{t('viewport3d.topView')}</span>
+          </button>
+          <button class="cam-item" onclick={() => { setView('front'); camMenuOpen = false; }}>
+            <span class="cam-glyph">⊡</span><span>{t('viewport3d.frontView')}</span>
+          </button>
+          <button class="cam-item" onclick={() => { setView('side'); camMenuOpen = false; }}>
+            <span class="cam-glyph">⊟</span><span>{t('viewport3d.sideView')}</span>
+          </button>
+          <div class="cam-sep"></div>
+          <!--
+            These four are STATES, so they stay open on click and show a tick:
+            a reader turning clipping on usually wants to reach for the axis
+            next, and a menu that vanished would make them open it again.
+          -->
+          <button class="cam-item" onclick={toggleCameraMode}>
+            <span class="cam-glyph">{uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}</span>
+            <span>{uiStore.cameraMode3D === 'perspective'
+              ? t('viewport3d.switchToOrtho') : t('viewport3d.switchToPersp')}</span>
+          </button>
+          <button
+            class="cam-item" class:on={uiStore.clippingEnabled}
+            onclick={() => { uiStore.clippingEnabled = !uiStore.clippingEnabled; }}
+          >
+            <span class="cam-glyph">✂</span>
+            <span>{uiStore.clippingEnabled
+              ? t('viewport3d.disableClipping') : t('viewport3d.enableClipping')}</span>
+          </button>
+          <button
+            class="cam-item" class:on={uiStore.measureMode}
+            onclick={() => { uiStore.measureMode = !uiStore.measureMode; }}
+          >
+            <span class="cam-glyph">📏</span>
+            <span>{uiStore.measureMode
+              ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}</span>
+          </button>
+          <button
+            class="cam-item" class:on={uiStore.renderMode3D === 'sections'}
+            onclick={() => {
+              if (uiStore.renderMode3D === 'sections') {
+                uiStore.renderMode3D = renderModeBeforeSections;
+              } else {
+                renderModeBeforeSections = uiStore.renderMode3D === 'solid' ? 'solid' : 'wireframe';
+                uiStore.renderMode3D = 'sections';
+              }
+            }}
+          >
+            <span class="cam-glyph">{uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}</span>
+            <span>{uiStore.renderMode3D === 'sections'
+              ? t('config.wireframe') : t('config.sections')}</span>
+          </button>
+        </div>
+      {/if}
+    </div>
   </div>
   {/if}
 
@@ -2969,19 +3022,116 @@
     align-items: flex-end;
 }
 
-  .camera-controls button {
+  /*
+     Dressed from the tokens, like every other floating control. These were
+     written against a palette this application no longer uses — #445 borders,
+     rgba(22, 33, 62) fills and #aabbcc text — so the camera stack stayed the
+     colour of the old interface while the ribbon and the panels moved on.
+  */
+  .camera-controls button,
+  .cam-btn {
     width: 32px;
     height: 32px;
-    border: 1px solid #445;
-    border-radius: 4px;
-    background: rgba(22, 33, 62, 0.9);
-    color: #aabbcc;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: color-mix(in srgb, var(--st-surface) 90%, transparent);
+    color: var(--st-text-2);
     font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+
+  .camera-controls button:hover,
+  .cam-btn:hover {
+    background: var(--st-surface-3);
+    color: var(--st-text);
+  }
+
+  .cam-menu-wrap { position: relative; display: flex; }
+
+  /* The chevron says the cube opens something. */
+  .cam-cube { position: relative; }
+
+  .cam-caret {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid currentColor;
+    opacity: 0.75;
+  }
+
+  .cam-btn.on {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+
+  .cam-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    border: none;
+    padding: 0;
+    background: transparent;
+    cursor: default;
+  }
+
+  /*
+     Opens to the LEFT of its button, because the stack is pinned to the right
+     edge and a menu growing rightwards would leave the viewport.
+  */
+  .cam-menu {
+    position: absolute;
+    top: 0;
+    right: calc(100% + 6px);
+    z-index: 21;
+    min-width: 190px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface);
+    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.55);
+  }
+
+  .cam-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.35rem 0.45rem;
+    border: none;
+    border-radius: 3px;
+    background: none;
+    color: var(--st-text-2);
+    font-size: 0.72rem;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .cam-item:hover { background: var(--st-surface-3); color: var(--st-text); }
+
+  .cam-item.on { color: var(--st-accent); }
+
+  .cam-glyph {
+    width: 15px;
+    text-align: center;
+    flex: none;
+  }
+
+  .cam-sep {
+    height: 1px;
+    margin: 3px 2px;
+    background: var(--st-hair);
   }
 
   .camera-controls button:hover {

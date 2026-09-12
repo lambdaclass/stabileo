@@ -3,6 +3,7 @@
   import { t } from '../../lib/i18n';
   import ToolbarResults from '../toolbar/ToolbarResults.svelte';
   import SelectionPanel from '../SelectionPanel.svelte';
+  import MovePanel from '../MovePanel.svelte';
   import ToolbarAdvanced from '../toolbar/ToolbarAdvanced.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ToolbarProject from '../toolbar/ToolbarProject.svelte';
@@ -197,7 +198,9 @@
   {/if}
 
   <div class="bp-body">
-    {#if panel === 'selection'}
+    {#if panel === 'move'}
+      <MovePanel />
+    {:else if panel === 'selection'}
       <SelectionPanel />
     {:else if panel === 'results'}
       <ToolbarResults hideDiagrams flat />
