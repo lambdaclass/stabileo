@@ -223,8 +223,6 @@
   import ProPanel from './components/pro/ProPanel.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
-  import ToolbarConfig from './components/toolbar/ToolbarConfig.svelte';
-  import { captureFocus } from './lib/utils/dialog-focus';
   import ProRibbon from './components/pro/ProRibbon.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import { eduStore } from './components/edu/edu-store.svelte';
@@ -1289,6 +1287,8 @@
       {#if uiStore.appMode === 'pro'}
         <!--
           ── Settings open in the panel, like Basic ──────────────────
+          `aria-pressed`, not `aria-expanded`: this is a toggle over a docked
+          panel, not a control that owns a popup.
           This was a dropdown hanging off the button: a second surface with
           its own scroll and its own close, showing content the right-hand
           panel already exists for. Two ways of showing one thing is how the
@@ -1308,6 +1308,7 @@
           }}
           title={t('config.title')}
           aria-label={t('config.title')}
+          aria-pressed={uiStore.proPanelVisible && uiStore.proActiveTab === 'settings'}
           data-testid="pro-settings"
         ><Icon name="settings" size={16} /></button>
       {/if}
@@ -2359,62 +2360,6 @@
   .simplified-stats { font-weight: 400; opacity: 0.85; }
   /* The positioned ancestor the panel measures `top: 100%` from. Without it the panel lands
      one whole app-body below the window — see the note beside the button. */
-  .settings-anchor { position: relative; display: inline-flex; }
-
-  .pro-settings-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 200;
-    width: 288px;
-    max-height: min(70vh, 34rem);
-    overflow-y: auto;
-    background: var(--st-surface);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius-lg);
-    /* Breathing room on every side: the old 0.5rem let the first checkbox sit on the border. */
-    padding: 0.35rem 0.85rem 0.85rem;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
-  }
-
-  .pro-settings-dropdown:focus { outline: none; }
-
-  .pro-settings-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    /* Sticky over a scrolling panel, so it needs its own ground rather than the panel's. */
-    background: var(--st-surface);
-    padding: 0.5rem 0 0.45rem;
-    margin-bottom: 0.25rem;
-    border-bottom: 1px solid var(--st-hair);
-  }
-
-  .pro-settings-head h2 {
-    margin: 0;
-    font-family: var(--st-display);
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--st-text);
-  }
-
-  .pro-settings-close {
-    background: none;
-    border: none;
-    border-radius: var(--st-radius);
-    color: var(--st-text-2);
-    font-size: 0.8rem;
-    line-height: 1;
-    padding: 0.2rem 0.35rem;
-    cursor: pointer;
-  }
-  .pro-settings-close:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .pro-settings-close:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 1px; }
 
   .pn-actions {
     display: flex;
