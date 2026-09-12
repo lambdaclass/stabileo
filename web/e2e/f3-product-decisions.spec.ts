@@ -14,7 +14,7 @@
  * produces the stated outcome.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -323,7 +323,7 @@ for (const vp of [
 for (const locale of ['en', 'es', 'pt'] as const) {
   test.describe(`@slow the new panels in ${locale}`, () => {
     test('every label is translated and no raw key reaches the screen', async ({ pro: page }) => {
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await coordinated(page);
       await openPanel(page);
 

@@ -28,7 +28,7 @@
  * members; here it is held on the ordinary path.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const notice = (page: Page) => page.getByTestId('detailing-convergence');
@@ -151,7 +151,7 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     await expect(notice(page)).toHaveAttribute('data-state', 'converged');
 
     for (const locale of ['es', 'pt'] as const) {
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       const n = notice(page);
       await expect(n, `${locale} renders the notice`).toBeVisible();
       // The STATE is an engineering identifier and does not translate; the sentence does. A
@@ -203,7 +203,7 @@ test.describe('the claim holds its layout and its three languages', () => {
       await loadModel(page, 'rc-design-qa-8');
       await designAll(page);
       await openDetailing(page);
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
 
       const n = notice(page);
       await expect(n).toBeVisible();

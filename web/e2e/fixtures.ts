@@ -518,3 +518,20 @@ export async function pickLanguage(page: Page, testid: string, code: string): Pr
   await page.getByTestId(`${testid}-button`).click();
   await page.getByTestId(`${testid}-list`).locator(`[data-value="${code}"]`).click();
 }
+
+/**
+ * Choose the application's language from the header picker.
+ *
+ * The header carried the last native `<select>` in the app and now carries a
+ * `LocaleSelect` like the landing, the blog and the settings panel. Seventeen
+ * specs pressed it with `selectOption`, which resolves against nothing here —
+ * so this is the one place that knows how the control is built.
+ */
+export async function setAppLanguage(page: Page, code: string): Promise<void> {
+  await pickLanguage(page, 'lang-select', code);
+}
+
+/** What the header picker is showing, as a language code. */
+export function appLanguage(page: Page): Promise<string | null> {
+  return page.getByTestId('lang-select').getAttribute('data-value');
+}
