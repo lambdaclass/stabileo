@@ -232,13 +232,50 @@
    * geometry that mode exists to show. It never drops below the picking floor —
    * `NodesInstanced` raycasts the visible mesh, so the marker IS the target.
    */
+  /**
+   * A node marker may never fall below a few pixels, because it IS the click
+   * target.
+   *
+   * `nodeRadiusFor` sizes a node as a fraction of the model diagonal with a
+   * 2 cm floor. On a 4 × 3 m portal that floor is what applies, and at an
+   * ordinary working distance 2 cm subtends about two-thirds of ONE PIXEL —
+   * the marker is invisible and clicking it is a lottery. That click is the
+   * core gesture of the whole modelling flow: type the coordinates in the
+   * panel, then click the nodes to lay members and supports on them.
+   *
+   * So the world radius is RAISED, where it has to be, to whatever spans
+   * `MIN_NODE_PX` at the current camera distance. Only ever raised: a large
+   * model already has markers worth seeing and must not grow beachballs.
+   *
+   * Called from two places because it depends on two things — the model, and
+   * where the camera is — and a single `$effect` cannot see the second.
+   */
+  const MIN_NODE_PX = 5;
+  let lastNodeDist = -1;
+
+  function applyNodeRadius() {
+    const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
+    const base = uiStore.renderMode3D === 'sections'
+      ? nodeRadiusForSections(extent) : nodeRadiusFor(extent);
+
+    let floor = 0;
+    if (camera && controls && container) {
+      const dist = camera.position.distanceTo(controls.target);
+      const h = container.clientHeight || 1;
+      const fov = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+        ? ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180
+        : (50 * Math.PI) / 180;
+      /* World size of one pixel at the orbit target. */
+      floor = MIN_NODE_PX * ((2 * dist * Math.tan(fov / 2)) / h);
+    }
+    nodesInstanced.setRadius(Math.max(base, floor));
+  }
+
   $effect(() => {
     void modelStore.modelVersion;
-    const mode = uiStore.renderMode3D;
-    const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
-    nodesInstanced.setRadius(
-      mode === 'sections' ? nodeRadiusForSections(extent) : nodeRadiusFor(extent),
-    );
+    void uiStore.renderMode3D;
+    lastNodeDist = -1; // the model changed: recompute regardless of the camera
+    applyNodeRadius();
   });
 
   /**
@@ -559,6 +596,16 @@
       handleKeyboardCamera();
 
       controls.update();
+      /* Markers follow the camera: see `applyNodeRadius`. Throttled on a
+         material change so orbiting does not rebuild the instance buffer
+         every frame. */
+      if (camera && controls) {
+        const d = camera.position.distanceTo(controls.target);
+        if (lastNodeDist < 0 || Math.abs(d - lastNodeDist) > lastNodeDist * 0.08) {
+          lastNodeDist = d;
+          applyNodeRadius();
+        }
+      }
       // Keep ortho frustum synced when using orthographic camera
       if (camera === orthoCamera) syncOrthoFrustum();
       // Update clipping plane
