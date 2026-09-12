@@ -80,7 +80,14 @@
   });
 </script>
 
-<div class="ls" class:up={drop === 'up'} data-testid={testid}>
+<!--
+  `data-value` carries the CODE, and it is here for the tests. The
+  visible label is a language name in that language, so a spec that
+  picked by text would be asserting a dictionary entry every time it
+  meant to assert a locale. A native `<select>` gave this for free
+  through `toHaveValue`; a drawn list has to say it.
+-->
+<div class="ls" class:up={drop === 'up'} data-testid={testid} data-value={value}>
   <button
     bind:this={button}
     class="ls-btn"
@@ -121,6 +128,7 @@
           class="ls-opt"
           class:active={i === active}
           class:on={code === value}
+          data-value={code}
           onclick={() => choose(code)}
           onmouseenter={() => (active = i)}
         >

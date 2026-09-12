@@ -1,11 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
+import { pickLanguage } from './fixtures';
 
 /**
  * Landing-page coverage.
  *
  * Why Playwright and not Vitest: the landing is a Svelte component tree whose
  * behaviour is DOM- and routing-shaped (an overlay on `/`, a custom
- * `stabileo-enter-app` event, a locale <select>, an embedded iframe). The repo
+ * `stabileo-enter-app` event, a locale picker, an embedded iframe). The repo
  * has no jsdom / happy-dom / testing-library dependency and this workstream may
  * not add one, so a real browser is the only way to assert any of it.
  *
@@ -216,7 +217,7 @@ test.describe('@landing landing page', () => {
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
     await expect(page.locator('.landing h1')).toHaveText('Análise estrutural, em uma aba do navegador.');
-    await expect(page.locator('.landing select.nav-lang')).toHaveValue('pt');
+    await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'pt');
     await ctx.close();
   });
 
@@ -235,7 +236,7 @@ test.describe('@landing landing page', () => {
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
     await expect(page.locator('.landing h1')).toHaveText('Structural analysis, in a browser tab.');
-    await expect(page.locator('.landing select.nav-lang')).toHaveValue('en');
+    await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'en');
     await ctx.close();
   });
 
@@ -1181,7 +1182,7 @@ test.describe('@landing landing page', () => {
 
     test('the Portuguese landing carries Portuguese metadata', async ({ page }) => {
       await bootLanding(page);
-      await page.locator('.landing select.nav-lang').selectOption('pt');
+      await pickLanguage(page, 'nav-lang', 'pt');
       await expect(page.locator('.landing h1')).toHaveText('Análise estrutural, em uma aba do navegador.');
       const h = await readHead(page);
 
@@ -1199,7 +1200,7 @@ test.describe('@landing landing page', () => {
       // The set of alternate tags is rewritten, not patched, so a restore that
       // forgot them would leave a Portuguese page's pair behind in the head.
       await bootLanding(page);
-      await page.locator('.landing select.nav-lang').selectOption('pt');
+      await pickLanguage(page, 'nav-lang', 'pt');
       await page.locator('.landing .hero-ctas .btn-primary').click();
       await expect(page.locator('.landing')).toHaveCount(0);
 

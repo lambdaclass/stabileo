@@ -496,3 +496,25 @@ export async function openDocumentsStage(page: Page): Promise<void> {
   if (await d.count() === 0) return;
   if (await d.getAttribute('open') === null) await d.locator('> summary').click();
 }
+
+/**
+ * Choose a language from a `LocaleSelect`.
+ *
+ * ── Why this exists ────────────────────────────────────────────────
+ *
+ * The landing and the blog used a native `<select class="nav-lang">`, and
+ * every spec that switched language did it with `selectOption(code)` and
+ * checked it with `toHaveValue(code)`. The control is now a drawn list —
+ * the platform put a native popup wherever it liked, which on macOS is
+ * beside the control rather than belonging to it — so both of those stopped
+ * resolving, and a spec that waits on a `<select>` that no longer exists
+ * fails as a sixty-second timeout with no hint of the cause.
+ *
+ * Press, then pick by CODE rather than by the visible label: the options are
+ * language names written in their own language, so picking by text would
+ * assert a dictionary entry every time it meant to assert a locale.
+ */
+export async function pickLanguage(page: Page, testid: string, code: string): Promise<void> {
+  await page.getByTestId(`${testid}-button`).click();
+  await page.getByTestId(`${testid}-list`).locator(`[data-value="${code}"]`).click();
+}
