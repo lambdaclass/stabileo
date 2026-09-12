@@ -3803,6 +3803,7 @@ const pt: Translations = {
   'proProject.documentSection': 'Documento aberto',
   'proProject.dxfHelp': 'Toma uma planta de arquitetura em DXF e propõe uma estrutura a partir dela, deixando registrado o que foi assumido.',
   'proProject.ifcHelp': 'Importa um modelo IFC e extrai dele a geometria estrutural.',
+  'proProject.examplesHelp': 'Modelos completos para começar ou para ler: cada um diz quantos nós, barras e placas tem.',
   'proProject.newModel': 'Modelo novo',
   'proResults.diagramInRibbon': 'O diagrama é escolhido na barra superior',
   'proResults.outputs': 'Saídas',

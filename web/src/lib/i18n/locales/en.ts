@@ -4570,6 +4570,7 @@ const en: Record<string, string> = {
   'proRibbon.stressDesc': 'Paints stress on everything that carries load. Members and plates can be switched off separately in the panel.',
   'proRibbon.groupInspect': 'Inspect',
   'proProject.startFrom': 'Start from',
+  'proProject.examplesHelp': 'Complete models to start from or to read: each says how many nodes, members and plates it holds.',
   'proProject.newModel': 'New model',
   'proProject.documentSection': 'Open document',
   'proProject.autosaveSection': 'Autosave',

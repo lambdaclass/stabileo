@@ -4563,6 +4563,7 @@ const es: Record<string, string> = {
   'proRibbon.stressDesc': 'Pinta tensiones en todo lo que carga. Barras y placas se prenden y apagan por separado en el panel.',
   'proRibbon.groupInspect': 'Inspeccionar',
   'proProject.startFrom': 'Partir de',
+  'proProject.examplesHelp': 'Modelos completos para arrancar o para leer: cada uno dice cuántos nodos, barras y placas tiene.',
   'proProject.newModel': 'Modelo nuevo',
   'proProject.documentSection': 'Documento abierto',
   'proProject.autosaveSection': 'Guardado automático',

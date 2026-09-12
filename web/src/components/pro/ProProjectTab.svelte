@@ -6,6 +6,7 @@
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
   import HelpTip from '../HelpTip.svelte';
+  import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
 
   /**
@@ -97,6 +98,27 @@
    * Both calls open IndexedDB. Polling them would put a database read behind every keystroke in
    * a panel whose whole job is to sit still, so the refresh is a control the user presses.
    */
+  /**
+   * Copy a link carrying the whole model.
+   *
+   * This dispatched `stabileo-copy-share-link` on `window`, and NOTHING
+   * listened for it: the button had looked finished since the day it was
+   * written and had never once copied anything. Basic calls
+   * `generateShareURL` directly and reports the same three outcomes — empty
+   * model, a link long enough to be worth warning about, and success — so
+   * this calls the same function rather than inventing a second route with
+   * its own idea of what those outcomes are.
+   */
+  async function copyShareLink() {
+    const result = generateShareURL();
+    if (!result) { uiStore.toast(t('project.emptyModel'), 'error'); return; }
+    if (result.length > MAX_URL_SAFE) {
+      uiStore.toast(t('project.longLink').replace('{n}', String(result.length)), 'info');
+    }
+    await navigator.clipboard.writeText(result.url);
+    uiStore.toast(t('project.linkCopied'), 'success');
+  }
+
   async function refreshStatus() {
     statusError = null;
     try {
@@ -156,6 +178,7 @@
   <section class="pp-card">
   <h4 class="pp-heading pp-heading-first">{t('proProject.newModel')}</h4>
 
+  <HelpTip text={t('proProject.examplesHelp')}>
   <button
     class="pp-btn pp-btn-wide pp-disclose"
     onclick={() => (showExamples = !showExamples)}
@@ -165,6 +188,7 @@
     <span>{t('pro.exampleBtn')}</span>
     <span class="pp-caret">{showExamples ? '▾' : '▸'}</span>
   </button>
+  </HelpTip>
 
   {#if showExamples}
     <div class="pp-gallery" data-testid="pp-gallery">
@@ -185,27 +209,14 @@
   {/if}
 
   <!--
-    Two importers, each with what it actually does. "DXF plan" named a file
-    format and left the rest to guesswork — it takes an architectural floor
-    plan and proposes a structure from it, which is a different promise from
-    "open a file".
+    DXF and IFC are not here any more.
+    ─────────────────────────────────
+    They are IMPORTS, and the section below is called Import — the same two
+    buttons existed in both places, which is two routes to one operation and
+    a reader wondering whether they differ. What belongs here is what
+    STARTS a model without a file to start it from, which today is Examples
+    and will be the tutorials.
   -->
-  <div class="pp-row">
-    <HelpTip text={t('proProject.dxfHelp')}>
-      <button
-        class="pp-btn pp-btn-grow"
-        onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}
-      >{t('cad.proBarBtn')}</button>
-    </HelpTip>
-  </div>
-  <div class="pp-row">
-    <HelpTip text={t('proProject.ifcHelp')}>
-      <button
-        class="pp-btn pp-btn-grow"
-        onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))}
-      >{t('project.openIfc')}</button>
-    </HelpTip>
-  </div>
   </section>
 
   <!--
@@ -219,21 +230,30 @@
   <section class="pp-card">
     <h4 class="pp-heading">{t('project.fileSection')}</h4>
     <div class="pp-grid">
-      <button class="pp-btn pp-btn-primary" onclick={() => (showSave = true)}
-              title={t('project.saveTooltip')} data-testid="pp-save">
-        {t('project.save')}
-      </button>
-      <button class="pp-btn" onclick={() => fileInput?.click()}
-              title={t('project.openTooltip')} data-testid="pp-open">
-        {t('project.open')}
-      </button>
-      <button
-        class="pp-btn"
-        onclick={() => window.dispatchEvent(new Event('stabileo-copy-share-link'))}
-        disabled={!hasModel}
-        title={t('project.copyLinkTooltip')}
-        data-testid="pp-share"
-      >{t('project.shareLink')}</button>
+      <!--
+        Every control explains itself, and answers a CLICK.
+        ─────────────────────────────────────────────────
+        These carried a native `title`, which answers only to a patient
+        pointer: a reader who wanted the explanation had to hover and wait,
+        and on a touch screen could not get it at all. `HelpTip` opens on a
+        click and the same click puts it away, which is the toggle Basic has.
+      -->
+      <HelpTip text={t('project.saveTooltip')}>
+        <button class="pp-btn pp-btn-primary" onclick={() => (showSave = true)}
+                data-testid="pp-save">{t('project.save')}</button>
+      </HelpTip>
+      <HelpTip text={t('project.openTooltip')}>
+        <button class="pp-btn" onclick={() => fileInput?.click()}
+                data-testid="pp-open">{t('project.open')}</button>
+      </HelpTip>
+      <HelpTip text={t('project.copyLinkTooltip')}>
+        <button
+          class="pp-btn"
+          onclick={copyShareLink}
+          disabled={!hasModel}
+          data-testid="pp-share"
+        >{t('project.shareLink')}</button>
+      </HelpTip>
     </div>
 
     {#if showSave}
@@ -296,10 +316,14 @@
     <div class="pp-group">
       <span class="pp-group-label">{t('project.importSpreadsheet')}</span>
       <div class="pp-grid">
-        <button class="pp-btn" onclick={() => xlsInput?.click()} data-testid="pp-xls-import"
-                title={t('xls.ui.importTooltip')}>{t('xls.ui.import')}</button>
-        <button class="pp-btn pp-btn-quiet" onclick={handleDownloadTemplate} data-testid="pp-xls-template"
-                title={t('xls.ui.templateTooltip')}>{t('xls.ui.template')}</button>
+        <HelpTip text={t('xls.ui.importTooltip')}>
+          <button class="pp-btn" onclick={() => xlsInput?.click()} data-testid="pp-xls-import"
+          >{t('xls.ui.import')}</button>
+        </HelpTip>
+        <HelpTip text={t('xls.ui.templateTooltip')}>
+          <button class="pp-btn pp-btn-quiet" onclick={handleDownloadTemplate} data-testid="pp-xls-template"
+          >{t('xls.ui.template')}</button>
+        </HelpTip>
       </div>
     </div>
     <div class="pp-group">
@@ -322,16 +346,23 @@
     <div class="pp-group">
       <span class="pp-group-label">{t('project.exportResults')}</span>
       <div class="pp-grid">
-        <button class="pp-btn" onclick={() => downloadExcel()} title={t('project.exportExcelTooltip')}>Excel</button>
-        <button class="pp-btn" onclick={() => downloadResultsCSV()} disabled={!solved}
-                title={t('project.exportCsvTooltip')}>CSV</button>
+        <HelpTip text={t('project.exportExcelTooltip')}>
+          <button class="pp-btn" onclick={() => downloadExcel()}>Excel</button>
+        </HelpTip>
+        <HelpTip text={t('project.exportCsvTooltip')}>
+          <button class="pp-btn" onclick={() => downloadResultsCSV()} disabled={!solved}>CSV</button>
+        </HelpTip>
       </div>
     </div>
     <div class="pp-group">
       <span class="pp-group-label">{t('project.exportView')}</span>
       <div class="pp-grid">
-        <button class="pp-btn" onclick={() => downloadDXF()} title={t('project.exportDxfTooltip')}>DXF</button>
-        <button class="pp-btn" onclick={() => downloadSVG()} title={t('project.exportSvgTooltip')}>SVG</button>
+        <HelpTip text={t('project.exportDxfTooltip')}>
+          <button class="pp-btn" onclick={() => downloadDXF()}>DXF</button>
+        </HelpTip>
+        <HelpTip text={t('project.exportSvgTooltip')}>
+          <button class="pp-btn" onclick={() => downloadSVG()}>SVG</button>
+        </HelpTip>
       </div>
     </div>
   </section>
