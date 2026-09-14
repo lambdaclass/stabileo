@@ -55,10 +55,35 @@ test.describe('@slow PRO — every advanced analysis answers', () => {
       const tab = page.locator('.adv-tab');
       const before = (await tab.innerText()).trim();
       await btn.click();
-      for (let waited = 0; waited < 20_000; waited += 500) {
-        await page.waitForTimeout(500);
-        if ((await tab.innerText()).trim() !== before) { answered.push(name); return; }
+      /*
+       * ── "Changed" is not the same as "answered" ──────────────────
+       *
+       * Most of these buttons carry their own busy label — `{solving ?
+       * t('pro.solving') : t('pro.run…')}` — and that label is INSIDE the
+       * panel this reads. So the text differs from `before` on the very
+       * first poll, while nothing has been computed yet, and an analysis
+       * that says "Calculando…" and then throws inside the worker was being
+       * recorded as having answered. That is precisely the silence this
+       * suite exists to catch, walking past it.
+       *
+       * So wait for the panel to come to REST: changed, unchanged since the
+       * poll before it, and the button no longer held disabled by `solving`.
+       * An error still short-circuits — it is an answer, and the earliest
+       * one available.
+       */
+      let previous = before;
+      let stableSince: string | null = null;
+      for (let waited = 0; waited < 30_000; waited += 250) {
+        await page.waitForTimeout(250);
         if (await page.locator('.adv-error').count() > 0) { answered.push(name); return; }
+        const now = (await tab.innerText()).trim();
+        const settled = now === previous && now !== before && !(await btn.isDisabled());
+        previous = now;
+        if (!settled) { stableSince = null; continue; }
+        /* Two consecutive quiet polls, so a label that flickers on its way
+           through does not read as a result that landed. */
+        if (stableSince === now) { answered.push(name); return; }
+        stableSince = now;
       }
       silent.push(name);
     };

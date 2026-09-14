@@ -6822,6 +6822,7 @@ const en: Record<string, string> = {
   'repeat.withSupports': 'Copy the supports too',
   'repeat.run': 'Repeat',
   'repeat.done': 'Done: {n} new nodes and {e} new members.',
+  'repeat.tooMany': 'At most {max} copies at a time.',
   'repeat.noWeldNote': 'Nodes are not merged: a copy landing on an existing node leaves two in the same place.',
   'config.eduInBasic': 'Enable Educational mode option',
   'config.eduInBasicHint': 'Adds a button at the end of the ribbon that opens the exercise panel, without leaving Basic.',

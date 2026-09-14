@@ -86,7 +86,6 @@
   const mod = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl';
 
   let exampleBtn: HTMLButtonElement | undefined = $state();
-  let openMenu = $state<string | null>(null);
 
   const solved = $derived(resultsStore.results3D != null || resultsStore.results != null);
 
@@ -161,7 +160,6 @@
     // agrees with the tab.
     if (TAB_STAGE[uiStore.proActiveTab] !== s.id) uiStore.proActiveTab = s.home;
     uiStore.proPanelVisible = true;
-    openMenu = null;
   }
 
   function run(c: ProCmd) {
@@ -186,7 +184,6 @@
     if (c.tool) uiStore.currentTool = c.tool as never;
     else if (c.tab) uiStore.currentTool = 'select';
     c.action?.();
-    openMenu = null;
   }
 
   /* ── Stage badges ─────────────────────────────────────────────────────
@@ -374,7 +371,7 @@
       {#each stage.groups as g (g.id)}
         <section class="pr-group" data-group={g.id}>
           <div class="pr-cmds">
-            {#each g.cmds.filter(c => !c.overflow || openMenu === g.id) as c (c.id)}
+            {#each g.cmds as c (c.id)}
               {@const on = !c.enabled || c.enabled()}
               {@const steps = on ? [] : (c.blockedKeys?.() ?? []).map((k) => t(k))}
               {@const why = steps.length
@@ -523,7 +520,6 @@
   .pr-tool.active { color: var(--st-accent); border-color: var(--st-accent); }
   /* The pointer is in this mode, but some other panel is showing: icon only. */
   .pr-tool.tool-on { color: var(--st-accent); }
-  .pr-caret { font-size: 0.55rem; opacity: 0.7; }
 
   .pr-tabs { display: flex; align-items: stretch; gap: 0.1rem; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 
@@ -634,58 +630,15 @@
     color: var(--st-text-3);
   }
 
-  /* ── Menus ─────────────────────────────────────────────────────────── */
-
-  .pr-dd { position: relative; display: flex; }
-
-  .pr-menu {
-    position: absolute;
-    top: calc(100% + 3px);
-    left: 0;
-    z-index: 60;
-    min-width: 150px;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-    padding: 0.15rem;
-  }
-
-  .pr-menu-check {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.5rem;
-    font-size: 0.72rem;
-    color: var(--st-text-2);
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .pr-menu-check:hover { background: var(--st-surface-3); color: var(--st-text); }
-
-  .pr-menu-sep {
-    height: 1px;
-    margin: 3px 4px;
-    background: var(--st-hair);
-  }
-
-  .pr-menu-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    border-radius: var(--st-radius);
-    color: var(--st-text-2);
-    font-family: var(--st-sans);
-    font-size: 0.74rem;
-    padding: 0.3rem 0.5rem;
-    cursor: pointer;
-  }
-
-  .pr-menu-item:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .pr-menu-item.active { color: var(--st-accent); }
+  /*
+   * ── There are no menus in this bar any more ───────────────────────
+   *
+   * `.pr-dd`, `.pr-menu`, `.pr-menu-item`, `.pr-menu-check`, `.pr-menu-sep`
+   * and `.pr-caret` lived here after the Select dropdown that used them was
+   * replaced by the Selection panel. Two of them had never been used at all.
+   * Removed with `openMenu` and the `overflow` flag it gated — see the note
+   * on `ProCmd`.
+   */
 
   /* Narrow: the command labels go before anything is dropped. */
   @media (max-width: 1240px) {

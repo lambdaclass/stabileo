@@ -11,8 +11,10 @@
    * why the members BETWEEN copies have to be created rather than copied.
    */
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
-  import { repeatSelection, repeatIsMeaningful, type RepeatSpec } from '../../lib/model/array-copy';
+  import { t, tp } from '../../lib/i18n';
+  import {
+    repeatSelection, repeatIsMeaningful, MAX_REPEAT_COPIES, type RepeatSpec,
+  } from '../../lib/model/array-copy';
 
   let count = $state(1);
   let dx = $state(0);
@@ -34,6 +36,10 @@
 
   const spec = $derived<RepeatSpec>({ count, dx, dy, dz, link, withSupports });
   const canRun = $derived(nodeIds.size > 0 && repeatIsMeaningful(spec));
+  /* `max` on the input binds the spinner, not what can be typed. Said rather
+     than only refused: a greyed button with no reason sends the reader
+     looking at the selection, which is not what is wrong. */
+  const tooMany = $derived(count > MAX_REPEAT_COPIES);
 
   function run() {
     if (!canRun) return;
@@ -95,8 +101,14 @@
 
   <label class="rp-field">
     <span>{t('repeat.count')}</span>
-    <input type="number" min="1" max="200" step="1" bind:value={count} data-testid="rp-count" />
+    <input type="number" min="1" max={MAX_REPEAT_COPIES} step="1" bind:value={count} data-testid="rp-count" />
   </label>
+
+  {#if tooMany}
+    <p class="rp-err" data-testid="rp-too-many">
+      {tp('repeat.tooMany', { max: MAX_REPEAT_COPIES })}
+    </p>
+  {/if}
 
   <div class="rp-offset">
     <span class="rp-label">{t('repeat.offset')}</span>
@@ -219,6 +231,8 @@
   }
 
   .rp-done { margin: 0; color: var(--st-accent); }
+
+  .rp-err { margin: 0; color: var(--st-danger); }
 
   .rp-note {
     margin: 0;

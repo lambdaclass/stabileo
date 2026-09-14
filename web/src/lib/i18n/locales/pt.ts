@@ -4730,6 +4730,7 @@ const pt: Translations = {
   'repeat.withSupports': 'Copiar também os apoios',
   'repeat.run': 'Repetir',
   'repeat.done': 'Pronto: {n} nós e {e} barras novas.',
+  'repeat.tooMany': 'No máximo {max} cópias de cada vez.',
   'repeat.noWeldNote': 'Os nós não são fundidos: uma cópia que caia sobre um nó existente deixa dois no mesmo lugar.',
   'config.eduInBasic': 'Ativar opção Modo Educativo',
   'config.eduInBasicHint': 'Adiciona um botão no fim da barra superior que abre o painel de exercícios, sem sair do modo Básico.',

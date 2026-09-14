@@ -91,7 +91,14 @@
     {tp('autoLoad.deadTotal', { total: total.toFixed(2) })}
   </div>
 
-  {#each rows as row, i (i)}
+  <!--
+    Keyed by the ROW, not by its index. `remove` filters and the two adders
+    append, so a row's identity survives both — whereas an index key makes
+    Svelte patch the block in place when one is deleted, handing the removed
+    row's DOM to its neighbour along with the focus and any half-typed number
+    the browser has not yet written back into the binding.
+  -->
+  {#each rows as row, i (row)}
     {@const r = resolved[i]}
     <div class="dl-row" data-testid="dead-row">
       <span class="dl-label">{t(r.labelKey)}</span>

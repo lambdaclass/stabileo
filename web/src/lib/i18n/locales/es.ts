@@ -6811,6 +6811,7 @@ const es: Record<string, string> = {
   'repeat.withSupports': 'Copiar también los apoyos',
   'repeat.run': 'Repetir',
   'repeat.done': 'Listo: {n} nodos y {e} barras nuevas.',
+  'repeat.tooMany': 'Como máximo {max} copias por vez.',
   'repeat.noWeldNote': 'No se fusionan nodos: si una copia cae sobre un nodo existente quedan dos superpuestos.',
   'config.eduInBasic': 'Activar opción Modo Educativo',
   'config.eduInBasicHint': 'Agrega un botón al final de la barra superior que abre el panel de ejercicios, sin salir del modo Básico.',

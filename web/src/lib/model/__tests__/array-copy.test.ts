@@ -13,7 +13,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { repeatSelection, repeatIsMeaningful, type RepeatSource, type RepeatTarget } from '../array-copy';
+import {
+  repeatSelection, repeatIsMeaningful, MAX_REPEAT_COPIES,
+  type RepeatSource, type RepeatTarget,
+} from '../array-copy';
 
 /** A model that records what it was asked to build. */
 function recorder() {
@@ -72,6 +75,25 @@ describe('what it refuses', () => {
   it('a count below one', () => {
     expect(repeatIsMeaningful({ ...SPEC, count: 0 })).toBe(false);
     expect(repeatIsMeaningful({ ...SPEC, count: -2 })).toBe(false);
+  });
+
+  /*
+   * The panel's input carries `max`, which binds the spinner and not what can
+   * be typed — `bind:value` takes the box's contents. So the ceiling has to
+   * hold HERE, or a mistyped count runs that many passes over the selection
+   * inside one batch, after the undo snapshot was taken.
+   */
+  it('a count above the ceiling, which the markup cannot enforce', () => {
+    expect(repeatIsMeaningful({ ...SPEC, count: MAX_REPEAT_COPIES })).toBe(true);
+    expect(repeatIsMeaningful({ ...SPEC, count: MAX_REPEAT_COPIES + 1 })).toBe(false);
+    expect(repeatIsMeaningful({ ...SPEC, count: 50_000 })).toBe(false);
+  });
+
+  it('and builds nothing when a count over the ceiling is asked for anyway', () => {
+    const r = recorder();
+    const out = repeatSelection(BAY, { ...SPEC, count: 50_000 }, r.target);
+    expect(out.nodes).toEqual([]);
+    expect(r.nodes).toEqual([]);
   });
 
   it('and does nothing when asked anyway', () => {

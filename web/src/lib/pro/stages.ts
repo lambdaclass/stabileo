@@ -75,8 +75,19 @@ export type ProCmd = {
    * detailing has not been generated.
    */
   blockedKeys?: () => string[];
-  /** Shown only when the group is expanded. Desktop ribbon only. */
-  overflow?: boolean;
+  /*
+   * There is no `overflow` flag any more, and this note is here so nobody
+   * adds one back without also adding the thing that showed it.
+   *
+   * It meant "shown only when the group is expanded", and the ribbon read it
+   * as `!c.overflow || openMenu === g.id`. When the Select dropdown became
+   * the Selection panel, the last code that ever set `openMenu` to a group
+   * id went with it — leaving a flag whose only effect was to hide a command
+   * permanently, with no error and no way to tell from the call site.
+   *
+   * Nothing had set it, so nothing was hidden. A group that needs to overflow
+   * again needs an affordance that opens it first.
+   */
 };
 
 export type ProGroup = { id: string; labelKey: string; cmds: ProCmd[] };

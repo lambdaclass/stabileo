@@ -193,14 +193,23 @@
   let newThickness = $state(0.2);
   let newCurved = $state(false);
   let newError = $state<string | null>(null);
-  let newRecommendation = $state<ShellRecommendation | null>(null);
+
+  /**
+   * The corners that were actually given, in order — not the first N boxes.
+   *
+   * Picking fills them left to right, so the two were the same thing on that
+   * path. Typing does not: leave N3 empty and fill N4 and `slice(0, count)`
+   * read the empty box instead of the full one, which failed with "those
+   * nodes do not exist" while quietly ignoring the id the reader had typed.
+   */
+  const newGiven = $derived(newNodeIds.map((v) => v.trim()).filter((v) => v !== ''));
 
   /** How many corners have been given — 3 makes a triangle, 4 a quad. */
-  const newCount = $derived(newNodeIds.filter((v) => v.trim() !== '').length);
+  const newCount = $derived(newGiven.length);
 
   /** The corners as points, or null while one is missing or unknown. */
   const newPts = $derived.by(() => {
-    const ids = newNodeIds.slice(0, newCount).map((v) => Number(v));
+    const ids = newGiven.map((v) => Number(v));
     if (ids.length < 3 || ids.some((n) => !Number.isFinite(n) || n <= 0)) return null;
     const ns = ids.map((id) => modelStore.nodes.get(id));
     if (ns.some((n) => !n)) return null;
@@ -231,13 +240,23 @@
     return Math.abs((w.x * n.x + w.y * n.y + w.z * n.z) / len);
   });
 
-  function updateNewRecommendation() {
-    newRecommendation = null;
-    if (!newPts || newThickness <= 0) return;
+  /*
+   * Derived, not recomputed by hand on `oninput`.
+   *
+   * It was a `$state` refreshed from the two typed inputs, which meant the
+   * box stayed empty on the path this panel is built around: press "Draw
+   * plate in the model", click the corners, and the picks land in
+   * `newNodeIds` through the effect below without ever passing an `oninput`.
+   * Typing the same ids by hand produced a recommendation; clicking them did
+   * not. The corners are already derived, so this can be too, and then there
+   * is no way for the two to disagree.
+   */
+  const newRecommendation = $derived.by((): ShellRecommendation | null => {
+    if (!newPts || newThickness <= 0) return null;
     try {
-      newRecommendation = selectShellFamily({ nodes: newPts as Vec3[], thickness: newThickness });
-    } catch { newRecommendation = null; }
-  }
+      return selectShellFamily({ nodes: newPts as Vec3[], thickness: newThickness });
+    } catch { return null; }
+  });
 
   /** Start or stop picking corners in the model. Four slots; three is a triangle. */
   function toggleNewPick() {
@@ -259,7 +278,7 @@
 
   function addShell() {
     newError = null;
-    const ids = newNodeIds.slice(0, newCount).map((v) => Number(v));
+    const ids = newGiven.map((v) => Number(v));
     if (ids.length < 3) { newError = t('pro.shellNeedNodes'); return; }
     if (ids.some((n) => !Number.isFinite(n) || !modelStore.nodes.has(n))) {
       newError = t('pro.errNodesExist');
@@ -279,9 +298,9 @@
          than a flat MITC4, so its curvature carries. */
       if (last && newCurved) last.curved = true;
     }
+    /* The recommendation follows the corners, so clearing them clears it. */
     newNodeIds = ['', '', '', ''];
     newCurved = false;
-    newRecommendation = null;
     uiStore.cancelShellNodePick();
   }
 
@@ -438,8 +457,15 @@
       is asking the reader to answer a question the geometry has answered.
 
       Pick the nodes; three or four; the panel says what it is about to make
-      and makes it. The formulation is still shown, and still overridable for
-      someone who wants to, under the detail.
+      and makes it.
+
+      The formulation is still SHOWN — the recommendation below names it and
+      says why — but it is no longer chooseable, and the `auto` choice the two
+      creators used to write onto the element is not written either. That is
+      worth knowing rather than glossing: `shellFamily` is read by nothing in
+      the engine. Its only readers are `url-sharing.ts` and its tests, so a
+      shell created here round-trips without one and solves exactly as it did
+      before. Restoring the override is a product decision, not a repair.
     -->
     <div class="section">
       <div class="shell-new">
@@ -453,7 +479,7 @@
               placeholder={`N${i + 1}`}
               title={i === 3 ? t('pro.shellFourthPh') : ''}
               value={newNodeIds[i]}
-              oninput={(e) => { newNodeIds[i] = e.currentTarget.value; updateNewRecommendation(); }}
+              oninput={(e) => { newNodeIds[i] = e.currentTarget.value; }}
               data-testid="shell-node-{i}"
             />
           {/each}
@@ -470,7 +496,7 @@
         <div class="input-row">
           <label>{t('pro.thickness')}:</label>
           <input type="number" bind:value={newThickness} step="0.01" min="0.001" class="thick-input"
-                 oninput={updateNewRecommendation} data-testid="shell-thickness" />
+                 data-testid="shell-thickness" />
         </div>
 
         <!--

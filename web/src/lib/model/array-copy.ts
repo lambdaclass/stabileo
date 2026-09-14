@@ -25,6 +25,11 @@
  * already is produces two coincident nodes, not one, because merging them
  * is a decision with consequences for everything attached and it is not this
  * function's to make. The caller that wants it can say so afterwards.
+ *
+ * It does not carry the LOADS on what it repeats, either — only the geometry,
+ * the materials and sections, and the supports when asked. Said here because
+ * the omission above is said here, and an omission named beside an unnamed
+ * one reads as the complete list.
  */
 
 export interface RepeatSpec {
@@ -66,6 +71,20 @@ export interface RepeatOutcome {
 }
 
 /**
+ * The most copies one press may make.
+ *
+ * The panel's input says `max="200"`, which constrains the spinner and not a
+ * typed value — `bind:value` takes whatever is in the box. Without a ceiling
+ * HERE, a mistyped `50000` runs that many passes over the whole selection
+ * inside one batch, after the undo snapshot has already been taken.
+ *
+ * Two hundred is the same number the panel shows, so the bound a reader can
+ * see and the bound that holds are one bound. `ProStairSection` clamps its
+ * own division count for the same reason.
+ */
+export const MAX_REPEAT_COPIES = 200;
+
+/**
  * Whether a spec would do anything at all.
  *
  * A zero offset with `link` off makes every copy land on the original, which
@@ -73,6 +92,7 @@ export interface RepeatOutcome {
  */
 export function repeatIsMeaningful(spec: RepeatSpec): boolean {
   if (!Number.isFinite(spec.count) || spec.count < 1) return false;
+  if (spec.count > MAX_REPEAT_COPIES) return false;
   const moved = Math.hypot(spec.dx, spec.dy, spec.dz) > 1e-9;
   return moved;
 }
