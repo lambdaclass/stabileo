@@ -495,12 +495,10 @@
 </script>
 
 <div class="pro-loads">
-  <!-- The one place a drawing mode is entered; see `DrawInModelButton`. -->
-  <div class="pro-draw-row">
-    <DrawInModelButton tool="load" label={t('pro.tabLoads')} icon="load" testid="draw-load" />
-  </div>
-  <!-- Auto-generate button -->
+  <!-- Drawing works the MODEL, so it sits beside the other things you do to a
+       load rather than as a band across the panel. -->
   <div class="pro-autogen-bar">
+    <DrawInModelButton tool="load" label={t('pro.oneLoad')} icon="load" testid="draw-load" />
     <button class="pro-btn-autogen" data-testid="pro-auto-loads-btn"
       onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
   </div>
@@ -911,7 +909,7 @@
 {/if}
 
 <style>
-  .pro-draw-row { padding: 6px 10px 2px; }
+
 
   /* ── The load-definition selector ──────────────────────────────────── */
 
@@ -976,7 +974,7 @@
     animation: pulse-warn 1.5s ease-in-out infinite;
   }
   @keyframes pulse-warn { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
-  .pro-autogen-bar { padding: 8px 10px; border-bottom: 1px solid var(--st-surface-3); }
+  .pro-autogen-bar { padding: 8px 10px; border-bottom: 1px solid var(--st-surface-3); display: flex; align-items: center; gap: 8px; }
   /*
      The one command that starts a whole workflow, so it keeps its width — but
      as the shell's command, not a turquoise slab. Turquoise is what this

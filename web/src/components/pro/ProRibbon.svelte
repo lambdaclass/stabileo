@@ -269,23 +269,45 @@
           disabled={!historyStore.canRedo}
           title="{t('toolbar.redo')} ({mod}+Y)"
         ><Icon name="redo" size={16} /></button>
+        <span class="pr-tool-sep" aria-hidden="true"></span>
         <!--
-          ── Select and Pan are gone from this bar ────────────────────
-          They are POINTER MODES, and the pointer lives on the model: the
-          viewport's own mode button shows which one is armed and switches
-          back to Select, which is where a reader's hand already is.
+          ── Move and Select, back beside undo and redo ──────────────────
+          Two different things wear these two buttons, and the difference is
+          the whole reason the highlights differ.
 
-          Keeping them here had two costs. One was a permanently lit button —
-          the pointer is always in some mode, so Move looked switched on
-          forever while the right-hand panel showed something else entirely.
-          The other was the dropdown: which KINDS a selection picks up is a
-          setting that persists across dozens of gestures, and a menu that
-          closes on every choice is the wrong shape for it. Basic put it in
-          the panel; `SelectionPanel` is the same component.
+          MOVE is a pointer mode. It lights while the pointer is in it, which
+          is what "mode" means, and the default is Select so it is not lit
+          for free.
 
-          What lights up in this bar now is exactly one thing: the command
-          whose panel is open.
+          SELECT opens a PANEL — which kinds a click picks up, a setting that
+          persists across dozens of gestures and was a dropdown that closed on
+          every choice. So it lights while that panel is showing, not while
+          the select tool is armed: pressing Nodes changes the panel and takes
+          the paint off this button, and the pointer is STILL selecting,
+          because nothing has yet asked it to draw. The tool only changes when
+          a "Draw …" button in a panel says so.
         -->
+        <button
+          class="pr-tool"
+          class:active={uiStore.currentTool === 'pan'}
+          onclick={() => { uiStore.currentTool = 'pan'; }}
+          title={t('float.pan')}
+          data-testid="pr-pan"
+        ><Icon name="pan" size={16} /></button>
+        <button
+          class="pr-tool"
+          class:active={uiStore.proPanelVisible && uiStore.proActiveTab === 'selection'}
+          aria-pressed={uiStore.proPanelVisible && uiStore.proActiveTab === 'selection' ? 'true' : 'false'}
+          onclick={() => {
+            /* Back to selecting AND show what it picks up: the button that
+               opens the panel is also the way back from a drawing mode. */
+            uiStore.currentTool = 'select';
+            uiStore.proActiveTab = 'selection';
+            uiStore.proPanelVisible = true;
+          }}
+          title={t('float.select')}
+          data-testid="pr-select"
+        ><Icon name="select" size={16} /></button>
       </div>
 
       <div class="pr-tabs" role="tablist">

@@ -137,25 +137,13 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
          * selection that already exists.
          */
         /*
-         * ── What a selection picks up is a SETTING, so it gets a panel ──
+         * Selection is NOT a group here.
          *
-         * It was a dropdown hanging off the Select button in the top bar,
-         * and a menu that closes on every choice is the wrong shape for a
-         * choice that persists across dozens of gestures. Basic put it in
-         * the panel; this is the same `SelectionPanel` component.
-         *
-         * The pointer MODE — select or pan — is not here at all: it lives on
-         * the model, in the viewport's own mode button, where the pointer
-         * is. Keeping it in this bar meant one button was lit forever, since
-         * the pointer is always in some mode.
+         * It is reached from the top bar, beside undo and redo, because it is
+         * about the POINTER rather than about the model — every stage selects,
+         * so filing it under MODEL claimed it was a step of building one. The
+         * panel it opens is the same `SelectionPanel` Basic uses.
          */
-        {
-          id: 'select',
-          labelKey: 'ribbon.selection',
-          cmds: [
-            { id: 'selection', labelKey: 'ribbon.selection', icon: 'select', tab: 'selection' },
-          ],
-        },
         {
           id: 'draw',
           labelKey: 'ribbon.groupDraw',

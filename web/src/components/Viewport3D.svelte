@@ -260,6 +260,7 @@
    */
   const MIN_NODE_PX = 3;
   let lastNodeDist = -1;
+  const lastGridTarget = new THREE.Vector3(NaN, NaN, NaN);
 
   function applyNodeRadius() {
     /*
@@ -624,6 +625,19 @@
         if (lastNodeDist < 0 || Math.abs(d - lastNodeDist) > lastNodeDist * 0.08) {
           lastNodeDist = d;
           applyNodeRadius();
+          /* The grid follows the view so its density stays even — see the note
+             in `grid.ts`. Same throttle: rebuilding it every frame of an orbit
+             would be twenty thousand segments per frame. */
+          updateGrid();
+        } else if (uiStore.showGrid3D) {
+          /* Panning changes WHERE the patch sits without changing the zoom, so
+             it needs its own trigger — one cell of movement is enough. */
+          const t = controls.target;
+          if (Math.abs(t.x - lastGridTarget.x) + Math.abs(t.y - lastGridTarget.y)
+            + Math.abs(t.z - lastGridTarget.z) > d * 0.08) {
+            lastGridTarget.copy(t);
+            updateGrid();
+          }
         }
       }
       // Keep ortho frustum synced when using orthographic camera
@@ -2771,9 +2785,28 @@
     _syncOrthoFrustum(orthoCamera, camera.position, controls.target, containerAspect, aspect);
   }
 
+  /** Where the camera is looking, in the working plane, and how wide the view is. */
+  function gridView(): { u: number; v: number; span: number } | undefined {
+    if (!camera || !controls || !container) return undefined;
+    const dist = camera.position.distanceTo(controls.target);
+    if (!(dist > 0)) return undefined;
+    const fov = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+      ? ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180
+      : (50 * Math.PI) / 180;
+    const span = 2 * dist * Math.tan(fov / 2);
+    const t = controls.target;
+    /* The two in-plane axes, in the plane's own order. */
+    if (uiStore.workingPlane === 'XY') return { u: t.x, v: t.y, span };
+    if (uiStore.workingPlane === 'XZ') return { u: t.x, v: t.z, span };
+    return { u: t.y, v: t.z, span };
+  }
+
   function updateGrid() {
     if (!scene) return;
-    gridGroup = _updateGrid(scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D, uiStore.workingPlane, uiStore.nodeCreateZ);
+    gridGroup = _updateGrid(
+      scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D,
+      uiStore.workingPlane, uiStore.nodeCreateZ, gridView(),
+    );
     syncCameraRange();
   }
 

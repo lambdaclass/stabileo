@@ -170,8 +170,16 @@
 <div class="pro-nodes">
   <div class="pro-nodes-header">
     <span class="pro-nodes-count">{t('pro.nNodes').replace('{n}', String(nodeCount))}</span>
+    <!--
+      ── Two different verbs, two different places ──────────────────────
+      "Draw a node" puts the pointer to work in the MODEL, so it sits at the
+      top with the other things you do to this kind of entity. "+ Node" adds
+      a ROW to the table, so it belongs to the table — which is where Basic
+      has always kept it. They were side by side and both read as "make a
+      node", leaving the reader to discover which one used the mouse.
+    -->
     <div class="pro-nodes-actions">
-      <button class="pro-btn" onclick={addEmptyRow} data-testid="pro-add-node">{t('pro.addNode')}</button>
+      <DrawInModelButton tool="node" label={t('pro.oneNode')} icon="node" testid="draw-node" />
       <button class="pro-btn pro-btn-sm" onclick={commitAll} title={t('pro.apply')} data-testid="pro-apply-nodes">{t('pro.apply')}</button>
       <button class="pro-btn pro-btn-sm pro-btn-danger" onclick={clearAll} title={t('pro.clear')}>{t('pro.clear')}</button>
     </div>
@@ -186,10 +194,6 @@
     `handlePaste` is untouched — but a permanent line of instruction above a
     table is read once and then occupies the panel forever.
   -->
-  <div class="pro-draw-row">
-    <DrawInModelButton tool="node" label={t('pro.tabNodes')} icon="node" testid="draw-node" />
-  </div>
-
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="pro-nodes-table-wrap" onpaste={handlePaste}>
     <table class="pro-nodes-table">
@@ -253,6 +257,10 @@
         {/if}
       </tbody>
     </table>
+    <!-- Adding a ROW belongs to the table, which is where Basic keeps it. -->
+    <div class="pro-table-footer">
+      <button class="pro-btn pro-btn-sm" onclick={addEmptyRow} data-testid="pro-add-node">{t('pro.addNode')}</button>
+    </div>
   </div>
 </div>
 
@@ -331,7 +339,7 @@
     flex-shrink: 0;
   }
 
-  .pro-draw-row { padding: 6px 10px 2px; }
+  .pro-table-footer { padding: 6px 10px; border-top: 1px solid var(--st-surface-3); }
 
   .pro-nodes-table-wrap {
     flex: 1;

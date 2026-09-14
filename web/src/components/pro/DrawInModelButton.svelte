@@ -43,23 +43,29 @@
   onclick={() => { uiStore.currentTool = (armed ? 'select' : tool) as never; }}
   title={armed ? t('pro.drawStopHint') : t('pro.drawStartHint')}
 >
-  <Icon name={icon} size={14} />
+  <Icon name={icon} size={13} />
   <span>{armed ? t('pro.drawStop') : `${t('pro.drawInModel')} ${label}`}</span>
 </button>
 
 <style>
+  /*
+     Sits in the panel's action row beside Apply and Clear, not as a band
+     across the panel. A full-width slab announced itself as the most
+     important thing on screen, which it is not: it is one of the three or
+     four things you can do to this kind of entity.
+  */
   .dim-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 0.4rem 0.55rem;
+    gap: 5px;
+    padding: 0.24rem 0.45rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: var(--st-radius);
     background: var(--st-surface-2);
     color: var(--st-text-2);
     font: inherit;
-    font-size: 0.74rem;
+    font-size: 0.7rem;
+    white-space: nowrap;
     cursor: pointer;
   }
 

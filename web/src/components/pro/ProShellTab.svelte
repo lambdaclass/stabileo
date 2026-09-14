@@ -357,8 +357,27 @@
 
 <div class="pro-shells">
   <!-- Header -->
+  <!--
+    ── One button that uses the mouse, at the top, like every other panel ──
+    There were two and neither said which was which: "pick nodes in the
+    viewport" inside the form, and an Add button whose disabled label read
+    "pick three or four nodes". Both were about picking; only one used the
+    mouse. Drawing is now where it is in Nodes, Members, Supports and Loads —
+    the top of the panel — and the form's own button only ever ADDS what the
+    boxes hold.
+  -->
   <div class="pro-shells-header">
     <span class="pro-shells-count">{t('pro.nPlatesQuads').replace('{plates}', String(plateCount)).replace('{quads}', String(quadCount))}</span>
+    <button
+      class="dim-like"
+      class:on={uiStore.shellNodePick.active}
+      aria-pressed={uiStore.shellNodePick.active ? 'true' : 'false'}
+      onclick={toggleNewPick}
+      data-testid="draw-plate"
+      title={uiStore.shellNodePick.active ? t('pro.drawStopHint') : t('pro.drawStartHint')}
+    >{uiStore.shellNodePick.active
+      ? `${t('pro.drawStop')} (${uiStore.shellNodePick.picked.length}/4)`
+      : `${t('pro.drawInModel')} ${t('pro.onePlate')}`}</button>
   </div>
 
   <div class="pro-shells-scroll">
@@ -389,28 +408,13 @@
               type="text" inputmode="numeric"
               class="node-input"
               class:optional={i === 3}
-              placeholder={i === 3 ? t('pro.shellFourthPh') : `N${i + 1}`}
+              placeholder={`N${i + 1}`}
+              title={i === 3 ? t('pro.shellFourthPh') : ''}
               value={newNodeIds[i]}
               oninput={(e) => { newNodeIds[i] = e.currentTarget.value; updateNewRecommendation(); }}
               data-testid="shell-node-{i}"
             />
           {/each}
-        </div>
-
-        <!--
-          Picking in the model is the ordinary way in, so it is a button that
-          says what it is doing and counts as it goes. Four slots, and it
-          stops at whatever the reader has: three is a triangle.
-        -->
-        <div class="input-row">
-          <button
-            class="pro-btn pro-btn-pick"
-            class:picking={uiStore.shellNodePick.active}
-            onclick={toggleNewPick}
-            data-testid="shell-pick"
-          >{uiStore.shellNodePick.active
-            ? `${t('pro.picking')} ${uiStore.shellNodePick.picked.length}/4 — ${t('pro.cancel')}`
-            : `\u{1F4CD} ${t('pro.pickNodes')}`}</button>
         </div>
 
         <div class="input-row">
@@ -466,7 +470,7 @@
           onclick={addShell}
           disabled={newCount < 3}
           data-testid="shell-add"
-        >{newCount === 4 ? t('pro.addQuad') : newCount === 3 ? t('pro.addPlate') : t('pro.shellNeedNodes')}</button>
+        >{t('pro.addPlate')}</button>
       </div>
     </div>
 
@@ -623,6 +627,27 @@
     flex-direction: column;
     height: 100%;
   }
+
+  /*
+     Matches `DrawInModelButton`, which the other panels use. Not that
+     component because this one arms the shell NODE PICK rather than a
+     viewport tool — a plate is three or four corners, so it is picked by
+     node and the panel counts them as they land.
+  */
+  /* The fourth corner is optional — three is a triangle — and the box says so
+     by being dimmer rather than by a placeholder that does not fit in it. */
+  .node-input.optional { opacity: 0.65; }
+
+  .dim-like {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0.24rem 0.45rem;
+    border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius);
+    background: var(--st-surface-2); color: var(--st-text-2);
+    font: inherit; font-size: 0.7rem; white-space: nowrap; cursor: pointer;
+  }
+  .dim-like:hover { color: var(--st-text); border-color: var(--st-accent); }
+  .dim-like.on { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
+  .dim-like:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
 
   .pro-shells-header {
     display: flex;

@@ -18,6 +18,14 @@ export function updateGrid(
   gridExtent: number,
   workingPlane: WorkingPlane3D,
   nodeCreateZ: number,
+  /**
+   * What the camera is looking at, and how much world is across the screen.
+   *
+   * `u`/`v` are the target's coordinates IN the working plane; `span` is the
+   * visible world width at that distance. Optional so the first build, before
+   * a camera exists, still draws something sensible.
+   */
+  view?: { u: number; v: number; span: number },
 ): THREE.Object3D | null {
   // Remove old grid
   if (oldGridGroup) {
@@ -28,59 +36,76 @@ export function updateGrid(
   if (!showGrid) return null;
 
   /*
-   * ── Two grids, because one cannot serve both distances ────────────
+   * ── One grid, at a density that does not change across the floor ───
    *
-   * A single GridHelper has one spacing, and a line budget forces that
-   * spacing to grow with the extent: ten kilometres inside 400 divisions is a
-   * line every 25 m. At a working zoom the camera then sits INSIDE one cell
-   * and the floor is blank — "set the grid to 10000 and it does not even
-   * show", which is exactly right and was not a rendering fault.
+   * It was two: a FINE grid at the requested spacing over as much as a line
+   * budget allowed, and a COARSE one carrying the full extent. Near the
+   * origin you therefore saw both — a metre grid on top of an eighty-metre
+   * one — and past the fine patch only the coarse. The floor was far denser
+   * at 0,0,0 than a few thousand metres out, which is what it looked like.
    *
-   * So: a FINE grid at the spacing that was asked for, covering as much as
-   * the budget allows around the origin, and a COARSE one carrying the full
-   * extent at a round multiple. Close in you read the fine one; zoomed out it
-   * falls below a pixel and the coarse one is what remains. Nothing is
-   * per-frame — two static meshes, chosen once.
+   * One spacing everywhere fixes the density, and the cost is that the
+   * spacing cannot then also be the one that was asked for at every zoom: ten
+   * kilometres of one-metre grid is ten thousand divisions, which is a line
+   * per pixel and twenty thousand segments rebuilt whenever the plane moves.
    *
-   * The multiples are round on purpose, so lines land on coordinates a reader
-   * recognises: 1 m becomes 10 m, never 8.3 m.
+   * So the grid FOLLOWS THE VIEW, which is what every CAD program does with
+   * one. The spacing is a round multiple of the reader's, chosen so roughly
+   * `TARGET_LINES` of them cross what is on screen; the patch is centred on
+   * what the camera is looking at, snapped to that spacing so the lines do
+   * not crawl as you pan; and the reader's extent is a hard limit the patch
+   * is clipped to, so "10 000 × 10 000" still means what it says.
+   *
+   * Round multiples on purpose: 1 m becomes 10 m, never 8.3 m, so a line
+   * always lands on a coordinate a reader recognises.
    */
-  const MAX_DIVISIONS = 400;
-  const ROUND_STEPS = [2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-  const spacing = Math.max(gridSize3D, 1e-6);
+  const MAX_DIVISIONS = 240;
+  const TARGET_LINES = 28;
+  const ROUND_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+  const base = Math.max(gridSize3D, 1e-6);
 
-  const group = new THREE.Group();
-  group.name = 'grid';
+  /* No camera yet (first build): show the reader's own spacing. */
+  const span = view && view.span > 0 ? view.span : base * TARGET_LINES;
 
-  /* The fine grid: the requested spacing, over as much as the budget buys. */
-  const fineExtent = Math.min(gridExtent, spacing * MAX_DIVISIONS);
-  const fineDivisions = Math.max(1, Math.round(fineExtent / spacing));
-  const fine = new THREE.GridHelper(fineExtent, fineDivisions, 0x3d4b57, 0x27333d);
-  group.add(fine);
-
-  /*
-   * The coarse grid, only when the extent reaches past the fine one. Aimed at
-   * ~120 divisions: enough that a line is always in view at any zoom that can
-   * see the whole extent, few enough to stay cheap.
-   */
-  if (gridExtent > fineExtent * 1.01) {
-    const want = gridExtent / 120;
-    let coarse = spacing;
-    for (const k of ROUND_STEPS) {
-      coarse = spacing * k;
-      if (coarse >= want) break;
-    }
-    const coarseDivisions = Math.max(1, Math.min(MAX_DIVISIONS, Math.round(gridExtent / coarse)));
-    /* Dimmer than the fine grid: it is the backdrop, not the ruler. */
-    const far = new THREE.GridHelper(gridExtent, coarseDivisions, 0x33404b, 0x1f2933);
-    /* Under the fine one where they overlap, so the ruler stays on top. */
-    far.renderOrder = -1;
-    group.add(far);
+  let spacing = base;
+  for (const k of ROUND_STEPS) {
+    spacing = base * k;
+    if (span / spacing <= TARGET_LINES) break;
   }
+  /*
+   * Never coarser than the extent can hold two of.
+   *
+   * Without this the floor below multiplies it straight back up: pulled far
+   * enough out the spacing reaches 10 km, and a 20 m grid rounded to "at
+   * least two divisions" then drew 20 KILOMETRES — the one number the reader
+   * explicitly capped.
+   */
+  spacing = Math.min(spacing, gridExtent / 2);
 
-  const grid: THREE.Object3D = group;
+  /* Whole cells, bounded, and never wider than the extent that was asked for. */
+  const wanted = Math.min(gridExtent, spacing * MAX_DIVISIONS, Math.max(span * 2.5, spacing * 4));
+  const divisions = Math.max(2, Math.min(MAX_DIVISIONS, Math.round(wanted / spacing)));
+  const extent = divisions * spacing;
+
+  const grid: THREE.Object3D = new THREE.GridHelper(extent, divisions, 0x3d4b57, 0x27333d);
 
   setPlaneOffset(grid, workingPlane, nodeCreateZ);
+
+  /*
+   * Centred on what the camera is looking at, snapped to the spacing so the
+   * lines stay on their coordinates while you pan instead of crawling, and
+   * clamped so the patch never leaves the extent the reader asked for.
+   */
+  if (view) {
+    const half = Math.max(0, (gridExtent - extent) / 2);
+    const snap = (v: number) => {
+      const q = Math.round(v / spacing) * spacing;
+      return Math.max(-half, Math.min(half, q));
+    };
+    if (workingPlane === 'XY') { grid.position.x = snap(view.u); grid.position.y = snap(view.v); }
+    else if (workingPlane === 'XZ') { grid.position.x = snap(view.u); grid.position.z = snap(view.v); }
+    else { grid.position.y = snap(view.u); grid.position.z = snap(view.v); }
+  }
 
   scene.add(grid);
   return grid;

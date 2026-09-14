@@ -9,21 +9,30 @@
  *    being clipped. That half lives in `Viewport3D`'s `syncCameraRange`.
  *
  *  · At 10000 m "it does not even show". That one was not a rendering fault:
- *    a line budget of 400 divisions over ten kilometres is a line every 25 m,
- *    so at a working zoom the camera sits inside a single cell and there is
- *    nothing on screen to see. One spacing cannot serve both distances, which
- *    is what this file pins.
+ *    a line budget over ten kilometres is a line every 25 m, so at a working
+ *    zoom the camera sits inside a single cell and there is nothing to see.
+ *
+ *  · And the first fix for that — a fine grid near the origin plus a coarse
+ *    one over the whole extent — made the floor visibly DENSER at 0,0,0 than
+ *    a few thousand metres out, because near the middle you saw both. One
+ *    spacing everywhere is the only thing that reads as even, so the grid
+ *    follows the view instead: the spacing tracks the zoom, the patch is
+ *    centred on what the camera is looking at, and the reader's extent is a
+ *    hard limit it is clipped to.
  */
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { updateGrid } from '../grid';
 
-function build(size: number, extent: number): THREE.Object3D {
+function build(size: number, extent: number, view?: { u: number; v: number; span: number }): THREE.Object3D {
   const scene = new THREE.Scene();
-  const g = updateGrid(scene, null, true, size, extent, 'XY', 0);
+  const g = updateGrid(scene, null, true, size, extent, 'XY', 0, view);
   if (!g) throw new Error('no grid');
   return g;
 }
+
+/** Looking at the origin, with `span` metres of world across the screen. */
+const looking = (span: number) => ({ u: 0, v: 0, span });
 
 /** Every GridHelper in the returned object, with the extent and step it draws. */
 function helpers(o: THREE.Object3D): Array<{ extent: number; step: number }> {
@@ -47,40 +56,57 @@ function helpers(o: THREE.Object3D): Array<{ extent: number; step: number }> {
 }
 
 describe('the grid at a large extent', () => {
-  it('keeps the requested spacing near the origin, whatever the extent', () => {
-    for (const extent of [1000, 10000]) {
-      const hs = helpers(build(1, extent));
-      const fine = hs.find((h) => Math.abs(h.step - 1) < 1e-6);
-      expect(fine, `a 1 m grid exists at extent ${extent}`).toBeTruthy();
+  it('draws ONE grid, so the floor is not denser in the middle than at the edge', () => {
+    /*
+     * It used to draw two: a fine grid at the requested spacing over as much
+     * as a line budget allowed, and a coarse one carrying the full extent.
+     * Near the origin you therefore saw BOTH — a metre grid on top of an
+     * eighty-metre one — and past the fine patch only the coarse. The floor
+     * was visibly denser at 0,0,0 than a few thousand metres out.
+     */
+    expect(helpers(build(1, 10000, looking(200))).length).toBe(1);
+  });
+
+  it('keeps roughly the same number of lines on screen at any zoom', () => {
+    /* Uniform density is the whole point: what changes with the zoom is the
+       spacing, not how much of the screen is covered in lines. */
+    for (const span of [20, 200, 2000, 20000]) {
+      const h = helpers(build(1, 100000, looking(span)))[0];
+      const onScreen = span / h.step;
+      expect(onScreen, `span ${span}`).toBeGreaterThan(4);
+      expect(onScreen, `span ${span}`).toBeLessThan(60);
     }
   });
 
-  it('also carries a coarse grid over the WHOLE extent, so a zoomed-out view has lines', () => {
-    const hs = helpers(build(1, 10000));
-    expect(hs.length, 'two grids, not one').toBe(2);
-    const widest = Math.max(...hs.map((h) => h.extent));
-    expect(widest, 'the coarse one spans the extent that was asked for').toBeCloseTo(10000, 0);
-    const coarse = hs.find((h) => h.extent > 9000)!;
-    expect(coarse.step, 'and its lines are far enough apart to be affordable').toBeGreaterThan(10);
+  it('spaces on a round multiple of what the reader asked for', () => {
+    /* 1 m becomes 10 m, never 8.3 m, so a line always lands on a coordinate a
+       reader recognises. */
+    for (const span of [20, 200, 2000, 20000]) {
+      const ratio = helpers(build(1, 100000, looking(span)))[0].step / 1;
+      expect([1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000])
+        .toContain(Math.round(ratio));
+    }
   });
 
-  it('draws ONE grid when the extent needs no backdrop', () => {
-    /* 100 m at 1 m is 100 divisions — inside the budget, so a second grid
-       would be the same lines drawn twice. */
-    expect(helpers(build(1, 100)).length).toBe(1);
+  it('never draws wider than the extent that was asked for', () => {
+    /* "10 000 × 10 000" has to still mean that, however far out you pull. */
+    for (const extent of [20, 100, 1000, 10000]) {
+      const h = helpers(build(1, extent, looking(1e6)))[0];
+      expect(h.extent, `extent ${extent}`).toBeLessThanOrEqual(extent + 1e-6);
+    }
   });
 
-  it('never exceeds the line budget, at any extent it offers', () => {
+  it('shows the reader\'s own spacing before there is a camera to ask', () => {
+    expect(helpers(build(1, 1000))[0].step).toBeCloseTo(1, 9);
+  });
+
+  it('never exceeds the line budget, at any extent or zoom', () => {
     for (const extent of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]) {
-      for (const h of helpers(build(1, extent))) {
-        expect(h.extent / h.step, `extent ${extent}`).toBeLessThanOrEqual(400 + 1);
+      for (const span of [5, 50, 500, 5000]) {
+        for (const h of helpers(build(1, extent, looking(span)))) {
+          expect(h.extent / h.step, `extent ${extent} span ${span}`).toBeLessThanOrEqual(241);
+        }
       }
     }
-  });
-
-  it('spaces the coarse grid on a round multiple, so lines land on readable coordinates', () => {
-    const coarse = helpers(build(1, 10000)).find((h) => h.extent > 9000)!;
-    const ratio = coarse.step / 1;
-    expect([2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]).toContain(Math.round(ratio));
   });
 });

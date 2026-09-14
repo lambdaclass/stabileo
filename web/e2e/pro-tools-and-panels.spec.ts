@@ -17,17 +17,40 @@ import { test, expect } from './fixtures';
  *  · The panel carries the button that arms it, and a second press disarms.
  */
 test.describe('@smoke PRO — one lit button, and drawing from the panel', () => {
-  test('the pointer modes are not in the top bar at all', async ({ pro: page }) => {
-    await expect(page.getByTestId('pr-select'), 'Select is the panel now').toHaveCount(0);
-    await expect(page.getByTestId('pr-pan'), 'Pan lives on the model').toHaveCount(0);
+  test('Move and Select sit beside undo and redo', async ({ pro: page }) => {
+    /* They are about the POINTER, not about the model: every stage selects,
+       so filing Select under MODEL claimed it was a step of building one. */
+    await expect(page.getByTestId('pr-pan')).toBeVisible();
+    await expect(page.getByTestId('pr-select')).toBeVisible();
+    await expect(page.getByTestId('pr-cmd-selection'), 'and not in the Model stage').toHaveCount(0);
   });
 
-  test('what a selection picks up is a panel, like Basic', async ({ pro: page }) => {
-    await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-selection').click();
-    await expect(page.locator('.sel-panel')).toBeVisible();
-    /* Shells are offered here and not in Basic: PRO is where plates live. */
-    await expect(page.locator('.sel-panel').getByText(/placas|plates|shells/i).first()).toBeVisible();
+  test('Select opens the panel, and lights only while that panel is showing',
+    async ({ pro: page }) => {
+      const select = page.getByTestId('pr-select');
+      await select.click();
+      await expect(page.locator('.sel-panel')).toBeVisible();
+      await expect(select).toHaveAttribute('aria-pressed', 'true');
+      /* Shells are offered here and not in Basic: PRO is where plates live. */
+      await expect(page.locator('.sel-panel').getByText(/placas|plates|shells/i).first()).toBeVisible();
+
+      /*
+       * Going to another panel takes the paint off — and leaves the pointer
+       * SELECTING, because nothing has asked it to draw. The tool changes
+       * only when a "Draw …" button says so.
+       */
+      await page.getByTestId('pr-stage-model').click();
+      await page.getByTestId('pr-cmd-nodes').click();
+      await expect(select).toHaveAttribute('aria-pressed', 'false');
+      expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('select');
+    });
+
+  test('Move arms the pan tool and says so', async ({ pro: page }) => {
+    await page.getByTestId('pr-pan').click();
+    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('pan');
+    /* And Select is the way back, from anywhere. */
+    await page.getByTestId('pr-select').click();
+    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('select');
   });
 
   test('opening a table does not arm a tool', async ({ pro: page }) => {
@@ -81,6 +104,9 @@ test.describe('@smoke PRO — plates are one creator', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
 
+    /* One button uses the mouse and it is at the top, like every other
+       panel; the form's own button only ever adds what the boxes hold. */
+    await expect(page.getByTestId('draw-plate')).toBeVisible();
     const add = page.getByTestId('shell-add');
     await expect(add, 'nothing picked yet').toBeDisabled();
 

@@ -263,17 +263,15 @@
   {/if}
   <div class="pro-elems-header">
     <span class="pro-elems-count">{t('pro.nElements').replace('{n}', String(elemCount))}</span>
+    <!-- "Draw a member" works the MODEL; "+ Member" adds a table row, and
+         belongs to the table, which is where Basic keeps it. -->
     <div class="pro-elems-actions">
-      <button class="pro-btn" onclick={addEmptyRow}>{t('pro.addElement')}</button>
-
+      <DrawInModelButton tool="element" label={t('pro.oneElement')} icon="element" testid="draw-element" />
       <button class="pro-btn" class:pro-btn-active={showArc} onclick={() => (showArc = !showArc)}
               data-testid="pro-arc-toggle">{t('pro.curvedMember')}</button>
     </div>
   </div>
 
-  <div class="pro-draw-row">
-    <DrawInModelButton tool="element" label={t('pro.tabElements')} icon="element" testid="draw-element" />
-  </div>
 
   <!--
     ── A curved member, as an arc through three points ────────────────
@@ -435,6 +433,9 @@
         {/if}
       </tbody>
     </table>
+    <div class="pro-table-footer">
+      <button class="pro-btn pro-btn-sm" onclick={addEmptyRow} data-testid="pro-add-element">{t('pro.addElement')}</button>
+    </div>
   </div>
 
   <!--
@@ -573,7 +574,7 @@
     flex-direction: column;
     gap: 6px;
   }
-  .pro-draw-row { padding: 6px 10px 2px; }
+  .pro-table-footer { padding: 6px 10px; border-top: 1px solid var(--st-surface-3); }
 
   .pro-arc-fields { display: flex; gap: 8px; }
   .pro-arc-field { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
