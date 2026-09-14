@@ -76,6 +76,39 @@ describe('zoning and the site', () => {
     expect((s as DesignSpectrum).nv).toBe(1.2);
   });
 
+  it('carries all twelve cells of Tabla 3.1, as printed', () => {
+    /*
+     * The whole table, not the two cells the other assertions happen to touch.
+     *
+     * Ca and Cv scale the entire earthquake, and a mistyped cell is invisible: every
+     * number here is plausible, so a 0,32 where the page prints 0,30 produces a design
+     * that looks exactly as right as the correct one. I checked these against the
+     * printed page by hand and got the check itself wrong twice before getting it
+     * right, which is the argument for writing it down rather than trusting the pass.
+     *
+     * Zones 3 and 4 print Ca and Cv as multiples of Na and Nv, which default to the
+     * floors the table states (1 and 1,2), so the expectation carries that factor.
+     */
+    const printed: Record<1 | 2 | 3, Record<1 | 2 | 3 | 4, [number, number]>> = {
+      1: { 4: [0.37, 0.51], 3: [0.29, 0.39], 2: [0.18, 0.25], 1: [0.09, 0.13] },
+      2: { 4: [0.40, 0.59], 3: [0.32, 0.47], 2: [0.22, 0.32], 1: [0.12, 0.18] },
+      3: { 4: [0.36, 0.90], 3: [0.35, 0.74], 2: [0.30, 0.50], 1: [0.19, 0.26] },
+    };
+    const siteOf: Record<1 | 2 | 3, 'SB' | 'SD' | 'SE'> = { 1: 'SB', 2: 'SD', 3: 'SE' };
+    for (const type of [1, 2, 3] as const) {
+      for (const zone of [1, 2, 3, 4] as const) {
+        const s = spectrumOf(zone, siteOf[type]);
+        const [ca, cv] = printed[type][zone];
+        const nearFault = zone >= 3;
+        expect(s.type, `type for ${siteOf[type]}`).toBe(type);
+        expect(s.ca, `Ca type ${type} zone ${zone}`)
+          .toBeCloseTo(ca * (nearFault ? NA_MIN : 1), 10);
+        expect(s.cv, `Cv type ${type} zone ${zone}`)
+          .toBeCloseTo(cv * (nearFault ? NV_MIN : 1), 10);
+      }
+    }
+  });
+
   it('derives the characteristic periods from [3.13] and [3.14]', () => {
     const s = spectrumOf(4, 'SD');   // type 2: Ca = 0,40, Cv = 0,59 Nv
     expect(s.t2).toBeCloseTo(s.cv / (2.5 * s.ca), 12);
