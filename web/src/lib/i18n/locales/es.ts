@@ -3,8 +3,9 @@ const es: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
+  'landing.linksLabel': 'Contacto y redes',
   'landing.priceFreeDev': 'Gratis durante el desarrollo',
-  'landing.pricingFreeNowNote': 'Hoy es gratis para todos. Queremos que quienes lo usen en esta etapa lo conserven gratis, y para las universidades públicas lo va a ser siempre. Cuando empecemos a cobrarlo, va a ser muy por debajo de lo que cuesta hoy en el mercado.',
+  'landing.pricingFreeNowNote': 'Los módulos de diseño van a ser gratuitos para quienes participen del desarrollo de Stabileo y para las universidades públicas.',
   'landing.pricingAiNote': 'Stabileo IA es una función paga por lo que cuesta sostenerla. A las universidades y a quienes participen del desarrollo queremos darles la opción de conectar la API del modelo de lenguaje que prefieran, y probarla así por su cuenta.',
   'landing.pricePerToken': 'Pago por token',
   'landing.colUnis': 'Universidades',
@@ -16,7 +17,7 @@ const es: Record<string, string> = {
   'landing.shotAiAlt': 'Panel de Stabileo IA: un pedido en lenguaje natural y el cambio que la IA propone antes de aplicarlo.',
   'landing.ebPricing': 'PRECIOS',
   'landing.pricingH': 'Un desarrollo abierto con varias aristas',
-  'landing.pricingP': 'Stabileo es open source y se construye con la comunidad: el código está a la vista, se puede auditar y cualquiera puede participar. Queremos que todas las herramientas de cálculo tradicionales sean de acceso libre, y que las de diseño específico y Stabileo IA ayuden a financiar el proyecto. En cualquier caso, el programa es gratuito para las universidades.',
+  'landing.pricingP': 'Stabileo es open source y se construye con la comunidad: el código está a la vista, se puede auditar y cualquiera puede participar. Queremos que todas las herramientas de cálculo tradicionales sean de acceso libre, y que las de diseño específico y Stabileo IA eventualmente ayuden a financiar el proyecto. En cualquier caso, el programa es gratuito para las universidades.',
   'landing.pricingCommunity': 'El repositorio está abierto. Los aportes, los reportes y las discusiones de diseño son bienvenidos.',
   'landing.figTitle': 'Una carga unitaria recorriendo un reticulado Pratt de seis paneles',
   'landing.figDesc': 'Reticulado Pratt de seis paneles simplemente apoyado: articulación fija en el nodo izquierdo del tablero y móvil en el derecho. Una única carga unitaria descendente recorre el tablero; entre nodos se reparte linealmente entre los dos adyacentes, así la carga total siempre vale uno. Las barras se colorean según el esfuerzo axial resuelto (rojo en tracción, azul en compresión, gris cuando el esfuerzo es casi nulo), con una única escala compartida por todas las posiciones. El contorno gris es el reticulado sin deformar; la deformada está normalizada para que se lea.',
@@ -100,8 +101,6 @@ const es: Record<string, string> = {
   'landing.footRights': 'Software libre bajo AGPL-3.0.',
   'landing.footLaunch': 'Abrir el editor',
   'landing.footSocial': 'Seguinos',
-  'landing.waLabel': 'Escribinos por WhatsApp',
-  'landing.waGreeting': '¡Hola! Te escribo desde stabileo.com.',
 
   'combos.needsRecalcSolve': "Las combinaciones ya no corresponden al modelo — apretá Calcular para volver a resolverlas.",
   'table.showProperties': "Ver propiedades y forma",

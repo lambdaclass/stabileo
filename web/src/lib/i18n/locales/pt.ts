@@ -1,8 +1,9 @@
 import type { Translations } from '../types';
 const pt: Translations = {
   // ─── Landing ───
+  'landing.linksLabel': 'Contato e redes',
   'landing.priceFreeDev': 'Grátis durante o desenvolvimento',
-  'landing.pricingFreeNowNote': 'Hoje é gratuito para todos. Queremos que quem o usar nesta etapa continue com ele de graça, e para as universidades públicas será sempre. Quando começarmos a cobrar, será muito abaixo do que custa hoje no mercado.',
+  'landing.pricingFreeNowNote': 'Os módulos de projeto serão gratuitos para quem participar do desenvolvimento do Stabileo e para as universidades públicas.',
   'landing.pricingAiNote': 'O Stabileo IA é uma função paga pelo que custa mantê-la. Às universidades e a quem participar do desenvolvimento queremos dar a opção de conectar a API do modelo de linguagem que preferirem, e assim testá-la por conta própria.',
   'landing.pricePerToken': 'Pago por token',
   'landing.colUnis': 'Universidades',
@@ -14,7 +15,7 @@ const pt: Translations = {
   'landing.shotAiAlt': 'Painel do Stabileo IA: um pedido em linguagem natural e a mudança que a IA propõe antes de aplicá-la.',
   'landing.ebPricing': 'PREÇOS',
   'landing.pricingH': 'Um desenvolvimento aberto com várias arestas',
-  'landing.pricingP': 'O Stabileo é open source e se constrói com a comunidade: o código está à vista, pode ser auditado e qualquer pessoa pode participar. Queremos que todas as ferramentas de cálculo tradicionais tenham acesso livre, e que as de projeto específico e o Stabileo IA ajudem a financiar o projeto. De todo modo, o programa é gratuito para as universidades.',
+  'landing.pricingP': 'O Stabileo é open source e se constrói com a comunidade: o código está à vista, pode ser auditado e qualquer pessoa pode participar. Queremos que todas as ferramentas de cálculo tradicionais tenham acesso livre, e que as de projeto específico e o Stabileo IA eventualmente ajudem a financiar o projeto. De todo modo, o programa é gratuito para as universidades.',
   'landing.pricingCommunity': 'O repositório está aberto. Contribuições, reportes e discussões de projeto são bem-vindos.',
   'landing.figTitle': 'Uma carga unitária percorrendo uma treliça Pratt de seis painéis',
   'landing.figDesc': 'Treliça Pratt de seis painéis simplesmente apoiada: apoio fixo no nó esquerdo do banzo e móvel no direito. Uma única carga unitária descendente percorre o banzo; entre nós ela se distribui linearmente entre os dois adjacentes, de modo que a carga total sempre vale um. As barras são coloridas segundo o esforço axial resolvido (vermelho em tração, azul em compressão, cinza quando o esforço é quase nulo), com uma única escala compartilhada por todas as posições. O contorno cinza é a treliça sem deformar; a deformada está normalizada para que se leia.',
@@ -98,8 +99,6 @@ const pt: Translations = {
   'landing.footRights': 'Software livre sob AGPL-3.0.',
   'landing.footLaunch': 'Abrir o editor',
   'landing.footSocial': 'Siga-nos',
-  'landing.waLabel': 'Fale conosco no WhatsApp',
-  'landing.waGreeting': 'Olá! Escrevo de stabileo.com.',
 
   /*
    * One flat, alphabetically sorted map, and the union of two branches

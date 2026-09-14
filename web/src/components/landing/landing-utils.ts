@@ -108,6 +108,15 @@ export async function fetchGithubStars(): Promise<number | null> {
  * disagree about an address. External and untrusted in the ordinary sense:
  * every anchor built from these carries `rel="noreferrer"`.
  */
+/**
+ * The hub the corner button opens: WhatsApp and every account in one place.
+ *
+ * Kept beside SOCIAL_LINKS rather than inside it — the footer lists the
+ * accounts themselves, and a link to the list of them does not belong in the
+ * list.
+ */
+export const LINKTREE_URL = 'https://linktr.ee/stabileo';
+
 export const SOCIAL_LINKS = [
   // The handle, not the platform. Someone scanning a footer already knows what
   // Instagram is; what they do not know is what to search for.

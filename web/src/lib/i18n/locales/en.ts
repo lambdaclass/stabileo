@@ -3,8 +3,9 @@ const en: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
+  'landing.linksLabel': 'Contact and socials',
   'landing.priceFreeDev': 'Free while in development',
-  'landing.pricingFreeNowNote': 'Free for everyone today. We want anyone using it at this stage to keep it free, and for public universities it always will be. When we do start charging, it will be far below what the market costs today.',
+  'landing.pricingFreeNowNote': 'The design modules will be free for anyone taking part in Stabileo’s development, and for public universities.',
   'landing.pricingAiNote': 'Stabileo AI is a paid feature because of what it costs to run. Universities, and anyone taking part in its development, will be able to plug in the language-model API of their choice and try it that way.',
   'landing.pricePerToken': 'Paid per token',
   'landing.colUnis': 'Universities',
@@ -16,7 +17,7 @@ const en: Record<string, string> = {
   'landing.shotAiAlt': 'The Stabileo AI panel: a request in plain language and the change the AI proposes before it is applied.',
   'landing.ebPricing': 'PRICING',
   'landing.pricingH': 'An open project with several sides to it',
-  'landing.pricingP': 'Stabileo is open source and built with its community: the code is in the open, it can be audited, and anyone can take part. We want every traditional analysis tool to be freely available, and the specific design tools and Stabileo AI to help fund the project. Either way, the program is free for universities.',
+  'landing.pricingP': 'Stabileo is open source and built with its community: the code is in the open, it can be audited, and anyone can take part. We want every traditional analysis tool to be freely available, and the specific design tools and Stabileo AI to eventually help fund the project. Either way, the program is free for universities.',
   'landing.pricingCommunity': 'The repository is open. Contributions, reports and design discussions are welcome.',
   'landing.figTitle': 'A unit load moving across a six-panel Pratt deck truss',
   'landing.figDesc': 'Simply supported six-panel Pratt truss: pinned at the left deck node, roller at the right. A single downward unit load travels along the deck; between panel points it is split linearly between the two adjacent nodes, so the total load is always one. Members are coloured by the solved axial force (red in tension, blue in compression, grey when the force is near zero), on one fixed scale shared by every position. The grey outline is the undeformed truss; the deflected shape is normalised for legibility.',
@@ -100,8 +101,6 @@ const en: Record<string, string> = {
   'landing.footRights': 'Free software under AGPL-3.0.',
   'landing.footLaunch': 'Open the editor',
   'landing.footSocial': 'Follow us',
-  'landing.waLabel': 'Message us on WhatsApp',
-  'landing.waGreeting': 'Hi! I am writing from stabileo.com.',
 
   'combos.needsRecalcSolve': "The combinations no longer match the model — press Calculate to run them again.",
   'table.showProperties': "Show properties and shape",

@@ -580,18 +580,17 @@ test.describe('@landing landing page', () => {
   });
 
 
-  test('the contact button opens a chat with the configured number', async ({ page }) => {
-    await bootLanding(page);
+  test('the corner button opens the link hub, not one channel', async ({ page }) => {
+    await bootLanding(page, { locale: 'es' });
 
-    const fab = page.locator('.landing .wa-fab');
+    const fab = page.locator('.landing .links-fab');
     await expect(fab).toBeVisible();
-    // Digits only. wa.me accepts a `+` or a space without complaining and then
-    // opens WhatsApp on an invalid contact, so the failure is silent.
-    await expect(fab).toHaveAttribute('href', /^https:\/\/wa\.me\/\d{8,15}\?text=/);
+    await expect(fab).toHaveAttribute('href', 'https://linktr.ee/stabileo');
     await expect(fab).toHaveAttribute('target', '_blank');
     await expect(fab).toHaveAttribute('rel', 'noreferrer');
-    // Icon-only, so the accessible name has to carry it.
-    await expect(fab).toHaveAttribute('aria-label', /whatsapp/i);
+    // Icon-only, so the accessible name has to carry it — and it must promise
+    // the hub rather than a platform, since WhatsApp is one of five behind it.
+    await expect(fab).toHaveAttribute('aria-label', 'Contacto y redes');
   });
 
   test('the contact button never covers the mobile action bar', async ({ page }) => {
@@ -600,7 +599,7 @@ test.describe('@landing landing page', () => {
     await page.setViewportSize({ width: 390, height: 780 });
     await bootLanding(page);
 
-    const fab = (await page.locator('.landing .wa-fab').boundingBox())!;
+    const fab = (await page.locator('.landing .links-fab').boundingBox())!;
     const bar = (await page.locator('.landing .mobile-sticky').boundingBox())!;
     expect(fab.y + fab.height).toBeLessThanOrEqual(bar.y);
   });
