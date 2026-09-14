@@ -153,6 +153,43 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(1);
     await expect(page.locator('.landing a[href="/demo"]')).toHaveCount(0);
     await expect(page.locator('.landing .hero-blog')).toBeVisible();
+
+    /*
+     * And the first screen is already the right one.
+     *
+     * The brand scrolls to the hero, and the hero is the top of the page, so
+     * pressing it should do nothing at all. It used to move the page down by
+     * the height of the sticky nav — which is to say the page opened with
+     * that much dead air above the title, and clicking the logo removed it.
+     * Asserted through the title's position rather than scrollTop, because
+     * the fix has two halves (the padding and the scroll margin) and only
+     * the title's position covers both.
+     */
+    const titleTop = () => page.locator('.landing .hero h1').evaluate((el) => el.getBoundingClientRect().top);
+    const onOpen = await titleTop();
+    await page.locator('.landing .nav-brand').click();
+    await page.waitForTimeout(700); // smooth scroll, if any happens
+    expect(Math.abs((await titleTop()) - onOpen)).toBeLessThan(2);
+
+    /*
+     * ...and it ends on the fold, not on a seam. The hero is the only dark
+     * section at the top of the page; the one under it is paper. Raising the
+     * title shortened the hero, and a strip of that white ground appeared at
+     * the bottom of the first screen, which reads as a rendering fault rather
+     * than as a page that continues.
+     *
+     * On a tall window, deliberately: the default 720px one is shorter than
+     * the hero's own content, so the seam falls below the fold there whether
+     * or not anything guarantees it, and the assertion would pass against the
+     * exact defect it is here for.
+     */
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const seam = await page.evaluate(() => {
+      const hero = document.querySelector('.landing .hero')!;
+      const next = hero.nextElementSibling!;
+      return { nextTop: next.getBoundingClientRect().top, fold: document.querySelector('.landing')!.clientHeight };
+    });
+    expect(seam.nextTop).toBeGreaterThanOrEqual(seam.fold);
   });
 
   test('the nav locale switcher changes the rendered copy', async ({ page }) => {

@@ -105,6 +105,20 @@
   --lp-gut: clamp(1.25rem, 5.7vw, 6.5rem);
   --lp-max: 1360px;
   --lp-radius: 3px;
+
+  /*
+     The height of the sticky header, as a number the hero can subtract.
+
+     The nav is sticky at the top, so it takes this much layout height AND
+     stays over the page. The hero then added its own full section padding
+     underneath, which is why the first paint opened with a gap nobody asked
+     for: the header's band and the section's air, stacked. See `.hero`.
+
+     Kept as a token rather than measured, because the value only has to be
+     close: it is subtracted under a `max()` floor, so being a few pixels off
+     on a narrow screen moves the title by those pixels and nothing else.
+  */
+  --lp-nav-h: 3.6rem;
 }
 
 /* ─── SHELL ──────────────────────────────────────────────────────────────── */
@@ -570,9 +584,45 @@
 
 /* ─── HERO ───────────────────────────────────────────────────────────────── */
 
+/*
+   The section the page opens on, and the only one that starts on screen.
+
+   Every other section is reached by a click, arriving under the sticky nav
+   with its own padding as the clearance. The hero starts already at the top,
+   so the nav's band sits above its padding instead of over it, and the two
+   added up — the title opened 148px down and rose to 90px the moment anyone
+   clicked the brand, which is the gap this subtraction removes.
+
+   `max()` is the floor: if the header is ever taller than the token says,
+   the hero keeps a minimum of air rather than going negative.
+*/
 .landing .hero {
-  padding-top: clamp(3.5rem, 7vw, 6.5rem);
+  padding-top: max(1.75rem, clamp(3.5rem, 7vw, 6.5rem) - var(--lp-nav-h));
   padding-bottom: clamp(3.5rem, 7vw, 7rem);
+  /*
+     ...and clicking the brand must not put it back. `scrollIntoView` aligns
+     the section's top with the container's, and the hero's top is the nav's
+     height down the page, so without this the brand scrolled by exactly the
+     band it was trying to sit under. The same token, cancelling itself.
+  */
+  scroll-margin-top: var(--lp-nav-h);
+  /*
+     The dark ground reaches the fold, whatever is in it.
+
+     Trimming the padding above moved the title up and the section's end with
+     it, so the first screen ended in a white sliver of the section below —
+     the page opened on a seam. The hero now spans at least the screen minus
+     the header, which puts that seam exactly where scrolling starts.
+
+     `svh` and not `dvh`: on a phone the dynamic unit shrinks as the address
+     bar retracts, so a hero sized to it would re-lay-out mid-scroll. The
+     small viewport is the one the page is first painted into, which is the
+     moment this is about. `border-box` because the landing sets no global
+     box-sizing, and the section's padding is most of its height.
+  */
+  box-sizing: border-box;
+  min-height: calc(100vh - var(--lp-nav-h));
+  min-height: calc(100svh - var(--lp-nav-h));
 }
 
 .landing .hero-grid {
