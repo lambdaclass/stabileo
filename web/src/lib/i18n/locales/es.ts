@@ -5030,6 +5030,7 @@ const es: Record<string, string> = {
   'conn.utilization': 'Utilización',
 
   // ─── Auto Load Generation (CIRSOC 101/103) ───
+  'autoLoad.defineFromCode': 'Definir esta carga desde el reglamento',
   'autoLoad.deadTotal': 'Carga permanente total: {total} kN/m²',
   'autoLoad.isPartition': 'tabiques',
   'autoLoad.site': 'Tipo de sitio',

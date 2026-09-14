@@ -33,12 +33,24 @@
   import { BEHAVIOUR_TABLE_2018, findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
   import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
 
+  /** Which load the reader came in to define. */
+  export type AutoLoadFocus = 'dead' | 'live' | 'wind' | 'seismic';
+
   interface Props {
     open: boolean;
     onclose: () => void;
+    /**
+     * Open with one load's parameters in front of the reader.
+     *
+     * The dialog does all four at once, which is right when you are setting a project
+     * up and wrong when you are adding wind to one that already has its gravity loads.
+     * A case row in the loads table asks for ITS regulation, and the section it asks
+     * for is turned on and scrolled to rather than hunted for.
+     */
+    focus?: AutoLoadFocus | null;
   }
 
-  let { open, onclose }: Props = $props();
+  let { open, onclose, focus = null }: Props = $props();
 
   // ─── Design code definitions ─────────
 
@@ -126,6 +138,25 @@
   // ─── Options ───────────────────────────
   let genCombos = $state(true);
   let clearExisting = $state(false);
+
+  /* The fieldsets, so a focused open can bring one into view. */
+  let windFieldset = $state<HTMLElement | null>(null);
+  let seismicFieldset = $state<HTMLElement | null>(null);
+  let deadFieldset = $state<HTMLElement | null>(null);
+  let liveFieldset = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (!open || !focus) return;
+    /* Turning the section ON is the point: arriving at a disabled wind block from a
+       row that says "W" is arriving nowhere. */
+    if (focus === 'wind' && windAvailable) enableWind = true;
+    if (focus === 'seismic' && seismicAvailable) enableSeismic = true;
+    const el = focus === 'wind' ? windFieldset
+      : focus === 'seismic' ? seismicFieldset
+      : focus === 'live' ? liveFieldset
+      : deadFieldset;
+    el?.scrollIntoView({ block: 'start' });
+  });
 
   /** The plan is built first and applied only after the user confirms. */
   let plan = $state<LoadPlan | null>(null);
@@ -363,13 +394,13 @@
       </fieldset>
 
       <!-- Dead Loads -->
-      <fieldset class="al-fieldset">
+      <fieldset class="al-fieldset" bind:this={deadFieldset} data-testid="al-dead-section">
         <legend>{t('autoLoad.deadLoads')} ({totalDead.toFixed(2)} kN/m²)</legend>
         <ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} />
       </fieldset>
 
       <!-- Live Loads -->
-      <fieldset class="al-fieldset">
+      <fieldset class="al-fieldset" bind:this={liveFieldset} data-testid="al-live-section">
         <legend>{t('autoLoad.liveLoads')} ({occupancyQ} kN/m²)</legend>
         <select bind:value={selectedOccupancy} class="al-select">
           {#each OCCUPANCY_TABLE_2025 as occ}
@@ -379,7 +410,7 @@
       </fieldset>
 
       <!-- Seismic -->
-      <fieldset class="al-fieldset">
+      <fieldset class="al-fieldset" bind:this={seismicFieldset} data-testid="al-seismic-section">
         <legend>
           <label class="al-check-legend">
             <input type="checkbox" bind:checked={enableSeismic}
@@ -550,7 +581,7 @@
       </fieldset>
 
       <!-- Wind -->
-      <fieldset class="al-fieldset">
+      <fieldset class="al-fieldset" bind:this={windFieldset} data-testid="al-wind-section">
         <legend>
           <label class="al-check-legend">
             <input type="checkbox" bind:checked={enableWind}

@@ -4,6 +4,7 @@
   import { t } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import ProAutoLoadsDialog from './ProAutoLoadsDialog.svelte';
+  import type { AutoLoadFocus } from './ProAutoLoadsDialog.svelte';
 
   let showAutoLoadsDialog = $state(false);
 
@@ -492,6 +493,24 @@
    * belongs to a case, so the case is chosen before the load exists.
    */
   let loadSection = $state('cases');
+
+  /**
+   * Which of the dialog's four sections a case row asks for.
+   *
+   * `Lr` and `S` map to nothing: the generator covers dead, imposed, wind and seismic,
+   * and a button that opened a dialog with no roof-live or snow section in it would be
+   * promising something that is not there. Returning null hides the button instead.
+   */
+  function codeFocusFor(type: string | undefined): AutoLoadFocus | null {
+    switch ((type ?? '').toUpperCase()) {
+      case 'D': return 'dead';
+      case 'L': return 'live';
+      case 'W': return 'wind';
+      case 'E': return 'seismic';
+      default: return null;
+    }
+  }
+  let autoLoadsFocus = $state<AutoLoadFocus | null>(null);
 </script>
 
 <div class="pro-loads">
@@ -503,7 +522,8 @@
       onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
   </div>
 
-  <ProAutoLoadsDialog open={showAutoLoadsDialog} onclose={() => showAutoLoadsDialog = false} />
+  <ProAutoLoadsDialog open={showAutoLoadsDialog} focus={autoLoadsFocus}
+    onclose={() => { showAutoLoadsDialog = false; autoLoadsFocus = null; }} />
 
   <!-- Load Cases Management (collapsible) -->
   <div class="pro-cases-section">
@@ -559,13 +579,14 @@
       <button class="pro-vis-btn" onclick={hideAllCases} title={t('pro.hideAll')}>{t('pro.hideAll')}</button>
     </div>
     <table class="pro-lc-table">
-      <thead><tr><th></th><th>{t('pro.lcType')}</th><th>{t('pro.lcName')}</th><th>{t('pro.lcLoads')}</th><th></th><th></th></tr></thead>
+      <thead><tr><th></th><th>{t('pro.lcType')}</th><th>{t('pro.lcName')}</th><th>{t('pro.lcLoads')}</th><th title={t('autoLoad.defineFromCode')}>§</th><th></th><th></th></tr></thead>
       <tbody>
         <tr class="sw-row" class:sw-active={uiStore.includeSelfWeight}>
           <td><input type="checkbox" class="sw-check" bind:checked={uiStore.includeSelfWeight} /></td>
           <td class="lc-type">D</td>
           <td class="lc-name">{t('pro.selfWeight')} <span class="sw-auto-badge">{uiStore.includeSelfWeight ? t('pro.swOn') : t('pro.swOff')}</span></td>
           <td class="lc-count">—</td>
+          <td></td>
           <td></td>
           <td></td>
         </tr>
@@ -576,6 +597,21 @@
             <td class="lc-type"><select class="lc-type-select" value={lc.type} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCaseType(lc.id, e.currentTarget.value)}><option value="D">D</option><option value="L">L</option><option value="Lr">Lr</option><option value="W">W</option><option value="E">E</option><option value="S">S</option><option value="">—</option></select></td>
             <td class="lc-name"><input class="lc-name-input" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} /></td>
             <td class="lc-count">{caseLoadCount}</td>
+            <!--
+              The regulation for THIS case, from the row that names it.
+              ──────────────────────────────────────────────────────────
+              There was one "generate from code" button for the whole project, which is
+              right while setting a project up and wrong once it has its gravity loads
+              and needs wind. A reader looking at a row that says W wants the wind
+              parameters, not a dialog where they are the fourth section down and off.
+            -->
+            <td class="lc-code">{#if codeFocusFor(lc.type)}<button
+              class="lc-code-btn"
+              onclick={(e) => { e.stopPropagation(); autoLoadsFocus = codeFocusFor(lc.type); showAutoLoadsDialog = true; }}
+              title={t('autoLoad.defineFromCode')}
+              aria-label={t('autoLoad.defineFromCode')}
+              data-testid="lc-code-{lc.type}"
+            >§</button>{/if}</td>
             <td class="lc-vis"><button class="lc-vis-btn" class:visible={isCaseVisible(lc.id)} class:hidden-case={!isCaseVisible(lc.id)} onclick={(e) => { e.stopPropagation(); toggleCaseVisibility(lc.id); }} title={isCaseVisible(lc.id) ? t('pro.hideCase') : t('pro.showCase')}>👁</button></td>
             <td class="lc-del">{#if loadCases.length > 1}<button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }}>×</button>{/if}</td>
           </tr>
@@ -1006,6 +1042,14 @@
   .pro-lc-table .sw-row.sw-active { opacity: 0.85; }
   .sw-check { cursor: pointer; accent-color: var(--st-text-2); }
   .lc-type { width: 40px; }
+  /* One character, because the column header is one character: the section sign
+     is what a reader looks for when they want the clause. */
+  .lc-code { width: 20px; text-align: center; }
+  .lc-code-btn {
+    background: none; border: none; color: var(--st-text-3);
+    font-size: 0.8rem; line-height: 1; cursor: pointer; padding: 0 2px;
+  }
+  .lc-code-btn:hover { color: var(--st-accent); }
   .lc-type-select { background: transparent; border: 1px solid transparent; border-radius: 3px; color: var(--st-text-2); font-size: 0.7rem; padding: 1px 2px; cursor: pointer; }
   .lc-type-select:hover { border-color: var(--st-surface-3); }
   .lc-type-select:focus { background: var(--st-surface-3); border-color: var(--st-surface-3); outline: none; }

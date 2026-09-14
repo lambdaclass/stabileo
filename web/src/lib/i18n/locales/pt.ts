@@ -135,6 +135,7 @@ const pt: Translations = {
   'app.tools': 'Ferramentas',
   'app.undoLastAction': 'Desfazer última ação',
   'app.viewKinematic': 'Ver Análise Cinemática',
+  'autoLoad.defineFromCode': 'Definir esta carga pelo regulamento',
   'autoLoad.deadTotal': 'Carga permanente total: {total} kN/m²',
   'autoLoad.isPartition': 'divisórias',
   'autoLoad.site': 'Tipo de sítio',

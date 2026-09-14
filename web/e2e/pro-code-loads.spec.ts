@@ -123,3 +123,41 @@ test.describe('@smoke seismic comes from INPRES-CIRSOC 103 (2018)', () => {
     await expect(page.getByTestId('al-no-r')).toHaveCount(0);
   });
 });
+
+test.describe('@smoke the regulation for one load, from the row that names it', () => {
+  /*
+   * One "generate from code" button for the whole project is right while setting a
+   * project up and wrong once it has its gravity loads and needs wind: the wind
+   * parameters are the fourth section down and switched off.
+   */
+  test('a W case opens the dialog with wind on and in view', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+
+    await page.getByTestId('lc-code-W').first().click();
+    await expect(page.getByTestId('al-wind-section')).toBeVisible();
+    await expect(page.getByTestId('al-enable-wind')).toBeChecked();
+  });
+
+  test('a D case opens on the permanent load, which needs no role to be bound',
+    async ({ pro: page }) => {
+      await loadModel(page, 'rc-design-qa-8');
+      await page.getByTestId('pr-stage-model').click();
+      await page.getByTestId('pr-cmd-loads').click();
+
+      await page.getByTestId('lc-code-D').first().click();
+      await expect(page.getByTestId('al-dead-section')).toBeVisible();
+      await expect(page.getByTestId('dead-picker')).toBeVisible();
+    });
+
+  test('a case the generator does not cover offers no button at all', async ({ pro: page }) => {
+    /* Lr and S have no section in the dialog. A button that opened one promising a
+       roof-live or snow block would be promising something that is not there. */
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await expect(page.getByTestId('lc-code-Lr')).toHaveCount(0);
+    await expect(page.getByTestId('lc-code-S')).toHaveCount(0);
+  });
+});
