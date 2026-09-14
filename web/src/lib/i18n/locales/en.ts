@@ -5093,7 +5093,7 @@ const en: Record<string, string> = {
   'autoLoad.sysOther': 'Other',
   'autoLoad.dirX': 'Direction X',
   'autoLoad.dirZ': 'Direction Z',
-  'autoLoad.preview': 'Seismic preview',
+  'autoLoad.preview': 'Preview the plan',
   'autoLoad.options': 'Options',
   'autoLoad.genCombos': 'Generate combinations per code',
   'autoLoad.clearExisting': 'Clear existing loads',

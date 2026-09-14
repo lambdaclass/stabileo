@@ -780,8 +780,14 @@
   .al-delta { width: 100%; border-collapse: collapse; margin: 0.3rem 0; }
   .al-delta th, .al-delta td { border: 1px solid var(--st-surface-3); padding: 0.15rem 0.4rem; text-align: right; }
   .al-delta th:first-child, .al-delta td:first-child { text-align: left; }
-  .al-warn { background: var(--st-surface-3); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; }
-  .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; }
+  /*
+     11 px, like every other piece of body text in this dialog. Without a size these
+     two inherited the dialog's base and came out as the LARGEST text on screen —
+     "seismic loads need a seismic regulation bound" shouting over the numbers the
+     reader is there to set.
+  */
+  .al-warn { background: var(--st-surface-3); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
+  .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
   .al-list { margin: 0.2rem 0 0; padding-left: 1.1rem; }
   .al-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; }
   .al-row label { min-width: 11rem; }

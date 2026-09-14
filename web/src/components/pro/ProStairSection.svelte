@@ -303,12 +303,14 @@
   }
   .input-row { display: flex; align-items: center; gap: 8px; }
   .input-row label { font-size: 0.75rem; color: var(--st-text-3); flex-shrink: 0; }
+  /* Wide enough for 0,175 — at 62 px the last digit was being clipped, which on a
+     riser is the difference between two stairs. */
   .num, .node-input {
-    width: 62px; padding: 4px 6px; background: var(--st-surface);
+    width: 74px; padding: 4px 6px; background: var(--st-surface);
     border: 1px solid var(--st-surface-3); border-radius: 3px;
     color: var(--st-text); font-size: 0.78rem; font-family: monospace; text-align: center;
   }
-  .node-input { width: 48px; }
+  .node-input { width: 52px; }
   .mat-select {
     flex: 1; padding: 4px 6px; background: var(--st-surface);
     border: 1px solid var(--st-surface-3); border-radius: 3px;

@@ -214,7 +214,7 @@ const pt: Translations = {
   'autoLoad.openRegulations': 'Abrir Normas do projeto',
   'autoLoad.options': 'Opções',
   'autoLoad.pendingRegulation': 'Há uma alteração de norma pendente. Pré-visualize e aplique para regerar as cargas.',
-  'autoLoad.preview': 'Pré-visualização sísmica',
+  'autoLoad.preview': 'Ver o plano de cargas',
   'autoLoad.previewStale': 'A pré-visualização já não corresponde à opção "substituir cargas existentes". Pré-visualize novamente antes de aplicar.',
   'autoLoad.previewTitle': 'Antes e depois',
   'autoLoad.quantity': 'Quantidade',

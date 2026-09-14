@@ -5086,7 +5086,7 @@ const es: Record<string, string> = {
   'autoLoad.sysOther': 'Otro',
   'autoLoad.dirX': 'Dirección X',
   'autoLoad.dirZ': 'Dirección Z',
-  'autoLoad.preview': 'Vista previa sísmica',
+  'autoLoad.preview': 'Ver el plan de cargas',
   'autoLoad.options': 'Opciones',
   'autoLoad.genCombos': 'Generar combinaciones según norma',
   'autoLoad.clearExisting': 'Limpiar cargas existentes',
