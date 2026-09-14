@@ -50,6 +50,43 @@ describe('the bounds a node pick is tested against', () => {
     expect(n.mesh.boundingSphere).toBeNull();
   });
 
+  it('are thrown away when the mesh is emptied', () => {
+    const n = new NodesInstanced();
+    n.upsert(1, 0, 0, 0);
+    cacheBounds(n);
+    n.clear();
+    expect(n.mesh.boundingSphere).toBeNull();
+  });
+
+  it('leaves no mutator able to keep a stale sphere', () => {
+    /*
+     * The rule, rather than its four instances.
+     *
+     * Each test above names one mutator, so a fifth added later is covered by none of them —
+     * and `clear` was exactly that: it emptied the mesh and left the sphere, harmless only
+     * because the next `add` happened to invalidate. This walks every public method that
+     * changes what is drawn and asserts the sphere did not survive it, so the omission shows
+     * up here rather than as a click that does nothing.
+     */
+    const mutate: Array<[string, (n: NodesInstanced) => void]> = [
+      ['upsert (add)', (n) => n.upsert(2, 5, 0, 0)],
+      ['upsert (move)', (n) => n.upsert(1, 9, 0, 0)],
+      ['remove', (n) => n.remove(1)],
+      ['setRadius', (n) => n.setRadius(0.4)],
+      ['clear', (n) => n.clear()],
+    ];
+
+    for (const [name, apply] of mutate) {
+      const n = new NodesInstanced();
+      n.upsert(1, 0, 0, 0);
+      cacheBounds(n);
+      expect(n.mesh.boundingSphere, `${name}: precondition`).not.toBeNull();
+
+      apply(n);
+      expect(n.mesh.boundingSphere, `${name} left a stale sphere behind`).toBeNull();
+    }
+  });
+
   it('once recomputed, actually contain the nodes', () => {
     const n = new NodesInstanced();
     n.upsert(1, 0, 0, 0);

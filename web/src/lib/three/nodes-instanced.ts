@@ -211,6 +211,19 @@ export class NodesInstanced {
     this.baseColorById.clear();
     this.count = 0;
     this.mesh.count = 0;
+    /*
+     * Emptying the mesh is a change of extent like any other.
+     *
+     * This one is harmless on its own — a stale sphere left behind by `clear` is LARGER than
+     * the nothing that remains, so a ray passes the sphere test and then finds zero instances,
+     * which is the right answer — and the first `upsert` after it invalidates anyway.
+     *
+     * It is called because the rule is worth more than the exemption. Four mutators invalidate,
+     * and this one relying on `upsert` to cover it is a fact about today's call order, not
+     * about this class; the next mutator someone writes will copy whichever pattern it finds.
+     * The cost is one recompute that the next raycast was going to pay regardless.
+     */
+    this.invalidateBounds();
   }
 
   /**
