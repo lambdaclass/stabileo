@@ -37,10 +37,8 @@
  */
 
 import {
-  EPSILON_CU, beta1, phiFromStrain, axialCap, COLUMN_STEEL_RATIO,
+  EPSILON_CU, ES_MPA, beta1, phiFromStrain, yieldStrain, axialCap, COLUMN_STEEL_RATIO,
 } from './cirsoc201-basis';
-
-const ES_KPA = 200_000 * 1000; // kN/m²
 
 
 export interface CircularParams {
@@ -142,7 +140,7 @@ function pointAt(p: CircularParams, c: number): CircularPoint {
   const fy_kPa = fy * 1000;
   const R = D / 2;
   const b1 = beta1(fc);
-  const ey = fy / 200_000;
+  const ey = yieldStrain(fy);
 
   const a = Math.min(b1 * c, D);
   const seg = circularSegment(D, a);
@@ -156,7 +154,7 @@ function pointAt(p: CircularParams, c: number): CircularPoint {
   let epsMostTensile = 0;
   for (const bar of bars) {
     const eps = c > 1e-6 ? (EPSILON_CU * (c - bar.d)) / c : -10 * ey;
-    const fs = Math.max(-fy_kPa, Math.min(fy_kPa, eps * ES_KPA)); // kN/m²
+    const fs = Math.max(-fy_kPa, Math.min(fy_kPa, eps * ES_MPA * 1000)); // kN/m²
     let F = AsBar * fs; // + compression
     if ((p.deductDisplacedConcrete ?? true) && eps > 0 && bar.d <= a) {
       F -= AsBar * 0.85 * fc_kPa;
@@ -197,7 +195,7 @@ export function generateCircularInteraction(p: CircularParams): CircularDiagram 
   const nPts = p.nPoints ?? 40;
   const R = D / 2;
   const dt = R + (R - cover); // depth to the outermost bar on the tension side
-  const ey = fy / 200_000;
+  const ey = yieldStrain(fy);
 
   const cs: number[] = [10 * D];
   for (let i = 0; i <= nPts; i++) {

@@ -6,7 +6,7 @@
 
 import { REBAR_DB } from './cirsoc201';
 import type { VerifStatus } from './cirsoc201';
-import { beta1, yieldStrain } from './cirsoc201-basis';
+import { beta1, yieldStrain, phiFromStrain } from './cirsoc201-basis';
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ function computeAsFlexure(
   let rho: number;
   if (term >= 1) {
     // Section too thin — use ρ_max
-    rho = 0.75 * beta1(fc) * 0.85 * fc / fy * (0.003 / (0.003 + fy / 200000));
+    rho = 0.75 * beta1(fc) * 0.85 * fc / fy * (0.003 / (0.003 + yieldStrain(fy)));
   } else {
     rho = (0.85 * fc / fy) * (1 - Math.sqrt(1 - term));
   }
@@ -124,13 +124,7 @@ function computeAsFlexure(
      * spelled out here with 0.0021 — the yield strain of a 420 bar — which
      * is right for that bar and only that one; see `cirsoc201-basis.ts`.
      */
-    if (epsilonT >= 0.005) {
-      phi = 0.9;
-    } else if (epsilonT >= yieldStrain(fy)) {
-      phi = 0.65 + 0.25 * (epsilonT - yieldStrain(fy)) / (0.005 - yieldStrain(fy));
-    } else {
-      phi = 0.65;
-    }
+    phi = phiFromStrain(epsilonT, fy);
   }
 
   return { As, a, phi };

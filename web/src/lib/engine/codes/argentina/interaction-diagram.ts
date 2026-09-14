@@ -1,4 +1,7 @@
-import { beta1 } from './cirsoc201-basis';
+import {
+  beta1, phiFromStrain, yieldStrain,
+  EPSILON_CU, ES_MPA, PHI_TENSION, PHI_COMPRESSION_TIED,
+} from './cirsoc201-basis';
 // P-M Interaction Diagram Generator
 // Generates point-by-point interaction diagrams for reinforced concrete sections
 // per CIRSOC 201 (based on ACI 318). Does NOT modify the solver.
@@ -40,10 +43,6 @@ export interface DiagramParams {
   nPoints?: number; // default 40
 }
 
-const PHI_TENSION = 0.90;
-const PHI_COMPRESSION = 0.65;
-const EPSILON_CU = 0.003; // concrete ultimate strain
-
 
 /**
  * Generate P-M interaction diagram for a rectangular section
@@ -59,7 +58,7 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
   const b1 = beta1(fc);
   const fc_kPa = fc * 1000;     // kN/m²
   const fy_kPa = fy * 1000;     // kN/m²
-  const Es = 200000 * 1000;     // kN/m² (200 GPa)
+  const Es = ES_MPA * 1000;     // kN/m² (200 GPa)
 
   /*
    * §10.3.6's ceiling, computed ONCE.
@@ -76,7 +75,7 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
   const Ag = b * h;
   const Ast = AsProv * 1e-4;
   const Pn0 = 0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast;
-  const phiPnMax = PHI_COMPRESSION * 0.80 * Pn0;
+  const phiPnMax = PHI_COMPRESSION_TIED * 0.80 * Pn0;
 
   const points: InteractionPoint[] = [];
   let balancedPt: InteractionPoint | null = null;
@@ -95,7 +94,7 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
   }
 
   // Add balanced point explicitly: c_b = d × εcu / (εcu + εy)
-  const ey = fy / 200000;
+  const ey = yieldStrain(fy);
   const cb = d * EPSILON_CU / (EPSILON_CU + ey);
   cValues.push(cb);
 
@@ -127,17 +126,8 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
     const Pn = Cc + CsPrime - Ts; // kN (+ = compression)
     const Mn = Cc * (h / 2 - aEff / 2) + CsPrime * (h / 2 - dPrime) + Ts * (d - h / 2); // kN·m
 
-    // Determine φ based on strain in tension steel
-    let phi: number;
-    const epsT = Math.abs(eps);
-    if (epsT >= 0.005) {
-      phi = PHI_TENSION; // tension-controlled
-    } else if (epsT <= ey) {
-      phi = PHI_COMPRESSION; // compression-controlled
-    } else {
-      // Transition zone: linear interpolation
-      phi = PHI_COMPRESSION + (PHI_TENSION - PHI_COMPRESSION) * (epsT - ey) / (0.005 - ey);
-    }
+    // Determine φ based on strain in tension steel — the one ramp, tied section
+    const phi = phiFromStrain(Math.abs(eps), fy);
 
     // Max axial: φPn ≤ 0.80·φC·Pn0 (§10.3.6) — a ceiling, not a factor
     const phiPn = Math.min(phi * Pn, phiPnMax);

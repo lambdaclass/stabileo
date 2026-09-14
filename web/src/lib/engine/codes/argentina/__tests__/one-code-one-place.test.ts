@@ -67,16 +67,53 @@ describe('the shared clauses have exactly one home', () => {
 
   it('nobody hardcodes the yield strain of a 420 bar', () => {
     /*
-     * The literal that caused it. §10.3.3 wants fy/Es, and 0.0021 is that
+     * The literal that caused it, in every spelling seen or plausible:
+     * 0.0021, .0021, 21e-4. §10.3.3 wants fy/Es, and any of these is that
      * number for one particular bar — correct until somebody types 500 into a
      * field that accepts it.
      */
     const offenders = siblings()
-      .filter(({ src }) => /\b0\.0021\b/.test(src))
+      .filter(({ src }) => /\b0\.0021\b|(?<![\d.])\.0021\b|\b21e-4\b/i.test(src))
       .map((f) => f.name);
     expect(
       offenders,
       `these carry a yield strain fixed at fy = 420: ${offenders.join(', ')}. Use yieldStrain(fy).`,
+    ).toEqual([]);
+  });
+
+  it('nobody re-declares the φ constants, εcu, or the φ ramp', () => {
+    /*
+     * The same failure as β₁'s, one clause later. `interaction-diagram.ts`
+     * carried its own PHI_TENSION / PHI_COMPRESSION / EPSILON_CU and its own
+     * ramp — copies that agreed on the day they were written and would have
+     * drifted on the day the basis was corrected. Names, not values, because
+     * a re-typed `0.65` is invisible to a literal search and a re-declared
+     * name is not.
+     */
+    const offenders = siblings()
+      .filter(({ src }) =>
+        /(?:function|const)\s+(?:PHI_TENSION|PHI_COMPRESSION|PHI_COMPRESSION_TIED|PHI_COMPRESSION_SPIRAL|EPSILON_CU|ES_MPA|yieldStrain|phiFromStrain)\b/.test(src))
+      .map((f) => f.name);
+    expect(
+      offenders,
+      `these re-declare a §9.3.2 / §10.2.3 name instead of importing it from ${BASIS}: ${offenders.join(', ')}.`,
+    ).toEqual([]);
+  });
+
+  it('steel’s modulus is ES_MPA, and appears nowhere as a number', () => {
+    /*
+     * 200000 is how the yield strain sneaks back in: `fy / 200000` reads as
+     * arithmetic and is a hardcoded εy wearing a division. It is also how Es
+     * itself gets duplicated, in kPa conversions. Either way the number is
+     * the same clause, and it has a name.
+     */
+    const offenders = siblings()
+      .filter(({ src }) => /\b200_?000\b/.test(src))
+      .map((f) => f.name);
+    expect(
+      offenders,
+      `these write steel's modulus as a literal — fy/200000 is a hardcoded yield strain: ` +
+        `${offenders.join(', ')}. Use ES_MPA and yieldStrain(fy).`,
     ).toEqual([]);
   });
 });

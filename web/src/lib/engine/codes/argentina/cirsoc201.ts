@@ -6,7 +6,7 @@
 
 import type { SolverDiagnostic } from '../../types';
 import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
-import { beta1, yieldStrain, phiFromStrain } from './cirsoc201-basis';
+import { beta1, yieldStrain, phiFromStrain, ES_MPA } from './cirsoc201-basis';
 
 // ─── Rebar Database ─────────────────────────────────────────────
 
@@ -357,7 +357,7 @@ export function checkFlexure(
       phi = 0.9;
     } else if (epsilonT >= yieldStrain(fy)) {
       // Transition zone — need to iterate with reduced φ
-      phi = 0.65 + 0.25 * (epsilonT - yieldStrain(fy)) / (0.005 - yieldStrain(fy));
+      phi = phiFromStrain(epsilonT, fy);
       // Re-solve with new φ: c/d = 3/(3+εt·1000), use εt at limit c/dt = 3/7
       const cLimit = d * 3 / 7; // c at εt = 4‰ transition boundary
       const aLimit = b1 * cLimit;
@@ -414,7 +414,7 @@ export function checkFlexure(
         const Cs = deltaM / jds; // kN
         // Check if A's yields: ε's = 3‰·(c-d')/c
         const epsPrime = 0.003 * (cLimit - dPrime) / cLimit;
-        const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * 200000 * 1000; // kN/m²
+        const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * ES_MPA * 1000; // kN/m²
         AsCompReq = (Cs / (fsPrime - alpha1 * fc_kPa)) * 1e4; // cm²
         // Extra tension steel to balance compression: As_extra = Cs / fy
         const AsExtra = (Cs / fy_kPa) * 1e4; // cm²
@@ -462,7 +462,7 @@ export function checkFlexure(
       const jds = d - dPrime;
       const Cs = deltaM / jds;
       const epsPrime = 0.003 * (cTarget - dPrime) / cTarget;
-      const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * 200000 * 1000;
+      const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * ES_MPA * 1000;
       AsCompReq = (Cs / (fsPrime - alpha1 * fc_kPa)) * 1e4;
       AsReq = (CcStar / fy_kPa + Cs / fy_kPa) * 1e4;
       a = aTarget;
@@ -481,15 +481,13 @@ export function checkFlexure(
 
     // Use φ for transition at εt = 4‰
     const epsTTarget = 0.003 * (d - cTarget) / cTarget;
-    phi = epsTTarget >= 0.005 ? 0.9 :
-      epsTTarget >= yieldStrain(fy) ? 0.65 + 0.25 * (epsTTarget - yieldStrain(fy)) / (0.005 - yieldStrain(fy)) :
-      0.65;
+    phi = phiFromStrain(epsTTarget, fy);
 
     const deltaM = Math.max(0, MuDesign / phi - MnStar);
     const jds = d - dPrime;
     const Cs = deltaM / jds;
     const epsPrime = 0.003 * (cTarget - dPrime) / cTarget;
-    const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * 200000 * 1000;
+    const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * ES_MPA * 1000;
     AsCompReq = Math.max(0, (Cs / (fsPrime - alpha1 * fc_kPa)) * 1e4);
     AsReq = (CcStar / fy_kPa + Cs / fy_kPa) * 1e4;
     a = aTarget;
@@ -547,14 +545,12 @@ export function checkFlexure(
   const epsilonTFinal = cFinal > 0 ? 0.003 * (d - cFinal) / cFinal : 999;
   steps.push(`εt = ${(epsilonTFinal * 1000).toFixed(2)}‰`);
 
+  phi = phiFromStrain(epsilonTFinal, fy);
   if (epsilonTFinal >= 0.005) {
-    phi = 0.9;
     steps.push(`εt ≥ 5‰ → F.C.T. → φ = 0.90`);
   } else if (epsilonTFinal >= yieldStrain(fy)) {
-    phi = 0.65 + 0.25 * (epsilonTFinal - yieldStrain(fy)) / (0.005 - yieldStrain(fy));
     steps.push(`zona transición → φ = ${phi.toFixed(3)}`);
   } else {
-    phi = 0.65;
     steps.push(`compresión controlada → φ = 0.65`);
   }
 
