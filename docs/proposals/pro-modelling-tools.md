@@ -7,7 +7,15 @@ about a different codebase.
 
 ---
 
-## 1. The finding that reorders everything else
+## 1. The finding that reordered everything else — now fixed
+
+> **Status, updated after the work shipped.** Everything in this section was
+> true when it was written and is no longer true: PRO draws. A "Draw node /
+> member / plate" button sits at the head of each modelling panel and arms the
+> viewport tool the ribbon could not reach. The section is kept as written
+> because the reasoning is what justifies where those buttons ended up, and
+> because a proposal rewritten to match what was built stops being evidence of
+> anything. What follows is the original finding.
 
 **PRO has no drawing tools. You cannot put a node on the screen with the
 mouse.**
@@ -232,6 +240,30 @@ one of them is reached hourly:
    mis-click from a loss into an inconvenience.
 6. **Select by plane or level.** Everything at z = 3.00, which is how a
    building is actually worked on.
+
+## 4c. Shipped since this document was written
+
+Recorded here so the lists above are read against what exists rather than
+against what existed in the morning:
+
+- **Drawing**, §1 — the finding that reordered the document, and the first
+  thing built.
+- **Curved members and curved shells.** An arc through three nodes expands to
+  straight elements the solver already has; a quad flagged `curved` goes to the
+  solver as a degenerated continuum instead of a flat MITC4.
+- **Editing a plate after it is drawn.** Curvature was settable only while
+  creating one, so "is this a cáscara" had to be answered before the geometry
+  was on screen. It is a property of the row now.
+- **Stairs**, as a sub-option of Plates rather than a tool of its own, because
+  what a stair flight IS is an inclined waist slab. Two ways in: from the
+  bottom edge, or by tilting a slab that is already drawn. The steps are dead
+  load, not geometry — see `lib/model/stair.ts` for why that is not a
+  simplification.
+- **Selection**: all / none / invert, and by id with ranges (§4b).
+
+None of the five changes the ORDER of what is left. `merge coincident nodes`
+is still first, and stairs made it more urgent rather than less: a flight
+welded onto a landing shares its nodes, and one built beside it does not.
 
 ## 5. What I would not build
 
