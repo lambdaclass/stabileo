@@ -61,6 +61,23 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
   const fy_kPa = fy * 1000;     // kN/m²
   const Es = 200000 * 1000;     // kN/m² (200 GPa)
 
+  /*
+   * §10.3.6's ceiling, computed ONCE.
+   *
+   * No column is loaded at truly zero eccentricity, so the code caps the
+   * design axial load at 0.80·φC·Pn0 (ties), with Pn0 the squash load — the
+   * whole section at εcu, every bar yielding, the concrete the bars displace
+   * not counted twice. The cap binds near the top of the diagram and nowhere
+   * else; this line used to read `min(Pn, 0.80·Pn/φ·φ)` per point, which
+   * collapses to 0.80·Pn and taxed EVERY point of the diagram 20 % of its
+   * axial capacity — the balanced point included, where §10.3.6 asks for
+   * nothing.
+   */
+  const Ag = b * h;
+  const Ast = AsProv * 1e-4;
+  const Pn0 = 0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast;
+  const phiPnMax = PHI_COMPRESSION * 0.80 * Pn0;
+
   const points: InteractionPoint[] = [];
   let balancedPt: InteractionPoint | null = null;
 
@@ -122,8 +139,8 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
       phi = PHI_COMPRESSION + (PHI_TENSION - PHI_COMPRESSION) * (epsT - ey) / (0.005 - ey);
     }
 
-    // Max axial: φPn,max = φ·0.80·Pn (for tied columns)
-    const phiPn = phi * (Pn > 0 ? Math.min(Pn, 0.80 * Pn / phi * phi) : Pn);
+    // Max axial: φPn ≤ 0.80·φC·Pn0 (§10.3.6) — a ceiling, not a factor
+    const phiPn = Math.min(phi * Pn, phiPnMax);
     const phiMn = phi * Mn;
 
     const pt: InteractionPoint = { phiPn, phiMn, c };
@@ -137,11 +154,9 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
     points.push(pt);
   }
 
-  // Pure compression point
-  const Ag = b * h;
-  const Ast = AsProv * 1e-4;
+  // Pure compression point — the cap itself
   const pureComp: InteractionPoint = {
-    phiPn: PHI_COMPRESSION * 0.80 * (0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast),
+    phiPn: phiPnMax,
     phiMn: 0,
     c: 999,
     label: 'Compresión pura',

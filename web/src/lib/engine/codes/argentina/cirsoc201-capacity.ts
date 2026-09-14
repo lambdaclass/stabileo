@@ -21,9 +21,11 @@
  * second opinion about the same section.
  */
 
-import { beta1, phiFromStrain, EPSILON_CU, minFlexuralSteelCm2 } from './cirsoc201-basis';
+import {
+  beta1, phiFromStrain, EPSILON_CU, ES_MPA, yieldStrain, minFlexuralSteelCm2,
+} from './cirsoc201-basis';
 import type { ConcreteDesignParams } from './cirsoc201';
-import { flangedBlockDepth, type FlangedGeometry } from './cirsoc201-flanged';
+import type { FlangedGeometry } from './cirsoc201-flanged';
 import { generateInteractionDiagram } from './interaction-diagram';
 import { COLUMN_STEEL_RATIO } from './cirsoc201-basis';
 
@@ -35,6 +37,8 @@ export interface Capacity {
   /** Net tensile strain in the extreme tension steel. */
   epsilonT: number;
   phi: number;
+  /** Steel stress at equilibrium, MPa — below fy when the steel does not yield. */
+  fs: number;
   /** Nominal and design moment, kN·m. */
   Mn: number;
   phiMn: number;
@@ -43,12 +47,66 @@ export interface Capacity {
   belowMinimum: boolean;
   /** Whether the section is tension-controlled at this steel. */
   tensionControlled: boolean;
+  /**
+   * Past 4 %·b·h the honest answer is a bigger section, not a bigger number —
+   * the same practical ceiling `checkFlexure` states, applied here so the two
+   * capacity paths refuse absurd sections identically.
+   */
+  exceedsPracticalMax: boolean;
   steps: string[];
 }
 
 /** The effective depth this module assumes, matching `cirsoc201.ts`. */
 function effectiveDepth(h: number, cover: number, stirrupDia: number, barDia = 16): number {
   return h - cover - stirrupDia / 1000 - barDia / 2000;
+}
+
+/**
+ * The steel stress at equilibrium, found by strain compatibility.
+ *
+ * Verification closes C = T, and an earlier version closed it with fs = fy
+ * unconditionally: `a = As·fy / (α₁·f'c·b)`, `Mn = As·fy·(d − a/2)`. For an
+ * over-reinforced section the concrete crushes with the bars still elastic,
+ * and the fy-based answer keeps growing with As forever — an unbounded,
+ * phantom capacity for a verification that should be refusing the section.
+ *
+ * Strain compatibility closes it instead: start at fs = fy, get `a` from
+ * equilibrium, εt from c = a/β₁, and re-seat fs at min(fy, εt·Es) until the
+ * two agree. The fixed point is unique because εt falls as fs grows — but
+ * the bare iteration is not a contraction for heavy steel (its slope at the
+ * fixed point is d/(d − c), past 1 as c approaches d), and with the yield
+ * clamp it bounces between fy and a low value forever. So the step is
+ * damped, and the damping is halved every time the residual changes sign:
+ * for the monotone map this is, that converges whatever the steel.
+ *
+ * `blockDepth` is the section's a(fs) — one line for a rectangle, the
+ * flange/web split for a T.
+ */
+function steelStressAtEquilibrium(
+  d: number, b1: number, fy_kPa: number, Es_kPa: number,
+  blockDepth: (fs: number) => number,
+): { fs: number; a: number; c: number; epsilonT: number } {
+  let fs = fy_kPa;
+  let omega = 1;
+  let previousSign = 0;
+  for (let k = 0; k < 200; k++) {
+    const a = blockDepth(fs);
+    const c = a / b1;
+    const epsilonT = c > 1e-9 ? (EPSILON_CU * (d - c)) / c : Infinity;
+    const target = Math.min(fy_kPa, Math.max(0, epsilonT * Es_kPa));
+    const residual = target - fs;
+    if (Math.abs(residual) <= 1e-9 * fy_kPa) {
+      return { fs: target, a: blockDepth(target), c: blockDepth(target) / b1, epsilonT };
+    }
+    const sign = Math.sign(residual);
+    if (previousSign !== 0 && sign !== previousSign) omega *= 0.5;
+    previousSign = sign;
+    fs += omega * residual;
+  }
+  /* Unreachable for a monotone map; kept so the function is total. */
+  const a = blockDepth(fs);
+  const c = a / b1;
+  return { fs, a, c, epsilonT: c > 1e-9 ? (EPSILON_CU * (d - c)) / c : Infinity };
 }
 
 /**
@@ -69,29 +127,33 @@ export function rectCapacity(
   const alpha1 = 0.85;
   const fc_kPa = fc * 1000;
   const fy_kPa = fy * 1000;
+  const Es_kPa = ES_MPA * 1000;
+  const b1 = beta1(fc);
 
-  /*
-   * From equilibrium, assuming the steel yields: C = T.
-   *
-   * The assumption is then checked rather than trusted — a heavily reinforced
-   * section reaches its concrete limit with the bars still elastic, and
-   * reporting As·fy for those would overstate the capacity. `phiFromStrain`
-   * catches the consequence for φ; `belowYield` says it plainly in the memo.
-   */
-  const a = (As * fy_kPa) / (alpha1 * fc_kPa * b);
-  const c = a / beta1(fc);
-  const epsilonT = c > 1e-9 ? (EPSILON_CU * (d - c)) / c : Infinity;
+  const { fs, a, c, epsilonT } = steelStressAtEquilibrium(
+    d, b1, fy_kPa, Es_kPa,
+    (trial) => (As * trial) / (alpha1 * fc_kPa * b),
+  );
   const phi = phiFromStrain(epsilonT, fy);
 
-  const Mn = As * fy_kPa * (d - a / 2);
+  const Mn = As * fs * (d - a / 2);
   const AsMin = minFlexuralSteelCm2(fc, fy, b, d);
+  const yields = epsilonT >= yieldStrain(fy);
+
+  /* Same ceiling, same remedy as `checkFlexure`: 4 %·b·h is where the bars
+   * stop fitting, and past it the answer is a bigger section. */
+  const AsMaxPractical = 0.04 * b * h * 1e4; // cm²
+  const exceedsPracticalMax = AsCm2 > AsMaxPractical;
 
   const steps = [
     `d = ${(d * 100).toFixed(1)} cm, As = ${AsCm2.toFixed(2)} cm²`,
-    `a = As·fy / (α₁·f'c·b) = ${(a * 100).toFixed(2)} cm`,
-    `c = a / β₁ = ${(c * 100).toFixed(2)} cm`,
+    yields
+      ? 'La armadura traccionada fluye: fs = fy'
+      : `εt = ${(epsilonT * 1000).toFixed(2)} ‰ < εy = ${(yieldStrain(fy) * 1000).toFixed(2)} ‰: ` +
+        `la armadura no fluye — fs = ${(fs / 1000).toFixed(0)} MPa por compatibilidad de deformaciones`,
+    `a = As·fs / (α₁·f'c·b) = ${(a * 100).toFixed(2)} cm, c = a / β₁ = ${(c * 100).toFixed(2)} cm`,
     `εt = ${(epsilonT * 1000).toFixed(2)} ‰ → φ = ${phi.toFixed(3)}`,
-    `Mn = As·fy·(d − a/2) = ${Mn.toFixed(2)} kN·m`,
+    `Mn = As·fs·(d − a/2) = ${Mn.toFixed(2)} kN·m`,
     `φMn = ${(phi * Mn).toFixed(2)} kN·m`,
   ];
   if (AsCm2 < AsMin) {
@@ -100,11 +162,18 @@ export function rectCapacity(
   if (epsilonT < 0.005) {
     steps.push(`⚠ εt < 5 ‰: la sección no está controlada por tracción`);
   }
+  if (exceedsPracticalMax) {
+    steps.push(
+      `⚠ As = ${AsCm2.toFixed(1)} cm² supera el máximo práctico ${AsMaxPractical.toFixed(1)} cm² ` +
+        `(4 %·b·h) — sección insuficiente: agrandar la sección`,
+    );
+  }
 
   return {
-    a, c, epsilonT, phi, Mn, phiMn: phi * Mn,
+    a, c, epsilonT, phi, fs: fs / 1000, Mn, phiMn: phi * Mn,
     AsMin, belowMinimum: AsCm2 < AsMin,
     tensionControlled: epsilonT >= 0.005,
+    exceedsPracticalMax,
     steps,
   };
 }
@@ -126,39 +195,68 @@ export function flangedCapacity(
   const alpha1 = 0.85;
   const fc_kPa = fc * 1000;
   const fy_kPa = fy * 1000;
+  const Es_kPa = ES_MPA * 1000;
+  const b1 = beta1(fc);
 
-  const { a, withinFlange } = flangedBlockDepth(params, geom, AsCm2);
-  const c = a / beta1(fc);
-  const epsilonT = c > 1e-9 ? (EPSILON_CU * (d - c)) / c : Infinity;
+  /*
+   * The same strain compatibility as the rectangular path, with the block
+   * re-derived at each steel stress: the flange/web split depends on `a`,
+   * and `a` depends on fs, so the case is decided inside the iteration.
+   * `flangedBlockDepth` cannot be reused here — it closes equilibrium with
+   * fy unconditionally, which is the assumption being removed.
+   */
+  const Cf = alpha1 * fc_kPa * (bf - bw) * hf; // the overhangs, independent of fs
+  const blockDepth = (trial: number): number => {
+    const aIfFlange = (As * trial) / (alpha1 * fc_kPa * bf);
+    return aIfFlange <= hf ? aIfFlange : Math.max(As * trial - Cf, 0) / (alpha1 * fc_kPa * bw);
+  };
+  const { fs, a, c, epsilonT } = steelStressAtEquilibrium(d, b1, fy_kPa, Es_kPa, blockDepth);
+  const withinFlange = (As * fs) / (alpha1 * fc_kPa * bf) <= hf;
   const phi = phiFromStrain(epsilonT, fy);
 
   /*
    * The moment about the tension steel, taking each piece of the compression
    * zone at its own centroid. In the shallow case that is one rectangle and
-   * the expression collapses to the familiar `As·fy·(d − a/2)`.
+   * the expression collapses to the familiar `As·fs·(d − a/2)`.
    */
   let Mn: number;
   if (withinFlange) {
-    Mn = As * fy_kPa * (d - a / 2);
+    Mn = As * fs * (d - a / 2);
   } else {
-    const Cf = alpha1 * fc_kPa * (bf - bw) * hf;
     const Cw = alpha1 * fc_kPa * bw * a;
     Mn = Cf * (d - hf / 2) + Cw * (d - a / 2);
   }
 
   const AsMin = minFlexuralSteelCm2(fc, fy, bw, d);
+  const yields = epsilonT >= yieldStrain(fy);
+
+  /* The 4 %·b·h ceiling, on the width the steel actually lives in: the web. */
+  const AsMaxPractical = 0.04 * bw * h * 1e4; // cm²
+  const exceedsPracticalMax = AsCm2 > AsMaxPractical;
+
   const steps = [
     `Sección T: el bloque queda ${withinFlange ? 'dentro del ala' : 'en el alma'}`,
+    yields
+      ? 'La armadura traccionada fluye: fs = fy'
+      : `εt = ${(epsilonT * 1000).toFixed(2)} ‰ < εy = ${(yieldStrain(fy) * 1000).toFixed(2)} ‰: ` +
+        `la armadura no fluye — fs = ${(fs / 1000).toFixed(0)} MPa por compatibilidad de deformaciones`,
     `a = ${(a * 100).toFixed(2)} cm, c = ${(c * 100).toFixed(2)} cm`,
     `εt = ${(epsilonT * 1000).toFixed(2)} ‰ → φ = ${phi.toFixed(3)}`,
     `φMn = ${(phi * Mn).toFixed(2)} kN·m`,
     `As,mín sobre el alma = ${AsMin.toFixed(2)} cm²`,
   ];
+  if (exceedsPracticalMax) {
+    steps.push(
+      `⚠ As = ${AsCm2.toFixed(1)} cm² supera el máximo práctico ${AsMaxPractical.toFixed(1)} cm² ` +
+        `(4 %·bw·h) — sección insuficiente: agrandar la sección`,
+    );
+  }
 
   return {
-    a, c, epsilonT, phi, Mn, phiMn: phi * Mn,
+    a, c, epsilonT, phi, fs: fs / 1000, Mn, phiMn: phi * Mn,
     AsMin, belowMinimum: AsCm2 < AsMin,
     tensionControlled: epsilonT >= 0.005,
+    exceedsPracticalMax,
     withinFlange, steps,
   };
 }
