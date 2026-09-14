@@ -22,7 +22,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { updateGrid } from '../grid';
+import { gridKey, gridLayout, updateGrid } from '../grid';
 
 function build(size: number, extent: number, view?: { u: number; v: number; span: number }): THREE.Object3D {
   const scene = new THREE.Scene();
@@ -54,6 +54,67 @@ function helpers(o: THREE.Object3D): Array<{ extent: number; step: number }> {
   });
   return out;
 }
+
+describe('the alignment, which is what a zoom must not disturb', () => {
+  /*
+   * The report: "al hacer zoom out o zoom in cambia completamente la alineación de la
+   * grilla, y solo se actualiza una vez que generás un nodo."
+   *
+   * Both halves were real and both were mine.
+   *
+   *  · `GridHelper(size, n)` places its lines at `centre + (i − n/2)·spacing`. With n
+   *    EVEN they land on the centre and on multiples of the spacing either side; with n
+   *    ODD they land half a cell off. The division count is derived from the zoom, so
+   *    its parity flipped as you zoomed and the whole floor jumped by half a cell.
+   *
+   *  · The rebuild was triggered by the camera having moved 8 % of its distance, which
+   *    misses a zoom that crosses a spacing threshold by less — so the grid appeared to
+   *    refresh only when something else forced a render, such as adding a node.
+   */
+  it('draws an even number of divisions at every zoom and extent', () => {
+    for (const extent of [20, 100, 1000, 10000, 100000]) {
+      for (const span of [1, 5, 17, 50, 137, 500, 1500, 5000, 50000]) {
+        const l = gridLayout(1, extent, looking(span));
+        expect(l.divisions % 2, `extent ${extent} span ${span}`).toBe(0);
+      }
+    }
+  });
+
+  it('puts its lines on multiples of the spacing, whatever the zoom', () => {
+    /* The invariant the parity bug broke: a line at x = 40 stays at x = 40 when the
+       spacing changes from 10 m to 20 m, instead of moving to x = 45. */
+    for (const span of [17, 60, 137, 400, 1500]) {
+      const l = gridLayout(1, 100000, looking(span));
+      const first = l.cu - l.extent / 2;
+      const k = first / l.spacing;
+      expect(Math.abs(k - Math.round(k)), `span ${span}`).toBeLessThan(1e-9);
+    }
+  });
+
+  it('reports the same layout for a camera move that changes nothing', () => {
+    /* What makes per-frame checking affordable: orbiting does not move the target and
+       does not change the span, so the key is identical and nothing is rebuilt. */
+    const a = gridKey(gridLayout(1, 1000, { u: 0, v: 0, span: 100 }));
+    const b = gridKey(gridLayout(1, 1000, { u: 0, v: 0, span: 100 }));
+    expect(b).toBe(a);
+    /* …and a pan of less than one cell does not move the snapped patch either. */
+    const l = gridLayout(1, 1000, { u: 0, v: 0, span: 100 });
+    expect(gridKey(gridLayout(1, 1000, { u: l.spacing * 0.2, v: 0, span: 100 }))).toBe(a);
+  });
+
+  it('reports a different layout as soon as the spacing would change', () => {
+    /* And this is the half the 8 % distance threshold missed. */
+    let prev = gridKey(gridLayout(1, 100000, looking(10)));
+    let changes = 0;
+    for (let span = 11; span <= 3000; span = Math.round(span * 1.05)) {
+      const k = gridKey(gridLayout(1, 100000, looking(span)));
+      if (k !== prev) changes++;
+      prev = k;
+    }
+    // A 5 % zoom step crosses several spacing thresholds between 10 m and 3 km.
+    expect(changes).toBeGreaterThan(3);
+  });
+});
 
 describe('the grid at a large extent', () => {
   it('draws ONE grid, so the floor is not denser in the middle than at the edge', () => {

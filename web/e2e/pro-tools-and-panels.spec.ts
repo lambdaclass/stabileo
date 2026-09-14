@@ -43,14 +43,32 @@ test.describe('@smoke PRO — one lit button, and drawing from the panel', () =>
       await page.getByTestId('pr-cmd-nodes').click();
       await expect(select).toHaveAttribute('aria-pressed', 'false');
       expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('select');
+
+      /*
+       * The box is gone and the ICON is not. They say two different things:
+       * the box means "this is what the right-hand panel is showing", the
+       * coloured icon means "this is what the pointer is doing". For every
+       * other command in the bar those coincide; for this one they come apart,
+       * and one highlight for both would be claiming something untrue.
+       */
+      await expect(select).not.toHaveClass(/\bactive\b/);
+      await expect(select).toHaveClass(/tool-on/);
     });
 
   test('Move arms the pan tool and says so', async ({ pro: page }) => {
-    await page.getByTestId('pr-pan').click();
+    const move = page.getByTestId('pr-pan');
+    await move.click();
     expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('pan');
+    /* Move opens no right-hand panel, so it never takes the box — that would
+       point at a panel which does not exist. The icon lights, and it lights
+       however the tool was reached. */
+    await expect(move).toHaveClass(/tool-on/);
+    await expect(move).not.toHaveClass(/\bactive\b/);
+
     /* And Select is the way back, from anywhere. */
     await page.getByTestId('pr-select').click();
     expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('select');
+    await expect(move).not.toHaveClass(/tool-on/);
   });
 
   test('opening a table does not arm a tool', async ({ pro: page }) => {

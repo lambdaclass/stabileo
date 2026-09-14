@@ -24,7 +24,7 @@
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
-  import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
+  import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, syncDespiece3D as _syncDespiece3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
@@ -260,7 +260,8 @@
    */
   const MIN_NODE_PX = 3;
   let lastNodeDist = -1;
-  const lastGridTarget = new THREE.Vector3(NaN, NaN, NaN);
+  /** The layout the grid currently draws, so a frame that changes nothing rebuilds nothing. */
+  let lastGridKey = '';
 
   function applyNodeRadius() {
     /*
@@ -625,17 +626,23 @@
         if (lastNodeDist < 0 || Math.abs(d - lastNodeDist) > lastNodeDist * 0.08) {
           lastNodeDist = d;
           applyNodeRadius();
-          /* The grid follows the view so its density stays even — see the note
-             in `grid.ts`. Same throttle: rebuilding it every frame of an orbit
-             would be twenty thousand segments per frame. */
-          updateGrid();
-        } else if (uiStore.showGrid3D) {
-          /* Panning changes WHERE the patch sits without changing the zoom, so
-             it needs its own trigger — one cell of movement is enough. */
-          const t = controls.target;
-          if (Math.abs(t.x - lastGridTarget.x) + Math.abs(t.y - lastGridTarget.y)
-            + Math.abs(t.z - lastGridTarget.z) > d * 0.08) {
-            lastGridTarget.copy(t);
+        }
+        /*
+         * The grid rebuilds when its LAYOUT would change, not when the camera has
+         * moved some fraction of its distance.
+         *
+         * The distance heuristic was wrong in both directions: it rebuilt on orbits
+         * that change nothing about a grid lying in a fixed plane, and it missed
+         * zooms that cross a spacing threshold by less than its 8 % — which is how
+         * the grid ended up looking like it only refreshed when a node was added,
+         * because adding one is what forced the next rebuild. `gridLayout` is a
+         * dozen arithmetic operations; asking it every frame costs nothing and is
+         * exact.
+         */
+        if (uiStore.showGrid3D) {
+          const key = gridKey(gridLayout(uiStore.gridSize3D, uiStore.gridExtent3D, gridView()));
+          if (key !== lastGridKey) {
+            lastGridKey = key;
             updateGrid();
           }
         }
@@ -2803,9 +2810,13 @@
 
   function updateGrid() {
     if (!scene) return;
+    const view = gridView();
+    /* Kept in step with what was just drawn: a settings change or a model load calls
+       this directly, and a stale key would make the next frame rebuild it again. */
+    lastGridKey = gridKey(gridLayout(uiStore.gridSize3D, uiStore.gridExtent3D, view));
     gridGroup = _updateGrid(
       scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D,
-      uiStore.workingPlane, uiStore.nodeCreateZ, gridView(),
+      uiStore.workingPlane, uiStore.nodeCreateZ, view,
     );
     syncCameraRange();
   }

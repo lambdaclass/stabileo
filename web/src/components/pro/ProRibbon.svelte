@@ -202,6 +202,11 @@
    */
   type Badge = { tone: 'ok' | 'warn' | 'danger'; text: string } | null;
 
+  /** The right-hand panel is showing what Select picks up. */
+  const selectPanelShowing = $derived(
+    uiStore.proPanelVisible && uiStore.proActiveTab === 'selection',
+  );
+
   const badges = $derived.by((): Record<string, Badge> => ({
     model: modelStore.nodes.size === 0
       ? null
@@ -287,17 +292,35 @@
           because nothing has yet asked it to draw. The tool only changes when
           a "Draw …" button in a panel says so.
         -->
+        <!--
+          ── Two different things a button can be saying ──────────────
+          The BOX means "this is what the right-hand panel is showing". The
+          coloured ICON means "this is what the pointer is doing". For every
+          other command in the bar those coincide, so one highlight served for
+          both; for these two they come apart, and one highlight then claims
+          something untrue.
+
+          Move has no right-hand panel at all, so it never takes a box — it
+          would be pointing at a panel that does not exist. It paints its icon
+          whenever the pointer is panning, however that was reached.
+
+          Select has one, and keeps the pointer SELECTING after you open some
+          other panel: pressing Nodes takes the box off it and leaves the icon
+          lit, because nothing has yet asked the pointer to draw.
+        -->
         <button
           class="pr-tool"
-          class:active={uiStore.currentTool === 'pan'}
+          class:tool-on={uiStore.currentTool === 'pan'}
+          aria-pressed={uiStore.currentTool === 'pan' ? 'true' : 'false'}
           onclick={() => { uiStore.currentTool = 'pan'; }}
           title={t('float.pan')}
           data-testid="pr-pan"
         ><Icon name="pan" size={16} /></button>
         <button
           class="pr-tool"
-          class:active={uiStore.proPanelVisible && uiStore.proActiveTab === 'selection'}
-          aria-pressed={uiStore.proPanelVisible && uiStore.proActiveTab === 'selection' ? 'true' : 'false'}
+          class:active={selectPanelShowing}
+          class:tool-on={uiStore.currentTool === 'select'}
+          aria-pressed={selectPanelShowing ? 'true' : 'false'}
           onclick={() => {
             /* Back to selecting AND show what it picks up: the button that
                opens the panel is also the way back from a drawing mode. */
@@ -496,7 +519,10 @@
   }
 
   .pr-tool:hover { background: var(--st-surface-3); color: var(--st-text); }
+  /* The panel this button opens is the one showing: box and icon. */
   .pr-tool.active { color: var(--st-accent); border-color: var(--st-accent); }
+  /* The pointer is in this mode, but some other panel is showing: icon only. */
+  .pr-tool.tool-on { color: var(--st-accent); }
   .pr-caret { font-size: 0.55rem; opacity: 0.7; }
 
   .pr-tabs { display: flex; align-items: stretch; gap: 0.1rem; min-width: 0; overflow-x: auto; scrollbar-width: none; }
