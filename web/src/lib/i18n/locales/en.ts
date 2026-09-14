@@ -3,9 +3,9 @@ const en: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
-  'landing.linksTitle': 'Message or follow us',
-  'landing.waGreeting': 'Hi! I am writing from stabileo.com.',
-  'landing.linksLabel': 'Contact and socials',
+  'contact.linksTitle': 'Message or follow us',
+  'contact.waGreeting': 'Hi! I am writing from stabileo.com.',
+  'contact.linksLabel': 'Contact and socials',
   'landing.priceFreeDev': 'Free while in development',
   'landing.pricingFreeNowNote': 'The design modules will be free for anyone taking part in Stabileo’s development, and for public universities.',
   'landing.pricingAiNote': 'Stabileo AI is a paid feature because of what it costs to run. Universities, and anyone taking part in its development, will be able to plug in the language-model API of their choice and try it that way.',

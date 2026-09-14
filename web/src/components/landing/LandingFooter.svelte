@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import { REPO_URL, DOCS_HUB_URL, enterApp, SOCIAL_LINKS } from './landing-utils';
-  import { SOCIAL_ICONS as ICONS } from './social-icons';
+  import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
   import BrandMark from './BrandMark.svelte';
 

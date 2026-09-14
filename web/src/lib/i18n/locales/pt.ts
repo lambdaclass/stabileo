@@ -1,9 +1,9 @@
 import type { Translations } from '../types';
 const pt: Translations = {
   // ─── Landing ───
-  'landing.linksTitle': 'Fale conosco ou nos siga',
-  'landing.waGreeting': 'Olá! Escrevo de stabileo.com.',
-  'landing.linksLabel': 'Contato e redes',
+  'contact.linksTitle': 'Fale conosco ou nos siga',
+  'contact.waGreeting': 'Olá! Escrevo de stabileo.com.',
+  'contact.linksLabel': 'Contato e redes',
   'landing.priceFreeDev': 'Grátis durante o desenvolvimento',
   'landing.pricingFreeNowNote': 'Os módulos de projeto serão gratuitos para quem participar do desenvolvimento do Stabileo e para as universidades públicas.',
   'landing.pricingAiNote': 'O Stabileo IA é uma função paga pelo que custa mantê-la. Às universidades e a quem participar do desenvolvimento queremos dar a opção de conectar a API do modelo de linguagem que preferirem, e assim testá-la por conta própria.',

@@ -3,9 +3,9 @@ const es: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
-  'landing.linksTitle': 'Escribinos o seguinos',
-  'landing.waGreeting': '¡Hola! Te escribo desde stabileo.com.',
-  'landing.linksLabel': 'Contacto y redes',
+  'contact.linksTitle': 'Escribinos o seguinos',
+  'contact.waGreeting': '¡Hola! Te escribo desde stabileo.com.',
+  'contact.linksLabel': 'Contacto y redes',
   'landing.priceFreeDev': 'Gratis durante el desarrollo',
   'landing.pricingFreeNowNote': 'Los módulos de diseño van a ser gratuitos para quienes participen del desarrollo de Stabileo y para las universidades públicas.',
   'landing.pricingAiNote': 'Stabileo IA es una función paga por lo que cuesta sostenerla. A las universidades y a quienes participen del desarrollo queremos darles la opción de conectar la API del modelo de lenguaje que prefieran, y probarla así por su cuenta.',

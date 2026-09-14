@@ -117,12 +117,9 @@ export async function fetchGithubStars(): Promise<number | null> {
  */
 export const LINKTREE_URL = 'https://linktr.ee/stabileo';
 
-export const SOCIAL_LINKS = [
-  // The handle, not the platform. Someone scanning a footer already knows what
-  // Instagram is; what they do not know is what to search for.
-  { id: 'instagram', label: 'stabileoapp', href: 'https://www.instagram.com/stabileoapp/' },
-  { id: 'x', label: '@stabileoapp', href: 'https://x.com/Stabileoapp' },
-  { id: 'linkedin', label: 'Stabileo', href: 'https://www.linkedin.com/company/stabileo' },
-  { id: 'discord', label: 'Discord', href: 'https://discord.gg/Q53rp7FKXA' },
-  { id: 'ergodic', label: 'Ergodic Group', href: 'https://ergodicgroup.com/' },
-] as const;
+/*
+ * The accounts themselves now live in `lib/contact/channels`, because the
+ * editor's header offers the same five and two copies of a list of handles
+ * drift in silence. Re-exported under the name the footer already uses.
+ */
+export { SOCIAL_LINKS } from '../../lib/contact/channels';

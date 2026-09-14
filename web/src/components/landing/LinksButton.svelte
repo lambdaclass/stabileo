@@ -14,41 +14,17 @@
    * seen the list.
    */
   import { tPublic as t } from '../../lib/i18n/store.svelte';
-  import { SOCIAL_LINKS } from './landing-utils';
-  import { SOCIAL_ICONS } from './social-icons';
-  import { hasWhatsapp, whatsappUrl } from './contact';
+  import { contactChannels } from '../../lib/contact/channels';
 
   let open = $state(false);
   let root: HTMLDivElement | undefined = $state();
 
-  /**
-   * WhatsApp first, then the accounts the footer lists.
-   *
-   * Ergodic Group is in SOCIAL_LINKS and not here: this panel answers "how do
-   * I reach you", and the company's own site is not a way to reach anybody.
+  /*
+   * The list, the marks and the language codes are all one description, in
+   * `lib/contact/channels` — the editor's header offers the same five.
+   * The greeting is the caller's because it is the only translated part.
    */
-  const CHANNELS = $derived([
-    ...(hasWhatsapp()
-      ? [{ id: 'whatsapp', label: 'WhatsApp', href: whatsappUrl(t('landing.waGreeting')) }]
-      : []),
-    ...SOCIAL_LINKS.filter((s) => s.id in SOCIAL_ICONS && s.id !== 'ergodic'),
-  ].map((c) => ({ ...c, langs: LANGS[c.id] ?? '' })));
-
-  /**
-   * What language each channel is actually written in.
-   *
-   * Not translated, and not derived from the reader's locale: these are codes
-   * for the account itself, so they read the same on all three landings. A
-   * Portuguese reader learns that Instagram is in Spanish, which is the
-   * point — the alternative is following an account they cannot read.
-   */
-  const LANGS: Record<string, string> = {
-    whatsapp: 'EN/ES',
-    instagram: 'ES',
-    x: 'EN',
-    linkedin: 'ES',
-    discord: 'EN/ES',
-  };
+  const CHANNELS = $derived(contactChannels(t('contact.waGreeting')));
 
   /* Escape closes it, and a click anywhere else does too. A popover that can
      only be dismissed by the button that opened it traps a reader who opened
@@ -65,13 +41,13 @@
 
 <div class="links-fab-root" bind:this={root}>
   {#if open}
-    <div class="links-panel" role="group" aria-label={t('landing.linksLabel')}>
-      <p class="links-panel-title">{t('landing.linksTitle')}</p>
+    <div class="links-panel" role="group" aria-label={t('contact.linksLabel')}>
+      <p class="links-panel-title">{t('contact.linksTitle')}</p>
       <ul>
         {#each CHANNELS as c}
           <li>
             <a href={c.href} target="_blank" rel="noreferrer" data-social={c.id}>
-              <span class="social-mark" aria-hidden="true">{@html SOCIAL_ICONS[c.id]}</span>
+              <span class="social-mark" aria-hidden="true">{@html c.icon}</span>
               <span class="links-name">{c.label}</span>
               {#if c.langs}<span class="links-langs">{c.langs}</span>{/if}
             </a>
@@ -86,8 +62,8 @@
     class:open
     onclick={() => (open = !open)}
     aria-expanded={open}
-    aria-label={t('landing.linksLabel')}
-    title={t('landing.linksLabel')}
+    aria-label={t('contact.linksLabel')}
+    title={t('contact.linksLabel')}
   >
     <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor"
          stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"
