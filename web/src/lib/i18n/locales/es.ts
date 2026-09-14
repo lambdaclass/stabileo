@@ -3,6 +3,8 @@ const es: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
+  'landing.linksTitle': 'Escribinos o seguinos',
+  'landing.waGreeting': '¡Hola! Te escribo desde stabileo.com.',
   'landing.linksLabel': 'Contacto y redes',
   'landing.priceFreeDev': 'Gratis durante el desarrollo',
   'landing.pricingFreeNowNote': 'Los módulos de diseño van a ser gratuitos para quienes participen del desarrollo de Stabileo y para las universidades públicas.',

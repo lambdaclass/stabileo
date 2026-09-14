@@ -580,17 +580,56 @@ test.describe('@landing landing page', () => {
   });
 
 
-  test('the corner button opens the link hub, not one channel', async ({ page }) => {
+  test('the corner button opens the channels on the page, and closes again', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
 
     const fab = page.locator('.landing .links-fab');
     await expect(fab).toBeVisible();
-    await expect(fab).toHaveAttribute('href', 'https://linktr.ee/stabileo');
-    await expect(fab).toHaveAttribute('target', '_blank');
-    await expect(fab).toHaveAttribute('rel', 'noreferrer');
-    // Icon-only, so the accessible name has to carry it — and it must promise
-    // the hub rather than a platform, since WhatsApp is one of five behind it.
     await expect(fab).toHaveAttribute('aria-label', 'Contacto y redes');
+    await expect(fab).toHaveAttribute('aria-expanded', 'false');
+    // Closed until asked. A panel that is always open is a banner.
+    await expect(page.locator('.landing .links-panel')).toHaveCount(0);
+
+    await fab.click();
+    await expect(fab).toHaveAttribute('aria-expanded', 'true');
+
+    const links = page.locator('.landing .links-panel a');
+    await expect(links).toHaveCount(5);
+
+    const rows = await links.evaluateAll((els) =>
+      els.map((e) => ({
+        id: e.getAttribute('data-social'),
+        href: e.getAttribute('href') ?? '',
+        target: e.getAttribute('target'),
+        rel: e.getAttribute('rel'),
+        mark: !!e.querySelector('svg'),
+      })),
+    );
+
+    // WhatsApp first — it is the one that reaches a person rather than a feed.
+    expect(rows.map((r) => r.id)).toEqual(['whatsapp', 'instagram', 'x', 'linkedin', 'discord']);
+    // Digits only. wa.me accepts a `+` or a space without complaining and then
+    // opens WhatsApp on an invalid contact, so that failure is silent.
+    expect(rows[0].href).toMatch(/^https:\/\/wa\.me\/\d{8,15}\?text=/);
+    for (const r of rows) {
+      expect(r.mark, `${r.id} has no mark`).toBe(true);
+      expect(r.target).toBe('_blank');
+      expect(r.rel).toContain('noreferrer');
+    }
+
+    /*
+     * Escape closes it. A popover that only its own button can dismiss traps
+     * a reader who opened it by accident — on a phone, over the content they
+     * were reading.
+     */
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.landing .links-panel')).toHaveCount(0);
+
+    // And so does a click anywhere else.
+    await fab.click();
+    await expect(page.locator('.landing .links-panel')).toHaveCount(1);
+    await page.mouse.click(200, 200);
+    await expect(page.locator('.landing .links-panel')).toHaveCount(0);
   });
 
   test('the contact button never covers the mobile action bar', async ({ page }) => {

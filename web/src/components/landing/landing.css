@@ -1927,7 +1927,6 @@
 */
 @media (max-width: 760px) {
   .landing .links-fab {
-    bottom: calc(4.25rem + env(safe-area-inset-bottom));
     width: 46px;
     height: 46px;
   }
@@ -2077,3 +2076,122 @@
 .landing .mode-note .fn {
   margin: 0 0.25em 0 0;
 }
+
+/* ─── THE CORNER PANEL ───────────────────────────────────────────────────
+
+   The channels open above the button, on the page, rather than sending the
+   reader to a link hub on another domain. Someone who taps a contact button
+   has not asked to leave the site.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.landing .links-fab-root {
+  position: fixed;
+  right: clamp(1rem, 2.5vw, 1.75rem);
+  bottom: clamp(1rem, 2.5vw, 1.75rem);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+/* The button is no longer positioned itself — its wrapper is. */
+.landing .links-fab {
+  position: static;
+  right: auto;
+  bottom: auto;
+}
+
+.landing .links-fab.open {
+  border-color: var(--lp-accent);
+}
+
+.landing .links-panel {
+  min-width: 13.5rem;
+  padding: 0.85rem;
+  border-radius: var(--lp-radius);
+  background: var(--lp-ink-2);
+  border: 1px solid rgba(143, 163, 179, 0.28);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+.landing .links-panel-title {
+  margin: 0 0 0.6rem;
+  font-family: var(--lp-sans);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-slate-2);
+}
+
+.landing .links-panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.landing .links-panel a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.42rem 0.5rem;
+  border-radius: var(--lp-radius);
+  color: var(--lp-slate-2);
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.landing .links-panel a:hover {
+  color: var(--lp-paper-2);
+  background: rgba(143, 163, 179, 0.1);
+}
+
+/* WhatsApp keeps its own green HERE and nowhere else: inside a list of five
+   marks the colour is what tells them apart, which is the opposite of what it
+   did as a lone green circle on an ink page. */
+.landing .links-panel a[data-social='whatsapp'] .social-mark { color: #25d366; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing .links-panel { animation: links-in 0.16s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes links-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+/*
+   Mobile clearance, declared AFTER the base rule above.
+
+   It used to live in the earlier `max-width: 760px` block, which comes before
+   `.links-fab-root` in this file — so the unconditional `bottom` further down
+   won at every width and the button sat on top of the sticky action bar. Same
+   specificity, later wins; a media query does not change that.
+*/
+@media (max-width: 760px) {
+  .landing .links-fab-root {
+    bottom: calc(4.25rem + env(safe-area-inset-bottom));
+  }
+
+  /* And the panel must not grow past the viewport on a phone. */
+  .landing .links-panel {
+    max-width: calc(100vw - 2rem);
+  }
+}
+
+/* The account's own language, pushed to the trailing edge so the five codes
+   line up and can be read as a column rather than hunted for in five rows. */
+.landing .links-panel .links-name { flex: 1 1 auto; }
+
+.landing .links-panel .links-langs {
+  flex: none;
+  font-family: var(--lp-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--lp-slate);
+}
+
+.landing .links-panel a:hover .links-langs { color: var(--lp-slate-2); }
