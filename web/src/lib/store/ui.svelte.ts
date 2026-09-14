@@ -40,6 +40,14 @@ export type TouchDensity = 'compact' | 'comfortable';
 export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'];
 export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
+/**
+ * Which creator a viewport node-pick is filling.
+ *
+ * Named rather than written inline in three places: `'stair'` is here because
+ * a stair flight is built from the two nodes of its bottom edge, and adding it
+ * to a union spelled out at each use site is how one of them gets missed.
+ */
+export type ShellPickTarget = 'plate' | 'quad' | 'mesh' | 'stair';
 export type LoadTool = 'nodal' | 'distributed' | 'thermal';
 export type NodalLoadDir = 'fz' | 'fx' | 'my';
 export type SelectMode = 'nodes' | 'elements' | 'shells' | 'loads' | 'stress' | 'supports';
@@ -210,7 +218,7 @@ function createUIStore() {
   let selectedShells = $state<Set<string>>(new Set());
   // Shell node-pick: click nodes in the 3D viewport to fill a shell/mesh
   // creator instead of typing IDs. `target` says which creator is collecting.
-  let shellNodePick = $state<{ active: boolean; target: 'plate' | 'quad' | 'mesh' | null; picked: number[]; capacity: number }>(
+  let shellNodePick = $state<{ active: boolean; target: ShellPickTarget | null; picked: number[]; capacity: number }>(
     { active: false, target: null, picked: [], capacity: 0 },
   );
 
@@ -1159,7 +1167,7 @@ function createUIStore() {
     // ─── Shell node-pick (viewport click → creator) ───
     get shellNodePick() { return shellNodePick; },
     /** Begin collecting `capacity` node clicks for a shell/mesh creator. */
-    startShellNodePick(target: 'plate' | 'quad' | 'mesh', capacity: number) {
+    startShellNodePick(target: ShellPickTarget, capacity: number) {
       shellNodePick = { active: true, target, picked: [], capacity };
       selectedNodes = new Set();
       selectedElements = new Set();

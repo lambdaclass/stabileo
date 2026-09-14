@@ -1996,6 +1996,25 @@ function createModelStore() {
       model.quads = new Map(model.quads);
     },
 
+    /**
+     * Turn a quad's curvature on or off after it exists.
+     *
+     * The flag was settable only while CREATING one, which made "is this a
+     * cáscara" a decision the reader had to get right before they had the
+     * geometry in front of them — and a slab that later has a corner lifted
+     * out of plane had no way to say so. A curved quad goes to the solver as a
+     * degenerated continuum instead of a flat MITC4; a triangle cannot be
+     * curved at all, because three points are coplanar by definition, which is
+     * why this takes a quad id and not a shell key.
+     */
+    setQuadCurved(id: number, curved: boolean): void {
+      if (!_undoBatching) _pushUndo?.();
+      const quad = model.quads.get(id);
+      if (!quad) return;
+      if (curved) quad.curved = true; else delete quad.curved;
+      model.quads = new Map(model.quads);
+    },
+
     /** Set/clear a shell's analytical mid-surface offset. `kind` selects the
      *  plate or quad map; pass `undefined` to clear. */
     setShellOffset(kind: 'plate' | 'quad', id: number, offset: import('../model/element-3d-metadata').ShellOffset | undefined): void {

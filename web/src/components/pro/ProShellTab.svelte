@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import DataTable from '../DataTable.svelte';
+  import ProStairSection from './ProStairSection.svelte';
   import { t, tp } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import { findCoincidentNode, beamThrough } from '../../lib/engine/mesh-weld';
@@ -285,6 +286,7 @@
   }
 
   let showMeshGen = $state(false);
+  let showCurv = $state(false);
 
 
   // ─── Viewport node-pick → creator fields ───
@@ -306,6 +308,46 @@
       }
     });
   });
+
+  /* ── Curvature, on a shell that already exists ─────────────────────
+   *
+   * The `curved` flag was settable only while CREATING a quad, so "is this a
+   * cáscara" had to be decided before the geometry was on screen, and a slab
+   * whose corner is later lifted out of plane had no way to say so. Quads
+   * only: three points are coplanar by definition, which is the same reason
+   * the creator offers the tick only at four corners.
+   */
+  const selectedQuads = $derived(
+    [...uiStore.selectedShells]
+      .filter((k) => k[0] === 'q')
+      .map((k) => modelStore.model.quads.get(parseInt(k.slice(1))))
+      .filter((q): q is NonNullable<typeof q> => !!q),
+  );
+  /** Out-of-plane distance of a quad's fourth corner, metres, or null. */
+  function quadOutOfPlane(nodes: [number, number, number, number]): number | null {
+    const ns = nodes.map((id) => modelStore.nodes.get(id));
+    if (ns.some((n) => !n)) return null;
+    const p = ns.map((n) => ({ x: n!.x, y: n!.y ?? 0, z: (n! as { z?: number }).z ?? 0 }));
+    const u = { x: p[1].x - p[0].x, y: p[1].y - p[0].y, z: p[1].z - p[0].z };
+    const v = { x: p[2].x - p[0].x, y: p[2].y - p[0].y, z: p[2].z - p[0].z };
+    const nx = u.y * v.z - u.z * v.y, ny = u.z * v.x - u.x * v.z, nz = u.x * v.y - u.y * v.x;
+    const len = Math.hypot(nx, ny, nz);
+    if (len < 1e-12) return null;
+    const w = { x: p[3].x - p[0].x, y: p[3].y - p[0].y, z: p[3].z - p[0].z };
+    return Math.abs((w.x * nx + w.y * ny + w.z * nz) / len);
+  }
+  const selectedAllCurved = $derived(selectedQuads.length > 0 && selectedQuads.every((q) => q.curved));
+  /** The largest out-of-plane distance in the selection — what is at stake. */
+  const selectedOutOfPlane = $derived.by(() => {
+    let max = 0;
+    for (const q of selectedQuads) max = Math.max(max, quadOutOfPlane(q.nodes) ?? 0);
+    return max;
+  });
+  function setSelectedCurved(on: boolean) {
+    modelStore.batch(() => {
+      for (const q of selectedQuads) modelStore.setQuadCurved(q.id, on);
+    });
+  }
 
   // ─── Shell offset editor (operates on the selected shells) ───
   let showOffset = $state(false);
@@ -473,6 +515,46 @@
         >{t('pro.addPlate')}</button>
       </div>
     </div>
+
+    <!--
+      ── Editing a shell that already exists ──────────────────────────
+      Curvature was a decision the creator asked for and no one could revisit.
+      Here it acts on the SELECTION, states how far out of plane those quads
+      actually are, and says what the flag changes in the solve — because
+      "cáscara" on its own does not tell a reader that a flat MITC4 is being
+      swapped for a degenerated continuum.
+    -->
+    <div class="section">
+      <button class="section-toggle" onclick={() => showCurv = !showCurv} data-testid="curv-toggle">
+        <span class="toggle-arrow">{showCurv ? '▾' : '▸'}</span>
+        {t('pro.shellCurvature')}
+      </button>
+      {#if showCurv}
+        <div class="section-body">
+          <div class="mesh-hint">{t('pro.shellCurvatureHint')}</div>
+          {#if selectedQuads.length === 0}
+            <div class="field-error">{t('pro.shellCurvatureSelect')}</div>
+          {:else}
+            <div class="offset-sel-count">{selectedQuads.length} {t('pro.selected')}</div>
+            <div class="mesh-hint" data-testid="curv-oop">
+              {tp('pro.shellCurvatureOop', { mm: (selectedOutOfPlane * 1000).toFixed(1) })}
+            </div>
+            <label class="mesh-check">
+              <input
+                type="checkbox"
+                checked={selectedAllCurved}
+                onchange={(e) => setSelectedCurved(e.currentTarget.checked)}
+                data-testid="curv-toggle-check"
+              />
+              {t('pro.curvedShell')}
+            </label>
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <!-- Stairs: the same plate, with its far edge lifted -->
+    <ProStairSection />
 
     <!-- Quick mesh generator -->
     <div class="section">

@@ -56,6 +56,23 @@
     resultsStore.clear();
   }
 
+  /*
+   * Curvature, editable where it is shown.
+   *
+   * The row already printed `≈` for a curved quad, and there was no way to put
+   * it there or take it away: the flag was settable only while CREATING one.
+   * Material and thickness are edited in this table; curvature is the same
+   * kind of fact about the same row, and it changes the element the solver
+   * builds — a flat MITC4 becomes a degenerated continuum — so what was solved
+   * no longer describes the model, exactly as a thickness change does.
+   */
+  function setCurved(row: Row, on: boolean) {
+    if (row.kind !== 'quad') return;
+    historyStore.pushState();
+    modelStore.setQuadCurved(row.id, on);
+    resultsStore.clear();
+  }
+
   function remove(row: Row) {
     historyStore.pushState();
     if (row.kind === 'plate') modelStore.removePlate(row.id);
@@ -73,6 +90,7 @@
         <th>{t('pro.nodes')}</th>
         <th>{t('pro.thMaterial')}</th>
         <th>{t('pro.thickness')} (m)</th>
+        <th title={t('pro.shellCurvatureHint')}>≈</th>
         <th></th>
       </tr>
     </thead>
@@ -93,6 +111,18 @@
           <td>
             <input type="number" step="0.01" min="0.001" value={row.thickness}
                    onchange={(e) => setThickness(row, e.currentTarget.value)} />
+          </td>
+          <td class="curv-cell">
+            {#if row.kind === 'quad'}
+              <input
+                type="checkbox"
+                checked={row.curved}
+                title={t('pro.curvedShell')}
+                aria-label={t('pro.curvedShell')}
+                onchange={(e) => setCurved(row, e.currentTarget.checked)}
+                data-testid="plate-curved-{row.id}"
+              />
+            {/if}
           </td>
           <td><button class="del" onclick={() => remove(row)}>&#10005;</button></td>
         </tr>
@@ -125,6 +155,10 @@
   /* A curved quad is solved as a degenerated continuum, not a flat MITC4 —
      worth one character in the row that says so. */
   .curved-tag { color: var(--st-accent); margin-left: 3px; }
+  /* The checkbox is the control; the cell is narrow because the column header
+     is one character. A triangle leaves it empty — it cannot be curved. */
+  .curv-cell { text-align: center; }
+  .curv-cell input { width: auto; }
 
   input, select {
     width: 74px; background: var(--st-surface); color: var(--st-text);

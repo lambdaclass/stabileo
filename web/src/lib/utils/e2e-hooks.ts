@@ -215,6 +215,19 @@ export interface StabileoTestHooks {
   rebarSummary(elementId: number): string;
   elementIds(): number[];
   /**
+   * The model's geometry, for a spec that has to check WHERE something landed.
+   *
+   * `nodeCount` says how many there are and `nodeScreenPos` says where one is
+   * on screen; neither answers "did the far edge of that flight actually
+   * rise". A stair that came out flat passes every count assertion there was,
+   * which is the whole reason a stair spec needs the position in model space.
+   */
+  nodeIds(): number[];
+  nodePos(id: number): { x: number; y: number; z: number } | null;
+  /** The shells, and whether a quad carries curvature into the solve. */
+  quadIds(): number[];
+  quadCurved(id: number): boolean;
+  /**
    * Everything the portable formats have to carry, as one count per kind.
    *
    * `nodeCount` and `elementIds` covered the two easy halves of a model. What a
@@ -570,6 +583,13 @@ export function installE2EHooks(): void {
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
+    nodeIds: () => [...modelStore.nodes.keys()].sort((a, b) => a - b),
+    nodePos: (id: number) => {
+      const n = modelStore.nodes.get(id);
+      return n ? { x: n.x, y: n.y ?? 0, z: (n as { z?: number }).z ?? 0 } : null;
+    },
+    quadIds: () => [...modelStore.model.quads.keys()].sort((a, b) => a - b),
+    quadCurved: (id: number) => !!modelStore.model.quads.get(id)?.curved,
     modelCensus: () => {
       const s = modelStore.snapshot();
       return {
