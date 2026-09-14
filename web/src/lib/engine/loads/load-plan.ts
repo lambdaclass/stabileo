@@ -44,8 +44,18 @@ import {
   type Enclosure, type Exposure, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import {
-  assumed, clause, fromProject, type ClauseRef, type ProvenancedValue,
+  assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
 } from '../../codes/regulation';
+import {
+  designSpectrum, isBlocked, SIMULTANEITY_F1,
+  type DestinationGroup, type OccupancyProbability,
+  type SeismicZone, type SiteClass,
+} from '../../codes/cirsoc103/spectrum';
+import {
+  designPeriod, designSeismicCoefficient, distributeInHeight, staticMethodApplicable,
+  type PeriodSystem, type PlanRegularity,
+} from '../../codes/cirsoc103/static-method';
+import { findBehaviour, R_ELASTIC } from '../../codes/cirsoc103/behaviour';
 import { dedupeMessages, msg, round, type EngineMessage } from '../../codes/message';
 import type { ProjectRegulations } from '../../codes/roles';
 import { findOption, optionLabel, roleUsable } from '../../codes/roles';
@@ -63,10 +73,37 @@ export interface LoadModelData {
 // ─── Inputs ──────────────────────────────────────────────────────
 
 export interface DeadComponent {
-  /** i18n key naming the component, e.g. 'autoLoad.dead.screed'. */
+  /** i18n key naming the component, e.g. `loads.dead.piso_porcelanato`. */
   labelKey: string;
   /** Area load, kPa. */
   q: number;
+}
+
+/**
+ * Everything INPRES-CIRSOC 103's static method needs that the model cannot answer.
+ *
+ * The zone is here rather than derived because Anexo A assigns zones department by
+ * department and a digitised version of that annex would be a table nobody checked —
+ * see `codes/cirsoc103/spectrum.ts`. Everything else is a property of the structure the
+ * reader is describing, not of its geometry.
+ */
+export interface SeismicCodeInputs {
+  zone: SeismicZone;
+  site: SiteClass;
+  group: DestinationGroup;
+  /** Tabla 5.1 row key for the system carrying the shear, e.g. `rc_frame_full_ductility`. */
+  systemKey: string;
+  /** Tabla 6.2 row for the approximate period. */
+  periodSystem: PeriodSystem;
+  regularity: PlanRegularity;
+  /** Tabla 3.3 — how much of the imposed load is present during the earthquake. */
+  occupancy: OccupancyProbability;
+  /** §5.1.2 — the owner elected elastic behaviour, so R = 1,5 whatever the system. */
+  elastic?: boolean;
+  na?: number;
+  nv?: number;
+  /** A period from a modal analysis, s. Capped by [6.7] when given. */
+  computedT?: number;
 }
 
 export interface LoadPlanInput {
@@ -98,8 +135,21 @@ export interface LoadPlanInput {
   };
   seismic?: {
     enabled: boolean;
-    /** Design seismic coefficient C, dimensionless — from the seismic role. */
+    /**
+     * Design seismic coefficient C, typed by the reader.
+     *
+     * Kept, and no longer the only way in: `code` below derives C from
+     * INPRES-CIRSOC 103 instead. A typed coefficient is somebody's calculation done
+     * elsewhere, which is legitimate and is recorded as a project value rather than as
+     * something read off a table.
+     */
     coefficient: number;
+    /**
+     * Derive C from INPRES-CIRSOC 103 Capítulo 6 instead of using `coefficient`.
+     *
+     * When present this wins, because it is the one of the two that can be checked.
+     */
+    code?: SeismicCodeInputs;
     /** Fraction of the imposed load in the seismic weight; null → recorded assumption. */
     liveParticipation: number | null;
     directions: { x: boolean; y: boolean };
@@ -147,6 +197,31 @@ export interface LevelMass {
 
 export type PlanOutcome = 'READY' | 'BLOCKED';
 
+/** What the static method concluded, so the report can show the derivation. */
+export interface SeismicPlanDetail {
+  source: 'cirsoc103' | 'manual';
+  zone?: SeismicZone;
+  spectralType?: 1 | 2 | 3;
+  ca?: number;
+  cv?: number;
+  t1?: number;
+  t2?: number;
+  t3?: number;
+  /** Period used, s, and the approximate period it was checked against. */
+  t?: number;
+  ta?: number;
+  periodCapped?: boolean;
+  r?: number;
+  gammaR?: number;
+  c: number;
+  /** Which floor of §6.2.2 governed, if one did. */
+  floorApplied?: 'nearFault' | 'lowZone' | null;
+  /** True when [6.12]/[6.13] placed a tenth of the shear on the top mass. */
+  topHeavy?: boolean;
+  /** §3.6 Tabla 3.3 simultaneity factor actually used. */
+  f1?: number;
+}
+
 export interface LoadPlan {
   outcome: PlanOutcome;
   cases: PlannedCase[];
@@ -163,6 +238,8 @@ export interface LoadPlan {
     baseShear?: ProvenancedValue<number>;
   };
   levels: LevelMass[];
+  /** The 103 derivation, when the code path produced the coefficient. */
+  seismic?: SeismicPlanDetail;
   assumptions: EngineMessage[];
   /** Conditions the plan could not cover. */
   unsupportedKeys: EngineMessage[];
@@ -361,11 +438,25 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     derivation.push(note);
   }
 
+  /*
+   * How much of the imposed load is present when the earthquake arrives.
+   *
+   * Tabla 3.3 answers this by OCCUPANCY — a warehouse carries three quarters of its
+   * imposed load and a flat a quarter — so where the code path names one, it is read off
+   * the table rather than assumed. A typed value still wins over both, and the 0,25
+   * fallback is what it always was: an assumption, and reported as one.
+   */
+  const codeF1 = input.seismic?.code
+    ? SIMULTANEITY_F1[input.seismic.code.occupancy]
+    : undefined;
   const participation: ProvenancedValue<number> = input.seismic?.liveParticipation !== null
     && input.seismic?.liveParticipation !== undefined
     ? fromProject(input.seismic.liveParticipation)
-    : assumed(0.25, msg('loadPlan.assumption.liveParticipation', { fraction: 0.25 }),
-        [clause('inpres-cirsoc-103-i', '2018', '6.2', 'peso sísmico efectivo')]);
+    : codeF1 !== undefined
+      ? fromCode(codeF1, [clause('inpres-cirsoc-103-i', '2018', 'Tabla 3.3',
+          'factor de simultaneidad para sobrecargas')])
+      : assumed(0.25, msg('loadPlan.assumption.liveParticipation', { fraction: 0.25 }),
+          [clause('inpres-cirsoc-103-i', '2018', '3.6', 'acciones gravitatorias para la acción sísmica')]);
   if (participation.origin === 'assumed' && input.seismic?.enabled) {
     assumptions.push(participation.assumption!);
   }
@@ -461,33 +552,111 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     }
   }
 
-  // ── Seismic, from the real level masses ──
+  /*
+   * ── Seismic ────────────────────────────────────────────────────
+   *
+   * Two ways to a coefficient. The reader can type C — somebody's calculation done
+   * elsewhere, which is legitimate — or give the building's zone, site, destination
+   * group and structural system, and have INPRES-CIRSOC 103 Capítulo 6 produce it. The
+   * second is the one that can be checked, so it wins when both are present, and the
+   * derivation is carried out of here message by message rather than reduced to a
+   * number.
+   *
+   * The distribution in height is the same 6.11 it always was, with one addition that
+   * only the code path can make: past T > 2·T2, [6.12]/[6.13] move a tenth of the base
+   * shear onto the topmost mass. Nothing in a typed coefficient says what T is, so that
+   * branch is unreachable without the spectrum.
+   */
   let seismicWeight: ProvenancedValue<number> | undefined;
   let baseShear: ProvenancedValue<number> | undefined;
+  let seismicDetail: SeismicPlanDetail | undefined;
   if (input.seismic?.enabled) {
     const elevated = levels.filter((l) => l.elevation > 0 && l.weightKN > 0);
     const W = elevated.reduce((s, l) => s + l.weightKN, 0);
     if (W <= 0) {
       unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass'));
     } else {
-      const C = input.seismic.coefficient;
-      const V0 = C * W;
-      seismicWeight = fromProject(W, 'kN');
-      baseShear = fromProject(V0, 'kN');
-      const sumWh = elevated.reduce((s, l) => s + l.weightKN * l.elevation, 0);
-      refs.push(clause('inpres-cirsoc-103-i', '2018', '6.2.4.1', 'distribución en altura'));
-      for (const lv of elevated) {
-        const Fk = sumWh > 0 ? (lv.weightKN * lv.elevation * V0) / sumWh : 0;
-        const per = Fk / Math.max(1, lv.nodeIds.length);
-        for (const id of lv.nodeIds) {
-          if (input.seismic.directions.x) {
-            nodal.push({ nodeId: id, caseType: 'E', fx: per, fy: 0, fz: 0 });
+      const code = input.seismic.code;
+      let C = input.seismic.coefficient;
+      let uncappedT = 0;
+      let t2 = Infinity;
+      seismicDetail = { source: 'manual', c: C };
+
+      if (code) {
+        const spectrum = designSpectrum({ zone: code.zone, site: code.site, na: code.na, nv: code.nv });
+        if (isBlocked(spectrum)) {
+          blockedKeys.push(spectrum.blocked);
+          refs.push(...spectrum.refs);
+        } else {
+          const H = Math.max(...elevated.map((l) => l.elevation), 0);
+          const period = designPeriod(
+            { heightM: H, system: code.periodSystem, computedT: code.computedT },
+            spectrum.as,
+          );
+          /* [6.12]/[6.13] test the period WITHOUT the [6.7] cap — the clause says so,
+             and using the capped one would shorten it and skip the extra force. */
+          uncappedT = code.computedT !== undefined && code.computedT > 0 ? code.computedT : period.ta;
+          t2 = spectrum.t2;
+
+          const applicability = staticMethodApplicable({
+            zone: code.zone, group: code.group, heightM: H, levels: elevated.length,
+            regularity: code.regularity, t: uncappedT, t2,
+          });
+          refs.push(...applicability.refs);
+          for (const r of applicability.reasons) {
+            if (r.key.startsWith('seismic.blocked.')) blockedKeys.push(r);
+            else assumptions.push(r);
           }
-          if (input.seismic.directions.y) {
-            nodal.push({ nodeId: id, caseType: 'E', fx: 0, fy: per, fz: 0 });
+
+          const entry = findBehaviour(code.systemKey);
+          const R = code.elastic ? R_ELASTIC : entry?.r ?? null;
+          if (R === null) {
+            /* Tabla 5.1 row 1 prints a formula on the wall layout, not a value; an
+               unknown key is the same hole. Either way there is no R to divide by. */
+            blockedKeys.push(msg('loadPlan.blocked.seismicNoR', { system: code.systemKey }));
+          } else if (applicability.allowed) {
+            const coeff = designSeismicCoefficient({
+              spectrum, group: code.group, r: R, t: period.t,
+            });
+            C = coeff.c;
+            refs.push(...period.refs, ...coeff.refs);
+            derivation.push(period.derivation, ...coeff.derivation);
+            assumptions.push(...spectrum.assumptions);
+            seismicDetail = {
+              source: 'cirsoc103', zone: spectrum.zone, spectralType: spectrum.type,
+              ca: spectrum.ca, cv: spectrum.cv, t1: spectrum.t1, t2: spectrum.t2,
+              t3: spectrum.t3, t: period.t, ta: period.ta, periodCapped: period.capped,
+              r: R, gammaR: coeff.gammaR, c: C, floorApplied: coeff.floorApplied,
+              f1: SIMULTANEITY_F1[code.occupancy],
+            };
           }
         }
       }
+
+      const V0 = C * W;
+      seismicWeight = fromProject(W, 'kN');
+      baseShear = fromProject(V0, 'kN');
+
+      const dist = distributeInHeight(
+        elevated.map((l) => ({ h: l.elevation, w: l.weightKN })), V0, uncappedT, t2,
+      );
+      refs.push(...dist.refs);
+      derivation.push(dist.derivation);
+      if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
+
+      elevated.forEach((lv, i) => {
+        const Fk = dist.forces[i]?.f ?? 0;
+        const per = Fk / Math.max(1, lv.nodeIds.length);
+        for (const id of lv.nodeIds) {
+          if (input.seismic!.directions.x) {
+            nodal.push({ nodeId: id, caseType: 'E', fx: per, fy: 0, fz: 0 });
+          }
+          if (input.seismic!.directions.y) {
+            nodal.push({ nodeId: id, caseType: 'E', fx: 0, fy: per, fz: 0 });
+          }
+        }
+      });
+
       if (input.seismic.directions.x) {
         cases.push({ existingId: findCase(input.model, 'E', 'X'), type: 'E',
           nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' } });
@@ -501,6 +670,17 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       }));
     }
   }
+
+  /*
+   * Blocked conditions found while generating, not only while gating.
+   *
+   * The role gate above returns early; everything discovered afterwards — zone 0, site
+   * SF, a system Tabla 5.1 gives no R, a building past Tabla 2.5 — used to be collected
+   * into `blockedKeys` and then returned alongside `outcome: 'READY'`. A plan that
+   * carries its own refusal and calls itself ready is worse than one that fails: the
+   * caller applies it.
+   */
+  if (blockedKeys.length > 0) return empty;
 
   // ── Combinations from the basis role ──
   let combinations: LoadCombinationSpec[] = [];
@@ -532,6 +712,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       windQh, seismicWeight, baseShear,
     },
     levels,
+    seismic: seismicDetail,
     assumptions: dedupeMessages(assumptions),
     unsupportedKeys, refs, derivation, blockedKeys: [],
   };

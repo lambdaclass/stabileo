@@ -21,6 +21,8 @@ import { join, relative } from 'node:path';
 import { tAt, OFFERED_LOCALES } from '../store.svelte';
 import { allShippedLocales as shippedLocales, allDictFor as dictFor } from '../locales/all';
 import { OCCUPANCY_TABLE_2025 } from '../../codes/cirsoc101/live-loads';
+import { DEAD_TABLE_2025 } from '../../codes/cirsoc101/dead-loads';
+import { BEHAVIOUR_TABLE_2018 } from '../../codes/cirsoc103/behaviour';
 import { REGULATION_ROLES, optionsForRole } from '../../codes/roles';
 
 const SRC = new URL('../../..', import.meta.url).pathname;
@@ -221,6 +223,36 @@ describe('keys built from data rather than written out', () => {
     }
     expect(missing).toEqual([]);
     expect(OCCUPANCY_TABLE_2025.length).toBeGreaterThan(50);
+  });
+
+  it('translates every Tabla 3.1 dead-load row in English and Spanish', () => {
+    // Same shape as the occupancy table and the same failure: `loads.dead.${key}` is
+    // built, so a row added without its label ships as the raw key in a selector.
+    const missing: string[] = [];
+    for (const entry of DEAD_TABLE_2025) {
+      for (const locale of REQUIRED_LOCALES) {
+        if (tAt(entry.labelKey, locale) === entry.labelKey) {
+          missing.push(`${locale}: ${entry.labelKey}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+    expect(DEAD_TABLE_2025.length).toBeGreaterThan(50);
+  });
+
+  it('translates every Tabla 5.1 structural system in English and Spanish', () => {
+    // R divides the whole spectrum, so picking the wrong row is the most expensive
+    // mistake available in the seismic workflow — the labels have to be readable.
+    const missing: string[] = [];
+    for (const entry of BEHAVIOUR_TABLE_2018) {
+      for (const locale of REQUIRED_LOCALES) {
+        if (tAt(entry.labelKey, locale) === entry.labelKey) {
+          missing.push(`${locale}: ${entry.labelKey}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+    expect(BEHAVIOUR_TABLE_2018.length).toBe(36);
   });
 
   it('translates every regulation option name in English and Spanish', () => {

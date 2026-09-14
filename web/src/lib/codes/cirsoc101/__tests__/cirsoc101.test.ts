@@ -175,6 +175,25 @@ describe('Table 4.1 — occupancy loads', () => {
     expect(findOccupancy('archivos')!.uniformKNm2).toBe(7.0);
   });
 
+  it('gives a passenger garage the 2 kN/m² the 2025 table prints', () => {
+    /*
+     * This was 2,5 — the 2005 figure, inherited from ASCE 7-05's 2,40 — inside a module
+     * that promises a cell-by-cell transcription of the 2025 edition. Tabla 4.1 prints
+     * 2, and art. 4.10.1 prints it again. Pinned because nothing here pinned it before,
+     * which is how a value survives an edition change.
+     */
+    expect(findOccupancy('garaje_autos')!.uniformKNm2).toBe(2.0);
+  });
+
+  it('carries Table 4.1 note (a) on the rows that print it', () => {
+    // §4.7 does not permit the reduction for these, independently of their magnitude.
+    for (const k of ['deposito_liviano', 'comercio_mayorista', 'fabrica_pesada',
+                     'biblioteca_deposito']) {
+      expect(findOccupancy(k)!.noReduction, k).toBe(true);
+    }
+    expect(findOccupancy('oficina')!.noReduction).toBeUndefined();
+  });
+
   it('flags garages and assembly areas, which two separate rules depend on', () => {
     expect(findOccupancy('garaje_autos')!.garageOrPublicAssembly).toBe(true);
     expect(findOccupancy('reunion_vestibulos')!.garageOrPublicAssembly).toBe(true);
