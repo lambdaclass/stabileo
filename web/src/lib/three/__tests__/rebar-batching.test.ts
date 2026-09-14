@@ -122,7 +122,7 @@ function everyFamily(): SceneModel {
     },
     bounds: { min: { x: 0, y: -0.1, z: -0.2 }, max: { x: 2, y: 4, z: 1 } },
     unresolvedMembers: [], unreinforcedMembers: [3],
-  provisionalMembers: [],
+  provisionalMembers: [], lockedMembers: [],
     torsionUnevaluatedMembers: [],
   };
 }

@@ -118,6 +118,30 @@ describe('the scene reads the document and nothing else', () => {
     expect(buildSceneModel(doc(), { members: MEMBERS }))
       .toEqual(buildSceneModel(doc(), { members: MEMBERS }));
   });
+
+  /*
+   * Objective 6. A pin is not a note the detailing panel keeps to itself: `runDetailing` is
+   * handed `lockedBars` and never regenerates them, and the repair loop is handed every member
+   * a pinned bar owns and never repairs those. The viewer is where a continuous bar's second
+   * owner is actually visible, so the flag has to reach it — and by being COPIED, not inferred.
+   */
+  it('carries the engineer’s pin verbatim from the document', () => {
+    const pinned = assembly({
+      bars: [bar('b1', { endHook: 90 }), bar('b2')].map(
+        (b) => (b.id === 'b1' ? { ...b, locked: true } : b)),
+    });
+    const scene = buildSceneModel(doc({ assemblies: [pinned] }), { members: MEMBERS });
+    expect(scene.bars.find((b) => b.barId === 'b1')?.locked).toBe(true);
+  });
+
+  /*
+   * `locked: false` on 20 917 scene bars is 20 917 fields carrying no information, and the
+   * field means "set when pinned". An unpinned bar is silent about it, exactly as it is about
+   * `provisional`.
+   */
+  it('says nothing about a bar nobody pinned', () => {
+    expect(scene.bars.every((b) => b.locked === undefined)).toBe(true);
+  });
 });
 
 // ─── Concrete ────────────────────────────────────────────────────

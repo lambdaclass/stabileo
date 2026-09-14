@@ -21,12 +21,20 @@
    * first so the reader does not lose it among the limits, then the two absences, then the
    * exclusion, then the conclusion that follows.
    *
-   * ── The zed warning is not decoration ─────────────────────────────
+   * ── The axes warning is not decoration, and not this panel's rule ──
    *
    * A zed's principal axes are rotated and this app has nowhere to store a product of inertia, so
    * the numbers shown for one are about axes it will not actually bend about unless the member is
-   * restrained. The angle is computed and displayed rather than described, because «rotated» and
-   * «rotated 23 degrees» are different warnings.
+   * restrained.
+   *
+   * The RULE for that lives in `section/axes.ts`, not here, because it is not a cold-formed fact:
+   * the same thing is true of the 37 catalogued angles. This panel asks that module whether to
+   * warn and renders the sentence it names. Two surfaces warning on two different predicates would
+   * teach a reader that the app is inconsistent rather than that their section is unsymmetric.
+   *
+   * What this panel adds is the MEASUREMENT. It is the one surface that has the geometry to hand,
+   * so it can say «rotated 23.4°» where a general surface can only say «rotated» — and those are
+   * different warnings.
    */
   import { t, tp } from '../../../lib/i18n';
   import { modelStore } from '../../../lib/store/model.svelte';
@@ -37,9 +45,8 @@
   import {
     coldFormedSource, coldFormedSectionFields, COLD_FORMED_BASIS,
   } from '../../../lib/profiles/cold-formed-catalogue';
-  import {
-    COLD_FORMED_SCOPE, COLD_FORMED_ZED_AXES_KEY,
-  } from '../../../lib/profiles/cold-formed-scope';
+  import { COLD_FORMED_SCOPE } from '../../../lib/profiles/cold-formed-scope';
+  import { axesNoticeKeyFor } from '../../../lib/section/axes';
   import { crossSectionPath } from '../../../lib/utils/section-drawing';
 
   /**
@@ -104,6 +111,15 @@
     h: hMm / 1000, b: bMm / 1000, tw: tMm / 1000, tf: tMm / 1000,
     t: cMm / 1000, tl: tMm / 1000,
   }) : null);
+
+  /**
+   * Whether this section's stored axes are its principal ones — asked, not decided here.
+   *
+   * A channel always answers "principal" and a zed never does, so in this panel the notice is only
+   * ever a zed's. It is still routed through the shared predicate: hard-coding `shape === 'Z'`
+   * here is exactly the second rule this refactor removed.
+   */
+  const axesNoticeKey = $derived(axesNoticeKeyFor(shape));
 
   let added = $state<string | null>(null);
 
@@ -205,12 +221,16 @@
         <p class="basis" data-testid="cf-basis">{t('steel.coldFormed.derived')} · {COLD_FORMED_BASIS}</p>
 
         <!--
-          The zed's rotated axes. Shown only for a zed, because beside a channel — whose geometric
-          axes ARE principal — it would be a warning about nothing.
+          Rotated axes. Present only when the shared predicate says so — which for the two shapes
+          this panel offers means a zed and never a channel, whose geometric axes ARE principal.
+
+          Two sentences: the general one, identical wherever this notice appears, and the measured
+          angle, which only a surface holding the geometry can supply.
         -->
-        {#if shape === 'Z'}
-          <p class="warn" data-testid="cf-zed-axes">
-            {tp(COLD_FORMED_ZED_AXES_KEY, { angle: geometry.principalAngleDeg.toFixed(1) })}
+        {#if axesNoticeKey}
+          <p class="warn" data-testid="cf-axes-notice">
+            {t(axesNoticeKey)}
+            {tp('steel.coldFormed.axesAngle', { angle: geometry.principalAngleDeg.toFixed(1) })}
           </p>
         {/if}
 

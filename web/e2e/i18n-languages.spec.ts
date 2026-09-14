@@ -219,9 +219,21 @@ test.describe('changing language keeps the work', () => {
  * the empty states, the detailing panel, the floor families, the 3-D rail and its tally, the
  * conflict and provisional wording, and the document exports.
  */
+/**
+ * The pipeline's commands, each with the key that LABELS it.
+ *
+ * `cmd-code-check` reads `design.cmd.requiredSteel`, not `design.cmd.codeCheck`. The command
+ * computes what the code REQUIRES and never looks at a provided bar, so "Run code check" claimed a
+ * verification of reinforcement that did not exist yet — the claim F1 took off the stage strip and
+ * this label went on making. It was renamed with the move to the REGLAMENTOS strip.
+ *
+ * `design.cmd.codeCheck` still exists in all three dictionaries and still says "Run code check",
+ * which is why this kept resolving to a string and failing on its VALUE in every language at once.
+ * An obsolete expectation, not broken behaviour — same shape as D7.
+ */
 const COMMAND_ROW: Array<[string, string]> = [
   ['cmd-compute-demands', 'design.cmd.computeDemands'],
-  ['cmd-code-check', 'design.cmd.codeCheck'],
+  ['cmd-code-check', 'design.cmd.requiredSteel'],
   ['cmd-design-all', 'design.cmd.designAll'],
 ];
 

@@ -17,8 +17,20 @@ import { uiStore, resultsStore, modelStore } from '../store';
 import { t } from '../i18n';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 import { initSolver, isWasmReady } from '../engine/wasm-solver';
+import { reportModelDiagnostics } from '../engine/solve-diagnostics';
 
 export function runSolve() {
+  /*
+   * This is the solve entry point the Basic UI actually uses — Enter, the
+   * ribbon's Solve command and Calcular all land here, NOT in
+   * `runGlobalSolve` (which serves the `stabileo-solve` event path). The
+   * pre-solve hygiene report therefore has to fire here too, or the user in
+   * issue #181 keeps getting numbers in silence on the paths they take.
+   * One call covers both branches: the 3D arm below delegates to
+   * `runSolve3D`, which has no other caller. The PRO exclusion is inside the
+   * reporter itself.
+   */
+  reportModelDiagnostics();
   if (uiStore.analysisMode === '3d') {
     runSolve3D();
     return;

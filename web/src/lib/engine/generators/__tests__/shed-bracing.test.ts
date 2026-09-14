@@ -55,6 +55,40 @@ const PROFILES: EmitOptions['profiles'] = {
 const emit = (params: Parameters<typeof generateShed>[0], name: string) =>
   emitModel(generateShed(params), { name, profiles: PROFILES }).json as any;
 
+/**
+ * The budget for a test that runs a real 3-D solve, against Vitest's 5 s default.
+ *
+ * ── Why the default is not enough, measured ────────────────────────
+ *
+ * Per-test times on an idle machine, from `--reporter=verbose` over this file:
+ *
+ *   returns a mechanism wearing a number …            3394 ms
+ *   already solved vertically before any bracing …     927 ms
+ *   stays free … roof plane braced in every bay        912 ms
+ *   stays free … with wall bracing alone               904 ms
+ *   the roof plane cannot be anchored …                803 ms
+ *   is still free along the building until …           802 ms
+ *   solves under vertical load when EVERY bay …        789 ms
+ *   stays a mechanism when only the end bays …         686 ms
+ *
+ * against 29–77 ms for the well-conditioned solves in the same file. The split is not
+ * warm-up: it is CONDITIONING. Every case above is a mechanism or a near-mechanism —
+ * the thing this file exists to detect — and a near-singular system costs the solver
+ * ten to forty times a well-behaved one. The slowest already spends 68 % of the default
+ * budget with nothing else running.
+ *
+ * That is the whole flakiness. Inside the 8100-test pool, on a loaded runner, a 1,5×
+ * slowdown is enough to take the 3394 ms case past 5 s, and a different test crosses on
+ * each run — which is why the failure never named the same case twice and never
+ * reproduced in isolation. The comment on the split below records the same mechanism
+ * being hit once before, and the split bought headroom for one case rather than naming
+ * the cause for all of them.
+ *
+ * 20 s is ~6x the measured worst case. It turns "flaky under load" into "slow under
+ * load", which is a state a reader can act on.
+ */
+const SOLVE_TIMEOUT_MS = 20_000;
+
 /** One nodal load at the highest node, along the building unless told otherwise. */
 function solve(json: any, kn: number, direction: 'y' | 'z' = 'y') {
   assertRealSolver();
@@ -101,7 +135,7 @@ describe('the shed has no longitudinal load path until it is given one', () => {
     const d = displacementOf(emit({ ...DEFAULT_SHED_PARAMS }, 'Nave'), -20);
     expect(d).not.toBeNull();
     expect(d!).toBeGreaterThan(1e6);
-  });
+  }, SOLVE_TIMEOUT_MS);
 
   it('still deflects 4 mm under the vertical load PR21 measured', () => {
     // The point of the previous assertion is that it coexists with this one: the same model is
@@ -141,7 +175,7 @@ describe('each element earns its place, measured by removing it', () => {
     }, 'Sin arriostramiento vertical'), -20);
     expect(d).not.toBeNull();
     expect(d!).toBeGreaterThan(1e6);
-  });
+  }, SOLVE_TIMEOUT_MS);
 
   it('the vertical bracing needs a wall that reaches the ground', () => {
     // It ties the roof to the eave line; without the wall bracing that line is itself held only
@@ -175,7 +209,7 @@ describe('a roof with no purlins, and what bracing can and cannot replace', () =
     // half of the answer that stops roof bracing being sold as a substitute for purlins.
     expect(displacementOf(emit({ ...NO_PURLINS, roofBracing: true }, 'Extremos'), -20, 'z'))
       .toBeNull();
-  });
+  }, SOLVE_TIMEOUT_MS);
 
   it('solves under vertical load when EVERY bay is braced, because that reaches every frame', () => {
     // A diagonal in every bay supplies the restraint the purlins supplied, one bay at a time.
@@ -186,7 +220,7 @@ describe('a roof with no purlins, and what bracing can and cannot replace', () =
     );
     expect(d).not.toBeNull();
     expect(d!).toBeLessThan(0.05);
-  });
+  }, SOLVE_TIMEOUT_MS);
 
   it('is still free along the building until the vertical bracing is added', () => {
     // Vertical soundness and longitudinal soundness are separate questions, and bracing every
@@ -201,7 +235,7 @@ describe('a roof with no purlins, and what bracing can and cannot replace', () =
       -20,
     );
     expect(full!).toBeLessThan(0.05);
-  });
+  }, SOLVE_TIMEOUT_MS);
 
   it('keeps saying so on the model, whatever the bracing', () => {
     // The disclosure is about the purlins, not about the stiffness, so adding bracing must not
@@ -312,7 +346,7 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
     // never the thing the bracing was needed for.
     const walled = displacementOf(emit({ ...PINNED, wallBracing: true }, 'Con fachada'), -20, 'z')!;
     expect(Math.abs(walled - bare!) / bare!).toBeLessThan(0.05);
-  });
+  }, SOLVE_TIMEOUT_MS);
 
   /*
    * One `it` per configuration, and the split is about the budget rather than the style.
@@ -330,7 +364,7 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
     const d = displacementOf(emit({ ...PINNED, wallBracing: true }, 'Longitudinal'), -20);
     expect(d).not.toBeNull();
     expect(d!).toBeGreaterThan(1e6);
-  });
+  }, SOLVE_TIMEOUT_MS);
 
   it('stays free along the building even with the roof plane braced in every bay', () => {
     const d = displacementOf(emit(
@@ -339,7 +373,7 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
     ), -20);
     expect(d).not.toBeNull();
     expect(d!).toBeGreaterThan(1e6);
-  });
+  }, SOLVE_TIMEOUT_MS);
 
   it('needs the vertical bracing, exactly as a fixed-base shed does', () => {
     const d = displacementOf(emit({

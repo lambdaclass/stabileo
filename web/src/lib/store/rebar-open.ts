@@ -1,5 +1,5 @@
 /**
- * Opening the 3-D reinforcement workspace — one operation, two buttons.
+ * Opening the 3-D reinforcement workspace — one operation, four buttons.
  *
  * ── Why this is a module and not a function in a component ─────────
  *
@@ -7,9 +7,29 @@
  * row, because the viewer is the RESULT of the design and was reachable only from a panel two
  * levels below it. The old button stays where it is, beside the exports it belongs with.
  *
- * Two buttons with the same name must not be two operations. They are not: both call
+ * Buttons with the same name must not be different operations. They are not: all of them call
  * `openRebar3D`, so the picture the user gets is the same picture whichever they press, built
  * from the same document instance as the report, the schedule and the drawings.
+ *
+ * ── Why the viewer is NOT a stage command (F3 step 5) ──────────────
+ *
+ * F3 moved every pipeline command — demands, required steel, design, detailing — into
+ * `RcStageTimeline`, and step 5 asked whether this one should follow. It should not, and the
+ * reasons are properties of the operation rather than a matter of taste:
+ *
+ *  - it has FOUR entry points on purpose, and that is asserted: `cmd-open-3d` on the Design row,
+ *    `overview-open-3d`, `doc-3d` beside the exports, and `pr-cmd-rebar3d` in the ribbon. Each
+ *    strip command has the opposite invariant — exactly one, no copy in any disclosure;
+ *  - one of those entries is the RIBBON, which also serves the metallic flow. That flow has no
+ *    `RcStageTimeline`, so a viewer reachable only from the RC strip could not serve it;
+ *  - it advances no stage. `rc-stages.ts` has no notion of this workspace, and the strip's action
+ *    row is keyed by stage — there is no stage this would belong to;
+ *  - its inputs are document metadata (author, timestamp), not stage state, and its prerequisite
+ *    is the pipeline's OUTPUT rather than its progress: coordinated assemblies exist.
+ *
+ * A transversal tool for looking at what the pipeline produced, in other words, reachable from
+ * wherever that result is being read. Moving it into the strip would have made the strip claim
+ * it was a step, and would have left the other three entries behind as copies.
  *
  * ── Why the document is rebuilt on every open ──────────────────────
  *
@@ -24,12 +44,21 @@
 import { detailingStore } from './detailing.svelte';
 import { rebarWorkspace } from './rebar-workspace.svelte';
 import { markOpenPhase } from '../utils/open-timeline';
+import type { DesignFamily } from '../engine/design/design-families';
 
 export interface OpenRebar3DOptions {
   /** Shown on the sheets. Falls back to the caller's own "unnamed" string. */
   author: string;
   /** ISO timestamp stamped on the revision. Passed in so callers stay testable. */
   at: string;
+  /**
+   * The documentation scope, for the entry point that sits beside the exports.
+   *
+   * `doc-3d` is the fourth projection of the document being issued and must show what the other
+   * three contain. The three entries that are NOT beside the exports pass nothing and get the
+   * whole cage, which is what a design tool should show. See `buildDocument`.
+   */
+  scope?: { elements: readonly number[]; families: readonly DesignFamily[] } | null;
 }
 
 export type OpenRebar3DResult =
@@ -68,7 +97,9 @@ export function openRebar3D(opts: OpenRebar3DOptions): OpenRebar3DResult {
   // The phases of an open are recorded where they happen — see `open-timeline.ts` for why
   // attributing this from the outside got it wrong twice.
   markOpenPhase('click');
-  const doc = detailingStore.buildDocument({ author: opts.author, at: opts.at });
+  const doc = detailingStore.buildDocument({
+    author: opts.author, at: opts.at, scope: opts.scope ?? null,
+  });
   if (!doc) return { ok: false, reason: 'no-document' };
   markOpenPhase('document');
   rebarWorkspace.openWorkspace();

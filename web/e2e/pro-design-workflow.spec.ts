@@ -24,45 +24,56 @@ const DICTS: Record<string, Record<string, string>> = {
   pt: pt as unknown as Record<string, string>,
 };
 
-const STAGES = ['model', 'demands', 'check', 'design', 'detailing', 'documents'] as const;
+/**
+ * FIVE stages now, and the concrete flow's own strip.
+ *
+ * `demands` and `check` are gone as stages: demands are the solver's output and belong to
+ * MODELADO, and the code check is what FINISHES Diseñar rather than a step before it. A
+ * completed *Verificación* drawn ahead of DISEÑAR said the reinforcement had been verified
+ * before it existed. See `lib/flow/rc-stages.ts`.
+ */
+const STAGES = ['model', 'codes', 'design', 'detailing', 'documents'] as const;
 
 /** The state a stage advertises, as the strip records it. */
 function stageState(page: Page, id: string) {
-  return page.getByTestId(`stage-${id}`).getAttribute('data-state');
+  return page.getByTestId(`rc-stage-${id}`).getAttribute('data-state');
 }
 
 test.describe('@smoke the workflow says where you are', () => {
   test('an empty project shows every stage, in order, with the first one current',
     async ({ pro: page }) => {
-      const strip = page.getByTestId('workflow-stages');
+      const strip = page.getByTestId('rc-stage-timeline');
       await expect(strip).toBeVisible();
 
       // Order is the claim: a strip that renders the six stages in a different order every time
       // would still pass a per-stage assertion.
-      const ids = await strip.locator('[data-testid^="stage-"]')
-        .evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
-      expect(ids).toEqual(STAGES.map((s) => `stage-${s}`));
+      const ids = await strip.locator('[data-testid^="rc-stage-"]').evaluateAll(
+        (els) => els.filter((e) => e.tagName === 'LI')
+          .map((e) => e.getAttribute('data-testid')));
+      expect(ids).toEqual(STAGES.map((s) => `rc-stage-${s}`));
 
       // Nothing is done, and the first step is where you are.
-      for (const s of STAGES) expect(await stageState(page, s)).not.toBe('done');
+      // `complete` and not `done`: the strip says what the USER did, never that a calculation
+      // is certified. The word changed with the vocabulary.
+      for (const s of STAGES) expect(await stageState(page, s)).not.toBe('complete');
       expect(await stageState(page, 'model')).toBe('current');
-      // A step you cannot reach yet says so rather than looking available.
+      // Nothing can start without a model, so this is unreachable rather than merely not-yet.
       expect(await stageState(page, 'detailing')).toBe('blocked');
 
       // And the panel states the next thing to do, in words, not only as a grey button.
-      await expect(page.getByTestId('workflow-next')).toHaveText(en['design.stage.needModel']);
+      await expect(page.getByTestId('rc-stage-next')).toHaveText(en['design.stage.needModel']);
     });
 
   test('the stages advance as the work is done, and the hint follows', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     // A model but no results: the instruction changes to the thing that is now missing.
-    await expect(page.getByTestId('workflow-next')).toHaveText(en['design.stage.needSolve']);
+    await expect(page.getByTestId('rc-stage-next')).toHaveText(en['design.stage.needSolve']);
 
     await designAll(page);
-    for (const s of ['model', 'demands', 'check', 'design'] as const) {
-      expect(await stageState(page, s), `${s} is complete after a design run`).toBe('done');
+    for (const s of ['model', 'codes', 'design'] as const) {
+      expect(await stageState(page, s), `${s} is complete after a design run`).toBe('complete');
     }
-    // Detailing is now reachable rather than blocked.
+    // Detailing is now reachable rather than unreachable.
     expect(await stageState(page, 'detailing')).not.toBe('blocked');
   });
 
@@ -71,7 +82,7 @@ test.describe('@smoke the workflow says where you are', () => {
       await loadModel(page, 'rc-design-qa-8');
       const solvesBefore = await page.evaluate(() => window.__stabileo.solveCount());
 
-      await page.getByTestId('stage-detailing').locator('button').click();
+      await page.getByTestId('rc-stage-detailing').locator('button').click();
       await expect(page.getByTestId('detailing-disclosure')).toHaveAttribute('open', '');
 
       // Navigation only. A strip that also ran commands would be a second command surface, and
@@ -96,27 +107,42 @@ test.describe('@smoke commands are grouped, and none of them is ambiguous', () =
     await expect(groups.filter({ has: page.getByTestId('active-concrete-code') })).toHaveCount(0);
   });
 
-  test('the two Design buttons no longer share a label', async ({ pro: page }) => {
+  test('there is ONE design command, and it states its own scope', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
-    const frame = (await page.getByTestId('cmd-design-all').innerText()).trim();
-    const families = (await page.getByTestId('cmd-design-families').innerText()).trim();
-    expect(frame).toBe(en['design.cmd.designAll']);
-    expect(families).toBe(en['design.families.runScoped']);
-    expect(families, 'two commands with different scopes must not read the same')
-      .not.toBe(frame);
+    /*
+     * This used to assert that the two Design buttons did not share a LABEL. F2 removed the
+     * second one instead: `cmd-design-families` sat beside the family boxes and
+     * `cmd-design-all` in the command bar, and two commands that design different scopes is the
+     * contradiction §2 names — a different label does not fix it, it only makes the ambiguity
+     * legible.
+     */
+    await expect(page.getByTestId('cmd-design-families'),
+      'the second design command is gone').toHaveCount(0);
+    await expect(page.getByTestId('cmd-design-all')).toHaveCount(1);
 
-    // And each says what it covers, where it is.
-    expect(await page.getByTestId('cmd-design-all').getAttribute('title'))
-      .toBe(en['design.cmd.designAllScope']);
-    await expect(page.getByTestId('design-families-subtitle'))
-      .toHaveText(en['design.families.subtitle']);
+    // And the scope it will run is on screen BEFORE it runs, next to the button.
+    const scope = page.getByTestId('cmd-design-scope');
+    await expect(scope).toBeVisible();
+    const text = (await scope.innerText()).trim();
+    expect(text.length, 'the scope is named, not implied').toBeGreaterThan(5);
+    expect(text, 'and it names the families').toMatch(/column|beam/i);
   });
 
   test('the auto-detailing preference sits with the command it governs', async ({ pro: page }) => {
-    // It used to float between the commands and the counts, belonging to neither.
-    const group = page.getByTestId('cmd-group-detailing');
-    await expect(group.getByTestId('detailing-auto')).toBeVisible();
-    await expect(group.getByTestId('cmd-generate-detailing')).toBeVisible();
+    /*
+     * It used to float between the commands and the counts, belonging to neither. PR20 put it in
+     * `cmd-group-detailing` beside the button, and this asserted that containment.
+     *
+     * F3 step 4 moved the pair again, together: the command is in the stage strip now, because in
+     * `DesignToolbar` it could not be reached with DISEÑAR closed. The CLAIM is unchanged and is
+     * the reason they travelled as a pair — what changed is which container holds them.
+     */
+    const actions = page.getByTestId('rc-stage-actions');
+    await expect(actions.getByTestId('detailing-auto')).toBeVisible();
+    await expect(actions.getByTestId('cmd-generate-detailing')).toBeVisible();
+    // And no copy stayed behind, which would let the two disagree about the preference.
+    await expect(page.getByTestId('cmd-generate-detailing')).toHaveCount(1);
+    await expect(page.getByTestId('detailing-auto')).toHaveCount(1);
   });
 
   test('every stage states its step, its purpose and its state in words', async ({ pro: page }) => {
@@ -257,16 +283,15 @@ for (const locale of ['en', 'es', 'pt'] as const) {
     test('names every stage and its instruction in this language', async ({ pro: page }) => {
       const D = DICTS[locale];
       for (const [id, key] of [
-        ['stage-model', 'design.stage.model'],
-        ['stage-demands', 'design.stage.demands'],
-        ['stage-check', 'design.stage.check'],
-        ['stage-design', 'design.stage.design'],
-        ['stage-detailing', 'design.stage.detailing'],
-        ['stage-documents', 'design.stage.documents'],
+        ['rc-stage-model', 'design.stage.model'],
+        ['rc-stage-codes', 'design.stage.codes'],
+        ['rc-stage-design', 'design.stage.design'],
+        ['rc-stage-detailing', 'design.stage.detailing'],
+        ['rc-stage-documents', 'design.stage.documents'],
       ] as const) {
         await expect(page.getByTestId(id)).toContainText(D[key]);
       }
-      await expect(page.getByTestId('workflow-next')).toHaveText(D['design.stage.needModel']);
+      await expect(page.getByTestId('rc-stage-next')).toHaveText(D['design.stage.needModel']);
       await expect(page.getByTestId('cmd-group-verify')).toContainText(D['design.group.verify']);
     });
   });

@@ -239,12 +239,34 @@ describe('what cannot be bent is refused', () => {
     expect(validateColdFormed({ ...base, hMm: -100 })).toEqual({ ok: false, reason: 'nonPositive' });
     expect(validateColdFormed({ ...base, tMm: 50 })).toEqual({ ok: false, reason: 'flangesMeet' });
     expect(validateColdFormed({ ...base, bMm: 2 })).toEqual({ ok: false, reason: 'noFlange' });
-    expect(validateColdFormed({ ...base, cMm: 49 })).toEqual({ ok: false, reason: 'lipsCollide' });
+    // Lips collide past mid-depth, and the bound is `c > h/2` — NOT `c + t > h/2`. Loosened by
+    // exactly `t` when the outer-face convention landed, so `c = 49` on a 100 section is now legal
+    // and `c = 51` is not. Both ends asserted, because the boundary is where an off-by-one lives.
+    expect(validateColdFormed({ ...base, cMm: 49 })).toEqual({ ok: true });
+    expect(validateColdFormed({ ...base, cMm: 50 })).toEqual({ ok: true });
+    expect(validateColdFormed({ ...base, cMm: 51 })).toEqual({ ok: false, reason: 'lipsCollide' });
   });
 
   it('and geometry returns null rather than a section of negative area', () => {
     expect(coldFormedGeometry({ shape: 'Z', hMm: 100, bMm: 50, cMm: 60, tMm: 2 })).toBeNull();
     expect(coldFormedGeometry({ shape: 'C', hMm: 10, bMm: 50, cMm: 15, tMm: 2 })).toBeNull();
+  });
+
+  it('accepts `c <= t` as a plain channel rather than refusing it', () => {
+    /*
+     * Under the outer-face convention a lip shorter than the sheet is thick adds nothing beyond
+     * the flange, so the section IS an unlipped channel — which is what both drawing
+     * implementations have always rendered for that case. Computing it instead of rejecting it is
+     * what stopped the app from calculating a section with a lip and drawing one without.
+     */
+    const base = { shape: 'C' as const, hMm: 100, bMm: 50, cMm: 15, tMm: 2 };
+    for (const cMm of [2, 1, 0.5]) {
+      expect(validateColdFormed({ ...base, cMm }), `c=${cMm}`).toEqual({ ok: true });
+      const g = coldFormedGeometry({ ...base, cMm });
+      expect(g, `c=${cMm}`).not.toBeNull();
+      // Identical to the section with no lip at all, which is the strongest way to say it.
+      expect(g!.areaMm2).toBeCloseTo(coldFormedGeometry({ ...base, cMm: 2 })!.areaMm2, 9);
+    }
   });
 
   it('refuses a thickness that is not finite', () => {

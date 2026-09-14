@@ -15,7 +15,7 @@
  * on a timer, and no timeout is widened to make a slow thing pass.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -114,26 +114,104 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
       await expect(btn, 'and refuses honestly rather than vanishing').toBeDisabled();
 
       /**
-       * It is IN the command row, with `Design all`.
+       * It is IN the command row, and under no disclosure.
        *
        * Asserted by DOM containment rather than by comparing y-coordinates: the row wraps and the
        * PRO panel is a sidebar, so at some widths the commands legitimately run onto a second
        * line. What must never happen again is this command living somewhere else entirely — under
        * a disclosure, in another panel — and that is exactly what containment tests.
        *
-       * It used to compare `parentElement` directly, which held while the row was six flat
-       * buttons. PR20's UX pass groups them by stage — Verify / Design / Detail — so the two now
-       * sit in different groups OF THE SAME ROW, which is the arrangement the strip and the group
-       * labels exist to make legible. The claim is unchanged; the nesting is one level deeper.
+       * ── Why `Design all` is no longer half of this claim ────────────
+       *
+       * It used to require `cmd-open-3d` and `cmd-design-all` in the same row. F3 step 3 moved the
+       * design command to the stage strip, so that conjunction became unsatisfiable and this test
+       * went red for a reason that had nothing to do with the 3-D command. Step 5 audited whether
+       * this one should follow it there, and it should NOT:
+       *
+       *  - `openRebar3D` has FOUR entry points ON PURPOSE — this button, `overview-open-3d`,
+       *    `doc-3d` and the ribbon's `pr-cmd-rebar3d` — and `rc-commands.test.ts` asserts that one
+       *    function stays behind all of them. Every command in the strip has the opposite
+       *    invariant: it exists exactly once, with no copy inside any disclosure.
+       *  - one of those entries is `ProRibbon`, which serves the METALLIC flow. That flow has no
+       *    `RcStageTimeline` at all, so a viewer reachable only from the RC strip could not serve
+       *    it.
+       *  - it advances no stage. `rc-stages.ts` has no notion of the workspace, and the strip's
+       *    action row is keyed by stage.
+       *  - its inputs are document metadata (author, timestamp), not stage state, and its
+       *    prerequisite is the pipeline's OUTPUT: coordinated assemblies exist.
+       *
+       * So it is a transversal viewer tool that belongs on the Design row, next to the work whose
+       * result it shows — not a pipeline step.
+       *
+       * ── What this asserts, and what it deliberately does not ────────
+       *
+       * "In the command row" it does assert. "Not inside a disclosure" it does NOT, and the first
+       * attempt at this rewrite got that wrong and was caught here: since F2 put `ProDesignTab`
+       * INSIDE the DISEÑAR stage, this button has a `<details>` ancestor like everything else in
+       * the toolbar. Asserting otherwise would fail for a true reason.
+       *
+       * Which leaves a real question rather than a tidy answer: with DISEÑAR collapsed, THIS entry
+       * is unreachable — the same form-1 hiding that moved the detailing command to the strip. It
+       * is acceptable only because the viewer is not confined to it, and the entry that saves it is
+       * the ribbon's, which sits outside every disclosure. That is asserted below, and it is what
+       * "transversal" has to mean concretely to be worth anything.
        */
-      const sameRow = await page.evaluate(() => {
+      const placement = await page.evaluate(() => {
         const b = document.querySelector('[data-testid="cmd-open-3d"]');
-        const all = document.querySelector('[data-testid="cmd-design-all"]');
         const row = document.querySelector('[data-testid="design-toolbar"] .cmd-row');
-        return !!b && !!all && !!row && row.contains(b) && row.contains(all);
+        return { inRow: !!b && !!row && row.contains(b) };
       });
-      expect(sameRow, 'in the command row, with Design all').toBe(true);
+      expect(placement.inRow, "in the toolbar's command row").toBe(true);
     });
+
+  /**
+   * Every way in reaches the same viewer.
+   *
+   * The step-5 audit turned on this being deliberate, so it is asserted rather than left to a
+   * comment: four entry points, one `openRebar3D`. Three live in the RC panel and one in the
+   * ribbon that also serves the metallic flow. Presence and enablement are what this checks —
+   * that they are the same OPERATION is proved below, and in `rc-commands.test.ts` on the source.
+   */
+  test('the viewer is reachable from every valid entry point', async ({ pro: page }) => {
+    await loadModel(page, SMALL);
+    await designAll(page);
+    await page.getByTestId('detailing-disclosure').locator('> summary').click();
+    await page.getByTestId('cmd-generate-detailing').click();
+    await expect
+      .poll(() => page.evaluate(() => (window.__stabileo as unknown as
+        { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 })
+      .toBeGreaterThan(0);
+
+    // The three in the RC panel. `doc-3d` sits in the Documents stage, which has to be opened.
+    for (const id of ['cmd-open-3d', 'overview-open-3d'] as const) {
+      await expect(page.getByTestId(id), `${id} is present`).toBeVisible();
+      await expect(page.getByTestId(id), `${id} is enabled once there is a document`).toBeEnabled();
+    }
+    await openDocumentsStage(page);
+    await expect(page.getByTestId('doc-3d')).toBeEnabled();
+
+    /*
+     * And the ribbon's, which is the entry the metallic flow shares. Its stage has to be opened
+     * first: the ribbon renders only the active stage's groups, so the command does not exist in
+     * the DOM until then — which is why this asserts nothing about its absence beforehand.
+     */
+    await page.getByTestId('pr-stage-design').click();
+    await expect(page.getByTestId('pr-cmd-rebar3d')).toBeEnabled();
+
+    /*
+     * And this is the one that makes the other three safe to leave inside disclosures.
+     *
+     * All three panel entries have a `<details>` ancestor — the toolbar and the overview live in
+     * their stages, `doc-3d` in the Documents stage — so with those collapsed, none of them is
+     * reachable. The ribbon's is not in a disclosure, which is why a collapsed panel can never
+     * leave the viewer with no way in. If this ever changes, the panel entries stop being
+     * conveniences and one of them has to move.
+     */
+    const outsideAnyDisclosure = await page.evaluate(() =>
+      !document.querySelector('[data-testid="pr-cmd-rebar3d"]')?.closest('details'));
+    expect(outsideAnyDisclosure,
+      'the ribbon entry is reachable with every panel section collapsed').toBe(true);
+  });
 
   test('it enables once detailing exists, reports the count, and opens the workspace',
     async ({ pro: page }) => {

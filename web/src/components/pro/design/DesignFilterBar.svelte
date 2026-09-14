@@ -199,10 +199,10 @@
   .chip-count { font-family: monospace; font-size: 0.64rem; opacity: 0.8; }
   .search { flex: 1; min-width: 140px; padding: 3px 7px; background: var(--st-surface);
     border: 1px solid var(--st-hair-strong); border-radius: 3px; color: var(--st-text); font-size: 0.72rem; }
-  .lbl { font-size: 0.7rem; color: var(--st-text-3); }
+  .lbl { font-size: 0.7rem; color: var(--st-text-2); }
   .group-row { border-top: 1px dashed var(--st-surface-3); padding-top: 4px; }
   .picker { max-width: 260px; padding: 2px 5px; background: var(--st-surface);
     border: 1px solid var(--st-hair-strong); border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
-  .refused { font-size: 0.66rem; color: var(--st-text-3); font-style: italic; }
+  .refused { font-size: 0.66rem; color: var(--st-text-2); font-style: italic; }
   .group-note { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.66rem; color: var(--st-warn); }
 </style>

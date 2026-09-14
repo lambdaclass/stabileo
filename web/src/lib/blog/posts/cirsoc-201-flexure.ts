@@ -139,7 +139,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'La viga en Stabileo, en el flujo de diseño de PRO. Tres botones y en este orden: «Calcular solicitaciones», «Verificar según norma» y «Diseñar todo» — recién el tercero elige las barras, y hasta que no hay barras no hay nada que verificar: la tabla dice «sin armadura». El tramo de 5 m está modelado con dos elementos; el primero cierra en D/C = 0,89 gobernado por la flexión positiva del tramo, el segundo en 0,86 gobernado por el corte, los dos con la combinación 1,2D+1,6L. Cambiá la carga y volvé a correrlo. PRO está en desarrollo; el módulo de hormigón es la parte implementada y testeada.',
+          label: 'La viga en Stabileo, en el flujo de diseño de PRO. Tres botones y en este orden: «Calcular solicitaciones», «Calcular acero requerido» y «Diseñar todo» — el segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice «sin armadura». El tramo de 5 m está modelado con dos elementos; el primero cierra en D/C = 0,89 gobernado por la flexión positiva del tramo, el segundo en 0,86 gobernado por el corte, los dos con la combinación 1,2D+1,6L. Cambiá la carga y volvé a correrlo. PRO está en desarrollo; el módulo de hormigón es la parte implementada y testeada.',
         },
 
         { k: 'h', t: 'En resumen' },

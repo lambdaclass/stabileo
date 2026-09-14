@@ -205,16 +205,35 @@
   .sub, .hint, .note, .empty {
     margin: 0; font-size: 0.78rem; color: var(--text-muted, #8b93a3);
   }
+  /*
+     `--st-blue` and not `--st-accent`, deliberately.
+     `--st-accent` is documented as "primary action, brand" and this is one — but the
+     application also fills its DESTRUCTIVE buttons with it (`ProReportDialog`'s
+     `.rpt-btn-danger`, `ProAutoLoadsDialog`'s `.al-error`), so a vermillion "open workspace"
+     would read as a warning. `--st-blue` is the token whose value this literal already was
+     (#2c6cb4 against #2b6cb0), and `--st-text-on-accent` is exactly the `#fff` it replaces.
+  */
   .open {
     align-self: flex-start;
     font-size: 0.82rem; padding: 0.35rem 0.75rem; cursor: pointer;
-    background: #2b6cb0; color: #fff; border: none; border-radius: 4px;
+    background: var(--st-blue); color: var(--st-text-on-accent);
+    border: none; border-radius: 4px;
   }
   .summary { margin: 0; font-size: 0.82rem; }
+  /*
+     Frozen, with the eight below it. `.warn` names the CONFLICTED bar count and `#e0444a` is
+     `conflicted: 0xe0444a` in `three/rebar-scene.ts`; `.unreinforced`'s rule is
+     `unreinforced: 0xd4762a`. A material cannot read a custom property, so a token here would
+     let the words and the picture drift — and `--st-danger` is a different red (#e8705f),
+     which would put two reds for one meaning in one panel. See
+     `concrete-status-tokens.test.ts`, which asserts the mirror in both directions.
+  */
   .warn { color: #e0444a; }
   .states { list-style: none; margin: 0; padding: 0; font-size: 0.76rem; }
   .states li { display: flex; align-items: center; gap: 0.35rem; padding: 0.05rem 0; }
-  .states strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .states strong {
+    margin-left: auto; font-family: var(--st-mono); font-variant-numeric: tabular-nums;
+  }
   .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; }
   .dot.failed { background: #e0444a; }
   .dot.unsupported { background: #b06ad6; }

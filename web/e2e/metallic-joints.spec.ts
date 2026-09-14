@@ -49,7 +49,19 @@ test.describe('@smoke joint detection is scoped to metallic participation', () =
       await page.evaluate(async () => { await window.__stabileoActions.loadExample('pro-edificio-7p'); });
       await openJoints(page);
       await expect(page.getByTestId('conn-sec-joints')).toHaveAttribute('data-state', 'blocked');
-      await expect(page.getByTestId('conn-sec-joints-purpose')).toContainText(/no joint with any metallic member/i);
+      /*
+       * Asserted on what the sentence has to SAY, not on the sentence.
+       *
+       * M1 wrote «no joint with any metallic member»; M2 replaced it with one that also names
+       * the count — «The model has 84 joint(s), and none can be shown: no member meeting them is
+       * classified as metallic». Better, and it broke a match on the old wording the moment M1
+       * and M2 were merged. What matters is that the panel explains the absence by the metallic
+       * classification instead of rendering an empty list, and that it does not claim the model
+       * has no joints when it has 84.
+       */
+      const purpose = page.getByTestId('conn-sec-joints-purpose');
+      await expect(purpose).toContainText(/metallic/i);
+      await expect(purpose).toContainText(/none|no member|no joint/i);
       await expect(page.getByTestId('conn-joint-count')).toHaveText('0');
     });
 
@@ -244,6 +256,85 @@ test.describe('nothing here is presented as verified', () => {
       expect(text).not.toMatch(/\bapproved\b/i);
       expect(text).not.toMatch(/\bcertified\b/i);
       expect(text).not.toMatch(/ready to build/i);
+    });
+
+  /**
+   * The auxiliary calculator's outcome, as it is actually painted.
+   *
+   * The unit sweep in `steel-never-verified.test.ts` reads the component and proves the glyph is
+   * not in the source. What it cannot prove is what a reader sees, and the case worth seeing is
+   * the default one: `Vu` and `Tu` start at **0**, so pressing Verify on a joint with no demand
+   * entered used to produce a green ✓ beside "governing: 0%". A tick earned by supplying nothing.
+   *
+   * The colour is read off the live element and compared against `--st-ok` resolved in the same
+   * document, rather than against a hex written down here — a token that is re-themed or renamed
+   * must not be able to make this pass by accident.
+   */
+  test('the auxiliary calculation shows an outcome, not an approval', async ({ pro: page }) => {
+    await generateSteel(page);
+    await openJoints(page);
+    await page.locator('.conn-joint-row').first().click();
+    await openSection(page, 'conn-sec-bolts');
+
+    // Exactly what a user does: press it, changing nothing.
+    await page.getByTestId('conn-sec-bolts').locator('.conn-btn-verify').click();
+    const card = page.getByTestId('conn-bolt-result');
+    await expect(card).toBeVisible();
+
+    await expect(card).not.toContainText('✓');
+    await expect(card).not.toContainText('✔');
+    await expect(page.getByTestId('conn-bolt-aux-label')).toContainText(/auxiliary/i);
+    await expect(page.getByTestId('conn-bolt-aux-normative')).toContainText(/step 1/i);
+
+    // The outcome is a word, and it is not one of the designed joint's.
+    const state = card.locator('.conn-aux-state');
+    await expect(state).toHaveText(/within|near the limit|over the limit/);
+    await expect(state).not.toHaveText(/adequate/i);
+
+    // And it is not painted with the success token.
+    const { shown, success } = await state.evaluate((el) => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--st-ok)';
+      document.body.appendChild(probe);
+      const success = getComputedStyle(probe).color;
+      probe.remove();
+      return { shown: getComputedStyle(el).color, success };
+    });
+    expect(success, '--st-ok resolves, so the comparison means something').toMatch(/^rgb/);
+    expect(shown).not.toBe(success);
+  });
+
+  /*
+   * The sweep with BOTH calculators run — and the reason it names its sections.
+   *
+   * Checking the result card alone proves the card. It was not enough: `StageSection` paints its
+   * `done` state as a ✓ in `--st-ok`, and both auxiliary sections reached `done` the moment a
+   * result object existed — not when the result was good. A bolt group over its capacity turned
+   * its own header green, and so did pressing Verify on the defaults, where Vu and Tu are 0.
+   * Taking the tick out of the card and leaving it on the card's header would have moved the
+   * claim rather than withdrawn it.
+   *
+   * Scoped to the two calculating sections rather than to `.conn-tab`, because §1 — joint
+   * DETECTION — legitimately reaches `done`: it means the detector ran and found joints, a fact
+   * about a step, with nothing said about whether any joint is adequate. That is deliberately
+   * left alone, and naming the scope here is how the exclusion stays visible instead of being a
+   * selector nobody questions.
+   */
+  test('with both calculations run, neither auxiliary section shows a tick',
+    async ({ pro: page }) => {
+      await generateSteel(page);
+      await openJoints(page);
+      await page.locator('.conn-joint-row').first().click();
+      for (const sec of ['conn-sec-bolts', 'conn-sec-welds']) {
+        await openSection(page, sec);
+        await page.getByTestId(sec).locator('.conn-btn-verify').click();
+      }
+      for (const sec of ['conn-sec-bolts', 'conn-sec-welds']) {
+        const section = page.getByTestId(sec);
+        expect(await section.innerText(), `${sec} shows a tick`).not.toMatch(/[✓✔]/);
+        // And the state that would have painted one is not reachable from here at all.
+        await expect(section).not.toHaveAttribute('data-state', 'done');
+      }
     });
 
   test('the section states are carried by a word, not only by a colour', async ({ pro: page }) => {

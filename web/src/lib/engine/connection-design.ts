@@ -261,7 +261,15 @@ export interface JointForces {
 
 /**
  * Extract element-end forces at a joint from 3D results.
- * results3D.elementForces format: { elementId, NI, VyI, VzI, MxI, MyI, MzI, NJ, VyJ, VzJ, MxJ, MyJ, MzJ }
+ *
+ * `ElementForces3D` names its fields `nStart`/`nEnd`, `vyStart`/`vyEnd`, `mxStart`/`mxEnd` and
+ * so on. This comment used to claim the format was `{ NI, VyI, … }` and the code read those
+ * keys — so every lookup returned `undefined`, every force came back zero, and the connections
+ * panel showed a table of zeros for every joint in every model.
+ *
+ * Nothing caught it: no unit test covered this function, and a zero force reads as an unloaded
+ * member rather than as a missing field. Found while wiring `joint-demands.ts`, which had
+ * copied the same wrong key form from this header.
  */
 export function getJointForces(
   nodeId: number,
@@ -285,13 +293,13 @@ export function getJointForces(
     if (!el || !ef) continue;
 
     const end: 'I' | 'J' = el.nodeI === nodeId ? 'I' : 'J';
-    const suffix = end;
-    const N = ef[`N${suffix}`] ?? 0;
-    const Vy = ef[`Vy${suffix}`] ?? 0;
-    const Vz = ef[`Vz${suffix}`] ?? 0;
-    const Mx = ef[`Mx${suffix}`] ?? 0;
-    const My = ef[`My${suffix}`] ?? 0;
-    const Mz = ef[`Mz${suffix}`] ?? 0;
+    const suffix = end === 'I' ? 'Start' : 'End';
+    const N = ef[`n${suffix}`] ?? 0;
+    const Vy = ef[`vy${suffix}`] ?? 0;
+    const Vz = ef[`vz${suffix}`] ?? 0;
+    const Mx = ef[`mx${suffix}`] ?? 0;
+    const My = ef[`my${suffix}`] ?? 0;
+    const Mz = ef[`mz${suffix}`] ?? 0;
 
     elems.push({ elementId: elemId, end, N, Vy, Vz, Mx, My, Mz });
 

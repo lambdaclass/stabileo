@@ -13,18 +13,17 @@
  *   · **It draws at all.** A section whose outline comes back `null` renders as nothing, which
  *     in a viewer looks like a missing member rather than an error.
  *
- * ── The discrepancy ───────────────────────────────────────────────────
+ * ── The discrepancy this file used to record ──────────────────────────
  *
  * Writing the zed forced a choice about where a lip starts, and that turned up an inconsistency
- * that was already in the app for the CHANNEL: `computeSectionProperties` measures the lip from
- * the flange's MID-thickness while `createCShape` draws it from the flange's OUTER face. The two
- * models of the same section therefore differ by `2t²` in area — 8 mm² on a `C 100x50x15x2.0`,
- * about 1.8 %.
+ * that was already in the app for the CHANNEL: `computeSectionProperties` measured the lip from the
+ * flange's MID-thickness while `createCShape` drew it from the outer face, so the two models of the
+ * same section differed by `2t²` in area — 8 mm² on a `C 100x50x15x2.0`, about 1.8 %.
  *
- * That is pre-existing and not introduced here; the zed follows each convention where the
- * channel does, so the two shapes stay consistent with each other. It is asserted below on the
- * CHANNEL as well as the zed, because an inconsistency nobody has written down is one that gets
- * "fixed" in one place and not the other. Reported in `docs/handoffs/m2-cold-formed-limits.md`.
+ * It is closed. `120f15cc` (H1, applying M1's proposal verbatim, because `section-shapes.ts` also
+ * holds the concrete templates) brought the calculation to the outer face, and this branch mirrored
+ * it in `partsC`/`partsZ` in the same integration. The assertions below are the INVERTED versions
+ * of the ones that recorded the gap, plus the polygon-moment test that makes reverting it loud.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -35,6 +34,30 @@ import type { Section } from '../../store/model.svelte';
 
 /** Section under test, in millimetres — the units the outline helpers are given. */
 const H = 100, B = 50, C = 15, T = 2;
+
+/**
+ * Area and centroidal second moments of a closed polygon, by Green's theorem.
+ *
+ * Independent of everything under test: it integrates the vertex loop a renderer emits and knows
+ * nothing about how the properties were derived. That independence is the point — it is what lets
+ * «the calculation and the drawing describe the same object» be measured rather than asserted.
+ */
+function polyMoments(pts: readonly { x: number; y: number }[]) {
+  let a2 = 0, sx = 0, sy = 0, ixx = 0, iyy = 0;
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n];
+    const cr = p.x * q.y - q.x * p.y;
+    a2 += cr; sx += (p.x + q.x) * cr; sy += (p.y + q.y) * cr;
+    ixx += (p.y * p.y + p.y * q.y + q.y * q.y) * cr;
+    iyy += (p.x * p.x + p.x * q.x + q.x * q.x) * cr;
+  }
+  const area = Math.abs(a2 / 2);
+  const cx = sx / (3 * a2), cy = sy / (3 * a2);
+  return { area, cx, cy,
+           iy: Math.abs(ixx / 12) - area * cy * cy,
+           iz: Math.abs(iyy / 12) - area * cx * cx };
+}
 
 /** Signed area of a closed polygon, by the shoelace formula. */
 function shoelace(pts: readonly { x: number; y: number }[]): number {
@@ -98,28 +121,58 @@ describe('the zed outline', () => {
   });
 });
 
-describe('the lip convention, and the 2t² the app already disagrees with itself by', () => {
-  it('the drawn channel and the computed channel differ by exactly 2t²', () => {
+describe('the lip convention: the calculation and the drawing now agree', () => {
+  it('the drawn channel and the computed channel enclose the same material', () => {
     /*
-     * Pre-existing, and stated here because writing the zed is what made it visible.
+     * This assertion used to say the opposite. It asserted `computed − drawn === 2t²`, because
+     * `computeSectionProperties` measured the lip from the flange's MID-LINE while both drawings
+     * measured from its OUTER face — 8 mm² of 452 on this section.
      *
-     * `computeSectionProperties`' `C-custom` case puts the lip centre at `(h − tf)/2 − c/2`,
-     * i.e. it measures the lip from the flange's mid-thickness. `createCShape` walks the lip
-     * from the flange's outer face. Same `c`, `2t²` less material in the drawing.
+     * `120f15cc` brought the calculation over to the outer face and this branch mirrored it in
+     * `partsC`/`partsZ`. Inverting this test is the signal that the unification happened; a test
+     * whose title still promised a discrepancy would protect nothing.
      */
     const drawn = Math.abs(shoelace(createCShape(H, B, T, T, C, T).getPoints()));
     const computed = coldFormedGeometry({ shape: 'C', hMm: H, bMm: B, cMm: C, tMm: T })!.areaMm2;
-    expect(computed - drawn).toBeCloseTo(2 * T * T, 9);
-    // Which on this section is 8 mm² of 452 — worth knowing, not worth alarm.
-    expect((computed - drawn) / computed).toBeLessThan(0.02);
+    expect(computed - drawn).toBeCloseTo(0, 9);
   });
 
-  it('and the zed disagrees by the same amount, so the two shapes stay consistent', () => {
-    // The point of following the channel's conventions rather than inventing better ones: the
-    // discrepancy is uniform, so fixing it later is one decision and not two.
+  it('and so do the zed and its own outline', () => {
+    // The two shapes had to move together or the `iy(Z) == iy(C)` identity — the independent check
+    // on the whole zed derivation — would have broken.
     const drawn = Math.abs(shoelace(createZShape(H, B, T, T, C, T).getPoints()));
     const computed = coldFormedGeometry({ shape: 'Z', hMm: H, bMm: B, cMm: C, tMm: T })!.areaMm2;
-    expect(computed - drawn).toBeCloseTo(2 * T * T, 9);
+    expect(computed - drawn).toBeCloseTo(0, 9);
+  });
+
+  it('agree on the second moments too, not only on the area', () => {
+    /*
+     * The test the proposal asked for in the same commit as the unification, and the one that
+     * makes it impossible to undo quietly: the MOMENTS of the polygon each renderer walks, by
+     * Green's theorem, against the properties the calculation returns. Area alone would pass for
+     * a lip in the wrong place.
+     *
+     * Machine precision is the acceptance criterion, over a grid rather than one section.
+     */
+    for (const [h, b, c, t] of [[100, 50, 15, 2], [150, 60, 20, 2.5], [200, 75, 20, 3], [80, 40, 12, 1.5]]) {
+      for (const shape of ['C', 'Z'] as const) {
+        const pts = (shape === 'C' ? createCShape : createZShape)(h, b, t, t, c, t).getPoints();
+        const m = polyMoments(pts);
+        const g = coldFormedGeometry({ shape, hMm: h, bMm: b, cMm: c, tMm: t })!;
+        const label = `${shape} ${h}x${b}x${c}x${t}`;
+        expect(m.area / g.areaMm2, `${label} A`).toBeCloseTo(1, 12);
+        expect(m.iy / g.iyMm4, `${label} Iy`).toBeCloseTo(1, 12);
+        expect(m.iz / g.izMm4, `${label} Iz`).toBeCloseTo(1, 12);
+      }
+    }
+  });
+
+  it('and a lip shorter than the sheet is thick is a plain channel in both', () => {
+    // The regime that was worse than a t/2 shift: the calculation used to add `2·c·tl` of lip
+    // while the drawing rendered none. Now both agree there is no lip.
+    const drawn = Math.abs(shoelace(createCShape(H, B, T, T, T, T).getPoints()));
+    const computed = coldFormedGeometry({ shape: 'C', hMm: H, bMm: B, cMm: T, tMm: T })!.areaMm2;
+    expect(computed - drawn).toBeCloseTo(0, 9);
   });
 });
 

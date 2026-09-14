@@ -99,8 +99,8 @@
   .head { display: flex; align-items: center; gap: 8px; font-size: 0.74rem; color: var(--st-text-2); }
   .head.sub { margin-top: 7px; padding-top: 5px; border-top: 1px dashed var(--st-surface-3); }
   .x { margin-left: auto; background: none; border:  1px solid var(--st-hair); color: var(--st-text-2); font-size: 1.1rem; cursor: pointer; }
-  .muted { color: var(--st-text-3); font-size: 0.68rem; }
-  .empty { padding: 6px 0; font-size: 0.7rem; color: var(--st-text-3); font-style: italic; }
+  .muted { color: var(--st-text-2); font-size: 0.68rem; }
+  .empty { padding: 6px 0; font-size: 0.7rem; color: var(--st-text-2); font-style: italic; }
   .list { list-style: none; margin: 3px 0 0; padding: 0; }
   li { display: flex; align-items: center; gap: 7px; padding: 1px 0;
     font-size: 0.68rem; border-bottom: 1px solid var(--st-surface-3); flex-wrap: wrap; }

@@ -100,7 +100,10 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const nodeDetails = readFileSync(new URL('../../../components/property/NodeDetails.svelte', import.meta.url), 'utf8');
     const loadsTable = readFileSync(new URL('../../../components/tables/LoadsTable.svelte', import.meta.url), 'utf8');
     const whatIfPanel = readFileSync(new URL('../../../components/WhatIfPanel.svelte', import.meta.url), 'utf8');
-    const proPanel = readFileSync(new URL('../../../components/pro/ProPanel.svelte', import.meta.url), 'utf8');
+    // The PRO report's load table. F5 moved `serializeLoads` out of `ProPanel.svelte` and into
+    // `pro-report-inputs.ts`; the requirement — a report never prints a raw `fy`/`mz` alias —
+    // follows the code rather than the filename.
+    const proReportInputs = readFileSync(new URL('../pro-report-inputs.ts', import.meta.url), 'utf8');
     const drawLoads = readFileSync(new URL('../../canvas/draw-loads.ts', import.meta.url), 'utf8');
     const sceneSync = readFileSync(new URL('../../viewport3d/scene-sync.ts', import.meta.url), 'utf8');
 
@@ -109,7 +112,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
       ['NodeDetails.svelte', nodeDetails],
       ['LoadsTable.svelte', loadsTable],
       ['WhatIfPanel.svelte', whatIfPanel],
-      ['ProPanel.svelte', proPanel],
+      ['pro-report-inputs.ts', proReportInputs],
       ['scene-sync.ts', sceneSync],
     ] as const) {
       expect(text, `${label} should use shared 2D nodal-load vertical helper`).toContain('get2DDisplayNodalLoadVertical');
@@ -223,7 +226,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const sectionStress3D = readFileSync(new URL('../section-stress-3d.ts', import.meta.url), 'utf8');
     const verificationTab = readFileSync(new URL('../../../components/pro/ProVerificationTab.svelte', import.meta.url), 'utf8');
     const autoVerify = readFileSync(new URL('../auto-verify.ts', import.meta.url), 'utf8');
-    const proPanel = readFileSync(new URL('../../../components/pro/ProPanel.svelte', import.meta.url), 'utf8');
+    const proReportInputs = readFileSync(new URL('../pro-report-inputs.ts', import.meta.url), 'utf8');
 
     expect(sectionStress3D, 'section-stress-3d.ts should document the PR [12] 3D Navier formula').toContain('My·y/Iy + Mz·z/Iz');
     expect(sectionStress3D, 'section-stress-3d.ts should subtract My on the y/Iy term (depth, strong)').toContain('sigma -= My * y / Iy');
@@ -241,7 +244,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(autoVerify, 'auto-verify.ts should keep column Mu = Mz').toContain('MuMax = MzMax;');
     expect(autoVerify, 'auto-verify.ts should preserve My as Muy').toContain('const MuyMax = MyMax;');
     expect(autoVerify, 'auto-verify.ts must not magnitude-sort moments').not.toContain('Math.max(MzMax, MyMax)');
-    expect(proPanel, 'ProPanel.svelte combo summary should report strong-axis Mu').toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
+    expect(proReportInputs, 'the report combo summary should report strong-axis Mu').toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
   });
 });
 

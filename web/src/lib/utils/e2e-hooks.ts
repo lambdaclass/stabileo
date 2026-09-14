@@ -30,13 +30,19 @@
 
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { detailingStore } from '../store/detailing.svelte';
+import { detailingSheet } from '../store/detailing-sheet.svelte';
+import { exportRecordStore } from '../store/export-record.svelte';
+import { retouchedIn } from '../store/export-log';
+import { renderDrawings } from '../engine/detailing/document-render';
+import { rebarWorkspace } from '../store/rebar-workspace.svelte';
+import { jointDesignStore } from '../store/joint-design.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
 import { runGlobalSolve } from '../engine/live-calc';
 import { tourStore } from '../store/tour.svelte';
 import {
-  liveRebarSceneCensus, rebarSceneBuilds, type RebarSceneCensus,
+  liveRebarSceneCensus, liveRebarSceneConflictAt, rebarSceneBuilds, type RebarSceneCensus,
 } from '../three/rebar-scene';
 import { sceneCacheStats } from '../engine/detailing/scene-cache';
 import { openTimeline, type OpenPhase } from './open-timeline';
@@ -106,6 +112,32 @@ export interface StabileoTestHooks {
   } | null;
   selection(): number[];
   /**
+   * What the REBAR WORKSPACE has selected, which is a different channel from `selection()`.
+   *
+   * `selection()` reads `uiStore.selectedElements` — the app's element selection, driven by the
+   * 2-D viewport and the design table. This reads `rebarWorkspace.selection`, the single channel
+   * the detailing list and the 3-D viewer share. Exposed so a test can assert that clicking a row
+   * writes THAT channel and no parallel one: comparing this against the rows' `aria-selected` is
+   * how "two independent representations of the same element" becomes checkable.
+   */
+  rebarSelection(): number[];
+  /**
+   * The selected NODE ids, sorted.
+   *
+   * `selection()` returns elements. A joint is a node, and the 3-D specs need to assert that the
+   * joint highlighted in the scene is the one the list has — which is a statement about nodes.
+   */
+  selectedNodeIds(): number[];
+  /** The node-marker radius the scene is drawing, metres. Null before the scene exists. */
+  nodeMarkerRadius(): number | null;
+  /**
+   * How many meshes the selected joint contributes to the scene.
+   *
+   * A plate plus one cylinder per bolt. Zero means nothing was drawn — which for an undesigned
+   * or incomplete joint is the correct answer, and is what the specs assert.
+   */
+  jointMeshCount(): number;
+  /**
    * Everything selected, by kind.
    *
    * `selection()` reports members alone, which is enough while a selection can
@@ -165,6 +197,19 @@ export interface StabileoTestHooks {
   rebarSummary(elementId: number): string;
   elementIds(): number[];
   /**
+   * Everything the portable formats have to carry, as one count per kind.
+   *
+   * `nodeCount` and `elementIds` covered the two easy halves of a model. What a
+   * share link or a `.ded` actually has to survive is the rest — the loads, the
+   * cases, the combinations — and a format that dropped those still passed
+   * every hook there was. One census, so a portability test asserts on the
+   * whole model rather than on the parts that happen to be exposed.
+   */
+  modelCensus(): {
+    nodes: number; elements: number; materials: number; sections: number;
+    supports: number; loads: number; loadCases: number; combinations: number;
+  };
+  /**
    * The names of the sections in the model, e.g. `HEB 220`.
    *
    * Added so a spec can assert that the profile a selector hands back is the id the
@@ -178,12 +223,50 @@ export interface StabileoTestHooks {
   canvasInkRatio(): number;
   /** Project regulation settings, as persisted. Read-only. */
   codeSettings(): unknown;
+  /**
+   * The joint designs the project carries, as persisted — I-06.
+   *
+   * Read off `model.jointDesigns`, which is the field a `.ded` actually writes. A spec that
+   * asserted the PANEL still showed bolts after an open would pass on a panel that had kept a
+   * local copy; this reads the project.
+   */
+  jointDesigns(): unknown;
+  /** Stored joints reconciliation refused for this model, with the reason — I-07. */
+  jointObsolete(): Array<{ nodeId: number; reason: string }>;
+  /** Node ids whose stored design applies to the model that is open now. */
+  jointDesignedNodeIds(): number[];
   /** Verifier id on an element's certificate — carries the edition it was produced under. */
   certificateVerifierId(elementId: number): string | null;
   /** Coordinated detailing assemblies, as persisted. Read-only. */
   detailingAssemblies(): unknown;
   /** Bar-schedule totals for the selected assembly. */
   detailingSchedule(): unknown;
+  /**
+   * The current sheet as the drawing engine built it, before any renderer touched it.
+   *
+   * An OBSERVATION hook. The alternative is to assert on the SVG string, and a `<path d="M…">`
+   * cannot answer which LAYER a polyline is on — which is the whole question for a sheet whose
+   * concrete, steel and cover line are three layers with three meanings.
+   */
+  detailingSheet(): unknown;
+  /**
+   * The project's rótulo as PERSISTED, not as the panel renders it.
+   *
+   * An OBSERVATION hook, and the distinction is the point: the field is a project decision that
+   * has to survive being reopened, and reading it back off the input that wrote it would assert
+   * only that the DOM kept a value.
+   */
+  detailingTitleBlock(): unknown;
+  /** The emission records as PERSISTED. An OBSERVATION hook. */
+  exportRecords(): unknown;
+  /**
+   * The drawing set's DXF, rendered from the current document.
+   *
+   * An OBSERVATION hook, and the only route a test has to what the sheet actually carries: the
+   * export hands a blob to the browser and loses sight of it — which is the first entry in
+   * `EXPORT_CANNOT_ASSERT`. Returns null when there is nothing coordinated to draw.
+   */
+  detailingDxf(): string | null;
   /**
    * How many times the 3-D viewport has BUILT its tube geometry.
    *
@@ -254,6 +337,29 @@ export interface StabileoTestActions {
   seedDetailing(assemblies: unknown): void;
   selectAssembly(id: string): void;
   reviewAssembly(record: unknown): boolean;
+  /**
+   * Select the conflict drawn in a marker slot, as clicking that marker would.
+   *
+   * A TEST MUTATOR, and the only route to `ConflictInspector` that a test has: the panel renders
+   * from `selection.conflict`, which is set by clicking a marker in the WebGL scene — raycast
+   * against the canvas, at a screen position no test can compute reliably.
+   *
+   * Returns false when the slot draws nothing, so a caller can tell "no conflict there" from
+   * "selected one".
+   */
+  selectConflict(slot?: number): boolean;
+  /**
+   * Resize a section, as the sections table would.
+   *
+   * A TEST MUTATOR. It exists because no fixture in the tree produces a REFUSED member: all three
+   * RC examples design to `VERIFIED` or `PROVISIONAL_BIAXIAL`, and there is no UI route to a
+   * section's dimensions — `ProSectionsTab` and `SectionChanger` carry no `data-testid` between
+   * them, and `BatchEditDialog` edits reinforcement.
+   *
+   * It changes a dimension and nothing else. The refusal that follows is the real engine's, on a
+   * section that genuinely cannot carry its demand — not a state written into a store.
+   */
+  updateSection(id: number, data: unknown): void;
   toggleBarLock(barId: string): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -363,6 +469,17 @@ export function installE2EHooks(): void {
       };
     },
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
+    rebarSelection: () =>
+      [...(rebarWorkspace.selection?.elementIds ?? [])].sort((a, b) => a - b),
+    selectedNodeIds: () => [...uiStore.selectedNodes].sort((a, b) => a - b),
+    /*
+     * Published by `Viewport3D` when it resizes the markers. Null rather than a default, so a
+     * spec can tell "the scene has not drawn yet" from "the radius is small".
+     */
+    nodeMarkerRadius: () =>
+      (window as unknown as { __nodeRadius?: number }).__nodeRadius ?? null,
+    jointMeshCount: () =>
+      (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
     viewportPick: () => ({
@@ -403,16 +520,43 @@ export function installE2EHooks(): void {
     reinforcement: (id) => modelStore.elements.get(id)?.reinforcement ?? null,
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
+    modelCensus: () => {
+      const s = modelStore.snapshot();
+      return {
+        nodes: s.nodes?.length ?? 0,
+        elements: s.elements?.length ?? 0,
+        materials: s.materials?.length ?? 0,
+        sections: s.sections?.length ?? 0,
+        supports: s.supports?.length ?? 0,
+        loads: s.loads?.length ?? 0,
+        loadCases: s.loadCases?.length ?? 0,
+        combinations: s.combinations?.length ?? 0,
+      };
+    },
     sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,
     codeSettings: () => JSON.parse(JSON.stringify(modelStore.model.codeSettings ?? null)),
+    jointDesigns: () => JSON.parse(JSON.stringify(modelStore.model.jointDesigns ?? null)),
+    jointObsolete: () => jointDesignStore.obsolete.map((o) => ({ ...o })),
+    jointDesignedNodeIds: () => [...jointDesignStore.designedNodeIds],
     certificateVerifierId: (id: number) =>
       verificationStore.outcomeFor(id)?.certificate?.verifierId ?? null,
     detailingAssemblies: () =>
       JSON.parse(JSON.stringify(modelStore.model.detailing?.assemblies ?? [])),
     detailingSchedule: () => JSON.parse(JSON.stringify(detailingStore.schedule ?? null)),
+    detailingSheet: () => JSON.parse(JSON.stringify(detailingSheet.sheet ?? null)),
+    detailingTitleBlock: () =>
+      JSON.parse(JSON.stringify(modelStore.model.detailing?.titleBlock ?? null)),
+    exportRecords: () => JSON.parse(JSON.stringify(exportRecordStore.exports)),
+    detailingDxf: () => {
+      const doc = detailingStore.buildDocument({ author: 'e2e', at: new Date().toISOString() });
+      if (!doc) return null;
+      return renderDrawings(doc, {
+        locale: 'es', projectName: 'e2e', retouched: retouchedIn(doc),
+      }).dxf;
+    },
     rebarSceneBuilds,
     rebarSceneCensus: liveRebarSceneCensus,
     canvasCount: () => document.querySelectorAll('canvas').length,
@@ -442,6 +586,15 @@ export function installE2EHooks(): void {
     selectAssembly: (id: string) => { detailingStore.select(id); },
     reviewAssembly: (record: unknown) =>
       detailingStore.review(record as never),
+    selectConflict: (slot = 0) => {
+      const conflict = liveRebarSceneConflictAt(slot);
+      if (!conflict) return false;
+      rebarWorkspace.selectConflict(conflict);
+      return true;
+    },
+    updateSection: (id: number, data: unknown) => {
+      modelStore.updateSection(id, data as never);
+    },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
     /** Reset the selection between gestures — the position, not the subject. */

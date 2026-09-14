@@ -1,5 +1,6 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
+  import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
@@ -9,6 +10,16 @@
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
   let selectedTrainIndex = $state<string>('');
+  /**
+   * CIRSOC Flex unfolds under its own button, like the kinematic report.
+   *
+   * It is the odd one out in this list: every other entry runs an analysis
+   * ON the model, and this one never looks at it. It sits here anyway, and
+   * last, because this is where a reader goes with the question it answers —
+   * and a ribbon command cost the canvas ten pixels for the privilege.
+   */
+  let showFlex = $state(false);
+
   let advHelpKey = $state<string | null>(null);
 
   // Listen for tour event to auto-open advanced section
@@ -846,6 +857,25 @@
     {@render helpPanel('dsm')}
       {/if}
     {/if}
+
+    <!--
+      Last, and outside every guard above it.
+      ───────────────────────────────────────
+      The entries before this one are hidden or greyed until the model can
+      support them — solved, 3D, enough members. This one needs none of that:
+      it is a calculator whose inputs are typed, and greying it out because
+      the canvas is empty would hide the tool exactly when it is most useful.
+    -->
+    <div class="adv-btn-wrap">
+      <button class="adv-btn" class:active={showFlex} data-testid="adv-flex"
+        onclick={() => (showFlex = !showFlex)}>
+        {t('flex.title')}
+        <span class="adv-beta">{t('flex.beta')}</span>
+      </button>
+    </div>
+    {#if showFlex}
+      <div class="adv-flex-body"><CirsocFlexPanel /></div>
+    {/if}
   </div>
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
@@ -1029,6 +1059,28 @@
     margin-left: 0.6rem;
     padding-left: 0.6rem;
     border-left: 2px solid var(--st-hair);
+  }
+
+  /* ── The beta marker ─────────────────────────────────────────────
+     Small enough to read as a footnote on the label rather than a second
+     word in it, and in `--st-text-3` so it never competes with the name.
+     It states maturity, not danger: the tool works, and it has not been
+     through as many hands as the rest of this list.
+     ─────────────────────────────────────────────────────────────── */
+  .adv-beta {
+    margin-left: 0.35rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--st-text-3);
+    vertical-align: 0.15em;
+  }
+
+  /* Indented under its button, the way the kinematic report is. */
+  .adv-flex-body {
+    margin: 0.3rem 0 0.2rem;
+    padding: 0.5rem 0.6rem;
+    border-left: 2px solid var(--st-hair-strong);
   }
 
   .adv-btn-wrap {

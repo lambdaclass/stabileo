@@ -22,6 +22,7 @@
    * drift into saying four different things.
    */
   import { t, tp } from '../../../lib/i18n';
+  import RebarNotice from './RebarNotice.svelte';
 
   interface Props {
     /** How many members carry unevaluated torsion. Zero renders nothing. */
@@ -31,23 +32,38 @@
 </script>
 
 {#if count > 0}
-  <p class="torsion-banner" data-testid="rebar-torsion-banner" data-count={count}>
-    <strong>{t('detailing.scene.torsionLabel')}</strong>
-    {tp('detailing.scene.torsionBanner', { n: count })}
-  </p>
+  <!--
+    Folding leaves the label and the count. The missing VERIFICATION is the whole content of this
+    notice, so a fold that removed the words would remove the fact — see `RebarNotice.svelte`.
+  -->
+  <div class="torsion-band">
+    <RebarNotice
+      kind="torsion"
+      {count}
+      testid="rebar-torsion-banner"
+      label={t('detailing.scene.torsionLabel')}
+      detail={tp('detailing.scene.torsionBanner', { n: count })}
+    />
+  </div>
 {/if}
 
 <style>
-  .torsion-banner {
-    margin: 0;
-    padding: 0.4rem 0.75rem;
-    /* Amber, which is neither the violet of a proposal nor the red of a conflict: this is an
-       unverified action, not an unbuildable bar and not a clash. One colour, one meaning. */
-    background: rgba(212, 118, 42, 0.16);
-    border-bottom: 1px solid #d4762a;
-    color: #f2ddc6;
-    font-size: 0.76rem;
-    line-height: 1.4;
+  /*
+    Amber, which is neither the violet of a proposal nor the red of a conflict: this is an
+    unverified action, not an unbuildable bar and not a clash. One colour, one meaning.
+
+    On the NOTICE and not on this wrapper, for the reason `ProvisionalBanner` sets out at
+    length: the specs measure the element carrying `data-testid`, so that is the element the
+    state has to be painted on. Same pixels either way — `.notice` has `margin: 0` and fills
+    the wrapper — but only one of the two arrangements can be checked.
+  */
+  .torsion-band :global(.notice) {
+    background: var(--st-surface-3);
+    border-bottom: 1px solid var(--st-warn);
   }
-  .torsion-banner strong { color: #ffbe7a; letter-spacing: 0.02em; }
+  /* `--st-warn`, not the `#d4762a` the scene paints unreinforced bars with: a torsion
+     advisory and an unreinforced bar are unrelated states that happened to share an orange.
+     `:global` for the reason `ProvisionalBanner` states: the `<strong>` is the shared shell's
+     markup, and the tone is this notice's meaning rather than the shell's business. */
+  .torsion-band :global(strong) { color: var(--st-warn); }
 </style>

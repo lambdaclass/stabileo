@@ -22,15 +22,60 @@
 import { buildTitleBlock, buildSchedule, scheduleToAoa, sheetToDxf, sheetToSvg,
   drawElevation, drawSection, barArcs, type Sheet, type Projection } from './drawings';
 import type { DocumentAssembly, DocumentModel, OpenConflict } from './document-model';
+import { DESIGN_FAMILIES, type DesignFamily } from '../design/design-families';
 import { footingPlanCentre, type FloorFamilyDesignRecord } from './family-record';
 import type { SceneModel } from './scene-model';
 import type { ElementStatus } from './element-status';
+import type { RcRetouchProvenance } from '../../flow/rc-selection';
 import {
   drawColumnDetail, drawGeneralPlan, drawHorizontalSection, drawLevelPlan, levelsOf,
 } from './structure-drawings';
 import { blockingCount, buildConflictInventory } from './conflict-inventory';
 import { drawFooting } from './family-drawings';
 import { drawSlab, drawWall } from './slab-wall-drawings';
+
+/**
+ * What a document says about the hand edits in it — one sentence, three writers.
+ *
+ * Written once because the report, the DXF note block and the schedule's header must not be
+ * able to disagree about it, and because the four states have to be told apart in the same way
+ * everywhere: `unknown` is a file that never recorded the information, and `known` with no
+ * members is a project stating that nothing was retouched. A writer that rendered the first as
+ * the second would be making the one false statement `rcRetouchProvenance` exists to prevent.
+ *
+ * `null` when there is nothing to say — no provenance supplied, or nothing designed — and the
+ * callers print nothing rather than a negative.
+ */
+export function retouchNote(
+  p: RcRetouchProvenance | undefined, locale: string,
+): string | null {
+  if (!p || p.status === 'notApplicable') return null;
+  const es = locale.startsWith('es');
+  if (p.status === 'unknown') {
+    return es
+      ? 'RETOCADOS A MANO: SIN REGISTRO. Este proyecto se abrió de un archivo anterior a que se '
+        + 'guardara esta información. No significa que no se haya retocado ninguna armadura: '
+        + 'significa que la aplicación no lo sabe y no puede afirmarlo en esta lámina.'
+      : 'HAND EDITS: NO RECORD. This project was opened from a file written before this '
+        + 'information was stored. It does not mean no reinforcement was retouched: it means '
+        + 'the application does not know and cannot assert it on this sheet.';
+  }
+  if (p.members.length === 0) {
+    return es
+      ? 'RETOCADOS A MANO: ninguno. Toda la armadura de este documento proviene del diseño '
+        + 'automático y de la coordinación.'
+      : 'HAND EDITS: none. Every bar in this document comes from the automatic design and the '
+        + 'coordination.';
+  }
+  const ids = p.members.join(', ');
+  return es
+    ? `RETOCADOS A MANO: ${p.members.length} elemento(s) de este documento (${ids}) llevan `
+      + 'armadura editada a mano. Su verificación es la de la armadura que hay, no la del '
+      + 'diseño automático que reemplazó.'
+    : `HAND EDITS: ${p.members.length} member(s) in this document (${ids}) carry hand-edited `
+      + 'reinforcement. Their verification is of the steel that is there, not of the automatic '
+      + 'design it replaced.';
+}
 
 /** Everything the renderers need that is not in the model: locale and presentation. */
 export interface RenderOptions {
@@ -48,6 +93,23 @@ export interface RenderOptions {
   scene?: SceneModel;
   /** Design status per member, for the notes those sheets carry. */
   statusOf?: (elementId: number) => ElementStatus | undefined;
+  /**
+   * Which of this document's members were retouched by hand, and whether that is knowable.
+   *
+   * ── Why it is a four-state value and not a list ────────────────
+   *
+   * §4 asks every export to state its manually retouched elements, and the honest answer has
+   * three failure modes that an array cannot express. `rc-selection.ts` spends its header on
+   * the one that matters: `known` with no members is a real claim — nothing was retouched —
+   * and `unknown` is a file that never recorded the information. They render identically
+   * unless something forces them apart, and only one of them is a statement about the
+   * project. A report printing "manually retouched: none" for a file that has no record would
+   * be false in the one place whose purpose is to say what is in the drawing.
+   *
+   * Absent means the caller did not supply it, which is a fourth thing again and is rendered
+   * as nothing at all rather than as a negative.
+   */
+  retouched?: RcRetouchProvenance;
   /** Elevations to cut horizontal sections at, m. */
   sectionElevations?: readonly number[];
   /** Commercial stock length for the schedule, m. */
@@ -78,25 +140,133 @@ function positionLabel(
 }
 
 /** The readiness banner every output carries. Not decoration — it is the claim. */
+const FAMILY_WORD: Record<DesignFamily, { es: string; en: string }> = {
+  column: { es: 'COLUMNAS', en: 'COLUMNS' },
+  beam: { es: 'VIGAS', en: 'BEAMS' },
+  slab: { es: 'LOSAS', en: 'SLABS' },
+  wall: { es: 'TABIQUES', en: 'WALLS' },
+  footing: { es: 'FUNDACIONES', en: 'FOUNDATIONS' },
+};
+
+/**
+ * What this document covers, and what the building has that it does not.
+ *
+ * ── Why every export carries this ──────────────────────────────────
+ *
+ * `readiness` is a statement about the assemblies in the set. A reader takes a sheet stamped
+ * ISSUED FOR CONSTRUCTION to be a statement about the building. Those coincide exactly when the
+ * set covers every family the model holds, and a run scoped to beams and columns does not.
+ *
+ * A drawing is read on a site by someone who was not in the room when the scope was chosen, so
+ * the qualifier cannot live in the app: it has to be on the paper, beside the stamp it
+ * qualifies. `ALCANCE: VIGAS Y COLUMNAS · NO INCLUYE: LOSAS` is the difference between a true
+ * claim and a true claim that will be read as a false one.
+ *
+ * Empty on a document with no scope information rather than an invented one — see
+ * `buildDocumentModel`. A set that names no families is visibly wrong; a set that silently
+ * claims all of them is not.
+ *
+ * Same es/other split `readinessBanner` uses, and for the same reason: this is a stamp on a
+ * sheet, not interface copy, and it goes through the same one-line path.
+ */
+export function scopeStatement(doc: DocumentModel, locale: string): string {
+  const es = locale.startsWith('es');
+  const words = (fs: readonly DesignFamily[]) =>
+    fs.map((f) => FAMILY_WORD[f][es ? 'es' : 'en']).join(', ');
+  if (doc.scope.length === 0) {
+    return es ? 'ALCANCE NO DECLARADO' : 'SCOPE NOT STATED';
+  }
+  const here = doc.selection?.families ?? doc.scope;
+  const covers = `${es ? 'ALCANCE' : 'SCOPE'}: ${words(here)}`;
+  /*
+   * What is NOT in this set: two different absences, in one list.
+   *
+   * `outOfScope` is what the MODEL has and the design never covered. A narrowing adds a second
+   * kind: a family the design DID cover and this document does not, because no member of it was
+   * selected. Printing only the first would stamp `SCOPE: BEAMS` on a beams-only selection of a
+   * beams-and-columns project without ever saying the columns are elsewhere — and a reader who
+   * knows the design covered them would take this set to contain them.
+   *
+   * Deduplicated and in `DESIGN_FAMILIES` order, so the same two absences always read the same
+   * way round.
+   */
+  const dropped = doc.selection
+    ? doc.scope.filter((f) => !doc.selection!.families.includes(f))
+    : [];
+  const absent = DESIGN_FAMILIES.filter(
+    (f) => doc.outOfScope.includes(f) || dropped.includes(f));
+  const out = absent.length === 0
+    ? covers
+    : `${covers} · ${es ? 'NO INCLUYE' : 'NOT IN THIS SET'}: ${words(absent)}`;
+  return doc.selection ? `${out} · ${memberStatement(doc.selection, es)}` : out;
+}
+
+/**
+ * The members a narrowed document contains, on the paper.
+ *
+ * ── Why the count AND the ids ──────────────────────────────────────
+ *
+ * The count is what a reader checks a drawing set against; the ids are what they check an
+ * individual sheet against. "12 of 40" without the list cannot be verified, and the list without
+ * "of 40" does not say that anything is missing — which is the only reason this line exists.
+ *
+ * Truncated at twenty ids, and the truncation SAYS SO. A stamp that silently stopped at twenty
+ * would be a member list that is wrong in exactly the projects where it matters most, and the
+ * count beside it is what stays complete.
+ *
+ * Only on a narrowed document. A whole set has no selection to declare, and printing "40 of 40"
+ * on every sheet would train the reader to skip the line that matters on the one sheet that was
+ * narrowed. See `DocumentModel.selection`.
+ */
+function memberStatement(sel: NonNullable<DocumentModel['selection']>, es: boolean): string {
+  const shown = sel.elements.slice(0, 20);
+  const more = sel.elements.length - shown.length;
+  const ids = more > 0
+    ? `${shown.join(', ')} ${es ? `y ${more} más` : `and ${more} more`}`
+    : shown.join(', ');
+  const head = es
+    ? `ELEMENTOS: ${sel.elements.length} de ${sel.ofBase}`
+    : `MEMBERS: ${sel.elements.length} of ${sel.ofBase}`;
+  const shared = sel.sharedWith.length === 0
+    ? ''
+    : ` · ${es
+      ? `ACERO COMPARTIDO CON: ${sel.sharedWith.join(', ')}`
+      : `STEEL SHARED WITH: ${sel.sharedWith.join(', ')}`}`;
+  return `${head} (${ids})${shared}`;
+}
+
 export function readinessBanner(doc: DocumentModel, locale: string): string {
   const es = locale.startsWith('es');
-  switch (doc.readiness) {
-    case 'ISSUED':
-      return es ? 'EMITIDO PARA CONSTRUCCIÓN' : 'ISSUED FOR CONSTRUCTION';
-    case 'REVIEWED':
-      return es ? 'REVISADO' : 'REVIEWED';
-    case 'FOR_REVIEW':
-      return es ? 'PARA REVISIÓN — NO APTO PARA CONSTRUCCIÓN'
-        : 'FOR REVIEW — NOT FOR CONSTRUCTION';
-    case 'SUPERSEDED':
-      return es
-        ? `REEMPLAZADO POR LA REVISIÓN ${doc.supersededBy ?? '?'} — NO APTO PARA CONSTRUCCIÓN`
-        : `SUPERSEDED BY REVISION ${doc.supersededBy ?? '?'} — NOT FOR CONSTRUCTION`;
-    default:
-      return es
-        ? `BORRADOR DE REVISIÓN — ${doc.openConflicts.length} CONFLICTO(S) SIN RESOLVER — NO APTO PARA CONSTRUCCIÓN`
-        : `REVIEW DRAFT — ${doc.openConflicts.length} UNRESOLVED CONFLICT(S) — NOT FOR CONSTRUCTION`;
-  }
+  const scope = scopeStatement(doc, locale);
+  /*
+   * The scope rides on the banner rather than sitting somewhere else on the sheet.
+   *
+   * Every renderer already prints the banner — that is what makes it the one line guaranteed to
+   * reach the reader — and a qualifier printed anywhere else is a qualifier that some export
+   * will eventually drop. It is appended to EVERY state, including the ones that already say
+   * NOT FOR CONSTRUCTION: a draft of a partial scope is still a partial scope, and the reader
+   * deciding whether the slabs are coming needs the answer on the draft too.
+   */
+  const state = (() => {
+    switch (doc.readiness) {
+      case 'ISSUED':
+        return es ? 'EMITIDO PARA CONSTRUCCIÓN' : 'ISSUED FOR CONSTRUCTION';
+      case 'REVIEWED':
+        return es ? 'REVISADO' : 'REVIEWED';
+      case 'FOR_REVIEW':
+        return es ? 'PARA REVISIÓN — NO APTO PARA CONSTRUCCIÓN'
+          : 'FOR REVIEW — NOT FOR CONSTRUCTION';
+      case 'SUPERSEDED':
+        return es
+          ? `REEMPLAZADO POR LA REVISIÓN ${doc.supersededBy ?? '?'} — NO APTO PARA CONSTRUCCIÓN`
+          : `SUPERSEDED BY REVISION ${doc.supersededBy ?? '?'} — NOT FOR CONSTRUCTION`;
+      default:
+        return es
+          ? `BORRADOR DE REVISIÓN — ${doc.openConflicts.length} CONFLICTO(S) SIN RESOLVER — NO APTO PARA CONSTRUCCIÓN`
+          : `REVIEW DRAFT — ${doc.openConflicts.length} UNRESOLVED CONFLICT(S) — NOT FOR CONSTRUCTION`;
+    }
+  })();
+  return `${state} — ${scope}`;
 }
 
 function esc(s: string): string {
@@ -126,6 +296,21 @@ export function renderReportHtml(
   rows.push(`<h1>${esc(opts.projectName)}</h1>`);
   rows.push(`<p class="banner ${draft ? 'draft' : 'ok'}">${esc(readinessBanner(doc, opts.locale))}</p>`);
   rows.push(`<p class="summary">${esc(translate(doc.summary.key, doc.summary.params))}</p>`);
+
+  /*
+    What was retouched by hand, at the TOP.
+
+    §4's requirement, and it belongs beside the readiness banner for the reason the provisional
+    note is there: a reader deciding whether to trust a document needs to know which of its
+    steel a person put there before they read what the checks say about it.
+  */
+  {
+    const retouch = retouchNote(opts.retouched, opts.locale);
+    if (retouch) {
+      rows.push(`<p class="banner ${opts.retouched?.status === 'unknown' ? 'draft' : 'ok'} `
+        + `retouched">${esc(retouch)}</p>`);
+    }
+  }
 
   /**
    * Provisional members, at the TOP of the report and again in their own section.
@@ -1326,9 +1511,30 @@ function elevationAndSection(
         .map((c) => conflictNote(c, opts.locale)),
     ];
 
+    /*
+      The hand-edit statement, ON the drawing.
+
+      §4 asks every EXPORT to state its retouched members, and a DXF that carried it only in
+      the file name would not be carrying it: the sheet is what gets printed and pinned up. It
+      goes in the note block with the readiness and the conflicts, which is where a reader
+      already looks for what this drawing cannot promise.
+    */
+    const retouch = retouchNote(opts.retouched, opts.locale);
+
+    /*
+      And the scope, in the same note block and for the same reason.
+
+      The schedule gets it through `readinessBanner` in its title; the report prints the banner
+      at the head. A DXF sheet has neither, and it is the output most likely to reach a site on
+      its own — so the one line that says which families this set covers has to be ON it.
+    */
+    const scopeNote = scopeStatement(doc, opts.locale);
+    const sheetNotes = [scopeNote, ...(retouch ? [retouch] : [])];
+
     n += 1;
     const elevation = drawElevation({
       assembly: a.source,
+      extraNotes: sheetNotes,
       outlines: [{
         points: [
           { x: s0.x, y: s0.y, z: Math.min(...zs) },
@@ -1435,6 +1641,16 @@ export function renderSchedule(
       assembly: a.source,
       clauses: doc.refs,
     }), opts.locale);
+
+    /*
+      The hand-edit statement, at the head of the sheet.
+
+      Row 3 and not the note block at the bottom: a workbook is scrolled, and somebody ordering
+      steel from row 40 never sees a footnote under row 200. It is the same sentence the report
+      and the drawings carry, from `retouchNote`, so the three cannot disagree about it.
+    */
+    const retouch = retouchNote(opts.retouched, opts.locale);
+    if (retouch) aoa.splice(3, 0, [retouch]);
 
     // The references a fabricator needs to place the bar, appended to the standard table:
     // which members it belongs to, and which layer it sits in.

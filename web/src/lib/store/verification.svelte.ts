@@ -451,7 +451,23 @@ function createVerificationStore() {
       return pv.overallStatus;
     },
 
-    /** Utilization for display: ALWAYS demand/capacity. Null when unavailable. */
+    /**
+     * Utilization for display: ALWAYS demand/capacity.
+     *
+     * Null when nothing can answer: no provided verification CARRYING A STRENGTH CHECK, and no
+     * code-check baseline for the member. Not the same as "no reinforcement" — a member whose
+     * provided verification ran and checked no strength falls through to the baseline exactly
+     * as an unreinforced one does, and reads the same from here.
+     *
+     * NOT null when the utilization is non-finite: that returns `99`, a sentinel, and the
+     * docstring used to say "null when unavailable" and stop there — which is how a magic
+     * number reaches a design table as a ratio and the 3-D viewer as a colour without any
+     * reader of this signature knowing it can. 99 is not a utilization anyone computed; it is
+     * "this could not be computed", wearing the type of an answer.
+     *
+     * Stated rather than fixed. Replacing it means deciding what the table and the viewport
+     * should show for an incomputable ratio, which is a product decision and is on H3's list.
+     */
     getDisplayRatio(elementId: number): number | null {
       void providedRevision;
       const pv = providedFor(elementId);

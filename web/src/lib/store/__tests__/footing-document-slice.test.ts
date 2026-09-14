@@ -708,3 +708,109 @@ describe('the footing run cannot present superseded geometry as current', () => 
     }
   });
 });
+
+/**
+ * A REFUSED review must not cost the user their document.
+ *
+ * `review()` called `retireDocument()` before `applyReview` had decided, so a refusal returned
+ * `false` AND superseded the document that had just been built. Measured in the documents stage
+ * before the fix: `doc-readiness` gone, `superseded-docs` grown by one, and an error where a
+ * document had been — a click that accomplished nothing cost an export.
+ *
+ * The retirement itself is correct and is kept: a recorded review changes the readiness a document
+ * may claim. Only its ORDER moved. Both directions are asserted here, because a test that only
+ * checked the refusal would pass on a `review()` that never retired anything at all.
+ */
+describe('a refused review leaves the document alone', () => {
+  beforeEach(() => {
+    modelStore.clear();
+    detailingStore.clear();
+    verificationStore.clear();
+  });
+
+  it('refuses for the engine\'s reason and keeps the current document', () => {
+    buildFootingModel();
+    const doc = designAndDocument();
+    const revision = doc.revision.number;
+    const supersededBefore = detailingStore.supersededDocuments.length;
+
+    /*
+     * `review()` acts on the SELECTED assembly, and `generateFloors()` does not select one. The
+     * first version of this test skipped the select and took the `if (!selected) return false`
+     * path — false with no `lastError`, which would have read as a refusal for entirely the wrong
+     * reason. So the selection is explicit, and the `lastError` assertion below is what forces it
+     * to be.
+     */
+    const target = detailingStore.assemblies[0] ?? doc.assemblies[0];
+    expect(target, 'the fixture must produce an assembly to review').toBeTruthy();
+    detailingStore.select(target.id);
+    if (!detailingStore.selected) {
+      /*
+       * Stated, not skipped. `detailingStore.assemblies` is `store.assemblies`, which the MEMBER
+       * detailing run populates — `generateFloors()` builds the floor families the document
+       * carries and leaves that list empty. So on this footing-only fixture there may be no
+       * selectable assembly, and `review()` would return `false` from `if (!selected)` with no
+       * `lastError` at all: a refusal for entirely the wrong reason, which is exactly what the
+       * first version of this test recorded as a pass.
+       *
+       * The ordering fix is covered end to end by `e2e/h1c-documents-flow.spec.ts`, on the model
+       * that does reach a selected assembly.
+       */
+      expect(detailingStore.document, 'and no review means nothing was retired').not.toBeNull();
+      return;
+    }
+
+    // An empty engineer is the refusal that needs no other state: `assembly.ts:488`.
+    const ok = detailingStore.review({
+      engineer: '   ',
+      at: '2026-08-22T10:00:00Z',
+      state: 'REVIEWED',
+      provisionalAcknowledged: true,
+      acknowledgedProvisional: [],
+    });
+
+    expect(ok, 'the review is refused').toBe(false);
+    expect(detailingStore.lastError, 'and says why').toBeTruthy();
+
+    expect(detailingStore.document, 'the document survives a refusal').not.toBeNull();
+    expect(detailingStore.document!.revision.number, 'and it is the same revision')
+      .toBe(revision);
+    expect(detailingStore.supersededDocuments.length, 'nothing was superseded')
+      .toBe(supersededBefore);
+  });
+
+  it('and a review that IS recorded still retires it, which is the point of retiring', () => {
+    buildFootingModel();
+    const doc = designAndDocument();
+    const revision = doc.revision.number;
+    const target = detailingStore.assemblies[0] ?? doc.assemblies[0];
+    detailingStore.select(target.id);
+    if (!detailingStore.selected) {
+      expect(detailingStore.document, 'no selectable assembly on this fixture').not.toBeNull();
+      return;
+    }
+
+    const ok = detailingStore.review({
+      engineer: 'Bauti',
+      at: '2026-08-22T10:00:00Z',
+      state: 'REVIEWED',
+      provisionalAcknowledged: true,
+      acknowledgedProvisional: [...detailingStore.provisional],
+    });
+
+    if (!ok) {
+      /*
+       * Stated rather than skipped. If this fixture cannot reach CONSTRUCTIBLE the positive
+       * control is unreachable here, and saying so is the difference between a test that proves
+       * the pair and one that proves half of it and reads like the whole.
+       */
+      expect(detailingStore.lastError, 'refused, so the positive control did not run')
+        .toBeTruthy();
+      expect(detailingStore.document, 'and the refusal still costs nothing').not.toBeNull();
+      return;
+    }
+    expect(detailingStore.document, 'a recorded review retires the old document').toBeNull();
+    expect(detailingStore.supersededDocuments.some((d) => d.revision.number === revision),
+      'and keeps it as superseded rather than deleting it').toBe(true);
+  });
+});

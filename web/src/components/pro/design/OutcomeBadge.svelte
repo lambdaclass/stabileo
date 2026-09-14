@@ -72,15 +72,31 @@
   }
   .badge-text { font-weight: 500; }
   .badge-ok { background: rgba(34, 204, 102, 0.16); color: var(--st-ok); border-color: var(--st-ok); }
-  .badge-warn { background: rgba(221, 170, 0, 0.16); color: var(--st-warn); border-color: var(--st-warn); }
-  .badge-fail { background: rgba(238, 34, 34, 0.16); color: var(--st-danger); border-color: var(--st-danger); }
+  .badge-warn { background: var(--st-warn-bg); color: var(--st-warn); border-color: var(--st-warn); }
+  /* `--st-danger`, not `--st-accent`. The accent is the brand and the fill this application
+     puts on destructive BUTTONS; a failed verification is a status, and reading it in the
+     same vermillion made a result look like an action.
+
+     MERGED with `feat/pro-steel-family`, which reached the same conclusion independently and
+     wrote `--st-danger` here too. The branches AGREE on the semantics; what H1 adds on top is
+     the FILL, moved off `rgba(238, 34, 34, 0.16)` and onto `--st-danger-bg`, because
+     `concrete-design-raw-colours.test.ts` is a red gate on this surface and a literal here is a
+     second definition of a colour that already has a name. Nothing of the base's intent is
+     lost: its change IS this change, one token further along. */
+  .badge-fail { background: var(--st-danger-bg); color: var(--st-danger); border-color: var(--st-danger); }
   /* The same violet the 3-D view paints provisional steel and the detailing panel gives
-     the state row. One colour, one meaning, on every surface that names it.
-     Still a literal, unlike its four siblings, because that one meaning has no token:
-     the authority is `three/rebar-scene.ts`, which feeds a numeric hex to a Three.js
-     material and cannot read a custom property. Tokenising here alone would split the
-     definition in two. See the note in the report — `--st-provisional` is owed. */
-  .badge-provisional { background: rgba(160, 102, 211, 0.16); color: #d8b4ff; border-color: #6b4a8f; }
+     the state row. One colour, one meaning, on every surface that names it — and the token
+     that was owed here now exists, held equal to `three/rebar-scene.ts` by value rather than
+     by hope.
+
+     The fill and the label are the values this badge already had; they are what the token was
+     derived from. The BORDER is a real change and a fix: `#6b4a8f` measured 1.76–2.17 against
+     the band it outlines, well under the 3:1 §1.4.11 asks of a control boundary. The token is
+     3.13–3.86. */
+  .badge-provisional {
+    background: var(--st-provisional-bg); color: var(--st-provisional-text);
+    border-color: var(--st-provisional);
+  }
   .badge-unavailable { background: rgba(136, 136, 136, 0.16); color: var(--st-text-2); border-color: var(--st-text-3); }
   /* Stale = desaturated + hatch, so it is distinguishable without hue. */
   .badge-stale {
@@ -89,7 +105,23 @@
   }
   .badge-outcome { background: rgba(60, 90, 140, 0.18); color: var(--st-text); border-color: var(--st-info); }
   .badge-outcome-VERIFIED { background: rgba(34, 204, 102, 0.16); color: var(--st-ok); border-color: var(--st-ok); }
-  .badge-outcome-SECTION_INADEQUATE { background: rgba(255, 102, 0, 0.16); color: var(--st-warn); border-color: var(--st-warn); }
+  /* Three hues in one chip became two, and NOT the obvious two.
+     `--st-danger` as the label on `--st-warn-bg` measures 4.09 over `--st-surface-3` — it
+     fails AA on the darkest ground this badge can sit on, which is exactly what rule 1 of
+     `shared-status-tokens.test.ts` forbids. So the severity rides the BORDER and the words
+     stay at full contrast, which also keeps it distinct from `.badge-warn` above (warn on
+     warn) and from `.badge-fail` (danger throughout).
+
+     MERGED, and this is the one hunk where the two branches genuinely differ rather than
+     converge. `feat/pro-steel-family` moved the LABEL off `--st-accent` and onto `--st-warn`,
+     which fixes the brand-versus-status confusion and leaves warn-on-warn — the pairing the
+     measurement above rules out, and the one this chip has to stay distinguishable from. The
+     resolution keeps the base's intent (the accent is gone) and answers the gate the base did
+     not have to: the severity is still stated, on the border, at 3:1, and the words are
+     readable on every ground this chip sits on. */
+  .badge-outcome-SECTION_INADEQUATE {
+    background: var(--st-warn-bg); color: var(--st-text); border-color: var(--st-danger);
+  }
   .badge-outcome-SEARCH_EXHAUSTED { background: rgba(180, 120, 220, 0.16); color: var(--st-text); border-color: var(--st-text-3); }
   .badge-flag { background: rgba(70, 80, 100, 0.35); color: var(--st-text); border-color: var(--st-hair-strong); }
   .badge-flag-edited { color: var(--st-text); border-color: var(--st-info); }

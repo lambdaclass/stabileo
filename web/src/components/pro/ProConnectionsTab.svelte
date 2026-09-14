@@ -1,7 +1,13 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { jointDesignStore } from '../../lib/store/joint-design.svelte';
+  import { jointStateKey } from '../../lib/connection/joint-design';
+  import { BOLT_GRADES } from '../../lib/connection/bolted-joint';
+  import { TABULATED_DIAMETERS_MM } from '../../lib/connection/bolt-geometry';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { steelStore } from '../../lib/store/steel.svelte';
   import { t, tp } from '../../lib/i18n';
+  import { parseNumericInput, type NumericInputRules } from '../../lib/utils/numeric-input';
   /*
    * The concrete workflow's section shell, reused rather than reinvented.
    *
@@ -70,7 +76,176 @@
   }));
   const hiddenJointCount = $derived(detected.length - joints.length);
 
+  /**
+   * Why the list is empty, when it is.
+   *
+   * Three different absences, and until now they all rendered as "no joints":
+   *
+   *   · **`noModel`** — nothing is loaded, or nothing connects. Genuinely no joints.
+   *   · **`noneMetallic`** — the model HAS joints and none of their members is classifiable as
+   *     metal. This is the state the shipped industrial shed was in: 226 joints, 633 elements,
+   *     and every element pointing at a material that declared no yield strength, so
+   *     `materialFamilyOf` returned `unknown` and the filter removed all 226. A panel that says
+   *     "no joints" there is telling the user something false about their model.
+   *   · **`hasJoints`** — the ordinary case.
+   *
+   * The second one names the members' verdict rather than guessing, so the message can say what
+   * to fix: a material with no strength and no grade.
+   */
+  const emptyReason = $derived.by((): 'hasJoints' | 'noModel' | 'noneMetallic' => {
+    if (joints.length > 0) return 'hasJoints';
+    return detected.length > 0 ? 'noneMetallic' : 'noModel';
+  });
+
+  /** How many members the app could not classify at all. The number that explains the absence. */
+  const unclassifiedCount = $derived(
+    steelStore.inventory.census.byFamily.unknown ?? 0,
+  );
+
   let selectedJointId = $state<number | null>(null);
+
+  /**
+   * The design for the selected joint — from the shared store, recomputed on read.
+   *
+   * The same object the 3-D view draws and a document will tabulate. Nothing here holds a
+   * capacity or a plate outline: those follow the model, so a design can never describe a model
+   * that has since changed.
+   */
+  const design = $derived.by(() => {
+    const j = selectedJoint;
+    if (!j) return null;
+    void modelStore.modelVersion;
+    void resultsStore.results3D;
+    return jointDesignStore.designFor(j.nodeId, j.elementIds);
+  });
+
+  /** The choices, so the form binds to what is stored rather than to a local copy. */
+  const chosen = $derived(selectedJointId === null ? {} : jointDesignStore.choicesFor(selectedJointId));
+
+  /**
+   * Stored joint designs that do not match the model that is open now — I-07.
+   *
+   * The store keys choices by node id, and an id only means something inside the model that
+   * issued it. A joint whose node is gone, has moved, or has a different fan of members on it is
+   * NOT applied — `choicesFor` answers empty for it — and it must not be invisible either. An
+   * obsolete entry that is merely ignored is indistinguishable from a joint nobody ever designed,
+   * and one of those two is work the user did.
+   *
+   * So it is said, with the reason and with a way out. Silence here would be the same defect the
+   * store avoids, moved from the model into the panel.
+   */
+  const obsoleteJoints = $derived(jointDesignStore.obsolete);
+
+  /**
+   * The one field the user last typed something unusable into, and why.
+   *
+   * Kept as a single slot rather than a map: the panel shows one line, and a stale complaint
+   * about a field the user has since fixed is worse than no complaint. Cleared as soon as the
+   * same field parses.
+   */
+  let fieldProblem = $state<{ field: string; reasonKey: string } | null>(null);
+
+  /**
+   * Read one number out of the form.
+   *
+   * Every numeric handler in this panel goes through here, and none of them writes
+   * `Number(value) || something` any more. That idiom is what turned a deliberate batten gap of
+   * 0 into 10 — zero is falsy — and with it made §E.6.1's Group I, chords in continuous contact
+   * carrying no battens at all, unreachable from the panel: the section went on claiming
+   * battens for an arrangement the clause places none on.
+   *
+   * The three outcomes are kept apart on purpose. An empty field is a legitimate state on the
+   * way to typing and usually means «not supplied». An invalid one — a negative length, a zero
+   * where zero means the datum is absent — is SAID, never quietly reinterpreted, because a
+   * negative thickness clamped to zero is a wrong answer wearing a right one's clothes. And a
+   * real number is written through even when it is zero.
+   */
+  /**
+   * Put the stored value back into the box.
+   *
+   * These inputs are one-way bound — `value={...}` and an `onchange`, not `bind:` — so when a
+   * handler declines to store what was typed, Svelte has no reason to touch the DOM: the
+   * expression it renders did not change. The box goes on showing the rejected text while the
+   * model holds something else, which is the same disagreement between what is displayed and
+   * what is stored that this whole audit is about, one layer up.
+   */
+  function reflect(el: HTMLInputElement, stored: number | undefined): void {
+    el.value = stored === undefined ? '' : String(stored);
+  }
+
+  function readField(field: string, raw: string, rules: NumericInputRules = {}) {
+    const parsed = parseNumericInput(raw, rules);
+    if (parsed.kind === 'invalid') fieldProblem = { field, reasonKey: parsed.reasonKey };
+    else if (fieldProblem?.field === field) fieldProblem = null;
+    return parsed;
+  }
+
+  function setBolts(next: Partial<NonNullable<typeof chosen.bolts>>): void {
+    if (selectedJointId === null) return;
+    const current = chosen.bolts ?? {
+      diameterMm: 20, grade: 'A325' as const, threads: 'included' as const,
+      count: 4, rows: 2, spacingMm: 70, edgeDistanceMm: 40,
+    };
+    jointDesignStore.set(selectedJointId, { bolts: { ...current, ...next } });
+  }
+
+  function setPlate(next: { thicknessMm?: number; fuMPa?: number }): void {
+    if (selectedJointId === null) return;
+    jointDesignStore.set(selectedJointId, { plate: { ...(chosen.plate ?? {}), ...next } });
+  }
+
+  function setWeld(next: Parameters<typeof jointDesignStore.setWeld>[1]): void {
+    if (selectedJointId === null) return;
+    jointDesignStore.setWeld(selectedJointId, next);
+  }
+
+  function setBattens(next: Parameters<typeof jointDesignStore.setBattens>[1]): void {
+    if (selectedJointId === null) return;
+    jointDesignStore.setBattens(selectedJointId, next);
+  }
+
+  /**
+   * The members meeting this joint, with what a user needs to tell them apart.
+   *
+   * Battens divide a MEMBER, and a joint sits at the end of several — so «the length» is
+   * ambiguous until someone says which member. This list is what makes that choice explicit
+   * instead of hidden inside a default.
+   */
+  const jointMembers = $derived.by(() => {
+    const j = selectedJoint;
+    if (!j) return [];
+    return j.elementIds.flatMap((id) => {
+      const el = modelStore.elements.get(id);
+      if (!el) return [];
+      const a = modelStore.nodes.get(el.nodeI);
+      const b = modelStore.nodes.get(el.nodeJ);
+      if (!a || !b) return [];
+      const lengthM = Math.hypot(b.x - a.x, b.y - a.y,
+        ((b as { z?: number }).z ?? 0) - ((a as { z?: number }).z ?? 0));
+      const sec = modelStore.sections.get((el as { sectionId?: number }).sectionId ?? -1);
+      return [{
+        id,
+        lengthM,
+        family: (sec as { profileFamily?: string; name?: string } | undefined)?.profileFamily
+          ?? (sec as { name?: string } | undefined)?.name ?? '—',
+        /** Which end of the member is at this joint — the reference the stations start from. */
+        end: el.nodeI === j.nodeId ? 'I' : 'J',
+      }];
+    }).sort((x, y) => y.lengthM - x.lengthM);
+  });
+
+  /**
+   * The member the batten layout is detailed for.
+   *
+   * Preloaded with the LONGEST — a visible initial selection, not a normative decision. Battens
+   * are usually detailed for the chord, and at a truss node the chord is the long member; but
+   * that is a heuristic about typical models, not a rule, so it is shown as a choice a user can
+   * change rather than folded into a number.
+   */
+  const referenceMember = $derived.by(() => {
+    const chosenId = chosen.battens?.memberId;
+    return jointMembers.find((m) => m.id === chosenId) ?? jointMembers[0];
+  });
 
   const selectedJoint = $derived(joints.find(j => j.nodeId === selectedJointId) ?? null);
 
@@ -118,6 +293,31 @@
     uiStore.setSelection(new Set([j.nodeId]), new Set(j.elementIds));
   }
 
+  /**
+   * The other direction: a node picked in the 3-D scene selects its joint here.
+   *
+   * List → scene already worked, because `highlightJoint` writes the shared selection. Scene →
+   * list did not: `selectedJointId` was purely local, so clicking a node in the viewport
+   * highlighted it and the panel went on describing whatever was chosen before — two surfaces
+   * showing two different joints with nothing saying so.
+   *
+   * Only a SINGLE selected node counts. A box-select covering forty nodes has no one joint to
+   * describe, and picking the first would be inventing a focus the user did not express.
+   */
+  $effect(() => {
+    const picked = uiStore.selectedNodes;
+    if (picked.size !== 1) return;
+    const [nodeId] = picked;
+    // Untracked: reading `joints` here would re-run this on every model change and fight the
+    // user's own clicks in the list.
+    const isJoint = untrack(() => joints.some((j) => j.nodeId === nodeId));
+    if (isJoint && nodeId !== selectedJointId) {
+      selectedJointId = nodeId;
+      boltResult = null;
+      weldResult = null;
+    }
+  });
+
   /** Auto-fill bolt forces from joint max shear */
   function autoFillBoltForces() {
     if (!jointForces) return;
@@ -161,8 +361,34 @@
     return n.toFixed(1);
   }
 
-  function statusClass(s: 'ok' | 'warn' | 'fail'): string {
-    return `st-${s}`;
+  /**
+   * How the AUXILIARY calculator presents its outcome — and why it has its own vocabulary.
+   *
+   * This block is the manual Vu/Tu calculator that predates the joint design in §1. It is
+   * labelled experimental at its own entry point, and it used to end in a card whose governing
+   * row carried a **green ✓** on `--st-ok`. Two verdict languages then lived in one panel: the
+   * designed joint, which never says "verified" and speaks `incomplete / notVerifiable /
+   * designed / exceeded`, and this, which showed the one glyph every reader takes for approval.
+   * A tick beside a utilisation is read as "the joint is fine", and nothing here is entitled to
+   * say that: no mapped clause, no test, no external benchmark.
+   *
+   * So the outcome is stated, and it is stated in words this panel uses nowhere else. Not
+   * `adequate` — that is the canonical check vocabulary, and borrowing it would be the same
+   * confusion with better manners. `within / near / over` describes what the arithmetic found
+   * and claims nothing about the joint.
+   *
+   * There is no success colour in the map, and that is the point rather than an oversight:
+   * `within` is the panel's ordinary text colour. Exceeding is still red, because a warning is
+   * not an approval and suppressing it would trade one misreading for a worse one.
+   *
+   * The joint's actual state comes from `designedJoint` in §1 and is rendered there. This card
+   * does not restate it.
+   */
+  function auxTone(s: 'ok' | 'warn' | 'fail'): string {
+    return s === 'ok' ? 'aux-within' : s === 'warn' ? 'aux-near' : 'aux-over';
+  }
+  function auxStateKey(s: 'ok' | 'warn' | 'fail'): string {
+    return s === 'ok' ? 'conn.aux.within' : s === 'warn' ? 'conn.aux.near' : 'conn.aux.over';
   }
 
   /**
@@ -214,13 +440,52 @@
     {t('conn.experimentalBanner')}
   </div>
 
+  <!--
+    Joints the project carries that this model cannot claim — I-07.
+
+    Above the joint list rather than inside it, because these nodes are not IN the list: the
+    reason they are obsolete is that the model has no such joint. Each one names its reason,
+    because «obsolete» alone does not tell a user whether to look for a deleted node, a moved
+    one, or a member they added — and those are three different things to go and do.
+  -->
+  {#if obsoleteJoints.length > 0}
+    <div class="conn-obsolete" role="note" data-testid="conn-obsolete-notice">
+      <p class="conn-obsolete-title" data-testid="conn-obsolete-title">
+        {tp('conn.obsolete.title', { n: obsoleteJoints.length })}
+      </p>
+      <p class="conn-obsolete-why">{t('conn.obsolete.why')}</p>
+      <ul class="conn-obsolete-list">
+        {#each obsoleteJoints as o (o.nodeId)}
+          <li data-testid={`conn-obsolete-${o.nodeId}`}>
+            <span class="conn-obsolete-node">N{o.nodeId}</span>
+            <span class="conn-obsolete-reason" data-testid={`conn-obsolete-reason-${o.nodeId}`}
+              >{t(`conn.obsolete.reason.${o.reason}`)}</span>
+            <button
+              type="button" class="conn-obsolete-drop"
+              data-testid={`conn-obsolete-discard-${o.nodeId}`}
+              onclick={() => jointDesignStore.clear(o.nodeId)}
+            >{t('conn.obsolete.discardOne')}</button>
+          </li>
+        {/each}
+      </ul>
+      <!-- The remedy, said as an action. A notice with no way out is a complaint. -->
+      <button
+        type="button" class="conn-obsolete-drop-all"
+        data-testid="conn-obsolete-discard-all"
+        onclick={() => jointDesignStore.discardObsolete()}
+      >{t('conn.obsolete.discardAll')}</button>
+    </div>
+  {/if}
+
   <!-- ── 1 · Joint detection ─────────────────────────────────────── -->
   <StageSection
     step={1}
     title={t('conn.sec.joints.title')}
     purpose={t('conn.sec.joints.purpose')}
     state={joints.length > 0 ? 'done' : 'blocked'}
-    blockedBy={t('conn.sec.joints.blocked')}
+    blockedBy={emptyReason === 'noneMetallic'
+      ? tp('conn.jointsNotShown', { n: hiddenJointCount })
+      : t('conn.sec.joints.blocked')}
     badge={joints.length}
     testid="conn-sec-joints"
     badgeTestid="conn-joint-count"
@@ -237,7 +502,23 @@
       </p>
     {/if}
     {#if joints.length === 0}
-      <div class="conn-empty">{t('conn.noJoints')}</div>
+      {#if emptyReason === 'noneMetallic'}
+        <!--
+          The model has joints. None of them could be shown, and the reason is a property of the
+          MATERIALS, not of the topology — so the message names the count on both sides and what
+          would fix it.
+        -->
+        <div class="conn-empty conn-empty-blocked" data-testid="conn-none-metallic">
+          <p>{tp('conn.jointsNotShown', { n: hiddenJointCount })}</p>
+          {#if unclassifiedCount > 0}
+            <p class="conn-why" data-testid="conn-none-metallic-why">
+              {tp('conn.jointsUnclassified', { n: unclassifiedCount })}
+            </p>
+          {/if}
+        </div>
+      {:else}
+        <div class="conn-empty" data-testid="conn-no-joints">{t('conn.noJoints')}</div>
+      {/if}
     {:else}
       <div class="conn-joint-list">
         {#each joints as j}
@@ -280,6 +561,616 @@
         <p class="conn-explain" data-testid="conn-mixed-note">{t('conn.joints.mixedNote')}</p>
       {/if}
 
+      <!-- ── The design: the governing demand, the choices, and the verdicts ── -->
+      {#if design}
+        <section class="jd" data-testid="joint-design">
+          <header class="jd-head">
+            <span class="jd-title">{t('conn.design.title')}</span>
+            <!--
+              The state comes from the clauses, not from this panel. `verified` is a state the
+              key can name and nothing can produce.
+            -->
+            <span class="jd-state" data-state={design.state} data-testid="joint-design-state">
+              {t(jointStateKey(design.state))}
+            </span>
+          </header>
+
+          <!-- What governs, and where it came from. An envelope with no provenance is a number
+               nobody can argue with. -->
+          <dl class="jd-demands" data-testid="joint-demands">
+            <!-- Typed explicitly: a mixed tuple array widens to `string | GoverningDemand` and
+                 the template then cannot read `.value` off either half. -->
+            {#each [
+              { key: 'axial', d: design.demands.axial },
+              { key: 'shear', d: design.demands.shear },
+              { key: 'moment', d: design.demands.moment },
+            ] as { key, d } (key)}
+              <dt>{t(`conn.demand.${key}`)}</dt>
+              <dd data-testid={`joint-demand-${key}`}>
+                {#if d}
+                  <span class="mono">{d.value.toFixed(1)} {key === 'moment' ? 'kN·m' : 'kN'}</span>
+                  <span class="jd-from">
+                    {d.comboName ?? t('conn.demand.singleCase')} · E{d.elementId} · {d.end}
+                  </span>
+                {:else}—{/if}
+              </dd>
+            {/each}
+          </dl>
+          {#if design.demands.membersWithoutForces.length > 0}
+            <p class="conn-explain" data-testid="joint-demand-gaps">
+              {tp('conn.demand.membersWithoutForces', { n: design.demands.membersWithoutForces.length })}
+            </p>
+          {/if}
+
+          <!-- The choices. Bound to the shared store, so the viewport draws what is chosen. -->
+          <div class="jd-form">
+            <label>
+              <span>{t('conn.design.diameter')}</span>
+              <select
+                data-testid="jd-diameter"
+                value={String(chosen.bolts?.diameterMm ?? 20)}
+                onchange={(e) => setBolts({ diameterMm: Number(e.currentTarget.value) })}
+              >
+                <!-- Only the diameters Tabla J.3.4 tabulates: offering one the code does not
+                     would offer a bolt whose edge distance cannot be checked. -->
+                {#each TABULATED_DIAMETERS_MM as d (d)}<option value={d}>{d} mm</option>{/each}
+              </select>
+            </label>
+            <label>
+              <span>{t('conn.design.grade')}</span>
+              <select
+                data-testid="jd-grade"
+                value={chosen.bolts?.grade ?? 'A325'}
+                onchange={(e) => setBolts({ grade: e.currentTarget.value as never })}
+              >
+                {#each BOLT_GRADES as g (g)}<option value={g}>{g}</option>{/each}
+              </select>
+            </label>
+            <label>
+              <span>{t('conn.design.count')}</span>
+              <input
+                type="number" min="1" step="1" data-testid="jd-count"
+                value={chosen.bolts?.count ?? 4}
+                onchange={(e) => {
+                  // A count is never absent: the field always holds a number, so an unusable
+                  // entry keeps the last good one and the input reverts to it visibly.
+                  const r = readField('count', e.currentTarget.value, { min: 1 });
+                  if (r.kind === 'value') setBolts({ count: r.value });
+                  else reflect(e.currentTarget, chosen.bolts?.count);
+                }}
+              />
+            </label>
+            <label>
+              <span>{t('conn.design.rows')}</span>
+              <input
+                type="number" min="1" step="1" data-testid="jd-rows"
+                value={chosen.bolts?.rows ?? 2}
+                onchange={(e) => {
+                  const r = readField('rows', e.currentTarget.value, { min: 1 });
+                  if (r.kind === 'value') setBolts({ rows: r.value });
+                  else reflect(e.currentTarget, chosen.bolts?.rows);
+                }}
+              />
+            </label>
+            <label>
+              <span>{t('conn.design.spacing')}</span>
+              <input
+                type="number" min="0" step="1" data-testid="jd-spacing"
+                value={chosen.bolts?.spacingMm ?? 70}
+                onchange={(e) => {
+                  // Zero is passed through rather than refused here: a spacing of 0 is what
+                  // §J.3.3's `s ≥ 3d` exists to reject, and a check reporting it is a better
+                  // place for that refusal than an input silently swallowing it.
+                  const r = readField('spacing', e.currentTarget.value, { min: 0 });
+                  if (r.kind === 'value') setBolts({ spacingMm: r.value });
+                  else reflect(e.currentTarget, chosen.bolts?.spacingMm);
+                }}
+              />
+            </label>
+            <label>
+              <span>{t('conn.design.edge')}</span>
+              <input
+                type="number" min="0" step="1" data-testid="jd-edge"
+                value={chosen.bolts?.edgeDistanceMm ?? 40}
+                onchange={(e) => {
+                  // Likewise: a bolt at the plate edge is §J.3.4's business, not the input's.
+                  const r = readField('edge', e.currentTarget.value, { min: 0 });
+                  if (r.kind === 'value') setBolts({ edgeDistanceMm: r.value });
+                  else reflect(e.currentTarget, chosen.bolts?.edgeDistanceMm);
+                }}
+              />
+            </label>
+            <label>
+              <span>{t('conn.design.plateThickness')}</span>
+              <input
+                type="number" min="0" step="1" data-testid="jd-plate-t"
+                value={chosen.plate?.thicknessMm ?? ''}
+                onchange={(e) => {
+                  // A 0 mm plate is not a thin plate, it is no plate — and a capacity computed
+                  // from it would read as an ordinary overstress instead of a missing input.
+                  const r = readField('plate-t', e.currentTarget.value, { zero: 'invalid' });
+                  if (r.kind === 'value') setPlate({ thicknessMm: r.value });
+                  else if (r.kind === 'empty') setPlate({ thicknessMm: undefined });
+                  else reflect(e.currentTarget, chosen.plate?.thicknessMm);
+                }}
+              />
+            </label>
+            <label>
+              <span>{t('conn.design.plateFu')}</span>
+              <input
+                type="number" min="0" step="10" data-testid="jd-plate-fu"
+                value={chosen.plate?.fuMPa ?? ''}
+                onchange={(e) => {
+                  const r = readField('plate-fu', e.currentTarget.value, { zero: 'invalid' });
+                  if (r.kind === 'value') setPlate({ fuMPa: r.value });
+                  else if (r.kind === 'empty') setPlate({ fuMPa: undefined });
+                  else reflect(e.currentTarget, chosen.plate?.fuMPa);
+                }}
+              />
+            </label>
+          </div>
+          
+          <!--
+            What the panel could not use, said out loud.
+          
+            The alternative — and what this replaces — is a field that looks accepted while holding
+            something else. A batten gap typed as 0 became 10, and the only visible consequence was
+            battens appearing on an arrangement §E.6.1 places none on. An input that refuses has to
+            say so, or it is indistinguishable from one that agreed.
+          -->
+          {#if fieldProblem && (!fieldProblem.field.includes('-') || fieldProblem.field.startsWith('plate-'))}
+            <p class="jd-problem" role="status" data-testid="jd-input-problem">
+              {t(fieldProblem.reasonKey)}
+            </p>
+          {/if}
+
+          <!-- Every check, with its clause. A check that could not run says why. -->
+          <table class="jd-checks" data-testid="joint-checks">
+            <tbody>
+              {#each design.bolts.checks as c (c.id)}
+                <tr data-state={c.state} data-testid={`jd-check-${c.id}`}>
+                  <th scope="row">{t(`conn.check.${c.id}`)}</th>
+                  <td class="mono">
+                    {#if c.capacityKN !== null && c.demandKN !== null}
+                      {c.demandKN.toFixed(1)} / {c.capacityKN.toFixed(1)} kN
+                    {:else if c.ratio !== null}
+                      {(c.ratio * 100).toFixed(0)} %
+                    {:else}—{/if}
+                  </td>
+                  <td class="jd-clause">§{c.clause}</td>
+                  <td class="jd-state-cell">{t(`conn.checkState.${c.state}`)}</td>
+                </tr>
+                {#if c.noteKeys.length > 0}
+                  <tr class="why"><td colspan="4">{c.noteKeys.map((k) => t(k)).join(' · ')}</td></tr>
+                {/if}
+              {/each}
+            </tbody>
+          </table>
+
+          {#if design.bolts.missingKeys.length > 0}
+            <ul class="jd-missing" data-testid="joint-missing">
+              {#each design.bolts.missingKeys as k (k)}<li>{t(k)}</li>{/each}
+            </ul>
+          {/if}
+
+          <!-- The plate: the same entity the viewport extrudes. -->
+          <!-- ── Weld ─────────────────────────────────────────────── -->
+          <section class="jd-sub" data-testid="joint-weld">
+            <header class="jd-head">
+              <span class="jd-title">{t('conn.weld.title')}</span>
+              {#if design.weld}
+                <span class="jd-state" data-state={design.weld.state} data-testid="joint-weld-state">
+                  {t(`joint.state.${design.weld.state}`)}
+                </span>
+              {:else}
+                <button
+                  type="button" class="jd-add" data-testid="joint-weld-add"
+                  onclick={() => setWeld({ legMm: 6, lengthMm: 200, runs: 2, process: 'manual', loading: 'other' })}
+                >{t('conn.weld.add')}</button>
+              {/if}
+            </header>
+
+            {#if !design.weld}
+              <!-- An absent weld is absent, not incomplete. Most bolted joints have none. -->
+              <p class="conn-explain" data-testid="joint-weld-none">{t('conn.weld.none')}</p>
+            {:else}
+              <div class="jd-form">
+                <label>
+                  <span>{t('conn.weld.leg')}</span>
+                  <input
+                    type="number" min="0" step="1" data-testid="jw-leg"
+                    value={design.weld.throatMm !== null ? (chosen.weld?.legMm ?? 6) : ''}
+                    onchange={(e) => {
+                      const r = readField('w-leg', e.currentTarget.value, { zero: 'invalid' });
+                      if (r.kind === 'value') setWeld({ legMm: r.value });
+                      else if (r.kind === 'empty') setWeld({ legMm: undefined });
+                      else reflect(e.currentTarget, chosen.weld?.legMm);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>{t('conn.weld.length')}</span>
+                  <input
+                    type="number" min="0" step="10" data-testid="jw-length"
+                    value={chosen.weld?.lengthMm ?? 200}
+                    onchange={(e) => {
+                      const r = readField('w-length', e.currentTarget.value, { zero: 'invalid' });
+                      if (r.kind === 'value') setWeld({ lengthMm: r.value });
+                      else if (r.kind === 'empty') setWeld({ lengthMm: undefined });
+                      else reflect(e.currentTarget, chosen.weld?.lengthMm);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>{t('conn.weld.runs')}</span>
+                  <!-- One run or two: a fillet on one side of the plate, or on both. Nothing
+                       else is a run count a detailer names. -->
+                  <select
+                    data-testid="jw-runs"
+                    value={String(chosen.weld?.runs ?? 2)}
+                    onchange={(e) => setWeld({ runs: Number(e.currentTarget.value) })}
+                  >
+                    <option value="1">{t('conn.weld.runsOne')}</option>
+                    <option value="2">{t('conn.weld.runsTwo')}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{t('conn.weld.fexx')}</span>
+                  <input
+                    type="number" min="0" step="10" data-testid="jw-fexx"
+                    value={chosen.weld?.fexxMPa ?? ''}
+                    onchange={(e) => {
+                      const r = readField('w-fexx', e.currentTarget.value, { zero: 'invalid' });
+                      if (r.kind === 'value') setWeld({ fexxMPa: r.value });
+                      else if (r.kind === 'empty') setWeld({ fexxMPa: undefined });
+                      else reflect(e.currentTarget, chosen.weld?.fexxMPa);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>{t('conn.weld.thicker')}</span>
+                  <input
+                    type="number" min="0" step="1" data-testid="jw-thicker"
+                    value={chosen.weld?.thickerPartMm ?? ''}
+                    onchange={(e) => {
+                      const r = readField('w-thicker', e.currentTarget.value, { zero: 'invalid' });
+                      if (r.kind === 'value') setWeld({ thickerPartMm: r.value });
+                      else if (r.kind === 'empty') setWeld({ thickerPartMm: undefined });
+                      else reflect(e.currentTarget, chosen.weld?.thickerPartMm);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>{t('conn.weld.thinner')}</span>
+                  <input
+                    type="number" min="0" step="1" data-testid="jw-thinner"
+                    value={chosen.weld?.thinnerPartMm ?? ''}
+                    onchange={(e) => {
+                      const r = readField('w-thinner', e.currentTarget.value, { zero: 'invalid' });
+                      if (r.kind === 'value') setWeld({ thinnerPartMm: r.value });
+                      else if (r.kind === 'empty') setWeld({ thinnerPartMm: undefined });
+                      else reflect(e.currentTarget, chosen.weld?.thinnerPartMm);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>{t('conn.weld.process')}</span>
+                  <!-- The clause makes the effective throat differ by up to 41 % between these
+                       two, so it is a choice and not an assumption. -->
+                  <select
+                    data-testid="jw-process"
+                    value={chosen.weld?.process ?? 'manual'}
+                    onchange={(e) => setWeld({ process: e.currentTarget.value as never })}
+                  >
+                    <option value="manual">{t('conn.weld.processManual')}</option>
+                    <option value="submergedArc">{t('conn.weld.processSaw')}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{t('conn.weld.loading')}</span>
+                  <select
+                    data-testid="jw-loading"
+                    value={chosen.weld?.loading ?? 'other'}
+                    onchange={(e) => setWeld({ loading: e.currentTarget.value as never })}
+                  >
+                    <option value="other">{t('conn.weld.loadingOther')}</option>
+                    <option value="endLoaded">{t('conn.weld.loadingEnd')}</option>
+                  </select>
+                </label>
+              </div>
+              
+              <!--
+                What the panel could not use, said out loud.
+              
+                The alternative — and what this replaces — is a field that looks accepted while holding
+                something else. A batten gap typed as 0 became 10, and the only visible consequence was
+                battens appearing on an arrangement §E.6.1 places none on. An input that refuses has to
+                say so, or it is indistinguishable from one that agreed.
+              -->
+              {#if fieldProblem && fieldProblem.field.startsWith('w-')}
+                <p class="jd-problem" role="status" data-testid="jw-input-problem">
+                  {t(fieldProblem.reasonKey)}
+                </p>
+              {/if}
+
+              <!--
+                The effective throat, shown because it is what the process control changes and
+                because §J.2.2(a) makes that difference up to 41 %: for submerged arc the throat
+                is the LEG itself up to 9 mm, against 0,707·w for a manual fillet.
+              -->
+              <dl class="jd-demands" data-testid="joint-weld-derived">
+                <dt>{t('conn.weld.throat')}</dt>
+                <dd class="mono" data-testid="jw-throat">
+                  {design.weld.throatMm !== null ? `${design.weld.throatMm.toFixed(2)} mm` : '—'}
+                </dd>
+                <dt>{t('conn.weld.effectiveLength')}</dt>
+                <dd class="mono" data-testid="jw-effective-length">
+                  {design.weld.effectiveLengthMm !== null
+                    ? `${design.weld.effectiveLengthMm.toFixed(0)} mm` : '—'}
+                </dd>
+                <dt>{t('conn.weld.area')}</dt>
+                <dd class="mono" data-testid="jw-area">
+                  {design.weld.effectiveAreaCm2 !== null
+                    ? `${design.weld.effectiveAreaCm2.toFixed(2)} cm²` : '—'}
+                </dd>
+              </dl>
+
+              <table class="jd-checks" data-testid="joint-weld-checks">
+                <tbody>
+                  {#each design.weld.checks as c (c.id)}
+                    <tr data-state={c.state} data-testid={`jw-check-${c.id}`}>
+                      <th scope="row">{t(`conn.weldCheck.${c.id}`)}</th>
+                      <td class="mono">
+                        {#if c.value !== null && c.limit !== null}
+                          {c.value.toFixed(1)} / {c.limit.toFixed(1)}
+                        {:else}—{/if}
+                      </td>
+                      <td class="jd-clause">§{c.clause}</td>
+                      <td class="jd-state-cell">{t(`conn.checkState.${c.state}`)}</td>
+                    </tr>
+                    {#if c.noteKeys.length > 0}
+                      <tr class="why"><td colspan="4">{c.noteKeys.map((k) => t(k)).join(' · ')}</td></tr>
+                    {/if}
+                  {/each}
+                </tbody>
+              </table>
+
+              {#if design.weld.missingKeys.length > 0}
+                <ul class="jd-missing" data-testid="joint-weld-missing">
+                  {#each design.weld.missingKeys as k (k)}<li>{t(k)}</li>{/each}
+                </ul>
+              {/if}
+
+              <!--
+                Why a complete, adequate fillet still cannot be called designed. Stated on the
+                surface rather than left in the state word, because «notVerifiable» does not say
+                WHICH limit state was skipped.
+              -->
+              {#if design.weld.state === 'notVerifiable'}
+                <p class="conn-explain warn" data-testid="joint-weld-j4">{t('conn.weld.j4Pending')}</p>
+              {/if}
+              <button
+                type="button" class="jd-add" data-testid="joint-weld-remove"
+                onclick={() => setWeld(null)}
+              >{t('conn.weld.remove')}</button>
+            {/if}
+          </section>
+
+          <!-- ── Battens ──────────────────────────────────────────── -->
+          <section class="jd-sub" data-testid="joint-battens">
+            <header class="jd-head">
+              <span class="jd-title">{t('battens.title')}</span>
+              {#if !chosen.battens}
+                <button
+                  type="button" class="jd-add" data-testid="joint-battens-add"
+                  onclick={() => setBattens({
+                    arrangement: 'doubleBack', gapMm: 10, segments: 3,
+                    memberId: referenceMember?.id, lengthM: referenceMember?.lengthM,
+                  })}
+                >{t('conn.battens.add')}</button>
+              {/if}
+            </header>
+
+            {#if !chosen.battens}
+              <p class="conn-explain" data-testid="joint-battens-none">{t('conn.battens.none')}</p>
+            {:else}
+              <!--
+                The form is OUTSIDE the available/unavailable split, and that is the point.
+              
+                It used to sit inside the `available` branch, so typing a gap of 0 — Group I, chords in
+                continuous contact — removed the layout AND the gap box with it. The state was correct and
+                the user was stuck in it: the only control that could undo the choice had been unmounted
+                by the choice. Group I became a one-way door.
+              
+                These fields describe what the user CHOSE, not what the clause produced, so they belong to
+                the section rather than to one of its two outcomes.
+              -->
+              <div class="jd-form">
+                <label>
+                  <span>{t('conn.battens.member')}</span>
+                  <!--
+                    The member the layout is for, named rather than implied.
+                    Offered as a selector whenever more than one member meets the joint: with one
+                    member there is nothing to choose, and a control with a single option teaches
+                    a reader that a decision exists where none does.
+                  -->
+                  {#if jointMembers.length > 1}
+                    <select
+                      data-testid="jb-member"
+                      value={String(referenceMember?.id ?? '')}
+                      onchange={(e) => {
+                        const id = Number(e.currentTarget.value);
+                        const m = jointMembers.find((x) => x.id === id);
+                        setBattens({ memberId: id, lengthM: m?.lengthM });
+                      }}
+                    >
+                      {#each jointMembers as m (m.id)}
+                        <option value={m.id}>E{m.id} · {m.family} · {m.lengthM.toFixed(2)} m</option>
+                      {/each}
+                    </select>
+                  {:else}
+                    <span class="mono" data-testid="jb-member">
+                      E{referenceMember?.id ?? '—'} · {referenceMember?.family ?? '—'}
+                    </span>
+                  {/if}
+                </label>
+                <label>
+                  <span>{t('conn.battens.segments')}</span>
+                  <!-- Three is the code's minimum, and the control offers nothing below it:
+                       §E.6.3.2(b)(2) does not permit two. -->
+                  <select
+                    data-testid="jb-segments"
+                    value={String(chosen.battens.segments ?? 3)}
+                    onchange={(e) => setBattens({ segments: Number(e.currentTarget.value) })}
+                  >
+                    {#each [3, 4, 5, 6, 8] as n (n)}<option value={n}>{n}</option>{/each}
+                  </select>
+                </label>
+                <label>
+                  <span>{t('conn.battens.chordRi')}</span>
+                  <input
+                    type="number" min="0" step="0.1" data-testid="jb-chord-ri"
+                    value={chosen.battens.chordRiMm ?? ''}
+                    onchange={(e) => {
+                      // A radius of gyration of zero is not a slender chord; it is no chord.
+                      const r = readField('b-chord-ri', e.currentTarget.value, { zero: 'invalid' });
+                      if (r.kind === 'value') setBattens({ chordRiMm: r.value });
+                      else if (r.kind === 'empty') setBattens({ chordRiMm: undefined });
+                      else reflect(e.currentTarget, chosen.battens?.chordRiMm);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>{t('conn.battens.gap')}</span>
+                  <!--
+                    Zero is a real value here, not an empty field: chords in continuous contact
+                    are §E.6.1's Group I, joined by bolts or welds rather than by battens. The
+                    `|| 1` fallback this replaces turned a deliberate 0 into a 1 and made that
+                    configuration unreachable from the panel — the section then claimed battens
+                    for an arrangement §E.6 places none on.
+                  -->
+                  <input
+                    type="number" min="0" step="1" data-testid="jb-gap"
+                    value={chosen.battens.gapMm ?? 10}
+                    onchange={(e) => {
+                      const r = readField('b-gap', e.currentTarget.value, { min: 0, zero: 'valid' });
+                      if (r.kind === 'value') setBattens({ gapMm: r.value });
+                      // A cleared field is the one case that may fall back to the default: the
+                      // user has expressed nothing, so the panel proposes the usual 10 mm. A
+                      // negative one does not — it is reported, and the stored gap is untouched.
+                      else if (r.kind === 'empty') {
+                        setBattens({ gapMm: 10 });
+                        reflect(e.currentTarget, 10);
+                      } else reflect(e.currentTarget, chosen.battens?.gapMm);
+                    }}
+                  />
+                </label>
+              </div>
+                
+                <!--
+                  What the panel could not use, said out loud.
+                
+                  The alternative — and what this replaces — is a field that looks accepted while holding
+                  something else. A batten gap typed as 0 became 10, and the only visible consequence was
+                  battens appearing on an arrangement §E.6.1 places none on. An input that refuses has to
+                  say so, or it is indistinguishable from one that agreed.
+                -->
+                {#if fieldProblem && fieldProblem.field.startsWith('b-')}
+                  <p class="jd-problem" role="status" data-testid="jb-input-problem">
+                    {t(fieldProblem.reasonKey)}
+                  </p>
+                {/if}
+
+              <!--
+                The reference member, spelled out. «Longitud» alone was the ambiguity this
+                replaces: a joint has several members and only one of them is being battened.
+              -->
+              <p class="conn-explain" data-testid="jb-reference">
+                {tp('conn.battens.reference', {
+                  id: referenceMember?.id ?? 0,
+                  family: referenceMember?.family ?? '—',
+                  length: (referenceMember?.lengthM ?? 0).toFixed(2),
+                  end: referenceMember?.end ?? '—',
+                })}
+              </p>
+              {#if jointMembers.length > 1 && chosen.battens.memberId === undefined}
+                <p class="conn-explain" data-testid="jb-preloaded">{t('conn.battens.preloaded')}</p>
+              {/if}
+
+              {#if design.battens?.state === 'available'}
+              <dl class="jd-demands" data-testid="joint-battens-layout">
+                <dt>{t('battens.spacing')}</dt>
+                <dd class="mono">{(design.battens.layout.spacingM * 1000).toFixed(0)} mm</dd>
+                <dt>{t('battens.planes')}</dt>
+                <dd class="mono">{design.battens.layout.planes}</dd>
+                <dt>{t('conn.battens.stations')}</dt>
+                <dd class="mono" data-testid="jb-stations">
+                  {design.battens.layout.stations.map((st) => st.atM.toFixed(2)).join(' · ')} m
+                </dd>
+                <dt>{t('battens.rule.chordUnbracedLengthIsA')}</dt>
+                <dd class="mono">{(design.battens.layout.chordUnbracedLengthM * 1000).toFixed(0)} mm</dd>
+                <!--
+                  §E.6.3.2(b)(3): «las presillas de cada plano se colocarán enfrentadas». Stated
+                  because it is a fabrication instruction that no dimension carries.
+                -->
+                <dt>{t('conn.battens.facing')}</dt>
+                <dd data-testid="jb-facing">{t('battens.rule.facedAcrossPlanes')}</dd>
+                <!--
+                  `a / ri` — §E.6.3.1(b)'s λ₁, the chord's slenderness between battens. Shown with
+                  the chord radius as an input, because the app cannot know which of the members
+                  meeting a joint is the chord being battened.
+                -->
+                <dt>{t('conn.battens.slenderness')}</dt>
+                <dd class="mono" data-testid="jb-slenderness">
+                  {chosen.battens?.chordRiMm && chosen.battens.chordRiMm > 0
+                    ? (design.battens.layout.chordUnbracedLengthM * 1000 / chosen.battens.chordRiMm).toFixed(1)
+                    : '—'}
+                </dd>
+              </dl>
+
+              <!--
+                The plate §E.6 does not dimension. Shown with the condition it would have to
+                satisfy, so a reader knows what is missing rather than that something is.
+              -->
+              <p class="jd-plate warn" data-testid="joint-battens-plate">
+                {design.battens.layout.plate.state} ·
+                {design.battens.layout.plate.missingKeys.map((k) => t(k)).join(' · ')} ·
+                §{design.battens.layout.plate.conditionClause}
+              </p>
+              <button
+                type="button" class="jd-add" data-testid="joint-battens-remove"
+                onclick={() => setBattens(null)}
+              >{t('conn.battens.remove')}</button>
+              {:else}
+              <p class="conn-explain warn" data-testid="joint-battens-unavailable">
+                {(design.battens?.state === 'UNAVAILABLE' ? design.battens.missingKeys : [])
+                  .map((k) => t(k)).join(' · ')}
+              </p>
+              <button
+                type="button" class="jd-add" data-testid="joint-battens-remove"
+                onclick={() => setBattens(null)}
+              >{t('conn.battens.remove')}</button>
+              {/if}
+            {/if}
+          </section>
+
+          {#if design.plate.state === 'available'}
+            <p class="jd-plate" data-testid="joint-plate">
+              {tp('conn.design.plateSummary', {
+                l: (design.plate.plate.lengthM * 1000).toFixed(0),
+                w: (design.plate.plate.widthM * 1000).toFixed(0),
+                t: (design.plate.plate.thicknessM * 1000).toFixed(0),
+                n: design.plate.plate.holesM.length,
+              })}
+            </p>
+          {:else}
+            <p class="jd-plate warn" data-testid="joint-plate-unavailable">
+              GEOMETRY_UNAVAILABLE · {design.plate.missingKeys.map((k) => t(k)).join(' · ')}
+            </p>
+          {/if}
+        </section>
+      {/if}
+
       <div class="conn-forces-block">
         <span class="conn-label-title">{t('conn.forcesAt')} N{selectedJoint.nodeId}</span>
       {#if jointForces}
@@ -314,11 +1205,29 @@
   </StageSection>
 
   <!-- ── 2 · Bolts ───────────────────────────────────────────────── -->
+  <!--
+    ── Neither calculating section is ever `done` ──
+
+    `StageSection` paints its `done` state as a ✓ in `--st-ok` — the success token — and both of
+    these reached it the moment a result object existed. Not when the result was good: when it
+    EXISTED. A bolt group over its capacity turned its own header green, and so did pressing
+    Verify on the defaults, where Vu and Tu are 0 and the utilisation is 0% because nothing was
+    asked of the joint. Taking the tick out of the result card and leaving it on the card's own
+    header would have moved the claim rather than withdrawn it.
+
+    `optional` is the honest state: an auxiliary manual calculation is optional by definition,
+    and it does not complete, because completing is something §1 owns on this panel. The badge
+    carries the utilisation, which is how a reader sees that it ran. `blocked` still applies
+    before a joint is picked — a real prerequisite, not a verdict.
+
+    §1, joint DETECTION, keeps its `done` deliberately: it means the detector ran and found
+    joints. A fact about a step, with nothing said about whether any joint is adequate.
+  -->
   <StageSection
     step={2}
     title={t('conn.sec.bolts.title')}
     purpose={t('conn.sec.bolts.purpose')}
-    state={boltResult ? 'done' : selectedJoint ? 'current' : 'blocked'}
+    state={selectedJoint ? 'optional' : 'blocked'}
     blockedBy={t('conn.sec.bolts.blocked')}
     badge={boltResult ? `${(boltResult.governingRatio * 100).toFixed(0)}%` : undefined}
     testid="conn-sec-bolts"
@@ -346,17 +1255,19 @@
           <button class="conn-btn-verify" onclick={runBoltCheck}>{t('conn.verify')}</button>
         </div>
         {#if boltResult}
-          <div class="conn-result-card {statusClass(boltResult.status)}">
+          <div class="conn-result-card {auxTone(boltResult.status)}" data-testid="conn-bolt-result">
+            <p class="conn-aux-label" data-testid="conn-bolt-aux-label">{t('conn.aux.label')}</p>
             <div class="conn-result-row"><span>{t('conn.shear')}</span><span>φRn={fmtN(boltResult.phiRnShear)} kN — {(boltResult.ratioShear * 100).toFixed(0)}%</span></div>
             <div class="conn-result-row"><span>{t('conn.tension')}</span><span>φRn={fmtN(boltResult.phiRnTension)} kN — {(boltResult.ratioTension * 100).toFixed(0)}%</span></div>
             <div class="conn-result-row"><span>{t('conn.bearing')}</span><span>φRn={fmtN(boltResult.phiRnBearing)} kN — {(boltResult.ratioBearing * 100).toFixed(0)}%</span></div>
             <div class="conn-result-row"><span>{t('conn.interaction')}</span><span>{(boltResult.ratioInteraction * 100).toFixed(0)}%</span></div>
             <div class="conn-result-governing">
               {t('conn.governing')}: {(boltResult.governingRatio * 100).toFixed(0)}%
-              <span class="conn-status-icon {statusClass(boltResult.status)}">
-                {boltResult.status === 'ok' ? '✓' : boltResult.status === 'warn' ? '⚠' : '✗'}
+              <span class="conn-aux-state {auxTone(boltResult.status)}" data-aux-state={boltResult.status}>
+                {t(auxStateKey(boltResult.status))}
               </span>
             </div>
+            <p class="conn-aux-normative" data-testid="conn-bolt-aux-normative">{t('conn.aux.normativeElsewhere')}</p>
           </div>
         {/if}
 
@@ -380,11 +1291,29 @@
   </StageSection>
 
   <!-- ── 3 · Welds ───────────────────────────────────────────────── -->
+  <!--
+    ── Neither calculating section is ever `done` ──
+
+    `StageSection` paints its `done` state as a ✓ in `--st-ok` — the success token — and both of
+    these reached it the moment a result object existed. Not when the result was good: when it
+    EXISTED. A bolt group over its capacity turned its own header green, and so did pressing
+    Verify on the defaults, where Vu and Tu are 0 and the utilisation is 0% because nothing was
+    asked of the joint. Taking the tick out of the result card and leaving it on the card's own
+    header would have moved the claim rather than withdrawn it.
+
+    `optional` is the honest state: an auxiliary manual calculation is optional by definition,
+    and it does not complete, because completing is something §1 owns on this panel. The badge
+    carries the utilisation, which is how a reader sees that it ran. `blocked` still applies
+    before a joint is picked — a real prerequisite, not a verdict.
+
+    §1, joint DETECTION, keeps its `done` deliberately: it means the detector ran and found
+    joints. A fact about a step, with nothing said about whether any joint is adequate.
+  -->
   <StageSection
     step={3}
     title={t('conn.sec.welds.title')}
     purpose={t('conn.sec.welds.purpose')}
-    state={weldResult ? 'done' : selectedJoint ? 'current' : 'blocked'}
+    state={selectedJoint ? 'optional' : 'blocked'}
     blockedBy={t('conn.sec.welds.blocked')}
     badge={weldResult ? `${(weldResult.ratio * 100).toFixed(0)}%` : undefined}
     testid="conn-sec-welds"
@@ -407,17 +1336,25 @@
           <button class="conn-btn-verify" onclick={runWeldCheck}>{t('conn.verify')}</button>
         </div>
         {#if weldResult}
-          <div class="conn-result-card {statusClass(weldResult.status)}">
+          <div class="conn-result-card {auxTone(weldResult.status)}" data-testid="conn-weld-result">
+            <p class="conn-aux-label" data-testid="conn-weld-aux-label">{t('conn.aux.label')}</p>
             <div class="conn-result-row"><span>{t('conn.throat')}</span><span>te={weldResult.throatEff.toFixed(1)} mm</span></div>
             <div class="conn-result-row"><span>{t('conn.capacity')}</span><span>φRn={fmtN(weldResult.phiRn)} kN</span></div>
-            <div class="conn-result-row"><span>{t('conn.sizeRange')}</span><span>{weldResult.minSize}–{weldResult.maxSize} mm {weldResult.sizeOk ? '✓' : '✗'}</span></div>
-            <div class="conn-result-row"><span>L ≥ 4a</span><span>{weldResult.lengthOk ? '✓' : '✗'}</span></div>
+            <!--
+              The two geometric conditions used to read `✓` / `✗`. A tick on a size range is the
+              same glyph the governing row was giving up, and a reader who sees three of them in
+              one card does not distinguish "the leg is in range" from "the joint is fine".
+              Stated in words, in this block's own vocabulary.
+            -->
+            <div class="conn-result-row"><span>{t('conn.sizeRange')}</span><span>{weldResult.minSize}–{weldResult.maxSize} mm — {weldResult.sizeOk ? t('conn.aux.satisfied') : t('conn.aux.notSatisfied')}</span></div>
+            <div class="conn-result-row"><span>L ≥ 4a</span><span>{weldResult.lengthOk ? t('conn.aux.satisfied') : t('conn.aux.notSatisfied')}</span></div>
             <div class="conn-result-governing">
               {t('conn.utilization')}: {(weldResult.ratio * 100).toFixed(0)}%
-              <span class="conn-status-icon {statusClass(weldResult.status)}">
-                {weldResult.status === 'ok' ? '✓' : weldResult.status === 'warn' ? '⚠' : '✗'}
+              <span class="conn-aux-state {auxTone(weldResult.status)}" data-aux-state={weldResult.status}>
+                {t(auxStateKey(weldResult.status))}
               </span>
             </div>
+            <p class="conn-aux-normative" data-testid="conn-weld-aux-normative">{t('conn.aux.normativeElsewhere')}</p>
           </div>
         {/if}
 
@@ -477,6 +1414,37 @@
     background: rgba(221, 170, 0, 0.10); border: 1px solid var(--st-warn);
     color: var(--st-text); font-size: 0.68rem; line-height: 1.45;
   }
+  /*
+    The obsolete-joints notice.
+
+    Warn-toned like the maturity banner and not danger-toned: nothing is broken and no number is
+    wrong. Work exists that this model cannot claim, which is a thing to resolve rather than a
+    failure. The reason and the node id carry the meaning; the tint only ranks it.
+  */
+  .conn-obsolete {
+    margin: 0 0 8px; padding: 7px 9px; border-radius: 4px;
+    background: rgba(221, 170, 0, 0.08); border-left: 2px solid var(--st-warn);
+    font-size: 0.66rem; line-height: 1.45; color: var(--st-text);
+  }
+  .conn-obsolete-title { margin: 0 0 3px; font-weight: 600; }
+  .conn-obsolete-why { margin: 0 0 5px; color: var(--st-text-2); font-size: 0.64rem; }
+  .conn-obsolete-list {
+    list-style: none; margin: 0 0 6px; padding: 0;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .conn-obsolete-list li { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .conn-obsolete-node { font-family: var(--st-mono, monospace); color: var(--st-text); }
+  .conn-obsolete-reason { color: var(--st-text-2); font-size: 0.64rem; }
+  .conn-obsolete-drop, .conn-obsolete-drop-all {
+    background: transparent; color: var(--st-text-2);
+    border: 1px solid var(--st-hair); border-radius: 3px;
+    padding: 1px 7px; font-size: 0.62rem; cursor: pointer;
+  }
+  .conn-obsolete-drop:hover, .conn-obsolete-drop-all:hover { color: var(--st-text); }
+  .conn-obsolete-drop:focus-visible, .conn-obsolete-drop-all:focus-visible {
+    outline: 2px solid var(--st-value); outline-offset: 1px;
+  }
+
   /* One sentence explaining a section, in the panel's own secondary colour. */
   .conn-explain {
     margin: 0 0 6px; font-size: 0.66rem; line-height: 1.45; color: var(--st-text-2);
@@ -525,6 +1493,56 @@
   .conn-section { border-bottom: 1px solid var(--st-surface-3); }
   .conn-section-header { padding: 8px 10px; }
   .conn-label-title { font-size: 0.78rem; color: var(--st-text-2); font-weight: 600; }
+  /* A blocked emptiness is not the same as an ordinary one, and reads differently. */
+  .conn-empty-blocked { color: var(--st-warn); text-align: left; }
+  .conn-empty-blocked p { margin: 0 0 4px; line-height: 1.4; }
+  .conn-why { color: var(--st-text-2); font-size: 0.68rem; }
+
+  .jd-sub { display: flex; flex-direction: column; gap: 4px; margin-top: 8px;
+    border-top: 1px solid var(--st-hair); padding-top: 6px; }
+  .jd-add {
+    padding: 2px 8px; font-size: 0.64rem; cursor: pointer;
+    background: transparent; color: var(--st-text-2);
+    border: 1px solid var(--st-hair); border-radius: 3px;
+  }
+  .conn-explain.warn { color: var(--st-warn); }
+
+  .jd { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .jd-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .jd-title { font-size: 0.72rem; font-weight: 600; color: var(--st-text-2); }
+  /* A state is a word, never a colour alone — and `designed` is not green: it is not an approval. */
+  .jd-state { font-size: 0.68rem; color: var(--st-text-2); }
+  .jd-state[data-state='exceeded'] { color: var(--st-danger, var(--st-warn)); }
+  .jd-state[data-state='notVerifiable'], .jd-state[data-state='incomplete'] { color: var(--st-warn); }
+  .jd-demands { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 0; font-size: 0.7rem; }
+  .jd-demands dt { color: var(--st-text-2); }
+  .jd-demands dd { margin: 0; }
+  .jd-from { color: var(--st-text-3); font-size: 0.64rem; margin-left: 6px; }
+  /* Warning-coloured and inline with the form it belongs to, not a toast: the field the user
+     just left is still under their eye, and a message that scrolls away with the panel is a
+     message they will act on after the value is already stored. */
+  .jd-problem {
+    grid-column: 1 / -1; margin: 2px 0 0; font-size: 0.65rem;
+    color: var(--st-warn); line-height: 1.35;
+  }
+  .jd-form { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+  .jd-form label { display: flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--st-text-2); }
+  .jd-form label > span { min-width: 5.5rem; }
+  .jd-form input, .jd-form select {
+    background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
+    border-radius: 3px; padding: 2px 4px; font-size: 0.68rem; width: 5rem;
+  }
+  .jd-checks { width: 100%; border-collapse: collapse; font-size: 0.68rem; }
+  .jd-checks th[scope='row'] { text-align: left; font-weight: 400; color: var(--st-text-2); padding: 2px 0; }
+  .jd-checks td { padding: 2px 0 2px 8px; }
+  .jd-clause { color: var(--st-text-3); font-size: 0.64rem; white-space: nowrap; }
+  .jd-checks tr[data-state='exceeded'] .jd-state-cell { color: var(--st-warn); }
+  .jd-checks tr.why td { padding: 0 0 4px; color: var(--st-text-3); font-size: 0.62rem; line-height: 1.3; }
+  .jd-missing { margin: 0; padding-left: 1.1em; font-size: 0.66rem; color: var(--st-warn); }
+  .jd-plate { margin: 0; font-size: 0.68rem; color: var(--st-text-2); }
+  .jd-plate.warn { color: var(--st-warn); }
+  .mono { font-family: var(--st-mono, monospace); }
+
   .conn-empty { text-align: center; color: var(--st-text-3); font-style: italic; padding: 20px 10px; font-size: 0.78rem; }
 
   .conn-joint-list { max-height: 180px; overflow-y: auto; }
@@ -588,12 +1606,28 @@
     padding: 6px 8px; border-radius: 4px; font-size: 0.7rem;
     background: rgba(127, 212, 204, 0.05); border: 1px solid var(--st-surface-3);
   }
-  .conn-result-card.st-fail { border-color: rgba(229, 72, 42, 0.3); background: rgba(229, 72, 42, 0.05); }
-  .conn-result-card.st-warn { border-color: rgba(217, 164, 65, 0.3); background: rgba(217, 164, 65, 0.05); }
+  /*
+   * No `.aux-within` rule, deliberately: an outcome this block is not entitled to call a pass
+   * gets the card's ordinary border and no tint. Over and near keep theirs — a warning is not
+   * an approval, and muting it would trade one misreading for a worse one.
+   */
+  .conn-result-card.aux-over { border-color: rgba(229, 72, 42, 0.3); background: rgba(229, 72, 42, 0.05); }
+  .conn-result-card.aux-near { border-color: rgba(217, 164, 65, 0.3); background: rgba(217, 164, 65, 0.05); }
   .conn-result-row { display: flex; justify-content: space-between; padding: 2px 0; color: var(--st-text-2); }
   .conn-result-governing { display: flex; justify-content: space-between; padding: 4px 0 0; font-weight: 600; color: var(--st-text); border-top: 1px solid var(--st-surface-3); margin-top: 4px; }
-  .conn-status-icon { font-size: 0.85rem; }
-  .conn-status-icon.st-ok { color: var(--st-ok); }
-  .conn-status-icon.st-warn { color: var(--st-warn); }
-  .conn-status-icon.st-fail { color: var(--st-danger); }
+  /* The outcome, in words. `aux-within` is the panel's ordinary text colour — there is no
+     success token here, which is the whole point of the state being auxiliary. */
+  .conn-aux-state { font-size: 0.68rem; font-weight: 600; text-transform: lowercase; }
+  .conn-aux-state.aux-within { color: var(--st-text-2); }
+  .conn-aux-state.aux-near { color: var(--st-warn); }
+  .conn-aux-state.aux-over { color: var(--st-danger); }
+  /* Says what the card is before any number in it is read. */
+  .conn-aux-label {
+    margin: 0 0 4px; font-size: 0.62rem; line-height: 1.35; color: var(--st-text-3);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  /* And where the joint's actual state comes from, so this card is not mistaken for it. */
+  .conn-aux-normative {
+    margin: 4px 0 0; font-size: 0.62rem; line-height: 1.35; color: var(--st-text-3);
+  }
 </style>

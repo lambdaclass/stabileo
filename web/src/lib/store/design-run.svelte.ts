@@ -25,14 +25,15 @@ import { censusRcCheckability } from '../engine/auto-verify';
 import {
   buildAllMemberContexts, buildCriticalSectionMap, type ContextModelData, type MemberContext,
 } from '../engine/design/member-context';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { runOrientationDiagnostic } from '../engine/design/orientation-diagnostic';
 import { runDesign, designMember, DEFAULT_RUN_MS } from '../engine/design/candidate-search';
 import { getDesignCode, type DesignCodeId } from '../engine/design/code-adapter';
 import { emptyRunSummary, type DesignRunSummary, type MemberDesignOutcome } from '../engine/design/outcome';
 import type { RunProgress } from '../engine/design/candidate-search';
 import {
-  DESIGN_FAMILIES, FLOOR_FAMILIES, FRAME_FAMILIES, emptyFamilyResult, isFrameFamily,
-  needsFloorPass, needsFramePass,
+  DESIGN_FAMILIES, DEFAULT_DESIGN_FAMILIES, FLOOR_FAMILIES, FRAME_FAMILIES, emptyFamilyResult,
+  isFrameFamily, needsFloorPass, needsFramePass,
   type DesignFamily, type DesignFamilySelection, type DesignRunReport, type FamilyRunResult,
 } from '../engine/design/design-families';
 
@@ -60,7 +61,37 @@ function createDesignRunStore() {
   let lastError = $state<{ key: string; params?: Record<string, string | number> } | null>(null);
   let abortFlag = { aborted: false };
   /** Elements the user has edited by hand (badge + protect-overrides). */
+  /**
+   * What the next design run will cover.
+   *
+   * Lifted out of `DesignFamilyPanel` in F2 so that ONE command can run it. The selector and
+   * the command sit in different components — the boxes below the table, the button in the
+   * command bar — and while the selection lived in the panel there had to be a second button
+   * beside the boxes to reach it. Two buttons that design different scopes is precisely the
+   * contradiction §2 of the scope names.
+   */
+  let familySelection = $state<DesignFamily[]>([...DEFAULT_DESIGN_FAMILIES]);
+  /**
+   * What the last scoped run reported, family by family.
+   *
+   * Held here and not in `DesignFamilyPanel` because F2 moved the COMMAND out of that panel: the
+   * button that starts the run is in the command bar, the block that reports it is below the
+   * table, and while the report lived in the panel only the panel's own (now removed) button
+   * could fill it. The result was that the run report stopped appearing at all — with it went
+   * the distinction between a family skipped because the user did not ask for it and one absent
+   * because the model has none.
+   */
+  let lastFamilyReport = $state<DesignRunReport | null>(null);
   let manualOverrides = $state<Set<number>>(new Set());
+  /**
+   * Whether `manualOverrides` is a statement or an absence.
+   *
+   * True for a fresh project — nothing has been retouched, and that is known. False only after
+   * opening a file written before the set was persisted, where "no members" means "we have no
+   * record", not "none were touched". The two are different claims and an export must not
+   * print the second when it means the first. See `rcRetouchProvenance`.
+   */
+  let manualKnown = $state(true);
   /** Elements whose reinforcement came from auto-design. */
   let autoDesigned = $state<Set<number>>(new Set());
   /** Members whose provisional (failing) candidate was retained for review. */
@@ -125,6 +156,38 @@ function createDesignRunStore() {
         codeEdition: concreteEdition(),
         concrete: modelStore.model.codeSettings?.concrete,
         solveGeneration: verificationStore.solveGeneration,
+        /*
+         * A DECLARED grade decides the material family. An inferred one is the fallback.
+         *
+         * ── The defect this closes ──────────────────────────────────
+         *
+         * `materialFamilyOf` needs both a `gradeId` and a lookup: `if (material.gradeId &&
+         * lookupGrade)`. The gradeId has always arrived — `md.materials` is the live map, so
+         * the real `Material` objects flow through — but nothing in production ever supplied
+         * the lookup. So the declared branch never ran and every material was classified by
+         * the MAGNITUDE of `fy`, with `fy <= 80 MPa` read as concrete.
+         *
+         * Timber C24 is 24 MPa. It was being classified as concrete and admitted to the
+         * reinforced-concrete pipeline, where 24 MPa reads as an ordinary f'c. The grade is in
+         * the catalogue (`non-metal-grades.ts`, `en338-c24`, family `timber`) and was simply
+         * never consulted. Aluminium below the threshold had the same problem.
+         *
+         * ── What this changes, and it is not only timber ─────────────
+         *
+         * Classification moves from inference to declaration, so members can CHANGE PIPELINE
+         * in both directions: one that declares a steel grade and has a low `fy` leaves the
+         * concrete design set, and one whose stored grade the catalogue no longer knows falls
+         * back to the inference exactly as before. `buildAllMemberContexts` keeps only
+         * `materialFamily === 'concrete'`, so this is the boundary between the concrete
+         * pipeline and the metallic inventory — see the note in `grade-family.ts`.
+         *
+         * The lookup itself is M1's `catalogueGradeFamily`, taken as-is rather than
+         * reimplemented: two functions answering "what family is this grade" would be two
+         * answers, and this one is already the one the metallic surface uses. Its contract is
+         * `(gradeId) => StructuralMaterialFamily | null`, where null means "this catalogue
+         * cannot answer" and the caller falls back.
+         */
+        lookupGrade: catalogueGradeFamily,
       });
       verificationStore.setDemandData(contexts, orient.issues);
       resultsStore.diagramType = 'verification';
@@ -340,6 +403,8 @@ function createDesignRunStore() {
     selection: DesignFamilySelection,
     opts: { verifierId?: string } = {},
   ): DesignRunReport {
+    // Recorded before returning, so both the caller and the panel read one report.
+    const record = <T extends DesignRunReport>(r: T): T => { lastFamilyReport = r; return r; };
     const families: FamilyRunResult[] = [];
     const chosen = new Set(selection);
 
@@ -420,7 +485,7 @@ function createDesignRunStore() {
     // checkboxes above it.
     families.sort((a, b) =>
       DESIGN_FAMILIES.indexOf(a.family) - DESIGN_FAMILIES.indexOf(b.family));
-    return { selection, families, ok: families.every((f) => f.state !== 'failed') };
+    return record({ selection, families, ok: families.every((f) => f.state !== 'failed') });
   }
 
   /** Re-run the search for one member (used after a section change is approved). */
@@ -533,7 +598,30 @@ function createDesignRunStore() {
     clearError() { lastError = null; },
     cancel() { abortFlag.aborted = true; },
 
+    get lastFamilyReport(): DesignRunReport | null { return lastFamilyReport; },
+    get familySelection(): readonly DesignFamily[] { return familySelection; },
+    /**
+     * Replace the scope of the next run.
+     *
+     * Sorted into `DESIGN_FAMILIES` order and de-duplicated, so the read-out beside the command
+     * and the boxes below the table name the families the same way round.
+     */
+    setFamilySelection(next: Iterable<DesignFamily>): void {
+      const want = new Set(next);
+      familySelection = DESIGN_FAMILIES.filter((f) => want.has(f));
+    },
     get manualOverrides() { return manualOverrides; },
+    get manualProvenanceKnown() { return manualKnown; },
+    /**
+     * Adopt the override set from a project file.
+     *
+     * `undefined` means the file predates the field, and is the ONLY way `manualKnown` becomes
+     * false — an empty array is a file that recorded "nothing was retouched" and is believed.
+     */
+    hydrateManual(ids: readonly number[] | undefined): void {
+      manualKnown = ids !== undefined;
+      manualOverrides = new Set(ids ?? []);
+    },
     get autoDesigned() { return autoDesigned; },
     get provisionalIds() { return provisionalIds; },
     get provisionalBiaxialIds() { return provisionalBiaxialIds; },
@@ -552,6 +640,8 @@ function createDesignRunStore() {
       autoDesigned = a;
     },
     resetMarks() {
+      // A new project knows its own history: nothing has been retouched yet.
+      manualKnown = true;
       manualOverrides = new Set();
       autoDesigned = new Set();
       provisionalIds = new Set();

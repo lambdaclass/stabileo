@@ -1,0 +1,573 @@
+<script lang="ts">
+  /**
+   * The concrete flow's stage timeline.
+   *
+   * ── Why this is not `WorkflowStages.svelte` ────────────────────────
+   *
+   * That one is shared: `ProRibbon.svelte` renders it for the metallic flow, and its six stages
+   * are that flow's. Trying to serve both from one component is what produced the defect this
+   * replaces — six stages drawn, five disclosures to land on, and a third list of five in the
+   * navigation callback, with `demands` and `check` having no destination, `floors` having no
+   * stage, and `model` and `design` both falling through to the same scroll.
+   *
+   * So the concrete flow gets its own, `WorkflowStages` is untouched, and the vocabulary lives
+   * in `lib/flow/rc-stages.ts` where it can be asserted without a browser.
+   *
+   * ── Sticky, and what that required ─────────────────────────────────
+   *
+   * The strip used to scroll away with the column, which is the same as not having it: the
+   * question it answers ("where am I") is asked while reading something further down. It is
+   * `position: sticky` at the top of the scrolling column now. The column is the scroll
+   * container — `.rc-workflow` is `overflow-y: auto` — so sticky resolves against it and needs
+   * no viewport maths.
+   *
+   * ── Navigation is bidirectional, and there is still one state ──────
+   *
+   * Clicking a stage opens its disclosure. Opening a disclosure by hand marks its stage. Those
+   * are not two states: the tab owns the open/closed booleans, passes down which stage is open,
+   * and this component renders it. Nothing here remembers anything.
+   *
+   * The marker and the open section are DIFFERENT THINGS and both are shown. `aria-current` and
+   * the ring mark where the PROJECT is; `data-open` marks what you are reading. Collapsing them
+   * would mean scrolling to a finished stage moved the "you are here" marker onto it.
+   *
+   * ── It navigates, and it carries the pipeline's commands ───────────
+   *
+   * It began as navigation only, on the reasoning that a strip which also ran things would be a
+   * second, competing command surface. F3 inverted that: the commands were in `DesignToolbar`,
+   * which F2 had moved INSIDE the DISEÑAR stage, so each of them was out of reach from the stage
+   * that needed it — and moving one into its own `<details>` instead only traded a collapsed
+   * section for another.
+   *
+   * So the pipeline's commands live here, each exactly ONCE, calling the same functions
+   * `lib/flow/rc-commands.ts` extracted. No copy of any of them survives inside a disclosure,
+   * and that is what keeps this from being a second surface: it is the only one.
+   */
+  import { t, tp } from '../../../lib/i18n';
+  import { resultsStore } from '../../../lib/store/results.svelte';
+  import { designRunStore } from '../../../lib/store/design-run.svelte';
+  import {
+    rcCodeCheck, rcComputeDemands, rcDesignScope, rcGenerateDetailing,
+  } from '../../../lib/flow/rc-commands';
+  import { modelStore } from '../../../lib/store/model.svelte';
+  import { regulationsStore } from '../../../lib/store/regulations.svelte';
+  import { detailingStore } from '../../../lib/store/detailing.svelte';
+  import RcRegenerationWarning from './RcRegenerationWarning.svelte';
+  import RcConvergenceNotice from './RcConvergenceNotice.svelte';
+  import {
+    currentRcStage, rcStageTodoKey,
+    type RcModelReadiness, type RcStage, type RcStageId,
+  } from '../../../lib/flow/rc-stages';
+
+  interface Props {
+    /**
+     * The resolved stages.
+     *
+     * Passed in rather than derived here, and that is the point: the tab derives them ONCE and
+     * gives the same array to this strip and to the five disclosures below it. A component
+     * that derived its own would be the second stage-state the scope forbids, and the two
+     * would eventually disagree about whether a step is finished.
+     */
+    stages: readonly RcStage[];
+    /** How ready the model is, for the sentence MODELADO owes the reader. */
+    readiness: RcModelReadiness;
+    /** Open the disclosure a stage owns. The tab owns them; this only asks. */
+    onGoTo: (target: RcStageId) => void;
+    /** Which disclosure is open right now, for the reading marker. */
+    openStage: RcStageId | null;
+  }
+  const { stages, readiness, onGoTo, openStage }: Props = $props();
+
+  const current = $derived(currentRcStage(stages));
+
+  /**
+   * The one-line instruction under the strip.
+   *
+   * The current stage's own sentence, whether it is blocked by a prerequisite or simply not
+   * started — an empty hint would put the burden back on reading which buttons are grey. When
+   * every required stage is finished, it says so rather than going quiet.
+   */
+  const hint = $derived(
+    current ? t(rcStageTodoKey(current, readiness)) : t('design.stage.allDone'));
+
+  /**
+   * What MODELADO is waiting for, in its own words.
+   *
+   * §1 requires the stage to explain the model's readiness rather than only whether a model
+   * exists, and the four states have different remedies: draw one, solve it, solve it again,
+   * or nothing. Shown next to the hint only while it is the thing standing in the way.
+   */
+  const readinessKey: Record<RcModelReadiness, string> = {
+    empty: 'design.stage.readiness.empty',
+    unsolved: 'design.stage.readiness.unsolved',
+    stale: 'design.stage.readiness.stale',
+    ready: 'design.stage.readiness.ready',
+  };
+
+  /** The title of the section being read, under the strip. Absent when nothing is open. */
+  const openLabel = $derived(stages.find((s) => s.id === openStage)?.labelKey ?? null);
+
+  /**
+   * Which stage's actions the strip offers.
+   *
+   * The stage the project is ON — what you can do NOW — and the stage being read only when the
+   * pipeline has nothing left to offer.
+   *
+   * The first version had it the other way round, reasoning that the open stage is the more
+   * recent gesture. That was wrong for a reason worth writing down: `openStage` is never null.
+   * The overview opens by default, so it always won and the fallback was dead code — the strip
+   * offered no action at all until the user happened to navigate to the right section, which is
+   * the hidden-command problem the move was meant to end.
+   *
+   * Reading a finished stage does not bring its command back, and that is correct: the strip
+   * answers "what is next", and the stage's own panel is where finished work is revisited.
+   */
+  const actionStage = $derived(current?.id ?? openStage ?? null);
+
+  /*
+   * The two facts REGLAMENTOS' command gates on, read from the stores that own them.
+   *
+   * Nothing to derive demands from, and nothing to press while a run is going. Read here rather
+   * than threaded down, because the strip sits above every stage and has nothing to receive
+   * them from.
+   */
+  const hasResults = $derived(
+    resultsStore.results3D !== null || resultsStore.results !== null);
+  const busy = $derived(designRunStore.running);
+  /*
+   * What the required-steel command needs beyond a solve: combinations to read, and a concrete
+   * code to read them against. Same four facts `canDesign` gathered in the command bar, read
+   * from the stores that own them.
+   */
+  const hasCombinations = $derived(modelStore.model.combinations.length > 0);
+  const concreteReady = $derived(regulationsStore.concreteDesignCode() !== null);
+
+  /**
+   * What the design command will cover, from the selector below the table.
+   *
+   * Read from `designRunStore` and never passed in: the read-out and the run must name the same
+   * families, and a scope handed to the button separately could differ from the one the boxes
+   * show. §2 requires the scope legible BEFORE the command executes — the default is narrower
+   * than it used to be, and an unticked family nobody can see is the old "a building with no
+   * floors, and it did not say so" defect with a smaller default.
+   */
+  const scope = $derived(designRunStore.familySelection);
+  const scopeText = $derived(scope.length === 0
+    ? t('design.cmd.scopeNone')
+    : tp('design.cmd.scopeIs', {
+      families: scope.map((f) => t(`design.families.${f}`)).join(', '),
+    }));
+
+  /*
+   * DETALLE's command, and the two things that explain why it refuses.
+   *
+   * Read from `detailingStore` rather than threaded down, for the same reason REGLAMENTOS'
+   * conditions are: the strip sits above every stage and has nothing to receive props from.
+   *
+   * It used to live in `DesignToolbar`, which F2 moved INSIDE the DISEÑAR stage — so the
+   * command that produces the constructive documentation could not be reached with DISEÑAR
+   * closed, and navigating to DETALLE by this very strip is what closes it. The F3a spec had to
+   * open the disclosure by hand to get at it, and wrote down why.
+   */
+  const detailingReady = $derived(detailingStore.readiness);
+  const hasDetailing = $derived(detailingStore.assemblies.length > 0);
+  const detailingBusy = $derived(detailingStore.generating);
+
+  /** Precise prerequisites, so a disabled command is never a dead end. */
+  const detailingBlockers = $derived(
+    detailingReady.prerequisites.map((p) => tp(p.key, { n: p.count,
+      ids: p.elementIds.slice(0, 6).join(', ') })).join(' '),
+  );
+
+  const SR: Record<string, string> = {
+    complete: 'design.stage.srComplete',
+    current: 'design.stage.srCurrent',
+    pending: 'design.stage.srPending',
+    blocked: 'design.stage.srBlocked',
+    optional: 'design.stage.srOptional',
+  };
+</script>
+
+<nav class="timeline" data-testid="rc-stage-timeline" aria-label={t('design.stage.title')}>
+  <ol>
+    {#each stages as s, i (s.id)}
+      <li
+        class="stage"
+        data-testid={`rc-stage-${s.id}`}
+        data-state={s.state}
+        data-open={s.id === openStage ? 'true' : undefined}
+      >
+        <button
+          type="button"
+          onclick={() => onGoTo(s.id)}
+          aria-current={s.id === current?.id ? 'step' : undefined}
+          title={s.state === 'complete' ? t(s.labelKey) : t(rcStageTodoKey(s, readiness))}
+        >
+          <!--
+            The number is the stage's position and nothing else. It used to disagree with the
+            sections below it, which ran 0, 1, 4, 5, 6 for five things.
+          -->
+          <span class="mark" aria-hidden="true">{s.state === 'complete' ? '✓' : i + 1}</span>
+          <span class="label">{t(s.labelKey)}</span>
+          <span class="sr-only">{t(SR[s.state])}</span>
+        </button>
+      </li>
+    {/each}
+  </ol>
+
+  <!--
+    The stage's own actions, in the strip.
+
+    They were in `DesignToolbar`, which F2 moved inside the DISEÑAR stage — so the action that
+    produces the SOLICITACIONES lived in the stage that consumes them, under a heading called
+    "Verify", ahead of "Design". Moving the button into the REGLAMENTOS `<details>` instead put a
+    required pipeline command behind a collapsed section, which is worse: four E2E journeys
+    stopped being able to reach it, and so would a user who had not thought to open it.
+
+    The strip is already sticky and already knows which stage you are on. The command lives here,
+    ONCE — there is no copy inside the disclosure — and calls the same `rcComputeDemands` that
+    `lib/flow/rc-commands.ts` extracted, arming the diagnostics warning before the store.
+  -->
+    <!--
+      Always present, disabled when it cannot run. Never hidden.
+
+      Two conditions were tried and both hid a command. Keying the row on the CURRENT stage made
+      it vanish with nothing solved — pro-design-gates caught that. Keying it on the stage being
+      UNFINISHED made required-steel vanish the moment demands were derived, because deriving
+      them completes the stage: the command disappeared exactly when it became usable.
+
+      This app's rule is that a command which cannot run says WHY, and one that is not on screen
+      says nothing at all. Two short buttons are a cheaper permanent cost than either failure.
+    -->
+    <div class="actions" data-testid="rc-stage-actions" data-stage="pipeline">
+      <button
+        class="cmd"
+        data-testid="cmd-compute-demands"
+        onclick={rcComputeDemands}
+        disabled={!hasResults || busy}
+      >{t('design.cmd.computeDemands')}</button>
+      <!--
+        Required steel, NOT a verification.
+
+        `runCodeCheck` reads results, demands and the code adapter and never looks at a provided
+        bar: it publishes what the CODE REQUIRES. It sat in a group labelled "Verify", ahead of
+        "Design", which said the reinforcement had been checked before any existed — the claim F1
+        removed from the strip and this one still made. Renamed to what it does, and placed with
+        `compute-demands` because both are the same operation: the declared code applied to the
+        analysis.
+      -->
+      <button
+        class="cmd"
+        data-testid="cmd-code-check"
+        onclick={rcCodeCheck}
+        disabled={!hasResults || !hasCombinations || !concreteReady || busy}
+      >{t('design.cmd.requiredSteel')}</button>
+
+      <!--
+        The design command, and the scope it will run, in the strip.
+
+        Running it does NOT finish the stage. DISEÑAR completes on convergence — every applicable
+        member proposed, every proposal passing, nothing provisional, failing, unavailable or
+        stale — and pressing this is one turn of that cycle, not its end. The stage state above
+        keeps saying so, and re-pressing after an edit is how the cycle closes.
+      -->
+      <button
+        class="cmd cmd-run"
+        data-testid="cmd-design-all"
+        onclick={() => rcDesignScope('cirsoc201.provided.v2.2025')}
+        disabled={!hasResults || !hasCombinations || !concreteReady || busy
+          || scope.length === 0}
+        title={scopeText}
+      >{t('design.cmd.designAll')}</button>
+      <span class="scope" data-testid="cmd-design-scope">{scopeText}</span>
+
+      <!--
+        DETALLE's command, in the strip with the rest of the pipeline.
+
+        Always present, disabled when the prerequisites do not hold — NOT keyed on the DETALLE
+        stage being unfinished. Generating the detailing is what COMPLETES that stage, so a
+        condition like that would take the command away the moment it had been used, and
+        regenerating after an edit is an ordinary operation. That is the same trap required steel
+        fell into in step 2.
+      -->
+      <button
+        class="cmd"
+        data-testid="cmd-generate-detailing"
+        onclick={rcGenerateDetailing}
+        disabled={!detailingReady.ready || detailingBusy || busy}
+        title={detailingReady.ready ? '' : detailingBlockers}
+      >{detailingBusy
+        ? t('detailing.cmd.generating')
+        : hasDetailing ? t('detailing.cmd.regenerate') : t('detailing.cmd.generate')}</button>
+      <!--
+        The preference that GOVERNS the command, next to the command it governs.
+
+        It travels with the button rather than staying behind in `DesignToolbar`. Leaving it there
+        would turn a disabled command into a riddle — the defect this branch already fixed once in
+        `review-submit` — and copying it would be worse than either.
+      -->
+      <label class="detailing-auto" data-testid="detailing-auto-label">
+        <input type="checkbox" data-testid="detailing-auto"
+               checked={detailingStore.autoGenerate}
+               onchange={(e) => detailingStore.setAutoGenerate(e.currentTarget.checked)} />
+        {t('detailing.cmd.autoShort')}
+      </label>
+
+      <!-- What regenerating is about to replace, before it runs. See the component. -->
+      <RcRegenerationWarning />
+    </div>
+
+    <!--
+      Why the command is unavailable, in the open and with counts.
+
+      Rendered as TEXT and not only as the button's `title`: a tooltip is reachable by a mouse and
+      by a screen reader, and by nothing else, so a keyboard-only user would be left with a dead
+      button. `pro-design-gates` asserts that this sentence and that attribute are the same
+      sentence.
+    -->
+    {#if !detailingReady.ready && detailingBlockers}
+      <p class="detailing-blockers" data-testid="detailing-prerequisites">{detailingBlockers}</p>
+    {/if}
+    <!-- What the run will produce, once there is a run to describe. See the component. -->
+    <RcConvergenceNotice />
+
+  <p class="hint" data-testid="rc-stage-hint">
+    {#if openLabel}
+      <!--
+        What you are READING, next to what you have to DO. They are different questions and the
+        strip answers both — the marker says where the project is, this says where you are.
+      -->
+      <span class="reading" data-testid="rc-stage-open">{t(openLabel)}</span>
+    {/if}
+    <span data-testid="rc-stage-next">{hint}</span>
+    {#if current?.id === 'model' && readiness !== 'ready'}
+      <!--
+        The chip carries the readiness as DATA for the audit and as colour for the eye; the
+        sentence itself is already in the hint above, chosen by `rcStageTodoKey`. Rendering the
+        word twice would be the panel repeating itself.
+      -->
+      <span class="readiness" data-testid="rc-stage-readiness" data-readiness={readiness}
+        >{t(readinessKey[readiness])}</span>
+    {/if}
+  </p>
+</nav>
+
+<style>
+  /*
+   * Sticky against the scrolling column, not the viewport. `.rc-workflow` is the
+   * `overflow-y: auto` container, so `top: 0` resolves there and the strip stays put while its
+   * siblings scroll under it.
+   *
+   * The background is opaque on purpose: a translucent one lets the content it is covering read
+   * through, and at 1024×700 there is always content under it.
+   */
+  .timeline {
+    position: sticky;
+    top: 0;
+    /*
+     * Above the section headers, which are sticky too — `pro-panel-structure` S5 requires every
+     * stage title to hold its place while its section is read. Two stickies at the same layer
+     * paint in document order, so a header scrolling up covered the strip's commands: a click at
+     * a command's own centre landed on the header instead, which `pro-design-gates` catches as
+     * "enabled and out of reach". The outer sticky has to win.
+     */
+    z-index: 12;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-hair);
+    padding: 0.35rem 0.5rem 0.3rem;
+    font-family: var(--st-sans);
+  }
+
+  ol {
+    display: flex;
+    /*
+     * NO WRAP. The shared strip wraps its six stages into two rows and leaves the last one
+     * alone underneath, which is the defect the QA guide tells reviewers not to report. Five
+     * short labels fit on one line at 1024 px; if they ever do not, the row scrolls sideways
+     * rather than growing a second line that would double the strip's height against a sticky
+     * budget.
+     */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    align-items: stretch;
+    gap: 0.1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  ol::-webkit-scrollbar { display: none; }
+
+  .stage { display: flex; align-items: center; flex: 0 1 auto; min-width: 0; }
+  /* The separator, drawn between stages rather than after the last one. */
+  .stage + .stage::before {
+    content: '';
+    width: 0.6rem;
+    height: 1px;
+    background: var(--st-hair-strong);
+    flex: 0 0 auto;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+    padding: 0.2rem 0.35rem;
+    border: 0;
+    border-radius: 4px;
+    /*
+     * A real surface, not `none`.
+     *
+     * The first version was `background: none; border: 0`, which C1 of
+     * `pro-panel-consistency.spec.ts` reports — correctly — as a control left to the browser to
+     * paint. The sweep cannot tell a deliberately flat button from an untouched UA default, and
+     * the rule it enforces is the one that keeps the panel reading as one product: every control
+     * carries a surface of ours or a border of ours. Adding an invisible border to satisfy the
+     * check would have been gaming it.
+     */
+    background: var(--st-surface-2);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.75rem;
+    color: var(--st-text-2);
+    white-space: nowrap;
+  }
+  button:hover { background: var(--st-surface-3); }
+  /*
+   * A blocked stage keeps the surface and loses only its text weight. Making it transparent was
+   * the first attempt and C1 rejects it for the same reason it rejected the base state: a
+   * control with neither a surface nor a border of ours reads as unpainted, and `box-shadow` is
+   * not a border as far as that sweep — or a user — is concerned.
+   */
+  button:focus-visible { outline: 2px solid var(--st-value); outline-offset: -1px; }
+
+  .mark {
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: 0 0 auto;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 50%;
+    font-size: 0.65rem;
+    line-height: 1;
+  }
+
+  .label { overflow: hidden; text-overflow: ellipsis; }
+
+  /*
+   * The five states.
+   *
+   * `complete` is green because the user's action happened, NOT because anything verified —
+   * the outcome badges own that claim, and the strip is not entitled to it.
+   */
+  .stage[data-state='complete'] button { color: var(--st-ok); }
+  .stage[data-state='complete'] .mark { border-color: var(--st-ok); color: var(--st-ok); }
+
+  .stage[data-state='current'] button { color: var(--st-text); font-weight: 600; }
+  .stage[data-state='current'] .mark {
+    border-color: var(--st-interactive);
+    color: var(--st-interactive);
+  }
+
+  /* Not yet — and not an error. Kept at normal secondary text, not dimmed further. */
+  .stage[data-state='pending'] button { color: var(--st-text-2); }
+
+  /*
+   * Nothing can start: there is no model. Dimmer than pending because the remedy is different,
+   * and `--st-text-3` is the token reserved for exactly this — inactive, non-interactive text.
+   */
+  .stage[data-state='blocked'] button { color: var(--st-text-3); }
+
+  .stage[data-state='optional'] button { color: var(--st-text-2); font-style: italic; }
+  .stage[data-state='optional'] .mark { border-style: dashed; }
+
+  /*
+   * What you are READING. A ring rather than a colour, so it can coexist with any of the five
+   * state colours instead of overwriting one of them.
+   */
+  .stage[data-open='true'] button {
+    background: var(--st-surface-3);
+    box-shadow: inset 0 0 0 1px var(--st-hair-strong);
+  }
+
+  /*
+   * The actions row, under the stages and above the hint.
+   *
+   * It wraps rather than scrolling: a command that scrolled out of a sticky strip would be the
+   * hidden-command problem again in a narrower form. Two or three short commands per stage fit
+   * on one line at 820 px; the row grows a second line before it hides anything.
+   */
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin: 0.3rem 0 0;
+  }
+  /* The paint every command in this app carries. C1 rejects a control with neither a surface
+     nor a border of ours, and it is right to: that reads as one the browser painted. */
+  .cmd {
+    padding: 3px 9px;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-info);
+    border-radius: 4px;
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .cmd:hover:not(:disabled) { background: var(--st-hair-strong); }
+  /* Dimmer and still legible — a disabled command has to explain itself. */
+  .cmd:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cmd:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  /* The run command reads as the primary one of the row, by border rather than by size. */
+  .cmd-run { border-color: var(--st-ok); }
+  /* The scope: secondary text beside the command, never a control. */
+  .scope { align-self: center; font-size: 0.68rem; color: var(--st-text-2); }
+
+  /*
+   * The auto-detailing preference. A control, so it carries a focus ring of ours — C1 of
+   * `pro-panel-consistency` is right to reject anything left to the browser to paint, and a bare
+   * checkbox label is exactly that.
+   */
+  .detailing-auto {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    align-self: center;
+    font-size: 0.68rem; color: var(--st-text-2);
+    white-space: nowrap; cursor: pointer;
+  }
+  .detailing-auto:focus-within { outline: 2px solid var(--st-value); outline-offset: 2px; }
+
+  /* The refusal, under the row that carries the command it explains. */
+  .detailing-blockers {
+    margin: 0.25rem 0 0;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: var(--st-text-2);
+  }
+
+  .hint {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.6rem;
+    margin: 0.25rem 0 0;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: var(--st-text-2);
+  }
+  .reading { color: var(--st-text); font-weight: 600; }
+  .readiness { color: var(--st-warn); }
+  .readiness[data-readiness='empty'] { color: var(--st-text-3); }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

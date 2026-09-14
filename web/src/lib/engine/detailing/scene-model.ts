@@ -98,6 +98,22 @@ export interface SceneBar {
    */
   provisional?: 'biaxial';
   /**
+   * Set when the engineer PINNED this bar — `BarPath.locked`.
+   *
+   * ── Why the viewer has to carry it ─────────────────────────────
+   *
+   * A pin is not a note the detailing panel keeps to itself. `runDetailing` receives
+   * `lockedBars` and never regenerates them, and the repair loop receives every member a
+   * pinned bar owns and never repairs those. So a pinned bar is a bar the rest of the pipeline
+   * has been told to leave alone, and a reader inspecting the cage in 3-D — which is where a
+   * continuous bar's second owner is actually visible — could not see which bars those were.
+   *
+   * Carried verbatim, like `provisional` above and for the same reason: the panel, the viewer
+   * and the engines then read one fact instead of forming three opinions about it. Absent on
+   * ordinary bars, which is almost all of them.
+   */
+  locked?: boolean;
+  /**
    * What the bar is FOR, carried verbatim from the document — see `BarPath.purpose`.
    *
    * Absent means resistant reinforcement. `stirrupHanger` means the bar exists because
@@ -335,6 +351,22 @@ export interface SceneModel {
    */
   provisionalMembers: number[];
   /**
+   * Members the engineer LOCKED, ascending.
+   *
+   * ── Why the viewer carries it, and carries it per member ────────
+   *
+   * A lock is a pin on the MEMBER — `rc-bar-lock.ts` states the decision — and it is the
+   * statement that survives a regeneration: those members keep the reinforcement they have
+   * while every other member is re-detailed around them. A reader inspecting the cage in 3-D,
+   * which is where a continuous bar's second owner is actually visible, could otherwise not
+   * tell which members the next regeneration is going to leave alone.
+   *
+   * Derived from the bars' own `locked` flag exactly the way `lockedMemberIds()` derives the
+   * set the engines receive, so the viewer, the list and the regeneration are three readings of
+   * one fact. Not a second flag kept by the scene.
+   */
+  lockedMembers: number[];
+  /**
    * Members carrying torsion no check in this application evaluates, ascending.
    *
    * A third list beside the other two, and a third kind of incompleteness: `unreinforcedMembers`
@@ -380,8 +412,15 @@ function rectBase(
  * projection of it onto the section plane and the global x axis stands in — the same
  * degenerate case every framing convention has to name, made explicit here rather than
  * producing a zero-length cross product and a NaN.
+ *
+ * ── Why it is exported ─────────────────────────────────────────
+ *
+ * `sheet-geometry.ts` draws the same concrete on a 2-D sheet and needs the same frame. A
+ * second copy of this arithmetic is a second convention for which way a rolled section faces,
+ * and the two would agree until the first raking column — at which point the elevation and the
+ * 3-D view would show the same member in two orientations with nothing to say which was right.
  */
-function memberBase(m: MemberGeometry): { base: Point3[]; extrude: Point3 } {
+export function memberBase(m: MemberGeometry): { base: Point3[]; extrude: Point3 } {
   const ax = { x: m.end.x - m.start.x, y: m.end.y - m.start.y, z: m.end.z - m.start.z };
   const len = Math.hypot(ax.x, ax.y, ax.z) || 1;
   const n = { x: ax.x / len, y: ax.y / len, z: ax.z / len };
@@ -567,6 +606,9 @@ export function buildSceneModel(doc: DocumentModel, opts: SceneOptions = {}): Sc
         cuttingLength: bar.cuttingLength,
         conflicted: conflictedBars.has(bar.id),
         provisional: bar.provisional,
+        // `|| undefined` rather than the raw flag: `locked: false` on 20 917 scene bars is
+        // 20 917 fields carrying no information, and the field's meaning is "set when pinned".
+        locked: bar.locked || undefined,
         purpose: bar.purpose,
       });
     }
@@ -647,6 +689,7 @@ export function buildSceneModel(doc: DocumentModel, opts: SceneOptions = {}): Sc
       .flatMap((s) => s.elementIds)
       .sort((x, y) => x - y),
     provisionalMembers: provisionalMembersOf(doc),
+    lockedMembers: lockedMembersOf(doc),
     torsionUnevaluatedMembers: torsionUnevaluatedOf(doc),
   };
 }
@@ -675,6 +718,24 @@ function torsionUnevaluatedOf(doc: DocumentModel): number[] {
  * to the beam it was designed for. The bar is correctly marked in both; the COLUMN's design
  * is certified, and calling it provisional would understate what was actually verified.
  */
+/**
+ * Members the engineer locked, from the bars that carry the flag.
+ *
+ * The SAME walk `lockedMemberIds()` performs — every locked bar's `ownerElementIds` into a set
+ * — because that is the set `runDetailing` and the repair loop are handed. A viewer that
+ * computed it any other way would be showing a frozen set the regeneration does not use.
+ */
+function lockedMembersOf(doc: DocumentModel): number[] {
+  const out = new Set<number>();
+  for (const a of doc.assemblies) {
+    for (const b of a.bars) {
+      if (!b.locked) continue;
+      for (const id of b.ownerElementIds) out.add(id);
+    }
+  }
+  return [...out].sort((x, y) => x - y);
+}
+
 function provisionalMembersOf(doc: DocumentModel): number[] {
   const out = new Set<number>();
   for (const a of doc.assemblies) for (const id of a.source.provisionalMembers ?? []) out.add(id);
@@ -921,6 +982,10 @@ export function filterScene(scene: SceneModel, f: SceneFilter): SceneModel {
     // off would be telling the user what they had just asked not to see. The torsion warning
     // rides with it, for exactly the same reason.
     provisionalMembers: scene.provisionalMembers,
+    // And the locked set, for the same reason: switching a layer off does not unfreeze a
+    // member, and a viewer that stopped naming the frozen ones would be answering a question
+    // about the FILTER with a statement about the project.
+    lockedMembers: scene.lockedMembers,
     torsionUnevaluatedMembers: scene.torsionUnevaluatedMembers,
   };
 }

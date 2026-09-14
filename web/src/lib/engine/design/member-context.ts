@@ -60,7 +60,16 @@ export interface ContextModelData {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type: string }>;
   sections: Map<number, { id: number; name: string; b?: number; h?: number }>;
-  materials: Map<number, { id: number; name: string; fy?: number }>;
+  /**
+   * `gradeId` is PR #132's declared grade, and it is what decides the material FAMILY.
+   *
+   * Declared here rather than left to the `as never` casts every call site uses. The field was
+   * always present at runtime — callers pass the live `modelStore.materials`, so real
+   * `Material` objects flow through — but the type said otherwise, which made it look as
+   * though the declared-grade path could not work. It could; nothing was supplying the
+   * lookup. Naming it makes the contract match what actually arrives.
+   */
+  materials: Map<number, { id: number; name: string; fy?: number; gradeId?: string }>;
   supports: Map<number, { nodeId: number; type: string }>;
 }
 

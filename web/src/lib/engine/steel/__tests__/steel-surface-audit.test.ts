@@ -123,6 +123,12 @@ describe('the catalogue and the grade source stay reusable', () => {
     'components/pro/generators/ProfileSelectorPanel.svelte',
     'components/pro/generators/ProfilePicker.svelte',
     'components/pro/steel/GradePickerPanel.svelte',
+    // The PRO section modal is a picker and is held to the same two rules: it may not reach
+    // past the source into a table, and it must hold a swappable source. It satisfies the
+    // second by delegating to `ProfileSelectorPanel`, which is what that seam was built for.
+    'components/pro/section/ProSectionModal.svelte',
+    // And the material modal, which contains `GradePickerPanel` for the metal categories.
+    'components/pro/material/ProMaterialModal.svelte',
   ];
 
   it('never lets a picker import a concrete table', () => {
@@ -145,7 +151,14 @@ describe('the catalogue and the grade source stay reusable', () => {
       const src = read(f);
       // Either the component takes a source prop, or it delegates to one that does.
       const takesSource = /source\s*[?:]/.test(src) || /source\s*=\s*(steelProfileSource|structuralGradeSource)/.test(src);
-      const delegates = /<(ProfileSelectorPanel|GradePickerPanel)/.test(src);
+      /*
+       * Delegation now has two more targets, and adding them is the rule working rather than
+       * being relaxed: `ProfilePicker` used to render `ProfileSelectorPanel` directly and now
+       * hands the whole `ProfileSpec` to `ProSectionModal` — which is itself in this list and
+       * holds the source. This test caught that change the moment it landed, which is what it
+       * is for; a row that delegates to something un-audited would still fail.
+       */
+      const delegates = /<(ProfileSelectorPanel|GradePickerPanel|ProSectionModal|ProMaterialModal)/.test(src);
       expect(takesSource || delegates, `${f} holds a source`).toBe(true);
     }
   });

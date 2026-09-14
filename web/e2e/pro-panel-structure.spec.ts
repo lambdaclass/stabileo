@@ -31,19 +31,32 @@ async function order(page: Page, testid: string): Promise<number> {
 }
 
 test.describe('@smoke the panel says where the project stands, first', () => {
-  test('S1 — the status section precedes every stage, and the command bar follows them', async (
-    { pro: page },
-  ) => {
-    const overview = await order(page, 'design-overview-disclosure');
-    const regs = await order(page, 'code-settings-disclosure');
-    const detailing = await order(page, 'detailing-disclosure');
-    const toolbar = await order(page, 'design-toolbar');
+  test('S1 — the status section precedes every stage, and the commands sit in their stage',
+    async ({ pro: page }) => {
+      const overview = await order(page, 'design-overview-disclosure');
+      const regs = await order(page, 'code-settings-disclosure');
+      const design = await order(page, 'design-stage-disclosure');
+      const detailing = await order(page, 'detailing-disclosure');
+      const toolbar = await order(page, 'design-toolbar');
 
-    expect(overview, 'the status section is on screen').toBeGreaterThan(-1);
-    expect(overview, 'and it is read before the regulations stage').toBeLessThan(regs);
-    expect(regs).toBeLessThan(detailing);
-    expect(detailing, 'the commands come after the stages, as they did').toBeLessThan(toolbar);
-  });
+      expect(overview, 'the status section is on screen').toBeGreaterThan(-1);
+      expect(overview, 'and it is read before the regulations stage').toBeLessThan(regs);
+      expect(regs).toBeLessThan(design);
+      expect(design).toBeLessThan(detailing);
+
+      /*
+       * The command bar used to be the LAST thing in the panel, after every stage, and this
+       * asserted that. F2 moved it: `ProDesignTab` — the design table and its commands — is
+       * inside the DISEÑAR stage now, because a stage strip that said "3 Diseñar" while pointing
+       * at the floor families, with the table you actually design in sitting past the end of the
+       * pipeline, was the defect §2 of the scope names.
+       *
+       * So the claim changes from "the commands come last" to "the commands are IN the stage
+       * they belong to", which is the stronger of the two.
+       */
+      expect(toolbar, 'the command bar is inside the design stage').toBeGreaterThan(design);
+      expect(toolbar, 'and therefore before the detailing stage').toBeLessThan(detailing);
+    });
 
   test('S2 — the regulation and the counts are IN it, and nowhere else', async ({ pro: page }) => {
     const overview = page.getByTestId('design-overview');

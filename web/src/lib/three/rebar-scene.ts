@@ -604,6 +604,23 @@ export function liveRebarSceneCensus(): RebarSceneCensus | null {
   return liveScene?.census() ?? null;
 }
 
+/**
+ * The conflict drawn in a marker slot of the open scene, for TEST HOOKS only.
+ *
+ * Read-only and allocation-free, exactly parallel to `liveRebarSceneCensus` above and for the
+ * same reason: `e2e-hooks.ts` cannot reach `liveScene`, and the alternative is a test that
+ * rebuilds the marker list and asserts against its own copy rather than against what is drawn.
+ *
+ * `conflictAt` resolves the SLOT, not an index into the document's conflicts — the compaction
+ * moves markers between slots when a filter is on — so a caller asking for slot 0 gets whatever
+ * is actually drawn there, which is what a click would have hit.
+ *
+ * Nothing in the application calls this.
+ */
+export function liveRebarSceneConflictAt(slot: number): SceneConflictMarker | null {
+  return liveScene?.conflictAt(slot) ?? null;
+}
+
 const DEFAULTS = { diameterScale: 1, radialSegments: 6 };
 
 /**

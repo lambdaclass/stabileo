@@ -184,7 +184,9 @@
 
 <style>
   .mat-design {
-    margin-top: 0.6rem; border-top: 1px solid rgba(143, 163, 179,0.3); padding-top: 0.5rem;
+    /* `rgba(143,163,179, α)` IS `--st-hair`/`--st-hair-strong`, written out at a third alpha.
+       The stronger rule divides the sub-panel; the ordinary one borders a card. */
+    margin-top: 0.6rem; border-top: 1px solid var(--st-hair-strong); padding-top: 0.5rem;
     font-size: 0.82rem;
   }
   h5 { margin: 0 0 0.3rem; font-size: 0.8rem; }
@@ -192,7 +194,7 @@
   .empty { opacity: 0.75; font-style: italic; }
   .note { margin: 0.2rem 0 0.4rem; font-size: 0.75rem; opacity: 0.85; }
   .directions { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.6rem; }
-  .direction { border: 1px solid rgba(143, 163, 179,0.25); border-radius: 4px; padding: 0.45rem; }
+  .direction { border: 1px solid var(--st-border); border-radius: 4px; padding: 0.45rem; }
   dl { margin: 0; }
   .row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.74rem; padding: 0.08rem 0; }
   dt { opacity: 0.85; }
@@ -212,7 +214,9 @@
     background: var(--st-surface-3); color: var(--st-text);
   }
   .badge { font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.3rem; border-radius: 3px; }
-  .badge.status-DESIGNED { background: rgba(143, 163, 179,0.3); }
+  /* Neutral, like `FootingMatPhysicalPanel`'s MODELED badge and for the same reason: a
+     designed footing is not a verified one, and no status hue may suggest otherwise. */
+  .badge.status-DESIGNED { background: var(--st-surface-3); }
   .badge.status-DESIGN_FAILED { background: var(--st-surface-2); color: var(--st-text); }
   .badge.status-NOT_EVALUATED { background: var(--st-surface-3); color: var(--st-text); }
   summary { cursor: pointer; font-size: 0.78rem; }

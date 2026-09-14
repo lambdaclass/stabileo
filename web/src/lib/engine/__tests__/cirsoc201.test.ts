@@ -86,6 +86,28 @@ describe('CIRSOC 201 Verification', () => {
       const r2 = checkFlexure(beamParams, 80);
       expect(r2.AsReq).toBeGreaterThan(r1.AsReq);
     });
+
+    it('says a bigger section, not a bigger number, past the practical steel ceiling', () => {
+      /*
+       * The doubly-reinforced path is unbounded by construction — anchored at
+       * εt = 4‰, every extra moment is another steel couple, and a 20×50
+       * beam "carried" 9 000 kN·m with 600 cm². No clause caps beam steel,
+       * so the engine states the practical one itself: 4 %·b·h. Past it the
+       * answer is a fail that names the remedy, because a calculator that
+       * answers every question with a number teaches people to trust the
+       * number.
+       */
+      const big = { ...beamParams, h: 0.5 }; // 20×50, the case the Flex panel's e2e asks about
+      const r = checkFlexure(big, 2000);
+      expect(r.status).toBe('fail');
+      expect(r.AsReq).toBeGreaterThan(0.04 * big.b * big.h * 1e4);
+      expect(r.steps.some((s) => s.includes('4 %·b·h') && s.includes('agrandar la sección'))).toBe(true);
+      // And it still fails however much further the demand is pushed — the
+      // ceiling does not recede as the steel grows.
+      expect(checkFlexure(big, 9000).status).toBe('fail');
+      // An ordinary doubly-reinforced design below the ceiling is untouched.
+      expect(checkFlexure(big, 150).status).not.toBe('fail');
+    });
   });
 
   describe('checkShear', () => {

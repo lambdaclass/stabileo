@@ -124,7 +124,20 @@ describe('every design-run bucket reaches the user', () => {
     // `.c-prov` in the toolbar kept this green while styling nothing).
     expect(overviewSrc).toContain('data-testid="summary-count-provisional"');
     expect(overviewSrc).toContain("t('design.counts.provisional')");
-    expect(overviewSrc, 'the provisional chip carries the proposal violet').toContain('#a066d3');
+    /*
+     * The TOKEN, not the hex.
+     *
+     * This asserted `#a066d3` literally, because when it was written there was no name for that
+     * colour and the only way to hold the chip equal to `three/rebar-scene.ts` was to compare two
+     * copies of a hex. `--st-provisional` exists now, and rule 3 of `shared-status-tokens.test.ts`
+     * holds it equal to what Three.js paints as a RESOLVED colour — a stronger guarantee than
+     * two literals that happen to match, and one that survives a palette change.
+     *
+     * The claim is unchanged: this chip carries the proposal violet, and it is the same violet
+     * the viewport uses.
+     */
+    expect(overviewSrc, 'the provisional chip carries the proposal violet')
+      .toContain('var(--st-provisional)');
     expect(overviewSrc, 'the chip row uses the violet tone').toMatch(
       /tone-prov[^"]*"[^>]*data-testid="summary-count-provisional"/);
   });
