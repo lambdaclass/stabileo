@@ -660,10 +660,10 @@ test.describe('@landing the model the deck states', () => {
     expect(rows).toEqual([
       ['Básico', 'Gratis', 'Gratis'],
       ['PRO · Cálculo', 'Gratis', 'Gratis'],
-      ['PRO · Diseño normativo', 'Pago, a precios bajos', 'Gratis'],
+      ['PRO · Diseño normativo', 'Gratis durante el desarrollo*', 'Gratis'],
       // Blank on purpose: a university brings its own model API, and the
       // paragraph under the table is where that is explained.
-      ['Stabileo IA', 'Pago por token', ''],
+      ['Stabileo IA', 'Pago por token**', ''],
       ['Educativo', '', 'Gratis'],
     ]);
   });
@@ -719,7 +719,24 @@ test.describe('@landing the model the deck states', () => {
     const firms = await pricing
       .locator('.model-table tbody tr')
       .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[0]?.textContent?.trim() ?? ''));
-    expect(firms).toEqual(['Gratis', 'Gratis', 'Pago, a precios bajos', 'Pago por token', '']);
+    expect(firms).toEqual([
+      'Gratis',
+      'Gratis',
+      'Gratis durante el desarrollo*',
+      'Pago por token**',
+      '',
+    ]);
+
+    /*
+     * Every marker in the table has a note that starts with it, and no note
+     * carries a marker nothing points at. A translator cannot break this —
+     * the markers are drawn from the component, not the strings — but a row
+     * added without one, or a note deleted, would leave a reader following an
+     * asterisk to nothing.
+     */
+    const inTable = await pricing.locator('.model-table .fn').allInnerTexts();
+    const inNotes = await pricing.locator('.mode-note .fn').allInnerTexts();
+    expect(inTable.sort()).toEqual(inNotes.sort());
 
     // And the explanation is actually there, since the blank now depends on it.
     await expect(pricing).toContainText('conectar la API del modelo de lenguaje');

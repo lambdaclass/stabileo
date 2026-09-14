@@ -30,6 +30,15 @@
    * thing in words and the opposite in colour.
    */
   const FREE = { k: 'priceFree', tone: 'free' } as const;
+
+  /*
+   * Footnote markers live in the markup, not in the strings.
+   *
+   * A translator moving an asterisk, or dropping one, would silently point a
+   * cell at the wrong note — and the page would still look right in the one
+   * language the reader who noticed does not speak.
+   */
+  const mark = (n: number) => '*'.repeat(n);
   /*
    * In the order the page introduced them: Basic, PRO Analysis, PRO Design,
    * the agent, Education. The table read Education before the agent, so the
@@ -38,14 +47,20 @@
   const rows = [
     { mod: 'modBasic',     firms: FREE, unis: FREE },
     { mod: 'modProCalc',   firms: FREE, unis: FREE },
-    { mod: 'modProDesign', firms: { k: 'pricePaidLow', tone: 'paid' }, unis: FREE },
+    /*
+     * Free while it is being built, for everyone — not "paid, at low prices".
+     * The note the asterisk points at carries the rest: early users keep it,
+     * public universities always do, and what comes later is cheap. No date
+     * is published, deliberately.
+     */
+    { mod: 'modProDesign', firms: { k: 'priceFreeDev', tone: 'free', note: 1 }, unis: FREE },
     /*
      * The AI's university cell is deliberately blank. Repeating "pago por
      * token" there answered a question the paragraph below answers better: a
      * university can connect its own language-model API. A price in the cell
      * contradicted that; a blank leaves the explanation to do the work.
      */
-    { mod: 'modAi',        firms: { k: 'pricePerToken', tone: 'paid' }, unis: null },
+    { mod: 'modAi',        firms: { k: 'pricePerToken', tone: 'paid', note: 2 }, unis: null },
     /*
      * Education's firms cell is blank, not "free". The mode is aimed at
      * teaching; saying "gratis" to a firm invites the question of what a firm
@@ -77,7 +92,9 @@
               <th scope="row">{t('landing.' + r.mod)}</th>
               {#each [r.firms, r.unis] as cell}
                 {#if cell}
-                  <td class="price is-{cell.tone}">{t('landing.' + cell.k)}</td>
+                  <td class="price is-{cell.tone}"
+                    >{t('landing.' + cell.k)}{#if cell.note}<sup class="fn">{mark(cell.note)}</sup>{/if}</td
+                  >
                 {:else}
                   <!-- Blank on purpose. See the row definitions above. -->
                   <td class="price"></td>
@@ -89,8 +106,8 @@
       </table>
     </div>
 
-    <p class="mode-note">{t('landing.pricingLowNote')}</p>
-    <p class="mode-note">{t('landing.pricingAiNote')}</p>
+    <p class="mode-note"><span class="fn">{mark(1)}</span> {t('landing.pricingFreeNowNote')}</p>
+    <p class="mode-note"><span class="fn">{mark(2)}</span> {t('landing.pricingAiNote')}</p>
     <p class="mode-note">{t('landing.pricingCommunity')}</p>
   </div>
 </section>

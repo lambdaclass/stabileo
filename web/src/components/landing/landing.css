@@ -2065,3 +2065,15 @@
 .landing .mode-split-text .lead {
   margin-top: 1.1rem;
 }
+
+/* Footnote markers in the pricing table. Quiet enough not to compete with the
+   price, visible enough to be followed to the note that explains it. */
+.landing .fn {
+  color: var(--lp-accent);
+  font-weight: 600;
+  margin-left: 0.15em;
+}
+
+.landing .mode-note .fn {
+  margin: 0 0.25em 0 0;
+}

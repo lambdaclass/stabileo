@@ -1,10 +1,10 @@
 import type { Translations } from '../types';
 const pt: Translations = {
   // ─── Landing ───
+  'landing.priceFreeDev': 'Grátis durante o desenvolvimento',
+  'landing.pricingFreeNowNote': 'Hoje é gratuito para todos. Queremos que quem o usar nesta etapa continue com ele de graça, e para as universidades públicas será sempre. Quando começarmos a cobrar, será muito abaixo do que custa hoje no mercado.',
   'landing.pricingAiNote': 'O Stabileo IA é uma função paga pelo que custa mantê-la. Às universidades e a quem participar do desenvolvimento queremos dar a opção de conectar a API do modelo de linguagem que preferirem, e assim testá-la por conta própria.',
-  'landing.pricingLowNote': 'Os módulos de projeto serão cobrados de empresas e particulares, com preços uma ou duas ordens de grandeza abaixo dos da concorrência.',
   'landing.pricePerToken': 'Pago por token',
-  'landing.pricePaidLow': 'Pago, a preços baixos',
   'landing.colUnis': 'Universidades',
   'landing.colFirms': 'Empresas e particulares',
   'landing.proCalcShots': 'Importa desenhos do AutoCAD (DXF), planilhas de Excel ou arquivos BIM (IFC). Além de tudo o que o Básico faz, calcula lajes e paredes, permite definir materiais e seções compostas com mais detalhe, resolver as ligações e exportar os resultados como planilha para a memória de cálculo. Está em desenvolvimento, com acesso livre a quem quiser testá-lo.',

@@ -3,10 +3,10 @@ const en: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
+  'landing.priceFreeDev': 'Free while in development',
+  'landing.pricingFreeNowNote': 'Free for everyone today. We want anyone using it at this stage to keep it free, and for public universities it always will be. When we do start charging, it will be far below what the market costs today.',
   'landing.pricingAiNote': 'Stabileo AI is a paid feature because of what it costs to run. Universities, and anyone taking part in its development, will be able to plug in the language-model API of their choice and try it that way.',
-  'landing.pricingLowNote': 'The design modules will be charged to firms and individuals, at prices one or two orders of magnitude below the competition.',
   'landing.pricePerToken': 'Paid per token',
-  'landing.pricePaidLow': 'Paid, at low prices',
   'landing.colUnis': 'Universities',
   'landing.colFirms': 'Firms and individuals',
   'landing.proCalcShots': 'Imports from AutoCAD drawings (DXF), Excel templates or BIM files (IFC). On top of everything Basic does, it analyses slabs and walls, lets you define materials and composite sections in more detail, work out the connections, and export the results as a spreadsheet for the calculation report. It is in development, with open access to anyone who wants to try it.',

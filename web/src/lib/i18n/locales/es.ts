@@ -3,10 +3,10 @@ const es: Record<string, string> = {
 
   // ─── Landing Page ───
   // ─── Landing ───
+  'landing.priceFreeDev': 'Gratis durante el desarrollo',
+  'landing.pricingFreeNowNote': 'Hoy es gratis para todos. Queremos que quienes lo usen en esta etapa lo conserven gratis, y para las universidades públicas lo va a ser siempre. Cuando empecemos a cobrarlo, va a ser muy por debajo de lo que cuesta hoy en el mercado.',
   'landing.pricingAiNote': 'Stabileo IA es una función paga por lo que cuesta sostenerla. A las universidades y a quienes participen del desarrollo queremos darles la opción de conectar la API del modelo de lenguaje que prefieran, y probarla así por su cuenta.',
-  'landing.pricingLowNote': 'Los módulos de diseño se van a cobrar a empresas y particulares, con precios uno o dos órdenes de magnitud por debajo de los de la competencia.',
   'landing.pricePerToken': 'Pago por token',
-  'landing.pricePaidLow': 'Pago, a precios bajos',
   'landing.colUnis': 'Universidades',
   'landing.colFirms': 'Empresas y particulares',
   'landing.proCalcShots': 'Importable desde planos de AutoCAD (DXF), plantillas de Excel o archivos BIM (IFC). Además de todo lo del Básico, calcula losas y tabiques, permite definir materiales y secciones compuestas con más detalle, resolver las uniones y exportar los resultados como planilla para la memoria de cálculo. Está en desarrollo, con acceso libre para quien quiera probarlo.',
