@@ -5497,7 +5497,6 @@ const en: Record<string, string> = {
   'materials.concreteOnly': 'Concrete materials only: this is the aggregate size and the spacing between bars.',
   'materials.aggregateNotStated': 'not stated',
   'materials.aggregateInvalid': 'Value must be between {min} and {max} mm.',
-  'materials.aggregateNote': 'Leave blank when the mix is not yet defined. The design surface then reports an explicit assumption instead of a silent default. Changing this does not invalidate the analysis.',
   'autoLoad.seismicNeedsRole': 'Seismic loads need a seismic regulation bound to the project.',
   'autoLoad.windNeedsRole': 'Wind loads need a wind regulation bound to the project.',
   'autoLoad.openRegulations': 'Open Project regulations',

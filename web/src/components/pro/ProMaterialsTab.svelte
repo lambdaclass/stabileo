@@ -314,7 +314,13 @@
       {#if aggError}
         <p class="agg-error" role="alert" data-testid="mat-aggregate-error">{aggError}</p>
       {/if}
-      <p class="agg-note">{t('materials.aggregateNote')}</p>
+      <!--
+        The paragraph explaining that a blank d_agg means "not stated" is
+        gone. The COLUMN says it: the box is empty and its placeholder reads
+        "no declarado", which is the same fact where the reader is looking,
+        and the header's `?` carries the consequence. Three lines of standing
+        prose under a table is read once and then occupies the panel forever.
+      -->
     </div>
   </div>
 </div>
@@ -394,7 +400,6 @@
   .prop > span:first-child { color: var(--st-text-3); }
   .prop > span:last-child { color: var(--st-text); font-variant-numeric: tabular-nums; }
   .agg-error { margin: 0.35rem 0 0; padding: 0.3rem 0.5rem; border-radius: 4px; background: var(--st-accent); color: var(--st-text); font-size: 0.8rem; }
-  .agg-note { margin: 0.35rem 0 0; font-size: 0.76rem; opacity: 0.75; line-height: 1.35; }
   .pro-mat {
     display: flex;
     flex-direction: column;

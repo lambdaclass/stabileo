@@ -5490,7 +5490,6 @@ const es: Record<string, string> = {
   'materials.concreteOnly': 'Sólo aplica a materiales de hormigón: es el tamaño del árido y la separación entre barras.',
   'materials.aggregateNotStated': 'no indicado',
   'materials.aggregateInvalid': 'El valor debe estar entre {min} y {max} mm.',
-  'materials.aggregateNote': 'Dejar en blanco cuando la mezcla no está definida. La superficie de diseño informa entonces una hipótesis explícita en lugar de un valor por defecto silencioso. Cambiarlo no invalida el análisis.',
   'autoLoad.seismicNeedsRole': 'Las cargas sísmicas requieren un reglamento sísmico asignado al proyecto.',
   'autoLoad.windNeedsRole': 'Las cargas de viento requieren un reglamento de viento asignado al proyecto.',
   'autoLoad.openRegulations': 'Abrir Reglamentos del proyecto',

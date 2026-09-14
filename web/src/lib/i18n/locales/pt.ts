@@ -3155,7 +3155,6 @@ const pt: Translations = {
   'materials.concreteOnly': 'Só se aplica a materiais de concreto: é o tamanho do agregado e o espaçamento entre barras.',
   'materials.aggregateInvalid': 'O valor deve estar entre {min} e {max} mm.',
   'materials.aggregateNotStated': 'não indicado',
-  'materials.aggregateNote': 'Deixe em branco quando a mistura não estiver definida. A superfície de dimensionamento informa então uma hipótese explícita em vez de um valor padrão silencioso. Alterá-lo não invalida a análise.',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.spacingMarginInvalid': 'Informe uma margem entre 0 e {max} mm',
   'maturity.promotion.needsExternalBenchmark': 'Incorporar pelo menos um exemplo resolvido externo (norma, bibliografia ou publicação) como benchmark do tipo "external" e verificar a concordância.',

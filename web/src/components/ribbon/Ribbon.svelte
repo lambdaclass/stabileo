@@ -268,27 +268,31 @@
       ],
     },
     {
-      id: 'conditions',
-      labelKey: 'ribbon.groupConditions',
-      cmds: [
-        { id: 'support', icon: 'support', labelKey: 'float.support', tool: 'support', panel: 'data', dataTab: TOOL_DATA_TAB.support },
-        { id: 'load', icon: 'load', labelKey: 'float.load', tool: 'load', panel: 'data', dataTab: TOOL_DATA_TAB.load },
-      ],
-    },
-    {
       /*
        * Materials and sections had no home on the ribbon at all: they were
        * reachable only by opening Model data and finding the right tab, or by
        * going through an element. They are properties of the model in exactly
        * the sense supports and loads are conditions of it, so they belong on
-       * the same row — between the conditions that act on the structure and the
-       * analysis that consumes both. PRO already groups them this way.
+       * the same row.
+       *
+       * Before Conditions, and PRO has had this order for a while: draw it,
+       * say what it is made of, and only then say how it is held and loaded.
+       * A section is a property of the member you just drew; a support is
+       * something done TO the structure once it exists.
        */
       id: 'properties',
       labelKey: 'ribbon.groupProperties',
       cmds: [
         { id: 'materials', icon: 'material', labelKey: 'pro.tabMaterials', panel: 'data', dataTab: 'materials' },
         { id: 'sections', icon: 'section', labelKey: 'pro.tabSections', panel: 'data', dataTab: 'sections' },
+      ],
+    },
+    {
+      id: 'conditions',
+      labelKey: 'ribbon.groupConditions',
+      cmds: [
+        { id: 'support', icon: 'support', labelKey: 'float.support', tool: 'support', panel: 'data', dataTab: TOOL_DATA_TAB.support },
+        { id: 'load', icon: 'load', labelKey: 'float.load', tool: 'load', panel: 'data', dataTab: TOOL_DATA_TAB.load },
       ],
     },
     {
