@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore } from '../../lib/store';
   import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
+  import DataTable from '../DataTable.svelte';
   import { t } from '../../lib/i18n';
 
   /** Comma-tolerant numeric parse (same rule as ProLoadsTab.parseNum):
@@ -201,9 +202,6 @@
     else if (selectedKind === 'linearMPC') addLinearMpc();
   }
 
-  function removeConstraint(index: number) {
-    modelStore.removeConstraint(index);
-  }
 
   function autoDetectDiaphragms() {
     const tolerance = 0.05;
@@ -252,38 +250,8 @@
     }
   }
 
-  function dofIndicesToNames(dofs: unknown): string {
-    if (!Array.isArray(dofs) || dofs.length === 0) return t('pro.allDofs');
-    return dofs.map((d: unknown) => {
-      // Indices are the canonical wire form; tolerate stale string entries
-      // surfacing from older saved data, since name → index migration is
-      // out of scope here.
-      if (typeof d === 'number') return dofLabels[d] ?? String(d);
-      return String(d);
-    }).join(',');
-  }
 
-  function constraintLabel(c: any): string {
-    if (c.type === 'rigidLink') return t('pro.constraintRigid').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', dofIndicesToNames(c.dofs));
-    if (c.type === 'diaphragm') return t('pro.constraintDiaph').replace('{plane}', c.plane ?? 'XZ').replace('{master}', c.masterNode).replace('{n}', String(c.slaveNodes?.length ?? 0));
-    if (c.type === 'equalDOF') return t('pro.constraintEqDof').replace('{master}', c.masterNode).replace('{slave}', c.slaveNode).replace('{dofs}', dofIndicesToNames(c.dofs));
-    if (c.type === 'linearMPC') return t('pro.constraintMpc').replace('{n}', String(c.terms?.length ?? 0));
-    if (c.type === 'eccentricConnection') {
-      const offset = `(${c.offsetX ?? 0}, ${c.offsetY ?? 0}, ${c.offsetZ ?? 0})`;
-      const releasedDofs = (c.releases ?? []).map((r: boolean, i: number) => r ? dofLabels[i] : null).filter(Boolean).join(',');
-      const releasesLabel = releasedDofs.length > 0 ? releasedDofs : t('pro.eccentricNoRelease');
-      return t('pro.constraintEcc')
-        .replace('{master}', c.masterNode)
-        .replace('{slave}', c.slaveNode)
-        .replace('{offset}', offset)
-        .replace('{releases}', releasesLabel);
-    }
-    return t('pro.unknown');
-  }
 
-  function constraintTypeLabel(type: string): string {
-    return constraintKinds.find(k => k.value === type)?.label ?? type;
-  }
 
   function addConnector() {
     const ni = validateNode(connNodeI);
@@ -425,28 +393,14 @@
     </div>
   </div>
 
-  <div class="pro-cst-table-wrap">
-    <table class="pro-cst-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>{t('pro.thType')}</th>
-          <th>{t('pro.thDescription')}</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each constraints as c, i}
-          <tr>
-            <td class="col-id">{i + 1}</td>
-            <td class="col-type">{constraintTypeLabel(c.type)}</td>
-            <td class="col-desc">{constraintLabel(c)}</td>
-            <td><button class="pro-delete-btn" onclick={() => removeConstraint(i)}>×</button></td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+  <!--
+    Tools above, the shared table below — the shape every modelling panel has.
+    This listed the constraints itself, which is a second set of columns over
+    the same rows and a second place to keep in step. Connectors keep their
+    own list further down: they are a different entity, stiffness between two
+    nodes rather than a tie between degrees of freedom.
+  -->
+  <DataTable pinned="constraints" />
 
   <!-- ─── Connectors (joint/spring/bearing) ──────────────────────── -->
   <!-- Connectors are NOT structural members. They live alongside elements in -->

@@ -11,7 +11,7 @@
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
-  import { nodeRadiusFor, nodeRadiusForSections, diagonalOf } from '../lib/three/node-scale';
+  import { nodeRadiusFor, diagonalOf } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
@@ -23,8 +23,8 @@
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
-  import { setCameraProbe } from '../lib/viewport3d/camera-probe';
-  import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
+  import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
+  import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, syncDespiece3D as _syncDespiece3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
@@ -232,13 +232,72 @@
    * geometry that mode exists to show. It never drops below the picking floor —
    * `NodesInstanced` raycasts the visible mesh, so the marker IS the target.
    */
+  /**
+   * A node marker may never fall below a few pixels, because it IS the click
+   * target.
+   *
+   * `nodeRadiusFor` sizes a node as a fraction of the model diagonal with a
+   * 2 cm floor. On a 4 × 3 m portal that floor is what applies, and at an
+   * ordinary working distance 2 cm subtends about two-thirds of ONE PIXEL —
+   * the marker is invisible and clicking it is a lottery. That click is the
+   * core gesture of the whole modelling flow: type the coordinates in the
+   * panel, then click the nodes to lay members and supports on them.
+   *
+   * So the world radius is RAISED, where it has to be, to whatever spans
+   * `MIN_NODE_PX` at the current camera distance. Only ever raised: a large
+   * model already has markers worth seeing and must not grow beachballs.
+   *
+   * Called from two places because it depends on two things — the model, and
+   * where the camera is — and a single `$effect` cannot see the second.
+   */
+  /*
+   * Three, not five.
+   *
+   * Five pixels of RADIUS is a ten-pixel ball, which on a slender frame reads
+   * as a row of beads rather than as joints — "the nodes look like giant
+   * spheres" was exactly right. Three is still a comfortable click target and
+   * stops the marker competing with the structure it marks.
+   */
+  const MIN_NODE_PX = 3;
+  let lastNodeDist = -1;
+  /** The layout the grid currently draws, so a frame that changes nothing rebuilds nothing. */
+  let lastGridKey = '';
+
+  function applyNodeRadius() {
+    /*
+     * Sections mode draws the members as their real cross-sections — the
+     * closest thing to a picture of the built structure — and a sphere at
+     * every joint is the one thing a built structure does not have. The
+     * markers go entirely, rather than shrinking: something small enough not
+     * to intrude is also too small to click, and this view is for looking.
+     */
+    if (uiStore.renderMode3D === 'sections') {
+      nodesInstanced.mesh.visible = false;
+      return;
+    }
+    nodesInstanced.mesh.visible = true;
+
+    const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
+    const base = nodeRadiusFor(extent);
+
+    let floor = 0;
+    if (camera && controls && container) {
+      const dist = camera.position.distanceTo(controls.target);
+      const h = container.clientHeight || 1;
+      const fov = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+        ? ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180
+        : (50 * Math.PI) / 180;
+      /* World size of one pixel at the orbit target. */
+      floor = MIN_NODE_PX * ((2 * dist * Math.tan(fov / 2)) / h);
+    }
+    nodesInstanced.setRadius(Math.max(base, floor));
+  }
+
   $effect(() => {
     void modelStore.modelVersion;
-    const mode = uiStore.renderMode3D;
-    const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
-    nodesInstanced.setRadius(
-      mode === 'sections' ? nodeRadiusForSections(extent) : nodeRadiusFor(extent),
-    );
+    void uiStore.renderMode3D;
+    lastNodeDist = -1; // the model changed: recompute regardless of the camera
+    applyNodeRadius();
   });
 
   /**
@@ -343,7 +402,21 @@
     scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent, jointsParent);
     syncResultsProjection();
 
-    // Camera — isometric-ish view looking at origin
+    /*
+     * ── The far plane has to reach the grid ───────────────────────────
+     *
+     * It was a literal 1000, chosen when the grid was 50 m across. PRO's grid
+     * now opens at a kilometre and goes to ten, and a 1000 m grid reaches
+     * 500 m in each direction: zooming out pushes its far corners through the
+     * far plane and they are CLIPPED — the grid vanishing in chunks, which is
+     * exactly how it was reported. At 10 km the whole floor sits beyond the
+     * plane and nothing draws at all.
+     *
+     * `syncCameraRange` sizes it from whatever has to be visible. The
+     * logarithmic depth buffer is what makes that affordable: spanning 0.1 m
+     * to 40 km on a linear 24-bit depth buffer puts almost all of the
+     * precision in the first few metres and z-fights everything past them.
+     */
     perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
     setCameraUp(perspCamera);
     perspCamera.position.set(12, 8, 12);
@@ -545,6 +618,35 @@
       handleKeyboardCamera();
 
       controls.update();
+      /* Markers follow the camera: see `applyNodeRadius`. Throttled on a
+         material change so orbiting does not rebuild the instance buffer
+         every frame. */
+      if (camera && controls) {
+        const d = camera.position.distanceTo(controls.target);
+        if (lastNodeDist < 0 || Math.abs(d - lastNodeDist) > lastNodeDist * 0.08) {
+          lastNodeDist = d;
+          applyNodeRadius();
+        }
+        /*
+         * The grid rebuilds when its LAYOUT would change, not when the camera has
+         * moved some fraction of its distance.
+         *
+         * The distance heuristic was wrong in both directions: it rebuilt on orbits
+         * that change nothing about a grid lying in a fixed plane, and it missed
+         * zooms that cross a spacing threshold by less than its 8 % — which is how
+         * the grid ended up looking like it only refreshed when a node was added,
+         * because adding one is what forced the next rebuild. `gridLayout` is a
+         * dozen arithmetic operations; asking it every frame costs nothing and is
+         * exact.
+         */
+        if (uiStore.showGrid3D) {
+          const key = gridKey(gridLayout(uiStore.gridSize3D, uiStore.gridExtent3D, gridView()));
+          if (key !== lastGridKey) {
+            lastGridKey = key;
+            updateGrid();
+          }
+        }
+      }
       // Keep ortho frustum synced when using orthographic camera
       if (camera === orthoCamera) syncOrthoFrustum();
       // Update clipping plane
@@ -723,6 +825,19 @@
       };
     });
 
+    /* And where a world point lands on screen, through THIS camera. See the
+       note in camera-probe.ts: the 2D transform answers this question in 3D
+       with a confident wrong number. */
+    setWorldProjector((x, y, z) => {
+      if (!camera || !renderer) return null;
+      const v = new THREE.Vector3(x, y, z).project(camera);
+      const rect = renderer.domElement.getBoundingClientRect();
+      return {
+        x: rect.left + ((v.x + 1) / 2) * rect.width,
+        y: rect.top + ((1 - v.y) / 2) * rect.height,
+      };
+    });
+
     controls.addEventListener('start', () => {
       isOrbiting = true;
       dampingFrames = 0;
@@ -851,7 +966,7 @@
       elementsBatched,
       shellGroups: sceneCtx.shellGroups,
       deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null, despieceGroup: null,
-      reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,
+      reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, shellLabelsGroup: null, verificationLabelsGroup: null,
       lastDeformedAnimScale: null, lastDespieceSep: null,
       colorMapApplied: false,
     };
@@ -2677,9 +2792,56 @@
     _syncOrthoFrustum(orthoCamera, camera.position, controls.target, containerAspect, aspect);
   }
 
+  /** Where the camera is looking, in the working plane, and how wide the view is. */
+  function gridView(): { u: number; v: number; span: number } | undefined {
+    if (!camera || !controls || !container) return undefined;
+    const dist = camera.position.distanceTo(controls.target);
+    if (!(dist > 0)) return undefined;
+    const fov = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+      ? ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180
+      : (50 * Math.PI) / 180;
+    const span = 2 * dist * Math.tan(fov / 2);
+    const t = controls.target;
+    /* The two in-plane axes, in the plane's own order. */
+    if (uiStore.workingPlane === 'XY') return { u: t.x, v: t.y, span };
+    if (uiStore.workingPlane === 'XZ') return { u: t.x, v: t.z, span };
+    return { u: t.y, v: t.z, span };
+  }
+
   function updateGrid() {
     if (!scene) return;
-    gridGroup = _updateGrid(scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D, uiStore.workingPlane, uiStore.nodeCreateZ);
+    const view = gridView();
+    /* Kept in step with what was just drawn: a settings change or a model load calls
+       this directly, and a stale key would make the next frame rebuild it again. */
+    lastGridKey = gridKey(gridLayout(uiStore.gridSize3D, uiStore.gridExtent3D, view));
+    gridGroup = _updateGrid(
+      scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D,
+      uiStore.workingPlane, uiStore.nodeCreateZ, view,
+    );
+    syncCameraRange();
+  }
+
+  /**
+   * Keep the view frustum big enough for everything that must be drawn.
+   *
+   * The far plane was a literal 1000 from when the grid was 50 m across; see
+   * the note where the cameras are built. A grid of extent E reaches E/2 from
+   * the centre, and the camera can be that far out again, so the diagonal a
+   * frustum has to contain is comfortably a few times E. Generous rather than
+   * tight: the cost of too much range is depth precision, and the logarithmic
+   * buffer is what pays for it; the cost of too little is a floor that
+   * disappears in pieces while you orbit.
+   *
+   * The near plane stays at 0.1 m so zooming into a connection still works.
+   */
+  function syncCameraRange() {
+    const reach = Math.max(uiStore.gridExtent3D, 50);
+    const far = Math.max(2000, reach * 4);
+    for (const cam of [perspCamera, orthoCamera]) {
+      if (!cam || cam.far === far) continue;
+      cam.far = far;
+      cam.updateProjectionMatrix();
+    }
   }
 
   function createFatAxes(): THREE.Group {

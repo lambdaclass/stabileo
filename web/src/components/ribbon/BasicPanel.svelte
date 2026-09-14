@@ -4,6 +4,7 @@
   import ToolbarResults from '../toolbar/ToolbarResults.svelte';
   import SelectionPanel from '../SelectionPanel.svelte';
   import MovePanel from '../MovePanel.svelte';
+  import EducativePanel from '../edu/EducativePanel.svelte';
   import ToolbarAdvanced from '../toolbar/ToolbarAdvanced.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ToolbarProject from '../toolbar/ToolbarProject.svelte';
@@ -215,7 +216,14 @@
   {/if}
 
   <div class="bp-body">
-    {#if panel === 'move'}
+    {#if panel === 'edu'}
+      <!--
+        The same panel Educational mode shows, in Basic's own right-hand
+        column. There is one of it: a second exercise surface is exactly what
+        a teacher and a student must not be able to disagree about.
+      -->
+      <EducativePanel />
+    {:else if panel === 'move'}
       <MovePanel />
     {:else if panel === 'selection'}
       <SelectionPanel />

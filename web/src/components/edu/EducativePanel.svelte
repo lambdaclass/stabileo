@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
+  import { returnBorrowedModel } from './exercise-session';
   import { getExerciseSections, type EduExercise } from './exercises';
   import EduExerciseView from './EduExerciseView.svelte';
   import { t } from '../../lib/i18n';
@@ -158,6 +159,24 @@
   // panel mounts is no longer silently dropped.
 
   function loadExercise(ex: EduExercise) {
+    /*
+     * Set the reader's own model aside before taking the canvas.
+     *
+     * Inside Basic this panel is one command among twenty, and the model on
+     * screen when it is pressed is work — possibly an hour of it. Loading an
+     * exercise replaces that model, and replacing it without a way back is
+     * the difference between a feature and a data-loss bug.
+     *
+     * Borrowed once, not on every exercise: moving from one exercise to the
+     * next must not overwrite the snapshot with an exercise's own structure.
+     * Education proper skips this — there the canvas was always the
+     * exercise's, and there is nothing of the reader's to keep.
+     */
+    if (uiStore.appMode !== 'educativo'
+        && eduStore.borrowedModel === null
+        && modelStore.nodes.size > 0) {
+      eduStore.borrowedModel = modelStore.snapshot();
+    }
     modelStore.clear();
     resultsStore.clear();
 
@@ -249,9 +268,11 @@
     // Leaving the exercise ends the handout: from here the window is a normal
     // Education session again, with the list and the mode switcher back.
     eduStore.markBrowsing();
-    modelStore.clear();
     resultsStore.clear();
+    returnBorrowedModel();
   }
+
+
 </script>
 
 <div class="edu-panel">

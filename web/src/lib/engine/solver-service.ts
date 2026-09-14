@@ -1358,13 +1358,39 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
   return solverLoads;
 }
 
+/**
+ * Does this 3D model contain anything that carries load?
+ *
+ * ── Why this is not `elements.size >= 1` ──────────────────────────
+ *
+ * It was, in four places, and that made a shell a decoration. A mat
+ * foundation IS its plates: the correct way to model one is to keep the
+ * shells, give them their thickness, and delete the bars — and doing exactly
+ * that produced a model the application refused to solve, with a message
+ * about members, on a structure that has none and needs none.
+ *
+ * The refusal was never the solver's. Shell stiffness is assembled from
+ * `quads` and `plates`, and nothing in that path asks whether a frame element
+ * exists; `inclined-shell.test.ts` even documents the limitation and works
+ * around it by giving a ramp edge beams it does not structurally need.
+ *
+ * A structure is at least two nodes and at least one thing spanning between
+ * them, whatever KIND of thing that is.
+ */
+export function hasLoadCarrying3D(model: ModelData): boolean {
+  return model.elements.size > 0
+    || (model.quads?.size ?? 0) > 0
+    || (model.plates?.size ?? 0) > 0
+    || (model.connectors?.size ?? 0) > 0;
+}
+
 export function buildSolverInput3D(
   model: ModelData,
   includeSelfWeight = false,
   leftHand = false,
   opts: { expandMemberOffsets?: boolean } = {},
 ): SolverInput3D | null {
-  if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
+  if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
 
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
   const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, leftHand);
@@ -1629,7 +1655,7 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   // route through here exactly once) so browser tests can assert that a
   // reinforcement-only edit triggers none. Not part of the solver.
   noteStructuralSolve();
-  if (model.nodes.size < 2 || model.elements.size < 1) {
+  if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) {
     return t('svc.needNodesAndElements');
   }
   if (model.supports.size < 1) {
@@ -1821,7 +1847,7 @@ export function solveCombinations3D(
   leftHand = false,
 ): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
   noteStructuralSolve();
-  if (model.nodes.size < 2 || model.elements.size < 1) return t('svc.needNodesAndElements');
+  if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) return t('svc.needNodesAndElements');
   if (model.supports.size < 1) return t('svc.needSupport');
   if (combinations.length === 0) return t('svc.needCombination');
 
@@ -1965,7 +1991,7 @@ export async function solveCombinations3DParallel(
   includeSelfWeight = false,
   leftHand = false,
 ): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
-  if (model.nodes.size < 2 || model.elements.size < 1) return t('svc.needNodesAndElements');
+  if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) return t('svc.needNodesAndElements');
   if (model.supports.size < 1) return t('svc.needSupport');
   if (combinations.length === 0) return t('svc.needCombination');
 

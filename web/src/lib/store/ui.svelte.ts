@@ -40,6 +40,14 @@ export type TouchDensity = 'compact' | 'comfortable';
 export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'];
 export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
+/**
+ * Which creator a viewport node-pick is filling.
+ *
+ * Named rather than written inline in three places: `'stair'` is here because
+ * a stair flight is built from the two nodes of its bottom edge, and adding it
+ * to a union spelled out at each use site is how one of them gets missed.
+ */
+export type ShellPickTarget = 'plate' | 'quad' | 'mesh' | 'stair';
 export type LoadTool = 'nodal' | 'distributed' | 'thermal';
 export type NodalLoadDir = 'fz' | 'fx' | 'my';
 export type SelectMode = 'nodes' | 'elements' | 'shells' | 'loads' | 'stress' | 'supports';
@@ -103,6 +111,23 @@ function createUIStore() {
    * time, with the panel silently undoing their choice.
    */
   let moveMode = $state<'view' | 'nodes'>('view');
+
+  /**
+   * Whether Basic offers the Educational panel.
+   *
+   * Educational is a whole mode at the top level, beside Básico and PRO, and
+   * that placement claims it is a different application. It is not: it is the
+   * same model, the same solver and the same canvas, with a panel that turns
+   * an exercise into a sequence of questions. A student who wants to check
+   * something in the ordinary way has to leave the exercise to do it.
+   *
+   * So Basic can opt into it: off by default, because most sessions are not
+   * teaching, and remembered per browser because it is a preference about how
+   * you work rather than a property of the model.
+   */
+  let eduInBasic = $state(
+    hasLocalStorage() ? localStorage.getItem('stabileo-edu-in-basic') === '1' : false,
+  );
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
   let nodalLoadDir = $state<NodalLoadDir>('fz'); // direction for nodal load placement
@@ -193,7 +218,7 @@ function createUIStore() {
   let selectedShells = $state<Set<string>>(new Set());
   // Shell node-pick: click nodes in the 3D viewport to fill a shell/mesh
   // creator instead of typing IDs. `target` says which creator is collecting.
-  let shellNodePick = $state<{ active: boolean; target: 'plate' | 'quad' | 'mesh' | null; picked: number[]; capacity: number }>(
+  let shellNodePick = $state<{ active: boolean; target: ShellPickTarget | null; picked: number[]; capacity: number }>(
     { active: false, target: null, picked: [], capacity: 0 },
   );
 
@@ -488,6 +513,7 @@ function createUIStore() {
   let gridExtent3D_basic = $state<number>(50);
   let showNodeLabels3D_basic = $state<boolean>(true);
   let showElementLabels3D_basic = $state<boolean>(false);
+  let showShellLabels3D_basic = $state<boolean>(false);
   let showLengths3D_basic = $state<boolean>(false);
   let showLoads3D_basic = $state<boolean>(true);
   let visibleLoadCases3D_basic = $state<number[] | null>(null);
@@ -499,9 +525,17 @@ function createUIStore() {
   let showGrid3D_pro = $state<boolean>(true);
   let snapToGrid3D_pro = $state<boolean>(true);
   let gridSize3D_pro = $state<number>(1);
-  let gridExtent3D_pro = $state<number>(50);
+  /*
+   * PRO models are buildings and sites, not test frames: 50 m of floor runs
+   * out before the model does. A kilometre by default, and the control goes
+   * to ten — `updateGrid` coarsens the spacing so the line count stays sane.
+   */
+  let gridExtent3D_pro = $state<number>(1000);
   let showNodeLabels3D_pro = $state<boolean>(true);
   let showElementLabels3D_pro = $state<boolean>(false);
+  /* Plate ids. PRO is where shells are modelled, so this is where it matters —
+     Basic keeps the state so the getter has one shape in both modes. */
+  let showShellLabels3D_pro = $state<boolean>(false);
   let showLengths3D_pro = $state<boolean>(false);
   let showLoads3D_pro = $state<boolean>(true);
   let visibleLoadCases3D_pro = $state<number[] | null>(null);
@@ -539,6 +573,12 @@ function createUIStore() {
   }
 
   return {
+    get eduInBasic() { return eduInBasic; },
+    set eduInBasic(v: boolean) {
+      eduInBasic = v;
+      try { localStorage.setItem('stabileo-edu-in-basic', v ? '1' : '0'); } catch { /* private mode */ }
+    },
+
     get moveMode() { return moveMode; },
     set moveMode(v: 'view' | 'nodes') { moveMode = v; },
 
@@ -1063,6 +1103,8 @@ function createUIStore() {
     set showNodeLabels3D(v: boolean) { if (analysisMode === 'pro') showNodeLabels3D_pro = v; else showNodeLabels3D_basic = v; },
     get showElementLabels3D() { return analysisMode === 'pro' ? showElementLabels3D_pro : showElementLabels3D_basic; },
     set showElementLabels3D(v: boolean) { if (analysisMode === 'pro') showElementLabels3D_pro = v; else showElementLabels3D_basic = v; },
+    get showShellLabels3D() { return analysisMode === 'pro' ? showShellLabels3D_pro : showShellLabels3D_basic; },
+    set showShellLabels3D(v: boolean) { if (analysisMode === 'pro') showShellLabels3D_pro = v; else showShellLabels3D_basic = v; },
     get showLengths3D() { return analysisMode === 'pro' ? showLengths3D_pro : showLengths3D_basic; },
     set showLengths3D(v: boolean) { if (analysisMode === 'pro') showLengths3D_pro = v; else showLengths3D_basic = v; },
     get showLoads3D() { return analysisMode === 'pro' ? showLoads3D_pro : showLoads3D_basic; },
@@ -1125,7 +1167,7 @@ function createUIStore() {
     // ─── Shell node-pick (viewport click → creator) ───
     get shellNodePick() { return shellNodePick; },
     /** Begin collecting `capacity` node clicks for a shell/mesh creator. */
-    startShellNodePick(target: 'plate' | 'quad' | 'mesh', capacity: number) {
+    startShellNodePick(target: ShellPickTarget, capacity: number) {
       shellNodePick = { active: true, target, picked: [], capacity };
       selectedNodes = new Set();
       selectedElements = new Set();

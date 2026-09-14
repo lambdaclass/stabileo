@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack, tick } from 'svelte';
   import LocaleSelect from './components/LocaleSelect.svelte';
+  import { hasLoadCarrying3D } from './lib/engine/solver-service';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
   import StatusBar from './components/StatusBar.svelte';
@@ -53,6 +54,36 @@
    * state covers every path there is.
    */
   $effect(() => { syncModelTabWithResults(basicPanel, basicDataTab); });
+
+  /*
+   * Switching Educational OFF has to leave the reader where it found them.
+   *
+   * The setting hides the ribbon group and this panel. Without the rest, that
+   * left two things behind: a panel still showing Exercises with nothing in
+   * the ribbon lit — the very mismatch between the bar and the panel this
+   * release set out to remove — and, worse, the reader's own model still held
+   * in the snapshot an exercise borrowed, with the only surface that could
+   * hand it back now gone.
+   *
+   * An effect rather than a line in the checkbox handler: the setting is
+   * restored from storage on boot too, and a reader who switched it off in
+   * another tab arrives here already off.
+   */
+  $effect(() => {
+    /*
+     * BASIC only, and this guard is the whole of a bug worth remembering.
+     *
+     * `eduInBasic` is a Basic setting: in Education proper it is false by
+     * definition, because there is nothing to switch on there — the panel is
+     * the application. Without this line the effect fired the moment a
+     * handed-out link opened an exercise and cleared it again, so every
+     * Education spec that opens one failed with `.exercise-view` not found.
+     */
+    if (uiStore.appMode !== 'basico') return;
+    if (uiStore.eduInBasic) return;
+    if (basicPanel === 'edu') basicPanel = null;
+    if (eduStore.hasExercise || eduStore.borrowedModel !== null) leaveExercise();
+  });
 
   /*
    * The keyboard layer is mounted far from here and does not own the panel,
@@ -224,11 +255,10 @@
   import ProPanel from './components/pro/ProPanel.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
-  import ToolbarConfig from './components/toolbar/ToolbarConfig.svelte';
-  import { captureFocus } from './lib/utils/dialog-focus';
   import ProRibbon from './components/pro/ProRibbon.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import { eduStore } from './components/edu/edu-store.svelte';
+  import { leaveExercise } from './components/edu/exercise-session';
   import TourOverlay from './components/TourOverlay.svelte';
   import HelpOverlay from './components/HelpOverlay.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
@@ -451,7 +481,8 @@
     // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
     // there but not here makes `?proTab=` silently no-op for it.
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
-      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics'];
+      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
+      'settings'];
     if (!VALID.includes(tab)) return;
     uiStore.proActiveTab = tab;
   }
@@ -928,6 +959,17 @@
     window.addEventListener('stabileo-dxf-drop', handleDxfDropEvent);
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
     window.addEventListener('stabileo-import-ifc', handleIfcImportEvent);
+    /*
+     * Project → Export offers the report beside Excel and CSV: three ways of
+     * getting the same numbers out of the application belong in one place.
+     * The listener is here with the other `stabileo-*` events rather than in
+     * the panel, which is a layout shell with a size ceiling that says so.
+     */
+    const handleOpenReportEvent = () => {
+      uiStore.proPanelVisible = true;
+      proPanelRef?.report();
+    };
+    window.addEventListener('stabileo-open-report', handleOpenReportEvent);
 
     // Global solve event — always mounted (mobile bottom bar dispatches this)
     // Cancel any pending debounced live calc so the manual solve supersedes it.
@@ -953,6 +995,7 @@
       window.removeEventListener('stabileo-import-dxf', handleDxfImportEvent);
       window.removeEventListener('stabileo-dxf-drop', handleDxfDropEvent);
       window.removeEventListener('stabileo-import-ifc', handleIfcImportEvent);
+      window.removeEventListener('stabileo-open-report', handleOpenReportEvent);
       window.removeEventListener('stabileo-solve', handleGlobalSolve);
       window.removeEventListener('stabileo-open-panel', handleOpenPanelEvent);
       window.removeEventListener('popstate', onPopState);
@@ -1039,22 +1082,14 @@
    * condition, this is the other half that has to learn about it.
    */
   const proMobileCanSolve = $derived(
-    modelStore.nodes.size > 0 && modelStore.elements.size > 0,
+    modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model),
   );
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
-  let proSettingsOpen = $state(false);
-  /**
-   * The settings panel element, for focus and for the outside-click test.
-   *
-   * Focus moves into the panel on open and back to the gear on close: the panel covers part of
-   * the ribbon, so leaving focus on a button underneath it is the same defect the 3-D workspace
-   * had. `dialog-focus.ts` owns the mechanism.
+  /*
+   * The settings dropdown is gone: PRO's settings open in the right-hand
+   * panel now, like Basic's, so there is no second surface to hold focus or
+   * to dismiss on an outside click.
    */
-  let proSettingsEl = $state<HTMLDivElement | null>(null);
-  $effect(() => {
-    if (!proSettingsOpen) return;
-    return captureFocus(proSettingsEl);
-  });
 
   // PRO toolbar dropdown state
   type ProDropdown = null | 'select' | 'geometry' | 'properties' | 'conditions' | 'analysis';
@@ -1070,13 +1105,32 @@
     if (openDropdown && !target?.closest('.pro-bar')) {
       openDropdown = null;
     }
-    // The settings panel closes on a click anywhere outside its own anchor — which includes the
-    // gear itself, whose own handler has already toggled the state by the time this runs, so
-    // the anchor has to be the boundary rather than the panel.
-    if (proSettingsOpen && !target?.closest('.settings-anchor')) {
-      proSettingsOpen = false;
-    }
   }
+
+  /*
+   * Publish PRO's panel width, so a toast does not land on the panel.
+   *
+   * Basic solved this once: toasts are anchored bottom-right of the VIEWPORT,
+   * which stopped being the corner of the canvas the moment a docked panel
+   * appeared, so a success message landed on top of the table it was
+   * announcing — semi-transparent, with the numbers showing through. Basic's
+   * panel publishes `--st-right-panel-w` and the toast stack reads it;
+   * PRO's never did, so the same defect was sitting in the other mode.
+   *
+   * Zero when the panel is hidden: closed means the canvas has the corner
+   * back, and a toast that dodges a panel that is not there is just as wrong.
+   */
+  $effect(() => {
+    const root = document.documentElement;
+    if (uiStore.appMode !== 'pro') {
+      /* REMOVED, not zeroed: Basic's panel publishes the same property, and
+         writing 0 here would overwrite the width it had just announced. */
+      root.style.removeProperty('--st-right-panel-w');
+      return;
+    }
+    const w = uiStore.proPanelVisible ? uiStore.proPanelWidth : 0;
+    root.style.setProperty('--st-right-panel-w', `${w}px`);
+  });
 
   function startProResize(e: MouseEvent) {
     e.preventDefault();
@@ -1158,15 +1212,36 @@
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>
-          <option value="educativo">{t('app.modeEdu')} (Beta)</option>
           <option value="pro">{t('app.modePro')} (Beta)</option>
+          <!--
+            Educational is not offered here any more; see the toggle below.
+            The option is still RENDERED when that is where you already are,
+            or the select would show a blank for the mode you are in — which
+            is what a `value` with no matching option does.
+          -->
+          {#if uiStore.appMode === 'educativo'}
+            <option value="educativo">{t('app.modeEdu')} (Beta)</option>
+          {/if}
         </select>
       {:else}
+        <!--
+          Two modes, not three.
+          ─────────────────────
+          Educational stopped being a separate application: it is a panel
+          inside Basic, switched on from Settings. Leaving its button here
+          would have said the opposite — that it is a third place to be,
+          with its own model and its own canvas — which is the claim the
+          move was made to retract.
+
+          The MODE still exists and `/app/education` still resolves to it.
+          That is deliberate: a handed-out exercise is a link, and links
+          that already exist have to keep opening. What is gone is the way
+          IN from here, not the destination.
+        -->
         <div class="mode-toggle" data-tour="mode-toggle">
           <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
             {t('app.modeBasic')}
           </button>
-          <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => switchAppMode('educativo')}>{t('app.modeEdu')}<span class="demo-badge">Beta</span></button>
           <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">Beta</span></button>
         </div>
       {/if}
@@ -1308,44 +1383,32 @@
         controls live and a phone has that corner too.
       -->
       {#if uiStore.appMode === 'pro'}
-        <div class="settings-anchor">
-          <button
-            class="btn btn-settings"
-            class:on={proSettingsOpen}
-            onclick={() => (proSettingsOpen = !proSettingsOpen)}
-            title={t('config.title')}
-            aria-label={t('config.title')}
-            aria-haspopup="dialog"
-            aria-expanded={proSettingsOpen}
-            aria-controls="pro-settings-panel"
-            data-testid="pro-settings"
-          ><Icon name="settings" size={16} /></button>
-
-          {#if proSettingsOpen}
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <div
-              class="pro-settings-dropdown"
-              id="pro-settings-panel"
-              data-testid="pro-settings-panel"
-              role="dialog"
-              aria-label={t('config.title')}
-              bind:this={proSettingsEl}
-              tabindex="-1"
-              onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); proSettingsOpen = false; } }}
-            >
-              <header class="pro-settings-head">
-                <h2>{t('config.title')}</h2>
-                <button
-                  class="pro-settings-close"
-                  onclick={() => (proSettingsOpen = false)}
-                  aria-label={t('config.close')}
-                  data-testid="pro-settings-close"
-                >✕</button>
-              </header>
-              <ToolbarConfig inline={true} />
-            </div>
-          {/if}
-        </div>
+        <!--
+          ── Settings open in the panel, like Basic ──────────────────
+          `aria-pressed`, not `aria-expanded`: this is a toggle over a docked
+          panel, not a control that owns a popup.
+          This was a dropdown hanging off the button: a second surface with
+          its own scroll and its own close, showing content the right-hand
+          panel already exists for. Two ways of showing one thing is how the
+          two modes drift apart, and Basic's is the one that was right.
+        -->
+        <button
+          class="btn btn-settings"
+          class:on={uiStore.proPanelVisible && uiStore.proActiveTab === 'settings'}
+          onclick={() => {
+            /* A second press closes it, the way the other header controls do. */
+            if (uiStore.proPanelVisible && uiStore.proActiveTab === 'settings') {
+              uiStore.proPanelVisible = false;
+            } else {
+              uiStore.proActiveTab = 'settings';
+              uiStore.proPanelVisible = true;
+            }
+          }}
+          title={t('config.title')}
+          aria-label={t('config.title')}
+          aria-pressed={uiStore.proPanelVisible && uiStore.proActiveTab === 'settings'}
+          data-testid="pro-settings"
+        ><Icon name="settings" size={16} /></button>
       {/if}
     </div>
   </header>
@@ -2182,17 +2245,6 @@
     color: white;
   }
 
-  .mode-toggle button.edu-mode-btn {
-    background: var(--st-surface-2);
-    color: var(--st-value);
-    border-left: 1px solid var(--st-hair);
-  }
-
-  .mode-toggle button.edu-mode-btn.active {
-    background: var(--st-surface-3);
-    color: white;
-  }
-
   .mode-toggle button.pro-mode-btn {
     background: var(--st-surface-2);
     color: var(--st-warn);
@@ -2270,8 +2322,17 @@
     flex-shrink: 0;
   }
 
-  /* Hidden, not unmounted — see the aside's comment in the markup above. */
-  .pro-sidebar-closed {
+  /*
+     Hidden, not unmounted — see the aside's comment in the markup above.
+
+     Three classes, and that is the whole fix: `.sidebar.right` sets
+     `display: flex` at specificity (0,2,0), so a lone `.pro-sidebar-closed`
+     at (0,1,0) LOST the cascade and the panel never hid. Pressing ✕ set the
+     state, the reopen tab appeared beside a panel that was still there, and
+     the report was "close does nothing" — which it did not: it did half of
+     one thing and the other half was outranked.
+  */
+  .sidebar.right.pro-sidebar-closed {
     display: none;
   }
 
@@ -2395,62 +2456,6 @@
   .simplified-stats { font-weight: 400; opacity: 0.85; }
   /* The positioned ancestor the panel measures `top: 100%` from. Without it the panel lands
      one whole app-body below the window — see the note beside the button. */
-  .settings-anchor { position: relative; display: inline-flex; }
-
-  .pro-settings-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 200;
-    width: 288px;
-    max-height: min(70vh, 34rem);
-    overflow-y: auto;
-    background: var(--st-surface);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius-lg);
-    /* Breathing room on every side: the old 0.5rem let the first checkbox sit on the border. */
-    padding: 0.35rem 0.85rem 0.85rem;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
-  }
-
-  .pro-settings-dropdown:focus { outline: none; }
-
-  .pro-settings-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    /* Sticky over a scrolling panel, so it needs its own ground rather than the panel's. */
-    background: var(--st-surface);
-    padding: 0.5rem 0 0.45rem;
-    margin-bottom: 0.25rem;
-    border-bottom: 1px solid var(--st-hair);
-  }
-
-  .pro-settings-head h2 {
-    margin: 0;
-    font-family: var(--st-display);
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--st-text);
-  }
-
-  .pro-settings-close {
-    background: none;
-    border: none;
-    border-radius: var(--st-radius);
-    color: var(--st-text-2);
-    font-size: 0.8rem;
-    line-height: 1;
-    padding: 0.2rem 0.35rem;
-    cursor: pointer;
-  }
-  .pro-settings-close:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .pro-settings-close:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 1px; }
 
   .pn-actions {
     display: flex;

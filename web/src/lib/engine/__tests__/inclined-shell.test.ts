@@ -26,7 +26,8 @@ describe('inclined shell ramp — existing quad elements in 3D', () => {
     m.elements.set(2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, releaseI: { my: false, mz: false, t: false }, releaseJ: { my: false, mz: false, t: false } });
     m.supports.set(1, { id: 1, nodeId: 1, type: 'fixed' });
     m.supports.set(2, { id: 2, nodeId: 2, type: 'fixed' });
-    m.loads.push({ type: 'surface3d', data: { id: 1, quadId: 1, q: -5, caseId: 1 } }); // gravity area load
+    // Positive q is gravity: `convertSurfaceLoad` resolves it as fz = −q·A/4.
+    m.loads.push({ type: 'surface3d', data: { id: 1, quadId: 1, q: 5, caseId: 1 } });
 
     const r = validateAndSolve3D(m, false) as any;
     expect(typeof r).not.toBe('string');

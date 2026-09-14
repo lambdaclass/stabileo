@@ -1,6 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
-  import { t, tp, i18n } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { identifyMessages } from '../../lib/codes/message';
   import { te } from '../../lib/i18n/engine-text';
   // The ONE authoritative generator. The legacy auto-loads / wind-loads production path
@@ -10,33 +10,79 @@
     buildLoadPlan, describePlanDelta, type LoadPlan, type LoadPlanInput, type PlanDelta,
   } from '../../lib/engine/loads/load-plan';
   import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
+  import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
+  import ProDeadLoadBuilder, { type DeadRow } from './ProDeadLoadBuilder.svelte';
   import type { ElementKind } from '../../lib/codes/cirsoc101/live-loads';
   import type { Enclosure, Exposure } from '../../lib/codes/cirsoc102/wind';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { bindingLabel } from '../../lib/codes/roles';
   import { messageIdentity } from '../../lib/codes/message';
-  import { DUCTILITY_TABLE, type SeismicZone, type SoilType, type ImportanceGroup,
-    type DuctilityKey, type StructureSystem, computeSa, approximatePeriod,
-    reductionFactor, IMPORTANCE_FACTORS, SPECTRAL_PARAMS,
-  } from '../../lib/engine/auto-loads';
+  /*
+   * Seismic comes from INPRES-CIRSOC 103 Parte I (2018) now.
+   *
+   * It used to come from `engine/auto-loads.ts`, which carries the 2005-era model: Ca
+   * and Cv by zone and SOIL rather than by spectral type, T3 fixed at 3 s for every
+   * zone where the 2018 table gives 3, 5, 8 and 13, and R built up from a ductility μ
+   * through a ramp instead of read off Tabla 5.1. It produced a number with no clause
+   * behind it, inside a dialog that cites a clause for everything else.
+   */
+  import {
+    designSpectrum, isBlocked, RISK_FACTOR,
+    type SeismicZone, type SiteClass, type DestinationGroup, type OccupancyProbability,
+  } from '../../lib/codes/cirsoc103/spectrum';
+  import { BEHAVIOUR_TABLE_2018, findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
+  import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
+
+  /** Which load the reader came in to define. */
+  export type AutoLoadFocus = 'dead' | 'live' | 'wind' | 'seismic';
 
   interface Props {
     open: boolean;
     onclose: () => void;
+    /**
+     * Open with one load's parameters in front of the reader.
+     *
+     * The dialog does all four at once, which is right when you are setting a project
+     * up and wrong when you are adding wind to one that already has its gravity loads.
+     * A case row in the loads table asks for ITS regulation, and the section it asks
+     * for is turned on and scrolled to rather than hunted for.
+     */
+    focus?: AutoLoadFocus | null;
   }
 
-  let { open, onclose }: Props = $props();
+  let { open, onclose, focus = null }: Props = $props();
 
   // ─── Design code definitions ─────────
 
-  // ─── Dead load config ──────────────────
-  const DEAD_KEYS = [
-    'autoLoad.dead.screed', 'autoLoad.dead.finish', 'autoLoad.dead.ceiling',
-    'autoLoad.dead.services', 'autoLoad.dead.partitions',
-  ] as const;
-  let deadComponents = $state(
-    [1.0, 0.8, 0.3, 0.3, 1.0].map((q, i) => ({ labelKey: DEAD_KEYS[i], q })),
-  );
+  /*
+   * ── Dead load, from Tabla 3.1 ──────────────────────────────────
+   *
+   * It opened with five fixed rows carrying five fixed numbers — screed 1,0, finish
+   * 0,8, ceiling 0,3, services 0,3, partitions 1,0 — none of which came from anywhere.
+   * The build-up is assembled from the table now; see `ProDeadLoadBuilder`.
+   *
+   * The default is a real build-up rather than an empty list, because an empty one is a
+   * dialog that cannot produce a dead load until the reader has read a table they have
+   * not opened yet: 8 cm of cement screed, a ceramic tile, a suspended ceiling, and a
+   * plasterboard partition allowance. Every one of those four is a Tabla 3.1 row, and
+   * each can be removed.
+   */
+  let deadRows = $state<DeadRow[]>([
+    { entryKey: 'contrapiso_cemento', thickness: 0.08, onBattens: false, q: 0, isPartition: false },
+    { entryKey: 'piso_baldosa_ceramica', thickness: 0, onBattens: false, q: 0, isPartition: false },
+    { entryKey: 'cielo_acustico', thickness: 0, onBattens: false, q: 0, isPartition: false },
+    { entryKey: 'tab_yeso_doble', thickness: 0, onBattens: false, q: 0, isPartition: true },
+  ]);
+
+  /** One row's contribution, resolved the same way the builder resolves it. */
+  function rowLoad(row: DeadRow): { labelKey: string; q: number } {
+    if (row.entryKey === null) return { labelKey: 'loads.dead.custom', q: row.q };
+    const entry = findDeadEntry(row.entryKey);
+    if (!entry) return { labelKey: 'loads.dead.custom', q: 0 };
+    const r = deadComponentLoad(entry, { thicknessM: row.thickness, onBattens: row.onBattens });
+    return { labelKey: entry.labelKey, q: r.qKNm2 };
+  }
+  const deadComponents = $derived(deadRows.map(rowLoad));
   const totalDead = $derived(deadComponents.reduce((s, c) => s + c.q, 0));
 
   // ─── Live load config ──────────────────
@@ -58,12 +104,23 @@
   const seismicAvailable = $derived(regulationsStore.bound('seismic'));
   const windAvailable = $derived(regulationsStore.bound('wind'));
   let seismicZone = $state<SeismicZone>(4);
-  let soilType = $state<SoilType>('SD');
-  let importanceGroup = $state<ImportanceGroup>('B');
-  let ductilityKey = $state<DuctilityKey>('HA_portico_completa');
-  let structureSystem = $state<StructureSystem>('portico_HA');
+  let siteClass = $state<SiteClass>('SD');
+  let destinationGroup = $state<DestinationGroup>('B');
+  /** Tabla 5.1 row — the system that carries the shear. R divides the whole spectrum. */
+  let systemKey = $state('rc_frame_full_ductility');
+  /** Tabla 6.2 row — a different classification, for the period only. */
+  let periodSystem = $state<PeriodSystem>('concreteMomentFrame');
+  let regularity = $state<PlanRegularity>('regular');
+  /** Tabla 3.3 — how much imposed load is present when the earthquake arrives. */
+  let seismicOccupancy = $state<OccupancyProbability>('reduced');
+  let elasticDesign = $state(false);
   let seismicDirectionX = $state(true);
   let seismicDirectionZ = $state(true);
+
+  /** The spectrum, live, so the panel can show what the zone and site imply. */
+  const spectrumPreview = $derived(designSpectrum({ zone: seismicZone, site: siteClass }));
+  const behaviourEntry = $derived(findBehaviour(systemKey));
+  const effectiveR = $derived(elasticDesign ? R_ELASTIC : behaviourEntry?.r ?? null);
 
   // ─── Wind config ─────────────────────
   let enableWind = $state(false);
@@ -82,13 +139,30 @@
   let genCombos = $state(true);
   let clearExisting = $state(false);
 
+  /* The fieldsets, so a focused open can bring one into view. */
+  let windFieldset = $state<HTMLElement | null>(null);
+  let seismicFieldset = $state<HTMLElement | null>(null);
+  let deadFieldset = $state<HTMLElement | null>(null);
+  let liveFieldset = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (!open || !focus) return;
+    /* Turning the section ON is the point: arriving at a disabled wind block from a
+       row that says "W" is arriving nowhere. */
+    if (focus === 'wind' && windAvailable) enableWind = true;
+    if (focus === 'seismic' && seismicAvailable) enableSeismic = true;
+    const el = focus === 'wind' ? windFieldset
+      : focus === 'seismic' ? seismicFieldset
+      : focus === 'live' ? liveFieldset
+      : deadFieldset;
+    el?.scrollIntoView({ block: 'start' });
+  });
+
   /** The plan is built first and applied only after the user confirms. */
   let plan = $state<LoadPlan | null>(null);
   let delta = $state<PlanDelta | null>(null);
   let applyError = $state<string | null>(null);
 
-  // The ductility table still carries its own label pair; everything new is keyed.
-  const isEs = $derived(i18n.locale === 'es');
 
   // The old seismic preview computed floor weights as
   //   (totalDead + 0.25 * occupancyQ) * 50   // "rough 50m2 per floor"
@@ -100,21 +174,6 @@
     V0: plan.factors.baseShear.value,
     levels: plan.levels.filter(l => l.elevation > 0),
   } : null);
-
-  /** Seismic design coefficient C from the bound seismic role. */
-  function seismicCoefficient(): number {
-    const T = approximatePeriod(buildingHeight(), structureSystem);
-    const mu = DUCTILITY_TABLE.find(d => d.key === ductilityKey)?.mu ?? 3.0;
-    const gammaR = IMPORTANCE_FACTORS[importanceGroup];
-    const p = SPECTRAL_PARAMS[seismicZone]?.[soilType];
-    const R = reductionFactor(T, mu, p?.T1 ?? 0.1);
-    return (gammaR * computeSa(T, seismicZone, soilType)) / R;
-  }
-
-  function buildingHeight(): number {
-    const zs = [...modelStore.nodes.values()].map(n => n.z ?? 0);
-    return zs.length > 0 ? Math.max(...zs) - Math.min(...zs) : 0;
-  }
 
   function planInput(): LoadPlanInput {
     return {
@@ -140,7 +199,14 @@
         directions: { x: windDirX, y: windDirZ },
       } : undefined,
       seismic: enableSeismic ? {
-        enabled: true, coefficient: seismicCoefficient(),
+        /* `coefficient` is the fallback the plan uses only when `code` is absent or
+           blocked; the 103 path below is what normally produces C. */
+        enabled: true, coefficient: 0,
+        code: {
+          zone: seismicZone, site: siteClass, group: destinationGroup,
+          systemKey, periodSystem, regularity, occupancy: seismicOccupancy,
+          elastic: elasticDesign,
+        },
         liveParticipation: null,
         directions: { x: seismicDirectionX, y: seismicDirectionZ },
       } : undefined,
@@ -173,7 +239,8 @@
     }
     if (enableSeismic) {
       regulationsStore.configureRole('seismic', {
-        zone: seismicZone, soil: soilType, importanceGroup, ductilityKey, structureSystem,
+        zone: seismicZone, site: siteClass, destinationGroup, systemKey,
+        periodSystem, regularity, occupancy: seismicOccupancy, elastic: elasticDesign,
       }, true);
     }
   }
@@ -327,18 +394,13 @@
       </fieldset>
 
       <!-- Dead Loads -->
-      <fieldset class="al-fieldset">
-        <legend>{t('autoLoad.deadLoads')} ({totalDead.toFixed(1)} kN/m²)</legend>
-        {#each deadComponents as comp, i}
-          <div class="al-dead-row">
-            <span class="al-dead-label">{t(comp.labelKey)}</span>
-            <input type="number" step="0.1" bind:value={deadComponents[i].q} class="al-input-sm" /> kN/m²
-          </div>
-        {/each}
+      <fieldset class="al-fieldset" bind:this={deadFieldset} data-testid="al-dead-section">
+        <legend>{t('autoLoad.deadLoads')} ({totalDead.toFixed(2)} kN/m²)</legend>
+        <ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} />
       </fieldset>
 
       <!-- Live Loads -->
-      <fieldset class="al-fieldset">
+      <fieldset class="al-fieldset" bind:this={liveFieldset} data-testid="al-live-section">
         <legend>{t('autoLoad.liveLoads')} ({occupancyQ} kN/m²)</legend>
         <select bind:value={selectedOccupancy} class="al-select">
           {#each OCCUPANCY_TABLE_2025 as occ}
@@ -348,7 +410,7 @@
       </fieldset>
 
       <!-- Seismic -->
-      <fieldset class="al-fieldset">
+      <fieldset class="al-fieldset" bind:this={seismicFieldset} data-testid="al-seismic-section">
         <legend>
           <label class="al-check-legend">
             <input type="checkbox" bind:checked={enableSeismic}
@@ -376,45 +438,101 @@
                 <option value={3}>3 — {t('autoLoad.zoneHigh')}</option>
                 <option value={2}>2 — {t('autoLoad.zoneModerate')}</option>
                 <option value={1}>1 — {t('autoLoad.zoneLow')}</option>
+                <option value={0}>0 — {t('autoLoad.zoneNone')}</option>
               </select>
             </div>
             <div class="al-field">
-              <label class="al-label">{t('autoLoad.soil')}</label>
-              <select bind:value={soilType} class="al-select-sm">
+              <label class="al-label" for="al-site">{t('autoLoad.site')}</label>
+              <select id="al-site" bind:value={siteClass} class="al-select-sm" data-testid="al-site">
                 <option value="SA">SA — {t('autoLoad.soilSA')}</option>
                 <option value="SB">SB — {t('autoLoad.soilSB')}</option>
                 <option value="SC">SC — {t('autoLoad.soilSC')}</option>
                 <option value="SD">SD — {t('autoLoad.soilSD')}</option>
                 <option value="SE">SE — {t('autoLoad.soilSE')}</option>
+                <option value="SF">SF — {t('autoLoad.soilSF')}</option>
               </select>
             </div>
             <div class="al-field">
-              <label class="al-label">{t('autoLoad.importance')}</label>
-              <select bind:value={importanceGroup} class="al-select-sm">
-                <option value="Ao">Ao (γ=1.5) — {t('autoLoad.impEssential')}</option>
-                <option value="A">A (γ=1.3) — {t('autoLoad.impImportant')}</option>
-                <option value="B">B (γ=1.0) — {t('autoLoad.impNormal')}</option>
-                <option value="C">C (γ=0.8) — {t('autoLoad.impLow')}</option>
+              <label class="al-label" for="al-group">{t('autoLoad.importance')}</label>
+              <select id="al-group" bind:value={destinationGroup} class="al-select-sm" data-testid="al-group">
+                <option value="Ao">Ao (γr={RISK_FACTOR.Ao}) — {t('autoLoad.impEssential')}</option>
+                <option value="A">A (γr={RISK_FACTOR.A}) — {t('autoLoad.impImportant')}</option>
+                <option value="B">B (γr={RISK_FACTOR.B}) — {t('autoLoad.impNormal')}</option>
+                <option value="C">C (γr={RISK_FACTOR.C}) — {t('autoLoad.impLow')}</option>
               </select>
             </div>
-            <div class="al-field">
-              <label class="al-label">{t('autoLoad.ductility')}</label>
-              <select bind:value={ductilityKey} class="al-select-sm">
-                {#each DUCTILITY_TABLE as d}
-                  <option value={d.key}>{isEs ? d.label : d.labelEn} (μ={d.mu})</option>
+            <!--
+              Two different classifications, and they are not the same list: Tabla 5.1
+              says how ductile the system is (R), Tabla 6.2 says how stiff it is (Ta).
+              A concrete frame is row 2 in one and `concreteMomentFrame` in the other,
+              and collapsing them into one control would silently pick a row.
+            -->
+            <div class="al-field al-field-wide">
+              <label class="al-label" for="al-system">{t('autoLoad.system')}</label>
+              <select id="al-system" bind:value={systemKey} class="al-select-sm" data-testid="al-system">
+                {#each BEHAVIOUR_TABLE_2018 as sys (sys.key)}
+                  <option value={sys.key}>
+                    {sys.row}. {t(sys.labelKey)}{sys.r !== null ? ` — R = ${sys.r}` : ` — ${t('autoLoad.rFormula')}`}
+                  </option>
                 {/each}
               </select>
             </div>
             <div class="al-field">
-              <label class="al-label">{t('autoLoad.system')}</label>
-              <select bind:value={structureSystem} class="al-select-sm">
-                <option value="portico_HA">{t('autoLoad.sysRCFrame')}</option>
-                <option value="portico_acero">{t('autoLoad.sysSteelFrame')}</option>
-                <option value="muros">{t('autoLoad.sysWalls')}</option>
-                <option value="otro">{t('autoLoad.sysOther')}</option>
+              <label class="al-label" for="al-period-system">{t('autoLoad.periodSystem')}</label>
+              <select id="al-period-system" bind:value={periodSystem} class="al-select-sm" data-testid="al-period-system">
+                <option value="concreteMomentFrame">{t('autoLoad.sysRCFrame')}</option>
+                <option value="steelMomentFrame">{t('autoLoad.sysSteelFrame')}</option>
+                <option value="steelEccentricOrBRB">{t('autoLoad.sysSteelBraced')}</option>
+                <option value="other">{t('autoLoad.sysOther')}</option>
+              </select>
+            </div>
+            <div class="al-field">
+              <label class="al-label" for="al-occupancy-f1">{t('autoLoad.simultaneity')}</label>
+              <select id="al-occupancy-f1" bind:value={seismicOccupancy} class="al-select-sm" data-testid="al-f1">
+                <option value="exceptional">{t('autoLoad.f1Exceptional')} — f1 = 0</option>
+                <option value="reduced">{t('autoLoad.f1Reduced')} — f1 = 0,25</option>
+                <option value="intermediate">{t('autoLoad.f1Intermediate')} — f1 = 0,50</option>
+                <option value="high">{t('autoLoad.f1High')} — f1 = 0,75</option>
+                <option value="full">{t('autoLoad.f1Full')} — f1 = 1,00</option>
+                <option value="other">{t('autoLoad.f1Other')} — f1 = 0,20</option>
+              </select>
+            </div>
+            <div class="al-field">
+              <label class="al-label" for="al-regularity">{t('autoLoad.regularity')}</label>
+              <select id="al-regularity" bind:value={regularity} class="al-select-sm" data-testid="al-regularity">
+                <option value="regular">{t('autoLoad.regRegular')}</option>
+                <option value="medium">{t('autoLoad.regMedium')}</option>
+                <option value="irregular">{t('autoLoad.regIrregular')}</option>
               </select>
             </div>
           </div>
+          <label class="al-elastic">
+            <input type="checkbox" bind:checked={elasticDesign} data-testid="al-elastic" />
+            {t('autoLoad.elasticDesign')}
+          </label>
+
+          <!--
+            What the zone and site imply, before anything is generated. The spectrum is
+            the input the reader is least able to check by eye, so the panel prints the
+            two coefficients and the two corner periods it produced.
+          -->
+          {#if isBlocked(spectrumPreview)}
+            <p class="al-warn" data-testid="al-spectrum-blocked">{te(spectrumPreview.blocked)}</p>
+          {:else}
+            <div class="al-spectrum" data-testid="al-spectrum">
+              {tp('autoLoad.spectrumLine', {
+                type: spectrumPreview.type,
+                ca: spectrumPreview.ca.toFixed(3),
+                cv: spectrumPreview.cv.toFixed(3),
+                t1: spectrumPreview.t1.toFixed(3),
+                t2: spectrumPreview.t2.toFixed(3),
+                t3: spectrumPreview.t3,
+              })}
+            </div>
+          {/if}
+          {#if effectiveR === null}
+            <p class="al-warn" data-testid="al-no-r">{t('autoLoad.rFormulaWarning')}</p>
+          {/if}
           <div class="al-directions">
             <label><input type="checkbox" bind:checked={seismicDirectionX} /> {t('autoLoad.dirX')}</label>
             <label><input type="checkbox" bind:checked={seismicDirectionZ} /> {t('autoLoad.dirZ')}</label>
@@ -430,6 +548,28 @@
                 {tp('autoLoad.baseShear', {
                   w: seismicPreview.W.toFixed(1), v: seismicPreview.V0.toFixed(1) })}
               </div>
+              {#if plan?.seismic?.source === 'cirsoc103'}
+                <div class="al-preview-row" data-testid="al-seismic-coefficient">
+                  {tp('autoLoad.coefficientLine', {
+                    c: plan.seismic.c.toFixed(4),
+                    t: (plan.seismic.t ?? 0).toFixed(3),
+                    ta: (plan.seismic.ta ?? 0).toFixed(3),
+                    r: plan.seismic.r ?? 0,
+                    gammaR: plan.seismic.gammaR ?? 0,
+                  })}
+                </div>
+                {#if plan.seismic.periodCapped}
+                  <div class="al-preview-note">{t('autoLoad.periodCapped')}</div>
+                {/if}
+                {#if plan.seismic.floorApplied === 'nearFault'}
+                  <div class="al-preview-note">{t('autoLoad.floorNearFault')}</div>
+                {:else if plan.seismic.floorApplied === 'lowZone'}
+                  <div class="al-preview-note">{t('autoLoad.floorLowZone')}</div>
+                {/if}
+                {#if plan.seismic.topHeavy}
+                  <div class="al-preview-note">{t('autoLoad.topHeavy')}</div>
+                {/if}
+              {/if}
               {#each seismicPreview.levels as lv (lv.elevation)}
                 <div class="al-preview-floor">
                   +{lv.elevation.toFixed(2)} m → Wi = {lv.weightKN.toFixed(1)} kN
@@ -441,7 +581,7 @@
       </fieldset>
 
       <!-- Wind -->
-      <fieldset class="al-fieldset">
+      <fieldset class="al-fieldset" bind:this={windFieldset} data-testid="al-wind-section">
         <legend>
           <label class="al-check-legend">
             <input type="checkbox" bind:checked={enableWind}
@@ -640,8 +780,14 @@
   .al-delta { width: 100%; border-collapse: collapse; margin: 0.3rem 0; }
   .al-delta th, .al-delta td { border: 1px solid var(--st-surface-3); padding: 0.15rem 0.4rem; text-align: right; }
   .al-delta th:first-child, .al-delta td:first-child { text-align: left; }
-  .al-warn { background: var(--st-surface-3); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; }
-  .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; }
+  /*
+     11 px, like every other piece of body text in this dialog. Without a size these
+     two inherited the dialog's base and came out as the LARGEST text on screen —
+     "seismic loads need a seismic regulation bound" shouting over the numbers the
+     reader is there to set.
+  */
+  .al-warn { background: var(--st-surface-3); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
+  .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
   .al-list { margin: 0.2rem 0 0; padding-left: 1.1rem; }
   .al-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; }
   .al-row label { min-width: 11rem; }
@@ -668,6 +814,17 @@
     border: 1px solid var(--st-surface-3); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;
   }
   .al-fieldset legend { color: var(--st-text-2); font-size: 11px; font-weight: 600; padding: 0 6px; text-transform: uppercase; }
+  .al-field-wide { grid-column: 1 / -1; }
+  .al-elastic {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.73rem; color: var(--st-text-2); margin-top: 6px;
+  }
+  .al-spectrum {
+    margin-top: 6px; font-size: 0.7rem; color: var(--st-text-3);
+    font-variant-numeric: tabular-nums; line-height: 1.5;
+  }
+  .al-preview-note { font-size: 0.68rem; color: var(--st-text-3); line-height: 1.45; }
+
   .al-dead-row {
     display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px;
   }

@@ -268,27 +268,31 @@
       ],
     },
     {
-      id: 'conditions',
-      labelKey: 'ribbon.groupConditions',
-      cmds: [
-        { id: 'support', icon: 'support', labelKey: 'float.support', tool: 'support', panel: 'data', dataTab: TOOL_DATA_TAB.support },
-        { id: 'load', icon: 'load', labelKey: 'float.load', tool: 'load', panel: 'data', dataTab: TOOL_DATA_TAB.load },
-      ],
-    },
-    {
       /*
        * Materials and sections had no home on the ribbon at all: they were
        * reachable only by opening Model data and finding the right tab, or by
        * going through an element. They are properties of the model in exactly
        * the sense supports and loads are conditions of it, so they belong on
-       * the same row — between the conditions that act on the structure and the
-       * analysis that consumes both. PRO already groups them this way.
+       * the same row.
+       *
+       * Before Conditions, and PRO has had this order for a while: draw it,
+       * say what it is made of, and only then say how it is held and loaded.
+       * A section is a property of the member you just drew; a support is
+       * something done TO the structure once it exists.
        */
       id: 'properties',
       labelKey: 'ribbon.groupProperties',
       cmds: [
         { id: 'materials', icon: 'material', labelKey: 'pro.tabMaterials', panel: 'data', dataTab: 'materials' },
         { id: 'sections', icon: 'section', labelKey: 'pro.tabSections', panel: 'data', dataTab: 'sections' },
+      ],
+    },
+    {
+      id: 'conditions',
+      labelKey: 'ribbon.groupConditions',
+      cmds: [
+        { id: 'support', icon: 'support', labelKey: 'float.support', tool: 'support', panel: 'data', dataTab: TOOL_DATA_TAB.support },
+        { id: 'load', icon: 'load', labelKey: 'float.load', tool: 'load', panel: 'data', dataTab: TOOL_DATA_TAB.load },
       ],
     },
     {
@@ -323,6 +327,33 @@
       labelKey: 'ribbon.tabResults',
       cmds: diagramCmds,
     },
+    /*
+     * ── Educational, when the reader has asked for it ────────────────
+     *
+     * Off unless Settings says otherwise, and last in the row on purpose:
+     * it is a way of WORKING on the model that is already there, not a step
+     * in building it, so it belongs after everything that is.
+     *
+     * A group of one, because a group is how the ribbon separates kinds of
+     * work and this is its own kind. It opens a panel like every other
+     * command here, so the highlight means what it means everywhere else.
+     */
+    ...(uiStore.eduInBasic
+      ? [{
+          id: 'edu',
+          /*
+           * The GROUP says where you are, the COMMAND says what you get.
+           * Both read "Modo Educativo" before, so the ribbon said the same
+           * words twice and neither of them named a destination — and "mode"
+           * is now the wrong noun anyway, since this stopped being a mode the
+           * moment it moved inside Basic.
+           */
+          labelKey: 'ribbon.groupEdu',
+          cmds: [
+            { id: 'edu', icon: 'examples', labelKey: 'ribbon.edu', panel: 'edu' },
+          ],
+        }]
+      : []),
   ]);
 
   /* ── The phone's row ───────────────────────────────────────────────────

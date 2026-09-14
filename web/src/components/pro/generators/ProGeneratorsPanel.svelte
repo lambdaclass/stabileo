@@ -643,7 +643,8 @@
     without it the default `min-height: auto` makes it as tall as its content and the dock is
     pushed off the bottom, which is the same failure the dock exists to fix.
   */
-  .gen { display: flex; flex-direction: column; padding: 10px 12px; height: 100%; overflow: hidden; }
+  /* Horizontal inset comes from `.pro-content`; see ProPanel. */
+  .gen { display: flex; flex-direction: column; padding: 10px 0; height: 100%; overflow: hidden; }
   .gen-scroll { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; }
   .gen-dock { display: flex; flex-direction: column; gap: 8px; }
   .gen-dock.docked {
