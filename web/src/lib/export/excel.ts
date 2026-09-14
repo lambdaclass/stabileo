@@ -428,6 +428,89 @@ function createSectionsSheet(): Xlsx.WorkSheet {
   return ws;
 }
 
+
+/**
+ * The shells — plates and quads in one sheet.
+ *
+ * They were absent entirely, which for a model built around a slab meant an
+ * export that described the frame holding it up and not the thing being held.
+ * One sheet rather than two because the reader's unit is "the shells in this
+ * model"; the node count says which kind each row is.
+ */
+function createShellsSheet(): Xlsx.WorkSheet {
+  const headers = ['ID', t('excel.type'), t('excel.nodes'), t('excel.material'), 'e (m)'];
+  const data: (string | number)[][] = [headers];
+
+  for (const p of modelStore.plates.values()) {
+    data.push([p.id, 'Plate', (p.nodes ?? []).join(' '),
+      modelStore.materials.get(p.materialId)?.name ?? p.materialId, p.thickness]);
+  }
+  for (const q of modelStore.quads.values()) {
+    data.push([q.id, 'Quad', (q.nodes ?? []).join(' '),
+      modelStore.materials.get(q.materialId)?.name ?? q.materialId, q.thickness]);
+  }
+
+  if (data.length === 1) data.push([t('excel.noShells')]);
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = headers.map(() => ({ wch: 14 }));
+  return ws;
+}
+
+/**
+ * What each combination asked for, and the envelope over all of them.
+ *
+ * A solved model with combinations was exported as though it had one load
+ * case: the summary reported a single set of maxima and nothing said which
+ * combination produced them. For anyone checking a design that is the whole
+ * question — the envelope is what a section is sized for, and the governing
+ * combination is what you cite.
+ */
+function createCombinationsSheet(): Xlsx.WorkSheet {
+  const is3D = isMode3D(uiStore.analysisMode);
+  const perCombo = is3D ? resultsStore.perCombo3D : resultsStore.perCombo;
+
+  const headers = [t('excel.combination'), t('excel.maxDisplacement') + ' (mm)',
+    t('excel.maxMoment') + ' (kN·m)', t('excel.maxShear') + ' (kN)', t('excel.maxAxial') + ' (kN)'];
+  const data: (string | number)[][] = [headers];
+
+  const peak = (r: Record<string, never> | undefined, keys: string[]): number => {
+    let m = 0;
+    for (const ef of ((r?.elementForces ?? []) as unknown as Array<Record<string, number>>)) {
+      for (const k of keys) m = Math.max(m, Math.abs(Number(ef[k] ?? 0)));
+    }
+    return m;
+  };
+  const peakDisp = (r: Record<string, never> | undefined): number => {
+    let m = 0;
+    for (const d of ((r?.displacements ?? []) as unknown as Array<Record<string, number>>)) {
+      const comps = [d.ux, d.uy, d.uz].filter((v) => typeof v === 'number') as number[];
+      m = Math.max(m, Math.hypot(...comps));
+    }
+    return m;
+  };
+
+  /*
+   * Keyed by combination id, and the name comes from the model. The map's
+   * value type differs between 2D and 3D, so the peak helpers read the
+   * fields defensively rather than the code committing to one shape.
+   */
+  const comboName = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
+  for (const [id, r] of perCombo as unknown as Map<number, Record<string, never>>) {
+    data.push([
+      comboName.get(id) ?? String(id),
+      Number((peakDisp(r) * 1000).toFixed(4)),
+      Number(peak(r, ['mz', 'my', 'momentI', 'momentJ']).toFixed(2)),
+      Number(peak(r, ['vy', 'vz', 'shearI', 'shearJ']).toFixed(2)),
+      Number(peak(r, ['n', 'axialI', 'axialJ']).toFixed(2)),
+    ]);
+  }
+
+  if (data.length === 1) data.push([t('excel.noCombinations')]);
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = headers.map(() => ({ wch: 18 }));
+  return ws;
+}
+
 export async function exportToExcel(options: ExcelExportOptions = {}): Promise<void> {
   if (!(await loadXlsxModule())) return;
 
@@ -464,6 +547,17 @@ export async function exportToExcel(options: ExcelExportOptions = {}): Promise<v
 
     XLSX.utils.book_append_sheet(wb, createMaterialsSheet(), t('excel.sheetMaterials'));
     XLSX.utils.book_append_sheet(wb, createSectionsSheet(), t('excel.sheetSections'));
+
+    /*
+     * Only when there is something to say. An empty Shells tab on every beam
+     * export is a question the reader has to dismiss each time.
+     */
+    if (modelStore.plates.size > 0 || modelStore.quads.size > 0) {
+      XLSX.utils.book_append_sheet(wb, createShellsSheet(), t('excel.sheetShells'));
+    }
+    if (includeResults && resultsStore.hasCombinations) {
+      XLSX.utils.book_append_sheet(wb, createCombinationsSheet(), t('excel.sheetCombinations'));
+    }
   }
 
   for (const extra of extraSheets) {

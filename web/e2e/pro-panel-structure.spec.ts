@@ -18,7 +18,7 @@
  * Both are claims about LAYOUT, so both are measured as layout — document order, computed styles
  * and `elementFromPoint` — and not by looking at a screenshot.
  */
-import { test, expect } from './fixtures';
+import { test, expect, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** Position of a testid in the panel's reading order. */
@@ -180,7 +180,7 @@ test.describe('the status section speaks the three languages', () => {
     test(`S9 ${locale} — the section is named in the interface's language`, async (
       { pro: page },
     ) => {
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await expect(page.getByTestId('design-overview-disclosure')).toContainText(title);
     });
   }

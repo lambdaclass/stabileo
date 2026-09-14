@@ -1621,6 +1621,30 @@ function createModelStore() {
       return id;
     },
 
+    /**
+     * Change a member's properties, and say that the model changed.
+     *
+     * `ElementEditor` used to assign straight onto the element object —
+     * `elem.materialId = …`, `elem.releaseI = …` — which changes the data and
+     * tells nothing. `modelVersion` did not move, so everything keyed on it
+     * went on believing the model was the one that had been analysed; the
+     * mutation hook never fired; the elements Map was never reassigned, so
+     * the canvas had no reason to redraw; and the results on screen still
+     * described the member's old section.
+     *
+     * Every other edit goes through a method like this one for exactly those
+     * reasons. Swapping a material is not a smaller change than moving a
+     * node just because it is easier to type.
+     */
+    updateElement(id: number, patch: Partial<Element>): void {
+      const elem = model.elements.get(id);
+      if (!elem) return;
+      modelVersion++;
+      _onMutation?.();
+      model.elements.set(id, { ...elem, ...patch, id: elem.id });
+      model.elements = new Map(model.elements);
+    },
+
     updateNodeZ(id: number, z: number): void {
       const node = model.nodes.get(id);
       if (node) {

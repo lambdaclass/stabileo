@@ -9,7 +9,7 @@
   import { resultsStore } from '../../lib/store/results.svelte';
   import Icon from './Icon.svelte';
   import { runSolve } from '../../lib/actions/solve';
-  import { TOOL_KEY_MAP } from '../../lib/tool-keys';
+  import { TOOL_KEY_MAP, TOOL_DATA_TAB } from '../../lib/tool-keys';
   import { saveProject } from '../../lib/store/file';
 
   /**
@@ -195,6 +195,17 @@
          * stays here is what selecting needs a PANEL for: which kinds of thing
          * a drag picks up.
          */
+        /*
+         * Move is back in the ribbon, and this time it belongs here.
+         *
+         * Pan left because a pointer mode opens no panel, so its highlight
+         * competed with the commands that do. This one DOES open a panel,
+         * because it has a choice to offer: a drag can move the view or it
+         * can move the model, and until now the second lived inside the Node
+         * tool's create-mode — where the same gesture placed a node whenever
+         * the press missed one.
+         */
+        { id: 'move', icon: 'move', labelKey: 'move.title', panel: 'move' },
         { id: 'select', icon: 'select', labelKey: 'ribbon.selection', panel: 'selection' },
         /*
          * One button, not two. A pair where one is always lit reads as a
@@ -252,16 +263,16 @@
       id: 'draw',
       labelKey: 'ribbon.groupDraw',
       cmds: [
-        { id: 'node', icon: 'node', labelKey: 'float.node', tool: 'node', panel: 'data', dataTab: 'nodes' },
-        { id: 'element', icon: 'element', labelKey: 'float.element', tool: 'element', panel: 'data', dataTab: 'elements' },
+        { id: 'node', icon: 'node', labelKey: 'float.node', tool: 'node', panel: 'data', dataTab: TOOL_DATA_TAB.node },
+        { id: 'element', icon: 'element', labelKey: 'float.element', tool: 'element', panel: 'data', dataTab: TOOL_DATA_TAB.element },
       ],
     },
     {
       id: 'conditions',
       labelKey: 'ribbon.groupConditions',
       cmds: [
-        { id: 'support', icon: 'support', labelKey: 'float.support', tool: 'support', panel: 'data', dataTab: 'supports' },
-        { id: 'load', icon: 'load', labelKey: 'float.load', tool: 'load', panel: 'data', dataTab: 'loads' },
+        { id: 'support', icon: 'support', labelKey: 'float.support', tool: 'support', panel: 'data', dataTab: TOOL_DATA_TAB.support },
+        { id: 'load', icon: 'load', labelKey: 'float.load', tool: 'load', panel: 'data', dataTab: TOOL_DATA_TAB.load },
       ],
     },
     {
@@ -461,8 +472,50 @@
    * on the model.
    */
 
+  /**
+   * Let go of the button when the click came from a pointer.
+   *
+   * A mouse click leaves DOM focus on the button, and the browser then rings
+   * it — so arming Barra with the mouse and pressing S for Apoyo lights Apoyo
+   * in the accent while Barra keeps a white box around it. Two things look
+   * chosen and only one is.
+   *
+   * `detail` is how the two activations are told apart: a real pointer click
+   * carries a click count of one or more, while Enter and Space on a focused
+   * button dispatch a click with `detail === 0`. So keyboard users keep their
+   * focus and their ring, and the mouse leaves nothing behind.
+   */
+  function releaseMouseFocus(e: MouseEvent) {
+    if (e.detail > 0) (e.currentTarget as HTMLElement | null)?.blur();
+  }
+
   function run(cmd: Cmd) {
     if (cmd.enabled && !cmd.enabled()) return;
+
+    /*
+     * ── The two pointer commands arm the pointer ────────────────────
+     *
+     * Move and Selection open a panel that CONFIGURES a pointer mode, and
+     * they were doing only that: you could pick Move, read a panel offering
+     * to move the view, drag, and pan nothing — because the pointer was
+     * still on whatever it had been. A control that describes a mode has to
+     * put you in it.
+     *
+     * Move arms the pointer the panel is already showing, so returning to it
+     * after choosing "mover nodos" does not silently drop you back to
+     * panning. Selection has one destination.
+     *
+     * These are still `panel` commands, not `tool` commands: the ribbon
+     * lights what the panel is showing, and that is exactly what should
+     * light here. A `tool` command would also open the Data table, which is
+     * the wrong place — neither of these edits a table.
+     */
+    if (cmd.id === 'move') {
+      uiStore.currentTool = uiStore.moveMode === 'nodes' ? 'moveNodes' : 'pan';
+    } else if (cmd.id === 'select') {
+      uiStore.currentTool = 'select';
+    }
+
     if (cmd.tool) {
       armTool(cmd.tool);
       /*
@@ -539,6 +592,23 @@
    * the canvas, and the canvas has its own legends to say what it is drawing.
    */
   function isActive(cmd: Cmd): boolean {
+    /*
+     * ── Lit means "this is what the panel is showing" ───────────────
+     *
+     * For a tool command this used to mean "…and the pointer is still on
+     * this tool", which made the ribbon and the panel disagree. Arm Node,
+     * then switch the pointer on the model — to Select, or to Move — and the
+     * Data panel goes on showing Nodes, correctly, while Nodo goes dark.
+     * Nothing up top then matches what is on the right.
+     *
+     * The pointer is not what this highlight is about, and it has its own
+     * control over the model that reports it. So a tool command lights on
+     * exactly the same terms as every other command that names a tab: the
+     * panel is open and showing that tab.
+     */
+    if (cmd.tool && cmd.dataTab) {
+      return activePanel === 'data' && activeDataTab === cmd.dataTab;
+    }
     if (cmd.tool) return activePanel === 'data' && uiStore.currentTool === cmd.tool;
     /*
      * A command that names a data tab lights when THAT tab is showing.
@@ -629,10 +699,11 @@
   <button
     class="rb-cmd"
     class:active={isActive(c)}
+    class:go={c.id === 'solve'}
     class:labelled
     disabled={!on}
     data-testid="rb-cmd-{c.id}"
-    onclick={() => { run(c); openCluster = null; }}
+    onclick={(e) => { run(c); openCluster = null; releaseMouseFocus(e); }}
     title={cmdTitle(c, on)}
   >
     <span class="rb-icon"><Icon name={typeof c.icon === 'function' ? c.icon() : c.icon} rotate={c.rotate ?? 0} /></span>
@@ -828,6 +899,59 @@
   }
 
   .rb-cmds { display: flex; align-items: flex-start; gap: 0.1rem; }
+
+  /* ── The one command that DOES something ─────────────────────────
+     Everything else on the ribbon changes what you are drawing or what you
+     are looking at; this runs the analysis. It was the same grey as its
+     neighbours, so the single button people come to the app to press looked
+     like a view toggle. Red, and only here — an accent that appears twice
+     stops being an accent.
+
+     Colour alone is never the signal: the glyph is a play triangle and the
+     label still says Calcular, so nothing depends on telling red from grey.
+     ─────────────────────────────────────────────────────────────── */
+  .rb-cmd.go {
+    color: var(--st-danger);
+  }
+
+  /*
+     The glyph as well as the word. `.rb-icon` sets its own colour, so the
+     inherited red stopped at the label and the triangle stayed grey — the
+     button ended up two colours, which reads as a mistake rather than as
+     emphasis. Same specificity as the rule it overrides, so it has to come
+     after it; the disabled rule below then comes after this one, because a
+     command that cannot run must not look inviting.
+  */
+  .rb-cmd.go .rb-icon { color: var(--st-danger); }
+  .rb-cmd.go:disabled .rb-icon { color: var(--st-text-2); }
+
+  .rb-cmd.go:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--st-danger) 12%, transparent);
+    border-color: color-mix(in srgb, var(--st-danger) 45%, transparent);
+    color: var(--st-danger);
+  }
+
+  /* Disabled wins: a command that cannot run must not look inviting. */
+  .rb-cmd.go:disabled {
+    color: var(--st-text-3);
+  }
+
+  /*
+     A click leaves DOM focus on the button, and the browser's default ring
+     then sits there looking like a second selection: arm Barra with the
+     mouse, press S for Apoyo, and Apoyo lights in the accent while Barra
+     keeps a white box around it. Two things appear chosen and only one is.
+
+     The ring still matters for anyone navigating by keyboard, so it is not
+     removed — it is narrowed to `:focus-visible`, which is the case it was
+     always for.
+  */
+  .rb-cmd:focus { outline: none; }
+
+  .rb-cmd:focus-visible {
+    outline: 2px solid var(--st-focus);
+    outline-offset: 1px;
+  }
 
   .rb-cmd {
     display: flex;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tPublic as t, publicI18n, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
+  import LocaleSelect from '../LocaleSelect.svelte';
   import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale } from './landing-utils';
 
   let stars = $state<number | null>(null);
@@ -54,18 +55,19 @@
         <span>{stars != null ? fmtStars(stars) : 'GitHub'}</span>
       </a>
 
-      <label class="nav-lang-wrap">
-        <span class="sr-only">{t('landing.navLanguage')}</span>
-        <select
-          class="nav-lang"
-          value={publicI18n.locale}
-          onchange={(e) => switchPublicLocale((e.currentTarget as HTMLSelectElement).value as (typeof PUBLIC_LOCALES)[number])}
-        >
-          {#each PUBLIC_LOCALES as code}
-            <option value={code}>{LOCALE_NAMES[code]}</option>
-          {/each}
-        </select>
-      </label>
+      <!--
+        A drawn list rather than a native `<select>`: the platform decides
+        where a native popup lands, and on macOS it floats beside the control
+        instead of belonging to it. See `LocaleSelect.svelte`.
+      -->
+      <LocaleSelect
+        value={publicI18n.locale}
+        options={PUBLIC_LOCALES}
+        label={(c) => LOCALE_NAMES[c as (typeof PUBLIC_LOCALES)[number]]}
+        onChange={(c) => switchPublicLocale(c as (typeof PUBLIC_LOCALES)[number])}
+        ariaLabel={t('landing.navLanguage')}
+        testid="nav-lang"
+      />
 
       <button class="btn btn-primary btn-sm" onclick={() => enterApp()}>{t('landing.navOpenEditor')}</button>
 

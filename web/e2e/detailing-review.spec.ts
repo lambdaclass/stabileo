@@ -23,7 +23,7 @@
  * for the wrong reason. `seedDetailing` puts known conflicts, known members and known warnings on
  * screen, so every assertion below is about the panel rather than about the model.
  */
-import { test, expect } from './fixtures';
+import { test, expect, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -218,7 +218,7 @@ test.describe('@smoke the review screen speaks the three languages', () => {
   ] as const) {
     test(`R8 ${locale} — the all-clear is in the interface's language`, async ({ pro: page }) => {
       // The picker, not a hook: this asserts what a user who changes the language actually sees.
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await seed(page, [assembly()]);
       await openPanel(page);
       await expect(page.getByTestId('problems-summary')).toContainText(none);

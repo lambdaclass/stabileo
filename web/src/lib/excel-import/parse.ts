@@ -354,6 +354,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       id, type: rawType, nodeI, nodeJ, materialId, sectionId,
       hingeStart: truthy(row.cells.hingestart),
       hingeEnd: truthy(row.cells.hingeend),
+      ...(num(row.cells.rollangle) !== null ? { rollAngle: num(row.cells.rollangle)! } : {}),
     });
   }
   counts.Members = model.elements.length;
@@ -388,11 +389,27 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (!canonical) {
       problems.push({
         sheet: 'Supports', row: row.n, column: 'type',
-        message: `tipo "${type}" desconocido — válidos: ${SUPPORT_TYPES.join(', ')}`,
+        message: `tipo "${type}" desconocido — v\u00e1lidos: ${SUPPORT_TYPES.join(', ')}`,
       });
       continue;
     }
-    model.supports.push({ id: supportId++, nodeId, type: canonical });
+    /*
+     * Only the springs and displacements the reader actually filled in. A
+     * blank cell means "not applicable", and writing zeros for the rest
+     * would turn every pinned support into one restrained by zero-stiffness
+     * springs — the solver would take that literally.
+     *
+     * These ride ALONGSIDE the validated type rather than instead of it:
+     * the type says which degrees of freedom are held, the springs say how
+     * softly. Dropping the validation to make room for them is how a typo
+     * in `type` would have reached the solver as a silent free node.
+     */
+    const extra: Record<string, number> = {};
+    for (const k of ['angle', 'kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz']) {
+      const v = num(row.cells[k.toLowerCase()]);
+      if (v !== null) extra[k] = v;
+    }
+    model.supports.push({ id: supportId++, nodeId, type: canonical, ...extra });
   }
   counts.Supports = model.supports.length;
 
@@ -431,6 +448,87 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     model.combinations.push({ id: i + 1, name, factors: byName.get(name)! });
   });
   counts.Combinations = model.combinations.length;
+
+  // ── Shells ───────────────────────────────────────────────────────
+  /**
+   * Node ids out of one cell.
+   *
+   * Split on anything that is not a digit, so `1 2 3`, `1,2,3` and `1-2-3`
+   * all work. A reader typing a list into a spreadsheet cell has no reason
+   * to know which separator we chose, and refusing three of the four they
+   * might reach for would be a rule with nothing behind it.
+   */
+  const nodeList = (v: unknown): number[] =>
+    String(v ?? '').split(/[^0-9]+/).filter(Boolean).map(Number);
+
+  const shellSheets: Array<{ sheet: string; target: Array<Record<string, unknown>>; want: number[] }> = [
+    { sheet: 'Plates', target: model.plates as unknown as Array<Record<string, unknown>>, want: [3, 4] },
+    { sheet: 'Quads', target: model.quads as unknown as Array<Record<string, unknown>>, want: [4] },
+  ];
+  for (const { sheet, target, want } of shellSheets) {
+    for (const row of readSheet(grab(sheet), sheet, problems)) {
+      const id = reqNum(row, 'id', sheet, problems);
+      const materialId = reqNum(row, 'material', sheet, problems);
+      const thickness = reqNum(row, 'thickness', sheet, problems);
+      const nodes = nodeList(row.cells.nodes);
+      if (id === null || materialId === null || thickness === null) continue;
+      if (!want.includes(nodes.length)) {
+        problems.push({
+          sheet, row: row.n, column: 'nodes',
+          message: `necesita ${want.join(' o ')} nodos y tiene ${nodes.length}`,
+        });
+        continue;
+      }
+      const missing = nodes.filter((n) => !nodeIds.has(n));
+      if (missing.length) {
+        problems.push({ sheet, row: row.n, message: `no existen los nodos: ${missing.join(', ')}` });
+        continue;
+      }
+      if (!matIds.has(materialId)) {
+        problems.push({ sheet, row: row.n, message: `no existe el material ${materialId}` });
+        continue;
+      }
+      target.push({ id, nodes, materialId, thickness });
+    }
+    counts[sheet] = target.length;
+  }
+
+  // ── Constraints ──────────────────────────────────────────────────
+  for (const row of readSheet(grab('Constraints'), 'Constraints', problems)) {
+    const type = reqStr(row, 'type', 'Constraints', problems);
+    if (type === null) continue;
+    const master = num(row.cells.master);
+    const slaves = nodeList(row.cells.slaves);
+    const nI = num(row.cells.nodei);
+    const nJ = num(row.cells.nodej);
+
+    /*
+     * Two shapes share this sheet: a diaphragm is a master plus slaves, a
+     * link is a pair. Neither is a superset of the other, so the row is
+     * rejected only when it describes neither.
+     */
+    const referenced = [master, nI, nJ].filter((n): n is number => n !== null).concat(slaves);
+    if (referenced.length === 0) {
+      problems.push({ sheet: 'Constraints', row: row.n, message: 'no nombra ningún nodo' });
+      continue;
+    }
+    const missing = referenced.filter((n) => !nodeIds.has(n));
+    if (missing.length) {
+      problems.push({
+        sheet: 'Constraints', row: row.n,
+        message: `no existen los nodos: ${[...new Set(missing)].join(', ')}`,
+      });
+      continue;
+    }
+    model.constraints.push({
+      type,
+      ...(master !== null ? { masterNode: master } : {}),
+      ...(slaves.length ? { slaveNodes: slaves } : {}),
+      ...(nI !== null ? { nodeI: nI } : {}),
+      ...(nJ !== null ? { nodeJ: nJ } : {}),
+    });
+  }
+  counts.Constraints = model.constraints.length;
 
   // ── Loads ────────────────────────────────────────────────────────
   const elemIds = new Set(model.elements.map((e) => e.id));

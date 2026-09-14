@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { setLineResolution } from '../three/create-element-mesh';
-import { projectNodeToScene, setCameraUp, shouldProjectModelToXZ, TOP_VIEW_UP_VECTOR } from '../geometry/coordinate-system';
+import { projectNodeToScene, setCameraUp, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import { uiStore, modelStore } from '../store';
 
 // ─── Types ──────────────────────────────────────────────────
@@ -140,8 +140,35 @@ export function setView(
 
   switch (view) {
     case 'top':
-      camera.position.set(center.x, center.y, center.z + dist);
-      camera.up.copy(TOP_VIEW_UP_VECTOR);
+      /*
+       * ── A plan view that does not change the orbit axis ───────────
+       *
+       * This used to swap `camera.up` to Y, because a camera looking
+       * straight down cannot use the vertical as its up vector. That is true
+       * — and it did not do what it looked like it did. `OrbitControls`
+       * derives its orbit axis from `object.up` ONCE, in its constructor
+       * (`_quat`, never recomputed), so assigning `camera.up` afterwards
+       * changes how the camera is oriented and nothing about how dragging
+       * rotates. The result was a view whose screen-up and whose orbit axis
+       * disagreed: the first drag from a plan view rolled the model onto its
+       * side.
+       *
+       * So the camera stops short of straight down instead. Tipped one
+       * degree towards −Y, the vertical is no longer parallel to the view
+       * direction, Z remains a valid up, and the component of Z across the
+       * screen works out to +Y — which is the orientation a plan is read in.
+       * A degree costs nothing: on a 100 m model the far edge shifts under
+       * two metres, and the orbit axis is the one every other view uses.
+       */
+      {
+        const tip = 0.018; // rad ≈ 1°
+        camera.position.set(
+          center.x,
+          center.y - dist * Math.sin(tip),
+          center.z + dist * Math.cos(tip),
+        );
+        setCameraUp(camera);
+      }
       break;
     case 'front':
       camera.position.set(center.x, center.y - dist, center.z);

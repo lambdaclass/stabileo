@@ -29,6 +29,7 @@
  */
 
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
+import { readCamera } from '../viewport3d/camera-probe';
 import { detailingStore } from '../store/detailing.svelte';
 import { detailingSheet } from '../store/detailing-sheet.svelte';
 import { exportRecordStore } from '../store/export-record.svelte';
@@ -162,6 +163,20 @@ export interface StabileoTestHooks {
    * "the click missed the member".
    */
   viewportPick(): { selectMode: string; tool: string; hasResults: boolean; hasStressQuery: boolean };
+  /**
+   * The 3D camera, for tests about views and orbiting.
+   *
+   * Published by `Viewport3D` while it is mounted. Reading the axis gizmo
+   * off a screenshot is how an afternoon disappears into guessing which way
+   * "up" ended up; these are the numbers that decide it.
+   */
+  cameraState(): {
+    up: [number, number, number];
+    pos: [number, number, number];
+    target: [number, number, number];
+    /** Angle from the world up axis, in degrees. 0 is straight overhead. */
+    polarDeg: number;
+  } | null;
   /**
    * The guided step on screen, or null.
    *
@@ -482,6 +497,8 @@ export function installE2EHooks(): void {
       (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
+    cameraState: () => readCamera(),
+
     viewportPick: () => ({
       selectMode: String(uiStore.selectMode),
       tool: String(uiStore.currentTool),
