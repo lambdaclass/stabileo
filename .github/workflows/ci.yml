@@ -188,8 +188,12 @@ jobs:
         timeout-minutes: 15
         continue-on-error: true
 
+      # Diagnostics only. A failed upload must never turn a green test run red:
+      # the artifact service timed out on PR90 and failed the e2e job AFTER
+      # "124 passed", which reads as a broken branch and is not one.
       - name: Upload criterion reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: criterion-reports
@@ -206,8 +210,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      # Pinned and cached; see the note in deploy-gh-pages.yml. The installer
+      # script has no retry, so a transient 503 from the releases CDN fails the
+      # job. CI is no more robust than the deploy was — it had just been lucky.
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.13.1
 
       - uses: actions/setup-node@v4
         with:
@@ -246,8 +255,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      # Pinned and cached; see the note in deploy-gh-pages.yml. The installer
+      # script has no retry, so a transient 503 from the releases CDN fails the
+      # job. CI is no more robust than the deploy was — it had just been lucky.
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.13.1
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -329,6 +343,7 @@ jobs:
       # Uploaded for diagnostics: on a mismatch this carries the actual/diff images.
       - name: Upload Linux screenshot baselines / diffs
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: linux-screenshot-baselines
@@ -348,6 +363,7 @@ jobs:
       # saw. `warn` restores the signal if the paths ever go stale again.
       - name: Upload Playwright artifacts
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts
