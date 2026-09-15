@@ -4,21 +4,15 @@
   import { applyPageMeta, restorePageMeta } from '../lib/page-meta';
   import LandingNav from './landing/LandingNav.svelte';
   import LandingHero from './landing/LandingHero.svelte';
-  import LandingProblem from './landing/LandingProblem.svelte';
-  import LandingWhat from './landing/LandingWhat.svelte';
+  import LandingPricing from './landing/LandingPricing.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
-  import LandingCapabilities from './landing/LandingCapabilities.svelte';
-  import LandingValidation from './landing/LandingValidation.svelte';
-  import LandingCodes from './landing/LandingCodes.svelte';
+  import LandingProCalc from './landing/LandingProCalc.svelte';
+  import LandingProDesign from './landing/LandingProDesign.svelte';
+  import LandingAi from './landing/LandingAi.svelte';
   import LandingEducation from './landing/LandingEducation.svelte';
-  import LandingPro from './landing/LandingPro.svelte';
-  import LandingThesis from './landing/LandingThesis.svelte';
-  import LandingStatus from './landing/LandingStatus.svelte';
-  import LandingDocs from './landing/LandingDocs.svelte';
-  import LandingCTA from './landing/LandingCTA.svelte';
   import LandingBlog from './landing/LandingBlog.svelte';
   import LandingFooter from './landing/LandingFooter.svelte';
-  import WhatsappButton from './landing/WhatsappButton.svelte';
+  import LinksButton from './landing/LinksButton.svelte';
   import { enterApp } from './landing/landing-utils';
   import './landing/landing.css';
 
@@ -162,19 +156,13 @@
   -->
   <LandingNav />
   <LandingHero {prefersReducedMotion} />
-  <LandingProblem />
-  <LandingWhat />
   <LandingBasic />
-  <LandingCapabilities />
-  <LandingValidation />
-  <LandingCodes />
+  <LandingProCalc />
+  <LandingProDesign />
+  <LandingAi />
   <LandingEducation />
-  <LandingPro />
-  <LandingThesis />
-  <LandingStatus />
-  <LandingDocs />
-  <LandingCTA />
+  <LandingPricing />
   <LandingBlog />
   <LandingFooter />
-  <WhatsappButton />
+  <LinksButton />
 </div>

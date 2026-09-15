@@ -100,3 +100,26 @@ export async function fetchGithubStars(): Promise<number | null> {
     return cached?.stars ?? null;
   }
 }
+
+/**
+ * Where Stabileo is, off its own site.
+ *
+ * Declared once so the footer, and anything that comes after it, cannot
+ * disagree about an address. External and untrusted in the ordinary sense:
+ * every anchor built from these carries `rel="noreferrer"`.
+ */
+/**
+ * The hub the corner button opens: WhatsApp and every account in one place.
+ *
+ * Kept beside SOCIAL_LINKS rather than inside it — the footer lists the
+ * accounts themselves, and a link to the list of them does not belong in the
+ * list.
+ */
+export const LINKTREE_URL = 'https://linktr.ee/stabileo';
+
+/*
+ * The accounts themselves now live in `lib/contact/channels`, because the
+ * editor's header offers the same five and two copies of a list of handles
+ * drift in silence. Re-exported under the name the footer already uses.
+ */
+export { SOCIAL_LINKS } from '../../lib/contact/channels';

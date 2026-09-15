@@ -85,9 +85,27 @@ jobs:
           check() {
             grep -q "$2" "dist/$1" || { echo "dist/$1 does not carry: $2"; exit 1; }
           }
-          check en/index.html 'A free and open structural-analysis platform'
-          check es/index.html 'Una plataforma gratuita y abierta de cálculo estructural'
-          check pt/index.html 'Uma plataforma gratuita e aberta de cálculo estrutural'
+          #
+          # ── The language is checked by the document, not by the copy ──
+          #
+          # These used to grep one sentence of the hero per language. That tied
+          # the deploy to marketing copy: the landing rewrite in #188 changed
+          # `landing.heroP` in all three languages, updated
+          # e2e/prerender.spec.ts to match, and would have left these lines
+          # asking for the old sentence — a failure only a push to main can
+          # reveal, because this workflow does not run on pull requests. It is
+          # the same way the canonical check below went stale when #172 moved
+          # the slashes, and that one blocked every deploy until it was found.
+          #
+          # `<html lang>` is written by scripts/prerender.ts from the language
+          # the page was captured in, so a capture in the wrong language — or
+          # one taken before the head was rewritten, which leaves index.html's
+          # "en" — fails here exactly as the prose did, without failing on the
+          # day the copy gets better. The prose itself is still asserted per
+          # language by e2e/prerender.spec.ts, in the @smoke job, on every PR.
+          check en/index.html '<html lang="en">'
+          check es/index.html '<html lang="es">'
+          check pt/index.html '<html lang="pt">'
           #
           # ── The trailing slash is part of the assertion ──
           #

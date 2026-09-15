@@ -17,6 +17,7 @@
   import { resolveDeleteTargets } from './lib/store/delete-selection';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
+  import ContactMenu from './components/ContactMenu.svelte';
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
@@ -1338,6 +1339,21 @@
           <span class="ai-word">AI</span>
         </button>
       {/if}
+
+      <!--
+        Contact, between the assistant and Settings.
+        ───────────────────────────────────────────
+        The landing has carried a contact button in its corner and the editor
+        carried none, so the way to ask a question vanished at exactly the
+        moment someone started using the thing — and the people with questions
+        are the people modelling, not the people reading.
+
+        Here rather than in a ribbon group for the same reason the assistant is
+        here: it acts on the application, not on the document. Beside the
+        assistant specifically because the two answer the same impulse, "I am
+        stuck", one automatically and one with a person on the other end.
+      -->
+      <ContactMenu />
 
       <!--
         At every width, now.
@@ -3874,6 +3890,40 @@
   }
 
   .logo-icon { color: var(--st-accent); font-size: 1.15rem; }
+
+  /*
+     On a small phone the header is full, and the wordmark is the part that
+     repeats itself.
+     ──────────────────────────────────────────────────────────────────────
+     At 390px the row was already exactly as wide as the window: logo, mode
+     selector and the action buttons came to 387 of 390 available pixels. The
+     contact button then pushed Settings off the right edge — a control that
+     was still in the DOM, still focusable, and no longer reachable by touch.
+
+     What gives way is the word "Stabileo" beside the triangle, and then the
+     word "AI" beside its own triangle. Both are labels on a mark that is
+     already the brand: the △ opens the home page and the △ AI opens the
+     assistant whether or not the word is spelled out, and every button keeps
+     its title and aria-label. Nothing is hidden that was not also said
+     another way.
+  */
+  @media (max-width: 460px) {
+    .logo-text { display: none; }
+  }
+
+  @media (max-width: 410px) {
+    .ai-word { display: none; }
+    .btn-ai { width: 32px; padding: 0; justify-content: center; border-radius: 50%; }
+
+    /*
+       And the spacing between them, which is the cheapest 30 pixels here.
+       The separator is a divider between two groups that are already told
+       apart by which edge they sit on.
+    */
+    .app-header { gap: 0.4rem; padding-left: 0.375rem; padding-right: 0.375rem; }
+    .separator { display: none; }
+    .header-actions { gap: 0.375rem; }
+  }
 
   /*
      The mode switch is the one place the accent belongs up here: it says which

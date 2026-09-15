@@ -11,6 +11,7 @@
   import LocaleSelect from '../LocaleSelect.svelte';
   import { REPO_URL, enterApp, switchPublicLocale, fetchGithubStars } from '../landing/landing-utils';
   import PublicLink from '../landing/PublicLink.svelte';
+  import BrandMark from '../landing/BrandMark.svelte';
 
   const LOCALE_NAMES: Record<string, string> = { en: 'English', es: 'Español', pt: 'Português' };
 
@@ -46,7 +47,7 @@
 <nav class="nav" aria-label={t('landing.navPrimary')}>
   <div class="nav-inner">
     <PublicLink to="/" class="nav-brand" title={t('blog.backHome')}>
-      <span class="nav-logo" aria-hidden="true">S</span>
+      <span class="nav-logo"><BrandMark /></span>
       <span class="nav-name">Stabileo</span>
     </PublicLink>
 
