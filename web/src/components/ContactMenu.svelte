@@ -23,14 +23,24 @@
 
   let open = $state(false);
   let root: HTMLDivElement | undefined = $state();
+  let trigger: HTMLButtonElement | undefined = $state();
 
   const CHANNELS = $derived(contactChannels(t('contact.waGreeting')));
 
   /* Escape closes it, and a click anywhere else does too. A menu that only
      the button that opened it can dismiss traps whoever opened it by
-     accident — and in the editor that button is one pixel away from work. */
+     accident — and in the editor that button is one pixel away from work.
+
+     Escape also hands focus back to the button. Closing a list a keyboard
+     user is inside of, while focus sits on a link that no longer exists,
+     drops them at the top of the document. A pointer that clicked elsewhere
+     has already put focus where it meant to, so that path leaves it alone. */
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && open) { e.stopPropagation(); open = false; }
+    if (e.key === 'Escape' && open) {
+      e.stopPropagation();
+      open = false;
+      trigger?.focus();
+    }
   }
   function onPointerDown(e: MouseEvent) {
     if (open && root && !root.contains(e.target as Node)) open = false;
@@ -40,14 +50,27 @@
 <svelte:window onkeydown={onKeydown} onpointerdown={onPointerDown} />
 
 <div class="contact-anchor" bind:this={root}>
+  <!--
+    A disclosure, not an ARIA menu.
+    ───────────────────────────────
+    This was `aria-haspopup="menu"` over `role="menu"` and `role="menuitem"`.
+    Those roles are a promise: a screen reader announces a menu, and its user
+    reaches for the arrow keys, Home, End and typeahead — none of which this
+    implements. What it is, is a button that shows a short list of ordinary
+    links, which Tab already walks. So it says that: the button reports
+    whether the list is expanded and which element it controls, and the list
+    is a labelled group — the shape the landing's corner panel already uses
+    for the same five links.
+  -->
   <button
+    bind:this={trigger}
     class="btn-contact"
     class:on={open}
     onclick={() => (open = !open)}
     title={t('contact.linksLabel')}
     aria-label={t('contact.linksLabel')}
-    aria-haspopup="menu"
     aria-expanded={open}
+    aria-controls={open ? 'contact-menu' : undefined}
     data-testid="contact-open"
   >
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
@@ -61,12 +84,12 @@
   </button>
 
   {#if open}
-    <div class="contact-menu" role="menu" aria-label={t('contact.linksLabel')} data-testid="contact-menu">
+    <div class="contact-menu" id="contact-menu" role="group" aria-label={t('contact.linksLabel')} data-testid="contact-menu">
       <p class="contact-title">{t('contact.linksTitle')}</p>
       <ul>
         {#each CHANNELS as c (c.id)}
           <li>
-            <a href={c.href} target="_blank" rel="noreferrer" role="menuitem" data-social={c.id}>
+            <a href={c.href} target="_blank" rel="noreferrer" data-social={c.id}>
               <span class="contact-mark" aria-hidden="true">{@html c.icon}</span>
               <span class="contact-name">{c.label}</span>
               {#if c.langs}<span class="contact-langs">{c.langs}</span>{/if}

@@ -18,6 +18,7 @@
 
   let open = $state(false);
   let root: HTMLDivElement | undefined = $state();
+  let trigger: HTMLButtonElement | undefined = $state();
 
   /*
    * The list, the marks and the language codes are all one description, in
@@ -28,9 +29,16 @@
 
   /* Escape closes it, and a click anywhere else does too. A popover that can
      only be dismissed by the button that opened it traps a reader who opened
-     it by accident. */
+     it by accident.
+
+     Escape also hands focus back to the button, as the editor's header menu
+     does: a keyboard reader inside the list would otherwise be left on a link
+     that has just stopped existing, and land at the top of the page. */
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && open) { open = false; }
+    if (e.key === 'Escape' && open) {
+      open = false;
+      trigger?.focus();
+    }
   }
   function onPointerDown(e: MouseEvent) {
     if (open && root && !root.contains(e.target as Node)) open = false;
@@ -58,6 +66,7 @@
   {/if}
 
   <button
+    bind:this={trigger}
     class="links-fab"
     class:open
     onclick={() => (open = !open)}
