@@ -1,5 +1,5 @@
 {
-	"total": 473,
+	"total": 472,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -1092,12 +1092,6 @@
 			"code": "TS2345",
 			"message": "Argument of type '{ id: number; nodeId: number; type: string; angle?: number | undefined; isGlobal?: boolean | undefined; kx?: number | undefined; ky?: number | undefined; kz?: number | undefined; dx?: number | undefined; ... 7 more ...; krz?: number | undefined; }' is not assignable to parameter of type 'Partial<Support>'.",
 			"count": 2
-		},
-		{
-			"file": "src/lib/store/tabs.svelte.ts",
-			"code": "TS2741",
-			"message": "Property 'gridExtent3D' is missing in type '{ id: string; name: string; modelSnapshot: ModelSnapshot; analysisMode: \"2d\" | \"3d\" | \"pro\" | \"edu\"; viewportPresentation3D: ViewportPresentation3D; ... 43 more ...; cameraTarget3D: { ...; }; }' but required in type 'TabState'.",
-			"count": 1
 		},
 		{
 			"file": "src/lib/store/tabs.svelte.ts",

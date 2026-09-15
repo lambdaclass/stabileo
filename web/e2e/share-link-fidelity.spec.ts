@@ -57,14 +57,10 @@ test.describe('@smoke a share link carries the whole model', () => {
     expect(before.loads).toBeGreaterThan(200);
     expect(before.combinations).toBeGreaterThan(0);
 
-    // Copied the way a reader copies it: Project → Copy link.
+    // Copied the way a reader copies it: Project → the share-link button.
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.getByTestId('hdr-project').click();
-    await page
-      .locator('button.file-btn')
-      .filter({ hasText: /Copiar enlace|Copy link/i })
-      .first()
-      .click();
+    await page.getByTestId('project-share-link').click();
 
     const url = await page.evaluate(() => navigator.clipboard.readText());
     expect(url, 'the button must put a data link on the clipboard').toContain('#data=');

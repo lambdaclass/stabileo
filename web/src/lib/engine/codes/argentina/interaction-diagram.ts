@@ -1,3 +1,7 @@
+import {
+  beta1, phiFromStrain, yieldStrain,
+  EPSILON_CU, ES_MPA, PHI_TENSION, PHI_COMPRESSION_TIED,
+} from './cirsoc201-basis';
 // P-M Interaction Diagram Generator
 // Generates point-by-point interaction diagrams for reinforced concrete sections
 // per CIRSOC 201 (based on ACI 318). Does NOT modify the solver.
@@ -39,18 +43,6 @@ export interface DiagramParams {
   nPoints?: number; // default 40
 }
 
-const PHI_TENSION = 0.90;
-const PHI_COMPRESSION = 0.65;
-const EPSILON_CU = 0.003; // concrete ultimate strain
-
-/**
- * β₁ factor per CIRSOC 201
- */
-function beta1(fc: number): number {
-  if (fc <= 28) return 0.85;
-  const b = 0.85 - 0.05 * (fc - 28) / 7;
-  return Math.max(0.65, b);
-}
 
 /**
  * Generate P-M interaction diagram for a rectangular section
@@ -66,7 +58,24 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
   const b1 = beta1(fc);
   const fc_kPa = fc * 1000;     // kN/m²
   const fy_kPa = fy * 1000;     // kN/m²
-  const Es = 200000 * 1000;     // kN/m² (200 GPa)
+  const Es = ES_MPA * 1000;     // kN/m² (200 GPa)
+
+  /*
+   * §10.3.6's ceiling, computed ONCE.
+   *
+   * No column is loaded at truly zero eccentricity, so the code caps the
+   * design axial load at 0.80·φC·Pn0 (ties), with Pn0 the squash load — the
+   * whole section at εcu, every bar yielding, the concrete the bars displace
+   * not counted twice. The cap binds near the top of the diagram and nowhere
+   * else; this line used to read `min(Pn, 0.80·Pn/φ·φ)` per point, which
+   * collapses to 0.80·Pn and taxed EVERY point of the diagram 20 % of its
+   * axial capacity — the balanced point included, where §10.3.6 asks for
+   * nothing.
+   */
+  const Ag = b * h;
+  const Ast = AsProv * 1e-4;
+  const Pn0 = 0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast;
+  const phiPnMax = PHI_COMPRESSION_TIED * 0.80 * Pn0;
 
   const points: InteractionPoint[] = [];
   let balancedPt: InteractionPoint | null = null;
@@ -85,7 +94,7 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
   }
 
   // Add balanced point explicitly: c_b = d × εcu / (εcu + εy)
-  const ey = fy / 200000;
+  const ey = yieldStrain(fy);
   const cb = d * EPSILON_CU / (EPSILON_CU + ey);
   cValues.push(cb);
 
@@ -117,20 +126,11 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
     const Pn = Cc + CsPrime - Ts; // kN (+ = compression)
     const Mn = Cc * (h / 2 - aEff / 2) + CsPrime * (h / 2 - dPrime) + Ts * (d - h / 2); // kN·m
 
-    // Determine φ based on strain in tension steel
-    let phi: number;
-    const epsT = Math.abs(eps);
-    if (epsT >= 0.005) {
-      phi = PHI_TENSION; // tension-controlled
-    } else if (epsT <= ey) {
-      phi = PHI_COMPRESSION; // compression-controlled
-    } else {
-      // Transition zone: linear interpolation
-      phi = PHI_COMPRESSION + (PHI_TENSION - PHI_COMPRESSION) * (epsT - ey) / (0.005 - ey);
-    }
+    // Determine φ based on strain in tension steel — the one ramp, tied section
+    const phi = phiFromStrain(Math.abs(eps), fy);
 
-    // Max axial: φPn,max = φ·0.80·Pn (for tied columns)
-    const phiPn = phi * (Pn > 0 ? Math.min(Pn, 0.80 * Pn / phi * phi) : Pn);
+    // Max axial: φPn ≤ 0.80·φC·Pn0 (§10.3.6) — a ceiling, not a factor
+    const phiPn = Math.min(phi * Pn, phiPnMax);
     const phiMn = phi * Mn;
 
     const pt: InteractionPoint = { phiPn, phiMn, c };
@@ -144,11 +144,9 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
     points.push(pt);
   }
 
-  // Pure compression point
-  const Ag = b * h;
-  const Ast = AsProv * 1e-4;
+  // Pure compression point — the cap itself
   const pureComp: InteractionPoint = {
-    phiPn: PHI_COMPRESSION * 0.80 * (0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast),
+    phiPn: phiPnMax,
     phiMn: 0,
     c: 999,
     label: 'Compresión pura',

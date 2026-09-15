@@ -1,7 +1,8 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
-  import { arcPolyline } from '../../lib/engine/curved-beam';
+  import { t, tp } from '../../lib/i18n';
+  import DrawInModelButton from './DrawInModelButton.svelte';
+  import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
   import MemberOffsetEditor from '../property/MemberOffsetEditor.svelte';
 
   const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
@@ -19,7 +20,75 @@
   let rows = $state<ElemRow[]>([]);
   let pasteError = $state<string | null>(null);
   let selectedRowIdx = $state<number | null>(null);
-  let drawMode = $state(false);
+  /*
+   * Drawing is the POINTER's state, not this panel's.
+   *
+   * The panel kept its own `drawMode` flag beside `uiStore.currentTool`, so
+   * two things claimed to know whether a member was being drawn — and the
+   * pointer box over the model, which reads the store, could say Select
+   * while this panel said it was waiting for a first node. One of them was
+   * always going to be wrong; the store is the one the viewport obeys.
+   */
+  const drawMode = $derived(uiStore.currentTool === 'element');
+
+  // ── Curved members ───────────────────────────────────────────────
+  let showArc = $state(false);
+  let arcStart = $state('');
+  let arcThrough = $state('');
+  let arcEnd = $state('');
+  let arcSegments = $state(8);
+  let arcError = $state<string | null>(null);
+
+  /** The three picked nodes as points, or null while the form is incomplete. */
+  const arcPts = $derived.by(() => {
+    const ids = [arcStart, arcThrough, arcEnd].map((v) => Number(v));
+    if (ids.some((n) => !Number.isFinite(n) || n <= 0)) return null;
+    const ns = ids.map((id) => modelStore.nodes.get(id));
+    if (ns.some((n) => !n)) return null;
+    return ns.map((n) => ({ x: n!.x, y: n!.y ?? 0, z: (n! as { z?: number }).z ?? 0 }));
+  });
+
+  const arcGeo = $derived(arcPts ? arcThroughThree(arcPts[0], arcPts[1], arcPts[2]) : null);
+  const arcChordError = $derived(arcGeo ? chordError(arcGeo, arcSegments) : 0);
+
+  /**
+   * Draw the curve.
+   *
+   * The ends REUSE the nodes they were picked from — two nodes in the same
+   * place analyse as two nodes, so an arch that created its own springing
+   * points would be a structure cut where it looks joined, with no visible
+   * symptom and a solve that succeeds.
+   */
+  function createArc() {
+    arcError = null;
+    if (!arcPts || !arcGeo) { arcError = t('pro.arcNeedsThree'); return; }
+    const startId = Number(arcStart);
+    const endId = Number(arcEnd);
+    const arcId = Date.now();
+    const made = buildArc(
+      { start: arcPts[0], through: arcPts[1], end: arcPts[2], segments: arcSegments },
+      {
+        addNode: (x, y, z) => modelStore.addNode(x, y, z),
+        /* The arc passes through the middle point by construction, so an even
+           segment count lands a generated point exactly on the node that was
+           picked to define it. Two nodes in one place analyse as two nodes. */
+        nodeAt: (x, y, z) => {
+          for (const [id, n] of modelStore.nodes) {
+            const nz = (n as { z?: number }).z ?? 0;
+            if (Math.hypot(n.x - x, (n.y ?? 0) - y, nz - z) <= NODE_MERGE_TOL) return id;
+          }
+          return null;
+        },
+        addElement: (i, j) => modelStore.addElement(i, j),
+        tag: (elementId, tag) => {
+          const el = modelStore.elements.get(elementId);
+          if (el) modelStore.updateElement(elementId, { arc: { id: tag.arcId, spec: tag.spec } } as never);
+        },
+      },
+      arcId, startId, endId,
+    );
+    if (made.length === 0) arcError = t('pro.arcFailed');
+  }
   let drawNodeI = $state<number | null>(null);
 
   // Sync rows from store on mount. Preserve unsaved rows (id === null).
@@ -181,54 +250,11 @@
     }
   }
 
-  function toggleDrawMode() {
-    drawMode = !drawMode;
-    if (drawMode) {
-      drawNodeI = null;
-      uiStore.setSelection(new Set(), new Set());
-    }
-  }
-
   // Available materials and sections
   const materials = $derived([...modelStore.materials.values()]);
   const sections = $derived([...modelStore.sections.values()]);
   const elemCount = $derived(rows.filter(r => r.id !== null).length);
 
-  // ── Curved members (arc → straight frames) ──
-  // Fits the arc through 3 nodes and builds straight frame segments along it.
-  // Done web-side (real model nodes + frames) so diagrams/results work through
-  // the normal frame machinery.
-  let showCurved = $state(false);
-  let cbNodes = $state<[string, string, string]>(['', '', '']);
-  let cbSegments = $state(6);
-  let cbMaterialId = $state(1);
-  let cbSectionId = $state(1);
-  let cbError = $state<string | null>(null);
-  let cbSuccess = $state<string | null>(null);
-
-  function generateCurvedMember() {
-    cbError = null; cbSuccess = null;
-    const ids = cbNodes.map(s => parseInt(s));
-    if (ids.some(isNaN) || new Set(ids).size !== 3 || ids.some(id => !modelStore.nodes.has(id))) { cbError = t('pro.curvedErr3Nodes'); return; }
-    if (cbSegments < 2) { cbError = t('pro.curvedErrSegments'); return; }
-    if (!modelStore.materials.has(cbMaterialId) || !modelStore.sections.has(cbSectionId)) { cbError = t('pro.curvedErrMatSec'); return; }
-    const [s, m, e] = ids.map(id => modelStore.nodes.get(id)!);
-    const pts = arcPolyline(
-      { x: s.x, y: s.y, z: s.z ?? 0 }, { x: m.x, y: m.y, z: m.z ?? 0 }, { x: e.x, y: e.y, z: e.z ?? 0 }, cbSegments,
-    );
-    const nodeIds: number[] = [ids[0]];
-    for (let i = 1; i < pts.length - 1; i++) nodeIds.push(modelStore.addNode(pts[i].x, pts[i].y, pts[i].z !== 0 ? pts[i].z : undefined));
-    nodeIds.push(ids[2]);
-    let made = 0;
-    for (let i = 0; i < nodeIds.length - 1; i++) {
-      const elId = modelStore.addElement(nodeIds[i], nodeIds[i + 1], 'frame');
-      modelStore.updateElementMaterial(elId, cbMaterialId);
-      modelStore.updateElementSection(elId, cbSectionId);
-      made++;
-    }
-    cbSuccess = t('pro.curvedMemberSuccess').replace('{frames}', String(made)).replace('{nodes}', String(nodeIds.length - 2));
-    cbNodes = ['', '', ''];
-  }
 </script>
 
 <div class="pro-elems">
@@ -237,13 +263,79 @@
   {/if}
   <div class="pro-elems-header">
     <span class="pro-elems-count">{t('pro.nElements').replace('{n}', String(elemCount))}</span>
+    <!-- "Draw a member" works the MODEL; "+ Member" adds a table row, and
+         belongs to the table, which is where Basic keeps it. -->
     <div class="pro-elems-actions">
-      <button class="pro-btn" onclick={addEmptyRow}>{t('pro.addElement')}</button>
-      <button class="pro-btn" class:pro-btn-active={drawMode} onclick={toggleDrawMode}>
-        {drawMode ? t('pro.stopDrawing') : t('pro.draw')}
-      </button>
+      <DrawInModelButton tool="element" label={t('pro.oneElement')} icon="element" testid="draw-element" />
+      <button class="pro-btn" class:pro-btn-active={showArc} onclick={() => (showArc = !showArc)}
+              data-testid="pro-arc-toggle">{t('pro.curvedMember')}</button>
     </div>
   </div>
+
+
+  <!--
+    ── A curved member, as an arc through three points ────────────────
+    The solver has straight frame elements and no curved beam, so the arc is
+    MATERIALISED as a chain of them — what every commercial package does, and
+    what lets diagrams, verification, detailing and the results tables keep
+    working unchanged, because they all already understand straight members.
+
+    Three points because that is what an engineer has: the two ends and a
+    point the curve must pass through. Two points and a radius is the same
+    arc stated differently and leaves which way round it goes ambiguous,
+    which is precisely what the middle point settles.
+
+    The segment count is a choice with a number attached: the panel says how
+    far the chain falls inside the true arc, in metres, so "is twelve enough"
+    stops being a feeling.
+  -->
+  {#if showArc}
+    <div class="pro-arc" data-testid="pro-arc-form">
+      <!--
+        Three labelled fields, each under its own caption.
+        ────────────────────────────────────────────────
+        They were six controls on one line — label, box, label, box, label,
+        box — which reads as one long sentence with three blanks in it and
+        gives no clue that a NODE ID goes in each. Stacked with a caption
+        over each field and a placeholder that says what kind of thing it
+        wants, the three ends of an arc are three things rather than a row of
+        empty boxes.
+      -->
+      <div class="pro-arc-fields">
+        {#each [
+          { label: t('pro.arcStart'), get: () => arcStart, set: (v: string) => (arcStart = v), tid: 'arc-start' },
+          { label: t('pro.arcThrough'), get: () => arcThrough, set: (v: string) => (arcThrough = v), tid: 'arc-through' },
+          { label: t('pro.arcEnd'), get: () => arcEnd, set: (v: string) => (arcEnd = v), tid: 'arc-end' },
+        ] as f (f.tid)}
+          <label class="pro-arc-field">
+            <span>{f.label}</span>
+            <input
+              type="text" inputmode="numeric"
+              placeholder={t('pro.arcNodePh')}
+              value={f.get()}
+              oninput={(e) => f.set(e.currentTarget.value)}
+              data-testid={f.tid}
+            />
+          </label>
+        {/each}
+      </div>
+      <div class="pro-arc-row">
+        <label>{t('pro.arcSegments')}</label>
+        <input type="number" min="1" max="64" bind:value={arcSegments} data-testid="arc-segments" />
+        {#if arcGeo}
+          <span class="pro-arc-note" data-testid="arc-note">
+            R = {arcGeo.radius.toFixed(3)} m · L = {arcGeo.length.toFixed(3)} m ·
+            {tp('pro.arcError', { mm: (arcChordError * 1000).toFixed(1) })}
+          </span>
+        {/if}
+      </div>
+      {#if arcError}<div class="pro-arc-err" data-testid="arc-error">{arcError}</div>{/if}
+      <div class="pro-arc-row">
+        <button class="pro-btn pro-btn-accent" onclick={createArc} data-testid="arc-create"
+                disabled={!arcGeo}>{t('pro.arcCreate')}</button>
+      </div>
+    </div>
+  {/if}
 
   {#if drawMode}
     <div class="pro-draw-status">
@@ -341,58 +433,24 @@
         {/if}
       </tbody>
     </table>
+    <div class="pro-table-footer">
+      <button class="pro-btn pro-btn-sm" onclick={addEmptyRow} data-testid="pro-add-element">{t('pro.addElement')}</button>
+    </div>
   </div>
 
-  <!-- Curved members (arc → straight frames) -->
-  <div class="curved-section">
-    <button class="curved-toggle" onclick={() => showCurved = !showCurved}>
-      <span>{showCurved ? '▾' : '▸'}</span> {t('pro.curvedMembers')}
-    </button>
-    {#if showCurved}
-      <div class="curved-body">
-        <div class="curved-hint">{t('pro.curvedMembersHint')}</div>
-        <div class="curved-row">
-          <label>{t('pro.startMidEnd')}</label>
-          <input type="text" bind:value={cbNodes[0]} placeholder="start" />
-          <input type="text" bind:value={cbNodes[1]} placeholder="mid" />
-          <input type="text" bind:value={cbNodes[2]} placeholder="end" />
-        </div>
-        <div class="curved-row">
-          <label>{t('pro.segments')}</label>
-          <input type="number" bind:value={cbSegments} min="2" max="100" />
-        </div>
-        <div class="curved-row">
-          <label>{t('pro.material')}</label>
-          <select bind:value={cbMaterialId}>{#each materials as m}<option value={m.id}>{m.name}</option>{/each}</select>
-        </div>
-        <div class="curved-row">
-          <label>{t('pro.section')}</label>
-          <select bind:value={cbSectionId}>{#each sections as s}<option value={s.id}>{s.name}</option>{/each}</select>
-        </div>
-        {#if cbError}<div class="curved-error">{cbError}</div>{/if}
-        {#if cbSuccess}<div class="curved-success">{cbSuccess}</div>{/if}
-        <button class="pro-btn pro-btn-active" onclick={generateCurvedMember}>{t('pro.generateCurvedMember')}</button>
-      </div>
-    {/if}
-  </div>
+  <!--
+    The second curved-member form is gone.
+    ─────────────────────────────────────
+    There were two, and neither knew about the other: this one, folded away
+    at the very bottom under a disclosure, and the one at the top of the
+    panel. Two forms for one operation is two places to fix a defect and two
+    answers to "how many segments did that use". The one that stays is the
+    one beside the members it creates, and it states the geometry it found
+    and how far the chords fall inside the arc.
+  -->
 </div>
 
 <style>
-  .curved-section { border-top: 1px solid var(--st-surface-3); margin-top: 6px; }
-  .curved-toggle {
-    width: 100%; text-align: left; background: none; border:  1px solid var(--st-hair); color: var(--st-text);
-    font-size: 0.78rem; font-weight: 600; padding: 8px 10px; cursor: pointer;
-  }
-  .curved-body { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
-  .curved-hint { font-size: 0.68rem; color: var(--st-text-2); line-height: 1.3; }
-  .curved-row { display: flex; align-items: center; gap: 6px; }
-  .curved-row label { font-size: 0.7rem; color: var(--st-text-2); min-width: 70px; }
-  .curved-row input[type="text"] { width: 48px; }
-  .curved-row input, .curved-row select {
-    background: var(--st-surface); border: 1px solid var(--st-surface-3); color: var(--st-text); border-radius: 3px; padding: 3px 5px; font-size: 0.7rem;
-  }
-  .curved-error { color: var(--st-danger); font-size: 0.68rem; }
-  .curved-success { color: var(--st-value); font-size: 0.68rem; }
   .pro-elems {
     display: flex;
     flex-direction: column;
@@ -508,6 +566,27 @@
   }
 
   .pro-elems-table tbody tr { cursor: pointer; transition: background 0.1s; }
+  .pro-arc {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--st-surface-3);
+    background: var(--st-surface-2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pro-table-footer { padding: 6px 10px; border-top: 1px solid var(--st-surface-3); }
+
+  .pro-arc-fields { display: flex; gap: 8px; }
+  .pro-arc-field { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .pro-arc-field span { font-size: 0.66rem; color: var(--st-text-3); }
+  .pro-arc-field input { width: 100%; }
+
+  .pro-arc-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pro-arc-row label { font-size: 0.7rem; color: var(--st-text-3); }
+  .pro-arc-row input { width: 58px; }
+  .pro-arc-note { font-size: 0.68rem; color: var(--st-text-3); }
+  .pro-arc-err { font-size: 0.7rem; color: var(--st-danger); }
+
   .pro-elems-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }
   .pro-elems-table tr.selected { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
   .pro-elems-table tr.unsaved td { opacity: 0.6; }

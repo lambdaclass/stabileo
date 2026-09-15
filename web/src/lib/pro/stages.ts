@@ -1,4 +1,5 @@
 import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../geometry/coordinate-system';
+import { resultsStore } from '../store/results.svelte';
 
 /**
  * PRO's command tree — ONE definition, read by every surface that shows it.
@@ -44,6 +45,16 @@ export type ProCmd = {
   rotate?: number;
   /** Destination: which panel view this opens. */
   tab?: string;
+  /**
+   * Arms a POINTER tool rather than opening a destination.
+   *
+   * The viewport has implemented click-to-place nodes and two-click members
+   * since 3D existed, gated on `uiStore.currentTool`. PRO's ribbon set that
+   * value to exactly two things — `select` and `pan` — so the whole of
+   * drawing was unreachable from this mode and geometry had to be typed into
+   * a table by coordinate and by node id. This is the field that reaches it.
+   */
+  tool?: string;
   /** Sets the diagram drawn on the model. */
   diagram?: string;
   action?: () => void;
@@ -64,8 +75,19 @@ export type ProCmd = {
    * detailing has not been generated.
    */
   blockedKeys?: () => string[];
-  /** Shown only when the group is expanded. Desktop ribbon only. */
-  overflow?: boolean;
+  /*
+   * There is no `overflow` flag any more, and this note is here so nobody
+   * adds one back without also adding the thing that showed it.
+   *
+   * It meant "shown only when the group is expanded", and the ribbon read it
+   * as `!c.overflow || openMenu === g.id`. When the Select dropdown became
+   * the Selection panel, the last code that ever set `openMenu` to a group
+   * id went with it — leaving a flag whose only effect was to hide a command
+   * permanently, with no error and no way to tell from the call site.
+   *
+   * Nothing had set it, so nothing was hidden. A group that needs to overflow
+   * again needs an affordance that opens it first.
+   */
 };
 
 export type ProGroup = { id: string; labelKey: string; cmds: ProCmd[] };
@@ -103,13 +125,44 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
       labelKey: 'proRibbon.stageModel',
       home: 'nodes',
       groups: [
+        /*
+         * ── One Draw group: the table AND the tool are the same command ──
+         *
+         * It was briefly two groups — Draw with the pointer tools, Tables with
+         * the grids — and that split the one thing a reader does into two
+         * places. The professional flow is not "choose a way to work": it is
+         * type the nodes with their coordinates in the panel, then click those
+         * nodes to lay members, supports and plates on them. Both halves of
+         * that sentence are Nodes.
+         *
+         * So each command opens its table. It does NOT arm the tool: the
+         * panel that opens carries a "draw this in the model" button, and
+         * that is where the mode is entered. One button in this bar is lit
+         * at a time and it is always the panel you are looking at; being in
+         * a drawing mode is said by the pointer box over the model, which is
+         * where the pointer is and where you switch back to Select.
+         *
+         * Plates arm the SHELL PICK rather than a viewport tool: a plate is
+         * three or four nodes, so it is picked by node, and the panel counts
+         * them as they go in. Repeat has no tool because it operates on a
+         * selection that already exists.
+         */
+        /*
+         * Selection is NOT a group here.
+         *
+         * It is reached from the top bar, beside undo and redo, because it is
+         * about the POINTER rather than about the model — every stage selects,
+         * so filing it under MODEL claimed it was a step of building one. The
+         * panel it opens is the same `SelectionPanel` Basic uses.
+         */
         {
-          id: 'geometry',
+          id: 'draw',
           labelKey: 'ribbon.groupDraw',
           cmds: [
             { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
             { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
             { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
+            { id: 'repeat', labelKey: 'repeat.title', icon: 'element', tab: 'repeat' },
           ],
         },
         {
@@ -118,6 +171,32 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           cmds: [
             { id: 'materials', labelKey: 'pro.tabMaterials', icon: 'material', tab: 'materials' },
             { id: 'sections', labelKey: 'pro.tabSections', icon: 'section', tab: 'sections' },
+          ],
+        },
+        /*
+         * ── Conditions live inside Model ─────────────────────────────
+         *
+         * Supports, constraints and loads were a STAGE of their own, beside
+         * Model and Analyse. They are not a stage: nothing is produced by
+         * moving to them and nothing follows from leaving. They are part of
+         * describing the structure, exactly like its geometry and its
+         * materials — which is why a reader building a frame crossed between
+         * two top-level stages to place a support and then crossed back.
+         *
+         * One group, to the right of Properties and left of Generators: draw
+         * it, give it materials, say how it is held and loaded, and only then
+         * reach for something that replaces the lot.
+         */
+        {
+          id: 'conditions',
+          labelKey: 'ribbon.groupConditions',
+          cmds: [
+            /* None of these arm a tool: a command in this bar opens its
+               PANEL, and the panel carries the button that arms the tool.
+               See the note on the Draw group. */
+            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
+            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
+            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
           ],
         },
         /*
@@ -146,28 +225,6 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
               icon: 'examples',
               tab: 'generators',
             },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'conditions',
-      labelKey: 'ribbon.groupConditions',
-      home: 'supports',
-      groups: [
-        {
-          id: 'restraints',
-          labelKey: 'proRibbon.groupRestraints',
-          cmds: [
-            { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
-            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
-          ],
-        },
-        {
-          id: 'loads',
-          labelKey: 'proRibbon.groupLoads',
-          cmds: [
-            { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
           ],
         },
       ],
@@ -208,28 +265,24 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
             { id: 'momentZ', label: 'Mz', labelKey: 'ribbon.nameMomentZ', icon: 'moment', rotate: 90, diagram: 'momentZ', enabled: () => solved },
             { id: 'shearY', label: 'Vy', labelKey: 'ribbon.nameShearY', icon: 'shear', rotate: 90, diagram: 'shearY', enabled: () => solved },
             { id: 'torsion', label: 'T', labelKey: 'ribbon.nameTorsion', icon: 'torsion', diagram: 'torsion', enabled: () => solved },
-          ],
-        },
-        /*
-         * Not quantities: whole-model colourings. A colour map paints every
-         * member by a variable you choose, and the verification map paints them
-         * by their code-check outcome — neither is "a diagram of X", so they do
-         * not belong in the row of six that are.
-         */
-        {
-          id: 'maps',
-          labelKey: 'proRibbon.groupMaps',
-          cmds: [
-            { id: 'colorMap', labelKey: 'pro.diagColorMap', icon: 'view2d', diagram: 'colorMap', enabled: () => solved },
-            { id: 'verification', labelKey: 'pro.diagVerification', icon: 'support', diagram: 'verification', enabled: () => solved },
-          ],
-        },
-        {
-          id: 'inspect',
-          labelKey: 'proRibbon.groupInspect',
-          cmds: [
-            { id: 'results', labelKey: 'ribbon.results', icon: 'data', tab: 'results', enabled: () => solved },
-            { id: 'diagnostics', labelKey: 'pro.tabDiagnostics', icon: 'advanced', tab: 'diagnostics' },
+            /*
+             * Stress belongs with the quantities, at the right of them.
+             *
+             * It had a group of its own holding one command, which made a
+             * caption over a single button and put "the moment" and "the
+             * stress" in two different sections of a bar that otherwise
+             * reads as one row of things a solved model can show.
+             */
+            {
+              id: 'stress',
+              labelKey: 'pro.varStress',
+              descKey: 'proRibbon.stressDesc',
+              icon: 'stress',
+              diagram: 'colorMap',
+              action: () => { resultsStore.colorMapKind = 'stress'; },
+              tab: 'results',
+              enabled: () => solved,
+            },
           ],
         },
         {
@@ -350,6 +403,9 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
  * to none — the callers keep showing the stage you came from.
  */
 export const PRO_TAB_STAGE: Record<string, string> = {
+    /* What a selection picks up is set while modelling, and the command that
+       opens it sits at the head of MODEL. */
+    selection: 'model',
     // Project is reached from its own button, not from a tab, so it belongs to
     // no stage — the tab row simply keeps showing the stage you came from.
     project: '',
@@ -363,9 +419,12 @@ export const PRO_TAB_STAGE: Record<string, string> = {
      * corner, where the controls that act on the application live.
      */
     ai: '',
+    /* Settings is reached from the header corner, like the AI drawer. */
+    settings: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
-    generators: 'model',
-    supports: 'conditions', constraints: 'conditions', loads: 'conditions',
+    generators: 'model', repeat: 'model',
+    /* Conditions is a GROUP inside Model now, not a stage of its own. */
+    supports: 'model', constraints: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
     design: 'design', steel: 'design', connections: 'design',
   };

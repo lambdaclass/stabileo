@@ -11,7 +11,7 @@
  * parallel state" stops being a promise in a comment.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands, designAll } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designAll, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** Frames only: no shells and no footings. */
@@ -285,7 +285,7 @@ test.describe('selecting at the four widths', () => {
 test.describe('selecting in three languages', () => {
   for (const locale of ['en', 'es', 'pt'] as const) {
     test(`${locale} — selection works and says so`, async ({ pro: page }) => {
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await classify(page, FRAMES);
       await openDetailing(page);
       const ids = await rowIds(page, 'beam');

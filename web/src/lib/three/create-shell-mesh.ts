@@ -71,22 +71,94 @@ function faceNormal(verts: Vec3[]): THREE.Vector3 {
   return len > 1e-12 ? n.multiplyScalar(1 / len) : new THREE.Vector3(0, 0, 1);
 }
 
-/** Flat (zero-thickness) triangulated face. Returns geometry + vertex→node map. */
+/**
+ * How many pieces each edge of a shell face is cut into for display.
+ *
+ * ── Why a face is not two triangles ────────────────────────────────
+ *
+ * A result contour on a quad drawn as two triangles can only be what Gouraud
+ * makes of four corner colours, and that has two visible consequences: a seam
+ * down the diagonal, because the two triangles interpolate along different
+ * directions, and a field that is flat everywhere between the corners. A
+ * stress map of a raft then reads as faceted panels rather than as the smooth
+ * field it is.
+ *
+ * Cut into a 6 × 6 grid the seam is gone and the colour varies bilinearly
+ * across the face, which is the interpolation the nodal values actually
+ * support — no more is claimed, and nothing is invented between them. The
+ * cost is 72 triangles where there were 2, which for a mesh of hundreds of
+ * shells is still a rounding error next to the members around them.
+ *
+ * Only the FLAT face is cut. The extruded `sections` view is a solid, and its
+ * interior faces have nothing to interpolate.
+ */
+const FACE_SUBDIVISIONS = 6;
+
+/**
+ * Flat (zero-thickness) subdivided face.
+ *
+ * Carries two maps for the painters: `vertexNodeIndex`, the nearest corner,
+ * kept for callers that only need a corner; and `vertexNodeWeights`, the
+ * barycentric or bilinear share of every corner at that vertex, which is what
+ * makes a smooth contour possible.
+ */
 function buildFlatGeometry(verts: Vec3[]): THREE.BufferGeometry {
   const n = verts.length;
   const pos: number[] = [];
   const nodeIdx: number[] = [];
-  for (let i = 1; i < n - 1; i++) {
-    const tri = [0, i, i + 1];
-    for (const k of tri) {
-      pos.push(verts[k].x, verts[k].y, verts[k].z);
-      nodeIdx.push(k);
+  const weights: number[][] = [];
+  const N = FACE_SUBDIVISIONS;
+
+  /** Push one vertex from a set of corner weights. */
+  const push = (w: number[]) => {
+    let x = 0, y = 0, z = 0;
+    for (let k = 0; k < n; k++) {
+      x += w[k] * verts[k].x; y += w[k] * verts[k].y; z += w[k] * verts[k].z;
+    }
+    pos.push(x, y, z);
+    weights.push(w);
+    let best = 0;
+    for (let k = 1; k < n; k++) if (w[k] > w[best]) best = k;
+    nodeIdx.push(best);
+  };
+
+  if (n === 4) {
+    // Bilinear in (u, v) over corners 0-1-2-3 taken in order round the face.
+    const w = (u: number, v: number) => [
+      (1 - u) * (1 - v), u * (1 - v), u * v, (1 - u) * v,
+    ];
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N;
+        push(w(u0, v0)); push(w(u1, v0)); push(w(u1, v1));
+        push(w(u0, v0)); push(w(u1, v1)); push(w(u0, v1));
+      }
+    }
+  } else if (n === 3) {
+    // Barycentric: the standard subdivision of a triangle into N² triangles.
+    const w = (a: number, b: number) => [1 - a - b, a, b];
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N - i; j++) {
+        const a0 = i / N, a1 = (i + 1) / N, b0 = j / N, b1 = (j + 1) / N;
+        push(w(a0, b0)); push(w(a1, b0)); push(w(a0, b1));
+        if (j < N - i - 1) { push(w(a1, b0)); push(w(a1, b1)); push(w(a0, b1)); }
+      }
+    }
+  } else {
+    // Anything else keeps the old fan; no shell type in the model reaches here.
+    for (let i = 1; i < n - 1; i++) {
+      for (const k of [0, i, i + 1]) {
+        const w = new Array(n).fill(0); w[k] = 1;
+        push(w);
+      }
     }
   }
+
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
   geo.computeVertexNormals();
   geo.userData.vertexNodeIndex = nodeIdx;
+  geo.userData.vertexNodeWeights = weights;
   return geo;
 }
 

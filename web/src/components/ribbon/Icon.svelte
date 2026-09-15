@@ -43,7 +43,14 @@
   focusable="false"
   style={rotate ? `transform: rotate(${rotate}deg)` : undefined}
 >
-  {#if name === 'select'}
+  {#if name === 'viewCube'}
+    <!-- A cube with a chevron: "the ways of looking at this, in a list". -->
+    <path d="M12 3l7 4v8l-7 4-7-4V7z" />
+    <path d="M12 3v8l7-4M12 11l-7-4M12 11v8" />
+  {:else if name === 'move'}
+    <!-- Four arrows from a centre: the one glyph that means "drag this". -->
+    <path d="M12 4v16M4 12h16M12 4l-2.5 2.5M12 4l2.5 2.5M12 20l-2.5-2.5M12 20l2.5-2.5M4 12l2.5-2.5M4 12l2.5 2.5M20 12l-2.5-2.5M20 12l-2.5 2.5" />
+  {:else if name === 'select'}
     <!-- Arrow cursor, the one shape every application agrees on. -->
     <path d="M5 3l6.5 16 2.2-6.4 6.3-2.2z" />
   {:else if name === 'pan'}

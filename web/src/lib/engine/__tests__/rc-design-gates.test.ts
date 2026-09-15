@@ -253,8 +253,22 @@ describe('GATE: ProPanel was decomposed', () => {
     // the file had already grown past 600.
     expect(panel, 'the example catalogue is data').toContain("from '../../lib/data/pro-examples'");
     expect(panel, 'the example gallery is its own overlay').toContain('<ProExampleMenu');
-    expect(panel, 'the report is assembled outside the panel')
-      .toContain("from '../../lib/engine/pro-report-inputs'");
+    /*
+     * The PROPERTY, not one module's name.
+     *
+     * This named `pro-report-inputs`, and the assembly has since moved one
+     * level further out — into `lib/pro/report-export`, which also decides
+     * whether the reader asked for a workbook or a printable document and
+     * reads the canvas for its screenshot. That is more delegation, not less,
+     * and an assertion that failed on it was checking the route rather than
+     * the thing the route was for.
+     *
+     * What must stay true is that the panel does not BUILD a report: it holds
+     * neither the assembler nor the print call.
+     */
+    expect(panel, 'the panel does not assemble the report').not.toContain('buildProReportData(');
+    expect(panel, 'nor hand it to the printer').not.toContain('openReport(');
+    expect(panel, 'it delegates').toMatch(/from '\.\.\/\.\.\/lib\/(pro|engine)\/[a-z-]*report[a-z-]*'/);
   });
 
   it('keeps the pre-solve gate, which is the panel\'s own refusal', () => {

@@ -19,7 +19,7 @@
  * keyboard path. Plus the properties the enlarge dialog already had and must keep: one `<svg>`
  * from the official projection, Escape, and focus returning to the control that opened it.
  */
-import { test, expect } from './fixtures';
+import { test, expect, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -222,7 +222,7 @@ test.describe('the detailing layout survives the three languages at 1280x720', (
   for (const locale of ['en', 'es', 'pt'] as const) {
     test(`H9 ${locale} — nothing overflows the panel`, async ({ pro: page }) => {
       await page.setViewportSize({ width: 1280, height: 720 });
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await seed(page, LEVELS);
       await openPanel(page);
 

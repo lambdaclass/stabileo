@@ -20,7 +20,7 @@
  * exactly "it looks fine once you press the button". Every state assertion also checks the word,
  * not the colour.
  */
-import { test, expect, computeDemands, loadModel, solveModel } from './fixtures';
+import { test, expect, computeDemands, loadModel, solveModel, setAppLanguage } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -177,7 +177,7 @@ test.describe('the scopes and the family states speak the three languages', () =
       // A model, for the reason `withShellModel` states: the family rows are the model's families
       // now, so there is no `column` state to translate on an empty project.
       await withShellModel(page);
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await expect(page.getByTestId('design-family-state-column')).toContainText(notRun);
       await page.getByTestId('floor-families-disclosure').locator('> summary').click();
       await expect(page.getByTestId('floor-run-contract')).toContainText(does);

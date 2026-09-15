@@ -1,11 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
+import { pickLanguage } from './fixtures';
 
 /**
  * Landing-page coverage.
  *
  * Why Playwright and not Vitest: the landing is a Svelte component tree whose
  * behaviour is DOM- and routing-shaped (an overlay on `/`, a custom
- * `stabileo-enter-app` event, a locale <select>, an embedded iframe). The repo
+ * `stabileo-enter-app` event, a locale picker, an embedded iframe). The repo
  * has no jsdom / happy-dom / testing-library dependency and this workstream may
  * not add one, so a real browser is the only way to assert any of it.
  *
@@ -198,7 +199,13 @@ test.describe('@landing landing page', () => {
     const h1 = page.locator('.landing h1');
     await expect(h1).toHaveText('Structural analysis, in a browser tab.');
 
-    await page.locator('.landing select.nav-lang').selectOption('es');
+    /*
+       A drawn listbox now, not a native `<select>` — the platform put the
+       native popup beside the control instead of under it. Same contract:
+       open it, pick a language, the copy changes.
+    */
+    await page.getByTestId('nav-lang-button').click();
+    await page.getByTestId('nav-lang-list').getByRole('option', { name: 'Español' }).click();
 
     await expect(h1).toHaveText('Cálculo estructural, en una pestaña del navegador.');
     /*
@@ -221,10 +228,12 @@ test.describe('@landing landing page', () => {
 
     // PUBLIC_LOCALES. Portuguese joined once every landing key existed — the
     // list and the copy are kept in step by landing-i18n-parity.test.ts.
-    const values = await page
-      .locator('.landing select.nav-lang option')
-      .evaluateAll((els) => els.map((e) => (e as HTMLOptionElement).value));
-    expect(values).toEqual(['en', 'es', 'pt']);
+    await page.getByTestId('nav-lang-button').click();
+    const names = await page
+      .getByTestId('nav-lang-list')
+      .getByRole('option')
+      .allInnerTexts();
+    expect(names.map((n) => n.trim())).toEqual(['English', 'Español', 'Português']);
   });
 
   test('a Brazilian browser gets the Portuguese landing', async ({ browser }) => {
@@ -232,7 +241,7 @@ test.describe('@landing landing page', () => {
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
     await expect(page.locator('.landing h1')).toHaveText('Cálculo estrutural, numa aba do navegador.');
-    await expect(page.locator('.landing select.nav-lang')).toHaveValue('pt');
+    await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'pt');
     await ctx.close();
   });
 
@@ -251,7 +260,7 @@ test.describe('@landing landing page', () => {
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
     await expect(page.locator('.landing h1')).toHaveText('Structural analysis, in a browser tab.');
-    await expect(page.locator('.landing select.nav-lang')).toHaveValue('en');
+    await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'en');
     await ctx.close();
   });
 
@@ -507,7 +516,15 @@ test.describe('@landing landing page', () => {
 
     test('the Spanish landing carries Spanish metadata', async ({ page }) => {
       await bootLanding(page);
-      await page.locator('.landing select.nav-lang').selectOption('es');
+      /*
+       * A drawn listbox now, not a native `<select>`, and picked by CODE
+       * through the shared helper. Main's side of this merge clicked the
+       * option named 'Español', which asserts a dictionary entry every time it
+       * means to assert a locale — the exact thing `pickLanguage` in
+       * fixtures.ts exists to avoid, and what the Portuguese case below
+       * already uses.
+       */
+      await pickLanguage(page, 'nav-lang', 'es');
       await expect(page.locator('.landing h1')).toHaveText('Cálculo estructural, en una pestaña del navegador.');
       const h = await readHead(page);
 
@@ -530,7 +547,7 @@ test.describe('@landing landing page', () => {
 
     test('the Portuguese landing carries Portuguese metadata', async ({ page }) => {
       await bootLanding(page);
-      await page.locator('.landing select.nav-lang').selectOption('pt');
+      await pickLanguage(page, 'nav-lang', 'pt');
       await expect(page.locator('.landing h1')).toHaveText('Cálculo estrutural, numa aba do navegador.');
       const h = await readHead(page);
 
@@ -548,7 +565,7 @@ test.describe('@landing landing page', () => {
       // The set of alternate tags is rewritten, not patched, so a restore that
       // forgot them would leave a Portuguese page's pair behind in the head.
       await bootLanding(page);
-      await page.locator('.landing select.nav-lang').selectOption('pt');
+      await pickLanguage(page, 'nav-lang', 'pt');
       await page.locator('.landing .hero-ctas .btn-primary').click();
       await expect(page.locator('.landing')).toHaveCount(0);
 
@@ -570,7 +587,13 @@ test.describe('@landing landing page', () => {
 
     test('entering the application leaves no landing copy behind', async ({ page }) => {
       await bootLanding(page);
-      await page.locator('.landing select.nav-lang').selectOption('es');
+      /*
+       A drawn listbox now, not a native `<select>` — the platform put the
+       native popup beside the control instead of under it. Same contract:
+       open it, pick a language, the copy changes.
+    */
+    await page.getByTestId('nav-lang-button').click();
+    await page.getByTestId('nav-lang-list').getByRole('option', { name: 'Español' }).click();
       await page.waitForTimeout(300);
       await page.locator('.landing .hero-ctas .btn-primary').click();
       await expect(page.locator('.landing')).toHaveCount(0);

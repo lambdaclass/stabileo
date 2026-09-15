@@ -36,8 +36,22 @@ async function openDesign(page: Page) {
 }
 
 async function openLoads(page: Page) {
-  await openProTab(page, 'conditions', 'loads');
+  // Loads are a group inside Model now, not a stage of their own.
+  await openProTab(page, 'model', 'loads');
 }
+
+/*
+ * By pattern, not by id 1.
+ *
+ * Loading a fixture ADDS its materials to the ones PRO starts with, so the
+ * concrete here is id 2 and id 1 is the default "Acero A36". The box used to
+ * be on both, which is the defect: an aggregate size is a property of a
+ * concrete MIX, and asking steel for one is a question with no answer rather
+ * than a harmless blank. So the locator says what the test means — the one
+ * material that takes concrete detailing — and the count assertion is the
+ * other half of it: exactly one, not "the first one that matched".
+ */
+const aggregateBox = (page: Page) => page.getByTestId(/^mat-aggregate-\d+$/);
 
 async function openRegulations(page: Page) {
   await openDesign(page);
@@ -183,10 +197,12 @@ test.describe('@smoke project regulations — code-neutral roles', () => {
     await expect(page.getByRole('columnheader', { name: /d_agg/ })).toBeVisible();
   });
 
-  test('R4b — aggregate is editable on the concrete material', async ({ pro: page }) => {
+
+  test('R4b — aggregate is editable on the concrete material, and only on it', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await openProTab(page, 'model', 'materials');
-    const input = page.getByTestId('mat-aggregate-1');
+    const input = aggregateBox(page);
+    await expect(input, 'the concrete takes one and the steel does not').toHaveCount(1);
     await expect(input).toBeVisible();
     await expect(input).toHaveAttribute('placeholder', /not stated/i);
     await input.fill('25');
@@ -197,8 +213,8 @@ test.describe('@smoke project regulations — code-neutral roles', () => {
   test('R4c — an out-of-range aggregate is rejected', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await openProTab(page, 'model', 'materials');
-    await page.getByTestId('mat-aggregate-1').fill('500');
-    await page.getByTestId('mat-aggregate-1').blur();
+    await aggregateBox(page).fill('500');
+    await aggregateBox(page).blur();
     await expect(page.getByTestId('mat-aggregate-error')).toBeVisible();
   });
 });
@@ -362,8 +378,8 @@ test.describe('@slow revision invalidation is precise', () => {
     const solvesBefore = await page.evaluate(() => window.__stabileo.solveCount());
 
     await openProTab(page, 'model', 'materials');
-    await page.getByTestId('mat-aggregate-1').fill('19');
-    await page.getByTestId('mat-aggregate-1').blur();
+    await aggregateBox(page).fill('19');
+    await aggregateBox(page).blur();
 
     // Hook used ONLY to observe a counter after a UI action.
     const solvesAfter = await page.evaluate(() => window.__stabileo.solveCount());

@@ -466,3 +466,138 @@ describe('the plan is a plan, not a mutation', () => {
     expect(d.addedCaseTypes).toContain('E');
   });
 });
+
+// ─── INPRES-CIRSOC 103, the static method ────────────────────────
+
+describe('seismic loads from INPRES-CIRSOC 103 rather than a typed coefficient', () => {
+  const code103 = {
+    zone: 4 as const,
+    site: 'SB' as const,
+    group: 'B' as const,
+    systemKey: 'rc_frame_full_ductility',
+    periodSystem: 'concreteMomentFrame' as const,
+    regularity: 'regular' as const,
+    occupancy: 'reduced' as const,
+  };
+  /* The seismic role has to be BOUND before any of this runs: an unbound role blocks
+     the plan, which is the gate that stopped seismic loads appearing under a regulation
+     nobody chose. */
+  const withSeismicRole = () => {
+    const reg = applied(defaultRegulations());
+    return applied({ ...reg, seismic: bindRole('seismic', 'inpres103-2018') });
+  };
+  const seismicInput = (over: Record<string, unknown> = {}) => input({
+    regulations: withSeismicRole(),
+    model: frame(4),
+    seismic: {
+      enabled: true, coefficient: 0.15, liveParticipation: null,
+      directions: { x: true, y: false }, code: code103, ...over,
+    } as LoadPlanInput['seismic'],
+  });
+
+  it('derives the coefficient instead of using the typed one', () => {
+    const p = buildLoadPlan(seismicInput());
+    expect(p.outcome).toBe('READY');
+    expect(p.seismic?.source).toBe('cirsoc103');
+    // Zone 4 / site SB / group B / R = 7. Whatever the period, it is not the 0,15 that
+    // was typed into the box beside it.
+    expect(p.seismic!.c).not.toBeCloseTo(0.15, 6);
+    expect(p.seismic!.r).toBe(7);
+    expect(p.seismic!.gammaR).toBe(1.0);
+    expect(p.seismic!.zone).toBe(4);
+    expect(p.seismic!.spectralType).toBe(1);
+  });
+
+  it('keeps the typed coefficient when no code inputs are given', () => {
+    const p = buildLoadPlan(seismicInput({ code: undefined }));
+    expect(p.seismic?.source).toBe('manual');
+    expect(p.seismic!.c).toBeCloseTo(0.15, 12);
+  });
+
+  it('scales the base shear with the behaviour factor', () => {
+    const ductile = buildLoadPlan(seismicInput());
+    const brittle = buildLoadPlan(seismicInput({
+      code: { ...code103, systemKey: 'rc_cantilever_columns' },
+    }));
+    expect(brittle.seismic!.r).toBe(2.5);
+    // Same building, same weight — the coefficient is the reciprocal of R.
+    expect(brittle.seismic!.c / ductile.seismic!.c).toBeCloseTo(7 / 2.5, 6);
+    expect(brittle.factors.baseShear!.value / ductile.factors.baseShear!.value)
+      .toBeCloseTo(7 / 2.5, 6);
+  });
+
+  it('scales with the destination group', () => {
+    const b = buildLoadPlan(seismicInput());
+    const ao = buildLoadPlan(seismicInput({ code: { ...code103, group: 'Ao' } }));
+    expect(ao.seismic!.c / b.seismic!.c).toBeCloseTo(1.5, 6);
+  });
+
+  it('reads the imposed-load fraction off Tabla 3.3 instead of assuming 0,25', () => {
+    const flat = buildLoadPlan(seismicInput());
+    const store = buildLoadPlan(seismicInput({ code: { ...code103, occupancy: 'high' } }));
+    expect(flat.seismic!.f1).toBe(0.25);
+    expect(store.seismic!.f1).toBe(0.75);
+    // A warehouse is genuinely heavier during the earthquake, which a single
+    // project-wide participation number could not express.
+    expect(store.factors.seismicWeight!.value)
+      .toBeGreaterThan(flat.factors.seismicWeight!.value);
+  });
+
+  it('lets a typed participation override the table, and says which was used', () => {
+    const p = buildLoadPlan(seismicInput({ liveParticipation: 0.5 }));
+    const flat = buildLoadPlan(seismicInput());
+    expect(p.factors.seismicWeight!.value).toBeGreaterThan(flat.factors.seismicWeight!.value);
+  });
+
+  it('distributes the shear in height and sums back to it', () => {
+    const p = buildLoadPlan(seismicInput());
+    const total = p.nodal.filter((n) => n.caseType === 'E').reduce((s, n) => s + n.fx, 0);
+    expect(total).toBeCloseTo(p.factors.baseShear!.value, 4);
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it('blocks when Tabla 5.1 gives the system no R', () => {
+    // Row 1 prints an expression on the wall layout, not a value.
+    const p = buildLoadPlan(seismicInput({ code: { ...code103, systemKey: 'rc_walls' } }));
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map((b) => b.key)).toContain('loadPlan.blocked.seismicNoR');
+  });
+
+  it('blocks in zone 0, where Tabla 3.1 prints no spectrum', () => {
+    const p = buildLoadPlan(seismicInput({ code: { ...code103, zone: 0 } }));
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map((b) => b.key)).toContain('seismic.blocked.zone0');
+  });
+
+  it('blocks on site class SF, which needs a site-specific study', () => {
+    const p = buildLoadPlan(seismicInput({ code: { ...code103, site: 'SF' } }));
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map((b) => b.key)).toContain('seismic.blocked.siteSF');
+  });
+
+  it('blocks a building the static method does not reach', () => {
+    // 20 storeys at 3 m is 60 m; Tabla 2.5 stops at 45 m for group B in zone 4.
+    const p = buildLoadPlan(input({
+      regulations: withSeismicRole(),
+      model: frame(20),
+      seismic: {
+        enabled: true, coefficient: 0.15, liveParticipation: null,
+        directions: { x: true, y: false }, code: code103,
+      } as LoadPlanInput['seismic'],
+    }));
+    expect(p.outcome).toBe('BLOCKED');
+    const keys = p.blockedKeys.map((b) => b.key);
+    expect(keys.some((k) => k === 'seismic.blocked.heightOverTable25'
+      || k === 'seismic.blocked.dynamicRequired')).toBe(true);
+  });
+
+  it('renders the whole derivation as sentences, in both locales', () => {
+    const p = buildLoadPlan(seismicInput());
+    for (const locale of ['en', 'es'] as const) {
+      const text = teAllAt(p.derivation, locale);
+      expect(text.every((t) => t.length > 0 && !t.startsWith('seismic.'))).toBe(true);
+      // The period and the coefficient are both explained, not just reported.
+      expect(text.some((t) => t.includes('Ta') || t.includes('Cr'))).toBe(true);
+    }
+  });
+});

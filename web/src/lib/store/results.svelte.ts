@@ -96,9 +96,22 @@ function createResultsStore() {
    * the version of this that breaks again the next time a path is added.
    */
   let colourScale = $state<{ max: number; unit: string; source: string } | null>(null);
-  let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'torsion' | 'stressRatio' | 'vonMises' | 'sigmaMax' | 'tauMax' | 'shellVonMises' | 'shellBending'>('moment');
+  let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'torsion' | 'stressRatio' | 'vonMises' | 'sigmaMax' | 'tauMax' | 'shellVonMises' | 'shellBending' | 'stress'>('moment');
   // Which shell quantity the shell contour paints (selectable in PRO results).
   let shellContourComponent = $state<import('../engine/shell-stress').ShellContourComponent>('vonMises');
+
+  /*
+   * ── Which KINDS the stress view paints ────────────────────────────
+   *
+   * Stress used to be two separate entries in one dropdown — von Mises for
+   * members, "shell contour" for plates — so a model made of both could only
+   * ever be half painted, and the reader had to know which half they were
+   * looking at. A structure has stresses in everything that carries load, so
+   * the view paints everything by default and these turn a kind off for a
+   * reader who wants one on its own.
+   */
+  let stressShowMembers = $state<boolean>(true);
+  let stressShowShells = $state<boolean>(true);
   let showDiagramValues = $state<boolean>(true);
   // 2D diagram side convention. OFF (default): positive N/V/M drawn on the
   // "structural" side (sagging/tension — down for horizontal, right for vertical).
@@ -271,7 +284,11 @@ function createResultsStore() {
     },
 
     get colorMapKind() { return colorMapKind; },
-    set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'torsion' | 'stressRatio' | 'vonMises' | 'sigmaMax' | 'tauMax' | 'shellVonMises' | 'shellBending') { colorMapKind = v; },
+    set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'torsion' | 'stressRatio' | 'vonMises' | 'sigmaMax' | 'tauMax' | 'shellVonMises' | 'shellBending' | 'stress') { colorMapKind = v; },
+    get stressShowMembers() { return stressShowMembers; },
+    set stressShowMembers(v: boolean) { stressShowMembers = v; },
+    get stressShowShells() { return stressShowShells; },
+    set stressShowShells(v: boolean) { stressShowShells = v; },
     get shellContourComponent() { return shellContourComponent; },
     set shellContourComponent(v: import('../engine/shell-stress').ShellContourComponent) { shellContourComponent = v; },
     get showDiagramValues() { return showDiagramValues; },

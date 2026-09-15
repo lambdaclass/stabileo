@@ -1,10 +1,20 @@
 <script lang="ts">
+  /**
+   * Double-click a node: its coordinates, editable.
+   *
+   * The chrome — frame, title, dragging, staying on screen — is `EditorCard`,
+   * shared with the member editor. What is here is the two numbers and the
+   * one thing that matters about writing them back: a coordinate change goes
+   * through `modelStore.updateNode`, which bumps the model version, fires the
+   * mutation hook and reassigns the map, and then the results are cleared
+   * because they describe a model that no longer exists.
+   */
   import { modelStore, uiStore, historyStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
   import { TWO_D_HORIZONTAL_AXIS_LABEL, TWO_D_VERTICAL_AXIS_LABEL } from '../lib/geometry/coordinate-system';
+  import EditorCard from './EditorCard.svelte';
 
   let inputX = $state<HTMLInputElement | null>(null);
-  let inputY = $state<HTMLInputElement | null>(null);
 
   const nodeId = $derived(uiStore.editingNodeId);
   const node = $derived(nodeId !== null ? modelStore.getNode(nodeId) : null);
@@ -13,13 +23,10 @@
   let localX = $state('');
   let localY = $state('');
 
-  // Sync local values when node changes
   $effect(() => {
     if (node) {
       localX = node.x.toFixed(3);
       localY = node.y.toFixed(3);
-      // Focus first input on next tick (inputY kept for potential keyboard navigation)
-      void inputY;
       setTimeout(() => inputX?.select(), 0);
     }
   });
@@ -32,6 +39,7 @@
     if (x !== node.x || y !== node.y) {
       historyStore.pushState();
       modelStore.updateNode(nodeId, x, y);
+      /* The analysis described the node where it was. */
       resultsStore.clear();
     }
     close();
@@ -42,125 +50,88 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      confirm();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      close();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); confirm(); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); }
     e.stopPropagation();
   }
 </script>
 
 {#if node}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="backdrop" onclick={close}></div>
-  <div class="editor" style="left: {pos.x}px; top: {pos.y}px;">
-    <div class="title">{t('editor.node')} {nodeId}</div>
-    <div class="field">
-      <span>{TWO_D_HORIZONTAL_AXIS_LABEL} (m):</span>
+  <EditorCard
+    title="{t('editor.node')} {nodeId}"
+    anchor={pos}
+    onClose={close}
+    onKeydown={handleKeydown}
+    testid="node-editor"
+  >
+    <label class="ne-field">
+      <span>{TWO_D_HORIZONTAL_AXIS_LABEL} (m)</span>
       <input
         bind:this={inputX}
         type="number"
         step="0.001"
         bind:value={localX}
-        onkeydown={handleKeydown}
+        data-testid="node-editor-x"
       />
-    </div>
-    <div class="field">
-      <span>{TWO_D_VERTICAL_AXIS_LABEL} (m):</span>
-      <input
-        bind:this={inputY}
-        type="number"
-        step="0.001"
-        bind:value={localY}
-        onkeydown={handleKeydown}
-      />
-    </div>
-    <div class="buttons">
-      <button class="btn-ok" onclick={confirm}>OK</button>
-      <button class="btn-cancel" onclick={close}>{t('editor.cancel')}</button>
-    </div>
-  </div>
+    </label>
+
+    <label class="ne-field">
+      <span>{TWO_D_VERTICAL_AXIS_LABEL} (m)</span>
+      <input type="number" step="0.001" bind:value={localY} data-testid="node-editor-y" />
+    </label>
+
+    {#snippet footer()}
+      <button class="ne-btn" onclick={close}>{t('editor.cancel')}</button>
+      <button class="ne-btn ne-ok" onclick={confirm} data-testid="node-editor-ok">OK</button>
+    {/snippet}
+  </EditorCard>
 {/if}
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 99;
-  }
-
-  .editor {
-    position: fixed;
-    z-index: 100;
-    background: #16213e;
-    border: 1px solid #0f3460;
-    border-radius: 6px;
-    padding: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    transform: translate(-50%, 10px);
-    min-width: 180px;
-  }
-
-  .title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #4ecdc4;
-  }
-
-  .field {
+  .ne-field {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.8rem;
-    color: #ccc;
   }
 
-  .field span {
-    min-width: 45px;
-  }
-
-  .field input {
+  .ne-field span {
     flex: 1;
-    padding: 0.3rem 0.4rem;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
-    border-radius: 4px;
-    color: #eee;
-    font-size: 0.8rem;
-    width: 80px;
+    color: var(--st-text-2);
   }
 
-  .buttons {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-    margin-top: 0.25rem;
+  .ne-field input {
+    width: 92px;
+    padding: 0.22rem 0.35rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.72rem;
   }
 
-  .btn-ok, .btn-cancel {
+  .ne-field input:focus {
+    outline: none;
+    border-color: var(--st-accent);
+  }
+
+  .ne-btn {
     padding: 0.25rem 0.6rem;
-    border: none;
-    border-radius: 4px;
-    font-size: 0.75rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text-2);
+    font: inherit;
+    font-size: 0.7rem;
     cursor: pointer;
   }
 
-  .btn-ok {
-    background: #e94560;
-    color: white;
-  }
-  .btn-ok:hover { background: #ff6b6b; }
+  .ne-btn:hover { color: var(--st-text); border-color: var(--st-hair-strong); }
 
-  .btn-cancel {
-    background: #2a2a4e;
-    color: #aaa;
+  .ne-ok {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
   }
-  .btn-cancel:hover { background: #3a3a5e; }
+
+  .ne-ok:hover { background: var(--st-selected-bg); }
 </style>

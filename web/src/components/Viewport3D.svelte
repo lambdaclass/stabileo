@@ -11,7 +11,7 @@
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
-  import { nodeRadiusFor, nodeRadiusForSections, diagonalOf } from '../lib/three/node-scale';
+  import { nodeRadiusFor, diagonalOf } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
@@ -23,7 +23,8 @@
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
-  import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
+  import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
+  import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, syncDespiece3D as _syncDespiece3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
@@ -105,6 +106,8 @@
   // ─── Box select state ──────────────────────────────────────
   // Mode to return to when the quick sections toggle is switched off — keeps
   // a 'solid' preference from Settings instead of always landing on wireframe.
+  /** Whether the view-options menu is open. Closed on every mount. */
+  let camMenuOpen = $state(false);
   let renderModeBeforeSections: 'wireframe' | 'solid' = 'wireframe';
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
 
@@ -229,13 +232,72 @@
    * geometry that mode exists to show. It never drops below the picking floor —
    * `NodesInstanced` raycasts the visible mesh, so the marker IS the target.
    */
+  /**
+   * A node marker may never fall below a few pixels, because it IS the click
+   * target.
+   *
+   * `nodeRadiusFor` sizes a node as a fraction of the model diagonal with a
+   * 2 cm floor. On a 4 × 3 m portal that floor is what applies, and at an
+   * ordinary working distance 2 cm subtends about two-thirds of ONE PIXEL —
+   * the marker is invisible and clicking it is a lottery. That click is the
+   * core gesture of the whole modelling flow: type the coordinates in the
+   * panel, then click the nodes to lay members and supports on them.
+   *
+   * So the world radius is RAISED, where it has to be, to whatever spans
+   * `MIN_NODE_PX` at the current camera distance. Only ever raised: a large
+   * model already has markers worth seeing and must not grow beachballs.
+   *
+   * Called from two places because it depends on two things — the model, and
+   * where the camera is — and a single `$effect` cannot see the second.
+   */
+  /*
+   * Three, not five.
+   *
+   * Five pixels of RADIUS is a ten-pixel ball, which on a slender frame reads
+   * as a row of beads rather than as joints — "the nodes look like giant
+   * spheres" was exactly right. Three is still a comfortable click target and
+   * stops the marker competing with the structure it marks.
+   */
+  const MIN_NODE_PX = 3;
+  let lastNodeDist = -1;
+  /** The layout the grid currently draws, so a frame that changes nothing rebuilds nothing. */
+  let lastGridKey = '';
+
+  function applyNodeRadius() {
+    /*
+     * Sections mode draws the members as their real cross-sections — the
+     * closest thing to a picture of the built structure — and a sphere at
+     * every joint is the one thing a built structure does not have. The
+     * markers go entirely, rather than shrinking: something small enough not
+     * to intrude is also too small to click, and this view is for looking.
+     */
+    if (uiStore.renderMode3D === 'sections') {
+      nodesInstanced.mesh.visible = false;
+      return;
+    }
+    nodesInstanced.mesh.visible = true;
+
+    const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
+    const base = nodeRadiusFor(extent);
+
+    let floor = 0;
+    if (camera && controls && container) {
+      const dist = camera.position.distanceTo(controls.target);
+      const h = container.clientHeight || 1;
+      const fov = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+        ? ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180
+        : (50 * Math.PI) / 180;
+      /* World size of one pixel at the orbit target. */
+      floor = MIN_NODE_PX * ((2 * dist * Math.tan(fov / 2)) / h);
+    }
+    nodesInstanced.setRadius(Math.max(base, floor));
+  }
+
   $effect(() => {
     void modelStore.modelVersion;
-    const mode = uiStore.renderMode3D;
-    const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
-    nodesInstanced.setRadius(
-      mode === 'sections' ? nodeRadiusForSections(extent) : nodeRadiusFor(extent),
-    );
+    void uiStore.renderMode3D;
+    lastNodeDist = -1; // the model changed: recompute regardless of the camera
+    applyNodeRadius();
   });
 
   /**
@@ -340,7 +402,21 @@
     scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent, jointsParent);
     syncResultsProjection();
 
-    // Camera — isometric-ish view looking at origin
+    /*
+     * ── The far plane has to reach the grid ───────────────────────────
+     *
+     * It was a literal 1000, chosen when the grid was 50 m across. PRO's grid
+     * now opens at a kilometre and goes to ten, and a 1000 m grid reaches
+     * 500 m in each direction: zooming out pushes its far corners through the
+     * far plane and they are CLIPPED — the grid vanishing in chunks, which is
+     * exactly how it was reported. At 10 km the whole floor sits beyond the
+     * plane and nothing draws at all.
+     *
+     * `syncCameraRange` sizes it from whatever has to be visible. The
+     * logarithmic depth buffer is what makes that affordable: spanning 0.1 m
+     * to 40 km on a linear 24-bit depth buffer puts almost all of the
+     * precision in the first few metres and z-fights everything past them.
+     */
     perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
     setCameraUp(perspCamera);
     perspCamera.position.set(12, 8, 12);
@@ -542,6 +618,35 @@
       handleKeyboardCamera();
 
       controls.update();
+      /* Markers follow the camera: see `applyNodeRadius`. Throttled on a
+         material change so orbiting does not rebuild the instance buffer
+         every frame. */
+      if (camera && controls) {
+        const d = camera.position.distanceTo(controls.target);
+        if (lastNodeDist < 0 || Math.abs(d - lastNodeDist) > lastNodeDist * 0.08) {
+          lastNodeDist = d;
+          applyNodeRadius();
+        }
+        /*
+         * The grid rebuilds when its LAYOUT would change, not when the camera has
+         * moved some fraction of its distance.
+         *
+         * The distance heuristic was wrong in both directions: it rebuilt on orbits
+         * that change nothing about a grid lying in a fixed plane, and it missed
+         * zooms that cross a spacing threshold by less than its 8 % — which is how
+         * the grid ended up looking like it only refreshed when a node was added,
+         * because adding one is what forced the next rebuild. `gridLayout` is a
+         * dozen arithmetic operations; asking it every frame costs nothing and is
+         * exact.
+         */
+        if (uiStore.showGrid3D) {
+          const key = gridKey(gridLayout(uiStore.gridSize3D, uiStore.gridExtent3D, gridView()));
+          if (key !== lastGridKey) {
+            lastGridKey = key;
+            updateGrid();
+          }
+        }
+      }
       // Keep ortho frustum synced when using orthographic camera
       if (camera === orthoCamera) syncOrthoFrustum();
       // Update clipping plane
@@ -700,6 +805,39 @@
       setLowDetail(false);
       invalidate();
     };
+    /*
+     * Where the camera is, for anyone who needs to ask. See
+     * `lib/viewport3d/camera-probe.ts` for why this is a registry and not a
+     * global: the viewport always ships, and the reserved `__stabileo…`
+     * names may not appear in a production bundle.
+     */
+    setCameraProbe(() => {
+      if (!camera || !controls) return null;
+      const off = camera.position.clone().sub(controls.target);
+      const polar = off.length() > 1e-9
+        ? (Math.acos(Math.min(1, Math.max(-1, off.clone().normalize().dot(GLOBAL_Z)))) * 180) / Math.PI
+        : 0;
+      return {
+        up: [camera.up.x, camera.up.y, camera.up.z] as [number, number, number],
+        pos: [camera.position.x, camera.position.y, camera.position.z] as [number, number, number],
+        target: [controls.target.x, controls.target.y, controls.target.z] as [number, number, number],
+        polarDeg: polar,
+      };
+    });
+
+    /* And where a world point lands on screen, through THIS camera. See the
+       note in camera-probe.ts: the 2D transform answers this question in 3D
+       with a confident wrong number. */
+    setWorldProjector((x, y, z) => {
+      if (!camera || !renderer) return null;
+      const v = new THREE.Vector3(x, y, z).project(camera);
+      const rect = renderer.domElement.getBoundingClientRect();
+      return {
+        x: rect.left + ((v.x + 1) / 2) * rect.width,
+        y: rect.top + ((1 - v.y) / 2) * rect.height,
+      };
+    });
+
     controls.addEventListener('start', () => {
       isOrbiting = true;
       dampingFrames = 0;
@@ -828,7 +966,7 @@
       elementsBatched,
       shellGroups: sceneCtx.shellGroups,
       deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null, despieceGroup: null,
-      reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,
+      reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, shellLabelsGroup: null, verificationLabelsGroup: null,
       lastDeformedAnimScale: null, lastDespieceSep: null,
       colorMapApplied: false,
     };
@@ -2654,9 +2792,56 @@
     _syncOrthoFrustum(orthoCamera, camera.position, controls.target, containerAspect, aspect);
   }
 
+  /** Where the camera is looking, in the working plane, and how wide the view is. */
+  function gridView(): { u: number; v: number; span: number } | undefined {
+    if (!camera || !controls || !container) return undefined;
+    const dist = camera.position.distanceTo(controls.target);
+    if (!(dist > 0)) return undefined;
+    const fov = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+      ? ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180
+      : (50 * Math.PI) / 180;
+    const span = 2 * dist * Math.tan(fov / 2);
+    const t = controls.target;
+    /* The two in-plane axes, in the plane's own order. */
+    if (uiStore.workingPlane === 'XY') return { u: t.x, v: t.y, span };
+    if (uiStore.workingPlane === 'XZ') return { u: t.x, v: t.z, span };
+    return { u: t.y, v: t.z, span };
+  }
+
   function updateGrid() {
     if (!scene) return;
-    gridGroup = _updateGrid(scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D, uiStore.workingPlane, uiStore.nodeCreateZ);
+    const view = gridView();
+    /* Kept in step with what was just drawn: a settings change or a model load calls
+       this directly, and a stale key would make the next frame rebuild it again. */
+    lastGridKey = gridKey(gridLayout(uiStore.gridSize3D, uiStore.gridExtent3D, view));
+    gridGroup = _updateGrid(
+      scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D,
+      uiStore.workingPlane, uiStore.nodeCreateZ, view,
+    );
+    syncCameraRange();
+  }
+
+  /**
+   * Keep the view frustum big enough for everything that must be drawn.
+   *
+   * The far plane was a literal 1000 from when the grid was 50 m across; see
+   * the note where the cameras are built. A grid of extent E reaches E/2 from
+   * the centre, and the camera can be that far out again, so the diagonal a
+   * frustum has to contain is comfortably a few times E. Generous rather than
+   * tight: the cost of too much range is depth precision, and the logarithmic
+   * buffer is what pays for it; the cost of too little is a floor that
+   * disappears in pieces while you orbit.
+   *
+   * The near plane stays at 0.1 m so zooming into a connection still works.
+   */
+  function syncCameraRange() {
+    const reach = Math.max(uiStore.gridExtent3D, 50);
+    const far = Math.max(2000, reach * 4);
+    for (const cam of [perspCamera, orthoCamera]) {
+      if (!cam || cam.far === far) continue;
+      cam.far = far;
+      cam.updateProjectionMatrix();
+    }
   }
 
   function createFatAxes(): THREE.Group {
@@ -2705,51 +2890,102 @@
   -->
   {#if !(uiStore.isMobile && uiStore.appMode === 'pro')}
   <div class="camera-controls" data-tour="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
-    <!-- Same stack, same order as 2D: the pointer mode on top, then the view. -->
+    <!--
+      ── Two buttons, not nine ────────────────────────────────────────
+      The stack had grown to nine: fit, three axis views, projection,
+      clipping, measure and the sections toggle, all permanently on screen.
+      That is a 32 px column down the side of the only thing the reader came
+      to look at, and eight of the nine are things you reach for once and
+      then leave alone.
+
+      What stays visible is what changes moment to moment: the pointer mode.
+      Everything about HOW THE MODEL IS SHOWN goes behind one cube, because
+      that is the question they all answer. The menu closes on a choice —
+      picking a view is a thing you do once, not a mode you live in.
+    -->
     <PointerModeButton />
-    <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')} aria-label={t('viewport3d.zoomToFit')}>
-      <Icon name="fit" size={17} />
-    </button>
-    <button onclick={() => setView('top')} title={t('viewport3d.topView')}>⊤</button>
-    <button onclick={() => setView('front')} title={t('viewport3d.frontView')}>⊡</button>
-    <button onclick={() => setView('side')} title={t('viewport3d.sideView')}>⊟</button>
-    <button
-      onclick={toggleCameraMode}
-      title={uiStore.cameraMode3D === 'perspective' ? t('viewport3d.switchToOrtho') : t('viewport3d.switchToPersp')}
-    >
-      {uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}
-    </button>
-    <button
-      onclick={() => { uiStore.clippingEnabled = !uiStore.clippingEnabled; }}
-      title={uiStore.clippingEnabled ? t('viewport3d.disableClipping') : t('viewport3d.enableClipping')}
-      class:active-cam={uiStore.clippingEnabled}
-    >
-      ✂
-    </button>
-    <button
-      onclick={() => { uiStore.measureMode = !uiStore.measureMode; }}
-      title={uiStore.measureMode ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}
-      class:active-cam={uiStore.measureMode}
-    >
-      📏
-    </button>
-    <!-- Quick render-mode toggle: sections ↔ the previous mode (wireframe/solid).
-         Single compact button like the perspective/ortho switch. Shows the mode
-         Returns to the mode that was active before entering sections. -->
-    <button
-      onclick={() => {
-        if (uiStore.renderMode3D === 'sections') {
-          uiStore.renderMode3D = renderModeBeforeSections;
-        } else {
-          renderModeBeforeSections = uiStore.renderMode3D === 'solid' ? 'solid' : 'wireframe';
-          uiStore.renderMode3D = 'sections';
-        }
-      }}
-      class:active-cam={uiStore.renderMode3D === 'sections'}
-      title={uiStore.renderMode3D === 'sections' ? t('config.wireframe') : t('config.sections')}
-    >
-      {uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}
-    </button>
+
+    <div class="cam-menu-wrap">
+      <button
+        class="cam-btn cam-cube"
+        class:on={camMenuOpen}
+        onclick={() => (camMenuOpen = !camMenuOpen)}
+        title={t('viewport3d.viewOptions')}
+        aria-label={t('viewport3d.viewOptions')}
+        aria-expanded={camMenuOpen}
+        data-testid="cam-menu"
+      >
+        <Icon name="viewCube" size={17} />
+        <span class="cam-caret" aria-hidden="true"></span>
+      </button>
+
+      {#if camMenuOpen}
+        <!-- A backdrop that only closes, so the menu does not trap the pointer. -->
+        <button
+          class="cam-backdrop"
+          onclick={() => (camMenuOpen = false)}
+          aria-label={t('ribbon.close')}
+          tabindex="-1"
+        ></button>
+        <div class="cam-menu" data-testid="cam-menu-pop">
+          <button class="cam-item" onclick={() => { zoomToFit(); camMenuOpen = false; }}>
+            <Icon name="fit" size={15} /><span>{t('viewport3d.zoomToFit')}</span>
+          </button>
+          <div class="cam-sep"></div>
+          <button class="cam-item" onclick={() => { setView('top'); camMenuOpen = false; }}>
+            <span class="cam-glyph">⊤</span><span>{t('viewport3d.topView')}</span>
+          </button>
+          <button class="cam-item" onclick={() => { setView('front'); camMenuOpen = false; }}>
+            <span class="cam-glyph">⊡</span><span>{t('viewport3d.frontView')}</span>
+          </button>
+          <button class="cam-item" onclick={() => { setView('side'); camMenuOpen = false; }}>
+            <span class="cam-glyph">⊟</span><span>{t('viewport3d.sideView')}</span>
+          </button>
+          <div class="cam-sep"></div>
+          <!--
+            These four are STATES, so they stay open on click and show a tick:
+            a reader turning clipping on usually wants to reach for the axis
+            next, and a menu that vanished would make them open it again.
+          -->
+          <button class="cam-item" onclick={toggleCameraMode}>
+            <span class="cam-glyph">{uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}</span>
+            <span>{uiStore.cameraMode3D === 'perspective'
+              ? t('viewport3d.switchToOrtho') : t('viewport3d.switchToPersp')}</span>
+          </button>
+          <button
+            class="cam-item" class:on={uiStore.clippingEnabled}
+            onclick={() => { uiStore.clippingEnabled = !uiStore.clippingEnabled; }}
+          >
+            <span class="cam-glyph">✂</span>
+            <span>{uiStore.clippingEnabled
+              ? t('viewport3d.disableClipping') : t('viewport3d.enableClipping')}</span>
+          </button>
+          <button
+            class="cam-item" class:on={uiStore.measureMode}
+            onclick={() => { uiStore.measureMode = !uiStore.measureMode; }}
+          >
+            <span class="cam-glyph">📏</span>
+            <span>{uiStore.measureMode
+              ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}</span>
+          </button>
+          <button
+            class="cam-item" class:on={uiStore.renderMode3D === 'sections'}
+            onclick={() => {
+              if (uiStore.renderMode3D === 'sections') {
+                uiStore.renderMode3D = renderModeBeforeSections;
+              } else {
+                renderModeBeforeSections = uiStore.renderMode3D === 'solid' ? 'solid' : 'wireframe';
+                uiStore.renderMode3D = 'sections';
+              }
+            }}
+          >
+            <span class="cam-glyph">{uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}</span>
+            <span>{uiStore.renderMode3D === 'sections'
+              ? t('config.wireframe') : t('config.sections')}</span>
+          </button>
+        </div>
+      {/if}
+    </div>
   </div>
   {/if}
 
@@ -2969,30 +3205,162 @@
     align-items: flex-end;
 }
 
-  .camera-controls button {
+  /*
+     Dressed from the tokens, like every other floating control. These were
+     written against a palette this application no longer uses — #445 borders,
+     rgba(22, 33, 62) fills and #aabbcc text — so the camera stack stayed the
+     colour of the old interface while the ribbon and the panels moved on.
+  */
+  /*
+     DIRECT children only. `.cam-item` is a button too, and it lives inside
+     this container — so a bare `.camera-controls button` forced every menu
+     row into a 32 × 32 box, which is the column of empty squares sitting
+     behind the labels. The stack's buttons are its own children; the menu's
+     are not.
+  */
+  .camera-controls > button,
+  .camera-controls > .cam-menu-wrap > .cam-btn {
     width: 32px;
     height: 32px;
-    border: 1px solid #445;
-    border-radius: 4px;
-    background: rgba(22, 33, 62, 0.9);
-    color: #aabbcc;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: color-mix(in srgb, var(--st-surface) 90%, transparent);
+    color: var(--st-text-2);
     font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
   }
 
-  .camera-controls button:hover {
-    background: rgba(40, 60, 100, 0.95);
-    color: #ddeeff;
+  .camera-controls > button:hover,
+  .camera-controls > .cam-menu-wrap > .cam-btn:hover {
+    background: var(--st-surface-3);
+    color: var(--st-text);
   }
 
-  .camera-controls button.active-cam {
-    background: rgba(78, 205, 196, 0.25);
-    color: #4ecdc4;
-    border-color: #4ecdc4;
+  .cam-menu-wrap { position: relative; display: flex; }
+
+  /* The chevron says the cube opens something. */
+  .cam-cube { position: relative; }
+
+  .cam-caret {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid currentColor;
+    opacity: 0.75;
+  }
+
+  .cam-btn.on {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+
+  .cam-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    border: none;
+    padding: 0;
+    background: transparent;
+    cursor: default;
+  }
+
+  /*
+     Opens to the LEFT of its button, because the stack is pinned to the right
+     edge and a menu growing rightwards would leave the viewport.
+  */
+  .cam-menu {
+    position: absolute;
+    top: 0;
+    right: calc(100% + 6px);
+    z-index: 21;
+    min-width: 190px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface);
+    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.55);
+  }
+
+  .cam-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    /*
+       One height for every row. The glyphs are a mixed bag — an SVG icon, box
+       drawing characters, a letter and an emoji — and each brings its own
+       line box, so rows ranged from 23 to 30 px and the list read as ragged.
+       Fixing the row and centring inside it makes the glyph column line up
+       whatever is in it.
+    */
+    min-height: 26px;
+    line-height: 1;
+    padding: 0 0.45rem;
+    border: none;
+    border-radius: 3px;
+    background: none;
+    color: var(--st-text-2);
+    font-size: 0.72rem;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .cam-item:hover { background: var(--st-surface-3); color: var(--st-text); }
+
+  .cam-item.on { color: var(--st-accent); }
+
+  .cam-glyph {
+    width: 16px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Emoji render larger than the box-drawing glyphs at the same size. */
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+  .cam-sep {
+    height: 1px;
+    margin: 3px 2px;
+    background: var(--st-hair);
+  }
+
+  /*
+     ── Two leftovers from the old stack, and one of them was a disaster ──
+     When the stack was collapsed into a menu, its size and colour rules were
+     scoped to direct children; these two were missed. The backdrop that
+     closes the menu is a `button` inside this container, full-screen by
+     design — so `:hover` painted rgba(40, 60, 100, 0.95) over the entire
+     application the moment the pointer left the menu box. The whole model
+     went blue.
+
+     They are scoped now, and dressed from the tokens like everything else.
+     `.active-cam` no longer has a user: the states that used it live in the
+     menu and mark themselves with `.cam-item.on`.
+  */
+  .camera-controls > button:hover,
+  .camera-controls > .cam-menu-wrap > .cam-btn:hover {
+    background: var(--st-surface-3);
+    color: var(--st-text);
+  }
+
+  .camera-controls > button.active-cam {
+    background: var(--st-selected-bg);
+    color: var(--st-accent);
+    border-color: var(--st-accent);
   }
 
   .clip-controls {
@@ -3002,10 +3370,10 @@
     align-items: center;
     gap: 6px;
     z-index: 10;
-    background: rgba(22, 33, 62, 0.92);
+    background: color-mix(in srgb, var(--st-surface) 92%, transparent);
     padding: 4px 8px;
     border-radius: 4px;
-    border: 1px solid #445;
+    border: 1px solid var(--st-hair-strong);
   }
   .clip-axis-btns {
     display: flex;
@@ -3017,15 +3385,16 @@
     border: 1px solid #445;
     border-radius: 3px;
     background: transparent;
-    color: #aabbcc;
+    color: var(--st-text-2);
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
   }
+  /* Same palette as the menu that turns it on — it appears right beside it. */
   .clip-axis-btns button.active-ax {
-    background: rgba(78, 205, 196, 0.25);
-    color: #4ecdc4;
-    border-color: #4ecdc4;
+    background: var(--st-selected-bg);
+    color: var(--st-accent);
+    border-color: var(--st-accent);
   }
   .clip-slider {
     width: 100px;

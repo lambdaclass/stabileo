@@ -10,7 +10,7 @@
  * test that passes when the app and the test are wrong in the same way.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, setAppLanguage } from './fixtures';
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
@@ -292,7 +292,7 @@ test.describe('the list in three languages', () => {
       { pro: page },
     ) => {
       const D = DICTS[locale];
-      await page.getByTestId('lang-select').selectOption(locale);
+      await setAppLanguage(page, locale);
       await classify(page, FRAMES);
       await openDetailing(page);
 

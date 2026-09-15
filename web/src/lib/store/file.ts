@@ -99,6 +99,83 @@ export function downloadText(content: string, filename: string, mime: string): v
   downloadBlob(blob, filename);
 }
 
+/**
+ * Whether the browser can offer a "where do you want this?" dialog.
+ *
+ * `showSaveFilePicker` is the File System Access API. Chromium has it;
+ * Firefox and Safari do not, and there is no polyfill worth the name — a
+ * page cannot choose a folder without the user's browser offering to. So
+ * the capability is reported rather than assumed, and the UI says which of
+ * the two behaviours the reader is about to get instead of promising a
+ * chooser that may never appear.
+ */
+export function canChooseSaveLocation(): boolean {
+  return typeof window !== 'undefined'
+    && typeof (window as { showSaveFilePicker?: unknown }).showSaveFilePicker === 'function';
+}
+
+/**
+ * Save `content`, letting the reader pick the folder where that is possible.
+ *
+ * Falls back to an ordinary download — which lands in whatever the browser
+ * calls Downloads — both where the API is missing and where the reader
+ * dismisses the dialog... except that a dismissal is a DECISION not to save,
+ * and quietly downloading anyway would ignore it. `AbortError` is therefore
+ * the one failure that does nothing at all.
+ */
+export async function saveTextTo(
+  content: string,
+  filename: string,
+  mime: string,
+  opts: { chooseLocation?: boolean } = {},
+): Promise<'saved' | 'downloaded' | 'cancelled'> {
+  if (opts.chooseLocation && canChooseSaveLocation()) {
+    try {
+      const picker = (window as unknown as {
+        showSaveFilePicker: (o: unknown) => Promise<{
+          createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }>;
+        }>;
+      }).showSaveFilePicker;
+      const handle = await picker({
+        suggestedName: filename,
+        types: [{ description: 'Stabileo', accept: { [mime]: ['.ded'] } }],
+      });
+      const w = await handle.createWritable();
+      await w.write(content);
+      await w.close();
+      return 'saved';
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'AbortError') return 'cancelled';
+      /* Anything else — a permission refusal, a quota — still deserves the file. */
+    }
+  }
+  downloadText(content, filename, mime);
+  return 'downloaded';
+}
+
+/** The project as text plus the name it should be saved under. */
+export function projectPayload(): { content: string; filename: string } {
+  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim()
+    || t('file.defaultProject');
+  return { content: serializeProject(), filename: `${safeName}.ded` };
+}
+
+/** The whole session — every tab — plus its name. */
+export function sessionPayload(): { content: string; filename: string } {
+  tabManager.syncCurrentTab();
+  const session: DedalSessionFile = {
+    version: '1.0',
+    type: 'session',
+    timestamp: new Date().toISOString(),
+    activeTabId: tabManager.activeTabId ?? '',
+    tabs: $state.snapshot(tabManager.tabs),
+  };
+  return {
+    content: JSON.stringify(session, null, 2),
+    filename: `${t('file.session')}-${session.tabs.length}-${t('file.tabs')}.ded`,
+  };
+}
+
 // ─── Serialize / Deserialize ────────────────────────────────────
 
 /**

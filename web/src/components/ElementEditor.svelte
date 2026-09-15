@@ -1,33 +1,16 @@
 <script lang="ts">
-  import { modelStore, uiStore, historyStore } from '../lib/store';
+  import { modelStore, uiStore, historyStore, resultsStore } from '../lib/store';
   import { NO_RELEASE } from '../lib/store/model.svelte';
   import { t } from '../lib/i18n';
+  import EditorCard from './EditorCard.svelte';
 
   const elemId = $derived(uiStore.editingElementId);
   const elem = $derived(elemId !== null ? modelStore.elements.get(elemId) : undefined);
   const rawPos = $derived(uiStore.editScreenPos);
   const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
-  let editorEl: HTMLDivElement | undefined = $state();
-  // Clamp position so panel never extends beyond viewport
-  const pos = $derived.by(() => {
-    let x = rawPos.x;
-    let y = rawPos.y;
-    if (editorEl) {
-      const rect = editorEl.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const vw = window.innerWidth;
-      // If bottom edge exceeds viewport, move panel up
-      if (y + rect.height + 10 > vh) {
-        y = Math.max(10, vh - rect.height - 10);
-      }
-      // Horizontal clamping
-      const halfW = rect.width / 2;
-      if (x - halfW < 10) x = halfW + 10;
-      if (x + halfW > vw - 10) x = vw - halfW - 10;
-    }
-    return { x, y };
-  });
+  /* Position, clamping and dragging belong to `EditorCard`. */
+  const pos = $derived(rawPos);
 
   let hingeStart = $state(false);
   let hingeEnd = $state(false);
@@ -59,6 +42,35 @@
     }
   });
 
+  /**
+   * One end's condition as a single choice.
+   *
+   * The model stores a hinge and a slide independently, which is right — they
+   * release different things and can coexist. The CARD asks about the end as
+   * a whole, because that is how someone thinks about it, so the two fields
+   * are folded into one name here and unfolded again on the way back.
+   */
+  type ReleaseKind = 'none' | 'hinge' | 'slideX' | 'slideZ' | 'hingeSlideX' | 'hingeSlideZ';
+
+  function kindOf(hinge: boolean, slide: '' | 'x' | 'z'): ReleaseKind {
+    if (slide === '') return hinge ? 'hinge' : 'none';
+    if (slide === 'x') return hinge ? 'hingeSlideX' : 'slideX';
+    return hinge ? 'hingeSlideZ' : 'slideZ';
+  }
+
+  const releaseStart = $derived(kindOf(hingeStart, slideStart));
+  const releaseEnd = $derived(kindOf(hingeEnd, slideEnd));
+
+  function setRelease(end: 'i' | 'j', kind: ReleaseKind) {
+    const hinge = kind === 'hinge' || kind.startsWith('hingeSlide');
+    const slide: '' | 'x' | 'z' =
+      kind === 'slideX' || kind === 'hingeSlideX' ? 'x'
+        : kind === 'slideZ' || kind === 'hingeSlideZ' ? 'z'
+        : '';
+    if (end === 'i') { hingeStart = hinge; slideStart = slide; }
+    else { hingeEnd = hinge; slideEnd = slide; }
+  }
+
   function confirm() {
     if (!elem || elemId === null) return;
     const changed =
@@ -81,16 +93,37 @@
       else { relI.slide = slideStart; relI.slideAxis = slideStartAxis; }
       if (slideEnd === '') { delete relJ.slide; delete relJ.slideAxis; }
       else { relJ.slide = slideEnd; relJ.slideAxis = slideEndAxis; }
-      elem.releaseI = relI;
-      elem.releaseJ = relJ;
-      elem.materialId = materialId;
-      elem.sectionId = sectionId;
+
+      /*
+       * ── Through the store, not onto the object ────────────────────
+       *
+       * This used to assign straight onto `elem`: `elem.materialId = …` and
+       * so on. That changes the data and tells nothing. `modelVersion` never
+       * moved, so everything keyed on it went on believing the model was the
+       * one that had been analysed; the mutation hook never fired; the
+       * elements map was never reassigned, so the canvas had no reason to
+       * redraw; and the results on screen still described the member's old
+       * section.
+       */
+      const patch: Parameters<typeof modelStore.updateElement>[1] = {
+        releaseI: relI,
+        releaseJ: relJ,
+        materialId,
+        sectionId,
+      };
       if (is3DMode) {
-        if (jointStart.some(Boolean)) elem.jointI = { dof: [...jointStart] as any };
-        else delete elem.jointI;
-        if (jointEnd.some(Boolean)) elem.jointJ = { dof: [...jointEnd] as any };
-        else delete elem.jointJ;
+        patch.jointI = jointStart.some(Boolean)
+          ? ({ dof: [...jointStart] } as NonNullable<typeof elem.jointI>) : undefined;
+        patch.jointJ = jointEnd.some(Boolean)
+          ? ({ dof: [...jointEnd] } as NonNullable<typeof elem.jointJ>) : undefined;
       }
+      modelStore.updateElement(elemId, patch);
+
+      /*
+       * And the analysis described the member as it was. A material swap
+       * changes every force in the model that runs through it.
+       */
+      resultsStore.clear();
     }
     close();
   }
@@ -112,11 +145,13 @@
 </script>
 
 {#if elem}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="backdrop" onclick={close}></div>
-  <div class="editor" bind:this={editorEl} style="left: {pos.x}px; top: {pos.y}px;" onkeydown={handleKeydown}>
-    <div class="title">{t('editor.element')} {elemId}</div>
+  <EditorCard
+    title="{t('editor.element')} {elemId}"
+    anchor={pos}
+    onClose={close}
+    onKeydown={handleKeydown}
+    testid="element-editor"
+  >
 
     <div class="field">
       <span>{t('editor.material')}:</span>
@@ -136,50 +171,64 @@
       </select>
     </div>
 
-    <div class="field">
-      <label title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
-        <input type="checkbox" bind:checked={hingeStart} />
-        {t('editor.hingeStart')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}
-      </label>
-    </div>
+    <!--
+      ── Releases, one end at a time ──────────────────────────────────
+      This was three separate controls: a hinge checkbox for each end, then
+      a slider dropdown for each end somewhere below, then an axis dropdown
+      that appeared next to the slider. The two things that describe ONE end
+      of the member sat in different parts of the card, and the word
+      "articulación" never appeared over any of them.
 
-    <div class="field">
-      <label title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
-        <input type="checkbox" bind:checked={hingeEnd} />
-        {t('editor.hingeEnd')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}
-      </label>
-    </div>
+      Now the end is the unit. Each gets one dropdown naming exactly what it
+      releases, and an axis beside it when there is a slide to orient.
 
-    {#if !is3DMode && elem.type === 'frame'}
-      <div class="field">
-        <span>{t('editor.slideStart')}:</span>
-        <select bind:value={slideStart}>
-          <option value="">{t('editor.slideNone')}</option>
-          <option value="x">{t('editor.slideX')}</option>
-          <option value="z">{t('editor.slideZ')}</option>
-        </select>
-        {#if slideStart !== ''}
-          <select bind:value={slideStartAxis} title={t('float.jointAxis')}>
-            <option value="global">{t('float.jointAxisGlobal')}</option>
-            <option value="local">{t('float.jointAxisLocal')}</option>
+      The combined entries are not padding. A hinge releases rotation and a
+      slider releases a translation, so a pin-on-roller is a real end
+      condition and the old pair of independent controls could express it.
+      A dropdown offering only one or the other would silently drop that
+      combination the first time such a model was opened and saved.
+    -->
+    <div class="rel">
+      <div class="rel-title">{t('editor.releases')}</div>
+
+      {#each [
+        { key: 'i', label: t('editor.atStart') },
+        { key: 'j', label: t('editor.atEnd') },
+      ] as end (end.key)}
+        <div class="rel-row">
+          <span class="rel-end">{end.label}</span>
+          <select
+            value={end.key === 'i' ? releaseStart : releaseEnd}
+            onchange={(e) => setRelease(end.key as 'i' | 'j', e.currentTarget.value as ReleaseKind)}
+            data-testid="release-{end.key}"
+          >
+            <option value="none">{t('editor.relNone')}</option>
+            <option value="hinge">{t('editor.relHinge')}</option>
+            <option value="slideX">{t('editor.relSlideX')}</option>
+            <option value="slideZ">{t('editor.relSlideZ')}</option>
+            <option value="hingeSlideX">{t('editor.relHingeSlideX')}</option>
+            <option value="hingeSlideZ">{t('editor.relHingeSlideZ')}</option>
           </select>
-        {/if}
-      </div>
-      <div class="field">
-        <span>{t('editor.slideEnd')}:</span>
-        <select bind:value={slideEnd}>
-          <option value="">{t('editor.slideNone')}</option>
-          <option value="x">{t('editor.slideX')}</option>
-          <option value="z">{t('editor.slideZ')}</option>
-        </select>
-        {#if slideEnd !== ''}
-          <select bind:value={slideEndAxis} title={t('float.jointAxis')}>
-            <option value="global">{t('float.jointAxisGlobal')}</option>
-            <option value="local">{t('float.jointAxisLocal')}</option>
-          </select>
-        {/if}
-      </div>
-    {/if}
+
+          {#if (end.key === 'i' ? releaseStart : releaseEnd).startsWith('slide')
+            || (end.key === 'i' ? releaseStart : releaseEnd).startsWith('hingeSlide')}
+            <!-- Only a slide has an axis to be measured against. -->
+            <select
+              value={end.key === 'i' ? slideStartAxis : slideEndAxis}
+              onchange={(e) => {
+                const v = e.currentTarget.value as 'global' | 'local';
+                if (end.key === 'i') slideStartAxis = v; else slideEndAxis = v;
+              }}
+              title={t('float.jointAxis')}
+              data-testid="release-axis-{end.key}"
+            >
+              <option value="global">{t('float.jointAxisGlobal')}</option>
+              <option value="local">{t('float.jointAxisLocal')}</option>
+            </select>
+          {/if}
+        </div>
+      {/each}
+    </div>
 
     {#if is3DMode && elem.type === 'frame'}
       <div class="joint3d" title={t('editor.joint3dHint')}>
@@ -204,139 +253,131 @@
       | L = {modelStore.getElementLength(elemId!).toFixed(3)} m
     </div>
 
-    <div class="buttons">
-      <button class="btn-ok" onclick={confirm}>OK</button>
-      <button class="btn-cancel" onclick={close}>{t('editor.cancel')}</button>
-    </div>
-  </div>
+    {#snippet footer()}
+      <button class="ee-btn" onclick={close}>{t('editor.cancel')}</button>
+      <button class="ee-btn ee-ok" onclick={confirm} data-testid="element-editor-ok">OK</button>
+    {/snippet}
+  </EditorCard>
 {/if}
 
 <style>
-  .joint3d {
-    border-top: 1px solid #0f3460;
-    padding-top: 0.4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  .joint3d-title {
-    font-size: 0.72rem;
-    color: #4ecdc4;
-    font-weight: 600;
-  }
-  .joint3d-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
-  .joint3d-end {
-    font-size: 0.72rem;
-    color: #888;
-    width: 12px;
-    font-weight: 600;
-  }
-  .joint3d-dof {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    font-size: 0.72rem;
-    color: #ccc;
-    cursor: pointer;
-  }
-  .joint3d-dof input[type="checkbox"] { accent-color: #e94560; }
-
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 99;
-  }
-
-  .editor {
-    position: fixed;
-    z-index: 100;
-    background: #16213e;
-    border: 1px solid #0f3460;
-    border-radius: 6px;
-    padding: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    transform: translate(-50%, 10px);
-    min-width: 220px;
-  }
-
-  .title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #4ecdc4;
-  }
-
   .field {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.8rem;
-    color: #ccc;
   }
 
-  .field span {
-    min-width: 60px;
-  }
-
-  .field select {
+  .field > span {
     flex: 1;
-    padding: 0.3rem;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
-    border-radius: 4px;
-    color: #eee;
-    font-size: 0.8rem;
+    color: var(--st-text-2);
   }
 
-  .field label {
+  .field select,
+  .rel-row select {
+    padding: 0.2rem 0.3rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.7rem;
+    max-width: 130px;
+  }
+
+  .field select:focus,
+  .rel-row select:focus { outline: none; border-color: var(--st-accent); }
+
+  /* ── Releases ─────────────────────────────────────────────────── */
+  .rel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--st-hair);
+  }
+
+  .rel-title {
+    font-family: var(--st-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--st-text-3);
+  }
+
+  .rel-row {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
+    gap: 0.35rem;
   }
 
-  .field input[type="checkbox"] {
-    accent-color: #e94560;
+  .rel-end {
+    width: 52px;
+    flex: none;
+    color: var(--st-text-2);
+  }
+
+  .rel-row select { flex: 1; max-width: none; }
+
+  /* ── 3D joints ────────────────────────────────────────────────── */
+  .joint3d {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--st-hair);
+  }
+
+  .joint3d-title {
+    font-family: var(--st-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--st-text-3);
+  }
+
+  .joint3d-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .joint3d-end {
+    width: 14px;
+    color: var(--st-text-3);
+  }
+
+  .joint3d-dof {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    font-size: 0.64rem;
+    color: var(--st-text-2);
   }
 
   .info {
-    font-size: 0.7rem;
-    color: #888;
-    padding-top: 0.25rem;
-    border-top: 1px solid #0f3460;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--st-hair);
+    font-size: 0.64rem;
+    color: var(--st-text-3);
   }
 
-  .buttons {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-    margin-top: 0.25rem;
-  }
-
-  .btn-ok, .btn-cancel {
+  .ee-btn {
     padding: 0.25rem 0.6rem;
-    border: none;
-    border-radius: 4px;
-    font-size: 0.75rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    background: var(--st-surface-2);
+    color: var(--st-text-2);
+    font: inherit;
+    font-size: 0.7rem;
     cursor: pointer;
   }
 
-  .btn-ok {
-    background: #e94560;
-    color: white;
-  }
-  .btn-ok:hover { background: #ff6b6b; }
+  .ee-btn:hover { color: var(--st-text); }
 
-  .btn-cancel {
-    background: #2a2a4e;
-    color: #aaa;
+  .ee-ok {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
   }
-  .btn-cancel:hover { background: #3a3a5e; }
+
+  .ee-ok:hover { background: var(--st-selected-bg); }
 </style>

@@ -183,9 +183,25 @@ export function createTextSpriteCached(
   text: string,
   color: string = '#ffffff',
   fontSize: number = 36,
+  /**
+   * Constant on SCREEN rather than in the world.
+   *
+   * A sprite sized in world units scales with the model: an id beside a node
+   * was `modelSize * 0.025`, which on a 20 m frame is a readable 0.5 m and on
+   * a building is a metre and a half of numeral lying across the structure.
+   * The complaint was "the ids are gigantic in PRO", and PRO's models are
+   * simply the large ones.
+   *
+   * `sizeAttenuation: false` makes `scale` a fraction of the viewport height
+   * instead, so a label occupies the same few pixels at every zoom — which is
+   * what a label is for, and what every CAD does with one.
+   */
+  screenSized = false,
 ): THREE.Sprite {
   const texture = labelTexture(text, color, fontSize);
-  const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const mat = new THREE.SpriteMaterial({
+    map: texture, depthTest: false, transparent: true, sizeAttenuation: !screenSized,
+  });
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(0.6, 0.6, 1);
   sprite.userData.sharedTexture = true;

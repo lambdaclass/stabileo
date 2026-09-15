@@ -109,6 +109,23 @@ export default defineConfig({
           // ~13 % slower under that load, and it is the difference between a green suite
           // and a suite that throws away a correct result.
           pool: 'threads',
+          /*
+           * Fifteen seconds, not five.
+           *
+           * The default was never chosen with these tests in mind. The CIRSOC
+           * sweeps bisect over a 400-point interaction curve at every point of
+           * a dense moment or steel range, and the slowest lands at 4.95 s on
+           * an idle machine — inside the default by fifty milliseconds. Under
+           * any load at all it goes over, and vitest reports a timeout the
+           * same way it reports a failed assertion: as a broken invariant,
+           * with the test's own message attached. That sent me looking for a
+           * shared-state bug in a module that reads no state.
+           *
+           * Raised rather than thinning the sweeps. The density is the point —
+           * the defects they catch are a few kN·m wide, and the dead band
+           * that shipped was five.
+           */
+          testTimeout: 15_000,
         },
       },
       {

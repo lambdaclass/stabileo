@@ -68,6 +68,15 @@ export interface OccupancyEntry {
   assemblyKind?: AssemblyKind;
   /** Table 4.1 sends the reader elsewhere; recorded verbatim so the UI can say so. */
   seeArticle?: string;
+  /**
+   * Table 4.1 note (a) — §4.7 does not permit the reduction for this occupancy.
+   *
+   * Separate from `garageOrPublicAssembly`, which was carrying the whole of note (a)
+   * while covering only two of the occupancies that print it. Most of the rest are over
+   * 5 kN/m² and are already stopped by §4.7.3, so this changes no number today — it
+   * stops the NEXT row from being added without its footnote.
+   */
+  noReduction?: boolean;
   refs: ClauseRef[];
 }
 
@@ -119,7 +128,7 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
 
   // Bibliotecas
   e('biblioteca_lectura', 'education', 3.0, 4.5),
-  e('biblioteca_deposito', 'education', 7.0, 4.5),
+  e('biblioteca_deposito', 'education', 7.0, 4.5, { noReduction: true }),
   e('biblioteca_pasillos_sup', 'circulation', 4.0, 4.5),
   e('biblioteca_pasillos_pb', 'circulation', 5.0, 4.5),
 
@@ -135,7 +144,7 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
   // Comercios
   e('comercio_minorista_pb', 'commercial', 5.0, 4.5),
   e('comercio_minorista_sup', 'commercial', 4.0, 4.5),
-  e('comercio_mayorista', 'commercial', 6.0, 4.5),
+  e('comercio_mayorista', 'commercial', 6.0, 4.5, { noReduction: true }),
 
   // Cuartos de máquinas
   e('cuarto_maquinas', 'industrial', 7.5),
@@ -150,9 +159,9 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
   e('cubierta_otras', 'roof', 1.0),
 
   // Depósitos
-  e('deposito_liviano', 'storage', 6.0),
+  e('deposito_liviano', 'storage', 6.0, null, { noReduction: true }),
   e('deposito_pesado', 'storage', 12.0, null,
-    { seeArticle: '4.13' }),
+    { seeArticle: '4.13', noReduction: true }),
 
   // Escaleras
   e('escalera_privada', 'circulation', 2.0),
@@ -168,8 +177,14 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
   // Entrepiso liviano
   e('entrepiso_liviano', 'other', null, 1.0),
 
-  // Garajes
-  e('garaje_autos', 'parking', 2.5, null, { garageOrPublicAssembly: true, assemblyKind: 'passengerGarage' }),
+  /*
+   * Garajes. Tabla 4.1 prints 2 kN/m² for passenger vehicles, and art. 4.10.1 says the
+   * same number a second time. This entry carried 2,5 — the CIRSOC 101-2005 figure,
+   * inherited from ASCE 7-05's 2,40 — inside a module whose header promises a cell-by-
+   * cell transcription of the 2025 edition. Conservative, and wrong: 25 % over a value
+   * the reader could look up, in the one place where looking it up is the point.
+   */
+  e('garaje_autos', 'parking', 2.0, null, { garageOrPublicAssembly: true, assemblyKind: 'passengerGarage' }),
   e('garaje_camiones', 'parking', null, null,
     { garageOrPublicAssembly: true, assemblyKind: 'truckGarage', seeArticle: '4.10.3' }),
 
@@ -188,8 +203,8 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
   e('vivienda_dormitorio', 'residential', 2.0),
 
   // Fábricas y talleres
-  e('fabrica_liviana', 'industrial', 6.0, null, { seeArticle: '4.12.1' }),
-  e('fabrica_pesada', 'industrial', 12.0, null, { seeArticle: '4.12.1' }),
+  e('fabrica_liviana', 'industrial', 6.0, null, { seeArticle: '4.12.1', noReduction: true }),
+  e('fabrica_pesada', 'industrial', 12.0, null, { seeArticle: '4.12.1', noReduction: true }),
 ]);
 
 export function findOccupancy(key: string): OccupancyEntry | undefined {
@@ -232,6 +247,8 @@ export interface ReductionInputs {
   passengerGarage?: boolean;
   /** True for places of public assembly (§4.7.5). */
   publicAssembly?: boolean;
+  /** True when Table 4.1 marks the occupancy with note (a). */
+  noReduction?: boolean;
   /**
    * One-way slab: the tributary width used for A_t is capped at 1.5 × span (§4.7.6).
    * Supply the span so the cap can be enforced rather than assumed satisfied.
@@ -273,6 +290,12 @@ export function reduceLiveLoad(inputs: ReductionInputs): ReductionResult {
 
   const none = (reason: EngineMessage, refs: ClauseRef[]): ReductionResult =>
     ({ lKNm2: lo, ratio: 1, reduced: false, reason, refs });
+
+  // Table 4.1 note (a) — the row itself forbids the reduction.
+  if (inputs.noReduction) {
+    return none(msg('loads.cirsoc101.reduction.tableNoteA'),
+      [T41, clause('cirsoc-101', '2025', '4.7', 'reducción de sobrecargas')]);
+  }
 
   // §4.7.5 — public assembly areas are not reduced.
   if (inputs.publicAssembly) {

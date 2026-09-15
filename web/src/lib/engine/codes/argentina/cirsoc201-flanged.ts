@@ -38,6 +38,7 @@
  */
 
 import { checkFlexure, type ConcreteDesignParams, type FlexureResult } from './cirsoc201';
+import { minFlexuralSteelCm2 } from './cirsoc201-basis';
 
 /** A T or L section: a flange on top of a web. */
 export interface FlangedGeometry {
@@ -56,11 +57,6 @@ export interface FlangedFlexureResult extends FlexureResult {
   AsFlange: number;
 }
 
-/** β₁ per §10.2.7.3 — the same rule the rest of the module applies. */
-function beta1(fc: number): number {
-  if (fc <= 28) return 0.85;
-  return Math.max(0.65, 0.85 - (0.05 * (fc - 28)) / 7);
-}
 
 /**
  * Design a flanged section for a moment.
@@ -101,8 +97,7 @@ export function checkFlexureFlanged(
      * As,min from the b it was given, and §9.6.1.2 wants it on the web.
      */
     const r = checkFlexure({ ...params, b: bf }, Mu);
-    const rhoMin = Math.max((0.25 * Math.sqrt(fc)) / fy, 1.4 / fy);
-    const AsMinWeb = rhoMin * bw * r.d * 1e4;
+    const AsMinWeb = minFlexuralSteelCm2(fc, fy, bw, r.d);
     const AsReq = Math.max(r.AsFlexural, AsMinWeb);
 
     return {
@@ -196,6 +191,3 @@ export function flangedBlockDepth(
   const Cw = Math.max(As * fy - Cf, 0);
   return { a: Cw / (alpha1 * fc * bw), withinFlange: false };
 }
-
-/** Exported so tests and the panel agree about β₁ without re-deriving it. */
-export { beta1 as flangedBeta1 };

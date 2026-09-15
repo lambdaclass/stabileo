@@ -86,7 +86,6 @@
   const mod = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl';
 
   let exampleBtn: HTMLButtonElement | undefined = $state();
-  let openMenu = $state<string | null>(null);
 
   const solved = $derived(resultsStore.results3D != null || resultsStore.results != null);
 
@@ -161,7 +160,6 @@
     // agrees with the tab.
     if (TAB_STAGE[uiStore.proActiveTab] !== s.id) uiStore.proActiveTab = s.home;
     uiStore.proPanelVisible = true;
-    openMenu = null;
   }
 
   function run(c: ProCmd) {
@@ -174,8 +172,18 @@
       uiStore.proActiveTab = c.tab;
       uiStore.proPanelVisible = true;
     }
+    /*
+     * A drawing command arms the pointer AND shows its table.
+     *
+     * Those are not two ways of working to choose between — they are the two
+     * halves of one: type the nodes with their coordinates in the panel, then
+     * click those nodes to lay members, supports and plates on them. The
+     * pointer box over the model says which tool is live and takes you back
+     * to Select, which is the one place a mode is worth announcing.
+     */
+    if (c.tool) uiStore.currentTool = c.tool as never;
+    else if (c.tab) uiStore.currentTool = 'select';
     c.action?.();
-    openMenu = null;
   }
 
   /* ── Stage badges ─────────────────────────────────────────────────────
@@ -190,6 +198,11 @@
    * the table can never disagree.
    */
   type Badge = { tone: 'ok' | 'warn' | 'danger'; text: string } | null;
+
+  /** The right-hand panel is showing what Select picks up. */
+  const selectPanelShowing = $derived(
+    uiStore.proPanelVisible && uiStore.proActiveTab === 'selection',
+  );
 
   const badges = $derived.by((): Record<string, Badge> => ({
     model: modelStore.nodes.size === 0
@@ -259,39 +272,62 @@
           title="{t('toolbar.redo')} ({mod}+Y)"
         ><Icon name="redo" size={16} /></button>
         <span class="pr-tool-sep" aria-hidden="true"></span>
-        <div class="pr-dd">
-          <button
-            class="pr-tool"
-            class:active={uiStore.currentTool === 'select'}
-            onclick={() => { uiStore.currentTool = 'select'; openMenu = openMenu === 'select' ? null : 'select'; }}
-            title={t('float.select')}
-            data-testid="pr-select"
-          ><Icon name="select" size={16} /><span class="pr-caret">▾</span></button>
-          {#if openMenu === 'select'}
-            <div class="pr-menu">
-              {#each [
-                { id: 'nodes', key: 'float.selectNodes' },
-                { id: 'elements', key: 'float.selectElements' },
-                { id: 'shells', key: 'float.selectShells' },
-                { id: 'supports', key: 'float.selectSupports' },
-                { id: 'loads', key: 'float.selectLoads' },
-              ] as const as sm}
-                <button
-                  class="pr-menu-item"
-                  class:active={uiStore.selectMode === sm.id}
-                  onclick={() => { uiStore.selectMode = sm.id as never; openMenu = null; }}
-                >{t(sm.key)}</button>
-              {/each}
-            </div>
-          {/if}
-        </div>
+        <!--
+          ── Move and Select, back beside undo and redo ──────────────────
+          Two different things wear these two buttons, and the difference is
+          the whole reason the highlights differ.
+
+          MOVE is a pointer mode. It lights while the pointer is in it, which
+          is what "mode" means, and the default is Select so it is not lit
+          for free.
+
+          SELECT opens a PANEL — which kinds a click picks up, a setting that
+          persists across dozens of gestures and was a dropdown that closed on
+          every choice. So it lights while that panel is showing, not while
+          the select tool is armed: pressing Nodes changes the panel and takes
+          the paint off this button, and the pointer is STILL selecting,
+          because nothing has yet asked it to draw. The tool only changes when
+          a "Draw …" button in a panel says so.
+        -->
+        <!--
+          ── Two different things a button can be saying ──────────────
+          The BOX means "this is what the right-hand panel is showing". The
+          coloured ICON means "this is what the pointer is doing". For every
+          other command in the bar those coincide, so one highlight served for
+          both; for these two they come apart, and one highlight then claims
+          something untrue.
+
+          Move has no right-hand panel at all, so it never takes a box — it
+          would be pointing at a panel that does not exist. It paints its icon
+          whenever the pointer is panning, however that was reached.
+
+          Select has one, and keeps the pointer SELECTING after you open some
+          other panel: pressing Nodes takes the box off it and leaves the icon
+          lit, because nothing has yet asked the pointer to draw.
+        -->
         <button
           class="pr-tool"
-          class:active={uiStore.currentTool === 'pan'}
-          onclick={() => { uiStore.currentTool = 'pan'; openMenu = null; }}
+          class:tool-on={uiStore.currentTool === 'pan'}
+          aria-pressed={uiStore.currentTool === 'pan' ? 'true' : 'false'}
+          onclick={() => { uiStore.currentTool = 'pan'; }}
           title={t('float.pan')}
           data-testid="pr-pan"
         ><Icon name="pan" size={16} /></button>
+        <button
+          class="pr-tool"
+          class:active={selectPanelShowing}
+          class:tool-on={uiStore.currentTool === 'select'}
+          aria-pressed={selectPanelShowing ? 'true' : 'false'}
+          onclick={() => {
+            /* Back to selecting AND show what it picks up: the button that
+               opens the panel is also the way back from a drawing mode. */
+            uiStore.currentTool = 'select';
+            uiStore.proActiveTab = 'selection';
+            uiStore.proPanelVisible = true;
+          }}
+          title={t('float.select')}
+          data-testid="pr-select"
+        ><Icon name="select" size={16} /></button>
       </div>
 
       <div class="pr-tabs" role="tablist">
@@ -335,7 +371,7 @@
       {#each stage.groups as g (g.id)}
         <section class="pr-group" data-group={g.id}>
           <div class="pr-cmds">
-            {#each g.cmds.filter(c => !c.overflow || openMenu === g.id) as c (c.id)}
+            {#each g.cmds as c (c.id)}
               {@const on = !c.enabled || c.enabled()}
               {@const steps = on ? [] : (c.blockedKeys?.() ?? []).map((k) => t(k))}
               {@const why = steps.length
@@ -345,7 +381,8 @@
               <button
                 class="pr-cmd"
                 class:active={(!!c.tab && uiStore.proActiveTab === c.tab)
-                  || (!!c.diagram && shownDiagram === c.diagram)}
+                  || (!!c.diagram && shownDiagram === c.diagram)
+                  || (!!c.tool && uiStore.currentTool === c.tool)}
                 disabled={!on}
                 onclick={() => run(c)}
                 title={hint ? `${t(c.labelKey)} — ${hint}` : t(c.labelKey)}
@@ -479,8 +516,10 @@
   }
 
   .pr-tool:hover { background: var(--st-surface-3); color: var(--st-text); }
+  /* The panel this button opens is the one showing: box and icon. */
   .pr-tool.active { color: var(--st-accent); border-color: var(--st-accent); }
-  .pr-caret { font-size: 0.55rem; opacity: 0.7; }
+  /* The pointer is in this mode, but some other panel is showing: icon only. */
+  .pr-tool.tool-on { color: var(--st-accent); }
 
   .pr-tabs { display: flex; align-items: stretch; gap: 0.1rem; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 
@@ -591,39 +630,15 @@
     color: var(--st-text-3);
   }
 
-  /* ── Menus ─────────────────────────────────────────────────────────── */
-
-  .pr-dd { position: relative; display: flex; }
-
-  .pr-menu {
-    position: absolute;
-    top: calc(100% + 3px);
-    left: 0;
-    z-index: 60;
-    min-width: 150px;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-    padding: 0.15rem;
-  }
-
-  .pr-menu-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    border-radius: var(--st-radius);
-    color: var(--st-text-2);
-    font-family: var(--st-sans);
-    font-size: 0.74rem;
-    padding: 0.3rem 0.5rem;
-    cursor: pointer;
-  }
-
-  .pr-menu-item:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .pr-menu-item.active { color: var(--st-accent); }
+  /*
+   * ── There are no menus in this bar any more ───────────────────────
+   *
+   * `.pr-dd`, `.pr-menu`, `.pr-menu-item`, `.pr-menu-check`, `.pr-menu-sep`
+   * and `.pr-caret` lived here after the Select dropdown that used them was
+   * replaced by the Selection panel. Two of them had never been used at all.
+   * Removed with `openMenu` and the `overflow` flag it gated — see the note
+   * on `ProCmd`.
+   */
 
   /* Narrow: the command labels go before anything is dropped. */
   @media (max-width: 1240px) {
