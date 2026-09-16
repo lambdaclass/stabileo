@@ -251,7 +251,9 @@ function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Array {
       const val = Math.abs(a[i * n + k]);
       if (val > maxVal) { maxVal = val; maxRow = i; }
     }
-    if (maxVal < singularityTol) throw new Error(t('detailed.singularMatrix'));
+    // !(a >= b) rather than a < b: the latter is false for NaN, which let a
+    // poisoned matrix through and returned NaN instead of raising.
+    if (!(maxVal >= singularityTol)) throw new Error(t('detailed.singularMatrix'));
     if (maxRow !== k) {
       for (let j = 0; j < n; j++) {
         const tmp = a[k * n + j]; a[k * n + j] = a[maxRow * n + j]; a[maxRow * n + j] = tmp;
@@ -264,7 +266,7 @@ function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Array {
       bw[i] -= factor * bw[k];
     }
   }
-  if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) throw new Error(t('detailed.singularHypostatic'));
+  if (!(Math.abs(a[(n - 1) * n + (n - 1)]) >= singularityTol)) throw new Error(t('detailed.singularHypostatic'));
   const x = new Float64Array(n);
   for (let i = n - 1; i >= 0; i--) {
     let sum = bw[i];
@@ -465,8 +467,12 @@ export function solveDetailed(input: SolverInput): DSMStepData {
 
   for (const load of input.loads) {
     if (load.type === 'nodal') {
-      const { nodeId, fx, fy, mz } = load.data;
+      const { nodeId, fx, fz, my } = load.data;
       const addLC = (ld: number, val: number, desc: string) => {
+        // Finiteness first. Math.abs(undefined) is NaN and NaN < 1e-15 is
+        // false, so without this a missing term is not skipped as a zero:
+        // it lands in the load vector as NaN and spreads to every later step.
+        if (!Number.isFinite(val)) return;
         if (Math.abs(val) < 1e-15) return;
         const idx = globalDof(nodeId, ld);
         if (idx !== undefined) {
@@ -475,8 +481,8 @@ export function solveDetailed(input: SolverInput): DSMStepData {
         }
       };
       addLC(0, fx, `Fx nodal en nodo ${nodeId}`);
-      addLC(1, fy, `Fy nodal en nodo ${nodeId}`);
-      if (dofsPerNode >= 3) addLC(2, mz, `Mz nodal en nodo ${nodeId}`);
+      addLC(1, fz, `Fz nodal en nodo ${nodeId}`);
+      if (dofsPerNode >= 3) addLC(2, my, `My nodal en nodo ${nodeId}`);
 
     } else if (load.type === 'distributed') {
       const dLoad = load.data;
