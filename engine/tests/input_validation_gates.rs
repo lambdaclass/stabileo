@@ -231,6 +231,38 @@ fn kinematics_2d_reports_an_unanalysable_model_instead_of_panicking() {
     );
 }
 
+// ---------- collapsed elements ----------
+
+/// A quad whose four nodes are collinear has no area. That used to abort the
+/// whole WASM module from inside `invert_small_matrix` (an `assert!`, which
+/// release builds keep), rather than being refused like a collapsed plate or
+/// solid shell on the same geometry.
+#[test]
+fn collapsed_quad_is_refused_rather_than_aborting() {
+    use dedaliano_engine::solver::linear::solve_3d;
+    use dedaliano_engine::types::SolverInput3D;
+
+    let json = "{\"nodes\":{\
+            \"0\":{\"id\":0,\"x\":0.0,\"y\":0.0,\"z\":0.0},\
+            \"1\":{\"id\":1,\"x\":1.0,\"y\":0.0,\"z\":0.0},\
+            \"2\":{\"id\":2,\"x\":2.0,\"y\":0.0,\"z\":0.0},\
+            \"3\":{\"id\":3,\"x\":3.0,\"y\":0.0,\"z\":0.0}},\
+          \"materials\":{\"1\":{\"id\":1,\"e\":210000.0,\"nu\":0.3}},\
+          \"sections\":{\"1\":{\"id\":1,\"a\":0.01,\"iy\":1e-4,\"iz\":1e-4,\"j\":1e-4}},\
+          \"elements\":{\
+            \"0\":{\"id\":0,\"type\":\"frame\",\"nodeI\":0,\"nodeJ\":1,\"materialId\":1,\"sectionId\":1},\
+            \"1\":{\"id\":1,\"type\":\"frame\",\"nodeI\":1,\"nodeJ\":2,\"materialId\":1,\"sectionId\":1},\
+            \"2\":{\"id\":2,\"type\":\"frame\",\"nodeI\":2,\"nodeJ\":3,\"materialId\":1,\"sectionId\":1}},\
+          \"supports\":{\"1\":{\"nodeId\":0,\"rx\":true,\"ry\":true,\"rz\":true,\
+            \"rrx\":true,\"rry\":true,\"rrz\":true}},\
+          \"loads\":[{\"type\":\"nodal\",\"data\":{\"nodeId\":3,\"fx\":0.0,\"fy\":0.0,\
+            \"fz\":-10.0,\"mx\":0.0,\"my\":0.0,\"mz\":0.0}}],\
+          \"quads\":{\"0\":{\"id\":0,\"nodes\":[0,1,2,3],\"materialId\":1,\"thickness\":0.2}}}";
+    let input: SolverInput3D = serde_json::from_str(json).expect("collinear quad model");
+
+    expect_clean_err("collapsed quad", move || solve_3d(&input));
+}
+
 // ---------- constraints ----------
 
 /// `validate_input_2d` rejects non-finite coordinates, properties and loads.

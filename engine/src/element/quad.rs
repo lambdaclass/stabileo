@@ -226,10 +226,15 @@ fn shear_b_nat(pts: &[[f64; 2]; 4], xi: f64, eta: f64) -> [[f64; 24]; 2] {
 
 // ==================== EAS Helper ====================
 
-/// Invert an n×n matrix (flat row-major slice) in-place via Gauss-Jordan
-/// elimination with partial pivoting. Returns the inverse as a Vec.
-/// Panics if the matrix is singular.
-fn invert_small_matrix(n: usize, m: &[f64]) -> Vec<f64> {
+/// Invert an n×n matrix (flat row-major slice) via Gauss-Jordan elimination
+/// with partial pivoting. Returns `None` when the matrix is singular.
+///
+/// This used to `assert!` on a vanishing pivot. `assert!` is not compiled out
+/// in release, unlike `debug_assert!`, so a degenerate element — four
+/// collinear nodes, say — aborted the entire WASM module from inside element
+/// code, with a message addressed to whoever wrote this function rather than
+/// to whoever drew the model.
+fn invert_small_matrix(n: usize, m: &[f64]) -> Option<Vec<f64>> {
     debug_assert_eq!(m.len(), n * n);
     let cols = 2 * n;
     let mut a = vec![0.0f64; n * cols];
@@ -251,7 +256,9 @@ fn invert_small_matrix(n: usize, m: &[f64]) -> Vec<f64> {
                 max_row = row;
             }
         }
-        assert!(max_val > 1e-30, "invert_small_matrix: singular (pivot {col} ≈ 0)");
+        if max_val <= 1e-30 {
+            return None;
+        }
 
         if max_row != col {
             for c in 0..cols {
@@ -281,13 +288,13 @@ fn invert_small_matrix(n: usize, m: &[f64]) -> Vec<f64> {
             inv[r * n + c] = a[r * cols + n + c];
         }
     }
-    inv
+    Some(inv)
 }
 
 /// Invert a 4×4 matrix stored as [f64; 16] (row-major).
 #[cfg(test)]
 fn invert_4x4(m: &[f64; 16]) -> [f64; 16] {
-    let v = invert_small_matrix(4, m);
+    let v = invert_small_matrix(4, m).expect("the test matrices are invertible");
     let mut out = [0.0; 16];
     out.copy_from_slice(&v);
     out
@@ -554,9 +561,15 @@ pub fn mitc4_local_stiffness(
     }
 
     // --- EAS static condensation: K_eff = K - C · Q⁻¹ · Cᵀ ---
-    {
-        let q_inv = invert_small_matrix(7, &q_eas);
-
+    //
+    // A singular Q means the element has no area to enhance: its four nodes
+    // are collinear or coincident. The pre-solve gates do notice such an
+    // element — and then nothing acts on the diagnostic, so it arrives here
+    // anyway. The answer is the plain MITC4 stiffness, not aborting the WASM
+    // module from inside element code; the factorization downstream then
+    // refuses the model, exactly as it already did for a collapsed plate or
+    // solid shell.
+    if let Some(q_inv) = invert_small_matrix(7, &q_eas) {
         // qi_ct = Q⁻¹ · Cᵀ  (7×8); Cᵀ[a][j] = c_eas[j][a]
         let mut qi_ct = [[0.0; 8]; 7];
         for a in 0..7 {
