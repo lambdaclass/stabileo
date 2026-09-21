@@ -1293,6 +1293,21 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
     // ── Input validation (before assembly) ──
     validate_input_3d(&input)?;
 
+    // An `Error` from the gates now means one thing: an element that cannot be
+    // integrated over — collapsed, or folded onto itself. (An element merely
+    // ordered backwards is a Warning; see `classify_jacobian`.) Such a model
+    // was already going to fail, but it failed downstream and said the wrong
+    // thing: a collapsed plate came back as "Singular stiffness matrix —
+    // structure is a mechanism", blaming the structure for one broken
+    // element, while the gate upstream had already named it.
+    //
+    // The constrained solver refuses on its own `Error` diagnostics for the
+    // same reason (`constraints.rs`); this is that rule, applied to the gates
+    // that were computing the answer anyway.
+    if let Some(d) = pre_solve_diags.iter().find(|d| d.severity == Severity::Error) {
+        return Err(format!("Invalid model: {}", d.message));
+    }
+
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;

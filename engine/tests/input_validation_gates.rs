@@ -260,7 +260,17 @@ fn collapsed_quad_is_refused_rather_than_aborting() {
           \"quads\":{\"0\":{\"id\":0,\"nodes\":[0,1,2,3],\"materialId\":1,\"thickness\":0.2}}}";
     let input: SolverInput3D = serde_json::from_str(json).expect("collinear quad model");
 
-    expect_clean_err("collapsed quad", move || solve_3d(&input));
+    // And the refusal has to say which element and why. Reaching the
+    // factorization instead produced "Singular stiffness matrix — structure is
+    // a mechanism", which blames the whole structure for one bad element.
+    match std::panic::catch_unwind(move || solve_3d(&input)) {
+        Ok(Err(e)) => assert!(
+            e.contains("Quad 0") && e.contains("collapsed"),
+            "the refusal should name the element and what is wrong with it, got: {e}"
+        ),
+        Ok(Ok(_)) => panic!("a quad with no area must not be analysed"),
+        Err(_) => panic!("a quad with no area must not abort the module"),
+    }
 }
 
 // ---------- constraints ----------
