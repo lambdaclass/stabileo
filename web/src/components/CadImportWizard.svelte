@@ -688,6 +688,9 @@
                   {#each Object.entries(doc.unsupported) as [type, count]}
                     <div class="warn-line">⚠ {t('cad.warn.unsupportedEntity').replace('{type}', type).replace('{n}', String(count))}</div>
                   {/each}
+                  {#each Object.entries(doc.malformed) as [type, count]}
+                    <div class="warn-line">⚠ {t('cad.warn.malformedEntity').replace('{type}', type).replace('{n}', String(count))}</div>
+                  {/each}
                 {:else}
                   <h3>{t('cad.layerRoles')}</h3>
                   <div class="hint">{t('cad.layerRolesHint')}</div>

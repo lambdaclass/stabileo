@@ -110,6 +110,26 @@ function transformBlockBBox(
   return bboxOfPoints(corners)!;
 }
 
+/**
+ * True only when every value is a real, finite number.
+ *
+ * dxf-parser hands back NaN for a group code whose value is not a number (a
+ * truncated or corrupt file), and NaN used to travel straight into the IR. It
+ * hides well: `NaN < minX` and `NaN > maxX` are both false, so a bad point does
+ * not even widen the bbox — the extent silently ignores it while the entity
+ * keeps it. Downstream it is worse than a wrong number. In `pairWallLines` the
+ * segment's length is NaN, so `len <= 0` is false (not rejected as degenerate)
+ * and `len > 0` is also false (not collected as unpaired): the member is
+ * neither paired, nor kept, nor recorded in `skipped`. It disappears from the
+ * model and nothing in the result says it ever existed.
+ *
+ * So the coordinates are checked here, at the one place that is still talking
+ * about the FILE, where a refusal can be counted and shown.
+ */
+function allFinite(...vs: unknown[]): boolean {
+  return vs.every((v) => typeof v === 'number' && Number.isFinite(v));
+}
+
 export function parseCadDxf(text: string, sourceName: string): CadDocument {
   const empty: CadDocument = {
     sourceName,
@@ -118,6 +138,7 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
     entities: [],
     bbox: null,
     unsupported: {},
+    malformed: {},
     warnings: [],
   };
 
@@ -130,7 +151,10 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
   }
   if (!dxf) return { ...empty, warnings: ['parseError'] };
 
-  const doc: CadDocument = { ...empty, unsupported: {}, warnings: [], entities: [] };
+  const doc: CadDocument = { ...empty, unsupported: {}, malformed: {}, warnings: [], entities: [] };
+
+  /** Refuse an entity of a supported type whose numbers are not usable. */
+  const refuse = (kind: string) => { doc.malformed[kind] = (doc.malformed[kind] ?? 0) + 1; };
 
   // Unit suggestion from $INSUNITS (number). Never trusted blindly.
   const insunits = dxf.header?.['$INSUNITS'];
@@ -162,6 +186,7 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
       case 'LINE': {
         const vs = e.vertices as Array<{ x: number; y: number }> | undefined;
         if (vs && vs.length >= 2) {
+          if (!allFinite(vs[0].x, vs[0].y, vs[1].x, vs[1].y)) { refuse('LINE'); break; }
           doc.entities.push({
             kind: 'line', layer,
             a: { x: vs[0].x, y: vs[0].y },
@@ -174,6 +199,9 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
       case 'POLYLINE': {
         const vs = e.vertices as Array<{ x: number; y: number }> | undefined;
         if (!vs || vs.length < 2) break;
+        // One bad vertex condemns the outline: a polyline is a shape, and a
+        // shape with a hole where a corner should be is not a smaller shape.
+        if (!vs.every((v) => allFinite(v.x, v.y))) { refuse(type); break; }
         let pts: CadPt[] = vs.map((v) => ({ x: v.x, y: v.y }));
         // Closed when the shape flag is set, or first == last point.
         let closed = e.shape === true;
@@ -193,33 +221,46 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
       }
       case 'ARC': {
         if (e.center) {
+          const r = e.radius ?? 0;
+          const startAngle = e.startAngle ?? 0; // radians (dxf-parser converts)
+          const endAngle = e.endAngle ?? 0;
+          // A non-finite radius is the worst of these: entityBBox computes
+          // `center.x - r`, so one bad arc poisons the whole drawing extent
+          // through Math.min/Math.max, which do NOT skip NaN the way the
+          // comparisons in bboxOfPoints do.
+          if (!allFinite(e.center.x, e.center.y, r, startAngle, endAngle)) { refuse('ARC'); break; }
           doc.entities.push({
             kind: 'arc', layer,
             center: { x: e.center.x, y: e.center.y },
-            r: e.radius ?? 0,
-            startAngle: e.startAngle ?? 0, // radians (dxf-parser converts)
-            endAngle: e.endAngle ?? 0,
+            r, startAngle, endAngle,
           });
         }
         break;
       }
       case 'CIRCLE': {
         if (e.center) {
+          const r = e.radius ?? 0;
+          if (!allFinite(e.center.x, e.center.y, r)) { refuse('CIRCLE'); break; }
           doc.entities.push({
             kind: 'circle', layer,
             center: { x: e.center.x, y: e.center.y },
-            r: e.radius ?? 0,
+            r,
           });
         }
         break;
       }
       case 'INSERT': {
         if (!e.position) break;
+        const xScale = e.xScale ?? 1, yScale = e.yScale ?? 1, rotation = e.rotation ?? 0;
+        // The scale and rotation matter as much as the position: they go into
+        // transformBlockBBox, so a NaN there produces a NaN bbox for a column
+        // symbol that looks perfectly well-formed in the entity list.
+        if (!allFinite(e.position.x, e.position.y, xScale, yScale, rotation)) { refuse('INSERT'); break; }
         const at: CadPt = { x: e.position.x, y: e.position.y };
         const blockName = String(e.name ?? '');
         const local = blockBoxes.get(blockName);
         const bbox = local
-          ? transformBlockBBox(local, at, e.xScale ?? 1, e.yScale ?? 1, e.rotation ?? 0)
+          ? transformBlockBBox(local, at, xScale, yScale, rotation)
           : undefined;
         doc.entities.push({ kind: 'insert', layer, at, blockName, bbox });
         break;
@@ -228,6 +269,7 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
       case 'MTEXT': {
         const pos = e.startPoint ?? e.position;
         if (pos) {
+          if (!allFinite(pos.x, pos.y)) { refuse(type); break; }
           doc.entities.push({
             kind: 'text', layer,
             at: { x: pos.x, y: pos.y },
@@ -267,6 +309,9 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
 
   for (const [type, count] of Object.entries(doc.unsupported)) {
     if (type !== 'POINT') doc.warnings.push(`unsupportedEntity:${type}:${count}`);
+  }
+  for (const [type, count] of Object.entries(doc.malformed)) {
+    doc.warnings.push(`malformedEntity:${type}:${count}`);
   }
 
   return doc;

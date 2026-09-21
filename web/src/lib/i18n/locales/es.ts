@@ -1386,6 +1386,7 @@ const es: Record<string, string> = {
   'cad.applied': 'Borrador CAD aplicado: {nodes} nodos, {elems} elementos, {shells} shells. Modelo marcado como borrador sin revisar.',
   'cad.warn.insunitsUnknown': 'El DXF declara unidades que este importador no mapea (código {n}) — confirmá las unidades manualmente',
   'cad.warn.unsupportedEntity': '{n} entidades {type} no están soportadas y se ignoraron',
+  'cad.warn.malformedEntity': '{n} entidades {type} tenían coordenadas ilegibles (DXF corrupto o truncado) y fueron rechazadas — NO están en el modelo',
   'cad.warn.columnsMerged': 'Se fusionaron {n} columna(s) duplicadas en la misma posición',
   'cad.warn.circularColumnsAsSquare': 'Columnas circulares aproximadas como secciones cuadradas de igual área (las secciones v1 son rectangulares)',
   'cad.warn.tinyCadColumnSize': '{n} columna(s) tenían tamaños CAD inverosímilmente chicos — se usó la sección por defecto',
