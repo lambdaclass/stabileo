@@ -49,9 +49,14 @@
   const allDiagnostics = $derived.by(() => {
     const general = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
     const solver = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
+    // The gates' own findings about the model, which nothing read until now.
+    // They carry `source: 'model'`, the same as `checkModel`'s, so the dedupe
+    // below collapses the two where they say the same thing about the same
+    // element — an isolated node is reported once, not twice.
+    const fromGates = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
     const merged = [...autoModelDiags];
     // Add post-solve diagnostics, deduplicating
-    for (const sd of [...general, ...solver]) {
+    for (const sd of [...general, ...solver, ...fromGates]) {
       const isDupe = merged.some(
         d => d.code === sd.code && d.message === sd.message &&
              JSON.stringify(d.elementIds) === JSON.stringify(sd.elementIds) &&

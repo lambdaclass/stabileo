@@ -1,7 +1,7 @@
 // Results store
 
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
-import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
+import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, StructuredDiagnostic, SolveTimings } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
@@ -10,6 +10,38 @@ import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system'
 // Counts published structural analyses so browser tests can assert that a
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
+
+/**
+ * The engine's structured diagnostics, in the shape the diagnostics UI reads.
+ *
+ * The engine has emitted these on every solve for a long time and nothing
+ * here read them, so what the pre-solve gates found — an isolated node, a
+ * collapsed element, local axes that cannot be built — was computed and then
+ * dropped on the floor.
+ *
+ * Neither enum needs translating: severity crosses the boundary lowercase
+ * ('error' | 'warning' | 'info'), the code in snake_case. `source: 'model'`
+ * is what these are — they describe the model, not the run — and it is the
+ * same value `checkModel` gives its own findings, so the two dedupe against
+ * each other in the PRO panel instead of double-reporting.
+ */
+function asSolverDiagnostics(structured: StructuredDiagnostic[] | undefined): SolverDiagnostic[] {
+  if (!structured || structured.length === 0) return [];
+  return structured.map((d) => ({
+    severity: d.severity,
+    code: d.code,
+    message: d.message,
+    elementIds: d.elementIds,
+    nodeIds: d.nodeIds,
+    source: 'model' as const,
+    details: {
+      phase: d.phase,
+      value: d.value,
+      threshold: d.threshold,
+      dofIndices: d.dofIndices,
+    },
+  }));
+}
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
   // 3D-specific diagram types
@@ -932,6 +964,9 @@ function createResultsStore() {
 
     get solverDiagnostics(): SolverDiagnostic[] { return results?.solverDiagnostics ?? []; },
     get solverDiagnostics3D(): SolverDiagnostic[] { return results3D?.solverDiagnostics ?? []; },
+
+    get structuredDiagnostics(): SolverDiagnostic[] { return asSolverDiagnostics(results?.structuredDiagnostics); },
+    get structuredDiagnostics3D(): SolverDiagnostic[] { return asSolverDiagnostics(results3D?.structuredDiagnostics); },
 
     get maxDisplacement(): number {
       if (!results) return 0;

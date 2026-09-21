@@ -171,6 +171,34 @@ export interface SolveTimings {
   solverType?: 'cholesky' | 'lu' | string;
 }
 
+/**
+ * A diagnostic the engine emits about the model itself, with a stable code.
+ *
+ * Mirrors `StructuredDiagnostic` in `engine/src/types/output.rs`. Both enums
+ * cross the boundary as plain strings and need no translation here:
+ * `severity` serializes lowercase (`'error' | 'warning' | 'info'`, matching
+ * `DiagnosticSeverity`) and `code` in snake_case (`'negative_jacobian'`).
+ *
+ * The engine has emitted these on every solve for a long time; nothing on
+ * this side read them, so what the pre-solve gates found about a model —
+ * isolated nodes, collapsed elements, ill-defined local axes — was computed
+ * and then dropped.
+ */
+export interface StructuredDiagnostic {
+  code: string;
+  severity: DiagnosticSeverity;
+  message: string;
+  elementIds?: number[];
+  nodeIds?: number[];
+  dofIndices?: number[];
+  /** Which solver phase produced it, e.g. 'pre_solve'. */
+  phase?: string;
+  /** Measured value behind the diagnostic (a residual, a ratio). */
+  value?: number;
+  /** The threshold that value was compared against. */
+  threshold?: number;
+}
+
 export interface AnalysisResults {
   displacements: Displacement[];
   reactions: Reaction[];
@@ -178,6 +206,7 @@ export interface AnalysisResults {
   constraintForces?: ConstraintForce[];
   diagnostics?: AssemblyDiagnostic[];
   solverDiagnostics?: SolverDiagnostic[];
+  structuredDiagnostics?: StructuredDiagnostic[];
   timings?: SolveTimings;
 }
 

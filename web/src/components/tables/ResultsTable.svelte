@@ -26,6 +26,15 @@
     for (const d of solverDiags) {
       items.push({ source: d.source, type: d.code, message: d.message, severity: d.severity });
     }
+    // What the pre-solve gates found about the model. The engine has always
+    // sent these; this table simply never asked for them.
+    const modelDiags = uiStore.analysisMode === '3d' ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
+    for (const d of modelDiags) {
+      const elemIds = d.elementIds && d.elementIds.length > 0
+        ? t('results.elemLabel').replace('{id}', String(d.elementIds[0]))
+        : '';
+      items.push({ source: elemIds || d.source, type: d.code, message: d.message, severity: d.severity });
+    }
     return items;
   })());
 
