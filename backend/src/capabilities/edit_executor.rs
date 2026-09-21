@@ -146,6 +146,29 @@ fn find_node_at_3d(snap: &Value, x: f64, y: f64, z: f64) -> Option<u32> {
     })
 }
 
+/// The array a snapshot keeps under `key`, creating it when it is missing or
+/// is not an array.
+///
+/// The snapshot reaches these helpers as a free-form `serde_json::Value`
+/// straight from the request body (`BuildModelRequest::current_snapshot`), and
+/// the edit path never runs it past `validate_snapshot` — that only ever sees
+/// the snapshot the backend assembles itself, in the create path. So
+/// `snap["loads"].as_array_mut().unwrap()` panicked the request handler on a
+/// model that simply has no loads yet, which is an ordinary state and not a
+/// malformed request.
+///
+/// Adding to an absent list means starting one. Paths that *remove* something
+/// keep refusing instead — see `DeleteLoad`'s "No loads in model" — because
+/// there the absence is the caller's mistake, not a starting point.
+fn array_mut<'a>(snap: &'a mut Value, key: &str) -> &'a mut Vec<Value> {
+    if !snap[key].is_array() {
+        snap[key] = json!([]);
+    }
+    snap[key]
+        .as_array_mut()
+        .expect("just set to an array above")
+}
+
 fn add_distributed_load_to_snap(snap: &mut Value, element_id: u32, q: f64) {
     let load_id = next_id(snap, "load");
     let load = if is_3d_snapshot(snap) {
@@ -159,7 +182,7 @@ fn add_distributed_load_to_snap(snap: &mut Value, element_id: u32, q: f64) {
             "data": {"id": load_id, "elementId": element_id, "qI": q, "qJ": q}
         })
     };
-    snap["loads"].as_array_mut().unwrap().push(load);
+    array_mut(snap, "loads").push(load);
 }
 
 /// Get the first section and material from the snapshot (for reuse).
@@ -186,7 +209,7 @@ fn add_node_to_snap(snap: &mut Value, x: f64, y: f64, z: Option<f64>) -> u32 {
     } else {
         json!([id, {"id": id, "x": x, "y": y}])
     };
-    snap["nodes"].as_array_mut().unwrap().push(node);
+    array_mut(snap, "nodes").push(node);
     id
 }
 
@@ -202,7 +225,7 @@ fn add_element_to_snap(snap: &mut Value, node_i: u32, node_j: u32, mat_id: u32, 
         "hingeStart": false,
         "hingeEnd": false,
     }]);
-    snap["elements"].as_array_mut().unwrap().push(elem);
+    array_mut(snap, "elements").push(elem);
     id
 }
 
@@ -213,14 +236,14 @@ fn clone_element_to_snap(snap: &mut Value, source: &Value, node_i: u32, node_j: 
     data["nodeI"] = json!(node_i);
     data["nodeJ"] = json!(node_j);
     let elem = json!([id, data]);
-    snap["elements"].as_array_mut().unwrap().push(elem);
+    array_mut(snap, "elements").push(elem);
     id
 }
 
 fn add_support_to_snap(snap: &mut Value, node_id: u32, support_type: &str) -> u32 {
     let id = next_id(snap, "support");
     let support = json!([id, {"id": id, "nodeId": node_id, "type": support_type}]);
-    snap["supports"].as_array_mut().unwrap().push(support);
+    array_mut(snap, "supports").push(support);
     id
 }
 
@@ -244,7 +267,7 @@ fn ensure_section(snap: &mut Value, name: &str) -> u32 {
         // Unknown section — use defaults
         json!([id, {"id": id, "name": name, "a": 0.00538, "iz": 8.356e-5}])
     };
-    snap["sections"].as_array_mut().unwrap().push(sec);
+    array_mut(snap, "sections").push(sec);
     id
 }
 
@@ -964,6 +987,83 @@ mod tests {
         let nodal_count = loads.iter().filter(|l| l["type"].as_str() == Some("nodal")).count();
         // One per floor level above base
         assert_eq!(nodal_count, floors.len() - 1);
+    }
+
+    /// Audit probe: the snapshot arrives from the client as a free-form
+    /// `serde_json::Value` (`BuildModelRequest::current_snapshot`), and the
+    /// edit path hands it straight here — `validate_snapshot` only ever runs
+    /// on the snapshot the backend assembles itself, in the create path. These
+    /// are shapes a request can actually carry.
+    #[test]
+    fn malformed_snapshots_are_refused_not_panicked_on() {
+        // Each case pairs an edit with a snapshot broken in exactly what that
+        // edit dereferences. A variant that never reaches the field proves
+        // nothing — the first version of this probe used `SetAllBeamLoads`,
+        // which walks `elements` and simply does nothing on an empty one.
+        let one_element = serde_json::json!({
+            "nodes": [[1, {"id": 1, "x": 0.0, "y": 0.0}], [2, {"id": 2, "x": 5.0, "y": 0.0}]],
+            "elements": [[1, {"id": 1, "nodeI": 1, "nodeJ": 2}]],
+        });
+        let mut loads_is_a_number = one_element.clone();
+        loads_is_a_number["loads"] = serde_json::json!(5);
+        let mut loads_is_an_object = one_element.clone();
+        loads_is_an_object["loads"] = serde_json::json!({});
+
+        let cases: Vec<(&str, BuildAction, serde_json::Value)> = vec![
+            (
+                "AddDistributedLoad, loads is a number",
+                BuildAction::AddDistributedLoad { element_id: 1, q: -10.0 },
+                loads_is_a_number,
+            ),
+            (
+                "AddDistributedLoad, loads key absent",
+                BuildAction::AddDistributedLoad { element_id: 1, q: -10.0 },
+                one_element.clone(),
+            ),
+            (
+                "DeleteLoad, loads is an object",
+                BuildAction::DeleteLoad { load_id: 1 },
+                loads_is_an_object,
+            ),
+            (
+                "AddStory, element points at a node that does not exist",
+                BuildAction::AddStory { height: 3.0, beam_section: None, column_section: None },
+                serde_json::json!({
+                    "nodes": [[1, {"id": 1, "x": 0.0, "y": 0.0}]],
+                    "elements": [[1, {"id": 1, "nodeI": 1, "nodeJ": 99}]],
+                    "loads": [],
+                }),
+            ),
+            (
+                "AddStory, element with non-numeric nodeI",
+                BuildAction::AddStory { height: 3.0, beam_section: None, column_section: None },
+                serde_json::json!({
+                    "nodes": [[1, {"id": 1, "x": 0.0, "y": 0.0}]],
+                    "elements": [[1, {"id": 1, "nodeI": "one", "nodeJ": 1}]],
+                    "loads": [],
+                }),
+            ),
+        ];
+
+        let mut panicked: Vec<&str> = Vec::new();
+        for (label, action, snap) in cases {
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                apply_edit(&action, &snap)
+            }));
+            match outcome {
+                Ok(Ok(_)) => println!("{label:<48}: Ok"),
+                Ok(Err(e)) => println!("{label:<48}: refused — {e}"),
+                Err(_) => {
+                    println!("{label:<48}: PANICKED");
+                    panicked.push(label);
+                }
+            }
+        }
+
+        assert!(
+            panicked.is_empty(),
+            "client-supplied snapshots that panic the request handler: {panicked:?}"
+        );
     }
 
     #[test]
