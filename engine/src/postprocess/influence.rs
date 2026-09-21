@@ -95,8 +95,18 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
     let mut points = Vec::new();
 
     for elem in input.solver.elements.values() {
-        let (nix, niy) = *node_pos.get(&elem.node_i).unwrap();
-        let (njx, njy) = *node_pos.get(&elem.node_j).unwrap();
+        // A missing node is a caller error, not a crash. `prepare` above is
+        // `.ok()`-ed, so the validation that rejects dangling references never
+        // gets to speak here, and this used to `unwrap` on the `None` —
+        // panicking, which in WASM takes the whole module down with it.
+        let (Some(&(nix, niy)), Some(&(njx, njy))) =
+            (node_pos.get(&elem.node_i), node_pos.get(&elem.node_j))
+        else {
+            return Err(format!(
+                "Element {} references a node that does not exist (nodes {} and {})",
+                elem.id, elem.node_i, elem.node_j
+            ));
+        };
         let dx = njx - nix;
         let dy = njy - niy;
         let l = (dx * dx + dy * dy).sqrt();
@@ -330,8 +340,16 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
             continue; // only traverse frame elements
         }
 
-        let (nix, niy, niz) = *node_pos.get(&elem.node_i).unwrap();
-        let (njx, njy, njz) = *node_pos.get(&elem.node_j).unwrap();
+        // See the 2D path: a dangling reference returns an error rather than
+        // panicking the module.
+        let (Some(&(nix, niy, niz)), Some(&(njx, njy, njz))) =
+            (node_pos.get(&elem.node_i), node_pos.get(&elem.node_j))
+        else {
+            return Err(format!(
+                "Element {} references a node that does not exist (nodes {} and {})",
+                elem.id, elem.node_i, elem.node_j
+            ));
+        };
         let dx = njx - nix;
         let dy = njy - niy;
         let dz = njz - niz;

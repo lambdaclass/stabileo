@@ -47,6 +47,24 @@ pub fn solve_corotational_2d(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult, String> {
+    // Degenerate parameters, rejected before any work. These arrive from the
+    // public WASM entry point exactly as the caller sent them, and the UI's
+    // `min` attribute constrains the spinner, not the value that is bound.
+    // Without these the function reports `converged: true` for an analysis
+    // that never ran: `n_increments = 0` makes `1..=0` an empty range, so the
+    // load is never applied and the initial zero state is returned as the
+    // answer. `arc_length::solve_arc_length_2d` already refuses its own
+    // equivalents for the same reason.
+    if n_increments == 0 {
+        return Err("Number of load increments must be at least 1".into());
+    }
+    if max_iter == 0 {
+        return Err("Max iterations must be at least 1".into());
+    }
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        return Err("Convergence tolerance must be finite and positive".into());
+    }
+
     let dof_num = DofNumbering::build_2d(input);
 
     if dof_num.n_free == 0 {
@@ -1089,6 +1107,19 @@ pub fn solve_corotational_3d(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult3D, String> {
+    // Same degenerate parameters as the 2D entry point, refused for the same
+    // reason: an empty `1..=0` increment range reports the untouched zero
+    // state as a converged answer.
+    if n_increments == 0 {
+        return Err("Number of load increments must be at least 1".into());
+    }
+    if max_iter == 0 {
+        return Err("Max iterations must be at least 1".into());
+    }
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        return Err("Convergence tolerance must be finite and positive".into());
+    }
+
     // Input validation and pre-solve gates
     super::linear::validate_input_3d(input)?;
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(input);

@@ -69,6 +69,67 @@ where
     }
 }
 
+// ---------- co-rotational: the iteration parameters come from the caller ----------
+
+/// Zero increments used to make `1..=0` an empty range: the load was never
+/// applied and the untouched zero state came back as `converged: true`.
+#[test]
+fn corotational_2d_rejects_zero_increments() {
+    use dedaliano_engine::solver::corotational::solve_corotational_2d;
+
+    let ok = solve_corotational_2d(&tiny_beam_2d(), 50, 1e-6, 10, false)
+        .expect("a well-formed run still solves");
+    assert!(ok.converged);
+    assert!(ok.max_displacement > 0.0, "the reference run must actually move");
+
+    expect_clean_err("corotational 2D, 0 increments", || {
+        solve_corotational_2d(&tiny_beam_2d(), 50, 1e-6, 0, false)
+    });
+}
+
+#[test]
+fn corotational_2d_rejects_degenerate_iteration_parameters() {
+    use dedaliano_engine::solver::corotational::solve_corotational_2d;
+
+    expect_clean_err("corotational 2D, 0 iterations", || {
+        solve_corotational_2d(&tiny_beam_2d(), 0, 1e-6, 10, false)
+    });
+    expect_clean_err("corotational 2D, NaN tolerance", || {
+        solve_corotational_2d(&tiny_beam_2d(), 50, f64::NAN, 10, false)
+    });
+    expect_clean_err("corotational 2D, non-positive tolerance", || {
+        solve_corotational_2d(&tiny_beam_2d(), 50, 0.0, 10, false)
+    });
+}
+
+// ---------- influence line: the one post-processing path that never validates ----------
+
+/// The influence line prepares the model with `.ok()`, discarding the very
+/// validation that rejects a dangling node, and then resolved element ends
+/// with `unwrap` — a panic, which in WASM takes the module down rather than
+/// surfacing an error the caller can show.
+#[test]
+fn influence_line_2d_rejects_element_with_missing_node() {
+    use dedaliano_engine::postprocess::influence::{compute_influence_line, InfluenceLineInput};
+
+    let mut input = tiny_beam_2d();
+    input.elements.insert("9".to_string(), SolverElement {
+        id: 9, elem_type: "frame".to_string(), node_i: 2, node_j: 999,
+        material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
+    });
+
+    expect_clean_err("influence line 2D, dangling node", move || {
+        compute_influence_line(&InfluenceLineInput {
+            solver: input,
+            quantity: "M".to_string(),
+            target_node_id: None,
+            target_element_id: Some(1),
+            target_position: 0.5,
+            n_points_per_element: 5,
+        })
+    });
+}
+
 // ---------- modal ----------
 
 #[test]
