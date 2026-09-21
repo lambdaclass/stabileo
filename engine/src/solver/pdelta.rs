@@ -192,9 +192,17 @@ pub fn solve_pdelta_2d(
             reactions,
             element_forces,
             constraint_forces,
-            diagnostics: vec![],
-            solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
+            // The model's diagnostics belong to the model, not to the path that
+            // analysed it: the linear pass above already ran the pre-solve gates
+            // and the conditioning checks on this same structure. Left empty,
+            // a P-Delta run was silent about problems the same model reports
+            // when solved linearly — the store hands `results` straight to the
+            // diagnostics panel, so the warnings simply vanished.
+            diagnostics: linear_results.diagnostics.clone(),
+            solver_diagnostics: linear_results.solver_diagnostics.clone(),
+            structured_diagnostics: linear_results.structured_diagnostics.clone(),
+            // Still not computed for the second-order state: the residual would
+            // have to be formed against (K + K_G) and the P-Delta reactions.
             equilibrium: None,
             result_summary: None, solver_run_meta: None,
         },
@@ -423,7 +431,13 @@ pub fn solve_pdelta_3d(
     };
 
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current, None), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current, None), quad_nodal_stresses: vec![], constraint_forces, diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None, result_summary: None, solver_run_meta: None },
+        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current, None), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current, None), quad_nodal_stresses: vec![], constraint_forces,
+            // Carried from the linear pass, as in the 2D entry point: they
+            // describe the model, not the solution path.
+            diagnostics: linear_results.diagnostics.clone(),
+            solver_diagnostics: linear_results.solver_diagnostics.clone(),
+            structured_diagnostics: linear_results.structured_diagnostics.clone(),
+            equilibrium: None, timings: None, result_summary: None, solver_run_meta: None },
         iterations,
         converged,
         is_stable: converged && max_ratio < 100.0,
