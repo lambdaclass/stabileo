@@ -37,6 +37,12 @@ pub struct PathSegment {
 /// Solve 2D moving loads analysis (envelope computation).
 pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelope, String> {
     let solver_input = &input.solver;
+
+    // The path builder below resolves element ends by direct map indexing —
+    // three lines after handling a missing *element* gracefully — and
+    // `prepare_static_2d` is `.ok()`-ed here, so the validation that would
+    // have caught a dangling node never got to speak.
+    crate::solver::linear::validate_input_2d(solver_input)?;
     let train = &input.train;
     let step = input.step.unwrap_or(0.25);
 
@@ -304,6 +310,8 @@ pub struct PathSegment3D {
 /// Moves a load train along a path of 3D elements, solving for each position
 /// and computing the envelope of force maxima/minima across all positions.
 pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnvelope3D, String> {
+    crate::solver::linear::validate_input_3d(&input.solver)?;
+
     let solver_input = &input.solver;
     let train = &input.train;
     let step = input.step.unwrap_or(0.25);

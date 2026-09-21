@@ -65,6 +65,12 @@ pub fn solve_corotational_2d(
         return Err("Convergence tolerance must be finite and positive".into());
     }
 
+    // The 3D entry point validates; this one did not, and went straight to
+    // assembly — where ids are resolved by direct map indexing, so an element
+    // naming a node that does not exist panicked instead of returning an
+    // error. In WASM that ends the module, not the call.
+    super::linear::validate_input_2d(input)?;
+
     let dof_num = DofNumbering::build_2d(input);
 
     if dof_num.n_free == 0 {

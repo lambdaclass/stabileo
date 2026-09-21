@@ -68,6 +68,15 @@ pub struct PlasticHinge3D {
 /// Solve 2D plastic analysis (event-to-event incremental method).
 pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     let solver_input = &input.solver;
+
+    // Validated up front so that the `Err` from `solve_2d` inside the step
+    // loop below can keep its one meaning: the structure has become a
+    // mechanism. Without this, an invalid model took that same branch and was
+    // reported as `isMechanism: true` with a zero collapse factor — the right
+    // shape of answer for the wrong reason, and no way for the caller to tell
+    // the two apart.
+    super::linear::validate_input_2d(solver_input)?;
+
     let max_hinges = input.max_hinges.unwrap_or(20);
 
     // Compute plastic moments Mp for each section
@@ -331,6 +340,10 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
 /// At each step, finds the minimum load increment to form the next hinge,
 /// inserts it, and resolves until a mechanism forms.
 pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
+    // Same reason as the 2D entry: keep `Err` from the inner solve meaning
+    // "mechanism", and nothing else.
+    super::linear::validate_input_3d(&input.solver)?;
+
     let solver_input = &input.solver;
     let max_hinges = input.max_hinges.unwrap_or(30);
 

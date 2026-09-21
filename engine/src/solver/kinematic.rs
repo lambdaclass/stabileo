@@ -122,6 +122,25 @@ fn compute_static_degree_2d(input: &SolverInput) -> (i32, HashMap<usize, i32>) {
 pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let (degree, _node_conditions) = compute_static_degree_2d(input);
 
+    // This entry point has no error channel, and `assemble_2d` below resolves
+    // ids by direct map indexing — so an element naming a node that does not
+    // exist used to panic here, which in WASM ends the module rather than the
+    // call. The counting degree above only counts and stays valid, but the
+    // model cannot be analysed, and that is exactly what `is_solvable` and
+    // `diagnosis` are for: the JS wrapper already reports an unavailable
+    // analysis in this same shape when the engine has not loaded yet.
+    if let Err(e) = crate::solver::linear::validate_input_2d(input) {
+        return KinematicResult {
+            degree,
+            classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
+            mechanism_modes: 0,
+            mechanism_nodes: Vec::new(),
+            unconstrained_dofs: Vec::new(),
+            diagnosis: format!("El modelo no puede analizarse: {}", e),
+            is_solvable: false,
+        };
+    }
+
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
 
@@ -416,6 +435,21 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     // Expand curved beams before DOF numbering and assembly.
     let input = &super::linear::expand_curved_beams_3d(input);
     let (degree, _) = compute_static_degree_3d(input);
+
+    // As in the 2D analyzer: no error channel, and `assemble_3d` below
+    // dereferences ids directly. Validated on the expanded model, which is the
+    // one assembly actually sees.
+    if let Err(e) = super::linear::validate_input_3d(input) {
+        return KinematicResult {
+            degree,
+            classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
+            mechanism_modes: 0,
+            mechanism_nodes: Vec::new(),
+            unconstrained_dofs: Vec::new(),
+            diagnosis: format!("El modelo no puede analizarse: {}", e),
+            is_solvable: false,
+        };
+    }
 
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
