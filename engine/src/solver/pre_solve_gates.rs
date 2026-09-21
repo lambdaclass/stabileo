@@ -335,10 +335,54 @@ fn quad_min_interior_angle(coords: &[[f64; 3]; 4]) -> f64 {
     min_angle
 }
 
+/// What a Jacobian sign pattern, sampled over an element's Gauss points,
+/// actually says about the element.
+///
+/// These three are not interchangeable, and the gates used to report all of
+/// them as one `Error` — "element is inverted".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum JacobianShape {
+    /// No area or volume left at any sampling point: nothing to integrate.
+    Collapsed,
+    /// The sign changes between sampling points, so the map doubles back on
+    /// itself and the element covers part of its own domain twice.
+    Folded,
+    /// Every determinant is negative, with healthy magnitude: the node
+    /// ordering simply runs the other way round.
+    Reversed,
+    Fine,
+}
+
+/// Classify the sampled determinants of one element.
+///
+/// `Reversed` is deliberately not an error. Every element family screened
+/// here integrates with `det.abs()` — quad, quad9, curved shell and solid
+/// shell alike — so an element ordered backwards produces exactly the same
+/// stiffness as the same element ordered forwards. Calling it invalid
+/// condemned eight shell benchmarks (hemispheres, a spherical cap) that
+/// validate against published reference values while carrying this very
+/// pattern. It is still worth reporting, because local axes — and with them
+/// the sign of the stresses that get reported — follow the ordering.
+fn classify_jacobian(min_det: f64, max_det: f64) -> JacobianShape {
+    // 1e-30 is the threshold the element formulations themselves use to give
+    // up on a sampling point (`det.abs() < 1e-30` in quad.rs, curved_shell.rs).
+    let scale = min_det.abs().max(max_det.abs());
+    if scale <= 1e-30 {
+        JacobianShape::Collapsed
+    } else if min_det < 0.0 && max_det > 0.0 {
+        JacobianShape::Folded
+    } else if max_det <= 0.0 {
+        JacobianShape::Reversed
+    } else {
+        JacobianShape::Fine
+    }
+}
+
 /// Pre-solve shell geometry screening (3D only).
 ///
 /// Checks both quad (MITC4) and triangular plate (DKT) elements for:
-/// - Negative Jacobian determinant (inverted element) → `NegativeJacobian` Error
+/// - A collapsed or folded element (see [`JacobianShape`]) → `NegativeJacobian` Error
+/// - Reversed node ordering (all Jacobians negative) → `NegativeJacobian` Warning
 /// - Poor Jacobian ratio (near-zero det relative to typical) → `PoorJacobianRatio` Warning
 /// - High aspect ratio (max_edge / min_edge > threshold) → `HighAspectRatio` Warning
 /// - Small minimum angle (< threshold degrees) → `SmallMinAngle` Warning
@@ -366,35 +410,65 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
 
         if let Some(coords) = coords {
             let qm = quad_quality_metrics(&coords);
-            let (_, _, has_negative) = quad_check_jacobian(&coords);
+            let (min_det, max_det, _) = quad_check_jacobian(&coords);
 
-            // Negative Jacobian → Error (inverted element, solve will produce garbage)
-            if has_negative {
-                diags.push(
+            match classify_jacobian(min_det, max_det) {
+                JacobianShape::Collapsed => diags.push(
                     StructuredDiagnostic::global(
                         DiagnosticCode::NegativeJacobian,
                         Severity::Error,
-                        format!("Quad {} has negative Jacobian — element is inverted", q.id),
+                        format!("Quad {} has no area — element is collapsed", q.id),
                     )
                     .with_elements(vec![q.id])
                     .with_value(qm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
-                );
-            } else if qm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
-                // Poor Jacobian ratio → Warning
-                diags.push(
+                ),
+                JacobianShape::Folded => diags.push(
                     StructuredDiagnostic::global(
-                        DiagnosticCode::PoorJacobianRatio,
-                        Severity::Warning,
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
                         format!(
-                            "Quad {} has poor Jacobian ratio {:.3} (threshold {:.1})",
-                            q.id, qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                            "Quad {} folds over itself — the Jacobian changes sign inside the element",
+                            q.id
                         ),
                     )
                     .with_elements(vec![q.id])
-                    .with_value(qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
+                    .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
-                );
+                ),
+                JacobianShape::Reversed => diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Warning,
+                        format!(
+                            "Quad {} has reversed node ordering (every Jacobian is negative) — \
+                             the stiffness is unaffected, but local axes and reported stress \
+                             signs follow the ordering",
+                            q.id
+                        ),
+                    )
+                    .with_elements(vec![q.id])
+                    .with_value(min_det, 0.0)
+                    .with_phase("pre_solve"),
+                ),
+                JacobianShape::Fine => {
+                    if qm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
+                        // Poor Jacobian ratio → Warning
+                        diags.push(
+                            StructuredDiagnostic::global(
+                                DiagnosticCode::PoorJacobianRatio,
+                                Severity::Warning,
+                                format!(
+                                    "Quad {} has poor Jacobian ratio {:.3} (threshold {:.1})",
+                                    q.id, qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                                ),
+                            )
+                            .with_elements(vec![q.id])
+                            .with_value(qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
+                            .with_phase("pre_solve"),
+                        );
+                    }
+                }
             }
 
             // High aspect ratio → Warning
@@ -563,33 +637,64 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
 
         if let Some(coords) = coords {
             let qm = quad9_quality_metrics(&coords);
-            let (_, _, has_negative) = quad9_check_jacobian(&coords);
+            let (min_det, max_det, _) = quad9_check_jacobian(&coords);
 
-            if has_negative {
-                diags.push(
+            match classify_jacobian(min_det, max_det) {
+                JacobianShape::Collapsed => diags.push(
                     StructuredDiagnostic::global(
                         DiagnosticCode::NegativeJacobian,
                         Severity::Error,
-                        format!("Quad9 {} has negative Jacobian — element is inverted", q9.id),
+                        format!("Quad9 {} has no area — element is collapsed", q9.id),
                     )
                     .with_elements(vec![q9.id])
                     .with_value(qm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
-                );
-            } else if qm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
-                diags.push(
+                ),
+                JacobianShape::Folded => diags.push(
                     StructuredDiagnostic::global(
-                        DiagnosticCode::PoorJacobianRatio,
-                        Severity::Warning,
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
                         format!(
-                            "Quad9 {} has poor Jacobian ratio {:.3} (threshold {:.1})",
-                            q9.id, qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                            "Quad9 {} folds over itself — the Jacobian changes sign inside the element",
+                            q9.id
                         ),
                     )
                     .with_elements(vec![q9.id])
-                    .with_value(qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
+                    .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
-                );
+                ),
+                JacobianShape::Reversed => diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Warning,
+                        format!(
+                            "Quad9 {} has reversed node ordering (every Jacobian is negative) — \
+                             the stiffness is unaffected, but local axes and reported stress \
+                             signs follow the ordering",
+                            q9.id
+                        ),
+                    )
+                    .with_elements(vec![q9.id])
+                    .with_value(min_det, 0.0)
+                    .with_phase("pre_solve"),
+                ),
+                JacobianShape::Fine => {
+                    if qm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
+                        diags.push(
+                            StructuredDiagnostic::global(
+                                DiagnosticCode::PoorJacobianRatio,
+                                Severity::Warning,
+                                format!(
+                                    "Quad9 {} has poor Jacobian ratio {:.3} (threshold {:.1})",
+                                    q9.id, qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                                ),
+                            )
+                            .with_elements(vec![q9.id])
+                            .with_value(qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
+                            .with_phase("pre_solve"),
+                        );
+                    }
+                }
             }
 
             if qm.aspect_ratio > ASPECT_RATIO_THRESHOLD {
@@ -658,33 +763,64 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
 
         if let Some(coords) = coords {
             let hm = solid_shell_quality_metrics(&coords);
-            let (_, _, all_pos) = solid_shell_check_jacobian(&coords);
+            let (min_det, max_det, _) = solid_shell_check_jacobian(&coords);
 
-            if !all_pos {
-                diags.push(
+            match classify_jacobian(min_det, max_det) {
+                JacobianShape::Collapsed => diags.push(
                     StructuredDiagnostic::global(
                         DiagnosticCode::NegativeJacobian,
                         Severity::Error,
-                        format!("SolidShell {} has negative Jacobian — element is inverted", ss.id),
+                        format!("SolidShell {} has no volume — element is collapsed", ss.id),
                     )
                     .with_elements(vec![ss.id])
                     .with_value(hm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
-                );
-            } else if hm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
-                diags.push(
+                ),
+                JacobianShape::Folded => diags.push(
                     StructuredDiagnostic::global(
-                        DiagnosticCode::PoorJacobianRatio,
-                        Severity::Warning,
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
                         format!(
-                            "SolidShell {} has poor Jacobian ratio {:.3} (threshold {:.1})",
-                            ss.id, hm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                            "SolidShell {} folds over itself — the Jacobian changes sign inside the element",
+                            ss.id
                         ),
                     )
                     .with_elements(vec![ss.id])
-                    .with_value(hm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
+                    .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
-                );
+                ),
+                JacobianShape::Reversed => diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Warning,
+                        format!(
+                            "SolidShell {} has reversed node ordering (every Jacobian is negative) \
+                             — the stiffness is unaffected, but local axes and reported stress \
+                             signs follow the ordering",
+                            ss.id
+                        ),
+                    )
+                    .with_elements(vec![ss.id])
+                    .with_value(min_det, 0.0)
+                    .with_phase("pre_solve"),
+                ),
+                JacobianShape::Fine => {
+                    if hm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
+                        diags.push(
+                            StructuredDiagnostic::global(
+                                DiagnosticCode::PoorJacobianRatio,
+                                Severity::Warning,
+                                format!(
+                                    "SolidShell {} has poor Jacobian ratio {:.3} (threshold {:.1})",
+                                    ss.id, hm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                                ),
+                            )
+                            .with_elements(vec![ss.id])
+                            .with_value(hm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
+                            .with_phase("pre_solve"),
+                        );
+                    }
+                }
             }
 
             if hm.aspect_ratio > ASPECT_RATIO_THRESHOLD {
@@ -719,24 +855,48 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
         if let Some(coords) = coords {
             // Use provided directors or auto-compute from geometry
             let dirs = cs.normals.unwrap_or_else(|| compute_element_directors(&coords));
-            let (min_det, max_det, valid) =
+            let (min_det, max_det, _) =
                 curved_shell_check_jacobian(&coords, &dirs, cs.thickness);
+            let shape = classify_jacobian(min_det, max_det);
 
-            if !valid {
+            if shape == JacobianShape::Collapsed || shape == JacobianShape::Folded {
+                let message = if shape == JacobianShape::Collapsed {
+                    format!("CurvedShell {} has no area — element is collapsed", cs.id)
+                } else {
+                    format!(
+                        "CurvedShell {} folds over itself — the Jacobian changes sign inside \
+                         the element",
+                        cs.id
+                    )
+                };
                 diags.push(
                     StructuredDiagnostic::global(
                         DiagnosticCode::NegativeJacobian,
                         Severity::Error,
-                        format!(
-                            "CurvedShell {} has negative Jacobian — element is inverted",
-                            cs.id
-                        ),
+                        message,
                     )
                     .with_elements(vec![cs.id])
                     .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
                 );
             } else {
+                if shape == JacobianShape::Reversed {
+                    diags.push(
+                        StructuredDiagnostic::global(
+                            DiagnosticCode::NegativeJacobian,
+                            Severity::Warning,
+                            format!(
+                                "CurvedShell {} has reversed node ordering (every Jacobian is \
+                                 negative) — the stiffness is unaffected, but local axes and \
+                                 reported stress signs follow the ordering",
+                                cs.id
+                            ),
+                        )
+                        .with_elements(vec![cs.id])
+                        .with_value(min_det, 0.0)
+                        .with_phase("pre_solve"),
+                    );
+                }
                 let jac_ratio = if max_det.abs() > 1e-15 {
                     min_det / max_det
                 } else {
@@ -964,4 +1124,31 @@ pub fn run_pre_solve_gates_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic
     diags.extend(check_shell_distortion_3d(input));
     diags.extend(check_suspicious_local_axes_3d(input));
     diags
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The four readings of a Jacobian sign pattern, pinned by number so the
+    /// distinction cannot quietly collapse back into "negative = invalid".
+    #[test]
+    fn jacobian_shapes_are_told_apart() {
+        // Nothing left to integrate over.
+        assert_eq!(classify_jacobian(0.0, 0.0), JacobianShape::Collapsed);
+        assert_eq!(classify_jacobian(-1e-40, 1e-40), JacobianShape::Collapsed);
+
+        // The sign changes inside the element: it doubles back on itself.
+        assert_eq!(classify_jacobian(-1.0, 1.0), JacobianShape::Folded);
+        assert_eq!(classify_jacobian(-0.5, 2.0), JacobianShape::Folded);
+
+        // Consistently negative and healthy: the ordering runs backwards, and
+        // the integration uses |det|, so the stiffness is the same.
+        assert_eq!(classify_jacobian(-2.0, -1.0), JacobianShape::Reversed);
+        assert_eq!(classify_jacobian(-1.0, -1.0), JacobianShape::Reversed);
+
+        // Ordinary elements.
+        assert_eq!(classify_jacobian(1.0, 2.0), JacobianShape::Fine);
+        assert_eq!(classify_jacobian(0.125, 0.125), JacobianShape::Fine);
+    }
 }
