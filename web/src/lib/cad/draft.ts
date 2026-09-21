@@ -476,7 +476,16 @@ export function generateRcDraft(
   // both paths consistent and safe for any non-wizard caller.
   const rawTarget = a.meshTargetSize ?? 1.0;
   const target = Number.isFinite(rawTarget) && rawTarget > 0 ? rawTarget : 1.0;
-  const fixedN = a.meshSlabs ? Math.max(1, Math.round(a.meshDivisions)) : 1;
+  // `a.meshDivisions` got neither the `?? default` nor the sanitization applied
+  // to `target` three lines up, and it feeds TWO unbounded loops: the
+  // fixed-division branch of structuredBreakpoints, and buildBilinearQuadGrid
+  // through `bilinearDivs` below. Infinity passes `Math.max(1, Math.round(...))`
+  // unchanged; undefined and NaN come out NaN, which skips subdivision entirely
+  // instead of falling back. 4 is the wizard's own default.
+  const rawDivisions = a.meshDivisions ?? 4;
+  const fixedN = a.meshSlabs
+    ? (Number.isFinite(rawDivisions) ? Math.min(256, Math.max(1, Math.round(rawDivisions))) : 4)
+    : 1;
   // When meshing is disabled, force one cell by using a huge target.
   const effTarget = a.meshSlabs ? target : 1e6;
 

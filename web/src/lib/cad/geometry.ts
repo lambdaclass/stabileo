@@ -264,7 +264,18 @@ export function structuredBreakpoints(
 
   let lines: number[];
   if (opts.mode === 'fixedDivisions') {
-    const nn = Math.max(1, Math.round(opts.fixed ?? 2));
+    // The same hazard as `target` above, left open on this branch only.
+    // `Math.round(Infinity)` is Infinity and `Math.max(1, Infinity)` is Infinity,
+    // so `i < nn` below never goes false. It does not even end in an
+    // out-of-memory crash: `(i * (hi - lo)) / Infinity` is 0 for every i, so the
+    // Set holds a single value and the loop spins at flat memory — the tab
+    // freezes with nothing to report. NaN fails the other way (the loop is
+    // skipped entirely and the span is never divided), so both fall back to the
+    // documented default of 2. Capped at 256 like the targetSize path below.
+    const rawFixed = opts.fixed ?? 2;
+    const nn = Number.isFinite(rawFixed)
+      ? Math.min(256, Math.max(1, Math.round(rawFixed)))
+      : 2;
     const set = new Set(hard);
     for (let i = 1; i < nn; i++) set.add(lo + (i * (hi - lo)) / nn);
     lines = [...set].sort((a, b) => a - b);
