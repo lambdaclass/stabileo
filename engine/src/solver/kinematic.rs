@@ -129,14 +129,23 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     // model cannot be analysed, and that is exactly what `is_solvable` and
     // `diagnosis` are for: the JS wrapper already reports an unavailable
     // analysis in this same shape when the engine has not loaded yet.
-    if let Err(e) = crate::solver::linear::validate_input_2d(input) {
+    //
+    // The validator's own message is deliberately NOT appended. `diagnosis` is
+    // read straight out of this struct and shown — the JS side only rewrites
+    // axis names inside it, calling it "a localized diagnosis sentence" — and
+    // every sentence this file produces is Spanish, while `validate_input_2d`
+    // answers in English. Concatenating the two produced half-translated text
+    // in front of the user. What is lost is the node id, and it is not lost to
+    // the user: every entry point with an error channel still returns that
+    // message, and `checkModel` on the JS side names the element itself.
+    if crate::solver::linear::validate_input_2d(input).is_err() {
         return KinematicResult {
             degree,
             classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
             mechanism_modes: 0,
             mechanism_nodes: Vec::new(),
             unconstrained_dofs: Vec::new(),
-            diagnosis: format!("El modelo no puede analizarse: {}", e),
+            diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
         };
     }
@@ -439,14 +448,15 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     // As in the 2D analyzer: no error channel, and `assemble_3d` below
     // dereferences ids directly. Validated on the expanded model, which is the
     // one assembly actually sees.
-    if let Err(e) = super::linear::validate_input_3d(input) {
+    // Same Spanish-only sentence as the 2D analyzer, for the same reason.
+    if super::linear::validate_input_3d(input).is_err() {
         return KinematicResult {
             degree,
             classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
             mechanism_modes: 0,
             mechanism_nodes: Vec::new(),
             unconstrained_dofs: Vec::new(),
-            diagnosis: format!("El modelo no puede analizarse: {}", e),
+            diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
         };
     }
