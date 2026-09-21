@@ -23,6 +23,15 @@ import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share'
  */
 const SHARE_VERSION = 5;
 
+/**
+ * The four modes the app has.
+ *
+ * A link's `analysisMode` is checked against these before it reaches
+ * `uiStore`, which declares the field as a union and therefore cannot police
+ * it once the value comes from outside the program.
+ */
+const KNOWN_ANALYSIS_MODES: readonly string[] = ['2d', '3d', 'pro', 'edu'];
+
 function packRelease(r: Release | undefined): Record<string, unknown> | undefined {
   if (!r) return undefined;
   const out: Record<string, unknown> = {};
@@ -604,7 +613,32 @@ export function decompressSnapshot(data: string): ModelSnapshot | null {
     const json = LZString.decompressFromEncodedURIComponent(data);
     if (!json) return null;
     const parsed = JSON.parse(json) as ModelSnapshot;
-    if (!parsed.nodes || !parsed.nextId) return null;
+
+    // Every family `restore()` maps over has to actually be a list.
+    //
+    // This guard was truthiness only, so `{"nodes": 5, "nextId": {…}}` passed
+    // it and was handed on. `restore()` normalizes what it is given — support
+    // types, load signs, section digests — but does not check shapes, despite
+    // the comments below that delegate "validating the shapes" to it. So the
+    // snapshot reached `s.nodes.map(...)` and threw
+    // `TypeError: s.nodes.map is not a function` straight out of
+    // `loadFromURLHash`, which `App.svelte` calls bare inside `onMount`: a
+    // crafted legacy link took the app down before it finished starting.
+    //
+    // Only the v1 path needed this. v2 builds its snapshot inside
+    // `decompressV2`, whose try/catch already turns a malformed payload into
+    // `null`.
+    //
+    // Refusing here cannot reject a link that works today: `restore()` maps
+    // over all six of these unconditionally, so a snapshot missing any of them
+    // was already failing. The list is deliberately limited to the families
+    // observed to be mapped without a guard — a later-added optional family
+    // must not become a reason to reject an old link.
+    if (!parsed.nextId || typeof parsed.nextId !== 'object') return null;
+    for (const family of ['nodes', 'materials', 'sections', 'elements', 'supports', 'loads'] as const) {
+      if (!Array.isArray(parsed[family])) return null;
+    }
+
     const elems = parsed.elements as Array<[number, Record<string, unknown>]>;
     if (Array.isArray(elems)) {
       for (const [, elem] of elems) {
@@ -780,7 +814,9 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
   const snapshot = decompressSnapshot(compressed);
   if (!snapshot) return null;
 
-  if (snapshot.analysisMode) {
+  // Checked, not believed: the store types this `'2d' | '3d' | 'pro' | 'edu'`,
+  // which says nothing at runtime, and every reader compares it with `===`.
+  if (snapshot.analysisMode && KNOWN_ANALYSIS_MODES.includes(snapshot.analysisMode)) {
     uiStore.analysisMode = snapshot.analysisMode;
   }
 
@@ -836,7 +872,9 @@ export function loadFromShareLink(url: string): boolean {
   const snapshot = decompressSnapshot(parsed.compressed);
   if (!snapshot) return false;
 
-  if (snapshot.analysisMode) {
+  // Checked, not believed: the store types this `'2d' | '3d' | 'pro' | 'edu'`,
+  // which says nothing at runtime, and every reader compares it with `===`.
+  if (snapshot.analysisMode && KNOWN_ANALYSIS_MODES.includes(snapshot.analysisMode)) {
     uiStore.analysisMode = snapshot.analysisMode;
   }
 
