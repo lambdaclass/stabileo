@@ -47,6 +47,11 @@ pub struct WinklerInput3D {
 // ==================== 2D Winkler Solver ====================
 
 pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String> {
+    // Assembly resolves ids by direct map indexing: an element naming a
+    // node that does not exist panicked there, which in WASM ends the
+    // module rather than the call.
+    super::linear::validate_input_2d(&input.solver)?;
+
     let dof_num = DofNumbering::build_2d(&input.solver);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;

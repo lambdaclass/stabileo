@@ -35,6 +35,11 @@ struct ElementState {
 pub fn solve_nonlinear_material_2d(
     input: &NonlinearMaterialInput,
 ) -> Result<NonlinearMaterialResult, String> {
+    // Assembly resolves ids by direct map indexing: an element naming a
+    // node that does not exist panicked there, which in WASM ends the
+    // module rather than the call.
+    super::linear::validate_input_2d(&input.solver)?;
+
     let solver = &input.solver;
     let dof_num = DofNumbering::build_2d(solver);
 

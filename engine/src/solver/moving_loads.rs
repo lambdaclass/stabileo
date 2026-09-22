@@ -39,9 +39,9 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     let solver_input = &input.solver;
 
     // The path builder below resolves element ends by direct map indexing —
-    // three lines after handling a missing *element* gracefully — and
-    // `prepare_static_2d` is `.ok()`-ed here, so the validation that would
-    // have caught a dangling node never got to speak.
+    // three lines after handling a missing *element* gracefully — and runs
+    // before `prepare_static_2d`, whose validation would have caught a
+    // dangling node.
     crate::solver::linear::validate_input_2d(solver_input)?;
     let train = &input.train;
     let step = input.step.unwrap_or(0.25);
@@ -82,7 +82,10 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     } else {
         None
     };
-    let prepared = prep_input.as_ref().and_then(|pi| prepare_static_2d(pi).ok());
+    // A prepare failure is the model's and is returned. `.ok()`-ed, it left
+    // `prepared` empty and every position unsolved, and an envelope of zeros
+    // came back as `Ok` — for a model the solver had refused by name.
+    let prepared = prep_input.as_ref().map(|pi| prepare_static_2d(pi)).transpose()?;
 
     while pos <= end_pos + 1e-10 {
         num_positions += 1;
@@ -355,7 +358,10 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
     } else {
         None
     };
-    let prepared = prep_input.as_ref().and_then(|pi| prepare_static_3d(pi).ok());
+    // A prepare failure is the model's and is returned. `.ok()`-ed, it left
+    // `prepared` empty and every position unsolved, and an envelope of zeros
+    // came back as `Ok` — for a model the solver had refused by name.
+    let prepared = prep_input.as_ref().map(|pi| prepare_static_3d(pi)).transpose()?;
 
     // Lookup maps for local-axis projection — built once for all positions.
     let maps = MovingLoadMaps3d::new(solver_input);

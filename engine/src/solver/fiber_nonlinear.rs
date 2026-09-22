@@ -75,6 +75,11 @@ pub struct FiberElementStatus {
 
 /// Solve a 2D fiber nonlinear problem.
 pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonlinearResult, String> {
+    // Assembly resolves ids by direct map indexing: an element naming a
+    // node that does not exist panicked there, which in WASM ends the
+    // module rather than the call.
+    super::linear::validate_input_2d(&input.solver)?;
+
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
