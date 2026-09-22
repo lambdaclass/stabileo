@@ -620,6 +620,7 @@ pub struct FiberNonlinearResult3D {
 pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNonlinearResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
+    super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
 
     let dof_num = DofNumbering::build_3d(&input.solver);
     if dof_num.n_free == 0 {

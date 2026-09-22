@@ -915,6 +915,7 @@ pub fn solve_nonlinear_material_3d(
 ) -> Result<NonlinearMaterialResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
+    super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
     let solver = &input.solver;
     let dof_num = DofNumbering::build_3d(solver);
 

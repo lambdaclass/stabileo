@@ -366,8 +366,14 @@ enum JacobianShape {
 fn classify_jacobian(min_det: f64, max_det: f64) -> JacobianShape {
     // 1e-30 is the threshold the element formulations themselves use to give
     // up on a sampling point (`det.abs() < 1e-30` in quad.rs, curved_shell.rs).
+    //
+    // Written as `!(scale > …)` so a non-finite reading lands here too. An
+    // element with no usable plane — four quad nodes on one line along Z —
+    // has NaN determinants, and the samplers' `f64::min`/`max` skip NaN and
+    // hand back (INF, −INF): that read as `Reversed`, a Warning, and the NaN
+    // went on into the stiffness matrix.
     let scale = min_det.abs().max(max_det.abs());
-    if scale <= 1e-30 {
+    if !(min_det.is_finite() && max_det.is_finite()) || !(scale > 1e-30) {
         JacobianShape::Collapsed
     } else if min_det < 0.0 && max_det > 0.0 {
         JacobianShape::Folded
@@ -1126,6 +1132,29 @@ pub fn run_pre_solve_gates_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic
     diags
 }
 
+/// Refuse a model with an element that cannot be integrated over.
+///
+/// Only `NegativeJacobian` errors qualify — the collapsed and folded shells
+/// (see [`JacobianShape`]). The gates raise `Error` for other things too: a
+/// frame's orientation vector that is zero or nearly parallel to its axis is
+/// an `Error` to the reader, but `compute_local_axes_3d` falls back to a
+/// default reference and the solve is sound. Refusing on every `Error` turned
+/// models that solve into "Invalid model". A broken element does not solve;
+/// left to run, it came back as "Singular stiffness matrix — structure is a
+/// mechanism", blaming the structure for one element the gate had named.
+///
+/// Every static path that assembles shells calls this — the constrained one
+/// included, which does not go through `prepare_static_3d`.
+pub fn refuse_broken_elements(diags: &[StructuredDiagnostic]) -> Result<(), String> {
+    match diags
+        .iter()
+        .find(|d| d.severity == Severity::Error && d.code == DiagnosticCode::NegativeJacobian)
+    {
+        Some(d) => Err(format!("Invalid model: {}", d.message)),
+        None => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1137,6 +1166,10 @@ mod tests {
         // Nothing left to integrate over.
         assert_eq!(classify_jacobian(0.0, 0.0), JacobianShape::Collapsed);
         assert_eq!(classify_jacobian(-1e-40, 1e-40), JacobianShape::Collapsed);
+        // No finite reading at all: NaN determinants, or the (INF, −INF) a
+        // sampler returns when `min`/`max` skipped every one of them.
+        assert_eq!(classify_jacobian(f64::NAN, f64::NAN), JacobianShape::Collapsed);
+        assert_eq!(classify_jacobian(f64::INFINITY, f64::NEG_INFINITY), JacobianShape::Collapsed);
 
         // The sign changes inside the element: it doubles back on itself.
         assert_eq!(classify_jacobian(-1.0, 1.0), JacobianShape::Folded);

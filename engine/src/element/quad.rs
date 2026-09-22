@@ -256,7 +256,9 @@ fn invert_small_matrix(n: usize, m: &[f64]) -> Option<Vec<f64>> {
                 max_row = row;
             }
         }
-        if max_val <= 1e-30 {
+        // Negated so NaN is refused as well: `NaN <= 1e-30` is false, where
+        // the old `assert!(max_val > 1e-30)` did catch it.
+        if !(max_val > 1e-30) {
             return None;
         }
 
@@ -1305,6 +1307,11 @@ pub fn quad_check_jacobian(coords: &[[f64; 3]; 4]) -> (f64, f64, bool) {
 
     for &((xi, eta), _) in &gauss {
         let (_, _, det_j) = jacobian_2d(&pts, xi, eta);
+        // `f64::min`/`max` skip NaN, so a NaN determinant — an element with no
+        // plane to project onto — would vanish from the range. Report it.
+        if det_j.is_nan() {
+            return (f64::NAN, f64::NAN, true);
+        }
         min_det = min_det.min(det_j);
         max_det = max_det.max(det_j);
         if det_j <= 0.0 {
