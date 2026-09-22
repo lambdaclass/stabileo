@@ -18,6 +18,14 @@ pub struct KinematicResult {
     pub unconstrained_dofs: Vec<UnconstrainedDof>,
     pub diagnosis: String,
     pub is_solvable: bool,
+    /// Set when the model failed input validation and was not analysed: the
+    /// validator's own message. `mechanism_modes` is then 0 because nothing
+    /// was checked, not because nothing was found, and a reader has to be
+    /// able to tell those apart. Kept out of `diagnosis`, which is a Spanish
+    /// sentence shown as-is; this is the validator's English, for the error
+    /// channel the solve would have used (`Error al resolver: …`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invalid_input: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,15 +138,19 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     // `diagnosis` are for: the JS wrapper already reports an unavailable
     // analysis in this same shape when the engine has not loaded yet.
     //
-    // The validator's own message is deliberately NOT appended. `diagnosis` is
-    // read straight out of this struct and shown — the JS side only rewrites
-    // axis names inside it, calling it "a localized diagnosis sentence" — and
-    // every sentence this file produces is Spanish, while `validate_input_2d`
-    // answers in English. Concatenating the two produced half-translated text
-    // in front of the user. What is lost is the node id, and it is not lost to
-    // the user: every entry point with an error channel still returns that
-    // message, and `checkModel` on the JS side names the element itself.
-    if crate::solver::linear::validate_input_2d(input).is_err() {
+    // The validator's own message is NOT appended to `diagnosis`. That field
+    // is read straight out of this struct and shown — the JS side only
+    // rewrites axis names inside it, calling it "a localized diagnosis
+    // sentence" — and every sentence this file produces is Spanish, while
+    // `validate_input_2d` answers in English. Concatenating the two produced
+    // half-translated text in front of the user.
+    //
+    // It travels in `invalid_input` instead, and it has to travel: the web
+    // solve runs this analysis first and stops on `!is_solvable`, so the solve
+    // that would have named the problem never runs. `checkModel` covers some
+    // of the validator's cases, not all — a Poisson ratio of 0.5 or a point
+    // load past the element's end reached the user only through here.
+    if let Err(reason) = crate::solver::linear::validate_input_2d(input) {
         return KinematicResult {
             degree,
             classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
@@ -147,6 +159,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
+            invalid_input: Some(reason),
         };
     }
 
@@ -162,6 +175,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "Todos los GDL están restringidos.".into(),
             is_solvable: true,
+            invalid_input: None,
         };
     }
 
@@ -333,6 +347,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         unconstrained_dofs,
         diagnosis,
         is_solvable,
+        invalid_input: None,
     }
 }
 
@@ -449,7 +464,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     // dereferences ids directly. Validated on the expanded model, which is the
     // one assembly actually sees.
     // Same Spanish-only sentence as the 2D analyzer, for the same reason.
-    if super::linear::validate_input_3d(input).is_err() {
+    if let Err(reason) = super::linear::validate_input_3d(input) {
         return KinematicResult {
             degree,
             classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
@@ -458,6 +473,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
+            invalid_input: Some(reason),
         };
     }
 
@@ -473,6 +489,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "Todos los GDL están restringidos.".into(),
             is_solvable: true,
+            invalid_input: None,
         };
     }
 
@@ -662,6 +679,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         unconstrained_dofs,
         diagnosis,
         is_solvable,
+        invalid_input: None,
     }
 }
 
