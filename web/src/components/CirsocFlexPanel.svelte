@@ -33,6 +33,8 @@
     PHI_TENSION, PHI_COMPRESSION_TIED, PHI_COMPRESSION_SPIRAL,
   } from '../lib/engine/codes/argentina/cirsoc201-basis';
   import { characteristicPointsBothEdges } from '../lib/engine/codes/argentina/cirsoc-flex-points';
+  import { interactionCurve } from '../lib/engine/codes/argentina/cirsoc201-section';
+  import InteractionDiagram from './flex/InteractionDiagram.svelte';
   import SectionDrawing from './SectionDrawing.svelte';
   import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
   import { uiStore, resultsStore, modelStore } from '../lib/store';
@@ -144,6 +146,16 @@
   // ── 3. Armaduras y solicitaciones ──────────────────────────────────
   /** The sheet's A's/As. */
   let ratioAsPrime = $state(1);
+  /*
+   * The biaxial VERIFICATION sheet asks for the three positions as AREAS —
+   * "Sección total de la posición A1 = As1" — where the design sheet asks for
+   * percentages of a total it is about to find. Same three positions, opposite
+   * direction of the calculation, so the boxes differ and the engine does not:
+   * areas are summed into Ast and divided back into the percentages it takes.
+   */
+  let asA1 = $state(10.668);
+  let asA2 = $state(10.668);
+  let asA3 = $state(0);
   let pctA1 = $state(50);
   let pctA2 = $state(50);
   let pctA3 = $state(0);
@@ -200,6 +212,25 @@
    * agreement with the workbook be reached in a unit test rather than in a
    * browser — see `cirsoc-flex-all-sheets.test.ts`.
    */
+  /** The biaxial sheet takes areas when verifying and percentages when sizing. */
+  const fcoByArea = $derived(kase === 'FCO' && mode === 'verify');
+  const fcoAstGiven = $derived(asA1 + asA2 + asA3);
+  /*
+   * Percentages from the areas, which is the only conversion needed — and the
+   * one place it can go wrong is a total of zero, where every share is
+   * undefined rather than zero. Falling back to the typed percentages there
+   * keeps the panel answering while the reader is still filling boxes in.
+   */
+  const fcoPct = $derived.by(() => {
+    const total = fcoAstGiven;
+    if (!(total > 0)) return { a1: pctA1, a2: pctA2, a3: pctA3 };
+    return {
+      a1: (asA1 / total) * 100,
+      a2: (asA2 / total) * 100,
+      a3: (asA3 / total) * 100,
+    };
+  });
+
   const input = $derived<FlexInput>({
     kase, mode,
     fc, fy, confinement: spiral ? 'spiral' : 'ties', deductDisplacedConcrete: deduct,
@@ -209,8 +240,13 @@
     holeB: holeB / 100, holeH: holeH / 100,
     bf: bf / 100, hf: hf / 100, bw: bw / 100,
     D: D / 100, Dint: Dint / 100, barCount, barAtExtremeFibre: atFibre,
-    ratioAsPrime, pctA1, pctA2, pctA3, nA1, nA2, nA3,
-    AstGiven, levels: levels.filter((l) => l.areaCm2 > 0)
+    ratioAsPrime,
+    ...(fcoByArea
+      ? { pctA1: fcoPct.a1, pctA2: fcoPct.a2, pctA3: fcoPct.a3 }
+      : { pctA1, pctA2, pctA3 }),
+    nA1, nA2, nA3,
+    AstGiven: fcoByArea ? fcoAstGiven : AstGiven,
+    levels: levels.filter((l) => l.areaCm2 > 0)
       .map((l) => ({ distanceFromBottom: l.distanceFromBottom / 100, areaCm2: l.areaCm2 })),
     Pu, Mu, Muy,
   });
@@ -413,6 +449,41 @@
         r.bars,
         { fc, fy, confinement: spiral ? 'spiral' : 'ties', deductDisplacedConcrete: deduct },
       );
+    } catch { return null; }
+  });
+
+  /**
+   * The curve the sheet plots, with the demand and the resistance on it.
+   *
+   * Column cases only, in both modes: the sizing sheets head their chart
+   * "DIAGRAMA DE INTERACCION PARA LAS ARMADURAS NECESARIAS" and the
+   * verification sheets plot the same figure with the solicitation marked. A
+   * beam has no axial component and no diagram — drawing an empty one would be
+   * inventing a section of the sheet.
+   */
+  const diagram = $derived.by(() => {
+    const r = out.r;
+    if (!r) return null;
+    if (kase === 'FSR' || kase === 'FST') return null;
+    try {
+      const pts = interactionCurve(
+        r.outline, r.bars,
+        { fc, fy, confinement: spiral ? 'spiral' : 'ties', deductDisplacedConcrete: deduct },
+        Math.PI / 2, 240,
+      ).map((p) => ({ m: Math.hypot(p.phiMnx, p.phiMny), n: p.phiPn }));
+      if (pts.length < 3) return null;
+      const hasDemand = Math.abs(Pu) > 1e-9 || Math.abs(Mu) > 1e-9;
+      return {
+        curve: pts,
+        /* The biaxial case is checked on the resultant, which is what its own
+           sheet plots as a cut of the surface at the fixed axial load. */
+        demand: hasDemand
+          ? { m: kase === 'FCO' ? Math.hypot(Mu, Muy) : Math.abs(Mu), n: Pu }
+          : null,
+        resistance: r.phiMn !== undefined && hasDemand
+          ? { m: Math.abs(r.phiMn), n: r.phiPn ?? 0 }
+          : null,
+      };
     } catch { return null; }
   });
 
@@ -682,6 +753,29 @@
       reader whose numbers do not add up has made a mistake worth seeing.
     -->
     <h4 class="fp-heading">{t('flex.section.distribution')}</h4>
+    {#if fcoByArea}
+      <!--
+        Verifying: the steel is known, so the sheet asks for it directly. The
+        percentages the engine works in are derived below and shown, because a
+        reader comparing against the sheet's own distribution needs to see the
+        split it produced rather than take it on trust.
+      -->
+      <div class="fp-grid">
+        <label class="fp-field"><span>As1 [cm²]</span><input type="number" bind:value={asA1} min="0" step="0.5" data-testid="fco-as1" /></label>
+        <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
+        <label class="fp-field"><span>As2 [cm²]</span><input type="number" bind:value={asA2} min="0" step="0.5" data-testid="fco-as2" /></label>
+        <label class="fp-field"><span>N° A2</span><input type="number" bind:value={nA2} min="0" max="20" step="1" /></label>
+        <label class="fp-field"><span>As3 [cm²]</span><input type="number" bind:value={asA3} min="0" step="0.5" data-testid="fco-as3" /></label>
+        <label class="fp-field"><span>N° A3</span><input type="number" bind:value={nA3} min="0" max="20" step="1" /></label>
+      </div>
+      <p class="fp-note" data-testid="fco-derived-pct">
+        Ast = {fcoAstGiven.toFixed(3)} cm² ·
+        A1 {fcoPct.a1.toFixed(1)} % · A2 {fcoPct.a2.toFixed(1)} % · A3 {fcoPct.a3.toFixed(1)} %
+      </p>
+      {#if asA1 <= 0}
+        <p class="fp-warn">{t('flex.warn.a1NotNull')}</p>
+      {/if}
+    {:else}
     <div class="fp-grid">
       <label class="fp-field"><span>A1 [%]</span><input type="number" bind:value={pctA1} min="0" max="100" step="5" /></label>
       <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
@@ -692,6 +786,7 @@
     </div>
     {#if pctA1 + pctA2 + pctA3 !== 100}
       <p class="fp-warn">{t('flex.warn.pct').replace('{n}', String(pctA1 + pctA2 + pctA3))}</p>
+    {/if}
     {/if}
   {/if}
 
@@ -863,13 +958,38 @@
     {/if}
 
     <!--
-      5 · The safety condition, stated the way the sheet states it: the two
+      The figure the sheet puts under its results. The red diamond is the
+      demand and the magenta one the resistance at that same eccentricity —
+      which is the pair that says WHERE the section is short, not just by how
+      much: near the nose, where more axial load helps, or out on the tension
+      branch where it does not.
+    -->
+    {#if diagram}
+      <h4 class="fp-heading">
+        {mode === 'verify' ? '5' : '5'} · {t('flex.section.diagram')}
+      </h4>
+      <InteractionDiagram
+        curve={diagram.curve}
+        demand={diagram.demand}
+        resistance={diagram.resistance}
+        labelM={kase === 'FCO' ? 'M res [kN·m]' : 'Mu [kN·m]'}
+      />
+      {#if diagram.demand}
+        <p class="fp-note fp-legend">
+          <span class="fp-dot fp-dot-dem"></span>{t('flex.diagram.demand')}
+          <span class="fp-dot fp-dot-res"></span>{t('flex.diagram.resistance')}
+        </p>
+      {/if}
+    {/if}
+
+    <!--
+      6 · The safety condition, stated the way the sheet states it: the two
       resistant components at the demand's own eccentricity, then the two vector
       magnitudes. A single ratio hides WHERE on the diagram the resistance was
       read, which is the thing a reader is checking.
     -->
     {#if safetyRows.length > 0}
-      <h4 class="fp-heading">5 · {t('flex.section.safety')}</h4>
+      <h4 class="fp-heading">6 · {t('flex.section.safety')}</h4>
       <table class="fp-table" data-testid="flex-safety">
         <tbody>
           {#each safetyRows as [label, value]}
@@ -885,7 +1005,7 @@
       workbook: agreeing at one point can be luck, agreeing at six is not.
     -->
     {#if characteristic}
-      <h4 class="fp-heading">6 · {t('flex.section.characteristic')}</h4>
+      <h4 class="fp-heading">7 · {t('flex.section.characteristic')}</h4>
       {#each [
         { rows: characteristic.bottomCompressed, capKey: 'flex.out.edgeBottom' },
         { rows: characteristic.topCompressed, capKey: 'flex.out.edgeTop' },
@@ -1166,6 +1286,10 @@
   .fp-bartable th, .fp-bartable td { text-align: right; font-variant-numeric: tabular-nums; }
   .fp-bartable thead th { color: var(--st-text-3); font-weight: 500; font-size: 0.66rem; }
   .fp-general th { font-weight: 400; color: var(--st-text-3); }
+  .fp-legend { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .fp-dot { width: 8px; height: 8px; transform: rotate(45deg); display: inline-block; margin-left: 6px; }
+  .fp-dot-dem { background: #e5484d; }
+  .fp-dot-res { background: #d6409f; }
   .fp-edge-note {
     font-size: 0.66rem; color: var(--st-text-3);
     margin: 8px 0 2px; line-height: 1.4;

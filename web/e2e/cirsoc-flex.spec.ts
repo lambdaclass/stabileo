@@ -364,3 +364,62 @@ test.describe('@smoke laid out like the workbook', () => {
     await expect(page.getByTestId('flex-safety')).toHaveCount(0);
   });
 });
+
+test.describe('@smoke the figure the sheet puts under its results', () => {
+  test('a column gets the interaction diagram, with both markers', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCR');
+    await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+
+    await expect(page.getByTestId('flex-diagram')).toBeVisible();
+    /* Red for what is asked, magenta for what the section gives at that same
+       eccentricity. The pair says WHERE the section is short, which a single
+       ratio cannot. */
+    await expect(page.getByTestId('flex-diagram-dem')).toBeVisible();
+    await expect(page.getByTestId('flex-diagram-res')).toBeVisible();
+  });
+
+  test('a beam gets none, because a beam has no axial component', async ({ page }) => {
+    await openFlex(page);
+    await expect(page.getByTestId('flex-diagram')).toHaveCount(0);
+  });
+
+  test('with no demand typed, the curve is drawn and nothing is marked on it',
+    async ({ page }) => {
+      /* The sizing sheets head their chart "para las armaduras necesarias" and
+         plot no solicitation; the verification sheet says to enter zeros when
+         you do not want one plotted. */
+      await openFlex(page);
+      await page.getByTestId('flex-case').selectOption('FCR');
+      for (const label of ['Pu [kN]', 'Mu [kN·m]']) {
+        await page.getByText(label, { exact: true }).locator('..').locator('input').fill('0');
+      }
+      await expect(page.getByTestId('flex-diagram')).toBeVisible();
+      await expect(page.getByTestId('flex-diagram-dem')).toHaveCount(0);
+    });
+});
+
+test.describe('@smoke the biaxial sheet asks for areas when verifying', () => {
+  test('percentages to size, areas to check — and it shows the split it derived',
+    async ({ page }) => {
+      await openFlex(page);
+      await page.getByTestId('flex-case').selectOption('FCO');
+      /* Sizing: the total is what is being found, so the positions are shares. */
+      await expect(page.getByTestId('fco-as1')).toHaveCount(0);
+
+      await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+      /* Checking: the steel is known, so the sheet asks for it directly. */
+      await expect(page.getByTestId('fco-as1')).toBeVisible();
+      await expect(page.getByTestId('fco-as2')).toBeVisible();
+      await expect(page.getByTestId('fco-as3')).toBeVisible();
+
+      await page.getByTestId('fco-as1').fill('12');
+      await page.getByTestId('fco-as2').fill('4');
+      await page.getByTestId('fco-as3').fill('4');
+      /* 12 + 4 + 4 = 20, so 60 / 20 / 20 — shown rather than taken on trust,
+         because it is the split a reader compares against the sheet's own. */
+      const derived = page.getByTestId('fco-derived-pct');
+      await expect(derived).toContainText('20.000');
+      await expect(derived).toContainText('60.0');
+    });
+});
