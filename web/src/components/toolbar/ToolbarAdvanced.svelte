@@ -164,6 +164,17 @@
     { key: 'dsm', labelKey: 'advanced.stepByStep',
       isActive: () => dsmStepsStore.isOpen,
       close: () => dsmStepsStore.close() },
+    /*
+     * The calculator is one of these too, and leaving it out of the list was
+     * what made it behave unlike all of them: nothing else could make it the
+     * running analysis, so it never got the header that names what you are in
+     * or the ✕ that leaves it, and `shown()` was never asked about it — so it
+     * stayed on screen next to whatever else you opened, which is not a thing
+     * any other entry can do.
+     */
+    { key: 'cirsocFlex', labelKey: 'flex.title',
+      isActive: () => showFlex,
+      close: () => { showFlex = false; } },
   ];
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
@@ -859,22 +870,34 @@
     {/if}
 
     <!--
-      Last, and outside every guard above it.
-      ───────────────────────────────────────
-      The entries before this one are hidden or greyed until the model can
-      support them — solved, 3D, enough members. This one needs none of that:
-      it is a calculator whose inputs are typed, and greying it out because
-      the canvas is empty would hide the tool exactly when it is most useful.
+      Enabled whatever the model is doing — which is NOT the same as being
+      outside the accordion.
+      ──────────────────────────────────────────────────────────────────
+      The entries above are greyed until the model can support them: solved,
+      3D, enough members. This one needs none of that — it is a calculator
+      whose inputs are typed, and greying it out because the canvas is empty
+      would hide the tool exactly when it is most useful. That reasoning is
+      about the DISABLED state and it still holds.
+
+      It was also written outside `shown()`, and that part was a conflation.
+      Every other entry hides while another analysis is running, so the panel
+      shows one thing at a time; this one stayed visible underneath whatever
+      you had opened, looking like a stray disclosure rather than a function
+      you enter.
     -->
-    <div class="adv-btn-wrap">
-      <button class="adv-btn" class:active={showFlex} data-testid="adv-flex"
-        onclick={() => (showFlex = !showFlex)}>
-        {t('flex.title')}
-        <span class="adv-beta">{t('flex.beta')}</span>
-      </button>
-    </div>
-    {#if showFlex}
-      <div class="adv-flex-body"><CirsocFlexPanel /></div>
+    {#if shown('cirsocFlex')}
+      {#if !flat || active?.key !== 'cirsocFlex'}
+        <div class="adv-btn-wrap">
+          <button class="adv-btn" class:active={showFlex} data-testid="adv-flex"
+            onclick={() => (showFlex = !showFlex)}>
+            {t('flex.title')}
+            <span class="adv-beta">{t('flex.beta')}</span>
+          </button>
+        </div>
+      {/if}
+      {#if showFlex}
+        <div class="adv-flex-body"><CirsocFlexPanel /></div>
+      {/if}
     {/if}
   </div>
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}

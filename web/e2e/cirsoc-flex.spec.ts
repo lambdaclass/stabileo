@@ -250,3 +250,42 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
     expect(Math.round(back!.width)).toBe(Math.round(small!.width));
   });
 });
+
+/*
+ * The calculator is an advanced function, and behaves like one.
+ *
+ * It was not in the registry that drives that panel, and the two symptoms the
+ * reader reported both followed from it: nothing could make it the RUNNING
+ * analysis, so it never got the header naming what you are in nor the ✕ that
+ * leaves it; and `shown()` was never asked about it, so it stayed on screen
+ * beside whatever else you opened. Every other entry hides while another one
+ * runs — the panel shows one thing at a time — which is what made this one look
+ * like a stray disclosure rather than a function you enter.
+ */
+test.describe('@smoke the calculator behaves like the other advanced functions', () => {
+  test('opening it makes it the running analysis, with a name and a way out', async ({ page }) => {
+    await openFlex(page);
+    const running = page.getByTestId('adv-running');
+    await expect(running).toBeVisible();
+    await expect(running).toHaveAttribute('data-adv', 'cirsocFlex');
+    // Its own button is gone while it is the thing running: the header replaces it.
+    await expect(page.getByTestId('adv-flex')).toHaveCount(0);
+
+    await page.getByTestId('adv-close').click();
+    await expect(running).toHaveCount(0);
+    await expect(page.getByTestId('adv-flex')).toBeVisible();
+  });
+
+  test('it hides while another advanced function is running', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('adv-close').click();
+
+    // Kinematic analysis is the first entry and needs no solved model.
+    const kin = page.getByRole('button', { name: /cinem|kinematic/i }).first();
+    await kin.click();
+    await expect(page.getByTestId('adv-running')).toBeVisible();
+    /* The defect: the calculator used to stay on screen underneath whatever
+       else was open, which no other entry in this panel can do. */
+    await expect(page.getByTestId('adv-flex')).toHaveCount(0);
+  });
+});
