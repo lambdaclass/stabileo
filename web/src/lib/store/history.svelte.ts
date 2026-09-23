@@ -57,6 +57,8 @@ export interface ModelSnapshot {
     members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] };
     data?: Record<string, unknown>;
   }]>;
+  /** The stated mass source. Absent when the project has not stated one. */
+  massSource?: { factors: Array<{ caseId: number; factor: number }> };
   /** Joint/spring/bearing primitives. Each entry is [id, ConnectorElement-shaped object]. */
   connectors?: Array<[number, { id: number; nodeI: number; nodeJ: number; kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }]>;
   /** Isolated spread footings. Each entry is [id, Footing]. Absent before foundations. */

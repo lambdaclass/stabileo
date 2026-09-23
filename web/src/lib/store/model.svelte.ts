@@ -31,6 +31,7 @@ import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, ConnectorElement } from '../engine/types-3d';
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
+import type { MassSource } from '../engine/dynamics/mass-source';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
@@ -737,6 +738,14 @@ export interface StructureModel {
   quads: Map<number, Quad>;
   /** Named, persisted sets of entities. See `ModelGroup`. */
   groups: Map<number, ModelGroup>;
+  /**
+   * Which load cases are mass for the dynamic analyses, and by how much.
+   *
+   * Absent means the project has not stated it, and the code defaults apply and are shown as
+   * such — see `engine/dynamics/mass-source.ts`. It is a statement, like a group, so a new
+   * project starts without one rather than with the defaults written in.
+   */
+  massSource?: MassSource;
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -1438,6 +1447,11 @@ function createModelStore() {
         ...(snap.groups && snap.groups.size > 0
           ? { groups: Array.from(snap.groups.entries()) as ModelSnapshot['groups'] }
           : {}),
+        // Same rule as groups: emitted only when stated, so older files and projects that
+        // never stated one round-trip unchanged.
+        ...(snap.massSource
+          ? { massSource: { factors: snap.massSource.factors.map((f) => ({ ...f })) } }
+          : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
         nextId: snapId as ModelSnapshot['nextId'],
@@ -1620,6 +1634,9 @@ function createModelStore() {
     model.groups = s.groups
       ? new Map(s.groups.map(([k, v]) => [k, JSON.parse(JSON.stringify(v)) as ModelGroup]))
       : new Map();
+    model.massSource = s.massSource
+      ? { factors: s.massSource.factors.map((f) => ({ caseId: f.caseId, factor: f.factor })) }
+      : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2592,6 +2609,7 @@ function createModelStore() {
       // A new model inherits no groups. Without this, `clear()` left the previous
       // project's groups holding ids that now mean different entities.
       model.groups = new Map();
+      model.massSource = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3194,6 +3212,23 @@ function createModelStore() {
       for (const combo of model.combinations) {
         combo.factors = combo.factors.filter(f => f.caseId !== id);
       }
+      // And from the mass source, where a stale case id would come to mean whatever case
+      // takes that number next.
+      if (model.massSource) {
+        model.massSource = { factors: model.massSource.factors.filter(f => f.caseId !== id) };
+      }
+    },
+
+    /**
+     * State the mass source, or withdraw it (`null`) so the code defaults apply again.
+     *
+     * Bumps the model version: the mass is part of what a modal result describes, so a result
+     * computed before the change must read as stale.
+     */
+    setMassSource(ms: MassSource | null): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.massSource = ms ? { factors: ms.factors.map((f) => ({ caseId: f.caseId, factor: f.factor })) } : undefined;
+      this.bumpModelVersion();
     },
 
     updateLoadCase(id: number, name: string): void {

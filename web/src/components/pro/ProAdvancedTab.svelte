@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { withMassSource, densitiesFor } from '../../lib/engine/dynamics/mass-source-model';
+  import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
+  import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
   import {
-    massDensities, densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
+    densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
     sineAccelerogram, parseAccelerogramG, timeHistoryFields, peakBaseShear, HHT_ALPHA_RANGE,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
@@ -121,16 +124,33 @@
     return input;
   }
 
-  function getMaterialDensities(input?: any): Map<number, number> {
-    // Penalty materials a rigid diaphragm adds are in the request and not in the store.
-    return massDensities(modelStore.materials, input?.materials ? input.materials.keys() : []);
-  }
-
   function maybeApplyDiaphragm(input: any) {
     if (!useDiaphragm) return input;
     const levels = detectFloorLevels(input.nodes);
     if (!levels || levels.length === 0) return input;
     return applyRigidDiaphragm(input, { levels });
+  }
+
+  /** What the last dynamic run took as mass. Shown beside the mass-source table. */
+  let massReport = $state<MassSourceReport | null>(null);
+
+  /**
+   * The input every dynamic analysis runs on: the model, its mass source, then the diaphragm.
+   *
+   * One builder for modal, spectral, time history and harmonic, so the four cannot disagree
+   * about how heavy the structure is.
+   */
+  function buildDynamicInput(): { input: any; densities: Map<number, number> } {
+    const md = {
+      nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+      loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
+      quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
+      connectors: modelStore.connectors,
+    };
+    const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, buildInput());
+    massReport = ms.report;
+    const input = maybeApplyDiaphragm(ms.input);
+    return { input, densities: densitiesFor(input, ms.densities) };
   }
 
   // ─── 1. P-Delta ─────────────────────────────────────────────────
@@ -175,9 +195,7 @@
     solving = true;
     modalElapsed = null;
     try {
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      const densities = getMaterialDensities(input);
+      const { input, densities } = buildDynamicInput();
       let res: any;
       const t0 = performance.now();
       res = wasmModal3D(input, densities, numModes);
@@ -225,9 +243,7 @@
         solving = false;
         return;
       }
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      const densities = getMaterialDensities(input);
+      const { input, densities } = buildDynamicInput();
       const spectrum: DesignSpectrum = cirsoc103Spectrum(seismicZone, soilType);
       const modes = spectralModesFrom(modalResult);
       // One run per horizontal direction: the engine combines a single direction at a time.
@@ -305,12 +321,11 @@
         solving = false;
         return;
       }
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
+      const { input, densities } = buildDynamicInput();
       const res = solveTimeHistory3D({
         solver: input,
         ...timeHistoryFields({
-          densities: getMaterialDensities(input),
+          densities,
           dt: thDt,
           nSteps: thNSteps,
           direction: thDir,
@@ -342,12 +357,9 @@
     solving = true;
     harmonicElapsed = null;
     try {
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      // Mass density in kg/m³, exactly as modal does it — `rho` is a WEIGHT
-      // density in kN/m³, and feeding it straight in made every frequency
-      // wrong by a factor of g/1000.
-      const densities = densityRecord(getMaterialDensities(input));
+      const dyn = buildDynamicInput();
+      const input = dyn.input;
+      const densities = densityRecord(dyn.densities);
       // The engine sweeps an explicit frequency list and reports one node's
       // response; it has no fMin/fMax/nPoints of its own.
       const span = harmNPoints > 1 ? (harmFMax - harmFMin) / (harmNPoints - 1) : 0;
@@ -1027,6 +1039,11 @@
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
       {/if}
+    </div>
+
+    <!-- ── Mass source: what the dynamic analyses below weigh ── -->
+    <div class="adv-group">
+      <MassSourcePanel report={massReport} />
     </div>
 
     <!-- ── 2. Modal ── -->
