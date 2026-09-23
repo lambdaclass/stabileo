@@ -134,6 +134,8 @@ const pt: Translations = {
    */
   'action.applyAmorphousSection': 'Aplicar seção amorfa',
   'action.applySection': 'Aplicar seção',
+  'advHelp.cirsocFlex.label': 'Calculadora de concreto armado',
+  'advHelp.cirsocFlex.text': 'Dimensiona ou verifica uma seção de concreto armado por si só, sem modelo resolvido: você informa a geometria, os materiais e a solicitação. Cinco casos, os mesmos que a planilha CIRSOC FLEX imprime — retangular e com abas em flexão simples, pilares retangular e circular com axial mais flexão, e pilar retangular em flexão oblíqua. Dimensionar devolve a armadura necessária; verificar devolve o aproveitamento da armadura informada.',
   'advHelp.buckling.label': 'Pcr — Carga Crítica (Euler)',
   'advHelp.buckling.text': 'Calcula a carga de flambagem elástica via autovalores da matriz de rigidez geométrica. O fator λ_cr indica quanto as cargas atuais precisariam ser multiplicadas para a estrutura flambar. Se λ_cr < 1, a estrutura já excedeu sua carga crítica. Mostra o comprimento efetivo (Keff) de cada barra comprimida.',
   'advHelp.dsm.label': 'Passo a Passo — Método da Rigidez Direta',

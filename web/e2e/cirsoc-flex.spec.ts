@@ -276,6 +276,19 @@ test.describe('@smoke the calculator behaves like the other advanced functions',
     await expect(page.getByTestId('adv-flex')).toBeVisible();
   });
 
+  test('it explains itself, like every other entry in the panel', async ({ page }) => {
+    /* It was the only button in Advanced with no `?` — no way to ask what it
+       does before pressing it. */
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await page.getByTestId('rb-cmd-advanced').click();
+    const row = page.getByTestId('adv-flex').locator('..');
+    const help = row.getByRole('button', { name: '?' });
+    await expect(help).toBeVisible();
+    await help.click();
+    await expect(page.getByText(/CIRSOC FLEX/i).first()).toBeVisible();
+  });
+
   test('it hides while another advanced function is running', async ({ page }) => {
     await openFlex(page);
     await page.getByTestId('adv-close').click();

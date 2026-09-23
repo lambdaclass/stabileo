@@ -324,6 +324,8 @@ const es: Record<string, string> = {
   'advanced.defineCombosFirst': 'Definí combinaciones primero en la pestaña Combinaciones',
 
   // Advanced help texts
+  'advHelp.cirsocFlex.label': 'Calculadora de hormigón armado',
+  'advHelp.cirsocFlex.text': 'Dimensiona o verifica una sección de hormigón armado por su cuenta, sin modelo resuelto: vos cargás la geometría, los materiales y la solicitación. Cinco casos, los mismos que imprime la planilla CIRSOC FLEX — rectangular y con alas en flexión simple, columnas rectangular y circular con axil más flexión, y columna rectangular en flexión oblicua. Dimensionar devuelve la armadura que la sección necesita; verificar devuelve el aprovechamiento de la armadura que le des.',
   'advHelp.pdelta.label': 'P-Δ (2° Orden)',
   'advHelp.pdelta.text': 'Análisis no lineal geométrico. Considera cómo las fuerzas axiales modifican la rigidez lateral de la estructura (efecto P-Δ). Itera hasta convergencia y reporta el factor de amplificación B₂. Si B₂ > 1.4, la estructura es sensible a efectos de segundo orden. Requiere haber calculado primero.',
   'advHelp.buckling.label': 'Pcr — Carga Crítica (Euler)',

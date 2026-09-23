@@ -74,6 +74,10 @@
       labelKey: 'advHelp.kinematic.label',
       textKey: 'advHelp.kinematic.text',
     },
+    'cirsocFlex': {
+      labelKey: 'advHelp.cirsocFlex.label',
+      textKey: 'advHelp.cirsocFlex.text',
+    },
     'stress': {
       labelKey: 'advHelp.stress.label',
       textKey: 'advHelp.stress.text',
@@ -888,12 +892,17 @@
     {#if shown('cirsocFlex')}
       {#if !flat || active?.key !== 'cirsocFlex'}
         <div class="adv-btn-wrap">
-          <button class="adv-btn" class:active={showFlex} data-testid="adv-flex"
+          <button class="adv-btn" style="flex:1" class:active={showFlex} data-testid="adv-flex"
             onclick={() => (showFlex = !showFlex)}>
             {t('flex.title')}
             <span class="adv-beta">{t('flex.beta')}</span>
           </button>
+          <!-- Every other entry explains itself here; this one was the only
+               button in the panel with no way to ask what it does. -->
+          <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('cirsocFlex', e)}
+            class:active={advHelpKey === 'cirsocFlex'}>?</button>
         </div>
+        {@render helpPanel('cirsocFlex')}
       {/if}
       {#if showFlex}
         <div class="adv-flex-body"><CirsocFlexPanel /></div>

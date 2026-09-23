@@ -331,6 +331,8 @@ const en: Record<string, string> = {
   'advanced.defineCombosFirst': 'Define combinations first in the Combinations tab',
 
   // Advanced help texts
+  'advHelp.cirsocFlex.label': 'Reinforced concrete calculator',
+  'advHelp.cirsocFlex.text': 'Sizes or checks a reinforced-concrete section on its own, without a solved model: you type the geometry, the materials and the demand. Five cases, the same ones the CIRSOC FLEX workbook prints — rectangular and flanged in simple bending, rectangular and circular columns under axial load plus bending, and a rectangular column under biaxial bending. Sizing returns the steel a section needs; checking returns the utilisation of the steel you give it.',
   'advHelp.pdelta.label': 'P-\u0394 (2nd Order)',
   'advHelp.pdelta.text': 'Geometric nonlinear analysis. Considers how axial forces modify the lateral stiffness of the structure (P-\u0394 effect). Iterates until convergence and reports the amplification factor B\u2082. If B\u2082 > 1.4, the structure is sensitive to second-order effects. Requires solving first.',
   'advHelp.buckling.label': 'Pcr \u2014 Critical Load (Euler)',
