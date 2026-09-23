@@ -11,6 +11,24 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Modal participation factors refer to the published mode shape (2026-09-23)
+
+**Output change: `participationX/Y/Z` from modal analysis, and every spectral displacement and
+member force.** `solve_modal_2d`/`solve_modal_3d` computed Γ on the eigenvector as the
+eigensolver returned it (mass-normalized) and then published that vector scaled to a unit
+maximum, without rescaling Γ. Γ scales inversely with its shape, so the pair no longer
+belonged together — and `solve_spectral_2d`/`solve_spectral_3d` build each modal response as
+Γ·φ·Sd from exactly that pair. Spectral displacements and member forces came out multiplied by
+the reciprocal of the eigenvector's largest entry: √m for a single-degree-of-freedom system,
+3.13× for a 9.8 t girder, growing with the square root of the model's mass.
+
+Γ is now rescaled with the shape. Unaffected: frequencies, periods, mode shapes, effective
+masses and mass ratios (Γ²·φᵀMφ is invariant), and therefore spectral base shear, which is
+built from effective mass. Pinned by `validation/domains/dynamics/spectral_normalization.rs`:
+Γ = 1 and u = Sa/ω² for an SDOF frame in 2D and 3D, and the modal expansion Σ Γₙφₙ = ι over
+all modes of a cantilever — an identity that holds under any normalization only if Γ and φ
+share one.
+
 #### Shell edge loads: outward normal sign corrected (E6 audit, 2026-08-14)
 
 **BREAKING (saved models): `quadEdge` and `quad9Edge` loads reverse direction.**

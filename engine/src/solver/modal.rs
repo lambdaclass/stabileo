@@ -205,6 +205,14 @@ pub fn solve_modal_2d(
                 *val /= max_disp;
             }
         }
+        // Γ was computed on the eigenvector as the eigensolver returned it. The shape published
+        // below is that vector divided by `max_disp`, and Γ scales inversely with its shape, so
+        // it has to be rescaled with it: Γ·φ is what spectral analysis multiplies, and it is
+        // normalization-independent only when both factors refer to the same φ. Effective mass
+        // (Γ²·φᵀMφ) is invariant and needs no change.
+        let shape_scale = if max_disp > 1e-20 { max_disp } else { 1.0 };
+        let gamma_x = gamma_x * shape_scale;
+        let gamma_y = gamma_y * shape_scale;
 
         let displacements = super::linear::build_displacements_2d(&dof_num, &u_mode);
 
@@ -409,6 +417,11 @@ pub fn solve_modal_3d(
         if max_disp > 1e-20 {
             for val in u_mode.iter_mut().take(nf) { *val /= max_disp; }
         }
+        // Same rescaling as the 2D path: Γ must refer to the shape that is published.
+        let shape_scale = if max_disp > 1e-20 { max_disp } else { 1.0 };
+        let gamma_x = gamma_x * shape_scale;
+        let gamma_y = gamma_y * shape_scale;
+        let gamma_z = gamma_z * shape_scale;
 
         let displacements = super::linear::build_displacements_3d(&dof_num, &u_mode);
 
