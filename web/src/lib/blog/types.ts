@@ -32,7 +32,17 @@ export type Block =
    * argument list for /app/basic; `label` says what the reader is opening.
    * It renders as a placeholder until clicked — see PostEmbed.svelte.
    */
-  | { k: 'embed'; query: string; label: string; mode?: 'basic' | 'pro' };
+  | { k: 'embed'; query: string; label: string; mode?: 'basic' | 'pro' }
+  /**
+   * A pointer to another post. `t` is the sentence that says why the reader
+   * would follow it; the target's title is looked up in the reader's language
+   * and rendered as a real, crawlable link.
+   *
+   * It exists because no post linked to any other: each one competed alone,
+   * reachable only from the index. Posts on neighbouring questions that point
+   * at each other are how a reader — and a crawler — finds the next one.
+   */
+  | { k: 'link'; slug: string; t: string };
 
 /** One post in one language. */
 export type PostBody = {
@@ -74,7 +84,7 @@ export type Post = {
 export function wordCount(body: PostBody): number {
   const parts: string[] = [body.title, body.excerpt];
   for (const b of body.blocks) {
-    if (b.k === 'p' || b.k === 'h' || b.k === 'quote' || b.k === 'note') parts.push(b.t);
+    if (b.k === 'p' || b.k === 'h' || b.k === 'quote' || b.k === 'note' || b.k === 'link') parts.push(b.t);
     else if (b.k === 'ul' || b.k === 'ol') parts.push(...b.items);
     else if (b.k === 'embed') parts.push(b.label);
     else parts.push(b.caption, ...b.head, ...b.rows.flat());

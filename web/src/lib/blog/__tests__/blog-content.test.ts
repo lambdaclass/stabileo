@@ -120,7 +120,9 @@ describe('blog posts', () => {
                 ? `table:${b.head.length}x${b.rows.length}`
                 : b.k === 'embed'
                   ? `embed:${b.mode ?? 'basic'}:${b.query}`
-                  : b.k,
+                  : b.k === 'link'
+                    ? `link:${b.slug}`
+                    : b.k,
           );
         for (const locale of LOCALES) {
           expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en'));
@@ -132,6 +134,18 @@ describe('blog posts', () => {
         expect(en.length).toBeGreaterThan(0);
         for (const locale of LOCALES) {
           expect(numericCells(post.i18n[locale].blocks), `${locale} table numbers differ`).toEqual(en);
+        }
+      });
+
+      it('links only to posts that exist, and never to itself', () => {
+        // A link block whose slug resolves to nothing renders nothing — so the
+        // failure has to be caught here, where it is loud, and not on the page.
+        for (const locale of LOCALES) {
+          for (const b of post.i18n[locale].blocks) {
+            if (b.k !== 'link') continue;
+            expect(findPost(b.slug), `${locale}: no post "${b.slug}"`).toBeTruthy();
+            expect(b.slug).not.toBe(post.slug);
+          }
         }
       });
 

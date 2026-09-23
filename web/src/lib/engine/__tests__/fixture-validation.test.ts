@@ -228,7 +228,10 @@ describe('3D fixture validation', { timeout: 30_000 }, () => {
 
     // 1. JSON structure
     expect(json.nodes.length).toBeGreaterThanOrEqual(2);
-    expect(json.elements?.length ?? 0 + (json.plates?.length ?? 0) + (json.quads?.length ?? 0)).toBeGreaterThanOrEqual(1);
+    // Parenthesised: `a ?? 0 + b + c` parses as `a ?? (0 + b + c)`, so an empty
+    // `elements` array counted as zero members and ignored every shell — which
+    // only surfaced once a fixture was shells alone (deep-beam-shell).
+    expect((json.elements?.length ?? 0) + (json.plates?.length ?? 0) + (json.quads?.length ?? 0)).toBeGreaterThanOrEqual(1);
     expect(json.supports.length).toBeGreaterThanOrEqual(1);
 
     // 2. Loads into mock
