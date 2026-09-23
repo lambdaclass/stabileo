@@ -6,6 +6,8 @@ import type { SolverDiagnostic } from './types';
 import type { Node, Element, Section, Material, Support, Plate, Quad } from '../store/model.svelte';
 import type { Constraint3D, ConnectorElement } from './types-3d';
 import { addConstraintConnectivity } from './constraint-connectivity';
+import { concreteStrengthConflict } from './steel/material-family';
+import { catalogueGradeFamily } from './steel/grade-family';
 
 interface LoadEntry {
   type: string;
@@ -299,6 +301,9 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   // ─── Transverse load on an axial-only (truss) member ───────────
   out.push(...transverseOnTrussWarnings(m.loads, m.elements, m.nodes));
 
+  // ─── A concrete whose strength field holds a steel number ──────
+  out.push(...concreteStrengthWarnings(m.materials, m.elements));
+
   return out;
 }
 
@@ -475,6 +480,41 @@ export function transverseOnTrussWarnings(
         details: { loadId: load.data.id },
       }));
     }
+  }
+  return out;
+}
+
+/**
+ * Materials that look like concrete while their `fy` reads as steel.
+ *
+ * `fy` carries f'c for a concrete, and 420 — the rebar grade — is the number an engineer
+ * reaches for first. Nothing fails afterwards: the material is filed as steel, the concrete
+ * design finds no member to design, and the one message it could give says the building is
+ * made of steel. Said here, once per material, because this is the only place that sees the
+ * cause rather than the empty table it leaves.
+ *
+ * Only materials a member uses: an unused one changes no result, and a library of presets
+ * would otherwise warn about entries nobody picked.
+ */
+export function concreteStrengthWarnings(
+  materials: ModelData['materials'],
+  elements: ModelData['elements'],
+): SolverDiagnostic[] {
+  const users = new Map<number, number[]>();
+  for (const el of elements.values()) {
+    const list = users.get(el.materialId);
+    if (list) list.push(el.id); else users.set(el.materialId, [el.id]);
+  }
+  const out: SolverDiagnostic[] = [];
+  for (const [id, elementIds] of users) {
+    const mat = materials.get(id);
+    const conflict = concreteStrengthConflict(mat, catalogueGradeFamily);
+    if (!mat || !conflict) continue;
+    out.push(diag('warning', 'MODEL_CONCRETE_FY_SUSPECT',
+      conflict === 'gradeSaysConcrete' ? 'diag.model.concreteGradeFyOutOfRange' : 'diag.model.concreteFyReadAsSteel', {
+        elementIds,
+        details: { material: mat.name, E: mat.e, fy: mat.fy, members: elementIds.length },
+      }));
   }
   return out;
 }

@@ -22,6 +22,7 @@ import { resultsStore } from './results.svelte';
 import { verificationStore } from './verification.svelte';
 import { computeStationDemands, runCirsocDesign } from '../engine/verification-service';
 import { censusRcCheckability } from '../engine/auto-verify';
+import { concreteStrengthWarnings } from '../engine/model-diagnostics';
 import {
   buildAllMemberContexts, buildCriticalSectionMap, type ContextModelData, type MemberContext,
 } from '../engine/design/member-context';
@@ -191,6 +192,18 @@ function createDesignRunStore() {
       });
       verificationStore.setDemandData(contexts, orient.issues);
       resultsStore.diagramType = 'verification';
+      /*
+       * No concrete member at all is not a success. It used to return ok here, and every
+       * member then read `unavailable` with no message anywhere — the case of a concrete
+       * building whose material carries fy = 420, filed as steel by its magnitude. The
+       * explanation is the same one the code check gives, so the two steps cannot disagree.
+       */
+      if (contexts.size === 0 && modelStore.elements.size > 0) {
+        const strength = failConcreteStrength();
+        if (strength) return strength;
+        const a = adapter();
+        if (a) return failNothingChecked(a.name);
+      }
       return { ok: true };
     } finally {
       phase = 'idle';
@@ -574,6 +587,10 @@ function createDesignRunStore() {
   function failNothingChecked(codeName: string): CommandResult {
     const c = censusRcCheckability(modelData() as never);
     if (c.total === 0) return fail('design.error.nothingChecked', { code: codeName });
+    if (c.checkable === 0) {
+      const strength = failConcreteStrength();
+      if (strength) return strength;
+    }
     if (c.checkable === 0 && c.notConcrete === c.total) {
       return fail('design.error.noConcreteMembers', { code: codeName, n: c.total });
     }
@@ -588,6 +605,22 @@ function createDesignRunStore() {
     // Members ARE checkable and the run still produced nothing. That is the case the original
     // message was written for, and the only one it describes correctly.
     return fail('design.error.nothingChecked', { code: codeName });
+  }
+
+  /**
+   * The refusal for a concrete whose `fy` holds a steel number, or null when no member's
+   * material looks like that.
+   *
+   * Checked before the census, because the census would otherwise answer "all N members are
+   * steel" — true of the classification and false of the building, and precisely the sentence
+   * that sends the user looking for a defect in the app instead of in the material.
+   */
+  function failConcreteStrength(): CommandResult | null {
+    const suspects = concreteStrengthWarnings(modelStore.materials, modelStore.elements);
+    if (suspects.length === 0) return null;
+    const first = suspects[0]!.details as { material: string; fy: number };
+    const n = suspects.reduce((sum, d) => sum + (d.elementIds?.length ?? 0), 0);
+    return fail('design.error.concreteFyReadAsSteel', { material: first.material, fy: first.fy, n });
   }
 
   return {
