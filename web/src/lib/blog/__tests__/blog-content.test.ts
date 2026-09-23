@@ -184,3 +184,58 @@ describe('the determinism-boundary post keeps the solver’s numbers', () => {
     ]);
   });
 });
+
+describe('the bars-or-finite-elements post keeps the engine’s numbers', () => {
+  const post = findPost('bars-or-finite-elements');
+  const tables = () => post!.i18n.en.blocks.filter((b) => b.k === 'table') as Extract<Block, { k: 'table' }>[];
+
+  it('exists', () => {
+    expect(post).toBeTruthy();
+  });
+
+  it('shows a straight bar giving the closed form however it is split', () => {
+    // The whole first argument: 2, 4, 10 or 50 frame elements, one number,
+    // and it is 5qL⁴/384EI. A row that differs is not a rounding tweak — it
+    // would mean the matrix is not exact, and the section would be false.
+    const [hermite] = tables();
+    const values = hermite.rows.map((r) => r[1]);
+    expect(new Set(values)).toEqual(new Set(['1.5625']));
+    const q = 10, L = 6, EI = 30000e3 * (0.2 * 0.6 ** 3) / 12;
+    expect(((5 * q * L ** 4) / (384 * EI)) * 1000).toBeCloseTo(1.5625, 6);
+  });
+
+  it('quotes the slenderness table as the engine reported it', () => {
+    const slender = tables()[1];
+    expect(slender.rows.map((r) => r.slice(2, 4))).toEqual([
+      ['12.50', '12.57'],
+      ['1.563', '1.596'],
+      ['0.195', '0.212'],
+      ['0.0422', '0.0521'],
+      ['0.0125', '0.0190'],
+    ]);
+    // Bars always below shells — the post's central claim, asserted rather
+    // than left to prose — and the gap widens as the beam gets deeper.
+    const gaps = slender.rows.map((r) => 1 - Number(r[2]) / Number(r[3]));
+    for (const g of gaps) expect(g).toBeGreaterThan(0);
+    for (let i = 1; i < gaps.length; i++) expect(gaps[i]).toBeGreaterThan(gaps[i - 1]);
+  });
+
+  it('adds up the hand check at L/h = 3', () => {
+    // Euler-Bernoulli plus Timoshenko's shear term, qL²/(8κGA) with κ = 5/6.
+    // The reader is told to do this with a calculator, so the test does too.
+    const q = 10, L = 6, b = 0.2, h = 2, E = 30000e3, nu = 0.2;
+    const eb = (5 * q * L ** 4) / (384 * (E * b * h ** 3) / 12);
+    const shear = (q * L ** 2) / (8 * (5 / 6) * (E / (2 * (1 + nu))) * b * h);
+    expect((eb * 1000).toFixed(4)).toBe('0.0422');
+    expect((shear * 1000).toFixed(4)).toBe('0.0108');
+    expect(((eb + shear) * 1000).toFixed(4)).toBe('0.0530');
+    expect(tables()[2].rows.map((r) => r[1])).toEqual(['0.0422', '0.0530', '0.0521', '0.0523']);
+  });
+
+  it('keeps each wall ratio consistent with its own displacements', () => {
+    for (const row of tables()[3].rows) {
+      const ratio = Number(row[3]) / Number(row[2]);
+      expect(ratio.toFixed(2), row[0]).toBe(row[4].split(' ')[0]);
+    }
+  });
+});

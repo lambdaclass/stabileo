@@ -95,6 +95,7 @@ export const torsionTheories: Post = {
           ],
         },
         { k: 'p', t: 'Y en cualquier caso, conviene anotar qué teoría se usó junto con el valor.' },
+        { k: 'link', slug: 'bars-or-finite-elements', t: 'La misma pregunta —qué teoría aplica, y qué cuesta elegir mal— entre modelar con barras o con elementos finitos:' },
 
         { k: 'note', t: 'Los valores de esta nota son fórmulas cerradas calculadas para las secciones que se indican, no estimaciones: tubo circular hueco con Aₘ sobre la línea media, y tubo cuadrado 100×100×5 con J cerrado por Bredt y J abierto por Saint-Venant. Podés reproducirlos en Stabileo con esas mismas secciones.' },
       ],
@@ -168,6 +169,7 @@ export const torsionTheories: Post = {
           ],
         },
         { k: 'p', t: 'And in any case, it is worth recording which theory was used alongside the value.' },
+        { k: 'link', slug: 'bars-or-finite-elements', t: 'The same question — which theory applies, and what picking wrong costs — between modelling with bars and with finite elements:' },
 
         { k: 'note', t: 'The figures here are closed forms computed for the sections named, not estimates: a circular hollow tube with Aₘ on the mid-line, and a 100×100×5 square tube with J closed by Bredt and J open by Saint-Venant. You can reproduce them in Stabileo with those same sections.' },
       ],
@@ -241,6 +243,7 @@ export const torsionTheories: Post = {
           ],
         },
         { k: 'p', t: 'E, em qualquer caso, vale registrar qual teoria foi usada junto com o valor.' },
+        { k: 'link', slug: 'bars-or-finite-elements', t: 'A mesma pergunta — qual teoria se aplica, e o que custa escolher errado — entre modelar com barras ou com elementos finitos:' },
 
         { k: 'note', t: 'Os valores desta nota são fórmulas fechadas calculadas para as seções indicadas, não estimativas: tubo circular vazado com Aₘ sobre a linha média, e tubo quadrado 100×100×5 com J fechado por Bredt e J aberto por Saint-Venant. Você pode reproduzi-los no Stabileo com essas mesmas seções.' },
       ],

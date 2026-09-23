@@ -147,6 +147,7 @@ several posts embed the real editor on the model they describe.
 - [What free software computes, and what it never explains](https://stabileo.com/en/blog/conceptual-side-advanced-tools) — where the free tools stop
 - [Flexural verification to CIRSOC 201](https://stabileo.com/en/blog/verificacion-flexion-cirsoc-201) — the steps that decide the outcome
 - [Bredt or Saint-Venant](https://stabileo.com/en/blog/torsion-bredt-saint-venant) — which torsion theory applies, and what picking wrong costs
+- [Bars or finite elements?](https://stabileo.com/en/blog/bars-or-finite-elements) — not two methods but two models, and where they give different answers
 
 ---
 

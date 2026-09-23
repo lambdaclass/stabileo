@@ -10,6 +10,7 @@ import { determinismBoundary } from './posts/determinism-boundary';
 import { conceptualAdvanced } from './posts/conceptual-advanced';
 import { cirsoc201Flexure } from './posts/cirsoc-201-flexure';
 import { torsionTheories } from './posts/torsion-theories';
+import { barsOrFiniteElements } from './posts/bars-or-finite-elements';
 
 /**
  * By `order`, not by date.
@@ -23,6 +24,7 @@ export const POSTS: Post[] = [
   conceptualAdvanced,
   cirsoc201Flexure,
   torsionTheories,
+  barsOrFiniteElements,
 ].sort((a, b) => a.order - b.order);
 
 export function findPost(slug: string): Post | undefined {
