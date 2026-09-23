@@ -31,7 +31,7 @@ import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, ConnectorElement } from '../engine/types-3d';
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
-import type { MassSource } from '../engine/dynamics/mass-source';
+import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
@@ -741,9 +741,9 @@ export interface StructureModel {
   /**
    * Which load cases are mass for the dynamic analyses, and by how much.
    *
-   * Absent means the project has not stated it, and the code defaults apply and are shown as
-   * such — see `engine/dynamics/mass-source.ts`. It is a statement, like a group, so a new
-   * project starts without one rather than with the defaults written in.
+   * Absent means the project has not stated one, and the mass is self-weight alone — see
+   * `engine/dynamics/mass-source.ts`. A code's rule or a user's table is a statement, like a
+   * group, so a new project starts without one.
    */
   massSource?: MassSource;
   constraints: Constraint3D[];
@@ -1450,7 +1450,7 @@ function createModelStore() {
         // Same rule as groups: emitted only when stated, so older files and projects that
         // never stated one round-trip unchanged.
         ...(snap.massSource
-          ? { massSource: { factors: snap.massSource.factors.map((f) => ({ ...f })) } }
+          ? { massSource: JSON.parse(JSON.stringify(snap.massSource)) as ModelSnapshot['massSource'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1634,9 +1634,7 @@ function createModelStore() {
     model.groups = s.groups
       ? new Map(s.groups.map(([k, v]) => [k, JSON.parse(JSON.stringify(v)) as ModelGroup]))
       : new Map();
-    model.massSource = s.massSource
-      ? { factors: s.massSource.factors.map((f) => ({ caseId: f.caseId, factor: f.factor })) }
-      : undefined;
+    model.massSource = normalizeMassSource(s.massSource);
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -3214,20 +3212,20 @@ function createModelStore() {
       }
       // And from the mass source, where a stale case id would come to mean whatever case
       // takes that number next.
-      if (model.massSource) {
-        model.massSource = { factors: model.massSource.factors.filter(f => f.caseId !== id) };
+      if (model.massSource?.kind === 'custom') {
+        model.massSource = { kind: 'custom', factors: model.massSource.factors.filter(f => f.caseId !== id) };
       }
     },
 
     /**
-     * State the mass source, or withdraw it (`null`) so the code defaults apply again.
+     * State the mass source, or withdraw it (`null`) so the mass is self-weight alone again.
      *
      * Bumps the model version: the mass is part of what a modal result describes, so a result
      * computed before the change must read as stale.
      */
     setMassSource(ms: MassSource | null): void {
       if (!_undoBatching) _pushUndo?.();
-      model.massSource = ms ? { factors: ms.factors.map((f) => ({ caseId: f.caseId, factor: f.factor })) } : undefined;
+      model.massSource = normalizeMassSource(ms ? JSON.parse(JSON.stringify(ms)) : undefined);
       this.bumpModelVersion();
     },
 

@@ -9,7 +9,9 @@
  * for — Wi = Di + f1·Li + f2·Si, CIRSOC 103 [3.15] — and its periods came out short.
  *
  * A mass source names a factor per load case. Self-weight always counts once, through the
- * density; each case adds its gravity loads × its factor.
+ * density; each case adds its gravity loads × its factor. A project that states none gets
+ * self-weight alone — what the analyses always did — and can name a code's rule instead
+ * (`mass-presets.ts`) or write its own table.
  *
  * ── How the mass reaches the engine ────────────────────────────────
  *
@@ -40,22 +42,37 @@
 import type { SolverInput3D, SolverLoad3D, SolverMaterial } from '../types-3d';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { G } from './requests';
+import { massPresetById, presetParams, type MassPresetParamValue } from './mass-presets';
 
 export interface MassSourceFactor { caseId: number; factor: number }
 
-/** What the project states. Absent means "not stated", and the defaults below apply. */
-export interface MassSource { factors: MassSourceFactor[] }
-
 /**
- * The factor per case type when the project states none.
+ * What the project states. Absent means it states nothing, and the mass is self-weight alone —
+ * the density — with no load case counted.
  *
- * CIRSOC 103 Tabla 3.3: all of the permanent load; a quarter of the imposed load, the value for
- * dwellings and offices; a fifth of the snow, for a roof that sheds it. Wind, earthquake and
- * temperature are not mass.
+ * `preset` names a code's rule from `mass-presets.ts` and its parameters; the factors are derived
+ * from the load cases each time, so a case added later is covered. An id this build does not
+ * know is kept as it came, so a file written by a build with more codes survives the round trip.
+ *
+ * `custom` is a table the user wrote, case by case.
  */
-export const CODE_DEFAULT_FACTORS: Readonly<Record<string, number>> = Object.freeze({ D: 1, L: 0.25, S: 0.2 });
+export type MassSource =
+  | { kind: 'preset'; presetId: string; params: Record<string, MassPresetParamValue> }
+  | { kind: 'custom'; factors: MassSourceFactor[] };
 
-export type FactorBasis = 'stated' | 'codeDefault' | 'notMass';
+export type FactorBasis =
+  /** Nothing stated: self-weight only. */
+  | 'selfWeightOnly'
+  /** From the code the project names. */
+  | 'preset'
+  /** The code names this case type as not mass. */
+  | 'notMass'
+  /** From the table the user wrote. */
+  | 'stated'
+  /** The user wrote a table and this case is not in it — a case added after. */
+  | 'unlisted'
+  /** The project names a code this build does not know. */
+  | 'unknownPreset';
 
 export interface ResolvedFactor {
   caseId: number;
@@ -67,17 +84,52 @@ export interface ResolvedFactor {
 
 export function resolveMassFactors(
   cases: ReadonlyArray<{ id: number; name: string; type: string }>,
-  stated?: MassSource | null,
+  source?: MassSource | null,
 ): ResolvedFactor[] {
-  const byCase = new Map((stated?.factors ?? []).map((f) => [f.caseId, f.factor]));
+  const row = (c: { id: number; name: string; type: string }, factor: number, basis: FactorBasis): ResolvedFactor =>
+    ({ caseId: c.id, name: c.name, type: c.type, factor, basis });
+  if (!source) return cases.map((c) => row(c, 0, 'selfWeightOnly'));
+  if (source.kind === 'custom') {
+    const byCase = new Map(source.factors.map((f) => [f.caseId, f.factor]));
+    return cases.map((c) => {
+      const f = byCase.get(c.id);
+      return f !== undefined ? row(c, f, 'stated') : row(c, 0, 'unlisted');
+    });
+  }
+  const preset = massPresetById(source.presetId);
+  if (!preset) return cases.map((c) => row(c, 0, 'unknownPreset'));
+  const params = presetParams(preset, source.params);
   return cases.map((c) => {
-    const s = byCase.get(c.id);
-    if (s !== undefined) return { caseId: c.id, name: c.name, type: c.type, factor: s, basis: 'stated' };
-    const d = CODE_DEFAULT_FACTORS[c.type];
-    return d !== undefined
-      ? { caseId: c.id, name: c.name, type: c.type, factor: d, basis: 'codeDefault' }
-      : { caseId: c.id, name: c.name, type: c.type, factor: 0, basis: 'notMass' };
+    const f = preset.factorFor(c.type, params);
+    return f === null ? row(c, 0, 'notMass') : row(c, f, 'preset');
   });
+}
+
+/**
+ * A stored mass source in its current shape, or undefined.
+ *
+ * Reads the first shape this field had on this branch — `{ factors }` with no `kind` — as a
+ * custom table. Anything else unrecognisable is dropped rather than guessed at.
+ */
+export function normalizeMassSource(raw: unknown): MassSource | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const factors = Array.isArray(r.factors)
+    ? (r.factors as unknown[]).flatMap((f) => {
+        const x = f as Record<string, unknown>;
+        return typeof x?.caseId === 'number' && typeof x?.factor === 'number' && Number.isFinite(x.factor)
+          ? [{ caseId: x.caseId, factor: x.factor }] : [];
+      })
+    : null;
+  if (r.kind === 'preset' && typeof r.presetId === 'string') {
+    const params: Record<string, MassPresetParamValue> = {};
+    for (const [k, v] of Object.entries((r.params ?? {}) as Record<string, unknown>)) {
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') params[k] = v;
+    }
+    return { kind: 'preset', presetId: r.presetId, params };
+  }
+  if ((r.kind === 'custom' || r.kind === undefined) && factors) return { kind: 'custom', factors };
+  return undefined;
 }
 
 /** One case's contribution, as the caller converted it. */

@@ -95,16 +95,16 @@ export function cumulativeMassRatios(modes: ReadonlyArray<{ massRatioX?: number;
 export const HORIZONTAL_DIRECTIONS = ['X', 'Y'] as const;
 export type HorizontalDirection = (typeof HORIZONTAL_DIRECTIONS)[number];
 
-/** Harmonic ground acceleration, amplitude in g, as the m/s² series the engine samples per step. */
+/**
+ * Harmonic ground acceleration, amplitude in g, as the m/s² series the engine samples per step.
+ *
+ * nSteps + 1 values, k = 0 … nSteps: the engine reads the ground at t = 0 and at the end of every
+ * step, so a series one shorter leaves the last step with the ground at rest.
+ */
 export function sineAccelerogram(ampG: number, freqHz: number, dt: number, nSteps: number): number[] {
   const out: number[] = [];
-  for (let i = 0; i < nSteps; i++) out.push(ampG * G * Math.sin(2 * Math.PI * freqHz * i * dt));
+  for (let i = 0; i <= nSteps; i++) out.push(ampG * G * Math.sin(2 * Math.PI * freqHz * i * dt));
   return out;
-}
-
-/** A typed acceleration list, in g, as m/s². Anything that is not a number is dropped. */
-export function parseAccelerogramG(text: string): number[] {
-  return text.split(/[,;\s]+/).filter((s) => s.length > 0).map(Number).filter((n) => Number.isFinite(n)).map((a) => a * G);
 }
 
 /** HHT-α is defined for α in [−1/3, 0]; outside it the scheme loses unconditional stability. */
@@ -119,7 +119,7 @@ export interface TimeHistoryOptions {
   dt: number;
   nSteps: number;
   direction: 'X' | 'Y' | 'Z';
-  /** m/s², one value per step. */
+  /** m/s² at k·dt, k = 0 … nSteps — nSteps + 1 values. Shorter means still ground after. */
   groundAccel: number[];
   dampingXi: number;
   method: 'newmark' | 'hht';

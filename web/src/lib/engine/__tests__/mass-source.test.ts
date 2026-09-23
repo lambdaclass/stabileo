@@ -12,7 +12,7 @@ import { buildSolverInput3D } from '../solver-service';
 import * as wasmSolver from '../wasm-solver';
 import { solveModal3D } from '../wasm-solver';
 import { G } from '../dynamics/requests';
-import { resolveMassFactors, CODE_DEFAULT_FACTORS } from '../dynamics/mass-source';
+import { resolveMassFactors, normalizeMassSource } from '../dynamics/mass-source';
 import { withMassSource } from '../dynamics/mass-source-model';
 
 beforeAll(async () => {
@@ -80,17 +80,39 @@ function run(opts: { selfWeightLoads?: boolean } = {}) {
 /** Self-weight of the portal, t. */
 const PORTAL_SELF_T = 24 * (2 * 0.09 * H + 0.08 * L) / G;
 
+const CIRSOC = { kind: 'preset' as const, presetId: 'cirsoc103-2018', params: {} };
+
 describe('resolveMassFactors', () => {
-  it('uses the code defaults when nothing is stated, and says so', () => {
-    const r = resolveMassFactors(CASES);
-    expect(r.map(f => [f.factor, f.basis])).toEqual([
-      [CODE_DEFAULT_FACTORS.D, 'codeDefault'], [CODE_DEFAULT_FACTORS.L, 'codeDefault'], [0, 'notMass'],
+  it('counts no load case when the project states nothing: self-weight alone', () => {
+    expect(resolveMassFactors(CASES).map(f => [f.factor, f.basis])).toEqual([
+      [0, 'selfWeightOnly'], [0, 'selfWeightOnly'], [0, 'selfWeightOnly'],
     ]);
   });
 
-  it('prefers what the project states', () => {
-    const r = resolveMassFactors(CASES, { factors: [{ caseId: 2, factor: 0.5 }, { caseId: 3, factor: 0 }] });
-    expect(r.map(f => [f.factor, f.basis])).toEqual([[1, 'codeDefault'], [0.5, 'stated'], [0, 'stated']]);
+  it('derives CIRSOC 103 [3.15] from each case type, with Tabla 3.3 by occupancy', () => {
+    expect(resolveMassFactors(CASES, CIRSOC).map(f => [f.factor, f.basis])).toEqual([
+      [1, 'preset'], [0.25, 'preset'], [0, 'notMass'],
+    ]);
+    const warehouse = { ...CIRSOC, params: { occupancy: 'high' } };
+    expect(resolveMassFactors(CASES, warehouse)[1]!.factor).toBe(0.75);
+    const snow = [{ id: 9, type: 'S', name: 'S' }];
+    expect(resolveMassFactors(snow, CIRSOC)[0]!.factor).toBe(0.2);
+    expect(resolveMassFactors(snow, { ...CIRSOC, params: { snowRetaining: true } })[0]!.factor).toBe(0.7);
+  });
+
+  it('follows the load cases: a case added later gets the code factor without restating', () => {
+    const more = [...CASES, { id: 4, type: 'L', name: 'L2' }];
+    expect(resolveMassFactors(more, CIRSOC)[3]!.factor).toBe(0.25);
+  });
+
+  it('reads a custom table as written, and marks a case it does not list', () => {
+    const r = resolveMassFactors(CASES, { kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }] });
+    expect(r.map(f => [f.factor, f.basis])).toEqual([[1, 'stated'], [0.5, 'stated'], [0, 'unlisted']]);
+  });
+
+  it('counts nothing for a rule this build does not know', () => {
+    const r = resolveMassFactors(CASES, { kind: 'preset', presetId: 'future-code', params: {} });
+    expect(r.every(f => f.factor === 0 && f.basis === 'unknownPreset')).toBe(true);
   });
 });
 
@@ -102,8 +124,17 @@ describe('the mass reaches the engine', () => {
     expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
   });
 
+  it('by default weighs self-weight alone, whatever the loads', () => {
+    frame();
+    modelStore.addDistributedLoad3D(2, 0, 0, -10, -10, undefined, undefined, 1);
+    const { report, modal } = run();
+    expect(report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
+    expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
+  });
+
   it('adds each case × its factor, and the engine integrates exactly that', () => {
     frame();
+    modelStore.setMassSource(CIRSOC);
     modelStore.addDistributedLoad3D(2, 0, 0, -10, -10, undefined, undefined, 1);   // D: 40 kN
     modelStore.addDistributedLoad3D(2, 0, 0, -5, -5, undefined, undefined, 2);     // L: 20 kN × 0.25
     modelStore.addDistributedLoad3D(2, 0, 0, -100, -100, undefined, undefined, 3); // W: not mass
@@ -117,6 +148,7 @@ describe('the mass reaches the engine', () => {
 
   it('does not count self-weight twice when the self-weight switch puts it in the loads', () => {
     frame();
+    modelStore.setMassSource(CIRSOC);
     modelStore.addDistributedLoad3D(2, 0, 0, -10, -10, undefined, undefined, 1);
     const off = run({ selfWeightLoads: false });
     const on = run({ selfWeightLoads: true });
@@ -126,6 +158,7 @@ describe('the mass reaches the engine', () => {
 
   it('turns a slab load into slab mass', () => {
     frame({ slab: true });
+    modelStore.setMassSource(CIRSOC);
     const q = modelStore.quads.keys().next().value!;
     modelStore.addSurfaceLoad3D(q, 2, 1); // D: 2 kN/m² × 16 m²
     const { report, modal } = run();
@@ -135,6 +168,7 @@ describe('the mass reaches the engine', () => {
 
   it('reports the nodal loads it cannot carry instead of dropping them silently', () => {
     frame();
+    modelStore.setMassSource(CIRSOC);
     modelStore.addNodalLoad3D(2, 0, 0, -20, 0, 0, 0, 1);
     const { report, modal } = run();
     expect(report.excludedNodalKN).toBeCloseTo(20, 9);
@@ -145,14 +179,15 @@ describe('the mass reaches the engine', () => {
   it('follows a stated factor, and a stated zero means none', () => {
     frame();
     modelStore.addDistributedLoad3D(2, 0, 0, -5, -5, undefined, undefined, 2);
-    modelStore.setMassSource({ factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0 }, { caseId: 3, factor: 0 }] });
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0 }, { caseId: 3, factor: 0 }] });
     expect(run().report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
-    modelStore.setMassSource({ factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }, { caseId: 3, factor: 0 }] });
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }, { caseId: 3, factor: 0 }] });
     expect(run().report.addedT.get(2)).toBeCloseTo(20 / G, 6);
   });
 
   it('lengthens the period as √ of the mass, which is what the added mass is for', () => {
     frame();
+    modelStore.setMassSource(CIRSOC);
     const bare = run();
     modelStore.addDistributedLoad3D(2, 0, 0, -30, -30, undefined, undefined, 1);
     const loaded = run();
@@ -168,17 +203,40 @@ describe('the mass reaches the engine', () => {
 });
 
 describe('the mass source is part of the project', () => {
-  it('survives the snapshot, is dropped with its case, and does not outlive the model', () => {
-    frame();
-    modelStore.setMassSource({ factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }] });
+  const roundTrip = () => {
     // Through JSON, as a saved file goes.
     const snap = JSON.parse(JSON.stringify(modelStore.snapshot()));
     modelStore.clear();
     expect(modelStore.model.massSource).toBeUndefined();
     modelStore.restore(snap);
-    expect(modelStore.model.massSource).toEqual({ factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }] });
+  };
+
+  it('survives the file as a code rule, parameters included', () => {
+    frame();
+    modelStore.setMassSource({ kind: 'preset', presetId: 'cirsoc103-2018', params: { occupancy: 'high', snowRetaining: true } });
+    roundTrip();
+    expect(modelStore.model.massSource).toEqual({ kind: 'preset', presetId: 'cirsoc103-2018', params: { occupancy: 'high', snowRetaining: true } });
+  });
+
+  it('keeps a rule it does not know as it came, so a newer file is not damaged', () => {
+    frame();
+    modelStore.setMassSource({ kind: 'preset', presetId: 'future-code', params: { zone: 4 } });
+    roundTrip();
+    expect(modelStore.model.massSource).toEqual({ kind: 'preset', presetId: 'future-code', params: { zone: 4 } });
+  });
+
+  it('survives as a custom table, and drops a case with the case', () => {
+    frame();
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }] });
+    roundTrip();
+    expect(modelStore.model.massSource).toEqual({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }] });
     modelStore.removeLoadCase(2);
-    expect(modelStore.model.massSource).toEqual({ factors: [{ caseId: 1, factor: 1 }] });
+    expect(modelStore.model.massSource).toEqual({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }] });
+  });
+
+  it('reads the first shape of the field, a bare factor list, as a custom table', () => {
+    expect(normalizeMassSource({ factors: [{ caseId: 1, factor: 1 }] })).toEqual({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }] });
+    expect(normalizeMassSource({ nonsense: true })).toBeUndefined();
   });
 
   it('leaves a project that never stated one without one', () => {

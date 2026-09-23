@@ -16,7 +16,7 @@ import * as wasmSolver from '../wasm-solver';
 import { solveModal3D, solveSpectral3D, solveTimeHistory3D } from '../wasm-solver';
 import {
   G, massDensities, spectralModesFrom, cumulativeMassRatios, timeHistoryFields,
-  sineAccelerogram, parseAccelerogramG, peakBaseShear, isValidHhtAlpha,
+  sineAccelerogram, peakBaseShear, isValidHhtAlpha,
 } from '../dynamics/requests';
 
 beforeAll(async () => {
@@ -191,9 +191,25 @@ describe('time history', () => {
 });
 
 describe('accelerograms', () => {
-  it('reads amplitudes in g and sends m/s²', () => {
+  it('reads amplitudes in g and sends m/s², one value more than there are steps', () => {
     const s = sineAccelerogram(0.3, 1, 0.25, 2);
+    expect(s.length).toBe(3);
     expect(s[1]).toBeCloseTo(0.3 * G, 9);
-    expect(parseAccelerogramG('0.1, 0.2; -0.3  x')).toEqual([0.1 * G, 0.2 * G, -0.3 * G]);
+  });
+
+  it('is read by the engine at the end of the last step, which is why it needs nSteps + 1', () => {
+    // Ground at rest except at index nSteps. If the engine stopped at nSteps − 1, the last
+    // value would change nothing and the frame would end exactly at rest.
+    const { input, densities } = sdofFrame();
+    const nSteps = 4;
+    const kick = [0, 0, 0, 0, G];
+    const res = solveTimeHistory3D({
+      solver: input,
+      ...timeHistoryFields({ densities, dt: 0.01, nSteps, direction: 'X', groundAccel: kick, dampingXi: 0.02, method: 'newmark' }),
+    });
+    const ux = res.nodeHistories.find((h: any) => h.nodeId === 2).ux;
+    expect(ux.length).toBe(nSteps + 1);
+    expect(Math.abs(ux[nSteps])).toBeGreaterThan(0);
+    expect(Math.abs(ux[nSteps - 1])).toBe(0);
   });
 });

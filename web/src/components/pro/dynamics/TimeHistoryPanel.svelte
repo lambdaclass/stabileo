@@ -17,10 +17,11 @@
   import { solveTimeHistory3D } from '../../../lib/engine/wasm-solver';
   import { errorText } from '../../../lib/utils/error-text';
   import {
-    G, sineAccelerogram, parseAccelerogramG, timeHistoryFields, peakBaseShear, HHT_ALPHA_RANGE,
+    G, sineAccelerogram, timeHistoryFields, peakBaseShear, HHT_ALPHA_RANGE,
   } from '../../../lib/engine/dynamics/requests';
   import {
-    parseGroundRecord, resample, recordSummary, RecordError, type AccelUnit, type GroundRecord,
+    parseGroundRecord, resample, recordSummary, recordWarnings, RecordError,
+    type AccelUnit, type GroundRecord, type RecordWarning,
   } from '../../../lib/engine/dynamics/accelerogram';
   import { timeHistoryView, type TimeHistoryResult3D } from '../../../lib/store/time-history-view.svelte';
   import TimeSeriesChart from './TimeSeriesChart.svelte';
@@ -45,6 +46,7 @@
   let sineAmp = $state(0.3);
   let sineFreq = $state(2.0);
   let typed = $state('');
+  let typedUnit = $state<AccelUnit>('g');
 
   let record = $state<GroundRecord | null>(null);
   let recordName = $state('');
@@ -83,9 +85,30 @@
     nSteps = Math.max(1, Math.ceil(recordSummary(record).duration / dt) + 1);
   }
 
+  /** Typed values, one per step starting at t = 0: a column at the analysis dt. */
+  const typedRecord = $derived.by((): GroundRecord | null => {
+    if (source !== 'typed' || !typed.trim()) return null;
+    try { return parseGroundRecord(typed, typedUnit, dt, { asColumn: true }); } catch { return null; }
+  });
+
+  /** What is likely wrong with the motion about to be run — unit, sampling, length. */
+  const warnings = $derived.by((): RecordWarning[] => {
+    const r = source === 'record' ? record : source === 'typed' ? typedRecord : null;
+    return r ? recordWarnings(r, dt, nSteps) : [];
+  });
+
+  function warningText(w: RecordWarning): string {
+    switch (w.code) {
+      case 'pgaHigh': return tp('pro.th.warn.pgaHigh', { pga: fmt(w.pgaG, 2) });
+      case 'pgaLow': return tp('pro.th.warn.pgaLow', { pga: fmt(w.pgaG, 5) });
+      case 'undersampled': return tp('pro.th.warn.undersampled', { recordDt: fmt(w.recordDt, 4), kept: fmt(w.keptPct, 0) });
+      case 'truncated': return tp('pro.th.warn.truncated', { run: fmt(w.runS, 2), record: fmt(w.recordS, 2) });
+    }
+  }
+
   function groundAccel(): number[] {
     if (source === 'sine') return sineAccelerogram(sineAmp, sineFreq, dt, nSteps);
-    if (source === 'typed') return parseAccelerogramG(typed);
+    if (source === 'typed') return typedRecord ? resample(typedRecord, dt, nSteps) : [];
     return record ? resample(record, dt, nSteps) : [];
   }
 
@@ -171,7 +194,7 @@
       <input type="file" class="adv-file" accept=".at2,.AT2,.txt,.csv,.dat,.tsv" onchange={onFile} data-testid="th-record-file" />
       <label class="adv-label">{t('pro.th.unit')}:
         <select class="adv-sel" bind:value={recordUnit} onchange={readRecord}>
-          <option value="g">g</option><option value="m/s2">m/s²</option>
+          <option value="g">g</option><option value="m/s2">m/s²</option><option value="cm/s2">cm/s² (gal)</option>
         </select>
       </label>
       <label class="adv-label">{t('pro.th.columnDt')} (s): <input type="number" class="adv-num" bind:value={columnDt} min={0.0001} step={0.001} onchange={readRecord} /></label>
@@ -181,16 +204,30 @@
     {#if record}
       {@const s = recordSummary(record)}
       <div class="adv-inline" data-testid="th-record-summary">
-        {recordName} — {tp('pro.th.recordSummary', { points: s.points, duration: fmt(s.duration), pga: fmt(s.pga / G, 3) })}
+        {recordName} — {t(`pro.th.format.${record.format}`)}, {record.unit === 'm/s2' ? 'm/s²' : record.unit === 'cm/s2' ? 'cm/s²' : 'g'} —
+        {tp('pro.th.recordSummary', { points: s.points, duration: fmt(s.duration), pga: fmt(s.pga / G, 3) })}
         <button class="adv-link" onclick={fitStepsToRecord}>{t('pro.th.fitSteps')}</button>
       </div>
     {/if}
   {:else}
     <div class="adv-accel-area">
-      <label class="adv-label">{t('pro.accelInput')} (g):</label>
+      <div class="adv-form">
+        <label class="adv-label">{t('pro.th.typedInput')}</label>
+        <label class="adv-label">{t('pro.th.unit')}:
+          <select class="adv-sel" bind:value={typedUnit}>
+            <option value="g">g</option><option value="m/s2">m/s²</option><option value="cm/s2">cm/s² (gal)</option>
+          </select>
+        </label>
+      </div>
       <textarea class="adv-textarea" bind:value={typed} rows="2" placeholder="0.1, 0.25, 0.4, 0.3, -0.1, ..."></textarea>
+      {#if typedRecord}
+        <div class="adv-inline">{tp('pro.th.typedSummary', { points: typedRecord.times.length, steps: nSteps + 1 })}</div>
+      {/if}
     </div>
   {/if}
+  {#each warnings as w (w.code)}
+    <div class="adv-warn" data-testid="th-warning-{w.code}">{warningText(w)}</div>
+  {/each}
 
   <button class="adv-run-btn" onclick={run} disabled={disabled || running}>{t('pro.run')}</button>
 
@@ -265,6 +302,7 @@
   .adv-hint { font-size: 0.6rem; color: var(--st-text-3); font-style: italic; }
   .adv-inline { font-size: 0.68rem; color: var(--st-text-2); padding: 2px 0; font-family: monospace; }
   .adv-error { font-size: 0.64rem; color: var(--st-danger); }
+  .adv-warn { font-size: 0.62rem; color: var(--st-warn); }
   .adv-accel-area { display: flex; flex-direction: column; gap: 2px; }
   .adv-textarea {
     width: 100%; padding: 4px 6px; font-size: 0.64rem; font-family: monospace; background: var(--st-surface-2);
