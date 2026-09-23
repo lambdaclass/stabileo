@@ -1,4 +1,8 @@
 <script lang="ts">
+  import {
+    massDensities, densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
+    sineAccelerogram, parseAccelerogramG, timeHistoryFields, peakBaseShear, HHT_ALPHA_RANGE,
+  } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -118,21 +122,8 @@
   }
 
   function getMaterialDensities(input?: any): Map<number, number> {
-    // mat.rho is weight density in kN/m³; convert to mass density in kg/m³
-    const densities = new Map<number, number>();
-    for (const [id, mat] of modelStore.materials) {
-      densities.set(id, ((mat as any).rho ?? 0) * 1000 / 9.81);
-    }
-    // Also include any materials from the enforced input (penalty materials)
-    // that aren't in the store — use small density to avoid zero-mass DOFs
-    if (input?.materials) {
-      for (const [id] of input.materials) {
-        if (!densities.has(id)) {
-          densities.set(id, 1.0); // 1 kg/m³ — negligible but non-zero
-        }
-      }
-    }
-    return densities;
+    // Penalty materials a rigid diaphragm adds are in the request and not in the store.
+    return massDensities(modelStore.materials, input?.materials ? input.materials.keys() : []);
   }
 
   function maybeApplyDiaphragm(input: any) {
@@ -175,16 +166,9 @@
   let modalResult = $state<any | null>(null);
   let numModes = $state(6);
 
-  const modalCumX = $derived.by(() => {
-    if (!modalResult?.modes) return [];
-    let sum = 0;
-    return modalResult.modes.map((m: any) => { sum += Math.abs(m.participationX ?? m.partX ?? 0); return sum; });
-  });
-  const modalCumY = $derived.by(() => {
-    if (!modalResult?.modes) return [];
-    let sum = 0;
-    return modalResult.modes.map((m: any) => { sum += Math.abs(m.participationY ?? m.partY ?? 0); return sum; });
-  });
+  const modalCum = $derived(cumulativeMassRatios(modalResult?.modes ?? []));
+  /** The model the modal result describes. Spectral reuses its modes and must not outlive it. */
+  let modalModelVersion = $state<number | null>(null);
 
   function handleModal() {
     solveError = null;
@@ -201,6 +185,7 @@
       if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
+      modalModelVersion = modelStore.modelVersion;
       if (res.modes || res.frequencies) {
         const modes = (res.modes ?? res.frequencies ?? []).map((m: any, i: number) => ({
           frequency: m.frequency ?? m.freq ?? (res.frequencies?.[i] ?? 0),
@@ -233,24 +218,29 @@
         solving = false;
         return;
       }
+      // The modes carry node ids and shapes of the model they were computed on. Combining them
+      // with an edited model would pair shapes with the wrong nodes, silently.
+      if (modalModelVersion !== modelStore.modelVersion) {
+        solveError = t('pro.modalStale');
+        solving = false;
+        return;
+      }
       let input = buildInput();
       input = maybeApplyDiaphragm(input);
       const densities = getMaterialDensities(input);
       const spectrum: DesignSpectrum = cirsoc103Spectrum(seismicZone, soilType);
-      let res: any;
-      res = wasmSpectral3D({
-          solver: input,
-          densities,
-          spectrum,
-          directions: ['X', 'Y', 'Z'],
-          combination: spectralCombination,
-          numModes,
-        });
-      if (typeof res === 'string') { solveError = `Espectral: ${res}`; solving = false; return; }
-      spectralResult = res;
-      advancedResults = { ...advancedResults, spectral: { baseShearX: res.baseShearX ?? res.baseShear, baseShearY: res.baseShearY, baseShearZ: res.baseShearZ } };
+      const modes = spectralModesFrom(modalResult);
+      // One run per horizontal direction: the engine combines a single direction at a time.
+      const byDir: Record<string, any> = {};
+      for (const direction of HORIZONTAL_DIRECTIONS) {
+        const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination });
+        if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${res}`; solving = false; return; }
+        byDir[direction] = res;
+      }
+      spectralResult = byDir;
+      advancedResults = { ...advancedResults, spectral: { baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
     } catch (e: any) {
-      solveError = `Espectral: ${errorText(e, 'Error')}`;
+      solveError = `${t('pro.spectralTitle')}: ${errorText(e, 'Error')}`;
     }
     solving = false;
   }
@@ -297,17 +287,12 @@
   let thSineAmp = $state(0.3);
   let thSineFreq = $state(2.0);
 
-  function generateSineAccel(): number[] {
-    const vals: number[] = [];
-    for (let i = 0; i < thNSteps; i++) {
-      vals.push(thSineAmp * Math.sin(2 * Math.PI * thSineFreq * i * thDt));
-    }
-    return vals;
-  }
+  /** HHT-α's α, only sent when the method is HHT. −0.1 is the usual numerical-damping choice. */
+  let thAlpha = $state(-0.1);
 
   function parseAccelInput(): number[] {
-    if (thUseSine) return generateSineAccel();
-    return thAccelText.split(/[,\s]+/).filter(s => s.length > 0).map(Number).filter(n => !isNaN(n));
+    if (thUseSine) return sineAccelerogram(thSineAmp, thSineFreq, thDt, thNSteps);
+    return parseAccelerogramG(thAccelText);
   }
 
   function handleTimeHistory() {
@@ -322,29 +307,18 @@
       }
       let input = buildInput();
       input = maybeApplyDiaphragm(input);
-      const densities: Record<string, number> = {};
-      for (const [id, mat] of modelStore.materials) {
-        densities[String(id)] = (mat as any).rho ?? 0;
-      }
-      const beta = 0.25;
-      const gamma = 0.5;
       const res = solveTimeHistory3D({
         solver: input,
-        densities,
-        timeStep: thDt,
-        nSteps: thNSteps,
-        method: thMethod,
-        beta,
-        gamma,
-        dampingXi: thDamping,
-        // `TimeHistoryInput3D` takes one acceleration series per global
-        // axis. The old payload sent the 2D pair { groundAccel,
-        // groundDirection }, which hit no field at all — so the run went
-        // ahead with ZERO ground motion and the static loads as the only
-        // excitation.
-        groundAccelX: thDir === 'X' ? groundAccel : undefined,
-        groundAccelY: thDir === 'Y' ? groundAccel : undefined,
-        groundAccelZ: thDir === 'Z' ? groundAccel : undefined,
+        ...timeHistoryFields({
+          densities: getMaterialDensities(input),
+          dt: thDt,
+          nSteps: thNSteps,
+          direction: thDir,
+          groundAccel,
+          dampingXi: thDamping,
+          method: thMethod,
+          alpha: thAlpha,
+        }),
       });
       thResult = res;
     } catch (e: any) {
@@ -373,8 +347,7 @@
       // Mass density in kg/m³, exactly as modal does it — `rho` is a WEIGHT
       // density in kN/m³, and feeding it straight in made every frequency
       // wrong by a factor of g/1000.
-      const densities: Record<string, number> = {};
-      for (const [id, d] of getMaterialDensities(input)) densities[String(id)] = d;
+      const densities = densityRecord(getMaterialDensities(input));
       // The engine sweeps an explicit frequency list and reports one node's
       // response; it has no fMin/fMax/nPoints of its own.
       const span = harmNPoints > 1 ? (harmFMax - harmFMin) / (harmNPoints - 1) : 0;
@@ -1067,12 +1040,12 @@
       </div>
       {#if modalResult}
         <div class="adv-inline">
-          {#if modalResult.totalMass != null}Masa: {fmtNum(modalResult.totalMass)} kg — {/if}
+          {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {modalResult.modes?.length ?? 0} modos{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
         </div>
         <div class="adv-table-scroll">
           <table class="adv-table">
-            <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>Cum. X</th><th>Cum. Y</th></tr></thead>
+            <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
                 <tr>
@@ -1082,8 +1055,8 @@
                   <td class="col-num">{fmtNum(mode.participationX ?? 0)}</td>
                   <td class="col-num">{fmtNum(mode.participationY ?? 0)}</td>
                   <td class="col-num">{fmtNum(mode.participationZ ?? 0)}</td>
-                  <td class="col-num" class:cum-warn={modalCumX[i] < 0.9} class:cum-ok={modalCumX[i] >= 0.9}>{(modalCumX[i] * 100).toFixed(1)}%</td>
-                  <td class="col-num" class:cum-warn={modalCumY[i] < 0.9} class:cum-ok={modalCumY[i] >= 0.9}>{(modalCumY[i] * 100).toFixed(1)}%</td>
+                  <td class="col-num" class:cum-warn={modalCum.x[i] < 0.9} class:cum-ok={modalCum.x[i] >= 0.9}>{(modalCum.x[i] * 100).toFixed(1)}%</td>
+                  <td class="col-num" class:cum-warn={modalCum.y[i] < 0.9} class:cum-ok={modalCum.y[i] >= 0.9}>{(modalCum.y[i] * 100).toFixed(1)}%</td>
                 </tr>
               {/each}
             </tbody>
@@ -1119,26 +1092,25 @@
         <div class="adv-hint">{t('pro.requiresModal')}</div>
       {/if}
       {#if spectralResult}
-        <div class="adv-inline">
-          Vb: X={fmtNum(spectralResult.baseShearX ?? spectralResult.baseShear?.x ?? spectralResult.baseShear ?? 0)}, Y={fmtNum(spectralResult.baseShearY ?? spectralResult.baseShear?.y ?? 0)} kN
+        <div class="adv-inline" data-testid="spectral-base-shear">
+          Vb: X={fmtNum(spectralResult.X?.baseShear ?? 0)}, Y={fmtNum(spectralResult.Y?.baseShear ?? 0)} kN ({spectralCombination})
         </div>
-        {#if spectralResult.perMode || spectralResult.perModeX}
-          <div class="adv-table-scroll">
-            <table class="adv-table">
-              <thead><tr><th>Modo</th><th>T (s)</th><th>Sa (g)</th><th>Vb (kN)</th></tr></thead>
-              <tbody>
-                {#each (spectralResult.perMode ?? spectralResult.perModeX ?? []) as pm, i}
-                  <tr>
-                    <td class="col-id">{i + 1}</td>
-                    <td class="col-num">{fmtNum(pm.period ?? 0)}</td>
-                    <td class="col-num">{fmtNum((pm.sa ?? pm.Sa ?? 0) / 9.81)}</td>
-                    <td class="col-num">{fmtNum(pm.shear ?? pm.Vb ?? 0)}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {/if}
+        <div class="adv-table-scroll">
+          <table class="adv-table">
+            <thead><tr><th>Modo</th><th>T (s)</th><th>Sa (g)</th><th>Vb X (kN)</th><th>Vb Y (kN)</th></tr></thead>
+            <tbody>
+              {#each (spectralResult.X?.perMode ?? []) as pm, i}
+                <tr>
+                  <td class="col-id">{i + 1}</td>
+                  <td class="col-num">{fmtNum(pm.period ?? 0)}</td>
+                  <td class="col-num">{fmtNum((pm.sa ?? 0) / 9.81)}</td>
+                  <td class="col-num">{fmtNum(Math.abs(pm.modalForce ?? 0))}</td>
+                  <td class="col-num">{fmtNum(Math.abs(spectralResult.Y?.perMode?.[i]?.modalForce ?? 0))}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
       {/if}
     </div>
 
@@ -1207,6 +1179,9 @@
           <label class="adv-label">Dir: <select class="adv-sel" bind:value={thDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
           <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={thDamping} min={0} max={1} step={0.01} /></label>
           <label class="adv-label">Método: <select class="adv-sel" bind:value={thMethod}><option value="newmark">Newmark</option><option value="hht">HHT-&#x03B1;</option></select></label>
+          {#if thMethod === 'hht'}
+            <label class="adv-label">&#x03B1;: <input type="number" class="adv-num" bind:value={thAlpha} min={HHT_ALPHA_RANGE.min} max={HHT_ALPHA_RANGE.max} step={0.01} data-testid="th-alpha" /></label>
+          {/if}
         </div>
         <label class="adv-check">
           <input type="checkbox" bind:checked={thUseSine} />
@@ -1219,7 +1194,7 @@
           </div>
         {:else}
           <div class="adv-accel-area">
-            <label class="adv-label">{t('pro.accelInput')}:</label>
+            <label class="adv-label">{t('pro.accelInput')} (g):</label>
             <textarea class="adv-textarea" bind:value={thAccelText} rows="2" placeholder="0.1, 0.25, 0.4, 0.3, -0.1, ..."></textarea>
           </div>
         {/if}
@@ -1233,7 +1208,7 @@
             δmax={fmtNum(Math.max(...thResult.peakDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
           {/if}
           {#if thResult.peakReactions?.length}
-            — Vb_max={fmtNum(Math.max(...thResult.peakReactions.map((r: any) => Math.hypot(r.rx ?? 0, r.ry ?? 0))))} kN
+            — {t('pro.thBaseShearAtPeak')} = {fmtNum(peakBaseShear(thResult.peakReactions))} kN
           {/if}
           {#if thResult.nSteps != null} — {thResult.nSteps} {t('pro.steps')} ({thResult.method}){/if}
         </div>
