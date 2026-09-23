@@ -2,9 +2,9 @@
   import { withMassSource, densitiesFor } from '../../lib/engine/dynamics/mass-source-model';
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
+  import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
   import {
     densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
-    sineAccelerogram, parseAccelerogramG, timeHistoryFields, peakBaseShear, HHT_ALPHA_RANGE,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
@@ -15,7 +15,6 @@
     solveModal3D as wasmModal3D,
     solveBuckling3D as wasmBuckling3D,
     solveSpectral3D as wasmSpectral3D,
-    solveTimeHistory3D,
     solvePlastic3D,
     solveCorotational3D,
     solveFiberNonlinear3D,
@@ -284,60 +283,6 @@
       advancedResults = { ...advancedResults, buckling: { factors } };
     } catch (e: any) {
       solveError = `Buckling: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
-  // ─── 5. Time History ──────────────────────────────────────────
-
-  let thDt = $state(0.01);
-  let thNSteps = $state(200);
-  let thDir = $state<'X' | 'Y' | 'Z'>('X');
-  let thDamping = $state(0.05);
-  let thMethod = $state<'newmark' | 'hht'>('newmark');
-  let thAccelText = $state('');
-  let thResult = $state<any | null>(null);
-  /* Starts on the generated sine: with the text box empty and this off, the
-     only thing the button could do was refuse to run. */
-  let thUseSine = $state(true);
-  let thSineAmp = $state(0.3);
-  let thSineFreq = $state(2.0);
-
-  /** HHT-α's α, only sent when the method is HHT. −0.1 is the usual numerical-damping choice. */
-  let thAlpha = $state(-0.1);
-
-  function parseAccelInput(): number[] {
-    if (thUseSine) return sineAccelerogram(thSineAmp, thSineFreq, thDt, thNSteps);
-    return parseAccelerogramG(thAccelText);
-  }
-
-  function handleTimeHistory() {
-    solveError = null;
-    solving = true;
-    try {
-      const groundAccel = parseAccelInput();
-      if (groundAccel.length === 0) {
-        solveError = t('pro.needAccelData');
-        solving = false;
-        return;
-      }
-      const { input, densities } = buildDynamicInput();
-      const res = solveTimeHistory3D({
-        solver: input,
-        ...timeHistoryFields({
-          densities,
-          dt: thDt,
-          nSteps: thNSteps,
-          direction: thDir,
-          groundAccel,
-          dampingXi: thDamping,
-          method: thMethod,
-          alpha: thAlpha,
-        }),
-      });
-      thResult = res;
-    } catch (e: any) {
-      solveError = `Time History: ${errorText(e, 'Error')}`;
     }
     solving = false;
   }
@@ -1189,47 +1134,7 @@
       </div>
 
       {#if advView === 'timehistory'}
-      <div class="adv-panel">
-        <div class="adv-form">
-          <label class="adv-label">dt (s): <input type="number" class="adv-num" bind:value={thDt} min={0.001} max={1} step={0.001} /></label>
-          <label class="adv-label">Pasos: <input type="number" class="adv-num adv-num-wide" bind:value={thNSteps} min={1} max={10000} /></label>
-          <label class="adv-label">Dir: <select class="adv-sel" bind:value={thDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
-          <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={thDamping} min={0} max={1} step={0.01} /></label>
-          <label class="adv-label">Método: <select class="adv-sel" bind:value={thMethod}><option value="newmark">Newmark</option><option value="hht">HHT-&#x03B1;</option></select></label>
-          {#if thMethod === 'hht'}
-            <label class="adv-label">&#x03B1;: <input type="number" class="adv-num" bind:value={thAlpha} min={HHT_ALPHA_RANGE.min} max={HHT_ALPHA_RANGE.max} step={0.01} data-testid="th-alpha" /></label>
-          {/if}
-        </div>
-        <label class="adv-check">
-          <input type="checkbox" bind:checked={thUseSine} />
-          {t('pro.testSine')}
-        </label>
-        {#if thUseSine}
-          <div class="adv-form">
-            <label class="adv-label">Amp (g): <input type="number" class="adv-num" bind:value={thSineAmp} min={0.01} step={0.05} /></label>
-            <label class="adv-label">Freq (Hz): <input type="number" class="adv-num" bind:value={thSineFreq} min={0.1} step={0.1} /></label>
-          </div>
-        {:else}
-          <div class="adv-accel-area">
-            <label class="adv-label">{t('pro.accelInput')} (g):</label>
-            <textarea class="adv-textarea" bind:value={thAccelText} rows="2" placeholder="0.1, 0.25, 0.4, 0.3, -0.1, ..."></textarea>
-          </div>
-        {/if}
-        <button class="adv-run-btn" onclick={handleTimeHistory} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
-      </div>
-      {#if thResult}
-        <div class="adv-inline">
-          <!-- The engine returns peak ENVELOPES, one per node and per support,
-               plus the step count — not a single peak triple. -->
-          {#if thResult.peakDisplacements?.length}
-            δmax={fmtNum(Math.max(...thResult.peakDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
-          {/if}
-          {#if thResult.peakReactions?.length}
-            — {t('pro.thBaseShearAtPeak')} = {fmtNum(peakBaseShear(thResult.peakReactions))} kN
-          {/if}
-          {#if thResult.nSteps != null} — {thResult.nSteps} {t('pro.steps')} ({thResult.method}){/if}
-        </div>
-      {/if}
+        <TimeHistoryPanel {buildDynamicInput} disabled={!hasModel || solving || !wasmAvailable} onError={(m) => (solveError = m)} />
       {/if}
 
     <!-- ── 6b. Harmonic Response ── -->

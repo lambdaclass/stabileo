@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { onMount } from 'svelte';
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
@@ -1223,6 +1224,10 @@
     resultsStore.deformedScale;
     resultsStore.modalResult3D;
     resultsStore.activeModeIndex;
+    // A time-history instant is drawn through the deformed view; scrubbing re-syncs it.
+    timeHistoryView.step;
+    timeHistoryView.shown;
+    timeHistoryView.result;
     resultsStore.bucklingResult3D;
     resultsStore.activeBucklingMode;
     const animating = resultsStore.animateDeformed;
