@@ -28,7 +28,11 @@
   import { t } from '../lib/i18n';
   import { teAll } from '../lib/i18n/engine-text';
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
-  import { axialCap } from '../lib/engine/codes/argentina/cirsoc201-basis';
+  import {
+    axialCap, beta1, yieldStrain, ES_MPA, COLUMN_STEEL_RATIO,
+    PHI_TENSION, PHI_COMPRESSION_TIED, PHI_COMPRESSION_SPIRAL,
+  } from '../lib/engine/codes/argentina/cirsoc201-basis';
+  import { characteristicPointsBothEdges } from '../lib/engine/codes/argentina/cirsoc-flex-points';
   import SectionDrawing from './SectionDrawing.svelte';
   import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
   import { uiStore, resultsStore, modelStore } from '../lib/store';
@@ -338,6 +342,80 @@
     return rows;
   });
 
+  /**
+   * "1 · Datos generales" — the constants the sheet prints before anything else.
+   *
+   * Not decoration. Es, εy and β1 are what every later number is built on, and
+   * the workbook puts them on the page so a reader can see which values were in
+   * force rather than infer them from an answer. φ is printed as the pair it is:
+   * one for compression-controlled sections, one for tension-controlled.
+   */
+  const generalRows = $derived.by((): Row[] => {
+    const rows: Row[] = [
+      ['Es', `${ES_MPA.toLocaleString()} MPa`],
+      ['εy', `${(yieldStrain(fy) * 1000).toFixed(2)} ‰`],
+      ['β1', beta1(fc).toFixed(3)],
+    ];
+    const isBeam = kase === 'FSR' || kase === 'FST';
+    if (isBeam) {
+      rows.push([t('flex.out.phiTension'), PHI_TENSION.toFixed(2)]);
+    } else {
+      rows.push([
+        t('flex.out.phiCompression'),
+        (spiral ? PHI_COMPRESSION_SPIRAL : PHI_COMPRESSION_TIED).toFixed(2),
+      ]);
+      rows.push([t('flex.out.phiTension'), PHI_TENSION.toFixed(2)]);
+      rows.push([t('flex.out.rhoColumnBounds'),
+        `${(COLUMN_STEEL_RATIO.min * 100).toFixed(0)} % – ${(COLUMN_STEEL_RATIO.max * 100).toFixed(0)} %`]);
+    }
+    return rows;
+  });
+
+  /**
+   * "Condición de seguridad" — the sheet's own way of stating the verdict.
+   *
+   * Capacity over demand along the ray of constant eccentricity, given as the
+   * two resistant components and the two vector magnitudes rather than as a
+   * single ratio. That is what makes it checkable: a reader can see WHERE on
+   * the diagram the resistance was read, not just how it compared.
+   */
+  const safetyRows = $derived.by((): Row[] => {
+    const r = out.r;
+    if (!r || mode !== 'verify') return [];
+    const isBeam = kase === 'FSR' || kase === 'FST';
+    if (isBeam || r.phiMn === undefined) return [];
+    const puRes = r.phiPn ?? 0;
+    const muRes = r.phiMn;
+    const mvSol = Math.hypot(Pu, Mu);
+    const mvRes = Math.hypot(puRes, muRes);
+    if (mvSol < 1e-9) return [];
+    return [
+      ['Pu res', fmt(puRes, 2, 'kN')],
+      ['Mu res', fmt(muRes, 2, 'kN·m')],
+      ['MV sol', fmt(mvSol, 2, '')],
+      ['MV res', fmt(mvRes, 2, '')],
+      [t('flex.out.mvRatio'), (mvRes / mvSol).toFixed(3)],
+    ];
+  });
+
+  /**
+   * The six characteristic points, for both edges, as the verification sheets
+   * tabulate them. Built from the bars the calculation used, so the table
+   * describes the section on screen and not a second idea of it.
+   */
+  const characteristic = $derived.by(() => {
+    const r = out.r;
+    if (!r || mode !== 'verify') return null;
+    if (kase === 'FSR' || kase === 'FST' || kase === 'FCO') return null;
+    try {
+      return characteristicPointsBothEdges(
+        r.outline,
+        r.bars,
+        { fc, fy, confinement: spiral ? 'spiral' : 'ties', deductDisplacedConcrete: deduct },
+      );
+    } catch { return null; }
+  });
+
   /** The bar layout the biaxial sheet tabulates: one row per bar, with its place. */
   const barTable = $derived.by(() => {
     const r = out.r;
@@ -495,6 +573,20 @@
     </select>
   </label>
 
+  <!--
+    The sheet numbers its sections, and a reader checking one against the other
+    follows those numbers. Ours are the same numbers, so "4.2" means the same
+    block on both sides of the comparison.
+  -->
+  <h4 class="fp-heading">1 · {t('flex.section.general')}</h4>
+  <table class="fp-table fp-general" data-testid="flex-general">
+    <tbody>
+      {#each generalRows as [label, value]}
+        <tr><th>{label}</th><td>{value}</td></tr>
+      {/each}
+    </tbody>
+  </table>
+
   <h4 class="fp-heading">{t('flex.section.materials')}</h4>
   <div class="fp-grid">
     <label class="fp-field"><span>f'c [MPa]</span><input type="number" bind:value={fc} min="15" step="1" /></label>
@@ -505,7 +597,7 @@
     <label class="fp-check"><input type="checkbox" bind:checked={deduct} /><span>{t('flex.in.deduct')}</span></label>
   </div>
 
-  <h4 class="fp-heading">{t('flex.section.geometry')}</h4>
+  <h4 class="fp-heading">2 · {t('flex.section.geometry')}</h4>
   <!--
     A calculator inside a modelling app invites one specific wrong
     assumption: that the section on screen is the section of whatever member
@@ -656,7 +748,7 @@
   {/if}
 
   <h4 class="fp-heading fp-heading-row">
-    {t('flex.section.demand')}
+    3 · {t('flex.section.demand')}
     <button
       class="fp-pick-btn"
       class:on={picking}
@@ -735,6 +827,7 @@
       </div>
     {/if}
     {#if sheetRows.length > 0}
+      <h4 class="fp-heading">4.1 · {t('flex.section.steelNeeded')}</h4>
       <table class="fp-table" data-testid="flex-sheet-rows">
         <tbody>
           {#each sheetRows as [label, value]}
@@ -767,6 +860,53 @@
           {/each}
         </tbody>
       </table>
+    {/if}
+
+    <!--
+      5 · The safety condition, stated the way the sheet states it: the two
+      resistant components at the demand's own eccentricity, then the two vector
+      magnitudes. A single ratio hides WHERE on the diagram the resistance was
+      read, which is the thing a reader is checking.
+    -->
+    {#if safetyRows.length > 0}
+      <h4 class="fp-heading">5 · {t('flex.section.safety')}</h4>
+      <table class="fp-table" data-testid="flex-safety">
+        <tbody>
+          {#each safetyRows as [label, value]}
+            <tr><th>{label}</th><td>{value}</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
+    <!--
+      6 · The whole shape of the interaction diagram as six named states, twice
+      — once for each face in compression. It is the most checkable table in the
+      workbook: agreeing at one point can be luck, agreeing at six is not.
+    -->
+    {#if characteristic}
+      <h4 class="fp-heading">6 · {t('flex.section.characteristic')}</h4>
+      {#each [
+        { rows: characteristic.bottomCompressed, capKey: 'flex.out.edgeBottom' },
+        { rows: characteristic.topCompressed, capKey: 'flex.out.edgeTop' },
+      ] as table (table.capKey)}
+        <p class="fp-edge-note">{t(table.capKey)}</p>
+        <table class="fp-table fp-bartable" data-testid="flex-characteristic">
+          <thead>
+            <tr><th></th><th>φMn [kN·m]</th><th>φPn [kN]</th><th>φ</th></tr>
+          </thead>
+          <tbody>
+            {#each table.rows as p (p.key)}
+              <tr>
+                <th>{t(`flex.pt.${p.key}`)}</th>
+                <td>{p.phiMn.toFixed(2)}</td>
+                <td>{p.phiPn.toFixed(2)}</td>
+                <td>{p.phi.toFixed(2)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/each}
     {/if}
 
     {#if extraRows.length > 0}
@@ -1025,6 +1165,11 @@
 
   .fp-bartable th, .fp-bartable td { text-align: right; font-variant-numeric: tabular-nums; }
   .fp-bartable thead th { color: var(--st-text-3); font-weight: 500; font-size: 0.66rem; }
+  .fp-general th { font-weight: 400; color: var(--st-text-3); }
+  .fp-edge-note {
+    font-size: 0.66rem; color: var(--st-text-3);
+    margin: 8px 0 2px; line-height: 1.4;
+  }
   .fp-extras { margin-top: 8px; }
   .fp-extras summary {
     cursor: pointer; font-size: 0.7rem; color: var(--st-text-3);

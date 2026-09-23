@@ -302,3 +302,65 @@ test.describe('@smoke the calculator behaves like the other advanced functions',
     await expect(page.getByTestId('adv-flex')).toHaveCount(0);
   });
 });
+
+/*
+ * The sheet's own shape.
+ *
+ * This panel is for checking against CIRSOC FLEX, which only works if the two
+ * lay the same things out under the same names and numbers. The sheets number
+ * their sections, tabulate the whole interaction diagram as six named states,
+ * and state the verdict as two resistant components rather than one ratio.
+ */
+test.describe('@smoke laid out like the workbook', () => {
+  test('opens with the general data the sheet prints first', async ({ page }) => {
+    await openFlex(page);
+    const general = page.getByTestId('flex-general');
+    await expect(general).toBeVisible();
+    /* Es, εy and β1 are what every later number is built on; the sheet puts
+       them on the page so they can be read rather than inferred. */
+    await expect(general).toContainText('200,000');
+    await expect(general).toContainText('β1');
+    await expect(general).toContainText('0.850');
+  });
+
+  test('verifying a column states the safety condition the way the sheet does',
+    async ({ page }) => {
+      await openFlex(page);
+      await page.getByTestId('flex-case').selectOption('FCR');
+      await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+      const safety = page.getByTestId('flex-safety');
+      await expect(safety).toBeVisible();
+      /* Both components and both magnitudes: a single ratio hides where on the
+         diagram the resistance was read. */
+      for (const label of ['Pu res', 'Mu res', 'MV sol', 'MV res', 'MV res / MV sol']) {
+        await expect(safety).toContainText(label);
+      }
+    });
+
+  test('tabulates the six characteristic points, for both edges', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCR');
+    await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+
+    const tables = page.getByTestId('flex-characteristic');
+    await expect(tables).toHaveCount(2);      // bottom compressed, then top
+
+    const first = tables.first();
+    await expect(first).toContainText(/Axial limit|Límite/i);
+    await expect(first).toContainText(/Pure flexural|flexión pura/i);
+    await expect(first).toContainText(/Maximum tensile|Máxima resistencia/i);
+    // Six named states, and a φ column that is the point of the table.
+    await expect(first.locator('tbody tr')).toHaveCount(6);
+    await expect(first).toContainText('0.65');
+    await expect(first).toContainText('0.90');
+  });
+
+  test('a beam gets neither, because its sheet prints neither', async ({ page }) => {
+    /* FSR and FST have no interaction diagram and no axial component; showing
+       an empty version of either would be inventing a section of the sheet. */
+    await openFlex(page);
+    await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+    await expect(page.getByTestId('flex-characteristic')).toHaveCount(0);
+    await expect(page.getByTestId('flex-safety')).toHaveCount(0);
+  });
+});
