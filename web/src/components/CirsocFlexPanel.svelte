@@ -28,6 +28,7 @@
   import { t } from '../lib/i18n';
   import { teAll } from '../lib/i18n/engine-text';
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
+  import { axialCap } from '../lib/engine/codes/argentina/cirsoc201-basis';
   import SectionDrawing from './SectionDrawing.svelte';
   import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
   import { uiStore, resultsStore, modelStore } from '../lib/store';
@@ -233,98 +234,120 @@
   const cmOf = (m: number | undefined) => (m === undefined ? '—' : `${(m * 100).toFixed(2)} cm`);
 
   /** The rows each sheet prints, in the order it prints them. */
-  const rows = $derived.by((): Array<[string, string]> => {
+  /**
+   * The results, in the workbook's own set and order.
+   *
+   * ── Why it is written sheet by sheet ───────────────────────────
+   *
+   * This panel exists so a reader can check it against CIRSOC FLEX, and that
+   * only works if the two print the same rows under the same names. They did
+   * not: A′s was dropped whenever it came out zero — which is every singly
+   * reinforced beam, so the row a reader went looking for was missing exactly
+   * when its answer was "none" — Ast was in the headline but never in the
+   * table, the circular sheet's Asi was nowhere, and the biaxial sheet's bar
+   * table and Pu(max) did not exist.
+   *
+   * What the sheets do NOT print is not printed here either. The bar count and
+   * diameter proposal is gone: the workbook sizes an AREA and stops, and a
+   * suggestion of "6 Ø16" beside it invited a comparison that has no other
+   * side. Anything this tool computes beyond the sheet goes below, under its
+   * own heading, so it can never be mistaken for the sheet's answer.
+   */
+  type Row = [string, string];
+
+  const cmOfRow = (label: string, v: number | undefined): Row => [label, cmOf(v)];
+
+  /** The rows the workbook's own sheet prints, in its order. */
+  const sheetRows = $derived.by((): Row[] => {
     const r = out.r;
     if (!r) return [];
-    const isColumn = kase !== 'FSR' && kase !== 'FST';
-    const base: Array<[string, string]> = [];
+    const isBeam = kase === 'FSR' || kase === 'FST';
+    const rows: Row[] = [];
 
-    if (r.AsPrimeCm2 !== undefined && r.AsCm2 !== undefined && isColumn) {
-      base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
-      base.push([t('flex.out.asTension'), fmt(r.AsCm2, 3, 'cm²')]);
-    } else if (!isColumn) {
-      /* In `verify` this is the reader's own number, not one we worked out. */
-      base.push([
-        mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asFlexural'),
-        fmt(r.AsCm2, 3, 'cm²'),
+    if (isBeam) {
+      /*
+       * FSR and FST print, in this order: A′s, As, As mín, a, c, c máx, εt.
+       * A′s ALWAYS — a singly reinforced beam answers 0,00, and that is an
+       * answer rather than a reason to leave the row out.
+       */
+      rows.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2 ?? 0, 3, 'cm²')]);
+      rows.push([
+        mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asTension'),
+        fmt(r.AsCm2 ?? r.AstCm2, 3, 'cm²'),
       ]);
-      if ((r.AsPrimeCm2 ?? 0) > 0) base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
+      if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), fmt(r.AsMinCm2!, 3, 'cm²')]);
+      rows.push(cmOfRow(t('flex.out.aReq'), r.a));
+      rows.push(cmOfRow(t('flex.out.c'), r.c));
+      if (r.cMax !== undefined) rows.push(cmOfRow(t('flex.out.cMax'), r.cMax));
+      if (r.epsilonT !== undefined) {
+        rows.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
+      }
+      return rows;
     }
-    /*
-     * ── The bars, next to the area that asked for them ──────────────
-     *
-     * An area is not a design. "Ast = 21.35 cm²" leaves the reader with the
-     * question they actually came with — does that fit across the face —
-     * and the workbook's column sheets stop there too. Putting the count and
-     * diameter one row below the area is the whole of the addition, and it
-     * is what turns the two composite-flexure cases from a number into
-     * something you could draw.
-     *
-     * Sizing only. In `verify` the bars are an INPUT: echoing back an
-     * arrangement the reader typed, as though it were a proposal, would be
-     * the panel telling them what they just told it.
-     */
-    /*
-     * ── A second layer is a detail, not a warning ──────────────────
-     *
-     * Stacking bars is what a detailer does when the web is full, so the
-     * row says how many layers and stops. The warning is reserved for the
-     * case that actually needs one: steel that will not go in at all.
-     * Flagging every two-layer beam as a problem is how the panel came to
-     * look like it was failing ordinary sections.
-     */
-    const layerNote = (c: NonNullable<typeof r.barChoice>) =>
-      c.placeable === false
-        ? ` — ${t('flex.out.barsWontFit')}`
-        : (c.layers ?? 1) > 1
-          ? ` — ${t('flex.out.barsLayers').replace('{n}', String(c.layers))}`
-          : '';
 
-    if (mode === 'design' && r.barChoice) {
-      base.push([
-        /*
-         * "Ring" only where there IS a ring. FCR's proposal is per LEVEL —
-         * this many across the top face and this many across the bottom —
-         * and calling that a ring would misdescribe the arrangement the
-         * number belongs to.
-         */
-        kase === 'FCR-CIR' ? t('flex.out.barsRing')
-          : kase === 'FCR' ? t('flex.out.barsPerLevel')
-          : t('flex.out.bars'),
-        /*
-         * The chosen bars give slightly MORE than was asked for — bars come
-         * in sizes — so the area they deliver is shown beside them. Without
-         * it a reader comparing against `As` sees two numbers that disagree
-         * and no reason why.
-         */
-        `${r.barChoice.label} (${r.barChoice.areaCm2.toFixed(2)} cm²)`
-          + layerNote(r.barChoice),
-      ]);
+    /* The column sheets: needed steel first, then the minima and maxima. */
+    if (kase === 'FCR') {
+      rows.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2 ?? 0, 3, 'cm²')]);
+      rows.push([t('flex.out.asTension'), fmt(r.AsCm2 ?? 0, 3, 'cm²')]);
     }
-    if (mode === 'design' && r.barChoiceComp) {
-      base.push([
-        t('flex.out.barsComp'),
-        `${r.barChoiceComp.label} (${r.barChoiceComp.areaCm2.toFixed(2)} cm²)`
-          + layerNote(r.barChoiceComp),
-      ]);
+    rows.push([t('flex.out.astTotal'), fmt(r.AstCm2, 3, 'cm²')]);
+    if (kase === 'FCR-CIR' && barCount > 0) {
+      /* The sheet prints the area of ONE bar of the ring beside the total. */
+      rows.push([t('flex.out.asiBar'), fmt(r.AstCm2 / barCount, 3, 'cm²')]);
     }
-    base.push([t('flex.out.rho'), r.rho.toFixed(6)]);
-    /* Beams only: a column's floor is §10.9.1, printed as Ast,mín below. */
-    if (Number.isFinite(r.AsMinCm2)) {
-      base.push([t('flex.out.asMin'), fmt(r.AsMinCm2!, 3, 'cm²')]);
+    rows.push([t('flex.out.rho'), r.rho.toFixed(6)]);
+    if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), fmt(r.AsMinCm2!, 3, 'cm²')]);
+    if (r.AstMinCm2 !== undefined) rows.push([t('flex.out.astMin'), fmt(r.AstMinCm2, 3, 'cm²')]);
+    if (r.AstMaxCm2 !== undefined) rows.push([t('flex.out.astMax'), fmt(r.AstMaxCm2, 3, 'cm²')]);
+    if (kase === 'FCO') {
+      /* Pu(max) = φ · 0,80 · Po, the sheet's own axial ceiling for a column. */
+      const Ag = (b / 100) * (h / 100) - (holeB / 100) * (holeH / 100);
+      const cap = axialCap(fc, fy, Ag, r.AstCm2 / 1e4, spiral ? 'spiral' : 'ties');
+      rows.push([t('flex.out.puMax'), fmt(cap, 1, 'kN')]);
+      if (mode === 'verify' && r.phiMn !== undefined && Math.abs(Mu) > 1e-9) {
+        rows.push([t('flex.out.phiMnOverMu'), (r.phiMn / Math.abs(Mu)).toFixed(3)]);
+      }
     }
-    if (r.AstMinCm2 !== undefined) {
-      base.push([t('flex.out.astMin'), fmt(r.AstMinCm2, 3, 'cm²')]);
-      base.push([t('flex.out.astMax'), fmt(r.AstMaxCm2, 3, 'cm²')]);
+    return rows;
+  });
+
+  /**
+   * What this tool has in hand and the sheet does not print.
+   *
+   * Kept, and kept SEPARATE. Deleting φ and the state at the answer would
+   * throw away the part a reader uses to see why the number came out as it
+   * did; mixing them into the table above would make the comparison with the
+   * workbook a matter of knowing which rows to skip.
+   */
+  const extraRows = $derived.by((): Row[] => {
+    const r = out.r;
+    if (!r) return [];
+    const isBeam = kase === 'FSR' || kase === 'FST';
+    const rows: Row[] = [];
+    if (!isBeam) {
+      rows.push(cmOfRow(t('flex.out.aReq'), r.a));
+      rows.push(cmOfRow(t('flex.out.c'), r.c));
+      if (r.cMax !== undefined) rows.push(cmOfRow(t('flex.out.cMax'), r.cMax));
+      if (r.epsilonT !== undefined) {
+        rows.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
+      }
     }
-    base.push([t('flex.out.aReq'), cmOf(r.a)]);
-    base.push([t('flex.out.c'), cmOf(r.c)]);
-    if (r.cMax !== undefined) base.push([t('flex.out.cMax'), cmOf(r.cMax)]);
-    if (r.epsilonT !== undefined) base.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
-    if (r.phi !== undefined) base.push([t('flex.out.phi'), r.phi.toFixed(3)]);
-    if (r.phiPn !== undefined && isColumn) base.push([t('flex.out.phiPn'), fmt(r.phiPn, 1, 'kN')]);
-    if (r.phiMn !== undefined) base.push([t('flex.out.phiMn'), fmt(r.phiMn, 2, 'kN·m')]);
-    return base;
+    if (r.phi !== undefined) rows.push([t('flex.out.phi'), r.phi.toFixed(3)]);
+    if (r.phiPn !== undefined && !isBeam) rows.push([t('flex.out.phiPn'), fmt(r.phiPn, 1, 'kN')]);
+    if (r.phiMn !== undefined) rows.push([t('flex.out.phiMn'), fmt(r.phiMn, 2, 'kN·m')]);
+    return rows;
+  });
+
+  /** The bar layout the biaxial sheet tabulates: one row per bar, with its place. */
+  const barTable = $derived.by(() => {
+    const r = out.r;
+    if (!r || kase !== 'FCO') return [];
+    return r.bars.map((bar, i) => ({
+      n: i + 1,
+      area: bar.area * 1e4,     // m² → cm²
+      x: bar.x,
+      y: bar.y,
+    }));
   });
 
   const headline = $derived.by(() => {
@@ -507,6 +530,41 @@
       <label class="fp-field"><span>{t('flex.in.barCount')}</span><input type="number" bind:value={barCount} min="4" max="48" step="1" /></label>
       <label class="fp-check"><input type="checkbox" bind:checked={atFibre} /><span>{t('flex.in.atFibre')}</span></label>
     {:else if kase === 'FCO'}
+      <!--
+        Two covers, and the only way to be sure which is which is to see them.
+        d′sh runs in from the side face and d′sv down from the top, both to the
+        CENTRE of the corner bar — the sheet says so with a sketch, and a reader
+        transcribing numbers into the wrong one of two similarly named boxes
+        gets a section that is subtly not theirs.
+      -->
+      <svg class="fp-scheme" viewBox="0 0 150 110" role="img"
+        aria-label={t('flex.fco.schemeAlt')} data-testid="fco-scheme">
+        <rect x="8" y="8" width="134" height="94" fill="none"
+          stroke="currentColor" stroke-width="1.5" />
+        <circle cx="52" cy="46" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <line x1="38" y1="46" x2="66" y2="46" stroke="currentColor" stroke-width="0.8" />
+        <line x1="52" y1="32" x2="52" y2="60" stroke="currentColor" stroke-width="0.8" />
+        <!-- d′sv: down from the top face to the bar centre -->
+        <line x1="104" y1="9" x2="104" y2="45" stroke="currentColor" stroke-width="1"
+          marker-start="url(#fpArrowUp)" marker-end="url(#fpArrowDown)" />
+        <line x1="52" y1="46" x2="118" y2="46" stroke="currentColor"
+          stroke-width="0.6" stroke-dasharray="3 3" />
+        <text x="110" y="30" font-size="13" fill="currentColor">d′sv</text>
+        <!-- d′sh: in from the left face to the bar centre -->
+        <line x1="9" y1="82" x2="51" y2="82" stroke="currentColor" stroke-width="1"
+          marker-start="url(#fpArrowUp)" marker-end="url(#fpArrowDown)" />
+        <line x1="52" y1="46" x2="52" y2="90" stroke="currentColor"
+          stroke-width="0.6" stroke-dasharray="3 3" />
+        <text x="16" y="99" font-size="13" fill="currentColor">d′sh</text>
+        <defs>
+          <marker id="fpArrowDown" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="currentColor" />
+          </marker>
+          <marker id="fpArrowUp" markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto">
+            <path d="M6,0 L0,3 L6,6 Z" fill="currentColor" />
+          </marker>
+        </defs>
+      </svg>
       <label class="fp-field"><span>b [cm]</span><input type="number" bind:value={b} min="5" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
       <label class="fp-field"><span>d′sh [cm]</span><input type="number" bind:value={dPrimeH} min="1" step="0.5" /></label>
@@ -676,14 +734,53 @@
         <span class="fp-verdict">{out.r.ok ? t('flex.out.ok') : t('flex.out.notOk')}</span>
       </div>
     {/if}
-    {#if rows.length > 0}
-      <table class="fp-table">
+    {#if sheetRows.length > 0}
+      <table class="fp-table" data-testid="flex-sheet-rows">
         <tbody>
-          {#each rows as [label, value]}
+          {#each sheetRows as [label, value]}
             <tr><th>{label}</th><td>{value}</td></tr>
           {/each}
         </tbody>
       </table>
+    {/if}
+
+    <!--
+      The biaxial sheet tabulates every bar with its coordinates, because with
+      three positions and a percentage split there is no other way to see where
+      the steel ended up. The bars are already what the calculation used, so
+      this is the arrangement itself rather than a description of it.
+    -->
+    {#if barTable.length > 0}
+      <h4 class="fp-heading">{t('flex.out.barTable')}</h4>
+      <table class="fp-table fp-bartable" data-testid="flex-bar-table">
+        <thead>
+          <tr><th>#</th><th>Asi [cm²]</th><th>X [m]</th><th>Y [m]</th></tr>
+        </thead>
+        <tbody>
+          {#each barTable as bar (bar.n)}
+            <tr>
+              <th>{bar.n}</th>
+              <td>{bar.area.toFixed(3)}</td>
+              <td>{bar.x.toFixed(3)}</td>
+              <td>{bar.y.toFixed(3)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
+    {#if extraRows.length > 0}
+      <details class="fp-extras" data-testid="flex-extras">
+        <summary>{t('flex.extras.title')}</summary>
+        <p class="fp-extras-note">{t('flex.extras.note')}</p>
+        <table class="fp-table">
+          <tbody>
+            {#each extraRows as [label, value]}
+              <tr><th>{label}</th><td>{value}</td></tr>
+            {/each}
+          </tbody>
+        </table>
+      </details>
     {/if}
   </div>
 
@@ -919,6 +1016,21 @@
     padding: 0.12rem 0.4rem 0.12rem 0;
   }
   .fp-table td { text-align: right; color: var(--st-text); padding: 0.12rem 0; }
+
+  .fp-scheme {
+    grid-column: 1 / -1;
+    width: 100%; max-width: 190px; height: auto;
+    color: var(--st-text-3); margin: 2px auto 6px;
+  }
+
+  .fp-bartable th, .fp-bartable td { text-align: right; font-variant-numeric: tabular-nums; }
+  .fp-bartable thead th { color: var(--st-text-3); font-weight: 500; font-size: 0.66rem; }
+  .fp-extras { margin-top: 8px; }
+  .fp-extras summary {
+    cursor: pointer; font-size: 0.7rem; color: var(--st-text-3);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .fp-extras-note { font-size: 0.66rem; color: var(--st-text-3); line-height: 1.45; margin: 4px 0; }
 
   .fp-memo { color: var(--st-text-2); }
   .fp-memo summary { cursor: pointer; color: var(--st-text-3); font-size: 0.7rem; }

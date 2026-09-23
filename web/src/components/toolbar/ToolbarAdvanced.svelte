@@ -132,6 +132,24 @@
   type Adv = { key: string; labelKey: string; isActive: () => boolean; close: () => void };
 
   const ADV: Adv[] = [
+    /*
+     * The calculator is one of these too, and leaving it out of the list was
+     * what made it behave unlike all of them: nothing else could make it the
+     * running analysis, so it never got the header that names what you are in
+     * or the ✕ that leaves it, and `shown()` was never asked about it — so it
+     * stayed on screen next to whatever else you opened, which is not a thing
+     * any other entry can do.
+     *
+     * FIRST, because `active` is the first entry that answers yes and the
+     * calculator's own "take the loads from the model" arms the stress
+     * pointer — which is `stress`'s isActive. Listed after it, the calculator
+     * stopped being the running analysis the moment it asked for a member,
+     * and unmounted itself mid-pick. What the reader opened outranks the
+     * pointer mode that opening it turned on.
+     */
+    { key: 'cirsocFlex', labelKey: 'flex.title',
+      isActive: () => showFlex,
+      close: () => { showFlex = false; } },
     { key: 'kinematic', labelKey: 'advanced.kinematicAnalysis',
       isActive: () => uiStore.showKinematicPanel,
       close: () => { uiStore.showKinematicPanel = false; } },
@@ -168,17 +186,6 @@
     { key: 'dsm', labelKey: 'advanced.stepByStep',
       isActive: () => dsmStepsStore.isOpen,
       close: () => dsmStepsStore.close() },
-    /*
-     * The calculator is one of these too, and leaving it out of the list was
-     * what made it behave unlike all of them: nothing else could make it the
-     * running analysis, so it never got the header that names what you are in
-     * or the ✕ that leaves it, and `shown()` was never asked about it — so it
-     * stayed on screen next to whatever else you opened, which is not a thing
-     * any other entry can do.
-     */
-    { key: 'cirsocFlex', labelKey: 'flex.title',
-      isActive: () => showFlex,
-      close: () => { showFlex = false; } },
   ];
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
