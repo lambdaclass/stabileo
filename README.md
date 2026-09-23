@@ -6,18 +6,15 @@
 
 <p align="center">
   <strong>Structural analysis, in a browser tab.</strong><br>
-  A free and open structural-analysis platform. The solver is a Rust engine compiled to
-  WebAssembly and it runs on your machine — no install, no licence key, no account.
+  An open structural-analysis platform. The solver runs on your machine:
+  nothing to install, no licences, no account.
 </p>
 
 <p align="center">
-  <a href="https://stabileo.com">Open the editor</a> ·
+  <a href="https://stabileo.com"><strong>Open the editor</strong></a> ·
+  <a href="docs/guide/en/README.md"><strong>Read the guide</strong></a> ·
   <a href="https://stabileo.com/en/blog">Blog</a> ·
-  <a href="#what-works-today">What works today</a> ·
-  <a href="#why-stabileo-exists">Why it exists</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#getting-started">Getting started</a> ·
-  <a href="docs/README.md">Docs</a>
+  <a href="README.es.md">Leer en español</a>
 </p>
 
 <p align="center">
@@ -26,188 +23,139 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/3d-deformed.jpg" alt="3D industrial warehouse showing deformed shape under load" width="100%" />
+  <img src="docs/screenshots/pro-shells-en.webp" alt="A concrete frame in Stabileo PRO, with von Mises stresses on the slab and the wall" width="100%" />
 </p>
-<p align="center"><sub>3D industrial warehouse with Pratt roof trusses and crane bridge. Orange overlay shows the deformed shape under load. 216 nodes, 538 elements, 30 supports.</sub></p>
-
-<p align="center">
-  <img src="docs/screenshots/3d-colormap.jpg" alt="Same structure with stress utilization color map" width="100%" />
-</p>
-<p align="center"><sub>Same structure with stress utilization color map (σ/fy). Blue = lightly loaded, yellow = moderate, red = approaching yield.</sub></p>
 
 ---
 
-## What works today
+## What it is
 
-Stabileo ships three modes, and they are not equally finished. This is the same status the
-site itself states, in the same words, because a README that promises more than the product
-delivers costs more trust than the extra features would have bought.
+Stabileo is structural analysis software that runs in any modern browser. You model, load, solve
+and read results in 2D and 3D. The analysis engine is written in Rust and compiled to WebAssembly,
+so it runs on your own computer: your models never leave it.
 
-| Mode | Status | What it is |
-|------|--------|-----------|
-| **Basic** | **Works today** | A practical workspace: 2D and 3D models, the essential tools of a university structures course, and results you can read, check and explain. |
-| **PRO** | In development | Finite-element analysis and complex models already run here, at the level you would expect from a professional package. What is still being polished is design to the codes — the step many FE programs stop short of, handing you results and leaving the check to you. |
-| **Education** | In development | A student-exercise layer on the same engine. Teachers write exercises in the app, hand them out as a link and get the answers back. What is missing is the layer above: the course. |
-
-The [solver capabilities listed further down](#solver-capabilities) are **engine-level**. The engine implements more
-than any one mode currently exposes, which is exactly why the modes are labelled the way they
-are here.
+It was born in the structures courses at [FIUBA](http://www.fi.uba.ar/) (University of Buenos
+Aires), and it keeps that origin: besides giving the answer, **it shows the working** —the degree
+of indeterminacy, the stiffness matrix step by step, which torsion theory applies to a section and
+why.
 
 The interface is available in **English, Spanish and Portuguese**.
 
----
+## The modes
+
+| Mode | Status | What it does |
+|------|--------|--------------|
+| **Basic** | Free, always | Frame and truss structures in 2D and 3D. Axial, shear and moment diagrams, stresses, and advanced tools: kinematic analysis, section analysis, second order, buckling, modal analysis, plastic collapse, influence lines and the stiffness method step by step. Models load from Excel templates, save to a file or travel in a link. |
+| **PRO** | In development · open access | Finite elements and complex models: slabs and walls as plates and shells, constraints, code-based load generation, import from AutoCAD (DXF), Excel or BIM (IFC), and dynamic, staged and non-linear analysis. |
+| **Education** | In development | The teacher writes an exercise inside the app and hands it out as a link. The student solves it without the result in view, and the answers go back to the teacher. |
+| **Stabileo AI** | In development | An agent that builds, reviews and explains models, working on the same structured model and the same solver you use. The AI proposes; the solver decides. |
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/guide/en/img/basic-2d-moments.webp" alt="Bending moment diagram of a portal frame in Basic 2D" /></td>
+    <td width="50%"><img src="docs/guide/en/img/basic-kinematic.webp" alt="Kinematic analysis showing a hidden mechanism the degree formula misses" /></td>
+  </tr>
+  <tr>
+    <td><sub>Basic 2D: the moment diagram of a portal frame, with the results table.</sub></td>
+    <td><sub>Kinematic analysis: the degree formula says zero, the stiffness matrix finds the mechanism.</sub></td>
+  </tr>
+</table>
+
+## Documentation
+
+**The [Stabileo guide](docs/guide/en/README.md)** explains how to use each mode and the theory
+behind it. It is written to be read like course notes, and you do not need to know GitHub or
+programming to follow it: open a chapter and use the links at the bottom of each page.
+
+| | English | Español |
+|---|---|---|
+| Contents | [Guide](docs/guide/en/README.md) | [Guía](docs/guide/es/README.md) |
+| 1 | [Getting started](docs/guide/en/01-getting-started.md) | [Primeros pasos](docs/guide/es/01-primeros-pasos.md) |
+| 2 | [Basic mode in 2D](docs/guide/en/02-basic-2d.md) | [Modo Básico en 2D](docs/guide/es/02-basico-2d.md) |
+| 3 | [Basic mode in 3D](docs/guide/en/03-basic-3d.md) | [Modo Básico en 3D](docs/guide/es/03-basico-3d.md) |
+| 4 | [Advanced tools](docs/guide/en/04-advanced-tools.md) | [Funciones avanzadas](docs/guide/es/04-funciones-avanzadas.md) |
+| 5 | [PRO mode](docs/guide/en/05-pro.md) | [Modo PRO](docs/guide/es/05-pro.md) |
+| 6 | [Theory](docs/guide/en/06-theory.md) | [Fundamentos teóricos](docs/guide/es/06-fundamentos-teoricos.md) |
+
+Technical and contributor documentation —solver reference, verification, benchmarks, roadmaps—
+is indexed in [docs/README.md](docs/README.md).
 
 ## Why Stabileo exists
 
-The dominant structural analysis tools — [SAP2000](https://www.csiamerica.com/products/sap2000),
-[ETABS](https://www.csiamerica.com/products/etabs),
-[Robot](https://www.autodesk.com/products/robot-structural-analysis),
-[RFEM](https://www.dlubal.com/en/products/rfem-fea-software/what-is-rfem) — cost thousands of
-dollars per year, run on Windows, require installation and licence servers, and are closed
-source. Open-source solvers like [OpenSees](https://opensees.berkeley.edu/) are powerful but
-require scripting and have no visual interface.
+The established structural analysis packages cost thousands of dollars a year, run on a single
+operating system, need installation and licence servers, and are closed. Open-source solvers such
+as [OpenSees](https://opensees.berkeley.edu/) are powerful but are driven by scripts, with no
+visual interface.
 
-Stabileo is different:
-
-- **Browser-native.** Open [stabileo.com](https://stabileo.com) and start. No download, no licence key, no account.
-- **Real solver.** A Rust engine compiled to WebAssembly, running on your own machine — your models never leave it.
-- **Real-time.** The solver runs on every edit. Move a node, change a load, resize a section, and the results follow.
-- **It shows the development, not only the answer.** Kinematic analysis, section analysis and the step-by-step Direct Stiffness wizard explain *why* a result is what it is — including when the formula you were taught does not apply. See [the note on that](https://stabileo.com/en/blog/conceptual-side-advanced-tools).
-- **Structured model surface.** The browser UI, the APIs and the AI workflows all target the same model/snapshot contract instead of hidden prompt magic.
-- **AI-ready, but deterministic.** AI can generate, edit, review and explain models; the solver stays the source of truth for the mechanics.
+- **Browser-native.** Open [stabileo.com](https://stabileo.com) and start.
+- **A real solver, on your machine.** Your models are not uploaded anywhere.
+- **Real-time.** Move a node, change a load or resize a section, and the results follow.
+- **It explains.** Kinematic analysis, section analysis and the step-by-step stiffness method show
+  *why* a result is what it is, including when the formula you were taught does not apply.
 - **Open source.** Read the solver, trace the maths, send improvements.
-
-**Tech stack:** Svelte 5 front end, Rust solver engine via WASM, Three.js for 3D.
-
-Originally built for structural engineering courses at [FIUBA](http://www.fi.uba.ar/)
-(University of Buenos Aires).
-
----
-
-## Humans and AI use the same solver
-
-Stabileo's strongest technical wedge is not "AI chat" by itself. It is a `structured structural
-model` and a `deterministic solver` that humans and AI can both operate.
-
-- Engineers model directly in the browser and inspect diagrams, stresses, reactions and diagnostics.
-- AI workflows build or edit the same structured model snapshot, then hand it to the same solver for real analysis.
-- Review and explanation tools sit on top of solver artefacts and diagnostics instead of inventing mechanics.
-
-Start here:
-
-- [Docs hub](docs/README.md)
-- [Quick start](docs/QUICKSTART.md)
-- [AI modeling workflow](docs/AI_MODELING_WORKFLOW.md)
-- [Solver reference](docs/SOLVER_REFERENCE.md)
-
----
-
-## Features
-
-### Solver capabilities
-
-- 2D and 3D linear static, second-order, buckling, modal, response spectrum, time history, harmonic response, and moving loads
-- Corotational and material nonlinear analysis, plastic analysis, fiber beam-column elements
-- Staged construction, prestress/post-tension, cable analysis, contact/gap behavior, nonlinear SSI
-- Initial imperfections, residual stress, creep/shrinkage
-- Multi-family shell stack: MITC4 (ANS + EAS-7), MITC9, SHB8-ANS solid-shell, curved shells
-- Guyan and Craig-Bampton model reduction
-- Sparse-first assembly and solve with AMD ordering, 22-234× speedups on shell models
-- Load combinations, envelopes, section analysis, stress recovery, kinematic diagnostics
-
-### Design codes
-
-| Code | Scope |
-|------|-------|
-| AISC 360 | Steel |
-| ACI 318 | Concrete |
-| EN 1993-1-1 (EC3) | Steel |
-| EN 1992-1-1 (EC2) | Concrete |
-| CIRSOC 201 | Concrete |
-| AISI S100 | Cold-formed steel |
-| NDS | Timber |
-| TMS 402 | Masonry |
-| ASCE 7 / EN 1990 | Loads and combinations |
-
-### Validation
-
-Benchmarked against NAFEMS, ANSYS Verification Manual, Code_Aster, SAP2000, OpenSees, Robot,
-STAAD.Pro, and textbook solutions. See [BENCHMARKS.md](docs/BENCHMARKS.md) for full coverage.
-
----
 
 ## The blog
 
-[stabileo.com/blog](https://stabileo.com/en/blog) — longer pieces on how the solver works, what
-the code checks actually verify, and the decisions behind them, in English, Spanish and
-Portuguese. Every figure in them is produced by the engine before the prose is written, and
-several posts embed the real editor on the model they describe.
+[stabileo.com/blog](https://stabileo.com/en/blog) — long pieces on how the solver works and the
+decisions behind it, in English, Spanish and Portuguese. Every figure in them is computed by the
+engine before the prose is written, and several posts embed the real editor on the model they
+describe.
 
-- [The determinism boundary](https://stabileo.com/en/blog/the-determinism-boundary) — why an AI agent must not do the arithmetic
-- [What free software computes, and what it never explains](https://stabileo.com/en/blog/conceptual-side-advanced-tools) — where the free tools stop
-- [Flexural verification to CIRSOC 201](https://stabileo.com/en/blog/verificacion-flexion-cirsoc-201) — the steps that decide the outcome
-- [Bredt or Saint-Venant](https://stabileo.com/en/blog/torsion-bredt-saint-venant) — which torsion theory applies, and what picking wrong costs
 - [Bars or finite elements?](https://stabileo.com/en/blog/bars-or-finite-elements) — not two methods but two models, and where they give different answers
+- [Bredt or Saint-Venant](https://stabileo.com/en/blog/torsion-bredt-saint-venant) — which torsion theory applies, and what picking wrong costs
+- [Flexural verification to CIRSOC 201](https://stabileo.com/en/blog/verificacion-flexion-cirsoc-201) — the steps that decide the outcome
+- [What free software computes, and what it never explains](https://stabileo.com/en/blog/conceptual-side-advanced-tools) — where the free tools stop
+- [The determinism boundary](https://stabileo.com/en/blog/the-determinism-boundary) — why an AI agent must not do the arithmetic
 
----
+## Under the hood
 
-## Getting started
+- **Engine:** Rust, compiled to WebAssembly. Direct stiffness method for frames and trusses, MITC4
+  and DKT elements for plates and shells, sparse Cholesky factorisation for large models.
+- **Interface:** Svelte 5 and TypeScript, Three.js for 3D, KaTeX for the step-by-step equations.
+- **Validation:** checked against analytical solutions, NAFEMS benchmarks, the ANSYS Verification
+  Manual, Code_Aster and textbook problems. See [BENCHMARKS.md](docs/BENCHMARKS.md).
 
-**Use it now.** Open [stabileo.com](https://stabileo.com). Works in any modern browser.
+<details>
+<summary><strong>What the engine can solve</strong></summary>
 
-**Run locally:**
+The engine implements more than any single mode exposes today; the modes above say what is
+reachable from the interface.
+
+- 2D and 3D linear static, second order (P-Δ), linear buckling, modal, response spectrum, time
+  history, harmonic response and moving loads
+- Corotational and material non-linear analysis, plastic analysis, fibre beam-column elements
+- Staged construction, prestress and post-tension, cables, contact and gap, non-linear
+  soil-structure interaction
+- Initial imperfections, residual stress, creep and shrinkage
+- Shells: MITC4 (ANS + EAS-7), MITC9, SHB8-ANS solid-shell and curved shells
+- Guyan and Craig-Bampton model reduction
+- Load combinations, envelopes, section analysis, stress recovery and kinematic diagnostics
+
+</details>
+
+## Run it locally
 
 ```bash
 git clone https://github.com/lambdaclass/stabileo.git
 cd stabileo/web
 npm install
+npm run wasm      # build the Rust engine into web/src/lib/wasm (needs Rust and wasm-pack)
 npm run dev       # http://localhost:4000
 ```
 
 ```bash
-npm test           # run the web test suite
+npm test           # the web test suite
 npm run build:only # production build -> web/dist/
 ```
 
-Requires Node.js >= 18.
-
-`npm run build` does the same build and then prerenders every public route, which it does
-by driving the real page in headless Chromium — so it needs a browser installed first:
-
-```bash
-npx playwright install chromium
-npm run build     # build + prerender, what CI and the deploy run
-```
-
-Nothing else in the workflow needs it: `npm run dev`, `npm test` and `build:only` do not
-prerender.
-
----
-
-## Documentation
-
-| Document | Contents |
-|----------|----------|
-| [docs/README.md](docs/README.md) | Docs hub: quick start, AI workflow, solver reference, and roadmap entry points |
-| [QUICKSTART.md](docs/QUICKSTART.md) | First model tutorial: build, solve, inspect, and share a 2D beam |
-| [AI_MODELING_WORKFLOW.md](docs/AI_MODELING_WORKFLOW.md) | How AI build/review flows use the structured model + solver loop |
-| [SOLVER_REFERENCE.md](docs/SOLVER_REFERENCE.md) | Coordinate conventions, model objects, outputs, and execution surfaces |
-| [SOLVER_ROADMAP.md](docs/roadmap/SOLVER_ROADMAP.md) | Solver status, sequencing, performance, and validation |
-| [PRODUCT_ROADMAP.md](docs/roadmap/PRODUCT_ROADMAP.md) | App, workflow, and market sequencing |
-| [INFRASTRUCTURE_ROADMAP.md](docs/roadmap/INFRASTRUCTURE_ROADMAP.md) | Backend, deployment, auth, persistence, and operational sequencing |
-| [AI_ROADMAP.md](docs/roadmap/AI_ROADMAP.md) | AI capability sequencing, safety rules, and prerequisites |
-| [BENCHMARKS.md](docs/BENCHMARKS.md) | Validation coverage and benchmark status |
-| [VERIFICATION.md](docs/VERIFICATION.md) | Testing philosophy, fuzzing, invariants |
-| [POSITIONING.md](docs/POSITIONING.md) | Market framing and competitive strategy |
-| [engine/README.md](engine/README.md) | Rust solver engine API and analysis types |
-| [CHANGELOG.md](CHANGELOG.md) | Milestone updates |
-| [docs/research/](docs/research/) | Shell-family research, competitor comparisons, numerical methods |
-
----
+Requires Node.js 18 or later. `npm run build` also prerenders every public route by driving the
+page in headless Chromium, so it needs `npx playwright install chromium` first; `dev`, `test` and
+`build:only` do not.
 
 ## Contributing
 
-Pull requests are welcome. For major changes, open an issue first to discuss the approach.
+Pull requests are welcome. For larger changes, open an issue first to discuss the approach. The
+[technical documentation](docs/README.md) is the place to start.
 
 ## Security
 
@@ -217,13 +165,11 @@ To report a vulnerability, email security@lambdaclass.com.
 
 [AGPL-3.0](LICENSE)
 
----
-
 ## Built by
 
 - **Bautista Chesta** — Civil Engineer (FIUBA), UX/UI and project management
 - **Diego Kingston** — Ph.D. in Engineering (UBA), product–solver integration
 - **Federico Carrone** — Founder of [Lambda Class](https://lambdaclass.com), solver lead
 
-With contributions from mathematicians, physicists, computer engineers, and computer scientists
-at [Lambda Class](https://lambdaclass.com).
+With contributions from mathematicians, physicists, computer engineers and computer scientists at
+[Lambda Class](https://lambdaclass.com).

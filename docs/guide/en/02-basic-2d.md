@@ -1,0 +1,173 @@
+# 2. Basic mode in 2D
+
+Basic mode solves **frame and truss structures**: beams, frames, trusses, arches. In 2D the
+structure lives in a vertical plane, the **XZ** plane: X is horizontal and Z is vertical, pointing
+up. Each node has three degrees of freedom: two displacements (**ux**, **uz**) and one rotation
+(**θy**).
+
+This chapter goes through the command ribbon from left to right, which is the natural order in
+which a model is built.
+
+## View
+
+- **Move** has two modes: *move the view* (dragging pans the drawing) or *move nodes* (dragging
+  relocates a node, and the members follow it).
+- **Selection** sets what a click or a drag picks up: nodes, members, or both. Dragging left to
+  right takes what lies entirely inside the rectangle; right to left, anything it touches. You can
+  also select **by id**, with lists and ranges such as `3, 7-10`.
+- **3D** takes the model into space. See [chapter 3](03-basic-3d.md).
+
+## Draw
+
+### Nodes
+
+**Node** (key `N`) places a node with each click. If the node lands on a member, the program can
+split it in two automatically (switched on in **Settings**).
+
+The same tool has a second mode, **Joints**, to change how members are connected at a node:
+
+- **Hinge.** Releases the moment: the node transmits forces but no moment. Clicking a node hinges
+  every member that reaches it; clicking a member splits it at that point and hinges both new
+  ends.
+- **Sliding X / Z.** Releases a relative displacement in one direction, in global or local axes.
+
+### Members
+
+**Member** (key `E`) joins two nodes. Before drawing, choose the type:
+
+- **Rigid (frame):** carries axial force, shear and moment. It is the member of beams and columns.
+- **Hinged (truss):** axial force only. It is the member of trusses.
+
+Hinges can also be set or removed from the members table, end by end (the **Hng I** and
+**Hng J** columns).
+
+> **What a hinge is, internally.** A member with a hinged end is not solved with a different
+> matrix written "by hand": the program takes the rigid member's matrix and removes the released
+> degree of freedom by **static condensation**. See [chapter 6](06-theory.md#hinges).
+
+## Properties
+
+### Materials
+
+Each material has a modulus of elasticity **E** (MPa), Poisson's ratio **ν**, unit weight **ρ**
+(kN/m³) and yield stress **fy** (MPa). You can start from a library (steels, cold-formed,
+stainless, aluminium, concretes and timbers, to several codes) or enter a custom one.
+
+- **E** governs stiffness: it is the only thing the linear analysis needs from the material.
+- **ρ** is used for self-weight and for mass in the dynamic analysis.
+- **fy** is used to express stresses as utilisation (σ/fy) and in plastic collapse.
+
+### Sections
+
+Each section has an area **A**, second moments of area **Iy** and **Iz** and, in 3D, a torsion
+constant **J**. There are three ways to define one:
+
+1. **Choose Standard Profile:** rolled and cold-formed profiles (IPN, UPN, W, HEA, HEB, IPE, tubes,
+   angles and so on) to several codes.
+2. **Build Section:** parametric shapes, hollow (box, tube, I, T, U, C) or solid (rectangular,
+   circular, T, L). The program computes the properties from the geometry.
+3. **Define Amorphous Section:** only the numbers A, I and J. It is enough to solve, but not to
+   analyse stresses, because the program does not know the shape.
+
+> In 2D the member bends in the XZ plane, so the inertia that counts is the one for bending in
+> that plane. If the section is rotated by an angle α, Iy·cos²α + Iz·sin²α is used.
+
+## Conditions
+
+### Supports
+
+**Support** (key `S`) places a support on a node. The types in 2D:
+
+| Type | Restrains | Reactions |
+|---|---|---|
+| **Fixed** | ux, uz, θy | Rx, Rz, My |
+| **Pinned** (Pin.) | ux, uz | Rx, Rz |
+| **Roller** | a single displacement: the vertical or the horizontal one | the reaction in that direction |
+| **Spring** | nothing rigidly: adds stiffness kx, kz, kθ | proportional to the displacement |
+
+- A **roller** can be inclined by an angle α: the sliding plane is rotated and the reaction stays
+  perpendicular to it. It can also take the direction of the member that reaches it (local axes).
+- Supports can carry **prescribed displacements**: a settlement, a rotation. The program treats
+  them as a boundary condition with a non-zero value.
+
+### Loads
+
+**Load** (key `L`) applies loads to the active load case. The types:
+
+- **Point.** On a node it is a force **Fx**, **Fz** or a moment **My**. On a member it is a point
+  load at the position you clicked.
+- **Distributed.** With a value at each end (**qI**, **qJ**), so it can be uniform or trapezoidal.
+  The direction can be global (Z) or perpendicular to the member, with an extra angle α. A load
+  over part of the member is defined from the loads table.
+- **Thermal.** A uniform temperature change **ΔT** (lengthens or shortens the member) and a
+  gradient **ΔTg** between faces (curves it). The expansion coefficient is fixed at 12·10⁻⁶ /°C.
+- **Self-weight (SW).** A checkbox in the tool strip: adds ρ·A along each member, downwards.
+
+Loads on members are not "moved to the nodes" by eye: the program computes each member's
+**fixed-end forces** and assembles them as equivalent nodal loads. See
+[chapter 6](06-theory.md#the-load-vector).
+
+### Load cases and combinations
+
+The **Loads** tab of the data table has a **Combinations** section:
+
+- **Load cases:** dead (D), live (L), wind (W), earthquake (E), or any you define. Every load
+  belongs to a case.
+- **Combinations:** one factor per case. Four come by default: 1.2D + 1.6L, 1.4D, 1.2D + L + 1.6W
+  and 1.2D + L + E. They can be edited, deleted or added to.
+
+When solving, the program first solves **Simple loads** (all loads together, unfactored), then
+each case and each combination, and builds the **envelope** (maxima and minima over all
+combinations). Self-weight is added only to D-type cases within combinations.
+
+Because the analysis is linear, each combination is the sum of the cases multiplied by their
+factors: that is the superposition principle.
+
+## Analyse
+
+- **Solve** (`Enter`) solves the model and opens the results. Every solve includes a **kinematic
+  check**: if the structure is a mechanism it says so, and if it is stable it reports whether it
+  is statically determinate or indeterminate, and to what degree.
+- **Advanced** opens the advanced tools. They have a chapter of their own:
+  [chapter 4](04-advanced-tools.md).
+
+## Results
+
+The **Results** buttons become available after the first solve:
+
+| Button | What it shows |
+|---|---|
+| **None** | The model only |
+| **Deformed** | The deformed shape, exaggerated. It can be animated. |
+| **N** | Axial force (positive = tension) |
+| **Vz** | Shear force |
+| **My** | Bending moment, drawn on the tension side |
+| **Stress** | A colour map of the stresses in each member |
+
+In the **Results** panel:
+
+- **Diagram scale** enlarges or shrinks the drawing without changing the values.
+- **Shown as:** diagram, member colour (axial force only: red tension, blue compression) or colour
+  map.
+- For **Stress**, the **measure**: utilisation σ/fy, von Mises, normal stress σ or shear stress τ.
+- **Change results view:** simple loads, a case, a combination or the envelope. **Compare**
+  overlays a second result so you can see them together.
+- The **results table**: displacements of each node (ux, uz in mm; θy in mrad), reactions (Rx, Rz,
+  My) and the forces at the ends of each member.
+
+> **How a diagram is drawn.** The program solves the node displacements and, from them, the forces
+> at the ends of each member. Inside the member the diagrams come from **equilibrium**, integrating
+> the loads along the span: they are not interpolated between the ends. That is why the moment
+> under a distributed load comes out parabolic even when the member is not subdivided.
+
+## Sign conventions
+
+- **Axial force:** positive in tension.
+- **Moment:** drawn on the tension side. In **Settings** you can have positive values drawn towards
+  the local axes instead.
+- **Reactions and displacements:** in global axes, positive in the direction of X and Z.
+- **Normal stress:** σ = N/A + M·z/I, positive in tension.
+
+---
+
+[← Getting started](01-getting-started.md) · [Contents](README.md) · [Next: Basic mode in 3D →](03-basic-3d.md)
