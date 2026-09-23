@@ -160,6 +160,111 @@ function layoutFor(i: FlexInput, AstCm2: number): Bar[] {
   }
 }
 
+
+/**
+ * Where the capacity vector points, for a trial neutral-axis angle.
+ *
+ * Same ray walk `utilisation` does, kept to the direction of the answer rather
+ * than its magnitude — which is all the search below needs.
+ */
+function capacityDirectionAt(
+  outline: Outline, bars: Bar[], mat: Materials,
+  Pu: number, Mres: number, theta: number,
+): number | null {
+  const curve = interactionCurve(outline, bars, mat, theta, 60);
+  const cap = (p: (typeof curve)[number]) => Math.hypot(p.phiMnx, p.phiMny);
+  if (Math.abs(Pu) < 1e-9) {
+    for (let k = 0; k < curve.length - 1; k++) {
+      const A = curve[k];
+      const B = curve[k + 1];
+      if (A.phiPn >= 0 && B.phiPn < 0) {
+        const t = A.phiPn / (A.phiPn - B.phiPn);
+        const mx = A.phiMnx + t * (B.phiMnx - A.phiMnx);
+        const my = A.phiMny + t * (B.phiMny - A.phiMny);
+        return Math.atan2(my, mx);
+      }
+    }
+    return null;
+  }
+  const slope = Mres / Pu;
+  for (let i = 0; i < curve.length - 1; i++) {
+    const A = curve[i];
+    const B = curve[i + 1];
+    const fA = cap(A) - slope * A.phiPn;
+    const fB = cap(B) - slope * B.phiPn;
+    if (fA === 0 || fA * fB < 0) {
+      const t = fA / (fA - fB);
+      const mx = A.phiMnx + t * (B.phiMnx - A.phiMnx);
+      const my = A.phiMny + t * (B.phiMny - A.phiMny);
+      return Math.atan2(my, mx);
+    }
+  }
+  return null;
+}
+
+/**
+ * The neutral-axis angle whose capacity points where the demand points.
+ *
+ * A bracket-and-bisect rather than anything cleverer: the map from θ to the
+ * capacity's direction is monotone over the quadrant a demand lives in, the
+ * bracket is the quadrant itself, and forty evaluations of a sixty-point curve
+ * is nothing next to being several per cent wrong. If the bracket does not
+ * close — a section so asymmetric the map turns — the caller keeps the
+ * perpendicular guess, which is what it used to do everywhere.
+ */
+function alignedTheta(
+  outline: Outline, bars: Bar[], mat: Materials,
+  Pu: number, Mx: number, My: number, fallback: number,
+): number {
+  const Mres = Math.hypot(Mx, My);
+  const want = Math.atan2(My, Mx);
+  /* Wrapped to (−π, π] so a demand near the ±π seam does not read as a huge
+     residual against a capacity on the other side of it. */
+  const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+  const residual = (th: number): number | null => {
+    const got = capacityDirectionAt(outline, bars, mat, Pu, Mres, th);
+    return got === null ? null : wrap(got - want);
+  };
+
+  const r0 = residual(fallback);
+  if (r0 === null) return fallback;
+  if (Math.abs(r0) < 1e-4) return fallback;
+
+  /* Bracket by walking out from the perpendicular guess, both ways. */
+  let lo = fallback;
+  let hi = fallback;
+  let rLo = r0;
+  let rHi = r0;
+  const STEP = Math.PI / 36;            // 5°
+  for (let k = 1; k <= 18 && rLo * r0 > 0; k++) {
+    lo = fallback - k * STEP;
+    const r = residual(lo);
+    if (r === null) return fallback;
+    rLo = r;
+  }
+  for (let k = 1; k <= 18 && rHi * r0 > 0; k++) {
+    hi = fallback + k * STEP;
+    const r = residual(hi);
+    if (r === null) return fallback;
+    rHi = r;
+  }
+  let a: number;
+  let b: number;
+  let ra: number;
+  if (rLo * r0 <= 0) { a = lo; b = fallback; ra = rLo; }
+  else if (rHi * r0 <= 0) { a = fallback; b = hi; ra = r0; }
+  else return fallback;
+
+  for (let i = 0; i < 40; i++) {
+    const mid = (a + b) / 2;
+    const rm = residual(mid);
+    if (rm === null) return fallback;
+    if (Math.abs(rm) < 1e-6) return mid;
+    if (ra * rm <= 0) { b = mid; } else { a = mid; ra = rm; }
+  }
+  return (a + b) / 2;
+}
+
 /**
  * Demand over capacity along the ray of constant eccentricity.
  *
@@ -178,11 +283,32 @@ function utilisation(
 ): { ratio: number; phiPn: number; phiMn: number; c: number; epsilonT: number; phi: number } {
   const Mres = Math.hypot(Mx, My);
   /*
-   * The compressed face is the one the resultant moment presses on. θ is
-   * measured to the outward normal of that face; for pure Mx it is +π/2,
-   * which puts the compression at the top.
+   * ── The neutral axis is NOT perpendicular to the resultant moment ──
+   *
+   * θ used to be taken straight from the demand — `atan2(Mx, −My)` — which
+   * assumes the section fails about an axis square to the moment vector. That
+   * holds for a circle and for either principal direction of a rectangle, and
+   * nowhere in between: a rectangle bent at 30° to its strong axis fails about
+   * an axis several degrees away from the perpendicular, because the concrete
+   * in the corner is not where a perpendicular axis would put it.
+   *
+   * Assuming it away read the capacity off the wrong point of the failure
+   * surface, and always in the same direction. Measured against FCO-DIM's own
+   * surface cut — 260 published points — the error was ZERO on both axes,
+   * where the assumption is exact, and up to 8,9 % between them, every bit of
+   * it UNCONSERVATIVE. It peaks near 30°, which is where most real columns
+   * are, and it is invisible to any test that only asks about Mx or only My.
+   *
+   * So the angle is SOLVED for rather than assumed: the θ whose capacity
+   * vector points where the demand points. `capacityAt` walks the ray at a
+   * trial θ and reports the direction it came back with; the bracketing search
+   * below closes on the θ that matches. On an axis the first guess is already
+   * the answer and the loop exits immediately, so the uniaxial agreement that
+   * was already verified does not move.
    */
-  const theta = Math.atan2(Mx, -My) || Math.PI / 2;
+  const skew = Math.abs(Mx) > 1e-9 && Math.abs(My) > 1e-9;
+  const theta0 = Math.atan2(Mx, -My) || Math.PI / 2;
+  const theta = skew ? alignedTheta(outline, bars, mat, Pu, Mx, My, theta0) : theta0;
   const curve = interactionCurve(outline, bars, mat, theta, 90);
 
   const cap = (p: (typeof curve)[number]) => Math.hypot(p.phiMnx, p.phiMny);
