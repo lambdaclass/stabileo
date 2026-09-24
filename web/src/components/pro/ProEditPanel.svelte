@@ -116,92 +116,80 @@
   }
 </script>
 
-<div class="ep" data-testid="edit-panel">
-  <p class="ep-scope" data-testid="ep-scope">{scopeText}</p>
+<div class="pk ep" data-testid="edit-panel">
+  <p class="pk-hint ep-scope" data-testid="ep-scope">{scopeText}</p>
 
-  <section>
-    <h4>{t('edit.cutTitle')}</h4>
-    <div class="ep-row">
-      <button onclick={doSplitAtNodes} data-testid="ep-split-nodes">{t('edit.splitAtNodes')}</button>
-      <button onclick={doIntersect} data-testid="ep-intersect">{t('edit.intersect')}</button>
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('edit.cutTitle')}</h4>
+    <div class="pk-row ep-row">
+      <button class="pk-btn" onclick={doSplitAtNodes} data-testid="ep-split-nodes">{t('edit.splitAtNodes')}</button>
+      <button class="pk-btn" onclick={doIntersect} data-testid="ep-intersect">{t('edit.intersect')}</button>
     </div>
-    <div class="ep-row">
+    <div class="pk-row ep-row">
       <label>{t('edit.parts')} <input type="number" min="2" max="20" step="1" bind:value={parts} data-testid="ep-parts" /></label>
-      <button onclick={doSubdivide} disabled={members.length === 0} data-testid="ep-subdivide">{t('edit.subdivide')}</button>
+      <button class="pk-btn" onclick={doSubdivide} disabled={members.length === 0} data-testid="ep-subdivide">{t('edit.subdivide')}</button>
     </div>
-    <p class="ep-note">{t('edit.cutNote')}</p>
+    <p class="pk-hint">{t('edit.cutNote')}</p>
   </section>
 
-  <section>
-    <h4>{t('edit.mergeTitle')}</h4>
-    <button onclick={doMerge} data-testid="ep-merge">{t('edit.merge')}</button>
-    <p class="ep-note">{t('edit.mergeNote')}</p>
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('edit.mergeTitle')}</h4>
+    <button class="pk-btn" onclick={doMerge} data-testid="ep-merge">{t('edit.merge')}</button>
+    <p class="pk-hint">{t('edit.mergeNote')}</p>
   </section>
 
-  <section>
-    <h4>{t('edit.constructTitle')}</h4>
-    <div class="ep-row">
-      <button onclick={doPerpendicular} disabled={selNodes.length !== 1 || members.length !== 1} data-testid="ep-perpendicular">{t('edit.perpendicular')}</button>
-      <button onclick={doMidpoints} disabled={members.length !== 2} data-testid="ep-midpoints">{t('edit.midpoints')}</button>
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('edit.constructTitle')}</h4>
+    <div class="pk-row ep-row">
+      <button class="pk-btn" onclick={doPerpendicular} disabled={selNodes.length !== 1 || members.length !== 1} data-testid="ep-perpendicular">{t('edit.perpendicular')}</button>
+      <button class="pk-btn" onclick={doMidpoints} disabled={members.length !== 2} data-testid="ep-midpoints">{t('edit.midpoints')}</button>
     </div>
-    <p class="ep-note">{t('edit.constructNote')}</p>
+    <p class="pk-hint">{t('edit.constructNote')}</p>
   </section>
 
-  <section>
-    <h4>{t('edit.fillTitle')}</h4>
-    <div class="ep-row">
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('edit.fillTitle')}</h4>
+    <div class="pk-row ep-row">
       <select bind:value={fillMaterial} aria-label={t('edit.fillMaterial')}>{#each [...modelStore.materials.values()] as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
       <label>{t('edit.thickness')} <input type="number" min="0.01" step="0.01" bind:value={fillThickness} /></label>
       <label>{t('edit.fillSize')} <input type="number" min="0" step="0.25" bind:value={fillSize} /></label>
-      <button onclick={doFill} disabled={scope.length < 3} data-testid="ep-fill">{t('edit.fill')}</button>
+      <button class="pk-btn" onclick={doFill} disabled={scope.length < 3} data-testid="ep-fill">{t('edit.fill')}</button>
     </div>
-    <p class="ep-note">{t('edit.fillNote')}</p>
+    <p class="pk-hint">{t('edit.fillNote')}</p>
   </section>
 
-  <section>
-    <h4>{t('edit.renumberTitle')}</h4>
-    <div class="ep-row">
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('edit.renumberTitle')}</h4>
+    <div class="pk-row ep-row">
       <select bind:value={order} aria-label={t('edit.order')}>
         <option value="zyx">{t('edit.order.zyx')}</option><option value="zxy">{t('edit.order.zxy')}</option>
         <option value="xyz">{t('edit.order.xyz')}</option><option value="yxz">{t('edit.order.yxz')}</option>
       </select>
-      <label><input type="checkbox" bind:checked={renumberNodes} /> {t('edit.renumberNodes')}</label>
-      <label><input type="checkbox" bind:checked={renumberMembers} /> {t('edit.renumberMembers')}</label>
-      <button onclick={doRenumber} disabled={designDocs.length > 0 || (!renumberNodes && !renumberMembers)} data-testid="ep-renumber">{t('edit.renumber')}</button>
+      <label class="pk-check"><input type="checkbox" bind:checked={renumberNodes} /> {t('edit.renumberNodes')}</label>
+      <label class="pk-check"><input type="checkbox" bind:checked={renumberMembers} /> {t('edit.renumberMembers')}</label>
+      <button class="pk-btn" onclick={doRenumber} disabled={designDocs.length > 0 || (!renumberNodes && !renumberMembers)} data-testid="ep-renumber">{t('edit.renumber')}</button>
     </div>
-    <p class="ep-note">{designDocs.length > 0 ? tp('edit.renumberRefused', { fields: designDocs.join(', ') }) : t('edit.renumberNote')}</p>
+    <p class="pk-hint">{designDocs.length > 0 ? tp('edit.renumberRefused', { fields: designDocs.join(', ') }) : t('edit.renumberNote')}</p>
   </section>
 
-  <section>
-    <h4>{t('edit.cleanTitle')}</h4>
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('edit.cleanTitle')}</h4>
     <ul class="ep-findings">
-      <li>{tp('edit.found.coincident', { n: findings.coincident })} <button disabled={findings.coincident === 0} onclick={() => (message = cleanupMessage(mergeCoincidentNodes()))} data-testid="ep-merge-nodes">{t('edit.fix')}</button></li>
-      <li>{tp('edit.found.duplicates', { n: findings.duplicates })} <button disabled={findings.duplicates === 0} onclick={() => (message = cleanupMessage(removeDuplicateMembers()))}>{t('edit.fix')}</button></li>
-      <li>{tp('edit.found.zero', { n: findings.zero })} <button disabled={findings.zero === 0} onclick={() => (message = cleanupMessage(removeZeroLengthMembers()))}>{t('edit.fix')}</button></li>
-      <li>{t('edit.found.orphans')} <button onclick={() => (message = cleanupMessage(removeOrphanNodes()))}>{t('edit.fix')}</button></li>
+      <li>{tp('edit.found.coincident', { n: findings.coincident })} <button class="pk-btn" disabled={findings.coincident === 0} onclick={() => (message = cleanupMessage(mergeCoincidentNodes()))} data-testid="ep-merge-nodes">{t('edit.fix')}</button></li>
+      <li>{tp('edit.found.duplicates', { n: findings.duplicates })} <button class="pk-btn" disabled={findings.duplicates === 0} onclick={() => (message = cleanupMessage(removeDuplicateMembers()))}>{t('edit.fix')}</button></li>
+      <li>{tp('edit.found.zero', { n: findings.zero })} <button class="pk-btn" disabled={findings.zero === 0} onclick={() => (message = cleanupMessage(removeZeroLengthMembers()))}>{t('edit.fix')}</button></li>
+      <li>{t('edit.found.orphans')} <button class="pk-btn" onclick={() => (message = cleanupMessage(removeOrphanNodes()))}>{t('edit.fix')}</button></li>
     </ul>
-    <button class="ep-all" onclick={() => (message = cleanupMessage(cleanUpModel()))} data-testid="ep-clean-all">{t('edit.cleanAll')}</button>
+    <button class="pk-btn pk-btn-primary" onclick={() => (message = cleanupMessage(cleanUpModel()))} data-testid="ep-clean-all">{t('edit.cleanAll')}</button>
   </section>
 
-  {#if message}<p class="ep-done" data-testid="ep-done">{message}</p>{/if}
+  {#if message}<p class="pk-ok" data-testid="ep-done">{message}</p>{/if}
 </div>
 
 <style>
-  .ep { display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.72rem; }
-  .ep-scope { margin: 0; color: var(--st-text-3); }
-  section { display: flex; flex-direction: column; gap: 4px; }
-  h4 { margin: 0; font-size: 0.68rem; font-weight: 600; color: var(--st-text-2); text-transform: uppercase; letter-spacing: 0.04em; }
-  .ep-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .ep-row label { display: flex; align-items: center; gap: 4px; color: var(--st-text-3); }
-  input { width: 50px; padding: 3px 5px; font-size: 0.68rem; background: var(--st-surface); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text-2); text-align: right; }
-  button {
-    align-self: flex-start; padding: 3px 9px; font-size: 0.68rem; color: var(--st-text); background: var(--st-surface-3);
-    border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer;
-  }
-  button:disabled { opacity: 0.35; cursor: not-allowed; }
-  .ep-all { border-color: var(--st-accent); }
-  .ep-findings { margin: 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 3px; color: var(--st-text-2); }
-  .ep-findings button { margin-left: 6px; padding: 1px 6px; font-size: 0.62rem; }
-  .ep-note { margin: 0; color: var(--st-text-3); font-style: italic; font-size: 0.64rem; }
-  .ep-done { margin: 0; color: var(--st-ok); }
+  .ep-row input[type='number'] { width: 56px; text-align: right; }
+  .ep-findings { margin: 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 4px; color: var(--st-text-2); }
+  .ep-findings li { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .ep-findings :global(.pk-btn) { min-height: 20px; padding: 0.1rem 0.5rem; font-size: 0.62rem; }
 </style>

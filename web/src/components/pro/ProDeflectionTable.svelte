@@ -39,12 +39,14 @@
 </script>
 
 <div class="dt-bar">
+  <div class="pk-tabs">
   <button class:on={source === 'service'} onclick={() => (source = 'service')} data-testid="defl-src-service">{t('defl.service')}</button>
   <button class:on={source === 'shown'} onclick={() => (source = 'shown')} data-testid="defl-src-shown">{t('tables.mode.current')}</button>
+  </div>
   {#if source === 'service'}
     <span class="dt-basis">{svc.basis === 'service' ? tp('pro.deflBasisService', { names: svc.names.join(', ') }) : t(`pro.deflBasis.${svc.basis}`)}</span>
   {/if}
-  <button class="dt-csv" onclick={csv}>CSV</button>
+  <button class="pk-btn dt-csv" onclick={csv}>CSV</button>
 </div>
 <div class="pro-res-table-wrap">
   <table class="pro-res-table" data-testid="defl-table">
@@ -72,14 +74,9 @@
 </div>
 
 <style>
-  .dt-bar { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; margin: 2px 0 4px; }
-  button {
-    padding: 1px 7px; font-size: 0.62rem; color: var(--st-text-2); background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer;
-  }
-  button.on { color: var(--st-text); border-color: var(--st-accent); }
+  .dt-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0 6px; }
   .dt-basis { font-size: 0.6rem; color: var(--st-text-3); }
-  .dt-csv { margin-left: auto; }
+  .dt-csv { margin-left: auto; min-height: 22px; padding: 0.1rem 0.5rem; font-size: 0.62rem; }
   .dt-src { font-size: 0.6rem; color: var(--st-text-3); white-space: nowrap; }
   .dt-note { margin: 4px 0; font-size: 0.6rem; color: var(--st-text-3); }
   .dt-ok { color: var(--st-ok); }

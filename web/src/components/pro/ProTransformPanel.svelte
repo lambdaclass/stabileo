@@ -121,20 +121,25 @@
   }
 </script>
 
-<div class="tp" data-testid="transform-panel">
-  <div class="tp-modes" role="tablist">
+<div class="pk tp" data-testid="transform-panel">
+  <section class="pk-card">
+  <div class="pk-tabs" role="tablist">
     {#each MODES as m (m)}
-      <button role="tab" class="tp-mode" class:on={mode === m} aria-selected={mode === m} onclick={() => (mode = m)} data-testid="tp-mode-{m}">
+      <button role="tab" class:on={mode === m} aria-selected={mode === m} onclick={() => (mode = m)} data-testid="tp-mode-{m}">
         {t(`transform.mode.${m}`)}
       </button>
     {/each}
   </div>
   <p class="tp-lead">{t(`transform.lead.${mode}`)}</p>
-  <p class="tp-sel" data-testid="tp-selection">
+  <p class="pk-hint" data-testid="tp-selection">
     {size === 0 ? t('transform.nothingSelected') : tp('transform.selected', {
       n: set.nodes.size, e: set.elements.size, s: set.quads.size + set.plates.size,
     })}
   </p>
+  </section>
+
+  <section class="pk-card">
+  <h4 class="pk-heading">{t('kit.parameters')}</h4>
 
   {#if mode === 'rotate'}
     <label class="tp-check"><input type="checkbox" bind:checked={asCopy} data-testid="tp-copy" /> {t('transform.asCopy')}</label>
@@ -192,6 +197,10 @@
     {/if}
   {/if}
 
+  </section>
+
+  <section class="pk-card">
+  <h4 class="pk-heading">{t('kit.options')}</h4>
   {#if canCopy}
     <label class="tp-check"><input type="checkbox" bind:checked={withLoads} /> {t('transform.withLoads')}</label>
     <label class="tp-check"><input type="checkbox" bind:checked={withSupports} /> {t('transform.withSupports')}</label>
@@ -209,19 +218,15 @@
     <p class="tp-note">{t('transform.keepsConnections')}</p>
   {/if}
 
-  <button class="tp-go" disabled={!canRun} onclick={run} data-testid="tp-run">{t(`transform.run.${mode}`)}</button>
-  {#if message}<p class="tp-done" data-testid="tp-done">{message}</p>{/if}
-  <p class="tp-note">{t('transform.weldNote')}</p>
+  <div class="pk-row pk-row-end">
+    <button class="pk-btn pk-btn-primary" disabled={!canRun} onclick={run} data-testid="tp-run">{t(`transform.run.${mode}`)}</button>
+  </div>
+  {#if message}<p class="pk-ok" data-testid="tp-done">{message}</p>{/if}
+  <p class="pk-hint">{t('transform.weldNote')}</p>
+  </section>
 </div>
 
 <style>
-  .tp { display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.72rem; }
-  .tp-modes { display: flex; flex-wrap: wrap; gap: 4px; }
-  .tp-mode {
-    padding: 3px 8px; font-size: 0.68rem; color: var(--st-text-2); background: var(--st-surface-2);
-    border: 1px solid var(--st-surface-3); border-radius: 3px; cursor: pointer;
-  }
-  .tp-mode.on { color: var(--st-text); border-color: var(--st-accent); }
   .tp-lead { margin: 0; color: var(--st-text-2); }
   .tp-sel { margin: 0; color: var(--st-text-3); }
   .tp-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--st-text-2); }
@@ -241,12 +246,7 @@
     align-self: flex-start; padding: 2px 6px; font-size: 0.62rem; color: var(--st-interactive);
     background: transparent; border: 1px solid var(--st-surface-3); border-radius: 3px; cursor: pointer;
   }
-  .tp-go {
-    align-self: flex-start; padding: 5px 14px; font-size: 0.72rem; font-weight: 600; color: var(--st-text);
-    background: var(--st-surface-3); border: 1px solid var(--st-accent); border-radius: 4px; cursor: pointer;
-  }
-  .tp-go:disabled { opacity: 0.35; cursor: not-allowed; }
   .tp-err { margin: 0; color: var(--st-warn); }
   .tp-done { margin: 0; color: var(--st-ok); }
-  .tp-note { margin: 0; color: var(--st-text-3); font-style: italic; font-size: 0.64rem; }
+  .tp-note { margin: 0; color: var(--st-text-3); font-size: 0.64rem; }
 </style>

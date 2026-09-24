@@ -1,9 +1,9 @@
 <script lang="ts">
   import { deformedView } from '../lib/store/deformed-view.svelte';
-  import { viewState, selectionNodeIds } from '../lib/store/view-state.svelte';
+  import { viewState, selectionNodeIds, viewVisibility } from '../lib/store/view-state.svelte';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { nextMember } from '../lib/store/next-member.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -26,7 +26,7 @@
   import { resolveHitUserData } from '../lib/viewport3d/picking';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
-  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
+  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
   import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
@@ -1197,6 +1197,17 @@
   });
 
   // ─── Reactive effects ────────────────────────────────────────
+  // Hiding or isolating in the view (store/view-state): the scene and every overlay on it
+  // are rebuilt from the visible part of the model. Nothing in the model changes.
+  $effect(() => {
+    viewVisibility.version;
+    untrack(() => {
+      syncNodes(); syncElements(); syncSupports(); syncLoads(); syncShells();
+      syncLocalAxes(); syncDiagrams3D(); syncDeformed(); syncLabels3D(); syncReactions();
+    });
+    invalidate();
+  });
+
   $effect(() => {
     // Trigger on model changes
     modelStore.nodes;
@@ -2854,8 +2865,8 @@
   }
 
   function handleCameraViewEvent(e: Event) {
-    const which = (e as CustomEvent<'top' | 'front' | 'side'>).detail;
-    if (which === 'top' || which === 'front' || which === 'side') setView(which);
+    const which = (e as CustomEvent<PresetView>).detail;
+    if (['top', 'bottom', 'front', 'back', 'right', 'left', 'side', 'iso'].includes(which)) setView(which);
   }
 
   /**
@@ -2895,7 +2906,7 @@
     invalidate();
   }
 
-  function setView(view: 'top' | 'front' | 'side' | 'iso') {
+  function setView(view: PresetView) {
     _setView(view, camera, controls, modelStore.nodes);
     invalidate();
   }

@@ -64,7 +64,7 @@
     <label><input type="radio" bind:group={scope} value="section" /> {t('opt.bySection')}</label>
     <label><input type="radio" bind:group={scope} value="member" /> {t('opt.byMember')}</label>
     <label title={t('opt.onlySelectionHint')}><input type="checkbox" bind:checked={onlySelection} disabled={selected.length === 0} /> {tp('opt.onlySelection', { n: selected.length })}</label>
-    <button onclick={run} disabled={!hasResults} data-testid="opt-run">{t('opt.run')}</button>
+    <button class="pk-btn" onclick={run} disabled={!hasResults} data-testid="opt-run">{t('opt.run')}</button>
   </div>
   {#if !hasResults}<p class="so-warn">{t('opt.needSolve')}</p>{/if}
   {#if steelOptimise.error}<p class="so-warn">{t(steelOptimise.error)}</p>{/if}
@@ -89,7 +89,7 @@
       </tbody>
     </table>
     <div class="so-bar">
-      <button class="so-primary" onclick={apply} disabled={chosen.size === 0} data-testid="opt-apply">{tp('opt.apply', { n: chosen.size })}</button>
+      <button class="pk-btn pk-btn-primary" onclick={apply} disabled={chosen.size === 0} data-testid="opt-apply">{tp('opt.apply', { n: chosen.size })}</button>
       <span class="dim">{t('opt.applyHint')}</span>
     </div>
   {/if}
@@ -98,7 +98,7 @@
     <div class="so-applied" data-testid="opt-applied">
       {#if steelOptimise.awaitingReverify}
         <p class="so-warn" data-testid="opt-awaiting">{tp('opt.awaiting', { n: steelOptimise.applied.length })}</p>
-        <button class="so-primary" onclick={reverify} disabled={busy} data-testid="opt-reverify">{busy ? t('opt.solving') : t('opt.reverify')}</button>
+        <button class="pk-btn pk-btn-primary" onclick={reverify} disabled={busy} data-testid="opt-reverify">{busy ? t('opt.solving') : t('opt.reverify')}</button>
       {:else}
         <p class={steelOptimise.converged ? 'so-ok' : 'so-warn'} data-testid="opt-verdict">{steelOptimise.converged ? t('opt.converged') : t('opt.notConverged')}</p>
         <ul>
@@ -112,7 +112,7 @@
           {/each}
         </ul>
         {#if !steelOptimise.converged}<p class="dim">{t('opt.nextPass')}</p>{/if}
-        <button onclick={() => steelOptimise.clearApplied()}>{t('opt.done')}</button>
+        <button class="pk-btn" onclick={() => steelOptimise.clearApplied()}>{t('opt.done')}</button>
       {/if}
     </div>
   {/if}
@@ -122,9 +122,6 @@
   .so { font-size: 0.68rem; color: var(--st-text-2); display: flex; flex-direction: column; gap: 6px; }
   .so-note { margin: 0; color: var(--st-text-3); font-size: 0.64rem; }
   .so-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  button { padding: 2px 8px; font-size: 0.64rem; color: var(--st-text); background: var(--st-surface-3); border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer; }
-  button:disabled { opacity: 0.35; cursor: not-allowed; }
-  .so-primary { border-color: var(--st-accent); }
   .so-table { width: 100%; border-collapse: collapse; font-size: 0.64rem; }
   .so-table th, .so-table td { padding: 2px 4px; border-bottom: 1px solid var(--st-hair); text-align: left; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }

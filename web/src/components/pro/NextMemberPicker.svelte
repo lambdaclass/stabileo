@@ -24,10 +24,7 @@
 </div>
 
 <style>
-  .nm { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 4px 10px; font-size: 0.68rem; }
+  .nm { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 6px 0; font-size: 0.68rem; }
   .nm-label { color: var(--st-text-3); }
-  select {
-    max-width: 150px; padding: 2px 5px; font-size: 0.66rem; background: var(--st-surface);
-    border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text-2);
-  }
+  select { max-width: 150px; }
 </style>

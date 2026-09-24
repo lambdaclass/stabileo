@@ -97,15 +97,16 @@
   }
 </script>
 
-<div class="tm-bar" role="tablist" data-testid="table-modes-{kind}">
+<div class="tm-bar" role="tablist" data-testid="table-modes-{kind}"><div class="pk-tabs tm-tabs">
   {#each modes as m (m)}
-    <button class="tm-tab" class:on={mode === m} role="tab" aria-selected={mode === m}
+    <button class:on={mode === m} role="tab" aria-selected={mode === m}
       disabled={m !== 'current' && m !== 'maxType' && sources.length === 0}
       onclick={() => (mode = m)} data-testid="tm-{kind}-{m}">{t(`tables.mode.${m}`)}</button>
   {/each}
+  </div>
   {#if mode !== 'current'}
     <span class="tm-basis">{basis === 'combos' ? tp('tables.basisCombos', { n: sources.length }) : tp('tables.basisCases', { n: sources.length })}</span>
-    <button class="tm-csv" onclick={csv} data-testid="tm-csv">CSV</button>
+    <button class="pk-btn tm-csv" onclick={csv} data-testid="tm-csv">CSV</button>
   {/if}
 </div>
 
@@ -182,13 +183,10 @@
 {/if}
 
 <style>
-  .tm-bar { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; margin: 2px 0 4px; }
-  .tm-tab, .tm-csv {
-    padding: 1px 7px; font-size: 0.62rem; color: var(--st-text-2); background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer;
-  }
-  .tm-tab.on { color: var(--st-text); border-color: var(--st-accent); }
-  .tm-tab:disabled { opacity: 0.35; cursor: not-allowed; }
+  .tm-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0 6px; }
+  .tm-tabs { flex: 0 1 auto; }
+  .tm-tabs button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .tm-csv { min-height: 22px; padding: 0.1rem 0.5rem; font-size: 0.62rem; }
   .tm-basis { margin-left: auto; font-size: 0.6rem; color: var(--st-text-3); }
   .tm-src { font-size: 0.6rem; color: var(--st-text-3); white-space: nowrap; }
   .tm-mm { font-size: 0.6rem; color: var(--st-text-3); }

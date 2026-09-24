@@ -246,6 +246,7 @@
     edit: 'edit.title',
     groups: 'groups.title',
     code: 'code.title',
+    view: 'view.title',
   };
 </script>
 
