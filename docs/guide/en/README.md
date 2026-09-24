@@ -38,7 +38,7 @@ it is, 6 can be read on its own.
 
 ## Further reading
 
-- **[The blog](https://stabileo.com/en/blog)** has long pieces on specific questions, with numbers
+- **[The blog](https://stabileo.com/en/blog/)** has long pieces on specific questions, with numbers
   computed by the program and the editor embedded: for example,
   [bars or finite elements?](https://stabileo.com/en/blog/bars-or-finite-elements/) or
   [which torsion theory applies](https://stabileo.com/en/blog/torsion-bredt-saint-venant/).

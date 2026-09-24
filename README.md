@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://stabileo.com"><strong>Open the editor</strong></a> ·
   <a href="docs/guide/en/README.md"><strong>Read the guide</strong></a> ·
-  <a href="https://stabileo.com/en/blog">Blog</a> ·
+  <a href="https://stabileo.com/en/blog/">Blog</a> ·
   <a href="README.es.md">Leer en español</a>
 </p>
 
@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/pro-shells-en.webp" alt="A concrete frame in Stabileo PRO, with von Mises stresses on the slab and the wall" width="100%" />
+  <img src="docs/screenshots/pro-building-en.webp" alt="A seven-storey reinforced concrete building in Stabileo PRO, with the slab bending moments shown as contours" width="100%" />
 </p>
 
 ---
@@ -35,7 +35,7 @@ and read results in 2D and 3D. The analysis engine is written in Rust and compil
 so it runs on your own computer: your models never leave it.
 
 It was born in the structures courses at [FIUBA](http://www.fi.uba.ar/) (University of Buenos
-Aires), and it keeps that origin: besides giving the answer, **it shows the working** —the degree
+Aires), and it keeps that origin: besides giving the answer, **it shows the working**: the degree
 of indeterminacy, the stiffness matrix step by step, which torsion theory applies to a section and
 why.
 
@@ -77,7 +77,7 @@ programming to follow it: open a chapter and use the links at the bottom of each
 | 5 | [PRO mode](docs/guide/en/05-pro.md) | [Modo PRO](docs/guide/es/05-pro.md) |
 | 6 | [Theory](docs/guide/en/06-theory.md) | [Fundamentos teóricos](docs/guide/es/06-fundamentos-teoricos.md) |
 
-Technical and contributor documentation —solver reference, verification, benchmarks, roadmaps—
+Technical and contributor documentation (solver reference, verification, benchmarks, roadmaps)
 is indexed in [docs/README.md](docs/README.md).
 
 ## Why Stabileo exists
@@ -96,16 +96,14 @@ visual interface.
 
 ## The blog
 
-[stabileo.com/blog](https://stabileo.com/en/blog) — long pieces on how the solver works and the
-decisions behind it, in English, Spanish and Portuguese. Every figure in them is computed by the
-engine before the prose is written, and several posts embed the real editor on the model they
-describe.
+Long pieces on how the solver works and the decisions behind it, in English, Spanish and
+Portuguese. Every figure in them is computed by the engine before the prose is written, and
+several posts embed the real editor on the model they describe. Two to start with:
 
-- [Bars or finite elements?](https://stabileo.com/en/blog/bars-or-finite-elements) — not two methods but two models, and where they give different answers
-- [Bredt or Saint-Venant](https://stabileo.com/en/blog/torsion-bredt-saint-venant) — which torsion theory applies, and what picking wrong costs
-- [Flexural verification to CIRSOC 201](https://stabileo.com/en/blog/verificacion-flexion-cirsoc-201) — the steps that decide the outcome
-- [What free software computes, and what it never explains](https://stabileo.com/en/blog/conceptual-side-advanced-tools) — where the free tools stop
-- [The determinism boundary](https://stabileo.com/en/blog/the-determinism-boundary) — why an AI agent must not do the arithmetic
+- [What free software computes, and what it never explains](https://stabileo.com/en/blog/conceptual-side-advanced-tools/) — where the free tools stop
+- [The determinism boundary](https://stabileo.com/en/blog/the-determinism-boundary/) — why an AI agent must not do the arithmetic
+
+**[Read all the posts on the blog →](https://stabileo.com/en/blog/)**
 
 ## Under the hood
 
@@ -154,8 +152,25 @@ page in headless Chromium, so it needs `npx playwright install chromium` first; 
 
 ## Contributing
 
-Pull requests are welcome. For larger changes, open an issue first to discuss the approach. The
-[technical documentation](docs/README.md) is the place to start.
+Stabileo is built in the open, with the people who use it. Reports, ideas, discussions and code
+are all welcome.
+
+**The best place to start is our [Discord](https://discord.gg/Q53rp7FKXA)**: it is where we chat
+about the project, answer questions and discuss what comes next, in English and Spanish. Come
+and say hello.
+
+Every channel is also gathered on **[linktr.ee/stabileo](https://linktr.ee/stabileo)**:
+
+| Channel | Language | What for |
+|---|---|---|
+| [Discord](https://discord.gg/Q53rp7FKXA) | English · Spanish | Chat and take part in the project |
+| [WhatsApp](https://wa.me/5491138563881) | English · Spanish | Direct contact with the team |
+| [X](https://x.com/Stabileoapp) | English | News and updates |
+| [Instagram](https://www.instagram.com/stabileoapp/) | Spanish | New features as they ship |
+| [LinkedIn](https://www.linkedin.com/company/stabileo) | Spanish | Project news |
+
+**Code.** Pull requests are welcome. For larger changes, open an issue first to discuss the
+approach. The [technical documentation](docs/README.md) is the place to start.
 
 ## Security
 

@@ -18,7 +18,7 @@ saber programar ni conocer GitHub.
 | 5 | [PRO mode](guide/en/05-pro.md) | [Modo PRO](guide/es/05-pro.md) |
 | 6 | [Theory](guide/en/06-theory.md) | [Fundamentos teóricos](guide/es/06-fundamentos-teoricos.md) |
 
-The [blog](https://stabileo.com/en/blog) goes deeper into specific questions, with the numbers
+The [blog](https://stabileo.com/en/blog/) goes deeper into specific questions, with the numbers
 computed by the engine and the editor embedded.
 
 ---

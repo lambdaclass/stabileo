@@ -20,10 +20,12 @@ a un servidor.
   el asistente de IA, el botón de contacto y **Ajustes** (el engranaje).
 - **La cinta de comandos**, organizada en grupos de izquierda a derecha en el orden en que se
   arma un modelo: **Vista**, **Dibujar**, **Propiedades**, **Condiciones**, **Análisis** y
-  **Resultados**.
+  **Resultados**. En el extremo izquierdo hay un bloque de cuatro íconos: **Proyecto** (archivos,
+  ejemplos, importar y exportar), guardar, deshacer (`Ctrl/⌘ + Z`) y rehacer (`Ctrl/⌘ + Y`).
 - **Debajo de la cinta**, una franja con las opciones de la herramienta activa. A la derecha de
-  esa franja, el estado del modelo: te dice qué falta ("crear nodos → conectar barras → agregar
-  apoyos → agregar cargas") hasta que queda **listo para calcular**.
+  esa franja, el estado del modelo: te dice qué falta ("Empezá creando nodos", "Conectá los nodos
+  con barras", "Agregá apoyos", "Aplicá cargas") hasta que queda **Listo para calcular** y, después,
+  **Resuelto**.
 - **A la derecha**, el panel que abre cada comando.
 - **Abajo**, la barra de estado: coordenadas del cursor, zoom, tamaño del modelo y selección.
 
@@ -52,12 +54,16 @@ los resultados", entre otros).
 
 1. **Nodos.** Elegí **Nodo** (tecla `N`) y hacé clic en dos puntos de la grilla, por ejemplo en
    (0, 0) y (6, 0). La grilla ayuda a caer en coordenadas redondas.
-2. **Barra.** Elegí **Barra** (tecla `E`) y hacé clic en un nodo y después en el otro.
+2. **Barra.** Elegí **Barra** (tecla `E`) y hacé clic primero en el nodo de la izquierda y después
+   en el de la derecha. Cada barra nueva recibe un material y una sección por defecto (acero A36 e
+   IPN 300), que se cambian desde la tabla de barras.
 3. **Apoyos.** Elegí **Apoyo** (tecla `S`). En la franja de opciones marcá **Artic.** y hacé clic
    en el nodo de la izquierda; después marcá **Móvil** y hacé clic en el de la derecha.
 4. **Carga.** Elegí **Carga** (tecla `L`), marcá **Distribuida** y dejá `-10` kN/m en los dos
-   extremos (qI y qJ; vienen así por defecto). Hacé clic sobre la barra. El signo negativo
-   apunta hacia abajo.
+   extremos (qI y qJ; vienen así por defecto). Hacé clic sobre la barra. Por defecto la carga es
+   perpendicular a la barra y su sentido sigue el orden en que dibujaste los nodos: con la barra
+   dibujada de izquierda a derecha, el signo negativo apunta hacia abajo. Para no depender de eso,
+   elegí la dirección **Z** (global).
 5. **Calcular.** Tocá **Calcular** (o `Enter`). El programa resuelve y abre el panel de
    resultados.
 6. **Leer.** Con los botones del grupo **Resultados** elegí qué ver: **N** (esfuerzo axial),
@@ -86,24 +92,27 @@ En **Proyecto** hay dos menús de ejemplos listos para abrir y explorar:
 Todo está en **Proyecto**:
 
 - **Guardar** (`Ctrl/⌘ + S`) descarga un archivo `.ded` con el modelo y sus resultados. Podés
-  guardar sólo la pestaña actual o toda la sesión.
-- **Abrir** carga un `.ded` (o un `.json`).
+  guardar sólo la pestaña actual o toda la sesión (`Ctrl/⌘ + Shift + S`).
+- **Abrir** (`Ctrl/⌘ + O`) carga un `.ded` (o un `.json`).
 - **Compartir link** arma un enlace que contiene el modelo entero, comprimido. Quien lo abre ve
-  exactamente tu modelo. El modelo viaja dentro del enlace y no se guarda en ningún servidor.
+  exactamente tu modelo. El modelo viaja dentro del enlace y no se guarda en ningún servidor; con
+  modelos muy grandes, el programa avisa que el enlace puede quedar demasiado largo.
 - **Importar planilla de Excel** carga un modelo desde una planilla. El botón **Plantilla ↓**
-  descarga el formato con sus hojas: nodos, barras, materiales, secciones, apoyos, casos de carga
-  y combinaciones.
-- **Exportar**: resultados en Excel o CSV, una memoria de cálculo en PDF y, en 2D, el dibujo en
-  DXF, SVG o PNG.
+  descarga el formato, con una hoja de instrucciones y una por cada parte del modelo: nodos,
+  barras, materiales, secciones, apoyos, casos de carga, combinaciones y cargas (más placas y
+  vínculos, que usa PRO). Los nombres de las hojas están en inglés.
+- **Exportar**: resultados en Excel o CSV, una memoria de cálculo en PDF y el dibujo en PNG. En 2D,
+  también en DXF y SVG.
 
-Además, el programa **guarda solo** cada 30 segundos y después de cada cálculo, en el
-almacenamiento del navegador. Si cerrás la pestaña por error, al volver te ofrece recuperar el
+Además, el programa **guarda solo** cada 30 segundos, en el almacenamiento del navegador. Si cerrás la pestaña por error, al volver te ofrece recuperar el
 trabajo.
 
 ## Unidades
 
 El programa trabaja en el sistema internacional: **metros, kN, kN·m y MPa**. Las tablas muestran
-las áreas en cm², las inercias en cm⁴, los desplazamientos en mm y los giros en mrad.
+las áreas en cm², las inercias en cm⁴, los desplazamientos en mm y los giros en mrad. En
+**Ajustes → Unidades** se puede pasar a unidades imperiales (kip, ft) para ver los diagramas y los
+valores en pantalla; las tablas siguen en el sistema internacional.
 
 ---
 

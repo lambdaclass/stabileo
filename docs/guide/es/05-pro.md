@@ -7,7 +7,7 @@ generadas según norma, y corre análisis dinámicos y no lineales.
 > PRO está **en desarrollo**, con acceso libre para quien quiera probarlo. Lo que se describe acá
 > ya funciona; al final del capítulo están las limitaciones que conviene conocer.
 
-Este capítulo cubre las pestañas **Modelo** y **Análisis**.
+Este capítulo cubre el modelado y el análisis: las pestañas **Modelo** y **Análisis**, la importación de modelos, el reporte y el asistente de IA.
 
 ![Un modelo en PRO: pórtico de hormigón con una losa y un tabique modelados como placas](img/pro-model.webp)
 
@@ -20,38 +20,45 @@ Para empezar:
 
 - **Un modelo vacío:** el **+** de las pestañas.
 - **Un ejemplo:** **Proyecto → Modelo nuevo → Ejemplos**. Hay dieciséis, agrupados en edificios,
-  industriales, fundaciones, estructuras de gran luz, energía y offshore, y modelos grandes de
+  industriales, energía y offshore, fundaciones, estructuras de gran luz y modelos grandes de
   demostración.
 - **Importar** (ver [más abajo](#importar-modelos)): una planilla de Excel, un plano de AutoCAD
   (DXF) o un modelo BIM (IFC).
+
+**Proyecto** tiene también, como en Básico, **Guardar**, **Abrir**, **Compartir link** y
+**Exportar** (resultados en Excel o CSV y el dibujo en DXF). Ver el
+[capítulo 1](01-primeros-pasos.md#guardar-abrir-y-compartir).
 
 ## La pestaña Modelo
 
 En PRO, cada botón de la cinta abre un **panel con una tabla**. Para dibujar en el visor, cada
 panel tiene su botón **Dibujar** (nodo, barra, placa…); al tocarlo de nuevo se vuelve a
-seleccionar.
+seleccionar. La herramienta de **selección** está en la barra superior, junto a deshacer y
+rehacer.
 
 ### Dibujar
 
 **Nodos.** Una tabla editable de coordenadas X, Y, Z en metros. Se puede **pegar desde Excel**
 (columnas X, Y y opcionalmente Z).
 
-**Barras.** Una tabla con nodo inicial y final, material, sección y el vínculo de cada extremo.
-Además:
+**Barras.** Una tabla con nodo inicial y final, material, sección y la articulación de cada
+extremo (**Art/Emp**). Esa columna libera sólo el momento **Mz**; para liberar cualquier otro grado
+de libertad se edita la barra (ver abajo). Además:
 
 - **Curva:** un arco que pasa por tres nodos, materializado como una cadena de barras rectas. El
   panel informa el error de cuerda.
 - **Excentricidad de barra (offset):** desplaza el eje de la barra respecto de sus nodos, por
   ejemplo para que una viga cuelgue de la losa.
-- Con clic derecho sobre una barra: editarla (material, sección, articulaciones por grado de
-  libertad), dividirla en N partes o reflejarla.
+- Con clic derecho sobre una barra: **editarla** (material, sección y articulaciones por grado de
+  libertad en cada extremo) o **dividirla** en N partes (de 2 a 20). Con nodos seleccionados, clic
+  derecho en un espacio vacío los refleja en X o en Y o los gira 90°.
 
 **Placas.** Una placa se define por sus nodos: **tres nodos forman un triángulo y cuatro un
 cuadrilátero**. Se le asigna material y espesor.
 
-- **Generador de malla:** a partir de cuatro esquinas, genera una malla de cuadriláteros por
-  tamaño objetivo o por cantidad de divisiones. Puede partir las vigas del contorno para que
-  compartan los nodos del borde.
+- **Generador de malla:** a partir de cuatro esquinas (en sentido antihorario), genera una malla
+  de cuadriláteros por tamaño objetivo o por cantidad de divisiones. Puede partir las vigas del
+  contorno para que compartan los nodos del borde.
 - **Cáscara (con curvatura):** para cuadriláteros cuyos cuatro nodos no están en un mismo plano.
   El panel mide cuánto se aparta el cuarto nodo y sugiere cuándo usarla.
 - **Escalera:** una losa inclinada con los escalones aplicados como carga.
@@ -64,7 +71,8 @@ cuadrilátero**. Se le asigna material y espesor.
 
 **Repetir selección.** Copia los nodos y barras seleccionados N veces con un desplazamiento dado.
 Puede unir las copias con barras (por ejemplo, las columnas entre pisos) y copiar también los
-apoyos.
+apoyos. No copia placas ni cargas, y **no fusiona nodos**: si una copia cae sobre un nodo existente,
+quedan dos superpuestos.
 
 ### Propiedades
 
@@ -75,24 +83,26 @@ rotación y componer secciones.
 
 ### Condiciones
 
-**Apoyos.** Empotrado, articulado, deslizantes en cada plano (XZ, XY, YZ), resorte (con rigidez
-en cada grado de libertad) y **personalizado**, donde se marca uno por uno qué desplazamientos y
-giros se restringen.
+**Apoyos.** Empotrado, articulado, móviles en cada plano (**Roller XZ**, **XY** y **YZ**), resorte
+(con rigidez en cada grado de libertad) y **personalizado**, donde se marca uno por uno qué
+desplazamientos y giros se restringen.
 
 **Vínculos.** Relaciones entre nodos:
 
 - **Vínculo rígido:** un nodo esclavo sigue a un nodo maestro como si estuvieran unidos por una
   barra infinitamente rígida.
 - **Diafragma:** los nodos de un plano se mueven juntos en ese plano. Es la hipótesis habitual
-  de losa rígida en su plano. **Auto-detectar diafragmas** agrupa los nodos por nivel.
+  de losa rígida en su plano. **Auto-detectar diafragmas** agrupa los nodos por nivel (con una
+  tolerancia de 5 cm) y toma como maestro el nodo más cercano al centro.
 - **DOF iguales:** dos nodos comparten uno o más grados de libertad.
 - **Conexión excéntrica**, **MPC lineal** (restricciones lineales generales) y **conectores**
   con rigidez propia entre dos nodos.
 
 **Cargas.** El panel tiene tres partes:
 
-- **Casos de carga:** cada caso con su tipo (D, L, Lr, W, E, S). El **peso propio** está
-  **activado por defecto** en PRO y se calcula para barras y placas.
+- **Casos de carga:** cada caso con su tipo (D, L, Lr, W, E, S) y un botón para mostrarlo u
+  ocultarlo en el visor. El **peso propio** está **activado por defecto** en PRO y se calcula para
+  barras y placas.
 - **Combinaciones:** manuales, o generadas automáticamente (combinaciones de resistencia y de
   servicio).
 - **Agregar carga:** nodal (en ejes globales), distribuida y puntual sobre barras (en ejes
@@ -104,8 +114,11 @@ argentina:
 - **Cargas permanentes** a partir de las capas de la construcción (CIRSOC 101, Tabla 3.1).
 - **Sobrecarga de uso** según el destino de cada local, con la reducción por área tributaria.
 - **Viento** según CIRSOC 102.
+- **Sismo** según INPRES-CIRSOC 103 (método estático), que requiere un reglamento sísmico asignado
+  al proyecto.
 
-Primero muestra el plan de cargas para revisarlo y después lo aplica. Las cargas de superficie se
+También se abre caso por caso, con el botón **§** de cada caso de carga. Primero muestra el plan de
+cargas para revisarlo y después lo aplica. Las cargas de superficie se
 transforman en cargas lineales sobre las vigas, según su ancho tributario; el viento se aplica
 como fuerzas por nivel.
 
@@ -114,33 +127,36 @@ como fuerzas por nivel.
 **Estructuras metálicas** genera la **geometría** de estructuras típicas de acero:
 
 - **Cercha:** trapezoidal, de cordones paralelos, Pratt, en arco o pórtico de alma llena, con
-  distintos patrones de diagonales.
+  distintos patrones de diagonales, media cercha y diagonales subdivididas.
 - **Columna reticulada.**
 - **Nave industrial:** luz, separación entre pórticos, cantidad de pórticos, columnas
-  reticuladas o de alma llena, correas y arriostramientos.
+  reticuladas o de alma llena, correas y arriostramientos de cubierta, de cercha y de muro.
 
-El generador **reemplaza el modelo actual** (se deshace con un solo paso).
+Además de la geometría, asigna un perfil a cada tipo de barra y un acero. El generador
+**reemplaza el modelo actual** (se deshace con un solo paso).
 
 ## Importar modelos
 
 Desde **Proyecto**:
 
-- **Planilla de Excel.** El mismo formato que en Básico, con hojas adicionales para placas,
-  vínculos y cargas. Es la forma más cómoda de cargar un modelo grande armado en otra herramienta.
+- **Planilla de Excel.** El mismo formato que en Básico, con hojas adicionales para placas
+  triangulares, placas cuadriláteras y vínculos. Es la forma más cómoda de cargar un modelo grande armado en otra herramienta.
 - **Plano DXF (AutoCAD).** Un asistente de cuatro pasos:
   1. el archivo y sus unidades;
-  2. qué representa cada capa del dibujo: ejes, columnas, vigas, tabiques, losas, aberturas;
+  2. qué representa cada capa del dibujo: ejes, columnas, vigas, tabiques, losas, huecos, textos;
   3. los supuestos: cantidad de pisos y alturas, dimensiones de columnas, vigas, losas y
      tabiques, tipo de apoyo en la base, cargas y mallado de losas;
   4. una vista previa antes de aplicar.
 
   El resultado es un **borrador** de la estructura, marcado como no revisado, con la lista de
   supuestos que se usaron. Las losas y los tabiques se generan como placas.
-- **IFC (BIM).** Importa las vigas, columnas y miembros del modelo con su geometría.
+- **IFC (BIM).** Importa las vigas, columnas y miembros del modelo con su geometría. Reemplaza el
+  modelo actual.
 
 ## Antes de calcular: diagnósticos
 
-PRO revisa el modelo mientras lo armás. El panel **Diagnósticos** separa:
+PRO revisa el modelo mientras lo armás. Si hay problemas, aparece un aviso que abre el panel
+**Diagnósticos**, y el panel se abre solo si tocás **Calcular** con errores. Separa:
 
 - **Errores**, que impiden calcular: menos de dos nodos, ni barras ni placas, ningún apoyo, barras
   sin sección o sin material, secciones con área o inercia nula, cargas que apuntan a elementos
@@ -170,11 +186,14 @@ Los diagramas son los mismos que en Básico 3D: **Deformada**, **N**, **My**, **
 
 En el panel de **Resultados**:
 
-- **Mapa de colores** de momento, corte, axial, aprovechamiento σ/fy, Von Mises o **contorno de
+- **Mostrado como:** diagrama, color de barras o mapa de colores. Para **Tensiones**, **Mostrar
+  en** barras, placas o ambas.
+- **Mapa de colores** de momento, corte, axial, **Resistencia (σ/fy)**, Von Mises o **contorno de
   losas y muros**.
 - Para las placas, la componente a ver: Von Mises, tensiones principales σ1 y σ2, σxx, σyy, τxy
   (kN/m²) y momentos por unidad de ancho mx, my, mxy (kN·m/m).
-- Vista por **caso**, **combinación** o **envolvente**.
+- Vista por **caso**, **combinación** o **envolvente**, y casillas para mostrar las cargas, las
+  reacciones y las fuerzas en vínculos.
 - Las **salidas** en tablas: reacciones, solicitaciones, desplazamientos, tensiones en losas y
   muros (por elemento y por nodo), fuerzas en vínculos y diagnósticos.
 - **Consulta de resultados:** busca el valor gobernante de un esfuerzo en todo el modelo, en la
@@ -186,15 +205,16 @@ En el panel de **Resultados**:
 
 Los análisis avanzados de PRO:
 
-- **P-Delta**, **modal**, **espectral** (con combinación CQC o SRSS, por zona sísmica y tipo de
-  suelo) y **pandeo**.
+- **P-Delta**, **modal**, **espectral** (con un espectro simplificado de INPRES-CIRSOC 103 por zona
+  sísmica y tipo de suelo, y combinación CQC o SRSS) y **pandeo**.
 - **Historia en el tiempo** (métodos de Newmark o HHT-α, con un acelerograma propio) y
   **respuesta armónica**.
 - **No lineal:** pushover, corrotacional (grandes desplazamientos) y de fibras.
 - **Imperfecciones geométricas**, **fundación sobre resortes de Winkler**, **interacción
   suelo-estructura** con curvas p-y y **contacto o gap**.
 - **Construcción por etapas** y **fluencia y retracción**.
-- **Líneas de influencia 3D**, **solver multi-caso** y **analizador de sección**.
+- **Líneas de influencia 3D**, **solver multi-caso**, **analizador de sección** y **análisis con
+  restricciones**.
 - La opción **diafragma rígido** para todo el modelo.
 
 El panel lleva la leyenda "En desarrollo": son análisis que el motor resuelve y que todavía se
@@ -213,8 +233,9 @@ un encabezado opcional (logo, empresa, profesional, revisión). También se expo
 - **Placas cuadriláteras:** elemento **MITC4**, con deformaciones de corte interpoladas de forma
   que el elemento no se "trabe" cuando la placa es delgada (*shear locking*) y un refuerzo de la
   membrana (EAS) que mejora la flexión en su plano.
-- **Placas triangulares:** elemento **DKT** para la flexión, combinado con un triángulo de
-  deformación constante para la membrana.
+- **Placas triangulares:** elemento **DKT** para la flexión (placa delgada de Kirchhoff, sin
+  deformación por corte), combinado con un triángulo de deformación constante para la membrana.
+  Esa membrana es pobre para la flexión en el plano: para tabiques conviene usar cuadriláteros.
 - **Cáscaras curvas:** un elemento de cuatro nodos que representa la curvatura, para
   cuadriláteros no planos.
 
@@ -231,18 +252,20 @@ motor calcula. **Está en desarrollo** y todavía no responde ni modifica el mod
 ## Limitaciones actuales
 
 - El **análisis modal y el espectral** consideran sólo las barras: todavía no incluyen las placas
-  ni los vínculos. Los análisis avanzados, en general, necesitan al menos una barra en el modelo
-  y no consideran las excentricidades de barras y placas.
+  ni los vínculos. Los análisis avanzados, en general, necesitan al menos una barra en el modelo,
+  no consideran las excentricidades de barras y placas, y no admiten modelos con articulaciones
+  parciales o deslizaderas.
 - La **carga de superficie** se aplica sólo a placas cuadriláteras, siempre vertical (−Z global),
   repartida en partes iguales entre los cuatro nodos.
-- La **carga térmica en losas** todavía no se aplica en el cálculo.
-- La **generación automática de cargas** no carga las placas, y la de sismo todavía no está
-  habilitada por defecto.
+- La **carga térmica en losas** aparece entre las opciones, pero todavía no se aplica en el
+  cálculo.
+- La **generación automática de cargas** no carga las placas.
 - En PRO las barras nuevas son siempre de pórtico. Las de reticulado llegan desde los
   generadores, desde IFC o desde Excel, que también es la vía para rotar los ejes locales de una
   barra.
 - La importación **IFC** trae vigas, columnas y miembros, con un único material y una única
-  sección para todos; no trae apoyos, cargas, losas ni muros.
+  sección para todos; no trae apoyos, cargas, losas ni muros. Además, hoy la importación deja la
+  aplicación en la vista del modo Básico 3D en lugar de PRO: es un error conocido.
 - Cambiar entre Básico y PRO **no traslada el modelo**.
 
 ---

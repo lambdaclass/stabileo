@@ -18,11 +18,14 @@ herramienta.
 ## Unidades y convenciones
 
 **Unidades.** Sistema internacional: longitudes en **m**, fuerzas en **kN**, momentos en
-**kN·m**, módulos elásticos y tensiones en **MPa**, pesos específicos en **kN/m³**.
+**kN·m**, módulos elásticos y tensiones en barras en **MPa**, pesos específicos en **kN/m³**. En
+las placas, las tensiones se informan en **kN/m²** y los momentos por unidad de ancho en
+**kN·m/m**.
 
 **Ejes globales.** **Z es vertical, hacia arriba**; X e Y son horizontales. La gravedad actúa
 en −Z. Un modelo 2D vive en el plano **XZ**, así que sus grados de libertad son **ux**, **uz** y
-el giro **θy**, y sus esfuerzos son **N**, **Vz** y **My**.
+el giro **θy**, y sus esfuerzos son **N**, **Vz** y **My**. En el plano, los giros se toman
+positivos en sentido antihorario, mirando la estructura con X hacia la derecha y Z hacia arriba.
 
 **Ejes locales de una barra.** x local va del nodo I al nodo J; z local es la vertical global
 proyectada perpendicular a la barra; y local completa la terna. En barras verticales se usa X
@@ -42,7 +45,9 @@ llamado método directo de la rigidez). La idea: en vez de buscar las fuerzas, s
 
 La ecuación de todo el método es
 
-$$[K]\,\{u\} = \{F\}$$
+```math
+[K]\,\{u\} = \{F\}
+```
 
 donde **[K]** es la matriz de rigidez de la estructura, **{u}** los desplazamientos de los nodos y
 **{F}** las cargas. Son los nueve pasos que muestra el
@@ -51,10 +56,10 @@ donde **[K]** es la matriz de rigidez de la estructura, **{u}** los desplazamien
 ### La matriz de una barra
 
 Cada barra relaciona las fuerzas en sus extremos con los desplazamientos de sus extremos. Para una
-barra de pórtico en el plano, en sus ejes locales (axial u, transversal w, giro θ en cada
-extremo):
+barra de pórtico en el plano, en sus ejes locales (axial u, transversal w, giro θ en cada extremo,
+con θ positivo antihorario):
 
-$$
+```math
 [k] = \begin{bmatrix}
 \frac{EA}{L} & 0 & 0 & -\frac{EA}{L} & 0 & 0 \\
 0 & \frac{12EI}{L^3} & \frac{6EI}{L^2} & 0 & -\frac{12EI}{L^3} & \frac{6EI}{L^2} \\
@@ -63,7 +68,7 @@ $$
 0 & -\frac{12EI}{L^3} & -\frac{6EI}{L^2} & 0 & \frac{12EI}{L^3} & -\frac{6EI}{L^2} \\
 0 & \frac{6EI}{L^2} & \frac{2EI}{L} & 0 & -\frac{6EI}{L^2} & \frac{4EI}{L}
 \end{bmatrix}
-$$
+```
 
 Cada columna es la fuerza que aparece en los extremos cuando se impone un desplazamiento unitario
 en un grado de libertad con todos los demás fijos. Una barra de reticulado conserva sólo los
@@ -75,7 +80,9 @@ términos axiales (EA/L). En 3D la matriz es de 12 × 12: se suman la flexión e
 La matriz anterior está en ejes locales. Para ensamblar hay que llevarla a ejes globales con la
 matriz de rotación **[T]** de la barra:
 
-$$[K]_e = [T]^T\,[k]\,[T]$$
+```math
+[K]_e = [T]^T\,[k]\,[T]
+```
 
 ### Ensamblaje
 
@@ -95,23 +102,27 @@ extremo.
 
 Los grados de libertad se separan en **libres (f)** y **restringidos (r)**:
 
-$$
+```math
 \begin{bmatrix} K_{ff} & K_{fr} \\ K_{rf} & K_{rr} \end{bmatrix}
 \begin{Bmatrix} u_f \\ u_r \end{Bmatrix}
 =
 \begin{Bmatrix} F_f \\ F_r + R \end{Bmatrix}
-$$
+```
 
-Los desplazamientos restringidos **u_r** son conocidos: cero, o el valor impuesto si hay un
+Los desplazamientos restringidos $u_r$ son conocidos: cero, o el valor impuesto si hay un
 asentamiento. Se resuelve la primera fila para los desplazamientos libres:
 
-$$\{u_f\} = [K_{ff}]^{-1}\left(\{F_f\} - [K_{fr}]\{u_r\}\right)$$
+```math
+\{u_f\} = [K_{ff}]^{-1}\left(\{F_f\} - [K_{fr}]\{u_r\}\right)
+```
 
 y la segunda da las **reacciones**:
 
-$$\{R\} = [K_{rf}]\{u_f\} + [K_{rr}]\{u_r\} - \{F_r\}$$
+```math
+\{R\} = [K_{rf}]\{u_f\} + [K_{rr}]\{u_r\} - \{F_r\}
+```
 
-Si [K_ff] no se puede invertir —es singular—, la estructura es un **mecanismo**: hay un
+Si $[K_{ff}]$ no se puede invertir —es singular—, la estructura es un **mecanismo**: hay un
 movimiento que no requiere fuerza. Es lo que detecta el paso 3 del
 [análisis cinemático](04-funciones-avanzadas.md#análisis-cinemático).
 
@@ -120,7 +131,9 @@ movimiento que no requiere fuerza. Es lo que detecta el paso 3 del
 Con los desplazamientos resueltos, se toman los de cada barra, se llevan a ejes locales y se
 multiplican por su [k]. A eso se le suman las fuerzas de empotramiento de las cargas del tramo:
 
-$$\{f\} = [k]\,[T]\,\{u\}_e + \{f_{emp}\}$$
+```math
+\{f\} = [k]\,[T]\,\{u\}_e + \{f_{emp}\}
+```
 
 ---
 
@@ -145,14 +158,17 @@ finitos?](https://stabileo.com/es/blog/bars-or-finite-elements/) lo desarrolla c
 
 ### Articulaciones
 
-Una articulación en el extremo de una barra libera un grado de libertad —por ejemplo, el giro—.
-El programa no usa una matriz distinta armada a mano: toma la matriz de la barra rígida y elimina
-el grado liberado por **condensación estática**. Si **a** son los grados que se conservan y **b**
-los liberados:
+Una articulación en el extremo de una barra libera un grado de libertad —por ejemplo, el giro—. La
+matriz de la barra articulada es la que resulta de eliminar ese grado de la matriz rígida por
+**condensación estática**. Si **a** son los grados que se conservan y **b** los liberados:
 
-$$[k^*] = [k_{aa}] - [k_{ab}]\,[k_{bb}]^{-1}\,[k_{ba}]$$
+```math
+[k^*] = [k_{aa}] - [k_{ab}]\,[k_{bb}]^{-1}\,[k_{ba}]
+```
 
-Las fuerzas de empotramiento se corrigen de la misma manera.
+Para una barra con un extremo articulado, eso convierte los coeficientes 12EI/L³, 6EI/L² y 4EI/L
+en 3EI/L³, 3EI/L² y 3EI/L. El motor usa directamente esos coeficientes ya condensados, y corrige
+las fuerzas de empotramiento con la misma operación.
 
 ---
 
@@ -162,8 +178,18 @@ El método de las rigideces da los esfuerzos **en los extremos** de cada barra. 
 barra, los diagramas se obtienen **por equilibrio**, cortando la barra en cada punto e integrando
 las cargas del tramo:
 
-$$V(x) = V_i + \int_0^x q\,d\xi + \sum P \qquad
-M(x) = M_i - V_i\,x - \int_0^x q\,(x-\xi)\,d\xi - \sum P\,(x-a)$$
+```math
+V(x) = V_i + \int_0^x q\,d\xi + \sum P
+```
+
+```math
+M(x) = M_i - V_i\,x - \int_0^x q\,(x-\xi)\,d\xi - \sum P\,(x-a) - \sum M_0
+```
+
+V_i y M_i son los esfuerzos en el extremo inicial, q la carga distribuida, P las cargas puntuales
+en las posiciones a y M_0 los momentos concentrados. Los signos siguen la convención interna del
+programa, en la que dM/dx = −V; el diagrama que se dibuja respeta la convención de la
+[sección de convenciones](#unidades-y-convenciones).
 
 Por eso el momento de una carga uniforme sale parabólico sin dividir la barra. La deformada se
 dibuja con las funciones de Hermite.
@@ -175,16 +201,22 @@ dibuja con las funciones de Hermite.
 El [análisis de sección](04-funciones-avanzadas.md#análisis-de-sección) calcula las tensiones con
 las teorías clásicas de resistencia de materiales.
 
-**Tensión normal (Navier).** En 3D, con flexión en los dos planos:
+**Tensión normal (Navier).** En 3D, con flexión en los dos planos, la tensión en un punto (y, z)
+de la sección suma el efecto del axial y el de cada momento:
 
-$$\sigma = \frac{N}{A} + \frac{M_y\,z}{I_y} + \frac{M_z\,y}{I_z}$$
+```math
+\sigma = \frac{N}{A} \pm \frac{M_y\,z}{I_y} \pm \frac{M_z\,y}{I_z}
+```
 
-La línea donde σ = 0 es el **eje neutro**. Si la carga es excéntrica, que la resultante caiga
+donde cada término es positivo del lado que ese momento tracciona. La línea donde σ = 0 es el
+**eje neutro**. Si la carga es excéntrica, que la resultante caiga
 adentro o afuera del **núcleo central** decide si toda la sección trabaja con el mismo signo.
 
 **Tensión tangencial por corte (Jourawski).**
 
-$$\tau = \frac{V\,Q}{I\,b}$$
+```math
+\tau = \frac{V\,Q}{I\,b}
+```
 
 donde **Q** es el momento estático de la parte de la sección que queda de un lado de la fibra y
 **b** el ancho en esa fibra. En perfiles de pared delgada el programa dibuja el **flujo de corte**
@@ -196,7 +228,7 @@ recorriendo las paredes.
 |---|---|---|
 | Circular (maciza o hueca) | Cauchy (exacta) | τ = T·r / Iₚ |
 | Pared delgada **cerrada** | Bredt | τ = T / (2·Aₘ·t) |
-| Pared delgada **abierta** | Saint-Venant | τ = T·t / J, con J = ⅓·Σ b·t³ |
+| Pared delgada **abierta** | Saint-Venant | τ_máx = T·t_máx / J, con J = ⅓·Σ b·t³ |
 
 Aₘ es el área encerrada por la **línea media** de la pared. Abrir una pared cerrada cambia la
 rigidez a torsión en órdenes de magnitud. La nota [Bredt o
@@ -204,7 +236,7 @@ Saint-Venant](https://stabileo.com/es/blog/torsion-bredt-saint-venant/) muestra 
 
 **Estado tensional y falla.** Con σ y τ el programa arma el tensor de tensiones, las tensiones
 principales y el **círculo de Mohr**, y evalúa los criterios de **Von Mises**
-(σ_vm = √(σ² + 3τ²)) y de **Rankine**.
+($\sigma_{vm} = \sqrt{\sigma^2 + 3\tau^2}$) y de **Rankine**.
 
 ---
 
@@ -214,24 +246,31 @@ principales y el **círculo de Mohr**, y evalúa los criterios de **Von Mises**
 elástica una **rigidez geométrica** [K_G], que depende de los esfuerzos axiales (la compresión la
 reduce), y se itera hasta que los desplazamientos convergen:
 
-$$\left([K] + [K_G(N)]\right)\{u\} = \{F\}$$
+```math
+\left([K] + [K_G(N)]\right)\{u\} = \{F\}
+```
 
 **Pandeo lineal.** Se busca el factor λ que hace singular la rigidez total:
 
-$$\left([K] + \lambda\,[K_G]\right)\{\phi\} = 0$$
+```math
+\left([K] + \lambda\,[K_G]\right)\{\phi\} = 0
+```
 
 La carga crítica es λ veces la carga aplicada, y φ es la forma de pandeo.
 
 **Análisis modal.** Las vibraciones libres sin amortiguamiento cumplen
 
-$$\left([K] - \omega^2\,[M]\right)\{\phi\} = 0$$
+```math
+\left([K] - \omega^2\,[M]\right)\{\phi\} = 0
+```
 
-con **[M]** la matriz de masa consistente, armada a partir del peso específico de los materiales.
+con **[M]** la matriz de masa, armada a partir del peso específico de los materiales: consistente
+en las barras rígidas y concentrada en los nodos en las barras articuladas y en las placas.
 Cada ω es una frecuencia propia (f = ω / 2π, T = 1/f) y cada φ una forma modal. La **masa
 efectiva** de cada modo dice qué fracción de la masa total moviliza en cada dirección.
 
 **Análisis espectral (PRO).** Combina la respuesta máxima de cada modo, leída de un espectro de
-diseño, con las reglas CQC o SRSS.
+diseño, con las reglas CQC o SRSS. Hoy considera sólo las barras del modelo.
 
 ---
 
@@ -266,7 +305,9 @@ elementos de Stabileo combinan las dos.
 desprecia la deformación por corte (como Euler-Bernoulli en las vigas). La de **Mindlin-Reissner**
 la incluye, y sirve para placas gruesas.
 
-- **DKT** (triángulos): aplica la hipótesis de Kirchhoff en puntos discretos del elemento.
+- **DKT** (triángulos): aplica la hipótesis de Kirchhoff en puntos discretos del elemento, así que
+  es una placa delgada, sin deformación por corte. Su membrana es un triángulo de deformación
+  constante, pobre para la flexión en el plano.
 - **MITC4** (cuadriláteros): parte de Mindlin-Reissner, así que vale para placas gruesas y
   delgadas.
 
@@ -289,7 +330,7 @@ fuera de un mismo plano dan resultados peores. El motor los informa después de 
 ## Para profundizar
 
 - **El blog** desarrolla temas puntuales con números calculados por el programa:
-  [stabileo.com/es/blog](https://stabileo.com/es/blog).
+  [stabileo.com/es/blog](https://stabileo.com/es/blog/).
 - **La verificación del motor** contra soluciones analíticas y problemas de referencia está en
   [BENCHMARKS.md](../../BENCHMARKS.md) (en inglés).
 

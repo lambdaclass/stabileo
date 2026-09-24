@@ -16,12 +16,14 @@ can be read on its own, as notes on matrix analysis and finite elements applied 
 
 ## Units and conventions
 
-**Units.** SI: lengths in **m**, forces in **kN**, moments in **kN·m**, elastic moduli and
-stresses in **MPa**, unit weights in **kN/m³**.
+**Units.** SI: lengths in **m**, forces in **kN**, moments in **kN·m**, elastic moduli and member
+stresses in **MPa**, unit weights in **kN/m³**. For plates, stresses are reported in **kN/m²** and
+moments per unit width in **kN·m/m**.
 
 **Global axes.** **Z is vertical, pointing up**; X and Y are horizontal. Gravity acts along −Z. A
 2D model lives in the **XZ** plane, so its degrees of freedom are **ux**, **uz** and the rotation
-**θy**, and its member forces are **N**, **Vz** and **My**.
+**θy**, and its member forces are **N**, **Vz** and **My**. In the plane, rotations are positive
+counter-clockwise, looking at the structure with X to the right and Z up.
 
 **A member's local axes.** Local x runs from node I to node J; local z is the global vertical
 projected perpendicular to the member; local y completes the triad. Vertical members use global X
@@ -34,13 +36,15 @@ displacements in global axes.
 
 ## The stiffness method
 
-All member analysis —in Basic and in PRO— uses the **stiffness method** (also called the direct
+All member analysis, in Basic and in PRO, uses the **stiffness method** (also called the direct
 stiffness method). The idea: instead of looking for the forces, look for the **displacements of
 the nodes**, because everything else follows from them directly.
 
 The whole method rests on one equation:
 
-$$[K]\,\{u\} = \{F\}$$
+```math
+[K]\,\{u\} = \{F\}
+```
 
 where **[K]** is the structure's stiffness matrix, **{u}** the node displacements and **{F}** the
 loads. These are the nine steps the
@@ -49,9 +53,10 @@ loads. These are the nine steps the
 ### The matrix of one member
 
 Each member relates the forces at its ends to the displacements of its ends. For a plane frame
-member, in its local axes (axial u, transverse w and rotation θ at each end):
+member, in its local axes (axial u, transverse w and rotation θ at each end, with θ positive
+counter-clockwise):
 
-$$
+```math
 [k] = \begin{bmatrix}
 \frac{EA}{L} & 0 & 0 & -\frac{EA}{L} & 0 & 0 \\
 0 & \frac{12EI}{L^3} & \frac{6EI}{L^2} & 0 & -\frac{12EI}{L^3} & \frac{6EI}{L^2} \\
@@ -60,7 +65,7 @@ $$
 0 & -\frac{12EI}{L^3} & -\frac{6EI}{L^2} & 0 & \frac{12EI}{L^3} & -\frac{6EI}{L^2} \\
 0 & \frac{6EI}{L^2} & \frac{2EI}{L} & 0 & -\frac{6EI}{L^2} & \frac{4EI}{L}
 \end{bmatrix}
-$$
+```
 
 Each column is the set of end forces that appears when a unit displacement is imposed on one
 degree of freedom with all the others held. A truss member keeps only the axial terms (EA/L). In
@@ -72,7 +77,9 @@ are added.
 The matrix above is in local axes. To assemble it, it is taken to global axes with the member's
 rotation matrix **[T]**:
 
-$$[K]_e = [T]^T\,[k]\,[T]$$
+```math
+[K]_e = [T]^T\,[k]\,[T]
+```
 
 ### Assembly
 
@@ -91,23 +98,27 @@ q·L²/12 of moment at each end.
 
 The degrees of freedom are split into **free (f)** and **restrained (r)**:
 
-$$
+```math
 \begin{bmatrix} K_{ff} & K_{fr} \\ K_{rf} & K_{rr} \end{bmatrix}
 \begin{Bmatrix} u_f \\ u_r \end{Bmatrix}
 =
 \begin{Bmatrix} F_f \\ F_r + R \end{Bmatrix}
-$$
+```
 
-The restrained displacements **u_r** are known: zero, or the prescribed value if there is a
+The restrained displacements $u_r$ are known: zero, or the prescribed value if there is a
 settlement. The first row is solved for the free displacements:
 
-$$\{u_f\} = [K_{ff}]^{-1}\left(\{F_f\} - [K_{fr}]\{u_r\}\right)$$
+```math
+\{u_f\} = [K_{ff}]^{-1}\left(\{F_f\} - [K_{fr}]\{u_r\}\right)
+```
 
 and the second gives the **reactions**:
 
-$$\{R\} = [K_{rf}]\{u_f\} + [K_{rr}]\{u_r\} - \{F_r\}$$
+```math
+\{R\} = [K_{rf}]\{u_f\} + [K_{rr}]\{u_r\} - \{F_r\}
+```
 
-If [K_ff] cannot be inverted —it is singular—, the structure is a **mechanism**: there is a
+If $[K_{ff}]$ cannot be inverted (it is singular), the structure is a **mechanism**: there is a
 movement that takes no force. That is what step 3 of the
 [kinematic analysis](04-advanced-tools.md#kinematic-analysis) detects.
 
@@ -116,7 +127,9 @@ movement that takes no force. That is what step 3 of the
 With the displacements solved, each member's displacements are taken to local axes and multiplied
 by its [k]. The fixed-end forces of the loads along the span are then added:
 
-$$\{f\} = [k]\,[T]\,\{u\}_e + \{f_{fixed}\}$$
+```math
+\{f\} = [k]\,[T]\,\{u\}_e + \{f_{fixed}\}
+```
 
 ---
 
@@ -141,14 +154,18 @@ numbers.
 
 ### Hinges
 
-A hinge at the end of a member releases one degree of freedom —the rotation, for instance. The
-program does not use a separate matrix written by hand: it takes the rigid member's matrix and
-removes the released degree of freedom by **static condensation**. If **a** are the degrees of
-freedom that are kept and **b** the released ones:
+A hinge at the end of a member releases one degree of freedom (the rotation, for instance). The
+hinged member's matrix is the one obtained by removing that degree of freedom from the rigid matrix
+by **static condensation**. If **a** are the degrees of freedom that are kept and **b** the
+released ones:
 
-$$[k^*] = [k_{aa}] - [k_{ab}]\,[k_{bb}]^{-1}\,[k_{ba}]$$
+```math
+[k^*] = [k_{aa}] - [k_{ab}]\,[k_{bb}]^{-1}\,[k_{ba}]
+```
 
-The fixed-end forces are corrected in the same way.
+For a member with one hinged end, that turns the coefficients 12EI/L³, 6EI/L² and 4EI/L into
+3EI/L³, 3EI/L² and 3EI/L. The engine uses those already-condensed coefficients directly, and
+corrects the fixed-end forces with the same operation.
 
 ---
 
@@ -158,8 +175,18 @@ The stiffness method gives the forces **at the ends** of each member. Inside the
 diagrams come from **equilibrium**, cutting the member at each point and integrating the loads
 along the span:
 
-$$V(x) = V_i + \int_0^x q\,d\xi + \sum P \qquad
-M(x) = M_i - V_i\,x - \int_0^x q\,(x-\xi)\,d\xi - \sum P\,(x-a)$$
+```math
+V(x) = V_i + \int_0^x q\,d\xi + \sum P
+```
+
+```math
+M(x) = M_i - V_i\,x - \int_0^x q\,(x-\xi)\,d\xi - \sum P\,(x-a) - \sum M_0
+```
+
+V_i and M_i are the forces at the start of the member, q the distributed load, P the point loads
+at positions a and M_0 the concentrated moments. The signs follow the program's internal
+convention, in which dM/dx = −V; the drawn diagram follows the convention in
+[units and conventions](#units-and-conventions).
 
 That is why the moment under a uniform load comes out parabolic without subdividing the member.
 The deformed shape is drawn with the Hermite functions.
@@ -171,17 +198,23 @@ The deformed shape is drawn with the Hermite functions.
 [Section analysis](04-advanced-tools.md#section-analysis) computes stresses with the classical
 theories of strength of materials.
 
-**Normal stress (Navier).** In 3D, with bending in both planes:
+**Normal stress (Navier).** In 3D, with bending in both planes, the stress at a point (y, z) of the
+section adds the effect of the axial force and of each moment:
 
-$$\sigma = \frac{N}{A} + \frac{M_y\,z}{I_y} + \frac{M_z\,y}{I_z}$$
+```math
+\sigma = \frac{N}{A} \pm \frac{M_y\,z}{I_y} \pm \frac{M_z\,y}{I_z}
+```
 
-The line where σ = 0 is the **neutral axis**. If the load is eccentric, whether the resultant
+where each term is positive on the side that moment puts in tension. The line where σ = 0 is the
+**neutral axis**. If the load is eccentric, whether the resultant
 falls inside or outside the **section core** decides whether the whole section works with the same
 sign.
 
 **Shear stress (Jourawski).**
 
-$$\tau = \frac{V\,Q}{I\,b}$$
+```math
+\tau = \frac{V\,Q}{I\,b}
+```
 
 where **Q** is the first moment of the part of the section on one side of the fibre and **b** the
 width at that fibre. In thin-walled profiles the program draws the **shear flow** running along
@@ -193,15 +226,15 @@ the walls.
 |---|---|---|
 | Circular (solid or hollow) | Cauchy (exact) | τ = T·r / Iₚ |
 | **Closed** thin wall | Bredt | τ = T / (2·Aₘ·t) |
-| **Open** thin wall | Saint-Venant | τ = T·t / J, with J = ⅓·Σ b·t³ |
+| **Open** thin wall | Saint-Venant | τ_max = T·t_max / J, with J = ⅓·Σ b·t³ |
 
 Aₘ is the area enclosed by the wall's **mid-line**. Opening a closed wall changes the torsional
 stiffness by orders of magnitude. The post [Bredt or
 Saint-Venant](https://stabileo.com/en/blog/torsion-bredt-saint-venant/) shows by how much.
 
 **Stress state and failure.** From σ and τ the program builds the stress tensor, the principal
-stresses and **Mohr's circle**, and evaluates the **von Mises** (σ_vm = √(σ² + 3τ²)) and
-**Rankine** criteria.
+stresses and **Mohr's circle**, and evaluates the **von Mises**
+($\sigma_{vm} = \sqrt{\sigma^2 + 3\tau^2}$) and **Rankine** criteria.
 
 ---
 
@@ -211,24 +244,31 @@ stresses and **Mohr's circle**, and evaluates the **von Mises** (σ_vm = √(σ�
 [K_G], which depends on the axial forces (compression reduces it), is added to the elastic
 stiffness, and the solution is iterated until the displacements converge:
 
-$$\left([K] + [K_G(N)]\right)\{u\} = \{F\}$$
+```math
+\left([K] + [K_G(N)]\right)\{u\} = \{F\}
+```
 
 **Linear buckling.** Look for the factor λ that makes the total stiffness singular:
 
-$$\left([K] + \lambda\,[K_G]\right)\{\phi\} = 0$$
+```math
+\left([K] + \lambda\,[K_G]\right)\{\phi\} = 0
+```
 
 The critical load is λ times the applied load, and φ is the buckled shape.
 
 **Modal analysis.** Undamped free vibration satisfies
 
-$$\left([K] - \omega^2\,[M]\right)\{\phi\} = 0$$
+```math
+\left([K] - \omega^2\,[M]\right)\{\phi\} = 0
+```
 
-with **[M]** the consistent mass matrix, built from the unit weight of the materials. Each ω is a
+with **[M]** the mass matrix, built from the unit weight of the materials: consistent for rigid
+members, and lumped at the nodes for hinged members and for plates. Each ω is a
 natural frequency (f = ω / 2π, T = 1/f) and each φ a mode shape. The **effective mass** of each
 mode tells what fraction of the total mass it mobilises in each direction.
 
 **Response-spectrum analysis (PRO).** Combines the peak response of each mode, read from a design
-spectrum, with the CQC or SRSS rules.
+spectrum, with the CQC or SRSS rules. It currently takes only the model's members into account.
 
 ---
 
@@ -262,7 +302,9 @@ combine both.
 shear deformation (like Euler-Bernoulli for beams). **Mindlin-Reissner** includes it, and works for
 thick plates.
 
-- **DKT** (triangles): applies the Kirchhoff assumption at discrete points of the element.
+- **DKT** (triangles): applies the Kirchhoff assumption at discrete points of the element, so it is
+  a thin plate with no shear deformation. Its membrane is a constant-strain triangle, poor at
+  in-plane bending.
 - **MITC4** (quadrilaterals): starts from Mindlin-Reissner, so it works for both thick and thin
   plates.
 
@@ -283,7 +325,7 @@ not in one plane give worse results. The engine reports them after solving.
 ## Further reading
 
 - **The blog** works through specific questions with numbers computed by the program:
-  [stabileo.com/en/blog](https://stabileo.com/en/blog).
+  [stabileo.com/en/blog](https://stabileo.com/en/blog/).
 - **The engine's verification** against analytical solutions and reference problems is in
   [BENCHMARKS.md](../../BENCHMARKS.md).
 

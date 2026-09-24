@@ -38,7 +38,7 @@ da, la 6 se puede leer sola.
 
 ## Para seguir leyendo
 
-- **[El blog](https://stabileo.com/es/blog)** tiene notas largas sobre temas puntuales, con
+- **[El blog](https://stabileo.com/es/blog/)** tiene notas largas sobre temas puntuales, con
   números calculados por el programa y el editor embebido: por ejemplo,
   [¿barras o elementos finitos?](https://stabileo.com/es/blog/bars-or-finite-elements/) o
   [qué teoría de torsión aplica](https://stabileo.com/es/blog/torsion-bredt-saint-venant/).

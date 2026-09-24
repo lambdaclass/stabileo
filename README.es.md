@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://stabileo.com"><strong>Abrir el editor</strong></a> ·
   <a href="docs/guide/es/README.md"><strong>Leer la guía</strong></a> ·
-  <a href="https://stabileo.com/es/blog">Blog</a> ·
+  <a href="https://stabileo.com/es/blog/">Blog</a> ·
   <a href="README.md">Read in English</a>
 </p>
 
@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/pro-shells-es.webp" alt="Un pórtico de hormigón en Stabileo PRO, con las tensiones de Von Mises en la losa y el tabique" width="100%" />
+  <img src="docs/screenshots/pro-building-es.webp" alt="Un edificio de hormigón armado de siete pisos en Stabileo PRO, con los momentos flectores de las losas como mapa de color" width="100%" />
 </p>
 
 ---
@@ -97,15 +97,14 @@ manejan con scripts y no tienen interfaz visual.
 
 ## El blog
 
-[stabileo.com/blog](https://stabileo.com/es/blog) — notas largas sobre cómo funciona el solver y las
-decisiones detrás, en español, inglés y portugués. Cada número se calcula con el motor antes de
-escribir el texto, y varias notas tienen el editor embebido sobre el modelo del que hablan.
+Notas largas sobre cómo funciona el solver y las decisiones detrás, en español, inglés y
+portugués. Cada número se calcula con el motor antes de escribir el texto, y varias notas tienen
+el editor embebido sobre el modelo del que hablan. Dos para empezar:
 
-- [¿Barras o elementos finitos?](https://stabileo.com/es/blog/bars-or-finite-elements) — no son dos métodos, son dos modelos, y dónde dan distinto
-- [Bredt o Saint-Venant](https://stabileo.com/es/blog/torsion-bredt-saint-venant) — qué teoría de torsión aplica, y qué cuesta elegir mal
-- [Verificación a flexión según CIRSOC 201](https://stabileo.com/es/blog/verificacion-flexion-cirsoc-201) — los pasos que deciden el resultado
-- [Lo que el software gratuito calcula, y lo que no te explica](https://stabileo.com/es/blog/conceptual-side-advanced-tools) — dónde se detienen las herramientas gratuitas
-- [La frontera de determinismo](https://stabileo.com/es/blog/the-determinism-boundary) — por qué un agente de IA no debe calcular
+- [Lo que el software gratuito calcula, y lo que no te explica](https://stabileo.com/es/blog/conceptual-side-advanced-tools/) — dónde se detienen las herramientas gratuitas
+- [La frontera de determinismo](https://stabileo.com/es/blog/the-determinism-boundary/) — por qué un agente de IA no debe calcular
+
+**[Leer todas las notas en el blog →](https://stabileo.com/es/blog/)**
 
 ## Cómo está hecho
 
@@ -115,6 +114,26 @@ escribir el texto, y varias notas tienen el editor embebido sobre el modelo del 
   paso.
 - **Verificación:** contrastado con soluciones analíticas, benchmarks de NAFEMS, el ANSYS
   Verification Manual, Code_Aster y problemas de libro. Ver [BENCHMARKS.md](docs/BENCHMARKS.md).
+
+<details>
+<summary><strong>Qué puede resolver el motor</strong></summary>
+
+El motor implementa más de lo que cualquier modo expone hoy; los modos de arriba dicen qué se puede
+usar desde la interfaz.
+
+- Estática lineal 2D y 3D, segundo orden (P-Δ), pandeo lineal, modal, espectral, historia en el
+  tiempo, respuesta armónica y cargas móviles
+- Análisis no lineal corrotacional y de material, análisis plástico, elementos viga-columna de
+  fibras
+- Construcción por etapas, pretensado y postesado, cables, contacto y gap, interacción
+  suelo-estructura no lineal
+- Imperfecciones iniciales, tensiones residuales, fluencia y retracción
+- Cáscaras: MITC4 (ANS + EAS-7), MITC9, cáscara sólida SHB8-ANS y cáscaras curvas
+- Reducción de modelos de Guyan y de Craig-Bampton
+- Combinaciones de carga, envolventes, análisis de sección, recuperación de tensiones y
+  diagnóstico cinemático
+
+</details>
 
 ## Correrlo localmente
 
@@ -131,8 +150,29 @@ Requiere Node.js 18 o superior. Los detalles del build y de los tests están en 
 
 ## Colaborar
 
-Los pull requests son bienvenidos. Para cambios grandes, abrí primero un *issue* para discutir el
-enfoque. La [documentación técnica](docs/README.md) es el punto de partida.
+Stabileo se construye a la vista, con quienes lo usan. Los reportes, las ideas, las discusiones y
+el código son bienvenidos.
+
+**El mejor lugar para empezar es nuestro [Discord](https://discord.gg/Q53rp7FKXA)**: ahí charlamos
+sobre el proyecto, respondemos dudas y discutimos lo que viene, en español y en inglés. Sumate y
+saludá.
+
+Todos los canales están reunidos en **[linktr.ee/stabileo](https://linktr.ee/stabileo)**:
+
+| Canal | Idioma | Para qué |
+|---|---|---|
+| [Discord](https://discord.gg/Q53rp7FKXA) | Español · inglés | Charlar y participar del proyecto |
+| [WhatsApp](https://wa.me/5491138563881) | Español · inglés | Contacto directo con el equipo |
+| [X](https://x.com/Stabileoapp) | Inglés | Novedades y actualizaciones |
+| [Instagram](https://www.instagram.com/stabileoapp/) | Español | Novedades de funciones |
+| [LinkedIn](https://www.linkedin.com/company/stabileo) | Español | Novedades del proyecto |
+
+**Código.** Los pull requests son bienvenidos. Para cambios grandes, abrí primero un *issue* para
+discutir el enfoque. La [documentación técnica](docs/README.md) es el punto de partida.
+
+## Seguridad
+
+Para reportar una vulnerabilidad, escribí a security@lambdaclass.com.
 
 ## Licencia
 

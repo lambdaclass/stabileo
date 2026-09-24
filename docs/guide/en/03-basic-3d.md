@@ -1,8 +1,8 @@
 # 3. Basic mode in 3D
 
-The **3D** button in the **View** group takes the model into space. It is still Basic mode —the
-same tools, the same member logic— but each node goes from three degrees of freedom to **six**:
-three displacements (**ux**, **uy**, **uz**) and three rotations (**θx**, **θy**, **θz**).
+The **3D** button in the **View** group takes the model into space. It is still Basic mode, with
+the same tools and the same member logic, but each node goes from three degrees of freedom to
+**six**: three displacements (**ux**, **uy**, **uz**) and three rotations (**θx**, **θy**, **θz**).
 
 ![A space frame in Basic 3D, with the My moment diagram](img/basic-3d-frame.webp)
 
@@ -55,10 +55,18 @@ stiffness.
 - **Distributed:** in the member's **local y and z** directions, with a value at each end.
 - **Self-weight:** as in 2D.
 
+> **Watch the default direction.** In 3D the point load starts on **Fy** and the distributed load
+> on **local y**, which are horizontal on a horizontal beam. For gravity loads use **Fz** on nodes
+> and **qZ** (local z) on members.
+
 ### Joints
 
 In 3D a joint releases any combination of the six relative movements between the member end and
-the node. The **Hng** column of the members table releases only the Mz moment.
+the node. It is set with the **Joints** mode of the **Node** tool.
+
+> The **Hng** column of the members table releases **only the Mz moment**. In a horizontal beam the
+> gravity moment is **My**, so that column does not hinge it for gravity loads: for that, release
+> θy with the **Joints** mode.
 
 ### Torsion
 
@@ -79,14 +87,18 @@ flat, the switch is immediate. If not, the program asks what to do:
      supports and loads, and warns if one would be left without supports or without loads.
    - **The whole structure, flattened.** Projects everything onto the plane. It is useful to see
      the structure from the side, but it stacks frames on top of each other.
-3. **Stay in 3D**, if the switch was a mistake.
+3. **Stay in 3D**, if the switch was a mistake, or **Erase model and switch to 2D**, to start from
+   scratch in the plane.
 
-The original 3D model is kept: pressing **3D** again brings it back exactly as it was.
+The original 3D model is kept: pressing **3D** again brings it back exactly as it was. Changes you
+made to the 2D cut are not carried back into the 3D model.
 
 ## Current limitations of 3D in Basic
 
-- Thermal loads and point loads within a member's span are available in 2D only.
+- Thermal loads and point loads within a member's span cannot be created in 3D (the **Thermal**
+  button shows but does nothing). Those created in 2D are kept when moving to 3D and are solved.
 - Inclined rollers and prescribed displacements, in 2D only.
+- A 3D model with sliding joints cannot be solved.
 - DXF and SVG export is available in 2D only.
 
 ---

@@ -1,7 +1,8 @@
 # 4. Funciones avanzadas del modo Básico
 
-El botón **Avanzado** del grupo **Análisis** abre un menú. Cada entrada muestra una sola función
-a la vez, y el botón **?** que tiene al lado explica en dos líneas qué hace.
+El botón **Avanzado** del grupo **Análisis** abre un menú. Al elegir una entrada, el menú se
+reemplaza por los controles de esa función, con una ✕ para volver. El botón **?** de cada entrada
+explica brevemente qué hace.
 
 ![El menú de funciones avanzadas del modo Básico](img/basic-advanced-menu.webp)
 
@@ -11,18 +12,18 @@ aplica.
 
 | Función | 2D | 3D | Necesita calcular antes |
 |---|:-:|:-:|:-:|
-| [Análisis cinemático](#análisis-cinemático) | ✓ | — | no |
+| [Análisis Cinemático](#análisis-cinemático) | ✓ | — | no |
 | [Despiece](#despiece) | ✓ | ✓ | sí |
-| [Análisis de sección](#análisis-de-sección) | ✓ | ✓ | sí |
-| [P-Δ (segundo orden)](#p-δ-segundo-orden) | ✓ | ✓ | no |
-| [Pcr (pandeo de Euler)](#pcr-pandeo) | ✓ | ✓ | no |
-| [Dinámico (modal)](#dinámico-análisis-modal) | ✓ | ✓ | no |
+| [Análisis de Sección](#análisis-de-sección) | ✓ | ✓ | sí |
+| [P-Δ (2° Orden)](#p-δ-segundo-orden) | ✓ | ✓ | no |
+| [Pcr (Euler)](#pcr-pandeo) | ✓ | ✓ | no |
+| [Dinámico](#dinámico-análisis-modal) | ✓ | ✓ | no |
 | [Colapso plástico](#colapso-plástico) | ✓ | — | no |
 | [Envolvente](#envolvente) | ✓ | ✓ | no |
-| [Tren de carga](#tren-de-carga) | ✓ | — | no |
-| [Línea de influencia](#línea-de-influencia) | ✓ | — | sí |
-| [Explorar (¿qué pasa si…?)](#explorar-qué-pasa-si) | ✓ | ✓ | sí |
-| [Paso a paso: método de las rigideces](#paso-a-paso-método-de-las-rigideces) | ✓ | ✓ | no |
+| [Tren de Carga](#tren-de-carga) | ✓ | — | no |
+| [Línea de Influencia](#línea-de-influencia) | ✓ | — | sí |
+| [Explorar (¿Qué pasa si…?)](#explorar-qué-pasa-si) | ✓ | ✓ | sí |
+| [Paso a Paso — Mét. Rigideces](#paso-a-paso-método-de-las-rigideces) | ✓ | ✓ | no |
 
 ---
 
@@ -47,7 +48,9 @@ primer paso de cualquier cálculo a mano, y el programa lo muestra desarrollado.
    nodo y en qué dirección** se mueve.
 4. **Sugerencias** para estabilizarla.
 
-No hace falta calcular: se actualiza mientras modelás.
+No hace falta calcular: se arma al abrir el panel. Si después modificás el modelo, un botón
+(**Estructura modificada — clickeá aquí para actualizar**) lo recalcula; con **Cálculo en tiempo
+real** activado, se actualiza solo.
 
 > Hay una nota en el blog construida sobre exactamente este caso, una viga donde la fórmula da
 > cero y la estructura se mueve: [lo que el software gratuito calcula, y lo que no te
@@ -61,7 +64,8 @@ vez, con los pares de acción y reacción a la vista. Sirve para verificar el eq
 barra y de cada nodo.
 
 Opciones: ver los vectores en barras, en nodos o en ambos; en ejes locales o globales; mostrar
-las cargas como resultante o completas.
+las cargas completas, como resultante o apagarlas; combinar vectores; y ajustar el tamaño de
+flechas y rótulos. Un clic en un nodo o en una barra lista las acciones que llegan a él.
 
 ## Análisis de sección
 
@@ -70,18 +74,22 @@ clic en una barra y se mueve un cursor a lo largo de ella.
 
 ![El análisis de sección de un tubo en torsión: la teoría que aplica y la tensión máxima](img/basic-section-torsion.webp)
 
-- **Tensión normal** por Navier: σ = N/A + M·z/I (en 3D, flexión biaxial).
+- **Tensión normal** por Navier: σ = N/A + M·z/I (en 3D, flexión biaxial). Un cursor recorre las
+  fibras de la sección.
 - **Tensión tangencial** por Jourawski: τ = V·Q / (I·b), con el flujo de corte dibujado sobre la
   sección.
-- **Torsión:** el programa decide qué teoría corresponde según la forma de la sección —sección
-  maciza, pared delgada cerrada (Bredt) o pared delgada abierta (Saint-Venant)— y lo dice. En
-  **Las tres teorías** las compara, y marca las que no aplican con el motivo.
+- **Torsión:** el programa decide qué teoría corresponde según la forma de la sección —Cauchy
+  para la sección circular, Bredt para la pared delgada cerrada y Saint-Venant, que es la teoría
+  general, para el resto— y lo dice. En **Las tres teorías** las compara, y marca las que no
+  aplican con el motivo. Cuando corresponde, también estima la parte del torsor que toma el
+  **alabeo** (torsión no uniforme).
 - **Estado tensional, tensores y círculo de Mohr**, con las tensiones principales.
-- **Criterios de falla:** Von Mises y Rankine.
+- **Criterios de falla:** Von Mises, Tresca y Rankine, cada uno como porcentaje de fy.
 - **Baricentro y centro de corte**, con el cálculo.
 - **Núcleo central**, con sus ecuaciones, y **carga excéntrica**: si la resultante cae adentro o
   afuera del núcleo.
-- **Secciones críticas:** momento máximo, apoyos, puntos de carga.
+- **Secciones críticas:** los extremos de la barra, el momento máximo (donde V = 0), los puntos de
+  carga y el centro del tramo.
 
 Necesita una sección definida por su forma: con una sección amorfa no hay geometría sobre la que
 calcular tensiones.
@@ -97,15 +105,17 @@ columna comprimida que se desplaza lateralmente genera un momento adicional P·�
 desplazamiento, que aumenta el momento.
 
 El programa lo resuelve iterando hasta que el resultado deja de cambiar (hasta 20 iteraciones).
-Informa el **factor de amplificación B₂** —cuánto crecen los efectos respecto del análisis
-lineal—, la cantidad de iteraciones y si la estructura es estable. Un B₂ mayor que 1,4 indica una
+Informa el **factor de amplificación B₂** (cuánto crecen los efectos respecto del análisis
+lineal), la cantidad de iteraciones y si la estructura es estable. Un B₂ mayor que 1,4 indica una
 estructura sensible a los efectos de segundo orden.
 
 ## Pcr (pandeo)
 
 **Qué calcula:** la carga crítica de pandeo elástico. Plantea el problema de autovalores
 
-$$\left( [K] + \lambda\,[K_G] \right) \{\phi\} = 0$$
+```math
+\left( [K] + \lambda\,[K_G] \right) \{\phi\} = 0
+```
 
 donde [K] es la rigidez elástica y [K_G] la **rigidez geométrica**, que depende de los esfuerzos
 axiales. Cada autovalor **λ** es el factor por el que hay que multiplicar las cargas actuales para
@@ -118,13 +128,15 @@ Muestra los cuatro primeros modos, con su λ, su forma dibujada y el factor de l
 
 **Qué calcula:** las frecuencias y formas propias de vibración. Plantea
 
-$$\left( [K] - \omega^2 [M] \right) \{\phi\} = 0$$
+```math
+\left( [K] - \omega^2 [M] \right) \{\phi\} = 0
+```
 
-con una **matriz de masa consistente** armada a partir del peso específico ρ de cada material.
+con una **matriz de masa** armada a partir del peso específico ρ de cada material.
 
 Muestra los seis primeros modos: frecuencia (Hz), período (s), masa efectiva de cada modo y la
-suma acumulada, con la forma modal animada. En 2D también da los coeficientes de amortiguamiento
-de Rayleigh.
+suma acumulada, con la forma modal animada. En 2D, el aviso al terminar informa además los
+coeficientes de amortiguamiento de Rayleigh.
 
 > El análisis espectral sísmico no está en el modo Básico: está en PRO.
 
@@ -138,8 +150,9 @@ rótula más, hasta que se forma un mecanismo.
 Muestra cada paso con su factor λ, dónde se formó la rótula y si se llegó al mecanismo.
 
 > **Limitación actual:** el módulo plástico Zp se calcula como el de una sección rectangular
-> (b·h²/4). Para perfiles doble T, U o tubos eso sobreestima Mp. Tenelo en cuenta hasta que se
-> corrija.
+> (b·h²/4) cuando la sección tiene ancho y alto, y si no, con un factor de forma fijo de 1,15. En
+> perfiles doble T, U o tubos eso sobreestima Mp varias veces, así que el factor de colapso sale
+> del lado inseguro.
 
 ## Envolvente
 
@@ -154,11 +167,14 @@ avanza de a 25 cm a lo largo de la estructura y en cada posición se resuelve el
 predefinidos: una carga puntual de 100 kN, el camión HL-93 (35, 145 y 145 kN) y un tándem de dos
 ejes de 110 kN. Se puede recorrer posición por posición y ver la envolvente.
 
+Las cargas del tren **se suman a las que ya tiene el modelo**: para ver el efecto del tren solo,
+borrá antes las otras cargas.
+
 ## Línea de influencia
 
 **Qué muestra:** cómo varía una reacción o un esfuerzo cuando una **carga unitaria** recorre la
-estructura. Se elige la magnitud —una reacción (clic en un nodo) o el momento o el corte en una
-barra (clic en la barra, en su punto medio)— y el programa dibuja la línea. Se puede animar la
+estructura. Se elige la magnitud (una reacción, con clic en un nodo, o el momento o el corte en
+una barra, con clic en la barra; se evalúa en su punto medio) y el programa dibuja la línea. Se puede animar la
 carga recorriendo la estructura.
 
 La línea de influencia responde a la pregunta inversa del diagrama de esfuerzos: no "qué momento
@@ -167,10 +183,11 @@ carga".
 
 ## Explorar (¿qué pasa si…?)
 
-**Qué hace:** controles deslizantes para cambiar las cargas, el módulo E y el área y la inercia de
-las secciones, con el modelo recalculándose en vivo. Sirve para desarrollar intuición: qué pasa
-con el momento en el apoyo si la columna es más rígida, cuánto cambia la flecha si se duplica la
-inercia. Al cerrar se restauran los valores originales.
+**Qué hace:** controles deslizantes para cambiar cada carga (de 0 a 3 veces su valor) y factores
+globales para el módulo E, el área y la inercia (de 0,1 a 5 veces, aplicados a todas las barras a
+la vez), con el modelo recalculándose en vivo. Sirve para desarrollar intuición: cuánto cambia la
+flecha si se duplica la inercia, qué pasa con los esfuerzos si una carga se duplica. Al cerrar se
+restauran los valores originales.
 
 ## Paso a paso: método de las rigideces
 
@@ -180,8 +197,8 @@ con las matrices y los vectores reales de tu estructura.
 ![El primer paso del método de las rigideces: la numeración de los grados de libertad](img/basic-stiffness-steps.webp)
 
 1. **Numeración de grados de libertad:** primero los libres, después los restringidos.
-2. **Matrices locales [k]** de cada barra (6 × 6 para pórticos en 2D, 4 × 4 para reticulados,
-   12 × 12 en 3D).
+2. **Matrices locales [k]** de cada barra: 6 × 6 para pórticos en 2D, 2 × 2 para reticulados en
+   2D (la fórmula se muestra en 4 × 4), 12 × 12 para pórticos en 3D y 6 × 6 para reticulados en 3D.
 3. **Transformación** a ejes globales: [K]ₑ = [T]ᵀ [k] [T].
 4. **Ensamblaje** de la matriz de rigidez global [K].
 5. **Vector de cargas {F}**, incluidas las cargas nodales equivalentes de las cargas en las barras.
@@ -192,7 +209,7 @@ con las matrices y los vectores reales de tu estructura.
 9. **Fuerzas internas:** los desplazamientos de cada barra llevados a ejes locales, la fuerza que
    resulta y la corrección por las cargas del tramo.
 
-El **Explorador de matrices** permite recorrer cualquiera de ellas elemento por elemento. La
+El **Explorador de Matrices** permite recorrer cualquiera de ellas elemento por elemento. La
 teoría de cada paso está en el [capítulo 6](06-fundamentos-teoricos.md#el-método-de-las-rigideces).
 
 ---
@@ -200,7 +217,8 @@ teoría de cada paso está en el [capítulo 6](06-fundamentos-teoricos.md#el-mé
 ## Limitaciones
 
 - P-Δ, pandeo, dinámico, colapso plástico, tren de carga, línea de influencia, explorar y el
-  paso a paso no admiten modelos con deslizaderas (en 2D) ni con articulaciones parciales (en 3D).
+  paso a paso no admiten modelos con deslizaderas (en 2D) ni con articulaciones internas definidas
+  con el modo **Articulaciones** (en 3D). Las articulaciones de la columna **Art.** sí se admiten.
   El programa lo avisa.
 - El análisis cinemático, el colapso plástico, el tren de carga y la línea de influencia están
   disponibles sólo en 2D.

@@ -57,11 +57,18 @@ resorte.
   extremo.
 - **Peso propio:** igual que en 2D.
 
+> **Ojo con la dirección por defecto.** En 3D, la carga puntual arranca en **Fy** y la distribuida
+> en la dirección **y local**, que en una viga horizontal son horizontales. Para cargas de gravedad
+> usá **Fz** en los nodos y **qZ** (z local) en las barras.
+
 ### Articulaciones
 
 En 3D, una articulación libera cualquier combinación de los seis movimientos relativos entre el
-extremo de la barra y el nodo. La columna **Art.** de la tabla de barras libera sólo el momento
-Mz.
+extremo de la barra y el nodo. Se define con el modo **Articulaciones** de la herramienta **Nodo**.
+
+> La columna **Art.** de la tabla de barras libera **sólo el momento Mz**. En una viga horizontal
+> el momento de gravedad es **My**, así que esa columna no la articula para las cargas de
+> gravedad: para eso, liberá θy con el modo **Articulaciones**.
 
 ### Torsión
 
@@ -82,14 +89,19 @@ el cambio es directo. Si no, el programa pregunta qué hacer:
      apoyos y cargas, y avisa si alguno quedaría sin apoyos o sin cargas.
    - **Toda la estructura, aplastada.** Proyecta todo sobre el plano. Sirve para ver la
      estructura de costado, pero superpone pórticos.
-3. **Seguir en 3D**, si el cambio fue un error.
+3. **Seguir en 3D**, si el cambio fue un error, o **Borrar modelo y pasar a 2D**, para empezar de
+   cero en el plano.
 
-El modelo 3D original se guarda: al volver a tocar **3D**, se recupera tal como estaba.
+El modelo 3D original se guarda: al volver a tocar **3D**, se recupera tal como estaba. Los cambios
+que hayas hecho sobre el corte 2D no pasan al modelo 3D.
 
 ## Limitaciones actuales del 3D en Básico
 
-- Las cargas térmicas y las cargas puntuales en el tramo de una barra están disponibles sólo en 2D.
+- Las cargas térmicas y las cargas puntuales en el tramo de una barra no se pueden crear en 3D
+  (el botón **Térmica** aparece, pero no hace nada). Las creadas en 2D se conservan al pasar a 3D y
+  se calculan.
 - Los apoyos móviles inclinados y los desplazamientos impuestos, sólo en 2D.
+- Un modelo 3D con deslizaderas no se puede calcular.
 - La exportación a DXF y SVG está disponible sólo en 2D.
 
 ---
