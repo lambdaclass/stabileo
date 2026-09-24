@@ -68,3 +68,19 @@ describe('3-D pushover payload', () => {
     uiStore.analysisMode = '2d';
   });
 });
+
+describe('3-D Mp of a rotated section', () => {
+  it('stays about the profile’s own axes: the roll already turns the member’s local axes', async () => {
+    const { plasticMoments3D, plasticModulus } = await import('../plastic-moments');
+    historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
+    await modelStore.loadExample('cantilever-point');
+    const [id, sec] = [...modelStore.sections.entries()][0]!;
+    const upright = plasticMoments3D(modelStore.sections, modelStore.materials, modelStore.elements)[0]!;
+    modelStore.sections.set(id, { ...sec, rotation: 90 });
+    const turned = plasticMoments3D(modelStore.sections, modelStore.materials, modelStore.elements)[0]!;
+    expect(turned.zp).toBeCloseTo(upright.zp, 9);
+    expect(turned.zpz).toBeCloseTo(upright.zpz, 9);
+    // 2-D does turn it: its bending axis does not follow the section.
+    expect(plasticModulus({ ...sec, rotation: 90 }).zp).toBeCloseTo(upright.zpz, 7);
+  });
+});
