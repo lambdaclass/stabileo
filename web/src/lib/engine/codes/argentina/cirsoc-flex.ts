@@ -28,7 +28,7 @@ import {
 } from './cirsoc201-section';
 import { refine, momentCapacityAtAxial, axialRange } from './cirsoc-flex-surface';
 import { twoLevels, levelsFromBottom, facesA1A2A3, ring, flexural } from './cirsoc201-layouts';
-import { COLUMN_STEEL_RATIO, minFlexuralSteelCm2, beta1, axialCap } from './cirsoc201-basis';
+import { COLUMN_STEEL_RATIO, ES_MPA, minFlexuralSteelCm2, beta1, axialCap } from './cirsoc201-basis';
 import { chooseBars, chooseBarsForCount, chooseBarsPerLevel, type BarChoice } from './cirsoc201-bars';
 import { msg, type EngineMessage } from '../../../codes/message';
 
@@ -419,17 +419,27 @@ export function solveFlex(i: FlexInput): FlexOutput {
         };
       }
       /*
-       * Hold the concrete at its limit and let a symmetric pair carry the
-       * rest. Bisecting the PAIR keeps one unknown, and the pair is what a
-       * doubly-reinforced section actually adds.
+       * Hold the concrete at its limit and let a pair carry the rest —
+       * A′s on top and the tension steel that BALANCES it, which is A′s·f′s/fy
+       * and not A′s. The top bar works at f′s, less the concrete it displaces
+       * ("f′s corregido" on the sheet: 420 − 21,25 = 398,75 MPa), so adding
+       * equal areas put more force in the bottom than the top, pushed the
+       * neutral axis past c máx and left εt at 4,96 ‰ instead of the 5 ‰ the
+       * branch exists to hold. Balanced, c stays where the singly-reinforced
+       * limit put it — which is the sheet's closed form, by construction.
        */
+      const cLim = stateOf(AsAtLimit).c;
+      const eps = cLim > 0 ? (0.003 * (cLim - i.dPrime)) / cLim : 0;
+      let fsComp = Math.min(eps * ES_MPA, i.fy);
+      if (i.deductDisplacedConcrete !== false && i.dPrime <= beta1(i.fc) * cLim) fsComp -= 0.85 * i.fc;
+      const balance = Math.max(fsComp, 0) / i.fy;
       let a = 0;
       let z = AstMaxHere;
       for (let k = 0; k < 45; k++) {
         const m = (a + z) / 2;
-        if (capacityOf(AsAtLimit + m, m) < MuAbs) a = m; else z = m;
+        if (capacityOf(AsAtLimit + balance * m, m) < MuAbs) a = m; else z = m;
       }
-      return { AsReq: AsAtLimit + z, AsComp: z, MuSinglyMax };
+      return { AsReq: AsAtLimit + balance * z, AsComp: z, MuSinglyMax };
     };
 
     /*
