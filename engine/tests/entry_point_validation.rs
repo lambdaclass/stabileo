@@ -231,6 +231,115 @@ fn beam_3d_collapsed_plate() -> SolverInput3D {
     s
 }
 
+/// A frame chain stabilizes a folded quad so the geometry refusal, rather
+/// than a singular frame system, is what the callers must report.
+fn frame_3d_folded_quad() -> SolverInput3D {
+    let mut s = make_3d_input(
+        vec![(0, 0.0, 0.0, 0.0), (1, 2.0, 0.0, 0.0), (2, 0.0, 2.0, 0.0), (3, 3.0, 2.0, 0.0)],
+        vec![(1, 210_000.0, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+        vec![(0, "frame", 0, 1, 1, 1), (1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
+        vec![(0, vec![true; 6])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 3, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    s.quads.insert("9".into(), SolverQuadElement {
+        id: 9, nodes: [0, 1, 2, 3], material_id: 1, thickness: 0.1,
+    });
+    s
+}
+
+fn single_axle_train() -> LoadTrain {
+    LoadTrain { name: "t".into(), axles: vec![Axle { offset: 0.0, weight: 10.0 }] }
+}
+
+#[test]
+fn moving_loads_constrained_folded_quad_returns_geometry_error() {
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_3d;
+    let mut solver = frame_3d_folded_quad();
+    solver.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+        master_node: 1, slave_node: 2, dofs: vec![0],
+    }));
+    let input = MovingLoadInput3D {
+        solver, train: single_axle_train(), step: Some(1.0),
+        path_element_ids: Some(vec![0, 1, 2]), gravity_direction: None,
+    };
+    let err = solve_moving_loads_3d(&input).expect_err("a refused model must not return a zero envelope");
+    assert!(err.contains("Quad 9") && err.contains("folds"), "{err}");
+
+    // Removing only the bad shell leaves a valid constrained frame. Its
+    // moving loads must still produce a nonzero envelope.
+    let mut valid = input;
+    valid.solver.quads.clear();
+    let result = solve_moving_loads_3d(&valid).expect("valid constrained frame");
+    assert!(result.elements.values().any(|e| e.my_max_pos.abs().max(e.my_max_neg.abs()) > 1.0));
+}
+
+#[test]
+fn moving_loads_2d_constraint_refusal_is_returned() {
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    let mut solver = beam_2d();
+    solver.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+        master_node: 1, slave_node: 99, dofs: vec![0],
+    }));
+    let mut input = MovingLoadInput {
+        solver, train: single_axle_train(), step: Some(1.0), path_element_ids: None,
+    };
+    let err = solve_moving_loads_2d(&input).expect_err("a refused constraint must not return a zero envelope");
+    assert!(err.contains("99"), "{err}");
+
+    input.solver.constraints[0] = Constraint::EqualDOF(EqualDOFConstraint {
+        master_node: 1, slave_node: 2, dofs: vec![0],
+    });
+    let result = solve_moving_loads_2d(&input).expect("valid constrained cantilever");
+    assert!(result.elements.values().any(|e| e.m_max_pos.abs().max(e.m_max_neg.abs()) > 1.0));
+}
+
+fn plastic_3d_input(solver: SolverInput3D) -> PlasticInput3D {
+    PlasticInput3D {
+        solver,
+        sections: HashMap::from([("1".into(), PlasticSectionData3D {
+            a: 0.01, iy: 1e-4, iz: 1e-4, material_id: 1,
+            b: Some(0.1), h: Some(0.1), d: Some(0.1),
+        })]),
+        materials: HashMap::new(), max_hinges: Some(1),
+        mp_overrides: Some(HashMap::from([("1".into(), [100.0, 100.0])])),
+    }
+}
+
+#[test]
+fn plastic_3d_broken_shell_returns_geometry_error() {
+    use dedaliano_engine::solver::plastic::solve_plastic_3d;
+    for (solver, element, problem) in [
+        (frame_3d_folded_quad(), "Quad 9", "folds"),
+        (beam_3d_collapsed_plate(), "Plate 1", "collapsed"),
+    ] {
+        let err = solve_plastic_3d(&plastic_3d_input(solver))
+            .expect_err("invalid geometry must not be reported as zero-load collapse");
+        assert!(err.contains(element) && err.contains(problem), "{err}");
+    }
+}
+
+#[test]
+fn plastic_3d_valid_frame_still_forms_a_hinge() {
+    use dedaliano_engine::solver::plastic::solve_plastic_3d;
+    let result = solve_plastic_3d(&plastic_3d_input(beam_3d())).unwrap();
+    assert!(!result.is_mechanism);
+    assert!((result.collapse_factor - 2.5).abs() < 1e-8);
+    assert_eq!(result.hinges.len(), 1);
+}
+
+#[test]
+fn plastic_3d_unrestrained_frame_is_still_a_mechanism() {
+    use dedaliano_engine::solver::plastic::solve_plastic_3d;
+    let mut solver = beam_3d();
+    solver.supports.clear();
+    let result = solve_plastic_3d(&plastic_3d_input(solver)).unwrap();
+    assert!(result.is_mechanism);
+    assert_eq!(result.collapse_factor, 0.0);
+}
+
 #[test]
 fn f7_gate_refusal_control_solve_3d_errs() {
     use dedaliano_engine::solver::linear::solve_3d;

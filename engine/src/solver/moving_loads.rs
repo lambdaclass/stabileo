@@ -93,34 +93,33 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
         // Build loads for this position
         let loads = moving_loads_at_position_2d(solver_input, train, &path, pos, total_length);
 
-        // Solve with these loads
+        // Every position must solve: skipping a refusal would return an
+        // incomplete envelope, or all zeros if every position failed.
         let results = match &prepared {
-            Some(p) => p.solve_loads(&loads).ok(),
+            Some(p) => p.solve_loads(&loads)?,
             None => {
                 let mut modified_input = solver_input.clone();
                 modified_input.loads = loads;
-                solve_2d(&modified_input).ok()
+                solve_2d(&modified_input)?
             }
         };
 
-        if let Some(results) = results {
-            // Update envelopes
-            for ef in &results.element_forces {
-                if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                    let m_max = ef.m_start.max(ef.m_end);
-                    let m_min = ef.m_start.min(ef.m_end);
-                    let v_max = ef.v_start.max(ef.v_end);
-                    let v_min = ef.v_start.min(ef.v_end);
-                    let n_max = ef.n_start.max(ef.n_end);
-                    let n_min = ef.n_start.min(ef.n_end);
+        // Update envelopes
+        for ef in &results.element_forces {
+            if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
+                let m_max = ef.m_start.max(ef.m_end);
+                let m_min = ef.m_start.min(ef.m_end);
+                let v_max = ef.v_start.max(ef.v_end);
+                let v_min = ef.v_start.min(ef.v_end);
+                let n_max = ef.n_start.max(ef.n_end);
+                let n_min = ef.n_start.min(ef.n_end);
 
-                    env.m_max_pos = env.m_max_pos.max(m_max);
-                    env.m_max_neg = env.m_max_neg.min(m_min);
-                    env.v_max_pos = env.v_max_pos.max(v_max);
-                    env.v_max_neg = env.v_max_neg.min(v_min);
-                    env.n_max_pos = env.n_max_pos.max(n_max);
-                    env.n_max_neg = env.n_max_neg.min(n_min);
-                }
+                env.m_max_pos = env.m_max_pos.max(m_max);
+                env.m_max_neg = env.m_max_neg.min(m_min);
+                env.v_max_pos = env.v_max_pos.max(v_max);
+                env.v_max_neg = env.v_max_neg.min(v_min);
+                env.n_max_pos = env.n_max_pos.max(n_max);
+                env.n_max_neg = env.n_max_neg.min(n_min);
             }
         }
 
@@ -374,32 +373,31 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
             solver_input, train, gravity, &path, pos, total_length, &maps,
         );
 
-        // Solve with these loads
+        // Constrained models bypass preparation, so geometry refusals arrive
+        // here. Propagate them rather than returning a zero/partial envelope.
         let results = match &prepared {
-            Some(p) => p.solve_loads(&loads).ok(),
+            Some(p) => p.solve_loads(&loads)?,
             None => {
                 let mut modified_input = solver_input.clone();
                 modified_input.loads = loads;
-                solve_3d(&modified_input).ok()
+                solve_3d(&modified_input)?
             }
         };
 
-        if let Some(results) = results {
-            for ef in &results.element_forces {
-                if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                    env.n_max_pos = env.n_max_pos.max(ef.n_start.max(ef.n_end));
-                    env.n_max_neg = env.n_max_neg.min(ef.n_start.min(ef.n_end));
-                    env.vy_max_pos = env.vy_max_pos.max(ef.vy_start.max(ef.vy_end));
-                    env.vy_max_neg = env.vy_max_neg.min(ef.vy_start.min(ef.vy_end));
-                    env.vz_max_pos = env.vz_max_pos.max(ef.vz_start.max(ef.vz_end));
-                    env.vz_max_neg = env.vz_max_neg.min(ef.vz_start.min(ef.vz_end));
-                    env.my_max_pos = env.my_max_pos.max(ef.my_start.max(ef.my_end));
-                    env.my_max_neg = env.my_max_neg.min(ef.my_start.min(ef.my_end));
-                    env.mz_max_pos = env.mz_max_pos.max(ef.mz_start.max(ef.mz_end));
-                    env.mz_max_neg = env.mz_max_neg.min(ef.mz_start.min(ef.mz_end));
-                    env.mx_max_pos = env.mx_max_pos.max(ef.mx_start.max(ef.mx_end));
-                    env.mx_max_neg = env.mx_max_neg.min(ef.mx_start.min(ef.mx_end));
-                }
+        for ef in &results.element_forces {
+            if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
+                env.n_max_pos = env.n_max_pos.max(ef.n_start.max(ef.n_end));
+                env.n_max_neg = env.n_max_neg.min(ef.n_start.min(ef.n_end));
+                env.vy_max_pos = env.vy_max_pos.max(ef.vy_start.max(ef.vy_end));
+                env.vy_max_neg = env.vy_max_neg.min(ef.vy_start.min(ef.vy_end));
+                env.vz_max_pos = env.vz_max_pos.max(ef.vz_start.max(ef.vz_end));
+                env.vz_max_neg = env.vz_max_neg.min(ef.vz_start.min(ef.vz_end));
+                env.my_max_pos = env.my_max_pos.max(ef.my_start.max(ef.my_end));
+                env.my_max_neg = env.my_max_neg.min(ef.my_start.min(ef.my_end));
+                env.mz_max_pos = env.mz_max_pos.max(ef.mz_start.max(ef.mz_end));
+                env.mz_max_neg = env.mz_max_neg.min(ef.mz_start.min(ef.mz_end));
+                env.mx_max_pos = env.mx_max_pos.max(ef.mx_start.max(ef.mx_end));
+                env.mx_max_neg = env.mx_max_neg.min(ef.mx_start.min(ef.mx_end));
             }
         }
 
