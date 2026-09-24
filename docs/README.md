@@ -32,16 +32,16 @@ For contributors and for anyone who wants to look inside the engine. In English.
 
 ### Conventions and solver surface
 
-- [SOLVER_REFERENCE.md](SOLVER_REFERENCE.md) — coordinate conventions, model objects, outputs and where the app, the engine and the AI backend meet
+- [SOLVER_REFERENCE.md](SOLVER_REFERENCE.md): coordinate conventions, model objects, outputs and where the app, the engine and the AI backend meet
 - [ADR 0001: Z-up coordinate system](adr/0001-z-up-coordinate-system.md)
-- [engine/README.md](../engine/README.md) — the Rust engine's API and analysis types
-- [AI_MODELING_WORKFLOW.md](AI_MODELING_WORKFLOW.md) — how AI build and review flows use the structured model and the solver
-- [QUICKSTART.md](QUICKSTART.md) — the shortest path from an empty canvas to a solved beam, with the conventions that matter
+- [engine/README.md](../engine/README.md): the Rust engine's API and analysis types
+- [AI_MODELING_WORKFLOW.md](AI_MODELING_WORKFLOW.md): how AI build and review flows use the structured model and the solver
+- [QUICKSTART.md](QUICKSTART.md): the shortest path from an empty canvas to a solved beam, with the conventions that matter
 
 ### Verification
 
-- [VERIFICATION.md](VERIFICATION.md) — testing philosophy, fuzzing and invariants
-- [BENCHMARKS.md](BENCHMARKS.md) — validation coverage against analytical and reference solutions
+- [VERIFICATION.md](VERIFICATION.md): testing philosophy, fuzzing and invariants
+- [BENCHMARKS.md](BENCHMARKS.md): validation coverage against analytical and reference solutions
 
 ### Roadmaps and project state
 
@@ -54,4 +54,4 @@ For contributors and for anyone who wants to look inside the engine. In English.
 
 ### Research
 
-- [research/README.md](research/README.md) — background on shell element selection, solver architecture, safety hardening and numerical methods
+- [research/README.md](research/README.md): background on shell element selection, solver architecture, safety hardening and numerical methods

@@ -36,9 +36,9 @@ compilado a WebAssembly, así que corre en tu propia computadora: el modelo no s
 servidor para calcularlo.
 
 Nació en los cursos de estructuras de la [FIUBA](http://www.fi.uba.ar/) (Universidad de Buenos
-Aires) y conserva ese origen: además de dar el resultado, **muestra el desarrollo** —el grado de
+Aires) y conserva ese origen: además de dar el resultado, **muestra el desarrollo**: el grado de
 hiperestaticidad, la matriz de rigidez paso a paso, qué teoría de torsión corresponde a una
-sección y por qué—.
+sección y por qué.
 
 La interfaz está en **español, inglés y portugués**.
 
@@ -78,23 +78,27 @@ para recorrerla: se abre un capítulo y se sigue con los enlaces del final de ca
 | 5 | [Modo PRO](docs/guide/es/05-pro.md) | [PRO mode](docs/guide/en/05-pro.md) |
 | 6 | [Fundamentos teóricos](docs/guide/es/06-fundamentos-teoricos.md) | [Theory](docs/guide/en/06-theory.md) |
 
-La documentación técnica y para colaboradores —referencia del solver, verificación, benchmarks,
-hojas de ruta— está en inglés y se indexa en [docs/README.md](docs/README.md).
+La documentación técnica y para colaboradores (referencia del solver, verificación, benchmarks,
+hojas de ruta) está en inglés y se indexa en [docs/README.md](docs/README.md).
 
 ## Por qué existe
 
-Los paquetes de cálculo estructural establecidos cuestan miles de dólares por año, funcionan en un
-solo sistema operativo, necesitan instalación y servidores de licencias, y son cerrados. Los
+Muchos paquetes comerciales de cálculo estructural cuestan miles de dólares por año, funcionan en
+un solo sistema operativo, necesitan instalación y servidores de licencias, y son cerrados. Los
 solvers de código abierto como [OpenSees](https://opensees.berkeley.edu/) son potentes, pero se
-manejan con scripts y no tienen interfaz visual.
+manejan con scripts y no tienen una interfaz visual propia.
 
-- **Nativo del navegador.** Abrís [stabileo.com](https://stabileo.com) y empezás.
-- **Un solver de verdad, en tu máquina.** El cálculo corre localmente, en el navegador.
-- **En tiempo real.** Movés un nodo, cambiás una carga o una sección, y los resultados acompañan.
-- **Explica.** El análisis cinemático, el análisis de sección y el método de las rigideces paso a
-  paso muestran *por qué* un resultado es el que es, incluso cuando la fórmula que te enseñaron no
+- **Cálculo local.** El solver corre en tu navegador mediante WebAssembly. Abrís
+  [stabileo.com](https://stabileo.com) y empezás, sin instalar nada y sin mandar el modelo a un
+  servidor.
+- **Recálculo en vivo.** Con el cálculo en tiempo real activado, si movés un nodo, cambiás una
+  carga o una sección, el modelo se vuelve a resolver y los resultados se actualizan.
+- **Resultados explicados.** Las herramientas avanzadas muestran fórmulas, datos y pasos
+  intermedios. El análisis cinemático, el análisis de sección y el método de las rigideces paso a
+  paso dejan ver *por qué* un resultado es el que es, incluso cuando la fórmula que te enseñaron no
   aplica.
-- **Código abierto.** Leé el solver, seguí las cuentas, mandá mejoras.
+- **Código abierto.** El motor y la interfaz se publican bajo AGPL-3.0 y pueden auditarse y
+  modificarse.
 
 ## El blog
 
@@ -102,8 +106,8 @@ Notas largas sobre cómo funciona el solver y las decisiones detrás, en españo
 portugués. Cada número se calcula con el motor antes de escribir el texto, y varias notas tienen
 el editor embebido sobre el modelo del que hablan. Dos para empezar:
 
-- [Lo que el software gratuito calcula, y lo que no te explica](https://stabileo.com/es/blog/conceptual-side-advanced-tools/) — dónde se detienen las herramientas gratuitas
-- [La frontera de determinismo](https://stabileo.com/es/blog/the-determinism-boundary/) — por qué un agente de IA no debe calcular
+- [Lo que el software gratuito calcula, y lo que no te explica](https://stabileo.com/es/blog/conceptual-side-advanced-tools/): dónde se detienen las herramientas gratuitas
+- [La frontera de determinismo](https://stabileo.com/es/blog/the-determinism-boundary/): por qué un agente de IA no debe calcular
 
 **[Leer todas las notas en el blog →](https://stabileo.com/es/blog/)**
 
@@ -181,9 +185,9 @@ Para reportar una vulnerabilidad, escribí a security@lambdaclass.com.
 
 ## Hecho por
 
-- **Bautista Chesta** — Ingeniero civil (FIUBA), UX/UI y gestión del proyecto
-- **Diego Kingston** — Doctor en Ingeniería (UBA), integración producto–solver
-- **Federico Carrone** — Fundador de [Lambda Class](https://lambdaclass.com), líder del solver
+- **Bautista Chesta**: Ingeniero civil (FIUBA), UX/UI y gestión del proyecto
+- **Diego Kingston**: Doctor en Ingeniería (UBA), integración producto–solver
+- **Federico Carrone**: Fundador de [Lambda Class](https://lambdaclass.com), líder del solver
 
 Con aportes de matemáticos, físicos, ingenieros en computación y científicos de la computación de
 [Lambda Class](https://lambdaclass.com).

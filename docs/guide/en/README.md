@@ -26,13 +26,13 @@ it is, 6 can be read on its own.
 
 ## The modes, in one line each
 
-- **Basic** — frame and truss structures in 2D and 3D. It is finished, and it is the one used in
+- **Basic**: frame and truss structures in 2D and 3D. It is finished, and it is the one used in
   courses. Besides solving, it **shows the working**: the degree of indeterminacy, the
   stiffness matrix step by step, the stresses in a section with the formula that applies.
-- **PRO** — finite elements and complex models: slabs and walls as plates and shells,
+- **PRO**: finite elements and complex models: slabs and walls as plates and shells,
   constraints, load generation, import from AutoCAD or Excel, and dynamic and non-linear analysis.
   It is in development.
-- **Education** — the teacher writes an exercise inside the app and hands it out as a link; the
+- **Education**: the teacher writes an exercise inside the app and hands it out as a link; the
   student solves it without seeing the result and hands the answers back to the teacher as a file
   or a short code. It is in development; switch it on in **Settings → Enable Educational mode
   option**, which adds an **Exercises** button at the end of the ribbon.
@@ -41,7 +41,7 @@ it is, 6 can be read on its own.
 
 - **[The blog](https://stabileo.com/en/blog/)** has long pieces on specific questions, with numbers
   computed by the program and the editor embedded: for example,
-  [bars or finite elements?](https://stabileo.com/en/blog/bars-or-finite-elements/) or
+  [frame members or finite elements?](https://stabileo.com/en/blog/bars-or-finite-elements/) or
   [which torsion theory applies](https://stabileo.com/en/blog/torsion-bredt-saint-venant/).
 - **A question or a suggestion?** Use the contact button in the app, join the
   [Discord](https://discord.gg/Q53rp7FKXA), or open an issue on

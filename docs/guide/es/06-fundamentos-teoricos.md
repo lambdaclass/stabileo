@@ -40,7 +40,7 @@ desplazamientos en ejes globales.
 
 ## El método de las rigideces
 
-Todo el cálculo de barras —en Básico y en PRO— usa el **método de las rigideces** (también
+Todo el cálculo de barras, en Básico y en PRO, usa el **método de las rigideces** (también
 llamado método directo de la rigidez). La idea: en vez de buscar las fuerzas, se buscan los
 **desplazamientos de los nodos**, porque con ellos todo lo demás sale por cálculo directo.
 
@@ -123,7 +123,7 @@ y la segunda da las **reacciones**:
 \{R\} = [K_{rf}]\{u_f\} + [K_{rr}]\{u_r\} - \{F_r\}
 ```
 
-Si $[K_{ff}]$ no se puede invertir —es singular—, la estructura es un **mecanismo**: hay un
+Si $[K_{ff}]$ no se puede invertir (es singular), la estructura es un **mecanismo**: hay un
 movimiento que no requiere fuerza. Es lo que detecta el paso 3 del
 [análisis cinemático](04-funciones-avanzadas.md#análisis-cinemático).
 
@@ -159,7 +159,7 @@ finitos?](https://stabileo.com/es/blog/bars-or-finite-elements/) lo desarrolla c
 
 ### Articulaciones
 
-Una articulación en el extremo de una barra libera un grado de libertad —por ejemplo, el giro—. La
+Una articulación en el extremo de una barra libera un grado de libertad (por ejemplo, el giro). La
 matriz de la barra articulada es la que resulta de eliminar ese grado de la matriz rígida por
 **condensación estática**. Si **a** son los grados que se conservan y **b** los liberados:
 

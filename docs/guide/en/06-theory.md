@@ -149,7 +149,7 @@ holds, as long as equivalent nodal loads are used.
 out **stiffer** than the real piece. In a slender beam the difference is negligible; in a deep one
 it is not. For a simply supported beam under uniform load, the deflection error is about 2% at
 L/h = 10, 8% at L/h = 5 and 19% at L/h = 3. That is where the piece is better modelled as a plate,
-in PRO. The post [bars or finite
+in PRO. The post [frame members or finite
 elements?](https://stabileo.com/en/blog/bars-or-finite-elements/) works through it with the
 numbers.
 

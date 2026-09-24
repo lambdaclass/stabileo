@@ -1,7 +1,7 @@
 # 3. Modo Básico en 3D
 
-El botón **3D** del grupo **Vista** lleva el modelo al espacio. Sigue siendo el modo Básico —las
-mismas herramientas, la misma lógica de barras—, pero cada nodo pasa de tener tres grados de
+El botón **3D** del grupo **Vista** lleva el modelo al espacio. Sigue siendo el modo Básico, con
+las mismas herramientas y la misma lógica de barras, pero cada nodo pasa de tener tres grados de
 libertad a tener **seis**: tres desplazamientos (**ux**, **uy**, **uz**) y tres giros (**θx**,
 **θy**, **θz**).
 

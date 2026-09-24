@@ -1,7 +1,7 @@
 # 5. Modo PRO
 
 El modo PRO es el de **elementos finitos y modelos complejos**. Además de barras en el espacio,
-modela **placas y cáscaras** —losas, tabiques, muros, plateas—, vínculos entre nodos, cargas
+modela **placas y cáscaras** (losas, tabiques, muros, plateas), vínculos entre nodos, cargas
 generadas según norma, y corre análisis dinámicos y no lineales.
 
 Este capítulo cubre el modelado y el análisis: las pestañas **Modelo** y **Análisis**, la
@@ -103,8 +103,8 @@ su plano: **Roller XZ**, por ejemplo, sólo está restringido en la dirección Y
 
 **Cargas.** El panel tiene tres partes:
 
-- **Casos de carga:** cada caso con su tipo —D permanente, L sobrecarga de uso, Lr sobrecarga de
-  cubierta, W viento, E sismo, S nieve— y un botón para mostrarlo u ocultarlo en el visor. El
+- **Casos de carga:** cada caso con su tipo (D permanente, L sobrecarga de uso, Lr sobrecarga de
+  cubierta, W viento, E sismo, S nieve) y un botón para mostrarlo u ocultarlo en el visor. El
   **peso propio** está **activado por defecto** en PRO y se calcula para barras y placas.
 - **Combinaciones:** manuales, o generadas automáticamente (combinaciones de resistencia y de
   servicio).

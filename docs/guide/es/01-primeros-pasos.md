@@ -6,8 +6,8 @@ Entrá a [stabileo.com](https://stabileo.com) y tocá **Abrir el editor**. Funci
 navegador actual (Chrome, Edge, Firefox, Safari), en Windows, macOS o Linux. No hace falta
 instalar nada ni registrarse.
 
-El programa descarga una sola vez el motor de cálculo —un programa escrito en Rust y compilado
-a WebAssembly— y a partir de ahí **resuelve en tu computadora**: el modelo no se manda a ningún
+El programa descarga una sola vez el motor de cálculo, un programa escrito en Rust y compilado
+a WebAssembly, y a partir de ahí **resuelve en tu computadora**: el modelo no se manda a ningún
 servidor para calcularlo.
 
 ## La pantalla

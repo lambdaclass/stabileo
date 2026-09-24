@@ -53,8 +53,8 @@ It needs no solve: it is worked out when the panel opens. If you then change the
 updates on its own.
 
 > There is a blog post built on exactly this case, a beam where the formula gives zero and the
-> structure moves: [what free software computes, and what it never
-> explains](https://stabileo.com/en/blog/conceptual-side-advanced-tools/).
+> structure moves: [what free software computes, and what it does
+> not explain](https://stabileo.com/en/blog/conceptual-side-advanced-tools/).
 
 ## Free-body view
 

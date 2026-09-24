@@ -243,7 +243,7 @@ company, engineer, revision). It also exports to Excel.
 - **Curved shells:** a four-node element that represents curvature, for non-planar quadrilaterals.
 
 Why a slab needs a mesh and a beam does not, what shear locking is, and when a member model stops
-being enough: [chapter 6](06-theory.md#finite-elements-plates-and-shells) and the post [bars or
+being enough: [chapter 6](06-theory.md#finite-elements-plates-and-shells) and the post [frame members or
 finite elements?](https://stabileo.com/en/blog/bars-or-finite-elements/).
 
 ---

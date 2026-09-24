@@ -79,9 +79,9 @@ clic en una barra y se mueve un cursor a lo largo de ella.
   fibras de la sección.
 - **Tensión tangencial** por Jourawski: τ = V·Q / (I·b), con el flujo de corte dibujado sobre la
   sección.
-- **Torsión:** el programa decide qué teoría corresponde según la forma de la sección —Cauchy
+- **Torsión:** el programa decide qué teoría corresponde según la forma de la sección (Cauchy
   para la sección circular, Bredt para la pared delgada cerrada y Saint-Venant, que es la teoría
-  general, para el resto— y lo dice. En **Las tres teorías** las compara, y marca las que no
+  general, para el resto) y lo dice. En **Las tres teorías** las compara, y marca las que no
   aplican con el motivo. Cuando corresponde, también estima la parte del torsor que toma el
   **alabeo** (torsión no uniforme). Estos resultados aparecen en 3D, cuando la barra tiene torsor.
 - **Estado tensional, tensores y círculo de Mohr**, con las tensiones principales.

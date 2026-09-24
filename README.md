@@ -82,17 +82,21 @@ is indexed in [docs/README.md](docs/README.md).
 
 ## Why Stabileo exists
 
-The established structural analysis packages cost thousands of dollars a year, run on a single
-operating system, need installation and licence servers, and are closed. Open-source solvers such
-as [OpenSees](https://opensees.berkeley.edu/) are powerful but are driven by scripts, with no
-visual interface.
+Many commercial structural analysis packages cost thousands of dollars a year, run on a single
+operating system, need installation and licence servers, and are closed source. Open-source
+solvers such as [OpenSees](https://opensees.berkeley.edu/) are powerful, but they are driven by
+scripts and have no visual interface of their own.
 
-- **Browser-native.** Open [stabileo.com](https://stabileo.com) and start.
-- **A real solver, on your machine.** The analysis runs locally, in the browser.
-- **Real-time.** Move a node, change a load or resize a section, and the results follow.
-- **It explains.** Kinematic analysis, section analysis and the step-by-step stiffness method show
-  *why* a result is what it is, including when the formula you were taught does not apply.
-- **Open source.** Read the solver, trace the maths, send improvements.
+- **Local computation.** The solver runs in your browser through WebAssembly. You open
+  [stabileo.com](https://stabileo.com) and start, with nothing to install and no model sent to a
+  server.
+- **Live recalculation.** With live calculation turned on, moving a node, changing a load or
+  resizing a section solves the model again and updates the results.
+- **Explained results.** The advanced tools lay out the formulas, the data and the intermediate
+  steps. Kinematic analysis, section analysis and the step-by-step stiffness method show *why* a
+  result is what it is, including when the formula you were taught does not apply.
+- **Open source.** The engine and the interface are published under AGPL-3.0 and can be audited
+  and modified.
 
 ## The blog
 
@@ -100,8 +104,8 @@ Long pieces on how the solver works and the decisions behind it, in English, Spa
 Portuguese. Every figure in them is computed by the engine before the prose is written, and
 several posts embed the real editor on the model they describe. Two to start with:
 
-- [What free software computes, and what it never explains](https://stabileo.com/en/blog/conceptual-side-advanced-tools/) — where the free tools stop
-- [The determinism boundary](https://stabileo.com/en/blog/the-determinism-boundary/) — why an AI agent must not do the arithmetic
+- [What free software computes, and what it does not explain](https://stabileo.com/en/blog/conceptual-side-advanced-tools/): where the free tools stop
+- [The determinism boundary](https://stabileo.com/en/blog/the-determinism-boundary/): why an AI agent must not do the arithmetic
 
 **[Read all the posts on the blog →](https://stabileo.com/en/blog/)**
 
@@ -182,9 +186,9 @@ To report a vulnerability, email security@lambdaclass.com.
 
 ## Built by
 
-- **Bautista Chesta** — Civil Engineer (FIUBA), UX/UI and project management
-- **Diego Kingston** — Ph.D. in Engineering (UBA), product–solver integration
-- **Federico Carrone** — Founder of [Lambda Class](https://lambdaclass.com), solver lead
+- **Bautista Chesta**: Civil Engineer (FIUBA), UX/UI and project management
+- **Diego Kingston**: Ph.D. in Engineering (UBA), product–solver integration
+- **Federico Carrone**: Founder of [Lambda Class](https://lambdaclass.com), solver lead
 
 With contributions from mathematicians, physicists, computer engineers and computer scientists at
 [Lambda Class](https://lambdaclass.com).

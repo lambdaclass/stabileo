@@ -27,13 +27,13 @@ da, la 6 se puede leer sola.
 
 ## Los modos, en una línea
 
-- **Básico** — estructuras de barras en 2D y en 3D. Está terminado y es el que se usa en los
+- **Básico**: estructuras de barras en 2D y en 3D. Está terminado y es el que se usa en los
   cursos. Además de calcular, **muestra el desarrollo**: el grado de hiperestaticidad,
   la matriz de rigidez paso a paso, las tensiones en la sección con la fórmula que corresponde.
-- **PRO** — elementos finitos y modelos complejos: losas y tabiques como placas y cáscaras,
+- **PRO**: elementos finitos y modelos complejos: losas y tabiques como placas y cáscaras,
   vínculos, generación de cargas, importación desde AutoCAD o Excel, y análisis dinámicos y no
   lineales. Está en desarrollo.
-- **Educativo** — el docente arma un ejercicio dentro de la app y lo reparte como un link; el
+- **Educativo**: el docente arma un ejercicio dentro de la app y lo reparte como un link; el
   alumno lo resuelve sin ver el resultado y le devuelve sus respuestas al docente en un archivo o
   un código corto. Está en desarrollo; se activa en **Ajustes → Activar opción Modo Educativo**, que
   agrega el botón **Ejercicios** al final de la cinta.
