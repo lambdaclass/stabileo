@@ -116,7 +116,19 @@ function dofKey(nodeId: number, localDof: number): string {
   return `${nodeId}:${localDof}`;
 }
 
+/**
+ * A support whose restrained DOFs are stated outright.
+ *
+ * The force method's primary structure needs supports the model's types do
+ * not name — a fixed end with only its horizontal reaction released is
+ * "restrain uz and θ", which is no SupportType. Only this pedagogical solver
+ * reads the field; the analysis solver never sees such an input.
+ */
+export type DetailedSupport = SolverSupport & { restrainedDofs?: [boolean, boolean, boolean] };
+
 function isDofRestrained(sup: SolverSupport, localDof: number): boolean {
+  const explicit = (sup as DetailedSupport).restrainedDofs;
+  if (explicit) return !!explicit[localDof];
   switch (sup.type) {
     case 'fixed': return true;
     case 'pinned': return localDof === 0 || localDof === 1;
@@ -619,7 +631,7 @@ export function solveDetailed(input: SolverInput): DSMStepData {
     }
     const rotRestrainedNodes = new Set<number>();
     for (const sup of input.supports.values()) {
-      if (sup.type === 'fixed') rotRestrainedNodes.add(sup.nodeId);
+      if (sup.type !== 'spring' && isDofRestrained(sup, 2)) rotRestrainedNodes.add(sup.nodeId);
       if (sup.type === 'spring' && sup.kz && sup.kz > 0) rotRestrainedNodes.add(sup.nodeId);
     }
     for (const nodeId of nodeOrder) {
