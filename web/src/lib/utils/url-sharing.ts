@@ -14,6 +14,7 @@ import { noteAxisConventionMigrationIfNeeded } from '../store/file';
 import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share';
 import { CODE_HASH, readCodeFragment } from '../model/code/share';
 import { mergeCode } from '../model/code/apply';
+import { prepareSharedSnapshot } from './share-snapshot';
 
 /**
  * The wire schema tag.
@@ -586,7 +587,8 @@ function decompressV2(data: string): ModelSnapshot | null {
     const bytes = inflateSync(deflated);
     const json = new TextDecoder().decode(bytes);
     const compact = JSON.parse(json);
-    return fromCompact(compact);
+    if (!Array.isArray(compact.ni)) return null;
+    return prepareSharedSnapshot(fromCompact(compact));
   } catch {
     return null;
   }
@@ -614,32 +616,8 @@ export function decompressSnapshot(data: string): ModelSnapshot | null {
   try {
     const json = LZString.decompressFromEncodedURIComponent(data);
     if (!json) return null;
-    const parsed = JSON.parse(json) as ModelSnapshot;
-
-    // Every family `restore()` maps over has to actually be a list.
-    //
-    // This guard was truthiness only, so `{"nodes": 5, "nextId": {…}}` passed
-    // it and was handed on. `restore()` normalizes what it is given — support
-    // types, load signs, section digests — but does not check shapes, despite
-    // the comments below that delegate "validating the shapes" to it. So the
-    // snapshot reached `s.nodes.map(...)` and threw
-    // `TypeError: s.nodes.map is not a function` straight out of
-    // `loadFromURLHash`, which `App.svelte` calls bare inside `onMount`: a
-    // crafted legacy link took the app down before it finished starting.
-    //
-    // Only the v1 path needed this. v2 builds its snapshot inside
-    // `decompressV2`, whose try/catch already turns a malformed payload into
-    // `null`.
-    //
-    // Refusing here cannot reject a link that works today: `restore()` maps
-    // over all six of these unconditionally, so a snapshot missing any of them
-    // was already failing. The list is deliberately limited to the families
-    // observed to be mapped without a guard — a later-added optional family
-    // must not become a reason to reject an old link.
-    if (!parsed.nextId || typeof parsed.nextId !== 'object') return null;
-    for (const family of ['nodes', 'materials', 'sections', 'elements', 'supports', 'loads'] as const) {
-      if (!Array.isArray(parsed[family])) return null;
-    }
+    const parsed = prepareSharedSnapshot(JSON.parse(json));
+    if (!parsed) return null;
 
     const elems = parsed.elements as Array<[number, Record<string, unknown>]>;
     if (Array.isArray(elems)) {

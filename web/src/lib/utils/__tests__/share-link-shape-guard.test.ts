@@ -14,8 +14,8 @@
  * `onMount`. A crafted legacy link took the app down before it finished
  * starting.
  *
- * v2 was never affected: `decompressV2` turns a malformed payload into `null`
- * inside its own try/catch.
+ * Both codecs now validate the decoded snapshot, including fields the compact
+ * format passes through unchanged, before a loader calls restore().
  *
  * The last test is the one that keeps the guard honest: refusing everything
  * would pass the cases above and break every legacy link still in the wild.
