@@ -31,6 +31,7 @@
  */
 import type { ModelData } from './solver-service';
 import { computeLocalAxes3D } from './local-axes-3d';
+import { hasMemberOffset, offsetVecToSolver } from './member-offsets';
 import type {
   NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, Load,
 } from '../store/model.svelte';
@@ -98,6 +99,52 @@ function trapezoid(qA: number, qB: number, a: number, b: number): { P: number; s
   return { P, s };
 }
 
+/**
+ * The line a member's loads act along, and the frame they are stated in — as the solve builds
+ * them.
+ *
+ * Two conventions of the solve are matched here, because a check that differs from it on either
+ * reports a residual that is its own arithmetic:
+ *
+ *   · The frame composes the member's roll with its SECTION's rotation, and honours a
+ *     left-handed convention, exactly as the solver input does.
+ *   · A member with end offsets is solved as the flexible segment between the offset points
+ *     (`member-offsets.ts`): its ends are node + offset, so the segment can tilt away from the
+ *     node-to-node line, and its local loads are stated in the TILTED segment's frame and measured
+ *     along its length. The node-to-node frame put a 0.42 kN residual on a 4 m member offset by
+ *     10 cm.
+ */
+function memberLine(
+  model: ModelData,
+  el: { type?: string; nodeI: number; nodeJ: number; sectionId: number; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number; offset?: import('../model/element-3d-metadata').MemberOffset },
+  leftHand: boolean,
+): { ni: [number, number, number]; ax: ReturnType<typeof computeLocalAxes3D> } | null {
+  const a = model.nodes.get(el.nodeI);
+  const b = model.nodes.get(el.nodeJ);
+  if (!a || !b) return null;
+  const roll = (el.rollAngle ?? 0) + (model.sections.get(el.sectionId)?.rotation ?? 0);
+  const A = { id: el.nodeI, x: a.x, y: a.y, z: a.z ?? 0 };
+  const B = { id: el.nodeJ, x: b.x, y: b.y, z: b.z ?? 0 };
+  // The solver input gives every frame member an explicit local-Y reference: its own, or the
+  // automatic y of the NODE-TO-NODE line. On a tilted offset segment that fixed reference, not a
+  // fresh automatic frame, is what the solve uses.
+  let localY = el.localYx !== undefined ? { x: el.localYx, y: el.localYy ?? 0, z: el.localYz ?? 0 } : undefined;
+  if (!localY && el.type !== 'truss') {
+    try { const base = computeLocalAxes3D(A, B); localY = { x: base.ey[0], y: base.ey[1], z: base.ey[2] }; } catch { return null; }
+  }
+  let ax;
+  try { ax = computeLocalAxes3D(A, B, localY, roll, leftHand); } catch { return null; }
+  if (!hasMemberOffset(el)) return { ni: [A.x, A.y, A.z], ax };
+  const shift = (p: typeof A, v: import('../model/element-3d-metadata').MemberOffsetVec | undefined) => {
+    if (!v) return p;
+    const g = offsetVecToSolver(v, el.offset!.frame, ax!);
+    return { ...p, x: p.x + g.x, y: p.y + g.y, z: p.z + g.z };
+  };
+  const A2 = shift(A, el.offset!.i), B2 = shift(B, el.offset!.j);
+  try { ax = computeLocalAxes3D(A2, B2, localY, roll, leftHand); } catch { return null; }
+  return { ni: [A2.x, A2.y, A2.z], ax };
+}
+
 export interface StaticsCheckInput {
   model: ModelData;
   /** Reactions per case, as the solver reported them. Key null = the single solve. */
@@ -114,6 +161,8 @@ export interface StaticsCheckInput {
   caseTypes?: Map<number, string>;
   /** Names for the report. */
   caseNames?: Map<number, string>;
+  /** The model is solved with a left-handed local-axis convention. */
+  leftHand?: boolean;
 }
 
 /**
@@ -123,7 +172,7 @@ export interface StaticsCheckInput {
  * rather than the model: a case that was not solved has nothing to check.
  */
 export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
-  const { model, reactionsByCase, includeSelfWeight, caseNames, caseTypes } = input;
+  const { model, reactionsByCase, includeSelfWeight, caseNames, caseTypes, leftHand = false } = input;
   const rows: StaticsCheckRow[] = [];
 
   for (const [caseId, reactions] of reactionsByCase) {
@@ -150,19 +199,11 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
         const d = l.data as DistributedLoad3D | PointLoadOnElement3D;
         const el = model.elements.get(d.elementId);
         if (!el) continue;
-        const ni = model.nodes.get(el.nodeI);
-        const nj = model.nodes.get(el.nodeJ);
-        if (!ni || !nj) continue;
-        const ax = computeLocalAxes3D(
-          { id: el.nodeI, x: ni.x, y: ni.y, z: ni.z ?? 0 },
-          { id: el.nodeJ, x: nj.x, y: nj.y, z: nj.z ?? 0 },
-          el.localYx !== undefined
-            ? { x: el.localYx, y: el.localYy ?? 0, z: el.localYz ?? 0 }
-            : undefined,
-          el.rollAngle,
-        );
+        const ends = memberLine(model, el, leftHand);
+        if (!ends) continue;
+        const { ni, ax } = ends;
         const at = (s: number): [number, number, number] => [
-          ni.x + ax.ex[0] * s, ni.y + ax.ex[1] * s, (ni.z ?? 0) + ax.ex[2] * s,
+          ni[0] + ax.ex[0] * s, ni[1] + ax.ex[1] * s, ni[2] + ax.ex[2] * s,
         ];
         const push = (py: number, pz: number, s: number): void => {
           addForceAt(applied, [

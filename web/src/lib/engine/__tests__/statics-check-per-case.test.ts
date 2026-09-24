@@ -62,6 +62,37 @@ describe('every case balances, self-weight on the permanent case only', () => {
     }
   });
 
+  it('a member with end offsets and a rotated section: loads act on the tilted flexible segment', () => {
+    // The solve replaces an offset member's ends by node + offset, so the segment tilts and its
+    // local loads are stated in the tilted frame. The frame also composes the section rotation.
+    modelStore.clear();
+    modelStore.restore({
+      nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 3 }], [3, { id: 3, x: 4, y: 0, z: 3 }], [4, { id: 4, x: 4, y: 0, z: 0 }]],
+      materials: [[1, { id: 1, name: 'S', e: 200000, nu: 0.3, rho: 78.5 }]],
+      sections: [
+        [1, { id: 1, name: 'C', a: 0.0065, iz: 1.1e-5, iy: 3.7e-5, j: 4e-7 }],
+        [2, { id: 2, name: 'B', a: 0.0042, iz: 1.5e-6, iy: 2.1e-5, j: 1e-7, rotation: 25 }],
+      ],
+      elements: [
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }],
+        [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 2, rollAngle: 10,
+          offset: { frame: 'local', i: { x: 0.1, y: 0, z: 0.05 }, j: { x: 0, y: 0.05, z: -0.1 } } }],
+        [3, { id: 3, type: 'frame', nodeI: 4, nodeJ: 3, materialId: 1, sectionId: 1 }],
+      ],
+      supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }], [2, { id: 2, nodeId: 4, type: 'fixed3d' }]],
+      loads: [], loadCases: [{ id: 1, type: 'D', name: 'D' }],
+      combinations: [{ id: 1, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] }],
+      nextId: { node: 10, material: 10, section: 10, element: 10, support: 10, load: 1 },
+    } as never);
+    modelStore.addDistributedLoad3D(2, 2, 1, -8, -3, 0.5, 3.2, 1);
+    modelStore.addPointLoadOnElement3D(2, 1.5, 3, -4, 1);
+    for (const sw of [false, true]) {
+      for (const row of checkPerCase(sw)) {
+        expect(row.worstRelative, `self-weight ${sw}`).toBeLessThan(1e-6);
+      }
+    }
+  });
+
   it('a slab: surface load and shell self-weight, split to the corners as the solve splits them', () => {
     modelStore.clear();
     modelStore.restore({
