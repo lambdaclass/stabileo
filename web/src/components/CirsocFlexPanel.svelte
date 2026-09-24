@@ -28,18 +28,13 @@
   import { t } from '../lib/i18n';
   import { teAll } from '../lib/i18n/engine-text';
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
-  import {
-    beta1, yieldStrain, ES_MPA, COLUMN_STEEL_RATIO,
-    PHI_TENSION, PHI_COMPRESSION_TIED, PHI_COMPRESSION_SPIRAL,
-  } from '../lib/engine/codes/argentina/cirsoc201-basis';
-  import { characteristicPointsBothEdges } from '../lib/engine/codes/argentina/cirsoc-flex-points';
-  import { diagramSeries } from '../lib/engine/codes/argentina/cirsoc-flex-diagram';
-  import { surfaceCut } from '../lib/engine/codes/argentina/cirsoc-flex-surface';
-  import { facesA1A2A3 } from '../lib/engine/codes/argentina/cirsoc201-layouts';
-  import InteractionDiagram from './flex/InteractionDiagram.svelte';
-  import SurfaceCut from './flex/SurfaceCut.svelte';
+  import { sheetRows, sectionNumber, type Sec } from './flex/sheet-rows';
   import SectionDrawing from './SectionDrawing.svelte';
-  import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
+  import FlexResults from './flex/FlexResults.svelte';
+  import LevelsTable from './flex/LevelsTable.svelte';
+  import { DIAMETERS, areaOf } from './flex/bar-areas';
+  import { characteristicPoints, columnDiagram, fcoSurfaceCut, fcoBarTable } from './flex/figures';
+  import BarTable from './flex/BarTable.svelte';
   import { uiStore, resultsStore, modelStore } from '../lib/store';
   import { stationForces2D, stationForces3D } from '../lib/section/panel';
   import { demandForCase } from '../lib/engine/codes/argentina/flex-demand-from-model';
@@ -207,9 +202,7 @@
    * works, which is what you want for a section that was never detailed in
    * round bar counts.
    */
-  const DIAMETERS = REBAR_DB.filter((r) => r.diameter >= 6).map((r) => r.diameter);
-  const areaOf = (n: number, dia: number) =>
-    n * (REBAR_DB.find((r) => r.diameter === dia)?.area ?? 0);
+  /* DIAMETERS and areaOf: see flex/bar-areas.ts. */
 
   let levelBars = $state(
     Array.from({ length: 5 }, () => ({ n: 0, dia: 16 })),
@@ -297,277 +290,20 @@
     return { kind: 'rect', b: o.b, h: o.h };
   });
 
-  const fmt = (v: number | undefined, digits = 2, unit = '') =>
-    v === undefined || !Number.isFinite(v) ? '—' : `${v.toFixed(digits)}${unit ? ' ' + unit : ''}`;
-  const cmOf = (m: number | undefined) => (m === undefined ? '—' : `${(m * 100).toFixed(2)} cm`);
-
-  /** The rows each sheet prints, in the order it prints them. */
-  /**
-   * The results, in the workbook's own set and order.
-   *
-   * ── Why it is written sheet by sheet ───────────────────────────
-   *
-   * This panel exists so a reader can check it against CIRSOC FLEX, and that
-   * only works if the two print the same rows under the same names. They did
-   * not: A′s was dropped whenever it came out zero — which is every singly
-   * reinforced beam, so the row a reader went looking for was missing exactly
-   * when its answer was "none" — Ast was in the headline but never in the
-   * table, the circular sheet's Asi was nowhere, and the biaxial sheet's bar
-   * table and Pu(max) did not exist.
-   *
-   * What the sheets do NOT print is not printed here either. The bar count and
-   * diameter proposal is gone: the workbook sizes an AREA and stops, and a
-   * suggestion of "6 Ø16" beside it invited a comparison that has no other
-   * side. Anything this tool computes beyond the sheet goes below, under its
-   * own heading, so it can never be mistaken for the sheet's answer.
-   */
-  type Row = [string, string];
-
-  const cmOfRow = (label: string, v: number | undefined): Row => [label, cmOf(v)];
-  const cm2 = (v: number | undefined) => fmt(v, 3, 'cm²');
   const isBeam = $derived(kase === 'FSR' || kase === 'FST');
   const mat = $derived({
     fc, fy, confinement: (spiral ? 'spiral' : 'ties') as 'spiral' | 'ties', deductDisplacedConcrete: deduct,
   });
 
-  /*
-   * ── The sheet's own section numbers, sheet by sheet ─────────────
-   *
-   * The workbook does not number its sheets alike. FCR-VERIF puts the safety
-   * condition at 5 and the characteristic points at 6; FCR-CIR-VERIF, which
-   * has no results block, puts them at 4 and 5; FCO-VERIF jumps from 5 to 9.
-   * A reader following "4.2" from the sheet to the panel has to land on the
-   * same block, so the numbers are looked up rather than shared. A heading
-   * with no number is one the sheet does not have under that name here.
-   */
-  type Sec = 'general' | 'geometry' | 'distribution' | 'demand' | 'results' | 'needed'
-    | 'minmax' | 'diagram' | 'safety' | 'points' | 'cut' | 'modulus' | 'positioning';
-  const BEAM_NUMBERS: Partial<Record<Sec, string>> = { general: '1', geometry: '2', demand: '3', results: '4' };
-  const SECTION_NUMBERS: Record<string, Partial<Record<Sec, string>>> = {
-    'FSR:design': BEAM_NUMBERS, 'FST:design': BEAM_NUMBERS,
-    'FSR:verify': BEAM_NUMBERS, 'FST:verify': BEAM_NUMBERS,
-    'FCR:design': { general: '1', geometry: '2', demand: '3', needed: '4.1', minmax: '4.2', diagram: '5' },
-    'FCR-CIR:design': { general: '1', geometry: '2', demand: '3', needed: '4.1', minmax: '4.2', diagram: '5' },
-    'FCO:design': { general: '1', geometry: '2', demand: '3', needed: '4.1', minmax: '4.2', cut: '5' },
-    'FCR:verify': { general: '1', geometry: '2', distribution: '3', results: '4', safety: '5', points: '6' },
-    'FCR-CIR:verify': { general: '1', geometry: '2', distribution: '3', safety: '4', points: '5' },
-    'FCO:verify': {
-      general: '1', geometry: '2', demand: '3', modulus: '4.1', minmax: '4.2', cut: '5', positioning: '9',
-    },
-  };
-  /** "4.2 · " for a section the sheet numbers, "" for one it does not. */
-  const num = (k: Sec) => {
-    const n = SECTION_NUMBERS[`${kase}:${mode}`]?.[k];
-    return n ? `${n} · ` : '';
-  };
+  /* The rows each sheet prints and its own section numbers: see flex/sheet-rows.ts. */
+  const rows = $derived(sheetRows({ kase, mode, r: out.r, fc, fy, spiral, barCount, Pu, Mu }));
+  const num = (k: Sec) => sectionNumber(kase, mode, k);
 
-  /**
-   * The rows each block prints, in the sheet's order and under its names.
-   *
-   * What the sheet does not print on this sheet is not printed in these
-   * tables: it goes to "also computed here", below, so the comparison with
-   * the workbook never depends on knowing which rows to skip.
-   */
-  const beamRows = $derived.by((): Row[] => {
-    const r = out.r;
-    if (!r || !isBeam) return [];
-    /* A′s ALWAYS — a singly reinforced beam answers 0,000, which is an answer. */
-    const rows: Row[] = [
-      [t('flex.out.asComp'), cm2(r.AsPrimeCm2 ?? 0)],
-      [mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asTension'), cm2(r.AsCm2 ?? r.AstCm2)],
-    ];
-    if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), cm2(r.AsMinCm2)]);
-    rows.push(cmOfRow(t('flex.out.aReq'), r.a), cmOfRow(t('flex.out.c'), r.c));
-    if (r.cMax !== undefined) rows.push(cmOfRow(t('flex.out.cMax'), r.cMax));
-    if (r.epsilonT !== undefined) rows.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
-    return rows;
-  });
-
-  /** 4.1 on the design sheets. */
-  const neededRows = $derived.by((): Row[] => {
-    const r = out.r;
-    if (!r || isBeam) return [];
-    if (kase === 'FCR') {
-      return [
-        [t('flex.out.asComp'), cm2(r.AsPrimeCm2 ?? 0)],
-        [t('flex.out.asTension'), cm2(r.AsCm2 ?? 0)],
-        [t('flex.out.astTotal'), cm2(r.AstCm2)],
-        [t('flex.out.rho'), r.rho.toFixed(6)],
-      ];
-    }
-    if (kase === 'FCR-CIR') {
-      return [
-        [t('flex.out.astTotal'), cm2(r.AstCm2)],
-        /* The sheet prints ONE bar of the ring beside the total. */
-        [t('flex.out.asiBar'), cm2(barCount > 0 ? r.AstCm2 / barCount : undefined)],
-        [t('flex.out.rho'), r.rho.toFixed(6)],
-      ];
-    }
-    /* FCO prints the ratio first, then the area. */
-    return [[t('flex.out.rho'), r.rho.toFixed(6)], [t('flex.out.astTotal'), cm2(r.AstCm2)]];
-  });
-
-  /** 4.2 — on the design sheets and on FCO-VERIF; the other checks do not print it. */
-  const minMaxRows = $derived.by((): Row[] => {
-    const r = out.r;
-    if (!r || isBeam) return [];
-    const rows: Row[] = [];
-    if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), cm2(r.AsMinCm2)]);
-    if (r.AstMinCm2 !== undefined) rows.push([t('flex.out.astMin'), cm2(r.AstMinCm2)]);
-    if (r.AstMaxCm2 !== undefined) rows.push([t('flex.out.astMax'), cm2(r.AstMaxCm2)]);
-    if (r.puMax !== undefined) rows.push([t('flex.out.puMax'), fmt(r.puMax, 2, 'kN')]);
-    return rows;
-  });
-  const printsMinMax = $derived(!isBeam && (mode === 'design' || kase === 'FCO'));
-
-  /** FCR-VERIF's "4.- Resultados": the steel it was given, summed. */
-  const verifyResultRows = $derived.by((): Row[] => {
-    const r = out.r;
-    if (!r || kase !== 'FCR' || mode !== 'verify') return [];
-    return [[t('flex.out.astTotal'), cm2(r.AstCm2)], [t('flex.out.rho'), r.rho.toFixed(6)]];
-  });
-
-  /**
-   * What this tool has in hand and the sheet does not print here.
-   *
-   * Kept, and kept SEPARATE: φ and the state at the answer are how a reader
-   * sees why the number came out as it did, and the column bounds are worth
-   * knowing on a check even where the verification sheet leaves them out.
-   */
-  const extraRows = $derived.by((): Row[] => {
-    const r = out.r;
-    if (!r) return [];
-    const rows: Row[] = [];
-    if (!printsMinMax && !isBeam) {
-      if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), cm2(r.AsMinCm2)]);
-      if (r.AstMinCm2 !== undefined) rows.push([t('flex.out.astMin'), cm2(r.AstMinCm2)]);
-      if (r.AstMaxCm2 !== undefined) rows.push([t('flex.out.astMax'), cm2(r.AstMaxCm2)]);
-    }
-    if (!isBeam) {
-      rows.push(cmOfRow(t('flex.out.aReq'), r.a), cmOfRow(t('flex.out.c'), r.c));
-      if (r.epsilonT !== undefined) rows.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
-    }
-    if (r.phi !== undefined) rows.push([t('flex.out.phi'), r.phi.toFixed(3)]);
-    if (r.phiPn !== undefined && !isBeam) rows.push([t('flex.out.phiPn'), fmt(r.phiPn, 1, 'kN')]);
-    if (r.phiMn !== undefined) rows.push([t('flex.out.phiMn'), fmt(r.phiMn, 2, 'kN·m')]);
-    return rows;
-  });
-
-  /** "1 · Datos generales" — the constants every later number is built on. */
-  const generalRows = $derived.by((): Row[] => {
-    const rows: Row[] = [
-      ['Es', `${ES_MPA.toLocaleString()} MPa`],
-      ['εy', `${(yieldStrain(fy) * 1000).toFixed(2)} ‰`],
-      ['β1', beta1(fc).toFixed(3)],
-    ];
-    if (isBeam) {
-      rows.push([t('flex.out.phiTension'), PHI_TENSION.toFixed(2)]);
-    } else {
-      rows.push([
-        t('flex.out.phiCompression'),
-        (spiral ? PHI_COMPRESSION_SPIRAL : PHI_COMPRESSION_TIED).toFixed(2),
-      ]);
-      rows.push([t('flex.out.phiTension'), PHI_TENSION.toFixed(2)]);
-      rows.push([t('flex.out.rhoColumnBounds'),
-        `${(COLUMN_STEEL_RATIO.min * 100).toFixed(0)} % – ${(COLUMN_STEEL_RATIO.max * 100).toFixed(0)} %`]);
-    }
-    return rows;
-  });
-
-  /**
-   * "Condición de seguridad para una solicitación dada", as FCR-VERIF and
-   * FCR-CIR-VERIF state it: the eccentricity, the two resistant components at
-   * that eccentricity, the two vector moduli and their ratio.
-   */
-  const safetyRows = $derived.by((): Row[] => {
-    const r = out.r;
-    if (!r || mode !== 'verify' || isBeam || kase === 'FCO' || r.phiMn === undefined) return [];
-    const puRes = r.phiPn ?? 0;
-    const muRes = Math.sign(Mu || 1) * r.phiMn;
-    const mvSol = Math.hypot(Pu, Mu);
-    const mvRes = Math.hypot(puRes, muRes);
-    if (mvSol < 1e-9) return [];
-    return [
-      ['Pu res', fmt(puRes, 2, 'kN')],
-      ['Mu res', fmt(muRes, 2, 'kN·m')],
-      ['MV sol', fmt(mvSol, 2, '')],
-      ['MV res', fmt(mvRes, 2, '')],
-      [t('flex.out.mvRatio'), (mvRes / mvSol).toFixed(4)],
-    ];
-  });
-
-  /** The six characteristic points, each edge computed on its own. */
-  const characteristic = $derived.by(() => {
-    const r = out.r;
-    if (!r || mode !== 'verify') return null;
-    if (kase !== 'FCR' && kase !== 'FCR-CIR') return null;
-    try { return characteristicPointsBothEdges(r.outline, r.bars, mat); } catch { return null; }
-  });
-
-  /**
-   * The diagram the column sheets plot: both curves, both edges, the demand,
-   * and — on the verification sheets — the resistance at the demand's own
-   * eccentricity with the ray through them. Moments signed as the sheet signs
-   * them, so a negative Mu lands on the left, against the edge it compresses.
-   */
-  const diagram = $derived.by(() => {
-    const r = out.r;
-    if (!r || (kase !== 'FCR' && kase !== 'FCR-CIR')) return null;
-    try {
-      const s = diagramSeries(r.outline, r.bars, mat, 160);
-      if (s.capped.length < 3) return null;
-      const hasDemand = Math.abs(Pu) > 1e-9 || Math.abs(Mu) > 1e-9;
-      return {
-        ...s,
-        demand: hasDemand ? { m: Mu, n: Pu } : null,
-        resistance: mode === 'verify' && hasDemand && r.phiMn !== undefined
-          ? { m: Math.sign(Mu || 1) * r.phiMn, n: r.phiPn ?? 0 }
-          : null,
-      };
-    } catch { return null; }
-  });
-
-  /**
-   * FCO's section 5, the surface cut at the fixed axial load.
-   *
-   * Sizing draws the contours for 1 % … 8 % and the adopted ratio's over them;
-   * checking draws the contour of the steel given. Traced in 24 steps of the
-   * neutral-axis angle — the sheet's 12, halved, so the curve reads as one.
-   */
-  const cut = $derived.by(() => {
-    const r = out.r;
-    if (!r || kase !== 'FCO') return null;
-    try {
-      const i = input;
-      const bars = (astCm2: number) => facesA1A2A3(
-        i.b, i.h, i.dPrimeH, i.dPrimeV, astCm2,
-        { a1: i.pctA1, a2: i.pctA2, a3: i.pctA3 }, { n1: i.nA1, n2: i.nA2, n3: i.nA3 },
-      );
-      const q = { sx: Mu < 0 ? -1 : 1, sy: Muy < 0 ? -1 : 1, steps: 24 };
-      const trace = (astCm2: number) => surfaceCut(r.outline, bars(astCm2), mat, Pu, q)
-        .map((p) => ({ mx: p.phiMnx, my: p.phiMny }));
-      const AgCm2 = r.AstCm2 / r.rho;
-      const curves = mode === 'design'
-        ? [1, 2, 3, 4, 5, 6, 7, 8].map((pc) => ({ label: `${pc} %`, points: trace((pc / 100) * AgCm2) }))
-        : [];
-      curves.push({ label: `${(r.rho * 100).toFixed(2)} %`, points: trace(r.AstCm2), emphasis: true } as never);
-      const Mres = Math.hypot(Mu, Muy);
-      const hasDemand = Mres > 1e-9;
-      return {
-        curves,
-        demand: hasDemand ? { mx: Mu, my: Muy } : null,
-        resistance: mode === 'verify' && hasDemand && r.phiMn
-          ? { mx: (Mu * r.phiMn) / Mres, my: (Muy * r.phiMn) / Mres } : null,
-      };
-    } catch { return null; }
-  });
-
-  /** The bar layout the biaxial sheets tabulate: one row per bar, with its place. */
-  const barTable = $derived.by(() => {
-    const r = out.r;
-    if (!r || kase !== 'FCO') return [];
-    return r.bars.map((bar, i) => ({ n: i + 1, area: bar.area * 1e4, x: bar.x, y: bar.y }));
-  });
+  /* The figures the column sheets draw: see flex/figures.ts. */
+  const characteristic = $derived(characteristicPoints(out.r, mat, kase, mode));
+  const diagram = $derived(columnDiagram(out.r, mat, kase, mode, Pu, Mu));
+  const cut = $derived(fcoSurfaceCut(out.r, input, mat, kase, mode, Pu, Mu, Muy));
+  const barTable = $derived(fcoBarTable(out.r, kase));
 
   /** FCO-VERIF's "9.- Posicionamiento de secciones de acero". */
   const positioning = $derived(
@@ -584,22 +320,6 @@
           .map(({ l, k }) => ({ y: (l.distanceFromBottom - h / 2) / 100, text: `A${k + 1}` }))
       : [],
   );
-
-  const headline = $derived.by(() => {
-    const r = out.r;
-    if (!r) return t('flex.out.checkInputs');
-    if (r.impossible) return t('flex.out.sectionTooSmall');
-    /*
-     * In `verify` the ratio already has its own row right below, with the
-     * verdict beside it. Repeating it as the headline printed the same
-     * number twice in a row and said nothing new. The capacity is the other
-     * half of that comparison, and the number a reader wants next.
-     */
-    if (mode === 'verify') return `φMn = ${(r.phiMn ?? 0).toFixed(2)} kN·m`;
-    return kase === 'FSR' || kase === 'FST'
-      ? `As = ${r.AstCm2.toFixed(3)} cm²`
-      : `Ast = ${r.AstCm2.toFixed(3)} cm²`;
-  });
 
   const showsAxial = $derived(kase === 'FCR' || kase === 'FCR-CIR' || kase === 'FCO');
 
@@ -738,7 +458,7 @@
   <h4 class="fp-heading">{num('general')}{t('flex.section.general')}</h4>
   <table class="fp-table fp-general" data-testid="flex-general">
     <tbody>
-      {#each generalRows as [label, value]}
+      {#each rows.general as [label, value]}
         <tr><th>{label}</th><td>{value}</td></tr>
       {/each}
     </tbody>
@@ -870,7 +590,7 @@
       {/if}
       <!-- FCO-VERIF tabulates the bars right under its inputs, in section 2. -->
       {#if barTable.length > 0}
-        {@render barTableBlock()}
+        <BarTable bars={barTable} />
       {/if}
     {:else}
       <div class="fp-grid">
@@ -894,45 +614,7 @@
       treats an empty level.
     -->
     <h4 class="fp-heading">{num('distribution')}{t('flex.section.distribution')}</h4>
-    <table class="fp-levels">
-      <colgroup>
-        <col style="width: 1.2rem" /><col /><col style="width: 2.6rem" /><col style="width: 3.4rem" /><col />
-      </colgroup>
-      <thead>
-        <tr>
-          <th></th>
-          <th>{t('flex.in.levelDist')} [cm]</th>
-          <th>n</th>
-          <th>Ø</th>
-          <th>As [cm²]</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each levels as lvl, k}
-          <tr>
-            <th>{k + 1}</th>
-            <td><input type="number" bind:value={lvl.distanceFromBottom} min="0" step="1" /></td>
-            <td>
-              <input
-                type="number" min="0" max="20" step="1"
-                bind:value={levelBars[k].n}
-                oninput={() => { if (levelBars[k].n > 0) lvl.areaCm2 = areaOf(levelBars[k].n, levelBars[k].dia); }}
-              />
-            </td>
-            <td>
-              <select
-                bind:value={levelBars[k].dia}
-                onchange={() => { if (levelBars[k].n > 0) lvl.areaCm2 = areaOf(levelBars[k].n, levelBars[k].dia); }}
-              >
-                {#each DIAMETERS as d}<option value={d}>{d}</option>{/each}
-              </select>
-            </td>
-            <td><input type="number" bind:value={lvl.areaCm2} min="0" step="0.5" /></td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-    <p class="fp-levels-note">{t('flex.in.levelsNote')}</p>
+    <LevelsTable bind:levels bind:levelBars />
   {/if}
 
   {#if circByBar}
@@ -1051,203 +733,10 @@
     {/if}
   </div>
 
-  <div class="fp-result" class:fp-fail={!(out.r?.ok ?? false)} data-testid="flex-result">
-    <div class="fp-headline">{headline}</div>
-    {#if out.r && Number.isFinite(out.r.ratio)}
-      <div class="fp-ratio">
-        <!-- Four decimals, the sheets' own: at three a ratio of 1,0003 printed
-             "1.000" beside "fails", which reads as a contradiction. -->
-        {t('flex.out.ratio')} = <strong>{out.r.ratio.toFixed(4)}</strong>
-        <span class="fp-verdict">{out.r.ok ? t('flex.out.ok') : t('flex.out.notOk')}</span>
-      </div>
-    {/if}
-
-    {#if isBeam}
-      {@render rowsTable(`${num('results')}${t('flex.section.results')}`, beamRows, 'flex-sheet-rows')}
-    {:else if mode === 'design'}
-      {@render rowsTable(`${num('needed')}${t('flex.section.steelNeeded')}`, neededRows, 'flex-sheet-rows')}
-      {#if kase === 'FCO' && barTable.length > 0}
-        {@render barTableBlock()}
-      {/if}
-      {@render rowsTable(`${num('minmax')}${t('flex.section.minMax')}`, minMaxRows, 'flex-minmax')}
-    {:else if kase === 'FCR'}
-      {@render rowsTable(`${num('results')}${t('flex.section.results')}`, verifyResultRows, 'flex-sheet-rows')}
-    {:else if kase === 'FCO' && out.r?.phiMn !== undefined}
-      {@render rowsTable(`${num('modulus')}${t('flex.section.modulusRatio')}`, [
-        ['φMn / Mu', (out.r.phiMn / Math.max(Math.hypot(Mu, Muy), 1e-9)).toFixed(4)],
-      ], 'flex-sheet-rows')}
-      {@render rowsTable(`${num('minmax')}${t('flex.section.minMax')}`, minMaxRows, 'flex-minmax')}
-    {/if}
-
-    {#if cut}
-      <!-- FCO's section 5, the failure surface cut at the demand's own axial load. -->
-      <h4 class="fp-heading">{num('cut')}{t('flex.section.surfaceCut')}</h4>
-      <SurfaceCut
-        curves={cut.curves}
-        demand={cut.demand}
-        resistance={cut.resistance}
-        showRay={mode === 'verify'}
-      />
-      <p class="fp-legend">
-        {#if mode === 'design'}<span class="fp-line fp-line-grid"></span>{t('flex.cut.grid')}{/if}
-        <span class="fp-line fp-line-main"></span>{mode === 'design' ? t('flex.cut.adopted') : t('flex.cut.given')}
-        {#if cut.demand}<span class="fp-dot fp-dot-dem"></span>{t('flex.diagram.demand')}{/if}
-        {#if cut.resistance}<span class="fp-dot fp-dot-res"></span>{t('flex.diagram.resistanceAtAxial')}{/if}
-      </p>
-    {/if}
-
-    {#if diagram && mode === 'design'}
-      <h4 class="fp-heading">{num('diagram')}{t('flex.section.diagramForNeeded')}</h4>
-      {@render diagramBlock(false)}
-    {/if}
-
-    {#if diagram && mode === 'verify'}
-      <!--
-        The safety condition, stated the way the sheet states it: the
-        eccentricity, the figure with the ray through demand and resistance,
-        then the two resistant components and the two vector moduli.
-      -->
-      <h4 class="fp-heading">{num('safety')}{t('flex.section.safety')}</h4>
-      {#if Math.abs(Pu) > 1e-9}
-        <table class="fp-table"><tbody><tr><th>Mu / Pu</th><td data-testid="flex-eccentricity">{fmt(Mu / Pu, 3, 'm')}</td></tr></tbody></table>
-      {/if}
-      {@render diagramBlock(true)}
-      {#if safetyRows.length > 0}
-        <table class="fp-table" data-testid="flex-safety">
-          <tbody>
-            {#each safetyRows as [label, value]}
-              <tr><th>{label}</th><td>{value}</td></tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
-    {/if}
-
-    {#if characteristic && diagram}
-      <!--
-        The whole shape of the diagram as six named states, twice — once for
-        each face in compression, each computed on its own. The sheet plots
-        them on a second copy of the diagram, and so does this.
-      -->
-      <h4 class="fp-heading">{num('points')}{t('flex.section.characteristic')}</h4>
-      <InteractionDiagram
-        curve={diagram.capped}
-        uncapped={diagram.uncapped}
-        points={[...characteristic.bottomCompressed, ...characteristic.topCompressed]
-          .map((p) => ({ m: p.phiMn, n: p.phiPn }))}
-        testId="flex-points-diagram"
-      />
-      {#each [
-        { rows: characteristic.bottomCompressed, capKey: 'flex.out.edgeBottom' },
-        { rows: characteristic.topCompressed, capKey: 'flex.out.edgeTop' },
-      ] as table (table.capKey)}
-        <p class="fp-edge-note">{t(table.capKey)}</p>
-        <table class="fp-table fp-pointtable" data-testid="flex-characteristic">
-          <thead>
-            <tr><th></th><th>φMn<br />[kN·m]</th><th>φPn<br />[kN]</th><th>φ</th></tr>
-          </thead>
-          <tbody>
-            {#each table.rows as p (p.key)}
-              <tr>
-                <th>{t(`flex.pt.${p.key}`)}</th>
-                <td>{p.phiMn.toFixed(2)}</td>
-                <td>{p.phiPn.toFixed(2)}</td>
-                <td>{p.phi.toFixed(2)}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/each}
-    {/if}
-
-    {#if positioning.length > 0}
-      <!-- FCO-VERIF's own summary, which it numbers 9. -->
-      <h4 class="fp-heading">{num('positioning')}{t('flex.section.positioning')}</h4>
-      <table class="fp-table fp-pointtable" data-testid="flex-positioning">
-        <thead>
-          <tr><th></th><th>As [cm²]</th><th>{t('flex.out.barsCount')}</th><th>Asi [cm²]</th></tr>
-        </thead>
-        <tbody>
-          {#each positioning as [name, area, count] (name)}
-            <tr>
-              <th>{name}</th>
-              <td>{area.toFixed(3)}</td>
-              <td>{count}</td>
-              <td>{area > 0 && count > 0 ? (area / count).toFixed(3) : '—'}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    {#if extraRows.length > 0}
-      <details class="fp-extras" data-testid="flex-extras">
-        <summary>{t('flex.extras.title')}</summary>
-        <p class="fp-extras-note">{t('flex.extras.note')}</p>
-        <table class="fp-table">
-          <tbody>
-            {#each extraRows as [label, value]}
-              <tr><th>{label}</th><td>{value}</td></tr>
-            {/each}
-          </tbody>
-        </table>
-      </details>
-    {/if}
-  </div>
-
-  {#snippet rowsTable(title: string, rows: Row[], testid: string)}
-    {#if rows.length > 0}
-      <h4 class="fp-heading">{title}</h4>
-      <table class="fp-table" data-testid={testid}>
-        <tbody>
-          {#each rows as [label, value]}
-            <tr><th>{label}</th><td>{value}</td></tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-  {/snippet}
-
-  {#snippet barTableBlock()}
-    <!--
-      The biaxial sheets tabulate every bar with its coordinates: with three
-      positions and a split there is no other way to see where the steel went.
-    -->
-    <p class="fp-edge-note">{t('flex.out.barTable')}</p>
-    <table class="fp-table fp-pointtable" data-testid="flex-bar-table">
-      <thead>
-        <tr><th>#</th><th>Asi [cm²]</th><th>X [m]</th><th>Y [m]</th></tr>
-      </thead>
-      <tbody>
-        {#each barTable as bar (bar.n)}
-          <tr>
-            <th>{bar.n}</th>
-            <td>{bar.area.toFixed(3)}</td>
-            <td>{bar.x.toFixed(4)}</td>
-            <td>{bar.y.toFixed(4)}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  {/snippet}
-
-  {#snippet diagramBlock(verify: boolean)}
-    {#if diagram}
-      <InteractionDiagram
-        curve={diagram.capped}
-        uncapped={diagram.uncapped}
-        demand={diagram.demand}
-        resistance={verify ? diagram.resistance : null}
-        showEccentricity={verify}
-      />
-      <p class="fp-legend">
-        <span class="fp-line fp-line-main"></span>{t('flex.diagram.capped')}
-        <span class="fp-line fp-line-dash"></span>{t('flex.diagram.uncapped')}
-        {#if diagram.demand}<span class="fp-dot fp-dot-dem"></span>{t('flex.diagram.demand')}{/if}
-        {#if verify && diagram.resistance}<span class="fp-dot fp-dot-res"></span>{t('flex.diagram.resistance')}{/if}
-      </p>
-    {/if}
-  {/snippet}
+  <FlexResults
+    r={out.r} {rows} {kase} {mode} {isBeam} {barTable} {cut} {diagram} {characteristic} {positioning}
+    {Pu} {Mu} {Muy}
+  />
 
   <details class="fp-memo">
     <summary>{t('flex.out.memo')}</summary>
@@ -1347,25 +836,10 @@
     font-size: 0.66rem;
   }
 
-  /* The five levels, as a compact grid rather than ten loose fields. */
-  .fp-levels {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.68rem;
-  }
-  .fp-levels th {
-    color: var(--st-text-3);
-    font-weight: 400;
-    text-align: left;
-    padding: 0.1rem 0.3rem 0.1rem 0;
-  }
-  .fp-levels td { padding: 0.1rem 0.15rem; }
-  .fp-levels-note {
-    margin: 0.25rem 0 0;
-    font-size: 0.6rem;
-    line-height: 1.4;
-    color: var(--st-text-3);
-  }
+
+
+
+
 
   .fp-bars-row {
     display: flex;
@@ -1381,31 +855,14 @@
     font-size: 0.7rem;
   }
 
-  .fp-levels { table-layout: fixed; }
-  .fp-levels select {
-    width: 100%;
-    min-width: 0;
-    padding: 0.2rem 0.1rem;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    color: var(--st-text);
-    font-family: inherit;
-    font-size: 0.7rem;
-  }
 
-  .fp-levels input {
-    width: 100%;
-    padding: 0.2rem 0.3rem;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    color: var(--st-text);
-    font-family: inherit;
-    font-size: 0.7rem;
-  }
 
-  .fp-heading {
+
+
+
+  /* Shared with the sheet's sub-components (FlexResults, BarTable, LevelsTable), so
+     global; wrapped in :where() so their own, more specific rules still win. */
+  :where(.flex-panel) :global(.fp-heading) {
     margin: 0.3rem 0 0;
     font-size: 0.65rem;
     font-weight: 600;
@@ -1450,83 +907,27 @@
     font-size: 0.68rem;
   }
 
-  /* ── The answer ──────────────────────────────────────────────────
-     Bordered rather than filled, and the accent is spent on the number
-     itself. A failing check turns the border and the verdict, not the
-     whole box — the numbers beside it are still correct and still worth
-     reading.
-     ─────────────────────────────────────────────────────────────── */
-  .fp-result {
-    margin-top: 0.3rem;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    background: var(--st-surface-2);
-  }
-  .fp-result.fp-fail { border-color: var(--st-danger); }
-
-  .fp-headline {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--st-accent);
-    font-variant-numeric: tabular-nums;
-  }
-  .fp-ratio { margin-top: 0.15rem; color: var(--st-text-2); font-variant-numeric: tabular-nums; }
-  .fp-ratio strong { color: var(--st-text); }
-  .fp-verdict { margin-left: 0.4rem; color: var(--st-ok); }
-  .fp-result.fp-fail .fp-verdict { color: var(--st-danger); }
-
-  .fp-table {
+  :where(.flex-panel) :global(.fp-table) {
     width: 100%;
     margin-top: 0.4rem;
     border-collapse: collapse;
     font-variant-numeric: tabular-nums;
   }
-  .fp-table th {
+  :where(.flex-panel) :global(.fp-table th) {
     text-align: left;
     font-weight: 400;
     color: var(--st-text-3);
     padding: 0.12rem 0.4rem 0.12rem 0;
   }
-  .fp-table td { text-align: right; color: var(--st-text); padding: 0.12rem 0; }
+  :where(.flex-panel) :global(.fp-table td) { text-align: right; color: var(--st-text); padding: 0.12rem 0; }
 
   .fp-scheme {
     grid-column: 1 / -1;
     width: 100%; max-width: 190px; height: auto;
     color: var(--st-text-3); margin: 2px auto 6px;
   }
-
-  /*
-   * Narrow tables of numbers: the label column wraps, the number columns do
-   * not, and each carries its own left padding — without it three right-
-   * aligned figures ran into one another ("-39.431409.200.65").
-   */
-  .fp-pointtable { font-size: 0.66rem; table-layout: auto; }
-  .fp-pointtable th { line-height: 1.25; padding-right: 0.3rem; }
-  .fp-pointtable td { text-align: right; white-space: nowrap; padding-left: 0.45rem; }
-  .fp-pointtable thead th { color: var(--st-text-3); font-weight: 500; font-size: 0.62rem; text-align: right; }
   .fp-span { grid-column: 1 / -1; }
-  .fp-line { display: inline-block; width: 14px; height: 0; border-top: 1.6px solid var(--st-accent); margin-left: 6px; vertical-align: middle; }
-  .fp-line-dash { border-top: 1.2px dashed var(--st-text-3); }
-  .fp-line-grid { border-top: 1px solid var(--st-text-3); }
   .fp-general th { font-weight: 400; color: var(--st-text-3); }
-  /* A key to the figure, not a note: styled like one, but not an `.fp-note`, which the notes
-     about where a demand came from are. */
-  .fp-legend { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-    margin: -0.15rem 0 0.1rem; font-size: 0.6rem; line-height: 1.4; color: var(--st-text-3); }
-  .fp-dot { width: 8px; height: 8px; transform: rotate(45deg); display: inline-block; margin-left: 6px; }
-  .fp-dot-dem { background: #e5484d; }
-  .fp-dot-res { background: #d6409f; }
-  .fp-edge-note {
-    font-size: 0.66rem; color: var(--st-text-3);
-    margin: 8px 0 2px; line-height: 1.4;
-  }
-  .fp-extras { margin-top: 8px; }
-  .fp-extras summary {
-    cursor: pointer; font-size: 0.7rem; color: var(--st-text-3);
-    text-transform: uppercase; letter-spacing: 0.04em;
-  }
-  .fp-extras-note { font-size: 0.66rem; color: var(--st-text-3); line-height: 1.45; margin: 4px 0; }
 
   .fp-memo { color: var(--st-text-2); }
   .fp-memo summary { cursor: pointer; color: var(--st-text-3); font-size: 0.7rem; }

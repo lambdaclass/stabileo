@@ -119,3 +119,26 @@ export function sampleDiagram(
     return { x, m: v.m, n: v.n };
   });
 }
+
+/** Gaussian elimination with partial pivoting, for the compatibility system [δ]{X} = {b}. */
+export function solveSystem(A: number[][], b: number[]): number[] {
+  const n = b.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let k = 0; k < n; k++) {
+    let p = k;
+    for (let i = k + 1; i < n; i++) if (Math.abs(M[i][k]) > Math.abs(M[p][k])) p = i;
+    [M[k], M[p]] = [M[p], M[k]];
+    if (Math.abs(M[k][k]) < 1e-300) throw new Error('singular flexibility matrix');
+    for (let i = k + 1; i < n; i++) {
+      const f = M[i][k] / M[k][k];
+      for (let j = k; j <= n; j++) M[i][j] -= f * M[k][j];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = M[i][n];
+    for (let j = i + 1; j < n; j++) s -= M[i][j] * x[j];
+    x[i] = s / M[i][i];
+  }
+  return x;
+}

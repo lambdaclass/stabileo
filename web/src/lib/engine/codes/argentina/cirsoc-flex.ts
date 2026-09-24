@@ -672,6 +672,17 @@ export function solveFlex(i: FlexInput): FlexOutput {
       c: u.c * 100, a: b1 * u.c * 100, epsT: u.epsilonT * 1000, phi: u.phi,
     }),
     msg('flex.step.ratio', { ratio: u.ratio }),
+    /*
+     * The bar arrangement is not printed — the sheet stops at the area — but
+     * one that does not fit across the face is a safety signal, not a matter
+     * of matching the sheet. Without this line only the drawing showed it.
+     *
+     * A column level's bars go in ONE row along the face. `placeable` is the
+     * beam criterion (up to three layers), under which "3 Ø32 (1+1+1)" on a
+     * 12 cm face passed; for a column, a second row already means it does not fit.
+     */
+    ...(choice && ((choice.layers ?? 1) > 1 || choice.placeable === false)
+      ? [msg('flex.step.wontFitColumn')] : []),
   );
 
   const r = i.ratioAsPrime;

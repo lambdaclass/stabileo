@@ -4129,6 +4129,7 @@ const pt: Translations = {
   'flex.step.asBarsLayers': 'As = {as} cm² → {bars} em {layers} camadas (espaçamento livre {gap} mm)',
   'flex.step.asCompBars': 'A′s = {as} cm² → {bars}',
   'flex.step.wontFit': '⚠ Não cabem nem em três camadas: a seção é estreita para esta solicitação.',
+  'flex.step.wontFitColumn': '⚠ As barras propostas não cabem na face com o espaçamento livre mínimo: a seção é pequena para esta armadura.',
   'flex.step.phiMn': 'φMn no diagrama = {m} kN·m',
   'flex.step.fails': '⚠ Não verifica: φMn = {phiMn} < Mu = {mu} kN·m',
   'flex.step.impossible': '⚠ A seção não atende com nenhuma armadura admissível.',

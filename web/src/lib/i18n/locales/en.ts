@@ -804,6 +804,7 @@ const en: Record<string, string> = {
   'flex.step.asBarsLayers': 'As = {as} cm² → {bars} in {layers} layers (clear spacing {gap} mm)',
   'flex.step.asCompBars': 'A′s = {as} cm² → {bars}',
   'flex.step.wontFit': '⚠ They do not fit in three layers either: the section is narrow for this demand.',
+  'flex.step.wontFitColumn': '⚠ The proposed bars do not fit across the face at the minimum clear spacing: the section is small for this steel.',
   'flex.step.phiMn': 'φMn from the diagram = {m} kN·m',
   'flex.step.fails': '⚠ Does not verify: φMn = {phiMn} < Mu = {mu} kN·m',
   'flex.step.impossible': '⚠ No admissible reinforcement makes this section work.',

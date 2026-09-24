@@ -31,105 +31,22 @@ import type { SolverInput, SolverLoad } from '../types';
 import { solveDetailed, type DSMStepData } from '../solver-detailed';
 import {
   countIndeterminacy, candidates, buildPrimary, restrainedComponents,
-  type Redundant, type IndeterminacyCount, type Candidate,
+  type Redundant,
 } from './primary';
 import {
-  barLoadsOf, internalAt, breakpoints, integrate, sampleDiagram, NO_LOADS, type BarLoads,
+  barLoadsOf, internalAt, breakpoints, integrate, sampleDiagram, NO_LOADS, solveSystem, type BarLoads,
 } from './internal';
+import type { BarState, StateResult, TermRow, Geometry, ForceMethodResult } from './result-types';
+import { chooseRedundants, restraintCarries, fallbackBudget, FM_MAX_GH } from './redundants';
 
 export type { Redundant, IndeterminacyCount } from './primary';
+export type { BarState, StateResult, TermRow, Geometry, ForceMethodResult } from './result-types';
+export { numbered, chooseRedundants, restraintCarries, FM_MAX_GH, fallbackBudget } from './redundants';
+export { solveSystem } from './internal';
 
 const ALPHA = 1.2e-5;
 
-export interface BarState {
-  elementId: number;
-  L: number;
-  /**
-   * The app's convention: N positive in tension, the J end read from the
-   * other side. In 3D, v and m are the local xy plane's (Vy, Mz); the other
-   * plane and torsion ride alongside.
-   */
-  ends: {
-    nStart: number; vStart: number; mStart: number; nEnd: number; vEnd: number; mEnd: number;
-    myStart?: number; myEnd?: number; tStart?: number;
-  };
-  /** m is Mz in 3D (M in 2D); my and t only in 3D. */
-  samples: Array<{ x: number; m: number; n: number; my?: number; t?: number }>;
-}
-
-export interface StateResult {
-  bars: BarState[];
-  /** Reactions of the primary in this state, per restrained component, node frame. */
-  reactions: Array<{ nodeId: number; component: number; value: number }>;
-}
-
-export interface TermRow {
-  elementId: number | null;
-  source: 'bending' | 'axial' | 'torsion' | 'thermal' | 'spring' | 'bar' | 'settlement';
-  value: number;
-}
-
-export interface Geometry {
-  /** True for a space structure: nodes carry y, bars their local axes. */
-  is3D?: boolean;
-  nodes: Array<{ id: number; x: number; z: number; y?: number }>;
-  elements: Array<{
-    id: number; nodeI: number; nodeJ: number; type: 'frame' | 'truss'; hingeStart: boolean; hingeEnd: boolean;
-    /** 3D: local y and z, for drawing Mz and My off the bar. */
-    ey?: [number, number, number]; ez?: [number, number, number];
-  }>;
-  /** `restrained` has 3 entries in 2D and 6 in 3D. */
-  supports: Array<{ nodeId: number; restrained: boolean[]; spring: boolean; angle?: number }>;
-}
-
-export interface ForceMethodResult {
-  is3D?: boolean;
-  count: IndeterminacyCount;
-  isostatic: boolean;
-  redundants: Redundant[];
-  original: Geometry;
-  primary: Geometry;
-  /** states[0] is state 0; states[i] is Xᵢ = 1. */
-  states: StateResult[];
-  delta: number[][];
-  delta0: number[];
-  /** Prescribed displacement at each redundant — 0 unless a released support settles. */
-  prescribed: number[];
-  deltaTerms: TermRow[][][];
-  delta0Terms: TermRow[][];
-  /** The same coefficients, as displacements of the primary structure. */
-  deltaCheck: number[][];
-  delta0Check: number[];
-  X: number[];
-  final: StateResult;
-  verification: { maxForceDiff: number; maxReactionDiff: number; scale: number; ok: boolean };
-  /** The stiffness method's answer on the original structure, for Step 9's table. */
-  stiffness: StateResult;
-}
-
 // ─── Small helpers ──────────────────────────────────────────────
-
-export function solveSystem(A: number[][], b: number[]): number[] {
-  const n = b.length;
-  const M = A.map((row, i) => [...row, b[i]]);
-  for (let k = 0; k < n; k++) {
-    let p = k;
-    for (let i = k + 1; i < n; i++) if (Math.abs(M[i][k]) > Math.abs(M[p][k])) p = i;
-    [M[k], M[p]] = [M[p], M[k]];
-    if (Math.abs(M[k][k]) < 1e-300) throw new Error('singular flexibility matrix');
-    for (let i = k + 1; i < n; i++) {
-      const f = M[i][k] / M[k][k];
-      for (let j = k; j <= n; j++) M[i][j] -= f * M[k][j];
-    }
-  }
-  const x = new Array(n).fill(0);
-  for (let i = n - 1; i >= 0; i--) {
-    let s = M[i][n];
-    for (let j = i + 1; j < n; j++) s -= M[i][j] * x[j];
-    x[i] = s / M[i][i];
-  }
-  return x;
-}
 
 function geometryOf(input: SolverInput): Geometry {
   return {
@@ -282,84 +199,6 @@ function isStable(input: SolverInput, rs: Redundant[]): boolean {
     const d = solveDetailed(p);
     return d.nullModes.length === 0 && d.uAll.every(Number.isFinite);
   } catch { return false; }
-}
-
-export const numbered = (items: Array<Omit<Redundant, 'index'>>): Redundant[] =>
-  items.map((c, i) => ({ ...c, index: i + 1 }));
-
-function clashes(chosen: Array<Omit<Redundant, 'index'>>, items: Array<Omit<Redundant, 'index'>>): boolean {
-  return items.some((it) => chosen.some((c) =>
-    (it.elementId !== undefined && c.elementId === it.elementId && it.kind !== 'reaction' && c.kind !== 'reaction')
-    || (it.kind === 'reaction' && c.kind === 'reaction' && c.nodeId === it.nodeId && c.component === it.component)));
-}
-
-/**
- * Released one at a time with a stability check at each, then — if that
- * greedy order cannot land on exactly GH — every combination. Shared by the
- * plane and the space method; only the candidates and the check differ.
- */
-export function chooseRedundants(
-  cands: Candidate[], gh: number, stable: (rs: Redundant[]) => boolean, maxTries = 4000,
-): Redundant[] | null {
-  const chosen: Array<Omit<Redundant, 'index'>> = [];
-  for (const c of cands) {
-    if (chosen.length === gh) break;
-    if (chosen.length + c.items.length > gh || clashes(chosen, c.items)) continue;
-    if (stable(numbered([...chosen, ...c.items]))) chosen.push(...c.items);
-  }
-  if (chosen.length === gh) return numbered(chosen);
-
-  let tries = 0;
-  const pick: Array<Omit<Redundant, 'index'>> = [];
-  const dfs = (start: number): Redundant[] | null => {
-    if (pick.length === gh) {
-      tries++;
-      const rs = numbered(pick);
-      return stable(rs) ? rs : null;
-    }
-    for (let k = start; k < cands.length && tries < maxTries; k++) {
-      const items = cands[k].items;
-      if (pick.length + items.length > gh || clashes(pick, items)) continue;
-      pick.push(...items);
-      const got = dfs(k + 1);
-      if (got) return got;
-      pick.splice(pick.length - items.length, items.length);
-    }
-    return null;
-  };
-  return dfs(0);
-}
-
-/**
- * Which restrained DOFs some member actually loads: a zero diagonal in K
- * means none does, and a redundant there would be a zero row of [δ].
- */
-export function restraintCarries(data: DSMStepData): (nodeId: number, c: number) => boolean {
-  let maxD = 0;
-  for (let i = 0; i < data.K.length; i++) maxD = Math.max(maxD, Math.abs(data.K[i][i]));
-  const byKey = new Map(data.dofNumbering.dofs.map((d) => [`${d.nodeId}:${d.localDof}`, d.globalIndex]));
-  return (nodeId, c) => {
-    const g = byKey.get(`${nodeId}:${c}`);
-    return g !== undefined && Math.abs(data.K[g][g]) > maxD * 1e-8;
-  };
-}
-
-/**
- * Beyond this many redundants the method stops being something to follow:
- * a 30 × 30 [δ] is already a wall of numbers, and choosing the redundants
- * takes seconds. The stiffness wizard still shows such a structure.
- */
-export const FM_MAX_GH = 30;
-
-/**
- * How many complete sets the fallback search may check. Each check is a dense
- * solve, O(n³) in the free DOFs, and the search runs in the click handler: at
- * 4000 checks a model near the limits (354 DOFs) froze the page for about ten
- * seconds before answering `noRedundants`. The budget is fixed in work, not in
- * attempts — small models keep all 4000, the largest get about 200.
- */
-export function fallbackBudget(nFree: number): number {
-  return Math.min(4000, Math.max(200, Math.floor(2e8 / Math.max(1, nFree) ** 3)));
 }
 
 function choose(input: SolverInput, gh: number): Redundant[] | null {

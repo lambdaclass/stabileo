@@ -797,6 +797,7 @@ const es: Record<string, string> = {
   'flex.step.asBarsLayers': 'As = {as} cm² → {bars} en {layers} capas (separación libre {gap} mm)',
   'flex.step.asCompBars': 'A′s = {as} cm² → {bars}',
   'flex.step.wontFit': '⚠ No entran ni en tres capas: la sección es angosta para esta solicitación.',
+  'flex.step.wontFitColumn': '⚠ Las barras propuestas no entran en la cara con la separación libre mínima: la sección es chica para esta armadura.',
   'flex.step.phiMn': 'φMn sobre el diagrama = {m} kN·m',
   'flex.step.fails': '⚠ No verifica: φMn = {phiMn} < Mu = {mu} kN·m',
   'flex.step.impossible': '⚠ La sección no alcanza con ninguna armadura admisible.',

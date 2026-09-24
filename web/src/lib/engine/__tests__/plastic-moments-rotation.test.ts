@@ -17,7 +17,7 @@ describe('plastic Mp of a rotated section', () => {
     const sec = [...modelStore.sections.values()][0];
     const r = resolveCanonicalSection(sec);
     expect(isGeometryBacked(r)).toBe(true);
-    const { zy, zz } = analyzeSectionPlastic({ geometry: (r as { geometry: never }).geometry });
+    const { zy, zz } = analyzeSectionPlastic({ geometry: (r as unknown as { geometry: never }).geometry });
     expect(zy / zz).toBeGreaterThan(5); // strong ≈ 761 cm³, weak ≈ 122 cm³
 
     const rotated = plasticModulus({ ...sec, rotation: 90 });
@@ -30,7 +30,7 @@ describe('plastic Mp of a rotated section', () => {
     const [id, sec] = [...modelStore.sections.entries()][0];
     modelStore.sections.set(id, { ...sec, rotation: 90 });
     const r = resolveCanonicalSection(modelStore.sections.get(id)!);
-    const { zz } = analyzeSectionPlastic({ geometry: (r as { geometry: never }).geometry });
+    const { zz } = analyzeSectionPlastic({ geometry: (r as unknown as { geometry: never }).geometry });
 
     // Exactly what ToolbarAdvanced.handlePlastic sends.
     const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
