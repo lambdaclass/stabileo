@@ -623,11 +623,19 @@ mod solid_shell_tests {
         );
     }
 
+    /// Both faces are wound the other way — bottom 1,4,3,2 and top 5,8,7,6 —
+    /// so this is a mirror of the same unit cube, not a broken element. Every
+    /// sampled Jacobian is negative with healthy magnitude, and every element
+    /// family integrates with `det.abs()`, so the stiffness is identical to
+    /// the forward-ordered cube.
+    ///
+    /// This used to be asserted as an Error. That belief is what condemned the
+    /// hemisphere and spherical-cap benchmarks, which carry exactly this
+    /// pattern while matching published reference values. It is still worth a
+    /// Warning: local axes, and with them the sign of reported stresses,
+    /// follow the ordering.
     #[test]
-    fn inverted_hex_negative_jacobian() {
-        // Swap top and bottom face to create a negative Jacobian
-        // Original: bottom 1234, top 5678
-        // Inverted: bottom 5678, top 1234
+    fn mirrored_hex_is_a_warning_not_an_error() {
         let nodes = vec![
             (1, 0.0, 0.0, 0.0),
             (2, 1.0, 0.0, 0.0),
@@ -638,14 +646,16 @@ mod solid_shell_tests {
             (7, 1.0, 1.0, 1.0),
             (8, 0.0, 1.0, 1.0),
         ];
-        // Swap nodes: use [5,6,7,8,1,2,3,4] which reverses the normal
-        // Actually, a proper inversion: swap node 2 and 4 on bottom face
-        // so the bottom face winds the wrong way.
         let input = make_solid_shell_input(nodes, vec![(1, [1, 4, 3, 2, 5, 8, 7, 6])]);
         let diags = check_shell_distortion_3d(&input);
         assert!(
-            has_code_severity(&diags, DiagnosticCode::NegativeJacobian, Severity::Error),
-            "Inverted hex should emit NegativeJacobian Error, got: {:?}",
+            has_code_severity(&diags, DiagnosticCode::NegativeJacobian, Severity::Warning),
+            "a mirrored hex should be reported as a node-ordering Warning, got: {:?}",
+            diags
+        );
+        assert!(
+            !has_code_severity(&diags, DiagnosticCode::NegativeJacobian, Severity::Error),
+            "a mirrored hex is a valid element and must not be an Error, got: {:?}",
             diags
         );
     }

@@ -1638,6 +1638,7 @@ const es: Record<string, string> = {
   'kinematic.matrixExplanation': 'Stabileo resuelve estructuras armando una <strong style="color:#ddd">matriz de rigidez global</strong>. Acá se analiza esa matriz ({n}×{n}) para detectar mecanismos que la ecuación del Paso 2 no detecta — por ejemplo, cuando los apoyos están mal distribuidos o hay articulaciones que generan inestabilidades locales.',
   'kinematic.noMechanisms': '✓ No se detectaron mecanismos. La estructura es estable.',
   'kinematic.rankUnavailable': '⏳ No se pudo verificar todavía: el motor de cálculo aún no terminó de cargar. La estabilidad no está confirmada.',
+  'kinematic.invalidInput': '✗ No se pudo verificar: el modelo tiene datos inválidos — {n}',
   'kinematic.hiddenMechanism': '✗ Se detectaron {n} modo{s} de mecanismo a pesar de que g = {degree} ≥ 0.',
   'kinematic.hiddenMechanismExplanation': 'La ecuación del Paso 2 cuenta restricciones de forma global, pero no verifica dónde están ubicadas. En este caso, una zona de la estructura tiene restricciones de sobra mientras otra no tiene las suficientes.',
   'kinematic.mechanismDetected': '✗ Se detectaron {n} modo{s} de mecanismo.',
@@ -1654,6 +1655,7 @@ const es: Record<string, string> = {
   'kinematic.step4Title': 'Paso 4 — Sugerencias',
   'kinematic.stableResult': '✓ Estructura estable — se puede resolver',
   'kinematic.mechanismResult': '✗ Mecanismo — no se puede resolver',
+  'kinematic.invalidResult': '✗ Datos inválidos — no se puede resolver',
 
   // ─── Viewport.svelte ───
   'viewport.nodeHinged': 'Nodo articulado',

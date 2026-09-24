@@ -1645,6 +1645,7 @@ const en: Record<string, string> = {
   'kinematic.matrixExplanation': 'Stabileo solves structures by assembling a <strong style="color:#ddd">global stiffness matrix</strong>. Here we analyze that matrix ({n}\u00D7{n}) to detect mechanisms that the Step 2 equation misses \u2014 for example, when supports are poorly distributed or hinges create local instabilities.',
   'kinematic.noMechanisms': '\u2713 No mechanisms detected. The structure is stable.',
   'kinematic.rankUnavailable': '⏳ Not verified yet: the calculation engine has not finished loading. Stability is not confirmed.',
+  'kinematic.invalidInput': '✗ Not verified: the model has invalid data — {n}',
   'kinematic.hiddenMechanism': '\u2717 Detected {n} mechanism mode{s} despite g = {degree} \u2265 0.',
   'kinematic.hiddenMechanismExplanation': 'The Step 2 equation counts constraints globally, but does not verify where they are located. In this case, one zone of the structure has excess constraints while another lacks sufficient ones.',
   'kinematic.mechanismDetected': '\u2717 Detected {n} mechanism mode{s}.',
@@ -1661,6 +1662,7 @@ const en: Record<string, string> = {
   'kinematic.step4Title': 'Step 4 \u2014 Suggestions',
   'kinematic.stableResult': '\u2713 Stable structure \u2014 can be solved',
   'kinematic.mechanismResult': '\u2717 Mechanism \u2014 cannot be solved',
+  'kinematic.invalidResult': '✗ Invalid data — cannot be solved',
 
   // ─── Viewport.svelte ───
   'viewport.nodeHinged': 'Node hinged',
