@@ -226,3 +226,28 @@ fn plastic_double_hinge_over_a_support_is_not_a_mechanism() {
     assert!(r.is_mechanism);
     assert!((r.collapse_factor - want).abs() / want < 1e-4, "λ = {:.4}, expected 6Mp/(PL) = {want:.4}", r.collapse_factor);
 }
+
+#[test]
+fn plastic_cantilever_stops_at_its_one_hinge() {
+    // A cantilever is a mechanism as soon as its wall yields. The loop used to
+    // go on and form a second hinge at the free end, where M = 0: the singular
+    // solve handed it a moment there (λ 17,17 instead of 15,63 with the
+    // section's own Mp). λ = Mp/(P·L), one hinge.
+    // The `cantilever-point` example: IPN 300, 3 m, 15 kN at the tip.
+    let solver = make_input(
+        vec![(1, 0.0, 0.0), (2, 3.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, 0.0069, 9.8e-5)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -15.0, my: 0.0 })],
+    );
+    let mut input = make_plastic_portal(0.0);
+    input.solver = solver;
+    let mut mp = HashMap::new();
+    mp.insert("1".to_string(), 190.5);
+    input.mp_overrides = Some(mp);
+    let r = plastic::solve_plastic_2d(&input).unwrap();
+    assert!(r.is_mechanism);
+    assert_eq!(r.hinges.len(), 1, "hinges: {:?}", r.hinges.iter().map(|h| (h.element_id, h.end.clone())).collect::<Vec<_>>());
+    assert!((r.collapse_factor - 190.5 / (15.0 * 3.0)).abs() < 1e-6, "λ = {}", r.collapse_factor);
+}
