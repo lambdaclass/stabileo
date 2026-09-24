@@ -141,10 +141,20 @@
    * behind the panel the user was already looking at. Following the wizard here
    * is what the ribbon does for every other command that owns a panel.
    */
+  /*
+   * And back again when it closes. The wizard is an Advanced function that
+   * borrows the data panel; leaving it left the reader in Model data, looking
+   * at a table they never asked for, instead of the list they started from.
+   * `untrack` so switching panels by hand while a wizard is open does not
+   * re-run this and yank the panel back.
+   */
+  let wizardWasOpen = false;
   $effect(() => {
-    if ((dsmStepsStore.isOpen || fmStepsStore.isOpen) && uiStore.appMode === 'basico') {
-      basicPanel = 'data';
-    }
+    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen;
+    const basic = uiStore.appMode === 'basico';
+    if (open && basic) basicPanel = 'data';
+    if (!open && wizardWasOpen && basic && untrack(() => basicPanel) === 'data') basicPanel = 'advanced';
+    wizardWasOpen = open;
   });
 
   /**

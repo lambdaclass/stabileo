@@ -18,6 +18,10 @@ function createFMStepsStore() {
   /** The δᵢⱼ whose breakdown is shown, 0-based. */
   let selectedI = $state(0);
   let selectedJ = $state(0);
+  /** Which diagram the sketches draw: M (Mz in space), My, T or N. */
+  let diagramComponent = $state<'m' | 'my' | 't' | 'n'>('m');
+  /** Steps or the compact matrix view ("Ver matriz"). */
+  let showMatrix = $state(false);
 
   return {
     get result() { return result; },
@@ -26,6 +30,10 @@ function createFMStepsStore() {
     get selectedState() { return selectedState; },
     get selectedI() { return selectedI; },
     get selectedJ() { return selectedJ; },
+    get diagramComponent() { return diagramComponent; },
+    set diagramComponent(v: 'm' | 'my' | 't' | 'n') { diagramComponent = v; },
+    get showMatrix() { return showMatrix; },
+    set showMatrix(v: boolean) { showMatrix = v; },
 
     setResult(r: ForceMethodResult) {
       result = r;
@@ -33,6 +41,8 @@ function createFMStepsStore() {
       selectedState = r.redundants.length > 0 ? 1 : 0;
       selectedI = 0;
       selectedJ = 0;
+      diagramComponent = 'm';
+      showMatrix = false;
     },
     open() { isOpen = true; },
     close() { isOpen = false; },

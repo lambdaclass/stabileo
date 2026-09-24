@@ -31,7 +31,7 @@ import type { SolverInput, SolverLoad } from '../types';
 import { solveDetailed, type DSMStepData } from '../solver-detailed';
 import {
   countIndeterminacy, candidates, buildPrimary, restrainedComponents,
-  type Redundant, type IndeterminacyCount,
+  type Redundant, type IndeterminacyCount, type Candidate,
 } from './primary';
 import {
   barLoadsOf, internalAt, breakpoints, integrate, sampleDiagram, NO_LOADS, type BarLoads,
@@ -44,9 +44,17 @@ const ALPHA = 1.2e-5;
 export interface BarState {
   elementId: number;
   L: number;
-  /** The app's convention: N positive in tension, the J end read from the other side. */
-  ends: { nStart: number; vStart: number; mStart: number; nEnd: number; vEnd: number; mEnd: number };
-  samples: Array<{ x: number; m: number; n: number }>;
+  /**
+   * The app's convention: N positive in tension, the J end read from the
+   * other side. In 3D, v and m are the local xy plane's (Vy, Mz); the other
+   * plane and torsion ride alongside.
+   */
+  ends: {
+    nStart: number; vStart: number; mStart: number; nEnd: number; vEnd: number; mEnd: number;
+    myStart?: number; myEnd?: number; tStart?: number;
+  };
+  /** m is Mz in 3D (M in 2D); my and t only in 3D. */
+  samples: Array<{ x: number; m: number; n: number; my?: number; t?: number }>;
 }
 
 export interface StateResult {
@@ -55,15 +63,27 @@ export interface StateResult {
   reactions: Array<{ nodeId: number; component: number; value: number }>;
 }
 
-export interface TermRow { elementId: number | null; source: 'bending' | 'axial' | 'thermal' | 'spring' | 'bar' | 'settlement'; value: number }
+export interface TermRow {
+  elementId: number | null;
+  source: 'bending' | 'axial' | 'torsion' | 'thermal' | 'spring' | 'bar' | 'settlement';
+  value: number;
+}
 
 export interface Geometry {
-  nodes: Array<{ id: number; x: number; z: number }>;
-  elements: Array<{ id: number; nodeI: number; nodeJ: number; type: 'frame' | 'truss'; hingeStart: boolean; hingeEnd: boolean }>;
-  supports: Array<{ nodeId: number; restrained: [boolean, boolean, boolean]; spring: boolean; angle?: number }>;
+  /** True for a space structure: nodes carry y, bars their local axes. */
+  is3D?: boolean;
+  nodes: Array<{ id: number; x: number; z: number; y?: number }>;
+  elements: Array<{
+    id: number; nodeI: number; nodeJ: number; type: 'frame' | 'truss'; hingeStart: boolean; hingeEnd: boolean;
+    /** 3D: local y and z, for drawing Mz and My off the bar. */
+    ey?: [number, number, number]; ez?: [number, number, number];
+  }>;
+  /** `restrained` has 3 entries in 2D and 6 in 3D. */
+  supports: Array<{ nodeId: number; restrained: boolean[]; spring: boolean; angle?: number }>;
 }
 
 export interface ForceMethodResult {
+  is3D?: boolean;
   count: IndeterminacyCount;
   isostatic: boolean;
   redundants: Redundant[];
@@ -89,7 +109,7 @@ export interface ForceMethodResult {
 
 // ─── Small helpers ──────────────────────────────────────────────
 
-function solveSystem(A: number[][], b: number[]): number[] {
+export function solveSystem(A: number[][], b: number[]): number[] {
   const n = b.length;
   const M = A.map((row, i) => [...row, b[i]]);
   for (let k = 0; k < n; k++) {
@@ -149,6 +169,12 @@ interface Solved {
 
 function solveState(input: SolverInput): Solved {
   const data = solveDetailed(input);
+  /*
+   * The force method needs a structure that stands on its own: a mechanism
+   * the loads happen not to excite is still a mechanism, and a primary
+   * structure with one is not a primary structure.
+   */
+  if (data.nullModes.length > 0) throw new ForceMethodError('unstable', data.nullModes);
   const frames = new Map(data.nodeFrames.map((f) => [f.nodeId, f.angle]));
   const dof = new Map<string, number>();
   for (const d of data.dofNumbering.dofs) dof.set(`${d.nodeId}:${d.localDof}`, d.globalIndex);
@@ -253,11 +279,12 @@ function generalised(state: Solved, pattern: Array<{ nodeId: number; fx: number;
 function isStable(input: SolverInput, rs: Redundant[]): boolean {
   try {
     const { input: p } = buildPrimary(input, rs, input.loads, { keepPrescribed: true, keepThermal: true });
-    return solveDetailed(p).uAll.every(Number.isFinite);
+    const d = solveDetailed(p);
+    return d.nullModes.length === 0 && d.uAll.every(Number.isFinite);
   } catch { return false; }
 }
 
-const numbered = (items: Array<Omit<Redundant, 'index'>>): Redundant[] =>
+export const numbered = (items: Array<Omit<Redundant, 'index'>>): Redundant[] =>
   items.map((c, i) => ({ ...c, index: i + 1 }));
 
 function clashes(chosen: Array<Omit<Redundant, 'index'>>, items: Array<Omit<Redundant, 'index'>>): boolean {
@@ -266,25 +293,29 @@ function clashes(chosen: Array<Omit<Redundant, 'index'>>, items: Array<Omit<Redu
     || (it.kind === 'reaction' && c.kind === 'reaction' && c.nodeId === it.nodeId && c.component === it.component)));
 }
 
-function choose(input: SolverInput, gh: number): Redundant[] | null {
-  const cands = candidates(input);
-
+/**
+ * Released one at a time with a stability check at each, then — if that
+ * greedy order cannot land on exactly GH — every combination. Shared by the
+ * plane and the space method; only the candidates and the check differ.
+ */
+export function chooseRedundants(
+  cands: Candidate[], gh: number, stable: (rs: Redundant[]) => boolean,
+): Redundant[] | null {
   const chosen: Array<Omit<Redundant, 'index'>> = [];
   for (const c of cands) {
     if (chosen.length === gh) break;
     if (chosen.length + c.items.length > gh || clashes(chosen, c.items)) continue;
-    if (isStable(input, numbered([...chosen, ...c.items]))) chosen.push(...c.items);
+    if (stable(numbered([...chosen, ...c.items]))) chosen.push(...c.items);
   }
   if (chosen.length === gh) return numbered(chosen);
 
-  /* Fallback: every combination, checked only when complete. */
   let tries = 0;
   const pick: Array<Omit<Redundant, 'index'>> = [];
   const dfs = (start: number): Redundant[] | null => {
     if (pick.length === gh) {
       tries++;
       const rs = numbered(pick);
-      return isStable(input, rs) ? rs : null;
+      return stable(rs) ? rs : null;
     }
     for (let k = start; k < cands.length && tries < 4000; k++) {
       const items = cands[k].items;
@@ -299,21 +330,55 @@ function choose(input: SolverInput, gh: number): Redundant[] | null {
   return dfs(0);
 }
 
+/**
+ * Which restrained DOFs some member actually loads: a zero diagonal in K
+ * means none does, and a redundant there would be a zero row of [δ].
+ */
+export function restraintCarries(data: DSMStepData): (nodeId: number, c: number) => boolean {
+  let maxD = 0;
+  for (let i = 0; i < data.K.length; i++) maxD = Math.max(maxD, Math.abs(data.K[i][i]));
+  const byKey = new Map(data.dofNumbering.dofs.map((d) => [`${d.nodeId}:${d.localDof}`, d.globalIndex]));
+  return (nodeId, c) => {
+    const g = byKey.get(`${nodeId}:${c}`);
+    return g !== undefined && Math.abs(data.K[g][g]) > maxD * 1e-8;
+  };
+}
+
+/**
+ * Beyond this many redundants the method stops being something to follow:
+ * a 30 × 30 [δ] is already a wall of numbers, and choosing the redundants
+ * takes seconds. The stiffness wizard still shows such a structure.
+ */
+export const FM_MAX_GH = 30;
+
+function choose(input: SolverInput, gh: number): Redundant[] | null {
+  let carries: (nodeId: number, c: number) => boolean = () => true;
+  try { carries = restraintCarries(solveDetailed(input)); } catch { /* the stability checks will say */ }
+  return chooseRedundants(candidates(input, carries), gh, (rs) => isStable(input, rs));
+}
+
 // ─── The method ─────────────────────────────────────────────────
 
 export class ForceMethodError extends Error {
-  constructor(public key: 'hypostatic' | 'noRedundants' | 'unstable') { super(key); }
+  /** `dofs`: for an unstable structure, the DOFs its mechanism moves; `gh` when it is too hyperstatic. */
+  constructor(
+    public key: 'hypostatic' | 'noRedundants' | 'unstable' | 'tooHyperstatic',
+    public dofs: string[] = [], public gh = 0,
+  ) { super(key); }
 }
 
 export function solveForceMethod(input: SolverInput): ForceMethodResult {
   const count = countIndeterminacy(input);
   if (count.gh < 0) throw new ForceMethodError('hypostatic');
+  if (count.gh > FM_MAX_GH) throw new ForceMethodError('tooHyperstatic', [], count.gh);
 
   const original = geometryOf(input);
   if (count.gh === 0) {
     /* Isostatic: there is nothing to release, and equilibrium alone answers. */
     let s0: Solved;
-    try { s0 = solveState(input); } catch { throw new ForceMethodError('unstable'); }
+    try { s0 = solveState(input); } catch (e) {
+      throw e instanceof ForceMethodError ? e : new ForceMethodError('unstable');
+    }
     const st = stateOf(s0, input.loads);
     return {
       count, isostatic: true, redundants: [], original, primary: original,
@@ -511,7 +576,7 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
   const dsm = solveState(input);
   const dsmState = stateOf(dsm, input.loads);
   let scale = 1e-9;
-  for (const b of dsmState.bars) for (const v of Object.values(b.ends)) scale = Math.max(scale, Math.abs(v));
+  for (const b of dsmState.bars) for (const v of Object.values(b.ends)) scale = Math.max(scale, Math.abs(v ?? 0));
   for (const r of dsmState.reactions) scale = Math.max(scale, Math.abs(r.value));
   let maxForceDiff = 0;
   for (const b of dsmState.bars) {
@@ -520,7 +585,7 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
     const isTruss = input.elements.get(b.elementId)!.type === 'truss';
     for (const k of Object.keys(b.ends) as Array<keyof BarState['ends']>) {
       if (isTruss && k !== 'nStart' && k !== 'nEnd') continue;
-      maxForceDiff = Math.max(maxForceDiff, Math.abs(mine.ends[k] - b.ends[k]));
+      maxForceDiff = Math.max(maxForceDiff, Math.abs((mine.ends[k] ?? 0) - (b.ends[k] ?? 0)));
     }
   }
   let maxReactionDiff = 0;

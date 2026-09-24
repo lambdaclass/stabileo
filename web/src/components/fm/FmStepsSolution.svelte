@@ -15,22 +15,24 @@
   import VectorDisplay from '../dsm/VectorDisplay.svelte';
   import MathEquation from '../dsm/MathEquation.svelte';
   import FmSketch from './FmSketch.svelte';
-  import { xName, num, componentName, sub, redundantText } from './fm-text';
+  import FmDiagramPicker from './FmDiagramPicker.svelte';
+  import { xName, num, componentName, sub, redundantText, redundantUnit } from './fm-text';
 
   let { r, step }: { r: ForceMethodResult; step: number } = $props();
 
   const n = $derived(r.redundants.length);
+  const is3D = $derived(!!r.is3D);
   const labels = $derived(r.redundants.map((x) => xName(x.index)));
   const i = $derived(Math.min(fmStepsStore.selectedI, n - 1));
   const j = $derived(Math.min(fmStepsStore.selectedJ, n - 1));
 
-  /** Group a coefficient's terms: one row per bar (bending, axial), then the rest. */
+  /** Group a coefficient's terms: one row per bar (bending, axial, torsion), then the rest. */
   function grouped(rows: TermRow[]) {
-    const perBar = new Map<number, { bending: number; axial: number; thermal: number }>();
+    const perBar = new Map<number, { bending: number; axial: number; torsion: number; thermal: number }>();
     const other: TermRow[] = [];
     for (const row of rows) {
-      if (row.elementId !== null && (row.source === 'bending' || row.source === 'axial' || row.source === 'thermal')) {
-        const cur = perBar.get(row.elementId) ?? { bending: 0, axial: 0, thermal: 0 };
+      if (row.elementId !== null && (row.source === 'bending' || row.source === 'axial' || row.source === 'torsion' || row.source === 'thermal')) {
+        const cur = perBar.get(row.elementId) ?? { bending: 0, axial: 0, torsion: 0, thermal: 0 };
         cur[row.source] += row.value;
         perBar.set(row.elementId, cur);
       } else other.push(row);
@@ -39,16 +41,17 @@
   }
   const total = (rows: TermRow[]) => rows.reduce((s, x) => s + x.value, 0);
 
-  const unit = (k: number) => {
-    const x = r.redundants[k];
-    return x.kind === 'cutM' || (x.kind === 'reaction' && x.component === 2) ? 'kN·m' : 'kN';
-  };
-  const rotated = (nodeId: number) => r.original.supports.some((s) => s.nodeId === nodeId && s.angle !== undefined);
+  const unit = (k: number) => redundantUnit(r.redundants[k], is3D);
+  const rotated = (nodeId: number) =>
+    r.original.supports.some((s) => s.nodeId === nodeId && (s.angle !== undefined
+      || (is3D && s.restrained[0] && !s.restrained[1] && !s.restrained[2])));
 
   /** The largest discrepancy with the stiffness method, as a share of the largest force. */
   const worst = $derived(Math.max(r.verification.maxForceDiff, r.verification.maxReactionDiff));
 
-  const eqDelta = '\\delta_{ij} = \\sum \\int \\frac{m_i\\,m_j}{EI}\\,dx + \\sum \\int \\frac{n_i\\,n_j}{EA}\\,dx';
+  const eqDelta = $derived(is3D
+    ? '\\delta_{ij} = \\sum \\int \\Big(\\frac{m_{z,i}m_{z,j}}{EI_z} + \\frac{m_{y,i}m_{y,j}}{EI_y} + \\frac{t_i t_j}{GJ} + \\frac{n_i n_j}{EA}\\Big)dx'
+    : '\\delta_{ij} = \\sum \\int \\frac{m_i\\,m_j}{EI}\\,dx + \\sum \\int \\frac{n_i\\,n_j}{EA}\\,dx');
   const eqDelta0 = '\\delta_{i0} = \\sum \\int \\frac{m_i\\,M_0}{EI}\\,dx + \\sum \\int \\frac{n_i\\,N_0}{EA}\\,dx';
   const eqCompat = '[\\delta]\\,\\{X\\} = \\{\\Delta\\} - \\{\\delta_0\\}';
   const eqSuper = 'M = M_0 + \\sum_i X_i\\, m_i';
@@ -58,10 +61,10 @@
 {#snippet breakdown(rows: TermRow[], check: number, testid: string)}
   {@const g = grouped(rows)}
   <table class="fm-table" data-testid={testid}>
-    <thead><tr><th>{t('fm.s3.bar')}</th><th>{t('fm.src.bending')}</th><th>{t('fm.src.axial')}</th>{#if g.perBar.some(([, v]) => v.thermal)}<th>{t('fm.src.thermal')}</th>{/if}</tr></thead>
+    <thead><tr><th>{t('fm.s3.bar')}</th><th>{t('fm.src.bending')}</th><th>{t('fm.src.axial')}</th>{#if is3D}<th>{t('fm.src.torsion')}</th>{/if}{#if g.perBar.some(([, v]) => v.thermal)}<th>{t('fm.src.thermal')}</th>{/if}</tr></thead>
     <tbody>
       {#each g.perBar as [id, v] (id)}
-        <tr><td>{id}</td><td>{num(v.bending, 4)}</td><td>{num(v.axial, 4)}</td>{#if g.perBar.some(([, w]) => w.thermal)}<td>{num(v.thermal, 4)}</td>{/if}</tr>
+        <tr><td>{id}</td><td>{num(v.bending, 4)}</td><td>{num(v.axial, 4)}</td>{#if is3D}<td>{num(v.torsion, 4)}</td>{/if}{#if g.perBar.some(([, w]) => w.thermal)}<td>{num(v.thermal, 4)}</td>{/if}</tr>
       {/each}
       {#each g.other as o, k (k)}
         <tr><td colspan="2">{t(`fm.src.${o.source}`)}{o.elementId !== null ? ` (${o.elementId})` : ''}</td><td>{num(o.value, 4)}</td></tr>
@@ -72,11 +75,23 @@
   <p class="fm-note" data-testid="{testid}-check">{t('fm.s5.check').replace('{v}', num(check, 5))}</p>
 {/snippet}
 
-{#if step === 5}
-  <p class="fm-exp">{t('fm.s5.explanation')}</p>
+{#if r.isostatic && step >= 5 && step <= 7}
+  <p class="fm-exp">{t(step === 5 ? (is3D ? 'fm.s5.explanation3d' : 'fm.s5.explanation') : step === 6 ? 'fm.s6.explanation' : 'fm.s7.explanation')}</p>
+  <p class="fm-exp fm-iso" data-testid="fm-iso-note">{t('fm.iso.none')}</p>
+{:else if step === 5}
+  <p class="fm-exp">{t(is3D ? 'fm.s5.explanation3d' : 'fm.s5.explanation')}</p>
   <div class="fm-eq"><MathEquation equation={eqDelta} displayMode /></div>
   <MatrixDisplay matrix={r.delta} rowLabels={labels} colLabels={labels} precision={4} title="[δ]  (m/kN, rad/kN·m…)" />
   <p class="fm-note">{t('fm.s5.symmetry')}</p>
+  {#if r.original.elements.some((e) => e.type === 'frame' && (e.hingeStart || e.hingeEnd))}
+    <p class="fm-note fm-iso" data-testid="fm-s5-hinges">{t('fm.mx.hinges')}</p>
+  {/if}
+  {#if r.original.elements.some((e) => e.type === 'truss')}
+    <p class="fm-note fm-iso">{t('fm.mx.truss')}</p>
+  {/if}
+  {#if r.redundants.some((x) => x.kind === 'barForce')}
+    <p class="fm-note fm-iso">{t('fm.mx.barRedundant')}</p>
+  {/if}
   <p class="fm-note">{t('fm.s5.pick')}</p>
   <div class="fm-pick" role="group">
     {#each r.redundants as a, p (a.index)}
@@ -127,13 +142,16 @@
 {:else if step === 8}
   <p class="fm-exp">{t('fm.s8.explanation')}</p>
   <div class="fm-eq"><MathEquation equation={eqSuper} displayMode /></div>
-  <FmSketch geometry={r.original} state={r.final} stateLabel="M" testId="fm-final" />
+  {#if r.isostatic}<p class="fm-exp fm-iso">{t('fm.iso.s8')}</p>{/if}
+  <FmDiagramPicker {is3D} />
+  <FmSketch geometry={r.original} state={r.final} component={fmStepsStore.diagramComponent}
+    stateLabel={fmStepsStore.diagramComponent === 'my' ? 'My' : fmStepsStore.diagramComponent === 't' ? 'T' : fmStepsStore.diagramComponent === 'n' ? 'N' : 'M'} testId="fm-final" />
   <p class="fm-note">{t('fm.s3.drawn')}</p>
   <h5 class="fm-h">{t('fm.s3.reactions')}</h5>
   <table class="fm-table">
     <tbody>
       {#each r.final.reactions.filter((q) => Math.abs(q.value) > 1e-9) as q (q.nodeId + ':' + q.component)}
-        <tr><td>{q.nodeId}</td><td>{componentName(q.component, rotated(q.nodeId))}</td><td>{num(q.value)}</td></tr>
+        <tr><td>{q.nodeId}</td><td>{componentName(q.component, rotated(q.nodeId), is3D)}</td><td>{num(q.value)}</td></tr>
       {/each}
     </tbody>
   </table>
@@ -158,7 +176,7 @@
     <tbody>
       {#each r.stiffness.reactions.filter((q) => Math.abs(q.value) > 1e-9) as q (q.nodeId + ':' + q.component)}
         {@const mine = r.final.reactions.find((m) => m.nodeId === q.nodeId && m.component === q.component)}
-        <tr><td>{q.nodeId}</td><td>{componentName(q.component, rotated(q.nodeId))}</td><td>{num(mine?.value ?? 0)}</td><td>{num(q.value)}</td></tr>
+        <tr><td>{q.nodeId}</td><td>{componentName(q.component, rotated(q.nodeId), is3D)}</td><td>{num(mine?.value ?? 0)}</td><td>{num(q.value)}</td></tr>
       {/each}
     </tbody>
   </table>
@@ -176,6 +194,7 @@
 <style>
   .fm-exp { font-size: 0.72rem; line-height: 1.5; color: var(--st-text-2); margin: 0 0 6px; }
   .fm-note { font-size: 0.64rem; line-height: 1.45; color: var(--st-text-3); margin: 2px 0 6px; }
+  .fm-iso { border-left: 2px solid var(--st-accent); padding-left: 6px; }
   .fm-dim { color: var(--st-text-3); font-size: 0.6rem; }
   .fm-h { margin: 8px 0 2px; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--st-text-3); }
   .fm-eq { overflow-x: auto; margin: 2px 0 6px; font-size: 0.8rem; }

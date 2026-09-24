@@ -8,6 +8,7 @@ import type {
   SolverPointLoadOnElement, SolverThermalLoad,
 } from './types';
 import { t } from '../i18n';
+import { solveAllowingNullModes } from './dense-solve';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -37,6 +38,11 @@ export interface ElementStepData {
   kGlobal: number[][]; // global stiffness = T^t·k·T
   dofIndices: number[]; // which global DOFs
   dofLabels: string[];  // labels for display
+  /** 2D: a moment release at each end. */
+  hingeStart?: boolean;
+  hingeEnd?: boolean;
+  /** 3D: which end moments are released, per axis. */
+  releases?: { myStart: boolean; myEnd: boolean; mzStart: boolean; mzEnd: boolean; tStart: boolean; tEnd: boolean };
 }
 
 export interface LoadContribution {
@@ -103,6 +109,14 @@ export interface DSMStepData {
    * reactions in the vectors above are in that frame.
    */
   nodeFrames: Array<{ nodeId: number; angle: number }>;
+  /** 3D inclined supports: the node's axes R = (n, e2, e3), rows. */
+  nodeFrames3D?: Array<{ nodeId: number; R: number[][] }>;
+  /**
+   * Free DOFs left at zero because no stiffness governs them and no load
+   * excites them — an infinitesimal mechanism the loads do not touch.
+   * Empty for a stable structure.
+   */
+  nullModes: string[];
 
   // Labels for display
   dofLabels: string[]; // nTotal labels: "u₁", "w₁", "θ₁", ...
@@ -335,44 +349,6 @@ export function elementEquivalentLoads(
   return { local: f, transverse };
 }
 
-function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Array {
-  const a = new Float64Array(A);
-  const bw = new Float64Array(b);
-
-  // Relative singularity tolerance (same as solver-js.ts)
-  let maxDiag = 0;
-  for (let i = 0; i < n; i++) maxDiag = Math.max(maxDiag, Math.abs(A[i * n + i]));
-  const singularityTol = Math.max(1e-10, maxDiag * 1e-12);
-
-  for (let k = 0; k < n - 1; k++) {
-    let maxVal = Math.abs(a[k * n + k]);
-    let maxRow = k;
-    for (let i = k + 1; i < n; i++) {
-      const val = Math.abs(a[i * n + k]);
-      if (val > maxVal) { maxVal = val; maxRow = i; }
-    }
-    if (maxVal < singularityTol) throw new Error(t('detailed.singularMatrix'));
-    if (maxRow !== k) {
-      for (let j = 0; j < n; j++) {
-        const tmp = a[k * n + j]; a[k * n + j] = a[maxRow * n + j]; a[maxRow * n + j] = tmp;
-      }
-      const tmp = bw[k]; bw[k] = bw[maxRow]; bw[maxRow] = tmp;
-    }
-    for (let i = k + 1; i < n; i++) {
-      const factor = a[i * n + k] / a[k * n + k];
-      for (let j = k + 1; j < n; j++) a[i * n + j] -= factor * a[k * n + j];
-      bw[i] -= factor * bw[k];
-    }
-  }
-  if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) throw new Error(t('detailed.singularHypostatic'));
-  const x = new Float64Array(n);
-  for (let i = n - 1; i >= 0; i--) {
-    let sum = bw[i];
-    for (let j = i + 1; j < n; j++) sum -= a[i * n + j] * x[j];
-    x[i] = sum / a[i * n + i];
-  }
-  return x;
-}
 
 // ─── Utility ────────────────────────────────────────────────────
 
@@ -534,6 +510,7 @@ export function solveDetailed(input: SolverInput): DSMStepData {
         T: float64ToMatrix(t, 6, 6),
         kGlobal: float64ToMatrix(kGlobal, 6, 6),
         dofIndices: dofs, dofLabels: dLabels,
+        hingeStart: !!elem.hingeStart, hingeEnd: !!elem.hingeEnd,
       });
 
       for (let i = 0; i < dofs.length; i++) {
@@ -566,7 +543,8 @@ export function solveDetailed(input: SolverInput): DSMStepData {
       elementsData.push({
         elementId: elem.id, nodeI: elem.nodeI, nodeJ: elem.nodeJ, type: 'truss',
         length: l, angle, E: eKnM2, A: sec.a, Iz: 0,
-        kLocal: float64ToMatrix([k, -k, -k, k], 2, 2),
+        /* Written 4×4 like its T, so the zero rows say what a truss bar is: axial only. */
+        kLocal: float64ToMatrix(kLocal4, 4, 4),
         T: float64ToMatrix(t, 4, 4),
         kGlobal: float64ToMatrix(kG, 4, 4),
         dofIndices: dofs, dofLabels: dLabels,
@@ -750,10 +728,22 @@ export function solveDetailed(input: SolverInput): DSMStepData {
   }
 
   // ─── Step 7: Solve ────────────────────────────────────────────
+  /** Free DOFs no stiffness governs and no load excites — see dense-solve.ts. */
+  let nullModes: string[] = [];
   let uf: Float64Array;
   const uAll = new Float64Array(nTotal);
   if (nFree > 0) {
-    uf = solveLU(KffArr, FfMod, nFree);
+    {
+      const sol = solveAllowingNullModes(KffArr, FfMod, nFree, t('detailed.singularHypostatic'));
+      uf = sol.x;
+      /* Every DOF that moves in a mode, not only the one the elimination freed. */
+      const moving = new Set<number>();
+      for (const mode of sol.modes) {
+        const peak = Math.max(...Array.from(mode, Math.abs));
+        mode.forEach((v, k) => { if (Math.abs(v) > 1e-6 * peak) moving.add(k); });
+      }
+      nullModes = [...moving].sort((p, q) => p - q).map((k) => allDofLabels[k]);
+    }
     for (let i = 0; i < nFree; i++) uAll[i] = uf[i];
   } else {
     uf = new Float64Array(0);
@@ -858,5 +848,6 @@ export function solveDetailed(input: SolverInput): DSMStepData {
     dofLabels: allDofLabels,
     freeDofLabels,
     restrDofLabels,
+    nullModes,
   };
 }

@@ -124,6 +124,38 @@ const CASES: Record<string, SolverInput> = {
     elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'truss'], [3, 1, 3, 'truss']],
     supports: [[1, 'pinned'], [2, 'rollerX']], loads: [nodal(3, 0, -20, 0)],
   }),
+  /* ── Hinges of every kind ── */
+  'hinge at the start of a member': model({
+    nodes: [[1, 0, 0], [2, 4, 0], [3, 8, 0]],
+    elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame', true, false]],
+    supports: [[1, 'fixed'], [3, 'fixed']], loads: [nodal(2, 0, -10, 0), { type: 'distributed', data: { elementId: 2, qI: -5, qJ: -5 } }],
+  }),
+  'member hinged at both ends, loaded along its span': model({
+    nodes: [[1, 0, 0], [2, 0, 3], [3, 5, 3], [4, 5, 0]],
+    elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame', true, true], [3, 3, 4, 'frame']],
+    supports: [[1, 'fixed'], [4, 'fixed']], loads: [{ type: 'distributed', data: { elementId: 2, qI: -12, qJ: -12 } }, nodal(2, 6, 0, 0)],
+  }),
+  'node where every member end is hinged': model({
+    nodes: [[1, 0, 0], [2, 3, 0], [3, 6, 0], [4, 3, -3]],
+    elements: [[1, 1, 2, 'frame', false, true], [2, 2, 3, 'frame', true, false], [3, 4, 2, 'frame', false, true]],
+    supports: [[1, 'fixed'], [3, 'fixed'], [4, 'fixed']], loads: [nodal(2, 4, -20, 0)],
+  }),
+  'hinge right beside a fixed support': model({
+    nodes: [[1, 0, 0], [2, 5, 0], [3, 10, 0]],
+    elements: [[1, 1, 2, 'frame', true, false], [2, 2, 3, 'frame']],
+    supports: [[1, 'fixed'], [2, 'rollerX'], [3, 'fixed']], loads: [{ type: 'distributed', data: { elementId: 1, qI: -8, qJ: -8 } }],
+  }),
+  /* ── Supports of every kind ── */
+  'imposed horizontal displacement': model({
+    nodes: [[1, 0, 0], [2, 0, 4], [3, 5, 4], [4, 5, 0]],
+    elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame'], [3, 3, 4, 'frame']],
+    supports: [[1, 'fixed', { dx: 0.005 }], [4, 'pinned']], loads: [],
+  }),
+  'springs in all three directions, rotated': model({
+    nodes: [[1, 0, 0], [2, 5, 0]], elements: [[1, 1, 2, 'frame']],
+    supports: [[1, 'fixed'], [2, 'spring', { kx: 1500, ky: 4000, kz: 800, angle: 0.4 }]],
+    loads: [nodal(2, 3, -12, 2)],
+  }),
   'thermal load': model({
     nodes: [[1, 0, 0], [2, 5, 0]], elements: [[1, 1, 2, 'frame']],
     supports: [[1, 'fixed'], [2, 'fixed']],

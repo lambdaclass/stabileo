@@ -11,9 +11,11 @@
   import { fmStepsStore, FM_STEPS } from '../../lib/store/fmSteps.svelte';
   import FmStepsStructure from './FmStepsStructure.svelte';
   import FmStepsSolution from './FmStepsSolution.svelte';
+  import FmMatrixView from './FmMatrixView.svelte';
 
   const r = $derived(fmStepsStore.result);
-  const last = $derived(r?.isostatic ? 1 : FM_STEPS);
+  /* Every structure walks all nine steps; an isostatic one is told at each what GH = 0 means there. */
+  const last = FM_STEPS;
 
   function close() {
     fmStepsStore.close();
@@ -23,6 +25,7 @@
   function handleKeydown(e: KeyboardEvent) {
     const tag = (e.target as HTMLElement | null)?.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (fmStepsStore.showMatrix) return;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
       e.preventDefault();
       if (fmStepsStore.currentStep < last) fmStepsStore.nextStep();
@@ -36,10 +39,19 @@
 
 <div class="wizard" data-testid="fm-wizard">
   <div class="wizard-header">
-    <span class="wizard-title">{t('fm.wizardTitle')}</span>
-    <button class="close-btn" onclick={close} aria-label="✕">✕</button>
+    <button class="back-btn" data-testid="fm-back" title={t('adv.backToList')} onclick={close}>← {t('adv.back')}</button>
+    <span class="wizard-title">{fmStepsStore.showMatrix ? t('fm.matrixTitle') : t('fm.wizardTitle')}</span>
+    <button class="explorer-toggle" class:active={fmStepsStore.showMatrix} data-testid="fm-view-matrix"
+      disabled={!r || r.isostatic}
+      title={r?.isostatic ? t('fm.matrixNone') : t('fm.matrixTitle')}
+      onclick={() => (fmStepsStore.showMatrix = !fmStepsStore.showMatrix)}>
+      {fmStepsStore.showMatrix ? t('dsm.stepsBtn') : t('dsm.explorerBtn')}
+    </button>
   </div>
 
+  {#if fmStepsStore.showMatrix && r}
+    <div class="step-content"><FmMatrixView {r} /></div>
+  {:else}
   <div class="step-indicator">
     {#each { length: FM_STEPS } as _, k}
       {@const step = k + 1}
@@ -53,7 +65,7 @@
   <div class="step-name" data-testid="fm-step-name">
     {t('dsm.step').replace('{n}', String(fmStepsStore.currentStep)).replace('{name}', t('fm.step' + fmStepsStore.currentStep + 'Name'))}
   </div>
-  <div class="mode-banner">{t('fm.banner')}</div>
+  <div class="mode-banner">{t(r?.is3D ? 'fm.banner3d' : 'fm.banner')}</div>
 
   <div class="step-content">
     {#if r}
@@ -72,6 +84,7 @@
     <button class="nav-btn" disabled={fmStepsStore.currentStep >= last} onclick={() => fmStepsStore.nextStep()}
       data-testid="fm-next">{t('dsm.next')}</button>
   </div>
+  {/if}
 </div>
 
 <style>
@@ -81,8 +94,18 @@
     background: var(--st-surface); border-bottom: 1px solid var(--st-hair); flex-shrink: 0;
   }
   .wizard-title { font-size: 0.85rem; font-weight: 600; color: var(--st-value); }
-  .close-btn { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 1rem; padding: 0.2rem; }
-  .close-btn:hover { color: var(--st-accent); }
+  .back-btn {
+    padding: 2px 8px; border: 1px solid var(--st-hair); border-radius: 4px; background: transparent;
+    color: var(--st-text-2); font-size: 0.66rem; cursor: pointer; font-family: inherit; margin-right: 8px; flex: none;
+  }
+  .back-btn:hover { border-color: var(--st-accent); color: var(--st-accent); }
+  .explorer-toggle {
+    margin-left: auto; padding: 2px 8px; border: 1px solid var(--st-hair); border-radius: 4px;
+    background: transparent; color: var(--st-text-3); font-size: 0.7rem; cursor: pointer; font-family: inherit;
+  }
+  .explorer-toggle:hover:not(:disabled) { color: var(--st-text); border-color: var(--st-interactive); }
+  .explorer-toggle.active { color: var(--st-value); border-color: var(--st-interactive); }
+  .explorer-toggle:disabled { opacity: 0.35; cursor: default; }
   .step-indicator {
     display: flex; gap: 0.2rem; padding: 0.4rem 0.75rem; background: var(--st-surface);
     border-bottom: 1px solid var(--st-hair); flex-shrink: 0; flex-wrap: wrap;

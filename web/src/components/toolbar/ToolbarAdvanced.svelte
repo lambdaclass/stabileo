@@ -1,6 +1,8 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
-  import { solveForceMethod, ForceMethodError } from '../../lib/engine/force-method/solve';
+  import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../../lib/engine/force-method/solve';
+  import { solveForceMethod3D } from '../../lib/engine/force-method/solve-3d';
+  import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../lib/engine/step-by-step-scope';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
@@ -196,6 +198,80 @@
       isActive: () => fmStepsStore.isOpen,
       close: () => fmStepsStore.close() },
   ];
+
+  /*
+   * ── Opening the two step-by-step wizards ───────────────────────
+   *
+   * Both check first that the model is one they can show honestly — bars
+   * only, and small enough to print its matrices — and say which limit it
+   * crossed when it is not. See `step-by-step-scope.ts`.
+   */
+  function scopeRefusal(input: Parameters<typeof stepByStepScope>[0], is3DModel: boolean): boolean {
+    const v = stepByStepScope(input, is3DModel);
+    if (v.ok) return false;
+    uiStore.toast(t(`sbs.scope.${v.reason}`)
+      .replace('{n}', String(v.dofs)).replace('{max}', String(STEP_BY_STEP_MAX_DOFS)), 'error');
+    return true;
+  }
+
+  function showWizardPanel() {
+    if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
+    else uiStore.rightSidebarOpen = true;
+    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
+  }
+
+  function openDsm() {
+    if (dsmStepsStore.isOpen) {
+      dsmStepsStore.close();
+      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
+      return;
+    }
+    if (blockedBySlidingJoints()) return;
+    const threeD = uiStore.analysisMode === '3d';
+    const input = threeD
+      ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
+      : modelStore.buildSolverInput(uiStore.includeSelfWeight);
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    if (scopeRefusal(input, threeD)) return;
+    try {
+      const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
+      fmStepsStore.close();
+      dsmStepsStore.setStepData(data);
+      dsmStepsStore.open();
+      showWizardPanel();
+    } catch (e: unknown) {
+      uiStore.toast(errText(e, threeD ? 'toast.detailedSolver3dError' : 'toast.detailedSolverError'), 'error');
+    }
+  }
+
+  function openFm() {
+    if (fmStepsStore.isOpen) {
+      fmStepsStore.close();
+      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
+      return;
+    }
+    if (blockedBySlidingJoints()) return;
+    const threeD = uiStore.analysisMode === '3d';
+    const input = threeD
+      ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
+      : modelStore.buildSolverInput(uiStore.includeSelfWeight);
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    if (scopeRefusal(input, threeD)) return;
+    try {
+      const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
+      dsmStepsStore.close();
+      fmStepsStore.setResult(result);
+      fmStepsStore.open();
+      showWizardPanel();
+    } catch (e: unknown) {
+      if (e instanceof ForceMethodError) {
+        const dofs = e.dofs.length ? ` (${e.dofs.slice(0, 8).join(', ')}${e.dofs.length > 8 ? '…' : ''})` : '';
+        uiStore.toast(t(`fm.err.${e.key}`).replace('{gh}', String(e.gh)).replace('{max}', String(FM_MAX_GH)) + dofs, 'error');
+      } else {
+        uiStore.toast(errText(e, 'fm.err.unstable'), 'error');
+      }
+    }
+  }
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
 
@@ -505,15 +581,19 @@
       in particular had no off switch here at all — you had to go up to the
       ribbon and pick another tool, which is not where you turned it on.
     -->
+    <!--
+      "Back", not ✕: what the reader wants from here is the list of functions
+      they picked this one from, and an ✕ read as "close the panel".
+    -->
     <div class="adv-running" data-testid="adv-running" data-adv={active.key}>
-      <span class="adv-running-name">{t(active.labelKey)}</span>
       <button
-        class="adv-running-close"
+        class="adv-running-back"
         onclick={() => active?.close()}
-        title={t('ribbon.close')}
-        aria-label={t('ribbon.close')}
+        title={t('adv.backToList')}
+        aria-label={t('adv.backToList')}
         data-testid="adv-close"
-      >&times;</button>
+      >← {t('adv.back')}</button>
+      <span class="adv-running-name">{t(active.labelKey)}</span>
     </div>
   {/if}
 
@@ -845,43 +925,8 @@
     {#if shown('dsm')}
       {#if !flat || active?.key !== 'dsm'}
     <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={dsmStepsStore.isOpen}
-        onclick={() => {
-          if (dsmStepsStore.isOpen) {
-            dsmStepsStore.close();
-            setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-            return;
-          }
-          if (blockedBySlidingJoints()) return;
-          fmStepsStore.close();
-          if (uiStore.analysisMode === '3d') {
-            const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
-            if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-            try {
-              const data = solveDetailed3D(input);
-              dsmStepsStore.setStepData(data);
-              dsmStepsStore.open();
-              if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
-              else uiStore.rightSidebarOpen = true;
-              setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-            } catch (e: any) {
-              uiStore.toast(errText(e, 'toast.detailedSolver3dError'), 'error');
-            }
-          } else {
-            const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-            if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-            try {
-              const data = solveDetailed(input);
-              dsmStepsStore.setStepData(data);
-              dsmStepsStore.open();
-              if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
-              else uiStore.rightSidebarOpen = true;
-              setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-            } catch (e: any) {
-              uiStore.toast(errText(e, 'toast.detailedSolverError'), 'error');
-            }
-          }
-        }}>
+      <button class="adv-btn" style="flex:1" class:active={dsmStepsStore.isOpen} data-testid="adv-dsm"
+        onclick={openDsm}>
         {t('advanced.stepByStep')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('dsm', e)} class:active={advHelpKey === 'dsm'}>?</button>
@@ -893,32 +938,7 @@
       {#if !flat || active?.key !== 'fm'}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" class:active={fmStepsStore.isOpen} data-testid="adv-fm"
-        onclick={() => {
-          if (fmStepsStore.isOpen) {
-            fmStepsStore.close();
-            setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-            return;
-          }
-          if (blockedBySlidingJoints()) return;
-          /* The force method here is the plane one; a space frame goes to the stiffness wizard. */
-          if (uiStore.analysisMode === '3d') { uiStore.toast(t('fm.err.only2d'), 'error'); return; }
-          const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-          if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-          if ((input.constraints?.length ?? 0) > 0 || (input.connectors && input.connectors.size > 0)) {
-            uiStore.toast(t('fm.err.unsupported'), 'error'); return;
-          }
-          try {
-            const result = solveForceMethod(input);
-            dsmStepsStore.close();
-            fmStepsStore.setResult(result);
-            fmStepsStore.open();
-            if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
-            else uiStore.rightSidebarOpen = true;
-            setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-          } catch (e: unknown) {
-            uiStore.toast(e instanceof ForceMethodError ? t(`fm.err.${e.key}`) : errText(e, 'fm.err.unstable'), 'error');
-          }
-        }}>
+        onclick={openFm}>
         {t('advanced.stepByStepFlex')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('fm', e)} class:active={advHelpKey === 'fm'}>?</button>
@@ -1105,7 +1125,7 @@
   .adv-running {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.5rem;
     padding: 0.35rem 0 0.45rem;
     margin-bottom: 0.5rem;
@@ -1120,18 +1140,20 @@
     color: var(--st-accent);
   }
 
-  .adv-running-close {
+  .adv-running-back {
+    flex: none;
     background: none;
-    border: none;
+    border: 1px solid var(--st-hair-strong);
     color: var(--st-text-2);
-    font-size: 1.15rem;
+    font-family: inherit;
+    font-size: 0.66rem;
     line-height: 1;
-    padding: 0 0.3rem;
+    padding: 0.28rem 0.5rem;
     cursor: pointer;
     border-radius: var(--st-radius);
   }
 
-  .adv-running-close:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .adv-running-back:hover { border-color: var(--st-accent); color: var(--st-accent); }
 
   .flat .advanced-grid {
     display: flex;

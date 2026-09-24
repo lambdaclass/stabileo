@@ -34,15 +34,24 @@
 import type { SolverInput, SolverSupport, SolverLoad } from '../types';
 import type { DetailedSupport } from '../solver-detailed';
 
-export type RedundantKind = 'reaction' | 'barForce' | 'cutN' | 'cutV' | 'cutM';
+/*
+ * Cut components: 2D uses N, V, M; 3D uses N, Vy, Vz, T, My, Mz. One union,
+ * so the steps that list and draw redundants serve both.
+ */
+export type RedundantKind = 'reaction' | 'barForce' | 'cutN' | 'cutV' | 'cutM'
+  | 'cutVy' | 'cutVz' | 'cutT' | 'cutMy' | 'cutMz';
 
 export interface Redundant {
   /** 1-based, the i of Xᵢ. */
   index: number;
   kind: RedundantKind;
   nodeId: number;
-  /** Reaction direction in the node's frame: 0 horizontal / along, 1 vertical / normal, 2 moment. */
-  component?: 0 | 1 | 2;
+  /**
+   * Reaction direction in the node's frame. 2D: 0 horizontal / along, 1
+   * vertical / normal, 2 moment. 3D: 0–2 forces along x, y, z (0 the normal of
+   * an inclined support), 3–5 moments about x, y, z.
+   */
+  component?: number;
   elementId?: number;
   end?: 'I' | 'J';
   /** Prescribed displacement at a released support, the right-hand side Δᵢ. */
@@ -50,7 +59,7 @@ export interface Redundant {
 }
 
 /** A group of releases that go together — one reaction, one bar, or one cut. */
-interface Candidate { items: Omit<Redundant, 'index'>[] }
+export interface Candidate { items: Omit<Redundant, 'index'>[] }
 
 const nodeDegree = (input: SolverInput, nodeId: number) => {
   let d = 0;
@@ -126,13 +135,16 @@ export function countIndeterminacy(input: SolverInput): IndeterminacyCount {
   };
 }
 
-/** Every release that could be made, in the order they are preferred. */
-export function candidates(input: SolverInput): Candidate[] {
+/**
+ * Every release that could be made, in the order they are preferred.
+ * `transmits` drops reactions no member can carry (see `candidates3D`).
+ */
+export function candidates(input: SolverInput, transmits: (nodeId: number, c: number) => boolean = () => true): Candidate[] {
   const supports = [...input.supports.values()].filter((s) => s.type !== 'spring');
   const out: Candidate[] = [];
   /* 1a. Moments at fixed ends. */
   for (const s of supports) {
-    if (restrainedComponents(s)[2]) {
+    if (restrainedComponents(s)[2] && transmits(s.nodeId, 2)) {
       out.push({ items: [{ kind: 'reaction', nodeId: s.nodeId, component: 2, prescribed: prescribedOf(s, 2) }] });
     }
   }
@@ -140,13 +152,13 @@ export function candidates(input: SolverInput): Candidate[] {
   const byCentrality = [...supports].sort((a, b) =>
     nodeDegree(input, b.nodeId) - nodeDegree(input, a.nodeId) || a.nodeId - b.nodeId);
   for (const s of byCentrality) {
-    if (restrainedComponents(s)[1]) {
+    if (restrainedComponents(s)[1] && transmits(s.nodeId, 1)) {
       out.push({ items: [{ kind: 'reaction', nodeId: s.nodeId, component: 1, prescribed: prescribedOf(s, 1) }] });
     }
   }
   /* 1c. Horizontal reactions. */
   for (const s of byCentrality) {
-    if (restrainedComponents(s)[0]) {
+    if (restrainedComponents(s)[0] && transmits(s.nodeId, 0)) {
       out.push({ items: [{ kind: 'reaction', nodeId: s.nodeId, component: 0, prescribed: prescribedOf(s, 0) }] });
     }
   }
