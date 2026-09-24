@@ -30,6 +30,14 @@ export const restrained3D = (s: SolverSupport3D): boolean[] => {
   return [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz].map((r, k) => !!r && !(springs[k] && springs[k]! > 0));
 };
 
+/**
+ * The springs a support really has: the vanishing rotational ones the input
+ * builder adds to orphan rotations (`stabilised`) are not part of the
+ * structure, and counting them would add unknowns that are not there.
+ */
+export const realSprings3D = (s: SolverSupport3D): number[] =>
+  [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz].map((k, c) => (s.stabilised && c >= 3 ? 0 : k ?? 0));
+
 const prescribed3D = (s: SolverSupport3D, c: number) => [s.dx, s.dy, s.dz, s.drx, s.dry, s.drz][c] ?? 0;
 
 export function countIndeterminacy3D(input: SolverInput3D, data: DSMStepData): IndeterminacyCount {
@@ -37,7 +45,7 @@ export function countIndeterminacy3D(input: SolverInput3D, data: DSMStepData): I
   let springs = 0;
   for (const s of input.supports.values()) {
     reactions += restrained3D(s).filter(Boolean).length;
-    for (const k of [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz]) if (k && k > 0) springs++;
+    for (const k of realSprings3D(s)) if (k > 0) springs++;
   }
   const bars: IndeterminacyCount['bars'] = [];
   let barUnknowns = 0;

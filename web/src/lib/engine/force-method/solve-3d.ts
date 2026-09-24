@@ -20,7 +20,7 @@ import type { SolverInput3D, SolverLoad3D, SolverElement3D } from '../types-3d';
 import { solveDetailed3D } from '../solver-detailed-3d';
 import type { DSMStepData } from '../solver-detailed';
 import { computeLocalAxes3D } from '../local-axes-3d';
-import { countIndeterminacy3D, candidates3D, buildPrimary3D, restrained3D } from './primary-3d';
+import { countIndeterminacy3D, candidates3D, buildPrimary3D, restrained3D, realSprings3D } from './primary-3d';
 import type { Redundant } from './primary';
 import {
   ForceMethodError, chooseRedundants, solveSystem, restraintCarries, FM_MAX_GH,
@@ -137,7 +137,7 @@ function geometry3D(input: SolverInput3D): Geometry {
     }),
     supports: [...input.supports.values()].map((s) => ({
       nodeId: s.nodeId, restrained: restrained3D(s),
-      spring: [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz].some((k) => k && k > 0),
+      spring: realSprings3D(s).some((k) => k > 0),
     })),
   };
 }
@@ -291,8 +291,8 @@ export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
       rows.push({ elementId: bar.e.id, source: 'torsion', value: (fa[3] * fb[3] * bar.L) / bar.GJ });
     }
     for (const s of p0.input.supports.values()) {
-      const k = [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz];
-      if (!k.some((v) => v && v > 0)) continue;
+      const k = realSprings3D(s);
+      if (!k.some((v) => v > 0)) continue;
       const ua = a.disp(s.nodeId);
       const ub = b.disp(s.nodeId);
       rows.push({ elementId: null, source: 'spring', value: k.reduce((acc: number, kk, c) => acc + (kk ?? 0) * ua[c] * ub[c], 0) });

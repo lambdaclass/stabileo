@@ -86,6 +86,13 @@ export interface SolverSupport3D {
   normalY?: number;
   normalZ?: number;
   isInclined?: boolean;
+  /**
+   * Set by `stabiliseOrphanRotations3D`: this support is (`created`) or
+   * carries (`springs`) vanishing rotational springs on rotations no member
+   * resists. The solver ignores the field; the JS side uses it to keep those
+   * springs out of reactions, counts and drawings.
+   */
+  stabilised?: 'created' | 'springs';
 }
 
 // ─── Loads ────────────────────────────────────────────────────────

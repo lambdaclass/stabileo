@@ -109,8 +109,10 @@ function expectEquilibrium(input: SolverInput3D) {
 describe('where the analysis solver refuses and the wizard does not', () => {
   /*
    * A node reached only by truss bars, in a model that also has frames, has
-   * three rotations nothing resists. The analysis solver reports the whole
-   * structure as a mechanism; it is not one. The wizard gives those rotations
+   * three rotations nothing resists. The analysis solver, fed these inputs
+   * raw, reports the whole structure as a mechanism; it is not one. (The app
+   * no longer feeds it raw: `buildSolverInput3D` adds the vanishing springs —
+   * see orphan-rotations-3d.test.ts.) The wizard gives those rotations
    * the vanishing spring the analysis solver gives a fully hinged node, and
    * the answer is checked here by equilibrium, the one referee both accept.
    */

@@ -5,6 +5,7 @@
  * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
 
+import { stripStabilisedReactions } from './orphan-rotations-3d';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
@@ -470,7 +471,7 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
   const origError = console.error;
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
-    return wasmSolve3d(wire);
+    return stripStabilisedReactions(wasmSolve3d(wire), input);
   } catch (e: any) {
     // Include captured panic message in the error for better diagnostics
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';

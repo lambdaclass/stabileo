@@ -10,6 +10,7 @@
  */
 
 import { assertFiniteWire } from './wasm-solver';
+import { stripStabilisedReactions } from './orphan-rotations-3d';
 
 let solve_2d: ((input: any) => any) | null = null;
 let solve_3d: ((input: any) => any) | null = null;
@@ -23,7 +24,9 @@ function handleSolve(msg: any, solveFn: ((input: any) => any) | null): void {
   try {
     // The finiteness guard preserves the old JSON-boundary semantics (NaN/Inf rejected).
     assertFiniteWire(msg.input);
-    const result = solveFn(msg.input);
+    const raw = solveFn(msg.input);
+    /* 3D inputs may carry vanishing springs on orphan rotations; their zero reactions stay here. */
+    const result = msg.type === 'solve3d' ? stripStabilisedReactions(raw, msg.input) : raw;
     self.postMessage({ type: 'result', id: msg.id, result });
   } catch (err: any) {
     // Engine errors cross the boundary as plain strings (JsValue::from_str),
