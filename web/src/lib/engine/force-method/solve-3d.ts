@@ -23,7 +23,7 @@ import { computeLocalAxes3D } from '../local-axes-3d';
 import { countIndeterminacy3D, candidates3D, buildPrimary3D, restrained3D, realSprings3D } from './primary-3d';
 import type { Redundant } from './primary';
 import {
-  ForceMethodError, chooseRedundants, solveSystem, restraintCarries, FM_MAX_GH,
+  ForceMethodError, chooseRedundants, fallbackBudget, solveSystem, restraintCarries, FM_MAX_GH,
   type ForceMethodResult, type StateResult, type BarState, type TermRow, type Geometry,
 } from './solve';
 import { breakpoints, integrate, type BarLoads } from './internal';
@@ -284,7 +284,7 @@ export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
     } catch { return false; }
   };
   const transmits = restraintCarries(base);
-  const redundants = chooseRedundants(candidates3D(input, transmits), count.gh, stable);
+  const redundants = chooseRedundants(candidates3D(input, transmits), count.gh, stable, fallbackBudget(base.dofNumbering.nFree));
   if (!redundants) throw new ForceMethodError('noRedundants');
   const n = redundants.length;
 
