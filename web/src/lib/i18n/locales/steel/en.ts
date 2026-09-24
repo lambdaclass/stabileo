@@ -416,6 +416,7 @@ const steelEn: Record<string, string> = {
   'steel.workflow.geometry.purpose': 'The length between braces, which decides lateral-torsional buckling.',
   'steel.workflow.geometry.blocked': 'The model has nowhere to record a brace.',
   'steel.workflow.geometry.lbDetail': 'Without it the check takes Lb as the member’s whole length — unbraced end to end. Conservative for flexure, and still an assumption the user never made. It is not replaced by an invented fraction of L.',
+  'steel.workflow.geometry.chain': "A member split at nodes where nothing else arrives is checked as one length: such a node has nothing to brace it with. Where another member arrives or there is a support, the length stops as before; an Lb stated on the member replaces the lateral-torsional one.",
   'steel.workflow.assumptions.title': 'Assumptions',
   'steel.workflow.assumptions.purpose': 'What the existing check assumes, said before any number is shown.',
   'steel.workflow.analysis.title': 'Analysis',

@@ -487,6 +487,20 @@ export interface Element extends Element3DMetadata {
    * sees straight members and is not told about this.
    */
   arc?: { id: number; spec: import('../model/curved-member').ArcSpec };
+  /**
+   * Stated unbraced length for lateral-torsional buckling, m — where the member is braced
+   * against it more often than its geometry shows. Replaces the deduced `Lb`, never `L`; see
+   * `engine/steel/unbraced-length.ts`. Absent: deduced.
+   */
+  unbracedLength?: number;
+}
+
+/** A camera the user named: where it stands and what it looks at, in scene coordinates. */
+export interface SavedView {
+  id: number;
+  name: string;
+  position: { x: number; y: number; z: number };
+  target: { x: number; y: number; z: number };
 }
 
 export type ReleaseEnd = 'i' | 'j';
@@ -753,6 +767,8 @@ export interface StructureModel {
    * combination is active and there are no named envelopes. See `engine/result-scopes.ts`.
    */
   resultScopes?: ResultScopes;
+  /** Named camera views, to come back to a part of the model. Absent: none saved. */
+  views?: SavedView[];
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -1125,6 +1141,8 @@ function createModelStore() {
   let _pushUndoSilent: (() => void) | null = null;
   /** Foundation-channel history push. See `_setHistoryPush` and `restoreFoundationOnly`. */
   let _pushUndoFoundation: (() => void) | null = null;
+  /** History push for a named view: undoable, but not a model edit — the solve survives it. */
+  let _pushUndoView: (() => void) | null = null;
   /** Called after a reinforcement transaction commits, with the written ids. */
   let _onReinforcementCommit: ((written: Set<number>) => void) | null = null;
   /**
@@ -1271,6 +1289,7 @@ function createModelStore() {
       // which is what they did — pushed a snapshot that undo then restored through the
       // reinforcement path, so Ctrl+Z appeared to do nothing to a footing at all.
       _pushUndoFoundation = () => fn('foundation');
+      _pushUndoView = () => fn('structural');
     },
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
@@ -1490,6 +1509,7 @@ function createModelStore() {
     get loadCases() { return model.loadCases; },
     get combinations() { return model.combinations; },
     get resultScopes() { return model.resultScopes; },
+    get views(): readonly SavedView[] { return model.views ?? []; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1560,6 +1580,9 @@ function createModelStore() {
           : {}),
         ...(snap.resultScopes
           ? { resultScopes: JSON.parse(JSON.stringify(snap.resultScopes)) as ModelSnapshot['resultScopes'] }
+          : {}),
+        ...(snap.views && snap.views.length > 0
+          ? { views: JSON.parse(JSON.stringify(snap.views)) as ModelSnapshot['views'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1745,6 +1768,7 @@ function createModelStore() {
       : new Map();
     model.massSource = normalizeMassSource(s.massSource);
     model.resultScopes = s.resultScopes ? JSON.parse(JSON.stringify(s.resultScopes)) : undefined;
+    model.views = s.views ? JSON.parse(JSON.stringify(s.views)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2834,6 +2858,7 @@ function createModelStore() {
       model.groups = new Map();
       model.massSource = undefined;
       model.resultScopes = undefined;
+      model.views = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3139,6 +3164,29 @@ function createModelStore() {
       if (model.massSource?.kind === 'custom') {
         model.massSource = { kind: 'custom', factors: model.massSource.factors.filter(f => f.caseId !== id) };
       }
+    },
+
+    /**
+     * Save, rename or delete a named view.
+     *
+     * A view changes nothing the analysis reads, so it is not a structural edit: it is undoable
+     * (it is part of the project) but it does not retire the results the way `_pushUndo` does for
+     * a model edit — saving a camera must not throw away a solve.
+     */
+    saveView(name: string, position: SavedView['position'], target: SavedView['target']): number {
+      const id = (model.views ?? []).reduce((m, v) => Math.max(m, v.id), 0) + 1;
+      _pushUndoView?.();
+      model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target } }];
+      return id;
+    },
+    renameView(id: number, name: string): void {
+      _pushUndoView?.();
+      model.views = (model.views ?? []).map((v) => (v.id === id ? { ...v, name } : v));
+    },
+    removeView(id: number): void {
+      _pushUndoView?.();
+      const next = (model.views ?? []).filter((v) => v.id !== id);
+      model.views = next.length > 0 ? next : undefined;
     },
 
     /** State the active combination list and named envelopes, or withdraw them (`null`). */

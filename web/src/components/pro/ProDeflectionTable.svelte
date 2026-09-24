@@ -11,6 +11,7 @@
   import { t, tp } from '../../lib/i18n';
   import { downloadText } from '../../lib/store/file';
   import { serviceSets, serviceDeflections } from '../../lib/store/service-deflection';
+  import { deflectionChecks, DEFLECTION_LIMIT } from '../../lib/store/serviceability';
   import { toCsv } from '../../lib/engine/result-tables';
 
   let source = $state<'service' | 'shown'>('service');
@@ -24,6 +25,8 @@
     return [...serviceDeflections(ids, sets)].map(([id, d]) => ({ id, ...d })).sort((a, b) => b.max / b.L - a.max / a.L);
   });
 
+  // The check, for the beams, when reading service loads — the same one the verification runs.
+  const checks = $derived(source === 'service' ? deflectionChecks().rows : new Map());
   const mm = (m: number) => (m * 1000).toFixed(2);
   const spanOver = (L: number, d: number) => (d > 0 ? `L/${Math.round(L / d)}` : 'L/∞');
 
@@ -45,7 +48,7 @@
 </div>
 <div class="pro-res-table-wrap">
   <table class="pro-res-table" data-testid="defl-table">
-    <thead><tr><th>{t('pro.elemLabel')}</th><th>L (m)</th><th>δ (mm)</th><th>x (m)</th><th>L/δ</th><th>δy (mm)</th><th>δz (mm)</th>{#if source === 'service'}<th>{t('tables.source')}</th>{/if}</tr></thead>
+    <thead><tr><th>{t('pro.elemLabel')}</th><th>L (m)</th><th>δ (mm)</th><th>x (m)</th><th>L/δ</th><th>δy (mm)</th><th>δz (mm)</th>{#if source === 'service'}<th>{t('tables.source')}</th><th title={t('defl.checkHint')}>{DEFLECTION_LIMIT}</th>{/if}</tr></thead>
     <tbody>
       {#each rows.slice(0, ROW_CAP) as r (r.id)}
         <tr onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(r.id, false); }} style="cursor:pointer">
@@ -56,7 +59,11 @@
           <td class="col-num">{spanOver(r.L, r.max)}</td>
           <td class="col-num">{mm(r.maxV)}</td>
           <td class="col-num">{mm(r.maxW)}</td>
-          {#if source === 'service'}<td class="dt-src">{r.setName || '—'}</td>{/if}
+          {#if source === 'service'}
+            {@const c = checks.get(r.id)}
+            <td class="dt-src">{r.setName || '—'}</td>
+            <td class={c ? `dt-${c.check.status}` : 'dt-src'} title={c ? `${c.family} · δ total ${mm(c.check.deltaTotal)} mm / ${mm(c.check.limit)} mm` : t('defl.notBeam')}>{c ? `${(c.check.ratio * 100).toFixed(0)} %` : '—'}</td>
+          {/if}
         </tr>
       {/each}
     </tbody>
@@ -75,4 +82,7 @@
   .dt-csv { margin-left: auto; }
   .dt-src { font-size: 0.6rem; color: var(--st-text-3); white-space: nowrap; }
   .dt-note { margin: 4px 0; font-size: 0.6rem; color: var(--st-text-3); }
+  .dt-ok { color: var(--st-ok); }
+  .dt-warn { color: var(--st-warn); }
+  .dt-fail { color: var(--st-danger); }
 </style>

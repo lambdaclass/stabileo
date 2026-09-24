@@ -430,6 +430,7 @@ const steelEs: Record<string, string> = {
   'steel.workflow.geometry.purpose': 'La longitud entre arriostramientos, que decide el pandeo lateral-torsional.',
   'steel.workflow.geometry.blocked': 'El modelo no tiene dónde registrar un arriostramiento.',
   'steel.workflow.geometry.lbDetail': 'Sin ese dato, el cálculo toma Lb igual a la longitud entera de la barra: la supone no arriostrada de punta a punta. Es conservador para flexión, y sigue siendo un supuesto que el usuario no hizo. No se reemplaza por una fracción inventada de L.',
+  'steel.workflow.geometry.chain': "Una barra partida en nodos donde no llega nada más se verifica como una sola longitud: ese nodo no tiene con qué arriostrarla. Donde llega otra barra o hay un apoyo, la longitud se corta como siempre; una Lb declarada en la barra reemplaza la de pandeo lateral-torsional.",
   'steel.workflow.assumptions.title': 'Hipótesis',
   'steel.workflow.assumptions.purpose': 'Lo que el cálculo existente supone, dicho antes de mostrar cualquier número.',
   'steel.workflow.analysis.title': 'Análisis',

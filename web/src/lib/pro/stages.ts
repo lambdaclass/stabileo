@@ -166,6 +166,7 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
             { id: 'edit', labelKey: 'edit.title', icon: 'element', tab: 'edit' },
             { id: 'groups', labelKey: 'groups.title', icon: 'data', tab: 'groups' },
             { id: 'code', labelKey: 'code.title', icon: 'data', tab: 'code' },
+            { id: 'view', labelKey: 'view.title', icon: 'view3d', tab: 'view' },
           ],
         },
         {
@@ -425,7 +426,7 @@ export const PRO_TAB_STAGE: Record<string, string> = {
     /* Settings is reached from the header corner, like the AI drawer. */
     settings: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
-    generators: 'model', transform: 'model', edit: 'model', groups: 'model', code: 'model',
+    generators: 'model', transform: 'model', edit: 'model', groups: 'model', code: 'model', view: 'model',
     /* Conditions is a GROUP inside Model now, not a stage of its own. */
     supports: 'model', constraints: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',

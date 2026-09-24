@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { viewState } from '../lib/store/view-state.svelte';
   import { copyTransformed } from '../lib/model/edit/transformed-copy';
   import { translation } from '../lib/model/edit/affine';
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
@@ -218,6 +219,20 @@
 
     const key = e.key.toUpperCase();
 
+    // Alt + letter: labels and the magnifier. Read from `code`, not `key` — on a Mac Alt turns
+    // the letter into a symbol (Alt+N is "˜"). PRO and 3-D only, where these labels exist.
+    if (e.altKey && !e.ctrlKey && !e.metaKey && (uiStore.analysisMode === 'pro' || uiStore.analysisMode === '3d')) {
+      const handled = ({
+        KeyN: () => { uiStore.showNodeLabels3D = !uiStore.showNodeLabels3D; },
+        KeyB: () => { uiStore.showElementLabels3D = !uiStore.showElementLabels3D; },
+        KeyL: () => { uiStore.showLengths3D = !uiStore.showLengths3D; },
+        KeyP: () => { uiStore.showShellLabels3D = !uiStore.showShellLabels3D; },
+        KeyM: () => { uiStore.showElementLabels3D = true; viewState.cycleMemberLabel(); },
+        KeyZ: () => { window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection')); },
+      } as Record<string, () => void>)[e.code];
+      if (handled) { e.preventDefault(); handled(); return; }
+    }
+
     // Ctrl+Shift+S: Save session (all tabs)
     if ((e.ctrlKey || e.metaKey) && key === 'S' && e.shiftKey) {
       e.preventDefault();
@@ -394,7 +409,8 @@
 
     // G: toggle grid (2D and 3D)
     if (key === 'G') {
-      if (uiStore.analysisMode === '3d') {
+      // PRO is a 3-D viewport too; toggling the 2-D grid there changed nothing on screen.
+      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
         uiStore.showGrid3D = !uiStore.showGrid3D;
       } else {
         uiStore.showGrid = !uiStore.showGrid;
@@ -404,7 +420,7 @@
 
     // H: toggle axes (2D and 3D)
     if (key === 'H' && !e.ctrlKey && !e.metaKey) {
-      if (uiStore.analysisMode === '3d') {
+      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
         uiStore.showAxes3D = !uiStore.showAxes3D;
       } else {
         uiStore.showAxes = !uiStore.showAxes;

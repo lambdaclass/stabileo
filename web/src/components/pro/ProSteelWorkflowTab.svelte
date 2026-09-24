@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProSteelOptimise from './ProSteelOptimise.svelte';
   /**
    * Flujo de diseño metálico — the whole workflow, including the part that cannot happen.
    *
@@ -553,6 +554,7 @@
       -->
       <p class="line warn" data-testid="steel-sub-geometry-blocked">{t('steel.workflow.geometry.blocked')}</p>
       <p class="line" data-testid="steel-stage-geometry-body">{t('steel.workflow.geometry.lbDetail')}</p>
+      <p class="line" data-testid="steel-stage-geometry-chain">{t('steel.workflow.geometry.chain')}</p>
     </section>
     <section class="sub" data-testid="steel-sub-assumptions" data-state={assumptionState}>
       <h4>
@@ -715,6 +717,12 @@
         {CIRSOC301_CLAUSES_UNVALIDATED.length} / {CIRSOC301_CLAUSE_MAP.length}
         · {t('steel.workflow.blocker.clauseRefs')}
       </p>
+    </section>
+    <!-- The lightest profile the checker above accepts, per section or per member. A pre-design:
+         it inherits every limitation listed above, and says so. -->
+    <section class="sub" data-testid="steel-sub-optimise">
+      <h4>{t('opt.title')}</h4>
+      <ProSteelOptimise />
     </section>
   </StageSection>
 

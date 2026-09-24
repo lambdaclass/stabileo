@@ -81,8 +81,8 @@ export interface ReportData {
   // Story drift results
   storyDrifts?: Array<{
     level: number; height: number;
-    driftX: number; driftZ: number;
-    ratioX: number; ratioZ: number;
+    driftX: number; driftY: number;
+    ratioX: number; ratioY: number;
     status: 'ok' | 'warn' | 'fail';
   }>;
   // Load combination definitions (for reference table + governing combo column)
@@ -1383,11 +1383,11 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<div class="page-break"></div>`);
     html.push(`<h2>${escHtml(tr('report.driftTitle'))}</h2>`);
     html.push(`<p>${escHtml(tr('report.driftLimit'))}</p>`);
-    html.push(`<table><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δz (mm)</th><th>Δx/h</th><th>Δz/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    html.push(`<table><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δy (mm)</th><th>Δx/h</th><th>Δy/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
     for (const d of data.storyDrifts) {
       const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? `✗ ${tr('report.fail')}` : `⚠ ${tr('report.attention')}`;
       const cls = d.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : d.status === 'warn' ? ' style="color:#f0a500"' : '';
-      html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftZ * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioZ.toFixed(4)}</td><td>${statusStr}</td></tr>`);
+      html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftY * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioY.toFixed(4)}</td><td>${statusStr}</td></tr>`);
     }
     html.push(`</tbody></table>`);
   }

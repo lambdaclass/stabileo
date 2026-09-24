@@ -428,6 +428,7 @@ const steelPt: Record<string, string> = {
   'steel.workflow.geometry.purpose': 'O comprimento entre travamentos, que decide a flambagem lateral com torção.',
   'steel.workflow.geometry.blocked': 'O modelo não tem onde registrar um travamento.',
   'steel.workflow.geometry.lbDetail': 'Sem esse dado o cálculo toma Lb igual ao comprimento inteiro da barra — sem travamento de ponta a ponta. É conservador para flexão, e continua sendo uma hipótese que o usuário não fez. Não se substitui por uma fração inventada de L.',
+  'steel.workflow.geometry.chain': "Uma barra dividida em nós onde nada mais chega é verificada como um só comprimento: esse nó não tem com o que travá-la. Onde chega outra barra ou há um apoio, o comprimento para como antes; um Lb declarado na barra substitui o de flambagem lateral com torção.",
   'steel.workflow.assumptions.title': 'Hipóteses',
   'steel.workflow.assumptions.purpose': 'O que o cálculo existente supõe, dito antes de mostrar qualquer número.',
   'steel.workflow.analysis.title': 'Análise',

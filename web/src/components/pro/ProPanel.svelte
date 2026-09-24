@@ -44,6 +44,7 @@
   import ProEditPanel from './ProEditPanel.svelte';
   import ProGroupsPanel from './ProGroupsPanel.svelte';
   import ProCodePanel from './ProCodePanel.svelte';
+  import ProViewPanel from './ProViewPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
@@ -85,7 +86,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'transform' | 'edit' | 'groups' | 'code';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'transform' | 'edit' | 'groups' | 'code' | 'view';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -350,6 +351,8 @@
           <ProGroupsPanel />
         {:else if activeTab === 'code'}
           <ProCodePanel />
+        {:else if activeTab === 'view'}
+          <ProViewPanel />
         {:else if activeTab === 'project'}
           <ProProjectTab groups={exampleGroups} onLoadExample={loadProExample} />
         {:else if activeTab === 'nodes'}

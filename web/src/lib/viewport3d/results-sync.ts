@@ -14,6 +14,7 @@ import { colourScaleSource } from '../store/result-view';
 import { createDeformedLines, createDeformedShells, type ElementEI } from '../three/deformed-shape-3d';
 import { eiOf } from '../engine/member-deflection';
 import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
+import { viewState, memberLabelText } from '../store/view-state.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
@@ -1164,7 +1165,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.elementLabelsGroup = new THREE.Group();
     ctx.elementLabelsGroup.name = 'elementLabels';
 
-    for (const [id, elem] of modelStore.elements) {
+    for (const [, elem] of modelStore.elements) {
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1176,7 +1177,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSpriteCached(String(id), '#88ccff', 24, true);
+      const sprite = createTextSpriteCached(memberLabelText(viewState.memberLabel, elem, modelStore.sections, modelStore.materials), '#88ccff', 24, true);
       sprite.position.set(mx, my + spriteScale * 0.3, mz);
       sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       ctx.elementLabelsGroup.add(sprite);

@@ -483,7 +483,7 @@
     // there but not here makes `?proTab=` silently no-op for it.
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
       'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
-      'settings'];
+      'settings', 'selection', 'steel', 'generators', 'transform', 'edit', 'groups', 'code', 'view'];
     if (!VALID.includes(tab)) return;
     uiStore.proActiveTab = tab;
   }
