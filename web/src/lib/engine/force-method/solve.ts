@@ -575,7 +575,13 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
   // ─── Against the stiffness method ─────────────────────────────
   const dsm = solveState(input);
   const dsmState = stateOf(dsm, input.loads);
-  let scale = 1e-9;
+  /*
+   * The floor is what counts as no force at all, 1 mN. A load that stresses
+   * nothing — a temperature on the hinged span of a Gerber beam — leaves every
+   * force at round-off on both sides, and against a 1e-9 floor that round-off
+   * read as a failed check.
+   */
+  let scale = 1e-6;
   for (const b of dsmState.bars) for (const v of Object.values(b.ends)) scale = Math.max(scale, Math.abs(v ?? 0));
   for (const r of dsmState.reactions) scale = Math.max(scale, Math.abs(r.value));
   let maxForceDiff = 0;

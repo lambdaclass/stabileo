@@ -407,7 +407,7 @@ export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
   const final: StateResult = { bars: finalBars, reactions: finalReactions };
 
   const stiffness = stateOf3D(solveState3D(input));
-  let scale = 1e-9;
+  let scale = 1e-6; // 1 mN: see the plane method
   for (const b of stiffness.bars) for (const v of Object.values(b.ends)) scale = Math.max(scale, Math.abs(v ?? 0));
   for (const r of stiffness.reactions) scale = Math.max(scale, Math.abs(r.value));
   let maxForceDiff = 0;

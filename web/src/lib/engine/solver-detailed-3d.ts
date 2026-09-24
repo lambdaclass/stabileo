@@ -520,8 +520,27 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
     }
   }
 
-  /* Thermal loads, once per element: equivalent loads into global axes. */
+  /*
+   * Thermal loads, once per element: equivalent loads into global axes.
+   * A truss bar takes its uniform part as a pair of axial forces — it used
+   * to be skipped altogether, so a heated space truss showed no load at all.
+   */
   for (const elem of input.elements.values()) {
+    if (elem.type === 'truss') {
+      const nTh = trussThermalForce3D(input, elem);
+      if (!nTh) continue;
+      const nI = input.nodes.get(elem.nodeI)!;
+      const nJ = input.nodes.get(elem.nodeJ)!;
+      const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, nJ.z - nI.z);
+      const ex = [(nJ.x - nI.x) / L, (nJ.y - nI.y) / L, (nJ.z - nI.z) / L];
+      const desc = t('detailed.thermalLoadDesc').replace('{id}', String(elem.id));
+      const names = ['ux', 'uy', 'uz'];
+      for (let d = 0; d < 3; d++) {
+        addLC(elem.nodeI, d, -nTh * ex[d], `${desc}, I ${names[d]}`);
+        addLC(elem.nodeJ, d, nTh * ex[d], `${desc}, J ${names[d]}`);
+      }
+      continue;
+    }
     if (elem.type !== 'frame') continue;
     const nodeI = input.nodes.get(elem.nodeI)!;
     const nodeJ = input.nodes.get(elem.nodeJ)!;
@@ -797,13 +816,16 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
         fRaw[i] = sum;
       }
 
+      /* Its only equivalent load is thermal: −N_T at I, +N_T at J, along the bar. */
+      const nTh = trussThermalForce3D(input, elem);
+      const eq = [-nTh, 0, 0, nTh, 0, 0];
       elementForcesSteps.push({
         elementId: elem.id,
         uGlobal: Array.from(uGlob),
         uLocal: Array.from(uLoc),
         fLocalRaw: Array.from(fRaw),
-        fixedEndForces: [0, 0, 0, 0, 0, 0],
-        fLocalFinal: Array.from(fRaw), // No FEF for trusses (no distributed loads on trusses)
+        fixedEndForces: eq,
+        fLocalFinal: Array.from(fRaw, (v, k) => v - eq[k]),
       });
     }
   }
@@ -962,6 +984,16 @@ function thermalEquivalent3D(
     }
   }
   return any ? f : null;
+}
+
+/** E·A·α·ΔT of a truss bar's uniform temperature change (α as the analysis solver uses, 12e-6). */
+function trussThermalForce3D(input: SolverInput3D, elem: SolverElement3D): number {
+  let dt = 0;
+  for (const l of input.loads) if (l.type === 'thermal' && l.data.elementId === elem.id) dt += l.data.dtUniform ?? 0;
+  if (!dt) return 0;
+  const mat = input.materials.get(elem.materialId)!;
+  const sec = input.sections.get(elem.sectionId)!;
+  return mat.e * 1000 * sec.a * 12e-6 * dt;
 }
 
 function assemblePointLoadDetailed(
