@@ -12,9 +12,10 @@
 
 import { modelStore, resultsStore, uiStore } from '../store';
 import { requestAutosave } from '../store/autosave-service';
+import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
 import { initSolver, isWasmReady } from './wasm-solver';
-import { computeGoverning2D, computeGoverning3D } from './governing-case';
+import { computeGoverning2D } from './governing-case';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
@@ -250,12 +251,7 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     if (!firstCaseResult) return t('results.emptyModelError');
 
     resultsStore.setResults3D(firstCaseResult);
-    resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-
-    // Compute governing combo per element
-    const comboNames = new Map<number, string>();
-    for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
-    resultsStore.setGoverning3D(computeGoverning3D(comboResult.perCombo, comboNames));
+    publishCombinations3D(comboResult);
 
     const elapsed = performance.now() - t0;
     const timeStr = elapsed >= 1000 ? (elapsed / 1000).toFixed(2) + ' s' : elapsed.toFixed(0) + ' ms';

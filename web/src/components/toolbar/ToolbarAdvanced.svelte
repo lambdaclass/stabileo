@@ -1,5 +1,6 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
+  import { publishCombinations3D } from '../../lib/store/active-results';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
@@ -424,7 +425,7 @@
       if (typeof result === 'string') {
         uiStore.toast(result, 'error');
       } else if (result) {
-        resultsStore.setCombinationResults3D(result.perCase, result.perCombo, result.envelope);
+        publishCombinations3D(result);
         const nCombos = result.perCombo.size;
         const nCases = result.perCase.size;
         uiStore.toast(t('toast.combinations3dSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');

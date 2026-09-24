@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deformedView } from '../lib/store/deformed-view.svelte';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { nextMember } from '../lib/store/next-member.svelte';
   import { onMount } from 'svelte';
@@ -1225,6 +1226,9 @@
     resultsStore.deformedScale;
     resultsStore.modalResult3D;
     resultsStore.activeModeIndex;
+    // Quick/exact, and the displacement labels "show values" adds.
+    deformedView.exact;
+    resultsStore.showDiagramValues;
     // A time-history instant is drawn through the deformed view; scrubbing re-syncs it.
     timeHistoryView.step;
     timeHistoryView.shown;

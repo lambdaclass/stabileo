@@ -32,6 +32,7 @@ import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, Co
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
+import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import { segmentBounds, splitElementLoads, segmentFields } from '../model/edit/member-split';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
@@ -747,6 +748,11 @@ export interface StructureModel {
    * group, so a new project starts without one.
    */
   massSource?: MassSource;
+  /**
+   * Which combinations feed design and reports, and named envelopes. Absent means every
+   * combination is active and there are no named envelopes. See `engine/result-scopes.ts`.
+   */
+  resultScopes?: ResultScopes;
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -1483,6 +1489,7 @@ function createModelStore() {
     get sections() { return model.sections; },
     get loadCases() { return model.loadCases; },
     get combinations() { return model.combinations; },
+    get resultScopes() { return model.resultScopes; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1550,6 +1557,9 @@ function createModelStore() {
         // never stated one round-trip unchanged.
         ...(snap.massSource
           ? { massSource: JSON.parse(JSON.stringify(snap.massSource)) as ModelSnapshot['massSource'] }
+          : {}),
+        ...(snap.resultScopes
+          ? { resultScopes: JSON.parse(JSON.stringify(snap.resultScopes)) as ModelSnapshot['resultScopes'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1734,6 +1744,7 @@ function createModelStore() {
       ? new Map(s.groups.map(([k, v]) => [k, JSON.parse(JSON.stringify(v)) as ModelGroup]))
       : new Map();
     model.massSource = normalizeMassSource(s.massSource);
+    model.resultScopes = s.resultScopes ? JSON.parse(JSON.stringify(s.resultScopes)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2822,6 +2833,7 @@ function createModelStore() {
       // project's groups holding ids that now mean different entities.
       model.groups = new Map();
       model.massSource = undefined;
+      model.resultScopes = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3129,6 +3141,12 @@ function createModelStore() {
       }
     },
 
+    /** State the active combination list and named envelopes, or withdraw them (`null`). */
+    setResultScopes(scopes: ResultScopes | null): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.resultScopes = scopes ? JSON.parse(JSON.stringify(scopes)) : undefined;
+    },
+
     /**
      * State the mass source, or withdraw it (`null`) so the mass is self-weight alone again.
      *
@@ -3163,6 +3181,11 @@ function createModelStore() {
     removeCombination(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.combinations = model.combinations.filter(c => c.id !== id);
+      // An active list or a named envelope naming it would come to mean the combination that
+      // takes this number next.
+      if (model.resultScopes) {
+        model.resultScopes = pruneScopes(model.resultScopes, new Set(model.combinations.map((c) => c.id)));
+      }
     },
 
     updateCombination(id: number, data: Partial<{ name: string; factors: Array<{ caseId: number; factor: number }> }>): void {
@@ -3235,7 +3258,7 @@ function createModelStore() {
      *  Shell elements are only included when isPro=true. */
     solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
-      return solveCombinations3DFn(
+      const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
@@ -3244,12 +3267,14 @@ function createModelStore() {
           connectors: isPro ? model.connectors : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
+      // The active list is a PRO definition; Basic keeps enveloping every combination.
+      return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
     async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
-      return solveCombinations3DParallelFn(
+      const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
@@ -3258,6 +3283,8 @@ function createModelStore() {
           connectors: isPro ? model.connectors : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
+      // The active list is a PRO definition; Basic keeps enveloping every combination.
+      return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
 
     /** Compute influence line: move unit load P=1 (downward) across elements */

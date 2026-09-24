@@ -57,6 +57,8 @@ export interface ModelSnapshot {
     members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] };
     data?: Record<string, unknown>;
   }]>;
+  /** The active combination list and named envelopes. Absent: all combinations, none named. */
+  resultScopes?: { active?: number[]; envelopes?: Array<{ id: number; name: string; purpose: string; comboIds: number[] }> };
   /** The stated mass source. Absent when the project has not stated one. */
   massSource?: {
     kind?: string; presetId?: string; params?: Record<string, string | number | boolean>;

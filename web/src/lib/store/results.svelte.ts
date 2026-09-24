@@ -182,6 +182,9 @@ function createResultsStore() {
   let perCase3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let envelope3D = $state<FullEnvelope3D | null>(null);
+  /** A named envelope on screen in place of the active one, valid only over the solve it was
+   *  built from (`over`): any republish or clear makes it lapse without being reset. */
+  let viewedEnvelope3D = $state<{ env: FullEnvelope3D; name: string; over: FullEnvelope3D } | null>(null);
 
   // Governing-case provenance (which combo governs each element per force component)
   let governing2D = $state<Map<number, GoverningPerElement>>(new Map());
@@ -791,7 +794,19 @@ function createResultsStore() {
     get perCombo3D() { return perCombo3D; },
     get envelope3D() { return envelope3D; },
     get hasCombinations3D() { return perCombo3D.size > 0; },
-    get fullEnvelope3D() { return envelope3D; },
+    /** The envelope on SCREEN: a named one when shown, else the active one. Design reads
+     *  `envelope3D`, which is always the active list's. */
+    get fullEnvelope3D() {
+      return viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.env : envelope3D;
+    },
+    get viewedEnvelopeName(): string | null {
+      return viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.name : null;
+    },
+    /** Show a named envelope (built over the current solve) in place of the active one, or go back (`null`). */
+    viewEnvelope3D(env: FullEnvelope3D | null, name = '') {
+      viewedEnvelope3D = env && envelope3D ? { env, name, over: envelope3D } : null;
+      if (activeView === 'envelope') this._update3DView('envelope');
+    },
 
     // Governing-case provenance
     get governing2D() { return governing2D; },
@@ -835,7 +850,7 @@ function createResultsStore() {
     /** Switch 3D results based on activeView change (called from activeView setter) */
     _update3DView(v: ResultsView) {
       if (v === 'envelope' && envelope3D) {
-        results3D = envelope3D.maxAbsResults3D;
+        results3D = (this.fullEnvelope3D ?? envelope3D).maxAbsResults3D;
       } else if (v === 'combo' && activeComboId !== null && perCombo3D.size > 0) {
         results3D = perCombo3D.get(activeComboId) ?? null;
       } else if (v === 'single') {

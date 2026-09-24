@@ -31,7 +31,9 @@ export interface ReportExportInputs {
 
 /** The canvas as it is on screen, or nothing if the browser refuses it. */
 function screenshotOfCanvas(): string | undefined {
-  const canvas = document.querySelector('canvas');
+  // The viewport's canvas, not the first canvas in the document: a panel that draws one (a chart,
+  // a section preview) would otherwise put its picture in the report as "the model".
+  const canvas = document.querySelector('.viewport-container canvas');
   if (!canvas) return undefined;
   try { return (canvas as HTMLCanvasElement).toDataURL('image/png'); } catch { return undefined; }
 }
