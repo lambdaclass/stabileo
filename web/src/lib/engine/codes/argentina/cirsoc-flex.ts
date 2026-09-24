@@ -681,6 +681,8 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * beam criterion (up to three layers), under which "3 Ø32 (1+1+1)" on a
      * 12 cm face passed; for a column, a second row already means it does not fit.
      */
+    /* A proposal beyond the sheet, when sizing; the bars are an input when checking. */
+    ...(i.mode === 'design' && choice ? [msg('flex.step.steel', { bars: choice.label, area: choice.areaCm2 })] : []),
     ...(choice && ((choice.layers ?? 1) > 1 || choice.placeable === false)
       ? [msg('flex.step.wontFitColumn')] : []),
   );

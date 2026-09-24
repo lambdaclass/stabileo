@@ -45,4 +45,22 @@ describe('sheet rows', () => {
     expect(rows.extra).toEqual([]);
     expect(rows.general.length).toBeGreaterThan(3);
   });
+
+  it('proposes bars when sizing, for columns as for beams, and never when checking', () => {
+    const ctx = { fc: 25, fy: 420, spiral: false, barCount: 12, Pu: 500, Mu: 100 };
+    const col = sheetRows({ ...ctx, kase: 'FCR', mode: 'design', r: solveFlex(COL) });
+    expect(col.bars.length).toBeGreaterThan(0);
+    expect(col.bars[0][1]).toMatch(/\d+ Ø\d+ \(\d+\.\d{2} cm²\)/);
+    const beamIn = { ...COL, kase: 'FSR' as const, b: 0.2, h: 0.5, Pu: 0, Mu: 60 };
+    const beam = sheetRows({ ...ctx, kase: 'FSR', mode: 'design', r: solveFlex(beamIn) });
+    expect(beam.bars.length).toBeGreaterThan(0);
+    const check = sheetRows({ ...ctx, kase: 'FCR', mode: 'verify', r: solveFlex({ ...COL, mode: 'verify' }) });
+    expect(check.bars).toEqual([]);
+  });
+
+  it("a column level that needs a second row is marked as not fitting", () => {
+    const r = solveFlex({ ...COL, b: 0.15, h: 0.50, Pu: 300, Mu: 300 });
+    const rows = sheetRows({ kase: 'FCR', mode: 'design', r, fc: 25, fy: 420, spiral: false, barCount: 12, Pu: 300, Mu: 300 });
+    expect(rows.bars[0][1]).toMatch(/ — /);
+  });
 });

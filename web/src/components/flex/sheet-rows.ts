@@ -12,11 +12,12 @@
  * table, the circular sheet's Asi was nowhere, and the biaxial sheet's bar
  * table and Pu(max) did not exist.
  *
- * What the sheets do NOT print is not printed in these tables either. The bar
- * count and diameter proposal is gone: the workbook sizes an AREA and stops,
- * and a suggestion of "6 Ø16" beside it invited a comparison that has no other
- * side. Anything this tool computes beyond the sheet goes to `extra`, under
- * its own heading, so it can never be mistaken for the sheet's answer.
+ * What the sheets do NOT print is not printed in these tables either. Anything
+ * this tool computes beyond the sheet has its own block, under its own
+ * heading, so it can never be mistaken for the sheet's answer: `extra` (φ and
+ * the state at the answer) and `bars`, the bar arrangement proposed for the
+ * area — the workbook sizes an area and stops, and turning it into bars that
+ * fit is the next thing the reader does.
  */
 import { t } from '../../lib/i18n';
 import type { FlexCase, FlexMode, FlexOutput } from '../../lib/engine/codes/argentina/cirsoc-flex';
@@ -95,6 +96,8 @@ export interface SheetRows {
   general: Row[];
   /** "Condición de seguridad", as FCR-VERIF and FCR-CIR-VERIF state it. */
   safety: Row[];
+  /** The bars proposed for the area, when sizing — beyond the sheet. */
+  bars: Row[];
   headline: string;
 }
 
@@ -220,5 +223,30 @@ export function sheetRows(c: SheetContext): SheetRows {
     : mode === 'verify' ? `φMn = ${(r.phiMn ?? 0).toFixed(2)} kN·m`
     : `${isBeam ? 'As' : 'Ast'} = ${r.AstCm2.toFixed(3)} cm²`;
 
-  return { beam, needed, minMax, printsMinMax, verifyResult, extra, general, safety, headline };
+  /*
+   * The bars, when sizing: in `verify` they are an input, and echoing them
+   * back says nothing. Each carries the note its placement calls for, by its
+   * own criterion — a beam may stack up to three layers; a column level's bars
+   * go in one row along the face, so a second row already means they do not fit.
+   */
+  const bars: Row[] = [];
+  if (r && mode === 'design' && !r.impossible) {
+    const note = (ch: NonNullable<FlexOutput['barChoice']>, column: boolean) => {
+      const layers = ch.layers ?? 1;
+      if (ch.placeable === false || (column && layers > 1)) return ` — ${t('flex.out.barsWontFit')}`;
+      return layers > 1 ? ` — ${t('flex.out.barsLayers').replace('{n}', String(layers))}` : '';
+    };
+    const line = (ch: NonNullable<FlexOutput['barChoice']>, column: boolean) =>
+      `${ch.label} (${ch.areaCm2.toFixed(2)} cm²)${note(ch, column)}`;
+    if (r.barChoice) {
+      bars.push([
+        isBeam ? t('flex.out.asTension') : kase === 'FCR' ? t('flex.out.barsPerLevel')
+          : kase === 'FCR-CIR' ? t('flex.out.barsRing') : t('flex.out.bars'),
+        line(r.barChoice, !isBeam),
+      ]);
+    }
+    if (r.barChoiceComp) bars.push([t('flex.out.barsComp'), line(r.barChoiceComp, false)]);
+  }
+
+  return { beam, needed, minMax, printsMinMax, verifyResult, extra, general, safety, bars, headline };
 }

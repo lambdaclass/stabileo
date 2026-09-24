@@ -209,7 +209,7 @@ export function createDespiece3DGroup(opts: {
   loads?: Load[];
   loadMode?: DespieceLoadMode;
 }): DespieceGroup {
-  const { elements, nodes, forces, reactions, sep, sections, project2D } = opts;
+  const { elements, nodes, forces, reactions, sep, sections, leftHand, project2D } = opts;
   const vectorMode = opts.vectorMode ?? 'all';
   const basis = opts.basis ?? 'local';
   const vSize = Math.max(0.5, Math.min(2, opts.vectorSize ?? 1));
@@ -359,6 +359,8 @@ export function createDespiece3DGroup(opts: {
     // the load centroid. Capped on large models (same gate as labels).
     if (loadMode !== 'off' && showLabels) {
       const Llen = Math.hypot(pJ.x - pI.x, pJ.y - pI.y, pJ.z - pI.z) || 1;
+      /* Member loads are typed along the y the user sees: negated under the left-hand convention. */
+      const eyUser = leftHand ? eyV.clone().negate() : eyV;
       const addLoad = (dir: THREE.Vector3, len: number, frac: number) => {
         const a = fixedArrow(dir, len, colLoad);
         if (a) { a.userData.despieceLoad = true; group.add(a); anim.loads.push({ obj: a, frac: Math.max(0, Math.min(1, frac)) }); }
@@ -368,7 +370,7 @@ export function createDespiece3DGroup(opts: {
           const d = ld.data; const a0 = d.a ?? 0, b0 = d.b ?? Llen;
           if (loadMode === 'resultant') {
             const RY = distResultant(d.qYI, d.qYJ, a0, b0), RZ = distResultant(d.qZI, d.qZJ, a0, b0);
-            const dir = eyV.clone().multiplyScalar(RY.mag).add(ezV.clone().multiplyScalar(RZ.mag));
+            const dir = eyUser.clone().multiplyScalar(RY.mag).add(ezV.clone().multiplyScalar(RZ.mag));
             const wsum = Math.abs(RY.mag) + Math.abs(RZ.mag);
             const centroid = wsum < 1e-9 ? (a0 + b0) / 2 : (Math.abs(RY.mag) * RY.centroid + Math.abs(RZ.mag) * RZ.centroid) / wsum;
             if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, centroid / Llen);
@@ -377,13 +379,13 @@ export function createDespiece3DGroup(opts: {
             for (let i = 0; i <= SAMPLES; i++) {
               const t = i / SAMPLES, pos = a0 + (b0 - a0) * t;
               const qY = d.qYI + (d.qYJ - d.qYI) * t, qZ = d.qZI + (d.qZJ - d.qZI) * t;
-              const dir = eyV.clone().multiplyScalar(qY).add(ezV.clone().multiplyScalar(qZ));
+              const dir = eyUser.clone().multiplyScalar(qY).add(ezV.clone().multiplyScalar(qZ));
               if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN * 0.7, pos / Llen);
             }
           }
         } else if (ld.type === 'pointOnElement3d' && ld.data.elementId === elem.id) {
           const d = ld.data;
-          const dir = eyV.clone().multiplyScalar(d.py).add(ezV.clone().multiplyScalar(d.pz));
+          const dir = eyUser.clone().multiplyScalar(d.py).add(ezV.clone().multiplyScalar(d.pz));
           if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, (d.a ?? 0) / Llen);
         }
       }

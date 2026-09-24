@@ -68,6 +68,19 @@
       {@render rowsTable(`${num('minmax')}${t('flex.section.minMax')}`, rows.minMax, 'flex-minmax')}
     {/if}
 
+    {#if rows.bars.length > 0}
+      <!-- Beyond the sheet, and said so: the sheet stops at the area. -->
+      <h4 class="fp-heading">{t('flex.section.proposedBars')}</h4>
+      <table class="fp-table" data-testid="flex-proposed-bars">
+        <tbody>
+          {#each rows.bars as [label, value]}
+            <tr><th>{label}</th><td>{value}</td></tr>
+          {/each}
+        </tbody>
+      </table>
+      <p class="fp-extras-note">{t('flex.bars.note')}</p>
+    {/if}
+
     {#if cut}
       <!-- FCO's section 5, the failure surface cut at the demand's own axial load. -->
       <h4 class="fp-heading">{num('cut')}{t('flex.section.surfaceCut')}</h4>

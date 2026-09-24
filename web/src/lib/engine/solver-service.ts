@@ -1149,11 +1149,20 @@ function solveCombinations2DFallback(
  * always right-handed, and the convention is a drawing choice: which side of a
  * member its diagrams are drawn on, and how its local axes are shown
  * (`diagram-render-3d`, the axis gizmo). The deformed shape and the free-body
- * arrows are physical and ignore it too. `leftHand` stays in these signatures
- * only so the callers need not change.
+ * arrows are physical and ignore it too.
+ *
+ * ── Except for what the user types in local axes ──
+ *
+ * A 3D member load entered in local axes (qY of a distributed load, Py of a
+ * point load) is entered along the y the user SEES, and under the left-hand
+ * convention that is the negated one. So those y components change sign here,
+ * on their way into the right-handed analysis — the one place the convention
+ * reaches it, and as a statement about input, not about the stiffness. The
+ * load arrows are drawn along the same displayed axis (`scene-sync`).
  */
-function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: boolean, _leftHand: boolean): SolverLoad3D[] {
+function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: boolean, userLeftHand: boolean): SolverLoad3D[] {
   const leftHand = false;
+  const ySign = userLeftHand ? -1 : 1;
   const solverLoads: SolverLoad3D[] = [];
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
 
@@ -1252,7 +1261,7 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       const d = l.data as DistributedLoad3D;
       solverLoads.push({
         type: 'distributed',
-        data: { elementId: d.elementId, qYI: d.qYI, qYJ: d.qYJ, qZI: d.qZI, qZJ: d.qZJ, a: d.a, b: d.b },
+        data: { elementId: d.elementId, qYI: ySign * d.qYI, qYJ: ySign * d.qYJ, qZI: d.qZI, qZJ: d.qZJ, a: d.a, b: d.b },
       });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
@@ -1319,7 +1328,7 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       const d = l.data as PointLoadOnElement3D;
       solverLoads.push({
         type: 'pointOnElement',
-        data: { elementId: d.elementId, a: d.a, py: d.py, pz: d.pz },
+        data: { elementId: d.elementId, a: d.a, py: ySign * d.py, pz: d.pz },
       });
     } else if (l.type === 'surface3d') {
       if (model.quads) {
@@ -1403,13 +1412,13 @@ export function hasLoadCarrying3D(model: ModelData): boolean {
 export function buildSolverInput3D(
   model: ModelData,
   includeSelfWeight = false,
-  _leftHand = false,
+  userLeftHand = false,
   opts: { expandMemberOffsets?: boolean } = {},
 ): SolverInput3D | null {
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
 
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
-  const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, false);
+  const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, userLeftHand);
 
   // Convert support types to SolverSupport3D booleans
   const supportTo3D = (s: Support): { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean } => {
