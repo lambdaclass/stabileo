@@ -19,6 +19,18 @@ struct NodeCoord {
 
 /// Apply an edit action to an existing snapshot, returning the modified snapshot.
 pub fn apply_edit(action: &BuildAction, snapshot: &Value) -> Result<Value, AppError> {
+    // Missing collections can be created by additions, but malformed existing
+    // collections must never be silently replaced and lose their contents.
+    let object = snapshot
+        .as_object()
+        .ok_or_else(|| AppError::BadRequest("snapshot must be a JSON object".into()))?;
+    for key in ["nodes", "elements", "materials", "sections", "supports", "loads"] {
+        if let Some(value) = object.get(key) {
+            if !value.is_array() {
+                return Err(AppError::BadRequest(format!("snapshot.{key} must be an array")));
+            }
+        }
+    }
     let mut snap = snapshot.clone();
 
     match action {
@@ -146,27 +158,17 @@ fn find_node_at_3d(snap: &Value, x: f64, y: f64, z: f64) -> Option<u32> {
     })
 }
 
-/// The array a snapshot keeps under `key`, creating it when it is missing or
-/// is not an array.
-///
-/// The snapshot reaches these helpers as a free-form `serde_json::Value`
-/// straight from the request body (`BuildModelRequest::current_snapshot`), and
-/// the edit path never runs it past `validate_snapshot` — that only ever sees
-/// the snapshot the backend assembles itself, in the create path. So
-/// `snap["loads"].as_array_mut().unwrap()` panicked the request handler on a
-/// model that simply has no loads yet, which is an ordinary state and not a
-/// malformed request.
-///
-/// Adding to an absent list means starting one. Paths that *remove* something
-/// keep refusing instead — see `DeleteLoad`'s "No loads in model" — because
-/// there the absence is the caller's mistake, not a starting point.
+/// Get a collection for an addition, creating it only when absent.
+/// `apply_edit` validates the object and existing collection types before
+/// dispatch, so malformed client data cannot reach this helper. Removals keep
+/// refusing missing collections rather than calling this helper.
 fn array_mut<'a>(snap: &'a mut Value, key: &str) -> &'a mut Vec<Value> {
-    if !snap[key].is_array() {
+    if snap.get(key).is_none() {
         snap[key] = json!([]);
     }
     snap[key]
         .as_array_mut()
-        .expect("just set to an array above")
+        .expect("collection validated by apply_edit or created above")
 }
 
 fn add_distributed_load_to_snap(snap: &mut Value, element_id: u32, q: f64) {
@@ -712,7 +714,7 @@ fn add_lateral_loads(snap: &mut Value, h: f64) -> Result<(), AppError> {
                     "type": "nodal3d",
                     "data": {"id": load_id, "nodeId": node_id, "fx": h, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0}
                 });
-                snap["loads"].as_array_mut().unwrap().push(load);
+                array_mut(snap, "loads").push(load);
             }
         }
     } else {
@@ -723,7 +725,7 @@ fn add_lateral_loads(snap: &mut Value, h: f64) -> Result<(), AppError> {
                     "type": "nodal",
                     "data": {"id": load_id, "nodeId": node_id, "fx": h, "fz": 0, "my": 0}
                 });
-                snap["loads"].as_array_mut().unwrap().push(load);
+                array_mut(snap, "loads").push(load);
             }
         }
     }
@@ -796,7 +798,7 @@ fn add_nodal_load(
             }
         })
     };
-    snap["loads"].as_array_mut().unwrap().push(load);
+    array_mut(snap, "loads").push(load);
 
     Ok(())
 }
