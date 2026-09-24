@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isMode3D } from '../../lib/store/file';
   import { uiStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
@@ -33,7 +34,7 @@
 {/each}
 <span class="ft-sep">|</span>
 {#if uiStore.loadType === 'nodal'}
-  {#if uiStore.analysisMode === '3d'}
+  {#if isMode3D(uiStore.analysisMode)}
     <!-- 3D: 6 DOF directions -->
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fx'}
       onclick={() => uiStore.nodalLoadDir3D = 'fx'} title={t('float.loadForceX3d')}>Fx</button>
@@ -93,16 +94,16 @@
   </label>
 {:else if uiStore.loadType === 'distributed'}
   <label class="ft-input-group">
-    <span>{uiStore.analysisMode === '3d' ? 'qYI:' : 'qI:'}</span>
+    <span>{isMode3D(uiStore.analysisMode) ? 'qYI:' : 'qI:'}</span>
     <input type="number" bind:value={uiStore.loadValue} step="1" />
     <span class="ft-unit">kN/m</span>
   </label>
   <label class="ft-input-group">
-    <span>{uiStore.analysisMode === '3d' ? 'qYJ:' : 'qJ:'}</span>
+    <span>{isMode3D(uiStore.analysisMode) ? 'qYJ:' : 'qJ:'}</span>
     <input type="number" bind:value={uiStore.loadValueJ} step="1" />
     <span class="ft-unit">kN/m</span>
   </label>
-  {#if uiStore.analysisMode === '3d'}
+  {#if isMode3D(uiStore.analysisMode)}
     <label class="ft-input-group">
       <span>qZI:</span>
       <input type="number" bind:value={uiStore.loadValueZ} step="1" />

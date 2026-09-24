@@ -11,7 +11,11 @@
   type LoadKind = 'nodal' | 'distributed' | 'point' | 'surface' | 'thermalQuad';
 
   let loadKind = $state<LoadKind>('nodal');
-  let activeCaseId = $state(1); // default to first load case
+  /*
+   * The case new loads go to is the one "Draw load" uses too (`uiStore.activeLoadCaseId`). This
+   * table kept its own, so a load drawn in the viewport went to Basic's case, not the one chosen
+   * here.
+   */
 
   // Load visibility toggle per case
   function isCaseVisible(caseId: number): boolean {
@@ -91,7 +95,7 @@
   const combinations = $derived(modelStore.model.combinations);
 
   // Filter loads by active case
-  const caseLoads = $derived(loads.filter(l => (l.data.caseId ?? 1) === activeCaseId));
+  const caseLoads = $derived(loads.filter(l => (l.data.caseId ?? 1) === uiStore.activeLoadCaseId));
   const nodalLoads = $derived(caseLoads.filter(l => l.type === 'nodal3d'));
   const distLoads = $derived(caseLoads.filter(l => l.type === 'distributed3d'));
   const pointLoads = $derived(caseLoads.filter(l => l.type === 'pointOnElement3d'));
@@ -141,7 +145,7 @@
     const my = parseFloat(nlMy) || 0;
     const mz = parseFloat(nlMz) || 0;
     if (fx === 0 && fy === 0 && fz === 0 && mx === 0 && my === 0 && mz === 0) return;
-    modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, activeCaseId);
+    modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, uiStore.activeLoadCaseId);
     nlNodeId = ''; nlFx = ''; nlFy = ''; nlFz = ''; nlMx = ''; nlMy = ''; nlMz = '';
   }
 
@@ -153,7 +157,7 @@
     const qzI = parseFloat(dlQzI) || 0;
     const qzJ = parseFloat(dlQzJ) || qzI;
     if (qyI === 0 && qyJ === 0 && qzI === 0 && qzJ === 0) return;
-    modelStore.addDistributedLoad3D(elemId, qyI, qyJ, qzI, qzJ, undefined, undefined, activeCaseId);
+    modelStore.addDistributedLoad3D(elemId, qyI, qyJ, qzI, qzJ, undefined, undefined, uiStore.activeLoadCaseId);
     dlElemId = ''; dlQyI = ''; dlQyJ = ''; dlQzI = ''; dlQzJ = '';
   }
 
@@ -164,7 +168,7 @@
     const py = parseFloat(plPy) || 0;
     const pz = parseFloat(plPz) || 0;
     if (isNaN(a) || a < 0 || (py === 0 && pz === 0)) return;
-    modelStore.addPointLoadOnElement3D(elemId, a, py, pz, activeCaseId);
+    modelStore.addPointLoadOnElement3D(elemId, a, py, pz, uiStore.activeLoadCaseId);
     plElemId = ''; plA = ''; plPy = ''; plPz = '';
   }
 
@@ -177,7 +181,7 @@
     }
     const q = parseFloat(slQ) || 0;
     if (q === 0) return;
-    modelStore.addSurfaceLoad3D(quadId, q, activeCaseId);
+    modelStore.addSurfaceLoad3D(quadId, q, uiStore.activeLoadCaseId);
     slQuadId = ''; slQ = '';
   }
 
@@ -187,7 +191,7 @@
     const dtU = parseFloat(tqDtUniform) || 0;
     const dtG = parseFloat(tqDtGradient) || 0;
     if (dtU === 0 && dtG === 0) return;
-    modelStore.addThermalLoadQuad3D(quadId, dtU, dtG, activeCaseId);
+    modelStore.addThermalLoadQuad3D(quadId, dtU, dtG, uiStore.activeLoadCaseId);
     tqQuadId = ''; tqDtUniform = ''; tqDtGradient = '';
   }
 
@@ -196,7 +200,7 @@
     const mx = parseFloat(nlMx) || 0, my = parseFloat(nlMy) || 0, mz = parseFloat(nlMz) || 0;
     if (fx === 0 && fy === 0 && fz === 0 && mx === 0 && my === 0 && mz === 0) return;
     for (const nodeId of uiStore.selectedNodes) {
-      if (modelStore.nodes.has(nodeId)) modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, activeCaseId);
+      if (modelStore.nodes.has(nodeId)) modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, uiStore.activeLoadCaseId);
     }
     nlFx = ''; nlFy = ''; nlFz = ''; nlMx = ''; nlMy = ''; nlMz = '';
   }
@@ -206,7 +210,7 @@
     const qzI = parseFloat(dlQzI) || 0, qzJ = parseFloat(dlQzJ) || qzI;
     if (qyI === 0 && qyJ === 0 && qzI === 0 && qzJ === 0) return;
     for (const elemId of uiStore.selectedElements) {
-      if (modelStore.elements.has(elemId)) modelStore.addDistributedLoad3D(elemId, qyI, qyJ, qzI, qzJ, undefined, undefined, activeCaseId);
+      if (modelStore.elements.has(elemId)) modelStore.addDistributedLoad3D(elemId, qyI, qyJ, qzI, qzJ, undefined, undefined, uiStore.activeLoadCaseId);
     }
     dlQyI = ''; dlQyJ = ''; dlQzI = ''; dlQzJ = '';
   }
@@ -215,7 +219,7 @@
     const a = parseFloat(plA), py = parseFloat(plPy) || 0, pz = parseFloat(plPz) || 0;
     if (isNaN(a) || a < 0 || (py === 0 && pz === 0)) return;
     for (const elemId of uiStore.selectedElements) {
-      if (modelStore.elements.has(elemId)) modelStore.addPointLoadOnElement3D(elemId, a, py, pz, activeCaseId);
+      if (modelStore.elements.has(elemId)) modelStore.addPointLoadOnElement3D(elemId, a, py, pz, uiStore.activeLoadCaseId);
     }
     plA = ''; plPy = ''; plPz = '';
   }
@@ -230,15 +234,15 @@
   function addLoadCase() {
     if (!newCaseName.trim()) return;
     const id = modelStore.addLoadCase(newCaseName.trim(), newCaseType);
-    activeCaseId = id;
+    uiStore.activeLoadCaseId = id;
     newCaseName = '';
     newCaseType = '';
   }
 
   function removeLoadCase(id: number) {
     modelStore.removeLoadCase(id);
-    if (activeCaseId === id) {
-      activeCaseId = loadCases[0]?.id ?? 1;
+    if (uiStore.activeLoadCaseId === id) {
+      uiStore.activeLoadCaseId = loadCases[0]?.id ?? 1;
     }
   }
 
@@ -592,7 +596,7 @@
         </tr>
         {#each loadCases as lc}
           {@const caseLoadCount = loads.filter(l => (l.data.caseId ?? 1) === lc.id).length}
-          <tr class:active={activeCaseId === lc.id} onclick={() => { activeCaseId = lc.id; selectLoadsByCase(lc.id); }} style="cursor:pointer">
+          <tr class:active={uiStore.activeLoadCaseId === lc.id} onclick={() => { uiStore.activeLoadCaseId = lc.id; selectLoadsByCase(lc.id); }} style="cursor:pointer">
             <td><span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-lr={lc.type === 'Lr'} class:type-w={lc.type === 'W'} class:type-e={lc.type === 'E'}></span></td>
             <td class="lc-type"><select class="lc-type-select" value={lc.type} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCaseType(lc.id, e.currentTarget.value)}><option value="D">D</option><option value="L">L</option><option value="Lr">Lr</option><option value="W">W</option><option value="E">E</option><option value="S">S</option><option value="">—</option></select></td>
             <td class="lc-name"><input class="lc-name-input" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} /></td>

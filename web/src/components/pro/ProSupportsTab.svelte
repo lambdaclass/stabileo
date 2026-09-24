@@ -7,13 +7,13 @@
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   const supportTypes = $derived(is3D ? [
-    { value: 'fixed3d' as SupportType, label: t('pro.fixed3d') !== 'pro.fixed3d' ? t('pro.fixed3d') : 'Fixed (6 DOF)' },
-    { value: 'pinned3d' as SupportType, label: t('pro.pinned3d') !== 'pro.pinned3d' ? t('pro.pinned3d') : 'Pinned (3 transl.)' },
-    { value: 'rollerXZ' as SupportType, label: 'Roller XZ' },
-    { value: 'rollerXY' as SupportType, label: 'Roller XY' },
-    { value: 'rollerYZ' as SupportType, label: 'Roller YZ' },
-    { value: 'spring3d' as SupportType, label: t('pro.spring3d') !== 'pro.spring3d' ? t('pro.spring3d') : 'Spring' },
-    { value: 'custom3d' as SupportType, label: t('pro.custom3d') !== 'pro.custom3d' ? t('pro.custom3d') : 'Custom DOF' },
+    { value: 'fixed3d' as SupportType, label: t('pro.fixed3d') },
+    { value: 'pinned3d' as SupportType, label: t('pro.pinned3d') },
+    { value: 'rollerXZ' as SupportType, label: t('pro.rollerXZ') },
+    { value: 'rollerXY' as SupportType, label: t('pro.rollerXY') },
+    { value: 'rollerYZ' as SupportType, label: t('pro.rollerYZ') },
+    { value: 'spring3d' as SupportType, label: t('pro.spring3d') },
+    { value: 'custom3d' as SupportType, label: t('pro.custom3d') },
   ] : [
     { value: 'fixed' as SupportType, label: t('pro.fixed') },
     { value: 'pinned' as SupportType, label: t('pro.pinned') },
@@ -104,11 +104,11 @@
 
     {#if newType === 'custom3d'}
       <div class="dof-grid">
-        <span class="dof-section-label">Translation</span>
+        <span class="dof-section-label">{t('pro.dofTranslation')}</span>
         <label class="dof-check"><input type="checkbox" bind:checked={dofTx} /> ux</label>
         <label class="dof-check"><input type="checkbox" bind:checked={dofTy} /> uy</label>
         <label class="dof-check"><input type="checkbox" bind:checked={dofTz} /> uz</label>
-        <span class="dof-section-label">Rotation</span>
+        <span class="dof-section-label">{t('pro.dofRotation')}</span>
         <label class="dof-check"><input type="checkbox" bind:checked={dofRx} /> rx</label>
         <label class="dof-check"><input type="checkbox" bind:checked={dofRy} /> ry</label>
         <label class="dof-check"><input type="checkbox" bind:checked={dofRz} /> rz</label>

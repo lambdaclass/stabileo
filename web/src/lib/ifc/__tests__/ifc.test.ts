@@ -5,66 +5,33 @@
 
 import { describe, it, expect } from 'vitest';
 import { mapIfcToModel, type IfcMember } from '../ifc-mapper';
-import { ifcToZup, ifcDirToZup } from '../ifc-parser';
+import { IDENTITY, axis2Placement3D, compose, extrusionAxis } from '../ifc-geometry';
 
-// ─── Y-up → Z-up coordinate remapping ───────────────────────────
+// ─── Placements: IFC is Z-up, and a placement is a whole frame ───
 
-describe('ifcToZup (IFC Y-up → app Z-up)', () => {
-  it('maps IFC origin to app origin', () => {
-    const result = ifcToZup(0, 0, 0);
-    expect(result.x).toBeCloseTo(0);
-    expect(result.y).toBeCloseTo(0);
-    expect(result.z).toBeCloseTo(0);
+describe('IFC placements', () => {
+  it('keep IFC coordinates as they are: IFC is Z-up like the app', () => {
+    // A diagonal from (0,0,0) to (5,0,3): the old Y-up remap laid it down to (5,-3,0).
+    const { start, end } = extrusionAxis(IDENTITY, [5, 0, 3], Math.hypot(5, 3));
+    expect(start).toEqual([0, 0, 0]);
+    expect(end[0]).toBeCloseTo(5, 12); expect(end[1]).toBeCloseTo(0, 12); expect(end[2]).toBeCloseTo(3, 12);
   });
 
-  it('remaps IFC +Y (vertical) to app +Z', () => {
-    // In IFC, Y is up. A point at (0, 5, 0) is 5m above ground.
-    // In app, Z is up. So this should become (0, 0, 5).
-    const result = ifcToZup(0, 5, 0);
-    expect(result.x).toBeCloseTo(0);
-    expect(result.y).toBeCloseTo(0);
-    expect(result.z).toBeCloseTo(5);
+  it('a beam whose solid is rotated runs along its placement, not along the global Z', () => {
+    // Object at (2,3,4); the extruded solid's Z axis points along global +X (a horizontal beam).
+    const object = axis2Placement3D([2, 3, 4]);
+    const solid = axis2Placement3D([0, 0, 0], [1, 0, 0], [0, 1, 0]);
+    const { start, end } = extrusionAxis(compose(object, solid), [0, 0, 1], 6);
+    expect(start).toEqual([2, 3, 4]);
+    expect(end[0]).toBeCloseTo(8, 12); expect(end[1]).toBeCloseTo(3, 12); expect(end[2]).toBeCloseTo(4, 12);
   });
 
-  it('remaps IFC +Z (depth) to app -Y (preserving right-handedness)', () => {
-    // IFC Z goes "into screen" in Y-up; to preserve right-hand rule,
-    // app_y = -ifc_z.
-    const result = ifcToZup(0, 0, 3);
-    expect(result.x).toBeCloseTo(0);
-    expect(result.y).toBeCloseTo(-3);
-    expect(result.z).toBeCloseTo(0);
-  });
-
-  it('preserves IFC X as app X', () => {
-    const result = ifcToZup(7, 0, 0);
-    expect(result.x).toBeCloseTo(7);
-    expect(result.y).toBeCloseTo(0);
-    expect(result.z).toBeCloseTo(0);
-  });
-
-  it('handles a general 3D point', () => {
-    // IFC point (2, 10, -4):
-    //   app_x = 2, app_y = -(-4) = 4, app_z = 10
-    const result = ifcToZup(2, 10, -4);
-    expect(result.x).toBeCloseTo(2);
-    expect(result.y).toBeCloseTo(4);
-    expect(result.z).toBeCloseTo(10);
-  });
-});
-
-describe('ifcDirToZup (IFC direction Y-up → app Z-up)', () => {
-  it('maps IFC vertical direction (0,1,0) to app (0,0,1)', () => {
-    const result = ifcDirToZup(0, 1, 0);
-    expect(result.dx).toBeCloseTo(0);
-    expect(result.dy).toBeCloseTo(0);
-    expect(result.dz).toBeCloseTo(1);
-  });
-
-  it('maps IFC depth direction (0,0,1) to app (0,-1,0)', () => {
-    const result = ifcDirToZup(0, 0, 1);
-    expect(result.dx).toBeCloseTo(0);
-    expect(result.dy).toBeCloseTo(-1);
-    expect(result.dz).toBeCloseTo(0);
+  it('nested placements compose rotations, not only translations', () => {
+    // A storey rotated 90° about Z at (10,0,3); inside it, an object at local (1,0,0).
+    const storey = axis2Placement3D([10, 0, 3], [0, 0, 1], [0, 1, 0]);
+    const obj = axis2Placement3D([1, 0, 0]);
+    const w = compose(storey, obj);
+    expect(w.t[0]).toBeCloseTo(10, 12); expect(w.t[1]).toBeCloseTo(1, 12); expect(w.t[2]).toBeCloseTo(3, 12);
   });
 });
 
@@ -240,5 +207,25 @@ describe('mapIfcToModel', () => {
 
     // Should only have 1 section, not 2
     expect(result.sections.length).toBe(1);
+  });
+});
+
+describe('each member keeps its own material and section', () => {
+  it('two materials and two profiles go to the members that name them, with Iy and J', () => {
+    const r = mapIfcToModel([
+      { id: 1, type: 'column', name: 'C1', start: { x: 0, y: 0, z: 0 }, end: { x: 0, y: 0, z: 3 }, profileName: 'HEB 200', materialName: 'S355' },
+      { id: 2, type: 'beam', name: 'B1', start: { x: 0, y: 0, z: 3 }, end: { x: 6, y: 0, z: 3 }, profileName: 'IPE 300', materialName: 'C30' },
+      { id: 3, type: 'brace', name: 'D1', start: { x: 0, y: 0, z: 0 }, end: { x: 6, y: 0, z: 3 }, profileName: 'IPE 300', materialName: 'S355' },
+    ]);
+    const [c, b, d] = r.elements;
+    expect(r.materials[c!.material]!.name).toBe('S355');
+    expect(r.materials[b!.material]!.name).toBe('C30');
+    expect(r.sections[c!.section]!.name).toContain('HEB');
+    expect(r.sections[b!.section]!.name).toContain('IPE');
+    expect(r.sections[b!.section]!.iy).toBeGreaterThan(r.sections[b!.section]!.iz);
+    // J as the catalogue has it — carried, not invented (the IPE rows publish none).
+    expect('j' in r.sections[b!.section]!).toBe(true);
+    expect(d!.type).toBe('truss');
+    expect(mapIfcToModel([{ id: 3, type: 'brace', name: 'D1', start: { x: 0, y: 0, z: 0 }, end: { x: 6, y: 0, z: 3 } }], { membersAsTruss: false }).elements[0]!.type).toBe('frame');
   });
 });

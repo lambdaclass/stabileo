@@ -65,10 +65,22 @@ export function convertSurfaceLoad(
   return out;
 }
 
-/** Placeholder for thermal quad loads (not yet implemented in solver). */
-export function convertThermalQuadLoad(_load: ThermalLoadQuad3D): SolverLoad3D[] {
-  // TODO: Convert quad thermal loads when solver exposes SolverThermalLoadQuad.
-  return [];
+/**
+ * A temperature change on a quad, as the engine's `quadThermal` load.
+ *
+ * It used to return nothing — "not yet implemented in solver" — while the solver has taken
+ * `quadThermal` all along (`SolverPlateThermalLoad`: the element, a uniform ΔT and a through-
+ * thickness gradient). So a thermal load added to a slab in PRO was stored, drawn, and never
+ * analysed: a model with ΔT on every plate solved identically to one without. No α is sent, so
+ * the engine applies the same 1,2·10⁻⁵ /°C it applies to members' thermal loads.
+ */
+export function convertThermalQuadLoad(load: ThermalLoadQuad3D): SolverLoad3D[] {
+  return [{
+    type: 'quadThermal',
+    data: { elementId: load.quadId, dtUniform: load.dtUniform, dtGradient: load.dtGradient ?? 0 },
+    // Not a member of `SolverLoad3D`'s union, which types the member loads the app reads back;
+    // this one only travels to the engine, which knows the tag.
+  } as unknown as SolverLoad3D];
 }
 
 // ─── Self-weight for shell elements ──────────────────────────────

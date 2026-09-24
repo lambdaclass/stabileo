@@ -473,7 +473,8 @@ function createUIStore() {
 
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
-  let nodalLoadDir3D = $state<NodalLoadDir3D>('fy');
+  // Z is up: a load drawn without choosing a direction is a gravity load, not a horizontal one.
+  let nodalLoadDir3D = $state<NodalLoadDir3D>('fz');
   let loadValueZ = $state<number>(0); // For Fz or qZI components
   let loadValueZJ = $state<number>(0); // For qZJ components (3D distributed)
 

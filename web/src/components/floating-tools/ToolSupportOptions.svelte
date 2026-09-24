@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isMode3D } from '../../lib/store/file';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
@@ -10,7 +11,7 @@
   ] as const;
 </script>
 
-{#if uiStore.analysisMode === '3d'}
+{#if isMode3D(uiStore.analysisMode)}
   <!-- Per-DOF checkboxes (global frame) -->
   <label class="ft-chk" title={t('float.supportRestrainTx')}><input type="checkbox" bind:checked={uiStore.sup3dTx}/> <span>Fx</span></label>
   <label class="ft-chk" title={t('float.supportRestrainTy')}><input type="checkbox" bind:checked={uiStore.sup3dTy}/> <span>Fy</span></label>

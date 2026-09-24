@@ -74,7 +74,7 @@ export interface ReportData {
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number }>; totalMass?: number };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   };
@@ -1349,12 +1349,18 @@ export function generateReportHtml(data: ReportData): string {
     if (adv.modal && wants('modal') && adv.modal.modes.length > 0) {
       html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
       if (adv.modal.totalMass != null) {
-        html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 0)} kg</p>`);
+        // The engine reports mass in tonnes (kN·s²/m). The label said kg.
+        html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 1)} t</p>`);
       }
-      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th></tr></thead><tbody>`);
+      if (adv.modal.ratiosWithheld) html.push(`<p>${escHtml(tr('pro.modalConstrained'))}</p>`);
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead><tbody>`);
+      let cx = 0, cy = 0;
+      const pct = (v?: number) => (v != null ? `${(v * 100).toFixed(1)} %` : '—');
       for (let i = 0; i < adv.modal.modes.length; i++) {
         const m = adv.modal.modes[i];
-        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td><td class="num">${m.participationX != null ? fmtNum(m.participationX, 3) : '—'}</td><td class="num">${m.participationY != null ? fmtNum(m.participationY, 3) : '—'}</td><td class="num">${m.participationZ != null ? fmtNum(m.participationZ, 3) : '—'}</td></tr>`);
+        cx += m.massRatioX ?? 0; cy += m.massRatioY ?? 0;
+        const has = m.massRatioX != null;
+        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td><td class="num">${m.participationX != null ? fmtNum(m.participationX, 3) : '—'}</td><td class="num">${m.participationY != null ? fmtNum(m.participationY, 3) : '—'}</td><td class="num">${m.participationZ != null ? fmtNum(m.participationZ, 3) : '—'}</td><td class="num">${has ? pct(cx) : '—'}</td><td class="num">${has ? pct(cy) : '—'}</td></tr>`);
       }
       html.push(`</tbody></table>`);
     }

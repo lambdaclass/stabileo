@@ -691,10 +691,10 @@ export function downloadSVG(): void {
 
 // ─── Export Excel ────────────────────────────────────────────────
 
-export async function downloadExcel(): Promise<void> {
+export async function downloadExcel(opts: Omit<Parameters<typeof exportToExcel>[0] & object, 'filename'> = {}): Promise<void> {
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
   // Async because xlsx is fetched on demand — see lib/export/excel.ts.
-  await exportToExcel({ filename: `${safeName}.xlsx` });
+  await exportToExcel({ ...opts, filename: `${safeName}.xlsx` });
 }
 
 // ─── PDF Report ─────────────────────────────────────────────────

@@ -83,6 +83,10 @@ export const SHELL_COMPONENT_GROUP_LABELS: Record<ShellComponentGroup, string> =
   bending: 'Bending moment / unit width',
 };
 
+/** i18n keys for a component's and a group's name; `label` above stays as the symbol fallback. */
+export const shellComponentLabelKey = (key: ShellContourComponent) => `shell.comp.${key}`;
+export const shellGroupLabelKey = (group: ShellComponentGroup) => `shell.group.${group}`;
+
 export function shellComponentMeta(key: ShellContourComponent): ShellComponentMeta {
   return SHELL_CONTOUR_COMPONENTS.find(c => c.key === key) ?? SHELL_CONTOUR_COMPONENTS[0];
 }

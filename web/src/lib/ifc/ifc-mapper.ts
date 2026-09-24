@@ -18,7 +18,8 @@ export interface IfcMember {
 
 export interface IfcMappingResult {
   nodes: Array<{ id: number; x: number; y: number; z: number }>;
-  elements: Array<{ nodeI: number; nodeJ: number; type: 'frame' | 'truss' }>;
+  /** Each element with the index of its material and section in the lists below. */
+  elements: Array<{ nodeI: number; nodeJ: number; type: 'frame' | 'truss'; material: number; section: number }>;
   materials: Array<{ name: string; e: number; nu: number; rho: number }>;
   sections: Array<{
     name: string; a: number; iz: number;
@@ -26,12 +27,15 @@ export interface IfcMappingResult {
     h?: number; b?: number;
     tw?: number; tf?: number; t?: number;
     shape?: string;
+    profileFamily?: string;
   }>;
   warnings: string[];
 }
 
 export interface IfcMapperOptions {
   snapTolerance?: number; // meters, default 0.01
+  /** IfcMember (braces, purlins, struts) as truss members. Default true. */
+  membersAsTruss?: boolean;
 }
 
 // ─── Known material defaults ──────────────────────────────────
@@ -77,8 +81,9 @@ export function mapIfcToModel(
     return id;
   }
 
-  // ── Elements ──
-  const elements: Array<{ nodeI: number; nodeJ: number; type: 'frame' | 'truss' }> = [];
+  // ── Elements ── (material and section indices filled in once the lists exist)
+  const placed: Array<{ member: IfcMember; nodeI: number; nodeJ: number; type: 'frame' | 'truss' }> = [];
+  const asTruss = options?.membersAsTruss ?? true;
 
   for (const member of members) {
     const ni = findOrAddNode(member.start.x, member.start.y, member.start.z);
@@ -87,9 +92,8 @@ export function mapIfcToModel(
       warnings.push(`Miembro "${member.name}" con longitud cero — ignorado`);
       continue;
     }
-    // Brace elements are truss, beams and columns are frame
-    const type = member.type === 'brace' ? 'truss' as const : 'frame' as const;
-    elements.push({ nodeI: ni, nodeJ: nj, type });
+    const type = member.type === 'brace' && asTruss ? 'truss' as const : 'frame' as const;
+    placed.push({ member, nodeI: ni, nodeJ: nj, type });
   }
 
   // ── Materials ──
@@ -100,7 +104,9 @@ export function mapIfcToModel(
   }
 
   const materials: IfcMappingResult['materials'] = [];
+  const materialIndex = new Map<string, number>();
   for (const name of materialNames) {
+    materialIndex.set(name, materials.length);
     const key = name.toLowerCase().replace(/[\s-_]/g, '');
     const known = Object.entries(MATERIAL_DEFAULTS).find(([k]) => key.includes(k));
     if (known) {
@@ -124,7 +130,9 @@ export function mapIfcToModel(
   }
 
   const sections: IfcMappingResult['sections'] = [];
+  const sectionIndex = new Map<string, number>();
   for (const name of profileNames) {
+    sectionIndex.set(name, sections.length);
     // Try to match with steel profiles database
     const results = searchProfiles(name);
     if (results.length > 0) {
@@ -134,6 +142,10 @@ export function mapIfcToModel(
         name: p.name,
         a: sec.a,
         iz: sec.iz,
+        // Both were dropped: an IPE 300 came in with no strong-axis inertia and no J.
+        iy: sec.iy,
+        j: sec.j,
+        profileFamily: p.family,
         h: sec.h,
         b: sec.b,
         tw: sec.tw,
@@ -182,6 +194,13 @@ export function mapIfcToModel(
       shape: 'I',
     });
   }
+
+  // Each member keeps its own material and section; one without either takes the first.
+  const elements = placed.map((p) => ({
+    nodeI: p.nodeI, nodeJ: p.nodeJ, type: p.type,
+    material: p.member.materialName !== undefined ? materialIndex.get(p.member.materialName) ?? 0 : 0,
+    section: p.member.profileName !== undefined ? sectionIndex.get(p.member.profileName) ?? 0 : 0,
+  }));
 
   return { nodes, elements, materials, sections, warnings };
 }

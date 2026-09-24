@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { proNav } from '../../lib/store/pro-nav.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { identifyMessages } from '../../lib/codes/message';
@@ -424,7 +425,7 @@
           <p class="al-warn" data-testid="al-seismic-unavailable">
             {t('autoLoad.seismicNeedsRole')}
             <button class="al-link" data-testid="al-goto-regulations"
-                    onclick={() => { uiStore.proActiveTab = 'design'; onclose(); }}>
+                    onclick={() => { proNav.openRegulations(); onclose(); }}>
               {t('autoLoad.openRegulations')}
             </button>
           </p>
@@ -593,7 +594,7 @@
           <p class="al-warn" data-testid="al-wind-unavailable">
             {t('autoLoad.windNeedsRole')}
             <button class="al-link" data-testid="al-goto-regulations-wind"
-                    onclick={() => { uiStore.proActiveTab = 'design'; onclose(); }}>
+                    onclick={() => { proNav.openRegulations(); onclose(); }}>
               {t('autoLoad.openRegulations')}
             </button>
           </p>
