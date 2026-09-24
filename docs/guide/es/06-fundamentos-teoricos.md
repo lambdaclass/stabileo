@@ -25,14 +25,15 @@ las placas, las tensiones se informan en **kN/m²** y los momentos por unidad de
 **Ejes globales.** **Z es vertical, hacia arriba**; X e Y son horizontales. La gravedad actúa
 en −Z. Un modelo 2D vive en el plano **XZ**, así que sus grados de libertad son **ux**, **uz** y
 el giro **θy**, y sus esfuerzos son **N**, **Vz** y **My**. En el plano, los giros se toman
-positivos en sentido antihorario, mirando la estructura con X hacia la derecha y Z hacia arriba.
+positivos en sentido antihorario, mirando la estructura con X hacia la derecha y Z hacia arriba:
+es la convención habitual del plano, aunque los nombres θy y My vengan del eje Y del espacio.
 
 **Ejes locales de una barra.** x local va del nodo I al nodo J; z local es la vertical global
 proyectada perpendicular a la barra; y local completa la terna. En barras verticales se usa X
 global como referencia. En una viga horizontal cargada por gravedad, el momento principal es
 **My**.
 
-**Signos.** Axial positivo en tracción. Momento dibujado del lado traccionado. Reacciones y
+**Signos.** Esfuerzo axil positivo en tracción. Momento dibujado del lado traccionado. Reacciones y
 desplazamientos en ejes globales.
 
 ---
@@ -87,7 +88,7 @@ matriz de rotación **[T]** de la barra:
 ### Ensamblaje
 
 La matriz de la estructura se arma sumando la contribución de cada barra en las posiciones de sus
-grados de libertad. Donde dos barras comparten un nodo, sus rigidezes se suman: esa suma es la
+grados de libertad. Donde dos barras comparten un nodo, sus rigideces se suman: esa suma es la
 compatibilidad (el nodo se mueve igual para las dos) y el equilibrio del nodo, escritos a la vez.
 
 ### El vector de cargas
@@ -186,8 +187,8 @@ V(x) = V_i + \int_0^x q\,d\xi + \sum P
 M(x) = M_i - V_i\,x - \int_0^x q\,(x-\xi)\,d\xi - \sum P\,(x-a) - \sum M_0
 ```
 
-V_i y M_i son los esfuerzos en el extremo inicial, q la carga distribuida, P las cargas puntuales
-en las posiciones a y M_0 los momentos concentrados. Los signos siguen la convención interna del
+$V_i$ y $M_i$ son los esfuerzos en el extremo inicial, q la carga distribuida, P las cargas
+puntuales en las posiciones a y $M_0$ los momentos concentrados. Los signos siguen la convención interna del
 programa, en la que dM/dx = −V; el diagrama que se dibuja respeta la convención de la
 [sección de convenciones](#unidades-y-convenciones).
 
@@ -202,7 +203,7 @@ El [análisis de sección](04-funciones-avanzadas.md#análisis-de-sección) calc
 las teorías clásicas de resistencia de materiales.
 
 **Tensión normal (Navier).** En 3D, con flexión en los dos planos, la tensión en un punto (y, z)
-de la sección suma el efecto del axial y el de cada momento:
+de la sección suma el efecto del esfuerzo axil y el de cada momento:
 
 ```math
 \sigma = \frac{N}{A} \pm \frac{M_y\,z}{I_y} \pm \frac{M_z\,y}{I_z}
@@ -228,23 +229,26 @@ recorriendo las paredes.
 |---|---|---|
 | Circular (maciza o hueca) | Cauchy (exacta) | τ = T·r / Iₚ |
 | Pared delgada **cerrada** | Bredt | τ = T / (2·Aₘ·t) |
-| Pared delgada **abierta** | Saint-Venant | τ_máx = T·t_máx / J, con J = ⅓·Σ b·t³ |
+| Pared delgada **abierta** | Saint-Venant | $\tau_{\text{máx}} = T \cdot t_{\text{máx}} / J$, con J = ⅓·Σ b·t³ |
+| Maciza no circular (por ejemplo, rectangular) | Saint-Venant | J y τ de la solución de Saint-Venant para esa forma |
 
 Aₘ es el área encerrada por la **línea media** de la pared. Abrir una pared cerrada cambia la
 rigidez a torsión en órdenes de magnitud. La nota [Bredt o
 Saint-Venant](https://stabileo.com/es/blog/torsion-bredt-saint-venant/) muestra cuánto difieren.
 
 **Estado tensional y falla.** Con σ y τ el programa arma el tensor de tensiones, las tensiones
-principales y el **círculo de Mohr**, y evalúa los criterios de **Von Mises**
-($\sigma_{vm} = \sqrt{\sigma^2 + 3\tau^2}$) y de **Rankine**.
+principales y el **círculo de Mohr**, y evalúa tres criterios, cada uno comparado con fy:
+**Von Mises** ($\sigma_{vm} = \sqrt{\sigma^2 + 3\tau^2}$), **Tresca**
+($\tau_{\text{máx}} = \sqrt{(\sigma/2)^2 + \tau^2}$) y **Rankine** (la mayor tensión principal en valor
+absoluto).
 
 ---
 
 ## Estabilidad y dinámica
 
 **Segundo orden (P-Δ).** El equilibrio se plantea en la geometría deformada. Se suma a la rigidez
-elástica una **rigidez geométrica** [K_G], que depende de los esfuerzos axiales (la compresión la
-reduce), y se itera hasta que los desplazamientos convergen:
+elástica una **rigidez geométrica** $[K_G]$, que depende de los esfuerzos axiales (con compresión,
+resta rigidez), y se itera hasta que los desplazamientos convergen:
 
 ```math
 \left([K] + [K_G(N)]\right)\{u\} = \{F\}
@@ -264,20 +268,24 @@ La carga crítica es λ veces la carga aplicada, y φ es la forma de pandeo.
 \left([K] - \omega^2\,[M]\right)\{\phi\} = 0
 ```
 
-con **[M]** la matriz de masa, armada a partir del peso específico de los materiales: consistente
-en las barras rígidas y concentrada en los nodos en las barras articuladas y en las placas.
+con **[M]** la matriz de masa, armada a partir del peso específico de los materiales:
+**consistente** (repartida con las mismas funciones que la rigidez) en las barras sin
+articulaciones y en las de reticulado, y **concentrada** en los nodos (la mitad de la masa en cada
+extremo) en las barras que tienen alguna articulación.
 Cada ω es una frecuencia propia (f = ω / 2π, T = 1/f) y cada φ una forma modal. La **masa
 efectiva** de cada modo dice qué fracción de la masa total moviliza en cada dirección.
 
 **Análisis espectral (PRO).** Combina la respuesta máxima de cada modo, leída de un espectro de
-diseño, con las reglas CQC o SRSS. Hoy considera sólo las barras del modelo.
+diseño, con las reglas CQC (combinación cuadrática completa) o SRSS (raíz cuadrada de la suma de
+los cuadrados).
 
 ---
 
 ## Plasticidad
 
-El **colapso plástico** se calcula de manera incremental. Se aumenta la carga hasta que la primera
-sección alcanza su momento plástico Mp = Zp·fy; ahí se coloca una rótula plástica, que gira sin
+El **colapso plástico** se calcula de manera incremental. Se aumenta la carga hasta que el momento
+en el extremo de una barra alcanza el momento plástico Mp = Zp·fy, con Zp tomado como b·h²/4 a
+partir del ancho y la altura de la sección; ahí se coloca una rótula plástica, que gira sin
 tomar más momento, y se sigue cargando la estructura modificada. El proceso termina cuando las
 rótulas forman un **mecanismo**. El factor de carga acumulado en ese momento es el **factor de
 colapso**.

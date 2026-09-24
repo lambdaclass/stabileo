@@ -33,13 +33,14 @@ It is the first step of any hand calculation, and the program shows it worked ou
 
 ![Kinematic analysis of a beam with a hidden mechanism](img/basic-kinematic.webp)
 
-1. **Data:** nodes (n), rigid and hinged members (m), support reactions (r) and internal
-   conditions (c), each with where it comes from ("node 1: roller → 1 reaction").
+1. **Data:** nodes (n), rigid and truss members (m), support reactions (r) and internal
+   conditions (c), each with where it comes from (for example, "Node 1: Horizontal roller → 1 reac.
+   (uz)").
 2. **Degree of indeterminacy**, with the formula that fits the type of structure and the numbers
    substituted:
    - frames: g = 3·m + r − 3·n − c
    - trusses: g = m + r − 2·n
-   - mixed: g = 3·m_p + m_r + r − 3·n − c (m_p frame members, m_r truss members)
+   - mixed: g = 3·$m_p$ + $m_r$ + r − 3·n − c ($m_p$ frame members, $m_r$ truss members)
 3. **Check with the stiffness matrix.** The degree formula is a **necessary but not sufficient**
    condition. A structure can have g = 0 and still be a mechanism if its restraints are badly
    distributed: too many in one place, too few in another. So the program checks the rank of the
@@ -63,12 +64,12 @@ with the action-reaction pairs in view. It is how you check the equilibrium of e
 every node.
 
 Options: vectors on members, on nodes or both; in local or global axes; loads shown in full, as a
-resultant or off; combined vectors; and the size of arrows and labels. Clicking a node or a member
+resultant or off; combined vectors; and **Vector size** and **Value size**. Clicking a node or a member
 lists the actions that reach it.
 
 ## Section analysis
 
-**What it shows:** the stress state at any section of a member. Arm it, click a member and move a
+**What it shows:** the stress state at any section of a member. Turn it on, click a member and move a
 cursor along it.
 
 ![Section analysis of a tube in torsion: the theory that applies and the peak stress](img/basic-section-torsion.webp)
@@ -80,7 +81,7 @@ cursor along it.
   circular sections, Bredt for closed thin walls, and Saint-Venant, the general theory, for the
   rest) and says so. **The three theories** compares them, and marks the ones that do not apply
   with the reason. Where it matters, it also estimates the share of the torque taken by
-  **warping** (non-uniform torsion).
+  **warping** (non-uniform torsion). These results appear in 3D, when the member carries torque.
 - **Stress state, tensors and Mohr's circle**, with the principal stresses.
 - **Failure criteria:** Von Mises, Tresca and Rankine, each as a percentage of fy.
 - **Centroid and shear centre**, with the working.
@@ -103,8 +104,8 @@ column that sways generates an extra moment P·Δ, which increases the sway, whi
 moment.
 
 The program solves it by iterating until the result stops changing (up to 20 iterations). It
-reports the **amplification factor B₂** (how much the effects grow compared with the linear
-analysis), the number of iterations and whether the structure is stable. A B₂ above 1.4 points to
+reports the **amplification factor B₂** (the largest ratio between second-order and linear
+displacements), the number of iterations and whether the structure is stable. A B₂ above 1.4 points to
 a structure sensitive to second-order effects.
 
 ## Pcr (buckling)
@@ -115,12 +116,12 @@ a structure sensitive to second-order effects.
 \left( [K] + \lambda\,[K_G] \right) \{\phi\} = 0
 ```
 
-where [K] is the elastic stiffness and [K_G] the **geometric stiffness**, which depends on the
+where [K] is the elastic stiffness and $[K_G]$ the **geometric stiffness**, which depends on the
 axial forces. Each eigenvalue **λ** is the factor by which the current loads must be multiplied for
 the structure to buckle, and each eigenvector **φ** is the shape it buckles in.
 
 It shows the first four modes, with their λ, their drawn shape and the effective length factor
-(**K**) of the compressed members.
+(**K**: the buckling length is K·L) of the compressed members.
 
 ## Dynamic (modal analysis)
 
@@ -134,36 +135,41 @@ with a **mass matrix** built from the unit weight ρ of each material.
 
 It shows the first six modes: frequency (Hz), period (s), effective mass of each mode and the
 running total, with the mode shape animated. In 2D, the message shown when it finishes also gives
-the Rayleigh damping coefficients.
+the Rayleigh damping coefficients: the factors a₀ and a₁ that build the damping as
+a₀·[M] + a₁·[K].
 
 > Seismic response-spectrum analysis is not in Basic mode: it is in PRO.
 
 ## Plastic collapse
 
 **What it computes:** the load factor that brings the structure to collapse, through the
-successive formation of **plastic hinges**. Each time a section reaches its plastic moment
-Mp = Zp·fy, it becomes a hinge that rotates without taking more moment, and the structure keeps
-being loaded with one more hinge, until a mechanism forms.
+successive formation of **plastic hinges**. For each section the program uses a plastic moment
+Mp = Zp·fy, where fy is the material's yield stress (250 MPa if none is set) and Zp is taken as
+b·h²/4 from the section's width b and depth h, the plastic modulus of a solid rectangle of those
+dimensions; for a section without b and h it is taken as 1.15 times the elastic modulus. Each time
+the moment at a member end reaches Mp, a hinge that rotates without taking more moment is placed
+there, and the structure keeps being loaded with one more hinge until a mechanism forms.
+
+Hinges form at member ends: if one is expected inside a span (under a point load, for instance),
+split the member at that point.
 
 It shows each step with its factor λ, where the hinge formed and whether a mechanism was reached.
-
-> **Current limitation:** the plastic modulus Zp is computed as that of a rectangular section
-> (b·h²/4) when the section has a width and a depth, and otherwise with a fixed shape factor of
-> 1.15. For I, channel or tube sections that overestimates Mp several times, so the collapse
-> factor comes out on the unsafe side.
 
 ## Envelope
 
 **What it shows:** for every point of every member, the maximum and minimum moment, shear and axial
 force across all combinations. It is what members are sized for: no single combination governs
-the whole structure.
+the whole structure. It needs combinations defined in the **Combinations** section; if they have
+not been solved yet, it solves them when you turn it on.
 
 ## Moving load
 
 **What it computes:** the effect of a load that moves, like a vehicle on a bridge. The load train
-advances in 25 cm steps along the structure and the model is solved at each position. There are
-predefined trains: a 100 kN point load, the HL-93 truck (35, 145 and 145 kN) and a tandem of two
-110 kN axles. You can step through the positions and see the envelope.
+travels, in 25 cm steps, along the path of members that starts at the leftmost node and continues
+to the right through connected members, and the model is solved at each position. Trains that are
+not symmetric, such as the HL-93, are also run in the opposite direction. There are predefined
+trains: a 100 kN point load, the HL-93 truck (axles of 35, 145 and 145 kN, 4.3 m apart) and a
+tandem of two 110 kN axles 1.2 m apart. You can step through the positions and see the envelope.
 
 The train's loads are **added to the loads already in the model**: to see the effect of the train
 alone, delete the other loads first.
@@ -171,9 +177,9 @@ alone, delete the other loads first.
 ## Influence line
 
 **What it shows:** how a reaction or a member force changes as a **unit load** travels across the
-structure. Choose the quantity (a reaction, by clicking a node, or the moment or shear in a
-member, by clicking the member; it is evaluated at its midpoint) and the program draws the line. The load can be animated
-across the structure.
+structure. Choose the quantity and click: a node for a reaction (Rz, Rx or My), or a member for the
+moment or shear at its midpoint. The program draws the line, and the load can be animated across
+the structure.
 
 An influence line answers the inverse question of a force diagram: not "what moment is there at
 each point for this load", but "what moment is there at this point depending on where the load
@@ -182,7 +188,8 @@ is".
 ## Explore (what if…?)
 
 **What it does:** a slider for each load (0 to 3 times its value) and global factors for the
-modulus E, the area and the inertia (0.1 to 5 times, applied to every member at once), with the
+modulus E, the area and the inertia (0.1 to 5 times, applied to every member at once; in 3D the
+inertia factor also scales the torsion constant J), with the
 model re-solving live. It builds intuition: how much the deflection changes if the inertia
 doubles, what happens to the forces if a load doubles. Closing it restores the original values.
 
@@ -211,12 +218,14 @@ step is in [chapter 6](06-theory.md#the-stiffness-method).
 
 ---
 
-## Limitations
+## Which models they accept
 
-- P-Δ, buckling, dynamic, plastic collapse, moving load, influence line, explore and step by step
-  do not accept models with sliding joints (in 2D) or internal joints set with the **Joints** mode
-  (in 3D). Hinges from the **Hng** column are accepted. The program says so.
-- Kinematic analysis, plastic collapse, moving load and influence line are available in 2D only.
+- Sliding joints (in 2D) and internal joints from the **Joints** mode (in 3D) are used in the linear
+  analysis and in the free-body view. P-Δ, buckling, dynamic, plastic collapse, moving load,
+  influence line, explore and step by step work with hinges at member ends (the **Hng I** and
+  **Hng J** columns); if the model has sliding joints or internal joints, the program asks for them
+  to be removed before starting.
+- Kinematic analysis, plastic collapse, moving load and influence line are used on 2D models.
 
 ---
 

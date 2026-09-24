@@ -7,8 +7,8 @@ browser (Chrome, Edge, Firefox, Safari), on Windows, macOS or Linux. There is no
 and nothing to sign up for.
 
 The program downloads the analysis engine once (a program written in Rust and compiled to
-WebAssembly), and from then on **it solves on your computer**. Nothing you model is sent to a
-server.
+WebAssembly), and from then on **it solves on your computer**: the model is not sent to any server
+to be solved.
 
 ## The screen
 
@@ -20,12 +20,16 @@ server.
   assistant, the contact button and **Settings** (the gear).
 - **The command ribbon**, laid out in groups from left to right in the order a model is built:
   **View**, **Draw**, **Properties**, **Conditions**, **Analyse** and **Results**. At its far left
-  is a block of four icons: **Project** (files, examples, import and export), save, undo
+  is a block of four icons: **Project** (files, examples, tutorials, import and export), save, undo
   (`Ctrl/⌘ + Z`) and redo (`Ctrl/⌘ + Y`).
 - **Under the ribbon**, a strip with the options of the active tool. At its right end, the state
-  of the model: it tells you what is missing (create nodes, connect them with members, add
-  supports, apply loads) until it is **ready to solve** and, afterwards, **solved**.
-- **On the right**, the panel each command opens.
+  of the model: it tells you what is missing ("Start by creating nodes", "Connect nodes with
+  members", "Add supports", "Apply loads") until it reads **Ready to solve** and, afterwards,
+  **Solved**.
+- **On the right**, the panel each command opens. The **Draw**, **Properties** and **Conditions**
+  commands open the **Model data** panel, with one tab per kind: Nodes, Members, Supports, Loads,
+  Materials and Sections. Those are the tables this guide calls the "members table", the "loads
+  table" and so on.
 - **At the bottom**, the status bar: cursor coordinates, zoom, model size and selection.
 
 ## Basic or PRO
@@ -36,11 +40,11 @@ server.
 | **Theory** | Stiffness method with Euler-Bernoulli members | Finite elements: 3D members plus plate and shell elements |
 | **What for** | Learning, checking by hand, solving frames and trusses | Models of real buildings and structures |
 | **Shows the working** | Yes: kinematics, section, stiffness method step by step | Concentrates on the model and the results |
-| **Status** | Finished | In development, open access |
+| **Status** | Finished | In development |
 
 > **Important:** each mode keeps its own model. If you move from Basic to PRO, the Basic model is
 > not carried over: PRO opens its own (or an empty one). When you go back to Basic, your model is
-> still there.
+> still there; **Solve** brings the results back.
 
 The difference between the two is not only in the interface. [Chapter 6](06-theory.md) explains
 why **a member and a shell are two different models of the same piece**, and when they give
@@ -53,7 +57,9 @@ It is the quickest way to see the whole workflow. If you prefer an interactive g
 and others).
 
 1. **Nodes.** Choose **Node** (key `N`) and click two points on the grid, for instance (0, 0) and
-   (6, 0). The grid helps you land on round coordinates.
+   (6, 0). The grid helps you land on round coordinates, and the status bar shows the cursor
+   coordinates. Exact coordinates can also be typed in the **Nodes** tab of the **Model data**
+   panel.
 2. **Member.** Choose **Member** (key `E`) and click the left node first, then the right one. Each
    new member gets a default material and section (A36 steel and an IPN 300), which you change from
    the members table.
@@ -64,7 +70,8 @@ and others).
    the member and its sense follows the order in which you drew the nodes: with the member drawn
    left to right, the negative sign points down. To avoid depending on that, choose the global
    **Z** direction.
-5. **Solve.** Press **Solve** (or `Enter`). The program solves and opens the results panel.
+5. **Solve.** Press **Solve**: the program solves and opens the results panel. The `Enter` key also
+   solves.
 6. **Read.** Use the **Results** buttons to choose what to see: **N** (axial force), **Vz**
    (shear), **My** (bending moment), **Deformed** or **Stress**. Hover over the member to read the
    value at each point.
@@ -90,25 +97,29 @@ You should see a maximum moment of 45 kN·m at midspan (q·L²/8 = 10 · 6² / 8
 
 Everything is under **Project**:
 
-- **Save** (`Ctrl/⌘ + S`) downloads a `.ded` file with the model and its results. You can save
-  only the current tab or the whole session (`Ctrl/⌘ + Shift + S`).
-- **Open** (`Ctrl/⌘ + O`) loads a `.ded` (or a `.json`).
-- **Share link** builds a link that contains the whole model, compressed. Whoever opens it sees
-  exactly your model. The model travels inside the link and is not stored on any server; for very
-  large models the program warns that the link may be too long.
-- **Import Excel sheet** loads a model from a spreadsheet. **Template ↓** downloads the format, with
-  an instructions sheet and one sheet per part of the model: nodes, members, materials, sections,
-  supports, load cases, combinations and loads (plus plates and constraints, used by PRO).
+- **Save** (`Ctrl/⌘ + S`) downloads a `.ded` file with the model. You can save only the current
+  tab or the whole session (`Ctrl/⌘ + Shift + S`). The file goes to your downloads folder; some
+  browsers let you choose the folder.
+- **Open** (`Ctrl/⌘ + O`) loads a `.ded` (or a `.json`). After opening it, **Solve** shows the
+  results.
+- **Share link** builds a link that contains the whole model, compressed, and copies it to the
+  clipboard so you can paste it into an email or a chat. Whoever opens it sees exactly your model.
+  The model travels inside the link and is not stored on any server; for very large models the
+  program warns that the link may be too long.
+- **Import Excel sheet** replaces the open model with the one in the spreadsheet. **Template ↓**
+  downloads the format, with an instructions sheet and one sheet per part of the model: nodes,
+  members, materials, sections, supports, load cases, combinations and loads (plus plates and
+  constraints, used by PRO).
 - **Export**: results to Excel or CSV, a calculation report as PDF and the drawing as PNG. In 2D,
   also as DXF and SVG.
 
-The program also **saves on its own** every 30 seconds, in the browser's storage. If you close the tab by mistake, it offers to recover your work when you come back.
+The program also **saves on its own** every 30 seconds, in the browser's storage. If you close the
+tab by mistake, it offers to recover your work when you come back.
 
 ## Units
 
 The program works in SI units: **metres, kN, kN·m and MPa**. Tables show areas in cm², moments of
-inertia in cm⁴, displacements in mm and rotations in mrad. **Settings → Units** switches the
-diagrams and on-screen values to imperial units (kip, ft); the tables stay in SI.
+inertia in cm⁴, displacements in mm and rotations in mrad.
 
 ---
 

@@ -17,8 +17,10 @@ which a model is built.
   lies entirely inside the rectangle; right to left, anything it touches. There are **All**,
   **None** and **Invert** buttons, and you can select **by id**, with lists and ranges such as
   `3, 7-10`.
-- **Right-clicking** a node or a member opens a menu to edit it, subdivide it, add a support or a
-  load to it, or delete it; with nodes selected, also to mirror them or rotate them by 90°.
+- **Right-clicking** a node opens a menu to edit it, add a support or a load to it, or delete it;
+  on a member, to edit it, split it into equal parts or delete it. With nodes selected,
+  right-clicking empty space lets you mirror them or rotate them by 90°.
+- To **delete**, select and press `Delete`; `Esc` drops the active tool.
 - **3D** takes the model into space. See [chapter 3](03-basic-3d.md).
 
 ## Draw
@@ -35,7 +37,7 @@ The same tool has a second mode, **Joints**, to change how members are connected
   every member that reaches it; clicking a member splits it at that point and hinges both new
   ends.
 - **Sliding X / Sliding Z.** Releases a relative displacement in one direction, in global or local
-  axes.
+  axes. It is set by clicking a member near the end to be released.
 
 ### Members
 
@@ -59,7 +61,8 @@ Each material has a modulus of elasticity **E** (MPa), Poisson's ratio **ν**, u
 (kN/m³) and yield stress **fy** (MPa). You can start from a library (steels, cold-formed,
 stainless, aluminium, concretes and timbers, to several codes) or enter a custom one.
 
-- **E** governs stiffness: it is the only thing the linear analysis needs from the material.
+- **E** governs stiffness. In 2D it is the only thing the linear analysis needs from the material;
+  in 3D **ν** is used too, because it defines the shear modulus G for torsion.
 - **ρ** is used for self-weight and for mass in the dynamic analysis.
 - **fy** is used to express stresses as utilisation (σ/fy) and in plastic collapse.
 
@@ -94,16 +97,19 @@ constant **J**. There are three ways to define one:
 
 - A **roller** can be inclined by an angle α: the sliding plane is rotated and the reaction stays
   perpendicular to it. It can also take the direction of the member that reaches it (local axes).
-- Supports can carry **prescribed displacements**: a settlement, a rotation. The program treats
-  them as a boundary condition with a non-zero value.
+- Supports can carry **prescribed displacements**: a settlement, a rotation. They are typed in the
+  tool strip before clicking (or afterwards in the **Supports** tab), and the program treats them
+  as a boundary condition with a non-zero value.
 
 ### Loads
 
 **Load** (key `L`) applies loads to the **active load case**, chosen in the tool strip (D by
 default). The types:
 
-- **Point.** On a node it is a force **Fx**, **Fz** or a moment **My**. On a member it is a point
-  load at the position you clicked.
+- **Point.** On a node it is a horizontal force, a vertical force or a moment **My**. With the **Z**
+  direction the buttons read **Fx** and **Fz**; with **⊥** (the default) they read **Fi** and
+  **Fj**. On a member it is a point load at the position you clicked and, with **⊥**, it follows the
+  member's axes: **Fi** along it and **Fj** perpendicular to it.
 - **Distributed.** With a value at each end (**qI**, **qJ**), so it can be uniform or trapezoidal.
   The direction can be global (**Z**) or perpendicular to the member (**⊥**, the default), with an
   extra angle α. In the perpendicular direction the sense follows the member's node order (I to
@@ -119,7 +125,7 @@ Loads on members are not "moved to the nodes" by eye: the program computes each 
 
 ### Load cases and combinations
 
-The **Loads** tab of the data table has a **Combinations** section:
+The **Loads** tab of the **Model data** panel has a **Combinations** section:
 
 - **Load cases:** dead (D), live (L), wind (W), earthquake (E), or any you define. Every load
   belongs to a case.
@@ -135,9 +141,10 @@ factors: that is the superposition principle.
 
 ## Analyse
 
-- **Solve** (`Enter`) solves the model and opens the results. Every solve includes a **kinematic
-  check**: if the structure is a mechanism it says so, and if it is stable it reports whether it
-  is statically determinate or indeterminate, and to what degree.
+- **Solve** solves the model and opens the results (`Enter` also solves). Every solve includes a
+  **kinematic check**: if the structure is a mechanism it says so, and if it is stable it reports
+  whether it is statically determinate (equilibrium alone gives the reactions) or indeterminate (it
+  has more restraints than needed), and to what degree: how many extra.
 - **Advanced** opens the advanced tools. They have a chapter of their own:
   [chapter 4](04-advanced-tools.md).
 
@@ -165,9 +172,6 @@ In the **Results** panel:
   overlays a second result so you can see them together.
 - The **results table**: displacements of each node (ux, uz in mm; θy in mrad), reactions (Rx, Rz,
   My) and the forces at the ends of each member.
-
-The results selector and the table appear when the model has combinations. If you delete them
-all, they stop showing.
 
 > **How a diagram is drawn.** The program solves the node displacements and, from them, the forces
 > at the ends of each member. Inside the member the diagrams come from **equilibrium**, integrating

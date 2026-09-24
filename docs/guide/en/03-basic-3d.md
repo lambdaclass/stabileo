@@ -23,8 +23,8 @@ Member forces are expressed in those local axes. That is why, in a horizontal be
 gravity, the main moment is **My** (bending about the local y axis) and the shear that goes with
 it is **Vz**.
 
-> **Settings** lets you choose a right- or left-handed local triad. It changes which side the
-> diagrams are drawn on, not the values.
+> **Settings** lets you choose a right- or left-handed local triad. It changes the sign of some
+> member forces and which side the diagrams are drawn on, not their magnitude.
 
 ## What changes from 2D
 
@@ -47,7 +47,7 @@ plane at first-floor height.
 In 3D a support is defined by ticking what it restrains: three displacements (Fx, Fy, Fz) and
 three rotations (Mx, My, Mz). The shortcuts **Fixed** (all six) and **Pin.** (the three
 displacements) cover the usual cases. Every unrestrained degree of freedom can be given a spring
-stiffness.
+stiffness. Inclined rollers and prescribed displacements are options of 2D mode.
 
 ### Loads
 
@@ -57,23 +57,28 @@ stiffness.
 
 > **Watch the default direction.** In 3D the point load starts on **Fy** and the distributed load
 > on **local y**, which are horizontal on a horizontal beam. For gravity loads use **Fz** on nodes
-> and **qZ** (local z) on members.
+> and **qZ** (local z) on members, and set **qYI** and **qYJ** to 0; otherwise the member also gets
+> the horizontal load that comes by default.
+
+Thermal loads and point loads within a member's span are entered in 2D; when the model moves to
+3D they are kept and solved.
 
 ### Joints
 
 In 3D a joint releases any combination of the six relative movements between the member end and
-the node. It is set with the **Joints** mode of the **Node** tool.
+the node. It is set with the **Joints** mode of the **Node** tool: tick the movements to release
+(dx, dy, dz, θx, θy, θz) and click the member near the end. Sliding joints belong to the 2D model.
 
-> The **Hng** column of the members table releases **only the Mz moment**. In a horizontal beam the
-> gravity moment is **My**, so that column does not hinge it for gravity loads: for that, release
-> θy with the **Joints** mode.
+> In a model with 3D geometry, the **Hng I** and **Hng J** columns of the members table release
+> **only the Mz moment**. In a horizontal beam the gravity moment is **My**, so to hinge it for
+> gravity loads release θy with the **Joints** mode. In a model that is still flat, such as one
+> brought over from 2D, those columns release the in-plane moment, as in 2D.
 
 ### Torsion
 
 A 3D member can work in torsion, and for that it needs the torsion constant **J** of its section.
 Catalogue sections and sections built from a shape have it computed. If you define an amorphous
-section, enter J by hand: if it is missing, the program uses a minimal placeholder value and the
-torsion results mean nothing.
+section, enter J by hand, so that torsion is computed with the value that belongs to the section.
 
 ## Going back to 2D
 
@@ -87,19 +92,12 @@ flat, the switch is immediate. If not, the program asks what to do:
      supports and loads, and warns if one would be left without supports or without loads.
    - **The whole structure, flattened.** Projects everything onto the plane. It is useful to see
      the structure from the side, but it stacks frames on top of each other.
-3. **Stay in 3D**, if the switch was a mistake, or **Erase model and switch to 2D**, to start from
+3. With the plane and the option chosen, **Take it to 2D** makes the switch. There are also **Stay
+   in 3D**, to leave things as they were, and **Erase model and switch to 2D**, to start from
    scratch in the plane.
 
 The original 3D model is kept: pressing **3D** again brings it back exactly as it was. Changes you
 made to the 2D cut are not carried back into the 3D model.
-
-## Current limitations of 3D in Basic
-
-- Thermal loads and point loads within a member's span cannot be created in 3D (the **Thermal**
-  button shows but does nothing). Those created in 2D are kept when moving to 3D and are solved.
-- Inclined rollers and prescribed displacements, in 2D only.
-- A 3D model with sliding joints cannot be solved.
-- DXF and SVG export is available in 2D only.
 
 ---
 

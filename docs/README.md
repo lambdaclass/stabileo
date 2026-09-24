@@ -21,6 +21,9 @@ saber programar ni conocer GitHub.
 The [blog](https://stabileo.com/en/blog/) goes deeper into specific questions, with the numbers
 computed by the engine and the editor embedded.
 
+El [blog](https://stabileo.com/es/blog/) profundiza en temas puntuales, con los números calculados
+por el motor y el editor embebido.
+
 ---
 
 ## Technical documentation

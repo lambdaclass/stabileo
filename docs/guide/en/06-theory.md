@@ -23,7 +23,8 @@ moments per unit width in **kN·m/m**.
 **Global axes.** **Z is vertical, pointing up**; X and Y are horizontal. Gravity acts along −Z. A
 2D model lives in the **XZ** plane, so its degrees of freedom are **ux**, **uz** and the rotation
 **θy**, and its member forces are **N**, **Vz** and **My**. In the plane, rotations are positive
-counter-clockwise, looking at the structure with X to the right and Z up.
+counter-clockwise, looking at the structure with X to the right and Z up: the usual plane
+convention, even though the names θy and My come from the Y axis of space.
 
 **A member's local axes.** Local x runs from node I to node J; local z is the global vertical
 projected perpendicular to the member; local y completes the triad. Vertical members use global X
@@ -183,8 +184,8 @@ V(x) = V_i + \int_0^x q\,d\xi + \sum P
 M(x) = M_i - V_i\,x - \int_0^x q\,(x-\xi)\,d\xi - \sum P\,(x-a) - \sum M_0
 ```
 
-V_i and M_i are the forces at the start of the member, q the distributed load, P the point loads
-at positions a and M_0 the concentrated moments. The signs follow the program's internal
+$V_i$ and $M_i$ are the forces at the start of the member, q the distributed load, P the point
+loads at positions a and $M_0$ the concentrated moments. The signs follow the program's internal
 convention, in which dM/dx = −V; the drawn diagram follows the convention in
 [units and conventions](#units-and-conventions).
 
@@ -207,7 +208,7 @@ section adds the effect of the axial force and of each moment:
 
 where each term is positive on the side that moment puts in tension. The line where σ = 0 is the
 **neutral axis**. If the load is eccentric, whether the resultant
-falls inside or outside the **section core** decides whether the whole section works with the same
+falls inside or outside the **central core** decides whether the whole section works with the same
 sign.
 
 **Shear stress (Jourawski).**
@@ -226,22 +227,24 @@ the walls.
 |---|---|---|
 | Circular (solid or hollow) | Cauchy (exact) | τ = T·r / Iₚ |
 | **Closed** thin wall | Bredt | τ = T / (2·Aₘ·t) |
-| **Open** thin wall | Saint-Venant | τ_max = T·t_max / J, with J = ⅓·Σ b·t³ |
+| **Open** thin wall | Saint-Venant | $\tau_{\max} = T \cdot t_{\max} / J$, with J = ⅓·Σ b·t³ |
+| Solid non-circular (e.g. rectangular) | Saint-Venant | J and τ from the Saint-Venant solution for that shape |
 
 Aₘ is the area enclosed by the wall's **mid-line**. Opening a closed wall changes the torsional
 stiffness by orders of magnitude. The post [Bredt or
 Saint-Venant](https://stabileo.com/en/blog/torsion-bredt-saint-venant/) shows by how much.
 
 **Stress state and failure.** From σ and τ the program builds the stress tensor, the principal
-stresses and **Mohr's circle**, and evaluates the **von Mises**
-($\sigma_{vm} = \sqrt{\sigma^2 + 3\tau^2}$) and **Rankine** criteria.
+stresses and **Mohr's circle**, and evaluates three criteria, each compared with fy: **Von Mises**
+($\sigma_{vm} = \sqrt{\sigma^2 + 3\tau^2}$), **Tresca** ($\tau_{\max} = \sqrt{(\sigma/2)^2 + \tau^2}$)
+and **Rankine** (the largest principal stress in absolute value).
 
 ---
 
 ## Stability and dynamics
 
 **Second order (P-Δ).** Equilibrium is written on the deformed geometry. A **geometric stiffness**
-[K_G], which depends on the axial forces (compression reduces it), is added to the elastic
+$[K_G]$, which depends on the axial forces (compression subtracts stiffness), is added to the elastic
 stiffness, and the solution is iterated until the displacements converge:
 
 ```math
@@ -262,20 +265,24 @@ The critical load is λ times the applied load, and φ is the buckled shape.
 \left([K] - \omega^2\,[M]\right)\{\phi\} = 0
 ```
 
-with **[M]** the mass matrix, built from the unit weight of the materials: consistent for rigid
-members, and lumped at the nodes for hinged members and for plates. Each ω is a
+with **[M]** the mass matrix, built from the unit weight of the materials: **consistent**
+(distributed with the same shape functions as the stiffness) for members without releases and for
+truss members, and **lumped** at the nodes (half the mass at each end) for members with a
+release. Each ω is a
 natural frequency (f = ω / 2π, T = 1/f) and each φ a mode shape. The **effective mass** of each
 mode tells what fraction of the total mass it mobilises in each direction.
 
 **Response-spectrum analysis (PRO).** Combines the peak response of each mode, read from a design
-spectrum, with the CQC or SRSS rules. It currently takes only the model's members into account.
+spectrum, with the CQC (complete quadratic combination) or SRSS (square root of the sum of squares)
+rules.
 
 ---
 
 ## Plasticity
 
-**Plastic collapse** is computed incrementally. The load is increased until the first section
-reaches its plastic moment Mp = Zp·fy; a plastic hinge is placed there, which rotates without
+**Plastic collapse** is computed incrementally. The load is increased until the moment at a member
+end reaches the plastic moment Mp = Zp·fy, with Zp taken as b·h²/4 from the section's width and
+depth; a plastic hinge is placed there, which rotates without
 taking more moment, and the modified structure keeps being loaded. The process ends when the
 hinges form a **mechanism**. The accumulated load factor at that point is the **collapse factor**.
 

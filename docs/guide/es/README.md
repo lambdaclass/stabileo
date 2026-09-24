@@ -2,7 +2,8 @@
 
 **Stabileo** es un programa de cálculo estructural que funciona en el navegador. No hay que
 instalar nada ni crear una cuenta: se abre [stabileo.com](https://stabileo.com) y se empieza a
-modelar. El cálculo corre en tu propia computadora, así que tus modelos no salen de ella.
+modelar. El cálculo corre en tu propia computadora: el modelo no se manda a ningún servidor para
+calcularlo.
 
 Esta guía explica qué hace cada parte del programa y, sobre todo, **la teoría que hay detrás**.
 Está pensada para leerse de corrido, como un apunte, sin necesidad de saber programar ni de
@@ -26,15 +27,16 @@ da, la 6 se puede leer sola.
 
 ## Los modos, en una línea
 
-- **Básico** — estructuras de barras en 2D y en 3D. Es gratuito, está terminado y es el que se
-  usa en los cursos. Además de calcular, **muestra el desarrollo**: el grado de hiperestaticidad,
+- **Básico** — estructuras de barras en 2D y en 3D. Está terminado y es el que se usa en los
+  cursos. Además de calcular, **muestra el desarrollo**: el grado de hiperestaticidad,
   la matriz de rigidez paso a paso, las tensiones en la sección con la fórmula que corresponde.
 - **PRO** — elementos finitos y modelos complejos: losas y tabiques como placas y cáscaras,
-  vínculos, generación de cargas, importación desde AutoCAD, Excel o IFC, y análisis dinámicos
-  y no lineales. Está en desarrollo, con acceso libre para quien quiera probarlo.
+  vínculos, generación de cargas, importación desde AutoCAD o Excel, y análisis dinámicos y no
+  lineales. Está en desarrollo.
 - **Educativo** — el docente arma un ejercicio dentro de la app y lo reparte como un link; el
-  alumno lo resuelve sin ver el resultado y las respuestas vuelven al docente. Se activa desde
-  **Ajustes**.
+  alumno lo resuelve sin ver el resultado y le devuelve sus respuestas al docente en un archivo o
+  un código corto. Está en desarrollo; se activa en **Ajustes → Activar opción Modo Educativo**, que
+  agrega el botón **Ejercicios** al final de la cinta.
 
 ## Para seguir leyendo
 
@@ -42,8 +44,9 @@ da, la 6 se puede leer sola.
   números calculados por el programa y el editor embebido: por ejemplo,
   [¿barras o elementos finitos?](https://stabileo.com/es/blog/bars-or-finite-elements/) o
   [qué teoría de torsión aplica](https://stabileo.com/es/blog/torsion-bredt-saint-venant/).
-- **¿Encontraste un error en la guía o en el programa?** Usá el botón de contacto de la app o
-  abrí un *issue* en [GitHub](https://github.com/lambdaclass/stabileo/issues).
+- **¿Tenés una duda o una sugerencia?** Usá el botón de contacto de la app, sumate al
+  [Discord](https://discord.gg/Q53rp7FKXA) o abrí un *issue* en
+  [GitHub](https://github.com/lambdaclass/stabileo/issues).
 
 ---
 

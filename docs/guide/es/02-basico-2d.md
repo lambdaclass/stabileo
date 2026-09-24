@@ -17,8 +17,10 @@ armar un modelo.
   a derecha toma lo que queda entero adentro del rectángulo; de derecha a izquierda, todo lo que
   toca. Hay botones **Todo**, **Nada** e **Invertir**, y se puede seleccionar **por id**, con listas
   y rangos como `3, 7-10`.
-- **Clic derecho** sobre un nodo o una barra abre un menú para editarlo, subdividirlo, agregarle
-  un apoyo o una carga, o borrarlo; con nodos seleccionados, también reflejarlos o girarlos 90°.
+- **Clic derecho** sobre un nodo abre un menú para editarlo, agregarle un apoyo o una carga, o
+  borrarlo; sobre una barra, para editarla, dividirla en tramos iguales o borrarla. Con nodos
+  seleccionados, un clic derecho en un lugar vacío permite reflejarlos o girarlos 90°.
+- Para **borrar**, seleccioná y apretá `Suprimir`; `Esc` suelta la herramienta activa.
 - **3D** pasa el modelo al espacio. Ver el [capítulo 3](03-basico-3d.md).
 
 ## Dibujar
@@ -36,15 +38,16 @@ barras en un nodo:
   articula todas las barras que llegan a él; clic sobre una barra la parte en ese punto y
   articula los dos extremos nuevos.
 - **Desliz. X / Desliz. Z** (deslizaderas). Liberan un desplazamiento relativo en una dirección,
-  en ejes globales o locales.
+  en ejes globales o locales. Se ponen haciendo clic sobre una barra, cerca del extremo que se
+  quiere liberar.
 
 ### Barras
 
 **Barra** (tecla `E`) une dos nodos. Antes de dibujar se elige el tipo:
 
-- **Rígida (frame):** barra de pórtico. Transmite axial, corte y momento. Es la barra de las vigas
+- **Rígida (frame):** barra de pórtico. Transmite axil, corte y momento. Es la barra de las vigas
   y columnas.
-- **Articulada (truss):** barra de reticulado. Sólo axial.
+- **Articulada (truss):** barra de reticulado. Sólo esfuerzo axil.
 
 Desde la tabla de barras se cambia el material y la sección de cada barra, y las articulaciones se
 pueden poner o sacar extremo por extremo (columnas **Art. I** y **Art. J**).
@@ -62,7 +65,8 @@ específico **ρ** (kN/m³) y tensión de fluencia **fy** (MPa). Se puede partir
 (aceros, conformados en frío, inoxidables, aluminio, hormigones y maderas, según distintas
 normas) o cargar uno a medida.
 
-- **E** gobierna la rigidez: es lo único que el cálculo lineal necesita del material.
+- **E** gobierna la rigidez. En 2D es lo único que el cálculo lineal necesita del material; en 3D
+  también se usa **ν**, que define el módulo de corte G para la torsión.
 - **ρ** se usa para el peso propio y para la masa en el análisis dinámico.
 - **fy** se usa para expresar las tensiones como aprovechamiento (σ/fy) y en el colapso plástico.
 
@@ -97,16 +101,19 @@ tres caminos para definirla:
 
 - El **móvil** puede inclinarse un ángulo α: el plano de deslizamiento se rota y la reacción
   queda perpendicular a él. También puede tomar la dirección de la barra que llega (ejes locales).
-- Los apoyos pueden tener **desplazamientos impuestos**: un asentamiento, un giro. El programa los
-  trata como una condición de borde con valor distinto de cero.
+- Los apoyos pueden tener **desplazamientos impuestos**: un asentamiento, un giro. Se escriben en
+  la franja de la herramienta antes de hacer clic (o después, en la pestaña **Apoyos**), y el
+  programa los trata como una condición de borde con valor distinto de cero.
 
 ### Cargas
 
 **Carga** (tecla `L`) aplica cargas del **caso de carga activo**, que se elige en la franja de la
 herramienta (por defecto, D). Los tipos:
 
-- **Puntual.** Sobre un nodo, es una fuerza **Fx**, **Fz** o un momento **My**. Sobre una barra,
-  es una carga puntual en el punto donde hiciste clic.
+- **Puntual.** Sobre un nodo, es una fuerza horizontal, una vertical o un momento **My**. Con la
+  dirección **Z** los botones dicen **Fx** y **Fz**; con **⊥** (la opción por defecto) dicen **Fi**
+  y **Fj**. Sobre una barra es una carga puntual en el punto donde hiciste clic y, con **⊥**, sigue
+  los ejes de la barra: **Fi** a lo largo y **Fj** perpendicular.
 - **Distribuida.** Con un valor en cada extremo (**qI**, **qJ**), así que puede ser uniforme o
   trapezoidal. La dirección puede ser global (**Z**) o perpendicular a la barra (**⊥**, la opción
   por defecto), con un ángulo α adicional. En la dirección perpendicular, el sentido sigue el
@@ -123,7 +130,7 @@ el [capítulo 6](06-fundamentos-teoricos.md#el-vector-de-cargas).
 
 ### Casos de carga y combinaciones
 
-En la pestaña **Cargas** de la tabla de datos está la sección **Combinaciones**:
+En la pestaña **Cargas** del panel **Datos** está la sección **Combinaciones**:
 
 - **Casos de carga:** permanente (D), sobrecarga (L), viento (W), sismo (E), o los que definas.
   Cada carga pertenece a un caso.
@@ -140,9 +147,10 @@ factores: es el principio de superposición.
 
 ## Análisis
 
-- **Calcular** (`Enter`) resuelve el modelo y abre los resultados. Cada cálculo incluye un
-  **chequeo cinemático**: si la estructura es un mecanismo lo avisa, y si es estable informa si
-  es isostática o hiperestática, y de qué grado.
+- **Calcular** resuelve el modelo y abre los resultados (`Enter` también resuelve). Cada cálculo
+  incluye un **chequeo cinemático**: si la estructura es un mecanismo lo avisa, y si es estable
+  informa si es isostática (las reacciones salen sólo del equilibrio) o hiperestática (tiene más
+  vínculos que los necesarios), y de qué grado: cuántos sobran.
 - **Avanzado** abre las funciones avanzadas. Tienen su propio capítulo: el
   [capítulo 4](04-funciones-avanzadas.md).
 
@@ -162,7 +170,7 @@ Los botones del grupo **Resultados** se habilitan después del primer cálculo:
 En el panel de **Resultados**:
 
 - **Escala diagrama** agranda o achica el dibujo sin cambiar los valores.
-- **Mostrado como:** diagrama, color de barras (sólo para el axial: rojo tracción, azul
+- **Mostrado como:** diagrama, color de barras (sólo para el esfuerzo axil: rojo tracción, azul
   compresión) o mapa de colores.
 - Para **Tensiones**, la **medida**: aprovechamiento σ/fy, Von Mises (σvm), tensión normal σ o
   tangencial τ.
@@ -171,9 +179,6 @@ En el panel de **Resultados**:
 - La **tabla de resultados**: desplazamientos de cada nodo (ux, uz en mm; θy en mrad),
   reacciones (Rx, Rz, My) y esfuerzos en los extremos de cada barra.
 
-El selector de resultados y la tabla aparecen cuando el modelo tiene combinaciones. Si se borran
-todas, dejan de mostrarse.
-
 > **Cómo se dibuja un diagrama.** El programa resuelve los desplazamientos de los nodos y, con
 > ellos, los esfuerzos en los extremos de cada barra. Adentro de la barra, los diagramas se
 > obtienen **por equilibrio**, integrando las cargas del tramo: no se interpolan entre extremos.
@@ -181,7 +186,7 @@ todas, dejan de mostrarse.
 
 ## Convenciones de signos
 
-- **Axial:** positivo en tracción.
+- **Esfuerzo axil:** positivo en tracción.
 - **Momento:** se dibuja del lado de la fibra traccionada. En **Ajustes** se puede cambiar para
   que los valores positivos se dibujen hacia los ejes locales.
 - **Reacciones y desplazamientos:** en ejes globales, positivos en el sentido de X y de Z.

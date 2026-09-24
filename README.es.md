@@ -32,7 +32,8 @@
 
 Stabileo es un programa de cálculo estructural que funciona en cualquier navegador actual. Modelás,
 cargás, resolvés y leés resultados en 2D y en 3D. El motor de cálculo está escrito en Rust y
-compilado a WebAssembly, así que corre en tu propia computadora: tus modelos no salen de ella.
+compilado a WebAssembly, así que corre en tu propia computadora: el modelo no se manda a un
+servidor para calcularlo.
 
 Nació en los cursos de estructuras de la [FIUBA](http://www.fi.uba.ar/) (Universidad de Buenos
 Aires) y conserva ese origen: además de dar el resultado, **muestra el desarrollo** —el grado de
@@ -45,10 +46,10 @@ La interfaz está en **español, inglés y portugués**.
 
 | Modo | Estado | Qué hace |
 |------|--------|----------|
-| **Básico** | Gratis, siempre | Estructuras de barras en 2D y en 3D. Diagramas de axial, corte y momento, tensiones y funciones avanzadas: análisis cinemático, análisis de sección, segundo orden, pandeo, análisis modal, colapso plástico, líneas de influencia y el método de las rigideces paso a paso. Los modelos se cargan desde plantillas de Excel, se guardan en un archivo o viajan en un link. |
-| **PRO** | En desarrollo · acceso libre | Elementos finitos y modelos complejos: losas y tabiques como placas y cáscaras, vínculos, generación de cargas según norma, importación desde AutoCAD (DXF), Excel o BIM (IFC), y análisis dinámico, por etapas y no lineal. |
-| **Educativo** | En desarrollo | El docente arma el ejercicio dentro de la app y lo reparte como un link. El alumno lo resuelve sin el resultado a la vista, y las respuestas vuelven al docente. |
-| **Stabileo IA** | En desarrollo | Un agente que arma, revisa y explica modelos, sobre el mismo modelo estructurado y el mismo solver que usás vos. La IA propone; el solver decide. |
+| **Básico** | Disponible | Estructuras de barras en 2D y en 3D. Diagramas de esfuerzo axil, corte y momento, tensiones y funciones avanzadas: análisis cinemático, análisis de sección, segundo orden, pandeo, análisis modal, colapso plástico, líneas de influencia y el método de las rigideces paso a paso. Los modelos se cargan desde plantillas de Excel, se guardan en un archivo o viajan en un link. |
+| **PRO** | En desarrollo | Elementos finitos y modelos complejos: losas y tabiques como placas y cáscaras, vínculos, generación de cargas según norma, importación desde AutoCAD (DXF) o Excel, y análisis dinámico, por etapas y no lineal. |
+| **Educativo** | En desarrollo | El docente arma el ejercicio dentro de la app y lo reparte como un link. El alumno lo resuelve sin el resultado a la vista y le devuelve sus respuestas en un archivo o un código corto. |
+| **Stabileo IA** | En desarrollo | Un agente que se está construyendo para armar, revisar y explicar modelos, sobre el mismo modelo estructurado y el mismo solver que usás vos. La IA propone; el solver decide. |
 
 <table>
   <tr>
@@ -88,7 +89,7 @@ solvers de código abierto como [OpenSees](https://opensees.berkeley.edu/) son p
 manejan con scripts y no tienen interfaz visual.
 
 - **Nativo del navegador.** Abrís [stabileo.com](https://stabileo.com) y empezás.
-- **Un solver de verdad, en tu máquina.** Tus modelos no se suben a ningún lado.
+- **Un solver de verdad, en tu máquina.** El cálculo corre localmente, en el navegador.
 - **En tiempo real.** Movés un nodo, cambiás una carga o una sección, y los resultados acompañan.
 - **Explica.** El análisis cinemático, el análisis de sección y el método de las rigideces paso a
   paso muestran *por qué* un resultado es el que es, incluso cuando la fórmula que te enseñaron no

@@ -2,7 +2,7 @@
 
 **Stabileo** is a structural analysis program that runs in the browser. There is nothing to
 install and no account to create: open [stabileo.com](https://stabileo.com) and start modelling.
-The analysis runs on your own computer, so your models never leave it.
+The analysis runs on your own computer: the model is not sent to any server to be solved.
 
 This guide explains what each part of the program does and, above all, **the theory behind it**.
 It is meant to be read straight through, like course notes, without knowing how to program or how
@@ -26,15 +26,16 @@ it is, 6 can be read on its own.
 
 ## The modes, in one line each
 
-- **Basic** — frame and truss structures in 2D and 3D. It is free, it is finished, and it is the
-  one used in courses. Besides solving, it **shows the working**: the degree of indeterminacy, the
+- **Basic** — frame and truss structures in 2D and 3D. It is finished, and it is the one used in
+  courses. Besides solving, it **shows the working**: the degree of indeterminacy, the
   stiffness matrix step by step, the stresses in a section with the formula that applies.
 - **PRO** — finite elements and complex models: slabs and walls as plates and shells,
-  constraints, load generation, import from AutoCAD, Excel or IFC, and dynamic and non-linear
-  analysis. It is in development, with open access for anyone who wants to try it.
+  constraints, load generation, import from AutoCAD or Excel, and dynamic and non-linear analysis.
+  It is in development.
 - **Education** — the teacher writes an exercise inside the app and hands it out as a link; the
-  student solves it without seeing the result, and the answers go back to the teacher. It is
-  switched on from **Settings**.
+  student solves it without seeing the result and hands the answers back to the teacher as a file
+  or a short code. It is in development; switch it on in **Settings → Enable Educational mode
+  option**, which adds an **Exercises** button at the end of the ribbon.
 
 ## Further reading
 
@@ -42,8 +43,9 @@ it is, 6 can be read on its own.
   computed by the program and the editor embedded: for example,
   [bars or finite elements?](https://stabileo.com/en/blog/bars-or-finite-elements/) or
   [which torsion theory applies](https://stabileo.com/en/blog/torsion-bredt-saint-venant/).
-- **Found a mistake in the guide or in the program?** Use the contact button in the app, or open
-  an issue on [GitHub](https://github.com/lambdaclass/stabileo/issues).
+- **A question or a suggestion?** Use the contact button in the app, join the
+  [Discord](https://discord.gg/Q53rp7FKXA), or open an issue on
+  [GitHub](https://github.com/lambdaclass/stabileo/issues).
 
 ---
 

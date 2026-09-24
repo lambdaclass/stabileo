@@ -32,7 +32,7 @@
 
 Stabileo is structural analysis software that runs in any modern browser. You model, load, solve
 and read results in 2D and 3D. The analysis engine is written in Rust and compiled to WebAssembly,
-so it runs on your own computer: your models never leave it.
+so it runs on your own computer: the model is not sent to a server to be solved.
 
 It was born in the structures courses at [FIUBA](http://www.fi.uba.ar/) (University of Buenos
 Aires), and it keeps that origin: besides giving the answer, **it shows the working**: the degree
@@ -45,10 +45,10 @@ The interface is available in **English, Spanish and Portuguese**.
 
 | Mode | Status | What it does |
 |------|--------|--------------|
-| **Basic** | Free, always | Frame and truss structures in 2D and 3D. Axial, shear and moment diagrams, stresses, and advanced tools: kinematic analysis, section analysis, second order, buckling, modal analysis, plastic collapse, influence lines and the stiffness method step by step. Models load from Excel templates, save to a file or travel in a link. |
-| **PRO** | In development · open access | Finite elements and complex models: slabs and walls as plates and shells, constraints, code-based load generation, import from AutoCAD (DXF), Excel or BIM (IFC), and dynamic, staged and non-linear analysis. |
-| **Education** | In development | The teacher writes an exercise inside the app and hands it out as a link. The student solves it without the result in view, and the answers go back to the teacher. |
-| **Stabileo AI** | In development | An agent that builds, reviews and explains models, working on the same structured model and the same solver you use. The AI proposes; the solver decides. |
+| **Basic** | Available | Frame and truss structures in 2D and 3D. Axial, shear and moment diagrams, stresses, and advanced tools: kinematic analysis, section analysis, second order, buckling, modal analysis, plastic collapse, influence lines and the stiffness method step by step. Models load from Excel templates, save to a file or travel in a link. |
+| **PRO** | In development | Finite elements and complex models: slabs and walls as plates and shells, constraints, code-based load generation, import from AutoCAD (DXF) or Excel, and dynamic, staged and non-linear analysis. |
+| **Education** | In development | The teacher writes an exercise inside the app and hands it out as a link. The student solves it without the result in view and hands the answers back as a file or a short code. |
+| **Stabileo AI** | In development | An agent being built to create, review and explain models, working on the same structured model and the same solver you use. The AI proposes; the solver decides. |
 
 <table>
   <tr>
@@ -88,7 +88,7 @@ as [OpenSees](https://opensees.berkeley.edu/) are powerful but are driven by scr
 visual interface.
 
 - **Browser-native.** Open [stabileo.com](https://stabileo.com) and start.
-- **A real solver, on your machine.** Your models are not uploaded anywhere.
+- **A real solver, on your machine.** The analysis runs locally, in the browser.
 - **Real-time.** Move a node, change a load or resize a section, and the results follow.
 - **It explains.** Kinematic analysis, section analysis and the step-by-step stiffness method show
   *why* a result is what it is, including when the formula you were taught does not apply.

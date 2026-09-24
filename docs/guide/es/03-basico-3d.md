@@ -24,8 +24,8 @@ Los esfuerzos se expresan en esos ejes locales. Por eso, en una viga horizontal 
 gravedad, el momento principal es **My** (flexión alrededor del eje y local) y el corte que lo
 acompaña es **Vz**.
 
-> En **Ajustes** se elige si la terna local es derecha o izquierda. Eso cambia de qué lado se
-> dibujan los diagramas, no los valores.
+> En **Ajustes** se elige si la terna local es derecha o izquierda. Eso cambia el signo de algunos
+> esfuerzos y de qué lado se dibujan los diagramas, no su magnitud.
 
 ## Qué cambia respecto de 2D
 
@@ -48,7 +48,7 @@ ejemplo, el plano XY a la altura del primer piso.
 En 3D, un apoyo se define marcando qué restringe: tres desplazamientos (Fx, Fy, Fz) y tres giros
 (Mx, My, Mz). Los atajos **Empot.** (los seis) y **Artic.** (los tres desplazamientos) resuelven
 los casos habituales. A cada grado de libertad no restringido se le puede dar una rigidez de
-resorte.
+resorte. Los apoyos móviles inclinados y los desplazamientos impuestos son opciones del modo 2D.
 
 ### Cargas
 
@@ -59,23 +59,30 @@ resorte.
 
 > **Ojo con la dirección por defecto.** En 3D, la carga puntual arranca en **Fy** y la distribuida
 > en la dirección **y local**, que en una viga horizontal son horizontales. Para cargas de gravedad
-> usá **Fz** en los nodos y **qZ** (z local) en las barras.
+> usá **Fz** en los nodos y **qZ** (z local) en las barras, y poné **qYI** y **qYJ** en 0: si no,
+> la barra recibe también la carga horizontal que viene por defecto.
+
+Las cargas térmicas y las cargas puntuales en el tramo de una barra se cargan en 2D; al pasar el
+modelo a 3D se conservan y se calculan.
 
 ### Articulaciones
 
 En 3D, una articulación libera cualquier combinación de los seis movimientos relativos entre el
-extremo de la barra y el nodo. Se define con el modo **Articulaciones** de la herramienta **Nodo**.
+extremo de la barra y el nodo. Se define con el modo **Articulaciones** de la herramienta **Nodo**:
+se marcan los movimientos a liberar (dx, dy, dz, θx, θy, θz) y se hace clic sobre la barra, cerca
+del extremo. Las deslizaderas son propias del modelo 2D.
 
-> La columna **Art.** de la tabla de barras libera **sólo el momento Mz**. En una viga horizontal
-> el momento de gravedad es **My**, así que esa columna no la articula para las cargas de
-> gravedad: para eso, liberá θy con el modo **Articulaciones**.
+> En un modelo con geometría 3D, las columnas **Art. I** y **Art. J** de la tabla de barras liberan
+> **sólo el momento Mz**. En una viga horizontal el momento de gravedad es **My**, así que para
+> articularla frente a la gravedad hay que liberar θy con el modo **Articulaciones**. En un modelo
+> que sigue siendo plano, como uno traído desde 2D, esas columnas liberan el momento en su plano,
+> igual que en 2D.
 
 ### Torsión
 
 Una barra 3D puede trabajar a torsión, y para eso necesita la constante **J** de su sección. Las
 secciones de catálogo y las construidas por forma la traen calculada. Si definís una sección
-amorfa, cargá J a mano: si falta, el programa usa un valor de reemplazo mínimo y los resultados
-de torsión no significan nada.
+amorfa, cargá J a mano, para que la torsión se calcule con el valor que corresponde a la sección.
 
 ## Volver a 2D
 
@@ -89,20 +96,11 @@ el cambio es directo. Si no, el programa pregunta qué hacer:
      apoyos y cargas, y avisa si alguno quedaría sin apoyos o sin cargas.
    - **Toda la estructura, aplastada.** Proyecta todo sobre el plano. Sirve para ver la
      estructura de costado, pero superpone pórticos.
-3. **Seguir en 3D**, si el cambio fue un error, o **Borrar modelo y pasar a 2D**, para empezar de
-   cero en el plano.
+3. Con el plano y la opción elegidos, **Pasar a 2D** hace el cambio. También están **Seguir en 3D**,
+   para quedarse como estaba, y **Borrar modelo y pasar a 2D**, para empezar de cero en el plano.
 
 El modelo 3D original se guarda: al volver a tocar **3D**, se recupera tal como estaba. Los cambios
 que hayas hecho sobre el corte 2D no pasan al modelo 3D.
-
-## Limitaciones actuales del 3D en Básico
-
-- Las cargas térmicas y las cargas puntuales en el tramo de una barra no se pueden crear en 3D
-  (el botón **Térmica** aparece, pero no hace nada). Las creadas en 2D se conservan al pasar a 3D y
-  se calculan.
-- Los apoyos móviles inclinados y los desplazamientos impuestos, sólo en 2D.
-- Un modelo 3D con deslizaderas no se puede calcular.
-- La exportación a DXF y SVG está disponible sólo en 2D.
 
 ---
 
