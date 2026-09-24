@@ -24,10 +24,11 @@
 
 import {
   interactionCurve, sectionPoint, grossArea,
-  type Bar, type Outline, type Materials,
+  type Bar, type Outline, type Materials, type SectionPoint,
 } from './cirsoc201-section';
+import { refine, momentCapacityAtAxial, axialRange } from './cirsoc-flex-surface';
 import { twoLevels, levelsFromBottom, facesA1A2A3, ring, flexural } from './cirsoc201-layouts';
-import { COLUMN_STEEL_RATIO, minFlexuralSteelCm2, beta1 } from './cirsoc201-basis';
+import { COLUMN_STEEL_RATIO, minFlexuralSteelCm2, beta1, axialCap } from './cirsoc201-basis';
 import { chooseBars, chooseBarsForCount, chooseBarsPerLevel, type BarChoice } from './cirsoc201-bars';
 import { msg, type EngineMessage } from '../../../codes/message';
 
@@ -110,6 +111,18 @@ export interface FlexOutput {
   /** State at the answer. */
   a?: number; c?: number; cMax?: number; epsilonT?: number; phi?: number;
   phiPn?: number; phiMn?: number;
+  /**
+   * The neutral-axis direction at the answer, as `sectionPoint`'s θ — the
+   * outward normal of the compressed face. What the drawing needs to hatch
+   * the right side of the section, and on FCO to tilt it.
+   */
+  theta?: number;
+  /**
+   * FCO's "Pu (max)", kN. The design sheet prints it for the 8 % ceiling —
+   * the most axial load any reinforcement could carry — and the verification
+   * sheet for the steel given.
+   */
+  puMax?: number;
   ratio: number;
   ok: boolean;
   /** The bars, so the drawing shows what was computed. */
@@ -162,187 +175,53 @@ function layoutFor(i: FlexInput, AstCm2: number): Bar[] {
 
 
 /**
- * Where the capacity vector points, for a trial neutral-axis angle.
- *
- * Same ray walk `utilisation` does, kept to the direction of the answer rather
- * than its magnitude — which is all the search below needs.
- */
-function capacityDirectionAt(
-  outline: Outline, bars: Bar[], mat: Materials,
-  Pu: number, Mres: number, theta: number,
-): number | null {
-  const curve = interactionCurve(outline, bars, mat, theta, 60);
-  const cap = (p: (typeof curve)[number]) => Math.hypot(p.phiMnx, p.phiMny);
-  if (Math.abs(Pu) < 1e-9) {
-    for (let k = 0; k < curve.length - 1; k++) {
-      const A = curve[k];
-      const B = curve[k + 1];
-      if (A.phiPn >= 0 && B.phiPn < 0) {
-        const t = A.phiPn / (A.phiPn - B.phiPn);
-        const mx = A.phiMnx + t * (B.phiMnx - A.phiMnx);
-        const my = A.phiMny + t * (B.phiMny - A.phiMny);
-        return Math.atan2(my, mx);
-      }
-    }
-    return null;
-  }
-  const slope = Mres / Pu;
-  for (let i = 0; i < curve.length - 1; i++) {
-    const A = curve[i];
-    const B = curve[i + 1];
-    const fA = cap(A) - slope * A.phiPn;
-    const fB = cap(B) - slope * B.phiPn;
-    if (fA === 0 || fA * fB < 0) {
-      const t = fA / (fA - fB);
-      const mx = A.phiMnx + t * (B.phiMnx - A.phiMnx);
-      const my = A.phiMny + t * (B.phiMny - A.phiMny);
-      return Math.atan2(my, mx);
-    }
-  }
-  return null;
-}
-
-/**
- * The neutral-axis angle whose capacity points where the demand points.
- *
- * A bracket-and-bisect rather than anything cleverer: the map from θ to the
- * capacity's direction is monotone over the quadrant a demand lives in, the
- * bracket is the quadrant itself, and forty evaluations of a sixty-point curve
- * is nothing next to being several per cent wrong. If the bracket does not
- * close — a section so asymmetric the map turns — the caller keeps the
- * perpendicular guess, which is what it used to do everywhere.
- */
-function alignedTheta(
-  outline: Outline, bars: Bar[], mat: Materials,
-  Pu: number, Mx: number, My: number, fallback: number,
-): number {
-  const Mres = Math.hypot(Mx, My);
-  const want = Math.atan2(My, Mx);
-  /* Wrapped to (−π, π] so a demand near the ±π seam does not read as a huge
-     residual against a capacity on the other side of it. */
-  const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
-  const residual = (th: number): number | null => {
-    const got = capacityDirectionAt(outline, bars, mat, Pu, Mres, th);
-    return got === null ? null : wrap(got - want);
-  };
-
-  const r0 = residual(fallback);
-  if (r0 === null) return fallback;
-  if (Math.abs(r0) < 1e-4) return fallback;
-
-  /* Bracket by walking out from the perpendicular guess, both ways. */
-  let lo = fallback;
-  let hi = fallback;
-  let rLo = r0;
-  let rHi = r0;
-  const STEP = Math.PI / 36;            // 5°
-  for (let k = 1; k <= 18 && rLo * r0 > 0; k++) {
-    lo = fallback - k * STEP;
-    const r = residual(lo);
-    if (r === null) return fallback;
-    rLo = r;
-  }
-  for (let k = 1; k <= 18 && rHi * r0 > 0; k++) {
-    hi = fallback + k * STEP;
-    const r = residual(hi);
-    if (r === null) return fallback;
-    rHi = r;
-  }
-  let a: number;
-  let b: number;
-  let ra: number;
-  if (rLo * r0 <= 0) { a = lo; b = fallback; ra = rLo; }
-  else if (rHi * r0 <= 0) { a = fallback; b = hi; ra = r0; }
-  else return fallback;
-
-  for (let i = 0; i < 40; i++) {
-    const mid = (a + b) / 2;
-    const rm = residual(mid);
-    if (rm === null) return fallback;
-    if (Math.abs(rm) < 1e-6) return mid;
-    if (ra * rm <= 0) { b = mid; } else { a = mid; ra = rm; }
-  }
-  return (a + b) / 2;
-}
-
-/**
- * Demand over capacity along the ray of constant eccentricity.
+ * Demand over capacity along the ray of constant eccentricity — FCR's measure.
  *
  * The comparison an engineer draws by hand: hold the eccentricity and ask how
  * much further the section could be pushed. Comparing moments at constant
  * axial load instead reports an infinite reserve above the nose of the curve,
- * where there is none.
+ * where there is none. This is what FCR-VERIF prints as MV res / MV sol.
  *
- * Biaxial rides the same ray, with the moment taken as the resultant and the
- * neutral axis at the angle that resultant implies — which is what makes the
- * skew case the same calculation rather than Bresler's approximation of it.
+ * Uniaxial only. The biaxial sheet measures differently — moments at the
+ * fixed axial load, on the surface cut — and goes through
+ * `momentCapacityAtAxial` instead; see `cirsoc-flex-surface.ts`.
+ *
+ * ── The state is SOLVED for, not interpolated ─────────────────────
+ *
+ * Both branches used to read c, εt and φ by linear interpolation between two
+ * samples of the curve, or simply off the nearer sample. εt goes as 1/c, so a
+ * straight line between two samples overstates it wherever c is small — FST's
+ * published εt of 169,7 ‰ came back as 172,0 ‰. `refine` bisects the
+ * neutral-axis depth itself and returns the section's own state there.
  */
 function utilisation(
   outline: Outline, bars: Bar[], mat: Materials,
-  Pu: number, Mx: number, My: number,
-): { ratio: number; phiPn: number; phiMn: number; c: number; epsilonT: number; phi: number } {
-  const Mres = Math.hypot(Mx, My);
-  /*
-   * ── The neutral axis is NOT perpendicular to the resultant moment ──
-   *
-   * θ used to be taken straight from the demand — `atan2(Mx, −My)` — which
-   * assumes the section fails about an axis square to the moment vector. That
-   * holds for a circle and for either principal direction of a rectangle, and
-   * nowhere in between: a rectangle bent at 30° to its strong axis fails about
-   * an axis several degrees away from the perpendicular, because the concrete
-   * in the corner is not where a perpendicular axis would put it.
-   *
-   * Assuming it away read the capacity off the wrong point of the failure
-   * surface, and always in the same direction. Measured against FCO-DIM's own
-   * surface cut — 260 published points — the error was ZERO on both axes,
-   * where the assumption is exact, and up to 8,9 % between them, every bit of
-   * it UNCONSERVATIVE. It peaks near 30°, which is where most real columns
-   * are, and it is invisible to any test that only asks about Mx or only My.
-   *
-   * So the angle is SOLVED for rather than assumed: the θ whose capacity
-   * vector points where the demand points. `capacityAt` walks the ray at a
-   * trial θ and reports the direction it came back with; the bracketing search
-   * below closes on the θ that matches. On an axis the first guess is already
-   * the answer and the loop exits immediately, so the uniaxial agreement that
-   * was already verified does not move.
-   */
-  const skew = Math.abs(Mx) > 1e-9 && Math.abs(My) > 1e-9;
-  const theta0 = Math.atan2(Mx, -My) || Math.PI / 2;
-  const theta = skew ? alignedTheta(outline, bars, mat, Pu, Mx, My, theta0) : theta0;
+  Pu: number, Mu: number,
+): { ratio: number; phiPn: number; phiMn: number; c: number; epsilonT: number; phi: number; theta: number } {
+  const Mres = Math.abs(Mu);
+  /* A positive Mu compresses the top face: θ = π/2 in `sectionPoint`'s terms. */
+  const theta = Mu < 0 ? -Math.PI / 2 : Math.PI / 2;
   const curve = interactionCurve(outline, bars, mat, theta, 90);
-
-  const cap = (p: (typeof curve)[number]) => Math.hypot(p.phiMnx, p.phiMny);
+  const cap = (p: SectionPoint) => Math.hypot(p.phiMnx, p.phiMny);
 
   if (Math.abs(Pu) < 1e-9) {
     /*
      * ── Pure bending is where the curve CROSSES zero, not its nose ──
      *
-     * This took the greatest moment anywhere on the curve with φPn ≥ 0.
-     * That point is the balance region, reached under substantial axial
-     * compression — the widest part of the diagram. Crediting a section
-     * carrying no axial load with the capacity it would have under 300 kN
-     * of compression is unconservative, and by a lot: a 30 × 30 asked for
-     * 100 kN·m at Pu = 0 came back wanting 16.3 cm² where Pu = 2 kN wanted
-     * 24.5. The workbook settles which is right — its own FCR-VERIF section
-     * prints 87.79 kN·m of pure flexure for 21.34 cm², so 100 kN·m cannot
-     * be carried by less steel than that.
-     *
-     * The crossing is what the beam path has always used. Same curve, same
-     * interpolation, so the two agree at the axis they share.
+     * Taking the greatest moment with φPn ≥ 0 credited a section carrying no
+     * axial load with the capacity it has under substantial compression. The
+     * workbook settles which is right — FCR-VERIF prints 87,79 kN·m of pure
+     * flexure for 21,34 cm².
      */
     for (let k = 0; k < curve.length - 1; k++) {
       const A = curve[k];
       const B = curve[k + 1];
       if (A.phiPn >= 0 && B.phiPn < 0) {
-        const t = A.phiPn / (A.phiPn - B.phiPn);
-        const m = cap(A) + t * (cap(B) - cap(A));
+        const p = refine(outline, bars, mat, theta, A.c, B.c, (q) => q.phiPn);
+        const m = cap(p);
         return {
           ratio: m > 1e-9 ? Mres / m : Infinity,
-          phiPn: 0,
-          phiMn: m,
-          c: A.c + t * (B.c - A.c),
-          epsilonT: A.epsilonT + t * (B.epsilonT - A.epsilonT),
-          phi: A.phi + t * (B.phi - A.phi),
+          phiPn: 0, phiMn: m, c: p.c, epsilonT: p.epsilonT, phi: p.phi, theta,
         };
       }
     }
@@ -350,32 +229,61 @@ function utilisation(
     const last = curve[curve.length - 1];
     return {
       ratio: Infinity, phiPn: 0, phiMn: 0,
-      c: last.c, epsilonT: last.epsilonT, phi: last.phi,
+      c: last.c, epsilonT: last.epsilonT, phi: last.phi, theta,
     };
   }
 
   const slope = Mres / Pu;
-  let capP = 0;
-  let capM = 0;
-  let at = curve[0];
+  const onRay = (p: SectionPoint) => cap(p) - slope * p.phiPn;
   for (let i = 0; i < curve.length - 1; i++) {
     const A = curve[i];
     const B = curve[i + 1];
-    const fA = cap(A) - slope * A.phiPn;
-    const fB = cap(B) - slope * B.phiPn;
+    const fA = onRay(A);
+    const fB = onRay(B);
     if (fA === 0 || fA * fB < 0) {
-      const t = fA / (fA - fB);
-      capP = A.phiPn + t * (B.phiPn - A.phiPn);
-      capM = cap(A) + t * (cap(B) - cap(A));
-      at = Math.abs(t) < 0.5 ? A : B;
-      break;
+      const p = fA === 0 ? A : refine(outline, bars, mat, theta, A.c, B.c, onRay);
+      const capP = p.phiPn;
+      const capM = cap(p);
+      const capacity = Math.hypot(capM, capP);
+      return {
+        ratio: capacity > 1e-9 ? Math.hypot(Mres, Pu) / capacity : Infinity,
+        phiPn: capP, phiMn: capM, c: p.c, epsilonT: p.epsilonT, phi: p.phi, theta,
+      };
     }
   }
-  const demand = Math.hypot(Mres, Pu);
-  const capacity = Math.hypot(capM, capP);
+  const first = curve[0];
+  return { ratio: Infinity, phiPn: 0, phiMn: 0, c: first.c, epsilonT: first.epsilonT, phi: first.phi, theta };
+}
+
+/**
+ * FCO's measure: Mu over the moment capacity at the demand's own axial load,
+ * along the demand's own moment direction. The reciprocal of the sheet's
+ * "φMn / Mu". Infinite when the load is out of reach of the section at all.
+ */
+function biaxialUtilisation(
+  outline: Outline, bars: Bar[], mat: Materials, Pu: number, Mx: number, My: number,
+): { ratio: number; phiPn: number; phiMn: number; c: number; epsilonT: number; phi: number; theta: number } {
+  const Mres = Math.hypot(Mx, My);
+  if (Mres < 1e-9) {
+    /* No moment: the question is the axial load alone, against its own limit. */
+    const { max, min } = axialRange(outline, bars, mat);
+    const lim = Pu >= 0 ? max : min;
+    return {
+      ratio: Math.abs(lim) > 1e-9 ? Pu / lim : Infinity,
+      phiPn: lim, phiMn: 0, c: 0, epsilonT: 0, phi: 0, theta: Math.PI / 2,
+    };
+  }
+  const got = momentCapacityAtAxial(outline, bars, mat, Pu, Mx, My);
+  if (!got) {
+    return { ratio: Infinity, phiPn: Pu, phiMn: 0, c: 0, epsilonT: 0, phi: 0, theta: Math.PI / 2 };
+  }
+  const sx = Mx < 0 ? -1 : 1;
+  const sy = My < 0 ? -1 : 1;
   return {
-    ratio: capacity > 1e-9 ? demand / capacity : Infinity,
-    phiPn: capP, phiMn: capM, c: at.c, epsilonT: at.epsilonT, phi: at.phi,
+    ratio: got.phiMn > 1e-9 ? Mres / got.phiMn : Infinity,
+    phiPn: Pu, phiMn: got.phiMn,
+    c: got.state.c, epsilonT: got.state.epsilonT, phi: got.state.phi,
+    theta: Math.atan2(sx * Math.cos(got.fi), -sy * Math.sin(got.fi)),
   };
 }
 
@@ -448,19 +356,19 @@ export function solveFlex(i: FlexInput): FlexOutput {
      */
     const stateOf = (AsCm2: number, AsCompCm2 = 0) => {
       const bars = flexural(outline, effCover, AsCm2, i.dPrime, AsCompCm2);
-      const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
+      const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 120);
       for (let k = 0; k < curve.length - 1; k++) {
         const A = curve[k];
         const B = curve[k + 1];
         if (A.phiPn >= 0 && B.phiPn < 0) {
-          const tt = A.phiPn / (A.phiPn - B.phiPn);
-          const c0 = A.c + tt * (B.c - A.c);
+          /* Bisected on c, not interpolated — see `utilisation` for why. */
+          const p = refine(outline, bars, mat, Math.PI / 2, A.c, B.c, (q) => q.phiPn);
           return {
-            phiMn: Math.abs(A.phiMnx) + tt * (Math.abs(B.phiMnx) - Math.abs(A.phiMnx)),
-            c: c0,
-            a: beta1(i.fc) * c0,
-            epsilonT: A.epsilonT + tt * (B.epsilonT - A.epsilonT),
-            phi: A.phi + tt * (B.phi - A.phi),
+            phiMn: Math.abs(p.phiMnx),
+            c: p.c,
+            a: beta1(i.fc) * p.c,
+            epsilonT: p.epsilonT,
+            phi: p.phi,
           };
         }
       }
@@ -493,10 +401,8 @@ export function solveFlex(i: FlexInput): FlexOutput {
       let z = AstMaxHere;
       for (let k = 0; k < 45; k++) {
         const m = (a + z) / 2;
-        const bars = flexural(outline, effCover, m);
-        const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 400);
-        const at = curve.reduce((q, p) => (Math.abs(p.phiPn) < Math.abs(q.phiPn) ? p : q), curve[0]);
-        if (at.epsilonT > 0.005) a = m; else z = m;
+        /* εt from the solved state, not from the nearest of 400 samples. */
+        if (stateOf(m).epsilonT > 0.005) a = m; else z = m;
       }
       return a;
     };
@@ -615,7 +521,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
       AsMinCm2: AsMin,
       /* §10.3.4's c at εt = 5 ‰, which is what the sheet prints as cmax. */
       a: st.a, c: st.c, cMax: (dEff * 0.003) / 0.008, epsilonT: st.epsilonT, phi: st.phi,
-      phiMn: st.phiMn,
+      phiMn: st.phiMn, theta: Math.PI / 2,
       ratio: st.phiMn > 0 ? MuAbs / st.phiMn : Infinity,
       ok: verifies,
       impossible,
@@ -680,8 +586,9 @@ export function solveFlex(i: FlexInput): FlexOutput {
    * handed the steel back to the checker got a ratio of 1.41.
    */
   const Pu = i.Pu;
-  const at = (AstCm2: number) =>
-    utilisation(outline, layoutFor(i, AstCm2), mat, Pu, i.Mu, i.kase === 'FCO' ? i.Muy : 0);
+  const at = (AstCm2: number) => (i.kase === 'FCO'
+    ? biaxialUtilisation(outline, layoutFor(i, AstCm2), mat, Pu, i.Mu, i.Muy)
+    : utilisation(outline, layoutFor(i, AstCm2), mat, Pu, i.Mu));
 
   let AstCm2: number;
   let impossible = false;
@@ -748,9 +655,6 @@ export function solveFlex(i: FlexInput): FlexOutput {
       c: u.c * 100, a: b1 * u.c * 100, epsT: u.epsilonT * 1000, phi: u.phi,
     }),
     msg('flex.step.ratio', { ratio: u.ratio }),
-    choice
-      ? msg('flex.step.steel', { bars: choice.label, area: choice.areaCm2 })
-      : msg('flex.step.noBars'),
   );
 
   const r = i.ratioAsPrime;
@@ -770,13 +674,21 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * which printed "NaN cm²" under As mínima. A column's real floor is
      * §10.9.1's 1 % of Ag either way, and that is `AstMinCm2` below.
      */
+    /*
+     * FCO has no `d′s` field — its covers are d′sh and d′sv — so reading
+     * `dPrimeS` there picked up whatever the last rectangular case left in it:
+     * 2,66 cm² against the sheet's 2,50 for the 30 × 30.
+     */
     ...(Number.isFinite(i.b) && Number.isFinite(i.h) && i.b > 0 && i.h > 0
-      ? { AsMinCm2: minFlexuralSteelCm2(i.fc, i.fy, i.b, i.h - i.dPrimeS) }
+      ? { AsMinCm2: minFlexuralSteelCm2(i.fc, i.fy, i.b, i.h - (i.kase === 'FCO' ? i.dPrimeV : i.dPrimeS)) }
       : {}),
     AstMinCm2: AstMin,
     AstMaxCm2: AstMax,
     c: u.c, a: b1 * u.c, epsilonT: u.epsilonT, phi: u.phi,
-    phiPn: u.phiPn, phiMn: u.phiMn,
+    phiPn: u.phiPn, phiMn: u.phiMn, theta: u.theta,
+    ...(i.kase === 'FCO'
+      ? { puMax: axialCap(i.fc, i.fy, Ag, (i.mode === 'design' ? AstMax : AstCm2) * 1e-4, i.confinement) }
+      : {}),
     ratio: u.ratio,
     ok: !impossible && u.ratio <= 1,
     bars, barChoice: choice, outline, steps, impossible,
