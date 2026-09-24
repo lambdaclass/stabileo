@@ -1234,8 +1234,8 @@ const en: Record<string, string> = {
   'prop.addHingeI': 'Add hinge at node I',
   'prop.removeHingeJ': 'Remove hinge at node J',
   'prop.addHingeJ': 'Add hinge at node J',
-  'prop.hinge3DDisclosure': 'In 3D, this releases bending about the strong axis (Mz) only. Bending about the weak axis (My) and torsion remain coupled.',
-  'prop.hinges3DSuffix': '(Mz only)',
+  'prop.hinge3DDisclosure': 'In 3D the hinge releases bending about both local axes (My and Mz); torsion is still carried.',
+  'prop.hinges3DSuffix': '(My and Mz)',
   'prop.internalForces3d': '3D Internal Forces',
   'prop.moments3d': '3D Moments',
   'prop.internalForces': 'Internal Forces',
@@ -1778,6 +1778,10 @@ const en: Record<string, string> = {
   // ToolbarAdvanced.svelte / ToolbarResults.svelte UI labels
   'advanced.bucklingLabel': 'Buckling',
   'advanced.plasticLabel': 'Plastic',
+  'advanced.mpSource.geometry': 'Zp from the section geometry',
+  'advanced.mpSource.rectangle': 'Zp = b·h²/4 (rectangle)',
+  'advanced.mpSource.estimated': 'Zp estimated: only A and I are known (shape factor 1.15)',
+  'advanced.mpFyAssumed': 'the material has no fy: {fy} MPa was used',
   'advanced.spectralLabel': 'Spectral',
 
   // ─── KinematicPanel.svelte ───
@@ -1853,7 +1857,7 @@ const en: Record<string, string> = {
   'config.tip.lengths': 'Labels every member with its length. A quick way to catch a node placed one metre off.',
   'config.tip.showLoads': 'Draws the loads on the model. Turning them off leaves the bare structure, which is easier to read while editing geometry.',
   'config.tip.units': 'The unit system every field and every result is expressed in. Changing it converts what is already there.',
-  'config.tip.axisConvention': 'Which hand rule the local axes follow. It decides the sign of moments and the side a diagram is drawn on — not the magnitude of anything.',
+  'config.tip.axisConvention': 'How local axes are shown: it decides which side of a member its diagrams are drawn on. The analysis is always right-handed, so no result changes.',
   'config.tip.momentStyle': 'How a moment is drawn: a double-headed arrow along the axis it turns about, or a curved arrow showing the turn itself.',
   'config.tip.renderMode': 'Members as lines, as solid bars, or with their real section extruded along them. Lines are fastest on a large model.',
   'config.tip.color': 'Colours the members all alike, or by the material or section assigned to each — a quick check that the right one went where you meant.',

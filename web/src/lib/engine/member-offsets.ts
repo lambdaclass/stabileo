@@ -149,8 +149,9 @@ export function pruneHelperNodeResults(
 
 /**
  * World-space offset vectors for an element, computed with the SAME axes the
- * solver expansion uses: effectiveRoll = rollAngle + section rotation, plus the
- * leftHand convention. The single shared resolver for every visualization —
+ * solver expansion uses: effectiveRoll = rollAngle + section rotation, and the
+ * right-handed frame (the axis convention never reaches the analysis; see
+ * `buildSolverLoads3D`). The single shared resolver for every visualization —
  * a preview that uses different axes than the analysis lies about where the
  * member actually acts.
  */
@@ -159,7 +160,7 @@ export function resolveOffsetWorldVectors(
   pI: { x: number; y: number; z: number },
   pJ: { x: number; y: number; z: number },
   sectionRotation: number | undefined,
-  leftHand: boolean,
+  _leftHand: boolean,
 ): { i: { x: number; y: number; z: number } | null; j: { x: number; y: number; z: number } | null } | null {
   if (!hasMemberOffset(elem)) return null;
   const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
@@ -168,7 +169,7 @@ export function resolveOffsetWorldVectors(
   try {
     axes = computeLocalAxes3D(
       { id: 0, ...pI }, { id: 0, ...pJ },
-      localY, (elem.rollAngle ?? 0) + (sectionRotation ?? 0), leftHand,
+      localY, (elem.rollAngle ?? 0) + (sectionRotation ?? 0), false,
     );
   } catch {
     return null; // zero-length

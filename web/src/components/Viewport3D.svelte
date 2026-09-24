@@ -4,6 +4,7 @@
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
+  import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import PointerModeButton from './PointerModeButton.svelte';
   import Icon from './ribbon/Icon.svelte';
@@ -1610,43 +1611,7 @@
     historyStore.pushState();
 
     if (is3D) {
-      // Per-DOF 3D support creation
-      const dofRestraints = {
-        tx: uiStore.sup3dTx, ty: uiStore.sup3dTy, tz: uiStore.sup3dTz,
-        rx: uiStore.sup3dRx, ry: uiStore.sup3dRy, rz: uiStore.sup3dRz,
-      };
-
-      // Determine visual type for gizmo
-      const allFixed = dofRestraints.tx && dofRestraints.ty && dofRestraints.tz &&
-                       dofRestraints.rx && dofRestraints.ry && dofRestraints.rz;
-      const onlyTrans = dofRestraints.tx && dofRestraints.ty && dofRestraints.tz &&
-                        !dofRestraints.rx && !dofRestraints.ry && !dofRestraints.rz;
-      const noneFixed = !dofRestraints.tx && !dofRestraints.ty && !dofRestraints.tz &&
-                        !dofRestraints.rx && !dofRestraints.ry && !dofRestraints.rz;
-
-      const type: import('../lib/store/model.svelte.ts').SupportType =
-        allFixed ? 'fixed3d' : onlyTrans ? 'pinned3d' : noneFixed ? 'spring3d' : 'custom3d';
-
-      // Collect springs for unchecked DOFs that have stiffness values
-      let springs: { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number } | undefined;
-      const hasSpring = (!dofRestraints.tx && uiStore.sup3dKx > 0) ||
-                        (!dofRestraints.ty && uiStore.sup3dKy > 0) ||
-                        (!dofRestraints.tz && uiStore.sup3dKz > 0) ||
-                        (!dofRestraints.rx && uiStore.sup3dKrx > 0) ||
-                        (!dofRestraints.ry && uiStore.sup3dKry > 0) ||
-                        (!dofRestraints.rz && uiStore.sup3dKrz > 0);
-      if (hasSpring || noneFixed) {
-        springs = {};
-        if (!dofRestraints.tx && uiStore.sup3dKx > 0) springs.kx = uiStore.sup3dKx;
-        if (!dofRestraints.ty && uiStore.sup3dKy > 0) springs.ky = uiStore.sup3dKy;
-        if (!dofRestraints.tz && uiStore.sup3dKz > 0) springs.kz = uiStore.sup3dKz;
-        if (!dofRestraints.rx && uiStore.sup3dKrx > 0) springs.krx = uiStore.sup3dKrx;
-        if (!dofRestraints.ry && uiStore.sup3dKry > 0) springs.kry = uiStore.sup3dKry;
-        if (!dofRestraints.rz && uiStore.sup3dKrz > 0) springs.krz = uiStore.sup3dKrz;
-      }
-
-      const opts: any = { dofRestraints, dofFrame: uiStore.supportFrame3D };
-      const supId = modelStore.addSupport(nodeId, type, springs, opts);
+      const supId = addSupportFromTool3D(nodeId);
       uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     } else {
@@ -1703,9 +1668,7 @@
 
       historyStore.pushState();
       if (is3D) {
-        const qY = uiStore.loadValue;
-        const qZ = uiStore.loadValueZ;
-        modelStore.addDistributedLoad3D(elemId, qY, uiStore.loadValueJ, qZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
+        modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
       } else {
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);
       }

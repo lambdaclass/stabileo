@@ -1138,7 +1138,22 @@ function solveCombinations2DFallback(
 
 /** Build a SolverInput3D from model data. Returns null if model is empty. */
 /** Build only the loads array for a 3D solver input (avoids rebuilding all structural Maps per case). */
-function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: boolean, leftHand: boolean): SolverLoad3D[] {
+/*
+ * ── The axis convention never reaches the analysis ──
+ *
+ * "Left-hand" negates each member's local y. That is a legitimate way to draw
+ * and label a member, and a wrong way to solve one: the rotation matrix it
+ * builds is improper, and applied to the rotational DOFs — pseudovectors — it
+ * changed the answer (a 50 kN·m nodal moment moved a node 1,33 mm instead of
+ * 5,02, and a reaction changed sign). So the analysis, its loads included, is
+ * always right-handed, and the convention is a drawing choice: which side of a
+ * member its diagrams are drawn on, and how its local axes are shown
+ * (`diagram-render-3d`, the axis gizmo). The deformed shape and the free-body
+ * arrows are physical and ignore it too. `leftHand` stays in these signatures
+ * only so the callers need not change.
+ */
+function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: boolean, _leftHand: boolean): SolverLoad3D[] {
+  const leftHand = false;
   const solverLoads: SolverLoad3D[] = [];
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
 
@@ -1388,13 +1403,13 @@ export function hasLoadCarrying3D(model: ModelData): boolean {
 export function buildSolverInput3D(
   model: ModelData,
   includeSelfWeight = false,
-  leftHand = false,
+  _leftHand = false,
   opts: { expandMemberOffsets?: boolean } = {},
 ): SolverInput3D | null {
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
 
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
-  const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, leftHand);
+  const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, false);
 
   // Convert support types to SolverSupport3D booleans
   const supportTo3D = (s: Support): { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean } => {
@@ -1599,7 +1614,7 @@ export function buildSolverInput3D(
     curvedShells: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
     constraints: model.constraints ?? [],
     connectors: model.connectors,
-    leftHand,
+    leftHand: false, // see buildSolverLoads3D: the analysis is always right-handed
   };
 
   // Analytical member offsets (genuine 3D only): ephemerally expand offset

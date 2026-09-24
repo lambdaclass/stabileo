@@ -2620,6 +2620,31 @@ function createModelStore() {
       this.toggleRelease(elementId, end === 'start' ? 'i' : 'j', 'mz');
     },
 
+    /**
+     * The hinge a space model's "Art. I / Art. J" puts in: a pin in bending, both
+     * moments released, torsion still carried.
+     *
+     * `toggleHinge` releases `mz` alone — the in-plane moment of a plane frame. In
+     * a space model a beam's local z is vertical, so the moment gravity bends it
+     * with is My, and that toggle left it fully fixed (a portal's beam end went
+     * from −10,72 to −10,63). An end with either moment released counts as
+     * hinged, so a click clears both.
+     */
+    toggleHinge3D(elementId: number, end: 'start' | 'end'): void {
+      if (!_undoBatching) _pushUndo?.();
+      const elem = model.elements.get(elementId);
+      if (!elem) return;
+      const plain = $state.snapshot(elem) as Element;
+      const target: Release = { ...(end === 'start' ? plain.releaseI : plain.releaseJ) };
+      const on = !(target.my === true || target.mz === true);
+      target.my = on;
+      target.mz = on;
+      if (end === 'start') plain.releaseI = target;
+      else plain.releaseJ = target;
+      model.elements.set(elementId, plain);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
+    },
+
     /** Set (or clear, when `slide === undefined`) the 2D sliding-joint release on
      *  one element-end. `axis` is ignored when clearing. Explicit model data — the
      *  solver expands it ephemerally (sliding-joints.ts); save/load/undo persist it. */
@@ -3175,6 +3200,7 @@ function createModelStore() {
         addPointLoadOnElement: this.addPointLoadOnElement.bind(this),
         addThermalLoad: this.addThermalLoad.bind(this),
         toggleHinge: this.toggleHinge.bind(this),
+        toggleHinge3D: this.toggleHinge3D.bind(this),
         toggleRelease: this.toggleRelease.bind(this),
         addDistributedLoad3D: this.addDistributedLoad3D.bind(this),
         addNodalLoad3D: this.addNodalLoad3D.bind(this),

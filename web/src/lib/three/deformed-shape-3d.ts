@@ -170,14 +170,14 @@ export function computeDeformedShape3DPair(
   eiData?: ElementEI,
   localY?: { x: number; y: number; z: number },
   rollAngle?: number,
-  leftHand?: boolean,
+  _leftHand?: boolean,
 ): { p0: THREE.Vector3[]; p1: THREE.Vector3[] } {
   const solverNodeI = { id: 0, x: nodeI.x, y: nodeI.y, z: nodeI.z };
   const solverNodeJ = { id: 1, x: nodeJ.x, y: nodeJ.y, z: nodeJ.z };
 
   let axes;
   try {
-    axes = computeLocalAxes3D(solverNodeI, solverNodeJ, localY, rollAngle, leftHand);
+    axes = computeLocalAxes3D(solverNodeI, solverNodeJ, localY, rollAngle, false); // physical: the solver's right-handed frame
   } catch {
     return { p0: [], p1: [] }; // zero-length element
   }
@@ -316,14 +316,14 @@ export function computeDeformedShape3D(
   eiData?: ElementEI,
   localY?: { x: number; y: number; z: number },
   rollAngle?: number,
-  leftHand?: boolean,
+  _leftHand?: boolean,
 ): THREE.Vector3[] {
   const solverNodeI = { id: 0, x: nodeI.x, y: nodeI.y, z: nodeI.z };
   const solverNodeJ = { id: 1, x: nodeJ.x, y: nodeJ.y, z: nodeJ.z };
 
   let axes;
   try {
-    axes = computeLocalAxes3D(solverNodeI, solverNodeJ, localY, rollAngle, leftHand);
+    axes = computeLocalAxes3D(solverNodeI, solverNodeJ, localY, rollAngle, false); // physical: the solver's right-handed frame
   } catch {
     return []; // zero-length element
   }
@@ -541,7 +541,7 @@ export function createDeformedLines(
           { id: elem.nodeI, x: nI.x, y: nI.y, z: nI.z ?? 0 },
           { id: elem.nodeJ, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
           dI, dJ, ef, eiEntry,
-          localY, rollAngle, _leftHand,
+          localY, rollAngle, false,
         );
         p0 = pair.p0;
         p1 = pair.p1;

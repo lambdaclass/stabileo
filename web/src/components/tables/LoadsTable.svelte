@@ -30,13 +30,13 @@
       modelStore.addNodalLoad(newLoadTargetId, 0, -10, 0, newLoadCaseId);
     } else if (newLoadType === 'nodal3d') {
       if (!modelStore.getNode(newLoadTargetId)) return;
-      modelStore.addNodalLoad3D(newLoadTargetId, 0, -10, 0, 0, 0, 0, newLoadCaseId);
+      modelStore.addNodalLoad3D(newLoadTargetId, 0, 0, -10, 0, 0, 0, newLoadCaseId); // Z is vertical
     } else if (newLoadType === 'distributed') {
       if (!modelStore.elements.get(newLoadTargetId)) return;
       modelStore.addDistributedLoad(newLoadTargetId, -10, -10, undefined, undefined, newLoadCaseId);
     } else if (newLoadType === 'distributed3d') {
       if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addDistributedLoad3D(newLoadTargetId, -10, -10, 0, 0, undefined, undefined, newLoadCaseId);
+      modelStore.addDistributedLoad3D(newLoadTargetId, 0, 0, -10, -10, undefined, undefined, newLoadCaseId); // qZ: gravity
     } else if (newLoadType === 'pointOnElement') {
       if (!modelStore.elements.get(newLoadTargetId)) return;
       modelStore.addPointLoadOnElement(newLoadTargetId, 0, -10, { caseId: newLoadCaseId });

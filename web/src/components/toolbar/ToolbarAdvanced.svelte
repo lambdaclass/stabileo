@@ -7,6 +7,7 @@
   import { t } from '../../lib/i18n';
   import { solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
+  import { plasticMoments, DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
   import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
 
@@ -392,14 +393,19 @@
     }
   }
 
+  /** The Mp each section went in with, shown under the result. */
+  let plasticMps = $state<SectionMp[]>([]);
+
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    const sections = new Map<number, { a: number; iz: number; materialId: number; b?: number; h?: number }>();
+    /* Mp from each section's own plastic modulus, not the solid rectangle b·h²/4 the engine assumes. */
+    const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
+    const sections = new Map<number, { a: number; iz: number; materialId: number }>();
     for (const [id, sec] of modelStore.sections) {
       const elem = [...modelStore.elements.values()].find(e => e.sectionId === id);
-      sections.set(id, { a: sec.a, iz: sec.iy ?? sec.iz, materialId: elem?.materialId ?? 1, b: sec.b, h: sec.h });
+      sections.set(id, { a: sec.a, iz: sec.iy ?? sec.iz, materialId: elem?.materialId ?? 1 });
     }
     const materials = new Map<number, { fy?: number }>();
     for (const [id, mat] of modelStore.materials) {
@@ -407,7 +413,8 @@
     }
     try {
       const t0 = performance.now();
-      const result = solvePlastic({ solver: input, sections, materials });
+      const result = solvePlastic({ solver: input, sections, materials, mpOverrides: new Map(mps.map((m) => [m.sectionId, m.mp])) });
+      plasticMps = mps;
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPlasticResult(result);
@@ -1040,6 +1047,11 @@
       {resultsStore.plasticResult.isMechanism ? t('advanced.mechanism') : t('advanced.noCollapse')} |
       GH = {resultsStore.plasticResult.redundancy}
     </div>
+    {#each plasticMps as m (m.sectionId)}
+      <div class="adv-result-info" data-testid="plastic-mp">
+        {m.name}: Mp = {m.mp.toFixed(1)} kN·m (Zp = {(m.zp * 1e6).toFixed(0)} cm³, fy = {m.fy} MPa) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {t('advanced.mpFyAssumed').replace('{fy}', String(DEFAULT_FY))}{/if}
+      </div>
+    {/each}
   {/if}
   {#if resultsStore.movingLoadEnvelope}
     <div class="adv-result-row">

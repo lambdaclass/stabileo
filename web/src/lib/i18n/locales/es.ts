@@ -1227,8 +1227,8 @@ const es: Record<string, string> = {
   'prop.addHingeI': 'Agregar articulación en nodo I',
   'prop.removeHingeJ': 'Quitar articulación en nodo J',
   'prop.addHingeJ': 'Agregar articulación en nodo J',
-  'prop.hinge3DDisclosure': 'En 3D libera la flexión sólo en el eje fuerte (Mz). La flexión en el eje débil (My) y la torsión siguen acopladas.',
-  'prop.hinges3DSuffix': '(sólo Mz)',
+  'prop.hinge3DDisclosure': 'En 3D la articulación libera la flexión en los dos ejes locales (My y Mz); la torsión se sigue transmitiendo.',
+  'prop.hinges3DSuffix': '(My y Mz)',
   'prop.internalForces3d': 'Fuerzas Internas 3D',
   'prop.moments3d': 'Momentos 3D',
   'prop.internalForces': 'Fuerzas Internas',
@@ -1771,6 +1771,10 @@ const es: Record<string, string> = {
   // ToolbarAdvanced.svelte / ToolbarResults.svelte UI labels
   'advanced.bucklingLabel': 'Pandeo',
   'advanced.plasticLabel': 'Plástico',
+  'advanced.mpSource.geometry': 'Zp de la geometría de la sección',
+  'advanced.mpSource.rectangle': 'Zp = b·h²/4 (rectángulo)',
+  'advanced.mpSource.estimated': 'Zp estimado: sólo se conocen A e I (factor de forma 1,15)',
+  'advanced.mpFyAssumed': 'el material no tiene fy: se usó {fy} MPa',
   'advanced.spectralLabel': 'Espectral',
 
   // ─── KinematicPanel.svelte ───
@@ -1846,7 +1850,7 @@ const es: Record<string, string> = {
   'config.tip.lengths': 'Rotula cada barra con su longitud. Una forma rápida de detectar un nodo puesto un metro más allá.',
   'config.tip.showLoads': 'Dibuja las cargas sobre el modelo. Apagarlas deja la estructura desnuda, más fácil de leer mientras editás geometría.',
   'config.tip.units': 'El sistema de unidades en el que se expresan todos los campos y resultados. Cambiarlo convierte lo que ya está cargado.',
-  'config.tip.axisConvention': 'Qué regla de la mano siguen los ejes locales. Define el signo de los momentos y el lado hacia el que se dibuja un diagrama, no la magnitud de nada.',
+  'config.tip.axisConvention': 'Cómo se muestran los ejes locales: define de qué lado de la barra se dibujan los diagramas. El cálculo es siempre en terna derecha, así que no cambia ningún resultado.',
   'config.tip.momentStyle': 'Cómo se dibuja un momento: una flecha de doble punta sobre el eje en torno al que gira, o una flecha curva que muestra el giro.',
   'config.tip.renderMode': 'Barras como líneas, como barras sólidas, o con su sección real extruida a lo largo. Las líneas son lo más rápido en un modelo grande.',
   'config.tip.color': 'Colorea las barras todas iguales, o según el material o la sección asignada a cada una: un chequeo rápido de que fue la correcta a donde querías.',

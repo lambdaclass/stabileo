@@ -209,7 +209,7 @@ export function createDespiece3DGroup(opts: {
   loads?: Load[];
   loadMode?: DespieceLoadMode;
 }): DespieceGroup {
-  const { elements, nodes, forces, reactions, sep, sections, leftHand, project2D } = opts;
+  const { elements, nodes, forces, reactions, sep, sections, project2D } = opts;
   const vectorMode = opts.vectorMode ?? 'all';
   const basis = opts.basis ?? 'local';
   const vSize = Math.max(0.5, Math.min(2, opts.vectorSize ?? 1));
@@ -319,7 +319,7 @@ export function createDespiece3DGroup(opts: {
       const localY = (!project2D && elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       const roll = project2D ? undefined : ((elem.rollAngle ?? 0) + (sections?.get(elem.sectionId)?.rotation ?? 0));
-      axes = computeLocalAxes3D({ id: 0, ...pI }, { id: 0, ...pJ }, localY, roll, leftHand);
+      axes = computeLocalAxes3D({ id: 0, ...pI }, { id: 0, ...pJ }, localY, roll, false); // forces are in the solver's right-handed frame
     } catch { continue; }
     const exV = new THREE.Vector3(...axes.ex), eyV = new THREE.Vector3(...axes.ey), ezV = new THREE.Vector3(...axes.ez);
 
@@ -527,7 +527,7 @@ function endAction3D(args: Inspect3DArgs, el: DespieceElement3D, end: 'I' | 'J')
   let axes;
   try {
     const localY = (el.localYx !== undefined && el.localYy !== undefined && el.localYz !== undefined) ? { x: el.localYx, y: el.localYy, z: el.localYz } : undefined;
-    axes = computeLocalAxes3D({ id: 0, ...nI }, { id: 0, ...nJ }, localY, el.rollAngle, args.leftHand ?? false);
+    axes = computeLocalAxes3D({ id: 0, ...nI }, { id: 0, ...nJ }, localY, el.rollAngle, false); // the solver's right-handed frame
   } catch { return null; }
   const ex = new THREE.Vector3(...axes.ex), ey = new THREE.Vector3(...axes.ey), ez = new THREE.Vector3(...axes.ez);
   const [axialOut, n, vy, vz, mx, my, mz, nodeId]: [1 | -1, number, number, number, number, number, number, number] =
