@@ -5,8 +5,7 @@
   import ProStairSection from './ProStairSection.svelte';
   import { t, tp } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
-  import { findCoincidentNode, beamThrough } from '../../lib/engine/mesh-weld';
-  import { buildBilinearQuadGrid } from '../../lib/engine/shell-mesh-gen';
+  import { meshQuadRegion } from '../../lib/model/edit/mesh-region';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
@@ -117,61 +116,12 @@
       return;
     }
 
-    // Get corner positions
-    const corners = cornerIds.map(id => modelStore.nodes.get(id)!);
-
-    // Target-size mode: derive subdivisions from physical edge lengths so the
-    // element size is ~uniform regardless of panel size (large picks get more
-    // cells, small picks fewer) — instead of a fixed Nx×Ny for every region.
-    const edgeLen = (a: typeof corners[number], b: typeof corners[number]) =>
-      Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
-    const nx = meshMode === 'targetSize'
-      ? Math.max(1, Math.round(edgeLen(corners[0], corners[1]) / meshTargetSize))
-      : meshNx;
-    const ny = meshMode === 'targetSize'
-      ? Math.max(1, Math.round(edgeLen(corners[0], corners[3]) / meshTargetSize))
-      : meshNy;
-
-    // Build the bilinear node grid + quad cells (shared with the CAD draft
-    // generator). Corner ids are reused verbatim; interior/edge nodes weld to
-    // existing coincident nodes or are created in the store.
-    const { nodeGrid, newNodes, quadCount } = buildBilinearQuadGrid(
-      [
-        { x: corners[0].x, y: corners[0].y, z: corners[0].z ?? 0 },
-        { x: corners[1].x, y: corners[1].y, z: corners[1].z ?? 0 },
-        { x: corners[2].x, y: corners[2].y, z: corners[2].z ?? 0 },
-        { x: corners[3].x, y: corners[3].y, z: corners[3].z ?? 0 },
-      ],
-      nx,
-      ny,
-      {
-        findNode: (x, y, z) => findCoincidentNode(modelStore.nodes.values(), x, y, z),
-        addNode: (x, y, z) => modelStore.addNode(x, y, z !== 0 ? z : undefined),
-        addQuad: (nodes) => { modelStore.addQuad(nodes, meshMaterialId, meshThickness); },
-      },
-      cornerIds as [number, number, number, number],
-    );
-
-    // Optionally split surrounding beams so their nodes coincide with the mesh
-    // edge nodes (continuous load transfer). Each mesh node that sits on a beam
-    // interior splits that beam; splitElementAtPoint reuses our node (weld).
-    let splitCount = 0;
-    if (meshSplitBeams) {
-      for (const r of nodeGrid) {
-        for (const nodeId of r) {
-          const n = modelStore.nodes.get(nodeId);
-          if (!n) continue;
-          // A node can lie on at most a couple of collinear beams; bound the loop.
-          for (let guard = 0; guard < 4; guard++) {
-            const hit = beamThrough((id) => modelStore.nodes.get(id), modelStore.elements.values(), n.x, n.y, n.z ?? 0);
-            if (!hit) break;
-            const res = modelStore.splitElementAtPoint(hit.id, hit.t);
-            if (!res) break;
-            splitCount++;
-          }
-        }
-      }
-    }
+    // One implementation for this mesher and for hole filling: `model/edit/mesh-region.ts`.
+    const res = meshQuadRegion(cornerIds as [number, number, number, number], {
+      density: meshMode === 'targetSize' ? { mode: 'targetSize', size: meshTargetSize } : { mode: 'fixedDivisions', nx: meshNx, ny: meshNy },
+      materialId: meshMaterialId, thickness: meshThickness, splitBeams: meshSplitBeams,
+    });
+    const newNodes = res.newNodes, quadCount = res.quadCount, splitCount = res.splitCount;
 
     meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(newNodes)).replace('{quads}', String(quadCount))
       + (meshSplitBeams ? ' ' + t('pro.meshSplitInfo').replace('{n}', String(splitCount)) : '');

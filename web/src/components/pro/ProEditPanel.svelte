@@ -8,6 +8,9 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { splitAtNodes, intersectMembers, type CutReport } from '../../lib/model/edit/cut-members';
+  import { perpendicularMember, midpointMember, fillHoles } from '../../lib/model/edit/construct';
+  import { renumber, designDocumentFields, type AxisOrder } from '../../lib/model/edit/renumber';
+  import { nextMember } from '../../lib/store/next-member.svelte';
   import { mergeCollinear } from '../../lib/model/edit/merge-collinear';
   import {
     coincidentNodeGroups, cleanUpModel, mergeCoincidentNodes, removeDuplicateMembers,
@@ -16,6 +19,43 @@
 
   let parts = $state(2);
   let message = $state<string | null>(null);
+  let fillMaterial = $state(1);
+  let fillThickness = $state(0.15);
+  /** Target element size, m; 0 fills each hole with one quad. */
+  let fillSize = $state(1.0);
+  let order = $state<AxisOrder>('zyx');
+  let renumberNodes = $state(true);
+  let renumberMembers = $state(true);
+
+  /** New members take the next-member choice, falling back to the model's first. */
+  const spec = $derived({
+    type: uiStore.elementCreateType,
+    materialId: nextMember.materialId ?? [...modelStore.materials.keys()][0] ?? 1,
+    sectionId: nextMember.sectionId ?? [...modelStore.sections.keys()][0] ?? 1,
+  });
+  const selNodes = $derived([...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id)));
+  const designDocs = $derived.by(() => { void modelStore.modelVersion; return designDocumentFields(); });
+
+  function refusal(r: { refused: string }) { message = t(`edit.refused.${r.refused}`); }
+
+  function doPerpendicular() {
+    const r = perpendicularMember(selNodes[0]!, members[0]!, spec);
+    if ('refused' in r) refusal(r); else message = t('edit.perpendicularDone');
+  }
+  function doMidpoints() {
+    const r = midpointMember(members[0]!, members[1]!, spec);
+    if ('refused' in r) refusal(r); else message = t('edit.midpointDone');
+  }
+  function doFill() {
+    const r = fillHoles(scope, fillMaterial, fillThickness, fillSize > 0 ? { density: { mode: 'targetSize', size: fillSize } } : {});
+    if ('refused' in r) { refusal(r); return; }
+    message = tp('edit.filled', { quads: r.quads.length, plates: r.plates.length, skipped: r.skippedExisting });
+  }
+  function doRenumber() {
+    const r = renumber({ nodes: renumberNodes, members: renumberMembers, order });
+    if ('refused' in r) { message = tp('edit.renumberRefused', { fields: r.fields.join(', ') }); return; }
+    message = tp('edit.renumbered', { nodes: r.changedNodes, members: r.changedMembers });
+  }
 
   /** Selected members, and the members wholly between selected nodes. */
   const members = $derived.by(() => {
@@ -96,6 +136,40 @@
     <h4>{t('edit.mergeTitle')}</h4>
     <button onclick={doMerge} data-testid="ep-merge">{t('edit.merge')}</button>
     <p class="ep-note">{t('edit.mergeNote')}</p>
+  </section>
+
+  <section>
+    <h4>{t('edit.constructTitle')}</h4>
+    <div class="ep-row">
+      <button onclick={doPerpendicular} disabled={selNodes.length !== 1 || members.length !== 1} data-testid="ep-perpendicular">{t('edit.perpendicular')}</button>
+      <button onclick={doMidpoints} disabled={members.length !== 2} data-testid="ep-midpoints">{t('edit.midpoints')}</button>
+    </div>
+    <p class="ep-note">{t('edit.constructNote')}</p>
+  </section>
+
+  <section>
+    <h4>{t('edit.fillTitle')}</h4>
+    <div class="ep-row">
+      <select bind:value={fillMaterial} aria-label={t('edit.fillMaterial')}>{#each [...modelStore.materials.values()] as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
+      <label>{t('edit.thickness')} <input type="number" min="0.01" step="0.01" bind:value={fillThickness} /></label>
+      <label>{t('edit.fillSize')} <input type="number" min="0" step="0.25" bind:value={fillSize} /></label>
+      <button onclick={doFill} disabled={scope.length < 3} data-testid="ep-fill">{t('edit.fill')}</button>
+    </div>
+    <p class="ep-note">{t('edit.fillNote')}</p>
+  </section>
+
+  <section>
+    <h4>{t('edit.renumberTitle')}</h4>
+    <div class="ep-row">
+      <select bind:value={order} aria-label={t('edit.order')}>
+        <option value="zyx">{t('edit.order.zyx')}</option><option value="zxy">{t('edit.order.zxy')}</option>
+        <option value="xyz">{t('edit.order.xyz')}</option><option value="yxz">{t('edit.order.yxz')}</option>
+      </select>
+      <label><input type="checkbox" bind:checked={renumberNodes} /> {t('edit.renumberNodes')}</label>
+      <label><input type="checkbox" bind:checked={renumberMembers} /> {t('edit.renumberMembers')}</label>
+      <button onclick={doRenumber} disabled={designDocs.length > 0 || (!renumberNodes && !renumberMembers)} data-testid="ep-renumber">{t('edit.renumber')}</button>
+    </div>
+    <p class="ep-note">{designDocs.length > 0 ? tp('edit.renumberRefused', { fields: designDocs.join(', ') }) : t('edit.renumberNote')}</p>
   </section>
 
   <section>

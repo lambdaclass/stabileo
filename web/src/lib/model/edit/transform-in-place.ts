@@ -11,7 +11,7 @@
 
 import { modelStore } from '../../store/model.svelte';
 import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad } from '../../store/model.svelte';
-import { applyAxial, applyPoint, applyVector, isReflection, type Affine } from './affine';
+import { applyAxial, applyPoint, applyVector, isReflection, reflection, rotation, type Affine } from './affine';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
 import { closure, type EntitySet } from './transformed-copy';
 
@@ -107,4 +107,30 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     modelStore.replaceLoads(next);
   });
   return report;
+}
+
+/** The centre of a set of nodes. */
+function centreOf(nodeIds: Iterable<number>): [number, number, number] | null {
+  let n = 0; const c: [number, number, number] = [0, 0, 0];
+  for (const id of nodeIds) { const p = modelStore.nodes.get(id); if (!p) continue; c[0] += p.x; c[1] += p.y; c[2] += p.z ?? 0; n++; }
+  return n ? [c[0] / n, c[1] / n, c[2] / n] : null;
+}
+
+/**
+ * Mirror the selected nodes, and every member wholly among them, in place — about the plane
+ * through their centre normal to global X or Y. What the context menu's "mirror" does.
+ */
+export function mirrorSelectionInPlace(nodeIds: Iterable<number>, axis: 'x' | 'y', opts: { leftHand?: boolean } = {}): InPlaceReport | null {
+  const ids = [...nodeIds];
+  const c = centreOf(ids);
+  if (!c) return null;
+  return transformInPlace({ nodes: ids, elements: [] }, reflection(c, axis === 'x' ? [1, 0, 0] : [0, 1, 0]), opts);
+}
+
+/** Rotate the selected nodes about the vertical axis through their centre, in place. */
+export function rotateSelectionInPlace(nodeIds: Iterable<number>, deg: number, opts: { leftHand?: boolean } = {}): InPlaceReport | null {
+  const ids = [...nodeIds];
+  const c = centreOf(ids);
+  if (!c) return null;
+  return transformInPlace({ nodes: ids, elements: [] }, rotation(c, [0, 0, 1], deg), opts);
 }

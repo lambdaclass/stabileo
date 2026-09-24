@@ -3060,53 +3060,6 @@ function createModelStore() {
     },
 
     /** Mirror selected nodes about an axis through their centroid */
-    mirrorNodes(nodeIds: Set<number>, axis: 'x' | 'y'): void {
-      if (nodeIds.size === 0) return;
-      if (!_undoBatching) _pushUndo?.();
-      // Compute centroid
-      let cx = 0, cy = 0;
-      for (const id of nodeIds) {
-        const n = model.nodes.get(id);
-        if (n) { cx += n.x; cy += n.y; }
-      }
-      cx /= nodeIds.size;
-      cy /= nodeIds.size;
-      // Mirror
-      for (const id of nodeIds) {
-        const n = model.nodes.get(id);
-        if (!n) continue;
-        if (axis === 'x') {
-          model.nodes.set(id, { id: n.id, x: 2 * cx - n.x, y: n.y, ...(n.z !== undefined ? { z: n.z } : {}) });
-        } else {
-          model.nodes.set(id, { id: n.id, x: n.x, y: 2 * cy - n.y, ...(n.z !== undefined ? { z: n.z } : {}) });
-        }
-      }
-      model.nodes = new Map(model.nodes);
-    },
-
-    /** Rotate selected nodes by angle (degrees) around their centroid */
-    rotateNodes(nodeIds: Set<number>, angleDeg: number): void {
-      if (nodeIds.size === 0) return;
-      if (!_undoBatching) _pushUndo?.();
-      let cx = 0, cy = 0;
-      for (const id of nodeIds) {
-        const n = model.nodes.get(id);
-        if (n) { cx += n.x; cy += n.y; }
-      }
-      cx /= nodeIds.size;
-      cy /= nodeIds.size;
-      const rad = angleDeg * Math.PI / 180;
-      const cosA = Math.cos(rad);
-      const sinA = Math.sin(rad);
-      for (const id of nodeIds) {
-        const n = model.nodes.get(id);
-        if (!n) continue;
-        const dx = n.x - cx;
-        const dy = n.y - cy;
-        model.nodes.set(id, { id: n.id, x: cx + dx * cosA - dy * sinA, y: cy + dx * sinA + dy * cosA, ...(n.z !== undefined ? { z: n.z } : {}) });
-      }
-      model.nodes = new Map(model.nodes);
-    },
 
     solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
       const mapped = remapModelForPlane(drawPlane);

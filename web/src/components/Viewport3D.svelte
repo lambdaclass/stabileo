@@ -1,5 +1,6 @@
 <script lang="ts">
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
+  import { nextMember } from '../lib/store/next-member.svelte';
   import { onMount } from 'svelte';
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
@@ -1677,7 +1678,8 @@
       if (nodeId === pendingElementNodeI) return; // same node
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      const elemId = modelStore.addElement(pendingElementNodeI, nodeId, uiStore.elementCreateType);
+      // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
+      const elemId = nextMember.add(pendingElementNodeI, nodeId, uiStore.elementCreateType);
       uiStore.selectElement(elemId, false);
       uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
 

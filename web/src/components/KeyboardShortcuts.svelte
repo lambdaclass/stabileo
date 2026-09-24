@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { copyTransformed } from '../lib/model/edit/transformed-copy';
+  import { translation } from '../lib/model/edit/affine';
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
   import { saveProject, saveSession, loadFile } from '../lib/store/file';
   import { resolveDeleteTargets } from '../lib/store/delete-selection';
@@ -108,6 +110,7 @@
     for (const elem of modelStore.elements.values()) {
       if (nodeIds.has(elem.nodeI) && nodeIds.has(elem.nodeJ)) {
         elements.push({
+          origId: elem.id,
           origNodeI: elem.nodeI,
           origNodeJ: elem.nodeJ,
           type: elem.type,
@@ -140,6 +143,29 @@
     const ox = is3D ? 0 : 1;
     const oy = is3D ? 0 : 1;
     const oz = is3D ? 3 : 0;
+
+    /*
+     * When everything copied is still in the model, where it was, paste IS a translated copy, and
+     * goes through the edit layer: offsets, joints, curve tags and the member frame are carried,
+     * coincident nodes weld, and it is one undo step. Otherwise — the originals were edited or
+     * deleted since the copy — the clipboard's own record is pasted, as before.
+     */
+    const unchanged = clip.nodes.every((n) => {
+      const m = modelStore.nodes.get(n.origId);
+      return !!m && m.x === n.x && m.y === n.y && (m.z ?? 0) === (n.z ?? 0);
+    }) && clip.elements.every((e) => {
+      const m = e.origId !== undefined ? modelStore.elements.get(e.origId) : undefined;
+      return !!m && m.nodeI === e.origNodeI && m.nodeJ === e.origNodeJ;
+    });
+    if (unchanged) {
+      const r = copyTransformed(
+        { nodes: clip.nodes.map((n) => n.origId), elements: clip.elements.map((e) => e.origId!) },
+        [translation([ox, oy, oz])],
+        { withSupports: true, withLoads: false, leftHand: uiStore.axisConvention3D === 'leftHand' },
+      );
+      uiStore.setSelection(new Set(r.nodes), new Set(r.elements), true);
+      return;
+    }
 
     const idMap = new Map<number, number>();
     const pastedElements: number[] = [];
