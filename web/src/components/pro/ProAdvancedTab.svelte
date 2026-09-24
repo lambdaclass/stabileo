@@ -7,6 +7,7 @@
     densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
+  import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import {
@@ -969,6 +970,10 @@
     -->
     <div class="adv-group" data-testid="adv-diagnostics">
       <ProDiagnosticsTab />
+    </div>
+
+    <div class="adv-group">
+      <StaticsCheckPanel />
     </div>
 
     <!-- ── 1. P-Delta ── -->

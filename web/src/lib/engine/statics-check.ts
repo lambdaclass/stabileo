@@ -21,15 +21,26 @@
  * ── What is NOT summed, and why that is reported rather than hidden ───
  *
  * Thermal actions produce no net external force, so they are excluded by definition, not
- * by omission. Surface and quad loads are not summed yet. Both are counted, and whatever
- * was left out is named in `uncovered`, because a check that under-reports silently is
- * worse than no check: it converts an unexplained residual into a clean bill of health.
+ * by omission. Anything else the sum does not recognise is named in `uncovered`, because a
+ * check that under-reports silently is worse than no check: it converts an unexplained
+ * residual into a clean bill of health.
+ *
+ * Surface loads and the self-weight of shells are distributed to their nodes exactly as the
+ * solve distributes them — a quarter of q·A or ρ·t·A to each corner of a quad, a third to each
+ * of a triangle — so the moment side agrees with the solve and not with an idealised centroid.
  */
 import type { ModelData } from './solver-service';
 import { computeLocalAxes3D } from './local-axes-3d';
 import type {
-  NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, Load,
+  NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, Load,
 } from '../store/model.svelte';
+
+type P3 = { x: number; y: number; z?: number };
+function triArea(a: P3, b: P3, c: P3): number {
+  const u = [b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)];
+  const v = [c.x - a.x, c.y - a.y, (c.z ?? 0) - (a.z ?? 0)];
+  return 0.5 * Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!);
+}
 
 /** Force and moment resultant about the global origin. kN and kN·m. */
 export interface Resultant6 {
@@ -95,6 +106,12 @@ export interface StaticsCheckInput {
   }>>;
   /** The solve added self-weight, so the applied side must add it too. */
   includeSelfWeight: boolean;
+  /**
+   * Each case's type. The solve adds self-weight to the permanent (`D`) cases only, so with
+   * this given the applied side does the same; without it, every row gets self-weight, which
+   * is right only for a single solve.
+   */
+  caseTypes?: Map<number, string>;
   /** Names for the report. */
   caseNames?: Map<number, string>;
 }
@@ -106,7 +123,7 @@ export interface StaticsCheckInput {
  * rather than the model: a case that was not solved has nothing to check.
  */
 export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
-  const { model, reactionsByCase, includeSelfWeight, caseNames } = input;
+  const { model, reactionsByCase, includeSelfWeight, caseNames, caseTypes } = input;
   const rows: StaticsCheckRow[] = [];
 
   for (const [caseId, reactions] of reactionsByCase) {
@@ -166,6 +183,15 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
           push(y.P, 0, y.s);
           push(0, z.P, z.s);
         }
+      } else if (l.type === 'surface3d') {
+        // q downward on the quad, a quarter of q·A to each corner — the solve's own split.
+        const d = l.data as SurfaceLoad3D;
+        const q = model.quads?.get(d.quadId);
+        const ps = q?.nodes.map((id) => model.nodes.get(id));
+        if (!q || !ps || ps.some((n) => !n)) { uncovered.add('surface3d'); continue; }
+        const [a, b, c, e] = ps as P3[];
+        const F = -d.q * (triArea(a!, b!, c!) + triArea(a!, c!, e!)) / 4;
+        for (const n of ps as P3[]) addForceAt(applied, [0, 0, F], [n.x, n.y, n.z ?? 0]);
       } else if (l.type === 'thermal' || l.type === 'thermalQuad3d') {
         // No net external force by definition. Not a gap.
       } else {
@@ -173,7 +199,9 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
       }
     }
 
-    if (includeSelfWeight) {
+    const selfWeightHere = includeSelfWeight
+      && (caseId === null || !caseTypes || caseTypes.get(caseId) === 'D');
+    if (selfWeightHere) {
       // Matched to the assembly the solver is given: ρ·A·L lumped half at each end,
       // downward in global Z. Computing it any other way here would report a residual
       // that is this function's own arithmetic and nothing about the model.
@@ -190,7 +218,22 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
         addForceAt(applied, [0, 0, -half], [ni.x, ni.y, ni.z ?? 0]);
         addForceAt(applied, [0, 0, -half], [nj.x, nj.y, nj.z ?? 0]);
       }
-      if (model.plates?.size || model.quads?.size) uncovered.add('surfaceSelfWeight');
+      for (const q of model.quads?.values() ?? []) {
+        const mat = model.materials.get(q.materialId);
+        const ps = q.nodes.map((id) => model.nodes.get(id));
+        if (!mat || ps.some((n) => !n)) continue;
+        const [a, b, c, e] = ps as P3[];
+        const w = -mat.rho * q.thickness * (triArea(a!, b!, c!) + triArea(a!, c!, e!)) / 4;
+        for (const n of ps as P3[]) addForceAt(applied, [0, 0, w], [n.x, n.y, n.z ?? 0]);
+      }
+      for (const pl of model.plates?.values() ?? []) {
+        const mat = model.materials.get(pl.materialId);
+        const ps = pl.nodes.map((id) => model.nodes.get(id));
+        if (!mat || ps.some((n) => !n)) continue;
+        const [a, b, c] = ps as P3[];
+        const w = -mat.rho * pl.thickness * triArea(a!, b!, c!) / 3;
+        for (const n of ps as P3[]) addForceAt(applied, [0, 0, w], [n.x, n.y, n.z ?? 0]);
+      }
     }
 
     const react: Resultant6 = { ...ZERO };
@@ -233,7 +276,7 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
       applied, reactions: react, difference,
       worstRelative: +worstRelative.toFixed(6),
       uncovered: [...uncovered].sort(),
-      selfWeightIncluded: includeSelfWeight,
+      selfWeightIncluded: selfWeightHere,
     });
   }
 
