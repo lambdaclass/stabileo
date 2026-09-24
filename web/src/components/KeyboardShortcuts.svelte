@@ -155,7 +155,8 @@
       for (const el of clip.elements) {
         const ni = idMap.get(el.origNodeI);
         const nj = idMap.get(el.origNodeJ);
-        if (ni == null || nj == null) return;
+        // `continue`, not `return`: returning here abandoned every element and support after it.
+        if (ni == null || nj == null) continue;
         const matId = modelStore.materials.has(el.materialId) ? el.materialId : 1;
         const secId = modelStore.sections.has(el.sectionId) ? el.sectionId : 1;
         const newElemId = modelStore.addElement(ni, nj, el.type);

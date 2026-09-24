@@ -10,7 +10,7 @@
    * `lib/model/array-copy.ts` holds the rules and the reasoning, including
    * why the members BETWEEN copies have to be created rather than copied.
    */
-  import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
+  import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import {
     repeatSelection, repeatIsMeaningful, MAX_REPEAT_COPIES, type RepeatSpec,
@@ -67,7 +67,7 @@
         .map((s) => ({ nodeId: s.nodeId, type: String(s.type) })),
     };
 
-    historyStore.pushState();
+    // `batch` pushes the one undo step. A pushState before it made the first Ctrl+Z a no-op.
     let out = { nodes: [] as number[], elements: [] as number[], links: [] as number[] };
     modelStore.batch(() => {
       out = repeatSelection(src, spec, {

@@ -32,6 +32,7 @@ import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, Co
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
+import { segmentBounds, splitElementLoads, segmentFields } from '../model/edit/member-split';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
@@ -39,7 +40,7 @@ import { t } from '../i18n';
 import { validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
-import { pickElement3DMetadata, type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
+import { type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
 export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
@@ -1143,6 +1144,96 @@ function createModelStore() {
    * Reassigns the Map only when something actually changed, so deleting an element in a
    * model with no groups costs nothing and triggers no re-render.
    */
+  /**
+   * Cut member `elementId` at parametric positions `ts`, as one undo step.
+   *
+   * Loads and properties are distributed by `model/edit/member-split`. Here: the nodes (new, or
+   * an existing one within `reuseNodeTol` per axis), the segments, and every reference to the
+   * member that must now name a segment — a group lists them all; a support framed by the
+   * member, and a footing under it, take the segment at their node.
+   */
+  function splitMember(
+    elementId: number, ts: readonly number[], opts: { keepOriginalId: boolean; reuseNodeTol?: number },
+  ): { nodeIds: number[]; segmentIds: number[]; droppedReinforcement: boolean } | null {
+    const elem = model.elements.get(elementId);
+    if (!elem) return null;
+    const ni = model.nodes.get(elem.nodeI);
+    const nj = model.nodes.get(elem.nodeJ);
+    if (!ni || !nj) return null;
+    const cuts = [...ts].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    if (cuts.length === 0) return null;
+
+    if (!_undoBatching) _pushUndo?.();
+    const outerBatching = _undoBatching;
+    _undoBatching = true;
+    try {
+      const hasZ = ni.z !== undefined || nj.z !== undefined;
+      const L = Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+      const nodeIds: number[] = [];
+      for (const t of cuts) {
+        const p = { x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) };
+        let id: number | null = null;
+        if (opts.reuseNodeTol !== undefined) {
+          const tol = opts.reuseNodeTol;
+          for (const n of model.nodes.values()) {
+            if (Math.abs(n.x - p.x) < tol && Math.abs(n.y - p.y) < tol && Math.abs((n.z ?? 0) - p.z) < tol) { id = n.id; break; }
+          }
+        }
+        if (id === null) {
+          id = nextId.node++;
+          model.nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
+        }
+        nodeIds.push(id);
+      }
+      const chain = [elem.nodeI, ...nodeIds, elem.nodeJ];
+      const count = chain.length - 1;
+      const segmentIds = Array.from({ length: count }, (_, k) =>
+        k === 0 && opts.keepOriginalId ? elementId : nextId.element++);
+      const original = JSON.parse(JSON.stringify(elem)) as Element;
+      if (!opts.keepOriginalId) model.elements.delete(elementId);
+      for (let k = 0; k < count; k++) {
+        model.elements.set(segmentIds[k]!, {
+          id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count),
+        });
+      }
+
+      const bounds = segmentBounds(L, cuts);
+      const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
+      model.loads = [...kept, ...added];
+
+      // A group that held the member now holds every segment of it.
+      let touched = false;
+      for (const [gid, g] of model.groups) {
+        const list = g.members.elements;
+        if (!list?.includes(elementId)) continue;
+        const next = list.flatMap((x) => (x === elementId ? segmentIds : [x]));
+        model.groups.set(gid, { ...g, members: { ...g.members, elements: [...new Set(next)] } });
+        touched = true;
+      }
+      if (touched) model.groups = new Map(model.groups);
+
+      const segmentAt = (nodeId: number) => (nodeId === elem.nodeJ ? segmentIds[count - 1]! : segmentIds[0]!);
+      for (const sup of model.supports.values()) {
+        if (sup.dofLocalElementId === elementId) sup.dofLocalElementId = segmentAt(sup.nodeId);
+      }
+      model.supports = new Map(model.supports);
+      let footingsTouched = false;
+      const fm = new Map(model.footings);
+      for (const [fid, f] of fm) {
+        if (f.columnElementId !== elementId) continue;
+        fm.set(fid, { ...f, columnElementId: segmentAt(f.nodeId), revision: f.revision + 1 });
+        footingsTouched = true;
+      }
+      if (footingsTouched) model.footings = fm;
+
+      model.nodes = new Map(model.nodes);
+      model.elements = new Map(model.elements);
+      return { nodeIds, segmentIds, droppedReinforcement: !!original.reinforcement };
+    } finally {
+      _undoBatching = outerBatching;
+    }
+  }
+
   function dropFromGroups(family: keyof GroupMembers, entityId: number): void {
     let touched = false;
     for (const [gid, g] of model.groups) {
@@ -1331,8 +1422,16 @@ function createModelStore() {
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
     bumpModelVersion() { modelVersion++; _onMutation?.(); },
 
-    /** Run multiple mutations as a single undo step */
+    /**
+     * Run multiple mutations as a single undo step.
+     *
+     * Re-entrant: inside an open batch it runs `fn` as part of it. It used to push a second
+     * snapshot and then, in its `finally`, close the OUTER batch early, so every mutation after
+     * the inner call became its own undo step — a composite command could not nest a helper
+     * that batched.
+     */
     batch(fn: () => void): void {
+      if (_undoBatching) { fn(); return; }
       _pushUndo?.();
       _undoBatching = true;
       try { fn(); } finally { _undoBatching = false; }
@@ -1654,6 +1753,12 @@ function createModelStore() {
       nextId.plate = s.nextId.plate ?? 1;
       nextId.quad = s.nextId.quad ?? 1;
       nextId.connector = (s.nextId as any).connector ?? 1;
+      // Never below the highest group id the snapshot carries. The counter was not saved at
+      // all, so after opening a file with groups the next group reused an existing id.
+      nextId.group = Math.max(
+        (s.nextId as { group?: number }).group ?? 1,
+        ...(s.groups ?? []).map(([id]) => id + 1),
+      );
       // `?? []` guards: a hand-edited/older/partial `.ded` may carry a
       // `provenance` object without `assumptions`/`layerMappings`. restore()
       // runs after the model is already mutated and is not wrapped in a
@@ -1962,11 +2067,15 @@ function createModelStore() {
       // Same reasoning as removeElement: node numbers are reused, so a group holding a
       // deleted one would quietly come to mean a different node.
       dropFromGroups('nodes', id);
-      for (const [elemId, elem] of model.elements) {
-        if (elem.nodeI === id || elem.nodeJ === id) {
-          model.elements.delete(elemId);
-        }
-      }
+      /*
+       * Through `removeElement`, not a bare delete. The bare delete left the member's loads,
+       * its group membership and a footing's `columnElementId` pointing at an id the next
+       * member to be drawn would take.
+       */
+      const attached = [...model.elements.values()].filter((e) => e.nodeI === id || e.nodeJ === id).map((e) => e.id);
+      const outerBatching = _undoBatching;
+      _undoBatching = true;
+      try { for (const elemId of attached) this.removeElement(elemId); } finally { _undoBatching = outerBatching; }
       model.elements = new Map(model.elements);
       for (const [supId, sup] of model.supports) {
         if (sup.nodeId === id) {
@@ -2033,7 +2142,7 @@ function createModelStore() {
      */
     addGroup(name: string, kind: ModelGroup['kind'], members: GroupMembers,
              opts?: { origin?: ModelGroup['origin']; data?: Record<string, unknown> }): number {
-      _pushUndo?.();
+      if (!_undoBatching) _pushUndo?.();
       const id = nextId.group++;
       model.groups.set(id, {
         id, name, kind,
@@ -2048,7 +2157,7 @@ function createModelStore() {
     renameGroup(id: number, name: string): void {
       const g = model.groups.get(id);
       if (!g) return;
-      _pushUndo?.();
+      if (!_undoBatching) _pushUndo?.();
       model.groups.set(id, { ...g, name });
       model.groups = new Map(model.groups);
     },
@@ -2056,14 +2165,14 @@ function createModelStore() {
     setGroupMembers(id: number, members: GroupMembers): void {
       const g = model.groups.get(id);
       if (!g) return;
-      _pushUndo?.();
+      if (!_undoBatching) _pushUndo?.();
       model.groups.set(id, { ...g, members: JSON.parse(JSON.stringify(members)) as GroupMembers });
       model.groups = new Map(model.groups);
     },
 
     removeGroup(id: number): void {
       if (!model.groups.has(id)) return;
-      _pushUndo?.();
+      if (!_undoBatching) _pushUndo?.();
       model.groups.delete(id);
       model.groups = new Map(model.groups);
     },
@@ -2147,6 +2256,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.plates.delete(id);
       model.plates = new Map(model.plates);
+      dropFromGroups('plates', id);
     },
 
     updatePlate(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
@@ -2170,6 +2280,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
       model.quads = new Map(model.quads);
+      dropFromGroups('quads', id);
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
@@ -2656,6 +2767,7 @@ function createModelStore() {
       nextId.connector = 1;
       nextId.footing = 1;
       nextId.soilProfile = 1;
+      nextId.group = 1;
       model.provenance = undefined;
       lastKinematicResult = null;
       uiStore.useNative3DPresentation();
@@ -2708,93 +2820,8 @@ function createModelStore() {
 
     subdivideElement(elementId: number, n: number): void {
       if (n < 2 || n > 20) return;
-      const elem = model.elements.get(elementId);
-      if (!elem) return;
-      const ni = model.nodes.get(elem.nodeI);
-      const nj = model.nodes.get(elem.nodeJ);
-      if (!ni || !nj) return;
-
-      if (!_undoBatching) _pushUndo?.();
-      _undoBatching = true;
-
-      const dx = (nj.x - ni.x) / n;
-      const dy = (nj.y - ni.y) / n;
-      const dz = ((nj.z ?? 0) - (ni.z ?? 0)) / n;
-      const hasZ = ni.z !== undefined || nj.z !== undefined;
-
-      // Create intermediate nodes
-      const nodeIds: number[] = [elem.nodeI];
-      for (let i = 1; i < n; i++) {
-        const id = nextId.node++;
-        model.nodes.set(id, {
-          id, x: ni.x + dx * i, y: ni.y + dy * i,
-          ...(hasZ ? { z: (ni.z ?? 0) + dz * i } : {}),
-        });
-        nodeIds.push(id);
-      }
-      nodeIds.push(elem.nodeJ);
-
-      // Collect distributed loads on this element (they get replicated on each sub-element)
-      const distLoads = model.loads.filter(
-        l => l.type === 'distributed' && (l.data as DistributedLoad).elementId === elementId
-      );
-
-      // Remove loads on original element (they will be replicated)
-      model.loads = model.loads.filter(l =>
-        !((l.type === 'distributed' || l.type === 'pointOnElement') &&
-          (l.data as any).elementId === elementId)
-      );
-
-      // 3D properties to inherit on new sub-elements
-      const inherited3D = pickElement3DMetadata(elem);
-
-      // Preserve original element as first segment. Releases at the original
-      // I-end stay; the J-end release moves to the last sub-element.
-      const origReleaseJ: Release = { ...(elem.releaseJ ?? NO_RELEASE) };
-      elem.nodeJ = nodeIds[1];
-      elem.releaseJ = { ...NO_RELEASE };
-
-      // Build ordered list of all segment element IDs (original first, then new)
-      const segmentElemIds: number[] = [elementId];
-
-      // Create new sub-elements for segments 2..n
-      for (let i = 1; i < n; i++) {
-        const id = nextId.element++;
-        model.elements.set(id, {
-          id,
-          type: elem.type,
-          nodeI: nodeIds[i],
-          nodeJ: nodeIds[i + 1],
-          materialId: elem.materialId,
-          sectionId: elem.sectionId,
-          releaseI: { ...NO_RELEASE },
-          releaseJ: i === n - 1 ? origReleaseJ : { ...NO_RELEASE },
-          ...inherited3D,
-        });
-        segmentElemIds.push(id);
-      }
-
-      // Replicate distributed loads on each sub-element (interpolate for trapezoidal)
-      const newSubLoads: typeof model.loads = [];
-      for (const dl of distLoads) {
-        const d = dl.data as DistributedLoad;
-        for (let i = 0; i < segmentElemIds.length; i++) {
-          const tI = i / n;
-          const tJ = (i + 1) / n;
-          const subQI = d.qI + (d.qJ - d.qI) * tI;
-          const subQJ = d.qI + (d.qJ - d.qI) * tJ;
-          const lid = nextId.load++;
-          newSubLoads.push({
-            type: 'distributed',
-            data: { id: lid, elementId: segmentElemIds[i], qI: subQI, qJ: subQJ } as DistributedLoad,
-          });
-        }
-      }
-      model.loads = [...model.loads, ...newSubLoads];
-
-      model.nodes = new Map(model.nodes);
-      model.elements = new Map(model.elements);
-      _undoBatching = false;
+      // The original id stays on the first segment, and the cuts always get new nodes.
+      splitMember(elementId, Array.from({ length: n - 1 }, (_, k) => (k + 1) / n), { keepOriginalId: true });
     },
 
     /** Toggle a single per-axis release on a single element-end. The canonical release API. */
@@ -2916,194 +2943,23 @@ function createModelStore() {
      *  Preserves releaseI on elemA and releaseJ on elemB from the original element. */
     splitElementAtPoint(elementId: number, t: number): { nodeId: number; elemA: number; elemB: number } | null {
       if (t <= 0.01 || t >= 0.99) return null;
-      const elem = model.elements.get(elementId);
-      if (!elem) return null;
-      const ni = model.nodes.get(elem.nodeI);
-      const nj = model.nodes.get(elem.nodeJ);
-      if (!ni || !nj) return null;
+      // Both halves get new ids, and a node already at the cut (within 1 cm per axis) is reused.
+      const r = splitMember(elementId, [t], { keepOriginalId: false, reuseNodeTol: 0.01 });
+      return r ? { nodeId: r.nodeIds[0]!, elemA: r.segmentIds[0]!, elemB: r.segmentIds[1]! } : null;
+    },
 
-      if (!_undoBatching) _pushUndo?.();
-      _undoBatching = true;
-
-      // Compute new node position
-      const px = ni.x + t * (nj.x - ni.x);
-      const py = ni.y + t * (nj.y - ni.y);
-      const hasZ = ni.z !== undefined || nj.z !== undefined;
-      const pz = (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0));
-
-      // Check if a node already exists at this position (within tolerance)
-      let newNodeId: number | null = null;
-      for (const node of model.nodes.values()) {
-        if (Math.abs(node.x - px) < 0.01 && Math.abs(node.y - py) < 0.01 && Math.abs((node.z ?? 0) - pz) < 0.01) {
-          newNodeId = node.id;
-          break;
-        }
-      }
-      if (newNodeId === null) {
-        newNodeId = nextId.node++;
-        model.nodes.set(newNodeId, { id: newNodeId, x: px, y: py, ...(hasZ ? { z: pz } : {}) });
-      }
-
-      // Compute element length for load redistribution
-      const dz = (nj.z ?? 0) - (ni.z ?? 0);
-      const L = Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2 + dz * dz);
-      const LA = L * t;
-
-      // Collect loads on this element
-      const distLoads = model.loads.filter(
-        l => l.type === 'distributed' && (l.data as DistributedLoad).elementId === elementId
-      );
-      const pointLoads = model.loads.filter(
-        l => l.type === 'pointOnElement' && (l.data as PointLoadOnElement).elementId === elementId
-      );
-      const thermalLoads = model.loads.filter(
-        l => l.type === 'thermal' && (l.data as ThermalLoad).elementId === elementId
-      );
-
-      // Read original per-axis release state explicitly
-      const origReleaseI: Release = { ...(elem.releaseI ?? NO_RELEASE) };
-      const origReleaseJ: Release = { ...(elem.releaseJ ?? NO_RELEASE) };
-      const origType = elem.type;
-      const origMatId = elem.materialId;
-      const origSecId = elem.sectionId;
-      const inherited3D = pickElement3DMetadata(elem);
-
-      // Remove original element and its loads
-      model.elements.delete(elementId);
-      model.loads = model.loads.filter(l => {
-        if (l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal') {
-          return (l.data as any).elementId !== elementId;
-        }
-        return true;
-      });
-
-      // Create two new sub-elements
-      const elemAId = nextId.element++;
-      model.elements.set(elemAId, {
-        id: elemAId,
-        type: origType,
-        nodeI: elem.nodeI,
-        nodeJ: newNodeId,
-        materialId: origMatId,
-        sectionId: origSecId,
-        releaseI: origReleaseI,
-        releaseJ: { ...NO_RELEASE },
-        ...inherited3D,
-      });
-
-      const elemBId = nextId.element++;
-      model.elements.set(elemBId, {
-        id: elemBId,
-        type: origType,
-        nodeI: newNodeId,
-        nodeJ: elem.nodeJ,
-        materialId: origMatId,
-        sectionId: origSecId,
-        releaseI: { ...NO_RELEASE },
-        releaseJ: origReleaseJ,
-        ...inherited3D,
-      });
-
-      // Redistribute distributed loads (interpolate for trapezoidal, handle partial a/b)
-      for (const dl of distLoads) {
-        const d = dl.data as DistributedLoad;
-        const loadA = d.a ?? 0;
-        const loadB = d.b ?? L;
-        const loadSpan = loadB - loadA;
-        const copyMeta = (target: DistributedLoad) => {
-          if (d.angle !== undefined) target.angle = d.angle;
-          if (d.isGlobal !== undefined) target.isGlobal = d.isGlobal;
-          if (d.caseId !== undefined) target.caseId = d.caseId;
-        };
-
-        if (loadB <= LA + 1e-10) {
-          // Entire load falls on elemA
-          const lidA = nextId.load++;
-          const dataA: DistributedLoad = { id: lidA, elementId: elemAId, qI: d.qI, qJ: d.qJ };
-          if (loadA > 1e-10) dataA.a = loadA;
-          if (loadB < LA - 1e-10) dataA.b = loadB;
-          copyMeta(dataA);
-          model.loads = [...model.loads, { type: 'distributed', data: dataA }];
-        } else if (loadA >= LA - 1e-10) {
-          // Entire load falls on elemB
-          const lidB = nextId.load++;
-          const newA = loadA - LA;
-          const newB = loadB - LA;
-          const LB = L - LA;
-          const dataB: DistributedLoad = { id: lidB, elementId: elemBId, qI: d.qI, qJ: d.qJ };
-          if (newA > 1e-10) dataB.a = newA;
-          if (newB < LB - 1e-10) dataB.b = newB;
-          copyMeta(dataB);
-          model.loads = [...model.loads, { type: 'distributed', data: dataB }];
-        } else {
-          // Load crosses the split point — split into two loads
-          const tSplit = (LA - loadA) / loadSpan; // normalized position within load span
-          const qMid = d.qI + (d.qJ - d.qI) * tSplit;
-          // Load on elemA: from loadA to LA
-          const lidA = nextId.load++;
-          const dataA: DistributedLoad = { id: lidA, elementId: elemAId, qI: d.qI, qJ: qMid };
-          if (loadA > 1e-10) dataA.a = loadA;
-          // b = LA which is the full length of elemA, so no need to set b
-          copyMeta(dataA);
-          // Load on elemB: from 0 to (loadB - LA)
-          const lidB = nextId.load++;
-          const newB = loadB - LA;
-          const LB = L - LA;
-          const dataB: DistributedLoad = { id: lidB, elementId: elemBId, qI: qMid, qJ: d.qJ };
-          if (newB < LB - 1e-10) dataB.b = newB;
-          copyMeta(dataB);
-          model.loads = [...model.loads, { type: 'distributed', data: dataA }, { type: 'distributed', data: dataB }];
-        }
-      }
-
-      // Redistribute point loads on element
-      for (const pl of pointLoads) {
-        const d = pl.data as PointLoadOnElement;
-        const lid = nextId.load++;
-        if (d.a < LA - 1e-6) {
-          // Point load is on elemA (distance from nodeI unchanged)
-          const data: PointLoadOnElement = { id: lid, elementId: elemAId, a: d.a, p: d.p };
-          if (d.angle !== undefined) data.angle = d.angle;
-          if (d.isGlobal !== undefined) data.isGlobal = d.isGlobal;
-          if (d.caseId !== undefined) data.caseId = d.caseId;
-          if (d.px !== undefined) data.px = d.px;
-          if (d.my !== undefined) data.my = d.my;
-          model.loads = [...model.loads, { type: 'pointOnElement', data }];
-        } else {
-          // Point load is on elemB (adjust distance: a' = a - LA)
-          const data: PointLoadOnElement = { id: lid, elementId: elemBId, a: d.a - LA, p: d.p };
-          if (d.angle !== undefined) data.angle = d.angle;
-          if (d.isGlobal !== undefined) data.isGlobal = d.isGlobal;
-          if (d.caseId !== undefined) data.caseId = d.caseId;
-          if (d.px !== undefined) data.px = d.px;
-          if (d.my !== undefined) data.my = d.my;
-          model.loads = [...model.loads, { type: 'pointOnElement', data }];
-        }
-      }
-
-      // Replicate thermal loads on both sub-elements
-      for (const tl of thermalLoads) {
-        const d = tl.data as ThermalLoad;
-        const lidA = nextId.load++;
-        const dataA: ThermalLoad = { id: lidA, elementId: elemAId, dtUniform: d.dtUniform, dtGradient: d.dtGradient };
-        if (d.caseId !== undefined) dataA.caseId = d.caseId;
-        const lidB = nextId.load++;
-        const dataB: ThermalLoad = { id: lidB, elementId: elemBId, dtUniform: d.dtUniform, dtGradient: d.dtGradient };
-        if (d.caseId !== undefined) dataB.caseId = d.caseId;
-        model.loads = [...model.loads, { type: 'thermal', data: dataA }, { type: 'thermal', data: dataB }];
-      }
-
-      model.nodes = new Map(model.nodes);
-      model.elements = new Map(model.elements);
-      _undoBatching = false;
-
-      return { nodeId: newNodeId, elemA: elemAId, elemB: elemBId };
+    /**
+     * Cut a member at parametric positions `ts` (0 < t < 1). The general form behind subdivide,
+     * split-at-point and every geometry command that cuts a member. See `model/edit/member-split`.
+     */
+    splitMember(elementId: number, ts: readonly number[], opts: { keepOriginalId?: boolean; reuseNodeTol?: number } = {}) {
+      return splitMember(elementId, ts, { keepOriginalId: opts.keepOriginalId ?? false, reuseNodeTol: opts.reuseNodeTol });
     },
 
     /** Mirror selected nodes about an axis through their centroid */
     mirrorNodes(nodeIds: Set<number>, axis: 'x' | 'y'): void {
       if (nodeIds.size === 0) return;
-      _pushUndo?.();
+      if (!_undoBatching) _pushUndo?.();
       // Compute centroid
       let cx = 0, cy = 0;
       for (const id of nodeIds) {
@@ -3128,7 +2984,7 @@ function createModelStore() {
     /** Rotate selected nodes by angle (degrees) around their centroid */
     rotateNodes(nodeIds: Set<number>, angleDeg: number): void {
       if (nodeIds.size === 0) return;
-      _pushUndo?.();
+      if (!_undoBatching) _pushUndo?.();
       let cx = 0, cy = 0;
       for (const id of nodeIds) {
         const n = model.nodes.get(id);
@@ -3658,7 +3514,7 @@ function createModelStore() {
 
     /** Batch-apply (or clear) the same offset to many elements in one undo step. */
     setElementsOffset(elemIds: Iterable<number>, offset: MemberOffset | null): void {
-      _pushUndo?.();
+      if (!_undoBatching) _pushUndo?.();
       for (const id of elemIds) {
         const elem = model.elements.get(id);
         if (!elem) continue;
