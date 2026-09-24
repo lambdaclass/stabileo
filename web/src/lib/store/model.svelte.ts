@@ -1911,6 +1911,109 @@ function createModelStore() {
       return id;
     },
 
+    /**
+     * Add a support with every field it carries, replacing any on the same node.
+     *
+     * For the edit layer, which copies supports whole — `addSupport` takes a subset of the
+     * fields, and an inclined support's normal, among others, is not in it.
+     */
+    addSupportEntry(fields: Omit<Support, 'id'>): number {
+      if (!_undoBatching) _pushUndo?.();
+      for (const [existingId, existingSup] of model.supports) {
+        if (existingSup.nodeId === fields.nodeId) { model.supports.delete(existingId); break; }
+      }
+      const id = nextId.support++;
+      model.supports.set(id, { ...JSON.parse(JSON.stringify(fields)), id } as Support);
+      if (!_bulkMutating) model.supports = new Map(model.supports);
+      return id;
+    },
+
+    /**
+     * Rename node ids in constraints, connectors and footings — the references the edit layer
+     * cannot reach through the other mutators. `to` maps old id → new id.
+     */
+    remapNodeReferences(to: Map<number, number>): void {
+      if (to.size === 0) return;
+      if (!_undoBatching) _pushUndo?.();
+      const r = (n: number) => to.get(n) ?? n;
+      model.constraints = model.constraints.map((c) => {
+        const x = JSON.parse(JSON.stringify(c)) as Record<string, unknown>;
+        if (typeof x.masterNode === 'number') x.masterNode = r(x.masterNode);
+        if (typeof x.slaveNode === 'number') x.slaveNode = r(x.slaveNode);
+        if (Array.isArray(x.slaveNodes)) x.slaveNodes = (x.slaveNodes as number[]).map(r);
+        if (Array.isArray(x.terms)) x.terms = (x.terms as Array<{ nodeId: number }>).map((t) => ({ ...t, nodeId: r(t.nodeId) }));
+        return x as unknown as Constraint3D;
+      });
+      if (model.connectors.size > 0) {
+        model.connectors = new Map([...model.connectors].map(([id, c]) => [id, { ...c, nodeI: r(c.nodeI), nodeJ: r(c.nodeJ) }]));
+      }
+      if ([...model.footings.values()].some((f) => to.has(f.nodeId))) {
+        model.footings = new Map([...model.footings].map(([id, f]) => [id, to.has(f.nodeId) ? { ...f, nodeId: r(f.nodeId), revision: f.revision + 1 } : f]));
+      }
+    },
+
+    /** Node ids named by constraints, connectors and footings. */
+    referencedNodeIds(): Set<number> {
+      const out = new Set<number>();
+      for (const c of model.constraints) {
+        const x = c as unknown as { masterNode?: number; slaveNode?: number; slaveNodes?: number[]; terms?: Array<{ nodeId: number }> };
+        for (const n of [x.masterNode, x.slaveNode, ...(x.slaveNodes ?? []), ...(x.terms ?? []).map((t) => t.nodeId)]) if (typeof n === 'number') out.add(n);
+      }
+      for (const c of model.connectors.values()) { out.add(c.nodeI); out.add(c.nodeJ); }
+      for (const f of model.footings.values()) out.add(f.nodeId);
+      return out;
+    },
+
+    /** Replace the corner order of a quad — how a reflection keeps its normal. For the edit layer. */
+    updateQuadNodes(id: number, nodes: [number, number, number, number]): void {
+      const q = model.quads.get(id);
+      if (!q) return;
+      if (!_undoBatching) _pushUndo?.();
+      model.quads.set(id, { ...q, nodes: [...nodes] as Quad['nodes'] });
+      model.quads = new Map(model.quads);
+    },
+
+    /** Replace the corner order of a plate. See `updateQuadNodes`. */
+    updatePlateNodes(id: number, nodes: [number, number, number]): void {
+      const p = model.plates.get(id);
+      if (!p) return;
+      if (!_undoBatching) _pushUndo?.();
+      model.plates.set(id, { ...p, nodes: [...nodes] as Plate['nodes'] });
+      model.plates = new Map(model.plates);
+    },
+
+    /** Replace the load list whole, ids kept. For an edit that rewrites loads in place. */
+    replaceLoads(loads: Load[]): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.loads = loads.map((l) => ({ type: l.type, data: { ...l.data } }) as Load);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = [...model.loads];
+    },
+
+    /** Add a load of any type, whole, under a new id. For the edit layer; see `addSupportEntry`. */
+    addLoadEntry(load: Load): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.load++;
+      const entry = { type: load.type, data: { ...JSON.parse(JSON.stringify(load.data)), id } } as Load;
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
+      return id;
+    },
+
+    /** Add a quad or a plate with every field it carries. For the edit layer. */
+    addShellEntry(kind: 'quad' | 'plate', fields: Omit<Quad, 'id'> | Omit<Plate, 'id'>): number {
+      if (!_undoBatching) _pushUndo?.();
+      if (kind === 'quad') {
+        const id = nextId.quad++;
+        model.quads.set(id, { ...JSON.parse(JSON.stringify(fields)), id } as Quad);
+        if (!_bulkMutating) model.quads = new Map(model.quads);
+        return id;
+      }
+      const id = nextId.plate++;
+      model.plates.set(id, { ...JSON.parse(JSON.stringify(fields)), id } as Plate);
+      if (!_bulkMutating) model.plates = new Map(model.plates);
+      return id;
+    },
+
     addSupport(nodeId: number, type: SupportType, springs?: { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number }, opts?: { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number }): number {
       if (!_undoBatching) _pushUndo?.();
       // Remove existing support on this node (only one support per node allowed)

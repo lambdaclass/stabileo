@@ -39,7 +39,8 @@
   import { t } from '../../lib/i18n';
   import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
-  import ProRepeatPanel from './ProRepeatPanel.svelte';
+  import ProTransformPanel from './ProTransformPanel.svelte';
+  import ProEditPanel from './ProEditPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
@@ -81,7 +82,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'repeat';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'transform' | 'edit';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -257,7 +258,8 @@
     // "Nodes" the map used to produce for both.
     steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
     settings: 'config.title',
-    repeat: 'repeat.title',
+    transform: 'transform.title',
+    edit: 'edit.title',
   };
 </script>
 
@@ -335,8 +337,10 @@
             panel is a heading with nothing under it.
           -->
           <ToolbarConfig flat={true} />
-        {:else if activeTab === 'repeat'}
-          <ProRepeatPanel />
+        {:else if activeTab === 'transform'}
+          <ProTransformPanel />
+        {:else if activeTab === 'edit'}
+          <ProEditPanel />
         {:else if activeTab === 'project'}
           <ProProjectTab groups={exampleGroups} onLoadExample={loadProExample} />
         {:else if activeTab === 'nodes'}
