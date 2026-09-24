@@ -102,15 +102,22 @@ export function stabiliseOrphanRotations3D(input: SolverInput3D): OrphanStabilis
     const found = byNode.get(nodeId);
     const sup: SolverSupport3D = found ? { ...found[1] }
       : { nodeId, rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };
-    let changed = false;
     /* A spring makes a DOF free-with-spring: never put one on a restrained rotation. */
-    if (!sup.rrx && !(sup.krx && sup.krx > 0)) { sup.krx = k; changed = true; }
-    if (!sup.rry && !(sup.kry && sup.kry > 0)) { sup.kry = k; changed = true; }
-    if (!sup.rrz && !(sup.krz && sup.krz > 0)) { sup.krz = k; changed = true; }
-    if (!changed) continue;
+    const added: [boolean, boolean, boolean] = [
+      !sup.rrx && !(sup.krx && sup.krx > 0),
+      !sup.rry && !(sup.kry && sup.kry > 0),
+      !sup.rrz && !(sup.krz && sup.krz > 0),
+    ];
+    if (added[0]) sup.krx = k;
+    if (added[1]) sup.kry = k;
+    if (added[2]) sup.krz = k;
+    if (!added.some(Boolean)) continue;
     touched.add(nodeId);
-    /* Marked in-band, so the mark survives a worker's structured clone. */
+    /* Marked in-band, so the mark survives a worker's structured clone. The
+       axes are recorded too: a `springs` support may keep the user's own
+       rotational springs, and those must still count. */
     sup.stabilised = found ? 'springs' : 'created';
+    sup.stabilisedAxes = added;
     if (found) input.supports.set(found[0], sup);
     else { input.supports.set(nextId++, sup); created.add(nodeId); }
   }

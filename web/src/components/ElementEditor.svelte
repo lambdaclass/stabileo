@@ -1,6 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore, resultsStore } from '../lib/store';
-  import { NO_RELEASE } from '../lib/store/model.svelte';
+  import { isHinged, releaseAfterEdit } from '../lib/store/end-release';
   import { t } from '../lib/i18n';
   import EditorCard from './EditorCard.svelte';
 
@@ -29,9 +29,8 @@
   // Sync local values when element changes
   $effect(() => {
     if (elem) {
-      // In 3D a hinge is both bending moments (see modelStore.toggleHinge3D); either one counts.
-      hingeStart = elem.releaseI?.mz === true || (is3DMode && elem.releaseI?.my === true);
-      hingeEnd = elem.releaseJ?.mz === true || (is3DMode && elem.releaseJ?.my === true);
+      hingeStart = isHinged(elem.releaseI, is3DMode);
+      hingeEnd = isHinged(elem.releaseJ, is3DMode);
       slideStart = elem.releaseI?.slide ?? '';
       slideEnd = elem.releaseJ?.slide ?? '';
       slideStartAxis = elem.releaseI?.slideAxis ?? 'global';
@@ -79,8 +78,8 @@
   function confirm() {
     if (!elem || elemId === null) return;
     const changed =
-      hingeStart !== (elem.releaseI?.mz === true) ||
-      hingeEnd !== (elem.releaseJ?.mz === true) ||
+      hingeStart !== isHinged(elem.releaseI, is3DMode) ||
+      hingeEnd !== isHinged(elem.releaseJ, is3DMode) ||
       slideStart !== (elem.releaseI?.slide ?? '') ||
       slideEnd !== (elem.releaseJ?.slide ?? '') ||
       slideStartAxis !== (elem.releaseI?.slideAxis ?? 'global') ||
@@ -92,8 +91,8 @@
 
     if (changed) {
       historyStore.pushState();
-      const relI = { ...(elem.releaseI ?? NO_RELEASE), mz: hingeStart, ...(is3DMode ? { my: hingeStart } : {}) } as typeof elem.releaseI;
-      const relJ = { ...(elem.releaseJ ?? NO_RELEASE), mz: hingeEnd, ...(is3DMode ? { my: hingeEnd } : {}) } as typeof elem.releaseJ;
+      const relI = releaseAfterEdit(elem.releaseI, hingeStart, is3DMode) as typeof elem.releaseI;
+      const relJ = releaseAfterEdit(elem.releaseJ, hingeEnd, is3DMode) as typeof elem.releaseJ;
       if (slideStart === '') { delete relI.slide; delete relI.slideAxis; }
       else { relI.slide = slideStart; relI.slideAxis = slideStartAxis; }
       if (slideEnd === '') { delete relJ.slide; delete relJ.slideAxis; }

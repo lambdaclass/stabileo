@@ -44,21 +44,57 @@ const SHAPE_FACTOR_ESTIMATE = 1.15;
 
 /** Zp about the horizontal axis, m³, and where it came from. */
 export function plasticModulus(sec: Section): { zp: number; source: MpSource } {
+  /*
+   * About the axis the analysis bends it about. A rotated section is bent
+   * about its rotated axis — `effectiveBendingInertia` gives the 2D wire
+   * Iy·cos²α + Iz·sin²α — and the section engine ignores `geometry.rotation`
+   * ("applied by consumers"), so Zp came from the unrotated strong axis: an
+   * IPN 300 turned 90° took 762 cm³ where its weak axis has 122, and the
+   * collapse factor came out six times too high. The outline is turned here
+   * instead, and Zp read about the horizontal axis of what is left.
+   */
+  const alpha = ((sec.rotation ?? 0) * Math.PI) / 180;
   try {
     const r = resolveCanonicalSection(sec);
     if (isGeometryBacked(r)) {
-      const zp = analyzeSectionPlastic({ geometry: r.geometry }).zy;
+      const zp = analyzeSectionPlastic({ geometry: turned(r.geometry, alpha) }).zy;
       if (Number.isFinite(zp) && zp > 0) return { zp, source: 'geometry' };
     }
   } catch {
     // No section engine (cold start, old build): fall through to what the section declares.
   }
-  const i = sec.iy ?? sec.iz;
-  if ((sec.shape === 'rect' || sec.shape === undefined) && sec.b && sec.h && Math.abs(sec.b * sec.h ** 3 / 12 - i) <= 1e-3 * i) {
-    return { zp: (sec.b * sec.h ** 2) / 4, source: 'rectangle' };
+  const iStrong = sec.iy ?? sec.iz;
+  const iWeak = sec.iz;
+  const c = Math.cos(alpha) ** 2;
+  const i = iStrong * c + iWeak * (1 - c);
+  const quarterTurns = alpha / (Math.PI / 2);
+  const square = Math.abs(quarterTurns - Math.round(quarterTurns)) < 1e-9;
+  if (square && (sec.shape === 'rect' || sec.shape === undefined) && sec.b && sec.h
+    && Math.abs(sec.b * sec.h ** 3 / 12 - iStrong) <= 1e-3 * iStrong) {
+    const upright = Math.round(quarterTurns) % 2 === 0;
+    const [w, d] = upright ? [sec.b, sec.h] : [sec.h, sec.b];
+    return { zp: (w * d ** 2) / 4, source: 'rectangle' };
   }
-  const h = sec.h && sec.h > 0 ? sec.h : Math.sqrt((12 * i) / sec.a);
+  const h = !square || !(sec.h && sec.h > 0) ? Math.sqrt((12 * i) / sec.a)
+    : Math.round(quarterTurns) % 2 === 0 ? sec.h : (sec.b && sec.b > 0 ? sec.b : Math.sqrt((12 * i) / sec.a));
   return { zp: SHAPE_FACTOR_ESTIMATE * (i / (h / 2)), source: 'estimated' };
+}
+
+/** The canonical outline turned by `alpha` (radians, counter-clockwise), carrying no rotation of its own. */
+function turned<G extends { polygons: Array<{ vertices: Array<[number, number]> }>; rotation?: number }>(
+  geometry: G, alpha: number,
+): G {
+  if (alpha === 0) return { ...geometry, rotation: 0 };
+  const cs = Math.cos(alpha);
+  const sn = Math.sin(alpha);
+  return {
+    ...geometry,
+    rotation: 0,
+    polygons: geometry.polygons.map((p) => ({
+      ...p,
+      vertices: p.vertices.map(([y, z]) => [y * cs - z * sn, y * sn + z * cs] as [number, number]),
+    })),
+  };
 }
 
 /** Mp of every section the model's members use, with the material of the first member using it. */

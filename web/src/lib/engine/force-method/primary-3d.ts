@@ -34,9 +34,18 @@ export const restrained3D = (s: SolverSupport3D): boolean[] => {
  * The springs a support really has: the vanishing rotational ones the input
  * builder adds to orphan rotations (`stabilised`) are not part of the
  * structure, and counting them would add unknowns that are not there.
+ *
+ * Only the axes the stabiliser added (`stabilisedAxes`). It never overwrites a
+ * spring, so a `springs` support can carry the user's own on the others —
+ * zeroing every rotational spring there dropped a real one from the count
+ * while its stiffness stayed in K, and the force method solved a different
+ * structure than the stiffness method it is checked against.
  */
+const isStabilisedAxis = (s: SolverSupport3D, c: number): boolean =>
+  c >= 3 && !!s.stabilised && (s.stabilisedAxes ? s.stabilisedAxes[c - 3] : true);
+
 export const realSprings3D = (s: SolverSupport3D): number[] =>
-  [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz].map((k, c) => (s.stabilised && c >= 3 ? 0 : k ?? 0));
+  [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz].map((k, c) => (isStabilisedAxis(s, c) ? 0 : k ?? 0));
 
 const prescribed3D = (s: SolverSupport3D, c: number) => [s.dx, s.dy, s.dz, s.drx, s.dry, s.drz][c] ?? 0;
 

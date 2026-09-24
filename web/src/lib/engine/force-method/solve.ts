@@ -299,7 +299,7 @@ function clashes(chosen: Array<Omit<Redundant, 'index'>>, items: Array<Omit<Redu
  * plane and the space method; only the candidates and the check differ.
  */
 export function chooseRedundants(
-  cands: Candidate[], gh: number, stable: (rs: Redundant[]) => boolean,
+  cands: Candidate[], gh: number, stable: (rs: Redundant[]) => boolean, maxTries = 4000,
 ): Redundant[] | null {
   const chosen: Array<Omit<Redundant, 'index'>> = [];
   for (const c of cands) {
@@ -317,7 +317,7 @@ export function chooseRedundants(
       const rs = numbered(pick);
       return stable(rs) ? rs : null;
     }
-    for (let k = start; k < cands.length && tries < 4000; k++) {
+    for (let k = start; k < cands.length && tries < maxTries; k++) {
       const items = cands[k].items;
       if (pick.length + items.length > gh || clashes(pick, items)) continue;
       pick.push(...items);
@@ -351,10 +351,26 @@ export function restraintCarries(data: DSMStepData): (nodeId: number, c: number)
  */
 export const FM_MAX_GH = 30;
 
+/**
+ * How many complete sets the fallback search may check. Each check is a dense
+ * solve, O(n³) in the free DOFs, and the search runs in the click handler: at
+ * 4000 checks a model near the limits (354 DOFs) froze the page for about ten
+ * seconds before answering `noRedundants`. The budget is fixed in work, not in
+ * attempts — small models keep all 4000, the largest get about 200.
+ */
+export function fallbackBudget(nFree: number): number {
+  return Math.min(4000, Math.max(200, Math.floor(2e8 / Math.max(1, nFree) ** 3)));
+}
+
 function choose(input: SolverInput, gh: number): Redundant[] | null {
   let carries: (nodeId: number, c: number) => boolean = () => true;
-  try { carries = restraintCarries(solveDetailed(input)); } catch { /* the stability checks will say */ }
-  return chooseRedundants(candidates(input, carries), gh, (rs) => isStable(input, rs));
+  let nFree = 0;
+  try {
+    const d = solveDetailed(input);
+    carries = restraintCarries(d);
+    nFree = d.dofNumbering.nFree;
+  } catch { /* the stability checks will say */ }
+  return chooseRedundants(candidates(input, carries), gh, (rs) => isStable(input, rs), fallbackBudget(nFree));
 }
 
 // ─── The method ─────────────────────────────────────────────────

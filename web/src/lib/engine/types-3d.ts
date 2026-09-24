@@ -93,6 +93,12 @@ export interface SolverSupport3D {
    * springs out of reactions, counts and drawings.
    */
   stabilised?: 'created' | 'springs';
+  /**
+   * Which rotational springs (rx, ry, rz) the stabiliser added. A `springs`
+   * support can also carry the user's own rotational springs, and those are
+   * part of the structure: only the axes marked here are vanishing.
+   */
+  stabilisedAxes?: [boolean, boolean, boolean];
 }
 
 // ─── Loads ────────────────────────────────────────────────────────
