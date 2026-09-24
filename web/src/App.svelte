@@ -10,7 +10,7 @@
   import DespieceInspector from './components/DespieceInspector.svelte';
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
-  import { modelStore, uiStore, resultsStore, dsmStepsStore, tabManager, historyStore } from './lib/store';
+  import { modelStore, uiStore, resultsStore, dsmStepsStore, fmStepsStore, tabManager, historyStore } from './lib/store';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
@@ -142,7 +142,7 @@
    * is what the ribbon does for every other command that owns a panel.
    */
   $effect(() => {
-    if (dsmStepsStore.isOpen && uiStore.appMode === 'basico') {
+    if ((dsmStepsStore.isOpen || fmStepsStore.isOpen) && uiStore.appMode === 'basico') {
       basicPanel = 'data';
     }
   });

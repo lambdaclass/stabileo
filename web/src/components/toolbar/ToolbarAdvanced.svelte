@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
+  import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
+  import { solveForceMethod, ForceMethodError } from '../../lib/engine/force-method/solve';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
@@ -57,6 +58,10 @@
     'dsm': {
       labelKey: 'advHelp.dsm.label',
       textKey: 'advHelp.dsm.text',
+    },
+    'fm': {
+      labelKey: 'advHelp.fm.label',
+      textKey: 'advHelp.fm.text',
     },
     'envelope': {
       labelKey: 'advHelp.envelope.label',
@@ -186,6 +191,10 @@
     { key: 'dsm', labelKey: 'advanced.stepByStep',
       isActive: () => dsmStepsStore.isOpen,
       close: () => dsmStepsStore.close() },
+    /* Right under the stiffness wizard: the same panel, the other method. */
+    { key: 'fm', labelKey: 'advanced.stepByStepFlex',
+      isActive: () => fmStepsStore.isOpen,
+      close: () => fmStepsStore.close() },
   ];
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
@@ -844,6 +853,7 @@
             return;
           }
           if (blockedBySlidingJoints()) return;
+          fmStepsStore.close();
           if (uiStore.analysisMode === '3d') {
             const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
             if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
@@ -877,6 +887,43 @@
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('dsm', e)} class:active={advHelpKey === 'dsm'}>?</button>
     </div>
     {@render helpPanel('dsm')}
+      {/if}
+    {/if}
+    {#if shown('fm')}
+      {#if !flat || active?.key !== 'fm'}
+    <div class="adv-btn-wrap" style="grid-column: span 2">
+      <button class="adv-btn" style="flex:1" class:active={fmStepsStore.isOpen} data-testid="adv-fm"
+        onclick={() => {
+          if (fmStepsStore.isOpen) {
+            fmStepsStore.close();
+            setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
+            return;
+          }
+          if (blockedBySlidingJoints()) return;
+          /* The force method here is the plane one; a space frame goes to the stiffness wizard. */
+          if (uiStore.analysisMode === '3d') { uiStore.toast(t('fm.err.only2d'), 'error'); return; }
+          const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+          if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+          if ((input.constraints?.length ?? 0) > 0 || (input.connectors && input.connectors.size > 0)) {
+            uiStore.toast(t('fm.err.unsupported'), 'error'); return;
+          }
+          try {
+            const result = solveForceMethod(input);
+            dsmStepsStore.close();
+            fmStepsStore.setResult(result);
+            fmStepsStore.open();
+            if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
+            else uiStore.rightSidebarOpen = true;
+            setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
+          } catch (e: unknown) {
+            uiStore.toast(e instanceof ForceMethodError ? t(`fm.err.${e.key}`) : errText(e, 'fm.err.unstable'), 'error');
+          }
+        }}>
+        {t('advanced.stepByStepFlex')}
+      </button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('fm', e)} class:active={advHelpKey === 'fm'}>?</button>
+    </div>
+    {@render helpPanel('fm')}
       {/if}
     {/if}
 

@@ -83,6 +83,8 @@ export interface ForceMethodResult {
   X: number[];
   final: StateResult;
   verification: { maxForceDiff: number; maxReactionDiff: number; scale: number; ok: boolean };
+  /** The stiffness method's answer on the original structure, for Step 9's table. */
+  stiffness: StateResult;
 }
 
 // ─── Small helpers ──────────────────────────────────────────────
@@ -233,33 +235,64 @@ function generalised(state: Solved, pattern: Array<{ nodeId: number; fx: number;
 
 // ─── Choosing the redundants ────────────────────────────────────
 
+/*
+ * ── Released one at a time, as it is done by hand ─────────────────
+ *
+ * Each candidate, in order of preference, is released only if the structure
+ * is still stable without it — so the structure stays solvable at every
+ * step, and the choice ends when GH forces are out. That is the procedure a
+ * student follows, and it is linear in the number of candidates.
+ *
+ * Checking only complete sets instead, as the first version did, explored
+ * combinations of supports that had already let the structure float: on the
+ * three-bay, two-storey example (GH = 18) it ran out of attempts without an
+ * answer. An exhaustive search remains as the fallback for the rare case the
+ * greedy order paints itself into a corner (a count it cannot land on
+ * exactly).
+ */
+function isStable(input: SolverInput, rs: Redundant[]): boolean {
+  try {
+    const { input: p } = buildPrimary(input, rs, input.loads, { keepPrescribed: true, keepThermal: true });
+    return solveDetailed(p).uAll.every(Number.isFinite);
+  } catch { return false; }
+}
+
+const numbered = (items: Array<Omit<Redundant, 'index'>>): Redundant[] =>
+  items.map((c, i) => ({ ...c, index: i + 1 }));
+
+function clashes(chosen: Array<Omit<Redundant, 'index'>>, items: Array<Omit<Redundant, 'index'>>): boolean {
+  return items.some((it) => chosen.some((c) =>
+    (it.elementId !== undefined && c.elementId === it.elementId && it.kind !== 'reaction' && c.kind !== 'reaction')
+    || (it.kind === 'reaction' && c.kind === 'reaction' && c.nodeId === it.nodeId && c.component === it.component)));
+}
+
 function choose(input: SolverInput, gh: number): Redundant[] | null {
   const cands = candidates(input);
-  let tries = 0;
+
   const chosen: Array<Omit<Redundant, 'index'>> = [];
-  const stable = (rs: Redundant[]) => {
-    tries++;
-    try {
-      const { input: p } = buildPrimary(input, rs, input.loads, { keepPrescribed: true, keepThermal: true });
-      const d = solveDetailed(p);
-      return d.uAll.every(Number.isFinite);
-    } catch { return false; }
-  };
-  const clash = (items: Array<Omit<Redundant, 'index'>>) => items.some((it) => chosen.some((c) =>
-    (it.elementId !== undefined && c.elementId === it.elementId && (it.kind !== 'reaction' && c.kind !== 'reaction'))
-    || (it.kind === 'reaction' && c.kind === 'reaction' && c.nodeId === it.nodeId && c.component === it.component)));
+  for (const c of cands) {
+    if (chosen.length === gh) break;
+    if (chosen.length + c.items.length > gh || clashes(chosen, c.items)) continue;
+    if (isStable(input, numbered([...chosen, ...c.items]))) chosen.push(...c.items);
+  }
+  if (chosen.length === gh) return numbered(chosen);
+
+  /* Fallback: every combination, checked only when complete. */
+  let tries = 0;
+  const pick: Array<Omit<Redundant, 'index'>> = [];
   const dfs = (start: number): Redundant[] | null => {
-    if (chosen.length === gh) {
-      const rs = chosen.map((c, i) => ({ ...c, index: i + 1 }));
-      return stable(rs) ? rs : null;
+    if (pick.length === gh) {
+      tries++;
+      const rs = numbered(pick);
+      return isStable(input, rs) ? rs : null;
     }
     for (let k = start; k < cands.length && tries < 4000; k++) {
       const items = cands[k].items;
-      if (chosen.length + items.length > gh || clash(items)) continue;
-      chosen.push(...items);
+      if (pick.length + items.length > gh || clashes(pick, items)) continue;
+      pick.push(...items);
       const got = dfs(k + 1);
       if (got) return got;
-      chosen.splice(chosen.length - items.length, items.length);
+      pick.splice(pick.length - items.length, items.length);
     }
     return null;
   };
@@ -287,6 +320,7 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
       states: [st], delta: [], delta0: [], prescribed: [], deltaTerms: [], delta0Terms: [],
       deltaCheck: [], delta0Check: [], X: [], final: st,
       verification: { maxForceDiff: 0, maxReactionDiff: 0, scale: 1, ok: true },
+      stiffness: st,
     };
   }
 
@@ -467,6 +501,10 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
   redundants.forEach((r, i) => {
     if (r.kind === 'reaction') finalReactions.push({ nodeId: r.nodeId, component: r.component!, value: X[i] });
   });
+  const byNode = (a: { nodeId: number; component: number }, b: { nodeId: number; component: number }) =>
+    a.nodeId - b.nodeId || a.component - b.component;
+  finalReactions.sort(byNode);
+  finalBars.sort((a, b) => a.elementId - b.elementId);
   const final: StateResult = { bars: finalBars, reactions: finalReactions };
 
   // ─── Against the stiffness method ─────────────────────────────
@@ -499,6 +537,7 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
       maxForceDiff, maxReactionDiff, scale,
       ok: Math.max(maxForceDiff, maxReactionDiff) / scale < 1e-6,
     },
+    stiffness: dsmState,
   };
 }
 
