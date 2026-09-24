@@ -1,72 +1,89 @@
 <script lang="ts">
   /**
-   * The interaction diagram, drawn the way the verification sheets draw it.
+   * The interaction diagram, drawn the way the column sheets draw it.
    *
-   * Mu across, Pu up, the curve mirrored about the axial axis because a
-   * symmetric section reaches the same capacity whichever face is compressed —
-   * which is also why the sheet prints its characteristic points twice.
+   * Mu across, Pu up, and the series every sheet's chart carries:
    *
-   * Two markers, and they are the point of the figure: the RED one is the
-   * demand and the MAGENTA one the resistance at that demand's own
-   * eccentricity. Their positions say what a ratio cannot — whether the
-   * section is short of capacity near the nose, where a little more axial load
-   * helps, or out on the tension branch where it does not.
+   *   · "Con limitación de Φ Pn (máx)" — the design diagram, solid
+   *   · "Sin limitación de Φ Pn (máx)" — the same section uncapped, dashed
+   *   · the demand, a red diamond
+   *   · on the verification sheets, the resistance at the demand's own
+   *     eccentricity, a magenta diamond, and the ray from the origin through
+   *     both ("Excentricidad")
+   *   · on the characteristic-points chart, the six named states
    *
-   * An SVG rather than a chart library: it is a hundred points and two
-   * diamonds, and the CSP on this app forbids reaching for a CDN anyway.
+   * Both edges are CURVES the caller computed, not one edge mirrored: a section
+   * with more steel at the bottom than the top has a lopsided diagram, and
+   * reflecting one half would draw a section that is not the one checked.
+   * Moments are signed as the sheet signs them — positive compresses the top.
+   *
+   * An SVG rather than a chart library: a few hundred points and some markers,
+   * and the CSP on this app forbids reaching for a CDN anyway.
    */
-  export interface DiagramPoint { m: number; n: number }
+  import type { DiagramPoint } from '../../lib/engine/codes/argentina/cirsoc-flex-diagram';
 
   interface Props {
-    /** The capacity curve as (|φMn|, φPn); drawn mirrored. */
+    /** The capped diagram, a closed loop, (φMn signed, φPn). */
     curve: DiagramPoint[];
-    /** Where the demand sits, if there is one. */
+    /** The uncapped one, drawn dashed. */
+    uncapped?: DiagramPoint[] | null;
     demand?: DiagramPoint | null;
-    /** The capacity at the demand's eccentricity. */
     resistance?: DiagramPoint | null;
+    /** Draw the ray of constant eccentricity through demand and resistance. */
+    showEccentricity?: boolean;
+    /** Characteristic points, marked on the curve. */
+    points?: DiagramPoint[] | null;
     labelM?: string;
     labelN?: string;
+    testId?: string;
   }
-  let { curve, demand = null, resistance = null,
-        labelM = 'Mu [kN·m]', labelN = 'Pu [kN]' }: Props = $props();
+  let {
+    curve, uncapped = null, demand = null, resistance = null,
+    showEccentricity = false, points = null,
+    labelM = 'Mu [kN·m]', labelN = 'Pu [kN]', testId = 'flex-diagram',
+  }: Props = $props();
 
   const W = 300;
   const H = 260;
   const PAD = { l: 44, r: 10, t: 12, b: 28 };
 
-  /** Both halves: the sheet plots the full symmetric figure. */
-  const mirrored = $derived([
-    ...curve.map((p) => ({ m: -Math.abs(p.m), n: p.n })).reverse(),
-    ...curve.map((p) => ({ m: Math.abs(p.m), n: p.n })),
-  ]);
-
   const bounds = $derived.by(() => {
-    const ms = mirrored.map((p) => p.m);
-    const ns = mirrored.map((p) => p.n);
-    if (demand) { ms.push(demand.m, -demand.m); ns.push(demand.n); }
-    if (resistance) { ms.push(resistance.m, -resistance.m); ns.push(resistance.n); }
-    const mMax = Math.max(1, ...ms.map(Math.abs));
-    return { mMin: -mMax, mMax, nMin: Math.min(...ns, 0), nMax: Math.max(...ns, 0) };
+    const all = [...curve, ...(uncapped ?? [])];
+    const ms = all.map((p) => p.m);
+    const ns = all.map((p) => p.n);
+    for (const p of [demand, resistance]) if (p) { ms.push(p.m); ns.push(p.n); }
+    /* Symmetric about the axial axis, so the origin sits in the middle and the
+       two edges can be compared by eye. */
+    const mMax = Math.max(1, ...ms.map(Math.abs)) * 1.04;
+    const nMin = Math.min(...ns, 0);
+    const nMax = Math.max(...ns, 0);
+    const pad = (nMax - nMin) * 0.03;
+    return { mMin: -mMax, mMax, nMin: nMin - pad, nMax: nMax + pad };
   });
 
   const x = $derived((m: number) => {
     const { mMin, mMax } = bounds;
-    const span = mMax - mMin || 1;
-    return PAD.l + ((m - mMin) / span) * (W - PAD.l - PAD.r);
+    return PAD.l + ((m - mMin) / (mMax - mMin || 1)) * (W - PAD.l - PAD.r);
   });
   const y = $derived((n: number) => {
     const { nMin, nMax } = bounds;
-    const span = nMax - nMin || 1;
-    return H - PAD.b - ((n - nMin) / span) * (H - PAD.t - PAD.b);
+    return H - PAD.b - ((n - nMin) / (nMax - nMin || 1)) * (H - PAD.t - PAD.b);
   });
 
-  const path = $derived(
-    mirrored.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.m).toFixed(1)},${y(p.n).toFixed(1)}`).join(' '),
-  );
+  const pathOf = (pts: DiagramPoint[]) =>
+    pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.m).toFixed(1)},${y(p.n).toFixed(1)}`).join(' ') + ' Z';
 
   /** A diamond, because that is the marker the sheet uses for both. */
   const diamond = (p: DiagramPoint, r = 4) =>
     `${x(p.m)},${y(p.n) - r} ${x(p.m) + r},${y(p.n)} ${x(p.m)},${y(p.n) + r} ${x(p.m) - r},${y(p.n)}`;
+
+  /** The eccentricity ray, from the origin to whichever marker is further out. */
+  const ray = $derived.by(() => {
+    if (!showEccentricity || !demand) return null;
+    const far = resistance && Math.hypot(resistance.m, resistance.n) > Math.hypot(demand.m, demand.n)
+      ? resistance : demand;
+    return { x1: x(0), y1: y(0), x2: x(far.m), y2: y(far.n) };
+  });
 
   /** Round tick values across a span, so the axes read in numbers people use. */
   function ticks(lo: number, hi: number, wanted = 4): number[] {
@@ -82,8 +99,7 @@
 </script>
 
 <svg class="id-svg" viewBox="0 0 {W} {H}" role="img"
-  aria-label="{labelM} / {labelN}" data-testid="flex-diagram">
-  <!-- grid and axes -->
+  aria-label="{labelM} / {labelN}" data-testid={testId}>
   {#each ticks(bounds.nMin, bounds.nMax) as v (v)}
     <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} class="id-grid" />
     <text x={PAD.l - 4} y={y(v) + 3} class="id-tick id-tick-y">{v.toFixed(0)}</text>
@@ -95,13 +111,26 @@
   <line x1={PAD.l} x2={W - PAD.r} y1={y(0)} y2={y(0)} class="id-axis" />
   <line x1={x(0)} x2={x(0)} y1={PAD.t} y2={H - PAD.b} class="id-axis" />
 
-  <path d={path} class="id-curve" />
+  {#if uncapped && uncapped.length > 2}
+    <path d={pathOf(uncapped)} class="id-uncapped" data-testid="{testId}-uncapped" />
+  {/if}
+  <path d={pathOf(curve)} class="id-curve" data-testid="{testId}-capped" />
+
+  {#if ray}
+    <line {...ray} class="id-ray" data-testid="{testId}-ray" />
+  {/if}
+
+  {#if points}
+    {#each points as p, k (k)}
+      <circle cx={x(p.m)} cy={y(p.n)} r="2.6" class="id-pt" />
+    {/each}
+  {/if}
 
   {#if resistance}
-    <polygon points={diamond(resistance, 5)} class="id-res" data-testid="flex-diagram-res" />
+    <polygon points={diamond(resistance, 5)} class="id-res" data-testid="{testId}-res" />
   {/if}
   {#if demand}
-    <polygon points={diamond(demand, 5)} class="id-dem" data-testid="flex-diagram-dem" />
+    <polygon points={diamond(demand, 5)} class="id-dem" data-testid="{testId}-dem" />
   {/if}
 
   <text x={(W + PAD.l) / 2} y={H - 2} class="id-axis-label">{labelM}</text>
@@ -112,7 +141,13 @@
   .id-svg { width: 100%; height: auto; display: block; margin: 4px 0 2px; }
   .id-grid { stroke: var(--st-hair); stroke-width: 0.5; }
   .id-axis { stroke: var(--st-text-3); stroke-width: 0.8; }
-  .id-curve { fill: none; stroke: var(--st-accent); stroke-width: 1.4; }
+  .id-curve { fill: none; stroke: var(--st-accent); stroke-width: 1.4; stroke-linejoin: round; }
+  .id-uncapped {
+    fill: none; stroke: var(--st-text-3); stroke-width: 1;
+    stroke-dasharray: 4 3; stroke-linejoin: round;
+  }
+  .id-ray { stroke: var(--st-text-2); stroke-width: 0.8; stroke-dasharray: 2 2; }
+  .id-pt { fill: var(--st-surface); stroke: var(--st-text); stroke-width: 1; }
   .id-tick { fill: var(--st-text-3); font-size: 7px; font-variant-numeric: tabular-nums; }
   .id-tick-y { text-anchor: end; }
   .id-tick-x { text-anchor: middle; }

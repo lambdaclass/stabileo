@@ -144,3 +144,19 @@ describe('the diagram, both curves, both edges', () => {
     expect(Math.abs(pos - neg) / pos).toBeGreaterThan(0.05);
   });
 });
+
+describe('FCR-VERIF — "4.- Resultados" is the levels, summed', () => {
+  it('Ast 21,336 and ρ 0,0237 from two levels of 10,668, whatever the Ast box says', () => {
+    const r = solveFlex({
+      ...BASE, mode: 'verify', AstGiven: 20,
+      levels: [
+        { distanceFromBottom: 0.05, areaCm2: 10.668 },
+        { distanceFromBottom: 0.25, areaCm2: 10.668 },
+      ],
+    });
+    expect(r.AstCm2).toBeCloseTo(21.336, 9);
+    expect(rel(r.rho, 0.023706666666666667)).toBeLessThan(1e-9);
+    /* And the sheet's own MV res / MV sol: 509,9106 / 509,902. */
+    expect(rel(1 / r.ratio, 509.9106 / 509.902)).toBeLessThan(2e-5);
+  });
+});

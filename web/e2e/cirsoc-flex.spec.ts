@@ -423,3 +423,67 @@ test.describe('@smoke the biaxial sheet asks for areas when verifying', () => {
       await expect(derived).toContainText('60.0');
     });
 });
+
+/*
+ * The figures and rows found missing by laying the panel beside the workbook:
+ * FCO's surface cut, the uncapped curve every column chart carries, and the
+ * verification sheets' own inputs and numbering.
+ */
+test.describe('@smoke what each sheet draws and asks for', () => {
+  test('FCO draws the surface cut: eight per-cent contours and the adopted one', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCO');
+    await expect(page.getByTestId('flex-surface-cut')).toBeVisible();
+    await expect(page.getByTestId('flex-cut-grid')).toHaveCount(8);
+    await expect(page.getByTestId('flex-cut-result')).toHaveCount(1);
+    await expect(page.getByTestId('flex-cut-dem')).toBeVisible();
+    /* The biaxial sheet has no (M, P) diagram; drawing one would be ours, not its. */
+    await expect(page.getByTestId('flex-diagram')).toHaveCount(0);
+    /* 4.2 prints Pu (max) for the 8 % ceiling when sizing: 2 487,42 kN. */
+    await expect(page.getByTestId('flex-minmax')).toContainText('2487.42');
+  });
+
+  test('FCO-VERIF: φMn / Mu at the fixed axial load, the cut with the resistance on it', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCO');
+    await page.getByTestId('flex-mode-verify').click();
+    await expect(page.getByTestId('flex-sheet-rows')).toContainText('1.0004');
+    await expect(page.getByTestId('flex-cut-res')).toBeVisible();
+    await expect(page.getByTestId('flex-positioning')).toBeVisible();
+    await expect(page.getByTestId('flex-minmax')).toContainText('1437.23');
+  });
+
+  test('every column diagram carries the uncapped curve too', async ({ page }) => {
+    await openFlex(page);
+    for (const id of ['FCR', 'FCR-CIR']) {
+      await page.getByTestId('flex-case').selectOption(id);
+      await expect(page.getByTestId('flex-diagram-uncapped'), id).toBeVisible();
+      await expect(page.getByTestId('flex-diagram-capped'), id).toBeVisible();
+    }
+  });
+
+  test('FCR-VERIF: Ast is the levels summed, and the sections are numbered as the sheet numbers them', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCR');
+    await page.getByTestId('flex-mode-verify').click();
+    const rows = page.getByTestId('flex-sheet-rows');
+    await expect(rows).toContainText('21.336');
+    const panel = page.getByTestId('flex-panel');
+    await expect(panel).toContainText(/5 · (Safety|Condición)/i);
+    await expect(panel).toContainText(/6 · (Characteristic|Puntos)/i);
+    await expect(page.getByTestId('flex-eccentricity')).toContainText('0.200');
+    await expect(page.getByTestId('flex-points-diagram')).toBeVisible();
+  });
+
+  test('FCR-CIR-VERIF asks for one bar’s area and the count, as the sheet does', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCR-CIR');
+    await page.getByTestId('flex-mode-verify').click();
+    await expect(page.getByTestId('flex-asi')).toHaveValue('7.21');
+    await expect(page.getByTestId('flex-circ-derived')).toContainText('86.520');
+    await expect(page.getByTestId('flex-bar-location')).toBeVisible();
+    /* The sheet's own MV res / MV sol for this section: 0,9997. */
+    await expect(page.getByTestId('flex-safety')).toContainText('0.9997');
+    await expect(page.getByTestId('flex-panel')).toContainText(/4 · (Safety|Condición)/i);
+  });
+});

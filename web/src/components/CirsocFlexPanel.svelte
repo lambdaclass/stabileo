@@ -29,12 +29,15 @@
   import { teAll } from '../lib/i18n/engine-text';
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
   import {
-    axialCap, beta1, yieldStrain, ES_MPA, COLUMN_STEEL_RATIO,
+    beta1, yieldStrain, ES_MPA, COLUMN_STEEL_RATIO,
     PHI_TENSION, PHI_COMPRESSION_TIED, PHI_COMPRESSION_SPIRAL,
   } from '../lib/engine/codes/argentina/cirsoc201-basis';
   import { characteristicPointsBothEdges } from '../lib/engine/codes/argentina/cirsoc-flex-points';
-  import { interactionCurve } from '../lib/engine/codes/argentina/cirsoc201-section';
+  import { diagramSeries } from '../lib/engine/codes/argentina/cirsoc-flex-diagram';
+  import { surfaceCut } from '../lib/engine/codes/argentina/cirsoc-flex-surface';
+  import { facesA1A2A3 } from '../lib/engine/codes/argentina/cirsoc201-layouts';
   import InteractionDiagram from './flex/InteractionDiagram.svelte';
+  import SurfaceCut from './flex/SurfaceCut.svelte';
   import SectionDrawing from './SectionDrawing.svelte';
   import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
   import { uiStore, resultsStore, modelStore } from '../lib/store';
@@ -96,9 +99,27 @@
   function loadExampleFor(next: FlexCase) {
     if (next === 'FSR') { b = 12; h = 40; dPrime = 3.4; dPrimeS = 3.4; Mu = 52; Pu = 0; }
     if (next === 'FST') { bf = 137; hf = 10; bw = 12; h = 40; dPrime = 3.2; dPrimeS = 3.2; Mu = 52; Pu = 0; }
-    if (next === 'FCR') { b = 30; h = 30; dPrime = 5; dPrimeS = 5; ratioAsPrime = 1; Pu = 500; Mu = 100; }
-    if (next === 'FCR-CIR') { D = 40; Dint = 0; dPrimeS = 3; barCount = 12; spiral = true; Pu = 1000; Mu = 300; }
-    if (next === 'FCO') { b = 30; h = 30; dPrimeH = 5; dPrimeV = 5; pctA1 = 50; pctA2 = 50; pctA3 = 0; nA1 = 4; nA2 = 4; Pu = 500; Mu = 100; Muy = 0; }
+    if (next === 'FCR') {
+      b = 30; h = 30; dPrime = 5; dPrimeS = 5; ratioAsPrime = 1; Pu = 500; Mu = 100; spiral = false;
+      /* FCR-VERIF ships two levels of 10,668 cm², at 5 and 25 cm from the bottom. */
+      levels = [
+        { distanceFromBottom: 5, areaCm2: 10.668 },
+        { distanceFromBottom: 25, areaCm2: 10.668 },
+        { distanceFromBottom: 0, areaCm2: 0 },
+        { distanceFromBottom: 0, areaCm2: 0 },
+        { distanceFromBottom: 0, areaCm2: 0 },
+      ];
+    }
+    if (next === 'FCR-CIR') {
+      D = 40; Dint = 0; dPrimeS = 3; barCount = 12; spiral = true; Pu = 1000; Mu = 300;
+      /* FCR-CIR-VERIF asks for the area of one bar: 7,21 cm². */
+      asiGiven = 7.21; atFibre = true;
+    }
+    if (next === 'FCO') {
+      b = 30; h = 30; dPrimeH = 5; dPrimeV = 5; pctA1 = 50; pctA2 = 50; pctA3 = 0;
+      nA1 = 4; nA2 = 4; nA3 = 4; Pu = 500; Mu = 100; Muy = 0; spiral = false;
+      asA1 = 10.676; asA2 = 10.676; asA3 = 0;
+    }
     kase = next;
   }
 
@@ -153,8 +174,8 @@
    * direction of the calculation, so the boxes differ and the engine does not:
    * areas are summed into Ast and divided back into the percentages it takes.
    */
-  let asA1 = $state(10.668);
-  let asA2 = $state(10.668);
+  let asA1 = $state(10.676);
+  let asA2 = $state(10.676);
   let asA3 = $state(0);
   let pctA1 = $state(50);
   let pctA2 = $state(50);
@@ -164,6 +185,12 @@
   let nA3 = $state(4);
   /** Verification: the steel already there. */
   let AstGiven = $state(20);
+  /**
+   * FCR-CIR-VERIF asks for ONE bar's area, "Asi", and the count — Ast is what
+   * it derives, not what it takes. The ring is a set of equal bars, and a
+   * reader holding "12 Ø30" types 7,07 and 12 without multiplying first.
+   */
+  let asiGiven = $state(7.21);
 
   /*
    * ── Bars, because nobody checks a section in cm² ────────────────
@@ -215,6 +242,7 @@
   /** The biaxial sheet takes areas when verifying and percentages when sizing. */
   const fcoByArea = $derived(kase === 'FCO' && mode === 'verify');
   const fcoAstGiven = $derived(asA1 + asA2 + asA3);
+  const circByBar = $derived(kase === 'FCR-CIR' && mode === 'verify');
   /*
    * Percentages from the areas, which is the only conversion needed — and the
    * one place it can go wrong is a total of zero, where every share is
@@ -245,7 +273,7 @@
       ? { pctA1: fcoPct.a1, pctA2: fcoPct.a2, pctA3: fcoPct.a3 }
       : { pctA1, pctA2, pctA3 }),
     nA1, nA2, nA3,
-    AstGiven: fcoByArea ? fcoAstGiven : AstGiven,
+    AstGiven: fcoByArea ? fcoAstGiven : circByBar ? asiGiven * barCount : AstGiven,
     levels: levels.filter((l) => l.areaCm2 > 0)
       .map((l) => ({ distanceFromBottom: l.distanceFromBottom / 100, areaCm2: l.areaCm2 })),
     Pu, Mu, Muy,
@@ -296,81 +324,128 @@
   type Row = [string, string];
 
   const cmOfRow = (label: string, v: number | undefined): Row => [label, cmOf(v)];
+  const cm2 = (v: number | undefined) => fmt(v, 3, 'cm²');
+  const isBeam = $derived(kase === 'FSR' || kase === 'FST');
+  const mat = $derived({
+    fc, fy, confinement: (spiral ? 'spiral' : 'ties') as 'spiral' | 'ties', deductDisplacedConcrete: deduct,
+  });
 
-  /** The rows the workbook's own sheet prints, in its order. */
-  const sheetRows = $derived.by((): Row[] => {
+  /*
+   * ── The sheet's own section numbers, sheet by sheet ─────────────
+   *
+   * The workbook does not number its sheets alike. FCR-VERIF puts the safety
+   * condition at 5 and the characteristic points at 6; FCR-CIR-VERIF, which
+   * has no results block, puts them at 4 and 5; FCO-VERIF jumps from 5 to 9.
+   * A reader following "4.2" from the sheet to the panel has to land on the
+   * same block, so the numbers are looked up rather than shared. A heading
+   * with no number is one the sheet does not have under that name here.
+   */
+  type Sec = 'general' | 'geometry' | 'distribution' | 'demand' | 'results' | 'needed'
+    | 'minmax' | 'diagram' | 'safety' | 'points' | 'cut' | 'modulus' | 'positioning';
+  const BEAM_NUMBERS: Partial<Record<Sec, string>> = { general: '1', geometry: '2', demand: '3', results: '4' };
+  const SECTION_NUMBERS: Record<string, Partial<Record<Sec, string>>> = {
+    'FSR:design': BEAM_NUMBERS, 'FST:design': BEAM_NUMBERS,
+    'FSR:verify': BEAM_NUMBERS, 'FST:verify': BEAM_NUMBERS,
+    'FCR:design': { general: '1', geometry: '2', demand: '3', needed: '4.1', minmax: '4.2', diagram: '5' },
+    'FCR-CIR:design': { general: '1', geometry: '2', demand: '3', needed: '4.1', minmax: '4.2', diagram: '5' },
+    'FCO:design': { general: '1', geometry: '2', demand: '3', needed: '4.1', minmax: '4.2', cut: '5' },
+    'FCR:verify': { general: '1', geometry: '2', distribution: '3', results: '4', safety: '5', points: '6' },
+    'FCR-CIR:verify': { general: '1', geometry: '2', distribution: '3', safety: '4', points: '5' },
+    'FCO:verify': {
+      general: '1', geometry: '2', demand: '3', modulus: '4.1', minmax: '4.2', cut: '5', positioning: '9',
+    },
+  };
+  /** "4.2 · " for a section the sheet numbers, "" for one it does not. */
+  const num = (k: Sec) => {
+    const n = SECTION_NUMBERS[`${kase}:${mode}`]?.[k];
+    return n ? `${n} · ` : '';
+  };
+
+  /**
+   * The rows each block prints, in the sheet's order and under its names.
+   *
+   * What the sheet does not print on this sheet is not printed in these
+   * tables: it goes to "also computed here", below, so the comparison with
+   * the workbook never depends on knowing which rows to skip.
+   */
+  const beamRows = $derived.by((): Row[] => {
     const r = out.r;
-    if (!r) return [];
-    const isBeam = kase === 'FSR' || kase === 'FST';
-    const rows: Row[] = [];
-
-    if (isBeam) {
-      /*
-       * FSR and FST print, in this order: A′s, As, As mín, a, c, c máx, εt.
-       * A′s ALWAYS — a singly reinforced beam answers 0,00, and that is an
-       * answer rather than a reason to leave the row out.
-       */
-      rows.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2 ?? 0, 3, 'cm²')]);
-      rows.push([
-        mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asTension'),
-        fmt(r.AsCm2 ?? r.AstCm2, 3, 'cm²'),
-      ]);
-      if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), fmt(r.AsMinCm2!, 3, 'cm²')]);
-      rows.push(cmOfRow(t('flex.out.aReq'), r.a));
-      rows.push(cmOfRow(t('flex.out.c'), r.c));
-      if (r.cMax !== undefined) rows.push(cmOfRow(t('flex.out.cMax'), r.cMax));
-      if (r.epsilonT !== undefined) {
-        rows.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
-      }
-      return rows;
-    }
-
-    /* The column sheets: needed steel first, then the minima and maxima. */
-    if (kase === 'FCR') {
-      rows.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2 ?? 0, 3, 'cm²')]);
-      rows.push([t('flex.out.asTension'), fmt(r.AsCm2 ?? 0, 3, 'cm²')]);
-    }
-    rows.push([t('flex.out.astTotal'), fmt(r.AstCm2, 3, 'cm²')]);
-    if (kase === 'FCR-CIR' && barCount > 0) {
-      /* The sheet prints the area of ONE bar of the ring beside the total. */
-      rows.push([t('flex.out.asiBar'), fmt(r.AstCm2 / barCount, 3, 'cm²')]);
-    }
-    rows.push([t('flex.out.rho'), r.rho.toFixed(6)]);
-    if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), fmt(r.AsMinCm2!, 3, 'cm²')]);
-    if (r.AstMinCm2 !== undefined) rows.push([t('flex.out.astMin'), fmt(r.AstMinCm2, 3, 'cm²')]);
-    if (r.AstMaxCm2 !== undefined) rows.push([t('flex.out.astMax'), fmt(r.AstMaxCm2, 3, 'cm²')]);
-    if (kase === 'FCO') {
-      /* Pu(max) = φ · 0,80 · Po, the sheet's own axial ceiling for a column. */
-      const Ag = (b / 100) * (h / 100) - (holeB / 100) * (holeH / 100);
-      const cap = axialCap(fc, fy, Ag, r.AstCm2 / 1e4, spiral ? 'spiral' : 'ties');
-      rows.push([t('flex.out.puMax'), fmt(cap, 1, 'kN')]);
-      if (mode === 'verify' && r.phiMn !== undefined && Math.abs(Mu) > 1e-9) {
-        rows.push([t('flex.out.phiMnOverMu'), (r.phiMn / Math.abs(Mu)).toFixed(3)]);
-      }
-    }
+    if (!r || !isBeam) return [];
+    /* A′s ALWAYS — a singly reinforced beam answers 0,000, which is an answer. */
+    const rows: Row[] = [
+      [t('flex.out.asComp'), cm2(r.AsPrimeCm2 ?? 0)],
+      [mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asTension'), cm2(r.AsCm2 ?? r.AstCm2)],
+    ];
+    if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), cm2(r.AsMinCm2)]);
+    rows.push(cmOfRow(t('flex.out.aReq'), r.a), cmOfRow(t('flex.out.c'), r.c));
+    if (r.cMax !== undefined) rows.push(cmOfRow(t('flex.out.cMax'), r.cMax));
+    if (r.epsilonT !== undefined) rows.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
     return rows;
   });
 
+  /** 4.1 on the design sheets. */
+  const neededRows = $derived.by((): Row[] => {
+    const r = out.r;
+    if (!r || isBeam) return [];
+    if (kase === 'FCR') {
+      return [
+        [t('flex.out.asComp'), cm2(r.AsPrimeCm2 ?? 0)],
+        [t('flex.out.asTension'), cm2(r.AsCm2 ?? 0)],
+        [t('flex.out.astTotal'), cm2(r.AstCm2)],
+        [t('flex.out.rho'), r.rho.toFixed(6)],
+      ];
+    }
+    if (kase === 'FCR-CIR') {
+      return [
+        [t('flex.out.astTotal'), cm2(r.AstCm2)],
+        /* The sheet prints ONE bar of the ring beside the total. */
+        [t('flex.out.asiBar'), cm2(barCount > 0 ? r.AstCm2 / barCount : undefined)],
+        [t('flex.out.rho'), r.rho.toFixed(6)],
+      ];
+    }
+    /* FCO prints the ratio first, then the area. */
+    return [[t('flex.out.rho'), r.rho.toFixed(6)], [t('flex.out.astTotal'), cm2(r.AstCm2)]];
+  });
+
+  /** 4.2 — on the design sheets and on FCO-VERIF; the other checks do not print it. */
+  const minMaxRows = $derived.by((): Row[] => {
+    const r = out.r;
+    if (!r || isBeam) return [];
+    const rows: Row[] = [];
+    if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), cm2(r.AsMinCm2)]);
+    if (r.AstMinCm2 !== undefined) rows.push([t('flex.out.astMin'), cm2(r.AstMinCm2)]);
+    if (r.AstMaxCm2 !== undefined) rows.push([t('flex.out.astMax'), cm2(r.AstMaxCm2)]);
+    if (r.puMax !== undefined) rows.push([t('flex.out.puMax'), fmt(r.puMax, 2, 'kN')]);
+    return rows;
+  });
+  const printsMinMax = $derived(!isBeam && (mode === 'design' || kase === 'FCO'));
+
+  /** FCR-VERIF's "4.- Resultados": the steel it was given, summed. */
+  const verifyResultRows = $derived.by((): Row[] => {
+    const r = out.r;
+    if (!r || kase !== 'FCR' || mode !== 'verify') return [];
+    return [[t('flex.out.astTotal'), cm2(r.AstCm2)], [t('flex.out.rho'), r.rho.toFixed(6)]];
+  });
+
   /**
-   * What this tool has in hand and the sheet does not print.
+   * What this tool has in hand and the sheet does not print here.
    *
-   * Kept, and kept SEPARATE. Deleting φ and the state at the answer would
-   * throw away the part a reader uses to see why the number came out as it
-   * did; mixing them into the table above would make the comparison with the
-   * workbook a matter of knowing which rows to skip.
+   * Kept, and kept SEPARATE: φ and the state at the answer are how a reader
+   * sees why the number came out as it did, and the column bounds are worth
+   * knowing on a check even where the verification sheet leaves them out.
    */
   const extraRows = $derived.by((): Row[] => {
     const r = out.r;
     if (!r) return [];
-    const isBeam = kase === 'FSR' || kase === 'FST';
     const rows: Row[] = [];
+    if (!printsMinMax && !isBeam) {
+      if (Number.isFinite(r.AsMinCm2)) rows.push([t('flex.out.asMin'), cm2(r.AsMinCm2)]);
+      if (r.AstMinCm2 !== undefined) rows.push([t('flex.out.astMin'), cm2(r.AstMinCm2)]);
+      if (r.AstMaxCm2 !== undefined) rows.push([t('flex.out.astMax'), cm2(r.AstMaxCm2)]);
+    }
     if (!isBeam) {
-      rows.push(cmOfRow(t('flex.out.aReq'), r.a));
-      rows.push(cmOfRow(t('flex.out.c'), r.c));
-      if (r.cMax !== undefined) rows.push(cmOfRow(t('flex.out.cMax'), r.cMax));
-      if (r.epsilonT !== undefined) {
-        rows.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
-      }
+      rows.push(cmOfRow(t('flex.out.aReq'), r.a), cmOfRow(t('flex.out.c'), r.c));
+      if (r.epsilonT !== undefined) rows.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
     }
     if (r.phi !== undefined) rows.push([t('flex.out.phi'), r.phi.toFixed(3)]);
     if (r.phiPn !== undefined && !isBeam) rows.push([t('flex.out.phiPn'), fmt(r.phiPn, 1, 'kN')]);
@@ -378,21 +453,13 @@
     return rows;
   });
 
-  /**
-   * "1 · Datos generales" — the constants the sheet prints before anything else.
-   *
-   * Not decoration. Es, εy and β1 are what every later number is built on, and
-   * the workbook puts them on the page so a reader can see which values were in
-   * force rather than infer them from an answer. φ is printed as the pair it is:
-   * one for compression-controlled sections, one for tension-controlled.
-   */
+  /** "1 · Datos generales" — the constants every later number is built on. */
   const generalRows = $derived.by((): Row[] => {
     const rows: Row[] = [
       ['Es', `${ES_MPA.toLocaleString()} MPa`],
       ['εy', `${(yieldStrain(fy) * 1000).toFixed(2)} ‰`],
       ['β1', beta1(fc).toFixed(3)],
     ];
-    const isBeam = kase === 'FSR' || kase === 'FST';
     if (isBeam) {
       rows.push([t('flex.out.phiTension'), PHI_TENSION.toFixed(2)]);
     } else {
@@ -408,20 +475,15 @@
   });
 
   /**
-   * "Condición de seguridad" — the sheet's own way of stating the verdict.
-   *
-   * Capacity over demand along the ray of constant eccentricity, given as the
-   * two resistant components and the two vector magnitudes rather than as a
-   * single ratio. That is what makes it checkable: a reader can see WHERE on
-   * the diagram the resistance was read, not just how it compared.
+   * "Condición de seguridad para una solicitación dada", as FCR-VERIF and
+   * FCR-CIR-VERIF state it: the eccentricity, the two resistant components at
+   * that eccentricity, the two vector moduli and their ratio.
    */
   const safetyRows = $derived.by((): Row[] => {
     const r = out.r;
-    if (!r || mode !== 'verify') return [];
-    const isBeam = kase === 'FSR' || kase === 'FST';
-    if (isBeam || r.phiMn === undefined) return [];
+    if (!r || mode !== 'verify' || isBeam || kase === 'FCO' || r.phiMn === undefined) return [];
     const puRes = r.phiPn ?? 0;
-    const muRes = r.phiMn;
+    const muRes = Math.sign(Mu || 1) * r.phiMn;
     const mvSol = Math.hypot(Pu, Mu);
     const mvRes = Math.hypot(puRes, muRes);
     if (mvSol < 1e-9) return [];
@@ -430,74 +492,98 @@
       ['Mu res', fmt(muRes, 2, 'kN·m')],
       ['MV sol', fmt(mvSol, 2, '')],
       ['MV res', fmt(mvRes, 2, '')],
-      [t('flex.out.mvRatio'), (mvRes / mvSol).toFixed(3)],
+      [t('flex.out.mvRatio'), (mvRes / mvSol).toFixed(4)],
     ];
   });
 
-  /**
-   * The six characteristic points, for both edges, as the verification sheets
-   * tabulate them. Built from the bars the calculation used, so the table
-   * describes the section on screen and not a second idea of it.
-   */
+  /** The six characteristic points, each edge computed on its own. */
   const characteristic = $derived.by(() => {
     const r = out.r;
     if (!r || mode !== 'verify') return null;
-    if (kase === 'FSR' || kase === 'FST' || kase === 'FCO') return null;
-    try {
-      return characteristicPointsBothEdges(
-        r.outline,
-        r.bars,
-        { fc, fy, confinement: spiral ? 'spiral' : 'ties', deductDisplacedConcrete: deduct },
-      );
-    } catch { return null; }
+    if (kase !== 'FCR' && kase !== 'FCR-CIR') return null;
+    try { return characteristicPointsBothEdges(r.outline, r.bars, mat); } catch { return null; }
   });
 
   /**
-   * The curve the sheet plots, with the demand and the resistance on it.
-   *
-   * Column cases only, in both modes: the sizing sheets head their chart
-   * "DIAGRAMA DE INTERACCION PARA LAS ARMADURAS NECESARIAS" and the
-   * verification sheets plot the same figure with the solicitation marked. A
-   * beam has no axial component and no diagram — drawing an empty one would be
-   * inventing a section of the sheet.
+   * The diagram the column sheets plot: both curves, both edges, the demand,
+   * and — on the verification sheets — the resistance at the demand's own
+   * eccentricity with the ray through them. Moments signed as the sheet signs
+   * them, so a negative Mu lands on the left, against the edge it compresses.
    */
   const diagram = $derived.by(() => {
     const r = out.r;
-    if (!r) return null;
-    if (kase === 'FSR' || kase === 'FST') return null;
+    if (!r || (kase !== 'FCR' && kase !== 'FCR-CIR')) return null;
     try {
-      const pts = interactionCurve(
-        r.outline, r.bars,
-        { fc, fy, confinement: spiral ? 'spiral' : 'ties', deductDisplacedConcrete: deduct },
-        Math.PI / 2, 240,
-      ).map((p) => ({ m: Math.hypot(p.phiMnx, p.phiMny), n: p.phiPn }));
-      if (pts.length < 3) return null;
+      const s = diagramSeries(r.outline, r.bars, mat, 160);
+      if (s.capped.length < 3) return null;
       const hasDemand = Math.abs(Pu) > 1e-9 || Math.abs(Mu) > 1e-9;
       return {
-        curve: pts,
-        /* The biaxial case is checked on the resultant, which is what its own
-           sheet plots as a cut of the surface at the fixed axial load. */
-        demand: hasDemand
-          ? { m: kase === 'FCO' ? Math.hypot(Mu, Muy) : Math.abs(Mu), n: Pu }
-          : null,
-        resistance: r.phiMn !== undefined && hasDemand
-          ? { m: Math.abs(r.phiMn), n: r.phiPn ?? 0 }
+        ...s,
+        demand: hasDemand ? { m: Mu, n: Pu } : null,
+        resistance: mode === 'verify' && hasDemand && r.phiMn !== undefined
+          ? { m: Math.sign(Mu || 1) * r.phiMn, n: r.phiPn ?? 0 }
           : null,
       };
     } catch { return null; }
   });
 
-  /** The bar layout the biaxial sheet tabulates: one row per bar, with its place. */
+  /**
+   * FCO's section 5, the surface cut at the fixed axial load.
+   *
+   * Sizing draws the contours for 1 % … 8 % and the adopted ratio's over them;
+   * checking draws the contour of the steel given. Traced in 24 steps of the
+   * neutral-axis angle — the sheet's 12, halved, so the curve reads as one.
+   */
+  const cut = $derived.by(() => {
+    const r = out.r;
+    if (!r || kase !== 'FCO') return null;
+    try {
+      const i = input;
+      const bars = (astCm2: number) => facesA1A2A3(
+        i.b, i.h, i.dPrimeH, i.dPrimeV, astCm2,
+        { a1: i.pctA1, a2: i.pctA2, a3: i.pctA3 }, { n1: i.nA1, n2: i.nA2, n3: i.nA3 },
+      );
+      const q = { sx: Mu < 0 ? -1 : 1, sy: Muy < 0 ? -1 : 1, steps: 24 };
+      const trace = (astCm2: number) => surfaceCut(r.outline, bars(astCm2), mat, Pu, q)
+        .map((p) => ({ mx: p.phiMnx, my: p.phiMny }));
+      const AgCm2 = r.AstCm2 / r.rho;
+      const curves = mode === 'design'
+        ? [1, 2, 3, 4, 5, 6, 7, 8].map((pc) => ({ label: `${pc} %`, points: trace((pc / 100) * AgCm2) }))
+        : [];
+      curves.push({ label: `${(r.rho * 100).toFixed(2)} %`, points: trace(r.AstCm2), emphasis: true } as never);
+      const Mres = Math.hypot(Mu, Muy);
+      const hasDemand = Mres > 1e-9;
+      return {
+        curves,
+        demand: hasDemand ? { mx: Mu, my: Muy } : null,
+        resistance: mode === 'verify' && hasDemand && r.phiMn
+          ? { mx: (Mu * r.phiMn) / Mres, my: (Muy * r.phiMn) / Mres } : null,
+      };
+    } catch { return null; }
+  });
+
+  /** The bar layout the biaxial sheets tabulate: one row per bar, with its place. */
   const barTable = $derived.by(() => {
     const r = out.r;
     if (!r || kase !== 'FCO') return [];
-    return r.bars.map((bar, i) => ({
-      n: i + 1,
-      area: bar.area * 1e4,     // m² → cm²
-      x: bar.x,
-      y: bar.y,
-    }));
+    return r.bars.map((bar, i) => ({ n: i + 1, area: bar.area * 1e4, x: bar.x, y: bar.y }));
   });
+
+  /** FCO-VERIF's "9.- Posicionamiento de secciones de acero". */
+  const positioning = $derived(
+    kase === 'FCO' && mode === 'verify'
+      ? ([['A1', asA1, nA1], ['A2', asA2, nA2], ['A3', asA3, nA3]] as Array<[string, number, number]>)
+      : [],
+  );
+
+  /** FCR-VERIF's drawing names each level it was given. */
+  const levelLabels = $derived(
+    kase === 'FCR' && mode === 'verify'
+      ? levels.map((l, k) => ({ l, k }))
+          .filter(({ l }) => l.areaCm2 > 0)
+          .map(({ l, k }) => ({ y: (l.distanceFromBottom - h / 2) / 100, text: `A${k + 1}` }))
+      : [],
+  );
 
   const headline = $derived.by(() => {
     const r = out.r;
@@ -649,7 +735,7 @@
     follows those numbers. Ours are the same numbers, so "4.2" means the same
     block on both sides of the comparison.
   -->
-  <h4 class="fp-heading">1 · {t('flex.section.general')}</h4>
+  <h4 class="fp-heading">{num('general')}{t('flex.section.general')}</h4>
   <table class="fp-table fp-general" data-testid="flex-general">
     <tbody>
       {#each generalRows as [label, value]}
@@ -662,19 +748,18 @@
   <div class="fp-grid">
     <label class="fp-field"><span>f'c [MPa]</span><input type="number" bind:value={fc} min="15" step="1" /></label>
     <label class="fp-field"><span>fy [MPa]</span><input type="number" bind:value={fy} min="220" step="10" /></label>
-    {#if kase === 'FCR' || kase === 'FCR-CIR' || kase === 'FCO'}
+    {#if !isBeam}
       <label class="fp-check"><input type="checkbox" bind:checked={spiral} /><span>{t('flex.in.spiral')}</span></label>
     {/if}
     <label class="fp-check"><input type="checkbox" bind:checked={deduct} /><span>{t('flex.in.deduct')}</span></label>
   </div>
 
-  <h4 class="fp-heading">2 · {t('flex.section.geometry')}</h4>
+  <h4 class="fp-heading">{num('geometry')}{t('flex.section.geometry')}</h4>
   <!--
     A calculator inside a modelling app invites one specific wrong
     assumption: that the section on screen is the section of whatever member
-    is selected. It is not, and never was — the shape comes from the Case and
-    the numbers from these fields. One line, because the assumption is cheap
-    to form and expensive to discover.
+    is selected. It is not — the shape comes from the Case and the numbers
+    from these fields.
   -->
   <p class="fp-note">{t('flex.geometryNote')}</p>
   <div class="fp-grid">
@@ -683,22 +768,30 @@
       <label class="fp-field"><span>hf [cm]</span><input type="number" bind:value={hf} min="1" step="1" /></label>
       <label class="fp-field"><span>bw [cm]</span><input type="number" bind:value={bw} min="1" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
-      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
       <label class="fp-field"><span>d′ [cm]</span><input type="number" bind:value={dPrime} min="1" step="0.5" /></label>
+      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
     {:else if kase === 'FCR-CIR'}
       <label class="fp-field"><span>D [cm]</span><input type="number" bind:value={D} min="15" step="5" /></label>
       <!-- The sheet's `D int` — a hollow pier. -->
       <label class="fp-field"><span>D int [cm]</span><input type="number" bind:value={Dint} min="0" step="5" /></label>
+      {#if mode === 'design'}
+        <label class="fp-field"><span>{t('flex.in.barCount')}</span><input type="number" bind:value={barCount} min="4" max="48" step="1" /></label>
+      {/if}
       <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
-      <label class="fp-field"><span>{t('flex.in.barCount')}</span><input type="number" bind:value={barCount} min="4" max="48" step="1" /></label>
-      <label class="fp-check"><input type="checkbox" bind:checked={atFibre} /><span>{t('flex.in.atFibre')}</span></label>
+      {#if mode === 'design'}
+        <label class="fp-field fp-span">
+          <span>{t('flex.in.barLocation')}</span>
+          <select value={atFibre ? '1' : '0'} onchange={(e) => (atFibre = e.currentTarget.value === '1')} data-testid="flex-bar-location">
+            <option value="1">{t('flex.in.favourable')}</option>
+            <option value="0">{t('flex.in.unfavourable')}</option>
+          </select>
+        </label>
+      {/if}
     {:else if kase === 'FCO'}
       <!--
         Two covers, and the only way to be sure which is which is to see them.
         d′sh runs in from the side face and d′sv down from the top, both to the
-        CENTRE of the corner bar — the sheet says so with a sketch, and a reader
-        transcribing numbers into the wrong one of two similarly named boxes
-        gets a section that is subtly not theirs.
+        CENTRE of the corner bar — the sheet says so with a sketch.
       -->
       <svg class="fp-scheme" viewBox="0 0 150 110" role="img"
         aria-label={t('flex.fco.schemeAlt')} data-testid="fco-scheme">
@@ -707,13 +800,11 @@
         <circle cx="52" cy="46" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
         <line x1="38" y1="46" x2="66" y2="46" stroke="currentColor" stroke-width="0.8" />
         <line x1="52" y1="32" x2="52" y2="60" stroke="currentColor" stroke-width="0.8" />
-        <!-- d′sv: down from the top face to the bar centre -->
         <line x1="104" y1="9" x2="104" y2="45" stroke="currentColor" stroke-width="1"
           marker-start="url(#fpArrowUp)" marker-end="url(#fpArrowDown)" />
         <line x1="52" y1="46" x2="118" y2="46" stroke="currentColor"
           stroke-width="0.6" stroke-dasharray="3 3" />
         <text x="110" y="30" font-size="13" fill="currentColor">d′sv</text>
-        <!-- d′sh: in from the left face to the bar centre -->
         <line x1="9" y1="82" x2="51" y2="82" stroke="currentColor" stroke-width="1"
           marker-start="url(#fpArrowUp)" marker-end="url(#fpArrowDown)" />
         <line x1="52" y1="46" x2="52" y2="90" stroke="currentColor"
@@ -737,29 +828,31 @@
     {:else}
       <label class="fp-field"><span>b [cm]</span><input type="number" bind:value={b} min="5" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
-      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
-      <label class="fp-field"><span>d′ [cm]</span><input type="number" bind:value={dPrime} min="1" step="0.5" /></label>
+      {#if !(kase === 'FCR' && mode === 'verify')}
+        <label class="fp-field"><span>d′ [cm]</span><input type="number" bind:value={dPrime} min="1" step="0.5" /></label>
+        <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
+      {/if}
       {#if kase === 'FCR'}
         <label class="fp-field"><span>b_h [cm]</span><input type="number" bind:value={holeB} min="0" step="5" /></label>
         <label class="fp-field"><span>h_h [cm]</span><input type="number" bind:value={holeH} min="0" step="5" /></label>
       {/if}
     {/if}
   </div>
+  {#if kase === 'FCR-CIR'}
+    <!-- Printed by both circular sheets under the section's data. -->
+    <p class="fp-note" data-testid="flex-diameter-ratio">
+      {t('flex.out.diameterRatio')} = {(D > 0 ? Dint / D : 0).toFixed(3)}
+    </p>
+  {/if}
 
   {#if kase === 'FCO'}
     <!--
-      A1 / A2 / A3 — the sheet's own distribution, and its own rule that the
-      three percentages add to 100. Said rather than silently normalised: a
-      reader whose numbers do not add up has made a mistake worth seeing.
+      A1 / A2 / A3 — the sheet's own distribution, part of its section 2, and
+      its own rule that the three percentages add to 100. Said rather than
+      silently normalised.
     -->
     <h4 class="fp-heading">{t('flex.section.distribution')}</h4>
     {#if fcoByArea}
-      <!--
-        Verifying: the steel is known, so the sheet asks for it directly. The
-        percentages the engine works in are derived below and shown, because a
-        reader comparing against the sheet's own distribution needs to see the
-        split it produced rather than take it on trust.
-      -->
       <div class="fp-grid">
         <label class="fp-field"><span>As1 [cm²]</span><input type="number" bind:value={asA1} min="0" step="0.5" data-testid="fco-as1" /></label>
         <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
@@ -775,36 +868,36 @@
       {#if asA1 <= 0}
         <p class="fp-warn">{t('flex.warn.a1NotNull')}</p>
       {/if}
+      <!-- FCO-VERIF tabulates the bars right under its inputs, in section 2. -->
+      {#if barTable.length > 0}
+        {@render barTableBlock()}
+      {/if}
     {:else}
-    <div class="fp-grid">
-      <label class="fp-field"><span>A1 [%]</span><input type="number" bind:value={pctA1} min="0" max="100" step="5" /></label>
-      <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
-      <label class="fp-field"><span>A2 [%]</span><input type="number" bind:value={pctA2} min="0" max="100" step="5" /></label>
-      <label class="fp-field"><span>N° A2</span><input type="number" bind:value={nA2} min="0" max="20" step="1" /></label>
-      <label class="fp-field"><span>A3 [%]</span><input type="number" bind:value={pctA3} min="0" max="100" step="5" /></label>
-      <label class="fp-field"><span>N° A3</span><input type="number" bind:value={nA3} min="0" max="20" step="1" /></label>
-    </div>
-    {#if pctA1 + pctA2 + pctA3 !== 100}
-      <p class="fp-warn">{t('flex.warn.pct').replace('{n}', String(pctA1 + pctA2 + pctA3))}</p>
+      <div class="fp-grid">
+        <label class="fp-field"><span>A1 [%]</span><input type="number" bind:value={pctA1} min="0" max="100" step="5" /></label>
+        <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
+        <label class="fp-field"><span>A2 [%]</span><input type="number" bind:value={pctA2} min="0" max="100" step="5" /></label>
+        <label class="fp-field"><span>N° A2</span><input type="number" bind:value={nA2} min="0" max="20" step="1" /></label>
+        <label class="fp-field"><span>A3 [%]</span><input type="number" bind:value={pctA3} min="0" max="100" step="5" /></label>
+        <label class="fp-field"><span>N° A3</span><input type="number" bind:value={nA3} min="0" max="20" step="1" /></label>
+      </div>
+      {#if pctA1 + pctA2 + pctA3 !== 100}
+        <p class="fp-warn">{t('flex.warn.pct').replace('{n}', String(pctA1 + pctA2 + pctA3))}</p>
+      {/if}
     {/if}
-    {/if}
-  {/if}
-
-  {#if kase === 'FCR' && mode === 'design'}
-    <h4 class="fp-heading">{t('flex.section.distribution')}</h4>
-    <div class="fp-grid">
-      <label class="fp-field"><span>A′s / As</span><input type="number" bind:value={ratioAsPrime} min="0" max="1" step="0.1" /></label>
-    </div>
   {/if}
 
   {#if kase === 'FCR' && mode === 'verify'}
     <!--
       Five levels, each a distance from the BOTTOM face — the sheet's own
-      arrangement, and the one thing a two-layer model cannot express. A row
-      with zero area is ignored, which is how the sheet treats an empty level.
+      arrangement. A row with zero area is ignored, which is how the sheet
+      treats an empty level.
     -->
-    <h4 class="fp-heading">{t('flex.section.levels')}</h4>
+    <h4 class="fp-heading">{num('distribution')}{t('flex.section.distribution')}</h4>
     <table class="fp-levels">
+      <colgroup>
+        <col style="width: 1.2rem" /><col /><col style="width: 2.6rem" /><col style="width: 3.4rem" /><col />
+      </colgroup>
       <thead>
         <tr>
           <th></th>
@@ -842,8 +935,32 @@
     <p class="fp-levels-note">{t('flex.in.levelsNote')}</p>
   {/if}
 
+  {#if circByBar}
+    <!--
+      FCR-CIR-VERIF's section 3: one bar's area and how many, then the total
+      and the ratio it derives from them.
+    -->
+    <h4 class="fp-heading">{num('distribution')}{t('flex.section.distribution')}</h4>
+    <div class="fp-grid">
+      <label class="fp-field"><span>{t('flex.in.asiGiven')} [cm²]</span><input type="number" bind:value={asiGiven} min="0" step="0.5" data-testid="flex-asi" /></label>
+      <label class="fp-field"><span>{t('flex.in.barCount')}</span><input type="number" bind:value={barCount} min="4" max="48" step="1" /></label>
+      <label class="fp-field fp-span">
+        <span>{t('flex.in.barLocation')}</span>
+        <select value={atFibre ? '1' : '0'} onchange={(e) => (atFibre = e.currentTarget.value === '1')} data-testid="flex-bar-location">
+          <option value="1">{t('flex.in.favourable')}</option>
+          <option value="0">{t('flex.in.unfavourable')}</option>
+        </select>
+      </label>
+    </div>
+    {#if out.r}
+      <p class="fp-note" data-testid="flex-circ-derived">
+        Ast = {out.r.AstCm2.toFixed(3)} cm² · ρ = {out.r.rho.toFixed(4)}
+      </p>
+    {/if}
+  {/if}
+
   <h4 class="fp-heading fp-heading-row">
-    3 · {t('flex.section.demand')}
+    <span>{num('demand')}{kase === 'FCR' && mode === 'design' ? t('flex.section.ratioAndDemand') : t('flex.section.demand')}</span>
     <button
       class="fp-pick-btn"
       class:on={picking}
@@ -859,6 +976,10 @@
     <p class="fp-note">{pickNote}</p>
   {/if}
   <div class="fp-grid">
+    {#if kase === 'FCR' && mode === 'design'}
+      <!-- FCR-DIM asks for the split in the same block as the loads. -->
+      <label class="fp-field"><span>A′s / As</span><input type="number" bind:value={ratioAsPrime} min="0" max="1" step="0.1" /></label>
+    {/if}
     {#if showsAxial}
       <label class="fp-field"><span>Pu [kN]</span><input type="number" bind:value={Pu} step="10" /></label>
     {/if}
@@ -866,7 +987,7 @@
     {#if kase === 'FCO'}
       <label class="fp-field"><span>Myu [kN·m]</span><input type="number" bind:value={Muy} step="5" /></label>
     {/if}
-    {#if mode === 'verify' && !(kase === 'FCR' && levels.some((l) => l.areaCm2 > 0))}
+    {#if mode === 'verify' && (isBeam || (kase === 'FCR' && !levels.some((l) => l.areaCm2 > 0)))}
       <!--
         Bars on the left, the area they come to on the right. The area is
         what the calculation reads — see the note by `astBars` — so it stays
@@ -901,119 +1022,129 @@
     beside it describe — so it has to move when they do.
   -->
   <div class="fp-figure">
-    <SectionDrawing
-      {shape}
-      cover={(kase === 'FCR-CIR' ? dPrimeS : kase === 'FCO' ? dPrimeV : dPrimeS) / 100}
-      a={out.r?.a}
-      c={out.r?.c}
-      barCount={out.r?.barChoice?.count ?? out.r?.bars.length ?? 4}
-      perLayer={out.r?.barChoice?.perLayer}
-      layerPitchM={((out.r?.barChoice?.diameter ?? 0) + 25) / 1000}
-      AsCm2={(out.r?.bars ?? []).reduce((acc, bar) => acc + bar.area, 0) * 1e4}
-    />
+    {#if isBeam}
+      <SectionDrawing
+        {shape}
+        cover={dPrimeS / 100}
+        a={out.r?.a}
+        c={out.r?.c}
+        barCount={out.r?.barChoice?.count ?? 2}
+        perLayer={out.r?.barChoice?.perLayer}
+        layerPitchM={((out.r?.barChoice?.diameter ?? 0) + 25) / 1000}
+        AsCm2={out.r?.AsCm2 ?? 0}
+        compBarCount={(out.r?.AsPrimeCm2 ?? 0) > 0 ? (out.r?.barChoiceComp?.count ?? 2) : 0}
+        compCover={dPrime / 100}
+        compAsCm2={out.r?.AsPrimeCm2 ?? 0}
+      />
+    {:else}
+      <SectionDrawing
+        {shape}
+        cover={0}
+        outline={out.r?.outline}
+        sectionBars={out.r?.bars ?? []}
+        theta={out.r?.theta ?? Math.PI / 2}
+        a={out.r?.a}
+        c={out.r?.c}
+        {levelLabels}
+        faceLabels={kase === 'FCO'}
+      />
+    {/if}
   </div>
 
   <div class="fp-result" class:fp-fail={!(out.r?.ok ?? false)} data-testid="flex-result">
     <div class="fp-headline">{headline}</div>
     {#if out.r && Number.isFinite(out.r.ratio)}
       <div class="fp-ratio">
-        {t('flex.out.ratio')} = <strong>{out.r.ratio.toFixed(3)}</strong>
+        <!-- Four decimals, the sheets' own: at three a ratio of 1,0003 printed
+             "1.000" beside "fails", which reads as a contradiction. -->
+        {t('flex.out.ratio')} = <strong>{out.r.ratio.toFixed(4)}</strong>
         <span class="fp-verdict">{out.r.ok ? t('flex.out.ok') : t('flex.out.notOk')}</span>
       </div>
     {/if}
-    {#if sheetRows.length > 0}
-      <h4 class="fp-heading">4.1 · {t('flex.section.steelNeeded')}</h4>
-      <table class="fp-table" data-testid="flex-sheet-rows">
-        <tbody>
-          {#each sheetRows as [label, value]}
-            <tr><th>{label}</th><td>{value}</td></tr>
-          {/each}
-        </tbody>
-      </table>
+
+    {#if isBeam}
+      {@render rowsTable(`${num('results')}${t('flex.section.results')}`, beamRows, 'flex-sheet-rows')}
+    {:else if mode === 'design'}
+      {@render rowsTable(`${num('needed')}${t('flex.section.steelNeeded')}`, neededRows, 'flex-sheet-rows')}
+      {#if kase === 'FCO' && barTable.length > 0}
+        {@render barTableBlock()}
+      {/if}
+      {@render rowsTable(`${num('minmax')}${t('flex.section.minMax')}`, minMaxRows, 'flex-minmax')}
+    {:else if kase === 'FCR'}
+      {@render rowsTable(`${num('results')}${t('flex.section.results')}`, verifyResultRows, 'flex-sheet-rows')}
+    {:else if kase === 'FCO' && out.r?.phiMn !== undefined}
+      {@render rowsTable(`${num('modulus')}${t('flex.section.modulusRatio')}`, [
+        ['φMn / Mu', (out.r.phiMn / Math.max(Math.hypot(Mu, Muy), 1e-9)).toFixed(4)],
+      ], 'flex-sheet-rows')}
+      {@render rowsTable(`${num('minmax')}${t('flex.section.minMax')}`, minMaxRows, 'flex-minmax')}
     {/if}
 
-    <!--
-      The biaxial sheet tabulates every bar with its coordinates, because with
-      three positions and a percentage split there is no other way to see where
-      the steel ended up. The bars are already what the calculation used, so
-      this is the arrangement itself rather than a description of it.
-    -->
-    {#if barTable.length > 0}
-      <h4 class="fp-heading">{t('flex.out.barTable')}</h4>
-      <table class="fp-table fp-bartable" data-testid="flex-bar-table">
-        <thead>
-          <tr><th>#</th><th>Asi [cm²]</th><th>X [m]</th><th>Y [m]</th></tr>
-        </thead>
-        <tbody>
-          {#each barTable as bar (bar.n)}
-            <tr>
-              <th>{bar.n}</th>
-              <td>{bar.area.toFixed(3)}</td>
-              <td>{bar.x.toFixed(3)}</td>
-              <td>{bar.y.toFixed(3)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    <!--
-      The figure the sheet puts under its results. The red diamond is the
-      demand and the magenta one the resistance at that same eccentricity —
-      which is the pair that says WHERE the section is short, not just by how
-      much: near the nose, where more axial load helps, or out on the tension
-      branch where it does not.
-    -->
-    {#if diagram}
-      <h4 class="fp-heading">
-        {mode === 'verify' ? '5' : '5'} · {t('flex.section.diagram')}
-      </h4>
-      <InteractionDiagram
-        curve={diagram.curve}
-        demand={diagram.demand}
-        resistance={diagram.resistance}
-        labelM={kase === 'FCO' ? 'M res [kN·m]' : 'Mu [kN·m]'}
+    {#if cut}
+      <!-- FCO's section 5, the failure surface cut at the demand's own axial load. -->
+      <h4 class="fp-heading">{num('cut')}{t('flex.section.surfaceCut')}</h4>
+      <SurfaceCut
+        curves={cut.curves}
+        demand={cut.demand}
+        resistance={cut.resistance}
+        showRay={mode === 'verify'}
       />
-      {#if diagram.demand}
-        <p class="fp-note fp-legend">
-          <span class="fp-dot fp-dot-dem"></span>{t('flex.diagram.demand')}
-          <span class="fp-dot fp-dot-res"></span>{t('flex.diagram.resistance')}
-        </p>
+      <p class="fp-note fp-legend">
+        {#if mode === 'design'}<span class="fp-line fp-line-grid"></span>{t('flex.cut.grid')}{/if}
+        <span class="fp-line fp-line-main"></span>{mode === 'design' ? t('flex.cut.adopted') : t('flex.cut.given')}
+        {#if cut.demand}<span class="fp-dot fp-dot-dem"></span>{t('flex.diagram.demand')}{/if}
+        {#if cut.resistance}<span class="fp-dot fp-dot-res"></span>{t('flex.diagram.resistanceAtAxial')}{/if}
+      </p>
+    {/if}
+
+    {#if diagram && mode === 'design'}
+      <h4 class="fp-heading">{num('diagram')}{t('flex.section.diagramForNeeded')}</h4>
+      {@render diagramBlock(false)}
+    {/if}
+
+    {#if diagram && mode === 'verify'}
+      <!--
+        The safety condition, stated the way the sheet states it: the
+        eccentricity, the figure with the ray through demand and resistance,
+        then the two resistant components and the two vector moduli.
+      -->
+      <h4 class="fp-heading">{num('safety')}{t('flex.section.safety')}</h4>
+      {#if Math.abs(Pu) > 1e-9}
+        <table class="fp-table"><tbody><tr><th>Mu / Pu</th><td data-testid="flex-eccentricity">{fmt(Mu / Pu, 3, 'm')}</td></tr></tbody></table>
+      {/if}
+      {@render diagramBlock(true)}
+      {#if safetyRows.length > 0}
+        <table class="fp-table" data-testid="flex-safety">
+          <tbody>
+            {#each safetyRows as [label, value]}
+              <tr><th>{label}</th><td>{value}</td></tr>
+            {/each}
+          </tbody>
+        </table>
       {/if}
     {/if}
 
-    <!--
-      6 · The safety condition, stated the way the sheet states it: the two
-      resistant components at the demand's own eccentricity, then the two vector
-      magnitudes. A single ratio hides WHERE on the diagram the resistance was
-      read, which is the thing a reader is checking.
-    -->
-    {#if safetyRows.length > 0}
-      <h4 class="fp-heading">6 · {t('flex.section.safety')}</h4>
-      <table class="fp-table" data-testid="flex-safety">
-        <tbody>
-          {#each safetyRows as [label, value]}
-            <tr><th>{label}</th><td>{value}</td></tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    <!--
-      6 · The whole shape of the interaction diagram as six named states, twice
-      — once for each face in compression. It is the most checkable table in the
-      workbook: agreeing at one point can be luck, agreeing at six is not.
-    -->
-    {#if characteristic}
-      <h4 class="fp-heading">7 · {t('flex.section.characteristic')}</h4>
+    {#if characteristic && diagram}
+      <!--
+        The whole shape of the diagram as six named states, twice — once for
+        each face in compression, each computed on its own. The sheet plots
+        them on a second copy of the diagram, and so does this.
+      -->
+      <h4 class="fp-heading">{num('points')}{t('flex.section.characteristic')}</h4>
+      <InteractionDiagram
+        curve={diagram.capped}
+        uncapped={diagram.uncapped}
+        points={[...characteristic.bottomCompressed, ...characteristic.topCompressed]
+          .map((p) => ({ m: p.phiMn, n: p.phiPn }))}
+        testId="flex-points-diagram"
+      />
       {#each [
         { rows: characteristic.bottomCompressed, capKey: 'flex.out.edgeBottom' },
         { rows: characteristic.topCompressed, capKey: 'flex.out.edgeTop' },
       ] as table (table.capKey)}
         <p class="fp-edge-note">{t(table.capKey)}</p>
-        <table class="fp-table fp-bartable" data-testid="flex-characteristic">
+        <table class="fp-table fp-pointtable" data-testid="flex-characteristic">
           <thead>
-            <tr><th></th><th>φMn [kN·m]</th><th>φPn [kN]</th><th>φ</th></tr>
+            <tr><th></th><th>φMn<br />[kN·m]</th><th>φPn<br />[kN]</th><th>φ</th></tr>
           </thead>
           <tbody>
             {#each table.rows as p (p.key)}
@@ -1027,6 +1158,26 @@
           </tbody>
         </table>
       {/each}
+    {/if}
+
+    {#if positioning.length > 0}
+      <!-- FCO-VERIF's own summary, which it numbers 9. -->
+      <h4 class="fp-heading">{num('positioning')}{t('flex.section.positioning')}</h4>
+      <table class="fp-table fp-pointtable" data-testid="flex-positioning">
+        <thead>
+          <tr><th></th><th>As [cm²]</th><th>{t('flex.out.barsCount')}</th><th>Asi [cm²]</th></tr>
+        </thead>
+        <tbody>
+          {#each positioning as [name, area, count] (name)}
+            <tr>
+              <th>{name}</th>
+              <td>{area.toFixed(3)}</td>
+              <td>{count}</td>
+              <td>{area > 0 && count > 0 ? (area / count).toFixed(3) : '—'}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
     {/if}
 
     {#if extraRows.length > 0}
@@ -1043,6 +1194,60 @@
       </details>
     {/if}
   </div>
+
+  {#snippet rowsTable(title: string, rows: Row[], testid: string)}
+    {#if rows.length > 0}
+      <h4 class="fp-heading">{title}</h4>
+      <table class="fp-table" data-testid={testid}>
+        <tbody>
+          {#each rows as [label, value]}
+            <tr><th>{label}</th><td>{value}</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+  {/snippet}
+
+  {#snippet barTableBlock()}
+    <!--
+      The biaxial sheets tabulate every bar with its coordinates: with three
+      positions and a split there is no other way to see where the steel went.
+    -->
+    <p class="fp-edge-note">{t('flex.out.barTable')}</p>
+    <table class="fp-table fp-pointtable" data-testid="flex-bar-table">
+      <thead>
+        <tr><th>#</th><th>Asi [cm²]</th><th>X [m]</th><th>Y [m]</th></tr>
+      </thead>
+      <tbody>
+        {#each barTable as bar (bar.n)}
+          <tr>
+            <th>{bar.n}</th>
+            <td>{bar.area.toFixed(3)}</td>
+            <td>{bar.x.toFixed(4)}</td>
+            <td>{bar.y.toFixed(4)}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/snippet}
+
+  {#snippet diagramBlock(verify: boolean)}
+    {#if diagram}
+      <InteractionDiagram
+        curve={diagram.capped}
+        uncapped={diagram.uncapped}
+        demand={diagram.demand}
+        resistance={verify ? diagram.resistance : null}
+        showEccentricity={verify}
+      />
+      <p class="fp-note fp-legend">
+        <span class="fp-line fp-line-main"></span>{t('flex.diagram.capped')}
+        <span class="fp-line fp-line-dash"></span>{t('flex.diagram.uncapped')}
+        {#if diagram.demand}<span class="fp-dot fp-dot-dem"></span>{t('flex.diagram.demand')}{/if}
+        {#if verify && diagram.resistance}<span class="fp-dot fp-dot-res"></span>{t('flex.diagram.resistance')}{/if}
+      </p>
+    {/if}
+  {/snippet}
 
   <details class="fp-memo">
     <summary>{t('flex.out.memo')}</summary>
@@ -1176,9 +1381,17 @@
     font-size: 0.7rem;
   }
 
+  .fp-levels { table-layout: fixed; }
   .fp-levels select {
     width: 100%;
     min-width: 0;
+    padding: 0.2rem 0.1rem;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+    font-family: inherit;
+    font-size: 0.7rem;
   }
 
   .fp-levels input {
@@ -1283,8 +1496,19 @@
     color: var(--st-text-3); margin: 2px auto 6px;
   }
 
-  .fp-bartable th, .fp-bartable td { text-align: right; font-variant-numeric: tabular-nums; }
-  .fp-bartable thead th { color: var(--st-text-3); font-weight: 500; font-size: 0.66rem; }
+  /*
+   * Narrow tables of numbers: the label column wraps, the number columns do
+   * not, and each carries its own left padding — without it three right-
+   * aligned figures ran into one another ("-39.431409.200.65").
+   */
+  .fp-pointtable { font-size: 0.66rem; table-layout: auto; }
+  .fp-pointtable th { line-height: 1.25; padding-right: 0.3rem; }
+  .fp-pointtable td { text-align: right; white-space: nowrap; padding-left: 0.45rem; }
+  .fp-pointtable thead th { color: var(--st-text-3); font-weight: 500; font-size: 0.62rem; text-align: right; }
+  .fp-span { grid-column: 1 / -1; }
+  .fp-line { display: inline-block; width: 14px; height: 0; border-top: 1.6px solid var(--st-accent); margin-left: 6px; vertical-align: middle; }
+  .fp-line-dash { border-top: 1.2px dashed var(--st-text-3); }
+  .fp-line-grid { border-top: 1px solid var(--st-text-3); }
   .fp-general th { font-weight: 400; color: var(--st-text-3); }
   .fp-legend { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
   .fp-dot { width: 8px; height: 8px; transform: rotate(45deg); display: inline-block; margin-left: 6px; }

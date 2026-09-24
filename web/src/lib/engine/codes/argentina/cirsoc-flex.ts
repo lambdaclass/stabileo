@@ -595,7 +595,14 @@ export function solveFlex(i: FlexInput): FlexOutput {
   const steps: EngineMessage[] = [];
 
   if (i.mode === 'verify') {
-    AstCm2 = i.AstGiven;
+    /*
+     * FCR-VERIF's levels ARE the steel. The generic Ast box is only read when
+     * no level has an area — reading it anyway printed 20 cm² and its ρ under a
+     * section whose five levels summed to 21,336, while the capacity beside
+     * them came, correctly, from the levels.
+     */
+    const byLevels = i.kase === 'FCR' && i.levels.some((l) => l.areaCm2 > 0);
+    AstCm2 = byLevels ? i.levels.reduce((s, l) => s + Math.max(l.areaCm2, 0), 0) : i.AstGiven;
     steps.push(msg('flex.step.givenAst', { ast: AstCm2 }));
   } else if (at(lo).ratio <= 1) {
     AstCm2 = lo;
@@ -650,7 +657,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
 
   steps.push(
     msg('flex.step.diagram', { bars: bars.length }),
-    msg('flex.step.onRay', { phiPn: u.phiPn, phiMn: u.phiMn }),
+    msg(i.kase === 'FCO' ? 'flex.step.atAxial' : 'flex.step.onRay', { phiPn: u.phiPn, phiMn: u.phiMn }),
     msg('flex.step.state', {
       c: u.c * 100, a: b1 * u.c * 100, epsT: u.epsilonT * 1000, phi: u.phi,
     }),
