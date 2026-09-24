@@ -7,6 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { solveFlex, type FlexInput } from '../cirsoc-flex';
+import { sheetRows } from '../../../../../components/flex/sheet-rows';
 
 const BASE: FlexInput = {
   kase: 'FSR', mode: 'design',
@@ -26,6 +27,13 @@ describe('shallow section: c at 5 permil lies above d′, so A′s cannot help',
       expect(r.impossible).toBe(true);
       expect(r.ok).toBe(false);
       expect(r.steps.map((s) => s.key)).toContain('flex.step.impossible');
+      // No bars are proposed for it: an arrangement for the ceiling is not an answer.
+      expect(r.steps.map((s) => s.key)).not.toContain('flex.step.asBars');
+      expect(r.steps.map((s) => s.key)).not.toContain('flex.step.asCompBars');
+      const rows = sheetRows({ kase: 'FSR', mode: 'design', r, fc: 25, fy: 420, spiral: false, barCount: 0, Pu: 0, Mu });
+      expect(rows.bars).toEqual([]);
+      expect(rows.beam[0][1]).toBe('—');
+      expect(rows.beam[1][1]).toBe('—');
     });
   }
   it('below MuSinglyMax the same section still designs singly', () => {

@@ -553,14 +553,21 @@ export function solveFlex(i: FlexInput): FlexOutput {
           : [MuAbs <= MuSinglyMax
               ? msg('flex.step.singly')
               : msg('flex.step.doubly', { asComp: AsComp })]),
-        chosen.layers && chosen.layers > 1
-          ? msg('flex.step.asBarsLayers', {
-              as: AsReq, bars: chosen.label, layers: chosen.layers,
-              gap: chosen.clearSpacingMm ?? 0,
-            })
-          : msg('flex.step.asBars', { as: AsReq, bars: chosen.label }),
+        /*
+         * No bars are proposed for a section that no admissible steel makes
+         * work: an arrangement for the 8 % ceiling is not an answer. Whether
+         * the bars would fit still is — it can be the reason.
+         */
+        ...(impossible && i.mode === 'design' ? [] : [
+          chosen.layers && chosen.layers > 1
+            ? msg('flex.step.asBarsLayers', {
+                as: AsReq, bars: chosen.label, layers: chosen.layers,
+                gap: chosen.clearSpacingMm ?? 0,
+              })
+            : msg('flex.step.asBars', { as: AsReq, bars: chosen.label }),
+        ]),
         ...(chosen.placeable === false ? [msg('flex.step.wontFit')] : []),
-        ...(chosenComp
+        ...(chosenComp && !(impossible && i.mode === 'design')
           ? [msg('flex.step.asCompBars', { as: AsComp, bars: chosenComp.label })] : []),
         msg('flex.step.phiMn', { m: st.phiMn }),
         ...(i.mode === 'verify' && shortOfDemand

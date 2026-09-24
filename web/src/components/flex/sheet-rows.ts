@@ -108,10 +108,15 @@ export function sheetRows(c: SheetContext): SheetRows {
 
   const beam: Row[] = [];
   if (r && isBeam) {
-    /* A′s ALWAYS — a singly reinforced beam answers 0,000, which is an answer. */
+    /*
+     * A′s ALWAYS — a singly reinforced beam answers 0,000, which is an answer.
+     * A section too small for any admissible steel has no area to report: the
+     * ceiling it ran into is not a result, so both read "—".
+     */
+    const noAnswer = mode === 'design' && r.impossible;
     beam.push(
-      [t('flex.out.asComp'), cm2(r.AsPrimeCm2 ?? 0)],
-      [mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asTension'), cm2(r.AsCm2 ?? r.AstCm2)],
+      [t('flex.out.asComp'), noAnswer ? '—' : cm2(r.AsPrimeCm2 ?? 0)],
+      [mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asTension'), noAnswer ? '—' : cm2(r.AsCm2 ?? r.AstCm2)],
     );
     if (Number.isFinite(r.AsMinCm2)) beam.push([t('flex.out.asMin'), cm2(r.AsMinCm2)]);
     beam.push(cmOfRow(t('flex.out.aReq'), r.a), cmOfRow(t('flex.out.c'), r.c));
