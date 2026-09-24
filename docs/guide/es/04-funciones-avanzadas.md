@@ -35,8 +35,8 @@ primer paso de cualquier cálculo a mano, y el programa lo muestra desarrollado.
 ![El análisis cinemático de una viga con un mecanismo oculto](img/basic-kinematic.webp)
 
 1. **Datos:** nodos (n), barras rígidas y articuladas (m), reacciones de apoyo (r) y
-   condiciones internas (c), cada una con su origen (por ejemplo, «Nodo 1: Roller horizontal → 1
-   reac. (uz)»).
+   condiciones internas (c), cada una con su origen (por ejemplo, "Nodo 1: Roller horizontal → 1
+   reac. (uz)").
 2. **Grado de hiperestaticidad**, con la fórmula que corresponde al tipo de estructura y los
    números sustituidos:
    - pórticos: g = 3·m + r − 3·n − c

@@ -134,7 +134,7 @@ export const determinismBoundary: Post = {
         { k: 'p', t: 'El ciclo cerrado con el solver, en el que el agente propone, resuelve, evalúa y modifica sin intervención humana, está en la hoja de ruta y no está implementado. La cobertura normativa nativa se limita a CIRSOC 201 y 301; el resto es trabajo futuro.' },
         { k: 'p', t: 'El CAD se hizo cargo de la parte mecánica del dibujo y la planilla de cálculo de la aritmética repetitiva, y el criterio quedó en manos del ingeniero. El agente es el paso siguiente en esa línea: se ocupa de armar y modificar el modelo, cargar las acciones, correr las verificaciones y preparar la documentación. Nada de esto transfiere la responsabilidad: el número firmado sigue siendo del ingeniero.' },
 
-        { k: 'note', t: 'Esta nota es una adaptación de «Desarrollo de un agente estructural de cálculo sobre un solver verificado» (Chesta, Bertero, Carrone y Kingston), presentado en las JAIE 2026. Los valores citados son salidas del solver de Stabileo y de su módulo CIRSOC 201, tomadas de ese trabajo.' }
+        { k: 'note', t: 'Esta nota es una adaptación de "Desarrollo de un agente estructural de cálculo sobre un solver verificado" (Chesta, Bertero, Carrone y Kingston), presentado en las JAIE 2026. Los valores citados son salidas del solver de Stabileo y de su módulo CIRSOC 201, tomadas de ese trabajo.' }
       ],
     },
 
@@ -232,7 +232,7 @@ export const determinismBoundary: Post = {
         { k: 'p', t: 'The closed solver-in-the-loop cycle, in which the agent proposes, solves, evaluates and modifies without human intervention, is on the roadmap and has not been implemented. Native design-code coverage is limited to CIRSOC 201 and 301; the rest is future work.' },
         { k: 'p', t: 'CAD took over the mechanical part of drafting and the spreadsheet took over repetitive arithmetic, while engineering judgement stayed with the engineer. The agent is the next step along that line: it takes on building and modifying the model, entering loads, running the checks and preparing the documentation. None of this transfers responsibility: the signed number is still the engineer’s.' },
 
-        { k: 'note', t: 'This piece is adapted from «Desarrollo de un agente estructural de cálculo sobre un solver verificado» (Chesta, Bertero, Carrone and Kingston), presented at JAIE 2026. The figures quoted are outputs of the Stabileo solver and its CIRSOC 201 module, taken from that paper.' }
+        { k: 'note', t: 'This piece is adapted from "Desarrollo de un agente estructural de cálculo sobre un solver verificado" (Chesta, Bertero, Carrone and Kingston), presented at JAIE 2026. The figures quoted are outputs of the Stabileo solver and its CIRSOC 201 module, taken from that paper.' }
       ],
     },
 
@@ -330,7 +330,7 @@ export const determinismBoundary: Post = {
         { k: 'p', t: 'O ciclo fechado com o solver, em que o agente propõe, resolve, avalia e modifica sem intervenção humana, está no roadmap e não foi implementado. A cobertura normativa nativa se limita ao CIRSOC 201 e 301; o resto é trabalho futuro.' },
         { k: 'p', t: 'O CAD assumiu a parte mecânica do desenho e a planilha eletrônica, a aritmética repetitiva, e o critério continuou com o engenheiro. O agente é o passo seguinte nessa linha: cuida de montar e alterar o modelo, lançar os carregamentos, rodar as verificações e preparar a documentação. Nada disso transfere a responsabilidade: o número assinado continua sendo do engenheiro.' },
 
-        { k: 'note', t: 'Esta nota é uma adaptação de «Desarrollo de un agente estructural de cálculo sobre un solver verificado» (Chesta, Bertero, Carrone e Kingston), apresentado nas JAIE 2026. Os valores citados são saídas do solver do Stabileo e do seu módulo CIRSOC 201, extraídos desse trabalho.' }
+        { k: 'note', t: 'Esta nota é uma adaptação de "Desarrollo de un agente estructural de cálculo sobre un solver verificado" (Chesta, Bertero, Carrone e Kingston), apresentado nas JAIE 2026. Os valores citados são saídas do solver do Stabileo e do seu módulo CIRSOC 201, extraídos desse trabalho.' }
       ],
     },
   },

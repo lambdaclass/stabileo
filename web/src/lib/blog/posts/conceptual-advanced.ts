@@ -71,7 +71,7 @@ export const conceptualAdvanced: Post = {
             ['sectionproperties', 'Sí, open source', 'Alabeo, centro de corte y constante de Saint-Venant por elementos finitos', 'Es una librería de Python: devuelve números, sin interfaz ni explicación'],
           ],
         },
-        { k: 'p', t: 'De esa lista, SkyCiv es el que más se acerca a lo que solemos llamar «mostrar el desarrollo», y hay que decirlo con todas las letras: sus cálculos a mano son buenos. Te arma el diagrama de cuerpo libre, escribe ΣM = 0 antes de meter números y resuelve por Cross cuando la viga es hiperestática. Si alguien afirma que ningún programa gratuito muestra los pasos, SkyCiv lo desmiente en un minuto.' },
+        { k: 'p', t: 'De esa lista, SkyCiv es el que más se acerca a lo que solemos llamar "mostrar el desarrollo", y hay que decirlo con todas las letras: sus cálculos a mano son buenos. Te arma el diagrama de cuerpo libre, escribe ΣM = 0 antes de meter números y resuelve por Cross cuando la viga es hiperestática. Si alguien afirma que ningún programa gratuito muestra los pasos, SkyCiv lo desmiente en un minuto.' },
 
         { k: 'h', t: 'Mostrar los pasos no alcanza si el programa no explica cuándo la fórmula deja de aplicar' },
         { k: 'p', t: 'Sustituir números en una fórmula correcta y explicar por qué esa fórmula es la que corresponde son dos cosas distintas. La primera te ahorra la cuenta. La segunda te evita el error que la cuenta no puede detectar, porque el error está una capa más arriba.' },
@@ -82,12 +82,12 @@ export const conceptualAdvanced: Post = {
         {
           k: 'ul',
           items: [
-            'Análisis cinemático explicado. Buscamos y no encontramos una herramienta gratuita que haga esto: lo que aparece es material de cátedra en PDF. El «educational software for kinematic analysis» que sí encontramos es para mecanismos de máquinas, bielas y manivelas, no para clasificar estructuras.',
+            'Análisis cinemático explicado. Buscamos y no encontramos una herramienta gratuita que haga esto: lo que aparece es material de cátedra en PDF. El "educational software for kinematic analysis" que sí encontramos es para mecanismos de máquinas, bielas y manivelas, no para clasificar estructuras.',
             'Despiece. Lo único gratuito que encontramos es AutoRebar, y es un complemento de AutoCAD, así que para usar lo gratis hace falta una licencia cara. Además dibuja: vos ponés las barras, él arma la planilla. El resto son pruebas de siete días o software comercial. No encontramos ninguna opción open source.',
             'Análisis de sección desarrollado. Acá sí hay un gratuito serio, sectionproperties, y en elementos finitos de alabeo probablemente nos gane. Pero es una librería sin interfaz: te devuelve el centro de corte, no te explica por qué está donde está.',
           ],
         },
-        { k: 'p', t: 'Entre las herramientas que revisamos, ninguna cubre dos de las tres, y ninguna encara alguna de las tres desde lo conceptual. Ese es el hueco que vemos, y es más chico y más preciso que «somos los únicos que enseñamos».' },
+        { k: 'p', t: 'Entre las herramientas que revisamos, ninguna cubre dos de las tres, y ninguna encara alguna de las tres desde lo conceptual. Ese es el hueco que vemos, y es más chico y más preciso que "somos los únicos que enseñamos".' },
 
         { k: 'h', t: 'Una pantalla donde la diferencia se ve entera' },
         { k: 'p', t: 'Abajo hay una viga de dos tramos sobre tres apoyos. Los tres restringen solamente el movimiento vertical. Es el caso de manual, y a la vez el que más veces vi dar por bueno en un parcial.' },
@@ -103,7 +103,7 @@ export const conceptualAdvanced: Post = {
             ['4 · Sugerencias', 'Veredicto en pantalla', 'No se puede resolver'],
           ],
         },
-        { k: 'p', t: 'La app no informa el cero y se lava las manos: lo contradice, y en el mismo paso 2 donde lo calculó: «La fórmula da g = 0 (condición necesaria para isostática), pero NO suficiente». El paso 3 arma la matriz de rigidez global (6×6 acá) y marca «Se detectaron 1 modo de mecanismo a pesar de que g = 0 ≥ 0». Nombra el nodo 3 y su desplazamiento horizontal, aclara que la ecuación del paso 2 cuenta restricciones pero no mira dónde están, y cierra con «✗ Mecanismo — no se puede resolver».' },
+        { k: 'p', t: 'La app no informa el cero y se lava las manos: lo contradice, y en el mismo paso 2 donde lo calculó: "La fórmula da g = 0 (condición necesaria para isostática), pero NO suficiente". El paso 3 arma la matriz de rigidez global (6×6 acá) y marca "Se detectaron 1 modo de mecanismo a pesar de que g = 0 ≥ 0". Nombra el nodo 3 y su desplazamiento horizontal, aclara que la ecuación del paso 2 cuenta restricciones pero no mira dónde están, y cierra con "✗ Mecanismo — no se puede resolver".' },
         {
           k: 'embed',
           query: 'example=hidden-mechanism&kin=1',
@@ -201,7 +201,7 @@ export const conceptualAdvanced: Post = {
             ['sectionproperties', 'Sim, open source', 'Empenamento, centro de cisalhamento e constante de Saint-Venant por elementos finitos', 'É uma biblioteca Python: devolve números, sem interface e sem explicação'],
           ],
         },
-        { k: 'p', t: 'Dessa lista, o SkyCiv é o que mais se aproxima do que costumamos chamar de «mostrar o desenvolvimento», e é preciso dizer com todas as letras: os cálculos manuais dele são bons. Ele monta o diagrama de corpo livre, escreve ΣM = 0 antes de colocar os números e resolve pelo método de Cross quando a viga é hiperestática. Quem afirmar que nenhum programa gratuito mostra os passos é desmentido pelo SkyCiv em um minuto.' },
+        { k: 'p', t: 'Dessa lista, o SkyCiv é o que mais se aproxima do que costumamos chamar de "mostrar o desenvolvimento", e é preciso dizer com todas as letras: os cálculos manuais dele são bons. Ele monta o diagrama de corpo livre, escreve ΣM = 0 antes de colocar os números e resolve pelo método de Cross quando a viga é hiperestática. Quem afirmar que nenhum programa gratuito mostra os passos é desmentido pelo SkyCiv em um minuto.' },
 
         { k: 'h', t: 'Mostrar os passos não basta se o programa não explica quando a fórmula deixa de valer' },
         { k: 'p', t: 'Substituir números numa fórmula correta e explicar por que aquela fórmula é a adequada são coisas diferentes. A primeira poupa a conta. A segunda evita o erro que a conta não consegue detectar, porque o erro está uma camada acima.' },
@@ -212,12 +212,12 @@ export const conceptualAdvanced: Post = {
         {
           k: 'ul',
           items: [
-            'Análise cinemática explicada. Procuramos e não encontramos uma ferramenta gratuita que faça isso: o que aparece é material de aula em PDF. O «educational software for kinematic analysis» que encontramos é para mecanismos de máquinas, bielas e manivelas, não para classificar estruturas.',
+            'Análise cinemática explicada. Procuramos e não encontramos uma ferramenta gratuita que faça isso: o que aparece é material de aula em PDF. O "educational software for kinematic analysis" que encontramos é para mecanismos de máquinas, bielas e manivelas, não para classificar estruturas.',
             'Detalhamento de armaduras. A única opção gratuita que encontramos é o AutoRebar, que é um plugin do AutoCAD: para usar a parte gratuita, é preciso ter uma licença cara. Além disso, ele trabalha sobre o seu desenho: você posiciona as barras e ele monta a tabela de armação. O resto são testes de sete dias ou software comercial. Não encontramos nenhuma opção open source.',
             'Análise de seção desenvolvida. Aqui existe uma opção gratuita séria, o sectionproperties, e em empenamento por elementos finitos provavelmente ele nos supera. Mas é uma biblioteca sem interface: devolve o centro de cisalhamento sem explicar por que ele está onde está.',
           ],
         },
-        { k: 'p', t: 'Entre as ferramentas que analisamos, nenhuma cobre duas das três, e nenhuma aborda qualquer uma das três pelo lado conceitual. Essa é a lacuna que enxergamos, e ela é menor e mais precisa que «somos os únicos que ensinam».' },
+        { k: 'p', t: 'Entre as ferramentas que analisamos, nenhuma cobre duas das três, e nenhuma aborda qualquer uma das três pelo lado conceitual. Essa é a lacuna que enxergamos, e ela é menor e mais precisa que "somos os únicos que ensinam".' },
 
         { k: 'h', t: 'Uma tela onde a diferença aparece inteira' },
         { k: 'p', t: 'Abaixo há uma viga de dois vãos sobre três apoios. Os três restringem apenas o movimento vertical. É o caso clássico de livro, e também o que eu mais vi ser aceito como certo numa prova.' },
@@ -233,7 +233,7 @@ export const conceptualAdvanced: Post = {
             ['4 · Sugestões', 'Veredito na tela', 'Não pode ser resolvida'],
           ],
         },
-        { k: 'p', t: 'O app não se limita a informar o zero e lavar as mãos. Ele contradiz esse resultado no mesmo passo 2 em que o calculou: «A fórmula dá g = 0 (condição necessária para isostática), mas NÃO suficiente». O passo 3 monta a matriz de rigidez global, 6×6 aqui, e marca «Detectado 1 modo de mecanismo» apesar de g = 0 ≥ 0. Aponta o nó 3 e o seu deslocamento horizontal, explica que a equação do passo 2 conta restrições sem olhar onde elas estão e fecha com «✗ Mecanismo — não pode ser resolvida».' },
+        { k: 'p', t: 'O app não se limita a informar o zero e lavar as mãos. Ele contradiz esse resultado no mesmo passo 2 em que o calculou: "A fórmula dá g = 0 (condição necessária para isostática), mas NÃO suficiente". O passo 3 monta a matriz de rigidez global, 6×6 aqui, e marca "Detectado 1 modo de mecanismo" apesar de g = 0 ≥ 0. Aponta o nó 3 e o seu deslocamento horizontal, explica que a equação do passo 2 conta restrições sem olhar onde elas estão e fecha com "✗ Mecanismo — não pode ser resolvida".' },
         {
           k: 'embed',
           query: 'example=hidden-mechanism&kin=1',

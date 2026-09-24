@@ -29,8 +29,8 @@ servidor para calcularlo.
   **Resuelto**.
 - **A la derecha**, el panel que abre cada comando. Los comandos de **Dibujar**, **Propiedades** y
   **Condiciones** abren el panel **Datos**, con una pestaña por tipo: Nodos, Barras, Apoyos,
-  Cargas, Materiales y Secciones. Esas son las tablas que esta guía llama «tabla de barras»,
-  «tabla de cargas», etc.
+  Cargas, Materiales y Secciones. Esas son las tablas que esta guía llama "tabla de barras",
+  "tabla de cargas", etc.
 - **Abajo**, la barra de estado: coordenadas del cursor, zoom, tamaño del modelo y selección.
 
 ## Básico o PRO

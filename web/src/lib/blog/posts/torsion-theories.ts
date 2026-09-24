@@ -44,7 +44,7 @@ export const torsionTheories: Post = {
             'Saint-Venant, τ = T·t / J con J = (1/3)·Σb·t³. Para pared delgada abierta. Sin circuito cerrado, el flujo tiene que darse vuelta sobre sí mismo cruzando el espesor, y por eso el espesor entra al cubo.',
           ],
         },
-        { k: 'note', t: 'Saint-Venant suele presentarse como la teoría «de las secciones abiertas», pero es la teoría general, y las otras dos son casos particulares suyos con solución cerrada. En una sección circular su solución coincide exactamente con Cauchy, porque por simetría circular la sección no alabea. En pared delgada cerrada, su solución es la de Bredt.' },
+        { k: 'note', t: 'Saint-Venant suele presentarse como la teoría "de las secciones abiertas", pero es la teoría general, y las otras dos son casos particulares suyos con solución cerrada. En una sección circular su solución coincide exactamente con Cauchy, porque por simetría circular la sección no alabea. En pared delgada cerrada, su solución es la de Bredt.' },
 
         { k: 'h', t: 'Cuando se aplican dos, no coinciden' },
         { k: 'p', t: 'Tomá un tubo circular. Cauchy se aplica y es exacta. Bredt también se aplica: hay una pared cerrada y un flujo que circula. Pero Bredt supone que la tensión es constante en el espesor, y Cauchy sabe que crece con el radio. Así que Bredt da el promedio y Cauchy, el máximo.' },
