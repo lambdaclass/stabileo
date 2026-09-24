@@ -1125,7 +1125,7 @@ const it: Translations = {
   'dsm.step9.globalDisp': '{u_e} globale — Spostamenti dell\'elemento',
   'dsm.step9.localDisp': '{u_e} locale — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — Forze prima delle FEF',
-  'dsm.step9.fixedEndForces': '{f_FE} — Forze di incastro perfetto',
+  'dsm.step9.fixedEndForces': '{f_eq} — Forze di incastro perfetto',
   'dsm.step9.finalForces': '{f} finale — Sollecitazioni interne dell\'elemento',
   'dsm.step9.force': 'Forza',
   'dsm.step9.nodeI': 'Nodo i',

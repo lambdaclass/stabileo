@@ -8,7 +8,7 @@
 
 import type {
   SolverInput3D, SolverSupport3D,
-  SolverDistributedLoad3D, SolverPointLoad3D,
+  SolverDistributedLoad3D, SolverPointLoad3D, SolverThermalLoad3D, SolverElement3D,
 } from './types-3d';
 import { t } from '../i18n';
 
@@ -516,7 +516,7 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
       const vals = [fx, fy, fz, mx, my, mz];
       for (let d = 0; d < dofsPerNode; d++) {
         if (d < vals.length && Math.abs(vals[d]) > 1e-15) {
-          addLC(nodeId, d, vals[d], `Carga nodal en nodo ${nodeId}, DOF ${d}`);
+          addLC(nodeId, d, vals[d], `${t('detailed.lc.nodal').replace('{id}', String(nodeId))} · ${['Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz'][d]}`);
         }
       }
 
@@ -526,6 +526,28 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
     } else if (load.type === 'pointOnElement') {
       assemblePointLoadDetailed(input, load.data, globalDof, allDofLabels, dofsPerNode, F, loadContributions);
     }
+  }
+
+  /* Thermal loads, once per element: equivalent loads into global axes. */
+  for (const elem of input.elements.values()) {
+    if (elem.type !== 'frame') continue;
+    const nodeI = input.nodes.get(elem.nodeI)!;
+    const nodeJ = input.nodes.get(elem.nodeJ)!;
+    const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+      ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+    const axes = computeLocalAxes3D(nodeI, nodeJ, localY, elem.rollAngle, input.leftHand);
+    const fLocal = thermalEquivalent3D(input, elem, axes.L);
+    if (!fLocal) continue;
+    const T = frameTransformationMatrix3D(axes.ex, axes.ey, axes.ez);
+    const desc = t('detailed.thermalLoadDesc').replace('{id}', String(elem.id));
+    const names = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+    [elem.nodeI, elem.nodeJ].forEach((nodeId, n) => {
+      for (let d = 0; d < dofsPerNode; d++) {
+        let v = 0;
+        for (let k = 0; k < 12; k++) v += T[k * 12 + n * 6 + d] * fLocal[k];
+        addLC(nodeId, d, v, `${desc}, ${n === 0 ? 'I' : 'J'} ${names[d]}`);
+      }
+    });
   }
 
   // ─── Step 6: Partitioning ─────────────────────────────────────
@@ -690,6 +712,9 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
         }
       }
 
+      const th = thermalEquivalent3D(input, elem, L);
+      if (th) for (let i = 0; i < 12; i++) fef[i] += th[i];
+
       // Final local forces = raw - FEF
       const fFinal = new Float64Array(12);
       for (let i = 0; i < 12; i++) fFinal[i] = fRaw[i] - fef[i];
@@ -761,6 +786,8 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
     dofLabels: allDofLabels,
     freeDofLabels,
     restrDofLabels,
+    /* 3D supports are axis-aligned here; no node needs its own frame. */
+    nodeFrames: [],
   };
 }
 
@@ -849,6 +876,46 @@ function assembleDistLoadDetailed(
 }
 
 // ─── Point load on element assembly helper (with step tracking) ──
+
+/**
+ * Thermal equivalent loads for one frame element, local 12-vector — the
+ * analysis solver's `fef_thermal_3d` convention (α = 12e-6, h = √(12 I / A)),
+ * with the same per-axis hinge condensation the other loads get.
+ *
+ * Thermal loads were not read at all: the wizard showed a load vector
+ * without them and solved a different structure from the one analysed.
+ */
+function thermalEquivalent3D(
+  input: SolverInput3D, elem: SolverElement3D, L: number,
+): Float64Array | null {
+  const f = new Float64Array(12);
+  let any = false;
+  const mat = input.materials.get(elem.materialId)!;
+  const sec = input.sections.get(elem.sectionId)!;
+  const E = mat.e * 1000;
+  const alpha = 12e-6;
+  const hy = sec.a > 1e-15 ? Math.sqrt(12 * sec.iz / sec.a) : 0.1;
+  const hz = sec.a > 1e-15 ? Math.sqrt(12 * sec.iy / sec.a) : 0.1;
+  for (const load of input.loads) {
+    if (load.type !== 'thermal' || load.data.elementId !== elem.id) continue;
+    any = true;
+    const tl = load.data as SolverThermalLoad3D;
+    const fx = E * sec.a * alpha * (tl.dtUniform ?? 0);
+    f[0] += -fx; f[6] += fx;
+    const mz = hy > 1e-12 ? E * sec.iz * alpha * (tl.dtGradientY ?? 0) / hy : 0;
+    const my = hz > 1e-12 ? E * sec.iy * alpha * (tl.dtGradientZ ?? 0) / hz : 0;
+    if (mz) {
+      const [vi, mi, vj, mj] = adjustFEFForHinges(0, -mz, 0, mz, L, elem.releaseMzStart, elem.releaseMzEnd);
+      f[1] += vi; f[5] += mi; f[7] += vj; f[11] += mj;
+    }
+    if (my) {
+      /* In the z-plane's 2D sign (θy = −dw/dx), then flipped back like every other z load. */
+      const [vi, mi, vj, mj] = adjustFEFForHinges(0, my, 0, -my, L, elem.releaseMyStart, elem.releaseMyEnd);
+      f[2] += vi; f[4] += -mi; f[8] += vj; f[10] += -mj;
+    }
+  }
+  return any ? f : null;
+}
 
 function assemblePointLoadDetailed(
   input: SolverInput3D,

@@ -2155,7 +2155,7 @@ const es: Record<string, string> = {
   'dsm.step9.globalDisp': '{u_e} global — Desplazamientos de la barra',
   'dsm.step9.localDisp': '{u_e} local — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — Fuerzas antes de FEF',
-  'dsm.step9.fixedEndForces': '{f_FE} — Fuerzas de empotramiento perfecto',
+  'dsm.step9.fixedEndForces': '{f_eq} — Cargas nodales equivalentes de las cargas sobre la barra (las fuerzas de empotramiento perfecto, con el signo cambiado)',
   'dsm.step9.finalForces': '{f} final — Fuerzas internas de la barra',
   'dsm.step9.force': 'Fuerza',
   'dsm.step9.nodeI': 'Nodo i',
@@ -3248,6 +3248,8 @@ const es: Record<string, string> = {
   'detailed.singularMatrix': 'Matriz singular (mecanismo o estructura hipostática). Verificá los apoyos.',
   'detailed.singularHypostatic': 'Matriz singular (mecanismo). Estructura hipostática.',
   'detailed.thermalLoadDesc': 'Carga térmica elem {id}',
+  'detailed.lc.nodal': 'Carga nodal en el nodo {id}',
+  'detailed.lc.element': 'Cargas sobre la barra {id}',
 
   // ─── Influence Line ───
   'influence.needNodesElems': 'Necesita al menos 2 nodos y 1 barra',

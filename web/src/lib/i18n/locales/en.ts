@@ -2162,7 +2162,7 @@ const en: Record<string, string> = {
   'dsm.step9.globalDisp': '{u_e} global \u2014 Member displacements',
   'dsm.step9.localDisp': '{u_e} local \u2014 [T]\u00B7{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]\u00B7{u_local} \u2014 Forces before FEF',
-  'dsm.step9.fixedEndForces': '{f_FE} \u2014 Fixed-end forces',
+  'dsm.step9.fixedEndForces': '{f_eq} — Equivalent nodal loads of the loads on the member (the fixed-end forces with their sign changed)',
   'dsm.step9.finalForces': '{f} final \u2014 Member internal forces',
   'dsm.step9.force': 'Force',
   'dsm.step9.nodeI': 'Node i',
@@ -3255,6 +3255,8 @@ const en: Record<string, string> = {
   'detailed.singularMatrix': 'Singular matrix (mechanism or hypostatic structure). Check the supports.',
   'detailed.singularHypostatic': 'Singular matrix (mechanism). Hypostatic structure.',
   'detailed.thermalLoadDesc': 'Thermal load elem {id}',
+  'detailed.lc.nodal': 'Nodal load at node {id}',
+  'detailed.lc.element': 'Loads on member {id}',
 
   // ─── Influence Line ───
   'influence.needNodesElems': 'At least 2 nodes and 1 member are required',
