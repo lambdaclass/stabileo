@@ -564,13 +564,11 @@ pub fn mitc4_local_stiffness(
 
     // --- EAS static condensation: K_eff = K - C · Q⁻¹ · Cᵀ ---
     //
-    // A singular Q means the element has no area to enhance: its four nodes
-    // are collinear or coincident. The pre-solve gates do notice such an
-    // element — and then nothing acts on the diagnostic, so it arrives here
-    // anyway. The answer is the plain MITC4 stiffness, not aborting the WASM
-    // module from inside element code; the factorization downstream then
-    // refuses the model, exactly as it already did for a collapsed plate or
-    // solid shell.
+    // Keep direct element calls from aborting on a singular Q. Solver entry
+    // points validate finite, positive thickness, and the static geometry
+    // gates reject degenerate mappings before assembly. A singular Q alone
+    // does not imply the full system is singular: surrounding frame stiffness
+    // can mask an invalid shell, so factorization is not an input validator.
     if let Some(q_inv) = invert_small_matrix(7, &q_eas) {
         // qi_ct = Q⁻¹ · Cᵀ  (7×8); Cᵀ[a][j] = c_eas[j][a]
         let mut qi_ct = [[0.0; 8]; 7];

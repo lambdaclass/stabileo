@@ -2928,6 +2928,18 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
     // guaranteed by the type system; only existence of the referenced ids needs checking.
     // Assembly and mass indexing dereference these ids directly (e.g. node_by_id[&plate.nodes[0]]),
     // so a dangling reference here would otherwise panic deep inside modal/TH/harmonic 3D.
+    // Thickness is a physical property, not an activation flag. In particular,
+    // t=0 makes MITC4's EAS matrix singular and its stiffness vanish; a frame
+    // surrounding the shell can still factorize and hide that invalid input.
+    for (kind, id, thickness) in input.plates.values().map(|p| ("Plate", p.id, p.thickness))
+        .chain(input.quads.values().map(|q| ("Quad", q.id, q.thickness)))
+        .chain(input.quad9s.values().map(|q| ("Quad9", q.id, q.thickness)))
+        .chain(input.curved_shells.values().map(|c| ("Curved shell", c.id, c.thickness)))
+    {
+        if !thickness.is_finite() || thickness <= 0.0 {
+            return Err(format!("{} {}: thickness must be finite and > 0 (got {})", kind, id, thickness));
+        }
+    }
     for p in input.plates.values() {
         for &nid in &p.nodes {
             if !node_ids.contains(&nid) {

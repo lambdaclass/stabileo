@@ -338,12 +338,14 @@ fn quad_min_interior_angle(coords: &[[f64; 3]; 4]) -> f64 {
 /// What a Jacobian sign pattern, sampled over an element's Gauss points,
 /// actually says about the element.
 ///
-/// These three are not interchangeable, and the gates used to report all of
+/// These cases are not interchangeable, and the gates used to report all of
 /// them as one `Error` — "element is inverted".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum JacobianShape {
     /// No area or volume left at any sampling point: nothing to integrate.
     Collapsed,
+    /// Some area/volume remains, but a sampled mapping cannot be inverted.
+    Singular,
     /// The sign changes between sampling points, so the map doubles back on
     /// itself and the element covers part of its own domain twice.
     Folded,
@@ -377,6 +379,10 @@ fn classify_jacobian(min_det: f64, max_det: f64) -> JacobianShape {
         JacobianShape::Collapsed
     } else if min_det < 0.0 && max_det > 0.0 {
         JacobianShape::Folded
+    } else if min_det.abs() <= 1e-30 || max_det.abs() <= 1e-30 {
+        // A zero at one Gauss point is not healthy reversed ordering, nor
+        // merely a poor ratio. The element cannot invert that local mapping.
+        JacobianShape::Singular
     } else if max_det <= 0.0 {
         JacobianShape::Reversed
     } else {
@@ -387,7 +393,7 @@ fn classify_jacobian(min_det: f64, max_det: f64) -> JacobianShape {
 /// Pre-solve shell geometry screening (3D only).
 ///
 /// Checks both quad (MITC4) and triangular plate (DKT) elements for:
-/// - A collapsed or folded element (see [`JacobianShape`]) → `NegativeJacobian` Error
+/// - A collapsed, singular or folded element → `NegativeJacobian` Error
 /// - Reversed node ordering (all Jacobians negative) → `NegativeJacobian` Warning
 /// - Poor Jacobian ratio (near-zero det relative to typical) → `PoorJacobianRatio` Warning
 /// - High aspect ratio (max_edge / min_edge > threshold) → `HighAspectRatio` Warning
@@ -427,6 +433,16 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                     )
                     .with_elements(vec![q.id])
                     .with_value(qm.jacobian_ratio, 0.0)
+                    .with_phase("pre_solve"),
+                ),
+                JacobianShape::Singular => diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
+                        format!("Quad {} has a singular Jacobian at an integration point", q.id),
+                    )
+                    .with_elements(vec![q.id])
+                    .with_value(min_det.abs().min(max_det.abs()), 1e-30)
                     .with_phase("pre_solve"),
                 ),
                 JacobianShape::Folded => diags.push(
@@ -656,6 +672,16 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                     .with_value(qm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
                 ),
+                JacobianShape::Singular => diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
+                        format!("Quad9 {} has a singular Jacobian at an integration point", q9.id),
+                    )
+                    .with_elements(vec![q9.id])
+                    .with_value(min_det.abs().min(max_det.abs()), 1e-30)
+                    .with_phase("pre_solve"),
+                ),
                 JacobianShape::Folded => diags.push(
                     StructuredDiagnostic::global(
                         DiagnosticCode::NegativeJacobian,
@@ -782,6 +808,16 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                     .with_value(hm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
                 ),
+                JacobianShape::Singular => diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
+                        format!("SolidShell {} has a singular Jacobian at an integration point", ss.id),
+                    )
+                    .with_elements(vec![ss.id])
+                    .with_value(min_det.abs().min(max_det.abs()), 1e-30)
+                    .with_phase("pre_solve"),
+                ),
                 JacobianShape::Folded => diags.push(
                     StructuredDiagnostic::global(
                         DiagnosticCode::NegativeJacobian,
@@ -865,9 +901,11 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                 curved_shell_check_jacobian(&coords, &dirs, cs.thickness);
             let shape = classify_jacobian(min_det, max_det);
 
-            if shape == JacobianShape::Collapsed || shape == JacobianShape::Folded {
+            if matches!(shape, JacobianShape::Collapsed | JacobianShape::Singular | JacobianShape::Folded) {
                 let message = if shape == JacobianShape::Collapsed {
                     format!("CurvedShell {} has no area — element is collapsed", cs.id)
+                } else if shape == JacobianShape::Singular {
+                    format!("CurvedShell {} has a singular Jacobian at an integration point", cs.id)
                 } else {
                     format!(
                         "CurvedShell {} folds over itself — the Jacobian changes sign inside \
@@ -1134,7 +1172,7 @@ pub fn run_pre_solve_gates_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic
 
 /// Refuse a model with an element that cannot be integrated over.
 ///
-/// Only `NegativeJacobian` errors qualify — the collapsed and folded shells
+/// Only `NegativeJacobian` errors qualify — collapsed, singular and folded shells
 /// (see [`JacobianShape`]). The gates raise `Error` for other things too: a
 /// frame's orientation vector that is zero or nearly parallel to its axis is
 /// an `Error` to the reader, but `compute_local_axes_3d` falls back to a
@@ -1159,7 +1197,7 @@ pub fn refuse_broken_elements(diags: &[StructuredDiagnostic]) -> Result<(), Stri
 mod tests {
     use super::*;
 
-    /// The four readings of a Jacobian sign pattern, pinned by number so the
+    /// The readings of a Jacobian sign pattern, pinned by number so the
     /// distinction cannot quietly collapse back into "negative = invalid".
     #[test]
     fn jacobian_shapes_are_told_apart() {
@@ -1170,6 +1208,12 @@ mod tests {
         // sampler returns when `min`/`max` skipped every one of them.
         assert_eq!(classify_jacobian(f64::NAN, f64::NAN), JacobianShape::Collapsed);
         assert_eq!(classify_jacobian(f64::INFINITY, f64::NEG_INFINITY), JacobianShape::Collapsed);
+
+        // One singular sample is enough, in either ordering. A large maximum
+        // must not hide it, and signed zero must not turn it into Reversed.
+        for (min, max) in [(0.0, 4.8), (-4.8, 0.0), (-4.8, -0.0), (1e-30, 1.0), (-1.0, -1e-30)] {
+            assert_eq!(classify_jacobian(min, max), JacobianShape::Singular);
+        }
 
         // The sign changes inside the element: it doubles back on itself.
         assert_eq!(classify_jacobian(-1.0, 1.0), JacobianShape::Folded);
@@ -1183,5 +1227,10 @@ mod tests {
         // Ordinary elements.
         assert_eq!(classify_jacobian(1.0, 2.0), JacobianShape::Fine);
         assert_eq!(classify_jacobian(0.125, 0.125), JacobianShape::Fine);
+        // Do not turn ordinary scale or a poor but invertible ratio into an
+        // error: the cutoff is the formulation's inversion limit, not 0.1.
+        assert_eq!(classify_jacobian(1e-20, 2e-20), JacobianShape::Fine);
+        assert_eq!(classify_jacobian(1e-20, 1.0), JacobianShape::Fine);
+        assert_eq!(classify_jacobian(-2e-20, -1e-20), JacobianShape::Reversed);
     }
 }
