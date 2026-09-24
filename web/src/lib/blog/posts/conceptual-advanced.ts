@@ -87,7 +87,7 @@ export const conceptualAdvanced: Post = {
             'Análisis de sección desarrollado. Acá sí hay un gratuito serio, sectionproperties, y en elementos finitos de alabeo probablemente nos gane. Pero es una librería sin interfaz: te devuelve el centro de corte, no te explica por qué está donde está.',
           ],
         },
-        { k: 'p', t: 'Entre las herramientas que revisamos, ninguna cubre dos de las tres, y ninguna encara alguna de las tres desde lo conceptual. Ese es el hueco que vemos, y es más chico y más preciso que "somos los únicos que enseñamos".' },
+        { k: 'p', t: 'Entre las herramientas que revisamos, ninguna cubre dos de las tres, y tampoco encontramos una que encare siquiera una de ellas desde lo conceptual. Ese es el hueco que vemos, y es más chico y más preciso que "somos los únicos que enseñamos".' },
 
         { k: 'h', t: 'Una pantalla donde la diferencia se ve entera' },
         { k: 'p', t: 'Abajo hay una viga de dos tramos sobre tres apoyos. Los tres restringen solamente el movimiento vertical. Es el caso de manual, y a la vez el que más veces vi dar por bueno en un parcial.' },
@@ -152,7 +152,7 @@ export const conceptualAdvanced: Post = {
             'Section analysis, worked through. Here there is a serious free option, sectionproperties, and on warping by finite elements it probably beats us. But it is a library with no interface: it gives you the shear centre without explaining why it sits where it does.',
           ],
         },
-        { k: 'p', t: 'Among the tools we reviewed, none covers two of the three, and none approaches any of the three from the conceptual side. That is the gap we see, and it is narrower and more precise than "we are the only ones who teach".' },
+        { k: 'p', t: 'Among the tools we reviewed, none covers two of the three, and we did not find one that approaches even one of them from the conceptual side. That is the gap we see, and it is narrower and more precise than "we are the only ones who teach".' },
 
         { k: 'h', t: 'One screen where the whole difference shows' },
         { k: 'p', t: 'Below is a two-span beam on three supports. All three restrain vertical movement only. It is the textbook case, and also the one I have most often seen accepted as correct in an exam.' },
@@ -217,7 +217,7 @@ export const conceptualAdvanced: Post = {
             'Análise de seção desenvolvida. Aqui existe uma opção gratuita séria, o sectionproperties, e em empenamento por elementos finitos provavelmente ele nos supera. Mas é uma biblioteca sem interface: devolve o centro de cisalhamento sem explicar por que ele está onde está.',
           ],
         },
-        { k: 'p', t: 'Entre as ferramentas que analisamos, nenhuma cobre duas das três, e nenhuma aborda qualquer uma das três pelo lado conceitual. Essa é a lacuna que enxergamos, e ela é menor e mais precisa que "somos os únicos que ensinam".' },
+        { k: 'p', t: 'Entre as ferramentas que analisamos, nenhuma cobre duas das três, e também não encontramos uma que aborde sequer uma delas pelo lado conceitual. Essa é a lacuna que enxergamos, e ela é menor e mais precisa que "somos os únicos que ensinam".' },
 
         { k: 'h', t: 'Uma tela onde a diferença aparece inteira' },
         { k: 'p', t: 'Abaixo há uma viga de dois vãos sobre três apoios. Os três restringem apenas o movimento vertical. É o caso clássico de livro, e também o que eu mais vi ser aceito como certo numa prova.' },

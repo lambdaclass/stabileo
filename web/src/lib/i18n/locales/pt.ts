@@ -78,7 +78,7 @@ const pt: Translations = {
   'landing.ebProDesign': 'PRO · PROJETO',
   'landing.badgeDevOpen': 'EM DESENVOLVIMENTO · ACESSO LIVRE',
   'landing.proDesignH': 'Verificação normativa e projeto de elementos.',
-  'landing.proDesignP': 'Depois de calcular e obter os resultados, projete os elementos que quiser segundo a norma correspondente. Hoje trabalha com a normativa argentina (CIRSOC) e está organizado para receber normas de outros países.',
+  'landing.proDesignP': 'Depois de calcular e obter os resultados, projete os elementos que quiser segundo a norma correspondente. Hoje trabalha com as normas argentinas (CIRSOC) e está organizado para receber normas de outros países.',
   'landing.ebAi': 'STABILEO IA',
   'landing.badgeDevPaid': 'EM DESENVOLVIMENTO',
   'landing.aiH': 'Um agente que monta, revisa e explica modelos.',
